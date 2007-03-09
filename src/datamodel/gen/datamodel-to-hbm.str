@@ -1,3 +1,18 @@
+/*
+
+- input-wrap or xtc-input-wrap
+
+- explicitly produce individual files
+
+- use pp-java library
+  pp has stream as argument
+
+- fopen, fclose 
+
+- use sglr library
+
+*/
+
 module datamodel-to-hbm
 imports DataModel libstrategolib Java-15
 
@@ -5,24 +20,121 @@ strategies
 
   main = 
    io-wrap(
-     datamodel-to-hbm
+     desugar
+     ; datamodel-to-hbm
    )
 
+  desugar = topdown(try(Desugar))
+
+  Desugar : 
+    PropertyNoAnno(x, s) -> Property(x, s, [])
+
   datamodel-to-hbm :
-    Domain(qid, sortdefs) -> <Hd; /* map( */ sortdef-to-class/* ) */> sortdefs
+    Domain(qid, sortdefs) -> <map(sortdef-to-class); Hd> sortdefs
     where rules( Package : _ -> qid )
 
   sortdef-to-class : 
     SortDef(n, props) -> compilation-unit|[
 
-      package ~id:<Package>;
+      package ~id:Id(<Package>);
 
+      import java.util.*;
       import javax.persistence.*;
       import org.hibernate.*;
 
       @Entity
-      class ~id:n {
-        
+      class ~id:Id(n) {
+        public ~id:Id(n) () {}
+
+        @Id @GeneratedValue
+        private Long id;
+
+        ~*cbds
       }
 
     ]|
+    where cbds := <mapconcat(prop-to-classbodydecs <+ ![])> props
+
+  prop-to-classbodydecs :
+    Property(x_prop, SimpleSort(y_type), []) -> class-body-dec* |[
+
+      private y_type x_prop;
+
+      public y_type x_get() {
+        return x_prop;
+      }
+
+      public void x_set(y_type x_prop) {
+        this.x_prop = x_prop;
+      }
+  
+    ]|
+    where x_get := <concat-strings>["get", x_prop]
+        ; x_set := <concat-strings>["set", x_prop]
+	// @todo: capitalize first letter of property
+
+
+  prop-to-classbodydecs :
+    Property(x_prop, GenericSort("Set", [SimpleSort(y_type)]), []) -> 
+    class-body-dec* |[
+
+      @ManyToMany(targetEntity=y_type)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private Set<y_type> x_prop = new HashSet();
+
+      public Set<y_type> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(Set<y_type> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_add(y_type z) {
+        this.x_prop.add(z);
+      }
+  
+    ]|
+    where x_get := <concat-strings>["get", x_prop]
+        ; x_set := <concat-strings>["set", x_prop]
+        ; x_add := <concat-strings>["add", x_prop]
+	; z := <new>"one"
+	// @todo: capitalize first letter of property
+	// @todo: make singular for add
+
+
+  prop-to-classbodydecs :
+    Property(x_prop, GenericSort("Map", 
+                       [SimpleSort(y_keytype),
+                        SimpleSort(y_valuetype)]), []) -> 
+    class-body-dec* |[
+
+      @ManyToMany(targetEntity=y_valuetype)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private Map<y_keytype,y_valuetype> x_prop = new HashSet();
+
+      public Map<y_keytype,y_valuetype> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(Map<y_keytype,y_valuetype> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_put(y_keytype key, y_valuetype value) {
+        this.x_prop.put(key, value);
+      }
+  
+    ]|
+    where x_get := <concat-strings>["get", x_prop]
+        ; x_set := <concat-strings>["set", x_prop]
+        ; x_put := <concat-strings>["put", x_prop]
+	// @todo: capitalize first letter of property
+	// @todo: make singular for add
+
