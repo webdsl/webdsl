@@ -3,7 +3,7 @@ domain org.webdsl.wiki
 User {
 
   id       : Long   (Id, GeneratedValue) // or do we always have this?
-  username : String
+  username : String (PrimaryKey, Unique, Name)
   fullname : String
   password : String
   email    : String
