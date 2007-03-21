@@ -1,3 +1,13 @@
+name: master-flow
+
+description
+
+  This application supports the tracking of the progress
+  of students in a master's program by students and faculty.
+
+end description
+
+
 User {
   username : String [format : alphanum+]
   fullname : String [format : {alphanum+ " "}+]
