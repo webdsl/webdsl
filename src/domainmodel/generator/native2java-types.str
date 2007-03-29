@@ -1,0 +1,92 @@
+// vim: syntax=stratego
+
+module native2java-types
+
+imports libstratego-lib libjava-front
+imports DomainModel
+imports error-handling
+
+signature
+  constructors
+   NativeType     : ClassOrInterfaceType -> DomainType
+   ConceptType    : String               -> DomainType
+   CollectionType : String               -> Domaintype
+   
+overlays
+
+  JAVA_TYPES =  ["Boolean", "String", "Integer", "Double", "Long", "Date"]
+
+
+rules
+
+annotate-with-type : 
+  s@SimpleConcept(s_concept) -> SimpleConcept(s_concept){type}
+    where type := <native2java>
+
+annotate-with-type : 
+  c@CollectionConcept(s_concept) -> CollectionConcept(s_concept){type}
+    where type := <native2java> c
+
+extract-type :
+   NativeType(CollectionType(type)) ->  type
+
+extract-type :
+   NativeType(type) -> type
+
+extract-type : 
+  ConceptType(type) -> type
+
+is-CollectionType = ?NativeType(CollectionType(_))
+
+is-NativeType = ?NativeType(<not(?CollectionType(_))>)
+
+is-ConceptType = ?ConceptType(_) 
+
+// translate types of domainmodel-dsl to concrete Java types, if possible.
+native2java :
+  SimpleConcept(y_type) -> NativeType(y_typeref)
+    where   y_typeref := <string2javaref> y_type
+          ; <elem> (y_type, JAVA_TYPES())
+
+native2java :
+  SimpleConcept(y_type) -> ConceptType(type |[ y_type ]|)
+
+native2java :
+  CollectionConcept(y_type) -> NativeType(type |[ Set<y_type> ]|)
+
+native2javaref :
+  SimpleConcept(y_type) -> y_type
+
+string2javaref :
+  y_type -> type |[ y_type ]|
+ 
+// Check whether all used types are defined (or native)
+
+def-use-check =   ?Domain(_,conceptDecls) 
+                ; definedConceptTypes := <collect-all(?ConceptDecl(<id>,_))>
+                ; definedAll          := <concat;map(string2javaref)> [JAVA_TYPES(), definedConceptTypes]
+                ; <map(check-concept-decl(|definedAll))> conceptDecls
+                
+check-concept-decl(|defined) =
+  ?ConceptDecl(name, <map(check-concept(|defined, name))>) 
+  
+check-concept(|defined,name) = 
+  ?Concept(membername, SimpleConcept(ctype){type},_)
+ ; (
+      <elem> (<extract-type> type, defined)
+     <+ 
+      rules(TypeError :+ _ -> <type-err-msg(|name,membername,ctype,ctype)> )
+   )
+
+check-concept(|defined,name) =
+  ?Concept(membername, CollectionConcept(ctype),_)
+ ; (
+      <elem> (<string2javaref> ctype, defined)
+     <+ 
+      rules(TypeError :+ _ -> <type-err-msg(| name
+                                              , membername
+                                              , <concat-strings>["[", ctype, "]"]
+                                              , ctype
+                                             )>)
+   )
+

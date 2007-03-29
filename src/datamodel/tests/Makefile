@@ -3,10 +3,10 @@ JAVAFRONT = ${HOME}/.nix-profile
 
 all : wiki.adm wiki.ajava wiki.java
 
-%.adm : %.dm
+%.appa : %.app
 	sglri -p ../syn/DataModel.tbl -i $< | pp-aterm -o $@
 
-%.ajava : %.adm
+%.ajava : %.appa
 	../gen/datamodel-to-hbm -i $< | pp-aterm -o $@
 
 %.ajava.check : %.ajava
