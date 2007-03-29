@@ -14,7 +14,7 @@
 */
 
 module datamodel-to-hbm
-imports DataModel libstrategolib Java-15
+imports DataModel libstrategolib Java-15 libjava-front
 
 strategies
 
@@ -22,7 +22,19 @@ strategies
    io-wrap(
      desugar
      ; datamodel-to-hbm
+     ; topdown(try(java-file-to-string-file))
    )
+
+signature
+  constructors
+    JavaFile : String * String * CompilationUnit -> File
+    StringFile : String * String -> File
+
+strategies
+
+  java-file-to-string-file :
+    JavaFile(pkg, name, cu) -> StringFile(filename, <pp-java5-to-string> cu)
+    where filename := <concat-strings> [pkg, "/", name]
 
 strategies // desugaring
 
@@ -34,32 +46,34 @@ strategies // desugaring
 strategies // generate entity classes
 
   datamodel-to-hbm :
-    Domain(qid, sortdefs) -> <map(sortdef-to-class); Hd> sortdefs
+    Application(qid, sections) -> 
+      [<collect(entity-to-class)> sections]
     where rules( Package : _ -> qid )
 
-  sortdef-to-class : 
-    SortDef(n, props) -> compilation-unit|[
-
-      package ~id:Id(<Package>);
+  entity-to-class : 
+    EntityNoSuper(x_class, props) -> JavaFile(x_package, filename, 
+    compilation-unit|[
+      package x_package;
 
       import java.util.*;
       import javax.persistence.*;
       import org.hibernate.*;
 
       @Entity
-      class ~id:Id(n) {
-        public ~id:Id(n) () {}
+      class x_class {
+        public x_class () {}
 
         @Id @GeneratedValue
         private Long id;
 
         ~*cbds
       }
+    ]|)
+    where cbds := <mapconcat(property-to-code <+ ![])> props
+	; x_package := <Package>
+	; filename := <concat-strings>[x_class, ".java"]
 
-    ]|
-    where cbds := <mapconcat(prop-to-classbodydecs <+ ![])> props
-
-  prop-to-classbodydecs :
+  property-to-code :
     Property(x_prop, SimpleSort(y_type), []) -> class-body-dec* |[
 
       private y_type x_prop;
@@ -78,7 +92,7 @@ strategies // generate entity classes
 	// @todo: capitalize first letter of property
 
 
-  prop-to-classbodydecs :
+  property-to-code :
     Property(x_prop, GenericSort("Set", [SimpleSort(y_type)]), []) -> 
     class-body-dec* |[
 
@@ -110,7 +124,7 @@ strategies // generate entity classes
 	// @todo: make singular for add
 
 
-  prop-to-classbodydecs :
+  property-to-code :
     Property(x_prop, GenericSort("Map", 
                        [SimpleSort(y_keytype),
                         SimpleSort(y_valuetype)]), []) -> 
