@@ -2,14 +2,9 @@
 
 - input-wrap or xtc-input-wrap
 
-- explicitly produce individual files
-
-- use pp-java library
-  pp has stream as argument
-
-- fopen, fclose 
-
 - use sglr library
+
+- check consistency of entity declarations
 
 */
 
@@ -25,37 +20,35 @@ strategies
      ; topdown(try(java-file-to-file))
    )
 
-signature
-  constructors
-    JavaFile : String * String * CompilationUnit -> File
-
-strategies
-
-  java-file-to-file =
-    ?JavaFile(pkg, name, cu)
-    ; where(
-        path := <string-tokenize(|['.']); create-dirs> pkg
-	    ; file := <fopen> (<concat-strings> [path, "/", name, ".java"], "w")
-	    ; content := <pp-java5-to-string> cu
-	    ; <fputs> (content, file)
-	  )
-            
 strategies // desugaring
 
   desugar = topdown(try(Desugar))
 
   Desugar : 
     PropertyNoAnno(x, s) -> Property(x, s, [])
-
-strategies // generate entity classes
+    
+strategies // entities
 
   datamodel-to-hbm :
     Application(qid, sections) -> 
-      [<collect(entity-to-class)> sections]
-    where rules( Package : _ -> qid )
+      [<collect(entity-to-class <+ (entity-to-class-fails; fail))> sections]
+    where domainpkg := <concat-strings> [ qid, ".domain"]
+        ; rules( 
+            Package : _ -> qid 
+            DomainPackage : _ -> domainpkg
+          )
+        ; <alltd(declare-entity)> sections
+
+strategies // register all declared entities
+        
+  declare-entity =
+    (?EntityNoSuper(x_class, _) <+ ?Entity(x_class, _, _))
+    ; rules( defined-java-type : SimpleSort(x_class) -> type|[ x_class ]| )
+
+strategies
 
   entity-to-class : 
-    EntityNoSuper(x_class, props) -> JavaFile(x_package, x_class, 
+    EntityNoSuper(x_class, props) -> JavaFile(x_package, x_class,
     compilation-unit|[
       package x_package;
 
@@ -72,89 +65,184 @@ strategies // generate entity classes
         ~*cbds
       }
     ]|)
+    where cbds := <mapconcat(property-to-code <+ debug(!"cannot generate code for property: "); ![])> props
+	    ; x_package := <DomainPackage>
+    
+  entity-to-class : 
+    Entity(x_class, x_super, props) -> JavaFile(x_package, x_class, 
+    compilation-unit|[
+      package x_package;
+
+      import java.util.*;
+      import javax.persistence.*;
+
+      @Entity
+      class x_class extends x_super {
+        public x_class () {}
+
+        @Id @GeneratedValue
+        private Long id;
+
+        ~*cbds
+      }
+    ]|)
     where cbds := <mapconcat(property-to-code <+ ![])> props
-	    ; x_package := <Package>
+	    ; x_package := <DomainPackage>
+	    
+  entity-to-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate code for entity")
+    
+strategies
+
+  java-type =
+    defined-java-type <+ builtin-java-type <+ err(|"undefined entity: "); fail
+
+  builtin-java-type : 
+    SimpleSort("Int") -> type|[ int ]|
+   
+  builtin-java-type : 
+    SimpleSort("Bool") -> type|[ boolean ]|
+
+  builtin-java-type : 
+    SimpleSort("String") -> type|[ String ]|
+
+  builtin-java-type : 
+    SimpleSort("Text") -> type|[ String ]|
+
+  builtin-java-type : 
+    SimpleSort("Date") -> type|[ Date ]|
+    
+  builtin-java-type :
+    GenericSort("List", [s]) -> type|[ List<t> ]|
+    where t := <java-type> s
+    
+  builtin-java-type :
+    GenericSort("Set", [s]) -> type|[ Set<t> ]|
+    where t := <java-type> s
+
+  builtin-java-type :
+    GenericSort("Map", [s1, s2]) -> type|[ List<t1, t2> ]|
+    where t1 := <java-type> s1
+        ; t2 := <java-type> s2
+        
+strategies // properties
 
   property-to-code :
-    Property(x_prop, SimpleSort(y_type), []) -> class-body-dec* |[
+    Property(x_prop, SimpleSort(y), []) -> class-body-dec* |[
 
-      private y_type x_prop;
+      private t x_prop;
 
-      public y_type x_get() {
+      public t x_get() {
         return x_prop;
       }
 
-      public void x_set(y_type x_prop) {
+      public void x_set(t x_prop) {
         this.x_prop = x_prop;
       }
   
     ]|
-    where x_Prop := <capitalize-string> x_prop
+    where t := <java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
 	      // @todo: capitalize first letter of property
 
   property-to-code :
-    Property(x_prop, GenericSort("Set", [SimpleSort(y_type)]), []) -> 
+    Property(x_prop, GenericSort("Set", [SimpleSort(y)]), []) -> 
     class-body-dec* |[
 
-      @ManyToMany(targetEntity=y_type)
+      @ManyToMany //(targetEntity=t)
       @org.hibernate.annotations.Cascade({
         org.hibernate.annotations.CascadeType.SAVE_UPDATE,
         org.hibernate.annotations.CascadeType.MERGE
       })
-      private Set<y_type> x_prop = new HashSet<y_type>();
+      private Set<t> x_prop = new HashSet<t>();
 
-      public Set<y_type> x_get() {
+      public Set<t> x_get() {
         return x_prop;
       }
 
-      public void x_set(Set<y_type> x_prop) {
+      public void x_set(Set<t> x_prop) {
         this.x_prop = x_prop;
       }
 
-      public void x_add(y_type z) {
+      public void x_add(t z) {
         this.x_prop.add(z);
       }
   
     ]|
-    where x_Prop := <capitalize-string> x_prop
+    where t := <java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
         ; x_add := <concat-strings>["add", x_Prop]
-	; z := <new>"one"
-	// @todo: make singular for add
-
+	    ; z := <new>"one"
+	    // @todo: make singular for add
 
   property-to-code :
-    Property(x_prop, GenericSort("Map", 
-                       [SimpleSort(y_keytype),
-                        SimpleSort(y_valuetype)]), []) -> 
+    Property(x_prop, GenericSort("List", [y]), []) -> 
     class-body-dec* |[
 
-      @ManyToMany(targetEntity=y_valuetype)
+      @ManyToMany //(targetEntity=t)
       @org.hibernate.annotations.Cascade({
         org.hibernate.annotations.CascadeType.SAVE_UPDATE,
         org.hibernate.annotations.CascadeType.MERGE
       })
-      private Map<y_keytype,y_valuetype> x_prop = new HashMap<y_keytype,y_valuetype>();
+      private List<t> x_prop = new LinkedList<t>();
 
-      public Map<y_keytype,y_valuetype> x_get() {
+      public List<t> x_get() {
         return x_prop;
       }
 
-      public void x_set(Map<y_keytype,y_valuetype> x_prop) {
+      public void x_set(List<t> x_prop) {
         this.x_prop = x_prop;
       }
 
-      public void x_put(y_keytype key, y_valuetype value) {
+      public void x_add(t z) {
+        this.x_prop.add(z);
+      }
+  
+    ]|
+    where t := <java-type> y
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; x_add := <concat-strings>["add", x_Prop]
+	    ; z := <new>"one"
+	    // @todo: make singular for add
+
+  property-to-code :
+    Property(x_prop, GenericSort("Map", 
+                       [SimpleSort(y_key),
+                        SimpleSort(y_value)]), []) -> 
+    class-body-dec* |[
+
+      @ManyToMany() // (targetEntity=t_value)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private Map<t_key,t_value> x_prop = new HashMap<t_key,t_value>();
+
+      public Map<t_key,t_value> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(Map<t_key,t_value> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_put(t_key key, t_value value) {
         this.x_prop.put(key, value);
       }
   
     ]|
-    where x_Prop := <capitalize-string> x_prop
+    where t_key := <java-type> SimpleSort(y_key)
+        ; t_value := <java-type> SimpleSort(y_value)
+        ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
         ; x_put := <concat-strings>["put", x_Prop]
 	// @todo: make singular for add
-
+	
