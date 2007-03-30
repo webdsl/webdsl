@@ -1,4 +1,4 @@
-application master
+application org.webdsl.master
 
 description
 
