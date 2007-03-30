@@ -16,4 +16,5 @@ all : wiki.adm wiki.ajava wiki.java
 	pp-java -i $< -o $@
 
 clean : 
-	rm -f *.adm *.ajava *.java
+	rm -f *.adm *.ajava *.java 
+	rm -rf org
