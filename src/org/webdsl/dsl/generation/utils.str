@@ -1,5 +1,14 @@
 module org/webdsl/dsl/generation/utils
 
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front
+  libstratego-gpp
+
+imports
+  org/webdsl/dsl/generation/xml-doc2abox
+
 strategies
 
   /* Create a nested directory structure. Works on a
@@ -21,17 +30,49 @@ strategies
     ; [to-upper | id]
     ; implode-string
     
-    signature
+signature
+  constructors
+    TextFile : String * CompilationUnit -> File
+
+strategies
+
+  text-file-to-file =
+    ?TextFile(name, text) 
+    ; where(
+	    file := <fopen> (name, "w")
+	    ; <fputs> (text, file)
+	  )
+    
+signature
   constructors
     JavaFile : String * String * CompilationUnit -> File
 
 strategies
 
-  java-file-to-file =
-    ?JavaFile(pkg, name, cu)
-    ; where(
-        path := <string-tokenize(|['.']); create-dirs> pkg
-	    ; file := <fopen> (<concat-strings> [path, "/", name, ".java"], "w")
-	    ; content := <pp-java5-to-string> cu
-	    ; <fputs> (content, file)
-	  )
+  java-file-to-file = 
+    java-file-to-text-file
+    ; text-file-to-file
+
+  java-file-to-text-file :
+    JavaFile(pkg, name, cu) -> TextFile(filename, text)
+    where path := <string-tokenize(|['.']); create-dirs> pkg
+	    ; filename := <concat-strings> [path, "/", name, ".java"]
+	    ; text := <pp-java5-to-string> cu
+	  
+signature
+  constructors
+    XmlFile : String * String * Document -> File
+
+strategies
+
+  xml-file-to-file =
+    xml-file-to-text-file
+    ; try(text-file-to-file)
+    
+  xml-file-to-text-file : 
+    XmlFile(pkg, name, doc) -> TextFile(filename, text)
+    where path := <string-tokenize(|['.']); create-dirs> pkg
+	    ; filename := <concat-strings> [path, "/", name, ".xhtml"]
+	    ; text := <xml-doc2abox; try(abox2text(|80))> doc
+	    
+	    

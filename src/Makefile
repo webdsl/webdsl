@@ -3,15 +3,22 @@ syntax = org/webdsl/dsl/syntax/WebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
+STRSOURCES = $(wildcard org/webdsl/dsl/generation/*.str)
+
 STRINCLUDES = \
 	-I . \
+	-I $(HOME)/.nix-profile/share \
 	-I $(HOME)/.nix-profile/share/java-front \
+	-I $(HOME)/.nix-profile/share/sdf/gpp \
 	-I $(HOME)/.nix-profile/share/sdf/xml-front \
-        `pkg-config --variable=strcflags java-front` \
+    `pkg-config --variable=strcflags java-front` \
+    --verbose 3
 
 STRCFLAGS = \
 	-la stratego-xtc \
-    -la stratego-lib -la ${HOME}/.nix-profile/lib/libjava-front.la
+    -la stratego-lib \
+    -la stratego-gpp \
+    -la ${HOME}/.nix-profile/lib/libjava-front.la
 
 all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str $(generator)
 
@@ -32,7 +39,7 @@ clean :
 
 $(generator) : $(generator).str
 
-% : %.str
+% : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)
 	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES)
 
