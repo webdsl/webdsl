@@ -6,6 +6,7 @@ generator = org/webdsl/dsl/generation/dsl-to-seam
 STRINCLUDES = \
 	-I . \
 	-I $(HOME)/.nix-profile/share/java-front \
+	-I $(HOME)/.nix-profile/share/sdf/xml-front \
         `pkg-config --variable=strcflags java-front` \
 
 STRCFLAGS = \
