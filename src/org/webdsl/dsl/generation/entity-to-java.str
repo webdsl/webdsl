@@ -20,12 +20,17 @@ strategies // entities
 
   entities-to-java :
     Application(qid, sections) -> 
-      [<collect(entity-to-class <+ (entity-to-class-fails; fail))> sections]
+      [<collect(entity-to-java <+ (entity-to-class-fails; fail))> sections]
     where domainpkg := <concat-strings> [ qid, ".domain"]
         ; rules( 
             Package : _ -> qid 
             DomainPackage : _ -> domainpkg
           )
+          
+strategies
+
+  entity-to-java =
+    !(<entity-to-class>, <entity-to-home-class>)
 
 strategies
 
@@ -193,5 +198,38 @@ strategies // properties
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
         ; x_put := <concat-strings>["put", x_Prop]
-	// @todo: make singular for add
+	    // @todo: make singular for add
 	
+strategies 
+
+  entity-to-home-class : 
+    EntityNoSuper(x_class, props) -> <entity-to-home-class>Entity(x_class, "Object", props)
+    
+  entity-to-home-class : 
+    Entity(x_class, x_super, props) -> JavaFile(x_package, x_homeclass, 
+    compilation-unit|[
+      package x_package;
+      
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.framework.EntityHome;
+      
+      @Name(~string:String([Chars(x_componenthome)]))
+      public class x_homeclass extends EntityHome<x_class> {
+      
+        @Factory(~string:String([Chars(x_component)]))
+        public x_class x_init() { return getInstance(); }
+        
+      }
+    ]|)
+    where x_package    := <DomainPackage>
+        ; x_component  := <decapitalize-string> x_class
+	    ; x_homeclass := <concat-strings> [x_class, "Home"]
+	    ; x_componenthome := <concat-strings> [x_component, "Home"]
+	    ; x_init       := <concat-strings> ["init", x_class]
+	    
+  entity-to-home-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate home class for entity")
+
+    
