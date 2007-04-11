@@ -2,6 +2,17 @@
   @todo check consistency of entity declarations
 
   @todo derive filename from compilation unit
+  
+  @todo each entity should have a name (to refer to objects);
+  this might be a derived property, e.g., 
+  
+     name : String = firstname + lastname
+  
+  such a property would only have a getter, not a setter
+  and thus shows up only in views and references to views
+  
+  @todo refactor this file; one stratego module per type of generated
+  class?
 */
 
 module org/webdsl/dsl/generation/entity-to-java
@@ -30,17 +41,21 @@ strategies // entities
 strategies
 
   entity-to-java =
-    !(<entity-to-class>, <entity-to-home-class>)
+    !(<entity-to-entity-class>
+     , <entity-to-home-class>
+     , <entity-to-list-class>
+     , <entity-to-list-interface>)
 
 strategies
 
-  entity-to-class : 
-    EntityNoSuper(x_class, props) -> JavaFile("src", x_package, x_class,
+  entity-to-entity-class : 
+    EntityNoSuper(x_class, props) -> JavaFile(["src"], x_package, x_class,
     compilation-unit|[
       package x_package;
 
       import java.util.*;
       import javax.persistence.*;
+      import x_package.*;
 
       @Entity
       public class x_class {
@@ -48,33 +63,37 @@ strategies
 
         @Id @GeneratedValue
         private Long id;
+        
+        public Long getId() { return id; }
+
+        private void setId(Long id) { this.id = id; }
 
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-code <+ debug(!"cannot generate code for property: "); ![])> props
+    where cbds := <mapconcat(property-to-property-code <+ debug(!"cannot generate code for property: "); ![])> props
 	    ; x_package := <DomainPackage>
     
-  entity-to-class : 
-    Entity(x_class, x_super, props) -> JavaFile(x_package, x_class, 
+  entity-to-entity-class : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_class, 
     compilation-unit|[
       package x_package;
 
       import java.util.*;
       import javax.persistence.*;
+      import x_package.*;
 
       @Entity
       public class x_class extends x_super {
         public x_class () {}
-
-        @Id @GeneratedValue
-        private Long id;
-
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-code <+ ![])> props
+    where cbds := <mapconcat(property-to-property-code <+ ![])> props
 	    ; x_package := <DomainPackage>
+	    
+	    // note: don't define id on an entity with a super class; it
+	    // is inherited from the super class
 	    
   entity-to-class-fails =
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
@@ -82,7 +101,7 @@ strategies
 
 strategies // properties
 
-  property-to-code :
+  property-to-property-code :
     Property(x_prop, SimpleSort(y), []) -> class-body-dec* |[
 
       private t x_prop;
@@ -102,7 +121,7 @@ strategies // properties
         ; x_set := <concat-strings>["set", x_Prop]
 	      // @todo: capitalize first letter of property
 
-  property-to-code :
+  property-to-property-code :
     Property(x_prop, GenericSort("Set", [SimpleSort(y)]), []) -> 
     class-body-dec* |[
 
@@ -134,7 +153,7 @@ strategies // properties
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-code :
+  property-to-property-code :
     Property(x_prop, GenericSort("List", [y]), []) -> 
     class-body-dec* |[
 
@@ -166,7 +185,7 @@ strategies // properties
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-code :
+  property-to-property-code :
     Property(x_prop, GenericSort("Map", 
                        [SimpleSort(y_key),
                         SimpleSort(y_value)]), []) -> 
@@ -206,7 +225,7 @@ strategies
     EntityNoSuper(x_class, props) -> <entity-to-home-class>Entity(x_class, "Object", props)
     
   entity-to-home-class : 
-    Entity(x_class, x_super, props) -> JavaFile(x_package, x_homeclass, 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_homeclass, 
     compilation-unit|[
       package x_package;
       
@@ -238,7 +257,7 @@ strategies
     EntityNoSuper(x_class, props) -> <entity-to-list-class>Entity(x_class, "Object", props)
     
   entity-to-list-class : 
-    Entity(x_class, x_super, props) -> JavaFile(x_package, x_listclass, 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listclass, 
     compilation-unit|[
       package x_package;
       
@@ -267,7 +286,7 @@ strategies
       import org.webdsl.serg.domain.Address;
       
       @Name(~string:String([Chars(x_componentList)]))
-      public class x_listclass extends x_listinterface 
+      public class x_listclass implements x_listinterface 
       {
           @Logger private Log log;
     
@@ -284,20 +303,23 @@ strategies
           @Factory(~string:String([Chars(x_componentList)]))
           public void findEntries()
           {
-             x_componentList = em.createQuery("from x_class").getResultList();
+             x_componentList = em.createQuery("from " + "~x_class").getResultList();
              log.info("call to findEntries: list = " + x_componentList);
+             // @todo check that antiquotation in string works
           }
 
           public void delete() {
 		    if (x_componentList == null)
 			  facesMessages.add("entries list is null");
-		    else if (address == null)
+		    else if (x_component == null)
 			  facesMessages.add("entry is null");
 		    else {
-		      facesMessages.add("deleting address #{address.street}");
-		      addressList.remove(address);
-		      em.remove(address);
-		      address = null;
+		      facesMessages.add("deleting ~x_class #{entry.id}");
+		      x_componentList.remove(x_component);
+		      em.remove(x_component);
+		      // @todo note that this depends on the semantics of the list
+		      // but in a CRUD list removal from list is removal from db
+		      x_component = null;
 		    }
           }
     
@@ -307,9 +329,33 @@ strategies
     ]|)
     where x_package       := <DomainPackage>
         ; x_component     := <decapitalize-string> x_class
+	    ; x_listinterface := <concat-strings> ["I", x_class, "List"]
 	    ; x_listclass     := <concat-strings> [x_class, "List"]
-	    ; x_componentlist := <concat-strings> [x_component, "List"]
-	    
+	    ; x_componentList := <concat-strings> [x_component, "List"]
+
   entity-to-list-class-fails =
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
     ; err(|"cannot generate list class for entity")
+    
+rules 
+
+  entity-to-list-interface : 
+    EntityNoSuper(x_class, props) -> <entity-to-list-interface>Entity(x_class, "Object", props)
+    
+  entity-to-list-interface : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listinterface, 
+    compilation-unit|[
+      package x_package;
+      public interface x_listinterface 
+      {
+          public void findEntries();
+          public void delete();                                                               
+	      public void destroy();
+      }
+    ]|)
+    where x_package       := <DomainPackage>
+        ; x_listinterface := <concat-strings> ["I", x_class, "List"]
+  
+  entity-to-list-interface-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate list interface for entity")

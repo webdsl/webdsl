@@ -19,7 +19,7 @@ strategies
 
   entities-to-view :
     Application(qid, sections) -> 
-      [<collect( <+ (entity-to-view-fails; fail))> sections]
+      [<collect(entity-to-view <+ (entity-to-view-fails; fail))> sections]
     where domainpkg := <concat-strings> [ qid, ".domain"]
         ; rules( 
             Package : _ -> qid 
@@ -30,7 +30,7 @@ strategies
     !(<entity-to-view-view>
      ,<entity-to-edit-view>
      ,<entity-to-list-view>
-     ,<entity-to-page>)
+     ,<entity-to-pages>)
 
 strategies
           
@@ -134,7 +134,7 @@ rules
   
   entity-to-list-view : 
     Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>[x_class, "List", ".xhtml"], <xml-composition-wrap>
-    %><ui:define name="body">
+    %><ui:define name="body">%
     
         <h1>
            <h:outputText value="View <%= x_class %>" />
@@ -143,8 +143,8 @@ rules
         <h:messages globalOnly="true" styleClass="message"/>
         
         <f:view>
-          <h:outputText value="No <%= x_class %>" rendered="#{<% x_list_component %>.rowCount==0}"/>
-          <h:dataTable var="address" value="#{<% x_list_component %>}" rendered="#{<% x_list_component %>.rowCount>0}">
+          <h:outputText value="No <%= x_class %>" rendered="#{<%= x_componentList %>.rowCount==0}"/>
+          <h:dataTable var="address" value="#{<%= x_componentList %>}" rendered="#{<%= x_componentList %>.rowCount>0}">
             <h:column>
               <f:facet name="header">
                 <h:outputText value="Id"/>
@@ -154,17 +154,19 @@ rules
               </s:link>
             </h:column>
             <h:column>
-               <s:button value="Delete" action="#{<% x_list_component %>.delete}"/>
+               <s:button value="Delete" action="#{<%= x_componentList %>.delete}"/>
             </h:column>
          </h:dataTable>
         </f:view>
         
       </ui:define><% )
     where x_component  := <decapitalize-string> x_class
-        ; x_list_component := <concat-strings>[x_component, "List"]
+        ; x_componentList := <concat-strings>[x_component, "List"]
         ; x_class_home := <concat-strings>[x_component, "Home"]
         //; flds := <filter(property-to-edit-component(|x_component)
         //                  <+ debug(!"cannot generate xml for property: "); fail)> props
+        
+    // @todo add columns for (selected) properties; at least the 'name' of the entity should be included
 	    
  // property-to-list-component(|x_component) :
  //   Property(x_prop, SimpleSort(y), []) -> 
@@ -174,6 +176,31 @@ rules
  //          <td class="value">#{<%=x_component%>.<%=x_prop%>}</td>
  //       </tr>
  //     </div><%
+ 
+ rules
+ 
+  entity-to-pages :
+    EntityNoSuper(x_class, props) ->
+    <entity-to-pages> Entity(x_class, "Object", props)
+    // @todo use some kind of forwarding mechanism for these type of definitions
+    
+  entity-to-pages :
+    Entity(x_class, x_super, props) -> 
+    (<entity-to-page-config(|"view", x_class, x_component)>, 
+     <entity-to-page-config(|"edit", x_class, x_component)>)
+    where x_component := <decapitalize-string> x_class
+   
+  entity-to-page-config(|kind, x_class, x_component) =
+    !XmlFile("resources.WEB-INF.classes", <concat-strings>[kind, x_class, ".page.xml"],
+    %><!DOCTYPE page PUBLIC 
+                "-//JBoss/Seam Pages Configuration DTD 1.1//EN"
+                "http://jboss.com/products/seam/pages-1.1.dtd"
+      ><page>
+         <param name="<%= x_component %>Id" 
+                value="#{<%= x_component %>Home.id}" 
+                converterId="javax.faces.Long"/>
+       </page><% )
+ 
  
 rules // utilities
  
