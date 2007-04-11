@@ -14,25 +14,69 @@ imports
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/generation/utils
   org/webdsl/dsl/generation/entity-to-java
-  
+
 strategies
 
   entities-to-view :
     Application(qid, sections) -> 
-      [<collect(entity-to-edit-view <+ (entity-to-view-fails; fail))> sections]
+      [<collect( <+ (entity-to-view-fails; fail))> sections]
     where domainpkg := <concat-strings> [ qid, ".domain"]
         ; rules( 
             Package : _ -> qid 
             DomainPackage : _ -> domainpkg
           )
 
+  entity-to-view =
+    !(<entity-to-view-view>
+     ,<entity-to-edit-view>
+     ,<entity-to-list-view>
+     ,<entity-to-page>)
+
 strategies
           
   entity-to-view-fails =
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
     ; err(|"cannot generate view for entity")
+    
+rules
+    
+  entity-to-view-view : 
+    EntityNoSuper(x_class, props) ->
+    <entity-to-view-view> Entity(x_class, "Object", props) 
+    // @todo use some kind of forwarding mechanism for these type of definitions
+  
+  entity-to-view-view : 
+    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>["view", x_class, ".xhtml"], <xml-composition-wrap>
+    %><ui:define name="body">
+        <h1>
+           <h:outputText value="View <%= x_class %>" />
+        </h1>
+        <h:messages globalOnly="true" styleClass="message"/>
+        <h:form id="edit<%= x_class %>">
+          <div class="dialog">
+            <s:validateAll><%= flds ::*%></s:validateAll>
+          </div>
+          <div class="actionButtons">
+             <s:link view="/edit<%= x_class %>.xhtml" value="Edit <%= x_class %>"/>
+             <s:link action="#{<%= x_class_home%>.remove}" value="Delete <%= x_class %>" rendered="#{<%= x_class_home%>.managed}"/>
+          </div>
+        </h:form>
+      </ui:define><% )
+    where x_component  := <decapitalize-string> x_class
+        ; x_class_home := <concat-strings>[x_component, "Home"]
+        ; flds := <filter(property-to-view-component(|x_component)
+                          <+ debug(!"cannot generate xml for property: "); fail)> props
+	    
+  property-to-view-component(|x_component) :
+    Property(x_prop, SimpleSort(y), []) -> 
+    %><div class="prop">
+        <tr class="prop">
+           <td class="name"><%=Text([Literal(x_prop)])%>:</td>
+           <td class="value">#{<%=x_component%>.<%=x_prop%>}</td>
+        </tr>
+      </div><%
 
-strategies
+rules
     
   entity-to-edit-view : 
     EntityNoSuper(x_class, props) ->
@@ -40,7 +84,7 @@ strategies
     // @todo use some kind of forwarding mechanism for these type of definitions
   
   entity-to-edit-view : 
-    Entity(x_class, x_super, props) -> XmlFile("view", x_class, <xml-composition-wrap>
+    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>["edit", x_class, ".xhtml"], <xml-composition-wrap>
     %><ui:define name="body">
         <h1>
            <h:outputText rendered="#{!<%=x_class_home%>.managed}" value="Create <%= x_class %>" />
@@ -80,7 +124,59 @@ strategies
             </s:decorate>
          </span>
       </div><%
-       
+      
+rules
+    
+  entity-to-list-view : 
+    EntityNoSuper(x_class, props) ->
+    <entity-to-list-view> Entity(x_class, "Object", props)
+    // @todo use some kind of forwarding mechanism for these type of definitions
+  
+  entity-to-list-view : 
+    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>[x_class, "List", ".xhtml"], <xml-composition-wrap>
+    %><ui:define name="body">
+    
+        <h1>
+           <h:outputText value="View <%= x_class %>" />
+        </h1>
+        
+        <h:messages globalOnly="true" styleClass="message"/>
+        
+        <f:view>
+          <h:outputText value="No <%= x_class %>" rendered="#{<% x_list_component %>.rowCount==0}"/>
+          <h:dataTable var="address" value="#{<% x_list_component %>}" rendered="#{<% x_list_component %>.rowCount>0}">
+            <h:column>
+              <f:facet name="header">
+                <h:outputText value="Id"/>
+              </f:facet>
+              <s:link view = "/view<%= x_class %>.jsp" value="#{<%= x_component %>.id}">
+                <f:param name="<%= x_component %>Id" value="#{<%= x_component %>.id}" />
+              </s:link>
+            </h:column>
+            <h:column>
+               <s:button value="Delete" action="#{<% x_list_component %>.delete}"/>
+            </h:column>
+         </h:dataTable>
+        </f:view>
+        
+      </ui:define><% )
+    where x_component  := <decapitalize-string> x_class
+        ; x_list_component := <concat-strings>[x_component, "List"]
+        ; x_class_home := <concat-strings>[x_component, "Home"]
+        //; flds := <filter(property-to-edit-component(|x_component)
+        //                  <+ debug(!"cannot generate xml for property: "); fail)> props
+	    
+ // property-to-list-component(|x_component) :
+ //   Property(x_prop, SimpleSort(y), []) -> 
+ //   %><div class="prop">
+ //       <tr class="prop">
+ //          <td class="name"><%=Text([Literal(x_prop)])%>:</td>
+ //          <td class="value">#{<%=x_component%>.<%=x_prop%>}</td>
+ //       </tr>
+ //     </div><%
+ 
+rules // utilities
+ 
   xml-composition-wrap : 
     content -> 
     %><!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 

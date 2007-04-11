@@ -35,7 +35,7 @@ strategies
 strategies
 
   entity-to-class : 
-    EntityNoSuper(x_class, props) -> JavaFile(x_package, x_class,
+    EntityNoSuper(x_class, props) -> JavaFile("src", x_package, x_class,
     compilation-unit|[
       package x_package;
 
@@ -232,4 +232,84 @@ strategies
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
     ; err(|"cannot generate home class for entity")
 
+strategies 
+
+  entity-to-list-class : 
+    EntityNoSuper(x_class, props) -> <entity-to-list-class>Entity(x_class, "Object", props)
     
+  entity-to-list-class : 
+    Entity(x_class, x_super, props) -> JavaFile(x_package, x_listclass, 
+    compilation-unit|[
+      package x_package;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      import static org.jboss.seam.ScopeType.CONVERSATION;
+      import static org.jboss.seam.ScopeType.SESSION;
+
+      import java.util.List;
+
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.Out;
+      import org.jboss.seam.annotations.Scope;
+      import org.jboss.seam.annotations.datamodel.DataModel;
+      import org.jboss.seam.annotations.datamodel.DataModelSelection;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+      import org.webdsl.serg.domain.Address;
+      
+      @Name(~string:String([Chars(x_componentList)]))
+      public class x_listclass extends x_listinterface 
+      {
+          @Logger private Log log;
+    
+          @In FacesMessages facesMessages;
+    
+          @DataModel private List<x_class> x_componentList;
+    
+          @DataModelSelection @Out(required = false)
+          private x_class x_component;
+    
+          @PersistenceContext(type=EXTENDED)
+          private EntityManager em;
+    
+          @Factory(~string:String([Chars(x_componentList)]))
+          public void findEntries()
+          {
+             x_componentList = em.createQuery("from x_class").getResultList();
+             log.info("call to findEntries: list = " + x_componentList);
+          }
+
+          public void delete() {
+		    if (x_componentList == null)
+			  facesMessages.add("entries list is null");
+		    else if (address == null)
+			  facesMessages.add("entry is null");
+		    else {
+		      facesMessages.add("deleting address #{address.street}");
+		      addressList.remove(address);
+		      em.remove(address);
+		      address = null;
+		    }
+          }
+    
+	      @Destroy @Remove                                                                      
+	      public void destroy() {}
+      }
+    ]|)
+    where x_package       := <DomainPackage>
+        ; x_component     := <decapitalize-string> x_class
+	    ; x_listclass     := <concat-strings> [x_class, "List"]
+	    ; x_componentlist := <concat-strings> [x_component, "List"]
+	    
+  entity-to-list-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate list class for entity")
