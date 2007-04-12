@@ -71,7 +71,7 @@ strategies
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-property-code <+ debug(!"cannot generate code for property: "); ![])> props
+    where cbds := <mapconcat(property-to-property-code(|x_class) <+ debug(!"cannot generate code for property: "); ![])> props
 	    ; x_package := <DomainPackage>
     
   entity-to-entity-class : 
@@ -89,7 +89,7 @@ strategies
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-property-code <+ ![])> props
+    where cbds := <mapconcat(property-to-property-code(|x_class) <+ ![])> props
 	    ; x_package := <DomainPackage>
 	    
 	    // note: don't define id on an entity with a super class; it
@@ -101,8 +101,8 @@ strategies
 
 strategies // properties
 
-  property-to-property-code :
-    Property(x_prop, SimpleSort(y), []) -> class-body-dec* |[
+  property-to-property-code(|x_class) :
+    Property(x_prop, SimpleSort(y), [])-> class-body-dec* |[
 
       private t x_prop;
 
@@ -115,13 +115,35 @@ strategies // properties
       }
   
     ]|
-    where t := <java-type> SimpleSort(y)
+    where t := <builtin-java-type> SimpleSort(y)
         ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
 	      // @todo: capitalize first letter of property
+	      
+  property-to-property-code(|x_class) :
+    Property(x_prop, SimpleSort(y), []) -> class-body-dec* |[
 
-  property-to-property-code :
+      @ManyToOne
+      @JoinColumn(name = "~columnname")
+      private t x_prop;
+
+      public t x_get() {
+        return x_prop;
+      }
+
+      public void x_set(t x_prop) {
+        this.x_prop = x_prop;
+      }
+  
+    ]|
+    where t := <defined-java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; columnname := <concat-strings>[x_class, x_Prop]
+	      
+  property-to-property-code(|x_class) :
     Property(x_prop, GenericSort("Set", [SimpleSort(y)]), []) -> 
     class-body-dec* |[
 
@@ -153,7 +175,7 @@ strategies // properties
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-property-code :
+  property-to-property-code(|x_class) :
     Property(x_prop, GenericSort("List", [y]), []) -> 
     class-body-dec* |[
 
@@ -185,7 +207,7 @@ strategies // properties
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-property-code :
+  property-to-property-code(|x_class) :
     Property(x_prop, GenericSort("Map", 
                        [SimpleSort(y_key),
                         SimpleSort(y_value)]), []) -> 
@@ -285,7 +307,9 @@ strategies
       import org.jboss.seam.log.Log;
       import org.webdsl.serg.domain.Address;
       
-      @Name(~string:String([Chars(x_componentList)]))
+      @Stateful
+      @Scope(SESSION)
+      @Name(~string:String([Chars(x_componentListBean)]))
       public class x_listclass implements x_listinterface 
       {
           @Logger private Log log;
@@ -305,9 +329,16 @@ strategies
           {
              x_componentList = em.createQuery("from " + "~x_class").getResultList();
              log.info("call to findEntries: list = " + x_componentList);
-             // @todo check that antiquotation in string works
+             // @note antiquotation in string only works at the beginning of a string
           }
-
+          
+          public void refresh()
+          { 
+	         findEntries();
+          }
+          // @todo this is needed to refresh the list after a new entry has been added
+          // this should be done automatically
+          
           public void delete() {
 		    if (x_componentList == null)
 			  facesMessages.add("entries list is null");
@@ -332,6 +363,7 @@ strategies
 	    ; x_listinterface := <concat-strings> ["I", x_class, "List"]
 	    ; x_listclass     := <concat-strings> [x_class, "List"]
 	    ; x_componentList := <concat-strings> [x_component, "List"]
+	    ; x_componentListBean := <concat-strings> [x_component, "ListBean"]
 
   entity-to-list-class-fails =
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
@@ -349,7 +381,8 @@ rules
       public interface x_listinterface 
       {
           public void findEntries();
-          public void delete();                                                               
+          public void delete();    
+          public void refresh();                                                                   
 	      public void destroy();
       }
     ]|)
