@@ -71,7 +71,7 @@ strategies
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-property-code(|x_class) <+ debug(!"cannot generate code for property: "); ![])> props
+    where cbds := <properties-to-code(|x_class)> props
 	    ; x_package := <DomainPackage>
     
   entity-to-entity-class : 
@@ -89,20 +89,40 @@ strategies
         ~*cbds
       }
     ]|)
-    where cbds := <mapconcat(property-to-property-code(|x_class) <+ ![])> props
+    where cbds := <properties-to-code(|x_class)> props
 	    ; x_package := <DomainPackage>
-	    
-	    // note: don't define id on an entity with a super class; it
+	    // @note: don't define id on an entity with a super class; it
 	    // is inherited from the super class
-	    
+	  
   entity-to-class-fails =
     (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
     ; err(|"cannot generate code for entity")
+    
+strategies
+
+  properties-to-code(|x_class) :
+    props -> cbds
+    where cbds1 := <mapconcat(property-to-property-code(|x_class) 
+                              <+ debug(!"cannot generate code for property: "); ![])> props
+        ; cbds2 := <name-property(|x_class) <+ ![]> props
+        ; cbds  := <concat>[cbds1, cbds2]
+    
+strategies
+
+  name-property(|x_class) :
+    props -> class-body-dec* |[
+      public String getName() {
+        return x_get().toString();
+      }
+    ]|
+    where <not(fetch(?Property("name", _, _)))> props
+        ; x_prop := <get-namefield> props 
+        ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
 
 strategies // properties
 
   property-to-property-code(|x_class) :
-    Property(x_prop, SimpleSort(y), [])-> class-body-dec* |[
+    Property(x_prop, SimpleSort(y), annos)-> class-body-dec* |[
 
       private t x_prop;
 
@@ -122,7 +142,7 @@ strategies // properties
 	      // @todo: capitalize first letter of property
 	      
   property-to-property-code(|x_class) :
-    Property(x_prop, SimpleSort(y), []) -> class-body-dec* |[
+    Property(x_prop, SimpleSort(y), annos) -> class-body-dec* |[
 
       @ManyToOne
       @JoinColumn(name = "~columnname")
@@ -144,7 +164,7 @@ strategies // properties
         ; columnname := <concat-strings>[x_class, x_Prop]
 	      
   property-to-property-code(|x_class) :
-    Property(x_prop, GenericSort("Set", [SimpleSort(y)]), []) -> 
+    Property(x_prop, GenericSort("Set", [SimpleSort(y)]), annos) -> 
     class-body-dec* |[
 
       @ManyToMany //(targetEntity=t)
@@ -176,7 +196,7 @@ strategies // properties
 	    // @todo: make singular for add
 
   property-to-property-code(|x_class) :
-    Property(x_prop, GenericSort("List", [y]), []) -> 
+    Property(x_prop, GenericSort("List", [y]), annos) -> 
     class-body-dec* |[
 
       @ManyToMany //(targetEntity=t)
