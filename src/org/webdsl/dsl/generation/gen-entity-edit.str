@@ -28,7 +28,7 @@ rules
         <h:messages globalOnly="true" styleClass="message"/>
         <h:form id="edit<%= x_class %>">
           <div class="dialog">
-            <s:validateAll><table><%= flds ::*%></table></s:validateAll>
+            <s:validateAll><%= tbl %></s:validateAll>
           </div>
           <div class="actionButtons">
             <s:link view="/view<%= x_class %>.xhtml" 
@@ -48,27 +48,68 @@ rules
       </ui:define><% )
     where x_component  := <decapitalize-string> x_class
         ; x_class_home := <concat-strings>[x_component, "Home"]
-        ; flds := <filter(property-to-edit-component(|x_component)
-                          <+ debug(!"cannot generate xml for property: "); fail)> props
+        ; tbl := <edit-form(|x_component)> props
+                          
+rules
+
+  edit-form(|x_component) :
+    props -> 
+    %><h:panelGrid columns="2" border="0" cellpadding="5" cellspacing="3"><%= rows ::*%></h:panelGrid><%
+    where rows := <edit-form-rows(|x_component)> props
+
+  // create edit form for an entity; may also be a nested entity
+  
+  edit-form-rows(|x_component) =
+    filter-concat-warn(row-in-edit-form(|x_component) | "cannot edit form row for property: ")
+
+  // create a 'row in the edit form
+  
+  row-in-edit-form(|x_component)  :
+    prop@Property(x_prop, k, s@SimpleSort(y), _) ->
+    %><h:outputText value="<%=x_prop%>"/>
+      <s:decorate><%= input %></s:decorate><%
+    where input := <property-to-edit-component(|x_component)> prop
+    
+ rules
 	    
   property-to-edit-component(|x_component) :
-    PropertySimple(x_prop, s@SimpleSort(y), _) -> 
-    %><div class="prop">
-      <tr>
-        <td>
-         <span class="<%=x_prop%>"><%=Text([Literal(x_prop)])%></span>
-        </td>
-        <td>
-         <span class="value">
-            <s:decorate>
-               <h:inputText id="<%=x_prop%>" required="true"
-                  value="#{<%=x_component%>.<%=x_prop%>}"/>
-            </s:decorate>
-         </span>
-        </td>
-       </tr>
-      </div><%
-   where <builtin-java-type> s
+    Property(x_prop, k, s@SimpleSort("String"), _) -> 
+    %><h:inputText for="<%=x_prop%>" 
+                   id="<%=x_prop%>" 
+                   required="true" 
+                   value="#{<%=x_component%>.<%=x_prop%>}"/><%
    
-   // @todo specialize input component to the type of the property
-   // for instance, for type Text a scrollable textarea should be generated
+  property-to-edit-component(|x_component) :
+    Property(x_prop, k, s@SimpleSort("Text"), _) -> 
+    %><h:inputTextArea for="<%=x_prop%>" 
+                       id="<%=x_prop%>" 
+                       required="true" 
+                       value="#{<%=x_component%>.<%=x_prop%>}"/><%
+       
+  property-to-edit-component(|x_component) :
+    Property(x_prop, k, s@SimpleSort("Secret"), _) -> 
+    %><h:inputSecret for="<%=x_prop%>" 
+                     id="<%=x_prop%>" 
+                     required="true" 
+                     value="#{<%=x_component%>.<%=x_prop%>}"/><%
+
+  // composite association with defined type
+
+  row-in-edit-form(|x_component)  :
+    Property(x_prop, Comp(), s0@SimpleSort(s), _) -> 
+    %><h:outputText value="<%=x_prop%>"/><h:panelGroup/><%= rows ::*%><%
+    where <defined-java-type> s0
+        ; debug(!"found a defined type: ")
+        ; props := <properties> s
+        ; debug(!"properties: ")
+        ; x_sub_component := <concat-strings> [x_component, ".", x_prop]
+        ; rows := <edit-form-rows(|x_sub_component)> props
+       
+   
+   
+ // done
+     
+  // todo specialize input component to the type of the property
+  // for instance, for type Text a scrollable textarea should be generated
+   
+  // todo don't put properties for subfields in a subtable
