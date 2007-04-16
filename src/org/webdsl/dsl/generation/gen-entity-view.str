@@ -1,0 +1,55 @@
+module org/webdsl/dsl/generation/gen-entity-to-view
+
+imports 
+  libstrategolib 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/generation/utils
+  org/webdsl/dsl/generation/xml-utils
+
+strategies
+          
+  entity-to-view-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate view for entity")
+    
+rules
+    
+  entity-to-view-view : 
+    EntityNoSuper(x_class, props) ->
+    <entity-to-view-view> Entity(x_class, "Object", props) 
+    // @todo use some kind of forwarding mechanism for these type of definitions
+  
+  entity-to-view-view : 
+    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>["view", x_class, ".xhtml"], <xml-composition-wrap>
+    %><ui:define name="body">
+        <h1>
+           <h:outputText value="View <%= x_class %>" />
+        </h1>
+        <h:messages globalOnly="true" styleClass="message"/>
+        <h:form id="view<%= x_class %>">
+          <div class="dialog">
+            <s:validateAll><%= flds ::*%></s:validateAll>
+          </div>
+          <div class="actionButtons">
+             <s:link view="/edit<%= x_class %>.xhtml" value="Edit <%= x_class %>"/>
+             <s:link action="#{<%= x_class_home%>.remove}" value="Delete <%= x_class %>" rendered="#{<%= x_class_home%>.managed}"/>
+             <s:link view="/<%= x_class %>List.xhtml" value="All <%= x_class %>s"/>
+          </div>
+        </h:form>
+      </ui:define><% )
+    where x_component  := <decapitalize-string> x_class
+        ; x_class_home := <concat-strings>[x_component, "Home"]
+        ; flds := <filter(property-to-view-component(|x_component)
+                          <+ debug(!"cannot generate xml for property: "); fail)> props
+	    
+  property-to-view-component(|x_component) :
+    PropertySimple(x_prop, s@SimpleSort(y), _) -> 
+    %><div class="prop">
+        <tr class="prop">
+           <td class="name"><%=Text([Literal(x_prop)])%>:</td>
+           <td class="value">#{<%=Text([Literal(x_component)])%>.<%=Text([Literal(x_prop)])%>}</td>
+        </tr>
+      </div><%
+   where <builtin-java-type> s  

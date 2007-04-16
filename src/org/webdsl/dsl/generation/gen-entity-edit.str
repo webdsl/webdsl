@@ -1,0 +1,74 @@
+module org/webdsl/dsl/generation/entities-to-view
+      
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/generation/utils
+  org/webdsl/dsl/generation/entity-to-java
+
+rules    
+
+  entity-to-edit-view : 
+    EntityNoSuper(x_class, props) ->
+    <entity-to-edit-view> Entity(x_class, "Object", props) 
+    // @todo use some kind of forwarding mechanism for these type of definitions
+  
+  entity-to-edit-view : 
+    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>["edit", x_class, ".xhtml"], <xml-composition-wrap>
+    %><ui:define name="body">
+        <h1>
+           <h:outputText rendered="#{!<%=x_class_home%>.managed}" value="Create <%= x_class %>" />
+           <h:outputText rendered="#{<%=x_class_home%>.managed}"  value="Edit <%= x_class %>" />
+        </h1>
+        <h:messages globalOnly="true" styleClass="message"/>
+        <h:form id="edit<%= x_class %>">
+          <div class="dialog">
+            <s:validateAll><table><%= flds ::*%></table></s:validateAll>
+          </div>
+          <div class="actionButtons">
+            <s:link view="/view<%= x_class %>.xhtml" 
+                    value="View <%= x_class %>"
+                    rendered="#{<%=x_class_home%>.managed}"/>
+            <h:commandButton value="Create <%=x_class%>" 
+                             action="#{<%=x_class_home%>.persist}"
+                             rendered="#{!<%=x_class_home%>.managed}"/>
+            <h:commandButton value="Update <%=x_class%>" 
+                             action="#{<%=x_class_home%>.update}"
+                             rendered="#{<%=x_class_home%>.managed}"/>
+            <h:commandButton value="Delete <%=x_class%>" 
+                             action="#{<%=x_class_home%>.delete}"
+                             rendered="#{<%=x_class_home%>.managed}"/>
+          </div>
+        </h:form>
+      </ui:define><% )
+    where x_component  := <decapitalize-string> x_class
+        ; x_class_home := <concat-strings>[x_component, "Home"]
+        ; flds := <filter(property-to-edit-component(|x_component)
+                          <+ debug(!"cannot generate xml for property: "); fail)> props
+	    
+  property-to-edit-component(|x_component) :
+    PropertySimple(x_prop, s@SimpleSort(y), _) -> 
+    %><div class="prop">
+      <tr>
+        <td>
+         <span class="<%=x_prop%>"><%=Text([Literal(x_prop)])%></span>
+        </td>
+        <td>
+         <span class="value">
+            <s:decorate>
+               <h:inputText id="<%=x_prop%>" required="true"
+                  value="#{<%=x_component%>.<%=x_prop%>}"/>
+            </s:decorate>
+         </span>
+        </td>
+       </tr>
+      </div><%
+   where <builtin-java-type> s
+   
+   // @todo specialize input component to the type of the property
+   // for instance, for type Text a scrollable textarea should be generated

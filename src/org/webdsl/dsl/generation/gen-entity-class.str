@@ -1,0 +1,232 @@
+/**
+
+  Generate a JPA/Hibernate entity class from an entity declaration
+
+*/
+
+module org/webdsl/dsl/generation/gen-entity-class
+
+imports 
+  libstrategolib  
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/generation/utils
+  org/webdsl/dsl/generation/types
+
+strategies
+
+  entity-to-entity-class : 
+    EntityNoSuper(x_class, props) -> JavaFile(["src"], x_package, x_class,
+    compilation-unit|[
+      package x_package;
+
+      import java.util.*;
+      import javax.persistence.*;
+      import x_package.*;
+
+      @Entity
+      public class x_class {
+        public x_class () {}
+
+        @Id @GeneratedValue
+        private Long id;
+        
+        public Long getId() { return id; }
+
+        private void setId(Long id) { this.id = id; }
+
+        ~*cbds
+      }
+    ]|)
+    where cbds := <properties-to-code(|x_class)> props
+	    ; x_package := <DomainPackage>
+    
+  entity-to-entity-class : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_class, 
+    compilation-unit|[
+      package x_package;
+
+      import java.util.*;
+      import javax.persistence.*;
+      import x_package.*;
+
+      @Entity
+      public class x_class extends x_super {
+        public x_class () {}
+        ~*cbds
+      }
+    ]|)
+    where cbds := <properties-to-code(|x_class)> props
+	    ; x_package := <DomainPackage>
+	    // @note: don't define id on an entity with a super class; it
+	    // is inherited from the super class
+	  
+  entity-to-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate code for entity")
+    
+strategies
+
+  properties-to-code(|x_class) :
+    props -> cbds
+    where cbds1 := <mapconcat(property-to-property-code(|x_class) 
+                              <+ debug(!"cannot generate code for property: "); ![])> props
+        ; cbds2 := <name-property(|x_class) <+ ![]> props
+        ; cbds  := <concat>[cbds1, cbds2]
+    
+strategies
+
+  name-property(|x_class) :
+    props -> class-body-dec* |[
+      public String getName() {
+        return x_get().toString();
+      }
+    ]|
+    where <not(fetch(?PropertySimple("name", _, _)))> props
+        ; x_prop := <get-namefield> props 
+        ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
+
+strategies // properties
+
+  property-to-property-code(|x_class) :
+    PropertySimple(x_prop, SimpleSort(y), annos)-> class-body-dec* |[
+
+      private t x_prop;
+
+      public t x_get() {
+        return x_prop;
+      }
+
+      public void x_set(t x_prop) {
+        this.x_prop = x_prop;
+      }
+  
+    ]|
+    where t := <builtin-java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+	      // @todo: capitalize first letter of property
+	      
+  property-to-property-code(|x_class) :
+    PropertySimple(x_prop, SimpleSort(y), annos) -> class-body-dec* |[
+
+      @ManyToOne
+      @JoinColumn(name = "~columnname")
+      private t x_prop;
+
+      public t x_get() {
+        return x_prop;
+      }
+
+      public void x_set(t x_prop) {
+        this.x_prop = x_prop;
+      }
+  
+    ]|
+    where t := <defined-java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; columnname := <concat-strings>[x_class, x_Prop]
+	      
+  property-to-property-code(|x_class) :
+    PropertyRef(x_prop, GenericSort("Set", [SimpleSort(y)]), annos) -> 
+    class-body-dec* |[
+
+      @ManyToMany //(targetEntity=t)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private Set<t> x_prop = new HashSet<t>();
+
+      public Set<t> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(Set<t> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_add(t z) {
+        this.x_prop.add(z);
+      }
+  
+    ]|
+    where t := <java-type> SimpleSort(y)
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; x_add := <concat-strings>["add", x_Prop]
+	    ; z := <new>"one"
+	    // @todo: make singular for add
+
+  property-to-property-code(|x_class) :
+    PropertyRef(x_prop, GenericSort("List", [y]), annos) -> 
+    class-body-dec* |[
+
+      @ManyToMany //(targetEntity=t)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private List<t> x_prop = new LinkedList<t>();
+
+      public List<t> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(List<t> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_add(t z) {
+        this.x_prop.add(z);
+      }
+  
+    ]|
+    where t := <java-type> y
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; x_add := <concat-strings>["add", x_Prop]
+	    ; z := <new>"one"
+	    // @todo: make singular for add
+
+  property-to-property-code(|x_class) :
+    PropertyRef(x_prop, GenericSort("Map", 
+                       [SimpleSort(y_key),
+                        SimpleSort(y_value)]), []) -> 
+    class-body-dec* |[
+
+      @ManyToMany() // (targetEntity=t_value)
+      @org.hibernate.annotations.Cascade({
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+      private Map<t_key,t_value> x_prop = new HashMap<t_key,t_value>();
+
+      public Map<t_key,t_value> x_get() {
+        return x_prop;
+      }
+
+      public void x_set(Map<t_key,t_value> x_prop) {
+        this.x_prop = x_prop;
+      }
+
+      public void x_put(t_key key, t_value value) {
+        this.x_prop.put(key, value);
+      }
+  
+    ]|
+    where t_key := <java-type> SimpleSort(y_key)
+        ; t_value := <java-type> SimpleSort(y_value)
+        ; x_Prop := <capitalize-string> x_prop
+        ; x_get := <concat-strings>["get", x_Prop]
+        ; x_set := <concat-strings>["set", x_Prop]
+        ; x_put := <concat-strings>["put", x_Prop]
+	    // @todo: make singular for add

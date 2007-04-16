@@ -1,0 +1,135 @@
+/**
+ * Generate a backing bean for a list of all objects of an entity type
+ * and the corresponding interface class.
+ */
+ 
+module org/webdsl/dsl/generation/gen-list-class
+
+imports 
+  libstrategolib  
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/generation/utils
+
+rules
+
+  entity-to-list-class : 
+    EntityNoSuper(x_class, props) -> <entity-to-list-class>Entity(x_class, "Object", props)
+    
+  entity-to-list-class : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listclass, 
+    compilation-unit|[
+      package x_package;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      import static org.jboss.seam.ScopeType.CONVERSATION;
+      import static org.jboss.seam.ScopeType.SESSION;
+
+      import java.util.List;
+
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.Out;
+      import org.jboss.seam.annotations.Scope;
+      import org.jboss.seam.annotations.datamodel.DataModel;
+      import org.jboss.seam.annotations.datamodel.DataModelSelection;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+      import org.webdsl.serg.domain.Address;
+      
+      @Stateful
+      @Scope(SESSION)
+      @Name(~string:String([Chars(x_componentListBean)]))
+      public class x_listclass implements x_listinterface 
+      {
+          @Logger private Log log;
+    
+          @In FacesMessages facesMessages;
+    
+          @DataModel private List<x_class> x_componentList;
+    
+          @DataModelSelection @Out(required = false)
+          private x_class x_component;
+    
+          @PersistenceContext(type=EXTENDED)
+          private EntityManager em;
+    
+          @Factory(~string:String([Chars(x_componentList)]))
+          public void findEntries()
+          {
+             x_componentList = em.createQuery("from " + "~x_class").getResultList();
+             log.info("call to findEntries: list = " + x_componentList);
+             // @note antiquotation in string only works at the beginning of a string
+          }
+          
+          public void refresh()
+          { 
+	         findEntries();
+          }
+          // @todo this is needed to refresh the list after a new entry has been added
+          // this should be done automatically
+          
+          public void delete() {
+		    if (x_componentList == null)
+			  facesMessages.add("entries list is null");
+		    else if (x_component == null)
+			  facesMessages.add("entry is null");
+		    else {
+		      facesMessages.add("deleting ~x_class #{entry.id}");
+		      x_componentList.remove(x_component);
+		      em.remove(x_component);
+		      // @todo note that this depends on the semantics of the list
+		      // but in a CRUD list removal from list is removal from db
+		      x_component = null;
+		    }
+          }
+    
+	      @Destroy @Remove                                                                      
+	      public void destroy() {}
+      }
+    ]|)
+    where x_package       := <DomainPackage>
+        ; x_component     := <decapitalize-string> x_class
+	    ; x_listinterface := <concat-strings> ["I", x_class, "List"]
+	    ; x_listclass     := <concat-strings> [x_class, "List"]
+	    ; x_componentList := <concat-strings> [x_component, "List"]
+	    ; x_componentListBean := <concat-strings> [x_component, "ListBean"]
+
+  entity-to-list-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate list class for entity")
+    
+rules 
+
+  entity-to-list-interface : 
+    EntityNoSuper(x_class, props) -> <entity-to-list-interface>Entity(x_class, "Object", props)
+    
+  entity-to-list-interface : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listinterface, 
+    compilation-unit|[
+      package x_package;
+      public interface x_listinterface 
+      {
+          public void findEntries();
+          public void delete();    
+          public void refresh();                                                                   
+	      public void destroy();
+      }
+    ]|)
+    where x_package       := <DomainPackage>
+        ; x_listinterface := <concat-strings> ["I", x_class, "List"]
+  
+  entity-to-list-interface-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate list interface for entity")
