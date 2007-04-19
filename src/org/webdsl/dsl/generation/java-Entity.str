@@ -4,7 +4,7 @@
 
 */
 
-module org/webdsl/dsl/generation/gen-entity-class
+module org/webdsl/dsl/generation/java-Entity
 
 imports 
   libstrategolib  
@@ -13,13 +13,13 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
-  org/webdsl/dsl/generation/utils
-  org/webdsl/dsl/generation/types
+  org/webdsl/dsl/utils/utils
+  org/webdsl/dsl/transformation/types
 
 strategies
 
-  entity-to-entity-class : 
-    EntityNoSuper(x_class, props) -> JavaFile(["src"], x_package, x_class,
+  entity-to-java-Entity : 
+    EntityNoSuper(x_Class, props) -> JavaFile(["src"], x_package, x_Class,
     compilation-unit|[
       package x_package;
 
@@ -28,8 +28,8 @@ strategies
       import x_package.*;
 
       @Entity
-      public class x_class {
-        public x_class () {}
+      public class x_Class {
+        public x_Class () {}
 
         @Id @GeneratedValue
         private Long id;
@@ -41,11 +41,11 @@ strategies
         ~*cbds
       }
     ]|)
-    where cbds := <properties-to-code(|x_class)> props
+    where cbds := <properties-to-code(|x_Class)> props
 	    ; x_package := <DomainPackage>
     
   entity-to-entity-class : 
-    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_class, 
+    Entity(x_Class, x_super, props) -> JavaFile(["src"], x_package, x_Class, 
     compilation-unit|[
       package x_package;
 
@@ -54,12 +54,12 @@ strategies
       import x_package.*;
 
       @Entity
-      public class x_class extends x_super {
-        public x_class () {}
+      public class x_Class extends x_super {
+        public x_Class () {}
         ~*cbds
       }
     ]|)
-    where cbds := <properties-to-code(|x_class)> props
+    where cbds := <properties-to-code(|x_Class)> props
 	    ; x_package := <DomainPackage>
 	    // @note: don't define id on an entity with a super class; it
 	    // is inherited from the super class
@@ -70,16 +70,16 @@ strategies
     
 strategies
 
-  properties-to-code(|x_class) :
+  properties-to-code(|x_Class) :
     props -> cbds
-    where cbds1 := <mapconcat(property-to-property-code(|x_class) 
+    where cbds1 := <mapconcat(property-to-property-code(|x_Class) 
                               <+ debug(!"cannot generate code for property: "); ![])> props
-        ; cbds2 := <name-property(|x_class) <+ ![]> props
+        ; cbds2 := <name-property(|x_Class) <+ ![]> props
         ; cbds  := <concat>[cbds1, cbds2]
     
 strategies
 
-  name-property(|x_class) :
+  name-property(|x_Class) :
     props -> class-body-dec* |[
       public String getName() {
         return x_get().toString();
@@ -95,7 +95,7 @@ rules
    * Property with a value type
    */
 
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, k, SimpleSort(y), annos) -> class-body-dec* |[
 
       private t x_prop;
@@ -118,12 +118,12 @@ rules
 	      
   /**
    * property with a composite association type,
-   * i.e., to a defined entity that is owned by x_class;
+   * i.e., to a defined entity that is owned by x_Class;
    *
    * @note might be translated as @Embeddable
    */
 	      
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, Comp(), SimpleSort(y), annos) -> class-body-dec* |[
 
       @ManyToOne
@@ -146,7 +146,7 @@ rules
         ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
-        ; columnname := <concat-strings>[x_class, x_Prop]
+        ; columnname := <concat-strings>[x_Class, x_Prop]
         
     // @todo it would be cool to express these name constructions using
     // some sort of lightweight antiquotation
@@ -164,7 +164,7 @@ rules
    * only saving and mergin is cascaded
    */
    	      
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, Ref(), SimpleSort(y), annos) -> class-body-dec* |[
 
       @ManyToOne
@@ -187,7 +187,7 @@ rules
         ; x_Prop := <capitalize-string> x_prop
         ; x_get := <concat-strings>["get", x_Prop]
         ; x_set := <concat-strings>["set", x_Prop]
-        ; columnname := <concat-strings>[x_class, x_Prop]
+        ; columnname := <concat-strings>[x_Class, x_Prop]
       
     // @todo there is some redundancy here; at some point it will be worthwhile to
     // factor out annotations for property
@@ -208,7 +208,7 @@ rules
    * collection of value types
    */
   
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, k, GenericSort("Set", [s@SimpleSort(_)]), annos) -> 
     class-body-dec* |[
 
@@ -244,10 +244,10 @@ rules
         ; x_set := <concat-strings>["set", x_Prop]
         ; x_add := <concat-strings>["add", x_Prop]
 	    ; z := <new>"one"
-	    ; tableName := <concat-strings>[x_class, "_", x_Prop]
+	    ; tableName := <concat-strings>[x_Class, "_", x_Prop]
 	    // @todo: make singular for add
 	    
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, k, GenericSort("Set", [SimpleSort(y)]), annos) -> 
     class-body-dec* |[
 
@@ -279,7 +279,7 @@ rules
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, k, GenericSort("List", [y]), annos) -> 
     class-body-dec* |[
 
@@ -311,7 +311,7 @@ rules
 	    ; z := <new>"one"
 	    // @todo: make singular for add
 
-  property-to-property-code(|x_class) :
+  property-to-property-code(|x_Class) :
     Property(x_prop, k, GenericSort("Map", 
                          [SimpleSort(y_key),
                           SimpleSort(y_value)]), []) -> 

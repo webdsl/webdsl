@@ -1,4 +1,4 @@
-module org/webdsl/dsl/generation/entities-to-view
+module org/webdsl/dsl/generation/xhtml-editEntity
       
 
 imports 
@@ -8,47 +8,45 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
-  org/webdsl/dsl/generation/utils
-  org/webdsl/dsl/generation/entity-to-java
 
 rules    
 
-  entity-to-edit-view : 
-    EntityNoSuper(x_class, props) ->
-    <entity-to-edit-view> Entity(x_class, "Object", props) 
+  entity-to-xhtml-editEntity : 
+    EntityNoSuper(x_Class, props) ->
+    <entity-to-xhtml-editEntity> Entity(x_Class, "Object", props) 
     // @todo use some kind of forwarding mechanism for these type of definitions
   
-  entity-to-edit-view : 
-    Entity(x_class, x_super, props) -> XmlFile("view", <concat-strings>["edit", x_class, ".xhtml"], <xml-composition-wrap>
+  entity-to-xhtml-editEntity : 
+    Entity(x_Class, x_super, props) -> XmlFile("view", <concat-strings>["edit", x_Class, ".xhtml"], <xml-composition-wrap>
     %><ui:define name="body">
         <h1>
-           <h:outputText rendered="#{!<%=x_class_home%>.managed}" value="Create <%= x_class %>" />
-           <h:outputText rendered="#{<%=x_class_home%>.managed}"  value="Edit <%= x_class %>" />
+           <h:outputText rendered="#{<%=x_classEditor%>.new}" value="Create <%=x_Class%>" />
+           <h:outputText rendered="#{!<%=x_classEditor%>.new}"  value="Edit #{<%=x_Class%> <%= x_classEditor%>.<%=x_class%>.name}" />
         </h1>
         <h:messages globalOnly="true" styleClass="message"/>
-        <h:form id="edit<%= x_class %>">
+        <h:form id="edit<%= x_Class %>">
           <div class="dialog">
             <s:validateAll><%= tbl %></s:validateAll>
           </div>
           <div class="actionButtons">
-            <s:link view="/view<%= x_class %>.xhtml" 
-                    value="View <%= x_class %>"
-                    rendered="#{<%=x_class_home%>.managed}"/>
-            <h:commandButton value="Create <%=x_class%>" 
-                             action="#{<%=x_class_home%>.persist}"
-                             rendered="#{!<%=x_class_home%>.managed}"/>
-            <h:commandButton value="Update <%=x_class%>" 
-                             action="#{<%=x_class_home%>.update}"
-                             rendered="#{<%=x_class_home%>.managed}"/>
-            <h:commandButton value="Delete <%=x_class%>" 
-                             action="#{<%=x_class_home%>.delete}"
-                             rendered="#{<%=x_class_home%>.managed}"/>
+            <h:commandButton value="Create" 
+                             action="#{<%=x_classEditor%>.create}"
+                             rendered="#{<%=x_classEditor%>.new}"/>
+            <h:commandButton value="View"
+                             view="/view<%= x_Class %>.xhtml" 
+                             rendered="#{!<%=x_classEditor%>.new}"/>
+            <h:commandButton value="Update" 
+                             action="#{<%=x_classEditor%>.update}"
+                             rendered="#{!<%=x_classEditor%>.new}"/>
+            <h:commandButton value="Delete" 
+                             action="#{<%=x_classEditor%>.delete}"
+                             rendered="#{!<%=x_classEditor%>.new}"/>
           </div>
         </h:form>
       </ui:define><% )
-    where x_component  := <decapitalize-string> x_class
-        ; x_class_home := <concat-strings>[x_component, "Home"]
-        ; tbl := <edit-form(|x_component)> props
+    where x_class       := <decapitalize-string> x_Class
+        ; x_classEditor := <concat-strings>[x_class, "Editor"]
+        ; tbl           := <edit-form(|x_class)> props
                           
 rules
 
@@ -76,23 +74,33 @@ rules
  rules
 	    
   property-to-edit-component(|x_component, x_id) :
-    Property(x_prop, k, s@SimpleSort("String"), _) -> 
+    Property(x_prop, Simple(), s@SimpleSort(s0), _) -> 
     %><h:inputText id="<%=x_id%>_<%=x_prop%>" 
                    required="true" 
                    value="#{<%=x_component%>.<%=x_prop%>}"/><%
+    where <"String" + "URL" + "Image" + "Email"> s0
    
   property-to-edit-component(|x_component, x_id) :
-    Property(x_prop, k, s@SimpleSort("Text"), _) -> 
+    Property(x_prop, Simple(), s@SimpleSort("Text"), _) -> 
     %><h:inputTextArea id="<%=x_id%>_<%=x_prop%>" 
                        required="true" 
                        value="#{<%=x_component%>.<%=x_prop%>}"/><%
        
   property-to-edit-component(|x_component, x_id) :
-    Property(x_prop, k, s@SimpleSort("Secret"), _) -> 
+    Property(x_prop, Simple(), s@SimpleSort("Secret"), _) -> 
     %><h:inputSecret id="<%=x_id%>_<%=x_prop%>" 
                      required="true" 
                      value="#{<%=x_component%>.<%=x_prop%>}"/><%
-
+                     
+  property-to-edit-component(|x_component, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Date"), _) -> 
+    %><div><h:inputText id="<%=x_id%>_<%=x_prop%>" required="true" 
+                   value="#{<%=x_component%>.<%=x_prop%>}">
+               <s:convertDateTime pattern="dd/mm/yyyy"/>
+           </h:inputText>
+           <s:selectDate for="<%=x_id%>_<%=x_prop%>"/>
+      </div><%
+      
   // composite association with defined type
 
   row-in-edit-form(|x_component, x_id)  :
@@ -106,8 +114,6 @@ rules
         ; x_sub_id := <concat-strings> [x_id, "_", x_prop]
         ; rows := <edit-form-rows(|x_sub_component, x_sub_id)> props
        
-   
-   
  // done
      
   // todo specialize input component to the type of the property

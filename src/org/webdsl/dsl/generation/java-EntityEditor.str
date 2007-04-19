@@ -2,7 +2,7 @@
  * Generate a Seam EntityHome class for a declared entity
  */
 
-module org/webdsl/dsl/generation/gen-home-class
+module org/webdsl/dsl/generation/java-EntityEditor
 
 imports 
   libstrategolib  
@@ -11,36 +11,170 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
-  org/webdsl/dsl/generation/utils
+  org/webdsl/dsl/utils/-
+
+strategies
+
+  // @note this extracts also methods from inner classes
+
+  extract-method-signatures =
+    collect(method-dec-to-abstract-method-dec)
+    
+  method-dec-to-abstract-method-dec :
+    MethodDecHead(mods1, x , t, x_method, args, y) ->
+    AbstractMethodDec(mods2, x, t, x_method, args, y)
+    where <fetch(?Public())> mods1
+        ; mods2 := <filter(not(?MarkerAnno(_) <+ ?Anno(_,_)))> mods1 
 
 rules
 
-  entity-to-home-class : 
-    EntityNoSuper(x_class, props) -> <entity-to-home-class>Entity(x_class, "Object", props)
+  // @todo might be possible to extract interface automatically from ClassEditorBean class
+
+  entity-to-EntityEditor : 
+    EntityNoSuper(x_Class, props) -> <entity-to-EntityEditor>Entity(x_Class, "Object", props)
     
-  entity-to-home-class : 
-    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_homeclass, 
+  entity-to-EntityEditor : 
+    e@Entity(x_Class, x_super, props) -> (JavaFile(["src"], x_package, x_ClassEditor,
     compilation-unit|[
       package x_package;
       
-      import org.jboss.seam.annotations.Factory;
+      import org.jboss.annotation.ejb.Local;
+      
+      @Local
+      public interface x_ClassEditor {
+        ~*methodsdecs
+      }
+    ]|), bean)
+    where x_package     := <DomainPackage>
+	    ; x_ClassEditor := <concat-strings> [x_Class, "Editor"]
+	    ; bean          := <entity-to-EntityEditorBean> e
+	    ; methodsdecs   := <extract-method-signatures> bean
+	    
+rules
+
+  entity-to-EntityEditorBean : 
+    EntityNoSuper(x_Class, props) -> <entity-to-EntityEditorBean>Entity(x_Class, "Object", props)
+    
+  entity-to-EntityEditorBean : 
+    Entity(x_Class, x_super, props) -> JavaFile(["src"], x_package, x_ClassEditorBean,
+    compilation-unit|[
+      package x_package;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.ejb.TransactionAttribute;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+
+      import org.jboss.seam.annotations.Begin;
+      import org.jboss.seam.annotations.Create;
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.End;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
       import org.jboss.seam.annotations.Name;
-      import org.jboss.seam.framework.EntityHome;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+
+      @Stateful
+      @Name(~string:String([Chars(x_classEditor)]))
+      public class x_ClassEditorBean implements x_ClassEditor {
       
-      @Name(~string:String([Chars(x_componenthome)]))
-      public class x_homeclass extends EntityHome<x_class> {
+      	@Logger
+	    private Log log;
+
+	    @In
+	    private FacesMessages facesMessages;
+
+	    @PersistenceContext(type = EXTENDED)
+	    private EntityManager em;
+
+	    // property for x_class object being edited
+
+	    private x_Class x_class;
+
+	    public x_Class x_getClass() {
+		  return x_class;
+	    }
+
+	    public void x_setClass(x_Class x_class) {
+		  this.x_class = x_class;
+	    }
+
+	    @Create
+	    public void initialize() {
+		  x_class = new x_Class();
+	    }
+	    
+	    // are we creating a new object or editing an existing one
+
+	    private boolean isNew = true;
+
+	    //@TransactionAttribute(NOT_SUPPORTED)
+	    public boolean isNew() {
+		  return isNew;
+	    }
+	    
+	    // save values for properties of new object
+
+	    @Begin(join = true)
+	    public String create() {
+		  em.persist(x_class);
+		  isNew = false;
+		  // return "editPerson";
+		  log.info("creating new x_class");
+		  return null;
+	    }
+
+	    // @LoggedIn
+	    // @IfInvalid(outcome = Outcome.REDISPLAY, refreshEntities = true)
+	    public String update() {
+		  em.joinTransaction();
+		  em.flush();
+		  log.info("updating x_class");
+		  return null;
+	    }
+
+	    @End
+	    // @LoggedIn
+	    public String delete() {
+		  em.remove(x_class);
+		  x_class = null;
+		  // issue.getProject().getIssues().remove(issue);
+		  // refreshFinder();
+		  // return doneOutcome;
+		  log.info("deleting x_Class and going to PersonList");
+		  return "/find" + "~x_Class" + ".xhtml";
+	    }
+
+	    @End
+	    public String done() {
+		  if (!isNew)
+			em.refresh(x_class);
+		  return "/find" + "~x_Class" + ".xhtml";
+	    }
+
+	    @End
+	    public String view() {
+		  if (!isNew)
+			em.refresh(x_class);
+		  return "/view" + "~x_Class" + ".xhtml";
+	    }
+
+	    @Remove
+	    @Destroy
+	    public void destroy() { }
       
-        @Factory(~string:String([Chars(x_component)]))
-        public x_class x_init() { return getInstance(); }
-        
       }
     ]|)
-    where x_package    := <DomainPackage>
-        ; x_component  := <decapitalize-string> x_class
-	    ; x_homeclass := <concat-strings> [x_class, "Home"]
-	    ; x_componenthome := <concat-strings> [x_component, "Home"]
-	    ; x_init       := <concat-strings> ["init", x_class]
+    where x_package         := <DomainPackage>
+        ; x_class           := <decapitalize-string> x_Class
+	    ; x_ClassEditor     := <concat-strings> [x_Class, "Editor"]
+	    ; x_ClassEditorBean := <concat-strings> [x_Class, "EditorBean"]
+	    ; x_classEditor     := <concat-strings> [x_class, "Editor"]
+	    ; x_getClass        := <concat-strings> ["get", x_Class]
+	    ; x_setClass        := <concat-strings> ["set", x_Class]
 	    
-  entity-to-home-class-fails =
-    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
-    ; err(|"cannot generate home class for entity")
+	    

@@ -3,7 +3,7 @@
  * and the corresponding interface class.
  */
  
-module org/webdsl/dsl/generation/gen-list-class
+module org/webdsl/dsl/generation/java-EntityFinder
 
 imports 
   libstrategolib  
@@ -12,15 +12,41 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
-  org/webdsl/dsl/generation/utils
+  org/webdsl/dsl/utils/utils
+  
+rules 
 
+  // @todo derive interface from EntityFinderBean class
+
+  entity-to-EntityFinder : 
+    EntityNoSuper(x_Class, props) -> <entity-to-EntityFinder>Entity(x_Class, "Object", props)
+    
+  entity-to-EntityFinder : 
+    Entity(x_Class, x_super, props) -> JavaFile(["src"], x_package, x_classfinder, 
+    compilation-unit|[
+      package x_package;
+      
+      import org.jboss.annotation.ejb.Local;
+      
+      @Local
+      public interface x_classfinder
+      {
+          public void findEntries();
+          public void delete();    
+          //public void refresh();                                                                   
+	      public void destroy();
+      }
+    ]|)
+    where x_package     := <DomainPackage>
+        ; x_classfinder := <concat-strings> [x_Class, "Finder"]
+        
 rules
 
-  entity-to-list-class : 
-    EntityNoSuper(x_class, props) -> <entity-to-list-class>Entity(x_class, "Object", props)
+  entity-to-java-EntityFinderBean : 
+    EntityNoSuper(x_Class, props) -> <entity-to-java-EntityFinderBean>Entity(x_Class, "Object", props)
     
-  entity-to-list-class : 
-    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listclass, 
+  entity-to-java-EntityFinderBean : 
+    Entity(x_Class, x_super, props) -> JavaFile(["src"], x_package, x_ClassFinderBean, 
     compilation-unit|[
       package x_package;
       
@@ -34,7 +60,8 @@ rules
       import javax.ejb.Stateful;
       import javax.persistence.EntityManager;
       import javax.persistence.PersistenceContext;
-
+      
+      import org.jboss.seam.annotations.Create;
       import org.jboss.seam.annotations.Destroy;
       import org.jboss.seam.annotations.Factory;
       import org.jboss.seam.annotations.In;
@@ -49,8 +76,8 @@ rules
       import org.webdsl.serg.domain.Address;
       
       @Stateful
-      @Name(~string:String([Chars(x_componentListBean)]))
-      public class x_listclass implements x_listinterface 
+      @Name(~string:String([Chars(x_classFinder)]))
+      public class x_ClassFinderBean implements x_ClassFinder
       {
           @Logger 
           private Log log;
@@ -68,16 +95,16 @@ rules
 	      }
 	      
           @DataModel
-          private List<x_class> x_componentList;
+          private List<x_Class> x_classEntries;
     
           @DataModelSelection @Out(required = false)
-          private x_class x_component;
+          private x_Class x_selectedClass;
 
-          @Factory(~string:String([Chars(x_componentList)]))
+          @Factory(~string:String([Chars(x_classEntries)]))
           public void findEntries()
           {
-             x_componentList = em.createQuery("from " + "~x_class").getResultList();
-             log.info("call to findEntries: list = " + x_componentList);
+             x_classEntries = em.createQuery("from " + "~x_Class").getResultList();
+             log.info("call to findEntries: list = " + x_classEntries);
              // @note antiquotation in string only works at the beginning of a string
           }
           
@@ -89,17 +116,17 @@ rules
           // this should be done automatically
           
           public void delete() {
-		    if (x_componentList == null)
+		    if (x_classEntries == null)
 			  facesMessages.add("entries list is null");
-		    else if (x_component == null)
-			  facesMessages.add("entry is null");
+		    else if (x_selectedClass == null)
+			  facesMessages.add("selection is null");
 		    else {
-		      facesMessages.add("deleting ~x_class #{entry.id}");
-		      x_componentList.remove(x_component);
-		      em.remove(x_component);
+		      facesMessages.add("deleting " + "~x_Class" + " #{entry.id}");
+		      x_classEntries.remove(x_selectedClass);
+		      em.remove(x_selectedClass);
 		      // @todo note that this depends on the semantics of the list
 		      // but in a CRUD list removal from list is removal from db
-		      x_component = null;
+		      x_selectedClass = null;
 		    }
           }
     
@@ -107,37 +134,14 @@ rules
 	      public void destroy() {}
       }
     ]|)
-    where x_package       := <DomainPackage>
-        ; x_component     := <decapitalize-string> x_class
-	    ; x_listinterface := <concat-strings> ["I", x_class, "List"]
-	    ; x_listclass     := <concat-strings> [x_class, "List"]
-	    ; x_componentList := <concat-strings> [x_component, "List"]
-	    ; x_componentListBean := <concat-strings> [x_component, "ListBean"]
-
-  entity-to-list-class-fails =
-    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
-    ; err(|"cannot generate list class for entity")
+    where x_package         := <DomainPackage>
+        ; x_class           := <decapitalize-string> x_Class
+	    ; x_classEntries    := <concat-strings> [x_class, "Entries"]
+	    ; x_selectedClass   := <concat-strings> ["selected", x_Class]
+	    ; x_ClassFinder     := <concat-strings> [x_Class, "Finder"]
+	    ; x_ClassFinderBean := <concat-strings> [x_Class, "FinderBean"]
+	    ; x_classFinder     := <concat-strings> [x_class, "Finder"]
+	    ; x_classFinderBean := <concat-strings> [x_class, "FinderBean"]
     
-rules 
 
-  entity-to-list-interface : 
-    EntityNoSuper(x_class, props) -> <entity-to-list-interface>Entity(x_class, "Object", props)
-    
-  entity-to-list-interface : 
-    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_listinterface, 
-    compilation-unit|[
-      package x_package;
-      public interface x_listinterface 
-      {
-          public void findEntries();
-          public void delete();    
-          public void refresh();                                                                   
-	      public void destroy();
-      }
-    ]|)
-    where x_package       := <DomainPackage>
-        ; x_listinterface := <concat-strings> ["I", x_class, "List"]
-  
-  entity-to-list-interface-fails =
-    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
-    ; err(|"cannot generate list interface for entity")
+
