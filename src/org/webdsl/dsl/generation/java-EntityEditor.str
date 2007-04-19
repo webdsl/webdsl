@@ -1,0 +1,46 @@
+/**
+ * Generate a Seam EntityHome class for a declared entity
+ */
+
+module org/webdsl/dsl/generation/gen-home-class
+
+imports 
+  libstrategolib  
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/generation/utils
+
+rules
+
+  entity-to-home-class : 
+    EntityNoSuper(x_class, props) -> <entity-to-home-class>Entity(x_class, "Object", props)
+    
+  entity-to-home-class : 
+    Entity(x_class, x_super, props) -> JavaFile(["src"], x_package, x_homeclass, 
+    compilation-unit|[
+      package x_package;
+      
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.framework.EntityHome;
+      
+      @Name(~string:String([Chars(x_componenthome)]))
+      public class x_homeclass extends EntityHome<x_class> {
+      
+        @Factory(~string:String([Chars(x_component)]))
+        public x_class x_init() { return getInstance(); }
+        
+      }
+    ]|)
+    where x_package    := <DomainPackage>
+        ; x_component  := <decapitalize-string> x_class
+	    ; x_homeclass := <concat-strings> [x_class, "Home"]
+	    ; x_componenthome := <concat-strings> [x_component, "Home"]
+	    ; x_init       := <concat-strings> ["init", x_class]
+	    
+  entity-to-home-class-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate home class for entity")
