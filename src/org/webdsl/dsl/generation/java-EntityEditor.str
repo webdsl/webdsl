@@ -24,16 +24,16 @@ strategies
     MethodDecHead(mods1, x , t, x_method, args, y) ->
     AbstractMethodDec(mods2, x, t, x_method, args, y)
     where <fetch(?Public())> mods1
-        ; mods2 := <filter(not(?MarkerAnno(_) <+ ?Anno(_,_)))> mods1 
+        ; mods2 := <filter(not(?MarkerAnno(_) <+ ?Anno(_,_) <+ ?SingleElemAnno(_,_)))> mods1 
 
 rules
 
   // @todo might be possible to extract interface automatically from ClassEditorBean class
 
-  entity-to-EntityEditor : 
-    EntityNoSuper(x_Class, props) -> <entity-to-EntityEditor>Entity(x_Class, "Object", props)
+  entity-to-java-EntityEditor : 
+    EntityNoSuper(x_Class, props) -> <entity-to-java-EntityEditor>Entity(x_Class, "Object", props)
     
-  entity-to-EntityEditor : 
+  entity-to-java-EntityEditor : 
     e@Entity(x_Class, x_super, props) -> (JavaFile(["src"], x_package, x_ClassEditor,
     compilation-unit|[
       package x_package;
@@ -47,15 +47,15 @@ rules
     ]|), bean)
     where x_package     := <DomainPackage>
 	    ; x_ClassEditor := <concat-strings> [x_Class, "Editor"]
-	    ; bean          := <entity-to-EntityEditorBean> e
+	    ; bean          := <entity-to-java-EntityEditorBean> e
 	    ; methodsdecs   := <extract-method-signatures> bean
 	    
 rules
 
-  entity-to-EntityEditorBean : 
-    EntityNoSuper(x_Class, props) -> <entity-to-EntityEditorBean>Entity(x_Class, "Object", props)
+  entity-to-java-EntityEditorBean : 
+    EntityNoSuper(x_Class, props) -> <entity-to-java-EntityEditorBean>Entity(x_Class, "Object", props)
     
-  entity-to-EntityEditorBean : 
+  entity-to-java-EntityEditorBean : 
     Entity(x_Class, x_super, props) -> JavaFile(["src"], x_package, x_ClassEditorBean,
     compilation-unit|[
       package x_package;
@@ -75,6 +75,7 @@ rules
       import org.jboss.seam.annotations.In;
       import org.jboss.seam.annotations.Logger;
       import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.RequestParameter;
       import org.jboss.seam.core.FacesMessages;
       import org.jboss.seam.log.Log;
 
@@ -123,17 +124,27 @@ rules
 	    public String create() {
 		  em.persist(x_class);
 		  isNew = false;
-		  // return "editPerson";
-		  log.info("creating new x_class");
+		  log.info("creating new " + "~x_class");
 		  return null;
 	    }
+	    
+	    @RequestParameter(~string:String([Chars(x_classId)]))
+	    private Long x_classId;
 
+	    @Begin(join = true)
+	    public String edit() {
+		  x_class = em.find(x_Class.class, x_classId);
+		  isNew = false;
+		  log.info("loaded new " + "~x_class" + " for editing " + x_class);
+		  return "editAddress";
+	    }
+	    
 	    // @LoggedIn
 	    // @IfInvalid(outcome = Outcome.REDISPLAY, refreshEntities = true)
-	    public String update() {
+	    public String save() {
 		  em.joinTransaction();
 		  em.flush();
-		  log.info("updating x_class");
+		  log.info("saving " + "~x_class");
 		  return null;
 	    }
 
@@ -145,22 +156,22 @@ rules
 		  // issue.getProject().getIssues().remove(issue);
 		  // refreshFinder();
 		  // return doneOutcome;
-		  log.info("deleting x_Class and going to PersonList");
-		  return "/find" + "~x_Class" + ".xhtml";
+		  log.info("deleting " + "~x_Class");
+		  return "find" + "~x_Class";
 	    }
 
 	    @End
 	    public String done() {
 		  if (!isNew)
 			em.refresh(x_class);
-		  return "/find" + "~x_Class" + ".xhtml";
+		  return "find" + "~x_Class";
 	    }
 
 	    @End
 	    public String view() {
 		  if (!isNew)
 			em.refresh(x_class);
-		  return "/view" + "~x_Class" + ".xhtml";
+		  return "view" + "~x_Class";
 	    }
 
 	    @Remove
@@ -174,6 +185,7 @@ rules
 	    ; x_ClassEditor     := <concat-strings> [x_Class, "Editor"]
 	    ; x_ClassEditorBean := <concat-strings> [x_Class, "EditorBean"]
 	    ; x_classEditor     := <concat-strings> [x_class, "Editor"]
+	    ; x_classId         := <concat-strings> [x_class, "Id"]
 	    ; x_getClass        := <concat-strings> ["get", x_Class]
 	    ; x_setClass        := <concat-strings> ["set", x_Class]
 	    
