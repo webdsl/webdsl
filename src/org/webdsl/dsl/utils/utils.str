@@ -48,6 +48,26 @@ strategies
     explode-string
     ; [to-lower | id]
     ; implode-string
+    
+rules
+    
+  qid-to-list(|xs) :
+    Qualified(qid, x) -> <qid-to-list(|[x|xs])> qid
+    
+  qid-to-list(|xs) :
+    x -> [x | xs]
+    where <is-string> x
+      
+  qid-to-list = 
+    qid-to-list(|[])
+  
+  qid-to-string =
+    qid-to-list
+    ; foldr(!"", \ (x,y) -> <concat-strings>[x, ".", y] \ )
+    
+  qid-to-package-name :
+    qid -> PackageName(xs)
+    where xs := <qid-to-list; map(!Id(<id>))> qid
         
 signature
   constructors
@@ -64,7 +84,7 @@ strategies
     
 signature
   constructors
-    JavaFile : List(String) * String * String * CompilationUnit -> File
+    JavaFile : List(String) * String * CompilationUnit -> File
 
 strategies
 
@@ -72,11 +92,32 @@ strategies
     java-file-to-text-file
     ; text-file-to-file
 
+  //java-file-to-text-file :
+  //  JavaFile(prefix, pkg, name, cu) -> TextFile(filename, text)
+  //  where path := <conc; create-dirs> (prefix, <qid-to-list> pkg)
+  //    ; filename := <concat-strings> [path, "/", name, ".java"]
+  //	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
+	    
   java-file-to-text-file :
-    JavaFile(prefix, pkg, name, cu) -> TextFile(filename, text)
-    where path := <conc; create-dirs> (prefix, <string-tokenize(|['.'])> pkg)
+    JavaFile(prefix, cu) -> TextFile(filename, text)
+    where pkg := <package-name> cu
+        ; cls := <class-name> cu
+        ; path := <conc; create-dirs> (prefix, pkg)
 	    ; filename := <concat-strings> [path, "/", name, ".java"]
-	    ; text := <pp-java5-to-string> cu
+	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
+	  
+	  
+  // @todo what is first argument of PackageDec?
+  
+  package-name :
+    CompilationUnit(Some(PackageDec(_, PackageName(ids))), _, _) -> xs
+    where xs := <map(?Id(<id>))> ids
+    
+  package-name :
+    CompilationUnit(None(), _, _) -> []
+    
+  class-name :
+    CompilationUnit(_, _, [ClassDec(ClassDecHead(_,Id(x),_,_,_)|_]) -> x
 	  
 signature
   constructors
@@ -90,7 +131,7 @@ strategies
     
   xml-file-to-text-file : 
     XmlFile(pkg, name, doc) -> TextFile(filename, text)
-    where path := <string-tokenize(|['.']); create-dirs> pkg
+    where path := <qid-to-list; create-dirs> pkg
 	    ; filename := <concat-strings> [path, "/", name]
 	    ; text := <xml-doc2abox; box2text-string(|80) <+ write-to-string> doc
 	    
