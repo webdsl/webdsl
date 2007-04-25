@@ -1,0 +1,197 @@
+module org/webdsl/dsl/generation/java-code
+
+imports 
+  libstrategolib  
+  Java-15
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+  
+strategies
+
+
+rules
+
+  action-to-java =
+    action-to-java-good <+ action-to-java-bad
+ 
+  action-to-java-bad =
+    ?Action(x_action, block)
+    ; debug(!"cannot compile action: ")
+  
+  action-to-java-good :
+    Action(x_action, Block(stm*)) -> JavaFile(["src"], domainpkg, x_ActionBean,
+    compilation-unit|[
+      package x_package;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      import static org.jboss.seam.ScopeType.CONVERSATION;
+      import static org.jboss.seam.ScopeType.SESSION;
+
+      import java.util.List;
+
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+      
+      import org.jboss.seam.annotations.Create;
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.Out;
+      import org.jboss.seam.annotations.Scope;
+      import org.jboss.seam.annotations.datamodel.DataModel;
+      import org.jboss.seam.annotations.datamodel.DataModelSelection;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+      import org.webdsl.serg.domain.Address;
+           
+      @Name(~string:String([Chars(x_actionBean)]))
+      public class x_ActionBean {
+      
+        @Logger 
+        private Log log;
+    
+        @In FacesMessages 
+        facesMessages;
+         
+        @PersistenceContext(type=EXTENDED)
+        private EntityManager em;
+      
+        public void x_action() {
+          bstm*
+        }
+      
+      }
+      
+    ]|)
+    where x_Action     := <capitalize-string> x_action
+        ; x_ActionBean := <concat-strings>[x_Action, "ActionBean"]
+        ; x_actionBean := <concat-strings>[x_action, "ActionBean"]
+        ; debug(!"class name: ")
+        ; domainpkg := <DomainPackage>
+	    ; x_package := <qid-to-java> domainpkg
+	    ; debug(!"package name: ")
+        ; bstm* := <filter-warn(statement-to-java | "cannot translate statement")> stm*
+        
+   statement-to-java =
+     block-to-java
+     <+ assignment-to-java
+     <+ vardecl-to-java
+     <+ stat-to-java
+    
+   block-to-java :
+     Block(stm*) -> bstm|[ { bstm* } ]|
+     where bstm* := <filter-warn(statement-to-java | "cannot translate statement")> stm*
+     
+   stat-to-java :
+     Stat(e1) -> |[ e2; ]|
+     where e2 := <expression-to-java> e1
+     
+   assignment-to-java :
+     Assign(Assignment(x, e1)) -> |[ x = e2; ]|
+     where <is-string> x
+         ; e2 := <expression-to-java> e1 
+   
+   assignment-to-java :
+     Assign(Assignment(Qualified(qid, x), e1)) -> 
+     |[ e2.x_set(e3); ]|
+     where e2 := <qid-to-java> qid
+         ; e3 := <expression-to-java> e1 
+         ; x_set := <concat-strings>["set", <capitalize-string> x]
+         
+   qid-to-java :
+     Qualified(qid, x) -> |[ e.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e := <qid-to-java> qid
+     
+   qid-to-java :
+     x -> |[ x ]|
+     where <is-string> x
+     
+   vardecl-to-java :
+     VarDecl(s, x, e1) -> bstm|[ t x = e2; ]|
+     where t := <java-type> s 
+         ; e2 := <expression-to-java> e1
+       
+   expression-to-java :
+     FieldAccess(e1, x) -> |[ e2.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e2 := <expression-to-java> e1
+     
+   expression-to-java :
+     ObjectCreation(x_Class, assigns) -> 
+     |[
+        {| x_Class x_var = new x_Class(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-java(|x_var)| "cannot translate asssignment")> assigns
+     
+   field-assign-to-java(|x_var) :
+     Assignment(y_field, e1) -> |[ x_var.y_set(e2); ]|
+     where e2 := <expression-to-java> e1 
+         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+     
+   expression-to-java :
+     String(x1) -> expr|[ "~x2" ]|
+     where x2 := <un-double-quote> x1
+     
+   expression-to-java :
+     Var(x) -> expr|[ x ]|
+     
+   expression-to-java :
+     Call(Var(x), "persist", []) -> |[ {| em.persist(x); | x |} ]|
+        
+         /*
+ 
+ Action(
+          "initDB"
+        , Block(
+            [ Assign(
+                Assignment(
+                  "Mekelweg4"
+                , ObjectCreation(
+                    "Address"
+                  , [ Assignment("street", String("\"Mekelweg\""))
+                    , Assignment("number", String("\"4\""))
+                    , Assignment("city", String("\"Delft\""))
+                    ]
+                  )
+                )
+              )
+            , Assign(
+                Assignment(
+                  "EelcoVisser"
+                , ObjectCreation(
+                    "Person"
+                  , [ Assignment("fullname", String("\"Eelco Visser\""))
+                    , Assignment("address", Var("Mekelweg4"))
+                    , Assignment("homepage", String("\"http://www.eelcovisser.net\""))
+                    , Assignment("photo", String("\"http://static.flickr.com/56/141569082_372ea07ea9_m.jpg\""))
+                    , Assignment(
+                        "user"
+                      , ObjectCreation(
+                          "User"
+                        , [ Assignment("username", String("\"Eelco Visser\""))
+                          , Assignment("email", String("\"visser@acm.org\""))
+                          , Assignment("password", String("\"foo\""))
+                          , Assignment("person", Var("EelcoVisser"))
+                          ]
+                        )
+                      )
+                    ]
+                  )
+                )
+              )
+            ]
+          )
+        )
+ */
+     
+     
+   
