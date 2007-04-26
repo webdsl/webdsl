@@ -8,9 +8,6 @@ imports
 imports 
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/utils/-
-  
-strategies
-
 
 rules
 
@@ -21,7 +18,24 @@ rules
     ?Action(x_action, block)
     ; debug(!"cannot compile action: ")
   
-  action-to-java-good :
+  action-to-java-good:
+    a@Action(x_action, Block(stm*)) -> (JavaFile(["src"],
+    compilation-unit|[
+      package pkgname;
+      
+      import org.jboss.annotation.ejb.Local;
+                 
+      @Local
+      public interface x_Action {
+        ~*methoddecs
+      }
+    ]|), bean)
+    where x_Action := <concat-strings>[<capitalize-string> x_action, "Action"]
+        ; pkgname := <DomainPackage>
+        ; bean := <action-to-java-action-bean> a
+	    ; methoddecs   := <extract-method-signatures> bean
+
+  action-to-java-action-bean:
     Action(x_action, Block(stm*)) -> JavaFile(["src"],
     compilation-unit|[
       package pkgname;
@@ -51,8 +65,9 @@ rules
       import org.jboss.seam.log.Log;
       import org.webdsl.serg.domain.Address;
            
+      @Stateful
       @Name(~string:String([Chars(x_actionBean)]))
-      public class x_ActionBean {
+      public class x_ActionBean implements x_Action {
       
         @Logger 
         private Log log;
@@ -67,13 +82,16 @@ rules
           bstm*
           return null;
         }
-      
+         
+        @Remove @Destroy
+        public void destroy() {}
+         
       }
       
     ]|)
-    where x_Action     := <capitalize-string> x_action
-        ; x_ActionBean := <concat-strings>[x_Action, "ActionBean"]
-        ; x_actionBean := <concat-strings>[x_action, "ActionBean"]
+    where x_Action     := <concat-strings>[<capitalize-string> x_action, "Action"]
+        ; x_ActionBean := <concat-strings>[x_Action, "Bean"]
+        ; x_actionBean := <concat-strings>[x_action, "Bean"]
         ; debug(!"class name: ")
         ; pkgname := <DomainPackage>
 	    ; debug(!"package name: ")

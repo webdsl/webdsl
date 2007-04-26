@@ -3,7 +3,7 @@ syntax = org/webdsl/dsl/syntax/WebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
-STRSOURCES = $(wildcard org/webdsl/dsl/generation/*.str)
+STRSOURCES = $(wildcard org/webdsl/dsl/*/*.str)
 
 STRINCLUDES = \
 	-I . \
