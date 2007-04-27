@@ -32,7 +32,7 @@ rules
           <div class="actionButtons">
              <s:button action="#{<%= x_classEditor %>.edit}" value="Edit"/>
              <s:button action="#{<%= x_classHome%>.remove}"  value="Delete"/>
-             <s:button view="/<%= x_findClass%>.xhtml"        value="Find <%= x_class %>"/>
+             <s:button view="/<%= x_findClass%>.xhtml"       value="Find <%= x_class %>"/>
           </div>
         </h:form>
       </ui:define><% )
@@ -63,14 +63,22 @@ rules
   // create a row in the view form
   
   row-in-view-form(|x_class, x_id)  :
-    prop@Property(x_prop, k, s@SimpleSort(y), _) ->
-    %><h:outputText value="<%=x_prop%>"/><%= input %><%
+    prop@Property(x_prop, _, _, _) ->
+    %>
+      <h:outputText value="<%=x_prop%>"/>
+      <%= input %>
+    <%
     where input := <property-to-view-component(|x_class, x_id)> prop
     
  rules
  
   // @todo complain about value type attributes that are not 'Simple' compositions (::)
-	    
+  
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Int"), _) -> 
+    %><h:outputText id="<%=x_id%>_<%=x_prop%>" 
+                    value="#{<%=x_class%>.<%=x_prop%>}"/><%
+                    	    
   property-to-view-component(|x_class, x_id) :
     Property(x_prop, Simple(), s@SimpleSort("String"), _) -> 
     %><h:outputText id="<%=x_id%>_<%=x_prop%>" 
@@ -108,6 +116,30 @@ rules
 //    %><s:graphicImage id="<%=x_id%>_<%=x_prop%>" 
 //                      value="#{<%=x_class%>.<%=x_prop%>}"/><%
  
+  property-to-view-component(|x_Class1, x_id) :
+    Property(x_prop, Ref(), s@SimpleSort(x_Class2), _) -> 
+    %><s:link view = "/view<%= x_Class2 %>.xhtml" value="#{<%=x_class1%>.<%=x_prop%>.name}">
+                <f:param name="<%= x_class2 %>Id" value="#{<%=x_class1%>.<%=x_prop%>.id}" />
+      </s:link><%
+    where <defined-java-type> s
+        ; x_class1 := <decapitalize-string> x_Class1
+        ; x_class2 := <decapitalize-string> x_Class2
+        
+  property-to-view-component(|x_class1, x_id) :
+    Property(x_prop, Ref(), GenericSort(coll,[s@SimpleSort(x_Class2)]), _) -> 
+    %><h:dataTable var="entry" value="#{<%=x_class1%>.<%=x_prop%>List}">
+            <h:column>
+              <s:link view = "/view<%= x_Class2 %>.xhtml" value="#{entry.name}">
+                <f:param name="<%= x_class2 %>Id" value="#{entry.id}" />
+              </s:link>
+            </h:column>
+         </h:dataTable><%
+    where <is-collection> coll
+        ; <defined-java-type> s
+        ; x_class2 := <try(decapitalize-string)> x_Class2
+        
+  is-collection = ?"List" <+ ?"Set"
+
   /**
    * view for composite association with defined type; recursively
    * show all sub-properties
