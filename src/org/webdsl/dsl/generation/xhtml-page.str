@@ -1,0 +1,92 @@
+module org/webdsl/dsl/generation/xhtml-viewEntity
+
+imports 
+  libstrategolib 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+    
+rules
+    
+  page-to-xml : 
+    def@Define([Page()], x, args, elems1) ->
+    XmlFile(["view"], <concat-strings>[x, ".xhtml"], 
+%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:s="http://jboss.com/products/seam/taglib"
+      xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
+      xmlns:rich="http://richfaces.ajax4jsf.org/rich">
+<head>    
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title><%= title ::*%></title>
+    <link href="stylesheet/theme.css" rel="stylesheet" type="text/css" />
+    <link href="stylesheet/date.css" rel="stylesheet" type="text/css" />
+</head>
+<body><%= elems2 ::*%></body>
+</html>
+<%)
+  where title := <get-title> elems1
+      ; elems2 := <elems-to-xhtml> elems1
+      
+  get-title =
+    fetch-elem(?TemplateCall("title", [], <id>))
+    ; elems-to-xhtml
+    <+ ![]
+    
+  elems-to-xhtml =
+    filter-concat-warn(elem-to-xhtml | "elem-to-xhtml undefined: ")
+
+rules // div
+
+  elem-to-xhtml :
+    TemplateCall("div", [String(x)], elems) ->
+    %>
+    <div class="<%= x %>"><%= <elems-to-xhtml> elems ::*%></div>
+    <%
+
+rules // text
+
+  elem-to-xhtml :
+    Text(x) -> 
+    %> <h:outputText value="<%=x%>"/> <%
+    
+rules // text
+    
+  elem-to-xhtml :
+    TemplateCall("title", _, _) -> []
+    
+  elem-to-xhtml :
+    TemplateCall("text", [arg], []) -> %> <h:outputText value="#{<%= val-string %>}"/> <%
+    where val-string := <arg-to-value-string> arg
+    
+  arg-to-value-string :
+    String(x) -> x
+    
+  arg-to-value-string :
+    Var(x) -> <concat-strings>["#{", x, "%>}"]
+        
+  arg-to-value-string :
+    FieldAccess(Var(x), f) -> <concat-strings>["#{", x, ".", f, "%>}"]
+    
+rules // links
+
+  elem-to-xhtml :
+    TemplateCall("navigate", [String(x), ThisCall("url",[String(y)])], []) ->
+    %>
+      <h:outputLink value="<%=y%>">
+             <h:outputText value="<%=x%>"/>
+      </h:outputLink>
+    <%
+
+rules // images
+
+  elem-to-xhtml :
+    TemplateCall("image",[String(x)],[]) ->
+    %> <h:graphicImage value="<%=x%>"/> <%
+       

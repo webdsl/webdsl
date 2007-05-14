@@ -1,0 +1,67 @@
+module expand-page
+
+imports 
+  libstrategolib
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  
+strategies
+
+  expand-page-templates =
+    alltd(declare-template-definition; try(declare-page-definition))
+    ; alltd(expand-page)
+  
+  declare-template-definition =
+    ?def@Define(mods, name, fargs, body)
+    ; rules(
+        Definition : name -> def
+      )
+      
+  declare-page-definition =
+    ?Define([Page()], name, args, body)
+    ; rules(
+        Page : name -> args
+      )
+
+rules
+
+  expand-page =
+    ?Define([Page()], name, args, body1)
+    ; expand-template-definition
+           
+  expand-template-definition :
+    Define(mods, name, args, body1) -> Define([Page()], name, args, body2)
+    where {| Definition 
+           : elems := <filter(not(declare-template-definition))> body1
+           ; body2 := <map(expand-element)> elems
+           |}
+           
+  expand-element = debug(!"expand-element: "); (
+    expand-template-call
+    <+ Subst
+    <+ all(expand-element)
+  )
+             
+  expand-template-call :
+    call@TemplateCall(name, args, elems1) -> TemplateCall("div", [String(name)], elems2)
+    where Define(mods, name, fargs, body) := <Definition; rename> name
+        ; <debug(!"expanding : ")> call
+        ; {| Subst, TypeOf, Elems
+           : <zip(bind-variable)> (fargs, args)
+           ; rules( Elems := elems1 )
+           ; elems2 := <map(expand-element)> body
+           |}
+          
+   bind-variable =
+     ?(Arg(x, s), e)
+     ; rules( 
+         Subst  : Var(x) -> e 
+         TypeOf : x -> s 
+       )
+          
+  // @todo define bound variable renaming
+  
+  rename = id
+
+  
