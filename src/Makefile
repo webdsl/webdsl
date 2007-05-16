@@ -3,6 +3,8 @@ syntax = org/webdsl/dsl/syntax/WebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
+preprocessor = org/webdsl/dsl/generation/dsl-desugar
+
 STRSOURCES = $(wildcard org/webdsl/dsl/*/*.str)
 
 STRINCLUDES = \
@@ -20,7 +22,7 @@ STRCFLAGS = \
     -la stratego-gpp \
     -la ${HOME}/.nix-profile/lib/libjava-front.la
 
-all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str $(generator)
+all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str $(generator) $(preprocessor)
 
 %.str : %.rtg
 	rtg2sig -i $< -o $@
@@ -39,9 +41,11 @@ clean :
 
 $(generator) : $(generator).str
 
+$(preprocessor) : $(preprocessor).str
+
 % : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)
-	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES)
+	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES) -m `basename $@`-main
 
 %.str.pp : %.str
 	pp-stratego -i $< -o $@ $(STRINCLUDES)
