@@ -14,6 +14,10 @@ imports
 imports 
   org/webdsl/dsl/syntax/WebDSL
 
+signature
+  constructors
+    Type : Sort -> Annotation
+    
 strategies // register all declared entities
 
   inherit-object :
@@ -23,21 +27,83 @@ strategies // register all declared entities
     try(inherit-object)
     ; ?Entity(x_class, x_super, props)
     ; rules(
-        properties :
+        IsEntity : 
+          x_class
+          
+        Properties :
           x_class -> props
                
-        extends :
+        Extends :
           x_class -> x_super
           
-        defined-java-type : 
+        DefinedJavaType : 
           SimpleSort(x_class) -> type|[ x_class ]|
       )
+    ; where( 
+        <map(declare-property(|x_class))> [NameProperty() | props]
+      )
   )
+  
+  /**
+   * @obsolete
+   */
+   
+  properties = Properties 
+  
+  declare-property(|x_class) =
+    ?Property(x, k, s, annos)
+    ; rules(
+        TypeOfProperty : (x_class, x) -> s
+      )
+    ; where(try(declare-list-property(|x_class)))
+    
+  declare-list-property(|x_class) =
+    ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
+    ; where( 
+        y := <concat-strings>[x, "List"] 
+      ; t := GenericSort("List", [s])
+      )
+    ; rules(
+        TypeOfProperty : (x_class, y) -> t
+      )
+
+overlays 
+
+  NameProperty =
+    Property("name", Simple(), SimpleSort("String"), [])
+      
+strategies // register top-level template definitions
+
+  declare-template-definitions =
+    alltd(declare-template-definition)
+  
+  declare-template-definition =
+    ?def@Define(mods, name, fargs, body)
+    ; rules(
+        TemplateDefinition : name -> def
+        TemplateArguments  : name -> fargs
+      )
+    ; try(declare-page-definition)
+        
+   /**
+    * @obsolete
+    */
+   
+  Definition = TemplateDefinition
+
+  declare-page-definition =
+    ?Define([Page()], name, args, body)
+    ; rules(
+        IsPage : name
+      )
 
 strategies
 
   java-type =
-    defined-java-type <+ builtin-java-type <+ err(|"undefined entity: "); fail
+    defined-java-type <+ builtin-java-type
+    
+  defined-java-type =
+    DefinedJavaType
 
   persistence-annotations =
     builtin-persistence-annotations <+ ![]
@@ -87,4 +153,206 @@ rules
     where t1 := <java-type> s1
         ; t2 := <java-type> s2
         
+rules // typechecking context
+
+  tc-context =
+    TcContext <+ !"" 
+    
+  add-tc-context = ?msg; 
+    if x := <TcContext> then
+      <concat-strings>[x | msg]
+    else 
+      <concat-strings>msg
+    end
+    
+  in-tc-context(s|msg) =
+    {| TcContext
+     : rules( TcContext := <add-tc-context> msg )
+     ; s
+     |}
+    
+  typecheck-error(|msg) =
+    err-msg(|[<tc-context>, ": " | msg])
+    ; rules( TypecheckError := True() )
+    
+rules
+
+  typecheck =
+    alltd(typecheck-entity <+ typecheck-definition)
+    ; if TypecheckError then
+        typecheck-error(|["typechecking failed; repair errors above"])
+        ; fail
+      end
+      
+rules // typechecking entity declarations
+
+  typecheck-entity =
+    ?EntityNoSuper(x_class, props)
+    ; in-tc-context(
+        where( <map(typecheck-property)> props)
+      |["entity declaration ", x_class])
+    
+  typecheck-entity =
+    ?Entity(x_class, SimpleSort(s), props)
+    ; in-tc-context(
+        where( <typecheck-supertype> s )
+        ; where( <map(typecheck-property)> props )
+      | ["entity declaration ", x_class])
+    
+  typecheck-supertype = 
+    ?s
+    ; if not(<IsEntity> s) then
+        typecheck-error(|["supertype ", s, " is not a defined entity"])
+      end
+    
+  typecheck-property =
+    ?Property(x, k, s, annos)
+    ; if not(<java-type> s) then
+        typecheck-error(|["property ", x, " has invalid type"])
+      end
+
+rules // typechecking template definitions
+
+  typecheck-definition :
+    Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
+    where {| TypeOf
+           : in-tc-context(
+               <map(declare-typeof-arg)> args
+               ; elems2 := <typecheck-page-elements> elems1
+             |["definition ", f, "/"])
+           |} 
+  
+  declare-typeof-arg = 
+    ?Arg(x, s) 
+    ; if not(<java-type> s) then 
+        typecheck-error(|["parameter ", x, " has invalid type"])
+      else 
+        rules( TypeOf : x -> s ) 
+      end 
+       
+rules // typechecking page elements 
+      
+  typecheck-page-elements =
+    map(typecheck-page-element)
+    
+  typecheck-page-element =
+    typecheck-definition
+    <+ typecheck-text  
+    <+ typecheck-call-navigate
+    <+ typecheck-template-call
+    <+ typecheck-iterator
+    <+ debug(!"unknown page element? ")
+       ; all(typecheck-page-elements)
+    
+  typecheck-text =
+    Text(is-string)
+    
+  typecheck-call-navigate :
+    TemplateCall("navigate", [e1,e2], []) -> TemplateCall("navigate", [e1',e2], [])
+    where //debug(!"tc navigate: ");
+          in-tc-context(
+            e1' := <typecheck-expression> e1
+            ; e2' := <typecheck-link> e2
+          | ["navigate/"])
+        
+  typecheck-link :
+    ThisCall("url", [e1]) -> ThisCall("url", [e2])
+    where e2 := <typecheck-expression> e1
+
+  typecheck-link :
+    ThisCall(p, args1) -> ThisCall(p, args2)
+    where <IsPage> p
+        ; TemplateCall(p, args2, []) := <typecheck-template-call> TemplateCall(p, args1, [])
+
+  typecheck-template-call :
+    TemplateCall(f, args1, elems1) -> TemplateCall(f, args2, elems2)
+    where in-tc-context(id
+            //debug(!"tc template call: ")
+            ; args2 := <map(typecheck-expression)> args1
+            //; debug(!"typecheck args: ")
+            ; try(<zip(try(match-template-argument))> (<TemplateArguments> f, args2))
+            //; debug(!"checked args: ")
+            ; elems2 := <typecheck-page-elements> elems1
+            //; debug(!"checked elems: ")
+            | [f, "/"])
+        
+        // @todo account for arguments of built-in templates (for which TemplateArguments fails)
+                
+  match-template-argument =
+    ?(Arg(x, t1), e{Type(t2)})
+    ; if not(<eq>(t1, t2)) then
+        typecheck-error(|["type ", t2, " of argument ", e{}, " does not match formal parameter '", x, "' (", t1, ")"])
+      end
+       
+   typecheck-iterator :
+     For(x, s, e1, elems1) -> For(x, s, e2, elems2)
+     where in-tc-context(
+             e2 := <typecheck-expression> e1
+             ; <should-have-list-type> e2
+             ; {| TypeOf
+                : if not(<java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems2 := <typecheck-page-elements> elems1
+                |}
+             | ["iterator ", x, "/"] )
+             
+strategies
+
+  should-have-collection-type = 
+    try(
+      ?e{Type(t)}
+      ; if not(<is-collection-type> t) then
+          typecheck-error(|["type of iterator should be a collection (and not ", t, ")"])
+        end
+    )
+  
+  is-collection-type =
+    ?GenericSort("List", [SimpleSort(_)])
+    
+  is-collection-type =
+    ?GenericSort("Set", [SimpleSort(_)])
+    
+  should-have-list-type = 
+    try(
+      ?e{Type(t)}
+      ; if not(<is-list-type> t) then
+          typecheck-error(|["type of iterator should be a List (hint: every collection property f has also a property fList)"])
+        end
+    )
+  
+  is-list-type =
+    ?GenericSort("List", [SimpleSort(_)])
+
+rules // typechecking expressions
+   
+   typecheck-expression = //debug(!"tc expression: "); (
+     typecheck-variable   
+     <+ typecheck-string
+     <+ typecheck-fieldaccess
+     <+ typecheck-expression-error
+   //)
+   
+   typecheck-string :
+     String(x) -> String(x){Type(SimpleSort("String"))}
+     
+   typecheck-string :
+     Int(x) -> Int(x){Type(SimpleSort("Int"))}
+     
+   typecheck-variable :
+     Var(x) -> Var(x){Type(t)}
+     where t := <TypeOf> x
+     
+   typecheck-fieldaccess :
+     FieldAccess(e1, f) -> FieldAccess(e2, f){Type(t1)}
+     where e2{Type(t2@SimpleSort(s))} := <typecheck-expression> e1
+         ; t1 := <TypeOfProperty> (s, f)
+  
+   typecheck-expression-error =
+     ?e
+     ; typecheck-error(|["expression ", e, " has type error"])
+     
   
