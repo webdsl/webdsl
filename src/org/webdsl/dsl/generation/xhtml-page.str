@@ -25,6 +25,8 @@ rules
 <head>    
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title><%= title ::*%></title>
+    <link href="stylesheet/layout.css" rel="stylesheet" type="text/css" />
+    <link href="stylesheet/style.css" rel="stylesheet" type="text/css" />
     <link href="stylesheet/theme.css" rel="stylesheet" type="text/css" />
     <link href="stylesheet/date.css" rel="stylesheet" type="text/css" />
 </head>
@@ -38,20 +40,28 @@ rules
       
 rules // embedding expressions in presentation
 
-  arg-to-value-string :
+  arg-to-value-string =
+    arg-string-to-value-string
+    <+ arg-to-el-string
+    
+  arg-string-to-value-string :
     String(x) -> x
     
-  arg-to-value-string :
-    Var(x) -> <concat-strings>["#{", x, "}"]
+  arg-to-el-string :
+    e -> <concat-strings>["#{", x, "}"]
+    where x := <arg-to-el> e 
+  
+  arg-to-el :
+    Var(x) -> x
         
-  arg-to-value-string :
-    FieldAccess(Var(x), f) -> <concat-strings>["#{", x, ".", f, "}"]
- 
-  arg-to-value-string :
-    FieldAccess(FieldAccess(Var(x), f), g) -> <concat-strings>["#{", x, ".", f, ".", g, "}"]
-     
-  // @todo this should be done properly recusively
-      
+  arg-to-el :
+    FieldAccess(e, f) -> <concat-strings>[x, ".", f]
+    where x := <arg-to-el> e
+  
+  arg-to-el :
+    Call(e, f, args1) -> <concat-strings>[<arg-to-el> e, ".", f, "(", args2, ")"]
+    where args2 := <map(arg-to-el); separate-by(|","); concat-strings> args1
+    
 strategies // lists of elements
 
   elems-to-xhtml =
@@ -197,7 +207,7 @@ rules // links
   elem-to-xhtml :
     TemplateCall("navigate",[e,ThisCall(p,args)],[]) ->
     %>
-      <s:link view = "/<%= p %>.xhtml" value="<%= el %>"><%= params ::*%></s:link>
+      <s:link view = "/<%= p %>.xhtml" value="<%= el %>" propagation="none"><%= params ::*%></s:link>
     <%
     where <IsPage> p
         ; fargs := <TemplateArguments> p
@@ -210,13 +220,9 @@ rules // links
   bind-param :
     (Arg(x, s@SimpleSort(x_Class)), e) ->
     %><f:param name="<%= x %>" value="<%= el %>" /><%
-    where debug(!"bind-param: ")
-        ; <defined-java-type> s
-        ; debug(!"is-java-type: ")
-        ; x_class := <decapitalize-string> x_Class
-        ; debug(!"decapped: ")
+    where <defined-java-type> s
+        //; x_class := <decapitalize-string> x_Class
         ; el := <arg-to-value-string> FieldAccess(e, "id")
-        ; debug(!"expr: ")
     
   // constraint: only pass parameters of entity types (simple sorts)
   
@@ -231,13 +237,24 @@ rules // forms
   elem-to-xhtml :      
     TemplateCall("action",[e1,e2,e3],[]) ->
     %> 
-       <h:commandButton value="<%= e1string %>" action="<%= e2string %>"/>
+       <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
-    where e1string := <arg-to-value-string> e1
+    where <not(is-cancel-action)> e2
+        ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-        // @todo how to deal with to view in e3, e.g., ThisCall(p,args)
-        // maybe add to action code
         
+  elem-to-xhtml :      
+    TemplateCall("action",[e1,e2,e3],[]) ->
+    %> 
+       <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where <is-cancel-action> e2
+        ; e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+        
+   is-cancel-action =
+     ?Call(Var(component), "cancel", [])
+                
    elem-to-xhtml :      
     TemplateCall("action",[e1,e2],[]) ->
     %> 
