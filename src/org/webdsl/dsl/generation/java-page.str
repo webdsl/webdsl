@@ -68,7 +68,8 @@ rules // session bean from page definition
 
         @Create @Begin 
 	    public void initialize() {
-		  bstm*
+		  bstm1*
+		  bstm2*
 	    }
 	    
 	    @Destroy @Remove
@@ -77,16 +78,22 @@ rules // session bean from page definition
 	    ~*cbds
 	    
 	    ~*cbds2
+	    
+	    ~*cbds3
       }
     ]|)
-    where pkgname    := <BeanPackage>
+    where {| Parameter 
+        : pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
         ; x_Page     := <capitalize-string> x_page
 	    ; x_PageBean := <concat-strings> [x_Page, "Bean"]
 	    ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
 	    ; cbds := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
-	    ; bstm* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+	    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
 	    ; cbds2 := <collect(action-to-bean-method)> elems1
+	    ; cbds3 := <collect(select-to-declarations); concat> elems1
+	    ; bstm2* := <collect(select-to-initialization); concat> elems1
+	    |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
 	   
@@ -117,52 +124,62 @@ rules // bean parameters
     bstm*|[
 	  if (x_Id == null)
 	    {
-		  log.debug("No " + "~x_Id" + " defined, couldn't start conversation");
-        } 
+		  log.debug("No " + "~x_Id" + " defined, creating new " + "~x_Class");
+		  x = new x_Class();
+        }
       else 
         {
 		  x = em.find(x_Class.class, x_Id);
 	    }
     ]|
-    where x_Id := <concat-strings>[x, "Id"] 
+    where x_Id := <concat-strings>[x, "Id"]
+        ; rules( Parameter :+= x )
 
 rules // action methods
 
-  action-to-bean-method :
-    TemplateCall("action", [e1, Call(Var(component), "save", []), e2], []) ->
-    |[
- 	  @End
-	  public String save() {
-	    log.info("save");
-		em.flush();
-		return e4 ;
-	  }
-	]|
-	where e4 := <call-to-view-string> e2
+  action-to-bean-method = 
+    action-to-java-method
+  
+//  action-to-bean-method :
+//   TemplateCall("action", [e1, Call(Var(component), "save", [])], []) ->
+//    |[
+// 	  @End
+//	  public String save() {
+//	    log.info("save");
+//	    bstm*
+//		em.flush();
+//		return e4 ;
+//	  }
+//	]|
+//	where e4 := <call-to-view-string> e2
+//	    ; bstm* := <bagof-Parameter; map(persist-parameter)>
+	    
+//  persist-parameter :
+//    x -> |[ if (x.getId() == null) em.persist(x); ]|
 
-  action-to-bean-method :
-    TemplateCall("action", [e1, Call(Var(component), "cancel", []), e2], []) ->
-    |[
- 	  @End
-	  public String cancel() {
-	    log.info("cancel");
-		return e4 ;
-	  }
-	]|
-	where e4 := <call-to-view-string> e2
+//  action-to-bean-method :
+//    TemplateCall("action", [e1, Call(Var(component), "cancel", []), e2], []) ->
+//    |[
+// 	  @End
+//	  public String cancel() {
+//	    log.info("cancel");
+//		return e4 ;
+//	  }
+//	]|
+//	where e4 := <call-to-view-string> e2
 	
-  action-to-bean-method :
-    TemplateCall("action", [e1, Call(FieldAccess(Var(component), Var(x)), "delete", []), e2], []) ->
-    |[
- 	  @End
-	  public String () {
-	    log.info("delete (nothing deleted)");
-	    em.remove(x);
-	    em.flush();
-		return e4 ;
-	  }
-	]|
-	where e4 := <call-to-view-string> e2
+//  action-to-bean-method :
+//    TemplateCall("action", [e1, Call(Var(component), x, args), e2], []) ->
+//    |[
+// 	  @End
+//	  public String x() {
+//	    log.info("delete (nothing deleted)");
+//	    em.remove(x);
+//	    em.flush();
+//		return e4 ;
+//	  }
+//	]|
+//	where e4 := <call-to-view-string> e2
 	
 	// @todo what does it mean to delete an object?
 	
@@ -191,10 +208,75 @@ rules // view transition
     FieldAccess(Var(x){Type("Component")}, y) -> |[ y ]|
     
   arg-to-java-exp :
-    FieldAccess(e1, y) -> |[ e2.y ]|
+    FieldAccess(e1, y) -> |[ e2.y_get() ]|
     where e2 := <arg-to-java-exp> e1
+        ; y_get := <concat-strings>["get", <capitalize-string> y]
     
-    
-    
+  arg-to-java-exp :
+    Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
+    where e3 := <arg-to-java-exp> e1
+        ; e4* := <map(arg-to-java-exp)> e2*
+        
+  arg-to-java-exp :
+    ThisCall(x, e1*) -> |[ x(e2*) ]|
+    where e2* := <map(arg-to-java-exp)> e1*
+        
+rules // select
+
+  select-to-declarations :
+    Select(x, SimpleSort(x_Class), label, e1) -> <debug(!"select-declarations success: ")>
+    |[ 
+      private String x_new;
+
+	  public void x_setNew(String p) {
+		x_new = p;
+	  }
+
+	  public String x_getNew() {
+		return x_new;
+	  }
+
+	  public String x_select() {
+		log.info("~x_select" + " " + x_new);		
+		x_Class x = em.find(x_Class.class, new Long(x_new));
+		e2;
+		return null;
+    }
+
+	  @DataModel(~string:String([Chars(x_List)]))
+	  private Map<String, String> x_List;
+
+	  public Map<String, String> x_getList() {
+		return x_List;
+	  }
+
+	  @Factory(~string:String([Chars(x_List)]))
+	  public void x_initList() {
+		log.info("~x_initList");
+		x_List = new HashMap<String, String>();
+		for (Object o : em.createQuery("from " + "~x_Class").getResultList()) {
+			x_Class p = (x_Class) o;
+		    x_List.put(p.getName(), p.getId().toString());
+		}
+	  }
+    ]|
+    where debug(!"select-declarations match: ")
+        ; X          := <capitalize-string> x
+        ; x_new      := <concat-strings>["new", X]
+        ; x_getNew   := <concat-strings>["getNew", X]
+        ; x_setNew   := <concat-strings>["setNew", X]
+        ; x_select   := <concat-strings>["select", X]
+        ; x_List     := <concat-strings>[x, "List"]
+        ; x_getList  := <concat-strings>["get", X, "List"]
+        ; x_initList := <concat-strings>["init", X, "List"]
+        ; debug(!"select-to-declarations names: ")
+        ; e2          := <arg-to-java-exp> e1
+        ; debug(!"select-to-declarations java-exp: ")
+        
+  select-to-initialization :
+    Select(x, SimpleSort(x_Class), label, e) ->
+    bstm*|[ x_initList(); ]| 
+    where X          := <capitalize-string> x
+        ; x_initList := <concat-strings>["init", X, "List"]
     
          	

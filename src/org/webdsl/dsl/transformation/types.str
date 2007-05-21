@@ -99,6 +99,20 @@ strategies // register top-level template definitions
 
 strategies
 
+  declare-action =
+    ?def@Action(name, fargs, body)
+    ; where( t1* := <map(?Arg(_,<id>))> fargs )
+    ; rules(
+        Actionefinition  : name -> def
+        ActionArguments  : name -> fargs
+        
+        CheckActionSignature : 
+          (None(), name, t2*) -> SimpleSort("void")
+          where <zip(type-compatible)> (t1*, t2*)
+      )
+      
+strategies
+
   java-type =
     defined-java-type <+ builtin-java-type
     
@@ -175,10 +189,16 @@ rules // typechecking context
     err-msg(|[<tc-context>, ": " | msg])
     ; rules( TypecheckError := True() )
     
+rules 
+
+  type-of :
+    e{t*} -> t
+    where t := <fetch-elem(?Type(<id>))> 
+    
 rules
 
   typecheck =
-    alltd(typecheck-entity <+ typecheck-definition)
+    alltd(typecheck-entity <+ typecheck-definition <+ typecheck-action)
     ; if TypecheckError then
         typecheck-error(|["typechecking failed; repair errors above"])
         ; fail
@@ -216,8 +236,9 @@ rules // typechecking template definitions
   typecheck-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
     where {| TypeOf
-           : in-tc-context(
-               <map(declare-typeof-arg)> args
+           : in-tc-context(id
+               ; <map(declare-typeof-arg)> args
+               ; <alltd(declare-action <+ declare-template-definition)> elems1
                ; elems2 := <typecheck-page-elements> elems1
              |["definition ", f, "/"])
            |} 
@@ -238,6 +259,8 @@ rules // typechecking page elements
   typecheck-page-element =
     typecheck-definition
     <+ typecheck-text  
+    <+ typecheck-select
+    <+ typecheck-action 
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
     <+ typecheck-template-call
@@ -249,32 +272,31 @@ rules // typechecking page elements
     Text(is-string)
     
   typecheck-call-action :
-    TemplateCall("action", [e1,e2,e3], []) -> TemplateCall("action", [e1',e2',e3'], [])
-    where //debug(!"tc navigate: ");
-          in-tc-context(id
+    TemplateCall(f, [e1,e2], []) -> TemplateCall(f, [e1',e2'], [])
+    where !f; (?"action" + ?"actionLink")
+        ; in-tc-context(id
             ; e1' := <typecheck-expression> e1
-            ; e2' := <typecheck-action> e2
-            ; e3' := <typecheck-link> e3
-          | ["action/"])
+            ; e2' := <typecheck-expression> e2
+          | [f, "/"])
+
     
   typecheck-call-navigate :
     TemplateCall("navigate", [e1,e2], []) -> TemplateCall("navigate", [e1',e2'], [])
-    where //debug(!"tc navigate: ");
-          in-tc-context(
+    where in-tc-context(
             e1' := <typecheck-expression> e1
             ; e2' := <typecheck-link> e2
           | ["navigate/"])
           
-  typecheck-action :
-    Call(e1, f, args1) -> Call(e2, f, args2){Type(SimpleSort("Void"))}
-    where e2 := <typecheck-expression> e1
-        ; args2 := <map(typecheck-expression)> args1
+//  typecheck-action :
+//    Call(e1, f, args1) -> Call(e2, f, args2){Type(SimpleSort("Void"))}
+//    where e2 := <typecheck-expression> e1
+//        ; args2 := <map(typecheck-expression)> args1
         
-  typecheck-action :
-    ThisCall("save", []) -> ThisCall("save", []){Type(SimpleSort("Void"))}
+//  typecheck-action :
+//    ThisCall("save", []) -> ThisCall("save", []){Type(SimpleSort("Void"))}
     
-  typecheck-action :
-    ThisCall("cancel", []) -> ThisCall("cancel", []){Type(SimpleSort("Void"))}
+//  typecheck-action :
+//    ThisCall("cancel", []) -> ThisCall("cancel", []){Type(SimpleSort("Void"))}
              
   typecheck-link :
     ThisCall("url", [e1]) -> ThisCall("url", [e2])
@@ -288,18 +310,14 @@ rules // typechecking page elements
   typecheck-template-call :
     TemplateCall(f, args1, elems1) -> TemplateCall(f, args2, elems2)
     where in-tc-context(id
-            //debug(!"tc template call: ")
             ; args2 := <map(typecheck-expression)> args1
-            //; debug(!"typecheck args: ")
-            ; try(<zip(try(match-template-argument))> (<TemplateArguments> f, args2))
-            //; debug(!"checked args: ")
+            ; try(<zip(try(match-argument))> (<TemplateArguments> f, args2))
             ; elems2 := <typecheck-page-elements> elems1
-            //; debug(!"checked elems: ")
             | [f, "/"])
         
         // @todo account for arguments of built-in templates (for which TemplateArguments fails)
                 
-  match-template-argument =
+   match-argument =
     ?(Arg(x, t1), e{Type(t2)})
     ; if not(<eq>(t1, t2)) then
         typecheck-error(|["type ", t2, " of argument ", e{}, " does not match formal parameter '", x, "' (", t1, ")"])
@@ -321,6 +339,17 @@ rules // typechecking page elements
                 |}
              | ["iterator ", x, "/"] )
              
+  typecheck-select :
+    Select(x,s@SimpleSort(_),label,e1) -> Select(x,s,label,e2)
+    where in-tc-context(id
+            ; if not(<defined-java-type> s) then
+                typecheck-error(|["index ", x, " should have a defined entity type, is ", s])
+              else
+                rules( TypeOf : x -> s )
+              end
+            ; e2 := <typecheck-expression> e1
+          | ["select/"])
+                       
 strategies
 
   should-have-collection-type = 
@@ -348,14 +377,55 @@ strategies
   is-list-type =
     ?GenericSort("List", [SimpleSort(_)])
 
+rules // typechecking actions
+
+  typecheck-action :
+    Action(f, args, body1) -> Action(f, args, body2)
+    where {| TypeOf
+           : in-tc-context(
+               <map(declare-typeof-arg)> args
+               ; body2 := <typecheck-block> body1
+             |["action ", f, "/"])
+           |}
+           
+rules // typechecking statements
+
+  typecheck-stat =
+    typecheck-block
+    <+ typecheck-assignment-stat
+    <+ typecheck-vardecl
+    <+ typecheck-return
+    <+ Stat(typecheck-expression)
+    <+ debug(!"warning: not typechecking statement: ")
+  
+  typecheck-block =
+    Block({| TypeOf : in-tc-context(map(typecheck-stat)|["block/"]) |})
+    
+  typecheck-assignment-stat :
+    Assign(Assignment(qid, e1)) -> Assign(Assignment(qid, e2))
+    where e2 := <typecheck-expression> e1
+    
+  typecheck-vardecl :
+    VarDecl(x, s, e1) -> VarDecl(x, s, e2)
+    where rules( TypeOf : x -> s )
+        ; e2 := <typecheck-expression> e1
+   
+  typecheck-return :
+    Return(e1) -> Return(e2)
+    where e2 := <typecheck-link> e1
+           
 rules // typechecking expressions
    
-   typecheck-expression = //debug(!"tc expression: "); (
+   typecheck-expression = debug(!"tc expression: "); (
      typecheck-variable   
      <+ typecheck-string
      <+ typecheck-fieldaccess
+     <+ typecheck-object-creation
+     <+ typecheck-set-creation
+     <+ typecheck-list-creation
+     <+ typecheck-call
      <+ typecheck-expression-error
-   //)
+   )
    
    typecheck-string :
      String(x) -> String(x){Type(SimpleSort("String"))}
@@ -367,13 +437,139 @@ rules // typechecking expressions
      Var(x) -> Var(x){Type(t)}
      where t := <TypeOf> x
      
+   typecheck-set-creation :
+     SetCreation(e1*) -> SetCreation(e2*){Type(GenericSort("Set", [t]))}
+     where debug(!"typecheck-set-creation a: ")
+         ; e2* := <map(typecheck-expression)> e1*
+         ; debug(!"typecheck-set-creation b: ")
+         ; [_{Type(t)},e3*] := e2*
+         ; debug(!"typecheck-set-creation c: ")
+         ; if not(<map(?_{Type(<id>)}; <eq>(<id>, t))> e3*) then
+             typecheck-error(|["arguments of set creation should have same type"])
+           end
+         ; debug(!"typecheck-set-creation d: ")
+         
+   typecheck-list-creation :
+     ListCreation(e1*) -> ListCreation(e2*){Type(GenericSort("List", [t]))}
+     where debug(!"typecheck-set-creation a: ")
+         ; e2* := <map(typecheck-expression)> e1*
+         ; debug(!"typecheck-set-creation b: ")
+         ; [_{Type(t)},e3*] := e2*
+         ; debug(!"typecheck-set-creation c: ")
+         ; if not(<map(?_{Type(<id>)}; <eq>(<id>, t))> e3*) then
+             typecheck-error(|["arguments of set creation should have same type"])
+           end
+         ; debug(!"typecheck-set-creation d: ")
+                  
+   typecheck-object-creation :
+     ObjectCreation(x_Class, assign1*) -> ObjectCreation(x_Class, assign2*){Type(SimpleSort(x_Class))}
+     where debug(!"typecheck-object creation a: ")
+         ; in-tc-context(
+             if not(<IsEntity> x_Class) then
+               typecheck-error(|["object creation for undeclared entity ", x_Class])
+             end
+             ; debug(!"typecheck-object creation b: ")
+             ; assign2* := <map(typecheck-field-initialization(|x_Class))> assign1*
+             ; debug(!"typecheck-object creation c: ")
+           |["create ", x_Class, "/"])
+     
+   typecheck-field-initialization(|x_Class) :
+     Assignment(y, e1) -> Assignment(y, e2)
+     where debug(!"typecheck-assign a: ");
+           e2{Type(t2)} := <typecheck-expression> e1
+         ; debug(!"typecheck-assign b: ")
+         ; if not(t1 := <TypeOfProperty> (x_Class, y)) then
+             typecheck-error(|["entity ", x_Class, " has no field ", y])
+             ; t1 := SimpleSort("void")
+           end
+         ; debug(!"typecheck-assign c: ")
+         ; if not(<type-compatible>(t1,t2)) then
+             typecheck-error(|["assignment to field ", y, " of ", x_Class, " with type ", t2, " should be ", t1])
+           end
+         ; debug(!"typecheck-assign d: ")
+     
    typecheck-fieldaccess :
      FieldAccess(e1, f) -> FieldAccess(e2, f){Type(t1)}
      where e2{Type(t2@SimpleSort(s))} := <typecheck-expression> e1
          ; t1 := <TypeOfProperty> (s, f)
+         
+   typecheck-call :
+     Call(e1, f, e2*) -> Call(e3, f, e4*){Type(t)}
+     where e3{Type(t3)} := <typecheck-expression> e1
+         ; e4* := <map(typecheck-expression)> e2*
+         ; t := <check-signature> (t3, f, e4*)
+         
+   typecheck-call :
+     ThisCall(f, e1*) -> ThisCall(f, e2*){Type(t)}
+     where e2* := <map(typecheck-expression)> e1*
+         ; t := <check-signature> (None(), f, e2*)
   
    typecheck-expression-error =
      ?e
      ; typecheck-error(|["expression ", e, " has type error"])
      
-  
+rules // signature
+
+  check-signature :
+    (t3, f, e*) -> t
+    where t* := <map(?_{Type(<id>)})> e*
+        ; t := <check-signature-aux> (t3, f, t*)
+        
+  check-signature-aux = 
+    ?sig
+    ; (CheckActionSignature 
+       <+ check-builtin-signature
+       <+ typecheck-error(|["type error in call ", sig]))
+    
+  check-builtin-signature :
+    (GenericSort("List", [s]), "add", [s]) -> SimpleSort("void")
+
+  check-builtin-signature :
+    (GenericSort("List", [s]), "remove", [s]) -> SimpleSort("void")
+    
+  check-builtin-signature :
+    (GenericSort("Set", [s]), "add", [s]) -> SimpleSort("void")
+    
+  check-builtin-signature :
+    (GenericSort("Set", [s]), "remove", [s]) -> SimpleSort("void") 
+    
+  check-builtin-signature :
+    (s@SimpleSort(_), "delete", []) -> SimpleSort("void")
+    where <defined-java-type> s
+    
+  check-builtin-signature :
+    (s@SimpleSort(_), "save", []) -> SimpleSort("void")
+    where <defined-java-type> s
+    
+  check-builtin-signature :
+    (s@SimpleSort(_), "persist", []) -> SimpleSort("void")
+    where <defined-java-type> s
+        
+rules // type compatibility
+
+  /**
+   * <type-compatible> (t1, t2) if a value of type t2 can be assigned
+   * to a variable of type t1
+   */
+
+  type-compatible =
+    ?(t, t)
+   
+  type-compatible =
+    ?(SimpleSort("Email"), SimpleSort("String"))
+    
+  type-compatible =
+    ?(SimpleSort("Text"), SimpleSort("String"))
+
+  type-compatible =
+    ?(SimpleSort("URL"), SimpleSort("String"))
+    
+  type-compatible =
+    ?(SimpleSort("Image"), SimpleSort("String"))
+    
+  type-compatible =
+    ?(SimpleSort("Secret"), SimpleSort("String"))
+    
+    
+          
+    

@@ -22,7 +22,9 @@ STRCFLAGS = \
     -la stratego-gpp \
     -la ${HOME}/.nix-profile/lib/libjava-front.la
 
-all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str $(generator) $(preprocessor)
+all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str $(generator) 
+
+#$(preprocessor)
 
 %.str : %.rtg
 	rtg2sig -i $< -o $@
