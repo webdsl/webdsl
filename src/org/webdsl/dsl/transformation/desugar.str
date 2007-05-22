@@ -22,19 +22,24 @@ strategies
 rules
 
   Desugar :
-    TemplateCall("navigate", [ThisCall("url",[e])], []) ->
-    TemplateCall("navigate", [e, ThisCall("url",[e])], [])
+    elem|[ navigate(url(e)) ]| -> elem|[ navigate(e, url(e)) ]|
+    
+    //TemplateCall("navigate", [ThisCall("url",[e])], []) ->
+    //TemplateCall("navigate", [e, ThisCall("url",[e])], [])
 
   Desugar :
     String(x) -> String(y)
     where y := <un-double-quote> x
     
  Desugar :
-    Select(x, s, label1, e) -> Select(x, s, label2, e)
-    where label2 := <un-double-quote> label1
+    elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
+    //Select(x, s, label1, e) -> Select(x, s, label2, e)
+    where str2 := <un-double-quote> str1
     
   Desugar : 
-    PropertyNoAnno(x, k, s) -> Property(x, k, s, [])
+    |[ x k srt ]| -> |[ x k srt () ]|
+    
+    //PropertyNoAnno(x, k, s) -> Property(x, k, s, [])
     
   Desugar :
     TemplateCallNoArgs(x) -> TemplateCall(x, [], [])
@@ -50,10 +55,38 @@ rules
     where y := <un-double-quote> x
     
   Desugar :
-    [TemplateCall("text", [arg1, arg2 | args], []) | elems]->
-    [TemplateCall("text", [arg1], [])
-    ,TemplateCall("text", [arg2 | args], []) | elems]
+    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
+    
+    //[TemplateCall("text", [arg1, arg2 | args], []) | elems]->
+    //[TemplateCall("text", [arg1], [])
+    //,TemplateCall("text", [arg2 | args], []) | elems]
     
     
+  Derive = 
+    InputAssociation
     
-   
+  InputAssociation :
+    elem|[ input(e){} ]| -> <debug(!"result: ")>
+    elem|[ 
+      div("inputAssociation"){       
+        for(x : $X in e){ div("listAssociation"){ 
+          navigate(x.name, $viewX (x)) 
+          actionLink("[X]", $removeX(x)) 
+          action $removeX(x : $X) { e.remove(x); }
+        }}
+        select(x1 : $X, str, $addX(x1))
+        action $addX   (x : $X) { e.add(x); }
+      }
+    ]|
+    where debug(!"Input Association: ")
+        ; <type-of> e 
+        ; debug(!"type: ")
+        ; id => |[ List<$X> ]|
+        ; debug(!"type of: ")
+        ; x        := <newname> $X
+        ; x1       := <newname> $X
+        ; $viewX   := <concat-strings>["view", $X]
+        ; $removeX := <concat-strings>["remove", $X]
+        ; $addX    := <concat-strings>["add", $X]
+        ; str      := <concat-strings>["Add ", $X]
+    
