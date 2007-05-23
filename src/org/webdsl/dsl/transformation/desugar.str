@@ -22,7 +22,7 @@ strategies
 rules
 
   Desugar :
-    elem|[ navigate(url(e)) ]| -> elem|[ navigate(e, url(e)) ]|
+    elem|[ navigate(url(e)){} ]| -> elem|[ navigate(e, url(e)){} ]|
     
     //TemplateCall("navigate", [ThisCall("url",[e])], []) ->
     //TemplateCall("navigate", [e, ThisCall("url",[e])], [])
@@ -61,7 +61,8 @@ rules
     //[TemplateCall("text", [arg1], [])
     //,TemplateCall("text", [arg2 | args], []) | elems]
     
-    
+rules
+
   Derive = 
     InputAssociation
     
@@ -78,11 +79,241 @@ rules
         action $addX   (x : $X) { e.add(x); }
       }
     ]|
-    where <type-of> e => |[ List<$X> ]|
+    where debug(!"InputAssociation a: ")
+        ; |[ List<$X> ]| := <type-of> e
+        ; debug(!"InputAssociation b: ")
         ; x        := <decapitalize-string; newname> $X
         ; x1       := <decapitalize-string; newname> $X
-        ; $viewX   := <concat-strings; newname>["view", $X]
+        ; $viewX   := <concat-strings>["view", $X]
         ; $removeX := <concat-strings; newname>["remove", $X]
         ; $addX    := <concat-strings; newname>["add", $X]
-        ; str      := <concat-strings; newname>["Add ", $X]
+        ; str      := <concat-strings>["Add ", $X]
+        ; debug(!"InputAssociation c: ")
+        
+// TemplateCall("input", 
+//   [FieldAccess(Var("publication"){Type(SimpleSort("Publication"))}, 
+//                "authors"){Type(GenericSort("List", [SimpleSort("Person")]))}], [])
+        
+  //              row(){
+  //                "Authors"
+  //                input(publication.authors){
+  //                }
+  //              }
+ 
+     
+rules
+
+  add-view-edit-pages-to-app :
+    app@|[ application qid sec* ]| -> <debug(!"add-edit-pages-to-app c: ")>
+    |[ 
+       application qid 
+         sec* 
+         section generated edit pages. 
+           def* 
+    ]|
+    where debug(!"add-edit-pages-to-app a: ")
+        ; def* := <collect(entity-to-view-edit-pages); debug(!"pages: "); concat> app
+        ; debug(!"add-edit-pages-to-app b: ")  
+        
+rules 
+
+  apply-optional(s, k) = 
+    ![<s> | <k>] <+ k
+
+rules
+
+  entity-to-view-edit-pages =
+    ?Entity(x_Class, y_Class, prop*)
+    ; apply-optional(entity-to-edit-page, 
+      apply-optional(entity-to-edit-rows, 
+      apply-optional(entity-to-view-page, 
+      apply-optional(entity-to-view-rows, 
+                     ![]))))
+
+  entity-to-view-edit-pages : 
+    EntityNoSuper($X, prop*) -> 
+    <entity-to-view-edit-pages> Entity($X, SimpleSort("Object"), prop*)
+     
+rules
+
+  entity-to-edit-page : 
+    Entity($X, y_Class, prop*) ->
+    def|[
+      define page $editX(x : $X) {
+        main(){}
+        define sidebar() { $xSidebar(){} }
+        define body() {
+          section{ header{"Edit " str " " text(x.name) }
+            form {
+              table { $editRowsX(x){} }
+              action("Save",   save())
+              action("Cancel", cancel())
+            }
+          }
+          action cancel() { return $viewX(x); }
+          action save() { x.save(); return $viewX(x); }
+        }
+      }
+    ]|
+    where $editX     := <concat-strings>["edit", $X]
+        ; $viewX     := <concat-strings>["view", $X]
+        ; $editRowsX := <concat-strings>["editRows", $X]
+        ; x          := <decapitalize-string> $X
+        ; $xSidebar  := <concat-strings>[x, "Sidebar"]
+        ; str        := $X
+        ; not(<TemplateDefinition> $editX) // don't overwrite an existing definition
+     
+  entity-to-edit-rows :
+    Entity($X, y_Class, prop*) ->
+    def|[
+      define $editRowsX(x : $X) {
+        elem*
+      }  
+    ]|
+    where debug(!"entity-to-edit-rows a: ")
+        ; x          := <decapitalize-string> $X
+        ; $editRowsX := <concat-strings>["editRows", $X]
+        ; not(<TemplateDefinition> $editRowsX) // don't overwrite an existing definition
+        ; debug(!"entity-to-edit-rows b: ")
+        ; elem*      := <properties-to-edit-row(| Var(x), x )> prop*
+        ; debug(!"entity-to-edit-rows c: ")
+        
+  properties-to-edit-row(|e, qid) =
+    filter-concat-warn(property-to-edit-row(|e, qid)|"cannot create edit row for property ")
     
+  property-to-edit-row(|e, qid) =
+    set-property-to-edit-row(|e, qid) 
+    <+ reference-property-to-edit-row(|e, qid)
+    <+ composite-property-to-edit-row(|e, qid)
+    <+ basic-property-to-edit-row(|e, qid)
+    
+  basic-property-to-edit-row(|e, qid) :
+    Property(y, k, s, anno*) -> elem*|[
+      row { str input(e.y) }
+    ]|
+    where str := <capitalize-string> y
+    
+  reference-property-to-edit-row(|e, qid) :
+    Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
+      row { str select( y1 : $Y, "Select", $setY(y1) ) }
+      action $setY(y2 : $Y) { qid.y := y2; }
+    ]|
+    where <defined-java-type> SimpleSort($Y)
+        ; str := <capitalize-string> y
+        ; y1 := <newname> y
+        ; y2 := <newname> y
+        ; $setY := <concat-strings; newname>["set", $Y] 
+
+  composite-property-to-edit-row(|e, qid) :
+    Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
+      row { str "" }
+      elem*
+    ]|
+    where <defined-java-type> SimpleSort($Y)
+        ; str := <capitalize-string> y
+        ; elem* := <Properties; properties-to-edit-row(||[ e.y ]|, Qualified(qid, y))> $Y
+        
+  set-property-to-edit-row(|e, qid) :
+    Property(y, k, GenericSort("Set", [s]), anno*) -> elem*|[
+      row { str input(e.$yList) }
+    ]|
+    where str := <capitalize-string> y
+        ; $yList := <concat-strings>[y, "List"]
+
+rules
+
+  entity-to-view-page : 
+    Entity($X, y_Class, prop*) ->
+    def|[
+      define page $viewX(x : $X) {
+        main(){}
+        define sidebar() { 
+          $xSidebar(){} 
+          navigate("Edit", $editX(x)) 
+        }
+        define body() {
+          section{ header{text(x.name) }
+              table { $viewRowsX(x){} }
+          }
+        }
+      }
+    ]|
+    where $editX     := <concat-strings>["edit", $X]
+        ; $viewX     := <concat-strings>["view", $X]
+        ; $viewRowsX := <concat-strings>["viewRows", $X]
+        ; x          := <decapitalize-string> $X
+        ; $xSidebar  := <concat-strings>[x, "Sidebar"]
+        ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
+     
+  entity-to-view-rows :
+    Entity($X, y_Class, prop*) ->
+    def|[
+      define $viewRowsX(x : $X) {
+        elem*
+      }
+    ]|
+    where debug(!"entity-to-view-rows a: ")
+        ; x          := <decapitalize-string> $X
+        ; $viewRowsX := <concat-strings>["viewRows", $X]
+        ; not(<TemplateDefinition> $viewRowsX) // don't overwrite an existing definition
+        ; debug(!"entity-to-view-rows b: ")
+        ; elem*      := <properties-to-view-rows(| Var(x) )> prop*
+        ; debug(!"entity-to-view-rows c: ")
+        
+  properties-to-view-rows(|e) =
+    filter-concat-warn(property-to-view-row(|e) | "cannot create view row for property ")
+    
+  property-to-view-row(|e) =
+    collection-property-to-view-row(|e)
+    <+ reference-property-to-view-row(|e)
+    <+ composite-property-to-view-row(|e) 
+    <+ basic-property-to-view-row(|e)
+
+  reference-property-to-view-row(|e) :
+    Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
+      row { str navigate(e.y.name, $viewY(e.y)) }
+    ]|
+    where debug(!"reference-property-to-view-row a: ")
+        ; <defined-java-type> SimpleSort($Y)
+        ; debug(!"reference-property-to-view-row b: ")
+        ; str := <capitalize-string> y
+        ; debug(!"reference-property-to-view-row c: ")
+        ; $viewY := <concat-strings>["view", $Y]
+        ; debug(!"reference-property-to-view-row d: ")
+
+  composite-property-to-view-row(|e) :
+    Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
+      row { str "" }
+      elem*
+    ]|
+    where <defined-java-type> SimpleSort($Y)
+        ; str := <capitalize-string> y
+        ; elem* := <Properties; properties-to-view-rows(||[ e.y ]|)> $Y
+    
+  basic-property-to-view-row(|e) :
+    Property(y, k, s, anno*) -> elem*|[
+      row { str text(e.y) }
+    ]|
+    where str := <capitalize-string> y
+    
+  collection-property-to-view-row(|e) :
+    Property(y, k, GenericSort(coll, [SimpleSort($Y)]), anno*) -> elem*|[
+      row { str for( y1 : $Y in e.$yList ) { elem } }
+    ]|
+    where <is-collection> coll
+        ; str := <capitalize-string> y
+        ; y1 := <newname> y
+        ; $yList := <concat-strings>[y, "List"]
+        ; elem := <type-to-view(| Var(y1) )> SimpleSort($Y)
+        
+  type-to-view(|e) :
+    s@SimpleSort($Y) -> elem|[ text(e) ]|
+    where <builtin-java-type> s
+
+  type-to-view(|e) :
+    s@SimpleSort($Y) -> elem|[ navigate(e.name, $viewY(e)) ]|
+    where <defined-java-type> s    
+        ; $viewY := <concat-strings>["view", $Y]
+        
+        
+        
