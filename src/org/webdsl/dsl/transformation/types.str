@@ -235,22 +235,24 @@ rules // typechecking template definitions
 
   typecheck-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
-    where {| TypeOf
+    where debug(!"typecheck-definition in: ")
+        ; {| TypeOf
            : in-tc-context(id
                ; <map(declare-typeof-arg)> args
                ; <alltd(declare-action <+ declare-template-definition)> elems1
                ; elems2 := <typecheck-page-elements> elems1
              |["definition ", f, "/"])
-           |} 
+           |}
+         ; debug(!"typecheck-definition out: ")
   
   declare-typeof-arg = 
-    ?Arg(x, s) 
+    ?Arg(x, s)
     ; if not(<java-type> s) then 
         typecheck-error(|["parameter ", x, " has invalid type"])
       else 
-        rules( TypeOf : x -> s ) 
-      end 
-       
+        rules( TypeOf : x -> s )
+      end
+
 rules // typechecking page elements 
       
   typecheck-page-elements =
@@ -339,6 +341,20 @@ rules // typechecking page elements
                 |}
              | ["iterator ", x, "/"] )
              
+   typecheck-iterator :
+     ForAll(x, s, elems1) -> ForAll(x, s, elems2)
+     where in-tc-context(
+               {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems2 := <typecheck-page-elements> elems1
+                |}
+             | ["for all iterator ", x, "/"] ) 
+                         
   typecheck-select :
     Select(x,s@SimpleSort(_),label,e1) -> Select(x,s,label,e2)
     where in-tc-context(id

@@ -69,30 +69,32 @@ rules // session bean from page definition
         @Create @Begin 
 	    public void initialize() {
 		  bstm1*
-		  bstm2*
+		  bstm3*
+		  bstm4*
 	    }
 	    
 	    @Destroy @Remove
 	    public void destroy() {}
 	    
-	    ~*cbds
-	    
+	    ~*cbds1
 	    ~*cbds2
-	    
 	    ~*cbds3
+	    ~*cbds4
       }
     ]|)
-    where {| Parameter 
+    where {| Parameter
         : pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
         ; x_Page     := <capitalize-string> x_page
 	    ; x_PageBean := <concat-strings> [x_Page, "Bean"]
 	    ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
-	    ; cbds := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+	    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
 	    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
-	    ; cbds2 := <collect(action-to-bean-method)> elems1
-	    ; cbds3 := <collect(select-to-declarations); concat> elems1
-	    ; bstm2* := <collect(select-to-initialization); concat> elems1
+	    ; cbds2  := <collect(action-to-bean-method)> elems1
+	    ; cbds3  := <collect(select-to-declarations); concat> elems1
+	    ; bstm3* := <collect(select-to-initialization); concat> elems1
+	    ; cbds4  := <collect(forall-to-declarations); concat> elems1
+	    ; bstm4* := <collect(forall-to-initialization); concat> elems1
 	    |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
@@ -220,7 +222,37 @@ rules // view transition
   arg-to-java-exp :
     ThisCall(x, e1*) -> |[ x(e2*) ]|
     where e2* := <map(arg-to-java-exp)> e1*
+      
+rules // for all: for(x : s) { ... }
+
+  forall-to-declarations :
+    ForAll(x, SimpleSort(x_Class), elems) -> <debug(!"forall-declarations success: ")>
+    |[ 
+	  @DataModel(~string:String([Chars(x_List)]))
+	  private List<x_Class> x_List;
+
+	  public List<x_Class> x_getList() {
+		return x_List;
+	  }
+
+	  @Factory(~string:String([Chars(x_List)]))
+	  public void x_initList() {
+		log.info("~x_initList");
+		x_List = em.createQuery("from " + "~x_Class").getResultList();
+	  }
+    ]|
+    where debug(!"select-declarations match: ")
+        ; X          := <capitalize-string> x
+        ; x_List     := <concat-strings>[x, "List"]
+        ; x_getList  := <concat-strings>["get", X, "List"]
+        ; x_initList := <concat-strings>["init", X, "List"]
         
+  forall-to-initialization :
+    ForAll(x, SimpleSort(x_Class),elems) ->
+    bstm*|[ x_initList(); ]| 
+    where X          := <capitalize-string> x
+        ; x_initList := <concat-strings>["init", X, "List"]
+          
 rules // select
 
   select-to-declarations :
