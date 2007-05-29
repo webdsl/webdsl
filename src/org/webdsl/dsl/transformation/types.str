@@ -239,7 +239,7 @@ rules // typechecking template definitions
         ; {| TypeOf
            : in-tc-context(id
                ; <map(declare-typeof-arg)> args
-               ; <alltd(declare-action <+ declare-template-definition)> elems1
+               ; <alltd(declare-action <+ declare-template-definition <+ typecheck-vardecl)> elems1
                ; elems2 := <typecheck-page-elements> elems1
              |["definition ", f, "/"])
            |}
@@ -258,7 +258,7 @@ rules // typechecking page elements
   typecheck-page-elements =
     map(typecheck-page-element)
     
-  typecheck-page-element =
+  typecheck-page-element = debug(!"typecheck-page-element in: "); (
     typecheck-definition
     <+ typecheck-text  
     <+ typecheck-select
@@ -267,8 +267,10 @@ rules // typechecking page elements
     <+ typecheck-call-navigate
     <+ typecheck-template-call
     <+ typecheck-iterator
+    <+ typecheck-vardecl
     <+ debug(!"unknown page element? ")
        ; all(typecheck-page-elements)
+  ); debug(!"typecheck-page-element out: ")
     
   typecheck-text =
     Text(is-string)
@@ -426,9 +428,15 @@ rules // typechecking statements
     where e2 := <typecheck-expression> e1
     
   typecheck-vardecl :
-    VarDecl(x, s, e1) -> VarDecl(x, s, e2)
+    VarDeclInit(x, s, e1) -> VarDeclInit(x, s, e2)
     where rules( TypeOf : x -> s )
         ; e2 := <typecheck-expression> e1
+        
+        // @todo check that s is valid type
+        
+  typecheck-vardecl :
+    VarDecl(x, s) -> VarDecl(x, s)
+    where rules( TypeOf : x -> s )
    
   typecheck-return :
     Return(e1) -> Return(e2)
@@ -500,6 +508,7 @@ rules // typechecking expressions
      Assignment(y, e1) -> Assignment(y, e2)
      where debug(!"typecheck-assign a: ");
            e2{Type(t2)} := <typecheck-expression> e1
+           // @todo
          ; debug(!"typecheck-assign b: ")
          ; if not(t1 := <TypeOfProperty> (x_Class, y)) then
              typecheck-error(|["entity ", x_Class, " has no field ", y])
