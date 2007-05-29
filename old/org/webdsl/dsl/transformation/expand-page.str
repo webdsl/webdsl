@@ -1,0 +1,83 @@
+module expand-page
+
+imports 
+  libstrategolib
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  
+
+rules
+
+  expand-page-templates =
+    alltd(expand-page)
+
+  expand-page =
+    //?Define([Page()], name, args, body1)
+    ?tdef|[ define page x(farg*) { elem* } ]|
+    ; expand-template-definition
+           
+  expand-template-definition :
+    Define(mods, name, args, body1) -> Define([Page()], name, args, body2)
+    where {| Definition 
+           : elems := <filter(not(declare-template-definition))> body1
+           ; body2 := <map(expand-element)> elems
+           |}
+           
+  expand-element = debug(!"expand-element: "); (
+    expand-template-call
+    <+ Subst
+    <+ all(expand-element)
+  )
+  
+    // @todo @note the generic traversal loses annotations! (it seems)
+             
+  expand-template-call :
+    call@TemplateCall(name, args, elems1) -> TemplateCall("div", [String(name)], elems2)
+    where Define(mods, name, fargs, body) := <Definition; rename> name
+        ; <debug(!"expanding : ")> call
+        ; {| Subst, TypeOf, Elems
+           : <zip(bind-variable)> (fargs, args)
+           ; rules( Elems := elems1 )
+           ; elems2 := <map(expand-element)> body
+           |}
+          
+   bind-variable =
+     ?(Arg(x, s), e)
+     ; rules( 
+         Subst  : Var(x) -> e 
+         TypeOf : x -> s 
+       )
+          
+  // @todo define bound variable renaming
+  
+  rename = id
+
+strategies
+
+  propagate-component-names =
+    alltd(propagate-component-names-in-page)
+    
+  propagate-component-names-in-page :
+    Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
+    where {| PrefixComponent, SpecializeActionCall
+           : <map(declare-component-prefix(|name))> args
+           ; body2 := <alltd(PrefixComponent <+ specialize-action-call)> body1
+           |}
+           
+  specialize-action-call =
+    TemplateCall("action" <+ "actionLink", [id, try(SpecializeActionCall)], [])
+    
+  declare-component-prefix(|name) =
+    ?Arg(x, s)
+    ; rules( 
+        PrefixComponent : 
+          Var(x){t*} -> FieldAccess(Var(name){Type("Component")}, x){t*}
+         
+        SpecializeActionCall :
+          ThisCall(f, args) -> Call(Var(name){Type("Component")}, f, args)
+      )
+    
+    
+    
+    

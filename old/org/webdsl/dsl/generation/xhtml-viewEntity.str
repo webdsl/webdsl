@@ -1,0 +1,163 @@
+module org/webdsl/dsl/generation/xhtml-viewEntity
+
+imports 
+  libstrategolib 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+
+strategies
+          
+  entity-to-view-fails =
+    (?EntityNoSuper(_, _) <+ ?Entity(_,_,_))
+    ; err(|"cannot generate view for entity")
+    
+rules
+    
+  entity-to-xhtml-viewEntity : 
+    EntityNoSuper(x_Class, props) ->
+    <entity-to-xhtml-viewEntity> Entity(x_Class, "Object", props) 
+    // @todo use some kind of forwarding mechanism for these type of definitions
+  
+  entity-to-xhtml-viewEntity : 
+    Entity(x_Class, x_super, props) -> XmlFile(["view"], <concat-strings>[x_viewClass, ".xhtml"], <xml-composition-wrap>
+    %><ui:define name="sidebar">
+        this is the sidebar
+      </ui:define>
+      <ui:define name="body">
+        <h1>
+           <h:outputText value="<%= x_Class %> #{<%=x_class%>.name}" />
+        </h1>
+        <h:messages globalOnly="true" styleClass="message"/>
+        <h:form id="<%= x_viewClass %>">
+          <div class="dialog"><%= tbl %></div>
+          <div class="actionButtons">
+             <s:button action="#{<%= x_classEditor %>.edit}" value="Edit"/>
+             <s:button action="#{<%= x_classHome%>.remove}"  value="Delete"/>
+             <s:button view="/<%= x_findClass%>.xhtml"       value="Find <%= x_class %>"/>
+          </div>
+        </h:form>
+      </ui:define><% )
+    where x_class       := <decapitalize-string> x_Class
+        ; x_viewClass   := <concat-strings>["view", x_Class]
+        ; x_findClass   := <concat-strings>["find", x_Class]
+        ; x_classHome   := <concat-strings>[x_class, "Home"]
+        ; x_classEditor := <concat-strings>[x_class, "Editor"]
+        ; tbl           := <view-form(|x_class)> props
+    
+rules
+
+  // create view form for an entity
+  
+  view-form(|x_class) = 
+    view-form(|x_class, x_class)
+  
+  view-form(|x_class, x_id) :
+    props -> 
+    %><h:panelGrid columns="2" border="0" cellpadding="5" cellspacing="3"><%= rows ::*%></h:panelGrid><%
+    where rows := <view-form-rows(|x_class, x_id)> props
+
+  // create the rows, also for nested entities
+  
+  view-form-rows(|x_class, x_id) =
+    filter-concat-warn(row-in-view-form(|x_class, x_id) | "cannot generate view form row for property: ")
+
+  // create a row in the view form
+  
+  row-in-view-form(|x_class, x_id)  :
+    prop@Property(x_prop, _, _, _) ->
+    %>
+      <h:outputText value="<%=x_prop%>"/>
+      <%= input %>
+    <%
+    where input := <property-to-view-component(|x_class, x_id)> prop
+    
+ rules
+ 
+  // @todo complain about value type attributes that are not 'Simple' compositions (::)
+  
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Int"), _) -> 
+    %><h:outputText id="<%=x_id%>_<%=x_prop%>" 
+                    value="#{<%=x_class%>.<%=x_prop%>}"/><%
+                    	    
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("String"), _) -> 
+    %><h:outputText id="<%=x_id%>_<%=x_prop%>" 
+                    value="#{<%=x_class%>.<%=x_prop%>}"/><%
+   
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Text"), _) -> 
+    %><s:formattedText id="<%=x_id%>_<%=x_prop%>" 
+                       value="#{<%=x_class%>.<%=x_prop%>}"/><%
+       
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Secret"), _) -> 
+    %><h:outputText id="<%=x_id%>_<%=x_prop%>" 
+                    value="#{<%=x_class%>.<%=x_prop%>}"/><%  
+    // @todo view of password should normally not be included
+                    
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("URL"), _) -> 
+    %><h:outputLink id="<%=x_id%>_<%=x_prop%>_link" value="#{<%=x_class%>.<%=x_prop%>}">
+             <h:outputText id="<%=x_id%>_<%=x_prop%>" value="#{<%=x_class%>.<%=x_prop%>}"/>
+      </h:outputLink><%
+      
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Email"), _) -> 
+    %><h:outputLink id="<%=x_id%>_<%=x_prop%>_link" value="mailto:#{<%=x_class%>.<%=x_prop%>}">
+             <h:outputText id="<%=x_id%>_<%=x_prop%>" value="#{<%=x_class%>.<%=x_prop%>}"/>
+      </h:outputLink><%
+      
+  property-to-view-component(|x_class, x_id) :
+    Property(x_prop, Simple(), s@SimpleSort("Image"), _) -> 
+    %><h:graphicImage id="<%=x_id%>_<%=x_prop%>" 
+                      value="#{<%=x_class%>.<%=x_prop%>}"/><%
+   
+// @todo seam graphicImage appears not to be supported in 1.5                   
+//    %><s:graphicImage id="<%=x_id%>_<%=x_prop%>" 
+//                      value="#{<%=x_class%>.<%=x_prop%>}"/><%
+ 
+  property-to-view-component(|x_Class1, x_id) :
+    Property(x_prop, Ref(), s@SimpleSort(x_Class2), _) -> 
+    %><s:link view = "/view<%= x_Class2 %>.xhtml" value="#{<%=x_class1%>.<%=x_prop%>.name}">
+                <f:param name="<%= x_class2 %>Id" value="#{<%=x_class1%>.<%=x_prop%>.id}" />
+      </s:link><%
+    where <defined-java-type> s
+        ; x_class1 := <decapitalize-string> x_Class1
+        ; x_class2 := <decapitalize-string> x_Class2
+        
+  property-to-view-component(|x_class1, x_id) :
+    Property(x_prop, Ref(), GenericSort(coll,[s@SimpleSort(x_Class2)]), _) -> 
+    %><h:dataTable var="entry" value="#{<%=x_class1%>.<%=x_prop%>List}">
+            <h:column>
+              <s:link view = "/view<%= x_Class2 %>.xhtml" value="#{entry.name}">
+                <f:param name="<%= x_class2 %>Id" value="#{entry.id}" />
+              </s:link>
+            </h:column>
+         </h:dataTable><%
+    where <is-collection> coll
+        ; <defined-java-type> s
+        ; x_class2 := <try(decapitalize-string)> x_Class2
+        
+  is-collection = ?"List" <+ ?"Set"
+
+  /**
+   * view for composite association with defined type; recursively
+   * show all sub-properties
+   */
+   
+  row-in-view-form(|x_class, x_id)  :
+    Property(x_prop, Comp(), s0@SimpleSort(s), _) -> 
+    %><h:outputText value="<%=x_prop%>"/><h:panelGroup/>
+      <%= rows ::*%><%
+    where <defined-java-type> s0
+        ; debug(!"found a defined type: ")
+        ; props := <properties> s
+        ; debug(!"properties: ")
+        ; x_sub_component := <concat-strings> [x_class, ".", x_prop]
+        ; x_sub_id := <concat-strings> [x_id, "_", x_prop]
+        ; rows := <view-form-rows(|x_sub_component, x_sub_id)> props
+        
+            

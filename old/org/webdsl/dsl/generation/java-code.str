@@ -1,0 +1,272 @@
+module org/webdsl/dsl/generation/java-code
+
+imports 
+  libstrategolib  
+  Java-15
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+
+rules
+
+  action-to-java =
+    action-to-java-good <+ action-to-java-bad
+ 
+  action-to-java-bad =
+    ?Action(x_action, fargs, block)
+    ; debug(!"cannot compile action: ")
+  
+  action-to-java-good:
+    a@Action(x_action, fargs, Block(stm*)) -> (JavaFile(["src"],
+    compilation-unit|[
+      package pkgname;
+      
+      import org.jboss.annotation.ejb.Local;
+                 
+      @Local
+      public interface x_Action {
+        ~*methoddecs
+      }
+    ]|), bean)
+    where x_Action := <concat-strings>[<capitalize-string> x_action, "Action"]
+        ; pkgname := <BeanPackage>
+        ; bean := <action-to-java-action-bean> a
+	    ; methoddecs   := <extract-method-signatures> bean
+
+  action-to-java-action-bean:
+    Action(x_action, fargs, Block(stm*)) -> JavaFile(["src"],
+    compilation-unit|[
+      package pkgname;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      import static org.jboss.seam.ScopeType.CONVERSATION;
+      import static org.jboss.seam.ScopeType.SESSION;
+
+      import java.util.*;
+
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+      
+      import org.jboss.seam.annotations.Create;
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.Factory;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.Out;
+      import org.jboss.seam.annotations.Scope;
+      import org.jboss.seam.annotations.datamodel.DataModel;
+      import org.jboss.seam.annotations.datamodel.DataModelSelection;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+      
+      import pkgname2.*;
+           
+      @Stateful
+      @Name(~string:String([Chars(x_actionBean)]))
+      public class x_ActionBean implements x_Action {
+      
+        @Logger 
+        private Log log;
+    
+        @In FacesMessages 
+        facesMessages;
+         
+        @PersistenceContext(type=EXTENDED)
+        private EntityManager em;
+      
+        public String x_action() {
+          bstm*
+          return null;
+        }
+         
+        @Remove @Destroy
+        public void destroy() {}
+         
+      }
+      
+    ]|)
+    where x_Action     := <concat-strings>[<capitalize-string> x_action, "Action"]
+        ; x_ActionBean := <concat-strings>[x_Action, "Bean"]
+        ; x_actionBean := <concat-strings>[x_action, "Bean"]
+        ; debug(!"class name: ")
+        ; pkgname := <BeanPackage>
+        ; pkgname2 := <DomainPackage>
+	    ; debug(!"package name: ")
+        ; bstm* := <filter-warn(statement-to-java | "cannot translate statement")> stm*
+    
+rules // action to method   
+        
+  action-to-java-method =
+    action-view-to-java-method
+    <+ action-void-to-java-method
+  
+  action-void-to-java-method :
+    Action(x_action, args, Block(stm*)) -> 
+    |[      
+        public void x_action(param*) {
+          bstm*
+        }
+    ]|
+    where param* := <map(action-arg-to-method-arg)> args
+        ; bstm* := <statements-to-java> stm*
+    
+  action-view-to-java-method :
+    Action(x_action, args, Block(stm*)) -> 
+    |[      
+        @End public String x_action(param*) {
+          bstm*
+        }
+    ]|
+    where <oncetd(?Return(_))> stm*
+        ; param* := <map(action-arg-to-method-arg)> args
+        ; bstm* := <statements-to-java> stm*
+  
+  action-arg-to-method-arg :
+    Arg(y, SimpleSort(y_Class)) -> param|[ y_Class y ]|
+    
+rules // statements
+
+  statements-to-java =
+    filter-warn(statement-to-java | "cannot translate statement")
+    
+   statement-to-java =
+     block-to-java
+     <+ assignment-to-java
+     <+ vardecl-to-java
+     <+ stat-to-java
+     <+ return-to-java
+     <+ debug(!"cannot translate statement: ")
+        ; fail
+    
+   block-to-java :
+     Block(stm*) -> bstm|[ { bstm* } ]|
+     where bstm* := <statements-to-java> stm*
+     
+   stat-to-java :
+     Stat(e1) -> |[ e2; ]|
+     where e2 := <expression-to-java> e1
+     
+   assignment-to-java :
+     Assign(Assignment(x, e1)) -> |[ x = e2; ]|
+     where <is-string> x
+         ; e2 := <expression-to-java> e1 
+   
+   assignment-to-java :
+     Assign(Assignment(Qualified(qid, x), e1)) -> 
+     |[ e2.x_set(e3); ]|
+     where e2 := <qid-to-java> qid
+         ; e3 := <expression-to-java> e1 
+         ; x_set := <concat-strings>["set", <capitalize-string> x]
+         
+   return-to-java : 
+     Return(e1) -> |[ return e2; ]|
+     where e2 := <call-to-view-string> e1 
+         
+rules
+         
+   qid-to-java :
+     Qualified(qid, x) -> |[ e.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e := <qid-to-java> qid
+     
+   qid-to-java :
+     x -> |[ x ]|
+     where <is-string> x
+     
+   vardecl-to-java :
+     VarDeclInit(x, s, e1) -> bstm|[ t x = e2; ]|
+     where t := <java-type> s 
+         ; e2 := <expression-to-java> e1
+         
+   vardecl-to-java :
+     VarDecl(x, s) -> bstm|[ t x; ]|
+     where t := <java-type> s
+       
+rules // expressions
+
+   expression-to-java :
+     String(x) -> expr|[ "~x" ]|
+     
+   expression-to-java :
+     Int(x) -> Lit(Deci(x))
+ 
+   expression-to-java =
+     component-var-to-java
+     <+ var-to-java
+     
+   component-var-to-java :
+     Var(x){Type("Component")} -> expr|[ this ]|
+          
+   var-to-java :
+     Var(x) -> expr|[ x ]|
+     
+   expression-to-java :
+     FieldAccess(e1, x) -> |[ e2.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e2 := <expression-to-java> e1
+     
+   expression-to-java :
+     ObjectCreation(x_Class, assigns) -> 
+     |[
+        {| x_Class x_var = new x_Class(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-java(|x_var)| "cannot translate asssignment")> assigns
+
+   field-assign-to-java(|x_var) :
+     Assignment(y_field, e1) -> |[ x_var.y_set(e2); ]|
+     where e2 := <expression-to-java> e1 
+         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+
+   expression-to-java :
+     ListCreation(e*) -> 
+     |[
+        {| List x_var = new ArrayList(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(add-to-collection(|x_var)| "cannot translate add to collection")> e*
+         
+   expression-to-java :
+     SetCreation(e*) -> 
+     |[
+        {| Set x_var = new HashSet(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(add-to-collection(|x_var)| "cannot translate add to collection")> e*
+                    
+   add-to-collection(|x_var) :
+     e1 -> |[ x_var.add(e2); ]|
+     where e2 := <expression-to-java> e1 
+     
+   expression-to-java =
+     persist-call-to-java
+     <+ remove-call-to-java
+     <+ call-to-java
+     
+   persist-call-to-java :
+     Call(e1, "persist", []) -> |[ em.persist(e2) ]|
+     where e2 := <expression-to-java> e1
+     
+   persist-call-to-java :
+     Call(e1, "save", []) -> |[ em.persist(e2) ]|
+     where e2 := <expression-to-java> e1
+     
+   remove-call-to-java :
+     Call(e1, "remove", []) -> |[ em.remove(e2) ]|
+     where e2 := <expression-to-java> e1
+     
+   remove-call-to-java :
+     Call(e1, "delete", []) -> |[ em.remove(e2) ]|
+     where e2 := <expression-to-java> e1
+     
+   call-to-java :
+     Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
+     where e3 := <expression-to-java> e1
+         ; e4* := <map(expression-to-java)> e2*
+     
+     

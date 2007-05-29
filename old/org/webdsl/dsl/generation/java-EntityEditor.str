@@ -1,0 +1,179 @@
+/**
+ * Generate a Seam EntityHome class for a declared entity
+ */
+
+module org/webdsl/dsl/generation/java-EntityEditor
+
+imports 
+  libstrategolib  
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+
+rules
+
+  // @todo might be possible to extract interface automatically from ClassEditorBean class
+
+  entity-to-java-EntityEditor : 
+    EntityNoSuper(x_Class, props) -> <entity-to-java-EntityEditor>Entity(x_Class, "Object", props)
+    
+  entity-to-java-EntityEditor : 
+    e@Entity(x_Class, x_super, props) -> (JavaFile(["src"], 
+    compilation-unit|[
+      package pkgname;
+      
+      import org.jboss.annotation.ejb.Local;
+      
+      @Local
+      public interface x_ClassEditor {
+        ~*methodsdecs
+      }
+    ]|), bean)
+    where pkgname       := <BeanPackage>
+	    ; x_ClassEditor := <concat-strings> [x_Class, "Editor"]
+	    ; bean          := <entity-to-java-EntityEditorBean> e
+	    ; methodsdecs   := <extract-method-signatures> bean
+	    
+rules
+
+  entity-to-java-EntityEditorBean : 
+    EntityNoSuper(x_Class, props) -> <entity-to-java-EntityEditorBean>Entity(x_Class, "Object", props)
+    
+  entity-to-java-EntityEditorBean : 
+    Entity(x_Class, x_super, props) -> JavaFile(["src"], 
+    compilation-unit|[
+      package pkgname;
+      
+      import static javax.persistence.PersistenceContextType.EXTENDED;
+      
+      import javax.ejb.Remove;
+      import javax.ejb.Stateful;
+      import javax.ejb.TransactionAttribute;
+      import javax.persistence.EntityManager;
+      import javax.persistence.PersistenceContext;
+
+      import org.jboss.seam.annotations.Begin;
+      import org.jboss.seam.annotations.Create;
+      import org.jboss.seam.annotations.Destroy;
+      import org.jboss.seam.annotations.End;
+      import org.jboss.seam.annotations.In;
+      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.Name;
+      import org.jboss.seam.annotations.RequestParameter;
+      import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.log.Log;
+
+      @Stateful
+      @Name(~string:String([Chars(x_classEditor)]))
+      public class x_ClassEditorBean implements x_ClassEditor {
+      
+      	@Logger
+	    private Log log;
+
+	    @In
+	    private FacesMessages facesMessages;
+
+	    @PersistenceContext(type = EXTENDED)
+	    private EntityManager em;
+
+	    // property for x_class object being edited
+
+	    private x_Class x_class;
+
+	    public x_Class x_getClass() {
+		  return x_class;
+	    }
+
+	    public void x_setClass(x_Class x_class) {
+		  this.x_class = x_class;
+	    }
+
+	    @Create
+	    public void initialize() {
+		  x_class = new x_Class();
+	    }
+	    
+	    // are we creating a new object or editing an existing one
+
+	    private boolean isNew = true;
+
+	    //@TransactionAttribute(NOT_SUPPORTED)
+	    public boolean isNew() {
+		  return isNew;
+	    }
+	    
+	    // save values for properties of new object
+
+	    @Begin(join = true)
+	    public String create() {
+		  em.persist(x_class);
+		  isNew = false;
+		  log.info("creating new " + "~x_class");
+		  return null;
+	    }
+	    
+	    @RequestParameter(~string:String([Chars(x_classId)]))
+	    private Long x_classId;
+
+	    @Begin(join = true)
+	    public String edit() {
+		  x_class = em.find(x_Class.class, x_classId);
+		  isNew = false;
+		  log.info("loaded new " + "~x_class" + " for editing " + x_class);
+		  return "editAddress";
+	    }
+	    
+	    // @LoggedIn
+	    // @IfInvalid(outcome = Outcome.REDISPLAY, refreshEntities = true)
+	    public String save() {
+		  em.joinTransaction();
+		  em.flush();
+		  log.info("saving " + "~x_class");
+		  return null;
+	    }
+
+	    @End
+	    // @LoggedIn
+	    public String delete() {
+		  em.remove(x_class);
+		  x_class = null;
+		  // issue.getProject().getIssues().remove(issue);
+		  // refreshFinder();
+		  // return doneOutcome;
+		  log.info("deleting " + "~x_Class");
+		  return "find" + "~x_Class";
+	    }
+
+	    @End
+	    public String done() {
+		  if (!isNew)
+			em.refresh(x_class);
+		  return "find" + "~x_Class";
+	    }
+
+	    @End
+	    public String view() {
+		  if (!isNew)
+			em.refresh(x_class);
+		  return "view" + "~x_Class";
+	    }
+
+	    @Remove
+	    @Destroy
+	    public void destroy() { }
+      
+      }
+    ]|)
+    where pkgname           := <BeanPackage>
+        ; x_class           := <decapitalize-string> x_Class
+	    ; x_ClassEditor     := <concat-strings> [x_Class, "Editor"]
+	    ; x_ClassEditorBean := <concat-strings> [x_Class, "EditorBean"]
+	    ; x_classEditor     := <concat-strings> [x_class, "Editor"]
+	    ; x_classId         := <concat-strings> [x_class, "Id"]
+	    ; x_getClass        := <concat-strings> ["get", x_Class]
+	    ; x_setClass        := <concat-strings> ["set", x_Class]
+	    
+	    

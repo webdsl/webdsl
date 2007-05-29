@@ -1,0 +1,67 @@
+module org/webdsl/dsl/generation/xml-pages
+      
+  // @todo how should references to non primitive types be handled?
+  // @todo deal with collection types
+  // @todo generate code for the backing bean
+  // @todo properties should refer to fields of persistent entity through backing bean
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+  
+rules
+ 
+  entity-to-xml-pages :
+    EntityNoSuper(x_Class, props) ->
+    <entity-to-xml-pages> Entity(x_Class, "Object", props)
+    // @todo use some kind of forwarding mechanism for these type of definitions
+    
+  entity-to-xml-pages :
+    Entity(x_Class, x_super, props) -> 
+    (<entity-to-xml-view-page-config(|x_Class, x_class)>, 
+     <entity-to-xml-edit-page-config(|x_Class, x_class)>)
+    where x_class := <decapitalize-string> x_Class
+    
+  entity-to-xml-view-page-config(|x_Class, x_class) =
+    !XmlFile(["resources", "WEB-INF", "classes"], <concat-strings>["view", x_Class, ".page.xml"],
+    %><!DOCTYPE page PUBLIC 
+                "-//JBoss/Seam Pages Configuration DTD 1.1//EN"
+                "http://jboss.com/products/seam/pages-1.1.dtd"
+      ><page>
+         <param name="<%= x_class %>Id" 
+                value="#{<%= x_class %>Home.id}" 
+                converterId="javax.faces.Long"/>
+         <navigation>
+           <rule if-outcome="removed">
+             <end-conversation before-redirect="true" />
+             <redirect view-id="/find<%= x_Class %>.xhtml"/>
+           </rule>
+           <rule if-outcome="editAddress">
+             <redirect view-id="/edit<%= x_Class %>.xhtml">
+                <param name="<%= x_class %>Id" value="#{<%= x_class %>Home.id}"/>
+             </redirect>
+           </rule>
+         </navigation>
+      </page><% )  
+        
+  entity-to-xml-edit-page-config(|x_Class, x_class) =
+    !XmlFile(["resources", "WEB-INF", "classes"], <concat-strings>["edit", x_Class, ".page.xml"],
+    %><!DOCTYPE page PUBLIC 
+                "-//JBoss/Seam Pages Configuration DTD 1.1//EN"
+                "http://jboss.com/products/seam/pages-1.1.dtd"
+      ><page>
+         <param name="<%= x_class %>Id" 
+                value="#{<%= x_class %>Home.id}" 
+                converterId="javax.faces.Long"/>
+         <navigation>
+           <rule if-outcome="find<%= x_Class %>">
+             <end-conversation before-redirect="true" />
+             <redirect view-id="/find<%= x_Class %>.xhtml"/>
+           </rule>
+         </navigation> 
+       </page><% )
