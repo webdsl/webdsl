@@ -5,110 +5,184 @@
   @todo use sglr library
 
   @todo derive filename from compilation unit
-   
-  @todo check consistency of entity declarations
-
-  @todo derive filename from compilation unit
-  
-  @todo each entity should have a name (to refer to objects);
-  this might be a derived property, e.g., 
-  
-     name : String = firstname + lastname
-  
-  such a property would only have a getter, not a setter
-  and thus shows up only in views and references to views
-  
-  @todo refactor this file; one stratego module per type of generated
-  class?
-  
-  // @todo how should references to non primitive types be handled?
-  // @todo deal with collection types
-  // @todo generate code for the backing bean
-  // @todo properties should refer to fields of persistent entity through backing bean
   
 */ 
 
 module org/webdsl/dsl/generation/dsl-to-seam
  
-imports 
-  libstrategolib 
-  Java-15 
-  libjava-front 
+imports
+  libstratego-lib
+  libjava-front // implies Java-15 ?
+  libstratego-sglr
+  libstratego-tool-doc
+  libstratego-xtc
   
 imports 
-  org/webdsl/dsl/syntax/WebDSL
-  org/webdsl/dsl/utils/-
-  org/webdsl/dsl/transformation/-
-  org/webdsl/dsl/generation/-
+  org/webdsl/dsl/generation/generator
+  org/webdsl/dsl/syntax/-
   
+// inspiration:
+// https://svn.cs.uu.nl:12443/repos/StrategoXT/java-front/trunk/tools/parse-java.str
+// https://svn.cs.uu.nl:12443/repos/StrategoXT/dryad/trunk/compiler/main/dryad-front.str
+// https://svn.cs.uu.nl:12443/repos/StrategoXT/dryad/trunk/tools/class2aterm.str
+
+// ? xtc-multi-io-wrap
+
 strategies 
 
-  dsl-to-seam-main = 
-   io-wrap(
-     dsl-desugar
-     ; dsl-desugar2
-     ; declarations-to-code
-     ; topdown(try(java-file-to-file <+ xml-file-to-file))
-   )
+  dsl-to-seam-main =
+    where(set-default-config)
+    ; xtc-io-wrap(
+        dsl-to-seam-options
+      , dsl-to-seam-usage
+      , dsl-to-seam-about 
+      , ![] // xtc dependencies
+      , xtc-dsl-to-seam 
+    )
    
-  dsl-desugar = id
-    ; desugar
-    ; declare-definitions
-    ; add-view-edit-pages-to-app
-    ; declare-definitions
-    ; desugar; typecheck
-    ; expand-page-templates
-    ; desugar; typecheck
-    ; alltd(Derive)
+  xtc-dsl-to-seam = id
+    ; xtc-parse-webdsl
+    ; dsl-to-seam
+    ; output-generated-files
     
-  dsl-desugar2 = id
-    ; desugar; typecheck
-    ; propagate-component-names
-
-  declare-definitions =
-    where(alltd(declare-entity <+ declare-template-definition <+ declare-action))
-    
-strategies
-
-  declarations-to-code :
-    Application(qid, sections) -> <collect(entity-to-code <+ action-to-java <+ page-to-code)> sections
-    where rules( 
-            Package := <qid-to-package-name> qid
-            DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
-            BeanPackage := <qid-to-package-name> Qualified(qid, "beans")
-          )
-                    
-   // @todo it would be interesting to have some form of reflection
-   // to get all code generator strategies automatically
-   
-//   entity-to-code =
-//     !(<entity-to-java-EntityFinder>
-//     ,<entity-to-java-EntityEditor>
-//      ,<entity-to-java-Entity>
-//      ,<entity-to-java-EntityHome>
-//      ,<entity-to-xhtml-editEntity>
-//      ,<entity-to-xhtml-findEntities>
-//      ,<entity-to-xhtml-viewEntity>
-//      ,<entity-to-xml-pages>)
-      
-   entity-to-code =
-     !(<entity-to-java-Entity>
-      ,<id>)
-   
-   entity-to-code-failed =
-     (?Entity(x_Class, _, _) <+ ?EntityNoSuper(x_Class, _))
-     ; debug(!"entity-to-code failed: ")
-      
-   page-to-code = 
-     ?Define([Page()], x, args, body)
-     ; !(<id>
-        ,<page-to-xml>
-        ,<page-to-java>)
-        
-   page-to-code = 
-     ?Define(mod, x, args, body)
-     ; where(not([Page()] := mod))
-     ; !()
-       
-      
+  output-generated-files =
+    if-pretty-printing(
+      topdown(try(java-file-to-file <+ xml-file-to-file)),
+      output(id)
+    )
+    ; <exit> 0
  
+  output-webdsl =
+    if-pretty-printing(
+      output-webdsl-to-file,
+      output(id)
+    )
+    ; <exit> 0
+    
+strategies // command-line options
+
+  set-default-config =
+    rules(
+      OptionDesugar        := True()
+      OptionTypecheck      := True()
+      OptionGeneration     := True()
+      OptionPrettyPrinting := True()
+      Stage                := 0
+    )
+   
+  dsl-to-seam-options =
+    desugar-option
+    <+ typecheck-option
+    <+ disable-desugar-option
+    <+ disable-typecheck-option
+    <+ disable-generation-option
+    <+ disable-pretty-print-option
+    
+  // @todo check that verbosity and logging is supported by stratego-lib
+  
+  desugar-option =
+    Option("--desugar"
+    , disable-typechecking
+    , !HelpString("--desugar", "Only desugar")
+    )
+    
+  disable-desugar-option =
+    Option("--disable-desugar" + "--no-desugar"
+    , disable-desugaring
+    , !HelpString("--disable-desugar | --no-desugar", "Disable desugaring (and following phases)")
+    )
+    
+  disable-desugaring = 
+    rules( OptionDesugar := False() )
+    
+  if-desugaring(s1, s2) =
+    if OptionDesugar => True() then s1 else s2 end
+
+  stop-before-desugaring =
+    if-desugaring(id, output-webdsl)
+    
+  typecheck-option =
+    Option("--typecheck" + "--tc"
+    , disable-typechecking
+    , !HelpString("--typecheck | --tc", "Desugar and typecheck")
+    )
+       
+  disable-typecheck-option =
+    Option("--disable-typecheck" + "--no-tc"
+    , disable-typechecking
+    , !HelpString("--disable-typecheck | --no-tc", "Disable typechecking (and following phases)")
+    )
+    
+  disable-typechecking =
+    rules( OptionTypecheck := False() )
+    
+  if-typechecking(s1, s2) = 
+    if OptionTypecheck => True() then s1 else s2 end
+    
+  stop-before-typechecking =
+    if-typechecking(id, output-webdsl)
+        
+  disable-generation-option =
+    Option("--disable-generation" + "--no-gen"
+    , disable-generation
+    , !HelpString("--disable-generation | --no-gen", "Disable generation")
+    )
+    
+  disable-generation =
+    rules( OptionGeneration := False() )
+    
+  if-generating(s1, s2) =
+    if OptionGeneration => True() then s1 else s2 end
+    
+  stop-before-generation =
+    if-generating(id, output-webdsl)
+  
+  disable-pretty-print-option =
+    Option("--disable-pretty-printing" + "--no-pp"
+    , disable-pretty-printing
+    , !HelpString("--disable-pretty-printing | --no-pp", "Disable pretty-printing")
+    )
+    
+  disable-pretty-printing =
+    rules( OptionPrettyPrinting := False() )
+    
+  if-pretty-printing(s1, s2) =
+    if OptionPrettyPrinting => True() then s1 else s2 end
+    
+  stage-option =
+    Option("--stop-after"
+    , ?stage; rules( OptionStage := <int-to-string> stage )
+    , !HelpString("--stop-after=n", "Stop after stage n")
+    )
+       
+  stop-after =
+    if <geq>(<Stage>, <OptionStage>) then
+      output-webdsl
+    else 
+      rules( Stage := <Stage; inc> )
+    end
+ 
+   // @todo pass name to stop-after 
+   
+strategies // tool documentation
+
+  dsl-to-seam-usage =
+    <tool-doc> 
+      [ Usage("dsl-to-seam [-i foo.app] [OPTIONS]")
+      , Summary("Generates a web application from a WebDSL definition")
+      , OptionUsage()
+      , AutoReportBugs()
+      ]
+
+  dsl-to-seam-about =
+    <tool-doc> 
+      [ AutoProgram()
+      , Author(Person("Eelco Visser", "visser@acm.org"))
+      , GNU_LGPL("2007", "Eelco Visser <visser@acm.org>")
+      , WebHome("http://www.webdsl.org")
+      //, Config([
+      //    DefaultXTCRepository()
+      //  , CurrentXTCRepository()
+      //  ]) 
+      ]
+

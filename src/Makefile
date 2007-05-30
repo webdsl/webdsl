@@ -5,9 +5,10 @@ metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
-preprocessor = org/webdsl/dsl/generation/dsl-desugar
-
-STRSOURCES = $(wildcard org/webdsl/dsl/*/*.str)
+STRSOURCES = \
+     $(wildcard org/webdsl/dsl/*/*.str) \
+	 $(syntax)-pretty.pp.af \
+	 $(syntax).tbl
 
 STRINCLUDES = \
 	-I . \
@@ -23,17 +24,23 @@ STRCFLAGS = \
 	-la stratego-xtc \
     -la stratego-lib \
     -la stratego-gpp \
+    -la stratego-tool-doc \
+    -la stratego-sglr \
     -la ${HOME}/.nix-profile/lib/libjava-front.la
 
 all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
+      $(syntax)-pretty.pp.af \
       $(metasyntax).def $(metasyntax).tbl \
-      $(generator) $(preprocessor)
+      $(generator)
 
 %.str : %.rtg
 	rtg2sig -i $< -o $@
 
 %.def : %.sdf $(wildcard org/webdsl/dsl/syntax/*.sdf)
 	pack-sdf -i $< -o $@
+
+%.pp.af : %.pp
+	parse-pp-table -i $< -o $@
 
 %.tbl : %.def
 	sdf2table -i $< -o $@ -m `basename $*`
@@ -45,11 +52,7 @@ all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
 	parse-stratego $(STRINCLUDES) -i $< | pp-aterm -o $@
 	
 clean :
-	rm -f *.def *.tbl *.rtg *.str
-
-$(generator) : $(generator).str
-
-$(preprocessor) : $(preprocessor).str
+	rm -f *.def *.tbl *.rtg org/webdsl/dsl/*/*.c org/webdsl/dsl/*/*.o
 
 % : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)

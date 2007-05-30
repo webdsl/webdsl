@@ -1,0 +1,92 @@
+/**
+ * Transformation of a WebDSL application to a collection of XML and Java files
+ * in 
+ * 
+ * @author Eelco Visser
+ */
+
+module org/webdsl/dsl/generation/generator
+ 
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/utils/-
+  org/webdsl/dsl/transformation/-
+  org/webdsl/dsl/generation/-
+  
+strategies 
+
+  dsl-to-seam = id
+  
+    ; stop-before-desugaring
+    ; desugar
+      ; stop-after
+    ; declare-definitions
+      ; stop-after
+    ; add-view-edit-pages-to-app
+      ; stop-after
+    ; declare-definitions
+      ; stop-after
+    ; desugar
+      ; stop-after
+      
+    ; stop-before-typechecking  
+    ; typecheck
+      ; stop-after
+    ; expand-page-templates
+      ; stop-after
+    ; desugar
+      ; stop-after
+    ; typecheck
+      ; stop-after
+    ; alltd(Derive)
+      ; stop-after
+    ; desugar
+      ; stop-after
+    ; typecheck
+      ; stop-after
+    ; propagate-component-names
+      ; stop-after
+      
+    ; stop-before-generation
+    ; !(<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>, 
+        <declarations-to-code>)
+
+  declare-definitions =
+    where(alltd(declare-entity <+ declare-template-definition <+ declare-action))
+    
+strategies
+
+  declarations-to-code :
+    Application(qid, sections) -> <collect(entity-to-code <+ action-to-java <+ page-to-code)> sections
+    where rules( 
+            Package := <qid-to-package-name> qid
+            DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
+            BeanPackage := <qid-to-package-name> Qualified(qid, "beans")
+          )
+                
+   entity-to-code =
+     !(<entity-to-java-Entity>
+      ,<id>)
+   
+   entity-to-code-failed =
+     (?Entity(x_Class, _, _) <+ ?EntityNoSuper(x_Class, _))
+     ; debug(!"entity-to-code failed: ")
+      
+   page-to-code = 
+     ?Define([Page()], x, args, body)
+     ; !(<id>
+        ,<page-to-xml>
+        ,<page-to-java>)
+        
+   page-to-code = 
+     ?Define(mod, x, args, body)
+     ; where(not([Page()] := mod))
+     ; !()
+       
+      
+ 
