@@ -18,7 +18,7 @@ STRINCLUDES = \
 	-I $(HOME)/.nix-profile/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
     `pkg-config --variable=strcflags java-front` \
-    --verbose 3
+    --verbose 1
 
 STRCFLAGS = \
 	-la stratego-xtc \
