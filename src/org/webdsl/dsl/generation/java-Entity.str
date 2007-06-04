@@ -17,8 +17,6 @@ imports
   org/webdsl/dsl/transformation/types
 
 strategies
-
-  // @todo antiquotation for package name
   
   entity-to-java-Entity : 
     EntityNoSuper(x_Class, props) -> JavaFile(["src"],
@@ -74,8 +72,8 @@ strategies
 
   properties-to-code(|x_Class) :
     props -> cbds
-    where cbds1 := <mapconcat(property-to-property-code(|x_Class) 
-                              <+ debug(!"cannot generate code for property: "); ![])> props
+    where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class) 
+                                       | "cannot generate code for property: ")> props
         ; cbds2 := <name-property(|x_Class) <+ ![]> props
         ; cbds  := <concat>[cbds1, cbds2]
     
@@ -94,13 +92,13 @@ strategies
 rules
 
   /**
-   * Property with a value type
+   * Property is a private field with a getter and a setter.
    */
 
   property-to-property-code(|x_Class) :
-    Property(x_prop, k, SimpleSort(y), annos) -> class-body-dec* |[
+    prop@Property(x, k, s, annos) -> class-body-dec* |[
 
-      private mod* t x_prop = e;
+      mod1* mod2* private t x_prop = e;
 
       public t x_get() {
         return x_prop;
@@ -109,262 +107,129 @@ rules
       public void x_set(t x_prop) {
         this.x_prop = x_prop;
       }
-  
-    ]|
-    where t := <builtin-java-type> SimpleSort(y)
-        ; e := <java-type-default-value> SimpleSort(y)
-        ; mod* := <persistence-annotations> SimpleSort(y)
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_set := <property-setter> x_prop
-        
-        // @note this is the prototypical property
-	      
-  /**
-   * property with a composite association type,
-   * i.e., to a defined entity that is owned by x_Class;
-   *
-   * @note might be translated as @Embeddable
-   */
-	      
-  property-to-property-code(|x_Class) :
-    Property(x_prop, Comp(), SimpleSort(y), annos) -> class-body-dec* |[
-
-      @ManyToOne
-      @JoinColumn(name = "~columnname")
-      @org.hibernate.annotations.Cascade({
-        org.hibernate.annotations.CascadeType.ALL
-      })
-      private t x_prop = new y();
-
-      public t x_get() {
-        return x_prop;
-      }
-
-      public void x_set(t x_prop) {
-        this.x_prop = x_prop;
-      }
-  
-    ]|
-    where t := <defined-java-type> SimpleSort(y)
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_set := <property-setter> x_prop
-        ; columnname := <concat-strings>[x_Class, x_Prop]
-        
-    // @todo it would be cool to express these name constructions using
-    // some sort of lightweight antiquotation
-    // public t `get(x_prop)() { return x_prop; }
-    // this suggests that get is a function
-    // so ~<get>x_prop but that doesn't look right
-        
-  /**
-   * property with a reference association type,
-   * i.e., to a defined entity
-   *
-   * such objects are independent of the referring
-   * object
-   *
-   * only saving and mergin is cascaded
-   */
-   	      
-  property-to-property-code(|x_Class) :
-    Property(x_prop, Ref(), SimpleSort(y), annos) -> class-body-dec* |[
-
-      @ManyToOne
-      @org.hibernate.annotations.Cascade({
-	    org.hibernate.annotations.CascadeType.PERSIST,
-        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
-        org.hibernate.annotations.CascadeType.MERGE
-      })
-      private t x_prop; // = e; // reference type can be empty
-
-      public t x_get() {
-        return x_prop;
-      }
-
-      public void x_set(t x_prop) {
-        this.x_prop = x_prop;
-      }
-  
-    ]|
-    where t := <defined-java-type> SimpleSort(y)
-        ; e := <java-type-default-value> SimpleSort(y)
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_set := <property-setter> x_prop
-        ; columnname := <concat-strings>[x_Class, x_Prop]
+     
+      ~*cbd*
       
-    // @todo there is some redundancy here; at some point it will be worthwhile to
-    // factor out annotations for property
-    // the advantage of this style is that one gets quite a good impression of
-    // the generated code 
-    
-    // @todo but at least the name generators should be factored out, not in the
-    // least to guarantee a consistent naming convention, and even to make it
-    // configurable
-    
-    // @todo java reserved words cannot be used as names of properties, but that
-    // may conflict with the desire to allow natural words in the application, for
-    // instance to generate captions and field labels; this might be solved by always
-    // using functions to lookup the name of a property, or to convert it to a java
-    // name vs a display name
-        
-  /**
-   * collection of value types
-   */
-  
-  property-to-property-code(|x_Class) :
-    Property(x_prop, k, GenericSort("Set", [s@SimpleSort(_)]), annos) -> 
-    class-body-dec* |[
-
-      @org.hibernate.annotations.CollectionOfElements(
-        targetElement = t.class
-      )
-      @JoinTable(
-        name = "~tableName"
-        //, joinColumns = @JoinColumn(name = "~joincolumn")
-      )
-      @Column(name = "~x_prop", nullable = false)
-      @org.hibernate.annotations.Cascade({
-        org.hibernate.annotations.CascadeType.ALL
-      })
-      private Set<t> x_prop = e;
-
-      public Set<t> x_get() {
-        return x_prop;
-      }
-
-      public void x_set(Set<t> x_prop) {
-        this.x_prop = x_prop;
-      }
-
-      public void x_add(t z) {
-        this.x_prop.add(z);
-      }
-  
     ]|
-    where t := <builtin-java-type> s  
-        ; e := <java-type-default-value> s
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_set := <property-setter> x_prop
-        ; x_add := <concat-strings>["add", x_Prop]
-	    ; z := <new>"one"
+    where t      := <java-type> s
+        ; e      := <initialization-expression> (k, s)
+        ; mod1*  := <persistence-annotations> s
+        ; mod2*  := <property-to-persistence-annotations(|x_Class)> prop
+        ; x_prop := <concat-strings>["_", x]
+        ; x_get  := <property-getter> x
+        ; x_set  := <property-setter> x 
+        ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
+        
+rules // property initialization
+
+  initialization-expression :
+    (Ref(), SimpleSort(y)) -> |[ null ]|
+    
+  initialization-expression :
+    (k, s) -> <java-type-default-value> s
+    where not(?(Ref(),SimpleSort(_)))
+
+rules // annotations for properties
+
+  property-to-persistence-annotations(|x_Class) : 
+    Property(x_prop, k, s, annos) -> 
+    <concat>[
+      <association-annotations(|x_Class, x_prop)> s,
+      <cascade-annotations> k
+    ]
+
+rules // association annotations
+
+  // Property with a value type
+
+  association-annotations(|x_Class, x_prop) :
+    s@SimpleSort(y) -> []
+    where <builtin-java-type> s
+    
+  // Property with a reference association type
+  
+  association-annotations(|x_Class, x_prop) :
+    s@SimpleSort(y) -> [anno|[ @ManyToOne ]|]
+    where t := <defined-java-type> s
+    
+  // Collection types
+    
+  association-annotations(|x_Class, x_prop) :
+    GenericSort("List", [s]) -> [anno|[ @ManyToMany ]|]
+    where t := <defined-java-type> s
+    
+  association-annotations(|x_Class, x_prop) :
+    GenericSort("Set", [s]) -> [anno|[ @ManyToMany ]|]
+    where t := <defined-java-type> s 
+    
+  association-annotations(|x_Class, x_prop) :
+    GenericSort("Map", [s1, s2]) -> [anno|[ @ManyToMany ]|]
+    where t1 := <builtin-java-type> s1
+        ; t2 := <defined-java-type> s2
+    
+  // Set of values.
+  
+  association-annotations(|x_Class, x_prop) :
+    GenericSort("Set", [s@SimpleSort(_)])-> 
+    [
+      anno|[ 
+        @org.hibernate.annotations.CollectionOfElements(targetElement = t.class) 
+      ]|,
+      
+      anno|[ @JoinTable(name = "~tableName") ]|, //, joinColumns = @JoinColumn(name = "~joincolumn")
+        
+      anno|[ @Column(name = "~x_prop", nullable = false) ]|
+    ]
+    where t         := <builtin-java-type> s  
+        ; x_Prop    := <capitalize-string> x_prop
 	    ; tableName := <concat-strings>[x_Class, "_", x_Prop]
-	    // @todo: make singular for add
 	    
-  property-to-property-code(|x_Class) :
-    Property(x_prop, k, s@GenericSort("Set", [SimpleSort(y)]), annos) -> 
-    class-body-dec* |[
+  // Property with a composite association type,
+  // i.e., to a defined entity that is owned by x_Class.
+  // @note might be translated as @Embeddable
+	        
+  association-annotations(|x_Class, x_prop) :
+    s@SimpleSort(y) ->
+    [
+      anno|[ @ManyToOne ]|,
+      anno|[ @JoinColumn(name = "~columnname") ]|
+    ]
+    where t          := <defined-java-type> s
+        ; x_Prop     := <capitalize-string> x_prop
+        ; columnname := <concat-strings>[x_Class, x_Prop]
+            
+rules // cascading annotations
 
-      @ManyToMany //(targetEntity=t)
+  cascade-annotations :
+    Ref() -> [anno|[
       @org.hibernate.annotations.Cascade({
 	    org.hibernate.annotations.CascadeType.PERSIST,
         org.hibernate.annotations.CascadeType.SAVE_UPDATE,
         org.hibernate.annotations.CascadeType.MERGE
       })
-      private Set<t> x_prop = new HashSet<t>();
-
-      public Set<t> x_get() {
-        return x_prop = e;
-      }
-      
-      public List<t> x_getList() {
-        return new ArrayList(x_prop);
-      }
-      
-      public void x_set(Set<t> x_prop) {
-        this.x_prop = x_prop;
-      }
-
-      public void x_add(t z) {
-        this.x_prop.add(z);
-      }
-      
-
-    ]|
-    where t := <defined-java-type> SimpleSort(y)
-        ; e := <java-type-default-value> s
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_getList := <concat-strings>["get", x_Prop, "List"]
-        ; x_set := <property-setter> x_prop
-        ; x_add := <concat-strings>["add", x_Prop]
-	    ; z := <new>"one"
-	    // @todo: make singular for add
-
-  property-to-property-code(|x_Class) :
-    Property(x_prop, k, s@GenericSort("List", [y]), annos) -> 
-    class-body-dec* |[
-
-      @ManyToMany //(targetEntity=t)
+    ]|]
+    
+  cascade-annotations :
+    Comp() -> [anno|[
       @org.hibernate.annotations.Cascade({
-	    org.hibernate.annotations.CascadeType.PERSIST,
-        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
-        org.hibernate.annotations.CascadeType.MERGE
+	    org.hibernate.annotations.CascadeType.ALL
       })
-      private List<t> x_prop = e;
-
-      public List<t> x_get() {
-        return x_prop;
-      }
-      
-      public List<t> x_getList() {
-        return x_prop;
-      }
-      
-      public void x_set(List<t> x_prop) {
-        this.x_prop = x_prop;
-      }
-
-      public void x_add(t z) {
-        this.x_prop.add(z);
-      }
-  
-    ]|
-    where t := <java-type> y
-        ; e := <java-type-default-value> s
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_getList := <concat-strings>["get", x_Prop, "List"]
-        ; x_set := <property-setter> x_prop
-        ; x_add := <concat-strings>["add", x_Prop]
-	    ; z := <new>"one"
-	    // @todo: make singular for add
-
-  property-to-property-code(|x_Class) :
-    Property(x_prop, k, s@GenericSort("Map", 
-                         [SimpleSort(y_key),
-                          SimpleSort(y_value)]), []) -> 
+    ]|]
+    
+  cascade-annotations :
+    Simple() -> []
+   
+rules // special methods 
+ 
+   property-to-special-getters(|x_Class) : 
+    Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) -> 
     class-body-dec* |[
-
-      @ManyToMany() // (targetEntity=t_value)
-      @org.hibernate.annotations.Cascade({
-		org.hibernate.annotations.CascadeType.PERSIST,
-        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
-        org.hibernate.annotations.CascadeType.MERGE
-      })
-      private Map<t_key,t_value> x_prop = e;
-
-      public Map<t_key,t_value> x_get() {
-        return x_prop;
+      public t x_getList() {
+        return new ArrayList(x_get());
       }
-
-      public void x_set(Map<t_key,t_value> x_prop) {
-        this.x_prop = x_prop;
-      }
-
-      public void x_put(t_key key, t_value value) {
-        this.x_prop.put(key, value);
-      }
-  
     ]|
-    where t_key := <java-type> SimpleSort(y_key)
-        ; t_value := <java-type> SimpleSort(y_value)
-        ; e := <java-type-default-value> s
-        ; x_Prop := <capitalize-string> x_prop
-        ; x_get := <property-getter> x_prop
-        ; x_set := <property-setter> x_prop
-        ; x_put := <concat-strings>["put", x_Prop]
-	    // @todo: make singular for add
+    where <?"Set" <+ ?"List"> coll
+        ; t         := <java-type> GenericSort("List", [SimpleSort(y)])
+        ; x_Prop    := <capitalize-string> x_prop
+        ; x_getList := <concat-strings>["get", x_Prop, "List"]
+        ; x_get     := <concat-strings>["get", x_Prop]
