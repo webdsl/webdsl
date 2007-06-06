@@ -313,7 +313,7 @@ rules // page variables
 rules // page-level variables with query initializers
         
   vardecl-to-member-variable :
-    VarDeclInit(x, s, HqlQuery(e)) -> <debug(!"vardecl-to-member-variable f:")>
+    VarDeclInit(x, s, HqlQuery(e1)) -> <debug(!"vardecl-to-member-variable f:")>
     |[
        @DataModel(~string:String([Chars(x)]))
        private t x;
@@ -331,15 +331,14 @@ rules // page-level variables with query initializers
 	   @Factory(~string:String([Chars(x)]))
        public void x_init() {
          log.info("~x_init");
-         x = em.createQuery("~q").getResultList();
+         x = e2.getResultList();
          // setParameter for each antiquotation in e1
        }
     ]|
     where debug(!"vardecl-to-member-variable a:"); 
-          t := <java-type> s
-      //; (params, q) := <replace-query-parameters> e1
+          t      := <java-type> s
         ; debug(!"vardecl-to-member-variable b:")
-        ; q      := <pp-hql-to-string; trim-chars('\n')> e
+        ; e2     := <query-to-create-query> e1
         ; debug(!"vardecl-to-member-variable c:")
         ; X      := <capitalize-string> x
         ; debug(!"vardecl-to-member-variable d:")
@@ -355,3 +354,18 @@ rules // page-level variables with query initializers
       x_init();
     ]|
     where x_init := <concat-strings>["init", <capitalize-string>x]
+
+  query-to-create-query :
+    e -> <repeat(once-AddQueryParameter)> |[ em.createQuery("~q") ]|
+    where q := <alltd(replace-parameter); pp-hql-to-string; trim-chars('\n')> e
+    
+  replace-parameter :
+    DslExp(e1) -> IdParam(x2)
+    where x1  := <newname> "param"
+        ; x2 := <concat-strings>[":", x1]
+        ; e2 := <expression-to-java> e1
+        ; rules( 
+            AddQueryParameter :+ e -> |[ e.setParameter("~x1", e2) ]|
+          )
+
+        

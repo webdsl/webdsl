@@ -1,5 +1,6 @@
 [
    HqlQuery -- _1,
+   DslExp -- _1,
    
    Qualified                          -- H hs=0[_1 KW["."] _2],
    Application                        -- V vs=1[H[KW["application"] _1] _2],
