@@ -1,6 +1,8 @@
 
 syntax = org/webdsl/dsl/syntax/WebDSL
 
+hql = org/webdsl/dsl/syntax/HQL
+
 metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
@@ -30,6 +32,7 @@ STRCFLAGS = \
 
 all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
       $(syntax)-pretty.pp.af \
+      $(hql).def $(hql).tbl \
       $(metasyntax).def $(metasyntax).tbl \
       $(generator)
 
@@ -38,6 +41,12 @@ all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
 
 %.def : %.sdf $(wildcard org/webdsl/dsl/syntax/*.sdf)
 	pack-sdf -i $< -o $@
+	
+Mix%.sdf : %.def
+	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@
+
+%.pp : %.def
+	ppgen -i $< -o $@
 
 %.pp.af : %.pp
 	parse-pp-table -i $< -o $@
