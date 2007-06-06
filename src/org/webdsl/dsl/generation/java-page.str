@@ -11,6 +11,7 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/syntax/HQL
   org/webdsl/dsl/utils/utils
 
 rules // session bean from page definition
@@ -149,49 +150,8 @@ rules // action methods
 
   action-to-bean-method = 
     action-to-java-method
-  
-//  action-to-bean-method :
-//   TemplateCall("action", [e1, Call(Var(component), "save", [])], []) ->
-//    |[
-// 	  @End
-//	  public String save() {
-//	    log.info("save");
-//	    bstm*
-//		em.flush();
-//		return e4 ;
-//	  }
-//	]|
-//	where e4 := <call-to-view-string> e2
-//	    ; bstm* := <bagof-Parameter; map(persist-parameter)>
-	    
-//  persist-parameter :
-//    x -> |[ if (x.getId() == null) em.persist(x); ]|
-
-//  action-to-bean-method :
-//    TemplateCall("action", [e1, Call(Var(component), "cancel", []), e2], []) ->
-//    |[
-// 	  @End
-//	  public String cancel() {
-//	    log.info("cancel");
-//		return e4 ;
-//	  }
-//	]|
-//	where e4 := <call-to-view-string> e2
 	
-//  action-to-bean-method :
-//    TemplateCall("action", [e1, Call(Var(component), x, args), e2], []) ->
-//    |[
-// 	  @End
-//	  public String x() {
-//	    log.info("delete (nothing deleted)");
-//	    em.remove(x);
-//	    em.flush();
-//		return e4 ;
-//	  }
-//	]|
-//	where e4 := <call-to-view-string> e2
-	
-	// @todo what does it mean to delete an object?
+  // @todo what does it mean to delete an object?
 	
 rules // view transition
 
@@ -320,15 +280,13 @@ rules // select
     where X          := <capitalize-string> x
         ; x_initList := <concat-strings>["init", X, "List"]
     
-rules
+rules // page variables
 
   vardecl-to-initialization :
     VarDeclInit(x, s, e1) -> bstm*|[ x = e2; ]|
-    where e2 := <expression-to-java> e1
- 
-  vardecl-to-member-variable :
-    VarDeclInit(x, s, e) -> <vardecl-to-member-variable> VarDecl(x, s)
-  
+    where not(HqlQuery(_) := e1)
+        ; e2 := <expression-to-java> e1
+
   vardecl-to-member-variable :
     VarDecl(x, s) -> |[
       private t x;
@@ -347,5 +305,53 @@ rules
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
-
+        
+  vardecl-to-member-variable :
+    VarDeclInit(x, s, e) -> <vardecl-to-member-variable> VarDecl(x, s)
+    where not(HqlQuery(_) := e)
     
+rules // page-level variables with query initializers
+        
+  vardecl-to-member-variable :
+    VarDeclInit(x, s, HqlQuery(e)) -> <debug(!"vardecl-to-member-variable f:")>
+    |[
+       @DataModel(~string:String([Chars(x)]))
+       private t x;
+      
+       public t x_get() {
+         log.info("~x_get");
+         return x;
+       }
+      
+       public void x_set(t x) {
+         log.info("~x_set");
+         this.x = x;
+       }
+      
+	   @Factory(~string:String([Chars(x)]))
+       public void x_init() {
+         log.info("~x_init");
+         x = em.createQuery("~q").getResultList();
+         // setParameter for each antiquotation in e1
+       }
+    ]|
+    where debug(!"vardecl-to-member-variable a:"); 
+          t := <java-type> s
+      //; (params, q) := <replace-query-parameters> e1
+        ; debug(!"vardecl-to-member-variable b:")
+        ; q      := <pp-hql-to-string; trim-chars('\n')> e
+        ; debug(!"vardecl-to-member-variable c:")
+        ; X      := <capitalize-string> x
+        ; debug(!"vardecl-to-member-variable d:")
+        ; x_init := <concat-strings>["init", X]
+        ; x_get  := <concat-strings>["get", X]
+        ; x_set  := <concat-strings>["set", X]
+        ; debug(!"vardecl-to-member-variable e:")
+  
+  // @todo : is this necessary?
+  
+  vardecl-to-initialization :
+    VarDeclInit(x, s, HqlQuery(_)) -> bstm*|[
+      x_init();
+    ]|
+    where x_init := <concat-strings>["init", <capitalize-string>x]

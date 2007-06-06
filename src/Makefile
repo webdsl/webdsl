@@ -32,7 +32,8 @@ STRCFLAGS = \
 
 all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
       $(syntax)-pretty.pp.af \
-      $(hql).def $(hql).tbl \
+      $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
+      $(hql)-pretty.pp.af \
       $(metasyntax).def $(metasyntax).tbl \
       $(generator)
 
