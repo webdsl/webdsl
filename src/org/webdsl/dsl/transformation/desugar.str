@@ -56,17 +56,69 @@ rules
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
 
-rules
+rules // derive input behaviour from type
 
-  Derive = 
-    InputAssociation
+  Derive = fail
+    <+ DeriveInputString
+    <+ DeriveInputText
+    <+ DeriveInputSecret
+    <+ DeriveInputDate
+    <+ DeriveInputSimpleRefAssociation
+    <+ DeriveInputAssociationList
+    <+ DeriveInputAssociationSet
     
-  InputAssociation :
+  DeriveInputString :
+    elem|[ input(e){} ]| -> elem|[ inputString(e){} ]|
+    where SimpleSort(s) := <type-of> e
+        ; <"String" + "URL" + "Image" + "Email" + "Int"> s
+        
+  DeriveInputText :
+    elem|[ input(e){} ]| -> elem|[ inputText(e){} ]|
+    where SimpleSort("Text") := <type-of> e
+    
+  DeriveInputSecret :
+    elem|[ input(e){} ]| -> elem|[ inputSecret(e){} ]|
+    where SimpleSort("Secret") := <type-of> e
+    
+  DeriveInputDate :
+    elem|[ input(e){} ]| -> elem|[ inputDate(e){} ]|
+    where SimpleSort("Date") := <type-of> e
+
+  DeriveInputSimpleRefAssociation :
+    elem|[ input(e){} ]| ->
+    elem|[
+      div("inputSimpleRefAssociation") {
+        navigate(e.name, $viewY(e))
+        select( y1 : $Y, "Select", $setY(y1) )
+        action $setY(y2 : $Y) { qid := y2; }
+      }
+    ]|
+    where SimpleSort($Y) := <type-of> e
+        ; <defined-java-type> SimpleSort($Y)
+        ; y      := <decapitalize-string> $Y
+        ; y1     := <newname> y
+        ; y2     := <newname> y
+        ; $setY  := <concat-strings; newname>["set", $Y] 
+        ; $viewY := <concat-strings>["view", $Y] 
+        ; qid := <exp-to-qid> e
+        
+  exp-to-qid :
+    FieldAccess(e, f) -> Qualified(qid, f)
+    where not(Var(_) := e)
+        ; qid := <exp-to-qid> e
+    
+  exp-to-qid :
+    FieldAccess(Var(x), f) -> Qualified(x, f)
+        
+  exp-to-qid :
+    Var(x) -> x
+    
+  DeriveInputAssociationList :
     elem|[ input(e){} ]| ->
     elem|[ 
-      div("inputAssociation"){       
+      div("inputAssociationList"){       
         for(x : $X in e){ div("listAssociation"){ 
-          navigate(x.name, $viewX (x))
+          navigate(x.name, $viewX (x)) " "
           actionLink("[X]", $removeX(x))
           action $removeX(x : $X) { e.remove(x); }
         }}
@@ -81,15 +133,15 @@ rules
         ; $removeX := <concat-strings; newname>["remove", $X]
         ; $addX    := <concat-strings; newname>["add", $X]
         ; str      := <concat-strings>["Add ", $X]
-        
-  // sets treated slightly differently
+            
+  // sets treated slightly differently; 
   
-  InputAssociation :
-    elem|[ input(e.$y){} ]| ->
+  DeriveInputAssociationSet :
+    elem|[ input(e0){} ]| ->
     elem|[ 
-      div("inputAssociation"){       
+      div("inputAssociationSet"){       
         for(x : $X in e.$yList){ div("listAssociation"){ 
-          navigate(x.name, $viewX (x))
+          navigate(x.name, $viewX (x)) " "
           actionLink("[X]", $removeX(x))
           action $removeX(x : $X) { e.$y.remove(x); }
         }}
@@ -97,7 +149,8 @@ rules
         action $addX   (x : $X) { e.$y.add(x); }
       }
     ]|
-    where |[ Set<$X> ]| := <type-of> |[ e.$y ]|
+    where |[ Set<$X> ]| := <type-of> |[ e0 ]|
+        ; |[ e.$y ]| := e0
         ; $yList   := <concat-strings>[$y, "List"]
         ; x        := <decapitalize-string; newname> $X
         ; x1       := <decapitalize-string; newname> $X
@@ -138,7 +191,7 @@ rules
     EntityNoSuper($X, prop*) -> 
     <entity-to-view-edit-pages> Entity($X, SimpleSort("Object"), prop*)
      
-rules
+rules // edit page
 
   entity-to-create-page : 
     Entity($X, y_Class, prop*) ->
@@ -210,29 +263,16 @@ rules
   properties-to-edit-row(|e, qid) =
     filter-concat-warn(property-to-edit-row(|e, qid)|"cannot create edit row for property ")
     
-  property-to-edit-row(|e, qid) = id
-    //set-property-to-edit-row(|e, qid) 
-    <+ reference-property-to-edit-row(|e, qid)
+  property-to-edit-row(|e, qid) = fail
     <+ composite-property-to-edit-row(|e, qid)
     <+ basic-property-to-edit-row(|e, qid)
     
   basic-property-to-edit-row(|e, qid) :
     Property(y, k, s, anno*) -> elem*|[
-      row { str input(e.y) } 
+      row { str input(e.y) }
     ]|
     where str := <capitalize-string> y
     
-  reference-property-to-edit-row(|e, qid) :
-    Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
-      row { str select( y1 : $Y, "Select", $setY(y1) ) }
-      action $setY(y2 : $Y) { qid.y := y2; }
-    ]|
-    where <defined-java-type> SimpleSort($Y)
-        ; str := <capitalize-string> y
-        ; y1 := <newname> y
-        ; y2 := <newname> y
-        ; $setY := <concat-strings; newname>["set", $Y] 
-
   composite-property-to-edit-row(|e, qid) :
     Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
       row { str "" }
@@ -242,6 +282,23 @@ rules
         ; str := <capitalize-string> y
         ; elem* := <Properties; properties-to-edit-row(||[ e.y ]|, Qualified(qid, y))> $Y
         
+  // @todo reformulate as desugaring
+  
+  //reference-property-to-edit-row(|e, qid) :
+  //  Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
+  //    row { str div(""){
+  //                navigate(e.y.name, $viewY(e.y))
+  //                select( y1 : $Y, "Select", $setY(y1) )
+  //              } }
+  //    action $setY(y2 : $Y) { qid.y := y2; }
+  //  ]|
+  //  where <defined-java-type> SimpleSort($Y)
+  //      ; str := <capitalize-string> y
+  //      ; y1 := <newname> y
+  //      ; y2 := <newname> y
+  //      ; $setY := <concat-strings; newname>["set", $Y] 
+  //      ; $viewY := <concat-strings>["view", $Y] 
+
   //set-property-to-edit-row(|e, qid) :
   //  Property(y, k, GenericSort("Set", [s]), anno*) -> elem*|[
   //     row { str input(e.$yList) }
@@ -249,7 +306,7 @@ rules
   //  where str := <capitalize-string> y
   //      ; $yList := <concat-strings>[y, "List"]
 
-rules
+rules // view page
 
   entity-to-view-page : 
     Entity($X, y_Class, prop*) ->
@@ -319,6 +376,8 @@ rules
       row { str text(e.y) }
     ]|
     where str := <capitalize-string> y
+    
+  // @todo reformulate as a desugaring via output element
     
   collection-property-to-view-row(|e) :
     Property(y, k, GenericSort(coll, [SimpleSort($Y)]), anno*) -> elem*|[

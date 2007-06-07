@@ -45,7 +45,7 @@
    OrderElement.2:opt       -- _1,
    Ascending                -- KW["asc"],
    Ascending                -- KW["ascending"],
-   Descending               -- KW["dessc"],
+   Descending               -- KW["desc"],
    Descending               -- KW["descending"],
    HavingClause             -- KW["having"] _1,
    WhereClause              -- KW["where"] _1,
@@ -85,5 +85,5 @@
    Null                     -- KW["null"],
    Path                     -- _1,
    Path.1:iter-sep          -- _1 KW["."],
-   String                   -- _1
+   String                   -- H hs=0[ "\"" _1 "\"" ]
 ]

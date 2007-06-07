@@ -240,11 +240,25 @@ rules
 rules
 
   typecheck =
-    alltd(typecheck-entity <+ typecheck-definition <+ typecheck-action)
+    typecheck-application
     ; if TypecheckError then
         typecheck-error(|["typechecking failed; repair errors above"])
         ; fail
       end
+  
+  typecheck-application =
+    Application(id, map(typecheck-section))
+    <+ ?x; typecheck-error(|["application expected: ", x])
+    
+  typecheck-section =
+    Section(id, map(typecheck-definition))
+    <+ Description(id)
+    <+ ?x; typecheck-error(|["section expected: ", x])
+    
+  typecheck-definition =
+    typecheck-template-definition
+    <+ typecheck-entity
+    <+ ?def; typecheck-error(|["definition not typechecked: ", def])
       
 rules // typechecking entity declarations
 
@@ -255,7 +269,7 @@ rules // typechecking entity declarations
       |["entity declaration ", x_class])
     
   typecheck-entity =
-    ?Entity(x_class, SimpleSort(s), props)
+    ?Entity(x_class, s, props)
     ; in-tc-context(
         where( <typecheck-supertype> s )
         ; where( <map(typecheck-property)> props )
@@ -275,14 +289,18 @@ rules // typechecking entity declarations
 
 rules // typechecking template definitions
 
-  typecheck-definition :
+  typecheck-template-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
     where dbg(|"typecheck-definition in: ")
         ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage
            : in-tc-context(id
+               ; dbg(|"typecheck-definition a: ")
                ; <map(declare-typeof-arg)> args
+               ; dbg(|"typecheck-definition b: ")
                ; <alltd(declare-action <+ declare-template-definition <+ typecheck-vardecl)> elems1
+               ; dbg(|"typecheck-definition c: ")
                ; elems2 := <typecheck-page-elements> elems1
+               ; dbg(|"typecheck-definition d: ")
              |["definition ", f, "/"])
            |}
          ; dbg(|"typecheck-definition out: ")
@@ -299,9 +317,10 @@ rules // typechecking page elements
       
   typecheck-page-elements =
     map(typecheck-page-element)
+    <+ ?elems; typecheck-error(|["not a list of elements: ", elems])
     
   typecheck-page-element = dbg(|"typecheck-page-element in: "); (
-    typecheck-definition
+    typecheck-template-definition
     <+ typecheck-text  
     <+ typecheck-select
     <+ typecheck-action 
@@ -311,7 +330,7 @@ rules // typechecking page elements
     <+ typecheck-iterator
     <+ typecheck-vardecl
     <+ dbg(|"unknown page element? ")
-       ; all(typecheck-page-elements)
+       ; all(typecheck-page-element)
   ); dbg(|"typecheck-page-element out: ")
     
   typecheck-text =

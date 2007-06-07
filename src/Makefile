@@ -10,7 +10,8 @@ generator = org/webdsl/dsl/generation/dsl-to-seam
 STRSOURCES = \
      $(wildcard org/webdsl/dsl/*/*.str) \
 	 $(syntax)-pretty.pp.af \
-	 $(syntax).tbl
+	 $(syntax).tbl \
+	 $(hql)-pretty.pp.af
 
 STRINCLUDES = \
 	-I . \

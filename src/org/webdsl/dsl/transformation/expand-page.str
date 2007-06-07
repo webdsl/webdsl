@@ -18,8 +18,9 @@ rules
     ; expand-template-definition
            
   expand-template-definition :
-    Define(mods, name, args, body1) -> Define([Page()], name, args, body2)
-    where {| TemplateDefinition, TemplateArguments, IsPage
+    Define(mods, name, args, body1) -> <dbg(|"expanded")> Define([Page()], name, args, body2)
+    where dbg(|"expanding definition")
+        ; {| TemplateDefinition, TemplateArguments, IsPage
            : elems := <filter(not(declare-template-definition))> body1
            ; body2 := <map(expand-element)> elems
            |}
@@ -33,11 +34,11 @@ rules
     // @todo @note the generic traversal loses annotations! (it seems)
              
   expand-template-call :
-    call@TemplateCall(name, args, elems1) -> TemplateCall("div", [String(name)], elems2)
-    where Define(mods, name, fargs, body) := <TemplateDefinition; rename> name
-        ; <dbg(|"expanding : ")> call
+    call@TemplateCall(name, args, elems1) -> <dbg(|"expanded")> TemplateCall("div", [String(name)], elems2)
+    where <dbg(|"expanding")> call
+        ; Define(mods, name, fargs, body) := <TemplateDefinition; dbg(|"rename in"); rename-bound-variables; dbg(|"rename out")> name
         ; {| Subst, TypeOf, Elems
-           : <zip(bind-variable)> (fargs, args)
+           : <zip(bind-variable)> (fargs, <alltd(Subst)> args)
            ; rules( Elems := elems1 )
            ; elems2 := <map(expand-element)> body
            |}
@@ -46,13 +47,71 @@ rules
      ?(Arg(x, s), e)
      ; rules( 
          Subst  : Var(x) -> e 
+         Subst  : Qualified(x, y) -> Qualified(e, y)
          TypeOf : x -> s 
        )
-          
-  // @todo define bound variable renaming
-  
-  rename = id
 
+strategies // bound variables
+  
+  rename-bound-variables = 
+    RenameTemplateVar
+    <+ rename-template-definition
+    <+ rename-vardecl 
+    <+ rename-for
+    <+ rename-forall
+    <+ rename-action-definition
+    <+ all(rename-bound-variables)
+  
+  rename-template-definition :
+    Define(mods, name, args1, body1) -> Define(mods, name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+           
+  rename-action-definition :
+    Action(name, args1, body1) -> Action(name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+           
+  rename-arg :
+    Arg(x, s) -> Arg(y, s)
+    where y := <rename-var> x
+
+  rename-vardecl :
+    VarDecl(x, s) -> VarDecl(y, s)
+    where y := <rename-var> x
+        
+  rename-vardecl :
+    VarDeclInit(x, s, e1) -> VarDeclInit(y, s, e2)
+    where e2 := <rename-bound-variables> e1
+        ; y := <rename-var> x
+        
+  rename-for :
+    For(x, s, e1, elems1) -> For(y, s, e2, elems2)
+    where e2 := <rename-bound-variables> e1
+        ; {| RenameTemplateVar
+           : y := <rename-var> x
+           ; elems2 := <rename-bound-variables> elems1
+           |}
+           
+  rename-forall :
+    ForAll(x, s, elems1) -> ForAll(y, s, elems2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; elems2 := <rename-bound-variables> elems1
+           |}
+           
+  rename-var :
+    x -> y
+    where y := <newname> x
+        ; rules(
+            RenameTemplateVar : Var(x) -> Var(y)
+            RenameTemplateVar : Qualified(x, f) -> Qualified(y, f)
+          )
+     
 strategies
 
   propagate-component-names =
