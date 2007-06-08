@@ -58,6 +58,9 @@ rules
 
 rules // derive input behaviour from type
 
+  derive =
+    topdown(repeat(Derive <+ Desugar))
+
   Derive = fail
     <+ DeriveInputString
     <+ DeriveInputText
@@ -69,9 +72,24 @@ rules // derive input behaviour from type
     
   DeriveInputString :
     elem|[ input(e){} ]| -> elem|[ inputString(e){} ]|
-    where SimpleSort(s) := <type-of> e
-        ; <"String" + "URL" + "Image" + "Email" + "Int"> s
+    where SimpleSort("String") := <type-of> e
         
+  DeriveInputText :
+    elem|[ input(e){} ]| -> elem|[ inputURL(e){} ]|
+    where SimpleSort("URL") := <type-of> e
+
+  DeriveInputText :
+    elem|[ input(e){} ]| -> elem|[ inputImage(e){} ]|
+    where SimpleSort("Image") := <type-of> e
+
+  DeriveInputText :
+    elem|[ input(e){} ]| -> elem|[ inputEmail(e){} ]|
+    where SimpleSort("Email") := <type-of> e
+
+  DeriveInputText :
+    elem|[ input(e){} ]| -> elem|[ inputInt(e){} ]|
+    where SimpleSort("Int") := <type-of> e
+
   DeriveInputText :
     elem|[ input(e){} ]| -> elem|[ inputText(e){} ]|
     where SimpleSort("Text") := <type-of> e
@@ -158,6 +176,71 @@ rules // derive input behaviour from type
         ; $removeX := <concat-strings; newname>["remove", $X]
         ; $addX    := <concat-strings; newname>["add", $X]
         ; str      := <concat-strings>["Add ", $X]
+
+rules // derive output behaviour from type
+
+  Derive = fail
+    <+ DeriveOutputString
+    <+ DeriveOutputText
+    <+ DeriveOutputSecret
+    <+ DeriveOutputDate
+    <+ DeriveOutputSimpleRefAssociation
+    <+ DeriveOutputAssociationList
+    <+ DeriveOutputAssociationSet
+    
+  DeriveOutputString :
+    elem|[ output(e){} ]| -> elem|[ text(e){} ]|
+    where SimpleSort("String") := <type-of> e
+        
+  DeriveOutputText :
+    elem|[ output(e){} ]| -> elem|[ navigate(url(e)){text(e)} ]| 
+    where SimpleSort("URL") := <type-of> e
+
+  DeriveOutputText :
+    elem|[ output(e){} ]| -> elem|[ image(e){} ]|
+    where SimpleSort("Image") := <type-of> e
+
+  DeriveOutputText :
+    elem|[ output(e){} ]| -> elem|[ navigate(url(e)){text(e)} ]|
+    where SimpleSort("Email") := <type-of> e
+    
+    // @todo prefix mailto
+
+  DeriveOutputText :
+    elem|[ output(e){} ]| -> elem|[ text(e){} ]|
+    where SimpleSort("Int") := <type-of> e
+
+  DeriveOutputText :
+    elem|[ output(e){} ]| -> elem|[ outputText(e){} ]|
+    where SimpleSort("Text") := <type-of> e
+    
+  DeriveOutputSecret :
+    elem|[ output(e){} ]| -> elem|[ outputSecret(e){} ]|
+    where SimpleSort("Secret") := <type-of> e
+    
+  DeriveOutputDate :
+    elem|[ output(e){} ]| -> elem|[ outputDate(e){} ]|
+    where SimpleSort("Date") := <type-of> e
+
+  DeriveOutputSimpleRefAssociation :
+    elem|[ output(e){} ]| -> elem|[ navigate($viewY(e)){text(e.name)} ]|
+    where SimpleSort($Y) := <type-of> e
+        ; <defined-java-type> SimpleSort($Y)
+        ; $viewY := <concat-strings>["view", $Y]
+       
+  DeriveOutputAssociationList :
+    elem|[ output(e1){} ]| -> elem|[ for(x : $X in e1){ output(e2) } ]|
+    where |[ List<$X> ]| := <type-of> e1
+        ; x := <decapitalize-string; newname> $X
+        ; e2 := Var(x){Type(SimpleSort($X))}
+
+  DeriveOutputAssociationSet :
+    elem|[ output(e1){} ]| -> elem|[ for(x : $X in e2.$yList){ output(e3) } ]|
+    where |[ Set<$X> ]| := <type-of> e1
+        ; |[ e2.$y ]| := e1
+        ; x := <decapitalize-string; newname> $X
+        ; $yList := <concat-strings>[$y, "List"]
+        ; e3 := Var(x){Type(SimpleSort($X))}
 
 rules
 
@@ -348,12 +431,13 @@ rules // view page
   properties-to-view-rows(|e) =
     filter-concat-warn(property-to-view-row(|e) | "cannot create view row for property ")
     
-  property-to-view-row(|e) =
-    collection-property-to-view-row(|e)
-    <+ reference-property-to-view-row(|e)
+  property-to-view-row(|e) = fail
+    //<+ collection-property-to-view-row(|e)
+    //<+ reference-property-to-view-row(|e)
     <+ composite-property-to-view-row(|e) 
     <+ basic-property-to-view-row(|e)
 
+  /*
   reference-property-to-view-row(|e) :
     Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
       row { str navigate(e.y.name, $viewY(e.y)) }
@@ -362,6 +446,8 @@ rules // view page
         ; str := <capitalize-string> y
         ; $viewY := <concat-strings>["view", $Y]
 
+  */
+  
   composite-property-to-view-row(|e) :
     Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
       row { str "" }
@@ -373,12 +459,13 @@ rules // view page
     
   basic-property-to-view-row(|e) :
     Property(y, k, s, anno*) -> elem*|[
-      row { str text(e.y) }
+      row { str output(e.y) }
     ]|
     where str := <capitalize-string> y
     
   // @todo reformulate as a desugaring via output element
     
+    /* 
   collection-property-to-view-row(|e) :
     Property(y, k, GenericSort(coll, [SimpleSort($Y)]), anno*) -> elem*|[
       row { str for( y1 : $Y in e.$yList ) { elem } }
@@ -401,5 +488,5 @@ rules // view page
     where <defined-java-type> s    
         ; $viewY := <concat-strings>["view", $Y]
         
-        
+   */
         
