@@ -63,10 +63,25 @@ strategies
     )
     ; <exit> 0
     
+strategies // module imports
+
+  import-modules =
+    topdown(try(already-imported <+ import-module))
+    
+  already-imported :
+    Imports(name) -> Section(name, [])
+    where <Imported> name
+    
+  import-module :
+    Imports(name) -> mod
+    where mod := <xtc-parse-webdsl-module>FILE(<concat-strings>[name, ".app"])
+        ; rules( Imported : name )
+
 strategies // command-line options
 
   set-default-config =
     rules(
+      OptionImport         := True()
       OptionDesugar        := True()
       OptionTypecheck      := True()
       OptionExpansion      := True()
@@ -76,7 +91,8 @@ strategies // command-line options
     )
    
   dsl-to-seam-options =
-    desugar-option
+    import-option
+    <+ desugar-option
     <+ typecheck-option
     <+ expansion-option
     <+ disable-desugar-option
@@ -89,6 +105,30 @@ strategies // command-line options
   // @todo check that verbosity and logging is supported by stratego-lib
   
   // @todo code for option definition is too boilerplate
+  
+strategies // desugaring
+
+  import-option =
+    Option("--import"
+    , disable-desugaring
+    , !HelpString("--import", "Only import")
+    )
+    
+  disable-import-option =
+    Option("--no-importing"
+    , disable-importing
+    , !HelpString("--no-importing", "Stop before importing")
+    )
+    
+  disable-importing = 
+    rules( OptionImport := False() )
+    
+  if-importing(s1, s2) =
+    if OptionImport => True() then s1 else s2 end
+
+  stop-before-importing =
+    if-importing(id, output-webdsl)
+
   
 strategies // desugaring
 

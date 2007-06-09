@@ -2,6 +2,10 @@
    HqlQuery -- _1,
    DslExp -- _1,
    
+   Module -- V[H[KW["module"] _1] _2],
+   
+   Imports -- H[KW["imports"] _1],
+   
    Qualified                          -- H hs=0[_1 KW["."] _2],
    Application                        -- V vs=1[H[KW["application"] _1] _2],
    Application.2:iter-star            -- _1,
