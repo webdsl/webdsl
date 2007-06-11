@@ -3,6 +3,8 @@ syntax = org/webdsl/dsl/syntax/WebDSL
 
 hql = org/webdsl/dsl/syntax/HQL
 
+mixhql = org/webdsl/dsl/syntax/MixHQL
+
 metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
@@ -31,10 +33,10 @@ STRCFLAGS = \
     -la stratego-sglr \
     -la ${HOME}/.nix-profile/lib/libjava-front.la
 
-all : $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
+all : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
+      $(hql)-pretty.pp.af $(mixhql).sdf \
+      $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
       $(syntax)-pretty.pp.af \
-      $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
-      $(hql)-pretty.pp.af \
       $(metasyntax).def $(metasyntax).tbl \
       $(generator)
 
