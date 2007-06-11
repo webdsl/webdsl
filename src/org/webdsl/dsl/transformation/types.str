@@ -21,7 +21,7 @@ signature
 strategies // register all declared entities
 
   inherit-object :
-    EntityNoSuper(x_class, props) -> Entity(x_class, SimpleSort("Object"), props)
+    EntityNoSuper(x_class, props) -> Entity(x_class, "Object", props)
         
   declare-entity = where(
     try(inherit-object)
@@ -40,10 +40,16 @@ strategies // register all declared entities
           SimpleSort(x_class) -> type|[ x_class ]|
       )
     ; where( 
-        <map(declare-property(|x_class))> [NameProperty() | props]
+        <map(declare-property(|x_class))> [NameProperty() | <inherited-properties> x_class]
       )
   )
   
+  inherited-properties =
+    <conc>(<Properties>, <Extends; inherited-properties>)
+    
+  inherited-properties :
+    "Object" -> []
+   
   /**
    * @obsolete
    */
@@ -108,7 +114,7 @@ strategies
 strategies
 
   java-type =
-    defined-java-type <+ builtin-java-type
+    defined-java-type <+ builtin-java-type <+ object-type
     
   defined-java-type =
     DefinedJavaType
@@ -125,6 +131,9 @@ strategies
     where <defined-java-type> s
 
 rules
+
+  object-type :
+    SimpleSort("Object") -> type|[ Object ]|
 
   builtin-java-type : 
     SimpleSort("Int") -> type|[ int ]|
@@ -392,10 +401,20 @@ rules // typechecking page elements
                 
    match-argument =
     ?(Arg(x, t1), e{Type(t2)})
-    ; if not(<eq>(t1, t2)) then
+    ; if not(<subtype-of>(t2, t1)) then
         typecheck-error(|["type ", t2, " of argument ", e{}, " does not match formal parameter '", x, "' (", t1, ")"])
       end
-       
+   
+   subtype-of =
+     eq
+     
+   subtype-of = 
+     ?(SimpleSort(t1), SimpleSort(t2))
+     ; where( <extends>(t1, t2) )
+   
+   extends = 
+     while-not(eq, (Extends, id))
+  
    typecheck-iterator :
      For(x, s, e1, elems1) -> For(x, s, e2, elems2)
      where in-tc-context(
