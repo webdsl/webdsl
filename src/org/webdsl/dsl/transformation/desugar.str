@@ -252,13 +252,15 @@ rules
        application qid 
          sec* 
          section generated pages.
-           def 
+           def1 
+           def2 
            define editRowsObject(o: Object) {} 
            define viewRowsObject(o: Object) {}
            def* 
     ]|
     where def* := <collect(entity-to-view-edit-pages); concat> app
-        ; def := <create-menu>
+        ; def1 := <create-menu>
+        ; def2 := <all-menu>
         
 rules 
 
@@ -269,13 +271,17 @@ rules
 
   entity-to-view-edit-pages =
     ?Entity(x_Class, y_Class, prop*)
-    ; where(entity-to-new-menu)
+     //; where(id
+      //  ; entity-to-all-menu 
+      //  ; entity-to-new-menu
+      //)
     ; apply-optional(entity-to-edit-page, 
       apply-optional(entity-to-create-page, 
       apply-optional(entity-to-edit-rows, 
       apply-optional(entity-to-view-page, 
       apply-optional(entity-to-view-rows, 
-                     ![])))))
+      apply-optional(entity-to-view-all, 
+                     ![]))))))
 
   entity-to-view-edit-pages : 
     EntityNoSuper($X, prop*) -> 
@@ -292,6 +298,26 @@ rules
           CreateMenu :+= elem|[ listitem{ navigate($createX()){str} } ]|
         )
     )
+
+rules
+
+  all-menu =
+    where( elem* := <bagof-AllMenu>);
+    !def|[
+      define allMenu() {
+        listitem{ "All" list{ elem* } }
+      }
+    ]|
+    
+  entity-to-all-menu =
+    ?Entity($X, y_Class, prop*);
+    where (
+      $allX := <concat-strings>["all", $X]
+      ; str := $X
+      ; rules ( 
+          AllMenu :+= elem|[ listitem{ navigate($allX()){str} } ]|
+        )
+    )
     
   create-menu =
     where( elem* := <bagof-CreateMenu>);
@@ -300,6 +326,39 @@ rules
         listitem{ "New" list{ elem* } }
       }
     ]|
+    
+rules // edit page
+
+  entity-to-view-all : 
+    Entity($X, y_Class, prop*) ->
+    def|[
+      define page $allX() {
+        main(){}
+        define body() {
+          section{ header{"All " str }
+            form {
+              list { 
+                for(x : $X) {
+                  listitem{ 
+                    navigate($viewX(x)){text(x.name)} " "
+                    actionLink("[X]", $removeX(x))
+                    action $removeX(x : $X) {
+                      x.delete();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]|
+    where $removeX := <concat-strings>["remove", $X]
+        ; $viewX   := <concat-strings>["view", $X]
+        ; $allX    := <concat-strings>["all", $X]
+        ; x        := <decapitalize-string> $X
+        ; str      := $X
+        ; not(<TemplateDefinition> $allX) // don't overwrite an existing definition
     
 rules // edit page
 
@@ -433,7 +492,7 @@ rules // view page
         }
         define body() {
           section{ header{text(x.name) }
-            table { $viewRowsX(x){} }
+            $viewRowsX(x){} 
           }
         }
       }
@@ -463,26 +522,25 @@ rules // view page
     filter-concat-warn(property-to-view-row(|e) | "cannot create view row for property ")
     
   property-to-view-row(|e) = fail
-    //<+ collection-property-to-view-row(|e)
-    //<+ reference-property-to-view-row(|e)
+    <+ text-property-to-view-row(|e)
+    <+ collection-property-to-view-row(|e)
+    <+ reference-property-to-view-row(|e)
     <+ composite-property-to-view-row(|e) 
     <+ basic-property-to-view-row(|e)
 
-  /*
   reference-property-to-view-row(|e) :
     Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
-      row { str navigate(e.y.name, $viewY(e.y)) }
+      section{ header{str} list{listitem{ output(e.y) } } }
     ]|
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
-        ; $viewY := <concat-strings>["view", $Y]
-
-  */
   
   composite-property-to-view-row(|e) :
     Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
-      row { str "" }
-      elem*
+      section{ 
+        header{str}
+        elem*
+      }
     ]|
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
@@ -490,34 +548,20 @@ rules // view page
     
   basic-property-to-view-row(|e) :
     Property(y, k, s, anno*) -> elem*|[
-      row { str output(e.y) }
+      par{ str " : " output(e.y) }
     ]|
     where str := <capitalize-string> y
     
-  // @todo reformulate as a desugaring via output element
-    
-    /* 
   collection-property-to-view-row(|e) :
     Property(y, k, GenericSort(coll, [SimpleSort($Y)]), anno*) -> elem*|[
-      row { str for( y1 : $Y in e.$yList ) { elem } }
+      section{ header{str} output(e.y) }
     ]|
-    where <is-collection> coll
+    where <?"Set" <+ ?List> coll
         ; str := <capitalize-string> y
-        ; y1 := <newname> y
-        ; $yList := <concat-strings>[y, "List"]
-        ; elem := <type-to-view(| Var(y1) )> SimpleSort($Y)
-        
-  is-collection =
-    ?"List" <+ ?"Set"
-    
-  type-to-view(|e) :
-    s@SimpleSort($Y) -> elem|[ text(e) ]|
-    where <builtin-java-type> s
 
-  type-to-view(|e) :
-    s@SimpleSort($Y) -> elem|[ navigate(e.name, $viewY(e)) ]|
-    where <defined-java-type> s    
-        ; $viewY := <concat-strings>["view", $Y]
-        
-   */
-        
+  text-property-to-view-row(|e) :
+    Property(y, k, SimpleSort("Text"), anno*) -> elem*|[
+      section{ header{str} output(e.y) }
+    ]|
+    where str := <capitalize-string> y
+      
