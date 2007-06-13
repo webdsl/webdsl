@@ -20,7 +20,13 @@ rules
     ?[tdef|[ define x(farg*) { elem* } ]| | <expand-page-templates>]
            
   expand-template-definition :
-    Define(mods, name, args, body1) -> <dbg(|"expanded")> Define([Page()], name, args, body2)
+    tdef|[ define mod* x(farg*){elem1*} ]| -> tdef|[ define mod* x(farg*){elem2*} ]|
+    where {| TemplateDefinition, TemplateArguments, IsPage
+           : elem2* := <filter(not(declare-template-definition)); map(expand-element)> elem1*
+           |}
+    
+  expand-template-definition-old :
+    Define(mods, name, args, body1) -> <dbg(|"expanded")> Define(mods, name, args, body2)
     where dbg(|"expanding definition")
         ; {| TemplateDefinition, TemplateArguments, IsPage
            : elems := <filter(not(declare-template-definition))> body1
@@ -34,6 +40,16 @@ rules
   )
              
   expand-template-call :
+    elem|[ x(e*){elem1*} ]| -> elem|[ div(str){elem2*} ]|
+    where tdef|[ define mod* x(farg*) { elem3* } ]| := <TemplateDefinition; rename-bound-variables> x
+        ; {| Subst, TypeOf, Elems
+           : <zip(bind-variable)> (farg*, <alltd(Subst)> e*)
+           ; rules( Elems := elem1* )
+           ; elem2* := <map(expand-element)> elem3*
+           ; str := x
+           |}
+  
+  expand-template-call-old :
     call@TemplateCall(name, args, elems1) -> <dbg(|"expanded")> TemplateCall("div", [String(name)], elems2)
     where <dbg(|"expanding")> call
         ; Define(mods, name, fargs, body) := <TemplateDefinition; dbg(|"rename in"); rename-bound-variables; dbg(|"rename out")> name
