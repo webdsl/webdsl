@@ -65,7 +65,10 @@ Mix%.sdf : %.def
 	parse-stratego $(STRINCLUDES) -i $< | pp-aterm -o $@
 	
 clean :
-	rm -f *.def *.tbl *.rtg org/webdsl/dsl/*/*.c org/webdsl/dsl/*/*.o org/webdsl/dsl/syntax/*.pp.af
+	rm -f *.def *.tbl *.rtg \
+		org/webdsl/dsl/*/*.c \
+		org/webdsl/dsl/*/*.o \
+		org/webdsl/dsl/*/*.pp.af
 
 % : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)
