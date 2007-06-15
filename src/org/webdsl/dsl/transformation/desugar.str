@@ -498,27 +498,36 @@ rules // view page
     filter-concat-warn(property-to-view-row(|$X, e) | "cannot create view row for property ")
     
   property-to-view-row(|$X, e) = fail
-    <+ name-property-to-view-row 
+    <+ name-property-to-view-row
     <+ text-property-to-view-row(|e)
     <+ comp-collection-property-to-view-row(|$X, e)
-    <+ collection-property-to-view-row(|e)
+    <+ collection-property-to-view-row(|$X, e)
     <+ reference-property-to-view-row(|e)
-    <+ composite-property-to-view-row(|$X, e) 
+    <+ composite-property-to-view-row(|$X, e)
     <+ basic-property-to-view-row(|e)
-
+    
+  basic-property-to-view-row(|e) :
+    Property(y, k, s, anno*) -> elem*|[
+      par{ str " : " output(e.y) }
+    ]|
+    where str := <capitalize-string> y
+    
   name-property-to-view-row :
     Property(_, _, _, _) -> elem*|[ ]|
     where is-namefield
+          // in the inline style, the name property is used as section header
     
   reference-property-to-view-row(|e) :
-    Property(y, Ref(), SimpleSort($Y), anno*) -> elem*|[
+    |[ y -> $Y (ann*) ]| -> 
+    elem*|[
       section{ header{str} list{listitem{ output(e.y) } } }
     ]|
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
   
   composite-property-to-view-row(|$X, e) :
-    Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
+    |[ y <> $Y (ann*) ]| -> 
+    elem*|[
       section{ 
         header{str}
         elem*
@@ -527,63 +536,57 @@ rules // view page
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
         ; elem* := <Properties; properties-to-view-rows(|$X, |[ e.y ]|)> $Y
-    
-  basic-property-to-view-row(|e) :
-    Property(y, k, s, anno*) -> elem*|[
-      par{ str " : " output(e.y) }
-    ]|
-    where str := <capitalize-string> y
-    
-  // @todo trigger the "New" link via an annotation in the property
   
-  collection-property-to-view-row(|e) :
-    Property(y, k, GenericSort(coll, [SimpleSort($Y)]), anno*) -> elem*|[
-      section{ 
-        header{str} 
-        output(e.y)
-        form{actionLink(str2, $createNewY())}
-        action $createNewY() {
-         var z : $Y := $Y { };
-         e.y.add(z);
-         e.persist();
-         return $editY(z);
-        }
-      }
-    ]|
-    where <?"Set" <+ ?"List"> coll
-        ; str         := <capitalize-string> y
-        ; z           := <decapitalize-string> $Y
-        ; str2        := <concat-strings>["New ", $Y]
-        ; $createNewY := <concat-strings>["createNew", $Y]
-        ; $editY      := <concat-strings>["edit", $Y]
-
-  comp-collection-property-to-view-row(|$T, e) :
-    Property(y, Comp(), GenericSort($Z, [SimpleSort($Y)]), anno*) -> elem*|[
-      section{ 
-        header{str} 
-        for(z : $Y in e.$yList) { section{ header{output(z)} $viewRowsY(z) } }
-        form{actionLink(str2, $createNewY(e, e.y))}
-        action $createNewY($x : $T, y : $Z<$Y>) {
-         var z : $Y := $Y { };
-         y.add(z);
-         $x.persist();
-         return $editY(z);
-        }
-      }
-    ]|
-    where <?"Set" <+ ?"List"> $Z
-        ; $x          := <decapitalize-string; newname> $T
-        ; str         := <capitalize-string> y
-        ; z           := <decapitalize-string> $Y
-        ; str2        := <concat-strings>["New ", $Y]
-        ; $yList      := <concat-strings>[y, "List"]
-        ; $createNewY := <concat-strings>["createNew", $Y]
-        ; $viewRowsY  := <concat-strings>["viewRows", $Y]
-        ; $editY      := <concat-strings>["edit", $Y]
-
   text-property-to-view-row(|e) :
-    Property(y, k, SimpleSort("Text"), anno*) -> elem*|[
+    Property(y, k, SimpleSort("Text"), anno*) -> 
+    elem*|[
       section{ header{str} output(e.y) }
     ]|
     where str := <capitalize-string> y
-      
+  
+  collection-property-to-view-row(|$T, e) :
+    prop@|[ y -> $Z<$Y> (ann*) ]| -> 
+    elem*|[
+      section{ 
+        header{str} 
+        output(e.y)
+        elem*
+      }
+    ]|
+    where debug(!"collection-property-to-view-row"); <?"Set" <+ ?"List"> $Z
+        ; str   := <capitalize-string> y
+        ; elem* := <create-new-association-object(|$T, e)> prop
+
+  comp-collection-property-to-view-row(|$T, e) :
+    prop@|[ y <> $Z<$Y> (ann*) ]| -> 
+    elem*|[
+      section{ 
+        header{str} 
+        for(z : $Y in e.$yList) { section{ header{output(z)} $viewRowsY(z) } }
+        elem*
+      }
+    ]|
+    where <?"Set" <+ ?"List"> $Z
+        ; str         := <capitalize-string> y
+        ; z           := <decapitalize-string> $Y
+        ; $yList      := <concat-strings>[y, "List"]
+        ; $viewRowsY  := <concat-strings>["viewRows", $Y]
+        ; elem*       := <create-new-association-object(|$T, e)> prop
+        
+  create-new-association-object(|$T, e) :
+    |[ y <> $Z<$Y> (ann*) ]| ->
+    elem*|[
+      form{actionLink(str2, $createNewY(e, e.y))}
+      action $createNewY($x : $T, y : $Z<$Y>) {
+        var $z : $Y := $Y { };
+        y.add($z);
+        $x.persist();
+        return $editY($z);
+      }
+    ]|
+    where <?"Set" <+ ?"List"> $Z
+        ; $z          := <decapitalize-string; newname> $Y
+        ; $x          := <decapitalize-string; newname> $T
+        ; str2        := <concat-strings>["New ", $Y]
+        ; $createNewY := <concat-strings>["createNew", $Y]
+        ; $editY      := <concat-strings>["edit", $Y]
