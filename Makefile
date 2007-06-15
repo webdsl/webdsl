@@ -3,5 +3,5 @@ all :
 	cd src && $(MAKE) all
 	
 clean :
-	making clean
+	echo making clean
 	cd src && $(MAKE) clean
