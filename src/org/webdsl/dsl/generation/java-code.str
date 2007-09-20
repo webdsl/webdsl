@@ -63,9 +63,9 @@ rules
       import org.jboss.seam.annotations.datamodel.DataModelSelection;
       import org.jboss.seam.core.FacesMessages;
       import org.jboss.seam.log.Log;
-      
+
       import pkgname2.*;
-           
+      
       @Stateful
       @Name(~string:String([Chars(x_actionBean)]))
       public class x_ActionBean implements x_Action {
@@ -102,8 +102,11 @@ rules
 rules // action to method   
         
   action-to-java-method =
-    action-view-to-java-method
-    <+ action-void-to-java-method
+    {| InAction :
+         rules(InAction := <id>)
+         ; action-view-to-java-method
+           <+ action-void-to-java-method
+    |}
   
   action-void-to-java-method :
     Action(x_action, args, Block(stm*)) -> 
@@ -139,9 +142,11 @@ rules // statements
      block-to-java
      <+ assignment-to-java
      <+ vardecl-to-java
+     <+ for-to-java
+     <+ if-to-java
      <+ stat-to-java
      <+ return-to-java
-     <+ dbg(|"cannot translate statement: ")
+     <+ info(|"cannot translate statement: ")
         ; fail
     
    block-to-java :
@@ -163,11 +168,34 @@ rules // statements
      where e2 := <qid-to-java> qid
          ; e3 := <expression-to-java> e1 
          ; x_set := <concat-strings>["set", <capitalize-string> x]
-         
+
+   if-to-java :
+     If(e1, sit1*, sif1*) -> |[ if(e2) { ~*sit2* } else { ~*sif2* }]|
+     where sit2* := <map(statement-to-java)> sit1*
+         ; sif2* := <map(statement-to-java)> sif1*
+         ; e2 := <expression-to-java> e1
+
+   for-to-java :
+     ForColl(x, s, e1, stm1*) -> |[
+        for (Iterator<t2> _it = e2.iterator(); _it.hasNext(); ) {
+            t1 x = _it.next(); 
+            ~*stm2*
+        } ]|
+     where e2 := <expression-to-java> e1
+         ; t1 := <java-type> s
+         ; t2 := <java-wrapper-type> s
+         ; stm2* := <map(statement-to-java)> stm1*
+      //   ; td := bstm|[ ]|
+
    return-to-java : 
      Return(e1) -> |[ return e2; ]|
-     where e2 := <call-to-view-string> e1 
-         
+     where InAction ; e2 := <call-to-view-string> e1 
+
+   return-to-java :
+     Return(e1) -> |[ return e2; ]|
+     where InFunction ; e2 := <expression-to-java> e1 
+     
+        
 rules
          
    qid-to-java :
@@ -195,9 +223,43 @@ rules // expressions
      
    expression-to-java :
      Int(x) -> Lit(Deci(x))
+   
+   expression-to-java :
+     Float(x) -> Lit(Deci(x))
+
+   expression-to-java :
+     Add(x, y) -> expr|[ ~xt + ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
  
+   expression-to-java :
+     Sub(x, y) -> expr|[ ~xt - ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
+
+   expression-to-java :
+     Mul(x, y) -> expr|[ ~xt * ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
+
+   expression-to-java :
+     Div(x, y) -> expr|[ ~xt / ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
+  
+   expression-to-java :
+     Eq(x, y) -> expr|[ ~xt == ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
+  
+   expression-to-java :
+     NotEq(x, y) -> expr|[ ~xt != ~yt ]|
+     where xt := <expression-to-java> x
+         ; yt := <expression-to-java> y
+       
    expression-to-java =
      component-var-to-java
+     <+ propvar-to-java
      <+ var-to-java
      
    component-var-to-java :
@@ -205,6 +267,11 @@ rules // expressions
           
    var-to-java :
      Var(x) -> expr|[ x ]|
+   
+   propvar-to-java :
+     Var(x) -> |[ x_get() ]|
+     where <IsProperty> x
+         ; x_get := <concat-strings>["get", <capitalize-string> x]
      
    expression-to-java :
      FieldAccess(e1, x) -> |[ e2.x_get() ]|
@@ -269,5 +336,8 @@ rules // expressions
      Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
      where e3 := <expression-to-java> e1
          ; e4* := <map(expression-to-java)> e2*
-     
+   
+   call-to-java :
+     ThisCall(x, e1*) -> |[ x(e2*) ]|
+     where e2* := <map(expression-to-java)> e1*
      

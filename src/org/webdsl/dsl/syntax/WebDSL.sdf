@@ -13,6 +13,16 @@ exports
     [a-zA-Z][a-zA-Z0-9\_]* -> Id
     {Id "/"}+              -> ModuleName
     [0-9]+                 -> Int
+    
+    FloatDigits ExponentPart? [fFdD]? -> Float
+    [0-9]* "." [0-9]* -> FloatDigits
+    [0-9]+            -> FloatDigits
+    [eE] SignedInteger -> ExponentPart
+    [\+\-]? [0-9]+ -> SignedInteger
+
+    [0-9]+ -> Float {reject}
+    "."    -> FloatDigits  {reject}
+    
     "\"" ~[\"\n]* "\""     -> String
     [\ \t\n\r]             -> LAYOUT
     "//" ~[\n\r]* [\n\r]   -> LAYOUT
@@ -70,9 +80,12 @@ exports
 
   context-free syntax
 
-    Id ":" Id "{" Property* "}" -> Entity {cons("Entity")}
-    Id "{" Property* "}"        -> Entity {cons("EntityNoSuper")}
+    Id ":" Id "{" Property* Function* "}" -> Entity {cons("Entity")}
+    Id "{" Property* Function* "}"        -> Entity {cons("EntityNoSuper")}
     Entity                      -> Definition
+    
+    
+    "function" Id "(" {FormalArg ","}* ")" ":" Sort Block  -> Function {cons("Function")}
 
   sorts Property Annotation
   
@@ -80,6 +93,10 @@ exports
     
     Id PropKind Sort "(" {Annotation ","}* ")" -> Property {cons("Property")}
     Id PropKind Sort                           -> Property {cons("PropertyNoAnno")}
+
+    Id PropKind Sort "(" {Annotation ","}* ")" ":=" Exp -> Property {cons("DerivedProperty")}
+    Id PropKind Sort ":=" Exp                           -> Property {cons("DerivedPropertyNoAnno")}
+
     
     "::" -> PropKind {cons("Simple")}
     "->" -> PropKind {cons("Ref")}
@@ -117,7 +134,7 @@ exports
     Action  								-> TemplateElement
     VarDecl                                 -> TemplateElement                                                                  
     TemplateDefinition                      -> TemplateElement
-    TemplateCall                            -> TemplateElement
+    TemplateCall                            -> TemplateElement {avoid}
     String                                  -> TemplateElement {cons("Text")}
     
     "for" "(" Id ":" Sort "in" Exp ")" 
@@ -132,7 +149,6 @@ exports
     Id "(" {Exp ","}* ")"                          -> TemplateCall {cons("TemplateCallNoBody")}
     Id                    "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallBody")}
     Id "(" {Exp ","}* ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCall")}
-    
     
 exports
 
@@ -160,8 +176,11 @@ exports
 
     "if" Exp "then" Statements "else" Statements "end" -> Statement {cons("If")}
 
-    "for" "(" Id "in" Sort "where" Exp "ordered" "by" Id "ascending" ")" 
-       Statement -> Statement {cons("For")}
+    "if" Exp "then" Statements "end" -> Statement {cons("IfNoElse")}
+
+%%    "for" "(" Id "in" Sort "where" Exp "ordered" "by" Id "ascending" ")" 
+%%       Statement -> Statement {cons("ForStmt")}
+    "for" Id ":" Sort "in" Exp "do" Statements "end" -> Statement {cons("ForColl")}
 
 exports
 
@@ -180,10 +199,11 @@ exports
   context-free syntax
   
     Int                    -> Exp {cons("Int")}
+    Float                  -> Exp {cons("Float")}
     String                 -> Exp {cons("String")}
     Id			           -> Exp {cons("Var")}
     
-    Exp "." Id             -> Exp {cons("FieldAccess")}
+    Exp "." Id             -> Exp {avoid, cons("FieldAccess")}
 
     Id "{" Assignment* "}" -> Exp {cons("ObjectCreation")}
     QId ":=" Exp           -> Assignment {cons("Assignment")}
@@ -199,8 +219,24 @@ exports
     Exp "." Id "(" {Exp ","}* ")"  -> Exp {cons("Call")}
 
     Exp "==" Exp           -> Exp {cons("Eq")}
-    Exp "!=" Exp           -> Exp {cons("Eq")}
-    Exp "+" Exp            -> Exp {cons("Plus")}
+    Exp "!=" Exp           -> Exp {cons("NotEq")}
+    
+    
+    
+%%    Exp "+" Exp            -> Exp {cons("Plus")}
+    Exp "*" Exp  -> Exp {cons("Mul"),assoc}
+    Exp "/" Exp  -> Exp {cons("Div"),assoc}
+    Exp "%" Exp  -> Exp {cons("Mod"),non-assoc}
+    Exp "+" Exp  -> Exp {cons("Add"),assoc}
+    Exp "-" Exp  -> Exp {cons("Sub"),left}
+
+context-free priorities
+    {left: 
+       Exp "*" Exp -> Exp 
+       Exp "/" Exp -> Exp }
+  > {left: 
+       Exp "+" Exp -> Exp 
+       Exp "-" Exp -> Exp }
 
 exports
 

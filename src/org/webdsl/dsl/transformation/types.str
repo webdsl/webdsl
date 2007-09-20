@@ -21,11 +21,11 @@ signature
 strategies // register all declared entities
 
   inherit-object :
-    EntityNoSuper(x_class, props) -> Entity(x_class, "Object", props)
+    EntityNoSuper(x_class, props, functions) -> Entity(x_class, "Object", props, functions)
         
   declare-entity = where(
     try(inherit-object)
-    ; ?Entity(x_class, x_super, props)
+    ; ?Entity(x_class, x_super, props, functions)
     ; rules(
         IsEntity : 
           x_class
@@ -41,6 +41,7 @@ strategies // register all declared entities
       )
     ; where( 
         <map(declare-property(|x_class))> [NameProperty() | <inherited-properties> x_class]
+        ; <map(declare-function(|x_class))> functions
       )
   )
   
@@ -72,6 +73,32 @@ strategies // register all declared entities
     ; rules(
         TypeOfProperty : (x_class, y) -> t
       )
+
+
+  declare-property(|x_class) =
+    ?DerivedProperty(x, k, s, annos, e)
+    ; rules(
+        TypeOfProperty : (x_class, x) -> s
+      )
+    ; where(try(declare-list-property(|x_class)))
+
+  declare-list-property(|x_class) =
+    ?DerivedProperty(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos, e)
+    ; where( 
+        y := <concat-strings>[x, "List"] 
+      ; t := GenericSort("List", [s])
+      )
+    ; rules(
+        TypeOfProperty : (x_class, y) -> t
+      )
+      
+  declare-function(|x_class) =
+    ?Function(f, args, sort, body1)
+     ; t1* := <map(?Arg(_,<id>))> args
+     ; rules( CheckFunctionSignature :
+                   (None(), f, t2*) -> sort
+                       where <zip(type-compatible)> (t1*, t2*)
+                   )
 
 overlays 
 
@@ -115,6 +142,9 @@ strategies
 
   java-type =
     defined-java-type <+ builtin-java-type <+ object-type
+
+  java-wrapper-type =
+    defined-java-type <+ builtin-wrapper-java-type <+ builtin-java-type <+ object-type
     
   defined-java-type =
     DefinedJavaType
@@ -137,12 +167,27 @@ rules
 
   builtin-java-type : 
     SimpleSort("Int") -> type|[ int ]|
+
+  builtin-wrapper-java-type :
+    SimpleSort("Int") -> type|[ Integer ]|
+
+  builtin-java-type : 
+    SimpleSort("Float") -> type|[ double ]| // Not sure, maybe float?
+
+  builtin-wrapper-java-type :
+    SimpleSort("Float") -> type|[ Double ]|
    
   builtin-java-type-default-value :
     SimpleSort("Int") -> |[ 0 ]|
 
+  builtin-java-type-default-value :
+    SimpleSort("Float") -> |[ 0.0 ]|
+
   builtin-java-type : 
     SimpleSort("Bool") -> type|[ boolean ]|
+
+  builtin-wrapper-java-type : 
+    SimpleSort("Bool") -> type|[ Boolean ]|
     
   builtin-java-type-default-value :
     SimpleSort("Bool") -> |[ false ]|
@@ -194,29 +239,29 @@ rules
 
   builtin-java-type :
     GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
-    where t := <java-type> s
-    
+    where t := <java-wrapper-type> s
+
   builtin-java-type-default-value :
     GenericSort("List", [s]) -> |[ new java.util.ArrayList<t>() ]|
-    where t := <java-type> s
+    where t := <java-wrapper-type> s
 
   builtin-java-type :
     GenericSort("Set", [s]) -> type|[ java.util.Set<t> ]|
-    where t := <java-type> s
+    where t := <java-wrapper-type> s
 
   builtin-java-type-default-value :
     GenericSort("Set", [s]) -> |[ new java.util.HashSet<t>() ]|
-    where t := <java-type> s
+    where t := <java-wrapper-type> s
 
   builtin-java-type :
     GenericSort("Map", [s1, s2]) -> type|[ java.util.Map<t1, t2> ]|
-    where t1 := <java-type> s1
-        ; t2 := <java-type> s2
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
         
   builtin-java-type-default-value :
     GenericSort("Map", [s1,s2]) -> |[ new java.util.HashMap<t1,t2>() ]|
-    where t1 := <java-type> s1
-        ; t2 := <java-type> s2
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
         
 rules // typechecking context
 
@@ -281,16 +326,19 @@ rules
 rules // typechecking entity declarations
 
   typecheck-entity =
-    ?EntityNoSuper(x_class, props)
-    ; in-tc-context(
+    ?EntityNoSuper(x_class, props, functions)
+    ; {| TypeOf : in-tc-context(
         where( <map(typecheck-property)> props)
-      |["entity declaration ", x_class])
+        ; where( <map(typecheck-function)> functions)
+      | ["entity declaration ", x_class]) |}
+    
     
   typecheck-entity =
-    ?Entity(x_class, s, props)
+    ?Entity(x_class, s, props, functions)
     ; in-tc-context(
         where( <typecheck-supertype> s )
         ; where( <map(typecheck-property)> props )
+        ; where( <map(typecheck-function)> functions)
       | ["entity declaration ", x_class])
     
   typecheck-supertype = 
@@ -304,6 +352,51 @@ rules // typechecking entity declarations
     ; if not(<java-type> s) then
         typecheck-error(|["property ", x, " has invalid type"])
       end
+    ; rules( TypeOf : x -> s )
+    ; rules( IsProperty : x )
+  
+  typecheck-property =
+    ?DerivedProperty(x, k, s, annos, e)
+    ; e2 := <typecheck-expression> e
+    ; <?_{Type(e2t)}> e2
+    ; if not(<type-compatible>(e2t, s)) then
+             typecheck-error(|["The expression of the derived type ", x, " should have type ", s, " but instead has type ", e2t])
+           end
+    ; rules( TypeOf : x -> s )
+    ; rules( IsProperty : x )
+
+rules // typechecking entity functions
+  typecheck-function :
+    Function(f, args, sort, body1) -> Function(f, args, sort, body2)
+    where( {| TypeOf, ReturnType
+           : in-tc-context(
+               rules( ReturnType := sort )
+               ; <map(declare-typeof-arg)> args
+               ; body2 := <typecheck-function-block> body1
+             |["function ", f, "/"])
+           |} )
+           
+  typecheck-function-stat =
+    typecheck-function-block
+    <+ typecheck-assignment-stat
+    <+ typecheck-vardecl
+	<+ typecheck-if
+	<+ typecheck-for
+    <+ typecheck-function-return
+    <+ Stat(typecheck-expression)
+    <+ warn(|"warning: not typechecking statement: ")
+  
+  typecheck-function-block =
+    Block({| TypeOf : in-tc-context(map(typecheck-function-stat)|["block/"]) |})
+  
+  typecheck-function-return :
+    Return(e1) -> Return(e2)
+    where e2 := <typecheck-expression> e1
+        ; <?_{Type(e2t)}> e2
+        ; rt := <ReturnType>
+        ; if not(<type-compatible>(e2t, rt)) then
+             typecheck-error(|["The return statement expression of the derived type ", e2t, " should have type ", rt])
+           end
 
 rules // typechecking template definitions
 
@@ -501,6 +594,8 @@ rules // typechecking statements
     typecheck-block
     <+ typecheck-assignment-stat
     <+ typecheck-vardecl
+    <+ typecheck-if
+    <+ typecheck-for
     <+ typecheck-return
     <+ Stat(typecheck-expression)
     <+ dbg(|"warning: not typechecking statement: ")
@@ -522,11 +617,35 @@ rules // typechecking statements
   typecheck-vardecl :
     VarDecl(x, s) -> VarDecl(x, s)
     where rules( TypeOf : x -> s )
-   
+    
+	typecheck-if :
+		If(e1, sit1*, sif1*) -> If(e2, sit2*, sif2*)
+		where e2 := <typecheck-expression> e1
+        ; e2t := <?_{Type(<id>)}> e2
+        ; if not(<?_{Type(SimpleSort("Bool"))}> e2) then
+            typecheck-error(|["expression ", e2, " should be of type Bool"])
+          end
+        ; sit2* := <map(typecheck-stat)> sit1*
+        ; sif2* := <map(typecheck-stat)> sif1*
+
+  typecheck-for :
+    ForColl(v, s, e1, stm1*) -> ForColl(v, s, e2, stm2*)
+    where {| TypeOf :
+              rules(TypeOf : v -> s)
+              ; e2 := <typecheck-expression> e1
+              ; if not(<?_{Type(GenericSort(_, [<sort-literal> s]))}> e2) then // TODO: This only accepts List<SimpleSort>-like lists, not List<List<Int>> for example.
+                  typecheck-error(|["expression ", e2, " should be of type [SomeGenerichType]<", s, ">"])
+                end
+              ; stm2* := <map(typecheck-stat)> stm1*
+          |}
+
+  sort-literal :
+    SimpleSort(x) -> x
+
   typecheck-return :
     Return(e1) -> Return(e2)
     where e2 := <typecheck-link> e1
-           
+    
 rules // typechecking expressions
    
    typecheck-expression = dbg(|"tc expression: "); (
@@ -538,6 +657,7 @@ rules // typechecking expressions
      <+ typecheck-list-creation
      <+ typecheck-call
      <+ typecheck-query
+     <+ typecheck-operator
      <+ typecheck-expression-error
    )
    
@@ -546,6 +666,9 @@ rules // typechecking expressions
      
    typecheck-string :
      Int(x) -> Int(x){Type(SimpleSort("Int"))}
+
+   typecheck-string :
+     Float(x) -> Float(x){Type(SimpleSort("Float"))}
      
    typecheck-variable :
      Var(x) -> Var(x){Type(t)}
@@ -621,6 +744,72 @@ rules // typechecking expressions
      ThisCall(f, e1*) -> ThisCall(f, e2*){Type(t)}
      where e2* := <map(typecheck-expression)> e1*
          ; t := <check-signature> (None(), f, e2*)
+ 
+ // Exp operators, can this be done in a shorter way?
+ // TODO: Make sure these are numeric types (in case of mul, div and sub)
+   typecheck-operator :
+     Add(x, y) -> Add(x, y) { Type(xt) }
+     where
+           x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Addition of ", x, " type: ", xt, " and ", y, " type: ", yt, " is not allowed, due to incompatible types."])
+           end
+
+   typecheck-operator :
+     Sub(x, y) -> Sub(x, y) { Type(xt) }
+     where
+           x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; <?_{Type(xt)}> x2
+         ; <?_{Type(yt)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Substraction of ", x, " and ", y, " is not allowed, due to incompatible types."])
+           end
+
+   typecheck-operator :
+     Mul(x, y) -> Mul(x, y) { Type(xt) }
+     where
+           x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Multiplication of ", x, " and ", y, " is not allowed, due to incompatible types."])
+           end
+
+   typecheck-operator :
+     Div(x, y) -> Div(x, y) { Type(xt) }
+     where
+           x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Division of ", x, " and ", y, " is not allowed, due to incompatible types."])
+           end
+           
+   typecheck-operator :
+     Eq(x, y) -> Eq(x, y) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Comparison of ", x, " and ", y, " is not allowed, due to incompatible types."])
+           end
+
+   typecheck-operator :
+     NotEq(x, y) -> NotEq(x, y) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<type-compatible>(xt, yt)) then
+             typecheck-error(|["Comparison of ", x, " and ", y, " is not allowed, due to incompatible types."])
+           end
          
    typecheck-query :
      HqlQuery(q) -> HqlQuery(q){Type(t)}
@@ -640,7 +829,8 @@ rules // signature
         
   check-signature-aux = 
     ?sig
-    ; (CheckActionSignature 
+    ; (CheckActionSignature
+       <+ CheckFunctionSignature
        <+ check-builtin-signature
        <+ typecheck-error(|["type error in call ", sig]))
     
