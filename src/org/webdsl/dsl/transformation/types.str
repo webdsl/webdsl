@@ -93,7 +93,7 @@ strategies // register all declared entities
       )
       
   declare-function(|x_class) =
-    ?Function(f, args, sort, body1)
+     ?Function(f, args, sort, body1)
      ; t1* := <map(?Arg(_,<id>))> args
      ; rules( CheckFunctionSignature :
                    (None(), f, t2*) -> sort
@@ -325,20 +325,21 @@ rules
       
 rules // typechecking entity declarations
 
-  typecheck-entity =
-    ?EntityNoSuper(x_class, props, functions)
-    ; {| TypeOf : in-tc-context(
-        where( <map(typecheck-property)> props)
-        ; where( <map(typecheck-function)> functions)
-      | ["entity declaration ", x_class]) |}
+  typecheck-entity :
+    EntityNoSuper(x_class, props, function*) -> EntityNoSuper(x_class, props, function2*)
+    where {| TypeOf
+          : in-tc-context(
+              where( <map(typecheck-property)> props)
+              ; function2* := <map(typecheck-function)> function*
+              | ["entity declaration ", x_class]) |}
     
     
-  typecheck-entity =
-    ?Entity(x_class, s, props, functions)
-    ; in-tc-context(
+  typecheck-entity :
+    Entity(x_class, s, props, functions) -> Entity(x_class, s, props, functions2)
+    where in-tc-context(
         where( <typecheck-supertype> s )
         ; where( <map(typecheck-property)> props )
-        ; where( <map(typecheck-function)> functions)
+        ; functions2 := <map(typecheck-function)> functions
       | ["entity declaration ", x_class])
     
   typecheck-supertype = 
@@ -355,15 +356,15 @@ rules // typechecking entity declarations
     ; rules( TypeOf : x -> s )
     ; rules( IsProperty : x )
   
-  typecheck-property =
-    ?DerivedProperty(x, k, s, annos, e)
-    ; e2 := <typecheck-expression> e
-    ; <?_{Type(e2t)}> e2
-    ; if not(<type-compatible>(e2t, s)) then
+  typecheck-property :
+    DerivedProperty(x, k, s, annos, e) -> DerivedProperty(x, k, s, annos, e2)
+    where e2 := <typecheck-expression> e
+        ; <?_{Type(e2t)}> e2
+        ; if not(<type-compatible>(e2t, s)) then
              typecheck-error(|["The expression of the derived type ", x, " should have type ", s, " but instead has type ", e2t])
-           end
-    ; rules( TypeOf : x -> s )
-    ; rules( IsProperty : x )
+          end
+        ; rules( TypeOf : x -> s )
+        ; rules( IsProperty : x )
 
 rules // typechecking entity functions
   typecheck-function :
@@ -380,8 +381,8 @@ rules // typechecking entity functions
     typecheck-function-block
     <+ typecheck-assignment-stat
     <+ typecheck-vardecl
-	<+ typecheck-if
-	<+ typecheck-for
+    <+ typecheck-if
+    <+ typecheck-for
     <+ typecheck-function-return
     <+ Stat(typecheck-expression)
     <+ warn(|"warning: not typechecking statement: ")
@@ -650,25 +651,34 @@ rules // typechecking expressions
    
    typecheck-expression = dbg(|"tc expression: "); (
      typecheck-variable   
-     <+ typecheck-string
+     <+ typecheck-literal
      <+ typecheck-fieldaccess
      <+ typecheck-object-creation
      <+ typecheck-set-creation
      <+ typecheck-list-creation
+     <+ typecheck-empty-set-creation
+     <+ typecheck-empty-list-creation
      <+ typecheck-call
+     <+ typecheck-for-expr
      <+ typecheck-query
      <+ typecheck-operator
      <+ typecheck-expression-error
    )
    
-   typecheck-string :
+   typecheck-literal :
      String(x) -> String(x){Type(SimpleSort("String"))}
      
-   typecheck-string :
+   typecheck-literal :
      Int(x) -> Int(x){Type(SimpleSort("Int"))}
 
-   typecheck-string :
+   typecheck-literal :
      Float(x) -> Float(x){Type(SimpleSort("Float"))}
+     
+   typecheck-literal :
+     True() -> True() {Type(SimpleSort("Bool"))}
+     
+   typecheck-literal :
+     False() -> False() {Type(SimpleSort("Bool"))}
      
    typecheck-variable :
      Var(x) -> Var(x){Type(t)}
@@ -688,10 +698,16 @@ rules // typechecking expressions
              typecheck-error(|["arguments of set creation should have same type"])
            end
          ; dbg(|"typecheck-set-creation d: ")
+     
+   typecheck-empty-set-creation :
+     EmptySetCreation(s) -> EmptySetCreation(s) {Type(s)}
+
+   typecheck-empty-list-creation :
+     EmptyListCreation(s) -> EmptyListCreation(s) {Type(s)}
          
    typecheck-list-creation :
      ListCreation(e1*) -> ListCreation(e2*){Type(GenericSort("List", [t]))}
-     where dbg(|"typecheck-set-creation a: ")
+     where dbg(|["typecheck-set-creation a: ", <id>])
          ; e2* := <map(typecheck-expression)> e1*
          ; dbg(|"typecheck-set-creation b: ")
          ; [_{Type(t)},e3*] := e2*
@@ -734,6 +750,18 @@ rules // typechecking expressions
      where e2{Type(t2@SimpleSort(s))} := <typecheck-expression> e1
          ; t1 := <TypeOfProperty> (s, f)
          
+   typecheck-for-expr :
+     ForExp(x, s, ie1, oe1) -> ForExp(x, s, ie2, oe2) {Type(t)}
+     where ie2 := <typecheck-expression> ie1
+         ; t := <?_{Type(<id>)}> ie2
+         ; {| TypeOf :
+                rules(TypeOf : x -> s)
+                ; oe2 := <typecheck-expression> oe1
+           |}
+         ; if not(<type-compatible>(<?_{Type(<id>)}> oe2, s)) then
+             typecheck-error(|["expression ", oe2, " is not of type ", s])
+           end
+
    typecheck-call :
      Call(e1, f, e2*) -> Call(e3, f, e4*){Type(t)}
      where e3{Type(t3)} := <typecheck-expression> e1
