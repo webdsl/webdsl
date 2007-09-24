@@ -45,6 +45,36 @@ strategies
     where cbds := <properties-to-code(|x_Class)> props
         ; fcbs := <functions-to-code(|x_Class)> functions
         ; pkgname := <DomainPackage>
+
+  entity-to-java-Entity : 
+    SessionEntity(x_ident, EntityNoSuper(x_Class, props, functions)) -> JavaFile(["src"],
+    compilation-unit|[
+      package pkgname;
+
+      import java.util.*;
+      import javax.persistence.*;
+      import pkgname.*;
+
+      @Entity
+      @org.jboss.seam.annotations.Scope(org.jboss.seam.ScopeType.SESSION)
+      @org.jboss.seam.annotations.Name("~x_ident")
+      public class x_Class {
+        public x_Class () {}
+
+        @Id @GeneratedValue
+        private Long id;
+        
+        public Long getId() { return id; }
+
+        private void setId(Long id) { this.id = id; }
+
+        ~*cbds
+        ~*fcbs
+      }
+    ]|)
+    where cbds := <properties-to-code(|x_Class)> props
+        ; fcbs := <functions-to-code(|x_Class)> functions
+        ; pkgname := <DomainPackage>
     
   entity-to-java-Entity : 
     Entity(x_Class, x_super, props, functions) -> JavaFile(["src"],
@@ -159,10 +189,26 @@ rules // annotations for properties
   property-to-persistence-annotations(|x_Class) : 
     Property(x_prop, k, s, annos) -> 
     <concat>[
-      <association-annotations(|x_Class, x_prop)> s,
-      <cascade-annotations> k
+      <association-annotations(|x_Class, x_prop, annos)> s,
+      <cascade-annotations> k,
+      <inverse-annotations(|x_Class, annos)>
     ]
 
+  inverse-annotations(|class, annos) =
+    [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
+    ; x_colname := <concat-strings> ["\"",class,"_",ent,"\""]
+    ; x_thisid := <concat-strings> ["\"",class,"_id\""]
+    ; x_otherid := <concat-strings> ["\"",ent,"_id\""]
+    ; ![anno|[
+      @JoinTable(name=x_colname,
+        joinColumns={@JoinColumn(name=x_thisid)},
+        inverseJoinColumns={@JoinColumn(name=x_otherid)}
+      ) ]|]
+
+   inverse-annotations(|class, annos) =
+    [] := <collect(?InverseAnno(_, _))> annos
+    ; ![]
+  
 rules // function generation
 
   function-to-function-code(|x_Class) :
@@ -185,34 +231,45 @@ rules // association annotations
 
   // Property with a value type
 
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     s@SimpleSort(y) -> []
     where <builtin-java-type> s
     
   // Property with a reference association type
   
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     s@SimpleSort(y) -> [anno|[ @ManyToOne ]|]
     where t := <defined-java-type> s
     
   // Collection types
     
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     GenericSort("List", [s]) -> [anno|[ @ManyToMany ]|]
     where t := <defined-java-type> s
     
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     GenericSort("Set", [s]) -> [anno|[ @ManyToMany ]|]
     where t := <defined-java-type> s 
-    
-  association-annotations(|x_Class, x_prop) :
+        ; [] := <collect(?InverseSlaveAnno(_, _))> annos
+
+  association-annotations(|x_Class, x_prop, annos) :
+    GenericSort("Set", [s]) -> [anno|[ @ManyToMany(
+      mappedBy=x_mappedby,
+      targetEntity=x_ent
+    ) ]|]
+    where t := <defined-java-type> s 
+        ; [InverseSlaveAnno(ent, fld)|xs] := <collect(?InverseSlaveAnno(_, _))> annos
+        ; x_ent := <concat-strings> [ent, ".class"]
+        ; x_mappedby := <concat-strings> ["\"", fld, "\""] 
+
+  association-annotations(|x_Class, x_prop, annos) :
     GenericSort("Map", [s1, s2]) -> [anno|[ @ManyToMany ]|]
     where t1 := <builtin-java-type> s1
         ; t2 := <defined-java-type> s2
     
   // Set of values.
   
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     GenericSort("Set", [s@SimpleSort(_)])-> 
     [
       anno|[ 
@@ -231,7 +288,7 @@ rules // association annotations
   // i.e., to a defined entity that is owned by x_Class.
   // @note might be translated as @Embeddable
 	        
-  association-annotations(|x_Class, x_prop) :
+  association-annotations(|x_Class, x_prop, annos) :
     s@SimpleSort(y) ->
     [
       anno|[ @ManyToOne ]|,

@@ -45,6 +45,11 @@ strategies // register all declared entities
       )
   )
   
+  declare-entity : SessionEntity(nm, ent) -> SessionEntity(nm, <declare-entity> ent)
+    where rules(
+      SessionVariable : nm
+    )
+  
   inherited-properties =
     <conc>(<Properties>, <Extends; inherited-properties>)
     
@@ -66,15 +71,14 @@ strategies // register all declared entities
     
   declare-list-property(|x_class) =
     ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
-    ; where( 
-        y := <concat-strings>[x, "List"] 
-      ; t := GenericSort("List", [s])
-      )
-    ; rules(
-        TypeOfProperty : (x_class, y) -> t
-      )
-
-
+    ; where(
+             y := <concat-strings>[x, "List"] 
+           ; t := GenericSort("List", [s])
+           )
+        ; rules(
+            TypeOfProperty : (x_class, y) -> t
+          )
+  
   declare-property(|x_class) =
     ?DerivedProperty(x, k, s, annos, e)
     ; rules(
@@ -341,6 +345,9 @@ rules // typechecking entity declarations
         ; where( <map(typecheck-property)> props )
         ; functions2 := <map(typecheck-function)> functions
       | ["entity declaration ", x_class])
+      
+  typecheck-entity :
+    SessionEntity(nm,ent) -> SessionEntity(nm,<typecheck-entity>ent)
     
   typecheck-supertype = 
     ?s
@@ -355,6 +362,7 @@ rules // typechecking entity declarations
       end
     ; rules( TypeOf : x -> s )
     ; rules( IsProperty : x )
+    ; <map(try(typecheck-annos))> annos
   
   typecheck-property :
     DerivedProperty(x, k, s, annos, e) -> DerivedProperty(x, k, s, annos, e2)
@@ -366,6 +374,18 @@ rules // typechecking entity declarations
         ; rules( TypeOf : x -> s )
         ; rules( IsProperty : x )
 
+  typecheck-annos =
+    ?InverseAnno(ent, fld)
+    ; if not(<IsEntity> ent) then
+        typecheck-error(|["The entity ", ent, " does not exist."])
+      end
+    ; if not(t := <TypeOfProperty> (ent, fld)) then
+        typecheck-error(|["The field ", ent, ".", fld, " is not of the right type."])
+      end
+    ; if not(<?GenericSort(_, _)> t) then
+        typecheck-error(|["The property refered to is not a collection: ", ent, ".", fld])
+      end
+  
 rules // typechecking entity functions
   typecheck-function :
     Function(f, args, sort, body1) -> Function(f, args, sort, body2)

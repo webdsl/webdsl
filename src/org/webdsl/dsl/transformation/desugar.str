@@ -18,6 +18,8 @@ strategies
 
   desugar = 
     topdown-l(repeat(Desugar))
+    ; try(sometd(create-inverse-anno))
+    ; try(sometd(create-inverse-anno))
 
 rules
 
@@ -26,7 +28,8 @@ rules
 
   Desugar :
     elem|[ navigate(e1, e2){} ]| -> elem|[ navigate(e2){text(e1)} ]|
-   
+  
+     
   Desugar :
     String(x) -> String(y)
     where y := <un-double-quote> x
@@ -61,6 +64,27 @@ rules
     
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
+
+  create-inverse-anno :
+    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions) 
+    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
+  
+  desugar-inverse-property(|x_class) :
+    Property(x, k, GenericSort(coll, [s@SimpleSort(ss)]), anno*) -> Property(x, k, GenericSort(coll, [s]), anno2*)
+    where <map(try(declare-inverse-anno(|x_class, x)))> anno*
+        ; anno2* := <create-inverse-slave-anno(|x_class,x)> anno*
+  
+  create-inverse-slave-anno(|x_class,p) :
+    xs -> [slaveanno|xs]
+    where [] := <collect(?InverseSlaveAnno(_, _))> xs
+        ; (ent, fld) := <CreateInverseSlaveAnno> (x_class, p)
+        ; slaveanno := InverseSlaveAnno(ent, fld)
+  
+  declare-inverse-anno(|x_class, p) =
+    ?InverseAnno(ent, fld)
+    ; rules(
+        CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
+      )
 
 rules // derive input behaviour from type
 
@@ -265,12 +289,10 @@ rules // derive output behaviour from type
             : e2 := <sometd(LiftForExp)> e
             ; s:= <repeat(once-ForE)> Assign(Assignment(x, e2))
             |}
-           ; info(|["This is the result: ", s])
 
   LiftForExp :
     ForExp(x, srt1, e1, e2) -> Var(x1)
-    where info(|["Found ForExp: ", <id>])
-        ; new => x1
+    where new => x1
         ; srt2 := <type-of> e1
         ; e3 := <try(sometd(LiftForExp))> e1
         ; e4 := <try(sometd(LiftForExp))> e2
@@ -282,7 +304,7 @@ rules // derive output behaviour from type
                   x1.add(e4);
                 end
                 stat
-              } ]| where info(|"Yay!") )
+              } ]| )
   
   
 /*
