@@ -61,6 +61,7 @@
    TemplateCall.3:iter-star           -- _1,
    Action                             -- V[ H[KW["action"] _1 KW["("] _2 KW[")"]] _3 ],
    Action.2:iter-star-sep             -- H hs=0[_1 KW[","]],
+   InitAction                         -- V[ H[KW["init"]] _1],
    Function                           -- V[ H[KW["action"] _1 KW["("] _2 KW[")"] KW[":"] _3] _4 ],
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
