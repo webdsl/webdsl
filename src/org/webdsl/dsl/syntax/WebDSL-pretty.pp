@@ -14,6 +14,7 @@
    Section.2:iter-star                -- _1,
    Description                        -- V[V is=2[KW["description"] HV[_1]] KW["end"]],
    Note                               -- V[V is=2[KW["note"] HV[_1]] KW["end"]],
+   GlobalsDefinition				  -- KW["globals"] KW["{"] _1 KW["}"],
    Entity                             -- V[V is=2[H[_1 KW[":"] _2 KW["{"]] _3 _4] KW["}"]],
    Entity.4:iter-star                 -- _1,
    EntityNoSuper                      -- V[V is=2[H[_1 KW["{"]] _2 _3] KW["}"]],

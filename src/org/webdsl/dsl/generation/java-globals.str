@@ -1,0 +1,173 @@
+/**
+ * Generate a Seam EntityHome class for a declared entity
+ */
+
+module org/webdsl/dsl/generation/java-globals
+
+imports 
+  libstrategolib  
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/generation/-
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/syntax/HQL
+  org/webdsl/dsl/utils/utils
+
+rules // globals to java initialization code
+  merge-globals:
+	xs -> [ <collect(merge-globals-vdi);concat;?vdi;!GlobalsDefinition(vdi)> xs | <map(try(remove-globals-from-sections))> xs]
+
+  remove-globals-from-sections:
+  	Section(ident,defs) -> Section(ident, <filter(not(?GlobalsDefinition(_)))> defs)
+  	
+  merge-globals-vdi:
+  	GlobalsDefinition(vardeclinits) -> vardeclinits
+  
+  globals-to-java : 
+    GlobalsDefinition(vardeclinits) -> 
+	(
+ 		JavaFile(["src"],compilation-unit|[
+			package pkgname2;
+			
+			import java.util.*;
+			import javax.persistence.*;
+			import pkgname.*;
+			
+			@Entity public class ApplicationContextProperty  
+			{ 
+				public ApplicationContextProperty () 
+				{ }
+			
+				@Id @GeneratedValue private Long id;
+			
+				public Long getId()
+				{ 
+			  		return id;
+				}
+			
+				private void setId(Long id)
+				{ 
+			  		this.id = id;
+				}
+			
+				private String name;
+			  
+			  
+				private Long databaseId;
+				
+				public String getName() {
+					return name;
+				}
+			
+				public void setName(String name) {
+					this.name = name;
+				}
+			
+				public Long getDatabaseId() {
+					return databaseId;
+				}
+			
+				public void setDatabaseId(Long databaseId) {
+					this.databaseId = databaseId;
+				}
+			  
+			  
+			}
+      
+      ]|)
+    ,
+		<create-local-interface(|pkgname, pkgname2, "ApplicationContextInterface")> JavaFile(["src"], 
+    	compilation-unit|[
+			package pkgname;
+	    
+		    
+		    import java.util.*;
+			import java.io.Serializable;
+			import static javax.persistence.PersistenceContextType.EXTENDED;
+			
+			import javax.persistence.PersistenceContext;
+			import javax.persistence.EntityManager;
+			
+			import javax.ejb.Stateful;
+			import javax.ejb.Remove;
+			import javax.ejb.Stateless;
+			
+			import org.jboss.seam.ScopeType;
+			
+			import org.jboss.seam.annotations.Destroy;
+			import org.jboss.seam.annotations.Name;
+			import org.jboss.seam.annotations.Scope;
+			import org.jboss.seam.annotations.Create;
+			import org.jboss.seam.annotations.Logger;
+			
+			import org.jboss.seam.annotations.Startup;
+			
+			import org.jboss.seam.contexts.Contexts;
+			import org.jboss.seam.core.FacesMessages;
+			import org.jboss.seam.log.Log;
+			import org.jboss.seam.annotations.In;
+		    
+	    
+			import pkgname2.*;
+	  
+			      
+			@Startup @Stateful @Name("applicationContext") @Scope(ScopeType.APPLICATION) public class ApplicationContext implements ApplicationContextInterface
+			{ 
+				@Logger private Log log;
+			
+				@PersistenceContext(type = EXTENDED) private EntityManager em;
+			
+				@In private FacesMessages facesMessages;
+			  
+				@Create public void initialize()
+				{ 
+					javax.persistence.Query q = em.createQuery("from ApplicationContextProperty");
+					if (q.getResultList().isEmpty())
+					{
+					
+					
+						bstm1*
+					
+					  
+					}
+				  
+					javax.persistence.Query q2 = em.createQuery("from ApplicationContextProperty");
+					List results = q2.getResultList();
+					for(Object r: results)
+				 	{
+					  	ApplicationContextProperty acp = (ApplicationContextProperty) r;
+					  	
+					  	Contexts.getApplicationContext().set(acp.getName(), acp.getDatabaseId());
+				  	}
+			  	}
+			  
+			  	@Destroy @Remove public void destroy()
+			  	{ }
+			
+			}
+		      
+		]|)
+	)
+	where pkgname    := <BeanPackage>
+		; pkgname2   := <DomainPackage>
+		; bstm1* := <filter(vardeclinit-to-code);concat> vardeclinits		
+		
+  vardeclinit-to-code:
+	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
+		bstm* |[
+			
+			~bstmvardeclinit
+			
+			em.persist(x_ident);
+								    			  
+			ApplicationContextProperty x_acpident = new ApplicationContextProperty();
+			x_acpident.setName(x_acpname);
+			x_acpident.setDatabaseId(x_ident.getId());
+			em.persist(x_acpident);
+		]|
+	where x_acpident := <new>
+		; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
+		; bstmvardeclinit := <vardecl-to-java> vdi
+	
