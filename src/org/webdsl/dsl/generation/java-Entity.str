@@ -190,13 +190,13 @@ rules // annotations for properties
     Property(x_prop, k, s, annos) -> 
     <concat>[
       <association-annotations(|x_Class, x_prop, annos)> s,
-      <cascade-annotations> k,
-      <inverse-annotations(|x_Class, annos)>
+      <cascade-annotations> k
+      //<inverse-annotations(|x_Class, annos)>
     ]
 
   inverse-annotations(|class, annos) =
     [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
-    ; x_colname := <concat-strings> ["\"",class,"_",ent,"\""]
+    ; x_colname := <concat-strings> ["\"",class,"_", fld, "_",ent,"\""]
     ; x_thisid := <concat-strings> ["\"",class,"_id\""]
     ; x_otherid := <concat-strings> ["\"",ent,"_id\""]
     ; ![anno|[
@@ -248,17 +248,31 @@ rules // association annotations
     where t := <defined-java-type> s
     
   association-annotations(|x_Class, x_prop, annos) :
-    GenericSort("Set", [s]) -> [anno|[ @ManyToMany ]|]
+    GenericSort("Set", [s@SimpleSort(ss)]) -> <concat> [[anno|[ @ManyToMany ]|], jtAnno, jtAnno2]
     where t := <defined-java-type> s 
+        ; tableName := <concat-strings> [x_Class, "_", x_prop, "_", ss]
+        ; jtAnno := <inverse-annotations(|x_Class, annos)>
+        ; if [] := jtAnno then
+            jtAnno2 :=  [anno|[ @JoinTable(name = "~tableName") ]|]
+          else
+            jtAnno2 := []
+          end
         ; [] := <collect(?InverseSlaveAnno(_, _))> annos
 
   association-annotations(|x_Class, x_prop, annos) :
-    GenericSort("Set", [s]) -> [anno|[ @ManyToMany(
+    GenericSort("Set", [s@SimpleSort(ss)]) -> <concat> [[anno|[ @ManyToMany(
       mappedBy=x_mappedby,
       targetEntity=x_ent
-    ) ]|]
+    ) ]|], jtAnno, jtAnno2]
     where t := <defined-java-type> s 
         ; [InverseSlaveAnno(ent, fld)|xs] := <collect(?InverseSlaveAnno(_, _))> annos
+        ; tableName := <concat-strings> [x_Class, "_", x_prop, "_", ss]
+        ; jtAnno := <inverse-annotations(|x_Class, annos)>
+        ; if [] := jtAnno then
+            jtAnno2 :=  [anno|[ @JoinTable(name = "~tableName") ]|]
+          else
+            jtAnno2 := []
+          end
         ; x_ent := <concat-strings> [ent, ".class"]
         ; x_mappedby := <concat-strings> ["\"_", fld, "\""] 
 
