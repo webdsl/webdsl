@@ -1,0 +1,270 @@
+/**
+
+ Security rules for WebDSL
+ 
+*/
+
+module org/webdsl/dsl/transformation/security
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  
+rules
+  process-security=
+    declare-security
+    ; typecheck-security  
+    ; generate-security 
+    ; try(sometd(apply-properties-to-entity))
+    ; try(sometd(apply-checks-to-page))  
+    ; try(attach-decision-classes-to-application)
+    
+  generate-security:
+  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-security-defs);concat> sections, <map(try(remove-security-decs))>sections] )
+
+  remove-security-decs:
+    Section(ident,defs) -> Section(ident,<filter(not(?SecurityDefinition(_)))>defs)
+
+  generate-security-defs:
+	SecurityDefinition(defs) -> 
+		<collect(security-subject
+					<+ add-entities
+					<+ add-properties
+					<+ init-entities
+					<+ create-rule-classes
+				)
+				//;desugar
+				> defs
+
+  // there can be only one of these (not yet checked)
+  security-subject:
+	SecuritySubject($ident,props) -> 
+			|[ 	
+				section generated security.
+				
+				session securityContext : SecurityContext {
+				  	loggedIn	:: Bool
+				    subject     -> $ident
+				}
+			  
+			  	AccessControlRule
+				{
+					info :: String
+				}
+				 
+				AccessControlDecision{
+					rule -> AccessControlRule
+					endResult :: Bool
+					subject -> User
+					time :: Date
+				}
+			]|
+ 
+  add-entities:
+  	SecurityAddEntities(entities) ->
+  		|[
+  			section generated security entities $random.
+  			
+  			def0*
+  		]|
+  	where $random := <new>
+  		; def0* := entities
+
+  add-properties:
+	SecurityAddProperties(propadds) -> <fail>
+	where <map(try(SecurityAddProperties))> propadds
+
+  //build one dynamic rule for each entity that gets additional properties  		
+  add-properties:
+  	SecurityAddedProperty(ident, props) -> <fail>
+  	where theprops := <map(try(desugar))> props
+  		; olddynamicresult := <Security-Add-Properties(|[]) <+  ![] > ident
+	 	; newdynamicresult := <?oldprops;!<concat>[oldprops,theprops]> olddynamicresult
+  	 	; rules
+		  (
+		  	Security-Add-Properties(|properties) : ident -> <concat> [properties,newdynamicresult]
+		  )			
+	
+  init-entities:
+	SecurityInit(vardeclinits) ->
+  		|[
+  			section generated security globals $random.
+  			
+  			def0*
+  		]|
+  	where $random := <new>
+  		; def0* := [GlobalsDefinition(vardeclinits)]
+
+  create-rule-classes:
+    st@SecurityTarget(checktype,matchstring,checksandtargets) -> 
+    			|[ 	
+				section generated rule entities $random.
+			  
+			  	def0*
+			]|
+	where $random := <new>
+	    ; def0* := <create-rule-classes-helper> st
+			
+  create-rule-classes-helper:
+	st@SecurityTarget(checktype,matchstring,checksandtargets) -> 
+			<concat>[
+			[def|[ 	
+			  
+			  	globals { 
+			  		var $varname : AccessControlRule := AccessControlRule
+					{
+						info := "checks get listed here"
+					};
+					
+					
+				}
+			]|]
+			,
+			  <filter(create-rule-classes-helper);concat> checksandtargets
+			]
+	where $varname := <concat-strings> ["ACRule",checktype,<remove-quotes-and-wildcards>matchstring]
+		; newlistfromtype :=  <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
+		; rules(
+			Security-Rules-List-From-Type : checktype -> newlistfromtype
+			Security-Rule-Name : (checktype,matchstring) -> $varname
+		)
+
+  remove-quotes-and-wildcards=
+  	un-double-quote; explode-string;map(try(?'*';!'1')) ;implode-string
+  	
+  generate-access-control-checks(|checktype,name,vars,target)=
+    if target := []
+    then
+  	  possibleTargets := <Security-Rules-List-From-Type> checktype
+  	else
+  	  possibleTargets := <?SecurityTarget(_,_,stchecks);!stchecks;filter(?SecurityTarget(checktype,_,_))> target
+  	end
+  	; pt := <find-most-applicable-target(|name,possibleTargets)>
+  	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+  	; chosenpolicytarget := <generate-security-checks-from-target(|$decisionclassname)> pt   //this determines whether a rule is used to enforce ac
+  	; otherclasses := <Generated-Decision-Classes <+ ![]>
+  	; prop0* := <map(try(vars-to-props))> vars
+  	; rules (
+		Generated-Decision-Classes := 
+			<concat>[
+				[def |[
+				$decisionclassname : AccessControlDecision{
+					
+					prop0*
+					
+				}
+				]|]
+			
+			, otherclasses ]
+			
+			
+		Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
+		
+		Previous-Selected-Target := pt
+  	
+  	)
+  	; !chosenpolicytarget
+  	
+  vars-to-props:
+	Arg($ident,$argsort) -> |[ $ident -> $classname]|
+	where <defined-java-type> $argsort  
+		; SimpleSort($classname) := $argsort	
+
+  vars-to-props:
+	Arg($ident,$argsort) -> |[ $ident :: $typename]|
+	where <builtin-java-type> $argsort
+	    ; SimpleSort($typename) := $argsort
+
+  vars-to-props:
+	Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
+	where GenericSort($gentype,$thesort) := $argsort	
+	    ; <defined-java-type> $thesort 	
+  	
+  find-most-applicable-target(|name,targets)=
+	filteredrules := <filter(find-most-applicable-target-filter(|name))> targets
+  	; rules (besttargetlength := 0
+			besttarget := [])
+  	; <map(find-best-target)> filteredrules
+  	; !<besttarget>
+	
+  find-best-target:
+	st@SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,checksandtargets)
+	where oldlength := < besttargetlength <+ !0 >
+		; thislength := <explode-string;length> matchstring
+		; if thislength := <max> (oldlength,thislength)
+		then
+		rules(
+			besttargetlength := thislength
+			besttarget := st
+		)
+		end
+		
+  // only supports tail wildcards (*) so far
+  find-most-applicable-target-filter(|name):
+	SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,checksandtargets)
+	where matchstringunquoted := <un-double-quote> matchstring
+	; leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstringunquoted
+	; if leftmatcher := []
+		then  
+			matchresult := <left-match;implode-string> (<explode-string> name,<explode-string> matchstringunquoted)
+			//still need to check whether it is precisely the name or something longer
+		else
+			matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
+		end
+	; not(matchresult := matchstringunquoted) //if equal, left-match failed
+	
+	
+  generate-security-checks-from-target(|$acdclassname):
+	SecurityTarget(checktype,matchstring,checksandtargets) ->
+  		|[
+  		
+  		    var acdecision : $acdclassname := $acdclassname{rule :=$rulename};
+  				
+  			acdecision.subject :=  securityContext.subject;
+  				
+  			stat0*
+  			stat1*
+  				
+  			//acdecision.endResult := e0 ;
+  			acdecision.save();
+  			
+  		]|	
+  	where checks := <filter(not(?SecurityTarget(_,_,_)))> checksandtargets
+  		; $rulename := <Security-Rule-Name> (checktype,matchstring)
+  		; numberedchecks := <add-indices;map(fix-var-name-in-check)> checks
+  		; stat0* := <map(generate-bool-var-decs)> numberedchecks
+  		; stat1* := <map(generate-security-checks-from-target-element);concat> numberedchecks
+  		//; e0 := <generate-final-exp> numberedchecks
+ 
+  generate-final-exp : 
+    [x|xs] -> |[  $varname + $rest   ]|   //need "and"
+    where ($varname,_) := x
+        ; $rest := <generate-final-exp> xs
+        
+  generate-final-exp : 
+    [] -> |[  true  ]|
+ 
+  generate-bool-var-decs:
+    ($varname,_) -> 	
+    |[ 
+	 	var $varname : Bool := false;
+	]|
+ 
+  fix-var-name-in-check:
+    (index,anything) -> (newindex,anything)
+    where newindex := <concat-strings> ["check",<int-to-string> index]
+ 
+  generate-security-checks-from-target-element:
+	($varname,SecurityCheckLogin()) -> 
+	[  |[ 
+	
+		$varname := securityContext.loggedIn;
+		
+	]|  ]
+	
+  generate-security-checks-from-target-element:
+	($varname,SecurityCheckEquals(e1,e2)) -> |[ $varname := e1 == e2; ]|

@@ -1,0 +1,59 @@
+/**
+
+ Security rules for WebDSL
+ 
+*/
+
+module org/webdsl/dsl/transformation/security-typecheck
+
+imports 
+  libstrategolib 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/transformation/- 
+rules
+  typecheck-security=
+  	?Application(qid, sections)
+  	; where(<collect(?SecurityDefinition(_));map(typecheck-security)> sections)
+  	; if TypecheckError then
+  	    security-typecheck-error(|"Typechecking error in security definitions")
+       ; fail
+      end
+  	
+  typecheck-security:
+	SecurityDefinition(defs) -> SecurityDefinition(newdefs)
+	where newdefs :=
+		<map(collect(typecheck-security-subject
+					<+ typecheck-add-entities
+					<+ typecheck-add-properties
+					<+ typecheck-init-entities
+					<+ typecheck-create-rule-classes-top
+					<+ ?x; security-typecheck-error(|["Couldn't typecheck definition ",x]) 
+				))> defs
+	
+  typecheck-security-subject:
+    SecuritySubject(ident,props) -> SecuritySubject(ident,props)
+    where <IsEntity <+ security-typecheck-error(|[ident," is not a declared type"])> ident
+      
+  typecheck-add-entities:
+  	SecurityAddEntities(entities) -> SecurityAddEntities(entities)
+
+  typecheck-add-properties:
+	SecurityAddProperties(propadds) -> SecurityAddProperties(propadds) 
+	
+  typecheck-init-entities:
+	SecurityInit(vardeclinits) -> SecurityInit(vardeclinits)
+
+  typecheck-create-rule-classes-top:
+    SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,<filter(typecheck-create-rule-classes(|[checktype]))> checksandtargets)
+    where <elem <+ security-typecheck-error(|[checktype," is not a valid security check type"])> (checktype,<Security-Check-Type>)
+
+  typecheck-create-rule-classes(|ct):
+    SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,<filter(typecheck-create-rule-classes(|newtype))> checksandtargets)
+    where newtype := <concat>[ct , [checktype]]
+        ; <elem <+ security-typecheck-error(|[newtype ," is not a valid security check type"])> (newtype,<Security-Check-Type>)
+     
+  security-typecheck-error(|msg) =
+    err-msg(|msg)
+    ; rules( TypecheckError := True() )

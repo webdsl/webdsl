@@ -108,5 +108,16 @@
    Add                                -- _1 KW["+"] _2,
    Sub                                -- _1 KW["-"] _2,
    Mul                                -- _1 KW["*"] _2,
-   Div                                -- _1 KW["/"] _2
+   Div                                -- _1 KW["/"] _2,
+   
+   %%security syntax, needs to go in separate module
+   SecurityDefinition -- KW["security"] KW["{"] _1 KW["}"],
+   SecuritySubject -- KW["subject"] KW[":"] _1 KW["credentials"] KW[":"] _2,
+   SecurityAddProperties -- KW["add properties"] KW["{"] _1 KW["}"],
+   SecurityAddedProperty -- _1 _2,
+   SecurityAddEntities -- KW["add entities"] KW["{"] _1 KW["}"],
+   SecurityInit -- KW["init entities"] KW["{"] _1 KW["}"],
+   SecurityTarget -- _1 _2 KW["{"] _3 KW["}"],
+   SecurityCheckLogin -- KW["login required"],
+   SecurityCheckEquals -- _1 KW["=="] _2
 ]
