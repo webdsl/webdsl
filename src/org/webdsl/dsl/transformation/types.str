@@ -178,6 +178,9 @@ strategies
     
   defined-java-type =
     DefinedJavaType
+  
+  defined-java-type :
+    SimpleSort(x) -> <DefinedJavaType> x
 
   persistence-annotations =
     builtin-persistence-annotations <+ ![]
@@ -517,6 +520,7 @@ rules // typechecking page elements
     <+ typecheck-select
     <+ typecheck-action 
     <+ typecheck-init
+    <+ typecheck-if-templ
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
     <+ typecheck-template-call
@@ -631,7 +635,16 @@ rules // typechecking page elements
               end
             ; e2 := <typecheck-expression> e1
           | ["select/"])
-                       
+
+  typecheck-if-templ :
+    IfTempl(e1, elems1) -> IfTempl(e2, elems2)
+    where e2 := <typecheck-expression> e1
+        ; elems2 := <typecheck-page-elements> elems1
+        ; <?_{Type(e2t)}> e2
+        ; if not(<eq>(e2t, SimpleSort("Bool"))) then
+            typecheck-error(|["Expression ", e1, " should be of type Bool, but instead is of type ", e2t])
+          end
+  
 strategies
 
   should-have-collection-type = 
@@ -875,7 +888,7 @@ rules // typechecking expressions
  // Exp operators, can this be done in a shorter way?
  // TODO: Make sure these are numeric types (in case of mul, div and sub)
    typecheck-operator :
-     Add(x, y) -> Add(x, y) { Type(xt) }
+     Add(x, y) -> Add(x2, y2) { Type(xt) }
      where
            x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
@@ -886,7 +899,7 @@ rules // typechecking expressions
            end
 
    typecheck-operator :
-     Sub(x, y) -> Sub(x, y) { Type(xt) }
+     Sub(x, y) -> Sub(x2, y2) { Type(xt) }
      where
            x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
@@ -897,7 +910,7 @@ rules // typechecking expressions
            end
 
    typecheck-operator :
-     Mul(x, y) -> Mul(x, y) { Type(xt) }
+     Mul(x, y) -> Mul(x2, y2) { Type(xt) }
      where
            x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
@@ -908,7 +921,7 @@ rules // typechecking expressions
            end
 
    typecheck-operator :
-     Div(x, y) -> Div(x, y) { Type(xt) }
+     Div(x, y) -> Div(x2, y2) { Type(xt) }
      where
            x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
@@ -919,7 +932,7 @@ rules // typechecking expressions
            end
            
    typecheck-operator :
-     Eq(x, y) -> Eq(x, y) { Type(SimpleSort("Bool")) }
+     Eq(x, y) -> Eq(x2, y2) { Type(SimpleSort("Bool")) }
      where x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
          ; xt := <?_{Type(<id>)}> x2
@@ -929,7 +942,7 @@ rules // typechecking expressions
            end
 
    typecheck-operator :
-     NotEq(x, y) -> NotEq(x, y) { Type(SimpleSort("Bool")) }
+     NotEq(x, y) -> NotEq(x2, y2) { Type(SimpleSort("Bool")) }
      where x2 := <typecheck-expression> x
          ; y2 := <typecheck-expression> y
          ; xt := <?_{Type(<id>)}> x2
@@ -937,7 +950,45 @@ rules // typechecking expressions
          ; if not(<type-compatible>(xt, yt)) then
              typecheck-error(|["Comparison of ", x, " and ", y, " is not allowed, due to incompatible types."])
            end
-         
+
+   typecheck-operator :
+     Not(x) -> Not(x2) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; xt := <?_{Type(<id>)}> x2
+         ; if not(<eq>(xt, SimpleSort("Bool"))) then
+             typecheck-error(|[x, " should be an expression of type Bool, but is of type ", xt])
+           end         
+
+   typecheck-operator :
+     And(x, y) -> And(x2, y2) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<eq>(xt, SimpleSort("Bool"))) then
+             typecheck-error(|[x, " should be an expression of type Bool, but is of type ", xt])
+           end         
+         ; if not(<eq>(yt, SimpleSort("Bool"))) then
+             typecheck-error(|[y, " should be an expression of type Bool, but is of type ", yt])
+           end         
+
+   typecheck-operator :
+     Or(x, y) -> Or(x2, y2) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(<eq>(xt, SimpleSort("Bool"))) then
+             typecheck-error(|[x, " should be an expression of type Bool, but is of type ", xt])
+           end         
+         ; if not(<eq>(yt, SimpleSort("Bool"))) then
+             typecheck-error(|[y, " should be an expression of type Bool, but is of type ", yt])
+           end         
+
+   typecheck-operator :
+     IsA(e1, s) -> IsA(e2, s) { Type(SimpleSort("Bool")) }
+     where e2 := <typecheck-expression> e1   
+  
    typecheck-query :
      HqlQuery(q) -> HqlQuery(q){Type(t)}
      where t := <type-of-query> q

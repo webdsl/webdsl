@@ -47,8 +47,10 @@
    Text                               -- H hs=0[ "\"" _1 "\"" ],
    For                                -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
    For.4:iter-star                    -- _1,
-   ForAll                                -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"] ] _3 ] KW["}"]],
-   ForAll.3:iter-star                    -- _1,
+   ForAll                             -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"] ] _3 ] KW["}"]],
+   ForAll.3:iter-star                 -- _1,
+   IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
+   IfTempl.2:iter-star                -- _1,
    Select                             -- H[KW["select"] KW["("] _1 KW[":"] _2 KW[","] _3 KW[","] _4 KW[")"]],
    TemplateCallNoArgs                 -- _1,
    True				      -- KW["true"],
@@ -109,6 +111,10 @@
    Sub                                -- _1 KW["-"] _2,
    Mul                                -- _1 KW["*"] _2,
    Div                                -- _1 KW["/"] _2,
+   And                                -- _1 KW["and"] _2,
+   Or                                 -- _1 KW["or"] _2,
+   Not                                -- KW["not"] _1,
+   IsA                                -- _1 KW["is"] KW["a"] _2,
    
    %%security syntax, needs to go in separate module
    SecurityDefinition -- KW["security"] KW["{"] _1 KW["}"],

@@ -88,6 +88,7 @@ rules // session bean from page definition
 	    ~*cbds4
 	    ~*cbds5
 	    ~*cbds6
+	    ~*cbds7
       }
     ]|)
     where {| Parameter
@@ -108,6 +109,7 @@ rules // session bean from page definition
 	       ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
 	       ; cbds6  := <map(session-inouts);concat> <SessionEntities>
 	       ; bstm6* := <collect(initaction-to-initialization);concat> elems1
+	       ; cbds7  := <map(template-functions-to-code); concat> <repeat(once-TranIf)> []
 	       |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
@@ -317,9 +319,13 @@ rules // select
     bstm*|[ x_initList(); ]| 
     where X          := <capitalize-string> x
         ; x_initList := <concat-strings>["init", X, "List"]
-    
-rules // page variables
 
+rules // template expression functions
+   template-functions-to-code = []
+//     (x_fn, e) -> |[
+//       public boolean x_fn(
+rules // page variables
+  
   vardecl-to-initialization :
     VarDeclInit(x, s, e1) -> bstm*|[ x = e2; ]|
     where not(HqlQuery(_) := e1)
@@ -398,4 +404,35 @@ rules // page-level variables with query initializers
             AddQueryParameter :+ e -> |[ e.setParameter("~x1", e2) ]|
           )
 
-        
+rules // For generating template functions
+
+   template-functions-to-java :
+    functions -> JavaFile(["src"],
+    compilation-unit|[
+      package pkgname;
+
+      import java.util.*;
+      import javax.persistence.*;
+      import pkgname2.*;
+
+      public class TemplateFunctions {
+	    ~*cbds1
+      }
+    ]|)
+    where pkgname := <Package>
+        ; pkgname2 := <DomainPackage>
+        ; cbds1 := <map(template-function-to-java)> functions
+
+
+   template-function-to-java :
+     (x_fn, params, e1) -> |[
+       public boolean x_fn(param*) {
+         return e2;
+       } ]|
+     where param* := <map(template-function-param-to-java)> params
+         ; e2 := <expression-to-java> e1
+
+    
+   template-function-param-to-java :
+     (x, s) -> |[ t x ]|
+     where t := <java-type> s

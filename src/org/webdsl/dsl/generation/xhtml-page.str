@@ -22,7 +22,8 @@ rules
       xmlns:s="http://jboss.com/products/seam/taglib"
       xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
       xmlns:t="http://myfaces.apache.org/tomahawk"
-      xmlns:rich="http://richfaces.ajax4jsf.org/rich">
+      xmlns:rich="http://richfaces.ajax4jsf.org/rich"
+      xmlns:wdsl="http://www.webdsl.org/el">
 <head>    
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title><%= title ::*%></title>
@@ -200,6 +201,13 @@ rules // iteration
     ForAll(x,s,elems) ->
     %>
       <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}"><%= columns ::*%></ui:repeat>
+    <%
+    where columns := <elems-to-xhtml(wrap-column)> elems
+  
+  elem-to-xhtml :
+    IfTempl(e, elems) ->
+    %>
+      <div rendered="<%= e %>"><%= columns ::*%></div>
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
         
@@ -511,5 +519,56 @@ rules // output
         ; label := <newname> "outputDateId"
 
 
+rules // function stuff
 
-       
+   collect-vars : Var(x) {Type(t)} -> Var(x) {Type(t)}
+     where rules ( CollectV :+ l -> <concat> [[(x, t)], l] )
+
+   translate-if : IfTempl(e, elems*) -> IfTempl(el, elems*) // This is kind of ughly, but ok
+     where fn := <newname> "templateFunction"
+         ; {| CollectV
+            : <try(sometd(collect-vars))> e
+            ; params := <repeat(once-CollectV)> []
+            |}
+         ; el := <concat-strings> ["#{wdsl:", fn, "(", <map(?(p, s); !p); join-strings(|",")> params, ")}"]
+         ; rules( TranIf :+ l -> <concat> [[(fn, params, e)], l] )
+
+   function-param-to-sig :
+     (x, s) -> "java.lang.Object"
+     where t := <java-type> s
+
+   unId : Id(x) -> x
+  
+   packagename-to-string :
+     PackageName(parts) -> <map(unId); join-strings(|".")> parts
+
+   function-to-xml :
+     (fn, param*, e) ->
+     %>
+  <function>
+    <function-name><%= fn2 %></function-name>
+    <function-class><%= pkgname %>.TemplateFunctions</function-class>
+    <function-signature>boolean <%= fn2 %>(<%= params %>)</function-signature>
+  </function>
+    <%
+    where pkgname := Literal(<packagename-to-string> <Package>)
+        ; fn2 := Literal(fn)
+        ; params := Literal(<map(function-param-to-sig); join-strings(|",")> param*)
+  
+   functions-to-code =
+     try(sometd(translate-if))
+     ; oldapp := <id>
+     ; functions := <repeat(once-TranIf)> []
+     ; c := <template-functions-to-java> functions
+     ; functiondefs := <map(function-to-xml); concat> functions
+     ; x := XmlFile(["resources/WEB-INF"], "generated.taglib.xml", 
+%>
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE facelet-taglib PUBLIC "-//Sun Microsystems, Inc.//DTD Facelet Taglib 1.0//EN" "http://java.sun.com/dtd/facelet-taglib_1_0.dtd">
+
+<facelet-taglib>
+  <namespace>http://www.zefhemel.com/el</namespace>
+  <%= functiondefs ::*%>
+</facelet-taglib>
+<%)
+    ; !(oldapp, c, x)
