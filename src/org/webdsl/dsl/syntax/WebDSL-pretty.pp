@@ -115,6 +115,7 @@
    Or                                 -- _1 KW["or"] _2,
    Not                                -- KW["not"] _1,
    IsA                                -- _1 KW["is"] KW["a"] _2,
+   Cast                               -- _1 KW["as"] _2,
    
    %%security syntax, needs to go in separate module
    SecurityDefinition -- KW["security"] KW["{"] _1 KW["}"],
