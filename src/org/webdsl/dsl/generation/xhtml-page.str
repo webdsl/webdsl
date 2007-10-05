@@ -207,7 +207,7 @@ rules // iteration
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
-      <div rendered="<%= e %>"><%= columns ::*%></div>
+      <h:panelGroup rendered="<%= e %>"><%= columns ::*%></h:panelGroup>
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
         
@@ -524,18 +524,30 @@ rules // function stuff
    collect-vars : Var(x) {Type(t)} -> Var(x) {Type(t)}
      where rules ( CollectV :+ l -> <concat> [[(x, t)], l] )
 
+   param-to-el :
+     (p, s) -> p
+     where not(s := SimpleSort("Page"))
+   
+   param-to-el :
+     (p, s) -> <join-strings(|".")> [<PageName>, p]
+     where s := SimpleSort("Page") // Not sure if this covers all cases
+
+   translate-if :
+     Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
+     where rules ( PageName := name )
+         ; body2 := <try(sometd(translate-if))> body1
+
    translate-if : IfTempl(e, elems*) -> IfTempl(el, elems*) // This is kind of ughly, but ok
      where fn := <newname> "templateFunction"
          ; {| CollectV
             : <try(sometd(collect-vars))> e
             ; params := <repeat(once-CollectV)> []
             |}
-         ; el := <concat-strings> ["#{wdsl:", fn, "(", <map(?(p, s); !p); join-strings(|",")> params, ")}"]
+         ; el := <concat-strings> ["#{wdsl:", fn, "(", <map(param-to-el); join-strings(|",")> params, ")}"]
          ; rules( TranIf :+ l -> <concat> [[(fn, params, e)], l] )
 
    function-param-to-sig :
-     (x, s) -> "java.lang.Object"
-     where t := <java-type> s
+     (x, s) -> <sort-to-java-type-string> s
 
    unId : Id(x) -> x
   
@@ -567,7 +579,7 @@ rules // function stuff
 <!DOCTYPE facelet-taglib PUBLIC "-//Sun Microsystems, Inc.//DTD Facelet Taglib 1.0//EN" "http://java.sun.com/dtd/facelet-taglib_1_0.dtd">
 
 <facelet-taglib>
-  <namespace>http://www.zefhemel.com/el</namespace>
+  <namespace>http://www.webdsl.org/el</namespace>
   <%= functiondefs ::*%>
 </facelet-taglib>
 <%)
