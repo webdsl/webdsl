@@ -440,9 +440,9 @@ rules // typechecking entity declarations
     ; if not(t := <TypeOfProperty> (ent, fld)) then
         typecheck-error(|["The field ", ent, ".", fld, " is not of the right type."])
       end
-    ; if not(<?GenericSort(_, _)> t) then
+ /*   ; if not(<?GenericSort(_, _)> t) then
         typecheck-error(|["The property refered to is not a collection: ", ent, ".", fld])
-      end
+      end */
   
 rules // typechecking entity functions
   typecheck-function :
@@ -540,6 +540,7 @@ rules // typechecking page elements
     <+ typecheck-if-templ
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
+    <+ typecheck-call-subtable
     <+ typecheck-template-call
     <+ typecheck-iterator
     <+ typecheck-vardecl
@@ -558,7 +559,34 @@ rules // typechecking page elements
             ; e2' := <typecheck-expression> e2
           | [f, "/"])
 
-    
+  
+/*  typecheck-call-subtable :
+    TemplateCall("subtable", [f], columns) -> TemplateCall("subtable", [f], columns)
+    where in-tc-context(
+               <should-have-list-type> f
+             ; GenericSort(x, s) := <TypeOf> f
+             ; {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                |}
+          | ["subtable/"] ) */
+                
+  typecheck-call-subtable :
+    TemplateCall("subtable", [f], columns1) -> TemplateCall("subtable", [f], columns1)
+    where FieldAccess(Var(exp), ident) := f
+        ; <should-have-list-type> ident
+        ; GenericSort(v,[SimpleSort(s)]) := <TypeOf> ident
+        ; <map(typecheck-template-call-in-subtable(|s))> columns1
+        
+  typecheck-template-call-in-subtable(|s) :
+    TemplateCall("text", [exp], []) -> TemplateCall("text", [exp], [])
+    where Var(x) := exp
+        ; t := <TypeOfProperty> (s, x)
+  
   typecheck-call-navigate :
     TemplateCall("navigate", [e], elems1) -> TemplateCall("navigate", [e'], elems2)
     where in-tc-context(id
@@ -595,7 +623,21 @@ rules // typechecking page elements
             | [f, "/"])
         
         // @todo account for arguments of built-in templates (for which TemplateArguments fails)
-                
+   
+  typecheck-template-call :
+    TemplateCallDeclaredType(f, x, s, elems1) -> TemplateCallDeclaredType(f, x, s, elems2)
+    where in-tc-context(
+               {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems2 := <typecheck-page-elements> elems1
+                |}
+             | [f, "/"] ) 
+                   
    match-argument =
     ?(Arg(x, t1), e{Type(t2)})
     ; if not(<subtype-of>(t2, t1)) then

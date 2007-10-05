@@ -102,8 +102,8 @@ rules // session bean from page definition
 	       ; cbds2  := <collect(action-to-bean-method)> elems1
 	       ; cbds3  := <collect(select-to-declarations); concat> elems1
 	       ; bstm3* := <collect(select-to-initialization); concat> elems1
-	       ; cbds4  := <collect(forall-to-declarations); concat> elems1
-	       ; bstm4* := <collect(forall-to-initialization); concat> elems1
+	       ; cbds4  := <collect(collection-to-declarations); concat> elems1
+	       ; bstm4* := <collect(collection-to-initialization); concat> elems1
 	       ; vdc*   := <get-page-vardecls> elems1
 	       ; cbds5  := <map(vardecl-to-member-variable); concat> vdc*
 	       ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
@@ -220,36 +220,56 @@ rules // view transition
     ThisCall(x, e1*) -> |[ x(e2*) ]|
     where e2* := <map(arg-to-java-exp)> e1*
       
+
+rules // collections
+
+  collection-to-java(|x, x_Class) = 
+      dbg(|"select-declarations match: ")
+    ; X          := <capitalize-string> x
+    ; x_List     := <concat-strings>[x, "List"]
+    ; x_getList  := <concat-strings>["get", X, "List"]
+    ; x_initList := <concat-strings>["init", X, "List"]
+    ; !|[ 
+		  @DataModel(~string:String([Chars(x_List)]))
+		  private List<x_Class> x_List;
+	
+		  public List<x_Class> x_getList() {
+		    log.info("~x_getList");
+			return x_List;
+		  }
+	
+		  @Factory(~string:String([Chars(x_List)]))
+		  public void x_initList() {
+			log.info("~x_initList");
+			x_List = em.createQuery("from " + "~x_Class").getResultList();
+		  }
+	   ]|
+  
+  collection-init-to-java(|x) =
+      X          := <capitalize-string> x
+    ; x_initList := <concat-strings>["init", X, "List"]
+    ; ! bstm*|[ x_initList(); ]| 
+
+rules // tables
+        
+  collection-to-declarations :
+    TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
+      <collection-to-java(|x, x_Class)>
+  
+  collection-to-initialization :
+    TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
+      <collection-init-to-java(|x)>
+
 rules // for all: for(x : s) { ... }
 
-  forall-to-declarations :
-    ForAll(x, SimpleSort(x_Class), elems) -> <dbg(|"forall-declarations success: ")>
-    |[ 
-	  @DataModel(~string:String([Chars(x_List)]))
-	  private List<x_Class> x_List;
-
-	  public List<x_Class> x_getList() {
-	    log.info("~x_getList");
-		return x_List;
-	  }
-
-	  @Factory(~string:String([Chars(x_List)]))
-	  public void x_initList() {
-		log.info("~x_initList");
-		x_List = em.createQuery("from " + "~x_Class").getResultList();
-	  }
-    ]|
-    where dbg(|"select-declarations match: ")
-        ; X          := <capitalize-string> x
-        ; x_List     := <concat-strings>[x, "List"]
-        ; x_getList  := <concat-strings>["get", X, "List"]
-        ; x_initList := <concat-strings>["init", X, "List"]
+  collection-to-declarations :
+    ForAll(x, SimpleSort(x_Class), elems) ->
+      <dbg(|"forall-declarations success: ")
+        ; collection-to-java(|x, x_Class)>
         
-  forall-to-initialization :
+  collection-to-initialization :
     ForAll(x, SimpleSort(x_Class),elems) ->
-    bstm*|[ x_initList(); ]| 
-    where X          := <capitalize-string> x
-        ; x_initList := <concat-strings>["init", X, "List"]
+      <collection-init-to-java(|x)>
           
 rules // select
 

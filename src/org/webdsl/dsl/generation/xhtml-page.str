@@ -129,6 +129,77 @@ rules // images
   elem-to-xhtml :
     TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
     where x := <arg-to-value-string> e
+
+rules // datatables
+
+  elem-to-xhtml :
+    TemplateCallDeclaredType("table", x, s, columns) ->
+    %>
+      <t:dataTable var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}" att0>
+        <%= tcolumns ::*%>
+        <%= hideColumn ::*%>
+      </t:dataTable>
+    <%
+  where tcolumns := <mapconcat(column-to-xhtml)> columns
+      ; hideColumn :=  <HideSubTableColumn <+ ![]>   
+      ; if HideSubTableColumn then
+          att0 := @> varDetailToggler="detailToggler" <@
+        else
+          att0 := []
+        end
+
+  column-to-xhtml :
+    elem -> enclosed-columns
+  where el := <elem-to-xhtml> elem
+      ; columns := %>
+	      <t:column>
+	        <%= el ::*%>
+	      </t:column>
+        <% 
+      ; enclosed-columns := <enclose-subtable-column> columns
+
+  enclose-subtable-column :
+     elem -> %> <f:facet name="detailStamp"> <%= elem::* %> </f:facet> <% 
+     where HideSubTableColumn
+   
+  enclose-subtable-column :
+     elem -> elem
+     where not(HideSubTableColumn)
+  
+  elem-to-xhtml :
+    TemplateCall("subtable", [field], columns) ->
+    %>
+        <t:dataTable var="<%=itemVarName%>" value="<%=x%>">
+          <%= tcolumns ::*%>
+        </t:dataTable>
+    <%
+  where x := <arg-to-value-string> field
+      ; FieldAccess(exp, ident) := field
+      ; itemVarName := <concat-strings>[ <decapitalize-string> ident, "Item"]
+      ; info(|itemVarName)
+      ; columnsWithVar := <map(add-var-to-property(|itemVarName))> columns
+      ; info(|columnsWithVar)
+      ; tcolumns := <mapconcat(column-to-xhtml)> columnsWithVar
+      ; rules( HideSubTableColumn := 
+		  %>
+		  <t:column>
+		    <h:commandLink rendered="#{detailToggler.currentDetailExpanded}" action="#{detailToggler.toggleDetail}">
+		      <h:outputText value="Hide" />
+		    </h:commandLink>
+		    <h:commandLink rendered="#{!detailToggler.currentDetailExpanded}" action="#{detailToggler.toggleDetail}">
+		      <h:outputText value="Show" />
+		    </h:commandLink>
+		  </t:column>
+		  <% )
+    
+  add-var-to-property(|var1) :
+    elem1 -> elem2
+  where info(|elem1)
+      ; TemplateCall(a, [Var(prop)], []) := elem1
+      ; var := <concat-strings> [var1, ".", prop]
+      ; elem2 := TemplateCall(a, [Var(var)], [])
+      ; info(|elem2)
+      
     
 rules // lists
 
