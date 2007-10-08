@@ -287,7 +287,28 @@ rules // derive output behaviour from type
     where SimpleSort($Y) := <type-of> e
         ; <defined-java-type> SimpleSort($Y)
         ; $viewY := <concat-strings>["view", $Y]
-       
+        ; not(<fetch(?($Y,_))> <SubClasses> []) // No subclasses defined of $Y
+
+  DeriveOutputSimpleRefAssociation :
+    elem|[ output(e){} ]| -> elem|[
+      section {
+        elem*
+      }
+    ]|
+    where SimpleSort($Y) := <type-of> e
+        ; <defined-java-type> SimpleSort($Y)
+        ; allsubclasses := <repeat(once-SubClasses)> []
+        ; subclasses := <retain-all(?($Y, _))> allsubclasses
+        ; elem* := <map(DeriveSubclassOutput(|e, subclasses))> [($Y, $Y)|subclasses]
+
+  is-not-subclass(|e) : [(x_super, x_class)] -> Not(IsA(e, SimpleSort(x_class)))
+  is-not-subclass(|e) : [(x_super, x_class)|xs] -> And(Not(IsA(e, SimpleSort(x_class))), <is-not-subclass(|e)> xs)
+  
+  DeriveSubclassOutput(|e, subclasses) :
+    (x_super, x_class) -> IfTempl(And(IsA(e, SimpleSort(x_class)), <is-not-subclass(|e)> <remove-all(?(_, x_class))> subclasses), elem*|[ navigate($viewY(e as srt)){ text(e.name) } ]|)
+    where $viewY := <concat-strings> ["view", x_class]
+        ; srt := SimpleSort(x_class)
+
   DeriveOutputAssociationList :
     elem|[ output(e1){} ]| -> elem|[ list { for(x : $X in e1){ listitem{ output(e2) } } } ]|
     where |[ List<$X> ]| := <type-of> e1
