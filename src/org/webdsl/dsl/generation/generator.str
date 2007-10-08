@@ -70,10 +70,14 @@ strategies
       ; stop-after
 //    ; propagate-component-names
 //      ; stop-after
-      
     ; stop-before-generation
     ; info(|"code generation")
-    ; !(<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>, <declarations-to-code>)
+    // Create tuple (Application, [files-to-write])
+    ; !(<id>, 
+        [<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>,<declarations-to-code>])
+    ; append-page-actions-file
+    // remove the Application from the tuple, to leave only a list of files to write
+    ; remove-application     
 
   declare-definitions =
     where(
@@ -85,8 +89,10 @@ strategies
     
 strategies
 
+  // In declarations-to-code an Application term is rewritten as a list where the head is a 
+  // tuple (Application, JavaFile, XmlFile), followed by a tail of Java and Xml files.
   declarations-to-code :
-    Application(qid, sections) -> [tup|rest] 
+    Application(qid, sections) -> (Application(qid, sections), [tup|rest]) 
     where rules( 
             Package := <qid-to-package-name> qid
             DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
@@ -96,7 +102,8 @@ strategies
         ; (Application(qid, sections2), f2x, f2c) := tup
         ; sections3 := <propagate-component-names> sections2
         ; rest := <merge-globals;collect(entity-to-code <+ page-to-code <+ globals-to-java)> sections3
-                
+
+   
    entity-to-code =
      !(<entity-to-java-Entity>
       ,<id>)
@@ -115,6 +122,12 @@ strategies
      ?Define(mod, x, args, body)
      ; where(not([Page()] := mod))
      ; !()
-   
 
+   append-page-actions-file :
+     (Application(qid, sections), files) -> (Application(qid, sections), [page-actions-file | files])
+     where <generate-page-list> Application(qid, sections)
+       ; page-actions-file := <generate-page-actions-file>
+   
+   remove-application :
+     (Application(qid, sections), files) -> files
      

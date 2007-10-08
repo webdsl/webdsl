@@ -8,7 +8,7 @@ imports
   org/webdsl/dsl/utils/-
     
 rules
-    
+  
   page-to-xml : 
     def@Define([Page()], x, args, elems1) ->
     XmlFile(["view"], <concat-strings>[x, ".xhtml"], 
@@ -37,6 +37,40 @@ rules
          ; title := <get-title> elems1
          ; elems2 := <elems-to-xhtml> elems1
          |}
+
+  // Generate a list of all pages in the application
+  generate-page-list =
+	?Application(qid, sections)
+      ; list := <collect(extract-page-name)> sections      
+	  ; rules (page-list := list)
+
+  // Extract the page name from a page
+  extract-page-name :
+    Define([Page()], x, args, elems1) -> x
+
+  // Generate the pages.xml file with all the page actions
+  generate-page-actions-file =
+	page-actions := <map(generate-page-action); concat> <page-list>
+    ; !XmlFile(["resources/WEB-INF"], "pages.xml",
+	    %>
+	      <?xml version="1.0" ?>
+	      <!DOCTYPE page PUBLIC 
+	      "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-1.2.dtd">
+	      <pages>
+	        <%= page-actions ::*%>
+	      </pages>
+	    <%)    
+  
+  // Generate a page action to force bean initialization before
+  // rendering a page.  
+  generate-page-action :
+    x -> 
+      %><page view-id="<%=viewid%>" action="#{<%=pageaction%>" />
+      <%
+    where 
+      viewid := <concat-strings>["/", x]
+      ; pageaction := <concat-strings>[x, ".forceInitialization()"]
+
       
   // @todo this should be made more configurable probably
       
