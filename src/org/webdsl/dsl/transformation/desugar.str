@@ -56,7 +56,7 @@ rules
     TemplateCallBody(x, body) -> TemplateCall(x, [], body)
   
   Desugar :
-    IfNoElse(e, sit) -> If(e, sit, [])
+    IfNoElse(e, bit) -> If(e, bit, Block([]))
   
   Desugar :
     Text(x) -> Text(y)
@@ -64,6 +64,12 @@ rules
     
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
+
+  Desugar :
+    Task(x, title, props1, functions) -> Entity(x, "Task", props2, functions)
+    where e := String(title)
+        ; props2 := [|[ title :: String (name) := e ]| | props1]
+        ; rules( IsTask : x -> x )
 
   create-inverse-anno :
     Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions) 
@@ -287,17 +293,18 @@ rules // derive output behaviour from type
     where SimpleSort($Y) := <type-of> e
         ; <defined-java-type> SimpleSort($Y)
         ; $viewY := <concat-strings>["view", $Y]
-        ; not(<fetch(?($Y,_))> <SubClasses> []) // No subclasses defined of $Y
+        ; allsubclasses := <AllSubClasses>
+        ; not(<fetch(?($Y,_))> allsubclasses)
 
   DeriveOutputSimpleRefAssociation :
     elem|[ output(e){} ]| -> elem|[
-      section {
+      container {
         elem*
       }
     ]|
     where SimpleSort($Y) := <type-of> e
         ; <defined-java-type> SimpleSort($Y)
-        ; allsubclasses := <repeat(once-SubClasses)> []
+        ; allsubclasses := <AllSubClasses>
         ; subclasses := <retain-all(?($Y, _))> allsubclasses
         ; elem* := <map(DeriveSubclassOutput(|e, subclasses))> [($Y, $Y)|subclasses]
 
@@ -340,9 +347,9 @@ rules // derive output behaviour from type
               {
                 var x1 : srt2;
                 x1 := List<srt1>();
-                for x : srt1 in e3 do
+                for(x : srt1 in e3) {
                   x1.add(e4);
-                end
+                }
                 stat
               } ]| )
   
@@ -550,7 +557,11 @@ rules // edit page
     ]|
     where x          := <decapitalize-string> $X
         ; $editRowsX := <concat-strings>["editRows", $X]
-        ; $editRowsY := <concat-strings>["editRows", $Y]
+        ; if <IsTask> $X then
+            $editRowsY := "viewRowsObject"
+          else
+            $editRowsY := <concat-strings>["editRows", $Y]
+          end
         ; not(<TemplateDefinition> $editRowsX) // don't overwrite an existing definition
         ; elem*      := <properties-to-edit-row(| Var(x), x )> prop*
         
@@ -602,6 +613,34 @@ rules // view page
         ; x          := <decapitalize-string> $X
         ; $xSidebar  := <concat-strings>[x, "Sidebar"]
         ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
+        ; not(<IsTask> $X)
+
+  entity-to-view-page : // For tasks
+    Entity($X, y_Class, prop*, functions) ->
+    def|[
+      define page $viewX(x : $X) {
+        main(){}
+        define body() {
+          section{ header{"Task: " text(x.name) }
+            form {
+              table { $editRowsX(x){}
+                      row { "Completed: " input(x.completed) } }
+              action("Save",   save())
+              action("Cancel", cancel())
+            }
+          }
+          action cancel() { return $viewX(x); }
+          action save() { x.save(); return $viewX(x); }
+        }
+      }
+    ]|
+    where $editX     := <concat-strings>["edit", $X]
+        ; $viewX     := <concat-strings>["view", $X]
+        ; $editRowsX := <concat-strings>["editRows", $X]
+        ; x          := <decapitalize-string> $X
+        ; $xSidebar  := <concat-strings>[x, "Sidebar"]
+        ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
+        ; <IsTask> $X
      
   entity-to-view-rows :
     Entity($X, $Y, prop*, functions) ->
