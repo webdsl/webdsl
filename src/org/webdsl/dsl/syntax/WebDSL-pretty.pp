@@ -23,6 +23,7 @@
    Task.3:iter-star                   -- _1,
    Task.4:iter-star                   -- _1,
    SessionEntity                      -- KW["session"] _1 KW[":"] _2,
+   ExtendEntity						  -- KW["extend"] KW["entity"] _1 KW["{"] _2 _3 KW["}"],
    Property                           -- H[_1 _2 _3 KW["("] _4 KW[")"]],
    Property.4:iter-star-sep           -- H hs=0[_1 KW[","]],
    PropertyNoAnno                     -- H[_1 _2 _3],
