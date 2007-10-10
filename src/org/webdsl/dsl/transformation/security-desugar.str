@@ -1,0 +1,47 @@
+/**
+
+ Security rules for WebDSL
+ 
+*/
+
+module org/webdsl/dsl/transformation/security-desugar
+
+imports 
+  libstrategolib 
+  
+imports 
+  org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/transformation/- 
+rules
+  desugar-security:
+  	Application(qid, sections) -> Application(qid, <map(try(desugar-security))> sections)
+  	
+  desugar-security:
+  	Section(qid, defs) -> Section(qid, <map(try(desugar-security))> defs)
+  	
+  desugar-security:
+	SecurityDefinition(defs) -> SecurityDefinition(<map(try(desugar-security)); foldr(![], (is-list, id) < conc + MkCons )> defs)
+
+  desugar-security:
+    SecurityTarget(type,name,checks) -> SecurityTarget(type,name, <map(try(desugar-security))> checks)
+
+  desugar-security:
+    SecurityCheckLogin() -> SecurityCheckExpression ( |[ securityContext.loggedIn ]| )
+
+  desugar-security:  
+    SecuritySubjectWithRoles(ident,credentials,roles) ->
+      [   SecuritySubject(ident,credentials),
+          SecurityAddEntities( [ |[ AccessControlRole {
+					            name :: String
+				              }  ]| ] ),
+		  SecurityInit( |[ stat0* ]| ),
+		  SecurityAddProperties(SecurityAddedProperty(ident,[ |[ accessControlRoles -> Set<AccessControlRole> ]| ]))
+	
+      ]
+    where stat0* := <map(role-to-init)> roles
+        
+
+  role-to-init:
+    $x -> |[ var $x : AccessControlRole := AccessControlRole {name := "$x"}; ]|
+    
+    

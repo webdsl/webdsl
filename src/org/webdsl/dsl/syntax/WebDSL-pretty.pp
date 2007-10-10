@@ -127,5 +127,8 @@
    SecurityInit -- KW["init entities"] KW["{"] _1 KW["}"],
    SecurityTarget -- _1 _2 KW["{"] _3 KW["}"],
    SecurityCheckLogin -- KW["login required"],
-   SecurityCheckEquals -- _1 KW["=="] _2
+   SecurityCheckExpression -- _1,
+   SecuritySubjectWithRoles -- KW["subject"] KW[":"] _1 KW["credentials"] KW[":"] _2 KW["roles"] KW[":"] _3
+ 
+   
 ]

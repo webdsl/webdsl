@@ -16,7 +16,8 @@ imports
   
 rules
   process-security=
-    declare-security
+    desugar-security
+    ; declare-security
     ; typecheck-security  
     ; generate-security 
     ; try(sometd(apply-properties-to-entity))
@@ -62,8 +63,45 @@ rules
 					subject -> User
 					time :: Date
 				}
+				
+				/*
+                define page login()
+				{
+                  var subject : $ident := $ident{};
+				
+                  form { 
+                  table {
+                    elem0*
+                    row{ "username: " input(subject.username) }
+				    row{ "password: " input(subject.password) }
+				         
+				  }
+				  action("login", login())
+				  action login() {
+				      
+				    var subjects : List<$ident> :=
+				    select s from $ident as s 
+				    where (s._username = ~subject.username) and (s._password = ~subject.password);
+				          	
+				    for sub : $ident in subjects do
+				    securityContext.subject:=sub;
+				    securityContext.loggedIn:=true;
+				    end
+				            
+				  }
+				          
+				  action("logout", logout())
+				  action logout() {
+				    securityContext.loggedIn:=false;
+				  }
+				  }
+			    }*/
 			]|
+			//where elem0* := <map(property-to-input-row)> props
  
+  //property-to-input-row:
+    //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
+     
   add-entities:
   	SecurityAddEntities(entities) ->
   		|[
@@ -145,7 +183,7 @@ rules
   	end
   	; pt := <find-most-applicable-target(|name,possibleTargets)>
   	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
-  	; chosenpolicytarget := <generate-security-checks-from-target(|$decisionclassname)> pt   //this determines whether a rule is used to enforce ac
+  	; chosenpolicytarget := <generate-security-checks-from-target(|$decisionclassname,vars)> pt   //this determines whether a rule is used to enforce ac
   	; otherclasses := <Generated-Decision-Classes <+ ![]>
   	; prop0* := <map(try(vars-to-props))> vars
   	; rules (
@@ -218,18 +256,21 @@ rules
 	; not(matchresult := matchstringunquoted) //if equal, left-match failed
 	
 	
-  generate-security-checks-from-target(|$acdclassname):
+  generate-security-checks-from-target(|$acdclassname,vars):
 	SecurityTarget(checktype,matchstring,checksandtargets) ->
   		|[
   		
   		    var acdecision : $acdclassname := $acdclassname{rule :=$rulename};
-  				
-  			acdecision.subject :=  securityContext.subject;
-  				
+  			
+  			if securityContext.loggedIn then	
+  			  acdecision.subject :=  securityContext.subject;
+  			end
+  			
+  			stat2*
   			stat0*
   			stat1*
   				
-  			//acdecision.endResult := e0 ;
+  			acdecision.endResult := e0 ;
   			acdecision.save();
   			
   		]|	
@@ -238,16 +279,18 @@ rules
   		; numberedchecks := <add-indices;map(fix-var-name-in-check)> checks
   		; stat0* := <map(generate-bool-var-decs)> numberedchecks
   		; stat1* := <map(generate-security-checks-from-target-element);concat> numberedchecks
-  		//; e0 := <generate-final-exp> numberedchecks
+  		; stat2* := <map(generate-security-checks-from-target-var)> vars
+  		; e0 := <generate-final-exp> numberedchecks
  
   generate-final-exp : 
-    [x|xs] -> |[  $varname + $rest   ]|   //need "and"
+    [x|xs] ->  |[  $varname and e0  ]| 
     where ($varname,_) := x
-        ; $rest := <generate-final-exp> xs
-        
-  generate-final-exp : 
-    [] -> |[  true  ]|
- 
+        ; e0 := <generate-final-exp> xs 
+  
+  generate-final-exp :  
+    [x] -> Var($varname)
+    where ($varname,_) := x
+   
   generate-bool-var-decs:
     ($varname,_) -> 	
     |[ 
@@ -259,12 +302,7 @@ rules
     where newindex := <concat-strings> ["check",<int-to-string> index]
  
   generate-security-checks-from-target-element:
-	($varname,SecurityCheckLogin()) -> 
-	[  |[ 
+	($varname,SecurityCheckExpression(e0)) -> [ |[ $varname := e0; ]| ]
 	
-		$varname := securityContext.loggedIn;
-		
-	]|  ]
-	
-  generate-security-checks-from-target-element:
-	($varname,SecurityCheckEquals(e1,e2)) -> |[ $varname := e1 == e2; ]|
+  generate-security-checks-from-target-var:
+    Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|
