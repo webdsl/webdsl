@@ -62,6 +62,7 @@ rules
       import org.jboss.seam.annotations.datamodel.DataModel;
       import org.jboss.seam.annotations.datamodel.DataModelSelection;
       import org.jboss.seam.core.FacesMessages;
+      import org.jboss.seam.core.Redirect;
       import org.jboss.seam.log.Log;
 
       import pkgname2.*;
@@ -97,7 +98,7 @@ rules
         ; pkgname := <BeanPackage>
         ; pkgname2 := <DomainPackage>
 	    ; dbg(|"package name: ")
-        ; bstm* := <filter-warn(statement-to-java | "cannot translate statement")> stm*
+        ; bstm* := <statements-to-java> stm*
     
 rules // action to method   
         
@@ -135,8 +136,8 @@ rules // action to method
     
 rules // statements
 
-  statements-to-java =
-    filter-warn(statement-to-java | "cannot translate statement")
+   statements-to-java =
+     filter-warn(statement-to-java | "cannot translate statement"); flatten-list
     
    statement-to-java =
      block-to-java
@@ -146,8 +147,8 @@ rules // statements
      <+ if-to-java
      <+ stat-to-java
      <+ return-to-java
-     <+ info(|"cannot translate statement: ")
-        ; fail
+     <+ goto-to-java
+     <+ info( | "cannot translate statement:"); fail
     
    block-to-java :
      Block(stm*) -> bstm|[ { bstm* } ]|
@@ -199,8 +200,23 @@ rules // statements
    return-to-java :
      Return(e1) -> |[ return e2; ]|
      where InFunction ; e2 := <expression-to-java> e1 
-     
+   
+   goto-to-java :
+     GoTo(ThisCall(p, args)) -> bstm* |[
+       Redirect red = new Redirect();
+       red.setViewId(~string:String([Chars(viewId)]));
+       ~*parameter
+       red.execute();       
+     ]|
+     where viewId := <concat-strings>["/", p, ".xhtml"]
+       ; fargs := <TemplateArguments> p
+       ; parameter := <zip(arg-to-redirect-parameter)> (fargs, args)
         
+   arg-to-redirect-parameter :
+     (Arg(name, sort), Var(x)) -> |[ red.setParameter(x_fargname, x.getId()); ]|
+     where x_fargname := <concat-strings>["\"",name, "\""]
+     
+
 rules
          
    qid-to-java :

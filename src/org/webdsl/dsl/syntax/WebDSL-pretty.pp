@@ -79,6 +79,7 @@
    Assign                             -- H hs=0[H[_1] KW[";"]],
    Stat                               -- H hs=0[H[_1] KW[";"]],
    Return                             -- H[KW["return"] H hs=0[H[_1] KW[";"]]],
+   GoTo								  -- H[KW["goto"] H hs=0[H[_1] KW[";"]]],
    VarDeclInit                        -- H[KW["var"] _1 KW[":"] _2 KW[":="] _3 KW[";"]],
    VarDecl                            -- H[KW["var"] _1 KW[":"] _2 KW[";"]],
    If                                 -- V is=2[V[V is=2[H[KW["if"] KW["("] _1 KW[")"]] _2] KW["else"] ] _3],
