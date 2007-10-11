@@ -123,17 +123,9 @@
    IsA                                -- _1 KW["is"] KW["a"] _2,
    Cast                               -- _1 KW["as"] _2,
    
-   %%security syntax, needs to go in separate module
-   SecurityDefinition -- KW["security"] KW["{"] _1 KW["}"],
-   SecuritySubject -- KW["subject"] KW[":"] _1 KW["credentials"] KW[":"] _2,
-   SecurityAddProperties -- KW["add properties"] KW["{"] _1 KW["}"],
-   SecurityAddedProperty -- _1 _2,
-   SecurityAddEntities -- KW["add entities"] KW["{"] _1 KW["}"],
-   SecurityInit -- KW["init entities"] KW["{"] _1 KW["}"],
-   SecurityTarget -- _1 _2 KW["{"] _3 KW["}"],
-   SecurityCheckLogin -- KW["login required"],
-   SecurityCheckExpression -- _1,
-   SecuritySubjectWithRoles -- KW["subject"] KW[":"] _1 KW["credentials"] KW[":"] _2 KW["roles"] KW[":"] _3
- 
-   
+   %%access control syntax
+   AccessControlDefinition			  -- KW["access control rules"] KW["{"] _1 KW["}"],
+   AccessControlPrincipal			  -- KW["principal is"] _1 KW["with credentials"] _2,
+   AccessControlRule 				  -- KW["rules"] _1 _2 KW["{"] _3 KW["}"],
+   AccessControlCheckExpression		  -- _1   
 ]

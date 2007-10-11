@@ -4,7 +4,7 @@
  
 */
 
-module org/webdsl/dsl/transformation/security
+module org/webdsl/dsl/transformation/access-control
 
 imports 
   libstrategolib 
@@ -20,7 +20,6 @@ rules
     ; declare-security
     ; typecheck-security  
     ; generate-security 
-    ; try(sometd(apply-properties-to-entity))
     ; try(sometd(apply-checks-to-page))  
     ; try(attach-decision-classes-to-application)
     
@@ -28,22 +27,18 @@ rules
   	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-security-defs);concat> sections, <map(try(remove-security-decs))>sections] )
 
   remove-security-decs:
-    Section(ident,defs) -> Section(ident,<filter(not(?SecurityDefinition(_)))>defs)
+    Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
 
   generate-security-defs:
-	SecurityDefinition(defs) -> 
+	AccessControlDefinition(defs) -> 
 		<collect(security-subject
-					<+ add-entities
-					<+ add-properties
-					<+ init-entities
 					<+ create-rule-classes
 				)
-				//;desugar
 				> defs
 
   // there can be only one of these (not yet checked)
   security-subject:
-	SecuritySubject($ident,props) -> 
+	AccessControlPrincipal($ident,props) -> 
 			|[ 	
 				section generated security.
 				
@@ -101,44 +96,9 @@ rules
  
   //property-to-input-row:
     //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
-     
-  add-entities:
-  	SecurityAddEntities(entities) ->
-  		|[
-  			section generated security entities $random.
-  			
-  			def0*
-  		]|
-  	where $random := <new>
-  		; def0* := entities
-
-  add-properties:
-	SecurityAddProperties(propadds) -> <fail>
-	where <map(try(SecurityAddProperties))> propadds
-
-  //build one dynamic rule for each entity that gets additional properties  		
-  add-properties:
-  	SecurityAddedProperty(ident, props) -> <fail>
-  	where theprops := <map(try(desugar))> props
-  		; olddynamicresult := <Security-Add-Properties(|[]) <+  ![] > ident
-	 	; newdynamicresult := <?oldprops;!<concat>[oldprops,theprops]> olddynamicresult
-  	 	; rules
-		  (
-		  	Security-Add-Properties(|properties) : ident -> <concat> [properties,newdynamicresult]
-		  )			
-	
-  init-entities:
-	SecurityInit(vardeclinits) ->
-  		|[
-  			section generated security globals $random.
-  			
-  			def0*
-  		]|
-  	where $random := <new>
-  		; def0* := [GlobalsDefinition(vardeclinits)]
 
   create-rule-classes:
-    st@SecurityTarget(checktype,matchstring,checksandtargets) -> 
+    st@AccessControlRule(checktype,matchstring,checksandtargets) -> 
     			|[ 	
 				section generated rule entities $random.
 			  
@@ -148,7 +108,7 @@ rules
 	    ; def0* := <create-rule-classes-helper> st
 			
   create-rule-classes-helper:
-	st@SecurityTarget(checktype,matchstring,checksandtargets) -> 
+	st@AccessControlRule(checktype,matchstring,checksandtargets) -> 
 			<concat>[
 			[def|[ 	
 			  
@@ -179,7 +139,7 @@ rules
     then
   	  possibleTargets := <Security-Rules-List-From-Type> checktype
   	else
-  	  possibleTargets := <?SecurityTarget(_,_,stchecks);!stchecks;filter(?SecurityTarget(checktype,_,_))> target
+  	  possibleTargets := <?AccessControlRule(_,_,stchecks);!stchecks;filter(?AccessControlRule(checktype,_,_))> target
   	end
   	; pt := <find-most-applicable-target(|name,possibleTargets)>
   	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
@@ -230,7 +190,7 @@ rules
   	; !<besttarget>
 	
   find-best-target:
-	st@SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,checksandtargets)
+	st@AccessControlRule(checktype,matchstring,checksandtargets) -> AccessControlRule(checktype,matchstring,checksandtargets)
 	where oldlength := < besttargetlength <+ !0 >
 		; thislength := <explode-string;length> matchstring
 		; if thislength := <max> (oldlength,thislength)
@@ -243,7 +203,7 @@ rules
 		
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name):
-	SecurityTarget(checktype,matchstring,checksandtargets) -> SecurityTarget(checktype,matchstring,checksandtargets)
+	AccessControlRule(checktype,matchstring,checksandtargets) -> AccessControlRule(checktype,matchstring,checksandtargets)
 	where matchstringunquoted := <un-double-quote> matchstring
 	; leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstringunquoted
 	; if leftmatcher := []
@@ -257,7 +217,7 @@ rules
 	
 	
   generate-security-checks-from-target(|$acdclassname,vars):
-	SecurityTarget(checktype,matchstring,checksandtargets) ->
+	AccessControlRule(checktype,matchstring,checksandtargets) ->
   		|[
   		
   		    var acdecision : $acdclassname := $acdclassname{rule :=$rulename};
@@ -274,7 +234,7 @@ rules
   			acdecision.save();
   			
   		]|	
-  	where checks := <filter(not(?SecurityTarget(_,_,_)))> checksandtargets
+  	where checks := <filter(not(?AccessControlRule(_,_,_)))> checksandtargets
   		; $rulename := <Security-Rule-Name> (checktype,matchstring)
   		; numberedchecks := <add-indices;map(fix-var-name-in-check)> checks
   		; stat0* := <map(generate-bool-var-decs)> numberedchecks
@@ -302,7 +262,7 @@ rules
     where newindex := <concat-strings> ["check",<int-to-string> index]
  
   generate-security-checks-from-target-element:
-	($varname,SecurityCheckExpression(e0)) -> [ |[ $varname := e0; ]| ]
+	($varname,AccessControlCheckExpression(e0)) -> [ |[ $varname := e0; ]| ]
 	
   generate-security-checks-from-target-var:
     Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|
