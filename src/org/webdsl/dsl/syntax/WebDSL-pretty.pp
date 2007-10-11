@@ -126,6 +126,6 @@
    %%access control syntax
    AccessControlDefinition			  -- KW["access control rules"] KW["{"] _1 KW["}"],
    AccessControlPrincipal			  -- KW["principal is"] _1 KW["with credentials"] _2,
-   AccessControlRule 				  -- KW["rules"] _1 _2 KW["{"] _3 KW["}"],
+   AccessControlRule 				  -- KW["rules"] _1 _2 KW["{"] _3 _4 KW["}"],
    AccessControlCheckExpression		  -- _1   
 ]

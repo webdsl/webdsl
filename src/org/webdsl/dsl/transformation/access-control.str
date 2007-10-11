@@ -98,7 +98,7 @@ rules
     //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
 
   create-rule-classes:
-    st@AccessControlRule(checktype,matchstring,checksandtargets) -> 
+    st@AccessControlRule(checktype,matchstring,checks,acrules) -> 
     			|[ 	
 				section generated rule entities $random.
 			  
@@ -108,7 +108,7 @@ rules
 	    ; def0* := <create-rule-classes-helper> st
 			
   create-rule-classes-helper:
-	st@AccessControlRule(checktype,matchstring,checksandtargets) -> 
+	st@AccessControlRule(checktype,matchstring,checks,acrules) -> 
 			<concat>[
 			[def|[ 	
 			  
@@ -122,24 +122,24 @@ rules
 				}
 			]|]
 			,
-			  <filter(create-rule-classes-helper);concat> checksandtargets
+			  <filter(create-rule-classes-helper);concat> acrules
 			]
-	where $varname := <concat-strings> ["ACRule",checktype,<remove-quotes-and-wildcards>matchstring]
+	where $varname := <concat-strings> ["ACRule",checktype,<remove-wildcards>matchstring]
 		; newlistfromtype :=  <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
 		; rules(
 			Security-Rules-List-From-Type : checktype -> newlistfromtype
 			Security-Rule-Name : (checktype,matchstring) -> $varname
 		)
 
-  remove-quotes-and-wildcards=
-  	un-double-quote; explode-string;map(try(?'*';!'1')) ;implode-string
+  remove-wildcards=
+  	explode-string;map(try(?'*';!'1'));implode-string
   	
   generate-access-control-checks(|checktype,name,vars,target)=
     if target := []
     then
   	  possibleTargets := <Security-Rules-List-From-Type> checktype
   	else
-  	  possibleTargets := <?AccessControlRule(_,_,stchecks);!stchecks;filter(?AccessControlRule(checktype,_,_))> target
+  	  possibleTargets := <?AccessControlRule(_,_,_,stchecks);!stchecks;filter(?AccessControlRule(checktype,_,_,_))> target
   	end
   	; pt := <find-most-applicable-target(|name,possibleTargets)>
   	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
@@ -190,7 +190,7 @@ rules
   	; !<besttarget>
 	
   find-best-target:
-	st@AccessControlRule(checktype,matchstring,checksandtargets) -> AccessControlRule(checktype,matchstring,checksandtargets)
+	st@AccessControlRule(checktype,matchstring,checks,acrules) -> AccessControlRule(checktype,matchstring,checks,acrules)
 	where oldlength := < besttargetlength <+ !0 >
 		; thislength := <explode-string;length> matchstring
 		; if thislength := <max> (oldlength,thislength)
@@ -203,23 +203,26 @@ rules
 		
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name):
-	AccessControlRule(checktype,matchstring,checksandtargets) -> AccessControlRule(checktype,matchstring,checksandtargets)
-	where matchstringunquoted := <un-double-quote> matchstring
-	; leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstringunquoted
+	AccessControlRule(checktype,matchstring,checks,acrules) -> AccessControlRule(checktype,matchstring,checks,acrules)
+	where leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
 	; if leftmatcher := []
 		then  
-			matchresult := <left-match;implode-string> (<explode-string> name,<explode-string> matchstringunquoted)
+			(matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
 			//still need to check whether it is precisely the name or something longer
+			; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
+			  then matchresult := matchresulttemp
+			  else matchresult := matchstring
+			  end
+			)
 		else
 			matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
 		end
-	; not(matchresult := matchstringunquoted) //if equal, left-match failed
+	; not(matchresult := matchstring) //if equal, left-match failed
 	
 	
   generate-security-checks-from-target(|$acdclassname,vars):
-	AccessControlRule(checktype,matchstring,checksandtargets) ->
+	AccessControlRule(checktype,matchstring,checks,acrules) ->
   		|[
-  		
   		    var acdecision : $acdclassname := $acdclassname{rule :=$rulename};
   			
   			if(securityContext.loggedIn) {
@@ -234,8 +237,7 @@ rules
   			acdecision.save();
   			
   		]|	
-  	where checks := <filter(not(?AccessControlRule(_,_,_)))> checksandtargets
-  		; $rulename := <Security-Rule-Name> (checktype,matchstring)
+  	where $rulename := <Security-Rule-Name> (checktype,matchstring)
   		; numberedchecks := <add-indices;map(fix-var-name-in-check)> checks
   		; stat0* := <map(generate-bool-var-decs)> numberedchecks
   		; stat1* := <map(generate-security-checks-from-target-element);concat> numberedchecks
