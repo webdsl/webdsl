@@ -19,7 +19,7 @@ strategies
   desugar = 
     attach-extend-entities
     ; try(sometd((DesugarOnce)))
-    ; try(repeat(sometd(DesugarForExp)))
+    ; try(repeat(sometd(DesugarLiftExp)))
     ; topdown-l(repeat(Desugar))
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-inverse-anno))
@@ -392,44 +392,45 @@ rules // derive output behaviour from type
         ; e3 := Var(x){Type(SimpleSort($X))}
 
 rules // Rules for for exp lifting (lots of code duplication here, is this necessary?)
-   DesugarForExp :
+   DesugarLiftExp :
     Assign(Assignment(x, e)) -> s
-    where {| ForE
-           : e2 := <sometd(LiftForExp)> e
-           ; s:= <repeat(once-ForE)> Assign(Assignment(x, e2))
+    where {| LiftE
+           : e2 := <sometd(LiftExp)> e
+           ; s:= <repeat(once-LiftE)> Assign(Assignment(x, e2))
            |}
 
-  DesugarForExp :
+  DesugarLiftExp :
     If(e1, bsit1, bsif1) -> s
-    where {| ForE
-           : e2 := <sometd(LiftForExp)> e1
-           ; bsit2 := <try(sometd(DesugarForExp))> bsit1
-           ; bsif2 := <try(sometd(DesugarForExp))> bsif1
-           ; s:= <repeat(once-ForE)> If(e2, bsit2, bsif2)
+    where {| LiftE
+           : e2 := <sometd(LiftExp)> e1
+           ; bsit2 := <try(sometd(DesugarLiftExp))> bsit1
+           ; bsif2 := <try(sometd(DesugarLiftExp))> bsif1
+           ; s:= <repeat(once-LiftE)> If(e2, bsit2, bsif2)
            |}
 
-  DesugarForExp :
+  DesugarLiftExp :
     ForColl(x, s, e1, bstm1) -> s
-    where {| ForE
-           : e2 := <sometd(LiftForExp)> e1
-           ; bstm2 := <try(sometd(DesugarForExp))> bstm1
-           ; s:= <repeat(once-ForE)> ForColl(x, s, e2, bstm2)
+    where {| LiftE
+           : e2 := <sometd(LiftExp)> e1
+           ; bstm2 := <try(sometd(DesugarLiftExp))> bstm1
+           ; s:= <repeat(once-LiftE)> ForColl(x, s, e2, bstm2)
            |}
 
-  DesugarForExp :
+  DesugarLiftExp :
     Return(e1) -> s
-    where {| ForE
-           : e2 := <sometd(LiftForExp)> e1
-           ; s:= <repeat(once-ForE)> Return(e2)
+    where {| LiftE
+           : e2 := <sometd(LiftExp)> e1
+           ; s:= <repeat(once-LiftE)> Return(e2)
            |}
   
-  LiftForExp :
+  LiftExp : 
     ForExp(oe, x, srt1, ie) -> Var(x1)
     where new => x1
         ; srt2 := <type-of> ie
-        ; e3 := <try(sometd(LiftForExp))> ie
-        ; e4 := <try(sometd(LiftForExp))> oe
-        ; rules( ForE :+ stat -> |[
+        ; e3 := <try(sometd(LiftExp))> ie
+        ; e4 := <try(sometd(LiftExp))> oe
+        ; if <?GenericSort("List",_)> srt2 then
+            rules( LiftE :+ stat -> |[
               {
                 var x1 : srt2;
                 x1 := List<srt1>();
@@ -438,15 +439,27 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
                 }
                 stat
               } ]| )
+          else // Set
+            rules( LiftE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := Set<srt1>();
+                for(x : srt1 in e3) {
+                  x1.add(e4);
+                }
+                stat
+              } ]| )
+          end
   
-  LiftForExp :
+  LiftExp :
     ForWhereExp(oe, x, srt1, ie, we) -> Var(x1)
     where new => x1
         ; srt2 := <type-of> ie
-        ; e3 := <try(sometd(LiftForExp))> ie
-        ; e4 := <try(sometd(LiftForExp))> oe
-        ; e5 := <try(sometd(LiftForExp))> we
-        ; rules( ForE :+ stat -> |[
+        ; e3 := <try(sometd(LiftExp))> ie
+        ; e4 := <try(sometd(LiftExp))> oe
+        ; e5 := <try(sometd(LiftExp))> we
+        ; if <?GenericSort("List",_)> srt2 then
+            rules( LiftE :+ stat -> |[
               {
                 var x1 : srt2;
                 x1 := List<srt1>();
@@ -457,27 +470,85 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
                 }
                 stat
               } ]| )
-  
-/*
-  
-LiftBuildApps : 
-    |[ !t ]| -> s
-    where {| AddApp
-	   : <sometd(LiftBuildApp)> t => t'
-	   ; <repeat(once-AddApp)> |[ !t' ]| => s
-	   |}
+          else // Set
+            rules( LiftE :+ stat -> |[
+            {
+              var x1 : srt2;
+              x1 := Set<srt1>();
+              for(x : srt1 in e3) {
+                if(e5) {
+                  x1.add(e4);
+                }
+              }
+              stat
+            } ]| )
+          end
 
-  LiftBuildApp :
-    Term|[ <s> t ]| -> Term|[ x ]|
-    where new => x
-        ; rules( AddApp :+ s' -> |[ {x : where(<s> t => x); s'} ]| )
-
-  LiftBuildApp :
-    Term|[ <s> ]| -> Term|[ x ]|
-    where new => x
-        ; rules( AddApp :+ s' -> |[ {x : where(s => x); s'} ]| )  
-*/  
+  lift-add-to-collection(|$x) :
+     e -> |[ $x.add(e); ]|
   
+  LiftExp :
+    ListCreation([e1|e1*]) -> Var(x1)
+    where new => x1
+        ; srt1 := <type-of> e1
+        ; srt2 := GenericSort("List", [srt1])
+        ; e2* := <map(try(sometd(LiftExp)))> e1*
+        ; e2 := <try(sometd(LiftExp))> e1
+        ; stat* := <map(lift-add-to-collection(|x1))> [e2|e2*]
+        ; rules( LiftE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := List<srt1>();
+                stat*
+                stat
+              } ]| )
+
+  LiftExp :
+    SetCreation([e1|e1*]) -> Var(x1)
+    where new => x1
+        ; srt1 := <type-of> e1
+        ; srt2 := GenericSort("Set", [srt1])
+        ; e2* := <map(try(sometd(LiftExp)))> e1*
+        ; e2 := <try(sometd(LiftExp))> e1
+        ; stat* := <map(lift-add-to-collection(|x1))> [e2|e2*]
+        ; rules( LiftE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := Set<srt1>();
+                stat*
+                stat
+              } ]| )
+
+  LiftExp :
+    TypedSetCreation(srt1, [e1|e1*]) -> Var(x1)
+    where new => x1
+        ; srt2 := GenericSort("Set", [srt1])
+        ; e2  := <try(sometd(LiftExp))> e1
+        ; e2* := <map(try(sometd(LiftExp)))> e1*
+        ; stat* := <map(lift-add-to-collection(|x1))> [e2|e2*]
+        ; rules( LiftE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := Set<srt1>();
+                stat*
+                stat
+              } ]| )
+
+  LiftExp :
+    TypedListCreation(srt1, [e1|e1*]) -> Var(x1)
+    where new => x1
+        ; srt2 := GenericSort("List", [srt1])
+        ; e2* := <map(try(sometd(LiftExp)))> e1*
+        ; e2 := <try(sometd(LiftExp))> e1
+        ; stat* := <map(lift-add-to-collection(|x1))> [e2|e2*]
+        ; rules( LiftE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := Set<srt1>();
+                stat*
+                stat
+              } ]| )
+
 rules
 
   add-view-edit-pages-to-app :

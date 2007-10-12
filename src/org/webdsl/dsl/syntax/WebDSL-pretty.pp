@@ -113,7 +113,7 @@
    TypedListCreation                  -- H hs=0[KW["List"] KW["<"] H[_1] KW[">"] KW["("] _2 KW[")"]],
    TypedListCreation.2:iter-star-sep  -- H hs=0[_1 KW[","]],
    TypedSetCreation                   -- H hs=0[KW["Set"] KW["<"] H[_1] KW[">"] KW["("] _2 KW[")"]],
-   TypedSetCreation.2:iter-star-sep  -- H hs=0[_1 KW[","]],
+   TypedSetCreation.2:iter-star-sep   -- H hs=0[_1 KW[","]],
    ThisCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ThisCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    Call                               -- H hs=0[_1 KW["."] _2 KW["("] H[_3] KW[")"]],
