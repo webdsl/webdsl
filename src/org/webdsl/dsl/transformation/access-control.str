@@ -50,13 +50,26 @@ rules
 			  	entity AccessControlRule
 				{
 					info :: String
+					//checks -> Set<AccessControlCheck>
+			    }
+				
+				/*entity AccessControlCheck
+				{
+					info :: String
 				}
+				
+				entity AccessControlCheckResult
+				{
+					check -> AccessControlCheck
+					result :: Bool
+				}*/
 				 
 				entity AccessControlDecision{
-					rule -> AccessControlRule
+					//rule -> AccessControlRule
 					endResult :: Bool
 					subject -> User
 					time :: Date
+					//results -> Set<AccessControlCheckResult>
 				}
 				
 				/*
@@ -98,7 +111,7 @@ rules
     //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
 
   create-rule-classes:
-    st@AccessControlRule(checktype,matchstring,checks,acrules) -> 
+    st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> 
     			|[ 	
 				section generated rule entities $random.
 			  
@@ -108,7 +121,7 @@ rules
 	    ; def0* := <create-rule-classes-helper> st
 			
   create-rule-classes-helper:
-	st@AccessControlRule(checktype,matchstring,checks,acrules) -> 
+	st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> 
 			<concat>[
 			[def|[ 	
 			  
@@ -134,16 +147,19 @@ rules
   remove-wildcards=
   	explode-string;map(try(?'*';!'1'));implode-string
   	
-  generate-access-control-checks(|checktype,name,vars,target)=
+  generate-access-control-checks(|checktype,name,vars,previousrules)=
     if target := []
     then
   	  possibleTargets := <Security-Rules-List-From-Type> checktype
   	else
-  	  possibleTargets := <?AccessControlRule(_,_,_,stchecks);!stchecks;filter(?AccessControlRule(checktype,_,_,_))> target
+  	  possibleTargets := <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules
   	end
-  	; pt := <find-most-applicable-target(|name,possibleTargets)>
+  	; pt := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
+  	; if pt := [] then fail end // TODO if no applicable rules found, deny access
   	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
-  	; chosenpolicytarget := <generate-security-checks-from-target(|$decisionclassname,vars)> pt   //this determines whether a rule is used to enforce ac
+  	; selectedchecks := <map(extract-checks-from-rule);concat> pt
+  	; selectedrules := <map(extract-rules-from-rule);concat> pt
+  	; rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars)> selectedchecks
   	; otherclasses := <Generated-Decision-Classes <+ ![]>
   	; prop0* := <map(try(vars-to-props))> vars
   	; rules (
@@ -161,12 +177,18 @@ rules
 			
 			
 		Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
-		
-		Previous-Selected-Target := pt
+
+		Previous-Selected-Rules := selectedrules
   	
   	)
-  	; !chosenpolicytarget
-  	
+  	; !rulecheckactions
+ 
+  extract-checks-from-rule :
+    AccessControlRule(_,_,_,checks,_) -> checks
+     
+  extract-rules-from-rule :
+    AccessControlRule(_,_,_,_,acrules) -> acrules
+       	
   vars-to-props:
 	Arg($ident,$argsort) -> |[ $ident -> $classname]|
 	where <defined-java-type> $argsort  
@@ -181,29 +203,10 @@ rules
 	Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
 	where GenericSort($gentype,$thesort) := $argsort	
 	    ; <defined-java-type> $thesort 	
-  	
-  find-most-applicable-target(|name,targets)=
-	filteredrules := <filter(find-most-applicable-target-filter(|name))> targets
-  	; rules (besttargetlength := 0
-			besttarget := [])
-  	; <map(find-best-target)> filteredrules
-  	; !<besttarget>
-	
-  find-best-target:
-	st@AccessControlRule(checktype,matchstring,checks,acrules) -> AccessControlRule(checktype,matchstring,checks,acrules)
-	where oldlength := < besttargetlength <+ !0 >
-		; thislength := <explode-string;length> matchstring
-		; if thislength := <max> (oldlength,thislength)
-		then
-		rules(
-			besttargetlength := thislength
-			besttarget := st
-		)
-		end
 		
   // only supports tail wildcards (*) so far
-  find-most-applicable-target-filter(|name):
-	AccessControlRule(checktype,matchstring,checks,acrules) -> AccessControlRule(checktype,matchstring,checks,acrules)
+  find-most-applicable-target-filter(|name,vars):
+	AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,acrules)
 	where leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
 	; if leftmatcher := []
 		then  
@@ -218,12 +221,34 @@ rules
 			matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
 		end
 	; not(matchresult := matchstring) //if equal, left-match failed
-	
-	
+	//check arguments
+	; newfargs := <?MatchArgs(args,wc);!args> fargs
+	; getWC := <?MatchArgs(args,wc);!wc> fargs
+	; if getWC := None then
+	  newvars := vars
+	else
+	  newvars := <take(<length> newfargs)> vars
+	end
+	; <zip(dynamic-rule-check-vars ; extract-sort-from-arg ; eq)> (newfargs,newvars)
+	; newchecks := <map(try(fix-var-names-in-check))> checks
+
+  dynamic-rule-check-vars:
+    (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (Arg(ident1,thesort1),Arg(ident2,thesort2)) 
+    where rules(
+             FixVarsInCheck : Var(ident1) -> Var(ident2)
+          )
+   
+  fix-var-names-in-check:
+    AccessControlCheckExpression(expr) -> AccessControlCheckExpression(newexpr)
+    where newexpr:= <try(alltd(FixVarsInCheck))> expr
+
+  extract-sort-from-arg:
+	(Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2) 
+	 
   generate-security-checks-from-target(|$acdclassname,vars):
-	AccessControlRule(checktype,matchstring,checks,acrules) ->
+	xs ->
   		|[
-  		    var acdecision : $acdclassname := $acdclassname{rule :=$rulename};
+  		    var acdecision : $acdclassname := $acdclassname{};    //{rule :=$rulename};
   			
   			if(securityContext.loggedIn) {
   			  acdecision.subject :=  securityContext.subject;
@@ -237,8 +262,8 @@ rules
   			acdecision.save();
   			
   		]|	
-  	where $rulename := <Security-Rule-Name> (checktype,matchstring)
-  		; numberedchecks := <add-indices;map(fix-var-name-in-check)> checks
+  	where //$rulename := <Security-Rule-Name> (checktype,matchstring)
+  		numberedchecks := <add-indices;map(fix-var-name-in-check)> xs
   		; stat0* := <map(generate-bool-var-decs)> numberedchecks
   		; stat1* := <map(generate-security-checks-from-target-element);concat> numberedchecks
   		; stat2* := <map(generate-security-checks-from-target-var)> vars
