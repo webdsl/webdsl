@@ -18,6 +18,8 @@ strategies
 
   desugar = 
     attach-extend-entities
+    ; try(sometd((DesugarOnce)))
+    ; try(repeat(sometd(DesugarForExp)))
     ; topdown-l(repeat(Desugar))
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-inverse-anno))
@@ -57,6 +59,20 @@ rules
 
   cleanup-extend-entity-section-defs:
     Section(ident,defs) -> Section(ident,<filter(not(?ExtendEntity(_,_,_)))>defs)
+
+rules // Desugaring rules only executed once
+
+  desugar-var-decl-stm =
+    not(?VarDeclInit(_, _, _))
+    ; try(sometd(DesugarOnce))
+    ; ![<id>]
+
+  desugar-var-decl-stm :
+    VarDeclInit(x, s, e1) -> [VarDecl(x, s), Assign(Assignment(x, e1))]
+  
+  DesugarOnce : // Its purpose is to translate VarDeclInits to VarDecls with separate assignment (only within Blocks, not within globals {...} statements)
+    Block(stms1) -> Block(stms2)
+    where stms2 := <map(desugar-var-decl-stm); concat> stms1
 
 rules
 
@@ -290,7 +306,6 @@ rules // derive output behaviour from type
     <+ DeriveOutputSimpleRefAssociation
     <+ DeriveOutputAssociationList
     <+ DeriveOutputAssociationSet
-    <+ DeriveForExp
     
   DeriveOutputString :
     elem|[ output(e){} ]| -> elem|[ text(e){} ]|
@@ -376,19 +391,44 @@ rules // derive output behaviour from type
         ; $yList := <concat-strings>[$y, "List"]
         ; e3 := Var(x){Type(SimpleSort($X))}
 
-  DeriveForExp :
-     Assign(Assignment(x, e)) -> s
-     where {| ForE
-            : e2 := <sometd(LiftForExp)> e
-            ; s:= <repeat(once-ForE)> Assign(Assignment(x, e2))
-            |}
+rules // Rules for for exp lifting (lots of code duplication here, is this necessary?)
+   DesugarForExp :
+    Assign(Assignment(x, e)) -> s
+    where {| ForE
+           : e2 := <sometd(LiftForExp)> e
+           ; s:= <repeat(once-ForE)> Assign(Assignment(x, e2))
+           |}
 
+  DesugarForExp :
+    If(e1, bsit1, bsif1) -> s
+    where {| ForE
+           : e2 := <sometd(LiftForExp)> e1
+           ; bsit2 := <try(sometd(DesugarForExp))> bsit1
+           ; bsif2 := <try(sometd(DesugarForExp))> bsif1
+           ; s:= <repeat(once-ForE)> If(e2, bsit2, bsif2)
+           |}
+
+  DesugarForExp :
+    ForColl(x, s, e1, bstm1) -> s
+    where {| ForE
+           : e2 := <sometd(LiftForExp)> e1
+           ; bstm2 := <try(sometd(DesugarForExp))> bstm1
+           ; s:= <repeat(once-ForE)> ForColl(x, s, e2, bstm2)
+           |}
+
+  DesugarForExp :
+    Return(e1) -> s
+    where {| ForE
+           : e2 := <sometd(LiftForExp)> e1
+           ; s:= <repeat(once-ForE)> Return(e2)
+           |}
+  
   LiftForExp :
-    ForExp(x, srt1, e1, e2) -> Var(x1)
+    ForExp(oe, x, srt1, ie) -> Var(x1)
     where new => x1
-        ; srt2 := <type-of> e1
-        ; e3 := <try(sometd(LiftForExp))> e1
-        ; e4 := <try(sometd(LiftForExp))> e2
+        ; srt2 := <type-of> ie
+        ; e3 := <try(sometd(LiftForExp))> ie
+        ; e4 := <try(sometd(LiftForExp))> oe
         ; rules( ForE :+ stat -> |[
               {
                 var x1 : srt2;
@@ -399,6 +439,24 @@ rules // derive output behaviour from type
                 stat
               } ]| )
   
+  LiftForExp :
+    ForWhereExp(oe, x, srt1, ie, we) -> Var(x1)
+    where new => x1
+        ; srt2 := <type-of> ie
+        ; e3 := <try(sometd(LiftForExp))> ie
+        ; e4 := <try(sometd(LiftForExp))> oe
+        ; e5 := <try(sometd(LiftForExp))> we
+        ; rules( ForE :+ stat -> |[
+              {
+                var x1 : srt2;
+                x1 := List<srt1>();
+                for(x : srt1 in e3) {
+                  if(e5) {
+                    x1.add(e4);
+                  }
+                }
+                stat
+              } ]| )
   
 /*
   

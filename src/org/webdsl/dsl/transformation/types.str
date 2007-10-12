@@ -384,24 +384,28 @@ rules // typechecking entity declarations
     EntityNoSuper(x_class, props, function*) -> EntityNoSuper(x_class, props, function2*)
     where {| TypeOf
           : in-tc-context(
-              where( <map(typecheck-property)> props)
+              rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <map(typecheck-property)> props)
               ; function2* := <map(typecheck-function)> function*
               | ["entity declaration ", x_class]) |}
     
     
   typecheck-entity :
     Entity(x_class, s, props, functions) -> Entity(x_class, s, props, functions2)
-    where in-tc-context(
-        where( <typecheck-supertype> s )
-        ; where( <map(typecheck-property)> props )
-        ; functions2 := <map(typecheck-function)> functions
-      | ["entity declaration ", x_class])
+    where {| TypeOf
+           : in-tc-context(
+                rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <typecheck-supertype> s )
+              ; where( <map(typecheck-property)> props )
+              ; functions2 := <map(typecheck-function)> functions
+              | ["entity declaration ", x_class]) |}
       
   typecheck-entity :
     SessionEntity(nm, props, function*) -> SessionEntity(nm, props, function2*)
     where {| TypeOf
           : in-tc-context(
-              where( <map(typecheck-property)> props)
+                rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <map(typecheck-property)> props)
               ; function2* := <map(typecheck-function)> function*
               | ["session declaration ", nm]) |}
     
@@ -951,7 +955,7 @@ rules // typechecking expressions
          ; t1 := <TypeOfProperty> (s, f)
          
    typecheck-for-expr :
-     ForExp(x, s, ie1, oe1) -> ForExp(x, s, ie2, oe2) {Type(t)}
+     ForExp(oe1, x, s, ie1) -> ForExp(oe2, x, s, ie2) {Type(t)}
      where ie2 := <typecheck-expression> ie1
          ; t := <?_{Type(<id>)}> ie2
          ; {| TypeOf :
@@ -960,6 +964,22 @@ rules // typechecking expressions
            |}
          ; if not(<type-compatible>(<?_{Type(<id>)}> oe2, s)) then
              typecheck-error(|["expression ", oe2, " is not of type ", s])
+           end
+
+   typecheck-for-expr :
+     ForWhereExp(oe1, x, s, ie1, we1) -> ForWhereExp(oe2, x, s, ie2, we2) {Type(t)}
+     where ie2 := <typecheck-expression> ie1
+         ; t := <?_{Type(<id>)}> ie2
+         ; {| TypeOf :
+                rules(TypeOf : x -> s)
+                ; oe2 := <typecheck-expression> oe1
+                ; we2 := <typecheck-expression> we1
+           |}
+         ; if not(<type-compatible>(<?_{Type(<id>)}> oe2, s)) then
+             typecheck-error(|["expression ", oe2, " is not of type ", s])
+           end
+         ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
+             typecheck-error(|["expression ", we2, " is not a Bool."])
            end
 
    typecheck-call :
@@ -1038,6 +1058,34 @@ rules // typechecking expressions
          ; if not(<type-compatible>(xt, yt)) then
              typecheck-error(|["Comparison of ", x, " and ", y, " is not allowed, due to incompatible types."])
            end
+
+   typecheck-operator :
+     LargerThan(x, y) -> LargerThan(x2, y2) { Type(SimpleSort("Bool")) }
+     where x2 := <typecheck-expression> x
+         ; y2 := <typecheck-expression> y
+         ; xt := <?_{Type(<id>)}> x2
+         ; yt := <?_{Type(<id>)}> y2
+         ; if not(xt := SimpleSort("Int") <+ xt := SimpleSort("Flaot")) then
+             typecheck-error(|["Expression ", xt, " should be of numeric type, but is not."])
+           end
+         ; if not(yt := SimpleSort("Int") <+ yt := SimpleSort("Flaot")) then
+             typecheck-error(|["Expression ", yt, " should be of numeric type, but is not."])
+           end
+
+   typecheck-operator = // Reusing checks of LargerThan
+     ?LargerThanOrEqual(x, y)
+     ; <typecheck-operator> LargerThan(x, y)
+     ; \ LargerThan(x2, y2) -> LargerThanOrEqual(x2, y2) {Type(SimpleSort("Bool"))} \
+
+   typecheck-operator = // Reusing checks of LargerThan
+     ?SmallerThan(x, y)
+     ; <typecheck-operator> LargerThan(x, y)
+     ; \ LargerThan(x2, y2) -> SmallerThan(x2, y2) {Type(SimpleSort("Bool"))} \
+
+   typecheck-operator = // Reusing checks of LargerThan
+     ?SmallerThanOrEqual(x, y)
+     ; <typecheck-operator> LargerThan(x, y)
+     ; \ LargerThan(x2, y2) -> SmallerThanOrEqual(x2, y2) {Type(SimpleSort("Bool"))} \
 
    typecheck-operator :
      Not(x) -> Not(x2) { Type(SimpleSort("Bool")) }
