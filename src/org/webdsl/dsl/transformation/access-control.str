@@ -19,10 +19,27 @@ rules
     desugar-security
     ; declare-security
     ; typecheck-security  
-    ; generate-security 
-    ; try(sometd(apply-checks-to-page))  
+    ; generate-security
+    ; if AccessControlEnabled then
+    ( try(sometd(apply-checks-to-page))  
     ; try(attach-decision-classes-to-application)
+    ; add-access-denied-page
+    )
+    end
+
     
+  add-access-denied-page:
+    Application(qid, sections) -> Application(qid, <concat>[sections, deniedpage])
+    where deniedpage := 
+      [ |[ section access denied page. 			    
+                define page accessDenied()
+			    {
+			      title("Access Denied")
+			      text("Access Denied")
+			    } 
+	    ]| 
+	  ]
+     
   generate-security:
   	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-security-defs);concat> sections, <map(try(remove-security-decs))>sections] )
 
@@ -35,6 +52,9 @@ rules
 					<+ create-rule-classes
 				)
 				> defs
+	where rules (
+	  AccessControlEnabled := True
+	)
 
   // there can be only one of these (not yet checked)
   security-subject:
@@ -44,7 +64,7 @@ rules
 				
 				session securityContext {
 				  	loggedIn	:: Bool
-				    subject     -> $ident
+				    principal   -> $ident
 				}
 			  
 			  	entity AccessControlRule
@@ -67,7 +87,7 @@ rules
 				entity AccessControlDecision{
 					//rule -> AccessControlRule
 					endResult :: Bool
-					subject -> User
+					principal -> $ident
 					time :: Date
 					//results -> Set<AccessControlCheckResult>
 				}
@@ -147,16 +167,26 @@ rules
   remove-wildcards=
   	explode-string;map(try(?'*';!'1'));implode-string
   	
-  generate-access-control-checks(|checktype,name,vars,previousrules)=
-    if target := []
+  generate-access-control-checks(|checktype,name,vars,previousname,previousrules)=
+    if previousname := []
     then
   	  possibleTargets := <Security-Rules-List-From-Type> checktype
   	else
   	  possibleTargets := <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules
   	end
-  	; pt := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
-  	; if pt := [] then fail end // TODO if no applicable rules found, deny access
-  	; $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+  	; filteredrules := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
+  	; if filteredrules := [] 
+  	  then
+  	    pt := [AccessControlRule(checktype,"*",[],[AccessControlCheckExpression(False())],[])]
+  	  else
+  	    pt := filteredrules
+  	  end 
+  	; if previousname := []
+  	then
+  	 $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+  	else
+  	 $decisionclassname := <concat-strings> [previousname,checktype,name]
+  	end
   	; selectedchecks := <map(extract-checks-from-rule);concat> pt
   	; selectedrules := <map(extract-rules-from-rule);concat> pt
   	; rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars)> selectedchecks
@@ -179,6 +209,7 @@ rules
 		Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
 
 		Previous-Selected-Rules := selectedrules
+		Previous-Decision-Name := $decisionclassname
   	
   	)
   	; !rulecheckactions
@@ -199,28 +230,39 @@ rules
 	where <builtin-java-type> $argsort
 	    ; SimpleSort($typename) := $argsort
 
+  //vars-to-props:
+	//Arg($ident,$argsort) -> |[ $ident :: $typename]|
+	//where <object-type> $argsort
+	 //   ; SimpleSort($typename) := $argsort
+
   vars-to-props:
 	Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
 	where GenericSort($gentype,$thesort) := $argsort	
-	    ; <defined-java-type> $thesort 	
+	    ; <defined-java-type> $thesort
 		
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name,vars):
 	AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,acrules)
-	where leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
-	; if leftmatcher := []
-		then  
-			(matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
-			//still need to check whether it is precisely the name or something longer
-			; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
-			  then matchresult := matchresulttemp
-			  else matchresult := matchstring
-			  end
-			)
-		else
-			matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
-		end
-	; not(matchresult := matchstring) //if equal, left-match failed
+	where 
+	if not(matchstring := "*")
+	then
+	    (
+		leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
+		; if leftmatcher := []
+			then  
+				(matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
+				//still need to check whether it is precisely the name or something longer
+				; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
+				  then matchresult := matchresulttemp
+				  else matchresult := matchstring
+				  end
+				)
+			else
+				matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
+			end
+		; not(matchresult := matchstring) //if equal, left-match failed
+		)
+	end
 	//check arguments
 	; newfargs := <?MatchArgs(args,wc);!args> fargs
 	; getWC := <?MatchArgs(args,wc);!wc> fargs
@@ -251,7 +293,7 @@ rules
   		    var acdecision : $acdclassname := $acdclassname{};    //{rule :=$rulename};
   			
   			if(securityContext.loggedIn) {
-  			  acdecision.subject :=  securityContext.subject;
+  			  acdecision.principal :=  securityContext.principal;
   			}
   			
   			stat2*
@@ -260,6 +302,10 @@ rules
   				
   			acdecision.endResult := e0 ;
   			acdecision.save();
+  			if ( acdecision.endResult = false )
+  			{
+  			  goto(accessDenied());
+  			}
   			
   		]|	
   	where //$rulename := <Security-Rule-Name> (checktype,matchstring)

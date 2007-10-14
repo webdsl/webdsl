@@ -25,27 +25,37 @@ rules
 	AccessControlDefinition(defs) -> AccessControlDefinition(newdefs)
 	where newdefs :=
 		<map(collect(typecheck-security-subject
-					<+ typecheck-create-rule-classes-top
-					<+ typecheck-security-checks
+					<+ typecheck-create-rule-classes(|[None])
 					<+ ?x; security-typecheck-error(|["Couldn't typecheck definition ",x]) 
 				))> defs
 	
   typecheck-security-subject:
     AccessControlPrincipal(ident,props) -> AccessControlPrincipal(ident,props)
     where <IsEntity <+ security-typecheck-error(|[ident," is not a declared type"])> ident
-
-  typecheck-create-rule-classes-top:
-    AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,<filter(typecheck-security-checks)> checks,<filter(typecheck-create-rule-classes(|[checktype]))> acrules)
-    where <elem <+ security-typecheck-error(|[checktype," is not a valid security check type"])> (checktype,<Security-Check-Type>)
-
+    
   typecheck-create-rule-classes(|ct):
-    AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,<filter(typecheck-security-checks)> checks,<filter(typecheck-create-rule-classes(|newtype))> acrules)
-    where newtype := <concat>[ct , [checktype]]
+    AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,<map(typecheck-security-checks(|fargs))> checks,<map(typecheck-create-rule-classes(|newtype))> acrules)
+    where if ct := [None]
+          then
+            newtype :=  [checktype]
+          else
+            newtype := <concat>[ct , [checktype]]
+          end
         ; <elem <+ security-typecheck-error(|[newtype ," is not a valid security check type"])> (newtype,<Security-Check-Type>)
    
-  typecheck-security-checks:
+  typecheck-security-checks(|fargs):
     AccessControlCheckExpression(expr) -> AccessControlCheckExpression(expr)
-     
+    where <try(alltd(typecheck-security-checks-vars(|fargs)))> expr
+    
+  typecheck-security-checks-vars(|fargs):
+    Var(ident) -> Var(ident)
+    where newfargs := < \ MatchArgs(args,wc) -> args \ ;map(\ Arg(ident,thesort) -> ident  \)> fargs
+    ; <elem 
+    <+ equal(|ident,"securityContext")  //not declared yet when this typechecking occurs
+    <+ !ident;IsSessionVariable
+    <+ !ident;IsGlobal
+    <+ security-typecheck-error(|[ident ," is not defined"]) > (ident,newfargs)
+        
   security-typecheck-error(|msg) =
     err-msg(|msg)
     ; rules( TypecheckErrorSecurity := True() )
