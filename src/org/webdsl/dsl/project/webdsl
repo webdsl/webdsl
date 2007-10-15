@@ -1,39 +1,170 @@
 #!/bin/bash
 
 # Author: Zef Hemel (zef@zefhemel.com)
+function load_config {
+  echo "Loading application settings (application.ini)..."
+  if [ -f "application.ini" ]
+  then
+    . application.ini
+    return 1
+  else
+    echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create am application.ini now? [y/n] "
+    read ANSWER
+    if [ "$ANSWER" == "y" ]
+    then
+      APPNAME=`basename \`pwd\``
+      echo "Creating application.ini for application with name $APPNAME."
+      create_config $APPNAME
+      echo "Created application.ini. Run webdsl again to compile your project."
+    fi
+    return 0
+  fi
+}
 
-echo "Loading application settings (application.ini)"
-. application.ini
+function create_config {
+  echo -n "MySQL Host [localhost]: "
+  read DBSERVER
+  if [ "$DBSERVER" == "" ]
+  then
+     DBSERVER=localhost
+  fi
+  
+  echo -n "MySQL Username [visser]: "
+  read DBUSER
+  if [ "$DBUSER" == "" ]
+  then
+     DBUSER=visser
+  fi
+  
+  echo -n "MySQL Password [dsl]: "
+  read DBPASSWORD
+  if [ "$DBPASSWORD" == "" ]
+  then
+     DBPASSWORD=dsl
+  fi
+  
+  echo -n "MySQL Databse [serg]: "
+  read DBNAME
+  if [ "$DBNAME" == "" ]
+  then
+     DBNAME=serg
+  fi
+  
+  JBOSSPATH=/home/zef/jboss
+  echo -n "JBoss path for deployment [$JBOSSPATH]: "
+  read BOSSPATH
+  if [ "$BOSSPATH" == "" ]
+  then
+     BOSSPATH=$JBOSSPATH
+  fi
+  JBOSSPATH=$BOSSPATH
 
-export WEBDSLPATH=`dirname $0`/../../../../..
-export DSLTOSEAM=$WEBDSLPATH/src/org/webdsl/dsl/generation/dsl-to-seam
+  echo "export JBOSSPATH=$JBOSSPATH" > application.ini
+  echo "export APPNAME=$APPNAME" >> application.ini
+  echo "export DBSERVER=$DBSERVER" >> application.ini
+  echo "export DBUSER=$DBUSER" >> application.ini
+  echo "export DBPASSWORD=$DBPASSWORD" >> application.ini
+  echo "export DBNAME=$DBNAME" >> application.ini
+}
 
-export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
-export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
+function make_app {
+  load_config
+  if [ "$?" == 0 ]
+  then
+    return 0
+  fi
+  if [ ! -e ".app" ]
+  then
+    export WEBDSLPATH=`dirname $0`/../../../../..
+    export DSLTOSEAM=$WEBDSLPATH/src/org/webdsl/dsl/generation/dsl-to-seam
+    
+    export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+    export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
+    
+    echo "Creating Seam project in .app..."
+    mkdir .app
+    cd .app
+    tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
+    mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
+    mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
+    find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+    cd ..
+  fi
+  cd .app
+  echo "Copying your application files..."
+  find .. \( ! -regex '.*/\..*' \) -type f -name '*.app' -exec cp {} app \;
+  find .. \( ! -regex '.*/\..*' \) -type f -name '*.css' -exec cp {} view/stylesheet \;
+  echo "Building application..."
+  make && ant archive
+  cd ..
+  return 1
+}
 
-echo Making empty application
-rm -rf .app
-mkdir .app
-cd .app
-tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
-mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
-mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
-find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
-
-echo Copying your application files
-find .. \( ! -regex '.*/\..*' \) -type f -name '*.app' -exec cp {} app \;
-find .. \( ! -regex '.*/\..*' \) -type f -name '*.css' -exec cp {} view/stylesheet \;
+echo "WebDSL script version 0.1 by Zef Hemel"
 
 case "$1" in
-  "-c" )
-     echo Compiling your application to Java only
-     make
+  "--help" )
+     echo "Options:"
+     echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
+     echo "      new : Create a new, empty WebDSL application."
+     echo "   deploy : Deploys your application to JBoss."
+     echo "    clean : Removes the created Seam project."
+     echo " cleanall : Removes the created Seam project and dist directory."
+     ;;
+
+  "deploy" )
+     load_config
+     if [ "$?" == 0 ]
+     then
+       return 0
+     fi
+     if [ ! -e "dist" ]
+     then
+       make_app
+     fi
+     echo "Now copying dist files to JBoss deployment directory."     
+     cp dist/* $JBOSSPATH/server/default/deploy
+     echo "Application has been deployed."
+     ;;
+  "new" )
+     echo -n "Application name (one word): "
+     read APPNAME
+     mkdir $APPNAME
+     cd $APPNAME
+     create_config $APPNAME
+     echo "Now creating bare-bones application in $APPNAME.app..."
+     echo "application com.example.$APPNAME" > $APPNAME.app
+     echo "" >> $APPNAME.app
+     echo "description {" >> $APPNAME.app
+     echo "  This is an automatically generated description" >> $APPNAME.app
+     echo "}" >> $APPNAME.app
+     echo "" >> $APPNAME.app
+     echo "section pages" >> $APPNAME.app
+     echo "" >> $APPNAME.app
+     echo "define page home() {" >> $APPNAME.app
+     echo "" >> $APPNAME.app
+     echo "}" >> $APPNAME.app
+     echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
+     ;;
+  "clean" )
+     echo "Removing seam project files"
+     rm -rf .app
+     ;;
+  "cleanall" )
+     echo "Removing seam project files and dist directory."
+     rm -rf .app dist
      ;;
   * )
-     echo Compiling and deploying your application
-     make && ant
+     make_app
+     if [ "$?" == 1 ]
+     then
+       if [ ! -e "dist" ]
+       then
+         mkdir dist
+       fi
+       cp .app/dist/$APPNAME.ear .app/resources/$APPNAME-dev-ds.xml dist
+       echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
+     fi
      ;;
 esac
 
-echo Done!
-echo "Result application is in .app, in case you're interested"
