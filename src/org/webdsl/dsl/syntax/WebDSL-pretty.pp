@@ -134,6 +134,7 @@
    Not                                -- KW["!"] _1,
    IsA                                -- _1 KW["is"] KW["a"] _2,
    Cast                               -- _1 KW["as"] _2,
+   None                               -- KW["None()"], %% Shoudl never apear
    
    %%access control syntax
    AccessControlDefinition			  -- KW["access control rules"] KW["{"] _1 KW["}"],
