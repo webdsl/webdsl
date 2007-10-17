@@ -44,6 +44,9 @@ rules
   	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-security-defs);concat> sections, <map(try(remove-security-decs))>sections] )
 
   remove-security-decs:
+    Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
+
+  remove-security-decs:
     Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
 
   generate-security-defs:
@@ -53,7 +56,7 @@ rules
 				)
 				> defs
 	where rules (
-	  AccessControlEnabled := True
+	  AccessControlEnabled := True()
 	)
 
   // there can be only one of these (not yet checked)
@@ -69,27 +72,31 @@ rules
 			  
 			  	entity AccessControlRule
 				{
-					info :: String
-					//checks -> Set<AccessControlCheck>
+					name :: String
+					decisions -> Set<AccessControlDecision>
+					checks -> Set<AccessControlCheck>
 			    }
 				
-				/*entity AccessControlCheck
+				entity AccessControlCheck
 				{
-					info :: String
+					description :: String
+					results -> Set<AccessControlCheckResult>
+					rule -> AccessControlRule (inverse=AccessControlRule.checks)
 				}
 				
 				entity AccessControlCheckResult
 				{
-					check -> AccessControlCheck
+					check -> AccessControlCheck (inverse=AccessControlCheck.results)
 					result :: Bool
-				}*/
+					decision -> AccessControlDecision (inverse=AccessControlDecision.results)
+				}
 				 
 				entity AccessControlDecision{
-					//rule -> AccessControlRule
+					rule -> AccessControlRule (inverse=AccessControlRule.decisions)
 					endResult :: Bool
 					principal -> $ident
 					time :: Date
-					//results -> Set<AccessControlCheckResult>
+					results -> Set<AccessControlCheckResult>
 				}
 				
 				/*
@@ -131,38 +138,36 @@ rules
     //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
 
   create-rule-classes:
-    st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> 
-    			|[ 	
+    st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> []
+    			/*|[ 	
 				section generated rule entities $random.
-			  
 			  	def0*
-			]|
-	where $random := <new>
-	    ; def0* := <create-rule-classes-helper> st
+			]|*/
+	where //$random := <new>
+	   def0* := <create-rule-classes-helper> st
 			
   create-rule-classes-helper:
-	st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> 
-			<concat>[
-			[def|[ 	
-			  
+	st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> <fail>
+			/*<concat>[
+			[def|[ 		  
 			  	globals { 
 			  		var $varname : AccessControlRule := AccessControlRule
 					{
-						info := "checks get listed here"
-					};
-					
-					
+						
+					};	
 				}
 			]|]
 			,
 			  <filter(create-rule-classes-helper);concat> acrules
-			]
-	where $varname := <concat-strings> ["ACRule",checktype,<remove-wildcards>matchstring]
-		; newlistfromtype :=  <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
+			]*/
+	where //$varname := <concat-strings> ["ACRule",checktype,<remove-wildcards>matchstring]
+	    
+		 newlistfromtype :=  <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
 		; rules(
 			Security-Rules-List-From-Type : checktype -> newlistfromtype
-			Security-Rule-Name : (checktype,matchstring) -> $varname
+			//Security-Rule-Name : (checktype,matchstring) -> $varname
 		)
+		;<filter(create-rule-classes-helper);concat> acrules
 
   remove-wildcards=
   	explode-string;map(try(?'*';!'1'));implode-string
@@ -183,43 +188,64 @@ rules
   	  end 
   	; if previousname := []
   	then
-  	 $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+  	 ( $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+  	   ; $acrulename := <concat-strings> ["ACRule",checktype,name] )
   	else
-  	 $decisionclassname := <concat-strings> [previousname,checktype,name]
+  	 ( $decisionclassname := <concat-strings> ["ACDecision",previousname,checktype,name]
+  	   ; $acrulename := <concat-strings> ["ACRule",previousname,checktype,name] )
   	end
-  	; selectedchecks := <map(extract-checks-from-rule);concat> pt
-  	; selectedrules := <map(extract-rules-from-rule);concat> pt
-  	; rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars)> selectedchecks
+  	; selectedchecks := <map(\AccessControlRule(_,_,_,checks,_) -> checks\);concat> pt
+  	; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
+  	; rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
   	; otherclasses := <Generated-Decision-Classes <+ ![]>
   	; prop0* := <map(try(vars-to-props))> vars
+  	; str0 := <double-quote> $acrulename
+  	//; e0* := <add-indices;map(generate-listinits-from-check(|$acrulename))> selectedchecks
+  	; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
   	; rules (
 		Generated-Decision-Classes := 
 			<concat>[
-				[def |[
-				entity $decisionclassname : AccessControlDecision{
-					
+				def* |[
+				entity $decisionclassname : AccessControlDecision{	
 					prop0*
-					
-				}
-				]|]
-			
+				}  
+
+				globals {
+					var $acrulename : AccessControlRule := AccessControlRule { 
+					  name:=str0
+					  
+					  //checks:= { e0* }
+		        	};
+			    }
+			    
+			    def0*
+				]|
 			, otherclasses ]
-			
 			
 		Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
 
 		Previous-Selected-Rules := selectedrules
-		Previous-Decision-Name := $decisionclassname
+		Previous-Decision-Name := <concat-strings> [checktype,name]
   	
   	)
   	; !rulecheckactions
- 
-  extract-checks-from-rule :
-    AccessControlRule(_,_,_,checks,_) -> checks
-     
-  extract-rules-from-rule :
-    AccessControlRule(_,_,_,_,acrules) -> acrules
-       	
+
+  generate-definition-from-check(|$rulename):
+    (index,check) -> def|[ 
+                        globals{
+                          var $varname :AccessControlCheck := AccessControlCheck{ 
+                          rule := $rulename
+                          description := str0 }; 
+                          
+                        }
+                     ]| 
+   where $varname := <concat-strings> ["check",$rulename,<int-to-string> index]
+   ; str0 := <pp-webdsl-to-string; double-quote> check
+   
+ // generate-listinits-from-check(|rulename):
+  //  (index,check)->  Var ( $varname )
+  // where $varname := <concat-strings> ["check",rulename,<int-to-string> index]
+            	
   vars-to-props:
 	Arg($ident,$argsort) -> |[ $ident -> $classname]|
 	where <defined-java-type> $argsort  
@@ -229,11 +255,6 @@ rules
 	Arg($ident,$argsort) -> |[ $ident :: $typename]|
 	where <builtin-java-type> $argsort
 	    ; SimpleSort($typename) := $argsort
-
-  //vars-to-props:
-	//Arg($ident,$argsort) -> |[ $ident :: $typename]|
-	//where <object-type> $argsort
-	 //   ; SimpleSort($typename) := $argsort
 
   vars-to-props:
 	Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
@@ -266,7 +287,7 @@ rules
 	//check arguments
 	; newfargs := <?MatchArgs(args,wc);!args> fargs
 	; getWC := <?MatchArgs(args,wc);!wc> fargs
-	; if getWC := None then
+	; if getWC := None() then
 	  newvars := vars
 	else
 	  newvars := <take(<length> newfargs)> vars
@@ -287,17 +308,19 @@ rules
   extract-sort-from-arg:
 	(Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2) 
 	 
-  generate-security-checks-from-target(|$acdclassname,vars):
+  generate-security-checks-from-target(|$acdclassname,vars,$acrulename):
 	xs ->
   		|[
-  		    var acdecision : $acdclassname := $acdclassname{};    //{rule :=$rulename};
+  		    var acdecision : $acdclassname := $acdclassname{
+  		      rule :=$acrulename
+  		    };    
   			
   			if(securityContext.loggedIn) {
   			  acdecision.principal :=  securityContext.principal;
   			}
   			
   			stat2*
-  			stat0*
+  			//stat0*
   			stat1*
   				
   			acdecision.endResult := e0 ;
@@ -309,11 +332,11 @@ rules
   			
   		]|	
   	where //$rulename := <Security-Rule-Name> (checktype,matchstring)
-  		numberedchecks := <add-indices;map(fix-var-name-in-check)> xs
-  		; stat0* := <map(generate-bool-var-decs)> numberedchecks
-  		; stat1* := <map(generate-security-checks-from-target-element);concat> numberedchecks
+  		numberedchecks := <add-indices> xs
+  		//; stat0* := <map(generate-bool-var-decs)> numberedchecks
+  		; stat1* := <map(generate-security-checks-from-target-element(|$acrulename));concat> numberedchecks
   		; stat2* := <map(generate-security-checks-from-target-var)> vars
-  		; e0 := <generate-final-exp> numberedchecks
+  		; e0 := <map(fix-var-name-in-check);generate-final-exp> numberedchecks
  
   generate-final-exp : 
     [x|xs] ->  |[  $varname && e0  ]| 
@@ -323,19 +346,25 @@ rules
   generate-final-exp :  
     [x] -> Var($varname)
     where ($varname,_) := x
-   
-  generate-bool-var-decs:
-    ($varname,_) -> 	
-    |[ 
-	 	var $varname : Bool := false;
-	]|
  
   fix-var-name-in-check:
     (index,anything) -> (newindex,anything)
     where newindex := <concat-strings> ["check",<int-to-string> index]
  
-  generate-security-checks-from-target-element:
-	($varname,AccessControlCheckExpression(e0)) -> [ |[ $varname := e0; ]| ]
+  generate-security-checks-from-target-element(|rulename):
+	(index,AccessControlCheckExpression(e0)) ->  |[ 
+													var $varname : Bool := e0;
+													 
+													var $anyname : AccessControlCheckResult := AccessControlCheckResult{};
+													$anyname.decision := acdecision;
+													$anyname.result := $varname;
+													$anyname.check := $varnamecheck;
+													$anyname.save();
+													//acdecision.results.add($anyname); //this shouldn't be necessary, fix needed in manytoone generation, owning side needs to add to the list when setdecision is called
+												 ]|
+	where $varname := <concat-strings> ["check",<int-to-string> index]
+	    ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
+	    ; $anyname := <newname> "accessControlCheckResult"
 	
   generate-security-checks-from-target-var:
     Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|

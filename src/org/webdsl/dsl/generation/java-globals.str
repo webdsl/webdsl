@@ -20,6 +20,9 @@ rules // globals to java initialization code
 	xs -> [ <collect(merge-globals-vdi);concat;?vdi;!GlobalsDefinition(vdi)> xs | <map(try(remove-globals-from-sections))> xs]
 
   remove-globals-from-sections:
+  	Module(ident,defs) -> Module(ident, <map(try(remove-globals-from-sections))> defs)
+
+  remove-globals-from-sections:
   	Section(ident,defs) -> Section(ident, <filter(not(?GlobalsDefinition(_)))> defs)
   	
   merge-globals-vdi:
@@ -146,30 +149,40 @@ rules // globals to java initialization code
 			  	@Destroy @Remove public void destroy()
 			  	{ }
 			
+			    ~*cbds*
 			}
 		      
 		]|)
 	)
 	where pkgname    := <BeanPackage>
 		; pkgname2   := <DomainPackage>
-		; bstm1* := <filter(vardeclinit-to-code);concat> vardeclinits		
+		; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
+		; cbds* := <filter(vardeclinit-to-method)> vardeclinits
 		
-  vardeclinit-to-code:
+  vardeclinit-to-method-call:
 	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
-		bstm* |[
-			
-			~*bstmvardeclinit*
-			
-			em.persist(x_ident);
-								    			  
-			ApplicationContextProperty x_acpident = new ApplicationContextProperty();
-			x_acpident.setName(x_acpname);
-			x_acpident.setDatabaseId(x_ident.getId());
-			em.persist(x_acpident);
-		  	Contexts.getApplicationContext().set(x_acpident.getName(), x_acpident.getDatabaseId());
+		bstm |[	
+			x_methodname();
+		]|
+	where x_methodname := <concat-strings> ["globalDeclaration",x_ident]
+		
+  vardeclinit-to-method:
+	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
+		class-body-dec |[
+			private void x_methodname(){
+				~*bstmvardeclinit*
+				
+				em.persist(x_ident);
+									    			  
+				ApplicationContextProperty x_acpident = new ApplicationContextProperty();
+				x_acpident.setName(x_acpname);
+				x_acpident.setDatabaseId(x_ident.getId());
+				em.persist(x_acpident);
+			  	Contexts.getApplicationContext().set(x_acpident.getName(), x_acpident.getDatabaseId());
+		  	}
 		]|
 	where x_acpident := <new>
 		; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
 		; bstmvardeclinit* := <statements-to-java> [VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))]
+		; x_methodname := <concat-strings> ["globalDeclaration",x_ident]
 		
-	
