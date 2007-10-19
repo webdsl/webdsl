@@ -20,9 +20,10 @@ rules
     ; declare-security
     ; typecheck-security  
     ; generate-security
+    ; declare-definitions
     ; if AccessControlEnabled then
     ( try(sometd(apply-checks-to-page))  
-    ; try(attach-decision-classes-to-application)
+    //; try(attach-decision-classes-to-application)
     ; add-access-denied-page
     )
     end
@@ -79,7 +80,7 @@ rules
 				
 				entity AccessControlCheck
 				{
-					description :: String
+					description :: Text
 					results -> Set<AccessControlCheckResult>
 					rule -> AccessControlRule (inverse=AccessControlRule.checks)
 				}
@@ -132,6 +133,9 @@ rules
 				  }
 			    }*/
 			]|
+			//where rules (
+			//  Access-Control-Principal := $ident
+			//)
 			//where elem0* := <map(property-to-input-row)> props
  
   //property-to-input-row:
@@ -213,8 +217,6 @@ rules
 				globals {
 					var $acrulename : AccessControlRule := AccessControlRule { 
 					  name:=str0
-					  
-					  //checks:= { e0* }
 		        	};
 			    }
 			    
@@ -311,29 +313,33 @@ rules
   generate-security-checks-from-target(|$acdclassname,vars,$acrulename):
 	xs ->
   		|[
-  		    var acdecision : $acdclassname := $acdclassname{
-  		      rule :=$acrulename
-  		    };    
+  		    //var acdecision : $acdclassname := $acdclassname{
+  		    //  rule :=$acrulename
+  		    //};    
   			
-  			if(securityContext.loggedIn) {
-  			  acdecision.principal :=  securityContext.principal;
-  			}
+  			//if(securityContext.loggedIn) {
+  			//  acdecision.principal :=  securityContext.principal;
+  			//}
   			
-  			stat2*
-  			//stat0*
+  			//stat2*
   			stat1*
   				
-  			acdecision.endResult := e0 ;
-  			acdecision.save();
-  			if ( acdecision.endResult = false )
+  			//acdecision.endResult := e0 ;
+  			//acdecision.save();
+  			//if ( acdecision.endResult = false )
+  			//{
+  			//  goto(accessDenied());
+  			//}
+  			
+  			if ( e0= false )
   			{
   			  goto(accessDenied());
   			}
   			
-  		]|	
-  	where //$rulename := <Security-Rule-Name> (checktype,matchstring)
+  			
+  		]|
+  	where
   		numberedchecks := <add-indices> xs
-  		//; stat0* := <map(generate-bool-var-decs)> numberedchecks
   		; stat1* := <map(generate-security-checks-from-target-element(|$acrulename));concat> numberedchecks
   		; stat2* := <map(generate-security-checks-from-target-var)> vars
   		; e0 := <map(fix-var-name-in-check);generate-final-exp> numberedchecks
@@ -352,19 +358,87 @@ rules
     where newindex := <concat-strings> ["check",<int-to-string> index]
  
   generate-security-checks-from-target-element(|rulename):
-	(index,AccessControlCheckExpression(e0)) ->  |[ 
+	(index,AccessControlCheckExpression(expr)) ->  |[ 
+	                                                var dummy :Bool:=true;
 													var $varname : Bool := e0;
 													 
-													var $anyname : AccessControlCheckResult := AccessControlCheckResult{};
-													$anyname.decision := acdecision;
-													$anyname.result := $varname;
-													$anyname.check := $varnamecheck;
-													$anyname.save();
-													//acdecision.results.add($anyname); //this shouldn't be necessary, fix needed in manytoone generation, owning side needs to add to the list when setdecision is called
-												 ]|
+													//var $anyname : AccessControlCheckResult := AccessControlCheckResult{};
+													//$anyname.decision := acdecision;
+													//$anyname.result := $varname;
+													//$anyname.check := $varnamecheck;
+													//$anyname.save(); //this shouldn't be necessary, fix needed in manytoone generation, owning side needs to add to the list when setdecision is called
+												 ]| 
 	where $varname := <concat-strings> ["check",<int-to-string> index]
 	    ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
 	    ; $anyname := <newname> "accessControlCheckResult"
+	    ; extrachecks0 := <collect(field-access-to-not-null-checks-first);concat> expr
+	    ; if <oncetd(?FieldAccess(Var("securityContext"),"principal"))> expr
+	      then
+	      extrachecks := [ |[ securityContext.loggedIn ]| | extrachecks0 ]
+	      else
+	      extrachecks := extrachecks0
+	      end
+	    ; e0 := <concat;generate-conjunction-exp>[extrachecks,[expr]]
+	
+// @todo adding !=null checks to avoid nullpointer exceptions, in the context of access control rules a nullpointer could be automatically
+// resolved by deciding whether a null means returning true or false.
+  
+  //add-not-null-checks=
+   // add-not-null-checks-eq
+   // <+ add-not-null-checks-neq
+    //<+ field-access-to-not-null-checks
+     
+  //add-not-null-checks-eq:
+   // Eq(e1,e2) -> <concat>[newe1,newe2]
+   // where newe1 := <field-access-to-not-null-checks> e1
+   //     ; newe2 := <field-access-to-not-null-checks> e2
+
+  //add-not-null-checks-neq:
+   // NotEq(e1,e2) -> <concat>[newe1,newe2]
+   // where newe1 := <field-access-to-not-null-checks> e1
+   //     ; newe2 := <field-access-to-not-null-checks> e2
+
+  field-access-to-not-null-checks-first:
+    fa@FieldAccess(ent,prop)-> return
+    where check := NotEq(fa,Null())
+        ; if Var(varname) := ent
+        then
+          checks := [ NotEq(Var(varname),Null()) ]  //the null check for the property being accessed is left out, needs to be further examined
+                                                    // to decide whether to add a not null check or not
+        else
+          checks := []
+        end
+        ; if newchecks := <field-access-to-not-null-checks> ent
+        then
+          return := <concat> [newchecks, checks]
+        else
+          return := checks
+        end
+
+  field-access-to-not-null-checks:
+    fa@FieldAccess(ent,prop)-> return
+    where check := NotEq(fa,Null())
+        ; if Var(varname) := ent
+        then
+          checks := [ NotEq(Var(varname),Null()),check ]
+        else
+          checks := [check]
+        end
+        ; if newchecks := <field-access-to-not-null-checks> ent
+        then
+          return := <concat> [newchecks, checks]
+        else
+          return := checks
+        end
+  
+  generate-conjunction-exp : 
+    [x|xs] ->  |[  e0 && e1  ]| 
+    where not([] := xs)
+        ; e0 := x
+        ; e1 := <generate-conjunction-exp> xs 
+        
+  generate-conjunction-exp :  
+    [e0] -> |[ e0 ]|
 	
   generate-security-checks-from-target-var:
     Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|
