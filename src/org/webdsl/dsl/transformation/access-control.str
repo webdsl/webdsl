@@ -23,8 +23,9 @@ rules
     ; declare-definitions
     ; if AccessControlEnabled then
     ( try(sometd(apply-checks-to-page))  
+      ;try(sometd(apply-checks-to-template-defs-actions))     
     //; try(attach-decision-classes-to-application)
-    ; add-access-denied-page
+      ; add-access-denied-page
     )
     end
 
@@ -52,7 +53,7 @@ rules
 
   generate-security-defs:
 	AccessControlDefinition(defs) -> 
-		<collect(security-subject
+		<filter(security-subject
 					<+ create-rule-classes
 				)
 				> defs
@@ -171,7 +172,8 @@ rules
 			Security-Rules-List-From-Type : checktype -> newlistfromtype
 			//Security-Rule-Name : (checktype,matchstring) -> $varname
 		)
-		;<filter(create-rule-classes-helper);concat> acrules
+		//; if checktype := "action" then <debug> <Security-Rules-List-From-Type> checktype end
+		//;<filter(create-rule-classes-helper);concat> acrules
 
   remove-wildcards=
   	explode-string;map(try(?'*';!'1'));implode-string
@@ -181,8 +183,9 @@ rules
     then
   	  possibleTargets := <Security-Rules-List-From-Type> checktype
   	else
-  	  possibleTargets := <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules
+  	  possibleTargets := <concat> [<Security-Rules-List-From-Type<+![]> checktype,<filter(?AccessControlRule(checktype,_,_,_,_))> previousrules]
   	end
+  	; if checktype := "action" then <debug> possibleTargets end
   	; filteredrules := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
   	; if filteredrules := [] 
   	  then
@@ -200,36 +203,54 @@ rules
   	end
   	; selectedchecks := <map(\AccessControlRule(_,_,_,checks,_) -> checks\);concat> pt
   	; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
-  	; rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
-  	; otherclasses := <Generated-Decision-Classes <+ ![]>
-  	; prop0* := <map(try(vars-to-props))> vars
-  	; str0 := <double-quote> $acrulename
-  	//; e0* := <add-indices;map(generate-listinits-from-check(|$acrulename))> selectedchecks
-  	; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
-  	; rules (
-		Generated-Decision-Classes := 
-			<concat>[
-				def* |[
-				entity $decisionclassname : AccessControlDecision{	
-					prop0*
-				}  
-
-				globals {
-					var $acrulename : AccessControlRule := AccessControlRule { 
-					  name:=str0
-		        	};
-			    }
-			    
-			    def0*
-				]|
-			, otherclasses ]
-			
-		Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
-
-		Previous-Selected-Rules := selectedrules
-		Previous-Decision-Name := <concat-strings> [checktype,name]
-  	
-  	)
+  	; if <elem> (checktype,<Visual-Check-Types>)
+  	  then
+  	    (
+  	    if filteredrules := []
+  	    then
+  	      rulecheckactions :=[] //these visual things shouldn't be too restrictive, just ignore when nothing is specified
+  	    else
+  	      rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;generate-extended-check);generate-conjunction-exp> selectedchecks
+  	    end
+  	    ;rules
+  	    (
+  	        Previous-Selected-Rules := selectedrules
+			Previous-Decision-Name := <concat-strings> [checktype,name]
+  	    )
+  	    )
+  	  else
+  	    (rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
+  	    ; otherclasses := <Generated-Decision-Classes <+ ![]>
+	  	; prop0* := <map(try(vars-to-props))> vars
+	  	; str0 := <double-quote> $acrulename
+	  	//; e0* := <add-indices;map(generate-listinits-from-check(|$acrulename))> selectedchecks
+	  	; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
+	  	; rules (
+			Generated-Decision-Classes := 
+				<concat>[
+					def* |[
+					entity $decisionclassname : AccessControlDecision{	
+						prop0*
+					}  
+	
+					globals {
+						var $acrulename : AccessControlRule := AccessControlRule { 
+						  name:=str0
+			        	};
+				    }
+				    
+				    def0*
+					]|
+				, otherclasses ]
+				
+			Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
+	
+			Previous-Selected-Rules := selectedrules
+			Previous-Decision-Name := <concat-strings> [checktype,name]
+	  	
+	  	))
+  	  end
+  	//; if checktype := "action" then <debug> rulecheckactions end
   	; !rulecheckactions
 
   generate-definition-from-check(|$rulename):
@@ -283,6 +304,7 @@ rules
 			else
 				matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
 			end
+		//; if checktype:="template" then <debug> [name,vars,fargs] end	
 		; not(matchresult := matchstring) //if equal, left-match failed
 		)
 	end
@@ -294,8 +316,16 @@ rules
 	else
 	  newvars := <take(<length> newfargs)> vars
 	end
-	; <zip(dynamic-rule-check-vars ; extract-sort-from-arg ; eq)> (newfargs,newvars)
-	; newchecks := <map(try(fix-var-names-in-check))> checks
+	; //if <elem> (checktype,<Visual-Check-Types>)
+	//then
+	 // <eq> (newfargs,newvars)
+	//else
+	//(   //commented, needs to leak through for child rules  {|   FixVarsInCheck:
+     <zip(try(dynamic-rule-check-vars ; extract-sort-from-arg) ; eq)> (newfargs,newvars)  //try because when failing will be treated as matching on expressions
+	 ; newchecks := <map(try(fix-var-names-in-check))> checks
+	//|}
+	//)
+	//end
 
   dynamic-rule-check-vars:
     (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (Arg(ident1,thesort1),Arg(ident2,thesort2)) 
@@ -305,10 +335,10 @@ rules
    
   fix-var-names-in-check:
     AccessControlCheckExpression(expr) -> AccessControlCheckExpression(newexpr)
-    where newexpr:= <try(alltd(FixVarsInCheck))> expr
-
+    where newexpr:= <alltd(FixVarsInCheck)> expr
+  
   extract-sort-from-arg:
-	(Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2) 
+	(Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2)
 	 
   generate-security-checks-from-target(|$acdclassname,vars,$acrulename):
 	xs ->
@@ -358,8 +388,8 @@ rules
     where newindex := <concat-strings> ["check",<int-to-string> index]
  
   generate-security-checks-from-target-element(|rulename):
-	(index,AccessControlCheckExpression(expr)) ->  |[ 
-	                                                var dummy :Bool:=true;
+	(index,AccessControlCheckExpression(expr)) ->  [|[ 
+	                                                
 													var $varname : Bool := e0;
 													 
 													//var $anyname : AccessControlCheckResult := AccessControlCheckResult{};
@@ -367,18 +397,22 @@ rules
 													//$anyname.result := $varname;
 													//$anyname.check := $varnamecheck;
 													//$anyname.save(); //this shouldn't be necessary, fix needed in manytoone generation, owning side needs to add to the list when setdecision is called
-												 ]| 
+												 ]| ]
 	where $varname := <concat-strings> ["check",<int-to-string> index]
 	    ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
 	    ; $anyname := <newname> "accessControlCheckResult"
-	    ; extrachecks0 := <collect(field-access-to-not-null-checks-first);concat> expr
+	    ; e0 := <generate-extended-check> expr
+	    
+  generate-extended-check:
+    expr -> e0	    
+ 	where extrachecks0 := <collect(field-access-to-not-null-checks-first);concat> expr
 	    ; if <oncetd(?FieldAccess(Var("securityContext"),"principal"))> expr
 	      then
 	      extrachecks := [ |[ securityContext.loggedIn ]| | extrachecks0 ]
 	      else
 	      extrachecks := extrachecks0
 	      end
-	    ; e0 := <concat;generate-conjunction-exp>[extrachecks,[expr]]
+	    ; e0 := <concat;generate-conjunction-exp>[extrachecks,[expr]] 	    
 	
 // @todo adding !=null checks to avoid nullpointer exceptions, in the context of access control rules a nullpointer could be automatically
 // resolved by deciding whether a null means returning true or false.

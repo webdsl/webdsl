@@ -30,8 +30,53 @@ rules
 	    ; newtempelement2 := <concat> [tempelement , [ InitAction( Block(<generate-access-control-checks(|"page",ident,formargs,[],[])>) )  ] ]
 	    ; previousrules := <once-Previous-Selected-Rules>
 	    ; previousname := <once-Previous-Decision-Name>
-	    ; newtempelement := <try(sometd(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
+	    ; newtempelement3 := <try(sometd(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
+	    ; newtempelement := <try(sometd(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
 	
   apply-checks-to-action(|previousname,previousrules):
     Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
     where newstatements := <concat> [<generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)> , statements]
+    
+  apply-checks-to-template-call(|previousname,previousrules):
+    tc@TemplateCall(ident, args, telems) -> result
+    where// <debug> [ident,previousname,previousrules];
+    if def := <TemplateDefinition> ident
+    then
+            (
+            Define(modifier,dident,formargs,tempelement) := def
+             ; checks := <generate-access-control-checks(|"template",ident,formargs,previousname,previousrules)>
+             )
+          else
+            checks := <generate-access-control-checks(|"template",ident,args,previousname,previousrules)>
+          end
+       // ; <debug> ["ident",ident,"checks",checks]
+        ; if checks := []
+          then
+            result := tc
+          else
+            result := IfTempl(checks,[tc])
+          end
+        //@todo account for calls inside calls(?)
+          
+  apply-checks-to-template-defs-actions:  //this is purely for actions inside template defs
+	def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
+	where modifier := []
+	    ; checks:=<generate-access-control-checks(|"template",ident,formargs,[],[])> //just for setting the previous dynamic rules
+	    ; <debug> [ident,checks,formargs]
+	    ; if checks := []
+          then
+             (<debug> ["nochecks",ident];
+             newtempelement := <try(sometd(apply-checks-to-action(|[],[])))> tempelement)
+          else
+            (
+              previousrules := <once-Previous-Selected-Rules>
+	          ; previousname := <once-Previous-Decision-Name>
+	          ; <debug> ["previous",previousrules,previousname]
+	          ; newtempelement := <try(sometd(apply-checks-to-action(|previousname,previousrules)))> tempelement
+            )
+          end
+  
+  //ignore the defs inside pages
+  apply-checks-to-template-defs-actions: 
+  	Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,tempelement)
+	where <elem> (Page(),modifier)
