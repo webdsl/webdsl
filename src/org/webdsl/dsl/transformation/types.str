@@ -81,11 +81,19 @@ strategies // register all declared entities
   properties = Properties 
   
   declare-property(|x_class) =
-    ?Property(x, k, s, annos)
+    ?prop@Property(x, k, s, annos)
     ; rules(
         TypeOfProperty : (x_class, x) -> s
       )
     ; where(try(declare-list-property(|x_class)))
+    ; <try(create-file-property-rule(|x_class))> prop
+            
+  create-file-property-rule(|x_Class) =
+    ?prop@Property(x, k, SimpleSort("File"), annos)
+    ; rules (
+        HasFileProperty :
+          x_Class -> prop
+      )            
     
   declare-list-property(|x_class) =
     ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
@@ -143,13 +151,20 @@ strategies // register top-level template definitions
         TemplateArguments  : name -> fargs
       )
     ; try(declare-page-definition)
+    ; try(declare-email-definition)
 
   declare-page-definition =
     ?Define([Page()], name, args, body)
     ; rules(
         IsPage : name
       )
-
+  
+  declare-email-definition =
+    ?Define([Email()], name, args, body)
+    ; rules(
+        IsEmail : name
+      )
+      
 strategies
 
   declare-action =
@@ -214,7 +229,8 @@ rules
   sort-to-java-type-string : SimpleSort("Text") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Secret") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Email") -> "java.lang.String"
-  sort-to-java-type-string : SimpleSort("Image") -> "java.lang.String"  
+  sort-to-java-type-string : SimpleSort("Image") -> "java.lang.String"
+  sort-to-java-type-string : SimpleSort("Binary") -> "byte[]"
   sort-to-java-type-string : GenericSort("List", [x]) -> <concat-strings> ["java.util.List<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Set", [x]) -> <concat-strings> ["java.util.Set<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Map", [x, y]) -> <concat-strings> ["java.util.Map<", <sort-to-java-type-string> x, ",", <sort-to-java-type-string> y, ">"]
@@ -294,7 +310,20 @@ rules
             
   builtin-java-type-default-value :
     SimpleSort("Email") -> |[ "" ]|
+  
+  builtin-java-type : 
+    SimpleSort("Binary") -> type|[ byte[] ]|
 
+  builtin-java-type-default-value :
+    SimpleSort("Binary") -> |[ null ]|
+    
+/*
+  builtin-java-type : 
+    SimpleSort("Upload") -> |[ new Upload() ]|
+    
+  builtin-java-type-default-value :
+    SimpleSort("Upload") -> |[ null ]|
+*/    
   builtin-java-type :
     GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
     where t := <java-wrapper-type> s
@@ -522,7 +551,7 @@ rules // typechecking template definitions
   typecheck-template-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
     where dbg(|"typecheck-definition in: ")
-        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage
+        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage, IsEmail
            : in-tc-context(id
                ; dbg(|"typecheck-definition a: ")
                ; <map(declare-typeof-arg)> args
@@ -559,6 +588,7 @@ rules // typechecking page elements
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
     <+ typecheck-call-subtable
+    <+ typecheck-call-email
     <+ typecheck-template-call
     <+ typecheck-iterator
     <+ typecheck-vardecl
@@ -568,7 +598,7 @@ rules // typechecking page elements
     
   typecheck-text =
     Text(is-string)
-    
+  
   typecheck-call-action :
     TemplateCall(f, [e1,e2], []) -> TemplateCall(f, [e1',e2'], [])
     where !f; (?"action" + ?"actionLink")
@@ -577,21 +607,6 @@ rules // typechecking page elements
             ; e2' := <typecheck-expression> e2
           | [f, "/"])
 
-  
-/*  typecheck-call-subtable :
-    TemplateCall("subtable", [f], columns) -> TemplateCall("subtable", [f], columns)
-    where in-tc-context(
-               <should-have-list-type> f
-             ; GenericSort(x, s) := <TypeOf> f
-             ; {| TypeOf
-                : if not(<defined-java-type> s) then
-                    typecheck-error(|["index ", x, " has invalid type ", s])
-                    // @todo check that type of x corresponds to element type of collection s
-                  else
-                    rules( TypeOf : x -> s )
-                  end
-                |}
-          | ["subtable/"] ) */
                 
   typecheck-call-subtable :
     TemplateCall("subtable", [f], columns1) -> TemplateCall("subtable", [f], columns1)
@@ -601,9 +616,13 @@ rules // typechecking page elements
         ; <map(typecheck-template-call-in-subtable(|s))> columns1
         
   typecheck-template-call-in-subtable(|s) :
-    TemplateCall("text", [exp], []) -> TemplateCall("text", [exp], [])
-    where Var(x) := exp
-        ; t := <TypeOfProperty> (s, x)
+    TemplateCall("text", e@[Var(x)], []) -> TemplateCall("text", e, [])
+    where <TypeOfProperty> (s, x)
+        
+  typecheck-template-call-in-subtable(|s) :
+    TemplateCall("text", e@[FieldAccess(Var(x), i)], []) -> TemplateCall("text", e, [])
+    where SimpleSort(ss) := <TypeOfProperty> (s, x)
+        ; <TypeOfProperty> (ss, i)
   
   typecheck-call-navigate :
     TemplateCall("navigate", [e], elems1) -> TemplateCall("navigate", [e'], elems2)
@@ -619,6 +638,16 @@ rules // typechecking page elements
             ; e2' := <typecheck-link> e2
           | ["navigate/"])
              
+  typecheck-call-email :
+    ThisCall(p, [e1@ThisCall(name, args)]) -> ThisCall(p, [e1])
+    where "email" := p
+        ; if not(<IsEmail> name) then
+            typecheck-error(|["email to undefined emailtemplate ", name])
+// @todo
+//          else
+//            e2 := <typecheck-expression> e1
+          end
+  
   typecheck-link :
     ThisCall("url", [e1]) -> ThisCall("url", [e2])
     where e2 := <typecheck-expression> e1
@@ -626,6 +655,7 @@ rules // typechecking page elements
   typecheck-link :
     ThisCall(p, args1) -> ThisCall(p, args2)
     where not("url" := p)
+        ; not("email" := p)
         ; if not(<IsPage> p) then
             typecheck-error(|["link to undefined page ", p])
           else
@@ -779,6 +809,7 @@ rules // typechecking statements
     <+ typecheck-if
     <+ typecheck-for
     <+ typecheck-return
+    <+ typecheck-email
     <+ Stat(typecheck-expression)
     <+ dbg(|"warning: not typechecking statement: ")
   
@@ -827,6 +858,10 @@ rules // typechecking statements
   typecheck-return :
     Return(e1) -> Return(e2)
     where e2 := <typecheck-link> e1
+    
+  typecheck-email :
+    Stat(e1@ThisCall("email", elems1)) -> Stat(e2)
+    where e2 := <typecheck-call-email> e1
     
 rules // typechecking expressions
    
@@ -1194,6 +1229,9 @@ rules // signature
     (GenericSort(Z, [s@SimpleSort(_)]), "persist", []) -> SimpleSort("void")
     where <defined-java-type> s
         ; <?"List" <+ ?"Set"> Z
+        
+  check-builtin-signature :
+    (None(), "email", [_]) -> SimpleSort("void")
             
 rules // type compatibility
 

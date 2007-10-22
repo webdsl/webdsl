@@ -210,9 +210,7 @@ rules // datatables
   where x := <arg-to-value-string> field
       ; FieldAccess(exp, ident) := field
       ; itemVarName := <concat-strings>[ <decapitalize-string> ident, "Item"]
-      ; info(|itemVarName)
-      ; columnsWithVar := <map(add-var-to-property(|itemVarName))> columns
-      ; info(|columnsWithVar)
+      ; columnsWithVar := <map(add-var-to-template-call(|itemVarName))> columns
       ; tcolumns := <mapconcat(column-to-xhtml)> columnsWithVar
       ; rules( HideSubTableColumn := 
 		  %>
@@ -226,14 +224,17 @@ rules // datatables
 		  </t:column>
 		  <% )
     
-  add-var-to-property(|var1) :
-    elem1 -> elem2
-  where info(|elem1)
-      ; TemplateCall(a, [Var(prop)], []) := elem1
-      ; var := <concat-strings> [var1, ".", prop]
-      ; elem2 := TemplateCall(a, [Var(var)], [])
-      ; info(|elem2)
-      
+  add-var-to-property(|var) :
+    Var(var1) -> Var(var2)
+    where var2 := <concat-strings> [var, ".", var1]
+  
+  add-var-to-property(|var) :
+    FieldAccess(e1, x) -> FieldAccess(e2, x)
+    where e2 := <add-var-to-property(|var)> e1
+
+  add-var-to-template-call(|var) :
+    TemplateCall(a, [exp], []) -> TemplateCall(a, [exp2], [])
+    where exp2 := <add-var-to-property(|var)> exp
     
 rules // lists
 
@@ -403,7 +404,7 @@ rules // forms
   elem-to-xhtml :
     TemplateCall("form", [], elems) ->
     %>
-      <h:form>
+      <h:form enctype="multipart/form-data">
         <s:validateAll><%= <elems-to-xhtml> elems ::*%></s:validateAll>
       </h:form>
     <%
@@ -577,6 +578,20 @@ rules // input
     where estring := <arg-to-value-string> e
         ; label := <newname> "inputDateId"
 
+  elem-to-xhtml :
+    TemplateCall("inputFile",[e],[]) ->
+    %>
+      <div>
+	    <s:fileUpload id="<%= label%>"
+			data="#{<%= estring %>.data}"
+			contentType="#{<%= estring %>.contenttype}"
+			fileName="#{<%= estring %>.name}" />
+      </div>
+    <%
+    where estring := <arg-to-el> e
+        ; label := <newname> "inputFileId"
+    
+    
 rules // output
 
   elem-to-xhtml :
@@ -635,6 +650,14 @@ rules // output
     <%
     where estring := <arg-to-value-string> e
         ; label := <newname> "outputDateId"
+  
+  // @todo ouput byte[] length
+  elem-to-xhtml :
+    TemplateCall("outputBinary",[e],[]) ->
+    %>
+      <h:outputText styleClass="outputBinary" value="#{<%= estring %>}"/>
+    <%
+    where estring := <arg-to-el> e
 
 
 rules // function stuff

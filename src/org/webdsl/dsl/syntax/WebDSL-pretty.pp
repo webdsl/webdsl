@@ -49,6 +49,7 @@
    Define.3:iter-star-sep             -- H hs=0[_1 KW[","]],
    Define.4:iter-star                 -- _1,
    Page                               -- KW["page"],
+   Email                              -- KW["email"],
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
    For                                -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],

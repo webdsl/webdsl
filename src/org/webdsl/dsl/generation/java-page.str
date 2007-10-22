@@ -30,6 +30,7 @@ rules // session bean from page definition
       import javax.persistence.EntityManager;
       
       import javax.faces.event.ValueChangeEvent;
+      import javax.faces.application.FacesMessage;
       
       import javax.ejb.Stateless;
       import javax.ejb.Stateful;
@@ -43,11 +44,12 @@ rules // session bean from page definition
       import org.jboss.seam.annotations.Scope;
       import org.jboss.seam.annotations.Create;
       import org.jboss.seam.annotations.Logger;
-      import org.jboss.seam.annotations.RequestParameter;
+      import org.jboss.seam.annotations.web.RequestParameter;
       import org.jboss.seam.annotations.datamodel.DataModel;
       import org.jboss.seam.annotations.datamodel.DataModelSelection;
-      import org.jboss.seam.core.FacesMessages;
-      import org.jboss.seam.core.Redirect;
+      import org.jboss.seam.faces.FacesMessages;
+      import org.jboss.seam.faces.Renderer;
+      import org.jboss.seam.faces.Redirect;
       import org.jboss.seam.log.Log;
 
       import org.jboss.seam.annotations.In;
@@ -69,6 +71,9 @@ rules // session bean from page definition
 
         @In 
         private FacesMessages facesMessages;
+        
+        @In
+        private Renderer renderer;
 
         @Create @Begin(join=true) 
 	    public void initialize() {
@@ -97,6 +102,8 @@ rules // session bean from page definition
 	    ~*cbds5
 	    ~*cbds6
 	    ~*cbds7
+	    ~*cbds8
+	    ~*cbds9
       }
     ]|)
     where {| Parameter
@@ -119,6 +126,8 @@ rules // session bean from page definition
 	       ; cbds6  := <map(session-inouts);concat> <SessionEntities>
 	       ; bstm6* := <collect(initaction-to-initialization);concat> elems1
 	       ; cbds7  := <map(template-functions-to-code); concat> <repeat(once-TranIf)> []
+	       ; cbds8  := <collect(email-to-code); concat> elems1
+	       ; cbds9  := <collect(add-email-properties); concat> elems1
 	       |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
@@ -374,12 +383,21 @@ rules // template expression functions
 //     (x_fn, e) -> |[
 //       public boolean x_fn(
 rules // page variables
+
   
   vardecl-to-initialization :
-    VarDeclInit(x, s, e1) -> bstm*|[ x = e2; ]|
+    VarDeclInit(x, SimpleSort(s), e1) -> bstm*|[ x = e2; ]|
     where not(HqlQuery(_) := e1)
+        ; <not(HasFileProperty)> s
         ; e2 := <expression-to-java> e1
 
+  vardecl-to-initialization :
+    VarDeclInit(x, SimpleSort(s), e1) -> bstm*|[ x = e2; x.x_set(new File()); ]|
+    where not(HqlQuery(_) := e1)
+        ; Property(ident, k, sort, annos) := <once-HasFileProperty> s
+        ; x_set := <property-setter> ident
+        ; e2 := <expression-to-java> e1
+        
   vardecl-to-member-variable :
     VarDecl(x, s) -> |[
       private t x;
@@ -483,3 +501,25 @@ rules // For generating template functions
    template-function-param-to-java :
      (x, s) -> |[ t x ]|
      where t := <java-type> s
+
+rules // Email functionality
+
+  email-to-code :
+    ThisCall("email", [_]) ->
+      class-body-dec* |[
+        public void sendEmail(String template, String address) {
+          x_set(address);
+	      try {
+	        renderer.render(template);
+	        facesMessages.add("Email sent successfully");
+	      } catch (Exception ex) {
+	         log.error("Error sending mail", ex);
+	         facesMessages.add(FacesMessage.SEVERITY_INFO, "Email sending failed: " + ex.getMessage());
+	      }
+        }
+      ]|
+    where x_set := <property-setter> "_email_to_address"
+  
+  add-email-properties =
+    ?ThisCall("email", [_])
+    ; !<vardecl-to-member-variable> VarDecl("_email_to_address", SimpleSort("String"))
