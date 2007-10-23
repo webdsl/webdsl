@@ -4,14 +4,71 @@
 
 SEAMPROJECTDIR=.seamapp
 
+function stop_jboss {
+  ps a | grep jboss | grep java | grep -oE "^\s*[0-9]+" | xargs kill
+  for i in `seq 1 20`;
+  do
+    if [ `ps a | grep jboss | grep java | wc -l` == 0 ]; then
+      echo "JBoss stopped."
+      return 0
+    else
+      echo "JBoss still shutting down. Waiting another 5 seconds."
+    fi
+    sleep 5
+  done
+  echo "Gave on waiting."
+  return 1
+}
+
+function start_jboss {
+  echo "Starting JBoss..."
+  screen -d -m $JBOSSPATH/bin/run.sh -b 0.0.0.0
+   for i in `seq 1 20`;
+   do
+     sleep 5
+     echo "Checking if JBoss is running yet..."
+     curl http://localhost:8080 > /dev/null 2> /dev/null
+     if [ "$?" == 0 ]; then
+       echo "Yep!"
+       echo "You can watch the JBoss output by running 'screen -r', to detach the screen press Ctrl-a-d"
+       return 0
+     else
+       echo "Nope, not yet, waiting another 5 seconds..."
+     fi
+   done  
+   echo "Gave up."
+   return 1
+}
+
+function restart_jboss {
+  stop_jboss
+  start_jboss
+}
+
 function load_config {
   echo "Loading application settings (application.ini)..."
   if [ -f "application.ini" ]
   then
     . application.ini
+    NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH"
+    GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
+    SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
+    if [ `export | grep -E "($GREP_SET)" | wc -l` != $SETTING_COUNT ]
+    then
+      echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
+      echo -n "Want to adapt your application.ini now? [y/n] "
+      read ANSWER
+      if [ "$ANSWER" == "y" ]
+      then
+        APPNAME=`basename \`pwd\``
+        create_config $APPNAME
+        echo "Adapted application.ini. Run webdsl again to compile your project."
+      fi
+      return 0
+      fi
     return 1
   else
-    echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create am application.ini now? [y/n] "
+    echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n] "
     read ANSWER
     if [ "$ANSWER" == "y" ]
     then
@@ -27,32 +84,44 @@ function load_config {
 function create_config {
   echo "---- Database information ----"
   echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
-  echo -n "MySQL Host [localhost]: "
-  read DBSERVER
-  if [ "$DBSERVER" == "" ]
-  then
+  if [ "$DBSERVER" == "" ]; then
      DBSERVER=localhost
   fi
-
-  echo -n "MySQL Username [visser]: "
-  read DBUSER
-  if [ "$DBUSER" == "" ]
+  echo -n "MySQL Host [$DBSERVER]: "
+  read DB_SERVER
+  if [ "$DB_SERVER" != "" ]
   then
+     DBSERVER=$DB_SERVER
+  fi
+
+  if [ "$DBUSER" == "" ]; then
      DBUSER=visser
   fi
-  
-  echo -n "MySQL Password [dsl]: "
-  read DBPASSWORD
-  if [ "$DBPASSWORD" == "" ]
+  echo -n "MySQL Username [$DBUSER]: "
+  read DB_USER
+  if [ "$DB_USER" != "" ]
   then
-     DBPASSWORD=dsl
+     DBUSER=$DB_USER
   fi
   
-  echo -n "MySQL Databse [serg]: "
-  read DBNAME
-  if [ "$DBNAME" == "" ]
+  if [ "$DBPASSWORD" == "" ]; then
+     DBPASSWORD=dsl
+  fi
+  echo -n "MySQL Password [$DBPASSWORD]: "
+  read DB_PASSWORD
+  if [ "$DB_PASSWORD" != "" ]
   then
+     DBPASSWORD=$DB_PASSWORD
+  fi
+
+  if [ "$DBNAME" == "" ]; then
      DBNAME=serg
+  fi
+  echo -n "MySQL Database [$DBNAME]: "
+  read DB_NAME
+  if [ "$DB_NAME" != "" ]
+  then
+     DBNAME=DB_NAME
   fi
   echo "Now checking if database info works."
   `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
@@ -82,7 +151,9 @@ function create_config {
   fi
   
   echo "---- JBoss information ----"
-  JBOSSPATH=/opt/jboss
+  if [ "$JBOSSPATH" == "" ]; then
+    JBOSSPATH=/opt/jboss
+  fi
   echo -n "JBoss path for deployment [$JBOSSPATH]: "
   read BOSSPATH
   if [ "$BOSSPATH" == "" ]
@@ -103,7 +174,7 @@ function make_java_app {
   load_config
   if [ "$?" == 0 ]
   then
-    return 0
+    return 1
   fi
   if [ ! -e "$SEAMPROJECTDIR" ]
   then
@@ -169,6 +240,10 @@ case "$1" in
      ant deploy
      cd ..
      echo "Application has been deployed."
+     if [ "$2" == "restart" ]; then
+       echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
+       restart_jboss
+     fi
      ;;
   "undeploy" )
      load_config
