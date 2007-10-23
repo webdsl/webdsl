@@ -2,6 +2,8 @@
 
 # Author: Zef Hemel (zef@zefhemel.com)
 
+SEAMPROJECTDIR=.seamapp
+
 function load_config {
   echo "Loading application settings (application.ini)..."
   if [ -f "application.ini" ]
@@ -97,13 +99,13 @@ function create_config {
   echo "export DBNAME=$DBNAME" >> application.ini
 }
 
-function make_app {
+function make_java_app {
   load_config
   if [ "$?" == 0 ]
   then
     return 0
   fi
-  if [ ! -e ".seamapp" ]
+  if [ ! -e "$SEAMPROJECTDIR" ]
   then
     export WEBDSLPATH=`dirname $0`/../../../../..
     export DSLTOSEAM=$WEBDSLPATH/src/org/webdsl/dsl/generation/dsl-to-seam
@@ -111,27 +113,41 @@ function make_app {
     export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
     export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
     
-    echo "Creating Seam application in .seamapp..."
-    mkdir .seamapp
-    cd .seamapp
+    echo "Creating Seam application in $SEAMPROJECTDIR..."
+    mkdir $SEAMPROJECTDIR
+    cd $SEAMPROJECTDIR
     tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
     mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
     mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
     find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
     cd ..
   fi
-  cd .seamapp
+  cd $SEAMPROJECTDIR
   echo "Copying your application files..."
   find .. \( ! -regex '.*/\..*' \) -type f -name '*.app' -exec cp {} app \;
   find .. \( ! -regex '.*/\..*' \) -type f -name '*.css' -exec cp {} view/stylesheet \;
   echo "Building application..."
-  make && ant archive
+  make
+  RET="$?"
+  cd ..
+  return $RET
+}
+
+function make_app {
+  make_java_app
+  if [ "$?" != 0 ]
+  then
+    return 0
+  fi
+  cd $SEAMPROJECTDIR
+  echo "Now compiling generated Java code..."
+  ant archive
   cd ..
   if [ ! -e "dist" ]
   then
     mkdir dist
   fi
-  cp .seamapp/dist/$APPNAME.ear .seamapp/resources/$APPNAME-dev-ds.xml dist
+  cp $SEAMPROJECTDIR/dist/$APPNAME.ear $SEAMPROJECTDIR/resources/$APPNAME-dev-ds.xml dist
   return 1
 }
 
@@ -144,12 +160,14 @@ case "$1" in
      then
        return 0
      fi
-     if [ ! -e "dist" ]
+     if [ ! -e "$SEAMPROJECTDIR" ]
      then
        make_app
      fi
-     echo "Now copying dist files to JBoss deployment directory."     
-     cp dist/* $JBOSSPATH/server/default/deploy
+     echo "Now deploying application..."
+     cd $SEAMPROJECTDIR/
+     ant deploy
+     cd ..
      echo "Application has been deployed."
      ;;
   "undeploy" )
@@ -158,11 +176,14 @@ case "$1" in
      then
        return 0
      fi
-     if [ ! -e "dist" ]
+     if [ ! -e "$SEAMPROJECTDIR" ]
      then
-       make_app
+       make_java_app
      fi
-     cd dist; find * -exec rm -f $JBOSSPATH/server/default/deploy/{} \; ; cd ..
+     echo "Now undeploying application..."
+     cd $SEAMPROJECTDIR/
+     ant undeploy
+     cd ..
      echo "Application undeployed."
      ;;
   "new" )
@@ -187,11 +208,15 @@ case "$1" in
      ;;
   "clean" )
      echo "Removing seam project files"
-     rm -rf .seamapp
+     rm -rf $SEAMPROJECTDIR
      ;;
   "cleanall" )
      echo "Removing seam project files and dist directory."
-     rm -rf .seamapp dist
+     rm -rf $SEAMPROJECTDIR dist
+     ;;
+  "java" )
+     make_java_app
+     echo "Done, result is in $SEAMPROJECTDIR."
      ;;
   "" )
      make_app
@@ -203,6 +228,7 @@ case "$1" in
   * )
      echo "Options:"
      echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
+     echo "     java : Compile your application to java and JSF code, but do not compile them."
      echo "      new : Create a new, empty WebDSL application."
      echo "   deploy : Deploys your application to JBoss."
      echo "    clean : Removes the created Seam project."
