@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Author: Zef Hemel (zef@zefhemel.com)
+
 function load_config {
   echo "Loading application settings (application.ini)..."
   if [ -f "application.ini" ]
@@ -22,13 +23,15 @@ function load_config {
 }
 
 function create_config {
+  echo "---- Database information ----"
+  echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
   echo -n "MySQL Host [localhost]: "
   read DBSERVER
   if [ "$DBSERVER" == "" ]
   then
      DBSERVER=localhost
   fi
-  
+
   echo -n "MySQL Username [visser]: "
   read DBUSER
   if [ "$DBUSER" == "" ]
@@ -49,8 +52,35 @@ function create_config {
   then
      DBNAME=serg
   fi
+  echo "Now checking if database info works."
+  `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
+  if [ "$?" == 0 ]
+  then
+     echo "Succesful!"
+  else
+     echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
+     echo -n "MySQL root password: "
+     read ROOTPW
+     if [ "$ROOTPW" == "" ]
+     then
+	 mysqladmin -uroot create $DBNAME
+	 echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
+     else
+	 mysqladmin -uroot -p$ROOTPW create $DBNAME
+	 echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
+     fi
+     echo "Now checking if database creation worked..."
+     `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
+     if [ "$?" == 0 ]
+     then
+        echo "Yes!"
+     else
+	echo "No, unfortunately you'll have to create the database yourself."
+     fi
+  fi
   
-  JBOSSPATH=/home/zef/jboss
+  echo "---- JBoss information ----"
+  JBOSSPATH=/opt/jboss
   echo -n "JBoss path for deployment [$JBOSSPATH]: "
   read BOSSPATH
   if [ "$BOSSPATH" == "" ]
@@ -97,21 +127,17 @@ function make_app {
   echo "Building application..."
   make && ant archive
   cd ..
+  if [ ! -e "dist" ]
+  then
+    mkdir dist
+  fi
+  cp .seamapp/dist/$APPNAME.ear .seamapp/resources/$APPNAME-dev-ds.xml dist
   return 1
 }
 
-echo "WebDSL script version 0.1 by Zef Hemel"
+echo "WebDSL script version 0.2 by Zef Hemel"
 
 case "$1" in
-  "--help" )
-     echo "Options:"
-     echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
-     echo "      new : Create a new, empty WebDSL application."
-     echo "   deploy : Deploys your application to JBoss."
-     echo "    clean : Removes the created Seam project."
-     echo " cleanall : Removes the created Seam project and dist directory."
-     ;;
-
   "deploy" )
      load_config
      if [ "$?" == 0 ]
@@ -125,6 +151,19 @@ case "$1" in
      echo "Now copying dist files to JBoss deployment directory."     
      cp dist/* $JBOSSPATH/server/default/deploy
      echo "Application has been deployed."
+     ;;
+  "undeploy" )
+     load_config
+     if [ "$?" == 0 ]
+     then
+       return 0
+     fi
+     if [ ! -e "dist" ]
+     then
+       make_app
+     fi
+     cd dist; find * -exec rm -f $JBOSSPATH/server/default/deploy/{} \; ; cd ..
+     echo "Application undeployed."
      ;;
   "new" )
      echo -n "Application name (one word): "
@@ -154,17 +193,21 @@ case "$1" in
      echo "Removing seam project files and dist directory."
      rm -rf .seamapp dist
      ;;
-  * )
+  "" )
      make_app
      if [ "$?" == 1 ]
      then
-       if [ ! -e "dist" ]
-       then
-         mkdir dist
-       fi
-       cp .seamapp/dist/$APPNAME.ear .seamapp/resources/$APPNAME-dev-ds.xml dist
        echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
      fi
      ;;
+  * )
+     echo "Options:"
+     echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
+     echo "      new : Create a new, empty WebDSL application."
+     echo "   deploy : Deploys your application to JBoss."
+     echo "    clean : Removes the created Seam project."
+     echo " cleanall : Removes the created Seam project and dist directory."
+     ;;
+
 esac
 
