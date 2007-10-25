@@ -22,9 +22,12 @@ rules
       \))
     ; desugar-security
     ; declare-security
-    ; typecheck-security  
-    ; generate-security
+    ; typecheck-access-control-declarations  
+    ; generate-access-control-declarations
+    ; derive  
     ; declare-definitions
+    ; typecheck-access-control-rules-checks
+    ; generate-access-control-rules-checks
     ; if AccessControlEnabled then
     ( try(sometd(apply-checks-to-page))  
       ;try(sometd(apply-checks-to-template-defs-actions))     
@@ -46,8 +49,13 @@ rules
 	    ]| 
 	  ]
      
-  generate-security:
-  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-security-defs);concat> sections, <map(try(remove-security-decs))>sections] )
+  generate-access-control-declarations :
+  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
+
+  generate-access-control-rules-checks :
+  	Application(qid, sections) -> Application(qid,<map(try(remove-security-decs))> sections )
+  	where <collect(generate-access-control-rules-checks)> sections
+  	    
 
   remove-security-decs:
     Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
@@ -55,15 +63,14 @@ rules
   remove-security-decs:
     Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
 
-  generate-security-defs:
-	AccessControlDefinition(defs) -> 
-		<filter(security-subject
-					<+ create-rule-classes
-				)
-				> defs
+  generate-access-control-decs:
+	AccessControlDefinition(defs) -> <filter(security-subject)> defs
 	where rules (
 	  AccessControlEnabled := True()
 	)
+	
+  generate-access-control-rules-checks:
+	AccessControlDefinition(defs) -> <filter(create-rule-classes)> defs
 
   // there can be only one of these (not yet checked)
   security-subject:
@@ -176,7 +183,7 @@ rules
 			Security-Rules-List-From-Type : checktype -> newlistfromtype
 			//Security-Rule-Name : (checktype,matchstring) -> $varname
 		)
-		//; if checktype := "action" then <debug> <Security-Rules-List-From-Type> checktype end
+		//; <debug> <Security-Rules-List-From-Type> checktype
 		//;<filter(create-rule-classes-helper);concat> acrules
 
   remove-wildcards=
@@ -193,7 +200,7 @@ rules
   	; filteredrules := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
   	; if (filteredrules := [] ; <elem> (checktype,<Strict-Check-Types>)) 
   	  then
-  	    pt := [AccessControlRule(checktype,"*",[],[AccessControlCheckExpression(False())],[])]
+  	    pt := [AccessControlRule(checktype,"*",[],[AccessControlCheckExpression(False(){Type(SimpleSort("Bool"))})],[])]
   	  else
   	    pt := filteredrules
   	  end 
@@ -413,42 +420,33 @@ rules
 	    
   generate-extended-check:
     expr -> e0	    
- 	where extrachecks0 := <collect(ignore-for-exp <+ field-access-to-not-null-checks-first);concat> expr
-	    ; if <oncetd(?FieldAccess(Var("securityContext"),"principal"))> expr
+ 	where newexpr := <bottomup(try(match-any-bool-expr))> expr
+	    //add a logged in check when principal is used
+	    ; if <oncetd(?FieldAccess(Var("securityContext"),"principal"))> newexpr
 	      then
-	      extrachecks := [ |[ securityContext.loggedIn ]| | extrachecks0 ]
+	      extrachecks := [ |[ securityContext.loggedIn ]| ]
 	      else
-	      extrachecks := extrachecks0
+	      extrachecks := []
 	      end
-	    ; e0 := <concat;generate-conjunction-exp>[extrachecks,[expr]]
+	    ; e0 := <concat;generate-conjunction-exp>[extrachecks,[newexpr]]
+
+  match-any-bool-expr:
+    anyexp{Type(SimpleSort("Bool"))} -> newexp{Type(SimpleSort("Bool"))} 
+    where 
+        //must not contain other bool expressions otherwise not-null checks have already been made
+         [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
+        ; newe := <collect(ignore-for-exp <+ field-access-to-not-null-checks-first);concat> anyexp
+        ; newexp := <concat;generate-conjunction-exp>[newe,[anyexp]]
 
   ignore-for-exp :
-    ForExp(oe, x, s, ie) -> []	
-// @todo adding !=null checks to avoid nullpointer exceptions, in the context of access control rules a nullpointer could be automatically
-// resolved by deciding whether a null means returning true or false.
-  
-  //add-not-null-checks=
-   // add-not-null-checks-eq
-   // <+ add-not-null-checks-neq
-    //<+ field-access-to-not-null-checks
-     
-  //add-not-null-checks-eq:
-   // Eq(e1,e2) -> <concat>[newe1,newe2]
-   // where newe1 := <field-access-to-not-null-checks> e1
-   //     ; newe2 := <field-access-to-not-null-checks> e2
-
-  //add-not-null-checks-neq:
-   // NotEq(e1,e2) -> <concat>[newe1,newe2]
-   // where newe1 := <field-access-to-not-null-checks> e1
-   //     ; newe2 := <field-access-to-not-null-checks> e2
+    ForExp(oe, x, s, ie) -> []
 
   field-access-to-not-null-checks-first:
     fa@FieldAccess(ent,prop)-> return
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent
         then
-          checks := [ NotEq(Var(varname),Null()) ]  //the null check for the property being accessed is left out, needs to be further examined
-                                                    // to decide whether to add a not null check or not
+          checks := [ NotEq(Var(varname),Null()){Type(SimpleSort("Bool"))} ]
         else
           checks := []
         end
@@ -464,7 +462,7 @@ rules
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent
         then
-          checks := [ NotEq(Var(varname),Null()),check ]
+          checks := [ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check ]
         else
           checks := [check]
         end
@@ -476,7 +474,7 @@ rules
         end
   
   generate-conjunction-exp : 
-    [x|xs] ->  |[  e0 && e1  ]| 
+    [x|xs] ->  And( e0 , e1 ) {Type(SimpleSort("Bool"))}
     where not([] := xs)
         ; e0 := x
         ; e1 := <generate-conjunction-exp> xs 
