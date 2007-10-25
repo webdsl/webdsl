@@ -407,6 +407,7 @@ rules
     
   typecheck-definition =
     typecheck-template-definition
+    <+ typecheck-email-template-definition
     <+ typecheck-entity
     <+ typecheck-globals
     <+ ?def; typecheck-error(|["definition not typechecked: ", def])
@@ -550,8 +551,9 @@ rules // typechecking template definitions
 
   typecheck-template-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
-    where dbg(|"typecheck-definition in: ")
-        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage, IsEmail
+    where <not(elem)> (Email(), mods)
+        ; dbg(|"typecheck-definition in: ")
+        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage
            : in-tc-context(id
                ; dbg(|"typecheck-definition a: ")
                ; <map(declare-typeof-arg)> args
@@ -572,6 +574,73 @@ rules // typechecking template definitions
         rules( TypeOf : x -> s )
       end
 
+rules // typechecking email templates
+
+  typecheck-email-template-definition :
+    Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
+    where <elem> (Email(), mods)
+        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsEmail
+           : in-tc-context(id
+               ; <map(declare-typeof-arg)> args
+               ; <check-to-arg> args
+               ; <alltd(declare-action <+ declare-template-definition <+ typecheck-vardecl)> elems1
+               ; elems2 := <typecheck-email-elements> elems1
+             |["email-definition ", f, "/"])
+           |}
+
+  check-to-arg =
+    ?[arg|tail]
+    ; if <not(?Arg(_, SimpleSort("Email")))> := arg then
+        typecheck-error(|["First argument of email template should be of type Email"])
+      end
+
+  typecheck-email-elements =
+    check-email-element-presence(|"to")
+    ; check-email-element-presence(|"from")
+    ; check-email-element-presence(|"subject")
+    ; map(typecheck-email-element)
+    <+ ?elems; typecheck-error(|["not a list of elements: ", elems])
+  
+  typecheck-email-element = 
+    typecheck-email-to
+    <+ typecheck-email-from
+    <+ typecheck-email-subject
+    <+ typecheck-email-body
+  
+  check-email-element-presence(|tempcall) = where (
+    ?elems
+    ; t_list := <collect(?TemplateCall(tempcall, _, _))> elems
+    ; if <?[]> := t_list then
+        typecheck-error(|["Missing templatecall in email definition: ", tempcall])
+      end )
+  
+  typecheck-email-to :
+    TemplateCall("to", [elem1], []) -> TemplateCall("to", [elem2], [])
+    where elem2 := <typecheck-expression> elem1
+    ; if <not(?_{Type(SimpleSort("Email"))})> := elem2 then
+        typecheck-error(|["Argument of templatecall 'to' should be of type Email"])
+      end
+  
+  typecheck-email-from :
+    TemplateCall("from", [exp1, exp2], []) ->
+      TemplateCall("from", [exp3, exp4], [])
+    where exp3 := <typecheck-expression> exp1
+        ; exp4 := <typecheck-expression> exp2
+        ; if (<not(?_{Type(SimpleSort("String"))})> := exp3 ; <not(?_{Type(SimpleSort("String"))})> := exp4) then
+            typecheck-error(|["Templatecall 'from' takes two arguments of type String"])
+          end
+  
+  typecheck-email-subject :
+    TemplateCall("subject", [exp1], []) -> TemplateCall("subject", [exp2], [])
+    where exp2 := <typecheck-expression> exp1
+    ; if <not(?_{Type(SimpleSort("String"))})> := exp2 then
+        typecheck-error(|["Argument of templatecall 'subject' should be of type String"])
+      end
+          
+  typecheck-email-body :
+    TemplateCall("body", [], elems1) -> TemplateCall("body", [], elems2)
+    where elems2 := <typecheck-page-elements> elems1
+  
 rules // typechecking page elements 
       
   typecheck-page-elements =
@@ -639,13 +708,16 @@ rules // typechecking page elements
           | ["navigate/"])
              
   typecheck-call-email :
-    ThisCall(p, [e1@ThisCall(name, args)]) -> ThisCall(p, [e1])
+    ThisCall(p, [e1@ThisCall(name, [email|args])]) -> ThisCall(p, [e1])
     where "email" := p
         ; if not(<IsEmail> name) then
             typecheck-error(|["email to undefined emailtemplate ", name])
-// @todo
-//          else
-//            e2 := <typecheck-expression> e1
+          else
+            e2 := <typecheck-variable <+ typecheck-fieldaccess> email
+            ; ?_{Type(t@SimpleSort(tt))}
+            ; if not(SimpleSort("Email") := t) then
+                typecheck-error(|["email to property of type ", tt, " should be of type Email"])
+              end
           end
   
   typecheck-link :
@@ -655,7 +727,6 @@ rules // typechecking page elements
   typecheck-link :
     ThisCall(p, args1) -> ThisCall(p, args2)
     where not("url" := p)
-        ; not("email" := p)
         ; if not(<IsPage> p) then
             typecheck-error(|["link to undefined page ", p])
           else

@@ -9,20 +9,36 @@ imports
     
 rules
   
-  email-to-xml : 
-    def@Define([Email()], x, args, elems1) ->
-      XmlFile(["view"], <concat-strings>[x, ".xhtml"], 
+  emails-to-xml =
+    ?def@Define([Email()], x, args, elems1)
+    ; email_calls := <EmailCallList> x
+    ; <map(construct-email(|def))> email_calls
+  
+  construct-email(|def) =
+    call_from_page := <id>
+    ; <email-to-xml(|call_from_page)> def
+  
+  email-to-xml(|call_from_page) : 
+    Define([Email()], x, fargs, elems1) ->
+      XmlFile(["view"], <concat-strings>[template_name, ".xhtml"], 
 		%>
 		<?xml version="1.0" encoding="UTF-8"?>
 		
 		<m:message xmlns="http://www.w3.org/1999/xhtml"
 		           xmlns:m="http://jboss.com/products/seam/mail"
 		           xmlns:h="http://java.sun.com/jsf/html">
-		    <%= elems2 ::*%>
+		    <%= elems3 ::*%>
 		</m:message>
 		<%)
-  where elems2 := <email-elems-to-xhtml> elems1
+  where template_name := <EmailCallToTemplateName> call_from_page
+      ; ThisCall("email", [ThisCall(name2, aargs)]) := call_from_page
+      ; arg_list := <zip> (fargs, aargs)
+      ; elems2 := <alltd(transform-variables(|arg_list))> elems1
+      ; elems3 := <email-elems-to-xhtml> elems2
 
+  transform-variables(|arg_list) :
+    Var(name) -> exp
+    where <collect(?(Arg(name, _), exp))> arg_list
 
   email-elems-to-xhtml =
     filter-concat-warn(email-elem-to-xhtml <+ undefined-template-call | "email-elem-to-xhtml undefined: ")
@@ -33,9 +49,7 @@ rules
       <m:to address="<%= email_address %>" />
     <%
     where email_address := <arg-to-value-string> elem
- 
- //  name="<%= name %>" address="<%= email %>"
- 
+  
   email-elem-to-xhtml :
     TemplateCall("from", [String(name), String(email)], []) ->
     %>
@@ -54,6 +68,6 @@ rules
     TemplateCall("body", [], elems) ->
     %>
       <m:body>
-        bladiebla
+        <%= <elems-to-xhtml> elems::* %>
       </m:body>
     <%
