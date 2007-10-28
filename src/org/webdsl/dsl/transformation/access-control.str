@@ -426,23 +426,22 @@ rules
 
   match-any-bool-expr:
     anyexp{Type(SimpleSort("Bool"))} -> newexp{Type(SimpleSort("Bool"))} 
-    where 
-        //must not contain other bool expressions otherwise not-null checks have already been made
-         [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
-        ; newe := <collect(ignore-for-exp <+ field-access-to-not-null-checks-first);concat> anyexp
-        ; if <oncetd(?FieldAccess(Var("securityContext"),"principal"))> anyexp
-	      then
-	      extrachecks := [ |[ securityContext.loggedIn ]| ]
-	      else
-	      extrachecks := []
-	      end
-        ; newexp := <concat;generate-conjunction-exp>[extrachecks,newe,[anyexp]]
+    where //must not contain other bool expressions otherwise not-null checks have already been made
+          [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
+        ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
+        ; newexp := <concat;generate-conjunction-exp>[newe,[anyexp]]
 
-  ignore-for-exp :
+  ignore-certain-exp :
     ForExp(oe, x, s, ie) -> []
 
+  ignore-certain-exp :
+    Call(_,_,_) -> []
+    
+  ignore-certain-exp :
+    ThisCall(_,_) -> []
+
   field-access-to-not-null-checks-first:
-    fa@FieldAccess(ent,prop)-> return
+    fa@FieldAccess(ent,prop)-> extrachecks
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent
         then
@@ -455,6 +454,12 @@ rules
           return := <concat> [newchecks, checks]
         else
           return := checks
+        end
+        ; if fa:=FieldAccess(Var("securityContext"),"principal")
+        then
+        extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
+        else
+        extrachecks := return
         end
 
   field-access-to-not-null-checks:
