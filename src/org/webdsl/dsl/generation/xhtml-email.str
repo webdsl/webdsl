@@ -32,31 +32,39 @@ rules
 		<%)
   where (template_name, page) := <EmailCallToTemplateName> call_from_page
       ; ThisCall("email", [ThisCall(name2, aargs)]) := call_from_page
-      ; arg_list := <zip> (fargs, aargs)
+      ; {|
+          ArrayIndex : bargs := <map(parameters-to-array-calls(|page))> aargs
+        |}
+      ; arg_list := <zip> (fargs, bargs)
       ; elems2 := <alltd(transform-variables(|arg_list))> elems1
-      ; elems3 := <email-elems-to-xhtml(|page)> elems2
+      ; elems3 := <email-elems-to-xhtml> elems2
 
   transform-variables(|arg_list) :
     Var(name) -> exp
     where <collect(?(Arg(name, _), exp))> arg_list
 
-  email-elems-to-xhtml(|page) =
-    filter-concat-warn(email-elem-to-xhtml(|page) <+ undefined-template-call | "email-elem-to-xhtml undefined: ")
+  parameters-to-array-calls(|x_page) =
+    rules( ArrayIndex := <(ArrayIndex; inc) <+ !0> )
+    ; x_parm := <concat-strings>[<GetEmailArgumentsList> x_page, "[", <ArrayIndex; int-to-string>, "]"] 
+    ; !FieldAccess(Var(x_page){Type("Component")}, x_parm)
+
+  email-elems-to-xhtml =
+    filter-concat-warn(email-elem-to-xhtml <+ undefined-template-call | "email-elem-to-xhtml undefined: ")
   
-  email-elem-to-xhtml(|page) :
+  email-elem-to-xhtml :
     TemplateCall("to", [elem], []) ->
     %>
-      <m:to address="#{<%= page %>._email_to_address}" />
+      <m:to address="<%= email_address %>" />
     <%
- //   where email_address := <arg-to-value-string> elem
+    where email_address := <arg-to-value-string> elem
   
-  email-elem-to-xhtml(|page) :
+  email-elem-to-xhtml :
     TemplateCall("from", [String(name), String(email)], []) ->
     %>
       <m:from name="<%= name %>" address="<%= email %>" />
     <%
     
-  email-elem-to-xhtml(|page) :
+  email-elem-to-xhtml :
     TemplateCall("subject", [String(subject)], []) ->
     %>
       <m:subject>
@@ -64,7 +72,7 @@ rules
       </m:subject>
     <%
   
-  email-elem-to-xhtml(|page) :
+  email-elem-to-xhtml :
     TemplateCall("body", [], elems) ->
     %>
       <m:body>

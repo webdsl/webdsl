@@ -126,8 +126,8 @@ rules // session bean from page definition
 	       ; cbds6  := <map(session-inouts);concat> <SessionEntities>
 	       ; bstm6* := <collect(initaction-to-initialization);concat> elems1
 	       ; cbds7 := <template-functions-to-java> <decapitalize-string> x_Page
-	       ; cbds8  := <collect(email-to-code); concat> elems1
-	       ; cbds9  := <collect(add-email-properties); concat> elems1
+	       ; cbds8  := <add-email-properties(|x_page)> elems1
+	       ; cbds9  := <email-to-code(|x_page)> elems1
 	       |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
@@ -497,11 +497,13 @@ rules // For generating template functions
 
 rules // Email functionality
 
-  email-to-code :
-    ThisCall("email", [_]) ->
-      class-body-dec* |[
-        public void sendEmail(String template, String address) {
-          x_set(address);
+  email-to-code(|page) =
+    if <oncetd(?ThisCall("email", [_]))> <id> then
+      list_property := <GetEmailArgumentsList> page
+      ; x_set := <property-setter> list_property
+      ; ! class-body-dec* |[
+        public void sendEmail(String template, ArrayList _list) {
+          x_set(_list);
 	      try {
 	        renderer.render(template);
 	        facesMessages.add("Email sent successfully");
@@ -511,9 +513,30 @@ rules // Email functionality
 	      }
         }
       ]|
-    where x_set := <property-setter> "_email_to_address"
+    else
+      ![]
+    end
 
-  add-email-properties =
-    ?ThisCall("email", [_])
-    ; !<vardecl-to-member-variable> VarDecl("_email_to_address", SimpleSort("Email"))
-    
+  add-email-properties(|page) =
+    if <oncetd(?ThisCall("email", [_]))> <id> then
+	    x := <newname> "email_arguments"
+        ; rules ( GetEmailArgumentsList : page -> x )
+        ; X     := <capitalize-string> x
+        ; x_get := <concat-strings>["get", X]
+        ; x_set := <concat-strings>["set", X]
+	    ; ! |[
+		      private ArrayList x;
+		      
+		      public ArrayList x_get() {
+		        log.info("~x_get");
+		        return x;
+		      }
+		      
+		      public void x_set(ArrayList x) {
+		        log.info("~x_set");
+		        this.x = x;
+		      }
+		    ]|
+    else
+      ![]
+    end

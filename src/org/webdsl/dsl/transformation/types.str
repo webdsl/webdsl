@@ -709,16 +709,20 @@ rules // typechecking page elements
              
   typecheck-call-email :
     ThisCall(p, [e1@ThisCall(name, [email|args])]) -> ThisCall(p, [e1])
-    where "email" := p
-        ; if not(<IsEmail> name) then
-            typecheck-error(|["email to undefined emailtemplate ", name])
-          else
-            e2 := <typecheck-variable <+ typecheck-fieldaccess> email
-            ; ?_{Type(t@SimpleSort(tt))}
-            ; if not(SimpleSort("Email") := t) then
-                typecheck-error(|["email to property of type ", tt, " should be of type Email"])
+    where in-tc-context(id
+            ; "email" := p
+            ; if not(<IsEmail> name) then
+                typecheck-error(|["email to undefined emailtemplate ", name])
+              else
+                args2 := <map(typecheck-expression)> [email|args]
+                ; <match-arguments> (<TemplateArguments> name, args2)
+                ; <typecheck-variable <+ typecheck-fieldaccess> email
+                ; ?_{Type(t@SimpleSort(tt))}
+                ; if not(SimpleSort("Email") := t) then
+                    typecheck-error(|["email to property of type ", tt, " should be of type Email"])
+                  end
               end
-          end
+          | ["email/"])
   
   typecheck-link :
     ThisCall("url", [e1]) -> ThisCall("url", [e2])
@@ -737,7 +741,7 @@ rules // typechecking page elements
     TemplateCall(f, args1, elems1) -> TemplateCall(f, args2, elems2)
     where in-tc-context(id
             ; args2 := <map(typecheck-expression)> args1
-            ; try(<zip(try(match-argument))> (<TemplateArguments> f, args2))
+            ; try(<match-arguments> (<TemplateArguments> f, args2))
             ; elems2 := <typecheck-page-elements> elems1
             | [f, "/"])
         
@@ -756,7 +760,15 @@ rules // typechecking page elements
                 ; elems2 := <typecheck-page-elements> elems1
                 |}
              | [f, "/"] ) 
-                   
+   
+   match-arguments = 
+     ?(formal_args, actual_args)
+     ; if not(equal(|<length> formal_args, <length> actual_args)) then
+         typecheck-error(|["number of formal arguments and actual arguments do not match"])
+       else
+         <zip(try(match-argument))> (formal_args, actual_args)
+       end
+                      
    match-argument =
     ?(Arg(x, t1), e{Type(t2)})
     ; if not(<subtype-of>(t2, t1)) then

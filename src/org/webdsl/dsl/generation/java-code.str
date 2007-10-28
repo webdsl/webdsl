@@ -145,6 +145,7 @@ rules // statements
      <+ vardecl-to-java
      <+ for-to-java
      <+ if-to-java
+     <+ email-to-java
      <+ stat-to-java
      <+ return-to-java
      <+ goto-to-java
@@ -153,7 +154,26 @@ rules // statements
    block-to-java :
      Block(stm*) -> bstm|[ { bstm* } ]|
      where bstm* := <statements-to-java> stm*
-     
+
+   email-to-java :
+     Stat(e1@ThisCall("email", [ThisCall(name, args)])) ->
+       bstm* |[
+         ArrayList x_list = new ArrayList();
+         bstm1*
+         this.sendEmail(x_templ, x_list);
+       ]|
+     where (template_name, _) := <EmailCallToTemplateName> e1
+         ; x_templ := <concat-strings; double-quote>[template_name, ".xhtml"]
+         ; x_list := <newname> "_email_arguments"
+         ; bstm1* := <map(email-arguments-to-java(|x_list))> args
+         
+  email-arguments-to-java(|x_list) =
+    ?argument
+    ; e1 := <expression-to-java> argument
+    ; !|[
+         x_list.add(e1);
+       ]|
+
    stat-to-java :
      Stat(e1) -> |[ e2; ]|
      where e2 := <expression-to-java> e1
@@ -452,7 +472,6 @@ rules // expressions
      persist-call-to-java
      <+ remove-call-to-java
      <+ count-call-to-java
-     <+ email-call-to-java
      <+ call-to-java
      
    persist-call-to-java :
@@ -474,15 +493,6 @@ rules // expressions
    count-call-to-java :
      Call(e1, "count", []) -> |[ e2.size() ]|
      where e2 := <expression-to-java> e1
-     
-   email-call-to-java :
-     thiscall@ThisCall("email", [ThisCall(name, [email|args])]) -> 
-       |[
-         this.sendEmail(x_templ, e2)
-       ]|
-     where e2 := <expression-to-java> email
-         ; (template_name, _) := <EmailCallToTemplateName> thiscall
-         ; x_templ := <concat-strings; double-quote>[template_name, ".xhtml"]
    
    call-to-java :
      Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
