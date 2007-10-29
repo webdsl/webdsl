@@ -129,7 +129,7 @@ strategies // register all declared entities
                    (SimpleSort(x_class), f, t2*) -> sort
                        where <zip(type-compatible)> (t1*, t2*)
                    )
-     ; rules( CheckFunctionSignature :
+     ; rules( CheckFunctionSignature : // TODO: Make context-dependent
                    (None(), f, t2*) -> sort
                        where <zip(type-compatible)> (t1*, t2*)
                    )                   
@@ -182,18 +182,23 @@ strategies
 strategies
   
   declare-globals =
-    ?gd@GlobalsDefinition(vardecls)
-	; <map(try(declare-global-vars))> vardecls
+    ?gd@GlobalsDefinition(decls)
+    ; <map(declare-global-vars <+ declare-global-funcs)> decls
     ; !gd
      
   declare-global-vars =
-  	?VarDeclInit(ident,sort,_)	
-  	;rules
-  	(
-  		TypeOf : ident -> sort
-  		IsGlobal : ident
-  	)
-  	
+    ?VarDeclInit(ident,sort,_)	
+    ; rules (
+        TypeOf : ident -> sort
+        IsGlobal : ident )
+
+  declare-global-funcs =
+    ?fu@Function(f, args, s, b)
+    ; t1* := <map(?Arg(_,<id>))> args
+    ; rules ( CheckGlobalFunctionSignature : (None(), f, t2*) -> s 
+                       where <zip(type-compatible)> (t1*, t2*))
+    ; rules ( IsGlobalFunction : (f, args, s) )
+
 strategies
 
   java-type =
@@ -496,12 +501,22 @@ rules // typechecking entity functions
   typecheck-function :
     Function(f, args, sort, body1) -> Function(f, args, sort, body2)
     where( {| TypeOf, ReturnType
-           : in-tc-context(
+            : in-tc-context(
                rules( ReturnType := sort )
                ; <map(declare-typeof-arg)> args
                ; body2 := <typecheck-function-block> body1
              |["function ", f, "/"])
            |} )
+         ; if <IsGlobalFunction> (f, args, sort) then
+             body3 := <try(repeat(sometd(DesugarLiftExp)))> body2
+             ; if [] := <collect(?Function(f, args, sort, _))> <global-functions>
+             then
+               new-global-functions := [Function(f, args, sort, body3)|<global-functions <+ ![]>]
+             else
+               new-global-functions := <global-functions <+ ![]>
+             end
+             ; rules ( global-functions :=  new-global-functions )
+          end
            
   typecheck-function-stat =
     typecheck-function-block
@@ -532,16 +547,15 @@ rules //typechecking globals
     where {| TypeOf
            : in-tc-context(
                body2 := 
-               <map(typecheck-vardecl-extra-global;typecheck-vardecl)> body1
+               <map(typecheck-vardecl-extra-global ; typecheck-vardecl <+ typecheck-function)> body1
              |["globals /"])
            |}
 
   typecheck-vardecl-extra-global :
     VarDeclInit(x, s, e1) -> VarDeclInit(x, s, e1)
-    where if not( <defined-java-type> s )
-			then
-				typecheck-error(|["type not allowed or unknown in global declaration ", s])
-			end
+    where if not( <defined-java-type> s ) then
+            typecheck-error(|["type not allowed or unknown in global declaration ", s])
+          end
 
   typecheck-vardecl-extra-global :
     VarDecl(x, s) -> VarDecl(x, s)
@@ -1286,6 +1300,7 @@ rules // signature
     ?sig
     ; (CheckActionSignature
        <+ CheckFunctionSignature
+       <+ CheckGlobalFunctionSignature
        <+ check-builtin-signature
        <+ typecheck-error(|["type error in call ", sig]))
     
