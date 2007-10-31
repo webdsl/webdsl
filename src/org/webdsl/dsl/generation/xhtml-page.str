@@ -407,10 +407,11 @@ rules // links
   
 rules // forms
 
-  elem-to-xhtml :
+  elem-to-xhtml :  // the <f:facet> puts validation errors behind their inputs
     TemplateCall("form", [], elems) ->
     %>
       <h:form enctype="multipart/form-data">
+        <f:facet name="afterInvalidField"><s:message/></f:facet>
         <s:validateAll><%= <elems-to-xhtml> elems ::*%></s:validateAll>
       </h:form>
     <%
@@ -470,6 +471,22 @@ rules // forms
    elem-to-xhtml :
      Action(name, args, body) -> []
      
+rules // helper rules for input    
+
+  input-of-required-property(|e)=
+    if <page-var-access-to-class-prop-tuple;PropertyIsRequired> e
+    then
+      !"true"   
+    else
+      !"false"   
+    end
+        
+  get-type-of-right-side-field-access:
+    FieldAccess(e, f){Type(SimpleSort(thetype))} -> thetype 
+    
+  page-var-access-to-class-prop-tuple :
+    FieldAccess(e, f) -> (<get-type-of-right-side-field-access> e,f)    
+     
 rules // input
 
     // @todo configure requiredness of fields
@@ -478,45 +495,49 @@ rules // input
     // maybe deal with that through desugaring, i.e., have more
     // specific inputX template calls
     
-    // @todo also special support for Email, URL, Image
+    // @todo also special support for Email, URL, Image 
     
   elem-to-xhtml :
     TemplateCall("input",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputText" value="<%= estring %>"/>
+        <h:inputText styleClass="inputText" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where warn(|["underived input element"])
         ; estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     
   elem-to-xhtml :
     TemplateCall("inputString",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputString" value="<%= estring %>"/>
+        <h:inputText styleClass="inputString" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     
   elem-to-xhtml :
     TemplateCall("inputEmail",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputEmail" value="<%= estring %>"/>
+        <h:inputText styleClass="inputEmail" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     // @todo validate email address
     
   elem-to-xhtml :
     TemplateCall("inputURL",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputURL" value="<%= estring %>"/>
+        <h:inputText styleClass="inputURL" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     
     // @todo validate URL
     
@@ -524,10 +545,11 @@ rules // input
     TemplateCall("inputImage",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputString" value="<%= estring %>"/>
+        <h:inputText styleClass="inputString" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     
     // @todo validate image
     
@@ -537,44 +559,48 @@ rules // input
     TemplateCall("inputInt",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputText styleClass="inputInt" value="<%= estring %>"/>
+        <h:inputText styleClass="inputInt" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
 
   elem-to-xhtml :
     TemplateCall("inputBool",[e],[]) ->
     %>
       <s:decorate>
-        <h:selectBooleanCheckbox styleClass="inputBool" value="<%= estring %>" />
+        <h:selectBooleanCheckbox styleClass="inputBool" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
 
   elem-to-xhtml :
     TemplateCall("inputText",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputTextarea styleClass="inputTextarea" value="<%= estring %>"/>
+        <h:inputTextarea styleClass="inputTextarea" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
     
   elem-to-xhtml :
     TemplateCall("inputSecret",[e],[]) ->
     %>
       <s:decorate>
-        <h:inputSecret styleClass="inputSecret" value="<%= estring %>"/>
+        <h:inputSecret styleClass="inputSecret" value="<%= estring %>" required="<%= req %>"/>
       </s:decorate>
     <%
     where estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
 
   elem-to-xhtml :
     TemplateCall("inputDate",[e],[]) ->
     %>
       <s:decorate>
         <div>
-          <h:inputText id="<%= label%>" styleClass="inputDate" value="<%= estring %>">
+          <h:inputText id="<%= label%>" styleClass="inputDate" value="<%= estring %>" required="<%= req %>">
              <s:convertDateTime pattern="dd/MM/yyyy"/>
           </h:inputText>
           <s:selectDate for="<%= label %>"/>
@@ -583,6 +609,7 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; label := <newname> "inputDateId"
+        ; req := <input-of-required-property(|e)>
 
   elem-to-xhtml :
     TemplateCall("inputFile",[e],[]) ->
@@ -591,11 +618,12 @@ rules // input
 	    <s:fileUpload id="<%= label%>"
 			data="#{<%= estring %>.data}"
 			contentType="#{<%= estring %>.contenttype}"
-			fileName="#{<%= estring %>.name}" />
+			fileName="#{<%= estring %>.name}" required="<%= req %>"/>
       </div>
     <%
     where estring := <arg-to-el> e
         ; label := <newname> "inputFileId"
+        ; req := <input-of-required-property(|e)>
     
   elem-to-xhtml =
     ?TemplateCall("inputBinary",[e],[])

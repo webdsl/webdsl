@@ -144,5 +144,41 @@
    AccessControlRule 				          -- KW["rules"] _1 _2 KW["("] _3 KW[")"] KW["{"] _4 _5 KW["}"],
    AccessControlCheckExpression		    -- _1,
    MatchArgs						              -- _1 _2,
-   AccessControlDefinition            -- KW["predicate"] _1 KW["("] _2 KW[")"] _3
+   AccessControlDefinition            -- KW["predicate"] _1 KW["("] _2 KW[")"] _3,
+   
+   %%validation annos
+   ValidationAnnoLength           -- KW["length"] KW["("] _1 KW[","] _2 KW[")"], 
+   ValidationAnnoMinLength        -- KW["minlength"] KW["("] _1 KW[")"],  
+   ValidationAnnoMaxLength        -- KW["maxlength"] KW["("] _1 KW[")"], 
+   ValidationAnnoNotEmpty         -- KW["notempty"],
+   ValidationAnnoEmail            -- KW["email"],
+   ValidationAnnoCreditCardNumber -- KW["creditcardnumber"],
+   ValidationAnnoEAN              -- KW["EAN"],
+   ValidationAnnoPattern          -- KW["pattern"] KW["("] _1 KW[")"],        
+   ValidationAnnoPatternWithFlags -- KW["pattern"] KW["("] _1 KW[","] _2 KW[")"], 
+               
+   FlagCanonEq                    -- KW["canonicalequivalence"],
+   FlagCaseInsensitive            -- KW["caseinsensitive"],
+   FlagComments                   -- KW["comments"],
+   FlagDotAll                     -- KW["dotall"],
+   FlagLiteral                    -- KW["literal"],
+   FlagMultiline                  -- KW["multiline"],  
+   FlagUnicode_Case               -- KW["unicodecase"],
+   FlagUnixLines                  -- KW["unixlines"],
+   
+   ValidationAnnoMax              -- KW["max"] KW["("] _1 KW[")"], 
+   ValidationAnnoMin              -- KW["min"] KW["("] _1 KW[")"], 
+   ValidationAnnoRange            -- KW["range"] KW["("] _1 KW[","] _2 KW[")"], 
+   ValidationAnnoMinRange         -- KW["minrange"] KW["("] _1 KW[")"], 
+   ValidationAnnoMaxRange         -- KW["maxrange"] KW["("] _1 KW[")"],   
+   ValidationAnnoDigits           -- KW["digits"] KW["("] _1 KW[","] _2 KW[")"],     
+   ValidationAnnoPast             -- KW["past"],   
+   ValidationAnnoFuture           -- KW["future"],           
+   ValidationAnnoSize             -- KW["size"] KW["("] _1 KW[","] _2 KW[")"], 
+   ValidationAnnoMinSize          -- KW["minsize"] KW["("] _1 KW[")"],  
+   ValidationAnnoMaxSize          -- KW["maxsize"] KW["("] _1 KW[")"],  
+   ValidationAnnoNotNull          -- KW["notnull"],    
+   ValidationAnnoAssertTrue       -- KW["asserttrue"],  
+   ValidationAnnoAssertFalse      -- KW["assertfalse"],  
+   ValidationAnnoValid            -- KW["valid"]
 ]
