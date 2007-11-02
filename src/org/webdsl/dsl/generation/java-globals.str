@@ -183,6 +183,26 @@ rules // globals to java initialization code
 		]|
 	where x_acpident := <new>
 		; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
-		; bstmvardeclinit* := <statements-to-java> [VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))]
+		; ObjectCreation(class,assigns) := expressions
+		; digests := <filter(secret-assigns-to-digest(|x_ident,class))> assigns		
+		; if [] := digests then
+            bstmvardeclinit* := <statements-to-java> [VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))]
+		  else
+            bstmvardeclinit* := <conc> (<statements-to-java>[VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))],digests)
+		  end
 		; x_methodname := <concat-strings> ["globalDeclaration",x_ident]
-		
+
+			
+  secret-assigns-to-digest(|x_ident,class):
+    Assignment(x_prop,String(anystring){Type(SimpleSort("String"))}) ->	
+     bstm|[
+       {       
+         org.jasypt.util.password.StrongPasswordEncryptor x_var2 = 
+           new org.jasypt.util.password.StrongPasswordEncryptor();
+         x_ident.x_set(x_var2.encryptPassword(x_anystring));
+       } 
+     ]|
+     where SimpleSort("Secret") := <TypeOfProperty> (class,x_prop)
+         ; x_var2 := <newname> "_passwordEncryptor"
+         ; x_set := <property-setter> x_prop
+         ; x_anystring := <concat-strings> ["\"",anystring,"\""]
