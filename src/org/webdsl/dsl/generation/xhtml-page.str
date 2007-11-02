@@ -19,6 +19,7 @@ rules
       xmlns:ui="http://java.sun.com/jsf/facelets"
       xmlns:h="http://java.sun.com/jsf/html"
       xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:c="http://java.sun.com/jstl/core"
       xmlns:s="http://jboss.com/products/seam/taglib"
       xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
       xmlns:t="http://myfaces.apache.org/tomahawk"
@@ -91,8 +92,14 @@ rules // embedding expressions in presentation
 
   arg-to-el-string :
     e -> <concat-strings>["#{", x, "}"]
-    where x := <arg-to-el> e 
+    where <not(?Add(_, _))> := e
+        ; x := <arg-to-el> e 
   
+  arg-to-el-string :
+    Add(e1, e2) -> <concat-strings> [a, b]
+    where a := <arg-to-value-string> e1
+        ; b := <arg-to-value-string> e2
+    
   arg-to-el :
     Var(x) -> <concat-strings> [<Component>,".",x]
   		where <IsSessionVariable> x
@@ -332,7 +339,7 @@ rules // iteration
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
-      <h:panelGroup rendered="<%= e %>"><%= elems2 ::*%></h:panelGroup>
+      <c:if test="<%= e %>"><%= elems2 ::*%></c:if>
     <%
     where elems2 := <elems-to-xhtml> elems
         
@@ -701,43 +708,37 @@ rules // output
 
 rules // function stuff
 
-   collect-vars : Var(x) {Type(t)} -> Var(x) {Type(t)}
-     where rules ( CollectV :+ l -> <concat> [[(x, t)], l] where not(<elem> ((x, t), l)) )
-   
-   collect-vars : ForExp(oe, x, s, ie) -> <id>
-
-   param-to-el :
-     (p, s) -> p
-     where not(<PrefixComponent> Var(p) {Type("Whatever")}) // Just in case add a type
-
-   param-to-el :
-     (p, s) -> <separate-by(|"."); concat-strings> [<PageName>, p]
-     where <PrefixComponent> Var(p) {Type("Whatever")}
-
    translate-if :
-     Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
-     where {| PrefixComponent, SpecializeActionCall, PageName
-            : <map(declare-component-prefix(|name))> args
-            ; <get-page-vardecls; map(declare-component-prefix(|name))> body1
-            ; rules ( PageName := name )
+     Define(mods, name, args, body1) -> Define(mods, name, args, body2)
+     where <elem> (Page(), mods)
+         ; {| Component
+            : rules ( Component := name )
             ; body2 := <try(sometd(translate-if))> body1
             |}
+         ; try (if <oncetd(?ThisCall("email", [_]))> body1 then
+             if not(<GetEmailArgumentsList> name) then
+               x := <newname> "email_arguments"
+               ; rules ( GetEmailArgumentsList : name -> x )
+             end
+           end)
 
+   translate-if :
+     def@Define(mods, name, args, body1) -> def
+     where <elem> (Email(), mods)
+         ; {| Component
+	        : email_calls := <EmailCallList> name
+	        ; definitions := <map(construct-email-definition(|def))> email_calls
+	        ; rules ( EmailDefinitions : name -> definitions )
+	        |}
+            
    translate-if : IfTempl(e, elems1*) -> IfTempl(el, elems2*) // This is kind of ughly, but ok
      where fn := <newname> "templateFunction"
-         ; {| CollectV
-            : <try(sometd(collect-vars))> e
-            ; params := <repeat(once-CollectV)> []
-            |}
-         ; el := <concat-strings> ["#{", <PageName>, ".", fn, "(", <map(param-to-el); separate-by(|","); concat-strings> params, ")}"]
-         ; pn := <PageName>
-         //; rules( TranIf :+ l -> <concat> [[(fn, params, e)], l] )
+         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> e
+         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+         ; pn := <Component>
          ; rules( IfExpressions :+ l -> [(pn, fn, params, e)|l] )
          ; elems2* := <try(sometd(translate-if))> elems1*
 
-//   function-param-to-sig :
-//     (x, s) -> <sort-to-java-type-string> s
-//
    unId : Id(x) -> x
   
    packagename-to-string :

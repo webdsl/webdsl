@@ -492,15 +492,33 @@ rules // For generating template functions
        public boolean x_fn(param*) {
          stm
        } ]|
-     where param* := <map(template-function-param-to-java)> params
-         ; {| InFunction
-            : rules ( InFunction := "Yes" )
-            ; stm := <statement-to-java> <try(DesugarLiftExp)> Return(e)
+     where {| InFunction, TransformParameterName
+            : param* := <map(template-function-param-to-java)> params
+            ; rules ( InFunction := "Yes" )
+            ; e2 := <try(sometd(replace-template-call-params))> e
+            ; stm := <statement-to-java> <try(DesugarLiftExp)> Return(e2)
             |}
-    
+   
+   replace-template-call-params :
+     FieldAccess(e, x) {Type(s)} -> Var(y) {Type(s)}
+     where y := <TransformParameterName> x
+     
+   replace-template-call-params :
+     Var(x) {Type(s)} -> Var(y) {Type(s)}
+     where y := <TransformParameterName> x
+     
    template-function-param-to-java :
-     (x, s) -> |[ t x ]|
+     FieldAccess(_, x) {Type(s)} -> |[ t y ]|
      where t := <java-type> s
+         ; y := <newname> "param"
+         ; rules ( TransformParameterName : x -> y )
+
+   template-function-param-to-java :
+     Var(x) {Type(s)} -> |[ t y ]|
+     where t := <java-type> s
+         ; y := <newname> "param"
+         ; rules ( TransformParameterName : x -> y )
+
 
 rules // Email functionality
 
@@ -526,8 +544,7 @@ rules // Email functionality
 
   add-email-properties(|page) =
     if <oncetd(?ThisCall("email", [_]))> <id> then
-	    x := <newname> "email_arguments"
-        ; rules ( GetEmailArgumentsList : page -> x )
+	    x := <GetEmailArgumentsList> page
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
