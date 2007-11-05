@@ -15,46 +15,41 @@ imports
 
 rules
 
-//  desugar-security:
-//    Application(qid, sections) -> Application(qid, <map(try(desugar-security))> sections)
-  	
-//  desugar-security:
-//    Section(qid, defs) -> Section(qid, <map(try(desugar-security))> defs)
-  	
-/*
+  concat-with-sublists=
+    foldr(![], (is-list, id) < conc + MkCons)
 
-  desugar-security:
-	SecurityDefinition(defs) -> SecurityDefinition(<map(try(desugar-security)); foldr(![], (is-list, id) < conc + MkCons )> defs)
-
-  desugar-security:
-    SecurityTarget(type,name,checks) -> SecurityTarget(type,name, <map(try(desugar-security))> checks)
-
-  desugar-security:
-    SecurityCheckLogin() -> SecurityCheckExpression ( |[ securityContext.loggedIn ]| )
-
-  desugar-security:  
-    SecuritySubjectWithRoles(ident,credentials,roles) ->
-      [   SecuritySubject(ident,credentials),
-          SecurityAddEntities( [ |[ AccessControlRole {
-					            name :: String
-				              }  ]| ] ),
-		  SecurityInit( |[ stat0* ]| ),
-		  SecurityAddProperties(SecurityAddedProperty(ident,[ |[ accessControlRoles -> Set<AccessControlRole> ]| ]))
-	
-      ]
-    where stat0* := <map(role-to-init)> roles
-        
-
-  role-to-init:
-    $x -> |[ var $x : AccessControlRole := AccessControlRole {name := "$x"}; ]|
-
-*/
+  create-ac-pointcuts=
+    try(sometd(declare-ac-pointcuts))
+    ; try(sometd(desugar-ac-pointcuts))
+   
+  declare-ac-pointcuts:
+    AccessControlPointcut(pname,elems) -> AccessControlPointcut(pname,elems)
+    where <filter(declare-ac-pointcut-element(|pname))> elems 
     
+  declare-ac-pointcut-element(|pname):
+    AccessControlPointcutElement(ident,matchident) -> AccessControlPointcutElement(ident,matchident)
+    where newPointcutList := <concat> [<AccessControlPointcuts<+![]> pname,[(ident,matchident)]]
+        ; rules(
+            AccessControlPointcuts: pname -> newPointcutList
+          )
+  
+  desugar-ac-pointcuts:
+    AccessControlDefinition(elems) -> AccessControlDefinition(<map(try(desugar-ac-pointcuts));concat-with-sublists>elems)
+  
+  desugar-ac-pointcuts:
+    AccessControlPointcut(name,elems) -> []
+
+  desugar-ac-pointcuts:
+    AccessControlRule("pointcut",matchident,args,checks,childrules) -> newrules
+    where rulematchtuples := <AccessControlPointcuts<+!["pointcut ",matchident," does not exist"];concat-strings;debug> matchident      
+        ; newrules := <map(rule-tuple-to-ac-rule(|args,checks,childrules))> rulematchtuples
     
+  rule-tuple-to-ac-rule(|args,checks,childrules):
+    (ident,matchident) -> AccessControlRule(ident,matchident,args,checks,childrules)
+     
   // rules for actions are inherited from rule for page if no action rules are provided
-
   desugar-access-control =
-    topdown(try(DesugarAccessControlRule))
+    try(sometd(DesugarAccessControlRule))
 
   DesugarAccessControlRule : 
     AccessControlRule("page", x, fargs, check, []) ->
@@ -63,8 +58,8 @@ rules
   DesugarAccessControlRule : 
     AccessControlRule("template", x, fargs, check, []) ->
     AccessControlRule("template", x, fargs, check, [AccessControlRule("action", "*", MatchArgs([], Some("*")), check, [])])
-  
-  //DesugarAccessControlRule =
-  //  ?AccessControlRule("page", x, fargs, check, [a|xs])
-    
-    
+
+  // Prevent template rules inside page rules from getting action rules, because this is not allowed.
+  // (the template rules inside page rules are for template calls which never contain actions)
+  DesugarAccessControlRule =
+    ?AccessControlRule("page", x, fargs, check, [a|xs])
