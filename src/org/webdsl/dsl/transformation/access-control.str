@@ -34,9 +34,20 @@ rules
       ; try(sometd(apply-checks-to-template-defs-actions))     
     //; try(attach-decision-classes-to-application)
       ; add-access-denied-page
+      ; where(warn-for-unused-rules)
     )
     end
 
+  warn-for-unused-rules=
+    !<All-AC-Rules>
+    ; map(try(check-usage-of-rule))
+  check-usage-of-rule=
+    ?acr@AccessControlRule(checktype,matchstring,fargs,checks,acrules)
+    ; !(acr,<Used-AC-Rules>)
+    ; not(elem)
+    ; !AccessControlRule(checktype,matchstring,fargs,checks,[])//don't show nested rules, that gives too much information
+    ; pp-webdsl-to-string
+    ; warn(|["warning: in access control rules: rule not used: "]) 
     
   add-access-denied-page:
     Application(qid, sections) -> Application(qid, <concat>[sections, deniedpage])
@@ -197,6 +208,7 @@ rules
         ; newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
 	; rules(
 	    Security-Rules-List-From-Type : checktype -> newlistfromtype
+	    All-AC-Rules := <concat> [<All-AC-Rules <+ ![]>,[st]] 
 	    //Security-Rule-Name : (checktype,matchstring) -> $varname
 	  )
       //; <debug> <Security-Rules-List-From-Type> checktype
@@ -316,7 +328,7 @@ rules
 		
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name,vars):
-	AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,acrules)
+	acr@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,acrules)
 	where 
 	if not(matchstring := "*")
 	then
@@ -356,6 +368,7 @@ rules
 	//|}
 	//)
 	//end
+	; rules (Used-AC-Rules:=<concat>[<Used-AC-Rules<+![]>,[acr]])
 
   dynamic-rule-check-vars:
     (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (Arg(ident1,thesort1),Arg(ident2,thesort2)) 
