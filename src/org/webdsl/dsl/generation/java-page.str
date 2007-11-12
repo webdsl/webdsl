@@ -105,6 +105,7 @@ rules // session bean from page definition
 	    ~*cbds8
 	    ~*cbds9
 	    ~*cbds10
+	    ~*cbds11
       }
     ]|)
     where {| Parameter
@@ -124,15 +125,39 @@ rules // session bean from page definition
 	       ; vdc*   := <get-page-vardecls> elems1
 	       ; cbds5  := <map(vardecl-to-member-variable); concat> vdc*
 	       ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
+	       // @todo optimize so it is only generated for session variables being used
+	       // @todo scoping of variables, conflicts between session, global and page vars
 	       ; cbds6  := <map(session-inouts);concat> <SessionEntities>
 	       ; bstm6* := <collect(initaction-to-initialization);concat> elems1
 	       ; cbds7 := <template-functions-to-java> <decapitalize-string> x_Page
 	       ; cbds8  := <add-email-properties(|x_page)> elems1
 	       ; cbds9  := <email-to-code(|x_page)> elems1
+	       // @todo optimize so it is only generated for functions being used
 	       ; cbds10 := <map(function-to-function-code(|[]))> <global-functions <+ ![]>
+	       // @todo optimize so it is only generated for variables being used
+	       // @todo scoping of variables, conflicts between session, global and page vars
+	       ; cbds11 := <map(global-var-retrieval-for-xhtml)> <global-variables <+ ![]>
 	       |}
 	    
 	// @todo not all beans need to declare initialize to @Begin a conversation
+
+rules
+  global-var-retrieval-for-xhtml :
+    VarDeclInit(x_name, x_sort, e1) -> 
+    class-body-dec |[ 
+       public x_thetype x_methodname()
+       {
+         return (x_thetype) em.find (x_thetype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get(x_varname)));
+       }
+    ]|
+    where x_methodname := <property-getter> x_name
+        ; SimpleSort(x_thetype) := x_sort
+        ; if <EntityIdName> x_sort then
+     	    x_type := <sort-to-java-type-string> <EntityIdType> x_thetype
+     	  else
+     	    x_type := "Long"
+     	  end
+     	; x_varname := <concat-strings> ["\"global-declaration-",x_name,"\""]
 
 rules //session variables
   session-inouts :
