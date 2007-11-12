@@ -144,7 +144,7 @@
    AccessControlRule 				          -- KW["rules"] _1 _2 KW["("] _3 KW[")"] KW["{"] _4 _5 KW["}"],
    AccessControlCheckExpression		    -- _1,
    MatchArgs						              -- _1 _2,
-   AccessControlDefinition            -- KW["predicate"] _1 KW["("] _2 KW[")"] _3,
+   Predicate                          -- KW["predicate"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"],
    
    %%validation annos
    ValidationAnnoLength           -- KW["length"] KW["("] _1 KW[","] _2 KW[")"], 

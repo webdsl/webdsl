@@ -28,6 +28,12 @@ rules
     ; if AccessControlEnabled then
       ( derive  
       ; declare-definitions
+      
+      ; typecheck-access-control(typecheck-access-control-predicates|) 
+      ; generate-access-control-predicates
+      ; derive  
+      ; declare-definitions
+      
       ; typecheck-access-control(typecheck-access-control-rules-checks|)
       ; generate-access-control-rules-checks
       ; try(sometd(apply-checks-to-page))  
@@ -61,6 +67,11 @@ rules
 	      } 
 	    ]| 
 	  ]
+  
+  generate-access-control-predicates :
+  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
+  generate-access-control-preds:
+	AccessControlDefinition(defs) -> <filter(access-control-predicates)> defs
      
   generate-access-control-declarations :
   	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
@@ -77,24 +88,25 @@ rules
     Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
 
   generate-access-control-decs:
-	AccessControlDefinition(defs) -> <filter(security-subject <+ access-control-predicates)> defs
+	AccessControlDefinition(defs) -> <filter(security-subject)> defs
 	where rules (
 	  AccessControlEnabled := True()
 	)
 	
   access-control-predicates:
-    Predicate($ident,farg*,Block(stat*)) -> 
+    pr@Predicate($ident,farg*,exp) -> 
       |[
         section ac $predname.
         globals
         {
           function $ident ( farg* ) : Bool
           {
-            stat*
+            return e0;
           }  
         }
       ]|
     where $predname := <newname> "predicate"
+        ; e0 := <generate-extended-check> exp
 	
   generate-access-control-rules-checks:
     AccessControlDefinition(defs) -> <filter(create-rule-classes)> defs
@@ -484,7 +496,8 @@ rules
         else
           return := checks
         end
-        ; if fa:=FieldAccess(Var("securityContext"),"principal")
+        // add a loggedIn check when principal is used
+        ; if fa:=FieldAccess(Var("securityContext"){Type(SimpleSort("SecurityContext"))},"principal"){Type(SimpleSort("User"))}
         then
         extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
         else

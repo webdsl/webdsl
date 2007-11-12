@@ -14,27 +14,27 @@ imports
   org/webdsl/dsl/transformation/- 
 rules
   
-  typecheck-access-control(typecheck-strategy|) =
-  	?Application(qid, sections)
-  	; {| Module, TypecheckError:
-  	     rules (Module := qid)
-	  	 ; where(<map(try(typecheck-access-control-section(typecheck-strategy|)
-	  	                 <+typecheck-access-control-module(typecheck-strategy|)))> sections)   
-	  	 ; if TypecheckError then <xtc-exit> 1 end //force dsl-to-seam to quit, there's a bug that makes dsl-to-seam start over upon failure
-      |}
+  typecheck-access-control(typecheck-strategy|):
+  	Application(qid, sections) -> Application(qid, newsections)
+  	where {| Module, TypecheckError:
+  	         rules (Module := qid)
+	  	   ; newsections := <map(try(typecheck-access-control-section(typecheck-strategy|)
+	  	                 <+typecheck-access-control-module(typecheck-strategy|)))> sections   
+	  	   ; if TypecheckError then <xtc-exit> 1 end //force dsl-to-seam to quit, there's a bug that makes dsl-to-seam start over upon failure
+          |}
       
-  typecheck-access-control-section(typecheck-strategy|)=
-    ?Section(ident,decs)
-    ; in-tc-context(
-	    where(<map(try(typecheck-strategy))> decs)
-	    |["section ",ident,"/access control rules/"])
+  typecheck-access-control-section(typecheck-strategy|):
+    Section(ident,decs) -> Section(ident,newdecs)
+    where in-tc-context(where(newdecs := <map(try(typecheck-strategy))> decs)
+	                    |
+	                    ["section ",ident,"/access control rules/"])
     
-  typecheck-access-control-module(typecheck-strategy|)=  
-    ?Module(mod, section1*)
-    ; where( {| Module
+  typecheck-access-control-module(typecheck-strategy|): 
+    Module(mod, section1*) -> Module(mod, newsection1*)
+    where {| Module
            : rules( Module := mod )
-           ; <map(try(typecheck-access-control-section(typecheck-strategy|)))> section1*
-           |} )
+           ; newsection1* := <map(try(typecheck-access-control-section(typecheck-strategy|)))> section1*
+          |} 
   
   //phase 1 securityContext and principal definition         	
   typecheck-access-control-declarations:
@@ -42,7 +42,7 @@ rules
 	where newdefs :=
 		<map(typecheck-security-subject
 		            <+ ?Predicate(_,_,_) 
-					<+ ?AccessControlRule(_,_,_,_,_)  //typecheck-create-rule-classes(|[],[])
+					<+ ?AccessControlRule(_,_,_,_,_)
 					<+ ?x; typecheck-error(|["Couldn't typecheck definition ",x]) 
 				)> defs
 	
@@ -52,23 +52,34 @@ rules
         ; <derive;map(\ pident -> 
             <TypeOfProperty <+ typecheck-error(|[pident," is not a property of ",ident])> (ident,pident)  \)> props
  
-  //phase 2 rules and checks	
-  typecheck-access-control-rules-checks:
+  //phase 2 predicates	
+  typecheck-access-control-predicates:
 	AccessControlDefinition(defs) -> AccessControlDefinition(newdefs)
 	where newdefs :=
 		<map(?AccessControlPrincipal(_,_)
-					<+ typecheck-create-rule-classes(|[],[])
+					<+ ?AccessControlRule(_,_,_,_,_)
 					<+ typecheck-predicate
 					<+ ?x; typecheck-error(|["Couldn't typecheck definition ",x]) 
 				)> defs   
   
   typecheck-predicate:
-    Predicate(ident,fargs,blck) -> Predicate(ident,fargs,Block(newblck)) 
+    Predicate(ident,fargs,exp) -> Predicate(ident,fargs,newexp) 
     where {|TypeOf, ReturnType
           : <map(try(create-argument-typeof-rule))> fargs
-          ; rules( ReturnType := SimpleSort("Bool") )
-          ; newblck := <typecheck-block <+ typecheck-error(|[blck ," failed typechecking"])> blck
+          //; rules( ReturnType := SimpleSort("Bool") )
+          ; newexp := <typecheck-expression <+ typecheck-error(|[exp ," failed typechecking"])> exp
+          ; ( _{Type(SimpleSort("Bool"))} := newexp  <+ typecheck-error(|[newexp ," is not a boolean expression"]) )
           |}
+  
+  //phase 3 rules and checks	
+  typecheck-access-control-rules-checks:
+	AccessControlDefinition(defs) -> AccessControlDefinition(newdefs)
+	where newdefs :=
+		<map(?AccessControlPrincipal(_,_)
+					<+ typecheck-create-rule-classes(|[],[])
+					<+ ?Predicate(_,_,_) 
+					<+ ?x; typecheck-error(|["Couldn't typecheck definition ",x]) 
+				)> defs   
        
   typecheck-create-rule-classes(|ct,oldargs):
     AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,newrules)
