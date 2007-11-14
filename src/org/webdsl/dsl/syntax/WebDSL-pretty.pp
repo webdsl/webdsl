@@ -60,6 +60,7 @@
    ForAll.3:iter-star                 -- _1,
    ForAllWhere                        -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["where"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
    ForAllWhere.4:iter-star           -- _1,
+   Subtable                           -- V[ V is=2[ H[KW["subtable"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
    IfTempl.2:iter-star                -- _1,
    Select                             -- H[KW["select"] KW["("] _1 KW[":"] _2 KW[","] _3 KW[","] _4 KW[")"]],
