@@ -132,7 +132,7 @@ rules // globals to java initialization code
 					
 					
 						bstm1*
-					
+						bstm2*					
 					  
 					}
 				  
@@ -157,7 +157,8 @@ rules // globals to java initialization code
 	where pkgname    := <BeanPackage>
 		; pkgname2   := <DomainPackage>
 		; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
-		; cbds* := <filter(vardeclinit-to-method)> vardeclinits
+		; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits		
+		; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
 		
   vardeclinit-to-method-call:
 	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
@@ -165,33 +166,59 @@ rules // globals to java initialization code
 			x_methodname();
 		]|
 	where x_methodname := <concat-strings> ["globalDeclaration",x_ident]
+
+  vardeclinit-to-method-persist-call:
+	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
+		bstm |[	
+			x_methodname();
+		]|
+	where x_methodname := <concat-strings> ["globalDeclaration",x_ident,"Persist"]
 		
   vardeclinit-to-method:
-	vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
-		class-body-dec |[
-			private void x_methodname(){
-				~*bstmvardeclinit*
-				
-				em.persist(x_ident);
-									    			  
-				ApplicationContextProperty x_acpident = new ApplicationContextProperty();
-				x_acpident.setName(x_acpname);
-				x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
-				em.persist(x_acpident);
-			  	Contexts.getApplicationContext().set(x_acpident.getName(), x_acpident.getDatabaseId());
-		  	}
-		]|
-	where x_acpident := <new>
-		; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
-		; ObjectCreation(class,assigns) := expressions
-		; digests := <filter(secret-assigns-to-digest(|x_ident,class))> assigns		
-		; if [] := digests then
-            bstmvardeclinit* := <statements-to-java> [VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))]
-		  else
-            bstmvardeclinit* := <conc> (<statements-to-java>[VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))],digests)
-		  end
-		; x_methodname := <concat-strings> ["globalDeclaration",x_ident]
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> 
+      class-body-dec* |[
+        private t x_ident = new x_t();
 
+        private void x_methodname() {
+          ~*bstmvardeclinit*
+          ~*mapprop*
+        }
+
+        private void x_methodpersist() {
+          em.persist(x_ident);
+          
+          ApplicationContextProperty x_acpident = new ApplicationContextProperty();
+          x_acpident.setName(x_acpname);
+          x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
+          em.persist(x_acpident);
+          Contexts.getApplicationContext().set(x_acpident.getName(), x_acpident.getDatabaseId());
+	}
+	]|
+	where x_acpident := <new>
+	    ; t := <java-type> SimpleSort(x_class)
+	    ; x_t := <sort-to-java-type-string> SimpleSort(x_class)
+	    ; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
+	    ; ObjectCreation(class,assigns) := expressions
+	    ; digests := <filter(secret-assigns-to-digest(|x_ident,class))> assigns
+	    ; allvars := <collect(?Var(x); <IsGlobal> x)> expressions
+	    ; <map(once-IsGlobal)> allvars // Temporarily remove the IsGlobal status
+	    ; if [] := digests then
+	        bstmvardeclinit* := <statements-to-java> [VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))]
+	      else
+	        bstmvardeclinit* := <conc> (<statements-to-java>[VarDecl(x_ident, SimpleSort(x_class)), <try(repeat(sometd(DesugarLiftExp)))> Assign(Assignment(x_ident, expressions))],digests)
+	      end
+	    ; <map(\ x -> x where rules ( IsGlobal : x ) \)> allvars // Restored IsGlobal statuses
+	    ; mapprop* := <map(generate-prop-mapping(|x_ident))> <Properties> x_class
+	    ; x_methodname := <concat-strings> ["globalDeclaration",x_ident]
+	    ; x_methodpersist := <concat-strings> ["globalDeclaration",x_ident,"Persist"]
+
+  
+  generate-prop-mapping(|x_ident) :
+    Property(x, k, s, annos) -> bstm|[
+      this.x_ident.x_setter(x_ident.x_getter());
+    ]|
+    where x_setter := <property-setter> x
+        ; x_getter := <property-getter> x
 			
   secret-assigns-to-digest(|x_ident,class):
     Assignment(x_prop,String(anystring){Type(SimpleSort("String"))}) ->	
