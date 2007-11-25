@@ -194,12 +194,12 @@
 
         mod3*
        public t x_get() {
-	 return x_prop;
+	     return x_prop;
        }
 
        public void x_set(t x_prop) {
-	 this.x_prop = x_prop;
-	 ~*bas*
+       	 this.x_prop = x_prop;
+         ~*bas*
        }
 
        ~*cbd*
@@ -219,7 +219,7 @@
       	 ; x_get  := <property-getter> x
       	 ; x_set  := <property-setter> x 
       	 ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
-      	 ; bas*	 := <bidirectional-association-setter <+ ![]> prop
+      	 ; bas*	  := <bidirectional-association-setter <+ ![]> prop     
 
    property-to-property-code(|x_Class) :
      prop@DerivedProperty(x, k, s, annos, e) -> class-body-dec* |[
@@ -291,6 +291,7 @@
 	; [] := <collect(?InverseAnno(_, _))> annos
 	; [] := <collect(?InverseSlaveAnno(_, _))> annos
 
+   // bidirectional many-to-one controlling side
    association-annotations(|x_Class, x_prop, annos) :
      s@SimpleSort(y) -> 
 	 [
@@ -305,16 +306,19 @@
 
    // Property with a reference one-to-one association type
 
+   // bidirectional one-to-one controlling side
    association-annotations(|x_Class, x_prop, annos) :
      s@SimpleSort(y) -> 
 	 [
 			 anno|[ @OneToOne(fetch=javax.persistence.FetchType.LAZY) ]|,
-			 anno|[ @PrimaryKeyJoinColumn ]|
+			 anno|[ @JoinColumn(name="~x_fk") ]|
 		 ]
      where t := <defined-java-type> s
-	 ; [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
-	 ; SimpleSort(yy)                := <TypeOfProperty> (ent, fld)
-
+	     ; [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
+	     ; SimpleSort(yy)                := <TypeOfProperty> (ent, fld)
+	     ; x_fk                          := <concat-strings> [x_Class, x_prop, "_fk"]
+	 
+   // bidirectional one-to-one inverse side
    association-annotations(|x_Class, x_prop, annos) :
      s@SimpleSort(y) -> 
 	 [
@@ -325,38 +329,34 @@
 	 ; SimpleSort(yy) := <TypeOfProperty> (ent, fld)
 	 ; mappedby       := <concat-strings> ["_", fld]
 
- /*  association-annotations(|x_Class, x_prop, annos) :
-     s@SimpleSort(y) -> 
-	 [
-			 anno|[ @OneToOne(cascade = CascadeType.ALL) ]|,
-			 anno|[ @PrimaryKeyJoinColumn ]|
-		 ]
-     where t := <defined-java-type> s
-	 ; [SimpleAnno("unique")] := <filter(?SimpleAnno(_))> annos */
-
 
    // Collection types
 
    // One-to-Many association
+   
+   // bidirectional one-to-many inverse side
    association-annotations(|x_Class, x_prop, annos) :
-     GenericSort("Set", [s]) ->
+     GenericSort(coll, [s]) ->
        [
 	 anno|[ @OneToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
        ]
-     where t := <defined-java-type> s 
+     where <?"Set" <+ ?"List"> coll
+     ; t := <defined-java-type> s 
 	 ; [InverseSlaveAnno(ent, fld)|xs] := <collect(?InverseSlaveAnno(_, _))> annos
 	 ; SimpleSort(ident) := <TypeOfProperty> (ent, fld)
 	 ; x_ent             := <concat-strings> [ent, ".class"]
 	 ; mappedby          := <concat-strings> ["_", fld] 
 
    // Many-to-Many associations
-
+   
+   // unidirectional many-to-many
    association-annotations(|x_Class, x_prop, annos) :
      GenericSort("List", [s]) -> [
        anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|
-       ]
+     ]
      where t := <defined-java-type> s
 
+   // unidirectional many-to-many
    association-annotations(|x_Class, x_prop, annos) :
      GenericSort("Set", [s@SimpleSort(ss)]) -> [
        anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|,
@@ -367,8 +367,9 @@
 	 ; [] := <collect(?InverseAnno(_, _))> annos
 	 ; tableName := <concat-strings> [x_Class, "_", x_prop]
 
+   // bidirectional many-to-many controlling side
    association-annotations(|x_Class, x_prop, annos) :
-      GenericSort("Set", [s@SimpleSort(ss)]) -> 
+      GenericSort(coll, [s@SimpleSort(ss)]) -> 
 	 [
 		 anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|,
 		 anno|[ @JoinTable( name="~colname",
@@ -376,18 +377,21 @@
 				 inverseJoinColumns={@JoinColumn(name="~otherid")} )
 			 ]|
 		 ]
-     where t := <defined-java-type> s
+     where <?"Set" <+ ?"List"> coll
+     ; t := <defined-java-type> s
 	 ; [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
 	 ; colname   := <concat-strings> [x_Class, "_", x_prop, "_", ss]
 	 ; thisid    := <concat-strings> [x_Class, "_id_this"]
 	 ; otherid   := <concat-strings> [ent, "_id_other"]
 
+   // bidirectional many-to-many inverse side
    association-annotations(|x_Class, x_prop, annos) :
-     GenericSort("Set", [s@SimpleSort(ss)]) ->
+     GenericSort(coll, [s@SimpleSort(ss)]) ->
        [
-	 anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
+         anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
        ]
-     where t := <defined-java-type> s 
+     where <?"Set" <+ ?"List"> coll
+     ; t := <defined-java-type> s 
 	 ; [InverseSlaveAnno(ent, fld)|xs]  := <collect(?InverseSlaveAnno(_, _))> annos
 	 ; x_ent                            := <concat-strings> [ent, ".class"]
 	 ; mappedby                         := <concat-strings> ["_", fld] 
@@ -403,7 +407,7 @@
      GenericSort("Set", [s@SimpleSort(_)])-> 
      [
        anno|[ 
-	 @org.hibernate.annotations.CollectionOfElements(targetElement = t.class) 
+         @org.hibernate.annotations.CollectionOfElements(targetElement = t.class) 
        ]|,
 
        anno|[ @JoinTable(name = "~tableName") ]|, //, joinColumns = @JoinColumn(name = "~joincolumn")
@@ -452,50 +456,35 @@ rules // cascading annotations
 rules // special methods 
  
    property-to-special-getters(|x_Class) : 
-    Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) -> 
+    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) -> 
     class-body-dec* |[
       public t x_getList() {
         return new ArrayList(x_get());
       }
-
+      
+      public void x_setList(t x_listvar) {
+       	~*bas*
+        x_set(e_newgen);
+      }
+      
       public int x_getLength() {
         return x_get().size();
       }
       
-      public void x_removeFrom(t_y item) {
-        x_get().remove(item);
-        bstm0*
-      }
-      
-      public void x_addTo(t_y item) {
-        x_get().add(item);
-        bstm1*
-      }
+      ~*cbds
     ]|
     where <?"Set" <+ ?"List"> coll
         ; t         := <java-type> GenericSort("List", [SimpleSort(y)])
-        ; t_y       := <java-type> SimpleSort(y)
-        ; x_Prop    := <capitalize-string> x_prop
-        ; x_getList := <concat-strings>["get", x_Prop, "List"]
-        ; x_getLength := <concat-strings>["get", x_Prop, "Length"]
-        ; x_get     := <concat-strings>["get", x_Prop]
-        ; x_addTo   := <concat-strings>["addTo", x_Prop]
-        ; x_removeFrom := <concat-strings>["removeFrom", x_Prop]
-        ; [inverse]   := <filter(?InverseSlaveAnno(_, _) + ?InverseAnno(_, _))> annos
-        ; bstm0* := <remove-bidirectional-reference> inverse
-        ; bstm1* := <add-bidirectional-reference> inverse
-/*        
-        ; if (InverseSlaveAnno(x_c, x_p) := inverse + InverseAnno(x_c, x_p) := inverse) then
-            x_P := <capitalize-string> x_p
-            ; x_getInverse := <concat-strings>["get", x_P]
-            ; bstm0 := |[ item.x_getInverse().remove(this); ]|
-            ; bstm1 := |[ item.x_getInverse().add(this); ]|
-          else
-            bstm0 := []
-            ; bstm1 := []
-          end
-*/
-
+        ; x_listvar := <newname> "list"
+        ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
+        ; x_getList := <concat-strings>[<property-getter> x_prop, "List"]
+        ; x_getLength := <concat-strings>[<property-getter> x_prop, "Length"]
+        ; x_setList := <concat-strings>[<property-setter> x_prop, "List"]
+        ; x_get     := <property-getter> x_prop
+        ; x_set     := <property-setter> x_prop
+        ; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop     
+        ; cbds     := <bidirectional-association-methods <+ ![]> prop
+  
   property-to-special-getters(|x_Class) : 
     DerivedProperty(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos, expr) -> 
     class-body-dec* |[
@@ -513,26 +502,51 @@ rules // special methods
         ; x_getList := <concat-strings>["get", x_Prop, "List"]
         ; x_getLength := <concat-strings>["get", x_Prop, "Length"]
         ; x_get     := <concat-strings>["get", x_Prop]
-    
-  remove-bidirectional-reference :
-    InverseSlaveAnno(x_c, x_p) ->
-      bstm* |[
-        if ( item.x_getInverse().contains(this) ) {
-          item.x_getInverse().remove(this);
-        }
-      ]|
-    where GenericSort(_,[_]) := <TypeOfProperty> (x_c, x_p)
-        ; x_P := <capitalize-string> x_p
-        ; x_getInverse := <concat-strings>["get", x_P]
+        
+  bidirectional-association-methods :
+    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) -> 
+    class-body-dec* |[
+      public void x_removeFrom(t_y item) {
+        x_get().remove(item);
+        bstm0*
+      }
+      
+      public void x_addTo(t_y item) {
+        x_get().add(item);
+        bstm1*
+      }
+    ]|
+    where t_y       := <java-type> SimpleSort(y)
+        ; x_get     := <property-getter> x_prop
+        ; x_addTo   := <concat-strings>["addTo", <capitalize-string> x_prop]
+        ; x_removeFrom := <concat-strings>["removeFrom", <capitalize-string> x_prop]
+        ; [inverse] := <filter(?InverseSlaveAnno(_, _) + ?InverseAnno(_, _))> annos
+        ; bstm0* := <remove-bidirectional-reference <+ ![]> inverse
+        ; bstm1* := <add-bidirectional-reference <+ ![]> inverse
   
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("List", [s]) -> |[ new java.util.ArrayList<t>(x_listvar) ]|
+    where t := <java-wrapper-type> s
+
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("Set", [s]) -> |[ new java.util.HashSet<t>(x_listvar) ]|
+    where t := <java-wrapper-type> s
+        
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("Map", [s1,s2]) -> |[ new java.util.HashMap<t1,t2>(x_listvar) ]|
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
+
   remove-bidirectional-reference :
-    InverseAnno(x_c, x_p) -> 
+    name#([x_c, x_p]) -> 
       bstm* |[
         if ( item.x_getInverse().contains(this) ) {
           item.x_getInverse().remove(this);
         }
       ]|
-    where GenericSort(_,[_]) := <TypeOfProperty> (x_c, x_p)
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <TypeOfProperty> (x_c, x_p)
+        ; <?"Set" <+ ?"List"> coll
         ; x_P := <capitalize-string> x_p
         ; x_getInverse := <concat-strings>["get", x_P]
         
@@ -543,27 +557,18 @@ rules // special methods
         ; x_setInverse := <concat-strings>["set", x_P]
         
   add-bidirectional-reference :
-    InverseSlaveAnno(x_c, x_p) ->
+    name#([x_c, x_p]) ->
       bstm* |[
         if ( !item.x_getInverse().contains(this) ) {
           item.x_getInverse().add(this);
         }
       ]|
-    where GenericSort(_,[_]) := <TypeOfProperty> (x_c, x_p)
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <TypeOfProperty> (x_c, x_p)
+        ; <?"Set" <+ ?"List"> coll
         ; x_P := <capitalize-string> x_p
         ; x_getInverse := <concat-strings>["get", x_P]
-  
-  add-bidirectional-reference :
-    InverseAnno(x_c, x_p) ->
-      bstm* |[
-        if ( !item.x_getInverse().contains(this) ) {
-          item.x_getInverse().add(this);
-        }
-      ]|
-    where GenericSort(_,[_]) := <TypeOfProperty> (x_c, x_p)
-        ; x_P := <capitalize-string> x_p
-        ; x_getInverse := <concat-strings>["get", x_P]
-        
+              
   add-bidirectional-reference :
     InverseSlaveAnno(x_c, x_p) -> 
       bstm* |[
@@ -576,60 +581,78 @@ rules // special methods
         ; x_setInverse := <concat-strings>["set", x_P]
         ; x_getInverse := <concat-strings>["get", x_P]
   
+  // one-to-many
   bidirectional-association-setter :
     Property(prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
       bstm* |[
+        for (t1 var1 : this.x_items()) {
+      	    var1.x_set(null);
+    	}
       	for (t1 var1 : x_prop) {
-      		var1.x_set(this);
+      	    if (var1.x_get() != this) { 
+      		  var1.x_set(this);
+      		}
     	}
       ]|
     where [InverseSlaveAnno(ent, fld) | xs] := <collect(?InverseSlaveAnno(_, _))> annos
+        ; <?"Set" <+ ?"List"> coll
         ; SimpleSort(x_Class) := <TypeOfProperty> (ent, fld)
         ; t1					:= <java-type> SimpleSort(y)
         ; x_set  				:= <property-setter> fld
+        ; x_get  				:= <property-getter> fld
         ; x_prop 				:= <concat-strings>["_", prop]
+        ; x_items               := <property-getter> prop
 
-  bidirectional-association-setter :
-    Property(prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+   // many-to-many
+   bidirectional-manytomany-setter(|x_listvar) :
+    Property(prop, k, s@GenericSort(coll1, [SimpleSort(y)]), annos) ->
       bstm* |[
-    	  for (t1 var1 : x_prop) {
-            var1.x_addTo(this);
-//            var1 = var2.x_get();
-//        		var1.add(this);
-//        		var2.x_set(var1);
+          for (t1 var1 : this.x_prop()) {
+            var1.x_removeFrom(this);
     	  }
-      ]|
-    where [InverseSlaveAnno(ent, fld)] := <filter(?InverseSlaveAnno(_, _))> annos
-        ; GenericSort("Set", [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
-        ; t1					:= <java-type> SimpleSort(y)
-        ; x_addTo               := <concat-strings> ["addTo", <capitalize-string> fld]
-        ; x_prop 				:= <concat-strings>["_", prop]
- 
-   bidirectional-association-setter :
-    Property(prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
-      bstm* |[
-    	  for (t1 var1 : x_prop) {
+    	  for (t1 var1 : x_listvar) {
             var1.x_addTo(this);
     	  }
       ]|
-    where [InverseAnno(ent, fld)] := <filter(?InverseAnno(_, _))> annos
-        ; GenericSort("Set", [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
-        ; t1					:= <java-type> SimpleSort(y)
-        ; x_addTo               := <concat-strings> ["addTo", <capitalize-string> fld]
-        ; x_prop 				:= <concat-strings>["_", prop]
+    where [name#([ent, fld])] := <filter(?InverseSlaveAnno(_, _))> annos
+        ; GenericSort(coll2, [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
+        ; <?"Set" <+ ?"List"> coll1
+        ; <equal> (coll1, coll2)
+        ; t1				  := <java-type> SimpleSort(y)
+        ; x_addTo             := <concat-strings> ["addTo", <capitalize-string> fld]
+        ; x_removeFrom        := <concat-strings> ["removeFrom", <capitalize-string> fld]
+        ; x_var 			  := <concat-strings>["_", prop]
+        ; x_prop 			  := <property-getter> prop
    
+   // many-to-one
    bidirectional-association-setter :
     Property(prop, k, SimpleSort(y), annos) ->
       bstm* |[
-        if (this.x_prop != null) {
-          this.x_prop.x_addTo(this);
+        if (x_prop != null && !x_prop.x_get().contains(this)) {
+          x_prop.x_addTo(this);
         }
       ]|
     where [InverseAnno(ent, fld)] := <filter(?InverseAnno(_, _))> annos
-        ; GenericSort("Set", [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
+        ; GenericSort(coll, [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
+        ; <?"Set" <+ ?"List"> coll
         ; x_addTo               := <concat-strings> ["addTo", <capitalize-string> fld]
         ; x_prop 				:= <concat-strings>["_", prop]
-             
+        ; x_get                 := <property-getter> fld
+   
+   // one-to-one
+   bidirectional-association-setter :
+    Property(prop, k, SimpleSort(y), annos) ->
+      bstm* |[
+        if (x_prop != null && x_prop.x_get() != this) {
+          x_prop.x_set(this);
+        }
+      ]|
+    where [name#([ent, fld])] := <filter(?InverseAnno(_, _) + ?InverseSlaveAnno(_, _))> annos
+        ; SimpleSort(x_Class) := <TypeOfProperty> (ent, fld)
+        ; x_prop 		      := <concat-strings>["_", prop]
+        ; x_get               := <property-getter> fld
+        ; x_set               := <property-setter> fld
+        
  binary-type-annotations :
    SimpleSort(s) -> [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
                      anno|[ @Column(columnDefinition="LONGBLOB") ]|

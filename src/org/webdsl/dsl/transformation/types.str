@@ -141,6 +141,10 @@ strategies // register all declared entities
                    (None(), f, t2*) -> sort
                        where <zip(type-compatible)> (t1*, t2*)
                    )                   
+  
+  declare-email-action =
+    ?TemplateCall("email", [ThisCall(name, args)], []) // -> TemplateCall("email", bla, bla1)
+    ; rules ( CheckEmailActionSignature : (None(), name, _) -> SimpleSort("void") )
 
 overlays 
 
@@ -160,6 +164,7 @@ strategies // register top-level template definitions
       )
     ; try(declare-page-definition)
     ; try(declare-email-definition)
+    ; <alltd(declare-email-action)> body
 
   declare-page-definition =
     ?Define([Page()], name, args, body)
@@ -171,7 +176,7 @@ strategies // register top-level template definitions
     ?Define([Email()], name, args, body)
     ; rules(
         IsEmail : name
-      )
+      )    
       
 strategies
 
@@ -346,13 +351,6 @@ rules
   builtin-java-type-default-value :
     SimpleSort("Binary") -> |[ null ]|
     
-/*
-  builtin-java-type : 
-    SimpleSort("Upload") -> |[ new Upload() ]|
-    
-  builtin-java-type-default-value :
-    SimpleSort("Upload") -> |[ null ]|
-*/    
   builtin-java-type :
     GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
     where t := <java-wrapper-type> s
@@ -508,13 +506,13 @@ rules // typechecking entity declarations
     ; rules( IsProperty : (x_class, x) )
     
   typecheck-property(|x_class) =
-    ?Property(x, k, s, annos)
+    ?prop@Property(x, k, s, annos)
     ; if not(<java-type> s) then
         typecheck-error(|["property ", x, " has invalid type"])
       end
     ; rules( TypeOf : x -> s )
     ; rules( IsProperty : (x_class, x) )
-    ; <map(try(typecheck-annos))> annos
+    ; <map(try(typecheck-annos(|prop)))> annos
   
   typecheck-property(|x_class) :
     DerivedProperty(x, k, s, annos, e) -> DerivedProperty(x, k, s, annos, e2)
@@ -526,14 +524,28 @@ rules // typechecking entity declarations
         ; rules( TypeOf : x -> s )
         ; rules( IsProperty : (x_class, x) )
 
-  typecheck-annos =
+  typecheck-annos(|prop) =
     ?InverseAnno(ent, fld)
-    ; if not(<IsEntity> ent) then
-        typecheck-error(|["The entity ", ent, " does not exist."])
-      end
-    ; if not(t := <TypeOfProperty> (ent, fld)) then
-        typecheck-error(|["The field ", ent, ".", fld, " is not of the right type."])
-      end
+    ; where (
+        if not(<IsEntity> ent) then
+          typecheck-error(|["The entity ", ent, " does not exist."])
+        end
+      ; if not(t := <TypeOfProperty> (ent, fld)) then
+          typecheck-error(|["The field ", ent, ".", fld, " is not of the right type."])
+        end 
+      ; [inverse_prop] := <filter(?Property(fld, _, _, annos))> <Properties> ent
+      ; if (not([] := <filter(?InverseAnno(i_ent, i_fld))> annos)) then
+          typecheck-error(|["Inverse annotations cannot be declared on both sides. Remove either the (inverse=", ent, ".", fld, ") or the (inverse=", i_ent, ".", i_fld, ") annotation."])
+        end
+      ; if ([InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos) then
+          if ( SimpleSort(_) := t ; GenericSort(_, _) := <TypeOfProperty> (i_ent, i_fld) ) then
+            typecheck-error(|["In a many-to-one bidirectional association the inverse annotation should be declared on the many side. (inverse=", i_ent, ".", i_fld, ")"])
+          end
+        end
+    )
+//    ; GenericSort(coll, [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
+    
+    
  /*   ; if not(<?GenericSort(_, _)> t) then
         typecheck-error(|["The property refered to is not a collection: ", ent, ".", fld])
       end */
@@ -718,13 +730,15 @@ rules // typechecking page elements
     <+ typecheck-select
     <+ typecheck-action 
     <+ typecheck-init
+//    <+ typecheck-menuitem
     <+ typecheck-if-templ
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
-    <+ typecheck-call-subtable
+//    <+ typecheck-call-subtable
     <+ typecheck-call-email
     <+ typecheck-template-call
     <+ typecheck-iterator
+    <+ typecheck-subtable
     <+ typecheck-vardecl
     <+ dbg(|"unknown page element? ")
        ; all(typecheck-page-element)
@@ -742,7 +756,7 @@ rules // typechecking page elements
           | [f, "/"])
 
                 
-  typecheck-call-subtable :
+/*  typecheck-call-subtable :
     TemplateCall("subtable", [f], columns1) -> TemplateCall("subtable", [f], columns1)
     where FieldAccess(Var(exp), ident) := f
         ; <should-have-list-type> ident
@@ -757,6 +771,7 @@ rules // typechecking page elements
     TemplateCall("text", e@[FieldAccess(Var(x), i)], []) -> TemplateCall("text", e, [])
     where SimpleSort(ss) := <TypeOfProperty> (s, x)
         ; <TypeOfProperty> (ss, i)
+ */
   
   typecheck-call-navigate :
     TemplateCall("navigate", [e], elems1) -> TemplateCall("navigate", [e'], elems2)
@@ -779,7 +794,8 @@ rules // typechecking page elements
             ; if not(<IsEmail> name) then
                 typecheck-error(|["email to undefined emailtemplate ", name])
               else
-                args2 := <map(typecheck-expression)> args
+                info(|<typecheck-expression> e1)
+                ; args2 := <map(typecheck-expression)> args
                 ; <match-arguments> (<TemplateArguments> name, args2)
  /*               ; <typecheck-variable <+ typecheck-fieldaccess> email
                 ; ?_{Type(t@SimpleSort(tt))}
@@ -788,6 +804,15 @@ rules // typechecking page elements
                   end*/
               end
           | ["email/"])
+  
+/*  typecheck-menuitem :
+    TemplateCall("menuitem", [e], [name]) -> TemplateCall("menuitem", [e'], [name])
+    where ThisCall(p,args) := e
+        ; if <IsPage> p then
+            e' := <typecheck-link> e
+          else
+            e' := <typecheck-expression> e
+          end */
   
   typecheck-link :
     ThisCall("url", [e1]) -> ThisCall("url", [e2])
@@ -879,6 +904,20 @@ rules // typechecking page elements
                 ; elems2 := <typecheck-page-elements> elems1
                 |}
              | ["for all iterator ", x, "/"] ) 
+  
+  typecheck-subtable :
+    Subtable(x, s, e, elems) -> Subtable(x, s, e, elems')
+    where in-tc-context(
+               {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems' := <typecheck-page-elements> elems
+                |}
+             | ["subtable ", x, "/"] ) 
                          
   typecheck-select :
     Select(x,s@SimpleSort(_),label,e1) -> Select(x,s,label,e2)
@@ -1010,6 +1049,7 @@ rules // typechecking statements
   typecheck-email :
     Stat(e1@ThisCall("email", elems1)) -> Stat(e2)
     where e2 := <typecheck-call-email> e1
+//        ; info(|"hier komt ie")
     
 rules // typechecking expressions
    
@@ -1355,6 +1395,7 @@ rules // signature
     ; (CheckActionSignature
        <+ CheckFunctionSignature
        <+ CheckGlobalFunctionSignature
+       <+ CheckEmailActionSignature
        <+ check-builtin-signature
        <+ typecheck-error(|["type error in call ", sig]))
     
@@ -1366,12 +1407,24 @@ rules // signature
 
   check-builtin-signature :
     (GenericSort("List", [s]), "remove", [s]) -> SimpleSort("void")
+  
+  check-builtin-signature :
+    (GenericSort("List", [s]), name, [s]) -> SimpleSort("void")
+    where <is-substring("remove")> name
     
   check-builtin-signature :
     (GenericSort("Set", [s]), "add", [s]) -> SimpleSort("void")
     
   check-builtin-signature :
     (GenericSort("Set", [s]), "remove", [s]) -> SimpleSort("void") 
+    
+  check-builtin-signature :
+    (_, name, [s]) -> SimpleSort("void")
+    where <is-substring("remove")> name
+    
+  check-builtin-signature :
+    (_, name, [s]) -> SimpleSort("void")
+    where <is-substring("add")> name
     
   check-builtin-signature :
     (s@SimpleSort(_), "delete", []) -> SimpleSort("void")
