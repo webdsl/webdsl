@@ -53,7 +53,7 @@ function load_config {
     NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE"
     GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
     SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
-    if [ `export | grep -E "($GREP_SET)" | wc -l` != $SETTING_COUNT ]
+    if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
     then
       echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
       echo -n "Want to adapt your application.ini now? [y/n] "
@@ -296,99 +296,105 @@ function make_app {
 
 echo "WebDSL script by Zef Hemel"
 
-case "$1" in
-  "deploy" )
-     load_config
-     if [ "$?" == 0 ]
-     then
-       return 0
-     fi
-     if [ ! -e "$SEAMPROJECTDIR" ]
-     then
-       make_app
-     fi
-     echo "Now deploying application..."
-     cd $SEAMPROJECTDIR/
-     ant deploy
-     cd ..
-     echo "Application has been deployed. In a minute it should be available on http://localhost:8080/$APPNAME/"
-     if [ "$2" == "restart" ]; then
-       echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
-       restart_jboss
-     fi
-     ;;
-  "undeploy" )
-     load_config
-     if [ "$?" == 0 ]
-     then
-       return 0
-     fi
-     if [ ! -e "$SEAMPROJECTDIR" ]
-     then
-       make_java_app
-     fi
-     echo "Now undeploying application..."
-     cd $SEAMPROJECTDIR/
-     ant undeploy
-     cd ..
-     echo "Application undeployed."
-     ;;
-  "new" )
-     echo -n "Application name (one word): "
-     read APPNAME
-     mkdir $APPNAME
-     cd $APPNAME
-     create_config $APPNAME
-     echo "Now creating bare-bones application in $APPNAME.app..."
-     WEBDSL_NEW_PROJECT_DIR=`dirname $0`/new_project
-     mkdir stylesheets
-     cp $WEBDSL_NEW_PROJECT_DIR/stylesheets/*.css stylesheets/
-     cp $WEBDSL_NEW_PROJECT_DIR/*.app .
-     echo "application com.example.$APPNAME" > $APPNAME.app
-     echo "" >> $APPNAME.app
-     echo "description {" >> $APPNAME.app
-     echo "  This is an automatically generated description" >> $APPNAME.app
-     echo "}" >> $APPNAME.app
-     echo "" >> $APPNAME.app
-     echo "imports templates" >> $APPNAME.app
-     echo "section pages" >> $APPNAME.app
-     echo "" >> $APPNAME.app
-     echo "define page home() {" >> $APPNAME.app
-     echo "  main()" >> $APPNAME.app
-     echo "  define body() {" >> $APPNAME.app
-     echo "    \"Hello world!\"" >> $APPNAME.app
-     echo "  }" >> $APPNAME.app
-     echo "}" >> $APPNAME.app
-     echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
-     ;;
-  "clean" )
-     echo "Removing seam project files"
-     rm -rf $SEAMPROJECTDIR
-     ;;
-  "cleanall" )
-     echo "Removing seam project files and dist directory."
-     rm -rf $SEAMPROJECTDIR dist
-     ;;
-  "java" )
-     make_java_app
-     echo "Done, result is in $SEAMPROJECTDIR."
-     ;;
-  "" )
-     make_app
-     if [ "$?" == 1 ]
-     then
-       echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
-     fi
-     ;;
-  * )
-     echo "Options:"
-     echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
-     echo "     java : Compile your application to java and JSF code, but do not compile them."
-     echo "      new : Create a new, empty WebDSL application."
-     echo "   deploy : Deploys your application to JBoss."
-     echo "    clean : Removes the created Seam project."
-     echo " cleanall : Removes the created Seam project and dist directory."
-     ;;
+commands="$*"
+if [ "$*" == "" ]; then
+  commands="build"
+fi
 
-esac
+for i in $commands; do
+  case "$i" in
+    "deploy" )
+       load_config
+       if [ "$?" == 0 ]
+       then
+         return 0
+       fi
+       if [ ! -e "$SEAMPROJECTDIR" ]
+       then
+         make_app
+       fi
+       echo "Now deploying application..."
+       cd $SEAMPROJECTDIR/
+       ant deploy
+       cd ..
+       echo "Application has been deployed. In a minute it should be available on http://localhost:8080/$APPNAME/"
+       if [ "$2" == "restart" ]; then
+         echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
+         restart_jboss
+       fi
+       ;;
+    "undeploy" )
+       load_config
+       if [ "$?" == 0 ]
+       then
+         return 0
+       fi
+       if [ ! -e "$SEAMPROJECTDIR" ]
+       then
+         make_java_app
+       fi
+       echo "Now undeploying application..."
+       cd $SEAMPROJECTDIR/
+       ant undeploy
+       cd ..
+       echo "Application undeployed."
+       ;;
+    "new" )
+       echo -n "Application name (one word): "
+       read APPNAME
+       mkdir $APPNAME
+       cd $APPNAME
+       create_config $APPNAME
+       echo "Now creating bare-bones application in $APPNAME.app..."
+       WEBDSL_NEW_PROJECT_DIR=`dirname $0`/new_project
+       mkdir stylesheets
+       cp $WEBDSL_NEW_PROJECT_DIR/stylesheets/*.css stylesheets/
+       cp $WEBDSL_NEW_PROJECT_DIR/*.app .
+       echo "application com.example.$APPNAME" > $APPNAME.app
+       echo "" >> $APPNAME.app
+       echo "description {" >> $APPNAME.app
+       echo "  This is an automatically generated description" >> $APPNAME.app
+       echo "}" >> $APPNAME.app
+       echo "" >> $APPNAME.app
+       echo "imports templates" >> $APPNAME.app
+       echo "section pages" >> $APPNAME.app
+       echo "" >> $APPNAME.app
+       echo "define page home() {" >> $APPNAME.app
+       echo "  main()" >> $APPNAME.app
+       echo "  define body() {" >> $APPNAME.app
+       echo "    \"Hello world!\"" >> $APPNAME.app
+       echo "  }" >> $APPNAME.app
+       echo "}" >> $APPNAME.app
+       echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
+       ;;
+    "clean" )
+       echo "Removing seam project files"
+       rm -rf $SEAMPROJECTDIR
+       ;;
+    "cleanall" )
+       echo "Removing seam project files and dist directory."
+       rm -rf $SEAMPROJECTDIR dist
+       ;;
+    "java" )
+       make_java_app
+       echo "Done, result is in $SEAMPROJECTDIR."
+       ;;
+    "build" )
+       make_app
+       if [ "$?" == 1 ]
+       then
+         echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
+       fi
+       ;;
+    * )
+       echo "Options:"
+       echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
+       echo "     java : Compile your application to java and JSF code, but do not compile them."
+       echo "      new : Create a new, empty WebDSL application."
+       echo "   deploy : Deploys your application to JBoss."
+       echo "    clean : Removes the created Seam project."
+       echo " cleanall : Removes the created Seam project and dist directory."
+       ;;
+  esac
+done
 
