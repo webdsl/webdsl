@@ -57,7 +57,7 @@ rules
 	    %>
 	      <?xml version="1.0" ?>
 	      <!DOCTYPE page PUBLIC 
-	      "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-1.2.dtd">
+	      "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-2.0.dtd">
 	      <pages>
 	        <%= page-actions ::*%>
 	      </pages>
@@ -185,71 +185,189 @@ rules // text
     %> <h:outputText value="<%= val-string %>"/> <%
     where val-string := <arg-to-value-string> arg
 
+rules // spacer
+
+  elem-to-xhtml :
+    TemplateCall("spacer", [], []) -> 
+    %> <rich:spacer id="<%= spacer-id %>" /> <%
+    where spacer-id := <newname> "spacer"
+
 rules // images
    
   elem-to-xhtml :
     TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
     where x := <arg-to-value-string> e
 
+rules // menus
+
+  elem-to-xhtml :
+    TemplateCall("menubar",exp, elems) ->
+      %>
+        <rich:toolBar>
+           <%= <elems-to-xhtml> elems::* %>
+        </rich:toolBar>
+      <%
+
+  elem-to-xhtml :
+    TemplateCall("dropdownmenu", [], elems) ->
+      %>
+        <rich:dropDownMenu value="<%= x_name%>">
+          <%= menuitems::* %> 
+        </rich:dropDownMenu>
+      <%
+    where [header] := <filter(?TemplateCall("header", _, _))> elems
+          ; TemplateCall("header", [], [Text(x_name)]) := header
+          ; menuitems := <filter(not(?TemplateCall("header", _, _))); elems-to-xhtml> elems
+//          ; <debug> menuitems
+
+
+  elem-to-xhtml :
+    TemplateCall("menuitem", [], elems) ->
+      %>
+        <rich:menuItem submitMode="none">
+          <%= <elems-to-xhtml> elems::* %>
+        </rich:menuItem>
+      <%
+//    where Text(x_name) := elem
+//        ; <debug> exps
+
+
+/*  elem-to-xhtml :
+    t@TemplateCall("menuitem",[e], [elem]) ->
+      %> <rich:menuItem submitMode="ajax" value="<%= x_name %>" action="<%= x_action %>" /> <%
+    where Text(x_name) := elem
+        ; ThisCall(p,args) := e
+        ; if <IsPage> p then
+            fargs := <TemplateArguments> p
+            ; param* := <zip(params-to-string)> (fargs, args)
+            ; fn := <MenuActionFunction> (<Component>, t)
+            ; x_action := <concat-strings> ["#{", <Component>, ".", fn, "}"]
+            ; info(|fn)  , "(", param*, ")
+          end */
+        
+  params-to-string :
+    (Arg(x, _), e) -> y
+    where y := <arg-to-el> e
+    
+          
+//        ; 
+  //      ; fn := <MenuActionFunction> (<Component>, t)
+        
+        
+/*  elem-to-xhtml :
+    t@TemplateCall("navigate",[e1@ThisCall(p,args)],[elems1]) ->
+    %> <rich:menuItem submitMode="ajax" value="<%= x_name %>" action="<%= x_action %>" /> <%
+    where <IsPage> p
+        ; InsideMenu
+//        ; info(|p)
+        ; TemplateCall(text,[e],[]) := elems1
+//        ; info(|e)
+        ; x_name := <arg-to-value-string> e
+//        ; info(|x_name)
+//        ; info(| <MenuActionFunction> t)
+        ; fn := <MenuActionFunction> (<Component>, t)
+ //       ; info(|fn)
+        ; x_action := <concat-strings> ["#{", <Component>, ".", fn, "}"]
+//        ; info(|x_action)*/
+
 rules // datatables
 
   elem-to-xhtml :
-    TemplateCallDeclaredType("table", x, s, columns) ->
+    t@TemplateCallDeclaredType("table", x, s, elems) ->
     %>
-      <t:dataTable var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}" att0>
-        <%= tcolumns ::*%>
-        <%= hideColumn ::*%>
-      </t:dataTable>
+      <rich:dataTable id="<%= table-id %>" var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
+      
+        <f:facet name="header">
+		  <rich:columnGroup>
+            <%= headers ::*%>
+          </rich:columnGroup>
+        </f:facet>
+        
+        <%= columns ::*%>
+        
+      </rich:dataTable>
     <%
-  where tcolumns := <mapconcat(column-to-xhtml)> columns
-      ; hideColumn :=  <HideSubTableColumn <+ ![]>   
+  where {| DataTable, SubColumnCount, Subtable
+         : table-id := <newname> "datatable"
+         ; rules ( DataTable := table-id )
+         ; header-elems := <collect(?TemplateCall("header", _, _))> elems
+         ; column-elems := <filter(not(?TemplateCall("header", _, _)))> elems
+         ; columns := <mapconcat(column-to-xhtml)> column-elems
+         ; headers := <mapconcat(elem-to-xhtml)> header-elems
+         |}
+
+/*      ; hideColumn :=  <HideSubTableColumn <+ ![]>   
       ; if HideSubTableColumn then
           att0 := @> varDetailToggler="detailToggler" <@
         else
           att0 := []
-        end
+        end*/
 
-  column-to-xhtml :
+   elem-to-xhtml :
+     TemplateCall("header", [], elems) -> elems'
+     where DataTable
+         ; info(|<SubColumnCount>)
+         ; elems' := <mapconcat(header-to-xhtml)> elems
+
+   header-to-xhtml :
+     e ->
+     %>
+       <rich:column><%= headername::* %></rich:column>
+     <%
+     where headername := <elem-to-xhtml> e
+
+   column-to-xhtml :
+    elem -> column
+    where el := <elem-to-xhtml> elem
+        ; if (not(Subtable(x, _, _, _) := elem)) then
+            column := %>
+		      <rich:column>
+		        <%= el ::*%>
+		      </rich:column>
+	        <%
+	        ; if SubTable then
+                rules( SubColumnCount := <(SubColumnCount <+ !0); inc> )
+              end
+	      else
+	        column := el
+          end
+
+
+/*  column-to-xhtml :
     elem -> enclosed-columns
   where el := <elem-to-xhtml> elem
       ; columns := %>
-	      <t:column>
+	      <rich:column>
 	        <%= el ::*%>
-	      </t:column>
+	      </rich:column>
         <% 
       ; enclosed-columns := <enclose-subtable-column> columns
 
-  enclose-subtable-column :
+/*  enclose-subtable-column :
      elem -> %> <f:facet name="detailStamp"> <%= elem::* %> </f:facet> <% 
      where HideSubTableColumn
    
   enclose-subtable-column :
      elem -> elem
-     where not(HideSubTableColumn)
+     where not(HideSubTableColumn) */
   
   elem-to-xhtml :
-    TemplateCall("subtable", [field], columns) ->
+    Subtable(x, s, e, elems) ->
     %>
-        <t:dataTable var="<%=itemVarName%>" value="<%=x%>">
-          <%= tcolumns ::*%>
-        </t:dataTable>
+        <rich:subTable id="<%= subtable-id %>" var="<%=x%>" value="<%=x_col%>" colspan="">
+          <%= columns ::*%>
+        </rich:subTable>
     <%
-  where x := <arg-to-value-string> field
-      ; FieldAccess(exp, ident) := field
-      ; itemVarName := <concat-strings>[ <decapitalize-string> ident, "Item"]
-      ; columnsWithVar := <map(add-var-to-template-call(|itemVarName))> columns
-      ; tcolumns := <mapconcat(column-to-xhtml)> columnsWithVar
-      ; rules( HideSubTableColumn := 
-		  %>
-		  <t:column>
-		    <h:commandLink rendered="#{detailToggler.currentDetailExpanded}" action="#{detailToggler.toggleDetail}">
-		      <h:outputText value="Hide" />
-		    </h:commandLink>
-		    <h:commandLink rendered="#{!detailToggler.currentDetailExpanded}" action="#{detailToggler.toggleDetail}">
-		      <h:outputText value="Show" />
-		    </h:commandLink>
-		  </t:column>
-		  <% )
+  where x_col := <arg-to-value-string> e
+      ; subtable-id := <newname> "subtable"
+      ; rules ( SubTable := subtable-id )
+ //     ; FieldAccess(exp, ident) := field
+ //     ; itemVarName := <concat-strings>[ <decapitalize-string> ident, "Item"]
+ //     ; columnsWithVar := <map(add-var-to-template-call(|itemVarName))> columns
+ //     ; <debug> elems
+      ; exp := TemplateCall("spacer", [], [])
+      ; elems2 := <MkCons> (exp, elems)
+      ; columns := <mapconcat(column-to-xhtml)> elems2
     
   add-var-to-property(|var) :
     Var(var1) -> Var(var2)
@@ -288,7 +406,8 @@ rules // sections and headers
     %>
       <~n:tag><%= <elems-to-xhtml> elems ::*%></~n:tag>
     <%
-    where n := <SectionDepth <+ !1>
+    where not(DataTable)
+        ; n := <SectionDepth <+ !1>
         ; tag := <concat-strings>["h", <int-to-string> n]
       
   elem-to-xhtml :
@@ -368,6 +487,36 @@ rules // select
   elem-to-xhtml :
     Select(x, SimpleSort(s), label, e) ->
     %>
+       <h:selectManyListbox value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}" 
+                         var="<%= x %>" label="#{<%= x %>.name}" />
+          <s:convertEntity />
+        </h:selectManyListbox>
+    <%
+    where _{Type(t)} := e
+        ; GenericSort(_, _) := t
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <concat-strings> [<arg-to-el> e, "List"]
+
+  elem-to-xhtml :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
+       <h:selectOneMenu value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}" 
+                         var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
+          <s:convertEntity />
+        </h:selectOneMenu>
+    <%
+    where _{Type(t)} := e
+        ; SimpleSort(_) := t
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <arg-to-el> e
+            
+/*  elem-to-xhtml :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
        <h:selectOneMenu value="#{<%= component %>.<%= x_new %>}" onchange="submit()" 
                         valueChangeListener="#{<%= component %>.<%= x_select %>}">
           <f:selectItem itemLabel="" itemDisable="true" itemValue="0" />
@@ -380,9 +529,7 @@ rules // select
         ; x_select  := <concat-strings>["select", X]
         ; x_List    := <concat-strings>[x, "List"]
         ; component := <Component>
-        
-    //   <h:commandButton type="submit" value="<%= label %>" action="#{<%= component %>.<%= x_select %>()}"/>
-    
+ */
     
 rules // links
 
@@ -439,7 +586,7 @@ rules // links
 //        ; el := <arg-to-value-string> FieldAccess(e, "id")
 //    
   // constraint: only pass parameters of entity types (simple sorts)
-  
+    
 rules // forms
 
   elem-to-xhtml :  // the <f:facet> puts validation errors behind their inputs

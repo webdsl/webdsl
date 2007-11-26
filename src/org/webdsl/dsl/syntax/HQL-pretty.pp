@@ -59,6 +59,8 @@
    NE                       -- _1 KW["!="] _2,
    SQLNE                    -- _1 KW["<>"] _2,
    LT                       -- _1 KW["<"] _2,
+   LIKE                     -- _1 KW["like"] _2,
+   NOTLIKE                  -- _1 KW["not"] KW["like"] _2,
    In                       -- _1 KW["in"] _2,
    NotIn                    -- _1 KW["not"] KW["in"] _2,
    MemberOf                 -- _1 KW["member"] KW["of"] _2,
