@@ -15,37 +15,42 @@ imports
 
 rules
 
-  concat-with-sublists=
-    foldr(![], (is-list, id) < conc + MkCons)
-
   create-ac-pointcuts=
     try(sometd(declare-ac-pointcuts))
     ; try(sometd(desugar-ac-pointcuts))
    
   declare-ac-pointcuts:
-    AccessControlPointcut(pname,elems) -> AccessControlPointcut(pname,elems)
-    where <filter(declare-ac-pointcut-element(|pname))> elems 
+    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems)
+    where {| pointcut-formal-argument : 
+             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
+           ; <filter(declare-ac-pointcut-element(|pname,fa))> elems
+          |}
     
-  declare-ac-pointcut-element(|pname):
-    AccessControlPointcutElement(ident,matchident) -> AccessControlPointcutElement(ident,matchident)
-    where newPointcutList := <concat> [<AccessControlPointcuts<+![]> pname,[(ident,matchident)]]
+  declare-ac-pointcut-element(|pname,fa):
+    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
+    where faidentsargs := MatchArgs(<map(pointcut-formal-argument)> faidents,wc) 
+        ; newPointcutList := <concat> [<AccessControlPointcuts<+![]> (pname,fa),[(ident,matchident,faidentsargs)]]
         ; rules(
-            AccessControlPointcuts: pname -> newPointcutList
-          )
+            AccessControlPointcuts: (pname,fa) -> newPointcutList
+          ) 
   
   desugar-ac-pointcuts:
     AccessControlDefinition(elems) -> AccessControlDefinition(<map(try(desugar-ac-pointcuts));concat-with-sublists>elems)
   
   desugar-ac-pointcuts:
-    AccessControlPointcut(name,elems) -> []
+    AccessControlPointcut(name,fa,elems) -> []
+
+  concat-with-sublists=
+    foldr(![], (is-list, id) < conc + MkCons)
 
   desugar-ac-pointcuts:
     AccessControlRule("pointcut",matchident,args,checks,childrules) -> newrules
-    where rulematchtuples := <AccessControlPointcuts<+!["pointcut ",matchident," does not exist"];concat-strings;debug> matchident      
-        ; newrules := <map(rule-tuple-to-ac-rule(|args,checks,childrules))> rulematchtuples
+    where MatchArgs(fargs,wc) := args
+        ; rulematchtuples := <AccessControlPointcuts> (matchident,fargs)      
+        ; newrules := <map(rule-tuple-to-ac-rule(|checks,childrules))> rulematchtuples
     
-  rule-tuple-to-ac-rule(|args,checks,childrules):
-    (ident,matchident) -> AccessControlRule(ident,matchident,args,checks,childrules)
+  rule-tuple-to-ac-rule(|checks,childrules):
+    (ident,matchident,matchargs) -> AccessControlRule(ident,matchident,matchargs,checks,childrules)
      
   // rules for actions are inherited from rule for page if no action rules are provided
   desugar-access-control =

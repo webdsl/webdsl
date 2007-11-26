@@ -36,6 +36,36 @@ rules
            ; newsection1* := <map(try(typecheck-access-control-section(typecheck-strategy|)))> section1*
           |} 
   
+  //phase 0 pointcuts
+ 
+  typecheck-access-control-pointcuts:
+	AccessControlDefinition(defs) -> AccessControlDefinition(newdefs)
+	where 
+	  newdefs :=
+      <map(?AccessControlPrincipal(_,_)
+           <+ ?Predicate(_,_,_) 
+           <+ tc-pointcut-use
+           <+ ?AccessControlRule(_,_,_,_,_)
+           <+ typecheck-access-control-pointcut
+           <+ ?x; typecheck-error(|["Couldn't typecheck definition ",x]))> 
+        defs
+		
+  typecheck-access-control-pointcut:
+    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems)
+    where {| pointcut-formal-argument : 
+             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
+           ; <map(tc-pointcut-element(|pname))> elems
+          |}    
+  
+  tc-pointcut-element(|pname):
+    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
+    where <map(pointcut-formal-argument<+?x;typecheck-error(|["argument ",x," not in pointcut ",pname]))> faidents
+
+  tc-pointcut-use:
+    AccessControlRule("pointcut",matchident,args,checks,childrules) -> AccessControlRule("pointcut",matchident,args,checks,childrules)
+    where MatchArgs(fargs,wc) := args
+        ; rulematchtuples := <is-access-control-pointcut<+typecheck-error(|["pointcut ",matchident," does not exist"])> (matchident,fargs)   
+    
   //phase 1 securityContext and principal definition         	
   typecheck-access-control-declarations:
 	AccessControlDefinition(defs) -> AccessControlDefinition(newdefs)

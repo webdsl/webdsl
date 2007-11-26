@@ -146,6 +146,9 @@
    AccessControlCheckExpression		    -- _1,
    MatchArgs						              -- _1 _2,
    Predicate                          -- KW["predicate"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"],
+   AccessControlPointcutElement       -- _1 _2 KW["("] _3 _4 KW[")"],
+   AccessControlPointcut              -- KW["pointcut"] _1 KW["("] _2 KW[")"] KW["{"] _4 KW["}"],
+
    
    %%validation annos
    ValidationAnnoLength           -- KW["length"] KW["("] _1 KW[","] _2 KW[")"], 
