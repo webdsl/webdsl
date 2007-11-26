@@ -1,90 +1,84 @@
 /**
 
  Security rules for WebDSL
- 
+
 */
 
 module org/webdsl/dsl/transformation/access-control-weaving
 
-imports 
-  libstrategolib 
-  
-imports 
+imports
+  libstrategolib
+
+imports
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/transformation/-
 rules
 
   attach-decision-classes-to-application:
-	Application(qid, sections) -> Application(qid, <concat>[sections,[extra] ] )
-  	where def0* := <Generated-Decision-Classes>
-  		; extra := 
-  		    |[
-  			  section access control decision classes.
-  		
-  			  def0*
-  			]|
+    Application(qid, sections) -> Application(qid, <concat>[sections,[extra] ] )
+      where def0* := <Generated-Decision-Classes>
+          ; extra :=
+              |[
+                section access control decision classes.
+
+                def0*
+              ]|
 
   apply-checks-to-page:
-	Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
-	where <elem> (Page(),modifier)
-	    ; newtempelement2 := <concat> [tempelement , [ InitAction( Block(<generate-access-control-checks(|"page",ident,formargs,[],[])>) )  ] ]
-	    ; previousrules := <once-Previous-Selected-Rules>
-	    ; previousname := <once-Previous-Decision-Name>
-	    ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
-	    ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
-	
+    Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
+    where <elem> (Page(),modifier)
+        ; newtempelement2 := <concat> [tempelement , [ InitAction( Block(<generate-access-control-checks(|"page",ident,formargs,[],[])>) )  ] ]
+        ; previousrules := <once-Previous-Selected-Rules>
+        ; previousname := <once-Previous-Decision-Name>
+        ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
+        ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
+
   apply-checks-to-action(|previousname,previousrules):
     Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
-    where// <debug> ident
+    where
          checks := <generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)>
          ; returnstat := <collect(?Return(_))> statements
          ; if returnstat := [] then returnstats := [|[ goto(accessDenied()); ]|] else  returnstats := [|[ return(accessDenied()); ]|] end
-         //; <debug> [ident,checks]
          ; newstatements := [If(checks,Block(statements),Block(returnstats))]
-    
+
   apply-checks-to-template-call(|previousname,previousrules):
     tc@TemplateCall(ident, args, telems) -> result
-    where// <debug> [ident,previousname,previousrules];
+    where
     if def := <TemplateDefinition> ident
     then
             (
             // this case can be removed, maybe make the distinction between template (call) explicit
-            Define(modifier,dident,formargs,tempelement) := def  
-             
+            Define(modifier,dident,formargs,tempelement) := def
+
              // this is handled inside the definition now
              //; checks := <generate-access-control-checks(|"template",ident,formargs,previousname,previousrules)>
-             
              )
           else
             checks := <generate-access-control-checks(|"template",ident,args,previousname,previousrules)>
           end
-       // ; <debug> ["ident",ident,"checks",checks]
         ; if checks := []
           then
             result := tc
           else
             result := IfTempl(checks,[tc])
           end
-       
-          
+
+
   apply-checks-to-template-defs-actions:  //this is for template calls and actions inside template defs
-	def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,result)
-	where modifier := []
-	    ; checks:=<generate-access-control-checks(|"template",ident,formargs,[],[])> //just for setting the previous dynamic rules
-	    //; <debug> [ident,checks,formargs]
-	    ; if checks := []
+    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,result)
+    where modifier := []
+        ; checks:=<generate-access-control-checks(|"template",ident,formargs,[],[])> //just for setting the previous dynamic rules
+        ; if checks := []
           then
-             //(<debug> ["nochecks",ident];
              (newtempelement0 := <bottomup(try(apply-checks-to-action(|[],[])))> tempelement
              ; newtempelement := <bottomup(try(apply-checks-to-template-call(|[],[])))> newtempelement0
              )
           else
             (
               previousrules := <once-Previous-Selected-Rules>
-	          ; previousname := <once-Previous-Decision-Name>
-	          //; <debug> ["previous",previousrules,previousname]
-	          ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
-	          ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
+              ; previousname := <once-Previous-Decision-Name>
+              ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
+              ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
             )
           end
         ; if checks := []
@@ -93,8 +87,8 @@ rules
           else
             result := [IfTempl(checks,newtempelement)]
           end
-  
+
   //ignore the defs inside pages
-  apply-checks-to-template-defs-actions: 
-  	Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,tempelement)
-	where <elem> (Page(),modifier)
+  apply-checks-to-template-defs-actions:
+    Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,tempelement)
+    where <elem> (Page(),modifier)

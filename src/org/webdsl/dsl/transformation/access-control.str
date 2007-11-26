@@ -1,48 +1,43 @@
 /**
 
  Security rules for WebDSL
- 
+
 */
 
 module org/webdsl/dsl/transformation/access-control
 
-imports 
-  libstrategolib 
-  Java-15 
-  libjava-front 
-  
-imports 
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
   org/webdsl/dsl/syntax/WebDSL
-  
+
 rules
   process-security=
-    bottomup(try( //change in syntax, now only one expression is allowed in a rule, quick fix
-      \AccessControlRule(checktype,matchstring,fargs,check,acrules) ->
-       AccessControlRule(checktype,matchstring,fargs,[check],acrules)
-      \))
-    
-    ; declare-security
-    
+    declare-security
+
     ; typecheck-access-control(typecheck-access-control-pointcuts|)
     ; create-ac-pointcuts
     ; desugar-access-control
-    
-    ; typecheck-access-control(typecheck-access-control-declarations|)    
+
+    ; typecheck-access-control(typecheck-access-control-declarations|)
     ; generate-access-control-declarations
     ; if AccessControlEnabled then
-      ( derive  
+      ( derive
       ; declare-definitions
-      
-      ; typecheck-access-control(typecheck-access-control-predicates|) 
+
+      ; typecheck-access-control(typecheck-access-control-predicates|)
       ; generate-access-control-predicates
-      ; derive  
+      ; derive
       ; declare-definitions
-      
+
       ; typecheck-access-control(typecheck-access-control-rules-checks|)
       ; generate-access-control-rules-checks
-      ; try(sometd(apply-checks-to-page))  
-      ; try(sometd(apply-checks-to-template-defs-actions))     
-    //; try(attach-decision-classes-to-application)
+      ; try(sometd(apply-checks-to-page))
+      ; try(sometd(apply-checks-to-template-defs-actions))
+
       ; add-access-denied-page
       ; where(warn-for-unused-rules)
     )
@@ -52,38 +47,38 @@ rules
     !<All-AC-Rules>
     ; map(try(check-usage-of-rule))
   check-usage-of-rule=
-    ?acr@AccessControlRule(checktype,matchstring,fargs,checks,acrules)
+    ?acr@AccessControlRule(checktype,matchstring,fargs,check,acrules)
     ; !(acr,<Used-AC-Rules>)
     ; not(elem)
-    ; !AccessControlRule(checktype,matchstring,fargs,checks,[])//don't show nested rules, that gives too much information
+    ; !AccessControlRule(checktype,matchstring,fargs,check,[])//don't show nested rules, that gives too much information
     ; pp-webdsl-to-string
-    ; warn(|["warning: in access control rules: rule not used: "]) 
-    
+    ; warn(|["warning: in access control rules: rule not used: "])
+
   add-access-denied-page:
     Application(qid, sections) -> Application(qid, <concat>[sections, deniedpage])
-    where deniedpage := 
+    where deniedpage :=
       [ |[
-          section access denied page. 			    
+          section access denied page.
           define page accessDenied()
-	      {
-	        title("Access Denied")
-	        text("Access Denied")
-	      } 
-	    ]| 
-	  ]
-  
+          {
+            title("Access Denied")
+            text("Access Denied")
+          }
+        ]|
+      ]
+
   generate-access-control-predicates :
-  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
+    Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
+
   generate-access-control-preds:
-	AccessControlDefinition(defs) -> <filter(access-control-predicates)> defs
-     
+    AccessControlDefinition(defs) -> <filter(access-control-predicates)> defs
+
   generate-access-control-declarations :
-  	Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
+    Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
 
   generate-access-control-rules-checks :
-  	Application(qid, sections) -> Application(qid,<map(try(remove-security-decs))> sections )
-  	where <collect(generate-access-control-rules-checks)> sections
-  	    
+    Application(qid, sections) -> Application(qid,<map(try(remove-security-decs))> sections )
+    where <collect(generate-access-control-rules-checks)> sections
 
   remove-security-decs:
     Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
@@ -92,13 +87,13 @@ rules
     Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
 
   generate-access-control-decs:
-	AccessControlDefinition(defs) -> <filter(security-subject)> defs
-	where rules (
-	  AccessControlEnabled := True()
-	)
-	
+    AccessControlDefinition(defs) -> <filter(security-subject)> defs
+    where rules (
+      AccessControlEnabled := True()
+    )
+
   access-control-predicates:
-    pr@Predicate($ident,farg*,exp) -> 
+    pr@Predicate($ident,farg*,exp) ->
       |[
         section ac $predname.
         globals
@@ -106,135 +101,43 @@ rules
           function $ident ( farg* ) : Bool
           {
             return e0;
-          }  
+          }
         }
       ]|
     where $predname := <newname> "predicate"
         ; e0 := <generate-extended-check> exp
-	
+
   generate-access-control-rules-checks:
     AccessControlDefinition(defs) -> <filter(create-rule-classes)> defs
 
   // there can be only one of these (not yet checked)
   security-subject:
-    AccessControlPrincipal($ident,props) -> 
-			|[ 	
-				section generated security.
-				
-				session securityContext {
-				  	loggedIn	:: Bool
-				    principal   -> $ident
-				}
-			  
-			  	entity AccessControlRule
-				{
-					name :: String
-					decisions -> Set<AccessControlDecision>
-					checks -> Set<AccessControlCheck>
-			    }
-				
-				entity AccessControlCheck
-				{
-					description :: Text
-					results -> Set<AccessControlCheckResult>
-					rule -> AccessControlRule (inverse=AccessControlRule.checks)
-				}
-				
-				entity AccessControlCheckResult
-				{
-					check -> AccessControlCheck (inverse=AccessControlCheck.results)
-					result :: Bool
-					decision -> AccessControlDecision (inverse=AccessControlDecision.results)
-				}
-				 
-				entity AccessControlDecision{
-					rule -> AccessControlRule (inverse=AccessControlRule.decisions)
-					endResult :: Bool
-					principal -> $ident
-					time :: Date
-					results -> Set<AccessControlCheckResult>
-				}
-				
-				/*
-                define page login()
-				{
-                  var subject : $ident := $ident{};
-				
-                  form { 
-                  table {
-                    elem0*
-                    row{ "username: " input(subject.username) }
-				    row{ "password: " input(subject.password) }
-				         
-				  }
-				  action("login", login())
-				  action login() {
-				      
-				    var subjects : List<$ident> :=
-				    select s from $ident as s 
-				    where (s._username = ~subject.username) and (s._password = ~subject.password);
-				          	
-				    for sub : $ident in subjects do
-				    securityContext.subject:=sub;
-				    securityContext.loggedIn:=true;
-				    end
-				            
-				  }
-				          
-				  action("logout", logout())
-				  action logout() {
-				    securityContext.loggedIn:=false;
-				  }
-				  }
-			    }*/
-			]|
-			//where rules (
-			//  Access-Control-Principal := $ident
-			//)
-			//where elem0* := <map(property-to-input-row)> props
- 
-  //property-to-input-row:
-    //PropertyNoAnno($ident,kind,xsort) -> elem|[ row{ "$ident: " input(subject.$ident) } ]|
+    AccessControlPrincipal($ident,props) ->
+            |[
+                section generated security.
+
+                session securityContext {
+                      loggedIn	:: Bool
+                    principal   -> $ident
+                }
+            ]|
 
   create-rule-classes:
-    st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> []
-    			/*|[ 	
-				section generated rule entities $random.
-			  	def0*
-			]|*/
-	where //$random := <new>
-	   def0* := <create-rule-classes-helper> st
-			
+    st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> []
+    where def0* := <create-rule-classes-helper> st
+
   create-rule-classes-helper:
-    st@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> <fail>
-			/*<concat>[
-			[def|[ 		  
-			  	globals { 
-			  		var $varname : AccessControlRule := AccessControlRule
-					{
-						
-					};	
-				}
-			]|]
-			,
-			  <filter(create-rule-classes-helper);concat> acrules
-			]*/
-    where //$varname := <concat-strings> ["ACRule",checktype,<remove-wildcards>matchstring]
-	  id
-        ; newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
-	; rules(
-	    Security-Rules-List-From-Type : checktype -> newlistfromtype
-	    All-AC-Rules := <concat> [<All-AC-Rules <+ ![]>,[st]] 
-	    //Security-Rule-Name : (checktype,matchstring) -> $varname
-	  )
-      //; <debug> <Security-Rules-List-From-Type> checktype
-      //;<filter(create-rule-classes-helper);concat> acrules
+    st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <fail>
+    where newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
+    ; rules(
+        Security-Rules-List-From-Type : checktype -> newlistfromtype
+        All-AC-Rules := <concat> [<All-AC-Rules <+ ![]>,[st]]
+      )
 
   remove-wildcards=
-  	explode-string;map(try(?'*';!'1'));implode-string
-  	
+    explode-string;map(try(?'*';!'1'));implode-string
+
   generate-access-control-checks(|checktype,name,vars,previousname,previousrules)=
-    
     if previousname := []
     then
       possibleTargets := <Security-Rules-List-From-Type <+![]> checktype
@@ -242,235 +145,188 @@ rules
       possibleTargets := <concat> [<Security-Rules-List-From-Type<+![]> checktype, <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules]
     end
     ; filteredrules := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
-    ; if (filteredrules := [] ; <elem> (checktype,<Strict-Check-Types>)) 
-  	  then
-  	    pt := [AccessControlRule(checktype,"*",[],[AccessControlCheckExpression(False(){Type(SimpleSort("Bool"))})],[])]
-  	  else
-  	    pt := filteredrules
-  	  end 
-  	; if previousname := []
-  	then
-  	 ( $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
-  	   ; $acrulename := <concat-strings> ["ACRule",checktype,name] )
-  	else
-  	 ( $decisionclassname := <concat-strings> ["ACDecision",previousname,checktype,name]
-  	   ; $acrulename := <concat-strings> ["ACRule",previousname,checktype,name] )
-  	end
-  	; selectedchecks := <map(\AccessControlRule(_,_,_,checks,_) -> checks\);concat> pt
-  	; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
-  	; if <elem> (checktype,<Visual-Check-Types>)
-  	  then
-  	    (
-  	    if pt := []
-  	    then
-  	      rulecheckactions :=[] //these visual things shouldn't be too restrictive, just ignore when nothing is specified
-  	    else
-  	      rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;generate-extended-check);generate-conjunction-exp> selectedchecks
-  	    end
-  	    ;rules
-  	    (
-  	        Previous-Selected-Rules := selectedrules
-			Previous-Decision-Name := <concat-strings> [checktype,name]
-  	    )
-  	    )
-  	  else
-  	    (//if name := "friends" then <debug> ["about to generate checks",pt] end
-  	     rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
-  	    //; if name := "friends" then <debug> ["generated checks",rulecheckactions] end
-  	    ; otherclasses := <Generated-Decision-Classes <+ ![]>
-	  	; prop0* := <map(try(vars-to-props))> vars
-	  	; str0 := <double-quote> $acrulename
-	  	//; e0* := <add-indices;map(generate-listinits-from-check(|$acrulename))> selectedchecks
-	  	; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
-	  	; rules (
-			Generated-Decision-Classes := 
-				<concat>[
-					def* |[
-					entity $decisionclassname : AccessControlDecision{	
-						prop0*
-					}  
-	
-					globals {
-						var $acrulename : AccessControlRule := AccessControlRule { 
-						  name:=str0
-			        	};
-				    }
-				    
-				    def0*
-					]|
-				, otherclasses ]
-				
-			Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
-	
-			Previous-Selected-Rules := selectedrules
-			Previous-Decision-Name := <concat-strings> [checktype,name]
-	  	
-	  	))
-  	  end
-  	//; if checktype := "action" then <debug> rulecheckactions end
-  	//; if name := "friends" then <debug> ["done",pt] end
-  	; !rulecheckactions
+    ; if (filteredrules := [] ; <elem> (checktype,<Strict-Check-Types>))
+        then
+          pt := [AccessControlRule(checktype,"*",[],AccessControlCheckExpression(False(){Type(SimpleSort("Bool"))}),[])]
+        else
+          pt := filteredrules
+        end
+      ; if previousname := []
+      then
+       ( $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
+         ; $acrulename := <concat-strings> ["ACRule",checktype,name] )
+      else
+       ( $decisionclassname := <concat-strings> ["ACDecision",previousname,checktype,name]
+         ; $acrulename := <concat-strings> ["ACRule",previousname,checktype,name] )
+      end
+      ; selectedchecks := <map(\AccessControlRule(_,_,_,check,_) -> check\)> pt
+      ; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
+      ; if <elem> (checktype,<Visual-Check-Types>)
+        then
+          (
+          if pt := []
+          then
+            rulecheckactions :=[] //these visual things shouldn't be too restrictive, just ignore when nothing is specified
+          else
+            rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;generate-extended-check);generate-conjunction-exp> selectedchecks
+          end
+          ;rules
+          (
+              Previous-Selected-Rules := selectedrules
+            Previous-Decision-Name := <concat-strings> [checktype,name]
+          )
+          )
+        else
+          (
+           rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
+          ; otherclasses := <Generated-Decision-Classes <+ ![]>
+          ; prop0* := <map(try(vars-to-props))> vars
+          ; str0 := <double-quote> $acrulename
+          ; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
+          ; rules (
+            Generated-Decision-Classes :=
+                <concat>[
+                    def* |[
+                    entity $decisionclassname : AccessControlDecision{
+                        prop0*
+                    }
+
+                    globals {
+                        var $acrulename : AccessControlRule := AccessControlRule {
+                          name:=str0
+                        };
+                    }
+
+                    def0*
+                    ]|
+                , otherclasses ]
+
+            Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
+
+            Previous-Selected-Rules := selectedrules
+            Previous-Decision-Name := <concat-strings> [checktype,name]
+
+          ))
+        end
+      ; !rulecheckactions
 
   generate-definition-from-check(|$rulename):
-    (index,check) -> def|[ 
+    (index,check) -> def|[
                         globals{
-                          var $varname :AccessControlCheck := AccessControlCheck{ 
+                          var $varname :AccessControlCheck := AccessControlCheck{
                           rule := $rulename
-                          description := str0 }; 
-                          
+                          description := str0 };
+
                         }
-                     ]| 
+                     ]|
    where $varname := <concat-strings> ["check",$rulename,<int-to-string> index]
    ; str0 := <pp-webdsl-to-string; double-quote; explode-string; filter(not(?'\n')); implode-string> check
-   
- // generate-listinits-from-check(|rulename):
-  //  (index,check)->  Var ( $varname )
-  // where $varname := <concat-strings> ["check",rulename,<int-to-string> index]
-            	
-  vars-to-props:
-	Arg($ident,$argsort) -> |[ $ident -> $classname]|
-	where <defined-java-type> $argsort  
-		; SimpleSort($classname) := $argsort	
 
   vars-to-props:
-	Arg($ident,$argsort) -> |[ $ident :: $typename]|
-	where <builtin-java-type> $argsort
-	    ; SimpleSort($typename) := $argsort
+    Arg($ident,$argsort) -> |[ $ident -> $classname]|
+    where <defined-java-type> $argsort
+        ; SimpleSort($classname) := $argsort
 
   vars-to-props:
-	Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
-	where GenericSort($gentype,$thesort) := $argsort	
-	    ; <defined-java-type> $thesort
-		
+    Arg($ident,$argsort) -> |[ $ident :: $typename]|
+    where <builtin-java-type> $argsort
+        ; SimpleSort($typename) := $argsort
+
+  vars-to-props:
+    Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
+    where GenericSort($gentype,$thesort) := $argsort
+        ; <defined-java-type> $thesort
+
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name,vars):
-	acr@AccessControlRule(checktype,matchstring,fargs,checks,acrules) -> AccessControlRule(checktype,matchstring,fargs,newchecks,acrules)
-	where 
-	if not(matchstring := "*")
-	then
-	    (
-		leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
-		; if leftmatcher := []
-			then  
-				(matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
-				//still need to check whether it is precisely the name or something longer
-				; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
-				  then matchresult := matchresulttemp
-				  else matchresult := matchstring
-				  end
-				)
-			else
-				matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
-			end
-		//; if checktype:="template" then <debug> [name,vars,fargs] end	
-		; not(matchresult := matchstring) //if equal, left-match failed
-		)
-	end
-	//check arguments
-	; newfargs := <?MatchArgs(args,wc);!args> fargs
-	; getWC := <?MatchArgs(args,wc);!wc> fargs
-	; if getWC := None() then
-	  newvars := vars
-	else
-	  newvars := <take(<length> newfargs)> vars
-	end
-	; //if <elem> (checktype,<Visual-Check-Types>)
-	//then
-	 // <eq> (newfargs,newvars)
-	//else
-	//(   //commented, needs to leak through for child rules  {|   FixVarsInCheck:
-     <zip(try(dynamic-rule-check-vars ; extract-sort-from-arg) ; eq)> (newfargs,newvars)  //try because when failing will be treated as matching on expressions
-	 ; newchecks := <map(try(fix-var-names-in-check))> checks
-	//|}
-	//)
-	//end
-	; rules (Used-AC-Rules:=<concat>[<Used-AC-Rules<+![]>,[acr]])
+    acr@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> AccessControlRule(checktype,matchstring,fargs,newcheck,acrules)
+    where
+    if not(matchstring := "*")
+    then
+        (
+        leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
+        ; if leftmatcher := []
+            then
+                (matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
+                //still need to check whether it is precisely the name or something longer:
+                ; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
+                  then matchresult := matchresulttemp
+                  else matchresult := matchstring
+                  end
+                )
+            else
+                matchresult := <left-match;implode-string> (<explode-string> name,leftmatcher)
+            end
+        ; not(matchresult := matchstring) //if equal, left-match failed
+        )
+    end
+    //check arguments
+    ; newfargs := <?MatchArgs(args,wc);!args> fargs
+    ; getWC := <?MatchArgs(args,wc);!wc> fargs
+    ; if getWC := None() then
+      newvars := vars
+    else
+      newvars := <take(<length> newfargs)> vars
+    end
+    //needs to "leak" dynamic rules of available vars for child rules
+    ; <zip(try(dynamic-rule-check-vars ; extract-sort-from-arg) ; eq)> (newfargs,newvars)  //try because when failing will be treated as matching on expressions
+    ; newcheck := <try(fix-var-names-in-check)> check
+    ; rules (Used-AC-Rules:=<concat>[<Used-AC-Rules<+![]>,[acr]])
 
   dynamic-rule-check-vars:
-    (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (Arg(ident1,thesort1),Arg(ident2,thesort2)) 
+    (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (Arg(ident1,thesort1),Arg(ident2,thesort2))
     where rules(
              FixVarsInCheck : Var(ident1) -> Var(ident2)
           )
-   
+
   fix-var-names-in-check:
     AccessControlCheckExpression(expr) -> AccessControlCheckExpression(newexpr)
     where newexpr:= <alltd(FixVarsInCheck)> expr
-  
+
   extract-sort-from-arg:
-	(Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2)
-	 
+    (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2)
+
   generate-security-checks-from-target(|$acdclassname,vars,$acrulename):
-	xs ->
-  		|[
-  		    //var acdecision : $acdclassname := $acdclassname{
-  		    //  rule :=$acrulename
-  		    //};    
-  			
-  			//if(securityContext.loggedIn) {
-  			//  acdecision.principal :=  securityContext.principal;
-  			//}
-  			
-  			//stat2*
-  			stat1*
-  				
-  			//acdecision.endResult := e0 ;
-  			//acdecision.save();
-  			//if ( acdecision.endResult = false )
-  			//{
-  			//  goto(accessDenied());
-  			//}
-  			
-  			if ( e0= false )
-  			{
-  			  goto(accessDenied());
-  			}
-  			
-  			
-  		]|
-  	where
-  	   // <debug> ["xs start",xs]
-  		numberedchecks := <add-indices> xs
-  		; stat1* := <map(generate-security-checks-from-target-element(|$acrulename));concat> numberedchecks
-  		; stat2* := <map(generate-security-checks-from-target-var)> vars
-  		; e0 := <map(fix-var-name-in-check);generate-final-exp> numberedchecks
-       // ; <debug> ["xs end",xs]
-  generate-final-exp : 
-    [x|xs] ->  |[  $varname && e0  ]| 
+    xs ->
+          |[
+              stat1*
+
+              if ( e0= false )
+              {
+                goto(accessDenied());
+              }
+          ]|
+      where numberedchecks := <add-indices> xs
+          ; stat1* := <map(generate-security-checks-from-target-element(|$acrulename));concat> numberedchecks
+          ; stat2* := <map(generate-security-checks-from-target-var)> vars
+          ; e0 := <map(fix-var-name-in-check);generate-final-exp> numberedchecks
+
+  generate-final-exp :
+    [x|xs] ->  |[  $varname && e0  ]|
     where ($varname,_) := x
-        ; e0 := <generate-final-exp> xs 
-  
-  generate-final-exp :  
+        ; e0 := <generate-final-exp> xs
+
+  generate-final-exp :
     [x] -> Var($varname)
     where ($varname,_) := x
- 
+
   fix-var-name-in-check:
     (index,anything) -> (newindex,anything)
     where newindex := <concat-strings> ["check",<int-to-string> index]
- 
+
   generate-security-checks-from-target-element(|rulename):
-	(index,AccessControlCheckExpression(expr)) ->  [|[ 
-	                                                
-													var $varname : Bool := e0;
-													 
-													//var $anyname : AccessControlCheckResult := AccessControlCheckResult{};
-													//$anyname.decision := acdecision;
-													//$anyname.result := $varname;
-													//$anyname.check := $varnamecheck;
-													//$anyname.save(); //this shouldn't be necessary, fix needed in manytoone generation, owning side needs to add to the list when setdecision is called
-												 ]| ]
-	where $varname := <concat-strings> ["check",<int-to-string> index]
-	    ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
-	    ; $anyname := <newname> "accessControlCheckResult"
-	    ; e0 := <generate-extended-check> expr
-	    
+    (index,AccessControlCheckExpression(expr)) -> [ |[ var $varname : Bool := e0; ]| ]
+    where $varname := <concat-strings> ["check",<int-to-string> index]
+        ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
+        ; $anyname := <newname> "accessControlCheckResult"
+        ; e0 := <generate-extended-check> expr
+
   generate-extended-check:
-    expr -> e0	    
- 	where e0 := <bottomup(try(match-any-bool-expr))> expr
-	    //add a logged in check when principal is used
-	   // ; e0 := <concat;generate-conjunction-exp>[extrachecks,[newexpr]]
+    expr -> e0
+    where e0 := <bottomup(try(match-any-bool-expr))> expr
 
   match-any-bool-expr:
-    anyexp{Type(SimpleSort("Bool"))} -> newexp{Type(SimpleSort("Bool"))} 
+    anyexp{Type(SimpleSort("Bool"))} -> newexp{Type(SimpleSort("Bool"))}
     where //must not contain other bool expressions otherwise not-null checks have already been made
           [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
         ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
@@ -481,7 +337,7 @@ rules
 
   ignore-certain-exp :
     Call(_,_,_) -> []
-    
+
   ignore-certain-exp :
     ThisCall(_,_) -> []
 
@@ -523,15 +379,15 @@ rules
         else
           return := checks
         end
-  
-  generate-conjunction-exp : 
+
+  generate-conjunction-exp :
     [x|xs] ->  And( e0 , e1 ) {Type(SimpleSort("Bool"))}
     where not([] := xs)
         ; e0 := x
-        ; e1 := <generate-conjunction-exp> xs 
-        
-  generate-conjunction-exp :  
+        ; e1 := <generate-conjunction-exp> xs
+
+  generate-conjunction-exp :
     [e0] -> |[ e0 ]|
-	
+
   generate-security-checks-from-target-var:
     Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|
