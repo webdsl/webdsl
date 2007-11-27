@@ -205,7 +205,7 @@ rules //session variables
 rules // bean parameters
            
   argument-to-bean-property :
-    Arg(x, SimpleSort(x_Class)) -> 
+    Arg(x, s@SimpleSort(x_Class)) -> 
     |[
        @RequestParameter("~x")
        private t x_Id;
@@ -222,7 +222,8 @@ rules // bean parameters
          return x;
        }
     ]|
-    where x_Id := <concat-strings>[x, "Id"]
+    where <defined-java-type> s
+        ; x_Id := <concat-strings>[x, "Id"]
         ; x_get := <property-getter> x
         ; x_set := <property-setter> x
         ; if <EntityIdName> x_Class then
@@ -230,9 +231,29 @@ rules // bean parameters
           else
             t := type|[ Long ]|
           end
+  
+  argument-to-bean-property :
+    Arg(x, s@SimpleSort(x_Class)) -> 
+    |[
+       @RequestParameter("~x")
+       private x_Class x;
+            
+       public void x_set(x_Class x) {
+         log.info("~x_set");
+         this.x = x;
+       }
+      
+       public x_Class x_get() {
+         log.info("~x_get");
+         return x;
+       }
+    ]|
+    where <builtin-java-type> s
+        ; x_get := <property-getter> x
+        ; x_set := <property-setter> x
         
   argument-to-initialization :
-    Arg(x, SimpleSort(x_Class)) -> 
+    Arg(x, s@SimpleSort(x_Class)) -> 
     bstm*|[
           if (x_Id == null) {
             log.info("No " + "~x_Id" + " defined, creating new " + "~x_Class");
@@ -245,9 +266,20 @@ rules // bean parameters
             }
          }
     ]|
-    where x_Id := <concat-strings>[x, "Id"]
+    where <defined-java-type> s
+        ; x_Id := <concat-strings>[x, "Id"]
         ; rules( Parameter :+= x )
 
+  argument-to-initialization :
+    Arg(x, s@SimpleSort(x_Class)) -> 
+    bstm*|[
+          if (x == null) {
+            x = new x_Class();
+          }
+    ]|
+    where <builtin-java-type> s
+        ; rules( Parameter :+= x )
+        
 rules // action methods
 
   action-to-bean-method = 
@@ -298,10 +330,15 @@ rules // view transition
 //    (param, value) -> <concat-strings> [param, "=", value]
 //
   view-string-bind-param :
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x" + "=" + e2 ]|
+    where <builtin-java-type> s
+        ; e2 := <arg-to-java-exp> e1
+  
+  view-string-bind-param :
     (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x" + "=" + e2.getId() ]|
     where <defined-java-type> s
         ; e2 := <arg-to-java-exp> e1
-        
+              
   arg-to-java-exp :
     Var(x){Type(t)} -> |[ x ]|
     where not(<eq>(t, "Component"))
