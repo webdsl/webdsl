@@ -455,19 +455,49 @@ rules // tables
 rules // iteration
 
   elem-to-xhtml :
-    For(x,s,e,elems1) ->
+    For(x, s, e, we, obe, elems1) ->
     %>
-      <ui:repeat var="<%= x %>" value="<%= el %>"><%= elems2 ::*%></ui:repeat>
+      <ui:repeat var="<%= x %>" value="<%= el %>">
+        <h:panelGroup rendered="<%= we %>">
+          <%= elems2 ::*%>
+        </h:panelGroup>
+      </ui:repeat>
     <%
-    where el := <arg-to-value-string> e
+    where not("" := we)
+        ; el := <arg-to-value-string> e
         ; elems2  := <elems-to-xhtml> elems1
         
   elem-to-xhtml :
-    ForAll(x,s,elems) ->
+    For(x, s, e, "", obe, elems1) -> // No "where" clause
     %>
-      <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}"><%= columns ::*%></ui:repeat>
+      <ui:repeat var="<%= x %>" value="<%= el %>">
+        <%= elems2 ::*%>
+      </ui:repeat>
+    <%
+    where el := <arg-to-value-string> e
+        ; elems2  := <elems-to-xhtml> elems1
+
+  elem-to-xhtml :
+    ForAll(x, s, we, obe, elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
+        <h:panelGroup rendered="<%= we %>">
+          <%= columns ::*%>
+        </h:panelGroup>
+      </ui:repeat>
+    <%
+    where not("" := we)
+        ; columns := <elems-to-xhtml(wrap-column)> elems
+
+  elem-to-xhtml :
+    ForAll(x, s, "", obe, elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
+        <%= columns ::*%>
+      </ui:repeat>
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
+        
   
   elem-to-xhtml :
     IfTempl(e, elems) ->
@@ -876,12 +906,12 @@ rules // output
 
 rules // function stuff
 
-   translate-if :
+   translate-condition :
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
      where <elem> (Page(), mods)
          ; {| Component
             : rules ( Component := name )
-            ; body2 := <try(sometd(translate-if))> body1
+            ; body2 := <try(sometd(translate-condition))> body1
             |}
          ; try (if <oncetd(?ThisCall("email", [_]))> body1 then
              if not(<GetEmailArgumentsList> name) then
@@ -890,7 +920,7 @@ rules // function stuff
              end
            end)
 
-   translate-if :
+   translate-condition :
      def@Define(mods, name, args, body1) -> def
      where <elem> (Email(), mods)
          ; {| Component
@@ -899,13 +929,40 @@ rules // function stuff
 	        ; rules ( EmailDefinitions : name -> definitions )
 	        |}
             
-   translate-if : IfTempl(e, elems1*) -> IfTempl(el, elems2*) // This is kind of ughly, but ok
-     where fn := <newname> "templateFunction"
+   translate-condition : IfTempl(e, elems1*) -> IfTempl(el, elems2*) // This is kind of ughly, but ok
+     where fn := <newname> "ifCondFun"
          ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> e
          ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
          ; pn := <Component>
-         ; rules( IfExpressions :+ l -> [(pn, fn, params, e)|l] )
-         ; elems2* := <try(sometd(translate-if))> elems1*
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l] )
+         ; elems2* := <try(sometd(translate-condition))> elems1*
+
+   // Do the same iffy thing for for-loops (for the "where" clause)
+   translate-condition : For(x, s, e, we1, obe, elem1*) -> For(x, s, e, we2, obe, elem2*) // This is kind of ughly, but ok
+     where not(True() := we1)
+         ; fn := <newname> "forWhereCondFun"
+         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> we1
+         ; we2 := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+         ; pn := <Component>
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we1)|l] )
+         ; elem2* := <try(sometd(translate-condition))> elem1*
+         
+   translate-condition :
+     For(x, s, e, True(), obe, elem1*) -> For(x, s, e, "", obe, elem2*)
+     where elem2* := <try(sometd(translate-condition))> elem1*
+   
+   translate-condition : ForAll(x, s, we1, obe, elem1*) -> ForAll(x, s, we2, obe, elem2*) // This is kind of ughly, but ok
+     where not(True() := we1)
+         ; fn := <newname> "forAllWhereCondFun"
+         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> we1
+         ; we2 := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+         ; pn := <Component>
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we1)|l] )
+         ; elem2* := <try(sometd(translate-condition))> elem1*
+
+   translate-condition :
+     ForAll(x, s, True(), obe, elem1*) -> ForAll(x, s, "", obe, elem2*)
+     where elem2* := <try(sometd(translate-condition))> elem1*
 
    unId : Id(x) -> x
   
@@ -926,8 +983,8 @@ rules // function stuff
 //        ; params := Literal(<map(function-param-to-sig); separate-by(|","); concat-strings> param*)
 //  
    functions-to-el =
-     try(sometd(translate-if))
-     ; where (functions := <repeat(once-IfExpressions)> []
+     try(sometd(translate-condition))
+     ; where (functions := <repeat(once-ConditionExpressions)> []
        ; rules ( AllTemplateFunctions := functions ))
 
 //     ; oldapp := <id>

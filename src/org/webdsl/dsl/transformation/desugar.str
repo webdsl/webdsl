@@ -159,14 +159,38 @@ rules
         ; props2 := [|[ title :: String (name) := e ]| | props1]
         ; rules( IsTask : x -> x )
 
-  Desugar :
-    ForAllWhere(x, s, e, te*) -> ForAll(x, s, [IfTempl(e, te*)])
-  
-  Desugar :
-    ForWhere(x, s, e1, e2, te*) -> For(x, s, e1, [IfTempl(e2, te*)])
+rules // Desugaring of fors
 
   Desugar :
-    ForWhereColl(x, s, e1, e2, b) -> ForColl(x, s, e1, Block([If(e2, b, Block([]))]))
+    ForNoWhereNoOrderBy(x, s, e, te*) -> For(x, s, e, True(), FieldAccess(Var(x), "name"), te*)
+
+  Desugar :
+    ForWhereNoOrderBy(x, s, e, we, te*) -> For(x, s, e, we, FieldAccess(Var(x), "name"), te*)
+
+  Desugar :
+    ForNoWhereOrderBy(x, s, e, obe, te*) -> For(x, s, e, True(), obe, te*)
+
+
+  Desugar :
+    ForAllNoWhereNoOrderBy(x, s, te*) -> ForAll(x, s, True(), FieldAccess(Var(x), "name"), te*)
+
+  Desugar :
+    ForAllWhereNoOrderBy(x, s, we, te*) -> ForAll(x, s, we, FieldAccess(Var(x), "name"), te*)
+
+  Desugar :
+    ForAllNoWhereOrderBy(x, s, obe, te*) -> ForAll(x, s, True(), obe, te*)
+
+  
+  Desugar :
+    ForStmtWhereNoOrderBy(x, s, e, we, te*) -> ForStmt(x, s, e, we, FieldAccess(Var(x), "name"), te*)
+  
+  Desugar :
+    ForStmtNoWhereOrderBy(x, s, e, obe, te*) -> ForStmt(x, s, e, True(), obe, te*)
+  
+  Desugar :
+    ForStmtNoWhereNoOrderBy(x, s, e, te*) -> ForStmt(x, s, e, True(), FieldAccess(Var(x), "name"), te*)
+  
+rules
     
   Desugar :
     TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])
@@ -474,11 +498,13 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
            |}
 
   DesugarLiftExp :
-    ForColl(x, s, e1, bstm1) -> s
+    ForStmt(x, s, e1, we1, obe1, bstm1) -> s
     where {| LiftE
            : e2 := <sometd(LiftExp)> e1
+           ; we2 := <sometd(LiftExp)> we1
+           ; obe2 := <sometd(LiftExp)> obe1
            ; bstm2 := <try(sometd(DesugarLiftExp))> bstm1
-           ; s:= <repeat(once-LiftE)> ForColl(x, s, e2, bstm2)
+           ; s:= <repeat(once-LiftE)> ForStmt(x, s, e2, we2, obe2, bstm2)
            |}
 
   DesugarLiftExp :
