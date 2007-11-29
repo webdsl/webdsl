@@ -330,7 +330,12 @@ rules
     where //must not contain other bool expressions otherwise not-null checks have already been made
           [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
         ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
-        ; newexp := <concat;generate-conjunction-exp>[newe,[anyexp]]
+        ; checkleftsideofequals := <collect(bottomup(try(\ consname#([lhs,rhs]) -> NotEq(lhs,Null())
+                                                           where <?"Eq" <+ ?"NotEq"> consname
+                                                               ; <?_{Type(lht)}> lhs
+                                                               ; <not(builtin-java-type)
+                                                                 <+ ?SimpleSort("String")> lht \)))> anyexp
+        ; newexp := <concat;generate-conjunction-exp>[newe,checkleftsideofequals,[anyexp]]
 
   ignore-certain-exp :
     ForExp(oe, x, s, ie) -> []
@@ -344,7 +349,7 @@ rules
   field-access-to-not-null-checks-first:
     fa@FieldAccess(ent,prop)-> extrachecks
     where check := NotEq(fa,Null())
-        ; if Var(varname) := ent
+        ; if Var(varname) := ent // case of just one property access
         then
           checks := [ NotEq(Var(varname),Null()){Type(SimpleSort("Bool"))} ]
         else
