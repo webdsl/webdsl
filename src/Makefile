@@ -33,12 +33,13 @@ STRCFLAGS = \
     -la stratego-sglr \
     -la ${HOME}/.nix-profile/lib/libjava-front.la
 
-all : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
-      $(hql)-pretty.pp.af $(mixhql).sdf \
-      $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
-      $(syntax)-pretty.pp.af \
-      $(metasyntax).def $(metasyntax).tbl \
-      $(generator)
+all : syntax $(generator)
+
+syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
+         $(hql)-pretty.pp.af $(mixhql).sdf \
+         $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
+         $(syntax)-pretty.pp.af \
+         $(metasyntax).def $(metasyntax).tbl
 
 %.str : %.rtg
 	rtg2sig -i $< -o $@
