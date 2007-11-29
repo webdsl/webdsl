@@ -165,14 +165,6 @@ rules
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
 
   Desugar :
-    Task(x, title, props1, functions) -> Entity(x, "Task", props2, functions)
-    where e := String(title)
-        ; props2 := [|[ title :: String (name) := e ]| | props1]
-        ; rules( IsTask : x -> x )
-
-rules // Desugaring of fors
-
-  Desugar :
     ForNoWhereNoOrderBy(x, s, e, te*) -> For(x, s, e, True(), FieldAccess(Var(x), "name"), te*)
 
   Desugar :
@@ -845,11 +837,7 @@ rules // edit page
     ]|
     where x          := <decapitalize-string> $X
         ; $editRowsX := <concat-strings>["editRows", $X]
-        ; if <IsTask> $X then
-            $editRowsY := "viewRowsObject"
-          else
-            $editRowsY := <concat-strings>["editRows", $Y]
-          end
+        ; $editRowsY := <concat-strings>["editRows", $Y]
         ; not(<TemplateDefinition> $editRowsX) // don't overwrite an existing definition
         ; elem*      := <properties-to-edit-row(| Var(x), x )> prop*
         
@@ -864,7 +852,7 @@ rules // edit page
     Property(y, k, s, anno*) -> elem*|[
       row { str input(e.y) }
     ]|
-    where str := <capitalize-string> y
+    where str := <concat-strings>[<capitalize-string> y, ":"]
     
   composite-property-to-edit-row(|e, qid) :
     Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
@@ -899,35 +887,7 @@ rules // view page
         ; $viewRowsX := <concat-strings>["viewRows", $X]
         ; $xSidebar  := <concat-strings>[x, "Sidebar"]
         ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
-        ; not(<IsTask> $X)
-
-  entity-to-view-page : // For tasks
-    Entity($X, y_Class, prop*, functions) ->
-    def|[
-      define page $viewX(x : $X) {
-        main(){}
-        define body() {
-          section{ header{"Task: " text(x.name) }
-            form {
-              table { $editRowsX(x){}
-                      row { "Completed: " input(x.completed) } }
-              action("Save",   save())
-              action("Cancel", cancel())
-            }
-          }
-          action cancel() { return $viewX(x); }
-          action save() { x.save(); return $viewX(x); }
-        }
-      }
-    ]|
-    where $editX     := <concat-strings>["edit", $X]
-        ; x          := <decapitalize-string> $X
-        ; $viewX     := x
-        ; $editRowsX := <concat-strings>["editRows", $X]
-        ; $xSidebar  := <concat-strings>[x, "Sidebar"]
-        ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
-        ; <IsTask> $X
-     
+    
   entity-to-view-rows :
     Entity($X, $Y, prop*, functions) ->
     def|[
@@ -941,20 +901,46 @@ rules // view page
         ; $viewRowsY := <concat-strings>["viewRows", $Y]
         ; not(<TemplateDefinition> $viewRowsX) // don't overwrite an existing definition
         ; elem*      := <properties-to-view-rows(|$X, Var(x))> prop*
-        
+                      
+  entity-to-view-properties :
+    Entity($X, $Y, prop*, functions) ->
+    def|[
+      define $viewRowsX(x : $X) {
+        $viewRowsY(x)
+        elem*
+      }
+    ]|
+    where x          := <decapitalize-string> $X
+        ; $viewRowsX := <concat-strings>["viewRows", $X]
+        ; $viewRowsY := <concat-strings>["viewRows", $Y]
+        ; not(<TemplateDefinition> $viewRowsX) // don't overwrite an existing definition
+        ; elem*      := <properties-to-view(|$X, Var(x))> prop*
+
   properties-to-view-rows(|$X, e) =
+    filter-concat-warn(property-to-view-row(|$X, e) | "cannot create view row for property ")
+        
+  properties-to-view(|$X, e) =
     filter-concat-warn(property-to-view-row(|$X, e) | "cannot create view row for property ")
     
   property-to-view-row(|$X, e) = 
+    basic-property-to-view-row(|e)
+    
+  property-to-view(|$X, e) = 
        name-property-to-view-row
     <+ text-property-to-view-row(|e)
     <+ comp-collection-property-to-view-row(|$X, e)
     <+ collection-property-to-view-row(|$X, e)
     <+ reference-property-to-view-row(|e)
     <+ composite-property-to-view-row(|$X, e)
-    <+ basic-property-to-view-row(|e)
+    <+ basic-property-to-view(|e)
     
   basic-property-to-view-row(|e) :
+    Property(y, k, s, anno*) -> elem*|[
+      row{ str output(e.y) }
+    ]|
+    where str := <concat-strings>[<capitalize-string> y, ":"]
+    
+  basic-property-to-view(|e) :
     Property(y, k, s, anno*) -> elem*|[
       par{ str " : " output(e.y) }
     ]|
@@ -1064,12 +1050,14 @@ rules // view page
   create-new-association-object(|$T, e) :
     |[ y k $Z<$Y> (ann*) ]| ->
     elem*|[
-      actionLink(str2, $createNewY(e, e.y))
-      action $createNewY($x : $T, y : $Z<$Y>) {
-        var $z : $Y := $Y { };
-        y.add($z);
-        $x.persist();
-        return $editY($z);
+      form{
+        actionLink(str2, $createNewY(e, e.y))
+        action $createNewY($x : $T, y : $Z<$Y>) {
+          var $z : $Y := $Y { };
+          y.add($z);
+          $x.persist();
+          return $editY($z);
+        }
       }
     ]|
     where <?"Set" <+ ?"List"> $Z
