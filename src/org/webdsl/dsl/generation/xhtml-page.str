@@ -472,20 +472,20 @@ rules // tables
 rules // iteration
 
   elem-to-xhtml :
-    For(x, s, e, we, obe, elems1) ->
+    For(x, s, e, Filter(we, obe), elems1) ->
     %>
       <ui:repeat var="<%= x %>" value="<%= el %>">
-        <h:panelGroup rendered="<%= we %>">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, we) %>">
           <%= elems2 ::*%>
         </h:panelGroup>
       </ui:repeat>
     <%
-    where not("" := we)
+    where not(True() := we)
         ; el := <arg-to-value-string> e
         ; elems2  := <elems-to-xhtml> elems1
         
   elem-to-xhtml :
-    For(x, s, e, "", obe, elems1) -> // No "where" clause
+    For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
     %>
       <ui:repeat var="<%= x %>" value="<%= el %>">
         <%= elems2 ::*%>
@@ -495,19 +495,19 @@ rules // iteration
         ; elems2  := <elems-to-xhtml> elems1
 
   elem-to-xhtml :
-    ForAll(x, s, we, obe, elems) ->
+    ForAll(x, s, Filter(we, obe), elems) ->
     %>
       <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
-        <h:panelGroup rendered="<%= we %>">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, we) %>">
           <%= columns ::*%>
         </h:panelGroup>
       </ui:repeat>
     <%
-    where not("" := we)
+    where not(True() := we)
         ; columns := <elems-to-xhtml(wrap-column)> elems
 
   elem-to-xhtml :
-    ForAll(x, s, "", obe, elems) ->
+    ForAll(x, s, Filter(True(), obe), elems) ->
     %>
       <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
         <%= columns ::*%>
@@ -519,7 +519,7 @@ rules // iteration
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
-      <h:panelGroup rendered="<%= e %>"><%= elems2 ::*%></h:panelGroup>
+      <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, e) %>"><%= elems2 ::*%></h:panelGroup>
     <%
     where elems2 := <elems-to-xhtml> elems
         
@@ -939,41 +939,71 @@ rules // function stuff
 	        ; definitions := <map(construct-email-definition(|def))> email_calls
 	        ; rules ( EmailDefinitions : name -> definitions )
 	        |}
-            
-   translate-condition : IfTempl(e, elems1*) -> IfTempl(el, elems2*) // This is kind of ughly, but ok
+
+   find-params =
+     ?fa@FieldAccess(v, _){Type(_)}
+     ; info(|["Found a fieldaccess: ", <id>])
+     ; not(<IgnoreVars> v)
+     ; rules( Param : l -> [fa|l] )
+
+   find-params =
+     ?v@Var(x)
+     ; info(|["Found a var: ", x])
+     ; not(<IgnoreVars> v)
+     ; rules( Param : l -> [v|l] )
+
+   find-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
+     ?ForExp(oe, x, srt, ie, Filter(we, obe))
+     ; {| IgnoreVars
+        : rules ( IgnoreVars : Var(x) )
+        ; <try(sometd(find-params))> we
+        ; <try(sometd(find-params))> ie
+        ; <try(sometd(find-params))> oe                
+        |}
+
+     
+   translate-condition : IfTempl(e, elems1*) -> IfTempl(e, elems2*)
      where fn := <newname> "ifCondFun"
-         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> e
+         ; {| Params
+            : <topdown(try(find-params))> e
+            ; params := <repeat(once-Param)> []
+            ; info(|["Found these params: ", params, " in ", e])
+            |}
          ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
          ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l] )
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
+                  ConditionExpressionToEL : (pn, e) -> el )
          ; elems2* := <try(sometd(translate-condition))> elems1*
 
    // Do the same iffy thing for for-loops (for the "where" clause)
-   translate-condition : For(x, s, e, we1, obe, elem1*) -> For(x, s, e, we2, obe, elem2*) // This is kind of ughly, but ok
-     where not(True() := we1)
+   translate-condition : For(x, s, e, Filter(we, obe), elem1*) -> For(x, s, e, Filter(we, obe), elem2*) // This is kind of ughly, but ok
+     where not(True() := we)
          ; fn := <newname> "forWhereCondFun"
-         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> we1
-         ; we2 := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+         ; {| Params
+            : <topdown(try(find-params))> we
+            ; params := <repeat(once-Param)> []
+            ; info(|["Found these params: ", params, " in ", we])
+            |}
+         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
          ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we1)|l] )
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l]
+                  ConditionExpressionToEL : (pn, we) -> el )
          ; elem2* := <try(sometd(translate-condition))> elem1*
          
-   translate-condition :
-     For(x, s, e, True(), obe, elem1*) -> For(x, s, e, "", obe, elem2*)
-     where elem2* := <try(sometd(translate-condition))> elem1*
-   
-   translate-condition : ForAll(x, s, we1, obe, elem1*) -> ForAll(x, s, we2, obe, elem2*) // This is kind of ughly, but ok
-     where not(True() := we1)
+   translate-condition : ForAll(x, s, Filter(we, obe), elem1*) -> ForAll(x, s, Filter(we, obe), elem2*) // This is kind of ughly, but ok
+     where not(True() := we)
          ; fn := <newname> "forAllWhereCondFun"
-         ; params := <collect(?FieldAccess(_, _){Type(_)} + ?Var(_){Type(_)})> we1
-         ; we2 := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+         ; {| Params
+            : <try(sometd(find-params))> we
+            ; params := <repeat(once-Param)> []
+            ; info(|["Found these params: ", params, " in ", we])
+            |}
+         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
          ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we1)|l] )
+         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l] 
+                  ConditionExpressionToEL : (pn, we) -> el )
          ; elem2* := <try(sometd(translate-condition))> elem1*
 
-   translate-condition :
-     ForAll(x, s, True(), obe, elem1*) -> ForAll(x, s, "", obe, elem2*)
-     where elem2* := <try(sometd(translate-condition))> elem1*
 
    unId : Id(x) -> x
   

@@ -190,22 +190,29 @@ rules // statements
          ; e2 := <expression-to-java> e1
          ; x_set := <concat-strings>["set", <capitalize-string> x]
    
-   assignment-to-java :
-     Assign(Assignment(Qualified(qid, x), e1)) -> 
-     |[ e2.x_set(e3); ]|
-     where e2 := <qid-to-java> qid
-         ; e3 := <expression-to-java> e1
-         // @todo: ugly hack, fix!
-         ; if SimpleSort(p) := <TypeOf> qid ; t := <TypeOfProperty> (p, x) then
-             if GenericSort(_,_) := t then
-                x_set := <concat-strings>["set", <capitalize-string> x, "List"]
-             else
-                x_set := <concat-strings>["set", <capitalize-string> x]
-             end
-           else
-             x_set := <concat-strings>["set", <capitalize-string> x]
-           end
-         
+   assignment-to-java =
+     ?Assign(Assignment(Qualified(qid, x), e1))
+     ; e2 := <qid-to-java> qid
+     ; e3 := <expression-to-java> e1
+     // @todo: ugly hack, fix!
+     ; if SimpleSort(p) := <TypeOf> qid ; t := <TypeOfProperty> (p, x) then
+          if GenericSort("List",_) := t then
+            x_set := <concat-strings>["set", <capitalize-string> x, "List"]
+            ; !|[ e2.x_set(e3); ]|
+          else
+            if GenericSort("Set", _) := t then
+              x_set := <concat-strings>["set", <capitalize-string> x, "List"]
+              ; !|[ e2.x_set(new ArrayList(e3)); ]|
+            else
+               x_set := <concat-strings>["set", <capitalize-string> x]
+               ; !|[ e2.x_set(e3); ]|
+            end
+          end
+        else
+          x_set := <concat-strings>["set", <capitalize-string> x]
+          ; !|[ e2.x_set(e3); ]|
+       end
+
    if-to-java :
      If(e1, bsit1, bsif1) -> |[ if(e2) ~bsit2 else ~bsif2 ]|
      where bsit2 := <statement-to-java> bsit1
@@ -213,7 +220,7 @@ rules // statements
          ; e2 := <expression-to-java> e1
 
    for-to-java : // No where clause
-     ForStmt(x, s, e1, True(), obe1, bstm1) -> |[
+     ForStmt(x, s, e1, Filter(True(), obe1), bstm1) -> |[
         for (t1 x : e2) 
             ~bstm2
          ]| 
@@ -223,7 +230,7 @@ rules // statements
          ; bstm2 := <statement-to-java> bstm1
 
    for-to-java : // With where clause
-     ForStmt(x, s, e1, we, obe1, bstm1) -> |[
+     ForStmt(x, s, e1, Filter(we, obe1), bstm1) -> |[
         for (t1 x : e2)
           if(e3) 
             ~bstm2

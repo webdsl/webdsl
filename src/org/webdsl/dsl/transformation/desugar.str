@@ -164,35 +164,47 @@ rules
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
 
+  
+rules // for desugarings
   Desugar :
-    ForNoWhereNoOrderBy(x, s, e, te*) -> For(x, s, e, True(), FieldAccess(Var(x), "name"), te*)
+    ForNoFilter(x, s, e, te*) -> For(x, s, e, Filter(True(), Var(x)), te*)
 
   Desugar :
-    ForWhereNoOrderBy(x, s, e, we, te*) -> For(x, s, e, we, FieldAccess(Var(x), "name"), te*)
+    For(x, s, e, FilterNoWhere(obe), te*) -> For(x, s, e, Filter(True(), obe), te*)
 
   Desugar :
-    ForNoWhereOrderBy(x, s, e, obe, te*) -> For(x, s, e, True(), obe, te*)
+    For(x, s, e, FilterNoOrderBy(we), te*) -> For(x, s, e, Filter(we, Var(x)), te*)
 
 
   Desugar :
-    ForAllNoWhereNoOrderBy(x, s, te*) -> ForAll(x, s, True(), FieldAccess(Var(x), "name"), te*)
+    ForAllNoFilter(x, s, te*) -> ForAll(x, s, Filter(True(), Var(x)), te*)
 
   Desugar :
-    ForAllWhereNoOrderBy(x, s, we, te*) -> ForAll(x, s, we, FieldAccess(Var(x), "name"), te*)
+    ForAll(x, s, FilterNoOrderBy(we), te*) -> ForAll(x, s, Filter(we, Var(x)), te*)
 
   Desugar :
-    ForAllNoWhereOrderBy(x, s, obe, te*) -> ForAll(x, s, True(), obe, te*)
+    ForAll(x, s, FilterNoWhere(obe), te*) -> ForAll(x, s, Filter(True(), obe), te*)
 
   
   Desugar :
-    ForStmtWhereNoOrderBy(x, s, e, we, te*) -> ForStmt(x, s, e, we, FieldAccess(Var(x), "name"), te*)
+    ForStmtNoFilter(x, s, e, block) -> ForStmt(x, s, e, Filter(True(), Var(x)), block)
+
+  Desugar :
+    ForStmt(x, s, e, FilterNoOrderBy(we), body) -> ForStmt(x, s, e, Filter(we, Var(x)), body)
   
   Desugar :
-    ForStmtNoWhereOrderBy(x, s, e, obe, te*) -> ForStmt(x, s, e, True(), obe, te*)
+    ForStmt(x, s, e, FilterNoWhere(obe), body) -> ForStmt(x, s, e, Filter(True(), obe), body)
   
+
   Desugar :
-    ForStmtNoWhereNoOrderBy(x, s, e, te*) -> ForStmt(x, s, e, True(), FieldAccess(Var(x), "name"), te*)
-  
+    ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), Var(x)))
+
+  Desugar :
+    ForExp(oe, x, s, ie, FilterNoOrderBy(we)) -> ForExp(oe, x, s, ie, Filter(we, Var(x)))
+
+  Desugar :
+    ForExp(oe, x, s, ie, FilterNoWhere(obe)) -> ForExp(oe, x, s, ie, Filter(True(), obe))
+
 rules
     
   Desugar :
@@ -500,13 +512,13 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
            |}
 
   DesugarLiftExp :
-    ForStmt(x, s, e1, we1, obe1, bstm1) -> s
+    ForStmt(x, s, e1, Filter(we1, obe1), bstm1) -> s
     where {| LiftE
            : e2 := <sometd(LiftExp)> e1
            ; we2 := <sometd(LiftExp)> we1
            ; obe2 := <sometd(LiftExp)> obe1
            ; bstm2 := <try(sometd(DesugarLiftExp))> bstm1
-           ; s:= <repeat(once-LiftE)> ForStmt(x, s, e2, we2, obe2, bstm2)
+           ; s:= <repeat(once-LiftE)> ForStmt(x, s, e2, Filter(we2, obe2), bstm2)
            |}
 
   DesugarLiftExp :
@@ -517,7 +529,7 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
            |}
   
   LiftExp : 
-    ForExp(oe, x, srt1, ie) -> Var(x1)
+    ForExp(oe, x, srt1, ie, Filter(True(), obe)) -> Var(x1)
     where new => x1
         ; srt2 := <type-of> ie
         ; srt3 := <type-of> oe
@@ -529,7 +541,7 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
               {
                 var x1 : srt4;
                 x1 := List<srt3>();
-                for(x : srt1 in e3) {
+                for(x : srt1 in e3 where true order by x) {
                   x1.add(e4);
                 }
                 stat
@@ -540,7 +552,7 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
               {
                 var x1 : srt4;
                 x1 := Set<srt3>();
-                for(x : srt1 in e3) {
+                for(x : srt1 in e3 where true order by x) {
                   x1.add(e4);
                 }
                 stat
@@ -548,8 +560,9 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
           end
   
   LiftExp :
-    ForWhereExp(oe, x, srt1, ie, we) -> Var(x1)
-    where new => x1
+    ForExp(oe, x, srt1, ie, Filter(we, obe)) -> Var(x1)
+    where not(True() := we)
+        ; new => x1
         ; srt2 := <type-of> ie
         ; srt3 := <type-of> oe
         ; e3 := <try(sometd(LiftExp))> ie
@@ -561,7 +574,7 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
               {
                 var x1 : srt4;
                 x1 := List<srt3>();
-                for(x : srt1 in e3) {
+                for(x : srt1 in e3 where true order by x) {
                   if(e5) {
                     x1.add(e4);
                   }
@@ -574,7 +587,7 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
             {
               var x1 : srt2;
               x1 := Set<srt1>();
-              for(x : srt1 in e3) {
+              for(x : srt1 in e3 where true order by x) {
                 if(e5) {
                   x1.add(e4);
                 }
@@ -606,8 +619,8 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
     SetCreation([e1|e1*]) -> Var(x1)
     where new => x1
         ; srt1 := <type-of> e1
-//        ; srt2 := GenericSort("Set", [srt1])        
-        ; srt2 := GenericSort("List", [srt1])
+        ; srt2 := GenericSort("Set", [srt1])        
+//        ; srt2 := GenericSort("List", [srt1])
         ; e2* := <map(try(sometd(LiftExp)))> e1*
         ; e2 := <try(sometd(LiftExp))> e1
         ; stat* := <map(lift-add-to-collection(|x1))> [e2|e2*]
@@ -615,8 +628,8 @@ rules // Rules for for exp lifting (lots of code duplication here, is this neces
         ; rules( LiftE :+ stat -> |[
               {
                 var x1 : srt2;
-                //x1 := Set<srt1>();
-                x1 := List<srt1>();
+                x1 := Set<srt1>();
+                //x1 := List<srt1>();
                 stat*
                 stat
               } ]| )
