@@ -946,8 +946,9 @@ rules // function stuff
      ; rules( Param : l -> [fa|l] )
 
    find-params =
-     ?v@Var(x)
+     ?v@Var(x){Type(vt)}
      ; not(<IgnoreVars> v)
+     ; not("Component" := vt)
      ; rules( Param : l -> [v|l] )
 
    find-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
@@ -960,45 +961,48 @@ rules // function stuff
         |}
 
      
-   translate-condition : IfTempl(e, elems1*) -> IfTempl(e, elems2*)
-     where fn := <newname> "ifCondFun"
-         ; {| Params
-            : <topdown(try(find-params))> e
-            ; params := <repeat(once-Param)> []
-            |}
-         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-         ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
-                  ConditionExpressionToEL : (pn, e) -> el )
-         ; elems2* := <try(sometd(translate-condition))> elems1*
-
+   translate-condition =
+     ?IfTempl(e, elems1*)
+     ; where (fn := <newname> "ifCondFun"
+              ; {| Param
+                 : <topdown(try(find-params))> e
+                 ; params := <repeat(once-Param)> []
+                 |}
+              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+              ; pn := <Component>
+              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
+                       ConditionExpressionToEL : (pn, e) -> el )
+              ; <try(sometd(translate-condition))> elems1*)
+    
    // Do the same iffy thing for for-loops (for the "where" clause)
-   translate-condition : For(x, s, e, Filter(we, obe), elem1*) -> For(x, s, e, Filter(we, obe), elem2*) // This is kind of ughly, but ok
-     where not(True() := we)
-         ; fn := <newname> "forWhereCondFun"
-         ; {| Params
-            : <topdown(try(find-params))> we
-            ; params := <repeat(once-Param)> []
-            |}
-         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-         ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l]
-                  ConditionExpressionToEL : (pn, we) -> el )
-         ; elem2* := <try(sometd(translate-condition))> elem1*
-         
-   translate-condition : ForAll(x, s, Filter(we, obe), elem1*) -> ForAll(x, s, Filter(we, obe), elem2*) // This is kind of ughly, but ok
-     where not(True() := we)
-         ; fn := <newname> "forAllWhereCondFun"
-         ; {| Params
-            : <try(sometd(find-params))> we
-            ; params := <repeat(once-Param)> []
-            |}
-         ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-         ; pn := <Component>
-         ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l] 
-                  ConditionExpressionToEL : (pn, we) -> el )
-         ; elem2* := <try(sometd(translate-condition))> elem1*
-
+   translate-condition =
+     ?For(x, s, e, Filter(we, obe), elem1*)
+     ; where (not(True() := we)
+              ; fn := <newname> "forWhereCondFun"
+              ; {| Param
+                 : <topdown(try(find-params))> we
+                 ; params := <repeat(once-Param)> []
+                 |}
+              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+              ; pn := <Component>
+              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l]
+                       ConditionExpressionToEL : (pn, we) -> el )
+              ; <try(sometd(translate-condition))> elem1*)
+              
+   translate-condition =
+     ?ForAll(x, s, Filter(we, obe), elem1*)
+     ; where (not(True() := we)
+              ; fn := <newname> "forAllWhereCondFun"
+              ; {| Param
+                 : <try(sometd(find-params))> we
+                 ; params := <repeat(once-Param)> []
+                 |}
+              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+              ; pn := <Component>
+              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l] 
+                       ConditionExpressionToEL : (pn, we) -> el )
+              ; elem2* := <try(sometd(translate-condition))> elem1*)
+     
 
    unId : Id(x) -> x
   
