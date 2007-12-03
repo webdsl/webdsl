@@ -208,6 +208,10 @@ rules // text
     %> <h:outputText value="<%= val-string %>"/> <%
     where val-string := <arg-to-value-string> arg
 
+  elem-to-xhtml :
+    TemplateCall("text", [e], []) -> 
+    %> <h:outputText value="<%= <ConditionExpressionToEL> (<Component>, e) %>"/> <%
+
 rules // spacer
 
   elem-to-xhtml :
@@ -531,25 +535,24 @@ rules // iteration
   elem-to-xhtml :
     For(x, s, e, Filter(we, obe), elems1) ->
     %>
-      <ui:repeat var="<%= x %>" value="<%= el %>">
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<Component>, e) %>">
         <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, we) %>">
           <%= elems2 ::*%>
         </h:panelGroup>
       </ui:repeat>
     <%
     where not(True() := we)
-        ; el := <arg-to-value-string> e
+        //; el := <arg-to-value-string> e
         ; elems2  := <elems-to-xhtml> elems1
         
   elem-to-xhtml :
     For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
     %>
-      <ui:repeat var="<%= x %>" value="<%= el %>">
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<Component>, e) %>">
         <%= elems2 ::*%>
       </ui:repeat>
     <%
-    where el := <arg-to-value-string> e
-        ; elems2  := <elems-to-xhtml> elems1
+    where elems2  := <elems-to-xhtml> elems1
 
   elem-to-xhtml :
     ForAll(x, s, Filter(we, obe), elems) ->
@@ -990,15 +993,15 @@ rules // output
 
 rules // function stuff
 
-   translate-condition :
+   translate-template-expression : // Store some context information
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
      where <elem> (Page(), mods)
          ; {| Component
             : rules ( Component := name )
-            ; body2 := <try(sometd(translate-condition))> body1
+            ; body2 := <try(sometd(translate-template-expression))> body1
             |}
 
-   translate-condition :
+   translate-template-expression :
      def@Define(mods, name, args, body1) -> def
      where <elem> (Email(), mods)
          ; {| Component
@@ -1011,70 +1014,77 @@ rules // function stuff
      ?fa@FieldAccess(v, _){Type(_)}
      ; not(<IgnoreVars> v)
      ; rules( Param :+ l -> [fa|l] )
+     ; rules( IgnoreVars : v )
 
    find-params =
      ?v@Var(x){Type(vt)}
      ; not(<IgnoreVars> v)
      ; not("Component" := vt)
      ; rules( Param :+ l -> [v|l] )
-
+     ; rules( IgnoreVars : v )
+     
    find-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
      ?ForExp(oe, x, srt, ie, Filter(we, obe))
      ; {| IgnoreVars
         : rules ( IgnoreVars : Var(x) )
         ; <try(sometd(find-params))> we
-        ; <try(sometd(find-params))> ie
         ; <try(sometd(find-params))> oe                
         |}
+     ; <try(sometd(find-params))> ie
 
+   create-template-function(|fn, e) =
+     where({| Param, IgnoreVars
+            : <topdown(try(find-params))> e
+            ; params := <repeat(once-Param)> []
+            |}
+           ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+           ; pn := <Component>
+           ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
+                    ConditionExpressionToEL : (pn, e) -> el )
+          )
+   
+  
      
-   translate-condition =
+   translate-template-expression =
      ?IfTempl(e, elems1*)
      ; where (fn := <newname> "ifCondFun"
-              ; {| Param
-                 : <topdown(try(find-params))> e
-                 ; params := <repeat(once-Param)> []
-                 |}
-              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-              ; pn := <Component>
-              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
-                       ConditionExpressionToEL : (pn, e) -> el )
-              ; <try(sometd(translate-condition))> elems1*)
+              ; create-template-function(|fn, e)
+              ; <try(sometd(translate-template-expression))> elems1*)
     
    // Do the same iffy thing for for-loops (for the "where" clause)
-   translate-condition =
+   translate-template-expression =
      ?For(x, s, e, Filter(we, obe), elem1*)
      ; where (not(True() := we)
               ; fn := <newname> "forWhereCondFun"
-              ; {| Param
-                 : <topdown(try(find-params))> we
-                 ; params := <repeat(once-Param)> []
-                 |}
-              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-              ; pn := <Component>
-              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l]
-                       ConditionExpressionToEL : (pn, we) -> el )
-              ; <try(sometd(translate-condition))> elem1*)
+              ; fn2 := <newname> "forInExprFun"
+              ; create-template-function(|fn, we)
+              ; create-template-function(|fn2, e)
+              ; <try(sometd(translate-template-expression))> elem1*)
               
-   translate-condition =
+   translate-template-expression =
+     ?For(x, s, e, Filter(True(), obe), elem1*)
+     ; where (fn := <newname> "forInExprFun"
+              ; create-template-function(|fn, e)
+              ; <try(sometd(translate-template-expression))> elem1*)
+
+   translate-template-expression =
      ?ForAll(x, s, Filter(we, obe), elem1*)
      ; where (not(True() := we)
               ; fn := <newname> "forAllWhereCondFun"
-              ; {| Param
-                 : <try(sometd(find-params))> we
-                 ; params := <repeat(once-Param)> []
-                 |}
-              ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-              ; pn := <Component>
-              ; rules( ConditionExpressions :+ l -> [(pn, fn, params, we)|l] 
-                       ConditionExpressionToEL : (pn, we) -> el )
-              ; elem2* := <try(sometd(translate-condition))> elem1*)
-     
+              ; create-template-function(|fn, we)
+              ; elem2* := <try(sometd(translate-template-expression))> elem1*)
+
+   translate-template-expression =
+     ?TemplateCall("text", [arg], [])
+     ; where(not(<arg-to-value-string> arg) // Not a simple expression
+             ; fn := <newname> "textExprFun"
+             ; create-template-function(|fn, arg))
 
    unId : Id(x) -> x
   
    packagename-to-string :
      PackageName(parts) -> <map(unId); separate-by(|"."); concat-strings> parts
+
 //
 //   function-to-xml :
 //     (fn, param*, e) ->
@@ -1090,7 +1100,7 @@ rules // function stuff
 //        ; params := Literal(<map(function-param-to-sig); separate-by(|","); concat-strings> param*)
 //  
    functions-to-el =
-     try(sometd(translate-condition))
+     try(sometd(translate-template-expression))
      ; where (functions := <repeat(once-ConditionExpressions)> []
        ; rules ( AllTemplateFunctions := functions ))
 
