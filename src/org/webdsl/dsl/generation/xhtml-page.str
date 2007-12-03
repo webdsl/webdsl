@@ -29,10 +29,9 @@ rules
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title><%= title ::*%></title>
     <link href="<%= approot %>/stylesheets/webdsl.css" rel="stylesheet" type="text/css" />
-    <%= menustyle::* %>
+    <%= dropdownmenu::* %>
 </head>
 <body><%= elems2 ::*%></body>
-<%= dropdownmenu::* %>
 </html>
 <%)
   where {| Component, MenuBarIds
@@ -40,20 +39,26 @@ rules
          ; title := <get-title> elems1
          ; elems2 := <elems-to-xhtml> elems1
          ; approot := <AppRoot>
-         ; if MenuBarIds then
+         ; if MenuBar then
              dropdownmenu := 
              %>
+               <link href="<%= approot %>/stylesheets/dropdownmenu.css" rel="stylesheet" type="text/css" />
+               <script src="<%= approot %>/javascript/dropdownmenu.js" type="text/javascript" />
                <script type="text/javascript">
-                 cssdropdown.startchrome(<%= <list-to-comma-separated-strings> <MenuBarIds>::cdata %>);
+				    window.onload = function () {
+				        init_dropdownmenu();
+				    }
                </script>
-             <%
-             ; menustyle :=
-             %>
-               <link href="<%= approot %>/stylesheets/chromestyle.css" rel="stylesheet" type="text/css" />
-               <script src="<%= approot %>/javascript/chrome.js" type="text/javascript" />
+               
+               <!--[if lte IE 7]>
+				 <style>
+				   .menuwrapper, #p7menubar ul a {height: 1%;}
+				   a:active {width: auto;}
+				 </style>
+		       <![endif]-->
              <%
            else
-             dropdownmenu := [] ; menustyle := []
+             dropdownmenu := []
            end
          |}
 
@@ -178,6 +183,11 @@ strategies // title
   elem-to-xhtml :
     TemplateCall("title", _, _) -> []
     
+    
+rules // ugly hack: @todo: fixme!!!!!
+  elem-to-xhtml :
+    TemplateCall("hack", [], elems) -> <elems-to-xhtml> elems
+    
 rules // div
 
   // @obsolete; use block{ ... } instead of div{ ... }
@@ -230,123 +240,132 @@ rules // menus
   elem-to-xhtml :
     TemplateCall("menubar",exp, elems) ->
       %>
-        <div class="chromestyle" id="<%= x_menuid %>">
-          <ul>
+        <div class="menuwrapper" id="<%= x_menuid %>">
+          <ul id="p7menubar">
             <%= elems2::*%>
           </ul>
         </div>
-        
-        <%= elems3 ::*%>
-        
       <%
-    where {| InMenuBarContext, MenuIds
-           : x_menuid := <newname> "menubar"
-           ; rules ( InMenuBarContext := x_menuid )
-           ; rules ( MenuBarIds := [x_menuid | <MenuBarIds <+ ![]>] )
-           ; elems2 := <mapconcat(find-menu-header <+ ![]); elems-to-xhtml> elems
-           ; rules ( MenuIds := <reverse> <MenuIds> )
-           ; elems3 := <elems-to-xhtml> elems
-           |}
+    where x_menuid := <newname> "menubar"
+        ; rules ( MenuBar := x_menuid )
+        ; elems2 := <elems-to-xhtml> elems
 
-
-  find-menu-header =
-    ?TemplateCall("menu", _, elems)
-    ; <filter(?TemplateCall("menuheader", _, _))> elems
-  
   elem-to-xhtml :
-    TemplateCall("menuheader", [], [elem]) ->
+    TemplateCall("menu", [], elems) ->
       %>
         <li>
-          <%= <menuheader-to-xhtml> elem ::*%>
+          <%= headeritems ::*%>
+          <%= dropdownitems ::*%>
         </li>
       <%
-    where InMenuBarContext        
-        
-  menuheader-to-xhtml :
-    e@Text(elem) ->
-      %>
-        <a href="#" rel="<%= x_rel %>"><%= <elem-to-xhtml> e ::*%></a>
-      <%
-    where x_rel := <newname> "menu"
-        ; rules ( MenuIds := [x_rel | <MenuIds <+ ![]>] )
+    where {| HeaderItems, DropDownItems
+           : /*elems2 := <filter(not(?TemplateCall("menuheader", _, _)))> elems
+           ; if [] := elems2 then
+               elems3 := []
+             else
+               elems3 := %> <ul> <%= <elems-to-xhtml> elems2::* %> </ul> <%
+               ; rules ( HasSubItems := 1 )
+             end
+           ; header := <collect(?TemplateCall("menuheader", _, _))> elems
+           ; if [] := header then
+               firstelem := []
+             else
+               [head|tail] := header
+               ; <debug> [head|tail]
+               ; firstelem := <elem-to-xhtml> head
+             end*/
+             
+           <map(find-menuheaders)> elems
+           ; headeritems := <elems-to-xhtml> <reverse> <HeaderItems>
+           ; if DropDownItems then
+               dropdownitems := %> <ul> <%= <elems-to-xhtml> <reverse> <DropDownItems>::* %> </ul> <%
+             else
+               dropdownitems := []
+             end
+             
+/*           ;  [head|tail] := elems
+           ; menuheader := <elem-to-xhtml> head
+           ; if [] := tail then
+               elems3 := []
+             else
+               rules ( HasSubItems := 1 )
+               ; elems3 := %> <ul> <%= <elems-to-xhtml> tail::* %> </ul> <%
+             end */
+             
+           |}
+  
+    find-menuheaders =
+      ?elem
+      ; if <sometd(?TemplateCall("menuheader", _, _))> elem then
+          rules ( HeaderItems := [elem | <HeaderItems <+ ![]>] )
+        else
+          rules ( DropDownItems := [elem | <DropDownItems <+ ![]>] )
+        end
+     
+  
+    menuheader-to-xhtml =
+      try(sometd(?TemplateCall("menuheader", _, _)))
+    
+/*  menuheader-to-xhtml =
+    ?elems
+    if not([] := <collect(?TemplateCall("menuheader", _, _))> elems) then
+      [head|tail] := elems
+      ; if [] := tail then
+          ![]
+        else
+          ![<elem-to-xhtml> head | <menuheader-to-xhtml> tail]
+        end
+    end */
+    
   
   elem-to-xhtml :
-    TemplateCall("menu", [], elems) ->
+    TemplateCall("menuheader", [], elems) -> e
+    where e := <mapconcat(menuheader-elem-to-xhtml <+ elem-to-xhtml)> elems
+         
+  menuheader-elem-to-xhtml :
+    e@Text(elem) ->
       %>
-        <div id="<%= x_id %>" class="dropmenudiv">
-          <%= elems2 ::*%>
-        </div>
+        <a href="#"><%= <elem-to-xhtml> e ::*%></a>
       <%
-    where elems2 := <filter(not(?TemplateCall("menuheader", _, _))) ; elems-to-xhtml> elems
-//        ; not( [] := <filter(not(?TemplateCall("menuheader", _, _)))> elems )
-        ; [head|rest] := <MenuIds>
-        ; rules ( MenuIds := rest )
-        ; x_id := head
   
-/*  elem-to-xhtml :
-    TemplateCall("menu", [], elems) ->
-      %> <%
-    where [] := <filter(not(?TemplateCall("menuheader", _, _)))> elems*/
-    
-/*  elem-to-xhtml :
-    TemplateCall("dropdownmenu", [], elems) ->
+  menuheader-elem-to-xhtml :
+    TemplateCall("navigate",[ThisCall(p,args)],elems) ->
       %>
-        <rich:dropDownMenu value="<%= x_name%>">
-          <%= menuitems::* %> 
-        </rich:dropDownMenu>
+        <a href="<%= url %>" att0><%= <elems-to-xhtml> elems ::* %></a>
       <%
-    where [header] := <filter(?TemplateCall("header", _, _))> elems
-          ; TemplateCall("header", [], [Text(x_name)]) := header
-          ; menuitems := <filter(not(?TemplateCall("header", _, _))); elems-to-xhtml> elems */
-//          ; <debug> menuitems
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; url := <page-call-to-url> (p, params)
+        ; if DropDownItems then
+            att0 := @> class="trigger" <@
+          else
+            att0 := []
+          end
 
+  menuheader-elem-to-xhtml :
+    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
+      %>
+        <a href="<%= url %>" att0><%= <elems-to-xhtml> elems ::* %></a>
+      <%
+    where url := <arg-to-value-string> e
+        ; if DropDownItems then
+            att0 := @> class="trigger" <@
+          else
+            att0 := []
+          end
 
   elem-to-xhtml :
     TemplateCall("menuitem", [], elems) ->
       %>
-        <%= <elems-to-xhtml> elems ::* %>
+        <li>
+          <%= <elems-to-xhtml> elems ::* %>
+        </li>
       <%
-//    where Text(x_name) := elem
-//        ; <debug> exps
-
-
-/*  elem-to-xhtml :
-    t@TemplateCall("menuitem",[e], [elem]) ->
-      %> <rich:menuItem submitMode="ajax" value="<%= x_name %>" action="<%= x_action %>" /> <%
-    where Text(x_name) := elem
-        ; ThisCall(p,args) := e
-        ; if <IsPage> p then
-            fargs := <TemplateArguments> p
-            ; param* := <zip(params-to-string)> (fargs, args)
-            ; fn := <MenuActionFunction> (<Component>, t)
-            ; x_action := <concat-strings> ["#{", <Component>, ".", fn, "}"]
-            ; info(|fn)  , "(", param*, ")
-          end */
         
   params-to-string :
     (Arg(x, _), e) -> y
     where y := <arg-to-el> e
-    
-          
-//        ; 
-  //      ; fn := <MenuActionFunction> (<Component>, t)
-        
-        
-/*  elem-to-xhtml :
-    t@TemplateCall("navigate",[e1@ThisCall(p,args)],[elems1]) ->
-    %> <rich:menuItem submitMode="ajax" value="<%= x_name %>" action="<%= x_action %>" /> <%
-    where <IsPage> p
-        ; InsideMenu
-//        ; info(|p)
-        ; TemplateCall(text,[e],[]) := elems1
-//        ; info(|e)
-        ; x_name := <arg-to-value-string> e
-//        ; info(|x_name)
-//        ; info(| <MenuActionFunction> t)
-        ; fn := <MenuActionFunction> (<Component>, t)
- //       ; info(|fn)
-        ; x_action := <concat-strings> ["#{", <Component>, ".", fn, "}"]
-//        ; info(|x_action)*/
 
 rules // datatables
 
@@ -681,15 +700,6 @@ rules // links
         ; fargs := <TemplateArguments> p
         ; params := <zip(bind-param)> (fargs, args)
         ; url := <page-call-to-url> (p, params)
-/*        ; if InMenuBarContext then
-            x_menuId := <newname> "menu"
-            ; rules ( MenuIds : <InMenuBarContext> -> [x_menuId | <MenuIds <+ ![]>] )
-            ; <debug> ["MenuIds: ", <MenuIds> <InMenuBarContext>]
-            ; att0 := @> rel="<%= x_menuId %>" <@
-          else
-            att0 := []
-          end*/
-
 
   bind-param :
     (Arg(x, _), e) -> (x, el)
