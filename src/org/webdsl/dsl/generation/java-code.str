@@ -219,14 +219,37 @@ rules // statements
          ; bsif2 := <statement-to-java> bsif1
          ; e2 := <expression-to-java> e1
 
-   for-to-java : // No where clause
-     ForStmt(x, s, e1, Filter(True(), obe1), bstm1) -> |[
-        for (t1 x : e2) 
-            ~bstm2
-         ]| 
-     where e2 := <expression-to-java> e1
+   for-to-java : // No where clause, with order by clause
+     ForStmt(x, s, e1, Filter(True(), obe1), bstm1) -> stm|[
+        {
+          java.util.ArrayList<t2> x_lst = new java.util.ArrayList<t2>(e2);
+          Collections.sort(x_lst, new Comparator<t2>() {
+            public int compare(t2 o1, t2 o2) {
+              stm1
+            }
+          });
+          for (t1 x : x_lst)
+              ~bstm2
+        } ]| 
+     where not(<?OrderAscending(Null())> obe1)
+         ; e2 := <expression-to-java> e1
          ; t1 := <java-type> s
          ; t2 := <java-wrapper-type> s
+         ; x_lst := <newname> "lst"
+         ; bstm2 := <statement-to-java> bstm1
+         ; if <?OrderAscending(_)> obe1 then
+             stm1 := |[ return o1.compareTo(o2); ]|
+           else
+             stm1 := |[ return o2.compareTo(o1); ]|
+           end
+
+   for-to-java : // No where clause, no order by clause
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null())), bstm1) -> stm|[
+        for (t1 x : e2)
+            ~bstm2
+        ]| 
+     where e2 := <expression-to-java> e1
+         ; t1 := <java-type> s
          ; bstm2 := <statement-to-java> bstm1
 
    for-to-java : // With where clause

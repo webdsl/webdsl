@@ -72,7 +72,7 @@
 
 (defvar webdsl-keywords
    ; for i in $( cat WebDSL.sdf | cut -d "-" -f 1 | grep -o -e '"[A-Za-z]*"' | cut -d '"' -f 2 | sort | uniq); do  echo -n "  \"\\\\<$i\\\\>\"";  done
-  '("\\<a\\>"  "\\<action\\>"  "\\<application\\>"  "\\<as\\>"  "\\<define\\>"  "\\<description\\>"  "\\<else\\>"  "\\<end\\>"  "\\<entity\\>"  "\\<extend\\>"  "\\<false\\>"  "\\<for\\>"  "\\<function\\>"  "\\<globals\\>"  "\\<goto\\>"  "\\<if\\>"  "\\<imports\\>"  "\\<in\\>"  "\\<init\\>"  "\\<inverse\\>"  "\\<inverseSlave\\>"  "\\<is\\>"  "\\<List\\>"  "\\<module\\>"  "\\<note\\>"  "\\<null\\>"  "\\<page\\>"  "\\<return\\>"  "\\<rules\\>"  "\\<section\\>"  "\\<select\\>"  "\\<session\\>"  "\\<Set\\>"  "\\<task\\>"  "\\<true\\>"  "\\<var\\>"  "\\<where\\>" "\\<access\\>" "\\<control\\>" "\\<with\\>" "\\<template\\>"
+  '("\\<a\\>"  "\\<action\\>"  "\\<application\\>"  "\\<as\\>"  "\\<define\\>"  "\\<description\\>"  "\\<else\\>"  "\\<end\\>"  "\\<entity\\>"  "\\<extend\\>"  "\\<false\\>"  "\\<for\\>"  "\\<function\\>"  "\\<globals\\>"  "\\<goto\\>"  "\\<if\\>"  "\\<imports\\>"  "\\<in\\>"  "\\<init\\>"  "\\<inverse\\>"  "\\<inverseSlave\\>"  "\\<is\\>"  "\\<List\\>"  "\\<module\\>"  "\\<note\\>"  "\\<null\\>"  "\\<page\\>"  "\\<return\\>"  "\\<rules\\>"  "\\<section\\>"  "\\<select\\>"  "\\<session\\>"  "\\<Set\\>"  "\\<task\\>"  "\\<true\\>"  "\\<var\\>"  "\\<where\\>" "\\<access\\>" "\\<control\\>" "\\<with\\>" "\\<template\\>" "\\<order\\>" "\\<by\\>" "\\<asc\\>" "\\<desc\\>"
     ("//.*$" 0 'font-lock-comment-face t)))
 
 (defun compile-webdsl ()

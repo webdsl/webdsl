@@ -94,6 +94,9 @@
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
 
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2,
+   OrderNonSpecific                   -- _1,
+   OrderAscending                     -- _1 KW["asc"],
+   OrderDescending                    -- _1 KW["desc"],
 
    ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] KW["{"]] H is=2[_5] KW["}"]],
    ForStmt.5:iter-star                -- _1,
