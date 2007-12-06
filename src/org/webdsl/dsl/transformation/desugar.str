@@ -27,7 +27,6 @@ strategies
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-email-argument-list))
-//    ; try(sometd(create-menu-action-functions))
 
 rules   
   
@@ -73,15 +72,6 @@ rules
   cleanup-extend-entity-section-defs:
     Section(ident,defs) -> Section(ident,<filter(not(?ExtendEntity(_,_,_)))>defs)
   
-/*  create-menu-action-functions =
-    ?TemplateCall("dropdownmenu", [name], elems)
-    ; <map(create-menu-action-function)> elems
-  
-  create-menu-action-function :
-    t@TemplateCall(name, args, elems) -> t
-    where x_fun := <newname> name
-        ; rules ( MenuActionFunction : t -> x_fun ) */
-  
   create-email-argument-list:
    Define(mods, name, args, body1) -> Define(mods, name, args, body1)
    where try (if <oncetd(?ThisCall("email", [_]))> body1 then
@@ -90,20 +80,6 @@ rules
              ; rules ( GetEmailArgumentsList : name -> x )
            end
          end )
-  
-  
-/*  create-menu-action-functions :
-    Define([Page()], x, args, body) -> Define([Page()], x, args, body)
-    where <try(sometd(find-dropdownmenu-templates(|x)))> body
-    
-  find-dropdownmenu-templates(|page) :
-    TemplateCall("dropdownmenu", [name], elems) -> TemplateCall("dropdownmenu", [name], elems)
-    where <alltd(create-menu-action-function(|page))> elems
-  
-  create-menu-action-function(|page) :
-    t@TemplateCall("menuitem",[e], [elem]) -> t
-    where x_fun := <concat-strings; newname> [page, "MenuAction"]
-        ; rules ( MenuActionFunction : (page, t) -> x_fun )*/
 
 rules // Desugaring rules only executed once
 
@@ -118,6 +94,19 @@ rules // Desugaring rules only executed once
   DesugarOnce : // Its purpose is to translate VarDeclInits to VarDecls with separate assignment (only within Blocks, not within globals {...} statements)
     Block(stms1) -> Block(stms2)
     where stms2 := <map(desugar-var-decl-stm); concat> stms1
+  
+  DesugarOnce :
+    TemplateCall("menubar", [e], elem1*) -> TemplateCall("menubar", [e], elem2*)
+    where <?String("vertical"){_}> e
+        ; elem2* := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) -> 
+                                  TemplateCall("container", [], elems) \ <+
+                                \ TemplateCall("menu", [], elems) -> 
+                                  TemplateCall("block", [], elems) \ <+
+                                \ TemplateCall("menuitem", [], elems) -> 
+                                  TemplateCall("dummy", [], elems) \ <+
+                                \ TemplateCall("menuspacer", [], []) -> 
+                                  TemplateCall("horizontalspacer", [], []) \
+                                  )))> elem1*
 
 rules
 
@@ -141,20 +130,6 @@ rules
   
   Desugar :
     |[ x k srt := e ]| -> |[ x k srt () := e ]|
-  
-/*  Desugar :
-    Property(i, k, s@SimpleSort("File"), []) -> Property(i, l, s, [])
-    where k := Simple()
-        ; l := Ref()
-  
-  Desugar :
-    Property(i, k, s@SimpleSort("Upload"), []) -> Property(i, k, s, [])
-    where k := Ref()
-        ; EntityNoSuper(i, [], [])
-        ; info(|i)
-*/
-
-    //PropertyNoAnno(x, k, s) -> Property(x, k, s, [])
     
   Desugar :
     TemplateCallNoArgs(x) -> TemplateCall(x, [], [])
@@ -174,8 +149,14 @@ rules
     
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
+    
+  Desugar :
+    TemplateCall("menubar", [], elem*) -> TemplateCall("menubar", [exp], elem*)
+    where exp := String("horizontal"){Type(SimpleSort("String"))}
 
-  
+  Desugar :
+    TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])   
+        
 rules // for desugarings
 
   Desugar :
@@ -220,10 +201,7 @@ rules // for desugarings
   Desugar :
     ForExp(oe, x, s, ie, FilterNoWhere(obe)) -> ForExp(oe, x, s, ie, Filter(True(), obe))
 
-rules
-    
-  Desugar :
-    TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])    
+rules 
 
   create-inverse-anno :
     Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions) 
@@ -921,7 +899,9 @@ rules // view page
     def|[
       define $viewRowsX(x : $X) {
         $viewRowsY(x)
-        elem*
+        table {
+          elem*
+        }
       }
     ]|
     where x          := <decapitalize-string> $X
