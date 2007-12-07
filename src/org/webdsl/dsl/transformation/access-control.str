@@ -36,9 +36,8 @@ rules
 
       ; typecheck-access-control(typecheck-access-control-rules-checks|)
       ; generate-access-control-rules-checks
-      ; try(sometd(apply-checks-to-page))
-      ; try(sometd(apply-checks-to-template-defs-actions))
-      ; try(sometd(apply-checks-to-functions))
+      
+      ; access-control-weaving
 
       ; add-access-denied-page
       ; where(warn-for-unused-rules)
@@ -146,14 +145,9 @@ rules
     else
       possibleTargets := <concat> [<Security-Rules-List-From-Type<+![]> checktype, <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules]
     end
-    ; filteredrules := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
-    ; if (filteredrules := [] ; <elem> (checktype,<Strict-Check-Types>))
-        then
-          pt := [AccessControlRule(checktype,"*",[],AccessControlCheckExpression(False(){Type(SimpleSort("Bool"))}),[])]
-        else
-          pt := filteredrules
-        end
-      ; if previousname := []
+    ; pt := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
+
+    ; if previousname := []
       then
        ( $decisionclassname := <concat-strings> ["ACDecision",checktype,name]
          ; $acrulename := <concat-strings> ["ACRule",checktype,name] )
@@ -161,56 +155,20 @@ rules
        ( $decisionclassname := <concat-strings> ["ACDecision",previousname,checktype,name]
          ; $acrulename := <concat-strings> ["ACRule",previousname,checktype,name] )
       end
-      ; selectedchecks := <map(\AccessControlRule(_,_,_,check,_) -> check\)> pt
-      ; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
-      ; if <elem> (checktype,<Visual-Check-Types>)
-        then
-          (
-          if pt := []
-          then
-            rulecheckactions :=[] //these visual things shouldn't be too restrictive, just ignore when nothing is specified
-          else
-            rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;generate-extended-check);generate-conjunction-exp> selectedchecks
-          end
-          ;rules
-          (
-              Previous-Selected-Rules := selectedrules
-            Previous-Decision-Name := <concat-strings> [checktype,name]
-          )
-          )
-        else
-          (
-           rulecheckactions := <generate-security-checks-from-target(|$decisionclassname,vars,$acrulename)> selectedchecks
-          ; otherclasses := <Generated-Decision-Classes <+ ![]>
-          ; prop0* := <map(try(vars-to-props))> vars
-          ; str0 := <double-quote> $acrulename
-          ; def0* := <add-indices;map(generate-definition-from-check(|$acrulename))> selectedchecks
-          ; rules (
-            Generated-Decision-Classes :=
-                <concat>[
-                    def* |[
-                    entity $decisionclassname : AccessControlDecision{
-                        prop0*
-                    }
-
-                    globals {
-                        var $acrulename : AccessControlRule := AccessControlRule {
-                          name:=str0
-                        };
-                    }
-
-                    def0*
-                    ]|
-                , otherclasses ]
-
-            Access-Control-Decision-Class: (checktype,name) -> $decisionclassname
-
-            Previous-Selected-Rules := selectedrules
-            Previous-Decision-Name := <concat-strings> [checktype,name]
-
-          ))
-        end
-      ; !rulecheckactions
+    ; selectedchecks := <map(\AccessControlRule(_,_,_,check,_) -> check\)> pt
+    ; selectedrules := <map(\AccessControlRule(_,_,_,_,acrules) -> acrules\);concat> pt
+    ; if [] := selectedchecks
+      then 
+        rulecheckactions := [] 
+      else
+        rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;generate-extended-check);generate-conjunction-exp> selectedchecks
+      end
+    ;rules
+    (
+      Previous-Selected-Rules := selectedrules
+      Previous-Decision-Name := <concat-strings> [checktype,name]
+    )
+    ; !rulecheckactions
 
   generate-definition-from-check(|$rulename):
     (index,check) -> def|[

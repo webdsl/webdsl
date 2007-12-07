@@ -14,20 +14,24 @@ imports
   org/webdsl/dsl/transformation/-
 rules
 
-  attach-decision-classes-to-application:
-    Application(qid, sections) -> Application(qid, <concat>[sections,[extra] ] )
-      where def0* := <Generated-Decision-Classes>
-          ; extra :=
-              |[
-                section access control decision classes.
+  access-control-weaving=
+    try(sometd(apply-checks-to-page))
+  ; try(sometd(apply-checks-to-template-defs-actions))
+  ; try(sometd(apply-checks-to-functions))
+  ; try(sometd(apply-checks-to-menu))
 
-                def0*
-              ]|
+
 
   apply-checks-to-page:
     Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
     where <elem> (Page(),modifier)
-        ; newtempelement2 := <concat> [tempelement , [ InitAction( Block(<generate-access-control-checks(|"page",ident,formargs,[],[])>) )  ] ]
+        ; checks := <generate-access-control-checks(|"page",ident,formargs,[],[])>
+        ; if [] := checks then 
+          e0 := False(){Type(SimpleSort("Bool"))}
+        else
+          e0 := checks
+        end
+        ; newtempelement2 := <concat> [tempelement , [InitAction(Block([IfNoElse(Not(e0),Block([ |[ goto(accessDenied()); ]| ]))]))]]
         ; previousrules := <once-Previous-Selected-Rules>
         ; previousname := <once-Previous-Decision-Name>
         ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
@@ -37,9 +41,14 @@ rules
     Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
     where
          checks := <generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)>
+         ; if [] := checks then 
+            e0 := False(){Type(SimpleSort("Bool"))}
+          else
+            e0 := checks
+          end
          ; returnstat := <collect(?Return(_))> statements
          ; if returnstat := [] then returnstats := [|[ goto(accessDenied()); ]|] else  returnstats := [|[ return(accessDenied()); ]|] end
-         ; newstatements := [If(checks,Block(statements),Block(returnstats))]
+         ; newstatements := [If(e0,Block(statements),Block(returnstats))]
 
   apply-checks-to-template-call(|previousname,previousrules):
     tc@TemplateCall(ident, args, telems) -> result
@@ -101,4 +110,22 @@ rules
             newblck := blck
           else
             newblck := Block([If(checks,blck,Block(|[ goto(accessDenied());return null;]|))])
+          end
+          
+  apply-checks-to-menu:
+    tc@TemplateCall(tempname, [], elems) -> newtc
+    where <?"menuheader" <+ ?"menuitem"> tempname
+        ; navigationlinks := <collect(?TemplateCall("navigate",_,_))> elems
+          // only taking into account first navigate element (should be only one)
+        ; nav := <?[x|xs];!x> navigationlinks
+        ; TemplateCall("navigate",[ThisCall(p,args)],_) := nav
+        ; fargs := <TemplateArguments> p
+        ; argsorts := <map(\ Arg(ident,thesort) -> thesort \)> fargs
+        ; matchingargs := <zip(\ (Var(ident),thesort) -> Arg(ident,thesort) \)> (args,argsorts)
+        ; checks := <generate-access-control-checks(|"page",p,matchingargs,[],[])>
+        ; if [] := checks
+          then
+            newtc := IfTempl(False(),[tc])
+          else
+            newtc := IfTempl(checks,[tc])
           end
