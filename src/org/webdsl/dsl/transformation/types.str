@@ -13,6 +13,7 @@ imports
   
 imports 
   org/webdsl/dsl/syntax/WebDSL
+  org/webdsl/dsl/builtins/builtins-types
 
 signature
   constructors
@@ -81,28 +82,26 @@ strategies // register all declared entities
   properties = Properties 
   
   declare-property(|x_class) =
-    ?prop@Property(x, k, s, annos)
-    ; rules(
-        TypeOfProperty : (x_class, x) -> s
-      )
-    ; where(try(declare-list-property(|x_class)))
-    ; <try(create-file-property-rule(|x_class))> prop
-    ; <try(create-prop-required-rule(|x_class,x))> annos
+    ?Property(x, k, s, annos)
+    ; where ( not(SimpleSort("File") := s)
+		    ; rules( TypeOfProperty : (x_class, x) -> s )
+		    ; try(declare-list-property(|x_class))
+		    ; <try(create-prop-required-rule(|x_class,x))> annos )
   
+  declare-property(|x_class) =
+    ?Property(x, k, s@SimpleSort("File"), annos)
+    ; where ( rules( TypeOfProperty : (x_class, x) -> s )
+		    ; rules( HasFileProperty : x_class -> x )
+		    ; try(declare-list-property(|x_class))
+		    ; <try(create-prop-required-rule(|x_class,x))> annos )
+    
   create-prop-required-rule(|class,propname) =
     ?annos
     ; not([] := <collect(?ValidationAnnoNotNull() + ?ValidationAnnoNotEmpty())> annos)
     ; rules(
         PropertyIsRequired : (class, propname) -> True()
       )
-            
-  create-file-property-rule(|x_Class) =
-    ?prop@Property(x, k, SimpleSort("File"), annos)
-    ; rules (
-        HasFileProperty :
-          x_Class -> prop
-      )            
-    
+
   declare-list-property(|x_class) =
     ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
     ; where(
@@ -250,7 +249,6 @@ rules
   sort-to-java-type-string : SimpleSort("Patch") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Email") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Image") -> "java.lang.String"
-  sort-to-java-type-string : SimpleSort("Binary") -> "java.lang.Byte[]"
   sort-to-java-type-string : GenericSort("List", [x]) -> <concat-strings> ["java.util.List<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Set", [x]) -> <concat-strings> ["java.util.Set<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Map", [x, y]) -> <concat-strings> ["java.util.Map<", <sort-to-java-type-string> x, ",", <sort-to-java-type-string> y, ">"]
@@ -339,12 +337,6 @@ rules
     
   builtin-persistence-annotations :
     SimpleSort("WikiText") -> [anno|[ @Column(length = 1000000) ]|]
-    
-  builtin-java-type : 
-    SimpleSort("Binary") -> type|[ byte[] ]|
-
-  builtin-java-type-default-value :
-    SimpleSort("Binary") -> |[ null ]|
     
   builtin-java-type :
     GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
@@ -725,11 +717,9 @@ rules // typechecking page elements
     <+ typecheck-select
     <+ typecheck-action 
     <+ typecheck-init
-//    <+ typecheck-menuitem
     <+ typecheck-if-templ
     <+ typecheck-call-action 
     <+ typecheck-call-navigate
-//    <+ typecheck-call-subtable
     <+ typecheck-call-email
     <+ typecheck-template-call
     <+ typecheck-iterator
