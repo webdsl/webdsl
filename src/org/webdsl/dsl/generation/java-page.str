@@ -30,6 +30,7 @@ rules // session bean from page definition
       import javax.persistence.EntityManager;
 
       import javax.faces.event.ValueChangeEvent;
+      import javax.faces.context.FacesContext;
       import javax.faces.application.FacesMessage;
 
       import javax.ejb.Stateless;
@@ -71,6 +72,9 @@ rules // session bean from page definition
 
         @In
         private FacesMessages facesMessages;
+        
+        @In
+        private FacesContext facesContext;
 
         @In
         private Renderer renderer;
@@ -106,6 +110,7 @@ rules // session bean from page definition
             ~*cbds9
             ~*cbds10
             ~*cbds11
+            ~cbds12
       }
     ]|)
     where {| Parameter
@@ -146,6 +151,7 @@ rules // session bean from page definition
                              <global-functions <+ ![]>
            // @todo scoping of variables, conflicts between session, global and page vars
            ; cbds11 := <map(global-var-retrieval-for-xhtml)> <filter(\ vdi@VarDeclInit(nm, _, _) -> vdi where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)> <global-variables <+ ![]>
+           ; cbds12 := <download-helper-function> elems1
            |}
 
         // @todo not all beans need to declare initialize to @Begin a conversation
@@ -675,28 +681,14 @@ rules // Email functionality
       ![]
     end
 
-/*  menu-actions-to-java(|page) =
-    ?TemplateCall("dropdownmenu", [name], elems)
-    ; <map(menu-action-to-java(|page))> elems
-
-  menu-action-to-java(|page) :
-    t@TemplateCall("menuitem", [e], elems) ->
-      class-body-dec* |[
-        public void x_fun() {
-          log.info("~x_fun");
-          Redirect r = new Redirect();
-          r.setViewId("/~x_p");
-//          bstm0*
-          r.execute();
+  download-helper-function = 
+    if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
+      e0 := <expression-to-java> e ; 
+      ! |[
+        public void download() {
+          org.webdsl.tools.Utils.download(facesContext, e0.getData(), e0.getName(), e0.getContenttype());
         }
       ]|
-    where x_fun := <MenuActionFunction> (page, t)
-        ; ThisCall(p,args) := e
-        ; x_p := p
-//        ; fargs := <TemplateArguments> p
-//        ; params := <zip> (fargs, args)
-//        ; bstm0* := <map(add-page-parameter)> params
-
-  add-page-parameter :
-    (Arg(x, _), Var(x_value) {Type(s)}) -> |[ r.setParameter("~x", x_value); ]|
-*/
+    else
+      ![]
+    end
