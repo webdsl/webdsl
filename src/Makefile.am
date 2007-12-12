@@ -18,6 +18,7 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
     $(wildcard org/webdsl/dsl/*/*.c) \
     $(wildcard org/webdsl/dsl/*/*.o) \
+    $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.pp.af)
 
 EXTRA_DIST = \
