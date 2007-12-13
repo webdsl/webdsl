@@ -18,9 +18,11 @@ rules
     try(sometd(apply-checks-to-page))
   ; try(sometd(apply-checks-to-template-defs-actions))
   ; try(sometd(apply-checks-to-functions))
-  ; try(sometd(apply-checks-to-menu))
-
-
+  ; apply-checks-to-navigation
+  
+//  access-control-weaving-after-template-expansion =
+//    try(sometd(hide-empty-listitems))
+//  ; try(sometd(hide-empty-menu-and-spacer))
 
   apply-checks-to-page:
     Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
@@ -34,9 +36,16 @@ rules
         ; newtempelement2 := <concat> [tempelement , [InitAction(Block([IfNoElse(Not(e0),Block([ |[ goto(accessDenied()); ]| ]))]))]]
         ; previousrules := <once-Previous-Selected-Rules>
         ; previousname := <once-Previous-Decision-Name>
+          // enforce access control on actions in page definitions
         ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
-        ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
-
+          // enforce access control on template calls in page definitions
+        ; newtempelement4 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
+          // enforce access control on forms in page definitions
+        ; {| ActionDefinition,ActionArguments:
+             <alltd(declare-action)> tempelement
+           ; newtempelement := <try(sometd(apply-checks-to-form(|previousname,previousrules)))> newtempelement4
+           |}
+        
   apply-checks-to-action(|previousname,previousrules):
     Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
     where
@@ -80,21 +89,27 @@ rules
         ; if checks := []
           then
              (newtempelement0 := <bottomup(try(apply-checks-to-action(|[],[])))> tempelement
-             ; newtempelement := <bottomup(try(apply-checks-to-template-call(|[],[])))> newtempelement0
+             ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|[],[])))> newtempelement0
+               // enforce access control on forms in template definitions
+             ; {| ActionDefinition,ActionArguments:
+                  <alltd(declare-action)> tempelement
+                ; newtempelement := <try(sometd(apply-checks-to-form(|[],[])))> newtempelement1
+                |}
+             ; result := newtempelement
              )
           else
             (
               previousrules := <once-Previous-Selected-Rules>
               ; previousname := <once-Previous-Decision-Name>
               ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
-              ; newtempelement := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
+              ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
+                // enforce access control on forms in template definitions
+              ; {| ActionDefinition,ActionArguments:
+                   <alltd(declare-action)> tempelement
+                 ; newtempelement := <try(sometd(apply-checks-to-form(|previousname,previousrules)))> newtempelement1
+                 |}
+              ; result := [IfTempl(checks,newtempelement)]
             )
-          end
-        ; if checks := []
-          then
-            result := newtempelement
-          else
-            result := [IfTempl(checks,newtempelement)]
           end
 
   //ignore the defs inside pages
@@ -111,21 +126,136 @@ rules
           else
             newblck := Block([If(checks,blck,Block(|[ goto(accessDenied());return null;]|))])
           end
-          
-  apply-checks-to-menu:
-    tc@TemplateCall(tempname, [], elems) -> newtc
-    where <?"menuheader" <+ ?"menuitem"> tempname
-        ; navigationlinks := <collect(?TemplateCall("navigate",_,_))> elems
-          // only taking into account first navigate element (should be only one)
-        ; nav := <?[x|xs];!x> navigationlinks
-        ; TemplateCall("navigate",[ThisCall(p,args)],_) := nav
+     
+  apply-checks-to-navigation=
+    try(sometd(apply-checks-to-menu-headers-items
+           <+ {| checks-used-in-iftempl: apply-checks-to-navigate |}))
+
+//  apply-checks-to-menu:
+//    tc@TemplateCall("menu",anything, elems) -> newtc
+//    where {| checks-used-in-menu:
+//             newelems := <try(sometd(apply-checks-to-menu-headers-items))> elems
+//           ; if [] := <checks-used-in-menu<+![]>
+//             then
+//               newtc := tc
+//             else
+//               checksforspacers := <get-combinations-of-two;map(generate-conjunction-exp);generate-disjunction-exp>  <checks-used-in-menu>
+//               ; newelems2 :=  <try(sometd(\ tc@TemplateCall("menuspacer", [], []) -> IfTempl(checksforspacers,[tc]) \))> newelems
+//               ; thecheck := <generate-disjunction-exp> <checks-used-in-menu>
+//              ; newtc := IfTempl(thecheck,[TemplateCall("menu", anything, newelems2)])      
+//             end
+//           |}
+           
+//  get-combinations-of-two:
+//    [x|xs] -> <concat> [<map(\y ->[x,y])\)> xs,<get-combinations-of-two <+ ![]> xs]
+  
+  //Because this is done before template expansion atm, having the navigate inside a template (that is not desugared like the editRowsx) is a problem.            
+  apply-checks-to-menu-headers-items:
+    tc@TemplateCall(tempname,anything, elems) -> newtc
+    where {| checks-used-in-iftempl:
+             <?"menuheader" <+ ?"menuitem"> tempname
+           ; newelems := <try(sometd(apply-checks-to-navigate))> elems
+           ; if [] := <checks-used-in-iftempl<+![]>
+             then
+               newtc := tc
+             else
+               thecheck := <generate-disjunction-exp> <checks-used-in-iftempl>
+               ; newtc := IfTempl(thecheck,[TemplateCall(tempname, anything, newelems)])
+               ; if <?"menuitem"> tempname then rules ( checks-used-in-menu := <checks-used-in-iftempl>) end      
+             end
+           |}
+
+  apply-checks-to-navigate:
+    tc@TemplateCall("navigate",_,_) -> newtc
+    where newtc := <wrap-in-iftempl-using-navigate-call(|tc)> tc
+           
+  wrap-in-iftempl-using-navigate-call(|navigatecall):
+    tc -> newtc
+    where TemplateCall("navigate",[ThisCall(p,args)],_) := navigatecall
         ; fargs := <TemplateArguments> p
-        ; argsorts := <map(\ Arg(ident,thesort) -> thesort \)> fargs
-        ; matchingargs := <zip(\ (Var(ident),thesort) -> Arg(ident,thesort) \)> (args,argsorts)
-        ; checks := <generate-access-control-checks(|"page",p,matchingargs,[],[])>
+        ; newtc := <wrap-in-iftempl(|p,args,fargs,"page",[],[])> tc
+  
+  //Because this is done before template expansion atm, having the action or actionlink inside a template (that is not desugared like the editRowsx) is a problem.            
+  apply-checks-to-form(|previousname,previousrules):
+    tc@TemplateCall("form", [], elems) -> newtc
+    where {| checks-used-in-iftempl:
+             newelems := <try(sometd(apply-checks-to-actionLink(|previousname,previousrules)
+                                   <+apply-checks-to-action(|previousname,previousrules)))> elems
+           ; if [] := <checks-used-in-iftempl<+![]>
+             then
+               newtc := tc
+             else
+               thecheck := <generate-disjunction-exp> <checks-used-in-iftempl>
+               ; newtc := IfTempl(thecheck,[TemplateCall("form", [], newelems)])        
+             end
+           |}    
+       
+  apply-checks-to-actionLink(|previousname,previousrules):
+    tc@TemplateCall("actionLink",[_,thiscall@ThisCall(p,args)],_) -> newtc
+    where newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
+    
+  apply-checks-to-action(|previousname,previousrules):
+    tc@TemplateCall("action",listoftempelems,_) -> newtc
+    where thiscall@ThisCall(p,args) := <index> (2,listoftempelems) //can be list of 2 or 3, but the ThisCall is the 2nd element
+        ; newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
+        ; <not(is-cancel-action)> thiscall 
+        
+  wrap-in-iftempl-using-action-call(|actioncall,previousname,previousrules):
+    tc -> newtc
+    where ThisCall(p,args) := actioncall
+        ; fargs := <ActionArguments> p
+        ; newtc := <wrap-in-iftempl(|p,args,fargs,"action",previousname,previousrules)> tc
+
+  wrap-in-iftempl(|ident,args,fargs,checktype,previousname,previousrules):
+    tc -> newtc
+    where argsorts := <map(\ Arg(ident,thesort) -> thesort \)> fargs
+        ; matchingargs := <zip(\ (anexpr,thesort) -> Arg(anexpr,thesort) \)> (args,argsorts) // make suitable for checks strategy
+        ; checks := <generate-access-control-checks(|checktype,ident,matchingargs,previousname,previousrules)>
         ; if [] := checks
           then
-            newtc := IfTempl(False(),[tc])
+            newtc := [] //IfTempl(False(){Type(SimpleSort("Bool"))},[tc])
+            ; rules ( checks-used-in-iftempl := <concat>[<checks-used-in-iftempl <+ ![]>,[False(){Type(SimpleSort("Bool"))}]] )
           else
-            newtc := IfTempl(checks,[tc])
+            if True() := checks // don't generate overhead
+            then
+              newtc := tc
+            else
+              newtc := IfTempl(checks,[tc])
+              ; rules ( checks-used-in-iftempl := <concat>[<checks-used-in-iftempl <+ ![]>,[checks]] )
+            end
           end
+          
+//  hide-empty-listitems:
+//   tc@TemplateCall("listitem", [], elems) -> newtc
+//    where {| IfTempl-checks:
+//             // only if all the elements in listitem are an IfTempl
+//             <map(\ For(x, s, e, filt, elems) -> For(x, s, e, filt, <extract-IfTempl> elems) \
+//               <+ \ ForAll(x, s, filt, elems) -> ForAll(x, s, filt,<extract-IfTempl> elems) \
+//               <+ extract-IfTempl)> elems
+//           ; if [] := <IfTempl-checks <+ ![]>
+//             then
+//               newtc := tc
+//             else
+//               newtc := IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[tc])
+//             end
+//           |}
+          
+//  hide-empty-menu-and-spacer:
+//    tc@TemplateCall("menu", [], elems) -> newtc
+//    where {| IfTempl-checks:
+//             <map(?TemplateCall("menuspacer", [], [])
+//               <+ \ For(x, s, e, filt, elems) -> For(x, s, e, filt, <extract-IfTempl> elems) \
+//               <+ \ ForAll(x, s, filt, elems) -> ForAll(x, s, filt,<extract-IfTempl> elems) \
+//               <+ extract-IfTempl)> elems
+//           ; if [] := <IfTempl-checks <+ ![]>
+//             then
+//               newtc := tc
+//             else
+//               newelems := <map(try(\ tc@TemplateCall("menuspacer", [], []) -> IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[tc]) \))> elems
+//               ; newtc := IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[TemplateCall("menu", [], newelems)])
+//            end
+//           |}
+           
+//  extract-IfTempl:
+//    IfTempl(check,elems) -> IfTempl(check,elems) 
+//    where rules ( IfTempl-checks := <concat>[<IfTempl-checks <+ ![]>,[check]] )
