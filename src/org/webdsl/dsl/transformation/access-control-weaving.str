@@ -18,11 +18,11 @@ rules
     try(sometd(apply-checks-to-page))
   ; try(sometd(apply-checks-to-template-defs-actions))
   ; try(sometd(apply-checks-to-functions))
-  ; apply-checks-to-navigation
+  ; try(sometd(apply-checks-to-navigate))
   
-//  access-control-weaving-after-template-expansion =
-//    try(sometd(hide-empty-listitems))
-//  ; try(sometd(hide-empty-menu-and-spacer))
+  access-control-weaving-after-template-expansion=
+    try(sometd(apply-checks-to-forms))
+  ; try(sometd(apply-checks-to-menu-headers-items))
 
   apply-checks-to-page:
     Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
@@ -43,7 +43,7 @@ rules
           // enforce access control on forms in page definitions
         ; {| ActionDefinition,ActionArguments:
              <alltd(declare-action)> tempelement
-           ; newtempelement := <try(sometd(apply-checks-to-form(|previousname,previousrules)))> newtempelement4
+           ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement4
            |}
         
   apply-checks-to-action(|previousname,previousrules):
@@ -93,7 +93,7 @@ rules
                // enforce access control on forms in template definitions
              ; {| ActionDefinition,ActionArguments:
                   <alltd(declare-action)> tempelement
-                ; newtempelement := <try(sometd(apply-checks-to-form(|[],[])))> newtempelement1
+                ; newtempelement := <try(sometd(apply-checks-to-form-submits(|[],[])))> newtempelement1
                 |}
              ; result := newtempelement
              )
@@ -106,7 +106,7 @@ rules
                 // enforce access control on forms in template definitions
               ; {| ActionDefinition,ActionArguments:
                    <alltd(declare-action)> tempelement
-                 ; newtempelement := <try(sometd(apply-checks-to-form(|previousname,previousrules)))> newtempelement1
+                 ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement1
                  |}
               ; result := [IfTempl(checks,newtempelement)]
             )
@@ -126,44 +126,6 @@ rules
           else
             newblck := Block([If(checks,blck,Block(|[ goto(accessDenied());return null;]|))])
           end
-     
-  apply-checks-to-navigation=
-    try(sometd(apply-checks-to-menu-headers-items
-           <+ {| checks-used-in-iftempl: apply-checks-to-navigate |}))
-
-//  apply-checks-to-menu:
-//    tc@TemplateCall("menu",anything, elems) -> newtc
-//    where {| checks-used-in-menu:
-//             newelems := <try(sometd(apply-checks-to-menu-headers-items))> elems
-//           ; if [] := <checks-used-in-menu<+![]>
-//             then
-//               newtc := tc
-//             else
-//               checksforspacers := <get-combinations-of-two;map(generate-conjunction-exp);generate-disjunction-exp>  <checks-used-in-menu>
-//               ; newelems2 :=  <try(sometd(\ tc@TemplateCall("menuspacer", [], []) -> IfTempl(checksforspacers,[tc]) \))> newelems
-//               ; thecheck := <generate-disjunction-exp> <checks-used-in-menu>
-//              ; newtc := IfTempl(thecheck,[TemplateCall("menu", anything, newelems2)])      
-//             end
-//           |}
-           
-//  get-combinations-of-two:
-//    [x|xs] -> <concat> [<map(\y ->[x,y])\)> xs,<get-combinations-of-two <+ ![]> xs]
-  
-  //Because this is done before template expansion atm, having the navigate inside a template (that is not desugared like the editRowsx) is a problem.            
-  apply-checks-to-menu-headers-items:
-    tc@TemplateCall(tempname,anything, elems) -> newtc
-    where {| checks-used-in-iftempl:
-             <?"menuheader" <+ ?"menuitem"> tempname
-           ; newelems := <try(sometd(apply-checks-to-navigate))> elems
-           ; if [] := <checks-used-in-iftempl<+![]>
-             then
-               newtc := tc
-             else
-               thecheck := <generate-disjunction-exp> <checks-used-in-iftempl>
-               ; newtc := IfTempl(thecheck,[TemplateCall(tempname, anything, newelems)])
-               ; if <?"menuitem"> tempname then rules ( checks-used-in-menu := <checks-used-in-iftempl>) end      
-             end
-           |}
 
   apply-checks-to-navigate:
     tc@TemplateCall("navigate",_,_) -> newtc
@@ -175,21 +137,31 @@ rules
         ; fargs := <TemplateArguments> p
         ; newtc := <wrap-in-iftempl(|p,args,fargs,"page",[],[])> tc
   
-  //Because this is done before template expansion atm, having the action or actionlink inside a template (that is not desugared like the editRowsx) is a problem.            
-  apply-checks-to-form(|previousname,previousrules):
+  apply-checks-to-menu-headers-items:
+    tc@TemplateCall(tempname, [], elems) -> newtc
+    where <?"menuheader" <+ ?"menuitem"> tempname
+        ; checks := <collect(collect-template-call-checks(|["navigate"]))> elems
+        ; newtc := IfTempl(<generate-disjunction-exp> checks,[tc]) // disjunction-exp fails on []
+  
+  apply-checks-to-forms:
     tc@TemplateCall("form", [], elems) -> newtc
-    where {| checks-used-in-iftempl:
-             newelems := <try(sometd(apply-checks-to-actionLink(|previousname,previousrules)
-                                   <+apply-checks-to-action(|previousname,previousrules)))> elems
-           ; if [] := <checks-used-in-iftempl<+![]>
-             then
-               newtc := tc
-             else
-               thecheck := <generate-disjunction-exp> <checks-used-in-iftempl>
-               ; newtc := IfTempl(thecheck,[TemplateCall("form", [], newelems)])        
-             end
-           |}    
-       
+    where checks := <collect(collect-template-call-checks(|["actionLink","action"]))> elems
+        ; newtc := IfTempl(<generate-disjunction-exp> checks,[tc]) // disjunction-exp fails on []
+        
+  collect-template-call-checks(|tempnames)=
+    \ fa@ForAll(x, SimpleSort(s), filt, elems) -> InColl(True(){Type(SimpleSort("Bool"))}, ForExp(thecheck,x,SimpleSort(s),thequery,filt)){Type(SimpleSort("Bool"))}
+      where thecheck := <generate-disjunction-exp> <collect(collect-template-call-checks(|tempnames))> elems
+          ; selectField := <newname> "queryVar"
+          ; thequery := Cast(HqlQuery(QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Path([selectField]),None())])),FromClause([FromRangeJoin(FromClass(Path([s]),Some(AsAlias(Alias(selectField))),None()),None())])),None(),None(),None()))
+                            ,GenericSort("List",[SimpleSort(s)]))\
+    <+ \ fr@For(x, s, e, filt, elems) -> InColl(True(){Type(SimpleSort("Bool"))}, ForExp(thecheck,x,s,e,filt)){Type(SimpleSort("Bool"))}
+         where thecheck := <generate-disjunction-exp> <collect(collect-template-call-checks(|tempnames))> elems \
+    <+ \ IfTempl(check,[TemplateCall(tname,_,_)]) -> check where <elem>(tname,tempnames) \
+        
+  apply-checks-to-form-submits(|previousname,previousrules)=
+    apply-checks-to-actionLink(|previousname,previousrules)
+    <+ apply-checks-to-action(|previousname,previousrules)
+             
   apply-checks-to-actionLink(|previousname,previousrules):
     tc@TemplateCall("actionLink",[_,thiscall@ThisCall(p,args)],_) -> newtc
     where newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
@@ -214,48 +186,11 @@ rules
         ; if [] := checks
           then
             newtc := [] //IfTempl(False(){Type(SimpleSort("Bool"))},[tc])
-            ; rules ( checks-used-in-iftempl := <concat>[<checks-used-in-iftempl <+ ![]>,[False(){Type(SimpleSort("Bool"))}]] )
           else
             if True() := checks // don't generate overhead
             then
               newtc := tc
             else
               newtc := IfTempl(checks,[tc])
-              ; rules ( checks-used-in-iftempl := <concat>[<checks-used-in-iftempl <+ ![]>,[checks]] )
             end
           end
-          
-//  hide-empty-listitems:
-//   tc@TemplateCall("listitem", [], elems) -> newtc
-//    where {| IfTempl-checks:
-//             // only if all the elements in listitem are an IfTempl
-//             <map(\ For(x, s, e, filt, elems) -> For(x, s, e, filt, <extract-IfTempl> elems) \
-//               <+ \ ForAll(x, s, filt, elems) -> ForAll(x, s, filt,<extract-IfTempl> elems) \
-//               <+ extract-IfTempl)> elems
-//           ; if [] := <IfTempl-checks <+ ![]>
-//             then
-//               newtc := tc
-//             else
-//               newtc := IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[tc])
-//             end
-//           |}
-          
-//  hide-empty-menu-and-spacer:
-//    tc@TemplateCall("menu", [], elems) -> newtc
-//    where {| IfTempl-checks:
-//             <map(?TemplateCall("menuspacer", [], [])
-//               <+ \ For(x, s, e, filt, elems) -> For(x, s, e, filt, <extract-IfTempl> elems) \
-//               <+ \ ForAll(x, s, filt, elems) -> ForAll(x, s, filt,<extract-IfTempl> elems) \
-//               <+ extract-IfTempl)> elems
-//           ; if [] := <IfTempl-checks <+ ![]>
-//             then
-//               newtc := tc
-//             else
-//               newelems := <map(try(\ tc@TemplateCall("menuspacer", [], []) -> IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[tc]) \))> elems
-//               ; newtc := IfTempl(<generate-disjunction-exp> <IfTempl-checks>,[TemplateCall("menu", [], newelems)])
-//            end
-//           |}
-           
-//  extract-IfTempl:
-//    IfTempl(check,elems) -> IfTempl(check,elems) 
-//    where rules ( IfTempl-checks := <concat>[<IfTempl-checks <+ ![]>,[check]] )
