@@ -240,7 +240,7 @@ rules
   sort-to-java-type-string : SimpleSort("Secret") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Patch") -> "java.lang.String"
   sort-to-java-type-string : SimpleSort("Email") -> "java.lang.String"
-  sort-to-java-type-string : SimpleSort("Image") -> "java.lang.String"
+  sort-to-java-type-string : SimpleSort("Image") -> "java.lang.Byte[]"
   sort-to-java-type-string : GenericSort("List", [x]) -> <concat-strings> ["java.util.List<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Set", [x]) -> <concat-strings> ["java.util.Set<", <sort-to-java-type-string> x, ">"]
   sort-to-java-type-string : GenericSort("Map", [x, y]) -> <concat-strings> ["java.util.Map<", <sort-to-java-type-string> x, ",", <sort-to-java-type-string> y, ">"]
@@ -304,10 +304,14 @@ rules
     SimpleSort("URL") -> |[ "" ]|
 
   builtin-java-type : 
-    SimpleSort("Image") -> type|[ String ]|
+    SimpleSort("Image") -> type|[ byte[] ]|
     
   builtin-java-type-default-value :
-    SimpleSort("Image") -> |[ "" ]|
+    SimpleSort("Image") -> |[ null ]|
+
+  builtin-persistence-annotations :
+    SimpleSort("Image") -> [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
+                            anno|[ @Column(columnDefinition="LONGBLOB") ]|]
 
   builtin-java-type : 
     SimpleSort("Email") -> type|[ String ]|
@@ -724,6 +728,12 @@ rules // typechecking page elements
   typecheck-text =
     Text(is-string)
   
+/*  typecheck-text :
+    TemplateCall("text", [e], []) -> TemplateCall("text", [e'], [])
+    where in-tc-context(id
+            ; e' := <typecheck-page-element> e
+          | ["text/"])*/
+  
   typecheck-call-action :
     TemplateCall(f, [e1,e2], []) -> TemplateCall(f, [e1',e2'], [])
     where !f; (?"action" + ?"actionLink")
@@ -731,44 +741,38 @@ rules // typechecking page elements
             ; e1' := <typecheck-expression> e1
             ; e2' := <typecheck-expression> e2
           | [f, "/"])
-
-                
-/*  typecheck-call-subtable :
-    TemplateCall("subtable", [f], columns1) -> TemplateCall("subtable", [f], columns1)
-    where FieldAccess(Var(exp), ident) := f
-        ; <should-have-list-type> ident
-        ; GenericSort(v,[SimpleSort(s)]) := <TypeOf> ident
-        ; <map(typecheck-template-call-in-subtable(|s))> columns1
-        
-  typecheck-template-call-in-subtable(|s) :
-    TemplateCall("text", e@[Var(x)], []) -> TemplateCall("text", e, [])
-    where <TypeOfProperty> (s, x)
-        
-  typecheck-template-call-in-subtable(|s) :
-    TemplateCall("text", e@[FieldAccess(Var(x), i)], []) -> TemplateCall("text", e, [])
-    where SimpleSort(ss) := <TypeOfProperty> (s, x)
-        ; <TypeOfProperty> (ss, i)
- */
   
   typecheck-call-navigate :
     TemplateCall("url", [e], []) -> TemplateCall("url", [e'], [])
     where in-tc-context(id
             ; e' := <typecheck-link> e
           | ["url/"])
-          
-  typecheck-call-navigate :
-    TemplateCall("navigate", [e], elems1) -> TemplateCall("navigate", [e'], elems2)
-    where in-tc-context(id
-            ; e' := <typecheck-link> e
-            ; elems2 := <typecheck-page-elements> elems1
-          | ["navigate/"])
 
   typecheck-call-navigate :
-    TemplateCall("navigate", [e1,e2], []) -> TemplateCall("navigate", [e1', e2'], [])
+    TemplateCall("navigate", [e], []) -> TemplateCall("navigate", [e'], [])
     where in-tc-context(id
-            ; e1' := <typecheck-expression> e1
-            ; e2' := <typecheck-link> e2
+            ; e' := <typecheck-link> e
           | ["navigate/"])
+          
+  typecheck-call-navigate :
+    TemplateCall("navigate", [e], elems) -> TemplateCall("navigate", [e'], elems')
+    where in-tc-context(id
+            ; e' := <typecheck-link> e
+            ; elems' := <typecheck-page-elements> elems
+          | ["navigate/"])
+  
+  typecheck-link :
+    ThisCall("url", [e1]) -> ThisCall("url", [e2])
+    where e2 := <typecheck-page-element> e1
+
+  typecheck-link :
+    ThisCall(p, args1) -> ThisCall(p, args2)
+    where not("url" := p)
+        ; if not(<IsPage> p) then
+            typecheck-error(|["link to undefined page ", p])
+          else
+            TemplateCall(p, args2, []) := <typecheck-template-call> TemplateCall(p, args1, [])
+          end
              
   typecheck-call-email :
     ThisCall(p, [e1@ThisCall(name, args)]) -> ThisCall(p, [ThisCall(name, args2)])
@@ -787,29 +791,7 @@ rules // typechecking page elements
                   end*/
               end
           | ["email/"])
-  
-/*  typecheck-menuitem :
-    TemplateCall("menuitem", [e], [name]) -> TemplateCall("menuitem", [e'], [name])
-    where ThisCall(p,args) := e
-        ; if <IsPage> p then
-            e' := <typecheck-link> e
-          else
-            e' := <typecheck-expression> e
-          end */
-  
-  typecheck-link :
-    ThisCall("url", [e1]) -> ThisCall("url", [e2])
-    where e2 := <typecheck-expression> e1
-
-  typecheck-link :
-    ThisCall(p, args1) -> ThisCall(p, args2)
-    where not("url" := p)
-        ; if not(<IsPage> p) then
-            typecheck-error(|["link to undefined page ", p])
-          else
-            TemplateCall(p, args2, []) := <typecheck-template-call> TemplateCall(p, args1, [])
-          end
-
+          
   typecheck-template-call :
     TemplateCall(f, args1, elems1) -> TemplateCall(f, args2, elems2)
     where in-tc-context(id
@@ -1496,9 +1478,6 @@ rules // type compatibility
 
   type-compatible =
     ?(SimpleSort("URL"), SimpleSort("String"))
-    
-  type-compatible =
-    ?(SimpleSort("Image"), SimpleSort("String"))
     
   type-compatible =
     ?(SimpleSort("Secret"), SimpleSort("String"))

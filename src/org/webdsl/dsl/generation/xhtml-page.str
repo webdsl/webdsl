@@ -177,8 +177,8 @@ strategies // lists of elements
     filter-concat-warn((elem-to-xhtml <+ undefined-template-call); wrap | "elem-to-xhtml undefined: ")
 
   undefined-template-call :
-    TemplateCall(f, args, body) -> []
-    where log(|Warning(), ["no definition for template ", f])
+    t@TemplateCall(f, args, body) -> []
+    where log(|Warning(), ["no definition for template ", t])
 
 strategies // title
       
@@ -232,7 +232,7 @@ rules // text
     TemplateCall("text", [arg], []) -> 
     %> <h:outputText value="<%= val-string %>"/> <%
     where val-string := <arg-to-value-string> arg
-
+    
   elem-to-xhtml :
     TemplateCall("text", [e], []) -> 
     %> <h:outputText value="<%= <ConditionExpressionToEL> (<Component>, e) %>"/> <%
@@ -687,31 +687,21 @@ rules // links
     %> <h:outputLink value="<%=x%>"><%= 
         <elems-to-xhtml> elems ::*
     %></h:outputLink> <%
-    where x := <arg-to-value-string> e
+    where not(ThisCall(p,args) := e)
+        ; x := <arg-to-value-string> e
 
+  elem-to-xhtml :
+    t@TemplateCall("navigate", [ThisCall("url",[e@ThisCall(p,args)])], elems) ->
+    %>
+      <h:outputLink value="#{<%= <Component> %>.hostName}<%=url%>">
+        <%= <elems-to-xhtml> elems ::* %>
+      </h:outputLink>
+    <%
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; url := <page-call-to-url> (p, params)
     
-  //elem-to-xhtml :
-  //  TemplateCall("navigate", [FieldAccess(Var("p"),"homepage")],[]) ->
-  // @todo we need the type of p to determine the type of the field to figure out what to
-  // to with this
-  // can be done using a desugaring; here we should only be concerned with simple mappings
-    
-  // link to a defined page with arguments
-  
-//  elem-to-xhtml :
-//    TemplateCall("navigate",[ThisCall(p,args)],elems1) ->
-//    %> <s:link view = "/<%= p %>.xhtml" propagation="none"><%= 
-//       <conc>(params,elems2) ::*
-//    %></s:link> <%
-//    where <IsPage> p
-//        ; fargs := <TemplateArguments> p
-//        ; <dbg(|"navigate to page")> (p, <id>)
-//        ; params := <zip(dbg(|"bind-param 0: "); bind-param)> (fargs, args)
-//        ; dbg(|"params bound: ")
-//        //; el := <arg-to-value-string> e
-//        ; dbg(|"value exp: ")
-//        ; elems2 := <elems-to-xhtml> elems1
-//
   elem-to-xhtml :
     TemplateCall("navigate",[ThisCall(p,args)],elems) ->
     %> <h:outputLink value="<%= url %>"><%= 
@@ -727,12 +717,20 @@ rules // links
     where el := <arg-to-value-string> FieldAccess(e, "id")
     
   elem-to-xhtml :
+    TemplateCall("url",[e],[]) ->
+    %> <h:outputText value="<%= url %>" /> <%
+    where not(ThisCall(p,args) := e)
+        ; url := <arg-to-value-string> e
+
+  elem-to-xhtml :
     TemplateCall("url",[ThisCall(p,args)],[]) ->
-    %> <h:outputText value="#{<%= <Component> %>.facesContext.externalContext.requestContextPath}<%= url %>" /> <%
+//    %> <h:outputText value="http://#{<%= <Component> %>.facesContext.externalContext.getRequestHeaderMap("host")}<%= url %>" /> <%
+    %> <h:outputText value="#{<%= <Component> %>.hostName}<%= url %>" /> <%
     where <IsPage> p
         ; fargs := <TemplateArguments> p
         ; params := <zip(bind-param)> (fargs, args)
         ; url := <page-call-to-url> (p, params)
+
 
 //  bind-param :
 //    (Arg(x, s@SimpleSort(x_Class)), e) ->
@@ -913,16 +911,15 @@ rules // input
     %>
       <s:decorate>
         <s:fileUpload id="<%= label%>"
-			data="#{<%= estring %>.data}"
-			contentType="#{<%= estring %>.contenttype}"
-			fileName="#{<%= estring %>.name}" required="<%= req %>"
-			accept="images/*" /> /* */
+			data="<%= <arg-to-value-string> e %>" required="<%= req %>"
+			accept="images/*" />
       </s:decorate>
     <%
     where estring := <arg-to-el> e
         ; label := <newname> "inputImage"
         ; req := <input-of-required-property(|e)>
-
+        ; <debug> <arg-to-value-string> e
+/* */
         
 /*    %>
       <s:decorate>
@@ -1020,7 +1017,15 @@ rules // output
       <s:formattedText styleClass="outputTextarea" value="<%= estring %>"/>
     <%
     where estring := <arg-to-value-string> e
-    
+  
+  elem-to-xhtml :
+    TemplateCall("outputImage",[e],[]) ->
+    %>
+      <s:decorate>
+        <s:graphicImage value="#{<%= <arg-to-el> e %>}" />
+      </s:decorate>
+    <%
+        
   elem-to-xhtml :
 //    TemplateCall("outputSecret",[e],[]) ->
 //    %>
@@ -1042,7 +1047,7 @@ rules // function stuff
             ; body2 := <try(sometd(translate-template-expression))> body1
             |}
 
-   translate-template-expression :
+/*   translate-template-expression :
      def@Define(mods, name, args, body1) -> def
      where <elem> (Email(), mods)
          ; {| Component
@@ -1050,7 +1055,7 @@ rules // function stuff
 	        ; definitions := <map(construct-email-definition(|def))> email_calls
 	        ; rules ( EmailDefinitions : name -> definitions )
 	        |}
-
+*/
    find-params =
      ?fa@FieldAccess(v, _){Type(_)}
      ; not(<IgnoreVars> v)
@@ -1117,7 +1122,7 @@ rules // function stuff
 
    translate-template-expression =
      ?TemplateCall("text", [arg], [])
-     ; where(not(<arg-to-value-string> arg) // Not a simple expression
+     ; where(not(<arg-to-value-string> arg) ; not(<elem-to-xhtml> arg) // Not a simple expression
              ; fn := <newname> "textExprFun"
              ; create-template-function(|fn, arg))
 
