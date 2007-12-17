@@ -18,7 +18,8 @@ EXTRA_DIST = \
   $(wildcard template/view/images/*.gif) \
   $(wildcard template/view/images/*.png) \
   $(wildcard template/view/javascript/*.js) \
-  $(wildcard template/view/stylesheets/*.css)
+  $(wildcard template/view/stylesheets/*.css) \
+  $(wildcard new_project/*.app)
   
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
 
@@ -29,3 +30,4 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template/server/default/log
 	mkdir -p $(pkgdatadir)/template/src
 	mkdir -p $(pkgdatadir)/template/test
+	mkdir -p $(pkgdatadir)/new_project
