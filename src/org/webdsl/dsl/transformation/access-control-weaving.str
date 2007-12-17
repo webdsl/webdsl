@@ -42,22 +42,47 @@ rules
         ; newtempelement4 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
           // enforce access control on forms in page definitions
         ; {| ActionDefinition,ActionArguments:
-             <alltd(declare-action)> tempelement
+             <alltd(declare-action)> newtempelement4
            ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement4
            |}
+   
+  add-function-checks-to-action-check(|statements):
+  check -> newcheck{Type(SimpleSort("Bool"))}
+  where // lift ac on functions to the action level
+        {| checks-from-statements,checked-functions:
+           <function-checks-from-statements(|[],[])> statements
+         ; newcheck := <concat;generate-conjunction-exp> [[check],<checks-from-statements<+![]>]
+         |}
+      
+  function-checks-from-statements(|cargs,cfargs):
+    statements -> statements
+    where // atm no namespaces for ac on functions and ignoring the entity functions, functions can be defined in entities atm but they are not fully functional (are we going to remove them?)
+          // checks on global functions but not predicates, because they are already in the access control declarations      
+          funccalls := <collect(\ThisCall(ident,args)->(ident,args,<GlobalFunctionArgs> ident) where <IsGlobalFunction;not(IsPredicate)> ident\)> statements
+        ; <map(try(\(ident,args,fargs) -> ident 
+                 where checks := <ident-with-args-and-fargs-to-checks(|"function",[],[])> (ident,args,fargs)
+                     ; <not(elem)> (ident,<checked-functions<+![]>)
+                     ; if [] := args
+                       then newchecks := checks
+                       else newchecks := <substitute-args-in-statements(|cargs,cfargs)> checks end
+                     ; rules (checks-from-statements:=<concat>[[newchecks],<checks-from-statements<+![]>]
+                              checked-functions:=<concat>[[ident],<checked-functions<+![]>])
+                     ; nestedchecks := <GlobalFunctionBlock;function-checks-from-statements(|args,fargs)> ident\              
+              ))> funccalls
         
   apply-checks-to-action(|previousname,previousrules):
     Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
-    where
-         checks := <generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)>
-         ; if [] := checks then 
-            e0 := False(){Type(SimpleSort("Bool"))}
-          else
-            e0 := checks
-          end
-         ; returnstat := <collect(?Return(_))> statements
-         ; if returnstat := [] then returnstats := [|[ goto(accessDenied()); ]|] else  returnstats := [|[ return(accessDenied()); ]|] end
-         ; newstatements := [If(e0,Block(statements),Block(returnstats))]
+    where checks := <generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)>
+        ; if [] := checks 
+          then e0 := False(){Type(SimpleSort("Bool"))}
+          else e0 := checks end
+        ; e1 := <add-function-checks-to-action-check(|statements)> e0
+        //determine whether it returns to the same or a different page, to either redirect with goto or return
+        ; returnstat := <collect(?Return(_))> statements // safe to do this, because you can't put part of action in template
+        ; if returnstat := [] 
+          then returnstats := [|[ goto(accessDenied()); ]|] 
+          else returnstats := [|[ return(accessDenied()); ]|] end
+        ; newstatements := [If(e1,Block(statements),Block(returnstats))]
 
   apply-checks-to-template-call(|previousname,previousrules):
     tc@TemplateCall(ident, args, telems) -> result
@@ -86,31 +111,18 @@ rules
     def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,result)
     where modifier := []
         ; checks := <generate-access-control-checks(|"template",ident,formargs,[],[])>
+        ; previousrules := <once-Previous-Selected-Rules<+![]>
+        ; previousname := <once-Previous-Decision-Name<+![]>
+        ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
+        ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
+          // enforce access control on forms in template definitions
+        ; {| ActionDefinition,ActionArguments:
+               <alltd(declare-action)> newtempelement1
+             ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement1
+           |}
         ; if checks := []
-          then
-             (newtempelement0 := <bottomup(try(apply-checks-to-action(|[],[])))> tempelement
-             ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|[],[])))> newtempelement0
-               // enforce access control on forms in template definitions
-             ; {| ActionDefinition,ActionArguments:
-                  <alltd(declare-action)> tempelement
-                ; newtempelement := <try(sometd(apply-checks-to-form-submits(|[],[])))> newtempelement1
-                |}
-             ; result := newtempelement
-             )
-          else
-            (
-              previousrules := <once-Previous-Selected-Rules>
-              ; previousname := <once-Previous-Decision-Name>
-              ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
-              ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
-                // enforce access control on forms in template definitions
-              ; {| ActionDefinition,ActionArguments:
-                   <alltd(declare-action)> tempelement
-                 ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement1
-                 |}
-              ; result := [IfTempl(checks,newtempelement)]
-            )
-          end
+          then result := newtempelement
+          else result := [IfTempl(checks,newtempelement)] end
 
   //ignore the defs inside pages
   apply-checks-to-template-defs-actions:
@@ -135,7 +147,8 @@ rules
     tc -> newtc
     where TemplateCall("navigate",[ThisCall(p,args)],_) := navigatecall
         ; fargs := <TemplateArguments> p
-        ; newtc := <wrap-in-iftempl(|p,args,fargs,"page",[],[])> tc
+        ; checks := <ident-with-args-and-fargs-to-checks(|"page",[],[])> (p,args,fargs)
+        ; newtc := <wrap-in-iftempl(|checks)> tc
   
   apply-checks-to-menu-headers-items:
     tc@TemplateCall(tempname, [], elems) -> newtc
@@ -160,13 +173,13 @@ rules
         
   apply-checks-to-form-submits(|previousname,previousrules)=
     apply-checks-to-actionLink(|previousname,previousrules)
-    <+ apply-checks-to-action(|previousname,previousrules)
+    <+ apply-checks-to-actionButton(|previousname,previousrules)
              
   apply-checks-to-actionLink(|previousname,previousrules):
     tc@TemplateCall("actionLink",[_,thiscall@ThisCall(p,args)],_) -> newtc
     where newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
     
-  apply-checks-to-action(|previousname,previousrules):
+  apply-checks-to-actionButton(|previousname,previousrules):
     tc@TemplateCall("action",listoftempelems,_) -> newtc
     where thiscall@ThisCall(p,args) := <index> (2,listoftempelems) //can be list of 2 or 3, but the ThisCall is the 2nd element
         ; newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
@@ -176,21 +189,46 @@ rules
     tc -> newtc
     where ThisCall(p,args) := actioncall
         ; fargs := <ActionArguments> p
-        ; newtc := <wrap-in-iftempl(|p,args,fargs,"action",previousname,previousrules)> tc
-
-  wrap-in-iftempl(|ident,args,fargs,checktype,previousname,previousrules):
+        // get action checks substituted with actual arguments
+        ; checks := <ident-with-args-and-fargs-to-checks(|"action",previousname,previousrules)> (p,args,fargs)
+             
+        //add global function checks
+        //substitute page args into fargs in action definition
+        ; actiondef := <ActionDefinition> p
+        ; Action(ident,formargs,Block(statements)) := <substitute-args-in-action-definition(|args,fargs)> actiondef
+        //this gets the function checks and substitutes the action args into the function fargs
+        ; newchecks := <add-function-checks-to-action-check(|statements)> checks
+        
+        ; newtc := <wrap-in-iftempl(|newchecks)> tc 
+                  
+  substitute-args-in-action-definition(|args,fargs):
+    Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
+    where newstatements := <substitute-args-in-statements(|args,fargs)> statements
+           
+  substitute-args-in-statements(|args,fargs):
+    statements -> newstatements
+    where {| substitute-action-argument:
+             <zip(\(identa,fa@Arg(ident,s))->(identa,fa) where 
+                      rules (substitute-action-argument : Var(ident) -> identa) //in case of an expr    
+                   \)> (args,fargs)
+           ; newstatements := <topdown(try(substitute-action-argument))> statements
+           |}
+       
+  wrap-in-iftempl(|checks):
     tc -> newtc
+    where if [] := checks
+          then
+            newtc := IfTempl(False(){Type(SimpleSort("Bool"))},[tc])//want to remove this, or replace with something like TemplateCall("dummy", [], []) but this messes up the menu
+          else
+            if True() := checks // don't generate overhead
+            then newtc := tc
+            else newtc := IfTempl(checks,[tc]) end
+          end
+  
+  // substitutes the args for the identifiers in fargs, and generates access control checks       
+  ident-with-args-and-fargs-to-checks(|checktype,previousname,previousrules):
+    (ident,args,fargs) -> checks
     where argsorts := <map(\ Arg(ident,thesort) -> thesort \)> fargs
         ; matchingargs := <zip(\ (anexpr,thesort) -> Arg(anexpr,thesort) \)> (args,argsorts) // make suitable for checks strategy
         ; checks := <generate-access-control-checks(|checktype,ident,matchingargs,previousname,previousrules)>
-        ; if [] := checks
-          then
-            newtc := [] //IfTempl(False(){Type(SimpleSort("Bool"))},[tc])
-          else
-            if True() := checks // don't generate overhead
-            then
-              newtc := tc
-            else
-              newtc := IfTempl(checks,[tc])
-            end
-          end
+        
