@@ -98,7 +98,7 @@
    OrderAscending                     -- _1 KW["asc"],
    OrderDescending                    -- _1 KW["desc"],
 
-   ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] KW["{"]] H is=2[_5] KW["}"]],
+   ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] ] _5],
    ForStmt.5:iter-star                -- _1,
 
    ForExp                             -- H[KW["["] _1 KW["for"] KW["("] _2 KW[":"] _3 KW["in"] _4 _5 KW[")"] KW["]"]],
