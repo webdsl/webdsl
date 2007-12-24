@@ -23,9 +23,18 @@ rules
   access-control-weaving-after-template-expansion= //!<id>
     try(sometd(apply-checks-to-forms))
   ; try(sometd(apply-checks-to-menu-headers-items))
+  ; try(sometd(apply-checks-to-page-templates-expanded))
 
+  apply-checks-to-page-templates-expanded:
+    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
+    where <elem> (Page(),modifier)
+        ; e0 := <once-Access-Control-Page-Check> (ident,formargs)
+        ; initactions := <collect(?InitAction(_));map(\ InitAction(Block(xs)) -> xs \);concat> tempelement
+        ; tempelement2 := <topdown(try(\ xs -> <remove-all(?InitAction(_))> xs \))> tempelement
+        ; newtempelement := <concat> [tempelement2 , [InitAction(Block([If(e0,Block(initactions),Block([ |[ goto(accessDenied()); ]| ]))]))]]
+        
   apply-checks-to-page:
-    Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
+    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
     where <elem> (Page(),modifier)
         ; checks := <generate-access-control-checks(|"page",ident,formargs,[],[])>
         ; if [] := checks then 
@@ -33,11 +42,12 @@ rules
         else
           e0 := checks
         end
-        ; newtempelement2 := <concat> [tempelement , [InitAction(Block([IfNoElse(Not(e0),Block([ |[ goto(accessDenied()); ]| ]))]))]]
+        //applying the check needs to happen after template expansion, so all the initactions are inserted
+        ; rules ( Access-Control-Page-Check : (ident,formargs) -> e0)
         ; previousrules := <once-Previous-Selected-Rules>
         ; previousname := <once-Previous-Decision-Name>
           // enforce access control on actions in page definitions
-        ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> newtempelement2
+        ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
           // enforce access control on template calls in page definitions
         ; newtempelement4 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
           // enforce access control on forms in page definitions

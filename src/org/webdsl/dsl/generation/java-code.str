@@ -33,7 +33,7 @@ rules
     where x_Action := <concat-strings>[<capitalize-string> x_action, "Action"]
         ; pkgname := <BeanPackage>
         ; bean := <action-to-java-action-bean> a
-	    ; methoddecs   := <extract-method-signatures> bean
+        ; methoddecs   := <extract-method-signatures> bean
 
   action-to-java-action-bean:
     Action(x_action, fargs, Block(stm*)) -> JavaFile(["src"],
@@ -97,7 +97,7 @@ rules
         ; dbg(|"class name: ")
         ; pkgname := <BeanPackage>
         ; pkgname2 := <DomainPackage>
-	    ; dbg(|"package name: ")
+        ; dbg(|"package name: ")
         ; bstm* := <statements-to-java> stm*
     
 rules // action to method   
@@ -192,7 +192,8 @@ rules // statements
    
    assignment-to-java =
      ?Assign(Assignment(Qualified(qid, x), e1))
-     ; e2 := <qid-to-java> qid
+     // fix added in next line for assignment to global var
+     ; e2 := <{y:is-string;IsGlobal;?y;!Var(y){Type(<TypeOf> y)};global-var-to-java} <+ qid-to-java> qid
      ; e3 := <expression-to-java> e1
      // @todo: ugly hack, fix!
      ; if SimpleSort(p) := <TypeOf> qid ; t := <TypeOfProperty> (p, x) then
@@ -275,17 +276,18 @@ rules // statements
 
    goto-to-java :
      GoTo(ThisCall(p, args)) -> bstm* |[
-       Redirect red = new Redirect();
-       red.setViewId(~string:String([Chars(viewId)]));
+       Redirect x_redinstance = new Redirect();
+       x_redinstance.setViewId(~string:String([Chars(viewId)]));
        ~*parameter
-       red.execute();       
+       x_redinstance.execute();       
      ]|
      where viewId := <concat-strings>["/", p, ".xhtml"]
        ; fargs := <TemplateArguments> p
-       ; parameter := <zip(arg-to-redirect-parameter)> (fargs, args)
+       ; x_redinstance := <newname> "redirect"
+       ; parameter := <zip(arg-to-redirect-parameter(|x_redinstance))> (fargs, args)
         
-   arg-to-redirect-parameter :
-     (Arg(name, sort), Var(x)) -> |[ red.setParameter(x_fargname, x.getId()); ]|
+   arg-to-redirect-parameter(|x_redinstance) :
+     (Arg(name, sort), Var(x)) -> |[ x_redinstance.setParameter(x_fargname, x.getId()); ]|
      where x_fargname := <concat-strings>["\"",name, "\""]
 
 rules
@@ -294,15 +296,11 @@ rules
      Qualified(qid, x) -> |[ e.x_get() ]|
      where x_get := <concat-strings>["get", <capitalize-string> x]
          ; e := <qid-to-java> qid
-     
+
    qid-to-java :
      x -> |[ x ]|
      where <is-string> x
-     
-   qid-to-java :
-     x -> |[ x ]|
-     where <is-string> x
-     
+         
    //qid-to-java :
    //  Var(x){Type("Component")} -> expr|[ this ]|
      
@@ -430,7 +428,7 @@ rules // expressions
      where e2 := <query-to-create-query> e1
 
    expression-to-java = 
-		global-var-to-java
+        global-var-to-java
      <+ component-var-to-java
      <+ propvar-to-java
      <+ var-to-java
@@ -438,14 +436,14 @@ rules // expressions
    global-var-to-java :
      Var(x){Type(SimpleSort(t))} -> |[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
      where <IsGlobal> x
-     	; vartype := <TypeOf> x
-     	; if <EntityIdName> t then
-     	    x_type := <sort-to-java-type-string> <EntityIdType> t
-     	  else
-     	    x_type := "Long"
-     	  end
-     	; SimpleSort(x_vartype) := vartype
-        ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
+         ; vartype := <TypeOf> x
+         ; if <EntityIdName> t then
+             x_type := <sort-to-java-type-string> <EntityIdType> t
+           else
+             x_type := "Long"
+           end
+         ; SimpleSort(x_vartype) := vartype
+         ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
    
    component-var-to-java :
      Var(x){Type("Component")} -> expr|[ this ]|
