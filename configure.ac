@@ -1,5 +1,5 @@
 AC_PREREQ([2.60])
-AC_INIT([webdsls], [0.1], [webdsl@st.ewi.tudelft.nl])
+AC_INIT([webdsl], [7.12], [webdsl@st.ewi.tudelft.nl])
 AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([1.7.2 -Wall -Wno-portability])
 
