@@ -130,7 +130,7 @@ rules // globals to java initialization code
           if (q.getResultList().isEmpty())
           {
           
-          
+            bstm3*
             bstm1*
             bstm2*					
             
@@ -150,15 +150,29 @@ rules // globals to java initialization code
         { }
       
         ~*cbds*
+        ~*cbdsglobalfunctions*
       }
           
     ]|)
   )
   where pkgname    := <BeanPackage>
       ; pkgname2   := <DomainPackage>
+      // persist right away to get an id
+      ; bstm3* := <filter(vardeclinit-to-persist-statement);concat-with-sublists> vardeclinits
+      //update with assignments
       ; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
+      //persist updates
       ; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits		
       ; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
+      ; cbdsglobalfunctions* := <used-global-functions-code(|"",vardeclinits)> // first term argument is not relevant here, because there are no template functions here
+  
+  vardeclinit-to-persist-statement:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> result
+    where if <EntityIdName> x_class
+          then idname := <EntityIdName> x_class
+               ; idassign := <collect({e:?Assignment(idname, e);!Assign(Assignment(Qualified(x_ident,idname), e))});Hd> exps
+               ; {|IsGlobal: result := [ <rules(IsGlobal :- x_ident);statement-to-java> idassign,bstm |[ entityManager.persist(x_ident); ]| ] |}
+          else result := bstm |[ entityManager.persist(x_ident); ]| end
     
   vardeclinit-to-method-call:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> bstm |[	x_methodname(); ]|
@@ -178,13 +192,13 @@ rules // globals to java initialization code
         }
 
         private void x_methodpersist() {
-          entityManager.persist(x_ident);
+          //entityManager.persist(x_ident); now done beforehand
           ApplicationContextProperty x_acpident = new ApplicationContextProperty();
           x_acpident.setName(x_acpname);
           x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
           entityManager.persist(x_acpident);
           Contexts.getApplicationContext().set(x_acpident.getName(), x_acpident.getDatabaseId());
-     }
+        }
   ]|
   where x_acpident := <new>
       ; t := <java-type> SimpleSort(x_class)

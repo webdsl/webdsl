@@ -151,13 +151,7 @@ rules // session bean from page definition
            ; cbds7 := <template-functions-to-java> <decapitalize-string> x_Page
            ; cbds8  := <add-email-properties(|x_page)> elems1
            ; cbds9  := <email-to-code(|x_page)> elems1
-           ; cbds10 := <map(function-to-function-code(|[]))>
-                         <filter(add-functions-referenced-in-functions); !<once-all-functions-used-in-page <+ ![]> > //need to get all the functions referenced in functions
-                           <filter(\ fu@Function(nm, _, _, _) -> fu where <oncetd(?ThisCall(nm, _))> elems1  //call to function in page
-                                                                       <+ <oncetd(?ThisCall(nm, _))>
-                                                                            <retain-all(?(x_page, _, _, _))>
-                                                                              <AllTemplateFunctions> \)>     //call to function in if-template
-                             <global-functions <+ ![]>
+           ; cbds10 := <used-global-functions-code(|x_page,elems1)>
            // @todo scoping of variables, conflicts between session, global and page vars
            ; cbds11 := <map(global-var-retrieval-for-xhtml)> <filter(\ vdi@VarDeclInit(nm, _, _) -> vdi where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)> <global-variables <+ ![]>
            ; cbds12 := <download-helper-function> elems1
@@ -165,6 +159,16 @@ rules // session bean from page definition
 
         // @todo not all beans need to declare initialize to @Begin a conversation
 
+  //only include global functions that are actually used
+  used-global-functions-code(|x_page,elems1)=
+    <map(function-to-function-code(|[]))>
+      <filter(add-functions-referenced-in-functions); !<once-all-functions-used-in-page <+ ![]> > //need to get all the functions referenced in functions
+        <filter(\ fu@Function(nm, _, _, _) -> fu where <oncetd(?ThisCall(nm, _))> elems1  //call to function in page
+                                                    <+ <oncetd(?ThisCall(nm, _))>
+                                                         <retain-all(?(x_page, _, _, _))>
+                                                           <AllTemplateFunctions> \)>     //call to function in if-template
+          <global-functions <+ ![]>
+               
   add-functions-referenced-in-functions:
     fu@Function(nm,fa,s,bl) -> fu
     where if <elem> (fu,<all-functions-used-in-page <+ ![]>) then fail end //stop recursion
