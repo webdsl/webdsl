@@ -1,0 +1,151 @@
+module merge
+
+imports
+  libstratego-lib
+  libjava-front
+  libjava-front
+  libstratego-sglr
+  libstratego-tool-doc
+  Java-15
+
+strategies
+
+  main =
+    cu1 := <xtc-parse-java> FILE("Class1.java")
+    ; cu2 := <xtc-parse-java> FILE("Class2.java")
+    ; <merge> (cu1, cu2)
+
+  xtc-parse-java = 
+    where(id
+      ; path := <path-of-xtc-file>
+      ; tbl := <jfr-memo-open-parse-table(import-term(JavaCompilationUnit-15.tbl))> "JavaCompilationUnit-15.tbl"
+    )
+    ; parse-xtc-file(err(|["cannot open file ", path]), strsglr-report-parse-error  | tbl, "CompilationUnit", path)
+    
+rules
+  find-imports =
+    ?TypeImportDec(_)
+
+  find-imports =
+    ?TypeImportOnDemandDec(_)
+
+  add-unique :
+    ([], items) -> items
+
+  add-unique :
+    ([i|k], items) -> new-items
+    where if [] := <filter(?i)> items then // Not in list yet
+            new-items := <add-unique> (k, [i|items])
+          else
+            new-items := <add-unique> (k, items)
+          end
+
+  remove-partial-anno :
+    [a|k] -> k
+    where a := MarkerAnno(TypeName(Id("Partial")))
+
+  remove-partial-anno :
+    [a|k] -> <remove-partial-anno> k
+    where not(a := MarkerAnno(TypeName(Id("Partial"))))
+  
+  remove-partial-anno :
+    [] -> []
+  
+  add-imports(|new-imports) :
+    CompilationUnit(packagedef, imprts, cbds) -> CompilationUnit(packagedef, imprts2, cbds)
+    where imprts2 := <add-unique> (new-imports, imprts)
+    
+  add-body-decs :
+    ([], k) -> k where <debug> ["Done!", k]
+
+  add-body-decs :
+    ([fd@FieldDec(_, _, _)|k],
+     k2) ->
+    <add-unique> ([fd], <add-body-decs> (k, k2))
+    where <debug> ["Got one!", fd, k2]
+
+  add-body-decs : // non-partial method
+    ([MethodDec(h, b)|k], k2) ->
+    <add-unique> ([MethodDec(h, b)], <add-body-decs> (k, k2))
+    where [] := <collect(?MarkerAnno(TypeName(Id("Partial"))))> h
+
+
+  add-body-decs : // partial method
+    ([MethodDec(h@MethodDecHead(annos1, b, c, d, e, f), Block(stmts1))|k], k2) ->
+    <add-unique> ([MethodDec(MethodDecHead(annos2, b, c, d, e, f), Block(stmts2))], <add-body-decs> (k, k3))
+    where not([] := <collect(?MarkerAnno(TypeName(Id("Partial"))))> h)
+        ; old-body := <collect(retrieve-method-stmts(|h)); concat> k2
+        ; annos2 := <remove-partial-anno> annos1
+        ; k3 := <remove-method(|h)> k2
+        ; stmts2 := <concat> [stmts1, old-body]
+
+  add-body-decs :
+    ([ClassDec(h, b)|k],
+     k2) ->
+    <add-unique> ([ClassDec(h, b)], <add-body-decs> (k, k2))
+    
+  add-body-decs =
+    ?([a|_], _)
+    ; not(<?MethodDec(_, _)> a)
+    ; not(<?FieldDec(_, _, _)> a)
+    ; not(<?ClassDec(_, _)> a)
+    ; <debug> ["Found an unknown body declaration: ", a]
+  retrieve-method-stmts(|mdh) :
+    MethodDec(mdh, Block(stmts)) -> stmts //mdh@MethodDecHead(_, _, _, _, _, _)
+
+  // input: list of class body declarations
+  remove-method(|mdh) :
+    [MethodDec(mdh, Block(stmts))|k] -> k
+  
+  remove-method(|mdh) :
+    [MethodDec(mdh2, Block(stmts))|k] -> <remove-method(|mdh)> k
+    where not(mdh := mdh2)
+  
+  remove-method(|mdh) :
+    [a|k] -> [a|<remove-method(|mdh)> k]
+    where not(<?MethodDec(_, _)> a)
+    
+/*
+ MethodDecHead(
+              [MarkerAnno(TypeName(Id("Partial"))), Public()]
+            , None()
+            , Void()
+            , Id("doSomething")
+            , []
+            , None()
+            )
+*/
+  
+
+  merge-classes :
+    (ClassDec(ClassDecHead(annos1, Id(classname), None(), superclass1, interfaces1), ClassBody(body1)),
+     ClassDec(ClassDecHead(annos2, Id(classname), None(), superclass2, interfaces2), ClassBody(body2))) ->
+     ClassDec(ClassDecHead(annos3, Id(classname), None(), superclass3, interfaces3), ClassBody(body3))
+    where if not(None() := superclass1); not(None() := superclass2) then
+            <debug> ["Cannot merge classes, class already has superclass: ", superclass1, " - ", superclass2]
+          end
+        ; if not(None() := superclass2) then
+            superclass3 := superclass2
+          else
+            superclass3 := superclass1
+          end
+        ; if not(None() := interfaces2); <?Some(ImplementsDec(impls1))> interfaces1 then
+            <?Some(ImplementsDec(impls2))> interfaces2
+            ; interfaces3 := Some(ImplementsDec(<add-unique> (impls1, impls2)))
+          else
+            if not(None() := interfaces2) then
+              interfaces3 := interfaces2
+            else
+              interfaces3 := interfaces1
+            end
+          end
+        ; annos3 := <remove-partial-anno> <add-unique> (annos1, annos2)
+        ; body3 := <add-body-decs> (body1, body2)
+
+  merge:
+    (CompilationUnit(packagedef, imprts1, cds1),
+     CompilationUnit(packagedef, imprts2, cds2)) ->
+    CompilationUnit(packagedef, imprts3, cds3)
+    where imprts3 := <add-unique> (imprts1, imprts2)
+        ; cds3 := [<merge-classes> (<Hd> cds1, <Hd> cds2)]
+        
