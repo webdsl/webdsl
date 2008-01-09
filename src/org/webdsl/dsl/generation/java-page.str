@@ -16,10 +16,15 @@ imports
 
 rules // session bean from page definition
 
-  page-to-java :
-    def@Define([Page()], x_page, args, elems1) ->
-    <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"], cu-merged)
-    where {| Parameter, Page
+  initialize-lang-modules =
+    info(|"Initialing java-page module")
+    ; rules( GenerateCode :+ t -> <page-to-java> t )
+    ; fail
+
+  page-to-java =
+    ?def@Define([Page()], x_page, args, elems1)
+    ; info(|"Running page-to-java!")
+    ; where( {| Parameter, Page
            : rules ( Page := x_page )
            ; pkgname    := <BeanPackage>
            ; pkgname2   := <DomainPackage>
@@ -50,7 +55,7 @@ rules // session bean from page definition
            ; cbds8  := <add-email-properties(|x_page)> elems1
            ; cbds9  := <email-to-code(|x_page)> elems1
            ; cbds12 := <download-helper-function> elems1
-           ; cu := compilation-unit|[
+           ; (class, interface) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
       package pkgname;
       import java.util.*;
       import java.io.Serializable;
@@ -149,12 +154,11 @@ rules // session bean from page definition
               return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
             }
       }
-    ]|
-           ; clss := [cu|<bagof-LangModulePageBeanCode> (x_page, def)]
-          // ; info(|["Here are the classes: ", clss])
-           ; cu-merged := <merge-classes> clss
-           ; info(|["And here's the merged class: ", cu-merged])
-           |}
+    ]|)
+           //; <emit-java-code> interface
+           ; <emit-java-code> class
+           |})
+           
 
         // @todo not all beans need to declare initialize to @Begin a conversation
 

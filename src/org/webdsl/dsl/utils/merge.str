@@ -1,13 +1,10 @@
-module merge
+module org/webdsl/dsl/utils/merge
 
 imports
   libstratego-lib
   libjava-front
-  libjava-front
   libstratego-sglr
   libstratego-tool-doc
-  Java-15
-
 
 rules
   merge-find-imports =
@@ -27,23 +24,16 @@ rules
             new-items := <merge-add-unique> (k, items)
           end
 
-  merge-remove-partial-anno :
-    [MarkerAnno(TypeName(Id("Partial")))|k] -> k
-
-  merge-remove-partial-anno :
-    [a|k] -> [a|<merge-remove-partial-anno> k]
-    where not(a := MarkerAnno(TypeName(Id("Partial"))))
-        //; a2 := <remove-partial-anno> a
-  
-  merge-remove-partial-anno :
-    [] -> []
-
   merge-remove-unnecessary-annos :
     MethodDecHead(annos1, b, c, d, e, f) -> MethodDecHead(annos2, b, c, d, e, f)
     where annos2 := <remove-all(?MarkerAnno(TypeName(Id("Partial"))))> annos1
 
+  merge-remove-unnecessary-annos :
+    ClassDecHead(annos1, b, c, d, e)-> ClassDecHead(annos2, b, c, d, e)
+    where annos2 := <remove-all(?MarkerAnno(TypeName(Id("Partial"))))> annos1
+
   merge-add-imports(|new-imports) :
-    CompilationUnit(packagedef, imprts, cbds) -> CompilationUnit(packagedef, imprts2, cbds)
+    JavaFile(src, CompilationUnit(packagedef, imprts, cbds)) -> JavaFile(src, CompilationUnit(packagedef, imprts2, cbds))
     where imprts2 := <merge-add-unique> (new-imports, imprts)
     
   merge-add-body-decs :
@@ -67,7 +57,7 @@ rules
         ; old-body := <collect(merge-retrieve-method-stmts(|h)); concat> k2
 //        ; annos2 := <remove-partial-anno> annos1
         ; annos2 := annos1
-        ; k3 := <merge-remove-method(|h)> k2
+        ; k3 := <remove-all(?MethodDec(h, _))> k2 //<merge-remove-method(|h)> k2
         ; stmts2 := <concat> [stmts1, old-body]
 
   merge-add-body-decs :
@@ -135,21 +125,36 @@ rules
         ; annos3 := <merge-add-unique> (annos1, annos2)
         ; body3 := <merge-add-body-decs> (body1, body2)
 
-  merge-two-classes:
-    (CompilationUnit(packagedef, imprts1, cds1),
-     CompilationUnit(packagedef, imprts2, cds2)) ->
-    CompilationUnit(packagedef, imprts3, cds3)
+  merge-two-classes: // Same classes
+    (JavaFile(src, CompilationUnit(packagedef, imprts1, cds1)),
+     JavaFile(src, CompilationUnit(packagedef, imprts2, cds2))) ->
+    JavaFile(src, CompilationUnit(packagedef, imprts3, cds3))
     where imprts3 := <merge-add-unique> (imprts1, imprts2)
         ; cds3 := [<merge-classes> (<Hd> cds1, <Hd> cds2)]
-          
+         
   merge-many-classes :
-    [a|[]] -> a
+    [a] -> a
   
   merge-many-classes :
-    [a|[b|k]] -> <merge-two-classes> (a, <merge-classes> [b|k])
+    [a|[b|k]] -> <merge-two-classes> (a, <merge-many-classes> [b|k])
 
-  merge-classes :
-    lst -> c
-    where tmp := <merge-many-classes> lst
-        //; c := <bottomup(try(remove-unnecessary-annos))> tmp
-        ; c := tmp
+  get-package-and-classname :
+    JavaFile(src, CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)])) -> (packagedef, classname)
+
+  has-package-and-classname(|packagedef, classname) =
+    ?JavaFile(src, CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)]))
+
+  merge-group-classes :
+    [] -> []
+
+  merge-group-classes :
+    [cls|k] -> [group|<merge-group-classes> k2]
+    where (packagedef, classname) := <get-package-and-classname> cls
+        ; group := [cls|<filter(has-package-and-classname(|packagedef, classname))> k]
+        ; k2 := <remove-all(has-package-and-classname(|packagedef, classname))> k
+
+strategies
+
+  merge-classes =
+    merge-group-classes
+    ; map(merge-many-classes)
