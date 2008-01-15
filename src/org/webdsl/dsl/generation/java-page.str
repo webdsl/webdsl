@@ -16,8 +16,6 @@ imports
 
 rules // session bean from page definition
 
-  GenerateCode = page-to-java; fail
-
   generate-page-class-and-interface : cbds -> (class, interface)
     where pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
@@ -72,18 +70,19 @@ rules // session bean from page definition
 
 
 rules
+  /**
+   * Generate base bean code
+   */
+  GenerateCode =
+    ?Define([Page()], _, _, _)
+    ; info(|"Running page-to-java!")
+    ; page-to-java
+    ; fail
+
 
   page-to-java =
     ?Define([Page()], x_page, args, elems1)
-    ; info(|"Running page-to-java!")
-//    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
-//    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
     // @todo scoping of variables, conflicts between session, global and page vars
-    //; bstm6* := <collect(initaction-to-initialization);concat> elems1
-    ; cbds7 := <template-functions-to-java> x_page
-    ; cbds8  := <add-email-properties(|x_page)> elems1
-    ; cbds9  := <email-to-code(|x_page)> elems1
-    ; cbds12 := <download-helper-function> elems1
     ; (class, interface) := <generate-page-class-and-interface> |[
         @Logger
         private Log log;
@@ -110,11 +109,6 @@ rules
         @Destroy @Remove
         public void destroy() {}
 
-        ~*cbds7
-        ~*cbds8
-        ~*cbds9
-        ~cbds12
-
         public FacesContext getFacesContext() {
            return this.facesContext;
         }
@@ -124,7 +118,6 @@ rules
         } ]|
     ; <emit-java-code> interface
     ; <emit-java-code> class
-
 
         // @todo not all beans need to declare initialize to @Begin a conversation
 
@@ -687,6 +680,16 @@ rules // page-level variables with query initializers
 
 rules // For generating template functions
 
+  /**
+   * Generate template function code
+   */
+  GenerateCode =
+    ?Define([Page()], x_page, args, elems1)
+    ; (class, interface) := <generate-page-class-and-interface> <template-functions-to-java> x_page
+    ; <emit-java-code> class
+    ; <emit-java-code> interface
+    ; fail
+
    template-functions-to-java :
      page -> function*
      where  pkgname := <Package>
@@ -730,6 +733,16 @@ rules // For generating template functions
 
 
 rules // Email functionality
+  /**
+   * Generate email code
+   */
+  GenerateCode =
+    ?Define([Page()], x_page, args, elems1)
+    ; info(|"Generating email code")
+    ; (class, interface) := <generate-page-class-and-interface> <concat> [<email-to-code(|x_page)> elems1, <add-email-properties(|x_page)> elems1]
+    ; <emit-java-code> class
+    ; <emit-java-code> interface
+    ; fail
 
   email-to-code(|page) =
     if <oncetd(?ThisCall("email", [_]))> <id> then
@@ -773,6 +786,18 @@ rules // Email functionality
     else
       ![]
     end
+
+rules // Download helper
+  /**
+   * Generate download helper code
+   */
+  GenerateCode =
+    ?Define([Page()], x_page, args, elems1)
+    ; info(|"Generating download helper code")
+    ; (class, interface) := <generate-page-class-and-interface> <concat> [<download-helper-function> elems1]
+    ; <emit-java-code> class
+    ; <emit-java-code> interface
+    ; fail
 
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
