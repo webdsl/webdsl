@@ -1,70 +1,68 @@
 /**
  * Transformation of a WebDSL application to a collection of XML and Java files
- * in 
- * 
+ * in
+ *
  * @author Eelco Visser
  */
 
 module org/webdsl/dsl/generation/generator
- 
-imports 
-  libstrategolib 
-  Java-15 
-  libjava-front 
-  
-imports 
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/utils/-
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/generation/-
   org/webdsl/dsl/builtins/-
-  
+
 strategies
   info(|msg) = log(|Info(), msg)
-  
-strategies 
-  initialize-lang-modules = fail
+
+strategies
 
   dsl-to-seam = id
-    //; where(try(initialize-lang-modules)) // try because it will always fail
     ; stop-before-importing
     ; info(|"importing modules")
     ; import-modules
-  
+
     ; stop-before-desugaring
     ; info(|"desugaring")
     ; desugar
       ; stop-after
-      
+
     ; declare-definitions
       ; stop-after
     ; add-view-edit-pages-to-app
       ; stop-after
-    
+
     ; process-security
-    ; aggregate-subclass-info  
+    ; aggregate-subclass-info
     ; desugar
-      ; stop-after 
+      ; stop-after
     ; declare-definitions
       ; stop-after
-      
+
     ; stop-before-typechecking
     ; info(|"typechecking")
     ; typecheck
       ; stop-after
-      
+
     ; stop-before-template-expansion
-    ; info(|"template expansion") 
+    ; info(|"template expansion")
     ; expand-page-templates
       ; stop-after
     ; desugar
       ; stop-after
     ; typecheck
       ; stop-after
-    
-    ; access-control-weaving-after-template-expansion  
-      
-    ; derive 
+
+    ; access-control-weaving-after-template-expansion
+
+    ; derive
       ; stop-after
     ; desugar
       ; stop-after
@@ -76,7 +74,7 @@ strategies
     ; stop-before-generation
     ; info(|"code generation")
     // Create tuple (Application, [files-to-write])
-    ; !(<id>, 
+    ; !(<id>,
         [<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>,<declarations-to-code>])
     ; append-page-actions-file
     // remove the Application from the tuple, to leave only a list of files to write
@@ -90,7 +88,7 @@ strategies
       ; ents := <collect(?SessionEntity(_, _, _))> sections
       ; rules ( SessionEntities := ents )
     )
-    
+
 strategies
    // Creates <AllSubClasses> rule to be used in desugar.str (DeriveOutputSimpleRefAssociation)
    aggregate-subclass-info =
@@ -100,11 +98,11 @@ strategies
 
 strategies
 
-  // In declarations-to-code an Application term is rewritten as a list where the head is a 
+  // In declarations-to-code an Application term is rewritten as a list where the head is a
   // tuple (Application, JavaFile, XmlFile), followed by a tail of Java and Xml files.
   declarations-to-code :
-    Application(qid, sections) -> (Application(qid, sections), [sections2|[rewriterulefile|rest]]) 
-    where rules( 
+    Application(qid, sections) -> (Application(qid, sections), [sections2|[rewriterulefile|rest]])
+    where rules(
             Package := <qid-to-package-name> qid
             DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
             BeanPackage := <qid-to-package-name> Qualified(qid, "beans")
@@ -117,15 +115,15 @@ strategies
         ; rewriterulefile := <pages-to-rewrite-rules> sections2
         ; rest := <collect(entity-to-code <+ definitions-to-code)> sections2
         ; <generate-code> sections2
-       
+
    entity-to-code =
      !(<entity-to-java-Entity>
       ,<id>)
-   
+
    entity-to-code-failed =
      (?Entity(x_Class, _, _, _) <+ ?EntityNoSuper(x_Class, _, _))
      ; dbg(|"entity-to-code failed: ")
-      
+
    definitions-to-code =
      definition-to-code <+ ( ?Define(mod, x, args, body) ; !() )
 
@@ -151,7 +149,7 @@ strategies
      ?Define([Email()], x, args, body)
      ; !(<id>
         ,<emails-to-xml>)
-   
+
    create-email-call-rules :
      def@Define(modifiers, x, args, elems1) -> def
      where <elem> (Page(), modifiers)
@@ -175,12 +173,12 @@ strategies
                 )
             end
           )
-   
+
    append-page-actions-file :
      (Application(qid, sections), files) -> (Application(qid, sections), [page-actions-file | files])
      where <generate-page-list> Application(qid, sections)
        ; page-actions-file := <generate-page-actions-file>
-   
+
    remove-application :
      (Application(qid, sections), files) -> files
-     
+

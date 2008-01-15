@@ -65,8 +65,8 @@ rules // session bean from page definition
 
   generate-initializer-method :
     bstm* -> |[
-      @Create @Begin(join=true) @Partial
-      public void initialize() {
+      @Partial
+      public void postInitialize() {
         bstm*
       } ]|
 
@@ -76,10 +76,10 @@ rules
   page-to-java =
     ?Define([Page()], x_page, args, elems1)
     ; info(|"Running page-to-java!")
-    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
-    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+//    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+//    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
     // @todo scoping of variables, conflicts between session, global and page vars
-    ; bstm6* := <collect(initaction-to-initialization);concat> elems1
+    //; bstm6* := <collect(initaction-to-initialization);concat> elems1
     ; cbds7 := <template-functions-to-java> x_page
     ; cbds8  := <add-email-properties(|x_page)> elems1
     ; cbds9  := <email-to-code(|x_page)> elems1
@@ -100,12 +100,6 @@ rules
         @In
         private Renderer renderer;
 
-        @Create @Begin(join=true) @Partial
-            public void initialize() {
-              //log.info("~x_page" + ".initalize()");
-              bstm1*
-              bstm6*
-            }
 
         /* By calling forceInitialization the initialization of a bean is forced
              * This also enforces the execution of @Create annotated methods such as initialize()
@@ -113,22 +107,21 @@ rules
              */
         public void forceInitialization() {}
 
-            @Destroy @Remove
-            public void destroy() {}
+        @Destroy @Remove
+        public void destroy() {}
 
-            ~*cbds1
-            ~*cbds7
-            ~*cbds8
-            ~*cbds9
-            ~cbds12
+        ~*cbds7
+        ~*cbds8
+        ~*cbds9
+        ~cbds12
 
-            public FacesContext getFacesContext() {
-              return this.facesContext;
-            }
+        public FacesContext getFacesContext() {
+           return this.facesContext;
+        }
 
-            public String getHostName() {
-              return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
-            } ]|
+        public String getHostName() {
+           return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
+        } ]|
     ; <emit-java-code> interface
     ; <emit-java-code> class
 
@@ -185,8 +178,8 @@ rules //session variables
     ; bstm1* := <map(session-entity-property-to-merge);concat> sents
     ; cbds1  := <map(session-inouts);concat> sents
     ; (interface, code) := <generate-page-class-and-interface> |[
-        @Create @Begin(join=true) @Partial
-        public void initialize() {
+        @Partial
+        public void postInitialize() {
               ~*bstm1*
         }
         ~*cbds1
@@ -243,6 +236,29 @@ rules //session variables
          ; x_class := <sort-to-java-type-string> s
 
 rules // bean parameters
+
+  /**
+   * Generate code for bean arguments
+   */
+  GenerateCode =
+    ?Define([Page()], x_page, args, elems1)
+    ; info(|"Generating argument code")
+    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+    ; cbds2  := <generate-initializer-method> []
+    ; (interface, code) := <generate-page-class-and-interface> |[
+        @Create @Begin(join=true)
+        public void initialize() {
+          //log.info("~x_page" + ".initalize()");
+          bstm1*
+          postInitialize();
+        }
+        ~*cbds1
+        ~cbds2
+      ]|
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
   argument-to-bean-property :
     Arg(x, s@SimpleSort(x_Class)) ->
@@ -337,6 +353,18 @@ rules // action methods
     action-to-java-method
 
   // @todo what does it mean to delete an object?
+
+rules // init block translation
+  /**
+   * Generate action method code
+   */
+  GenerateCode =
+    ?ia@InitAction(_)
+    ; info(|"Generating init action code")
+    ; (interface, code) := <generate-page-class-and-interface> [<generate-initializer-method> <initaction-to-initialization> ia]
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
   initaction-to-initialization:
     InitAction(Block(statements)) -> <statements-to-java> statements
