@@ -25,7 +25,7 @@ rules // session bean from page definition
         ; x_Page     := <capitalize-string> x_page
         ; x_PageBean := <concat-strings> [x_Page, "Bean"]
         ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
-        ; (class, interface) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
+        ; (interface, class) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
       package pkgname;
       import java.util.*;
       import java.io.Serializable;
@@ -63,6 +63,14 @@ rules // session bean from page definition
         ~*cbds
       } ]|)
 
+  generate-initializer-method :
+    bstm* -> |[
+      @Create @Begin(join=true) @Partial
+      public void initialize() {
+        bstm*
+      } ]|
+
+
 rules
 
   page-to-java =
@@ -70,13 +78,6 @@ rules
     ; info(|"Running page-to-java!")
     ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
     ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
-    ; cbds3  := <collect(select-to-declarations); concat> elems1
-    ; bstm3* := <collect(select-to-initialization); concat> elems1
-    ; cbds4  := <collect-all(collection-to-declarations); concat> elems1
-    ; bstm4* := <collect-all(collection-to-initialization); concat> elems1
-    ; vdc*   := <get-page-vardecls> elems1
-    ; cbds5  := <map(vardecl-to-member-variable); concat> vdc*
-    ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
     // @todo scoping of variables, conflicts between session, global and page vars
     ; bstm6* := <collect(initaction-to-initialization);concat> elems1
     ; cbds7 := <template-functions-to-java> x_page
@@ -103,9 +104,6 @@ rules
             public void initialize() {
               //log.info("~x_page" + ".initalize()");
               bstm1*
-              bstm5*
-              bstm3*
-              bstm4*
               bstm6*
             }
 
@@ -119,10 +117,6 @@ rules
             public void destroy() {}
 
             ~*cbds1
-
-            ~*cbds3
-            ~*cbds4
-            ~*cbds5
             ~*cbds7
             ~*cbds8
             ~*cbds9
@@ -191,7 +185,7 @@ rules //session variables
     ; bstm1* := <map(session-entity-property-to-merge);concat> sents
     ; cbds1  := <map(session-inouts);concat> sents
     ; (interface, code) := <generate-page-class-and-interface> |[
-        @Partial
+        @Create @Begin(join=true) @Partial
         public void initialize() {
               ~*bstm1*
         }
@@ -445,9 +439,20 @@ rules // collections
   collection-init-to-java(|x) =
       X          := <capitalize-string> x
     ; x_initList := <concat-strings>["init", X, "List"]
-    ; ! bstm*|[ x_initList(); ]|
+    ; ![ <generate-initializer-method> bstm*|[ x_initList();]| ]
 
 rules // tables
+
+  /**
+   * Code to generate collection functions and initializations
+   */
+  GenerateCode =
+    (?c@TemplateCallDeclaredType(_, _, _, _) <+ ?c@ForAll(_, _, _, _))
+    ; info(|["Generating collection code"])
+    ; (interface, code) := <generate-page-class-and-interface> <concat> [<collection-to-declarations> c, <collection-to-initialization> c]
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
   collection-to-declarations :
     TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
@@ -469,6 +474,16 @@ rules // for all: for(x : s) { ... }
       <collection-init-to-java(|x)>
 
 rules // select
+  /**
+   * Code to generate select functions and initializations
+   */
+  GenerateCode =
+    ?s@Select(_, _, _, _)
+    ; info(|["Generating select code"])
+    ; (interface, code) := <generate-page-class-and-interface> <concat> [<select-to-declarations> s, <select-to-initialization> s]
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
   select-to-declarations :
     Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
@@ -539,8 +554,7 @@ rules // select
         ; dbg(|"select-to-declarations java-exp: ")
 
   select-to-initialization :
-    Select(x, SimpleSort(x_Class), label, e) ->
-    bstm*|[ x_initList(); ]|
+    Select(x, SimpleSort(x_Class), label, e) -> [ <generate-initializer-method> bstm*|[ x_initList(); ]| ]
     where X          := <capitalize-string> x
         ; x_initList := <concat-strings>["init", X, "List"]
 
@@ -549,9 +563,22 @@ rules // template expression functions
 //     (x_fn, e) -> |[
 //       public boolean x_fn(
 rules // page variables
+  /**
+   * Generating code for page variables
+   */
+  GenerateCode =
+    ?Define([Page()], x_page, args, elems1)
+    ; info(|["Generating page variables code for page ", x_page])
+    ; vdc*   := <get-page-vardecls> elems1
+    ; cbds1  := [ <generate-initializer-method> <map(vardecl-to-initialization); concat> vdc* ]
+    ; cbds2  := <map(vardecl-to-member-variable); concat> vdc*
+    ; (interface, code) := <generate-page-class-and-interface> <concat> [cbds1, cbds2]
+    //; info(|["Here's the variabels code: ", c])
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
-
-  vardecl-to-initialization :
+ vardecl-to-initialization :
     VarDecl(x, s) -> bstm*|[ ]|
 
   vardecl-to-initialization :
@@ -600,7 +627,7 @@ rules // page-level variables with query initializers
          this.x = x;
        }
 
-           @Factory(~string:String([Chars(x)]))
+       @Factory(~string:String([Chars(x)]))
        public void x_init() {
          //log.info("~x_init");
          x = e2.getResultList();
@@ -614,9 +641,7 @@ rules // page-level variables with query initializers
         ; x_set  := <concat-strings>["set", X]
 
   vardecl-to-initialization :
-    VarDeclInit(x, s, HqlQuery(_)) -> bstm*|[
-      x_init();
-    ]|
+    VarDeclInit(x, s, HqlQuery(_)) -> bstm*|[ x_init(); ]|
     where x_init := <concat-strings>["init", <capitalize-string>x]
 
   query-to-create-query :
