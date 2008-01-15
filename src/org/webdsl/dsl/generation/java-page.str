@@ -18,32 +18,14 @@ rules // session bean from page definition
 
   GenerateCode = page-to-java; fail
 
-  page-to-java =
-    ?Define([Page()], x_page, args, elems1)
-    ; info(|"Running page-to-java!")
-    ; where( pkgname    := <BeanPackage>
-           ; pkgname2   := <DomainPackage>
-           ; x_Page     := <capitalize-string> x_page
-           ; x_PageBean := <concat-strings> [x_Page, "Bean"]
-           ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
-
-           ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
-           ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
-           ; cbds2  := <collect(action-to-bean-method)> elems1
-           ; cbds3  := <collect(select-to-declarations); concat> elems1
-           ; bstm3* := <collect(select-to-initialization); concat> elems1
-           ; cbds4  := <collect-all(collection-to-declarations); concat> elems1
-           ; bstm4* := <collect-all(collection-to-initialization); concat> elems1
-           ; vdc*   := <get-page-vardecls> elems1
-           ; cbds5  := <map(vardecl-to-member-variable); concat> vdc*
-           ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
-           // @todo scoping of variables, conflicts between session, global and page vars
-           ; bstm6* := <collect(initaction-to-initialization);concat> elems1
-           ; cbds7 := <template-functions-to-java> <decapitalize-string> x_Page
-           ; cbds8  := <add-email-properties(|x_page)> elems1
-           ; cbds9  := <email-to-code(|x_page)> elems1
-           ; cbds12 := <download-helper-function> elems1
-           ; (class, interface) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
+  generate-page-class-and-interface : cbds -> (class, interface)
+    where pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
+        ; x_page     := <Page>
+        ; x_Page     := <capitalize-string> x_page
+        ; x_PageBean := <concat-strings> [x_Page, "Bean"]
+        ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
+        ; (class, interface) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
       package pkgname;
       import java.util.*;
       import java.io.Serializable;
@@ -57,24 +39,14 @@ rules // session bean from page definition
       import javax.faces.context.FacesContext;
       import javax.faces.application.FacesMessage;
 
-      import javax.ejb.Stateless;
-      import javax.ejb.Stateful;
-      import javax.ejb.Remove;
+      import javax.ejb.*;
 
       import org.jboss.seam.ScopeType;
-      import org.jboss.seam.annotations.Begin;
-      import org.jboss.seam.annotations.End;
-      import org.jboss.seam.annotations.Destroy;
-      import org.jboss.seam.annotations.Name;
-      import org.jboss.seam.annotations.Scope;
-      import org.jboss.seam.annotations.Create;
-      import org.jboss.seam.annotations.Logger;
+      import org.jboss.seam.annotations.*;
       import org.jboss.seam.annotations.web.RequestParameter;
       import org.jboss.seam.annotations.datamodel.DataModel;
       import org.jboss.seam.annotations.datamodel.DataModelSelection;
-      import org.jboss.seam.faces.FacesMessages;
-      import org.jboss.seam.faces.Renderer;
-      import org.jboss.seam.faces.Redirect;
+      import org.jboss.seam.faces.*;
       import org.jboss.seam.log.Log;
 
       import org.jboss.seam.annotations.In;
@@ -86,8 +58,32 @@ rules // session bean from page definition
 
       @Stateful
       @Name(~string:String([Chars(x_page)]))
+      @Partial
       public class x_PageBean implements x_PageBeanInterface {
+        ~*cbds
+      } ]|)
 
+rules
+
+  page-to-java =
+    ?Define([Page()], x_page, args, elems1)
+    ; info(|"Running page-to-java!")
+    ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+    ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+    ; cbds3  := <collect(select-to-declarations); concat> elems1
+    ; bstm3* := <collect(select-to-initialization); concat> elems1
+    ; cbds4  := <collect-all(collection-to-declarations); concat> elems1
+    ; bstm4* := <collect-all(collection-to-initialization); concat> elems1
+    ; vdc*   := <get-page-vardecls> elems1
+    ; cbds5  := <map(vardecl-to-member-variable); concat> vdc*
+    ; bstm5* := <map(vardecl-to-initialization); concat> vdc*
+    // @todo scoping of variables, conflicts between session, global and page vars
+    ; bstm6* := <collect(initaction-to-initialization);concat> elems1
+    ; cbds7 := <template-functions-to-java> x_page
+    ; cbds8  := <add-email-properties(|x_page)> elems1
+    ; cbds9  := <email-to-code(|x_page)> elems1
+    ; cbds12 := <download-helper-function> elems1
+    ; (class, interface) := <generate-page-class-and-interface> |[
         @Logger
         private Log log;
 
@@ -96,7 +92,7 @@ rules // session bean from page definition
 
         @In
         private FacesMessages facesMessages;
-        
+
         @In
         private FacesContext facesContext;
 
@@ -123,7 +119,7 @@ rules // session bean from page definition
             public void destroy() {}
 
             ~*cbds1
-            ~*cbds2
+
             ~*cbds3
             ~*cbds4
             ~*cbds5
@@ -131,36 +127,34 @@ rules // session bean from page definition
             ~*cbds8
             ~*cbds9
             ~cbds12
-            
+
             public FacesContext getFacesContext() {
               return this.facesContext;
             }
-            
+
             public String getHostName() {
               return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
-            }
-      }
-    ]|)
-           ; <emit-java-code> interface
-           ; <emit-java-code> class)
-           
+            } ]|
+    ; <emit-java-code> interface
+    ; <emit-java-code> class
+
 
         // @todo not all beans need to declare initialize to @Begin a conversation
 
   //only include global functions that are actually used
   used-global-functions-code(|x_page,elems1)=
     <map(function-to-function-code(|[]))> <used-global-functions-defs(|x_page,elems1)>
-    
+
   used-global-functions-defs(|x_page,elems1)=
     <filter(add-functions-referenced-in-functions); !<once-all-functions-used-in-page <+ ![]> > //need to get all the functions referenced in functions
       <filter(\ fu@Function(nm, _, _, _) -> fu where <oncetd(?ThisCall(nm, _))> elems1  //call to function in page
-                                                  <+ <oncetd(?ThisCall(nm, _))>
+                                                     <+ <oncetd(?ThisCall(nm, _))>
                                                        <retain-all(?(x_page, _, _, _))>
                                                          <AllTemplateFunctions> \)>     //call to function in if-template
-        <global-functions <+ ![]>
-          
+                                                           <global-functions <+ ![]>
 
-               
+
+
   add-functions-referenced-in-functions:
     fu@Function(nm,fa,s,bl) -> fu
     where if <elem> (fu,<all-functions-used-in-page <+ ![]>) then fail end //stop recursion
@@ -187,30 +181,24 @@ rules
         ; x_varname := <concat-strings> ["\"global-declaration-",x_name,"\""]
 
 rules //session variables
-  GenerateCode = // generate session entity code
+  /**
+   * Generate session entity code
+   */
+  GenerateCode =
     ?Define([Page()], x_page, args, elems1)
     ; info(|"Generating session variable code")
-    ; where(pkgname    := <BeanPackage>
-          ; pkgname2   := <DomainPackage>
-          ; x_Page     := <capitalize-string> x_page
-          ; x_PageBean := <concat-strings> [x_Page, "Bean"]
-          ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
-          ; sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se
-               where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)>
-          ; bstm1* := <map(session-entity-property-to-merge);concat> sents
-          ; cbds1  := <map(session-inouts);concat> sents
-          ; (interface, code) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"], compilation-unit|[
-		      package pkgname;
-		
-		      public class x_PageBean {
-    	         @Partial
-		         public void initialize() {
-		           ~*bstm1*
-		         }
-		         ~*cbds1
-		      } ]|)
-		  ; <emit-java-code> interface
-		  ; <emit-java-code> code)
+    ; sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)>
+    ; bstm1* := <map(session-entity-property-to-merge);concat> sents
+    ; cbds1  := <map(session-inouts);concat> sents
+    ; (interface, code) := <generate-page-class-and-interface> |[
+        @Partial
+        public void initialize() {
+              ~*bstm1*
+        }
+        ~*cbds1
+      ]|
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
     ; fail
 
 
@@ -244,7 +232,7 @@ rules //session variables
     Property(x, k, s, annos) -> |[
          if (x_ident.x_get()!=null) {
            //x_ident.x_set(entityManager.merge(x_ident.x_get())); old setup, slower(?)
-           x_ident.x_set(entityManager.find(x_class.class,x_ident.x_get().x_getid())); 
+           x_ident.x_set(entityManager.find(x_class.class,x_ident.x_get().x_getid()));
          }
      ]|
     where <defined-java-type> s
@@ -259,7 +247,7 @@ rules //session variables
            ; x_getid := "getId"
            end
          ; x_class := <sort-to-java-type-string> s
-        
+
 rules // bean parameters
 
   argument-to-bean-property :
@@ -339,6 +327,17 @@ rules // bean parameters
         ; rules( Parameter :+= x )
 
 rules // action methods
+
+  /**
+   * Generate action method code
+   */
+  GenerateCode =
+    ?a@Action(x_action, args, Block(stm*))
+    ; info(|["Generating action method code for ", x_action])
+    ; (interface, code) := <generate-page-class-and-interface> [<action-to-bean-method> a]
+    ; <emit-java-code> interface
+    ; <emit-java-code> code
+    ; fail
 
   action-to-bean-method =
     action-to-java-method
@@ -722,9 +721,9 @@ rules // Email functionality
       ![]
     end
 
-  download-helper-function = 
+  download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
-      e0 := <expression-to-java> e ; 
+      e0 := <expression-to-java> e ;
       ! |[
         public void download() {
           org.webdsl.tools.Utils.download(facesContext, e0.getData(), e0.getName(), e0.getContenttype());

@@ -1,11 +1,11 @@
 module org/webdsl/dsl/generation/java-globals
 
-imports 
-  libstrategolib  
-  Java-15 
-  libjava-front 
-  
-imports 
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
   org/webdsl/dsl/generation/-
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/syntax/HQL
@@ -17,24 +17,13 @@ rules
 
   globals-to-java = ?Define([Page()], x_page, args, elems1)
     ; info(|"Running globals-to-java!")
-    ; where( pkgname    := <BeanPackage>
-        ; pkgname2   := <DomainPackage>
-        ; x_Page     := <capitalize-string> x_page
-        ; x_PageBean := <concat-strings> [x_Page, "Bean"]
-        ; x_PageBeanInterface := <concat-strings> [x_Page, "BeanInterface"]
-        ; cbds1 := <used-global-functions-code(|x_page,elems1)>
-        // @todo scoping of variables, conflicts between session, global and page vars
-        ; cbds2 := <map(global-var-retrieval-for-xhtml)> <filter(\ vdi@VarDeclInit(nm, _, _) -> vdi where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)> <global-variables <+ ![]>
-        ; (class, interface) := <create-local-interface(|pkgname, pkgname2, x_PageBeanInterface)> JavaFile(["src"],compilation-unit|[
-      package pkgname;
+    ; where( cbds1 := <used-global-functions-code(|x_page,elems1)>
+             // @todo scoping of variables, conflicts between session, global and page vars
+             ; cbds2 := <map(global-var-retrieval-for-xhtml)> <filter(\ vdi@VarDeclInit(nm, _, _) -> vdi where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)> <global-variables <+ ![]>
+             ; (class, interface) := <generate-page-class-and-interface> <concat> [cbds1, cbds2]
+             ; <emit-java-code> interface
+             ; <emit-java-code> class)
 
-      public class x_PageBean {
-         ~*cbds1
-         ~*cbds2
-      } ]|)
-        ; <emit-java-code> interface
-        ; <emit-java-code> class)
-        
 
 rules // globals to java initialization code
   merge-globals:
@@ -45,13 +34,13 @@ rules // globals to java initialization code
 
   remove-globals-from-sections:
     Section(ident,defs) -> Section(ident, <filter(not(?GlobalsDefinition(_)))> defs)
-    
+
   merge-globals-vdi:
     GlobalsDefinition(vardeclinits) -> vardeclinits
 
-  globals-to-java = 
+  globals-to-java =
     ?GlobalsDefinition(vardeclinits)
-    ; info(|"Running globals def!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    ; info(|"Running generating globals java code.")
     ; where( pkgname    := <BeanPackage>
              ; pkgname2   := <DomainPackage>
              // persist right away to get an id
@@ -59,137 +48,137 @@ rules // globals to java initialization code
              //update with assignments
              ; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
              //persist updates
-             ; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits		
+             ; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits
              ; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
-             ; cbdsglobalfunctions* := <map(function-to-function-code(|[]))> 
+             ; cbdsglobalfunctions* := <map(function-to-function-code(|[]))>
                                          <used-global-functions-defs(|"",vardeclinits);// first term argument is not relevant here, because there are no template functions here
                                            map(try(\ Function(ident,formargs,s,Block([If(_,blck,_)])) -> Function(ident,formargs,s,blck)
                                                      where not([] := <generate-access-control-checks(|"function",ident,formargs,[],[])>)  \))> //remove ac checks, if found
              ; <emit-java-code> JavaFile(["src"], compilation-unit|[
     package pkgname2;
-      
+
     import java.util.*;
     import javax.persistence.*;
     import pkgname.*;
-      
-    @Entity public class ApplicationContextProperty  
-    { 
-      public ApplicationContextProperty () 
+
+    @Entity public class ApplicationContextProperty
+    {
+      public ApplicationContextProperty ()
       { }
-      
+
       @Id @GeneratedValue private Long id;
-      
+
       public Long getId()
-      { 
+      {
         return id;
       }
-      
+
       private void setId(Long id)
-      { 
+      {
         this.id = id;
       }
-      
+
       private String name;
-    
+
       private String databaseId;
-    
+
       public String getName() {
         return name;
       }
-  
+
       public void setName(String name) {
         this.name = name;
       }
-  
+
       public String getDatabaseId() {
         return databaseId;
       }
-  
+
       public void setDatabaseId(String databaseId) {
         this.databaseId = databaseId;
       }
-    
-      
+
+
     }
-      
+
     ]|)
-    ; (interface, class) := <create-local-interface(|pkgname, pkgname2, "ApplicationContextInterface")> JavaFile(["src"], 
+    ; (interface, class) := <create-local-interface(|pkgname, pkgname2, "ApplicationContextInterface")> JavaFile(["src"],
       compilation-unit|[
       package pkgname;
-      
-        
+
+
       import java.util.*;
       import java.io.Serializable;
       import static javax.persistence.PersistenceContextType.EXTENDED;
-      
+
       import javax.persistence.PersistenceContext;
       import javax.persistence.EntityManager;
-      
+
       import javax.ejb.Stateful;
       import javax.ejb.Remove;
       import javax.ejb.Stateless;
-      
+
       import org.jboss.seam.ScopeType;
-      
+
       import org.jboss.seam.annotations.Destroy;
       import org.jboss.seam.annotations.Name;
       import org.jboss.seam.annotations.Scope;
       import org.jboss.seam.annotations.Create;
       import org.jboss.seam.annotations.Logger;
-      
+
       import org.jboss.seam.annotations.Startup;
-      
+
       import org.jboss.seam.contexts.Contexts;
       import org.jboss.seam.faces.FacesMessages;
       import org.jboss.seam.log.Log;
       import org.jboss.seam.annotations.In;
-        
-      
+
+
       import pkgname2.*;
-    
-            
+
+
       @Startup @Stateful @Name("applicationContext") @Scope(ScopeType.APPLICATION) public class ApplicationContext implements ApplicationContextInterface
-      { 
+      {
         @Logger private Log log;
-      
+
         //@PersistenceContext(type = EXTENDED) private EntityManager em;
         @In EntityManager entityManager;
-      
+
         @In private FacesMessages facesMessages;
-        
+
         @Create public void initialize()
-        { 
+        {
           javax.persistence.Query q = entityManager.createQuery("from ApplicationContextProperty");
           if (q.getResultList().isEmpty())
           {
-          
+
             bstm3*
             bstm1*
-            bstm2*					
-            
+            bstm2*
+
           }
-          
+
           javax.persistence.Query q2 = entityManager.createQuery("from ApplicationContextProperty");
           List results = q2.getResultList();
           for(Object r: results)
           {
             ApplicationContextProperty acp = (ApplicationContextProperty) r;
-                 
+
             Contexts.getApplicationContext().set(acp.getName(), acp.getDatabaseId());
           }
         }
-        
+
         @Destroy @Remove public void destroy()
         { }
-      
+
         ~*cbds*
         ~*cbdsglobalfunctions*
       }
-          
+
     ]|)
              ; <emit-java-code> interface
              ; <emit-java-code> class)
-  
+
   vardeclinit-to-persist-statement:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> result
     where if <EntityIdName> x_class
@@ -197,7 +186,7 @@ rules // globals to java initialization code
                ; idassign := <collect({e:?Assignment(idname, e);!Assign(Assignment(Qualified(x_ident,idname), e))});Hd> exps
                ; {|IsGlobal: result := [ <rules(IsGlobal :- x_ident);statement-to-java> idassign,bstm |[ entityManager.persist(x_ident); ]| ] |}
           else result := bstm |[ entityManager.persist(x_ident); ]| end
-    
+
   vardeclinit-to-method-call:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> bstm |[	x_methodname(); ]|
     where x_methodname := <concat-strings> ["globalDeclaration",x_ident]
@@ -205,9 +194,9 @@ rules // globals to java initialization code
   vardeclinit-to-method-persist-call:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) -> bstm |[ x_methodname(); ]|
     where x_methodname := <concat-strings> ["globalDeclaration",x_ident,"Persist"]
-    
+
   vardeclinit-to-method:
-    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(x_class,assigns)) -> 
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(x_class,assigns)) ->
       class-body-dec* |[
         private t x_ident = new x_t();
 
@@ -238,22 +227,22 @@ rules // globals to java initialization code
                               ; desugar-any; statements-to-java> assigns
                             , digests)
          |}
-      
+
 //  generate-prop-mapping(|x_ident) :
 //    Property(x, k, s, annos) -> bstm|[
 //      this.x_ident.x_setter(x_ident.x_getter());
 //   ]|
 //    where x_setter := <property-setter> x
 //       ; x_getter := <property-getter> x
-      
+
   secret-assigns-to-digest(|x_ident,class):
-    Assignment(x_prop,String(anystring){Type(SimpleSort("String"))}) ->	
+    Assignment(x_prop,String(anystring){Type(SimpleSort("String"))}) ->
      bstm|[
-       {       
-         org.jasypt.util.password.StrongPasswordEncryptor x_var2 = 
+       {
+         org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
            new org.jasypt.util.password.StrongPasswordEncryptor();
          x_ident.x_set(x_var2.encryptPassword(x_anystring));
-       } 
+       }
      ]|
      where SimpleSort("Secret") := <TypeOfProperty> (class,x_prop)
          ; x_var2 := <newname> "_passwordEncryptor"
