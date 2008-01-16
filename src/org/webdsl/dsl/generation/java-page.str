@@ -17,10 +17,10 @@ imports
 rules // session bean from page definition
 
   generate-page-bean =
-    ? cbds 
+    ? cbds
     ; pkgname    := <BeanPackage>
     ; x_PageBean := <concat-strings> [<Page; capitalize-string>, "Bean"]
-    ; <emit-java-code> 
+    ; <emit-java-code>
         compilation-unit|[
           package pkgname;
           @Partial
@@ -30,25 +30,25 @@ rules // session bean from page definition
         ]|
 
   generate-initializer-method :
-    bstm* -> 
+    bstm* ->
     |[
        @Partial
        public void postInitialize() {
          bstm*
-       } 
+       }
     ]|
- 
+
 rules
   /**
    * Generate base bean code
    */
   GenerateCode = page-to-java; fail
-    
-  page-to-java =
+
+  page-to-java :
     Define([Page()], x_page, args, elems1) ->
     <emit-java-code> compilation-unit|[
         package pkgname;
-      
+
         import java.util.*;
         import java.io.Serializable;
 
@@ -77,7 +77,7 @@ rules
         import org.jboss.seam.annotations.Factory;
 
         import pkgname2.*;
- 
+
         @Stateful
         @Name(~string:String([Chars(x_page)]))
         @Partial
@@ -99,17 +99,17 @@ rules
              * When a bean is already active, nothing happens.
              */
           public void forceInitialization() {}
-          
+
           @Create @Begin(join=true)
           public void initialize() {
             argumentInitialize();
             postInitialize();
           }
-       
-          @Partial void argumentInitialize() { } 
-          
-          @Partial void postInitialize() { } 
-          
+
+          @Partial void argumentInitialize() { }
+
+          @Partial void postInitialize() { }
+
           @Destroy @Remove
           public void destroy() {}
 
@@ -119,13 +119,16 @@ rules
 
           public String getHostName() {
             return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
-          } 
-        ]|
+          }
+        }
+      ]|
     where info(|"Running page-to-java!")
         ; pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
         ; x_page     := <Page>
         ; x_Page     := <capitalize-string> x_page
         ; x_PageBean := <concat-strings> [x_Page, "Bean"]
+        ; x_PageBeanInterface := <concat-strings> [x_PageBean, "Interface"]
         // @todo scoping of variables, conflicts between session, global and page vars
         // @todo not all beans need to declare initialize to @Begin a conversation
 
@@ -137,7 +140,7 @@ rules //session variables
    * Generate session entity code
    */
   GenerateCode = generate-session-var-initialization; fail
-    
+
   generate-session-var-initialization :
     Define([Page()], x_page, args, elems1) ->
     <generate-page-bean> |[
@@ -204,7 +207,7 @@ rules // bean parameters
    * Generate code for bean arguments
    */
   //GenerateCode = PageArgumentCode; fail
-  
+
   //PageArgumentCode :
   //  Define([Page()], x_page, args, elems1) ->
   //  <generate-page-bean> |[
@@ -221,9 +224,9 @@ rules // bean parameters
   //      ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
   //      ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
   //      ; cbds2  := <generate-initializer-method> []
- 
+
   GenerateCode = argument-to-bean-property; fail
-  
+
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(x_Class)) ->
     <generate-page-bean> |[
@@ -251,7 +254,7 @@ rules // bean parameters
           else
             t := type|[ Long ]|
           end
-        ; bstm* <argument-to-initialization>arg
+        ; bstm* := <argument-to-initialization> arg
 
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(x_Class)) ->
@@ -273,7 +276,7 @@ rules // bean parameters
     where <builtin-java-type> s
         ; x_get := <property-getter> x
         ; x_set := <property-setter> x
-        ; bstm* <argument-to-initialization>arg
+        ; bstm* := <argument-to-initialization> arg
 
   argument-to-initialization :
     Arg(x, s@SimpleSort(x_Class)) ->
@@ -283,7 +286,7 @@ rules // bean parameters
          x = new x_Class();
       } else {
          x = entityManager.find(x_Class.class, x_Id);
-         if(x == null) { 
+         if(x == null) {
             // @todo Is this a good idea?
             x = new x_Class();
             x.setId(x_Id);
