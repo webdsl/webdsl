@@ -36,7 +36,7 @@ rules // session bean from page definition
        public void postInitialize() {
          bstm*
        }
-    ]|
+    ]| where info(|"-------------------------------------------- post initialize -------------------")
 
 rules
   /**
@@ -206,31 +206,32 @@ rules // bean parameters
   /**
    * Generate code for bean arguments
    */
-  //GenerateCode = PageArgumentCode; fail
+  /*GenerateCode = PageArgumentCode; fail
 
-  //PageArgumentCode :
-  //  Define([Page()], x_page, args, elems1) ->
-  //  <generate-page-bean> |[
-  //     @Create @Begin(join=true)
-  //     public void initialize() {
-  //       //log.info("~x_page" + ".initalize()");
-  //       bstm1*
-  //       postInitialize();
-  //     }
-  //     ~*cbds1
-  //     ~cbds2
-  //  ]|
-  //  where info(|"Generating argument code")
-  //      ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
-  //      ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
-  //      ; cbds2  := <generate-initializer-method> []
-
+  PageArgumentCode :
+    Define([Page()], x_page, args, elems1) ->
+    <generate-page-bean> |[
+       @Create @Begin(join=true)
+       public void initialize() {
+         //log.info("~x_page" + ".initalize()");
+         bstm1*
+         postInitialize();
+       }
+       ~*cbds1
+       ~cbds2
+    ]|
+    where info(|"Generating argument code")
+        ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+        ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+        ; cbds2  := <generate-initializer-method> []
+  */
   GenerateCode = argument-to-bean-property; fail
 
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(x_Class)) ->
     <generate-page-bean> |[
-       @Partial void postInitialize() {
+       @Partial
+       void argumentInitialize() {
          bstm*
        }
        @RequestParameter("~x")
@@ -259,7 +260,8 @@ rules // bean parameters
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(_)) ->
     <generate-page-bean> |[
-       @Partial void postInitialize() {
+       @Partial
+       void argumentInitialize() {
          bstm*
        }
        @RequestParameter("~x")
@@ -312,13 +314,12 @@ rules // action methods
   /**
    * Generate action method code
    */
-  GenerateCode =
-    ?a@Action(x_action, args, Block(stm*))
-    ; info(|["Generating action method code for ", x_action])
-    ; (interface, code) := <generate-page-bean> [<action-to-bean-method> a]
-    ; <emit-java-code> interface
-    ; <emit-java-code> code
-    ; fail
+  GenerateCode = generate-action-bean-code; fail
+
+  generate-action-bean-code :
+    a@Action(x_action, args, Block(stm*)) ->
+    <generate-page-bean> [<action-to-bean-method> a]
+    where info(|["Generating action method code for ", x_action])
 
   action-to-bean-method =
     action-to-java-method
@@ -329,13 +330,11 @@ rules // init block translation
   /**
    * Generate action method code
    */
-  GenerateCode =
-    ?ia@InitAction(_)
-    ; info(|"Generating init action code")
-    ; (interface, code) := <generate-page-bean> [<generate-initializer-method> <initaction-to-initialization> ia]
-    ; <emit-java-code> interface
-    ; <emit-java-code> code
-    ; fail
+  GenerateCode = generate-initializer-method-code; fail
+
+  generate-initializer-method-code :
+    ia@InitAction(_) -> <generate-page-bean> [<generate-initializer-method> <initaction-to-initialization> ia]
+    where info(|"Generating init action code")
 
   initaction-to-initialization:
     InitAction(Block(statements)) -> <statements-to-java> statements
@@ -445,13 +444,12 @@ rules // tables
   /**
    * Code to generate collection functions and initializations
    */
-  GenerateCode =
+  GenerateCode = generate-function-and-initializations; fail
+
+  generate-function-and-initializations =
     (?c@TemplateCallDeclaredType(_, _, _, _) <+ ?c@ForAll(_, _, _, _))
     ; info(|["Generating collection code"])
-    ; (interface, code) := <generate-page-bean> <concat> [<collection-to-declarations> c, <collection-to-initialization> c]
-    ; <emit-java-code> interface
-    ; <emit-java-code> code
-    ; fail
+    ; <generate-page-bean> <concat> [<collection-to-declarations> c, <collection-to-initialization> c]
 
   collection-to-declarations :
     TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
@@ -476,13 +474,11 @@ rules // select
   /**
    * Code to generate select functions and initializations
    */
-  GenerateCode =
-    ?s@Select(_, _, _, _)
-    ; info(|["Generating select code"])
-    ; (interface, code) := <generate-page-bean> <concat> [<select-to-declarations> s, <select-to-initialization> s]
-    ; <emit-java-code> interface
-    ; <emit-java-code> code
-    ; fail
+  GenerateCode = generate-select-code; fail
+
+  generate-select-code :
+    s@Select(_, _, _, _) -> <generate-page-bean> <concat> [<select-to-declarations> s, <select-to-initialization> s]
+    where info(|["Generating select code"])
 
   select-to-declarations :
     Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
@@ -565,17 +561,14 @@ rules // page variables
   /**
    * Generating code for page variables
    */
-  GenerateCode =
-    ?Define([Page()], x_page, args, elems1)
-    ; info(|["Generating page variables code for page ", x_page])
-    ; vdc*   := <get-page-vardecls> elems1
-    ; cbds1  := [ <generate-initializer-method> <map(vardecl-to-initialization); concat> vdc* ]
-    ; cbds2  := <map(vardecl-to-member-variable); concat> vdc*
-    ; (interface, code) := <generate-page-bean> <concat> [cbds1, cbds2]
-    //; info(|["Here's the variabels code: ", c])
-    ; <emit-java-code> interface
-    ; <emit-java-code> code
-    ; fail
+  GenerateCode = generate-page-variables-code; fail
+
+  generate-page-variables-code :
+    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [cbds1, cbds2]
+    where info(|["Generating page variables code for page ", x_page])
+        ; vdc*   := <get-page-vardecls> elems1
+        ; cbds1  := [ <generate-initializer-method> <map(vardecl-to-initialization); concat> vdc* ]
+        ; cbds2  := <map(vardecl-to-member-variable); concat> vdc*
 
  vardecl-to-initialization :
     VarDecl(x, s) -> bstm*|[ ]|
@@ -661,12 +654,10 @@ rules // For generating template functions
   /**
    * Generate template function code
    */
-  GenerateCode =
-    ?Define([Page()], x_page, args, elems1)
-    ; (class, interface) := <generate-page-bean> <template-functions-to-java> x_page
-    ; <emit-java-code> class
-    ; <emit-java-code> interface
-    ; fail
+  GenerateCode = generate-template-function-code; fail
+
+  generate-template-function-code :
+    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> x_page
 
    template-functions-to-java :
      page -> function*
@@ -714,13 +705,11 @@ rules // Email functionality
   /**
    * Generate email code
    */
-  GenerateCode =
-    ?Define([Page()], x_page, args, elems1)
-    ; info(|"Generating email code")
-    ; (class, interface) := <generate-page-bean> <concat> [<email-to-code(|x_page)> elems1, <add-email-properties(|x_page)> elems1]
-    ; <emit-java-code> class
-    ; <emit-java-code> interface
-    ; fail
+  GenerateCode = generate-email-code; fail
+
+  generate-email-code :
+    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [<email-to-code(|x_page)> elems1, <add-email-properties(|x_page)> elems1]
+    where info(|"Generating email code")
 
   email-to-code(|page) =
     if <oncetd(?ThisCall("email", [_]))> <id> then
@@ -769,13 +758,11 @@ rules // Download helper
   /**
    * Generate download helper code
    */
-  GenerateCode =
-    ?Define([Page()], x_page, args, elems1)
-    ; info(|"Generating download helper code")
-    ; (class, interface) := <generate-page-bean> <concat> [<download-helper-function> elems1]
-    ; <emit-java-code> class
-    ; <emit-java-code> interface
-    ; fail
+  GenerateCode = generate-download-helper-function; fail
+
+  generate-download-helper-function :
+    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [<download-helper-function> elems1]
+    where info(|"Generating download helper code")
 
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
