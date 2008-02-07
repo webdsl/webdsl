@@ -10,6 +10,8 @@ mixhql = org/webdsl/dsl/syntax/MixHQL
 
 metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
+mixmetasyntax = org/webdsl/dsl/syntax/StrategoJavaWebDSL
+
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
 CLEANFILES = \
@@ -37,10 +39,12 @@ STRSOURCES = \
 STRINCLUDES = \
 	-I . \
 	-I $(JAVA_FRONT)/share/java-front \
+	-I $(JAVA_FRONT)/share/java-front/languages/java/eblock \
+	-I $(JAVA_FRONT)/share/java-front-syntax \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(XML_FRONT)/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
-	$(JAVA_FRONT_STRCFLAGS) --verbose 1
+	# UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
 
 STRCFLAGS = \
 	-la stratego-xtc \
@@ -56,13 +60,14 @@ syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
          $(hql)-pretty.pp.af $(mixhql).sdf \
          $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
          $(syntax)-pretty.pp.af \
-         $(metasyntax).def $(metasyntax).tbl
+         $(metasyntax).def $(metasyntax).tbl \
+         $(mixmetasyntax).def $(mixmetasyntax).tbl
 
 %.str : %.rtg
 	rtg2sig -i $< -o $@
 
 %.def : %.sdf $(wildcard org/webdsl/dsl/syntax/*.sdf)
-	pack-sdf -i $< -o $@
+	pack-sdf -i $< -o $@ $(STRINCLUDES)
 	
 Mix%.sdf : %.def
 	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@

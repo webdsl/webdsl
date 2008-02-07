@@ -1,24 +1,10 @@
-module merge
+module org/webdsl/dsl/utils/merge
 
 imports
   libstratego-lib
   libjava-front
   libstratego-sglr
-
-strategies
-
-  main =
-    cu1 := <xtc-parse-java> FILE("Class1.java")
-    ; cu2 := <xtc-parse-java> FILE("Class2.java")
-    ; cu3 := <xtc-parse-java> FILE("Class3.java")
-    ; <merge-classes> [cu1, cu2, cu3]
-
-  xtc-parse-java = 
-    where(id
-      ; path := <path-of-xtc-file>
-      ; tbl := <jfr-memo-open-parse-table(import-term(JavaCompilationUnit-15.tbl))> "JavaCompilationUnit-15.tbl"
-    )
-    ; parse-xtc-file(err(|["cannot open file ", path]), strsglr-report-parse-error  | tbl, "CompilationUnit", path)
+  libstratego-tool-doc
 
 rules
   merge-find-imports =
@@ -53,6 +39,10 @@ rules
     ?MethodDec(MethodDecHead(_, _, rt, name, params, _), _)
     ; where( <?MethodDec(MethodDecHead(_, _, rt, name, params, _), _)> md )
 
+  merge-is-same-method(|md) = // compare name, return type and params, but not the rest
+    ?AbstractMethodDec(_, _, rt, name, params, _)
+    ; where( <?AbstractMethodDec(_, _, rt, name, params, _)> md )
+
   merge-remove-unnecessary-annos :
     MethodDecHead(annos1, b, c, d, e, f) -> MethodDecHead(annos2, b, c, d, e, f)
     where annos2 := <remove-all(?MarkerAnno(TypeName(Id("Partial"))))> annos1
@@ -64,7 +54,7 @@ rules
   merge-add-imports(|new-imports) :
     JavaFile(src, CompilationUnit(packagedef, imprts, cbds)) -> JavaFile(src, CompilationUnit(packagedef, imprts2, cbds))
     where imprts2 := <merge-add-unique> (new-imports, imprts)
-    
+
   merge-add-body-decs :
     ([], k) -> k
 
@@ -73,11 +63,14 @@ rules
      k2) ->
     <merge-add-unique> ([fd], <merge-add-body-decs> (k, k2))
 
+  merge-add-body-decs :
+    ([AbstractMethodDec(a, b, c, d, e, f)|k], k2) ->
+    <merge-add-unique-method> ([AbstractMethodDec(a, b, c, d, e, f)], <merge-add-body-decs> (k, k2))
+
   merge-add-body-decs : // non-partial method
     ([MethodDec(h, b)|k], k2) ->
     <merge-add-unique> ([MethodDec(h, b)], <merge-add-body-decs> (k, k2))
     where [] := <collect(?MarkerAnno(TypeName(Id("Partial"))))> h
-
 
   merge-add-body-decs : // partial method
     ([MethodDec(h@MethodDecHead(annos1, b, c, d, e, f), Block(stmts1))|k], k2) ->
@@ -86,19 +79,20 @@ rules
         ; old-body := <collect(merge-retrieve-method-stmts(|h)); concat> k2
 //        ; annos2 := <remove-partial-anno> annos1
         ; annos2 := annos1
-        ; k3 := <remove-all(?MethodDec(h, _))> k2 //<merge-remove-method(|h)> k2
+        ; k3 := <remove-all(merge-is-same-method(|MethodDec(h, [])))> k2 //<merge-remove-method(|h)> k2
         ; stmts2 := <concat> [stmts1, old-body]
 
   merge-add-body-decs :
     ([ClassDec(h, b)|k],
      k2) ->
     <merge-add-unique-method> ([ClassDec(h, b)], <merge-add-body-decs> (k, k2))
-    
+
   merge-add-body-decs =
     ?([a|k], k2)
     ; not(<?MethodDec(_, _)> a)
     ; not(<?FieldDec(_, _, _)> a)
     ; not(<?ClassDec(_, _)> a)
+    ; not(<?AbstractMethodDec(_, _, _, _, _, _)> a)
     //; <debug> ["Found an unknown body declaration: ", a]
     ; !<merge-add-unique> (a, <merge-add-body-decs> (k, k2))
 
@@ -108,15 +102,15 @@ rules
   // input: list of class body declarations
   merge-remove-method(|mdh) :
     [MethodDec(mdh, Block(stmts))|k] -> k
-  
+
   merge-remove-method(|mdh) :
     [MethodDec(mdh2, Block(stmts))|k] -> <merge-remove-method(|mdh)> k
     where not(mdh := mdh2)
-  
+
   merge-remove-method(|mdh) :
     [a|k] -> [a|<merge-remove-method(|mdh)> k]
     where not(<?MethodDec(_, _)> a)
-    
+
 /*
  MethodDecHead(
               [MarkerAnno(TypeName(Id("Partial"))), Public()]
@@ -127,7 +121,7 @@ rules
             , None()
             )
 */
-  
+
 
   merge-classes :
     (ClassDec(ClassDecHead(annos1, Id(classname), None(), superclass1, interfaces1), ClassBody(body1)),
@@ -154,24 +148,39 @@ rules
         ; annos3 := <merge-add-unique> (annos1, annos2)
         ; body3 := <merge-add-body-decs> (body1, body2)
 
+  merge-classes : // Some(ExtendsInterfaces([InterfaceType(TypeName(Id("Ha")),None)])) @TODO Add support for interface inheritance, now assumes none
+    (InterfaceDec(InterfaceDecHead(annos1,Id(interfacename),None(),None()),body1),
+     InterfaceDec(InterfaceDecHead(annos2,Id(interfacename),None(),None()),body2)) ->
+     InterfaceDec(InterfaceDecHead(annos3,Id(interfacename),None(),None()),body3)
+    where annos3 := <merge-add-unique> (annos1, annos2)
+        ; body3 := <merge-add-body-decs> (body1, body2)
+
+//    [AbstractMethodDec([],None,Void,Id("p"),[],None),AbstractMethodDec([],None,Void,Id("a"),[],None)]
+
   merge-two-classes: // Same classes
-    (CompilationUnit(packagedef, imprts1, cds1),
-     CompilationUnit(packagedef, imprts2, cds2)) ->
-    CompilationUnit(packagedef, imprts3, cds3)
+    (JavaFile(src, CompilationUnit(packagedef, imprts1, cds1)),
+     JavaFile(src, CompilationUnit(packagedef, imprts2, cds2))) ->
+    JavaFile(src, CompilationUnit(packagedef, imprts3, cds3))
     where imprts3 := <merge-add-unique> (imprts1, imprts2)
         ; cds3 := [<merge-classes> (<Hd> cds1, <Hd> cds2)]
-         
+
   merge-many-classes :
     [a] -> a
-  
+
   merge-many-classes :
     [a|[b|k]] -> <merge-two-classes> (a, <merge-many-classes> [b|k])
 
   get-package-and-classname :
-    CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)]) -> (packagedef, classname)
+    JavaFile(src, CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)])) -> (packagedef, classname)
+
+  get-package-and-classname :
+    JavaFile(src, CompilationUnit(packagedef, _, [InterfaceDec(InterfaceDecHead(_, Id(classname), _, _), _)])) -> (packagedef, classname)
 
   has-package-and-classname(|packagedef, classname) =
-    ?CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)])
+    ?JavaFile(src, CompilationUnit(packagedef, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)]))
+
+  has-package-and-classname(|packagedef, classname) =
+    ?JavaFile(src, CompilationUnit(packagedef, _, [InterfaceDec(InterfaceDecHead(_, Id(classname), _, _), _)]))
 
   merge-group-classes :
     [] -> []
@@ -182,24 +191,9 @@ rules
         ; group := [cls|<filter(has-package-and-classname(|packagedef, classname))> k]
         ; k2 := <remove-all(has-package-and-classname(|packagedef, classname))> k
 
-  /*merge-interfaces : // Some(ExtendsInterfaces([InterfaceType(TypeName(Id("Ha")),None)]))
-    (InterfaceDec(InterfaceDecHead(annos1,Id(interfacename),None,extends1),bdcs1),
-     InterfaceDec(InterfaceDecHead(annos2,Id(interfacename),None,extends2),bdcs2)) ->
-     InterfaceDec(InterfaceDecHead(annos3,Id(interfacename),None,extends3),bdcs3)
-    where */
-    
-    
-//    [AbstractMethodDec([],None,Void,Id("p"),[],None),AbstractMethodDec([],None,Void,Id("a"),[],None)]
-
 strategies
 
   merge-classes =
     merge-group-classes
     ; map(merge-many-classes)
     ; topdown(try(merge-remove-unnecessary-annos))
-    //; concat
-/*    where //tmp := <merge-many-classes> lst
-        ; 
-        ; c := <topdown(try(merge-remove-unnecessary-annos))> tmp
-        //; c := tmp
-*/

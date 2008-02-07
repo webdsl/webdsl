@@ -12,6 +12,6 @@ class TheClass implements Comparable {
 	}
 	
 	public void hoi() {
-		
+		System.out.println("Test");
 	}
 }
