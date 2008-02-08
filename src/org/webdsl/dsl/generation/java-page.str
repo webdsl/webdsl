@@ -512,83 +512,85 @@ rules // template expression functions
    template-functions-to-code = []
 //     (x_fn, e) -> |[
 //       public boolean x_fn(
+
+
 rules // page variables
+
   /**
    * Generating code for page variables
    */
   GenerateCode = generate-page-variables-code; fail
-
+  
   generate-page-variables-code :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [cbds1, cbds2]
-    where vdc*   := <get-page-vardecls> elems1
-        ; cbds1  := [ <generate-initializer-method> <map(vardecl-to-initialization); concat> vdc* ]
-        ; cbds2  := <map(vardecl-to-member-variable); concat> vdc*
-
- vardecl-to-initialization :
-    VarDecl(x, s) -> bstm*|[ ]|
-
-  vardecl-to-initialization :
-    VarDeclInit(x, s, e1) -> bstm*|[ x = e2; ]|
-    where not(HqlQuery(_) := e1)
-        ; e2 := <expression-to-java> e1
-
-  vardecl-to-member-variable :
-    VarDecl(x, s) -> |[
-      private t x;
-
-      public t x_get() {
-        //log.info("~x_get");
-        return x;
-      }
-
-      public void x_set(t x) {
-        //log.info("~x_set");
-        this.x = x;
-      }
+    VarDecl(x, s) -> <generate-page-bean> 
+    |[
+       private t x = e;
+       public t x_get() { return x; }
+       public void x_set(t x) { this.x = x; }
     ]|
     where t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
-
-  vardecl-to-member-variable :
-    VarDeclInit(x, s, e) -> <vardecl-to-member-variable> VarDecl(x, s)
-    where not(HqlQuery(_) := e)
-
-rules // page-level variables with query initializers
-
-  vardecl-to-member-variable :
-    VarDeclInit(x, s, HqlQuery(e1)) ->
+        ; e     := <java-type-default-value> s
+        
+  generate-page-variables-code :
+    VarDeclInit(x, s, e1) -> <generate-page-bean> 
     |[
-       @DataModel(~string:String([Chars(x)]))
        private t x;
+       public t x_get() { return x; }
+       public void x_set(t x) { this.x = x; }
+       @Partial public void postInitialize() { x = e2; }
+    ]|
+    where not(HqlQuery(_) := e1)
+        ; t     := <java-type> s
+        ; X     := <capitalize-string> x
+        ; x_get := <concat-strings>["get", X]
+        ; x_set := <concat-strings>["set", X]
+        ; e2 := <expression-to-java> e1
 
-       public t x_get() {
-         //log.info("~x_get");
-         return x;
-       }
+  // page-level variables with query initializers
 
-       public void x_set(t x) {
-         //log.info("~x_set");
-         this.x = x;
-       }
-
+  generate-page-variables-code :
+    VarDeclInit(x, s, HqlQuery(e1)) -> <generate-page-bean> 
+    |[
+       @DataModel(~string:String([Chars(x)])) private t x;
+       public t x_get() { return x; }
+       public void x_set(t x) { this.x = x; }
        @Factory(~string:String([Chars(x)]))
-       public void x_init() {
-         //log.info("~x_init");
-         x = e2.getResultList();
-       }
+       public void x_init() { x = e2.getResultList(); }
+       @Partial public void postInitialize() { x_init(); }
     ]|
     where t      := <java-type> s
-        ; e2     := <query-to-create-query> e1
         ; X      := <capitalize-string> x
-        ; x_init := <concat-strings>["init", X]
         ; x_get  := <concat-strings>["get", X]
         ; x_set  := <concat-strings>["set", X]
+        ; x_init := <concat-strings>["init", X]
+        ; e2     := <query-to-create-query> e1
 
-  vardecl-to-initialization :
-    VarDeclInit(x, s, HqlQuery(_)) -> bstm*|[ x_init(); ]|
-    where x_init := <concat-strings>["init", <capitalize-string>x]
+rules // List getter/setter for Set typed page variables
+
+  GenerateCode = generate-page-variables-code-set; fail
+  
+  generate-page-variables-code-set :
+    VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) -> 
+    <generate-page-bean> 
+    |[
+       public t2 x_getList() { return new java.util.ArrayList(x_get()); }
+       public void x_setList(t2 x) { x_set(new java.util.HashSet(x)); }
+    ]|
+    where t         := <java-type> s
+        ; t2        := <java-type> GenericSort("List", [SimpleSort(Y)])
+        ; X         := <capitalize-string> x
+        ; x_get     := <concat-strings>["get", X]
+        ; x_set     := <concat-strings>["set", X]
+        ; x_getList := <concat-strings>["get", X, "List"]
+        ; x_setList := <concat-strings>["set", X, "List"]
+       
+  generate-page-variables-code-set :
+    VarDeclInit(x, s, e) -> <generate-page-variables-code-set> VarDecl(x, s)
+           
+rules // query translation
 
   query-to-create-query :
     e -> <repeat(once-AddQueryParameter)> |[ entityManager.createQuery("~q") ]|
