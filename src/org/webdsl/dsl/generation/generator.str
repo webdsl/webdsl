@@ -1,6 +1,5 @@
 /**
  * Transformation of a WebDSL application to a collection of XML and Java files
- * in
  *
  * @author Eelco Visser
  */
@@ -18,13 +17,14 @@ imports
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/generation/-
   org/webdsl/dsl/builtins/-
+  org/webdsl/dsl/to-seam/core-to-seam
 
 strategies
   info(|msg) = log(|Info(), msg)
 
 strategies
 
-  dsl-to-seam = id
+  dsl-to-core = id
     ; stop-before-importing
     ; info(|"importing modules")
     ; import-modules
@@ -71,15 +71,9 @@ strategies
     ; propagate-component-names
       ; stop-after
 
-    ; stop-before-generation
-    ; info(|"code generation")
-    // Create tuple (Application, [files-to-write])
-    ; !(<id>,
-        [<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>,<declarations-to-code>])
-    ; append-page-actions-file
-    // remove the Application from the tuple, to leave only a list of files to write
-    ; remove-application
-    ; !(<id>, <get-java-artifacts>)
+
+
+strategies
 
   declare-definitions =
     where(
@@ -89,95 +83,10 @@ strategies
       ; rules ( SessionEntities := ents )
     )
 
-strategies
    // Creates <AllSubClasses> rule to be used in desugar.str (DeriveOutputSimpleRefAssociation)
    aggregate-subclass-info =
      where(
         allsubclasses := <repeat(once-SubClasses)> []
         ; rules( AllSubClasses := allsubclasses ))
 
-strategies
-
-  // In declarations-to-code an Application term is rewritten as a list where the head is a
-  // tuple (Application, JavaFile, XmlFile), followed by a tail of Java and Xml files.
-  declarations-to-code :
-    Application(qid, sections) -> (Application(qid, sections), [sections2|[rewriterulefile|rest]])
-    where rules(
-            Package := <qid-to-package-name> qid
-            DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
-            BeanPackage := <qid-to-package-name> Qualified(qid, "beans")
-          )
-   //     ; newapp := <functions-to-el>
-   //     ; Application(qid, sections2) := newapp
-   //     ; sections3 := <propagate-component-names> sections
-        ; try(sometd(create-email-call-rules))
-        ; sections2 := <functions-to-el; merge-globals> sections
-        ; rewriterulefile := <pages-to-rewrite-rules> sections2
-        ; rest := <collect(entity-to-code <+ definitions-to-code)> sections2
-        ; <generate-code> sections2
-
-   entity-to-code =
-     !(<entity-to-java-Entity>
-      ,<id>)
-
-   entity-to-code-failed =
-     (?Entity(x_Class, _, _, _) <+ ?EntityNoSuper(x_Class, _, _))
-     ; dbg(|"entity-to-code failed: ")
-
-   definitions-to-code =
-     definition-to-code <+ ( ?Define(mod, x, args, body) ; !() )
-
-   generate-code =
-     if ?Define([Page()], x_page, args, elems1) then
-       {| Parameter, Page
-        : rules ( Page := x_page )
-        ; not(GenerateCode)
-        ; all(generate-code)
-        |}
-     else
-       not(GenerateCode)
-       ; all(generate-code)
-     end
-
-   definition-to-code :
-     d@Define([Page()], x, args, body) -> (<id>, p2xml)
-     where p2xml := <page-to-xml>
-         //; info(|["Doing code generation for ", x])
-
-   definition-to-code =
-     ?Define([Email()], x, args, body)
-     ; !(<id>
-        ,<emails-to-xml>)
-
-   create-email-call-rules :
-     def@Define(modifiers, x, args, elems1) -> def
-     where <elem> (Page(), modifiers)
-         ; <collect(create-email-call-rule(|x))> elems1
-
-   create-email-call-rule(|x) =
-     ?ThisCall("email", [ThisCall(defined_template_name, args)])
-     ; where( template_file_name := <concat-strings> [defined_template_name, <new>]
-/*            ; rules (
-              EmailCallToTemplateName : thiscall -> (template_file_name, x)
-            )*/
-          ; if not(<GetEmailTemplateName> (defined_template_name, x)) then
-              rules (
-                GetEmailTemplateName : (defined_template_name, x) -> template_file_name
-                GetEmailTemplatePage : template_file_name -> x
-              )
-//	        ; if <not(elem)> (template_file_name, <EmailTemplates <+ ![]> defined_template_name) then
-                ; emailtemplates := [template_file_name | <EmailTemplates <+ ![]> defined_template_name]
-                ; rules (
-                  EmailTemplates : defined_template_name -> emailtemplates
-                )
-            end
-          )
-
-   append-page-actions-file :
-     (Application(qid, sections), files) -> (Application(qid, sections), [page-actions-file | files])
-     where <generate-page-list> Application(qid, sections)
-       ; page-actions-file := <generate-page-actions-file>
-
-   remove-application :
-     (Application(qid, sections), files) -> files
 
