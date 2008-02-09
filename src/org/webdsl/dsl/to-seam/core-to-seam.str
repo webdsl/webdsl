@@ -18,47 +18,43 @@ imports
 
 strategies
 
-  core-to-seam = id
-    // Create tuple (Application, [files-to-write])
+  core-to-seam = 
+    ?Application(qid, sections)
     
-    ; !(<id>, [<webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>,<declarations-to-code>])
+    ; rules(
+        Package       := <qid-to-package-name> qid
+        DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
+        BeanPackage   := <qid-to-package-name> Qualified(qid, "beans")
+      )
+      
+    ; try(sometd(create-email-call-rules))
     
-    ; append-page-actions-file
-    // remove the Application from the tuple, to leave only a list of files to write
-    ; remove-application
-    ; !(<id>, <get-java-artifacts>)
+    ; sections2       := <functions-to-el; merge-globals> sections
+    ; rewriterulefile := <pages-to-rewrite-rules> sections2
+    ; debug(!"rewrite rules: ")
+    ; rest            := <collect(page-to-xml <+ emails-to-xml)> sections2
+    
+    ; <generate-code> sections2
+    
+    ; !Application(qid, sections)
+    
+    ; ![ <webdsl-to-textfile(|<concat-strings>[<get-config>"-i",".norm"])>
+       , <generate-page-actions-file>
+       , sections2
+       , rewriterulefile
+       , rest
+       , <get-java-artifacts>]
 
-strategies
+   //entity-to-code =
+   //  !(<entity-to-java-Entity>
+   //   ,<id>)
 
-  // In declarations-to-code an Application term is rewritten as a list where the head is a
-  // tuple (Application, JavaFile, XmlFile), followed by a tail of Java and Xml files.
-  
-  declarations-to-code :
-    Application(qid, sections) -> (Application(qid, sections), [sections2|[rewriterulefile|rest]])
-    where rules(
-            Package := <qid-to-package-name> qid
-            DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
-            BeanPackage := <qid-to-package-name> Qualified(qid, "beans")
-          )
-   //     ; newapp := <functions-to-el>
-   //     ; Application(qid, sections2) := newapp
-   //     ; sections3 := <propagate-component-names> sections
-        ; try(sometd(create-email-call-rules))
-        ; sections2 := <functions-to-el; merge-globals> sections
-        ; rewriterulefile := <pages-to-rewrite-rules> sections2
-        ; rest := <collect(entity-to-code <+ definitions-to-code)> sections2
-        ; <generate-code> sections2
+   //entity-to-code-failed =
+   //  (?Entity(x_Class, _, _, _) <+ ?EntityNoSuper(x_Class, _, _))
+   //  ; dbg(|"entity-to-code failed: ")
 
-   entity-to-code =
-     !(<entity-to-java-Entity>
-      ,<id>)
-
-   entity-to-code-failed =
-     (?Entity(x_Class, _, _, _) <+ ?EntityNoSuper(x_Class, _, _))
-     ; dbg(|"entity-to-code failed: ")
-
-   definitions-to-code =
-     definition-to-code <+ ( ?Define(mod, x, args, body) ; !() )
+   //definitions-to-code =
+   //  definition-to-code <+ ( ?Define(mod, x, args, body) ; !() )
 
    generate-code =
      if ?Define([Page()], x_page, args, elems1) then
@@ -72,15 +68,14 @@ strategies
        ; all(generate-code)
      end
 
-   definition-to-code :
-     d@Define([Page()], x, args, body) -> (<id>, p2xml)
-     where p2xml := <page-to-xml>
-         //; info(|["Doing code generation for ", x])
+   //definition-to-code :
+   //  d@Define([Page()], x, args, body) -> (<id>, p2xml)
+   //  where p2xml := <page-to-xml>
+   //; info(|["Code generation for ", x])
 
-   definition-to-code =
-     ?Define([Email()], x, args, body)
-     ; !(<id>
-        ,<emails-to-xml>)
+   //definition-to-code =
+   //  ?Define([Email()], x, args, body)
+   //  ; !(<id>, <emails-to-xml>)
 
    create-email-call-rules :
      def@Define(modifiers, x, args, elems1) -> def
@@ -106,11 +101,9 @@ strategies
             end
           )
 
-   append-page-actions-file :
-     (Application(qid, sections), files) -> (Application(qid, sections), [page-actions-file | files])
+   generate-page-actions-file :
+     Application(qid, sections) -> page-actions-file
      where <generate-page-list> Application(qid, sections)
        ; page-actions-file := <generate-page-actions-file>
 
-   remove-application :
-     (Application(qid, sections), files) -> files
 
