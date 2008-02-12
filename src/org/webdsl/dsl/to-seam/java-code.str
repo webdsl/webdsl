@@ -1,11 +1,11 @@
 module org/webdsl/dsl/to-seam/java-code
 
-imports 
-  libstrategolib  
+imports
+  libstrategolib
   Java-15
-  libjava-front 
-  
-imports 
+  libjava-front
+
+imports
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/utils/-
 
@@ -14,18 +14,18 @@ rules
 
   action-to-java =
     action-to-java-good <+ action-to-java-bad
- 
+
   action-to-java-bad =
     ?Action(x_action, fargs, block)
     ; dbg(|"cannot compile action: ")
-  
+
   action-to-java-good:
     a@Action(x_action, fargs, Block(stm*)) -> (JavaFile(["src"],
     compilation-unit|[
       package pkgname;
-      
+
       import javax.ejb.Local;
-                 
+
       @Local
       public interface x_Action {
         ~*methoddecs
@@ -41,7 +41,7 @@ rules
     Action(x_action, fargs, Block(stm*)) -> JavaFile(["src"],
     compilation-unit|[
       package pkgname;
-      
+
       import static javax.persistence.PersistenceContextType.EXTENDED;
       import static org.jboss.seam.ScopeType.CONVERSATION;
       import static org.jboss.seam.ScopeType.SESSION;
@@ -52,7 +52,7 @@ rules
       import javax.ejb.Stateful;
       import javax.persistence.EntityManager;
       import javax.persistence.PersistenceContext;
-      
+
       import org.jboss.seam.annotations.Create;
       import org.jboss.seam.annotations.Destroy;
       import org.jboss.seam.annotations.Factory;
@@ -68,30 +68,30 @@ rules
       import org.jboss.seam.log.Log;
 
       import pkgname2.*;
-      
+
       @Stateful
       @Name(~string:String([Chars(x_actionBean)]))
       public class x_ActionBean implements x_Action {
-      
-        @Logger 
+
+        @Logger
         private Log log;
-    
-        @In FacesMessages 
+
+        @In FacesMessages
         facesMessages;
-         
+
         @PersistenceContext(type=EXTENDED)
         private EntityManager entityManager;
-      
+
         public String x_action() {
           bstm*
           return null;
         }
-         
+
         @Remove @Destroy
         public void destroy() {}
-         
+
       }
-      
+
     ]|)
     where x_Action     := <concat-strings>[<capitalize-string> x_action, "Action"]
         ; x_ActionBean := <concat-strings>[x_Action, "Bean"]
@@ -103,28 +103,28 @@ rules
         ; bstm* := <statements-to-java> stm*
 */
 
-rules // action to method   
-        
+rules // action to method
+
   action-to-java-method =
     {| InAction :
          rules(InAction := <id>)
          ; action-view-to-java-method
            <+ action-void-to-java-method
     |}
-  
+
   action-void-to-java-method :
-    Action(x_action, args, Block(stm*)) -> 
-    |[      
+    Action(x_action, args, Block(stm*)) ->
+    |[
         public void x_action(param*) {
           bstm*
         }
     ]|
     where param* := <map(action-arg-to-method-arg)> args
         ; bstm* := <statements-to-java> stm*
-    
+
   action-view-to-java-method :
-    Action(x_action, args, Block(stm*)) -> 
-    |[      
+    Action(x_action, args, Block(stm*)) ->
+    |[
         @End public String x_action(param*) {
           bstm*
         }
@@ -132,16 +132,16 @@ rules // action to method
     where <oncetd(?Return(_))> stm*
         ; param* := <map(action-arg-to-method-arg)> args
         ; bstm* := <statements-to-java> stm*
-  
+
   action-arg-to-method-arg :
     Arg(y, s) -> param|[ t y ]|
     where t := <java-type> s
-    
+
 rules // statements
 
    statements-to-java =
      filter-warn(statement-to-java | "cannot translate statement"); flatten-list
-    
+
    statement-to-java =
      block-to-java
      <+ assignment-to-java
@@ -153,7 +153,7 @@ rules // statements
      <+ return-to-java
      <+ goto-to-java
      <+ info(|["cannot translate statement:", <id>]); fail
-    
+
    block-to-java :
      Block(stm*) -> bstm|[ { bstm* } ]|
      where bstm* := <statements-to-java> stm*
@@ -169,7 +169,7 @@ rules // statements
          ; x_templ := <concat-strings; double-quote>[template_name, ".xhtml"]
          ; x_list := <newname> "_email_arguments"
          ; bstm1* := <map(email-arguments-to-java(|x_list))> args
-         
+
   email-arguments-to-java(|x_list) =
     ?argument
     ; e1 := <expression-to-java> argument
@@ -180,21 +180,21 @@ rules // statements
    stat-to-java :
      Stat(e1) -> |[ e2; ]|
      where e2 := <expression-to-java> e1
-     
+
 rules // assignment
 
    assignment-to-java :
      Assign(Assignment(x, e1)) -> |[ x = e2; ]|
      where <is-string> x
          ; not(<IsProperty> (<ClassName>, x))
-         ; e2 := <expression-to-java> e1 
+         ; e2 := <expression-to-java> e1
 
    assignment-to-java :
      Assign(Assignment(x, e1)) -> |[ x_set(e2); ]|
      where <IsProperty> (<ClassName>, x)
          ; e2 := <expression-to-java> e1
          ; x_set := <concat-strings>["set", <capitalize-string> x]
-   
+
    assignment-to-java =
      ?Assign(Assignment(Qualified(qid, x), e1))
      // fix added in next line for assignment to global var
@@ -240,7 +240,7 @@ rules // for
           });
           for (t1 x : x_lst)
               ~bstm2
-        } ]| 
+        } ]|
      where not(<?OrderAscending(Null())> obe1)
          ; e2 := <expression-to-java> e1
          ; t1 := <java-type> s
@@ -257,7 +257,7 @@ rules // for
      ForStmt(x, s, e1, Filter(True(), OrderAscending(Null())), bstm1) -> stm|[
         for (t1 x : e2)
             ~bstm2
-        ]| 
+        ]|
      where e2 := <expression-to-java> e1
          ; t1 := <java-type> s
          ; bstm2 := <statement-to-java> bstm1
@@ -265,9 +265,9 @@ rules // for
    for-to-java : // With where clause
      ForStmt(x, s, e1, Filter(we, obe1), bstm1) -> |[
         for (t1 x : e2)
-          if(e3) 
+          if(e3)
             ~bstm2
-         ]| 
+         ]|
      where not(True() := we)
          ; e2 := <expression-to-java> e1
          ; e3 := <expression-to-java> we
@@ -277,32 +277,32 @@ rules // for
 
 rules // return
 
-   return-to-java : 
+   return-to-java :
      Return(e1) -> |[ return e2; ]|
-     where InAction ; e2 := <call-to-view-string> e1 
+     where InAction ; e2 := <call-to-view-string> e1
 
    return-to-java :
      Return(e1) -> |[ return e2; ]|
-     where InFunction ; e2 := <expression-to-java> e1 
+     where InFunction ; e2 := <expression-to-java> e1
 
    goto-to-java :
      GoTo(ThisCall(p, args)) -> bstm* |[
        Redirect x_redinstance = new Redirect();
        x_redinstance.setViewId(~string:String([Chars(viewId)]));
        ~*parameter
-       x_redinstance.execute();       
+       x_redinstance.execute();
      ]|
      where viewId := <concat-strings>["/", p, ".xhtml"]
        ; fargs := <TemplateArguments> p
        ; x_redinstance := <newname> "redirect"
        ; parameter := <zip(arg-to-redirect-parameter(|x_redinstance))> (fargs, args)
-        
+
    arg-to-redirect-parameter(|x_redinstance) :
      (Arg(name, sort), Var(x)) -> |[ x_redinstance.setParameter(x_fargname, x.getId()); ]|
      where x_fargname := <concat-strings>["\"",name, "\""]
 
 rules
-         
+
    qid-to-java :
      Qualified(qid, x) -> |[ e.x_get() ]|
      where x_get := <concat-strings>["get", <capitalize-string> x]
@@ -311,39 +311,39 @@ rules
    qid-to-java :
      x -> |[ x ]|
      where <is-string> x
-         
+
    //qid-to-java :
    //  Var(x){Type("Component")} -> expr|[ this ]|
-     
+
    // @note : this is compensating for an erroneous annotation of component
    // accessess
    qid-to-java :
      FieldAccess(Var(x){Type("Component")},y) -> expr|[ this.y ]|
-     
+
    vardecl-to-java :
      VarDeclInit(x, s, e1) -> bstm|[ t x = e2; ]|
-     where t := <java-type> s 
+     where t := <java-type> s
          ; e2 := <expression-to-java> e1
-         
+
    vardecl-to-java :
      VarDecl(x, s) -> bstm|[ t x = e; ]|
      where t := <java-type> s
          ; e := <java-type-default-value> s
-       
+
 rules // expressions
 
    expression-to-java :
      String(x) -> expr|[ "~x" ]|
-     
+
    expression-to-java :
      Int(x) -> Lit(Deci(x))
-   
+
    expression-to-java :
      Float(x) -> Lit(Deci(x))
-   
+
    expression-to-java :
      True() -> |[ true ]|
-   
+
    expression-to-java :
      False() -> |[ false ]|
 
@@ -364,7 +364,7 @@ rules // expressions
      Add(x, y) -> expr|[ ~xt + ~yt ]|
      where xt := <expression-to-java> x
          ; yt := <expression-to-java> y
- 
+
    expression-to-java :
      Sub(x, y) -> expr|[ ~xt - ~yt ]|
      where xt := <expression-to-java> x
@@ -379,7 +379,7 @@ rules // expressions
      Div(x, y) -> expr|[ ~xt / ~yt ]|
      where xt := <expression-to-java> x
          ; yt := <expression-to-java> y
-  
+
    expression-to-java :
      Mod(x, y) -> expr|[ ~xt % ~yt ]|
      where xt := <expression-to-java> x
@@ -394,7 +394,7 @@ rules // expressions
      NotEq(x, y) -> expr|[ !org.webdsl.tools.Utils.equal(~xt, ~yt) ]|
      where xt := <expression-to-java> x
          ; yt := <expression-to-java> y
-  
+
    expression-to-java :
      LargerThan(x, y) -> expr|[ ~xt > ~yt ]|
      where xt := <expression-to-java> x
@@ -438,12 +438,12 @@ rules // expressions
      HqlQuery(e1) -> |[ e2.getResultList() ]|
      where e2 := <query-to-create-query> e1
 
-   expression-to-java = 
+   expression-to-java =
         global-var-to-java
      <+ component-var-to-java
      <+ propvar-to-java
      <+ var-to-java
-     
+
    global-var-to-java :
      Var(x){Type(SimpleSort(t))} -> |[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
      where <IsGlobal> x
@@ -455,18 +455,18 @@ rules // expressions
            end
          ; SimpleSort(x_vartype) := vartype
          ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
-   
+
    component-var-to-java :
      Var(x){Type("Component")} -> expr|[ this ]|
-          
+
    var-to-java :
      Var(x) -> expr|[ x ]|
-   
+
    propvar-to-java :
      Var(x) -> |[ x_get() ]|
      where <IsProperty> (<ClassName>, x)
          ; x_get := <concat-strings>["get", <capitalize-string> x]
-   
+
    expression-to-java :
      FieldAccess(e1, x) -> |[ e2.x_get() ]|
      where x_get := <concat-strings>["get", <capitalize-string> x]
@@ -477,24 +477,24 @@ rules // expressions
      FieldAccess(e1, "length") -> |[ e2.size() ]|
      where e2 := <expression-to-java> e1
          ; <?_{Type(GenericSort(_, _))}> e1
-     
+
    expression-to-java :
-     ObjectCreation(x_Class, assigns) -> 
+     ObjectCreation(x_Class, assigns) ->
      |[
         {| x_Class x_var = new x_Class(); bstm* | x_var |}
      ]|
      where x_var := <newname> "var"
          ; bstm* := <filter-warn(field-assign-to-java(|x_var)| "cannot translate asssignment")> assigns
-   
+
    field-assign-to-java(|x_var) :
      Assignment(y_field, e1) -> |[ x_var.y_set(e2); ]|
-     where e2 := <expression-to-java> e1 
+     where e2 := <expression-to-java> e1
          ; y_set := <concat-strings>["set", <capitalize-string> y_field]
-         
+
 
 // Moved to desugar.str
 /*   expression-to-java :
-     ListCreation([e|e*]) -> 
+     ListCreation([e|e*]) ->
      |[
         {| List x_var = new ArrayList(); bstm* | x_var |}
      ]|
@@ -502,103 +502,103 @@ rules // expressions
          ; <?_{Type(t)}> e
          ; info(|["Now doing ListCreation: ", [e|e*]])
          ; bstm* := <filter-warn(add-to-collection(|x_var)| "cannot translate add to collection")> [e|e*]
-         
+
    expression-to-java :
-     SetCreation([e|e*]) -> 
+     SetCreation([e|e*]) ->
      |[
         {| Set<t> x_var = new HashSet<t>(); bstm* | x_var |}
      ]|
      where x_var := <newname> "var"
          ; <?_{Type(t)}> e
          ; bstm* := <filter-warn(add-to-collection(|x_var)| "cannot translate add to collection")> [e|e*]
- */                   
+ */
 
    expression-to-java : // The version with items (!= []) will be desugared in desugar.str
      TypedListCreation(s, []) -> |[ new ArrayList<t>() ]|
      where t := <java-wrapper-type> s
 
    expression-to-java :
-     TypedSetCreation(s, []) -> |[ new HashSet<t>() ]|
+     TypedSetCreation(s, []) -> |[ new LinkedHashSet<t>() ]|
      where t := <java-wrapper-type> s
 
    add-to-collection(|x_var) :
      e1 -> |[ x_var.add(e2); ]|
-     where e2 := <expression-to-java> e1 
-     
+     where e2 := <expression-to-java> e1
+
    expression-to-java =
      persist-call-to-java
      <+ remove-call-to-java
      <+ count-call-to-java
      <+ digest-call-to-java
      <+ check-call-to-java
-     <+ apply-patch-call-to-java 
-     <+ make-patch-call-to-java 
+     <+ apply-patch-call-to-java
+     <+ make-patch-call-to-java
      <+ builtin-call-to-java
      <+ call-to-java
-     
+
    persist-call-to-java :
      Call(e1, "persist", []) -> |[ entityManager.persist(e2) ]|
      where e2 := <expression-to-java> e1
-     
+
    persist-call-to-java :
      Call(e1, "save", []) -> |[ entityManager.persist(e2) ]|
      where e2 := <expression-to-java> e1
-     
+
    remove-call-to-java :
      Call(e1, "remove", []) -> |[ entityManager.remove(e2) ]|
      where e2 := <expression-to-java> e1
-      
+
    remove-call-to-java :
      Call(e1, "delete", []) -> |[ entityManager.remove(e2) ]|
      where e2 := <expression-to-java> e1
 
    apply-patch-call-to-java :
-     Call(e1, "applyPatch", [e2]) -> 
+     Call(e1, "applyPatch", [e2]) ->
      |[ name.fraser.neil.plaintext.patch_factory.patchApply(e3, e4) ]|
      where e3 := <expression-to-java> e1
          ; e4 := <expression-to-java> e2
-     
+
    make-patch-call-to-java :
-     Call(e1, "makePatch", [e2]) -> 
+     Call(e1, "makePatch", [e2]) ->
      |[ name.fraser.neil.plaintext.patch_factory.patchMake(e3, e4) ]|
      where e3 := <expression-to-java> e1
          ; e4 := <expression-to-java> e2
-         
+
    count-call-to-java :
      Call(e1, "count", []) -> |[ e2.size() ]|
      where e2 := <expression-to-java> e1
-     
+
    digest-call-to-java :
-     Call(e1, "digest", []) -> 
-     |[ {|           
-       org.jasypt.util.password.StrongPasswordEncryptor x_var2 = 
+     Call(e1, "digest", []) ->
+     |[ {|
+       org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
          new org.jasypt.util.password.StrongPasswordEncryptor();
        String x_var = x_var2.encryptPassword(e2);
-       | x_var 
+       | x_var
      |} ]|
      where e2 := <expression-to-java> e1
          ; x_var := <newname> "_string"
          ; x_var2 := <newname> "_passwordEncryptor"
-         
+
    check-call-to-java :
-     Call(e1, "check", [e2]) -> 
-     |[ {|           
-       org.jasypt.util.password.StrongPasswordEncryptor x_var2 = 
+     Call(e1, "check", [e2]) ->
+     |[ {|
+       org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
          new org.jasypt.util.password.StrongPasswordEncryptor();
        boolean x_var = x_var2.checkPassword(e4,e3);
-       | x_var 
+       | x_var
      |} ]|
      where e3 := <expression-to-java> e1
          ; e4 := <expression-to-java> e2
          ; x_var := <newname> "_string"
          ; x_var2 := <newname> "_passwordEncryptor"
-   
+
    call-to-java :
      Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
      where e3 := <expression-to-java> e1
          ; e4* := <map(expression-to-java)> e2*
-   
+
    call-to-java :
      ThisCall(x, e1*) -> |[ x(e2*) ]|
      where e2* := <map(expression-to-java)> e1*
-     
+
