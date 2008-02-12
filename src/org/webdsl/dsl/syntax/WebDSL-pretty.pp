@@ -148,7 +148,7 @@
    None                               -- KW["None()"], %% Shoudl never apear
    
    %%access control syntax
-   AccessControlDefinition			      -- KW["access control rules"] KW["{"] _1 KW["}"],
+   AccessControlDefinition			      -- KW["access control rules"] _1 KW["{"] _2 KW["}"],
    AccessControlPrincipal			        -- KW["principal is"] _1 KW["with credentials"] _2,
    AccessControlRule 				          -- KW["rules"] _1 _2 KW["("] _3 KW[")"] KW["{"] _4 _5 KW["}"],
    AccessControlCheckExpression		    -- _1,

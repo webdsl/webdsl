@@ -72,7 +72,7 @@ rules
     Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
 
   generate-access-control-preds:
-    AccessControlDefinition(defs) -> <filter(access-control-predicates)> defs
+    AccessControlDefinition(name,defs) -> <filter(access-control-predicates)> defs
 
   generate-access-control-declarations :
     Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
@@ -85,10 +85,10 @@ rules
     Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
 
   remove-security-decs:
-    Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_)))>defs)
+    Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_,_)))>defs)
 
   generate-access-control-decs:
-    AccessControlDefinition(defs) -> <filter(security-subject)> defs
+    AccessControlDefinition(name,defs) -> <filter(security-subject)> defs
     where rules (
       AccessControlEnabled := True()
     )
@@ -109,7 +109,7 @@ rules
         ; e0 := <add-not-null-checks> exp
 
   generate-access-control-rules-checks:
-    AccessControlDefinition(defs) -> <filter(create-rule-classes)> defs
+    AccessControlDefinition(groupname,defs) -> <filter(create-rule-classes(|groupname))> defs
 
   // there can be only one of these (not yet checked)
   security-subject:
@@ -118,32 +118,66 @@ rules
                 section generated security.
 
                 session securityContext {
-                      loggedIn	:: Bool
+                      loggedIn  :: Bool
                     principal   -> $ident
                 }
             ]|
 
-  create-rule-classes:
+  create-rule-classes(|groupname):
     st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> []
-    where def0* := <create-rule-classes-helper> st
+    where def0* := <create-rule-classes-helper(|groupname)> st
 
-  create-rule-classes-helper:
+  create-rule-classes-helper(|groupname):
     st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <fail>
-    where newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> checktype , [st] ]
-    ; rules(
-        Security-Rules-List-From-Type : checktype -> newlistfromtype
-        All-AC-Rules := <concat> [<All-AC-Rules <+ ![]>,[st]]
-      )
+    where Some(gname) := groupname
+        ; newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> (gname,checktype) , [st] ]
+        ; rules(
+            Security-Rules-List-From-Type : (gname,checktype) -> newlistfromtype
+            All-AC-Rules := <concat> [<All-AC-Rules <+ ![]>,[st]]
+          )
 
   remove-wildcards=
     explode-string;map(try(?'*';!'1'));implode-string
 
+  //strategy to process policy combination
   generate-access-control-checks(|checktype,name,vars,previousname,previousrules)=
+    rules(
+      Previous-Selected-Rules := []
+      Previous-Decision-Name := [])
+  ; where(final-check := <AC-Policy-Expression>
+        ; groupnames := <collect(?Name(_))> final-check
+        ; groupchecks := <map(map-groupname-to-checks(|checktype,name,vars,previousname,previousrules))> groupnames)
+  ; if <map(?[])> groupchecks
+    then ![]
+    else
+      where(fixedgroupchecks := <map(try(\ [] -> False() \))> groupchecks
+          ; {| groupresult:
+                 <zip(\(Name(thename),thecheck) -> None() 
+                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,fixedgroupchecks)
+               ; substituted-final-check := <topdown(try(groupresult))> final-check
+             |})
+    ; !substituted-final-check
+    end
+  
+  map-groupname-to-checks(|checktype,name,vars,previousname,previousrules):
+  Name(thename) -> <generate-access-control-checks(|checktype,name,vars,previousname,prev-group-rules-conc,thename)>
+    where prev-group-rules := <collect(?(thename,_))> previousrules
+        ; if [] := prev-group-rules //collect/filter failed
+          then prev-group-rules-map := prev-group-rules
+          else prev-group-rules-map := <map(\ (x,y) -> y \)> prev-group-rules end
+        ; if [] := prev-group-rules-map //previous find rules failed
+          then prev-group-rules-conc := prev-group-rules-map
+          else prev-group-rules-conc := <concat> prev-group-rules-map end
+  
+//  get-second-element:
+ //   (x,y) -> y
+
+  generate-access-control-checks(|checktype,name,vars,previousname,previousrules,groupname)=
     if previousname := []
     then
-      possibleTargets := <Security-Rules-List-From-Type <+![]> checktype
+      possibleTargets := <Security-Rules-List-From-Type <+![]> (groupname,checktype)
     else
-      possibleTargets := <concat> [<Security-Rules-List-From-Type<+![]> checktype, <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules]
+      possibleTargets := <concat> [<Security-Rules-List-From-Type<+![]> (groupname,checktype), <filter(?AccessControlRule(checktype,_,_,_,_))> previousrules]
     end
     ; pt := <filter(find-most-applicable-target-filter(|name,vars))> possibleTargets
 
@@ -165,7 +199,8 @@ rules
       end
     ;rules
     (
-      Previous-Selected-Rules := selectedrules
+      
+      Previous-Selected-Rules := <concat> [[(groupname,selectedrules)],<Previous-Selected-Rules<+![]>]
       Previous-Decision-Name := <concat-strings> [checktype,name]
     )
     ; !rulecheckactions
