@@ -65,6 +65,7 @@
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
    IfTempl.2:iter-star                -- _1,
    Select                             -- H[KW["select"] KW["("] _1 KW[":"] _2 KW[","] _3 KW[","] _4 KW[")"]],
+   SelectFromList                     -- H[KW["select"] KW["("] _1 KW["from"] _2 KW[")"]],
    TemplateCallNoArgs                 -- _1,
    True				                        -- KW["true"],
    False			                        -- KW["false"],
