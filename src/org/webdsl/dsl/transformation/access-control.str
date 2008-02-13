@@ -148,13 +148,30 @@ rules
         ; groupnames := <collect(?Name(_))> final-check
         ; groupchecks := <map(map-groupname-to-checks(|checktype,name,vars,previousname,previousrules))> groupnames)
   ; if <map(?[])> groupchecks
-    then ![]
+    then ![] //weaver expects [] when no rules apply
     else
-      where(fixedgroupchecks := <map(try(\ [] -> False() \))> groupchecks
-          ; {| groupresult:
+      where(
+            {| groupresult:
                  <zip(\(Name(thename),thecheck) -> None() 
-                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,fixedgroupchecks)
-               ; substituted-final-check := <topdown(try(groupresult))> final-check
+                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
+               ; subst-final-check := <topdown(try(groupresult))> final-check
+               ; substituted-final-check := <bottomup(try(  \And([],[])-> []\
+                                                         <+ \Or([],[])-> []\
+                                                         
+                                                         <+ \And([],x)-> x\
+                                                         <+ \And(x,[])-> x\
+                                                         <+ \Or([],x)-> x\
+                                                         <+ \Or(x,[])-> x\
+                                                         
+                                                         <+ \And(True(),True())-> True()\
+                                                         <+ \And(False(),False())-> False()\
+                                                         //<+ \And(False(),_)-> False()\
+                                                         //<+ \And(_,False())-> False()\
+                                                         <+ \Or(False(),False())-> False()\
+                                                         <+ \Or(True(),True())-> True()\
+                                                         //<+ \Or(True(),_)-> True()\
+                                                         //<+ \Or(_,True())-> True()\
+                                                          ))> subst-final-check
              |})
     ; !substituted-final-check
     end
@@ -361,7 +378,7 @@ rules
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent // case of just one property access
         then
-          checks := [ NotEq(Var(varname),Null()){Type(SimpleSort("Bool"))} ]
+          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check] <+ ![check]> varname
         else
           checks := []
         end
@@ -384,7 +401,7 @@ rules
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent
         then
-          checks := [ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check ]
+          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check] <+ ![check]> varname
         else
           checks := [check]
         end
