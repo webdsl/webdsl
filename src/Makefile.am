@@ -8,6 +8,10 @@ hql = org/webdsl/dsl/syntax/HQL
 
 mixhql = org/webdsl/dsl/syntax/MixHQL
 
+css = org/webdsl/dsl/syntax/CSS
+
+mixcss = org/webdsl/dsl/syntax/StrategoCSS
+
 metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
 mixmetasyntax = org/webdsl/dsl/syntax/StrategoJavaWebDSL
@@ -34,7 +38,9 @@ STRSOURCES = \
 	$(wildcard org/webdsl/dsl/*/*.str) \
 	$(syntax)-pretty.pp.af \
 	$(syntax).tbl \
-	$(hql)-pretty.pp.af
+	$(hql)-pretty.pp.af \
+	$(css).tbl \
+	$(css)-pretty.pp.af
 
 STRINCLUDES = \
 	-I . \
@@ -58,6 +64,8 @@ all : syntax $(generator)
 
 syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
          $(hql)-pretty.pp.af $(mixhql).sdf \
+         $(css).def $(css).tbl $(css).rtg $(css).str \
+         $(css)-pretty.pp.af $(mixcss).def $(mixcss).tbl \
          $(syntax).def $(syntax).tbl $(syntax).rtg $(syntax).str \
          $(syntax)-pretty.pp.af \
          $(metasyntax).def $(metasyntax).tbl \
