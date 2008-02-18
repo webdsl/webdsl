@@ -415,6 +415,7 @@ rules // collections
     ; X          := <capitalize-string> x
     ; x_List     := <concat-strings>[x, "List"]
     ; x_getList  := <concat-strings>["get", X, "List"]
+    ; x_getLength  := <concat-strings>["get", X, "Length"]
     ; x_initList := <concat-strings>["init", X, "List"]
     ; !|[
           @DataModel(~string:String([Chars(x_List)]))
@@ -423,6 +424,10 @@ rules // collections
           public List<x_Class> x_getList() {
             //log.info("~x_getList");
             return x_List;
+          }
+
+          public int x_getLength() {
+            return x_List.size();
           }
 
           @Factory(~string:String([Chars(x_List)]))
@@ -524,7 +529,7 @@ rules // page variables
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
     ]|
-    where t     := <java-type> s
+    where info(|["Generating things for page variable: ", <id>]); t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
@@ -536,14 +541,15 @@ rules // page variables
        private t x;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
-       @Partial public void postInitialize() { x = e2; }
+       @Partial public void postInitialize() { stm }
     ]|
-    where not(HqlQuery(_) := e1)
+    where info(|["Generating things for page variable: ", <id>]); not(HqlQuery(_) := e1)
         ; t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
-        ; e2 := <expression-to-java> e1
+        ; stm := <statement-to-java> <desugar-any> Assign(Assignment(x, e1)) // @TODO: these things should be avoided
+        //; e2 := <expression-to-java> e1
 
   // page-level variables with query initializers
 
@@ -574,17 +580,43 @@ rules // List getter/setter for Set typed page variables
     |[
        public t2 x_getList() { return new java.util.ArrayList(x_get()); }
        public void x_setList(t2 x) { x_set(new java.util.LinkedHashSet(x)); }
+       public int x_getLength() { return x_get().size(); }
     ]|
-    where t         := <java-type> s
-        ; t2        := <java-type> GenericSort("List", [SimpleSort(Y)])
-        ; X         := <capitalize-string> x
-        ; x_get     := <concat-strings>["get", X]
-        ; x_set     := <concat-strings>["set", X]
-        ; x_getList := <concat-strings>["get", X, "List"]
-        ; x_setList := <concat-strings>["set", X, "List"]
+    where t           := <java-type> s
+        ; t2          := <java-type> GenericSort("List", [SimpleSort(Y)])
+        ; X           := <capitalize-string> x
+        ; x_get       := <concat-strings>["get", X]
+        ; x_set       := <concat-strings>["set", X]
+        ; x_getList   := <concat-strings>["get", X, "List"]
+        ; x_getLength := <concat-strings>["get", X, "Length"]
+        ; x_setList   := <concat-strings>["set", X, "List"]
 
   generate-page-variables-code-set :
     VarDeclInit(x, s, e) -> <generate-page-variables-code-set> VarDecl(x, s)
+
+rules // List getter/setter for List typed page variables
+
+  GenerateCode = generate-page-variables-code-list; fail
+
+  generate-page-variables-code-list :
+    VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
+    <generate-page-bean>
+    |[
+       public t2 x_getList() { return x_get(); }
+       public void x_setList(t2 x) { x_set(x); }
+       public int x_getLength() { return x_get().size(); }
+    ]|
+    where t           := <java-type> s
+        ; t2          := <java-type> GenericSort("List", [SimpleSort(Y)])
+        ; X           := <capitalize-string> x
+        ; x_get       := <concat-strings>["get", X]
+        ; x_set       := <concat-strings>["set", X]
+        ; x_getList   := <concat-strings>["get", X, "List"]
+        ; x_getLength := <concat-strings>["get", X, "Length"]
+        ; x_setList   := <concat-strings>["set", X, "List"]
+
+  generate-page-variables-code-list :
+    VarDeclInit(x, s, e) -> <generate-page-variables-code-list> VarDecl(x, s)
 
 rules // query translation
 
