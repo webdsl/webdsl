@@ -14,7 +14,7 @@ mixcss = org/webdsl/dsl/syntax/StrategoCSS
 
 metasyntax = org/webdsl/dsl/syntax/StrategoWebDSL
 
-mixmetasyntax = org/webdsl/dsl/syntax/StrategoJavaWebDSL
+mixmetasyntax = org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
