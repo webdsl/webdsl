@@ -410,29 +410,60 @@ rules
       end
 
   typecheck-application =
-    Application(?qid, {| Module : rules( Module := qid ); map(typecheck-section) |})
+    Application(?qid, {| Module : rules( Module := qid ); typecheck-sections |})
     <+ ?x; typecheck-error(|["application expected: ", x])
 
-  typecheck-section =
+/*  typecheck-section =
     Section(id, map(typecheck-definition))
     <+ typecheck-module
     <+ Description(id)
     <+ Note(id)
-    <+ ?x; typecheck-error(|["section expected: ", x])
+    <+ ?x; typecheck-error(|["section expected: ", x]) */
+    
+  typecheck-sections =
+    map(typecheck-section) <+ ?x; typecheck-error(|["section expected: ", x])
 
+  typecheck-section =
+    Section(id, typecheck-definitions)
+    
+  typecheck-section =
+    typecheck-module
+
+  typecheck-section =
+    Description(id)
+  
+  typecheck-section =
+    Note(id)
+
+  
   typecheck-module :
     Module(mod, section1*) -> Module(mod, section2*)
     where {| Module
            : rules( Module := mod )
-           ; section2* := <map(typecheck-section)> section1*
+           ; section2* := <typecheck-sections> section1*
            |}
 
+  typecheck-definitions =
+    map(typecheck-specific-definition <+ typecheck-definition) <+ ?def; typecheck-error(|["definition not typechecked: ", def])
+
+  typecheck-specific-definition =
+    typecheck-email-template-definition
+
   typecheck-definition =
+    typecheck-template-definition
+
+  typecheck-definition =
+    typecheck-entity
+
+  typecheck-definition =
+    typecheck-globals
+    
+/*  typecheck-definition =
     typecheck-template-definition
     <+ typecheck-email-template-definition
     <+ typecheck-entity
     <+ typecheck-globals
-    <+ ?def; typecheck-error(|["definition not typechecked: ", def])
+    <+ ?def; typecheck-error(|["definition not typechecked: ", def]) */
 
 rules // typechecking entity declarations
 
@@ -620,8 +651,7 @@ rules // typechecking template definitions
 
   typecheck-template-definition :
     Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
-    where <not(elem)> (Email(), mods)
-        ; dbg(|"typecheck-definition in: ")
+    where dbg(|"typecheck-definition in: ")
         ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage
            : in-tc-context(id
                ; dbg(|"typecheck-definition a: ")
