@@ -30,12 +30,15 @@ CLEANFILES = \
 EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.meta) \
+    $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*.str) \
+    $(wildcard org/webdsl/dsl/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
     $(wildcard org/webdsl/dsl/*/*.pp)
 
 STRSOURCES = \
 	$(wildcard org/webdsl/dsl/*/*.str) \
+	$(wildcard org/webdsl/dsl/*/*/*.str) \
 	$(syntax)-pretty.pp.af \
 	$(syntax).tbl \
 	$(hql)-pretty.pp.af \
