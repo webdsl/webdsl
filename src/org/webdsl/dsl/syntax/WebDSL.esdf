@@ -265,67 +265,221 @@ exports
 
   sorts Exp
 
+  context-free meta-syntax
+    binop <lhs-cons, rhs-cons, merge> =
+    lhs:Exp Op rhs:Exp -> Exp {attributes(typecheck:
+      root.type :=
+        where(<lhs-cons> lhs.type)
+      ; where(<rhs-cons> rhs.type)
+      ; <merge> (lhs.type, rhs.type)
+    )}
+
+    bool-binop =
+    Exp Op Exp -> Exp {inherit(
+      binop<
+        ?SimpleSort("Bool")
+      , ?SimpleSort("Bool")
+      , !SimpleSort("Bool")
+      >
+    )}
+
+    cmp-binop =
+    Exp Op Exp -> Exp {inherit(
+      binop<
+        ?type
+      , ?type
+      , !SimpleSort("Bool")
+      >
+    )}
+
   context-free syntax
   
-    Int                    -> Exp {cons("Int")}
-    Float                  -> Exp {cons("Float")}
-    String                 -> Exp {cons("String")}
-    Id			           -> Exp {cons("Var")}
+    Int                    -> Exp {cons("Int")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("Int")
+    )}
+
+    Float                  -> Exp {cons("Float")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("Float")
+    )}
+
+    String                 -> Exp {cons("String")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("String")
+    )}
+
+    Id			           -> Exp {cons("Var")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     "in"                   -> Exp {reject}
     "return"               -> Id {reject}
     
-    Exp "." Id             -> Exp {cons("FieldAccess"),prefer}
+    Exp "." Id             -> Exp {cons("FieldAccess"),prefer
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
 
-    Id "{" Assignment* "}" -> Exp {cons("ObjectCreation")}
+    Id "{" Assignment* "}" -> Exp {cons("ObjectCreation")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     QId ":=" Exp           -> Assignment {cons("Assignment")}
     
-    "[" Mapping* "]"       -> Exp {cons("MapCreation")}
+    "[" Mapping* "]"       -> Exp {cons("MapCreation")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     Exp "->" Exp           -> Mapping {cons("Mapping")}
     
-    "[" {Exp ","}* "]"     -> Exp {cons("ListCreation")}
+    "[" {Exp ","}* "]"     -> Exp {cons("ListCreation")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
     
-    "{" {Exp ","}* "}"     -> Exp {cons("SetCreation")}
+    "{" {Exp ","}* "}"     -> Exp {cons("SetCreation")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
 
-    "List" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedListCreation"), prefer}
-    "Set" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedSetCreation"), prefer}
-      
-    Id "(" {Exp ","}* ")"  -> Exp {cons("ThisCall")}
+
+    "List" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedListCreation"), prefer
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    "Set" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedSetCreation"), prefer
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+
+    Id "(" {Exp ","}* ")"  -> Exp {cons("ThisCall")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     "!" "(" {Exp ","}* ")"  -> Exp {reject}
 
-    Exp "." Id "(" {Exp ","}* ")"  -> Exp {cons("Call")}
+    Exp "." Id "(" {Exp ","}* ")"  -> Exp {cons("Call")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     
-    Exp "is" "a" Sort      -> Exp {cons("IsA")}
-    Exp "as" Sort          -> Exp {cons("Cast"), avoid} %% Casting, hooray!
+    Exp "is" "a" Sort      -> Exp {cons("IsA")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
 
-    Exp "in" Exp           -> Exp {cons("InColl")}
+    Exp "as" Sort          -> Exp {cons("Cast"), avoid  %% Casting, hooray!
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
 
-    Exp "=" Exp           -> Exp {cons("Eq")}
-    Exp "!=" Exp           -> Exp {cons("NotEq")}
-    Exp ">" Exp           -> Exp {cons("LargerThan")}
-    Exp ">=" Exp           -> Exp {cons("LargerThanOrEqual")}
-    Exp "<" Exp           -> Exp {cons("SmallerThan")}
-    Exp "<=" Exp           -> Exp {cons("SmallerThanOrEqual")}
+    Exp "in" Exp           -> Exp {cons("InColl")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+
+    Exp "=" Exp           -> Exp {cons("Eq")
+    ,inherit(cmp-binop)}
+
+    Exp "!=" Exp           -> Exp {cons("NotEq")
+    ,inherit(cmp-binop)}
+
+    Exp ">" Exp           -> Exp {cons("LargerThan")
+    ,inherit(cmp-binop)}
+
+    Exp ">=" Exp           -> Exp {cons("LargerThanOrEqual")
+    ,inherit(cmp-binop)}
+
+    Exp "<" Exp           -> Exp {cons("SmallerThan")
+    ,inherit(cmp-binop)}
+
+    Exp "<=" Exp           -> Exp {cons("SmallerThanOrEqual")
+    ,inherit(cmp-binop)}
+
         
-    "true"                 -> Exp {prefer,cons("True")}
-    "false"                -> Exp {prefer,cons("False")}
-  
-    "null"                 -> Exp {prefer,cons("Null")}
-    
-    Exp "&&" Exp          -> Exp {cons("And"), assoc}
-    Exp "||" Exp           -> Exp {cons("Or"), assoc}
-    "!" Exp              -> Exp {cons("Not")}
-    
-    "(" Exp ")"            -> Exp {bracket}
-  
-    "[" Exp "for" "(" Id ":" Sort "in" Exp Filter ")" "]" -> Exp {cons("ForExp")}
+    "true"                 -> Exp {prefer,cons("True")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("Bool")
+    )}
 
-    "[" Exp "for" "(" Id ":" Sort "in" Exp ")" "]" -> Exp {cons("ForExpNoFilter")}    
+    "false"                -> Exp {prefer,cons("False")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("Bool")
+    )}
+
+  
+    "null"                 -> Exp {prefer,cons("Null")
+    ,attributes(typecheck:
+      root.type := !SimpleSort("Null")
+    )}
+
     
-    Exp "*" Exp  -> Exp {cons("Mul"),assoc}
-    Exp "/" Exp  -> Exp {cons("Div"),assoc}
-    Exp "%" Exp  -> Exp {cons("Mod"),assoc}
-    Exp "+" Exp  -> Exp {cons("Add"),assoc}
-    Exp "-" Exp  -> Exp {cons("Sub"),assoc}
+    Exp "&&" Exp          -> Exp {cons("And"), assoc
+    ,inherit(bool-binop)}
+
+    Exp "||" Exp           -> Exp {cons("Or"), assoc
+    ,inherit(bool-binop)}
+
+    "!" Exp              -> Exp {cons("Not")
+    ,attributes(typecheck:
+      root.type :=
+        where(!Exp.type => SimpleSort("Bool"))
+      ; !SimpleSort("Bool")
+    )}
+
+    
+    "(" Exp ")"            -> Exp {bracket
+    ,attributes(typecheck:
+      root.type := !Exp.type
+    )}
+
+  
+    "[" Exp "for" "(" Id ":" Sort "in" Exp Filter ")" "]" -> Exp {cons("ForExp")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+
+    "[" Exp "for" "(" Id ":" Sort "in" Exp ")" "]" -> Exp {cons("ForExpNoFilter")
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    
+    Exp "*" Exp  -> Exp {cons("Mul"),assoc
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    Exp "/" Exp  -> Exp {cons("Div"),assoc
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    Exp "%" Exp  -> Exp {cons("Mod"),assoc
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    Exp "+" Exp  -> Exp {cons("Add"),assoc
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
+    Exp "-" Exp  -> Exp {cons("Sub"),assoc
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
 
 context-free priorities
   {left:
@@ -357,7 +511,11 @@ exports
 
   context-free syntax
   
-    QueryRule[[HQL]] -> Exp {cons("HqlQuery"), prefer}
+    QueryRule[[HQL]] -> Exp {cons("HqlQuery"), prefer
+    ,attributes(typecheck:
+      root.type := fail %% FIXME
+    )}
+
     
     "~" Exp -> Expression[[HQL]] {cons("DslExp")}
 

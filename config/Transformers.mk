@@ -77,10 +77,9 @@ $(AG_GRM:.ag=.pp): $(AG_GRM:.ag=.edef-fast.af)
           $(ATTRSDF2TABLE_FLAGS)
 
 # Create the evaluator code
-eval-$(AG_GRM:.ag=.str): $(AG_GRM:.ag=.full-ag)
-	$(ATTRSDF2TABLE) $(PGEN_FLAGS) --eval-ag -i $< -o /dev/null \
+$(AG_PATH)eval-$(AG_GRM:.ag=.str): $(AG_PATH)$(AG_GRM:.ag=.full-ag)
+	$(ATTRSDF2TABLE) $(PGEN_FLAGS) --eval-ag -i $< -o $@ \
           $(ATTRSDF2TABLE_FLAGS)
-
 
 # In other Makefiles, %.tbl is dependant to %.def
 # Create the parse table
@@ -92,7 +91,7 @@ eval-$(AG_GRM:.ag=.str): $(AG_GRM:.ag=.full-ag)
 	$(SDF_STRIP) -i $< -o $@
 
 # eval-foo.c depends on foo.str and eval-foo.str
-eval-$(AG_GRM:.ag=.c): $(AG_GRM:.ag=.str) eval-$(AG_GRM:.ag=.str)
+#$(AG_PATH)eval-$(AG_GRM:.ag=.c): $(AG_PATH)$(AG_GRM:.ag=.str) $(AG_PATH)eval-$(AG_GRM:.ag=.str)
 
 ## --------------- ##
 ## Building TAGS.  ##

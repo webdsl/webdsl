@@ -18,6 +18,8 @@ mixmetasyntax = org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 
 generator = org/webdsl/dsl/generation/dsl-to-seam
 
+typecheck = org/webdsl/dsl/syntax/eval-WebDSL
+
 CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.tbl) \
@@ -72,11 +74,12 @@ PGEN_FLAGS      = -m `basename $*`
 SDF2RTG_FLAGS   = -m `basename $*`
 SCFLAGS         = --verbose 0 -O 2
 
-# 
+ATTRSDF2TABLE_FLAGS = # --imp CxxLib
+AG_PATH		= org/webdsl/dsl/syntax/
 AG_GRM 		= WebDSL.ag
 SDFS		= $(wildcard org/webdsl/dsl/syntax/*.esdf)
 
-all : syntax # $(generator)
+all : $(typecheck:=.str) $(typecheck) # syntax $(generator)
 
 syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
          $(hql)-pretty.pp.af $(mixhql).sdf \
