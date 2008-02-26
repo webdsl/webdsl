@@ -91,7 +91,7 @@ $(AG_PATH)eval-$(AG_GRM:.ag=.str): $(AG_PATH)$(AG_GRM:.ag=.full-ag)
 	$(SDF_STRIP) -i $< -o $@
 
 # eval-foo.c depends on foo.str and eval-foo.str
-#$(AG_PATH)eval-$(AG_GRM:.ag=.c): $(AG_PATH)$(AG_GRM:.ag=.str) $(AG_PATH)eval-$(AG_GRM:.ag=.str)
+$(AG_PATH)eval-$(AG_GRM:.ag=.c): $(AG_PATH)$(AG_GRM:.ag=.str) $(AG_PATH)eval-$(AG_GRM:.ag=.str)
 
 ## --------------- ##
 ## Building TAGS.  ##

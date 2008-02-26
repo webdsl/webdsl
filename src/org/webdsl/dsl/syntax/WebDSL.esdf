@@ -1,7 +1,7 @@
 module WebDSL
 
 hiddens
-  context-free start-symbols Application Module
+  context-free start-symbols Application ModuleStart
     
 imports MixHQL[HQL]
 imports AccessControl
@@ -11,11 +11,11 @@ imports Styling
 exports
 
   sorts
-    Id QId Int ModuleName SectionHeader Float FloatDigits ExponentPart
-    SignedInteger String
+    IDENTIFIER Id QId Int ModuleName SectionHeader Float FloatDigits
+    ExponentPart SignedInteger String
 
   lexical syntax
-    [a-zA-Z][a-zA-Z0-9\_]* -> Id
+    [a-zA-Z][a-zA-Z0-9\_]* -> IDENTIFIER
     [a-zA-Z0-9\-\_]+       -> FileName
     {FileName "/"}+        -> ModuleName
     ~[\n\r]*               -> SectionName
@@ -40,18 +40,42 @@ exports
     "//" ~[\n\r]* [\n\r]   -> LAYOUT
     
   lexical restrictions
-    Id         -/- [a-zA-Z0-9]
+    IDENTIFIER -/- [a-zA-Z0-9]
     ModuleName -/- [a-zA-Z0-9\/]
   
   context-free restrictions
     LAYOUT?     -/- [\ \t\n\r]
     LAYOUT?     -/- [\/].[\/]
     SectionName -/- ~[\n\r]
+
+  attributes
+    name {
+      assertion type (
+        map(is-string)
+      )
+    }
+
+    simple_name {
+      assertion type (
+        is-string
+      )
+    }
     
   context-free syntax
-    Id         -> QId
-    QId "." Id -> QId {cons("Qualified")}
-    
+    IDENTIFIER -> Id {attributes(typecheck:
+      root.simple_name := get-string
+    )}
+
+  context-free syntax
+    Id         -> QId {attributes(typecheck:
+      root.name := ![Id.simple_name]
+    )}
+
+    QId "." Id -> QId {cons("Qualified"),
+    attributes(typecheck:
+      root.name := <at-end(![Id.simple_name])> QId.name
+    )}
+
   lexical restrictions
     "page" -/- [a-zA-Z0-9]
     
@@ -66,11 +90,30 @@ exports
 
 exports
 
-  sorts Application
+  sorts Application ModuleStart
+
+  attributes
+    entities {
+      propagation-type LR
+      assertion type (
+        map(id)
+      )
+    }
+
+    properties {
+      propagation-type LR
+      assertion type (
+        map( ((id /* entity */, id /* name */), id /* type */) )
+      )
+    }
 
   context-free syntax
 
-    "application" QId Section*    -> Application {cons("Application")}
+    "application" QId app:Section*    -> Application {cons("Application"),
+    attributes(typecheck:
+      root.app_name := !QId.name
+      app.entities_inh := ![]
+    )}
     
     %% TODO: SectionName matches next line if first line is blank
     
@@ -82,6 +125,12 @@ exports
 
     Description                   -> Section
     %%Description                   -> Definition {prefer}
+
+    %% Added to remove the problem of attributes on the second start
+    %% symbol.
+    Module                        -> ModuleStart {attributes(typecheck:
+      Module.entities_inh := ![]
+    )}
     
     "module" ModuleName Section*  -> Module {cons("Module")}
     
@@ -93,12 +142,43 @@ exports
 
   sorts Entity Property Sort Annotation
 
+  attributes
+    class {
+      propagation-type TD
+      assertion type (
+        is-string
+      )
+    }
+
   context-free syntax
 
-    "entity" Id ":" Id "{" Property* Function* "}"       -> Entity {cons("Entity")}
-    "entity" Id "{" Property* Function* "}"              -> Entity {cons("EntityNoSuper")}
-    "session" Id "{" Property* Function* "}"             -> Entity {cons("SessionEntity")}
-    "task" Id "(" String ")" "{" Property* Function* "}" -> Entity {cons("Task")}
+    "entity" nm:Id ":" sp:Id "{" Property* Function* "}"       -> Entity {cons("Entity"),
+    attributes(typecheck:
+      %% FILLME
+    )}
+
+    "entity" nm:Id "{" p:Property* f:Function* "}"              -> Entity {cons("EntityNoSuper"),
+    attributes(typecheck:
+      local.class := !SimpleSort(nm.simple_name)
+
+      root.entities_syn :=
+        ![(nm.simple_name, local.class) | root.entities_inh]
+      ; debug(!"entities_syn := ")
+
+      %% p.class := !local.class
+      %% f.class := !local.class
+    )}
+
+    "session" nm:Id "{" Property* Function* "}"             -> Entity {cons("SessionEntity"),
+    attributes(typecheck:
+      %% FILLME
+    )}
+
+    "task" Id "(" String ")" "{" Property* Function* "}" -> Entity {cons("Task"),
+    attributes(typecheck:
+      %% FILLME
+    )}
+
 
     Entity                                   		     -> Definition
     
@@ -324,10 +404,14 @@ exports
 
     Id "{" Assignment* "}" -> Exp {cons("ObjectCreation")
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      root.type :=
+        <lookup> (Id.simple_name, root.entities_inh)
     )}
 
-    QId ":=" Exp           -> Assignment {cons("Assignment")}
+    QId ":=" Exp           -> Assignment {cons("Assignment")
+    ,attributes(typecheck:
+      root.valid := fail
+    )}
     
     "[" Mapping* "]"       -> Exp {cons("MapCreation")
     ,attributes(typecheck:

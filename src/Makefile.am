@@ -20,14 +20,24 @@ generator = org/webdsl/dsl/generation/dsl-to-seam
 
 typecheck = org/webdsl/dsl/syntax/eval-WebDSL
 
-CLEANFILES = \
-    $(wildcard org/webdsl/dsl/*/*.def) \
-    $(wildcard org/webdsl/dsl/*/*.tbl) \
-    $(wildcard org/webdsl/dsl/*/*.rtg) \
-    $(wildcard org/webdsl/dsl/*/*.c) \
-    $(wildcard org/webdsl/dsl/*/*.o) \
-    $(wildcard org/webdsl/dsl/*/*.dep) \
-    $(wildcard org/webdsl/dsl/*/*.pp.af)
+CLEANFILES =					\
+    $(wildcard org/webdsl/dsl/*/*.def)		\
+    $(wildcard org/webdsl/dsl/*/*.tbl)		\
+    $(wildcard org/webdsl/dsl/*/*.rtg)		\
+    $(wildcard org/webdsl/dsl/*/*.c)		\
+    $(wildcard org/webdsl/dsl/*/*.o)		\
+    $(wildcard org/webdsl/dsl/*/*.dep)		\
+    $(wildcard org/webdsl/dsl/*/*.pp.af)	\
+    $(wildcard org/webdsl/dsl/syntax/*.sdf)	\
+    $(syntax:=%.edef-fast.af)			\
+    $(syntax:=.edef)				\
+    $(syntax:=.edef-ag-af)			\
+    $(syntax:=.edef-ag)				\
+    $(syntax:=.tbl-ag)				\
+    $(syntax:=.full-ag)				\
+    $(typecheck:=.str)				\
+    $(typecheck)
+
 
 EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.dep) \
@@ -74,12 +84,15 @@ PGEN_FLAGS      = -m `basename $*`
 SDF2RTG_FLAGS   = -m `basename $*`
 SCFLAGS         = --verbose 0 -O 2
 
-ATTRSDF2TABLE_FLAGS = # --imp CxxLib
+ATTRSDF2TABLE_FLAGS = --ast --imp WebDSL
 AG_PATH		= org/webdsl/dsl/syntax/
 AG_GRM 		= WebDSL.ag
 SDFS		= $(wildcard org/webdsl/dsl/syntax/*.esdf)
+# LDADD           += $(SSL_LIBS) $(STR_LAZY_LIBS)
 
-all : $(typecheck:=.str) $(typecheck) # syntax $(generator)
+all : $(typecheck) $(typecheck:=.str) # syntax $(generator)
+
+$(syntax).edef-fast.af: $(mixhql).sdf
 
 syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
          $(hql)-pretty.pp.af $(mixhql).sdf \
@@ -98,6 +111,11 @@ Mix%.sdf : %.def
 
 %.str-pp : %.str
 	parse-stratego $(STRINCLUDES) -i $< | pp-aterm -o $@
+
+$(typecheck): $(typecheck).str $(syntax).str $(STRSOURCES)
+	echo $(STRCFLAGS)
+	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES) -m `basename $@` $(addprefix -la ,$(STR_LAZY_LIBS))
+
 
 % : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)
