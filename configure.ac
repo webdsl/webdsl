@@ -14,7 +14,7 @@ test "x$prefix" = xNONE && prefix=$ac_default_prefix
 XT_SETUP
 
 # comment to make this a stable release
-XT_PRE_RELEASE
+#XT_PRE_RELEASE
 
 XT_USE_XT_PACKAGES
 XT_USE_JAVA_FRONT
