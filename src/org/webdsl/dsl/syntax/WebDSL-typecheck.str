@@ -1,0 +1,304 @@
+module WebDSL-typecheck
+
+signature
+  constructors
+    GlobalSort: Sort
+
+//  : List(Entity) {entities} * List() * ... -> EnvTable {env-table}
+
+overlays
+  Bool() = SimpleSort("Bool")
+  Int() = SimpleSort("Int")
+  Float() = SimpleSort("Float")
+  String() = SimpleSort("String")
+
+strategies
+  is-sort =
+    OptionalSort(is-string)
+  + GenericSort(is-string, map(is-sort))
+  + SimpleSort(is-string)
+  + GlobalSort()
+
+  is-modifier =
+    Page()
+  + Email()
+
+  is-template-definition =
+    Define(id, id, id, id)
+
+  is-function-arguments =
+    map(is-sort)
+
+  is-function-prototype =
+    (is-function-arguments, is-sort)
+
+  is-env-table =
+    ( is-entities-table
+    , is-templates-table
+    , is-variables-table
+    , is-properties-table
+    , is-functions-table
+    )
+
+  is-entities-table =
+    map( (is-string, (is-sort, is-string)) )
+
+  is-templates-table =
+    map( (is-string, (map(is-modifier), is-function-arguments, is-template-definition)) )
+
+  is-variables-table =
+    map( (is-string, is-sort) )
+
+  is-properties-table =
+    map( ((is-sort, is-string), is-sort) )
+
+  is-functions-table =
+    map(
+      ((is-sort, is-string), is-function-prototype)
+    )
+
+strategies
+  new-env =
+    !([], [], [], [], [])
+
+  edit-entities(s) =
+    (s, id, id, id, id)
+
+  edit-sessions(s) =
+    edit-entities(s)
+
+  edit-templates(s) =
+    (id, s, id, id, id)
+
+  edit-variables(s) =
+    (id, id, s, id, id)
+
+  edit-properties(s) =
+    (id, id, id, s, id)
+
+  edit-functions(s) =
+    (id, id, id, id, s)
+
+strategies
+  edit-prototype-args(s) = (s, id)
+  get-prototype-result-sort = ?(_, <id>)
+
+  edit-template-modifier(s) = (s, id, id)
+  edit-template-args(s) = (id, s, id)
+  get-template-definition = ?(_, _, <id>)
+
+strategies
+  add-entity(| name, sort ) =
+    edit-entities(![(name, (sort, "Object")) | <id>])
+
+  add-entity(| name, sort, super ) =
+    edit-entities(![(name, (sort, super)) | <id>])
+
+  get-entities = edit-entities(?x); !x
+
+  add-session(| name, unk ) =
+    add-entity(| name, unk )
+
+  get-sessions = edit-sessions(?x); !x
+
+  add-template(| name, modifiers, args, tree ) =
+    edit-templates(![(name, (modifiers, args, tree)) | <id>])
+
+  get-templates = edit-templates(?x); !x
+
+  add-variable(| name, sort ) =
+    edit-variables(![(name, sort) | <id>])
+
+  get-variables = edit-variables(?x); !x
+
+  add-property(| class, name, sort ) =
+    edit-properties(![((class, name), sort) | <id>])
+
+  get-properties = edit-properties(?x); !x
+
+  add-function(| class, name, prototype ) =
+    edit-functions(![((class, name), prototype) | <id>])
+
+  add-function(| name, prototype ) =
+    add-function(| GlobalSort(), name, prototype )
+
+  get-functions = edit-functions(?x); !x
+
+strategies
+  lookup-entity(| name ) =
+    <lookup> (name, <get-entities>)
+  ; ?(<id>, _) // ignore the super entity name
+
+  lookup-session(| name ) =
+    lookup-entity(| name )
+
+  lookup-templates(| name ) =
+    get-templates
+  ; filter( ?(name, <id>) )
+  ; not([])
+
+  template-koening-lookup(| name, args-type ) =
+    koening-lookup(
+      lookup-templates(| name )
+    , edit-template-args
+    | args-type
+    )
+
+  filter-templates-with-modifier(| mod-list ) =
+    filter(edit-template-modifier(
+      where(<elem> (<id>, mod-list))
+    ))
+  ; not([])
+
+  filter-templates-without-modifiers =
+    filter( ([], id, id) )
+  ; not([])
+
+  lookup-var(| name ) =
+    <lookup> (name, <get-variables>)
+
+  lookup-property(| class, name ) =
+    if class := GlobalSort() then
+      lookup-var(| name )
+    else
+      <lookup> ((class, name), <get-properties>)
+   <+ lookup-property(| <get-super-entity(| class )> , name )
+    end
+
+  lookup-fun(| class, name ) =
+    get-functions
+  ; filter( ?((class, name), <id>) )
+  ; not([])
+ <+ lookup-fun(| <get-super-entity(| class )>, name )
+
+  fun-koening-lookup(| class, name, args-type ) =
+    koening-lookup(
+      lookup-fun(| class, name )
+    , edit-prototype-args
+    | args-type
+    )
+
+  lookup-fun(| name ) =
+    lookup-fun(| GlobalSort(), name )
+
+  fun-koening-lookup(| name, args-type ) =
+    fun-koening-lookup(| GlobalSort(), name, args-type )
+
+strategies
+  koening-lookup(lookup, edit-args: (s -> s) * s -> s | args-type ) =
+    ?env
+  ; lookup
+  ; filter(edit-args(
+      !(<id>, args-type)
+    ; genzip( ([],[]), Zip2, UnZip2, {obj-type, arg-type:
+        ?(obj-type, arg-type)
+      ; derived-from(| obj-type, arg-type )
+      ; !(<Distance>, arg-type)
+      })
+    ))
+  ; sort-list(LSort(where(
+      ( {x: edit-args(?(x, _)); !x }
+      , {x: edit-args(?(x, _)); !x }
+      )
+      // see: zip & genzip
+    ; rec x(Zip2; ( (gt, id) <+ (eq, x) ) )
+    )))
+  ; map(edit-args( ?(_, <id>) ))
+
+strategies
+  conc-env =
+    !""#(<tzip(conc)>)
+
+strategies
+  get-super-entity-name(| class ) =
+    where(<not("Object" + GlobalSort())> class)
+  ; get-entities
+  ; map( ?(_, <id>) )
+  ; <lookup> (class, <id>)
+  ; not("Object")
+
+  get-super-entity(| class ) =
+    lookup-entity(| <get-super-entity-name(| class )> )
+
+  get-super-entity =
+    ?(class, <id>)
+  ; !(<get-super-entity(| class )>, <id>)
+
+  get-super-entities-list =
+    ?(class, env)
+  ; if !class => "Object" then
+      ![]
+    else
+      ![class]
+    ; repeat({cl:
+        where(Hd => cl)
+      ; ![<get-super-entity(| cl )> env | <id>]
+      })
+    end
+  ; !["Object" | <id>]
+
+  // predicate to check if an entity derived from an other.
+  // fails if the entity does not derived from super.
+  derived-from(| class, super ) = where(rules(Distance := 0));
+    !(class, <id>)
+  ; rec rec (
+      get-super-entity
+    ; rules(Distance := <Distance; inc> ())
+    ; if <not(eq)> (<Fst>, super) then
+        rec
+      end
+    )
+
+  derived-from(| class, super ) =
+    where( // I can put an Int in a Float not the opposite
+      !class => Int()
+    ; !super => Float()
+    )
+  ; rules(Distance := 1)
+  ; !(class, super)
+
+  derived-from(| class, super ) =
+    <eq> (class, super)
+  ; rules(Distance := 0)
+
+  parent-type(| env ) =
+    ( eq
+    + \ (c, s) -> <derived-from(| c, s )> env \
+    + \ (s, c) -> <derived-from(| c, s )> env \
+    )
+  ; Snd
+
+  get-common-parent-type(| env ) =
+    (get-super-entities-list, get-super-entities-list)
+  ; common-prefix
+  ; at-last(Last)
+
+  number-type = Float() + Int()
+  cardinal-type = Int()
+
+  promote-type =
+    eq
+  + \ (Int(), Float()) -> Float() \
+  + \ (Float(), Int()) -> Float() \
+
+strategies
+  // Checks if the given list is a correct associative list.
+  no-identical-keys =
+    where(rec x (
+      split-Cons
+    < (Fst, id)
+    ; not(lookup)
+    ; Snd
+    ; x
+    + []
+    ))
+
+  no-dup =
+    where(rec x (
+      split-Cons
+    < not(elem)
+    ; Snd
+    ; x
+    + []
+    ))
+

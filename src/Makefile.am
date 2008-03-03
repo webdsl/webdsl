@@ -36,6 +36,7 @@ CLEANFILES =					\
     $(syntax:=.tbl-ag)				\
     $(syntax:=.full-ag)				\
     $(typecheck:=.str)				\
+    $(typecheck:=.c)				\
     $(typecheck)
 
 
@@ -45,7 +46,7 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*.str) \
-    $(wildcard org/webdsl/dsl/*/*.sdf) \
+    $(wildcard org/webdsl/dsl/*/*.esdf) \
     $(wildcard org/webdsl/dsl/*/*.pp)
 
 STRSOURCES = \
@@ -63,28 +64,30 @@ SDF_ATTRIBUTE_INCLUDES =					\
 	-I $(JAVA_FRONT)/share/java-front-syntax		\
 	-I org/webdsl/dsl/syntax
 
-STRINCLUDES = \
-	-I . \
-	-I $(GPP)/share/sdf/gpp \
-	-I $(XML_FRONT)/share/sdf/xml-front \
-	$(SDF_ATTRIBUTE_INCLUDES) \
+STRINCLUDES =					\
+	-I .					\
+	-I $(GPP)/share/sdf/gpp			\
+	-I $(XML_FRONT)/share/sdf/xml-front	\
+	$(SDF_ATTRIBUTE_INCLUDES)		\
         $(STR_LAZY_INCLUDES)
 
 # UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
 
-STRCFLAGS = \
-	-la stratego-xtc \
-	-la stratego-lib \
-	-la stratego-gpp \
-	-la stratego-tool-doc \
-	-la stratego-sglr \
-	-la $(JAVA_FRONT_LIBS)
+STRCFLAGS =					\
+	-la stratego-xtc			\
+	-la stratego-lib			\
+	-la stratego-gpp			\
+	-la stratego-tool-doc			\
+	-la stratego-sglr			\
+	-la $(JAVA_FRONT_LIBS)			\
+	$(addprefix -la ,$(STR_LAZY_LIBS))
 
 PGEN_FLAGS      = -m `basename $*`
 SDF2RTG_FLAGS   = -m `basename $*`
 SCFLAGS         = --verbose 0 -O 2
 
-ATTRSDF2TABLE_FLAGS = --ast --imp WebDSL
+EVAL_STR_IMPORTS = WebDSL WebDSL-typecheck
+ATTRSDF2TABLE_FLAGS = --ast $(addprefix --imp ,$(EVAL_STR_IMPORTS))
 AG_PATH		= org/webdsl/dsl/syntax/
 AG_GRM 		= WebDSL.ag
 SDFS		= $(wildcard org/webdsl/dsl/syntax/*.esdf)
@@ -112,10 +115,9 @@ Mix%.sdf : %.def
 %.str-pp : %.str
 	parse-stratego $(STRINCLUDES) -i $< | pp-aterm -o $@
 
-$(typecheck): $(typecheck).str $(syntax).str $(STRSOURCES)
+$(typecheck): $(typecheck).str $(addprefix $(AG_PATH),$(EVAL_STR_IMPORTS:=.str)) $(STRSOURCES)
 	echo $(STRCFLAGS)
-	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES) -m `basename $@` $(addprefix -la ,$(STR_LAZY_LIBS))
-
+	strc -i $< -o $@ $(STRCFLAGS) $(STRINCLUDES) -m `basename $@`
 
 % : %.str $(STRSOURCES)
 	echo $(STRCFLAGS)

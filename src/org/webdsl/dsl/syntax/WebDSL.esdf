@@ -2,7 +2,9 @@ module WebDSL
 
 hiddens
   context-free start-symbols Application ModuleStart
-    
+
+
+imports AttributesDefinition
 imports MixHQL[HQL]
 imports AccessControl
 imports ValidationAnnos
@@ -19,12 +21,12 @@ exports
     [a-zA-Z0-9\-\_]+       -> FileName
     {FileName "/"}+        -> ModuleName
     ~[\n\r]*               -> SectionName
-    
+
   lexical syntax
     "-"? [0-9]+            -> Int
-    
+
   lexical syntax
-    "-"? FloatDigits 
+    "-"? FloatDigits
      ExponentPart? [fFdD]? -> Float
     [0-9]* "." [0-9]*      -> FloatDigits
     [0-9]+                 -> FloatDigits
@@ -33,16 +35,16 @@ exports
 
     "-"? [0-9]+            -> Float {reject}
     "."                    -> FloatDigits  {reject}
-    
+
   lexical syntax
     "\"" ~[\"\n]* "\""     -> String
-    [\ \t\n\r]             -> LAYOUT
+    [\ \t\n\r]             -> LAYOUT {prefer}
     "//" ~[\n\r]* [\n\r]   -> LAYOUT
-    
+
   lexical restrictions
     IDENTIFIER -/- [a-zA-Z0-9]
     ModuleName -/- [a-zA-Z0-9\/]
-  
+
   context-free restrictions
     LAYOUT?     -/- [\ \t\n\r]
     LAYOUT?     -/- [\/].[\/]
@@ -60,25 +62,25 @@ exports
         is-string
       )
     }
-    
+
   context-free syntax
     IDENTIFIER -> Id {attributes(typecheck:
       root.simple_name := get-string
     )}
 
   context-free syntax
-    Id         -> QId {attributes(typecheck:
-      root.name := ![Id.simple_name]
-    )}
-
     QId "." Id -> QId {cons("Qualified"),
     attributes(typecheck:
       root.name := <at-end(![Id.simple_name])> QId.name
     )}
 
+    Id         -> QId {attributes(typecheck:
+      root.name := ![Id.simple_name]
+    )}
+
   lexical restrictions
     "page" -/- [a-zA-Z0-9]
-    
+
 exports
 
   sorts Word
@@ -92,51 +94,54 @@ exports
 
   sorts Application ModuleStart
 
-  attributes
-    entities {
-      propagation-type LR
-      assertion type (
-        map(id)
-      )
-    }
-
-    properties {
-      propagation-type LR
-      assertion type (
-        map( ((id /* entity */, id /* name */), id /* type */) )
-      )
-    }
-
   context-free syntax
 
     "application" QId app:Section*    -> Application {cons("Application"),
     attributes(typecheck:
       root.app_name := !QId.name
-      app.entities_inh := ![]
+      app.env_inh := new-env
+      app.all_env := !app.env_syn
+
+      local.display_errors :=
+        !app.errors
+      ; map(debug(!"Error: "))
+      ; []
     )}
-    
+
     %% TODO: SectionName matches next line if first line is blank
-    
+
     "section" SectionName Definition* -> Section {cons("Section")}
 
     "description" "{" Word* "}"     -> Description {cons("Description")}
-
     "note" "{" Word* "}"            -> Description {cons("Note")}
 
-    Description                   -> Section
+    Description                   -> Section {
+    attributes(typecheck:
+      root.errors := ![]
+    )}
+
     %%Description                   -> Definition {prefer}
 
     %% Added to remove the problem of attributes on the second start
     %% symbol.
     Module                        -> ModuleStart {attributes(typecheck:
-      Module.entities_inh := ![]
+      Module.env_inh := new-env
+      Module.all_env := !Module.env_syn
+
+      local.display_errors :=
+        !Module.errors
+      ; map(debug(!"Error: "))
+      ; []
     )}
-    
+
     "module" ModuleName Section*  -> Module {cons("Module")}
-    
+
     Module                        -> Section
-    
-    "imports" ModuleName          -> Section {cons("Imports")}
+
+    "imports" ModuleName          -> Section {cons("Imports"),
+    attributes(typecheck:
+      root.errors := ![]
+    )}
 
 exports
 
@@ -145,185 +150,705 @@ exports
   attributes
     class {
       propagation-type TD
+      assertion type (is-sort)
+    }
+
+    args {
+      propagation-type BU
       assertion type (
-        is-string
+        map( (is-string, is-sort) )
       )
     }
 
   context-free syntax
 
-    "entity" nm:Id ":" sp:Id "{" Property* Function* "}"       -> Entity {cons("Entity"),
-    attributes(typecheck:
-      %% FILLME
-    )}
-
-    "entity" nm:Id "{" p:Property* f:Function* "}"              -> Entity {cons("EntityNoSuper"),
+    "entity" nm:Id ":" sp:Id "{" p:Property* f:MemberDef* "}"       -> Entity {cons("Entity"),
     attributes(typecheck:
       local.class := !SimpleSort(nm.simple_name)
+      p.class := !local.class
+      f.class := !local.class
 
-      root.entities_syn :=
-        ![(nm.simple_name, local.class) | root.entities_inh]
-      ; debug(!"entities_syn := ")
+      p.env_inh := %% Fixme: Find a syntax to not mention 'p' !
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-entity(| nm.simple_name, local.class, sp.simple_name)
+        end
 
-      %% p.class := !local.class
-      %% f.class := !local.class
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-entity(| nm.simple_name ) then
+          ![<concat-strings> [
+            "Entity with the name '", nm.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, p.errors, f.errors]
     )}
 
-    "session" nm:Id "{" Property* Function* "}"             -> Entity {cons("SessionEntity"),
+    "entity" nm:Id "{" p:Property* f:MemberDef* "}"              -> Entity {cons("EntityNoSuper"),
     attributes(typecheck:
-      %% FILLME
+      local.class := !SimpleSort(nm.simple_name)
+      p.class := !local.class
+      f.class := !local.class
+
+      p.env_inh :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-entity(| nm.simple_name, local.class)
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-entity(| nm.simple_name ) then
+          ![<concat-strings> [
+            "Entity with the name '", nm.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, p.errors, f.errors]
     )}
 
-    "task" Id "(" String ")" "{" Property* Function* "}" -> Entity {cons("Task"),
+    "session" nm:Id "{" p:Property* f:MemberDef* "}"             -> Entity {cons("SessionEntity"),
+    attributes(typecheck:
+      local.class := !SimpleSort(<upper-case> nm.simple_name)
+      p.class := !local.class
+      f.class := !local.class
+
+      p.env_inh :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-session(| <upper-case> nm.simple_name, local.class )
+        ; add-variable(| nm.simple_name, local.class )
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-session(| <upper-case> nm.simple_name ) then
+          ![<concat-strings> [
+            "Session with the name '", nm.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, p.errors, f.errors]
+    )}
+
+    "task" nm:Id "(" String ")" "{" p:Property* f:MemberDef* "}" -> Entity {cons("Task"),
     attributes(typecheck:
       %% FILLME
+      local.class := !SimpleSort(nm.simple_name) %% ?!
+      p.class := !local.class
+      f.class := !local.class
     )}
 
 
     Entity                                   		     -> Definition
-    
-    "extend" "entity" Id "{" Property* Function* "}"	 -> Definition {cons("ExtendEntity")}
-    "extend" "session" Id "{" Property* Function* "}"   -> Definition {cons("ExtendSessionEntity")}
-  
-    "globals" "{" GlobalsDef* "}"                        -> Definition {prefer,cons("GlobalsDefinition")}
-    VarDecl                                              -> GlobalsDef
-    Function                                             -> GlobalsDef
-    
-    "function" Id "(" {FormalArg ","}* ")" ":" Sort 
-        Block                                            -> Function {cons("Function")}
+
+    "extend" "entity" nm:Id "{" p:Property* f:MemberDef* "}"	 -> Definition {cons("ExtendEntity"),
+    attributes(typecheck:
+      local.class := !SimpleSort(nm.simple_name) %% ?!
+      p.class := !local.class
+      f.class := !local.class
+
+      local.error_msg :=
+        !root.env_inh
+      ; if not(lookup-entity(| nm.simple_name )) then
+          ![<concat-strings> [
+            "Entity with the name '", nm.simple_name
+	  , "' should be declared before it is extended."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, p.errors, f.errors]
+    )}
+
+    "extend" "session" nm:Id "{" p:Property* f:MemberDef* "}"   -> Definition {cons("ExtendSessionEntity"),
+    attributes(typecheck:
+      local.class := !SimpleSort(<upper-case> nm.simple_name)
+      p.class := !local.class
+      f.class := !local.class
+
+      local.error_msg :=
+        !root.env_inh
+      ; if not(lookup-session(| <upper-case> nm.simple_name )) then
+          ![<concat-strings> [
+            "Session with the name '", nm.simple_name
+	  , "' should be declared before it is extended."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, p.errors, f.errors]
+    )}
+
+    "globals" "{" d:GlobalsDef* "}"                        -> Definition {prefer,cons("GlobalsDefinition"),
+    attributes(typecheck:
+      d.class := !GlobalSort()
+    )}
+
+    v:VarDecl                                            -> GlobalsDef {
+    attributes(typecheck:
+      %% FIXME: should find a way to factor this.
+      root.env_syn :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-variable(| v.var_name, v.var_type)
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-var(| v.var_name ) then
+          ![<concat-strings> [
+            "Variable with the name '", v.var_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        !local.error_msg
+    )}
+
+    f:Function                                           -> GlobalsDef {
+    attributes(typecheck:
+      f.env_inh :=
+        !root.env_inh
+      ; if !f.error_msg => [] then
+          add-function(| f.fun_name, f.prototype )
+        end
+    )}
+
+    f:Function                                           -> MemberDef {
+    attributes(typecheck:
+      f.env_inh :=
+        !root.env_inh
+      ; if !f.error_msg => [] then
+          add-function(| root.class, f.fun_name, f.prototype )
+        end
+    )}
+
+    "function" Id "(" args:{FormalArg ","}* ")" ":" Sort
+        Block                                            -> Function {cons("Function"),
+    attributes(typecheck:
+      root.prototype := !(args.args, Sort.self)
+      root.fun_name := !Id.simple_name
+
+      root.env_syn := !root.env_inh %% Scope the environment table.
+      Block.env_inh := %% Add only argument in the environment table.
+        <foldr(
+          new-env
+	, \ ((n, t), env) -> <add-variable(| n, t )> env \
+        )> args.args
+
+      root.error_msg :=
+        ![]
+      ; if <not(no-identical-keys)> args.args then
+          !["Function declared with two arguments with the same name."|<id>]
+        end
+
+      root.errors :=
+        <concat> [root.error_msg, Block.errors]
+    )}
 
   sorts Property Annotation
-  
+
   context-free syntax
-    
-    Id PropKind Sort "(" {Annotation ","}* ")" -> Property {cons("Property")}
-    Id PropKind Sort                           -> Property {cons("PropertyNoAnno")}
 
-    Id PropKind Sort "(" {Annotation ","}* ")" ":=" Exp -> Property {cons("DerivedProperty")}
-    Id PropKind Sort ":=" Exp                           -> Property {cons("DerivedPropertyNoAnno")}
+    p:Id PropKind s:Sort "(" {Annotation ","}* ")" -> Property {cons("Property"),
+    attributes(typecheck:
+      %% FIXME: Should do something with annotations.
+      root.env_syn :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-property(| root.class, p.simple_name, s.self )
+        end
 
-    
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-property(| root.class, p.simple_name ) then
+          ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        !local.error_msg
+    )}
+
+    p:Id PropKind s:Sort                           -> Property {cons("PropertyNoAnno"),
+    attributes(typecheck:
+      root.env_syn :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-property(| root.class, p.simple_name, s.self )
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-property(| root.class, p.simple_name ) then
+          ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      root.errors :=
+        !local.error_msg
+    )}
+
+    p:Id PropKind s:Sort "(" {Annotation ","}* ")" ":=" Exp -> Property {cons("DerivedProperty"),
+    attributes(typecheck:
+      root.env_syn :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-property(| root.class, p.simple_name, s.self )
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-property(| root.class, p.simple_name ) then
+          ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      local.error_msg_type :=
+        if <not(eq)> (s.self, Exp.type) then
+	  ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has a value that does not match the declared type."
+          ]]
+        else
+          ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, local.error_msg_type, Exp.errors]
+    )}
+
+    p:Id PropKind s:Sort ":=" Exp                           -> Property {cons("DerivedPropertyNoAnno"),
+    attributes(typecheck:
+      root.env_syn :=
+        !root.env_inh
+      ; if !local.error_msg => [] then
+          add-property(| root.class, p.simple_name, s.self )
+        end
+
+      local.error_msg :=
+        !root.env_inh
+      ; if lookup-property(| root.class, p.simple_name ) then
+          ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has already been declared."
+          ]]
+	else
+	  ![]
+        end
+
+      local.error_msg_type :=
+        if <not(eq)> (s.self, Exp.type) then
+	  ![<concat-strings> [
+            "Property with the name '", p.simple_name
+	  , "' has a value that does not match the declared type."
+          ]]
+        else
+          ![]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, local.error_msg_type, Exp.errors]
+    )}
+
+
     "::" -> PropKind {cons("Simple")}
     "->" -> PropKind {cons("Ref")}
     "<>" -> PropKind {cons("Comp")}
-    
+
   sorts Sort
-  
+
   context-free syntax
-  
-    Id                     -> Sort {cons("SimpleSort")}
-    Id "<" {Sort ","}+ ">" -> Sort {cons("GenericSort")}
-    Id "?"                 -> Sort {cons("OptionalSort")}
+
+    %% root.self := clean-attrs
+
+    %% the attribute self contains the tree without attributes.
+    %% clean-attrs is a builtin of the AG evaluator.
+
+    Id                     -> Sort {cons("SimpleSort"),
+    attributes(typecheck:
+      root.self := clean-attrs
+    )}
+
+    Id "<" {Sort ","}+ ">" -> Sort {cons("GenericSort"),
+    attributes(typecheck:
+      root.self := clean-attrs
+    )}
+
+    Id "?"                 -> Sort {cons("OptionalSort"),
+    attributes(typecheck:
+      root.self := clean-attrs
+    )}
 
     Id                               -> Annotation {cons("SimpleAnno")}
     "inverse" "=" Id "." Id      -> Annotation {cons("InverseAnno")}
     "inverseSlave" "=" Id "." Id -> Annotation {cons("InverseSlaveAnno")}
 %%  Id "(" {Annotation ","}* ")" -> Annotation {cons("ParamAnno")}
-    
+
 exports
 
+  attributes
+    modifier_list {
+      propagation-type BU
+      assertion type (map(is-modifier))
+    }
+
+    type_list { propagation-type BU }
+
   sorts TemplateDefinition Modifier
-  
+
   context-free syntax
-  
+
     TemplateDefinition -> Definition
-  
-    "define" Modifier* 
-       Id "(" {FormalArg ","}* ")" 
-       "{" TemplateElement* "}"             -> TemplateDefinition {cons("Define")}
-       
+
+    %% extern: is a keyword use to declare a possible re-evaluation of
+    %% the tree. This is useful when you want to fetch constraint
+    %% extracted from a tree, just extract the tree and run the
+    %% evaluator on it when you have finished.
+
+    "define" m:Modifier*
+       Id "(" args:{FormalArg ","}* ")"
+       "{" body:TemplateElement* "}"        -> TemplateDefinition {cons("Define"),
+    attributes(typecheck:
+      %% begin: loop pattern ...
+      root.env_syn :=
+        ?tree
+      ; !root.env_inh
+      ; if !local.error_msg => [] then
+          add-template(| Id.simple_name, m.modifier_list, args.args, tree )
+        end
+
+      body.all_env := !body.env_syn
+      body.env_inh :=
+        <foldr(
+          !root.all_env
+	, \ ((n, t), env) -> <add-variable(| n, t )> env \
+        )> args.args
+      %% end: loop pattern.
+
+      %% This attribute finds out if it is an external evaluation.
+      root.is-external := not(extern);
+        ( Bridge <+ !0 )
+      ; rules (Bridge: _ -> 0)
+
+      local.error_msg :=
+        ![]
+      ; if <not(no-identical-keys)> args.args then
+          !["Definition declared with two arguments with the same name."|<id>]
+        end
+      ; if <not(no-dup)> m.modifier_list then
+          !["Identical modifier specified."|<id>]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, body.errors]
+    )}
+
     "define" -> Id {reject}
     "for" -> Id {reject}
-    
-    "page"                                  -> Modifier {cons("Page")}
-    "email"                                 -> Modifier {cons("Email")}
-    Id ":" Sort                             -> FormalArg {cons("Arg")}
-    
-    InitAction								-> TemplateElement
-    Action  								-> TemplateElement
-    VarDecl                                 -> TemplateElement                                                                  
+
+    "page"                                  -> Modifier {cons("Page"),
+    attributes(typecheck:
+      root.modifier_list := ![<clean-attrs>]
+    )}
+
+    "email"                                 -> Modifier {cons("Email"),
+    attributes(typecheck:
+      root.modifier_list := ![<clean-attrs>]
+    )}
+
+    Id ":" Sort                             -> FormalArg {cons("Arg"),
+    attributes(typecheck:
+      root.args := ![(Id.simple_name, Sort.self)]
+    )}
+
+    InitAction				    -> TemplateElement
+    Action  				    -> TemplateElement
+    VarDecl                                 -> TemplateElement
     TemplateDefinition                      -> TemplateElement
     TemplateCall                            -> TemplateElement {avoid}
-    String                                  -> TemplateElement {cons("Text")}
+    String                                  -> TemplateElement {cons("Text"),
+    attributes(typecheck:
+      root.errors := ![]
+    )}
 
-  
+
     "where" Exp                         -> Filter {cons("FilterNoOrderBy")}
     "order" "by" OrderExp               -> Filter {cons("FilterNoWhere")}
     "where" Exp "order" "by" OrderExp   -> Filter {cons("Filter")}
     Exp                                 -> OrderExp {cons("OrderNonSpecific")}
     Exp "asc"                           -> OrderExp {cons("OrderAscending")}
     Exp "desc"                          -> OrderExp {cons("OrderDescending")}
-  
-  
-    "for" "(" Id ":" Sort "in" Exp Filter ")" 
+
+
+    "for" "(" Id ":" Sort "in" Exp Filter ")"
        "{" TemplateElement* "}"                             -> TemplateElement {cons("For")}
 
-    "for" "(" Id ":" Sort "in" Exp ")" 
+    "for" "(" Id ":" Sort "in" Exp ")"
        "{" TemplateElement* "}"                             -> TemplateElement {cons("ForNoFilter")}
 
     "for" "(" Id ":" Sort Filter ")"
        "{" TemplateElement* "}"                             -> TemplateElement {cons("ForAll")}
-              
+
     "for" "(" Id ":" Sort ")"
        "{" TemplateElement* "}"                             -> TemplateElement {cons("ForAllNoFilter")}
     %%
 
     "select" "(" Id ":" Sort "," String "," Exp ")" -> TemplateElement {cons("Select")}
-    
+
     "select" "(" Exp "from" Exp ")" -> TemplateElement {cons("SelectFromList")}
 
     "if" "(" Exp ")" "{" TemplateElement* "}"      -> TemplateElement {cons("IfTempl")}
-    
+
     "subtable" "(" Id ":" Sort "in" Exp ")"
       "{" TemplateElement* "}"                              -> TemplateElement {cons("Subtable")}
-             
-    Id                                             -> TemplateCall {cons("TemplateCallNoArgs")}
-    Id "(" {Exp ","}* ")"                          -> TemplateCall {cons("TemplateCallNoBody")}
-    
-    Id "(" Id ":" Sort ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallDeclaredType")}
-    
-    Id                    "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallBody")}
-    Id "(" {Exp ","}* ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCall")}
-    
+
+    Id                                             -> TemplateCall {cons("TemplateCallNoArgs"),
+    attributes(typecheck:
+      root.eval :=
+        ?this
+      ; !root.all_env
+      ; template-koening-lookup(| Id.simple_name, [] ) => [<id> | _]
+      ; get-template-definition
+      ; bridge-attributes(|
+          this, "process", "td_all_env"
+        , <id>, "process", "td_all_env"
+        )
+      ; bridge-attributes(|
+          this, "process", "bu_errors"
+        , <id>, "process", "bu_errors"
+        )
+      ; attr-eval
+      ; rules(Bridge: _ -> 1)                                 %% ping
+      ; <get-attribute> (<id>, "process", "is-external") => 1 %% pong
+     <+ !0
+
+      root.errors :=
+        !root.eval => 1 < fail + ![]
+    )}
+
+    Id "(" args:{Exp ","}* ")"                     -> TemplateCall {cons("TemplateCallNoBody"),
+    attributes(typecheck:
+      root.eval :=
+        ?this
+      ; !root.all_env
+      ; template-koening-lookup(| Id.simple_name, args.type_list ) => [<id> | _]
+      ; get-template-definition
+      ; bridge-attributes(|
+          this, "process", "td_all_env"
+        , <id>, "process", "td_all_env"
+        )
+      ; bridge-attributes(|
+          this, "process", "bu_errors"
+        , <id>, "process", "bu_errors"
+        )
+      ; attr-eval
+      ; rules(Bridge: _ -> 1)                                 %% ping
+      ; <get-attribute> (<id>, "process", "is-external") => 1 %% pong
+     <+ !0
+
+      root.errors :=
+        !root.eval => 1 < fail + ![]
+    )}
+
+    Id "(" Id ":" Sort ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallDeclaredType"),
+    attributes(typecheck:
+      %% builtins call ...
+    )}
+
+    Id                    "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallBody"),
+    attributes(typecheck:
+      %% builtins call ...
+    )}
+
+    Id "(" {Exp ","}* ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCall"),
+    attributes(typecheck:
+      %% builtins call ...
+    )}
+
     %% Template call without braces must be disambiguated in some cases
     "action" -> TemplateCall {reject}
-    
+
 exports
 
   sorts Action Statements Statement Exp
 
+  attributes
+    %% Assignments left-hand side depends on the context.
+    creating_class { propagation-type TD }
+    creating_env { propagation-type TD }
+
   context-free syntax
 
-    "init" Block  -> InitAction {cons("InitAction"),prefer}  
+    "init" Block  -> InitAction {cons("InitAction"),prefer}
     "action" Id "(" {FormalArg ","}* ")" Block  -> Action {cons("Action")}
-    
+
     Action		       -> Definition
     Statement*		   -> Statements
-    
+
     "{" Statements "}" -> Block {cons("Block")}
     Block              -> Statement
-    Assignment ";"	   -> Statement {cons("Assign")}
+
+    as:Assignment ";"	   -> Statement {cons("Assign"),
+    attributes(typecheck:
+      as.creating_class := !root.class
+      as.creating_env := <conc-env> (root.env_inh, root.all_env)
+    )}
+
     Exp ";"		       -> Statement {cons("Stat")}
-    
+
 %%    "email" "(" String "," String ")" -> Statement {cons("EmailStat")}
-    
+
     "return" Exp ";"     -> Statement {cons("Return")}
-    
+
     "goto" Exp ";" -> Statement {cons("GoTo")}
-    
-    "var" Id ":" Sort ";" -> VarDecl {cons("VarDecl")} 
-    "var" Id ":" Sort -> TemplateElement {cons("VarDecl")} %% TODO: Make neat
-    
-    "var" Id ":" Sort ":=" Exp ";" -> VarDecl {cons("VarDeclInit")} 
-    "var" Id ":" Sort ":=" Exp -> TemplateElement {cons("VarDeclInit")} %% TODO: Make neat
-    
-    VarDecl -> Statement
 
-    "if" "(" Exp ")" Block "else" Block -> Statement {cons("If")}
+    "var" Id ":" Sort ";" -> VarDecl {cons("VarDecl"),
+     attributes(typecheck:
+       root.var_name := !Id.simple_name
+       root.var_type := !Sort.self
 
-    "if" "(" Exp ")" Block -> Statement {cons("IfNoElse")}
+       root.errors := ![]
+     )}
 
-  
+    "var" Id ":" Sort -> TemplateElement {cons("VarDecl"), %% TODO: Make neat
+    attributes(typecheck:
+      %% copied from: v:VarDecl -> Statement
+      root.env_syn :=
+        !root.env_inh
+      ; add-variable(| Id.simple_name, Sort.self )
+
+      local.error_msg :=
+        ![]
+      ; if <lookup-var(| Id.simple_name )> root.env_inh then
+          !["A variables with the same name already exists."|<id>]
+        end
+
+      root.errors :=
+        !local.error_msg
+    )}
+
+    "var" Id ":" Sort ":=" Exp ";" -> VarDecl {cons("VarDeclInit"),
+    attributes(typecheck:
+      root.var_name := !Id.simple_name
+      root.var_type := !Sort.self
+      root.valid :=
+        <derived-from(| Exp.type, Sort.self )> root.all_env
+      ; !1
+
+      local.error_msg :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "valid") then
+          !["Wrong type assignment."| <id>]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, Exp.errors]
+    )}
+
+    "var" Id ":" Sort ":=" Exp -> TemplateElement {cons("VarDeclInit"), %% TODO: Make neat
+    attributes(typecheck:
+      %% copied from: v:VarDecl -> Statement
+      root.env_syn :=
+        !root.env_inh
+      ; add-variable(| Id.simple_name, Sort.self )
+
+      local.error_msg :=
+        ?this
+      ; ![]
+      ; if <lookup-var(| Id.simple_name )> root.env_inh then
+          !["A variables with the same name already exists."|<id>]
+        end
+      ; if <not(get-attribute)> (this, "typecheck", "valid") then
+          !["Wrong type assignment."| <id>]
+        end
+
+      %% copied from: "var" Id ":" Sort ":=" Exp ";" -> VarDecl
+      root.valid :=
+        <derived-from(| Exp.type, Sort.self )> root.all_env
+      ; !1
+
+      root.errors :=
+        <concat> [local.error_msg, Exp.errors]
+    )}
+
+    v:VarDecl -> Statement {attributes(typecheck:
+      root.env_syn :=
+        !root.env_inh
+      ; add-variable(| v.var_name, v.var_type )
+
+      local.error_msg :=
+        ![]
+      ; if <lookup-var(| v.var_name )> root.env_inh then
+          !["A variables with the same name already exists."|<id>]
+        end
+
+      root.errors :=
+        !local.error_msg
+    )}
+
+    "if" "(" Exp ")" t:Block "else" f:Block -> Statement {cons("If"),
+    attributes(typecheck:
+      root.valid := !Exp.type => Bool()
+      local.error_msg :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "valid") then
+          !["Not a boolean expression."|<id>]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, Exp.errors, t.errors, f.errors]
+    )}
+
+    "if" "(" Exp ")" t:Block -> Statement {cons("IfNoElse"),
+    attributes(typecheck:
+      root.valid := !Exp.type => Bool()
+      local.error_msg :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "valid") then
+          !["Not a boolean expression."|<id>]
+        end
+
+      root.errors :=
+        <concat> [local.error_msg, Exp.errors, t.errors]
+    )}
+
     "for" "(" Id ":" Sort "in" Exp Filter ")"
       Block -> Statement {cons("ForStmt")}
 
@@ -352,6 +877,13 @@ exports
         where(<lhs-cons> lhs.type)
       ; where(<rhs-cons> rhs.type)
       ; <merge> (lhs.type, rhs.type)
+
+      local.errors_msg :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "type") then
+          !["Wrong operands type."|<id>]
+        end
     )}
 
     bool-binop =
@@ -373,88 +905,172 @@ exports
     )}
 
   context-free syntax
-  
+
     Int                    -> Exp {cons("Int")
     ,attributes(typecheck:
-      root.type := !SimpleSort("Int")
+      root.type := !Int()
+      root.errors := ![]
     )}
 
     Float                  -> Exp {cons("Float")
     ,attributes(typecheck:
-      root.type := !SimpleSort("Float")
+      root.type := !Float()
+      root.errors := ![]
     )}
 
     String                 -> Exp {cons("String")
     ,attributes(typecheck:
-      root.type := !SimpleSort("String")
+      root.type := !String()
+      root.errors := ![]
     )}
 
     Id			           -> Exp {cons("Var")
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      root.type :=
+        if !Id.simple_name => "this" then
+	  !root.class
+        else
+          <lookup-var(|Id.simple_name)> root.env_inh
+       <+ <lookup-var(|Id.simple_name)> root.all_env
+        end
+
+      root.errors :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "type") then
+          ![<concat-strings>
+            ["Variable named '", Id.simple_name , "' not found."]
+          |<id>]
+        end
     )}
 
     "in"                   -> Exp {reject}
     "return"               -> Id {reject}
-    
+
     Exp "." Id             -> Exp {cons("FieldAccess"),prefer
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      root.type :=
+        <lookup-property(| Exp.type, Id.simple_name)> root.all_env
+
+      root.errors :=
+        ?this
+      ; ![]
+      ; if <not(get-attribute)> (this, "typecheck", "type") then
+          ![<concat-strings>
+            ["Field named '", Id.simple_name , "' not found."]
+          |<id>]
+        end
     )}
 
-    Id "{" Assignment* "}" -> Exp {cons("ObjectCreation")
+    Id "{" as:Assignment* "}" -> Exp {cons("ObjectCreation")
     ,attributes(typecheck:
       root.type :=
-        <lookup> (Id.simple_name, root.entities_inh)
+        <lookup-entity(|Id.simple_name)> root.all_env
+
+      as.creating_class := !root.type
+      as.creating_env := !root.all_env
+
+      root.errors :=
+        ?this
+      ; !as.errors
+      ; if <not(get-attribute)> (this, "typecheck", "type") then
+          ![<concat-strings>
+            ["Object named '", Id.simple_name , "' not found."]
+          |<id>]
+        end
     )}
 
     QId ":=" Exp           -> Assignment {cons("Assignment")
     ,attributes(typecheck:
-      root.valid := fail
+      local.lhs_type :=
+        !(QId.name, root.creating_class)
+      ; foldl({name,class:
+          ?(name, class)
+        ; <lookup-property(| class, name )> root.creating_env
+        })
+
+      root.valid :=
+        <derived-from(| Exp.type, local.lhs_type )> root.all_env
+      ; !1
+
+      root.error :=
+        !Exp.errors
+      ; if <not(eq)> (local.lhs_type, Exp.type) then
+          !["Type does not match." | <id>]
+        end
     )}
-    
+
     "[" Mapping* "]"       -> Exp {cons("MapCreation")
     ,attributes(typecheck:
       root.type := fail %% FIXME
     )}
 
     Exp "->" Exp           -> Mapping {cons("Mapping")}
-    
-    "[" {Exp ","}* "]"     -> Exp {cons("ListCreation")
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
-    )}
-    
-    "{" {Exp ","}* "}"     -> Exp {cons("SetCreation")
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+
+    Exp                    -> {Exp ","}+ {
+    attributes(typecheck:
+      root.type_list := ![Exp.type]
     )}
 
-
-    "List" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedListCreation"), prefer
+    "[" l:{Exp ","}* "]"     -> Exp {cons("ListCreation")
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      %% Fails on empty lists.
+      root.type := !GenericSort("List", [
+        <foldr1(get-common-parent-type(|root.all_env))> l.type_list
+      ])
     )}
 
-    "Set" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedSetCreation"), prefer
+    "{" l:{Exp ","}* "}"     -> Exp {cons("SetCreation")
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      %% Fails on empty sets.
+      root.type := !GenericSort("Set", [
+        <foldr1(get-common-parent-type(|root.all_env))> l.type_list
+      ])
     )}
 
 
-    Id "(" {Exp ","}* ")"  -> Exp {cons("ThisCall")
+    "List" "<" Sort ">" "(" l:{Exp ","}* ")" -> Exp {cons("TypedListCreation"), prefer
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      root.type := !GenericSort("List", [Sort.self])
+      root.valid :=
+        <map({type:
+          ?type
+        ; <derived-from(| type, Sort.self )> root.all_env
+        })> l.type_list
+      ; !1
+    )}
+
+    "Set" "<" Sort ">" "(" l:{Exp ","}* ")" -> Exp {cons("TypedSetCreation"), prefer
+    ,attributes(typecheck:
+      root.type := !GenericSort("Set", [Sort.self])
+      root.valid :=
+        <map({type:
+          ?type
+        ; <derived-from(| type, Sort.self )> root.all_env
+        })> l.type_list
+      ; !1
+    )}
+
+
+    Id "(" args:{Exp ","}* ")"  -> Exp {cons("ThisCall")
+    ,attributes(typecheck:
+      root.type :=
+        !root.all_env
+      ; fun-koening-lookup(| Id.simple_name, args.type_list ) => [<id> | _]
+      ; get-prototype-result-sort
     )}
 
     "!" "(" {Exp ","}* ")"  -> Exp {reject}
 
-    Exp "." Id "(" {Exp ","}* ")"  -> Exp {cons("Call")
+    cl:Exp "." Id "(" args:{Exp ","}* ")"  -> Exp {cons("Call")
     ,attributes(typecheck:
-      root.type := fail %% FIXME
+      root.type :=
+        !root.all_env
+      ; fun-koening-lookup(| cl.type, Id.simple_name, args.type_list ) => [<id> | _]
+      ; get-prototype-result-sort
     )}
 
-    
+
     Exp "is" "a" Sort      -> Exp {cons("IsA")
     ,attributes(typecheck:
       root.type := fail %% FIXME
@@ -489,24 +1105,27 @@ exports
     Exp "<=" Exp           -> Exp {cons("SmallerThanOrEqual")
     ,inherit(cmp-binop)}
 
-        
+
     "true"                 -> Exp {prefer,cons("True")
     ,attributes(typecheck:
-      root.type := !SimpleSort("Bool")
+      root.type := !Bool()
+      root.errors := ![]
     )}
 
     "false"                -> Exp {prefer,cons("False")
     ,attributes(typecheck:
-      root.type := !SimpleSort("Bool")
+      root.type := !Bool()
+      root.errors := ![]
     )}
 
-  
+
     "null"                 -> Exp {prefer,cons("Null")
     ,attributes(typecheck:
       root.type := !SimpleSort("Null")
+      root.errors := ![]
     )}
 
-    
+
     Exp "&&" Exp          -> Exp {cons("And"), assoc
     ,inherit(bool-binop)}
 
@@ -520,13 +1139,17 @@ exports
       ; !SimpleSort("Bool")
     )}
 
-    
-    "(" Exp ")"            -> Exp {bracket
+
+    %% This rule create a loop in the evaluator that produce a
+    %% segmentation fault.  Solution: add a constructor name to remove
+    %% the injection node that is continuously added.
+
+    "(" Exp ")"            -> Exp {cons("Parentheses"),bracket
     ,attributes(typecheck:
       root.type := !Exp.type
     )}
 
-  
+
     "[" Exp "for" "(" Id ":" Sort "in" Exp Filter ")" "]" -> Exp {cons("ForExp")
     ,attributes(typecheck:
       root.type := fail %% FIXME
@@ -538,32 +1161,31 @@ exports
       root.type := fail %% FIXME
     )}
 
-    
+
     Exp "*" Exp  -> Exp {cons("Mul"),assoc
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+    ,inherit(
+      binop<number-type, number-type, promote-type>
     )}
 
     Exp "/" Exp  -> Exp {cons("Div"),assoc
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+    ,inherit(
+      binop<number-type, number-type, promote-type>
     )}
 
     Exp "%" Exp  -> Exp {cons("Mod"),assoc
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+    ,inherit(
+      binop<number-type, cardinal-type, promote-type>
     )}
 
-    Exp "+" Exp  -> Exp {cons("Add"),assoc
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+    lhs:Exp "+" rhs:Exp  -> Exp {cons("Add"),assoc
+    ,inherit(
+      binop<number-type, number-type, promote-type>
     )}
 
     Exp "-" Exp  -> Exp {cons("Sub"),assoc
-    ,attributes(typecheck:
-      root.type := fail %% FIXME
+    ,inherit(
+      binop<number-type, number-type, promote-type>
     )}
-
 
 context-free priorities
   {left:
@@ -572,12 +1194,12 @@ context-free priorities
   > Exp "as" Sort -> Exp
   > "!" Exp -> Exp
   > Exp "in" Exp -> Exp
-  > {left: 
-       Exp "*" Exp -> Exp 
-       Exp "%" Exp -> Exp 
+  > {left:
+       Exp "*" Exp -> Exp
+       Exp "%" Exp -> Exp
        Exp "/" Exp -> Exp }
-  > {left: 
-       Exp "+" Exp -> Exp 
+  > {left:
+       Exp "+" Exp -> Exp
        Exp "-" Exp -> Exp }
   > {left:
        Exp "=" Exp -> Exp
@@ -594,15 +1216,16 @@ context-free priorities
 exports
 
   context-free syntax
-  
+
     QueryRule[[HQL]] -> Exp {cons("HqlQuery"), prefer
     ,attributes(typecheck:
       root.type := fail %% FIXME
+      root.errors := ![]
     )}
 
-    
+
     "~" Exp -> Expression[[HQL]] {cons("DslExp")}
 
-    
-    
-    
+
+
+
