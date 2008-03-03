@@ -83,11 +83,25 @@ rules
   // rendering a page.  
   generate-page-action :
     x -> 
-      %><page view-id="<%=viewid%>" action="#{<%=pageaction%>}" />
+      %>
+        <page view-id="<%=viewid%>" action="#{<%=pageaction%>}">
+          <%= page-parameters::* %>  
+        </page>
       <%
-    where 
-      viewid := <concat-strings>["/", x, ".xhtml"]
-      ; pageaction := <concat-strings>[x, ".forceInitialization()"]
+    where viewid := <concat-strings>["/", x, ".xhtml"]
+        ; pageaction := <concat-strings>[x, ".forceInitialization()"]
+        ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
+        
+  arg-for-page-action(|page) :
+    Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page%>.<%= e1%>}" /> <%
+    where <defined-java-type> s
+        ; e1 := <concat-strings>[i, "_id"]
+  
+  arg-for-page-action(|page) :
+    Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page%>.<%= e%>}" /> <%
+    where <builtin-java-type> s
+
+rules
 
   css-include-to-xhtml :
     e ->
@@ -777,11 +791,22 @@ rules // forms
     TemplateCall("form", [], elems) ->
     %>
       <h:form enctype="multipart/form-data">
+        <%= hidden-ids ::*%>
         <f:facet name="afterInvalidField"><s:message/></f:facet>
         <s:validateAll><%= <elems-to-xhtml> elems ::*%></s:validateAll>
       </h:form>
     <%
-    
+    where hidden-ids := <mapconcat(arg-to-xhtml)> <TemplateArguments> <Component>
+  
+  arg-to-xhtml :
+    Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <Component>%>.<%= e%>}" /> <%
+    where <builtin-java-type> s
+  
+  arg-to-xhtml :
+    Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <Component>%>.<%= i%>.id}" /> <%
+    where <defined-java-type> s
+        ; e1 := <concat-strings>[i, "_id"]
+  
   elem-to-xhtml :      
     TemplateCall("action",[e1,e2],[]) ->
     %> 
@@ -1186,30 +1211,34 @@ rules // function stuff
      ?Define([Page()], x, args, body)
      ; p := Literal(x)
      ; if [] := args then
-          !%>
-     <rule>
-       <from>/<%= p %>/?$</from>
-      	<to>/<%= p %>.seam</to>
-     </rule>
-     <rule>
-       <from>/<%= p %>/?\?(.*)$</from>
-       <to>/<%= p %>.seam?$2</to>
-     </rule>
-     <%
+        !%>
+	     <rule>
+ 	       <from>/<%= p %>/?$</from>
+	       <to>/<%= p %>.seam</to>
+	     </rule>
+	     <rule>
+	       <from>/<%= p %>/?\?(.*)$</from>
+	       <to>/<%= p %>.seam?$2</to>
+	     </rule>
+	     <%
        else
-         Arg(fi, _) := <Hd> args
-         ; first := Literal(fi)
+         Arg(fi, t) := <Hd> args
+         ; if <builtin-java-type> t then
+             first := Literal(fi)
+           else
+             first := Literal(<concat-strings> [fi, "_id"])
+           end
          ; !%>
-    <rule>
-      <from>/<%= p %>/([^\?]+)$</from>
-     	<to>/<%= p %>.seam?<%= first %>=$1</to>
-    </rule>
-    <rule>
-      <from>/<%= p %>/([^\?]+)\?(.*)$</from>
-      <to>/<%= p %>.seam?<%= first %>=$1&amp;$2</to>
-    </rule>
-    <%
-      end
+	    <rule>
+	      <from>/<%= p %>/([^\?]+)$</from>
+	      <to>/<%= p %>.seam?<%= first %>=$1</to>
+	    </rule>
+	    <rule>
+	      <from>/<%= p %>/([^\?]+)\?(.*)$</from>
+	      <to>/<%= p %>.seam?<%= first %>=$1&amp;$2</to>
+	    </rule>
+		<%
+        end
 
    pages-to-rewrite-rules =
      ?sections

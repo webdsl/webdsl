@@ -83,6 +83,8 @@ rules
         @Partial
         public class x_PageBean implements x_PageBeanInterface
         {
+          private boolean initialized = false;
+          
           @Logger private Log log;
 
           //@PersistenceContext(type = EXTENDED)
@@ -99,17 +101,19 @@ rules
              * This also enforces the execution of @Create annotated methods such as initialize()
              * When a bean is already active, nothing happens.
              */
-          public void forceInitialization() {}
-
-          @Create @Begin(join=true)
-          public void initialize() {
+          public void forceInitialization() {
             argumentInitialize();
             postInitialize();
+            initialized = true;
           }
 
           @Partial void argumentInitialize() { }
 
           @Partial void postInitialize() { }
+
+          @Create public void initialize() {
+            ~*stm1*
+          }
 
           @Destroy @Remove
           public void destroy() {}
@@ -129,8 +133,12 @@ rules
         ; x_Page     := <capitalize-string> x_page
         ; x_PageBean := <concat-strings> [x_Page, "Bean"]
         ; x_PageBeanInterface := <concat-strings> [x_PageBean, "Interface"]
+        ; if [] := args then
+            stm1* := [ stm |[ if (!initialized) forceInitialization(); ]| ]
+          else
+            stm1* := []
+          end
         // @todo scoping of variables, conflicts between session, global and page vars
-        // @todo not all beans need to declare initialize to @Begin a conversation
 
 
 
@@ -233,8 +241,16 @@ rules // bean parameters
        void argumentInitialize() {
          bstm*
        }
-       @RequestParameter("~x")
-       private t x_Id;
+       //@RequestParameter("~x")
+       private t x_id;
+       public void x_idset(t v) {
+         this.x_id = v;
+         forceInitialization();
+       }
+       public t x_idget() {
+         return this.x_id;
+       }
+       
        private x_Class x;
        public void x_set(x_Class x) {
          //log.info("~x_set");
@@ -246,9 +262,11 @@ rules // bean parameters
        }
     ]|
     where <defined-java-type> s
-        ; x_Id := <concat-strings>[x, "Id"]
+        ; x_id := <concat-strings>[x, "_id"]
         ; x_get := <property-getter> x
         ; x_set := <property-setter> x
+        ; x_idget := <property-getter> x_id
+        ; x_idset := <property-setter> x_id        
         ; if <EntityIdName> x_Class then
             t := <java-wrapper-type> <EntityIdType> x_Class
           else
@@ -263,7 +281,7 @@ rules // bean parameters
        void argumentInitialize() {
          bstm*
        }
-       @RequestParameter("~x")
+//       @RequestParameter("~x")
        private t_Class x;
        public void x_set(t_Class x) {
          //log.info("~x_set");
@@ -286,16 +304,18 @@ rules // bean parameters
          //log.info("No " + "~x_Id" + " defined, creating new " + "~x_Class");
          x = new x_Class();
       } else {
-         x = entityManager.find(x_Class.class, x_Id);
-         if(x == null) {
-            // @todo Is this a good idea?
-            x = new x_Class();
-            x.setId(x_Id);
-         }
+          if (x == null) {
+	         x = entityManager.find(x_Class.class, x_Id);
+	         if(x == null) {
+	            // @todo Is this a good idea?
+	            x = new x_Class();
+	            x.setId(x_Id);
+	         }
+	      }
       }
     ]|
     where <defined-java-type> s
-        ; x_Id := <concat-strings>[x, "Id"]
+        ; x_Id := <concat-strings>[x, "_id"]
         ; e_init := <java-type-default-value> s
         ; rules( Parameter :+= x )
 
@@ -383,9 +403,10 @@ rules // view transition
         ; e2 := <arg-to-java-exp> e1
 
   view-string-bind-param :
-    (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x" + "=" + e2.getId() ]|
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x_id" + "=" + e2.getId() ]|
     where <defined-java-type> s
         ; e2 := <arg-to-java-exp> e1
+        ; x_id := <concat-strings> [x, "_id"]
 
   arg-to-java-exp :
     Var(x){Type(t)} -> |[ x ]|
