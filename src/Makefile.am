@@ -53,6 +53,7 @@ STRINCLUDES = \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(XML_FRONT)/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
+	-I org/webdsl/dsl/modules \
 	# UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
 
 STRCFLAGS = \
