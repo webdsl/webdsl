@@ -14,23 +14,23 @@ imports
 rules
 
   /* Takes a java compilation unit and stores it to be emitted later */
-  
+
   emit-java-code =
     ?cu@CompilationUnit(_, _, _)
-    ; rules( 
-        JavaClassesToEmit :+= JavaFile(["src"], cu) 
+    ; rules(
+        JavaClassesToEmit :+= JavaFile(["src"], cu)
       )
-  
+
   emit-facelets =
     ?do@Document(_, _, _)
-    ; rules( 
-        FaceletsToEmit :+= XmlFile(["view"], <concat-strings> [<Page>, ".xhtml"], do) 
+    ; rules(
+        FaceletsToEmit :+= XmlFile(["view"], <concat-strings> [<Page>, ".xhtml"], do)
       )
 
   emit-css =
     ?st@Stylesheet(_)
-    ; rules( 
-        StylesheetsToEmit :+= CssFile(["view/stylesheets"], <concat-strings> [<Page>, ".css"], st) 
+    ; rules(
+        StylesheetsToEmit :+= CssFile(["view/stylesheets"], <concat-strings> [<Page>, ".css"], st)
       )
 
     //; info(|["Just added a java file: ", jf])
@@ -39,22 +39,36 @@ rules
     // dr-all-keys(|"JavaClass") produces all lhs
     // all-keys-JavaClass
 
+  emit-webdsl-code =
+    ?def
+    //; info(|["WebDSL emitted: ", <pp-webdsl-to-string> def])
+    ; rules(
+        WebDSLDefinitionsToEmit :+ l -> [def|l]
+      )
+
+
   add-bean-interfaces =
     <concat> [<filter(add-bean-interface)>, <id>]
-    
+
   add-bean-interface :
-    jf@JavaFile(_, CompilationUnit(_, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)])) 
+    jf@JavaFile(_, CompilationUnit(_, _, [ClassDec(ClassDecHead(_, Id(classname), _, _, _), _)]))
     ->
     <create-local-interface(|<BeanPackage>, <DomainPackage>, <concat-strings> [classname, "Interface"])> jf
-    where <string-ends-with(|"Bean")> classname 
-          <+ "ApplicationContext" := classname 
+    where <string-ends-with(|"Bean")> classname
+          <+ "ApplicationContext" := classname
 
   get-java-artifacts =
     bagof-JavaClassesToEmit
-    //; info(|["Here are all classes", <id>])
     ; java-concat-ids
     ; merge-classes
     ; add-bean-interfaces
+
+  get-webdsl-definitions =
+    if defs := <repeat(once-WebDSLDefinitionsToEmit)> [] then
+      ! [Section("Emited WebDSL code", defs)]
+    else
+      ! []
+    end
 
   get-facelets =
     bagof-FaceletsToEmit

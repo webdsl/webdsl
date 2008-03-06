@@ -1,19 +1,19 @@
 module org/webdsl/dsl/to-seam/xhtml-page
 
-imports 
-  libstrategolib 
-  
-imports 
+imports
+  libstrategolib
+
+imports
   org/webdsl/dsl/syntax/WebDSL
   org/webdsl/dsl/utils/-
-    
+
 rules
-  
-  page-to-xml : 
+
+  page-to-xml :
     def@Define([Page()], x, args, elems1) ->
-    XmlFile(["view"], <concat-strings>[x, ".xhtml"], 
+    XmlFile(["view"], <concat-strings>[x, ".xhtml"],
 %>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
                       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:ui="http://java.sun.com/jsf/facelets"
@@ -25,7 +25,7 @@ rules
       xmlns:t="http://myfaces.apache.org/tomahawk"
       xmlns:rich="http://richfaces.ajax4jsf.org/rich"
       xmlns:wdsl="http://www.webdsl.org/el">
-<head>    
+<head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title><%= title ::*%></title>
     <%= style-includes::* %>
@@ -46,21 +46,21 @@ rules
          ; style-includes := <mapconcat(css-include-to-xhtml)> <StylesheetIncludes>
          ; script-includes := <mapconcat(js-include-to-xhtml)> <JavascriptIncludes>
          ; js-onload := <js-onload-to-xhtml>
-         
+
 /* <!--[if lte IE 7]>
-	 <style>
-	   .menuwrapper, #p7menubar ul a {height: 1%;}
-	   a:active {width: auto;}
-	 </style>
+  <style>
+    .menuwrapper, #p7menubar ul a {height: 1%;}
+    a:active {width: auto;}
+  </style>
    <![endif]--> */
 
          |}
 
   // Generate a list of all pages in the application
   generate-page-list =
-	?Application(qid, sections)
-      ; list := <collect(extract-page-name)> sections      
-	  ; rules (page-list := list)
+  ?Application(qid, sections)
+      ; list := <collect(extract-page-name)> sections
+    ; rules (page-list := list)
 
   // Extract the page name from a page
   extract-page-name :
@@ -68,35 +68,35 @@ rules
 
   // Generate the pages.xml file with all the page actions
   generate-page-actions-file =
-	page-actions := <map(generate-page-action); concat> <page-list>
+  page-actions := <map(generate-page-action); concat> <page-list>
     ; !XmlFile(["resources/WEB-INF"], "pages.xml",
-	    %>
-	      <?xml version="1.0" ?>
-	      <!DOCTYPE page PUBLIC 
-	      "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-2.0.dtd">
-	      <pages>
-	        <%= page-actions ::*%>
-	      </pages>
-	    <%)    
-  
+      %>
+        <?xml version="1.0" ?>
+        <!DOCTYPE page PUBLIC
+        "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-2.0.dtd">
+        <pages>
+          <%= page-actions ::*%>
+        </pages>
+      <%)
+
   // Generate a page action to force bean initialization before
-  // rendering a page.  
+  // rendering a page.
   generate-page-action :
-    x -> 
+    x ->
       %>
         <page view-id="<%=viewid%>" action="#{<%=pageaction%>}">
-          <%= page-parameters::* %>  
+          <%= page-parameters::* %>
         </page>
       <%
     where viewid := <concat-strings>["/", x, ".xhtml"]
         ; pageaction := <concat-strings>[x, ".forceInitialization()"]
         ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
-        
+
   arg-for-page-action(|page) :
     Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page%>.<%= e1%>}" /> <%
     where <defined-java-type> s
         ; e1 := <concat-strings>[i, "_id"]
-  
+
   arg-for-page-action(|page) :
     Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page%>.<%= e%>}" /> <%
     where <builtin-java-type> s
@@ -108,13 +108,13 @@ rules
     %>
       <link href="<%= <AppRoot> %>/stylesheets/<%= e %>" rel="stylesheet" type="text/css" />
     <%
-  
+
   js-include-to-xhtml :
     e ->
     %>
       <script src="<%= <AppRoot> %>/javascript/<%= e %>" type="text/javascript" />
     <%
-  
+
   js-onload-to-xhtml =
     !%>
     <script type="text/javascript">
@@ -123,46 +123,46 @@ rules
       }
     </script>
     <%
-              
+
   // @todo this should be made more configurable probably
-      
+
 rules // embedding expressions in presentation
 
   // @todo escape < into &lt; and > to &gt;
-  
+
   arg-to-value-string =
     arg-string-to-value-string
     <+ arg-to-el-string
-  
+
   arg-string-to-value-string :
     Cast(x, s) -> <arg-to-value-string> x
 
   arg-string-to-value-string :
     String(x) -> x
-  
+
 //  arg-string-to-value-string :
 //    Email(x) -> x
-  
+
   arg-string-to-value-string :
     Bool(x) -> x
 
   arg-to-el-string :
     e -> <concat-strings>["#{", x, "}"]
     where <not(?Add(_, _))> := e
-        ; x := <arg-to-el> e 
-  
+        ; x := <arg-to-el> e
+
   arg-to-el-string :
     Add(e1, e2) -> <concat-strings> [a, b]
     where a := <arg-to-value-string> e1
         ; b := <arg-to-value-string> e2
-    
+
   arg-to-el :
     Var(x) -> <concat-strings> [<Component>,".",x]
-  		where <IsSessionVariable> x
-  		
+      where <IsSessionVariable> x
+
   arg-to-el :
     Var(x) -> <concat-strings> [<Component>,".",x]
-  		where <IsGlobal> x
+      where <IsGlobal> x
 
   arg-to-el :
     Cast(x, s) -> <arg-to-el> x
@@ -176,21 +176,21 @@ rules // embedding expressions in presentation
     FieldAccess(e, f) -> <concat-strings>[x, ".", f]
     where not("length" := f)
         ; x := <arg-to-el> e
-  
+
   arg-to-el :
     FieldAccess(e, "length") -> <concat-strings>[x, "Length"]
     where x := <arg-to-el> e
-  
-  
+
+
   arg-to-el : // Does this actually work?
     Call(e, f, args1) -> <concat-strings>[<arg-to-el> e, ".", f, "(", args2, ")"]
     where args2 := <map(arg-to-el); separate-by(|","); concat-strings> args1
-    
+
 strategies // lists of elements
 
   elems-to-xhtml =
     filter-concat-warn(elem-to-xhtml <+ undefined-template-call | "elem-to-xhtml undefined: ")
-    
+
   elems-to-xhtml(wrap) =
     filter-concat-warn((elem-to-xhtml <+ undefined-template-call); wrap | "elem-to-xhtml undefined: ")
 
@@ -199,14 +199,14 @@ strategies // lists of elements
     where log(|Warning(), ["no definition for template ", t])
 
 strategies // title
-      
+
   get-title =
     fetch-elem(?TemplateCall("title", [], <id>))
     ; elems-to-xhtml
     <+ ![]
-  
+
   // ignore title when rendering body of a page
-  
+
   elem-to-xhtml :
     TemplateCall("title", _, _) -> []
 
@@ -218,15 +218,15 @@ strategies // style
          <link href="<%= <AppRoot> %>/stylesheets/<%= stylesheet %>" rel="stylesheet" type="text/css" />
        <%
     <+ ![]
-    
+
   elem-to-xhtml :
     TemplateCall("style", _, _) -> []
 
-    
+
 rules // ugly hack: @todo: fixme!!!!!
   elem-to-xhtml :
     TemplateCall("dummy", [], elems) -> <elems-to-xhtml> elems
-    
+
 rules // div
 
   // @obsolete; use block{ ... } instead of div{ ... }
@@ -242,7 +242,7 @@ rules // div
     %>
     <div><%= <elems-to-xhtml> elems ::*%></div>
     <%
-    
+
   elem-to-xhtml :
     TemplateCall("block", [String(x)], elems) ->
     %>
@@ -253,32 +253,32 @@ rules // text
 
   elem-to-xhtml :
     Text(x) -> %> <h:outputText value="<%=x%>"/> <%
-    
+
 rules // text
 
   // convert an expression to text (string value of the expression)
-    
+
   elem-to-xhtml :
-    TemplateCall("text", [arg], []) -> 
+    TemplateCall("text", [arg], []) ->
     %> <h:outputText value="<%= val-string %>"/> <%
     where val-string := <arg-to-value-string> arg
-    
+
   elem-to-xhtml :
-    TemplateCall("text", [e], []) -> 
+    TemplateCall("text", [e], []) ->
     %> <h:outputText value="<%= <ConditionExpressionToEL> (<Component>, e) %>"/> <%
 
 rules // spacer
 
   elem-to-xhtml :
-    TemplateCall("spacer", [], []) -> 
+    TemplateCall("spacer", [], []) ->
     %> <rich:spacer id="<%= spacer-id %>" /> <%
     where spacer-id := <newname> "spacer"
-  
+
   elem-to-xhtml :
     TemplateCall("horizontalspacer", [], []) -> %> <hr /> <%
 
 rules // images
-   
+
   elem-to-xhtml :
     TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
     where x := <arg-to-value-string> e
@@ -315,16 +315,16 @@ rules // menus
         ; rules ( StylesheetIncludes := ["sdmenu.css" | <StylesheetIncludes>] )
         ; rules ( JavascriptIncludes := ["sdmenu.js" | <JavascriptIncludes>] )
         ; rules ( JSOnloadBody := [ %> sideMenu = new SDMenu("<%= x_menuid::cdata %>"); sideMenu.init(); <% | <JSOnloadBody <+ ![]>] )
-        ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) -> 
+        ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) ->
                                   TemplateCall("container", [], elems) \ <+
-                                \ TemplateCall("menu", [], elems) -> 
+                                \ TemplateCall("menu", [], elems) ->
                                   TemplateCall("block", [], elems) \ <+
-                                \ TemplateCall("menuitem", [], elems) -> 
+                                \ TemplateCall("menuitem", [], elems) ->
                                   TemplateCall("dummy", [], elems) \ <+
-                                \ TemplateCall("menuspacer", [], []) -> 
+                                \ TemplateCall("menuspacer", [], []) ->
                                   TemplateCall("horizontalspacer", [], []) \
                                   )))> elems
-        
+
   elem-to-xhtml :
     TemplateCall("menu", [], elems) ->
       %>
@@ -342,7 +342,7 @@ rules // menus
                dropdownitems := []
              end
            |}
-  
+
     find-menuheaders =
       ?elem
       ; if <sometd(?TemplateCall("menuheader", _, _))> elem then
@@ -354,13 +354,13 @@ rules // menus
   elem-to-xhtml :
     TemplateCall("menuheader", [], elems) -> e
     where e := <mapconcat(menuheader-elem-to-xhtml <+ elem-to-xhtml)> elems
-         
+
   menuheader-elem-to-xhtml :
     e@Text(elem) ->
       %>
         <a href="#"><%= <elem-to-xhtml> e ::*%></a>
       <%
-  
+
   menuheader-elem-to-xhtml :
     TemplateCall("navigate",[ThisCall(p,args)],elems) ->
       %>
@@ -395,7 +395,7 @@ rules // menus
           <%= <elems-to-xhtml> elems ::* %>
         </li>
       <%
-  
+
   elem-to-xhtml :
     TemplateCall("menuspacer", [], []) ->
       %>
@@ -410,15 +410,15 @@ rules // datatables
     t@TemplateCallDeclaredType("table", x, s, elems) ->
     %>
       <rich:dataTable id="<%= table-id %>" var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
-      
+
         <f:facet name="header">
-		  <rich:columnGroup>
+      <rich:columnGroup>
             <%= headers ::*%>
           </rich:columnGroup>
         </f:facet>
-        
+
         <%= columns ::*%>
-        
+
       </rich:dataTable>
     <%
   where {| DataTable, SubColumnCount, Subtable
@@ -430,7 +430,7 @@ rules // datatables
          ; headers := <mapconcat(elem-to-xhtml)> header-elems
          |}
 
-/*      ; hideColumn :=  <HideSubTableColumn <+ ![]>   
+/*      ; hideColumn :=  <HideSubTableColumn <+ ![]>
       ; if HideSubTableColumn then
           att0 := @> varDetailToggler="detailToggler" <@
         else
@@ -455,15 +455,15 @@ rules // datatables
     where el := <elem-to-xhtml> elem
         ; if (not(Subtable(x, _, _, _) := elem)) then
             column := %>
-		      <rich:column>
-		        <%= el ::*%>
-		      </rich:column>
-	        <%
-	        ; if SubTable then
+          <rich:column>
+            <%= el ::*%>
+          </rich:column>
+          <%
+          ; if SubTable then
                 rules( SubColumnCount := <(SubColumnCount <+ !0); inc> )
               end
-	      else
-	        column := el
+        else
+          column := el
           end
 
 
@@ -471,20 +471,20 @@ rules // datatables
     elem -> enclosed-columns
   where el := <elem-to-xhtml> elem
       ; columns := %>
-	      <rich:column>
-	        <%= el ::*%>
-	      </rich:column>
-        <% 
+        <rich:column>
+          <%= el ::*%>
+        </rich:column>
+        <%
       ; enclosed-columns := <enclose-subtable-column> columns
 
 /*  enclose-subtable-column :
-     elem -> %> <f:facet name="detailStamp"> <%= elem::* %> </f:facet> <% 
+     elem -> %> <f:facet name="detailStamp"> <%= elem::* %> </f:facet> <%
      where HideSubTableColumn
-   
+
   enclose-subtable-column :
      elem -> elem
      where not(HideSubTableColumn) */
-  
+
   elem-to-xhtml :
     Subtable(x, s, e, elems) ->
     %>
@@ -502,11 +502,11 @@ rules // datatables
       ; exp := TemplateCall("spacer", [], [])
       ; elems2 := <MkCons> (exp, elems)
       ; columns := <mapconcat(column-to-xhtml)> elems2
-    
+
   add-var-to-property(|var) :
     Var(var1) -> Var(var2)
     where var2 := <concat-strings> [var, ".", var1]
-  
+
   add-var-to-property(|var) :
     FieldAccess(e1, x) -> FieldAccess(e2, x)
     where e2 := <add-var-to-property(|var)> e1
@@ -514,7 +514,7 @@ rules // datatables
   add-var-to-template-call(|var) :
     TemplateCall(a, [exp], []) -> TemplateCall(a, [exp2], [])
     where exp2 := <add-var-to-property(|var)> exp
-    
+
 rules // lists
 
   elem-to-xhtml :
@@ -524,7 +524,7 @@ rules // lists
         <%= <elems-to-xhtml> elems ::*%>
       </ul>
     <%
-    
+
   elem-to-xhtml :
     TemplateCall("listitem", [], elems) ->
     %>
@@ -532,7 +532,7 @@ rules // lists
         <%= <elems-to-xhtml> elems ::*%>
       </li>
     <%
-    
+
 rules // sections and headers
 
   elem-to-xhtml :
@@ -543,7 +543,7 @@ rules // sections and headers
     where not(DataTable) ; not(TableScope)
         ; n := <SectionDepth <+ !1>
         ; tag := <concat-strings>["h", <int-to-string> n]
-      
+
   elem-to-xhtml :
     TemplateCall("section", [], elems1) ->
     %>
@@ -554,14 +554,14 @@ rules // sections and headers
            ; sectionlevel := <concat-strings>["section", <SectionDepth; int-to-string>]
            ; elems2 := <elems-to-xhtml> elems1
            |}
-           
+
   elem-to-xhtml :
     TemplateCall("par", [], elems1) ->
     %>
       <p><%= elems2 ::*%></p>
     <%
     where elems2 := <elems-to-xhtml> elems1
-  
+
   elem-to-xhtml :
     TemplateCall("container", [], elems1) ->
     %>
@@ -580,26 +580,26 @@ rules // tables
            : rules ( TableScope := 1 )
            ; e* := <elems-to-xhtml> elems
            |}
-  
+
   elem-to-xhtml :
     TemplateCall("header", [], elems) ->
     %>
       <tr><%= <elems-to-xhtml(table-header-wrap)> elems ::*%></tr>
     <%
     where TableScope
-  
+
   elem-to-xhtml :
     TemplateCall("row", [], elems) ->
     %>
       <tr><%= <elems-to-xhtml(table-cell-wrap)> elems ::*%></tr>
-    <% 
-       
+    <%
+
    table-cell-wrap :
      elems -> %> <td><%= elems ::*%></td> <%
-   
+
    table-header-wrap :
      elems -> %> <th><%= elems ::*%></th> <%
-     
+
 rules // iteration
 
   elem-to-xhtml :
@@ -614,7 +614,7 @@ rules // iteration
     where not(True() := we)
         //; el := <arg-to-value-string> e
         ; elems2  := <elems-to-xhtml> elems1
-        
+
   elem-to-xhtml :
     For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
     %>
@@ -644,28 +644,28 @@ rules // iteration
       </ui:repeat>
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
-        
-  
+
+
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
       <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, e) %>"><%= elems2 ::*%></h:panelGroup>
     <%
     where elems2 := <elems-to-xhtml> elems
-        
+
   wrap-column :
-    elems -> 
-    %> 
-      <h:column><%= elems ::*%></h:column> 
+    elems ->
+    %>
+      <h:column><%= elems ::*%></h:column>
     <%
-       
+
 rules // select from
 
   elem-to-xhtml :
     SelectFromList(e1, e2) ->
     %>
        <h:selectManyListbox value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= x_List %>}" 
+          <s:selectItems value="#{<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" />
           <s:convertEntity />
         </h:selectManyListbox>
@@ -674,12 +674,12 @@ rules // select from
         ; x_prop    := <concat-strings> [<arg-to-el> e1, "List"]
         ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
         ; x         := <newname> "selectvar"
-        
+
   elem-to-xhtml :
     SelectFromList(e1, e2) ->
     %>
        <h:selectOneMenu value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= x_List %>}" 
+          <s:selectItems value="#{<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
           <s:convertEntity />
         </h:selectOneMenu>
@@ -688,14 +688,14 @@ rules // select from
         ; x_prop    := <concat-strings> [<arg-to-el> e1]
         ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
         ; x         := <newname> "selectvar"
-        
+
 rules // select
 
   elem-to-xhtml :
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectManyListbox value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}" 
+          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" />
           <s:convertEntity />
         </h:selectManyListbox>
@@ -710,7 +710,7 @@ rules // select
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectOneMenu value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}" 
+          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
           <s:convertEntity />
         </h:selectOneMenu>
@@ -720,15 +720,15 @@ rules // select
         ; X         := <capitalize-string> x
         ; x_List    := <concat-strings>[x, "List"]
         ; x_prop    := <arg-to-el> e
-            
-    
+
+
 rules // links
 
   // link to a url, maybe constant, or obtained from an entity field
-  
+
   elem-to-xhtml :
     TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
-    %> <h:outputLink value="<%=x%>"><%= 
+    %> <h:outputLink value="<%=x%>"><%=
         <elems-to-xhtml> elems ::*
     %></h:outputLink> <%
     where not(ThisCall(p,args) := e)
@@ -745,10 +745,10 @@ rules // links
         ; fargs := <TemplateArguments> p
         ; params := <zip(bind-param)> (fargs, args)
         ; url := <page-call-to-url> (p, params)
-    
+
   elem-to-xhtml :
     TemplateCall("navigate",[ThisCall(p,args)],elems) ->
-    %> <h:outputLink value="<%= url %>"><%= 
+    %> <h:outputLink value="<%= url %>"><%=
         <elems-to-xhtml> elems ::*
     %></h:outputLink> <%
     where <IsPage> p
@@ -759,7 +759,7 @@ rules // links
   bind-param :
     (Arg(x, _), e) -> (x, el)
     where el := <arg-to-value-string> FieldAccess(e, "id")
-    
+
   elem-to-xhtml :
     TemplateCall("url",[e],[]) ->
     %> <h:outputText value="<%= url %>" /> <%
@@ -782,9 +782,9 @@ rules // links
 //    where <defined-java-type> s
 //        //; x_class := <decapitalize-string> x_Class
 //        ; el := <arg-to-value-string> FieldAccess(e, "id")
-//    
+//
   // constraint: only pass parameters of entity types (simple sorts)
-    
+
 rules // forms
 
   elem-to-xhtml :  // the <f:facet> puts validation errors behind their inputs
@@ -797,68 +797,68 @@ rules // forms
       </h:form>
     <%
     where hidden-ids := <mapconcat(arg-to-xhtml)> <TemplateArguments> <Component>
-  
+
   arg-to-xhtml :
     Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <Component>%>.<%= e%>}" /> <%
     where <builtin-java-type> s
-  
+
   arg-to-xhtml :
     Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <Component>%>.<%= i%>.id}" /> <%
     where <defined-java-type> s
         ; e1 := <concat-strings>[i, "_id"]
-  
-  elem-to-xhtml :      
+
+  elem-to-xhtml :
     TemplateCall("action",[e1,e2],[]) ->
-    %> 
+    %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
     where <not(is-cancel-action)> e2
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-               
-  elem-to-xhtml :      
+
+  elem-to-xhtml :
     TemplateCall("action",[e1,e2,e3],[]) ->
-    %> 
+    %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
     where <not(is-cancel-action)> e2
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-        
-  elem-to-xhtml :      
+
+  elem-to-xhtml :
     TemplateCall("action",[e1,e2,e3],[]) ->
-    %> 
+    %>
        <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
     where <is-cancel-action> e2
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-        
+
     // @todo this is a big hack! the s:button component invokes the
-    // corresponding action, but does not send the form information, does 
+    // corresponding action, but does not send the form information, does
     // canceling the form edits; however, this should NOT be expressed in the
     // name of the action method
-     
-  elem-to-xhtml :      
+
+  elem-to-xhtml :
     TemplateCall("actionLink",[e1,e2],[]) ->
-    %> 
+    %>
        <h:commandLink type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
     where <not(is-cancel-action)> e2
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-        
+
    is-cancel-action =
      ?Call(Var(component), "cancel", [])
-                
-   elem-to-xhtml :      
+
+   elem-to-xhtml :
     TemplateCall("action",[e1,e2],[]) ->
-    %> 
+    %>
        <h:commandButton value="<%= e1string %>" action="<%= e2string %>"/>
     <%
     where e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
-    
+
    elem-to-xhtml :
      Action(name, args, body) -> []
 
@@ -881,32 +881,32 @@ rules // captcha
       </div>
     <%
 
-rules // helper rules for input    
+rules // helper rules for input
 
   input-of-required-property(|e)=
     if <page-var-access-to-class-prop-tuple;PropertyIsRequired> e
     then
-      !"true"   
+      !"true"
     else
-      !"false"   
+      !"false"
     end
-        
+
   get-type-of-right-side-field-access:
-    FieldAccess(e, f){Type(SimpleSort(thetype))} -> thetype 
-    
+    FieldAccess(e, f){Type(SimpleSort(thetype))} -> thetype
+
   page-var-access-to-class-prop-tuple :
-    FieldAccess(e, f) -> (<get-type-of-right-side-field-access> e,f)    
-     
+    FieldAccess(e, f) -> (<get-type-of-right-side-field-access> e,f)
+
 rules // input
 
     // @todo configure requiredness of fields
-    
+
     // @todo support different types of input based on type
     // maybe deal with that through desugaring, i.e., have more
     // specific inputX template calls
-    
-    // @todo also special support for Email, URL, Image 
-    
+
+    // @todo also special support for Email, URL, Image
+
   elem-to-xhtml :
     TemplateCall("input",[e],[]) ->
     %>
@@ -917,7 +917,7 @@ rules // input
     where warn(|["underived input element"])
         ; estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
-    
+
   elem-to-xhtml :
     TemplateCall("inputString",[e],[]) ->
     %>
@@ -927,7 +927,7 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
-    
+
     elem-to-xhtml :
       TemplateCall("inputWikiText",[e],[]) ->
       %>
@@ -948,7 +948,7 @@ rules // input
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
     // @todo validate email address
-    
+
   elem-to-xhtml :
     TemplateCall("inputURL",[e],[]) ->
     %>
@@ -958,16 +958,16 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
-    
+
     // @todo validate URL
-    
+
   elem-to-xhtml :
     TemplateCall("inputImage",[e],[]) ->
     %>
       <s:decorate>
         <s:fileUpload id="<%= label%>"
-			data="<%= <arg-to-value-string> e %>" required="<%= req %>"
-			accept="images/*" />
+      data="<%= <arg-to-value-string> e %>" required="<%= req %>"
+      accept="images/*" />
       </s:decorate>
     <%
     where estring := <arg-to-el> e
@@ -975,7 +975,7 @@ rules // input
         ; req := <input-of-required-property(|e)>
         ; <debug> <arg-to-value-string> e
 
-        
+
 /*    %>
       <s:decorate>
         <h:inputText styleClass="inputString" value="<%= estring %>" required="<%= req %>"/>
@@ -983,9 +983,9 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)> */
-            
+
     // @todo validate image
-    
+
     // @todo upload real image file
 
   elem-to-xhtml :
@@ -1017,7 +1017,7 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
-    
+
   elem-to-xhtml :
     TemplateCall("inputSecret",[e],[]) ->
     %>
@@ -1027,7 +1027,7 @@ rules // input
     <%
     where estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
-    
+
 rules // output
 
   elem-to-xhtml :
@@ -1037,7 +1037,7 @@ rules // output
     <%
     where warn(|["underived output element"])
         ; estring := <arg-to-value-string> e
-    
+
   elem-to-xhtml :
     TemplateCall("outputString",[e],[]) ->
     %>
@@ -1072,7 +1072,7 @@ rules // output
       <s:formattedText styleClass="outputTextarea" value="<%= estring %>"/>
     <%
     where estring := <arg-to-value-string> e
-  
+
   elem-to-xhtml :
     TemplateCall("outputImage",[e],[]) ->
     %>
@@ -1080,7 +1080,7 @@ rules // output
         <s:graphicImage value="#{<%= <arg-to-el> e %>}" />
       </s:decorate>
     <%
-        
+
   elem-to-xhtml :
 //    TemplateCall("outputSecret",[e],[]) ->
 //    %>
@@ -1094,39 +1094,17 @@ rules // output
 
 rules // function stuff
 
-   find-params =
-     ?fa@FieldAccess(v, _){Type(_)}
-     ; not(<IgnoreVars> v)
-     ; rules( Param :+ l -> [fa|l] )
-     ; rules( IgnoreVars : v )
-
-   find-params =
-     ?v@Var(x){Type(vt)}
-     ; not(<IgnoreVars> v)
-     ; not("Component" := vt)
-     ; rules( Param :+ l -> [v|l] )
-     ; rules( IgnoreVars : v )
-     
-   find-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
-     ?ForExp(oe, x, srt, ie, Filter(we, obe))
-     ; {| IgnoreVars
-        : rules ( IgnoreVars : Var(x) )
-        ; <try(sometd(find-params))> we
-        ; <try(sometd(find-params))> oe                
-        |}
-     ; <try(sometd(find-params))> ie
-
    create-template-function(|fn, e) =
      where({| Param, IgnoreVars
             : <topdown(try(find-params))> e
-            ; params := <repeat(once-Param)> []
+            ; params := <bagof-Param>
             |}
            ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
            ; pn := <Component>
            ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
                     ConditionExpressionToEL : (pn, e) -> el )
           )
-   
+
    translate-template-expression : // Store some context information
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
      where <elem> (Page(), mods)
@@ -1135,13 +1113,13 @@ rules // function stuff
             ; body2 := <try(sometd(translate-template-expression))> body1
             |}
 
-     
+
    translate-template-expression =
      ?IfTempl(e, elems1*)
      ; where (fn := <newname> "ifCondFun"
               ; create-template-function(|fn, e)
               ; <try(sometd(translate-template-expression))> elems1*)
-    
+
    // Do the same iffy thing for for-loops (for the "where" clause)
    translate-template-expression =
      ?For(x, s, e, Filter(we, obe), elem1*)
@@ -1151,7 +1129,7 @@ rules // function stuff
               ; create-template-function(|fn, we)
               ; create-template-function(|fn2, e)
               ; <try(sometd(translate-template-expression))> elem1*)
-              
+
    translate-template-expression =
      ?For(x, s, e, Filter(True(), obe), elem1*)
      ; where (fn := <newname> "forInExprFun"
@@ -1172,7 +1150,7 @@ rules // function stuff
              ; create-template-function(|fn, arg))
 
    unId : Id(x) -> x
-  
+
    packagename-to-string :
      PackageName(parts) -> <map(unId); separate-by(|"."); concat-strings> parts
 
@@ -1189,7 +1167,7 @@ rules // function stuff
 //    where pkgname := Literal(<packagename-to-string> <Package>)
 //        ; fn2 := Literal(fn)
 //        ; params := Literal(<map(function-param-to-sig); separate-by(|","); concat-strings> param*)
-//  
+//
    functions-to-el =
      try(sometd(translate-template-expression))
      ; where (functions := <repeat(once-ConditionExpressions)> []
@@ -1212,15 +1190,15 @@ rules // function stuff
      ; p := Literal(x)
      ; if [] := args then
         !%>
-	     <rule>
- 	       <from>/<%= p %>/?$</from>
-	       <to>/<%= p %>.seam</to>
-	     </rule>
-	     <rule>
-	       <from>/<%= p %>/?\?(.*)$</from>
-	       <to>/<%= p %>.seam?$2</to>
-	     </rule>
-	     <%
+      <rule>
+          <from>/<%= p %>/?$</from>
+        <to>/<%= p %>.seam</to>
+      </rule>
+      <rule>
+        <from>/<%= p %>/?\?(.*)$</from>
+        <to>/<%= p %>.seam?$2</to>
+      </rule>
+      <%
        else
          Arg(fi, t) := <Hd> args
          ; if <builtin-java-type> t then
@@ -1229,21 +1207,21 @@ rules // function stuff
              first := Literal(<concat-strings> [fi, "_id"])
            end
          ; !%>
-	    <rule>
-	      <from>/<%= p %>/([^\?]+)$</from>
-	      <to>/<%= p %>.seam?<%= first %>=$1</to>
-	    </rule>
-	    <rule>
-	      <from>/<%= p %>/([^\?]+)\?(.*)$</from>
-	      <to>/<%= p %>.seam?<%= first %>=$1&amp;$2</to>
-	    </rule>
-		<%
+      <rule>
+        <from>/<%= p %>/([^\?]+)$</from>
+        <to>/<%= p %>.seam?<%= first %>=$1</to>
+      </rule>
+      <rule>
+        <from>/<%= p %>/([^\?]+)\?(.*)$</from>
+        <to>/<%= p %>.seam?<%= first %>=$1&amp;$2</to>
+      </rule>
+    <%
         end
 
    pages-to-rewrite-rules =
      ?sections
      ; pagexmls := <collect(page-to-rewrite-rule); concat> sections
-     ; x := XmlFile(["resources/WEB-INF"], "urlrewrite.xml", 
+     ; x := XmlFile(["resources/WEB-INF"], "urlrewrite.xml",
 %>
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE urlrewrite PUBLIC "-//tuckey.org//DTD UrlRewrite 2.6//EN"

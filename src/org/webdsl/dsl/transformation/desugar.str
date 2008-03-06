@@ -1,42 +1,48 @@
 /**
 
  Desugaring rules for WebDSL
- 
+
 */
 
 module org/webdsl/dsl/transformation/desugar
 
-imports 
-  libstrategolib 
-  Java-15 
-  libjava-front 
-  
-imports 
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
   org/webdsl/dsl/syntax/WebDSL
 
 strategies
 
-  desugar = 
-    attach-extend-entities
-    ; desugar-any
-  
+  desugar =
+    desugar-any
+    ; merge-webdsl-declarations // after desugaring, merge back in the new defintions
+    ; attach-extend-entities
+    ; declare-definitions // and declare new definitions
+
+
+  merge-webdsl-declarations =
+    ?Application(qid, sections)
+    ; !Application(qid, <concat> [sections, <get-webdsl-definitions>])
+
   desugar-any = // Can be applied to any kind of tree (expressions, statements)
     try(sometd((DesugarOnce)))
-    ; try(repeat(sometd(DesugarLiftExp)))
     ; topdown-l(repeat(Desugar))
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-inverse-anno))
     ; try(sometd(create-email-argument-list))
 
-rules   
-  
-  attach-extend-entities =  
+rules
+
+  attach-extend-entities =
     try(sometd(create-extend-entity-dynamic-rules))
     ; try(sometd(attach-properties-to-entity))
     ; cleanup-extend-entity-section-defs
 
   create-extend-entity-dynamic-rules:
-    ExtendEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs) 
+    ExtendEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)
     where olddynamicresultprops := <Extend-Entity-Properties(|[]) <+  ![] > ident
      ; newdynamicresultprops := <concat>[olddynamicresultprops,props]
        ; rules
@@ -48,30 +54,30 @@ rules
        ; rules
       (
         Extend-Entity-Functions(|functions) : ident -> <concat> [functions,newdynamicresultfuncs]
-      )			
-  
+      )
+
   create-extend-entity-dynamic-rules:
     ExtendSessionEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)//easy cleanup
     where <create-extend-entity-dynamic-rules> ExtendEntity(ident, props, funcs)//reuse exising mechanism
-   
+
   attach-properties-to-entity:
-    Entity(ident,superident,props,funcs) -> 
+    Entity(ident,superident,props,funcs) ->
     Entity(ident,superident,<once-Extend-Entity-Properties(|props)> ident,<once-Extend-Entity-Functions(|funcs)> ident)
 
-  attach-properties-to-entity:  	
-    EntityNoSuper(ident,props,funcs) -> 
-    EntityNoSuper(ident,<once-Extend-Entity-Properties(|props)> ident,<once-Extend-Entity-Functions(|funcs)> ident) 
-   
+  attach-properties-to-entity:
+    EntityNoSuper(ident,props,funcs) ->
+    EntityNoSuper(ident,<once-Extend-Entity-Properties(|props)> ident,<once-Extend-Entity-Functions(|funcs)> ident)
+
   attach-properties-to-entity:
     SessionEntity(ident,props,funcs) ->
       SessionEntity(ident,<once-Extend-Entity-Properties(|props)> ident,<once-Extend-Entity-Functions(|funcs)> ident)
-     
+
   cleanup-extend-entity-section-defs:
-    Application(ident,sections) -> Application(ident,<alltd(cleanup-extend-entity-section-defs)> sections)   
+    Application(ident,sections) -> Application(ident,<alltd(cleanup-extend-entity-section-defs)> sections)
 
   cleanup-extend-entity-section-defs:
     Section(ident,defs) -> Section(ident,<filter(not(?ExtendEntity(_,_,_)))>defs)
-  
+
   create-email-argument-list:
    Define(mods, name, args, body1) -> Define(mods, name, args, body1)
    where try (if <oncetd(?ThisCall("email", [_]))> body1 then
@@ -81,7 +87,7 @@ rules
            end
          end )
 
-  
+
 rules // Desugaring rules only executed once
 
   desugar-var-decl-stm =
@@ -91,66 +97,90 @@ rules // Desugaring rules only executed once
 
   desugar-var-decl-stm :
     VarDeclInit(x, s, e1) -> [VarDecl(x, s), Assign(Assignment(x, e1))]
-  
+
   DesugarOnce : // Its purpose is to translate VarDeclInits to VarDecls with separate assignment (only within Blocks, not within globals {...} statements)
     Block(stms1) -> Block(stms2)
     where stms2 := <map(desugar-var-decl-stm); concat> stms1
-  
+
 rules
+
+  Desugar : // Provide some context for desugaring rules
+    EntityNoSuper(nm, b, c) -> EntityNoSuper(nm, b2, c2)
+    where {| InEntity
+           : rules ( InEntity := nm )
+           ; b2 := <topdown-l(repeat(Desugar))> b
+           ; c2 := <topdown-l(repeat(Desugar))> c
+           |}
+           ; if b := b2; c := c2 then
+               fail
+             end
+
+  Desugar :
+    Entity(nm, b, c, d) -> Entity(nm, b2, c2, d2)
+    where {| InEntity
+           : rules ( InEntity := nm )
+           ; b2 := <topdown-l(repeat(Desugar))> b
+           ; c2 := <topdown-l(repeat(Desugar))> c
+           ; d2 := <topdown-l(repeat(Desugar))> d
+           |}
+           ; if b := b2; c := c2; d := d2 then
+               fail
+             end
+
 
   Desugar :
     elem|[ navigate(url(e)){} ]| -> elem|[ navigate(url(e)){url(e)} ]|
-  
+
   Desugar :
     elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e)){url(e)} ]|
-    
+
   Desugar :
     elem|[ navigate(e1, e2){} ]| -> elem|[ navigate(e2){text(e1)} ]|
-  
-     
+
+
   Desugar :
     String(x) -> String(y)
     where y := <un-double-quote> x
-    
- Desugar :
+
+  Desugar :
     elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
     where str2 := <un-double-quote> str1
-    
-  Desugar : 
+
+  Desugar :
     |[ x k srt ]| -> |[ x k srt () ]|
-  
+
   Desugar :
     |[ x k srt := e ]| -> |[ x k srt () := e ]|
-    
+
   Desugar :
     TemplateCallNoArgs(x) -> TemplateCall(x, [], [])
     // elem|[ x ]| -> elem|[ x(){} ]|
-    
+
   Desugar :
     //elem|[ x(e*) ]| -> elem|[ x(e*){} ]|
     TemplateCallNoBody(x, args) -> TemplateCall(x, args, [])
-    
+
   Desugar :
     //elem|[ x{elem*} ]| -> elem|[ x(){elem*} ]|
     TemplateCallBody(x, body) -> TemplateCall(x, [], body)
-  
+
   Desugar :
     IfNoElse(e, bit) -> If(e, bit, Block([]))
-  
+
   Desugar :
     Text(x) -> Text(y)
     where y := <un-double-quote> x
-    
+
   Desugar :
     elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
-    
+
   Desugar :
     TemplateCall("menubar", [], elem*) -> TemplateCall("menubar", [exp], elem*)
     where exp := String("horizontal"){Type(SimpleSort("String"))}
 
   Desugar :
-    TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])   
-        
+    TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])
+
 rules // for desugarings
 
   Desugar :
@@ -177,8 +207,8 @@ rules // for desugarings
   Desugar :
     ForAll(x, s, FilterNoWhere(obe), te*) -> ForAll(x, s, Filter(True(), obe), te*)
 
-  
-  Desugar : 
+
+  Desugar :
     fa@ForAll(x, SimpleSort(s), Filter(we, obe), te*) -> For(x, SimpleSort(s), e, Filter(we, OrderAscending(Null())), te*)
     where selectField := <newname> "queryVar"
         ; if <?OrderAscending(of)> obe then
@@ -196,10 +226,10 @@ rules // for desugarings
 
   Desugar :
     ForStmt(x, s, e, FilterNoOrderBy(we), body) -> ForStmt(x, s, e, Filter(we, OrderAscending(Null())), body)
-  
+
   Desugar :
     ForStmt(x, s, e, FilterNoWhere(obe), body) -> ForStmt(x, s, e, Filter(True(), obe), body)
-  
+
 
   Desugar :
     ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null())))
@@ -210,16 +240,159 @@ rules // for desugarings
   Desugar :
     ForExp(oe, x, s, ie, FilterNoWhere(obe)) -> ForExp(oe, x, s, ie, Filter(True(), obe))
 
-rules 
+rules
+
+  find-expression-params =
+    ?fa@FieldAccess(v, _){Type(_)}
+    ; not(<IgnoreVars> v)
+    ; rules( Param :+= fa )
+    ; rules( IgnoreVars : v )
+
+  find-expression-params =
+    ?v@Var(x){Type(vt)}
+    ; not(<IgnoreVars> v)
+    ; not("Component" := vt)
+    ; rules( Param :+= v )
+    ; rules( IgnoreVars : v )
+
+  find-expression-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
+    ?ForExp(oe, x, srt, ie, Filter(we, obe))
+    ; {| IgnoreVars
+       : rules ( IgnoreVars : Var(x) )
+       ; <try(sometd(find-expression-params))> we
+       ; <try(sometd(find-expression-params))> oe
+       |}
+    ; <try(sometd(find-expression-params))> ie
+
+  forexp-function-param-to-farg :
+     FieldAccess(_, x) {Type(srt)} -> farg|[ x : srt ]|
+     //where rules ( TransformParameterName : x -> y )
+
+  forexp-function-param-to-farg :
+    Var(x) {Type(srt)} -> farg|[ x : srt ]|
+    //where rules ( TransformParameterName : x -> y )
+
+  find-params =
+    ?fa@FieldAccess(v, _){Type(_)}
+    ; not(<IgnoreVars> v)
+    ; rules( Param :+= fa )
+    ; rules( IgnoreVars : v )
+
+  find-params =
+    ?v@Var(x){Type(vt)}
+    ; not(<IgnoreVars> v)
+    ; not("Component" := vt)
+    ; rules( Param :+= v )
+    ; rules( IgnoreVars : v )
+
+  find-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
+    ?ForExp(oe, x, srt, ie, Filter(we, obe))
+    ; {| IgnoreVars
+       : rules ( IgnoreVars : Var(x) )
+       ; <try(sometd(find-params))> we
+       ; <try(sometd(find-params))> oe
+       |}
+    ; <try(sometd(find-params))> ie
+
+  Desugar :
+    fe@ForExp(oe, x, s, ie, fltr) -> ThisCall($fun, params)
+    where $fun := <newname> "listCompr"
+        ; {| Param, IgnoreVars
+           : <topdown(try(find-params))> fe
+           ; params := <bagof-Param>
+           |}
+        ; farg* := <map(forexp-function-param-to-farg)> params
+        //
+        ; srt2 := <type-of> ie
+        ; srt3 := <type-of> oe
+        ; e3 := ie
+        ; e4 := oe
+        //; newnm := <new-forexp-name>
+        ; if <?GenericSort("List",_)> srt2 then
+            srt4 := GenericSort("List", [srt3])
+            ; e5 := |[ List<srt3>() ]|
+          else // Set
+            srt4 := GenericSort("Set", [srt3])
+            ; e5 := |[ Set<srt3>() ]|
+          end
+        ; e7 := <add-not-null-checks> NotEq(e3,Null()){Type(SimpleSort("Bool"))}
+        ; fun := fun|[
+              function $fun (farg*) : srt4 {
+                var l : srt4;
+                l := e5;
+                if(e7) {
+                  for(x : srt3 in e3 fltr) {
+                    l.add(e4);
+                  }
+                } else {}
+                return l;
+              }
+            ]|
+        ; if $entity := <InEntity> then
+            <emit-webdsl-code> def|[ extend entity $entity { fun } ]|
+          else
+            <emit-webdsl-code> def|[ globals { fun } ]|
+          end
+
+  Desugar :
+    ListCreation([e1|e1*]) -> ThisCall($fun, params)
+    where $fun := <newname> "listCr"
+        ; {| Param, IgnoreVars
+           : <topdown(try(find-params))> [e1|e1*]
+           ; params := <bagof-Param>
+           |}
+        ; farg* := <map(forexp-function-param-to-farg)> params
+        ; srt1 := <type-of> e1
+        ; srt2 := GenericSort("List", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> [e1|e1*]
+        ; fun := fun|[
+              function $fun (farg*) : srt2 {
+                var l : srt2 := List<srt1>();
+                stat*
+                return l;
+              }
+            ]|
+        ; if $entity := <InEntity> then
+            info(|"I'm here!!!!!!!!!!!!!!!");
+            <emit-webdsl-code> def|[ extend entity $entity { fun } ]|
+          else
+            <emit-webdsl-code> def|[ globals { fun } ]|
+          end
+
+  Desugar :
+    SetCreation([e1|e1*]) -> ThisCall($fun, params)
+    where $fun := <newname> "setCr"
+        ; {| Param, IgnoreVars
+           : <topdown(try(find-params))> [e1|e1*]
+           ; params := <bagof-Param>
+           |}
+        ; farg* := <map(forexp-function-param-to-farg)> params
+        ; srt1 := <type-of> e1
+        ; srt2 := GenericSort("Set", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> [e1|e1*]
+        ; fun := fun|[
+              function $fun (farg*) : srt2 {
+                var l : srt2 := Set<srt1>();
+                stat*
+                return l;
+              }
+            ]|
+        ; if $entity := <InEntity> then
+            <emit-webdsl-code> def|[ extend entity $entity { fun } ]|
+          else
+            <emit-webdsl-code> def|[ globals { fun } ]|
+          end
+
+rules
 
   create-inverse-anno :
-    Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions) 
+    Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions)
     where props2 := <map(try(desugar-inverse-property(|x_class)))> props
 
   create-inverse-anno :
-    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions) 
+    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions)
     where props2 := <map(try(desugar-inverse-property(|x_class)))> props
-  
+
   desugar-inverse-property(|x_class) :
     Property(x, k, GenericSort(coll, [s@SimpleSort(ss)]), anno*) -> Property(x, k, GenericSort(coll, [s]), anno2*)
     where <map(try(declare-inverse-anno(|x_class, x)))> anno*
@@ -235,12 +408,12 @@ rules
     where [] := <collect(?InverseSlaveAnno(_, _))> xs
         ; (ent, fld) := <CreateInverseSlaveAnno> (x_class, p)
         ; slaveanno := InverseSlaveAnno(ent, fld)
-  
+
   declare-inverse-anno(|x_class, p) =
     ?InverseAnno(ent, fld)
     ; rules(
         CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
-      ) 
+      )
 
 rules // derive input behaviour from type
 
@@ -256,11 +429,11 @@ rules // derive input behaviour from type
     <+ DeriveInputSimpleRefAssociation
     <+ DeriveInputAssociationGenericSort
     <+ DeriveInput
-    
+
   DeriveInputString :
     elem|[ input(e){} ]| -> elem|[ inputString(e){} ]|
     where SimpleSort("String") := <type-of> e
-        
+
   DeriveInputText :
     elem|[ input(e){} ]| -> elem|[ inputURL(e){} ]|
     where SimpleSort("URL") := <type-of> e
@@ -288,15 +461,15 @@ rules // derive input behaviour from type
   DeriveInputText :
     elem|[ input(e){} ]| -> elem|[ inputText(e){} ]|
     where SimpleSort("Text") := <type-of> e
-    
+
   DeriveInputText :
     elem|[ input(e){} ]| -> elem|[ inputText(e){} ]|
     where SimpleSort("Patch") := <type-of> e
-    
+
   DeriveInputBool :
     elem|[ input(e){} ]| -> elem|[ inputBool(e){} ]|
     where SimpleSort("Bool") := <type-of> e
-    
+
   DeriveInputSecret :
     elem|[ input(e){} ]| -> elem|[ inputSecret(e){} ]|
     where SimpleSort("Secret") := <type-of> e
@@ -312,21 +485,21 @@ rules // derive input behaviour from type
         ; <defined-java-type> SimpleSort($Y)
         ; y      := <decapitalize-string> $Y
         ; y1     := <newname> y
-  
+
   exp-to-qid :
     FieldAccess(e, f) -> Qualified(qid, f)
     where not(Var(_) := e)
         ; qid := <exp-to-qid> e
-    
+
   exp-to-qid :
     FieldAccess(Var(x), f) -> Qualified(x, f)
-        
+
   exp-to-qid :
     Var(x) -> x
-    
+
   DeriveInputAssociationGenericSort :
     elem|[ input(e0){} ]| ->
-    elem|[ 
+    elem|[
       div("inputAssociationGenericSort"){
         select(x1 : $X, str, e0)
       }
@@ -348,13 +521,13 @@ rules // derive output behaviour from type
     <+ DeriveOutputAssociationList
     <+ DeriveOutputAssociationSet
     <+ DeriveOutput
-    
+
   DeriveOutputString :
     elem|[ output(e){} ]| -> elem|[ text(e){} ]|
     where SimpleSort("String") := <type-of> e
-        
+
   DeriveOutputText :
-    elem|[ output(e){} ]| -> elem|[ navigate(url(e)){url(e)} ]| 
+    elem|[ output(e){} ]| -> elem|[ navigate(url(e)){url(e)} ]|
     where SimpleSort("URL") := <type-of> e
 
   DeriveOutput :
@@ -369,7 +542,7 @@ rules // derive output behaviour from type
     elem|[ output(e){} ]| -> elem|[ outputWikiText(e) ]|
     where SimpleSort("WikiText") := <type-of> e
 
-    
+
     // @todo prefix mailto
 
   DeriveOutputText :
@@ -382,14 +555,14 @@ rules // derive output behaviour from type
 
   DeriveOutputText :
     elem|[ output(e){} ]| -> elem|[ outputText(e){} ]|
-    where SimpleSort("Text") := <type-of> e    
-    
+    where SimpleSort("Text") := <type-of> e
+
   DeriveOutputText :
     elem|[ output(e){} ]| -> elem|[ outputText(e){} ]|
     where SimpleSort("Patch") := <type-of> e
-    
+
   DeriveOutputBool :
-    elem|[ output(e){} ]| -> elem|[ text(e) ]| 
+    elem|[ output(e){} ]| -> elem|[ text(e) ]|
     where SimpleSort("Bool") := <type-of> e
 
   DeriveOutputSecret :
@@ -418,10 +591,10 @@ rules // derive output behaviour from type
 
   is-not-subclass(|e) : [(x_super, x_class)] -> Not(IsA(e, SimpleSort(x_class)))
   is-not-subclass(|e) : [(x_super, x_class)|xs] -> And(Not(IsA(e, SimpleSort(x_class))), <is-not-subclass(|e)> xs)
-  
+
   DeriveSubclassOutput(|e, subclasses) :
-    (x_super, x_class) -> 
-    IfTempl(And(IsA(e, SimpleSort(x_class)), <is-not-subclass(|e)> <remove-all(?(_, x_class))> subclasses), 
+    (x_super, x_class) ->
+    IfTempl(And(IsA(e, SimpleSort(x_class)), <is-not-subclass(|e)> <remove-all(?(_, x_class))> subclasses),
             elem*|[ navigate($viewY(e as srt)){ text(e.name) } ]|)
     where $viewY := <decapitalize-string> x_class
         ; srt := SimpleSort(x_class)
@@ -444,23 +617,23 @@ rules
 
   add-view-edit-pages-to-app :
     app@|[ application qid sec* ]| ->
-    |[ 
-       application qid 
-         sec* 
+    |[
+       application qid
+         sec*
          section generated pages.
-           def1 
-           def2 
-           define editRowsObject(o: Object) {} 
+           def1
+           def2
+           define editRowsObject(o: Object) {}
            define viewRowsObject(o: Object) {}
-           def* 
+           def*
     ]|
     where def* := <collect(entity-to-view-edit-pages); concat> app
         ; def1 := <create-menu>
         ; def2 := <all-menu>
-        
-rules 
 
-  apply-optional(s, k) = 
+rules
+
+  apply-optional(s, k) =
     ![<s> | <k>] <+ k
 
 rules
@@ -468,21 +641,21 @@ rules
   entity-to-view-edit-pages =
     ?Entity(x_Class, y_Class, prop*, functions)
     ; where(id
-       ; entity-to-all-menu 
+       ; entity-to-all-menu
        ; entity-to-new-menu
       )
-    ; apply-optional(entity-to-edit-page, 
-      apply-optional(entity-to-create-page, 
-      apply-optional(entity-to-edit-rows, 
-      apply-optional(entity-to-view-page, 
-      apply-optional(entity-to-view-rows, 
-      apply-optional(entity-to-view-all, 
+    ; apply-optional(entity-to-edit-page,
+      apply-optional(entity-to-create-page,
+      apply-optional(entity-to-edit-rows,
+      apply-optional(entity-to-view-page,
+      apply-optional(entity-to-view-rows,
+      apply-optional(entity-to-view-all,
                      ![]))))))
 
-  entity-to-view-edit-pages : 
-    EntityNoSuper($X, prop*, functions) -> 
+  entity-to-view-edit-pages :
+    EntityNoSuper($X, prop*, functions) ->
     <entity-to-view-edit-pages> Entity($X, "Object", prop*, functions)
-    
+
 rules
 
   entity-to-new-menu =
@@ -490,7 +663,7 @@ rules
     where (
       $createX := <concat-strings>["create", $X]
       ; str := $X
-      ; rules ( 
+      ; rules (
           CreateMenu :+= elem|[ listitem{ navigate($createX()){str} } ]|
         )
     )
@@ -504,17 +677,17 @@ rules
         listitem{ "All" list{ elem* } }
       }
     ]|
-    
+
   entity-to-all-menu =
     ?Entity($X, y_Class, prop*, functions);
     where (
       $allX := <concat-strings>["all", $X]
       ; str := $X
-      ; rules ( 
+      ; rules (
           AllMenu :+= elem|[ listitem{ navigate($allX()){str} } ]|
         )
     )
-    
+
   create-menu =
     where( elem* := <bagof-CreateMenu>);
     !def|[
@@ -522,10 +695,10 @@ rules
         listitem{ "New" list{ elem* } }
       }
     ]|
-    
+
 rules // edit page
 
-  entity-to-view-all : 
+  entity-to-view-all :
     Entity($X, y_Class, prop*, functions) ->
     def|[
       define page $allX() {
@@ -533,9 +706,9 @@ rules // edit page
         define body() {
           section{ header{"All " str }
             form {
-              list { 
+              list {
                 for(x : $X) {
-                  listitem{ 
+                  listitem{
                     navigate($viewX(x)){text(x.name)} " "
                     actionLink("[X]", $removeX(x))
                     action $removeX(x : $X) {
@@ -555,10 +728,10 @@ rules // edit page
         ; $allX    := <concat-strings>["all", $X]
         ; str      := $X
         ; not(<TemplateDefinition> $allX) // don't overwrite an existing definition
-    
+
 rules // edit page
 
-  entity-to-create-page : 
+  entity-to-create-page :
     Entity($X, y_Class, prop*, functions) ->
     def|[
       define page $createX() {
@@ -586,7 +759,7 @@ rules // edit page
         ; str        := $X
         ; not(<TemplateDefinition> $createX) // don't overwrite an existing definition
 
-  entity-to-edit-page : 
+  entity-to-edit-page :
     Entity($X, y_Class, prop*, functions) ->
     def|[
       define page $editX(x : $X) {
@@ -612,7 +785,7 @@ rules // edit page
         ; $xSidebar  := <concat-strings>[x, "Sidebar"]
         ; str        := $X
         ; not(<TemplateDefinition> $editX) // don't overwrite an existing definition
-     
+
   entity-to-edit-rows :
     Entity($X, $Y, prop*, functions) ->
     def|[
@@ -626,20 +799,20 @@ rules // edit page
         ; $editRowsY := <concat-strings>["editRows", $Y]
         ; not(<TemplateDefinition> $editRowsX) // don't overwrite an existing definition
         ; elem*      := <properties-to-edit-row(| Var(x), x )> prop*
-        
+
   properties-to-edit-row(|e, qid) =
     filter-concat-warn(property-to-edit-row(|e, qid)|"cannot create edit row for property ")
-    
+
   property-to-edit-row(|e, qid) = fail
     <+ composite-property-to-edit-row(|e, qid)
     <+ basic-property-to-edit-row(|e, qid)
-    
+
   basic-property-to-edit-row(|e, qid) :
     Property(y, k, s, anno*) -> elem*|[
       row { str input(e.y) }
     ]|
     where str := <concat-strings>[<capitalize-string> y, ":"]
-    
+
   composite-property-to-edit-row(|e, qid) :
     Property(y, Comp(), SimpleSort($Y), anno*) -> elem*|[
       row { str "" }
@@ -651,7 +824,7 @@ rules // edit page
 
 rules // view page
 
-  entity-to-view-page : 
+  entity-to-view-page :
     Entity($X, y_Class, prop*, functions) ->
     def|[
       define page $viewX(x : $X) {
@@ -662,7 +835,7 @@ rules // view page
         // define sidebar() { } //$xSidebar(){} // why define an empty sidebar?
         define body() {
           section{ header{text(x.name) }
-            $viewRowsX(x){} 
+            $viewRowsX(x){}
           }
         }
       }
@@ -673,7 +846,7 @@ rules // view page
         ; $viewRowsX := <concat-strings>["viewRows", $X]
         ; $xSidebar  := <concat-strings>[x, "Sidebar"]
         ; not(<TemplateDefinition> $viewX) // don't overwrite an existing definition
-    
+
   entity-to-view-rows :
     Entity($X, $Y, prop*, functions) ->
     def|[
@@ -689,7 +862,7 @@ rules // view page
         ; $viewRowsY := <concat-strings>["viewRows", $Y]
         ; not(<TemplateDefinition> $viewRowsX) // don't overwrite an existing definition
         ; elem*      := <properties-to-view-rows(|$X, Var(x))> prop*
-                      
+
   entity-to-view-properties :
     Entity($X, $Y, prop*, functions) ->
     def|[
@@ -706,15 +879,15 @@ rules // view page
 
   properties-to-view-rows(|$X, e) =
     filter-concat-warn(property-to-view-row(|$X, e) | "cannot create view row for property ")
-        
+
   properties-to-view(|$X, e) =
     filter-concat-warn(property-to-view-row(|$X, e) | "cannot create view row for property ")
-    
-  property-to-view-row(|$X, e) = 
+
+  property-to-view-row(|$X, e) =
     composite-property-to-view-row(|$X, e)
     <+ basic-property-to-view-row(|e)
-    
-  property-to-view(|$X, e) = 
+
+  property-to-view(|$X, e) =
        name-property-to-view-row
     <+ text-property-to-view-row(|e)
     <+ comp-collection-property-to-view-row(|$X, e)
@@ -722,13 +895,13 @@ rules // view page
     <+ reference-property-to-view-row(|e)
     <+ composite-property-to-view(|$X, e)
     <+ basic-property-to-view(|e)
-    
+
   basic-property-to-view-row(|e) :
     Property(y, k, s, anno*) -> elem*|[
       row{ str output(e.y) }
     ]|
     where str := <concat-strings>[<capitalize-string> y, ":"]
-    
+
   basic-property-to-view(|e) :
     Property(y, k, s, anno*) -> elem*|[
       par{ str " : " output(e.y) }
@@ -740,7 +913,7 @@ rules // view page
       par{ str " : " output(e.y) }
     ]|
     where str := <capitalize-string> y
-    
+
   name-property-to-view-row :
     Property(_, _, _, _) -> elem*|[ ]|
     where is-namefield
@@ -749,19 +922,19 @@ rules // view page
   name-property-to-view-row :
     DerivedProperty(_, _, _, _, _) -> elem*|[ ]|
     where is-namefield
-    
+
   reference-property-to-view-row(|e) :
-    |[ y -> $Y (ann*) ]| -> 
+    |[ y -> $Y (ann*) ]| ->
     elem*|[
       section{ header{str} list{listitem{ output(e.y) } } }
     ]|
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
-  
+
   composite-property-to-view-row(|$X, e) :
-    |[ y <> $Y (ann*) ]| -> 
+    |[ y <> $Y (ann*) ]| ->
     elem*|[
-      section{ 
+      section{
         header{str}
         elem*
       }
@@ -771,9 +944,9 @@ rules // view page
         ; elem* := <Properties; properties-to-view-rows(|$X, |[ e.y ]|)> $Y
 
   composite-property-to-view(|$X, e) :
-    |[ y <> $Y (ann*) ]| -> 
+    |[ y <> $Y (ann*) ]| ->
     elem*|[
-      section{ 
+      section{
         header{str}
         elem*
       }
@@ -781,26 +954,26 @@ rules // view page
     where <defined-java-type> SimpleSort($Y)
         ; str := <capitalize-string> y
         ; elem* := <Properties; properties-to-view-rows(|$X, |[ e.y ]|)> $Y
-          
+
   text-property-to-view-row(|e) :
-    Property(y, k, SimpleSort("Text"), anno*) -> 
+    Property(y, k, SimpleSort("Text"), anno*) ->
     elem*|[
       section{ header{str} output(e.y) }
     ]|
     where str := <capitalize-string> y
-  
+
   text-property-to-view-row(|e) :
-    DerivedProperty(y, k, SimpleSort("Text"), anno*, ex) -> 
+    DerivedProperty(y, k, SimpleSort("Text"), anno*, ex) ->
     elem*|[
       section{ header{str} output(e.y) }
     ]|
     where str := <capitalize-string> y
-  
+
   collection-property-to-view-row(|$T, e) :
-    prop@|[ $y -> $Z<$Y> (ann*) ]| -> 
+    prop@|[ $y -> $Z<$Y> (ann*) ]| ->
     elem*|[
-      section{ 
-        header{str} 
+      section{
+        header{str}
         output(e.$y)
         elem*
       }
@@ -809,20 +982,20 @@ rules // view page
         ; elem* := <create-new-association-object(|$T, e)> prop
 
   collection-property-to-view-row(|$T, e) :
-    prop@|[ $y -> $Z<$Y> (ann*) := e2 ]| -> 
+    prop@|[ $y -> $Z<$Y> (ann*) := e2 ]| ->
     elem*|[
-      section{ 
-        header{str} 
+      section{
+        header{str}
         output(e.$y)
       }
     ]|
     where str   := <capitalize-string> $y
 
   comp-collection-property-to-view-row(|$T, e) :
-    prop@|[ y <> $Z<$Y> (ann*) ]| -> 
+    prop@|[ y <> $Z<$Y> (ann*) ]| ->
     elem*|[
-      section{ 
-        header{str} 
+      section{
+        header{str}
         for(z : $Y in e.$yList) { section{ header{output(z)} $viewRowsY(z) } }
         elem*
       }
@@ -835,10 +1008,10 @@ rules // view page
         ; elem*       := <create-new-association-object(|$T, e)> prop
 
   comp-collection-property-to-view-row(|$T, e) :
-    prop@|[ y <> $Z<$Y> (ann*) := e2 ]| -> 
+    prop@|[ y <> $Z<$Y> (ann*) := e2 ]| ->
     elem*|[
-      section{ 
-        header{str} 
+      section{
+        header{str}
         for(z : $Y in e.$yList) { section{ header{output(z)} $viewRowsY(z) } }
       }
     ]|
@@ -847,7 +1020,7 @@ rules // view page
         ; z           := <decapitalize-string> $Y
         ; $yList      := <concat-strings>[y, "List"]
         ; $viewRowsY  := <concat-strings>["viewRows", $Y]
-        
+
   create-new-association-object(|$T, e) :
     |[ y k $Z<$Y> (ann*) ]| ->
     elem*|[

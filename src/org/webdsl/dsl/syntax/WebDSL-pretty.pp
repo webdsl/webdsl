@@ -1,11 +1,11 @@
 [
    HqlQuery -- _1,
    DslExp -- _1,
-   
+
    Module -- V[H[KW["module"] _1] _2],
-   
+
    Imports -- H[KW["imports"] _1],
-   
+
    Qualified                          -- H hs=0[_1 KW["."] _2],
    Application                        -- V vs=1[H[KW["application"] _1] _2],
    Application.2:iter-star            -- _1,
@@ -103,7 +103,7 @@
    ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] ] _5],
    ForStmt.5:iter-star                -- _1,
 
-   ForExp                             -- H[KW["["] _1 KW["for"] KW["("] _2 KW[":"] _3 KW["in"] _4 _5 KW[")"] KW["]"]],
+   ForExp                             -- H[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"]],
    Rules                              -- V  [H  [KW["rules"]] _1],
    Rules.1:iter-star                  -- _1,
    Equation                           -- _1 KW["="] _2,
@@ -148,8 +148,8 @@
    IsA                                -- _1 KW["is"] KW["a"] _2,
    Cast                               -- _1 KW["as"] _2,
    None                               -- KW["None()"], %% Shoudl never apear
-   
-   
+
+
    %%access control syntax
    AccessControlDefinition                      -- KW["access"] KW["control"] KW["rules"] _1 KW["{"] _2 KW["}"],
    AccessControlDefinition.1:opt                -- _1,
@@ -175,7 +175,7 @@
    AccessControlPointcut.3:iter-star-sep        -- _1 KW[","],
    ACPolicy                                     -- KW["access"] KW["control"] KW["policy"] _1,
 
-   
+
    %%validation annos
    ValidationAnnoLength                         -- KW["length"] KW["("] _1 KW[","] _2 KW[")"],
    ValidationAnnoMinLength                      -- KW["minlength"] KW["("] _1 KW[")"],
@@ -212,7 +212,7 @@
    ValidationAnnoAssertTrue                     -- KW["asserttrue"],
    ValidationAnnoAssertFalse                    -- KW["assertfalse"],
    ValidationAnnoValid                          -- KW["valid"],
-               
+
    %%styling
       ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] KW[")"] KW["{"] _3 KW["}"],
    ThemeDefinition.3:iter-star                  -- _1,
