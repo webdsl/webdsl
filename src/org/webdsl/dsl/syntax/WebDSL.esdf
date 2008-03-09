@@ -528,11 +528,13 @@ exports
 
     type_list { propagation-type BU }
 
+    need_eval { propagation-type TD }
+
   sorts TemplateDefinition Modifier
 
   context-free syntax
 
-    TemplateDefinition -> Definition
+    def:TemplateDefinition -> Definition
 
     %% extern: is a keyword use to declare a possible re-evaluation of
     %% the tree. This is useful when you want to fetch constraint
@@ -545,13 +547,13 @@ exports
     attributes(typecheck:
       %% begin: loop pattern ...
       root.env_syn :=
-        ?tree
+        all(clean-attrs) => tree
       ; !root.env_inh
       ; if !local.error_msg => [] then
           add-template(| Id.simple_name, m.modifier_list, args.args, tree )
         end
 
-      body.all_env := !body.env_syn
+      body.all_env := !body.env_syn; where(<debug(!"** eval = ")> (Id.simple_name, body.need_eval))
       body.env_inh :=
         <foldr(
           !root.all_env
@@ -559,10 +561,16 @@ exports
         )> args.args
       %% end: loop pattern.
 
+      body.class := !GlobalSort()
+
       %% This attribute finds out if it is an external evaluation.
       root.is-external := not(extern);
         ( Bridge <+ !0 )
       ; rules (Bridge: _ -> 0)
+
+      body.need_eval :=
+        !root.is-external => 1
+     <+ if !m.modifier_list => [] then !0 else !1 end
 
       local.error_msg :=
         ![]
@@ -574,7 +582,14 @@ exports
         end
 
       root.errors :=
-        <concat> [local.error_msg, body.errors]
+        if !root.is-external => 1 then
+          !body.errors
+        else
+          !local.error_msg
+        ; if !body.need_eval => 1 then
+            <conc> (<id>, body.errors)
+          end
+        end
     )}
 
     "define" -> Id {reject}
@@ -638,50 +653,81 @@ exports
 
     Id                                             -> TemplateCall {cons("TemplateCallNoArgs"),
     attributes(typecheck:
-      root.eval :=
+      %% desugar the current tree and evaluate the desugared version.
+      root.replace :=
         ?this
-      ; !root.all_env
-      ; template-koening-lookup(| Id.simple_name, [] ) => [<id> | _]
-      ; get-template-definition
+      ; \ TemplateCallNoArgs(i) -> TemplateCallNoBody(i, []) \
+      ; prepare-tree
       ; bridge-attributes(|
-          this, "process", "td_all_env"
-        , <id>, "process", "td_all_env"
+          this, "typecheck", "lr_env_inh"
+        , <id>, "typecheck", "lr_env_inh"
         )
       ; bridge-attributes(|
-          this, "process", "bu_errors"
-        , <id>, "process", "bu_errors"
+          this, "typecheck", "lr_env_syn"
+        , <id>, "typecheck", "lr_env_syn"
+        )
+      ; bridge-attributes(|
+          this, "typecheck", "bu_errors"
+        , <id>, "typecheck", "bu_errors"
+        )
+      ; bridge-attributes(|
+          this, "typecheck", "td_all_env"
+        , <id>, "typecheck", "td_all_env"
+        )
+      ; bridge-attributes(|
+          this, "typecheck", "td_class"
+        , <id>, "typecheck", "td_class"
+        )
+      ; bridge-attributes(|
+          this, "typecheck", "td_need_eval"
+        , <id>, "typecheck", "td_need_eval"
         )
       ; attr-eval
-      ; rules(Bridge: _ -> 1)                                 %% ping
-      ; <get-attribute> (<id>, "process", "is-external") => 1 %% pong
-     <+ !0
 
-      root.errors :=
-        !root.eval => 1 < fail + ![]
+      root.errors := not(!root.replace)
+      root.env_syn := not(!root.replace)
     )}
 
     Id "(" args:{Exp ","}* ")"                     -> TemplateCall {cons("TemplateCallNoBody"),
     attributes(typecheck:
+      %% this attribute is here to generate the code for attr-eval
+      %% to be able to target this production.
+      root.replacement := not(extern); !1
+
       root.eval :=
         ?this
+      ; test(!root.need_eval => 1)
+      ; <debug(!"** looking for % with args = % ** : ")> (Id.simple_name, args.type_list)
       ; !root.all_env
       ; template-koening-lookup(| Id.simple_name, args.type_list ) => [<id> | _]
       ; get-template-definition
+      ; debug(!"** template definition ** : ")
       ; bridge-attributes(|
-          this, "process", "td_all_env"
-        , <id>, "process", "td_all_env"
+          this, "typecheck", "td_all_env"
+        , <id>, "typecheck", "td_all_env"
         )
       ; bridge-attributes(|
-          this, "process", "bu_errors"
-        , <id>, "process", "bu_errors"
+          this, "typecheck", "bu_errors"
+        , <id>, "typecheck", "bu_errors"
         )
+      ; debug(!"** launch attr-eval: ")
       ; attr-eval
-      ; rules(Bridge: _ -> 1)                                 %% ping
-      ; <get-attribute> (<id>, "process", "is-external") => 1 %% pong
+      ; rules(Bridge: _ -> 1)                                   %% ping
+      ; <get-attribute> (<id>, "typecheck", "is-external") => 1 %% pong
+      ; say(!"** bridge closed **")
      <+ !0
+      ; say(!"** bridge opened **")
 
       root.errors :=
-        !root.eval => 1 < fail + ![]
+        if !root.need_eval => 1 then
+          !root.eval => 1
+        < fail
+        + ![<concat-strings> [
+            "template definition of '", Id.simple_name,"' not found."
+          ]]
+        else
+          ![]
+        end
     )}
 
     Id "(" Id ":" Sort ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallDeclaredType"),
@@ -714,7 +760,10 @@ exports
   context-free syntax
 
     "init" Block  -> InitAction {cons("InitAction"),prefer}
-    "action" Id "(" {FormalArg ","}* ")" Block  -> Action {cons("Action")}
+    "action" Id "(" {FormalArg ","}* ")" Block  -> Action {cons("Action"),
+    attributes(typecheck:
+      Block.class := !GlobalSort()
+    )}
 
     Action		       -> Definition
     Statement*		   -> Statements
@@ -862,7 +911,10 @@ exports
 
   context-free syntax
 
-    "rules" Rule* -> Definition {cons("Rules")}
+    "rules" Rule* -> Definition {cons("Rules"),
+    attributes(typecheck:
+      Rule.class := !GlobalSort()
+    )}
 
     Exp "=" Exp -> Rule {cons("Equation")}
 
