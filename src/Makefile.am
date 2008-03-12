@@ -78,7 +78,7 @@ syntax : $(hql).def $(hql).tbl $(hql).rtg $(hql).str \
 %.str : %.rtg
 	rtg2sig -i $< -o $@
 
-%.def : %.sdf $(wildcard org/webdsl/dsl/syntax/*.sdf)
+%.def : %.sdf $(wildcard org/webdsl/dsl/syntax/*.sdf) $(wildcard org/webdsl/dsl/modules/*.sdf)
 	pack-sdf -i $< -o $@ $(STRINCLUDES)
 	
 Mix%.sdf : %.def
