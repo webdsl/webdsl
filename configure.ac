@@ -12,6 +12,7 @@ test "x$prefix" = xNONE && prefix=$ac_default_prefix
 ### DEPENDENCIES ##################################
 
 XT_SETUP
+#XT_USE_BOOTSTRAP_XT_PACKAGES
 
 # comment to make this a stable release
 XT_PRE_RELEASE
@@ -22,6 +23,8 @@ XT_USE_JAVA_FRONT
 AC_PROG_CC
 AC_PROG_INSTALL
 PKG_PROG_PKG_CONFIG
+
+AC_PROG_LIBTOOL
 
 ### OUTPUT ########################################
 

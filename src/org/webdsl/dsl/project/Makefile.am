@@ -31,3 +31,5 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template/src
 	mkdir -p $(pkgdatadir)/template/test
 	mkdir -p $(pkgdatadir)/new_project
+
+bootclean:

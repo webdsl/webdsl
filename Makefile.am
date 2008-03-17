@@ -1,6 +1,8 @@
 include $(top_srcdir)/Makefile.xt
 
-SUBDIRS = src src/org/webdsl/dsl/generation src/org/webdsl/dsl/project
+SUBDIRS = src src/org/webdsl/dsl/project
+
+#src/org/webdsl/dsl/generation 
 
 BOOTCLEAN_SUBDIRS = $(SUBDIRS)
 DIST_SUBDIRS      = $(SUBDIRS)
