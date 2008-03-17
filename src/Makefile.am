@@ -36,9 +36,9 @@ SYNTAXDEFS = $(syntax).def \
 # $(hql).def $(css).def 
 
 TBLS 	= $(syntax).tbl   \
-	  $(metasyntax).tbl $(mixmetasyntax).tbl 
+	  $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl
 
-# $(hql).tbl $(css).tbl $(mixcss).tbl
+# $(hql).tbl $(css).tbl
 
 SIGS 	= $(hql).rtg    $(hql).str \
 	  $(css).rtg    $(css).str \
@@ -116,8 +116,8 @@ org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf
 Mix%.sdf : %.def
 	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@
 
-#.pp.def :
-	ppgen -i $< -o $@
+#.def.pp :
+#	ppgen -i $< -o $@
 
 #%.pp.af : %.pp
 #	parse-pp-table -i $< -o $@
@@ -144,7 +144,8 @@ Mix%.sdf : %.def
 SCFLAGS = --main $*-main
 
 bin_PROGRAMS = dsl-to-seam
-dsl_to_seam_LDADD = -la webdsl-syntax -la webdsl-utils
+dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
+                    libwebdsl-syntax.la libwebdsl-utils.la
 
 STRSOURCES = \
 	$(wildcard org/webdsl/dsl/*/*.str) \

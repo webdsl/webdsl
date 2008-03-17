@@ -31,7 +31,6 @@ AC_PROG_LIBTOOL
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
-src/org/webdsl/dsl/generation/Makefile
 src/org/webdsl/dsl/project/webdsl
 src/org/webdsl/dsl/project/Makefile
 webdsls.pc
