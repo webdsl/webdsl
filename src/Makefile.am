@@ -63,6 +63,7 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.rtree) 
 
 EXTRA_DIST = \
+    $(wildcard *.str) \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
@@ -116,7 +117,7 @@ org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf
 Mix%.sdf : %.def
 	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@
 
-#.def.pp :
+#.pp.def :
 #	ppgen -i $< -o $@
 
 #%.pp.af : %.pp
@@ -154,6 +155,8 @@ STRSOURCES = \
 dsl-to-seam.c : dsl-to-seam.str $(STRSOURCES:.str=.rtree)
 
 BOOTCLEANFILES = dsl-to-seam.c
+
+CFLAGS = -O0 -pipe -g
 
 #dsl_to_seam_SOURCES = dsl-to-seam.c
 
