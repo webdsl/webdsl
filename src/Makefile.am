@@ -28,12 +28,11 @@ generator = org/webdsl/dsl/generation/dsl-to-seam
 #         $(metasyntax).def $(metasyntax).tbl \
 #         $(mixmetasyntax).def $(mixmetasyntax).tbl
 
-MIXES 	= $(mixhql).sdf
+# MIXES 	= $(mixhql).sdf
 
 SYNTAXDEFS = $(syntax).def \
-	  $(mixcss).def $(metasyntax).def $(mixmetasyntax).def
-
-# $(hql).def $(css).def 
+	  $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
+	  $(hql).def $(css).def  # used for mixing
 
 TBLS 	= $(syntax).tbl   \
 	  $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl
@@ -99,7 +98,16 @@ STRCFLAGS = \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
-	--format-check 0
+	--format-check 0 \
+	$(SCLIMITWARNS)
+
+# Disable some of the bogus warnings:
+# - multiple external references are the unfortunate effect of librarification and is out of our control right now
+# - nullary constructor warnings are not interesting unless they're lowercase imho, like 'top'
+#   specifically, you don't want warnings for nullary constructor builds, especially for overlays (e.g., |[ e_UTILS.isInstance(...) ]|)
+#
+SCLIMITWARNS = 2>&1 | grep -vE 'warning ] Nullary constructor .*[A-Z]|warning ] multiple external| \[ExtSDef\("' \
+               >&2
 
 SDF2RTG_FLAGS = --main `basename $*`
 
@@ -156,11 +164,10 @@ dsl-to-seam.c : dsl-to-seam.str $(STRSOURCES:.str=.rtree)
 
 BOOTCLEANFILES = dsl-to-seam.c
 
-CFLAGS = -O0 -pipe -g
-
 #dsl_to_seam_SOURCES = dsl-to-seam.c
 
-
+.str.c : 
+	$(SCOMPILE) $(STRINCLUDES) $(SCFLAGS) -i $< -o $@ -c $(STRCFLAGS) 
 
 #.str.rtree :
 #	sglri $(STRINCLUDES) --amb off -p $(STRATEGOTBL_UNINSTALLED) -i $< -o $@
@@ -184,7 +191,7 @@ libwebdsl_syntax_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
 libwebdsl_syntax_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_syntax_la_LIBADD   =  $(STRATEGO_XTC_UNINSTALLED_LIBS) $(STRATEGO_GPP_UNINSTALLED_LIBS) $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-syntax.rtree libwebdsl-syntax.c : $(webdslsyntaxlib:.str=.rtree) $(TBLS) $(PPTABLES)
+libwebdsl-syntax.rtree libwebdsl-syntax.c : $(webdslsyntaxlib:.str=.rtree) $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-syntax.str -o libwebdsl-syntax.rtree --verbose 1 $(STRCFLAGS)
 	rm libwebdsl-syntax.str
 
