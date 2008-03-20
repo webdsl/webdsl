@@ -52,6 +52,7 @@ PGEN_FLAGS = -m `basename $*`
 CLEANFILES = \
     $(wildcard *.c) \
     $(wildcard *.dep) \
+    $(wildcard *.rtree) \
     $(wildcard org/webdsl/dsl/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.tbl) \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
@@ -59,17 +60,18 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.o) \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
-    $(wildcard org/webdsl/dsl/*/*.rtree) 
+    $(wildcard org/webdsl/dsl/*/*.rtree) \
+    $(wildcard org/webdsl/dsl/modules/*/*.rtree) 
 
 EXTRA_DIST = \
     $(wildcard *.str) \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.meta) \
-    $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*.str) \
-    $(wildcard org/webdsl/dsl/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
-    $(wildcard org/webdsl/dsl/*/*.pp)
+    $(wildcard org/webdsl/dsl/*/*.pp) \
+    $(wildcard org/webdsl/dsl/modules/*/*.str) \
+    $(wildcard org/webdsl/dsl/modules/*/*.meta)
 
 PPTABLES = \
 	$(syntax)-pretty.pp.af \
@@ -153,6 +155,7 @@ Mix%.sdf : %.def
 SCFLAGS = --main $*-main
 
 bin_PROGRAMS = dsl-to-seam
+
 dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
                     libwebdsl-syntax.la libwebdsl-utils.la
 
@@ -191,7 +194,7 @@ libwebdsl_syntax_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
 libwebdsl_syntax_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_syntax_la_LIBADD   =  $(STRATEGO_XTC_UNINSTALLED_LIBS) $(STRATEGO_GPP_UNINSTALLED_LIBS) $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-syntax.rtree libwebdsl-syntax.c : $(webdslsyntaxlib:.str=.rtree) $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
+libwebdsl-syntax.rtree libwebdsl-syntax.c : $(webdslsyntaxlib:.str=.rtree) $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-utils.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-syntax.str -o libwebdsl-syntax.rtree --verbose 1 $(STRCFLAGS)
 	rm libwebdsl-syntax.str
 
