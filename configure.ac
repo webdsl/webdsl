@@ -25,6 +25,7 @@ AC_PROG_INSTALL
 PKG_PROG_PKG_CONFIG
 
 AC_PROG_LIBTOOL
+AC_DISABLE_STATIC
 
 ### OUTPUT ########################################
 
