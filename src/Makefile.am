@@ -85,7 +85,9 @@ STRCFLAGS = \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
-	--format-check 0	
+	--format-check 0
+
+XTC_IMPORT = $(JAVA_FRONT_XTC)
 
 # Disable some of the bogus warnings:
 # - multiple external references are the unfortunate effect of librarification and is out of our control right now

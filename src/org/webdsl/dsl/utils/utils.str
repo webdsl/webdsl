@@ -5,6 +5,7 @@ imports
   //Java-15
   libjava-front
   libstratego-gpp
+  libstratego-xtc // TODO: XTC detox
 
 imports
   org/webdsl/dsl/utils/xml-doc2abox
@@ -73,13 +74,12 @@ signature
 strategies
 
   java-file-to-file =
-    ? JavaFile(name, _)
+    ? JavaFile(name, doc)
     ; (
         java-file-to-text-file
         ; text-file-to-file
-      <+
-        //try(?JavaFile(_, <class-name>));
-        warn(|"Internal error: failed to output Java file")
+        <+ 
+          <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
       )
 
   //java-file-to-text-file :
@@ -90,12 +90,12 @@ strategies
 
   java-file-to-text-file :
     JavaFile(prefix, cu) -> TextFile(filename, text)
-    where pkg := <package-name> cu
-        ; name := <class-name> cu
-        ; path := <conc; create-dirs> (prefix, pkg)
+    where pkg      := <package-name> cu
+        ; name     := <class-name> cu
+        ; path     := <conc; create-dirs> (prefix, pkg)
         ; filename := <concat-strings> [path, "/", name, ".java"]
-        ; java := <java-concat-ids; core-lift-eblocks> cu
-        ; text := <pp-java5-to-string> java
+        ; java     := <java-concat-ids; core-lift-eblocks> cu
+        ; text     := <pp-java5-to-string> java
 
   package-name :
     CompilationUnit(Some(PackageDec(_, PackageName(ids))), _, _) -> xs
@@ -122,6 +122,18 @@ strategies
 
   xml-file-to-text-file :
     XmlFile(pkg, name, doc) -> TextFile(filename, text)
-    where path := <create-dirs> pkg
-      ; filename := <concat-strings> [path, "/", name]
-      ; text := <xml-doc2abox; box2text-string(|80) <+ write-to-string> doc
+    where path     := <create-dirs> pkg
+        ; filename := <concat-strings> [path, "/", name]
+        ; xml      := <xml-doc2abox> doc
+        ; text     := <box2text-string(|80)> xml
+        <+ 
+          <pp-format-checker-error(|"Internal error: generated XML AST is malformed", "xml-doc.rtg")> doc
+   
+   // TODO: Only dump ASTs if verbosity is 2; needs support for verbose parameter in webdsl script
+   pp-format-checker-error(|msg, rtg) =
+      err-msg(|msg)
+    ; write-to => FILE(file)
+    ; try(<xtc-command(!"format-check")> ["--vis", "-i", file, "--rtg", <xtc-find> rtg | <pass-verbose>])
+    ; log(|Critical(), "Fatal errors encountered in generated code")
+    ; <xtc-exit> 1
+     
