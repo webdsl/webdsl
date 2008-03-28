@@ -14,36 +14,34 @@ imports
   org/webdsl/dsl/transformation/-
 
 rules
-
-  create-ac-pointcuts=
-    try(sometd(declare-ac-pointcuts))
-    ; try(sometd(desugar-ac-pointcuts))
-
-  declare-ac-pointcuts:
-    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems)
-    where {| pointcut-formal-argument :
-             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
-           ; <filter(declare-ac-pointcut-element(|pname,fa))> elems
-          |}
-
-  declare-ac-pointcut-element(|pname,fa):
-    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
-    where faidentsargs := MatchArgs(<map(pointcut-formal-argument)> faidents,wc)
-        ; newPointcutList := <concat> [<AccessControlPointcuts<+![]> (pname,fa),[(ident,matchident,faidentsargs)]]
-        ; rules(
-            AccessControlPointcuts: (pname,fa) -> newPointcutList
+  //declaration of principal
+  // there can be only one of these (not yet checked)
+  Desugar:
+    AccessControlPrincipal($ident,props) -> 
+        def |[
+                session securityContext {
+                    loggedIn  :: Bool
+                    principal   -> $ident
+                }
+                //predicate loggedIn()
+                //{
+                //  securityContext.principal != null
+                //}
+            ]|
+    where rules (
+            AccessControlEnabled := True()
           )
 
-  desugar-ac-pointcuts:
-    AccessControlDefinition(name,elems) -> AccessControlDefinition(name,<map(try(desugar-ac-pointcuts));concat-with-sublists>elems)
 
-  desugar-ac-pointcuts:
-    AccessControlPointcut(name,fa,elems) -> []
 
-  concat-with-sublists=
-    foldr(![], (is-list, id) < conc + MkCons)
-
-  desugar-ac-pointcuts:
+  //pointcuts
+  Desugar: 
+    AccessControlDefinition(ident,decs) -> AccessControlDefinition(ident,newdecs)
+    where <fetch(?AccessControlRule("pointcut",_,_,_,_))> decs
+        ; newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
+        ; not(fetch(?AccessControlRule("pointcut",_,_,_,_)))//fail if pointcut not found yet
+    
+  desugar-pointcut-rule :
     AccessControlRule("pointcut",matchident,args,check,childrules) -> newrules
     where MatchArgs(fargs,wc) := args
         ; rulematchtuples := <AccessControlPointcuts> (matchident,fargs)
@@ -52,6 +50,11 @@ rules
   rule-tuple-to-ac-rule(|check,childrules):
     (ident,matchident,matchargs) -> AccessControlRule(ident,matchident,matchargs,check,childrules)
 
+  concat-with-sublists=
+    foldr(![], (is-list, id) < conc + MkCons)   
+  
+  
+  
   // rules for actions are inherited from rule for page if no action rules are provided
   desugar-access-control =
     try(sometd(DesugarAccessControlRule))
@@ -69,6 +72,24 @@ rules
   DesugarAccessControlRule =
     ?AccessControlRule("page", x, fargs, check, [a|xs])
 
+  
+  
   //anonymous policy block syntactic normalization
   Desugar:
     AccessControlDefinition(None(),defs) -> AccessControlDefinition(Some("anonymous"),defs)
+    
+    
+ 
+  //predicate definitions
+  Desugar:
+    pr@Predicate($ident,farg*,exp) ->
+      def |[
+        globals{
+          function $ident ( farg* ) : Bool
+          {
+            return e0;
+          }
+        }        
+      ]|
+    where $predname := <newname> "predicate"
+        ; e0 := <add-not-null-checks> exp

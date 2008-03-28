@@ -16,30 +16,32 @@ imports
 
 rules
   process-access-control=
-    declare-access-control
+    //declare-access-control
 
-    ; typecheck-access-control(typecheck-access-control-pointcuts|)
-    ; create-ac-pointcuts
-    ; desugar-access-control
+    //; typecheck-access-control(typecheck-access-control-pointcuts|)
+   // create-ac-pointcuts
+    //; desugar-access-control
 
-    ; typecheck-access-control(typecheck-access-control-declarations|)
-    ; generate-access-control-declarations
-    ; if AccessControlEnabled then
-      ( derive
-      ; desugar //needed when securityContext is extended
-      ; declare-definitions
+    //; typecheck-access-control(typecheck-access-control-declarations|)
+    //; generate-access-control-declarations
+    if AccessControlEnabled then
+      ( 
+      //; typecheck-access-control(typecheck-access-control-predicates|)
+      //generate-access-control-predicates
+      //; derive
+      //; declare-definitions
 
-      ; typecheck-access-control(typecheck-access-control-predicates|)
-      ; generate-access-control-predicates
-      ; derive
-      ; declare-definitions
-
-      ; typecheck-access-control(typecheck-access-control-rules-checks|)
-      ; generate-access-control-rules-checks
+      //; typecheck-access-control(typecheck-access-control-rules-checks|)
+      topdown(try(generate-access-control-rules-checks))
+      ; topdown(try(remove-all(?AccessControlDefinition(_,_))))
       
       ; access-control-weaving
 
       ; add-access-denied-page
+      
+      //remove overall policy declaration
+      ; topdown(try(remove-all(?ACPolicy(_))))// can be removed during transformation
+      
       ; where(warn-for-unused-rules)
     )
     end
@@ -68,67 +70,36 @@ rules
         ]|
       ]
 
-  generate-access-control-predicates :
-    Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
+  ///generate-access-control-predicates :
+   // Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
 
-  generate-access-control-preds:
-    AccessControlDefinition(name,defs) -> <filter(access-control-predicates)> defs
+ // generate-access-control-preds:
+  //  AccessControlDefinition(name,defs) -> <filter(access-control-predicates)> defs
 
-  generate-access-control-declarations :
-    Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-decs);concat> sections, sections] )
+  //generate-access-control-rules-checks =
+    //Application(qid, sections) -> Application(qid,<map(try(remove-ac-decs))> sections )
+    //where 
+   // <collect(generate-access-control-rules-checks)> sections
 
-  generate-access-control-rules-checks :
-    Application(qid, sections) -> Application(qid,<map(try(remove-security-decs))> sections )
-    where <collect(generate-access-control-rules-checks)> sections
+ // remove-ac-decs=
+  //  topdown(try(remove-all(?ACPolicy(_))))
+  
+  ///remove-security-decs:
+  //  Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
 
-  remove-security-decs:
-    Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
-
-  remove-security-decs:
-    Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_,_)))>defs)
-
-  generate-access-control-decs:
-    AccessControlDefinition(name,defs) -> <filter(security-subject)> defs
-    where rules (
-      AccessControlEnabled := True()
-    )
-
-  access-control-predicates:
-    pr@Predicate($ident,farg*,exp) ->
-      |[
-        section ac $predname.
-        globals
-        {
-          function $ident ( farg* ) : Bool
-          {
-            return e0;
-          }
-        }
-      ]|
-    where $predname := <newname> "predicate"
-        ; e0 := <add-not-null-checks> exp
+  //remove-security-decs:
+  //  Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_,_)))>defs)
 
   generate-access-control-rules-checks:
-    AccessControlDefinition(groupname,defs) -> <filter(create-rule-classes(|groupname))> defs
-
-  // there can be only one of these (not yet checked)
-  security-subject:
-    AccessControlPrincipal($ident,props) ->
-            |[
-                section generated security.
-
-                session securityContext {
-                      loggedIn  :: Bool
-                    principal   -> $ident
-                }
-            ]|
+    AccessControlDefinition(groupname,defs) -> AccessControlDefinition(groupname,defs)
+    where <filter(create-rule-classes(|groupname))> defs
 
   create-rule-classes(|groupname):
-    st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> []
+    st@AccessControlRule(_,_,_,_,_) -> st
     where def0* := <create-rule-classes-helper(|groupname)> st
 
   create-rule-classes-helper(|groupname):
-    st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <fail>
+    st@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> st
     where Some(gname) := groupname
         ; newlistfromtype := <concat> [<Security-Rules-List-From-Type <+ ![]> (gname,checktype) , [st] ]
         ; rules(
@@ -222,19 +193,19 @@ rules
     )
     ; !rulecheckactions
 
-  generate-definition-from-check(|$rulename):
-    (index,check) -> def|[
-                        globals{
-                          var $varname :AccessControlCheck := AccessControlCheck{
-                          rule := $rulename
-                          description := str0 };
+  //generate-definition-from-check(|$rulename):
+  //  (index,check) -> def|[
+  //                     
+   //                       var $varname :AccessControlCheck := AccessControlCheck{
+   //                       rule := $rulename
+   //                       description := str0 };
 
-                        }
-                     ]|
-   where $varname := <concat-strings> ["check",$rulename,<int-to-string> index]
-   ; str0 := <pp-webdsl-to-string; double-quote; explode-string; filter(not(?'\n')); implode-string> check
+                        
+   //                  ]|
+  // where $varname := <concat-strings> ["check",$rulename,<int-to-string> index]
+  // ; str0 := <pp-webdsl-to-string; double-quote; explode-string; filter(not(?'\n')); implode-string> check
 
-  vars-to-props:
+  /*vars-to-props:
     Arg($ident,$argsort) -> |[ $ident -> $classname]|
     where <defined-java-type> $argsort
         ; SimpleSort($classname) := $argsort
@@ -247,7 +218,7 @@ rules
   vars-to-props:
     Arg($ident,$argsort) -> |[ $ident -> $gentype<$thesort>]|
     where GenericSort($gentype,$thesort) := $argsort
-        ; <defined-java-type> $thesort
+        ; <defined-java-type> $thesort*/
 
   // only supports tail wildcards (*) so far
   find-most-applicable-target-filter(|name,vars):
