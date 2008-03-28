@@ -4,6 +4,12 @@
 " Last Change:  2008 March 26
 " Filenames:	*.app
 " URL:		
+"
+" To use, include the following in your ~/.vim/filetype.vim:
+"    augroup filetypedetect
+"       au! BufRead,BufNewFile *.app setfiletype webdsl
+"    augroup END
+
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
