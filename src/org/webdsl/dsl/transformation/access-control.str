@@ -29,6 +29,7 @@ rules
       //topdown(try(generate-access-control-rules-checks))
       ; topdown(try(remove-all(?AccessControlDefinition(_,_))))
       ; topdown(try(WeaveAccessControl))
+      ; try(alltd(WeaveAccessControlOM))
       //; new-access-control-weaving
     //  ; access-control-weaving
   //  ; where(<WeaveAccessControl> Define([Page()],"test",[],[]))
@@ -38,7 +39,7 @@ rules
       //remove overall policy declaration
       ; topdown(try(remove-all(?ACPolicy(_))))// can be removed during transformation
       
-      ; where(warn-for-unused-rules)
+      //; where(warn-for-unused-rules)
     end
     
   new-generate-access-control-rules-checks:
@@ -48,40 +49,53 @@ rules
                <+ create-action-rule(|groupname)
                <+ {x:?x; !["rule unknown: ",x];debug}
                   )> defs
-
+                  
+  get-formarg-from-matcharg:
+    MatchArgs(formarg,wc)->formarg
+  get-varname-from-formarg:
+    Arg(ident,srt)->Var(ident)
+    
+    
   create-page-rule(|x_rulegroup):
     acrule@AccessControlRule("page",x_pagename,farg1*,e,acrules) -> acrule
-    where   x_predname := <newname> "generatedpredicate"
-          //; <emit-webdsl-code> def|[ predicate x_predname(farg1*) { e } ]|  parse fails at first p...
-         // ; <emit-webdsl-code> Predicate(x_predname,<\MatchArgs(formarg,wc)->formarg\>farg1*,e) just won't be desugared
-          ; <emit-webdsl-code> Function(x_predname,<\MatchArgs(formarg,wc)->formarg\>farg1*,SimpleSort("Bool"),Block(webdsl|[ return e; ]|))
-          ; rules(
-            WeaveAccessControl:
-              def|[ define page x_pagename(farg*) { elem* } ]| -> 
-              def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,e) //x_predname(e*))
-                                                    elem* } ]|
-              where <debug> ["page rule applied",x_pagename]
-                 // ; e* := <map(\Arg(ident,srt)->Var(ident)\)> farg*
-                
-                
-                 // ; {| WeaveAccessControl:
-                 //      map()  
-                 //      ; elem1 := <topdown(try(WeaveAccessControl))> elem*
-                 //    |}  
-          )
-          
-          ; <debug> ["page rule created",x_pagename]
+    where x_predname := <newname> "genpagepredicate"
+        ; farg2* := <get-formarg-from-matcharg> farg1*
+        //; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]| //doesn't parse
+        ; <Desugar;emit-webdsl-code> Predicate(x_predname,farg2*,e) 
+        ; rules( WeaveAccessControl:
+                   def|[ define page x_pagename(farg*) { elem* } ]| -> 
+                   def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
+                                                         elem1* } ]|
+                   where <debug> ["page rule applied",x_pagename]
+                       ; e* := <map(get-varname-from-formarg)> farg*
+                       //nested actions
+                       ; {| WeaveAccessControl:
+                            <map(create-action-rule(|x_rulegroup))> acrules
+                            ; elem1* := <topdown(try(WeaveAccessControl))> elem*
+                          |}  
+               )
+        ; rules( WeaveAccessControlOM: 
+                   tc@TemplateCall("navigate",[ThisCall(x_pagename,args)],_) -> newtc
+                   where e* := <map(get-varname-from-formarg)> args
+                       ; newtc := IfTempl( |[ x_predname(e*) ]| ,[tc])
+               )
+        ; <debug> ["page rule created",x_pagename]
           
   create-action-rule(|x_rulegroup):
-    acrule@AccessControlRule("action",x_actionname,fargs,e,acrules) -> acrule
-    where rules(   
+    acrule@AccessControlRule("action",x_actionname,farg1*,e,acrules) -> acrule
+    where x_predname := <newname> "genactionpredicate"
+        ; farg2* := <get-formarg-from-matcharg> farg1*
+        ; <Desugar;emit-webdsl-code> Predicate(x_predname,farg2*,e) 
+        ; rules(   
             WeaveAccessControl:
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
-              elem|[ action x_actionname(farg*) { acactioncheck (x_rulegroup, e);
+              elem|[ action x_actionname(farg*) { acactioncheck(x_rulegroup,x_predname(e*));
                                                   stat* } ]|
               where <debug> ["action rule applied",x_actionname]
+              ; e* := <map(get-varname-from-formarg)> farg*
           )
           ; <debug> ["action rule created",x_actionname]
+           
 
   create-template-rule(|x_rulegroup):
     acrule@AccessControlRule("template",x_templname,fargs,e,acrules) -> acrule
@@ -93,19 +107,7 @@ rules
               where <debug> ["template rule applied",x_templname]
           )
           ; <debug> ["template rule created",x_templname]
-
-
-  warn-for-unused-rules=
-    !<All-AC-Rules<+![]>
-    ; map(try(check-usage-of-rule))
-  check-usage-of-rule=
-    ?acr@AccessControlRule(checktype,matchstring,fargs,check,acrules)
-    ; !(acr,<Used-AC-Rules<+![]>)
-    ; not(elem)
-    ; !AccessControlRule(checktype,matchstring,fargs,check,[])//don't show nested rules, that gives too much information
-    ; pp-webdsl-to-string
-    ; warn(|["warning: in access control rules: rule not used: "])
-
+          
   add-access-denied-page:
     Application(qid, sections) -> Application(qid, <concat>[sections, deniedpage])
     where deniedpage :=
@@ -118,8 +120,21 @@ rules
           }
         ]|
       ]
+
   
 //---------------------------------------------------------------------------  
+
+
+  warn-for-unused-rules=
+    !<All-AC-Rules<+![]>
+    ; map(try(check-usage-of-rule))
+  check-usage-of-rule=
+    ?acr@AccessControlRule(checktype,matchstring,fargs,check,acrules)
+    ; !(acr,<Used-AC-Rules<+![]>)
+    ; not(elem)
+    ; !AccessControlRule(checktype,matchstring,fargs,check,[])//don't show nested rules, that gives too much information
+    ; pp-webdsl-to-string
+    ; warn(|["warning: in access control rules: rule not used: "])
   
   generate-access-control-rules-checks:
     AccessControlDefinition(groupname,defs) -> AccessControlDefinition(groupname,defs)

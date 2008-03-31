@@ -16,7 +16,8 @@ rules
 
 
   process-access-control-checks =
-    topdown(try(process-page-checks))
+    topdown(try(   process-page-checks
+                <+ process-action-checks))
   
   process-page-checks:
     Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,[newtempelement|tempelement1])
@@ -28,8 +29,19 @@ rules
                                                   <+ ?TemplateCall("acpagecheck",_,_))))> tempelement
         ; newtempelement := elem |[ init { if ( e ) { stat* } else { goto accessDenied(); } } ]|
  
-        
-  
+  process-action-checks:
+    Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
+    where listofchecks := <collect(\Stat(ThisCall("acactioncheck",[x_ident|[e]])) -> e \)> statements
+        ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+        //remove ac calls
+        ; statements1 := <topdown(try(remove-all(?Stat(ThisCall("acactioncheck",_)))))> statements
+        //determine whether it returns to the same or a different page, to either redirect with goto or return
+        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> statements1
+        ; if returnstat := [] 
+          then returnstats := [|[ goto(accessDenied()); ]|] 
+          else returnstats := [|[ return(accessDenied()); ]|] end
+        ; newstatements := [If(e1,Block(statements1),Block(returnstats))]    
+                           
 //----------------------------------------------------------------------
 
 
