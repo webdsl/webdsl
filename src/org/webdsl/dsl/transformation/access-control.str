@@ -25,17 +25,13 @@ rules
     //; typecheck-access-control(typecheck-access-control-declarations|)
     //; generate-access-control-declarations
     if AccessControlEnabled then
-      ( 
-      //; typecheck-access-control(typecheck-access-control-predicates|)
-      //generate-access-control-predicates
-      //; derive
-      //; declare-definitions
-
-      //; typecheck-access-control(typecheck-access-control-rules-checks|)
-      topdown(try(generate-access-control-rules-checks))
+      topdown(try(new-generate-access-control-rules-checks))
+      //topdown(try(generate-access-control-rules-checks))
       ; topdown(try(remove-all(?AccessControlDefinition(_,_))))
-      
-      ; access-control-weaving
+      ; topdown(try(WeaveAccessControl))
+      //; new-access-control-weaving
+    //  ; access-control-weaving
+  //  ; where(<WeaveAccessControl> Define([Page()],"test",[],[]))
 
       ; add-access-denied-page
       
@@ -43,8 +39,61 @@ rules
       ; topdown(try(remove-all(?ACPolicy(_))))// can be removed during transformation
       
       ; where(warn-for-unused-rules)
-    )
     end
+    
+  new-generate-access-control-rules-checks:
+    AccessControlDefinition(Some(groupname),defs) -> AccessControlDefinition(Some(groupname),defs)
+    where <map(   create-page-rule(|groupname) 
+               <+ create-template-rule(|groupname)
+               <+ create-action-rule(|groupname)
+               <+ {x:?x; !["rule unknown: ",x];debug}
+                  )> defs
+
+  create-page-rule(|x_rulegroup):
+    acrule@AccessControlRule("page",x_pagename,farg1*,e,acrules) -> acrule
+    where   x_predname := <newname> "generatedpredicate"
+          //; <emit-webdsl-code> def|[ predicate x_predname(farg1*) { e } ]|  parse fails at first p...
+         // ; <emit-webdsl-code> Predicate(x_predname,<\MatchArgs(formarg,wc)->formarg\>farg1*,e) just won't be desugared
+          ; <emit-webdsl-code> Function(x_predname,<\MatchArgs(formarg,wc)->formarg\>farg1*,SimpleSort("Bool"),Block(webdsl|[ return e; ]|))
+          ; rules(
+            WeaveAccessControl:
+              def|[ define page x_pagename(farg*) { elem* } ]| -> 
+              def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,e) //x_predname(e*))
+                                                    elem* } ]|
+              where <debug> ["page rule applied",x_pagename]
+                 // ; e* := <map(\Arg(ident,srt)->Var(ident)\)> farg*
+                
+                
+                 // ; {| WeaveAccessControl:
+                 //      map()  
+                 //      ; elem1 := <topdown(try(WeaveAccessControl))> elem*
+                 //    |}  
+          )
+          
+          ; <debug> ["page rule created",x_pagename]
+          
+  create-action-rule(|x_rulegroup):
+    acrule@AccessControlRule("action",x_actionname,fargs,e,acrules) -> acrule
+    where rules(   
+            WeaveAccessControl:
+              elem|[ action x_actionname(farg*) { stat* } ]| -> 
+              elem|[ action x_actionname(farg*) { acactioncheck (x_rulegroup, e);
+                                                  stat* } ]|
+              where <debug> ["action rule applied",x_actionname]
+          )
+          ; <debug> ["action rule created",x_actionname]
+
+  create-template-rule(|x_rulegroup):
+    acrule@AccessControlRule("template",x_templname,fargs,e,acrules) -> acrule
+    where rules(   
+            WeaveAccessControl:
+              def|[ define x_templname(farg*) { elem* } ]| -> 
+              def|[ define x_templname(farg*) { actemplcheck (x_rulegroup, e)
+                                                elem* } ]|
+              where <debug> ["template rule applied",x_templname]
+          )
+          ; <debug> ["template rule created",x_templname]
+
 
   warn-for-unused-rules=
     !<All-AC-Rules<+![]>
@@ -69,27 +118,9 @@ rules
           }
         ]|
       ]
-
-  ///generate-access-control-predicates :
-   // Application(qid, sections) -> Application(qid, <concat>[ <collect(generate-access-control-preds);concat> sections, sections] )
-
- // generate-access-control-preds:
-  //  AccessControlDefinition(name,defs) -> <filter(access-control-predicates)> defs
-
-  //generate-access-control-rules-checks =
-    //Application(qid, sections) -> Application(qid,<map(try(remove-ac-decs))> sections )
-    //where 
-   // <collect(generate-access-control-rules-checks)> sections
-
- // remove-ac-decs=
-  //  topdown(try(remove-all(?ACPolicy(_))))
   
-  ///remove-security-decs:
-  //  Module(ident,defs) -> Module(ident,<map(try(remove-security-decs))>defs)
-
-  //remove-security-decs:
-  //  Section(ident,defs) -> Section(ident,<filter(not(?AccessControlDefinition(_,_)))>defs)
-
+//---------------------------------------------------------------------------  
+  
   generate-access-control-rules-checks:
     AccessControlDefinition(groupname,defs) -> AccessControlDefinition(groupname,defs)
     where <filter(create-rule-classes(|groupname))> defs
@@ -183,7 +214,7 @@ rules
       then 
         rulecheckactions := [] 
       else
-        rulecheckactions := <map(\AccessControlCheckExpression(expr)->expr\;add-not-null-checks);generate-conjunction-exp> selectedchecks
+        rulecheckactions := <map(add-not-null-checks);generate-conjunction-exp> selectedchecks
       end
     ;rules
     (
@@ -266,7 +297,7 @@ rules
           end       
 
   fix-var-names-in-check:
-    AccessControlCheckExpression(expr) -> AccessControlCheckExpression(newexpr)
+    expr -> newexpr
     where newexpr:= <alltd(FixVarsInCheck)> expr
 
   extract-sort-from-arg:
@@ -301,7 +332,7 @@ rules
     where newindex := <concat-strings> ["check",<int-to-string> index]
 
   generate-security-checks-from-target-element(|rulename):
-    (index,AccessControlCheckExpression(expr)) -> [ |[ var $varname : Bool := e0; ]| ]
+    (index,expr) -> [ |[ var $varname : Bool := e0; ]| ]
     where $varname := <concat-strings> ["check",<int-to-string> index]
         ; $varnamecheck := <concat-strings> ["check",rulename,<int-to-string> index]
         ; $anyname := <newname> "accessControlCheckResult"
