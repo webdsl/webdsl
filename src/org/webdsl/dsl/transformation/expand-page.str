@@ -13,9 +13,10 @@ rules
 
   expand-page =
     //?Define([Page()], name, args, body1)
-    [ ?tdef|[ define page x(farg*) { elem* } ]| 
-      ; expand-template-definition | expand-page-templates ]
-    
+    {| ThisPage :
+    [ ?tdef|[ define page x(farg*) { elem* } ]| ; rules ( ThisPage := x )
+         ; expand-template-definition | expand-page-templates ] |}
+
   expand-page =
     ?[tdef|[ define x(farg*) { elem* } ]| | <expand-page-templates>]
            
@@ -23,7 +24,15 @@ rules
     tdef|[ define mod* x(farg*){elem1*} ]| -> tdef|[ define mod* x(farg*){elem2*} ]|
     where {| TemplateDefinition, TemplateArguments, IsPage, IsEmail
            : elem2* := <filter(not(declare-template-definition)); map(expand-element)> elem1*
+//         ; <debug> elem1*
+//         ; <debug> ""
+//         ; <debug> elem2*
+           ; <filter(?Define([], _, _, _)); map(bla(|<ThisPage>))> elem1*
            |}
+
+  bla(|page) =
+    ?def@Define([], _, _, _)
+    ; rules( TemplateDefinitionsInPage :+ page -> def )
     
   expand-template-definition-old :
     Define(mods, name, args, body1) -> <dbg(|"expanded")> Define(mods, name, args, body2)
@@ -34,10 +43,37 @@ rules
            |}
            
   expand-element = dbg(|"expand-element: "); (
-    expand-template-call
+    expand-template-call2
+    <+ expand-template-call
     <+ Subst
     <+ all(expand-element)
   )
+  
+  expand-template-call2 =
+//    <debug> ["layoutdef: ", <LayoutDefinition> <DeclaredLayout> <Page>]
+//      layout := <LayoutDefinition> <DeclaredLayout> <Page>
+//    ; <debug> layout
+      <collect(expand-layout-definitions); concat> <LayoutDefinition> <DeclaredLayout> <ThisPage>
+
+  expand-layout-definitions =
+    ?HorLayoutDeclaration(name, declaration)
+    ; <expand-layout-definition> declaration
+
+  expand-layout-definitions =
+    ?HorLayoutDeclaration(names)
+    ; <mapconcat(expand-layout-definition)> names
+
+  expand-layout-definition :
+    template -> elem* |[ elem3* ]|
+    where tdef|[ define mod* x(farg*) { elem3* } ]| := <TemplateDefinition; rename-bound-variables> template
+//          ; {| Subst, TypeOf, Elems
+//             : <zip(bind-variable)> (farg*, <alltd(Subst)> e*)
+//             ; rules( Elems := elem1* )
+//             : elem2* := <map(expand-element)> elem3*
+//             ; str := x
+//             |}
+//          ; <debug> ["template_def: ", elem3*]
+//    ; ![]
              
   expand-template-call :
     elem|[ x(e*){elem1*} ]| -> elem|[ dummy() {elem2*} ]| // @todo: fixme!!!!!
