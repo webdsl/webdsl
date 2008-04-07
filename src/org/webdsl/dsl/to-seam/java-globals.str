@@ -36,17 +36,21 @@ rules // globals to java initialization code
     ?GlobalsDefinition(vardeclinits)
     ; where( pkgname    := <BeanPackage>
              ; pkgname2   := <DomainPackage>
-             // persist right away to get an id
-             ; bstm3* := <filter(vardeclinit-to-persist-statement);concat-with-sublists> vardeclinits
-             //update with assignments
-             ; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
-             //persist updates
-             ; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits
-             ; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
-             ; cbdsglobalfunctions* := <map(function-to-function-code(|[]))>
-                                         <used-global-functions-defs(|"",vardeclinits); // first term argument is not relevant here, because there are no template functions here
-                                           map(try(\ Function(ident,formargs,s,Block([If(_,blck,_)])) -> Function(ident,formargs,s,blck)
-                                                     where not([] := <generate-access-control-checks(|"function",ident,formargs,[],[])>)  \))> //remove ac checks, if found
+             ; {| IsGlobal
+                : info(|"Gooing to undefine vars as globals"); <filter({x : ?VarDeclInit(x, _, _); info(|["Got ", x]); rules( IsGlobal :- x )})> vardeclinits
+                ; info(|"Done with that...")
+                // persist right away to get an id
+                ; bstm3* := <filter(vardeclinit-to-persist-statement);concat-with-sublists> vardeclinits
+                //update with assignments
+                ; bstm1* := <filter(vardeclinit-to-method-call)> vardeclinits
+                //persist updates
+                ; bstm2* := <filter(vardeclinit-to-method-persist-call)> vardeclinits
+                ; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
+                ; cbdsglobalfunctions* := <map(function-to-function-code(|[]))>
+                                            <used-global-functions-defs(|"",vardeclinits); // first term argument is not relevant here, because there are no template functions here
+                                              map(try(\ Function(ident,formargs,s,Block([If(_,blck,_)])) -> Function(ident,formargs,s,blck)
+                                                        where not([] := <generate-access-control-checks(|"function",ident,formargs,[],[])>)  \))> //remove ac checks, if found
+                |}
              ; <emit-java-code> compilation-unit|[
     package pkgname2;
 
@@ -176,7 +180,7 @@ rules // globals to java initialization code
     where if <EntityIdName> x_class
           then idname := <EntityIdName> x_class
                ; idassign := <collect({e:?Assignment(idname, e);!Assign(Assignment(Qualified(x_ident,idname), e))});Hd> exps
-               ; {|IsGlobal: result := [ <rules(IsGlobal :- x_ident);statement-to-java> idassign,bstm |[ entityManager.persist(x_ident); ]| ] |}
+               ; result := [ <statement-to-java> idassign, bstm|[ entityManager.persist(x_ident); ]| ]
           else result := bstm |[ entityManager.persist(x_ident); ]| end
 
   vardeclinit-to-method-call:
@@ -210,13 +214,10 @@ rules // globals to java initialization code
       ; x_t := <sort-to-java-type-string> SimpleSort(x_class)
       ; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
       ; digests := <filter(secret-assigns-to-digest(|x_ident,x_class))> assigns
-      ; {| IsGlobal
-         : <alltd({x : ?Var(x); rules( IsGlobal :- x )})> assigns
-         ; bstmvardeclinit* := <conc>
-                            (<map(\ Assignment(f, e) -> Assign(Assignment(Qualified(x_ident, f), e)) where rules( IsGlobal :- x_ident ) \ )
-                              ; /*desugar-any;*/ statements-to-java> assigns
-                            , digests)
-         |}
+      ; bstmvardeclinit* := <conc>
+                         (<map(\ Assignment(f, e) -> Assign(Assignment(Qualified(x_ident, f), e)) \)
+                           ; /*desugar-any;*/ statements-to-java> assigns
+                         , digests)
 
 //  generate-prop-mapping(|x_ident) :
 //    Property(x, k, s, annos) -> bstm|[
