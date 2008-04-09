@@ -1,0 +1,216 @@
+module org/webdsl/dsl/modules/types/date
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  libwebdsl-front
+    
+rules // Desugaring
+
+  DeriveInput :
+    elem|[ input(e){} ]| -> elem|[ inputDate(e){} ]|
+    where SimpleSort("Date") := <type-of> e
+    
+  DeriveOutput :
+    elem|[ output(e){} ]| -> elem|[ outputDate(e){} ]|
+    where SimpleSort("Date") := <type-of> e
+
+  DeriveInput :
+    elem|[ input(e){} ]| -> elem|[ inputTime(e){} ]|
+    where SimpleSort("Time") := <type-of> e
+    
+  DeriveOutput :
+    elem|[ output(e){} ]| -> elem|[ outputTime(e){} ]|
+    where SimpleSort("Time") := <type-of> e
+
+  DeriveInput :
+    elem|[ input(e){} ]| -> elem|[ inputDateTime(e){} ]|
+    where SimpleSort("DateTime") := <type-of> e
+    
+  DeriveOutput :
+    elem|[ output(e){} ]| -> elem|[ outputDateTime(e){} ]|
+    where SimpleSort("DateTime") := <type-of> e
+
+rules // Peristence annotations
+
+  builtin-persistence-annotations :
+    SimpleSort("Time") -> [anno|[ @Temporal(TemporalType.TIME) ]|]
+    
+  builtin-persistence-annotations :
+    SimpleSort("Date") -> [anno|[ @Temporal(TemporalType.DATE) ]|]
+    
+  builtin-persistence-annotations :
+    SimpleSort("DateTime") -> [anno|[ @Temporal(TemporalType.TIMESTAMP) ]|]
+    
+  call-to-java :
+    ThisCall("now", []) -> java|[ new java.util.Date() ]|
+
+  call-to-java :
+    ThisCall("Date", [d, f]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, e2) ]|
+    where e1 := <expression-to-java> d
+        ; e2 := <expression-to-java> f
+
+  call-to-java :
+    ThisCall("Date", [d]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, "dd/MM/yyyy") ]|
+    where e1 := <expression-to-java> d
+
+  call-to-java :
+    ThisCall("Time", [d, f]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, e2) ]|
+    where e1 := <expression-to-java> d
+        ; e2 := <expression-to-java> f
+
+  call-to-java :
+    ThisCall("Time", [d]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, "H:mm") ]|
+    where e1 := <expression-to-java> d
+
+  call-to-java :
+    ThisCall("DateTime", [d, f]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, e2) ]|
+    where e1 := <expression-to-java> d
+        ; e2 := <expression-to-java> f
+
+  call-to-java :
+    ThisCall("DateTime", [d]) -> java|[ org.webdsl.tools.Utils.parseDate(e1, "dd/MM/yyyy H:mm") ]|
+    where e1 := <expression-to-java> d
+
+rules // Typechecking
+
+  // @todo: sort-to-java-type-string is redundant; use pp-java-string if you want strings
+
+  sort-to-java-type-string : SimpleSort("Date") -> "java.util.Date"
+  sort-to-java-type-string : SimpleSort("DateTime") -> "java.util.Date"  
+  sort-to-java-type-string : SimpleSort("Time") -> "java.util.Date"
+
+  builtin-java-type : 
+    SimpleSort("Date") -> type|[ java.util.Date ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("Date") -> |[ new java.util.Date() ]|
+    
+  builtin-java-type : 
+    SimpleSort("DateTime") -> type|[ java.util.Date ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("DateTime") -> |[ new java.util.Date() ]|
+    
+  builtin-java-type : 
+    SimpleSort("Time") -> type|[ java.util.Date ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("Time") -> |[ new java.util.Date() ]|
+    
+rules // Typechecking
+
+  check-builtin-signature :
+    (None(), "now", []) -> SimpleSort("DateTime")
+
+  check-builtin-signature :
+    (None(), "Date", [SimpleSort("String"), SimpleSort("String")]) -> SimpleSort("Date")
+
+  check-builtin-signature :
+    (None(), "Date", [SimpleSort("String")]) -> SimpleSort("Date")
+
+  check-builtin-signature :
+    (None(), "Time", [SimpleSort("String"), SimpleSort("String")]) -> SimpleSort("Time")
+
+  check-builtin-signature :
+    (None(), "Time", [SimpleSort("String")]) -> SimpleSort("Time")
+
+  check-builtin-signature :
+    (None(), "DateTime", [SimpleSort("String"), SimpleSort("String")]) -> SimpleSort("DateTime")
+
+  check-builtin-signature :
+    (None(), "DateTime", [SimpleSort("String")]) -> SimpleSort("DateTime")
+
+  type-compatible =
+    ?(SimpleSort("Time"), SimpleSort("DateTime"))
+
+  type-compatible =
+    ?(SimpleSort("Date"), SimpleSort("DateTime"))
+
+rules // JSF
+  elem-to-xhtml :
+    TemplateCall("inputDate",[e],[]) ->
+//          <h:inputText id="<%= label%>" styleClass="inputDate" value="<%= estring %>" required="<%= req %>">
+//             <s:convertDateTime pattern="dd/MM/yyyy"/>
+//          </h:inputText>
+//          <s:selectDate for="<%= label %>" dateFormat="dd/MM/yyyy" startYear="1910" endYear="2007">(Pick)</s:selectDate>
+    %>
+      <s:decorate>
+          <rich:calendar value="<%= estring %>"
+                        popup="true"
+                        datePattern="dd/MM/yyyy"
+                        id="<%= label %>"
+                        required="<%= req %>"
+                        enableManualInput="true"
+                     />
+      </s:decorate>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "inputDateId"
+        ; req := <input-of-required-property(|e)>
+  
+  elem-to-xhtml :
+    TemplateCall("outputDate",[e],[]) ->
+    %>
+       <h:outputText id="<%= label %>" styleClass="outputDate" value="<%= estring %>">
+         <s:convertDateTime pattern="dd/MM/yyyy"/>
+       </h:outputText>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "outputDateId"
+
+
+  elem-to-xhtml :
+    TemplateCall("inputTime",[e],[]) ->
+    %>
+      <s:decorate>
+        <div>
+          <h:inputText id="<%= label%>" styleClass="inputDate" value="<%= estring %>" required="<%= req %>">
+             <s:convertDateTime pattern="H:mm"/>
+          </h:inputText>
+        </div>
+      </s:decorate>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "inputDateId"
+        ; req := <input-of-required-property(|e)>
+  
+  elem-to-xhtml :
+    TemplateCall("outputTime",[e],[]) ->
+    %>
+       <h:outputText id="<%= label %>" styleClass="outputDate" value="<%= estring %>">
+         <s:convertDateTime pattern="H:mm"/>
+       </h:outputText>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "outputDateId"
+
+
+  elem-to-xhtml :
+    TemplateCall("inputDateTime",[e],[]) ->
+    %>
+      <s:decorate>
+        <div>
+          <h:inputText id="<%= label%>" styleClass="inputDate" value="<%= estring %>" required="<%= req %>">
+             <s:convertDateTime pattern="dd/MM/yyyy H:mm"/>
+          </h:inputText>
+        </div>
+      </s:decorate>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "inputDateId"
+        ; req := <input-of-required-property(|e)>
+  
+  elem-to-xhtml :
+    TemplateCall("outputDateTime",[e],[]) ->
+    %>
+       <h:outputText id="<%= label %>" styleClass="outputDate" value="<%= estring %>">
+         <s:convertDateTime pattern="dd/MM/yyyy H:mm"/>
+       </h:outputText>
+    <%
+    where estring := <arg-to-value-string> e
+        ; label := <newname> "outputDateId"
+    
