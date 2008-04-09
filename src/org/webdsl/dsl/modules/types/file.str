@@ -1,0 +1,94 @@
+module org/webdsl/dsl/modules/types/date
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  libwebdsl-front
+    
+rules // Desugaring
+      
+  DeriveInputBuiltins :
+    elem|[ input(e){} ]| -> elem|[ inputFile(e){} ]|
+    where SimpleSort("File") := <type-of> e
+  
+  DeriveOutputBuiltins :
+    elem|[ output(e){} ]| -> elem|[ outputFile(e){} ]|
+    where SimpleSort("File") := <type-of> e
+    
+  DeriveInput :
+    elem|[ input(e){} ]| -> elem|[ inputBinary(e){} ]|
+    where SimpleSort("Binary") := <type-of> e
+      
+  DeriveOutput :
+    elem|[ output(e){} ]| -> elem|[ outputBinary(e){} ]|
+    where SimpleSort("Binary") := <type-of> e
+  
+  Desugar :
+    Application(qid, sections) -> Application(qid, sections')
+    where [] := <collect(?EntityNoSuper("File", _, _))> sections
+        ; new_section := 
+            webdsl|[
+              section file-definition
+              
+		      entity File {
+		        name :: String (name)
+		        contenttype :: String
+		        data :: Binary
+		      }
+		    ]|
+		; sections' := <concat>[sections, [new_section]]
+
+rules // Annotations
+
+  builtin-persistence-annotations :
+    SimpleSort("Binary") ->
+      [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
+       anno|[ @Column(columnDefinition="LONGBLOB") ]|]
+
+rules // Typechecking
+   
+  sort-to-java-type-string : SimpleSort("Binary") -> "java.lang.Byte[]"
+      
+  builtin-java-type : 
+    SimpleSort("Binary") -> type|[ byte[] ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("Binary") -> |[ null ]|
+    
+  builtins-initialization-expression :
+    (Ref(), SimpleSort("File")) -> |[ new File() ]|
+
+rules // JSF
+  
+  elem-to-xhtml :
+    TemplateCall("inputFile",[e],[]) ->
+    %>
+      <div>
+	    <s:fileUpload id="<%= label%>"
+			data="#{<%= estring %>.data}"
+			contentType="#{<%= estring %>.contenttype}"
+			fileName="#{<%= estring %>.name}" required="<%= req %>"/>
+      </div>
+    <%
+    where estring := <arg-to-el> e
+        ; label := <newname> "inputFileId"
+        ; req := <input-of-required-property(|e)>
+  
+  elem-to-xhtml :
+    TemplateCall("outputFile",[e],[]) ->
+    %>
+      <s:link styleClass="outputFile" value="#{<%= <arg-to-el> e %>.name}"
+         action="#{<%= <Component> %>.download()}" />
+    <%
+        
+  elem-to-xhtml =
+    ?TemplateCall("inputBinary",[e],[])
+    ; ![]
+
+  elem-to-xhtml =
+    ?TemplateCall("outputBinary",[e],[])
+    ; ![]
+    
