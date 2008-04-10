@@ -25,12 +25,23 @@ rules
     //; typecheck-access-control(typecheck-access-control-declarations|)
     //; generate-access-control-declarations
     if AccessControlEnabled then
-      topdown(try(new-generate-access-control-rules-checks))
-      //topdown(try(generate-access-control-rules-checks))
-      ; topdown(try(remove-all(?AccessControlDefinition(_,_))))
-      ; topdown(try(chain-WeaveAccessControl))
-      ; try(alltd(chain-WeaveAccessControlOM))
+      alltd(new-generate-access-control-rules-checks)
      
+      //; alltd(remove-all(?AccessControlDefinition(_,_)))
+      //; alltd(remove-all(  ))
+      
+      
+      
+      //topdown that does all the global checks, nested checks are handled when
+      //a normal checks is applied
+      ; topdown(try(chain-WeaveAccessControl))
+      
+      //special inferred checks that loop on topdown traversal like navigates
+      //no chaining in this case because they are always based on a single check
+      ; alltd(WeaveAccessControlOM)
+
+
+
       //; new-access-control-weaving
     //  ; access-control-weaving
   //  ; where(<WeaveAccessControl> Define([Page()],"test",[],[]))
@@ -38,18 +49,21 @@ rules
       ; add-access-denied-page
       
       //remove overall policy declaration
-      ; topdown(try(remove-all(?ACPolicy(_))))// can be removed during transformation
+      // can be removed during transformation
+      ; alltd(remove-all(   {x_name,acdef*: ?webdsl|[ access control rules x_name acdef* ]| }
+                         <+ {pexp:          ?webdsl|[ access control policy pexp         ]| } ))
       
       //; where(warn-for-unused-rules)
     end
     
-  new-generate-access-control-rules-checks:
-    AccessControlDefinition(Some(groupname),defs) -> AccessControlDefinition(Some(groupname),defs)
-    where <map(   create-page-rule(|groupname) 
-               <+ create-template-rule(|groupname)
-               <+ create-action-rule(|groupname)
+  new-generate-access-control-rules-checks=
+    ?webdsl|[ access control rules x_groupname acdef* ]|
+  ; where( <map(   create-page-rule(|x_groupname) 
+             //  <+ create-template-rule(|groupname)
+               <+ create-action-rule(|x_groupname)
                <+ {x:?x; !["rule unknown: ",x];debug}
-                  )> defs
+                  )> acdef*
+    )
                   
   get-formarg-from-matcharg:
     MatchArgs(formarg,wc)->formarg
@@ -68,49 +82,54 @@ rules
     
     
   create-page-rule(|x_rulegroup):
-    acrule@AccessControlRule("page",x_pagename,farg1*,e,acrules) -> acrule
+    r@acrule|[ rule page x_pagename(margs) { e acrule* } ]| -> r
     where x_predname := <newname> "genpagepredicate"
-        ; farg2* := <get-formarg-from-matcharg> farg1*
-        //; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]| //doesn't parse
-        ; <Desugar;emit-webdsl-code> Predicate(x_predname,farg2*,e) 
+        ; farg2* := <get-formarg-from-matcharg> margs
+        ; specifiedargcount := <length> farg2*
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         ; rules( WeaveAccessControl :+
                    def|[ define page x_pagename(farg*) { elem* } ]| -> 
                    def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
                                                          elem1* } ]|
-                   where <match-arguments> (farg1*,farg*)
+                   where <match-arguments> (margs,farg*)
                        ; <debug> ["page rule applied",x_pagename]
-                       ; e* := <map(get-varname-from-formarg)> farg*
+                       ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
                        ; {| WeaveAccessControl:
-                            <map(create-action-rule(|x_rulegroup))> acrules
-                            ; elem1* := <topdown(try(chain-WeaveAccessControl))> elem*
+                            <map(create-action-rule(|x_rulegroup))> acrule*
+                            // alltd is enough because global checks are handled already in
+                            // the normal traversal, and deeper nested checks are handled in
+                            // the parent checks again
+                            ; elem1* := <alltd(chain-WeaveAccessControl)> elem*
                           |}  
                )
-        ; rules( WeaveAccessControlOM :+ 
-                   tc@TemplateCall("navigate",[ThisCall(x_pagename,args)],_) -> newtc
-                   where e* := <map(get-varname-from-formarg)> args
-                       ; newtc := IfTempl( |[ x_predname(e*) ]| ,[tc])
+        ; rules( WeaveAccessControlOM :
+                   elem@ elem|[ navigate( x_pagename(e*) ) { elem* }]| -> newtc
+                   where e1* := <map(get-varname-from-formarg);take(|specifiedargcount)> e*
+                       ; newtc := elem|[ if( x_predname(e1*) ) { elem } ]|
                )
-        ; <debug> ["page rule created",x_pagename]
+        ; <debug> ["page rule created: ",x_pagename," predicate: ",x_predname]
           
   create-action-rule(|x_rulegroup):
-    acrule@AccessControlRule("action",x_actionname,farg1*,e,acrules) -> acrule
+    r@acrule|[ rule action x_actionname(margs) { e acrule* } ]| -> r
     where x_predname := <newname> "genactionpredicate"
-        ; farg2* := <get-formarg-from-matcharg> farg1*
-        ; <Desugar;emit-webdsl-code> Predicate(x_predname,farg2*,e) 
+        ; farg2* := <get-formarg-from-matcharg> margs
+        ; specifiedargcount := <length> farg2*
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         ; rules(   
             WeaveAccessControl :+
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
               elem|[ action x_actionname(farg*) { acactioncheck(x_rulegroup,x_predname(e*));
                                                   stat* } ]|
-              where <match-arguments> (farg1*,farg*)
+              where <match-arguments> (margs,farg*)
+                  //take length of specified arguments, these became the predicates formal arguments
+                  ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                   ; <debug> ["action rule applied",x_actionname]
-                  ; e* := <map(get-varname-from-formarg)> farg*
           )
-          ; <debug> ["action rule created",x_actionname]
+          ; <debug> ["action rule created: ",x_actionname," predicate: "]
            
 
-  create-template-rule(|x_rulegroup):
+  /*create-template-rule(|x_rulegroup):
     acrule@AccessControlRule("template",x_templname,fargs,e,acrules) -> acrule
     where rules(   
             WeaveAccessControl :+
@@ -120,19 +139,18 @@ rules
               where <debug> ["template rule applied",x_templname]
           )
           ; <debug> ["template rule created",x_templname]
-          
+    */      
+  
   add-access-denied-page:
-    Application(qid, sections) -> Application(qid, <concat>[sections, deniedpage])
-    where deniedpage :=
-      [ |[
-          section access denied page.
-          define page accessDenied()
-          {
-            title("Access Denied")
-            text("Access Denied")
-          }
-        ]|
-      ]
+    webdsl |[ application qid sec* ]| -> 
+    webdsl |[ application qid sec*
+                              section access denied page.
+                              define page accessDenied()
+                              {
+                                title("Access Denied")
+                                text("Access Denied")
+                              }
+           ]|
 
   
 //---------------------------------------------------------------------------  
