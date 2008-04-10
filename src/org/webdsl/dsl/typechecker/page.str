@@ -1,0 +1,287 @@
+module org/webdsl/dsl/typechecker/entity
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // typechecking template definitions
+
+  typecheck-template-definition :
+    Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
+    where dbg(|"typecheck-definition in: ")
+        ; {| TypeOf, TemplateDefinition, TemplateArguments, IsPage
+           : in-tc-context(id
+               ; dbg(|"typecheck-definition a: ")
+               ; <map(declare-typeof-arg)> args
+               ; dbg(|"typecheck-definition b: ")
+               ; <alltd(declare-action <+ declare-template-definition <+ typecheck-vardecl)> elems1 //  <+ typecheck-vardecl
+               ; dbg(|"typecheck-definition c: ")
+               ; elems2 := <typecheck-page-elements> elems1
+               ; dbg(|"typecheck-definition d: ")
+             |["definition ", f, "/"])
+           |}
+         ; dbg(|"typecheck-definition out: ")
+
+  declare-typeof-arg =
+    ?Arg(x, s)
+    ; if not(<java-type> s) then
+        typecheck-error(|["parameter ", x, " has invalid type"])
+      else
+        rules( TypeOf : x -> s )
+      end
+
+rules // typechecking page elements
+
+  typecheck-page-elements =
+    map(typecheck-page-element)
+    <+ ?elems; typecheck-error(|["not a list of elements: ", elems])
+
+  typecheck-page-element = dbg(|"typecheck-page-element in: "); (
+    typecheck-template-definition
+    <+ typecheck-text
+    <+ typecheck-select
+    <+ typecheck-action
+    <+ typecheck-init
+    <+ typecheck-if-templ
+    <+ typecheck-call-action
+    <+ typecheck-call-navigate
+//    <+ typecheck-call-email
+    <+ typecheck-template-call
+    <+ typecheck-iterator
+    <+ typecheck-subtable
+    <+ typecheck-vardecl
+    <+ dbg(|"unknown page element? ")
+       ; all(typecheck-page-element)
+  ); dbg(|"typecheck-page-element out: ")
+
+  typecheck-text =
+    Text(is-string)
+
+/*  typecheck-text :
+    TemplateCall("text", [e], []) -> TemplateCall("text", [e'], [])
+    where in-tc-context(id
+            ; e' := <typecheck-page-element> e
+          | ["text/"])*/
+
+  typecheck-call-action :
+    TemplateCall(f, [e1,e2], []) -> TemplateCall(f, [e1',e2'], [])
+    where !f; (?"action" + ?"actionLink")
+        ; in-tc-context(id
+            ; e1' := <typecheck-expression> e1
+            ; e2' := <typecheck-expression> e2
+          | [f, "/"])
+
+  typecheck-call-navigate :
+    TemplateCall("url", [e], []) -> TemplateCall("url", [e'], [])
+    where in-tc-context(id
+            ; e' := <typecheck-link> e
+          | ["url/"])
+
+  typecheck-call-navigate :
+    TemplateCall("navigate", [e], []) -> TemplateCall("navigate", [e'], [])
+    where in-tc-context(id
+            ; e' := <typecheck-link> e
+          | ["navigate/"])
+
+  typecheck-call-navigate :
+    TemplateCall("navigate", [e], elems) -> TemplateCall("navigate", [e'], elems')
+    where in-tc-context(id
+            ; e' := <typecheck-link> e
+            ; elems' := <typecheck-page-elements> elems
+          | ["navigate/"])
+
+  typecheck-link :
+    ThisCall("url", [e1]) -> ThisCall("url", [e2])
+    where e2 := <typecheck-page-element> e1
+
+  typecheck-link :
+    ThisCall(p, args1) -> ThisCall(p, args2)
+    where not("url" := p)
+        ; if not(<IsPage> p) then
+            typecheck-error(|["link to undefined page ", p])
+          else
+            TemplateCall(p, args2, []) := <typecheck-template-call> TemplateCall(p, args1, [])
+          end
+
+
+  typecheck-template-call :
+    TemplateCall(f, args1, elems1) -> TemplateCall(f, args2, elems2)
+    where in-tc-context(id
+            ; args2 := <map(typecheck-expression)> args1
+            ; try(<match-arguments> (<TemplateArguments> f, args2))
+            ; elems2 := <typecheck-page-elements> elems1
+            | [f, "/"])
+
+        // @todo account for arguments of built-in templates (for which TemplateArguments fails)
+
+  typecheck-template-call :
+    TemplateCallDeclaredType(f, x, s, elems1) -> TemplateCallDeclaredType(f, x, s, elems2)
+    where in-tc-context(
+               {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems2 := <typecheck-page-elements> elems1
+                |}
+             | [f, "/"] )
+
+   match-arguments =
+     ?(formal_args, actual_args)
+     ; if not(equal(|<length> formal_args, <length> actual_args)) then
+         typecheck-error(|["number of formal arguments and actual arguments do not match"])
+       else
+         <zip(try(match-argument))> (formal_args, actual_args)
+       end
+
+   match-argument =
+    ?(Arg(x, t1), e{Type(t2)})
+    ; if not(<subtype-of>(t2, t1)) then
+        typecheck-error(|["type ", t2, " of argument ", e{}, " does not match formal parameter '", x, "' (", t1, ")"])
+      end
+
+   subtype-of =
+     eq
+
+   subtype-of =
+     ?(SimpleSort(t1), SimpleSort(t2))
+     ; where( <extends>(t1, t2) )
+
+   extends =
+     while-not(eq, (Extends, id))
+
+   typecheck-iterator :
+     For(x, s, e1, Filter(we1, obe1), elems1) -> For(x, s, e2, Filter(we2, obe2), elems2)
+     where in-tc-context(
+             {| TypeOf
+              : if not(<java-type> s) then
+                  typecheck-error(|["index ", x, " has invalid type ", s])
+                  // @todo check that type of x corresponds to element type of collection s
+                else
+                  rules( TypeOf : x -> s )
+                end
+              ; e2 := <typecheck-expression> e1
+              ; <should-have-list-type> e2
+              ; we2 := <typecheck-expression> we1
+              ; obe2 := <typecheck-order-expression> obe1
+              ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
+                  typecheck-error(|["where clause should return a boolean: ", we2])
+                end
+                // TODO: Check type of obe2, not sure what this should do yet
+              ; elems2 := <typecheck-page-elements> elems1
+              |}
+             | ["iterator ", x, "/"] )
+
+   typecheck-iterator :
+     ForAll(x, s, Filter(we1, obe1), elems1) -> ForAll(x, s, Filter(we2, obe2), elems2)
+     where in-tc-context(
+             {| TypeOf
+              : if not(<defined-java-type> s) then
+                  typecheck-error(|["index ", x, " has invalid type ", s])
+                  // @todo check that type of x corresponds to element type of collection s
+                else
+                  rules( TypeOf : x -> s )
+                end
+              ; we2 := <typecheck-expression> we1
+              ; obe2 := <typecheck-order-expression> obe1
+              ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
+                  typecheck-error(|["where clause should return a boolean: ", we2])
+                end
+                // TODO: Check type of obe2, not sure what this should do yet
+              ; elems2 := <typecheck-page-elements> elems1
+              |}
+             | ["for all iterator ", x, "/"] )
+
+  typecheck-subtable :
+    Subtable(x, s, e, elems) -> Subtable(x, s, e, elems')
+    where in-tc-context(
+               {| TypeOf
+                : if not(<defined-java-type> s) then
+                    typecheck-error(|["index ", x, " has invalid type ", s])
+                    // @todo check that type of x corresponds to element type of collection s
+                  else
+                    rules( TypeOf : x -> s )
+                  end
+                ; elems' := <typecheck-page-elements> elems
+                |}
+             | ["subtable ", x, "/"] )
+
+  typecheck-select :
+    Select(x,s@SimpleSort(_),label,e1) -> Select(x,s,label,e2)
+    where in-tc-context(id
+            ; if not(<defined-java-type> s) then
+                typecheck-error(|["index ", x, " should have a defined entity type, is ", s])
+              else
+                rules( TypeOf : x -> s )
+              end
+            ; e2 := <typecheck-expression> e1
+          | ["select/"])
+
+  typecheck-select :
+    SelectFromList(e1, e2) -> SelectFromList(e3, e4)
+    where in-tc-context(id
+            ; e3 := <typecheck-expression> e1
+            ; e4 := <typecheck-expression> e2
+          | ["select-from/"])
+
+  typecheck-if-templ :
+    IfTempl(e1, elems1) -> IfTempl(e2, elems2)
+    where e2 := <typecheck-expression> e1
+        ; elems2 := <typecheck-page-elements> elems1
+        ; <?_{Type(e2t)}> e2
+        ; if not(<eq>(e2t, SimpleSort("Bool"))) then
+            typecheck-error(|["Expression ", e1, " should be of type Bool, but instead is of type ", e2t])
+          end
+
+strategies
+
+  should-have-collection-type =
+    try(
+      ?e{Type(t)}
+      ; if not(<is-collection-type> t) then
+          typecheck-error(|["type of iterator should be a collection (and not ", t, ")"])
+        end
+    )
+
+  is-collection-type =
+    ?GenericSort("List", [SimpleSort(_)])
+
+  is-collection-type =
+    ?GenericSort("Set", [SimpleSort(_)])
+
+  should-have-list-type =
+    try(
+      ?e{Type(t)}
+      ; if not(<is-list-type> t) then
+          typecheck-error(|["type of iterator should be a List (hint: every collection property f has also a property fList)"])
+        end
+    )
+
+  is-list-type =
+    ?GenericSort("List", [SimpleSort(_)])
+
+rules // typechecking actions
+
+  typecheck-action :
+    Action(f, args, body1) -> Action(f, args, body2)
+    where {| TypeOf
+           : in-tc-context(
+               <map(declare-typeof-arg)> args
+               ; body2 := <typecheck-block> body1
+             |["action ", f, "/"])
+           |}
+
+rules // typechecking inits
+
+  typecheck-init :
+    InitAction(body1) -> InitAction(body2)
+    where {| TypeOf
+           : in-tc-context(
+               body2 := <typecheck-block> body1
+             |["init /"])
+           |}
+
