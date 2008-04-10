@@ -1,0 +1,69 @@
+module org/webdsl/dsl/transformation/propagate-component-names
+
+imports 
+  libstrategolib
+  
+imports 
+  libwebdsl-front
+  
+strategies
+
+  propagate-component-names =
+    alltd(propagate-component-names-in-page)
+    
+  propagate-component-names-in-page :
+    Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
+    where {| PrefixComponent, SpecializeActionCall
+           : <map(declare-component-prefix(|name))> args
+           ; <get-page-vardecls; map(declare-component-prefix(|name))> body1
+           ; declare-specialize-action-call(|name)
+           ; body2 := <propagate-component-names-in-expression> body1
+           |}
+
+  propagate-component-names-in-expression =
+    rec x (alltd(PrefixComponent <+ not-init-action <+ specialize-action-call(x)))
+    
+  specialize-action-call(x) =
+    TemplateCall("action" <+ "actionLink", [id, try(SpecializeActionCall); x], [])
+
+  not-init-action =
+    ?InitAction(_)
+
+  not-in-call =
+    ?Call(_, _, _)
+    
+  declare-component-prefix(|name) =
+    ?Arg(x, s); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?VarDecl(x, s); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?VarDeclInit(x, s, e); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?x
+    ; rules( 
+        PrefixComponent : 
+          Var(x){Type(t)} -> FieldAccess(Var(name){Type("Component")}, x){Type(t)}
+          where not(<?"Component"> t)
+      )
+
+  declare-specialize-action-call(|name) =
+    rules (
+      SpecializeActionCall :
+        ThisCall(f, args) -> <dbg(|"specialized: ")> Call(Var(name){Type("Component")}, f, args)
+        where dbg(|"SpecializeActionCall: ") 
+    )
+    
+strategies
+
+  get-page-vardecls = 
+    collect(fail
+      <+ \ d@VarDecl(_,_) -> [d] \
+      <+ \ d@VarDeclInit(_,_,_) -> [d] \
+      <+ \ Action(_,_,_) -> [] \
+      <+ \ InitAction(_) -> [] \
+    ); concat
+    
+    
