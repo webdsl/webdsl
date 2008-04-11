@@ -16,19 +16,19 @@ rules // session bean from page definition
   generate-page-bean =
     ? cbds
     ; pkgname    := <BeanPackage>
-    ; x_PageBean := <concat-strings> [<ThisPage; capitalize-string>, "Bean"]
+    ; x_Page := <ThisPage; capitalize-string>
     ; <emit-java-code>
         compilation-unit|[
           package pkgname;
           @Partial
-          public class x_PageBean {
+          public class x_Page#Bean {
             ~*cbds
           }
         ]|
 
   generate-initializer-method :
     bstm* ->
-    |[
+    java|[
        @Partial
        public void postInitialize() {
          bstm*
@@ -79,7 +79,7 @@ rules
         @Stateful
         @Name(~string:String([Chars(x_page)]))
         @Partial
-        public class x_PageBean implements x_PageBeanInterface
+        public class x_Page#Bean implements x_Page#BeanInterface
         {
           private boolean initialized = false;
 
@@ -129,8 +129,6 @@ rules
         ; pkgname2   := <DomainPackage>
         ; x_page     := <ThisPage>
         ; x_Page     := <capitalize-string> x_page
-        ; x_PageBean := <concat-strings> [x_Page, "Bean"]
-        ; x_PageBeanInterface := <concat-strings> [x_PageBean, "Interface"]
         ; if [] := args then
             stm1* := [ stm |[ if (!initialized) forceInitialization(); ]| ]
           else
@@ -149,7 +147,7 @@ rules //session variables
 
   generate-session-var-initialization :
     Define([Page()], x_page, args, elems1) ->
-    <generate-page-bean> |[
+    <generate-page-bean> java|[
        @Partial
        public void postInitialize() {
          ~*bstm1*
@@ -166,17 +164,15 @@ rules //session variables
         |[
                @org.jboss.seam.annotations.In(create=true) @org.jboss.seam.annotations.Out private x_ent x_ident;
 
-               public void x_set(x_ent x_ident) {
+               public void set#x_ident(x_ent x_ident) {
                  this.x_ident = x_ident;
                }
 
-               public x_ent x_get() {
+               public x_ent get#x_ident() {
                  return x_ident;
                }
                 ]|
-    where x_get := <property-getter> x_ident
-        ; x_set := <property-setter> x_ident
-        ; x_ent := <capitalize-string> x_ident
+    where x_ent := <capitalize-string> x_ident
 
   //merge references inside session entities at page initialization
   session-entity-property-to-merge:
@@ -187,15 +183,13 @@ rules //session variables
         ; bstm0* := <filter(session-entity-property-to-merge(|x_ident))> props
 
   session-entity-property-to-merge(|x_ident):
-    Property(x, k, s, annos) -> |[
-         if (x_ident.x_get()!=null) {
+    Property(x, k, s, annos) -> java|[
+         if (x_ident.get#x() != null) {
            //x_ident.x_set(entityManager.merge(x_ident.x_get())); old setup, slower(?)
-           x_ident.x_set(entityManager.find(x_class.class,x_ident.x_get().x_getid()));
+           x_ident.set#x(entityManager.find(x_class.class,x_ident.get#x().x_getid()));
          }
      ]|
     where <defined-java-type> s
-         ; x_get := <concat-strings>["get", <capitalize-string> x]
-         ; x_set := <concat-strings>["set", <capitalize-string> x]
          ; SimpleSort(t) := s
          ; if <EntityIdName> t then
              x_type := <sort-to-java-type-string> <EntityIdType> t
@@ -234,37 +228,33 @@ rules // bean parameters
 
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(x_Class)) ->
-    <generate-page-bean> |[
+    <generate-page-bean> java|[
        @Partial
        void argumentInitialize() {
          bstm*
        }
        //@RequestParameter("~x")
        private t x_id;
-       public void x_idset(t v) {
+       public void set#x_id(t v) {
          this.x_id = v;
          forceInitialization();
        }
-       public t x_idget() {
+       public t get#x_id() {
          return this.x_id;
        }
 
        private x_Class x;
-       public void x_set(x_Class x) {
+       public void set#x(x_Class x) {
          //log.info("~x_set");
          this.x = x;
        }
-       public x_Class x_get() {
+       public x_Class get#x() {
          //log.info("~x_get");
          return x;
        }
     ]|
     where <defined-java-type> s
         ; x_id := <concat-strings>[x, "_id"]
-        ; x_get := <property-getter> x
-        ; x_set := <property-setter> x
-        ; x_idget := <property-getter> x_id
-        ; x_idset := <property-setter> x_id
         ; if <EntityIdName> x_Class then
             t := <java-wrapper-type> <EntityIdType> x_Class
           else
@@ -274,25 +264,23 @@ rules // bean parameters
 
   argument-to-bean-property :
     arg@Arg(x, s@SimpleSort(_)) ->
-    <generate-page-bean> |[
+    <generate-page-bean> java|[
        @Partial
        void argumentInitialize() {
          bstm*
        }
 //       @RequestParameter("~x")
        private t_Class x;
-       public void x_set(t_Class x) {
+       public void set#x(t_Class x) {
          //log.info("~x_set");
          this.x = x;
        }
-       public t_Class x_get() {
+       public t_Class get#x() {
          //log.info("~x_get");
          return x;
        }
     ]|
     where t_Class := <builtin-java-type> s
-        ; x_get := <property-getter> x
-        ; x_set := <property-setter> x
         ; bstm* := <argument-to-initialization> arg
 
   argument-to-initialization :
@@ -366,14 +354,14 @@ rules // view transition
 //        ; e := <page-call-to-java-url> (p, params)
 //
   call-to-view-string :
-    ThisCall(p,args) -> |[ "/" + "~p" + ".seam?" + e ]|
+    ThisCall(p,args) -> java|[ "/" + "~p" + ".seam?" + e ]|
     where <IsPage> p
         ; fargs := <TemplateArguments> p
         ; params := <zip(view-string-bind-param)> (fargs, args)
-        ; e := <foldr(!|[ "" ]|, add-string-expressions)> params
+        ; e := <foldr(!java|[ "" ]|, add-string-expressions)> params
 
   add-string-expressions :
-    (e1, e2) -> |[ e1 + e2 ]|
+    (e1, e2) -> java|[ e1 + e2 ]|
 
 //  view-string-bind-param :
 //    (Arg(x, s@SimpleSort(x_Class)), e) -> (x, e)
@@ -396,73 +384,63 @@ rules // view transition
 //    (param, value) -> <concat-strings> [param, "=", value]
 //
   view-string-bind-param :
-    (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x" + "=" + e2 ]|
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> java|[ "~x" + "=" + e2 ]|
     where <builtin-java-type> s
         ; e2 := <arg-to-java-exp> e1
 
   view-string-bind-param :
-    (Arg(x, s@SimpleSort(x_Class)), e1) -> |[ "~x_id" + "=" + e2.getId() ]|
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> java|[ "~x_id" + "=" + e2.getId() ]|
     where <defined-java-type> s
         ; e2 := <arg-to-java-exp> e1
         ; x_id := <concat-strings> [x, "_id"]
 
   arg-to-java-exp :
-    Var(x){Type(t)} -> |[ x ]|
+    Var(x){Type(t)} -> java|[ x ]|
     where not(<eq>(t, "Component"))
 
   arg-to-java-exp :
-    FieldAccess(Var(x){Type("Component")}, y) -> |[ y ]|
+    FieldAccess(Var(x){Type("Component")}, y) -> java|[ y ]|
 
   arg-to-java-exp :
-    FieldAccess(e1, y) -> |[ e2.y_get() ]|
+    FieldAccess(e1, y) -> java|[ e2.y_get() ]|
     where e2 := <arg-to-java-exp> e1
         ; y_get := <concat-strings>["get", <capitalize-string> y]
 
   arg-to-java-exp :
-    Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
+    Call(e1, x, e2*) -> java|[ e3.x(e4*) ]|
     where e3 := <arg-to-java-exp> e1
         ; e4* := <map(arg-to-java-exp)> e2*
 
   arg-to-java-exp :
-    ThisCall(x, e1*) -> |[ x(e2*) ]|
+    ThisCall(x, e1*) -> java|[ x(e2*) ]|
     where e2* := <map(arg-to-java-exp)> e1*
-
-  arg-to-java-exp :
-    String(x) -> expr|[ "~x" ]|
 
 rules // collections
 
   collection-to-java(|x, x_Class) =
       dbg(|"select-declarations match: ")
     ; X          := <capitalize-string> x
-    ; x_List     := <concat-strings>[x, "List"]
-    ; x_getList  := <concat-strings>["get", X, "List"]
-    ; x_getLength  := <concat-strings>["get", X, "Length"]
-    ; x_initList := <concat-strings>["init", X, "List"]
-    ; !|[
-          @DataModel(~string:String([Chars(x_List)]))
-          private List<x_Class> x_List;
+    ; !java|[
+          @DataModel(~string:String([Chars(<concat-strings> [x, "List"])]))
+          private List<x_Class> x#List;
 
-          public List<x_Class> x_getList() {
-            //log.info("~x_getList");
-            return x_List;
+          public List<x_Class> get#x#List() {
+            return x#List;
           }
 
-          public int x_getLength() {
-            return x_List.size();
+          public int get#x#Length() {
+            return x#List.size();
           }
 
-          @Factory(~string:String([Chars(x_List)]))
-          public void x_initList() {
-            //log.info("~x_initList");
-            x_List = entityManager.createQuery("from " + "~x_Class").getResultList();
+          @Factory(~string:String([Chars(<concat-strings> [x, "List"])]))
+          public void init#x#List() {
+            x#List = entityManager.createQuery("from " + "~x_Class").getResultList();
           }
        ]|
 
   collection-init-to-java(|x) =
       X          := <capitalize-string> x
-    ; x_initList := <concat-strings>["init", X, "List"]
-    ; ![ <generate-initializer-method> bstm*|[ x_initList();]| ]
+    ; ![ <generate-initializer-method> bstm*|[ init#x#List();]| ]
 
 rules // tables
 
@@ -503,7 +481,7 @@ rules // select
 
   generate-select-code :
     Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
-    <generate-page-bean> |[
+    <generate-page-bean> java|[
       @DataModel(~string:String([Chars(x_List)]))
       private List<x_Class> x_List;
 
@@ -546,7 +524,7 @@ rules // page variables
 
   generate-page-variables-code :
     VarDecl(x, s) -> <generate-page-bean>
-    |[
+    java|[
        private t x = e;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
@@ -559,7 +537,7 @@ rules // page variables
 
   generate-page-variables-code :
     VarDeclInit(x, s, e1) -> <generate-page-bean>
-    |[
+    java|[
        private t x;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
@@ -577,7 +555,7 @@ rules // page variables
 
   generate-page-variables-code :
     VarDeclInit(x, s, HqlQuery(e1)) -> <generate-page-bean>
-    |[
+    java|[
        @DataModel(~string:String([Chars(x)])) private t x;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
@@ -599,7 +577,7 @@ rules // List getter/setter for Set typed page variables
   generate-page-variables-code-set :
     VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) ->
     <generate-page-bean>
-    |[
+    java|[
        public t2 x_getList() { return new java.util.ArrayList(x_get()); }
        public void x_setList(t2 x) { x_set(new java.util.LinkedHashSet(x)); }
        public int x_getLength() { return x_get().size(); }
@@ -623,7 +601,7 @@ rules // List getter/setter for List typed page variables
   generate-page-variables-code-list :
     VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
     <generate-page-bean>
-    |[
+    java|[
        public t2 x_getList() { return x_get(); }
        public void x_setList(t2 x) { x_set(x); }
        public int x_getLength() { return x_get().size(); }
@@ -643,7 +621,7 @@ rules // List getter/setter for List typed page variables
 rules // query translation
 
   query-to-create-query :
-    e -> <repeat(once-AddQueryParameter)> |[ entityManager.createQuery("~q") ]|
+    e -> <repeat(once-AddQueryParameter)> java|[ entityManager.createQuery("~q") ]|
     where q := <alltd(replace-parameter); pp-hql-to-string; trim-chars('\n')> e
 
   replace-parameter :
@@ -652,7 +630,7 @@ rules // query translation
         ; x2 := <concat-strings>[":", x1]
         ; e2 := <expression-to-java> e1
         ; rules(
-            AddQueryParameter :+ e -> |[ e.setParameter("~x1", e2) ]|
+            AddQueryParameter :+ e -> java|[ e.setParameter("~x1", e2) ]|
           )
 
 rules // For generating template functions
@@ -673,7 +651,7 @@ rules // For generating template functions
          ; function* := <map(template-function-to-java)> functions
 
    template-function-to-java :
-     (page, x_fn, params, e) -> |[
+     (page, x_fn, params, e) -> java|[
        public t x_fn(param*) {
          stm
        } ]|
@@ -695,69 +673,16 @@ rules // For generating template functions
      where y := <TransformParameterName> x
 
    template-function-param-to-java :
-     FieldAccess(_, x) {Type(s)} -> |[ t y ]|
+     FieldAccess(_, x) {Type(s)} -> java|[ t y ]|
      where t := <java-type> s
          ; y := <newname> "param"
          ; rules ( TransformParameterName : x -> y )
 
    template-function-param-to-java :
-     Var(x) {Type(s)} -> |[ t y ]|
+     Var(x) {Type(s)} -> java|[ t y ]|
      where t := <java-type> s
          ; y := <newname> "param"
          ; rules ( TransformParameterName : x -> y )
-
-
-rules // Email functionality
-  /**
-   * Generate email code
-   */
-  GenerateCode = generate-email-code; fail
-
-  generate-email-code :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [<email-to-code(|x_page)> elems1, <add-email-properties(|x_page)> elems1]
-
-  email-to-code(|page) =
-    if <oncetd(?ThisCall("email", [_]))> <id> then
-      list_property := <GetEmailArgumentsList> page
-      ; x_set := <property-setter> list_property
-      ; ! class-body-dec* |[
-        public void sendEmail(String template, ArrayList _list) {
-          x_set(_list);
-              try {
-                renderer.render(template);
-                facesMessages.add("Email sent successfully");
-              } catch (Exception ex) {
-                 log.error("Error sending mail", ex);
-                 facesMessages.add(FacesMessage.SEVERITY_INFO, "Email sending failed: " + ex.getMessage());
-              }
-        }
-      ]|
-    else
-      ![]
-    end
-
-  add-email-properties(|page) =
-    if <oncetd(?ThisCall("email", [_]))> <id> then
-            x := <GetEmailArgumentsList> page
-        ; X     := <capitalize-string> x
-        ; x_get := <concat-strings>["get", X]
-        ; x_set := <concat-strings>["set", X]
-        ; ! |[
-              private ArrayList x;
-
-              public ArrayList x_get() {
-                //log.info("~x_get");
-                return x;
-              }
-
-              public void x_set(ArrayList x) {
-                //log.info("~x_set");
-                this.x = x;
-              }
-            ]|
-    else
-      ![]
-    end
 
 rules // Download helper
   /**
@@ -771,7 +696,7 @@ rules // Download helper
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
       e0 := <expression-to-java> e ;
-      ! |[
+      ! java|[
         public void download() {
           org.webdsl.tools.Utils.download(facesContext, e0.getData(), e0.getName(), e0.getContenttype());
         }

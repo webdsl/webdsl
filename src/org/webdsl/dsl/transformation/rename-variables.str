@@ -1,0 +1,87 @@
+module org/webdsl/dsl/transformation/rename-variables
+
+imports 
+  libstrategolib
+  
+imports 
+  libwebdsl-front
+  
+strategies
+
+  rename-bound-variables = 
+    RenameTemplateVar
+    <+ rename-template-definition
+    <+ rename-vardecl 
+    <+ rename-for
+    <+ rename-forall
+    <+ rename-select
+    <+ rename-action-definition
+    <+ all(rename-bound-variables)
+  
+  rename-template-definition :
+    Define(mods, name, args1, body1) -> Define(mods, name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+           
+  rename-action-definition :
+    Action(name, args1, body1) -> Action(name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+
+  rename-action-definition :
+    InitAction(body1) -> InitAction(body2)
+    where {| RenameTemplateVar
+           : body2 := <rename-bound-variables> body1
+           |}
+           
+  rename-arg :
+    Arg(x, s) -> Arg(y, s)
+    where y := <rename-var> x
+
+  rename-vardecl :
+    VarDecl(x, s) -> VarDecl(y, s)
+    where y := <rename-var> x
+        
+  rename-vardecl :
+    VarDeclInit(x, s, e1) -> VarDeclInit(y, s, e2)
+    where e2 := <rename-bound-variables> e1
+        ; y := <rename-var> x
+        
+  rename-for :
+    For(x, s, e1, Filter(we1, obe1), elems1) -> For(y, s, e2, Filter(we2, obe2), elems2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; e2 := <rename-bound-variables> e1
+           ; elems2 := <rename-bound-variables> elems1
+           ; we2 := <rename-bound-variables> we1
+           ; obe2 := <rename-bound-variables> obe1
+           |}
+           
+  rename-forall :
+    ForAll(x, s, Filter(we1, obe1), elems1) -> ForAll(y, s, Filter(we2, obe2), elems2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; elems2 := <rename-bound-variables> elems1
+           ; we2 := <rename-bound-variables> we1
+           ; obe2 := <rename-bound-variables> obe1
+           |}
+
+  rename-select :
+    Select(x, s, lab, e1) -> Select(y, s, lab, e2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; e2 := <rename-bound-variables> e1
+           |}
+
+  rename-var :
+    x -> y
+    where y := <newname> x
+        ; rules(
+            RenameTemplateVar : Var(x)           -> Var(y)
+            RenameTemplateVar : Qualified(x, f)  -> Qualified(y, f)
+            RenameTemplateVar : Assignment(x, e) -> Assignment(y, e2) where e2 := <try(sometd(rename-bound-variables))> e
+          )

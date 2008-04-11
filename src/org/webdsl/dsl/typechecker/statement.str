@@ -1,0 +1,96 @@
+module org/webdsl/dsl/typechecker/statement
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // typechecking statements
+
+  typecheck-stat =
+    typecheck-block
+    <+ typecheck-assignment-stat
+    <+ typecheck-vardecl
+    <+ typecheck-if
+    <+ typecheck-for
+    <+ typecheck-return
+    <+ typecheck-cancel
+    <+ typecheck-other-statement
+    <+ Stat(typecheck-expression)
+    <+ dbg(|"warning: not typechecking statement: ")
+
+  typecheck-block =
+    Block({| TypeOf : in-tc-context(map(typecheck-stat)|["block/"]) |})
+
+  translate-qualified :
+    Qualified(l, r) -> FieldAccess(l2, r)
+    where l2 := <translate-qualified> l
+
+  translate-qualified =
+    ?Var(_)
+
+  translate-qualified =
+    not(?Qualified(_, _))
+    ; not(?Var(_))
+    ; !Var(<id>)
+
+  typecheck-assignment-stat :
+    Assign(Assignment(qid1, e1)) -> Assign(Assignment(qid1, e2))
+    where e2 := <typecheck-expression> e1
+//        ; info(|["Here's the translated qualified: ", qid1, " => ", <translate-qualified> qid1])
+        ; qid2 := <typecheck-expression> <translate-qualified> qid1
+        ; <?_{Type(et)}> e2
+        ; <?_{Type(qidt)}> qid2
+        ; if not(<type-compatible> (qidt, et)) then
+            typecheck-error(|["expression ", e2, " cannot be assigned to ", qid2, " due to type-incompatibility."])
+          end
+
+  typecheck-vardecl :
+    VarDeclInit(x, s, e1) -> VarDeclInit(x, s, e2)
+    where rules( TypeOf : x -> s )
+        ; e2 := <typecheck-expression> e1
+
+        // @todo check that s is valid type
+
+  typecheck-vardecl :
+    VarDecl(x, s) -> VarDecl(x, s)
+    where rules( TypeOf : x -> s )
+
+  typecheck-if :
+    If(e1, bit1, bif1) -> If(e2, bit2, bif2)
+    where e2 := <typecheck-expression> e1
+        ; e2t := <?_{Type(<id>)}> e2
+        ; if not(<?_{Type(SimpleSort("Bool"))}> e2) then
+            typecheck-error(|["expression ", e2, " should be of type Bool"])
+          end
+        ; bit2 := <typecheck-stat> bit1
+        ; bif2 := <typecheck-stat> bif1
+
+  typecheck-for :
+    ForStmt(v, s, e1, Filter(we1, obe1), bstm1) -> ForStmt(v, s, e2, Filter(we2, obe2), bstm2)
+    where {| TypeOf
+           : rules(TypeOf : v -> s)
+           ; e2 := <typecheck-expression> e1
+           ; if not(<?_{Type(GenericSort(_, [<sort-literal> s]))}> e2) then // TODO: This only accepts List<SimpleSort>-like lists, not List<List<Int>> for example.
+               typecheck-error(|["expression ", e2, " should be of type [SomeGenerichType]<", s, ">"])
+             end
+           ; bstm2 := <typecheck-block> bstm1
+           ; we2 := <typecheck-expression> we1
+           ; obe2 := <typecheck-order-expression> obe1
+           ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
+               typecheck-error(|["where clause should return a boolean: ", we2])
+             end
+             // TODO: Check type of obe2, not sure what this should do yet
+           |}
+
+  sort-literal :
+    SimpleSort(x) -> x
+
+  typecheck-return :
+    Return(e1) -> Return(e2)
+    where e2 := <typecheck-link> e1
+
+  typecheck-cancel :
+    Cancel(e1) -> Cancel(e2)
+    where e2 := <typecheck-link> e1

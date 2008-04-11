@@ -1,0 +1,143 @@
+/**
+
+  Type rules for WebDSL
+
+*/
+
+module org/webdsl/dsl/typechecker/typechecker
+
+imports
+  libstrategolib
+  Java-15 
+  libjava-front
+
+imports
+  libwebdsl-front
+
+signature
+  constructors
+    Type : Sort -> Annotation
+ 
+rules
+
+  typecheck =
+    typecheck-application
+    ; if TypecheckError then
+        typecheck-error(|["typechecking failed; repair errors above"])
+        ; fail
+      end
+
+  typecheck-application =
+    Application(?qid, {| Module : rules( Module := qid ); typecheck-sections |})
+    <+ ?x; typecheck-error(|["application expected: ", x])
+
+/*  typecheck-section =
+    Section(id, map(typecheck-definition))
+    <+ typecheck-module
+    <+ Description(id)
+    <+ Note(id)
+    <+ ?x; typecheck-error(|["section expected: ", x]) */
+
+  typecheck-sections =
+    map(typecheck-section <+ (?x; typecheck-error(|["section expected: ", x])))
+
+  typecheck-section =
+    Section(id, typecheck-definitions)
+
+  typecheck-section =
+    typecheck-module
+
+  typecheck-section =
+    ?Description(_)
+
+  typecheck-section =
+    Note(id)
+
+  typecheck-module :
+    Module(mod, section1*) -> Module(mod, section2*)
+    where {| Module
+           : rules( Module := mod )
+           ; section2* := <typecheck-sections> section1*
+           |}
+
+  typecheck-definitions =
+    map(typecheck-specific-definition <+ typecheck-definition) <+ ?def; typecheck-error(|["definition not typechecked: ", def])
+
+  typecheck-definition =
+    typecheck-template-definition
+
+  typecheck-definition =
+    typecheck-entity
+
+  typecheck-definition =
+    typecheck-globals
+
+/*  typecheck-definition =
+    typecheck-template-definition
+    <+ typecheck-email-template-definition
+    <+ typecheck-entity
+    <+ typecheck-globals
+    <+ ?def; typecheck-error(|["definition not typechecked: ", def]) */
+
+
+rules //typechecking globals
+
+  typecheck-globals :
+    GlobalsDefinition(body1) -> GlobalsDefinition(body2)
+    where {| TypeOf
+           : in-tc-context(
+               body2 :=
+               <map(typecheck-vardecl-extra-global ; typecheck-vardecl <+ typecheck-function)> body1
+             |["globals /"])
+           |}
+
+  typecheck-vardecl-extra-global :
+    VarDeclInit(x, s, e1) -> VarDeclInit(x, s, e1)
+    where if not( <defined-java-type> s ) then
+            typecheck-error(|["type not allowed or unknown in global declaration ", s])
+          end
+        ; if [] := <collect(?VarDeclInit(x,s,_))> <global-variables> // _ for the expression because it could contain typecheck info
+          then
+            new-global-vars := [VarDeclInit(x, s, e1)|<global-variables <+ ![]>]
+          else
+            new-global-vars := <global-variables <+ ![]>
+          end
+        ; rules ( global-variables :=  new-global-vars )
+
+  typecheck-vardecl-extra-global :
+    VarDecl(x, s) -> VarDecl(x, s)
+    where typecheck-error(|["var needs to be initialized in global declaration ", x])
+
+
+//  check-builtin-signature :
+//    (None(), "email", [_]) -> SimpleSort("void")
+
+rules
+
+  type-of-query :
+   QueryRule(
+      SelectFrom(Some(Select(_,[AliasedExpression(Path([x]),_)])), FromClause(ranges)),
+      _, _, _) -> GenericSort("List", [t])
+    where t := <fetch-elem(get-type-from-range(|x))> ranges
+
+  get-type-from-range(|x) :
+    FromRangeJoin(FromClass(Path([x_Class]),Some(AsAlias(Alias(x))),_),_) -> SimpleSort(x_Class)
+
+/*
+ HqlQuery(
+   QueryRule(
+     SelectFrom(
+       Some(Select(None,[AliasedExpression(Path(["pub"]),None)])),
+       FromClause([
+         FromRangeJoin(FromClass(Path(["Publication"]),Some(AsAlias(Alias("pub"))),None),None),
+         FromRangeJoin(FromClass(Path(["Person"]),Some(AsAlias(Alias("pers"))),None),None)
+       ])
+      ),
+      Some(WhereClause(
+             QueryAnd(
+                Paren([EQ(Path(["pers","id"]),DslExp(FieldAccess(Var("person"),"id")))]),
+                Paren([MemberOf(Path(["pers"]),Path(["pub","_authors"]))])))),
+      None,
+      None))
+*/
+

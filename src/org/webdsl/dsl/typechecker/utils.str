@@ -1,0 +1,114 @@
+module org/webdsl/dsl/typechecker/utils
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+
+strategies
+
+  java-type =
+    defined-java-type <+ builtin-java-type <+ object-type
+
+  java-wrapper-type =
+    defined-java-type <+ builtin-wrapper-java-type <+ builtin-java-type <+ object-type
+
+  defined-java-type =
+    DefinedJavaType
+
+  defined-java-type :
+    SimpleSort(x) -> <DefinedJavaType> x
+
+  persistence-annotations =
+    builtin-persistence-annotations <+ ![]
+
+  java-type-default-value =
+    defined-java-type-default-value
+    <+ builtin-java-type-default-value
+
+  defined-java-type-default-value :
+    s@SimpleSort(y) -> |[ null ]| //|[ new y() ]|
+    where <defined-java-type> s
+
+rules
+
+  sort-to-java-type-string : SimpleSort("Object") -> "java.lang.Object"
+  sort-to-java-type-string : GenericSort("List", [x]) -> <concat-strings> ["java.util.List<", <sort-to-java-type-string> x, ">"]
+  sort-to-java-type-string : GenericSort("Set", [x]) -> <concat-strings> ["java.util.Set<", <sort-to-java-type-string> x, ">"]
+  sort-to-java-type-string : GenericSort("Map", [x, y]) -> <concat-strings> ["java.util.Map<", <sort-to-java-type-string> x, ",", <sort-to-java-type-string> y, ">"]
+  sort-to-java-type-string : x -> <DefinedJavaTypeString> x
+
+  object-type :
+    SimpleSort("Object") -> type|[ Object ]|
+
+  builtin-java-type :
+    GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type-default-value :
+    GenericSort("List", [s]) -> |[ new java.util.ArrayList<t>() ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type :
+    GenericSort("Set", [s]) -> type|[ java.util.Set<t> ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type-default-value :
+    GenericSort("Set", [s]) -> |[ new java.util.LinkedHashSet<t>() ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type :
+    GenericSort("Map", [s1, s2]) -> type|[ java.util.Map<t1, t2> ]|
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
+
+  builtin-java-type-default-value :
+    GenericSort("Map", [s1,s2]) -> |[ new java.util.HashMap<t1,t2>() ]|
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
+
+
+
+rules // typechecking context
+
+  tc-context =
+    TcContext <+ !""
+
+  add-tc-context = ?msg;
+    if x := <TcContext> then
+      <concat-strings>[x | msg]
+    else
+      <concat-strings>msg
+    end
+
+  in-tc-context(s|msg) =
+    {| TcContext
+     : rules( TcContext := <add-tc-context> msg )
+     ; s
+     |}
+
+  typecheck-error(|msg) =
+    err-msg(|["module ", <Module>, "/", <tc-context>, ": " | msg])
+    ; rules( TypecheckError := True() )
+
+rules
+
+  type-of :
+    e{t*} -> t
+    where t := <fetch-elem(?Type(<id>))> t*
+
+rules // type compatibility
+
+  /**
+   * <type-compatible> (t1, t2) if a value of type t2 can be assigned
+   * to a variable of type t1
+   */
+
+  type-compatible =
+    ?(t, t)
+
+  type-compatible =
+    ?(t1, t2)
+    ; where(<subtype-of> (t2, t1))

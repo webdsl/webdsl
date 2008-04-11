@@ -1,0 +1,161 @@
+module org/webdsl/dsl/typechecker/entity
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // typechecking entity declarations
+
+  typecheck-entity :
+    EntityNoSuper(x_class, props, function*) -> EntityNoSuper(x_class, props, function2*)
+    where {| TypeOf
+          : in-tc-context(
+              rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <map(typecheck-property(|x_class))> props)
+              ; function2* := <map(typecheck-function)> function*
+              ; <map(extract-entity-id(|x_class))> props
+              | ["entity declaration ", x_class]) |}
+
+
+  typecheck-entity :
+    Entity(x_class, s, props, functions) -> Entity(x_class, s, props, functions2)
+    where {| TypeOf
+           : in-tc-context(
+                rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <typecheck-supertype> s )
+              ; where( <map(typecheck-property(|x_class))> props )
+              ; functions2 := <map(typecheck-function)> functions
+              ; <map(extract-entity-id(|x_class))> props
+              | ["entity declaration ", x_class]) |}
+
+  typecheck-entity :
+    SessionEntity(nm, props, function*) -> SessionEntity(nm, props, function2*)
+    where {| TypeOf
+          :   x_class := <capitalize-string> nm
+              ; in-tc-context(
+                rules( TypeOf : "this" -> SimpleSort(x_class) )
+              ; where( <map(typecheck-property(|x_class))> props)
+              ; function2* := <map(typecheck-function)> function*
+              ; <map(extract-entity-id(|x_class))> props
+              | ["session declaration ", nm]) |}
+
+  extract-entity-id(|x_Class) =
+   ?Property(x, k, s, annos)
+   ; where(
+       if <elem> (SimpleAnno("id"), annos) then
+         rules (
+           EntityIdType : x_Class -> s
+           EntityIdName : x_Class -> x
+           )
+       end
+     )
+
+  extract-entity-id(|x_Class) =
+   ?DerivedProperty(_, _, _, _, _)
+
+  typecheck-supertype =
+    ?s
+    ; if not(<IsEntity> s) then
+        typecheck-error(|["supertype ", s, " is not a defined entity"])
+      end
+    ; <map(declare-super-property(|s))> <Properties> s
+
+  declare-super-property(|x_class) =
+    ?Property(x, k, s, annos)
+    ; rules( TypeOf : x -> s )
+    ; rules( IsProperty : (x_class, x) )
+
+  declare-super-property(|x_class) =
+    ?DerivedProperty(x, k, s, annos, e)
+    ; rules( TypeOf : x -> s )
+    ; rules( IsProperty : (x_class, x) )
+
+  typecheck-property(|x_class) =
+    ?prop@Property(x, k, s, annos)
+    ; if not(<java-type> s) then
+        typecheck-error(|["property ", x, " has invalid type"])
+      end
+    ; rules( TypeOf : x -> s )
+    ; rules( IsProperty : (x_class, x) )
+    ; <map(try(typecheck-annos(|prop)))> annos
+
+  typecheck-property(|x_class) :
+    DerivedProperty(x, k, s, annos, e) -> DerivedProperty(x, k, s, annos, e2)
+    where e2 := <typecheck-expression> e
+        ; <?_{Type(e2t)}> e2
+        ; if not(<type-compatible>(e2t, s)) then
+             typecheck-error(|["The expression of the derived type ", x, " should have type ", s, " but instead has type ", e2t])
+          end
+        ; rules( TypeOf : x -> s )
+        ; rules( IsProperty : (x_class, x) )
+
+  typecheck-annos(|prop) =
+    ?InverseAnno(ent, fld)
+    ; where (
+        if not(<IsEntity> ent) then
+          typecheck-error(|["The entity ", ent, " does not exist."])
+        end
+      ; if not(t := <TypeOfProperty> (ent, fld)) then
+          typecheck-error(|["The field ", ent, ".", fld, " is not of the right type."])
+        end
+      ; [inverse_prop] := <filter(?Property(fld, _, _, annos))> <Properties> ent
+      ; if (not([] := <filter(?InverseAnno(i_ent, i_fld))> annos)) then
+          typecheck-error(|["Inverse annotations cannot be declared on both sides. Remove either the (inverse=", ent, ".", fld, ") or the (inverse=", i_ent, ".", i_fld, ") annotation."])
+        end
+      ; if ([InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos) then
+          if ( SimpleSort(_) := t ; GenericSort(_, _) := <TypeOfProperty> (i_ent, i_fld) ) then
+            typecheck-error(|["In a many-to-one bidirectional association the inverse annotation should be declared on the many side. (inverse=", i_ent, ".", i_fld, ")"])
+          end
+        end
+    )
+//    ; GenericSort(coll, [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
+
+
+ /*   ; if not(<?GenericSort(_, _)> t) then
+        typecheck-error(|["The property refered to is not a collection: ", ent, ".", fld])
+      end */
+
+rules // typechecking entity functions
+  typecheck-function :
+    Function(f, args, sort, body1) -> Function(f, args, sort, body2)
+    where( {| TypeOf, ReturnType
+            : in-tc-context(
+               rules( ReturnType := sort )
+               ; <map(declare-typeof-arg)> args
+               ; body2 := <typecheck-function-block> body1
+             |["function ", f, "/"])
+           |} )
+         ; if <IsGlobalFunction> (f, args, sort) then
+             body3 := <desugar-any> body2
+             ; if [] := <collect(?Function(f, args, sort, _))> <global-functions>
+             then
+               new-global-functions := [Function(f, args, sort, body3)|<global-functions <+ ![]>]
+             else
+               new-global-functions := <global-functions <+ ![]>
+             end
+             ; rules ( global-functions :=  new-global-functions )
+          end
+
+  typecheck-function-stat =
+    typecheck-function-block
+    <+ typecheck-assignment-stat
+    <+ typecheck-vardecl
+    <+ typecheck-if
+    <+ typecheck-for
+    <+ typecheck-function-return
+    <+ Stat(typecheck-expression)
+    <+ warn(|"warning: not typechecking statement: ")
+
+  typecheck-function-block =
+    Block({| TypeOf : in-tc-context(map(typecheck-function-stat)|["block/"]) |})
+
+  typecheck-function-return :
+    Return(e1) -> Return(e2)
+    where e2 := <typecheck-expression> e1
+        ; <?_{Type(e2t)}> e2
+        ; rt := <ReturnType>
+        ; if not(<type-compatible>(e2t, rt)) then
+             typecheck-error(|["The return statement expression of the derived type ", e2t, " should have type ", rt])
+           end

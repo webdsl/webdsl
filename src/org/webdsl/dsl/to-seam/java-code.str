@@ -148,7 +148,7 @@ rules // statements
      <+ vardecl-to-java
      <+ for-to-java
      <+ if-to-java
-     <+ email-to-java
+     //<+ email-to-java
      <+ stat-to-java
      <+ return-to-java
      <+ cancel-to-java
@@ -158,25 +158,6 @@ rules // statements
    block-to-java :
      Block(stm*) -> bstm|[ { bstm* } ]|
      where bstm* := <statements-to-java> stm*
-
-   email-to-java :
-     Stat(e1@ThisCall("email", [ThisCall(name, args)])) ->
-       bstm* |[
-         ArrayList x_list = new ArrayList();
-         bstm1*
-         this.sendEmail(x_templ, x_list);
-       ]|
-     where template_name := <GetEmailTemplateName> (name, <ThisPage>)
-         ; x_templ := <concat-strings; double-quote>[template_name, ".xhtml"]
-         ; x_list := <newname> "_email_arguments"
-         ; bstm1* := <map(email-arguments-to-java(|x_list))> args
-
-  email-arguments-to-java(|x_list) =
-    ?argument
-    ; e1 := <expression-to-java> argument
-    ; !|[
-         x_list.add(e1);
-       ]|
 
    stat-to-java :
      Stat(e1) -> |[ e2; ]|
@@ -346,25 +327,6 @@ rules
          ; e := <java-type-default-value> s
 
 rules // expressions
-
-   expression-to-java :
-     String(x) -> expr|[ "~x" ]|
-
-   expression-to-java :
-     Int(x) -> Lit(Deci(x))
-
-   expression-to-java :
-     Float(x) -> Lit(Deci(x))
-
-   expression-to-java :
-     True() -> |[ true ]|
-
-   expression-to-java :
-     False() -> |[ false ]|
-
-   expression-to-java :
-     Null() -> |[ null ]|
-
    expression-to-java :
      Cast(e1, s) -> CastRef(t, |[ e2 ]|)
      where e2 := <expression-to-java> e1
@@ -540,12 +502,8 @@ rules // expressions
      persist-call-to-java
      <+ remove-call-to-java
      <+ count-call-to-java
-     <+ digest-call-to-java
-     <+ check-call-to-java
-     <+ apply-patch-call-to-java
-     <+ make-patch-call-to-java
-     <+ builtin-call-to-java
      <+ call-to-java
+     <+ generic-call-to-java
 
    persist-call-to-java :
      Call(e1, "persist", []) -> |[ entityManager.persist(e2) ]|
@@ -563,53 +521,16 @@ rules // expressions
      Call(e1, "delete", []) -> |[ entityManager.remove(e2) ]|
      where e2 := <expression-to-java> e1
 
-   apply-patch-call-to-java :
-     Call(e1, "applyPatch", [e2]) ->
-     |[ name.fraser.neil.plaintext.patch_factory.patchApply(e3, e4) ]|
-     where e3 := <expression-to-java> e1
-         ; e4 := <expression-to-java> e2
-
-   make-patch-call-to-java :
-     Call(e1, "makePatch", [e2]) ->
-     |[ name.fraser.neil.plaintext.patch_factory.patchMake(e3, e4) ]|
-     where e3 := <expression-to-java> e1
-         ; e4 := <expression-to-java> e2
-
    count-call-to-java :
      Call(e1, "count", []) -> |[ e2.size() ]|
      where e2 := <expression-to-java> e1
 
-   digest-call-to-java :
-     Call(e1, "digest", []) ->
-     |[ {|
-       org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
-         new org.jasypt.util.password.StrongPasswordEncryptor();
-       String x_var = x_var2.encryptPassword(e2);
-       | x_var
-     |} ]|
-     where e2 := <expression-to-java> e1
-         ; x_var := <newname> "_string"
-         ; x_var2 := <newname> "_passwordEncryptor"
-
-   check-call-to-java :
-     Call(e1, "check", [e2]) ->
-     |[ {|
-       org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
-         new org.jasypt.util.password.StrongPasswordEncryptor();
-       boolean x_var = x_var2.checkPassword(e4,e3);
-       | x_var
-     |} ]|
-     where e3 := <expression-to-java> e1
-         ; e4 := <expression-to-java> e2
-         ; x_var := <newname> "_string"
-         ; x_var2 := <newname> "_passwordEncryptor"
-
-   call-to-java :
+   generic-call-to-java :
      Call(e1, x, e2*) -> |[ e3.x(e4*) ]|
      where e3 := <expression-to-java> e1
          ; e4* := <map(expression-to-java)> e2*
 
-   call-to-java :
+   generic-call-to-java :
      ThisCall(x, e1*) -> |[ x(e2*) ]|
      where e2* := <map(expression-to-java)> e1*
 
