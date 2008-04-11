@@ -34,11 +34,13 @@ rules
       
       //topdown that does all the global checks, nested checks are handled when
       //a normal checks is applied
-      ; topdown(try(chain-WeaveAccessControl))
+      ; topdown(try(chain-WeaveAccessControl))  // doesn't work, because chain stops when where clause fails
+      //;topdown(try({|WeaveAccessControl:repeat(once-WeaveAccessControl)|}))
       
       //special inferred checks that loop on topdown traversal like navigates
       //no chaining in this case because they are always based on a single check
-      ; alltd(WeaveAccessControlOM)
+      //disabled for now, these rules need to be created upon applying 
+      //; alltd(chain-WeaveAccessControlOM)
 
 
 
@@ -81,8 +83,39 @@ rules
     (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2)
     
     
+  match-names:
+    //find-most-applicable-target-filter(|name,vars):
+    //acr@AccessControlRule(checktype,matchstring,fargs,check,   acrules) -> 
+    //    AccessControlRule(checktype,matchstring,fargs,newcheck,acrules)
+    tup@(matchstring,name) -> tup
+    where
+    if not(matchstring := "*")
+    then
+        leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
+        ; if leftmatcher := [] 
+          then // no * in the name, explicit match
+               matchstring := name
+            
+              /*  (matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
+                //still need to check whether it is precisely the name or something longer:
+                ; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
+                  then matchresult := matchresulttemp
+                  else matchresult := matchstring
+                  end
+                )*/
+            else
+                //normal left match, produces the suffix of the match
+                //left-match: Succeeds if the first list of terms starts with the second list of terms.
+                //            Returns the suffix of the first list that is not matched.
+                <left-match> (<explode-string> name,leftmatcher)
+          
+            end
+        
+    end    
+    
+    
   create-page-rule(|x_rulegroup):
-    r@acrule|[ rule page x_pagename(margs) { e acrule* } ]| -> r
+    r@acrule|[ rule page x_pagematchname(margs) { e acrule* } ]| -> r
     where x_predname := <newname> "genpagepredicate"
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
@@ -91,8 +124,12 @@ rules
                    def|[ define page x_pagename(farg*) { elem* } ]| -> 
                    def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
                                                          elem1* } ]|
-                   where <match-arguments> (margs,farg*)
-                       ; <debug> ["page rule applied",x_pagename]
+                   where //<debug> ["matching pagename",x_pagematchname,x_pagename] 
+                       <match-names> (x_pagematchname,x_pagename)
+                       //; <debug> ["matched:",x_pagematchname,x_pagename] 
+                       //; <debug> ["page rule applied",x_pagematchname]
+                       ; <match-arguments> (margs,farg*)
+                       ; <debug> ["page rule applied",x_pagematchname]
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
                        ; {| WeaveAccessControl:
@@ -100,18 +137,19 @@ rules
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
-                            ; elem1* := <alltd(chain-WeaveAccessControl)> elem*
+                            ; elem1* := <topdown(try({|WeaveAccessControl:repeat(once-WeaveAccessControl)|}))> elem*
+                            //<alltd(chain-WeaveAccessControl)> elem*
                           |}  
                )
-        ; rules( WeaveAccessControlOM :
+        /*; rules( WeaveAccessControlOM :+
                    elem@ elem|[ navigate( x_pagename(e*) ) { elem* }]| -> newtc
                    where e1* := <map(get-varname-from-formarg);take(|specifiedargcount)> e*
                        ; newtc := elem|[ if( x_predname(e1*) ) { elem } ]|
-               )
-        ; <debug> ["page rule created: ",x_pagename," predicate: ",x_predname]
+               ) needs to come at weaving transformation */
+        ; <debug> ["page rule created: ",x_pagematchname," predicate: ",x_predname]
           
   create-action-rule(|x_rulegroup):
-    r@acrule|[ rule action x_actionname(margs) { e acrule* } ]| -> r
+    r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
     where x_predname := <newname> "genactionpredicate"
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
@@ -121,12 +159,13 @@ rules
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
               elem|[ action x_actionname(farg*) { acactioncheck(x_rulegroup,x_predname(e*));
                                                   stat* } ]|
-              where <match-arguments> (margs,farg*)
+              where <match-names> (x_actionmatchname,x_actionname)
+                  ; <match-arguments> (margs,farg*)
                   //take length of specified arguments, these became the predicates formal arguments
                   ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
-                  ; <debug> ["action rule applied",x_actionname]
+                  ; <debug> ["action rule applied",x_actionmatchname]
           )
-          ; <debug> ["action rule created: ",x_actionname," predicate: "]
+          ; <debug> ["action rule created: ",x_actionmatchname," predicate: ",x_predname]
            
 
   /*create-template-rule(|x_rulegroup):
