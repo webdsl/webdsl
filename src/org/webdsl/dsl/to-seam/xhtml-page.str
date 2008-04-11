@@ -644,19 +644,96 @@ rules // iteration
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
 
+  wrap-column :
+    elems ->
+    %>
+      <h:column><%= elems ::*%></h:column>
+    <%
+
+
+rules // template call
+
+  elem-to-xhtml :
+    TemplateCall(name, args, elems) ->
+    %>
+      <ui:include src="<%= target %>">
+        <%=  params::* %>
+      </ui:include>
+    <%
+    where Define([], x, fargs, body) := <TemplateDefinition> name
+        ; target := <concat-strings> [name, ".xhtml"]
+        ; <debug> name
+//        ; <debug> <TemplateDefinition> name
+        ; <debug> fargs
+//        ; <debug> <ThisPage <+ ![]>
+//        ; <debug> <IsPage> <ThisPage>
+        ; {| ThisTemplateCall
+           : rules ( ThisTemplateCall := name )
+           ; <debug> args
+           ; args' := <zip(bind-template-params)> (fargs, args)
+           ; params := <elems-to-xhtml> args'
+           |}
+        ; <debug> ""
+
+  bind-template-params :
+    (Arg(a, s), b) -> (<TemplateArgument> (<ThisTemplateCall>, a), b)
+
+
+  elem-to-xhtml :
+    (a, Var(x)) ->
+    %>
+      <ui:param name="" value="<%= x %>" />
+    <%
+    where not(<IsSessionVariable> x)
+        ; not(<IsGlobal> x)
+        ; <debug> "Hier!!!!!"
+
+  elem-to-xhtml :
+    (a, Var(x)) ->
+    %>
+      <ui:param name="<%= x %>" value="" />
+    <%
+    where <IsSessionVariable> x
+
+  elem-to-xhtml :
+    (a, Var(x)) ->
+    %>
+      <ui:param name="<%= x %>" value="" />
+    <%
+    where <IsGlobal> x
+
+  elem-to-xhtml :
+    (a, Cast(x, s)) -> <elem-to-xhtml> (a, x)
+
+  elem-to-xhtml :
+    (a, fa@FieldAccess(e, f)) ->
+    %>
+      <ui:param name="<%= a %>" value="<%= x %>" />
+    <%
+    where x := <arg-to-el-string> fa
+//        ; <debug> ["_______________argument:", a]
+//        ; <debug> [<ThisTemplateCall>, ]
+//         ; <TemplateArgument> (<ThisPage>, f)
+    
+  
+rules // if
 
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
       <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"><%= elems2 ::*%></h:panelGroup>
     <%
-    where elems2 := <elems-to-xhtml> elems
-
-  wrap-column :
-    elems ->
+    where not(IsTemplate)
+        ; elems2 := <elems-to-xhtml> elems
+    
+  elem-to-xhtml :
+    IfTempl(e, elems) ->
     %>
-      <h:column><%= elems ::*%></h:column>
+      <c:if test="">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:if>
     <%
+    where IsTemplate // ; <debug> <ThisPage>
 
 rules // select from
 
@@ -1106,12 +1183,21 @@ rules // function stuff
 
    translate-template-expression : // Store some context information
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
-     where <elem> (Page(), mods)
+     where <debug> <ThisPage> ; <TemplateDefinition> name
          ; {| ThisPage
             : rules ( ThisPage := name )
             ; body2 := <try(sometd(translate-template-expression))> body1
             |}
 
+/*
+   translate-template-expression : // Store some context information
+     Define(mods, name, args, body1) -> Define(mods, name, args, body2)
+     where <elem> (Page(), mods)
+         ; {| ThisPage
+            : rules ( ThisPage := name )
+            ; body2 := <try(sometd(translate-template-expression))> body1
+            |}
+*/
 
    translate-template-expression =
      ?IfTempl(e, elems1*)
