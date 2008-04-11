@@ -46,16 +46,6 @@ rules // typechecking expressions
              ; t := "Error"
            end
 
-   typecheck-in-coll :
-     InColl(e1, e2) -> InColl(e3, e4) {Type(SimpleSort("Bool"))}
-     where e3 := <typecheck-expression> e1
-         ; e4 := <typecheck-expression> e2
-         ; <?_{Type(t)}> e3
-         ; <?_{Type(GenericSort(_, [lt]))}> e4
-         ; if not(<type-compatible> (lt, t)) then // Or other way around?
-             typecheck-error(|["Expression ", e3, " should be of type ", lt])
-           end
-
    typecheck-cast :
      Cast(e1, s) -> Cast(e2, s) { Type(s) }
      where e2 := <typecheck-expression> e1
@@ -63,44 +53,6 @@ rules // typechecking expressions
          ; if not(<type-compatible> (e2t, s)) ;  not(<type-compatible> (s, e2t)) then
               typecheck-error(|["You cannot cast something of type ", e2t, " to ", s])
            end
-
-   typecheck-set-creation :
-     SetCreation(e1*) -> SetCreation(e2*){Type(GenericSort("Set", [t]))}
-     where dbg(|"typecheck-set-creation a: ")
-         ; e2* := <map(typecheck-expression)> e1*
-         ; dbg(|"typecheck-set-creation b: ")
-         ; [_{Type(t)},e3*] := e2*
-         ; dbg(|"typecheck-set-creation c: ")
-         ; if not(<map(?_{Type(<id>)}; <eq>(<id>, t))> e3*) then
-             typecheck-error(|["arguments of set creation should have same type"])
-           end
-         ; dbg(|"typecheck-set-creation d: ")
-
-   typecheck-typed-set-creation :
-     TypedSetCreation(s, e1*) -> TypedSetCreation(s, e2*) {Type(GenericSort("Set", [s]))}
-     where e2* := <map(typecheck-expression)> e1*
-         ; if not(<map(?_{Type(<id>)}; <type-compatible>(s, <id>))> e2*) then
-             typecheck-error(|["arguments of set creation should have same type."])
-           end
-
-   typecheck-typed-list-creation :
-     TypedListCreation(s, e1*) -> TypedListCreation(s, e2*) {Type(GenericSort("List", [s]))}
-     where e2* := <map(typecheck-expression)> e1*
-         ; if not(<map(?_{Type(<id>)}; <type-compatible>(<id>, s))> e2*) then
-             typecheck-error(|["arguments of list creation should have same type"])
-           end
-
-   typecheck-list-creation :
-     ListCreation(e1*) -> ListCreation(e2*){Type(GenericSort("List", [t]))}
-     where dbg(|["typecheck-set-creation a: ", <id>])
-         ; e2* := <map(typecheck-expression)> e1*
-         ; dbg(|"typecheck-set-creation b: ")
-         ; [_{Type(t)},e3*] := e2*
-         ; dbg(|"typecheck-set-creation c: ")
-         ; if not(<map(?_{Type(<id>)}; <eq>(<id>, t))> e3*) then
-             typecheck-error(|["arguments of set creation should have same type"])
-           end
-         ; dbg(|"typecheck-set-creation d: ")
 
    typecheck-object-creation :
      ObjectCreation(x_Class, assign1*) -> ObjectCreation(x_Class, assign2*){Type(SimpleSort(x_Class))}
@@ -138,9 +90,15 @@ rules // typechecking expressions
          ; t1 := "Error"
       end
 
-   typecheck-length-field :
-     FieldAccess(e1, "length") -> FieldAccess(e2, "length"){Type(SimpleSort("Int"))}
-     where e2{Type(GenericSort(_,_))} := <typecheck-expression> e1
+   typecheck-in-coll :
+     InColl(e1, e2) -> InColl(e3, e4) {Type(SimpleSort("Bool"))}
+     where e3 := <typecheck-expression> e1
+         ; e4 := <typecheck-expression> e2
+         ; <?_{Type(t)}> e3
+         ; <?_{Type(GenericSort(_, [lt]))}> e4
+         ; if not(<type-compatible> (lt, t)) then // Or other way around?
+             typecheck-error(|["Expression ", e3, " should be of type ", lt])
+           end
 
    typecheck-for-expr :
      ForExp(oe1, x, s, ie1, Filter(we1, obe1)) -> ForExp(oe2, x, s, ie2, Filter(we2, obe2)) {Type(t)}
@@ -184,83 +142,29 @@ rules // typechecking expressions
          ; e2' := <typecheck-expression> e2
          ; t := <check-signature> (None(), op, [e1', e2'])
          
-   check-operator-signature : (None(), "+", [t, t]) -> t
-   check-operator-signature : (None(), "-", [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
-   check-operator-signature : (None(), "-", [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
-   check-operator-signature : (None(), "*", [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
-   check-operator-signature : (None(), "*", [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
-   check-operator-signature : (None(), "/", [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
-   check-operator-signature : (None(), "/", [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
-   check-operator-signature : (None(), "%", [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
-   check-operator-signature : (None(), "=", [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-   check-operator-signature : (None(), "!=", [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-   check-operator-signature : (None(), "<", [t, t]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), "<=", [t, t]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), ">", [t, t]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), ">=", [t, t]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), "&&", [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), "||", [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
-   check-operator-signature : (None(), "is a", [t, t2]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("Add"), [t, t]) -> t
+   check-operator-signature : (None(), Op("Sub"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+   check-operator-signature : (None(), Op("Sub"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+   check-operator-signature : (None(), Op("Mul"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+   check-operator-signature : (None(), Op("Mul"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+   check-operator-signature : (None(), Op("Div"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+   check-operator-signature : (None(), Op("Div"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+   check-operator-signature : (None(), Op("Mod"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+   check-operator-signature : (None(), Op("Eq"), [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
+   check-operator-signature : (None(), Op("NotEq"), [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
+   check-operator-signature : (None(), Op("SmallerThan"), [t, t]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("SmallerThanOrEqual"), [t, t]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("LargerThan"), [t, t]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("LargerThanOrEqual"), [t, t]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("And"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("Or"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
+   check-operator-signature : (None(), Op("IsA"), [t, t2]) -> SimpleSort("Bool")
    
- // Exp operators, can this be done in a shorter way?
- // TODO: Make sure these are numeric types (in case of mul, div and sub)
    typecheck-operator :
-     Add(e1, e2) -> Add(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("+", [e1, e2])
-
+     c#([e1, e2]) -> c#([e1', e2']) {Type(t)}
+     where (t, [e1', e2']) := <typecheck-binop> (Op(c), [e1, e2])
+   
    typecheck-operator :
-     Sub(e1, e2) -> Sub(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("-", [e1, e2])
-
-   typecheck-operator :
-     Mul(e1, e2) -> Mul(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("*", [e1, e2])
-
-   typecheck-operator :
-     Div(e1, e2) -> Div(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("/", [e1, e2])
-
-   typecheck-operator :
-     Mod(e1, e2) -> Mod(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("%", [e1, e2])
-
-   typecheck-operator :
-     Eq(e1, e2) -> Eq(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("=", [e1, e2])
-
-   typecheck-operator :
-     NotEq(e1, e2) -> NotEq(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("!=", [e1, e2])
-
-   typecheck-operator :
-     LargerThan(e1, e2) -> LargerThan(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> (">", [e1, e2])
-
-   typecheck-operator :
-     LargerThanOrEqual(e1, e2) -> LargerThanOrEqual(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> (">=", [e1, e2])
-
-   typecheck-operator :
-     SmallerThan(e1, e2) -> SmallerThan(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("<", [e1, e2])
-
-   typecheck-operator :
-     SmallerThanOrEqual(e1, e2) -> SmallerThanOrEqual(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("<=", [e1, e2])
-
-   typecheck-operator :
-     And(e1, e2) -> And(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("&&", [e1, e2])
-
-   typecheck-operator :
-     Or(e1, e2) -> Or(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("||", [e1, e2])
-
-   typecheck-operator :
-     IsA(e1, e2) -> IsA(e1', e2') { Type(t) }
-     where (t, [e1', e2']) := <typecheck-binop> ("is a", [e1, e2])
-
-    typecheck-operator :
      Not(x) -> Not(x2) { Type(SimpleSort("Bool")) }
      where x2 := <typecheck-expression> x
          ; xt := <?_{Type(<id>)}> x2
@@ -268,7 +172,7 @@ rules // typechecking expressions
              typecheck-error(|[x, " should be an expression of type Bool, but is of type ", xt])
            end
 
-    typecheck-query :
+   typecheck-query :
      HqlQuery(q) -> HqlQuery(q){Type(t)}
      where t := <type-of-query> q
          ; dbg(|"type of query: ")
@@ -294,30 +198,6 @@ rules // signature
        <+ CheckEmailDefinitionSignature
        <+ check-builtin-signature
        <+ typecheck-error(|["type error in call ", sig]))
-
-  check-builtin-signature :
-    (GenericSort("List", [s]), "add", [s]) -> SimpleSort("void")
-
-  check-builtin-signature :
-    (GenericSort("List", [s]), "remove", [s]) -> SimpleSort("void")
-
-  check-builtin-signature :
-    (GenericSort("List", [s]), name, [s]) -> SimpleSort("void")
-    where <is-substring("remove")> name
-
-  check-builtin-signature :
-    (GenericSort("Set", [s]), "add", [s]) -> SimpleSort("void")
-
-  check-builtin-signature :
-    (GenericSort("Set", [s]), "remove", [s]) -> SimpleSort("void")
-
-  check-builtin-signature :
-    (_, name, [s]) -> SimpleSort("void")
-    where <is-substring("remove")> name
-
-  check-builtin-signature :
-    (_, name, [s]) -> SimpleSort("void")
-    where <is-substring("add")> name
 
   check-builtin-signature :
     (s@SimpleSort(_), "delete", []) -> SimpleSort("void")
