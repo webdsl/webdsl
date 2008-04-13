@@ -16,46 +16,18 @@ imports
 
 rules
   process-access-control=
-    //declare-access-control
-
-    //; typecheck-access-control(typecheck-access-control-pointcuts|)
-   // create-ac-pointcuts
-    //; desugar-access-control
-
-    //; typecheck-access-control(typecheck-access-control-declarations|)
-    //; generate-access-control-declarations
     if AccessControlEnabled then
       alltd(new-generate-access-control-rules-checks)
-     
-      //; alltd(remove-all(?AccessControlDefinition(_,_)))
-      //; alltd(remove-all(  ))
-      
-      
-      
-      //topdown that does all the global checks, nested checks are handled when
-      //a normal checks is applied
-      ; topdown(try(chain-WeaveAccessControl))  // doesn't work, because chain stops when where clause fails
-      //;topdown(try({|WeaveAccessControl:repeat(once-WeaveAccessControl)|}))
-      
-      //special inferred checks that loop on topdown traversal like navigates
-      //no chaining in this case because they are always based on a single check
-      //disabled for now, these rules need to be created upon applying 
-      //; alltd(chain-WeaveAccessControlOM)
 
-
-
-      //; new-access-control-weaving
-    //  ; access-control-weaving
-  //  ; where(<WeaveAccessControl> Define([Page()],"test",[],[]))
+      //topdown that does all the global checks, nested checks are handled when a normal checks is applied
+      ; topdown(try( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControl(f) end))
 
       ; add-access-denied-page
       
-      //remove overall policy declaration
-      // can be removed during transformation
       ; alltd(remove-all(   {x_name,acdef*: ?webdsl|[ access control rules x_name acdef* ]| }
                          <+ {pexp:          ?webdsl|[ access control policy pexp         ]| } ))
       
-      //; where(warn-for-unused-rules)
+      //TODO ; where(warn-for-unused-rules)
     end
     
   new-generate-access-control-rules-checks=
@@ -69,8 +41,10 @@ rules
                   
   get-formarg-from-matcharg:
     MatchArgs(formarg,wc)->formarg
+  
   get-varname-from-formarg:
     Arg(ident,srt)->Var(ident)
+  
   match-arguments=
     ?(fargrule,farg*)
     ; newfargs := <?MatchArgs(args,wc);!args> fargrule
@@ -79,14 +53,11 @@ rules
       then newfarg* := farg*
       else newfarg* := <take(<length> newfargs)> farg* end
     ; <zip(extract-sorts;eq)> (newfargs,newfarg*)
+  
   extract-sorts:
     (Arg(ident1,thesort1),Arg(ident2,thesort2)) -> (thesort1,thesort2)
     
-    
   match-names:
-    //find-most-applicable-target-filter(|name,vars):
-    //acr@AccessControlRule(checktype,matchstring,fargs,check,   acrules) -> 
-    //    AccessControlRule(checktype,matchstring,fargs,newcheck,acrules)
     tup@(matchstring,name) -> tup
     where
     if not(matchstring := "*")
@@ -95,22 +66,10 @@ rules
         ; if leftmatcher := [] 
           then // no * in the name, explicit match
                matchstring := name
-            
-              /*  (matchresulttemp := <left-match;implode-string> (<explode-string> name,<explode-string> matchstring)
-                //still need to check whether it is precisely the name or something longer:
-                ; if equal(|<explode-string;length> name, <explode-string;length> matchstring)
-                  then matchresult := matchresulttemp
-                  else matchresult := matchstring
-                  end
-                )*/
-            else
-                //normal left match, produces the suffix of the match
-                //left-match: Succeeds if the first list of terms starts with the second list of terms.
-                //            Returns the suffix of the first list that is not matched.
-                <left-match> (<explode-string> name,leftmatcher)
-          
-            end
-        
+          else //left-match: Succeeds if the first list of terms starts with the second list of terms.
+               //            Returns the suffix of the first list that is not matched.
+               <left-match> (<explode-string> name,leftmatcher)
+          end
     end    
     
     
@@ -120,14 +79,13 @@ rules
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
+        //bind for more efficient dr retrieval, doesn't seem to work like this
+        //; if <explode-string;not(elem('*'))> x_pagematchname then x_pagename:=x_pagematchname end
         ; rules( WeaveAccessControl :+
                    def|[ define page x_pagename(farg*) { elem* } ]| -> 
                    def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
                                                          elem1* } ]|
-                   where //<debug> ["matching pagename",x_pagematchname,x_pagename] 
-                       <match-names> (x_pagematchname,x_pagename)
-                       //; <debug> ["matched:",x_pagematchname,x_pagename] 
-                       //; <debug> ["page rule applied",x_pagematchname]
+                   where <match-names> (x_pagematchname,x_pagename)
                        ; <match-arguments> (margs,farg*)
                        ; <debug> ["page rule applied",x_pagematchname]
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
@@ -137,15 +95,9 @@ rules
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
-                            ; elem1* := <topdown(try({|WeaveAccessControl:repeat(once-WeaveAccessControl)|}))> elem*
-                            //<alltd(chain-WeaveAccessControl)> elem*
+                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControl(f) end)> elem*
                           |}  
                )
-        /*; rules( WeaveAccessControlOM :+
-                   elem@ elem|[ navigate( x_pagename(e*) ) { elem* }]| -> newtc
-                   where e1* := <map(get-varname-from-formarg);take(|specifiedargcount)> e*
-                       ; newtc := elem|[ if( x_predname(e1*) ) { elem } ]|
-               ) needs to come at weaving transformation */
         ; <debug> ["page rule created: ",x_pagematchname," predicate: ",x_predname]
           
   create-action-rule(|x_rulegroup):

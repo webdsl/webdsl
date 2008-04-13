@@ -18,9 +18,10 @@ rules
   process-access-control-checks =
     topdown(try(   process-page-checks
                 <+ process-action-checks))
+  ; alltd(chain-WeaveAccessControlOM)
   
   process-page-checks:
-    def|[ define page x_ident(farg*){ elem* } ]| -> 
+    def|[ define page x_ident(farg*){ elem* }       ]| -> 
     def|[ define page x_ident(farg*){ elem elem1* } ]|
     where // collect takes care of duplicates
           listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> e \)> elem*
@@ -28,7 +29,17 @@ rules
         ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
         ; elem1* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
                                             <+ {x,e  : ?elem|[ acpagecheck(x,e){} ]| } )))> elem*
-        ; elem := elem |[ init { if ( e ) { stat* } else { goto accessDenied(); } } ]|
+        ; x_predname := <newname> "genpagepredicatecombined"
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
+        ; e2* := <map(get-varname-from-formarg)> farg*
+        ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
+        ; rules( WeaveAccessControlOM :+
+                   elem|[                        navigate( x_ident(e*) ) { elem2* }   ]| ->
+                   elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) ) { elem2* } } ]|
+                          where <debug> ["navlink applied ",x_ident]
+                          //TODO match argument types
+               ) 
+        ;    <debug> ["navlink created ",x_ident]
  
   process-action-checks:
     elem|[ action x_ident(farg*){stat*} ]| -> 
@@ -43,7 +54,7 @@ rules
           then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
           else stat2* := [webdsl |[ return(accessDenied()); ]|] end
         ; stat3 := webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|
-        //[If(e1,Block(statements1),Block(returnstats))]    
+       
                            
 //----------------------------------------------------------------------
 
