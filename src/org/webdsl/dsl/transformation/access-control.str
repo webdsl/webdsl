@@ -34,7 +34,7 @@ rules
     ?webdsl|[ access control rules x_groupname acdef* ]|
   ; where( <map(   create-page-rule(|x_groupname) 
              //  <+ create-template-rule(|groupname)
-               <+ create-action-rule(|x_groupname)
+               <+ create-action-rule(|x_groupname,[],[])
                <+ {x:?x; !["rule unknown: ",x];debug}
                   )> acdef*
     )
@@ -78,6 +78,7 @@ rules
     where x_predname := <newname> "genpagepredicate"
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
+        //null checks are added to predicates automatically
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         //bind for more efficient dr retrieval, doesn't seem to work like this
         //; if <explode-string;not(elem('*'))> x_pagematchname then x_pagename:=x_pagematchname end
@@ -91,7 +92,7 @@ rules
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
                        ; {| WeaveAccessControl:
-                            <map(create-action-rule(|x_rulegroup))> acrule*
+                            <map(create-action-rule(|x_rulegroup,farg2*,e*))> acrule*
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
@@ -100,11 +101,12 @@ rules
                )
         ; <debug> ["page rule created: ",x_pagematchname," predicate: ",x_predname]
           
-  create-action-rule(|x_rulegroup):
+  create-action-rule(|x_rulegroup,nestingfargs,nestingvars):
     r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
-    where x_predname := <newname> "genactionpredicate"
-        ; farg2* := <get-formarg-from-matcharg> margs
-        ; specifiedargcount := <length> farg2*
+    where x_predname := <newname> "genactionpredicate"; <debug> [nestingfargs,nestingvars]
+        ; farg1* := <get-formarg-from-matcharg> margs
+        ; specifiedargcount := <length> farg1*
+        ; farg2* := <concat> [nestingfargs,[farg1*]]
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         ; rules(   
             WeaveAccessControl :+
@@ -114,8 +116,8 @@ rules
               where <match-names> (x_actionmatchname,x_actionname)
                   ; <match-arguments> (margs,farg*)
                   //take length of specified arguments, these became the predicates formal arguments
-                  ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
-                  ; <debug> ["action rule applied",x_actionmatchname]
+                  ; e* := <concat> [nestingvars,<map(get-varname-from-formarg);take(|specifiedargcount)> farg*]
+                  ; <debug> ["action rule applied",x_actionmatchname,e*]
           )
           ; <debug> ["action rule created: ",x_actionmatchname," predicate: ",x_predname]
            
