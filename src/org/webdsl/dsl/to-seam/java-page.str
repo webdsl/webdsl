@@ -42,7 +42,7 @@ rules
   GenerateCode = page-to-java; fail
 
   page-to-java :
-    Define([Page()], x_page, args, elems1) ->
+    def|[ define page x_page (farg*) { elem* } ]| -> //Define([Page()], x_page, args, elems1) ->
     <emit-java-code> compilation-unit|[
         package pkgname;
 
@@ -129,7 +129,7 @@ rules
         ; pkgname2   := <DomainPackage>
         ; x_page     := <ThisPage>
         ; x_Page     := <capitalize-string> x_page
-        ; if [] := args then
+        ; if [] := farg* then
             stm1* := [ stm |[ if (!initialized) forceInitialization(); ]| ]
           else
             stm1* := []
@@ -146,7 +146,7 @@ rules //session variables
   GenerateCode = generate-session-var-initialization; fail
 
   generate-session-var-initialization :
-    Define([Page()], x_page, args, elems1) ->
+    def|[ define page x_page (farg*) { elem* } ]| -> //Define([Page()], x_page, args, elems1) ->
     <generate-page-bean> java|[
        @Partial
        public void postInitialize() {
@@ -154,12 +154,12 @@ rules //session variables
        }
        ~*cbds1
     ]|
-    where sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elems1 \)>
+    where sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elem* \)>
         ; bstm1* := <map(session-entity-property-to-merge);concat> sents
         ; cbds1  := <map(session-inouts);concat> sents
 
   session-inouts :
-    SessionEntity(x_ident, _, _) ->
+    def|[ session x_ident { prop* fun* } ]| -> //SessionEntity(x_ident, _, _) ->
         class-body-dec*
         |[
                @org.jboss.seam.annotations.In(create=true) @org.jboss.seam.annotations.Out private x_ent x_ident;
@@ -171,12 +171,13 @@ rules //session variables
                public x_ent get#x_ident() {
                  return x_ident;
                }
-                ]|
+        ]|
     where x_ent := <capitalize-string> x_ident
 
   //merge references inside session entities at page initialization
   session-entity-property-to-merge:
-    SessionEntity(x_ident, _, _) -> bstm0*
+    //SessionEntity(x_ident, _, _)
+    def|[ session x_ident { prop* fun* } ]| -> bstm0*
     where classofsession := <TypeOf> x_ident
         ; SimpleSort(classname) := classofsession
         ; props := <Properties> classname
@@ -227,7 +228,7 @@ rules // bean parameters
   GenerateCode = argument-to-bean-property; fail
 
   argument-to-bean-property :
-    arg@Arg(x, s@SimpleSort(x_Class)) ->
+    arg@farg|[ x : srt ]| ->
     <generate-page-bean> java|[
        @Partial
        void argumentInitialize() {
@@ -253,7 +254,8 @@ rules // bean parameters
          return x;
        }
     ]|
-    where <defined-java-type> s
+    where <defined-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
         ; x_id := <concat-strings>[x, "_id"]
         ; if <EntityIdName> x_Class then
             t := <java-wrapper-type> <EntityIdType> x_Class
@@ -263,7 +265,8 @@ rules // bean parameters
         ; bstm* := <argument-to-initialization> arg
 
   argument-to-bean-property :
-    arg@Arg(x, s@SimpleSort(_)) ->
+    //arg@Arg(x, s@SimpleSort(_)) ->
+    arg@farg|[ x : srt ]| ->
     <generate-page-bean> java|[
        @Partial
        void argumentInitialize() {
@@ -280,11 +283,13 @@ rules // bean parameters
          return x;
        }
     ]|
-    where t_Class := <builtin-java-type> s
+    where t_Class := <builtin-java-type> srt
+        ; <?SimpleSort(_)> srt
         ; bstm* := <argument-to-initialization> arg
 
   argument-to-initialization :
-    Arg(x, s@SimpleSort(x_Class)) ->
+    //Arg(x, s@SimpleSort(x_Class)) ->
+    arg@farg|[ x : srt ]| ->
     bstm*|[
       if (x_Id == null) {
          //log.info("No " + "~x_Id" + " defined, creating new " + "~x_Class");
@@ -300,20 +305,23 @@ rules // bean parameters
         }
       }
     ]|
-    where <defined-java-type> s
+    where <defined-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
         ; x_Id := <concat-strings>[x, "_id"]
-        ; e_init := <java-type-default-value> s
+        ; e_init := <java-type-default-value> srt
         ; rules( Parameter :+= x )
 
   argument-to-initialization :
-    Arg(x, s@SimpleSort(x_Class)) ->
+    //Arg(x, s@SimpleSort(x_Class)) ->
+    arg@farg|[ x : srt ]| ->
     bstm*|[
           if (x == null) {
             x = e_init;
           }
     ]|
-    where <builtin-java-type> s
-        ; e_init := <java-type-default-value> s
+    where <builtin-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
+        ; e_init := <java-type-default-value> srt
         ; rules( Parameter :+= x )
 
 rules // action methods
@@ -324,7 +332,7 @@ rules // action methods
   GenerateCode = generate-action-bean-code; fail
 
   generate-action-bean-code :
-    a@Action(x_action, args, Block(stm*)) ->
+    a@Action(_, _, _) ->
     <generate-page-bean> [<action-to-bean-method> a]
 
   action-to-bean-method =
@@ -464,9 +472,8 @@ rules // tables
 rules // for all: for(x : s) { ... }
 
   collection-to-declarations :
-    ForAll(x, SimpleSort(x_Class), _, elems) ->
-      <dbg(|"forall-declarations success: ")
-        ; collection-to-java(|x, x_Class)>
+    elem|[ for(x : srt fltr) { elem* } ]| -> <collection-to-java(|x, x_Class)>
+    where <?SimpleSort(x_Class)> srt
 
   collection-to-initialization :
     ForAll(x, SimpleSort(x_Class), _, elems) ->
@@ -480,7 +487,8 @@ rules // select
   GenerateCode = generate-select-code; fail
 
   generate-select-code :
-    Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
+    elem|[ select(x : srt, str, e1) ]| ->
+    //Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
     <generate-page-bean> java|[
       @DataModel(~string:String([Chars(<concat-strings> [x, "List"])]))
       private List<x_Class> x#List;
@@ -501,6 +509,7 @@ rules // select
       }
     ]|
     where dbg(|"select-declarations match: ")
+        ; <?SimpleSort(x_Class)> srt
         ; X          := <capitalize-string> x
         ; dbg(|"select-to-declarations names: ")
         //; e2          := <arg-to-java-exp> e1
@@ -520,26 +529,28 @@ rules // page variables
   GenerateCode = generate-page-variables-code; fail
 
   generate-page-variables-code :
-    VarDecl(x, s) -> <generate-page-bean>
-    java|[
+    elem|[ var x : srt ]| ->
+    //VarDecl(x, s) ->
+    <generate-page-bean> java|[
        private t x = e;
        public t get#x() { return x; }
        public void set#x(t x) { this.x = x; }
     ]|
-    where t     := <java-type> s
+    where t     := <java-type> srt
         ; X     := <capitalize-string> x
-        ; e     := <java-type-default-value> s
+        ; e     := <java-type-default-value> srt
 
   generate-page-variables-code :
-    VarDeclInit(x, s, e1) -> <generate-page-bean>
-    java|[
+    //VarDeclInit(x, s, e1) ->
+    elem|[ var x : srt := e1 ]| ->
+    <generate-page-bean> java|[
        private t x;
        public t get#x() { return x; }
        public void set#x(t x) { this.x = x; }
        @Partial public void postInitialize() { x = e2; }
     ]|
     where not(HqlQuery(_) := e1)
-        ; t     := <java-type> s
+        ; t     := <java-type> srt
         ; X     := <capitalize-string> x
         //; stm := <statement-to-java> Assign(Assignment(x, e1)) // @TODO: these things should be avoided
         ; e2 := <expression-to-java> e1
@@ -547,8 +558,9 @@ rules // page variables
   // page-level variables with query initializers
 
   generate-page-variables-code :
-    VarDeclInit(x, s, HqlQuery(e1)) -> <generate-page-bean>
-    java|[
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, HqlQuery(e1)) ->
+    <generate-page-bean> java|[
        @DataModel(~string:String([Chars(x)])) private t x;
        public t get#x() { return x; }
        public void set#x(t x) { this.x = x; }
@@ -556,7 +568,8 @@ rules // page variables
        public void init#x() { x = e2.getResultList(); }
        @Partial public void postInitialize() { init#x(); }
     ]|
-    where t      := <java-type> s
+    where t      := <java-type> srt
+        ; <?HqlQuery(e1)> e
         ; X      := <capitalize-string> x
         ; e2     := <query-to-create-query> e1
 
@@ -565,36 +578,45 @@ rules // List getter/setter for Set typed page variables
   GenerateCode = generate-page-variables-code-set; fail
 
   generate-page-variables-code-set :
-    VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) ->
+    //VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) ->
+    elem|[ var x : Set<srt> ]| ->
     <generate-page-bean>
     java|[
        public t2 get#x#List() { return new java.util.ArrayList(get#x()); }
        public void set#x#List(t2 x) { set#x(new java.util.LinkedHashSet(x)); }
        public int get#x#Length() { return get#x().size(); }
     ]|
-    where t           := <java-type> s
-        ; t2          := <java-type> GenericSort("List", [SimpleSort(Y)])
+    where //t := <java-type> srt // can't figure out what this is used for
+          <?SimpleSort(Y)> srt
+        ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
 
   generate-page-variables-code-set :
-    VarDeclInit(x, s, e) -> <generate-page-variables-code-set> VarDecl(x, s)
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-page-variables-code-set> elem|[ var x : srt ]|
 
 rules // List getter/setter for List typed page variables
 
   GenerateCode = generate-page-variables-code-list; fail
 
   generate-page-variables-code-list :
-    VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
+    //VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
+    elem|[ var x : List<srt> ]| ->
     <generate-page-bean>
     java|[
        public t2 get#x#List() { return get#x(); }
        public void set#x#List(t2 x) { set#x(x); }
        public int get#x#Length() { return get#x().size(); }
     ]|
-    where t           := <java-type> s
-        ; t2          := <java-type> GenericSort("List", [SimpleSort(Y)])
+    where //t           := <java-type> s // see above
+         <?SimpleSort(Y)> srt
+         ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
 
   generate-page-variables-code-list :
-    VarDeclInit(x, s, e) -> <generate-page-variables-code-list> VarDecl(x, s)
+    //VarDeclInit(x, s, e) -> <generate-page-variables-code-list> VarDecl(x, s)
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-page-variables-code-list> elem|[ var x : srt ]|
 
 rules // query translation
 
@@ -619,7 +641,9 @@ rules // For generating template functions
   GenerateCode = generate-template-function-code; fail
 
   generate-template-function-code :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> x_page
+    //Define([Page()], x_page, args, elems1) ->
+    def|[ define page x_page(farg*) { elem1* } ]| ->
+    <generate-page-bean> <template-functions-to-java> x_page
 
    template-functions-to-java :
      page -> function*
@@ -669,7 +693,9 @@ rules // Download helper
   GenerateCode = generate-download-helper-function; fail
 
   generate-download-helper-function :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [<download-helper-function> elems1]
+    //Define([Page()], x_page, args, elems1) ->
+    def|[ define page x_page(farg*) { elem* } ]| ->
+    <generate-page-bean> <concat> [<download-helper-function> elem*]
 
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
