@@ -19,8 +19,14 @@ rules
     if AccessControlEnabled then
       alltd(new-generate-access-control-rules-checks)
 
-      //topdown that does all the global checks, nested checks are handled when a normal checks is applied
-      ; topdown(try( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControl(f) end))
+      //topdown that does all the global checks, nested checks are handled when normal checks are applied
+      ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlPageOrTemplate(f) end) //doesn't apply to templates in page definitions
+      ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)
+
+
+      //should be done at least before template expansion
+      ; alltd(   \page@def|[ define page x_ident(farg*){ elem* } ]| ->page  \//ignore the defs inside pages
+              <+ process-template-checks)
 
       ; add-access-denied-page
       
@@ -33,10 +39,10 @@ rules
   new-generate-access-control-rules-checks=
     ?webdsl|[ access control rules x_groupname acdef* ]|
   ; where( <map(   create-page-rule(|x_groupname) 
-             //  <+ create-template-rule(|groupname)
-               <+ create-action-rule(|x_groupname,[],[])
-               <+ {x:?x; !["rule unknown: ",x];debug}
-                  )> acdef*
+                <+ create-template-rule(|x_groupname)
+                <+ create-action-rule(|x_groupname,[],[])
+                <+ {x:?x; !["rule unknown: ",x];debug}
+                   )> acdef*
     )
                   
   get-formarg-from-matcharg:
@@ -82,7 +88,7 @@ rules
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         //bind for more efficient dr retrieval, doesn't seem to work like this
         //; if <explode-string;not(elem('*'))> x_pagematchname then x_pagename:=x_pagematchname end
-        ; rules( WeaveAccessControl :+
+        ; rules( WeaveAccessControlPageOrTemplate :+
                    def|[ define page x_pagename(farg*) { elem* } ]| -> 
                    def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
                                                          elem1* } ]|
@@ -91,25 +97,25 @@ rules
                        ; <debug> ["page rule applied",x_pagematchname]
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
-                       ; {| WeaveAccessControl:
+                       ; {| WeaveAccessControlAction:
                             <map(create-action-rule(|x_rulegroup,farg2*,e*))> acrule*
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
-                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControl(f) end)> elem*
+                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
                           |}  
                )
         ; <debug> ["page rule created: ",x_pagematchname," predicate: ",x_predname]
           
-  create-action-rule(|x_rulegroup,nestingfargs,nestingvars):
+  create-action-rule(|x_rulegroup,farg7*,nestingvars):
     r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
-    where x_predname := <newname> "genactionpredicate"; <debug> [nestingfargs,nestingvars]
+    where x_predname := <newname> "genactionpredicate"
         ; farg1* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg1*
-        ; farg2* := <concat> [nestingfargs,[farg1*]]
+        ; farg2* := [farg7*,farg1*] //special: * at end of name inlines contents in list
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
         ; rules(   
-            WeaveAccessControl :+
+            WeaveAccessControlAction :+
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
               elem|[ action x_actionname(farg*) { acactioncheck(x_rulegroup,x_predname(e*));
                                                   stat* } ]|
@@ -121,7 +127,33 @@ rules
           )
           ; <debug> ["action rule created: ",x_actionmatchname," predicate: ",x_predname]
            
-
+  create-template-rule(|x_rulegroup):
+    r@acrule|[ rule template x_templatematchname(margs) { e acrule* } ]| -> r
+    where x_predname := <newname> "gentemplatepredicate"
+        ; farg2* := <get-formarg-from-matcharg> margs
+        ; specifiedargcount := <length> farg2*
+        //null checks are added to predicates automatically
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
+        //bind for more efficient dr retrieval, doesn't seem to work like this
+        //; if <explode-string;not(elem('*'))> x_templatematchname then x_templatename:=x_templatematchname end
+        ; rules( WeaveAccessControlPageOrTemplate :+
+                   def|[ define x_templatename(farg*) { elem*  } ]| -> 
+                   def|[ define x_templatename(farg*) { actemplatecheck (x_rulegroup,x_predname(e*))
+                                                        elem1* } ]|
+                   where <match-names> (x_templatematchname,x_templatename)
+                       ; <match-arguments> (margs,farg*)
+                       ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       //nested actions
+                       ; {| WeaveAccessControlAction:
+                            <map(create-action-rule(|x_rulegroup,farg2*,e*))> acrule*
+                            // alltd is enough because global checks are handled already in
+                            // the normal traversal, and deeper nested checks are handled in
+                            // the parent checks again
+                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
+                          |}  
+                       ; <debug> ["template rule applied",x_templatematchname]
+               )
+        ; <debug> ["template rule created: ",x_templatematchname," predicate: ",x_predname]
   /*create-template-rule(|x_rulegroup):
     acrule@AccessControlRule("template",x_templname,fargs,e,acrules) -> acrule
     where rules(   
