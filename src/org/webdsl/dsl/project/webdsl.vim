@@ -27,10 +27,10 @@ endif
 setlocal iskeyword=a-z,A-Z,48-57,_,-,=,>,128-167,224-235
 
 syntax keyword webdslVisibility imports
-syntax keyword webdslBlocks module application section description note
+syntax keyword webdslBlocks module application section description note operations
 syntax keyword webdslConditional for if else
-syntax keyword webdslKeywords in return define var page email enum session entity extend predicate policy pointcut access control rules globals action function template where order by init goto
-syntax keyword webdslBuiltins true false this Bool String Int Float Bool Secret Email Text WikiText Date Time DateTime Patch Image File URL Set List inverse
+syntax keyword webdslKeywords in return define var page email enum session entity extend predicate policy pointcut access control rules globals action function template where order by init goto operation who when do view derive
+syntax keyword webdslBuiltins true false this Bool String Int Float Bool Secret Email Text WikiText Date Time DateTime Patch Image File URL Set List inverse status
 syntax keyword webdslTemplateCalls title section header form table row list listitem captcha output input select navigate url menu menuheader menuitem menubar block par to from subject
 
 syntax region webdslCmtLine start="//" skip="\\$" end="$" 
