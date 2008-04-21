@@ -80,7 +80,9 @@ STRINCLUDES = \
 	-I $(XML_FRONT)/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
 	-I org/webdsl/dsl/modules \
-	# UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
+	--verbose 2
+
+# UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
 
 SDFINCLUDES = $(STRINCLUDES)
 
@@ -91,7 +93,7 @@ STRCFLAGS = \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
-	--format-check 0
+	--format-check 0 
 
 XTC_IMPORT = $(JAVA_FRONT_XTC)
 
@@ -123,7 +125,7 @@ nobase_data_DATA = libwebdsl-front.rtree
 lib_LTLIBRARIES  = libwebdsl-front.la 
 
 libwebdsl_front_la_SOURCES = libwebdsl-front.c
-libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS)
+libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwebdsl_front_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
 libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
