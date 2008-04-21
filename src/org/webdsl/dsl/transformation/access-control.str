@@ -22,7 +22,7 @@ rules
       //topdown that does all the global checks, nested checks are handled when normal checks are applied
       ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlPageOrTemplate(f) end) //doesn't apply to templates in page definitions
       ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)
-
+      ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlFunction(f) end)
 
       //should be done at least before template expansion
       ; alltd(   \page@def|[ define page x_ident(farg*){ elem* } ]| ->page  \//ignore the defs inside pages
@@ -41,6 +41,7 @@ rules
   ; where( <map(   create-page-rule(|x_groupname) 
                 <+ create-template-rule(|x_groupname)
                 <+ create-action-rule(|x_groupname,[],[])
+                <+ create-function-rule(|x_groupname)
                 <+ {x:?x; !["rule unknown: ",x];debug}
                    )> acdef*
     )
@@ -154,17 +155,26 @@ rules
                        ; <debug> ["template rule applied",x_templatematchname]
                )
         ; <debug> ["template rule created: ",x_templatematchname," predicate: ",x_predname]
-  /*create-template-rule(|x_rulegroup):
-    acrule@AccessControlRule("template",x_templname,fargs,e,acrules) -> acrule
-    where rules(   
-            WeaveAccessControl :+
-              def|[ define x_templname(farg*) { elem* } ]| -> 
-              def|[ define x_templname(farg*) { actemplcheck (x_rulegroup, e)
-                                                elem* } ]|
-              where <debug> ["template rule applied",x_templname]
-          )
-          ; <debug> ["template rule created",x_templname]
-    */      
+ 
+  create-function-rule(|x_rulegroup):
+    r@acrule|[ rule function x_functionmatchname(margs) { e acrule* } ]| -> r
+    where x_predname := <newname> "genfunctionpredicate"
+        ; farg2* := <get-formarg-from-matcharg> margs
+        ; specifiedargcount := <length> farg2*
+        //null checks are added to predicates automatically
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
+        //bind for more efficient dr retrieval, doesn't seem to work like this
+        //; if <explode-string;not(elem('*'))> x_templatematchname then x_templatename:=x_templatematchname end
+        ; rules( WeaveAccessControlFunction :+
+                   fun|[ function x_functionname(farg*):srt0 { stat* } ]| -> 
+                   fun|[ function x_functionname(farg*):srt0 { acfunctioncheck (x_rulegroup,x_predname(e*));
+                                                               stat* } ]|
+                   where <match-names> (x_functionmatchname,x_functionname)
+                       ; <match-arguments> (margs,farg*)
+                       ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       ; <debug> ["function rule applied",x_functionmatchname]
+               )
+        ; <debug> ["function rule created: ",x_functionmatchname," predicate: ",x_predname]    
   
   add-access-denied-page:
     webdsl |[ application qid sec* ]| -> 

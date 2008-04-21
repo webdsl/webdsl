@@ -17,7 +17,8 @@ rules
 
   process-access-control-checks =
     topdown(try(   process-page-checks
-                <+ process-action-checks))
+                <+ process-action-checks
+                <+ process-function-checks))
   ; alltd(chain-WeaveAccessControlOM)
   
   process-page-checks:
@@ -42,8 +43,8 @@ rules
         //;    <debug> ["navlink created ",x_ident]
  
   process-action-checks:
-    elem|[ action x_ident(farg*){stat*} ]| -> 
-    elem|[ action x_ident(farg*){stat3} ]|
+    elem|[ action x_ident(farg*){ stat*  } ]| -> 
+    elem|[ action x_ident(farg*){ stat3* } ]|
     where listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> e \)> stat*
         ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
         //remove ac calls
@@ -53,16 +54,27 @@ rules
         ; if returnstat := [] 
           then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
           else stat2* := [webdsl |[ return(accessDenied()); ]|] end
-        ; stat3 := webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|
+        ; stat3* := webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|
        
       
   process-template-checks:
-    a@def|[ define x_ident(farg*){ elem* }  ]| -> 
+    def|[ define x_ident(farg*){ elem* }  ]| -> 
     def|[ define x_ident(farg*){ elem2* } ]|
     where listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> e \)> elem*
         ; e := <try(?[];![False()]);generate-conjunction-exp> listofchecks
         ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
         ; elem2* := elem* |[ if ( e ) { elem1* } ]|
+ 
+  process-function-checks:
+    fun|[ function x_functionname(farg*):srt0 { stat*  } ]| -> 
+    fun|[ function x_functionname(farg*):srt0 { stat1* } ]|
+    where listofchecks := <collect(\ webdsl|[ acfunctioncheck(x,e); ]| -> e \)> stat*
+        ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+        //remove ac calls
+        ;<debug> stat*
+        ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acfunctioncheck(x,e); ]|} )))> stat*
+        ;<debug> stat1*
+ 
       
                            
 //----------------------------------------------------------------------
