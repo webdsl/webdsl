@@ -1,0 +1,113 @@
+module org/webdsl/dsl/modules/operations
+
+imports
+  libstrategolib
+
+rules // Normalization
+
+  Desugar :
+    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    where [] := <filter(?opelem|[ who { e } ]|)> opelem*
+        ; opelem2* := [opelem|[ who { true } ]| | opelem*]
+
+  Desugar :
+    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    where [] := <filter(?opelem|[ when { e } ]|)> opelem*
+        ; opelem2* := [opelem|[ when { true } ]| | opelem*]
+
+  Desugar :
+    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    where [] := <filter(?opelem|[ do { stat* } ]|)> opelem*
+        ; opelem2* := [opelem|[ do {} ]| | opelem*]
+
+rules // Further desugarings
+
+  Desugar :
+    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    where {| OperationArg
+           : rules ( OperationArg := x_o )
+           ; opelem2* := <manytd(desugar-status)> opelem*
+           |}
+
+  desugar-status :
+    Var("status") -> Var(oparg)
+    where oparg := <OperationArg>
+
+  desugar-status :
+    Qualified("status", f) -> Qualified(oparg, f)
+    where oparg := <OperationArg>
+
+  Desugar :
+    def|[ status x_id { prop* fun* } ]| -> def|[ extend entity x_id { prop* fun* } ]|
+
+rules // Declaring
+
+  declare-definition =
+    declare-operation
+
+  declare-operation =
+    ?opdef|[ operation x_id (x_o : srt) { opelem* }]|
+    ; rules ( IsOperation : x_id )
+    ; viewelems* <filter(\ {elem*: opelem|[ view { elem* } ]| -> elem* } \;concat)> opelem*
+    ; if not([] := viewelems*) then
+        rules ( IsDoOperation : x_id )
+      end
+
+rules // Typechecking
+
+  typecheck-section :
+    Operations(nm, operations) -> Operations(nm, operations2)
+    where operations2 := <map(typecheck-operation <+ typecheck-error(|["Could not typecheck: ", <id>]))> operations
+    
+  typecheck-operation :
+    Operation(nm, Arg(o, srt), elems) -> Operation(nm, Arg(o, srt), elems2)
+    where {| TypeOf
+           : rules ( TypeOf : "status" -> srt ) 
+           ; rules ( TypeOf : o -> srt )
+           ; elems2 := <map(typecheck-operation-element <+ typecheck-error(|["Could not typecheck: ", <id>]))> elems
+           |}
+ 
+  typecheck-operation-element :
+    OperationWho(e) -> OperationWho(e2)
+    where e2 := <typecheck-expression> e
+        ; if not(SimpleSort("Bool") := <type-of> e2) then
+            typecheck-error(|["Expression in who should return a boolean: ", e2])
+          end
+
+  typecheck-operation-element :
+    OperationWhen(e) -> OperationWhen(e2)
+    where e2 := <typecheck-expression> e
+        ; if not(SimpleSort("Bool") := <type-of> e2) then
+            typecheck-error(|["Expression in when should return a boolean: ", e2])
+          end
+
+  typecheck-operation-element :
+    OperationDo(b) -> OperationDo(b2)
+    where b2 := <typecheck-block> b
+
+  typecheck-operation-element :
+    OperationView(el*) -> OperationView(el2*)
+    where el2* := <typecheck-page-elements> el*
+
+rules // Translate to pages and stuff
+
+  Desugar :
+    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsOperation> x_id
+        ; stat* := <filter(get-action-statements);concat> opelem*
+        ; if <IsDoOperation> x_id then
+            viewelem* := elem*|[
+                init {
+                  stat*
+                }
+               ]|
+          else
+            viewelem* := <filter(translate-view);concat> opelem*
+          end
+        ; elem* := <concat> [viewelem*, actionelem*]
+
+  translate-view :
+    opelem|[ view { elem* } ]| -> elem|[ block { elem* } ]|
+
+  get-action-statements :
+    opelem|[ do { stat* } ]| -> stat*
