@@ -233,7 +233,6 @@
    StyleProperty                                -- _1,
    StyleValue                                   -- _1,
    StyleValue.1:alt                             -- _1 _1 _1 _1 _1 _1 _1 _1 _1 _1 _1 _1 _1,
-
    %% Operations 
    Operations                                   -- V is=2 vs=1 [H[KW["operations"] _1] _2],
    Operation                                    -- V[V is=2[H[KW["operation"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
@@ -244,5 +243,12 @@
    OperationView                                -- V  [V is=2 [H [KW["view"] KW["{"]] _1] KW["}"]],
    StatusEntity                                 -- V[V is=2[H[KW["status"] _1 KW["{"]] _2 _3] KW["}"]],
    StatusEntity.2:iter-star                     -- _1,
-   StatusEntity.3:iter-star                     -- _1
+   StatusEntity.3:iter-star                     -- _1,
+   Derive                                       -- KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"],
+   Derive.3:iter-star-sep                       -- _1 KW[","],
+   Derive                                       -- KW["derive"] _1 KW["for"] _2,
+   EditPage                                     -- KW["editPage"],
+   EditRows                                     -- KW["editRows"],
+   ViewPage                                     -- KW["viewPage"],
+   ViewRows                                     -- KW["viewRows"]
 ]

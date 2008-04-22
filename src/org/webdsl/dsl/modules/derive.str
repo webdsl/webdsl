@@ -1,0 +1,117 @@
+/**
+ * Derive
+ * 
+ * Derive a page from an entity and a list of properties - only for the given properties, form fields are generated
+ *
+ * derive editPage for p (name, comment)
+ *   => Derive(EditPage(), p, [name, comment])
+ * derive editPage for p
+ *   => Derive(EditRows(), p, [])
+ */
+
+module org/webdsl/dsl/modules/derive
+
+imports
+  libstrategolib
+
+rules
+
+  // add to Desugaring step
+  Desugar = (derive-page <+ derive-edit-rows <+ derive-view-rows)
+  Desugar = desugar-derive
+  
+  // if no properties given, add all properties
+  desugar-derive :
+    Derive(deriveType, e) -> Derive(deriveType, e, prop*)
+    where 
+        SimpleSort(t) := <type-of> e
+      ; properties := <Properties> t
+      ; prop* := <map(\Property(name,_,_,_) -> name\)> properties
+
+  /**
+   * Typechecking: annotate x and check that prop* are all properties of x
+   */
+  typecheck-page-element = typecheck-derive
+
+  typecheck-derive :
+    Derive(deriveType, e) ->
+      Derive(deriveType, e')
+      where
+          e' := <typecheck-expression> e
+        ; SimpleSort(u) := <type-of> e'
+  typecheck-derive :
+    Derive(deriveType, e, prop*) ->
+      Derive(deriveType, e', prop*)
+      where
+          e' := <typecheck-expression> e
+        ; SimpleSort(u) := <type-of> e'
+        ; <map(typecheck-derive-property(|u))> prop*
+      
+  typecheck-derive-property(|u) : 
+    f -> f
+    where 
+      if not(<TypeOfProperty> (u, f)) then
+          typecheck-error(|["entity '", u, "' has no property '", f, "'"])
+      end
+
+  /**
+   * Generate core WebDSL for: derive editPage from e for (property1, property2)
+   */
+  derive-page : 
+    Derive(EditPage(), e, prop*) -> elem|[ 
+      section { 
+        header{"Edit " text(e.name) } 
+        form { 
+          table { elem } 
+          action("Save", save()) 
+        }
+		    action save() { 
+        e.save(); 
+          return x_view (e ); 
+        }
+      } 
+    ]| 
+    where 
+        t := <type-of> e
+      ; SimpleSort(srt) := t
+      ; x_view := <decapitalize-string> srt 
+      ; elem := <derive-edit-rows> Derive(EditRows(), e{Type(t)}, prop*)
+
+  // derives edit rows for specified properties
+  derive-edit-rows :
+    Derive(EditRows(), e, prop*) -> elem|[dummy(){elem*}]| 
+    where elem* := <map(derive-edit-row(|e ))> prop*
+  derive-edit-row(|e ) : 
+    y -> elem|[row{str input(e.y )}]| 
+    where str := <concat-strings> [y , ": "]
+
+  /**
+   * Generate core WebDSL for: derive viewPage from e for (property1, property2)
+   */
+  derive-page : 
+    Derive(ViewPage(), e, prop*) -> elem|[ 
+      section { 
+        header{"View " text(e.name) } 
+        form { 
+          table { elem } 
+          action("Save", save()) 
+        }
+		    action save() { 
+        e.save(); 
+          return x_view (e ); 
+        }
+      } 
+    ]| 
+    where 
+        t := <type-of> e
+      ; SimpleSort(srt) := t
+      ; x_view := <decapitalize-string> srt 
+      ; elem := <derive-view-rows> Derive(ViewRows(), e{Type(t)}, prop*)
+
+  // derives view rows for specified properties
+  derive-view-rows :
+    Derive(ViewRows(), e, prop*) -> elem|[dummy(){elem*}]| 
+    where elem* := <map(derive-view-row(|e ))> prop*
+  derive-view-row(|e ) : 
+    y -> elem|[row{str output(e.y )}]| 
+    where str := <concat-strings> [y , ": "]
