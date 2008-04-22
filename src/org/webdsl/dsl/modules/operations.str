@@ -6,39 +6,42 @@ imports
 rules // Normalization
 
   Desugar :
-    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ operation x_id(x_o : srt) { opelem2* } ]|
     where [] := <filter(?opelem|[ who { e } ]|)> opelem*
         ; opelem2* := [opelem|[ who { true } ]| | opelem*]
 
   Desugar :
-    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ operation x_id(x_o : srt) { opelem2* } ]|
     where [] := <filter(?opelem|[ when { e } ]|)> opelem*
         ; opelem2* := [opelem|[ when { true } ]| | opelem*]
 
   Desugar :
-    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ operation x_id(x_o : srt) { opelem2* } ]|
     where [] := <filter(?opelem|[ do { stat* } ]|)> opelem*
         ; opelem2* := [opelem|[ do {} ]| | opelem*]
 
 rules // Further desugarings
 
   Desugar :
-    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> opdef|[ operation x_id(x_o : srt) { opelem2* } ]|
-    where {| OperationArg
-           : rules ( OperationArg := x_o )
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ operation x_id(x_o : srt) { opelem2* } ]|
+    where {| OpArg
+           : rules ( OpArg := x_o )
            ; opelem2* := <manytd(desugar-status)> opelem*
            |}
 
   desugar-status :
     Var("status") -> Var(oparg)
-    where oparg := <OperationArg>
+    where oparg := <OpArg>
 
   desugar-status :
     Qualified("status", f) -> Qualified(oparg, f)
-    where oparg := <OperationArg>
+    where oparg := <OpArg>
 
   Desugar :
     def|[ status x_id { prop* fun* } ]| -> def|[ extend entity x_id { prop* fun* } ]|
+
+  Desugar : // make the doAction() callable as do()
+    exp|[ do() ]| -> exp|[ doAction() ]|
 
 rules // Declaring
 
@@ -46,20 +49,29 @@ rules // Declaring
     declare-operation
 
   declare-operation =
-    ?opdef|[ operation x_id (x_o : srt) { opelem* }]|
-    ; rules ( IsOperation : x_id )
-    ; viewelems* <filter(\ {elem*: opelem|[ view { elem* } ]| -> elem* } \;concat)> opelem*
-    ; if not([] := viewelems*) then
+    ?def|[ operation x_id (x_o : srt) { opelem* }]|
+    ; info(|"Getting who exp")
+    ; who-exp := <filter(operation-who-exp); Hd> opelem*
+    ; when-exp := <filter(operation-when-exp); Hd> opelem*
+    ; info(|"Got it.")
+    ; rules ( IsOperation       : x_id 
+              OperationWho      : x_id -> who-exp
+              OperationWhen     : x_id -> when-exp
+              OperationArg      : x_id -> x_o
+              Operations        :+ srt -> x_id 
+              OperationEntities :+= srt )
+    ; info(|["Set dyn rules: ", opelem*])
+    ; viewelems* := <filter(\ opelem|[ view { elem* } ]| -> elem* \);concat> opelem*
+    ; if [] := viewelems* then
         rules ( IsDoOperation : x_id )
       end
 
 rules // Typechecking
 
-  typecheck-section :
-    Operations(nm, operations) -> Operations(nm, operations2)
-    where operations2 := <map(typecheck-operation <+ typecheck-error(|["Could not typecheck: ", <id>]))> operations
+  typecheck-section =
+    Operations(id, typecheck-definitions)
     
-  typecheck-operation :
+  typecheck-specific-definition :
     Operation(nm, Arg(o, srt), elems) -> Operation(nm, Arg(o, srt), elems2)
     where {| TypeOf
            : rules ( TypeOf : "status" -> srt ) 
@@ -92,22 +104,139 @@ rules // Typechecking
 rules // Translate to pages and stuff
 
   Desugar :
-    opdef|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsOperation> x_id
-        ; stat* := <filter(get-action-statements);concat> opelem*
+        ; stat* := <filter(operation-get-action-statements);concat> opelem*
+        ; SimpleSort(s) := srt
+        ; x_view := <decapitalize-string> s
         ; if <IsDoOperation> x_id then
-            viewelem* := elem*|[
+            stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
+            ; elem* := elem*|[
                 init {
-                  stat*
+                  stat2*
                 }
                ]|
           else
-            viewelem* := <filter(translate-view);concat> opelem*
+            stat2* := <add-view-page-return(|x_view, Var(x_o))> stat*
+            ; viewelem* := <filter(operation-get-view-elements);concat> opelem*
+            ; actionelem* := webdsl*|[
+                             action doAction() {
+                               stat2*
+                             }
+                           ]|
+            ; elem* := [viewelem*, actionelem*]
           end
-        ; elem* := <concat> [viewelem*, actionelem*]
+        ; e2 := <operation-get-access-exp> opelem*
+        ; <emit-webdsl-code> def|[
+            access control rules {
+              rules page x_id(x_o : srt) {
+                e2
+                rules action doAction() {
+                  e2
+                }
+              }
+            }
+          ]|
 
-  translate-view :
-    opelem|[ view { elem* } ]| -> elem|[ block { elem* } ]|
+  operation-get-view-elements :
+    opelem|[ view { elem* } ]| -> elem*
 
-  get-action-statements :
+  operation-get-action-statements :
     opelem|[ do { stat* } ]| -> stat*
+
+  operation-get-access-exp =
+    filter(operation-who-when-exp)
+    ; foldr(!True(), exp-and)
+
+  operation-who-exp :
+   opelem|[ who { e } ]| -> e 
+
+  operation-when-exp :
+   opelem|[ when { e } ]| -> e 
+
+  operation-who-when-exp =
+    operation-who-exp <+ operation-when-exp
+
+rules // Generate templates and status and todo pages
+
+  before-template-expansion = operation-generate-templates; fail
+
+  operation-generate-templates = 
+    <map(operation-emit-entity-template)> <bagof-OperationEntities; make-set>
+
+  operation-emit-entity-template =
+    ?SimpleSort(ent)
+    ; info(|["Going to generate template: ", ent])
+    ; operations := <bagof-Operations; make-set> SimpleSort(ent)
+    ; info(|["Step 1: ", operations])
+    ; x_tmpl := <concat-strings> [<decapitalize-string> ent, "Operations"]
+    ; info(|"Step 2")
+    ; x_arg  := <decapitalize-string> ent
+    ; srt    := SimpleSort(ent)
+    ; info(|"Step 3")
+    ; elem* := <map(operation-to-listitem(|x_arg))> operations
+    ; info(|"Step 4")
+    ; <emit-webdsl-code> def|[
+        define x_tmpl(x_arg : srt) {
+          list {
+            elem*
+          }
+        }
+      ]|
+    ; info(|"Done")
+
+  operation-to-listitem(|x_arg) :
+    x_op -> webdsl|[
+            if(e) {
+              listitem {
+                navigate(x_op(x_arg)) { text(e2) }
+              }
+            }
+          ]|
+    where not(<IsDoOperation> x_op)
+        ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> And(<OperationWho> x_op, <OperationWhen> x_op)
+        ; e2 := <operation-to-human-readable> x_op
+
+  operation-to-listitem(|x_arg) :
+    x_op -> webdsl|[
+            if(e) {
+              listitem {
+                navigate(x_op(x_arg)) { text(e2) " (X)"}
+              }
+            }
+          ]|
+    where <IsDoOperation> x_op
+        ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> And(<OperationWho> x_op, <OperationWhen> x_op)
+        ; e2 := <operation-to-human-readable> x_op
+
+rules // Utilities
+
+  add-view-page-return(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ return x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  add-view-page-goto(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ goto x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  exp-and : (e1, e2) -> And(e1, e2)
+
+  operation-to-human-readable :
+    x_op -> String(<capitalize-string> x_op)
+
+  operation-rename-var(|from, to) =
+    topdown(try(operation-rename(|from, to)))
+
+  operation-rename(|from, to) :
+    Var(from) -> Var(to)
+
+  operation-rename(|from, to) :
+    Qualified(from, f) -> Qualified(to, f)
