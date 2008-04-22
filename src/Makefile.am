@@ -115,7 +115,7 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = dsl-to-seam
 
 dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la
+                    libwebdsl-front.la libwebdsl-generator.la
 
 dsl-to-seam.c : dsl-to-seam.str rtrees
 
@@ -136,3 +136,21 @@ libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDE
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
+
+## generator
+
+nobase_data_DATA += libwebdsl-generator.rtree 
+lib_LTLIBRARIES  += libwebdsl-generator.la 
+
+libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
+libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS)
+libwebdsl_generator_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
+			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
+			      $(STRATEGO_UNINSTALLED_LIBS)
+
+libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o libwebdsl-generator.rtree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+	rm libwebdsl-generator.str
