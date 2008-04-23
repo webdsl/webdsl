@@ -207,6 +207,7 @@ rules // Generate templates and status and todo pages
 
   operation-generate-task-pages = 
     <map(operation-emit-entity-task-page)> <bagof-OperationEntities; make-set>
+    ; emit-all-tasks-page
 
   operation-emit-entity-task-page =
     ?SimpleSort(ent)
@@ -214,20 +215,21 @@ rules // Generate templates and status and todo pages
     ; x_page := <concat-strings> [<decapitalize-string> ent, "Tasks"]
     ; x_ent := <decapitalize-string> ent
     ; srt := SimpleSort(ent)
-    ; str := <make-human-readable> <concat-strings> [ent, "Tasks"]
+    ; str := <make-human-readable> ent
     ; e := Var(x_ent)
-    ; x_tmpl := <concat-strings> [x_ent, "Operations"]
+    ; x_op := <concat-strings> [<decapitalize-string> x_ent, "Operations"]
+    ; x2 := <concat-strings> [<decapitalize-string> x_ent, "TaskList"]
+    ; es := <map(\ x_op -> <operation-rename-var(|<OperationArg> x_op, x_ent)> And(<OperationWho> x_op, <OperationWhen> x_op) \)> operations
+    ; e1 := <foldr(!False, exp-or)> es
     ; <emit-webdsl-code> def|[
-        define page x_page() {
-          title{ str }
-          main()
-          define body() {
-            header{ str }
-            list {
-              for(x_ent : srt) {
+        define x2() {
+          header{ str }
+          list {
+            for(x_ent : srt) {
+              if(e1) {
                 listitem {
                   output(e)
-                  x_tmpl(e)
+                  x_op(e)
                 }
               }
             }
@@ -235,12 +237,48 @@ rules // Generate templates and status and todo pages
         }
       ]|
     ; <emit-webdsl-code> def|[
+        define page x_page() {
+          title{ str }
+          main()
+          define body() {
+            header{"Tasks"}
+            x2()
+          }
+        }
+      ]|
+    /*
+    ; <emit-webdsl-code> def|[
         access control rules {
           rules page x_page() {
             true
           }
         }
       ]|
+      */
+
+  emit-all-tasks-page =
+    elem* := <map(\ SimpleSort(ent) -> elem|[ x() ]| where x := <concat-strings> [<decapitalize-string> ent, "TaskList"] \)> <bagof-OperationEntities; make-set>
+    ; <emit-webdsl-code> def|[
+        define page allTasks() {
+          title{ "All tasks" }
+          main()
+          define body() {
+            header{ "All tasks" }
+            section {
+              elem*
+            }
+          }
+        }
+      ]|
+    /*
+    ; <emit-webdsl-code> def|[
+        access control rules {
+          rules page allTasks() {
+            true
+          }
+        }
+      ]|
+      */
 
 rules // Derive operationPage
 
