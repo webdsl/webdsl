@@ -158,7 +158,10 @@ rules // Translate to pages and stuff
 
 rules // Generate templates and status and todo pages
 
-  before-template-expansion = operation-generate-templates; fail
+  before-template-expansion =
+    operation-generate-templates
+    ; operation-generate-task-pages
+    ; fail
 
   operation-generate-templates = 
     <map(operation-emit-entity-template)> <bagof-OperationEntities; make-set>
@@ -201,6 +204,43 @@ rules // Generate templates and status and todo pages
     where <IsDoOperation> x_op
         ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> And(<OperationWho> x_op, <OperationWhen> x_op)
         ; e2 := String(<make-human-readable> x_op)
+
+  operation-generate-task-pages = 
+    <map(operation-emit-entity-task-page)> <bagof-OperationEntities; make-set>
+
+  operation-emit-entity-task-page =
+    ?SimpleSort(ent)
+    ; operations := <bagof-Operations; make-set> SimpleSort(ent)
+    ; x_page := <concat-strings> [<decapitalize-string> ent, "Tasks"]
+    ; x_ent := <decapitalize-string> ent
+    ; srt := SimpleSort(ent)
+    ; str := <make-human-readable> <concat-strings> [ent, "Tasks"]
+    ; e := Var(x_ent)
+    ; x_tmpl := <concat-strings> [x_ent, "Operations"]
+    ; <emit-webdsl-code> def|[
+        define page x_page() {
+          title{ str }
+          main()
+          define body() {
+            header{ str }
+            list {
+              for(x_ent : srt) {
+                listitem {
+                  output(e)
+                  x_tmpl(e)
+                }
+              }
+            }
+          }
+        }
+      ]|
+    ; <emit-webdsl-code> def|[
+        access control rules {
+          rules page x_page() {
+            true
+          }
+        }
+      ]|
 
 rules // Derive operationPage
 
@@ -248,6 +288,7 @@ rules // Utilities
           end
 
   exp-and : (e1, e2) -> And(e1, e2)
+  exp-or : (e1, e2) -> Or(e1, e2)
 
   operation-rename-var(|from, to) =
     topdown(try(operation-rename(|from, to)))
