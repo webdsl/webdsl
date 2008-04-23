@@ -2,6 +2,7 @@ module org/webdsl/dsl/modules/operations
 
 imports
   libstrategolib
+  libwebdsl-front
 
 rules // Normalization
 
@@ -187,7 +188,7 @@ rules // Generate templates and status and todo pages
           ]|
     where not(<IsDoOperation> x_op)
         ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> And(<OperationWho> x_op, <OperationWhen> x_op)
-        ; e2 := <operation-to-human-readable> x_op
+        ; e2 := String(<make-human-readable> x_op)
 
   operation-to-listitem(|x_arg) :
     x_op -> webdsl|[
@@ -199,7 +200,34 @@ rules // Generate templates and status and todo pages
           ]|
     where <IsDoOperation> x_op
         ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> And(<OperationWho> x_op, <OperationWhen> x_op)
-        ; e2 := <operation-to-human-readable> x_op
+        ; e2 := String(<make-human-readable> x_op)
+
+rules // Derive operationPage
+
+  Desugar :
+    Derive("operationPage", e, prop*) -> elem|[ 
+      dummy() {
+        main()
+        define contextSidebar() {
+          pdpMeetingOperations(e2)
+        }
+        define body() {
+          header{ text(e3) } 
+          form { 
+            table { elem }
+            action("Submit", do()) 
+          }
+        } 
+      }
+    ]| 
+    where 
+        t := <type-of> e
+      ; SimpleSort(srt) := t
+      ; x_view := <decapitalize-string> srt 
+      ; elem := <derive-edit-rows> Derive("editRows", e{Type(t)}, prop*)
+      ; [Arg(a, _)|_] := <CurrentPageArguments>
+      ; e2 := Var(a)
+      ; e3 := String(<make-human-readable> <CurrentPage>)
 
 rules // Utilities
 
@@ -220,9 +248,6 @@ rules // Utilities
           end
 
   exp-and : (e1, e2) -> And(e1, e2)
-
-  operation-to-human-readable :
-    x_op -> String(<capitalize-string> x_op)
 
   operation-rename-var(|from, to) =
     topdown(try(operation-rename(|from, to)))
