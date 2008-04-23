@@ -22,8 +22,19 @@ rules
       //topdown that does all the global checks, nested checks are handled when normal checks are applied
       ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlPageOrTemplate(f) end) //doesn't apply to templates in page definitions
       ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)
-      ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlFunction(f) end)
-
+      ;  //hack to cope with multiple function rules matching same functioncall, otherwise only first will be applied because of transformation
+           alltd({| func-check-group, func-check-exp:
+            let f(s) = foldl(s <+ Snd) 
+            //try(s
+            //;debug;once-func-check-group;debug;once-func-check-exp;debug
+            
+            //);Snd)
+             in fold-WeaveAccessControlFunction(f) end
+                 // ; {y:?y;if func-check-group then !y;debug end}
+                  ; repeat({x:?x;!ACFunctionCheck(<once-func-check-group>,<once-func-check-exp>,x)}) 
+                  |} )
+           
+         
       //should be done at least before template expansion
       ; alltd(   \page@def|[ define page x_ident(farg*){ elem* } ]| ->page  \//ignore the defs inside pages
               <+ process-template-checks)
@@ -166,12 +177,21 @@ rules
         //bind for more efficient dr retrieval, doesn't seem to work like this
         //; if <explode-string;not(elem('*'))> x_templatematchname then x_templatename:=x_templatematchname end
         ; rules( WeaveAccessControlFunction :+
-                   fun|[ function x_functionname(farg*):srt0 { stat* } ]| -> 
-                   fun|[ function x_functionname(farg*):srt0 { acfunctioncheck (x_rulegroup,x_predname(e*));
-                                                               stat* } ]|
-                   where <match-names> (x_functionmatchname,x_functionname)
+                   //fun|[ function x_functionname(farg*):srt0 { stat* } ]| -> 
+                   //fun|[ function x_functionname(farg*):srt0 { acfunctioncheck (x_rulegroup,x_predname(e*));
+                   //                                            stat* } ]|
+                   //|[                                              x_functionname( e1* )  ]| ->
+                   //|[ acfunctioncheck(x_rulegroup,x_predname(e2*)) x_functionname( e1* ) ]|   ///meerdere rules op de function
+                   //gaat niet werken met meerdere rules
+                   |[  x_functionname( e1* )  ]| -> 
+                   |[  x_functionname( e1* )  ]|
+                   where <IsGlobalFunction;not(IsPredicate)> x_functionname
+                       ; <match-names> (x_functionmatchname,x_functionname)
+                       ; farg* := <GlobalFunctionArgs> x_functionname
                        ; <match-arguments> (margs,farg*)
-                       ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       ; e2* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       ; rules (func-check-group :+= x_rulegroup
+                                func-check-exp   :+= |[x_predname(e2*)]| )
                        ; <debug> ["function rule applied",x_functionmatchname]
                )
         ; <debug> ["function rule created: ",x_functionmatchname," predicate: ",x_predname]    

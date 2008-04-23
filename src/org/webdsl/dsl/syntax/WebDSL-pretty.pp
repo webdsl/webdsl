@@ -174,6 +174,7 @@
    AccessControlPointcut.2:iter-star-sep        -- _1 KW[","],
    AccessControlPointcut.3:iter-star-sep        -- _1 KW[","],
    ACPolicy                                     -- KW["access"] KW["control"] KW["policy"] _1,
+   ACFunctionCheck                              -- KW["acfunctioncheck"] KW["("] _1 "," _2 KW[")"] _3,
 
 
    %%validation annos

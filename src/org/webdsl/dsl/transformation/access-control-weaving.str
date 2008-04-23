@@ -18,8 +18,12 @@ rules
   process-access-control-checks =
     topdown(try(   process-page-checks
                 <+ process-action-checks
-                <+ process-function-checks))
-  ; alltd(chain-WeaveAccessControlOM)
+                <+ process-function-checks
+               ))
+ // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
+ // ; alltd(   process-action-checks )
+  ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end) 
+
   
   process-page-checks:
     def|[ define page x_ident(farg*){ elem* }       ]| -> 
@@ -34,7 +38,7 @@ rules
         ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
         ; e2* := <map(get-varname-from-formarg)> farg*
         ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
-        ; rules( WeaveAccessControlOM :+
+        ; rules( WeaveAccessControlInferred :+
                    elem|[                        navigate( x_ident(e*) ) { elem2* }   ]| ->
                    elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) ) { elem2* } } ]|
                           //where <debug> ["navlink applied ",x_ident]
@@ -45,7 +49,8 @@ rules
   process-action-checks:
     elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg*){ stat3* } ]|
-    where listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> e \)> stat*
+    where
+          listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> e \)> stat*
         ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
         //remove ac calls
         ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
@@ -54,7 +59,7 @@ rules
         ; if returnstat := [] 
           then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
           else stat2* := [webdsl |[ return(accessDenied()); ]|] end
-        ; stat3* := webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|
+        ; stat3* := [webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|]
        
       
   process-template-checks:
@@ -65,16 +70,59 @@ rules
         ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
         ; elem2* := elem* |[ if ( e ) { elem1* } ]|
  
+  
+  
   process-function-checks:
-    fun|[ function x_functionname(farg*):srt0 { stat*  } ]| -> 
+    a@|[ acfunctioncheck(x_group,e) x_fname(e*) ]| -> 
+    |[ x_funcname(e*) ]|
+    where <debug> a;
+          farg* := <GlobalFunctionArgs> x_fname  //TODO fix overloading,search using name and arg types instead
+        ; srt := <GlobalFunctionReturn> x_fname
+        ; e1* := <map(get-varname-from-formarg)> farg*
+        ; x_funcname := <newname> "genfunction"
+        //; <debug> x_funcname
+        ; <emit-webdsl-code> def|[ globals {  function x_funcname(farg*) :srt
+                                              { 
+                                                if (e) { var temp : srt := x_fname(e1*); return temp; } else { goto(accessDenied()); return null; } 
+                                              }
+                                            } ]|
+        //;<debug> x_fname
+        
+  /*  fun|[ function x_functionname(farg*):srt0 { stat*  } ]| -> 
     fun|[ function x_functionname(farg*):srt0 { stat1* } ]|
-    where listofchecks := <collect(\ webdsl|[ acfunctioncheck(x,e); ]| -> e \)> stat*
-        ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+    where listofchecks := <collect(\ rule@webdsl|[ acfunctioncheck(x,e); ]|  -> rule \)> stat*
+        //; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
         //remove ac calls
-        ;<debug> stat*
+        //;<debug> stat*
         ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acfunctioncheck(x,e); ]|} )))> stat*
-        ;<debug> stat1*
- 
+        //;<debug> stat1*
+        ; <map(\ rule@webdsl|[ acfunctioncheck(x,e); ]| -> rule 
+              where <debug> x_functionname;
+                x_predname := <newname> "genfunctionpredicateinaction"
+              ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
+              ; rules (AccessControlFunctionToAction :    
+                  elem|[ action x_ident(farg*){ stat*  } ]| -> 
+                  elem|[ action x_ident(farg*){ stat1* } ]|
+                  where //simplification don't go into functions anymore, would need to generate potentially many predicates
+                        funccalls := <collect(\ThisCall(x_functionname,args)->args\)> stat*
+                      ; not(funccalls := [])
+                      ; stat2* := <map(\e* -> webdsl |[ acactioncheck(x,x_predname(e*)); ]| \)> funccalls
+                      ; stat1* := webdsl |[ stat2* stat* ]|
+          )
+        \)> listofchecks
+    */  
+ /* function-calls-statements:
+    statements -> statements
+    where // atm no namespaces for ac on functions and ignoring the entity functions, functions can be defined in entities atm but they are not fully functional (are we going to remove them?)
+          // checks on global functions but not predicates, because they are already in the access control declarations      
+          funccalls := <collect(\ThisCall(ident,args)->(ident,args,<GlobalFunctionArgs> ident) where <IsGlobalFunction;not(IsPredicate)> ident\)> statements
+        ; <map(try(\(ident,args,fargs) -> ident 
+                 where <not(elem)> (ident,<called-functions<+![]>)
+                     ; rules (called-functions:=<concat>[[ident],<called-functions<+![]>])
+                     ; <GlobalFunctionBlock; function-calls-statements> ident\              
+              ))> funccalls  
+         
+ */
       
                            
 //----------------------------------------------------------------------
