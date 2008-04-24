@@ -1,0 +1,71 @@
+module org/webdsl/dsl/modules/operations/operation-page
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // Translate to pages and stuff
+
+  Desugar :
+    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsOperation> x_id
+        ; stat* := <filter(operation-get-action-statements);concat> opelem*
+        ; SimpleSort(s) := srt
+        ; x_view := <decapitalize-string> s
+        ; if <IsDoOperation> x_id then
+            stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
+            ; elem* := elem*|[
+                init {
+                  stat2*
+                }
+               ]|
+          else
+            stat2* := <add-view-page-return(|x_view, Var(x_o))> stat*
+            ; viewelem* := <filter(operation-get-view-elements);concat> opelem*
+            ; actionelem* := webdsl*|[
+                             action doAction() {
+                               stat2*
+                             }
+                           ]|
+            ; elem* := [viewelem*, actionelem*]
+          end
+        ; e2 := <operation-get-access-exp> opelem*
+        ; <emit-webdsl-code> def|[
+            access control rules {
+              rules page x_id(x_o : srt) {
+                e2
+                rules action doAction() {
+                  e2
+                }
+              }
+            }
+          ]|
+        ; x_ent := s
+        ; x_perf := <concat-strings> [x_id, "Performed"]
+        ; x_dt := <concat-strings> [x_id, "PerformedDate"]
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              x_perf :: Bool
+              x_dt   :: DateTime
+            }
+          ]|
+
+  operation-get-view-elements :
+    opelem|[ view { elem* } ]| -> elem*
+
+  operation-get-action-statements :
+    opelem|[ do { stat* } ]| -> stat*
+
+  operation-get-access-exp =
+    filter(operation-who-when-exp)
+    ; foldr(!True(), exp-and)
+
+  operation-who-exp :
+   opelem|[ who { e } ]| -> e 
+
+  operation-when-exp :
+   opelem|[ when { e } ]| -> e 
+
+  operation-who-when-exp =
+    operation-who-exp <+ operation-when-exp
+

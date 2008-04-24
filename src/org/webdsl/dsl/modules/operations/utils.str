@@ -1,0 +1,62 @@
+module org/webdsl/dsl/modules/operations/utils
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // Derive operationPage
+
+  Desugar :
+    Derive("operationPage", e, prop*) -> elem|[ 
+      dummy() {
+        main()
+        define contextSidebar() {
+          pdpMeetingOperations(e2)
+        }
+        define body() {
+          header{ text(e3) } 
+          form { 
+            table { elem }
+            action("Submit", do()) 
+          }
+        } 
+      }
+    ]| 
+    where 
+        t := <type-of> e
+      ; SimpleSort(srt) := t
+      ; x_view := <decapitalize-string> srt 
+      ; elem := <derive-edit-rows> Derive("editRows", e{Type(t)}, prop*)
+      ; [Arg(a, _)|_] := <CurrentPageArguments>
+      ; e2 := Var(a)
+      ; e3 := String(<make-human-readable> <CurrentPage>)
+
+rules // Utilities
+
+  add-view-page-return(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ return x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  add-view-page-goto(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ goto x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  exp-and : (e1, e2) -> And(e1, e2)
+  exp-or : (e1, e2) -> Or(e1, e2)
+
+  operation-rename-var(|from, to) =
+    topdown(try(operation-rename(|from, to)))
+
+  operation-rename(|from, to) :
+    Var(from) -> Var(to)
+
+  operation-rename(|from, to) :
+    Qualified(from, f) -> Qualified(to, f)

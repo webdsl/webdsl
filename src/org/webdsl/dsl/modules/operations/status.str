@@ -1,0 +1,79 @@
+module org/webdsl/dsl/modules/operations/status
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // Status pages
+
+  operation-generate-status-pages = 
+    <map(operation-emit-entity-status-page)> <bagof-OperationEntities; make-set>
+
+  operation-emit-entity-status-page =
+    ?SimpleSort(ent)
+    ; info(|"Going to generate a status page")
+    ; operations := <bagof-Operations; make-set> SimpleSort(ent)
+    ; x_page := <concat-strings> [<decapitalize-string> ent, "Status"]
+    ; x_ent := <decapitalize-string> ent
+    ; srt := SimpleSort(ent)
+    ; str := <make-human-readable> ent
+    ; e := Var(x_ent)
+    ; x2 := <concat-strings> [<decapitalize-string> x_ent, "StatusList"]
+    ; info(|"Step 1")
+    ; elem* := <map(operation-to-status-listitem(|x_ent))> operations
+    ; info(|"Step 2")
+    ; <emit-webdsl-code> def|[
+        define x2() {
+          header{ str }
+          list {
+            for(x_ent : srt) {
+              listitem {
+                output(e)
+                list {
+                  elem*
+                }
+              }
+            }
+          }
+        }
+      ]|
+    ; <emit-webdsl-code> def|[
+        define page x_page() {
+          title{ str }
+          main()
+          define body() {
+            section {
+              header{"Status"}
+              section {
+                x2()
+              }
+            }
+          }
+        }
+      ]|
+    ; info(|"Done")
+
+  operation-to-status-listitem(|x_arg) :
+    x_op -> webdsl|[
+            if(e) {
+              if(e1) {
+                listitem {
+                  navigate(x_op(x_arg)) { text(e2) str }
+                }
+              }
+              if(!e1) {
+                listitem {
+                  text(e2)
+                }
+              }
+            }
+          ]|
+    where if not(<IsDoOperation> x_op) then
+            str := ""
+          else
+            str := " (X)"
+          end
+        ; e := <operation-rename-var(|<OperationArg> x_op, x_arg)> <OperationWhen> x_op
+        ; e1 := <operation-rename-var(|<OperationArg> x_op, x_arg)> <OperationWho> x_op
+        ; e2 := String(<make-human-readable> x_op)
+
