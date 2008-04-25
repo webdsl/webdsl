@@ -8,6 +8,7 @@ rules // Declaring
 
   declare-definition =
     declare-operation
+    <+ declare-workflow
 
   declare-operation =
     ?def|[ operation x_id (x_o : srt) { opelem* }]|
@@ -24,6 +25,18 @@ rules // Declaring
         rules ( IsDoOperation : x_id )
       end
 
+  declare-workflow =
+    ?def|[ workflow x_id (x_o : srt) { opelem* }]|
+    ; done-exp := <filter(workflow-done-exp); Hd> opelem*
+    ; who-exp := <filter(operation-who-exp); Hd> opelem*
+    ; when-exp := <filter(operation-when-exp); Hd> opelem*
+    ; rules ( IsWorkflow       : x_id 
+              WorkflowDone     : x_id -> done-exp
+              WorkflowWho      : x_id -> who-exp
+              WorkflowWhen     : x_id -> when-exp
+              Workflows        :+ srt -> x_id 
+              WorkflowEntities :+= srt )
+
 rules // Typechecking
 
   typecheck-section :
@@ -32,6 +45,14 @@ rules // Typechecking
     
   typecheck-specific-definition :
     Operation(nm, Arg(o, srt), elems) -> Operation(nm, Arg(o, srt), elems2)
+    where {| TypeOf
+           : rules ( TypeOf : "status" -> srt ) 
+           ; rules ( TypeOf : o -> srt )
+           ; elems2 := <map(typecheck-operation-element <+ typecheck-error(|["Could not typecheck: ", <id>]))> elems
+           |}
+
+  typecheck-specific-definition :
+    Workflow(nm, Arg(o, srt), elems) -> Workflow(nm, Arg(o, srt), elems2)
     where {| TypeOf
            : rules ( TypeOf : "status" -> srt ) 
            ; rules ( TypeOf : o -> srt )
@@ -53,7 +74,18 @@ rules // Typechecking
           end
 
   typecheck-operation-element :
+    WorkflowDone(e) -> WorkflowDone(e2)
+    where e2 := <typecheck-expression> e
+        ; if not(SimpleSort("Bool") := <type-of> e2) then
+            typecheck-error(|["Expression in done should return a boolean: ", e2])
+          end
+
+  typecheck-operation-element :
     OperationDo(b) -> OperationDo(b2)
+    where b2 := <typecheck-block> b
+
+  typecheck-operation-element :
+    WorkflowInit(b) -> WorkflowInit(b2)
     where b2 := <typecheck-block> b
 
   typecheck-operation-element :

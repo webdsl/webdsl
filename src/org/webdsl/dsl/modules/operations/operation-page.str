@@ -9,7 +9,7 @@ rules // Translate to pages and stuff
   Desugar :
     def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsOperation> x_id
-        ; stat* := <filter(operation-get-action-statements);concat;add-operation-performed(|x_id, x_o)> opelem*
+        ; stat* := <filter(operation-get-action-statements);concat;add-operation-performed(|x_id, x_o, srt)> opelem*
         ; SimpleSort(s) := srt
         ; x_view := <decapitalize-string> s
         ; if <IsDoOperation> x_id then
@@ -41,32 +41,83 @@ rules // Translate to pages and stuff
             }
           ]|
         ; x_ent := s
-        ; x_perf := <concat-strings> [x_id, "Performed"]
-        ; x_dt := <concat-strings> [x_id, "PerformedDate"]
         ; <emit-webdsl-code> def|[
             extend entity x_ent {
-              x_perf :: Bool
-              x_dt   :: DateTime
+              x_id <> OperationStatus
             }
           ]|
 
-  add-operation-performed(|op, arg) =
+  Desugar :
+    def|[ workflow x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsWorkflow> x_id
+        // Generate newWorkflow function
+        ; info(|["Going to generate workflow ", x_id])
+        ; x_new := <concat-strings> ["new", <capitalize-string> x_id]
+        ; x_check := <concat-strings> ["check", <capitalize-string> x_id, "Performed"]
+        ; info(|"Step 1")
+        ; stat* := <filter(workflow-get-init-statements);concat> opelem*
+        ; qid1 := Qualified(Qualified(x_o, x_id), "performed")
+        ; qid2 := Qualified(Qualified(x_o, x_id), "date")
+        ; info(|"Step 2")
+        ; e := <WorkflowDone> x_id
+        ; <emit-webdsl-code> def|[
+            globals {
+              function x_new() : srt {
+                var x_o : srt;
+                stat*
+                return x_o;
+              }
+
+              function x_check(x_o : srt) : Bool {
+                if(e) {
+                  qid1 := true;
+                  qid2 := now();
+                  return true;
+                } else {
+                  return false;
+                }
+              }
+            }
+          ]|
+        ; info(|"Step 3")
+        ; SimpleSort(s) := srt
+        ; x_ent := s
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              x_id <> OperationStatus
+            }
+          ]|
+        ; elem* := []
+        ; info(|"Done")
+
+
+  add-operation-performed(|op, arg, srt) =
     ?stats
     //; e := exp|[ status ]|
-    ; qid1 := Qualified(arg, <concat-strings> [op, "Performed"])
-    ; qid2 := Qualified(arg, <concat-strings> [op, "PerformedDate"])
+    ; qid1 := Qualified(Qualified(arg, op), "performed")
+    ; qid2 := Qualified(Qualified(arg, op), "date")
+    ; stat* := <map(workflow-to-check-performed(|arg))> <bagof-Workflows;make-set> srt
     ; <concat> [
         webdsl|[
           qid1 := true;
           qid2 := now();
+          stat*
         ]|
         , stats]
+
+  workflow-to-check-performed(|arg) :
+    nm -> webdsl|[ x_check(e); ]|
+    where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
+        ; e := Var(arg)
 
   operation-get-view-elements :
     opelem|[ view { elem* } ]| -> elem*
 
   operation-get-action-statements :
     opelem|[ do { stat* } ]| -> stat*
+
+  workflow-get-init-statements :
+    opelem|[ init { stat* } ]| -> stat*
 
   operation-get-access-exp =
     filter(operation-who-when-exp)
@@ -77,6 +128,9 @@ rules // Translate to pages and stuff
 
   operation-when-exp :
    opelem|[ when { e } ]| -> e 
+
+  workflow-done-exp :
+   opelem|[ done { e } ]| -> e 
 
   operation-who-when-exp =
     operation-who-exp <+ operation-when-exp
