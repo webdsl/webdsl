@@ -41,8 +41,12 @@ rules
    */
   GenerateCode = page-to-java; fail
 
-  page-to-java :
-    Define([Page()], x_page, args, elems1) ->
+  page-to-java =
+    ?Define([Page()], x_page, args, elems1)
+    ; create-java-page
+
+  create-java-page :
+    Define(mods, x_page, args, elems1) ->
     <emit-java-code> compilation-unit|[
         package pkgname;
 
@@ -143,10 +147,14 @@ rules //session variables
   /**
    * Generate session entity code
    */
-  GenerateCode = generate-session-var-initialization; fail
+  GenerateCode = page-session-var-init-to-java; fail
+
+  page-session-var-init-to-java =
+    ?Define([Page()], x_page, args, elems1)
+    ; generate-session-var-initialization
 
   generate-session-var-initialization :
-    Define([Page()], x_page, args, elems1) ->
+    Define(mods, x_page, args, elems1) ->
     <generate-page-bean> java|[
        @Partial
        public void postInitialize() {
@@ -254,6 +262,7 @@ rules // bean parameters
        }
     ]|
     where <defined-java-type> s
+        ; <IsPage> <ThisPage>
         ; x_id := <concat-strings>[x, "_id"]
         ; if <EntityIdName> x_Class then
             t := <java-wrapper-type> <EntityIdType> x_Class
@@ -281,6 +290,7 @@ rules // bean parameters
        }
     ]|
     where t_Class := <builtin-java-type> s
+        ; <IsPage> <ThisPage>
         ; bstm* := <argument-to-initialization> arg
 
   argument-to-initialization :
@@ -301,6 +311,7 @@ rules // bean parameters
       }
     ]|
     where <defined-java-type> s
+        ; <IsPage> <ThisPage>
         ; x_Id := <concat-strings>[x, "_id"]
         ; e_init := <java-type-default-value> s
         ; rules( Parameter :+= x )
@@ -313,6 +324,7 @@ rules // bean parameters
           }
     ]|
     where <builtin-java-type> s
+        ; <IsPage> <ThisPage>
         ; e_init := <java-type-default-value> s
         ; rules( Parameter :+= x )
 
@@ -529,7 +541,8 @@ rules // page variables
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
     ]|
-    where t     := <java-type> s
+    where not(<IsTemplateArgument> x)
+        ; t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
@@ -541,9 +554,11 @@ rules // page variables
        private t x;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
-       @Partial public void postInitialize() { x = e2; }
+//       @Partial public void postInitialize() { x = e2; }
     ]|
     where not(HqlQuery(_) := e1)
+        ; not(<IsTemplateArgument> x)
+        ; <debug> [x, e1]
         ; t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
@@ -564,6 +579,7 @@ rules // page variables
        @Partial public void postInitialize() { x_init(); }
     ]|
     where t      := <java-type> s
+        ; not(<IsTemplateArgument> x)
         ; X      := <capitalize-string> x
         ; x_get  := <concat-strings>["get", X]
         ; x_set  := <concat-strings>["set", X]
@@ -638,10 +654,14 @@ rules // For generating template functions
   /**
    * Generate template function code
    */
-  GenerateCode = generate-template-function-code; fail
+  GenerateCode = page-template-function-code; fail
+
+  page-template-function-code =
+    ?Define([Page()], x_page, args, elems1)
+    ; generate-template-function-code
 
   generate-template-function-code :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> x_page
+    Define(mods, x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> x_page
 
    template-functions-to-java :
      page -> function*
@@ -688,10 +708,14 @@ rules // Download helper
   /**
    * Generate download helper code
    */
-  GenerateCode = generate-download-helper-function; fail
+  GenerateCode = download-helper-function; fail
+
+  download-helper-function =
+    ?Define([Page()], x_page, args, elems1)
+    ; generate-download-helper-function
 
   generate-download-helper-function :
-    Define([Page()], x_page, args, elems1) -> <generate-page-bean> <concat> [<download-helper-function> elems1]
+    Define(mods, x_page, args, elems1) -> <generate-page-bean> <concat> [<download-helper-function> elems1]
 
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then

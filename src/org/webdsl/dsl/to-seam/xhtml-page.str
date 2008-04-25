@@ -621,7 +621,20 @@ rules // iteration
         <%= elems2 ::*%>
       </ui:repeat>
     <%
-    where elems2  := <elems-to-xhtml> elems1
+    where not(<contains-template-call> elems1)
+        ; elems2 := <elems-to-xhtml> elems1
+
+
+  // to-do: other For expressions
+  elem-to-xhtml :
+    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
+    %>
+      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:forEach>
+    <%
+    where IsTemplate
+        ; <contains-template-call> elems
 
   elem-to-xhtml :
     ForAll(x, s, Filter(we, obe), elems) ->
@@ -650,44 +663,46 @@ rules // iteration
       <h:column><%= elems ::*%></h:column>
     <%
 
-
 rules // template call
 
   elem-to-xhtml :
     TemplateCall(name, args, elems) ->
     %>
-      <ui:include src="<%= target %>">
-        <%=  params::* %>
-      </ui:include>
+      <ui:insert name="<%= name %>">
+	      <ui:include src="<%= target %>">
+	        <%=  params::* %>
+	      </ui:include>
+	  </ui:insert>
     <%
     where Define([], x, fargs, body) := <TemplateDefinition> name
         ; target := <concat-strings> [name, ".xhtml"]
-        ; <debug> name
+//        ; <debug> <ThisPage>
+//        ; <debug> name
 //        ; <debug> <TemplateDefinition> name
-        ; <debug> fargs
-//        ; <debug> <ThisPage <+ ![]>
+//        ; <debug> fargs
 //        ; <debug> <IsPage> <ThisPage>
         ; {| ThisTemplateCall
            : rules ( ThisTemplateCall := name )
-           ; <debug> args
+//           ; <debug> args
            ; args' := <zip(bind-template-params)> (fargs, args)
            ; params := <elems-to-xhtml> args'
            |}
-        ; <debug> ""
+//        ; <debug> ""
 
   bind-template-params :
-    (Arg(a, s), b) -> (<TemplateArgument> (<ThisTemplateCall>, a), b)
+    (Arg(a, s), b) -> (a, b)
 
 
   elem-to-xhtml :
     (a, Var(x)) ->
     %>
-      <ui:param name="" value="<%= x %>" />
+      <ui:param name="<%= n %>" value="#{<%= x %>}" />
     <%
     where not(<IsSessionVariable> x)
         ; not(<IsGlobal> x)
-        ; <debug> "Hier!!!!!"
+        ; n := <TemplateArgument> (<ThisTemplateCall>, a)
 
+  // @todo
   elem-to-xhtml :
     (a, Var(x)) ->
     %>
@@ -695,6 +710,7 @@ rules // template call
     <%
     where <IsSessionVariable> x
 
+  // @todo
   elem-to-xhtml :
     (a, Var(x)) ->
     %>
@@ -708,12 +724,20 @@ rules // template call
   elem-to-xhtml :
     (a, fa@FieldAccess(e, f)) ->
     %>
-      <ui:param name="<%= a %>" value="<%= x %>" />
+      <ui:param name="<%= n %>" value="<%= x %>" />
     <%
     where x := <arg-to-el-string> fa
-//        ; <debug> ["_______________argument:", a]
-//        ; <debug> [<ThisTemplateCall>, ]
-//         ; <TemplateArgument> (<ThisPage>, f)
+        ; n := <TemplateArgument> (<ThisTemplateCall>, a)
+
+rules // vardecl
+
+  elem-to-xhtml :
+    VarDeclInit(a, s, expr) ->
+    %>
+      <h:inputHidden value="<%= val %>" />
+    <%
+    where x_set := <concat-strings> [<ThisPage>, ".", <property-setter> a]
+        ; val := <concat-strings> ["#{", x_set, "(", <ConditionExpressionToString> (<ThisPage>, expr), ")}"]
     
   
 rules // if
@@ -723,17 +747,18 @@ rules // if
     %>
       <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"><%= elems2 ::*%></h:panelGroup>
     <%
-    where not(IsTemplate)
+    where not(<contains-template-call> elems)
         ; elems2 := <elems-to-xhtml> elems
     
   elem-to-xhtml :
     IfTempl(e, elems) ->
     %>
-      <c:if test="">
+      <c:if test="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
         <%= <elems-to-xhtml> elems ::*%>
       </c:if>
     <%
-    where IsTemplate // ; <debug> <ThisPage>
+    where IsTemplate
+        ; <contains-template-call> elems
 
 rules // select from
 
@@ -1025,15 +1050,17 @@ rules // function stuff
             : <topdown(try(find-params))> e
             ; params := <bagof-Param>
             |}
-           ; el := <concat-strings> ["#{", <ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
+           ; expr-string := <concat-strings> [<ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")"]
+           ; el := <concat-strings> ["#{", expr-string, "}"]
            ; pn := <ThisPage>
            ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
-                    ConditionExpressionToEL : (pn, e) -> el )
+                    ConditionExpressionToEL : (pn, e) -> el
+                    ConditionExpressionToString : (pn, e) -> expr-string )
           )
 
    translate-template-expression : // Store some context information
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
-     where <debug> <ThisPage> ; <TemplateDefinition> name
+     where <TemplateDefinition> name
          ; {| ThisPage
             : rules ( ThisPage := name )
             ; body2 := <try(sometd(translate-template-expression))> body1
@@ -1083,6 +1110,11 @@ rules // function stuff
      ; where(not(<arg-to-value-string> arg) ; not(<elem-to-xhtml> arg) // Not a simple expression
              ; fn := <newname> "textExprFun"
              ; create-template-function(|fn, arg))
+
+   translate-template-expression =
+     ?VarDeclInit(x, s, expr)
+     ; where (fn := <newname> "varDeclFun"
+              ; create-template-function(|fn, expr))
 
    unId : Id(x) -> x
 
