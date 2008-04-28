@@ -17,8 +17,8 @@ rules
 
   process-access-control-checks =
     topdown(try(   process-page-checks
-                <+ process-action-checks
-                <+ process-function-checks
+                //<+ process-action-checks//TODOcontext sensitive when inferring visibility may need to apply right away in templates and wait for pages
+                <+ process-function-checks//TODO can be done earlier as well, doesn't need typechecker fix
                ))
  // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
  // ; alltd(   process-action-checks )
@@ -42,16 +42,34 @@ rules
                    elem|[                        navigate( x_ident(e*) ) { elem2* }   ]| ->
                    elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) ) { elem2* } } ]|
                           //where <debug> ["navlink applied ",x_ident]
-                          //TODO match argument types
+                          //todo match argument types although not really necessary since overloading is not possible for pages
                ) 
         //;    <debug> ["navlink created ",x_ident]
  
-  process-action-checks:
+  
+  //separated from page and template accheck processing for clarity
+  process-page-actions:
+    def|[ define page x_ident(farg*){ elem*  } ]| -> 
+    def|[ define page x_ident(farg*){ elem2* } ]|
+    where elem1* := <alltd(process-action-checks(|farg*))> elem*
+        ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+  
+  process-template-actions:
+    def|[ define x_ident(farg*){ elem* }  ]| -> 
+    def|[ define x_ident(farg*){ elem2* } ]|
+    where elem1* := <alltd(process-action-checks(|farg*))> elem*
+        ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+  
+  process-action-checks(|farg4*): //page farg
     elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg*){ stat3* } ]|
     where
           listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> e \)> stat*
         ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+        ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
+        ; farg5* := [farg4*,farg*]
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg5*) { e1 } ]|
+        ; e2* := <map(get-varname-from-formarg)> farg5*
         //remove ac calls
         ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
         //determine whether it returns to the same or a different page, to either redirect with goto or return
@@ -59,7 +77,14 @@ rules
         ; if returnstat := [] 
           then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
           else stat2* := [webdsl |[ return(accessDenied()); ]|] end
-        ; stat3* := [webdsl |[ if ( e1 ) { stat1* } else { stat2* } ]|]
+        ; stat3* := [webdsl |[ if ( x_predname(e2*) ) { stat1* } else { stat2* } ]|]
+        ; rules( WeaveAccessControlInferredAction :+
+                a@ elem|[                         x ( e7, x_ident(e3*) ) { elem* }    ]| ->
+                   elem|[ if( x_predname(e4*) ) { x ( e7, x_ident(e3*) ) { elem* } } ]|
+                   where <?"action"<+?"actionLink"> x 
+                       ; e5* := <map(get-varname-from-formarg)> farg4*
+                       ; e4* := [e5*,e3*]     
+               ) 
        
       
   process-template-checks:
@@ -76,7 +101,7 @@ rules
     a@|[ acfunctioncheck(x_group,e) e1 ]| -> 
     |[ x_funcname(e*) ]|
     where //<debug> ["wholefunction",a]
-        ; listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> e \)> a
+          listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> e \)> a
         //; <debug> ["checks",listofchecks]
         ; e2 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
         ; thecall := <collect(\ |[acfunctioncheck(x_group3,e3) x_name3(e3*)]| -> |[x_name3(e3*)]| \);Hd> a
@@ -93,6 +118,12 @@ rules
                                               }
                                             } ]|
         //;<debug> x_fname
+        
+        
+        
+  //strategy that takes list of (groupname,check) tuples and creates the combination
+  
+      
         
   /*  fun|[ function x_functionname(farg*):srt0 { stat*  } ]| -> 
     fun|[ function x_functionname(farg*):srt0 { stat1* } ]|
