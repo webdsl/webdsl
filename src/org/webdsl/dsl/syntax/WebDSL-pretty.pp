@@ -104,6 +104,8 @@
    ForStmt.5:iter-star                -- _1,
 
    ForExp                             -- H[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"]],
+   AndForExp                          -- KW["And"] _1,
+   OrForExp                           -- KW["Or"] _1,
    Rules                              -- V  [H  [KW["rules"]] _1],
    Rules.1:iter-star                  -- _1,
    Equation                           -- _1 KW["="] _2,
