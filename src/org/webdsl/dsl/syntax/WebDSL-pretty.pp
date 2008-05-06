@@ -51,6 +51,8 @@
    Define.4:iter-star                 -- _1,
    Page                               -- KW["page"],
    Email                              -- KW["email"],
+   Template                           -- KW["template"],
+   Local                              -- KW["local"],
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
 
@@ -214,8 +216,9 @@
    ValidationAnnoValid                          -- KW["valid"],
 
    %%styling
-      ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] KW[")"] KW["{"] _3 KW["}"],
+   ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] _3 KW[")"] KW["{"] _4 KW["}"],
    ThemeDefinition.3:iter-star                  -- _1,
+   ThemeDefinition.4:iter-star                  -- _1,
    LayoutDefinition                             -- KW["layout"] _1 KW["{"] _2 KW["}"],
    StyleSection                                 -- KW["style"] _1 _2,
    StyleSection.2:iter-star                     -- _1,
@@ -226,9 +229,11 @@
    HorLayoutDeclaration                         -- _1 KW["("] _2 KW[")"],
    HorLayoutDeclaration                         -- _1,
    HorLayoutDeclaration.1:iter-sep              -- _1 KW["|"],
+   TemplateSignature                            -- _1 _2,
+   TemplateSignature.2:opt                      -- _1,
    StyleDescription                             -- _1 KW["{"] _2 KW["}"],
    StyleDescription.2:iter-star                 -- _1,
-   MatchTemplateArgs                            -- _1,
+   MatchTemplateArgs                            -- KW["("] _1 KW[")"],
    MatchTemplateArgs.1:iter-star-sep            -- _1 KW[","],
    StyleProperty                                -- _1,
    StyleValue                                   -- _1,

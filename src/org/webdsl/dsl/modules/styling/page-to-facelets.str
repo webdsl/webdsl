@@ -21,7 +21,7 @@ rules
 	  			xmlns:h="http://java.sun.com/jsf/html"
 	  			xmlns:f="http://java.sun.com/jsf/core"
                 xmlns:s="http://jboss.com/products/seam/taglib"
-				template="main.xhtml">
+				template="<%= template %>">
 
   <%= defined-templates::* %>
 				
@@ -29,12 +29,13 @@ rules
 <%
     where <TemplateDefinition> name
         ; defined-templates := <collect(defined-template-to-facelet); concat> body
+        ; template := <concat-strings> [<DeclaredLayout> name, ".xhtml"]
 //        ; defined-templates := <collect(defined-template-to-facelet); concat> <bagof-TemplateDefinitionsInPage> name
 //        ; <debug> body
 
 
   defined-template-to-facelet :
-    Define([], name, fargs, body) -> 
+    Define([Local()], name, fargs, body) -> 
 %>
   <ui:define name="<%= name %>">
     <%= <elems-to-xhtml> body ::*%>
@@ -47,10 +48,10 @@ rules
   /**
    * Generate facelet template clients
    */
-  GenerateCode = template-to-facelet; fail
+  GenerateCode = templates-to-facelet; fail
 
-  template-to-facelet :
-    Define([], name, fargs, body) -> <emit-facelets>
+  templates-to-facelet :
+    def@Define([Template()], name, fargs, body) -> <emit-facelets>
 %>
 <!DOCTYPE div PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -65,18 +66,42 @@ rules
   
 </ui:composition>
 <%
-    where <TemplateDefinition> name
-        ; is-toplevel-template
-        ; name := <ThisPage>
+    where name := <ThisPage>
         ; {| IsTemplate
            : rules ( IsTemplate := name )
-           ; elems := <elems-to-xhtml> body
-           ; arg-elem := <mapconcat(template-arg-to-xhtml)> fargs
+//           ; <debug> name
+           ; if [elem] := <bagof-TopLevelTemplateDefinitions> name then
+               elems := <elems-to-xhtml> body
+             else
+               elems := <mapconcat(template-to-facelet)> <bagof-TopLevelTemplateDefinitions> name //@todo: perhaps better to do this in a desugar step??
+             end
            |}
+
+  template-to-facelet : //@todo: perhaps better to do this in a desugar step??
+    (n, a) ->
+%>
+  <c:if test="<%= el %>">
+    <%= <elems-to-xhtml> body::* %>
+  </c:if>
+<%
+    where not( <elem> ((n,a), <bagof-TemplatesProcessed>) )
+        ; Define([Template()], name, fargs, body) := <TemplateDefinition> (n, a)
+        ; fn := <newname> "ifCondFun"
+        ; if [head] := fargs then //@todo: don't just take the first argument!!!
+            [Arg(p, SimpleSort(s))] := fargs
+          else
+            [Arg(p, SimpleSort(s)) | tail] := fargs
+          end
+        ; param := Var(<TemplateArgument> (<ThisPage>, p)){Type(SimpleSort(<get-superclass> s))}
+        ; e := IsA(param, SimpleSort(s)){Type(SimpleSort("Bool"))}
+        ; <generate-page-bean> [<template-function-to-java> (<ThisPage>, fargs, fn, [param], e)]
+        ; el := <concat-strings> ["#{", <ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> [param], ")", "}"]
+        ; rules ( TemplatesProcessed :+= (name, fargs) )
 
 
   template-to-xhtml :
-    Define([], name, fargs, body) -> <elems-to-xhtml> body
+    Define(mods, name, fargs, body) -> <elems-to-xhtml> body
+//    where <elem> [Local(), mods] <+ <elem> [Template(), mods]
 
 
 rules // template arguments

@@ -554,17 +554,21 @@ rules // page variables
        private t x;
        public t x_get() { return x; }
        public void x_set(t x) { this.x = x; }
-//       @Partial public void postInitialize() { x = e2; }
+       ~stm0
     ]|
     where not(HqlQuery(_) := e1)
         ; not(<IsTemplateArgument> x)
-        ; <debug> [x, e1]
         ; t     := <java-type> s
         ; X     := <capitalize-string> x
         ; x_get := <concat-strings>["get", X]
         ; x_set := <concat-strings>["set", X]
         //; stm := <statement-to-java> Assign(Assignment(x, e1)) // @TODO: these things should be avoided
         ; e2 := <expression-to-java> e1
+        ; if <IsToplevelTemplate> <ThisPage> then
+            stm0 := []
+          else
+            stm0 := java |[ @Partial public void postInitialize() { x = e2; } ]|
+          end
 
   // page-level variables with query initializers
 
@@ -661,17 +665,17 @@ rules // For generating template functions
     ; generate-template-function-code
 
   generate-template-function-code :
-    Define(mods, x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> x_page
+    Define(mods, x_page, args, elems1) -> <generate-page-bean> <template-functions-to-java> (x_page, args)
 
    template-functions-to-java :
-     page -> function*
-     where  pkgname := <Package>
+     (page, args) -> function*
+     where pkgname := <Package>
          ; pkgname2 := <DomainPackage>
-         ; functions := <retain-all(?(page, _, _, _))> <AllTemplateFunctions>
+         ; functions := <retain-all(?(page, args, _, _, _))> <AllTemplateFunctions>
          ; function* := <map(template-function-to-java)> functions
 
    template-function-to-java :
-     (page, x_fn, params, e) -> java|[
+     (page, args, x_fn, params, e) -> java|[
        public t x_fn(param*) {
          stm
        } ]|

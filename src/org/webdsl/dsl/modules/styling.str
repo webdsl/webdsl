@@ -19,7 +19,19 @@ rules
     where files' := <collect(style-to-css)> sections*/
 
 //  process-theme:
+
+
+strategies
+
+ /* is-toplevel-template =
+    where (
+      ?def
+      ; not(<elem> (def, <bagof-TemplatesDefinedInPage <+ ![]>))
+    )*/
     
+  contains-template-call =
+    sometd(?TemplateCall(name, _, _))
+    ; <IsToplevelTemplate> name
 
 rules
 
@@ -29,12 +41,42 @@ rules
   declare-definition =
     declare-layout
 
+  declare-template-definition =
+    declare-toplevel-template-definition
+  
+  declare-toplevel-template-definition =
+    ?def@Define([Template()], name, fargs, body)
+    ; t1* := <map(?Arg(_,<id>))> fargs
+    ; rules (
+              TemplateSignature : (name, t1*) -> def
+              IsToplevelTemplate : name
+              TemplateDefinition: (name, fargs) -> def
+            )
+    ; if not(<elem> ((name, fargs), <bagof-TopLevelTemplateDefinitions> name)) then
+        rules ( TopLevelTemplateDefinitions :+ name -> (name, fargs) )
+      end
+    ; if not(<TemplateArguments> name) then
+        fargs' := <map(declare-template-args)> fargs
+        ; rules ( TemplateArguments  : name -> fargs' )
+      end
+    ; <zip(declare-template-arg(|name))> (fargs, <TemplateArguments> name)
+
+  declare-template-args =
+    <newname> "param"
+
+  declare-template-arg(|template) =
+    ?(Arg(x, SimpleSort(s)), y)
+    ; rules ( TemplateArgument : (template, x) -> y
+              IsTemplateArgument : y -> x
+              TypeOf : y -> t' where t' := SimpleSort(<get-superclass> s) )
+
+
   declare-layout =
     ?LayoutDefinition(name, declarations)
     ; rules ( LayoutDefinition : name -> declarations )
 
   declare-theme =
-    ?ThemeDefinition(mod, name, declarations)
+    ?ThemeDefinition(mod, name, args, declarations)
     ; <fetch(?StyleDeclaration(StyleProperty("layout"), StyleValue(val1)))> declarations
     ; rules ( DeclaredLayout : name -> val1 )
     ; <fetch(?StyleDeclaration(StyleProperty("style"), StyleValue(val2)))> declarations
@@ -59,13 +101,27 @@ rules
     ?StyleSection(_, _)
   
   typecheck-theme-definition =
-    ?ThemeDefinition(_, _, _)
+    ?ThemeDefinition(mods, name, args, decls)
     
   typecheck-layout-definition =
     ?LayoutDefinition(_, _)
     
 /*  typecheck-style-definition:
     StyleSection(name, definitions) -> StyleSection(name, definitions) */
+
+
+strategies
+
+  gather-overloaded-templates =
+    alltd(gather-overloaded-template)
+
+  gather-overloaded-template =
+    ?def@Define([Template()], name, fargs, body)
+    ; if not(<elem> (def, <bagof-TopLevelTemplateDefinitions> name)) then
+        rules (
+          TopLevelTemplateDefinitions :+ name -> def
+        )
+      end
 
 
 rules
