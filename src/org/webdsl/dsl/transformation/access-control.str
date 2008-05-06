@@ -58,7 +58,7 @@ rules
                 <+ create-template-rule(|x_groupname)
                 <+ create-action-rule(|x_groupname,[],[])
                 <+ create-function-rule(|x_groupname)
-                <+ {x:?x; !["rule unknown: ",x];debug}
+                <+ {x:?x; !["error: rule unknown: ",x];debug}
                    )> acdef*
     )
                   
@@ -66,7 +66,7 @@ rules
     MatchArgs(formarg,wc)->formarg
   
   get-varname-from-formarg:
-    Arg(ident,srt)->Var(ident)
+    Arg(ident,srt) -> Var(ident)
   
   match-arguments=
     ?(fargrule,farg*)
@@ -115,7 +115,7 @@ rules
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
                        ; {| WeaveAccessControlAction:
-                            <map(create-action-rule(|x_rulegroup,farg2*,e*))> acrule*
+                            <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
@@ -129,8 +129,9 @@ rules
     where x_predname := <newname> "genactionpredicate"
         ; farg1* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg1*
-        ; farg2* := [farg7*,farg1*] //special: * at end of name inlines contents in list
-        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
+        ; (farg8*,e1) := <substitute-parent-vars-1> (farg7*,e)
+        ; farg2* := [farg8*,farg1*] //special: * at end of name inlines contents in list
+        ; <debug;Desugar;emit-webdsl-code> def|[ predicate x_predname(farg2*) { e1 } ]|
         ; rules(   
             WeaveAccessControlAction :+
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
@@ -162,7 +163,7 @@ rules
                        ; e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
                        //nested actions
                        ; {| WeaveAccessControlAction:
-                            <map(create-action-rule(|x_rulegroup,farg2*,e*))> acrule*
+                            <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
                             // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
@@ -190,7 +191,7 @@ rules
                    //gaat niet werken met meerdere rules
                    |[  x_functionname( e1* )  ]| -> 
                    |[  x_functionname( e1* )  ]|
-                   where <IsGlobalFunction;not(IsPredicate)> x_functionname
+                   where <IsGlobalFunction;not(IsPredicate)> x_functionname//TODO fix overloading
                        ; <match-names> (x_functionmatchname,x_functionname)
                        ; farg* := <GlobalFunctionArgs> x_functionname
                        ; <match-arguments> (margs,farg*)

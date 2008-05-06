@@ -15,14 +15,10 @@ imports
 rules
 
   declare-definition =
-    (oncetd(declare-ac-policy) <+ rules( AC-Policy-Expression := Name("anonymous") ))//default policy
-    ; declare-access-control 
-
-  declare-ac-policy=
-    ?ACPolicy(pexp)
+    ?webdsl|[ access control policy pexp ]|
   ; rules(AC-Policy-Expression := pexp)
 
-  declare-access-control:
+  declare-definition:
     AccessControlDefinition(name,defs) -> AccessControlDefinition(name,defs)
     where rules (
             Security-Check-Types := 
@@ -35,25 +31,26 @@ rules
             ,["template","action"]
             //,["template","template"]
             ,["function"]
+           // ,["pointcut"]
             ]
           )
-        ; <map(declare-ac-rule
-            <+ declare-ac-pointcuts
-            <+ ?x;info(|["map failed in ac declarations: ",x]))> defs
+        ; <alltd(declare-definition)> defs // declare-definition is done with alltd, which doesn't go into the tree after a match, explicitly search deeper
         
   // declare-ac-principal :
   //  AccessControlPrincipal(ident,props) -> AccessControlPrincipal(ident,props)
   //nothing to declare, gets translated to securityContext which should be declared
  
-  declare-ac-rule = 
-    ?AccessControlRule(checktype,matchstring,fargs,check,acrules)
+ // declare-ac-rule = 
+ //   ?AccessControlRule(_,_,_,_,_)
     
-  declare-ac-pointcuts:
+  declare-definition:
     AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems) 
-    where {| pointcut-formal-argument :
+    where 
+         {| pointcut-formal-argument :
              <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
            ; <filter(declare-ac-pointcut-element(|pname,fa))> elems
           |}  
+
           
   declare-ac-pointcut-element(|pname,fa):
     AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
@@ -63,8 +60,11 @@ rules
             AccessControlPointcuts: (pname,fa) -> newPointcutList
             is-access-control-pointcut: (pname,fa)
           )   
+
           
   // uses: declare-global-funcs = ?fu@Function(f, args, s, b) ...
   declare-definition:
     p@Predicate(f,args,b) -> p//<declare-global-funcs> Function(f, args, SimpleSort("Bool"), b)
-    where rules (IsPredicate : f)
+    where rules (IsPredicate : (f,args)
+                 IsPredicate : f ) //TODO remove need for this one
+                        

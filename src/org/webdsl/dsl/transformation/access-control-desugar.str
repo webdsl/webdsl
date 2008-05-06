@@ -30,16 +30,15 @@ rules
             ]|
     where rules (
             AccessControlEnabled := True()
-          )
-
-
+          );<debug> "desugared principal"
 
   //pointcuts
+  // Desugar must fail if not applied otherwise it will repeat indefinately  
   Desugar: 
     AccessControlDefinition(ident,decs) -> AccessControlDefinition(ident,newdecs)
     where <fetch(?AccessControlRule("pointcut",_,_,_,_))> decs
         ; newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
-        ; not(fetch(?AccessControlRule("pointcut",_,_,_,_)))//fail if pointcut not found yet
+        ; <not(fetch(?AccessControlRule("pointcut",_,_,_,_)))> newdecs
     
   desugar-pointcut-rule :
     AccessControlRule("pointcut",matchident,args,check,childrules) -> newrules
@@ -77,8 +76,16 @@ rules
   //anonymous policy block syntactic normalization
   Desugar:
     AccessControlDefinition(None(),defs) -> AccessControlDefinition(Some("anonymous"),defs)
-    
-    
+  
+  //emit predicate functions
+  Desugar:
+    AccessControlDefinition(nm,defs) -> AccessControlDefinition(nm,newdefs)
+    where <alltd(\p@AccessControlPrincipal(_,_) -> p where <emit-webdsl-code> p \)> defs
+        ; <alltd(\p@Predicate(_,_,_) -> p where <emit-webdsl-code> p \)> defs
+        ; newdefs := <alltd(remove-all(?Predicate(_,_,_)<+?AccessControlPrincipal(_,_)))> defs
+       
+        ; not(defs := newdefs)//fail if nothing done to let other desugar on this element happen as well
+     //; <debug> "desugar acdef"
  
   //predicate definitions
   Desugar:
@@ -92,3 +99,4 @@ rules
         }        
       ]|
     where e := <add-not-null-checks> exp
+        ; <declare-definition> pr // declare before desugaring just to make sure the predicate status is known

@@ -25,12 +25,12 @@ rules
   ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end) 
 
   
-  process-page-checks:
+  process-page-checks://TODO substpagevars
     def|[ define page x_ident(farg*){ elem* }       ]| -> 
     def|[ define page x_ident(farg*){ elem elem1* } ]|
     where // collect takes care of duplicates
-          listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> e \)> elem*
-        ; e := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+          listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> (x,e) \)> elem*
+        ; e := <combine-checks> listofchecks
         ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
         ; elem1* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
                                             <+ {x,e  : ?elem|[ acpagecheck(x,e){} ]| } )))> elem*
@@ -54,22 +54,45 @@ rules
     where elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
-  process-template-actions:
+  process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
     def|[ define x_ident(farg*){ elem* }  ]| -> 
     def|[ define x_ident(farg*){ elem2* } ]|
     where elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
+  substitute-parent-vars-1:
+    (farg1*,e1) -> (farg2*,e2)
+    where {| subst-vars:
+               farg2* := <map(\Arg(nm,srt) -> Arg(varname,srt) 
+                          where varname := <newname> "genuniquevar" 
+                              ; rules(//subst-vars: PageVar(nm)->Var(varname)
+                                     subst-vars: Var(nm)->Var(varname)
+                              )\)> farg1*
+           ; e2 := <alltd(subst-vars)> e1;<debug> ["farg2*",farg2*]
+           |}
+  substitute-parent-vars-2: //special because it is expanded in webdsl
+    (farg1*,e1) -> (farg2*,e2)
+    where {| subst-vars:
+               farg2* := <map(\Arg(nm,srt) -> Arg(varname,srt) 
+                          where varname := <newname> "genuniquevar" 
+                              ; rules(subst-vars: ExternalScopeVar(nm)->Var(varname)
+                                     //subst-vars: Var(nm)->Var(varname)
+                              )\)> farg1*
+           ; e2 := <alltd(subst-vars)> e1;<debug> ["farg2*",farg2*]
+           |}
+
+  
   process-action-checks(|farg4*): //page farg
     elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg*){ stat3* } ]|
     where
-          listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> e \)> stat*
-        ; e1 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+          listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*;<debug> ["weaving",x_ident]
+        ; e1 := <combine-checks> listofchecks
         ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
-        ; farg5* := [farg4*,farg*]
-        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg5*) { e1 } ]|
-        ; e2* := <map(get-varname-from-formarg)> farg5*
+        ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1); <debug> [(farg4*,e1),(farg6*,e2)]
+        ; farg5* := [farg6*,farg*] //TODO Duplicate NAMEEESSSSSSSS!!!!!!!! in farg
+        ; <debug;Desugar;emit-webdsl-code> def|[ predicate x_predname(farg5*) { e2 } ]|
+        ; e2* := <map(get-varname-from-formarg)> [farg4*,farg*]
         //remove ac calls
         ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
         //determine whether it returns to the same or a different page, to either redirect with goto or return
@@ -82,8 +105,8 @@ rules
                 a@ elem|[                         x ( e7, x_ident(e3*) ) { elem* }    ]| ->
                    elem|[ if( x_predname(e4*) ) { x ( e7, x_ident(e3*) ) { elem* } } ]|
                    where <?"action"<+?"actionLink"> x 
-                       ; e5* := <map(get-varname-from-formarg)> farg4*
-                       ; e4* := [e5*,e3*]     
+                       ; e5* := <map(get-varname-from-formarg);debug> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
+                       ; e4* := [e5*,e3*]    ; <debug>  ["e4*",e4*]
                ) 
        
       
@@ -97,13 +120,13 @@ rules
  
   
   
-  process-function-checks:
+  process-function-checks://TODOadd external scope vars and subst
     a@|[ acfunctioncheck(x_group,e) e1 ]| -> 
-    |[ x_funcname(e*) ]|
+      |[ x_funcname(e*) ]|
     where //<debug> ["wholefunction",a]
-          listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> e \)> a
+          listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> (x_group,e) \)> a
         //; <debug> ["checks",listofchecks]
-        ; e2 := <try(?[];![False()]);generate-conjunction-exp> listofchecks
+        ; e2 := <combine-checks> listofchecks
         ; thecall := <collect(\ |[acfunctioncheck(x_group3,e3) x_name3(e3*)]| -> |[x_name3(e3*)]| \);Hd> a
         //; <debug> ["thecall",thecall]
         ; |[ x_fname(e*) ]| :=thecall
@@ -122,7 +145,39 @@ rules
         
         
   //strategy that takes list of (groupname,check) tuples and creates the combination
-  
+  combine-checks=
+    ?checks
+  ; where(final-check := <AC-Policy-Expression<+!Name("anonymous")>
+          ; groupnames := <collect(\Name(x)->x\)> final-check
+          ; groupchecks := <map({x:?x;<filter(?(x,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
+  ; if <map(?[])> groupchecks
+    then !False()
+    else
+      where(
+            {| groupresult:
+                 <zip(\(thename,thecheck) -> None() 
+                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
+               ; subst-final-check := <topdown(try(groupresult))> final-check
+               ; substituted-final-check := <bottomup(try(  \And([],[])-> []\
+                                                         <+ \Or([],[])-> []\
+                                                         
+                                                         <+ \And([],x)-> x\
+                                                         <+ \And(x,[])-> x\
+                                                         <+ \Or([],x)-> x\
+                                                         <+ \Or(x,[])-> x\
+                                                         
+                                                         <+ \And(True(),True())-> True()\
+                                                         <+ \And(False(),False())-> False()\
+                                                         //<+ \And(False(),_)-> False()\
+                                                         //<+ \And(_,False())-> False()\
+                                                         <+ \Or(False(),False())-> False()\
+                                                         <+ \Or(True(),True())-> True()\
+                                                         //<+ \Or(True(),_)-> True()\
+                                                         //<+ \Or(_,True())-> True()\
+                                                          ))> subst-final-check
+             |})
+    ; !substituted-final-check
+    end
       
         
   /*  fun|[ function x_functionname(farg*):srt0 { stat*  } ]| -> 
