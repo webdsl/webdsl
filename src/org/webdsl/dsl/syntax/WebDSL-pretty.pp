@@ -215,7 +215,10 @@
    AccessControlPointcut.2:iter-star-sep        -- _1 KW[","],
    AccessControlPointcut.3:iter-star-sep        -- _1 KW[","],
    ACPolicy                                     -- KW["access"] KW["control"] KW["policy"] _1,
-
+   Name                                         -- _1,
+   And                                          -- _1 KW["AND"] _2,
+   Or                                           -- _1 KW["OR"] _2,
+   
    %%styling
       ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] KW[")"] KW["{"] _3 KW["}"],
    ThemeDefinition.3:iter-star                  -- _1,
