@@ -1,6 +1,6 @@
 /**
 
- Security rules for WebDSL
+ Access control for WebDSL
 
 */
 
@@ -13,37 +13,58 @@ imports
   libwebdsl-front
   org/webdsl/dsl/transformation/-
 rules
-  declare-access-control=
-    ?Application(qid, sections)
-    ; where(<collect(declare-access-control)> sections)
-    ; (oncetd(declare-ac-policy) <+ rules( AC-Policy-Expression := Name("anonymous") ))//default policy
-    ; topdown(try(remove-all(?ACPolicy(_))))
-    
 
-  declare-access-control:
+  declare-definition =
+    ?webdsl|[ access control policy pexp ]|
+  ; rules(AC-Policy-Expression := pexp)
+
+  declare-definition:
     AccessControlDefinition(name,defs) -> AccessControlDefinition(name,defs)
     where rules (
-            Security-Check-Types := [["page"],["action"],["page" , "action"],["template"],["page","template"],["template","action"],["template","template"],["function"]]
+            Security-Check-Types := 
+            [
+             ["page"]
+            ,["action"]
+            ,["page" , "action"]
+            ,["template"]
+            //,["page","template"]
+            ,["template","action"]
+            //,["template","template"]
+            //,["function"]
+           // ,["pointcut"]
+            ]
           )
-        ; <collect(declare-ac-pointcut<+declare-predicate)> defs
-
-  declare-ac-pointcut:
-    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems)
-    where <map(declare-pointcut-element(|pname))> elems
-
-  declare-pointcut-element(|pname):
-    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
-    where rules(
-            is-access-control-pointcut: (pname,fa)
-          )
-
-  // uses:
-  //  declare-global-funcs =
-  //  ?fu@Function(f, args, s, b) ...
-  declare-predicate:
-    Predicate(f,args,b) -> <declare-global-funcs> Function(f, args, SimpleSort("Bool"), b)
-    where rules (IsPredicate : f)
+        ; <alltd(declare-definition)> defs // declare-definition is done with alltd, which doesn't go into the tree after a match, explicitly search deeper
+        
+  // declare-ac-principal :
+  //  AccessControlPrincipal(ident,props) -> AccessControlPrincipal(ident,props)
+  //nothing to declare, gets translated to securityContext which should be declared
+ 
+ // declare-ac-rule = 
+ //   ?AccessControlRule(_,_,_,_,_)
     
-  declare-ac-policy=
-    ?ACPolicy(pexp)
-  ; rules(AC-Policy-Expression := pexp)
+  declare-definition:
+    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems) 
+    where 
+         {| pointcut-formal-argument :
+             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
+           ; <filter(declare-ac-pointcut-element(|pname,fa))> elems
+          |}  
+
+          
+  declare-ac-pointcut-element(|pname,fa):
+    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
+    where faidentsargs := MatchArgs(<map(pointcut-formal-argument)> faidents,wc)
+        ; newPointcutList := <concat> [<AccessControlPointcuts<+![]> (pname,fa),[(ident,matchident,faidentsargs)]]
+        ; rules(
+            AccessControlPointcuts: (pname,fa) -> newPointcutList
+            is-access-control-pointcut: (pname,fa)
+          )   
+
+          
+  // uses: declare-global-funcs = ?fu@Function(f, args, s, b) ...
+  declare-definition:
+    p@Predicate(f,args,b) -> p//<declare-global-funcs> Function(f, args, SimpleSort("Bool"), b)
+    where rules (IsPredicate : (f,args)
+                 IsPredicate : f ) //TODO remove need for this one
+                        

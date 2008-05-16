@@ -12,12 +12,18 @@ exports
 
 context-free syntax
 
-  "access" "control" "rules" Id? "{" AccessControlDefinition* "}"   -> Definition {cons("AccessControlDefinition")}
-      
-  "principal" "is" Id "with" "credentials" {Id ","}+            -> AccessControlDefinition {cons("AccessControlPrincipal")} 
-
-  AccessControlRule                                             -> AccessControlDefinition
+  "access" "control" "rules" Id? AccessControlDefinition*  -> Section {cons("AccessControlDefinition")}
+  %%deprecated: 
+  "access" "control" "rules" "{" Id? AccessControlDefinition* "}"  -> Section {cons("AccessControlDefinition")}
   
+  "principal" "is" Id "with" "credentials" {Id ","}+            -> Definition {cons("AccessControlPrincipal")} 
+  "principal" "is" Id "with" "credentials" {Id ","}+            -> AccessControlDefinition {cons("AccessControlPrincipal")} 
+  
+  AccessControlRule                                             -> AccessControlDefinition
+ 
+  "rule" Id MatchId "(" MatchArgs ")"
+  "{" AccessControlCheck AccessControlRule* "}"                 -> AccessControlRule {cons("AccessControlRule")}
+  %%deprecated:
   "rules" Id MatchId "(" MatchArgs ")"
   "{" AccessControlCheck AccessControlRule* "}"                 -> AccessControlRule {cons("AccessControlRule")}
 
@@ -27,8 +33,14 @@ context-free syntax
   %% to prevent an AccessControlRule becoming an AccessControlCheck
   "rules"                                                       -> Exp {reject}
 
-  Exp                                                           -> AccessControlCheck {cons("AccessControlCheckExpression")}
+  Exp                                                           -> AccessControlCheck
   
+  %% pagecheck
+  %%"pagecheck" "<" Id "," Exp ">"  -> TemplateElement {cons("PageCheck"),prefer}
+  %%"pagecheck" "(" Id "," Exp ")"  -> TemplateCall {reject}
+  %%"pagecheck" "(" {Exp ","}* ")"                          -> TemplateCall {reject}
+  
+  "predicate" Id "(" {FormalArg ","}* ")" "{" Exp "}"           -> Definition {cons("Predicate")}
   "predicate" Id "(" {FormalArg ","}* ")" "{" Exp "}"           -> AccessControlDefinition {cons("Predicate")}
   
   Id MatchId "(" {Id ","}* WildCardArg? ")"                     -> AccessControlPointcutElement {cons("AccessControlPointcutElement")}
@@ -44,6 +56,10 @@ context-free syntax
   "(" PolicyExp ")"                  -> PolicyExp {bracket}
   PolicyExp "AND" PolicyExp          -> PolicyExp {cons("And"), assoc}
   PolicyExp "OR" PolicyExp           -> PolicyExp {cons("Or"), assoc}
+  
+  
+  %% hack for allowing multiple function checks to be added in different stages to a function call
+  %%"acfunctioncheck" "(" Id "," Exp ")" Exp -> Exp {cons("ACFunctionCheck"), prefer}
   
 context-free priorities
   {left:

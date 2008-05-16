@@ -14,235 +14,169 @@ imports
   org/webdsl/dsl/transformation/-
 rules
 
-  access-control-weaving=
-    try(sometd(apply-checks-to-page))
-  ; try(sometd(apply-checks-to-template-defs-actions))
-  //; try(sometd(apply-checks-to-functions))
-  ; try(sometd(apply-checks-to-navigate))
+
+  process-access-control-checks =
+    topdown(try(process-page-checks))
+                //<+ process-action-checks//TODOcontext sensitive when inferring visibility may need to apply right away in templates and wait for pages
+               /* <+ process-function-checks//TODO can be done earlier as well, doesn't need typechecker fix   */
+ // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
+ // ; alltd(   process-action-checks )
+  ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end)
+
   
-  access-control-weaving-after-template-expansion= //!<id>
-  //  try(sometd(apply-checks-to-forms))
-  //; try(sometd(apply-checks-to-menu-headers-items));
-    try(sometd(apply-checks-to-page-templates-expanded))
-
-  apply-checks-to-page-templates-expanded:
-    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
-    where <elem> (Page(),modifier)
-        ; e0 := <once-Access-Control-Page-Check> (ident,formargs)
-        ; initactions := <collect(?InitAction(_));map(\ InitAction(Block(xs)) -> xs \);concat> tempelement
-        ; tempelement2 := <topdown(try(\ xs -> <remove-all(?InitAction(_))> xs \))> tempelement
-        ; newtempelement := <concat> [tempelement2 , [InitAction(Block([If(e0,Block(initactions),Block([ |[ goto(accessDenied()); ]| ]))]))]]
-        
-  apply-checks-to-page:
-    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,newtempelement)
-    where <elem> (Page(),modifier)
-        ; checks := <generate-access-control-checks(|"page",ident,formargs,[],[])>
-        ; if [] := checks then 
-          e0 := False(){Type(SimpleSort("Bool"))}
-        else
-          e0 := checks
-        end
-        //applying the check needs to happen after template expansion, so all the initactions are inserted
-        ; rules ( Access-Control-Page-Check : (ident,formargs) -> e0)
-        ; previousrules := <once-Previous-Selected-Rules>
-        ; previousname := <once-Previous-Decision-Name>
-          // enforce access control on actions in page definitions
-        ; newtempelement3 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
-          // enforce access control on template calls in page definitions
-        ; newtempelement4 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement3
-          // enforce access control on forms in page definitions
-        ; {| ActionDefinition,ActionArguments:
-             <alltd(declare-action)> newtempelement4
-           ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement4
+  process-page-checks://TODO substpagevars
+    def|[ define page x_ident(farg*){ elem* }       ]| -> 
+    def|[ define page x_ident(farg*){ elem elem1* } ]|
+    where // collect takes care of duplicates
+          listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> (x,e) \)> elem*
+        ; e := <combine-checks> listofchecks
+        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
+        ; elem1* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
+                                            <+ {x,e  : ?elem|[ acpagecheck(x,e){} ]| } )))> elem*
+        ; x_predname := <newname> "genpagepredicatecombined"
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
+        ; e2* := <map(get-varname-from-formarg)> farg*
+        ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
+        ; rules( WeaveAccessControlInferred :+
+                   elem|[                        navigate( x_ident(e*) ) { elem2* }   ]| ->
+                   elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) ) { elem2* } } ]|
+                         
+                          //todo match argument types although not really necessary since overloading is not possible for pages
+               ) 
+        //;    <debug> ["navlink created ",x_ident]
+ 
+  
+  //separated from page and template accheck processing for clarity
+  process-page-actions:
+    def|[ define page x_ident(farg*){ elem*  } ]| -> 
+    def|[ define page x_ident(farg*){ elem2* } ]|
+    where elem1* := <alltd(process-action-checks(|farg*))> elem*
+        ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+  
+  process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
+    def|[ define x_ident(farg*){ elem* }  ]| -> 
+    def|[ define x_ident(farg*){ elem2* } ]|
+    where elem1* := <alltd(process-action-checks(|farg*))> elem*
+        ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+  
+  substitute-parent-vars-1:
+    (farg1*,e1) -> (farg2*,e2)
+    where {| subst-vars:
+               farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
+                          where varname := <newname> "genuniquevar" 
+                              ; rules(//subst-vars: PageVar(nm)->Var(varname)
+                                     subst-vars: Var(nm)->Var(varname)
+                              ))})> farg1*
+           ; e2 := <alltd(subst-vars)> e1
            |}
-   
-  add-function-checks-to-action-check(|statements):
-    check -> newcheck{Type(SimpleSort("Bool"))}
-    where // lift ac on functions to the action level
-        {| checks-from-statements,checked-functions:
-           <try(function-checks-from-statements(|[],[]))> statements
-         ; if [] := <remove-all(?[])><checks-from-statements<+![]>
-           then newcheck := check
-           else newcheck := <concat;generate-conjunction-exp> [[check],<checks-from-statements>] end
-         |}
-      
-  function-checks-from-statements(|cargs,cfargs):
-    statements -> statements
-    where // atm no namespaces for ac on functions and ignoring the entity functions, functions can be defined in entities atm but they are not fully functional (are we going to remove them?)
-          // checks on global functions but not predicates, because they are already in the access control declarations      
-          funccalls := <collect(\ThisCall(ident,args)->(ident,args,<GlobalFunctionArgs> ident) where <IsGlobalFunction;not(IsPredicate)> ident\)> statements
-        ; <map(try(\(ident,args,fargs) -> ident 
-                 where checks := <ident-with-args-and-fargs-to-checks(|"function",[],[])> (ident,args,fargs)
-                     ; <not(elem)> (ident,<checked-functions<+![]>)
-                     ; if [] := args
-                       then newchecks := checks
-                       else newchecks := <substitute-args-in-statements(|cargs,cfargs)> checks end
-                     ; rules (checks-from-statements:=<concat>[[newchecks],<checks-from-statements<+![]>]
-                              checked-functions:=<concat>[[ident],<checked-functions<+![]>])
-                     ; nestedchecks := <GlobalFunctionBlock;function-checks-from-statements(|args,fargs)> ident\              
-              ))> funccalls
-        
-  apply-checks-to-action(|previousname,previousrules):
-    Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
-    where checks := <generate-access-control-checks(|"action",ident,formargs,previousname,previousrules)>
-        ; if [] := checks 
-          then e0 := False(){Type(SimpleSort("Bool"))}
-          else e0 := checks end
-        ; e1 := <add-function-checks-to-action-check(|statements)> e0
-        //determine whether it returns to the same or a different page, to either redirect with goto or return
-        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> statements // safe to do this, because you can't put part of action in template
-        ; if returnstat := [] 
-          then returnstats := [|[ goto(accessDenied()); ]|] 
-          else returnstats := [|[ return(accessDenied()); ]|] end
-        ; newstatements := [If(e1,Block(statements),Block(returnstats))]
+  substitute-parent-vars-2: //special because it is expanded in webdsl
+    (farg1*,e1) -> (farg2*,e2)
+    where {| subst-vars:
+               farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
+                          where varname := <newname> "genuniquevar" 
+                              ; rules(subst-vars: ExternalScopeVar(nm)->Var(varname)
+                                     //subst-vars: Var(nm)->Var(varname)
+                              ))}<+info(|["map failed",<id>]))> farg1*
+           ; e2 := <alltd(subst-vars)> e1
+           |}
 
-  //obsolete
-  apply-checks-to-template-call(|previousname,previousrules):
-    tc@TemplateCall(ident, args, telems) -> result
+  
+  process-action-checks(|farg4*): //page farg
+    elem|[ action x_ident(farg*){ stat*  } ]| -> 
+    elem|[ action x_ident(farg*){ stat3* } ]|
     where
-    if def := <TemplateDefinition> ident
-    then
-            (
-            // this case can be removed, maybe make the distinction between template (call) explicit
-            Define(modifier,dident,formargs,tempelement) := def
-
-             // this is handled inside the definition now
-             //; checks := <generate-access-control-checks(|"template",ident,formargs,previousname,previousrules)>
-             )
-          else
-            checks := []//disabled checks on generic templates calls: <generate-access-control-checks(|"template",ident,args,previousname,previousrules)>
-          end
-        ; if checks := []
-          then
-            result := tc
-          else
-            result := IfTempl(checks,[tc])
-          end
-
-
-  apply-checks-to-template-defs-actions:  //this is for template calls and actions inside template defs
-    def@Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,result)
-    where modifier := []
-        ; checks := <generate-access-control-checks(|"template",ident,formargs,[],[])>
-        ; previousrules := <once-Previous-Selected-Rules<+![]>
-        ; previousname := <once-Previous-Decision-Name<+![]>
-        ; newtempelement0 := <bottomup(try(apply-checks-to-action(|previousname,previousrules)))> tempelement
-        //obsolete ; newtempelement1 := <bottomup(try(apply-checks-to-template-call(|previousname,previousrules)))> newtempelement0
-          // enforce access control on forms in template definitions
-        ; {| ActionDefinition,ActionArguments:
-               <alltd(declare-action)> newtempelement0
-             ; newtempelement := <try(sometd(apply-checks-to-form-submits(|previousname,previousrules)))> newtempelement0
-           |}
-        ; if checks := []
-          then result := [IfTempl(False(),newtempelement)]// nu ook deny by default/ newtempelement
-          else result := [IfTempl(checks,newtempelement)] end
-
-  //ignore the defs inside pages
-  apply-checks-to-template-defs-actions:
-    Define(modifier,ident,formargs,tempelement) -> Define(modifier,ident,formargs,tempelement)
-    where <elem> (Page(),modifier)
-  
-  //obsolete, checks lifted to actions  
-  apply-checks-to-functions:
-    Function(ident,formargs,s,blck) -> Function(ident,formargs,s,newblck)
-    where checks := <generate-access-control-checks(|"function",ident,formargs,[],[])>
-        ; if [] := checks
-          then
-            newblck := Block([If(False(),blck,Block(|[ goto(accessDenied());return null;]|))])//functions also denied by default  blck
-          else
-            newblck := Block([If(checks,blck,Block(|[ goto(accessDenied());return null;]|))])
-          end
-
-  apply-checks-to-navigate:
-    tc@TemplateCall("navigate",_,_) -> newtc
-    where newtc := <wrap-in-iftempl-using-navigate-call(|tc)> tc
-           
-  wrap-in-iftempl-using-navigate-call(|navigatecall):
-    tc -> newtc
-    where TemplateCall("navigate",[ThisCall(p,args)],_) := navigatecall
-        ; fargs := <TemplateArguments> p
-        ; checks := <ident-with-args-and-fargs-to-checks(|"page",[],[])> (p,args,fargs)
-        ; newtc := <wrap-in-iftempl(|checks)> tc
-  
-  apply-checks-to-menu-headers-items:
-    tc@TemplateCall(tempname, [], elems) -> newtc
-    where <?"menuheader" <+ ?"menuitem"> tempname
-        ; checks := <collect(collect-template-call-checks(|["navigate"]))> elems
-        ; newtc := IfTempl(<generate-disjunction-exp> checks,[tc]) // disjunction-exp fails on []
-  
-  apply-checks-to-forms:
-    tc@TemplateCall("form", [], elems) -> newtc
-    where checks := <collect(collect-template-call-checks(|["actionLink","action"]))> elems
-        ; newtc := IfTempl(<generate-disjunction-exp> checks,[tc]) // disjunction-exp fails on []
-        
-  collect-template-call-checks(|tempnames)=
-    \ fa@ForAll(x, SimpleSort(s), filt, elems) -> InColl(True(){Type(SimpleSort("Bool"))}, ForExp(thecheck,x,SimpleSort(s),thequery,filt)){Type(SimpleSort("Bool"))}
-      where thecheck := <generate-disjunction-exp> <collect(collect-template-call-checks(|tempnames))> elems
-          ; selectField := <newname> "queryVar"
-          ; thequery := Cast(HqlQuery(QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Path([selectField]),None())])),FromClause([FromRangeJoin(FromClass(Path([s]),Some(AsAlias(Alias(selectField))),None()),None())])),None(),None(),None()))
-                            ,GenericSort("List",[SimpleSort(s)]))\
-    <+ \ fr@For(x, s, e, filt, elems) -> InColl(True(){Type(SimpleSort("Bool"))}, ForExp(thecheck,x,s,e,filt)){Type(SimpleSort("Bool"))}
-         where thecheck := <generate-disjunction-exp> <collect(collect-template-call-checks(|tempnames))> elems \
-    <+ \ IfTempl(check,[TemplateCall(tname,_,_)]) -> check where <elem>(tname,tempnames) \
-        
-  apply-checks-to-form-submits(|previousname,previousrules)=
-    apply-checks-to-actionLink(|previousname,previousrules)
-    <+ apply-checks-to-actionButton(|previousname,previousrules)
-             
-  apply-checks-to-actionLink(|previousname,previousrules):
-    tc@TemplateCall("actionLink",[_,thiscall@ThisCall(p,args)],_) -> newtc
-    where newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
-    
-  apply-checks-to-actionButton(|previousname,previousrules):
-    tc@TemplateCall("action",listoftempelems,_) -> newtc
-    where thiscall@ThisCall(p,args) := <index> (2,listoftempelems) //can be list of 2 or 3, but the ThisCall is the 2nd element
-        ; newtc := <wrap-in-iftempl-using-action-call(|thiscall,previousname,previousrules)> tc
-        ; <not(is-cancel-action)> thiscall 
-        
-  wrap-in-iftempl-using-action-call(|actioncall,previousname,previousrules):
-    tc -> newtc
-    where ThisCall(p,args) := actioncall
-        ; fargs := <ActionArguments> p
-        // get action checks substituted with actual arguments
-        ; checks := <ident-with-args-and-fargs-to-checks(|"action",previousname,previousrules)> (p,args,fargs)
-             
-        //add global function checks
-        //substitute page args into fargs in action definition
-        ; actiondef := <ActionDefinition> p
-        ; Action(ident,formargs,Block(statements)) := <substitute-args-in-action-definition(|args,fargs)> actiondef
-        //this gets the function checks and substitutes the action args into the function fargs
-        ; newchecks := <add-function-checks-to-action-check(|statements)> checks
-        
-        ; newtc := <wrap-in-iftempl(|newchecks)> tc 
-                  
-  substitute-args-in-action-definition(|args,fargs):
-    Action(ident,formargs,Block(statements)) -> Action(ident,formargs,Block(newstatements))
-    where newstatements := <substitute-args-in-statements(|args,fargs)> statements
-           
-  substitute-args-in-statements(|args,fargs):
-    statements -> newstatements
-    where {| substitute-action-argument:
-             <zip(\(identa,fa@Arg(ident,s))->(identa,fa) where 
-                      rules (substitute-action-argument : Var(ident) -> identa) //in case of an expr    
-                   \)> (args,fargs)
-           ; newstatements := <topdown(try(substitute-action-argument))> statements
-           |}
+          listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*
+        ; e1 := <combine-checks> listofchecks
+        ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
+        ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1)
+        ; farg5* := [farg6*,farg*] //TODO Duplicate NAMEEESSSSSSSS!!!!!!!! in farg
+        ; <Desugar;emit-webdsl-code> def|[ predicate x_predname(farg5*) { e2 } ]|
+        ; e2* := <map(get-varname-from-formarg)> [farg4*,farg*]
+        //remove ac calls
+        ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
+        //determine whether it returns to the same or a different page, to either redirect with goto or return
+        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> stat1*
+        ; if returnstat := [] 
+          then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
+          else stat2* := [webdsl |[ return(accessDenied()); ]|] end
+        ; stat3* := [webdsl |[ if ( x_predname(e2*) ) { stat1* } else { stat2* } ]|]
+        ; rules( WeaveAccessControlInferredAction :+
+                a@ elem|[                         x ( e7, x_ident(e3*) ) { elem* }    ]| ->
+                   elem|[ if( x_predname(e4*) ) { x ( e7, x_ident(e3*) ) { elem* } } ]|
+                   where <?"action"<+?"actionLink"> x 
+                       ; e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
+                       ; e4* := [e5*,e3*]
+               )
        
-  wrap-in-iftempl(|checks):
-    tc -> newtc
-    where if [] := checks
-          then
-            newtc := IfTempl(False(){Type(SimpleSort("Bool"))},[tc])//want to remove this, or replace with something like TemplateCall("dummy", [], []) but this messes up the menu
-          else
-            if True() := checks // don't generate overhead
-            then newtc := tc
-            else newtc := IfTempl(checks,[tc]) end
-          end
+      
+  process-template-checks:
+    def|[ define x_ident(farg*){ elem* }  ]| -> 
+    def|[ define x_ident(farg*){ elem2* } ]|
+    where listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
+        ; e := <combine-checks> listofchecks
+        ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
+        ; elem2* := elem* |[ if ( e ) { elem1* } ]|
+ 
   
-  // substitutes the args for the identifiers in fargs, and generates access control checks       
-  ident-with-args-and-fargs-to-checks(|checktype,previousname,previousrules):
-    (ident,args,fargs) -> checks
-    where argsorts := <map(\ Arg(ident,thesort) -> thesort \)> fargs
-        ; matchingargs := <zip(\ (anexpr,thesort) -> Arg(anexpr,thesort) \)> (args,argsorts) // make suitable for checks strategy
-        ; checks := <generate-access-control-checks(|checktype,ident,matchingargs,previousname,previousrules)>
+ /* 
+  process-function-checks://TODO add external scope vars and subst
+    a@|[ acfunctioncheck(x_group,e) e1 ]| -> 
+      |[ x_funcname(e*) ]|
+    where listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> (x_group,e) \)> a
+        ; e2 := <combine-checks> listofchecks
+        ; thecall := <collect(\ |[acfunctioncheck(x_group3,e3) x_name3(e3*)]| -> |[x_name3(e3*)]| \);Hd> a
+        ; |[ x_fname(e*) ]| := thecall
+        ; farg* := <GlobalFunctionArgs> x_fname  //TODO fix overloading,search using name and arg types instead, make sure typechecker adds types to the expressions
+        ; srt := <GlobalFunctionReturn> x_fname
+        ; e1* := <map(get-varname-from-formarg)> farg*
+        ; {| subst-vars:     
+               <zip({\ tup@(exp,Arg(nm,srt)) -> tup
+                        where exp1 := exp{}  // scoped with { } because exp1 is not scoped by \ \ 
+                            ; rules( subst-vars: exp1 -> Var(nm) )
+                    \})> (e*,farg*)
+             ; e3 := <alltd(subst-vars)> e2
+           |}
+        ; x_funcname := <newname> "genfunction"
+        ; <emit-webdsl-code> def|[ globals {  function x_funcname(farg*) :srt
+                                              { 
+                                                if (e3) { var temp : srt := x_fname(e1*); return temp; } else { goto(accessDenied()); return null; } 
+                                              }
+                                            } ]|
+        */
         
+        
+  //strategy that takes list of (groupname,check) tuples and creates the combination
+  combine-checks=
+    ?checks
+  ; where(final-check := <AC-Policy-Expression<+!Name("anonymous")>
+          ; groupnames := <collect(\Name(x)->x\)> final-check
+          ; groupchecks := <map({x:?x;<filter(?(x,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
+  ; if <map(?[])> groupchecks
+    then !False()
+    else
+      where(
+            {| groupresult:
+                 <zip(\(thename,thecheck) -> None() 
+                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
+               ; subst-final-check := <topdown(try(groupresult))> final-check
+               ; substituted-final-check := <bottomup(try(  \And([],[])-> []\
+                                                         <+ \Or([],[])-> []\
+                                                         
+                                                         <+ \And([],x)-> x\
+                                                         <+ \And(x,[])-> x\
+                                                         <+ \Or([],x)-> x\
+                                                         <+ \Or(x,[])-> x\
+                                                         
+                                                         <+ \And(True(),True())-> True()\
+                                                         <+ \And(False(),False())-> False()\
+                                                         //<+ \And(False(),_)-> False()\
+                                                         //<+ \And(_,False())-> False()\
+                                                         <+ \Or(False(),False())-> False()\
+                                                         <+ \Or(True(),True())-> True()\
+                                                         //<+ \Or(True(),_)-> True()\
+                                                         //<+ \Or(_,True())-> True()\
+                                                          ))> subst-final-check
+             |})
+    ; !substituted-final-check
+    end
+      
