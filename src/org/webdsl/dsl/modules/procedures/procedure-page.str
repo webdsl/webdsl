@@ -1,4 +1,4 @@
-module org/webdsl/dsl/modules/operations/operation-page
+module org/webdsl/dsl/modules/procedures/procedure-page
 
 imports
   libstrategolib
@@ -7,12 +7,12 @@ imports
 rules // Translate to pages and stuff
 
   Desugar :
-    def|[ operation x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
-    where <IsOperation> x_id
-        ; stat* := <filter(operation-get-action-statements);concat;add-operation-performed(|x_id, x_o, srt)> opelem*
+    def|[ procedure x_id (x_o : srt) { procelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsProcedure> x_id
+        ; stat* := <filter(procedure-get-action-statements);concat;add-procedure-performed(|x_id, x_o, srt)> procelem*
         ; SimpleSort(s) := srt
         ; x_view := <decapitalize-string> s
-        ; if <IsDoOperation> x_id then
+        ; if <IsDoProcedure> x_id then
             stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
             ; elem* := elem*|[
                 init {
@@ -21,7 +21,7 @@ rules // Translate to pages and stuff
                ]|
           else
             stat2* := <add-view-page-return(|x_view, Var(x_o))> stat*
-            ; viewelem* := <filter(operation-get-view-elements);concat> opelem*
+            ; viewelem* := <filter(procedure-get-view-elements);concat> procelem*
             ; actionelem* := webdsl*|[
                              action doAction() {
                                stat2*
@@ -29,7 +29,7 @@ rules // Translate to pages and stuff
                            ]|
             ; elem* := [viewelem*, actionelem*]
           end
-        ; e2 := <operation-get-access-exp> opelem*
+        ; e2 := <procedure-get-access-exp> procelem*
         ; <emit-webdsl-section> |[
             access control rules {
               rules page x_id(x_o : srt) {
@@ -43,17 +43,17 @@ rules // Translate to pages and stuff
         ; x_ent := s
         ; <emit-webdsl-code> def|[
             extend entity x_ent {
-              x_id <> OperationStatus
+              x_id <> ProcedureStatus
             }
           ]|
-
+/*
   Desugar :
-    def|[ workflow x_id (x_o : srt) { opelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    def|[ workflow x_id (x_o : srt) { procelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsWorkflow> x_id
         // Generate newWorkflow function
         ; x_new := <concat-strings> ["new", <capitalize-string> x_id]
         ; x_check := <concat-strings> ["check", <capitalize-string> x_id, "Performed"]
-        ; (farg*, stat*) := <filter(workflow-get-init-fargs-statements);Hd> opelem*
+        ; (farg*, stat*) := <filter(workflow-get-init-fargs-statements);Hd> procelem*
         ; qid1 := Qualified(Qualified(x_o, x_id), "performed")
         ; qid2 := Qualified(Qualified(x_o, x_id), "date")
         ; e := <WorkflowDone> x_id
@@ -84,49 +84,50 @@ rules // Translate to pages and stuff
             }
           ]|
         ; elem* := []
+*/
 
 
-  add-operation-performed(|op, arg, srt) =
+  add-procedure-performed(|op, arg, srt) =
     ?stats
     //; e := exp|[ status ]|
     ; qid1 := Qualified(Qualified(arg, op), "performed")
     ; qid2 := Qualified(Qualified(arg, op), "date")
-    ; stat* := <map(workflow-to-check-performed(|arg))> <bagof-Workflows;make-set> srt
+//    ; stat* := <map(procedure-to-check-performed(|arg))> <bagof-Workflows;make-set> srt
     ; <concat> [
         webdsl|[
           qid1 := true;
           qid2 := now();
-          stat*
+//          stat*
         ]|
         , stats]
 
-  workflow-to-check-performed(|arg) :
+  procedure-to-check-performed(|arg) :
     nm -> webdsl|[ x_check(e); ]|
     where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
         ; e := Var(arg)
 
-  operation-get-view-elements :
-    opelem|[ view { elem* } ]| -> elem*
+  procedure-get-view-elements :
+    procelem|[ view { elem* } ]| -> elem*
 
-  operation-get-action-statements :
-    opelem|[ do { stat* } ]| -> stat*
+  procedure-get-action-statements :
+    procelem|[ do { stat* } ]| -> stat*
 
-  workflow-get-init-fargs-statements :
-    opelem|[ init(farg*) { stat* } ]| -> (farg*, stat*)
+//  workflow-get-init-fargs-statements :
+//    procelem|[ init(farg*) { stat* } ]| -> (farg*, stat*)
 
-  operation-get-access-exp =
-    filter(operation-who-when-exp)
+  procedure-get-access-exp =
+    filter(procedure-who-when-exp)
     ; foldr(!True(), exp-and)
 
-  operation-who-exp :
-   opelem|[ who { e } ]| -> e 
+  procedure-who-exp :
+   procelem|[ who { e } ]| -> e 
 
-  operation-when-exp :
-   opelem|[ when { e } ]| -> e 
+  procedure-when-exp :
+   procelem|[ when { e } ]| -> e 
 
-  workflow-done-exp :
-   opelem|[ done { e } ]| -> e 
+//  workflow-done-exp :
+//   procelem|[ done { e } ]| -> e 
 
-  operation-who-when-exp =
-    operation-who-exp <+ operation-when-exp
+  procedure-who-when-exp =
+    procedure-who-exp <+ procedure-when-exp
 
