@@ -8,39 +8,29 @@ rules // Declaring
 
   declare-definition =
     declare-procedure
-//    <+ declare-workflow
 
   declare-procedure =
-    ?def|[ procedure x_id (x_o : srt) { procelem* }]|
-    ; who-exp := <filter(procedure-who-exp); Hd> procelem*
-    ; when-exp := <filter(procedure-when-exp); Hd> procelem*
-    ; SimpleSort(s) := srt
-    ; hasopfun := <concat-strings> [<decapitalize-string> s, "HasProcedures"]
-    ; rules ( IsProcedure            : x_id 
-              ProcedureWho           : x_id -> who-exp
-              ProcedureWhen          : x_id -> when-exp
-              ProcedureArg           : x_id -> x_o
-              Procedures             :+ srt -> x_id 
-              CheckGeneratedGlobalFunctionSignature : (None(), hasopfun, [srt]) -> SimpleSort("Bool")
-              ProcedureEntities :+= srt )
-    ; viewelems* := <filter(\ procelem|[ view { elem* } ]| -> elem* \);concat> procelem*
-    ; if [] := viewelems* then
-        rules ( IsDoProcedure : x_id )
-      end
-/*
-  declare-workflow =
-    ?def|[ workflow x_id (x_o : srt) { procelem* }]|
-    ; done-exp := <filter(workflow-done-exp); Hd> procelem*
-    ; who-exp := <filter(procedure-who-exp); Hd> procelem*
-    ; when-exp := <filter(procedure-when-exp); Hd> procelem*
-    ; rules ( IsWorkflow       : x_id 
-              WorkflowDone     : x_id -> done-exp
-              WorkflowWho      : x_id -> who-exp
-              WorkflowWhen     : x_id -> when-exp
-              WorkflowArg      : x_id -> x_o
-              Workflows        :+ srt -> x_id 
-              WorkflowEntities :+= srt )
-*/
+    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    ; where (
+      ; who-exp := <procedure-who-exp> def
+      ; when-exp := <procedure-when-exp> def
+      ; SimpleSort(s) := srt
+      ; hasopfun := <concat-strings> [<decapitalize-string> s, "HasProcedures"]
+      ; rules ( 
+          IsProcedure   : x_id 
+          ProcedureWho  : x_id -> who-exp
+          ProcedureWhen : x_id -> when-exp
+          ProcedureArg  : x_id -> x_o
+          Procedures    :+ srt -> x_id 
+          CheckGeneratedGlobalFunctionSignature : 
+            (None(), hasopfun, [srt]) -> SimpleSort("Bool")
+          ProcedureEntities :+= srt 
+        )
+      ; if [] := <procedure-view-elems> def then
+          rules ( IsDoProcedure : x_id )
+        end
+    )
+      
 rules // Typechecking
 
   typecheck-section :
@@ -52,18 +42,16 @@ rules // Typechecking
     where {| TypeOf
            : rules ( TypeOf : "status" -> srt ) 
            ; rules ( TypeOf : o -> srt )
-           ; <map(declare-typeof-arg)> <collect(\ VarDecl(x, srt) -> Arg(x, srt)\ <+ \ VarDeclInit(x, srt, e) -> Arg(x, srt) \)> elems // @TODO clean this shit up
+           ; <collect(vardecl-to-arg; declare-typeof-arg)> elems 
            ; elems2 := <map(typecheck-procedure-element <+ typecheck-error(|["Could not typecheck: ", <id>]))> elems
            |}
-/* eruit
-  typecheck-specific-definition :
-    Workflow(nm, Arg(o, srt), elems) -> Workflow(nm, Arg(o, srt), elems2)
-    where {| TypeOf
-           : rules ( TypeOf : "status" -> srt ) 
-           ; rules ( TypeOf : o -> srt )
-           ; elems2 := <map(typecheck-procedure-element <+ typecheck-error(|["Could not typecheck: ", <id>]))> elems
-           |}
-*/ 
+       
+  vardecl-to-arg :
+    VarDecl(x, srt) -> Arg(x, srt)
+    
+  vardecl-to-arg :
+    VarDeclInit(x, srt, e) -> Arg(x, srt)
+
   typecheck-procedure-element :
     ProcedureWho(e) -> ProcedureWho(e2)
     where e2 := <typecheck-expression> e
@@ -89,14 +77,6 @@ rules // Typechecking
     ProcedureDo(b) -> ProcedureDo(b2)
     where b2 := <typecheck-block> b
 
-/* eruit
-  typecheck-procedure-element :
-    WorkflowInit(args, b) -> WorkflowInit(args, b2)
-    where {| TypeOf
-           : <map(declare-typeof-arg)> args
-           ; b2 := <typecheck-block> b
-           |}
-*/
   typecheck-procedure-element :
     ProcedureView(el*) -> ProcedureView(el2*)
     where el2* := <typecheck-page-elements> el*

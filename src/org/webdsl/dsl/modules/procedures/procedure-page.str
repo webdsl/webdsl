@@ -7,26 +7,18 @@ imports
 rules // Translate to pages and stuff
 
   Desugar :
-    def|[ procedure x_id (x_o : srt) { procelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
+    def|[ procedure x_id (x_o : srt) { procelem* } ]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsProcedure> x_id
         ; stat* := <filter(procedure-get-action-statements);concat;add-procedure-performed(|x_id, x_o, srt)> procelem*
         ; SimpleSort(s) := srt
         ; x_view := <decapitalize-string> s
         ; if <IsDoProcedure> x_id then
             stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
-            ; elem* := elem*|[
-                init {
-                  stat2*
-                }
-               ]|
+            ; elem* := elem*|[ init { stat2* } ]|
           else
             stat2* := <add-view-page-return(|x_view, Var(x_o))> stat*
             ; viewelem* := <filter(procedure-get-view-elements);concat> procelem*
-            ; actionelem* := webdsl*|[
-                             action doAction() {
-                               stat2*
-                             }
-                           ]|
+            ; actionelem* := webdsl*|[ action doAction() { stat2* } ]|
             ; elem* := [viewelem*, actionelem*]
           end
         ; e2 := <procedure-get-access-exp> procelem*
@@ -46,46 +38,6 @@ rules // Translate to pages and stuff
               x_id <> ProcedureStatus
             }
           ]|
-/*
-  Desugar :
-    def|[ workflow x_id (x_o : srt) { procelem* }]| -> def|[ define page x_id(x_o : srt) { elem* } ]|
-    where <IsWorkflow> x_id
-        // Generate newWorkflow function
-        ; x_new := <concat-strings> ["new", <capitalize-string> x_id]
-        ; x_check := <concat-strings> ["check", <capitalize-string> x_id, "Performed"]
-        ; (farg*, stat*) := <filter(workflow-get-init-fargs-statements);Hd> procelem*
-        ; qid1 := Qualified(Qualified(x_o, x_id), "performed")
-        ; qid2 := Qualified(Qualified(x_o, x_id), "date")
-        ; e := <WorkflowDone> x_id
-        ; <emit-webdsl-code> def|[
-            globals {
-              function x_new(x_o : srt, farg*) : srt {
-                stat*
-                x_o.x_id.started := true;
-                return x_o;
-              }
-
-              function x_check(x_o : srt) : Bool {
-                if(e) {
-                  qid1 := true;
-                  qid2 := now();
-                  return true;
-                } else {
-                  return false;
-                }
-              }
-            }
-          ]|
-        ; SimpleSort(s) := srt
-        ; x_ent := s
-        ; <emit-webdsl-code> def|[
-            extend entity x_ent {
-              x_id <> WorkflowStatus
-            }
-          ]|
-        ; elem* := []
-*/
-
 
   add-procedure-performed(|op, arg, srt) =
     ?stats
@@ -106,28 +58,5 @@ rules // Translate to pages and stuff
     where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
         ; e := Var(arg)
 
-  procedure-get-view-elements :
-    procelem|[ view { elem* } ]| -> elem*
 
-  procedure-get-action-statements :
-    procelem|[ do { stat* } ]| -> stat*
-
-//  workflow-get-init-fargs-statements :
-//    procelem|[ init(farg*) { stat* } ]| -> (farg*, stat*)
-
-  procedure-get-access-exp =
-    filter(procedure-who-when-exp)
-    ; foldr(!True(), exp-and)
-
-  procedure-who-exp :
-   procelem|[ who { e } ]| -> e 
-
-  procedure-when-exp :
-   procelem|[ when { e } ]| -> e 
-
-//  workflow-done-exp :
-//   procelem|[ done { e } ]| -> e 
-
-  procedure-who-when-exp =
-    procedure-who-exp <+ procedure-when-exp
 
