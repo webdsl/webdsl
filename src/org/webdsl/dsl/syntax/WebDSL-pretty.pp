@@ -83,6 +83,7 @@
    InitAction                         -- V[ H[KW["init"]] _1],
    Function                           -- V[ H[KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3] _4 ],
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
+   ExtendFunction                     -- KW["extend"] _1,
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
    Block.1:iter-star                  -- _1,
    Assign                             -- H hs=0[H[_1] KW[";"]],

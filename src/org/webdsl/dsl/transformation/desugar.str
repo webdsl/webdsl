@@ -14,12 +14,17 @@ imports
 imports
   libwebdsl-front
 
+signature
+  constructors
+    RemoveMe : Annotation
+
 strategies
 
   desugar =
     desugar-any
     ; merge-webdsl-declarations // after desugaring, merge back in the new defintions
     ; attach-extend-entities
+    ; attach-extend-functions
     ; declare-definitions // and declare new definitions
 
 
@@ -51,6 +56,27 @@ rules
     try(sometd(create-extend-entity-dynamic-rules))
     ; try(sometd(attach-properties-to-entity))
     ; cleanup-extend-entity-section-defs
+
+  attach-extend-functions =
+    try(sometd(create-extend-function-dynamic-rules))
+    ; try(sometd(combine-functions))
+    ; cleanup-extend-function-defs
+
+  create-extend-function-dynamic-rules :
+    ExtendFunction(Function(fun, farg*, _, Block(stats))) -> RemoveMe()
+    where rules ( ExtendFunctionDef :+ (fun, stats2) -> (fun, <concat> [stats, stats2] ) )
+
+  // @TODO: This doesn't rename any parameters
+  combine-functions :
+    Function(fun, farg*, srt, Block(stats)) -> Function(fun, farg*, srt, Block(stats2))
+    where (_, otherstats) := <repeat(once-ExtendFunctionDef)> (fun, [])
+        ; stats2 := <concat> [otherstats, stats]
+
+  cleanup-extend-function-defs :
+    Application(ident,sections) -> Application(ident,<alltd(cleanup-extend-function-defs)> sections)
+
+  cleanup-extend-function-defs :
+    GlobalsDefinition(defs) -> GlobalsDefinition(<filter(not(?RemoveMe()))> defs)
 
   // @todo use extended dynamic rules :+
   
@@ -164,6 +190,9 @@ rules
 
   Desugar :
     |[ x k srt := e ]| -> |[ x k srt () := e ]|
+
+  Desugar : 
+    FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
 
   Desugar :
     TemplateCallNoArgs(x) -> TemplateCall(x, [], [])
