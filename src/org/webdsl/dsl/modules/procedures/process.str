@@ -1,0 +1,163 @@
+module org/webdsl/dsl/modules/procedures/process
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+  signature
+    constructors
+      ProcGenerated : ProcedureElement * ProcedureElement -> ProcedureElement
+
+strategies
+  
+  before-first-desugar =
+    process-to-extend-procedures
+    ; fail
+    
+  process-to-extend-procedures = 
+    bottomup(try(
+      if-to-extend-procedures
+      <+ if-no-else-to-extend-procedures
+      <+ or-to-extend-procedures
+      <+ and-to-extend-procedures
+      <+ plus-to-extend-procedures
+      <+ while-to-extend-procedures
+    ))
+    ; bottomup(try(connect-sequential-procedures))
+    
+//tijdelijk
+strategies
+    if-to-extend-procedures = id
+    if-no-else-to-extend-procedures = id
+    or-to-extend-procedures = id
+    and-to-extend-procedures = id
+    plus-to-extend-procedures = id
+    while-to-extend-procedures = id
+      
+/*  
+// transforming to connected sequential parts   
+rules
+
+  if-to-extend-procedures :
+    ProcIf(exp, ifBranch, elseBranch) -> ProcGenerated(ifSplit, ifJoin)
+    where
+      x_name := <newname> "generatedProc"
+      ; x_o := 
+      ; firstIf := <fetch-left-most-td(is-process-element)> ifBranch
+      ; firstElse := <fetch-left-most-td(is-process-element)> elseBranch
+      ; ifSplit := def|[
+          procedure x_name(x_o : srt) {
+            enabled {
+              if (exp) {
+                ifBranch.enable();
+              } else {
+                elseBranch.enable();
+              }
+            }
+          }
+        ]|
+      ; ifJoin := <generate-empty-procedure>
+      ; <connect-to(|ifJoin)> ifBranch2
+      ; <connect-to(|ifJoin)> elseBranch2
+      
+  if-no-else-to-extend-procedures :
+    ProcIfNoElse(exp, ifBranch) -> ProcGenerated(ifSplit, ifJoin)
+    where
+      generatedName := <newname> "generatedProc"
+      ; ifSplit := def|[
+          procedure generatedName {
+            enabled {
+              if (exp) {
+                ifBranch.enable();
+              } 
+            }
+          }
+        ]|
+      ; ifJoin := <generate-empty-procedure>
+      ; <connect-to(|ifJoin)> ifBranch2
+  
+  or-to-extend-procedures :
+    ProcOR(process1, process2) -> ProcGenerated(orSplit, orJoin)
+    where
+      generatedName := <newname> "generatedProc"
+      ; orSplit := def|[
+          procedure generatedName {
+            enabled {
+              process1.enable();
+              process2.enable();
+            }
+          }
+        ]|
+      ; orJoin := <generate-empty-procedure>
+      ; <connect-to(|orJoin)> process1
+      ; <connect-to(|orJoin)> process2
+
+  and-to-extend-procedures = 
+    id
+
+  plus-to-extend-procedures = 
+    id
+
+  while-to-extend-procedures = 
+    id
+    
+strategies
+
+  generate-empty-procedure =
+    generatedName := <newname> "generatedProc"
+    ; <emit-webdsl-code> def|[
+        procedure generatedName { }
+      ]|
+*/
+// connecting procedures
+rules
+
+  connect-sequential-procedures :
+    ProcSeq(leftProc, rightProc) ->
+      ProcSeq(leftProc, rightProc)
+    where 
+      debug
+      ; <connect-to(|rightProc)> leftProc
+
+  connect-to(|rightProc) = 
+    ?leftProc
+    ; element := <fetch-right-most-td(is-process-element)> leftProc
+    ; !element
+    ; info(|"left element fetched")
+    ; <debug> element
+    ; ?ProcCall(x_id, _)
+    ; x_o := <ProcedureArg> x_id
+    ; srt := <ProcedureArgSort> x_id
+    ; successor := <fetch-left-most-td(is-process-element)> rightProc
+    ; !successor
+    ; info(|"right element fetched")
+    ; ?Procedure(x_enable, _, _)
+    ; <emit-webdsl-code> def|[
+        extend procedure x_id(x_o : srt) {
+          processed {
+            x_enable.enable();
+          }
+        }
+      ]|
+    ; !leftProc  
+    ; info(|"connect-to done")
+  
+// util - fetching left-most and right-most elements
+strategies
+  
+  is-process-element = 
+    ?ProcCall(_, _)
+    <+ ?ProcSeq(_, _)
+    <+ ?ProcWhile(_, _)
+    <+ ?ProcIf(_, _, _)
+    <+ ?ProcIfNoElse(_, _)
+    <+ ?ProcOR(_, _)
+    <+ ?ProcAND(_, _)
+    <+ ?ProcPLUS(_, _)
+    <+ ?ProcGenerated(_, _)
+  
+  fetch-left-most-td(s) = oncetd(s; ?x); !x
+
+  find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))
+  
+  fetch-right-most-td(s) = find-right-most-td(s; ?x); !x
