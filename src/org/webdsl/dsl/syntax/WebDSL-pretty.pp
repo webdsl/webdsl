@@ -253,6 +253,7 @@
    ProcedureDone                                -- KW["done"] _1,
    ProcedureProcessed                           -- KW["processed"] _1,
    ProcedureEnabled                             -- KW["enabled"] _1,
+   ProcedureDisabled                            -- KW["disabled"] _1,
    ProcedureView                                -- V  [V is=2 [H [KW["view"] KW["{"]] _1] KW["}"]],
    ProcedureDone                                -- V  [V is=2 [H [KW["done"] KW["{"]] _1] KW["}"]],
    StatusEntity                                 -- V[V is=2[H[KW["status"] _1 KW["{"]] _2 _3] KW["}"]],
