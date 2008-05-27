@@ -6,7 +6,7 @@ imports
 
   signature
     constructors
-      ProcGenerated : ProcedureElement * ProcedureElement -> ProcedureElement
+      ProcProcessed : ProcedureElement * ProcedureElement -> ProcedureElement
 
 strategies
   
@@ -22,33 +22,37 @@ strategies
       <+ and-to-extend-procedures
       <+ plus-to-extend-procedures
       <+ while-to-extend-procedures
+      <+ sequential-to-extend-procedures
     ))
-    ; info(|"Deze boom proberen te sequential connecten:")
-    ; debug
-    ; bottomup(try(connect-sequential-procedures))
-    
+      
 //tijdelijk
 strategies
-    if-to-extend-procedures = id
-    if-no-else-to-extend-procedures = id
-    or-to-extend-procedures = id
-    and-to-extend-procedures = id
-    plus-to-extend-procedures = id
-    while-to-extend-procedures = id
+
+    if-to-extend-procedures = fail
+    if-no-else-to-extend-procedures = fail
+    or-to-extend-procedures = fail
+    and-to-extend-procedures = fail
+    plus-to-extend-procedures = fail
+    while-to-extend-procedures = fail
       
-/*  
+
 // transforming to connected sequential parts   
 rules
-
+/*
   if-to-extend-procedures :
-    ProcIf(exp, ifBranch, elseBranch) -> ProcGenerated(ifSplit, ifJoin)
+    ProcIf(exp, ifBranch, elseBranch) -> ProcProcessed(ifSplit, ifJoin)
     where
-      x_name := <newname> "generatedProc"
-      ; x_o := 
-      ; firstIf := <fetch-left-most-td(is-process-element)> ifBranch
-      ; firstElse := <fetch-left-most-td(is-process-element)> elseBranch
+        firstIf := <fetch-left-most-td(is-process-call)> ifBranch
+      ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
+      ; firstElse := <fetch-left-most-td(is-process-call)> elseBranch
+      ; lastElse := <fetch-right-most-td(is-process-call)> elseBranch
+      ; x_id := <get-process-id> <fetch-left-most-td(is-process-call)> ifBranch
+      ; x_o := <ProcedureArg> x_id
+      ; srt := <ProcedureArgSort> x_id
+      ; x_split := <newname> "ifSplit"
+      ; x_join := <newname> "ifJoin"
       ; ifSplit := def|[
-          procedure x_name(x_o : srt) {
+          procedure x_split(x_o : srt) {
             enabled {
               if (exp) {
                 ifBranch.enable();
@@ -58,25 +62,42 @@ rules
             }
           }
         ]|
-      ; ifJoin := <generate-empty-procedure>
-      ; <connect-to(|ifJoin)> ifBranch2
-      ; <connect-to(|ifJoin)> elseBranch2
-      
+      ; <emit-webdsl-code> ifSplit
+      ; ifJoin := def|[
+          procedure x_join(x_o : srt) {  }
+        ]|
+      ; <emit-webdsl-code> ifJoin
+      ; <connect-to(|ifJoin)> lastIf
+      ; <connect-to(|ifJoin)> lastElse
+ 
   if-no-else-to-extend-procedures :
-    ProcIfNoElse(exp, ifBranch) -> ProcGenerated(ifSplit, ifJoin)
+    ProcIfNoElse(exp, ifBranch) -> ProcProcessed(ifSplit, ifJoin)
     where
-      generatedName := <newname> "generatedProc"
+        firstIf := <fetch-left-most-td(is-process-call)> ifBranch
+      ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
+      ; x_id := <get-process-id> <fetch-left-most-td(is-process-call)> ifBranch
+      ; x_o := <ProcedureArg> x_id
+      ; srt := <ProcedureArgSort> x_id
+      ; x_split := <newname> "ifSplit"
+      ; x_join := <newname> "ifJoin"
       ; ifSplit := def|[
-          procedure generatedName {
+          procedure x_split(x_o : srt) {
             enabled {
               if (exp) {
                 ifBranch.enable();
-              } 
+              }
             }
           }
         ]|
-      ; ifJoin := <generate-empty-procedure>
-      ; <connect-to(|ifJoin)> ifBranch2
+      ; <emit-webdsl-code> ifSplit
+      ; ifJoin := def|[
+          procedure x_join(x_o : srt) {  }
+        ]|
+      ; <emit-webdsl-code> ifJoin
+      ; <connect-to(|ifJoin)> lastIf
+      */
+      
+/*
   
   or-to-extend-procedures :
     ProcOR(process1, process2) -> ProcGenerated(orSplit, orJoin)
@@ -111,34 +132,25 @@ strategies
         procedure generatedName { }
       ]|
 */
+
 // connecting procedures
 rules
 
-  connect-sequential-procedures :
+  sequential-to-extend-procedures :
     ProcSeq(leftProc, rightProc) ->
       ProcSeq(leftProc, rightProc)
     where 
-      debug
+      info(|"Connecting sequential procedures: ")
+      ; debug
       ; <connect-to(|rightProc)> leftProc
-
-  connect-to(|rightProc) = 
+      ; info(|"Connecting finished")
+      
+  connect-to(|rightProc) =  
     ?leftProc
- /*   ; element := <fetch-right-most-td(is-process-element)> leftProc
-     ; !element
-     ; info(|"left element fetched")
-     ; <debug> element
-     ; ?ProcCall(x_id, _)
- */
-    ; x_id := <get-process-id> <fetch-right-most-td(is-proccall)> leftProc
+    ; x_id := <get-process-id> <fetch-right-most-td(is-process-call)> leftProc
     ; x_o := <ProcedureArg> x_id
     ; srt := <ProcedureArgSort> x_id
-/*    ; successor := <fetch-left-most-td(is-process-element)> rightProc
-    ; !successor
-    ; info(|"right element fetched")
-    ; <debug> successor
-    ; ?ProcCall(x_enable, _)
-*/
-    ; x_enable := <get-process-id> <fetch-left-most-td(is-process-element)> rightProc
+    ; x_enable := <get-process-id> <fetch-left-most-td(is-process-call)> rightProc
     ; <emit-webdsl-code> def|[
         extend procedure x_id(x_o : srt) {
           enabled {
@@ -146,26 +158,42 @@ rules
           }
         }
       ]|
+    ; !leftProc
+
+/*
+  connect-to(|rightProc) = 
+    ?leftProc
+    ; x_id := <get-process-id> <fetch-right-most-td(is-proccall)> leftProc
+    ; x_o := <ProcedureArg> x_id
+    ; srt := <ProcedureArgSort> x_id
+    ; x_enable := <get-process-id> <fetch-left-most-td(is-process-element)> rightProc
+    ; <emit-webdsl-code> def|[
+        extend procedure x_id(x_o : srt) {
+          processed {
+            x_o.x_enable.enable();
+          }
+        }
+      ]|
     ; !leftProc  
     ; info(|"connect-to done")
-  
+*/
 // util - fetching left-most and right-most elements
 strategies
 
   get-process-id = 
     get-ProcCall-id
-    <+ get-ProcSeq-id
+/*    <+ get-ProcSeq-id
     <+ get-ProcWhile-id
     <+ get-ProcIf-id
     <+ get-ProcIfNoElse-id
     <+ get-ProcOR-id
     <+ get-ProcAND-id
     <+ get-ProcPLUS-id
-    <+ get-ProcGenerated-id
+    <+ get-ProcGenerated-id*/
   
   get-ProcCall-id :
     ProcCall(x_id, _) -> x_id
-    
+/*    
   get-ProcSeq-id :
     ProcSeq(x_id, _) -> x_id
 
@@ -185,15 +213,12 @@ strategies
     ProcAND(x_id, _) -> x_id
   
   get-ProcPLUS-id :
-    ProcPLUS(x_id, _) -> x_id
-    
-  get-ProcGenerated-id :
-    ProcGenerated(x_id, _) -> x_id
+    ProcPLUS(x_id, _) -> x_id*/
   
-  is-proccall =
+  is-process-call =
     ?ProcCall(_, _)
   
-  is-process-element = 
+/*  is-process-element = 
     ?ProcCall(_, _)
     <+ ?ProcSeq(_, _)
     <+ ?ProcWhile(_, _)
@@ -203,7 +228,7 @@ strategies
     <+ ?ProcAND(_, _)
     <+ ?ProcPLUS(_, _)
     <+ ?ProcGenerated(_, _)
-  
+*/  
   fetch-left-most-td(s) = oncetd(s; ?x); !x
 
   find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))

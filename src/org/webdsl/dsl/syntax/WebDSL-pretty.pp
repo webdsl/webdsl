@@ -263,8 +263,19 @@
    Derive                                       -- KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"],
    Derive.3:iter-star-sep                       -- _1 KW[","],
    Derive                                       -- KW["derive"] _1 KW["for"] _2,
+   DeriveDefault                                -- _1,
+   DeriveMode                                   -- _1 KW["("] _2 KW[")"],
    EditPage                                     -- KW["editPage"],
    EditRows                                     -- KW["editRows"],
    ViewPage                                     -- KW["viewPage"],
-   ViewRows                                     -- KW["viewRows"]
+   ViewRows                                     -- KW["viewRows"],
+   ProcedureProcess                             -- KW["process"] KW["{"] _1 KW["}"],
+   ProcCall                                     -- _1 KW["("] _2 KW[")"],
+   ProcSeq                                      -- _1 KW[";"] _2,
+   ProcWhile                                    -- KW["while"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
+   ProcIfNoElse                                 -- KW["if"] KW["("] _1 KW[")"] _2,
+   ProcIf                                       -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
+   ProcOR                                       -- _1 KW["|OR|"] _2,
+   ProcAND                                      -- _1 KW["|AND|"] _2,
+   ProcPLUS                                     -- _1 KW["+"] _2
 ]
