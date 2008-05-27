@@ -83,6 +83,8 @@
    InitAction                         -- V[ H[KW["init"]] _1],
    Function                           -- V[ H[KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3] _4 ],
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
+   FunctionNoReturn                   -- V[ H[KW["function"] _1 KW["("] _2 KW[")"]] _3 ],
+   FunctionNoReturn.2:iter-star-sep   -- H hs=0[_1 KW[","]],
    ExtendFunction                     -- KW["extend"] _1,
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
    Block.1:iter-star                  -- _1,
@@ -277,5 +279,6 @@
    ProcIf                                       -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
    ProcOR                                       -- _1 KW["|OR|"] _2,
    ProcAND                                      -- _1 KW["|AND|"] _2,
-   ProcPLUS                                     -- _1 KW["+"] _2
+   ProcPLUS                                     -- _1 KW["+"] _2,
+   RemoveMe                                     -- KW["RemoveMe"]
 ]
