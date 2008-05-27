@@ -21,13 +21,12 @@ signature
 strategies
 
   desugar =
-     desugar-any
-     ; repeat(
-         merge-webdsl-declarations // after desugaring, merge back in the new definitions
-         ; attach-extend-entities
-         ; attach-extend-functions
-       )
-     ; declare-definitions // and declare new definitions
+    desugar-any
+    ; repeat(
+        merge-webdsl-declarations // after desugaring, merge back in the new defintions
+        ; (attach-extend-entities
+          <+ attach-extend-functions))
+    ; declare-definitions // and declare new definitions
 
   merge-webdsl-declarations =
     ?Application(qid, sections)
@@ -54,25 +53,48 @@ strategies
 rules
 
   attach-extend-entities =
-    try(sometd(create-extend-entity-dynamic-rules))
+    sometd(create-extend-entity-dynamic-rules)
     ; try(sometd(attach-properties-to-entity))
     ; cleanup-extend-entity-section-defs
     
   attach-extend-functions =
-     {| ExtendFunctionDef
-      : sometd(create-extend-function-dynamic-rules)
-      ; sometd(combine-functions)
-      ; cleanup-extend-function-defs
-      |}
-    
+    {| ExtendFunctionDef
+     : sometd(create-extend-function-dynamic-rules)
+     ; try(sometd(combine-functions))
+     ; cleanup-extend-function-defs
+     |}
+
   create-extend-function-dynamic-rules :
-    ExtendFunction(Function(fun, farg*, _, Block(stats))) -> RemoveMe()
-    where rules ( ExtendFunctionDef :+ (fun, stats2) -> (fun, <concat> [stats, stats2] ) )
+    ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
+    where fsig := <map(\ Arg(_, srt) -> srt \)> fargs
+        ; rules (
+            ExtendFunctionDef :+
+              (fun, fargs2, stats2) -> (fun, fargs2, newstats ) 
+              where sig := <map(\ Arg(_, srt) -> srt \)> fargs
+                  ; info(|["Signature 1: ", sig, " 2: ", fsig])
+                  ; if sig := fsig then 
+                      renamepairs := <zip> (<map(\ Arg(x, _) -> x\)> fargs, <map(\ Arg(x, _) -> x\)> fargs2)
+                      ; info(|["Going to rename: ", renamepairs, " in ", stats])
+                      ; (stats3, []) := <rename-all-vars> (stats, renamepairs)
+                      ; info(|["Yes!"])
+                      ; newstats := <concat> [stats2, stats3]
+                    else
+                      newstats := stats2
+                    end
+          )
+
+  rename-all-vars :
+    (t, []) -> (t, [])
+
+  rename-all-vars :
+    (t, [(from, to)|rst]) -> <rename-all-vars> (t2, rst)
+    where t2 := <procedure-rename-var(|from, to)> t
+        ; info(|["Renamed ", from, " to ", to, ": ", <pp-webdsl-to-string> t2])
 
   // @TODO: This doesn't rename any parameters
   combine-functions :
-    Function(fun, farg*, srt, Block(stats)) -> Function(fun, farg*, srt, Block(stats2))
-    where (_, otherstats) := <repeat(once-ExtendFunctionDef)> (fun, [])
+    Function(fun, fargs, srt, Block(stats)) -> Function(fun, fargs, srt, Block(stats2))
+    where (_, fargs, otherstats) := <repeat(once-ExtendFunctionDef)> (fun, fargs, [])
         ; stats2 := <concat> [otherstats, stats]
 
   cleanup-extend-function-defs :
