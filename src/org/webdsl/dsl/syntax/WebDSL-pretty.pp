@@ -223,6 +223,13 @@
    Name                                         -- _1,
    And                                          -- _1 KW["AND"] _2,
    Or                                           -- _1 KW["OR"] _2,
+   
+   %%input validation
+   Validator                                    -- KW["validator"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"] KW[":"] _4,
+   Validator.2:iter-star-sep                    -- _1 KW[","],
+   Validator.3:iter-star                        -- _1,
+   ValidateCall                                 -- KW["validate"] _1 KW["("] _2 KW[")"],
+   
 
    %%styling
       ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] KW[")"] KW["{"] _3 KW["}"],
