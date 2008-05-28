@@ -12,6 +12,7 @@ strategies
   
   before-template-expansion = 
     process-to-extend-procedures
+    ; add-processed-calls
     ; fail
     
   process-to-extend-procedures = 
@@ -24,11 +25,48 @@ strategies
       <+ while-to-extend-procedures
       <+ sequential-to-extend-procedures
     ))
+  
+  add-processed-calls =
+    bottomup(try(add-processed-call))
+    
+  add-processed-call =
+    ?proc@Procedure(x_current, _, procedureElem*)
+    ; x_processed := <concat-strings> [x_current, "Processed"]
+    ; x_currento := <ProcedureArg> x_current
+    ; srt2 := <ProcedureArgSort> x_current
+    ; if <contains-process> procedureElem* then 
+          x_id := <get-process-id> <fetch-right-most-td(is-process-call)> proc
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; <emit-webdsl-code> def|[
+            extend procedure x_id(x_o : srt) {
+              processed {
+                x_processed(x_currento);
+              }
+            }
+          ]|
+        ; info(|["Met process: ", x_current])
+      else
+          <emit-webdsl-code> def|[
+            extend procedure x_current(x_currento : srt2) {
+              done {
+                x_processed(x_currento);
+              }
+            }
+          ]|
+        ; info(|["Zonder process: ", x_current])
+      end
+    
+  add-processed-call =
+    ?AutoProcedure(x_current, arg, procedureElem*)
+    ; <add-processed-call> Procedure(x_current, arg, procedureElem*)
+    
+  contains-process = 
+    oncetd(is-process-call)
       
 //tijdelijk
 strategies
 
-    if-to-extend-procedures = fail
     if-no-else-to-extend-procedures = fail
     or-to-extend-procedures = fail
     and-to-extend-procedures = fail
@@ -38,22 +76,27 @@ strategies
 
 // transforming to connected sequential parts   
 rules
-/*
+
   if-to-extend-procedures :
     ProcIf(exp, ifBranch, elseBranch) -> ProcProcessed(ifSplit, ifJoin)
     where
-        firstIf := <fetch-left-most-td(is-process-call)> ifBranch
-      ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
+      info(|"if STAGE 1")
+      ; firstIf := <fetch-left-most-td(is-process-call)> ifBranch
+      ; x_id1 := <get-process-id> firstIf
+      ; x_o1 := <ProcedureArg> x_id1
+      ; srt1 := <ProcedureArgSort> x_id1
+
+      ; info(|"if STAGE 2")
       ; firstElse := <fetch-left-most-td(is-process-call)> elseBranch
-      ; lastElse := <fetch-right-most-td(is-process-call)> elseBranch
-      ; x_id := <get-process-id> <fetch-left-most-td(is-process-call)> ifBranch
-      ; x_o := <ProcedureArg> x_id
-      ; srt := <ProcedureArgSort> x_id
+      ; x_id2 := <get-process-id> firstElse
+      ; x_o2 := <ProcedureArg> x_id2
+      ; srt2 := <ProcedureArgSort> x_id2
+
+      ; info(|"if STAGE 3")
       ; x_split := <newname> "ifSplit"
-      ; x_join := <newname> "ifJoin"
       ; ifSplit := def|[
-          procedure x_split(x_o : srt) {
-            enabled {
+          procedure x_split(x_o1 : srt1) {
+            processed {
               if (exp) {
                 ifBranch.enable();
               } else {
@@ -63,13 +106,21 @@ rules
           }
         ]|
       ; <emit-webdsl-code> ifSplit
+
+      ; info(|"if STAGE 4")
+      ; x_join := <newname> "ifJoin"
       ; ifJoin := def|[
-          procedure x_join(x_o : srt) {  }
+          procedure x_join(x_o2 : srt2) {  }
         ]|
       ; <emit-webdsl-code> ifJoin
+
+      ; info(|"if STAGE 5")
+      ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
+      ; lastElse := <fetch-right-most-td(is-process-call)> elseBranch
       ; <connect-to(|ifJoin)> lastIf
       ; <connect-to(|ifJoin)> lastElse
- 
+      ; info(|"if STAGE 6")
+/* 
   if-no-else-to-extend-procedures :
     ProcIfNoElse(exp, ifBranch) -> ProcProcessed(ifSplit, ifJoin)
     where
@@ -82,7 +133,7 @@ rules
       ; x_join := <newname> "ifJoin"
       ; ifSplit := def|[
           procedure x_split(x_o : srt) {
-            enabled {
+            processed {
               if (exp) {
                 ifBranch.enable();
               }
@@ -95,10 +146,10 @@ rules
         ]|
       ; <emit-webdsl-code> ifJoin
       ; <connect-to(|ifJoin)> lastIf
-      */
+   */   
       
-/*
-  
+
+/*  
   or-to-extend-procedures :
     ProcOR(process1, process2) -> ProcGenerated(orSplit, orJoin)
     where
@@ -114,7 +165,8 @@ rules
       ; orJoin := <generate-empty-procedure>
       ; <connect-to(|orJoin)> process1
       ; <connect-to(|orJoin)> process2
-
+*/
+/*
   and-to-extend-procedures = 
     id
 
@@ -123,15 +175,8 @@ rules
 
   while-to-extend-procedures = 
     id
-    
-strategies
+    */
 
-  generate-empty-procedure =
-    generatedName := <newname> "generatedProc"
-    ; <emit-webdsl-code> def|[
-        procedure generatedName { }
-      ]|
-*/
 
 // connecting procedures
 rules
@@ -147,13 +192,15 @@ rules
       
   connect-to(|rightProc) =  
     ?leftProc
+    ; info(|"Starting to connect ...")
     ; x_id := <get-process-id> <fetch-right-most-td(is-process-call)> leftProc
     ; x_o := <ProcedureArg> x_id
     ; srt := <ProcedureArgSort> x_id
     ; x_enable := <get-process-id> <fetch-left-most-td(is-process-call)> rightProc
+    ; info(|[x_id, " with ", x_enable])
     ; <emit-webdsl-code> def|[
         extend procedure x_id(x_o : srt) {
-          enabled {
+          processed {
             x_o.x_enable.enable();
           }
         }
