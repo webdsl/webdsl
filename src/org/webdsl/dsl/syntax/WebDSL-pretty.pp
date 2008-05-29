@@ -283,7 +283,7 @@
    ProcSeq                                      -- _1 KW[";"] _2,
    ProcWhile                                    -- KW["while"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    ProcIfNoElse                                 -- KW["if"] KW["("] _1 KW[")"] _2,
-   ProcIf                                       -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
+   ProcIf                                       -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
    ProcOR                                       -- _1 KW["|OR|"] _2,
    ProcAND                                      -- _1 KW["|AND|"] _2,
    ProcPLUS                                     -- _1 KW["+"] _2,

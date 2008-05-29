@@ -10,8 +10,10 @@ imports
 
 strategies
   
-  before-template-expansion = 
-    process-to-extend-procedures
+  transform-process-descriptions = 
+    info(|"STAGE PROCESS TO EXTEND PROCEDURES")
+    ; process-to-extend-procedures
+    ; info(|"STAGE ADD PROCESSED CALLS")
     ; add-processed-calls
     ; fail
     
@@ -78,48 +80,70 @@ strategies
 rules
 
   if-to-extend-procedures :
-    ProcIf(exp, ifBranch, elseBranch) -> ProcProcessed(ifSplit, ifJoin)
+    ProcIf(e1, ifBranch, elseBranch) -> ProcProcessed(ifSplit, ifJoin)
     where
-      info(|"if STAGE 1")
-      ; firstIf := <fetch-left-most-td(is-process-call)> ifBranch
+      // retrieve necessary info for if branch
+      firstIf := <fetch-left-most-td(is-process-call)> ifBranch
       ; x_id1 := <get-process-id> firstIf
       ; x_o1 := <ProcedureArg> x_id1
       ; srt1 := <ProcedureArgSort> x_id1
-
-      ; info(|"if STAGE 2")
+      
+      // retrieve necessary info for else branch
       ; firstElse := <fetch-left-most-td(is-process-call)> elseBranch
       ; x_id2 := <get-process-id> firstElse
       ; x_o2 := <ProcedureArg> x_id2
       ; srt2 := <ProcedureArgSort> x_id2
+      ; SimpleSort(s2) := srt2
 
-      ; info(|"if STAGE 3")
+      // generate ifSplit
       ; x_split := <newname> "ifSplit"
-      ; ifSplit := def|[
-          procedure x_split(x_o1 : srt1) {
+      ; <emit-webdsl-code> def|[
+          auto procedure x_split(x_o1 : srt1) {
             processed {
-              if (exp) {
-                ifBranch.enable();
+              if (e1) {
+                x_o1.x_id1.enable();
               } else {
-                elseBranch.enable();
+                x_o1.x_id2.enable();
               }
             }
           }
         ]|
-      ; <emit-webdsl-code> ifSplit
+      ; ifSplit := ProcCall(x_split, x_o1)
+      ; info(|["Emitted auto procedure ", x_split])
 
-      ; info(|"if STAGE 4")
+      // generate ifJoin
       ; x_join := <newname> "ifJoin"
-      ; ifJoin := def|[
-          procedure x_join(x_o2 : srt2) {  }
+      ; <emit-webdsl-code> def|[
+          auto procedure x_join(x_o2 : srt2) {  }
         ]|
-      ; <emit-webdsl-code> ifJoin
+      ;  ifJoin := ProcCall(x_join, x_o2)
 
-      ; info(|"if STAGE 5")
+/*      // output entity extensions for status
+      ; SimpleSort(x_ent1) := srt1
+      ; extendSplit := def|[
+          extend entity x_ent1 {
+            x_split <> ProcedureStatus ()
+          }
+        ]|
+      ; info(|"Extend Entity Split: ")
+      ; <debug> extendSplit
+      ; <emit-webdsl-code> extendSplit
+
+      ; extendJoin := def|[
+          extend entity x_ent1 {
+            x_join <> ProcedureStatus ()
+          }
+        ]|
+      ; info(|"Extend Entity Join: ")
+      ; <debug> extendJoin
+      ; <emit-webdsl-code> extendJoin*/
+        
+      // connect both branches to the join
       ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
       ; lastElse := <fetch-right-most-td(is-process-call)> elseBranch
       ; <connect-to(|ifJoin)> lastIf
       ; <connect-to(|ifJoin)> lastElse
-      ; info(|"if STAGE 6")
+      
 /* 
   if-no-else-to-extend-procedures :
     ProcIfNoElse(exp, ifBranch) -> ProcProcessed(ifSplit, ifJoin)
@@ -185,98 +209,38 @@ rules
     ProcSeq(leftProc, rightProc) ->
       ProcSeq(leftProc, rightProc)
     where 
-      info(|"Connecting sequential procedures: ")
-      ; debug
-      ; <connect-to(|rightProc)> leftProc
-      ; info(|"Connecting finished")
+      <connect-to(|rightProc)> leftProc
       
   connect-to(|rightProc) =  
     ?leftProc
-    ; info(|"Starting to connect ...")
-    ; x_id := <get-process-id> <fetch-right-most-td(is-process-call)> leftProc
+    ; leftProcCall := <fetch-right-most-td(is-process-call)> leftProc
+    ; x_id := <get-process-id> leftProcCall
     ; x_o := <ProcedureArg> x_id
     ; srt := <ProcedureArgSort> x_id
     ; x_enable := <get-process-id> <fetch-left-most-td(is-process-call)> rightProc
-    ; info(|[x_id, " with ", x_enable])
-    ; <emit-webdsl-code> def|[
+    ; code := def|[
         extend procedure x_id(x_o : srt) {
           processed {
             x_o.x_enable.enable();
           }
         }
       ]|
+    ; <emit-webdsl-code> code
     ; info(|["Connected ", x_id, " with ", x_enable])
     ; !leftProc
 
-/*
-  connect-to(|rightProc) = 
-    ?leftProc
-    ; x_id := <get-process-id> <fetch-right-most-td(is-proccall)> leftProc
-    ; x_o := <ProcedureArg> x_id
-    ; srt := <ProcedureArgSort> x_id
-    ; x_enable := <get-process-id> <fetch-left-most-td(is-process-element)> rightProc
-    ; <emit-webdsl-code> def|[
-        extend procedure x_id(x_o : srt) {
-          processed {
-            x_o.x_enable.enable();
-          }
-        }
-      ]|
-    ; !leftProc  
-    ; info(|"connect-to done")
-*/
 // util - fetching left-most and right-most elements
 strategies
 
   get-process-id = 
     get-ProcCall-id
-/*    <+ get-ProcSeq-id
-    <+ get-ProcWhile-id
-    <+ get-ProcIf-id
-    <+ get-ProcIfNoElse-id
-    <+ get-ProcOR-id
-    <+ get-ProcAND-id
-    <+ get-ProcPLUS-id
-    <+ get-ProcGenerated-id*/
   
   get-ProcCall-id :
     ProcCall(x_id, _) -> x_id
-/*    
-  get-ProcSeq-id :
-    ProcSeq(x_id, _) -> x_id
-
-  get-ProcWhile-id :
-    ProcWhile(x_id, _) -> x_id
-    
-  get-ProcIf-id :
-    ProcIf(x_id, _, _) -> x_id
-    
-  get-ProcIfNoElse-id :
-    ProcIfNoElse(x_id, _) -> x_id
-    
-  get-ProcOR-id :
-    ProcOR(x_id, _) -> x_id
-    
-  get-ProcAND-id :
-    ProcAND(x_id, _) -> x_id
-  
-  get-ProcPLUS-id :
-    ProcPLUS(x_id, _) -> x_id*/
   
   is-process-call =
     ?ProcCall(_, _)
   
-/*  is-process-element = 
-    ?ProcCall(_, _)
-    <+ ?ProcSeq(_, _)
-    <+ ?ProcWhile(_, _)
-    <+ ?ProcIf(_, _, _)
-    <+ ?ProcIfNoElse(_, _)
-    <+ ?ProcOR(_, _)
-    <+ ?ProcAND(_, _)
-    <+ ?ProcPLUS(_, _)
-    <+ ?ProcGenerated(_, _)
-*/  
   fetch-left-most-td(s) = oncetd(s; ?x); !x
 
   find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))
