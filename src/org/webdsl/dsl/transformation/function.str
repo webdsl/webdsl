@@ -1,0 +1,53 @@
+module org/webdsl/dsl/transformation/function
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+
+  aggregate-and-combine-functions =
+    ?app@Application(qid, sections)
+    ; globalfuncs := <collect(find-global-functions); concat> app
+    ; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
+    ; sections2 := <topdown(try(remove-global-functions))> sections
+    ; sections3 := [Section("All global functions", [GlobalsDefinition(newglobalfuncs)])|sections2]
+    ; rules ( AllGlobalFunctions := newglobalfuncs )
+    ; !Application(qid, sections3)
+
+  merge-functions :
+    ([], lst) -> ([], lst)
+
+  merge-functions :
+    ([f@Function(fun, args, rt, Block(stms))|rest], lst) -> <merge-functions> (rest, lst2)
+    where argtypes := <map(\ Arg(_, srt) -> srt \)> args
+        ; others := <filter(overloaded-function(|fun, argtypes); not(?f))> lst
+        ; rest2 := <filter(not(overloaded-function(|fun, argtypes); not(?f)))> lst
+        ; if not([] := others) then // Has more definitions
+            // @TODO what about Void functions, there should be no return then
+            newproc := <typecheck-function> Function(fun, args, rt, Block(<concat> [<map(fun-to-overload-stm)> <concat> [others, [f]], [Return(<type-default-value> rt)]]))
+            ; lst3 := <diff> (lst, others)
+            ; lst2 := <map(try(\ f -> newproc \))> lst3
+          else
+            lst2 := lst
+          end
+  fun-to-overload-stm :
+    Function(_,args,_,Block(stat*)) -> stm
+    where e := <map(\ Arg(x, srt) -> exp|[ x is a srt ]| \); foldr(!exp|[ true ]|, exp-and)> args
+        ; stm := webdsl|[ if(e) { stat* } else {} ]|
+
+  overloaded-function(|fun, argtypes) :
+    Function(fun2, args2, rt2, body) -> Function(fun2, args2, rt2, body)
+    where argtypes2 := <map(\ Arg(_, srt) -> srt \)> args2
+        ; fun := fun2
+        ; <zip(type-compatible)> (argtypes, argtypes2)
+    
+  find-global-functions :
+    GlobalsDefinition(defs) -> <filter(?Function(_, _, _, _))> defs
+
+  remove-global-functions :
+    GlobalsDefinition(defs) -> GlobalsDefinition(<remove-all(?Function(_, _, _, _))> defs)
