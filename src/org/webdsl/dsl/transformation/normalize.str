@@ -1,0 +1,157 @@
+/**
+
+ Syntactic normalization rules for WebDSL
+
+*/
+
+// @todo : transform all rules to use concrete syntax
+
+module org/webdsl/dsl/transformation/normalize
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+    
+  /**
+   * syntactically normalize WebDSL constructs
+   */
+  
+  normalize-any = 
+    topdown-l(repeat(normalize))
+
+rules 
+
+  normalize :
+    [VarDeclInit(x, s, e) | stm*] -> [VarDecl(x, s), Assign(Assignment(x, e)) | stm*]
+
+rules // entity declarations
+
+  normalize :
+    |[ x k srt ]| -> |[ x k srt () ]|
+
+  normalize :
+    |[ x k srt := e ]| -> |[ x k srt () := e ]|
+
+rules // functions
+
+  normalize : 
+    FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
+    //|[ function x(farg*) { stat* } ]| -> |[ function x(farg*) : Void { stat* } ]|
+
+  normalize :
+    IfNoElse(e, bit) -> If(e, bit, Block([]))
+    //stat|[ if(e) { stat* } ]| -> stat|[ if(e) { stat* } else { } ]|
+
+rules // literals
+
+  normalize :
+    String(x) -> String(y)
+    where y := <un-double-quote> x
+    
+rules // template elements
+
+  normalize :
+    elem|[ navigate(url(e)){} ]| -> elem|[ navigate(url(e)){url(e)} ]|
+
+  normalize :
+    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e)){url(e)} ]|
+
+  normalize :
+    elem|[ navigate(e1, e2){} ]| -> elem|[ navigate(e2){text(e1)} ]|
+
+  normalize :
+    elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
+    where str2 := <un-double-quote> str1
+
+  // section("Header") {...} => section() { header{"Header"} }
+  // Works only for strings. Making generic is difficult, because argument to a 
+  // TemplateCall are Exp* and the body of a TemplateCall is TemplateElement*
+  normalize :
+    elem|[ section(e){elem*} ]| -> elem|[ section(){ header{output(e)} elem* } ]|
+
+  normalize :
+    elem|[ x ]| -> elem|[ x(){} ]|
+
+  normalize :
+    elem|[ x(e*) ]| -> elem|[ x(e*){} ]|
+
+  normalize :
+    elem|[ x{elem*} ]| -> elem|[ x(){elem*} ]|
+    
+  normalize :
+    elem|[ text(x) ]| -> elem|[ text(y) ]| 
+    where y := <un-double-quote> x
+    
+  normalize :
+    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
+
+  normalize :
+    elem|[ menubar(){ elem* } ]| -> elem|[ menubar("horizontal"){ elem* } ]|
+
+  normalize :
+    elem|[ from(e1){} ]| -> elem|[ from(e1,e1){} ]|
+    
+
+rules // for normalization
+
+  normalize :
+    OrderNonSpecific(x) -> OrderAscending(x)
+
+  normalize :
+    ForNoFilter(x, s, e, te*) -> For(x, s, e, Filter(True(), OrderAscending(Null())), te*)
+    //elem|[ for(x : srt in e){elem*} ]| -> elem|[ for(x : srt in e order by null asc){elem*} ]|
+
+  normalize :
+    For(x, s, e, FilterNoWhere(obe), te*) -> For(x, s, e, Filter(True(), obe), te*)
+    //elem|[ for(x : srt in e1 order by e2){elem*} ]| -> elem|[ for(x : srt in e1 where true order by e2){elem*} ]|
+
+  normalize :
+    For(x, s, e, FilterNoOrderBy(we), te*) -> For(x, s, e, Filter(we, OrderAscending(Null())), te*)
+
+  normalize :
+    ForAllNoFilter(x, s, te*) -> ForAll(x, s, Filter(True(), OrderAscending(Null())), te*)
+
+  normalize :
+    ForAll(x, s, FilterNoOrderBy(we), te*) -> ForAll(x, s, Filter(we, OrderAscending(Null())), te*)
+
+  normalize :
+    ForAll(x, s, FilterNoWhere(obe), te*) -> ForAll(x, s, Filter(True(), obe), te*)
+
+  // @todo : use concrete syntax for HQL query
+  normalize :
+    fa@ForAll(x, SimpleSort(s), Filter(we, obe), te*) -> For(x, SimpleSort(s), e, Filter(we, OrderAscending(Null())), te*)
+    where selectField := <newname> "queryVar"
+        ; if <?OrderAscending(of)> obe then
+            ordering := Ascending()
+          else
+            if <?OrderDescending(of)> obe then
+              ordering := Descending()
+            end
+          end
+        ; <?FieldAccess(_, orderfield)> of
+        ; e := HqlQuery(QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Path([selectField]),None())])),FromClause([FromRangeJoin(FromClass(Path([s]),Some(AsAlias(Alias(selectField))),None()),None())])),None(),None(),Some(OrderByClause([OrderElement(Path([selectField, <concat-strings> ["_", orderfield]]),Some(ordering))]))))
+
+  normalize :
+    ForStmtNoFilter(x, s, e, block) -> ForStmt(x, s, e, Filter(True(), OrderAscending(Null())), block)
+
+  normalize :
+    ForStmt(x, s, e, FilterNoOrderBy(we), body) -> ForStmt(x, s, e, Filter(we, OrderAscending(Null())), body)
+
+  normalize :
+    ForStmt(x, s, e, FilterNoWhere(obe), body) -> ForStmt(x, s, e, Filter(True(), obe), body)
+
+  normalize :
+    ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null())))
+
+  normalize :
+    ForExp(oe, x, s, ie, FilterNoOrderBy(we)) -> ForExp(oe, x, s, ie, Filter(we, OrderAscending(Null())))
+
+  normalize :
+    ForExp(oe, x, s, ie, FilterNoWhere(obe)) -> ForExp(oe, x, s, ie, Filter(True(), obe))
+
