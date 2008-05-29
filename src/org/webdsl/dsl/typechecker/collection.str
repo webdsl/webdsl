@@ -11,6 +11,12 @@ signature
     Op : String -> Annotation
  
 rules
+
+   type-annotate :
+     SetCreation(e*) -> SetCreation(e*){Type(GenericSort("Set", [t]))}
+     where not(type-of)
+         ; t := <Hd; type-of>e*
+         
    typecheck-set-creation :
      SetCreation(e1*) -> SetCreation(e2*){Type(GenericSort("Set", [t]))}
      where dbg(|"typecheck-set-creation a: ")
@@ -23,19 +29,34 @@ rules
            end
          ; dbg(|"typecheck-set-creation d: ")
 
+   type-annotate :
+     TypedSetCreation(s, e*) -> TypedSetCreation(s, e*){Type(GenericSort("Set", [s]))}
+     where not(type-of)
+         ; <map(<type-compatible>(s, <type-of>))> e*
+ 
    typecheck-typed-set-creation :
      TypedSetCreation(s, e1*) -> TypedSetCreation(s, e2*) {Type(GenericSort("Set", [s]))}
      where e2* := <map(typecheck-expression)> e1*
          ; if not(<map(?_{Type(<id>)}; <type-compatible>(s, <id>))> e2*) then
              typecheck-error(|["arguments of set creation should have same type."])
            end
-
+           
+   type-annotate :
+     TypedListCreation(s, e*) -> TypedListCreation(s, e*){Type(GenericSort("List", [s]))}
+     where not(type-of)
+         ; <map(<type-compatible>(s, <type-of>))> e*
+         
    typecheck-typed-list-creation :
      TypedListCreation(s, e1*) -> TypedListCreation(s, e2*) {Type(GenericSort("List", [s]))}
      where e2* := <map(typecheck-expression)> e1*
          ; if not(<map(?_{Type(<id>)}; <type-compatible>(<id>, s))> e2*) then
              typecheck-error(|["arguments of list creation should have same type"])
            end
+           
+   type-annotate :
+     ListCreation(e*) -> ListCreation(e*){Type(GenericSort("List", [t]))}
+     where not(type-of)
+         ; t := <Hd; type-of>e*
 
    typecheck-list-creation :
      ListCreation(e1*) -> ListCreation(e2*){Type(GenericSort("List", [t]))}
@@ -54,7 +75,13 @@ rules // fields, operations
    typecheck-length-field :
      FieldAccess(e1, "length") -> FieldAccess(e2, "length"){Type(SimpleSort("Int"))}
      where e2{Type(GenericSort(_,_))} := <typecheck-expression> e1
-
+     
+   type-annotate :
+     FieldAccess(e, "length") -> FieldAccess(e, "length"){Type(SimpleSort("Int"))}
+     where not(type-of)
+         ; GenericSort(t,_) := <type-of>e
+         ; ("List" := t <+ "Set" := t)
+     
    check-builtin-signature :
      (GenericSort("List", [s]), "add", [s]) -> SimpleSort("void")
 

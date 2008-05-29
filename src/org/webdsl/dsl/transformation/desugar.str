@@ -20,18 +20,44 @@ signature
 
 strategies
 
-  desugar =
-    desugar-any
-    //; repeat(
-    ; merge-webdsl-declarations // after desugaring, merge back in the new defintions
+  desugar-top =
+    {| DesugarMemo : desugar-im |}
 
-  merge-webdsl-declarations =
-    ?Application(qid, sections)
-    ; !Application(qid, <concat> [sections, <get-webdsl-definitions>])
-    ; try(attach-extend-entities)
-    ; try(attach-extend-functions)
-    ; cleanup-removemes
-    ; declare-definitions // and declare new definitions
+  desugar-im = 
+    desugar-memo(
+      desugar-local-declaration(desugar-im-trav)
+      <+ desugar-im-trav
+    )
+    
+  desugar-im-trav =
+    all-l(desugar-im)
+    ; try(desugar; desugar-im)
+    
+  desugar-memo(s) =
+    DesugarMemo
+    <+ {?t; s; ?t'; rules( DesugarMemo : t -> t' )}
+     
+  desugar-local-declaration(s) =
+    type-annotate-local(s) 
+  
+strategies
+
+  type-annotate-local(s) :
+    [VarDeclInit(x, s, e1) | stat1*] -> [VarDeclInit(x, s, e2) | stat2*]
+    where e2 := <s> e1
+        ; {| TypeOf, DesugarMemo
+           : rules( TypeOf : x -> s )
+           ; stat2* := <s> stat1*
+           |}
+   
+  desugar =
+    type-annotate
+    
+strategies
+
+  desugar-old =
+    normalize-any; desugar-any; normalize-any
+    ; merge-webdsl-declarations // after desugaring, merge back in the new defintions
 
   desugar-any = // Can be applied to any kind of tree (expressions, statements)
     try(sometd(DesugarOnce))
@@ -51,6 +77,16 @@ strategies
      ; try(all(desugar-with-context))
      |}
 
+strategies
+
+  merge-webdsl-declarations =
+    ?Application(qid, sections)
+    ; !Application(qid, <concat> [sections, <get-webdsl-definitions>])
+    ; try(attach-extend-entities)
+    ; try(attach-extend-functions)
+    ; cleanup-removemes
+    ; declare-definitions // and declare new definitions
+    
 rules
 
   attach-extend-entities =
@@ -190,128 +226,6 @@ rules
            ; if b := b2; c := c2; d := d2 then
                fail
              end
-
-
-  Desugar :
-    elem|[ navigate(url(e)){} ]| -> elem|[ navigate(url(e)){url(e)} ]|
-
-  Desugar :
-    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e)){url(e)} ]|
-
-  Desugar :
-    elem|[ navigate(e1, e2){} ]| -> elem|[ navigate(e2){text(e1)} ]|
-
-
-  Desugar :
-    String(x) -> String(y)
-    where y := <un-double-quote> x
-
-  Desugar :
-    elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
-    where str2 := <un-double-quote> str1
-
-  Desugar :
-    |[ x k srt ]| -> |[ x k srt () ]|
-
-  Desugar :
-    |[ x k srt := e ]| -> |[ x k srt () := e ]|
-
-  Desugar : 
-    FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
-
-  Desugar :
-    TemplateCallNoArgs(x) -> TemplateCall(x, [], [])
-    // elem|[ x ]| -> elem|[ x(){} ]|
-
-  // section("Header") {...} => section() { header{"Header"} }
-  // Works only for strings. Making generic is difficult, because argument to a TemplateCall are Exp* and the body of a TemplateCall is TemplateElement*
-  Desugar :
-    TemplateCall("section", [String(header)], elems1) -> TemplateCall("section", [], elems2)
-    where elems2 := <conc> ([TemplateCallBody("header", [Text(header)])], elems1)
-
-  Desugar :
-    //elem|[ x(e*) ]| -> elem|[ x(e*){} ]|
-    TemplateCallNoBody(x, args) -> TemplateCall(x, args, [])
-
-  Desugar :
-    //elem|[ x{elem*} ]| -> elem|[ x(){elem*} ]|
-    TemplateCallBody(x, body) -> TemplateCall(x, [], body)
-
-  Desugar :
-    IfNoElse(e, bit) -> If(e, bit, Block([]))
-
-  Desugar :
-    Text(x) -> Text(y)
-    where y := <un-double-quote> x
-
-  Desugar :
-    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
-
-  Desugar :
-    TemplateCall("menubar", [], elem*) -> TemplateCall("menubar", [exp], elem*)
-    where exp := String("horizontal"){Type(SimpleSort("String"))}
-
-  Desugar :
-    TemplateCall("from", [exp1], []) -> TemplateCall("from", [exp1, exp1], [])
-
-rules // for desugarings
-
-  Desugar :
-    OrderNonSpecific(x) -> OrderAscending(x)
-
-  Desugar :
-    ForNoFilter(x, s, e, te*) -> For(x, s, e, Filter(True(), OrderAscending(Null())), te*)
-    //elem|[ for(x : srt in e){elem*} ]| -> elem|[ for(x : srt in e order by null asc){elem*} ]|
-
-  Desugar :
-    For(x, s, e, FilterNoWhere(obe), te*) -> For(x, s, e, Filter(True(), obe), te*)
-    //elem|[ for(x : srt in e1 order by e2){elem*} ]| -> elem|[ for(x : srt in e1 where true order by e2){elem*} ]|
-
-  Desugar :
-    For(x, s, e, FilterNoOrderBy(we), te*) -> For(x, s, e, Filter(we, OrderAscending(Null())), te*)
-
-
-  Desugar :
-    ForAllNoFilter(x, s, te*) -> ForAll(x, s, Filter(True(), OrderAscending(Null())), te*)
-
-  Desugar :
-    ForAll(x, s, FilterNoOrderBy(we), te*) -> ForAll(x, s, Filter(we, OrderAscending(Null())), te*)
-
-  Desugar :
-    ForAll(x, s, FilterNoWhere(obe), te*) -> ForAll(x, s, Filter(True(), obe), te*)
-
-
-  Desugar :
-    fa@ForAll(x, SimpleSort(s), Filter(we, obe), te*) -> For(x, SimpleSort(s), e, Filter(we, OrderAscending(Null())), te*)
-    where selectField := <newname> "queryVar"
-        ; if <?OrderAscending(of)> obe then
-            ordering := Ascending()
-          else
-            if <?OrderDescending(of)> obe then
-              ordering := Descending()
-            end
-          end
-        ; <?FieldAccess(_, orderfield)> of
-        ; e := HqlQuery(QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Path([selectField]),None())])),FromClause([FromRangeJoin(FromClass(Path([s]),Some(AsAlias(Alias(selectField))),None()),None())])),None(),None(),Some(OrderByClause([OrderElement(Path([selectField, <concat-strings> ["_", orderfield]]),Some(ordering))]))))
-
-  Desugar :
-    ForStmtNoFilter(x, s, e, block) -> ForStmt(x, s, e, Filter(True(), OrderAscending(Null())), block)
-
-  Desugar :
-    ForStmt(x, s, e, FilterNoOrderBy(we), body) -> ForStmt(x, s, e, Filter(we, OrderAscending(Null())), body)
-
-  Desugar :
-    ForStmt(x, s, e, FilterNoWhere(obe), body) -> ForStmt(x, s, e, Filter(True(), obe), body)
-
-
-  Desugar :
-    ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null())))
-
-  Desugar :
-    ForExp(oe, x, s, ie, FilterNoOrderBy(we)) -> ForExp(oe, x, s, ie, Filter(we, OrderAscending(Null())))
-
-  Desugar :
-    ForExp(oe, x, s, ie, FilterNoWhere(obe)) -> ForExp(oe, x, s, ie, Filter(True(), obe))
 
 rules
 
@@ -550,104 +464,8 @@ rules
         CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
       )
 
-rules // derive input behaviour from type
 
-  derive =
-    topdown(repeat(Derive <+ Desugar))
 
-  Derive = fail
-//    <+ DeriveInputString
-    <+ DeriveInputSimpleRefAssociation
-    <+ DeriveInputAssociationGenericSort
-    <+ DeriveInput
 
-  DeriveInputSimpleRefAssociation :
-    elem|[ input(e){} ]| ->
-    elem|[
-      div("inputSimpleRefAssociation") {
-        select( y1 : $Y, "Select", e )
-      }
-    ]|
-    where SimpleSort($Y) := <type-of> e
-        ; <defined-java-type> SimpleSort($Y)
-        ; y      := <decapitalize-string> $Y
-        ; y1     := <newname> y
-
-  exp-to-qid :
-    FieldAccess(e, f) -> Qualified(qid, f)
-    where not(Var(_) := e)
-        ; qid := <exp-to-qid> e
-
-  exp-to-qid :
-    FieldAccess(Var(x), f) -> Qualified(x, f)
-
-  exp-to-qid :
-    Var(x) -> x
-
-  DeriveInputAssociationGenericSort :
-    elem|[ input(e0){} ]| ->
-    elem|[
-      div("inputAssociationGenericSort"){
-        select(x1 : $X, str, e0)
-      }
-    ]|
-    where GenericSort(coll, [SimpleSort(X)]) := <type-of> |[ e0 ]|
-        ; $X := X
-        ; x1       := <decapitalize-string; newname> X
-        ; str      := <concat-strings>["Add ", X]
-
-rules // derive output behaviour from type
-
-  Derive = fail
-//    <+ DeriveOutputString
-    <+ DeriveOutputSimpleRefAssociation
-    <+ DeriveOutputAssociationList
-    <+ DeriveOutputAssociationSet
-    <+ DeriveOutput
-
-  DeriveOutputSimpleRefAssociation :
-    elem|[ output(e){} ]| -> elem|[ navigate($viewY(e)){text(e.name)} ]|
-    where SimpleSort($Y) := <type-of> e
-        ; <defined-java-type> SimpleSort($Y)
-        ; $viewY := <decapitalize-string> $Y
-        ; allsubclasses := <AllSubClasses>
-        ; not(<fetch(?($Y,_))> allsubclasses)
-
-  DeriveOutputSimpleRefAssociation :
-    elem|[ output(e){} ]| -> elem|[
-      container {
-        elem*
-      }
-    ]|
-    where SimpleSort($Y) := <type-of> e
-        ; <defined-java-type> SimpleSort($Y)
-        ; allsubclasses := <AllSubClasses>
-        ; subclasses := <retain-all(?($Y, _))> allsubclasses
-        ; elem* := <map(DeriveSubclassOutput(|e, subclasses))> [($Y, $Y)|subclasses]
-
-  is-not-subclass(|e) : [(x_super, x_class)] -> Not(IsA(e, SimpleSort(x_class)))
-  is-not-subclass(|e) : [(x_super, x_class)|xs] -> And(Not(IsA(e, SimpleSort(x_class))), <is-not-subclass(|e)> xs)
-  is-not-subclass(|e) : [] -> True()
-
-  DeriveSubclassOutput(|e, subclasses) :
-    (x_super, x_class) -> result
-    where $viewY := <decapitalize-string> x_class
-        ; srt := SimpleSort(x_class)
-        ; result :=     IfTempl(And(IsA(e, SimpleSort(x_class)), <is-not-subclass(|e)> <remove-all(?(_, x_class))> subclasses),
-            elem*|[ navigate($viewY(e as srt)){ text(e.name) } ]|)
-
-  DeriveOutputAssociationList :
-    elem|[ output(e1){} ]| -> elem|[ list { for(x : $X in e1){ listitem{ output(e2) } } } ]|
-    where |[ List<$X> ]| := <type-of> e1
-        ; x := <decapitalize-string; newname> $X
-        ; e2 := Var(x){Type(SimpleSort($X))}
-
-  DeriveOutputAssociationSet :
-    elem|[ output(e1){} ]| -> elem|[ list { for(x : $X in e2.$yList){ listitem{ output(e3) } } } ]|
-    where |[ Set<$X> ]| := <type-of> e1
-        ; |[ e2.$y ]| := e1
-        ; x := <decapitalize-string; newname> $X
-        ; $yList := <concat-strings>[$y, "List"]
-        ; e3 := Var(x){Type(SimpleSort($X))}
 
 
