@@ -49,7 +49,7 @@ public class SDF {
 	}
 	
 	public String parseToString(String input) throws SGLRException {
-		IStrategoTerm parsed = parse(input);
+		IStrategoTerm parsed = parseToTerm(input);
 		String result = new String(parsed.toString()); // ensure string is not interned
 		
 		parseCache.put(result, parsed);
@@ -57,7 +57,7 @@ public class SDF {
 		return result;
 	}
 	
-	public IStrategoTerm parse(String input) throws SGLRException {
+	public IStrategoTerm parseToTerm(String input) throws SGLRException {
 		try {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;

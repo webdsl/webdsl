@@ -26,7 +26,7 @@ public class TestStrategoXT extends TestCase {
 	
 	public void testTableAvailable() {
 		assertTrue("Parse table must exist", new File(WEBDSL_TABLE_PATH).exists());
-		assertTrue("Parse table must exist", new File(WEBDSL_TABLE_PATH).length() > 0);
+		assertTrue("Parse table must have size > 0", new File(WEBDSL_TABLE_PATH).length() > 0);
 	}
 	
 	public void testRegisterTable() throws Exception {
@@ -34,7 +34,7 @@ public class TestStrategoXT extends TestCase {
 	}
 	
 	public void testParse() throws Exception {
-		IStrategoTerm term = SDF.get("WebDSL").parse(WEBDSL_EXAMPLE);
+		IStrategoTerm term = SDF.get("WebDSL").parseToTerm(WEBDSL_EXAMPLE);
 		
 		assertTrue(term.getTermType() == IStrategoTerm.APPL);
 		
