@@ -33,14 +33,14 @@ public class SDF {
 	}
 	
 	public static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
+		ParseTable table = Environment.loadParseTable(parseTable);
+		SDF result = new SDF(table);
+		allSDF.put(language, result);		
+		
 		if (imploder == null) {
 			imploder = Environment.createInterpreter();
 		}
-		
-		ParseTable table = Environment.loadParseTable(parseTable);
-		SDF result = new SDF(table);
-		
-		allSDF.put(language, result);		
+
 		return result;
 	}
 	

@@ -3,6 +3,7 @@ package org.webdsl.tools.strategoxt;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.spoofax.compiler.Compiler;
 import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
 import org.spoofax.interpreter.adapter.aterm.WrappedATermFactory;
@@ -32,20 +33,20 @@ final class Environment {
 	}
 	
 	public static SGLR createSGLR(ParseTable parseTable) {
-		SGLR.setWorkAroundMultipleLookahead(true);
 		return new SGLR(factory, parseTable);
 	}
 
 	public static Interpreter createInterpreter() throws IOException, InterpreterException {
 		Interpreter result = new Interpreter(wrappedFactory);
-		result.load("/lib/libstratego-lib.ctree");
-		result.load("/lib/libstratego-sglr.ctree");
+		result.load(Compiler.sharePath() + "/stratego-lib/libstratego-lib.ctree");
+		result.load(Compiler.sharePath() + "/libstratego-sglr.ctree");
 		return result;
 	}
 	
 	public static ParseTable loadParseTable(InputStream parseTable)
 		throws IOException, InvalidParseTableException {
-		
+
+		SGLR.setWorkAroundMultipleLookahead(true);
 		return parseTableManager.loadFromStream(parseTable);
 	}
 }

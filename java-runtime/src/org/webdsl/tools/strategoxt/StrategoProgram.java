@@ -47,7 +47,10 @@ public class StrategoProgram {
 		// TODO: Properly rename strategy using underscores
 		strategy = strategy.replace('-', '_') + "_0_0";
 		
-		interpreter.invoke(strategy);
+		boolean success = interpreter.invoke(strategy);
+		
+		// TODO: Better handling of failure
+		if (!success) return Environment.getWrappedTermFactory().makeString("Evaluation failed");
 		
 		return interpreter.current();
 	}
