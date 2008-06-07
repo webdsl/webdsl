@@ -27,7 +27,7 @@ public class StrategoProgram {
 	 *            The stratego program to load (e.g., obtained using
 	 *            StrategoProgram.class.getResourceAsStream("filename");
 	 */
-	public static StrategoProgram register(String programName, InputStream program) throws InterpreterException, IOException {
+	public static synchronized StrategoProgram register(String programName, InputStream program) throws InterpreterException, IOException {
 		Interpreter interpreter = Environment.createInterpreter();
 		interpreter.load(program);
 
@@ -37,11 +37,13 @@ public class StrategoProgram {
 		return result;
 	}
 	
-	public static StrategoProgram get(String programName) {
+	public static synchronized StrategoProgram get(String programName) {
 		return allPrograms.get(programName);
 	}
 	
-	public IStrategoTerm apply(String strategy, IStrategoTerm term) throws InterpreterException {
+	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
+	
+	public synchronized IStrategoTerm apply(String strategy, IStrategoTerm term) throws InterpreterException {
 		interpreter.setCurrent(term);
 		
 		// TODO: Properly rename strategy using underscores

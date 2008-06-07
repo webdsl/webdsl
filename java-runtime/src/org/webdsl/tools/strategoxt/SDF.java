@@ -32,7 +32,7 @@ public class SDF {
 		parser = Environment.createSGLR(table);
 	}
 	
-	public static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
+	public synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
 		ParseTable table = Environment.loadParseTable(parseTable);
 		SDF result = new SDF(table);
 		allSDF.put(language, result);		
@@ -44,11 +44,13 @@ public class SDF {
 		return result;
 	}
 	
-	public static SDF get(String language) {
+	public static synchronized SDF get(String language) {
 		return allSDF.get(language);
 	}
 	
-	public String parseToString(String input) throws SGLRException {
+	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
+	
+	public synchronized String parseToString(String input) throws SGLRException {
 		IStrategoTerm parsed = parseToTerm(input);
 		String result = new String(parsed.toString()); // ensure string is not interned
 		
@@ -57,7 +59,7 @@ public class SDF {
 		return result;
 	}
 	
-	public IStrategoTerm parseToTerm(String input) throws SGLRException {
+	public synchronized IStrategoTerm parseToTerm(String input) throws SGLRException {
 		try {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
