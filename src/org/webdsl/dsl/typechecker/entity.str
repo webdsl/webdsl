@@ -8,6 +8,7 @@ imports
 
 rules // typechecking entity declarations
 
+  /*
   type-annotate-local(s) :
     def@def|[ entity x_class{ prop* fun* } ]| -> def'
     where {| TypeOf
@@ -24,8 +25,10 @@ rules // typechecking entity declarations
               ; function2* := <map(typecheck-function)> function*
               ; <map(extract-entity-id(|x_class))> props
               | ["entity declaration ", x_class]) |}
+              */
 
 
+/*
   typecheck-entity :
     Entity(x_class, s, props, functions) -> Entity(x_class, s, props, functions2)
     where {| TypeOf
@@ -37,6 +40,12 @@ rules // typechecking entity declarations
               ; <map(extract-entity-id(|x_class))> props
               | ["entity declaration ", x_class]) |}
 
+*/
+  constraint-error :
+    Entity(x_class, s, props, functions) -> <add-error> ["Super entity ", <pp-webdsl> s, " for ", x_class, " does not exist."]
+    where not(<typecheck-supertype> s)
+
+/*
   typecheck-entity :
     SessionEntity(nm, props, function*) -> SessionEntity(nm, props, function2*)
     where {| TypeOf
@@ -48,20 +57,7 @@ rules // typechecking entity declarations
               ; <map(extract-entity-id(|x_class))> props
               | ["session declaration ", nm]) |}
 
-  extract-entity-id(|x_Class) =
-    ?Property(x, k, s, annos)
-    ; where(
-        if <elem> (SimpleAnno("id"), annos) then
-          rules (
-            EntityIdType : x_Class -> s
-            EntityIdName : x_Class -> x
-            )
-        end
-      )
-
-  extract-entity-id(|x_Class) =
-    ?DerivedProperty(_, _, _, _, _)
-
+*/
   typecheck-supertype =
     ?s
     ; if not(<IsEntity> s) then
@@ -88,6 +84,14 @@ rules // typechecking entity declarations
     ; rules( IsProperty : (x_class, x) )
     ; <map(try(typecheck-annos(|prop)))> annos
 
+
+  constraint-error :
+    DerivedProperty(x, k, s, annos, e) -> <add-error> ["The expression of the derived property ", x, " should have type ", <pp-webdsl> s]
+    where te := <type-of> e
+        ; not(<type-compatible> (te, s))
+    
+
+  /*
   typecheck-property(|x_class) :
     DerivedProperty(x, k, s, annos, e) -> DerivedProperty(x, k, s, annos, e2)
     where e2 := <typecheck-expression> e
@@ -97,7 +101,28 @@ rules // typechecking entity declarations
           end
         ; rules( TypeOf : x -> s )
         ; rules( IsProperty : (x_class, x) )
+        */
 
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error> ["The entity ", ent, " does not exist."]
+    where not(<IsEntity> ent)
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error> ["The field ", ent, ".", fld, " is not of the right type."]
+    where <TypeOfProperty> (ent, fld)
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error> ["Inverse annotations cannot be declared on both sides. Remove either the (inverse=", ent, ".", fld, ") or the (inverse=", i_ent, ".", i_fld, ") annotation."]
+    where [inverse_prop] := <filter(?Property(fld, _, _, annos))> <Properties> ent
+        ; not([] := <filter(?InverseAnno(i_ent, i_fld))> annos)
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error> ["In a many-to-one bidirectional association the inverse annotation should be declared on the many side. (inverse=", i_ent, ".", i_fld, ")"]
+    where [InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos
+        ; SimpleSort(_) := <TypeOfProperty> (ent, fld)
+        ; GenericSort(_, _) := <TypeOfProperty> (i_ent, i_fld)
+    
+  /*
   typecheck-annos(|prop) =
     ?InverseAnno(ent, fld)
     ; where (
@@ -117,6 +142,7 @@ rules // typechecking entity declarations
           end
         end
     )
+    */
 //    ; GenericSort(coll, [SimpleSort(x_Class)]) := <TypeOfProperty> (ent, fld)
 
 
@@ -125,6 +151,7 @@ rules // typechecking entity declarations
       end */
 
 rules // typechecking entity functions
+  /*
   typecheck-function :
     Function(f, args, sort, body1) -> Function(f, args, sort, body2)
     where( {| TypeOf, ReturnType
@@ -134,19 +161,9 @@ rules // typechecking entity functions
                ; body2 := <typecheck-function-block> body1
              |["function ", f, "/"])
            |} )
-         /* // Moved to transformation/function.str
-         ; if <IsGlobalFunction> (f, args, sort) then
-             body3 := <desugar-any> body2
-             ; if [] := <collect(?Function(f, args, sort, _))> <global-functions>
-             then
-               new-global-functions := [Function(f, args, sort, body3)|<global-functions <+ ![]>]
-             else
-               new-global-functions := <global-functions <+ ![]>
-             end
-             ; rules ( global-functions :=  new-global-functions )
-          end
         */
 
+  /*
   typecheck-function-stat =
     typecheck-function-block
     <+ typecheck-assignment-stat
@@ -168,3 +185,9 @@ rules // typechecking entity functions
         ; if not(<type-compatible>(e2t, rt)) then
              typecheck-error(|["The return statement expression of the derived type ", e2t, " should have type ", rt])
            end
+           */
+  constraint-error :
+    Function(f, args, sort, body1) -> <add-error> ["The return statement in function ", f, " should have type ", <pp-webdsl> sort]
+    where returns := <collect(?Return(_))> body1
+        ; wrongreturns := <filter(\ Return(e) -> Return(e) where not(sort := <type-of> e) \)> returns
+        ; not([] := wrongreturns)
