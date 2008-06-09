@@ -226,23 +226,13 @@ rules
   add-not-null-checks:
     expr -> e0
     where e0 := <bottomup(try(match-any-bool-expr-and-add-null-checks))> expr
-        //; <debug> "    apply-test(!\"generate-extended-check-test\"\n      ,generate-extended-check\n      ,!"
-        //; <debug> expr
-        //; <debug> "      ,!"
-        //; <debug> e0
-        //; <debug> "    )"
 
   match-any-bool-expr-and-add-null-checks:
-    anyexp{Type(SimpleSort("Bool"))} -> newexp{Type(SimpleSort("Bool"))}
+    anyexp -> newexp
     where //must not contain other bool expressions otherwise not-null checks have already been made
-          [] := <collect(\ anyexp{Type(SimpleSort("Bool"))} -> <id> \)> anyexp{}
+        SimpleSort("Bool") := <type-of> anyexp
+        ; [] := <all(collect({(anyexp -> <id> where SimpleSort("Bool") := <type-of> anyexp )}))> anyexp
         ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
-        // add not null check to left side of equality check, because of equals call
-        //no longer needed with new equals code generation using a webdsl library function
-        //; checkleftsideofequals := <collect(\ consname#([lhs,rhs]) -> NotEq(lhs,Null()) {Type(SimpleSort("Bool"))}
-                                                           //where <?"Eq" <+ ?"NotEq"> consname
-                                                               //; <?_{Type(lht)}> lhs
-                                                               //  \)> anyexp
         ; if InColl(element,thecol) := anyexp
           then
             coll-not-null := <field-access-to-not-null-checks> thecol
@@ -266,22 +256,26 @@ rules
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent // case of just one property access
         then
-          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check] <+ ![check]> varname
+          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()),check] <+ ![check]> varname
         else
           checks := []
         end
+        
         ; if newchecks := <field-access-to-not-null-checks> ent
         then
           return := <concat> [newchecks, checks]
         else
           return := checks
         end
+        
         // add a loggedIn check when principal is used
-        ; if fa:=FieldAccess(Var("securityContext"){Type(SimpleSort("SecurityContext"))},"principal"){Type(SimpleSort("User"))}
+        ; if fa:=FieldAccess(Var("securityContext"),"principal")
+          where SimpleSort("SecurityContext") := <type-of> Var("securityContext")
+              ; SimpleSort("User") := <type-of> fa
         then
-        extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
+          extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
         else
-        extrachecks := return
+          extrachecks := return
         end
 
   field-access-to-not-null-checks:
@@ -289,10 +283,11 @@ rules
     where check := NotEq(fa,Null())
         ; if Var(varname) := ent
         then
-          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()) {Type(SimpleSort("Bool"))},check] <+ ![check]> varname
+          checks := <not(IsGlobal);![ NotEq(Var(varname),Null()),check] <+ ![check]> varname
         else
           checks := [check]
         end
+        
         ; if newchecks := <field-access-to-not-null-checks> ent
         then
           return := <concat> [newchecks, checks]
@@ -301,7 +296,7 @@ rules
         end
 
   generate-conjunction-exp :
-    [x|xs] ->  And( e0 , e1 ) {Type(SimpleSort("Bool"))}
+    [x|xs] ->  And( e0 , e1 )
     where not([] := xs)
         ; e0 := x
         ; e1 := <generate-conjunction-exp> xs
@@ -310,7 +305,7 @@ rules
     [e0] -> |[ e0 ]|
     
   generate-disjunction-exp :
-    [x|xs] ->  Or( e0 , e1 ) {Type(SimpleSort("Bool"))}
+    [x|xs] ->  Or( e0 , e1 )
     where not([] := xs)
         ; e0 := x
         ; e1 := <generate-disjunction-exp> xs
