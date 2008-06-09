@@ -183,7 +183,7 @@ rules //session variables
   session-entity-property-to-merge:
     //SessionEntity(x_ident, _, _)
     def|[ session x_ident { prop* fun* } ]| -> bstm0*
-    where classofsession := <TypeOf> x_ident
+    where classofsession := <type-of> x_ident
         ; SimpleSort(classname) := classofsession
         ; props := <Properties> classname
         ; bstm0* := <filter(session-entity-property-to-merge(|x_ident))> props
@@ -408,11 +408,12 @@ rules // view transition
         ; x_id := <concat-strings> [x, "_id"]
 
   arg-to-java-exp :
-    Var(x){Type(t)} -> java|[ x ]|
-    where not(<eq>(t, "Component"))
+    Var(x) -> java|[ x ]|
+    where not(<eq>(<type-of> Var(x), "Component"))
 
   arg-to-java-exp :
-    FieldAccess(Var(x){Type("Component")}, y) -> java|[ y ]|
+    FieldAccess(Var(x), y) -> java|[ y ]|
+    where "Component" := <type-of> Var(x)
 
   arg-to-java-exp :
     FieldAccess(e1, y) -> java|[ e2.y_get() ]|
@@ -664,36 +665,28 @@ rules // For generating template functions
        } ]|
      where {| InFunction, TransformParameterName
             : param* := <map(template-function-param-to-java)> params
-            ; <?_{Type(wt)}> e
-            ; t := <java-type> wt
+            ; t := <type-of; java-type> e 
             ; rules ( InFunction := "Yes" )
             ; e2 := <topdown(try(replace-template-call-params))> e //<try(sometd(replace-template-call-params))> e
             ; stm := <statement-to-java> /*<try(desugar-any)>*/ Return(e2)
             |}
 
    replace-template-call-params :
-     fa@FieldAccess(e, x) {Type(s)} -> Var(y) {Type(s)}
+     fa@FieldAccess(e, x) -> Var(y)
      where y := <TransformParameterName> fa
 
    replace-template-call-params :
-     v@Var(x) {Type(s)} -> Var(y) {Type(s)}
+     v@Var(x) -> Var(y)
      where y := <TransformParameterName> v
 
    template-function-param-to-java :
-     fa@FieldAccess(_, _) {Type(s)} -> java|[ t y ]|
-     where t := <java-type> s
+     fa@FieldAccess(_, _) -> java|[ t y ]|
+     where t := <type-of; java-type> fa
          ; y := <newname> "param"
          ; rules ( TransformParameterName : fa -> y )
-   /*
    template-function-param-to-java :
-     FieldAccess(_, x) {Type(s)} -> java|[ t y ]|
-     where t := <java-type> s
-         ; y := <newname> "param"
-         ; rules ( TransformParameterName : x -> y )
-  */
-   template-function-param-to-java :
-     v@Var(_) {Type(s)} -> java|[ t y ]|
-     where t := <java-type> s
+     v@Var(_) -> java|[ t y ]|
+     where t := <type-of, java-type> v
          ; y := <newname> "param"
          ; rules ( TransformParameterName : v -> y )
 

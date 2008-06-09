@@ -90,10 +90,10 @@ rules // assignment
    assignment-to-java =
      ?Assign(Assignment(Qualified(qid, x), e1))
      // fix added in next line for assignment to global var
-     ; e2 := <{y:is-string;IsGlobal;?y;!Var(y){Type(<TypeOf> y)};global-var-to-java} <+ qid-to-java> qid
+     ; e2 := <{y:is-string;IsGlobal;?y;!Var(y);global-var-to-java} <+ qid-to-java> qid
      ; e3 := <expression-to-java> e1
      // @todo: ugly hack, fix!
-     ; if SimpleSort(p) := <TypeOf> qid ; t := <TypeOfProperty> (p, x) then
+     ; if SimpleSort(p) := <type-of> qid ; t := <TypeOfProperty> (p, x) then
           if GenericSort("List",_) := t then
             x_set := <concat-strings>["set", <capitalize-string> x, "List"]
             ; !java|[ e2.x_set(e3); ]|
@@ -217,9 +217,6 @@ rules
    qid-to-java :
      x -> java|[ x ]|
      where <is-string> x
-
-   //qid-to-java :
-   //  Var(x){Type("Component")} -> expr|[ this ]|
 
    // @note : this is compensating for an erroneous annotation of component
    // accessess
@@ -351,9 +348,10 @@ rules // expressions
      <+ var-to-java
 
    global-var-to-java :
-     Var(x){Type(SimpleSort(t))} -> expr|[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
-     where <IsGlobal> x
-         ; vartype := <TypeOf> x
+     Var(x) -> expr|[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
+     where SimpleSort(t) := <type-of> Var(x)
+         ; <IsGlobal> x
+         ; vartype := <type-of> x
          ; if <EntityIdName> t then
              x_type := <sort-to-java-type-string> <EntityIdType> t
            else
@@ -363,7 +361,8 @@ rules // expressions
          ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
 
    component-var-to-java :
-     Var(x){Type("Component")} -> expr|[ this ]|
+     Var(x) -> expr|[ this ]|
+     where "Component" := <type-of> Var(x)
 
    var-to-java :
      Var(x) -> expr|[ x ]|
@@ -385,7 +384,7 @@ rules // expressions
    expression-to-java :
      FieldAccess(e1, "length") -> expr|[ e2.size() ]|
      where e2 := <expression-to-java> e1
-         ; <?_{Type(GenericSort(_, _))}> e1
+         ; GenericSort(_, _) := <type-of> e1
 
    expression-to-java :
      ObjectCreation(x_Class, assigns) ->
