@@ -96,12 +96,7 @@ strategies
     
 rules
 
- /* attach-extend-entities =
-    sometd(create-extend-entity-dynamic-rules)
-    ; try(sometd(attach-properties-to-entity))
-    ; cleanup-extend-entity-section-defs
-    
-  attach-extend-functions =
+ /*  attach-extend-functions =
     {| ExtendFunctionDef
      : sometd(create-extend-function-dynamic-rules)
      ; try(sometd(combine-functions))
@@ -137,41 +132,29 @@ rules
     where (_, fargs, otherstats) := <repeat(once-ExtendFunctionDef)> (fun, fargs, [])
         ; stats2 := <concat> [otherstats, stats]
 
-  cleanup-removemes :
-    Application(ident,sections) -> Application(ident,<map(try(cleanup-removemes))> sections)
-
-  cleanup-removemes :
-    Section(nm, defs) -> Section(nm, <filter(not(?RemoveMe())); map(try(cleanup-removemes))> defs)
-
-  cleanup-removemes :
-    GlobalsDefinition(defs) -> GlobalsDefinition(<filter(not(?RemoveMe()))> defs)
 */
 
-  // @todo use extended dynamic rules :+
-  
-  /*create-extend-entity-dynamic-rules:
-    ExtendEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)
-    where olddynamicresultprops := <Extend-Entity-Properties(|[]) <+  ![] > ident
-     ; newdynamicresultprops := <concat>[olddynamicresultprops,props]
-       ; rules
-      (
-        Extend-Entity-Properties(|properties) : ident -> <concat> [properties,newdynamicresultprops]
-      )
-    ; olddynamicresultfuncs := <Extend-Entity-Functions(|[]) <+  ![] > ident
-     ; newdynamicresultfuncs := <concat>[olddynamicresultfuncs,funcs]
-       ; rules
-      (
-        Extend-Entity-Functions(|functions) : ident -> <concat> [functions,newdynamicresultfuncs]
-      )*/
-  
   desugar = once-ExtendEntity
   
   desugar :
     ExtendEntity(ident, props, funcs) -> RemoveMe()
     where rules (
-        ExtendEntity :
+        ExtendEntity :+
           EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
+          where rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
+                        ExtendEntity :- SessionEntity(ident, props2, funcs2) ) // Remove the other two
+        ExtendEntity :+
+          Entity(ident, s, props2, funcs2) -> Entity(ident, s, <concat> [props, props2], <concat> [funcs, funcs2])
+          where rules ( ExtendEntity :- EntityNoSuper(ident, props2, funcs2)
+                        ExtendEntity :- SessionEntity(ident, props2, funcs2) )
+        ExtendEntity :+
+          SessionEntity(ident, props2, funcs2) -> SessionEntity(ident, <concat> [props, props2], <concat> [funcs, funcs2])
+          where rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
+                        ExtendEntity :- EntityNoSuper(ident, props2, funcs2) )
       )
+
+  normalize :
+    ExtendSessionEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)
   
   desugar :
     [RemoveMe()|lst] -> lst
