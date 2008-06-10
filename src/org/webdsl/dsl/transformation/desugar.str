@@ -37,9 +37,6 @@ strategies
     DesugarMemo
     <+ {?t; s; ?t'; rules( DesugarMemo : t -> t' )}
      
-  /*desugar-local-declaration(s) =
-    type-annotate-local(s)*/
-  
 strategies
 /*
   desugar =
@@ -51,14 +48,14 @@ strategies
     ; declare-definitions // and declare new definitions
     */
 
-  type-annotate-local(s) :
+  /*type-annotate-local(s) :
     [VarDeclInit(x, s, e1) | stat1*] -> [VarDeclInit(x, s, e2) | stat2*]
     where e2 := <s> e1
         ; {| TypeOf, DesugarMemo
            : rules( TypeOf : x -> s )
            ; stat2* := <s> stat1*
            |}
-   
+   */
   /*desugar =
     type-annotate*/
     
@@ -88,17 +85,18 @@ strategies
 */
 strategies
 
-  merge-webdsl-declarations =
+  /*merge-webdsl-declarations =
     ?Application(qid, sections)
     ; !Application(qid, <concat> [sections, <get-webdsl-definitions>])
     ; try(attach-extend-entities)
     ; try(attach-extend-functions)
     ; cleanup-removemes
     ; declare-definitions // and declare new definitions
+    */
     
 rules
 
-  attach-extend-entities =
+ /* attach-extend-entities =
     sometd(create-extend-entity-dynamic-rules)
     ; try(sometd(attach-properties-to-entity))
     ; cleanup-extend-entity-section-defs
@@ -147,11 +145,11 @@ rules
 
   cleanup-removemes :
     GlobalsDefinition(defs) -> GlobalsDefinition(<filter(not(?RemoveMe()))> defs)
-
+*/
 
   // @todo use extended dynamic rules :+
   
-  create-extend-entity-dynamic-rules:
+  /*create-extend-entity-dynamic-rules:
     ExtendEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)
     where olddynamicresultprops := <Extend-Entity-Properties(|[]) <+  ![] > ident
      ; newdynamicresultprops := <concat>[olddynamicresultprops,props]
@@ -164,8 +162,21 @@ rules
        ; rules
       (
         Extend-Entity-Functions(|functions) : ident -> <concat> [functions,newdynamicresultfuncs]
+      )*/
+  
+  desugar = once-ExtendEntity
+  
+  desugar :
+    ExtendEntity(ident, props, funcs) -> RemoveMe()
+    where rules (
+        ExtendEntity :
+          EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
       )
+  
+  desugar :
+    [RemoveMe()|lst] -> lst
 
+  /*
   create-extend-entity-dynamic-rules:
     ExtendSessionEntity(ident, props, funcs) -> ExtendEntity(ident, props, funcs)//easy cleanup
     where <create-extend-entity-dynamic-rules> ExtendEntity(ident, props, funcs)//reuse exising mechanism
@@ -187,7 +198,7 @@ rules
 
   cleanup-extend-entity-section-defs:
     Section(ident,defs) -> Section(ident,<filter(not(?ExtendEntity(_,_,_)))>defs)
-
+*/
   create-email-argument-list:
    Define(mods, name, args, body1) -> Define(mods, name, args, body1)
    where try (if <oncetd(?ThisCall("email", [_]))> body1 then
@@ -291,7 +302,7 @@ rules
        |}
     ; <try(sometd(find-params))> ie
 
-  Desugar :
+  desugar :
     fe@ForExp(oe, x, s, ie, fltr) -> ThisCall($fun, params)
     where $fun := <newname> "listCompr"
         ; {| Param, IgnoreVars
