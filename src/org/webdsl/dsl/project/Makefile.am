@@ -1,4 +1,4 @@
-bin_SCRIPTS = webdsl
+bin_SCRIPTS = webdsl webdsl-plugins
 EXTRA_DIST = \
   template/build.properties \
   template/build.xml \
