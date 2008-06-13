@@ -1,0 +1,106 @@
+/**
+
+ Desugaring rules for WebDSL
+
+*/
+
+module org/webdsl/dsl/transformation/not-null-checks
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+   add-not-null-checks:
+    expr -> e0
+    where e0 := <bottomup(try(match-any-bool-expr-and-add-null-checks))> expr
+
+  match-any-bool-expr-and-add-null-checks:
+    anyexp -> newexp
+    where //must not contain other bool expressions otherwise not-null checks have already been made
+        SimpleSort("Bool") := <type-of> anyexp
+        ; [] := <all(collect({(anyexp -> <id> where SimpleSort("Bool") := <type-of> anyexp )}))> anyexp
+        ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
+        ; if InColl(element,thecol) := anyexp
+          then
+            coll-not-null := <field-access-to-not-null-checks> thecol
+          else
+            coll-not-null := []
+          end
+        ; newexp := <concat;uniq;generate-conjunction-exp>[newe,coll-not-null,[anyexp]]//<concat;generate-conjunction-exp>[coll-not-null]//
+
+  ignore-certain-exp :
+    ForExp(_, _, _, _, _) -> []
+
+  ignore-certain-exp :
+    Call(e1,ident,e2) -> <collect(field-access-to-not-null-checks-first);concat> [e1,e2]
+
+  ignore-certain-exp :
+    ThisCall(ident,e) -> <collect(field-access-to-not-null-checks-first);concat> e
+      
+
+  field-access-to-not-null-checks-first:
+    fa@FieldAccess(ent,prop)-> extrachecks
+    where check := NotEq(fa,Null())
+        ; if Var(varname) := ent // case of just one property access
+        then
+          checks := <not(IsGlobalFunction);![ NotEq(Var(varname),Null()),check] <+ ![check]> varname
+        else
+          checks := []
+        end
+        
+        ; if newchecks := <field-access-to-not-null-checks> ent
+        then
+          return := <concat> [newchecks, checks]
+        else
+          return := checks
+        end
+        
+        // add a loggedIn check when principal is used
+        ; if and(fa:=FieldAccess(Var("securityContext"),"principal"),
+               and(SimpleSort("SecurityContext") := <type-of> Var("securityContext"),
+                 SimpleSort("User") := <type-of> fa))
+        then
+          extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
+        else
+          extrachecks := return
+        end
+
+  field-access-to-not-null-checks:
+    fa@FieldAccess(ent,prop)-> return
+    where check := NotEq(fa,Null())
+        ; if Var(varname) := ent
+        then
+          checks := <not(IsGlobalFunction);![ NotEq(Var(varname),Null()),check] <+ ![check]> varname
+        else
+          checks := [check]
+        end
+        
+        ; if newchecks := <field-access-to-not-null-checks> ent
+        then
+          return := <concat> [newchecks, checks]
+        else
+          return := checks
+        end
+        
+  generate-conjunction-exp :
+    [x|xs] ->  And( e0 , e1 )
+    where not([] := xs)
+        ; e0 := x
+        ; e1 := <generate-conjunction-exp> xs
+
+  generate-conjunction-exp :
+    [e0] -> |[ e0 ]|
+    
+  generate-disjunction-exp :
+    [x|xs] ->  Or( e0 , e1 )
+    where not([] := xs)
+        ; e0 := x
+        ; e1 := <generate-disjunction-exp> xs
+
+  generate-disjunction-exp :
+    [e0] -> |[ e0 ]|
