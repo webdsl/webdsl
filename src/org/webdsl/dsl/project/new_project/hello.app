@@ -14,3 +14,7 @@ define page home() {
 	}
 }
 
+entity exampleEntity {
+	property :: String
+}
+
