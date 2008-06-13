@@ -16,25 +16,40 @@ imports
 rules
   //declaration of principal
   // there can be only one of these (not yet checked)
-  Desugar:
-    AccessControlPrincipal($ident,props) -> 
-        def |[
-                session securityContext {
-                    loggedIn  :: Bool
-                    principal   -> $ident
-                }
-                //predicate loggedIn()
-                //{
-                //  securityContext.principal != null
-                //}
-            ]|
-    where rules (
-            AccessControlEnabled := True()
-          )
+  desugar:
+    AccessControlPrincipal(x_ident,props) -> RemoveMe()
+    where <rename;emit-webdsl-code> def |[
+            session securityContext {
+              principal   -> x_ident 
+            }
+          ]|
+        ; <rename;emit-webdsl-code> def |[
+            predicate loggedIn()
+            {
+              securityContext.principal != null
+            }
+          ]|
+
+  //predicate definitions
+  desugar:
+    pr@Predicate($ident,farg*,exp) -> //<rename>?
+      def |[
+        globals {
+          function $ident ( farg* ) : Bool
+          {
+            return e;
+          }
+        }        
+      ]|
+    where e := <add-not-null-checks> exp
+
 
   //pointcuts
   // Desugar must fail if not applied otherwise it will repeat indefinately  
-  Desugar: 
+  desugar:
+    AccessControlPointcut(pname,fa,elems) -> RemoveMe() 
+
+  desugar: 
     AccessControlDefinition(ident,decs) -> AccessControlDefinition(ident,newdecs)
     where <fetch(?AccessControlRule("pointcut",_,_,_,_))> decs
         ; newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
@@ -43,7 +58,9 @@ rules
   desugar-pointcut-rule :
     AccessControlRule("pointcut",matchident,args,check,childrules) -> newrules
     where MatchArgs(fargs,wc) := args
-        ; rulematchtuples := <AccessControlPointcuts> (matchident,fargs)
+        ; t1* := <map(?Arg(_,<id>))> fargs
+        ; pc := <MatchesAccessControlPointcut> (matchident,t1*)
+        ; rulematchtuples := <AccessControlPointcuts> pc
         ; newrules := <map(rule-tuple-to-ac-rule(|check,childrules))> rulematchtuples
 
   rule-tuple-to-ac-rule(|check,childrules):
@@ -59,27 +76,27 @@ rules
    // try(sometd(DesugarAccessControlRule))
 
   //DesugarAccessControlRule :
-  Desugar:
+  desugar:
     AccessControlRule("page", x, fargs, check, []) ->
     AccessControlRule("page", x, fargs, check, [AccessControlRule("action", "*", MatchArgs([], Some("*")), check, [])])
 
-  Desugar://AccessControlRule :
+  desugar://AccessControlRule :
     AccessControlRule("template", x, fargs, check, []) ->
     AccessControlRule("template", x, fargs, check, [AccessControlRule("action", "*", MatchArgs([], Some("*")), check, [])])
 
   // Prevent template rules inside page rules from getting action rules, because this is not allowed.
   // (the template rules inside page rules are for template calls which never contain actions)
-  DesugarAccessControlRule =
-    ?AccessControlRule("page", x, fargs, check, [a|xs])
+//  DesugarAccessControlRule =
+//    ?AccessControlRule("page", x, fargs, check, [a|xs])
 
   
   
   //anonymous policy block syntactic normalization
-  Desugar:
+  desugar:
     AccessControlDefinition(None(),defs) -> AccessControlDefinition(Some("anonymous"),defs)
   
   //emit predicate functions
-  Desugar:
+  desugar:
     AccessControlDefinition(nm,defs) -> AccessControlDefinition(nm,newdefs)
     where <alltd(\p@AccessControlPrincipal(_,_) -> p where <emit-webdsl-code> p \)> defs
         ; <alltd(\p@Predicate(_,_,_) -> p where <emit-webdsl-code> p \)> defs
@@ -88,16 +105,3 @@ rules
         ; not(defs := newdefs)//fail if nothing done to let other desugar on this element happen as well
      //; <debug> "desugar acdef"
  
-  //predicate definitions
-  Desugar:
-    pr@Predicate($ident,farg*,exp) ->
-      def |[
-        globals {
-          function $ident ( farg* ) : Bool
-          {
-            return e;
-          }
-        }        
-      ]|
-    where e := <add-not-null-checks> exp
-        ; <declare-definition> pr // declare before desugaring just to make sure the predicate status is known
