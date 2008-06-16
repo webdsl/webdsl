@@ -39,7 +39,6 @@
    SimpleSort                         -- _1,
    GenericSort                        -- H hs=0[_1 KW["<"] _2 KW[">"]],
    GenericSort.2:iter-sep             -- H hs=0[_1 KW[","]],
-   OptionalSort                       -- _1 KW["?"],
    SimpleAnno                         -- _1,
    InverseAnno			      -- KW["inverse"] KW["("] _1 KW["."] _2 KW[")"],
    InverseSlaveAnno		      -- KW["inverseSlave"] KW["("] _1 KW["."] _2 KW[")"],

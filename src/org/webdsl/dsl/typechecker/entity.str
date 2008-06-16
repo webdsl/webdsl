@@ -123,46 +123,60 @@ rules // typechecking entity declarations
         ; [InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos
         ; SimpleSort(_) := <TypeOfProperty> (ent, fld)
         ; GenericSort(_, _) := <TypeOfProperty> (i_ent, i_fld)
-    
-  // check all properties in the context of an entity    
-  // ruben: hier verder voor toevoegen ondersteuning vanaf de andere kant checken
-/*  constraint-error =
-    (  ?Entity(ent, _, props, _) 
-    <+ ?EntityNoSuper(ent, props, _) 
-    <+ ?ExtendEntity(ent, props, _)  )
-    ; */
-    
-    // ruben: hier verder met omzetten zodat <type-compatible> gebruikt wordt     
-/*  constraint-error =
-    (?Property(_, _, srt, annos) <+ ?DerivedProperty(_, _, srt, annos, _))
-    ; <check-anno-mismatch> (srt, annos)
   
-  check-anno-mismatch :
-    (srt, annos) -> <add-error(|["Type mismatch between attribute type ", <pp-webdsl> srt, " and inverse entity type ", <pp-webdsl> target_ent])>
-    where <filter(?InverseAnno(target_ent, fld))> annos
-        ; info(|"Eerste check-anno-mismatch")
-        ; <debug> srt
-        ; <debug> target_ent
-        ; not( <type-compatible> (srt, target_ent) )
-        ; info(|"Na check")
-*//*        ; not( (srt := SimpleSort(target_ent)) 
-            <+ (srt := GenericSort("Set",[SimpleSort(target_ent)]))
-            <+ (srt := GenericSort("List",[SimpleSort(target_ent)])) )
-*/            
+/**
+ * Check inverse annotations for
+ * - type-compatibility between srt2 and e2
+ * - type-compatibility between srt1 and e1
+ *
+ * Code example
+ *   entity e1 {
+ *     instance2 -> srt2 (inverse=e2.instance1)
+ *   }
+ *   entity e2 {
+ *     instance1 -> srt1
+ *   }
+ */
+  
+  // check all properties in the context of an entity. This is necessary for the inverse check on attribute type
+  constraint-error =
+    (  ?Entity(ent1, _, props, _) 
+    <+ ?EntityNoSuper(ent1, props, _) 
+    <+ ?ExtendEntity(ent1, props, _)  )
+    ; where (
+        <map(check-property-inverse-annos(|ent1))> props
+      )
+  
+  // takes care of different constructor types of properties
+  check-property-inverse-annos(|ent1) =
+    (?Property(_, _, srt2, annos) <+ ?DerivedProperty(_, _, srt2, annos, _))
+    ; <check-property-inverse-annos> (ent1, srt2, annos)
 
-/*  check-anno-mismatch :
-    (srt, annos) -> <add-error(|["Type mismatch between inverse attribute type (", <pp-webdsl> anno_srt, ") and entity type ", <pp-webdsl> srt])>
-    where <filter(?InverseAnno(target_ent, fld))> annos
-        ; info(|"Tweede check-anno-mismatch")
-        ; anno_srt := <TypeOfProperty> (target_ent, fld)
-        ; not( (anno_srt := SimpleSort(srt)) 
-            <+ (anno_srt := GenericSort("Set",[SimpleSort(srt)]))
-            <+ (anno_srt := GenericSort("List",[SimpleSort(srt)])) )
-        ; info(|"voor debugs in inverse-check")
-        ; <debug> srt
-        ; <debug> target_ent
-        ; <debug> anno_srt
-*/
+  // check type-compatibility between srt2 and e2
+  check-property-inverse-annos :
+    (ent1, srt2, annos) -> <add-error(|["Type mismatch between attribute type ", <pp-webdsl> srt2, " and inverse entity type ", <pp-webdsl> ent2])>
+    where <filter(?InverseAnno(ent2, fld))> annos
+        ; <debug> (srt2, SimpleSort(ent2))
+        ; not( <inverse-compatible> (srt2, SimpleSort(ent2)) )
+        
+  // check type-compatibility between srt1 and e1
+  check-property-inverse-annos :
+    (ent1, srt2, annos) -> <add-error(|["Type mismatch between inverse attribute type ", <pp-webdsl> srt1, " and entity type ", <pp-webdsl> ent1])>
+    where <filter(?InverseAnno(ent2, fld))> annos
+        ; properties := <Properties> ent2
+        ; <fetch(
+               ?Property(fld, _, srt1, _) 
+            <+ ?PropertyNoAnno(fld, _, srt1)
+            <+ ?DerivedProperty(fld, _, srt1, _, _)
+            <+ ?DerivedPropertyNoAnno(fld, _, srt1, _))
+          > properties
+        ; <debug> (SimpleSort(ent1), srt1)
+        ; not( <inverse-compatible> (SimpleSort(ent1), srt1) )
+      
+  inverse-compatible = ?(srt, srt)
+  inverse-compatible = ?(GenericSort(_, [srt]), srt)
+  inverse-compatible = ?(srt, GenericSort(_, [srt]))
+
 
 /*  constraint-error =
     (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
