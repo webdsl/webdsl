@@ -2,6 +2,7 @@ module org/webdsl/dsl/modules/enum
 
 imports
   libstrategolib
+  libwebdsl-front
 
 rules
 
@@ -9,13 +10,27 @@ rules
     EnumValue(y, str) -> |[ var y : srt := x { name := str }; ]|
     where srt := SimpleSort(x)
 
-  Desugar:
-    Enum(x, value*) -> def|[
+  desugar :
+    Enum(x, value*) -> <rename-all> def|[
       entity x {
         name :: String
       }
     ]|
     where <emit-webdsl-code> GlobalsDefinition(<map(enum-generate-vardecl(|x))> value*)
-    // This may seem a bit hacky, and it is. Here's the reasoning: you can only replace a node with one other node and we need to emit two nodes here: an entity and a globals block
-    // How I solved this now is by replacing the enum by its entity definition and emiting the globals block to be included later
 
+  rename :
+    Enum(x, value*) -> Enum(x, value*)
+    where declare-enum
+
+  declare-enum :
+    Enum(x, value*) -> <id>
+    where <declare-entity> def|[
+            entity x {
+              name :: String
+            }
+          ]|
+          ; <map(declare-enum-value(|x))> value*
+
+  declare-enum-value(|srt) :
+    EnumValue(y, str) -> <id>
+    where rules ( TypeOf : y -> srt )
