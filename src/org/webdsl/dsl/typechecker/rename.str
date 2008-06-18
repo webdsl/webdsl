@@ -20,173 +20,174 @@ rules
 
   rename-all = alltd(rename)
 
-  rename = RenameVar <+ RenameQualified <+ RenameAssignment
+  rename = Rename// <+ RenameQualified <+ RenameAssignment
 
   rename-bound(|srt) :
-    x {a*} -> y
-    where y := x{^[<newname> x | a*]}
-        ; rules ( RenameVar : Var(x) -> Var(y)
-                  RenameQualified : Qualified(x, z) -> Qualified(y, z)
-                  RenameAssignment : Assignment(x, z) -> Assignment(y, z)
-                  TypeOf    : y -> srt )
+    x -> y
+    with y := x{<newname> x}
+       ; rules ( Rename : Var(x) -> Var(y)
+                 Rename : Qualified(x, z) -> Qualified(y, z)
+                 Rename : Assignment(x, e) -> Assignment(y, <rename-all> e)
+                 TypeOf    : y -> srt )
 
   rename :
     VarDecl(x, srt) -> VarDecl(y, srt)
-    where y := <rename-bound(|srt)> x
+    with y := <rename-bound(|srt)> x
 
   rename :
     VarDeclInit(x, srt, e) -> VarDeclInit(y, srt, e')
-    where e' := <rename-all> e
-        ; y := <rename-bound(|srt)> x
+    with e' := <rename-all> e
+       ; y := <rename-bound(|srt)> x
 
   rename :
     Define(mods, f, args1, elems1) -> <declare-template-definition> Define(mods, f, args2, elems2)
-    where {| RenameVar
-           : args2 := <map(rename)> args1
-           ; elems2 := <alltd(rename-action); rename-all> elems1
-           ; if [Page()] := mods then
-               rules ( TypeOf : f -> "Component" )
-             end
-           |}
+    with {| Rename
+          : args2 := <map(rename)> args1
+          ; elems2 := <alltd(rename-action); rename-all> elems1
+          ; if [Page()] := mods then
+              rules ( TypeOf : f -> "Component" )
+            end
+          |}
 
   rename :
     Function(x, args1, srt, b1) -> <declare-global-func <+ debug> Function(x, args2, srt, b2)
-    where {| RenameVar
-           : args2 := <map(rename)> args1
-           ; b2 := <rename-all> b1
-           |}
+    with {| Rename
+          : args2 := <map(rename)> args1
+          ; b2 := <rename-all> b1
+          |}
 
   rename :
     FunctionNoReturn(x, args1, b1) -> <declare-global-func <+ debug> FunctionNoReturn(x, args2, b2)
-    where {| RenameVar
-           : args2 := <map(rename)> args1
-           ; b2 := <rename-all> b1
-           |}
+    with {| Rename
+          : args2 := <map(rename)> args1
+          ; b2 := <rename-all> b1
+          |}
 
   rename :
     Entity(x_class, s, props1, functions1) -> <declare-entity> Entity(x_class, s, props2, functions2)
-    where {| RenameVar
-           : y := <rename-bound(|SimpleSort(x_class))> "this"
-           ; props2 := <rename-all> props1
-           ; functions2 := <rename-all> functions1
-           |}
+    with {| Rename
+          : y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; props2 := <rename-all> props1
+          ; functions2 := <rename-all> functions1
+          |}
 
   rename :
     EntityNoSuper(x_class, props1, functions1) -> <declare-entity> EntityNoSuper(x_class, props2, functions2)
-    where {| RenameVar
-           : y := <rename-bound(|SimpleSort(x_class))> "this"
-           ; props2 := <rename-all> props1
-           ; functions2 := <rename-all> functions1
-           |}
+    with {| Rename
+          : y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; props2 := <rename-all> props1
+          ; functions2 := <rename-all> functions1
+          |}
 
   rename :
     SessionEntity(nm, props1, functions1) -> <declare-entity> SessionEntity(nm, props2, functions2)
-    where {| RenameVar
-           : x_class := <capitalize-string> nm
-           ; y := <rename-bound(|SimpleSort(x_class))> "this"
-           ; props2 := <rename-all> props1
-           ; functions2 := <rename-all> functions1
-           |}
+    with {| Rename
+          : x_class := <capitalize-string> nm
+          ; y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; props2 := <rename-all> props1
+          ; functions2 := <rename-all> functions1
+          |}
            
   rename :         
     ExtendSessionEntity(x_class1, props1, funcs1) -> <declare-extend-entity> ExtendSessionEntity(x_class, props2, funcs2) 
-    where {| RenameVar
-           : x_class := <capitalize-string> x_class1 
-           ; y := <rename-bound(|SimpleSort(x_class))> "this"
-           ; props2 := <rename-all> props1
-           ; funcs2 := <rename-all> funcs1
-           |}
+    with {| Rename
+          : x_class := <capitalize-string> x_class1 
+          ; y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; props2 := <rename-all> props1
+          ; funcs2 := <rename-all> funcs1
+          |}
+
   rename :
     ExtendEntity(x_class, props1, funcs1) ->  <declare-extend-entity> ExtendEntity(x_class, props2, funcs2) 
-    where {| RenameVar
-           : y := <rename-bound(|SimpleSort(x_class))> "this"
-           ; props2 := <rename-all> props1
-           ; funcs2 := <rename-all> funcs1
-           |}
+    with {| Rename
+          : y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; props2 := <rename-all> props1
+          ; funcs2 := <rename-all> funcs1
+          |}
 
   rename-action = ?Define(_, _, _, _) // End of scope
 
   rename-action :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
-    where {| RenameVar
-           : args2 := <map(rename)> args1
-           ; b2 := <rename-all> b1
-           |}
-        ; nm2 := nm1{<newname> nm1}
-        ; rules ( RenameActionCall :
-                    ThisCall(nm1, a1*) -> ThisCall(nm2, a2*)
-                    where a2* := <rename-all> a1* )
-        ; <declare-action> Action(nm2, args2, b1)
+    with {| Rename
+          : args2 := <map(rename)> args1
+          ; b2 := <rename-all> b1
+          |}
+       ; nm2 := nm1{<newname> nm1}
+       ; rules ( RenameActionCall :
+                  ThisCall(nm1, a1*) -> ThisCall(nm2, a2*)
+                  where a2* := <rename-all> a1* )
+       ; <declare-action> Action(nm2, args2, b1)
 
   rename = RenameActionCall
 
   rename :
     For(x, srt, e1, f1, elems1) -> For(y, srt, e2, f2, elems2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; e2 := <rename-all> e1
-           ; f2 := <rename-all> f1
-           ; elems2 := <rename-all> elems1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; e2 := <rename-all> e1
+          ; f2 := <rename-all> f1
+          ; elems2 := <rename-all> elems1
+          |}
 
   rename :
     ForNoFilter(x, srt, e1, elems1) -> ForNoFilter(y, srt, e2, elems2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; e2 := <rename-all> e1
-           ; elems2 := <rename-all> elems1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; e2 := <rename-all> e1
+          ; elems2 := <rename-all> elems1
+          |}
 
   rename :
     ForAll(x, srt, f1, elems1) -> ForAll(y, srt, f2, elems2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; f2 := <rename-all> f1
-           ; elems2 := <rename-all> elems1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; f2 := <rename-all> f1
+          ; elems2 := <rename-all> elems1
+          |}
 
 
   rename :
     ForAllNoFilter(x, srt, elems1) -> ForAllNoFilter(y, srt, elems2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; elems2 := <rename-all> elems1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; elems2 := <rename-all> elems1
+          |}
 
   rename :
     ForStmt(x, srt, e1, f1, b1) -> ForStmt(y, srt, e2, f2, b2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; e2 := <rename-all> e1
-           ; f2 := <rename-all> f1
-           ; b2 := <rename-all> b1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; e2 := <rename-all> e1
+          ; f2 := <rename-all> f1
+          ; b2 := <rename-all> b1
+          |}
 
   rename :
     ForStmtNoFilter(x, srt, e1, b1) -> ForStmtNoFilter(y, srt, e2, b2)
-    where {| RenameVar
-           : y := <rename-bound(|srt)> x
-           ; e2 := <rename-all> e1
-           ; b2 := <rename-all> b1
-           |}
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; e2 := <rename-all> e1
+          ; b2 := <rename-all> b1
+          |}
 
   rename :
     ForExp(oe1, x, s, ie1, f1) -> ForExp(oe2, y, s, ie2, f2)
-    where  {| RenameVar
-            : y := <rename-bound(|s)> x
-            ; oe2 := <rename-all> oe1
-            ; f2 := <rename-all> f1
-            |}
-           ; ie2 := <rename-all> ie1
+    with  {| Rename
+           : y := <rename-bound(|s)> x
+           ; oe2 := <rename-all> oe1
+           ; f2 := <rename-all> f1
+           |}
+          ; ie2 := <rename-all> ie1
 
   rename :
     ForExpNoFilter(oe1, x, s, ie1) -> ForExpNoFilter(oe2, y, s, ie2)
-    where  {| RenameVar
-            : y := <rename-bound(|s)> x
-            ; oe2 := <rename-all> oe1
-            |}
-           ; ie2 := <rename-all> ie1
+    with {| Rename
+          : y := <rename-bound(|s)> x
+          ; oe2 := <rename-all> oe1
+          |}
+         ; ie2 := <rename-all> ie1
 
   rename :
     Arg(x, srt) -> Arg(y, srt)
-    where y := <rename-bound(|srt)> x
+    with y := <rename-bound(|srt)> x
