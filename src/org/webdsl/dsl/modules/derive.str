@@ -20,6 +20,42 @@ imports
   libstrategolib
   libwebdsl-front
 
+rules // typechecking derive statements
+
+  /**
+   * checks whether the given entity e has a property with name prop
+   */
+/*  constraint-error =
+    ?elem|[ derive x_deriveType from e for (dprop*) ]|
+    ; info(|"checking constraint 1")
+    ; <map(check-derive-property-exists(|e))> dprop*
+
+  check-derive-property-exists(|e) :
+    DeriveDefault(prop) -> <add-error(|["entity '", e, "' has no property '", prop, "'"])>
+    where info(|"start gemapte 1")
+        ; try(info(|"debugging typeofproperty: "); <debug> <TypeOfProperty> (e, prop))
+        ; not(<TypeOfProperty> (e, prop))
+*/
+  /**
+   * checks whether the given property is not a derived property
+   */
+/*  constraint-error =
+    ?elem|[ derive x_deriveType from e for (dprop*) ]|
+    ; info(|"checking constraint 2")
+    ; where(
+        info(|"voor is-derive-edit-type")
+        ; <is-derive-edit-type> x_deriveType
+        ; info(|"na is-derive-edit-type")
+        ; <debug> dprop*
+        ; <map(check-derive-derivedproperty(|e))> dprop*
+        ; info(|"einde constraint 2")
+      )
+
+  check-derive-derivedproperty(|e) :
+    DeriveDefault(prop) -> <add-error(|["property ", prop, " is a derived property and hence cannot be edited"])>
+    where <IsDerivedProperty> (e, prop)
+*/
+
 rules // desugaring
 
   desugar = derive-page 
@@ -27,51 +63,44 @@ rules // desugaring
   desugar = derive-view-rows
   desugar = desugar-derive
   
-  // if no properties given, add all properties
-  
-  desugar-derive :
+  /**
+   * If no properties given, add all properties
+   *
+   * The difference between viewPage and other pages is that for viewPage, derived properties
+   *   are included.
+   */
+  desugar-derive : // gather properties for derive editPage and createPage
     elem|[ derive x_deriveType from e ]| -> 
     elem|[ derive x_deriveType from e for (dprop*) ]|
-    where SimpleSort(t) := <type-of> e
-        ; dprop* := <Properties; filter(\ Property(name,_,_,_) -> DeriveDefault(name) \)> t
+    where <is-derive-edit-type> x_deriveType
+        ; SimpleSort(t) := <type-of> e
+        ; dprop* := <Properties; filter(
+               \Property(name,_,_,_) -> DeriveDefault(name) \ 
+            <+ \PropertyNoAnno(name,_,_) -> DeriveDefault(name)\ 
+          )> t
+  
+  desugar-derive : // gather properties for derive viewPage
+    elem|[ derive x_deriveType from e ]| -> 
+    elem|[ derive x_deriveType from e for (dprop*) ]|
+    where <is-derive-view-type> x_deriveType
+        ; SimpleSort(t) := <type-of> e
+        ; dprop* := <Properties; filter( 
+               \Property(name,_,_,_) -> DeriveDefault(name) \
+            <+ \PropertyNoAnno(name,_,_) -> DeriveDefault(name) \
+            <+ \DerivedProperty(name,_,_,_,_) -> DeriveDefault(name) \
+            <+ \DerivedPropertyNoAnno(name,_,_,_) -> DeriveDefault(name) \
+          )> t
 
-rules // typechecking
+  is-derive-edit-type =
+    ?"editPage" <+ ?"createPage"
 
-  /**
-   * Typechecking: annotate x and check that dprop* are all properties of x
-   */
-  /* @REFACTOR
-  typecheck-page-element = typecheck-derive
+  is-derive-view-type =
+    ?"viewPage"
 
-  typecheck-derive :
-    elem|[ derive x from e1 ]| -> elem|[ derive x from e2 ]|
-    //Derive(deriveType, e) -> Derive(deriveType, e')
-    where e2 := <typecheck-expression> e1
-        ; SimpleSort(u) := <type-of> e2
 
-  typecheck-derive :
-    Derive(deriveType, e, dprop*) -> Derive(deriveType, e', dprop*)
-    where e' := <typecheck-expression> e
-        ; SimpleSort(u) := <type-of> e'
-        ; <map(typecheck-derive-property(|u))> dprop*
-      
-  typecheck-derive-property(|u) : 
-    DeriveDefault(f) -> DeriveDefault(f)
-    where if not(<TypeOfProperty> (u, f)) then
-            typecheck-error(|["entity '", u, "' has no property '", f, "'"])
-          end
-          
-  typecheck-derive-property(|u) : 
-    DeriveMode(m, f) -> DeriveMode(m, f)
-    where if not(<TypeOfProperty> (u, f)) then
-            typecheck-error(|["entity '", u, "' has no property '", f, "'"])
-          end
-*/
 rules // deriving pages
 
-  /**
-   * Generate core WebDSL for: derive editPage from e for (property1, property2)
-   */
+  // derive editPage from e for (property1, property2)
   derive-page : 
     elem|[ derive editPage from e for (dprop*) ]| -> 
     <rename-all> elem|[ 
@@ -86,14 +115,20 @@ rules // deriving pages
             action("Save", save()) 
           }
           action save() { 
-            return x_view (e ); 
+            //return x_view (e ); @todo: what pages do exist at this time?
+            return home();
           }
         }
       } 
     ]| 
-    where SimpleSort(srt) := <type-of> e
+    where info(|"derive editPage start")
+        ; <debug> dprop*
+        ; SimpleSort(srt) := <type-of> e
+        ; <debug> srt
         ; x_view := <decapitalize-string> srt 
+        ; info(|"derive editPage end")
 
+  // derive createPage from e for (property1, property2)
   derive-page : 
     elem|[ derive createPage from e for (dprop*) ]| ->
     <rename-all> elem|[ 
@@ -109,17 +144,19 @@ rules // deriving pages
           }
           action save() { 
             e.save(); 
-            return x_view (e ); 
+            //return x_view (e ); @todo: what pages do exist at this time?
+            return home();
           }
         }
       } 
     ]| 
-    where SimpleSort(srt) := <type-of> e
+    where info(|"derive createPage") 
+        ; SimpleSort(srt) := <type-of> e
+        ; <debug> srt
         ; x_view := <decapitalize-string> srt 
+        ; info(|"derive createPage end")
 
-  /**
-   * Generate core WebDSL for: derive viewPage from e for (property1, property2)
-   */
+  // derive viewPage from e for (property1, property2)
   derive-page : 
     elem|[ derive viewPage from e for (dprop*) ]| ->
     <rename-all> elem|[ 
@@ -133,21 +170,28 @@ rules // deriving pages
         } 
       }
     ]| 
-    where SimpleSort(srt) := <type-of> e
+    where info(|"derive viewPage start")
+        ; SimpleSort(srt) := <type-of> e
+        ; <debug> srt
         ; x_view := <decapitalize-string> srt 
+        ; info(|"derive viewPage end")
 
 rules // derives edit rows for specified properties
 
   derive-edit-rows :
     elem|[ derive editRows from e for (dprop*) ]| -> elem|[dummy(){elem*}]| 
-    where elem* := <filter-warn(derive-edit-row(|e )|"not a valid mode for edit row")> dprop*
+    where info(|"derive editRows start")
+        ; elem* := <filter-warn(derive-edit-row(|e )|"not a valid mode for edit row")> dprop*
+        ; info(|"derive editRows end")
 
   derive-edit-row(|e) : 
     DeriveDefault(y) -> <derive-edit-row(|e)> DeriveMode("edit", y)
     
   derive-edit-row(|e ) : 
     DeriveMode("edit", y) -> elem|[row{str input(e.y )}]| 
-    where str := <concat-strings> [<make-human-readable> y , ": "]
+    where info(|"Derive editRow")
+        ; debug
+        ; str := <concat-strings> [<make-human-readable> y , ": "]
     
   derive-edit-row(|e ) : 
     DeriveMode("view", y) -> elem|[row{str output(e.y )}]| 
@@ -157,7 +201,9 @@ rules // derives view rows for specified properties
 
   derive-view-rows :
     elem|[ derive viewRows from e for (dprop*) ]| -> elem|[ dummy(){elem*} ]| 
-    where elem* := <filter-warn(derive-view-row(|e )|"not a valid mode for view row")> dprop*
+    where info(|"derive viewRows start")
+        ; elem* := <filter-warn(derive-view-row(|e )|"not a valid mode for view row")> dprop*
+        ; info(|"derive viewRows end")
 
   derive-view-row(|e) : 
     DeriveDefault(y) -> <derive-view-row(|e)> DeriveMode("view", y)
