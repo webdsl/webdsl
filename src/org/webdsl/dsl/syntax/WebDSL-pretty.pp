@@ -220,9 +220,9 @@
    AccessControlPointcut.2:iter-star-sep        -- _1 KW[","],
    AccessControlPointcut.3:iter-star-sep        -- _1 KW[","],
    ACPolicy                                     -- KW["access"] KW["control"] KW["policy"] _1,
+   PolicyAnd                                    -- _1 KW["AND"] _2,
+   PolicyOr                                     -- _1 KW["OR"] _2,
    Name                                         -- _1,
-   And                                          -- _1 KW["AND"] _2,
-   Or                                           -- _1 KW["OR"] _2,
    
    %%input validation
    Validator                                    -- KW["validator"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"] KW[":"] _4,
