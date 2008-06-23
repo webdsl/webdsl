@@ -27,7 +27,7 @@ rules
   
   process-page-checks://TODO substpagevars
     def|[ define page x_ident(farg*){ elem* }       ]| -> 
-    <rename-all> def|[ define page x_ident(farg*){ elem elem1* } ]|
+    def|[ define page x_ident(farg*){ elem elem1* } ]|
     where // collect takes care of duplicates
           listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> (x,e) \)> elem*
         ; e := <combine-checks> listofchecks
@@ -50,15 +50,16 @@ rules
   //separated from page and template accheck processing for clarity
   process-page-actions:
     def|[ define page x_ident(farg*){ elem*  } ]| -> 
-    <rename-all> def|[ define page x_ident(farg*){ elem2* } ]|
+    def|[ define page x_ident(farg*){ elem2* } ]|
     where elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
-    def|[ define x_ident(farg*){ elem* }  ]| -> //<declare-template-definition> 
-    <rename-all> def|[ define x_ident(farg*){ elem2* } ]|
+    def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
+    def|[ define x_ident(farg*){ elem3* } ]|
     where elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+        ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
   
   substitute-parent-vars-1:
     (farg1*,e1) -> (farg2*,e2)
@@ -66,6 +67,7 @@ rules
                farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
                           where varname := <newname> "genuniquevar" 
                               ; rules(//subst-vars: PageVar(nm)->Var(varname)
+                                     TypeOf : varname -> srt
                                      subst-vars: Var(nm)->Var(varname)
                               ))})> farg1*
            ; e2 := <alltd(subst-vars)> e1
@@ -75,7 +77,9 @@ rules
     where {| subst-vars:
                farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
                           where varname := <newname> "genuniquevar" 
-                              ; rules(subst-vars: ExternalScopeVar(nm)->Var(varname)
+                              ; rules(
+                                     TypeOf : varname -> srt
+                                     subst-vars: ExternalScopeVar(nm)->Var(varname)
                                      //subst-vars: Var(nm)->Var(varname)
                               ))}<+info(|["map failed",<id>]))> farg1*
            ; e2 := <alltd(subst-vars)> e1
@@ -84,8 +88,8 @@ rules
   
   process-action-checks(|farg4*): //page farg
     elem|[ action x_ident(farg*){ stat*  } ]| -> 
-    <rename-all> elem|[ action x_ident(farg*){ stat3* } ]|
-    where
+    elem|[ action x_ident(farg2*){ stat3* } ]|
+    where  
           listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*
         ; e1 := <combine-checks> listofchecks
         ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
@@ -108,11 +112,19 @@ rules
                        ; e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
                        ; e4* := [e5*,e3*]
                )
-       
+       // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
+       // reach it, eg in the case of a for loop var in the page passed as argument to a template
+       ; farg2* := [farg4*,farg*]
+       ; e8* := <map(get-varname-from-formarg)> farg4*
+       ; rules (AddTemplateArgToActionArg: 
+                   elem|[  x ( e7, x_ident(e3*) ) { elem* }  ]| ->
+                   elem|[  x ( e7, x_ident(e9*) ) { elem* }  ]|
+                   where e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
+        )  
       
   process-template-checks:
-    def|[ define x_ident(farg*){ elem* }  ]| -> //<declare-template-definition> 
-    <rename-all> def|[ define x_ident(farg*){ elem2* } ]|
+    def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
+    def|[ define x_ident(farg*){ elem2* } ]|
     where listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
         ; e := <combine-checks> listofchecks
         ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
