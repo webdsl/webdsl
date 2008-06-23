@@ -49,7 +49,7 @@ rules
   
   //separated from page and template accheck processing for clarity
   process-page-actions:
-    def|[ define page x_ident(farg*){ elem*  } ]| -> 
+    def|[ define page x_ident(farg*){ elem*  } ]| ->
     def|[ define page x_ident(farg*){ elem2* } ]|
     where elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
@@ -57,9 +57,11 @@ rules
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
     def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
     def|[ define x_ident(farg*){ elem3* } ]|
-    where elem1* := <alltd(process-action-checks(|farg*))> elem*
-        ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
-        ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
+    where {| InTemplate: rules(InTemplate:anything)
+             ; elem1* := <alltd(process-action-checks(|farg*))> elem*
+             ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+             ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
+          |}
   
   substitute-parent-vars-1:
     (farg1*,e1) -> (farg2*,e2)
@@ -112,15 +114,19 @@ rules
                        ; e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
                        ; e4* := [e5*,e3*]
                )
-       // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
-       // reach it, eg in the case of a for loop var in the page passed as argument to a template
-       ; farg2* := [farg4*,farg*]
-       ; e8* := <map(get-varname-from-formarg)> farg4*
-       ; rules (AddTemplateArgToActionArg: 
-                   elem|[  x ( e7, x_ident(e3*) ) { elem* }  ]| ->
-                   elem|[  x ( e7, x_ident(e9*) ) { elem* }  ]|
-                   where e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
-        )  
+        // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
+        // reach it, eg in the case of a for loop var in the page passed as argument to a template
+        ; if InTemplate then
+            farg2* := [farg4*,farg*]
+          ; e8* := <map(get-varname-from-formarg)> farg4*
+          ; rules (AddTemplateArgToActionArg: 
+                       elem|[  x ( e7, x_ident(e3*) ) { elem* }  ]| ->
+                       elem|[  x ( e7, x_ident(e9*) ) { elem* }  ]|
+                       where e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
+            )  
+          else
+            farg2* := farg*
+          end
       
   process-template-checks:
     def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
