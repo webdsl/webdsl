@@ -3,92 +3,22 @@ module org/webdsl/dsl/modules/procedures/typechecker
 imports
   libstrategolib
   libwebdsl-front
-
-rules // Renaming
-
-  
-rules // Declaring
-
-  declare-procedure =
-    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
-    ; where (id
-      ; who-exp := <procedure-who-exp> def
-      ; when-exp := <procedure-when-exp> def
-      ; SimpleSort(s) := srt
-      ; hasopfun := <concat-strings> [<decapitalize-string> s, "HasProcedures"]
-      ; procstatus := x_id
-      ; rules ( 
-          IsProcedure      : x_id 
-          ProcedureWho     : x_id -> who-exp
-          ProcedureWhen    : x_id -> And(FieldAccess(FieldAccess(Var(x_o), procstatus), "enabled"), when-exp)
-          ProcedureArg     : x_id -> x_o
-          ProcedureArgSort : x_id -> srt
-          Procedures       :+ srt -> x_id 
-          CheckGeneratedGlobalFunctionSignature : 
-            (None(), hasopfun, [srt]) -> SimpleSort("Bool")
-          ProcedureEntities :+= srt 
-        )
-      ; if [] := <procedure-view-elems> def then
-          rules ( IsDoProcedure : x_id )
-        end
-    )
       
 rules // Typechecking
 
-//  typecheck-section :
-//    Procedures(nm, defs) -> Procedures(nm, defs2)
-//    where defs2 := <typecheck-definitions> defs
-    
-  /* @REFACTOR
-  typecheck-procedure :
-    Procedure(nm, Arg(o, srt), elems) -> Procedure(nm, Arg(o, srt), elems2)
-    where {| TypeOf
-           : rules ( TypeOf : "status" -> srt ) 
-           ; rules ( TypeOf : o -> srt )
-           ; <collect(vardecl-to-arg; declare-typeof-arg)> elems 
-           ; elems2 := <map(typecheck-procedure-element <+ typecheck-error(|["Could not typecheck: ", <id>]))> elems
-           |} */
+  constraint-error :
+    ProcedureWho(e) -> <add-error(|["Expression in who should return a boolean: ", e])>
+    where not(SimpleSort("Bool") := <type-of> e)
+
+  constraint-error :
+    ProcedureWhen(e) -> <add-error(|["Expression in when should return a boolean: ", e])>
+    where not(SimpleSort("Bool") := <type-of> e)
+
+  constraint-error :
+    ProcedureDone(e) -> <add-error(|["Expression in done should return a boolean: ", e])>
+    where not(SimpleSort("Bool") := <type-of> e)
        
-  vardecl-to-arg :
-    VarDecl(x, srt) -> Arg(x, srt)
-    
-  vardecl-to-arg :
-    VarDeclInit(x, srt, e) -> Arg(x, srt)
-
-  /* @REFACTOR
-  typecheck-procedure-element :
-    ProcedureWho(e) -> ProcedureWho(e2)
-    where e2 := <typecheck-expression> e
-        ; if not(SimpleSort("Bool") := <type-of> e2) then
-            typecheck-error(|["Expression in who should return a boolean: ", e2])
-          end
-
-  typecheck-procedure-element :
-    ProcedureWhen(e) -> ProcedureWhen(e2)
-    where e2 := <typecheck-expression> e
-        ; if not(SimpleSort("Bool") := <type-of> e2) then
-            typecheck-error(|["Expression in when should return a boolean: ", e2])
-          end
-
-  typecheck-procedure-element :
-    ProcedureView(el*) -> ProcedureView(el2*)
-    where el2* := <typecheck-page-elements> el*
-
-  typecheck-procedure-element :
-    ProcedureDo(b) -> ProcedureDo(b2)
-    where b2 := <typecheck-block> b
-
-  typecheck-procedure-element :
-    ProcedureDone(e) -> ProcedureDone(e2)
-    where e2 := <typecheck-expression> e
-        ; if not(SimpleSort("Bool") := <type-of> e2) then
-            typecheck-error(|["Expression in done should return a boolean: ", e2])
-          end
-
-  typecheck-procedure-element :
-    ProcedureProcessed(b) -> ProcedureProcessed(b2)
-    where b2 := <typecheck-block> b
-*/
+  // allow these signatures 
   check-builtin-signature : (SimpleSort("ProcedureStatus"), "enable", []) -> SimpleSort("Void")
   check-builtin-signature : (SimpleSort("ProcedureStatus"), "disable", []) -> SimpleSort("Void")
   check-builtin-signature : (SimpleSort("ProcedureStatus"), "do", []) -> SimpleSort("Void")

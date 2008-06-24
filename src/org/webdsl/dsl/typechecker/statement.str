@@ -33,9 +33,10 @@ rules // typechecking statements
     Assign(Assignment(qid, e)) -> <add-error(|["expression ", e, " cannot be assigned to ", <pp-webdsl> qid, " due to type-incompatibility."])>
     where not(<type-compatible> (qid, e))
 
-  constraint-error :
-    If(e, bif, belse) -> <add-error(|["expression ", e, " should be of type Bool"])>
-    where not(SimpleSort("Bool") := <TypeOf> e)
+  constraint-error =
+    (?If(e, bif, belse) <+ ?IfNoElse(e, bif))
+    ; not(SimpleSort("Bool") := <type-of> e)
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
 
   constraint-error :
     VarDecl(x, srt) -> <add-error(|["No such type ", <pp-webdsl> srt])>
@@ -49,33 +50,42 @@ rules // typechecking statements
     VarDeclInit(x, srt, e) -> <add-error(|["Expression ", <pp-webdsl> e, " is not of type ", <pp-webdsl> srt])>
     where not(srt := <type-of> e)
 
-/*  constraint-error =
-    (    ?ForStmt(v, s, e1, Filter(we1, obe1), _)
-      <+ ?ForStmtNoFilter(v, s, e1, Filter(we1, obe1)) )
-    ; where (
-        
-      )*/
-      
-/*
-  typecheck-for :
-    ForStmt(v, s, e1, Filter(we1, obe1), bstm1) -> ForStmt(v, s, e2, Filter(we2, obe2), bstm2)
-    where {| TypeOf
-           : rules(TypeOf : v -> s)
-           ; e2 := <typecheck-expression> e1
-           ; if not(<?_{Type(GenericSort(_, [<sort-literal> s]))}> e2) then // TODO: This only accepts List<SimpleSort>-like lists, not List<List<Int>> for example.
-               typecheck-error(|["expression ", e2, " should be of type [SomeGenerichType]<", s, ">"])
-             end
-           ; bstm2 := <typecheck-block> bstm1
-           ; we2 := <typecheck-expression> we1
-           ; obe2 := <typecheck-order-expression> obe1
-           ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
-               typecheck-error(|["where clause should return a boolean: ", we2])
-             end
-             // TODO: Check type of obe2, not sure what this should do yet
-           |}
-           */
+  // check for expression
+  constraint-error =
+    (    ?ForStmt(_, s, e, _, _)
+      <+ ?ForStmtNoFilter(_, s, e, _) )
+    ; not(GenericSort(_, [<sort-literal> s]) := <type-of> e)
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type [SomeGenericType]<", <pp-webdsl> s, ">"]) 
+  
+  sort-literal :
+    SimpleSort(x) -> x
+
+  // check where-expression in filter
+  constraint-error =
+    (    ?ForStmt(_, _, _, Filter(we, _), _)
+      <+ ?ForStmt(_, _, _, FilterNoOrderBy(we), _) )
+    ; not(SimpleSort("Bool") := <type-of> we)
+    ; add-error(|["where clause should return a boolean: ", <pp-webdsl> we])
+
+/* first implement order-expressions in a more thorough way, then add typechecking for it.
+  // check order-expression in filter
+  constraint-error =
+    (    ?ForStmt(_, _, _, Filter(we, obe), _)
+      <+ ?ForStmt(_, _, _, FilterNoWhere(obe), _) )
+    ; <check-orderexp> obe
+  
+  check-orderexp =
+    (    ?OrderNonSpecific(e)
+      <+ ?OrderAscending(e)
+      <+ ?OrderDescending(e) )
+    ; 
+*/
+
+
+
+
            
-/* @REFACTOR
+/* @REFACTORED
   typecheck-stat =
     typecheck-block
     <+ typecheck-assignment-stat
@@ -142,9 +152,6 @@ rules // typechecking statements
              end
              // TODO: Check type of obe2, not sure what this should do yet
            |}
-
-  sort-literal :
-    SimpleSort(x) -> x
 
   typecheck-return :
     Return(e1) -> Return(e2)

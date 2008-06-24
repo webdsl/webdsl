@@ -27,7 +27,9 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
     $(wildcard org/webdsl/dsl/*/*.pp) \
     $(wildcard org/webdsl/dsl/modules/*/*.str) \
-    $(wildcard org/webdsl/dsl/modules/*/*.meta)
+    $(wildcard org/webdsl/dsl/modules/*/*.meta) \
+    $(wildcard org/webdsl/dsl/modules/*/*/*.str) \
+    $(wildcard org/webdsl/dsl/modules/*/*/*.meta)
 
 ### syntax definitions
 
