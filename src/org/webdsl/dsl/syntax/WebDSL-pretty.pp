@@ -287,5 +287,6 @@
    ProcOR                                       -- _1 KW["|OR|"] _2,
    ProcAND                                      -- _1 KW["|AND|"] _2,
    ProcPLUS                                     -- _1 KW["+"] _2,
-   RemoveMe                                     -- KW["RemoveMe"]
+   RemoveMe                                     -- KW["RemoveMe"],
+   ExtendProcedure                              -- KW["extend"] _1
 ]

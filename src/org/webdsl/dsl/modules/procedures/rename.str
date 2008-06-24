@@ -15,10 +15,21 @@ rules // Renaming
           ; procelem2* := <rename-all> procelem1*
           |}
   
+  rename :
+    def@def|[ auto procedure x_id (x_o1 : srt) { procelem1* }  ]| -> 
+      <declare-procedure> def|[ auto procedure x_id (x_o2 : srt) { procelem2* }  ]| 
+    with {| Rename, InDef
+          : rules ( InDef := True() )
+          ; x_o2 := <rename-bound(|srt)> x_o1
+          ; procelem2* := <rename-all> procelem1*
+          |}
+
 rules // Declaring
 
   declare-procedure =
-    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
+    )
     ; where (id
       ; who-exp := <procedure-who-exp> def
       ; when-exp := <procedure-when-exp> def
@@ -39,15 +50,19 @@ rules // Declaring
       ; if [] := <procedure-view-elems> def then
           rules ( IsDoProcedure : x_id )
         end
+        
       // for typechecking, these declares are executed early (and overwritten later)
       ; <temp-declare-entity-template> def
-      ; <temp-declare-entity-task-page> def
       ; temp-declare-all-tasks-page
+      ; <temp-declare-entity-task-page> def
       ; <temp-declare-entity-status-page> def
+      ; <temp-procedure-to-page> def
     )
   
   temp-declare-entity-template =
-    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
+    )
     ; SimpleSort(ent) := srt
     ; x1     := <concat-strings> [<decapitalize-string> ent, "Procedures"]
     ; x2     := <concat-strings> [<decapitalize-string> ent, "ProceduresList"]
@@ -57,19 +72,18 @@ rules // Declaring
     ; <declare-template-definition> def|[ define x1(x_arg : srt) {} ]|
   
   temp-declare-entity-task-page =
-    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
+    )
     ; SimpleSort(ent) := srt
-    ; procedures := <bagof-Procedures; make-set> SimpleSort(ent)
     ; x_page := <concat-strings> [<decapitalize-string> ent, "Tasks"]
     ; x_ent := <decapitalize-string> ent
     ; e := Var(x_ent)
     ; x2 := <concat-strings> [<decapitalize-string> x_ent, "TaskList"]
     ; x3 := <concat-strings> [<decapitalize-string> x_ent, "HasProcedures"]
     ; <declare-global-func> def|[
-        globals {
-          function x3(x_ent : srt) : Bool {
-            return true;
-          }
+        function x3(x_ent : srt) : Bool {
+          return true;
         }
       ]|
     ; <declare-template-definition> def|[ define x2() {} ]|
@@ -79,7 +93,9 @@ rules // Declaring
     <declare-page-definition> def|[ define page allTasks() {} ]|
       
   temp-declare-entity-status-page =
-    ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
+    )
     ; SimpleSort(ent) := srt
     ; x_page := <concat-strings> [<decapitalize-string> ent, "Status"]
     ; x_ent := <decapitalize-string> ent
@@ -87,3 +103,27 @@ rules // Declaring
     ; <declare-template-definition> def|[ define x2() {} ]|
     ; <declare-page-definition> def|[ define page x_page() {} ]|
   
+  temp-procedure-to-page =
+    (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
+    <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
+    )
+    ; SimpleSort(x_ent) := srt
+    ; <declare-extend-entity> def|[
+        extend entity x_ent {
+          x_id <> ProcedureStatus ()
+        }
+      ]|
+    // Generate functions
+    ; x_enabled := <concat-strings> [x_id, "Enabled"]
+    ; <declare-global-func> def|[ function x_enabled(x_o : srt) {} ]|
+    ; x_processed := <concat-strings> [x_id, "Processed"]
+    ; <declare-global-func> def|[ function x_processed(x_o : srt) {} ]|
+    ; x_done := <concat-strings> [x_id, "Done"]
+    ; <declare-global-func> def|[ function x_done(x_o : srt) {} ]|
+    ; x_do := <concat-strings> [x_id, "Do"]
+    ; <declare-global-func> def|[ function x_do(x_o : srt) {} ]|
+    ; x_disabled := <concat-strings> [x_id, "Disabled"]
+    ; <declare-global-func> def|[ function x_disabled(x_o : srt) {} ]|
+    ; info(|["Generated temporary procedure pages for ", x_id])
+    ; !def|[ define page x_id(x_o : srt) {} ]|
+      
