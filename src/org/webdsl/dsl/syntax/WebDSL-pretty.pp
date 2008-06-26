@@ -288,5 +288,5 @@
    ProcAND                                      -- _1 KW["|AND|"] _2,
    ProcPLUS                                     -- _1 KW["+"] _2,
    RemoveMe                                     -- KW["RemoveMe"],
-   ExtendProcedure                              -- KW["extend"] _1
+   ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]]
 ]
