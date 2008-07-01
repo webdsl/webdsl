@@ -49,6 +49,8 @@
    Define.4:iter-star                 -- _1,
    Page                               -- KW["page"],
    Email                              -- KW["email"],
+   Template                           -- KW["template"],
+   Local                              -- KW["local"],
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
 

@@ -43,8 +43,12 @@ rules
    */
   GenerateCode = page-to-java; fail
 
-  page-to-java :
-    def|[ define page x_page (farg*) { elem* } ]| -> //Define([Page()], x_page, args, elems1) ->
+  page-to-java =
+    ?def|[ define page x_page (farg*) { elem* } ]|
+    ; create-java-page
+
+  create-java-page :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
     <emit-java-code> compilation-unit|[
         package pkgname;
 
@@ -150,10 +154,14 @@ rules //session variables
   /**
    * Generate session entity code
    */
-  GenerateCode = generate-session-var-initialization; fail
+  GenerateCode = page-session-var-init-to-java; fail
+
+  page-session-var-init-to-java =
+    ?def|[ define page x_page (farg*) { elem* } ]|
+    ; generate-session-var-initialization
 
   generate-session-var-initialization :
-    def|[ define page x_page (farg*) { elem* } ]| -> //Define([Page()], x_page, args, elems1) ->
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
     <generate-page-bean> java|[
        @Partial
        void argumentInitialize() {
@@ -231,7 +239,7 @@ rules // bean parameters
         ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
         ; cbds2  := <generate-initializer-method> []
   */
-  GenerateCode = argument-to-bean-property; fail
+  GenerateCode = not(InAction) ; argument-to-bean-property; fail
 
   argument-to-bean-property :
     arg@farg|[ x : srt ]| ->
@@ -521,7 +529,8 @@ rules // select
         init#x#List();
       }
     ]|
-    where dbg(|"select-declarations match: ")
+    where not(InAction)
+        ; dbg(|"select-declarations match: ")
         ; <?SimpleSort(x_Class)> srt
         ; X          := <capitalize-string> x
         ; dbg(|"select-to-declarations names: ")
@@ -539,10 +548,7 @@ rules // page variables
   /**
    * Generating code for page variables
    */
-  GenerateCode = 
-    ?def|[ define page x_page (farg*) { elem* } ]| 
-  ; <alltd(?Action(_,_,_) <+ generate-page-variables-code)> elem*
-  ; fail
+  GenerateCode = not(InAction); generate-page-variables-code; fail
 
   generate-page-variables-code :
     elem|[ var x : srt ]| ->
@@ -591,10 +597,7 @@ rules // page variables
 
 rules // List getter/setter for Set typed page variables
 
-  GenerateCode = 
-    ?def|[ define page x_page (farg*) { elem* } ]| 
-  ; <alltd(?Action(_,_,_) <+ generate-page-variables-code-set)> elem*
-  ; fail
+  GenerateCode = not(InAction); generate-page-variables-code-set; fail
 
   generate-page-variables-code-set :
     //VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) ->
@@ -616,10 +619,7 @@ rules // List getter/setter for Set typed page variables
 
 rules // List getter/setter for List typed page variables
 
-  GenerateCode = 
-    ?def|[ define page x_page (farg*) { elem* } ]| 
-  ; <alltd(?Action(_,_,_) <+ generate-page-variables-code-list)> elem*
-  ; fail
+  GenerateCode = not(InAction); generate-page-variables-code-list; fail
 
   generate-page-variables-code-list :
     //VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
@@ -660,22 +660,25 @@ rules // For generating template functions
   /**
    * Generate template function code
    */
-  GenerateCode = generate-template-function-code; fail
+  GenerateCode = page-template-function-code; fail
+
+  page-template-function-code =
+    ?def|[ define page x_page(farg*) { elem1* } ]|
+    ; generate-template-function-code
 
   generate-template-function-code :
-    //Define([Page()], x_page, args, elems1) ->
-    def|[ define page x_page(farg*) { elem1* } ]| ->
-    <generate-page-bean> <template-functions-to-java> x_page
-
+    def|[ define mod* x_page(farg*) { elem1* } ]| ->
+    <generate-page-bean> <template-functions-to-java> (x_page, farg*)
+     
    template-functions-to-java :
-     page -> function*
-     where  pkgname := <Package>
+     (page, args) -> function*
+     where pkgname := <Package>
          ; pkgname2 := <DomainPackage>
-         ; functions := <retain-all(?(page, _, _, _))> <AllTemplateFunctions>
+         ; functions := <retain-all(?(page, args, _, _, _))> <AllTemplateFunctions>
          ; function* := <map(template-function-to-java)> functions
 
    template-function-to-java :
-     (page, x_fn, params, e) -> java|[
+     (page, args, x_fn, params, e) -> java|[
        public t x_fn(param*) {
          stm
        } ]|
@@ -710,11 +713,14 @@ rules // Download helper
   /**
    * Generate download helper code
    */
-  GenerateCode = generate-download-helper-function; fail
+  GenerateCode = download-helper-function; fail
 
+  download-helper-function =
+    ?def|[ define page x_page(farg*) { elem* } ]|
+    ; generate-download-helper-function
+    
   generate-download-helper-function :
-    //Define([Page()], x_page, args, elems1) ->
-    def|[ define page x_page(farg*) { elem* } ]| ->
+    def|[ define mod* x_page(farg*) { elem* } ]| ->
     <generate-page-bean> <concat> [<download-helper-function> elem*]
 
   download-helper-function =

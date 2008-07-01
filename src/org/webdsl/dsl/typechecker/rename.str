@@ -52,15 +52,32 @@ rules
        ; rules ( TypeOf : x -> srt )
 
   rename :
-    Define(mods, f, args1, elems1) -> <declare-template-definition> Define(mods, f, args2, elems2)
-    with {| Rename, InDef
-          : rules ( InDef := True() )
-          ; args2 := <map(rename)> args1
-          ; elems2 := <alltd(rename-action); rename-all> elems1
-          ; if [Page()] := mods then
-              rules ( TypeOf : f -> "Component" )
-            end
-          |}
+    def |[ define page x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define page x(farg2*) { elem2* } ]|
+    where {| RenameVar, InDef, InPage
+           : rules ( InDef := True() )
+           ; rules ( InPage := x )
+           ; farg2* := <map(rename)> farg1*
+           ; elem2* := <alltd(rename-action); rename-all> elem1*
+           ; <try(alltd(rename))> elem1*
+           ; rules ( TypeOf : x -> "Component" )
+           |}
+
+  rename :
+    def |[ define x(farg*) { elem* } ]| -> <declare-template-definition> def |[ define x(farg2*) { elem2* } ]|
+    where not(InPage)
+        ; {| RenameVar, InTemplate
+           : rules ( InTemplate := x )
+           ; farg2* := <map(rename; declare-template-arg)> farg*
+           ; elem2* := <alltd(rename-action); rename-all> elem*
+           |}
+
+  rename :
+    def |[ define x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define x(farg2*) { elem2* } ]|
+    where InPage
+        ; {| RenameVar
+           : farg2* := <map(rename)> farg1*
+           ; elem2* := <alltd(rename-action); rename-all> elem1*
+           |}
 
   rename :
     Function(x, args1, srt, b1) -> <declare-global-func <+ debug> Function(x, args2, srt, b2)
@@ -124,7 +141,7 @@ rules
 
   rename-action :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
-    with {| Rename
+    where {| Rename
           : args2 := <map(rename)> args1
           ; b2 := <rename-all> b1
           |}

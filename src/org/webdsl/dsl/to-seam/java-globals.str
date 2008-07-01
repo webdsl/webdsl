@@ -14,8 +14,9 @@ rules
   GenerateCode = globals-to-java; fail
 
   globals-to-java :
-    Define([Page()], x_page, args, elems1) -> <map(generate-page-bean)> <concat> [cbds1, cbds2]
-    where funcs := <used-global-functions-defs(|x_page,elems1)>
+    Define(mods, x_page, args, elems1) -> <map(generate-page-bean)> <concat> [cbds1, cbds2]
+    where ( <elem> (Page(), mods) <+ <elem> (Template(), mods) )
+        ; funcs := <used-global-functions-defs(|x_page,args,elems1)>
         // scoping of variables, conflicts between session, global and page vars: should be resolved by the new renaming approach
         ; cbds2 := <map(global-var-retrieval-for-xhtml);concat> 
                      <filter(\ vdi@VarDeclInit(nm, _, _) -> vdi 
@@ -43,7 +44,7 @@ rules // globals to java initialization code
                 ; cbds* := <filter(vardeclinit-to-method); concat> vardeclinits
                 ; cbdsglobalfunctions* := <map(function-to-function-code(|[]))>
                                             // first term argument is not relevant here, because there are no template functions here
-                                            <used-global-functions-defs(|"",vardeclinits) 
+                                            <used-global-functions-defs(|"","",vardeclinits) 
                                             //remove predicates, maybe not necessary with removal of session var using functions below
                                             ; filter(\ func@Function(iden,formarg,_,_)->func where <not(IsPredicate)> (iden,formarg) \)
                                             // remove functions that use session vars, session not available here (happens at application startup)
@@ -245,13 +246,13 @@ rules // globals to java initialization code
 rules // globals
 
   //only include global functions that are actually used
-  used-global-functions-defs(|x_page,elems1) =
+  used-global-functions-defs(|x_page,args,elems1) =
     <filter(add-functions-referenced-in-functions); !<once-all-functions-used-in-page <+ ![]> > //need to get all the functions referenced in functions
       <filter(\ fu@Function(nm, _, _, _) -> fu 
                 where //call to function in page
                       <oncetd(?ThisCall(nm, _))> elems1  
                       //call to function in if-template
-                   <+ <oncetd(?ThisCall(nm, _))> <retain-all(?(x_page, _, _, _))> <AllTemplateFunctions <+ ![]> 
+                   <+ <oncetd(?ThisCall(nm, _))> <retain-all(?(x_page, args, _, _, _))> <AllTemplateFunctions <+ ![]> 
               \)>    
         <AllGlobalFunctions <+ ![]>
 

@@ -9,9 +9,9 @@ imports
 strategies
 
   propagate-component-names =
-    alltd(propagate-component-names-in-page)
+    alltd(propagate-component-names-in-def)
     
-  propagate-component-names-in-page :
+  propagate-component-names-in-def :
     Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
     where {| PrefixComponent, SpecializeActionCall
            : y := name{<newname> name}; rules(TypeOf : y -> "Component")
@@ -23,6 +23,19 @@ strategies
            ; body2 := <propagate-component-names-in-expression> body1
            |}
 
+  propagate-component-names-in-def :
+    Define([Template()], name, args, body1) -> Define([Template()], name, args, body2)
+    where {| PrefixComponent, SpecializeActionCall, IsTemplate
+           : rules ( IsTemplate := name )
+           ; y := name{<newname> name}; rules(TypeOf : y -> "Component")
+           ; <map(declare-component-prefix(|y))> args
+           //getters of global vars are in the page bean as well
+           ; <map(declare-component-prefix(|y))> <AllGlobalVars <+ ![]>
+           ; <get-page-vardecls; map(declare-component-prefix(|y))> body1
+           ; declare-specialize-action-call(|y)
+           ; body2 := <propagate-component-names-in-expression> body1
+           |}
+           
   propagate-component-names-in-expression =
     rec x (alltd(PrefixComponent <+ not-init-action <+ specialize-action-call(x)))
     
@@ -46,6 +59,8 @@ strategies
     
   declare-component-prefix(|name) =
     ?x
+    // template arguments do not need to pe prefixed with the component name
+    ; where ( not( <elem> (Arg(x, <TypeOf> x), <bagof-TemplateArguments> <strip-annos> name ) ) )
     ; rules( 
         PrefixComponent : 
           Var(x) -> FieldAccess(Var(name), x)

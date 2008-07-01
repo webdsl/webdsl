@@ -30,13 +30,13 @@ rules
     <%= style-includes::* %>
     <%= external-style::* %>
     <%= script-includes::* %>
-    <%= js-onload::* %>
 </head>
 <body><%= elems2 ::*%></body>
 </html>
 <%)
-  where {| Component, StylesheetIncludes, JavascriptIncludes, JSOnloadBody
-         : rules( Component := x )
+  where {| Component, ThisPage, StylesheetIncludes, JavascriptIncludes, JSOnloadBody
+         : rules( Component := x ) // @todo: replace by ThisPage
+         ; rules( ThisPage := x )
          ; rules ( StylesheetIncludes := ["webdsl.css"] )
          ; rules ( JavascriptIncludes := [] )
          ; title := <get-title> elems1
@@ -44,7 +44,7 @@ rules
          ; elems2 := <elems-to-xhtml> elems1
          ; style-includes := <mapconcat(css-include-to-xhtml)> <StylesheetIncludes>
          ; script-includes := <mapconcat(js-include-to-xhtml)> <JavascriptIncludes>
-         ; js-onload := <js-onload-to-xhtml>
+//         ; js-onload := <js-onload-to-xhtml>
 
 /* <!--[if lte IE 7]>
   <style>
@@ -114,14 +114,14 @@ rules
       <script src="<%= <AppRoot> %>/javascript/<%= e %>" type="text/javascript" />
     <%
 
-  js-onload-to-xhtml =
+/*  js-onload-to-xhtml =
     !%>
     <script type="text/javascript">
       window.onload = function () {
         <%= <JSOnloadBody <+ ![]>::* %>
       }
     </script>
-    <%
+    <%*/
 
   // @todo this should be made more configurable probably
 
@@ -139,9 +139,6 @@ rules // embedding expressions in presentation
   arg-string-to-value-string :
     String(x) -> x
 
-//  arg-string-to-value-string :
-//    Email(x) -> x
-
   arg-string-to-value-string :
     Bool(x) -> x
 
@@ -156,11 +153,11 @@ rules // embedding expressions in presentation
         ; b := <arg-to-value-string> e2
 
   arg-to-el :
-    Var(x) -> <concat-strings> [<Component>,".",x]
+    Var(x) -> <concat-strings> [<ThisPage>,".",x]
       where <IsSessionVariable> x
 
   arg-to-el :
-    Var(x) -> <concat-strings> [<Component>,".",x]
+    Var(x) -> <concat-strings> [<ThisPage>,".",x]
       where <IsGlobalFunction> x
 
   arg-to-el :
@@ -264,7 +261,7 @@ rules // text
 
   elem-to-xhtml :
     TemplateCall("text", [e], []) ->
-    %> <h:outputText value="<%= <ConditionExpressionToEL> (<Component>, e) %>"/> <%
+    %> <h:outputText value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"/> <%
 
 rules // spacer
 
@@ -297,9 +294,9 @@ rules // menus
     with x_menuid := <newname> "menubar"
         ; rules ( HMenuBar := x_menuid )
         ; elems2 := <elems-to-xhtml> elems
-        ; rules ( StylesheetIncludes := ["dropdownmenu.css" | <StylesheetIncludes>] )
-        ; rules ( JavascriptIncludes := ["dropdownmenu.js" | <JavascriptIncludes>] )
-        ; rules ( JSOnloadBody := [ %> init_dropdownmenu(); <% | <JSOnloadBody <+ ![]>] )
+//        ; rules ( StylesheetIncludes := ["dropdownmenu.css" | <StylesheetIncludes>] )
+//        ; rules ( JavascriptIncludes := ["dropdownmenu.js" | <JavascriptIncludes>] )
+//        ; rules ( JSOnloadBody := [ %> init_dropdownmenu(); <% | <JSOnloadBody <+ ![]>] )
 
   elem-to-xhtml :
     TemplateCall("menubar", [exp], elems) ->
@@ -311,9 +308,9 @@ rules // menus
     where <?String("vertical"){_}> exp
         ; x_menuid := <newname> "menubar"
         ; rules ( VMenuBar := x_menuid )
-        ; rules ( StylesheetIncludes := ["sdmenu.css" | <StylesheetIncludes>] )
-        ; rules ( JavascriptIncludes := ["sdmenu.js" | <JavascriptIncludes>] )
-        ; rules ( JSOnloadBody := [ %> sideMenu = new SDMenu("<%= x_menuid::cdata %>"); sideMenu.init(); <% | <JSOnloadBody <+ ![]>] )
+//        ; rules ( StylesheetIncludes := ["sdmenu.css" | <StylesheetIncludes>] )
+//        ; rules ( JavascriptIncludes := ["sdmenu.js" | <JavascriptIncludes>] )
+//        ; rules ( JSOnloadBody := [ %> sideMenu = new SDMenu("<%= x_menuid::cdata %>"); sideMenu.init(); <% | <JSOnloadBody <+ ![]>] )
         ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) ->
                                   TemplateCall("container", [], elems) \ <+
                                 \ TemplateCall("menu", [], elems) ->
@@ -408,7 +405,7 @@ rules // datatables
   elem-to-xhtml :
     t@TemplateCallDeclaredType("table", x, s, elems) ->
     %>
-      <rich:dataTable id="<%= table-id %>" var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
+      <rich:dataTable id="<%= table-id %>" var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
 
         <f:facet name="header">
       <rich:columnGroup>
@@ -601,11 +598,22 @@ rules // tables
 
 rules // iteration
 
+  // @todo: other For expressions
+  elem-to-xhtml : //@todo: lifting!
+    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
+    %>
+      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:forEach>
+    <%
+    where InToplevelTemplate
+        ; <contains-template-call> elems
+
   elem-to-xhtml :
     For(x, s, e, Filter(we, obe), elems1) ->
     %>
-      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<Component>, e) %>">
-        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, we) %>">
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
           <%= elems2 ::*%>
         </h:panelGroup>
       </ui:repeat>
@@ -617,7 +625,7 @@ rules // iteration
   elem-to-xhtml :
     For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
     %>
-      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<Component>, e) %>">
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
         <%= elems2 ::*%>
       </ui:repeat>
     <%
@@ -626,8 +634,8 @@ rules // iteration
   elem-to-xhtml :
     ForAll(x, s, Filter(we, obe), elems) ->
     %>
-      <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
-        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, we) %>">
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
           <%= columns ::*%>
         </h:panelGroup>
       </ui:repeat>
@@ -638,19 +646,11 @@ rules // iteration
   elem-to-xhtml :
     ForAll(x, s, Filter(True(), obe), elems) ->
     %>
-      <ui:repeat var="<%= x %>" value="#{<%= <Component> %>.<%= x %>List}">
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
         <%= columns ::*%>
       </ui:repeat>
     <%
     where columns := <elems-to-xhtml(wrap-column)> elems
-
-
-  elem-to-xhtml :
-    IfTempl(e, elems) ->
-    %>
-      <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<Component>, e) %>"><%= elems2 ::*%></h:panelGroup>
-    <%
-    where elems2 := <elems-to-xhtml> elems
 
   wrap-column :
     elems ->
@@ -694,7 +694,7 @@ rules // select
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectManyListbox value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}"
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" />
           <s:convertEntity />
         </h:selectManyListbox>
@@ -708,7 +708,7 @@ rules // select
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectOneMenu value="#{<%= x_prop %>}">
-          <s:selectItems value="#{<%= <Component> %>.<%= x_List %>}"
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
                          var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
           <s:convertEntity />
         </h:selectOneMenu>
@@ -718,6 +718,56 @@ rules // select
         ; x_List    := <concat-strings>[x, "List"]
         ; x_prop    := <arg-to-el> e
 
+rules // if
+
+  elem-to-xhtml :
+    IfTempl(e, elems) ->
+    %>
+      <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"><%= elems2 ::*%></h:panelGroup>
+    <%
+    where not(<contains-template-call> elems)
+        ; elems2 := <elems-to-xhtml> elems
+    
+  elem-to-xhtml : //@todo: lifting!
+    IfTempl(e, elems) ->
+    %>
+      <c:if test="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:if>
+    <%
+    where InToplevelTemplate
+        ; <contains-template-call> elems
+
+rules // template call
+
+  elem-to-xhtml :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:insert name="<%= name %>">
+	      <ui:include src="<%= target %>">
+            <%= params::* %>
+	      </ui:include>
+	  </ui:insert>
+    <%
+    where not(<IsPage> <ThisPage>)
+        ; Define(mods, n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
+        ; target := <concat-strings> [name, ".xhtml"]
+        ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+
+  elem-to-xhtml :
+    TemplateCall(name, args, _) -> []
+    where <IsPage> <ThisPage>
+        ; <TemplateSignature> (name, <map(type-of)> args)
+    
+rules // vardecl
+
+  elem-to-xhtml :
+    VarDeclInit(a, s, expr) ->
+    %>
+      <h:inputHidden value="<%= val %>" />
+    <%
+    where x_set := <concat-strings> [<ThisPage>, ".", <property-setter> a]
+        ; val := <concat-strings> ["#{", x_set, "(", <ConditionExpressionToString> (<ThisPage>, expr), ")}"]
 
 rules // links
 
@@ -734,7 +784,7 @@ rules // links
   elem-to-xhtml :
     t@TemplateCall("navigate", [ThisCall("url",[e@ThisCall(p,args)])], elems) ->
     %>
-      <h:outputLink value="#{<%= <Component> %>.hostName}<%=url%>">
+      <h:outputLink value="#{<%= <ThisPage> %>.hostName}<%=url%>">
         <%= <elems-to-xhtml> elems ::* %>
       </h:outputLink>
     <%
@@ -774,8 +824,8 @@ rules // links
 
   elem-to-xhtml :
     TemplateCall("url",[ThisCall(p,args)],[]) ->
-//    %> <h:outputText value="http://#{<%= <Component> %>.facesContext.externalContext.getRequestHeaderMap("host")}<%= url %>" /> <%
-    %> <h:outputText value="#{<%= <Component> %>.hostName}<%= url %>" /> <%
+//    %> <h:outputText value="http://#{<%= <ThisPage> %>.facesContext.externalContext.getRequestHeaderMap("host")}<%= url %>" /> <%
+    %> <h:outputText value="#{<%= <ThisPage> %>.hostName}<%= url %>" /> <%
     where <IsPage> p
         ; fargs := <TemplateArguments> p
         ; params := <zip(bind-param)> (fargs, args)
@@ -802,14 +852,18 @@ rules // forms
         <%= <elems-to-xhtml> elems ::*%>
       </h:form>
     <%
-    with hidden-ids := <mapconcat(arg-to-xhtml)> <TemplateArguments> <Component>
+    where if InToplevelTemplate then
+            hidden-ids := <mapconcat(arg-to-xhtml)> <bagof-TemplateArguments> <ThisPage>
+          else
+            hidden-ids := <mapconcat(arg-to-xhtml)> <TemplateArguments> <ThisPage>
+          end
 
   arg-to-xhtml :
-    Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <Component>%>.<%= e%>}" /> <%
+    Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <ThisPage>%>.<%= e%>}" /> <%
     where <builtin-java-type> s
 
   arg-to-xhtml :
-    Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <Component>%>.<%= i%>.id}" /> <%
+    Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <ThisPage>%>.<%= i%>.id}" /> <%
     where <defined-java-type> s
         ; e1 := <concat-strings>[i, "_id"]
 
@@ -956,17 +1010,22 @@ rules // function stuff
             : <alltd(find-params)> e
             ; params := <bagof-Param>
             |}
-           ; el := <concat-strings> ["#{", <Component>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")}"]
-           ; pn := <Component>
-           ; rules( ConditionExpressions :+ l -> [(pn, fn, params, e)|l]
-                    ConditionExpressionToEL : (pn, e) -> el )
+           ; expr-string := <concat-strings> [<ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")"]
+           ; el := <concat-strings> ["#{", expr-string, "}"]
+           ; pn := <ThisPage>
+           ; args := <ThisPageArguments>
+           ; rules( ConditionExpressions :+ l -> [(pn, args, fn, params, e)|l]
+                    ConditionExpressionToEL : (pn, e) -> el
+                    ConditionExpressionToString : (pn, e) -> expr-string )
           )
 
    translate-template-expression : // Store some context information
      Define(mods, name, args, body1) -> Define(mods, name, args, body2)
-     where <elem> (Page(), mods)
-         ; {| Component
-            : rules ( Component := name )
+     where {| ThisPage, ThisPageArguments
+            : if <elem> (Page(), mods) <+ <elem> (Template(), mods) then
+                rules ( ThisPage := name
+                        ThisPageArguments := args )
+              end
             ; body2 := <try(sometd(translate-template-expression))> body1
             |}
 
@@ -1006,6 +1065,12 @@ rules // function stuff
              ; fn := <newname> "textExprFun"
              ; create-template-function(|fn, arg))
 
+   translate-template-expression =
+     ?VarDeclInit(x, s, expr)
+     ; where (not(<IsPage> <ThisPage>)
+              ; fn := <newname> "varDeclFun"
+              ; create-template-function(|fn, expr))
+              
    unId : Id(x) -> x
 
    packagename-to-string :
