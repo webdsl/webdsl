@@ -8,18 +8,43 @@ imports
 imports
   libwebdsl-front
 
+signature
+  constructors
+    EntityClass : String * List(EntityClass) -> Entity
+
 rules
 
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
     ; globalfuncs := <collect( \ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs\) ;concat> sections
-    // disabled for now ; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
+    ; hierarchy := <build-entity-hierarchy> "Object"
+    ; info(|["List: ", <collect-hierarchy-tree> hierarchy])
+    ; <debug> <order-functions(|<collect-hierarchy-tree> hierarchy)> globalfuncs
+    ; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
     ; rules ( AllGlobalFunctions := globalfuncs )
     ; !Application(qid, sections)
 
+  build-entity-hierarchy :
+    x_class -> EntityClass(x_class, <map(build-entity-hierarchy)> subentities)
+    where subentities := <filter(where(x_class := <Extends>))> <bagof-Entities>
+        ; debug(!["All entities inheriting from ", x_class])
+ 
+  collect-hierarchy-tree :
+    EntityClass(nm, l*) -> lst
+    where lst := <concat> [<map(collect-hierarchy-tree); concat> l*, [nm]]
+
+  order-functions(|order) =
+    where([] := order)
+
+  order-functions(|order) =
+    ?funcs
+    ; [nm|rest] := order
+    ; <debug> order
+    ; f := <fetch(?Function(nm, _, _, _))> funcs
+    ; ![f|<order-functions(|rest)> <remove-all(?f)> funcs]
+
   merge-functions :
     ([], lst) -> ([], lst)
-
 
   merge-functions :
     ([f@Function(fun, args, rt, Block(stms))|rest], lst) -> <merge-functions> (rest, lst2)
