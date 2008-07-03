@@ -36,18 +36,14 @@ rules // session bean from page definition
          bstm*
        }
     ]|
-
+    
 rules
   /**
    * Generate base bean code
    */
-  GenerateCode = page-to-java; fail
+  GenerateCode = generate-java-page; fail
 
-  page-to-java =
-    ?def|[ define page x_page (farg*) { elem* } ]|
-    ; create-java-page
-
-  create-java-page :
+  generate-java-page :
     def|[ define mod* x_page (farg*) { elem* } ]| ->
     <emit-java-code> compilation-unit|[
         package pkgname;
@@ -136,15 +132,17 @@ rules
           }
         }
       ]|
-    where pkgname    := <BeanPackage>
-        ; pkgname2   := <DomainPackage>
-        ; x_page     := <ThisPage>
-        ; x_Page     := <capitalize-string> x_page
+    where ( x_page := <ThisPage> )
         ; if [] := farg* then
             stm1* := [ stm |[ if (!initialized) forceInitialization(); ]| ]
           else
             stm1* := []
           end
+    with pkgname    := <BeanPackage>
+       ; pkgname2   := <DomainPackage>
+       ; x_page     := <ThisPage>
+       ; x_Page     := <capitalize-string> x_page
+    
         // @todo scoping of variables, conflicts between session, global and page vars
 
 
@@ -154,11 +152,7 @@ rules //session variables
   /**
    * Generate session entity code
    */
-  GenerateCode = page-session-var-init-to-java; fail
-
-  page-session-var-init-to-java =
-    ?def|[ define page x_page (farg*) { elem* } ]|
-    ; generate-session-var-initialization
+  GenerateCode = generate-session-var-initialization; fail
 
   generate-session-var-initialization :
     def|[ define mod* x_page (farg*) { elem* } ]| ->
@@ -169,7 +163,8 @@ rules //session variables
        }
        ~*cbds1
     ]|
-    where sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se\)> elem* //where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elem* \)>
+    where ( x_page := <ThisPage> )
+        ; sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se\)> elem* //where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elem* \)>
         ; bstm1* := <map(session-entity-property-to-merge);concat> sents
         ; cbds1  := <map(session-inouts);concat> sents
 
@@ -472,7 +467,7 @@ rules // tables
    */
   GenerateCode = 
     ?def|[ define mod* x_page (farg*) { elem* } ]| 
-    ; ( <elem> (Page(), mod*) <+ <elem> (Template(), mod*) )
+    ; where ( x_page := <ThisPage> )
     ; <alltd(?Action(_,_,_) <+ generate-function-and-initializations)> elem*
     ; fail
 
@@ -504,9 +499,10 @@ rules // select
    * Code to generate select functions and initializations
    */
   GenerateCode = 
-    ?def|[ define page x_page (farg*) { elem* } ]| 
-  ; <alltd(?Action(_,_,_) <+ generate-select-code)> elem*
-  ; fail
+    ?def|[ define mod* x_page (farg*) { elem* } ]|
+    ; where ( x_page := <ThisPage> )
+    ; <alltd(?Action(_,_,_) <+ generate-select-code)> elem*
+    ; fail
 
   generate-select-code :
     elem|[ select(x : srt, str, e1) ]| ->
@@ -661,15 +657,11 @@ rules // For generating template functions
   /**
    * Generate template function code
    */
-  GenerateCode = page-template-function-code; fail
-
-  page-template-function-code =
-    ?def|[ define page x_page(farg*) { elem1* } ]|
-    ; generate-template-function-code
+  GenerateCode = generate-template-function-code; fail
 
   generate-template-function-code :
-    def|[ define mod* x_page(farg*) { elem1* } ]| ->
-    <generate-page-bean> <template-functions-to-java> (x_page, farg*)
+    def|[ define mod* x_page(farg*) { elem1* } ]| -> <generate-page-bean> <template-functions-to-java> (x_page, farg*)
+    where ( x_page := <ThisPage> )
      
    template-functions-to-java :
      (page, args) -> function*
@@ -714,15 +706,11 @@ rules // Download helper
   /**
    * Generate download helper code
    */
-  GenerateCode = download-helper-function; fail
-
-  download-helper-function =
-    ?def|[ define page x_page(farg*) { elem* } ]|
-    ; generate-download-helper-function
+  GenerateCode = generate-download-helper-function; fail
     
   generate-download-helper-function :
-    def|[ define mod* x_page(farg*) { elem* } ]| ->
-    <generate-page-bean> <concat> [<download-helper-function> elem*]
+    def|[ define mod* x_page(farg*) { elem* } ]| -> <generate-page-bean> <concat> [<download-helper-function> elem*]
+    where ( x_page := <ThisPage> )
 
   download-helper-function =
     if <oncetd(?TemplateCall("outputFile",[e],[]))> <id> then
