@@ -19,10 +19,11 @@ signature
     RemoveMe : Annotation
 
 strategies
+
   all-consnil(s) = ?[_ | _] < [s | s] + all(s)
 
   innermost-rep(s) =
-    {| InnermostMemo, InnermostApplied
+    {| InnermostNormalForm, InnermostApplied
      : rules( InnermostApplied := False() )
       //?before
      ; innermost-rep-auxz(s)
@@ -31,15 +32,13 @@ strategies
      |}
 
   innermost-rep-auxz(s) =
-    InnermostMemo
-    <+ {?t;
-          {| ThisPage
-           : try(check-in-page)
-           ; all-consnil(innermost-rep-auxz(s))
-           |}
-          ; try(s; rules( InnermostApplied := True() ); innermost-rep-auxz(s))
-          ; ?q
-          ; rules( InnermostMemo : t -> q )}
+    InnermostNormalForm
+    <+ {| ThisPage                            // @TODO: why is this necessary?
+        : try(check-in-page)
+        ; all-consnil(innermost-rep-auxz(s))
+        |}
+       ; try(s; rules( InnermostApplied := True() ); innermost-rep-auxz(s))
+       ; {?q; rules( InnermostNormalForm : q )}
 
   desugar-top =
     //{| AspectWeavingRules ... :
@@ -170,6 +169,9 @@ rules
           EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
                        ExtendEntity :- SessionEntity(ident, props2, funcs2) ) // Remove the other two
+                       
+        // @TODO: normalize EntityNoSuper to Entity extends Object
+        
         ExtendEntity :+
           Entity(ident, s, props2, funcs2) -> Entity(ident, s, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- EntityNoSuper(ident, props2, funcs2)
@@ -178,6 +180,8 @@ rules
           SessionEntity(ident, props2, funcs2) -> SessionEntity(ident, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
                        ExtendEntity :- EntityNoSuper(ident, props2, funcs2) )
+                       
+          // @TODO: move to extend session entity case below
       )
       
       // this approach causes rules to be created which will not be used
@@ -322,6 +326,7 @@ rules
 
   // style comments (EV)
   // can this not be factored into smaller steps?
+  // @TODO: factor out param extraction from all the following rules into a single strategy
 
   desugar :
     fe@ForExp(oe, x, s, ie, fltr) -> ThisCall($fun, params)
@@ -333,8 +338,7 @@ rules
         ; farg* := <map(forexp-function-param-to-farg)> params
         
         // finding parameters = finding free variables?
-        // turn into reusable strategy; with built-in scope; should not
-        // be part of caller
+        // @TODO: turn into reusable strategy; with built-in scope; should not be part of caller
         
         ; srt2 := <type-of> ie
         ; GenericSort(_, [srt]) := srt2
