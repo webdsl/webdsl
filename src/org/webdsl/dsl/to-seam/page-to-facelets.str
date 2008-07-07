@@ -3,7 +3,30 @@ module org/webdsl/dsl/to-seam/page-to-facelets
 imports 
   libstrategolib 
   libwebdsl-front
-    
+
+
+rules
+
+  generate-facelets-template :
+    elems -> <emit-facelets>
+    %>
+<!DOCTYPE div PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+                     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+     xmlns:c="http://java.sun.com/jstl/core"
+     xmlns:ui="http://java.sun.com/jsf/facelets"
+     xmlns:f="http://java.sun.com/jsf/core"
+     xmlns:h="http://java.sun.com/jsf/html"
+     xmlns:s="http://jboss.com/products/seam/taglib"
+     xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
+     xmlns:rich="http://richfaces.ajax4jsf.org/rich"
+     xmlns:wdsl="http://www.webdsl.org/el">
+  
+  <%= elems::* %>
+  
+</ui:composition>
+    <%
+ 
 rules
   /**
    * Generate facelet page
@@ -34,7 +57,7 @@ rules
 
   <body>
     <%= templates::* %>
-    <%= <elems-to-xhtml> elem*::* %>
+    <%= elems::* %>
   </body>
 
 </html>
@@ -42,9 +65,13 @@ rules
     where x := <ThisPage>
         ; {| TemplateCallsInPage, DefinedTemplatesInPage
            : <try(alltd(find-redefined-template-definition))> elem*
+//           ; <debug> ["page", x]
+//           ; <debug> ["===============+++", <bagof-DefinedTemplatesInPage> x]
            ; <alltd(templatecall-to-facelet)> elem*
 //           ; <debug> ["===============", <bagof-TemplateCallsInPage>]
            ; templates := <templatecalls-to-includes>
+//           ; <debug> ["...............", templates]
+           ; elems := <elems-to-xhtml> elem*
 //           ; <debug> ""
            |}
 
@@ -64,11 +91,13 @@ rules
     Define([Local()], name, fargs, body) -> 
 %>
   <ui:define name="<%= name %>">
-    <%= <elems-to-xhtml> body ::*%>
+    <%= elems::* %>
   </ui:define>
 <%
-    where Define([Template()], n, f, b) := <TemplateSignature> <ThisCallSignature>
-//    ; <debug> <ThisPage>
+    where {| InLocalTemplate
+           : rules ( InLocalTemplate := name )
+           ; Define([Template()], n, f, b) := <TemplateSignature> <ThisCallSignature>
+//    ; <debug> ["local", name]
 //    ; <debug> ["_________template", Define([Local()], name, fargs, body)]
 //    ; <debug> ["_________template", Define([Template()], n, f, b)]
         ; t* := <map(?Arg(_,<id>))> fargs
@@ -78,6 +107,8 @@ rules
 //    ; <debug> ["_________calls", calls, (name, t*)]
 //    ; <debug> ""
         ; <elem> ((name, t*), calls) // only generate template (re)definitions for templates that are actually called
+        ; elems := <elems-to-xhtml> body
+            |}
 
   check-template-call =
     ?TemplateCall(name, args, body)
@@ -94,8 +125,8 @@ rules
 
   templatecall-to-facelet =
     ?Define([Local()], name, fargs, body)
-    ; {| InLocalTemplate
-       : rules ( InLocalTemplate := True() )
+    ; {| InsideLocalTemplate
+       : rules ( InsideLocalTemplate := True() )
        ; <collect(templatecall-to-facelet)> body
        |}
 
@@ -110,14 +141,14 @@ rules
 //           ; <debug> [".......template: ", n, "output", output-name]
            ; {| ThisCallSignature
               : rules ( ThisCallSignature := (name, t1*) )
-              ; if True() := <InLocalTemplate> then
+              ; if True() := <InsideLocalTemplate> then
                   redefinitions := []
                 else
                   redefinitions := <collect(defined-template-to-facelet); concat> <bagof-DefinedTemplatesInPage> <ThisPage>
                   ; rules ( TemplateCallsInPage :+= (output-name, (name, args)) )
 //                  ; <debug> [">>>>>>>>>>>>>", <bagof-DefinedTemplatesInPage> <ThisPage>]
                 end
-              ; rules ( InLocalTemplate := False() )
+              ; rules ( InsideLocalTemplate := False() )
               |}
         ; {| ThisPage
            : rules ( ThisPage := output-name )
@@ -155,11 +186,8 @@ rules
     <%
     where n := <concat-strings> [output, ".xhtml"]
 //        ; <debug> ["-----+++++++++", args, <ThisPage>, name]
-//        ; <debug> ["-----+", <TemplateArguments> name]
-//        ; <debug> ["-----_________", <map(type-of)> args]
         ; Define([Template()], x, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
 //        ; <debug> ["-----_________", <map(type-of)> args]
-//        ; <debug> ""
         ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
 
   templatecall-args-to-facelets :
@@ -169,47 +197,74 @@ rules
     <%
     where x := <arg-to-value-string> a
 //        ; <debug> ["++++", a, b, c, d]
-    
+
+
+
 rules
   /**
    * Generate facelet template clients
    */
   GenerateCode = templates-to-facelet; fail
 
-  templates-to-facelet :
-    def@Define([Template()], name, fargs, body) -> <emit-facelets>
+  templates-to-facelet =
+    ?def |[ define template x(farg*) { elem* } ]|
+//    ; where ( debug (!"template: ") )
+    ; where ( not( <elem> ( x, <bagof-ProcessedTemplates>) )
+              ; x := <ThisPage> )
+    ; {| InToplevelTemplate
+       : rules ( InToplevelTemplate := x )
+       ; if <bagof-TopLevelTemplateDefinitions;length;not(?1)> x then
+//           where ( <debug> ["==========", <bagof-TopLevelTemplateDefinitions> x] ) ;
+           <mapconcat(template-to-facelet); generate-facelets-template> <bagof-TopLevelTemplateDefinitions> x
+         else
+           template-to-facelet
+         end
+       |}
+//    ; where ( <debug> "" )
+    ; rules ( ProcessedTemplates :+= x )
+
+  template-to-facelet :
+    def |[ define template x(farg*) { elem* } ]| -> output
+    with body := <elems-to-xhtml> elem*
+       ; {| ThisPage
+          : rules ( ThisPage := x )
+          ; output := <generate-facelets-template> body
+          |}
+
+  template-to-facelet :
+    (n, a) -> 
 %>
-<!DOCTYPE div PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-                     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<ui:composition xmlns="http://www.w3.org/1999/xhtml"
-     xmlns:c="http://java.sun.com/jstl/core"
-     xmlns:ui="http://java.sun.com/jsf/facelets"
-     xmlns:f="http://java.sun.com/jsf/core"
-     xmlns:h="http://java.sun.com/jsf/html"
-     xmlns:s="http://jboss.com/products/seam/taglib"
-     xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
-     xmlns:rich="http://richfaces.ajax4jsf.org/rich"
-     xmlns:wdsl="http://www.webdsl.org/el">
-  
-  <%= elems::* %>
-  
-</ui:composition>
+  <c:if test="">
+    <ui:include src="<%= target %>">
+      <%= params::* %>
+	</ui:include>
+  </c:if>
 <%
-    where {| InToplevelTemplate
-           : rules ( InToplevelTemplate := name )
-           ; name := <ThisPage>
-           ; elems := <elems-to-xhtml> body
-//           ; <debug> name
-//           ; <debug> ["_________________", <bagof-TopLevelTemplateDefinitions> name]
-//           ; if [elem] := <bagof-TopLevelTemplateDefinitions> name then
-//               elems := <elems-to-xhtml> body
-//             else
-//              elems := <mapconcat(template-to-facelet)> <bagof-TopLevelTemplateDefinitions> name //@todo: perhaps better to do this in a desugar step??
-//             end
-//           ; <debug> ""             
+    where <debug> ["______", (n,a)] ; t* := <map(?Arg(_,<id>))> a
+        ; def |[ define template x0(farg*) { elem* } ]| := <TemplateSignature; debug (!"template to include: ")> (n, t*)
+        ; x1 := <newname> n
+        ; target := <concat-strings> [x1, ".xhtml"]
+        ; {| ThisPage
+           : rules ( ThisPage := x0 )
+           ; <declare-template-definition; template-to-facelet> def |[ define template x1(farg*) { elem* } ]|
            |}
+        ; params := <mapconcat(args-to-facelets)> farg*
+        
+        ; fn := <newname> "ifCondFun"
+        ; param* := <map(\ Arg(p, s) -> Var(p){Type(<get-superclass> s)} \)> farg*
+        ; <debug> ["+++param", param*]
+//        ; e := IsA(param, SimpleSort(s)){Type(SimpleSort("Bool"))}
+//        ; <generate-page-bean> [<template-function-to-java> (<ThisPage>, fargs, fn, [param], e)]
+        ; el := <concat-strings> ["#{", <ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> param*, ")", "}"]
+        ; <debug> ["_________el", el]
 
-
+  args-to-facelets :
+    Arg(x, s) ->
+    %>
+      <ui:param name="<%= x %>" value="#{<%= x %>}" />
+    <%
+    
+/*
   template-to-facelet : //@todo: perhaps better to do this in a desugar step??
     (n, a) ->
 %>
@@ -235,14 +290,22 @@ rules
         ; el := <concat-strings> ["#{", <ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> [param], ")", "}"]
         ; <debug> ["_________el", el]
         ; rules ( TemplatesProcessed :+= (name, fargs) )
+*/
 
-  get-superclass =
-    Extends ; not(?"Object") ; get-superclass <+ id
+  get-superclass :
+    SimpleSort(s) -> SimpleSort(<find-superclass> s)
     
+  get-superclass :
+    GenericSort(k, [SimpleSort(s)]) -> GenericSort(k, [<get-superclass> SimpleSort(s)])
+
+  find-superclass =
+    Extends ; not(?"Object") ; get-superclass <+ id
+
+/*    
   template-to-xhtml :
     Define(mods, name, fargs, body) -> <elems-to-xhtml> body
     where <elem> [Local(), mods] <+ <elem> [Template(), mods]
-
+*/
 
 rules // template arguments
 
