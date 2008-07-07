@@ -96,24 +96,24 @@ rules
 <%
     where {| InLocalTemplate
            : rules ( InLocalTemplate := name )
-           ; Define([Template()], n, f, b) := <TemplateSignature> <ThisCallSignature>
-//    ; <debug> ["local", name]
-//    ; <debug> ["_________template", Define([Local()], name, fargs, body)]
-//    ; <debug> ["_________template", Define([Template()], n, f, b)]
-        ; t* := <map(?Arg(_,<id>))> fargs
-//        ; <debug> ["_________fargs", t*]
-        ; calls := <collect(check-template-call); flatten-list> b
-//    ; <debug> [".........................", <collect(bla)> b]
-//    ; <debug> ["_________calls", calls, (name, t*)]
+//     ; <debug> ["local", name, fargs]
+           ; t* := <map(?Arg(_,<id>))> fargs
+//     ; <debug> ["...t", (name, t*)]
+//     ; <debug> [".........thiscallsig", <ThisCallSignature>]
+           ;  Define(mods, n, f, b) := <TemplateSignature> <ThisCallSignature>
+           ; calls := <collect(check-template-call); flatten-list> b
+//     ; <debug> ["_________calls", calls, (name, t*)]
+           ; <elem> ((name, t*), calls) // only generate template (re)definitions for templates that are actually called
+//    ; <debug> ["_________template", Define(mods, n, f, b)]
+//    ; <debug> ["_________body", body]
 //    ; <debug> ""
-        ; <elem> ((name, t*), calls) // only generate template (re)definitions for templates that are actually called
-        ; elems := <elems-to-xhtml> body
+           ; elems := <elems-to-xhtml> body
             |}
 
   check-template-call =
     ?TemplateCall(name, args, body)
     ; t* := <map(type-of)> args
-    ; Define(m, n, f, b) := <TemplateSignature> (name, t*)
+    ; Define(m, n, f, b) := <TemplateSignature <+ LocalTemplateSignature> (name, t*)
     ; ![(name, t*) | <collect(check-template-call); flatten-list <+ []> b]
     
 
@@ -144,9 +144,9 @@ rules
               ; if True() := <InsideLocalTemplate> then
                   redefinitions := []
                 else
+//                <debug> [">>>>>>>>>>>>>", <bagof-DefinedTemplatesInPage> <ThisPage>] ;
                   redefinitions := <collect(defined-template-to-facelet); concat> <bagof-DefinedTemplatesInPage> <ThisPage>
                   ; rules ( TemplateCallsInPage :+= (output-name, (name, args)) )
-//                  ; <debug> [">>>>>>>>>>>>>", <bagof-DefinedTemplatesInPage> <ThisPage>]
                 end
               ; rules ( InsideLocalTemplate := False() )
               |}
@@ -234,7 +234,7 @@ rules
   template-to-facelet :
     (n, a) -> 
 %>
-  <c:if test="">
+  <c:if test="<%= el %>">
     <ui:include src="<%= target %>">
       <%= params::* %>
 	</ui:include>
@@ -253,16 +253,31 @@ rules
         ; fn := <newname> "ifCondFun"
         ; param* := <map(\ Arg(p, s) -> Var(p){Type(<get-superclass> s)} \)> farg*
         ; <debug> ["+++param", param*]
+        ; e := <generate-check-param-type-function> param*
 //        ; e := IsA(param, SimpleSort(s)){Type(SimpleSort("Bool"))}
-//        ; <generate-page-bean> [<template-function-to-java> (<ThisPage>, fargs, fn, [param], e)]
+        ; <generate-page-bean> [<template-function-to-java> (<ThisPage>, farg*, fn, param*, e)]
         ; el := <concat-strings> ["#{", <ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> param*, ")", "}"]
         ; <debug> ["_________el", el]
+        ; <debug> ["_________e", e]
 
   args-to-facelets :
     Arg(x, s) ->
     %>
       <ui:param name="<%= x %>" value="#{<%= x %>}" />
     <%
+  
+  generate-check-param-type-function :
+    var* -> e0
+    where e* := <map(\ Var(x){Type(srt)} -> exp |[ x is a srt ]| \)> var*
+        ; e0 := <combine-is-a-functions> e*
+        
+  combine-is-a-functions :
+    [e0 | e*] -> exp |[ e0 && e1 ]|
+    where e1 := <combine-is-a-functions> e*
+  
+  combine-is-a-functions :
+    [e] -> e
+      
     
 /*
   template-to-facelet : //@todo: perhaps better to do this in a desugar step??
