@@ -1,3 +1,16 @@
+/**
+ * Process
+ *
+ * Transforms process descriptions to links between procedures.
+ *
+ * Strategy: every process description is rewritten to RemoveMe() during desugaring, to make sure it is rewritten only once. 
+ * This rewriting consists of a bottom-up traversal of the process description, in which every process element is matched
+ *   and links between procedures are constructed by emitting extend procedure code. In the meantime, every process element
+ *   is rewritten to a ProcPair element so that it has a first and a last atomic element that can easily be obtained.
+ * Because of the bottom-up traversal strategy, every process element can safely assume its children have already been 
+ *   visited and hence, are the aforementioned format.
+ */
+
 module org/webdsl/dsl/modules/procedures/process
 
 imports
@@ -6,15 +19,13 @@ imports
 
   signature
     constructors
-      ProcProcessed : ProcedureElement * ProcedureElement -> ProcedureElement
+      ProcPair : ProcedureElement * ProcedureElement -> ProcedureElement
 
 strategies
   
-  do-once(s|str) =
-    not(<DoneOnce> (<id>, str))
-    ; ?t
-    ; s
-    ; rules(DoneOnce : (t, str) )
+
+  desugar = add-processed-calls
+  desugar = procedure-process
 
   desugar =
     ?def|[ procedure x_proc(x_o : srt) { procelem* } ]|
@@ -42,6 +53,7 @@ strategies
     ))
     */
   
+
   proc-attach-state-ids =
     info(|"STAGE PROCESS TO EXTEND PROCEDURES")
     ; {| State
@@ -51,80 +63,118 @@ strategies
   generate-new-state =
     n := <(State <+ !0); inc>
     ; rules ( State := n )
-    
+
   add-processed-calls =
-    bottomup(try(add-processed-call))
+    (?Procedure(_,_,_) <+ ?AutoProcedure(_,_,_))
+    ; where (
+        do-once(add-processed-call|"AddProcessedCall")
+      )
     
+  /**
+   * If there is no process description, the processed() call must be made at the end of done()
+   * (If there is a process description, the processed() call will be added in procedure-process)
+   */
   add-processed-call =
-    ?proc@Procedure(x_current, _, procedureElem*)
+    (?Procedure(x_current, _, procedureElem*) <+ ?AutoProcedure(x_current, _, procedureElem*))
+    ; info(|"Begin add-processed-call")
+    ; not(<contains-process> procedureElem*)
+    ; info(|"Na test")
     ; x_processed := <concat-strings> [x_current, "Processed"]
     ; x_currento := <ProcedureArg> x_current
     ; srt2 := <ProcedureArgSort> x_current
-    ; if <contains-process> procedureElem* then 
-          x_id := <get-process-id> <fetch-right-most-td(is-process-call)> proc
-        ; x_o := <ProcedureArg> x_id
-        ; srt := <ProcedureArgSort> x_id
-        ; <emit-webdsl-code> def|[
-            extend procedure x_id(x_o : srt) {
-              processed {
-                x_processed(x_currento);
-              }
-            }
-          ]|
-        ; info(|["Met process: ", x_current])
-      else
-          <emit-webdsl-code> def|[
-            extend procedure x_current(x_currento : srt2) {
-              done {
-                x_processed(x_currento);
-              }
-            }
-          ]|
-        ; info(|["Zonder process: ", x_current])
-      end
-    
-  add-processed-call =
-    ?AutoProcedure(x_current, arg, procedureElem*)
-    ; <add-processed-call> Procedure(x_current, arg, procedureElem*)
-    
+    ; <emit-webdsl-code> def|[
+        extend procedure x_current(x_currento : srt2) {
+          done {
+            x_processed(x_currento);
+          }
+        }
+      ]|
+    ; info(|"Eind add-processed-call")
+
   contains-process = 
     oncetd(is-process-call)
+    
+rules // rewriting process description, linking procedures
+    
+  procedure-process :
+    proc@Procedure(x_id, arg, elem1*) -> Procedure(x_id, arg, elem2*)
+    where elem2* := <do-once(map(try(procedure-rewrite-process(|x_id)))|"ProcedureProcess")> elem1*
+    
+  procedure-process :
+    proc@AutoProcedure(x_id, arg, elem1*) -> AutoProcedure(x_id, arg, elem2*)
+    where elem2* := <do-once(map(try(procedure-rewrite-process(|x_id)))|"ProcedureProcess")> elem1*
+
+  /**
+   * Rewrites a process description by doing a bottom-up traversal over its procedure-elements
+   */ 
+  procedure-rewrite-process(|currentProc) :
+    ProcedureProcess(procelem) -> RemoveMe()
+    where info(|"STAGE PROCESS TO EXTEND PROCEDURES")
+        ; debug
+        ; bottomup(
+            try(
+              if-to-extend-procedures
+              <+ if-no-else-to-extend-procedures
+              <+ or-to-extend-procedures
+              <+ and-to-extend-procedures
+              <+ plus-to-extend-procedures
+              <+ while-to-extend-procedures
+              <+ sequential-to-extend-procedures
+            )
+          )
+        ; ?ProcedureProcess(processedelem)
+        ; <procedure-add-processed-call(|currentProc)> processedelem
+        ; info(|"Na: ")
+        ; debug
+  
+  procedure-add-processed-call(|currentProc) = 
+    (?ProcPair(_, ProcCall(x_id, _)) <+ ?ProcCall(x_id, _))
+    ; info(|"Begin procedure-add-processed-call")
+    ; x_o := <ProcedureArg> x_id
+    ; srt := <ProcedureArgSort> x_id
+    ; x_processed := <concat-strings> [currentProc, "Processed"]
+    ; code := def|[
+        extend procedure x_id(x_o : srt) {
+          processed {
+            x_processed(x_o);
+          }
+        }
+      ]|
+    ; <emit-webdsl-code> code
+    ; info(|"Eind procedure-add-processed-call")
       
 //tijdelijk
 strategies
 
-    if-no-else-to-extend-procedures = fail
     or-to-extend-procedures = fail
     and-to-extend-procedures = fail
     plus-to-extend-procedures = fail
     while-to-extend-procedures = fail
       
 
-// transforming to connected sequential parts   
-rules
+rules // transforming to connected sequential parts   
 
   if-to-extend-procedures :
-    ProcIf(e1, ifBranch, elseBranch) -> ProcProcessed(ifSplit, ifJoin)
+    ProcIf(exp, ifBranch, elseBranch) -> ProcPair(ifSplit, ifJoin)
     where
       // retrieve necessary info for if branch
-      firstIf := <fetch-left-most-td(is-process-call)> ifBranch
-      ; x_id1 := <get-process-id> firstIf
+      info(|"Begin if-to-extend-procedures")
+      ; x_id1 := <get-process-id> <left-proc-call> ifBranch
       ; x_o1 := <ProcedureArg> x_id1
       ; srt1 := <ProcedureArgSort> x_id1
       
       // retrieve necessary info for else branch
-      ; firstElse := <fetch-left-most-td(is-process-call)> elseBranch
-      ; x_id2 := <get-process-id> firstElse
+      ; x_id2 := <get-process-id> <left-proc-call> elseBranch
       ; x_o2 := <ProcedureArg> x_id2
       ; srt2 := <ProcedureArgSort> x_id2
-      ; SimpleSort(s2) := srt2
+      ; SimpleSort(s2) := srt2 //?
 
       // generate ifSplit
       ; x_split := <newname> "ifSplit"
       ; <emit-webdsl-code> def|[
           auto procedure x_split(x_o1 : srt1) {
             processed {
-              if (e1) {
+              if (exp) {
                 x_o1.x_id1.enable();
               } else {
                 x_o1.x_id2.enable();
@@ -142,7 +192,8 @@ rules
         ]|
       ;  ifJoin := ProcCall(x_join, x_o2)
 
-/*      // output entity extensions for status
+/* waarschijnlijk niet nodig doordat de gemaakte auto procedure wel gedesugared wordt
+      // output entity extensions for status
       ; SimpleSort(x_ent1) := srt1
       ; extendSplit := def|[
           extend entity x_ent1 {
@@ -163,14 +214,47 @@ rules
       ; <emit-webdsl-code> extendJoin*/
         
       // connect both branches to the join
-      ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
-      ; lastElse := <fetch-right-most-td(is-process-call)> elseBranch
-      ; <connect-to(|ifJoin)> lastIf
-      ; <connect-to(|ifJoin)> lastElse
+      ; <connect-procs> (<right-proc-call> ifBranch, ifJoin)
+      ; <connect-procs> (<right-proc-call> elseBranch, ifJoin)
+      ; info(|"Eind if-to-extend-procedures")
       
-/* 
+
   if-no-else-to-extend-procedures :
-    ProcIfNoElse(exp, ifBranch) -> ProcProcessed(ifSplit, ifJoin)
+    ProcIfNoElse(exp, ifBranch) -> ProcPair(ifSplit, ifJoin)
+    where
+      // retrieve necessary info for if branch
+      info(|"Begin if-no-else-to-extend-procedures")
+      ; x_id1 := <get-process-id> <left-proc-call> ifBranch
+      ; x_o1 := <ProcedureArg> x_id1
+      ; srt1 := <ProcedureArgSort> x_id1
+
+      // generate ifSplit
+      ; x_split := <newname> "ifSplit"
+      ; <emit-webdsl-code> def|[
+          auto procedure x_split(x_o1 : srt1) {
+            processed {
+              if (exp) {
+                x_o1.x_id1.enable();
+              }
+            }
+          }
+        ]|
+      ; ifSplit := ProcCall(x_split, x_o1)
+      ; info(|["Emitted auto procedure ", x_split])
+
+      // generate ifJoin
+      ; x_join := <newname> "ifJoin"
+      ; <emit-webdsl-code> def|[
+          auto procedure x_join(x_o1 : srt1) {  }
+        ]|
+      ;  ifJoin := ProcCall(x_join, x_o1)
+      
+      // connect branch to the join
+      ; <connect-procs> (<right-proc-call> ifBranch, ifJoin)
+      ; info(|"Eind if-no-else-to-extend-procedures")
+ 
+/* vervangen door bovenstaand. Kan weg straks  if-no-else-to-extend-procedures :
+    ProcIfNoElse(exp, ifBranch) -> ProcPair(ifSplit, ifJoin)
     where
         firstIf := <fetch-left-most-td(is-process-call)> ifBranch
       ; lastIf := <fetch-right-most-td(is-process-call)> ifBranch
@@ -193,8 +277,8 @@ rules
           procedure x_join(x_o : srt) {  }
         ]|
       ; <emit-webdsl-code> ifJoin
-      ; <connect-to(|ifJoin)> lastIf
-   */   
+      ; <connect-procs> lastIf*/
+      
       
 
 /*  
@@ -226,35 +310,45 @@ rules
     */
 
 
-// connecting procedures
-rules
-
+rules // connecting procedures
+  // connects two procedures and rewrites to a ProcPair
   sequential-to-extend-procedures :
-    ProcSeq(leftProc, rightProc) ->
-      ProcSeq(leftProc, rightProc)
+    ProcSeq(leftPart, rightPart) ->
+      ProcPair(leftProcCall, rightProcCall)
     where 
-      <connect-to(|rightProc)> leftProc
+      info(|"Begin sequential-to-extend-procedures")
+      ; leftProcCall := <right-proc-call> leftPart
+      ; rightProcCall := <left-proc-call> rightPart
+      ; <connect-procs> (leftProcCall, rightProcCall)
+      ; info(|"Eind sequential-to-extend-procedures")
       
-  connect-to(|rightProc) =  
-    ?leftProc
-    ; leftProcCall := <fetch-right-most-td(is-process-call)> leftProc
-    ; x_id := <get-process-id> leftProcCall
-    ; x_o := <ProcedureArg> x_id
-    ; srt := <ProcedureArgSort> x_id
-    ; x_enable := <get-process-id> <fetch-left-most-td(is-process-call)> rightProc
-    ; code := def|[
-        extend procedure x_id(x_o : srt) {
-          processed {
-            x_o.x_enable.enable();
-          }
-        }
-      ]|
-    ; <emit-webdsl-code> code
-    ; info(|["Connected ", x_id, " with ", x_enable])
-    ; !leftProc
+  // does the actual connecting by adding an enable() call to processed
+  connect-procs =  
+    ?(leftProcCall, rightProcCall)
+    ; where (
+        x_id := <get-process-id> leftProcCall
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; x_enable := <get-process-id> rightProcCall
+        ; code := def|[
+            extend procedure x_id(x_o : srt) {
+              processed {
+                x_o.x_enable.enable();
+              }
+            }
+          ]|
+        ; <emit-webdsl-code> code
+        ; info(|["Connected ", x_id, " with ", x_enable])
+      )
 
 // util - fetching left-most and right-most elements
 strategies
+
+  left-proc-call = ?ProcCall(x_id, exp)
+  left-proc-call : ProcPair(proc_call, _) -> proc_call
+
+  right-proc-call = ?ProcCall(x_id, exp)
+  right-proc-call : ProcPair(_, proc_call) -> proc_call
 
   get-process-id = 
     get-ProcCall-id
