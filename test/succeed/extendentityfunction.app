@@ -1,0 +1,31 @@
+application test
+
+section datamodel
+
+  entity User{
+    name :: String
+  }
+  
+  extend entity User{
+    function test(a:Int, b:Int, u:User) : Int
+    {
+      u.name = this.name;
+      return a+b;
+    }
+  }
+
+  define main() 
+  {
+    body()
+  }
+  
+  define page home(){
+    main()
+    var u:User := User{};
+    define body()
+    {
+      if(u.test(4,8,u)){
+        output(u.name)
+      }
+    }
+   }

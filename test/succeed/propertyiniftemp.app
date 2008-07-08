@@ -1,0 +1,25 @@
+application test
+
+section datamodel
+
+  entity User{
+    username :: String
+    check :: Bool
+  }
+  
+  define main() 
+  {
+    body()
+  }
+  
+  define page home(){
+    main()
+    var u: User := User { username := "Bob" check := true };
+    define body()
+    {
+      if(u.check)
+      {
+        output(u.username)
+      }
+    }
+   }
