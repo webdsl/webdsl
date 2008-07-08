@@ -17,9 +17,11 @@ rules
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
     ; hierarchy := <build-entity-hierarchy> "Object"
-    ; <alltd(find-entity-functions)> app
+    //; <alltd(find-entity-functions)> app
+    ; entityfunctions := <collect(find-entity-functions)> app
+    ; rules ( EntityFunctions := entityfunctions )
     ; entityglobalfuncs := <collect(build-global-functions);concat> hierarchy
-    ; globalfuncs := <collect( \ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs\) ;concat> sections
+    ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat> sections
     //; info(|["List: ", <collect-hierarchy-tree> hierarchy])
     //; <order-functions(|<collect-hierarchy-tree> hierarchy)> globalfuncs
     //; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
@@ -31,17 +33,19 @@ rules
    * This rule desugars entities with functions into entities without functions, the functions
    * are translated to global functions and later injected back into the code
    */
-  find-entity-functions :
+  desugar :
     Entity(x, s, prop*, [f|r]) -> Entity(x, s, prop*, r)
-    where f2 := <topdown(try(\ "this" -> "this"{} \));procedure-rename-var(|"this", "this0")> f
-        ; f3 := <entity-function-as-global(|x)> f2
-        ; rules ( EntityFunction :+ x -> f3 )
+    with f2 := <topdown(try(\ "this" -> "this"{} \));procedure-rename-var(|"this", "this0")> f
+       ; f3 := <entity-function-as-global(|x)> f2
+       ; <emit-webdsl-code> f3
+       //; rules ( EntityFunction :+ x -> f3 )
 
-  find-entity-functions :
+  desugar :
     EntityNoSuper(x, prop*, [f|r]) -> EntityNoSuper(x, prop*, r)
     where f2 := <topdown(try(\ "this" -> "this"{} \));procedure-rename-var(|"this", "this0")> f
         ; f3 := <entity-function-as-global(|x)> f2
-        ; rules ( EntityFunction :+ x -> f3 )
+        ; <emit-webdsl-code> f3
+        //; rules ( EntityFunction :+ x -> f3 )
 
   entity-function-as-global(|x_class) :
     Function(nm, args, rt, body) -> Function(nm, [Arg("this0", SimpleSort(x_class))|args], rt, body)
@@ -51,12 +55,16 @@ rules
     x_class -> EntityClass(x_class, <map(build-entity-hierarchy)> subentities)
     where subentities := <filter(where(x_class := <Extends>))> <bagof-Entities>
 
+  find-entity-functions =
+    ?Function(nm, [Arg(_, SimpleSort(srt))|_], _, _)
+    ; where(<IsFunction> (srt, nm))
+
   build-global-functions =
     ?EntityClass(nm, subclasses)
-    ; entfunctions := <bagof-EntityFunction> nm
+    ; entfunctions := <EntityFunctions> nm
     ; ?[_|_]
     ; order := <collect-hierarchy-tree> EntityClass(nm, subclasses)
-    ; morefuncs := <map(try(bagof-EntityFunction)); concat> order
+    ; morefuncs := <map(try(EntityFunctions)); concat> order
     ; newfuncs := <order-functions(|order)> <concat> [entfunctions, morefuncs]
     ; (_, finalfuncs) := <merge-functions> (newfuncs, newfuncs)
     ; !finalfuncs
