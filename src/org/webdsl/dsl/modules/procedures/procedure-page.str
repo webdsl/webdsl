@@ -9,7 +9,7 @@ rules // Translate to pages and stuff
   procedures-to-pages :
     def@def|[ procedure x_id (x_o : srt) { procelem* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsProcedure> x_id
-        ; stat* := <procedure-action-statements; add-procedure-done(|x_id, x_o, srt)> def
+    with stat* := <procedure-action-statements; add-procedure-done(|x_id, x_o, srt)> def
         ; SimpleSort(s) := srt
         ; x_view := <decapitalize-string> s
         ; if <IsDoProcedure> x_id then
@@ -32,68 +32,62 @@ rules // Translate to pages and stuff
               }
             }
           ]|
+        ; x_status := <concat-strings> [<capitalize-string> x_id, "Status"]
+        ; <emit-webdsl-code> def|[
+            entity x_status : ProcedureStatus {
+              function enabled() { }
+              function disabled() { }
+              function do() { }
+              function done() { }
+              function processed() { }
+            }
+          ]|
         ; x_ent := s
         ; <emit-webdsl-code> def|[
             extend entity x_ent {
-              x_id <> ProcedureStatus ()
+              x_id <> x_status ()
             }
           ]|
         // Generate functions
-        ; x_enabled := <concat-strings> [x_id, "Enabled"]
         ; stat3* := <filter(procedure-enabled-statements); concat> procelem*
         ; <emit-webdsl-code> def|[
-            globals {
-              function x_enabled(x_o : srt) {
-                x_o.x_id.enabled := true;
-                stat3*
-              }
+            extend function enabled(x_o : srt) {
+              x_o.x_id.enabled := true;
+              stat3*
             }
           ]|
-        ; x_processed := <concat-strings> [x_id, "Processed"]
         ; stat4* := <filter(procedure-processed-statements); concat> procelem*
         ; <emit-webdsl-code> def|[
-            globals {
-              function x_processed(x_o : srt) {
-                stat4*
-              }
+            extend function processed(x_o : srt) {
+              stat4*
             }
           ]|
-        ; x_done := <concat-strings> [x_id, "Done"]
         ; stat5* := <filter(procedure-done-statements); concat> procelem*
         ; <emit-webdsl-code> def|[
-            globals {
-              function x_done(x_o : srt) {
-                x_o.x_id.enabled := false;
-                stat5*
-              }
+            extend function done(x_o : srt) {
+              x_o.x_id.enabled := false;
+              stat5*
             }
           ]|
-        ; x_do := <concat-strings> [x_id, "Do"]
         ; stat6* := <filter(not({e: ?webdsl|[ return e; ]| <+ ?webdsl|[ goto e; ]|}))> stat2*
         ; <emit-webdsl-code> def|[
-            globals {
-              function x_do(x_o : srt) {
-                stat6*
-              }
+            extend function do(x_o : srt) {
+              stat6*
             }
           ]|
-        ; x_disabled := <concat-strings> [x_id, "Disabled"]
         ; stat7* := <filter(procedure-disabled-statements); concat> procelem*
         ; <emit-webdsl-code> def|[
-            globals {
-              function x_disabled(x_o : srt) {
-                x_o.x_id.enabled := false;
-                stat7*
-              }
+            extend function disabled(x_o : srt) {
+              x_o.x_id.enabled := false;
+              stat7*
             }
           ]|
 
   add-procedure-done(|x_op, x_obj, srt) :
     stat* -> webdsl|[
           stat*
-          x_done(x_obj);
+          x_obj.done();
         ]|
-    where x_done := <concat-strings> [x_op, "Done"]
 
   procedure-to-check-performed(|arg) :
     nm -> webdsl|[ x_check(e); ]|
