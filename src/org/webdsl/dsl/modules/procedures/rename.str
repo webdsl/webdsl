@@ -13,6 +13,7 @@ rules // Renaming
           : rules ( InDef := True() )
           ; x_o2 := <rename-bound(|srt)> x_o1
           ; procelem2* := <rename-all> procelem1*
+          ; declare-procedure-status
           |}
   
   rename :
@@ -22,6 +23,7 @@ rules // Renaming
           : rules ( InDef := True() )
           ; x_o2 := <rename-bound(|srt)> x_o1
           ; procelem2* := <rename-all> procelem1*
+          ; declare-procedure-status
           |}
 
   rename :
@@ -31,9 +33,35 @@ rules // Renaming
           : rules ( InDef := True() )
           ; x_o2 := <rename-bound(|srt)> x_o1
           ; procelem2* := <rename-all> procelem1*
+          ; declare-procedure-status
           |}
 
-rules // Declaring
+strategies // Declaring
+
+  declare-procedure-status = try(<do-once(
+     with(id
+      ; info(|"Declaring ProcedureStatus")
+      ; <declare-entity> def|[
+        entity ProcedureStatus {
+          name        :: String
+          enabled     :: Bool
+          date        :: DateTime
+          caller      -> ProcedureStatus
+          returnstate :: Int
+
+          function enabled() { }
+          function disabled() { }
+          function do() { }
+          function done() { }
+          function processed() { }
+          function enable() { }
+          function enable(c : ProcedureStatus, r : Int) { }
+          function disable() { }
+          function next(state : Int) { }
+        }
+      ]|)
+    | "declare-procedure-status")> None())
+
 
   declare-procedure =
     (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
@@ -43,10 +71,8 @@ rules // Declaring
       ; who-exp := <procedure-who-exp> def
       ; when-exp := <procedure-when-exp> def
       ; SimpleSort(s) := srt
-      ; info(|"Step 0")
       ; hasopfun := <concat-strings> [<decapitalize-string> s, "HasProcedures"]
       ; procstatus := x_id
-      ; info(|"Step 1")
       ; rules ( 
           IsProcedure      : x_id 
           ProcedureWho     : x_id -> who-exp
@@ -58,23 +84,16 @@ rules // Declaring
             (None(), hasopfun, [srt]) -> SimpleSort("Bool")
           ProcedureEntities :+= srt 
         )
-      ; info(|"Step 1")
       ; if [] := <procedure-view-elems> def then
           rules ( IsDoProcedure : x_id )
         end
         
-      ; info(|"Step 1")
       // for typechecking, these declares are executed early (and overwritten later)
       ; <temp-declare-entity-template> def
-      ; info(|"Step 1")
       ; temp-declare-all-tasks-page
-      ; info(|"Step 1")
       ; <temp-declare-entity-task-page> def
-      ; info(|"Step 1")
       ; <temp-declare-entity-status-page> def
-      ; info(|"Step 1")
       ; <temp-procedure-to-page> def
-      ; info(|"Step last")
     )
   
   temp-declare-entity-template =
@@ -121,8 +140,7 @@ rules // Declaring
     (  ?def@def|[ procedure x_id (x_o : srt) { procelem* }]|
     <+ ?def@def|[ auto procedure x_id (x_o : srt) { procelem* }]|
     )
-    ; x_status := <concat-strings> [<capitalize-string> x_id, "Status"]
-    ; info(|"Here 1")
+    ; x_status := <concat-strings> [<capitalize-string> x_id, "ProcedureStatus"]
     ; <declare-entity> def|[
         entity x_status : ProcedureStatus {
           function enabled() { }
@@ -132,16 +150,12 @@ rules // Declaring
           function processed() { }
         }
       ]|
-    ; info(|"Here 2")
     ; SimpleSort(x_ent) := srt
-    ; info(|["Declaring procedure property ", x_id, " on ", x_ent])
-    ; info(|"Here 3")
     ; <declare-extend-entity> def|[
         extend entity x_ent {
           x_id <> x_status ()
         }
       ]|
-    ; info(|"Here 4")
     // Generate functions
     /*
     ; x_enabled := <concat-strings> [x_id, "Enabled"]
