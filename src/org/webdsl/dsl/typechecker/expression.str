@@ -16,80 +16,24 @@ strategies
 
 rules // typechecking expressions
 
-  /*
-  typecheck-order-expression :
-    OrderAscending(e1) -> OrderAscending(e2)
-    where e2 := <typecheck-expression> e1
-    */
-
   eq-type-of =
     ?OrderAscending(e1)
     ; <type-of> e1
-
-  /*
-  typecheck-order-expression :
-    OrderDescending(e1) -> OrderDescending(e2)
-    where e2 := <typecheck-expression> e1
-    */
 
   eq-type-of =
     ?OrderDescending(e1)
     ; <type-of> e1
 
-  /*
-  typecheck-order-expression :
-    OrderNonSpecific(e1) -> OrderNonSpecific(e2)
-    where e2 := <typecheck-expression> e1
-    */
-
   eq-type-of =
     ?OrderNonSpecific(e1)
     ; <type-of> e1
-
-/*  typecheck-expression = dbg(|"tc expression: "); (
-    typecheck-variable
-    <+ typecheck-literal
-    <+ typecheck-length-field
-    <+ typecheck-fieldaccess
-    <+ typecheck-cast
-    <+ typecheck-in-coll
-    <+ typecheck-object-creation
-    <+ typecheck-set-creation
-    <+ typecheck-list-creation
-    <+ typecheck-typed-set-creation
-    <+ typecheck-typed-list-creation
-    <+ typecheck-call
-    <+ typecheck-for-expr
-    <+ typecheck-query
-    <+ typecheck-operator
-    <+ typecheck-expression-error
-  )*/
 
   constraint-error :
     Var(x) -> <add-error(|["Variable ", <pp-webdsl> x, " not defined"])>
     where not(<TypeOf> x)
 
-  /*
-  typecheck-variable :
-    Var(x) -> Var(x){Type(t)}
-    where if not(t := <TypeOf> x) then
-            typecheck-error(|["variable ", x, " has no declared type"])
-            ; t := "Error"
-          end
-          */
-
   eq-type-of :
     Var(x) -> <TypeOf> x
-
-  /*
-  typecheck-cast :
-    Cast(e1, s) -> Cast(e2, s) { Type(s) }
-    where e2 := <typecheck-expression> e1
-        ; <?_{Type(e2t)}> e2
-        ; if not(<type-compatible> (e2t, s)) ;  not(<type-compatible> (s, e2t)) then
-             typecheck-error(|["You cannot cast something of type ", e2t, " to ", s])
-          end
-  */
 
   constraint-error : 
     Cast(e, s) -> <add-error(|["Cannot cast ", <pp-webdsl> e, " to type ", <pp-webdsl> s])>
@@ -98,20 +42,6 @@ rules // typechecking expressions
   eq-type-of:
     Cast(e, s) -> s
     where <type-compatible> (<type-of> e, s)
-
-  /*
-  typecheck-object-creation :
-    ObjectCreation(x_Class, assign1*) -> ObjectCreation(x_Class, assign2*){Type(SimpleSort(x_Class))}
-    where dbg(|"typecheck-object creation a: ")
-        ; in-tc-context(
-            if not(<IsEntity> x_Class) then
-              typecheck-error(|["object creation for undeclared entity ", x_Class])
-            end
-            ; dbg(|"typecheck-object creation b: ")
-            ; assign2* := <map(typecheck-field-initialization(|x_Class))> assign1*
-            ; dbg(|"typecheck-object creation c: ")
-          |["create ", x_Class, "/"])
-  */
 
   eq-type-of :
     ObjectCreation(x_Class, assign*) -> SimpleSort(x_Class)
@@ -130,33 +60,6 @@ rules // typechecking expressions
     ; not(<type-compatible> (<type-of-property> (x_Class, y),  <type-of> e))
     ; add-error(|["Property ", <pp-webdsl> y, " does not exist or invalid value is assigned to it."])
 
-  /*typecheck-field-initialization(|x_Class) :
-    Assignment(y, e1) -> Assignment(y, e2)
-    where dbg(|"typecheck-assign a: ");
-          e2{Type(t2)} := <typecheck-expression> e1
-          // @todo
-        ; dbg(|"typecheck-assign b: ")
-        ; if not(t1 := <TypeOfProperty> (x_Class, y)) then
-            typecheck-error(|["entity ", x_Class, " has no field ", y])
-            ; t1 := SimpleSort("void")
-          end
-        ; dbg(|"typecheck-assign c: ")
-        ; if not(<type-compatible>(t1,t2)) then
-            typecheck-error(|["assignment to field ", y, " of ", x_Class, " with type ", t2, " should be ", t1])
-          end
-        ; dbg(|"typecheck-assign d: ")
-  */
-
-
-  /*typecheck-fieldaccess :
-    FieldAccess(e1, f) -> FieldAccess(e2, f){Type(t1)}
-    where e2{Type(t2@SimpleSort(s))} := <typecheck-expression> e1
-        ; if not(t1 := <TypeOfProperty> (s, f)) then
-            typecheck-error(|["entity '", s, "' has no property '", f, "'"])
-        ; t1 := "Error"
-     end
-  */
-
   constraint-error :
     FieldAccess(e, f) -> <add-error(|[<pp-webdsl> e, ", no such property ", <pp-webdsl> f])>
     where not(type-of)
@@ -168,17 +71,6 @@ rules // typechecking expressions
   eq-type-of :
     FieldAccess(e, f) -> <type-of> Var(f)
     where "Component" := <type-of> e
-  /*
-  typecheck-in-coll :
-    InColl(e1, e2) -> InColl(e3, e4) {Type(SimpleSort("Bool"))}
-    where e3 := <typecheck-expression> e1
-        ; e4 := <typecheck-expression> e2
-        ; <?_{Type(t)}> e3
-        ; <?_{Type(GenericSort(_, [lt]))}> e4
-        ; if not(<type-compatible> (lt, t)) then // Or other way around?
-            typecheck-error(|["Expression ", e3, " should be of type ", lt])
-          end
-          */
 
   eq-type-of :
     InColl(e1, e2) -> SimpleSort("Bool")
@@ -190,12 +82,6 @@ rules // typechecking expressions
     InColl(e1, e2) -> <add-error(|["Expression ", <pp-webdsl> e1, " has wrong type."])>
     where not(type-of)
 
-  /*
-  typecheck-for-expr :
-    AndForExp(fe) -> AndForExp(fe2){Type(SimpleSort("Bool"))}
-    where fe2 := <typecheck-expression> fe
-    */
-
   constraint-error :
     AndForExp(fe) -> <add-error(|[<pp-webdsl> fe, " should be of some list type of Bool"])>
     where not(type-of)
@@ -204,12 +90,6 @@ rules // typechecking expressions
     AndForExp(fe) -> SimpleSort("Bool")
     where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
 
-  /*
-  typecheck-for-expr :
-   OrForExp(fe) -> OrForExp(fe2){Type(SimpleSort("Bool"))}
-   where fe2 := <typecheck-expression> fe
-   */
-
   constraint-error :
     OrForExp(fe) -> <add-error(|[<pp-webdsl> fe, " should be of some list type of Bool"])>
     where not(type-of)
@@ -217,33 +97,6 @@ rules // typechecking expressions
   eq-type-of :
     OrForExp(fe) -> SimpleSort("Bool")
     where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
-
-/*
-  typecheck-for-expr :
-    ForExp(oe1, x, s, ie1, Filter(we1, obe1)) -> ForExp(oe2, x, s, ie2, Filter(we2, obe2)) {Type(t)}
-    where ie2 := <typecheck-expression> ie1
-        ; {| TypeOf
-           : rules(TypeOf : x -> s)
-             ; oe2 := <typecheck-expression> oe1
-             ; we2 := <typecheck-expression> we1
-             ; obe2 := <typecheck-order-expression> obe1
-           |}
-        ; if <?_{Type(GenericSort("List", _))}> ie2 then
-            t := GenericSort("List", [<?_{Type(<id>)}> oe2])
-          else
-            t := GenericSort("Set", [<?_{Type(<id>)}> oe2])
-          end
-//         ; if not(<type-compatible>(<?_{Type(<id>)}> oe2, s)) then
-//             typecheck-error(|["expression ", oe2, " is not of type ", s])
-//           end
-         ; if not(<?_{Type(SimpleSort("Bool"))}> we2) then
-             typecheck-error(|["expression ", we2, " is not a Bool."])
-           end
-// TODO: A check needs to be done checking s with the type of items in ie2
-//         ; if not(<type-compatible>(<?_{Type(<id>)}> oe2, s)) then
-//             typecheck-error(|["expression ", oe2, " is not of type ", s])
-//           end
-*/
 
   constraint-error :
     ForExp(oe, x, s, ie, Filter(we, obe)) -> <add-error(|[<pp-webdsl> <id>, " has type error."])>
@@ -265,14 +118,6 @@ rules // typechecking expressions
   eq-type-of :
     ForExpNoFilter(oe, x, s, ie) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), OrderNonSpecific(Var(x))))
 
-  /*
-  typecheck-call :
-    Call(e1, f, e2*) -> Call(e3, f, e4*){Type(t)}
-    where e3{Type(t3)} := <typecheck-expression> e1
-        ; e4* := <map(typecheck-expression)> e2*
-        ; t := <check-signature> (t3, f, e4*)
-        */
-
   constraint-error :
     Call(e1, f, e2*) -> <add-error(|["No function ", f, " on ", <pp-webdsl> e1, " with this signature."])>
     where not(type-of)
@@ -291,12 +136,6 @@ rules // typechecking expressions
   constraint-error :
     Call(e1, f, e2*) -> <add-error(|["No function ", f, " on ", <pp-webdsl> e1, " with this signature."])>
     where not(type-of)
-
-  /*typecheck-call :
-    ThisCall(f, e1*) -> ThisCall(f, e2*){Type(t)}
-    where e2* := <map(typecheck-expression)> e1*
-        ; t := <check-signature> (None(), f, e2*)
-        */
 
   eq-type-of :
     ThisCall(f, e2*) -> t
@@ -323,12 +162,6 @@ rules // typechecking expressions
   check-operator-signature : (None(), Op("And"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
   check-operator-signature : (None(), Op("Or"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
   
-  /*
-  typecheck-operator :
-    c#([e1, e2]) -> c#([e1', e2']) {Type(t)}
-    where not("IsA" := c)
-        ; (t, [e1', e2']) := <typecheck-binop> (Op(c), [e1, e2])
-  */
   constraint-error :
     c#([e1, e2]) -> <add-error(|["Wrong operand types for operator ", c, ": ", <pp-webdsl> e1, ", ", <pp-webdsl> e2])>
     where not(type-of)
@@ -339,15 +172,6 @@ rules // typechecking expressions
     where not("IsA" := c)
         ; t := <typecheck-binop> (Op(c), [e1, e2])
   
-  /*
-  typecheck-operator :
-    Not(x) -> Not(x2) { Type(SimpleSort("Bool")) }
-    where x2 := <typecheck-expression> x
-        ; xt := <?_{Type(<id>)}> x2
-        ; if not(<eq>(xt, SimpleSort("Bool"))) then
-            typecheck-error(|[x, " should be an expression of type Bool, but is of type ", xt])
-          end
-  */
   constraint-error :
     Not(e) -> <add-error(|[<pp-webdsl> e, " is not of type Bool"])>
     where not(type-of)
@@ -356,24 +180,10 @@ rules // typechecking expressions
     Not(e) -> SimpleSort("Bool")
     where SimpleSort("Bool") := <type-of> e
 
-  /*
-  typecheck-operator :
-    IsA(e, s) -> IsA(e2, s) {Type(SimpleSort("Bool"))}
-    where e2 := <typecheck-expression> e
-        ; <java-type> s
-        */
-
   eq-type-of :
     IsA(e, s) -> SimpleSort("Bool")
     where <java-type> s
         ; <type-of> e
-
-  /*
-  typecheck-query :
-    HqlQuery(q) -> HqlQuery(q){Type(t)}
-    where t := <type-of-query> q
-        ; dbg(|"type of query: ")
-  */
 
   constraint-error :
     HqlQuery(q) -> <add-error(|["Type error in query ", <pp-webdsl> q])>
@@ -381,12 +191,6 @@ rules // typechecking expressions
 
   eq-type-of :
     HqlQuery(q) -> <type-of-query> q
-
-  /*
-  typecheck-expression-error =
-    ?e
-    ; typecheck-error(|["expression ", e, " has type error"])
-    */
 
 rules // signature
 
