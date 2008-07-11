@@ -189,75 +189,62 @@ overlays
   NameProperty =
     Property("name", Simple(), SimpleSort("String"), [])
 
-strategies // register top-level template definitions
-
-//  declare-template-definitions =
-//    alltd(declare-template-definition)
-
+strategies // register template definitions
 
   declare-page-definition =
     ?def@Define([Page()], name, args, body)
-    ; {| ThisPage
-    : rules ( ThisPage := name )
-    ; rules (
-        TemplateDefinition : name -> def
-        TemplateArguments  : name -> args
-      )
-     ; t1* := <map(?Arg(_,<id>))> args
-     ; rules (
-        IsPage :+ name -> name
-        CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
-        TemplateSignature : (name, t1*) -> def
-       )
-//    ; try(declare-page-definition)
-//    ; try(declare-email-definition) // @TODO make generic
-//    ; <alltd(declare-email-action)> body // @TODO make generic
-//    ; <debug> ["________declare_page", def]
-//    ; <debug> ""
-    ; !def
-    |}
+    ; where (
+	    t1* := <map(?Arg(_,<id>))> args
+	    ; rules (
+	        TemplateDefinition : name -> def
+	        TemplateArguments  : name -> args
+	        IsPage :+ name -> name
+	        CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
+	        TemplateSignature : (name, t1*) -> def
+	      )
+	  )
 
   declare-template-definition =
     ?def@Define(mods, name, fargs, body)
-    ; t1* := <map(?Arg(_,<id>))> fargs
-    ; rules (
-        TemplateSignature : (name, t1*) -> def
-        TemplateDefinition: (name, fargs) -> def
-      )
-//    ; <debug> ["________declare_template", name, fargs]
-//    ; <debug> ""
-    ; !def
+    ; where ( 
+        t1* := <map(?Arg(_,<id>))> fargs
+	    ; n := <strip-annos> name
+	    ; rules (
+	        TemplateSignature : (n, t1*) -> def
+	        TemplateDefinition: name -> def
+	      )
+	  )
 
   declare-toplevel-template-definition =
     ?Define(mods, name, fargs, body)
-    ; if not(<elem> ((name, fargs), <bagof-TopLevelTemplateDefinitions> name)) then
-        rules ( TopLevelTemplateDefinitions :+ name -> (name, fargs) )
-      end
+    ; where (
+	    t* := <map(?Arg(_,<id>))> fargs
+	    ; n := <strip-annos> name
+	    ; if not(<elem> ((n, t*), <bagof-TopLevelTemplateDefinitions> n)) then
+	        y := <newname> n
+	        ; rules (
+	          TopLevelTemplateDefinitions :+ n -> (n, t*)
+	          OverloadedTemplateSignature : (n, t*) -> y
+	        )
+	      end
+	  )
     ; declare-template-definition
 
   declare-local-template-definition =
-    with (
-      ?def@Define(mods, name, fargs, body)
-      ; t1* := <map(?Arg(_,<id>))> fargs
-      ; rules ( LocalTemplateSignature : (name, t1*) -> def )
+    ?def@Define(mods, name, fargs, body)
+    ; where ( 
+        page := <InPage>
+		; t1* := <map(?Arg(_,<id>))> fargs
+		; n := <strip-annos> name
+		; rules ( LocalTemplateSignature : (n, t1*) -> def )
+		; rules ( EnclosingDefinition : name -> page )
       )
-      ; !def
 
   declare-template-arg :
     Arg(x, s) -> Arg(x, s)
     where template := <InTemplate>
 //        ; <debug> [".........", Arg(x,s), template]
         ; rules ( TemplateArguments :+ template -> Arg(x, s) )
-
-  declare-template-args-old =
-    <newname> "param"
-
-  declare-template-arg-old(|template) =
-    ?(Arg(x, SimpleSort(s)), y)
-    ; rules ( TemplateArgument : (template, x) -> y
-              IsTemplateArgument : y -> x )
-//              TypeOf : y -> t' where t' := SimpleSort(<get-superclass> s) )
-
 
 strategies
 

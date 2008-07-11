@@ -24,16 +24,20 @@ strategies
            |}
 
   propagate-component-names-in-def :
-    Define([Template()], name, args, body1) -> Define([Template()], name, args, body2)
+    d@Define([Template()], name, args, body1) -> Define([Template()], name, args, body2)
     where {| PrefixComponent, SpecializeActionCall, IsTemplate
            : rules ( IsTemplate := name )
-           ; y := name{<newname> name}; rules(TypeOf : y -> "Component")
-           ; <map(declare-component-prefix(|y))> args
+           //; y := name{<newname> name}
+           ; rules ( TypeOf : name -> "Component" )
+//           ; <map(declare-component-prefix(|y))> args
            //getters of global vars are in the page bean as well
-           ; <map(declare-component-prefix(|y))> <AllGlobalVars <+ ![]>
-           ; <get-page-vardecls; map(declare-component-prefix(|y))> body1
-           ; declare-specialize-action-call(|y)
+           ; <map(declare-component-prefix(|name))> <AllGlobalVars <+ ![]>
+           ; <get-page-vardecls; map(declare-component-prefix(|name))> body1
+           ; declare-specialize-action-call(|name)
            ; body2 := <propagate-component-names-in-expression> body1
+/*           ; if <is-overloaded-template> d then
+               <declare-template-definition> Define([Template()], name, args, body2)
+             end*/
            |}
            
   propagate-component-names-in-expression =
@@ -59,14 +63,12 @@ strategies
     
   declare-component-prefix(|name) =
     ?x
-    // template arguments do not need to pe prefixed with the component name
-    ; where ( not( <elem> (Arg(x, <TypeOf> x), <bagof-TemplateArguments> <strip-annos> name ) ) )
     ; rules( 
         PrefixComponent : 
           Var(x) -> FieldAccess(Var(name), x)
           where not("Component" := <type-of> Var(x))
       )
-
+  
   declare-specialize-action-call(|name) =
     rules (
       SpecializeActionCall :
