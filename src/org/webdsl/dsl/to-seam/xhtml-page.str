@@ -201,10 +201,13 @@ strategies // title
     ; elems-to-xhtml
     <+ ![]
 
-  // ignore title when rendering body of a page
-
   elem-to-xhtml :
-    TemplateCall("title", _, _) -> []
+    TemplateCall("title", _, elems) ->
+    %>
+      <ui:define name="title">
+	    <%= <elems-to-xhtml> elems::* %>
+	  </ui:define>
+	<%
 
 strategies // style
 
@@ -278,127 +281,6 @@ rules // images
   elem-to-xhtml :
     TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
     where x := <arg-to-value-string> e
-
-rules // menus
-
-  elem-to-xhtml :
-    TemplateCall("menubar", [exp], elems) ->
-      %>
-        <div class="menuwrapper" id="<%= x_menuid %>">
-          <ul id="p7menubar">
-            <%= elems2::*%>
-          </ul>
-        </div>
-      <%
-    where <?String("horizontal")> exp
-    with x_menuid := <newname> "menubar"
-        ; rules ( HMenuBar := x_menuid )
-        ; elems2 := <elems-to-xhtml> elems
-//        ; rules ( StylesheetIncludes := ["dropdownmenu.css" | <StylesheetIncludes>] )
-//        ; rules ( JavascriptIncludes := ["dropdownmenu.js" | <JavascriptIncludes>] )
-//        ; rules ( JSOnloadBody := [ %> init_dropdownmenu(); <% | <JSOnloadBody <+ ![]>] )
-
-  elem-to-xhtml :
-    TemplateCall("menubar", [exp], elems) ->
-      %>
-        <div class="sdmenu" id="<%= x_menuid %>">
-          <%= <elems-to-xhtml> elems' ::*%>
-        </div>
-      <%
-    where <?String("vertical"){_}> exp
-        ; x_menuid := <newname> "menubar"
-        ; rules ( VMenuBar := x_menuid )
-//        ; rules ( StylesheetIncludes := ["sdmenu.css" | <StylesheetIncludes>] )
-//        ; rules ( JavascriptIncludes := ["sdmenu.js" | <JavascriptIncludes>] )
-//        ; rules ( JSOnloadBody := [ %> sideMenu = new SDMenu("<%= x_menuid::cdata %>"); sideMenu.init(); <% | <JSOnloadBody <+ ![]>] )
-        ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) ->
-                                  TemplateCall("container", [], elems) \ <+
-                                \ TemplateCall("menu", [], elems) ->
-                                  TemplateCall("block", [], elems) \ <+
-                                \ TemplateCall("menuitem", [], elems) ->
-                                  TemplateCall("dummy", [], elems) \ <+
-                                \ TemplateCall("menuspacer", [], []) ->
-                                  TemplateCall("horizontalspacer", [], []) \
-                                  )))> elems
-
-  elem-to-xhtml :
-    TemplateCall("menu", [], elems) ->
-      %>
-        <li>
-          <%= headeritems ::*%>
-          <%= dropdownitems ::*%>
-        </li>
-      <%
-    where {| HeaderItems, DropDownItems
-           : <map(find-menuheaders)> elems
-           ; headeritems := <elems-to-xhtml> <reverse> <HeaderItems>
-           ; if DropDownItems then
-               dropdownitems := %> <ul> <%= <elems-to-xhtml> <reverse> <DropDownItems>::* %> </ul> <%
-             else
-               dropdownitems := []
-             end
-           |}
-
-    find-menuheaders =
-      ?elem
-      ; if <sometd(?TemplateCall("menuheader", _, _))> elem then
-          rules ( HeaderItems := [elem | <HeaderItems <+ ![]>] )
-        else
-          rules ( DropDownItems := [elem | <DropDownItems <+ ![]>] )
-        end
-
-  elem-to-xhtml :
-    TemplateCall("menuheader", [], elems) -> e
-    where e := <mapconcat(menuheader-elem-to-xhtml <+ elem-to-xhtml)> elems
-
-  menuheader-elem-to-xhtml :
-    e@Text(elem) ->
-      %>
-        <a href="#"><%= <elem-to-xhtml> e ::*%></a>
-      <%
-
-  menuheader-elem-to-xhtml :
-    TemplateCall("navigate",[ThisCall(p,args)],elems) ->
-      %>
-        <a href="<%= url %>" att0><%= <elems-to-xhtml> elems ::* %></a>
-      <%
-    where <IsPage> p
-        ; def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
-        ; params := <zip(bind-param)> (farg*, args)
-        ; url := <page-call-to-url> (p, params)
-        ; if DropDownItems then
-            att0 := @> class="trigger" <@
-          else
-            att0 := []
-          end
-
-  menuheader-elem-to-xhtml :
-    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
-      %>
-        <a href="<%= url %>" att0><%= <elems-to-xhtml> elems ::* %></a>
-      <%
-    where url := <arg-to-value-string> e
-        ; if DropDownItems then
-            att0 := @> class="trigger" <@
-          else
-            att0 := []
-          end
-
-  elem-to-xhtml :
-    TemplateCall("menuitem", [], elems) ->
-      %>
-        <li>
-          <%= <elems-to-xhtml> elems ::* %>
-        </li>
-      <%
-
-  elem-to-xhtml :
-    TemplateCall("menuspacer", [], []) ->
-      %>
-        <li>
-          <%= <elem-to-xhtml> TemplateCall("horizontalspacer", [], []) ::* %>
-        </li>
-      <%
 
 rules // datatables
 
