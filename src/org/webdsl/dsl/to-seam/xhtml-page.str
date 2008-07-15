@@ -767,58 +767,56 @@ rules // output
     where warn(|["underived output element"])
         ; estring := <arg-to-value-string> e
 
-
-              
-   unId : Id(x) -> x
-
-   packagename-to-string :
-     PackageName(parts) -> <map(unId); separate-by(|"."); concat-strings> parts
-
-
+rules
+  /**
+   * Generate URL rewrite rules
+   */   
+   GenerateCode = page-to-rewrite-rule; fail
+   
+   page-to-rewrite-rule =
+     ?Define([Page()], x, [], body)
+     ; with ( rules ( PageRewriteRules :+=
+              %>
+      <rule>
+        <from>/<%= x::cdata %>/?$</from>
+        <to>/<%= x::cdata %>.seam</to>
+      </rule>
+      <rule>
+        <from>/<%= x::cdata %>/?\?(.*)$</from>
+        <to>/<%= x::cdata %>.seam?$2</to>
+      </rule>
+              <% ) )
+      
    page-to-rewrite-rule =
      ?Define([Page()], x, args, body)
-     ; p := Literal(x)
-     ; if [] := args then
-        !%>
+     ; with ( Arg(fi, t) := <Hd> args
+	        ; if <builtin-java-type> t then
+	            first := fi
+	          else
+	            first := <concat-strings> [fi, "_id"]
+	          end
+            ; rules ( PageRewriteRules :+=
+      %>
       <rule>
-          <from>/<%= p %>/?$</from>
-        <to>/<%= p %>.seam</to>
+        <from>/<%= x::cdata %>/([^\?]+)$</from>
+        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1</to>
       </rule>
       <rule>
-        <from>/<%= p %>/?\?(.*)$</from>
-        <to>/<%= p %>.seam?$2</to>
+        <from>/<%= x::cdata %>/([^\?]+)\?(.*)$</from>
+        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1&amp;$2</to>
       </rule>
-      <%
-       else
-         Arg(fi, t) := <Hd> args
-         ; if <builtin-java-type> t then
-             first := Literal(fi)
-           else
-             first := Literal(<concat-strings> [fi, "_id"])
-           end
-         ; !%>
-      <rule>
-        <from>/<%= p %>/([^\?]+)$</from>
-        <to>/<%= p %>.seam?<%= first %>=$1</to>
-      </rule>
-      <rule>
-        <from>/<%= p %>/([^\?]+)\?(.*)$</from>
-        <to>/<%= p %>.seam?<%= first %>=$1&amp;$2</to>
-      </rule>
-    <%
-        end
+      <% ) )
 
-   pages-to-rewrite-rules =
-     ?sections
-     ; pagexmls := <collect(page-to-rewrite-rule); concat> sections
-     ; x := XmlFile(["resources/WEB-INF"], "urlrewrite.xml",
-%>
+   rewrite-rules-to-xml =
+     with ( {| ThisPage
+             : rules ( ThisPage := "urlrewrite" )
+             ; rule* := <bagof-PageRewriteRules; flatten-list>
+             ; <emit-seam-config>
+               %>
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE urlrewrite PUBLIC "-//tuckey.org//DTD UrlRewrite 2.6//EN"
-        "http://tuckey.org/res/dtds/urlrewrite2.6.dtd">
+                            "http://tuckey.org/res/dtds/urlrewrite2.6.dtd">
 <urlrewrite>
-<%= pagexmls ::*%>
+  <%= rule* ::*%>
 </urlrewrite>
-<%)
-     ; !x
-
+               <% |} )
