@@ -8,35 +8,7 @@ imports
 
 rules
 
-  page-to-xml :
-    def@Define([Page()], x, args, elems1) ->
-    XmlFile(["view"], <concat-strings>[x, ".xhtml"],
-%>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:ui="http://java.sun.com/jsf/facelets"
-      xmlns:h="http://java.sun.com/jsf/html"
-      xmlns:f="http://java.sun.com/jsf/core"
-      xmlns:c="http://java.sun.com/jstl/core"
-      xmlns:s="http://jboss.com/products/seam/taglib"
-      xmlns:a4j="https://ajax4jsf.dev.java.net/ajax"
-      xmlns:t="http://myfaces.apache.org/tomahawk"
-      xmlns:rich="http://richfaces.ajax4jsf.org/rich"
-      xmlns:wdsl="http://www.webdsl.org/el">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title><%= title ::*%></title>
-    <%= style-includes::* %>
-    <%= external-style::* %>
-    <%= script-includes::* %>
-</head>
-<body><%= elems2 ::*%></body>
-</html>
-<%)
-  where {| Component, ThisPage, StylesheetIncludes, JavascriptIncludes, JSOnloadBody
-         : rules( Component := x ) // @todo: replace by ThisPage
-         ; rules( ThisPage := x )
+/*
          ; rules ( StylesheetIncludes := ["webdsl.css"] )
          ; rules ( JavascriptIncludes := [] )
          ; title := <get-title> elems1
@@ -44,16 +16,8 @@ rules
          ; elems2 := <elems-to-xhtml> elems1
          ; style-includes := <mapconcat(css-include-to-xhtml)> <StylesheetIncludes>
          ; script-includes := <mapconcat(js-include-to-xhtml)> <JavascriptIncludes>
-//         ; js-onload := <js-onload-to-xhtml>
-
-/* <!--[if lte IE 7]>
-  <style>
-    .menuwrapper, #p7menubar ul a {height: 1%;}
-    a:active {width: auto;}
-  </style>
-   <![endif]--> */
-
-         |}
+         ; js-onload := <js-onload-to-xhtml>
+*/
 
   // Generate a list of all pages in the application
   generate-page-list =
@@ -196,17 +160,12 @@ strategies // lists of elements
 
 strategies // title
 
-  get-title =
-    fetch-elem(?TemplateCall("title", [], <id>))
-    ; elems-to-xhtml
-    <+ ![]
-
   elem-to-xhtml :
     TemplateCall("title", _, elems) ->
     %>
-      <ui:define name="title">
-	    <%= <elems-to-xhtml> elems::* %>
-	  </ui:define>
+  <ui:define name="title">
+    <%= <elems-to-xhtml> elems::* %>
+  </ui:define>
 	<%
 
 strategies // style
@@ -222,14 +181,13 @@ strategies // style
     TemplateCall("style", _, _) -> []
 
 
-rules // ugly hack: @todo: fixme!!!!!
+rules
   elem-to-xhtml :
     TemplateCall("dummy", [], elems) -> <elems-to-xhtml> elems
 
-rules // div
+rules // block
 
   // @obsolete; use block{ ... } instead of div{ ... }
-
   elem-to-xhtml :
     TemplateCall("div", [String(x)], elems) ->
     %>
@@ -266,7 +224,7 @@ rules // text
     TemplateCall("text", [e], []) ->
     %> <h:outputText value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"/> <%
 
-rules // spacer
+rules // spacers
 
   elem-to-xhtml :
     TemplateCall("spacer", [], []) ->
@@ -281,117 +239,6 @@ rules // images
   elem-to-xhtml :
     TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
     where x := <arg-to-value-string> e
-
-rules // datatables
-
-  elem-to-xhtml :
-    t@TemplateCallDeclaredType("table", x, s, elems) ->
-    %>
-      <rich:dataTable id="<%= table-id %>" var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
-
-        <f:facet name="header">
-      <rich:columnGroup>
-            <%= headers ::*%>
-          </rich:columnGroup>
-        </f:facet>
-
-        <%= columns ::*%>
-
-      </rich:dataTable>
-    <%
-  where {| DataTable, SubColumnCount, Subtable
-         : table-id := <newname> "datatable"
-         ; rules ( DataTable := table-id )
-         ; header-elems := <collect(?TemplateCall("header", _, _))> elems
-         ; column-elems := <filter(not(?TemplateCall("header", _, _)))> elems
-         ; columns := <mapconcat(column-to-xhtml)> column-elems
-         ; headers := <mapconcat(elem-to-xhtml)> header-elems
-         |}
-
-/*      ; hideColumn :=  <HideSubTableColumn <+ ![]>
-      ; if HideSubTableColumn then
-          att0 := @> varDetailToggler="detailToggler" <@
-        else
-          att0 := []
-        end*/
-
-   elem-to-xhtml :
-     TemplateCall("header", [], elems) -> elems'
-     where DataTable
-         ; info(|<SubColumnCount>)
-         ; elems' := <mapconcat(header-to-xhtml)> elems
-
-   header-to-xhtml :
-     e ->
-     %>
-       <rich:column><%= headername::* %></rich:column>
-     <%
-     where headername := <elem-to-xhtml> e
-
-   column-to-xhtml :
-    elem -> column
-    where el := <elem-to-xhtml> elem
-        ; if (not(Subtable(x, _, _, _) := elem)) then
-            column := %>
-          <rich:column>
-            <%= el ::*%>
-          </rich:column>
-          <%
-          ; if SubTable then
-                rules( SubColumnCount := <(SubColumnCount <+ !0); inc> )
-              end
-        else
-          column := el
-          end
-
-
-/*  column-to-xhtml :
-    elem -> enclosed-columns
-  where el := <elem-to-xhtml> elem
-      ; columns := %>
-        <rich:column>
-          <%= el ::*%>
-        </rich:column>
-        <%
-      ; enclosed-columns := <enclose-subtable-column> columns
-
-/*  enclose-subtable-column :
-     elem -> %> <f:facet name="detailStamp"> <%= elem::* %> </f:facet> <%
-     where HideSubTableColumn
-
-  enclose-subtable-column :
-     elem -> elem
-     where not(HideSubTableColumn) */
-
-  elem-to-xhtml :
-    Subtable(x, s, e, elems) ->
-    %>
-        <rich:subTable id="<%= subtable-id %>" var="<%=x%>" value="<%=x_col%>" colspan="">
-          <%= columns ::*%>
-        </rich:subTable>
-    <%
-  where x_col := <arg-to-value-string> e
-      ; subtable-id := <newname> "subtable"
-      ; rules ( SubTable := subtable-id )
- //     ; FieldAccess(exp, ident) := field
- //     ; itemVarName := <concat-strings>[ <decapitalize-string> ident, "Item"]
- //     ; columnsWithVar := <map(add-var-to-template-call(|itemVarName))> columns
- //     ; <debug> elems
-      ; exp := TemplateCall("spacer", [], [])
-      ; elems2 := <MkCons> (exp, elems)
-      ; columns := <mapconcat(column-to-xhtml)> elems2
-
-  add-var-to-property(|var) :
-    Var(var1) -> Var(var2)
-    where var2 := <concat-strings> [var, ".", var1]
-
-  add-var-to-property(|var) :
-    FieldAccess(e1, x) -> FieldAccess(e2, x)
-    where e2 := <add-var-to-property(|var)> e1
-
-  add-var-to-template-call(|var) :
-    TemplateCall(a, [exp], []) -> TemplateCall(a, [exp2], [])
-    where exp2 := <add-var-to-property(|var)> exp
 
 rules // lists
 
@@ -620,6 +467,20 @@ rules // if
     where InToplevelTemplate
         ; <contains-template-call> elems
 
+rules // template
+
+  elem-to-xhtml :
+    def |[ define local x(farg*) { elem* } ]| ->
+    %>
+  <ui:define name="<%= x %>">
+    <%= elems ::* %>
+  </ui:define>
+    <%
+    with {| InLocalTemplate
+          : rules ( InLocalTemplate := x )
+          ; elems := <elems-to-xhtml> elem*
+          |}
+          
 rules // template call
 
   elem-to-xhtml :
@@ -652,9 +513,16 @@ rules // template call
 //        ; <debug> ["_____", n, fargs]
 
   elem-to-xhtml :
-    TemplateCall(name, args, _) -> []
-    where <IsPage> <ThisPage>
-        ; <TemplateSignature> (name, <map(type-of)> args)
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:include src="<%= target %>">
+        <%= params::* %>
+      </ui:include>
+    <%
+    where is-call-to-toplevel-template ; <IsPage> <ThisPage>
+    with target := <concat-strings> [name, ".xhtml"]
+       ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
+       ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
     
 rules // vardecl
 
@@ -900,109 +768,12 @@ rules // output
         ; estring := <arg-to-value-string> e
 
 
-rules // function stuff
-
-   create-template-function(|fn, e) =
-     where({| Param, IgnoreVars
-            : <alltd(find-params)> e
-            ; params := <bagof-Param>
-            |}
-           ; expr-string := <concat-strings> [<ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")"]
-           ; el := <concat-strings> ["#{", expr-string, "}"]
-           ; pn := <ThisPage>
-           ; args := <ThisPageArguments>
-           ; rules( ConditionExpressions :+ l -> [(pn, args, fn, params, e)|l]
-                    ConditionExpressionToEL : (pn, e) -> el
-                    ConditionExpressionToString : (pn, e) -> expr-string )
-          )
-
-   translate-template-expression : // Store some context information
-     Define(mods, name, args, body1) -> Define(mods, name, args, body2)
-     where {| ThisPage, ThisPageArguments
-//            : if not(is-template-processed) then
-              :  rules ( ThisPage := name
-                        ThisPageArguments := args )
-//              end
-            ; body2 := <try(sometd(translate-template-expression))> body1
-            |}
-
-
-   translate-template-expression =
-     ?IfTempl(e, elems1*)
-     ; where (fn := <newname> "ifCondFun"
-              ; create-template-function(|fn, e)
-              ; <try(sometd(translate-template-expression))> elems1*)
-
-   // Do the same iffy thing for for-loops (for the "where" clause)
-   translate-template-expression =
-     ?For(x, s, e, Filter(we, obe), elem1*)
-     ; where (not(True() := we)
-              ; fn := <newname> "forWhereCondFun"
-              ; fn2 := <newname> "forInExprFun"
-              ; create-template-function(|fn, we)
-              ; create-template-function(|fn2, e)
-              ; <try(sometd(translate-template-expression))> elem1*)
-
-   translate-template-expression =
-     ?For(x, s, e, Filter(True(), obe), elem1*)
-     ; where (fn := <newname> "forInExprFun"
-              ; create-template-function(|fn, e)
-              ; <try(sometd(translate-template-expression))> elem1*)
-
-   translate-template-expression =
-     ?ForAll(x, s, Filter(we, obe), elem1*)
-     ; where (not(True() := we)
-              ; fn := <newname> "forAllWhereCondFun"
-              ; create-template-function(|fn, we)
-              ; elem2* := <try(sometd(translate-template-expression))> elem1*)
-
-   translate-template-expression =
-     ?TemplateCall("text", [arg], [])
-     ; where(not(<arg-to-value-string> arg) ; not(<elem-to-xhtml> arg) // Not a simple expression
-             ; fn := <newname> "textExprFun"
-             ; create-template-function(|fn, arg))
-
-   translate-template-expression =
-     ?VarDeclInit(x, s, expr)
-     ; where (not(<IsPage> <ThisPage>)
-              ; fn := <newname> "varDeclFun"
-              ; create-template-function(|fn, expr))
               
    unId : Id(x) -> x
 
    packagename-to-string :
      PackageName(parts) -> <map(unId); separate-by(|"."); concat-strings> parts
 
-//
-//   function-to-xml :
-//     (fn, param*, e) ->
-//     %>
-//  <function>
-//    <function-name><%= fn2 %></function-name>
-//    <function-class><%= pkgname %>.TemplateFunctions</function-class>
-//    <function-signature>boolean <%= fn2 %>(<%= params %>)</function-signature>
-//  </function>
-//    <%
-//    where pkgname := Literal(<packagename-to-string> <Package>)
-//        ; fn2 := Literal(fn)
-//        ; params := Literal(<map(function-param-to-sig); separate-by(|","); concat-strings> param*)
-//
-   functions-to-el =
-     try(sometd(translate-template-expression))
-     ; where (functions := <repeat(once-ConditionExpressions)> []
-       ; rules ( AllTemplateFunctions := functions ))
-
-//     ; oldapp := <id>
-//     ; functions := <repeat(once-TranIf)> []
-//     ; c := <template-functions-to-java> functions
-//     ; info(|"Sending resulting function stuff back")
-//     ; !(oldapp, c)
-////     ; functiondefs := <map(function-to-xml); concat> functions
-//     ; if [] := functions then
-//         namespacedef := []
-//       else
-//         namespacedef := %> <namespace>http://www.webdsl.org/el</namespace> <%
-//       end
 
    page-to-rewrite-rule =
      ?Define([Page()], x, args, body)
