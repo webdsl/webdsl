@@ -19,50 +19,7 @@ rules
          ; js-onload := <js-onload-to-xhtml>
 */
 
-  // Generate a list of all pages in the application
-  generate-page-list =
-  ?Application(qid, sections)
-      ; list := <collect(extract-page-name)> sections
-    ; rules (page-list := list)
 
-  // Extract the page name from a page
-  extract-page-name :
-    Define([Page()], x, args, elems1) -> x
-
-  // Generate the pages.xml file with all the page actions
-  generate-page-actions-file =
-  page-actions := <map(generate-page-action); concat> <page-list>
-    ; !XmlFile(["resources/WEB-INF"], "pages.xml",
-      %>
-        <?xml version="1.0" ?>
-        <!DOCTYPE page PUBLIC
-        "-//JBoss/Seam Pages Configuration DTD 1.2//EN" "http://jboss.com/products/seam/pages-2.0.dtd">
-        <pages>
-          <%= page-actions ::*%>
-        </pages>
-      <%)
-
-  // Generate a page action to force bean initialization before
-  // rendering a page.
-  generate-page-action :
-    x ->
-      %>
-        <page view-id="<%=viewid%>" action="#{<%=pageaction%>}">
-          <%= page-parameters::* %>
-        </page>
-      <%
-    where viewid := <concat-strings>["/", x, ".xhtml"]
-        ; pageaction := <concat-strings>[x, ".forceInitialization()"]
-        ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
-
-  arg-for-page-action(|page) :
-    Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page%>.<%= e1%>}" /> <%
-    where <defined-java-type> s
-        ; e1 := <concat-strings>[i, "_id"]
-
-  arg-for-page-action(|page) :
-    Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page%>.<%= e%>}" /> <%
-    where <builtin-java-type> s
 
 rules
 
@@ -820,3 +777,47 @@ rules
   <%= rule* ::*%>
 </urlrewrite>
                <% |} )
+
+
+rules
+  /**
+   * Generate page action config file
+   */
+   GenerateCode = page-to-action-rule; fail
+   
+   page-to-action-rule =
+     ?Define([Page()], x, args, elems)
+     ; with ( viewid := <concat-strings>["/", x, ".xhtml"]
+            ; pageaction := <concat-strings>[x, ".forceInitialization()"]
+            ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
+            ; rules ( PageActions :+= 
+              %>
+    <page view-id="<%= viewid %>" action="#{<%= pageaction %>}">
+        <%= page-parameters::* %>
+    </page>
+              <%
+            ) )
+
+   generate-page-actions-file =
+     with ( {| ThisPage
+             : rules ( ThisPage := "pages" )
+             ; action* := <bagof-PageActions; flatten-list>
+             ; <emit-seam-config>
+               %>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE page PUBLIC "-//JBoss/Seam Pages Configuration DTD 1.2//EN"
+                      "http://jboss.com/products/seam/pages-2.0.dtd">
+<pages>
+  <%= action* ::*%>
+</pages>
+               <% |} )
+
+   arg-for-page-action(|page) :
+     Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page %>.<%= e1 %>}" /> <%
+     where <defined-java-type> s
+      with e1 := <concat-strings>[i, "_id"]
+
+   arg-for-page-action(|page) :
+     Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page %>.<%= e %>}" /> <%
+     where <builtin-java-type> s
+    
