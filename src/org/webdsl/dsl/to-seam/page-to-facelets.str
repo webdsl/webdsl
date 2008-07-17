@@ -45,6 +45,11 @@ rules
     ?def |[ define page x(farg*) { elem* } ]|
     ; where ( x := <ThisPage> )
     ; with ( elems := <filter(not(?Define(_, _, _, _) <+ ?TemplateCall("title", _, _))); elems-to-xhtml> elem*
+//              ; rules ( StylesheetIncludes :+ x -> "webdsl" )
+              ; external-style := <get-styles> elem*
+//              ; style-includes := <mapconcat(css-include-to-xhtml)> <bagof-StylesheetIncludes>
+//              ; script-includes := <mapconcat(js-include-to-xhtml)> <bagof-JavascriptIncludes>
+//         ; script-includes := <mapconcat(js-onload-to-xhtml)> <bagof-JavascriptOnloadBody> x
          ; {| ThisPage
             : rules ( ThisPage := <concat-strings> [x, "Template"] )
             ; <emit-facelets>
@@ -65,7 +70,8 @@ rules
   <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
 	<title><ui:insert name="title"><%= x::cdata %></ui:insert></title>
-	<link href="<%= <AppRoot> %>/stylesheets/webdsl.css" rel="stylesheet" type="text/css"/>
+	<%= external-style::* %>
+	<ui:insert name="includes" />
   </head>
 
   <body>
@@ -84,9 +90,40 @@ rules
   page-to-facelet :
     def |[ define page x(farg*) { elem* } ]| -> <generate-template-client(|template)> elems
     where template := <concat-strings> [x, "Template"]
-        ; elems := <filter(?Define(_, _, _, _) <+ ?TemplateCall("title", _, _)); elems-to-xhtml> elem*
+        ; elems' := <filter(?Define(_, _, _, _) <+ ?TemplateCall("title", _, _)); elems-to-xhtml> elem*
+        ; templates := <collect(find-toplevel-templates); flatten-list> elem*
+        ; rules ( StylesheetIncludes :+ x -> "webdsl" )
+        ; elems := <flatten-list> [elems' | <find-includes> <flatten-list> [ x | templates ] ]
 
+  find-includes :
+    names ->
+    %>
+  <ui:define name="includes">
+    <%= <mapconcat({\ (n,_) -> <css-include-to-xhtml> n \})> styles ::*  %>
+    <%= <mapconcat({\ (n,_) -> <js-include-to-xhtml> n \})> scripts ::*  %>
+  </ui:define>
+    <%
+    where styles := <construct-include-bag(bagof-StylesheetIncludes)> names
+        ; scripts := <construct-include-bag(bagof-JavascriptIncludes)> names
 
+  construct-include-bag(s) = 
+    ?[ h | t ]
+    ; !<bag-union> (<includes-to-bag(s)> h, <construct-include-bag(s)> t)
+
+  construct-include-bag(s) =
+    ?[ e ]
+    ; <includes-to-bag(s)> e
+
+  includes-to-bag(s) =
+    ?name
+    ; !<map(\ e -> (e, 1) \)> <s> name
+
+  find-toplevel-templates =
+    ?TemplateCall(name, args, body)
+    ; t* := <map(type-of)> args
+    ; Define(m, n, f, b) := <TemplateSignature <+ LocalTemplateSignature> (name, t*)
+    ; ![name | <collect(find-toplevel-templates); flatten-list <+ []> b]
+    
   templatecall-args-to-facelets :
     (a, Arg(b, d)) ->
     %>
@@ -108,7 +145,6 @@ rules
           : rules ( InToplevelTemplate := x )
           ; body := <elems-to-xhtml> elem*
           |}
-
 
 rules
 
