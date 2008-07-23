@@ -17,27 +17,66 @@ imports
 rules // StyleDefinitions
 
   constraint-error : 
-    d@StyleDefinition(checktype, matchstring, farg*, decl*) -> <add-error(|["unknown style rule type: ", <pp-webdsl> d])>
-    where <not(elem)> ( checktype,[ "page"
+    d@StyleDefinition(checktype, matchdef, decl*) -> <add-error(|["unknown style definition type: ", <pp-webdsl> d])>
+    where <?MatchDefinition(_,_)> matchdef
+        ; <not(elem)> ( checktype,[ "page"
                                    ,"template" ])
 
   constraint-error : 
-    d@StyleDefinition("page", matchstring, farg*, decl*) -> <add-error(|["style rule target does not exist: ", <pp-webdsl> d])>
-    where MatchTemplateArgs(args) := farg*
-        ; not( <TemplateSignature> (matchstring, <map(?Arg(_,<id>))> args) ) <+ not( <IsPage> matchstring )
+    d@StyleDefinition("page", matchdef, decl*) -> <add-error(|["style definition target does not exist: ", <pp-webdsl> d])>
+    where not( <matches-page-definition> matchdef )
   
   constraint-error : 
-    d@StyleDefinition("template", matchstring, farg*, decl*) -> <add-error(|["style rule target does not exist: ", <pp-webdsl> d])>
-    where MatchTemplateArgs(args) := farg*
-        ; not( <TemplateSignature> (matchstring, <map(?Arg(_,<id>))> args) ) <+ not( <is-toplevel-template> matchstring )
+    d@StyleDefinition("template", matchdef, decl*) -> <add-error(|["style rule target does not exist: ", <pp-webdsl> d])>
+    where not( <matches-template-definition> matchdef )
                                          
   constraint-error : 
-    d@StyleDefinition(g, s, decl*) -> <add-error(|["unknown style rule type: ",<pp-webdsl> d])>
-    where not("global" := g) <+ not("style" := s)
+    d@StyleDefinition(g, s, decl*) -> <add-error(|["unknown style definition type: ",<pp-webdsl> d])>
+    where not( <?MatchDefinition(_,_)> s )
+        ; ( not("global" := g) <+ not("style" := s) )
+
+  matches-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        <TemplateSignature> (matchstring, <map(?Arg(_,<id>))> farg*)
+      )
+  
+  matches-template-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        matches-definition
+        ; <is-toplevel-template> matchstring
+      )
+      
+  matches-page-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        matches-definition
+        ; <IsPage> matchstring
+      )
 
 rules // StyleStatements
 
-/*  constraint-error : 
-    s@StyleStatement(prop, val) -> <add-error(|["style types not compatible: ",<pp-webdsl> s])>
-    where not( <style-type-compatible> (prop, val) )
-*/
+  constraint-error : 
+    StyleDeclaration(prop, val) -> <add-error(|["style property unknown or not supported: ", <pp-webdsl> prop])>
+    where StyleSort("Error") := <type-of> prop
+
+  constraint-error : 
+    StyleDeclaration(prop, val) -> <add-error(|["illegal style value: ", <pp-webdsl> val])>
+    where StyleSort("Error") := <type-of> val
+
+  constraint-error : 
+    s@StyleDeclaration(prop, val) -> <add-error(|["style types not compatible: ", <pp-webdsl> s])>
+    where not( <style-types-compatible> (<type-of> prop, <type-of> val) ) ; <debug> ["_____", s] ; <debug> ["...", <type-of> prop, <type-of> val]
+
+rules // StyleExpressions
+
+  constraint-error :
+    StylePropertyValue(MatchDefinition(matchid, farg*), prop) -> <add-error(|["unknown style definition: ", <pp-webdsl> matchid])>
+    where not ( <StyleSignature> (matchid, <map(?Arg(_,<id>))> farg*) )
+        
+  constraint-error :
+    StylePropertyValue(MatchDefinition(matchid, farg*), prop) -> <add-error(|["unknown property: ", <pp-webdsl> prop ," in style definition: ", <pp-webdsl> matchid])>
+    where not ( <elem> ( <strip-annos> prop, <bagof-StyleProperties> (matchid, <map(?Arg(_,<id>))> farg*) ) )
+
+        
