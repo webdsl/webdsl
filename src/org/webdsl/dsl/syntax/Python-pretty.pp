@@ -12,8 +12,9 @@
    Statement                -- H[_1],
    FromImport               -- KW["from"] _1 KW["import"] _2,
    Import                   -- KW["import"] _1,
-   ClassDef                 -- V is=4[ H[ KW["class"] H hs=0[_1 KW["("] _2 KW[")"] KW[":"]]] _3],
-   ClassDef.2:iter-star-sep -- _1 KW[", "],
+   ClassDef                 -- V[ _1 V is=4[ H[ KW["class"] H hs=0[_2 KW["("] _3 KW[")"] KW[":"]]] _4]],
+   ClassDef.1:iter-star     -- _1,
+   ClassDef.3:iter-star-sep -- _1 KW[", "],
    Assignment               -- _1 KW["="] _2,
    ExpStm                   -- _1,
    Call                     -- H hs=0[_1 KW["("] _2 KW[")"]],
@@ -22,5 +23,6 @@
    NamedParam               -- _1 KW["="] _2,
    Param                    -- _1,
    Block                    -- _1,
-   Block.1:iter-star        -- _1
+   Block.1:iter-star        -- _1,
+   Decorator                -- V[ H hs=0[KW["@"] _1] ]
 ]

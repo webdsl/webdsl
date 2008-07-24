@@ -52,7 +52,7 @@ TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax)
 
 SIGS   = $(hql).rtg $(hql).str $(css).rtg $(python).str $(css).str $(syntax).rtg $(syntax).str
 
-PPTBLS = $(hql)-pretty.pp.af $(python).pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
+PPTBLS = $(hql)-pretty.pp.af $(python)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
 
 sdfdata_DATA = $(SYNTAXDEFS) $(TBLS) $(SIGS) $(PPTBLS)
 
@@ -65,9 +65,9 @@ PPTABLES = \
 	$(css).tbl \
 	$(python).tbl \
 	$(css)-pretty.pp.af \
-	$(python).pp.af
+	$(python)-pretty.pp.af
 
-org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf
+org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
 
 ### pre-parsing Stratego modules
 

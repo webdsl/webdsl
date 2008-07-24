@@ -1,0 +1,69 @@
+module org/webdsl/dsl/to-py-gae/pp-python
+
+imports
+  libstratego-gpp // ??
+
+/*
+signature
+  constructors
+    PythonFile : List(String) * Application -> File
+
+strategies
+  python-file-to-file =
+    ? PythonFile(name, doc)
+    ; (
+        python-file-to-text-file
+        ; text-file-to-file
+        <+ 
+          <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
+      )
+
+  java-file-to-text-file :
+    PythonFile(filename, app) -> TextFile(filename, text)
+    where text     := <pp-python-to-string> app
+
+  python-to-textfile(|file) =
+    !TextFile(file, <pp-python-to-string>)
+    
+*/
+strategies
+
+  output-python-to-file(|filename) = 
+    let open-file   = <open-stream> (<id>, "w") <+ perror; <exit> 1
+     in where( fout := <open-file <+ stdout-stream> filename)
+        ; finally( pp-python-to-stream(|fout), <fclose> fout )
+    end
+
+  /**
+   * Pretty-prints the Python AST to a string.
+   *
+   * @type Python -> String
+   */
+  pp-python-to-string =
+    python-to-abox
+    ; box2text-string(|80)
+
+  /**
+   * Pretty-prints the WebDSL AST to a Stream.
+   *
+   * @param Stream
+   * @type WebDSL -> Stream
+   */
+  pp-python-to-stream(|stream) =
+    python-to-abox
+    ; box2text-stream(|80, stream)
+
+  /**
+   * Pretty-prints the WebDSL AST to a Box representation.
+   *
+   * @type WebDSL -> Box
+   */
+    
+  python-to-abox =
+    ast2box(|[<python-pp-table>])
+    
+  python-pp-table =
+    PythonPpTable
+    <+ tbl := <import-term(Python-pretty.pp.af)>
+       ; rules( PythonPpTable := tbl )
+       ; !tbl

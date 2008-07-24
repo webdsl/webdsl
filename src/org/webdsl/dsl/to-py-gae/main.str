@@ -1,6 +1,55 @@
-module src/org/dsl/webdsl/to-py-gae/main
+module org/webdsl/dsl/to-py-gae/main
 
+imports
+  libstrategolib
+  libwebdsl-front
+
+imports 
+  org/webdsl/dsl/to-py-gae/-
+  
 strategies
 
-  py-do-nothing = !python|[ a = 5; ]|
+  core-to-python = 
+    info(|"Generating Python code")
+    ; py-generate-code
+    ; get-python-stats
+    ; py-merge-classes
+    ; !Application(<concat> [<py-header>, <id>])
+    ; alltd(py-remove-pass)
+    ; <output-python-to-file(|"main.py")> <id>
+
+  py-header =
+    !python*|[
+      from google.appengine.ext import db;
+      import logging;
+    ]|
+
+strategies
+   py-generate-code =
+     if ?Define(mods, name, args, elems); is-page-or-template then
+       {| Parameter, ThisPage
+        : rules ( ThisPage := name )
+        ; not(PyGenerateCode)
+        ; all(py-generate-code)
+        |}
+     else
+       if ?Action(_, _, _) then
+         {| InAction
+          : rules ( InAction := True() )
+          ; not(PyGenerateCode)
+	        ; all(py-generate-code)
+	        |}
+       else
+         if ?Entity(nm, _, _, _) <+ ?EntityNoSuper(nm, _, _) then
+           {| ThisEntity
+            : rules ( ThisEntity := nm )
+            ; not(PyGenerateCode)
+            ; all(py-generate-code)
+            |}
+         else
+           not(PyGenerateCode)
+           ; all(py-generate-code)
+         end
+       end
+     end
 
