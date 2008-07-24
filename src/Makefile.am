@@ -37,19 +37,22 @@ syntax 		= org/webdsl/dsl/syntax/WebDSL
 hql 		= org/webdsl/dsl/syntax/HQL
 mixhql 		= org/webdsl/dsl/syntax/MixHQL
 css 		= org/webdsl/dsl/syntax/CSS
+python 		= org/webdsl/dsl/syntax/CSS
+mixpython 	= org/webdsl/dsl/syntax/MixPython
 mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
+mixmetapysyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Python
 
 SYNTAXDEFS = $(syntax).def					  \
-	     $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
-	     $(hql).def $(css).def  # used for mixing		  
+	     $(mixcss).def $(metasyntax).def $(mixmetapysyntax).def $(mixmetasyntax).def \
+	     $(hql).def $(python).def $(css).def  # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl 
 
-SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str
+SIGS   = $(hql).rtg $(hql).str $(css).rtg $(python).str $(css).str $(syntax).rtg $(syntax).str
 
-PPTBLS = $(hql)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
+PPTBLS = $(hql)-pretty.pp.af $(python).pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
 
 sdfdata_DATA = $(SYNTAXDEFS) $(TBLS) $(SIGS) $(PPTBLS)
 
@@ -60,7 +63,9 @@ PPTABLES = \
 	$(syntax).tbl \
 	$(hql)-pretty.pp.af \
 	$(css).tbl \
-	$(css)-pretty.pp.af
+	$(python).tbl \
+	$(css)-pretty.pp.af \
+	$(python).pp.af
 
 org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf
 
@@ -107,7 +112,7 @@ XTC_IMPORT = $(JAVA_FRONT_XTC)
 SCLIMITWARNS = 2>&1 | grep -vE 'warning ] Nullary constructor .*[A-Z]|warning ] multiple external| \[ExtSDef\("' \
                >&2
 
-SDF2RTG_FLAGS = --main `basename $*`
+SDF2RTG_FLAGS = --main `basename $*` --ignore-missing-cons
 
 Mix%.sdf : %.def
 	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@
