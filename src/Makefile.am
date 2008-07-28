@@ -37,7 +37,7 @@ syntax 		= org/webdsl/dsl/syntax/WebDSL
 hql 		= org/webdsl/dsl/syntax/HQL
 mixhql 		= org/webdsl/dsl/syntax/MixHQL
 css 		= org/webdsl/dsl/syntax/CSS
-python 		= org/webdsl/dsl/syntax/CSS
+python 		= org/webdsl/dsl/syntax/Python
 mixpython 	= org/webdsl/dsl/syntax/MixPython
 mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
@@ -67,7 +67,7 @@ PPTABLES = \
 	$(css)-pretty.pp.af \
 	$(python)-pretty.pp.af
 
-org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/MixPython.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
+org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
 
 ### pre-parsing Stratego modules
 
