@@ -1,0 +1,205 @@
+module org/webdsl/dsl/to-java-servlet/java-page
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+  
+  java-servlet-page-name :
+    x -> <concat-strings> [x1,"Page"]
+    where x1     := <capitalize-string> x
+    
+  java-servlet-page-template-name :
+    x -> <concat-strings> [x1,"Page","Template"]
+    where x1     := <capitalize-string> x
+    
+  java-servlet-template-name :
+    x -> <concat-strings> [x1,"Template"]
+    where x1     := <capitalize-string> x
+    
+  java-servlet-local-template-name :
+    (x_pagetempl, x) -> <concat-strings> [x2,x1,"Template"]
+    where x1     := <capitalize-string> x
+        ; x2     := <java-servlet-page-name> x_pagetempl
+
+rules
+
+  generate-page-bean =
+    ? cbds
+    ; pkgname    := <BeanPackage>
+    ; x_Page := <ThisPage; java-servlet-page-name>
+    //also allow a single class-body-declaration
+    ; if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
+    ; <emit-java-code>
+        compilation-unit|[
+          package pkgname;
+          @Partial
+          public class x_Page{
+            ~*cbds*
+          }
+        ]|
+    
+rules
+  /**
+   * Generate base bean code
+   */
+  GenerateCodeJavaServlet = generate-java-servlet-page; fail
+
+  generate-java-servlet-page :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
+    <emit-java-code> compilation-unit|[
+        package pkgname;
+        
+        import java.io.IOException;
+        import java.io.PrintWriter;
+        import java.util.HashMap;
+        import java.util.Iterator;
+        
+        
+        import javax.servlet.ServletException;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+        import javax.servlet.http.HttpSession;
+        
+        import org.hibernate.Session;
+        
+        import utils.*;
+        
+        import pkgname2.*;
+
+        @Partial
+        public class x_Page implements PageServlet
+        {
+        
+          //templates scope
+          private static HashMap<String, Class> templates = new HashMap<String, Class>();
+          static{
+            //templates.put("maintemplate", MainTemplate.class);
+            bstm*
+            bstm1*
+          }
+        
+          @Partial
+          private void conversion(){}     
+          
+          @Partial
+          private void loadArguments () {}//previously argumentInitialize
+
+          @Partial
+          private void storeInputs(){}
+           
+          
+          boolean validated=true;
+          Session hibSession;
+          private HttpServletRequest request;
+          private HttpServletResponse response;
+          private Object[] args;
+         
+
+          
+          public void serve(HttpServletRequest request, HttpServletResponse response)
+          {
+              this.request=request;
+              this.response=response;
+              
+              hibSession = HibernateUtil.getSessionFactory().getCurrentSession();
+      
+              hibSession.beginTransaction();
+              try
+              {	
+          
+                conversion();
+                loadArguments();
+                
+           
+                x_specialpagetemplate templateservlet = new x_specialpagetemplate();
+                //call special pagetemplate
+                templateservlet.serve(this, args, 1, (HashMap<String,Class>)templates.clone());
+                
+                render(request,response);
+                
+                  
+                hibSession.getTransaction().commit();
+      
+                  
+              }	
+              catch (Exception ex) {
+                  hibSession.getTransaction().rollback();
+                
+              }
+                
+            }
+          
+          
+          public void render(HttpServletRequest request,
+                  HttpServletResponse response)
+          throws ServletException, IOException {
+            this.request=request;
+            this.response=response;
+    
+            response.setContentType("text/html");
+            
+            PrintWriter out = response.getWriter();
+    
+            
+            out.println("<html>");
+            out.println("<head>");
+     
+            out.println("</head>");
+            out.println("<body>");
+            
+            x_specialpagetemplate templateservlet = new x_specialpagetemplate();
+            //call special pagetemplate render
+            templateservlet.render(this, args, 1,(HashMap<String,Class>)templates.clone());
+
+    
+            out.println("</body>");
+            out.println("</html>");
+                  
+          }
+  
+  
+          public Session getHibSession() {
+              return hibSession;
+          }
+      
+
+          public HttpServletRequest getRequest() {
+              return request;
+          }
+      
+          public HttpServletResponse getResponse() {
+              return response;
+          }
+  
+          public boolean isValidated() {
+              return validated;
+          }
+     
+          public void setValidated(boolean validated) {
+              this.validated = validated;
+          }
+        }
+      ]|
+    where x_page     := <ThisPage>
+    with pkgname    := <BeanPackage>
+       ; pkgname2   := <DomainPackage>
+       ; x_Page     := <java-servlet-page-name> x_page
+       ; x_specialpagetemplate := <java-servlet-page-template-name> x_page
+       ; bstm* := <map({\ 
+                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           where x_key := <concat-strings> ["\"",x,"\""]
+                               ; x_value := <concat-strings> [<java-servlet-template-name> x,".class"]
+                       \})> 
+                       <bagof-TopLevelTemplateNames;make-set>
+       ; bstm1* := <map(\ 
+                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           where x_key := <concat-strings> ["\"",x,"\""]
+                               ; x_value := <concat-strings> [<java-servlet-local-template-name> (x_page,x),".class"]
+                       \)> 
+                       <!x_page;bagof-LocalTemplateNames;make-set>
+      
