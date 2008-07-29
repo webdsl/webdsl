@@ -19,14 +19,16 @@ rules
     ; hierarchy := <build-entity-hierarchy> "Object"
     ; info(|"Let's combine some functions.")
     //; <alltd(find-entity-functions)> app
-    ; entityfunctions := <collect(find-entity-functions)> app
+    ; entityfunctions := <collect(is-entity-function)> app
     ; rules ( EntityFunctions := entityfunctions )
     ; entityglobalfuncs := <collect(build-global-functions);concat> hierarchy
-    ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat> sections
+    ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _); not(is-entity-function))> defs \) ;concat> sections
     //; info(|["List: ", <collect-hierarchy-tree> hierarchy])
     //; <order-functions(|<collect-hierarchy-tree> hierarchy)> globalfuncs
     //; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
     ; rules ( AllGlobalFunctions := <concat> [globalfuncs, entityglobalfuncs] )
+    ; <debug(!"globalfuncs")> globalfuncs
+    ; <debug(!"entityglobalfuncs")> entityglobalfuncs
     ; !Application(qid, sections)
 
 
@@ -50,13 +52,14 @@ rules
 
   entity-function-as-global(|x_class) :
     Function(nm, args, rt, body) -> Function(nm, [Arg("this0", SimpleSort(x_class))|args], rt, body)
+    where info(|["nm: ", nm, "; args: ", args])
 
 rules
   build-entity-hierarchy :
     x_class -> EntityClass(x_class, <map(build-entity-hierarchy)> subentities)
     where subentities := <filter(where(x_class := <Extends>))> <bagof-Entities>
 
-  find-entity-functions =
+  is-entity-function =
     ?Function(nm, [Arg(_, SimpleSort(srt))|_], _, _)
     ; where(<IsFunction> (srt, nm))
 
@@ -89,12 +92,11 @@ rules
 
   merge-functions :
     ([], lst) -> ([], lst)
-
+  
   merge-functions :
     ([f@Function(fun, args, rt, Block(stms))|rest], lst) -> <merge-functions> (rest, lst2)
     where argtypes := <map(\ Arg(_, srt) -> srt \)> args
         ; others := <filter(overloaded-function(|fun, argtypes); not(?f))> lst
-        ; rest2 := <filter(not(overloaded-function(|fun, argtypes); not(?f)))> lst
         ; if not([] := others) then // Has more definitions
             if SimpleSort("Void") := rt then
               newproc := Function(fun, args, rt, Block(<map(fun-to-overload-stm)> <concat> [others, [f]]))
@@ -102,6 +104,7 @@ rules
               newproc := Function(fun, args, rt, Block(<concat> [<map(fun-to-overload-stm)> <concat> [others, [f]], [Return(<type-default-value> rt)]]))
             end
             ; lst3 := <diff> (lst, others)
+            //; rest2 := <filter(not(overloaded-function(|fun, argtypes); not(?f)))> lst
             //; info(|["Found double: ", fun, ": ", rest2])
             ; lst2 := <map(try(( f -> newproc )))> lst3
           else
