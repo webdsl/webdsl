@@ -10,30 +10,146 @@ imports
 strategies
 
   PyGenerateCode = py-page-to-code; fail
+  PyGenerateCode = py-template-to-code; fail
 
   py-page-to-code =
     ?Define([Page()], x, args, elem*)
-    ; info(|["Got page: ", x])
-    ; x_cls := <capitalize-string> x
-    ; if "home" := x then
-        e_path := String("'/'")
-      else
-        e_path := String(<concat-strings> ["'/", x, "'"])
-      end
-    ; stm* := <map(py-page-elem-to-code <+ debug(!"Cannot handle elem yet: "))> elem*
-    ; <emit-python> python*|[
-        class x_cls(RequestHandler): {
-          def handle(self, rh): {
-            out = rh.response.out;
-            stm*
-          };
-        };
-        utils.register(e_path, x);
-      ]|
+    ; with(
+        info(|["Got page: ", x])
+        ; x_cls := <capitalize-string> x
+        ; if "home" := x then
+            path := "'"
+          else
+            path := <concat-strings> ["'/", x]
+          end
+        ; e_pattern := String(<concat-strings> [path, <map(\ _ -> "/([^/]+)" \); concat-strings> args, "'"])
+        ; e_lst := ListLiteral(<map(py-argument-to-register-tuple)> args)
+        ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
+      )
+
+  py-argument-to-register-tuple :
+    Arg(nm, SimpleSort(x_s)) -> 
+    TupleLiteral(<concat-strings> ["'", nm, "'"], [idname, <EntityIdType <+ !"long"> x_s, py-exp|[ data.x_s ]| ])
+    where idname := String(<concat-strings> ["'", <EntityIdName <+ !"">, "'"])
+
+  py-template-to-code =
+    ?Define(mods, x, args, elem*)
+    ; with(
+        info(|["Got template: ", x])
+        ; x_cls := <capitalize-string> x
+        ; if "home" := x then
+            e_path := String("'/'")
+          else
+            e_path := String(<concat-strings> ["'/", x, "'"])
+          end
+        ; {| ThisTemplate, IsScoped, CurrentActionId
+           : rules ( ThisTemplate := x )
+           ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
+           ; stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
+           |}
+        ; <emit-python(|"template")> python*|[
+            @partial
+            class x_cls(webdsl.utils.RequestHandler): {
+              def render(self): {
+                out = self.rh.response.out;
+                stm*
+              };
+            };
+          ]|
+      )
+
+rules
+  py-skipped-element =
+   !python |[ out.write('Skipped element.'); ]|
 
 rules
 
   py-page-elem-to-code :
     Text(str) -> python|[ out.write(e); ]|
-    where e := <concat-strings> ["\"", <escape> str, "\""]
+    where e := <concat-strings> ["'", str, "'"]
 
+  py-page-elem-to-code :
+    elem|[ form() { elem* }]| -> Block(python*|[
+      out.write('<form method="POST">');
+      form_id = webdsl.utils.generateFormHash(self.scope, self);
+      is_submitted_form = self.rh.request.get('form_id') == form_id;
+      out.write('<input type="hidden" name="form_id" value="%s"/>' % form_id);
+      stm*
+      out.write('</form>');
+    ]|)
+    where stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
+
+  py-page-elem-to-code :
+    elem|[ inputString(e){} ]| -> Block(python*|[
+          if is_submitted_form: {
+              e_target = self.rh.request.get(e_fld);
+          };
+          out.write('<input type="text" name="' + e_fld + '" value="');
+          out.write(cgi.escape(e_target, True));
+          out.write('"/>');
+    
+    ]|)
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+
+  py-page-elem-to-code :
+    elem|[ outputString(e){} ]| -> python|[
+          out.write(cgi.escape(e_target, True));
+    ]|
+    with e_target := <expression-to-python> e
+
+  py-page-elem-to-code :
+    elem|[ inputText(e){} ]| -> Block(python*|[
+          if is_submitted_form: {
+              e_target = self.rh.request.get(e_fld);
+          };
+          out.write('<textarea name="' + e_fld + '">');
+          out.write(cgi.escape(e_target, True));
+          out.write('</textarea>');
+    
+    ]|)
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+
+  py-page-elem-to-code :
+    elem|[ outputText(e){} ]| -> python|[
+          out.write(cgi.escape(e_target, True));
+    ]|
+    with e_target := <expression-to-python> e
+
+  py-page-elem-to-code :
+    elem|[ action(e1, e2){} ]| -> Block(python*|[
+          out.write('<input type="submit" name="action-' + e_actionr + '" value="' + cgi.escape(e_txt, True) + '"/>');
+          if self.rh.request.get('action-' + e_actionr) and is_submitted_form: {
+              e_call;
+          };
+    ]|)
+    with actionr := <CurrentActionId <+ !1>
+       ; rules ( CurrentActionId := <inc> actionr )
+       ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
+       ; e_txt := <expression-to-python> e1
+       ; ThisCall(x, arg*) := e2
+       ; x_action := <concat-strings> ["do_", x]
+       ; e_call := Call(py-exp|[ self.x_action ]|, <map(expression-to-python)> arg*)
+
+  py-page-elem-to-code :
+    a@elem|[ action x_action(farg*) { stat* } ]| ->
+    Block([])
+    with x_class := <ThisTemplate; capitalize-string>
+       ; stm_action := <action-to-python> a
+       ; <emit-python(|"template")> python*|[ @partial class x_class(webdsl.utils.RequestHandler): { stm_action }; ]|
+
+  action-to-python :
+    elem|[ action x_action(farg*) { stat* } ]| ->
+    python|[ def x_action2(self, e*): { stm* stm2* }; ]|
+    with x_action2 := <concat-strings> ["do_", x_action]
+       ; e* := <map(\ Arg(x, _) -> x \)> farg*
+       ; {| InAction
+          : rules ( InAction := True() )
+          ; stm* := <statements-to-python> stat*
+          |}
+       ; if [] := <collect(?Return(_))> stat* then
+           stm2* := python*|[ self.redirect_to_self(); ]|
+         else
+           stm2* := []
+         end

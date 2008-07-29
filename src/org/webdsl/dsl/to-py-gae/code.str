@@ -1,0 +1,381 @@
+module org/webdsl/dsl/to-py-gae/code
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules
+
+  expression-to-python :
+    Var(x) -> py-exp|[ x ]|
+    where not(<IsScoped> x)
+
+  expression-to-python :
+    Var(x) -> py-exp|[ self.scope[e] ]|
+    where <IsScoped> x
+    with  e := <concat-strings> ["'", x, "'"]
+
+  expression-to-python :
+    FieldAccess(exp, x) -> py-exp|[ e.x ]|
+    with e := <expression-to-python> exp
+
+  expression-to-python =
+    ?qid@Qualified(l, x)
+    ; <is-string> l
+    ; <expression-to-python> FieldAccess(Var(l), x)
+
+  expression-to-python =
+    ?qid@Qualified(qid2@Qualified(_, _), x)
+    ; <expression-to-python> FieldAccess(<expression-to-python> qid2, x)
+
+  expression-to-python :
+    Call(exp, x) -> py-exp|[ e.x ]|
+    with e := <expression-to-python> exp
+
+rules // statements
+
+   statements-to-python =
+     filter-warn(statement-to-python | "cannot translate statement"); flatten-list
+
+   statement-to-python =
+     block-to-python
+     <+ assignment-to-python
+     <+ vardecl-to-python
+     <+ for-to-python
+     <+ if-to-python
+     <+ stat-to-python
+     <+ return-to-python
+     <+ cancel-to-python
+     <+ goto-to-python
+     <+ info(|["cannot translate statement:", <id>]); fail
+
+   block-to-python :
+     //Block(stm*) ->
+     webdsl|[ { stat* } ]| -> Block(stm*)
+     with stm* := <statements-to-python> stat*
+
+   stat-to-python :
+     Stat(e1) -> python|[ e2; ]|
+     with e2 := <expression-to-python> e1
+
+rules // assignment
+
+   assignment-to-python :
+     Assign(Assignment(e1, e2)) -> python|[ e_left = e_right; ]|
+     where e_left := <expression-to-python> e1
+         ; e_right := <expression-to-python> e2
+
+rules // if
+
+   if-to-python :
+     If(e1, bsit1, bsif1) -> python|[ if e2: { stm1 } else: { stm2 }; ]|
+     where stm1 := <statement-to-python> bsit1
+         ; stm2 := <statement-to-python> bsif1
+         ; e2 := <expression-to-python> e1
+
+rules // for
+
+   /*
+   for-to-python : // No where clause, with order by clause
+     ForStmt(x, s, e1, Filter(True(), obe1), bstm1) -> stm|[
+        {
+          python.util.ArrayList<t2> x_lst = new python.util.ArrayList<t2>(e2);
+          Collections.sort(x_lst, new Comparator<t2>() {
+            public int compare(t2 o1, t2 o2) {
+              stm1
+            }
+          });
+          for (t1 x : x_lst)
+              ~bstm2
+        } ]|
+     where not(<?OrderAscending(Null())> obe1)
+         ; e2 := <expression-to-python> e1
+         ; t1 := <python-type> s
+         ; t2 := <python-wrapper-type> s
+         ; x_lst := <newname> "lst"
+         ; bstm2 := <statement-to-python> bstm1
+         ; if <?OrderAscending(_)> obe1 then
+             stm1 := python|[ return o1.compareTo(o2); ]|
+           else
+             stm1 := python|[ return o2.compareTo(o1); ]|
+           end
+   */
+
+   for-to-python : // No where clause, no order by clause
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null())), bstm1) ->
+     python|[ for x in e1: { stm }; ]|
+     where e2 := <expression-to-python> e1
+         ; stm := <statement-to-python> bstm1
+
+   /*
+   for-to-python : // With where clause
+     ForStmt(x, s, e1, Filter(we, obe1), bstm1) -> python|[
+        for (t1 x : e2)
+          if(e3)
+            ~bstm2
+         ]|
+     where not(True() := we)
+         ; e2 := <expression-to-python> e1
+         ; e3 := <expression-to-python> we
+         ; t1 := <python-type> s
+         ; t2 := <python-wrapper-type> s
+         ; bstm2 := <statement-to-python> bstm1
+   */
+
+rules // return
+
+   return-to-python :
+     Return(e1) -> python|[ self.rh.redirect(e2); ]|
+     where InAction
+     with  e2 := <py-call-to-view-string> e1
+
+   return-to-python :
+     Return(e1) -> python|[ return e2; ]|
+     where InFunction; e2 := <expression-to-python> e1
+
+   cancel-to-python :
+     Cancel(e1) -> python|[ self.rh.redirect(e2); ]|
+     where InAction ; e2 := <py-call-to-view-string> e1
+
+   cancel-to-python :
+     Cancel(e1) -> python|[ return e2; ]|
+     where InFunction ; e2 := <expression-to-python> e1
+
+   goto-to-python :
+     GoTo(e1) -> python|[ self.rh.redirect(e2); ]|
+     where e2 := <py-call-to-view-string> e1
+
+rules
+
+   vardecl-to-python :
+     VarDeclInit(x, s, e1) -> python|[ x = e2; ]|
+     where e2 := <expression-to-python> e1
+
+   vardecl-to-python :
+     VarDecl(x, s) -> python|[ x = e; ]|
+     where e := <python-type-default-value> s
+
+rules // expressions
+   expression-to-python :
+     Cast(e1, s) -> py-exp|[ e1 ]|
+     where e2 := <expression-to-python> e1
+         ; t := <python-type> s
+
+   expression-to-python :
+     InColl(e1, e2) -> py-exp|[ e1 in e2 ]|
+     where e3 := <expression-to-python> e1
+         ; e4 := <expression-to-python> e2
+
+   expression-to-python :
+     Add(x, y) -> py-exp|[ e1 + e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Sub(x, y) -> py-exp|[ e1 - e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Mul(x, y) -> py-exp|[ e1 * e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Div(x, y) -> py-exp|[ e1 / e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Mod(x, y) -> py-exp|[ e1 % e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Eq(x, y) -> py-exp|[ e1 == e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     NotEq(x, y) -> py-exp|[ e1 != e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     LargerThan(x, y) -> py-exp|[ e1 > e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     LargerThanOrEqual(x, y) -> py-exp|[ e1 >= e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     SmallerThan(x, y) -> py-exp|[ e1 < e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     SmallerThanOrEqual(x, y) -> py-exp|[ e1 <= e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Not(x) -> py-exp|[ not e2 ]|
+     where e2 := <expression-to-python> x
+
+   expression-to-python :
+     And(x, y) -> py-exp|[ e1 and e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     Or(x, y) -> py-exp|[ e1 or e2 ]|
+     where e1 := <expression-to-python> x
+         ; e2 := <expression-to-python> y
+
+   expression-to-python :
+     IsA(x, s@SimpleSort(_)) -> py-exp|[ isinstance(e, e_type) ]|
+     where e_type := <python-type> s
+         ; e := <expression-to-python> x
+
+   expression-to-python :
+    String(s) -> py-exp|[ e ]|
+    with e := <concat-strings> ["'", s, "'"]
+
+   expression-to-python =
+     is-string
+     ; <concat-strings> ["'", <id>, "'"]
+
+   /*
+   expression-to-python :
+     HqlQuery(e1) -> expr|[ e2.getResultList() ]|
+     where e2 := <query-to-create-query> e1
+
+*/
+   expression-to-python =
+        //global-var-to-python
+     //<+ component-var-to-python
+      var-to-python
+
+   /*
+   global-var-to-python :
+     Var(x) -> expr|[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
+     where SimpleSort(t) := <type-of> Var(x)
+         ; <IsGlobalFunction> x
+         ; vartype := <type-of> x
+         ; if <EntityIdName> t then
+             x_type := <sort-to-python-type-string> <EntityIdType> t
+           else
+             x_type := "Long"
+           end
+         ; SimpleSort(x_vartype) := vartype
+         ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
+
+   component-var-to-python :
+     Var(x) -> expr|[ this ]|
+     where "Component" := <type-of> Var(x)
+*/
+   var-to-python :
+     ExternalScopeVar(x) -> py-exp|[ self.x ]|
+
+   /*propvar-to-python :
+     Var(x) -> expr|[ x_get() ]|
+     where info(|["Checking if ", <id>, " is property"]); <IsProperty> (<ClassName>, x)
+         ; info(|["Apparently so"])
+         ; x_get := <concat-strings>["get", <capitalize-string> x]*/
+
+   expression-to-python :
+     FieldAccess(e1, "length") -> py-exp|[ len(e2) ]|
+     where e2 := <expression-to-python> e1
+         ; GenericSort(_, _) := <type-of> e1
+
+   /*
+   expression-to-python :
+     ObjectCreation(x_Class, assigns) ->
+     python|[
+        {| x_Class x_var = new x_Class(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-python(|x_var)| "cannot translate asssignment")> assigns
+
+   field-assign-to-python(|x_var) :
+     Assignment(y_field, e1) -> python|[ x_var.y_set(e2); ]|
+     where e2 := <expression-to-python> e1
+         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+
+*/
+
+   expression-to-python : // The version with items (!= []) will be desugared in desugar.str
+     TypedListCreation(s, []) -> py-exp|[ [] ]|
+
+   expression-to-python :
+     TypedSetCreation(s, []) -> py-exp|[ sets.Set() ]|
+
+   /* DEAD CODE?
+   add-to-collection(|x_var) :
+     e1 -> python|[ x_var.add(e2); ]|
+     where e2 := <expression-to-python> e1
+     */
+
+   expression-to-python =
+     persist-call-to-python
+     <+ remove-call-to-python
+     <+ count-call-to-python
+     //<+ call-to-python
+     <+ generic-call-to-python
+
+   persist-call-to-python :
+     Call(e1, "persist", []) -> py-exp|[ e2.put() ]|
+     where e2 := <expression-to-python> e1
+
+   persist-call-to-python :
+     Call(e1, "save", []) -> py-exp|[ e2.put() ]|
+     where e2 := <expression-to-python> e1
+
+   remove-call-to-python :
+     Call(e1, "remove", []) -> py-exp|[ e2.delete() ]|
+     where e2 := <expression-to-python> e1
+
+   remove-call-to-python :
+     Call(e1, "delete", []) -> py-exp|[ e2.delete() ]|
+     where e2 := <expression-to-python> e1
+
+   count-call-to-python :
+     Call(e1, "count", []) -> py-exp|[ len(e2) ]|
+     where e2 := <expression-to-python> e1
+
+   generic-call-to-python :
+     Call(e1, x, e2*) -> Call(FieldAccess(e3, x), e4*)
+     with e3 := <expression-to-python> e1
+        ; e4* := <map(expression-to-python)> e2*
+
+   generic-call-to-python :
+     ThisCall(x, e1*) -> Call(e, e2*)
+     with e2* := <map(expression-to-python)> e1*
+        ; e := <expression-to-python> x
+
+rules
+  py-call-to-view-string :
+    ThisCall(x, e*) -> py-exp|[ e ]|
+    with e_rest := <foldr(!"''", \ (a, b) -> Plus(a, b) \)> <map(\ e -> ["'/'", <py-get-id> e] \); debug(!"Lijst: "); concat> e*
+       ; e_pagepart := <concat-strings> ["'/", x, "'"]
+       ; e := py-exp|[ e_pagepart + e_rest ]|
+
+  py-get-id :
+    e -> e2
+    where <type-of; not(defined-java-type)> e
+    with e2 := <expression-to-python <+ debug(!"Failed")> e
+
+  py-get-id :
+    e -> e_result
+    where SimpleSort(t) := <type-of> e
+        ; defined-java-type
+    with if ent_id := <EntityIdName> t then
+           e2 := FieldAccess(<expression-to-python> e, ent_id)
+         else
+           e3 := <expression-to-python> e
+           ; e2 := py-exp|[ (e3.key()).id() ]|
+         end
+         ; e_result := py-exp|[ str(e2) ]|
