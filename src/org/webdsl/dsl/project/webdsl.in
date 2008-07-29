@@ -6,6 +6,7 @@ export prefix=@prefix@
 export datarootdir=@datarootdir@
 
 SEAMPROJECTDIR=.seamapp
+SERVLETPROJECTDIR=.servletapp
 
 function stop_jboss {
   ps a | grep jboss | grep java | grep -oE "^\s*[0-9]+" | xargs kill
@@ -53,7 +54,7 @@ function load_config {
   if [ -f "application.ini" ]
   then
     . application.ini
-    NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE"
+    NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE, TOMCATPATH, BACKEND"
     GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
     SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
     if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
@@ -85,6 +86,18 @@ function load_config {
 }
 
 function create_config {
+  echo "---- Back-end choice ----"
+  echo "available back-ends: seam, servlet, python"
+  if [ "$BACKEND" == "" ]; then
+     BACKEND=seam
+  fi
+  echo -n "Back-end [$BACKEND]: "
+  read BACK_END
+  if [ "$BACK_END" != "" ]
+  then
+     BACKEND=$BACK_END
+  fi
+
   echo "---- Database information ----"
   echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
   if [ "$DBSERVER" == "" ]; then
@@ -153,11 +166,11 @@ function create_config {
      echo
      if [ "$ROOTPW" == "" ]
      then
-	      mysqladmin -uroot create $DBNAME
-	      echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
+        mysqladmin -uroot create $DBNAME
+        echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
      else
-	 mysqladmin -uroot -p$ROOTPW create $DBNAME
-	 echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
+   mysqladmin -uroot -p$ROOTPW create $DBNAME
+   echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
      fi
      echo "Now checking if database creation worked..."
      `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
@@ -165,7 +178,7 @@ function create_config {
      then
         echo "Yes!"
      else
-	echo "No, unfortunately you'll have to create the database yourself."
+  echo "No, unfortunately you'll have to create the database yourself."
      fi
   fi
 
@@ -216,19 +229,37 @@ function create_config {
      SMTPTLS=false
   fi
   
-  echo "---- JBoss information ----"
-  if [ "$JBOSSPATH" == "" ]; then
-    JBOSSPATH=/opt/jboss
+  
+  if [ "$BACKEND" == "seam" ]; then
+    echo "---- JBoss information ----"
+    if [ "$JBOSSPATH" == "" ]; then
+      JBOSSPATH=/opt/jboss
+    fi
+    echo -n "JBoss path for deployment [$JBOSSPATH]: "
+    read BOSSPATH
+    if [ "$BOSSPATH" == "" ]
+    then
+       BOSSPATH=$JBOSSPATH
+    fi
+    JBOSSPATH=$BOSSPATH
   fi
-  echo -n "JBoss path for deployment [$JBOSSPATH]: "
-  read BOSSPATH
-  if [ "$BOSSPATH" == "" ]
-  then
-     BOSSPATH=$JBOSSPATH
+  
+  if [ "$BACKEND" == "servlet" ]; then
+    echo "---- Tomcat information ----"
+    if [ "$TOMCATPATH" == "" ]; then
+      TOMCATPATH=/opt/tomcat
+    fi
+    echo -n "Tomcat path for deployment [$TOMCATPATH]: "
+    read TOMCAT_PATH
+    if [ "$TOMCAT_PATH" == "" ]
+    then
+       TOMCATPATH=$TOMCAT_PATH
+    fi
   fi
-  JBOSSPATH=$BOSSPATH
 
-  echo "export JBOSSPATH=$JBOSSPATH" > application.ini
+  echo "export BACKEND=$BACKEND" >> application.ini
+  echo "export TOMCATPATH=$TOMCATPATH" >> application.ini
+  echo "export JBOSSPATH=$JBOSSPATH" >> application.ini
   echo "export APPNAME=$APPNAME" >> application.ini
   echo "export DBSERVER=$DBSERVER" >> application.ini
   echo "export DBUSER=$DBUSER" >> application.ini
@@ -241,7 +272,13 @@ function create_config {
   echo "export SMTPPASS=$SMTPPASS" >> application.ini
   echo "export SMTPSSL=$SMTPSSL" >> application.ini
   echo "export SMTPTLS=$SMTPTLS" >> application.ini
-  rm -rf $SEAMPROJECTDIR
+  
+  if [ "$BACKEND" == "seam" ]; then
+    rm -rf $SEAMPROJECTDIR
+  fi
+  if [ "$BACKEND" == "servlet" ]; then
+    rm -rf $SERVLETPROJECTDIR
+  fi
 }
 
 function make_java_app {
@@ -250,38 +287,73 @@ function make_java_app {
   then
     return 1
   fi
-  if [ ! -e "$SEAMPROJECTDIR" ]
-  then
-    export WEBDSLPATH=@prefix@
-    export DSLTOSEAM=@prefix@/bin/dsl-to-seam
-    export TEMPLATEPATH=@datadir@/@PACKAGE@/template
-    
-    export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
-    export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
-
-    echo "Creating Seam application in $SEAMPROJECTDIR..."
-    mkdir $SEAMPROJECTDIR
+  
+  if [ "$BACKEND" == "seam" ]; then
+    if [ ! -e "$SEAMPROJECTDIR" ]
+    then
+      export WEBDSLPATH=@prefix@
+      export DSLTOSEAM=@prefix@/bin/dsl-to-seam
+      export TEMPLATEPATH=@datadir@/@PACKAGE@/template
+      
+      export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+      export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
+  
+      echo "Creating Seam application in $SEAMPROJECTDIR..."
+      mkdir $SEAMPROJECTDIR
+      cd $SEAMPROJECTDIR
+      #tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
+      cp -r $TEMPLATEPATH/* .
+      chmod -R u+w .
+      find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+      mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
+      mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
+      find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+      cd ..
+    fi
     cd $SEAMPROJECTDIR
-    #tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
-    cp -r $TEMPLATEPATH/* .
-    chmod -R u+w .
-    find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
-    mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
-    mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
-    find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xBf - )
+    # Move all non-.app files to the view/ directory (keeping directory structure intact)
+    tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (cd view; tar xBf - )
+    echo "Building application..."
+    make
+    RET="$?"
     cd ..
+    @prefix@/bin/webdsl-plugins
+    return $RET
   fi
-  cd $SEAMPROJECTDIR
-  echo "Copying your application files..."
-  tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xBf - )
-  # Move all non-.app files to the view/ directory (keeping directory structure intact)
-  tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (cd view; tar xBf - )
-  echo "Building application..."
-  make
-  RET="$?"
-  cd ..
-  @prefix@/bin/webdsl-plugins
-  return $RET
+  if [ "$BACKEND" == "servlet" ]; then
+    if [ ! -e "$SERVLETPROJECTDIR" ]
+    then
+      export WEBDSLPATH=@prefix@
+      export DSLTOSEAM=@prefix@/bin/dsl-to-seam
+      export TEMPLATEPATH=@datadir@/@PACKAGE@/template-java-servlet
+      
+      export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+      export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
+  
+      echo "Creating Java Servlet application in $SERVLETPROJECTDIR..."
+      mkdir $SERVLETPROJECTDIR
+      cd $SERVLETPROJECTDIR
+      cp -r $TEMPLATEPATH/* .
+      chmod -R u+w .
+      find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+      find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@TOMCATPATH@@/$ESCAPED_TOMCATPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+      cd ..
+    fi
+    cd $SERVLETPROJECTDIR
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xBf - )
+    # Move all non-.app files to the / directory (keeping directory structure intact)
+    # tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xBf - )
+    echo "Building application..."
+    make
+    RET="$?"
+    cd ..
+    @prefix@/bin/webdsl-plugins
+    return $RET
+  fi    
+  
 }
 
 function make_app {
@@ -290,17 +362,27 @@ function make_app {
   then
     return 1
   fi
-  cd $SEAMPROJECTDIR
-  echo "Now compiling generated Java code..."
-  ant archive
-  RET="$?"  
-  cd ..
-  if [ ! -e "dist" ]
-  then
-    mkdir dist
+  if [ "$BACKEND" == "seam" ]; then
+    cd $SEAMPROJECTDIR
+    echo "Now compiling generated Java code..."
+    ant archive
+    RET="$?"  
+    cd ..
+    if [ ! -e "dist" ]
+    then
+      mkdir dist
+    fi
+    cp $SEAMPROJECTDIR/dist/$APPNAME.ear $SEAMPROJECTDIR/resources/$APPNAME-dev-ds.xml dist
+    return $RET
   fi
-  cp $SEAMPROJECTDIR/dist/$APPNAME.ear $SEAMPROJECTDIR/resources/$APPNAME-dev-ds.xml dist
-  return $RET
+  if [ "$BACKEND" == "servlet" ]; then
+    cd $SERVLETPROJECTDIR
+    echo "Now compiling generated Java code..."
+    ant compile
+    RET="$?"  
+    cd ..
+    return $RET
+  fi
 }
 
 echo "WebDSL script by Zef Hemel"
@@ -314,6 +396,8 @@ if [ "$1" == "test" ]; then
   rm -rf .seamapp
   rm -rf dist
   rm -f application.ini
+  #TODO: add backend choice to test
+  echo "export BACKEND=seam" > application.ini
   echo "export JBOSSPATH=/dev/null" > application.ini
   echo "export APPNAME=$2" >> application.ini
   echo "export DBSERVER=localhost" >> application.ini
@@ -343,18 +427,31 @@ for i in $commands; do
        then
          return 0
        fi
-       if [ ! -e "$SEAMPROJECTDIR" ]
-       then
-         make_app
+       if [ "$BACKEND" == "seam" ]; then
+         if [ ! -e "$SEAMPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $SEAMPROJECTDIR/
+         ant deploy
+         cd ..
+         echo "Application has been deployed. In a minute it should be available on http://localhost:8080/$APPNAME/"
+         if [ "$2" == "restart" ]; then
+           echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
+           restart_jboss
+         fi
        fi
-       echo "Now deploying application..."
-       cd $SEAMPROJECTDIR/
-       ant deploy
-       cd ..
-       echo "Application has been deployed. In a minute it should be available on http://localhost:8080/$APPNAME/"
-       if [ "$2" == "restart" ]; then
-         echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
-         restart_jboss
+       if [ "$BACKEND" == "servlet" ]; then
+         if [ ! -e "$SERVLETPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $SERVLETPROJECTDIR/
+         ant war
+         cd ..
+         echo "Application has been deployed. In a moment it should be available on http://localhost:8080/$APPNAME/" 
        fi
        ;;
     "undeploy" )
@@ -363,15 +460,17 @@ for i in $commands; do
        then
          return 0
        fi
-       if [ ! -e "$SEAMPROJECTDIR" ]
-       then
-         make_java_app
+       if [ "$BACKEND" == "seam" ]; then
+         if [ ! -e "$SEAMPROJECTDIR" ]
+         then
+           make_java_app
+         fi
+         echo "Now undeploying application..."
+         cd $SEAMPROJECTDIR/
+         ant undeploy
+         cd ..
+         echo "Application undeployed."
        fi
-       echo "Now undeploying application..."
-       cd $SEAMPROJECTDIR/
-       ant undeploy
-       cd ..
-       echo "Application undeployed."
        ;;
     "new" )
        echo -n "Application name (one word): "
@@ -390,14 +489,20 @@ for i in $commands; do
     "clean" )
        echo "Removing seam project files"
        rm -rf $SEAMPROJECTDIR
+       echo "Removing servlet project files and dist directory."
+       rm -rf $SERVLETPROJECTDIR
        ;;
     "cleanall" )
        echo "Removing seam project files and dist directory."
        rm -rf $SEAMPROJECTDIR dist
+       echo "Removing servlet project files and dist directory."
+       rm -rf $SERVLETPROJECTDIR
        ;;
     "java" )
        make_java_app
-       echo "Done, result is in $SEAMPROJECTDIR."
+       if [ "$BACKEND" == "seam" ]; then
+         echo "Done, result is in $SEAMPROJECTDIR."
+       fi
        ;;
     "build" )
        make_app

@@ -19,7 +19,11 @@ EXTRA_DIST = \
   $(wildcard template/view/images/*.png) \
   $(wildcard template/view/javascript/*.js) \
   $(wildcard template/view/stylesheets/*.css) \
-  $(wildcard new_project/*.app)
+  $(wildcard new_project/*.app) \
+  $(wildcard template-java-servlet/*.xml) \
+  $(wildcard template-java-servlet/Makefile) \
+  $(wildcard template-java-servlet/lib/*.jar) \
+  $(wildcard template-java-servlet/src/utils/*.java)
   
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
 
@@ -31,5 +35,9 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template/src
 	mkdir -p $(pkgdatadir)/template/test
 	mkdir -p $(pkgdatadir)/new_project
+	mkdir -p $(pkgdatadir)/template-java-servlet
+	mkdir -p $(pkgdatadir)/template-java-servlet/lib
+	mkdir -p $(pkgdatadir)/template-java-servlet/src
+	mkdir -p $(pkgdatadir)/template-java-servlet/src/utils
 
 bootclean:
