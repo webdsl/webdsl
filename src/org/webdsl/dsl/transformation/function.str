@@ -18,17 +18,15 @@ rules
     ?app@Application(qid, sections)
     ; hierarchy := <build-entity-hierarchy> "Object"
     ; info(|"Let's combine some functions.")
-    //; <alltd(find-entity-functions)> app
     ; entityfunctions := <collect(is-entity-function)> app
     ; rules ( EntityFunctions := entityfunctions )
     ; entityglobalfuncs := <collect(build-global-functions);concat> hierarchy
     ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _); not(is-entity-function))> defs \) ;concat> sections
-    //; info(|["List: ", <collect-hierarchy-tree> hierarchy])
-    //; <order-functions(|<collect-hierarchy-tree> hierarchy)> globalfuncs
-    //; (_, newglobalfuncs) := <merge-functions> (globalfuncs, globalfuncs)
-    ; rules ( AllGlobalFunctions := <concat> [globalfuncs, entityglobalfuncs] )
+    ; globalfuncsmet := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat> sections
+    ; <debug(!"globalfuncsmet")> globalfuncsmet
     ; <debug(!"globalfuncs")> globalfuncs
     ; <debug(!"entityglobalfuncs")> entityglobalfuncs
+    ; rules ( AllGlobalFunctions := <concat> [globalfuncs, entityglobalfuncs] )
     ; !Application(qid, sections)
 
 
@@ -52,7 +50,6 @@ rules
 
   entity-function-as-global(|x_class) :
     Function(nm, args, rt, body) -> Function(nm, [Arg("this0", SimpleSort(x_class))|args], rt, body)
-    where info(|["nm: ", nm, "; args: ", args])
 
 rules
   build-entity-hierarchy :
@@ -65,14 +62,23 @@ rules
 
   build-global-functions =
     ?EntityClass(nm, subclasses)
-    ; entfunctions := <EntityFunctions> nm
-    ; ?[_|_]
-    ; order := <collect-hierarchy-tree> EntityClass(nm, subclasses)
-    ; morefuncs := <map(try(EntityFunctions)); concat> order
-    ; newfuncs := <order-functions(|order)> <concat> [entfunctions, morefuncs]
-    ; (_, finalfuncs) := <merge-functions> (newfuncs, newfuncs)
-    ; !finalfuncs
 
+    // ignore entities without top level entity functions so not every entity function uses overloading
+    ; <EntityFunctions> nm
+    ; ?[_|_]
+    
+    // gather all entity functions, bottom-up
+    ; orderedEntities := <collect-hierarchy-tree> EntityClass(nm, subclasses)
+    ; entityFuncs := <map(try(EntityFunctions)); concat> orderedEntities
+    ; debug(!"entityFuncs: ")
+  
+    // merge all entity functions where necessary to handle overloading
+    ; newfuncs := <order-functions(|orderedEntities)> entityFuncs
+    ; (_, finalFuncs) := <merge-functions> (newfuncs, newfuncs)
+    ; debug(!"finalFuncs: ")
+    ; !finalFuncs
+
+  // bottom-up traversal in which specific entities come before more general entities
   collect-hierarchy-tree :
     EntityClass(nm, l*) -> lst
     where lst := <concat> [<map(collect-hierarchy-tree); concat> l*, [nm]]
