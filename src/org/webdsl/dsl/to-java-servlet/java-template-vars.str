@@ -1,0 +1,58 @@
+module org/webdsl/dsl/to-java-servlet/java-template-vars
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules // page variables
+
+  /**
+   * Generating code for page variables
+   */
+  GenerateCodeJavaServlet = not(InAction); generate-java-servlet-variables-code; fail
+
+  generate-java-servlet-variables-code :
+    elem|[ var x : srt ]| ->
+    //VarDecl(x, s) ->
+    <generate-java-servlet-template-partial> java|[
+       private t x = e;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+    ]|
+    with  t     := <java-type> srt
+        ; X     := <capitalize-string> x
+        ; e     := <java-type-default-value> srt
+
+  generate-java-servlet-variables-code :
+    //VarDeclInit(x, s, e1) ->
+    elem|[ var x : srt := e1 ]| ->
+    <generate-java-servlet-template-partial> java|[
+       private t x;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+       @Partial
+       private void initialize(){ x = e2; }
+    ]|
+    where not(HqlQuery(_) := e1)
+    with  t     := <java-type> srt
+        ; X     := <capitalize-string> x
+        ; e2 := <expression-to-java> e1
+
+  // page-level variables with query initializers
+  generate-java-servlet-variables-code :
+    elem|[ var x : srt := e ]| ->
+    <generate-java-servlet-template-partial> java|[
+       private t x;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+       public void init#x() { x = e2.getResultList(); }
+       @Partial 
+       private void initialize() { init#x(); }
+    ]|
+    with  t      := <java-type> srt
+        ; <?HqlQuery(e1)> e
+        ; X      := <capitalize-string> x
+        ; e2     := <query-to-create-query> e1

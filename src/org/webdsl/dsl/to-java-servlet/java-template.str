@@ -4,6 +4,31 @@ imports
   libstrategolib 
   libwebdsl-front
 
+
+rules
+
+  generate-java-servlet-template-partial =
+    ? cbds
+    ; pkgname    := <BeanPackage>
+    ; if NestedTemplate
+      then x_Page    := <java-servlet-local-template-name> (<ThisPage>,<ThisTemplateName>)
+      else
+        if ThisPage
+        then x_Page    := <java-servlet-page-template-name> <ThisTemplateName>
+        else x_Page     := <java-servlet-template-name> <ThisTemplateName> end
+      end
+    //also allow a single class-body-declaration
+    ; if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
+    ; <emit-java-code>
+        compilation-unit|[
+          package pkgname;
+          @Partial
+          public class x_Page{
+            ~*cbds*
+          }
+        ]|
+
+
 rules
     
   GenerateCodeJavaServlet = generate-java-servlet-template; fail
@@ -43,6 +68,10 @@ rules
           }
           
           @Partial
+          private void initialize() {
+          }
+                    
+          @Partial
           private void handleActions() {
           }
           
@@ -73,6 +102,8 @@ rules
             storeArguments(args);
             
             storeInputs();
+            
+            initialize();
             
             handleActions();
             
@@ -108,18 +139,25 @@ rules
     //where x_page     := <ThisPage>
     with pkgname    := <BeanPackage>
        ; pkgname2   := <DomainPackage>
-       ; if x_page := <ThisPage> 
+       ; if NestedTemplate
+         then x_Page    := <java-servlet-local-template-name> (<ThisPage>,x)
+         else
+           if ThisPage
+           then x_Page    := <java-servlet-page-template-name> x
+           else x_Page     := <java-servlet-template-name> x end
+         end
+   /*    ; if x_page := <ThisPage> 
          then 
            if <elem> (Page(), mod*)
            then  x_Page    := <java-servlet-page-template-name> x
            else  x_Page    := <java-servlet-local-template-name> (<ThisPage>,x) end
-         else x_Page     := <java-servlet-template-name> x end
+         else x_Page     := <java-servlet-template-name> x end*/
        ; x_pnamequoted := <double-quote> x_Page
        ; if ThisPage then // for now only local def in pages supported
          bstm* := <map(\
                            x -> bstm |[ templates.put(x_key, x_value); ]| 
                            where x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<java-servlet-local-template-name> (x_page,x),".class"]
+                               ; x_value := <concat-strings> [<java-servlet-local-template-name> (<ThisPage>,x),".class"]
                        \)> 
                        <!x;bagof-LocalTemplateNames;make-set>
          else bstm* := [] 
