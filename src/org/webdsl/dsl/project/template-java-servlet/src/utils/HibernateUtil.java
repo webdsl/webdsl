@@ -8,12 +8,12 @@ import org.hibernate.cfg.*;
 
 public class HibernateUtil {
     private static final SessionFactory sessionFactory;
-
+    private static final Properties p;
 
     static {
 
         try {
-            Properties p = new Properties();
+            p = new Properties();
 
 
             p.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQL5InnoDBDialect");
@@ -49,5 +49,11 @@ public class HibernateUtil {
     public static SessionFactory getSessionFactory() {
         return sessionFactory;
     }
+    
+
+    public static Properties getProperties() {
+        return p;
+    }
+      
 
 }
