@@ -19,10 +19,35 @@ section datamodel
     var i:Int;
     var f:Float;
     var b:Bool;    
-    var s:String := "jdfhskjsf";
-    var i:Int := 445;
-    var f:Float := 435.345;
-    var b:Bool := false; 
+    var s1:String := "jdfhskjsf";
+    var i1:Int := 445;
+    var f1:Float := 435.345;
+    var b1:Bool := false; 
+    
+    input(u.name)
+    output(u.name)
+    input(u1.name)
+    output(u1.name)
+    input(u2.name)
+    output(u2.name)
+    input(u3.name)
+    output(u3.name)
+    input(s)
+    output(s)
+    input(i)
+    output(i)
+    input(f)
+    output(f)
+    input(b)
+    output(b)
+    input(s1)
+    output(s1)
+    input(i1)
+    output(i1)
+    input(f1)
+    output(f1)
+    input(b1)
+    output(b1)
   }
 
 
