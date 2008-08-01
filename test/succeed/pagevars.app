@@ -48,6 +48,23 @@ section datamodel
     output(f1)
     input(b1)
     output(b1)
+    
+    div("test")
+    {
+      input(b1)
+    }
+    
+    div("test")
+    {
+      input(b1)
+      input(s)
+      input(i)
+    }
+    
+    block("test")
+    {
+    
+    }
   }
 
 

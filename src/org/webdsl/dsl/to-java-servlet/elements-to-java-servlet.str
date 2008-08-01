@@ -1,0 +1,812 @@
+module org/webdsl/dsl/to-java-servlet/elements-to-java-servlet
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+rules
+  elem-to-java-servlet :
+    TemplateCall("dummy", [], elems) -> <elems-to-java-servlet> elems
+    
+rules // block
+
+  // @obsolete; use block{ ... } instead of div{ ... }
+  elem-to-java-servlet :
+    TemplateCall("div", [String(x)], elems) ->
+    bstm* |[ 
+    out.println("<div class=\""+"~x"+"\">");
+    bstm*
+    out.println("</div>");
+    ]|
+    with bstm* := <elems-to-java-servlet> elems 
+
+  elem-to-java-servlet :
+    TemplateCall("block", [], elems) ->
+    bstm* |[ 
+    out.println("<div>");
+    bstm*
+    out.println("</div>");
+    ]|
+    with bstm* := <elems-to-java-servlet> elems 
+
+  elem-to-java-servlet :
+    TemplateCall("block", [String(x)], elems) ->
+    bstm* |[ 
+    out.println("<div class=\""+"~x"+"\">");
+    bstm*
+    out.println("</div>");
+    ]|
+    with bstm* := <elems-to-java-servlet> elems 
+
+/*    
+rules
+
+  css-include-to-xhtml :
+    e ->
+    %>
+    <link href="<%= <AppRoot> %>/stylesheets/<%= e %>.css" rel="stylesheet" type="text/css" />
+    <%
+
+  js-include-to-xhtml :
+    e ->
+    %>
+    <script src="<%= <AppRoot> %>/javascript/<%= e %>.js" type="text/javascript" />
+    <%
+
+  js-onload-to-xhtml :
+    e -> 
+    %>
+    <script type="text/javascript">
+      window.onload = function () {
+        <%= e %>
+      }
+    </script>
+    <%
+*/
+
+
+rules // embedding expressions in presentation
+
+  //arg-to-value-string-java-servlet =
+  //  arg-string-to-value-string
+  //  <+ arg-to-el-string
+
+  arg-to-value-string-java-servlet :
+    Cast(x, s) -> <arg-to-value-string-java-servlet> x
+
+  arg-to-value-string-java-servlet :
+    String(x) -> e |[ "~x" ]|
+
+  arg-to-value-string-java-servlet :
+    Bool(x) -> e |[ x ]|
+
+/*
+  arg-to-value-string-java-servlet :
+    e -> <concat-strings>["\"+", x, "+\""]
+    where <not(?Add(_, _))> := e
+        ; x := <arg-to-value-string-java-servlet> e
+*/
+  arg-to-value-string-java-servlet :
+    Add(e1, e2) -> e |[ e3 + e4 ]|
+    where e3 := <arg-to-value-string-java-servlet> e1
+        ; e4 := <arg-to-value-string-java-servlet> e2
+
+/*
+  arg-to-value-string-java-servlet :
+    Var(x) -> x
+      where <IsSessionVariable> x
+
+  arg-to-value-string-java-servlet :
+    Var(x) -> x
+      where <IsGlobalFunction> x
+*/
+/*
+  arg-to-value-string-java-servlet :
+    Cast(x, s) -> <arg-to-value-string-java-servlet> x
+*/
+  arg-to-value-string-java-servlet :
+    Var(x) -> e |[ x ]|
+/*       where not(<IsSessionVariable> x)
+           ; not(<IsGlobalFunction> x)
+*/
+  arg-to-value-string-java-servlet :
+    FieldAccess(e, x) -> e |[ e1.get#x() ]|//<concat-strings>[x,".",f]
+    where //not("length" := x);
+          e1 := <arg-to-value-string-java-servlet> e
+/* @todo seems hacky
+  arg-to-value-string-java-servlet :
+    FieldAccess(e, "length") -> e |[ e1.x() ]|
+    where e1 := <arg-to-value-string-java-servlet> e
+        ; x := <concat-strings>[x, "Length"]
+*/
+/*
+  arg-to-value-string-java-servlet : // Does this actually work?
+    Call(e, f, args1) -> <concat-strings>[<arg-to-el> e, ".", f, "(", args2, ")"]
+    where args2 := <map(arg-to-el); separate-by(|","); concat-strings> args1
+*/
+
+strategies // title
+
+  elem-to-java-servlet :
+    TemplateCall("title", _, elems) ->
+    bstm |[ out.println("todo: title"); ]|
+    /*
+    %>
+  <ui:define name="title">
+    <%= <elems-to-xhtml> elems::* %>
+  </ui:define>
+  <%
+  */
+/*
+strategies // style
+
+  get-styles = collect(get-style); concat
+  
+  get-style :
+    TemplateCall("style", [], [Text(stylesheet)]) ->
+    %>
+      <link href="<%= <AppRoot> %>/stylesheets/<%= stylesheet %>" rel="stylesheet" type="text/css" />
+    <%
+
+  elem-to-java-servlet :
+    TemplateCall("style", _, _) -> []
+*/
+rules // text
+
+  elem-to-java-servlet :
+    Text(val) -> bstm |[ out.println("~val"); ]|
+
+rules // text
+
+  // convert an expression to text (string value of the expression)
+
+  elem-to-java-servlet :
+    TemplateCall("text", [arg], []) -> bstm |[ out.println(e); ]|
+    where e := <arg-to-value-string-java-servlet> arg
+
+/*
+  elem-to-java-servlet :
+    TemplateCall("text", [e], []) ->
+    %> <h:outputText value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"/> <%
+*/
+rules // spacers
+
+  elem-to-java-servlet :
+    TemplateCall("spacer", [], []) -> bstm |[ out.println("<hr />"); ]|
+    /*
+    %> <rich:spacer id="<%= spacer-id %>" /> <%
+    where spacer-id := <newname> "spacer"
+    */
+  elem-to-java-servlet :
+    TemplateCall("horizontalspacer", [], []) -> bstm |[ out.println("<hr />"); ]|
+/*
+rules // images
+
+  elem-to-java-servlet :
+    TemplateCall("image",[e],[]) -> %> <h:graphicImage value="<%=x%>"/> <%
+    where x := <arg-to-value-string> e
+
+rules // lists
+
+  elem-to-java-servlet :
+    TemplateCall("list", [], elems) ->
+    %>
+      <ul>
+        <%= <elems-to-xhtml> elems ::*%>
+      </ul>
+    <%
+
+  elem-to-java-servlet :
+    TemplateCall("listitem", [], elems) ->
+    %>
+      <li>
+        <%= <elems-to-xhtml> elems ::*%>
+      </li>
+    <%
+
+rules // sections and headers
+*//*
+  elem-to-java-servlet :
+    TemplateCall("header", [], elems) ->
+    %>
+      <~n:tag><%= <elems-to-xhtml> elems ::*%></~n:tag>
+    <%
+    where not(DataTable) ; not(TableScope)
+        ; n := <SectionDepth <+ !1>
+        ; tag := <concat-strings>["h", <int-to-string> n]
+
+  elem-to-java-servlet :
+    TemplateCall("section", [], elems1) ->
+    %>
+      <div class="<%= sectionlevel %>"><%= elems2 ::*%></div>
+    <%
+    where {| SectionDepth
+           : rules( SectionDepth := <(SectionDepth <+ !0); inc> )
+           ; sectionlevel := <concat-strings>["section", <SectionDepth; int-to-string>]
+           ; elems2 := <elems-to-xhtml> elems1
+           |}
+
+  elem-to-java-servlet :
+    TemplateCall("par", [], elems1) ->
+    %>
+      <p><%= elems2 ::*%></p>
+    <%
+    where elems2 := <elems-to-xhtml> elems1
+
+  elem-to-java-servlet :
+    TemplateCall("container", [], elems1) ->
+    %>
+      <span><%= elems2 ::*%></span>
+    <%
+    where elems2 := <elems-to-xhtml> elems1*/
+/*
+rules // tables
+
+  elem-to-java-servlet :
+    TemplateCall("table", [], elems) ->
+    %>
+      <table><%= e* ::*%></table>
+    <%
+    where {| TableScope
+           : rules ( TableScope := 1 )
+           ; e* := <elems-to-xhtml> elems
+           |}
+
+  elem-to-java-servlet :
+    TemplateCall("header", [], elems) ->
+    %>
+      <tr><%= <elems-to-xhtml(table-header-wrap)> elems ::*%></tr>
+    <%
+    where TableScope
+
+  elem-to-java-servlet :
+    TemplateCall("row", [], elems) ->
+    %>
+      <tr><%= <elems-to-xhtml(table-cell-wrap)> elems ::*%></tr>
+    <%
+
+   table-cell-wrap :
+     elems -> %> <td><%= elems ::*%></td> <%
+
+   table-header-wrap :
+     elems -> %> <th><%= elems ::*%></th> <%
+
+rules // iteration
+
+  // @todo: other For expressions
+  elem-to-java-servlet : //@todo: lifting!
+    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
+    %>
+      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:forEach>
+    <%
+    where InToplevelTemplate
+        ; <contains-template-call> elems
+
+  elem-to-java-servlet :
+    For(x, s, e, Filter(we, obe), elems1) ->
+    %>
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
+          <%= elems2 ::*%>
+        </h:panelGroup>
+      </ui:repeat>
+    <%
+    where not(True() := we)
+        //; el := <arg-to-value-string> e
+        ; elems2  := <elems-to-xhtml> elems1
+
+  elem-to-java-servlet :
+    For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
+    %>
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <%= elems2 ::*%>
+      </ui:repeat>
+    <%
+    where elems2  := <elems-to-xhtml> elems1
+
+  elem-to-java-servlet :
+    ForAll(x, s, Filter(we, obe), elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
+          <%= columns ::*%>
+        </h:panelGroup>
+      </ui:repeat>
+    <%
+    where not(True() := we)
+        ; columns := <elems-to-xhtml(wrap-column)> elems
+
+  elem-to-java-servlet :
+    ForAll(x, s, Filter(True(), obe), elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
+        <%= columns ::*%>
+      </ui:repeat>
+    <%
+    where columns := <elems-to-xhtml(wrap-column)> elems
+
+  wrap-column :
+    elems ->
+    %>
+      <h:column><%= elems ::*%></h:column>
+    <%
+
+rules // select from
+
+  elem-to-java-servlet :
+    SelectFromList(e1, e2) ->
+    %>
+       <h:selectManyListbox value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" />
+          <s:convertEntity />
+        </h:selectManyListbox>
+    <%
+    where GenericSort(_, _) := <type-of> e1
+        ; x_prop    := <concat-strings> [<arg-to-el> e1, "List"]
+        ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
+        ; x         := <newname> "selectvar"
+
+  elem-to-java-servlet :
+    SelectFromList(e1, e2) ->
+    %>
+       <h:selectOneMenu value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
+          <s:convertEntity />
+        </h:selectOneMenu>
+    <%
+    where SimpleSort(_) := <type-of> e1
+        ; x_prop    := <concat-strings> [<arg-to-el> e1]
+        ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
+        ; x         := <newname> "selectvar"
+
+rules // select
+
+  elem-to-java-servlet :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
+       <h:selectManyListbox value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" />
+          <s:convertEntity />
+        </h:selectManyListbox>
+    <%
+    where GenericSort(_, _) := <type-of> e
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <concat-strings> [<arg-to-el> e, "List"]
+
+  elem-to-java-servlet :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
+       <h:selectOneMenu value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
+          <s:convertEntity />
+        </h:selectOneMenu>
+    <%
+    where SimpleSort(_) := <type-of> e
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <arg-to-el> e
+
+rules // if
+
+  elem-to-java-servlet :
+    IfTempl(e, elems) ->
+    %>
+      <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"><%= elems2 ::*%></h:panelGroup>
+    <%
+    where not(<contains-template-call> elems)
+        ; elems2 := <elems-to-xhtml> elems
+    
+  elem-to-java-servlet : //@todo: lifting!
+    IfTempl(e, elems) ->
+    %>
+      <c:if test="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:if>
+    <%
+    where InToplevelTemplate
+        ; <contains-template-call> elems
+
+rules // template
+
+  elem-to-java-servlet :
+    def |[ define local x(farg*) { elem* } ]| ->
+    %>
+    
+    <ui:define name="<%= x %>">
+    <div id="<%= x %>">
+      <%= elems ::* %>
+    </div>
+  </ui:define>
+    <%
+    with {| InLocalTemplate
+          : rules ( InLocalTemplate := x )
+          ; elems := <elems-to-xhtml> elem*
+          |}
+          
+rules // template call
+
+  elem-to-java-servlet :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:insert name="<%= name %>">
+         <%= include::* %>
+    </ui:insert>
+    <%
+    where ( not(<IsPage> <ThisPage>) <+ InLocalTemplate )
+//        ; <debug> [">>>>", <IsPage> <ThisPage>, <InLocalTemplate>]
+//        ; <debug> ["+++++++++tc: ", name, args]
+        ; t* := <map(type-of)> args
+//        ; <debug> ["________t*", t*]
+        ; if Define(mods, n, fargs, body) := <TemplateSignature> (name, t*) then
+            target := <concat-strings> [name, ".xhtml"]
+//            ; <debug> ["________", n, fargs]
+            ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+            ; include := 
+              %>
+              <ui:include src="<%= target %>">
+                  <%= params::* %>
+            </ui:include>
+          <%
+      else
+        if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
+             include := []
+           end
+          end
+//        ; <debug> ["_____", n, fargs]
+
+  elem-to-java-servlet :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:include src="<%= target %>">
+        <%= params::* %>
+      </ui:include>
+    <%
+    where is-call-to-toplevel-template ; <IsPage> <ThisPage>
+    with target := <concat-strings> [name, ".xhtml"]
+       ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
+       ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+    
+rules // vardecl
+
+  elem-to-java-servlet :
+    VarDeclInit(a, s, expr) ->
+    %>
+      <h:inputHidden value="<%= val %>" />
+    <%
+    where x_set := <concat-strings> [<ThisPage>, ".", <property-setter> a]
+        ; val := <concat-strings> ["#{", x_set, "(", <ConditionExpressionToString> (<ThisPage>, expr), ")}"]
+
+rules // links
+
+  // link to a url, maybe constant, or obtained from an entity field
+
+  elem-to-java-servlet :
+    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
+    %> <h:outputLink value="<%=x%>"><%=
+        <elems-to-xhtml> elems ::*
+    %></h:outputLink> <%
+    where not(ThisCall(p,args) := e)
+        ; x := <arg-to-value-string> e
+
+  elem-to-java-servlet :
+    t@TemplateCall("navigate", [ThisCall("url",[e@ThisCall(p,args)])], elems) ->
+    %>
+      <h:outputLink value="#{<%= <ThisPage> %>.hostName}<%=url%>">
+        <%= <elems-to-xhtml> elems ::* %>
+      </h:outputLink>
+    <%
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; url := <page-call-to-url> (p, params)
+
+  elem-to-java-servlet :
+    TemplateCall("navigate",[ThisCall(p,args)],elems) ->
+    %> <h:outputLink value="<%= url %>"><%=
+        <elems-to-xhtml> elems ::*
+    %></h:outputLink> <%
+    where <IsPage> p
+        ; def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
+        ; params := <zip(bind-param)> (farg*, args)
+        ; url := <page-call-to-url> (p, params)
+
+  bind-param :
+    (Arg(x, _), e) -> (x, el)
+    where el := <arg-to-value-string> FieldAccess(e, "id")
+
+  elem-to-java-servlet :
+    TemplateCall("navigatebutton",[ThisCall(p,args), e],[]) ->
+    %> <input type="button" onclick="location = '<%= url %>';" value="<%= txt %>"/> <%
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; url := <page-call-to-url> (p, params)
+        ; txt := <arg-to-value-string> e
+
+  elem-to-java-servlet :
+    TemplateCall("url",[e],[]) ->
+    %> <h:outputText value="<%= url %>" /> <%
+    where not(ThisCall(p,args) := e)
+        ; url := <arg-to-value-string> e
+
+  elem-to-java-servlet :
+    TemplateCall("url",[ThisCall(p,args)],[]) ->
+//    %> <h:outputText value="http://#{<%= <ThisPage> %>.facesContext.externalContext.getRequestHeaderMap("host")}<%= url %>" /> <%
+    %> <h:outputText value="#{<%= <ThisPage> %>.hostName}<%= url %>" /> <%
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; url := <page-call-to-url> (p, params)
+
+
+//  bind-param :
+//    (Arg(x, s@SimpleSort(x_Class)), e) ->
+//    %><f:param name="<%= x %>" value="<%= el %>" /><%
+//    where <defined-java-type> s
+//        //; x_class := <decapitalize-string> x_Class
+//        ; el := <arg-to-value-string> FieldAccess(e, "id")
+//
+  // constraint: only pass parameters of entity types (simple sorts)
+
+rules // forms
+
+  elem-to-java-servlet :  // the <f:facet> puts validation errors behind their inputs
+    tc@TemplateCall("form", [], elems) ->
+    %>
+      <h:form enctype="multipart/form-data" att0>
+        <%= hidden-ids ::*%>
+        <f:facet name="afterInvalidField"><s:message/></f:facet>
+        <%= <elems-to-xhtml> elems ::*%>
+      </h:form>
+    <%
+    where if InToplevelTemplate then
+            hidden-ids := <mapconcat(arg-to-xhtml)> <bagof-TemplateArguments> <ThisPage>
+          else
+            hidden-ids := <mapconcat(arg-to-xhtml)> <TemplateArguments> <ThisPage>
+          end
+        ; if <get-jsf-component-id-1> tc then 
+            att0 := @>  id="<%= <get-jsf-component-id-1> tc %>" <@
+          else att0:= [] end
+
+  arg-to-xhtml :
+    Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <ThisPage>%>.<%= e%>}" /> <%
+    where <builtin-java-type> s
+
+  arg-to-xhtml :
+    Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <ThisPage>%>.<%= i%>.id}" /> <%
+    where <defined-java-type> s
+        ; e1 := <concat-strings>[i, "_id"]
+
+  elem-to-java-servlet :
+    TemplateCall("action",[e1,e2],[]) ->
+    %>
+       <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where <not(is-cancel-action)> e2
+        ; e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+
+  elem-to-java-servlet :
+    TemplateCall("action",[e1,e2,e3],[]) ->
+    %>
+       <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where <not(is-cancel-action)> e2
+        ; e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+
+  elem-to-java-servlet :
+    TemplateCall("action",[e1,e2,e3],[]) ->
+    %>
+       <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where <is-cancel-action> e2
+        ; e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+
+    // @todo this is a big hack! the s:button component invokes the
+    // corresponding action, but does not send the form information, does
+    // canceling the form edits; however, this should NOT be expressed in the
+    // name of the action method
+
+  elem-to-java-servlet :
+    TemplateCall("actionLink",[e1,e2],[]) ->
+    %>
+       <h:commandLink type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where <not(is-cancel-action)> e2
+        ; e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+
+   is-cancel-action =
+     ?Call(Var(component), "cancel", [])
+
+   elem-to-java-servlet :
+    TemplateCall("action",[e1,e2],[]) ->
+    %>
+       <h:commandButton value="<%= e1string %>" action="<%= e2string %>"/>
+    <%
+    where e1string := <arg-to-value-string> e1
+        ; e2string := <arg-to-value-string> e2
+
+   elem-to-java-servlet :
+     Action(name, args, body) -> []
+
+rules // captcha
+
+  elem-to-java-servlet :
+    TemplateCall("captcha", [], []) ->
+    %>
+      <div class="captcha">
+        <div>
+          <h:graphicImage value="/seam/resource/captcha?#{captcha.id}"/>
+        </div>
+        <div>
+          <h:outputLabel for="verifyCaptcha">Enter the above letters</h:outputLabel>
+          <h:inputText id="verifyCaptcha" value="#{captcha.response}" required="true">
+            <s:validate />
+          </h:inputText>
+          <div class="validationError"><h:message for="verifyCaptcha"/></div>
+        </div>
+      </div>
+    <%
+
+rules // helper rules for input
+
+  input-of-required-property(|e)=
+    if <page-var-access-to-class-prop-tuple;PropertyIsRequired> e
+    then
+      !"true"
+    else
+      !"false"
+    end
+
+  get-type-of-right-side-field-access:
+    fa@FieldAccess(e, f) -> thetype
+    where SimpleSort(thetype) := <type-of> fa
+
+  page-var-access-to-class-prop-tuple :
+    FieldAccess(e, f) -> (<get-type-of-right-side-field-access> e,f)
+
+rules // input
+
+    // @todo configure requiredness of fields
+
+    // @todo support different types of input based on type
+    // maybe deal with that through desugaring, i.e., have more
+    // specific inputX template calls
+
+    // @todo also special support for Email, URL, Image
+
+  elem-to-java-servlet :
+    TemplateCall("input",[e],[]) ->
+    %>
+      <s:decorate>
+        <h:inputText styleClass="inputText" value="<%= estring %>" required="<%= req %>"/>
+      </s:decorate>
+    <%
+    where warn(|["underived input element"])
+        ; estring := <arg-to-value-string> e
+        ; req := <input-of-required-property(|e)>
+
+    // @todo validate image
+
+    // @todo upload real image file
+
+
+rules // output
+
+  elem-to-java-servlet :
+    TemplateCall("output",[e],[]) ->
+    %>
+      <h:outputText styleClass="output" value="<%= estring %>"/>
+    <%
+    where warn(|["underived output element"])
+        ; estring := <arg-to-value-string> e
+
+rules
+  // Generate URL rewrite rules
+   
+   GenerateCode = page-to-rewrite-rule; fail
+   
+   page-to-rewrite-rule =
+     ?Define([Page()], x, [], body)
+     ; with ( rules ( PageRewriteRules :+=
+              %>
+      <rule>
+        <from>/<%= x::cdata %>/?$</from>
+        <to>/<%= x::cdata %>.seam</to>
+      </rule>
+      <rule>
+        <from>/<%= x::cdata %>/?\?(.*)$</from>
+        <to>/<%= x::cdata %>.seam?$2</to>
+      </rule>
+              <% ) )
+      
+   page-to-rewrite-rule =
+     ?Define([Page()], x, args, body)
+     ; with ( Arg(fi, t) := <Hd> args
+          ; if <builtin-java-type> t then
+              first := fi
+            else
+              first := <concat-strings> [fi, "_id"]
+            end
+            ; rules ( PageRewriteRules :+=
+      %>
+      <rule>
+        <from>/<%= x::cdata %>/([^\?]+)$</from>
+        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1</to>
+      </rule>
+      <rule>
+        <from>/<%= x::cdata %>/([^\?]+)\?(.*)$</from>
+        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1&amp;$2</to>
+      </rule>
+      <% ) )
+
+   rewrite-rules-to-xml =
+     with ( {| ThisPage
+             : rules ( ThisPage := "urlrewrite" )
+             ; rule* := <bagof-PageRewriteRules; flatten-list>
+             ; <emit-seam-config>
+               %>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE urlrewrite PUBLIC "-//tuckey.org//DTD UrlRewrite 2.6//EN"
+                            "http://tuckey.org/res/dtds/urlrewrite2.6.dtd">
+<urlrewrite>
+  <%= rule* ::*%>
+</urlrewrite>
+               <% |} )
+
+
+rules
+  // Generate page action config file
+   
+   GenerateCode = page-to-action-rule; fail
+   
+   page-to-action-rule =
+     ?Define([Page()], x, args, elems)
+     ; with ( viewid := <concat-strings>["/", x, ".xhtml"]
+            ; pageaction := <concat-strings>[x, ".forceInitialization()"]
+            ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
+            ; rules ( PageActions :+= 
+              %>
+    <page view-id="<%= viewid %>" action="#{<%= pageaction %>}">
+        <%= page-parameters::* %>
+    </page>
+              <%
+            ) )
+
+   generate-page-actions-file =
+     with ( {| ThisPage
+             : rules ( ThisPage := "pages" )
+             ; action* := <bagof-PageActions; flatten-list>
+             ; <emit-seam-config>
+               %>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE page PUBLIC "-//JBoss/Seam Pages Configuration DTD 1.2//EN"
+                      "http://jboss.com/products/seam/pages-2.0.dtd">
+<pages>
+  <%= action* ::*%>
+</pages>
+               <% |} )
+
+   arg-for-page-action(|page) :
+     Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page %>.<%= e1 %>}" /> <%
+     where <defined-java-type> s
+      with e1 := <concat-strings>[i, "_id"]
+
+   arg-for-page-action(|page) :
+     Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page %>.<%= e %>}" /> <%
+     where <builtin-java-type> s
+     
+     */
