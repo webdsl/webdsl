@@ -1,0 +1,79 @@
+module org/webdsl/dsl/transformation/function
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules // function stuff
+
+   functions-to-el =
+     where ( try(sometd(translate-template-expression))
+           ; functions := <repeat(once-ConditionExpressions)> []
+           ; rules ( AllTemplateFunctions := functions ) )
+
+   create-template-function(|fn, e) =
+     where ( {| Param, IgnoreVars
+              : <alltd(find-params)> e
+              ; params := <bagof-Param>
+              |}
+           ; expr-string := <concat-strings> [<ThisPage>, ".", fn, "(", <map(arg-to-el); separate-by(|","); concat-strings> params, ")"]
+           ; el := <concat-strings> ["#{", expr-string, "}"]
+           ; pn := <ThisPage>
+           ; args := <ThisPageArguments>
+           ; rules( ConditionExpressions :+ l -> [(pn, args, fn, params, e)|l]
+                    ConditionExpressionToEL : (pn, e) -> el
+                    ConditionExpressionToString : (pn, e) -> expr-string ) )
+
+   translate-template-expression = // Store some context information
+     ?Define(mods, name, args, body)
+     ; where ( {| ThisPage, ThisPageArguments
+                :  rules ( ThisPage := name
+                           ThisPageArguments := args )
+                ; <try(sometd(translate-template-expression))> body
+                |} )
+
+   translate-template-expression =
+     ?IfTempl(e, elems1*)
+     ; where ( fn := <newname> "ifCondFun"
+             ; create-template-function(|fn, e)
+             ; <try(sometd(translate-template-expression))> elems1* )
+
+   // Do the same iffy thing for for-loops (for the "where" clause)
+   translate-template-expression =
+     ?For(x, s, e, Filter(we, obe), elem1*)
+     ; where ( not(True() := we)
+             ; fn := <newname> "forWhereCondFun"
+             ; fn2 := <newname> "forInExprFun"
+             ; create-template-function(|fn, we)
+             ; create-template-function(|fn2, e)
+             ; <try(sometd(translate-template-expression))> elem1* )
+
+   translate-template-expression =
+     ?For(x, s, e, Filter(True(), obe), elem1*)
+     ; where ( fn := <newname> "forInExprFun"
+               ; create-template-function(|fn, e)
+               ; <try(sometd(translate-template-expression))> elem1* )
+
+   translate-template-expression =
+     ?ForAll(x, s, Filter(we, obe), elem1*)
+     ; where ( not(True() := we)
+               ; fn := <newname> "forAllWhereCondFun"
+               ; create-template-function(|fn, we)
+               ; elem2* := <try(sometd(translate-template-expression))> elem1* )
+
+   translate-template-expression =
+     ?TemplateCall("text", [arg], [])
+     ; where ( not(<arg-to-value-string> arg) ; not(<elem-to-xhtml> arg) // Not a simple expression
+             ; fn := <newname> "textExprFun"
+             ; create-template-function(|fn, arg) )
+
+   translate-template-expression =
+     ?VarDeclInit(x, s, expr)
+     ; where ( not(<IsPage> <ThisPage>)
+             ; fn := <newname> "varDeclFun"
+             ; create-template-function(|fn, expr) )
+
