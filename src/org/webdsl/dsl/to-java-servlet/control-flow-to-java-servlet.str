@@ -1,0 +1,152 @@
+module org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+// control flow page elements   : for, if, templatecall 
+
+
+/*
+rules // iteration
+
+  // @todo: other For expressions
+  elem-to-java-servlet : //@todo: lifting!
+    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
+    %>
+      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
+        <%= <elems-to-xhtml> elems ::*%>
+      </c:forEach>
+    <%
+    where InToplevelTemplate
+        ; <contains-template-call> elems
+
+  elem-to-java-servlet :
+    For(x, s, e, Filter(we, obe), elems1) ->
+    %>
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
+          <%= elems2 ::*%>
+        </h:panelGroup>
+      </ui:repeat>
+    <%
+    where not(True() := we)
+        //; el := <arg-to-value-string> e
+        ; elems2  := <elems-to-xhtml> elems1
+
+  elem-to-java-servlet :
+    For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
+    %>
+      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
+        <%= elems2 ::*%>
+      </ui:repeat>
+    <%
+    where elems2  := <elems-to-xhtml> elems1
+
+  elem-to-java-servlet :
+    ForAll(x, s, Filter(we, obe), elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
+        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
+          <%= columns ::*%>
+        </h:panelGroup>
+      </ui:repeat>
+    <%
+    where not(True() := we)
+        ; columns := <elems-to-xhtml(wrap-column)> elems
+
+  elem-to-java-servlet :
+    ForAll(x, s, Filter(True(), obe), elems) ->
+    %>
+      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
+        <%= columns ::*%>
+      </ui:repeat>
+    <%
+    where columns := <elems-to-xhtml(wrap-column)> elems
+
+  wrap-column :
+    elems ->
+    %>
+      <h:column><%= elems ::*%></h:column>
+    <%
+
+*/
+
+rules // if
+
+  elem-to-java-servlet :
+    IfTempl(e, elems) ->
+    bstm |[
+    if(e1){ 
+      bstm*
+    }
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+        ; e1 := <expression-to-java> e
+    
+    
+    
+/*
+rules // template
+
+  elem-to-java-servlet :
+    def |[ define local x(farg*) { elem* } ]| ->
+    %>
+    
+    <ui:define name="<%= x %>">
+    <div id="<%= x %>">
+      <%= elems ::* %>
+    </div>
+  </ui:define>
+    <%
+    with {| InLocalTemplate
+          : rules ( InLocalTemplate := x )
+          ; elems := <elems-to-xhtml> elem*
+          |}
+          
+rules // template call
+
+  elem-to-java-servlet :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:insert name="<%= name %>">
+         <%= include::* %>
+    </ui:insert>
+    <%
+    where ( not(<IsPage> <ThisPage>) <+ InLocalTemplate )
+//        ; <debug> [">>>>", <IsPage> <ThisPage>, <InLocalTemplate>]
+//        ; <debug> ["+++++++++tc: ", name, args]
+        ; t* := <map(type-of)> args
+//        ; <debug> ["________t*", t*]
+        ; if Define(mods, n, fargs, body) := <TemplateSignature> (name, t*) then
+            target := <concat-strings> [name, ".xhtml"]
+//            ; <debug> ["________", n, fargs]
+            ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+            ; include := 
+              %>
+              <ui:include src="<%= target %>">
+                  <%= params::* %>
+            </ui:include>
+          <%
+      else
+        if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
+             include := []
+           end
+          end
+//        ; <debug> ["_____", n, fargs]
+
+  elem-to-java-servlet :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:include src="<%= target %>">
+        <%= params::* %>
+      </ui:include>
+    <%
+    where is-call-to-toplevel-template ; <IsPage> <ThisPage>
+    with target := <concat-strings> [name, ".xhtml"]
+       ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
+       ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+    */

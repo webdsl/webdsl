@@ -7,6 +7,8 @@ imports
 imports
   libwebdsl-front
     
+//page elements    
+    
 rules
   elem-to-java-servlet :
     TemplateCall("dummy", [], elems) -> <elems-to-java-servlet> elems
@@ -206,135 +208,89 @@ rules // lists
         <%= <elems-to-xhtml> elems ::*%>
       </li>
     <%
-
+*/
 rules // sections and headers
-*//*
+
   elem-to-java-servlet :
     TemplateCall("header", [], elems) ->
-    %>
-      <~n:tag><%= <elems-to-xhtml> elems ::*%></~n:tag>
-    <%
+    bstm* |[ 
+    out.println("<"+"~tag"+">");
+    bstm*
+    out.println("</"+"~tag"+">");
+    ]|
     where not(DataTable) ; not(TableScope)
-        ; n := <SectionDepth <+ !1>
+    with  n := <SectionDepth <+ !1>
         ; tag := <concat-strings>["h", <int-to-string> n]
-
+        ; bstm* := <elems-to-java-servlet> elems
+    
   elem-to-java-servlet :
-    TemplateCall("section", [], elems1) ->
-    %>
-      <div class="<%= sectionlevel %>"><%= elems2 ::*%></div>
-    <%
-    where {| SectionDepth
+    TemplateCall("section", [], elems) ->
+    bstm* |[ 
+    out.println("<div class=\""+"~sectionlevel"+"\">");
+    bstm*
+    out.println("</div>");
+    ]|
+    with  {| SectionDepth
            : rules( SectionDepth := <(SectionDepth <+ !0); inc> )
            ; sectionlevel := <concat-strings>["section", <SectionDepth; int-to-string>]
-           ; elems2 := <elems-to-xhtml> elems1
+           ; bstm* := <elems-to-java-servlet> elems 
            |}
-
+ 
   elem-to-java-servlet :
-    TemplateCall("par", [], elems1) ->
-    %>
-      <p><%= elems2 ::*%></p>
-    <%
-    where elems2 := <elems-to-xhtml> elems1
-
+    TemplateCall("par", [], elems) ->
+    bstm* |[ 
+    out.println("<p>");
+    bstm*
+    out.println("</p>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+    
   elem-to-java-servlet :
-    TemplateCall("container", [], elems1) ->
-    %>
-      <span><%= elems2 ::*%></span>
-    <%
-    where elems2 := <elems-to-xhtml> elems1*/
-/*
+    TemplateCall("container", [], elems) ->
+    bstm* |[ 
+    out.println("<span>");
+    bstm*
+    out.println("</span>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+
 rules // tables
 
   elem-to-java-servlet :
     TemplateCall("table", [], elems) ->
-    %>
-      <table><%= e* ::*%></table>
-    <%
-    where {| TableScope
+    bstm* |[ 
+    out.println("<table>");
+    bstm*
+    out.println("</table>");
+    ]|
+    with  {| TableScope
            : rules ( TableScope := 1 )
-           ; e* := <elems-to-xhtml> elems
+           ; bstm* := <elems-to-java-servlet> elems
            |}
 
   elem-to-java-servlet :
     TemplateCall("header", [], elems) ->
-    %>
-      <tr><%= <elems-to-xhtml(table-header-wrap)> elems ::*%></tr>
-    <%
+    bstm* |[ 
+    out.println("<th>");
+    bstm*
+    out.println("</th>");
+    ]|
     where TableScope
+    with  bstm* := <elems-to-java-servlet> elems
 
   elem-to-java-servlet :
     TemplateCall("row", [], elems) ->
-    %>
-      <tr><%= <elems-to-xhtml(table-cell-wrap)> elems ::*%></tr>
-    <%
+    bstm* |[ 
+    out.println("<td>");
+    bstm*
+    out.println("</td>");
+    ]|
+    where TableScope
+    with  bstm* := <elems-to-java-servlet> elems
 
-   table-cell-wrap :
-     elems -> %> <td><%= elems ::*%></td> <%
+/*
 
-   table-header-wrap :
-     elems -> %> <th><%= elems ::*%></th> <%
-
-rules // iteration
-
-  // @todo: other For expressions
-  elem-to-java-servlet : //@todo: lifting!
-    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
-    %>
-      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
-        <%= <elems-to-xhtml> elems ::*%>
-      </c:forEach>
-    <%
-    where InToplevelTemplate
-        ; <contains-template-call> elems
-
-  elem-to-java-servlet :
-    For(x, s, e, Filter(we, obe), elems1) ->
-    %>
-      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
-        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
-          <%= elems2 ::*%>
-        </h:panelGroup>
-      </ui:repeat>
-    <%
-    where not(True() := we)
-        //; el := <arg-to-value-string> e
-        ; elems2  := <elems-to-xhtml> elems1
-
-  elem-to-java-servlet :
-    For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
-    %>
-      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
-        <%= elems2 ::*%>
-      </ui:repeat>
-    <%
-    where elems2  := <elems-to-xhtml> elems1
-
-  elem-to-java-servlet :
-    ForAll(x, s, Filter(we, obe), elems) ->
-    %>
-      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
-        <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
-          <%= columns ::*%>
-        </h:panelGroup>
-      </ui:repeat>
-    <%
-    where not(True() := we)
-        ; columns := <elems-to-xhtml(wrap-column)> elems
-
-  elem-to-java-servlet :
-    ForAll(x, s, Filter(True(), obe), elems) ->
-    %>
-      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
-        <%= columns ::*%>
-      </ui:repeat>
-    <%
-    where columns := <elems-to-xhtml(wrap-column)> elems
-
-  wrap-column :
-    elems ->
-    %>
-      <h:column><%= elems ::*%></h:column>
-    <%
+//for moved to control-flow-to-java-servlet
 
 rules // select from
 
@@ -396,86 +352,13 @@ rules // select
         ; x_List    := <concat-strings>[x, "List"]
         ; x_prop    := <arg-to-el> e
 
-rules // if
 
-  elem-to-java-servlet :
-    IfTempl(e, elems) ->
-    %>
-      <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"><%= elems2 ::*%></h:panelGroup>
-    <%
-    where not(<contains-template-call> elems)
-        ; elems2 := <elems-to-xhtml> elems
-    
-  elem-to-java-servlet : //@todo: lifting!
-    IfTempl(e, elems) ->
-    %>
-      <c:if test="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
-        <%= <elems-to-xhtml> elems ::*%>
-      </c:if>
-    <%
-    where InToplevelTemplate
-        ; <contains-template-call> elems
+//if moved to control-flow-to-java-servlet
 
-rules // template
 
-  elem-to-java-servlet :
-    def |[ define local x(farg*) { elem* } ]| ->
-    %>
-    
-    <ui:define name="<%= x %>">
-    <div id="<%= x %>">
-      <%= elems ::* %>
-    </div>
-  </ui:define>
-    <%
-    with {| InLocalTemplate
-          : rules ( InLocalTemplate := x )
-          ; elems := <elems-to-xhtml> elem*
-          |}
-          
-rules // template call
+//templatecalls moved to control-flow-to-java-servlet
 
-  elem-to-java-servlet :
-    TemplateCall(name, args, _) ->
-    %>
-      <ui:insert name="<%= name %>">
-         <%= include::* %>
-    </ui:insert>
-    <%
-    where ( not(<IsPage> <ThisPage>) <+ InLocalTemplate )
-//        ; <debug> [">>>>", <IsPage> <ThisPage>, <InLocalTemplate>]
-//        ; <debug> ["+++++++++tc: ", name, args]
-        ; t* := <map(type-of)> args
-//        ; <debug> ["________t*", t*]
-        ; if Define(mods, n, fargs, body) := <TemplateSignature> (name, t*) then
-            target := <concat-strings> [name, ".xhtml"]
-//            ; <debug> ["________", n, fargs]
-            ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
-            ; include := 
-              %>
-              <ui:include src="<%= target %>">
-                  <%= params::* %>
-            </ui:include>
-          <%
-      else
-        if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
-             include := []
-           end
-          end
-//        ; <debug> ["_____", n, fargs]
 
-  elem-to-java-servlet :
-    TemplateCall(name, args, _) ->
-    %>
-      <ui:include src="<%= target %>">
-        <%= params::* %>
-      </ui:include>
-    <%
-    where is-call-to-toplevel-template ; <IsPage> <ThisPage>
-    with target := <concat-strings> [name, ".xhtml"]
-       ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
-       ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
-    
 rules // vardecl
 
   elem-to-java-servlet :
@@ -557,11 +440,21 @@ rules // links
 //        ; el := <arg-to-value-string> FieldAccess(e, "id")
 //
   // constraint: only pass parameters of entity types (simple sorts)
-
+*/
 rules // forms
 
   elem-to-java-servlet :  // the <f:facet> puts validation errors behind their inputs
     tc@TemplateCall("form", [], elems) ->
+    bstm* |[ 
+    out.println("<form enctype=\"multipart/form-data\" action=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\" method=\"POST\">");
+    out.println("todo: form action");
+    out.println(ps.getHiddenParams());
+    bstm*
+    out.println("</form>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+   
+    /* 
     %>
       <h:form enctype="multipart/form-data" att0>
         <%= hidden-ids ::*%>
@@ -577,7 +470,10 @@ rules // forms
         ; if <get-jsf-component-id-1> tc then 
             att0 := @>  id="<%= <get-jsf-component-id-1> tc %>" <@
           else att0:= [] end
-
+    */
+    
+    
+/*
   arg-to-xhtml :
     Arg(e, s) -> %> <input type="hidden" name="<%= e %>" value="#{<%= <ThisPage>%>.<%= e%>}" /> <%
     where <builtin-java-type> s
@@ -586,23 +482,27 @@ rules // forms
     Arg(i, s) -> %> <input type="hidden" name="<%= e1 %>" value="#{<%= <ThisPage>%>.<%= i%>.id}" /> <%
     where <defined-java-type> s
         ; e1 := <concat-strings>[i, "_id"]
-
+*/
   elem-to-java-servlet :
     TemplateCall("action",[e1,e2],[]) ->
+    bstm |[ 
+    out.println("<input type=\"submit\" name=\""+"~e3"+uniqueid+" value=\""+e4+"\" \">"); 
+    ]|
+    /*
     %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
-    where <not(is-cancel-action)> e2
-        ; e1string := <arg-to-value-string> e1
-        ; e2string := <arg-to-value-string> e2
-
+    */
+    with  e3 := <?ThisCall(name,args);!name> e1
+        ; e4 := <arg-to-value-string-java-servlet> e2
+/*
+what are these for, e3 ignored?
   elem-to-java-servlet :
     TemplateCall("action",[e1,e2,e3],[]) ->
     %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
-    where <not(is-cancel-action)> e2
-        ; e1string := <arg-to-value-string> e1
+    where e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
 
   elem-to-java-servlet :
@@ -610,25 +510,22 @@ rules // forms
     %>
        <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
-    where <is-cancel-action> e2
-        ; e1string := <arg-to-value-string> e1
+    where e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
+*/
 
-    // @todo this is a big hack! the s:button component invokes the
-    // corresponding action, but does not send the form information, does
-    // canceling the form edits; however, this should NOT be expressed in the
-    // name of the action method
-
+/*
+support
   elem-to-java-servlet :
     TemplateCall("actionLink",[e1,e2],[]) ->
     %>
        <h:commandLink type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
     <%
-    where <not(is-cancel-action)> e2
-        ; e1string := <arg-to-value-string> e1
+    where e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
+*/
 
-   is-cancel-action =
+   /*is-cancel-action =
      ?Call(Var(component), "cancel", [])
 
    elem-to-java-servlet :
@@ -641,7 +538,8 @@ rules // forms
 
    elem-to-java-servlet :
      Action(name, args, body) -> []
-
+     */
+/*
 rules // captcha
 
   elem-to-java-servlet :

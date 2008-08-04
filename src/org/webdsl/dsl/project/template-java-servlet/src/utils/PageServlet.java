@@ -20,6 +20,10 @@ public interface PageServlet {
     public HttpServletResponse getResponse();
     
     public void setValidated(boolean validated);
+    
+    public String getPageName();
+    
+    public String getHiddenParams();
  
    // public HashMap<String, Class> getTemplates();
 }
