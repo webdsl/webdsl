@@ -2,6 +2,9 @@ include $(top_srcdir)/Makefile.xt
 include $(wildcard *.dep)
 include $(wildcard org/webdsl/dsl/*/*.dep)
 
+# remove the default tar -o option to allow long path names
+am__tar = ${AMTAR} chf - "$$tardir" 
+
 ### distribution
 
 CLEANFILES = \
@@ -17,7 +20,7 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtree) \
-    $(wildcard org/webdsl/dsl/modules/*/*.rtree) 
+    $(wildcard org/webdsl/dsl/*/*/*.rtree) 
 
 EXTRA_DIST = \
     $(wildcard *.str) \
@@ -26,10 +29,10 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
     $(wildcard org/webdsl/dsl/*/*.pp) \
-    $(wildcard org/webdsl/dsl/modules/*/*.str) \
-    $(wildcard org/webdsl/dsl/modules/*/*.meta) \
-    $(wildcard org/webdsl/dsl/modules/*/*/*.str) \
-    $(wildcard org/webdsl/dsl/modules/*/*/*.meta)
+    $(wildcard org/webdsl/dsl/*/*/*.str) \
+    $(wildcard org/webdsl/dsl/*/*/*.meta) \
+    $(wildcard org/webdsl/dsl/*/*/*/*.str) \
+    $(wildcard org/webdsl/dsl/*/*/*/*.meta)
 
 ### syntax definitions
 
