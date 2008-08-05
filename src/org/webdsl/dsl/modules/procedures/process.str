@@ -32,11 +32,11 @@ strategies // for testing process translations
   just-process = transform-procedure
   just-process = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
   
-strategies // hooking into rest of the system
+/*strategies // hooking into rest of the system
 
-//  desugar = transform-procedure-process
-//  desugar = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
-  
+  desugar = transform-procedure
+  desugar = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
+*/  
 strategies // extending the status entity
 
   process-extend-status-entity = 
@@ -62,6 +62,7 @@ rules // actual transformation
   transform-procedure :
     Procedure(x_id, arg, elem1*) -> Procedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
+           ; info(|"Begin transform-procedure")
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess)> elem1*
            ; elem2* := <filter(not(?ProcedureProcess))> elem1*
            |}
@@ -69,12 +70,14 @@ rules // actual transformation
   transform-procedure :
     AutoProcedure(x_id, arg, elem1*) -> AutoProcedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
+           ; info(|"Begin transform-procedure")
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess)> elem1*
            ; elem2* := <filter(not(?ProcedureProcess))> elem1*
            |}
            
   transform-procedure-process =
     ?ProcedureProcess(e)
+    ; info(|"Begin transform-procedure-process")
     ; !e
     ; topdown(try(process-simplify))   // transforms complex procedure constructs to singular procedures
     ; process-sequential
@@ -95,37 +98,35 @@ rules // actual transformation
       // [ProcCall("employeeFillInForm",Var("p")),ProcCall("finalizeReport",Var("p")),ProcCall("approveReport",Var("p"))]
     ; debug
     ; {| State
-       : stat* := <mapconcat(get-sequential-proccall)>
+       : stat1* := <map(get-sequential-proccall)>
+       ; x_current := <get-state>
+       ; x_next := <get-next-state>
+       ; last := |[ if (state = x_current) { this.processed(); } ]|
+       ; stat2* := [stat1*, last]
        |}
-    ; <debug(!"stat*: ")> stat*
+    ; debug
+    ; x_id := <concat-strings> [<ProcedureName>, "Status"]
+    ; <debug(!"x_id: ")> x_id
+    ; x_o := <ProcedureArg> <ProcedureName>
+    ; <debug(!"x_o: ")> x_o
+    ; srt := <ProcedureArgSort> <ProcedureName>
+    ; <debug(!"srt: ")> srt
     ; <emit-webdsl-code> def|[
-        extend entity PdpMeeting {
-          
+        extend entity x_id {
+          x_o -> srt
           function next(state: Int) {
-            stat*
+            stat2*
           }
         }
       ]|
-    ; {| State
-       : bottomup(process-sequential <+ add-error(|["Sequential connecting of procedures failed"])) // expects only singular procedures
-       |}
     
   get-sequential-proccall =
-    ?ProcCall(procelem, x_id)
-    ; info(|"get-seq 1")
+    ?ProcCall(x1, x_id)
     ; x_current := <get-state>
-    ; info(|["get-seq 2", x_current])
     ; x_next := <get-next-state>
-    ; info(|["get-seq 3", x_next])
-    ; !|[ if (state = x_current) { x_id.procelem.enable(this, x_next); } ]|
-    ; debug(!"na get-seq: ")
+    ; !|[ if (state = x_current) { x_id.x1.enable(this, x_next); } ]|
+    ; info(|["na get-seq: ", <pp-webdsl>])
     
-/*  proc-attach-state-ids =
-    info(|"STAGE PROCESS TO EXTEND PROCEDURES")
-    ; {| State
-       : topdown(try({(?ProcCall(_, _) <+ ?ProcWhile(_, _) <+ ?ProcIfNoElse(_, _) <+ ?ProcIf(_, _, _) <+ ?ProcOR(_, _) <+ ?ProcAND(_, _) <+ ?ProcPLUS(_, _)); ?pe; !pe{<generate-new-state>}}))
-       |}
-*/       
   get-state =
     State <+ !0
 
@@ -133,8 +134,26 @@ rules // actual transformation
     n := <get-state; inc>
     ; rules ( State := n )
     
-  process-if =
-    id
+  process-if = id
+/*    ProcIf(e, ifBranch, elseBranch) -> ProcCall()
+
+hier verder    
+    where x_id := <ProcedureName>
+        ; x_ifProc := <newname> "ifProc"
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; def|[
+            auto procedure x_ifProc(x_o : srt) {
+              enabled {
+                if (e) {
+                  x_o1.x_id1.enable();
+                } else {
+                  x_o1.x_id2.enable();
+                }
+              }
+            }
+          ]|*/
+          
   
   process-if-no-else =
     id

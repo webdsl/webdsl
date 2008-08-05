@@ -12,7 +12,7 @@
    Section                            -- V is=2 vs=1 [H[KW["section"] _1 KW["."]] _2],
    Section.1:iter                     -- _1,
    Section.2:iter-star                -- _1,
-   Description                        -- V[V is=2[KW["description"] KW["{"] HV[_1]] KW["}"]],
+   Description                        -- V[V is=2[H[KW["description"] KW["{"]] HV[_1]] KW["}"]],
    Note                               -- V[V is=2[KW["note"] HV[_1]] KW["end"]],
    GlobalsDefinition                  -- KW["globals"] KW["{"] _1 KW["}"],
    Entity                             -- V[V is=2[H[KW["entity"] _1 KW[":"] _2 KW["{"]] _3 _4] KW["}"]],
