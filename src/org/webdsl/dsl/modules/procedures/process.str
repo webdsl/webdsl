@@ -29,13 +29,13 @@ strategies // for testing process translations
   
   do-only-strategy = repeat(innermost-rep(just-process))
     
-  just-process = transform-procedure-process
+  just-process = transform-procedure
   just-process = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
   
 strategies // hooking into rest of the system
 
 //  desugar = transform-procedure-process
-//  desugar = <do-once(process-extend-status-entity|"Extend status entity")> None()
+//  desugar = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
   
 strategies // extending the status entity
 
@@ -59,14 +59,14 @@ strategies // extending the status entity
   
 rules // actual transformation
 
-  transform-procedure-process :
+  transform-procedure :
     Procedure(x_id, arg, elem1*) -> Procedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess)> elem1*
            ; elem2* := <filter(not(?ProcedureProcess))> elem1*
            |}
   
-  transform-procedure-process :
+  transform-procedure :
     AutoProcedure(x_id, arg, elem1*) -> AutoProcedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess)> elem1*
@@ -77,9 +77,8 @@ rules // actual transformation
     ?ProcedureProcess(e)
     ; !e
     ; topdown(try(process-simplify))   // transforms complex procedure constructs to singular procedures
-    ; topdown(process-sequential <+ add-error(|["Sequential connecting of procedures failed"])) // expects only singular procedures
-    ; debug(!"Before RemoveMe")
-    ; !RemoveMe()
+    ; process-sequential
+    ; info(|"After transform-procedure-process")
     
   process-simplify =
     process-if
@@ -91,7 +90,48 @@ rules // actual transformation
     <+ process-repeat-until
 
   process-sequential =
-    id
+    info(|"Doing sequential")
+    ; collect-all(?ProcCall(_,_)) 
+      // [ProcCall("employeeFillInForm",Var("p")),ProcCall("finalizeReport",Var("p")),ProcCall("approveReport",Var("p"))]
+    ; debug
+    ; {| State
+       : stat* := <mapconcat(get-sequential-proccall)>
+       |}
+    ; <debug(!"stat*: ")> stat*
+    ; <emit-webdsl-code> def|[
+        extend entity PdpMeeting {
+          
+          function next(state: Int) {
+            stat*
+          }
+        }
+      ]|
+    ; {| State
+       : bottomup(process-sequential <+ add-error(|["Sequential connecting of procedures failed"])) // expects only singular procedures
+       |}
+    
+  get-sequential-proccall =
+    ?ProcCall(procelem, x_id)
+    ; info(|"get-seq 1")
+    ; x_current := <get-state>
+    ; info(|["get-seq 2", x_current])
+    ; x_next := <get-next-state>
+    ; info(|["get-seq 3", x_next])
+    ; !|[ if (state = x_current) { x_id.procelem.enable(this, x_next); } ]|
+    ; debug(!"na get-seq: ")
+    
+/*  proc-attach-state-ids =
+    info(|"STAGE PROCESS TO EXTEND PROCEDURES")
+    ; {| State
+       : topdown(try({(?ProcCall(_, _) <+ ?ProcWhile(_, _) <+ ?ProcIfNoElse(_, _) <+ ?ProcIf(_, _, _) <+ ?ProcOR(_, _) <+ ?ProcAND(_, _) <+ ?ProcPLUS(_, _)); ?pe; !pe{<generate-new-state>}}))
+       |}
+*/       
+  get-state =
+    State <+ !0
+
+  get-next-state =
+    n := <get-state; inc>
+    ; rules ( State := n )
     
   process-if =
     id
@@ -150,7 +190,7 @@ strategies
 
   process-to-extend-procedures = 
     ?ProcedureProcess(e)
-    ; proc-attach-state-ids
+/*    ; proc-attach-state-ids*/
     ; debug(!"Processed process")
     /*
     bottomup(try(
@@ -165,15 +205,6 @@ strategies
     */
   
 
-  proc-attach-state-ids =
-    info(|"STAGE PROCESS TO EXTEND PROCEDURES")
-    ; {| State
-       : topdown(try({(?ProcCall(_, _) <+ ?ProcWhile(_, _) <+ ?ProcIfNoElse(_, _) <+ ?ProcIf(_, _, _) <+ ?ProcOR(_, _) <+ ?ProcAND(_, _) <+ ?ProcPLUS(_, _)); ?pe; !pe{<generate-new-state>}}))
-       |}
-
-  generate-new-state =
-    n := <(State <+ !0); inc>
-    ; rules ( State := n )
 
   add-processed-calls =
     (?Procedure(_,_,_) <+ ?AutoProcedure(_,_,_))
