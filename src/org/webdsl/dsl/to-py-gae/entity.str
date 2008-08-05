@@ -24,14 +24,24 @@ strategies
 */
 rules
 
-  py-inverse-prop(|x_ent) :
-    Property(x, knd, GenericSort("Set", [SimpleSort(invers_ent)]), annos) -> Property(nm, Ref(), SimpleSort(type), [])
-    where nm := <concat-strings> ["inverse__", <ThisEntity>, "_", x]
-        ; if <EntityIdType> x_ent then
-            type := <python-property-type> <EntityIdType> x_ent
+  py-emit-inverse-prop(|x_ent, lst) =
+    ?Property(x, knd, GenericSort("Set", [SimpleSort(invers_ent)]), annos)
+    ; with(id
+        ; x_prop := <concat-strings> ["inverse__", <ThisEntity>, "_", x]
+        ; <debug> <dr-all-keys(|"EntityIdType")>
+        ; if <EntityIdType> <ThisEntity> then
+            type2 := <EntityIdType> <ThisEntity>
           else
-            type := "String"
+            type2 := SimpleSort("Int")
           end
+        ; if "Set" := lst then
+            type := GenericSort("Set", [type2])
+          else
+            type := type2
+          end
+        ; e_type := <python-property-type> type
+        ; <emit-python(|"data")> python*|[ @partial class x_ent(webdsl.db.Model): { x_prop = e_type; }; ]|
+        )
 
   py-remove-pass :
     [a|[b|k]] -> k2
@@ -50,7 +60,6 @@ strategies
     ?Property(x_prop, knd, srt@SimpleSort(_), annos)
     ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
     ; with(id
-      ; debug(!"Translating property: ")
       ; if <elem> (SimpleAnno("id"), annos) then
           e_idprop := <concat-strings> ["'", x_prop, "'"]
           ; <emit-python(|"data")> python*|[ @partial class x_class(webdsl.db.Model): { id_property = e_idprop; }; ]|
@@ -69,23 +78,33 @@ strategies
       ; <emit-python(|"data")> python*|[ @partial class x_class(webdsl.db.Model): { stm* }; ]|
       )
 
+  py-property-to-code(|x_class) = // One-to-many with inverse
+    ?prop@Property(x_prop, knd, GenericSort("Set", [SimpleSort(s)]), annos)
+    ; <fetch(?InverseAnno(inverseent, inversefld) <+ ?InverseSlaveAnno(inverseent, inversefld))> annos
+    ; SimpleSort(inverse_sort) := <TypeOfProperty> (inverseent, inversefld)
+    ; with(id
+      ; info(|["Translating one-to-many no inverse property: ", x_class, ".", x_prop])
+      ; <emit-python(|"data")> <py-generate-many-property(|x_class, x_prop, s, "OneToManyDbQuerySet", "")>
+      ; <py-emit-inverse-prop(|s, "")> prop
+      )
+
   py-property-to-code(|x_class) = // Many-to-many no inverse
     ?prop@Property(x_prop, knd, GenericSort("Set", [SimpleSort(s)]), annos)
     ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
     ; with(id
         ; info(|["Translating many-to-many no inverse property: ", x_class, ".", x_prop])
-        ; <emit-python(|"data")> <py-generate-many-property(|x_class, x_prop, s, "ManyToManyDbQuerySet")>
-        ; <py-property-to-code(|s)> <py-inverse-prop(|s)> prop
+        ; <emit-python(|"data")> <py-generate-many-property(|x_class, x_prop, s, "ManyToManyDbQuerySet", "")>
+        ; <py-emit-inverse-prop(|s, "Set")> prop
       )
 
-  py-property-to-code(|x_class) = // One-to-many with inverse
+  py-property-to-code(|x_class) = // Many-to-many with inverse
     ?prop@Property(x_prop, knd, GenericSort("Set", [SimpleSort(s)]), annos)
     ; <fetch(?InverseAnno(inverseent, inversefld) <+ ?InverseSlaveAnno(inverseent, inversefld))> annos
+    ; GenericSort(_, _) := <TypeOfProperty> (inverseent, inversefld)
     ; with(id
-      ; info(|["Translating one-to-many no inverse property: ", x_class, ".", x_prop])
-      ; SimpleSort(inverse_sort) := <TypeOfProperty> (inverseent, inversefld)
-      ; <emit-python(|"data")> <py-generate-many-property(|x_class, x_prop, s, "OneToManyDbQuerySet")>
-      ; <py-property-to-code(|s)> <py-inverse-prop(|s)> prop
+        ; info(|["Translating many-to-many with inverse property: ", x_class, ".", x_prop])
+        ; <emit-python(|"data")> <py-generate-many-property(|x_class, x_prop, s, "ManyToManyDbQuerySet", inversefld)>
+        ; <py-emit-inverse-prop(|s, "Set")> prop
       )
 
 
@@ -98,7 +117,7 @@ strategies
     ; !python*|[
         x_internalprop = None;
         def x_get(self): {
-            if not self.x_internalprop: {
+            if self.x_internalprop == None: {
                 self.x_internalprop = x_inverseent.fetch_by_id(self.x_inverseprop);
             };
             return self.x_internalprop;
@@ -110,7 +129,7 @@ strategies
         x_prop = property(x_get, x_set);
       ]|
 
-  py-generate-many-property(|x_class, x_prop, sort, x_manyclass) =
+  py-generate-many-property(|x_class, x_prop, sort, x_manyclass, x_declinvprop) =
     x_inverseprop := <concat-strings> ["'inverse__", x_class, "_", x_prop, "'"]
     ; x_internalprop := <concat-strings> ["_", x_prop]
     ; x_countprop := <concat-strings> [x_prop, "_count"]
@@ -118,13 +137,18 @@ strategies
     ; x_set := <concat-strings> ["set_", x_prop]
     ; e_propstr := <concat-strings> ["'", x_prop, "'"]
     ; e_typestr := <concat-strings> ["'", sort, "'"]
+    ; if "" := x_declinvprop then
+        e_declinvprop := py-exp|[ None ]|
+      else
+        e_declinvprop := String(<concat-strings> ["'", x_declinvprop, "'"])
+      end
     ; !python*|[ @partial class x_class(webdsl.db.Model): {
         x_internalprop = None;
 
         def x_get(self): {
-            if not self.x_internalprop: {
+            if self.x_internalprop == None: {
                 self._post_process_props.append(e_propstr);
-                self.x_internalprop = webdsl.querylist.x_manyclass(self, e_typestr, x_inverseprop, self.id, self.x_countprop);
+                self.x_internalprop = webdsl.querylist.x_manyclass(self, e_typestr, x_inverseprop, self.id, self.x_countprop, e_declinvprop);
             };
             return self.x_internalprop;
         };
