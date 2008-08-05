@@ -12,6 +12,7 @@
    LargerThanOrEqual               -- _1 KW[">="] _2,
    SmallerThan                     -- _1 KW["<"] _2,
    SmallerThanOrEqual              -- _1 KW["<="] _2,
+   Not                             -- KW["not"] _1,
    Var                             -- _1,
    Int                             -- _1,
    ListIndex                       -- _1 KW["["] _2 KW["]"],
