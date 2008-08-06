@@ -1,0 +1,44 @@
+module org/webdsl/dsl/modules/styling/transformation/resolve
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+//  desugar = resolve-style-property
+
+  resolve-style-properties =
+    alltd(resolve-style-property)
+    
+rules
+
+  resolve-style-property :
+    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
+    where t* := <map(?Arg(_,<id>))> farg*
+        ; val := <StyleValue> (name, t*, prop)
+        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, prop, val)
+
+  resolve-style-property :
+    StyleDefinition(type, MatchDefinition(name, farg*), stat1*) -> StyleDefinition(type, MatchDefinition(name, farg*), stat2*)
+    where {| ThisPage, ThisArgumentTypes
+           : t* := <map(?Arg(_,<id>))> farg*
+           ; rules (
+               ThisPage := name
+               ThisArgumentTypes := t*
+             )
+           ; stat2* := <alltd(resolve-style-property)> stat1*
+           |}
+           
+  resolve-style-property :
+    StyleDeclaration(prop, expr1) -> StyleDeclaration(prop, expr2)
+    where ThisPage ; ThisArgumentTypes
+        ; {| ThisProperty
+           : rules ( ThisProperty := prop )
+           ; expr2 := <alltd(resolve-style-property)> expr1
+           |}
+  
+  resolve-style-property :
+    Var(x) -> val
+    where val := <StyleVariable> x
+        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, <ThisProperty>, val)

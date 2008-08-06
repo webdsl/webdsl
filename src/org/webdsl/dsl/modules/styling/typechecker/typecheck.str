@@ -4,7 +4,7 @@
 
 */
 
-module org/webdsl/dsl/modules/styling/typecheck
+module org/webdsl/dsl/modules/styling/typechecker/typecheck
 
 imports
   libstrategolib
@@ -13,6 +13,27 @@ imports
   libwebdsl-front
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/modules/styling/-
+
+
+rules
+
+  matches-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; <TemplateSignature> (matchstring, <map(?Arg(_,<id>))> farg*)
+  
+  matches-template-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        matches-definition
+        ; <is-toplevel-template> matchstring
+      )
+      
+  matches-page-definition =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        matches-definition
+        ; <IsPage> matchstring
+      ) 
 
 rules // StyleDefinitions
 
@@ -27,33 +48,13 @@ rules // StyleDefinitions
     where not( <matches-page-definition> matchdef )
   
   constraint-error : 
-    d@StyleDefinition("template", matchdef, decl*) -> <add-error(|["style rule target does not exist: ", <pp-webdsl> d])>
+    d@StyleDefinition("template", matchdef, decl*) -> <add-error(|["style definition target does not exist: ", <pp-webdsl> d])>
     where not( <matches-template-definition> matchdef )
                                          
   constraint-error : 
     d@StyleDefinition(g, s, decl*) -> <add-error(|["unknown style definition type: ",<pp-webdsl> d])>
     where not( <?MatchDefinition(_,_)> s )
         ; ( not("global" := g) <+ not("style" := s) )
-
-  matches-definition =
-    ?MatchDefinition(matchstring, farg*)
-    ; where (
-        <TemplateSignature> (matchstring, <map(?Arg(_,<id>))> farg*)
-      )
-  
-  matches-template-definition =
-    ?MatchDefinition(matchstring, farg*)
-    ; where (
-        matches-definition
-        ; <is-toplevel-template> matchstring
-      )
-      
-  matches-page-definition =
-    ?MatchDefinition(matchstring, farg*)
-    ; where (
-        matches-definition
-        ; <IsPage> matchstring
-      )
 
 rules // StyleStatements
 
@@ -79,4 +80,32 @@ rules // StyleExpressions
     StylePropertyValue(MatchDefinition(matchid, farg*), prop) -> <add-error(|["unknown property: ", <pp-webdsl> prop ," in style definition: ", <pp-webdsl> matchid])>
     where not ( <elem> ( <strip-annos> prop, <bagof-StyleProperties> (matchid, <map(?Arg(_,<id>))> farg*) ) )
 
-        
+
+rules // Layout
+
+  constraint-error : 
+    d@LayoutDefinition(checktype, matchdef, stat*) -> <add-error(|["unknown layout definition type: ", <pp-webdsl> d])>
+    where <?MatchDefinition(_,_)> matchdef
+        ; <not(elem)> ( checktype,[ "page"
+                                   ,"template" ])
+
+  constraint-error : 
+    d@LayoutDefinition("page", matchdef, decl*) -> <add-error(|["layout definition target does not exist: ", <pp-webdsl> d])>
+    where not( <matches-page-definition> matchdef )
+
+  constraint-error : 
+    d@LayoutDefinition("template", matchdef, decl*) -> <add-error(|["layout definition target does not exist: ", <pp-webdsl> d])>
+    where not( <matches-template-definition> matchdef )
+/*
+  constraint-error :
+    d@LayoutDefinition(checktype, matchdef, stat*) -> <add-error(|["layout definition does not include all template calls: ", <pp-webdsl> d])>
+    where def := <matches-definition> matchdef
+        ; <debug> ["______def:", def]
+        ; calls := <filter(filter-template-calls)> def
+        ; <debug> ["=====calls:", calls]
+        ; <debug> ["=====stat*:", stat*]
+  
+  filter-template-calls :
+    TemplateCall(t, arg*, elem*) -> TemplateCall(t, arg*, elem*)
+    where <TemplateSignature> (t, <map(type-of)> arg*)
+*/        

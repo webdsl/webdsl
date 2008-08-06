@@ -1,4 +1,4 @@
-module org/webdsl/dsl/modules/styling/declare
+module org/webdsl/dsl/modules/styling/typechecker/declare
 
 imports
   libstrategolib
@@ -28,11 +28,18 @@ strategies
         ; rules (
             StyleDeclarations :+ (name, t*) -> (p, v)
             StyleProperties :+ (name, t*) -> p
-            StyleValue : (name, t*, p) -> v
           )
+        ; <declare-style-value> (name, t*, p, v)
+//        ; <debug> ["____styledecl: ", (name, t*, p), v]
       )
 
-        
+  declare-style-value =
+    ?(name, t*, p, v)
+    ; where (
+        rules ( StyleValue : (name, t*, p) -> v )
+//        ; <debug> ["____stylevalue decl: ", name, t*, p, v]
+      )
+
   declare-style-var-decl =
     ?StyleVarDeclInit(x, srt, e)
     ; where (
@@ -40,11 +47,30 @@ strategies
         ; rules ( StyleVariable : x -> e' )
       )
 
+strategies
+
   declare-layout-definition =
-    ?LayoutDefinition(matchdef, decl*)
+    ?def@LayoutDefinition(type, matchdef, stat*)
     ; where (
         MatchDefinition(n, arg*) := matchdef
+        ; t* := <map(?Arg(_,<id>))> arg*
         ; name := <concat-strings> [n, "Layout"]
-        ; rules ( StylesheetIncludes :+ n -> name )
+        ; rules (
+            StylesheetIncludes :+ n -> name
+            LayoutDefinition : (n, t*) -> def
+          )
       )
-      
+  
+  declare-layout-expression =
+    ?NamedLayoutExpression(name, expr*)
+    ; where ( <map(declare-layout-expression)> expr* )
+
+  declare-layout-expression =
+    ?LayoutExpression(MatchDefinition(x, farg*))
+    ; where (
+        t1* := <map(?Arg(_,<id>))> farg*
+        ; (name, t2*) := <InDef>
+        ; rules (
+            NamedLayoutExpression : (x, t*) -> (name, t2*)
+          )
+      )

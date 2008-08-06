@@ -1,0 +1,204 @@
+module org/webdsl/dsl/modules/styling/transformation/weaving
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+    
+  weave-layout-information =
+    alltd(weave-layout)
+  
+rules
+
+  rewrite-template-call =
+    RewriteCall <+ id
+    
+  weave-layout :
+    def|[ define template x(farg*){ elem1* } ]| -> def|[ define template x(farg*){ elem2* } ]|
+    where {| RewriteCall, ThisPage, ThisArgumentTypes
+           : x_page := <concat-strings> [x, "Layout"]
+           ; t* := <map(?Arg(_,<id>))> farg*
+           ; x' := <strip-annos> x
+           ; rules ( 
+               ThisPage := x_page
+               ThisTemplate := x'
+               ThisArgumentTypes := t*
+             )
+//        ; not( <elem> ((x, t*), <bagof-ProcessedLayoutDefinitions> ) )
+//        ; rules ( ProcessedLayoutDefinitions :+= (x, t*) )
+        ; call* := <filter(filter-template-calls)> elem1*
+        ; x' := <strip-annos> x
+        ; LayoutDefinition(type, matchdef, stat*) := <LayoutDefinition> (x', t*)
+        ; <alltd(gather-layout-rules(|call*))> stat*
+        ; elem2* := <map(rewrite-template-call)> elem1*
+        |}
+
+  
+  filter-template-calls :
+    TemplateCall(t, arg*, elem*) -> TemplateCall(t, arg*, elem*)
+    where is-call-to-toplevel-template
+  
+  filter-template-call =
+    ?TemplateCall(t, arg*, elem*)
+
+    
+  gather-layout-rules(|calls) =
+    ?LayoutStatement(expr)
+    ; <gather-layout-rules(|calls)> expr
+    
+  gather-layout-rules(|calls) =
+    ?LayoutExpression(MatchDefinition(x, farg*))
+
+  gather-layout-rules(|calls) =
+    ?NamedLayoutExpression(name, [expr1, expr2])
+    ; LayoutExpression(MatchDefinition(x1, farg1*)) := expr1
+    ; LayoutExpression(MatchDefinition(x2, farg2*)) := expr2
+    ; t1* := <map(?Arg(_,<id>))> farg1*
+    ; t2* := <map(?Arg(_,<id>))> farg2*
+    ; StyleValue(val0, unit0) := <StyleValue> (x1, t1*, StyleProperty("width"))
+    ; [call1] := <filter(find-template-call(|x1, t1*))> calls
+    ; [call2] := <filter(find-template-call(|x2, t2*))> calls
+    ; str0 := <newname> name
+    ; str1 := <newname> x1
+    ; str2 := <newname> x2
+    ; str3 := <newname> "wrapper"
+    ; sel0 := <name-to-css-id> str0
+    ; sel1 := <name-to-css-id> str1
+    ; sel2 := <name-to-css-id> str2
+    ; sel3 := <name-to-css-id> str3
+    ; rules ( 
+        RewriteCall : call1 -> 
+          elem |[
+            block("_colmask_ _leftmenu_") {
+				block("_container_", str0) {
+					block("_col1_", str1) { call1 }
+					block("_colwrap_", str3) {
+					  block("_col2_", str2) { call2 }
+					}
+				}
+			}
+          ]|
+        RewriteCall : call2 -> []
+      )
+    ; <emit-css-rules> 
+        rule* |( 
+           sel0 {
+             left: val0 unit0;
+           }
+           
+           sel1 {
+             width: val0 unit0;
+		     right: val0 unit0;
+           }
+           
+           sel2 {
+             margin-left: val0 unit0;
+    	     right: 100%;
+           }
+           
+           sel3 {
+             width: 50%;
+             right: val0 unit0;
+           }
+        )|
+    /* If a background color is set in one of the templates in this 2-column layout,
+     * the background colors of other divs (added above) have to be set as well. */
+    ; if (StyleValue(Hash(val1)) := <StyleValue> (x1, t1*, StyleProperty("background-color")))  then
+        val2 := <value-to-color> val1
+      else
+        val2 := |( #ffffff )|
+      end
+    ; sel100 := <construct-selector> (<ThisTemplate>, <ThisArgumentTypes>)
+    ; <set-background-color> (sel100, val2)
+    ; if (StyleValue(Hash(val3)) := <StyleValue> (x2, t2*, StyleProperty("background-color")))  then
+        val4 := <value-to-color> val3
+      else
+        val4 := |( #ffffff )|
+      end
+    ; <set-background-color> (sel0, val4)
+
+  
+  gather-layout-rules(|calls) =
+    ?NamedLayoutExpression(name, [expr1, expr2])
+    ; LayoutExpression(MatchDefinition(x1, farg1*)) := expr1
+    ; LayoutExpression(MatchDefinition(x2, farg2*)) := expr2
+    ; t1* := <map(?Arg(_,<id>))> farg1*
+    ; t2* := <map(?Arg(_,<id>))> farg2*
+    ; StyleValue(val0, unit0) := <StyleValue> (x2, t2*, StyleProperty("width"))
+    ; [call1] := <filter(find-template-call(|x1, t1*))> calls
+    ; [call2] := <filter(find-template-call(|x2, t2*))> calls
+    ; str0 := <newname> name
+    ; str1 := <newname> x1
+    ; str2 := <newname> x2
+    ; str3 := <newname> "wrapper"
+    ; sel0 := <name-to-css-id> str0
+    ; sel1 := <name-to-css-id> str1
+    ; sel2 := <name-to-css-id> str2
+    ; sel3 := <name-to-css-id> str3
+    ; rules ( 
+        RewriteCall : call1 -> 
+          elem |[
+            block("_colmask_ _rightmenu_") {
+				block("_container_", str0) {
+				    block("_colwrap_", str3) {
+					  block("_col1_", str1) { call1 }
+					}
+					block("_col2_", str2) { call2 }
+				}
+			}
+          ]|
+        RewriteCall : call2 -> []
+      )
+    ; val1 := <value-to-negative-value> val0
+    ; <emit-css-rules>
+        rule* |( 
+           sel0 {
+             margin-left: val1 unit0;
+           }
+           
+           sel1 {
+             margin-left: val0 unit0;
+           }
+           
+           sel2 {
+             width: val0 unit0;
+		     left: val0 unit0;
+           }
+           
+           sel3 {
+             width: 50%;
+		     left: 50%;
+           }
+        )|
+    /* If a background color is set in one of the templates in this 2-column layout,
+     * the background colors of other divs (added above) have to be set as well. */
+    ; if (StyleValue(Hash(val2)) := <StyleValue> (x2, t2*, StyleProperty("background-color")))  then
+        val3 := <value-to-color> val2
+      else
+        val3 := |( #ffffff )|
+      end
+    ; <set-background-color> ("_rightmenu_", val3)
+    ; if (StyleValue(Hash(val4)) := <StyleValue> (x1, t1*, StyleProperty("background-color")))  then
+        val5 := <value-to-color> val4
+      else
+        val5 := |( #ffffff )|
+      end
+    ; <set-background-color> (sel0, val5)
+    
+
+  construct-selector =
+    ?(n, f*)
+    ; if (n1, f1*) := <NamedLayoutExpression> (n, f*) then
+        !<concat-strings> ["._leftmenu_ ", <construct-selector> (n1, f1*)]
+      else
+        !"._leftmenu_ "
+      end
+          
+  set-background-color :
+    (sel, val) -> <emit-css-rules> rule* |( sel { background-color: val; } )|
+
+  find-template-call(|x1, t1*) =
+    ?TemplateCall(x, arg*, elem*);
+    where ( <?x1> x; t1* := <map(type-of)> arg* )
+  

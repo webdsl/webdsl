@@ -1,0 +1,83 @@
+module org/webdsl/dsl/modules/styling/transformation/default
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+  insert-default-style =
+    alltd(default-style)
+    ; insert-default-template-style
+
+  insert-default-template-style =
+    where ( {| ThisPage
+     : rules ( ThisPage := "default" )
+     ; stdef* := []
+     ; <emit-style-section> |[ style default stdef* ]|
+     ; <map(default-templates-style)> <bagof-TopLevelTemplateNames>
+     |} )
+  
+rules
+
+  default-templates-style =
+    ?n
+    ; <try(map(default-template-style))> <bagof-TopLevelTemplateDefinitions> n
+    
+  default-template-style =
+    ?(x_0, t*)
+    ; <emit-style-definition> 
+        stdef |[
+          template x_0() {}
+        ]|
+    ; {| ThisPage
+       : rules (
+           ThisPage := x_0
+           ThisArgumentTypes := t*
+         )
+       ; add-default-properties
+       |}
+
+  add-default-properties =
+    add-default-background-color
+
+  add-default-background-color =
+    where (
+      if not( <StyleValue> (<ThisPage>, <ThisArgumentTypes>, StyleProperty("background-color")) ) then
+        <emit-style-declaration> |[ background-color := #ffffff; ]|
+        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, StyleProperty("background-color"), StyleValue(Hash("ffffff")))
+      end
+    )
+
+/*    
+  default-style =
+    ?StyleDefinition(type, MatchDefinition(name, farg*), stat*)
+    where {| ThisPage, ThisArgumentTypes
+           : t* := <map(?Arg(_,<id>))> farg*
+           ; rules (
+               ThisPage := name
+               ThisArgumentTypes := t*
+             )
+           ; <alltd(default-style)> stat*
+           |}
+*/
+  
+  /* Add a standard width to a column of a 2-column layout if not provided. */
+  default-style =
+    ?NamedLayoutExpression(name, [expr1, expr2])
+    ; where ( {| ThisPage, ThisArgumentTypes
+		       : LayoutExpression(MatchDefinition(x1, farg1*)) := expr1
+		       ; LayoutExpression(MatchDefinition(x2, farg2*)) := expr2
+		       ; t1* := <map(?Arg(_,<id>))> farg1*
+		       ; t2* := <map(?Arg(_,<id>))> farg2*
+		       ; not( <StyleValue> (x1, t1*, StyleProperty("width")) )
+		       ; not( <StyleValue> (x2, t2*, StyleProperty("width")) )
+               ; rules (
+                   ThisPage := x1
+                   ThisArgumentTypes := t1* 
+                 )
+		       ; <emit-style-declaration> |[ width := 12em; ]|
+		       ; <declare-style-value> (x1, t1*, StyleProperty("width"), StyleValue("12", "em"))
+		       |}
+      )
+    
