@@ -28,9 +28,9 @@ strategies
         // Find all local templates
         ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
         ; debug(!"Locally defined templates: ")
-        ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_cls.x_up; ]| 
+        ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
-                              ; x_up := <capitalize-string> x \)> localtemplates
+                              ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
         ; info(|"Here")
         ; <emit-python(|"template")> python*|[
             @partial
@@ -96,22 +96,21 @@ rules // Local templates
   py-page-elem-to-code :
     Define([Local()], x, args, elem*) -> []
     with info(|["Got local template: ", x])
-       ; x_cls := <capitalize-string> x
+       ; name := <concat-strings> [<ThisTemplate>, "_", x]
+       ; x_cls := <capitalize-string> name
        ; e_path := String(<concat-strings> ["'/", x, "'"])
        ; {| ThisTemplate, IsScoped, CurrentActionId
-          : rules ( ThisTemplate := x )
+          : rules ( ThisTemplate := name )
           ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
           ; stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
           |}
        ; x_pagecls := <ThisTemplate; capitalize-string>
        ; <emit-python(|"template")> python*|[
-          @partial
-           class x_pagecls(webdsl.utils.RequestHandler): {
-             class x_cls(webdsl.utils.RequestHandler): {
-              def render(self): {
-                 out = self.out;
-                 stm*
-               };
+           @partial
+           class x_cls(webdsl.utils.RequestHandler): {
+             def render(self): {
+                out = self.out;
+                stm*
              };
            };
         ]|
@@ -123,7 +122,7 @@ rules
     where e2 := <expression-to-python> e
 
   py-page-elem-to-code :
-    TemplateCall("text", [e], []) -> python*|[ out.write(e2); ]|
+    TemplateCall("text", [e], []) -> python*|[ out.write(cgi.escape(e2, True)); ]|
     where e2 := <expression-to-python> e
 
   py-page-elem-to-code :
@@ -289,13 +288,14 @@ rules // block
 
   // @obsolete; use block{ ... } instead of div{ ... }
   py-page-elem-to-code :
-    TemplateCall("div", [e_str], elems) ->
+    TemplateCall("div", [String(str)], elems) ->
     python*|[ 
       out.write('<div class="' + e_str + '">');
       stm*
       out.write('</div>');
       ]|
-    where stm* := <py-page-elems-to-code> elems
+    with stm* := <py-page-elems-to-code> elems
+       ; e_str := <concat-strings> ["'", str, "'"]
 
   py-page-elem-to-code :
     TemplateCall("block", [], elems) ->
@@ -307,13 +307,14 @@ rules // block
     where stm* := <py-page-elems-to-code> elems
 
   py-page-elem-to-code :
-    TemplateCall("block", [e_str], elems) ->
+    TemplateCall("block", [String(str)], elems) ->
     python*|[ 
       out.write('<div class="' + e_str + '">');
       stm*
       out.write('</div>');
       ]|
-    where stm* := <py-page-elems-to-code> elems
+    with stm* := <py-page-elems-to-code> elems
+       ; e_str := <concat-strings> ["'", str, "'"]
 
   py-page-elem-to-code :
     ForAll(x, s, Filter(we, obe), elems) ->
@@ -551,6 +552,44 @@ rules // Template call
 
 */
 
+rules // Select
+
+  py-page-elem-to-code :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = data.x_type.fetch_by_id(self.rh.request.get( field_id ));
+        };
+        out.write('<select name="' + field_id + '">');
+        for item in webdsl.querylist.AllDbQuerySet(data.x_type): {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(item.id, True) + '">');
+            out.write(cgi.escape(item.id, True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where SimpleSort(_) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+rules // vardecl
+
+  py-page-elem-to-code :
+    VarDeclInit(x, s, expr) ->
+    python*|[ 
+        self.scope[e_x] = e;
+        ]|
+    with rules ( IsScoped : x )
+       ; e_x := <concat-strings> ["'", x, "'"]
+       ; e := <expression-to-python> expr
+
  /*
 
 rules // iteration
@@ -708,17 +747,6 @@ rules // template call
        ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
        ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
     
-rules // vardecl
-
-  py-page-elem-to-code :
-    VarDeclInit(a, s, expr) ->
-    %>
-      <h:inputHidden value="<%= val %>" />
-    <%
-    where x_set := <concat-strings> [<ThisPage>, ".", <property-setter> a]
-        ; val := <concat-strings> ["#{", x_set, "(", <ConditionExpressionToString> (<ThisPage>, expr), ")}"]
-
-
 rules // forms
 
   py-page-elem-to-code :  // the <f:facet> puts validation errors behind their inputs
