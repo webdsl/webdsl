@@ -62,17 +62,34 @@ rules
             bstm1*
           } 
     
+    
+          public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) {
+            bstm2*
+            storeInputsInternal();
+
+            return this.templatecounter;
+          }         
           @Partial
-          private void storeInputs() {
+          private void storeInputsInternal() {
           }
           
           @Partial
           private void initialize() {
           }
-                    
+                
+                
+          public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) {          
+            bstm2*
+
+            handleActionsInternal();
+
+            return this.templatecounter;
+          }    
           @Partial
-          private void handleActions() {
+          private void handleActionsInternal() {
           }
+          
+          
           
           @Partial
           private void callTemplates() {
@@ -88,13 +105,15 @@ rules
           String uniqueid;
 
           HashMap<String, Class> templates;
+          HashMap<String,Object> inputs = new HashMap<String,Object>();
           
           PrintWriter out;
-          
+          private org.hibernate.Session hibSession;
           private HttpServletRequest request;
           private HttpServletResponse response;
+          private boolean initialized = false;
 
-          
+          /*
           public int serve(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) {
             this.templates=templates;
             bstm*
@@ -104,46 +123,48 @@ rules
             this.request=ps.getRequest();
             this.response=ps.getResponse();
             
-            
-            storeArguments(args);
-            
-            initialize();
+            if(!initialized)
+            {
+              initialized=true;
+              storeArguments(args);
               
+              initialize();
+            } 
             //assumptions (@todo add checks):
             //- no nested forms  
               
             // for each form
+            // with things like:     String action = request.getParameter("~x_action"+uniqueid);
+            //  if(action != null)
+            
+            //these should be called from the page class
             storeInputs();
             
             handleActions();
             
-            callTemplates();
+            //callTemplates();
             
             return this.templatecounter;
           }
+          */
           
           @Partial
-          private void render()
+          private void renderInternal()
           {
           
           }
 
-          public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) throws ServletException, IOException { 
-            this.templates=templates;
-            bstm*
-            this.ps=ps;
-            this.uniqueid=Encoders.encodeTemplateId(x_pnamequoted,args,templatecounter);
-            this.templatecounter = templatecounter;
-            out = ps.getResponse().getWriter();
-            this.request=ps.getRequest();
-            this.response=ps.getResponse();  
-            
-            storeArguments(args);
-            
-            storeInputs();
-            
-            render();
-            
+          public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) { 
+            bstm2*
+            try
+            {            
+              this.out = response.getWriter();
+              renderInternal();
+            }
+            catch(java.io.IOException ex)
+            {
+              System.out.println("IOException in render: "+ex.getMessage());
+            }
             return this.templatecounter;
           }
         }
@@ -179,9 +200,28 @@ rules
                                          where x_index := <subti;int-to-string> (index,1)
                                              ; x_arg := <argument-java-servlet-type> arg
                                       \})> farg* //variables are generated in java-template-vars
+       ; bstm2* := bstm* |[
+            if(!initialized)
+            {
+            
+              initialized=true;
+              
+              this.templates=templates;
+              bstm*
+              this.ps=ps;
+              this.uniqueid=Encoders.encodeTemplateId(x_pnamequoted,args,templatecounter);
+              this.templatecounter = templatecounter;
+              this.request=ps.getRequest();
+              this.response=ps.getResponse();
+              this.hibSession=ps.getHibSession();
+              storeArguments(args);
+              
+              initialize();
+            } 
+       ]|
                                       
    
-rules
+rules // give a java type AST
 
   argument-java-servlet-java-type:
     arg@farg|[ x : srt ]| -> type |[ x_Class ]|
@@ -192,6 +232,8 @@ rules
     arg@farg|[ x : srt ]| -> x_Class
     where x_Class := <builtin-java-type> srt
 
+rules // give just the name of the type, (eg. for use in a cast)
+
   argument-java-servlet-type:
     arg@farg|[ x : srt ]| -> x_Class
     where <defined-java-type> srt
@@ -199,4 +241,19 @@ rules
 
   argument-java-servlet-type:
     arg@farg|[ x : srt ]| -> x_Class
-    where x_Class := <builtin-java-type;pp-java5-to-string> srt                     
+    where x_Class := <builtin-java-type;pp-java5-to-string> srt      
+   
+  java-servlet-type-name : 
+    srt -> x_Class
+    where <defined-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
+
+  java-servlet-type-name :
+    srt -> x_Class
+    where x_Class := <builtin-java-type;pp-java5-to-string> srt     
+  
+rules //give a java farg list
+  
+  arguments-to-java-servlet :  
+    arg@farg|[ x : srt ]| -> param |[ t x ]|
+    with  t := <argument-java-servlet-java-type> arg

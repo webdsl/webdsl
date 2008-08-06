@@ -10,8 +10,9 @@ import javax.servlet.http.HttpServletResponse;
 
 
 public interface TemplateServlet {
-    public int serve(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates);
+    public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates);	
     
+    public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates);
     
     public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates)
     throws ServletException, IOException ;

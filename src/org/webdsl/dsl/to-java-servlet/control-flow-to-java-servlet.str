@@ -10,22 +10,55 @@ imports
 // control flow page elements   : for, if, templatecall 
 
 
-/*
+
 rules // iteration
 
-  // @todo: other For expressions
-  elem-to-java-servlet : //@todo: lifting!
-    For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
-    %>
-      <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
-        <%= <elems-to-xhtml> elems ::*%>
-      </c:forEach>
-    <%
-    where InToplevelTemplate
-        ; <contains-template-call> elems
+  for-loop-counter-wrap-code:
+    bstm* ->
+    bstm* |[
+      {
+        ident = "";
+        if(inForLoop) {
+          ident += forelementcounter;
+          forelementcounter++;
+        }
+        
+        bstm*
+      }
+    ]|
 
-  elem-to-java-servlet :
-    For(x, s, e, Filter(we, obe), elems1) ->
+  handle-actions-input-to-java-servlet  =
+    control-flow-for(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-for(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-for(elems-to-java-servlet|)
+
+  control-flow-for(s|) :
+    For(x, srt, e, Filter(we, obe), elems) ->
+    bstm |[
+    {
+      inForLoop = true;
+      forLoopCounter++;
+      forelementcounter=0;
+      java.util.List list = e1;
+      for(t x : list){
+        if(e2){ 
+          bstm*
+        }
+      }
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    }
+    ]|
+    with  bstm* := <s> elems
+        ; e1 := <expression-to-java-servlet> e
+        ; e2 := <expression-to-java-servlet> we
+        ; t     := <java-type> srt
+    /*
     %>
       <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
         <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
@@ -33,21 +66,35 @@ rules // iteration
         </h:panelGroup>
       </ui:repeat>
     <%
-    where not(True() := we)
-        //; el := <arg-to-value-string> e
-        ; elems2  := <elems-to-xhtml> elems1
-
-  elem-to-java-servlet :
-    For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
-    %>
-      <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
-        <%= elems2 ::*%>
-      </ui:repeat>
-    <%
     where elems2  := <elems-to-xhtml> elems1
-
-  elem-to-java-servlet :
-    ForAll(x, s, Filter(we, obe), elems) ->
+    */
+    
+  control-flow-for(s|) :
+    ForAll(x, srt, Filter(we, obe), elems) ->
+    bstm |[
+    {
+      inForLoop = true;
+      forLoopCounter++;
+      forelementcounter=0;
+          
+      java.util.Iterator iter = hibSession.createQuery("from "+"~x_argtype").iterate() ;
+      while ( iter.hasNext() ) {
+        t x = (x_argtype) iter.next();
+        //if(e2){ 
+          bstm*
+        //}
+      }
+      
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    }
+    ]|
+    with debug(!0);bstm*   := <s> elems;debug(!1)
+        //; e2      := <expression-to-java-servlet> we;debug(!2)
+        ; t       := <java-type> srt;debug(!3)
+        ; x_argtype := <java-servlet-type-name> srt;debug(!4)
+    /*
     %>
       <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
         <h:panelGroup rendered="<%= <ConditionExpressionToEL> (<ThisPage>, we) %>">
@@ -55,37 +102,28 @@ rules // iteration
         </h:panelGroup>
       </ui:repeat>
     <%
-    where not(True() := we)
-        ; columns := <elems-to-xhtml(wrap-column)> elems
-
-  elem-to-java-servlet :
-    ForAll(x, s, Filter(True(), obe), elems) ->
-    %>
-      <ui:repeat var="<%= x %>" value="#{<%= <ThisPage> %>.<%= x %>List}">
-        <%= columns ::*%>
-      </ui:repeat>
-    <%
     where columns := <elems-to-xhtml(wrap-column)> elems
-
-  wrap-column :
-    elems ->
-    %>
-      <h:column><%= elems ::*%></h:column>
-    <%
-
-*/
-
+    */
 rules // if
 
-  elem-to-java-servlet :
+  handle-actions-input-to-java-servlet  =
+    control-flow-if(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-if(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-if(elems-to-java-servlet|)
+
+  control-flow-if(s|) :
     IfTempl(e, elems) ->
     bstm |[
     if(e1){ 
       bstm*
     }
     ]|
-    with  bstm* := <elems-to-java-servlet> elems
-        ; e1 := <expression-to-java> e
+    with  bstm* := <s> elems
+        ; e1 := <expression-to-java-servlet> e
     
     
     
@@ -138,8 +176,23 @@ rules // template call
           end
 //        ; <debug> ["_____", n, fargs]
 
-  elem-to-java-servlet :
+*/
+  handle-actions-input-to-java-servlet  =
+    control-flow-tcall(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-tcall(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-tcall(elems-to-java-servlet|)
+
+  control-flow-tcall(s|) :
     TemplateCall(name, args, _) ->
+    bstm |[
+    out.println("todo:tcall");
+    ]|
+    where is-call-to-toplevel-template 
+    /*  
     %>
       <ui:include src="<%= target %>">
         <%= params::* %>

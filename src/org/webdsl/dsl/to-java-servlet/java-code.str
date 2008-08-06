@@ -1,0 +1,506 @@
+module org/webdsl/dsl/to-java-servlet/java-code
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+/*
+rules // action to method
+
+  action-to-java-method =
+    {| InAction :
+         rules(InAction := <id>)
+         ; action-view-to-java-method
+           <+ action-void-to-java-method
+    |}
+
+  // @TODO are these now the same?
+  action-void-to-java-method :
+    webdsl |[ action x_action(farg*) { stat* } ]| ->
+    //Action(x_action, args, Block(stm*)) ->
+    java|[
+        public void x_action(param*) {
+          bstm*
+        }
+    ]|
+    where param* := <map(action-arg-to-method-arg)> farg*
+        ; bstm* := <statements-to-java> stat*
+
+  action-view-to-java-method :
+    webdsl |[ action x_action(farg*) { stat* } ]| ->
+    //Action(x_action, args, Block(stm*)) ->
+    java|[
+        public String x_action(param*) {
+          bstm*
+        }
+    ]|
+    where <oncetd(?Return(_) <+ ?Cancel(_))> stat*
+        ; param* := <map(action-arg-to-method-arg)> farg*
+        ; bstm* := <statements-to-java> stat*
+
+  action-arg-to-method-arg :
+    farg|[ x : srt ]| -> //Arg(y, s) ->
+    param|[ t x ]|
+    where t := <java-type> srt
+*/
+rules // statements
+
+   statements-to-java-servlet =
+     filter-warn(statement-to-java-servlet | "cannot translate statement"); flatten-list
+
+   statement-to-java-servlet =
+     block-to-java-servlet
+     <+ assignment-to-java-servlet
+     <+ vardecl-to-java-servlet
+     <+ for-to-java-servlet
+     <+ if-to-java-servlet
+     //<+ email-to-java
+     <+ stat-to-java-servlet
+     <+ return-to-java-servlet
+     <+ cancel-to-java-servlet
+     <+ goto-to-java-servlet
+     <+ info(|["cannot translate statement:", <id>]); fail
+
+   block-to-java-servlet :
+     //Block(stm*) ->
+     webdsl|[ { stat* } ]| -> bstm|[ { bstm* } ]|
+     where bstm* := <statements-to-java-servlet> stat*
+
+   stat-to-java-servlet :
+     Stat(e1) -> java|[ e2; ]|
+     where e2 := <expression-to-java-servlet> e1
+
+rules // assignment
+
+   assignment-to-java-servlet :
+     Assign(Assignment(x, e1)) -> java|[ x = e2; ]|
+     where <is-string> x
+         ; not(<is-property> (<ClassName>, x))
+         ; e2 := <expression-to-java-servlet> e1
+
+   assignment-to-java-servlet :
+     Assign(Assignment(x, e1)) -> java|[ x_set(e2); ]|
+     where <is-property> (<ClassName>, x)
+         ; e2 := <expression-to-java-servlet> e1
+         ; x_set := <concat-strings>["set", <capitalize-string> x]
+
+   assignment-to-java-servlet =
+     ?Assign(Assignment(Qualified(qid, x), e1))
+     // fix added in next line for assignment to global var
+     //; e2 := <{y:is-string;IsGlobalFunction;?y;!Var(y);global-var-to-java} <+ 
+     ;e2 :=<qid-to-java-servlet> qid
+     
+     ; e3 := <expression-to-java-servlet> e1
+     // @todo: ugly hack, fix!
+     ; if SimpleSort(p) := <type-of> qid ; t := <type-of-property> (p, x) then
+          if GenericSort("List",_) := t then
+            x_set := <concat-strings>["set", <capitalize-string> x, "List"]
+            ; !java|[ e2.x_set(e3); ]|
+          else
+            if GenericSort("Set", _) := t then
+              x_set := <concat-strings>["set", <capitalize-string> x, "List"]
+              ; !java|[ e2.x_set(new ArrayList(e3)); ]|
+            else
+               x_set := <concat-strings>["set", <capitalize-string> x]
+               ; !java|[ e2.x_set(e3); ]|
+            end
+          end
+        else
+          x_set := <concat-strings>["set", <capitalize-string> x]
+          ; !java|[ e2.x_set(e3); ]|
+       end
+
+rules // if
+
+   if-to-java-servlet :
+     If(e1, bsit1, bsif1) -> java|[ if(e2) ~bsit2 else ~bsif2 ]|
+     where bsit2 := <statement-to-java-servlet> bsit1
+         ; bsif2 := <statement-to-java-servlet> bsif1
+         ; e2 := <expression-to-java-servlet> e1
+
+rules // for
+
+   for-to-java-servlet : // No where clause, with order by clause
+     ForStmt(x, s, e1, Filter(True(), obe1), bstm1) -> stm|[
+        {
+          java.util.ArrayList<t2> x_lst = new java.util.ArrayList<t2>(e2);
+          Collections.sort(x_lst, new Comparator<t2>() {
+            public int compare(t2 o1, t2 o2) {
+              stm1
+            }
+          });
+          for (t1 x : x_lst)
+              ~bstm2
+        } ]|
+     where not(<?OrderAscending(Null())> obe1)
+         ; e2 := <expression-to-java-servlet> e1
+         ; t1 := <java-type> s
+         ; t2 := <java-wrapper-type> s
+         ; x_lst := <newname> "lst"
+         ; bstm2 := <statement-to-java-servlet> bstm1
+         ; if <?OrderAscending(_)> obe1 then
+             stm1 := java|[ return o1.compareTo(o2); ]|
+           else
+             stm1 := java|[ return o2.compareTo(o1); ]|
+           end
+
+   for-to-java-servlet : // No where clause, no order by clause
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null())), bstm1) -> stm|[
+        for (t1 x : e2)
+            ~bstm2
+        ]|
+     where e2 := <expression-to-java-servlet> e1
+         ; t1 := <java-type> s
+         ; bstm2 := <statement-to-java-servlet> bstm1
+
+   for-to-java-servlet : // With where clause
+     ForStmt(x, s, e1, Filter(we, obe1), bstm1) -> java|[
+        for (t1 x : e2)
+          if(e3)
+            ~bstm2
+         ]|
+     where not(True() := we)
+         ; e2 := <expression-to-java-servlet> e1
+         ; e3 := <expression-to-java-servlet> we
+         ; t1 := <java-type> s
+         ; t2 := <java-wrapper-type> s
+         ; bstm2 := <statement-to-java-servlet> bstm1
+
+rules // return
+
+   return-to-java-servlet :
+     Return(e1) -> java|[ return e2; ]|
+     where InAction ; e2 := <call-to-view-string> e1
+
+   return-to-java-servlet :
+     Return(e1) -> java|[ return e2; ]|
+     where InFunction; e2 := <expression-to-java-servlet> e1
+
+   cancel-to-java-servlet :
+     Cancel(e1) -> bstm* |[ entityManager.clear(); return e2; ]|
+     where InAction ; e2 := <call-to-view-string> e1
+
+   cancel-to-java-servlet :
+     Cancel(e1) -> bstm* |[ entityManager.clear(); return e2; ]|
+     where InFunction ; e2 := <expression-to-java-servlet> e1
+
+   goto-to-java-servlet :
+     GoTo(ThisCall(p, args)) -> bstm* |[
+       org.jboss.seam.faces.Redirect x_redinstance = new org.jboss.seam.faces.Redirect();
+       x_redinstance.setViewId(~string:String([Chars(viewId)]));
+       ~*parameter
+       x_redinstance.execute();
+     ]|
+     where viewId := <concat-strings>["/", p, ".xhtml"]
+       ; fargs := <TemplateArguments> p
+       ; x_redinstance := <newname> "redirect"
+       ; parameter := <zip(arg-to-redirect-parameter-java-servlet(|x_redinstance))> (fargs, args)
+
+   arg-to-redirect-parameter-java-servlet(|x_redinstance) :
+     (Arg(name, sort), Var(x)) -> java|[ x_redinstance.setParameter(x_fargname, x.getId()); ]|
+     where <builtin-java-type> sort
+         ; x_fargname := <concat-strings>["\"", name, "\""]
+
+   arg-to-redirect-parameter-java-servlet(|x_redinstance) :
+     (Arg(name, sort), Var(x)) -> java|[ x_redinstance.setParameter(x_fargname, x.getId()); ]|
+     where <defined-java-type> sort
+         ; x_fargname := <concat-strings>["\"", <concat-strings>[name, "_id"], "\""]
+
+rules
+
+   qid-to-java-servlet :
+     Qualified(qid, x) -> java|[ e.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e := <qid-to-java-servlet> qid
+
+   qid-to-java-servlet :
+     x -> java|[ x ]|
+     where <is-string> x
+
+   // @note : this is compensating for an erroneous annotation of component
+   // accessess
+   qid-to-java-servlet :
+     FieldAccess(Var(x),y) -> expr|[ this.y ]|
+     where
+         "Component" := <type-of> Var(x)
+
+   vardecl-to-java-servlet :
+     VarDeclInit(x, s, e1) -> bstm|[ t x = e2; ]|
+     where t := <java-type> s
+         ; e2 := <expression-to-java-servlet> e1
+
+   vardecl-to-java-servlet :
+     VarDecl(x, s) -> bstm|[ t x = e; ]|
+     where t := <java-type> s
+         ; e := <java-type-default-value> s
+
+rules // expressions
+   expression-to-java-servlet :
+     Cast(e1, s) -> CastRef(t, java|[ e2 ]|)
+     where e2 := <expression-to-java-servlet> e1
+         ; t := <java-type> s
+
+   expression-to-java-servlet :
+     InColl(e1, e2) -> expr|[ e4.contains(e3) ]|
+     where e3 := <expression-to-java-servlet> e1
+         ; e4 := <expression-to-java-servlet> e2
+
+   expression-to-java-servlet :
+     Add(x, y) -> expr|[ ~xt + ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Sub(x, y) -> expr|[ ~xt - ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Mul(x, y) -> expr|[ ~xt * ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Div(x, y) -> expr|[ ~xt / ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Mod(x, y) -> expr|[ ~xt % ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Eq(x, y) -> expr|[ org.webdsl.tools.Utils.equal(~xt, ~yt) ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     NotEq(x, y) -> expr|[ !org.webdsl.tools.Utils.equal(~xt, ~yt) ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     LargerThan(x, y) -> expr|[ ~xt > ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     LargerThanOrEqual(x, y) -> expr|[ ~xt >= ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     SmallerThan(x, y) -> expr|[ ~xt < ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     SmallerThanOrEqual(x, y) -> expr|[ ~xt <= ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Not(x) -> expr|[ !(~x2) ]|
+     where x2 := <expression-to-java-servlet> x
+
+   expression-to-java-servlet :
+     And(x, y) -> expr|[ ~xt && ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+   expression-to-java-servlet :
+     Or(x, y) -> expr|[ ~xt || ~yt ]|
+     where xt := <expression-to-java-servlet> x
+         ; yt := <expression-to-java-servlet> y
+
+/*   expression-to-java-servlet :
+     IsA(x, s) -> Invoke(
+                     Method(
+                      MethodName(
+                        AmbName(
+                          AmbName(
+                            AmbName(AmbName(Id("org")), Id("webdsl"))
+                          , Id("tools")
+                          )
+                        , Id("Utils")
+                        )
+                      , Id("isInstance")
+                      )
+                    )
+                  , [ e_t
+                    , Lit(Class(t))
+                    ]
+                  )
+     //expr|[ e_UTILS.isInstance(x_t, t.class) ]|
+     where t := <java-type> s
+         ; e_t := <expression-to-java-servlet> x
+*/
+
+   expression-to-java-servlet :
+//     IsA(x, s) -> expr |[ e instanceof t ]|
+     IsA(x, s@SimpleSort(_)) -> expr |[ (e instanceof tname) ]|
+     where tname := <java-type> s
+         ; e := <expression-to-java-servlet> x
+
+/*
+   expression-to-java-servlet :
+     IsA(x, s@GenericSort(_, [s1])) -> expr |[ (e1).toArray(new tname2[0]) instanceof tname2[] ]|
+     where tname1 := <java-type> s
+         ; tname2 := <java-type> s1
+         ; e0 := <expression-to-java-servlet> x
+         ; e1 := CastRef(tname1, java|[ e0 ]|)
+
+
+   expression-to-java-servlet :
+     IsA(x, s@GenericSort(_, [s1])) -> Invoke(
+                               Method(
+                                MethodName(
+                                  AmbName(
+                                    AmbName(
+                                      AmbName(AmbName(Id("org")), Id("webdsl"))
+                                    , Id("tools")
+                                    )
+                                  , Id("Utils")
+                                  )
+                                , Id("isInstance")
+                                )
+                              )
+                            , [ e1
+                              , e2
+//					                    , Lit(Class(tname1))
+                              , Lit(Class(tname2))
+                              ]
+                            )
+     where tname1 := <java-type> s
+         ; tname2 := <java-type> s1
+         ; e0 := <expression-to-java-servlet> x
+         ; e1 := CastRef(tname1, java|[ e0 ]|)
+         ; e2 := expr |[ new tname2[0] ]|
+*/         
+/*
+  expression-to-java-servlet :
+     IsA(x, s@GenericSort(_, [s1])) -> expr |[ t2.class.isInstance(e3) ]|
+     where t1 := <java-type; debug (!"t1: ")> s
+         ; t2 := <java-type; debug (!"t2: ")> s1
+         ; e0 := <expression-to-java-servlet> x
+         ; e1 := CastRef(t1, java|[ e0 ]|)
+         ; e2 := NewArray(t2, Dim(expr|[ 0 ]|), [])
+         ; e3 := expr |[ (e1).toArray(e2) ]|
+*/         
+
+   expression-to-java-servlet :
+     HqlQuery(e1) -> expr|[ e2.getResultList() ]|
+     where e2 := <query-to-create-query> e1
+
+   expression-to-java-servlet =
+        global-var-to-java-servlet
+     <+ component-var-to-java-servlet
+//     <+ propvar-to-java
+     <+ var-to-java-servlet
+
+   global-var-to-java-servlet :
+     Var(x) -> expr|[ (x_vartype) entityManager.find (x_vartype.class, x_type.valueOf((String)org.jboss.seam.contexts.Contexts.getApplicationContext().get( x_varname )))  ]|
+     where SimpleSort(t) := <type-of> Var(x)
+         ; <IsGlobalFunction> x
+         ; vartype := <type-of> x
+         ; if <EntityIdName> t then
+             x_type := <sort-to-java-type-string> <EntityIdType> t
+           else
+             x_type := "Long"
+           end
+         ; SimpleSort(x_vartype) := vartype
+         ; x_varname := <concat-strings> ["\"global-declaration-",x,"\""]
+
+   component-var-to-java-servlet :
+     Var(x) -> expr|[ this ]|
+     where "Component" := <type-of> Var(x)
+
+   var-to-java-servlet :
+     Var(x) -> expr|[ x ]|
+     
+   var-to-java-servlet :
+     ExternalScopeVar(x) -> expr|[ this.x ]|
+
+   /*propvar-to-java :
+     Var(x) -> expr|[ x_get() ]|
+     where info(|["Checking if ", <id>, " is property"]); <IsProperty> (<ClassName>, x)
+         ; info(|["Apparently so"])
+         ; x_get := <concat-strings>["get", <capitalize-string> x]*/
+
+   expression-to-java-servlet :
+     FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
+     where x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e2 := <expression-to-java-servlet> e1
+         ; not(x := "length")
+
+   expression-to-java-servlet :
+     FieldAccess(e1, "length") -> expr|[ e2.size() ]|
+     where e2 := <expression-to-java-servlet> e1
+         ; GenericSort(_, _) := <type-of> e1
+
+   expression-to-java-servlet :
+     ObjectCreation(x_Class, assigns) ->
+     java|[
+        {| x_Class x_var = new x_Class(); bstm* | x_var |}
+     ]|
+     where x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_var)| "cannot translate asssignment")> assigns
+
+   field-assign-to-java-servlet(|x_var) :
+     Assignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
+     where e2 := <expression-to-java-servlet> e1
+         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+
+
+   expression-to-java-servlet : // The version with items (!= []) will be desugared in desugar.str
+     TypedListCreation(s, []) -> java|[ new ArrayList<t>() ]|
+     where t := <java-wrapper-type> s
+
+   expression-to-java-servlet :
+     TypedSetCreation(s, []) -> java|[ new LinkedHashSet<t>() ]|
+     where t := <java-wrapper-type> s
+
+   add-to-collection-java-servlet(|x_var) :
+     e1 -> java|[ x_var.add(e2); ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   expression-to-java-servlet =
+     persist-call-to-java-servlet
+     <+ remove-call-to-java-servlet
+     <+ count-call-to-java-servlet
+     <+ call-to-java
+     <+ generic-call-to-java-servlet
+
+   persist-call-to-java-servlet :
+     Call(e1, "persist", []) -> expr|[ hibSession.save(e2) ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   persist-call-to-java-servlet :
+     Call(e1, "save", []) -> expr|[ hibSession.save(e2) ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   remove-call-to-java-servlet :
+     Call(e1, "remove", []) -> expr|[ hibSession.delete(e2) ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   remove-call-to-java-servlet :
+     Call(e1, "delete", []) -> expr|[ hibSession.delete(e2) ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   count-call-to-java-servlet :
+     Call(e1, "count", []) -> expr|[ e2.size() ]|
+     where e2 := <expression-to-java-servlet> e1
+
+   generic-call-to-java-servlet :
+     Call(e1, x, e2*) -> expr|[ e3.x#_(e4*) ]|
+     where e3 := <expression-to-java-servlet> e1
+         ; e4* := <map(expression-to-java-servlet)> e2*
+
+   generic-call-to-java-servlet :
+     ThisCall(x, e1*) -> expr|[ x#_(e2*) ]|
+     where e2* := <map(expression-to-java-servlet)> e1*
+

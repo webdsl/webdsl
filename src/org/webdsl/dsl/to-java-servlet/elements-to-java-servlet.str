@@ -271,22 +271,22 @@ rules // tables
   elem-to-java-servlet :
     TemplateCall("header", [], elems) ->
     bstm* |[ 
-    out.println("<th>");
+    out.println("<tr>");
     bstm*
-    out.println("</th>");
+    out.println("</tr>");
     ]|
     where TableScope
-    with  bstm* := <elems-to-java-servlet> elems
+    with  bstm* := <elems-to-java-servlet;map({\bstm -> bstm* |[ out.println("<th>"); bstm out.println("</th>"); ]|\});concat-with-sublists> elems
 
   elem-to-java-servlet :
     TemplateCall("row", [], elems) ->
     bstm* |[ 
-    out.println("<td>");
+    out.println("<tr>");
     bstm*
-    out.println("</td>");
+    out.println("</tr>");
     ]|
     where TableScope
-    with  bstm* := <elems-to-java-servlet> elems
+    with  bstm* := <elems-to-java-servlet;map({\bstm -> bstm* |[ out.println("<td>"); bstm out.println("</td>"); ]|\});concat-with-sublists> elems
 
 /*
 
@@ -443,18 +443,47 @@ rules // links
 */
 rules // forms
 
-  elem-to-java-servlet :  // the <f:facet> puts validation errors behind their inputs
+  elem-to-java-servlet : 
     tc@TemplateCall("form", [], elems) ->
-    bstm* |[ 
-    out.println("<form enctype=\"multipart/form-data\" action=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\" method=\"POST\">");
-    out.println("todo: form action");
-    out.println(ps.getHiddenParams());
-    bstm*
-    out.println("</form>");
+    <for-loop-counter-wrap-code> 
+    bstm* |[
+     
+        ident += "~formident"+uniqueid;
+        out.println("<form enctype=\"multipart/form-data\" action=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\" method=\"POST\">");
+        out.println("<input type=\"hidden\" name=\""+ident+"\" value=\""+ident+"\" />");
+        out.println(ps.getHiddenParams());
+        bstm*
+        out.println("</form>");
+     
     ]|
     with  bstm* := <elems-to-java-servlet> elems
+        ; formident := <get-formnumber> tc
    
-    /* 
+  handle-actions-to-java-servlet: 
+    tc@TemplateCall("form", [], elems) ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+      
+        ident += "~formident"+uniqueid;
+        if(ps.getRequest().getParameter(ident)!=null)
+        {
+            //String name = ps.getRequest().getParameter(x_temp);
+            //Integer x_temp1;
+            
+            //bstm*
+            bstm1*
+            
+            //@todo use setter...
+            //e1 = x_temp1;
+        }
+      
+    ]|
+    with // bstm* := <collect-om(handle-actions-input-to-java-servlet)> elems
+         bstm1* := <collect-om(handle-actions-to-java-servlet)> elems
+        ; formident := <get-formnumber> tc   
+   
+   
+    /*
     %>
       <h:form enctype="multipart/form-data" att0>
         <%= hidden-ids ::*%>
@@ -484,9 +513,10 @@ rules // forms
         ; e1 := <concat-strings>[i, "_id"]
 */
   elem-to-java-servlet :
-    TemplateCall("action",[e1,e2],[]) ->
-    bstm |[ 
-    out.println("<input type=\"submit\" name=\""+"~e3"+uniqueid+" value=\""+e4+"\" \">"); 
+    tc@TemplateCall("action",[e1,e2],[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[ 
+    out.println("<input type=\"submit\" name=\""+ident+"~actionident"+uniqueid+"\" value=\""+e4+"\" \">"); 
     ]|
     /*
     %>
@@ -495,6 +525,29 @@ rules // forms
     */
     with  e3 := <?ThisCall(name,args);!name> e1
         ; e4 := <arg-to-value-string-java-servlet> e2
+        ; actionident := <get-actionnumber> tc   
+        
+  handle-actions-to-java-servlet: 
+    tc@TemplateCall("action",[e1,e2],[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+      
+        ident += "~actionident"+uniqueid;
+        if(ps.getRequest().getParameter(ident)!=null)
+        {
+            //String name = ps.getRequest().getParameter(x_temp);
+            //Integer x_temp1;
+            //bstm*
+            x_action(e*);
+            //@todo use setter...
+            //e1 = x_temp1;
+        }
+      
+    ]|
+    with  actionident := <get-actionnumber> tc   
+        ; x_action := <?ThisCall(name,args);!name> e1
+        ; e* := <map(expression-to-java-servlet)> args
+
 /*
 what are these for, e3 ignored?
   elem-to-java-servlet :
