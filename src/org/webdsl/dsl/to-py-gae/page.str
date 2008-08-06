@@ -319,13 +319,89 @@ rules // block
   py-page-elem-to-code :
     ForAll(x, s, Filter(we, obe), elems) ->
     python*|[
-      for x in webdsl.querylist.AllDbQuerySet(e_type): {
+      for x in e: {
         stm*
       };
     ]|
-    where True() := we
     with e_type := <python-type> s
+       ; e_start := py-exp|[ webdsl.querylist.AllDbQuerySet(e_type) ]|
+       ; filters := <py-exp-to-filters(|x) <+ debug(!"Cannot translate to filters: ")> we 
+       ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-filter(|tuple)> e \)> filters
+       ; e_ob := <py-exp-to-order-by(|x) <+ debug(!"Cannot translate order by: ")> obe
+       ; if not(None() := e_ob) then
+           e := py-exp|[ e2.order_by(e_ob) ]|
+         else
+           e := e2
+         end
        ; stm* := <py-page-elems-to-code> elems
+
+  py-exp-to-filters(|obj) :
+    exp|[ true ]| -> []
+
+  py-exp-to-filters(|obj) :
+    exp|[ x1.x2 = e ]| -> [(x2, "eq", e)]
+    where x1 := obj
+
+  py-exp-to-filters(|obj) :
+    exp|[ x1.x2 > e ]| -> [(x2, "gt", e)]
+    where x1 := obj
+
+  py-exp-to-filters(|obj) :
+    exp|[ x1.x2 >= e ]| -> [(x2, "geq", e)]
+    where x1 := obj
+
+  py-exp-to-filters(|obj) :
+    exp|[ x1.x2 < e ]| -> [(x2, "lt", e)]
+    where x1 := obj
+
+  py-exp-to-filters(|obj) :
+    exp|[ x1.x2 <= e ]| -> [(x2, "leq", e)]
+    where x1 := obj
+
+  py-exp-to-filters(|obj) :
+    exp|[ e1 && e2 ]| -> <concat> [<py-exp-to-filters(|obj)> e1, <py-exp-to-filters(|obj)> e2]
+
+
+  py-add-filter(|filter) :
+    e -> py-exp|[ e.x(e_prop, e_value) ]|
+    with (prop, type, value) := filter
+       ; x := <concat-strings> ["filter_", type]
+       ; e_value := <expression-to-python> value
+       ; e_prop := <concat-strings> ["'", prop, "'"]
+
+  py-exp-to-order-by(|obj) :
+    OrderNonSpecific(_) -> None()
+
+  py-exp-to-order-by(|obj) :
+    OrderAscending(Null()) -> None()
+
+  py-exp-to-order-by(|obj) :
+    OrderDescending(Null()) -> None()
+
+  py-exp-to-order-by(|obj) :
+    OrderDescending(e@FieldAccess(Var(v), x)) -> <concat-strings> ["'-", x, "'"]
+    where v := obj
+
+  py-exp-to-order-by(|obj) :
+    OrderDescending(e@Var(_)) -> result
+    where SimpleSort(s) := <type-of> e
+        ; if <EntityIdName> s then
+            result := <concat-strings> ["'-", <EntityIdName>, "'"]
+          else
+            result := None()
+          end
+  py-exp-to-order-by(|obj) :
+    OrderAscending(e@FieldAccess(Var(v), x)) -> <concat-strings> ["'", x, "'"]
+    where v := obj
+
+  py-exp-to-order-by(|obj) :
+    OrderAscending(e@Var(_)) -> result
+    where SimpleSort(s) := <type-of> e
+        ; if <EntityIdName> s then
+            result := <concat-strings> ["'", <EntityIdName>, "'"]
+          else
+            result := None()
+          end
 
 rules // spacers
 
