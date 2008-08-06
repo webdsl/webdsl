@@ -7,6 +7,9 @@
  *   are first rewritten so that all complex constructs are replaced by singular procedures. Next, these groups of sequential
  *   procedures are transformed to state machines that handle the sequential enabling.
  *
+ * NOTE: 'procedure x() { enabled{} }' and
+ *       'extend entity xStatus() { enabled{} }' both end up in the entity xStatus
+ *
  * Former strategy: every process description is rewritten to RemoveMe() during desugaring, to make sure it is rewritten only once. 
  * This rewriting consists of a bottom-up traversal of the process description, in which every process element is matched
  *   and links between procedures are constructed by emitting extend procedure code. In the meantime, every process element
@@ -79,19 +82,12 @@ rules // actual transformation
     ?ProcedureProcess(e)
     ; info(|"Begin transform-procedure-process")
     ; !e
-    ; topdown(try(process-simplify))   // transforms complex procedure constructs to singular procedures
+    ; bottomup(try(process-simplify))   // transforms complex procedure constructs to singular procedures
     ; process-sequential
     ; info(|"After transform-procedure-process")
     
-  process-simplify =
-    process-if
-    <+ process-if-no-else
-    <+ process-and
-    <+ process-xor
-    <+ process-plus
-    <+ process-while
-    <+ process-repeat-until
-
+strategies // handle sequential composition - only to be done after simplification of containing constructs
+    
   process-sequential =
     info(|"Doing sequential")
     ; collect-all(?ProcCall(_,_)) 
@@ -100,63 +96,149 @@ rules // actual transformation
     ; {| State
        : stat1* := <map(get-sequential-proccall)>
        ; x_current := <get-state>
-       ; x_next := <get-next-state>
        ; last := |[ if (state = x_current) { this.processed(); } ]|
        ; stat2* := [stat1*, last]
        |}
     ; debug
-    ; x_id := <concat-strings> [<ProcedureName>, "Status"]
-    ; <debug(!"x_id: ")> x_id
+    ; x_status := <concat-strings> [<ProcedureName>, "Status"]
+    ; <debug(!"x_status: ")> x_status
     ; x_o := <ProcedureArg> <ProcedureName>
     ; <debug(!"x_o: ")> x_o
     ; srt := <ProcedureArgSort> <ProcedureName>
     ; <debug(!"srt: ")> srt
     ; <emit-webdsl-code> def|[
-        extend entity x_id {
+        extend entity x_status {
           x_o -> srt
           function next(state: Int) {
             stat2*
           }
         }
       ]|
-    
-  get-sequential-proccall =
-    ?ProcCall(x1, x_id)
-    ; x_current := <get-state>
-    ; x_next := <get-next-state>
-    ; !|[ if (state = x_current) { x_id.x1.enable(this, x_next); } ]|
-    ; info(|["na get-seq: ", <pp-webdsl>])
-    
-  get-state =
-    State <+ !0
+      
+strategies // simplification of complex constructs
 
-  get-next-state =
-    n := <get-state; inc>
-    ; rules ( State := n )
-    
-  process-if = id
-/*    ProcIf(e, ifBranch, elseBranch) -> ProcCall()
+  process-simplify =
+    info(|"Start simplify")
+    ; (process-if
+    <+ process-if-no-else
+    <+ process-and
+    <+ process-xor
+    <+ process-plus
+    <+ process-while
+    <+ process-repeat-until)
+    ; info(|"End simplify")
 
-hier verder    
+  process-if :
+    ProcIf(e, ifBranch, elseBranch) -> ProcCall(x_new, x_o)
     where x_id := <ProcedureName>
-        ; x_ifProc := <newname> "ifProc"
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
-        ; def|[
-            auto procedure x_ifProc(x_o : srt) {
+        ; x_status := <concat-strings> [x_id, "Status"]
+        ; x_new := <newname> "ifProc"
+        ; x_newstatus := <concat-strings> [x_new, "Status"]
+        
+        // get first and last procedure of if branch
+        ; x_iffirst := <fetch-left-most-td(?ProcCall(_,_))> ifBranch
+        
+        // get first and last procedure of else branch
+        ; x_elsefirst := <fetch-left-most-td(?ProcCall(_,_))> elseBranch
+        
+        // create next function, remembering if and else start states
+        ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
+        ; elseProcCalls := <collect-all(?ProcCall(_,_))> elseBranch
+        ; {| State
+           : x_ifStartState := <get-state>
+           ; <debug> ifBranch
+           ; statIfTemp* := <map(get-sequential-proccall)> ifProcCalls
+           ; x_ifEndState := <get-state>
+           ; lastIf := |[ if (state = x_ifEndState) { this.processed(); } ]|
+           ; stat1* := [statIfTemp*, lastIf]
+           
+           ; x_elseStartState := <get-next-state>
+           ; statElseTemp* := <map(get-sequential-proccall)> elseProcCalls
+           ; x_elseEndState := <get-state>
+           ; lastElse := |[ if (state = x_elseEndState) { this.processed(); } ]|
+           ; stat2* := [statElseTemp*, lastElse]
+           |}
+        
+        // create new procedure to replace if-construct
+        ; <emit-webdsl-code> def|[
+            auto procedure x_new(x_o : srt) {
               enabled {
                 if (e) {
-                  x_o1.x_id1.enable();
+                  this.enableIf();
                 } else {
-                  x_o1.x_id2.enable();
+                  this.enableElse();
                 }
               }
             }
-          ]|*/
-          
-  
-  process-if-no-else =
-    id
+          ]|
+        
+        // output next function
+        ; <emit-webdsl-code> def|[
+            extend entity x_newstatus {
+              x_o -> srt
+              function enableIf() {
+                this.next(x_ifStartState);
+              }
+              function enableElse() {
+                this.next(x_elseStartState);
+              }
+              function next(state: Int) {
+                stat1*
+                stat2*
+              }
+            }
+          ]|          
+
+  process-if-no-else :
+    ProcIfNoElse(e, ifBranch) -> ProcCall(x_new, x_o)
+    where x_id := <ProcedureName>
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; x_status := <concat-strings> [x_id, "Status"]
+        ; x_new := <newname> "ifProc"
+        ; x_newstatus := <concat-strings> [x_new, "Status"]
+
+        // get first and last procedure of if branch
+        ; x_iffirst := <fetch-left-most-td(?ProcCall(_,_))> ifBranch
+
+        // create next function, remembering if and else start states
+        ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
+        ; {| State
+           : x_ifStartState := <get-state>
+           ; <debug> ifBranch
+           ; statIfTemp* := <map(get-sequential-proccall)> ifProcCalls
+           ; x_ifEndState := <get-state>
+           ; lastIf := |[ if (state = x_ifEndState) { this.processed(); } ]|
+           ; stat1* := [statIfTemp*, lastIf]
+           |}
+
+        // create new procedure to replace if-construct
+        ; <emit-webdsl-code> def|[
+            auto procedure x_new(x_o : srt) {
+              enabled {
+                if (e) {
+                  this.enableIf();
+                } else {
+                  this.processed();
+                }
+              }
+            }
+          ]|
+
+        // output next function
+        ; <emit-webdsl-code> def|[
+            extend entity x_newstatus {
+              x_o -> srt
+              function enableIf() {
+                this.next(x_ifStartState);
+              }
+              function next(state: Int) {
+                stat1*
+              }
+            }
+          ]|
   
   process-and = 
     id
@@ -172,6 +254,37 @@ hier verder
     
   process-repeat-until =
     id
+
+strategies  // Helper strategies
+
+  get-sequential-proccall =
+    ?ProcCall(x1, x_id)
+    ; x_current := <get-state>
+    ; x_next := <get-next-state>
+    ; !|[ if (state = x_current) { x_id.x1.enable(this, x_next); } ]|
+
+  get-state =
+    State <+ !0
+
+  get-next-state =
+    n := <get-state; inc>
+    ; rules ( State := n )
+
+strategies // Utility strategies
+  
+  fetch-left-most-td(s) = oncetd(s; ?x); !x
+
+  find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))
+  
+  fetch-right-most-td(s) = find-right-most-td(s; ?x); !x
+
+
+
+
+
+
+
+
 
   
 /*
@@ -520,9 +633,3 @@ strategies
   
   is-process-call =
     ?ProcCall(_, _)
-  
-  fetch-left-most-td(s) = oncetd(s; ?x); !x
-
-  find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))
-  
-  fetch-right-most-td(s) = find-right-most-td(s; ?x); !x
