@@ -31,7 +31,6 @@ strategies
         ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
                               ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
-        ; info(|"Here")
         ; <emit-python(|"template")> python*|[
             @partial
             class x_cls(webdsl.utils.RequestHandler): {
@@ -183,7 +182,22 @@ rules
           if is_submitted_form: {
               e_target = self.rh.request.get(field_id);
           };
-          out.write('<textarea name="' + field_id + '">');
+          out.write('<textarea name="' + field_id + '" class="inputText">');
+          out.write(cgi.escape(e_target, True));
+          out.write('</textarea>');
+    
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+  
+  py-page-elem-to-code :
+    elem|[ inputWikiText(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form: {
+              e_target = self.rh.request.get(field_id);
+          };
+          out.write('<textarea name="' + field_id + '" class="inputWikiText">');
           out.write(cgi.escape(e_target, True));
           out.write('</textarea>');
     
@@ -194,7 +208,13 @@ rules
 
   py-page-elem-to-code :
     elem|[ outputText(e){} ]| -> python*|[
-          out.write(cgi.escape(e_target, True));
+          out.write(webdsl.parse_text(e_target));
+    ]|
+    with e_target := <expression-to-python> e
+
+  py-page-elem-to-code :
+    elem|[ outputWikiText(e){} ]| -> python*|[
+          out.write(webdsl.parse_wikitext(e_target));
     ]|
     with e_target := <expression-to-python> e
 
@@ -603,13 +623,9 @@ rules // Template call
     where t* := <map(type-of)> args
         ; Define(mods, n, fargs, body) := <TemplateSignature> (name, t*)
     with e_namestr := <concat-strings> ["'", name, "'"]
-       ; info(|"Going to translate a templat call")
        ; e_tmplclass := py-exp|[ self.template_bindings[e_namestr] ]|
-       ; info(|"Step 1")
        ; scopedparams := <zip(\ (Arg(x, _), e) -> NamedParam(x, <expression-to-python> e) \)> (fargs, args)
-       ; info(|"Step 2")
        ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|), Param(py-exp|[ out ]|)], scopedparams])
-       ; info(|"Step 3")
   /*
   py-page-elem-to-code :
     TemplateCall("url",[e],[]) ->
@@ -645,7 +661,7 @@ rules // Select
                 out.write('<option ');
             };
             out.write('value="' + cgi.escape(item.id, True) + '">');
-            out.write(cgi.escape(item.id, True));
+            out.write(cgi.escape(item.name, True));
             out.write('</option>');
         };
         out.write('</select>');
