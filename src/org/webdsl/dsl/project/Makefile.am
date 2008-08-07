@@ -23,8 +23,17 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/*.xml) \
   $(wildcard template-java-servlet/Makefile) \
   $(wildcard template-java-servlet/lib/*.jar) \
-  $(wildcard template-java-servlet/src/utils/*.java)
-  
+  $(wildcard template-java-servlet/src/utils/*.java) \
+  $(wildcard template-python/*.yaml) \
+  $(wildcard template-python/*.py) \
+  $(wildcard template-python/*.pyc) \
+  $(wildcard template-python/simplejson/*.py) \
+  $(wildcard template-python/simplejson/*.pyc) \
+  $(wildcard template-python/webdsl/*.py) \
+  $(wildcard template-python/webdsl/*.pyc) \
+  $(wildcard template-python/stylesheets/*.css) \
+  template-python/maak
+
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
 
 install-data-local:
@@ -39,5 +48,6 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template-java-servlet/lib
 	mkdir -p $(pkgdatadir)/template-java-servlet/src
 	mkdir -p $(pkgdatadir)/template-java-servlet/src/utils
+	mkdir -p $(pkgdatadir)/template-python
 
 bootclean:

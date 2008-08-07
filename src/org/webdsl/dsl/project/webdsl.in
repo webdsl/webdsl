@@ -7,6 +7,7 @@ export datarootdir=@datarootdir@
 
 SEAMPROJECTDIR=.seamapp
 SERVLETPROJECTDIR=.servletapp
+PYTHONPROJECTDIR=dist
 
 function stop_jboss {
   ps a | grep jboss | grep java | grep -oE "^\s*[0-9]+" | xargs kill
@@ -54,23 +55,27 @@ function load_config {
   if [ -f "application.ini" ]
   then
     . application.ini
-    NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE, TOMCATPATH, BACKEND"
-    GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
-    SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
-    if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
-    then
-      echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
-      echo -n "Want to adapt your application.ini now? [y/n] "
-      read ANSWER
-      if [ "$ANSWER" == "y" ]
+    if [ "$BACKEND" != "python" ]; then
+      NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE, TOMCATPATH, BACKEND"
+      GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
+      SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
+      if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
       then
-        APPNAME=`basename \`pwd\``
-        create_config $APPNAME
-        echo "Adapted application.ini. Run webdsl again to compile your project."
-      fi
-      return 0
-      fi
-    return 1
+        echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
+        echo -n "Want to adapt your application.ini now? [y/n] "
+        read ANSWER
+        if [ "$ANSWER" == "y" ]
+        then
+          APPNAME=`basename \`pwd\``
+          create_config $APPNAME
+          echo "Adapted application.ini. Run webdsl again to compile your project."
+        fi
+        return 0
+        fi
+      return 1
+    else
+      return 1
+    fi
   else
     echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n] "
     read ANSWER
@@ -98,88 +103,90 @@ function create_config {
      BACKEND=$BACK_END
   fi
 
-  echo "---- Database information ----"
-  echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
-  if [ "$DBSERVER" == "" ]; then
-     DBSERVER=localhost
-  fi
-  echo -n "MySQL Host [$DBSERVER]: "
-  read DB_SERVER
-  if [ "$DB_SERVER" != "" ]
-  then
-     DBSERVER=$DB_SERVER
-  fi
+  if [ "$BACKEND" != "python" ]; then
+    echo "---- Database information ----"
+    echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
+    if [ "$DBSERVER" == "" ]; then
+       DBSERVER=localhost
+    fi
+    echo -n "MySQL Host [$DBSERVER]: "
+    read DB_SERVER
+    if [ "$DB_SERVER" != "" ]
+    then
+       DBSERVER=$DB_SERVER
+    fi
 
-  if [ "$DBUSER" == "" ]; then
-     DBUSER=webdsluser
-  fi
-  echo -n "MySQL Username [$DBUSER]: "
-  read DB_USER
-  if [ "$DB_USER" != "" ]
-  then
-     DBUSER=$DB_USER
-  fi
-  
-  if [ "$DBPASSWORD" == "" ]; then
-     DBPASSWORD=webdslpassword
-  fi
-  echo -n "MySQL Password [$DBPASSWORD]: "
-  stty -echo
-  read DB_PASSWORD
-  stty echo
-  echo
-  if [ "$DB_PASSWORD" != "" ]
-  then
-     DBPASSWORD=$DB_PASSWORD
-  fi
+    if [ "$DBUSER" == "" ]; then
+       DBUSER=webdsluser
+    fi
+    echo -n "MySQL Username [$DBUSER]: "
+    read DB_USER
+    if [ "$DB_USER" != "" ]
+    then
+       DBUSER=$DB_USER
+    fi
+    
+    if [ "$DBPASSWORD" == "" ]; then
+       DBPASSWORD=webdslpassword
+    fi
+    echo -n "MySQL Password [$DBPASSWORD]: "
+    stty -echo
+    read DB_PASSWORD
+    stty echo
+    echo
+    if [ "$DB_PASSWORD" != "" ]
+    then
+       DBPASSWORD=$DB_PASSWORD
+    fi
 
-  if [ "$DBNAME" == "" ]; then
-     DBNAME=webdsldb
-  fi
-  echo -n "MySQL Database [$DBNAME]: "
-  read DB_NAME
-  if [ "$DB_NAME" != "" ]
-  then
-     DBNAME=$DB_NAME
-  fi
-  if [ "$DBMODE" == "" ]; then
-     DBMODE=create-drop
-  fi
-  echo -n "Hibernate database mode (e.g. 'update' or 'create-drop') [$DBMODE] "
-  read DB_MODE
-  if [ "$DB_MODE" != "" ]
-  then
-     DBMODE=$DB_MODE
-  fi
+    if [ "$DBNAME" == "" ]; then
+       DBNAME=webdsldb
+    fi
+    echo -n "MySQL Database [$DBNAME]: "
+    read DB_NAME
+    if [ "$DB_NAME" != "" ]
+    then
+       DBNAME=$DB_NAME
+    fi
+    if [ "$DBMODE" == "" ]; then
+       DBMODE=create-drop
+    fi
+    echo -n "Hibernate database mode (e.g. 'update' or 'create-drop') [$DBMODE] "
+    read DB_MODE
+    if [ "$DB_MODE" != "" ]
+    then
+       DBMODE=$DB_MODE
+    fi
 
-  echo "Now checking if database info works."
-  echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME > /dev/null 2> /dev/null
-  if [ "$?" == 0 ]
-  then
-     echo "Succesful!"
-  else
-     echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
-     echo -n "MySQL root password: "
-     stty -echo
-     read ROOTPW
-     stty echo
-     echo
-     if [ "$ROOTPW" == "" ]
-     then
-        mysqladmin -uroot create $DBNAME
-        echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
-     else
-   mysqladmin -uroot -p$ROOTPW create $DBNAME
-   echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
-     fi
-     echo "Now checking if database creation worked..."
-     `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
-     if [ "$?" == 0 ]
-     then
-        echo "Yes!"
-     else
-  echo "No, unfortunately you'll have to create the database yourself."
-     fi
+    echo "Now checking if database info works."
+    echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME > /dev/null 2> /dev/null
+    if [ "$?" == 0 ]
+    then
+       echo "Succesful!"
+    else
+       echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
+       echo -n "MySQL root password: "
+       stty -echo
+       read ROOTPW
+       stty echo
+       echo
+       if [ "$ROOTPW" == "" ]
+       then
+          mysqladmin -uroot create $DBNAME
+          echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
+       else
+     mysqladmin -uroot -p$ROOTPW create $DBNAME
+     echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
+       fi
+       echo "Now checking if database creation worked..."
+       `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
+       if [ "$?" == 0 ]
+       then
+          echo "Yes!"
+       else
+    echo "No, unfortunately you'll have to create the database yourself."
+       fi
+    fi
   fi
 
   echo -n "Do you want to configure your application for sending email? [y/n] "
@@ -279,9 +286,12 @@ function create_config {
   if [ "$BACKEND" == "servlet" ]; then
     rm -rf $SERVLETPROJECTDIR
   fi
+  if [ "$BACKEND" == "python" ]; then
+    rm -rf $PYTHONPROJECTDIR
+  fi
 }
 
-function make_java_app {
+function make_app_code {
   load_config
   if [ "$?" == 0 ]
   then
@@ -353,11 +363,40 @@ function make_java_app {
     @prefix@/bin/webdsl-plugins
     return $RET
   fi    
+  if [ "$BACKEND" == "python" ]; then
+    rm -rf $PYTHONPROJECTDIR
+    export WEBDSLPATH=@prefix@
+    export DSLTOSEAM=@prefix@/bin/dsl-to-seam
+    export TEMPLATEPATH=@datadir@/@PACKAGE@/template-python
+    
+    export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+    export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
+
+    echo "Creating Python AppEngine application in $PYTHONPROJECTDIR..."
+    mkdir $PYTHONPROJECTDIR
+    cd $PYTHONPROJECTDIR
+    cp -r $TEMPLATEPATH/* .
+    chmod -R u+w .
+    find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+    find . -type f -exec sh -c 'sed -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xBf - )
+    # Move all non-.app files to the / directory (keeping directory structure intact)
+    # tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xBf - )
+    echo "Building application..."
+    chmod +x maak
+    ./maak
+    RET="$?"
+    cd ..
+    @prefix@/bin/webdsl-plugins
+    echo "The resulting application is in $PYTHONPROJECTDIR."
+    return $RET
+  fi    
   
 }
 
 function make_app {
-  make_java_app
+  make_app_code
   if [ "$?" != 0 ]
   then
     return 1
@@ -453,6 +492,17 @@ for i in $commands; do
          cd ..
          echo "Application has been deployed. In a moment it should be available on http://localhost:8080/$APPNAME/" 
        fi
+       if [ "$BACKEND" == "python" ]; then
+         if [ ! -e "$PYTHONPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $PYTHONPROJECTDIR/
+         appcfg.py update .
+         cd ..
+         echo "Application has been deployed. You can test it at http://$APPNAME.appspot.com"
+       fi
        ;;
     "undeploy" )
        load_config
@@ -463,7 +513,7 @@ for i in $commands; do
        if [ "$BACKEND" == "seam" ]; then
          if [ ! -e "$SEAMPROJECTDIR" ]
          then
-           make_java_app
+           make_app_code
          fi
          echo "Now undeploying application..."
          cd $SEAMPROJECTDIR/
@@ -487,10 +537,10 @@ for i in $commands; do
        echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
        ;;
     "clean" )
-       echo "Removing seam project files"
+       echo "Removing project files"
        rm -rf $SEAMPROJECTDIR
-       echo "Removing servlet project files and dist directory."
        rm -rf $SERVLETPROJECTDIR
+       rm -rf $PYTHONPROJECTDIR
        ;;
     "cleanall" )
        echo "Removing seam project files and dist directory."
@@ -498,8 +548,8 @@ for i in $commands; do
        echo "Removing servlet project files and dist directory."
        rm -rf $SERVLETPROJECTDIR
        ;;
-    "java" )
-       make_java_app
+    "code" )
+       make_app_code
        if [ "$BACKEND" == "seam" ]; then
          echo "Done, result is in $SEAMPROJECTDIR."
        fi
@@ -514,7 +564,7 @@ for i in $commands; do
     * )
        echo "Options:"
        echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
-       echo "     java : Compile your application to java and JSF code, but do not compile them."
+       echo "     code : Compile your application to java and JSF code, but do not compile them."
        echo "      new : Create a new, empty WebDSL application."
        echo "   deploy : Deploys your application to JBoss."
        echo "    clean : Removes the created Seam project."
