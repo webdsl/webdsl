@@ -46,9 +46,8 @@ def generateHash(data):
     elif isinstance(data, list):
         h = hash("\n".join([generateHash(e) for e in data]))
     elif isinstance(data, webdsl.db.Model):
-        try:
-            h = hash(data.id)
-        except:
+        h = hash(data.id)
+        if not data.id:
             h = hash(data.__class__.__name__)
     else:
         h = hash(data)
@@ -69,7 +68,6 @@ def register(path, cls, param_mappings=[]):
                 param = urllib.unquote(params[i])
                 if issubclass(type, webdsl.db.Model):
                     o.scope[name] = type.fetch_by_id(id_type(param))
-                    logging.info("Setting this in scope: %s: %s (of type %s)" % (name, param, type))
                 else:
                     o.scope[name] = type(param)
                 i += 1

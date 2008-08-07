@@ -1,0 +1,56 @@
+module org/webdsl/dsl/to-py-gae/function
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+imports 
+  org/webdsl/dsl/to-py-gae/-
+  
+strategies
+  PyGenerateCode = py-global-functions-to-code; fail
+
+  py-global-functions-to-code =
+    ?Section(nm, defs)
+    ; <filter(py-global-function-to-code <+ py-global-var-to-code)> defs
+
+  py-global-function-to-code =
+    ?Function(x_fun, farg*, _, Block(stat*)) 
+    ; e* := <map(\ Arg(x, _) -> py-exp|[ x ]| \)> farg*
+    ; {| InFunction
+       : rules ( InFunction := True() )
+       ; stm* := <statements-to-python> stat*
+       |}
+    ; <emit-python(|"function")> python*|[
+        def x_fun(e*): {
+          stm*
+          pass;
+        };
+      ]|
+
+
+  py-global-var-to-code =
+    ?VarDeclInit(x, srt, obj@ObjectCreation(_, assign*))
+    ; with(id
+      ; e_type := <python-type> srt
+      ; info(|"Step 1")
+      ; filters := <map(\ Assignment(x, e) -> (x, "eq", e) \)> assign*
+      ; debug(!"Step 1")
+      ; e_start := py-exp|[ e_type.all() ]|
+      ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-gae-filter(|tuple)> e \)> filters
+      ; debug
+      ; e_create := <expression-to-python> obj
+      ; <emit-python(|"global_variable")> python*|[
+          x = e2.get();
+          if not x: {
+            x = e_create;
+            x.put();
+          };
+        ]|
+      )
+
+  py-add-gae-filter(|filter) :
+    e -> py-exp|[ e.filter(e_propeq, e_value) ]|
+    with (prop, type, value) := filter
+       ; e_value := <expression-to-python> value
+       ; e_propeq := <concat-strings> ["'", prop, " ='"]

@@ -28,9 +28,7 @@ EXTRA_DIST = \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
   $(wildcard template-python/simplejson/*.py) \
-  $(wildcard template-python/simplejson/*.pyc) \
   $(wildcard template-python/webdsl/*.py) \
-  $(wildcard template-python/webdsl/*.pyc) \
   $(wildcard template-python/stylesheets/*.css) \
   template-python/maak
 

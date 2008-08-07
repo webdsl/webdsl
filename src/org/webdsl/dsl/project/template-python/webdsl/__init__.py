@@ -3,6 +3,7 @@ import db
 import querylist
 import markdown
 import re
+import session
 
 RE_LINKS = re.compile(r'(\[\[(\w+)(\(([^\)]*)\))?(\|([^\]]+))?\]\])')
 

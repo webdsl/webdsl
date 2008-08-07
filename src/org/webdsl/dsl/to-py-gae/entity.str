@@ -11,7 +11,7 @@ strategies
   PyGenerateCode = py-entity-to-code; fail
 
   py-entity-to-code =
-    ?EntityNoSuper(x, props, _)
+    ?EntityNoSuper(x, props, funcs)
     ; x_proxy := <concat-strings> [x, "Proxy"]
     ; <emit-python(|"data")> python*|[
         @partial class x(webdsl.db.Model): {
@@ -20,6 +20,7 @@ strategies
         x_proxy = webdsl.db.create_proxy_model(x);
       ]|
     ; <map(py-property-to-code(|x) <+ debug(!"Could not generate for property: "))> props
+    ; <map(py-entity-function-to-code(|x) <+ debug(!"Could not generate for entity function: "))> funcs
 
   py-property-to-code(|x_class) = // Simple property
     ?Property(x_prop, knd, srt@SimpleSort(_), annos)
@@ -187,4 +188,20 @@ strategies
         ; e_type := <python-property-type> type
         ; <emit-python(|"data")> python*|[ @partial class x_ent(webdsl.db.Model): { x_prop = e_type; }; ]|
         )
+
+  py-entity-function-to-code(|x_ent) =
+    ?Function(x_fun, farg*, _, Block(stat*)) 
+    ; e* := [py-exp|[ self ]| | <map(\ Arg(x, _) -> py-exp|[ x ]| \)> farg*]
+    ; {| InFunction
+       : rules ( InFunction := True() )
+       ; stm* := <statements-to-python> stat*
+       |}
+    ; <emit-python(|"data")> python*|[
+        @partial 
+        class x_ent(webdsl.db.Model): { 
+          def x_fun(e*): {
+            stm*
+            pass;
+          };
+        }; ]|
 

@@ -30,7 +30,6 @@ class Model(db.Model):
         if self.is_saved() and other.is_saved():
             return cmp(str(self.key()), str(other.key()))
         else:
-            result = cmp(hash(self), hash(other))
             return cmp(hash(self), hash(other))
 
     def as_dict(self, inlined_properties=['id', 'name']):
@@ -43,7 +42,7 @@ class Model(db.Model):
 
     @property
     def id(self):
-        if self.id_property:
+        if self.id_property and self.is_saved():
             return getattr(self, self.id_property)
         elif self.is_saved():
             return self.key().id()
@@ -78,7 +77,7 @@ def create_proxy_model(cls):
             if not self._wrapped_object and self._initial_values.has_key(attr):
                 return self._initial_values[attr]
             if not self._wrapped_object:
-                logging.info("Lazy loaded whole object: %s id: %s" % (cls, self._id_value))
+                logging.debug("Lazy loaded whole object: %s id: %s" % (cls, self._id_value))
                 self._wrapped_object = cls.fetch_by_id(self._id_value)
             return getattr(self._wrapped_object, attr)
 
