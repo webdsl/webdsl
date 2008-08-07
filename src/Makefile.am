@@ -2,10 +2,9 @@ include $(top_srcdir)/Makefile.xt
 include $(wildcard *.dep)
 include $(wildcard org/webdsl/dsl/*/*.dep)
 
-# remove the default tar -o option to allow long path names
-am__tar = ${AMTAR} chf - "$$tardir" 
-
 ### distribution
+
+# CFLAGS=-O0
 
 CLEANFILES = \
     rtrees \
@@ -153,7 +152,7 @@ nobase_data_DATA += libwebdsl-generator.rtree
 lib_LTLIBRARIES  += libwebdsl-generator.la 
 
 libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
-libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS)
+libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwebdsl_generator_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
 libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \

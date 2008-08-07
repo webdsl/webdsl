@@ -1,5 +1,8 @@
 include $(top_srcdir)/Makefile.xt
 
+# remove the default tar -o option to allow long path names
+am__tar = ${AMTAR} chf - "$$tardir" 
+
 SUBDIRS = src src/org/webdsl/dsl/project
 
 #src/org/webdsl/dsl/generation 
