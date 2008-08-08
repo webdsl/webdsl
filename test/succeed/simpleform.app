@@ -5,23 +5,35 @@ section datamodel
   entity User{
     name :: String
     rank :: Int
+    bool :: Bool
+    text :: Text
+    wiki :: WikiText
   }
   
   define page home(){
     for(u:User)
     {
-      output(u.name)
       outputString(u.name)
-      outputText(u.name)
-      output(u.rank)
+      outputBool(u.bool)
       outputInt(u.rank)
+      outputText(u.text)
+      outputWikiText(u.wiki)
     }
     "test page"
-    var u : User := User{name := "bob"  rank := 3};
+    var u : User := User{
+      name := "bob"  
+      bool := true
+      rank := 3
+      text := "text"
+      wiki := "wiki"
+    };
     form{
-      "todo : copy input from variable"
-      input(u.name)
-      input(u.rank)
+      inputString(u.name)
+      inputInt(u.rank)
+      inputBool(u.bool)
+      inputText(u.text)
+      inputWikiText(u.wiki)
+      
       action(save(),"save")
     }
     action save()
