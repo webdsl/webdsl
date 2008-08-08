@@ -29,6 +29,8 @@ strategies
         ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
                               ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
+        ; stm2* := <map(py-session-var-to-code); concat> <bagof-SessionVariable>
+        ; stm3* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable>
         ; <emit-python(|"template")> python*|[
             @partial
             class x_cls(webdsl.utils.RequestHandler): {
@@ -36,9 +38,32 @@ strategies
                 stm*
                 pass;
               };
+
+              def load_session(self): {
+                  session = webdsl.session.Session();
+                  stm2*
+              };
+
+
+              def store_session(self): {
+                  stm3*
+                  pass;
+              };
             };
           ]|
       )
+
+  py-session-var-to-code :
+    x -> python*|[ 
+      if not e_str in session: {
+          session_var = data.x_captype();
+          session_var.put();
+          session[e_str] = session_var.id;
+      };
+      self.scope[e_str] = data.x_captype.fetch_by_id(session[e_str]);
+    ]|
+    with e_str := String(<concat-strings> ["'", x, "'"])
+       ; x_captype := <capitalize-string> x
 
   py-argument-to-register-tuple :
     Arg(nm, SimpleSort(x_s)) -> 
@@ -110,6 +135,21 @@ rules // Local templates
            };
         ]|
       
+rules // Init block
+
+  py-page-elem-to-code :
+    InitAction(Block(stat*)) -> []
+    with x_cls := <capitalize-string> <ThisTemplate>
+       ; stm* := <statements-to-python> stat*
+       ; <emit-python(|"template")> python*|[
+           @partial
+           class x_cls(webdsl.utils.RequestHandler): {
+             def initialize(self): {
+                stm*
+                pass;
+             };
+           };
+        ]|
 rules
 
   py-page-elem-to-code :
@@ -160,7 +200,26 @@ rules
           out.write('<input type="text" name="' + field_id + '" class="inputString" value="');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('"/>');
-    
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-code :
+    elem|[ outputInt(e){} ]| -> python*|[
+          out.write(unicode(e_target));
+    ]|
+    with e_target := <expression-to-python> e
+
+  py-page-elem-to-code :
+    elem|[ inputInt(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form and not self.render_only: {
+              e_target = self.rh.request.get(field_id);
+          };
+          out.write('<input type="text" name="' + field_id + '" class="inputInt" value="');
+          out.write(unicode(e_target), True);
+          out.write('"/>');
     ]|
     with e_target := <expression-to-python> e
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
@@ -615,7 +674,9 @@ rules // Template call
   py-page-elem-to-code :
     TemplateCall(name, args, _) ->
     python*|[ 
-        e_tmplobj.render();
+        t = e_tmplobj;
+        t.init();
+        t.render();
         ]|
     where t* := <map(type-of)> args
         ; Define(mods, n, fargs, body) := <TemplateSignature> (name, t*)

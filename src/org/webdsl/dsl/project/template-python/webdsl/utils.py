@@ -100,6 +100,7 @@ def register(path, cls, param_mappings=[]):
                 self.response.out.write('<div class="error">%s</div>' % error)
             self.response.out.write(out.getvalue())
             self.response.out.write('''</body></html>''')
+            o.store_session()
         def post(self, *params):
             self.get(*params)
 
@@ -120,6 +121,7 @@ class RequestHandler(object):
     def init(self):
         self.prepare_templates()
         self.initialize()
+        self.load_session()
 
     def queue_action(self, callable, params):
         s = self
@@ -135,6 +137,9 @@ class RequestHandler(object):
         self.rh.redirect(self.rh.request.path_info)
 
     def prepare_templates(self):
+        pass
+
+    def load_session(self):
         pass
 
     def initialize(self):
