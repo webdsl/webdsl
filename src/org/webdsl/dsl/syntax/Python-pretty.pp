@@ -15,6 +15,7 @@
    Not                             -- KW["not"] _1,
    Var                             -- _1,
    Int                             -- _1,
+   Float                           -- _1,
    ListIndex                       -- _1 KW["["] _2 KW["]"],
    ListLiteral                     -- KW["["] _1 KW["]"],
    ListLiteral.1:iter-star-sep     -- _1 KW[", "],

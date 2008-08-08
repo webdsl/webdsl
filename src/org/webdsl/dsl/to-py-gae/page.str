@@ -14,8 +14,7 @@ strategies
 
   py-page-to-code =
     ?Define([Page()], x, args, elem*)
-    ; with(
-        info(|["Got page: ", x])
+    ; with(id
         ; x_cls := <capitalize-string> x
         ; if "home" := x then
             path := "'/"
@@ -27,7 +26,6 @@ strategies
         ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
         // Find all local templates
         ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
-        ; debug(!"Locally defined templates: ")
         ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
                               ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
@@ -50,8 +48,7 @@ strategies
   py-template-to-code =
     ?Define(mods, x, args, elem*)
     ; not(<fetch(?Local())> mods)
-    ; with(
-        info(|["Got template: ", x])
+    ; with(id
         ; x_cls := <capitalize-string> x
         ; if "home" := x then
             e_path := String("'/'")
@@ -94,8 +91,7 @@ rules // Local templates
 
   py-page-elem-to-code :
     Define([Local()], x, args, elem*) -> []
-    with info(|["Got local template: ", x])
-       ; name := <concat-strings> [<ThisTemplate>, "_", x]
+    with name := <concat-strings> [<ThisTemplate>, "_", x]
        ; x_cls := <capitalize-string> name
        ; e_path := String(<concat-strings> ["'/", x, "'"])
        ; {| ThisTemplate, IsScoped, CurrentActionId
@@ -158,7 +154,7 @@ rules
   py-page-elem-to-code :
     elem|[ inputString(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form: {
+          if is_submitted_form and not self.render_only: {
               e_target = self.rh.request.get(field_id);
           };
           out.write('<input type="text" name="' + field_id + '" class="inputString" value="');
@@ -179,7 +175,7 @@ rules
   py-page-elem-to-code :
     elem|[ inputText(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form: {
+          if is_submitted_form and not self.render_only: {
               e_target = self.rh.request.get(field_id);
           };
           out.write('<textarea name="' + field_id + '" class="inputText">');
@@ -194,7 +190,7 @@ rules
   py-page-elem-to-code :
     elem|[ inputWikiText(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form: {
+          if is_submitted_form and not self.render_only: {
               e_target = self.rh.request.get(field_id);
           };
           out.write('<textarea name="' + field_id + '" class="inputWikiText">');
@@ -220,7 +216,7 @@ rules
 
   py-page-elem-to-code :
     elem|[ inputBool(e){} ]| -> python*|[
-          if is_submitted_form: {
+          if is_submitted_form and not self.render_only: {
               e_target = bool(self.rh.request.get(e_fld));
           };
           out.write('<input type="checkbox" name="' + e_fld + '" ');
@@ -246,7 +242,7 @@ rules
 
   py-page-elem-to-code :
     elem|[ inputEmail(e){} ]| -> python*|[
-          if is_submitted_form: {
+          if is_submitted_form and not self.render_only: {
               e_target = self.rh.request.get(e_fld);
           };
           out.write('<input type="text" name="' + e_fld + '" value="');
@@ -266,8 +262,8 @@ rules
   py-page-elem-to-code :
     elem|[ action(e1, e2){} ]| -> python*|[
           out.write('<input type="submit" name="action-' + e_actionr + '" value="' + cgi.escape(unicode(e_txt), True) + '"/>');
-          if self.rh.request.get('action-' + e_actionr) and is_submitted_form: {
-              e_call;
+          if self.rh.request.get('action-' + e_actionr) and is_submitted_form and not self.render_only: {
+              self.queue_action(e_call, [e*]);
           };
     ]|
     with actionr := <CurrentActionId <+ !1>
@@ -276,7 +272,8 @@ rules
        ; e_txt := <expression-to-python> e1
        ; ThisCall(x, arg*) := e2
        ; x_action := <concat-strings> ["do_", x]
-       ; e_call := Call(py-exp|[ self.x_action ]|, <map(expression-to-python)> arg*)
+       ; e_call := py-exp|[ self.x_action ]|
+       ; e* := <map(expression-to-python)> arg*
 
   py-page-elem-to-code :
     a@elem|[ action x_action(farg*) { stat* } ]| ->
@@ -650,7 +647,7 @@ rules // Select
     Select(x, SimpleSort(x_type), label, e) ->
     python*|[
         field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
-        if is_submitted_form: {
+        if is_submitted_form and not self.render_only: {
             e_target = data.x_type.fetch_by_id(self.rh.request.get( field_id ));
         };
         out.write('<select name="' + field_id + '">');

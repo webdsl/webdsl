@@ -61,6 +61,7 @@ def register(path, cls, param_mappings=[]):
             o = cls(template_bindings.ParentTemplate(), self, out)
             o.form_counters = {} # Stores hashes => number of forms
             o.field_counters = {} # Stores hashes => number of forms
+            o.action_queue = [] # List of tuples: (callable, params) to be executed at the end of the rendering stage
             i = 0
             d = {}
             while i < len(params):
@@ -72,8 +73,20 @@ def register(path, cls, param_mappings=[]):
                     o.scope[name] = type(param)
                 i += 1
             o.title = ""
-            o.init()
-            o.render()
+            o.init() # Initialize page
+            o.render() # Render and do data binding
+            error = ''
+            try:
+                o.invoke_actions() # Invoke actions
+            except Exception, e:
+                # Something went wrong, reset some things and rerender with the error message
+                out = StringIO()
+                o.out = out
+                o.form_counters = {}
+                o.field_counters = {}
+                o.render()
+                error = str(e)
+                
             self.response.out.write('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -83,6 +96,8 @@ def register(path, cls, param_mappings=[]):
     <link href="/stylesheets/webdsl.css" rel="stylesheet" type="text/css" />
 </head>
 <body>''' % o.title)
+            if error:
+                self.response.out.write('<div class="error">%s</div>' % error)
             self.response.out.write(out.getvalue())
             self.response.out.write('''</body></html>''')
         def post(self, *params):
@@ -97,6 +112,8 @@ class RequestHandler(object):
         self.parent = parent
         self.rh = rh
         self.out = out
+        self.render_only = False
+        self.action_queue = None
         for key, value in scope.items():
             self.scope[key] = value
 
@@ -104,12 +121,15 @@ class RequestHandler(object):
         self.prepare_templates()
         self.initialize()
 
-#    def data_bind(self):
-#        for key, value in self.rh.request.params.items():
-#            if '__' in key:
-#                (arg, field) = key.split('__')
-#                arg = str(arg)
-#                setattr(self.scope[arg], field, self.scope[arg].attribute_types[arg](value))
+    def queue_action(self, callable, params):
+        s = self
+        while s.action_queue == None:
+            s = s.parent
+        s.action_queue.append((callable, params))
+
+    def invoke_actions(self):
+        for (callable, params) in self.action_queue:
+            callable(*params)
 
     def redirect_to_self(self):
         self.rh.redirect(self.rh.request.path_info)
