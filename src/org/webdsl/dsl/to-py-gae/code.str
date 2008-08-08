@@ -92,9 +92,9 @@ rules // assignment
 rules // if
 
    if-to-python :
-     If(e1, bsit1, bsif1) -> python|[ if e2: { stm1 } else: { stm2 }; ]|
-     where stm1 := <statement-to-python> bsit1
-         ; stm2 := <statement-to-python> bsif1
+     If(e1, Block(sit1*), Block(sif1*)) -> python|[ if e2: { stm1* pass; } else: { stm2* pass; }; ]|
+     where stm1* := <statements-to-python> sit1*
+         ; stm2* := <statements-to-python> sif1*
          ; e2 := <expression-to-python> e1
 
 rules // for
@@ -126,10 +126,34 @@ rules // for
    */
 
    for-to-python : // No where clause, no order by clause
-     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null())), bstm1) ->
-     python|[ for x in e1: { stm }; ]|
-     where e2 := <expression-to-python> e1
-         ; stm := <statement-to-python> bstm1
+     ForStmt(x, s, e1, Filter(we, obe), bstm1) ->
+     python|[ for x in e: { stm }; ]|
+     with stm := <statement-to-python> bstm1
+        ; e_type := <python-type> s
+        ; e_start := <expression-to-python> e1
+        ; filters := <py-exp-to-filters(|x) <+ debug(!"Cannot translate to filters: ")> we 
+        ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-filter(|tuple)> e \)> filters
+        ; e_ob := <py-exp-to-order-by(|x) <+ debug(!"Cannot translate order by: ")> obe
+        ; if not(None() := e_ob) then
+            e := py-exp|[ e2.order_by(e_ob) ]|
+          else
+            e := e2
+          end
+
+   for-to-python : // No where clause, no order by clause
+     ForAllStmt(x, s, Filter(we, obe), bstm1) ->
+     python|[ for x in e: { stm }; ]|
+     with stm := <statement-to-python> bstm1
+        ; e_type := <python-type> s
+        ; e_start := py-exp|[ webdsl.querylist.AllDbQuerySet(e_type) ]|
+        ; filters := <py-exp-to-filters(|x) <+ debug(!"Cannot translate to filters: ")> we 
+        ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-filter(|tuple)> e \)> filters
+        ; e_ob := <py-exp-to-order-by(|x) <+ debug(!"Cannot translate order by: ")> obe
+        ; if not(None() := e_ob) then
+            e := py-exp|[ e2.order_by(e_ob) ]|
+          else
+            e := e2
+          end
 
    /*
    for-to-python : // With where clause
@@ -149,7 +173,7 @@ rules // for
 rules // return
 
    return-to-python :
-     Return(e1) -> python|[ self.rh.redirect(e2); ]|
+     Return(e1) -> Block(python*|[ self.rh.redirect(e2); return; ]|)
      where InAction
      with  e2 := <py-call-to-view-string> e1
 
@@ -158,7 +182,7 @@ rules // return
      where InFunction; e2 := <expression-to-python> e1
 
    cancel-to-python :
-     Cancel(e1) -> python|[ self.rh.redirect(e2); ]|
+     Cancel(e1) -> Block(python*|[ self.rh.redirect(e2); return; ]|)
      where InAction ; e2 := <py-call-to-view-string> e1
 
    cancel-to-python :
@@ -332,7 +356,7 @@ rules // expressions
      persist-call-to-python
      <+ remove-call-to-python
      <+ count-call-to-python
-     //<+ call-to-python
+     <+ call-to-python
      <+ generic-call-to-python
 
    persist-call-to-python :
@@ -355,6 +379,12 @@ rules // expressions
      Call(e1, "count", []) -> py-exp|[ len(e2) ]|
      where e2 := <expression-to-python> e1
 
+   call-to-python :
+     Call(e1, "check", [e2]) -> py-exp|[ e3 == e4 ]|
+     where SimpleSort("Secret") := <type-of> e1
+     with e3 := <expression-to-python> e1
+        ; e4 := <expression-to-python> e2
+
    generic-call-to-python :
      Call(e1, x, e2*) -> Call(FieldAccess(e3, x), e4*)
      with e3 := <expression-to-python> e1
@@ -362,7 +392,7 @@ rules // expressions
 
    generic-call-to-python :
      ThisCall(x, e1*) -> Call(e, e2*)
-     with e2* := <map(expression-to-python)> e1*
+     with e2* := [py-exp|[ self ]| | <map(expression-to-python)> e1*]
         ; e := py-exp|[ function.x ]|
 
 rules
@@ -377,7 +407,7 @@ rules
        ; e := py-exp|[ e_pagepart + e_rest ]|
 
   py-get-id :
-    e -> e2
+    e -> py-exp|[ urllib.quote(str(e2), '') ]|
     where <type-of; not(defined-java-type)> e
     with e2 := <expression-to-python <+ debug(!"Failed")> e
 

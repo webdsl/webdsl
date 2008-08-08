@@ -108,6 +108,8 @@
 
    ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] ] _5],
    ForStmt.5:iter-star                -- _1,
+   ForAllStmt                         -- V[H[KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] ] _4],
+   ForAllStmt.4:iter-star             -- _1,
 
    ForExp                             -- H[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"]],
    ForExpNoFilter                     -- H[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 KW["]"]],

@@ -26,7 +26,7 @@ class Model(db.Model):
 
     def __cmp__(self, other):
         if not other:
-            return False
+            return cmp(self.__class__, other) # Nonesense
         if self.is_saved() and other.is_saved():
             return cmp(str(self.key()), str(other.key()))
         else:
@@ -72,7 +72,7 @@ def create_proxy_model(cls):
             self._initial_values = initial_values
 
         def __getattribute__(self, attr):
-            if attr.startswith('_'):
+            if (attr.startswith('_') and not attr.startswith('__')) or attr == '__cmp__':
                 return cls.__getattribute__(self, attr)
             if not self._wrapped_object and self._initial_values.has_key(attr):
                 return self._initial_values[attr]
@@ -80,6 +80,11 @@ def create_proxy_model(cls):
                 logging.debug("Lazy loaded whole object: %s id: %s" % (cls, self._id_value))
                 self._wrapped_object = cls.fetch_by_id(self._id_value)
             return getattr(self._wrapped_object, attr)
+
+        def __cmp__(self, other):
+            if self._wrapped_object == None:
+                self._wrapped_object = cls.fetch_by_id(self._id_value)
+            return cmp(self._wrapped_object, other)
 
     _proxy.__name__ = "%sProxy" % cls.__name__
     return _proxy

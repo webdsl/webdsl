@@ -29,8 +29,8 @@ strategies
         ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
                               ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
-        ; stm2* := <map(py-session-var-to-code); concat> <bagof-SessionVariable>
-        ; stm3* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable>
+        ; stm2* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
+        ; stm3* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
         ; <emit-python(|"template")> python*|[
             @partial
             class x_cls(webdsl.utils.RequestHandler): {
@@ -66,9 +66,13 @@ strategies
        ; x_captype := <capitalize-string> x
 
   py-argument-to-register-tuple :
-    Arg(nm, SimpleSort(x_s)) -> 
-    TupleLiteral(<concat-strings> ["'", nm, "'"], [idname, <EntityIdType; python-type <+ !"long"> x_s, py-exp|[ data.x_s ]| ])
-    where idname := String(<concat-strings> ["'", <EntityIdName <+ !"">, "'"])
+    Arg(nm, srt@SimpleSort(x_s)) -> 
+    TupleLiteral(<concat-strings> ["'", nm, "'"], [<EntityIdType; python-type <+ !"long"> x_s, py-exp|[ data.x_s ]| ])
+    where <defined-java-type> srt
+
+  py-argument-to-register-tuple :
+    Arg(nm, srt) -> TupleLiteral(<concat-strings> ["'", nm, "'"], ["''", <python-type> srt ])
+    where <builtin-java-type> srt
 
   py-template-to-code =
     ?Define(mods, x, args, elem*)
@@ -173,6 +177,9 @@ rules
     where stm* := <py-page-elems-to-code> elems
 
   py-page-elem-to-code :
+    TemplateCall("title", [e], elems) -> <py-page-elem-to-code> TemplateCall("title", [], [Text(e)])
+
+  py-page-elem-to-code :
     elem|[ form() { elem* }]| -> python*|[
       out.write('<form method="POST">');
       form_id = webdsl.utils.generateFormHash(self.scope, self);
@@ -206,6 +213,31 @@ rules
        ; e_data := <py-get-data-object> e
 
   py-page-elem-to-code :
+    elem|[ outputString(e){} ]| -> python*|[
+          out.write(cgi.escape(unicode(e_target), True));
+    ]|
+    with e_target := <expression-to-python> e
+
+  py-page-elem-to-code :
+    elem|[ inputSecret(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form and not self.render_only: {
+              e_target = self.rh.request.get(field_id);
+          };
+          out.write('<input type="password" name="' + field_id + '" class="inputSecret" value="');
+          out.write(cgi.escape(unicode(e_target), True));
+          out.write('"/>');
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-code :
+    elem|[ outputSecret(e){} ]| -> python*|[
+          out.write('**********');
+    ]|
+
+  py-page-elem-to-code :
     elem|[ outputInt(e){} ]| -> python*|[
           out.write(unicode(e_target));
     ]|
@@ -225,11 +257,6 @@ rules
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
-  py-page-elem-to-code :
-    elem|[ outputString(e){} ]| -> python*|[
-          out.write(cgi.escape(unicode(e_target), True));
-    ]|
-    with e_target := <expression-to-python> e
 
   py-page-elem-to-code :
     elem|[ inputText(e){} ]| -> python*|[
@@ -739,6 +766,15 @@ rules // vardecl
     with rules ( IsScoped : x )
        ; e_x := <concat-strings> ["'", x, "'"]
        ; e := <expression-to-python> expr
+
+  py-page-elem-to-code :
+    VarDecl(x, s) ->
+    python*|[ 
+        self.scope[e_x] = e;
+        ]|
+    with rules ( IsScoped : x )
+       ; e_x := <concat-strings> ["'", x, "'"]
+       ; e := <python-type-default-value> s
 
  /*
 

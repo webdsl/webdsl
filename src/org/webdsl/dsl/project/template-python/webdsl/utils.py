@@ -65,7 +65,7 @@ def register(path, cls, param_mappings=[]):
             i = 0
             d = {}
             while i < len(params):
-                (name, id_name, id_type, type) = param_mappings[i]
+                (name, id_type, type) = param_mappings[i]
                 param = urllib.unquote(params[i])
                 if issubclass(type, webdsl.db.Model):
                     o.scope[name] = type.fetch_by_id(id_type(param))
@@ -120,8 +120,8 @@ class RequestHandler(object):
 
     def init(self):
         self.prepare_templates()
-        self.initialize()
         self.load_session()
+        self.initialize()
 
     def queue_action(self, callable, params):
         s = self
