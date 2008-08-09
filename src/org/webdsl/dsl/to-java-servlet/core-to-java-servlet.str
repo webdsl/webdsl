@@ -33,13 +33,19 @@ strategies
     ; ! <get-java-artifacts-java-servlet>
 
    generate-code-java-servlet =
-     if ?Define(mods, name, args, elems); is-page-or-template then //strategy/rule shared with seam back-end
-       {| ThisPage, NestedTemplate, ThisTemplateName
-        : if ThisPage
+     if ?def@Define(mods, name, args, elems) then
+       {| ThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables //Variables: to hold arguments/variables of parent templates/pages
+        : 
+        where(
+          if ThisPage
           then rules ( NestedTemplate := name ) end
         ; if <elem> (Page(), mods)
           then rules ( ThisPage := name ) end
-        ; rules ( ThisTemplateName := name)
+        ; rules ( 
+            ThisTemplateName := name
+            ThisTemplateClassName := <get-template-class-name> def
+          ) 
+        )
         ; not(GenerateCodeJavaServlet)
         ; all(generate-code-java-servlet)
         |}
@@ -64,6 +70,7 @@ signature
     FormNumber : String -> Annotation
     InputNumber : String -> Annotation
     ActionNumber : String -> Annotation
+    TemplateClassName : String -> Annotation
         
 rules
 
@@ -82,6 +89,10 @@ rules
   get-actionnumber :
     _{anno*} -> compid
     where ActionNumber(compid) := <collect(?ActionNumber(_));Hd> anno* 
+    
+  get-template-class-name :
+    _{anno*} -> compid
+    where TemplateClassName(compid) := <collect(?TemplateClassName(_));Hd> anno* 
       
 strategies
 
@@ -94,8 +105,8 @@ rules
 
   java-servlet-element-id :
     tc@TemplateCall(name, args, _){anno*} -> tc{TemplateCallNumber(newid),anno*} 
-    where is-call-to-toplevel-template 
-        ;  newid := <newname> "tcall"
+    where t* := <map(type-of)> args ; <TemplateSignature> (name,t*)
+        ; newid := <newname> "tcall"
     
   java-servlet-element-id :
     tc@TemplateCall("form", [], elems){anno*} -> tc{FormNumber(newid),anno*} 
@@ -105,4 +116,13 @@ rules
     tc@TemplateCall("action",[e1,e2],[]){anno*} -> tc{ActionNumber(newid),anno*} 
     where  newid := <newname> "action"
     
-       
+  java-servlet-element-id :
+    tc@webdsl|[ define mod* x(farg*) { elem* } ]| -> newtc{TemplateClassName(newid),anno*} 
+    where _{anno*} := tc
+        ; x1 := <strip-annos> x
+        ; newtc := webdsl|[ define mod* x1(farg*) { elem* } ]| 
+        ; newid := <concat-strings;newname> [x,"Template"]
+        ; if <is-toplevel-template> x then rules(TopLevelTemplateClassName : x -> newid) end 
+         
+    
+

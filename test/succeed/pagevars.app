@@ -11,6 +11,19 @@ section datamodel
   }
   
   define page home(){
+    var us:User;
+    var us1:User;
+    var us2:User;
+    var us3:User;
+   
+  
+    var users:Set<User> := {us,us1,us2,us3};
+  
+  
+  
+  
+  
+  
     var u:User := User{};
     var u1:User;
     var u2:User2 := User2{};
@@ -35,7 +48,7 @@ section datamodel
     input(s)
     output(s)
     input(i)
-    output(i)
+    //output(i)
     input(f)
     output(f)
     input(b)
@@ -43,7 +56,7 @@ section datamodel
     input(s1)
     output(s1)
     input(i1)
-    output(i1)
+    //output(i1)
     input(f1)
     output(f1)
     input(b1)

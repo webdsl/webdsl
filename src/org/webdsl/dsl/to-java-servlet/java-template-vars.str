@@ -52,7 +52,93 @@ rules // page variables
        @Partial 
        private void initialize() { init#x(); }
     ]|
+    where <?HqlQuery(e1)> e
     with  t      := <java-type> srt
-        ; <?HqlQuery(e1)> e
         ; X      := <capitalize-string> x
         ; e2     := <query-to-create-query> e1
+
+
+//store vars in scope
+  GenerateCodeJavaServlet = not(InAction) ; store-var-java-servlet; fail
+ 
+  store-var-java-servlet:
+    elem|[ var x : srt ]| -> 
+    <generate-java-servlet-template-partial> java|[
+       @Partial 
+       private void initialize() { variables.put("~x",x); }
+    ]|
+    where rules( Variables :+=  elem|[ var x : srt ]|  )
+    
+    
+//retrieve vars in scope
+
+  GenerateCodeJavaServlet = retrieve-stored-vars-java-servlet; fail
+ 
+  retrieve-stored-vars-java-servlet:
+    def |[ define mod* x(farg*) { elem* } ]| -> []
+    where vars := <bagof-Variables>
+    with  <map( //\ x -> x where <oncetd(?Arg(x,_))> farg* \;debug(!1) <+ debug(!2);  //check whether arg names shadow the passed vars (check vars in page too?)
+    generate-java-servlet-passed-variables-code)> vars
+               
+                 
+  generate-java-servlet-passed-variables-code:
+    elem|[ var x : srt ]| ->
+    <generate-java-servlet-template-partial> java|[
+       private t x;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+       @Partial
+       private void initialize(){ x = (x_arg) variables.get("~x"); }
+    ]|
+    with  t     := <java-type> srt
+        ; x_arg := <java-servlet-type-name> srt
+      
+
+
+/*
+//stuff below not really necessary, need to check with implementation oflength function
+
+
+rules // extra stuff for Set (stuff above (generate-java-servlet-variables-code ) is also done for collections)
+
+  GenerateCode = not(InAction); generate-java-servlet-variables-code-set; fail
+
+  generate-java-servlet-variables-code-set :
+    elem|[ var x : Set<srt> ]| ->
+    <generate-java-servlet-template-partial>
+    java|[
+       //public t2 get#x#List() { return new java.util.ArrayList(get#x()); }
+       //public void set#x#List(t2 x) { set#x(new java.util.LinkedHashSet(x)); }
+       public int get#x#Length() { return get#x().size(); }
+    ]|
+    where //t := <java-type> srt // can't figure out what this is used for
+          <?SimpleSort(Y)> srt
+        ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
+
+  generate-java-servlet-variables-code-set :
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-java-servlet-variables-code-set> elem|[ var x : srt ]|
+
+rules  // extra stuff for List (stuff above (generate-java-servlet-variables-code ) is also done for collections)
+
+  GenerateCode = not(InAction); generate-java-servlet-variables-code-list; fail
+
+  generate-java-servlet-variables-code-list :
+    elem|[ var x : List<srt> ]| ->
+    <generate-java-servlet-template-partial>
+    java|[
+       //public t2 get#x#List() { return get#x(); }
+       //public void set#x#List(t2 x) { set#x(x); }
+       public int get#x#Length() { return get#x().size(); }
+    ]|
+    where //t           := <java-type> s // see above
+         <?SimpleSort(Y)> srt
+         ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
+
+  generate-java-servlet-variables-code-list :
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-java-servlet-variables-code-list> elem|[ var x : srt ]|
+    
+ */

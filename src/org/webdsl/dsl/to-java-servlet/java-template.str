@@ -10,13 +10,11 @@ rules
   generate-java-servlet-template-partial =
     ? cbds
     ; pkgname    := <BeanPackage>
-    ; if NestedTemplate
-      then x_Page    := <java-servlet-local-template-name> (<ThisPage>,<ThisTemplateName>)
-      else
-        if ThisPage
-        then x_Page    := <java-servlet-page-template-name> <ThisTemplateName>
-        else x_Page     := <java-servlet-template-name> <ThisTemplateName> end
-      end
+    ; //if NestedTemplate
+      //then x_Page    := <java-servlet-local-template-name> (<ThisPage>,<ThisTemplateName>)
+      //else
+        x_Page  := <ThisTemplateClassName>
+      //end
     //also allow a single class-body-declaration
     ; if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
     ; <emit-java-code>
@@ -63,7 +61,7 @@ rules
           } 
     
     
-          public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) {
+          public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables) {
             bstm2*
             storeInputsInternal();
 
@@ -78,7 +76,7 @@ rules
           }
                 
                 
-          public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) {          
+          public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables) {          
             bstm2*
 
             handleActionsInternal();
@@ -104,8 +102,9 @@ rules
           
           String uniqueid;
 
+          HashMap<String, Object> variables = new HashMap<String, Object>();
           HashMap<String, Class> templates;
-          HashMap<String,Object> inputs = new HashMap<String,Object>();
+          //HashMap<String,Object> inputs = new HashMap<String,Object>();
           
           PrintWriter out;
           private org.hibernate.Session hibSession;
@@ -154,7 +153,7 @@ rules
           
           }
 
-          public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates) { 
+          public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables) { 
             bstm2*
             try
             {            
@@ -173,13 +172,11 @@ rules
     //where x_page     := <ThisPage>
     with pkgname    := <BeanPackage>
        ; pkgname2   := <DomainPackage>
-       ; if NestedTemplate
-         then x_Page    := <java-servlet-local-template-name> (<ThisPage>,x)
-         else
-           if ThisPage
-           then x_Page    := <java-servlet-page-template-name> x
-           else x_Page     := <java-servlet-template-name> x end
-         end
+       ; //if NestedTemplate
+         //then x_Page    := <java-servlet-local-template-name> (<ThisPage>,<ThisTemplateName>)
+         //else
+        x_Page  := <ThisTemplateClassName>
+         //end
    /*    ; if x_page := <ThisPage> 
          then 
            if <elem> (Page(), mod*)
@@ -187,19 +184,22 @@ rules
            else  x_Page    := <java-servlet-local-template-name> (<ThisPage>,x) end
          else x_Page     := <java-servlet-template-name> x end*/
        ; x_pnamequoted := <double-quote> x_Page
-       ; if ThisPage then // for now only local def in pages supported
+       ; //if ThisPage then // for now only local def in pages supported
+         
          bstm* := <map(\
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           (x,xclass) -> bstm |[ templates.put(x_key, x_value); ]| 
                            where x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<java-servlet-local-template-name> (<ThisPage>,x),".class"]
+                               ; x_value := <concat-strings> [xclass,".class"]
                        \)> 
-                       <!x;bagof-LocalTemplateNames;make-set>
-         else bstm* := [] 
-         end
+                       <collect({\def@webdsl|[ define mod* x(farg*) { elem* } ]| -> (x,<get-template-class-name> def)\})> elem*
+                       //<!x;bagof-LocalTemplateNames;make-set>
+         //else bstm* := [] 
+         //end
        ; bstm1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
                                          where x_index := <subti;int-to-string> (index,1)
                                              ; x_arg := <argument-java-servlet-type> arg
                                       \})> farg* //variables are generated in java-template-vars
+                                      
        ; bstm2* := bstm* |[
             if(!initialized)
             {
@@ -214,6 +214,7 @@ rules
               this.request=ps.getRequest();
               this.response=ps.getResponse();
               this.hibSession=ps.getHibSession();
+              this.variables=variables;
               storeArguments(args);
               
               initialize();

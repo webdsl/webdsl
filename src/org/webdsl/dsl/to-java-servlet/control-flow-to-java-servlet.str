@@ -159,20 +159,43 @@ rules // template call
 
 */
   handle-actions-input-to-java-servlet  =
-    control-flow-tcall(collect-om(handle-actions-input-to-java-servlet)|)
+    control-flow-tcall(|"storeInputs")
 
   handle-actions-to-java-servlet =
-    control-flow-tcall(collect-om(handle-actions-to-java-servlet)|)
+    control-flow-tcall(|"handleActions")
 
   elem-to-java-servlet =
-    control-flow-tcall(elems-to-java-servlet|)
+    control-flow-tcall(|"render")
 
-  control-flow-tcall(s|) :
-    TemplateCall(name, args, _) ->
-    bstm |[
-    out.println("todo:tcall");
+  control-flow-tcall(|x_methodname) :
+    tc@TemplateCall(x_name, args, _) ->
+    bstm* |[
+    if(x_tname==null){
+      try{
+        x_tname = (TemplateServlet)templates.get("~x_name").newInstance();
+      }
+      catch(IllegalAccessException iae)
+      {
+        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
+      }
+      catch(InstantiationException ie)
+      {
+        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
+      }
+    }
+    Object[] x_args = { e* };
+    templatecounter = x_tname.x_methodname(ps, x_args, ++templatecounter, (HashMap<String,Class>)templates.clone(),(HashMap<String,Object>)variables.clone());
     ]|
-    where is-call-to-toplevel-template 
+    where t* := <map(type-of)> args ; <TemplateSignature> (x_name,t*)
+    with  x_tname := <get-templatecallnumber> tc
+        ; <generate-java-servlet-template-partial> 
+          java |[ 
+            private TemplateServlet x_tname = null;
+          ]|
+        ; e* := <map({\e -> <expression-to-java> e\})> args
+        ; x_args := <newname> "args"
+      
+        
     /*  
     %>
       <ui:include src="<%= target %>">
