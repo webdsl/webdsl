@@ -1,0 +1,242 @@
+module org/webdsl/dsl/to-java-servlet/global-variables
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-global-vars; fail
+
+  generate-java-servlet-global-vars :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      import java.io.*;
+      import java.util.HashMap;
+  
+      import javax.servlet.*;
+      import javax.servlet.http.*;
+      import java.util.*;
+      import utils.*;
+      import pkgname.*;
+      import pkgname2.*;
+  
+      public class GlobalVariables {
+        private static org.hibernate.Session hibSession;
+
+          //private static HashMap<String, Long> ids = new HashMap<String, Long>();
+          
+          //cope with either primary key types as well? or keep consistent, always Long primary key
+          
+        ~*cbds*
+        ~*cbds1*
+          /*public static void getGlobalVariable(org.hibernate.Session hibSession, String ident)
+          {
+              hibSession.load(ids.get(ident));
+          }*/
+          
+    
+        static{
+            //start hibsession
+            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+
+            org.hibernate.Query q = hibSession.createQuery("from ApplicationContextProperty");
+            List res = q.list(); 
+    
+            if (res.isEmpty())
+            {
+  
+              bstm3*
+              bstm1*
+              bstm2*
+  
+            }
+
+            org.hibernate.Query q2 = hibSession.createQuery("from ApplicationContextProperty");
+            List results = q2.list();
+            for(Object r: results)
+            {
+              ApplicationContextProperty acp = (ApplicationContextProperty) r;
+            }
+        }
+      }
+    ]|
+    where not([] := <AllGlobalVars>) // fails if there are no global vars, wont generate anything then
+    with  pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
+        ; cbds* := <map({\ 
+                           elem |[ var x : srt := e ]| -> 
+                           class-body-dec*|[ 
+                             //private static t x = null;
+                             private static Long x#id = null;
+                              
+                             public static x_class get#x(org.hibernate.Session hibSession)
+                             {
+                                 t x = (x_class) hibSession.load(x_class.class, x#id);
+                                 return x;
+                             }
+                              
+                           ]| 
+                           where t := <java-servlet-java-type> srt
+                               ; x_class := <java-servlet-type-name> srt
+                       \});concat> 
+                       <AllGlobalVars<+ ![]>
+        ; vardeclinits := <AllGlobalVars <+ ![]>
+        ; {| IsGlobal
+                : <filter({x : ?VarDeclInit(x, _, _); rules( IsGlobal :- x )})> vardeclinits
+                // persist right away to get an id
+                ; bstm3* := <filter(vardeclinit-to-persist-statement-java-servlet);concat-with-sublists> vardeclinits
+                //update with assignments
+                ; bstm1* := <filter(vardeclinit-to-method-call-java-servlet)> vardeclinits
+                //persist updates
+                ; bstm2* := <filter(vardeclinit-to-method-persist-call-java-servlet)> vardeclinits
+                ; cbds1* := <filter(vardeclinit-to-method-java-servlet); concat-with-sublists> vardeclinits
+          |}
+        ; globals-helper-entity-java-servlet 
+        
+//copied from seam backend but function stuff removed     
+     
+  globals-helper-entity-java-servlet =
+    where( vardeclinits := <AllGlobalVars <+ ![]>
+             ; pkgname    := <BeanPackage>
+             ; pkgname2   := <DomainPackage>
+             ; <emit-java-code> compilation-unit|[
+    package pkgname2;
+
+    import java.util.*;
+    import javax.persistence.*;
+    import pkgname.*;
+
+    @Entity public class ApplicationContextProperty
+    {
+      public ApplicationContextProperty ()
+      { }
+
+      @Id @GeneratedValue private Long id;
+
+      public Long getId()
+      {
+        return id;
+      }
+
+      private void setId(Long id)
+      {
+        this.id = id;
+      }
+
+      private String name;
+
+      private String databaseId;
+
+      public String getName() {
+        return name;
+      }
+
+      public void setName(String name) {
+        this.name = name;
+      }
+
+      public String getDatabaseId() {
+        return databaseId;
+      }
+
+      public void setDatabaseId(String databaseId) {
+        this.databaseId = databaseId;
+      }
+    }
+
+    ]|
+    )
+
+  vardeclinit-to-persist-statement-java-servlet:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> result
+    where if <EntityIdName> x_class
+          then x_idname := <EntityIdName> x_class
+               ; idassign := <collect({e:?Assignment(idname, e);!webdsl |[ x_ident.x_idname := e; ]| });Hd> exps
+               ; result := [ <statement-to-java-servlet> idassign, bstm|[ hibSession.save(x_ident); ]| ]
+          else result := bstm |[ hibSession.save(x_ident); ]| end
+
+  vardeclinit-to-method-call-java-servlet:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) ->
+    bstm |[	globalDeclaration#x_ident(); ]|
+
+  vardeclinit-to-method-persist-call-java-servlet:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) ->
+    bstm |[ globalDeclaration#x_ident#Persist(); ]|
+
+  vardeclinit-to-method-java-servlet:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(x_class,assigns)) ->
+      class-body-dec* |[
+        private static t x_ident = new x_t();
+
+        private static void globalDeclaration#x_ident() {
+          ~*bstmvardeclinit*
+        }
+
+        private static void globalDeclaration#x_ident#Persist() {
+          //entityManager.persist(x_ident); now done beforehand
+          ApplicationContextProperty x_acpident = new ApplicationContextProperty();
+          x_acpident.setName(x_acpname);
+          x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
+          hibSession.save(x_acpident);
+          GlobalVariables.x_ident#id = Long.valueOf(x_acpident.getDatabaseId());
+        }
+  ]|
+  where x_acpident := <new>
+      ; t := <java-type> SimpleSort(x_class)
+      ; x_t := <sort-to-java-type-string> SimpleSort(x_class)
+      ; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
+      ; digests := <filter(secret-assigns-to-digest(|x_ident,x_class))> assigns
+      ; bstmvardeclinit* := <conc>
+                         (<map(\ Assignment(x_prop, e) -> webdsl |[ x_ident.x_prop := e; ]| \)//Assign(Assignment(Qualified(x_ident, f), e)) \)
+                           ; /*desugar-any;*/ statements-to-java-servlet> assigns
+                         , digests)
+
+  secret-assigns-to-digest-java-servlet(|x_ident,class):
+    Assignment(x_prop,String(anystring)) ->
+     bstm|[
+       {
+         org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
+           new org.jasypt.util.password.StrongPasswordEncryptor();
+         x_ident.x_set(x_var2.encryptPassword(x_anystring));
+       }
+     ]|
+     where SimpleSort("String") := <type-of> String(anystring) 
+         ; SimpleSort("Secret") := <type-of-property> (class,x_prop)
+         ; x_var2 := <newname> "_passwordEncryptor"
+         ; x_set := <property-setter> x_prop
+         ; x_anystring := <concat-strings> ["\"",anystring,"\""]
+
+
+     
+     
+     
+     
+
+  GenerateCodeJavaServlet = generate-java-servlet-global-vars-page-part; fail
+  
+  generate-java-servlet-global-vars-page-part :
+    def |[ define mod* x(farg*) { elem* } ]| ->
+    <generate-java-servlet-template-partial> 
+    class-body-dec* |[
+      ~*cbds
+    ]|
+    where  cbds := <map({\ 
+                           elem |[ var x : srt := e ]| -> 
+                           class-body-dec*|[ 
+                             private t x = null;
+                             @Partial
+                             private void initialize()
+                             {
+                                 x = GlobalVariables.get#x(hibSession);
+                             }
+                           ]| 
+                           where t := <java-servlet-java-type> srt
+                               ; x_class := <java-servlet-type-name> srt
+                       \});concat-with-sublists> 
+                       <AllGlobalVars>
