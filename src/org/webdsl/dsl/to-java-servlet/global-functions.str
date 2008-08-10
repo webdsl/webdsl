@@ -1,0 +1,59 @@
+module org/webdsl/dsl/to-java-servlet/global-functions
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-global-functions; fail
+
+  generate-java-servlet-global-functions :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      import java.io.*;
+      import java.util.HashMap;
+  
+      import javax.servlet.*;
+      import javax.servlet.http.*;
+      import java.util.*;
+      import utils.*;
+      import pkgname.*;
+      import pkgname2.*;
+  
+      public class GlobalFunctions {
+        private static org.hibernate.Session hibSession;
+
+        ~*cbds*
+      }
+    ]|
+    where not([] := <AllGlobalFunctions>) // fails if there are no global funcs, won't generate anything then
+    with  pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
+        ; cbds* := 
+            <map({\ 
+              function@Function(x, args, s, Block(stm*)) -> 
+              class-body-dec |[
+                public static t x#_(param*) {
+                  org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+                  bstm*
+                }
+              ]|
+               where {| InFunction
+                      : rules( InFunction := <id> )
+                      ; t      := <java-type> s
+                      ; param* := <map(arguments-to-java-servlet)> args
+                     
+                      //; if SimpleSort("Void") := s then
+                      //    bstm* := <concat> [<statements-to-java> stm*, [java|[ return 0; ]| ]]
+                      //  else
+                      ;   bstm* := <statements-to-java> stm*
+                      //  end
+                      |}
+            \})> 
+              <AllGlobalFunctions>
