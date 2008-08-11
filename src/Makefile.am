@@ -4,7 +4,8 @@ include $(wildcard org/webdsl/dsl/*/*.dep)
 
 ### distribution
 
-# CFLAGS=-O0
+# HACK: This is almost unbuildable with -O2, the default in many configurations
+CFLAGS=-O0
 
 CLEANFILES = \
     rtrees \
