@@ -63,9 +63,6 @@ def register(path, cls, param_mappings=[]):
         def get(self, *params):
             out = StringIO()
             o = cls(template_bindings.ParentTemplate(), self)
-            o.form_counters = {} # Stores hashes => number of forms
-            o.field_counters = {} # Stores hashes => number of forms
-            o.action_queue = [] # List of tuples: (callable, params) to be executed at the end of the rendering stage
             i = 0
             d = {}
             while i < len(params):
@@ -78,20 +75,17 @@ def register(path, cls, param_mappings=[]):
                 i += 1
             o.title = ""
             o.init() # Initialize page
-            o.render(out, False) # Render and do data binding
-            error = ''
+            o.form_counters = {} # Stores hashes => number of forms
+            o.field_counters = {} # Stores hashes => number of forms
+            o.action_queue = [] # List of tuples: (callable, params) to be executed at the end of the rendering stage
+            o.databind()
             redirect_url = o.invoke_actions() # Invoke actions
             if redirect_url:
-                logging.info("Redirecting!")
                 o.rh.redirect(redirect_url)
-            elif o.action_queue:
-                out = StringIO()
-                o.out = out
-                o.form_counters = {}
-                o.field_counters = {}
-                o.render(out, True)
-                error = str("Rerendered...")
-                
+            o.form_counters = {} # Stores hashes => number of forms
+            o.field_counters = {} # Stores hashes => number of forms
+            o.action_queue = [] # List of tuples: (callable, params) to be executed at the end of the rendering stage
+            o.render(out)
             self.response.out.write('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -101,8 +95,6 @@ def register(path, cls, param_mappings=[]):
     <link href="/stylesheets/webdsl.css" rel="stylesheet" type="text/css" />
 </head>
 <body>''' % o.title)
-            if error:
-                self.response.out.write('<div class="error">%s</div>' % error)
             self.response.out.write(out.getvalue())
             self.response.out.write('''</body></html>''')
             o.store_session()
@@ -126,6 +118,7 @@ class RequestHandler(object):
     def init(self):
         self.prepare_templates()
         self.load_session()
+        self.init_templates()
         self.initialize()
 
     def queue_action(self, callable, params):
@@ -154,7 +147,10 @@ class RequestHandler(object):
     def initialize(self):
         pass
 
-    def render(self, out, render_only):
+    def render(self, out):
+        pass
+
+    def databind(self):
         pass
 
 def run():

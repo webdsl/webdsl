@@ -26,27 +26,26 @@ strategies
         ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
         // Find all local templates
         ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
-        ; stm* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
+        ; stm1* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
                               ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
-        ; stm2* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
-        ; stm3* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
+        ; stm3* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
+        ; stm4* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
         ; <emit-python(|"template")> python*|[
             @partial
             class x_cls(webdsl.utils.RequestHandler): {
               def prepare_templates(self): {
-                stm*
+                stm1*
                 pass;
               };
 
               def load_session(self): {
                   session = webdsl.session.Session();
-                  stm2*
+                  stm3*
               };
 
-
               def store_session(self): {
-                  stm3*
+                  stm4*
                   pass;
               };
             };
@@ -87,28 +86,64 @@ strategies
         ; {| ThisTemplate, IsScoped, CurrentActionId
            : rules ( ThisTemplate := x )
            ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
-           ; stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
+           ; stm* := <collect(py-page-elem-to-init); concat> elem*
+           ; stm1* := <py-page-elems-to-databind> elem*
+           ; stm2* := <py-page-elems-to-render> elem*
+           ; stm3* := <collect(py-page-template-calls-to-init); concat> elem*
            |}
         ; <emit-python(|"template")> python*|[
             @partial
             class x_cls(webdsl.utils.RequestHandler): {
-              def render(self, out, render_only): {
-                template_call_counter = -1;
+              def init_templates(self): {
                 stm*
+                stm3*
+                pass;
+              };
+              def databind(self): {
+                template_call_counter = -1;
+                stm1*
+                pass;
+              };
+              def render(self, out): {
+                template_call_counter = -1;
+                stm2*
+                pass;
               };
             };
           ]|
       )
 
-  py-page-elems-to-code =
-    map( py-page-elem-to-code; ![<id>|python*|[ out.write(new_line()); ]| ]
+  py-page-elems-to-databind =
+    map( py-page-elem-to-databind <+ py-page-elem-to-databind-generic <+ ![])
+    ; flatten-list
+
+  py-page-elems-to-render =
+    map( py-page-elem-to-render; ![<id>|python*|[ out.write(new_line()); ]| ]
       <+ py-skipped-element)
     ; flatten-list
 
-  py-page-elems-to-code(wrap) =
-    map( py-page-elem-to-code; wrap; ![<id>|python*|[ out.write(new_line()); ]| ]
+  py-page-elems-to-render(wrap) =
+    map( py-page-elem-to-render; wrap; ![<id>|python*|[ out.write(new_line()); ]| ]
       <+ py-skipped-element)
     ; flatten-list
+
+rules
+  py-page-elem-to-databind-generic :
+    TemplateCall(_, _, elems*) -> <py-page-elems-to-databind> elems*
+//////////////////////////////////////////
+  py-page-template-calls-to-init :
+    TemplateCall(name, args, _) ->
+    python*|[ 
+        t = e_tmplobj;
+        t.init();
+        self.templates.append(t);
+        ]|
+    where t* := <map(type-of)> args
+        ; Define(mods, n, fargs, body) := <TemplateSignature> (name, t*)
+    with e_namestr := <concat-strings> ["'", name, "'"]
+       ; e_tmplclass := py-exp|[ self.template_bindings[e_namestr] ]|
+       ; scopedparams := <zip(\ (Arg(x, _), e) -> NamedParam(x, <expression-to-python> e) \)> (fargs, args)
+       ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|)], scopedparams])
 
 rules
   py-skipped-element =
@@ -118,7 +153,7 @@ rules
 
 rules // Local templates
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     Define([Local()], x, args, elem*) -> []
     with name := <concat-strings> [<ThisTemplate>, "_", x]
        ; x_cls := <capitalize-string> name
@@ -126,13 +161,42 @@ rules // Local templates
        ; {| ThisTemplate, IsScoped, CurrentActionId
           : rules ( ThisTemplate := name )
           ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
-          ; stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
+          ; stm* := <collect(py-page-elem-to-init); concat> elem*
+          ; stm2* := <py-page-elems-to-render> elem*
+          ; stm3* := <collect(py-page-template-calls-to-init); concat> elem*
           |}
        ; x_pagecls := <ThisTemplate; capitalize-string>
        ; <emit-python(|"template")> python*|[
            @partial
            class x_cls(webdsl.utils.RequestHandler): {
-             def render(self, out, render_only): {
+              def init_templates(self): {
+                stm*
+                stm3*
+                pass;
+              };
+              def render(self, out): {
+                template_call_counter = -1;
+                stm2*
+                pass;
+              };
+           };
+        ]|
+
+  py-page-elem-to-databind :
+    Define([Local()], x, args, elem*) -> []
+    with name := <concat-strings> [<ThisTemplate>, "_", x]
+       ; x_cls := <capitalize-string> name
+       ; e_path := String(<concat-strings> ["'/", x, "'"])
+       ; {| ThisTemplate, IsScoped, CurrentActionId
+          : rules ( ThisTemplate := name )
+          ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
+          ; stm* := <py-page-elems-to-databind> elem*
+          |}
+       ; x_pagecls := <ThisTemplate; capitalize-string>
+       ; <emit-python(|"template")> python*|[
+           @partial
+           class x_cls(webdsl.utils.RequestHandler): {
+             def databind(self): {
                 template_call_counter = -1;
                 stm*
              };
@@ -141,7 +205,7 @@ rules // Local templates
       
 rules // Init block
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
     InitAction(Block(stat*)) -> []
     with x_cls := <capitalize-string> <ThisTemplate>
        ; stm* := <statements-to-python> stat*
@@ -156,15 +220,15 @@ rules // Init block
         ]|
 rules
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     Text(e) -> python*|[ out.write(e2); ]|
     where e2 := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("text", [e], []) -> python*|[ out.write(cgi.escape(unicode(e2), True)); ]|
     where e2 := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("title", [], elems) -> 
     python*|[ 
       from StringIO import StringIO;
@@ -174,21 +238,28 @@ rules
       self.title = out.getvalue();
       out = old_out;
     ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-code :
-    TemplateCall("title", [e], elems) -> <py-page-elem-to-code> TemplateCall("title", [], [Text(e)])
+  py-page-elem-to-render :
+    TemplateCall("title", [e], elems) -> <py-page-elem-to-render> TemplateCall("title", [], [Text(e)])
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ form() { elem* }]| -> python*|[
       out.write('<form method="POST">');
       form_id = webdsl.utils.generateFormHash(self.scope, self);
-      is_submitted_form = self.rh.request.get('form_id') == form_id;
       out.write('<input type="hidden" name="form_id" value="%s"/>' % form_id);
       stm*
       out.write('</form>');
     ]|
-    where stm* := <map(py-page-elem-to-code <+ py-skipped-element)> elem*
+    where stm* := <map(py-page-elem-to-render <+ py-skipped-element)> elem*
+
+  py-page-elem-to-databind :
+    elem|[ form() { elem* }]| -> python*|[
+      form_id = webdsl.utils.generateFormHash(self.scope, self);
+      is_submitted_form = self.rh.request.get('form_id') == form_id;
+      stm*
+    ]|
+    where stm* := <py-page-elems-to-databind> elem*
 
   py-get-data-object =
     ?e
@@ -198,12 +269,9 @@ rules
         !<expression-to-python> e
       end
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ inputString(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
-              e_target = self.rh.request.get(field_id);
-          };
           out.write('<input type="text" name="' + field_id + '" class="inputString" value="');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('"/>');
@@ -212,18 +280,26 @@ rules
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ inputString(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form: {
+              e_target = self.rh.request.get(field_id);
+          };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
     elem|[ outputString(e){} ]| -> python*|[
           out.write(cgi.escape(unicode(e_target), True));
     ]|
     with e_target := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ inputSecret(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
-              e_target = self.rh.request.get(field_id);
-          };
           out.write('<input type="password" name="' + field_id + '" class="inputSecret" value="');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('"/>');
@@ -232,23 +308,31 @@ rules
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ inputSecret(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form: {
+              e_target = self.rh.request.get(field_id);
+          };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
     elem|[ outputSecret(e){} ]| -> python*|[
           out.write('**********');
     ]|
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ outputInt(e){} ]| -> python*|[
           out.write(unicode(e_target));
     ]|
     with e_target := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ inputInt(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
-              e_target = self.rh.request.get(field_id);
-          };
           out.write('<input type="text" name="' + field_id + '" class="inputInt" value="');
           out.write(unicode(e_target), True);
           out.write('"/>');
@@ -257,13 +341,20 @@ rules
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
-
-  py-page-elem-to-code :
-    elem|[ inputText(e){} ]| -> python*|[
+  py-page-elem-to-databind :
+    elem|[ inputInt(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
+          if is_submitted_form: {
               e_target = self.rh.request.get(field_id);
           };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
+    elem|[ inputText(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
           out.write('<textarea name="' + field_id + '" class="inputText">');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('</textarea>');
@@ -272,13 +363,22 @@ rules
     with e_target := <expression-to-python> e
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
-  
-  py-page-elem-to-code :
-    elem|[ inputWikiText(e){} ]| -> python*|[
+
+  py-page-elem-to-databind :
+    elem|[ inputText(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
+          if is_submitted_form: {
               e_target = self.rh.request.get(field_id);
           };
+    
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+  
+  py-page-elem-to-render :
+    elem|[ inputWikiText(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
           out.write('<textarea name="' + field_id + '" class="inputWikiText">');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('</textarea>');
@@ -288,23 +388,32 @@ rules
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ inputWikiText(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form: {
+              e_target = self.rh.request.get(field_id);
+          };
+    
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
     elem|[ outputText(e){} ]| -> python*|[
           out.write(webdsl.parse_text(e_target));
     ]|
     with e_target := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ outputWikiText(e){} ]| -> python*|[
           out.write(webdsl.parse_wikitext(e_target));
     ]|
     with e_target := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ inputBool(e){} ]| -> python*|[
-          if is_submitted_form and not render_only: {
-              e_target = bool(self.rh.request.get(e_fld));
-          };
           out.write('<input type="checkbox" name="' + e_fld + '" ');
           if e_target: {
             out.write('checked="checked"');
@@ -315,7 +424,16 @@ rules
     with e_target := <expression-to-python> e
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ inputBool(e){} ]| -> python*|[
+          if is_submitted_form: {
+              e_target = bool(self.rh.request.get(e_fld));
+          };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+
+  py-page-elem-to-render :
     elem|[ outputBool(e){} ]| -> python*|[
           if e_target: {
             out.write('Yes');
@@ -326,11 +444,8 @@ rules
     ]|
     with e_target := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ inputEmail(e){} ]| -> python*|[
-          if is_submitted_form and not render_only: {
-              e_target = self.rh.request.get(e_fld);
-          };
           out.write('<input type="text" name="' + e_fld + '" value="');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('"/>');
@@ -339,19 +454,25 @@ rules
     with e_target := <expression-to-python> e
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ inputEmail(e){} ]| -> python*|[
+          if is_submitted_form: {
+              e_target = self.rh.request.get(e_fld);
+          };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+
+  py-page-elem-to-render :
     elem|[ outputEmail(e){} ]| -> python*|[
           out.write('<a href="mailto:' + cgi.escape(unicode(e_target), True) + '">' + cgi.escape(unicode(e_target), True) + '</a>');
     ]|
     with e_target := <expression-to-python> e
 
 rules 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     elem|[ hidden(e){} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form and not render_only: {
-              e_target = e_convert(self.rh.request.get(field_id));
-          };
           out.write('<input type="hidden" name="' + field_id + '" value="');
           out.write(cgi.escape(unicode(e_target), True));
           out.write('"/>');
@@ -362,12 +483,21 @@ rules
        ; e_data := <py-get-data-object> e
        ; e_convert := <python-type> <type-of> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ hidden(e){} ]| -> python*|[
+          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+          if is_submitted_form: {
+              e_target = e_convert(self.rh.request.get(field_id));
+          };
+    ]|
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+       ; e_convert := <python-type> <type-of> e
+
+  py-page-elem-to-render :
     elem|[ action(e1, e2){} ]| -> python*|[
           out.write('<input type="submit" name="action-' + e_actionr + '" value="' + cgi.escape(unicode(e_txt), True) + '"/>');
-          if self.rh.request.get('action-' + e_actionr) and is_submitted_form and not render_only: {
-              self.queue_action(e_call, [e*]);
-          };
     ]|
     with actionr := <CurrentActionId <+ !1>
        ; rules ( CurrentActionId := <inc> actionr )
@@ -378,12 +508,30 @@ rules
        ; e_call := py-exp|[ self.x_action ]|
        ; e* := <map(expression-to-python)> arg*
 
-  py-page-elem-to-code :
+  py-page-elem-to-databind :
+    elem|[ action(e1, e2){} ]| -> python*|[
+          if self.rh.request.get('action-' + e_actionr) and is_submitted_form: {
+              self.queue_action(e_call, [e*]);
+          };
+    ]|
+    with actionr := <CurrentActionId <+ !1>
+       ; rules ( CurrentActionId := <inc> actionr )
+       ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
+       ; ThisCall(x, arg*) := e2
+       ; x_action := <concat-strings> ["do_", x]
+       ; e_call := py-exp|[ self.x_action ]|
+       ; e* := <map(expression-to-python)> arg*
+
+  py-page-elem-to-databind :
     a@elem|[ action x_action(farg*) { stat* } ]| ->
     []
     with x_class := <ThisTemplate; capitalize-string>
        ; stm_action := <action-to-python> a
        ; <emit-python(|"template")> python*|[ @partial class x_class(webdsl.utils.RequestHandler): { stm_action }; ]|
+
+  py-page-elem-to-render :
+    a@elem|[ action x_action(farg*) { stat* } ]| ->
+    []
 
   action-to-python :
     elem|[ action x_action(farg*) { stat* } ]| ->
@@ -403,42 +551,50 @@ rules
          */
 
 rules
-  py-page-elem-to-code :
-    TemplateCall("dummy", [], elems) -> <py-page-elems-to-code> elems
+  py-page-elem-to-render :
+    TemplateCall("dummy", [], elems) -> <py-page-elems-to-render> elems
 
 rules // block
 
   // @obsolete; use block{ ... } instead of div{ ... }
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("div", [String(str)], elems) ->
     python*|[ 
       out.write('<div class="' + e_str + '">');
       stm*
       out.write('</div>');
       ]|
-    with stm* := <py-page-elems-to-code> elems
+    with stm* := <py-page-elems-to-render> elems
        ; e_str := <concat-strings> ["'", str, "'"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("block", [], elems) ->
     python*|[ 
       out.write('<div>');
       stm*
       out.write('</div>');
       ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("block", [String(str)], elems) ->
     python*|[ 
       out.write('<div class="' + e_str + '">');
       stm*
       out.write('</div>');
       ]|
-    with stm* := <py-page-elems-to-code> elems
+    with stm* := <py-page-elems-to-render> elems
        ; e_str := <concat-strings> ["'", str, "'"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-render =
+    ?ForAll(_, _, _, _)
+    ; py-page-elem-to-generic(py-page-elems-to-render)
+
+  py-page-elem-to-databind =
+    ?ForAll(_, _, _, _)
+    ; py-page-elem-to-generic(py-page-elems-to-databind)
+    
+  py-page-elem-to-generic(s) :
     ForAll(x, s, Filter(we, obe, Limit(limit, offset)), elems) ->
     python*|[
       for x in e_coll: {
@@ -458,7 +614,7 @@ rules // block
        ; e_limit := <expression-to-python> limit
        ; e_offset := <expression-to-python> offset
        ; e_coll := py-exp|[ e.limit(e_limit, e_offset) ]|
-       ; stm* := <py-page-elems-to-code> elems
+       ; stm* := <s> elems
 
   py-exp-to-filters(|obj) :
     exp|[ true ]| -> []
@@ -529,16 +685,24 @@ rules // block
           end
 
 rules // Template call
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall(name, args, _) ->
     python*|[ 
         template_call_counter = template_call_counter + 1;
-        if not render_only: {
-          t = e_tmplobj;
-          self.templates.append(t);
-          t.init();
-        };
-        (self.templates[template_call_counter]).render(out, render_only);
+        (self.templates[template_call_counter]).render(out);
+        ]|
+    where t* := <map(type-of)> args
+        ; Define(mods, n, fargs, body) := <TemplateSignature> (name, t*)
+    with e_namestr := <concat-strings> ["'", name, "'"]
+       ; e_tmplclass := py-exp|[ self.template_bindings[e_namestr] ]|
+       ; scopedparams := <zip(\ (Arg(x, _), e) -> NamedParam(x, <expression-to-python> e) \)> (fargs, args)
+       ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|)], scopedparams])
+
+  py-page-elem-to-databind :
+    TemplateCall(name, args, _) ->
+    python*|[ 
+        template_call_counter = template_call_counter + 1;
+        (self.templates[template_call_counter]).databind();
         ]|
     where t* := <map(type-of)> args
         ; Define(mods, n, fargs, body) := <TemplateSignature> (name, t*)
@@ -550,47 +714,47 @@ rules // Template call
 rules // spacers
 
   /*
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("spacer", [], []) ->
     python*|[ out.write('<hr id="' + e_id + "/>'); ]|
     %> <rich:spacer id="<%= spacer-id %>" /> <%
     where e_id := <concat-strings> ["'", <newname> "spacer", "'"]
     */
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("horizontalspacer", [], []) ->
     python*|[ out.write('<hr/>'); ]|
 
 rules // images
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("image",[e],[]) -> 
     python*|[ out.write('<img src="' + e2 + '"/>'); ]|
     where e2 := <expression-to-python> e
 
 rules // lists
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("list", [], elems) ->
     python*|[
       out.write('<ul>');
       stm*
       out.write('</ul>');
     ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("listitem", [], elems) ->
     python*|[
       out.write('<li>');
       stm*
       out.write('</li>');
     ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
 rules // sections and headers
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("header", [], elems) ->
     python*|[
       out.write('<' + e_h + '>');
@@ -600,9 +764,9 @@ rules // sections and headers
     where not(DataTable) ; not(TableScope)
     with n := <SectionDepth <+ !1>
        ; e_h := <concat-strings> ["'h", <int-to-string> n, "'"]
-       ; stm* := <py-page-elems-to-code> elems
+       ; stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("section", [], elems) ->
     python*|[
       out.write('<div class="' + e_level + '">');
@@ -612,30 +776,30 @@ rules // sections and headers
     with {| SectionDepth
            : rules( SectionDepth := <(SectionDepth <+ !0); inc> )
            ; e_level := <concat-strings> ["'section", <SectionDepth; int-to-string>, "'"]
-           ; stm* := <py-page-elems-to-code> elems
+           ; stm* := <py-page-elems-to-render> elems
            |}
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("par", [], elems) ->
     python*|[
       out.write('<p>');
       stm*
       out.write('</p>');
     ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("container", [], elems) ->
     python*|[
       out.write('<span>');
       stm*
       out.write('</span>');
     ]|
-    where stm* := <py-page-elems-to-code> elems
+    where stm* := <py-page-elems-to-render> elems
 
 rules // tables
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("table", [], elems) ->
     python*|[
       out.write('<table>');
@@ -644,10 +808,10 @@ rules // tables
     ]|
     where {| TableScope
            : rules ( TableScope := 1 )
-           ; stm* := <py-page-elems-to-code> elems
+           ; stm* := <py-page-elems-to-render> elems
            |}
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("header", [], elems) ->
     python*|[
       out.write('<tr>');
@@ -655,16 +819,16 @@ rules // tables
       out.write('</tr>');
     ]|
     where TableScope
-    with stm* := <py-page-elems-to-code(py-table-header-wrap)> elems
+    with stm* := <py-page-elems-to-render(py-table-header-wrap)> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("row", [], elems) ->
     python*|[
       out.write('<tr>');
       stm*
       out.write('</tr>');
     ]|
-    with stm* := <py-page-elems-to-code(py-table-cell-wrap)> elems
+    with stm* := <py-page-elems-to-render(py-table-cell-wrap)> elems
 
   py-table-cell-wrap :
     stm* -> python*|[
@@ -682,21 +846,30 @@ rules // tables
 
 rules // if
 
-  py-page-elem-to-code :
+  py-page-elem-to-generic(s) :
     IfTempl(e, elems) ->
     python*|[
       if(e2): {
         stm*
+        pass;
       };
     ]|
-    with stm* := <py-page-elems-to-code> elems
+    with stm* := <s> elems
        ; e2 := <expression-to-python> e
+
+  py-page-elem-to-render =
+    ?IfTempl(e, elems)
+    ; py-page-elem-to-generic(py-page-elems-to-render)
+
+  py-page-elem-to-databind =
+    ?IfTempl(e, elems)
+    ; py-page-elem-to-generic(py-page-elems-to-databind)
     
 rules // links
 
   // link to a url, maybe constant, or obtained from an entity field
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
     python*|[
       out.write('<a href="' + e_link + '">');
@@ -704,10 +877,10 @@ rules // links
       out.write('</a>');
     ]|
     where not(ThisCall(p,args) := e)
-    with stm* := <py-page-elems-to-code> elems
+    with stm* := <py-page-elems-to-render> elems
        ; e_link := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("navigate",[call@ThisCall(p,args)],elems) ->
     python*|[
       out.write('<a href="' + e_link + '">');
@@ -715,11 +888,11 @@ rules // links
       out.write('</a>');
     ]|
     where <IsPage> p
-        ; stm* := <py-page-elems-to-code> elems
+        ; stm* := <py-page-elems-to-render> elems
         ; e_link := <py-call-to-view-string> call
 
   /*
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("navigatebutton", [ThisCall("url",[e]), txt], []) ->
     python*|[
       out.write('<input type="button" onclick="location=\'' + e_link + '\';" value="' + e_txt + '"/>');
@@ -728,7 +901,7 @@ rules // links
     with e_txt := <expression-to-python> txt
        ; e_link := <expression-to-python> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("navigatebutton",[call@ThisCall(p,args), txt],[]) ->
     python*|[
       out.write('<input type="button" onclick="location=\'' + e_link + '\';" value="' + e_txt + '"/>');
@@ -739,13 +912,13 @@ rules // links
        */
 
   /*
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("url",[e],[]) ->
     %> <h:outputText value="<%= url %>" /> <%
     where not(ThisCall(p,args) := e)
         ; url := <arg-to-value-string> e
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("url",[ThisCall(p,args)],[]) ->
 //    %> <h:outputText value="http://#{<%= <ThisPage> %>.facesContext.externalContext.getRequestHeaderMap("host")}<%= url %>" /> <%
     %> <h:outputText value="#{<%= <ThisPage> %>.hostName}<%= url %>" /> <%
@@ -758,11 +931,11 @@ rules // links
 
 rules // Select
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     Select(x, SimpleSort(x_type), label, e) ->
     python*|[
         field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
-        if is_submitted_form and not render_only: {
+        if is_submitted_form: {
             e_target = data.x_type.fetch_by_id(self.rh.request.get( field_id ));
         };
         out.write('<select name="' + field_id + '">');
@@ -785,23 +958,25 @@ rules // Select
 
 rules // vardecl
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
+    VarDeclInit(x, s, expr) -> []
+
+  py-page-elem-to-render :
+    VarDecl(x, s) -> []
+
+  py-page-elem-to-init :
     VarDeclInit(x, s, expr) ->
     python*|[ 
-        if not render_only: {
-          self.scope[e_x] = e;
-        };
+        self.scope[e_x] = e;
         ]|
     with rules ( IsScoped : x )
        ; e_x := <concat-strings> ["'", x, "'"]
        ; e := <expression-to-python> expr
 
-  py-page-elem-to-code :
+  py-page-elem-to-init :
     VarDecl(x, s) ->
     python*|[ 
-        if not render_only: {
-          self.scope[e_x] = e;
-        };
+        self.scope[e_x] = e;
         ]|
     with rules ( IsScoped : x )
        ; e_x := <concat-strings> ["'", x, "'"]
@@ -812,7 +987,7 @@ rules // vardecl
 rules // iteration
 
   // @todo: other For expressions
-  py-page-elem-to-code : //@todo: lifting!
+  py-page-elem-to-render : //@todo: lifting!
     For(x, s, e, Filter(True(), obe), elems) -> // No "where" clause
     %>
       <c:forEach var="<%= x %>" items="<%= <arg-to-el-string> e %>">
@@ -822,7 +997,7 @@ rules // iteration
     where InToplevelTemplate
         ; <contains-template-call> elems
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     For(x, s, e, Filter(we, obe), elems1) ->
     %>
       <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
@@ -835,7 +1010,7 @@ rules // iteration
         //; el := <arg-to-value-string> e
         ; elems2  := <elems-to-xhtml> elems1
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     For(x, s, e, Filter(True(), obe), elems1) -> // No "where" clause
     %>
       <ui:repeat var="<%= x %>" value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>">
@@ -846,7 +1021,7 @@ rules // iteration
 
 rules // select from
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     SelectFromList(e1, e2) ->
     %>
        <h:selectManyListbox value="#{<%= x_prop %>}">
@@ -860,7 +1035,7 @@ rules // select from
         ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
         ; x         := <newname> "selectvar"
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     SelectFromList(e1, e2) ->
     %>
        <h:selectOneMenu value="#{<%= x_prop %>}">
@@ -876,7 +1051,7 @@ rules // select from
 
 rules // select
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectManyListbox value="#{<%= x_prop %>}">
@@ -890,7 +1065,7 @@ rules // select
         ; x_List    := <concat-strings>[x, "List"]
         ; x_prop    := <concat-strings> [<arg-to-el> e, "List"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     Select(x, SimpleSort(s), label, e) ->
     %>
        <h:selectOneMenu value="#{<%= x_prop %>}">
@@ -906,7 +1081,7 @@ rules // select
 
 rules // template
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     def |[ define local x(farg*) { elem* } ]| ->
     %>
     
@@ -923,7 +1098,7 @@ rules // template
           
 rules // template call
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall(name, args, _) ->
     %>
       <ui:insert name="<%= name %>">
@@ -952,7 +1127,7 @@ rules // template call
           end
 //        ; <debug> ["_____", n, fargs]
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall(name, args, _) ->
     %>
       <ui:include src="<%= target %>">
@@ -966,7 +1141,7 @@ rules // template call
     
 rules // forms
 
-  py-page-elem-to-code :  // the <f:facet> puts validation errors behind their inputs
+  py-page-elem-to-render :  // the <f:facet> puts validation errors behind their inputs
     tc@TemplateCall("form", [], elems) ->
     %>
       <h:form enctype="multipart/form-data" att0>
@@ -993,7 +1168,7 @@ rules // forms
     where <defined-java-type> s
         ; e1 := <concat-strings>[i, "_id"]
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("action",[e1,e2],[]) ->
     %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
@@ -1002,7 +1177,7 @@ rules // forms
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("action",[e1,e2,e3],[]) ->
     %>
        <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
@@ -1011,7 +1186,7 @@ rules // forms
         ; e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("action",[e1,e2,e3],[]) ->
     %>
        <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
@@ -1025,7 +1200,7 @@ rules // forms
     // canceling the form edits; however, this should NOT be expressed in the
     // name of the action method
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("actionLink",[e1,e2],[]) ->
     %>
        <h:commandLink type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
@@ -1037,7 +1212,7 @@ rules // forms
    is-cancel-action =
      ?Call(Var(component), "cancel", [])
 
-   py-page-elem-to-code :
+   py-page-elem-to-render :
     TemplateCall("action",[e1,e2],[]) ->
     %>
        <h:commandButton value="<%= e1string %>" action="<%= e2string %>"/>
@@ -1045,12 +1220,12 @@ rules // forms
     where e1string := <arg-to-value-string> e1
         ; e2string := <arg-to-value-string> e2
 
-   py-page-elem-to-code :
+   py-page-elem-to-render :
      Action(name, args, body) -> []
 
 rules // captcha
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("captcha", [], []) ->
     %>
       <div class="captcha">
@@ -1087,7 +1262,7 @@ rules // helper rules for input
 
 rules // output
 
-  py-page-elem-to-code :
+  py-page-elem-to-render :
     TemplateCall("output",[e],[]) ->
     %>
       <h:outputText styleClass="output" value="<%= estring %>"/>
