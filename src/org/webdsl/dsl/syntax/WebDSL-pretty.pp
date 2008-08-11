@@ -101,10 +101,11 @@
    If                                 -- V is=2[V[V is=2[H[KW["if"] KW["("] _1 KW[")"]] _2] KW["else"] ] _3],
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
 
-   Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2,
+   Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
    OrderNonSpecific                   -- _1,
    OrderAscending                     -- _1 KW["asc"],
    OrderDescending                    -- _1 KW["desc"],
+   Limit                              -- KW["limit"] _1 KW["offset"] _2,
 
    ForStmt                            -- V[H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] ] _5],
    ForStmt.5:iter-star                -- _1,
