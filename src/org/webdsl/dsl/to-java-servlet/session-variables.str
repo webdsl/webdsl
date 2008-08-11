@@ -18,7 +18,7 @@ rules
     class-body-dec* |[
       ~*cbds
     ]|
-    with  sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se\)> elem*
+    with  sents := <SessionEntities<+![]>
         ; cbds  := <map(generate-java-servlet-session-vars-template-helper);concat> sents
 
   generate-java-servlet-session-vars-template-helper :
@@ -30,13 +30,7 @@ rules
            @Partial
            private void initialize()
            {
-             x_ident = (x_ent) session.getAttribute("~x_ident");
-             if(x_ident == null)
-             {
-               x_ident = new x_ent();
-               session.setAttribute("~x_ident",x_ident);
-             }
-             
+             x_ident = (x_ent) variables.get("~x_ident");
            }
         ]| 
     with  x_ent := <capitalize-string> x_ident
@@ -49,20 +43,31 @@ rules
     def|[ define mod* x_page (farg*) { elem* } ]| ->
     <generate-java-servlet-partial> 
     class-body-dec* |[
+      ~*cbds*
+    ]|
+    with  sents := <SessionEntities<+![]>
+        ; cbds*  := <map(generate-java-servlet-session-vars-page-helper-1);concat> sents 
+  
+  generate-java-servlet-session-vars-page-helper-1:
+    def|[ session x_ident { prop* fun* } ]| -> 
+    class-body-dec* |[    
            @Partial
            private void initialize()
            {
+             x_ent x_ident = null;
+             x_ident = (x_ent) session.getAttribute("~x_ident");
+             if(x_ident == null)
+             {
+               x_ident = new x_ent();
+               session.setAttribute("~x_ident",x_ident);
+             }
              bstm*
+             variables.put("~x_ident",x_ident);
            }
     ]|
-    with  sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se\)> elem*
-        ; bstm*  := <map(generate-java-servlet-session-vars-page-helper-1);concat> sents 
-  
-  generate-java-servlet-session-vars-page-helper-1:
-    def|[ session x_ident { prop* fun* } ]| -> bstm0*
-    with  classofsession := <type-of> Var(x_ident)
-        ; SimpleSort(classname) := classofsession
-        ; bstm0* := <filter(generate-java-servlet-session-vars-page-helper-2(|x_ident))> prop*
+    with  x_ent := <type-of> Var(x_ident)
+        ; SimpleSort(classname) := x_ent
+        ; bstm* := <filter(generate-java-servlet-session-vars-page-helper-2(|x_ident))> prop*
 
   generate-java-servlet-session-vars-page-helper-2(|x_ident):
     Property(x, k, s, annos) -> java|[

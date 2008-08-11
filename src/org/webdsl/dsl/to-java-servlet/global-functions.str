@@ -35,25 +35,37 @@ rules
     where not([] := <AllGlobalFunctions>) // fails if there are no global funcs, won't generate anything then
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
-        ; cbds* := 
-            <map({\ 
-              function@Function(x, args, s, Block(stm*)) -> 
-              class-body-dec |[
-                public static t x#_(param*) {
-                  org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-                  bstm*
-                }
-              ]|
-               where {| InFunction
-                      : rules( InFunction := <id> )
-                      ; t      := <java-type> s
-                      ; param* := <map(arguments-to-java-servlet)> args
-                     
-                      //; if SimpleSort("Void") := s then
-                      //    bstm* := <concat> [<statements-to-java> stm*, [java|[ return 0; ]| ]]
-                      //  else
-                      ;   bstm* := <statements-to-java> stm*
-                      //  end
-                      |}
-            \})> 
-              <AllGlobalFunctions>
+        ; cbds* := <map(webdsl-function-to-java-servlet-function)> <AllGlobalFunctions>
+              
+  webdsl-function-to-java-servlet-function:
+    function@Function(x, args, s, Block(stm*)) -> 
+    class-body-dec |[
+      public mod* t x#_(org.hibernate.Session hibSession, HashMap<String, Object> variables, param*) {
+        bstm1*
+        bstm2*
+        bstm*
+      }
+    ]|
+    with  {| InFunction:
+              rules( InFunction := <id> )
+            ; t      := <java-type> s
+            ; param* := <map(arguments-to-java-servlet)> args
+            ; bstm*  := <statements-to-java> stm*
+            ; bstm1* := <map({\ 
+                           elem |[ var x : srt := e ]| -> 
+                           bstm |[ t x = (x_class) variables.get("~x"); ]| 
+                           where t := <java-servlet-java-type> srt
+                               ; x_class := <java-servlet-type-name> srt
+                       \})> 
+                       <AllGlobalVars>
+            ; bstm2* := <map({\
+                           def|[ session x { prop* fun* } ]| ->
+                           bstm |[ t x = (x_ent) variables.get("~x"); ]| 
+                           where x_ent := <capitalize-string> x
+                               ; t := type |[ x_ent ]|
+                       \})> 
+                       <SessionEntities>
+            ; if InEntity 
+              then mod* := []
+              else mod* := [ mod|[static]| ] end       
+            |}

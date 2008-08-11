@@ -18,11 +18,14 @@ section datamodel
     
     temparg(u,s)
     
-    define homelocal(u:User,s:String)
+    define homelocal(u11:User,s11:String)
     {
       "locally defined template"
+      output(u11.name)
+      output(s11)
       output(u.name)
       output(s)
+      
     }
     
   }
