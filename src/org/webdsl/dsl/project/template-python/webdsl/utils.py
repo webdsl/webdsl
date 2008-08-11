@@ -27,7 +27,7 @@ def generateFormHash(data, template):
 
 def generateUniqueFieldName(data, prefix, template):
     if data.__class__ in [str, int, long]: # If's a primitive
-        h = hash(data.__class__.__name__)
+        h = 0
     else:
         h = generateHash(data)
     original_template = template
@@ -37,6 +37,7 @@ def generateUniqueFieldName(data, prefix, template):
         template.field_counters[h] += 1
     else:
         template.field_counters[h] = 1
+    logging.info("%s-%s-%d" % (prefix, h, template.field_counters[h]))
     return "%s-%s-%d" % (prefix, h, template.field_counters[h])
 
 def generateHash(data):
@@ -46,16 +47,15 @@ def generateHash(data):
         parts = []
         for key, value in data.items():
             parts.append('%s: %s' % (key, generateHash(value)))
-        h = hash("\n".join(parts))
+        return hash("\n".join(parts))
     elif isinstance(data, list):
-        h = hash("\n".join([generateHash(e) for e in data]))
+        return hash("\n".join([generateHash(e) for e in data]))
     elif isinstance(data, webdsl.db.Model):
         h = hash(data.id)
         if not data.id:
-            h = hash(data.__class__.__name__)
+            return 0
     else:
-        h = 0
-    return h
+        return 0
 
 def register(path, cls, param_mappings=[]):
     global mappings
