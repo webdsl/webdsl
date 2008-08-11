@@ -26,7 +26,10 @@ def generateFormHash(data, template):
     return "%s-%s-%d" % (original_template.__class__.__name__, h, template.form_counters[h])
 
 def generateUniqueFieldName(data, prefix, template):
-    h = generateHash(data)
+    if data.__class__ in [str, int, long]: # If's a primitive
+        h = hash(data.__class__.__name__)
+    else:
+        h = generateHash(data)
     original_template = template
     while not hasattr(template, 'field_counters'):
         template = template.parent
@@ -37,6 +40,7 @@ def generateUniqueFieldName(data, prefix, template):
     return "%s-%s-%d" % (prefix, h, template.field_counters[h])
 
 def generateHash(data):
+    logging.info("Data: %s" % data)
     h = ''
     if isinstance(data, dict):
         parts = []
@@ -50,7 +54,7 @@ def generateHash(data):
         if not data.id:
             h = hash(data.__class__.__name__)
     else:
-        h = hash(data)
+        h = 0
     return h
 
 def register(path, cls, param_mappings=[]):
@@ -58,7 +62,7 @@ def register(path, cls, param_mappings=[]):
     class _cls(webapp.RequestHandler):
         def get(self, *params):
             out = StringIO()
-            o = cls(template_bindings.ParentTemplate(), self, out)
+            o = cls(template_bindings.ParentTemplate(), self)
             o.form_counters = {} # Stores hashes => number of forms
             o.field_counters = {} # Stores hashes => number of forms
             o.action_queue = [] # List of tuples: (callable, params) to be executed at the end of the rendering stage
@@ -74,18 +78,19 @@ def register(path, cls, param_mappings=[]):
                 i += 1
             o.title = ""
             o.init() # Initialize page
-            o.render() # Render and do data binding
+            o.render(out, False) # Render and do data binding
             error = ''
-            try:
-                o.invoke_actions() # Invoke actions
-            except Exception, e:
-                # Something went wrong, reset some things and rerender with the error message
+            redirect_url = o.invoke_actions() # Invoke actions
+            if redirect_url:
+                logging.info("Redirecting!")
+                o.rh.redirect(redirect_url)
+            elif o.action_queue:
                 out = StringIO()
                 o.out = out
                 o.form_counters = {}
                 o.field_counters = {}
-                o.render()
-                error = str(e)
+                o.render(out, True)
+                error = str("Rerendered...")
                 
             self.response.out.write('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
@@ -107,14 +112,14 @@ def register(path, cls, param_mappings=[]):
     mappings.append((path, _cls))
 
 class RequestHandler(object):
-    def __init__(self, parent, rh, out, **scope):
+    def __init__(self, parent, rh, **scope):
         self.template_bindings = parent.template_bindings
         self.scope = parent.scope.copy()
         self.parent = parent
         self.rh = rh
-        self.out = out
-        self.render_only = False
         self.action_queue = None
+        self.templates = []
+        self.redirect_url = None
         for key, value in scope.items():
             self.scope[key] = value
 
@@ -130,8 +135,12 @@ class RequestHandler(object):
         s.action_queue.append((callable, params))
 
     def invoke_actions(self):
+        redirect_url = None
         for (callable, params) in self.action_queue:
-            callable(*params)
+            ru = callable(*params)
+            if ru:
+                redirect_url = ru
+        return redirect_url
 
     def redirect_to_self(self):
         self.rh.redirect(self.rh.request.path_info)
@@ -145,7 +154,7 @@ class RequestHandler(object):
     def initialize(self):
         pass
 
-    def render(self):
+    def render(self, out, render_only):
         pass
 
 def run():

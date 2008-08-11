@@ -292,7 +292,7 @@ class AllDbQuerySet(QuerySet):
             if self.order:
                 self.query_list = self.query_list.order_by(self.order)
 
-        return self.query_list.limit(self.limit_, self.offset).list()
+        return self.query_list.limit(self.limit_).list()
 
     def copy(self):
         c = AllDbQuerySet(self.type)
