@@ -1,0 +1,68 @@
+module org/webdsl/dsl/modules/pagedfor
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules
+
+  rename :
+    PagedForAll(x, srt, f1, per1, elems1) -> PagedForAll(y, srt, f2, per2, elems2)
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; f2 := <rename-all> f1
+          ; per2 := <rename-all> per1
+          ; elems2 := <rename-all> elems1
+          |}
+
+  rename :
+    PagedForAllNoFilter(x, srt, per1, elems1) -> PagedForAllNoFilter(y, srt, per2, elems2)
+    with {| Rename
+          : y := <rename-bound(|srt)> x
+          ; per2 := <rename-all> per1
+          ; elems2 := <rename-all> elems1
+          |}
+
+rules
+  normalize :
+    PagedForAllNoFilter(x, s, per, te*) -> PagedForAll(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), per, te*)
+
+  normalize :
+    PagedForAll(x, s, FilterNoOrderBy(we, l), per, te*) -> PagedForAll(x, s, Filter(we, OrderAscending(Null()), l), per, te*)
+
+  normalize :
+    PagedForAll(x, s, FilterNoWhere(obe, l), per, te*) -> PagedForAll(x, s, Filter(True(), obe, l), per, te*)
+
+rules
+
+  desugar :
+    webdsl|[ for(x : srt fltr per e5) { elem* } ]| ->
+    <rename-all> webdsl|[ container() {
+      var x_page : Int := 0;
+
+      for(x : srt fltr2) {
+        elem*
+      }
+      form {
+        inputHidden(x_page)
+        if(x_page > 0) {
+          action("previous", x_previous())
+        }
+        action("next", x_next())
+
+        action x_previous() {
+          x_page := x_page - 1;
+        }
+        action x_next() {
+          x_page := x_page + 1;
+        }
+      }
+    }
+    ]|
+    where Filter(we, obe, _) := fltr
+    with x_page := <newname> "page"
+       ; x_previous := <newname> "previous"
+       ; x_next := <newname> "next"
+       ; info(|["Filter: ", fltr])
+       ; info(|"Still here!")
+       ; fltr2 := Filter(we, obe, Limit(e5, exp|[ x_page * e5 ]|))

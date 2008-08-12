@@ -62,7 +62,8 @@
    ForAll.4:iter-star                           -- _1,
    ForAllNoFilter                               -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"]] _3 ] KW["}"] ],
    ForAllNoFilter.3:iter-star                   -- _1,
-
+   PagedForAll                                  -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["per"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
+   PagedForAll.4:iter-star                      -- _1,
 
    Subtable                           -- V[ V is=2[ H[KW["subtable"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
