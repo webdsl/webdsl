@@ -117,11 +117,16 @@ rules
 */
 
   py-merge-classes :
-    (Statement(ClassDef(decs1, classname, superclasses, Block(body1))),
-     Statement(ClassDef(decs2, classname, superclasses, Block(body2)))) ->
-     Statement(ClassDef(decs3, classname, superclasses, Block(body3))) 
+    (Statement(ClassDef(decs1, classname, superclasses1, Block(body1))),
+     Statement(ClassDef(decs2, classname, superclasses2, Block(body2)))) ->
+     Statement(ClassDef(decs3, classname, superclasses3, Block(body3))) 
     where decs3 := <py-merge-add-unique> (decs1, decs2)
         ; body3 := <py-merge-add-body-decs> (body1, body2)
+        ; if [] := superclasses1 then
+            superclasses3 := superclasses2
+          else
+            superclasses3 := superclasses1
+          end
 
   py-merge-many-classes :
     [a] -> a
@@ -138,6 +143,12 @@ rules
         ; group := [cls|<filter(?Statement(ClassDef(_, classname, _, _)))> k]
         ; k2 := <remove-all(?Statement(ClassDef(_, classname, _, _)))> k
 
+  py-reorder-classes =
+    ?classes
+    ; supers := <filter(?Statement(ClassDef(_, _, [py-exp|[ webdsl.polymodel.PolyModel ]|], _)))> classes
+    ; non-supers := <diff> (classes, supers)
+    ; <concat> [supers, non-supers]
+
 strategies
 
   py-merge-classes =
@@ -147,4 +158,5 @@ strategies
     ; py-merge-group-classes
     ; map(py-merge-many-classes)
     ; topdown(try(py-merge-remove-unnecessary-annos))
+    ; py-reorder-classes
     ; !<concat> [<id>, non-classes]

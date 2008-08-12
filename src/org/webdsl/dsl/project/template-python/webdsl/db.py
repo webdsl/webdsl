@@ -10,7 +10,7 @@ class Model(db.Model):
             if kparams.has_key(attr) and kparams[attr] == None:
                 kparams[attr] = []
         db.Model.__init__(self, *params, **kparams)
-        non_google_properties = filter(lambda attr: not isinstance(getattr(self.__class__, attr), db.Property), kparams.keys())
+        non_google_properties = filter(lambda attr: hasattr(self.__class__, attr) and not isinstance(getattr(self.__class__, attr), db.Property), kparams.keys())
         for attr in non_google_properties:
             setattr(self, attr, kparams[attr])
 

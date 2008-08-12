@@ -23,7 +23,7 @@ import pprint, sha, Cookie, os, time, datetime, random, __main__, pickle
 
 # google appengine imports
 from google.appengine.ext import db
-from google.appengine.api import memcache
+#from google.appengine.api import memcache
 
 # settings, if you have these set elsewhere, such as your django settings file
 # you'll need to adjust the values to pull from there.
@@ -91,11 +91,11 @@ class Session(object):
 
         self.cache['sid'] = pickle.dumps(self.sid)
 
-        ''' Initiate memcache object. '''
-        self.memcache = memcache.get("sid-"+self.sid)
-        if self.memcache == None:
-            memcache.add("sid-"+self.sid, {'sid': self.sid}, session_expires)
-            self.memcache = memcache.get("sid-"+self.sid)
+#        ''' Initiate memcache object. '''
+#        self.memcache = memcache.get("sid-"+self.sid)
+#        if self.memcache == None:
+#            memcache.add("sid-"+self.sid, {'sid': self.sid}, session_expires)
+#            self.memcache = memcache.get("sid-"+self.sid)
 
         ''' This put is to update the last_activity field in the datastore. So that every time
             the sessions is accessed, the last_activity gets updated.'''
@@ -193,8 +193,8 @@ class Session(object):
             sessdata.keyname = keyname 
         sessdata.content = pickle.dumps(content)
         self.cache[keyname] = pickle.dumps(content)
-        self.memcache[keyname] = content
-        memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
+        #self.memcache[keyname] = content
+        #memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
         sessdata.put()
         
     def __delete_session(self, sid = None):
@@ -214,8 +214,8 @@ class Session(object):
                 for sd in sessionsdata:
                     db.delete(sd)
             db.delete(sessions)
-        ''' Delete from memcache '''
-        memcache.delete("sid-"+self.sid)
+        #''' Delete from memcache '''
+        #memcache.delete("sid-"+self.sid)
         # If the event class has been loaded, fire off the sessionDeleted event
         if "AEU_Events" in __main__.__dict__:
             __main__.AEU_Events.fire_event("sessionDeleted")
@@ -247,13 +247,13 @@ class Session(object):
         """
         if k in self.cache:
             return pickle.loads(str(self.cache[k]))
-        if k in self.memcache:
-            return self.memcache[k]
+        #if k in self.memcache:
+            #return self.memcache[k]
         data = self.get(k)
         if data:
             self.cache[k] = data.content
-            self.memcache[k] = pickle.loads(data.content)
-            memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
+            #self.memcache[k] = pickle.loads(data.content)
+            #memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
             return pickle.loads(data.content)
         else:
             raise KeyError, str(k)
@@ -278,9 +278,9 @@ class Session(object):
         db.delete(sessdata)
         if k in self.cache:
             del self.cache[k]
-        if k in self.memcache:
-            del self.memcache[k]
-            memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
+        #if k in self.memcache:
+            #del self.memcache[k]
+            #memcache.replace("sid-"+self.sid, self.memcache, self.session_expires)
  
     def __len__(self):
         """

@@ -13,7 +13,7 @@ strategies
   PyGenerateCode = py-template-to-code; fail
 
   py-page-to-code =
-    ?Define([Page()], x, args, elem*)
+    ?def@Define([Page()], x, args, elem*)
     ; with(id
         ; x_cls := <capitalize-string> x
         ; if "home" := x then
@@ -26,9 +26,10 @@ strategies
         ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
         // Find all local templates
         ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
-        ; stm1* := <map(\ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
+        ; stm1* := <map({e_ltmp, x_up: 
+                         \ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
                            with e_ltmp := <concat-strings> ["'", x, "'"]
-                              ; x_up := <concat-strings> [x_cls, "_", x] \)> localtemplates
+                              ; x_up := <concat-strings> [x_cls, "_", x] \})> localtemplates
         ; stm3* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
         ; stm4* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
         ; <emit-python(|"template")> python*|[
@@ -601,11 +602,43 @@ rules // block
     python*|[
       for x in e_coll: {
         stm*
+        pass;
       };
     ]|
     with e_type := <python-type> s
        ; e_start := py-exp|[ webdsl.querylist.AllDbQuerySet(e_type) ]|
        ; filters := <py-exp-to-filters(|x) <+ debug(!"Cannot translate to filters: ")> we 
+       ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-filter(|tuple)> e \)> filters
+       ; e_ob := <py-exp-to-order-by(|x) <+ debug(!"Cannot translate order by: ")> obe
+       ; if not(None() := e_ob) then
+           e := py-exp|[ e2.order_by(e_ob) ]|
+         else
+           e := e2
+         end
+       ; e_limit := <expression-to-python> limit
+       ; e_offset := <expression-to-python> offset
+       ; e_coll := py-exp|[ e.limit(e_limit, e_offset) ]|
+       ; stm* := <s> elems
+
+  py-page-elem-to-render =
+    ?For(_, _, _, _, _)
+    ; py-page-elem-to-generic(py-page-elems-to-render)
+
+  py-page-elem-to-databind =
+    ?For(_, _, _, _, _)
+    ; py-page-elem-to-generic(py-page-elems-to-databind)
+
+  py-page-elem-to-generic(s) :
+    For(x, s, ine, Filter(we, obe, Limit(limit, offset)), elems) ->
+    python*|[
+      for x in e_coll: {
+        stm*
+        pass;
+      };
+    ]|
+    with e_type := <python-type> s
+       ; filters := <py-exp-to-filters(|x) <+ debug(!"Cannot translate to filters: ")> we 
+       ; e_start := <expression-to-python> ine
        ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-filter(|tuple)> e \)> filters
        ; e_ob := <py-exp-to-order-by(|x) <+ debug(!"Cannot translate order by: ")> obe
        ; if not(None() := e_ob) then

@@ -4,6 +4,7 @@ import querylist
 import markdown
 import re
 import session
+import polymodel
 
 RE_LINKS = re.compile(r'(\[\[(\w+)(\(([^\)]*)\))?(\|([^\]]+))?\]\])')
 
