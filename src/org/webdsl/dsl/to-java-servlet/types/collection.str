@@ -1,0 +1,215 @@
+module org/webdsl/dsl/to-java-servlet/types/collection
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+
+rules 
+  java-servlet-element-id : 
+    tc@Select(x, SimpleSort(s), label, e) -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+
+  //SimpleSort property select
+  handle-actions-input-to-java-servlet :
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getRequest().getParameter(ident)!=null)
+        {
+            t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(ps.getRequest().getParameter(ident)));
+            bstm 
+        }
+    ]|
+    where SimpleSort(_) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
+    
+  elem-to-java-servlet : 
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" >");
+    java.util.Iterator iter = hibSession.createQuery("from "+"~x_argtype").iterate() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getRequest().getParameter(x_temp).equals(String.valueOf(x.getId())))
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.println(">"+x.getName()+"</option>");
+    }
+    out.println("</select>"); 
+    ]|
+    where SimpleSort(_) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; e1 := <arg-to-value-string-java-servlet> e
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; e2 := <expression-to-java-servlet> e
+
+          
+  //GenericSort property select
+  handle-actions-input-to-java-servlet :
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        if(ps.getRequest().getParameterValues(ident)!=null)
+        {
+            e2.clear();
+            for(String elem : ps.getRequest().getParameterValues(ident))
+            {
+              t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(elem));
+              e2.add(x_temp);  
+            }
+        }
+    ]|
+    where GenericSort(_, _) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
+        ; e2 := <expression-to-java-servlet> e
+    
+  elem-to-java-servlet : 
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
+    java.util.Iterator iter = hibSession.createQuery("from "+"~x_argtype").iterate() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        for(String elem : ps.getRequest().getParameterValues(x_temp))
+        {
+          if(elem.equals(String.valueOf(x.getId())))
+          {
+            out.print("selected=\"selected\"");
+          }
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.println(">"+x.getName()+"</option>");
+    }
+    out.println("</select>"); 
+    ]|
+    where GenericSort(_, _) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; e1 := <arg-to-value-string-java-servlet> e
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; e2 := <expression-to-java-servlet> e
+  
+
+          
+   /*     
+    <select name="cars">
+<option value="volvo">Volvo</option>
+<option value="saab">Saab</option>
+<option value="fiat" selected="selected">Fiat</option>
+<option value="audi">Audi</option>
+</select>
+    */
+    
+    /*
+rules // select
+
+  elem-to-java-servlet :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
+       <h:selectManyListbox value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" />
+          <s:convertEntity />
+        </h:selectManyListbox>
+    <%
+    where GenericSort(_, _) := <type-of> e
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <concat-strings> [<arg-to-el> e, "List"]
+
+  elem-to-java-servlet :
+    Select(x, SimpleSort(s), label, e) ->
+    %>
+       <h:selectOneMenu value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= <ThisPage> %>.<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
+          <s:convertEntity />
+        </h:selectOneMenu>
+    <%
+    where SimpleSort(_) := <type-of> e
+        ; X         := <capitalize-string> x
+        ; x_List    := <concat-strings>[x, "List"]
+        ; x_prop    := <arg-to-el> e 
+        
+        
+        */   
+    
+/*
+rules // select from
+
+  
+  
+  elem-to-java-servlet :
+    SelectFromList(e1, e2) ->
+    %>
+       <h:selectManyListbox value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" />
+          <s:convertEntity />
+        </h:selectManyListbox>
+    <%
+    where GenericSort(_, _) := <type-of> e1
+        ; x_prop    := <concat-strings> [<arg-to-el> e1, "List"]
+        ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
+        ; x         := <newname> "selectvar"
+
+
+  elem-to-java-servlet :
+    SelectFromList(e1, e2) ->
+    %>
+       <h:selectOneMenu value="#{<%= x_prop %>}">
+          <s:selectItems value="#{<%= x_List %>}"
+                         var="<%= x %>" label="#{<%= x %>.name}" noSelectionLabel="" />
+          <s:convertEntity />
+        </h:selectOneMenu>
+    <%
+    where SimpleSort(_) := <type-of> e1
+        ; x_prop    := <concat-strings> [<arg-to-el> e1]
+        ; x_List    := <concat-strings> [<arg-to-el> e2, "List"]
+        ; x         := <newname> "selectvar"
+*/
+
+
