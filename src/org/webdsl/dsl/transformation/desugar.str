@@ -44,11 +44,19 @@ strategies
 
 rules
 
-  desugar = once-ExtendFunction
-
   desugar :
-    ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
-    where fsig := <map(\ Arg(_, srt) -> srt \)> fargs
+    Entity(x, sup, prop*, fun1*) -> Entity(x, sup, prop*, fun2*)
+    where extendfunctions := <filter(?ExtendFunction(_))> fun1*
+        ; not([] := extendfunctions)
+    with {| ExtendFunction
+          : <map(extend-function-drs)> extendfunctions
+          ; fun2* := <map(try(ExtendFunction))> fun1*
+          |}
+
+  extend-function-drs =
+    ?ExtendFunction(Function(fun, fargs, _, Block(stats)))
+    ; with(id
+        ; fsig := <map(\ Arg(_, srt) -> srt \)> fargs
         ; rules (
             ExtendFunction :+
               Function(fun, fargs2, SimpleSort("Void"), Block(stats2)) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
@@ -56,7 +64,23 @@ rules
                   ; renamepairs := <zip> (<map(\ Arg(x, _) -> x\)> fargs, <map(\ Arg(x, _) -> x\)> fargs2)
                   ; (stats3, []) := <rename-all-vars> (stats, renamepairs)
                   ; newstats := <concat> [stats2, stats3]
+            )
           )
+
+  desugar = once-ExtendFunction
+
+  desugar :
+    ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
+    where <IsGlobalFunction> fun
+    with fsig := <map(\ Arg(_, srt) -> srt \)> fargs
+       ; rules (
+           ExtendFunction :+
+             Function(fun, fargs2, SimpleSort("Void"), Block(stats2)) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
+             where fsig := <map(\ Arg(_, srt) -> srt \)> fargs
+                 ; renamepairs := <zip> (<map(\ Arg(x, _) -> x\)> fargs, <map(\ Arg(x, _) -> x\)> fargs2)
+                 ; (stats3, []) := <rename-all-vars> (stats, renamepairs)
+                 ; newstats := <concat> [stats2, stats3]
+         )
 
   rename-all-vars :
     (t, []) -> (t, [])
@@ -70,7 +94,7 @@ rules
   
   desugar :
     ExtendEntity(ident, props, funcs) -> RemoveMe()
-    where rules (
+    with rules (
         ExtendEntity :+
           EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
@@ -82,6 +106,7 @@ rules
           Entity(ident, s, props2, funcs2) -> Entity(ident, s, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- EntityNoSuper(ident, props2, funcs2)
                        ExtendEntity :- SessionEntity(ident, props2, funcs2) )
+
         ExtendEntity :+
           SessionEntity(ident, props2, funcs2) -> SessionEntity(ident, <concat> [props, props2], <concat> [funcs, funcs2])
           with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)

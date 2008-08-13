@@ -27,6 +27,7 @@ rules // Generation of templates and pages
     with(id
       ; where(procedure-emit-status-entity)
       ; where(procedure-generate-templates)
+      ; where(procedure-generate-constructor-functions)
       ; where(procedure-generate-task-pages)
       ; where(procedure-generate-status-pages)
       ; where(procedure-emit-status-view-page)
@@ -36,7 +37,7 @@ rules // Generation of templates and pages
     <emit-webdsl-code> def|[
       entity ProcedureStatus {
         name        :: String := "Procedure status"
-        enabled     :: Bool
+        isEnabled     :: Bool
         date        :: DateTime
         caller      -> ProcedureStatus
         returnstate :: Int
@@ -48,19 +49,19 @@ rules // Generation of templates and pages
         function processed() { }
 
         function enable() {
-          this.enabled := true;
+          this.isEnabled := true;
           this.enabled();
         }
 
         function enable(c : ProcedureStatus, r : Int) {
-          this.enabled := true;
+          this.isEnabled := true;
           this.caller := c;
           this.returnstate := r;
           this.enabled();
         }
 
         function disable() {
-          this.enabled := false;
+          this.isEnabled := false;
           this.disabled();
         }
 
@@ -74,3 +75,30 @@ rules // Generation of templates and pages
         derive viewPage from s
       }
     ]|
+
+strategies
+
+  procedure-generate-constructor-functions =
+    with(<map(procedure-emit-constructor-function)> <bagof-ProcedureEntities; make-set>)
+
+
+  procedure-emit-constructor-function =
+    ?SimpleSort(x_ent)
+    ; with(id
+      ; procedures := <bagof-Procedures; make-set> SimpleSort(x_ent)
+      ; stat* := <mapconcat({x_procstatus, x: 
+                  \ x -> webdsl|[ 
+                           o.x := x_procstatus{}; 
+                           o.x.o := o;
+                         ]| 
+                     where x_procstatus := <concat-strings; capitalize-string> [x, "ProcedureStatus"] \}
+                     <+ debug(!"Couldn't map: "))> procedures
+      ; x_cons := <concat-strings> ["new", x_ent]
+      ; <emit-webdsl-code> def|[ 
+            function x_cons() : x_ent {
+               var o : x_ent := x_ent{};
+               stat*
+               return o;
+            }
+        ]|
+      )

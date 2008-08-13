@@ -12,7 +12,10 @@ strategies
 
   py-global-functions-to-code =
     ?Section(nm, defs)
-    ; <filter(py-global-function-to-code <+ py-global-var-to-code)> defs
+    ; <filter(py-global-function-to-code)> defs
+    ; part1 := <filter(py-global-var-to-code-part1)> defs
+    ; part2 := <filter(py-global-var-to-code-part2)> defs
+    ; <emit-python(|"global_variable")> <concat> [part1, part2]
 
   py-global-function-to-code =
     ?Function(x_fun, farg*, _, Block(stat*)) 
@@ -29,22 +32,47 @@ strategies
       ]|
 
 
-  py-global-var-to-code =
-    ?VarDeclInit(x, srt, obj@ObjectCreation(_, assign*))
-    ; with(id
-      ; e_type := <python-type> srt
-      ; filters := <map(\ Assignment(x, e) -> (x, "eq", e) \)> assign*
-      ; e_start := py-exp|[ e_type.all() ]|
-      ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-gae-filter(|tuple)> e \)> filters
-      ; e_create := <expression-to-python> obj
-      ; <emit-python(|"global_variable")> python*|[
-          x = e2.get();
-          if not x: {
-            x = e_create;
-            x.put();
-          };
-        ]|
-      )
+  py-global-var-to-code-part1 :
+    VarDeclInit(x, srt, obj@ObjectCreation(_, assign*)) -> 
+         python*|[
+           x = e2.get();
+           if not x: {
+             x_created = True;
+             x = e_create;
+           } else: {
+             x_created = False;
+           };
+         ]|
+    with e_type := <python-type> srt
+       ; filters := <filter(\ Assignment(f, e) -> (f, "eq", e) where <type-of; is-simple-sort> FieldAccess(Var(x), f) \)> assign*
+       ; e_start := py-exp|[ e_type.all() ]|
+       ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-gae-filter(|tuple)> e \)> filters
+       ; e_create := <python-type-default-value> srt
+       ; x_created := <concat-strings> [x, "_created"]
+
+  py-global-var-to-code-part2 :
+    VarDeclInit(x, srt, obj@ObjectCreation(_, assign*)) -> 
+         python*|[
+           if x_created: {
+             import global_variable;
+             stm*
+             x.put();
+           };
+         ]|
+
+    with e_type := <python-type> srt
+       ; x_created := <concat-strings> [x, "_created"]
+       ; stm* := <map(py-assignment-to-python-assignment(|x))> assign*
+
+  py-assignment-to-python-assignment(|x) :
+    Assignment(x_f, e) -> python|[ x.x_f = e2; ]|
+    where not(SimpleSort("Secret") := <type-of> FieldAccess(Var(x), x_f))
+    with e2 := <expression-to-python> e
+
+  py-assignment-to-python-assignment(|x) :
+    Assignment(x_f, e) -> python|[ x.x_f = (md5.md5(e2)).hexdigest(); ]|
+    where SimpleSort("Secret") := <type-of> FieldAccess(Var(x), x_f)
+    with e2 := <expression-to-python> e
 
   py-add-gae-filter(|filter) :
     e -> py-exp|[ e.filter(e_propeq, e_value) ]|

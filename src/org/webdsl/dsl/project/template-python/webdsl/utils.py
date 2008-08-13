@@ -96,6 +96,10 @@ def register(path, cls, param_mappings=[]):
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>%s</title>
     <link href="/stylesheets/webdsl.css" rel="stylesheet" type="text/css" />
+    <link href="/stylesheets/dropdownmenu.css" rel="stylesheet" type="text/css" />
+    <link href="/stylesheets/sdmenu.css" rel="stylesheet" type="text/css" />
+    <script type='text/javascript' src='/javascripts/dropdownmenu.js'></script>
+    <script type='text/javascript' src='/javascripts/sdmenu.js'></script>
 </head>
 <body>''' % o.title)
             self.response.out.write(out.getvalue())

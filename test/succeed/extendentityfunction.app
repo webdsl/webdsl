@@ -4,6 +4,10 @@ section datamodel
 
   entity User{
     name :: String
+
+    function extendMe() {
+      var s : String := "";
+    }
   }
   
   extend entity User{
@@ -11,6 +15,9 @@ section datamodel
     {
       u.name = this.name;
       return a+b;
+    }
+    extend function extendMe() {
+      var a : String := "";
     }
   }
 
