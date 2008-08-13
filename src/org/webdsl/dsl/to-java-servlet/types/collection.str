@@ -10,7 +10,7 @@ rules
   java-servlet-element-id : 
     tc@Select(x, SimpleSort(s), label, e) -> tc{InputNumber(newid),anno*} 
     with  _{anno*} := tc
-          ; newid := <newname> "input"
+        ; newid := <newname> "input"
 
   //SimpleSort property select
   handle-actions-input-to-java-servlet :
@@ -177,10 +177,150 @@ rules // select
         
         */   
     
-/*
+
 rules // select from
 
-  
+
+  java-servlet-element-id : 
+    tc@SelectFromList(e1, e7)-> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+
+  //SimpleSort property select
+  handle-actions-input-to-java-servlet :
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getRequest().getParameter(ident)!=null)
+        {
+            t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(ps.getRequest().getParameter(ident)));
+            if(e8.contains(x_temp))
+            {
+              bstm
+            } 
+        }
+    ]|
+    where SimpleSort(_) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; srt := <type-of> e1
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e1
+        ; e8 := <expression-to-java-servlet> e7
+    
+  elem-to-java-servlet : 
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" >");
+    java.util.Iterator iter = e8.iterator() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getRequest().getParameter(x_temp).equals(String.valueOf(x.getId())))
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.println(">"+x.getName()+"</option>");
+    }
+    out.println("</select>"); 
+    ]|
+    where SimpleSort(_) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; srt        := <type-of> e1
+        ; x_temp     := <newname> "temp"
+        ; x          := <newname> "x"
+        ; t          := <java-type> srt
+        ; x_argtype  := <java-servlet-type-name> srt
+        ; e2         := <expression-to-java-servlet> e1
+        ; e8         := <expression-to-java-servlet> e7
+
+          
+  //GenericSort property select
+  handle-actions-input-to-java-servlet :
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        if(ps.getRequest().getParameterValues(ident)!=null)
+        {
+            e2.clear();
+            for(String elem : ps.getRequest().getParameterValues(ident))
+            {
+              t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(elem));
+              if(e8.contains(x_temp))
+              {
+                e2.add(x_temp);  
+              } 
+            }
+        }
+    ]|
+    where GenericSort(_, [srt]) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e1
+        ; e2 := <expression-to-java-servlet> e1
+        ; e8 := <expression-to-java-servlet> e7
+    
+  elem-to-java-servlet : 
+    tc@SelectFromList(e1, e7) ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
+    java.util.Iterator iter =  e8.iterator() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        for(String elem : ps.getRequest().getParameterValues(x_temp))
+        {
+          if(elem.equals(String.valueOf(x.getId())))
+          {
+            out.print("selected=\"selected\"");
+          }
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.println(">"+x.getName()+"</option>");
+    }
+    out.println("</select>"); 
+    ]|
+    where GenericSort(_, [srt]) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x := <newname> "x"
+        ; x_argtype := <java-servlet-type-name> srt
+        ; e2 := <expression-to-java-servlet> e1
+        ; e8 := <expression-to-java-servlet> e7
+
+
+
+  /*
   
   elem-to-java-servlet :
     SelectFromList(e1, e2) ->
