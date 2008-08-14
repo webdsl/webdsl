@@ -124,7 +124,7 @@
    Equation                           -- H[_1 KW["="] _2],
    Int                                -- _1,
    Float                              -- _1,
-   String                             -- H hs=0[ "\"" _1 "\"" ],
+   String                             -- H hs=0[ _1 ],
    Var                                -- _1,
    ExternalScopeVar                   -- KW["externalscope"] KW["."] _1,
    FieldAccess                        -- H hs=0[_1 KW["."] _2],
