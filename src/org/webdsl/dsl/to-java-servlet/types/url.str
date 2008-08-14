@@ -7,9 +7,72 @@ imports
   libwebdsl-front
   
 rules
+
+  java-servlet-element-id : 
+    tc@elem|[ inputURL(e){} ]|  -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+
+  handle-actions-input-to-java-servlet :
+    tc@elem|[ inputURL(e){} ]|  ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+          
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getRequest().getParameter(ident)!=null)
+        {
+            String x_temp = ps.getRequest().getParameter(ident);
+            bstm 
+        }
+      
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
+    
+  elem-to-java-servlet : 
+    tc@elem|[ inputURL(e){} ]|  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<input name=\""+x_temp+"\"  type=\"text\" value=\"");
+    if(inSubmittedForm)
+    {
+      out.print(ps.getRequest().getParameter(x_temp));
+    }
+    else
+    {
+      out.print(e1);
+    }
+    out.println("\" />"); 
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; e1 := <arg-to-value-string-java-servlet> e
+        ; x_temp := <newname> "temp"
+    
+    
+
   elem-to-java-servlet :
-    elem|[ inputURL(e){} ]| ->
-    java |[ out.println("todo: inputurl"); ]|  
+    TemplateCall("url",[e],[]) ->
+    bstm|[
+      out.println(e1);
+    ]|
+    //%> <h:outputText value="<%= url %>" /> <%
+    where not(ThisCall(p,args) := e)
+        ; e1 := <arg-to-value-string-java-servlet> e
+
+  elem-to-java-servlet :
+    TemplateCall("url",[ThisCall(p,args)],[]) ->
+    bstm|[
+      out.println(utils.AppInfo.getAppName()+e1);
+    ]|
+    //%> <h:outputText value="#{<%= <ThisPage> %>.hostName}<%= url %>" /> <%
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(bind-param)> (fargs, args)
+        ; e1 := <page-call-to-url> (p, params)    
+    
     /*
     %>
       <s:decorate>
@@ -19,7 +82,7 @@ rules
     with estring := <arg-to-value-string> e
         ; req := <input-of-required-property(|e)>
     */
-    // @todo validate URL
+    //  validate URL
 /*
 rules // types
 
