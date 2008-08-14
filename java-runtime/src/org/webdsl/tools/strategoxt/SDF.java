@@ -32,6 +32,13 @@ public class SDF {
 		parser = Environment.createSGLR(table);
 	}
 	
+	public static synchronized SDF get(String language, Class<?> tableOwner) throws IOException, InvalidParseTableException, InterpreterException {
+		SDF result = get(language);
+		if (result == null)
+			result = register(language, tableOwner.getResourceAsStream("/" + language + ".tbl"));
+		return result;
+	}
+	
 	public synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
 		ParseTable table = Environment.loadParseTable(parseTable);
 		SDF result = new SDF(table);

@@ -7,6 +7,7 @@ import java.util.HashMap;
 import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
 import org.spoofax.interpreter.terms.IStrategoTerm;
+import org.spoofax.jsglr.InvalidParseTableException;
 
 /**
  * @author Lennart Kats <lennart add lclnet.nl>
@@ -22,10 +23,16 @@ public class StrategoProgram {
 	
 	/**
 	 * Register a new Stratego program.
-	 * 
-	 * @param program
-	 *            The stratego program to load (e.g., obtained using
-	 *            StrategoProgram.class.getResourceAsStream("filename");
+	 */
+	public static synchronized StrategoProgram get(String programName, Class<?> tableOwner) throws IOException, InvalidParseTableException, InterpreterException {
+		StrategoProgram result = get(programName);
+		if (result == null)
+			result = register(programName, tableOwner.getResourceAsStream("/" + programName + ".ctree"));
+		return result;
+	}
+	
+	/**
+	 * Register a new Stratego program.
 	 */
 	public static synchronized StrategoProgram register(String programName, InputStream program) throws InterpreterException, IOException {
 		Interpreter interpreter = Environment.createInterpreter();
@@ -43,7 +50,7 @@ public class StrategoProgram {
 	
 	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
 	
-	public synchronized IStrategoTerm apply(String strategy, IStrategoTerm term) throws InterpreterException {
+	public synchronized IStrategoTerm invoke(String strategy, IStrategoTerm term) throws InterpreterException {
 		interpreter.setCurrent(term);
 		
 		// TODO: Properly rename strategy using underscores
