@@ -1,0 +1,158 @@
+module org/webdsl/dsl/modules/styling/to-css/declaration-to-css
+
+imports 
+  libstrategolib  
+  libjava-front 
+  libwebdsl-front
+  
+rules
+  /**
+   * Generate css declarations based on style declarations
+   */
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("left")])) -> decl |( margin-right: auto; )|
+    where is-for-named-layout-identifier
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("right")])) -> decl |( margin-left: auto; )|
+    where is-for-named-layout-identifier
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("center")])) ->
+      decl* |(
+        margin-left: auto;
+        margin-right: auto;
+      )|
+    where is-for-named-layout-identifier <+ ( <has-property> StyleProperty("width") )
+
+// @todo: join
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("left")])) -> decl |( float: left; )|
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("right")])) -> decl |( float: right; )|
+
+
+    
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("horizontal")])) -> decl |( background-repeat: repeat-x; )|
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("vertical")])) -> decl |( background-repeat: repeat-y; )|
+    
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("both")])) -> decl |( background-repeat: repeat; )|
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("none")])) -> decl |( background-repeat: no-repeat; )|
+
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("border-color"), value) ->
+      decl* |(
+        border-top-color: val;
+        border-right-color: val;
+        border-bottom-color: val;
+        border-left-color: val;
+      )|
+    where val := <style-values-to-css> value
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("border-width"), value) ->
+      decl* |(
+        border-top-width: val;
+        border-right-width: val;
+        border-bottom-width: val;
+        border-left-width: val;
+      )|
+    where val := <style-values-to-css> value
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("border-style"), StyleValue(sort, [valex])) ->
+      decl* |(
+        border-top-style: val;
+        border-right-style: val;
+        border-bottom-style: val;
+        border-left-style: val;
+      )|
+    where val := <style-values-to-css> valex
+
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("none")])) -> decl |( text-decoration: none; )|
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("under")])) -> decl |( text-decoration: underline; )|
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("over")])) -> decl |( text-decoration: overline; )|
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("through")])) -> decl |( text-decoration: line-through; )|
+
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font-color"), StyleValue(sort, [valex])) -> decl |( color : val; )|
+    where val := <style-values-to-css> valex
+
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("font"), StyleValue(sort, val*)) -> decl |( font-family : val; )|
+    where v := StyleValue(<construct-font-names> val*)
+        ; val := <style-values-to-css> v
+    
+  construct-font-names =
+    ?[s|s*]
+    ; !<concat-strings> ["'", <construct-font-name> s, " ", <construct-font-names> s*, "'"]
+
+  construct-font-names :
+    [s] -> <construct-font-name> s
+
+  construct-font-name :
+    StyleValueExtension(stval0) -> stval0
+        
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("orientation"), StyleValue(sort, [StyleValueExtension("horizontal")])) ->
+      decl* |(
+        list-style : none;
+        padding-left : 0;
+      )|
+      where ssel0 := <selector-to-css> <ThisSelector>
+          ; <emit-css-rule>
+              rule |(
+		        ssel0 > li {
+		          float: left;
+		        }
+		      )|
+  
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("separator"), StyleValue(sort, [StyleValueExtension("pipe")])) -> []
+    where ssel0 := <selector-to-css> <ThisSelector>
+        ; <emit-css-rules>
+            rule* |(
+		      ssel0 > li:before {
+		        content: '|';
+		      }
+		      ssel0 > li:first-child:before {
+		        content: '';
+		        margin-right: 0;
+		      }
+		    )|
+
+  styledeclaration-to-css :
+    StyleDeclaration(StyleProperty("separator-space"), StyleValue(value, unit)) -> []
+    where ssel0 := <selector-to-css> <ThisSelector>
+        ; i := <string-to-int> value
+        ; val := <div> (i, 2)
+        ; ssel0 := <selector-to-css> <ThisSelector>
+        ; <emit-css-rules>
+            rule* |(
+		      ssel0 > li:before {
+		        margin-right: val unit;
+		        margin-left: val unit;
+		      }
+		    )|
+
+		    

@@ -9,35 +9,39 @@ imports
 strategies
 
   declare-style-definition =
-    ?def@StyleDefinition(type, MatchDefinition(name, arg*), decl*)
+    ?def@StyleDefinition(selector, stat1*)
     ; where (
-	    t* := <map(?Arg(_,<id>))> arg*
+	    s := <remove-position-annos> selector
 	    ; x := <InSection>
-	    ; rules (
-	        StyleSignature : (name, t*) -> def
-	        StylesheetIncludes :+ name -> x
-	      )
+	    ; rules ( StyleDefinition :+ s -> def )
+	    ; if Selector(SimpleSelector(checktype, MatchDefinition(name, arg*)), s*) := selector then
+	        <add-stylesheet> (x, name)
+	      end
 	  )
-
+  
   declare-style-declaration =
     ?decl@StyleDeclaration(prop, val)
     ; where (
-        (name, t*) := <InDef>
+        selector := <ThisSelector>
         ; p := <remove-position-anno> prop
         ; v := <remove-position-anno> val
         ; rules (
-            StyleDeclarations :+ (name, t*) -> (p, v)
-            StyleProperties :+ (name, t*) -> p
+            StyleDeclarations :+ selector -> (p, v)
+            StyleProperties :+ selector -> p
           )
-        ; <declare-style-value> (name, t*, p, v)
+//        ; <declare-style-value> (name, t*, p, v)
+        ; <declare-style-value> (p, v)
 //        ; <debug> ["____styledecl: ", (name, t*, p), v]
+//        ; <debug> ["_____selector: ", <ThisSelector>, v]
+//        ; <debug> ""
       )
 
   declare-style-value =
-    ?(name, t*, p, v)
+    ?(p, v)
     ; where (
-        rules ( StyleValue : (name, t*, p) -> v )
-//        ; <debug> ["____stylevalue decl: ", name, t*, p, v]
+        selector := <ThisSelector>
+        ; rules ( StyleValue : (selector, p) -> v )
+//        ; <debug> ["____stylevalue decl: ", selector, p, v]
       )
 
   declare-style-var-decl =
@@ -55,15 +59,18 @@ strategies
         MatchDefinition(n, arg*) := matchdef
         ; t* := <map(?Arg(_,<id>))> arg*
         ; name := <concat-strings> [n, "Layout"]
+        ; <add-stylesheet> (name, n)
         ; rules (
-            StylesheetIncludes :+ n -> name
             LayoutDefinition : (n, t*) -> def
           )
       )
   
   declare-layout-expression =
     ?NamedLayoutExpression(name, expr*)
-    ; where ( <map(declare-layout-expression)> expr* )
+    ; where ( 
+        rules ( LayoutIdentifiers :+= name )
+        ; <map(declare-layout-expression)> expr*
+      )
 
   declare-layout-expression =
     ?LayoutExpression(MatchDefinition(x, farg*))

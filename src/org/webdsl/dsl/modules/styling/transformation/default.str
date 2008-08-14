@@ -8,15 +8,22 @@ strategies
 
   insert-default-style =
     alltd(default-style)
-    ; insert-default-template-style
+    ; where (
+        {| ThisPage
+         : rules ( ThisPage := "default_" )
+         ; insert-default-global-style
+         ; insert-default-template-style
+         |} )
+
+  insert-default-global-style =
+    <emit-style-definition> stdef |[ body { font-size := 100%; line-height := 1.125em; } ]|
 
   insert-default-template-style =
-    where ( {| ThisPage
-     : rules ( ThisPage := "default" )
-     ; stdef* := []
-     ; <emit-style-section> |[ style default stdef* ]|
-     ; <map(default-templates-style)> <bagof-TopLevelTemplateNames>
-     |} )
+     where ( 
+       stdef* := []
+       ; <emit-style-section> |[ style default_ stdef* ]|
+       ; <map(default-templates-style)> <bagof-TopLevelTemplateNames>
+     )
   
 rules
 
@@ -30,30 +37,48 @@ rules
         stdef |[
           template x_0() {}
         ]|
-    ; {| ThisPage
-       : rules (
+    ; {| ThisPage, ThisArgumentTypes, ThisSelector
+       : s := <construct-selector> ("template", x_0, t*)
+       ; rules (
            ThisPage := x_0
            ThisArgumentTypes := t*
+           ThisSelector := s
          )
        ; add-default-properties
        |}
 
   add-default-properties =
     add-default-background-color
+    ; add-default-background-repeat
 
   add-default-background-color =
     where (
-      if not( <StyleValue> (<ThisPage>, <ThisArgumentTypes>, StyleProperty("background-color")) ) then
+      if not( <StyleValue> (<ThisSelector>, StyleProperty("background-color")) ) then
         <emit-style-declaration> |[ background-color := #ffffff; ]|
-        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, StyleProperty("background-color"), StyleValue(Hash("ffffff")))
+        ; <declare-style-value> (StyleProperty("background-color"), StyleValue(Hash("ffffff")))
+      end
+    )
+    
+  add-default-background-repeat =
+    where (
+      if <StyleValue> (<ThisSelector>, StyleProperty("image"))
+         ; not ( <StyleValue> (<ThisSelector>, StyleProperty("image-repeat")) ) then
+        <emit-style-declaration> |[ background-repeat := no-repeat; ]|
+        ; <declare-style-value> (StyleProperty("image-repeat"), StyleValue("none"))
       end
     )
 
-/*    
+
   default-style =
-    ?StyleDefinition(type, MatchDefinition(name, farg*), stat*)
+    ?def |[ define page x(farg*) { elem* } ]|
+    ; rules ( StylesheetIncludes :+ x -> "default_" )
+    
+/*
+  default-style =
+    ?StyleDefinition(Selector(SimpleSelector(checktype, matchdef), []), stat*)
     where {| ThisPage, ThisArgumentTypes
-           : t* := <map(?Arg(_,<id>))> farg*
+           : MatchDefinition(name, farg*) := matchdef
+           ; t* := <map(?Arg(_,<id>))> farg*
            ; rules (
                ThisPage := name
                ThisArgumentTypes := t*
@@ -61,23 +86,25 @@ rules
            ; <alltd(default-style)> stat*
            |}
 */
-  
+
+
   /* Add a standard width to a column of a 2-column layout if not provided. */
   default-style =
     ?NamedLayoutExpression(name, [expr1, expr2])
-    ; where ( {| ThisPage, ThisArgumentTypes
+    ; where ( {| ThisSelector
 		       : LayoutExpression(MatchDefinition(x1, farg1*)) := expr1
 		       ; LayoutExpression(MatchDefinition(x2, farg2*)) := expr2
-		       ; t1* := <map(?Arg(_,<id>))> farg1*
-		       ; t2* := <map(?Arg(_,<id>))> farg2*
-		       ; not( <StyleValue> (x1, t1*, StyleProperty("width")) )
-		       ; not( <StyleValue> (x2, t2*, StyleProperty("width")) )
+   		       ; s1 := <construct-selector> ("template", x1, <map(?Arg(_,<id>))> farg1*)
+		       ; s2 := <construct-selector> ("template", x2, <map(?Arg(_,<id>))> farg2*)		       
+		       ; not( <StyleValue> (s1, StyleProperty("width")) )
+		       ; not( <StyleValue> (s2, StyleProperty("width")) )
+		       ; not( <StyleValue> (s1, StyleProperty("align")) )
+		       ; not( <StyleValue> (s2, StyleProperty("align")) )
                ; rules (
-                   ThisPage := x1
-                   ThisArgumentTypes := t1* 
+                   ThisSelector := s1
                  )
 		       ; <emit-style-declaration> |[ width := 12em; ]|
-		       ; <declare-style-value> (x1, t1*, StyleProperty("width"), StyleValue("12", "em"))
+		       ; <declare-style-value> (StyleProperty("width"), StyleValue("12", "em"))
 		       |}
       )
-    
+

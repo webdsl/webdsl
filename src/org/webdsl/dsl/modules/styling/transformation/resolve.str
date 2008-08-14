@@ -4,41 +4,227 @@ imports
   libstrategolib
   libwebdsl-front
 
+rules
+
+//  desugar = resolve
+
+/*  desugar :
+    Selector(selector, s*) -> Selector(selector, s2*)
+    where <sometd( ?SimpleSelector(MatchDefinition("menuheader", _)) )> s*
+        ; s1* := <alltd(\ SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("ul") \); reverse> s*
+        ; s2* := <reverse> [(DescendantCombinator(), ElemSimpleSelector("li")) | s1*]
+//        ; s3* := <reverse> [(DescendantCombinator(), ElemSimpleSelector("a")) | s2*]
+*/
+
+
+  desugar :
+    SimpleSelector(MatchDefinition("menu", _)) -> ElemSimpleSelector("ul")
+
+  desugar :
+    SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("list", _)) -> ElemSimpleSelector("ul")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("listitem", _)) -> ElemSimpleSelector("li")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("navigate", _)) -> ElemSimpleSelector("a")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("section", _)) -> ClassSimpleSelector("section")
+
+  desugar :
+    SimpleSelector(MatchDefinition("text", _)) -> ClassSimpleSelector("text")
+      
+/*  desugar :
+    Selector(selector, s1*) -> Selector(selector, s2*)
+    where <sometd( ?SimpleSelector(MatchDefinition("menuheader", _)) )> s*
+        ; s1* := <alltd(\ SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li") \)> s1*
+*/
+
 strategies
 
-//  desugar = resolve-style-property
-
   resolve-style-properties =
-    alltd(resolve-style-property)
+    alltd(resolve-style)
     
 rules
 
-  resolve-style-property :
-    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
-    where t* := <map(?Arg(_,<id>))> farg*
-        ; val := <StyleValue> (name, t*, prop)
-        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, prop, val)
-
-  resolve-style-property :
-    StyleDefinition(type, MatchDefinition(name, farg*), stat1*) -> StyleDefinition(type, MatchDefinition(name, farg*), stat2*)
-    where {| ThisPage, ThisArgumentTypes
-           : t* := <map(?Arg(_,<id>))> farg*
-           ; rules (
-               ThisPage := name
-               ThisArgumentTypes := t*
-             )
-           ; stat2* := <alltd(resolve-style-property)> stat1*
+  resolve-style :
+    StyleSection(name, def1*) -> StyleSection(name, def2*)
+    where {| ThisPage
+           : rules ( ThisPage := name )
+           ; def2* := <alltd(resolve-style)> def1*
            |}
-           
-  resolve-style-property :
+
+  resolve-style :
+    StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat2*)
+    where {| ThisSelector
+           : rules ( ThisSelector := selector )
+           ; stat2* := <alltd(resolve-style)> stat1*
+//           ; <debug> ["_____stat2", stat2*]
+//           ; stat3* := <filter(not(translate-style-decl))> stat2*
+//           ; <debug> ["_____stat3", stat3*]
+//           ; <debug> ""
+           |}
+
+  resolve-style :
     StyleDeclaration(prop, expr1) -> StyleDeclaration(prop, expr2)
-    where ThisPage ; ThisArgumentTypes
+    where ThisSelector
         ; {| ThisProperty
            : rules ( ThisProperty := prop )
-           ; expr2 := <alltd(resolve-style-property)> expr1
+           ; expr2 := <alltd(resolve-style)> expr1
            |}
+
+  resolve-style :
+    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
+    where t* := <map(?Arg(_,<id>))> farg*
+	       ; s := <construct-selector> ("template", name, t*)
+	       ; val := <StyleValue> (s, prop)
+           ; <declare-style-value> (prop, val)
   
-  resolve-style-property :
+  resolve-style :
     Var(x) -> val
     where val := <StyleVariable> x
-        ; <declare-style-value> (<ThisPage>, <ThisArgumentTypes>, <ThisProperty>, val)
+        ; <declare-style-value> (<ThisProperty>, val)
+    
+rules
+/*    
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("left")]))
+    ; is-for-named-layout-identifier
+    ; <emit-style-declaration> |[ margin-right := auto; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("right")]))
+    ; is-for-named-layout-identifier
+    ; <emit-style-declaration> |[ margin-left := auto; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("center")]))
+    ; is-for-named-layout-identifier
+    ; <emit-style-declarations> |[ margin-left := auto; margin-right := auto; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("left")]))
+    ; <emit-style-declaration> |[ float := left; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("right")]))
+    ; <emit-style-declaration> |[ float := right; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("align"), StyleValue(sort, [StyleValueExtension("center")]))
+    ; <has-property> StyleProperty("width")
+    ; <emit-style-declarations> |[ margin-left := auto; margin-right := auto; ]|
+    
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("horizontal")]))
+    ; <emit-style-declaration> |[ background-repeat := repeat-x; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("vertical")]))
+    ; <emit-style-declaration> |[ background-repeat := repeat-y; ]|
+    
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("both")]))
+    ; <emit-style-declaration> |[ background-repeat := repeat; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("image-repeat"), StyleValue(sort, [StyleValueExtension("none")]))
+    ; <emit-style-declaration> |[ background-repeat := no-repeat; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("border-color"), stval1)
+    ; <emit-style-declarations> |[ border-top-color := stval1; border-right-color := stval1; border-bottom-color := stval1; border-left-color := stval1; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("border-width"), stval1)
+    ; <emit-style-declarations> |[ border-top-width := stval1; border-right-width := stval1; border-bottom-width := stval1; border-left-width := stval1; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("border-style"), StyleValue(sort, [StyleValueExtension(stval0)]))
+    ; where ( stval1 := StyleValue(stval0) )
+    ; <emit-style-declarations> |[ border-top-style := stval1; border-right-style := stval1; border-bottom-style := stval1; border-left-style := stval1; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(stprop@StyleProperty(prop), StyleValue(sort, [StyleValueExtension(stval0)]))
+    ; where ( 
+        <elem> (prop, ["border-top-style", "border-right-style", "border-bottom-style", "border-left-style"])
+        ; stval1 := StyleValue(stval0)
+      )
+    ; <emit-style-declaration> |[ stprop := stval1; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("none")]))
+    ; <emit-style-declaration> |[ text-decoration := none; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("under")]))
+    ; <emit-style-declaration> |[ text-decoration := underline; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("over")]))
+    ; <emit-style-declaration> |[ text-decoration := overline; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font-line"), StyleValue(sort, [StyleValueExtension("through")]))
+    ; <emit-style-declaration> |[ text-decoration := line-through; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font-color"), StyleValue(sort, [StyleValueExtension(val0)]))
+    ; where ( stval1 := StyleValue(val0) )
+    ; <emit-style-declaration> |[ color := stval1; ]|
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font"), StyleValue(sort, val*))
+    ; stval0 := StyleValue(<construct-font-names> val*)
+    ; <emit-style-declaration> |[ font-family := stval0; ]|
+    
+  construct-font-names =
+    ?[s|s*]
+    ; !<concat-strings> ["'", <construct-font-name> s, " ", <construct-font-names> s*, "'"]
+
+  construct-font-names :
+    [s] -> <construct-font-name> s
+
+  construct-font-name :
+    StyleValueExtension(stval0) -> stval0
+        
+          
+  translate-style-decl =
+    ?StyleDeclaration(stprop, StyleValue(StyleSort("Color"), [StyleValueExtension(stval0)]))
+    ; where ( stval1 := StyleValue(stval0) )
+    ; <emit-style-declaration> |[ stprop := stval1; ]|
+  
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("orientation"), StyleValue(sort, [StyleValueExtension("horizontal")]))
+    ; where (
+	    <emit-style-declarations> |[ list-style := none; padding-left := 0px; ]|
+	    ; Selector(s, s*) := <ThisSelector>
+	    ; s' := (ChildCombinator, ElemSimpleSelector("li"), None)
+	    ; stsel0 := Selector(s, <reverse> [s'| <reverse> s*])
+	    ; <emit-style-definition> stdef |[ stsel0 { float := left; } ]|
+      )
+
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("separator"), StyleValue(sort, [StyleValueExtension("pipe")]))
+    ; where (
+        debug (!"===========")
+    ; s := <ThisSelector>
+    ; sel0 := <selector-to-css> s
+    ; <debug> ["........", sel0]
+//    ; s' := (ChildCombinator, ElemSimpleSelector("li"), SelectorAttribute("before"))
+//    ; <debug> ["........", s']
+//    ; stsel0 := Selector(s, <reverse> [s'| <reverse> s*])
+//    ; <debug> ["........", sel0]
+//    ; <emit-style-definition; debug (!"--------")> stdef |[ stsel0 { content := '|'; } ]|
+    ; <emit-css-rule> rule |(
+        sel0 {
+          clear: both;
+          float: left;
+        }
+      )|
+      )
+  */    

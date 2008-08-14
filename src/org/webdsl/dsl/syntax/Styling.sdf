@@ -5,22 +5,29 @@ module Styling
 exports
 
   sorts
-    Ident Name Num String UnaryOperator
+    Name Num String UnaryOperator
 
   lexical syntax
-    "-"? [\_a-z][\_a-z0-9\-]*      -> Ident
-    [\_a-z0-9\-]+                  -> Name
-    [\_a-f0-9\-]+                  -> Hex
-    [\_a-z\%]+                     -> Unit
+    [a-zA-Z][a-zA-Z\-\_]+          -> ValueName
+    [a-z][a-z\-]+           	   -> Value
+    [a-f0-9]+ 	                   -> Hex
+    [a-z\%]+                       -> Unit
     [0-9]+                         -> Num
     [0-9]* "." [0-9]+              -> Num
     "\"" ~[\"\n]* "\""             -> String
     "'" ~[\"\n]* "'"               -> String
 
   lexical syntax
-    [a-zA-Z][a-zA-Z0-9\_]*[\*]? -> MatchId
-    [\*]                        -> MatchId
+    [a-zA-Z][a-zA-Z0-9\_]*[\*]? -> MatchIdent
+    [\*]                        -> MatchIdent
     [\*]                        -> WildCardArg 
+    
+    
+  lexical restrictions
+    ValueName -/- [a-zA-Z\-\_]
+    Value -/- [a-z\-]
+    Unit -/- [a-z\%]
+    Hex -/- [a-f0-9]
     
 exports
 
@@ -59,11 +66,25 @@ context-free syntax %% Styling syntax
 
   "style" Id StyleDefinition*                                   -> Section {cons("StyleSection")}
 
-  Id MatchDefinition "{" StyleStatement* "}"                   	-> StyleDefinition {cons("StyleDefinition")}
+  Selector "{" StyleStatement* "}"           		        	-> StyleDefinition {cons("StyleDefinition")}
 
-  Id Id "{" StyleStatement* "}"                               	-> StyleDefinition {cons("StyleDefinition")}
+  SimpleSelector
+    (Combinator SimpleSelector SelectorAttribute?)*				-> Selector {cons("Selector")}
+  
+  Id MatchDefinition 	-> SimpleSelector {cons("SimpleSelector")}
+  "#" Id				-> SimpleSelector {cons("IdSimpleSelector")}
+  Id					-> SimpleSelector {cons("ElemSimpleSelector")}
+  "." Id				-> SimpleSelector {cons("ClassSimpleSelector")}
+  MatchDefinition       -> SimpleSelector {cons("SimpleSelector")}
+  
+  "." ValueName			-> SelectorAttribute {cons("SelectorAttribute")}
+  
+  ">"                   -> Combinator {cons("ChildCombinator")}
+  ">>"                   -> Combinator {cons("DescendantCombinator"), prefer}
+  
 
-  MatchId "(" MatchDefinitionArgs ")"							-> MatchDefinition {cons("MatchDefinition")}
+
+  MatchIdent "(" MatchDefinitionArgs ")"							-> MatchDefinition {cons("MatchDefinition")}
   {FormalArg ","}*                                              -> MatchDefinitionArgs
   
 
@@ -76,20 +97,27 @@ context-free syntax %% Styling syntax
   StyleProperty ":=" StyleExpression ";"      	                -> StyleStatement {cons("StyleDeclaration")}
 %%  StylePropertyLocal ":=" StyleProperty ";"    	                -> StyleStatement {cons("StyleDeclaration")}
 
-  Name															-> StyleProperty {cons("StyleProperty")}
+  ValueName														-> StyleProperty {cons("StyleProperty")}
 
   MatchDefinition "." StyleProperty								-> StyleExpression {cons("StylePropertyValue")}
 
   Id -> StyleExpression {cons("Var")}
 
   StyleValue -> StyleExpression
+%%  StyleValues -> StyleExpression
 
-  Number Unit 	-> StyleValue {cons("StyleValue")}
-  Uri 			-> StyleValue {cons("StyleValue")}
-  Hash 			-> StyleValue {cons("StyleValue")}
+  Number Unit 						-> StyleValue {cons("StyleValue")}
+  StyleSort StyleValueExtension+	-> StyleValue {cons("StyleValue")}
+  Uri 						-> StyleValue {cons("StyleValue")}
+  Hash 						-> StyleValue {cons("StyleValue")}
+  Value		 				-> StyleValue {cons("StyleValue"), prefer}
+  
+  "." ValueName					-> StyleValueExtension {cons("StyleValueExtension") }
+
+%%  {StyleValue "|"}* -> StyleValue {cons("StyleValueOptions") }
 
   Id Unit 		-> StyleSort {cons("StyleSort")}
-  Id 			-> StyleSort {cons("StyleSort")}
+  Id			-> StyleSort {cons("StyleSort")}
 
   "url" "(" String ")"    -> Uri {cons("Uri")}
   "#" Hex                 -> Hash {cons("Hash")}
@@ -107,12 +135,13 @@ context-free syntax %% Layout syntax
 
   Id MatchDefinition "{" LayoutStatement* "}"   		-> LayoutDefinition {cons("LayoutDefinition")}
   
-%%  StyleDefinition										-> LayoutDefinition
-  StyleStatement										-> LayoutStatement
+  StyleDefinition										-> LayoutDefinition
+%%  StyleStatement										-> LayoutStatement
   
   LayoutExpression ";"                                  -> LayoutStatement {cons("LayoutStatement")}
   Id ":" "[" LayoutExpressions "]"     		            -> LayoutExpression {cons("NamedLayoutExpression")}
   {LayoutExpression "|"}+								-> LayoutExpressions
+  Id			 										-> LayoutExpression {cons("LayoutExpression")}
   MatchDefinition 										-> LayoutExpression {cons("LayoutExpression")}
 
   
