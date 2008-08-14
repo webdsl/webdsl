@@ -32,11 +32,19 @@ public class SDF {
 		parser = Environment.createSGLR(table);
 	}
 	
-	public static synchronized SDF get(String language, Class<?> tableOwner) throws IOException, InvalidParseTableException, InterpreterException {
-		SDF result = get(language);
-		if (result == null)
-			result = register(language, tableOwner.getResourceAsStream("/" + language + ".tbl"));
-		return result;
+	public static synchronized SDF get(String language, Class<?> tableOwner) {
+		try {
+			SDF result = get(language);
+			if (result == null)
+				result = register(language, tableOwner.getResourceAsStream("/" + language + ".tbl"));
+			return result;
+		} catch (InterpreterException e) {
+			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (InvalidParseTableException e) {
+			throw new RuntimeException(e);
+		}
 	}
 	
 	public synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
@@ -66,7 +74,7 @@ public class SDF {
 		return result;
 	}
 	
-	public synchronized IStrategoTerm parseToTerm(String input) throws SGLRException {
+	public synchronized IStrategoTerm parseToTerm(String input) {
 		try {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
@@ -77,6 +85,8 @@ public class SDF {
 			return implode(asfix);
 		} catch (IOException x) {
 			throw new RuntimeException(x); // unexpected; fatal
+		} catch (SGLRException x) {
+			throw new RuntimeException(x);
 		}
 	}
 
