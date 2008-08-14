@@ -7,19 +7,26 @@ imports
 rules // Translate to pages and stuff
 
   procedures-to-pages :
-    def@def|[ procedure x_id (x_o : srt) { procelem* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
+    def@def|[ procedure x_id (x_o : srt) { procelem2* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsProcedure> x_id
-    with  stat* := <procedure-do-statements; add-procedure-done(|x_o, x_id)> def
-        ; SimpleSort(s) := srt
+    with  SimpleSort(s) := srt
         ; x_view := <decapitalize-string> s
+        ; if "startWf" := x_id then
+            info(|["Procelems ", Var(x_o), ": ", procelem2*])
+          end
+        ; procelem* := <alltd(translate-object-param(|x_o))> procelem2*
+        ; if "startWf" := x_id then
+            info(|["Procelem after ", Var(x_o), ": ", procelem*])
+          end
+        ; stat* := <filter(procedure-do-statements); concat; add-procedure-done> procelem*
         ; if <IsDoProcedure> x_id then
               stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
             ; elem*  := elem*|[ init { stat2* } ]|
           else
               stat2*      := <add-view-page-return(|x_view, Var(x_o))> stat*
             ; viewelem*   := <procedure-view-elems> def
-            ; actionelem* := webdsl*|[ action doAction() { stat2* } ]|
-            ; elem*       := [viewelem*, actionelem*]
+            ; elem2       := webdsl*|[ action doAction() { stat2* } ]|
+            ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction()){} ]| -> elem|[ dummy { elem elem2 } ]| \}))> viewelem*
           end
         ; e2 := <procedure-get-access-exp> procelem*
         ; <emit-webdsl-section> |[
@@ -76,16 +83,25 @@ rules // Translate to pages and stuff
             }
           ]|
 
-  add-procedure-done(|x_o, x_id) :
+  translate-object-param(|x_o) =
+    ?ProcedureWho(_) <+ ?ProcedureWhen(_) <+ ?ProcedureView(_)
+
+  translate-object-param(|x_o) :
+    Var(x_o) -> FieldAccess(Var("this"), <strip-annos> x_o)
+
+  translate-object-param(|x_o) :
+    Qualified(x_o, f) -> Qualified(Qualified("this", <strip-annos> x_o), <strip-annos> f)
+
+  add-procedure-done :
     stat* -> webdsl|[
           stat*
-          x_o.x_id.done();
+          this.done();
         ]|
 
+  /*
   procedure-to-check-performed(|arg) :
     nm -> webdsl|[ x_check(e); ]|
     where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
         ; e := Var(arg)
-
-
+  */
 

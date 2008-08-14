@@ -35,7 +35,10 @@ class Model(db.Model):
     def as_dict(self, inlined_properties=['id', 'name']):
         d = {}
         for prop in inlined_properties:
-            d[prop] = getattr(self, prop)
+            try:
+                d[prop] = getattr(self, prop)
+            except:
+                pass
         return d
 
     id_property = None

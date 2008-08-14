@@ -11,6 +11,16 @@ imports
 rules
 
   desugar = procedures-to-pages
+
+/* @TODO: Idea to do staging
+  desugar = TranslateProceduresToPage
+
+  desugar =
+    ?Application(_, _)
+    ; not(TranslateProceduresToPage)
+    ; rules ( TranslateProceduresToPage : _ -> result where result := <procedures-to-pages> )
+    */
+
   desugar = procedure-extend-procelems
   desugar = derive-procedure-page
 
@@ -50,6 +60,7 @@ rules // Generation of templates and pages
 
         function enable() {
           this.isEnabled := true;
+          this.persist();
           this.enabled();
         }
 
@@ -57,6 +68,7 @@ rules // Generation of templates and pages
           this.isEnabled := true;
           this.caller := c;
           this.returnstate := r;
+          this.persist();
           this.enabled();
         }
 
@@ -86,17 +98,21 @@ strategies
     ?SimpleSort(x_ent)
     ; with(id
       ; procedures := <bagof-Procedures; make-set> SimpleSort(x_ent)
-      ; stat* := <mapconcat({x_procstatus, x: 
+      ; stat* := <mapconcat({x_procstatus, x, x_o: 
                   \ x -> webdsl|[ 
                            o.x := x_procstatus{}; 
-                           o.x.o := o;
+                           o.x.x_o := o;
+                           o.x.persist();
                          ]| 
-                     where x_procstatus := <concat-strings; capitalize-string> [x, "ProcedureStatus"] \}
+                     where x_procstatus := <concat-strings; capitalize-string> [x, "ProcedureStatus"] 
+                         ; x_o := <ProcedureArg; strip-annos> x
+                  \}
                      <+ debug(!"Couldn't map: "))> procedures
       ; x_cons := <concat-strings> ["new", x_ent]
       ; <emit-webdsl-code> def|[ 
             function x_cons() : x_ent {
                var o : x_ent := x_ent{};
+               o.persist();
                stat*
                return o;
             }
