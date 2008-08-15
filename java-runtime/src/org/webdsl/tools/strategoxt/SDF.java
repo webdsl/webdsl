@@ -47,7 +47,7 @@ public class SDF {
 		}
 	}
 	
-	public synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
+	private synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
 		ParseTable table = Environment.loadParseTable(parseTable);
 		SDF result = new SDF(table);
 		allSDF.put(language, result);		
@@ -59,7 +59,7 @@ public class SDF {
 		return result;
 	}
 	
-	public static synchronized SDF get(String language) {
+	private static synchronized SDF get(String language) {
 		return allSDF.get(language);
 	}
 	

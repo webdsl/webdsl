@@ -7,7 +7,6 @@ import java.util.HashMap;
 import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
 import org.spoofax.interpreter.terms.IStrategoTerm;
-import org.spoofax.jsglr.InvalidParseTableException;
 
 /**
  * @author Lennart Kats <lennart add lclnet.nl>
@@ -40,7 +39,7 @@ public class StrategoProgram {
 	/**
 	 * Register a new Stratego program.
 	 */
-	public static synchronized StrategoProgram register(String programName, InputStream program) throws InterpreterException, IOException {
+	private static synchronized StrategoProgram register(String programName, InputStream program) throws InterpreterException, IOException {
 		Interpreter interpreter = Environment.createInterpreter();
 		interpreter.load(program);
 
@@ -50,22 +49,30 @@ public class StrategoProgram {
 		return result;
 	}
 	
-	public static synchronized StrategoProgram get(String programName) {
+	private static synchronized StrategoProgram get(String programName) {
 		return allPrograms.get(programName);
 	}
 	
 	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
 	
-	public synchronized IStrategoTerm invoke(String strategy, IStrategoTerm term) throws InterpreterException {
+	public synchronized IStrategoTerm invoke(String strategy, String string) {
+		return invoke(strategy, Environment.getWrappedTermFactory().makeString(string));
+	}
+	
+	public synchronized IStrategoTerm invoke(String strategy, IStrategoTerm term) {
 		interpreter.setCurrent(term);
 		
 		// TODO: Properly rename strategy using underscores
 		strategy = strategy.replace('-', '_') + "_0_0";
 		
-		boolean success = interpreter.invoke(strategy);
+		try {
+			boolean success = interpreter.invoke(strategy);
+			if (!success) return Environment.getWrappedTermFactory().makeString("Evaluation failed");
+		} catch (InterpreterException e) {
+			throw new RuntimeException(e);
+		}
 		
 		// TODO: Better handling of failure
-		if (!success) return Environment.getWrappedTermFactory().makeString("Evaluation failed");
 		
 		return interpreter.current();
 	}
