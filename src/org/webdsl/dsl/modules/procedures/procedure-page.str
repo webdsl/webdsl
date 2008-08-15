@@ -21,14 +21,25 @@ rules // Translate to pages and stuff
         ; stat* := <filter(procedure-do-statements); concat; add-procedure-done> procelem*
         ; if <IsDoProcedure> x_id then
               stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
-            ; elem*  := elem*|[ init { stat2* } ]|
+            ; elem*  := elem*|[ 
+                init { 
+                  x_o.x_id.do();
+                  goto x_view(x_o);
+                }
+              ]|
           else
               stat2*      := <add-view-page-return(|x_view, Var(x_o))> stat*
             ; viewelem*   := <procedure-view-elems> def
-            ; elem2       := elem|[ action doAction() { stat2* } ]|
+            ; elem2       := elem|[ 
+                action doAction() {
+                  x_o.persist();
+                  x_o.x_id.do();
+                  return x_view(x_o);
+                } 
+              ]|
             ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction()){} ]| -> elem|[ dummy { elem elem2 } ]| \}))> viewelem*
           end
-        ; e2 := <procedure-get-access-exp> procelem*
+        ; e2 := <procedure-get-access-exp(|x_o, x_id)> procelem*
         ; <emit-webdsl-section> |[
             access control rules {
               rules page x_id(x_o : srt) {
@@ -53,7 +64,6 @@ rules // Translate to pages and stuff
             entity x_Status : ProcedureStatus {
               x_o -> srt
               function enabled() {
-                this.isEnabled := true;
                 stat3*
               }
               function processed() {
@@ -61,6 +71,7 @@ rules // Translate to pages and stuff
               }
               function done() {
                 this.isEnabled := false;
+                this.persist();
                 stat5*
               }
               function do() {
@@ -68,6 +79,7 @@ rules // Translate to pages and stuff
               }
               function disabled() {
                 this.isEnabled := false;
+                this.persist();
                 stat7*
               }
             }
