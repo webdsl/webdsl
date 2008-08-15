@@ -65,16 +65,19 @@ public class SDF {
 	
 	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
 	
-	public synchronized String parseToString(String input) throws SGLRException {
-		IStrategoTerm parsed = parseToTerm(input);
-		String result = new String(parsed.toString()); // ensure string is not interned
-		
-		parseCache.put(result, parsed);
-		
-		return result;
+	public synchronized boolean isValid(String input) {
+		try {
+			IStrategoTerm parsed = parse(input);
+			String result = new String(parsed.toString()); // ensure string is not interned
+			
+			parseCache.put(result, parsed);
+			return true;
+		} catch (RuntimeException e) {
+			return false;
+		}
 	}
 	
-	public synchronized IStrategoTerm parseToTerm(String input) {
+	public synchronized IStrategoTerm parse(String input) {
 		try {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
@@ -83,10 +86,10 @@ public class SDF {
 			ATerm asfix = parser.parse(stream);
 
 			return implode(asfix);
-		} catch (IOException x) {
-			throw new RuntimeException(x); // unexpected; fatal
-		} catch (SGLRException x) {
-			throw new RuntimeException(x);
+		} catch (IOException e) {
+			throw new RuntimeException(e); // unexpected; fatal
+		} catch (SGLRException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
