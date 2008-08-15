@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.WeakHashMap;
 
 import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
@@ -25,8 +26,8 @@ public class SDF {
 	
 	private final SGLR parser;
 	
-	private final IdentityWeakHashMap<String, IStrategoTerm> parseCache
-		= new IdentityWeakHashMap<String, IStrategoTerm>();
+	private final WeakHashMap<String, IStrategoTerm> parseCache
+		= new WeakHashMap<String, IStrategoTerm>();
 	
 	private SDF(ParseTable table) {
 		parser = Environment.createSGLR(table);
@@ -68,9 +69,7 @@ public class SDF {
 	public synchronized boolean isValid(String input) {
 		try {
 			IStrategoTerm parsed = parse(input);
-			String result = new String(parsed.toString()); // ensure string is not interned
-			
-			parseCache.put(result, parsed);
+			parseCache.put(input, parsed);
 			return true;
 		} catch (RuntimeException e) {
 			return false;
@@ -85,7 +84,9 @@ public class SDF {
 			InputStream stream = new ByteArrayInputStream(input.getBytes());
 			ATerm asfix = parser.parse(stream);
 
-			return implode(asfix);
+			result = implode(asfix);
+			parseCache.put(input, result);
+			return result;
 		} catch (IOException e) {
 			throw new RuntimeException(e); // unexpected; fatal
 		} catch (SGLRException e) {
