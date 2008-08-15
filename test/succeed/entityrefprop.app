@@ -22,7 +22,7 @@ section datamodel
     form{
       input(u.name)
       input(u.child)
-      action(save(),"save")
+      action("save",save())
       action save()
       {
         u.save();

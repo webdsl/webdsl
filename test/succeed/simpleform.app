@@ -34,7 +34,7 @@ section datamodel
       inputText(u.text)
       inputWikiText(u.wiki)
       
-      action(save(),"save")
+      action("save",save())
     }
     action save()
     {

@@ -21,7 +21,7 @@ section datamodel
       form{
         "session entities shouldn't be used directly in inputs, no way to cancel after data has been bound"
         input(user.name)
-        action(save(),"save")
+        action("save",save())
         action save()
         {
           

@@ -13,7 +13,7 @@ section datamodel
       {
         input(i)
       }
-      action(someaction(i,u),"save")
+      action("save",someaction(i,u))
     }
     
     action someaction(i:Int,u:User){

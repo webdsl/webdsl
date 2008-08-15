@@ -31,7 +31,7 @@ section datamodel
     form{
       input(u.name)
       select(u.children from uset.users)
-      action(save(),"save")
+      action("save",save())
       action save()
       {
         u.save();

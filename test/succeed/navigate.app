@@ -17,11 +17,11 @@ section datamodel
     
     form{
       inputURL(l.url)
-      action(save(),"save")
+      action("save",save())
     }
     form{
       input(l.url)
-      action(save(),"save")
+      action("save",save())
     }
     action save()
     {
