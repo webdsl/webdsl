@@ -28,7 +28,7 @@ rules
   process-page-checks://TODO substpagevars
     def|[ define page x_ident(farg*){ elem* }       ]| -> 
     def|[ define page x_ident(farg*){ elem elem1* } ]|
-    where // collect takes care of duplicates
+    with // collect takes care of duplicates
           listofchecks := <collect(\ elem|[acpagecheck(x,e){}]| -> (x,e) \)> elem*
         ; e := <combine-checks> listofchecks
         ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
@@ -51,13 +51,13 @@ rules
   process-page-actions:
     def|[ define page x_ident(farg*){ elem*  } ]| ->
     def|[ define page x_ident(farg*){ elem2* } ]|
-    where elem1* := <alltd(process-action-checks(|farg*))> elem*
+    with  elem1* := <alltd(process-action-checks(|farg*))> elem*
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
     def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
     def|[ define x_ident(farg*){ elem3* } ]|
-    where {| InTemplate: rules(InTemplate:anything)
+    with  {| InTemplate: rules(InTemplate:anything)
              ; elem1* := <alltd(process-action-checks(|farg*))> elem*
              ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
              ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
@@ -65,9 +65,9 @@ rules
   
   substitute-parent-vars-1:
     (farg1*,e1) -> (farg2*,e2)
-    where {| subst-vars:
+    with  {| subst-vars:
                farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
-                          where varname := <newname> "genuniquevar" 
+                          with  varname := <newname> "genuniquevar" 
                               ; rules(//subst-vars: PageVar(nm)->Var(varname)
                                      TypeOf : varname -> srt
                                      subst-vars: Var(nm)->Var(varname)
@@ -76,9 +76,9 @@ rules
            |}
   substitute-parent-vars-2: //special because it is expanded in webdsl
     (farg1*,e1) -> (farg2*,e2)
-    where {| subst-vars:
+    with  {| subst-vars:
                farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
-                          where varname := <newname> "genuniquevar" 
+                          with  varname := <newname> "genuniquevar" 
                               ; rules(
                                      TypeOf : varname -> srt
                                      subst-vars: ExternalScopeVar(nm)->Var(varname)
@@ -91,7 +91,7 @@ rules
   process-action-checks(|farg4*): //page farg
     elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg2*){ stat3* } ]|
-    where  
+    with  
           listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*
         ; e1 := <combine-checks> listofchecks
         ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
@@ -111,7 +111,7 @@ rules
                 a@ elem|[                         x ( e7, x_ident(e3*) ) { elem* }    ]| ->
                    elem|[ if( x_predname(e4*) ) { x ( e7, x_ident(e3*) ) { elem* } } ]|
                    where <?"action"<+?"actionLink"> x 
-                       ; e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
+                   with  e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
                        ; e4* := [e5*,e3*]
                )
         // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
@@ -122,16 +122,17 @@ rules
           ; rules (AddTemplateArgToActionArg: 
                        elem|[  x ( e7, x_ident(e3*) ) { elem* }  ]| ->
                        elem|[  x ( e7, x_ident(e9*) ) { elem* }  ]|
-                       where e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
+                       with  e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
             )  
           else
             farg2* := farg*
           end
       
   process-template-checks:
-    def|[ define x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
-    def|[ define x_ident(farg*){ elem2* } ]|
-    where listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
+    def|[ define mod* x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
+    def|[ define mod* x_ident(farg*){ elem2* } ]|
+    where not(<elem> (Page(), mod*))
+    with  listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
         ; e := <combine-checks> listofchecks
         ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
         ; elem2* := elem* |[ if ( e ) { elem1* } ]|
@@ -167,16 +168,16 @@ rules
   //strategy that takes list of (groupname,check) tuples and creates the combination
   combine-checks=
     ?checks
-  ; where(final-check := <AC-Policy-Expression<+!Name("anonymous")>
+  ; with (final-check := <AC-Policy-Expression<+!Name("anonymous")>
           ; groupnames := <collect(\Name(x)->x\)> final-check
           ; groupchecks := <map({x:?x;<filter(?(x,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
   ; if <map(?[])> groupchecks
     then !False()
     else
-      where(
+      with (
             {| groupresult:
                  <zip(\(thename,thecheck) -> None() 
-                        where rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
+                        with rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
                ; subst-final-check := <topdown(try(groupresult))> final-check
                ; substituted-final-check := <bottomup(try(  \PolicyAnd([],[])-> []\
                                                          <+ \PolicyOr([],[])-> []\

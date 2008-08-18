@@ -20,8 +20,8 @@ public final class Encoders {
             // Update the message digest with some more bytes
             // This can be performed multiple times before creating the hash
             md.update(msg);
-            for(Object o:args)
-                md.update(o.toString().getBytes());
+            //for(Object o:args)
+            //    md.update(o.toString().getBytes());
             md.update((""+counter).getBytes());
 
             // Create the digest from the message

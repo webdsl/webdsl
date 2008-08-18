@@ -14,6 +14,8 @@ section datamodel
     output(l.url)
     
     navigate(testpage(45,"bla",l)){"link to testpage"} 
+       
+    navigatebutton(testpage(45,"bla",l),"link to testpage") 
     
     form{
       inputURL(l.url)

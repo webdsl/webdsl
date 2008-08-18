@@ -334,7 +334,7 @@ rules // links
   elem-to-java-servlet :
     TemplateCall("navigate",[ThisCall(p,args)],elems) ->
     bstm* |[ 
-    out.println("<a href=\""+"~url"+"\">");
+    out.println("<a href=\""+e_url+"\">");
     bstm*
     out.println("</a>");
     ]|
@@ -343,46 +343,61 @@ rules // links
     %></h:outputLink> <%
     */
     where <IsPage> p
-    with  debug(!1);def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
-        ; debug(!2);params := <zip(bind-param-java-servlet)> (farg*, args)
-        ; debug(!3);url := <page-call-to-url-java-servlet> (p, params)
-        ; debug(!4);bstm* := <elems-to-java-servlet> elems
-        ; debug(!5)
+    with  def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
+        ; params := <zip(bind-param-java-servlet)> (farg*, args)
+        ; e_url := <page-call-to-url-java-servlet> (p, params)
+        ; bstm* := <elems-to-java-servlet> elems
 
   bind-param-java-servlet :
-    (Arg(x, _), e) -> (x, el)
-    where el := <arg-to-value-string-java-servlet> FieldAccess(e, "id")
-/*
+    (Arg(x, srt), e) -> (x, el)
+    where <defined-java-type> srt
+    with  el := <arg-to-value-string-java-servlet> FieldAccess(e, "id")
+ 
+  bind-param-java-servlet :
+    (Arg(x, srt), e) -> (x, el)
+    where <builtin-java-type> srt
+    with  el := <arg-to-value-string-java-servlet> e
+
   elem-to-java-servlet :
     TemplateCall("navigatebutton",[ThisCall(p,args), e],[]) ->
-    %> <input type="button" onclick="location = '<%= url %>';" value="<%= txt %>"/> <%
+    bstm* |[
+    out.println("<input type=\"button\" onclick=\"window.location = '"+e_url+"'\"");
+    out.println("value=\""+e1+"\"");
+    out.println(" />");
+    ]|
+    //%> <input type="button" onclick="location = '<%= url %>';" value="<%= txt %>"/> <%
     where <IsPage> p
-        ; fargs := <TemplateArguments> p
-        ; params := <zip(bind-param)> (fargs, args)
-        ; url := <page-call-to-url> (p, params)
-        ; txt := <arg-to-value-string> e
+    with  def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
+        ; params := <zip(bind-param-java-servlet)> (farg*, args)
+        ; e_url := <page-call-to-url-java-servlet> (p, params)
+        ; e1 := <arg-to-value-string-java-servlet> e
 
-*/
   // constraint: only pass parameters of entity types (simple sorts)
   
   page-call-to-url-java-servlet :
-    (fn, []) -> <concat-strings> [<AppRoot>, "/", fn]
-/*
-  page-call-to-url-java-servlet :
+    (fn, []) -> e |[ "~s" ]| 
+    with  s := <concat-strings> [<AppRoot>, "/", fn]
+
+/*  page-call-to-url-java-servlet :
     (fn, [fst]) -> <concat-strings> [<AppRoot>, "/", fn, "/", fid]
     where (_, fid) := fst
 */
- /* page-call-to-url-java-servlet :
-    (fn, params) -> <concat-strings> [<AppRoot>, "/", fn, "/", rst]
+  page-call-to-url-java-servlet :
+    (fn, params) -> e |[ "~s" + e1 ]| 
     where not([] := params)
-    with  (_, fid) := fst
-        ; rst := <map(param-to-request-param-java-servlet); separate-by(|"/"); concat-strings> params
-        //; rst := <map(param-to-request-param-java-servlet); separate-by(|"&amp;"); concat-strings> [snd|rest]
-*/
+    with  s  := <concat-strings> [<AppRoot>, "/", fn, "/"]
+        ; e1 := <map(param-to-request-param-java-servlet); combine-params-to-exp> params
+
+  combine-params-to-exp :
+    [e] -> e |[ e ]|
+  
+  combine-params-to-exp :
+    [e|e*] -> e |[ e + "/" + e1 ]|
+    with  e1 := <combine-params-to-exp> e*
+
   param-to-request-param-java-servlet :
     (param, value) -> value
     //    (param, value) -> <concat-strings> [param, "=", value]
-  
 
 rules // forms
 

@@ -29,32 +29,45 @@ rules
   
           
           private static HashMap<String, Class> pages = new HashMap<String, Class>();
-          
+          private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
           static{
-              //pages.put("main", MainServlet.class);
               bstm*
+             
+              //String[] s = {"i1","s1","li1"};
+              //pagearguments.put("testpage", s);
+              bstm1*
           }
-
           
           public void doGet(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
-              String appstring = "/"+AppInfo.getAppName()+"/";
-              String requested = request.getRequestURL().substring(request.getRequestURL().indexOf(appstring)+appstring.length()); 
-  
-              if(requested.indexOf("?")>-1)
-                  requested = requested.substring(0, requested.indexOf("?"));
-  
-              
-              Class pc;
-              pc = pages.get(requested);
+              String[] req = request.getRequestURL().toString().split("/");
+              int count;
+              for(count=0;count<req.length;count++)
+              {
+                if(req[count].equals(AppInfo.getAppName()))
+                {
+                  count++;
+                  break;
+                }
+              }
+              String requested = req[count];
+              String[] args = java.util.Arrays.copyOfRange(req, count+1, req.length);
+              String[] argnames = pagearguments.get(requested);
+              java.util.Map<String, String> parammap = new java.util.HashMap<String, String>();
+              parammap.putAll(request.getParameterMap());
+              for(int count2=0; count2<args.length;count2++)
+              {
+                parammap.put(argnames[count2],args[count2]);
+              }
+              Class pc = pages.get(requested);
         
               if(pc != null)
               {
                   try{
                       PageServlet pageservlet = (PageServlet)pc.newInstance();
             
-                      pageservlet.serve(request,response);
+                      pageservlet.serve(request,response,parammap);
   
                   }
                   catch(IllegalAccessException iae)
@@ -98,12 +111,24 @@ rules
     ]|
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
-        ; bstm* := <map({\ 
+        ; bstm*  := <map({\ 
                            x -> bstm |[ pages.put(x_key, x_value); ]| 
-                           where x_key := <concat-strings> ["\"",x,"\""]
+                           with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
-                       \})> 
-                       <bagof-PageNames;make-set>
+                        \})> 
+                        <bagof-PageNames;make-set>
+        ; bstm1* := <map({\ 
+                           x -> bstm* |[ {
+                                         String[] s = { e* };
+                                         pagearguments.put(x_key, s); 
+                                         }
+                                      ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; e* := <TemplateArguments;map( \Arg(y,_)-> e|[ "~y" ]|\ )> x
+                        \});concat> 
+                        <bagof-PageNames;make-set>
         
+        
+
      
 

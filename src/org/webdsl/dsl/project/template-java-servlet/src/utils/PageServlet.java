@@ -10,8 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Session;
 
 public interface PageServlet {
-    public void serve(HttpServletRequest request,
-            HttpServletResponse response);
+    public void serve(HttpServletRequest request, HttpServletResponse response, java.util.Map<String, String> parammap);
     
     public Session getHibSession();
 
