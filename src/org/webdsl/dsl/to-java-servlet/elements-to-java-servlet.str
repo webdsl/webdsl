@@ -332,7 +332,7 @@ rules // links
         ; bstm* := <elems-to-java-servlet> elems
 
   elem-to-java-servlet :
-    TemplateCall("navigate",[ThisCall(p,args)],elems) ->
+    TemplateCall("navigate",[call@ThisCall(p,args)],elems) ->
     bstm* |[ 
     out.println("<a href=\""+e_url+"\">");
     bstm*
@@ -343,11 +343,27 @@ rules // links
     %></h:outputLink> <%
     */
     where <IsPage> p
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+        ; bstm* := <elems-to-java-servlet> elems
+
+  elem-to-java-servlet :
+    TemplateCall("navigatebutton",[call@ThisCall(p,args), e],[]) ->
+    bstm* |[
+    out.println("<input type=\"button\" onclick=\"window.location = '"+e_url+"'\"");
+    out.println("value=\""+e1+"\"");
+    out.println(" />");
+    ]|
+    //%> <input type="button" onclick="location = '<%= url %>';" value="<%= txt %>"/> <%
+    where <IsPage> p
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+        ; e1 := <arg-to-value-string-java-servlet> e
+        
+  page-thiscall-to-url-string-java-servlet :
+    ThisCall(p,args) -> e |[ e_url ]|
     with  def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
         ; params := <zip(bind-param-java-servlet)> (farg*, args)
         ; e_url := <page-call-to-url-java-servlet> (p, params)
-        ; bstm* := <elems-to-java-servlet> elems
-
+        
   bind-param-java-servlet :
     (Arg(x, srt), e) -> (x, el)
     where <defined-java-type> srt
@@ -358,30 +374,10 @@ rules // links
     where <builtin-java-type> srt
     with  el := <arg-to-value-string-java-servlet> e
 
-  elem-to-java-servlet :
-    TemplateCall("navigatebutton",[ThisCall(p,args), e],[]) ->
-    bstm* |[
-    out.println("<input type=\"button\" onclick=\"window.location = '"+e_url+"'\"");
-    out.println("value=\""+e1+"\"");
-    out.println(" />");
-    ]|
-    //%> <input type="button" onclick="location = '<%= url %>';" value="<%= txt %>"/> <%
-    where <IsPage> p
-    with  def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
-        ; params := <zip(bind-param-java-servlet)> (farg*, args)
-        ; e_url := <page-call-to-url-java-servlet> (p, params)
-        ; e1 := <arg-to-value-string-java-servlet> e
-
-  // constraint: only pass parameters of entity types (simple sorts)
-  
   page-call-to-url-java-servlet :
     (fn, []) -> e |[ "~s" ]| 
     with  s := <concat-strings> [<AppRoot>, "/", fn]
 
-/*  page-call-to-url-java-servlet :
-    (fn, [fst]) -> <concat-strings> [<AppRoot>, "/", fn, "/", fid]
-    where (_, fid) := fst
-*/
   page-call-to-url-java-servlet :
     (fn, params) -> e |[ "~s" + e1 ]| 
     where not([] := params)

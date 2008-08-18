@@ -29,6 +29,18 @@ section datamodel
     {
       l.save();
     }
+    
+    
+    form{
+      action("test action return",save2())
+    }
+    action save2()
+    {
+      return testpage(43,"bla1",l);
+    }
+    
+    
+    navigate(home2("bla2",l,42)){"test redirect"} 
 
   }
   
@@ -40,4 +52,9 @@ section datamodel
   
   }
 
-
+  define page home2(s:String,li:Link,i:Int)
+  {
+    init{
+      goto testpage(i,s,li);
+    }
+  }
