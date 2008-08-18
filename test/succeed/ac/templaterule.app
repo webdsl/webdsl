@@ -20,25 +20,15 @@ section principal
   
 section somesection  
   
-  define main() 
-  {
-    body()
-  }
-  
   define bla()
   {
     "tester"
   }
   
   define page home(){
-    main()
-    define body()
+    bla()
+    action save()
     {
-    
-      bla()
-      action save()
-      {
-        1=1;
-      }
+      1=1;
     }
-   }
+  }

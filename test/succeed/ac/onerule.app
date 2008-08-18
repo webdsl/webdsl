@@ -6,6 +6,8 @@ section principal
     name :: String
   }
 
+  var u1 : User := User{ name := "Bob" };
+
   principal is User with credentials name
   
   access control rules
@@ -13,21 +15,30 @@ section principal
     {
       true
     }
+    
   
 section somesection  
-  
-  define main() 
-  {
-    body()
-  }
-  
+    
   define page home(){
-    main()
-    define body()
-    {
+      if(!loggedIn())
+      {
+        "not logged in"
+        form{
+          action("login as Bob",login())
+        }
+        action login(){
+          securityContext.principal := u1;
+        }
+        
+      }
       if(loggedIn())
       {
         output(securityContext.principal.name)
+        form{
+          action("logout",logout())
+        }
+        action logout(){
+          securityContext.principal := null;
+        }
       }
-    }
-   }
+  }
