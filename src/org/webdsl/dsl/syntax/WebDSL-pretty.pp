@@ -324,6 +324,7 @@
    ProcOR                                       -- _1 KW["|OR|"] _2,
    ProcAND                                      -- _1 KW["|AND|"] _2,
    ProcPLUS                                     -- _1 KW["+"] _2,
+   ProcRepeatUntil                              -- KW["repeat"] KW["{"] _1 KW["}"] KW["until"] _2,
    RemoveMe                                     -- KW["RemoveMe"],
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]]
 ]
