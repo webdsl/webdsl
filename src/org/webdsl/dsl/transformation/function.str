@@ -14,7 +14,7 @@ strategies
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
     ; globalfuncs := <filter(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat;rename-bound-variables> sections
-    ; overloadedentityfuncs := <collect(find-entity-functions);concat;find-doubles> sections
+    ; overloadedentityfuncs := <collect(find-entity-functions);concat> sections
     ; overloadedglobalfuncs := <map(\ Function(nm, _, _, _) -> nm \); find-doubles; make-set> globalfuncs
     ; info(|["Overloaded entity functions: ", overloadedentityfuncs])
     ; info(|["Overloaded global functions: ", overloadedglobalfuncs])
@@ -24,12 +24,24 @@ strategies
     ; !Application(qid, sections2)
 
 
-  find-entity-functions :
-    Entity(ent, _, _, funcs) -> <map(\ Function(nm, _, _, _) -> (ent, nm) \)> funcs
+  find-entity-root =
+    ?srt
+    ; Extends
+    ; if ?"Object" then
+        !srt
+      else
+        find-entity-root
+      end
+
+  find-entity-root =
+    ?srt
+    ; not(Extends)
 
   find-entity-functions :
-    EntityNoSuper(ent, _, funcs) -> <map(\ Function(nm, _, _, _) -> (ent, nm) \)> funcs
+    Entity(ent, _, _, funcs) -> <map(\ Function(nm, _, _, _) -> (<find-entity-root> ent, nm) \); find-doubles> funcs
 
+  find-entity-functions :
+    EntityNoSuper(ent, _, funcs) -> <map(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> funcs
 
   rename-overloaded-entity-function(|torename) :
     Entity(ent, s, prop*, fun*) -> Entity(ent, s, prop*, fun2*)
@@ -47,7 +59,7 @@ strategies
 
   rename-overloaded-entity-function(|torename) :
     Function(nm, farg*, rt, b) -> fun
-    where <elem> ((<ThisEntity>, nm), torename)
+    where <elem> ((<ThisEntity; find-entity-root>, nm), torename)
     with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
        ; fun := Function(nm2, farg*, rt, b)
        ; <declare-function(|<ThisEntity>)> fun
@@ -55,7 +67,7 @@ strategies
   rename-overloaded-entity-function(|torename) :
     Call(e, nm, arg*) -> Call(e, nm2, arg*)
     where SimpleSort(ent) := <type-of> e
-        ; <elem> ((ent, nm), torename)
+        ; <elem> ((<find-entity-root> ent, nm), torename)
     with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
 
   rename-overloaded-global-function(|torename) :
