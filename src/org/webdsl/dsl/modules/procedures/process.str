@@ -47,6 +47,12 @@ strategies // extending the status entity
           }
 
           function next(state : Int) { }
+
+          function processed() {
+            if(this.caller != null) {
+              this.caller.next(this.returnstate);
+            }
+          }
         }
       ]|
   
@@ -71,6 +77,17 @@ rules // actual transformation
     ; !e
     ; bottomup(try(process-simplify))   // transforms complex procedure constructs to singular procedures
     ; process-sequential
+    ; where(
+        x_procstatus := <concat-strings; capitalize-string> [<ProcedureName>, "ProcedureStatus"]
+        ; e_next := Int(0)
+        ; <emit-webdsl-code> def|[ 
+            extend entity x_procstatus {
+              extend function do() {
+                this.next(e_next);
+              }
+            }
+          ]|
+      )
     
 strategies // handle sequential composition - only to be done after simplification of containing constructs
     
@@ -80,8 +97,8 @@ strategies // handle sequential composition - only to be done after simplificati
       // [ProcCall("employeeFillInForm",Var("p")),ProcCall("finalizeReport",Var("p")),ProcCall("approveReport",Var("p"))]
     ; {| State
        : stat1* := <map(get-sequential-proccall)>
-       ; x_current := <get-state>
-       ; last := |[ if (state = x_current) { this.processed(); } ]|
+       ; e_current := Int(<get-state>)
+       ; last := |[ if (state = e_current) { this.processed(); } ]|
        ; stat2* := [stat1*, last]
        |}
     ; x_status := <concat-strings; capitalize-string> [<ProcedureName>, "ProcedureStatus"]
@@ -119,17 +136,17 @@ strategies // simplification of complex constructs
         ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
         ; elseProcCalls := <collect-all(?ProcCall(_,_))> elseBranch
         ; {| State
-           : x_ifStartState := <get-state>
+           : e_ifStartState := Int(<get-state>)
            ; <debug> ifBranch
            ; statIfTemp* := <map(get-sequential-proccall)> ifProcCalls
-           ; x_ifEndState := <get-state>
-           ; lastIf := |[ if (state = x_ifEndState) { this.processed(); } ]|
+           ; e_ifEndState := Int(<get-state>)
+           ; lastIf := |[ if (state = e_ifEndState) { this.processed(); } ]|
            ; stat1* := [statIfTemp*, lastIf]
            
-           ; x_elseStartState := <get-next-state>
+           ; e_elseStartState := Int(<get-next-state>)
            ; statElseTemp* := <map(get-sequential-proccall)> elseProcCalls
-           ; x_elseEndState := <get-state>
-           ; lastElse := |[ if (state = x_elseEndState) { this.processed(); } ]|
+           ; e_elseEndState := Int(<get-state>)
+           ; lastElse := |[ if (state = e_elseEndState) { this.processed(); } ]|
            ; stat2* := [statElseTemp*, lastElse]
            |}
        
@@ -159,10 +176,10 @@ strategies // simplification of complex constructs
             extend entity x_newstatus {
               x_o -> srt
               function enableIf() {
-                this.next(x_ifStartState);
+                this.next(e_ifStartState);
               }
               function enableElse() {
-                this.next(x_elseStartState);
+                this.next(e_elseStartState);
               }
               function disableIf() {
                 stat3*
@@ -188,11 +205,11 @@ strategies // simplification of complex constructs
         // create next function, remembering if and else start states
         ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
         ; {| State
-           : x_ifStartState := <get-state>
+           : e_ifStartState := Int(<get-state>)
            ; <debug> ifBranch
            ; statIfTemp* := <map(get-sequential-proccall)> ifProcCalls
-           ; x_ifEndState := <get-state>
-           ; lastIf := |[ if (state = x_ifEndState) { this.processed(); } ]|
+           ; e_ifEndState := Int(<get-state>)
+           ; lastIf := |[ if (state = e_ifEndState) { this.processed(); } ]|
            ; stat1* := [statIfTemp*, lastIf]
            |}
 
@@ -220,7 +237,7 @@ strategies // simplification of complex constructs
             extend entity x_newstatus {
               x_o -> srt
               function enableIf() {
-                this.next(x_ifStartState);
+                this.next(e_ifStartState);
               }
               function disableIf() {
                 stat3*
@@ -243,12 +260,12 @@ strategies // simplification of complex constructs
         ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
         ; {| State
-           : x_branch1StartState := <get-state>
+           : e_branch1StartState := Int(<get-state>)
            ; <debug> branch1
            ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-           ; x_branch1EndState := <get-state>
+           ; e_branch1EndState := Int(<get-state>)
            ; lastBranch1 := |[ 
-               if (state = x_branch1EndState) { 
+               if (state = e_branch1EndState) { 
                  if (this.otherBranch = 0) {
                    this.otherBranch := 1;
                  } else {
@@ -258,11 +275,11 @@ strategies // simplification of complex constructs
              ]|
            ; stat1* := [stat1Temp*, lastBranch1]
 
-           ; x_branch2StartState := <get-next-state>
+           ; e_branch2StartState := Int(<get-next-state>)
            ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-           ; x_branch2EndState := <get-state>
+           ; e_branch2EndState := Int(<get-state>)
            ; lastBranch2 := |[ 
-               if (state = x_branch2EndState) { 
+               if (state = e_branch2EndState) { 
                  if (this.otherBranch = 0) {
                    this.otherBranch := 1;
                  } else {
@@ -295,10 +312,10 @@ strategies // simplification of complex constructs
               x_o -> srt
               otherBranch :: Int := 0
               function enable1() {
-                this.next(x_branch1StartState);
+                this.next(e_branch1StartState);
               }
               function enable2() {
-                this.next(x_branch2StartState);
+                this.next(e_branch2StartState);
               }
               function disable1() {
                 stat3*
@@ -325,17 +342,17 @@ strategies // simplification of complex constructs
         ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
         ; {| State
-           : x_branch1StartState := <get-state>
+           : e_branch1StartState := Int(<get-state>)
            ; <debug> branch1
            ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-           ; x_branch1EndState := <get-state>
-           ; lastBranch1 := |[ if (state = x_branch1EndState) { this.disable2(); this.processed(); } ]|
+           ; e_branch1EndState := Int(<get-state>)
+           ; lastBranch1 := |[ if (state = e_branch1EndState) { this.disable2(); this.processed(); } ]|
            ; stat1* := [stat1Temp*, lastBranch1]
 
-           ; x_branch2StartState := <get-next-state>
+           ; e_branch2StartState := Int(<get-next-state>)
            ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-           ; x_branch2EndState := <get-state>
-           ; lastBranch2 := |[ if (state = x_branch2EndState) { this.disable1(); this.processed(); } ]|
+           ; e_branch2EndState := Int(<get-state>)
+           ; lastBranch2 := |[ if (state = e_branch2EndState) { this.disable1(); this.processed(); } ]|
            ; stat2* := [stat2Temp*, lastBranch2]
            |}
 
@@ -360,10 +377,10 @@ strategies // simplification of complex constructs
             extend entity x_newstatus {
               x_o -> srt
               function enable1() {
-                this.next(x_branch1StartState);
+                this.next(e_branch1StartState);
               }
               function enable2() {
-                this.next(x_branch2StartState);
+                this.next(e_branch2StartState);
               }
               function disable1() {
                 stat3*
@@ -456,12 +473,12 @@ strategies // simplification of complex constructs
         // create next function, remembering start states
         ; loopProcCalls := <collect-all(?ProcCall(_,_))> loopBody
         ; {| State
-           : x_loopStartState := <get-state>
+           : e_loopStartState := Int(<get-state>)
            ; <debug> loopBody
            ; statLoopTemp* := <map(get-sequential-proccall)> loopProcCalls
-           ; x_loopEndState := <get-state>
+           ; e_loopEndState := Int(<get-state>)
            ; lastLoop := |[ 
-               if (state = x_loopEndState) { 
+               if (state = e_loopEndState) { 
                  if (e) {
                    this.enableLoopBody();
                  } else {
@@ -494,7 +511,7 @@ strategies // simplification of complex constructs
             extend entity x_newstatus {
               x_o -> srt
               function enableLoopBody() {
-                this.next(x_loopStartState);
+                this.next(e_loopStartState);
               }
               function disableLoopBody() {
                 stat3*
@@ -517,22 +534,22 @@ strategies // simplification of complex constructs
         ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
         ; {| State
-           : x_branch1StartState := <get-state>
+           : e_branch1StartState := Int(<get-state>)
            ; <debug> branch1
            ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-           ; x_branch1EndState := <get-state>
+           ; e_branch1EndState := Int(<get-state>)
            ; lastBranch1 := |[ 
-               if (state = x_branch1EndState) { 
+               if (state = e_branch1EndState) { 
                  this.enable1(); 
                } 
              ]|
            ; stat1* := [stat1Temp*, lastBranch1]
 
-           ; x_branch2StartState := <get-next-state>
+           ; e_branch2StartState := Int(<get-next-state>)
            ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-           ; x_branch2EndState := <get-state>
+           ; e_branch2EndState := Int(<get-state>)
            ; lastBranch2 := |[ 
-               if (state = x_branch2EndState) { 
+               if (state = e_branch2EndState) { 
                  this.disable1();
                  this.processed(); 
                } 
@@ -561,10 +578,10 @@ strategies // simplification of complex constructs
             extend entity x_newstatus {
               x_o -> srt
               function enable1() {
-                this.next(x_branch1StartState);
+                this.next(e_branch1StartState);
               }
               function enable2() {
-                this.next(x_branch2StartState);
+                this.next(e_branch2StartState);
               }
               function disable1() {
                 stat3*
@@ -583,13 +600,13 @@ strategies  // Helper strategies
 
   get-sequential-proccall =
     ?ProcCall(x1, x_id)
-    ; x_current := <get-state>
+    ; e_current := Int(<get-state>)
     ; e_next := Int(<get-next-state>)
-    ; !webdsl|[ if (state = x_current) { x_id.x1.enable(this, e_next); } ]|
+    ; !webdsl|[ if (state = e_current) { this.x_id.x1.enable(this, e_next); } ]|
 
   get-disable-proccall =
     ?ProcCall(x1, x_id)
-    ; !webdsl|[ x_id.x1.disable(); ]|
+    ; !webdsl|[ this.x_id.x1.disable(); ]|
 
   get-state =
     State <+ !0
