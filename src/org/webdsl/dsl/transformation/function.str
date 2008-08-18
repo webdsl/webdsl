@@ -8,142 +8,28 @@ imports
 imports
   libwebdsl-front
 
-/* I'm disabling this, because future backends won't require it -- Zef
-signature
-  constructors
-    EntityClass : String * List(EntityClass) -> Entity
-
-*/
 strategies
 
+  // @TODO: Rename this strategy
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
+    ; allfuncnames := <collect(\ Function(nm, _, _, _) -> nm \)> sections
+    ; overloadedfuncs := <find-doubles; make-set> allfuncnames
+    ; info(|["Overloaded funcs: ", overloadedfuncs])
     ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat;rename-bound-variables> sections
     ; rules ( AllGlobalFunctions := globalfuncs )
     ; !Application(qid, sections)
 
-  /*
-  aggregate-and-combine-functions =
-    ?app@Application(qid, sections)
-    ; hierarchy := <build-entity-hierarchy> "Object"
-    ; info(|"Let's combine some functions.")
-    ; entityfunctions := <collect(is-entity-function)> app
-    ; rules ( EntityFunctions := entityfunctions )
-    ; entityglobalfuncs := <collect(build-global-functions);concat> hierarchy
-    ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _); not(is-entity-function))> defs \) ;concat> sections
-    ; globalfuncsmet := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat> sections
-    ; <debug(!"globalfuncsmet")> globalfuncsmet
-//    ; <debug(!"globalfuncs")> globalfuncs
-//    ; <debug(!"entityglobalfuncs")> entityglobalfuncs
-    ; rules ( AllGlobalFunctions := <concat> [globalfuncs, entityglobalfuncs] )
-    ; !Application(qid, sections)
 
-*/
-  /**
-   * This rule desugars entities with functions into entities without functions, the functions
-   * are translated to global functions and later injected back into the code
-   */
-  /*
-  desugar :
-    Entity(x, s, prop*, [f|r]) -> Entity(x, s, prop*, r)
-    with f2 := <topdown(try(\ "this" -> "this"{} \));procedure-rename-var(|"this", "this0")> f
-       ; f3 := <entity-function-as-global(|x)> f2
-       ; <emit-webdsl-code> f3
-       //; rules ( EntityFunction :+ x -> f3 )
+  find-doubles :
+    [] -> []
 
-  desugar :
-    EntityNoSuper(x, prop*, [f|r]) -> EntityNoSuper(x, prop*, r)
-    where f2 := <topdown(try(\ "this" -> "this"{} \));procedure-rename-var(|"this", "this0")> f
-        ; f3 := <entity-function-as-global(|x)> f2
-        ; <emit-webdsl-code> f3
-        //; rules ( EntityFunction :+ x -> f3 )
+  find-doubles :
+    [a|k] -> <find-doubles> k
+    where not(<elem> (a, k))
 
-  entity-function-as-global(|x_class) :
-    Function(nm, args, rt, body) -> Function(nm, [Arg("this0", SimpleSort(x_class))|args], rt, body)
-
-rules
-  build-entity-hierarchy :
-    x_class -> EntityClass(x_class, <map(build-entity-hierarchy)> subentities)
-    where subentities := <filter(where(x_class := <Extends>))> <bagof-Entities>
-
-  is-entity-function =
-    ?Function(nm, [Arg(_, SimpleSort(srt))|_], _, _)
-    ; where(<IsFunction> (srt, nm))
-
-  build-global-functions =
-    ?EntityClass(nm, subclasses)
-
-    // ignore entities without top level entity functions so not every entity function uses overloading
-    ; <EntityFunctions> nm
-    ; ?[_|_]
-    
-    // gather all entity functions, bottom-up
-    ; orderedEntities := <collect-hierarchy-tree> EntityClass(nm, subclasses)
-    ; entityFuncs := <map(try(EntityFunctions)); concat> orderedEntities
-    ; debug(!"entityFuncs: ")
+  find-doubles :
+    [a|k] -> [a|<find-doubles> k]
+    where <elem> (a, k)
   
-    // merge all entity functions where necessary to handle overloading
-    ; newfuncs := <order-functions(|orderedEntities)> entityFuncs
-    ; (_, finalFuncs) := <merge-functions> (newfuncs, newfuncs)
-    ; debug(!"finalFuncs: ")
-    ; !finalFuncs
-
-  // bottom-up traversal in which specific entities come before more general entities
-  collect-hierarchy-tree :
-    EntityClass(nm, l*) -> lst
-    where lst := <concat> [<map(collect-hierarchy-tree); concat> l*, [nm]]
-
-  order-functions(|order) =
-    where([] := order)
-
-  order-functions(|order) =
-    ?funcs
-    ; [nm|rest] := order
-    ; if f := <fetch-elem(?Function(_, [Arg(_, SimpleSort(nm))|_], _, _))> funcs then
-        tail := <order-functions(|rest)> <remove-all(?f)> funcs
-        ; ![f|tail]
-      else
-        !<order-functions(|rest)> funcs
-      end
-
-  merge-functions :
-    ([], lst) -> ([], lst)
-  
-  merge-functions :
-    ([f@Function(fun, args, rt, Block(stms))|rest], lst) -> <merge-functions> (rest, lst2)
-    where argtypes := <map(\ Arg(_, srt) -> srt \)> args
-        ; others := <filter(overloaded-function(|fun, argtypes); not(?f))> lst
-        ; if not([] := others) then // Has more definitions
-            if SimpleSort("Void") := rt then
-              newproc := Function(fun, args, rt, Block(<map(fun-to-overload-stm)> <concat> [others, [f]]))
-            else
-              newproc := Function(fun, args, rt, Block(<concat> [<map(fun-to-overload-stm)> <concat> [others, [f]], [Return(<type-default-value> rt)]]))
-            end
-            ; lst3 := <diff> (lst, others)
-            //; rest2 := <filter(not(overloaded-function(|fun, argtypes); not(?f)))> lst
-            //; info(|["Found double: ", fun, ": ", rest2])
-            ; lst2 := <map(try(( f -> newproc )))> lst3
-          else
-            lst2 := lst
-          end
-          
-  fun-to-overload-stm :
-    Function(_,args@[Arg(_, srt2)|rest],_,Block(stat*)) -> stm
-    where e := <map(\ Arg(x, srt) -> exp|[ x is a srt ]| \); foldr(!exp|[ true ]|, exp-and)> args
-        ; stat2* := <procedure-rename-var(|"this0", "this1")> stat*
-        ; stm := <rename-all <+ debug> webdsl|[ if(e) { var this1 : srt2 := this0 as srt2; stat2* } else {} ]|
-
-  overloaded-function(|fun, argtypes) :
-    f@Function(fun2, args2, rt2, body) -> f
-    where argtypes2 := <map(\ Arg(_, srt) -> srt \)> args2
-        ; fun := fun2
-        ; <zip(type-compatible)> (argtypes, argtypes2)
-
-rules
-
-  desugar :
-    Call(e, f, e*) -> ThisCall(f, [e|e*])
-    where SimpleSort(s) := <type-of> e
-        ; <is-function> (s, f)
-
-*/
+  //rename-overloaded-function : 
