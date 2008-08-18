@@ -16,6 +16,14 @@ section datamodel
     return s + "?";
   }
 
+  function a(s : WikiText) : String {
+    return "Whatever dude";
+  }
+
+  function f(s : String) : String {
+    return s;
+  }
+
   var an : AnEntity := AnEntity {};
   
   define page home(){
