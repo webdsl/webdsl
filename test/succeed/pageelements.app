@@ -112,7 +112,7 @@ section datamodel
     form{
       input(i)
       input(b)
-      action(someaction(),"save")
+      action("save",someaction())
     }
     
     action someaction(){

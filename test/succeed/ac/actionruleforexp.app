@@ -14,6 +14,9 @@ section principal
       true
     }
     
+    rule template main(){ true }
+    rule template body(){ true }
+    
     rule template templ(d:Int)
     {
       d>2
@@ -33,6 +36,7 @@ section somesection
   define templ(a:Int)
   {
     var f: Int := 10;
+    output(a)
     action("Confirm", save(f))
     action save(c:Int)
     {
@@ -45,9 +49,11 @@ section somesection
 
     define body()
     {
-      for(b:Int in [1,2,3,4,5,6])
+      for(b:Int in [1,2,3,4,5,6,7,8,9,10,11,12])
       {
         templ(b)
       }
+      
+      templ(10)
     }
    }
