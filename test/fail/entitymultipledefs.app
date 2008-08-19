@@ -1,4 +1,4 @@
-//Error: Entity User is defined multiple times.
+//Error: Entities User are defined multiple times
 
 
 application test
@@ -10,7 +10,7 @@ section datamodel
   }
   
   entity User{
-    name :: String
+    password :: Secret
   }
 
   define main() 
