@@ -7,10 +7,10 @@ TESTS = $(patsubst %.app,%,$(TESTSSUCCEED)) $(patsubst %.app,%,$(TESTSFAIL))
 EXTRA_DIST = $(TESTSSUCCEED) $(TESTSFAIL) $(TESTSSUCCEEDALL) $(wildcard *.sh) run
 
 $(TESTSSUCCEED:.app=): run-test-succeed.sh
-	$(LN_S) $$(pwd)/$< ./$@
+	@$(LN_S) $$(pwd)/$< ./$@
 
 $(TESTSFAIL:.app=): run-test-fail.sh
-	$(LN_S) $$(pwd)/$< ./$@
+	@$(LN_S) $$(pwd)/$< ./$@
 
 clean:
 	@echo "Removing all symbolic links to tests";

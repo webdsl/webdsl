@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo -n "$0 "
+
 name=$0.app
 show_result=$1
 dsl-to-seam -i $name --stop-after 1 > /dev/null 2> $name.out
