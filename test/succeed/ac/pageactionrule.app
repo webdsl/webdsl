@@ -9,7 +9,7 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home(first:Int)
+    rule page testpage(first:Int)
     {
       true
       rule action test(second:Int)
@@ -17,6 +17,9 @@ section principal
         first=second
       }
     }
+    rule page home(){true}
+    rule template main(){true}
+    rule template body(){true}
   
 section somesection  
   
@@ -25,13 +28,28 @@ section somesection
     body()
   }
   
-  define page home(a:Int){
+
+  define page home(){
+  
+    title{ "homepage" }
+  
+    navigate("testpage",testpage(6))
+   }
+   
+   
+  define page testpage(a:Int){
+    title{ "test" "page" }
     main()
     define body()
     {
+      form{
+        action("test",test(6))
+      }
+    
+    
       action test(a:Int)
       {
-        a=6;
+        return home();
       }
     }
    }

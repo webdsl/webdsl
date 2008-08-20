@@ -25,7 +25,8 @@ section principal
     {
       3=3
     }
-  
+    rule template main(){true}
+    rule template body(){true}
   
 section somesection  
   
@@ -38,6 +39,7 @@ section somesection
     main()
     define body()
     {
+      "test succeeded"
       if(loggedIn())
       {
         output(securityContext.principal.name)

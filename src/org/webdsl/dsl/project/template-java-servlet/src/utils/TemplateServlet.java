@@ -14,5 +14,5 @@ public interface TemplateServlet {
     
     public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables);
     
-    public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables) ;
+    public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables, java.io.PrintWriter out) ;
 }

@@ -114,16 +114,16 @@ rules
           
           /* problem with merging? */
           @Partial 
-          public void hiddenParams(String combinedparams)
+          public void hiddenParams(java.lang.StringBuffer combinedparams)
           {
           
           }
           
           public String getHiddenParams()
           {
-            String hiddens = new String();
+            java.lang.StringBuffer hiddens = new java.lang.StringBuffer();
             hiddenParams(hiddens);
-            return hiddens;
+            return hiddens.toString();
           }
           
           x_specialpagetemplate templateservlet = new x_specialpagetemplate();
@@ -131,67 +131,78 @@ rules
           public void serve(HttpServletRequest request, HttpServletResponse response, java.util.Map<String, String> parammap)
           {
               
-              this.request=request;
-              this.response=response;
-              this.parammap = parammap;
-              session = request.getSession(true);
+            this.request=request;
+            this.response=response;
+            this.parammap = parammap;
+            session = request.getSession(true);
+            
+            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+    
+            hibSession.beginTransaction();
+            try
+            {	
+              initialize();
+              conversion();
+              loadArguments();
+              //initialize();
               
-              hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-      
-              hibSession.beginTransaction();
-              try
-              {	
-                initialize();
-                conversion();
-                loadArguments();
-                //initialize();
-                
-                Object[] args = { e* };
-                this.args = args;
-                
-                //call special pagetemplate
-                templateservlet.storeInputs  (this, args, 1, (HashMap<String,Class>)templates.clone(),variables );
-                templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables );
-                
-                render(request,response);
-                
-                  
-                hibSession.getTransaction().commit();
-      
-                  
-              }	
-              catch (Exception ex) {
-                  hibSession.getTransaction().rollback();
-                
-              }
-                
-            }
+              Object[] args = { e* };
+              this.args = args;
+              
+              //call special pagetemplate
+              templateservlet.storeInputs  (this, args, 1, (HashMap<String,Class>)templates.clone(),variables );
+              templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables );
+              
+              render(request,response);
+              
+              hibSession.getTransaction().commit();
+    
+            }	
+            catch (Exception ex) {
+                hibSession.getTransaction().rollback();
+              
+            }   
+          }
           
+        
+          private String pageTitle ="";
+          
+  
+          public String getPageTitle() {
+            return pageTitle;
+          }
+
+          public void setPageTitle(String pageTitle) {
+              this.pageTitle = pageTitle;
+          }  
           
           public void render(HttpServletRequest request,
                   HttpServletResponse response)
           throws ServletException, IOException {
             this.request=request;
             this.response=response;
-    
+        
+            java.io.StringWriter s = new java.io.StringWriter();
+            java.io.PrintWriter out = new java.io.PrintWriter(s); 
+                
+            //call special pagetemplate render
+            templateservlet.render(this, args, 1,(HashMap<String,Class>)templates.clone(),variables,out);
+
+            java.io.PrintWriter sout = response.getWriter();
+            
             response.setContentType("text/html");
             
-            PrintWriter out = response.getWriter();
-    
+            sout.println("<html>");
+            sout.println("<head>");
+            sout.println("<title>"+getPageTitle()+"</title>");
+            sout.println("</head>");
+            sout.println("<body>");
             
-            out.println("<html>");
-            out.println("<head>");
-     
-            out.println("</head>");
-            out.println("<body>");
+            s.flush();
+            sout.write(s.toString());
             
-       
-            //call special pagetemplate render
-            templateservlet.render(this, args, 1,(HashMap<String,Class>)templates.clone(),variables );
-
-    
-            out.println("</body>");
-            out.println("</html>");
+            sout.println("</body>");
+            sout.println("</html>");
                   
           }
   

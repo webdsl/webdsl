@@ -13,6 +13,8 @@ section principal
     {
       true
     }
+    rule template main(){true}
+    rule template body(){true}
   
 section somesection  
   

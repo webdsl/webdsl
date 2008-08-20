@@ -24,5 +24,7 @@ public interface PageServlet {
     
     public String getHiddenParams();
  
-   // public HashMap<String, Class> getTemplates();
+    public String getPageTitle();
+
+    public void setPageTitle(String pageTitle);
 }
