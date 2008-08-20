@@ -11,28 +11,28 @@ rules
 
   rename :
     AccessControlRule(checktype,matchstring,fargs1,check1,acrules1) -> AccessControlRule(checktype,matchstring,fargs2,check2,acrules2) 
-    where {| Rename
-           : fargs2 := <map(rename)> fargs1
+    with  {| Rename
+           : fargs2 := <rename-all> fargs1
            ; check2 := <rename-all> check1
            ; acrules2 := <rename-all> acrules1
            |}
   
   rename :
     Predicate(x, args1, b1) -> <declare-global-pred> Predicate(x, args2, b2)
-    where {| Rename
+    with  {| Rename
            : args2 := <map(rename)> args1
            ; b2 := <rename-all> b1
            |}
   declare-global-pred =
     ?Predicate(f, args, b)
-    ; where(<declare-global-func> Function(f, args, SimpleSort("Bool"), b))
+    ; with(<declare-global-func> Function(f, args, SimpleSort("Bool"), b))
     ; rules (IsPredicate : (f,args) //should use types of args
              IsPredicate : f       )//remove
     
     
   rename : 
     AccessControlPrincipal(x_ident,props) -> AccessControlPrincipal(x_ident,props)
-    where <declare-entity> def |[
+    with  <declare-entity> def |[
             session securityContext {
               principal   -> x_ident
               loggedIn    :: Bool //for backwards comp
@@ -77,19 +77,21 @@ rules
  
   rename :
     AccessControlPointcut(pname,args1,b1) -> <declare-ac-pointcut> AccessControlPointcut(pname,args2,b2)
-    where {| Rename
+    with  {| Rename
            : args2 := <map(rename)> args1
            ; b2 := <alltd(rename-pc-elem-idents)> b1
+           //; b2 := <rename-all> b1
           |}
+
   rename-pc-elem-idents :
     x -> y
     where Var(y) := <Rename> Var(x)
     
   declare-ac-pointcut:
     AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems) 
-    where 
+    with 
          {| pointcut-formal-argument :
-             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
+             <filter(\ ar@Arg(ident,thesort)->ar with rules (pointcut-formal-argument : ident -> ar) \)> fa
            ; t1* := <map(?Arg(_,<id>))> fa
            ; <filter(declare-ac-pointcut-element(|pname,t1*))> elems
            ; rules(  MatchesAccessControlPointcut : (x_ident, t1*) 
@@ -99,11 +101,11 @@ rules
    
   declare-ac-pointcut-element(|pname,fa):
     AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
-    where faidentsargs := MatchArgs(<map(pointcut-formal-argument)> faidents,wc)
+    with  faidentsargs := MatchArgs(<map(pointcut-formal-argument)> faidents,wc)
         ; newPointcutList := <concat> [<AccessControlPointcuts<+![]> (pname,fa),[(ident,matchident,faidentsargs)]]
         ; rules(
             AccessControlPointcuts: (pname,fa) -> newPointcutList
-          )  
+          ) 
 /*
           
   // uses: declare-global-funcs = ?fu@Function(f, args, s, b) ...

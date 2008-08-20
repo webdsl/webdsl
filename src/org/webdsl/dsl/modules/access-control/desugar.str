@@ -18,7 +18,7 @@ rules
   // there can be only one of these (not yet checked)
   desugar:
     AccessControlPrincipal(x_ident,props) -> RemoveMe()
-    where <rename;emit-webdsl-code> def |[
+    with  <rename;emit-webdsl-code> def |[
             session securityContext {
               principal   -> x_ident 
               loggedIn    :: Bool //for backwards comp
@@ -42,7 +42,7 @@ rules
           }
         }        
       ]|
-    where e := <add-not-null-checks> exp
+    with  e := <add-not-null-checks> exp
 
 
   //pointcuts
@@ -53,12 +53,12 @@ rules
   desugar: 
     AccessControlDefinition(ident,decs) -> AccessControlDefinition(ident,newdecs)
     where <fetch(?AccessControlRule("pointcut",_,_,_,_))> decs
-        ; newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
-        ; <not(fetch(?AccessControlRule("pointcut",_,_,_,_)))> newdecs
+    with  newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
+        //; <not(fetch(?AccessControlRule("pointcut",_,_,_,_)))> newdecs
     
   desugar-pointcut-rule :
     AccessControlRule("pointcut",matchident,args,check,childrules) -> newrules
-    where MatchArgs(fargs,wc) := args
+    with  MatchArgs(fargs,wc) := args
         ; t1* := <map(?Arg(_,<id>))> fargs
         ; pc := <MatchesAccessControlPointcut> (matchident,t1*)
         ; theargs := <PointcutArguments> (matchident,t1*) 
@@ -67,7 +67,7 @@ rules
 
   rule-tuple-to-ac-rule(|check,childrules,pcrulearg,fargs):
     (ident,matchident,matchargs) -> AccessControlRule(ident,matchident,matchargs,check2,childrules)
-    where 
+    with  
           {| SubstCheckVar:
                <zip( {( a@(Arg(nm1,srt1),Arg(nm2,srt2))-> a 
                           where rules(SubstCheckVar: nm1 -> nm2) )} )> (fargs,pcrulearg)
@@ -106,10 +106,10 @@ rules
   //emit predicate functions
   desugar:
     AccessControlDefinition(nm,defs) -> AccessControlDefinition(nm,newdefs)
-    where <alltd(\p@AccessControlPrincipal(_,_) -> p where <emit-webdsl-code> p \)> defs
-        ; <alltd(\p@Predicate(_,_,_) -> p where <emit-webdsl-code> p \)> defs
-        ; newdefs := <alltd(remove-all(?Predicate(_,_,_)<+?AccessControlPrincipal(_,_)))> defs
-       
+    where with(  
+            <alltd(\p@AccessControlPrincipal(_,_) -> p with <emit-webdsl-code> p \)> defs
+          ; <alltd(\p@Predicate(_,_,_) -> p with <emit-webdsl-code> p \)> defs
+          ; newdefs := <alltd(remove-all(?Predicate(_,_,_)<+?AccessControlPrincipal(_,_)))> defs
+          )
         ; not(defs := newdefs)//fail if nothing done to let other desugar on this element happen as well
-     //; <debug> "desugar acdef"
  
