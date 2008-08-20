@@ -1,18 +1,13 @@
 #!/bin/sh
 
-name=$1
-show_result=$2
-OLDDIR=`pwd`
-cd `dirname $1`
-FILE=`echo $name | sed 's/\.app//'`
-webdsl test `basename $FILE` 2> /dev/null > /dev/null
+cd `dirname $0`
+webdsl test `basename $0` # > /dev/null 2> $name.out
+
 result=$?
 if test 0 -eq $result; then
   #echo "SUCCESSFULLY COMPILED: $name"
-  :
+  rm $name.out
 else
-  :
-    #echo "FAILED to compile: $name"
+  cat $name.out
 fi
-cd $OLDDIR
 exit $result
