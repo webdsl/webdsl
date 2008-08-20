@@ -27,9 +27,14 @@ section somesection
   define main(a:Int) 
   {
     body()
+    form{
+      action("test",test(6))
+    }
+    
     action test(a:Int)
     {
       a=6;
+      return home();
     }
   }
   

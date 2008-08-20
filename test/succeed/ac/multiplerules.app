@@ -26,7 +26,6 @@ section principal
       3=3
     }
     rule template main(){true}
-    rule template body(){true}
   
 section somesection  
   

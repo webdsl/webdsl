@@ -38,4 +38,3 @@ section datamodel
     }
     rule page home(){true}
     rule template main(){true}
-    rule template body(){true}

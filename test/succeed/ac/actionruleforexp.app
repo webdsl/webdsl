@@ -15,7 +15,6 @@ section principal
     }
     
     rule template main(){ true }
-    rule template body(){ true }
     
     rule template templ(d:Int)
     {
