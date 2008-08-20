@@ -1,13 +1,12 @@
 #!/bin/sh
 
 cd `dirname $0`
-webdsl test `basename $0` # > /dev/null 2> $name.out
+FILE=`basename $0`
+webdsl test $FILE > /dev/null 2> $FILE.out
 
 result=$?
-if test 0 -eq $result; then
-  #echo "SUCCESSFULLY COMPILED: $name"
-  rm $name.out
-else
-  cat $name.out
+if test 0 -ne $result; then
+  cat $FILE.out
 fi
+rm -f $FILE.out
 exit $result
