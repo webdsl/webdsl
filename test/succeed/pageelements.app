@@ -120,6 +120,17 @@ section datamodel
     
     }
     
+    
+    
+    
+    //lists
+    
+    list{
+      listitem{"1"}
+      listitem{"2"}
+      listitem{"3"}
+    }
+    
   }
 
 
