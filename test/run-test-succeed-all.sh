@@ -1,8 +1,9 @@
 #!/bin/sh
 
+SRCDIR=$(pwd)/../src
 cd `dirname $0`
 FILE=`basename $0`
-webdsl test $FILE > /dev/null 2> $FILE.out
+bash $SRCDIR/org/webdsl/dsl/project/webdsl test $FILE > /dev/null 2> $FILE.out
 
 result=$?
 if test 0 -ne $result; then
