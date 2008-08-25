@@ -5,7 +5,10 @@ am__tar = ${AMTAR} chf - "$$tardir"
 
 SUBDIRS = src src/org/webdsl/dsl/project test
 
-#src/org/webdsl/dsl/generation 
+syntax :
+	$(MAKE) -C src
+
+#src/org/webdsl/dsl/generation
 
 BOOTCLEAN_SUBDIRS = $(SUBDIRS)
 DIST_SUBDIRS      = $(SUBDIRS)
