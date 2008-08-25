@@ -6,6 +6,7 @@ import java.io.InputStream;
 import org.spoofax.compiler.Compiler;
 import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
+import org.spoofax.interpreter.library.jsglr.JSGLRLibrary;
 import org.spoofax.interpreter.adapter.aterm.WrappedATermFactory;
 import org.spoofax.jsglr.InvalidParseTableException;
 import org.spoofax.jsglr.ParseTable;
@@ -38,6 +39,7 @@ final class Environment {
 
 	public static Interpreter createInterpreter() throws IOException, InterpreterException {
 		Interpreter result = new Interpreter(wrappedFactory);
+		result.addOperatorRegistry("JSGLR", new JSGLRLibrary(wrappedFactory));
 		result.load(Compiler.sharePath() + "/stratego-lib/libstratego-lib.ctree");
 		result.load(Compiler.sharePath() + "/libstratego-sglr.ctree");
 		return result;
