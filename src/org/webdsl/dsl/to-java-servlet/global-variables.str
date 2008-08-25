@@ -40,7 +40,7 @@ rules
               hibSession.load(ids.get(ident));
           }*/
       
-        private static HashMap<String, Object> variables = new HashMap<String, Object>();
+        //private static HashMap<String, Object> variables = new HashMap<String, Object>();
     
         static{
             //start hibsession
@@ -74,17 +74,23 @@ rules
                            elem |[ var x : srt := e ]| -> 
                            class-body-dec*|[ 
                              //private static t x = null;
-                             private static Long x#id = null;
+                             private static String x#id = null;
                               
                              public static x_class get#x(org.hibernate.Session hibSession)
                              {
-                                 t x = (x_class) hibSession.load(x_class.class, x#id);
+                                 t x = (x_class) hibSession.load(x_class.class, x_type.valueOf(x#id));
                                  return x;
                              }
                               
                            ]| 
-                           where t := <java-servlet-java-type> srt
+                           with  t := <java-servlet-java-type> srt
+                               ; SimpleSort(typename) := srt
                                ; x_class := <java-servlet-type-name> srt
+                               ; if <EntityIdName> typename then
+                                   x_type := <sort-to-java-type-string> <EntityIdType> typename
+                                 else
+                                   x_type := "Long"
+                                 end
                        \});concat> 
                        <AllGlobalVars<+ ![]>
         ; vardeclinits := <AllGlobalVars <+ ![]>
@@ -103,7 +109,7 @@ rules
 //copied from seam backend but function stuff removed     
      
   globals-helper-entity-java-servlet =
-    where( vardeclinits := <AllGlobalVars <+ ![]>
+    with ( vardeclinits := <AllGlobalVars <+ ![]>
              ; pkgname    := <BeanPackage>
              ; pkgname2   := <DomainPackage>
              ; <emit-java-code> compilation-unit|[
@@ -156,15 +162,15 @@ rules
 
   vardeclinit-to-persist-statement-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> result
-    where if <EntityIdName> x_class
+    with  if <EntityIdName> x_class
           then x_idname := <EntityIdName> x_class
                ; idassign := <collect({e:?Assignment(idname, e);!webdsl |[ x_ident.x_idname := e; ]| });Hd> exps
-               ; result := [ <statement-to-java-servlet> idassign, bstm*|[ 
+               ; result := [ <statement-to-java-servlet> idassign | bstm*|[ 
                                                                            hibSession.save(x_ident);
-                                                                           variables.put("~x_ident",x_ident); 
+                                                                           //variables.put("~x_ident",x_ident); 
                                                                         ]| ]
           else result := bstm* |[ hibSession.save(x_ident);
-                                  variables.put("~x_ident",x_ident);
+                                  //variables.put("~x_ident",x_ident);
                                ]| end
 
   vardeclinit-to-method-call-java-servlet:
@@ -190,10 +196,10 @@ rules
           x_acpident.setName(x_acpname);
           x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
           hibSession.save(x_acpident);
-          GlobalVariables.x_ident#id = Long.valueOf(x_acpident.getDatabaseId());
+          GlobalVariables.x_ident#id = x_acpident.getDatabaseId();
         }
   ]|
-  where x_acpident := <new>
+  with  x_acpident := <new>
       ; t := <java-type> SimpleSort(x_class)
       ; x_t := <sort-to-java-type-string> SimpleSort(x_class)
       ; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
@@ -214,7 +220,7 @@ rules
      ]|
      where SimpleSort("String") := <type-of> String(anystring) 
          ; SimpleSort("Secret") := <type-of-property> (class,x_prop)
-         ; x_var2 := <newname> "_passwordEncryptor"
+     with  x_var2 := <newname> "_passwordEncryptor"
          ; x_set := <property-setter> x_prop
          ; x_anystring := <concat-strings> ["\"",anystring,"\""]
 
@@ -242,7 +248,7 @@ rules
            variables.put("~x",x);
        }
      ]| 
-     where t := <java-servlet-java-type> srt
+     with  t := <java-servlet-java-type> srt
          ; x_class := <java-servlet-type-name> srt
                       
 
@@ -255,7 +261,7 @@ rules
     class-body-dec* |[
       ~*cbds
     ]|
-    where  cbds := <map({\ 
+    with  cbds := <map({\ 
                            elem |[ var x : srt := e ]| -> 
                            class-body-dec*|[ 
                              private t x = null;
@@ -265,7 +271,7 @@ rules
                                  x = (x_class) variables.get("~x");
                              }
                            ]| 
-                           where t := <java-servlet-java-type> srt
+                           with  t := <java-servlet-java-type> srt
                                ; x_class := <java-servlet-type-name> srt
                        \});concat-with-sublists> 
                        <AllGlobalVars>

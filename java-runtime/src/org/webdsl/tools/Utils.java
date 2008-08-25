@@ -38,7 +38,7 @@ public final class Utils {
     public static boolean equal(Object a, Object b) {
         if(a == null && b == null) {
             return true;
-        } else if(a == null || b == null) {
+        } else if( (a == null && b != null) || (a != null && b == null) ) {
             return false;
         }
         return a.equals(b);
