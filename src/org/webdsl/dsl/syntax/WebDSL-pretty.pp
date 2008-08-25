@@ -101,7 +101,7 @@
    GoTo								  -- H[KW["goto"] H hs=0[H[_1] KW[";"]]],
    VarDeclInit                        -- H[KW["var"] _1 KW[":"] _2 KW[":="] _3 KW[";"]],
    VarDecl                            -- H[KW["var"] _1 KW[":"] _2 KW[";"]],
-   If                                 -- V is=2[V[V is=2[H[KW["if"] KW["("] _1 KW[")"]] _2] KW["else"] ] _3],
+   If                                 -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 KW["else"] _3],
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
 
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
@@ -162,7 +162,7 @@
    Or                                 -- _1 KW["||"] _2,
    Not                                -- KW["!"] _1,
    IsA                                -- _1 KW["is"] KW["a"] _2,
-   Cast                               -- _1 KW["as"] _2,
+   Cast                               -- H[_1 KW["as"] _2],
    None                               -- KW["None()"], %% Shoudl never apear
 
 

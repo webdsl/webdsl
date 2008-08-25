@@ -505,7 +505,7 @@ strategies // simplification of complex constructs
                 }
               }
               disabled {
-                disableLoopBody();
+                this.disableLoopBody();
               }
             }
           ]|
@@ -537,11 +537,16 @@ strategies // simplification of complex constructs
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
         ; {| State
            : e_branch1StartState := Int(<get-state>)
-           ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
+           ; if [first | [second | tail]] := branch1ProcCalls then
+               stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-repeat> second | <map(get-sequential-proccall)> tail]]
+             else 
+               stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
+             end
            ; e_branch1EndState := Int(<get-state>)
            ; lastBranch1 := |[ 
                if (state = e_branch1EndState) { 
                  this.enable1(); 
+                 this.enable2();
                } 
              ]|
            ; stat1* := [stat1Temp*, lastBranch1]
@@ -567,7 +572,6 @@ strategies // simplification of complex constructs
             auto procedure x_new(x_o : srt) {
               enabled {
                 this.enable1();
-                this.enable2();
               }
               disabled {
                 this.disable1();
@@ -602,6 +606,13 @@ strategies  // Helper strategies
   get-sequential-proccall :
     ProcCall(x1, x_id) -> 
     webdsl|[ if (state = e_current) { e.x1.enable(this as ProcedureStatus, e_next); } ]|
+    with e := <strip-annos; prefix-expression(|Var("this"))> x_id
+       ; e_current := Int(<get-state>)
+       ; e_next := Int(<get-next-state>)
+       
+  get-sequential-repeat :
+    ProcCall(x1, x_id) -> 
+    webdsl|[ if (state = e_current) { this.disable2(); e.x1.enable(this as ProcedureStatus, e_next); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
