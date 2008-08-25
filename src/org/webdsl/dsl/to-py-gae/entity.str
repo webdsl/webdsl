@@ -50,6 +50,7 @@ strategies
   py-property-to-code(|x_class) = // Simple property
     ?Property(x_prop, knd, srt@SimpleSort(_), annos)
     ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
+    ; not(<defined-java-type> srt)
     ; with(id
       ; if <elem> (SimpleAnno("id"), annos) then
           e_idprop := <concat-strings> ["'", x_prop, "'"]
@@ -68,6 +69,30 @@ strategies
         end
       ; e := <python-property-type> srt
       ; <emit-python(|"data")> python*|[ @partial class x_class(): { x_prop = e; }; ]|
+      )
+
+  py-property-to-code(|x_class) = // Simple reference property
+    ?Property(x_prop, knd, srt@SimpleSort(s), annos)
+    ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
+    ; <defined-java-type> srt
+    ; with(id
+      ; e_type := <concat-strings> ["'", s, "'"]
+      ; if <InlineProperties> s then
+          e := ListLiteral(<concat> [["'id'", "'name'"],
+                           <map(\ str -> <concat-strings> ["'", str, "'"] \)> <bagof-InlineProperties> s])
+        else
+          e := py-exp|[ ['name', 'id'] ]|
+        end
+      ; e_propinline := <concat-strings> ["'", x_prop, "_inline'"]
+      ; x_propid := <concat-strings> [x_prop, "_id"]
+      ; e_prop := <concat-strings> ["'", x_prop, "'"]
+      ; e_propcol := <concat-strings> ["'", x_prop, "_id_set'"]
+      ; <emit-python(|"data")> python*|[ 
+          @partial class x_class(): {
+            x_prop = webdsl.db.PartiallyOneInlinedReferenceProperty(e_type ,  e, name=e_propinline);
+            x_propid = db.ReferenceProperty(name=e_prop, collection_name=e_propcol);
+          };
+        ]|
       )
 
   py-property-to-code(|x_class) = // many-to-one back reference

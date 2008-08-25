@@ -175,7 +175,6 @@ class OneToManyDbQuerySet(QuerySet):
         query_list = QuerySet(self.query_list.lst[:])
         if self.inverse_prop_key:
             self.query = self.type.all().filter("%s =" % self.inverse_prop, self.inverse_prop_key)
-            logging.info("All: %s" %  list(self.query))
             for prop, op, val in self.filters:
                 self.query.filter('%s %s' % (prop, op_to_filter[op]), val)
             if self.order:
@@ -193,7 +192,7 @@ class OneToManyDbQuerySet(QuerySet):
                 query_list = getattr(query_list, 'filter_%s' % op)(prop, val)
             if self.order:
                 query_list = query_list.order_by(self.order)
-        return query_list.limit(self.limit_, self.offset).list()
+        return query_list.limit(self.limit_).list()
 
     def persist(self):
         for item in self.append_list:
@@ -231,7 +230,6 @@ class ManyToManyDbQuerySet(OneToManyDbQuerySet):
         if not item in self.append_list:
             self.item_count += 1
             self.append_list.append(item)
-            logging.info(item)
             if self.declared_inverse_prop:
                 getattr(item, self.declared_inverse_prop).append(self.obj)
 

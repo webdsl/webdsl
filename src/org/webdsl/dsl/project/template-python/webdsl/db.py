@@ -99,9 +99,9 @@ class PartiallyInlinedReferenceProperty(db.Property):
         db.Property.__init__(self, *params, **kparams)
 
     def get_value_for_datastore(self, model_instance):
-        if not hasattr(model_instance, self.name):
+        if not hasattr(model_instance, self._attr_name()):
             return None
-        value = getattr(model_instance, self.name)
+        value = getattr(model_instance, self._attr_name())
         if not value:
             return None
         if not value.is_saved():
@@ -117,3 +117,33 @@ class PartiallyInlinedReferenceProperty(db.Property):
 
     def datastore_type(self):
         return db.Text
+
+class PartiallyOneInlinedReferenceProperty(db.Property):
+    def __init__(self, type_str, inlined_properties, *params, **kparams):
+        self.type_str = type_str
+        self.inlined_properties = inlined_properties
+        db.Property.__init__(self, *params, **kparams)
+
+    def get_value_for_datastore(self, model_instance):
+        if not hasattr(model_instance, self._attr_name()):
+            return None
+        value = getattr(model_instance, self._attr_name())
+        if not value:
+            return None
+        if not value.is_saved():
+            value.put()
+        return simplejson.dumps(value.as_dict(self.inlined_properties))
+
+    def make_value_from_datastore(self, value):
+        if not value:
+            return None
+        import data
+        d = simplejson.loads(value)
+        return getattr(data, self.type_str + "Proxy")(d['id'], d)
+
+    def datastore_type(self):
+        return db.Text
+
+    def __set__(self, model_instance, value):
+        setattr(model_instance, self._attr_name(), value)
+        setattr(model_instance, self.name.replace('_inline', '_id'), value)

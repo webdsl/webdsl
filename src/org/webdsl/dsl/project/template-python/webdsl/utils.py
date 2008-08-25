@@ -85,6 +85,8 @@ def register(path, cls, param_mappings=[]):
                 redirect_url = o.invoke_actions()
                 if redirect_url:
                     o.rh.redirect(redirect_url)
+                    o.store_session()
+                    return
             o.form_counters = {} 
             o.field_counters = {}
             o.action_queue = []

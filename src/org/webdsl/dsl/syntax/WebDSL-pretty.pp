@@ -105,6 +105,12 @@
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
 
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
+   FilterNoOrderByNoLimit             -- KW["where"] _1,
+   FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1, 
+   FilterNoLimit                      -- KW["where"] _1 KW["order"] KW["by"] _2,
+   FilterNoOrderBy                    -- KW["where"] _1 _2,
+   Filter                             -- KW["order"] KW["by"] _1 _2,
+   Filter                             -- _1,
    OrderNonSpecific                   -- _1,
    OrderAscending                     -- _1 KW["asc"],
    OrderDescending                    -- _1 KW["desc"],
