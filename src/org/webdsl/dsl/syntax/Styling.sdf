@@ -5,54 +5,57 @@ module Styling
 exports
 
   sorts
-    Name Num String UnaryOperator
+    Name StNum String UnaryOperator
 
   lexical syntax
-    [a-zA-Z][a-zA-Z\-\_]+          -> ValueName
-    [a-z][a-z\-]+           	   -> Value
-    [a-f0-9]+ 	                   -> Hex
-    [a-z\%]+                       -> Unit
-    [0-9]+                         -> Num
-    [0-9]* "." [0-9]+              -> Num
-    "\"" ~[\"\n]* "\""             -> String
-    "'" ~[\"\n]* "'"               -> String
+    [a-zA-Z\_][a-zA-Z0-9\_\-]*			-> Identifier
+    [a-zA-Z][a-zA-Z\-\_]+          		-> ValueName
+    [a-z][a-z\-]+           	   		-> Value
+    [a-f0-9][a-f0-9][a-f0-9][a-f0-9]* 	-> Hex
+    [a-z\%]+                       		-> Unit
+%%    [0-9]+                			-> StNum
+%%    [0-9]* "." [0-9]+     			-> StNum
+    "'" ~[\"\n]* "'"               		-> String
+%%    [\-\+] StNum				-> StNumber
 
   lexical syntax
-    [a-zA-Z][a-zA-Z0-9\_]*[\*]? -> MatchIdent
-    [\*]                        -> MatchIdent
-    [\*]                        -> WildCardArg 
-    
-    
+    [a-zA-Z][a-zA-Z0-9\_]*		 -> MatchIdent
+%%    [a-zA-Z][a-zA-Z0-9\_]*[\*]? -> MatchIdent
+%%    [\*]                        -> MatchIdent
+%%    [\*]                        -> StWildCardArg 
+
   lexical restrictions
     ValueName -/- [a-zA-Z\-\_]
     Value -/- [a-z\-]
     Unit -/- [a-z\%]
     Hex -/- [a-f0-9]
-    
+
 exports
 
   sorts
-     Number
+     StNumber
 
   lexical syntax
-    Num                     -> Number
-    Num "%"                 -> Percentage {prefer}
-    Num "em"                -> Ems {prefer}
-    Num "ex"                -> Exs {prefer}
-    Num "px"                -> Length {prefer}
-    Num "cm"                -> Length {prefer}
-    Num "mm"                -> Length {prefer}
-    Num "in"                -> Length {prefer}
-    Num "pt"                -> Length {prefer}
-    Num "pc"                -> Length {prefer}
-    Num "deg"               -> Angle {prefer}
-    Num "rad"               -> Angle {prefer}
-    Num "grad"              -> Angle {prefer}
-    Num "ms"                -> Time {prefer}
-    Num "s"                 -> Time {prefer}
-    Num "hz"                -> Freq {prefer}
-    Num "khz"               -> Freq {prefer}
-    Num Id                  -> Dimension {prefer}
+    Float				  	  -> StNum
+    SignedInteger			  -> StNum
+    StNum                     -> StNumber
+    StNum "%"                 -> Percentage {prefer}
+    StNum "em"                -> Ems {prefer}
+    StNum "ex"                -> Exs {prefer}
+    StNum "px"                -> Length {prefer}
+    StNum "cm"                -> Length {prefer}
+    StNum "mm"                -> Length {prefer}
+    StNum "in"                -> Length {prefer}
+    StNum "pt"                -> Length {prefer}
+    StNum "pc"                -> Length {prefer}
+    StNum "deg"               -> Angle {prefer}
+    StNum "rad"               -> Angle {prefer}
+    StNum "grad"              -> Angle {prefer}
+    StNum "ms"                -> Time {prefer}
+    StNum "s"                 -> Time {prefer}
+    StNum "hz"                -> Freq {prefer}
+    StNum "khz"               -> Freq {prefer}
+%%    StNum Id                  -> Dimension {prefer}
 
 
 
@@ -72,9 +75,9 @@ context-free syntax %% Styling syntax
     (Combinator SimpleSelector SelectorAttribute?)*				-> Selector {cons("Selector")}
   
   Id MatchDefinition 	-> SimpleSelector {cons("SimpleSelector")}
-  "#" Id				-> SimpleSelector {cons("IdSimpleSelector")}
+  "#" Identifier		-> SimpleSelector {cons("IdSimpleSelector")}
   Id					-> SimpleSelector {cons("ElemSimpleSelector")}
-  "." Id				-> SimpleSelector {cons("ClassSimpleSelector")}
+  "." Identifier		-> SimpleSelector {cons("ClassSimpleSelector")}
   MatchDefinition       -> SimpleSelector {cons("SimpleSelector")}
   
   "." ValueName			-> SelectorAttribute {cons("SelectorAttribute")}
@@ -106,11 +109,19 @@ context-free syntax %% Styling syntax
   StyleValue -> StyleExpression
 %%  StyleValues -> StyleExpression
 
-  Number Unit 						-> StyleValue {cons("StyleValue")}
+  "(" Selector ")" "." StyleProperty -> StyleExpression {cons("StyleValueExpression")}
+
+  StyleExpression "+" StyleExpression -> StyleExpression {cons("StyleAdd"),assoc}
+  StyleExpression "-" StyleExpression -> StyleExpression {cons("StyleSub"),assoc}
+  StyleExpression "*" StyleExpression -> StyleExpression {cons("StyleMul"),assoc}
+  StyleExpression "/" StyleExpression -> StyleExpression {cons("StyleDiv"),assoc}
+
+  StNumber Unit 					-> StyleValue {cons("StyleValue")}
+  StNumber 							-> StyleValue {cons("StyleValue")}
   StyleSort StyleValueExtension+	-> StyleValue {cons("StyleValue")}
-  Uri 						-> StyleValue {cons("StyleValue")}
-  Hash 						-> StyleValue {cons("StyleValue")}
-  Value		 				-> StyleValue {cons("StyleValue"), prefer}
+  Uri 								-> StyleValue {cons("StyleValue")}
+  Hash 								-> StyleValue {cons("StyleValue")}
+  Value		 						-> StyleValue {cons("StyleValue"), prefer}
   
   "." ValueName					-> StyleValueExtension {cons("StyleValueExtension") }
 
@@ -128,6 +139,14 @@ context-free syntax %% Styling syntax
   "style" -> Id {reject}
   "theme" -> Id {reject}
 
+context-free priorities
+  
+  {left:
+       StyleExpression "*" StyleExpression -> StyleExpression
+       StyleExpression "/" StyleExpression -> StyleExpression }
+  > {left:
+       StyleExpression "+" StyleExpression -> StyleExpression
+       StyleExpression "-" StyleExpression -> StyleExpression}
 
 context-free syntax %% Layout syntax
 
