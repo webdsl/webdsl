@@ -11,6 +11,8 @@
  *
  * NOTE: 'procedure x() { enabled{} }' and
  *       'extend entity xStatus() { enabled{} }' both end up in the entity xStatus
+ *
+ * External dependency on translate-object-param(|x_o)
  */
 
 module org/webdsl/dsl/modules/procedures/process
@@ -130,12 +132,13 @@ strategies // simplification of complex constructs
     <+ process-repeat-until)
 
   process-if :
-    ProcIf(e, ifBranch, elseBranch) -> ProcCall(x_new, Var(x_o))
+    ProcIf(e1, ifBranch, elseBranch) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
         ; x_new := <newname> "ifProc"
         ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
+        ; e2 := <alltd(translate-object-param(|x_o))> e1
                 
         // create next function, remembering if and else start states
         ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
@@ -162,7 +165,7 @@ strategies // simplification of complex constructs
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
-                if (e) {
+                if (e2) {
                   this.enableIf();
                 } else {
                   this.enableElse();
@@ -199,12 +202,13 @@ strategies // simplification of complex constructs
           ]|          
 
   process-if-no-else :
-    ProcIfNoElse(e, ifBranch) -> ProcCall(x_new, Var(x_o))
+    ProcIfNoElse(e1, ifBranch) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
         ; x_new := <newname> "ifProc"
         ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
+        ; e2 := <alltd(translate-object-param(|x_o))> e1
 
         // create next function, remembering if and else start states
         ; ifProcCalls := <collect-all(?ProcCall(_,_))> ifBranch
@@ -223,7 +227,7 @@ strategies // simplification of complex constructs
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
-                if (e) {
+                if (e2) {
                   this.enableIf();
                 } else {
                   this.processed();
@@ -399,74 +403,85 @@ strategies // simplification of complex constructs
           ]|  
               
   // deferred choice; disables other branch when first event within branch has been completed
-  process-plus = fail
-  /*:
-      ProcPLUS(branch1, branch2) -> ProcCall(x_new, x_o)
-      where x_id := <ProcedureName>
-          ; x_o := <ProcedureArg> x_id
-          ; srt := <ProcedureArgSort> x_id
-          ; x_new := <newname> "plusProc"
-          ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
+  // NOTE: (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
+  process-plus :
+    ProcPLUS(branch1, branch2) -> ProcCall(x_new, Var(x_o))
+    with x_id := <ProcedureName>
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; x_new := <newname> "plusProc"
+        ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
 
-          // create next function, remembering branch start states
-          ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
-          ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
-          ; {| State
-             : x_branch1StartState := <get-state>
-             ; <debug> branch1
-             ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-             ; x_branch1EndState := <get-state>
-             ; lastBranch1 := |[ if (state = x_branch1EndState) { this.disable2(); this.processed(); } ]|
-             ; stat1* := [stat1Temp*, lastBranch1]
+        // create next function, remembering branch start states
+        ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
+        ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
+        ; {| State
+           : e_branch1StartState := Int(<get-state>)
+           ; { first, second, tail:
+               if [first | [second | tail]] := branch1ProcCalls then
+                 stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-2> second | <map(get-sequential-proccall)> tail]]
+               else 
+                 stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
+               end
+             }
+           ; e_branch1EndState := Int(<get-state>)
+           ; lastBranch1 := |[ if (state = e_branch1EndState) { this.processed(); } ]|
+           ; stat1* := [stat1Temp*, lastBranch1]
 
-             ; x_branch2StartState := <get-next-state>
-             ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-             ; x_branch2EndState := <get-state>
-             ; lastBranch2 := |[ if (state = x_branch2EndState) { this.disable1(); this.processed(); } ]|
-             ; stat2* := [stat2Temp*, lastBranch2]
-             |}
+           ; e_branch2StartState := Int(<get-next-state>)
+           ; { first, second, tail:
+               if [first | [second | tail]] := branch2ProcCalls then
+                 stat2Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-1> second | <map(get-sequential-proccall)> tail]]
+               else 
+                 stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
+               end
+             }
+           ; e_branch2EndState := Int(<get-state>)
+           ; lastBranch2 := |[ if (state = e_branch2EndState) { this.processed(); } ]|
+           ; stat2* := [stat2Temp*, lastBranch2]
+           |}
 
-          // create disable function; disables all descending ProcCalls
-          ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
-          ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
+        // create disable function; disables all descending ProcCalls
+        ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
+        ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
 
-          // create new procedure to replace XOR-construct
-          ; <emit-webdsl-code> def|[
-              auto procedure x_new(x_o : srt) {
-                enabled {
-                  this.enable1();
-                  this.enable2();
-                }
-                disabled {
-                  disable1();
-                  disable2();
-                }
+        // create new procedure to replace XOR-construct
+        ; <declare-generated-procedure; emit-webdsl-code> def|[
+            auto procedure x_new(x_o : srt) {
+              enabled {
+                this.enable1();
+                this.enable2();
               }
-            ]|
-          ; <emit-webdsl-code> def|[
-              extend entity x_newstatus {
-                x_o -> srt
-                function enable1() {
-                  this.next(x_branch1StartState);
-                }
-                function enable2() {
-                  this.next(x_branch2StartState);
-                }
-                function disable1() {
-                  stat3*
-                }
-                function disable2() {
-                  stat4*
-                }
-                function next(state: Int) {
-                  stat1*
-                  stat2*
-                }
+              disabled {
+                disable1();
+                disable2();
               }
-            ]|*/
+            }
+          ]|
+        ; <emit-webdsl-code> def|[
+            extend entity x_newstatus {
+              x_o -> srt
+              function enable1() {
+                this.next(e_branch1StartState);
+              }
+              function enable2() {
+                this.next(e_branch2StartState);
+              }
+              function disable1() {
+                stat3*
+              }
+              function disable2() {
+                stat4*
+              }
+              function next(state: Int) {
+                stat1*
+                stat2*
+              }
+            }
+          ]|
   
   process-while :
-    ProcWhile(e, loopBody) -> ProcCall(x_new, Var(x_o))
+    ProcWhile(e1, loopBody) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
@@ -479,9 +494,10 @@ strategies // simplification of complex constructs
            : e_loopStartState := Int(<get-state>)
            ; statLoopTemp* := <map(get-sequential-proccall)> loopProcCalls
            ; e_loopEndState := Int(<get-state>)
+           ; e2 := <alltd(translate-object-param(|x_o))> e1
            ; lastLoop := |[ 
                if (state = e_loopEndState) { 
-                 if (e) {
+                 if (e2) {
                    this.enableLoopBody();
                  } else {
                    this.processed(); 
@@ -498,7 +514,7 @@ strategies // simplification of complex constructs
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
-                if (e) {
+                if (e2) {
                   this.enableLoopBody();
                 } else {
                   this.processed();
@@ -538,7 +554,7 @@ strategies // simplification of complex constructs
         ; {| State
            : e_branch1StartState := Int(<get-state>)
            ; if [first | [second | tail]] := branch1ProcCalls then
-               stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-repeat> second | <map(get-sequential-proccall)> tail]]
+               stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-2> second | <map(get-sequential-proccall)> tail]]
              else 
                stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
              end
@@ -609,14 +625,21 @@ strategies  // Helper strategies
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
+
+  get-sequential-stop-1 : // stops branch 1
+    ProcCall(x1, x_id) -> 
+    webdsl|[ if (state = e_current) { this.disable1(); e.x1.enable(this as ProcedureStatus, e_next); } ]|
+    with e := <strip-annos; prefix-expression(|Var("this"))> x_id
+       ; e_current := Int(<get-state>)
+       ; e_next := Int(<get-next-state>)
        
-  get-sequential-repeat :
+  get-sequential-stop-2 :
     ProcCall(x1, x_id) -> 
     webdsl|[ if (state = e_current) { this.disable2(); e.x1.enable(this as ProcedureStatus, e_next); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
-
+        
   get-disable-proccall =
     ?ProcCall(x1, x_id)
     ; e := <strip-annos; prefix-expression(|Var("this"))> x_id
