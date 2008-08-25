@@ -7,7 +7,13 @@
  *   are first rewritten so that all complex constructs are replaced by singular procedures. Next, these groups of sequential
  *   procedures are transformed to state machines that handle the sequential enabling.
  * Simplification is done bottom-up. Because of the bottom-up traversal strategy, every process element can safely assume 
- *   its children have already been visited and hence, are in the aforementioned format.
+ *   its children have already been visited and hence, are in the aforementioned format. During simplification, a lot of
+ *   WebDSL code is emitted to create and extend procedures and ProcedureStatus entities.
+ *
+ * ProcPLUS and ProcRepeatUntil make use of disabling other branches after the first event has occurred. Here, the first
+ *   atomic event is meant, so (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
+ *   This is because using the bottom-up traversal, descendants cannot be altered so the other branch is disabled after the 
+ *   first actual ProcCall in the first branch.
  *
  * NOTE: 'procedure x() { enabled{} }' and
  *       'extend entity xStatus() { enabled{} }' both end up in the entity xStatus
@@ -21,13 +27,6 @@ imports
   libstrategolib
   libwebdsl-front
 
-strategies // for testing process translations
-  
-  do-only-strategy = repeat(innermost-rep(just-process))
-    
-  just-process = transform-procedure
-  just-process = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
-  
 strategies // hooking into rest of the system
 
   desugar = transform-procedure
@@ -62,13 +61,13 @@ strategies // extending the status entity
   
 rules // actual transformation
 
+  // filters out ProcedureProcess afterwards, to end desugaring
   transform-procedure :
     Procedure(x_id, arg, elem1*) -> Procedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess(_))> elem1*
            ; elem2* := <filter(not(?ProcedureProcess(_)))> elem1*
            |}
-  
   transform-procedure :
     AutoProcedure(x_id, arg, elem1*) -> AutoProcedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
