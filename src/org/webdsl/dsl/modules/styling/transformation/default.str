@@ -7,16 +7,74 @@ imports
 strategies
 
   insert-default-style =
-    alltd(default-style)
-    ; where (
-        {| ThisPage
-         : rules ( ThisPage := "default_" )
-         ; insert-default-global-style
-         ; insert-default-template-style
-         |} )
+    where (
+      {| ThisPage
+       : rules ( ThisPage := "default_" )
+       ; alltd(default-style)
+       ; insert-default-global-style
+       ; insert-default-template-style
+       ; insert-default-form-style
+       ; insert-default-input-style
+       |} )
 
   insert-default-global-style =
-    <emit-style-definition> stdef |[ body { font-size := 100%; line-height := 1.125em; } ]|
+    <declare-style-definition; emit-style-definition> stdef |[ body { font-size := 100%; line-height := 1.125em; } ]|
+    
+  insert-default-form-style =
+    <declare-style-definitions; emit-style-definitions>
+      stdef* |[
+        fieldset {
+          float := left;
+          clear := left;
+          padding := 0;
+          margin := 0;
+        }
+        fieldset >> legend {
+          background-color := Color.white;
+        }
+        fieldset >> ol {
+          list-style := none;
+          float := left;  
+          padding-left := 0;
+          margin := 0;
+        }
+        fieldset >> li {
+          float := left;  
+	      clear := left;
+        }
+		fieldset >> fieldset {
+		  border-style := none;  
+		  background-color := transparent;  
+		  background-image := none;
+		  margin-bottom := -1.2em; /* @todo */ 
+		}
+		fieldset >> fieldset >> ol {
+		  position := relative;  
+		  top := -1.2em;  /* @todo */ 
+		  margin-left := 6em;  /* Depends on li > label width + margin-right */
+		  margin := 0;
+		  padding := 0;
+		}
+		fieldset >> fieldset >> label {  
+		  float := none;  
+		  width := auto;
+		  margin-right := auto;
+		  display := inline-block;
+		}
+		.fieldset_no_legend_ {
+		  float := none;
+          padding-top := 0.2em;
+          padding-bottom := 0.2em;
+		}
+		.fieldset_no_legend_ >> input {
+		  border-style := solid;
+		  border-width := 1px;
+		  border-color := Color.grey;
+		}
+		label {
+		  display := block;
+		}
+      ]|
 
   insert-default-template-style =
      where ( 
@@ -24,6 +82,24 @@ strategies
        ; <emit-style-section> |[ style default_ stdef* ]|
        ; <map(default-templates-style)> <bagof-TopLevelTemplateNames>
      )
+
+  insert-default-input-style =
+    <declare-style-definitions; emit-style-definitions>
+      stdef* |[
+        .inputSimpleRefAssociation {
+          display := inline;
+        }
+        .inputAssociationGenericSort {
+          display := inline;
+        }
+        form >> fieldset > ol > li >> input {
+          font-size := 1em;
+		  width := 16em;
+		  border-style := BorderStyle.solid;
+		  border-width := 1px;
+		  border-color := Color.grey;
+        }
+      ]|
   
 rules
 
@@ -32,15 +108,15 @@ rules
     ; <try(map(default-template-style))> <bagof-TopLevelTemplateDefinitions> n
     
   default-template-style =
-    ?(stmid, t*)
+    ?(a_0, t*)
     ; <emit-style-definition> 
         stdef |[
-          template stmid() {}
+          template a_0() {}
         ]|
     ; {| ThisPage, ThisArgumentTypes, ThisSelector
-       : s := <construct-selector> ("template", stmid, t*)
+       : s := <construct-selector> ("template", a_0, t*)
        ; rules (
-           ThisPage := stmid
+           ThisPage := a_0
            ThisArgumentTypes := t*
            ThisSelector := s
          )
@@ -52,41 +128,151 @@ rules
     ; add-default-background-repeat
 
   add-default-background-color =
-    where (
-      if not( <StyleValue> (<ThisSelector>, StyleProperty("background-color")) ) then
-        <emit-style-declaration> |[ background-color := #ffffff; ]|
-        ; <declare-style-value> (StyleProperty("background-color"), StyleValue(Hash("ffffff")))
-      end
-    )
-    
+    where ( <set-style-property; emit-style-declaration> ststat |[ background-color := Color.white; ]| )
+  
+  // @todo: this must be done for all elements, not only templates.  
   add-default-background-repeat =
     where (
-      if <StyleValue> (<ThisSelector>, StyleProperty("image"))
-         ; not ( <StyleValue> (<ThisSelector>, StyleProperty("image-repeat")) ) then
-        <emit-style-declaration> |[ background-repeat := no-repeat; ]|
-        ; <declare-style-value> (StyleProperty("image-repeat"), StyleValue("none"))
+      if <StyleValue> (<ThisSelector>, StyleProperty("image")) then
+        <set-style-property; emit-style-declaration> ststat |[ background-repeat := no-repeat; ]|
       end
     )
 
+rules
 
   default-style =
     ?def |[ define page x(farg*) { elem* } ]|
-    ; rules ( StylesheetIncludes :+ x -> "default_" )
-    
-/*
+    ; where (
+      {| ThisSelector, ProcessedElements
+       : s := <construct-selector> ("page", <strip-annos> x, <map(?Arg(_,<id>))> farg*)
+       ; rules ( ThisSelector := s )
+       ; <add-stylesheet> ("default_", x)
+       ; <alltd(default-style)> elem*
+       |} )
+  
   default-style =
-    ?StyleDefinition(Selector(SimpleSelector(checktype, matchdef), []), stat*)
-    where {| ThisPage, ThisArgumentTypes
-           : MatchDefinition(name, farg*) := matchdef
-           ; t* := <map(?Arg(_,<id>))> farg*
-           ; rules (
-               ThisPage := name
-               ThisArgumentTypes := t*
-             )
-           ; <alltd(default-style)> stat*
-           |}
-*/
+    ?def |[ define template x(farg*) { elem* } ]|
+    ; where (
+      {| ThisSelector, ProcessedElements
+       : s := <construct-selector> ("template", <strip-annos> x, <map(?Arg(_,<id>))> farg*)
+       ; rules ( ThisSelector := s )
+       ; <alltd(default-style)> elem*
+       |} )
 
+  default-style =
+    ?call |[ form() { elem* } ]|
+    ; where ( 
+      not( <elem> ("form", <bagof-ProcessedElements> ) ) ;
+      {| ThisSelector
+       : s := <ThisSelector>
+       ; stsel0 := <add-simple-selector> (s, |[ >> form() ]| )
+       ; stsel1 := <add-simple-selector> (s, |[ >> group() ]| )
+       ; stsel2 := <add-simple-selector> (stsel1, |[ > groupitem() ]| )
+       ; stsel3 := <add-simple-selector> (stsel2, |[ >> label() ]| )
+       ; stsel4 := <add-simple-selector> (stsel2, |[ >> input ]| )
+       ; rules ( ThisSelector := stsel0 )
+       ; ststat0* := <flatten-list>
+                     [ <set-style-property> ststat |[ margin-top := 0; ]|,
+				       <set-style-property> ststat |[ padding-top := 0; ]|,
+				       <set-style-property> ststat |[
+				         width := (stsel1).padding-left +
+                                  (stsel1).padding-right +
+                                  (stsel3).margin-right +
+                                  (stsel3).width +
+                                  (stsel4).width * (stsel4).font-size +
+                                  (stsel4).border-right-width +
+                                  (stsel4).border-left-width;
+			    	   ]| ]
+       ; <declare-style-definition; emit-style-definition> |[ stsel0 { ststat0* } ]|
+
+       ; <alltd(default-style)> elem*
+       
+       ; stsel5 := <add-simple-selector> (stsel0, |[ >> .fieldset_no_legend_ ]| )
+       ; stsel6 := <add-simple-selector> (stsel5, |[ >> action() ]| )
+       
+       ; rules ( ThisSelector := stsel5 )
+       ; ststat1* := <flatten-list>
+                     [ <set-style-property> ststat |[ padding-left := (stsel1).padding-left - (stsel6).margin-left; ]|,
+                       <set-style-property> ststat |[ padding-right := (stsel1).padding-right; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel5 { ststat1* } ]|
+       
+       ; rules ( ThisSelector := stsel6 )
+       ; ststat2* := <flatten-list>
+                     [ <set-style-property> ststat |[ margin-left := 0.3em; ]|,
+                       <set-style-property> ststat |[ align := Align.right; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel6 { ststat2* } ]|
+       
+       ; stsel7 := <add-simple-selector> (stsel2, |[ > div ]| )
+       ; rules ( ThisSelector := stsel7 )
+       ; ststat3* := <flatten-list>
+                     [ <set-style-property> ststat |[ display := inline; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel7 { ststat3* } ]|
+       
+       ; rules ( ProcessedElements :+= "form" )
+       |} )
+  
+  // @todo: add standard spacing, width to group
+  default-style =
+    ?call |[ group(e) { elem* } ]|
+    ; where ( 
+      not( <elem> ("group", <bagof-ProcessedElements> ) ) ;
+      {| ThisSelector
+       : original-selector := <ThisSelector>
+       
+       ; stsel0 := <add-simple-selector> (original-selector, |[ >> group() ]| )
+       ; rules ( ThisSelector := stsel0 )
+       ; ststat0* := <flatten-list>
+                     [ <set-style-property> ststat |[ padding-top := 0.5em; ]|,
+				       <set-style-property> ststat |[ padding-right := 1em; ]|,
+				       <set-style-property> ststat |[ padding-bottom := 0.5em; ]|,
+				       <set-style-property> ststat |[ padding-left := 1em; ]|,
+				       <set-style-property> ststat |[ margin-bottom := 1em; ]|,
+                       <set-style-property> ststat |[ border-style := none; ]|,
+				       <set-style-property> ststat |[ border-top-style := solid; ]|,
+				       <set-style-property> ststat |[ border-bottom-style := solid; ]|,
+				       <set-style-property> ststat |[ border-top-width := 1px; ]|,
+				       <set-style-property> ststat |[ border-bottom-width := 1px; ]|,
+				       <set-style-property> ststat |[ border-top-color := Color.black; ]|,
+				       <set-style-property> ststat |[ border-bottom-color := Color.black; ]|,
+                       <set-style-property> ststat |[ background-color := Color.white; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel0 { ststat0* } ]|
+       
+       ; <alltd(default-style)> elem*
+       ; rules ( ProcessedElements :+= "group" )
+       |}
+      )
+    
+  default-style =
+    ?call |[ label(e) { elem* } ]|
+    ; where (
+      not( <elem> ("label", <bagof-ProcessedElements> ) ) ; //@todo: this check is too strict: has to be checked only for muliple elements for this Selector
+      {| ThisSelector
+       : stsel0 := <add-simple-selector> (<ThisSelector>, |[ >> label() ]| )
+       ; rules ( ThisSelector := stsel0 )
+       ; ststat0* := <flatten-list>
+                     [ <set-style-property> ststat |[ width := 8em; ]|,
+                       <set-style-property> ststat |[ align := Align.right; ]|,
+				       <set-style-property> ststat |[ margin-right := 1em; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel0 { ststat0* } ]|
+       ; rules ( ProcessedElements :+= "label" )
+       |}
+       ; <alltd(default-style)> elem*
+      )
+
+  default-style =
+    ?call |[ inputDate(e) { elem* } ]|
+    ; where (
+      not( <elem> ("inputDate", <bagof-ProcessedElements> ) ) ;
+      {| ThisSelector
+       : stsel0 := <add-simple-selector> (<ThisSelector>, |[ >> .rich-calendar-input ]| )
+       ; rules ( ThisSelector := stsel0 )
+       ; ststat0* := <flatten-list>
+                     [ <set-style-property> ststat |[ width := 6.5em; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel0 { ststat0* } ]|
+       ; <alltd(default-style)> elem*
+       ; rules ( ProcessedElements :+= "inputDate" )
+       |}
+      )
 
   /* Add a standard width to a column of a 2-column layout if not provided. */
   default-style =

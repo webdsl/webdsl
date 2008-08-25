@@ -4,91 +4,206 @@ imports
   libstrategolib
   libwebdsl-front
 
-rules
-
-//  desugar = resolve
-
-/*  desugar :
-    Selector(selector, s*) -> Selector(selector, s2*)
-    where <sometd( ?SimpleSelector(MatchDefinition("menuheader", _)) )> s*
-        ; s1* := <alltd(\ SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("ul") \); reverse> s*
-        ; s2* := <reverse> [(DescendantCombinator(), ElemSimpleSelector("li")) | s1*]
-//        ; s3* := <reverse> [(DescendantCombinator(), ElemSimpleSelector("a")) | s2*]
-*/
-
-
-  desugar :
-    SimpleSelector(MatchDefinition("menu", _)) -> ElemSimpleSelector("ul")
-
-  desugar :
-    SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li")
-  
-  desugar :
-    SimpleSelector(MatchDefinition("list", _)) -> ElemSimpleSelector("ul")
-  
-  desugar :
-    SimpleSelector(MatchDefinition("listitem", _)) -> ElemSimpleSelector("li")
-  
-  desugar :
-    SimpleSelector(MatchDefinition("navigate", _)) -> ElemSimpleSelector("a")
-  
-  desugar :
-    SimpleSelector(MatchDefinition("section", _)) -> ClassSimpleSelector("section")
-
-  desugar :
-    SimpleSelector(MatchDefinition("text", _)) -> ClassSimpleSelector("text")
-      
-/*  desugar :
-    Selector(selector, s1*) -> Selector(selector, s2*)
-    where <sometd( ?SimpleSelector(MatchDefinition("menuheader", _)) )> s*
-        ; s1* := <alltd(\ SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li") \)> s1*
-*/
-
 strategies
 
   resolve-style-properties =
     alltd(resolve-style)
+  
+  translate-style-properties =
+    alltd(translate-style)
     
 rules
-
-  resolve-style :
-    StyleSection(name, def1*) -> StyleSection(name, def2*)
-    where {| ThisPage
-           : rules ( ThisPage := name )
-           ; def2* := <alltd(resolve-style)> def1*
-           |}
 
   resolve-style :
     StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat2*)
     where {| ThisSelector
            : rules ( ThisSelector := selector )
-           ; stat2* := <alltd(resolve-style)> stat1*
-//           ; <debug> ["_____stat2", stat2*]
-//           ; stat3* := <filter(not(translate-style-decl))> stat2*
-//           ; <debug> ["_____stat3", stat3*]
-//           ; <debug> ""
+           ; <debug> <pp-webdsl> selector
+           ; stat2* := <desugar-top> stat1*
+//           ; <pp-aterm(!"___stat2*: ")> stat2*
+           ; <declare-style-definition> StyleDefinition(selector, stat2*)
+           ; <debug> ""
            |}
 
-  resolve-style :
-    StyleDeclaration(prop, expr1) -> StyleDeclaration(prop, expr2)
-    where ThisSelector
-        ; {| ThisProperty
-           : rules ( ThisProperty := prop )
-           ; expr2 := <alltd(resolve-style)> expr1
+  translate-style :
+    StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat2*)
+    where {| ThisSelector
+           : rules ( ThisSelector := selector )
+           ; stat2* := <filter(not(translate-style-decl))> stat1*
+           ; <declare-style-definition> StyleDefinition(selector, stat2*)
            |}
+           
+rules
 
-  resolve-style :
-    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
-    where t* := <map(?Arg(_,<id>))> farg*
-	       ; s := <construct-selector> ("template", name, t*)
-	       ; val := <StyleValue> (s, prop)
-           ; <declare-style-value> (prop, val)
+  desugar = resolve
+
+rules
+
+  resolve :
+    SimpleSelector(MatchDefinition("form", _)) -> ElemSimpleSelector("form")
+    where AfterProcessStyle
   
-  resolve-style :
-    Var(x) -> val
-    where val := <StyleVariable> x
-        ; <declare-style-value> (<ThisProperty>, val)
+  resolve :
+    SimpleSelector(MatchDefinition("fieldset", _)) -> ElemSimpleSelector("fieldset")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("group", _)) -> ElemSimpleSelector("fieldset")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("action", _)) -> ElemSimpleSelector("input")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("menubar", _)) -> ClassSimpleSelector("menubar")
+    where AfterProcessStyle
+      
+  resolve :
+    SimpleSelector(MatchDefinition("menu", _)) -> ElemSimpleSelector("ul")
+    where AfterProcessStyle
+
+  resolve :
+    SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("list", _)) -> ElemSimpleSelector("ul")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("listitem", _)) -> ElemSimpleSelector("li")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("navigate", _)) -> ElemSimpleSelector("a")
+    where AfterProcessStyle
     
+  resolve :
+    SimpleSelector(MatchDefinition("table", _)) -> ElemSimpleSelector("table")
+    where AfterProcessStyle
+  
+  resolve :
+    SimpleSelector(MatchDefinition("section", _)) -> ClassSimpleSelector("section")
+    where AfterProcessStyle
+
+  resolve :
+    SimpleSelector(MatchDefinition("block", _)) -> ClassSimpleSelector("block")
+    where AfterProcessStyle
+
+  resolve :
+    SimpleSelector(MatchDefinition("text", _)) -> ClassSimpleSelector("text")
+    where AfterProcessStyle
+
+  resolve :
+    Selector(SimpleSelector(MatchDefinition("groupitem", _)), s*) -> Selector(ElemSimpleSelector("ol"), [(ChildCombinator, ElemSimpleSelector("li"), None)|s*])
+    where AfterProcessStyle
+
+  resolve :
+    Selector(SimpleSelector(MatchDefinition("header", _)), l1) -> Selector(ElemSimpleSelector("h1"), l1)
+    where AfterProcessStyle
+
+  resolve :
+    Selector(s, l1) -> Selector(s, l2)
+    where AfterProcessStyle
+        ; not( <?SimpleSelector(MatchDefinition("table", _))> s <+ <?ElemSimpleSelector("table")> s )
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> (c, ElemSimpleSelector("h1"), p) \})> l1
+      
+  resolve :
+    Selector(s, l1) -> Selector(s, l2)
+    where AfterProcessStyle
+        ; <sometd(?(_, SimpleSelector(MatchDefinition("table", _))))> l1
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> (c, ElemSimpleSelector("th"), p) \})> l1
+  
+  resolve :
+    Selector(s, l1) -> Selector(s, l2)
+    where AfterProcessStyle
+        ; ( <?SimpleSelector(MatchDefinition("table", _))> s <+ <?ElemSimpleSelector("table")> s )
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> (c, ElemSimpleSelector("th"), p) \})> l1
+  
+  resolve :
+    Selector(s, l1) -> Selector(s, l2)
+    where AfterProcessStyle
+        ; ( <?SimpleSelector(MatchDefinition("header", _))> s <+ <?ElemSimpleSelector("table")> s )
+        ; <sometd(?(_, SimpleSelector(MatchDefinition("table", _))))> l1
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> (c, ElemSimpleSelector("th"), p) \})> l1
+                      
+  resolve :
+    Selector(s, l1) -> Selector(s, l2)
+    where AfterProcessStyle
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("groupitem", _)), p)
+                      -> [(c, ElemSimpleSelector("ol"), None),
+                          (ChildCombinator, ElemSimpleSelector("li"), p)]
+                   \}); flatten-list> l1
+/*    
+  resolve :
+    SimpleSelector(MatchDefinition("groupitem", _)) -> ElemSimpleSelector("li")
+    where AfterProcessStyle
+*/  
+  resolve :
+    SimpleSelector(MatchDefinition("label", _)) -> ElemSimpleSelector("label")
+    where AfterProcessStyle
+
+rules
+
+  resolve :
+    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
+    where ThisSelector
+        ; t* := <map(?Arg(_,<id>))> farg*
+	    ; s := <construct-selector> ("template", name, t*)
+	    ; val := <get-style-value> (s, prop)
+	    ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//        ; <declare-style-value> (prop, val)
+  
+  resolve :
+    StyleValueExpression(selector, prop) -> val
+    where ThisSelector
+/*        ; if <sometd(?"createOwner")> <ThisSelector> then
+            <debug(!"__valex: ")> StyleValueExpression(selector, prop)
+            ; <debug(!"ThisSelector1: ")> <ThisSelector>
+          end */
+        ; val := <get-style-value> (selector, prop)
+        ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//        ; <declare-style-value> (prop, val)
+
+  resolve :
+    StyleAdd(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <add-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+
+  resolve :
+    StyleSub(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <subtract-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+     
+  resolve :
+    StyleMul(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <multiply-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+   
+  resolve :
+    StyleDiv(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <divide-values> (StyleValue(v1, u1), StyleValue(v2, u2)) 
+      
+  resolve :
+    StyleDeclaration(prop, Var(x)) -> <declare-style-declaration> StyleDeclaration(prop, val)
+    where ThisSelector
+        ; val := <StyleVariable> x
+
+  resolve :
+    Var(x) -> <StyleVariable> x
+    where ThisSelector
+
 rules
 /*    
   translate-style-decl =
@@ -228,3 +343,104 @@ rules
       )|
       )
   */    
+
+    
+  resolve :
+    ststat |[ image-repeat := Repeat.horizontal; ]| -> ststat |[ background-repeat := repeat-x; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ image-repeat := Repeat.vertical; ]| -> ststat |[ background-repeat := repeat-y; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ image-repeat := Repeat.both; ]| -> ststat |[ background-repeat := repeat; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ image-repeat := Repeat.none; ]| -> ststat |[ background-repeat := no-repeat; ]|
+    where ThisSelector 
+
+  resolve :
+    ststat |[ spacing := stval0; ]| -> ststat |[ padding-bottom := stval0; ]|
+    where ThisSelector
+
+  resolve :
+    ststat |[ align := Align.left; ]| -> ststat |[ margin-right := auto; ]|
+    where ThisSelector ; is-for-named-layout-identifier
+  
+  resolve :
+    ststat |[ align := Align.right; ]| -> ststat |[ margin-left := auto; ]|
+    where ThisSelector ; is-for-named-layout-identifier
+
+  resolve :
+    ststat |[ align := Align.left; ]| -> ststat |[ float := left; ]|
+    where ThisSelector ; not( <selector-contains> "label" )
+
+  resolve :
+    ststat |[ align := Align.right; ]| -> ststat |[ float := right; ]|
+    where ThisSelector ; not( <selector-contains> "label" )
+
+rules
+
+  translate-style-decl =
+    ?ststat |[ align := Align.center; ]|
+    ; where (
+        ( is-for-named-layout-identifier <+ <has-property> StyleProperty("width") )
+        ; <declare-style-declarations; emit-style-declarations> |[
+            margin-left := auto;
+            margin-right := auto;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-color := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> |[
+            border-top-color := stval0;
+            border-right-color := stval0;
+            border-bottom-color := stval0;
+            border-left-color := stval0;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-width := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> |[
+            border-top-width := stval0;
+            border-right-width := stval0;
+            border-bottom-width := stval0;
+            border-left-width := stval0;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-style := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> |[
+            border-top-style := stval0;
+            border-right-style := stval0;
+            border-bottom-style := stval0;
+            border-left-style := stval0;
+          ]| 
+      )
+  
+  translate-style-decl =
+    ?ststat |[ align := Align.right; ]|
+    ; where (
+        <selector-contains> "label"
+        ; <declare-style-declarations; emit-style-declarations> |[
+            float := left;
+            text-align := right;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ align := Align.left; ]|
+    ; where (
+        <selector-contains> "label"
+        ; <declare-style-declarations; emit-style-declarations> |[
+            float := left;
+          ]|
+      )

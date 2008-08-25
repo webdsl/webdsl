@@ -5,21 +5,35 @@ imports
   Java-15 
   libjava-front 
   libwebdsl-front
-  
+
 rules
 
   type-of =
-    type-of-style-property <+ type-of-style-value <+ style-error
+    type-of-style-property <+ type-of-style-expression <+ type-of-style-value <+ style-error
 
+  //@todo: this has to be done better...
   style-error =
-    ( ?StyleProperty(_) <+ ?StyleValue(_) <+ ?StyleValue(_, _) )
+    ( ?StyleProperty(_) <+ ?StyleValue(_) <+ ?StyleValue(_, _) <+
+      ?StyleValueExpression(_, _) <+ ?StyleAdd(_, _) <+ ?StyleSub(_, _) <+
+      ?StyleMul(_, _) <+ ?StyleDiv(_, _) <+ ?StylePropertyValue(_, _) <+
+      ?StyleValueExpression(_, _) )
     ; !StyleSort("Error")
+
+rules
   
   style-types-compatible =
     ?(StyleSort(t, u), StyleSort(t, u))
     
   style-types-compatible =
     ?(StyleSort(t), StyleSort(t))
+  
+  style-types-compatible =
+    ?(StyleSort("Length"), StyleSort(t))
+    ; where ( <style-types-compatible> (<get-length-types>, StyleSort(t)) )
+  
+  style-types-compatible =
+    ?(StyleSort(t), StyleSort("Length"))
+    ; where ( <style-types-compatible> (<get-length-types>, StyleSort(t)) )
   
   style-types-compatible =
     ?(sort*, StyleSort(t, u))
@@ -31,9 +45,7 @@ rules
     
   style-types-compatible =
     ?(sort*, sort*)
-    
-//  style-types-compatible =
-//    ?(StyleProperty(prop1), StyleProperty(prop2))
+
 rules
 
   type-of-style-property :
@@ -152,33 +164,63 @@ rules
 
   type-of-style-property :
     StyleProperty("separator-space") -> <get-length-types>
+
+  type-of-style-property :
+    StyleProperty("spacing") -> <get-length-types>
     
+  type-of-style-property :
+    StyleProperty("font-weight") -> StyleSort("Weight")
+        
 rules
 
   get-length-types = ![ StyleSort("Length", "px"),
-                       StyleSort("Length", "pt"),
-                       StyleSort("Length", "mm"),
-                       StyleSort("Length", "cm"),
+//                       StyleSort("Length", "pt"),
+//                       StyleSort("Length", "mm"),
+//                       StyleSort("Length", "cm"),
                        StyleSort("Length"),
                        StyleSort("Ems"),
-                       StyleSort("Exs"),
+//                       StyleSort("Exs"),
                        StyleSort("Percentage") ]
 rules
 
-  type-of-style-value :
+  type-of-style-expression :
+    StyleValueExpression(selector, prop) -> <type-of-style-property> prop
+
+  type-of-style-expression :
+    StyleAdd(expr1, expr2) -> <type-of> expr1
+    where <style-types-compatible> (<type-of> expr1, <type-of> expr2)
+
+  type-of-style-expression :
+    StyleSub(expr1, expr2) -> <type-of> expr1
+    where <style-types-compatible> (<type-of> expr1, <type-of> expr2)
+
+  type-of-style-expression :
+    StyleMul(expr1, expr2) -> <type-of> expr1
+    where <style-types-compatible> (<type-of> expr1, <type-of> expr2)
+
+  type-of-style-expression :
+    StyleDiv(expr1, expr2) -> <type-of> expr1
+    where <style-types-compatible> (<type-of> expr1, <type-of> expr2)
+     
+  type-of-style-expression :
     StylePropertyValue(matchdef, prop) -> <type-of-style-property> prop
-  
+
+rules
+
   type-of-style-value :
     StyleValue(value, unit) -> <type-of-style-unit> unit
     
   type-of-style-value :
-    StyleValue(sort@StyleSort(s), val) -> sort
+    StyleValue(sort@StyleSort(s), values) -> sort
 
   type-of-style-value :
     StyleValue(Hash(color)) -> StyleSort("Color")
     
   type-of-style-value :
     StyleValue(Uri(address)) -> StyleSort("Uri")
+
+  type-of-style-value :
+    StyleValue("auto") -> StyleSort("Avoid")
 
 rules
 
@@ -202,7 +244,7 @@ rules
     StyleSort("Repeat") -> ["horizontal", "vertical", "both", "none"]
 
   values-of-sort :
-    StyleSort("BorderStyle") -> ["solid", "dotted", "dashed", "double"]
+    StyleSort("BorderStyle") -> ["solid", "dotted", "dashed", "double", "none"]
 
   values-of-sort :
     StyleSort("Line") -> ["under", "over", "through", "none"]
@@ -212,6 +254,9 @@ rules
 
   values-of-sort :
     StyleSort("Separator") -> ["pipe", "dot", "comma", "dash", "underscore", "colon", "semicolon"]
+  
+  values-of-sort :
+    StyleSort("Weight") -> ["bold", "normal"]
 
 rules
 
@@ -221,6 +266,7 @@ rules
   type-of-style-unit :
     "px" -> StyleSort("Length", "px")
   
+/*
   type-of-style-unit :
     "pt" -> StyleSort("Length", "pt")
   
@@ -229,17 +275,19 @@ rules
   
   type-of-style-unit :
     "cm" -> StyleSort("Length", "cm")
+*/
   
   type-of-style-unit :
     "em" -> StyleSort("Ems")
-  
-  type-of-style-unit :
-    "ex" -> StyleSort("Exs")
 
 rules
 
   is-xhtml-element =
     ?"par" <+ ?"section" <+ ?"text" <+ ?"navigate" <+ ?"header" <+ ?"block" <+
-    ?"menubar"  <+ ?"menu" <+ ?"menuheader" <+ ?"menuitem" <+ ?"list" <+ ?"listitem" <+ ?"container"
+    ?"menubar"  <+ ?"menu" <+ ?"menuheader" <+ ?"menuitem" <+ ?"list" <+ ?"listitem" <+ ?"container" <+
+    ?"group" <+ ?"groupitem" <+ ?"label" <+ ?"form" <+ ?"action" <+ ?"actionLink" <+ ?"input" <+
+    ?"table" <+ ?"row"
+    
+
 
     

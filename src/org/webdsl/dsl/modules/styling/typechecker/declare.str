@@ -8,23 +8,46 @@ imports
 
 strategies
 
+  declare-style-section =
+    ?StyleSection(name, defs)
+    ; where (
+        if <oncetd(\ Selector(s, ss) -> Selector(s, ss) where <oncetd(is-xhtml-element)> s \)> defs then
+          rules ( StyleSheetsAllPages :+= name )
+        end
+    )
+
+  declare-style-definitions =
+    map(declare-style-definition)
+
   declare-style-definition =
     ?def@StyleDefinition(selector, stat1*)
     ; where (
-	    s := <remove-position-annos> selector
-	    ; x := <InSection>
-	    ; rules ( StyleDefinition :+ s -> def )
-	    ; if Selector(SimpleSelector(checktype, MatchDefinition(name, arg*)), s*) := selector then
-	        <add-stylesheet> (x, name)
-	      end
+      {| ThisSelector
+       : s := <remove-position-annos> selector
+       ; rules ( ThisSelector := s )
+       ; rules (
+	       StyleDefinition :+ s -> def
+	       StyleDefinitions :+= <remove-position-annos> def
+	     )
+	   ; if not(InSection) then
+	       <alltd(declare-style-declaration)> stat1*
+	     else
+	       if Selector(SimpleSelector(checktype, MatchDefinition(name, arg*)), l) := selector then
+	         <add-stylesheet> (<InSection>, name)
+	       end
+	     end
+	   |}
 	  )
   
+  declare-style-declarations =
+    map(declare-style-declaration)
+    
   declare-style-declaration =
     ?decl@StyleDeclaration(prop, val)
     ; where (
         selector := <ThisSelector>
-        ; p := <remove-position-anno> prop
-        ; v := <remove-position-anno> val
+        ; p := <remove-position-annos> prop
+        ; v := <remove-position-annos> val
         ; rules (
             StyleDeclarations :+ selector -> (p, v)
             StyleProperties :+ selector -> p
@@ -41,7 +64,10 @@ strategies
     ; where (
         selector := <ThisSelector>
         ; rules ( StyleValue : (selector, p) -> v )
-//        ; <debug> ["____stylevalue decl: ", selector, p, v]
+//        ; <pp-aterm(!"decl-val: ")> [selector, p, v]
+//; if <sometd(?"topmenu")> selector then
+//    <debug(!"decl-val: ")> [selector, p, v]
+//  end 
       )
 
   declare-style-var-decl =
