@@ -18,11 +18,11 @@ rules
     StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat2*)
     where {| ThisSelector
            : rules ( ThisSelector := selector )
-           ; <debug> <pp-webdsl> selector
+//           ; <debug> <pp-webdsl> selector
            ; stat2* := <desugar-top> stat1*
 //           ; <pp-aterm(!"___stat2*: ")> stat2*
            ; <declare-style-definition> StyleDefinition(selector, stat2*)
-           ; <debug> ""
+//           ; <debug> ""
            |}
 
   translate-style :
@@ -117,7 +117,9 @@ rules
         ; <sometd(?(_, SimpleSelector(MatchDefinition("table", _))))> l1
         ; l2 := <sometd(
                   {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
-                      -> (c, ElemSimpleSelector("th"), p) \})> l1
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("th"), p)]
+                   \}); flatten-list> l1
   
   resolve :
     Selector(s, l1) -> Selector(s, l2)
@@ -125,17 +127,20 @@ rules
         ; ( <?SimpleSelector(MatchDefinition("table", _))> s <+ <?ElemSimpleSelector("table")> s )
         ; l2 := <sometd(
                   {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
-                      -> (c, ElemSimpleSelector("th"), p) \})> l1
-  
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("th"), p)]
+                   \}); flatten-list> l1
+
   resolve :
     Selector(s, l1) -> Selector(s, l2)
     where AfterProcessStyle
-        ; ( <?SimpleSelector(MatchDefinition("header", _))> s <+ <?ElemSimpleSelector("table")> s )
-        ; <sometd(?(_, SimpleSelector(MatchDefinition("table", _))))> l1
         ; l2 := <sometd(
-                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
-                      -> (c, ElemSimpleSelector("th"), p) \})> l1
-                      
+                  {\ (c, s', p)
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("td"), p)]
+                      where <oncetd(?"row")> s'
+                   \}); flatten-list> l1
+  
   resolve :
     Selector(s, l1) -> Selector(s, l2)
     where AfterProcessStyle
@@ -161,7 +166,7 @@ rules
         ; t* := <map(?Arg(_,<id>))> farg*
 	    ; s := <construct-selector> ("template", name, t*)
 	    ; val := <get-style-value> (s, prop)
-	    ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//	    ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
 //        ; <declare-style-value> (prop, val)
   
   resolve :
@@ -172,7 +177,7 @@ rules
             ; <debug(!"ThisSelector1: ")> <ThisSelector>
           end */
         ; val := <get-style-value> (selector, prop)
-        ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//        ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
 //        ; <declare-style-value> (prop, val)
 
   resolve :
@@ -355,6 +360,26 @@ rules
   
   resolve :
     ststat |[ image-repeat := Repeat.both; ]| -> ststat |[ background-repeat := repeat; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ font-color := stval0; ]| -> ststat |[ color := stval0; ]|
+    where ThisSelector
+
+  resolve :
+    ststat |[ font-line := Line.none; ]| -> ststat |[ text-decoration := none; ]|
+    where ThisSelector
+
+  resolve :
+    ststat |[ font-line := Line.under; ]| -> ststat |[ text-decoration := underline; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ font-line := Line.over; ]| -> ststat |[ text-decoration := overline; ]|
+    where ThisSelector
+    
+  resolve :
+    ststat |[ font-line := Line.through; ]| -> ststat |[ text-decoration := line-through; ]|
     where ThisSelector
   
   resolve :
