@@ -91,7 +91,7 @@ def create_proxy_model(cls):
                 logging.debug("Lazy loaded whole object: %s id: %s" % (cls, self._id_value))
                 self._wrapped_object = cls.fetch_by_id(self._id_value)
             setattr(self._wrapped_object, attr, value)
-        
+
         def __cmp__(self, other):
             if self._wrapped_object == None:
                 self._wrapped_object = cls.fetch_by_id(self._id_value)

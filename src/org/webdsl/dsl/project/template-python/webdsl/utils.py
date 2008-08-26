@@ -91,19 +91,21 @@ def register(path, cls, param_mappings=[]):
             o.field_counters = {}
             o.action_queue = []
             o.render(out)
+
+            stylesheets = "\n".join(map(lambda x: '<link href="/stylesheets/%s.css" rel="stylesheet" type="text/css" />' % x, o.stylesheets))
             self.response.out.write('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>    
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>%s</title>
-    <link href="/stylesheets/webdsl.css" rel="stylesheet" type="text/css" />
+    %s
     <link href="/stylesheets/dropdownmenu.css" rel="stylesheet" type="text/css" />
     <link href="/stylesheets/sdmenu.css" rel="stylesheet" type="text/css" />
     <script type='text/javascript' src='/javascripts/dropdownmenu.js'></script>
     <script type='text/javascript' src='/javascripts/sdmenu.js'></script>
 </head>
-<body>''' % o.title)
+<body>''' % (o.title, stylesheets))
             self.response.out.write(out.getvalue())
             self.response.out.write('''</body></html>''')
             o.store_session()
@@ -121,6 +123,7 @@ class RequestHandler(object):
         self.rh = rh
         self.action_queue = None
         self.templates = []
+        self.stylesheets = []
         self.redirect_url = None
         for key, value in scope.items():
             self.scope[key] = value
