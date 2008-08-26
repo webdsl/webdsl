@@ -147,3 +147,86 @@ class PartiallyOneInlinedReferenceProperty(db.Property):
     def __set__(self, model_instance, value):
         setattr(model_instance, self._attr_name(), value)
         setattr(model_instance, self.name.replace('_inline', '_id'), value)
+
+class SimpleReferenceProperty(db.Property):
+  def __init__(self,
+               reference_class=None,
+               verbose_name=None,
+               **attrs):
+    super(SimpleReferenceProperty, self).__init__(verbose_name, **attrs)
+
+    if reference_class is None:
+      reference_class = Model
+    if not ((isinstance(reference_class, type) and
+             issubclass(reference_class, Model)) or
+            reference_class is db._SELF_REFERENCE):
+      raise KindError('reference_class must be Model or _SELF_REFERENCE')
+    self.reference_class = self.data_type = reference_class
+
+  def __property_config__(self, model_class, property_name):
+    super(SimpleReferenceProperty, self).__property_config__(model_class,
+                                                       property_name)
+
+    if self.reference_class is db._SELF_REFERENCE:
+      self.reference_class = self.data_type = model_class
+
+  def __get__(self, model_instance, model_class):
+    if model_instance is None:
+      return self
+    if hasattr(model_instance, self.__id_attr_name()):
+      reference_id = getattr(model_instance, self.__id_attr_name())
+    else:
+      reference_id = None
+    if reference_id is not None:
+      resolved = getattr(model_instance, self.__resolved_attr_name())
+      if resolved is not None:
+        return resolved
+      else:
+        instance = get(reference_id)
+        if instance is None:
+          raise Error('SimpleReferenceProperty failed to be resolved')
+        setattr(model_instance, self.__resolved_attr_name(), instance)
+        return instance
+    else:
+      return None
+
+  def __set__(self, model_instance, value):
+    """Set reference."""
+    value = self.validate(value)
+    if value is not None:
+      if isinstance(value, db.datastore.Key):
+        setattr(model_instance, self.__id_attr_name(), value)
+        setattr(model_instance, self.__resolved_attr_name(), None)
+      else:
+        setattr(model_instance, self.__id_attr_name(), value.key())
+        setattr(model_instance, self.__resolved_attr_name(), value)
+    else:
+      setattr(model_instance, self.__id_attr_name(), None)
+      setattr(model_instance, self.__resolved_attr_name(), None)
+
+  def get_value_for_datastore(self, model_instance):
+    return getattr(model_instance, self.__id_attr_name())
+
+  def validate(self, value):
+    if isinstance(value, db.datastore.Key):
+      return value
+
+    if value is not None and not value.is_saved():
+      raise BadValueError(
+          '%s instance must be saved before it can be stored as a '
+          'reference' % self.reference_class.kind())
+
+    value = super(SimpleReferenceProperty, self).validate(value)
+
+    if value is not None and not isinstance(value, self.reference_class):
+      raise KindError('Property %s must be an instance of %s' %
+                            (self.name, self.reference_class.kind()))
+
+    return value
+
+  def __id_attr_name(self):
+    return self._attr_name()
+
+  def __resolved_attr_name(self):
+    return '_RESOLVED' + self._attr_name()
+
