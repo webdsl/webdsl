@@ -10,15 +10,13 @@
  *   its children have already been visited and hence, are in the aforementioned format. During simplification, a lot of
  *   WebDSL code is emitted to create and extend procedures and ProcedureStatus entities.
  *
- * ProcPLUS and ProcRepeatUntil make use of disabling other branches after the first event has occurred. Here, the first
+ * ProcPlus and ProcRepeatUntil make use of disabling other branches after the first event has occurred. Here, the first
  *   atomic event is meant, so (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
  *   This is because using the bottom-up traversal, descendants cannot be altered so the other branch is disabled after the 
  *   first actual ProcCall in the first branch.
  *
  * NOTE: 'procedure x() { enabled{} }' and
  *       'extend entity xStatus() { enabled{} }' both end up in the entity xStatus
- *
- * External dependency on translate-object-param(|x_o)
  */
 
 module org/webdsl/dsl/modules/procedures/process
@@ -67,12 +65,14 @@ rules // actual transformation
     where {| ProcedureName : rules(ProcedureName := x_id)
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess(_))> elem1*
            ; elem2* := <filter(not(?ProcedureProcess(_)))> elem1*
+           ; rules(ProcedureHasProcess : x_id -> True())
            |}
   transform-procedure :
     AutoProcedure(x_id, arg, elem1*) -> AutoProcedure(x_id, arg, elem2*)
     where {| ProcedureName : rules(ProcedureName := x_id)
            ; <transform-procedure-process> <fetch-elem(?ProcedureProcess(_))> elem1*
            ; elem2* := <filter(not(?ProcedureProcess(_)))> elem1*
+           ; rules(ProcedureHasProcess : x_id -> True())
            |}
            
   transform-procedure-process =
@@ -83,7 +83,7 @@ rules // actual transformation
     ; where(
         x_procstatus := <concat-strings; capitalize-string> [<ProcedureName>, "ProcedureStatus"]
         ; e_next := Int(0)
-        ; <emit-webdsl-code> def|[ 
+/*        ; <emit-webdsl-code> def|[ 
             extend entity x_procstatus {
               extend function enabled() {
                 // Prevent a process procedure from being executed twice
@@ -91,7 +91,7 @@ rules // actual transformation
                 this.persist();
               }
             }
-          ]|
+          ]|*/ // caused non-auto procedures never to start, because they were disabled when enabled(). Only for auto procedures
       )
     
 strategies // handle sequential composition - only to be done after simplification of containing constructs
@@ -99,7 +99,6 @@ strategies // handle sequential composition - only to be done after simplificati
   process-sequential =
     with(id
         ; collect-all(?ProcCall(_,_)) 
-          // [ProcCall("employeeFillInForm",Var("p")),ProcCall("finalizeReport",Var("p")),ProcCall("approveReport",Var("p"))]
         ; {| State
            : stat1* := <map(get-sequential-proccall)>
            ; e_current := Int(<get-state>)
@@ -252,7 +251,7 @@ strategies // simplification of complex constructs
           ]|
 
   process-and :
-    ProcAND(branch1, branch2) -> ProcCall(x_new, Var(x_o))
+    ProcAnd(branch1, branch2) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
@@ -298,7 +297,7 @@ strategies // simplification of complex constructs
         ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
         ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
        
-        // create new procedure to replace AND-construct
+        // create new procedure to replace and-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
@@ -334,7 +333,7 @@ strategies // simplification of complex constructs
           ]|
                     
   process-xor :
-    ProcOR(branch1, branch2) -> ProcCall(x_new, Var(x_o))
+    ProcXor(branch1, branch2) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
@@ -362,7 +361,7 @@ strategies // simplification of complex constructs
         ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
         ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
 
-        // create new procedure to replace XOR-construct
+        // create new procedure to replace xor-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
@@ -399,7 +398,7 @@ strategies // simplification of complex constructs
   // deferred choice; disables other branch when first event within branch has been completed
   // NOTE: (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
   process-plus :
-    ProcPLUS(branch1, branch2) -> ProcCall(x_new, Var(x_o))
+    ProcPlus(branch1, branch2) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
         ; x_o := <ProcedureArg> x_id
         ; srt := <ProcedureArgSort> x_id
@@ -439,7 +438,7 @@ strategies // simplification of complex constructs
         ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
         ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
 
-        // create new procedure to replace XOR-construct
+        // create new procedure to replace plus-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
@@ -532,6 +531,7 @@ strategies // simplification of complex constructs
             }
           ]|
     
+  // NOTE: "repeat {(A and B) ; C } until D" will take "(A and B)" as the whole first event within the repeat block.
   process-repeat-until :
     ProcRepeatUntil(branch1, branch2) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>

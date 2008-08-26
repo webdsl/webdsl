@@ -333,9 +333,9 @@
    ProcWhile                                    -- KW["while"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    ProcIfNoElse                                 -- KW["if"] KW["("] _1 KW[")"] _2,
    ProcIf                                       -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
-   ProcOR                                       -- _1 KW["|OR|"] _2,
-   ProcAND                                      -- _1 KW["|AND|"] _2,
-   ProcPLUS                                     -- _1 KW["+"] _2,
+   ProcXor                                      -- _1 KW["xor"] _2,
+   ProcAnd                                      -- _1 KW["and"] _2,
+   ProcPlus                                     -- _1 KW["+"] _2,
    ProcRepeatUntil                              -- KW["repeat"] KW["{"] _1 KW["}"] KW["until"] _2,
    RemoveMe                                     -- KW["RemoveMe"],
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]]
