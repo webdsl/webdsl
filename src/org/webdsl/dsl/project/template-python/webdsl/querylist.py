@@ -158,9 +158,12 @@ class OneToManyDbQuerySet(QuerySet):
     def append(self, item):
         if not item in self.append_list:
             self.item_count += 1
-            self.append_list.append(item)
-            if self.declared_inverse_prop:
-                setattr(item, self.declared_inverse_prop, self.obj)
+            if item in self.remove_list:
+                self.remove_list.remove(item)
+            else:
+                self.append_list.append(item)
+                if self.declared_inverse_prop:
+                    setattr(item, self.declared_inverse_prop, self.obj)
 
     def remove(self, item):
         self.item_count -= 1

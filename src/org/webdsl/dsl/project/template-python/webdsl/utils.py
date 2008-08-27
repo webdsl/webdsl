@@ -100,10 +100,12 @@ def register(path, cls, param_mappings=[]):
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>%s</title>
     %s
-    <link href="/stylesheets/dropdownmenu.css" rel="stylesheet" type="text/css" />
-    <link href="/stylesheets/sdmenu.css" rel="stylesheet" type="text/css" />
+    <!--link href="/stylesheets/dropdownmenu.css" rel="stylesheet" type="text/css" />
+    <link href="/stylesheets/sdmenu.css" rel="stylesheet" type="text/css" /-->
+    <link href="/stylesheets/calendar.css" rel="stylesheet" type="text/css" />
     <script type='text/javascript' src='/javascripts/dropdownmenu.js'></script>
     <script type='text/javascript' src='/javascripts/sdmenu.js'></script>
+    <script type='text/javascript' src='/javascripts/calendar.js'></script>
 </head>
 <body>''' % (o.title, stylesheets))
             self.response.out.write(out.getvalue())

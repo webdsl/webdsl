@@ -833,6 +833,44 @@ rules // Select
        ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
        ; e_data := <py-get-data-object> e
 
+  py-page-elem-to-render :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        out.write('<select multiple="multiple" name="' + field_id + '">');
+        for item in webdsl.querylist.AllDbQuerySet(data.x_type): {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(unicode(item.id), True) + '">');
+            out.write(cgi.escape(unicode(item.name), True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where GenericSort(_, _) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-databind :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = [];
+            for item_id in self.rh.request.getall(field_id): {
+              e_target.append(data.x_type.fetch_by_id(item_id));
+            };
+        };
+    ]|    
+    where GenericSort(_, _) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
 rules // vardecl
 
   py-page-elem-to-render :
@@ -870,6 +908,52 @@ rules
         out.write(cgi.escape(unicode(e_target), True));
     ]|
     with e_target := <expression-to-python> e
+
+rules // groups
+
+  py-page-elem-to-render :
+    TemplateCall("group", [arg], elems) ->
+    python*|[
+        out.write('<fieldset><legend>');
+        out.write(cgi.escape(unicode(e_text)));
+        out.write('</legend><ol>');
+        stm*
+        out.write('</ol></fieldset>');
+    ]|
+    with stm* := <py-page-elems-to-render> elems
+       ; e_text := <expression-to-python> arg
+
+  py-page-elem-to-render :
+    TemplateCall("group", [], elems) ->
+    python*|[
+        out.write('<fieldset class="fieldset_no_legend_">');
+        stm*
+        out.write('</fieldset>');
+    ]|
+    with stm* := <py-page-elems-to-render> elems
+    
+  py-page-elem-to-render :
+    TemplateCall("groupitem", [], elems) ->
+    python*|[
+        out.write('<li>');
+        stm*
+        out.write('</li>');
+    ]|
+    with stm* := <py-page-elems-to-render> elems
+
+rules // label
+
+  py-page-elem-to-render :
+    TemplateCall("label", [arg], elems) ->
+    python*|[
+        out.write('<label for="">');
+        out.write(cgi.escape(unicode(e_text)));
+        out.write('</label>');
+        stm*
+    ]|
+    with stm* := <py-page-elems-to-render> elems
+       ; e_text := <expression-to-python> arg
+
 /*
   py-page-elem-to-render :
     SelectFromList(e1, e2) ->
