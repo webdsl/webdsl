@@ -11,7 +11,10 @@ rules
     ?(name, page)
     ; where (
         if not ( <elem> (name, <bagof-StylesheetIncludes> page) ) then
-          rules ( StylesheetIncludes :+ page -> name );rules ( AllStylesheets :+= name )
+          rules (
+            StylesheetIncludes :+ page -> name
+            AllStylesheets :+= name
+          )
         end
       )
 
@@ -66,6 +69,12 @@ rules
   add-simple-selector :
     (Selector(s, l), (c, ss)) -> Selector(s, <concat> [l, [(c, ss, None)]])
 
+  add-simple-selector :
+    (Selector(s, l), ss@[(c1,s1)|t]) -> Selector(s, <concat> [l, <map(\ (c2, s2) -> (c2, s2, None) \)> ss])
+    
+  add-simple-selector :
+    (Selector(s, l), ss@[(c1,s1,p1)|t]) -> Selector(s, <concat> [l, ss])
+
 rules
 
   set-style-property =
@@ -79,7 +88,7 @@ rules
       end
 
   get-style-value =
-    get-style-value-simple <+ get-style-value-lookup
+    (get-style-value-simple <+ get-style-value-lookup); try(resolve)
 
   get-style-value-simple =
     has-property
@@ -98,7 +107,7 @@ rules
          ; <pp-aterm(!"____sel0: ")> sel0
          ; <pp-aterm(!"____sel1: ")> sel1
        end*/
-        ; [(value, weight)|rest] := <filter(has-property(|prop)); order-selectors; topdown-l(repeat(resolve))> sel1
+        ; [(value, weight)|rest] := <filter(has-property(|prop)); order-selectors> sel1
         // @todo: for now, just take the first value
         // in the future, defs2 should be sorted according to specificity
 
@@ -113,6 +122,13 @@ rules
 
   get-selector-keyword :
     IdSimpleSelector(q) -> q
+
+/*
+  get-font-size =
+    Selector(s, l) := <ThisSelector; debug(!"....")>
+    ; [value|rest] := <map(try( {\ ss -> <has-property> (<add-simple-selector; debug(!"----: ")> (Selector(s, []), ss), StyleProperty("font-size")) where Selector(s, _) := <ThisSelector> \} )); debug(!"====: ")> <reverse> l
+    ; !value
+*/    
 
 rules
 
@@ -232,8 +248,9 @@ rules
         ; v3 := <s; real-to-string> (i1, i2)
 
 rules
-  // @todo: 16 is only valid when font-size = 100%!!!
+  // @todo: 16 is only valid when font-size = 100% or 1em !!!
   // so perhaps check if there is a font-size property for the current selector?
+  // or search up in the hierarchy
   em-to-px :
     v1 -> v2
     with is-int <+ is-real
