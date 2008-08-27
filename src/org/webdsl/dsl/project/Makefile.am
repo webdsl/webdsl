@@ -32,9 +32,7 @@ EXTRA_DIST = \
   $(wildcard template-python/*.yaml) \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
-  $(wildcard template-python/simplejson/*.py) \
-  $(wildcard template-python/webdsl/*.py) \
-  $(wildcard template-python/stylesheets/*.css) \
+  $(wildcard template-python/*/*.*) \
   template-python/maak
 
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
