@@ -6,4 +6,6 @@ section imagetest
 
   define page home(){
     image("http://webdsl.org/webdslorg/images/WebDSL-small.png") 
+    
+    image("/images/WebDSL-small.png") 
   }
