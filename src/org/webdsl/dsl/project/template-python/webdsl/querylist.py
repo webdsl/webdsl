@@ -112,7 +112,8 @@ class QuerySet(object):
         return lst[self.offset:self.offset+self.limit_]
 
     def append(self, item):
-        self.lst.append(item)
+        if not item in self.lst:
+            self.lst.append(item)
 
     def remove(self, item):
         if item in self.lst:
@@ -137,6 +138,10 @@ class QuerySet(object):
             return len(self.lst)
         else:
             return len(self.list())
+
+class QueryList(QuerySet):
+    def append(self, item):
+        self.lst.append(item)
 
 class OneToManyDbQuerySet(QuerySet):
     """Database version of QuerySet"""
