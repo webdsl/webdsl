@@ -3,6 +3,7 @@
 SRCDIR=$(pwd)/../src
 cd `dirname $0`
 FILE=`basename $0`
+bash $SRCDIR/org/webdsl/dsl/project/webdsl cleanall > /dev/null 2> /dev/null
 bash $SRCDIR/org/webdsl/dsl/project/webdsl test $FILE > /dev/null 2> $FILE.out
 grep "$(cat $FILE.app | head -n 1 | sed 's/^[/]*//')" $FILE.out > /dev/null
 
