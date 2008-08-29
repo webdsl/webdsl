@@ -12,6 +12,7 @@ CLEANFILES = \
     $(wildcard *.c) \
     $(wildcard *.dep) \
     $(wildcard *.rtree) \
+    $(wildcard *.ctree) \
     $(wildcard org/webdsl/dsl/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.tbl) \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
@@ -20,7 +21,7 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.dep) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtree) \
-    $(wildcard org/webdsl/dsl/*/*/*.rtree) 
+    $(wildcard org/webdsl/dsl/*/*/*.rtree)
 
 EXTRA_DIST = \
     $(wildcard *.str) \
@@ -149,6 +150,12 @@ libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDE
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
 
+ctrees : webdsl-front.ctree webdsl-generator.ctree
+
+webdsl-front.ctree : libwebdsl-front.rtree
+	strc $(STRINCLUDES) -c --library -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+
 ## generator
 
 nobase_data_DATA += libwebdsl-generator.rtree 
@@ -166,3 +173,7 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
+	
+webdsl-generator.ctree : libwebdsl-generator.rtree  
+	strc $(STRINCLUDES) -c --library -F -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o webdsl-generator.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
