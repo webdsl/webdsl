@@ -6,7 +6,10 @@ am__tar = ${AMTAR} chf - "$$tardir"
 SUBDIRS = src src/org/webdsl/dsl/project test
 
 syntax :
-	$(MAKE) -C src
+	$(MAKE) -C src syntax
+
+ctrees : 
+	$(MAKE) -C src ctrees
 
 #src/org/webdsl/dsl/generation
 
