@@ -17,10 +17,14 @@ section datamodel
   
   define page home(){
     main()
-   
+    init{
+      user.name := "Bob";
+      user.lastname := "J";
+    }
+    
     define body()
     {
       output(user.name)
       output(user.lastname)
     }
-   }
+  }
