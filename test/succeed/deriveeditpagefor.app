@@ -36,8 +36,10 @@ section data model
 section pages
 
   define page home() {
+     var item : NewsItem;
+    
     init {
-      var item : NewsItem := NewsItem{};
+      item := NewsItem{};
       item.persist();
     }
     table {

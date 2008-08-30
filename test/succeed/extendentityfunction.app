@@ -31,7 +31,7 @@ section datamodel
     var u:User := User{};
     define body()
     {
-      if(u.test(4,8,u)){
+      if(u.test(4,8,u)>0){
         output(u.name)
       }
     }
