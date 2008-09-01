@@ -1,4 +1,4 @@
-//Error: Session Entity user of type User is defined multiple times.
+//Error: Session entities User are also defined as normal entities.
 
 
 application test

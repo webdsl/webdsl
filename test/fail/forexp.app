@@ -12,7 +12,7 @@ section functions
 globals {
   function do() {
     var list : List<String>;
-    for(item : String in list where "blabla") {
+    for(item : String in list where "dinges") {
       var a : String := "dinges";
     } 
   }
