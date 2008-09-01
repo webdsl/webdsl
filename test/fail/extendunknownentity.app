@@ -1,4 +1,4 @@
-// Error: Extended entity Userr does not exist:
+//Error: Extended entity Userr does not exist:
 
 application test
 
