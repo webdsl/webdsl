@@ -43,11 +43,18 @@ rules
            |}
            
   rename-layout-definition :
-    LayoutDefinition(type, matchdef, stat1*) -> <declare-layout-definition> LayoutDefinition(type, matchdef, stat2*)
+    LayoutDefinition(type, matchdef1, stat1*) -> <declare-layout-definition> LayoutDefinition(type, matchdef2, stat2*)
     where {| InDef
-           : MatchDefinition(name, arg*) := matchdef
-           ; t* := <map(?Arg(_,<id>))> arg*
-           ; rules ( InDef := (name, t*) )
+           : MatchDefinition(name1, arg*) := matchdef1
+           ; t1* := <map(?Arg(_,<id>))> arg*
+           ; if <is-call-to-overloaded-template> name1 then
+               name2 := <OverloadedTemplateSignature> (name1, t1*)
+               ; matchdef2 := MatchDefinition(name2, arg*)
+             else
+               name2 := name1
+               ; matchdef2 := matchdef1
+             end
+           ; rules ( InDef := (name2, t1*) )
            ; stat2* := <rename-layout> stat1*
            |}
 
@@ -57,15 +64,12 @@ rules
   
   rename-style-section :
     StyleSection(name, def1*) -> StyleSection(name, def2*)
-    where {| InSection
-           : rules ( InSection := name )
-           ; def2* := <rename-layout> def1*
-           |}
+    where def2* := <rename-layout> def1*
+
            
   rename-style-definition :
     StyleDefinition(sel1, stat*) -> <declare-style-definition> StyleDefinition(sel2, stat*)
-    where InSection
-        ; sel2 := <rename-layout> sel1
+    where sel2 := <rename-layout> sel1
 
   rename-style-decl :
     StyleDeclaration(prop1, val1) -> StyleDeclaration(prop1, val1)   
@@ -86,8 +90,16 @@ rules
     where  selector2 := <rename-layout> selector1
   
   rename-simple-selector :
-    SimpleSelector(type, matchdef) -> SimpleSelector(type, matchdef)
-    
+    SimpleSelector(type, matchdef1) -> SimpleSelector(type, matchdef2)
+    where MatchDefinition(name1, arg*) := matchdef1
+        ; t1* := <map(?Arg(_,<id>))> arg*
+        ; if <is-call-to-overloaded-template> name1 then
+            name2 := <OverloadedTemplateSignature> (name1, t1*)
+            ; matchdef2 := MatchDefinition(name2, arg*)
+          else
+            matchdef2 := matchdef1
+          end
+
   rename-simple-selector :
     SimpleSelector(n1) -> SimpleSelector(n2)
     where n2 := <rename-layout> n1

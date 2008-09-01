@@ -295,6 +295,8 @@
    LayoutSection.1:iter-star                    -- _1,
    LayoutDefinition                             -- _1 _2 KW["{"] _3 KW["}"],
    LayoutDefinition.3:iter-star                 -- _1,
+   FloatStatement                               -- KW["float"] KW["{"] _1 KW["}"],
+   FloatStatement.1:iter-star                   -- _1,
    LayoutStatement                              -- _1 KW[";"],
    NamedLayoutExpression                        -- _1 KW[":"] KW["["] _2 KW["]"],
    LayoutExpression                             -- _1,

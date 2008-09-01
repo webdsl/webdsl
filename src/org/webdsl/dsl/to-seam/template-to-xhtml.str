@@ -23,7 +23,7 @@ rules
      xmlns:wdsl="http://www.webdsl.org/el" 
      att0>
   
-  <div id="<%= p %>">
+  <div class="<%= x_class %> clearfix">
     <%= elems::* %>
   </div>
 
@@ -35,7 +35,7 @@ rules
          else
            att0 := []
          end
-       ; p := <ThisPage>
+       ; x_class := <match-definition-to-string> (<ThisPage>, <ThisArguments>)
           
  
 rules
@@ -49,6 +49,7 @@ rules
     ; where ( x := <ThisPage> )
     ; ( elems := <elems-to-xhtml> elem*
          ; external-style := <get-styles> elem*
+         ; x_class := <match-definition-to-string> (x, farg*)
          ; {| ThisPage
             : rules ( ThisPage := <concat-strings> [x, "Template"] )
             ; <emit-xhtml>
@@ -74,7 +75,7 @@ rules
   </head>
 
   <body>
-    <div id="<%= x %>">
+    <div class="<%= x_class %> clearfix">
       <%= elems::* %>
     </div>
   </body>
@@ -89,7 +90,7 @@ rules
   GenerateCode = page-to-facelet; fail
   
   page-to-facelet :
-    def |[ define page x(farg*) { elem* } ]| -> <generate-template-client(|template)> elems
+    def |[ define page x(farg*) { elem* } ]| -> output
     where template := <concat-strings> [x, "Template"]
         ; {| AllowIncludes 
            : rules ( AllowIncludes := x )
@@ -100,6 +101,10 @@ rules
         ; <add-stylesheets-for-all-pages> x
 //        ; rules ( StylesheetIncludes :+ x -> "webdsl" )        
         ; elems := <flatten-list> [elems' | <find-includes> <flatten-list> [ x | templates ] ]
+        ; {| ThisArguments
+           : rules ( ThisArguments := farg* )
+           ; output := <generate-template-client(|template)> elems
+           |}
 
 
   find-includes :
@@ -150,11 +155,15 @@ rules
   GenerateCode = template-to-facelet; fail
 
   template-to-facelet :
-    def |[ define template x(farg*) { elem* } ]| -> <generate-template-client(|"")> body
+    def |[ define template x(farg*) { elem* } ]| -> output
     where x := <ThisPage>
-    with {| InToplevelTemplate
-          : rules ( InToplevelTemplate := x )
+    with {| InToplevelTemplate, ThisArguments
+          : rules (
+              InToplevelTemplate := x
+              ThisArguments := farg*
+            )
           ; body := <elems-to-xhtml> elem*
+          ; output := <generate-template-client(|"")> body
           |}
 
 rules
@@ -178,6 +187,9 @@ rules
   is-overloaded-template =
     ?def |[ define template x(farg*) { elem* } ]| ; where (<bagof-TopLevelTemplateDefinitions;length;not(?0);not(?1)> <strip-annos> x)
   
+//  is-overloaded-template =
+//    ?x ; where (<bagof-TopLevelTemplateDefinitions;length;not(?0);not(?1)> <strip-annos> x)
+    
   is-call-to-overloaded-template =
     where ( bagof-TopLevelTemplateDefinitions;length;not(?0);not(?1) )
   
