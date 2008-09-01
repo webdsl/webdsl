@@ -47,6 +47,10 @@ section test pages
     var item : NewsItem := NewsItem{}
     derive viewPage from item
   }
+
+  define page newsItem(i : NewsItem) {
+    output(i.name)
+  }
   
   procedure reviewNewsItem(item : NewsItem) {
     when {

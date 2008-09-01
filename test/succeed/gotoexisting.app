@@ -9,5 +9,5 @@ define page home(i : Int) {
 }
 
 define page firstPage(i : Int) {
-  Text("Yeah")
+  text("Yeah")
 }

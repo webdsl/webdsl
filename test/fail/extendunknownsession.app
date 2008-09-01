@@ -1,4 +1,4 @@
-// Extended session entity Userr does not exist: extend session Userr
+//Error: Extended session entity Userr does not exist
 
 application test
 

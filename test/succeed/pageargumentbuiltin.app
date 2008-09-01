@@ -7,7 +7,7 @@ section datamodel
   }
   
   define page home(){
-    navigate(viewUser(45,"thestring",true,345.54),"view")
+    navigate(viewUser(45,"thestring",true,345.54)) {"view"}
   }
 
 

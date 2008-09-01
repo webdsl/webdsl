@@ -59,7 +59,6 @@ section datamodel
     
     
     //spacer
-    spacer()
     horizontalspacer()
     
     //title

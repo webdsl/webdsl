@@ -14,7 +14,7 @@ section datamodel
     var u:User := User{};
     var u1:User2 := User2{};
   
-    navigate(viewUser(u,u1),"view")
+    navigate(viewUser(u,u1)) { "view" }
     
   }
 
