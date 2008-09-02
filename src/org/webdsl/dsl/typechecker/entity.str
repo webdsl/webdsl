@@ -26,13 +26,25 @@ rules // typechecking entity declarations
     where entities := <collect(?SessionEntity(_, _, _)); map(\ SessionEntity(nm, _, _) -> nm \)> sections
         ; ent* := <find-doubles> entities
         ; not([] := ent*)
-        
+  
+  // check for double properties and functions within entities
   constraint-error =
     (?Entity(x_id, _, properties, functions) <+ ?EntityNoSuper(x_id, properties, functions) <+ ?SessionEntity(x_id, properties, functions))
     ; names := <map(entity-get-propfunc)> properties
     ; doubles := <find-doubles> names
     ; not([] := doubles)
     ; !<add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles])> x_id
+  
+  constraint-error =
+    (?ent@Entity(x_id, _, properties, functions) <+ ?ent@EntityNoSuper(x_id, properties, functions) <+ ?ent@SessionEntity(x_id, properties, functions))
+    ; where (
+        names := <concat> [<map(entity-get-propfunc)> properties, <map(entity-get-propfunc)> functions]
+        ; <map(try(check-with-procedures(|ent)))> names
+      )
+
+  check-with-procedures(|ent) : 
+    name -> <add-error(|["Property name and procedure name coincide: ", name])> ent
+    where <IsProcedure> name
     
   entity-get-propfunc : Property(x_id, _, _, _) -> x_id
   entity-get-propfunc : PropertyNoAnno(x_id, _, _) -> x_id
