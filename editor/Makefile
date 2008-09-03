@@ -1,14 +1,16 @@
 SYNTAX     = WebDSL
 SOURCE     = ../src/org/webdsl/dsl/syntax/$(SYNTAX).def
-CTREE      = ...
 
-SDF2IMP    = $(IMP)/org.strategoxt.imp.metatooling/sdf2imp
 ESVS       = ${wildcard src/*.esv}
 
-all : bin/$(SYNTAX).packed.esv
+all : bin/$(SYNTAX).packed.esv ctrees
 
 	# : $(CTREE)
 	# cp $(CTREE) bin
+
+ctrees :
+	$(MAKE) -C .. ctrees
+	cp ../src/*.ctree .
 
 clean :
 	rm -f src/parser/$(SYNTAX)ParseController.java bin/$(SYNTAX).packed.esv
@@ -16,7 +18,7 @@ clean :
 	# ...
 
 bin/$(SYNTAX).packed.esv : $(SYNTAX).def $(SYNTAX).tbl $(SDF2IMP) Makefile $(ESVS)
-	$(SDF2IMP) -i $< -p $(SYNTAX).tbl -m $(SYNTAX) --verbose 2 # -e app -s Unit -m WebDSL
+	sdf2imp -i $< -p $(SYNTAX).tbl -m $(SYNTAX) --verbose 2 # -e app -s Unit -m WebDSL
 
 $(SYNTAX).def : $(SOURCE)
 	ln -s $< $@
