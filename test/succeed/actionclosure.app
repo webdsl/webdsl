@@ -33,3 +33,23 @@ section datamodel
     }
   }
   
+  define page test()
+  {
+        main()
+        define local body() {
+          form { 
+            group("Details") { 
+            } 
+            group() {
+               action("Cancel", cancel1())
+               action("Save", save())
+            }
+          }
+          action cancel1() {
+            cancel home();
+          }
+          action save() { 
+            return home();
+          }
+        }
+  }
