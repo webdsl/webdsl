@@ -68,8 +68,11 @@
    PagedFor.5:iter-star                      -- _1,
 
    Subtable                           -- V[ V is=2[ H[KW["subtable"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
-   IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
+   IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"] KW["else"] KW["{"] _3 KW["}"] ],
    IfTempl.2:iter-star                -- _1,
+   IfTempl.3:iter-star                -- _1,
+   IfNoElseTempl                      -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"]],
+   IfNoElseTempl.2:iter-star          -- _1,
    Select                             -- H[KW["select"] KW["("] _1 KW[":"] _2 KW[","] _3 KW[","] _4 KW[")"]],
    SelectFromList                     -- H[KW["select"] KW["("] _1 KW["from"] _2 KW[")"]],
    TemplateCallNoArgs                 -- _1,

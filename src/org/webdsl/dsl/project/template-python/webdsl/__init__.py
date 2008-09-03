@@ -7,6 +7,7 @@ import session
 import polymodel
 
 RE_LINKS = re.compile(r'(\[\[(\w+)(\(([^\)]*)\))?(\|([^\]]+))?\]\])')
+RE_TAGS = re.compile(r'<[^>]+>')
 
 def parse_wikitext(str):
     links = RE_LINKS.findall(str)
@@ -25,3 +26,6 @@ def parse_wikitext(str):
 
 def parse_text(str):
     return markdown.Markdown(safe_mode='escape').convert(str)
+
+def remove_tags(str):
+    return RE_TAGS.sub('', str)
