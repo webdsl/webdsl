@@ -52,9 +52,9 @@ strategies
     ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
     ; not(<defined-java-type> srt)
     ; with(id
+      ; e_prop := <concat-strings> ["'", x_prop, "'"]
       ; if <elem> (SimpleAnno("id"), annos) then
-          e_idprop := <concat-strings> ["'", x_prop, "'"]
-          ; <emit-python(|"data")> python*|[ @partial class x_class(): { id_property = e_idprop; }; ]|
+          ; <emit-python(|"data")> python*|[ @partial class x_class(): { id_property = e_prop; }; ]|
         end
       ; if <elem> (SimpleAnno("name"), annos); not("name" := x_prop) then
           <emit-python(|"data")> python*|[ 
@@ -67,7 +67,7 @@ strategies
             };
           ]|
         end
-      ; e := <python-property-type> srt
+      ; e := <python-property-type(|e_prop)> srt
       ; <emit-python(|"data")> python*|[ @partial class x_class(): { x_prop = e; }; ]|
       )
 
@@ -99,7 +99,8 @@ strategies
     ?Property(x_prop, knd, srt@SimpleSort(_), annos)
     ; <fetch(?InverseAnno(inverseent, inversefld) <+ ?InverseSlaveAnno(inverseent, inversefld))> annos
     ; with(id
-      ; e := <python-property-type> srt
+      ; e_prop := <concat-strings> ["'", x_prop, "'"]
+      ; e := <python-property-type(|e_prop)> srt
       ; stm* := <py-generate-backreference-property(|x_class, x_prop, inverseent, inversefld)>
       ; <emit-python(|"data")> python*|[ @partial class x_class(): { stm* }; ]|
       )
@@ -181,7 +182,7 @@ strategies
         def x_get(self): {
             if self.x_internalprop == None: {
                 self._post_process_props.append(e_propstr);
-                self.x_internalprop = webdsl.querylist.x_manyclass(self, e_typestr, x_inverseprop, self.id, self.x_countprop, e_declinvprop);
+                self.x_internalprop = webdsl.querylist.x_manyclass(self, e_typestr, x_inverseprop, self.id, e_declinvprop);
             };
             return self.x_internalprop;
         };
@@ -200,21 +201,32 @@ strategies
   py-generate-inverse-prop(|x_ent, lst) =
     ?Property(x, knd, GenericSort("Set", [SimpleSort(invers_ent)]), annos)
     ; with(id
+        ; debug(!"Doing: ")
         ; x_prop := <concat-strings> ["inverse__", <ThisEntity>, "_", x]
         ; if <EntityIdType> <ThisEntity> then
             type2 := <EntityIdType> <ThisEntity>
           else
             type2 := SimpleSort("Int")
           end
+        ; if <fetch(?InverseAnno(inverseent, inversefld) <+ ?InverseSlaveAnno(inverseent, inversefld))> annos then
+            info(|["The annos: ", annos])
+            ; e_propname := <concat-strings> ["'", inversefld, "'"]
+            ; e_inlinepropname := <concat-strings> ["'", inversefld, "_inline'"]
+          else
+            e_propname := <concat-strings> ["'", x_prop, "'"]
+            ; e_inlinepropname := <concat-strings> ["'", x_prop, "_inline'"]
+          end
         ; if "Set" := lst then
             type := GenericSort("Set", [type2])
           else // Not a collection, also add an inline property
             type := type2
             ; x_propinline := <concat-strings> [x_prop, "_inline"]
-            ; e_inlinetype := <python-property-type> SimpleSort(<ThisEntity>)
+            ; e_inlinetype := <python-property-type(|e_inlinepropname)> SimpleSort(<ThisEntity>)
             ; <emit-python(|"data")> python*|[ @partial class x_ent(): { x_propinline = e_inlinetype; }; ]|
           end
-        ; e_type := <python-property-type> type
+        ; info(|"Here")
+        ; e_type := <python-property-type(|e_propname) <+ debug(!"FAIL: ")> type
+        ; info(|"Still Here")
         ; <emit-python(|"data")> python*|[ @partial class x_ent(): { x_prop = e_type; }; ]|
         )
 
