@@ -32,24 +32,36 @@ section datamodel
       }
     }
   }
-  
+
+  define page test2(u:User)
+  {
+    derive editPage from u
+  }
+ 
+
   define page test()
   {
         main()
-        define local body() {
+        define body() {
           form { 
             group("Details") { 
             } 
             group() {
-               action("Cancel", cancel1())
+               
                action("Save", save())
+                 action("Cancel", cancel()) 
+         
             }
           }
-          action cancel1() {
-            cancel home();
-          }
-          action save() { 
+     
+             action save() { 
             return home();
           }
+                    action cancel() {
+            cancel home();
+          }
+     
+       
         }
   }
+ 

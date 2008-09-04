@@ -54,32 +54,36 @@ rules
 
   rename :
     def |[ define page x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define page x(farg2*) { elem2* } ]|
-    with {| Rename, InDef, InPage
+    with {| Rename, InDef, InPage, RenameActionCall
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; farg2* := <map(rename)> farg1*
-          ; elem2* := <topdown(try(rename-action)); rename-all> elem1*
+          ; elem2* := <alltd(rename-action); rename-all> elem1*
           ; <try(alltd(rename))> elem1*
           ; rules ( TypeOf : x -> "Component" )
           |}
 
   rename :
-    def |[ define x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define y(farg2*) { elem2* } ]|
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define y(farg2*) { elem2* } ]|
     where not(InPage)
-    with {| Rename, InDef, InTemplate
+        ; not(<elem> (Page(), mod*))
+    with {| Rename, InDef, InTemplate, RenameActionCall
           : rules ( InDef := True() )
           ; rules ( InTemplate := x )
           ; y := x{<newname> x}
           ; farg2* := <map(rename; declare-template-arg)> farg1*
-          ; elem2* := <topdown(try(rename-action)); rename-all> elem1*
+          ; elem2* := <alltd(rename-action); rename-all> elem1*
           |}
         
   rename :
-    def |[ define x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define y(farg2*) { elem2* } ]|
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define y(farg2*) { elem2* } ]|
     where InPage
-    with y := x{<newname> x}
-       ; farg2* := <map(rename)> farg1*
-       ; elem2* := <topdown(try(rename-action)); rename-all> elem1*
+        ; not(<elem> (Page(), mod*))
+    with {| Rename, RenameActionCall
+         : y := x{<newname> x}
+         ; farg2* := <map(rename)> farg1*
+         ; elem2* := <alltd(rename-action); rename-all> elem1*
+         |}
 
   rename :
     Function(x, args1, srt, b1) -> <declare-global-func <+ debug> Function(x, args2, srt, b2)
@@ -168,14 +172,14 @@ rules
 
   rename-action :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
-    where {| Rename
+    with {| Rename
           : args2 := <map(rename)> args1
           ; b2 := <rename-all> b1
           |}
        ; nm2 := nm1{<newname> nm1}
        ; rules ( RenameActionCall :
-                  ThisCall(nm1, a1*) -> ThisCall(nm2, a2*)
-                  where a2* := <rename-all> a1* )
+                  ThisCall(nm1, a1*){anno*} -> ThisCall(nm2, a2*){anno*}
+                  with  a2* := <rename-all> a1* )
        ; <declare-action> Action(nm2, args2, b1)
 
   rename = RenameActionCall
