@@ -15,8 +15,6 @@ class Model(db.Model):
             setattr(self, attr, kparams[attr])
 
     def put(self):
-        for attr in self._post_process_props:
-            setattr(self, attr+'_count', getattr(self, attr).item_count)
         db.Model.put(self)
         for attr in self._post_process_props:
             getattr(self, attr).inverse_prop_key = self.id
