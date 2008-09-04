@@ -179,7 +179,10 @@ class OneToManyDbQuerySet(QuerySet):
     def list(self):
         query_list = QuerySet(self.query_list.lst[:])
         if self.inverse_prop_key:
-            self.query = self.type.all().filter("%s =" % self.inverse_prop, self.inverse_prop_key)
+            if self.declared_inverse_prop:
+                self.query = self.type.all().filter("%s_ =" % self.declared_inverse_prop, self.inverse_prop_key)
+            else:
+                self.query = self.type.all().filter("%s =" % self.inverse_prop, self.inverse_prop_key)
             for prop, op, val in self.filters:
                 self.query.filter('%s %s' % (prop, op_to_filter[op]), val)
             if self.order:
@@ -212,7 +215,7 @@ class OneToManyDbQuerySet(QuerySet):
         self.remove_list = []
 
     def copy(self):
-        c = self.__class__(self.obj, self.type, self.inverse_prop, self.inverse_prop_key)
+        c = self.__class__(self.obj, self.type, self.inverse_prop, self.inverse_prop_key, self.declared_inverse_prop)
         c.filters = self.filters[:]
         c.order = self.order
         c.limit_ = self.limit_
@@ -237,22 +240,26 @@ class ManyToManyDbQuerySet(OneToManyDbQuerySet):
     def remove(self, item):
         if item in self.append_list:
             self.append_list.remove(item)
-        else:
+            if self.declared_inverse_prop:
+                getattr(item, self.declared_inverse_prop).remove(self.obj)
+        elif not item in self.remove_list:
             self.remove_list.append(item)
-        if self.declared_inverse_prop:
-            getattr(item, self.declared_inverse_prop).remove(self.obj)
+            if self.declared_inverse_prop:
+                getattr(item, self.declared_inverse_prop).remove(self.obj)
 
     def persist(self):
         '''We now have a key, put it in all the appended items!'''
-        for item in self.append_list:
+        append_list = self.append_list[:]
+        remove_list = self.remove_list[:]
+        self.append_list = []
+        self.remove_list = []
+        for item in append_list:
             if not self.inverse_prop_key in getattr(item, self.inverse_prop):
                 getattr(item, self.inverse_prop).append(self.inverse_prop_key)
                 item.put() 
-        for item in self.remove_list:
+        for item in remove_list:
             getattr(item, self.inverse_prop).remove(self.inverse_prop_key)
             item.put()
-        self.append_list = []
-        self.remove_list = []
 
 class AllDbQuerySet(QuerySet):
     """Database version of QuerySet"""
