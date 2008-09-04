@@ -59,9 +59,9 @@ class Model(db.Model):
         if cls.id_property:
             type = getattr(cls, cls.id_property).data_type
             if isinstance(id, type):
-                return cls.all().filter("%s = " % cls.id_property, id).get()
+                return cls.all().filter("%s_ = " % cls.id_property, id).get()
             else:
-                return cls.all().filter("%s = " % cls.id_property, type(id)).get()
+                return cls.all().filter("%s_ = " % cls.id_property, type(id)).get()
         else:
             return cls.get_by_id(long(id))
 
