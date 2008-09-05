@@ -41,8 +41,9 @@ function loaddiv(div, call)
    	if (req.readyState == 4) {
 	    document.getElementById(div).innerHTML =  req.responseText;
     }
-    else
+    else if(req.readyState != 1) {
     	document.getElementById(div).innerHTML = 'Invalid return of server: '+req.readyState; 
+    }
   }
   req.send(null);
 }
