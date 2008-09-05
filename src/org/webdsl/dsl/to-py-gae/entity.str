@@ -72,37 +72,69 @@ strategies
       ; <emit-python(|"data")> python*|[ @partial class x_class(): { x_prop = e; }; ]|
       )
 
+  python-entity-property-type(|e_name, annos) :
+    SimpleSort(s) -> py-exp|[ webdsl.db.PartiallyInlinedReferenceProperty(e_type, e, name=e_name) ]|
+    where defined-java-type
+    with e_type := <concat-strings> ["'", s, "'"]
+       ; if <fetch(?InlineAnno(inlineprop*))> annos then
+           e := ListLiteral(<map(\ str -> <concat-strings> ["'", str, "'"] \)> inlineprop*)
+         else
+           e := py-exp|[ [] ]|
+         end
+
+  python-entity-property-type(|e_name, annos) =
+    ?srt
+    ; defined-java-type
+    ; <python-property-type(|e_name)> srt
+
+
   py-property-to-code(|x_class) = // Simple reference property
-    ?Property(x_prop, knd, srt@SimpleSort(s), annos)
+    ?prop@Property(x_prop, knd, srt@SimpleSort(s), annos)
     ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> annos)
     ; <defined-java-type> srt
     ; with(id
       ; e_type := <concat-strings> ["'", s, "'"]
-      ; if <InlineProperties> s then
-          e := ListLiteral(<concat> [["'id'", "'name'"],
-                           <map(\ str -> <concat-strings> ["'", str, "'"] \)> <bagof-InlineProperties> s])
-        else
-          e := py-exp|[ ['name', 'id'] ]|
-        end
-      ; e_propinline := <concat-strings> ["'", x_prop, "_inline'"]
+      ; x_type := s
       ; x_propid := <concat-strings> [x_prop, "_id"]
+      ; e_propid := <concat-strings> ["'", x_prop, "_id'"]
       ; e_prop := <concat-strings> ["'", x_prop, "'"]
+      ; if <fetch(?InlineAnno(inlineprop*))> annos then
+          e_propinline := <concat-strings> ["'", x_prop, "_inline'"]
+          ; e := ListLiteral(<map(\ str -> <concat-strings> ["'", str, "'"] \)> inlineprop*)
+          ; stm* := python*|[ x_prop = webdsl.db.PartiallyOneInlinedReferenceProperty(e_type ,  e, name=e_propinline); ]|
+        else
+          x_get := <concat-strings> ["get_", x_prop]
+          ; x_set := <concat-strings> ["set_", x_prop]
+          ; e_internalprop := <concat-strings> ["'_", x_prop, "'"]
+          ; stm* := python*|[
+                      def x_get(self): {
+                        if not hasattr(self, e_internalprop): {
+                          setattr(self, e_internalprop, x_type.fetch_by_id(self.x_propid));
+                        };
+                        return getattr(self, e_internalprop);
+                      };
+                      def x_set(self, value): {
+                        setattr(self, e_propid, value);
+                      };
+                      x_prop = property(x_get, x_set);
+                    ]|
+        end
       //; e_propcol := <concat-strings> ["'", x_prop, "_id_set'"]
       ; <emit-python(|"data")> python*|[ 
           @partial class x_class(): {
-            x_prop = webdsl.db.PartiallyOneInlinedReferenceProperty(e_type ,  e, name=e_propinline);
+            stm*
             x_propid = webdsl.db.SimpleReferenceProperty(name=e_prop);
           };
         ]|
       )
 
   py-property-to-code(|x_class) = // many-to-one back reference
-    ?Property(x_prop, knd, srt@SimpleSort(_), annos)
+    ?prop@Property(x_prop, knd, srt@SimpleSort(_), annos)
     ; <fetch(?InverseAnno(inverseent, inversefld) <+ ?InverseSlaveAnno(inverseent, inversefld))> annos
     ; with(id
       ; e_prop := <concat-strings> ["'", x_prop, "'"]
-      ; e := <python-property-type(|e_prop)> srt
-      ; stm* := <py-generate-backreference-property(|x_class, x_prop, inverseent, inversefld)>
+      ; e := <python-entity-property-type(|e_prop, annos)> srt
+      ; stm* := <py-generate-backreference-property(|x_class, x_prop, annos, inverseent, inversefld)>
       ; <emit-python(|"data")> python*|[ @partial class x_class(): { stm* }; ]|
       )
 
@@ -147,12 +179,17 @@ strategies
           ]|
       )
 
-  py-generate-backreference-property(|x_class, x_prop, x_inverseent, x_inversefld) =
-    x_inversepropinl := <concat-strings> ["inverse__", x_inverseent, "_", x_inversefld, "_inline"]
-    ; x_inverseprop := <concat-strings> ["inverse__", x_inverseent, "_", x_inversefld]
-    ; x_get := <concat-strings> ["get_", x_prop]
-    ; x_set := <concat-strings> ["set_", x_prop]
+  py-generate-backreference-property(|x_class, x_prop, annos, x_inverseent, x_inversefld) =
+    with(
+      x_inversepropinl := <concat-strings> [x_prop, "_inline"]
+      ; x_inverseprop := <concat-strings> ["inverse__", x_inverseent, "_", x_inversefld]
+      ; x_get := <concat-strings> ["get_", x_prop]
+      ; x_set := <concat-strings> ["set_", x_prop]
+      ; e_inlinepropname := <concat-strings> ["'", x_inversepropinl, "'"]
+      ; e_inlinetype := <python-entity-property-type(|e_inlinepropname, annos)> SimpleSort(x_class)
+     )
     ; !python*|[
+        x_inversepropinl = e_inlinetype;
         def x_get(self): {
             return self.x_inversepropinl;
         };
@@ -220,8 +257,8 @@ strategies
           else // Not a collection, also add an inline property
             type := type2
             ; x_propinline := <concat-strings> [x_prop, "_inline"]
-            ; e_inlinetype := <python-property-type(|e_inlinepropname)> SimpleSort(<ThisEntity>)
-            ; <emit-python(|"data")> python*|[ @partial class x_ent(): { x_propinline = e_inlinetype; }; ]|
+            //; e_inlinetype := <python-property-type(|e_inlinepropname)> SimpleSort(<ThisEntity>)
+            //; <emit-python(|"data")> python*|[ @partial class x_ent(): { x_propinline = e_inlinetype; }; ]|
           end
         ; e_type := <python-property-type(|e_propname)> type
         ; <emit-python(|"data")> python*|[ @partial class x_ent(): { x_prop = e_type; }; ]|

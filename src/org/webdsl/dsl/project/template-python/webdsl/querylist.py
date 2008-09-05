@@ -157,6 +157,7 @@ class OneToManyDbQuerySet(QuerySet):
         self.declared_inverse_prop = declared_inverse_prop
         self.append_list = []
         self.remove_list = []
+        self.cached_result = None
         self.query_list = QuerySet([])
 
     def append(self, item):
@@ -177,6 +178,8 @@ class OneToManyDbQuerySet(QuerySet):
             setattr(item, self.declared_inverse_prop, None)
 
     def list(self):
+        if self.cached_result != None:
+            return self.cached_result
         query_list = QuerySet(self.query_list.lst[:])
         if self.inverse_prop_key:
             if self.declared_inverse_prop:
@@ -200,7 +203,8 @@ class OneToManyDbQuerySet(QuerySet):
                 query_list = getattr(query_list, 'filter_%s' % op)(prop, val)
             if self.order:
                 query_list = query_list.order_by(self.order)
-        return query_list.limit(self.limit_).list()
+        self.cached_result = query_list.limit(self.limit_).list()
+        return self.cached_result
 
     def persist(self):
         for item in self.append_list:
@@ -269,6 +273,7 @@ class AllDbQuerySet(QuerySet):
         self.type = type
         self.append_list = []
         self.remove_list = []
+        self.cached_result = None
         self.query = type.all()
 
     def append(self, item):
@@ -281,6 +286,8 @@ class AllDbQuerySet(QuerySet):
             self.remove_list.append(item)
 
     def list(self):
+        if self.cached_result != None:
+            return self.cached_result
         for prop, op, val in self.filters:
             self.query.filter('%s %s' % (prop, op_to_filter[op]), val)
         if self.order:
@@ -296,8 +303,8 @@ class AllDbQuerySet(QuerySet):
                 self.query_list = getattr(self.query_list, 'filter_%s' % op)(prop, val)
             if self.order:
                 self.query_list = self.query_list.order_by(self.order)
-
-        return self.query_list.limit(self.limit_).list()
+        self.cached_result = self.query_list.limit(self.limit_).list()
+        return self.cached_result
 
     def copy(self):
         c = AllDbQuerySet(self.type)
