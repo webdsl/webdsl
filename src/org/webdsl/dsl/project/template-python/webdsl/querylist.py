@@ -234,6 +234,7 @@ class ManyToManyDbQuerySet(OneToManyDbQuerySet):
     def append(self, item):
         if not item in self.append_list:
             self.append_list.append(item)
+            #logging.info("Appended %s to some propert of object %s" % (item, self.obj))
             if self.declared_inverse_prop:
                 getattr(item, self.declared_inverse_prop).append(self.obj)
 
