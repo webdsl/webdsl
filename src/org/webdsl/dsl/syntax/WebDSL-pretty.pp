@@ -160,7 +160,7 @@
    Call                               -- H hs=0[_1 KW["."] _2 KW["("] H[_3] KW[")"]],
    Call.3:iter-star-sep               -- H hs=0[_1 KW[","]],
    InColl                             -- _1 KW["in"] _2,
-   Eq                                 -- _1 KW["="] _2,
+   Eq                                 -- _1 KW["=="] _2,
    NotEq                              -- _1 KW["!="] _2,
    LargerThan                         -- _1 KW[">"] _2,
    LargerThanOrEqual                  -- _1 KW[">="] _2,

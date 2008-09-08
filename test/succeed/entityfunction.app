@@ -6,7 +6,7 @@ section datamodel
     name :: String
     function test(a:Int, b:Int, u:User) : Bool
     {
-      u.name = this.name;
+      u.name == this.name;
       return a<b;
     }
   }

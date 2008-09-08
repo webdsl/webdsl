@@ -54,6 +54,6 @@ section test pages
   
   procedure reviewNewsItem(item : NewsItem) {
     when {
-      item.name = "Ruben"
+      item.name == "Ruben"
     }
   }

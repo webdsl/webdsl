@@ -11,7 +11,7 @@ section principal
   access control rules
     rule template bla()
     {
-      1=1
+      1==1
     }
     rule page home()
     {
@@ -29,6 +29,6 @@ section somesection
     bla()
     action save()
     {
-      1=1;
+      1==1;
     }
   }

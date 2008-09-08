@@ -15,15 +15,15 @@ section principal
     }
     rule page home(*)
     {
-      1=1
+      1==1
     }
     rules page home()
     {
-      2=2
+      2==2
     }
     rules page home(*)
     {
-      3=3
+      3==3
     }
     rule template main(){true}
   
@@ -51,19 +51,19 @@ section somesection
   access control rules
     rule page home()
     {
-      4=4
+      4==4
     }
     rule page home(*)
     {
-      5=5
+      5==5
     }
     rules page home()
     {
-      6=6
+      6==6
     }
     rules page home(*)
     {
-      7=7
+      7==7
     }
   
   

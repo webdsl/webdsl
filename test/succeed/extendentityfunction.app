@@ -13,7 +13,7 @@ section datamodel
   extend entity User{
     function test(a:Int, b:Int, u:User) : Int
     {
-      u.name = this.name;
+      u.name == this.name;
       return a+b;
     }
     extend function extendMe() {

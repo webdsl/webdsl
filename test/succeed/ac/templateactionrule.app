@@ -18,7 +18,7 @@ section principal
       true
       rule action test(second:Int)
       {
-        first=second
+        first==second
       }
     }
   
@@ -33,7 +33,7 @@ section somesection
     
     action test(a:Int)
     {
-      a=6;
+      a==6;
       return home();
     }
   }

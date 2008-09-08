@@ -14,7 +14,7 @@ section principal
       true
       rule action test(second:Int)
       {
-        first=second
+        first==second
       }
     }
     rule page home(){true}

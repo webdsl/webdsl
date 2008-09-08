@@ -21,7 +21,7 @@ section principal
       d>2
       rule action save(e:Int)
       {
-        d=e
+        d==e
       }
     }
   
@@ -39,7 +39,7 @@ section somesection
     action("Confirm", save(f))
     action save(c:Int)
     {
-      a=f;
+      a==f;
     }
   }
   

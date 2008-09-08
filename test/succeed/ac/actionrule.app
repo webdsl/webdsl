@@ -11,7 +11,7 @@ section principal
   access control rules
     rule action save()
     {
-      1=1
+      1==1
     }
     rule template main()
     {
@@ -40,7 +40,7 @@ section somesection
 
       action save()
       {
-        1=1;
+        1==1;
       }
     }
   }
