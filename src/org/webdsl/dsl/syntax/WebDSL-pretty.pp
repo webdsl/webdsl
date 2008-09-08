@@ -323,9 +323,6 @@
    ProcedureEnabled                             -- V[V is=2[H[KW["enabled"] KW["{"]] _1] KW["}"]],
    ProcedureDisabled                            -- V[V is=2[H[KW["disabled"] KW["{"]] _1] KW["}"]],
    ProcedureView                                -- V[V is=2[H[KW["view"] KW["{"]] _1] KW["}"]],
-   StatusEntity                                 -- V[V is=2[H[KW["status"] _1 KW["{"]] _2 _3] KW["}"]],
-   StatusEntity.2:iter-star                     -- _1,
-   StatusEntity.3:iter-star                     -- _1,
    %% Derive
    Derive                                       -- H[KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"]],
    Derive.3:iter-star-sep                       -- H[_1 KW[","]],
