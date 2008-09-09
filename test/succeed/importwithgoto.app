@@ -1,6 +1,6 @@
 application test
 
-imports goto
+imports module/module/goto
 
 section needsimport
 
