@@ -5,6 +5,7 @@ import markdown
 import re
 import session
 import polymodel
+import captcha
 
 RE_LINKS = re.compile(r'(\[\[(\w+)(\(([^\)]*)\))?(\|([^\]]+))?\]\])')
 RE_TAGS = re.compile(r'<[^>]+>')
