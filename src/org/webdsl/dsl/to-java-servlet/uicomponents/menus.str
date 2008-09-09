@@ -9,7 +9,7 @@ imports
 rules // menus
 
   elem-to-java-servlet :
-    TemplateCall("menubar", [exp], elems) ->
+    TemplateCall("menubar", [exp | attrs], elems) ->
     bstm* |[ 
     out.println("<div class=\"menuwrapper\" id=\""+"~x_menuid"+"\" >"); //style: menubar
     out.println("<ul id=\"p7menubar\" class=\"menu\">");
@@ -17,11 +17,12 @@ rules // menus
     out.println("</ul></div>");
     ]|
     where <?String("horizontal")> exp
+        ; [] := <get-template-args> attrs
     with x_menuid := <newname> "menubar"
        ; bstm* := <elems-to-java-servlet> elems         
 
   elem-to-java-servlet :
-    TemplateCall("menubar", [exp], elems) ->
+    TemplateCall("menubar", [exp | attrs], elems) ->
     bstm* |[ 
     out.println("<div class=\"sdmenu menubar\" id=\""+"~x_menuid"+"\" >");
     bstm*
@@ -29,26 +30,28 @@ rules // menus
     out.println("<script type=\"text/javascript\">sideMenu = new SDMenu(\""+"~x_menuid"+"\"); sideMenu.init();</script>");    
     ]|     
     where <?String("vertical")> exp
+        ; [] := <get-template-args> attrs
     with x_menuid := <newname> "menubar"
-       ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], elems) ->
-                                  TemplateCall("container", [], elems) \ <+
-                                \ TemplateCall("menu", [], elems) ->
-                                  TemplateCall("block", [], elems) \ <+
-                                \ TemplateCall("menuitem", [], elems) ->
-                                  TemplateCall("dummy", [], elems) \ <+
-                                \ TemplateCall("menuspacer", [], []) ->
-                                  TemplateCall("horizontalspacer", [], []) \
+       ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", a, elems) ->
+                                  TemplateCall("container", a, elems) \ <+
+                                \ TemplateCall("menu", a, elems) ->
+                                  TemplateCall("block", a, elems) \ <+
+                                \ TemplateCall("menuitem", a, elems) ->
+                                  TemplateCall("dummy", a, elems) \ <+
+                                \ TemplateCall("menuspacer", a, []) ->
+                                  TemplateCall("horizontalspacer", a, []) \
                                   )))> elems
        ; bstm* := <elems-to-java-servlet> elems'   
 
   elem-to-java-servlet :
-    TemplateCall("menu", [], elems) ->
+    TemplateCall("menu", attrs, elems) ->
     bstm* |[ 
     out.println("<li class=\"menuheader\">");
     bstm*
     bstm1*
     out.println("</li>");
     ]|     
+    where [] := <get-template-args> attrs
     with  {| HeaderItems, DropDownItems
            : <map(try(find-menuheaders-java-servlet))> elems
            ; bstm* := <elems-to-java-servlet> <reverse> <HeaderItems <+ []>
@@ -68,7 +71,8 @@ rules // menus
       end
 
   elem-to-java-servlet :
-    TemplateCall("menuheader", [], elems) -> e
+    TemplateCall("menuheader", attrs, elems) -> e
+    where [] := <get-template-args> attrs
     with  if <?[]> elems then
             e := bstm |[ out.println("<div></div>"); ]|
           else
@@ -87,13 +91,14 @@ rules // menus
     with bstm := <elem-to-java-servlet> e 
 
   menuheader-elem-to-java-servlet :
-    TemplateCall("navigate",[call@ThisCall(p,args)],elems) ->
+    TemplateCall("navigate",[call@ThisCall(p,args) | attrs],elems) ->
     bstm* |[ 
     out.println("<a href=\""+e_url+"\" "+e0+">");
     bstm*
     out.println("</a>");
     ]|
     where <IsPage> p
+        ; [] := <get-template-args> attrs
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
         ; if DropDownItems then
             e0 := e |[ "class=\"trigger\"" ]|
@@ -103,12 +108,13 @@ rules // menus
         ; bstm* := <elems-to-java-servlet> elems 
 
   menuheader-elem-to-java-servlet :
-    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
+    TemplateCall("navigate", [ThisCall("url",[e]) | attrs], elems) ->
     bstm* |[ 
     out.println("<a href=\""+e_url+"\" "+e0+">");
     bstm*
     out.println("</a>");
     ]|
+    where [] := <get-template-args> attrs
     with  e_url := <arg-to-value-string-java-servlet> e
         ; if DropDownItems then
             e0 := e |[ "class=\"trigger\"" ]|
@@ -118,7 +124,7 @@ rules // menus
         ; bstm* := <elems-to-java-servlet> elems 
 
   elem-to-java-servlet :
-    TemplateCall("menuitem", [], elems) ->
+    TemplateCall("menuitem", _, elems) ->
     bstm* |[ 
     out.println("<li class=\"menuitem\">");
     bstm*
@@ -127,10 +133,10 @@ rules // menus
     with  bstm* := <elems-to-java-servlet> elems 
 
   elem-to-java-servlet :
-    TemplateCall("menuspacer", [], []) ->
+    TemplateCall("menuspacer", attrs, []) ->
     bstm* |[ 
     out.println("<li>");
     bstm
     out.println("</li>");
     ]|
-    with  bstm := <elem-to-java-servlet> TemplateCall("horizontalspacer", [], []) 
+    with  bstm := <elem-to-java-servlet> TemplateCall("horizontalspacer",attrs, []) 
