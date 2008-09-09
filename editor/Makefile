@@ -11,8 +11,9 @@ clean :
 	# ...
 
 ctrees : feedback.ctree
-	$(MAKE) -C .. ctrees
+	$(MAKE) -C .. ctrees src/org/webdsl/dsl/syntax/WebDSL-pretty.pp.af
 	cp ../src/*.ctree .
+	cp ../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp.af .
 
 feedback.ctree : src/feedback.str
 	strc -F --library -I ../src -I ../src/org/webdsl/dsl/syntax -i $< -o $@
