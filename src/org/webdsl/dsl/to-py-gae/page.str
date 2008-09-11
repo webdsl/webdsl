@@ -144,13 +144,13 @@ strategies
 
 rules
   py-page-elem-to-databind-generic :
-    TemplateCall(_, _, elems*) -> <py-page-elems-to-databind> elems*
+    TemplateCall(_, _,_, elems*) -> <py-page-elems-to-databind> elems*
 
   py-page-elem-to-template-init-generic :
-    TemplateCall(_, _, elems*) -> <py-page-elems-to-template-init> elems*
+    TemplateCall(_, _,_, elems*) -> <py-page-elems-to-template-init> elems*
 //////////////////////////////////////////
   py-page-elem-to-template-init :
-    TemplateCall(name, args, _) ->
+    TemplateCall(name, args,_, _) ->
     python*|[ 
         t = e_tmplobj;
         t.init();
@@ -250,11 +250,11 @@ rules
     where e2 := <expression-to-python> e
 
   py-page-elem-to-render :
-    TemplateCall("text", [e], []) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
+    TemplateCall("text", [e],_, []) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
     where e2 := <expression-to-python> e
 
   py-page-elem-to-render :
-    TemplateCall("title", [], elems) -> 
+    TemplateCall("title", [],_, elems) -> 
     python*|[ 
       from StringIO import StringIO;
       old_out = out;
@@ -266,10 +266,10 @@ rules
     where stm* := <py-page-elems-to-render> elems
 
   py-page-elem-to-render :
-    TemplateCall("title", [e], elems) -> <py-page-elem-to-render> TemplateCall("title", [], [Text(e)])
+    TemplateCall("title", [e],passign*, elems) -> <py-page-elem-to-render> TemplateCall("title", [],passign*, [Text(e)])
 
   py-page-elem-to-render :
-    elem|[ form() { elem* }]| -> python*|[
+    elem|[ form()[] { elem* }]| -> python*|[
       out.write('<form method="POST">');
       form_id = webdsl.utils.generateFormHash(self.scope, self);
       out.write('<input type="hidden" name="form_id" value="%s"/>' % form_id);
@@ -279,7 +279,7 @@ rules
     where stm* := <map(py-page-elem-to-render <+ py-skipped-element)> elem*
 
   py-page-elem-to-databind :
-    elem|[ form() { elem* }]| -> python*|[
+    elem|[ form()[] { elem* }]| -> python*|[
       form_id = webdsl.utils.generateFormHash(self.scope, self);
       is_submitted_form = self.rh.request.get('form_id') == form_id;
       stm*
@@ -296,7 +296,7 @@ rules
 
 rules 
   py-page-elem-to-render :
-    elem|[ inputHidden(e){} ]| -> python*|[
+    elem|[ inputHidden(e)[]{} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
           out.write('<input type="hidden" name="' + field_id + '" value="');
           out.write(cgi.escape(unicode(e_target), True));
@@ -310,7 +310,7 @@ rules
        ; e_convert := <python-type> <type-of> e
 
   py-page-elem-to-databind :
-    elem|[ inputHidden(e){} ]| -> python*|[
+    elem|[ inputHidden(e)[]{} ]| -> python*|[
           field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
           if is_submitted_form: {
               e_target = e_convert(self.rh.request.get(field_id));
@@ -352,7 +352,7 @@ rules
        ; e* := <map(expression-to-python)> arg*
 
   py-page-elem-to-render :
-    elem|[ actionLink(e1, e2){} ]| -> python*|[
+    elem|[ actionLink(e1, e2)[]{} ]| -> python*|[
           out.write('<input type="hidden" name="action-' + e_actionr + '" value=""/>');
           out.write('<a href="#" onclick="document.getElementsByName(\'action-' + e_actionr + '\')[0].value=\'1\';submit();">' + cgi.escape(unicode(e_txt), True) + '</a>');
     ]|
@@ -366,7 +366,7 @@ rules
        ; e* := <map(expression-to-python)> arg*
 
   py-page-elem-to-databind :
-    elem|[ actionLink(e1, e2){} ]| -> <py-page-elem-to-databind> elem|[ action(e1, e2) ]|
+    elem|[ actionLink(e1, e2)[]{} ]| -> <py-page-elem-to-databind> elem|[ action(e1, e2) ]|
 
   py-page-elem-to-databind :
     a@elem|[ action x_action(farg*) { stat* } ]| ->
@@ -391,13 +391,13 @@ rules
 
 rules
   py-page-elem-to-render :
-    TemplateCall("dummy", [], elems) -> <py-page-elems-to-render> elems
+    TemplateCall("dummy", [],_, elems) -> <py-page-elems-to-render> elems
 
 rules // block
 
   // Legacy
   py-page-elem-to-render :
-    TemplateCall("div", [String(str)], elems) ->
+    TemplateCall("div", [String(str)],_, elems) ->
     python*|[ 
       out.write('<div class="' + e_str + '">');
       stm*
@@ -407,7 +407,7 @@ rules // block
        ; e_str := <concat-strings> ["'", str, "'"]
 
   py-page-elem-to-render :
-    TemplateCall("block", [], elems) ->
+    TemplateCall("block", [],_, elems) ->
     python*|[ 
       out.write('<div class="block">');
       stm*
@@ -416,7 +416,7 @@ rules // block
     where stm* := <py-page-elems-to-render> elems
 
   py-page-elem-to-render :
-    TemplateCall("block", [String(str)], elems) ->
+    TemplateCall("block", [String(str)],_, elems) ->
     python*|[ 
       out.write('<div class="' + e_str + ' block">');
       stm*
@@ -565,7 +565,7 @@ rules // block
 
 rules // Template call
   py-page-elem-to-render :
-    TemplateCall(name, args, _) ->
+    TemplateCall(name, args,_, _) ->
     python*|[ 
         template_call_counter = template_call_counter + 1;
         (self.templates[template_call_counter]).render(out);
@@ -578,7 +578,7 @@ rules // Template call
        ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|)], scopedparams])
 
   py-page-elem-to-databind :
-    TemplateCall(name, args, _) ->
+    TemplateCall(name, args,_, _) ->
     python*|[ 
         template_call_counter = template_call_counter + 1;
         (self.templates[template_call_counter]).databind();
@@ -601,20 +601,20 @@ rules // spacers
     */
 
   py-page-elem-to-render :
-    TemplateCall("horizontalspacer", [], []) ->
+    TemplateCall("horizontalspacer", [],_, []) ->
     python*|[ out.write('<hr/>'); ]|
 
 rules // images
 
   py-page-elem-to-render :
-    TemplateCall("image",[e],[]) -> 
+    TemplateCall("image",[e],_,[]) -> 
     python*|[ out.write('<img src="' + e2 + '"/>'); ]|
     where e2 := <expression-to-python> e
 
 rules // lists
 
   py-page-elem-to-render :
-    TemplateCall("list", [], elems) ->
+    TemplateCall("list", [],_, elems) ->
     python*|[
       out.write('<ul>');
       stm*
@@ -623,7 +623,7 @@ rules // lists
     where stm* := <py-page-elems-to-render> elems
 
   py-page-elem-to-render :
-    TemplateCall("listitem", [], elems) ->
+    TemplateCall("listitem", [],_, elems) ->
     python*|[
       out.write('<li>');
       stm*
@@ -634,7 +634,7 @@ rules // lists
 rules // sections and headers
 
   py-page-elem-to-render :
-    TemplateCall("header", [], elems) ->
+    TemplateCall("header", [],_, elems) ->
     python*|[
       out.write('<' + e_h + '>');
       stm*
@@ -646,7 +646,7 @@ rules // sections and headers
        ; stm* := <py-page-elems-to-render> elems
 
   py-page-elem-to-render :
-    TemplateCall("section", [], elems) ->
+    TemplateCall("section", [],_, elems) ->
     python*|[
       out.write('<div class="' + e_level + ' section">');
       stm*
@@ -659,7 +659,7 @@ rules // sections and headers
            |}
 
   py-page-elem-to-render :
-    TemplateCall("par", [], elems) ->
+    TemplateCall("par", [],_, elems) ->
     python*|[
       out.write('<p>');
       stm*
@@ -668,7 +668,7 @@ rules // sections and headers
     where stm* := <py-page-elems-to-render> elems
 
   py-page-elem-to-render :
-    TemplateCall("container", [], elems) ->
+    TemplateCall("container", [],_, elems) ->
     python*|[
       out.write('<span>');
       stm*
@@ -679,7 +679,7 @@ rules // sections and headers
 rules // tables
 
   py-page-elem-to-render :
-    TemplateCall("table", [], elems) ->
+    TemplateCall("table", [],_, elems) ->
     python*|[
       out.write('<table>');
       stm*
@@ -691,7 +691,7 @@ rules // tables
            |}
 
   py-page-elem-to-render :
-    TemplateCall("header", [], elems) ->
+    TemplateCall("header", [],_, elems) ->
     python*|[
       out.write('<tr>');
       stm*
@@ -701,7 +701,7 @@ rules // tables
     with stm* := <py-page-elems-to-render(py-table-header-wrap)> elems
 
   py-page-elem-to-render :
-    TemplateCall("row", [], elems) ->
+    TemplateCall("row", [],_, elems) ->
     python*|[
       out.write('<tr>');
       stm*
@@ -757,7 +757,7 @@ rules // links
   // link to a url, maybe constant, or obtained from an entity field
 
   py-page-elem-to-render :
-    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
+    TemplateCall("navigate", [ThisCall("url",[e])],_, elems) ->
     python*|[
       out.write('<a href="' + e_link + '" class="navigate">');
       stm*
@@ -768,7 +768,7 @@ rules // links
        ; e_link := <expression-to-python> e
 
   py-page-elem-to-render :
-    TemplateCall("navigate",[call@ThisCall(p,args)],elems) ->
+    TemplateCall("navigate",[call@ThisCall(p,args)],_,elems) ->
     python*|[
       out.write('<a href="' + e_link + '" class="navigate">');
       stm*
@@ -779,7 +779,7 @@ rules // links
         ; e_link := <py-call-to-view-string> call
 
   py-page-elem-to-render :
-    TemplateCall("navigatebutton", [ThisCall("url",[e]), txt], []) ->
+    TemplateCall("navigatebutton", [ThisCall("url",[e]), txt],_, []) ->
     python*|[
       out.write('<input type="button" onclick="location=\'' + e_link + '\';" value="' + e_txt + '"/>');
     ]|
@@ -788,7 +788,7 @@ rules // links
        ; e_link := <expression-to-python> e
 
   py-page-elem-to-render :
-    TemplateCall("navigatebutton",[call@ThisCall(p,args), txt],[]) ->
+    TemplateCall("navigatebutton",[call@ThisCall(p,args), txt],_,[]) ->
     python*|[
       out.write('<input type="button" onclick="location=\'' + e_link + '\';" value="' + e_txt + '"/>');
     ]|
@@ -846,7 +846,7 @@ rules // vardecl
 rules
 
   py-page-elem-to-render :
-    TemplateCall("output",[e],[]) ->
+    TemplateCall("output",[e],_,[]) ->
     python*|[
         out.write(cgi.escape(unicode(e_target), True));
     ]|
@@ -855,7 +855,7 @@ rules
 rules // groups
 
   py-page-elem-to-render :
-    TemplateCall("group", [arg], elems) ->
+    TemplateCall("group", [arg],_, elems) ->
     python*|[
         out.write('<fieldset><legend>');
         out.write(cgi.escape(unicode(e_text)));
@@ -867,7 +867,7 @@ rules // groups
        ; e_text := <expression-to-python> arg
 
   py-page-elem-to-render :
-    TemplateCall("group", [], elems) ->
+    TemplateCall("group", [],_, elems) ->
     python*|[
         out.write('<fieldset class="fieldset_no_legend_">');
         stm*
@@ -876,7 +876,7 @@ rules // groups
     with stm* := <py-page-elems-to-render> elems
     
   py-page-elem-to-render :
-    TemplateCall("groupitem", [], elems) ->
+    TemplateCall("groupitem", [],_, elems) ->
     python*|[
         out.write('<li>');
         stm*
@@ -887,7 +887,7 @@ rules // groups
 rules // label
 
   py-page-elem-to-render :
-    TemplateCall("label", [arg], elems) ->
+    TemplateCall("label", [arg],_, elems) ->
     python*|[
         out.write('<label for="">');
         out.write(cgi.escape(unicode(e_text)));
@@ -1003,10 +1003,10 @@ rules // template
     %>
     
     <ui:define name="<%= x %>">
-	  <div id="<%= x %>">
-	    <%= elems ::* %>
-	  </div>
-	</ui:define>
+    <div id="<%= x %>">
+      <%= elems ::* %>
+    </div>
+  </ui:define>
     <%
     with {| InLocalTemplate
           : rules ( InLocalTemplate := x )
@@ -1020,7 +1020,7 @@ rules // template call
     %>
       <ui:insert name="<%= name %>">
          <%= include::* %>
-	  </ui:insert>
+    </ui:insert>
     <%
     where ( not(<IsPage> <ThisPage>) <+ InLocalTemplate )
 //        ; <debug> [">>>>", <IsPage> <ThisPage>, <InLocalTemplate>]
@@ -1033,14 +1033,14 @@ rules // template call
             ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
             ; include := 
               %>
-	            <ui:include src="<%= target %>">
-    	            <%= params::* %>
-		        </ui:include>
-		      <%
-		  else
-		    if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
-   		      include := []
-   		    end
+              <ui:include src="<%= target %>">
+                  <%= params::* %>
+            </ui:include>
+          <%
+      else
+        if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
+             include := []
+           end
           end
 //        ; <debug> ["_____", n, fargs]
 
