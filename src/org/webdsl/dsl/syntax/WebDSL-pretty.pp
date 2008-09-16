@@ -53,6 +53,7 @@
    Email                              -- KW["email"],
    Template                           -- KW["template"],
    Local                              -- KW["local"],
+   Feed                               -- KW["feed"],
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
 
