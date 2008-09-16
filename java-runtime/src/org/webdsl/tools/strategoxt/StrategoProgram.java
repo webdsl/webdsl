@@ -62,9 +62,6 @@ public class StrategoProgram {
 	public synchronized IStrategoTerm invoke(String strategy, IStrategoTerm term) {
 		interpreter.setCurrent(term);
 		
-		// TODO: Properly rename strategy using underscores
-		strategy = strategy.replace('-', '_') + "_0_0";
-		
 		try {
 			boolean success = interpreter.invoke(strategy);
 			if (!success) return Environment.getWrappedTermFactory().makeString("Evaluation failed");

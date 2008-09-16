@@ -173,7 +173,8 @@ public class diff_match_patch {
    *     If true, then run a faster slightly less optimal diff
    * @return Linked List of Diff objects
    */
-  public LinkedList<Diff> diff_compute(String text1, String text2,
+  @SuppressWarnings("unchecked")
+public LinkedList<Diff> diff_compute(String text1, String text2,
                                     boolean checklines) {
     LinkedList<Diff> diffs = new LinkedList<Diff>();
 
