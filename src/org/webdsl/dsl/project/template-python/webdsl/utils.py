@@ -118,6 +118,31 @@ def register(path, cls, param_mappings=[]):
 
     mappings.append((path, _cls))
 
+def register_feed(path, cls, param_mappings=[]):
+    global mappings
+    class _cls(webapp.RequestHandler):
+        def __init__(self, *params, **kparams):
+            webapp.RequestHandler.__init__(self, *params, **kparams)
+
+        def get(self, *params):
+            out = StringIO()
+            o = cls(template_bindings.ParentTemplate(), self)
+            i = 0
+            d = {}
+            self.response.headers["Content-type"] = "application/atom+xml"
+            while i < len(params):
+                (name, id_type, type) = param_mappings[i]
+                param = urllib.unquote(params[i])
+                if issubclass(type, webdsl.db.Model):
+                    o.scope[name] = type.fetch_by_id(id_type(param))
+                else:
+                    o.scope[name] = type(param)
+                i += 1
+            o.load_session()
+            o.render(self.response.out)
+
+    mappings.append((path, _cls))
+
 class RequestHandler(object):
     def __init__(self, parent, rh, **scope):
         self.template_bindings = parent.template_bindings

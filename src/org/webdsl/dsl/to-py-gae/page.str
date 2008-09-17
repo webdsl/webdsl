@@ -1,360 +1,360 @@
 module org/webdsl/dsl/to-py-gae/page
 
 imports
-  libstrategolib
-  libwebdsl-front
+libstrategolib
+libwebdsl-front
 
 imports 
-  org/webdsl/dsl/to-py-gae/-
-  
+org/webdsl/dsl/to-py-gae/-
+
 strategies
 
-  PyGenerateCode = py-page-to-code; fail
-  PyGenerateCode = py-template-to-code; fail
+PyGenerateCode = py-page-to-code; fail
+PyGenerateCode = py-template-to-code; fail
 
-  py-page-to-code =
-    ?def@Define([Page()], x, args, elem*)
-    ; with(id
-        ; x_cls := <capitalize-string> x
-        ; if "home" := x then
-            path := "'/"
-          else
-            path := <concat-strings> ["'/", x]
-          end
-        ; e_pattern := String(<concat-strings> [path, <map(\ _ -> "/([^/]+)" \); concat-strings> args, "'"])
-        ; e_lst := ListLiteral(<map(py-argument-to-register-tuple)> args)
-        ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
-        // Find all local templates
-        ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
-        ; stm1* := <map({e_ltmp, x_up: 
-                         \ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
-                           with e_ltmp := <concat-strings> ["'", x, "'"]
-                              ; x_up := <concat-strings> [x_cls, "_", x] \})> localtemplates
-        ; allstylesheets := <concat; make-set> [<bagof-AllStylesheets>, <bagof-StyleSheetsAllPages>]
-        ; e* := <map(\ sheet -> String(<concat-strings> ["'", sheet, "'"]) \)> allstylesheets
-        ; stm3* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
-        ; stm4* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
-        ; <emit-python(|"template")> python*|[
-            @partial
-            class x_cls(webdsl.utils.RequestHandler): {
-              def prepare_templates(self): {
-                stm1*
-                self.stylesheets = [e*];
-                pass;
-              };
-
-              def load_session(self): {
-                  session = webdsl.session.Session();
-                  stm3*
-              };
-
-              def store_session(self): {
-                  stm4*
-                  pass;
-              };
+py-page-to-code =
+  ?def@Define([Page()], x, args, elem*)
+  ; with(id
+      ; x_cls := <capitalize-string> x
+      ; if "home" := x then
+          path := "'/"
+        else
+          path := <concat-strings> ["'/", x]
+        end
+      ; e_pattern := String(<concat-strings> [path, <map(\ _ -> "/([^/]+)" \); concat-strings> args, "'"])
+      ; e_lst := ListLiteral(<map(py-argument-to-register-tuple)> args)
+      ; <emit-python(|"template")> python*|[ webdsl.utils.register(e_pattern, x_cls, e_lst); ]|
+      // Find all local templates
+      ; localtemplates := <collect(\ Define([Local()], x, _, _) -> x \)> elem*
+      ; stm1* := <map({e_ltmp, x_up: 
+                       \ x -> python|[ self.template_bindings[e_ltmp] = x_up; ]| 
+                         with e_ltmp := <concat-strings> ["'", x, "'"]
+                            ; x_up := <concat-strings> [x_cls, "_", x] \})> localtemplates
+      ; allstylesheets := <concat; make-set> [<bagof-AllStylesheets>, <bagof-StyleSheetsAllPages>]
+      ; e* := <map(\ sheet -> String(<concat-strings> ["'", sheet, "'"]) \)> allstylesheets
+      ; stm3* := <map(py-session-var-to-code); concat> <bagof-SessionVariable; make-set>
+      ; stm4* := <map({e_var: \ x -> python|[ (self.scope[e_var]).put(); ]| where e_var := <concat-strings> ["'", x, "'"]\})> <bagof-SessionVariable; make-set>
+      ; <emit-python(|"template")> python*|[
+          @partial
+          class x_cls(webdsl.utils.RequestHandler): {
+            def prepare_templates(self): {
+              stm1*
+              self.stylesheets = [e*];
+              pass;
             };
-          ]|
-      )
 
-  py-session-var-to-code :
-    x -> python*|[ 
-      if not e_str in session: {
-          session_var = data.x_captype();
-          session_var.put();
-          session[e_str] = session_var.id;
-      };
-      self.scope[e_str] = data.x_captype.fetch_by_id(session[e_str]);
-    ]|
-    with e_str := String(<concat-strings> ["'", x, "'"])
-       ; x_captype := <capitalize-string> x
-
-  py-argument-to-register-tuple :
-    Arg(nm, srt@SimpleSort(x_s)) -> 
-    TupleLiteral(<concat-strings> ["'", nm, "'"], [<EntityIdType; python-type <+ !"long"> x_s, py-exp|[ data.x_s ]| ])
-    where <defined-java-type> srt
-
-  py-argument-to-register-tuple :
-    Arg(nm, srt) -> TupleLiteral(<concat-strings> ["'", nm, "'"], ["''", <python-type> srt ])
-    where <builtin-java-type> srt
-
-  py-template-to-code =
-    ?Define(mods, x, args, elem*)
-    ; not(<fetch(?Local())> mods)
-    ; with(id
-        ; x_cls := <capitalize-string> x
-        ; if "home" := x then
-            e_path := String("'/'")
-          else
-            e_path := String(<concat-strings> ["'/", x, "'"])
-          end
-        ; {| ThisTemplate, IsScoped
-           : rules ( ThisTemplate := x )
-           ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
-           ; stm* := <collect(py-page-elem-to-init); concat> elem*
-           ; {| CurrentActionId
-              : stm1* := <py-page-elems-to-databind> elem*
-              |}
-           ; {| CurrentActionId
-              : stm2* := <py-page-elems-to-render> elem*
-              |}
-           ; stm3* := <py-page-elems-to-template-init> elem*
-           |}
-        ; x_class := <match-definition-to-string> (x, args)
-        ; e_tmplid := String(<concat-strings> ["'", x_class, "'"])
-        ; <emit-python(|"template")> python*|[
-            @partial
-            class x_cls(webdsl.utils.RequestHandler): {
-              def init_templates(self): {
-                stm*
+            def load_session(self): {
+                session = webdsl.session.Session();
                 stm3*
-                pass;
-              };
-              def databind(self): {
-                template_call_counter = -1;
-                stm1*
-                pass;
-              };
-              def render(self, out): {
-                template_call_counter = -1;
-                out.write('<div class="' + e_tmplid + ' clearfix">');
-                stm2*
-                out.write('</div>');
-              };
             };
-          ]|
-      )
 
-  py-page-elems-to-databind =
-    map( py-page-elem-to-databind <+ py-page-elem-to-databind-generic <+ ![])
-    ; flatten-list
-
-  py-page-elems-to-template-init =
-    map( py-page-elem-to-template-init <+ py-page-elem-to-template-init-generic <+ ![])
-    ; flatten-list
-
-  py-page-elems-to-render =
-    map( py-page-elem-to-render; ![<id>|python*|[ out.write(new_line()); ]| ]
-      <+ py-skipped-element)
-    ; flatten-list
-
-  py-page-elems-to-render(wrap) =
-    map( py-page-elem-to-render; wrap; ![<id>|python*|[ out.write(new_line()); ]| ]
-      <+ py-skipped-element)
-    ; flatten-list
-
-rules
-  py-page-elem-to-databind-generic :
-    TemplateCall(_, _,_, elems*) -> <py-page-elems-to-databind> elems*
-
-  py-page-elem-to-template-init-generic :
-    TemplateCall(_, _,_, elems*) -> <py-page-elems-to-template-init> elems*
-//////////////////////////////////////////
-  py-page-elem-to-template-init :
-    TemplateCall(name, args,_, _) ->
-    python*|[ 
-        t = e_tmplobj;
-        t.init();
-        self.templates.append(t);
+            def store_session(self): {
+                stm4*
+                pass;
+            };
+          };
         ]|
-    where t* := <map(type-of)> args
-        ; Define(mods, n, fargs, body) := <TemplateSignature <+ LocalTemplateSignature> (name, t*)
-    with e_namestr := <concat-strings> ["'", name, "'"]
-       ; e_tmplclass := py-exp|[ self.template_bindings[e_namestr] ]|
-       ; scopedparams := <zip(\ (Arg(x, _), e) -> NamedParam(x, <expression-to-python> e) \)> (fargs, args)
-       ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|)], scopedparams])
+    )
+
+py-session-var-to-code :
+  x -> python*|[ 
+    if not e_str in session: {
+        session_var = data.x_captype();
+        session_var.put();
+        session[e_str] = session_var.id;
+    };
+    self.scope[e_str] = data.x_captype.fetch_by_id(session[e_str]);
+  ]|
+  with e_str := String(<concat-strings> ["'", x, "'"])
+     ; x_captype := <capitalize-string> x
+
+py-argument-to-register-tuple :
+  Arg(nm, srt@SimpleSort(x_s)) -> 
+  TupleLiteral(<concat-strings> ["'", nm, "'"], [<EntityIdType; python-type <+ !"long"> x_s, py-exp|[ data.x_s ]| ])
+  where <defined-java-type> srt
+
+py-argument-to-register-tuple :
+  Arg(nm, srt) -> TupleLiteral(<concat-strings> ["'", nm, "'"], ["''", <python-type> srt ])
+  where <builtin-java-type> srt
+
+py-template-to-code =
+  ?Define(mods, x, args, elem*)
+  ; not(<fetch(?Local() <+ ?Feed())> mods)
+  ; with(id
+      ; x_cls := <capitalize-string> x
+      ; if "home" := x then
+          e_path := String("'/'")
+        else
+          e_path := String(<concat-strings> ["'/", x, "'"])
+        end
+      ; {| ThisTemplate, IsScoped
+         : rules ( ThisTemplate := x )
+         ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
+         ; stm* := <collect(py-page-elem-to-init); concat> elem*
+         ; {| CurrentActionId
+            : stm1* := <py-page-elems-to-databind> elem*
+            |}
+         ; {| CurrentActionId
+            : stm2* := <py-page-elems-to-render> elem*
+            |}
+         ; stm3* := <py-page-elems-to-template-init> elem*
+         |}
+      ; x_class := <match-definition-to-string> (x, args)
+      ; e_tmplid := String(<concat-strings> ["'", x_class, "'"])
+      ; <emit-python(|"template")> python*|[
+          @partial
+          class x_cls(webdsl.utils.RequestHandler): {
+            def init_templates(self): {
+              stm*
+              stm3*
+              pass;
+            };
+            def databind(self): {
+              template_call_counter = -1;
+              stm1*
+              pass;
+            };
+            def render(self, out): {
+              template_call_counter = -1;
+              out.write('<div class="' + e_tmplid + ' clearfix">');
+              stm2*
+              out.write('</div>');
+            };
+          };
+        ]|
+    )
+
+py-page-elems-to-databind =
+  map( py-page-elem-to-databind <+ py-page-elem-to-databind-generic <+ ![])
+  ; flatten-list
+
+py-page-elems-to-template-init =
+  map( py-page-elem-to-template-init <+ py-page-elem-to-template-init-generic <+ ![])
+  ; flatten-list
+
+py-page-elems-to-render =
+  map( py-page-elem-to-render; ![<id>|python*|[ out.write(new_line()); ]| ]
+    <+ py-skipped-element)
+  ; flatten-list
+
+py-page-elems-to-render(wrap) =
+  map( py-page-elem-to-render; wrap; ![<id>|python*|[ out.write(new_line()); ]| ]
+    <+ py-skipped-element)
+  ; flatten-list
 
 rules
-  py-skipped-element =
-   debug(!"Skipped element: ")
-   ; e := <concat-strings> ["'", <write-to-string> <id>, "'"]
-   ; !python |[ out.write('Skipped element: ' + e); ]|
-   ; <exit> 1
+py-page-elem-to-databind-generic :
+  TemplateCall(_, _,_, elems*) -> <py-page-elems-to-databind> elems*
+
+py-page-elem-to-template-init-generic :
+  TemplateCall(_, _,_, elems*) -> <py-page-elems-to-template-init> elems*
+//////////////////////////////////////////
+py-page-elem-to-template-init :
+  TemplateCall(name, args,_, _) ->
+  python*|[ 
+      t = e_tmplobj;
+      t.init();
+      self.templates.append(t);
+      ]|
+  where t* := <map(type-of)> args
+      ; Define(mods, n, fargs, body) := <TemplateSignature <+ LocalTemplateSignature> (name, t*)
+  with e_namestr := <concat-strings> ["'", name, "'"]
+     ; e_tmplclass := py-exp|[ self.template_bindings[e_namestr] ]|
+     ; scopedparams := <zip(\ (Arg(x, _), e) -> NamedParam(x, <expression-to-python> e) \)> (fargs, args)
+     ; e_tmplobj := Call(e_tmplclass, <concat> [[Param(py-exp|[ self ]|), Param(py-exp|[ self.rh ]|)], scopedparams])
+
+rules
+py-skipped-element =
+ debug(!"Skipped element: ")
+ ; e := <concat-strings> ["'", <write-to-string> <id>, "'"]
+ ; !python |[ out.write('Skipped element: ' + e); ]|
+ ; <exit> 1
 
 rules // Local templates
 
-  py-page-elem-to-render :
-    Define([Local()], x, args, elem*) -> []
-    with name := <concat-strings> [<ThisTemplate>, "_", x]
-       ; x_cls := <capitalize-string> name
-       ; e_path := String(<concat-strings> ["'/", x, "'"])
-       ; {| ThisTemplate, IsScoped, CurrentActionId
-          : rules ( ThisTemplate := name )
-          ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
-          ; stm* := <collect(py-page-elem-to-init); concat> elem*
-          ; stm2* := <py-page-elems-to-render> elem*
-          ; stm3* := <py-page-elems-to-template-init> elem*
-          |}
-       ; x_pagecls := <ThisTemplate; capitalize-string>
-       ; x_class := <match-definition-to-string> (x, args)
-       ; e_tmplid := String(<concat-strings> ["'", x_class, "'"])
-       ; <emit-python(|"template")> python*|[
-           @partial
-           class x_cls(webdsl.utils.RequestHandler): {
-              def init_templates(self): {
-                stm*
-                stm3*
-                pass;
-              };
-              def render(self, out): {
-                template_call_counter = -1;
-                out.write('<div class="' + e_tmplid + ' clearfix">');
-                stm2*
-                out.write('</div>');
-              };
-           };
-        ]|
+py-page-elem-to-render :
+  Define([Local()], x, args, elem*) -> []
+  with name := <concat-strings> [<ThisTemplate>, "_", x]
+     ; x_cls := <capitalize-string> name
+     ; e_path := String(<concat-strings> ["'/", x, "'"])
+     ; {| ThisTemplate, IsScoped, CurrentActionId
+        : rules ( ThisTemplate := name )
+        ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
+        ; stm* := <collect(py-page-elem-to-init); concat> elem*
+        ; stm2* := <py-page-elems-to-render> elem*
+        ; stm3* := <py-page-elems-to-template-init> elem*
+        |}
+     ; x_pagecls := <ThisTemplate; capitalize-string>
+     ; x_class := <match-definition-to-string> (x, args)
+     ; e_tmplid := String(<concat-strings> ["'", x_class, "'"])
+     ; <emit-python(|"template")> python*|[
+         @partial
+         class x_cls(webdsl.utils.RequestHandler): {
+            def init_templates(self): {
+              stm*
+              stm3*
+              pass;
+            };
+            def render(self, out): {
+              template_call_counter = -1;
+              out.write('<div class="' + e_tmplid + ' clearfix">');
+              stm2*
+              out.write('</div>');
+            };
+         };
+      ]|
 
-  py-page-elem-to-databind :
-    Define([Local()], x, args, elem*) -> []
-    with name := <concat-strings> [<ThisTemplate>, "_", x]
-       ; x_cls := <capitalize-string> name
-       ; e_path := String(<concat-strings> ["'/", x, "'"])
-       ; {| ThisTemplate, IsScoped, CurrentActionId
-          : rules ( ThisTemplate := name )
-          ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
-          ; stm* := <py-page-elems-to-databind> elem*
-          |}
-       ; x_pagecls := <ThisTemplate; capitalize-string>
-       ; <emit-python(|"template")> python*|[
-           @partial
-           class x_cls(webdsl.utils.RequestHandler): {
-             def databind(self): {
-                template_call_counter = -1;
-                stm*
-             };
+py-page-elem-to-databind :
+  Define([Local()], x, args, elem*) -> []
+  with name := <concat-strings> [<ThisTemplate>, "_", x]
+     ; x_cls := <capitalize-string> name
+     ; e_path := String(<concat-strings> ["'/", x, "'"])
+     ; {| ThisTemplate, IsScoped, CurrentActionId
+        : rules ( ThisTemplate := name )
+        ; <map(\ Arg(x, _) -> <rules( IsScoped : x )> \)> args
+        ; stm* := <py-page-elems-to-databind> elem*
+        |}
+     ; x_pagecls := <ThisTemplate; capitalize-string>
+     ; <emit-python(|"template")> python*|[
+         @partial
+         class x_cls(webdsl.utils.RequestHandler): {
+           def databind(self): {
+              template_call_counter = -1;
+              stm*
            };
-        ]|
-      
+         };
+      ]|
+    
 rules // Init block
 
-  py-page-elem-to-databind :
-    InitAction(Block(stat*)) -> []
-    with x_cls := <capitalize-string> <ThisTemplate>
-       ; stm* := <statements-to-python> stat*
-       ; <emit-python(|"template")> python*|[
-           @partial
-           class x_cls(webdsl.utils.RequestHandler): {
-             def initialize(self): {
-                stm*
-                pass;
-             };
+py-page-elem-to-databind :
+  InitAction(Block(stat*)) -> []
+  with x_cls := <capitalize-string> <ThisTemplate>
+     ; stm* := <statements-to-python> stat*
+     ; <emit-python(|"template")> python*|[
+         @partial
+         class x_cls(webdsl.utils.RequestHandler): {
+           def initialize(self): {
+              stm*
+              pass;
            };
-        ]|
+         };
+      ]|
 
-  py-page-elem-to-render :
-    InitAction(Block(stat*)) -> []
+py-page-elem-to-render :
+  InitAction(Block(stat*)) -> []
 rules
 
-  py-page-elem-to-render :
-    Text(e) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
-    where e2 := <expression-to-python> e
+py-page-elem-to-render :
+  Text(e) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
+  where e2 := <expression-to-python> e
 
-  py-page-elem-to-render :
-    TemplateCall("text", [e],_, []) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
-    where e2 := <expression-to-python> e
+py-page-elem-to-render :
+  TemplateCall("text", [e],_, []) -> python*|[ out.write('<span class="text">' + cgi.escape(unicode(e2)) + '</span>'); ]|
+  where e2 := <expression-to-python> e
 
-  py-page-elem-to-render :
-    TemplateCall("title", [],_, elems) -> 
-    python*|[ 
-      from StringIO import StringIO;
-      old_out = out;
-      out = StringIO();
-      stm*
-      self.title = webdsl.remove_tags(out.getvalue());
-      out = old_out;
-    ]|
-    where stm* := <py-page-elems-to-render> elems
+py-page-elem-to-render :
+  TemplateCall("title", [],_, elems) -> 
+  python*|[ 
+    from StringIO import StringIO;
+    old_out = out;
+    out = StringIO();
+    stm*
+    self.title = webdsl.remove_tags(out.getvalue());
+    out = old_out;
+  ]|
+  where stm* := <py-page-elems-to-render> elems
 
-  py-page-elem-to-render :
-    TemplateCall("title", [e],passign*, elems) -> <py-page-elem-to-render> TemplateCall("title", [],passign*, [Text(e)])
+py-page-elem-to-render :
+  TemplateCall("title", [e],passign*, elems) -> <py-page-elem-to-render> TemplateCall("title", [],passign*, [Text(e)])
 
-  py-page-elem-to-render :
-    elem|[ form()[] { elem* }]| -> python*|[
-      out.write('<form method="POST">');
-      form_id = webdsl.utils.generateFormHash(self.scope, self);
-      out.write('<input type="hidden" name="form_id" value="%s"/>' % form_id);
-      stm*
-      out.write('</form>');
-    ]|
-    where stm* := <map(py-page-elem-to-render <+ py-skipped-element)> elem*
+py-page-elem-to-render :
+  elem|[ form()[] { elem* }]| -> python*|[
+    out.write('<form method="POST">');
+    form_id = webdsl.utils.generateFormHash(self.scope, self);
+    out.write('<input type="hidden" name="form_id" value="%s"/>' % form_id);
+    stm*
+    out.write('</form>');
+  ]|
+  where stm* := <map(py-page-elem-to-render <+ py-skipped-element)> elem*
 
-  py-page-elem-to-databind :
-    elem|[ form()[] { elem* }]| -> python*|[
-      form_id = webdsl.utils.generateFormHash(self.scope, self);
-      is_submitted_form = self.rh.request.get('form_id') == form_id;
-      stm*
-    ]|
-    where stm* := <py-page-elems-to-databind> elem*
+py-page-elem-to-databind :
+  elem|[ form()[] { elem* }]| -> python*|[
+    form_id = webdsl.utils.generateFormHash(self.scope, self);
+    is_submitted_form = self.rh.request.get('form_id') == form_id;
+    stm*
+  ]|
+  where stm* := <py-page-elems-to-databind> elem*
 
-  py-get-data-object =
-    ?e
-    ; if FieldAccess(obj, _) := e then
-        !<expression-to-python> obj
-      else
-        !<expression-to-python> e
-      end
+py-get-data-object =
+  ?e
+  ; if FieldAccess(obj, _) := e then
+      !<expression-to-python> obj
+    else
+      !<expression-to-python> e
+    end
 
 rules 
-  py-page-elem-to-render :
-    elem|[ inputHidden(e)[]{} ]| -> python*|[
-          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          out.write('<input type="hidden" name="' + field_id + '" value="');
-          out.write(cgi.escape(unicode(e_target), True));
-          out.write('"/>');
-    
-    ]|
-    where <type-of; is-simple-sort> e
-    with e_target := <expression-to-python> e
-       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
-       ; e_data := <py-get-data-object> e
-       ; e_convert := <python-type> <type-of> e
+py-page-elem-to-render :
+  elem|[ inputHidden(e)[]{} ]| -> python*|[
+        field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+        out.write('<input type="hidden" name="' + field_id + '" value="');
+        out.write(cgi.escape(unicode(e_target), True));
+        out.write('"/>');
+  
+  ]|
+  where <type-of; is-simple-sort> e
+  with e_target := <expression-to-python> e
+     ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+     ; e_data := <py-get-data-object> e
+     ; e_convert := <python-type> <type-of> e
 
-  py-page-elem-to-databind :
-    elem|[ inputHidden(e)[]{} ]| -> python*|[
-          field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
-          if is_submitted_form: {
-              e_target = e_convert(self.rh.request.get(field_id));
-          };
-    ]|
-    where <type-of; is-simple-sort> e
-    with e_target := <expression-to-python> e
-       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
-       ; e_data := <py-get-data-object> e
-       ; e_convert := <python-type> <type-of> e
+py-page-elem-to-databind :
+  elem|[ inputHidden(e)[]{} ]| -> python*|[
+        field_id = webdsl.utils.generateUniqueFieldName(e_data, e_fld, self);
+        if is_submitted_form: {
+            e_target = e_convert(self.rh.request.get(field_id));
+        };
+  ]|
+  where <type-of; is-simple-sort> e
+  with e_target := <expression-to-python> e
+     ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+     ; e_data := <py-get-data-object> e
+     ; e_convert := <python-type> <type-of> e
 
 rules
 
-  py-page-elem-to-render :
-    elem|[ action(e1, e2)[]{} ]| -> python*|[
-          out.write('<input type="submit" name="action-' + e_actionr + '" value="' + cgi.escape(unicode(e_txt), True) + '"/>');
-    ]|
-    with actionr := <CurrentActionId <+ !1>
-       ; rules ( CurrentActionId := <inc> actionr )
-       ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
-       ; e_txt := <expression-to-python> e1
-       ; ThisCall(x, arg*) := e2
-       ; x_action := <concat-strings> ["do_", x]
-       ; e_call := py-exp|[ self.x_action ]|
-       ; e* := <map(expression-to-python)> arg*
+py-page-elem-to-render :
+  elem|[ action(e1, e2)[]{} ]| -> python*|[
+        out.write('<input type="submit" name="action-' + e_actionr + '" value="' + cgi.escape(unicode(e_txt), True) + '"/>');
+  ]|
+  with actionr := <CurrentActionId <+ !1>
+     ; rules ( CurrentActionId := <inc> actionr )
+     ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
+     ; e_txt := <expression-to-python> e1
+     ; ThisCall(x, arg*) := e2
+     ; x_action := <concat-strings> ["do_", x]
+     ; e_call := py-exp|[ self.x_action ]|
+     ; e* := <map(expression-to-python)> arg*
 
-  py-page-elem-to-databind :
-    elem|[ action(e1, e2)[]{} ]| -> python*|[
-          if self.rh.request.get('action-' + e_actionr) and is_submitted_form: {
-              self.queue_action(e_call, [e*]);
-          };
-    ]|
-    with actionr := <CurrentActionId <+ !1>
-       ; rules ( CurrentActionId := <inc> actionr )
-       ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
-       ; ThisCall(x, arg*) := e2
-       ; x_action := <concat-strings> ["do_", x]
-       ; e_call := py-exp|[ self.x_action ]|
-       ; e* := <map(expression-to-python)> arg*
+py-page-elem-to-databind :
+  elem|[ action(e1, e2)[]{} ]| -> python*|[
+        if self.rh.request.get('action-' + e_actionr) and is_submitted_form: {
+            self.queue_action(e_call, [e*]);
+        };
+  ]|
+  with actionr := <CurrentActionId <+ !1>
+     ; rules ( CurrentActionId := <inc> actionr )
+     ; e_actionr := <concat-strings> ["'", <int-to-string> actionr, "'"]
+     ; ThisCall(x, arg*) := e2
+     ; x_action := <concat-strings> ["do_", x]
+     ; e_call := py-exp|[ self.x_action ]|
+     ; e* := <map(expression-to-python)> arg*
 
-  py-page-elem-to-render :
-    elem|[ actionLink(e1, e2)[]{} ]| -> python*|[
-          out.write('<input type="hidden" name="action-' + e_actionr + '" value=""/>');
-          out.write('<a href="#" onclick="document.getElementsByName(\'action-' + e_actionr + '\')[0].value=\'1\';submit();">' + cgi.escape(unicode(e_txt), True) + '</a>');
+py-page-elem-to-render :
+  elem|[ actionLink(e1, e2)[]{} ]| -> python*|[
+        out.write('<input type="hidden" name="action-' + e_actionr + '" value=""/>');
+        out.write('<a href="#" onclick="document.getElementsByName(\'action-' + e_actionr + '\')[0].value=\'1\';submit();">' + cgi.escape(unicode(e_txt), True) + '</a>');
     ]|
     with actionr := <CurrentActionId <+ !1>
        ; rules ( CurrentActionId := <inc> actionr )
@@ -797,11 +797,6 @@ rules // links
        ; e_link := <py-call-to-view-string> call
 
   /*
-  py-page-elem-to-render :
-    TemplateCall("url",[e],[]) ->
-    %> <h:outputText value="<%= url %>" /> <%
-    where not(ThisCall(p,args) := e)
-        ; url := <arg-to-value-string> e
 
   py-page-elem-to-render :
     TemplateCall("url",[ThisCall(p,args)],[]) ->
