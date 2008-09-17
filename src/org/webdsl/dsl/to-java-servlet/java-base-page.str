@@ -1,0 +1,86 @@
+
+
+module org/webdsl/dsl/to-java-servlet/java-base-page
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+  /**
+   * Generate base bean code
+   */
+  GenerateCodeJavaServlet = generate-java-base-page; fail
+
+  generate-java-base-page :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      import java.io.IOException;
+      import java.util.HashMap;
+      import java.util.Map;
+      import java.io.PrintWriter;
+      
+      import javax.servlet.ServletException;
+      import javax.servlet.http.HttpServletRequest;
+      import javax.servlet.http.HttpServletResponse;
+      import pkgname.*;
+      
+      import org.hibernate.Session;
+      
+      public abstract class PageServlet {
+          public abstract void serve(HttpServletRequest request, HttpServletResponse response, java.util.Map<String, String> parammap);
+          
+          public abstract Session getHibSession();
+      
+          public abstract HttpServletRequest getRequest() ;
+      
+          public abstract HttpServletResponse getResponse();
+          
+          public abstract void setValidated(boolean validated);
+          
+          public abstract String getPageName();
+          
+          public abstract String getHiddenParams();
+          public abstract String getHiddenPostParams();
+          
+          public abstract String getPageTitle();
+      
+          public abstract void setPageTitle(String pageTitle);
+
+          //templates scope
+          private static HashMap<String, Class> templates = new HashMap<String, Class>();
+          static{
+            bstm*
+          }
+          
+          public static HashMap<String, Class> getTemplates() { return templates; }
+          
+          public boolean hasExecutedAction = false;
+          
+          public void serveAsAjaxResponse(HttpServletRequest request, PrintWriter theoutStream, Object[] ajaxarguments) {
+          }
+          
+          public static void clearHibernateCache(Map<String, Object> variables){
+            if(variables.get("_persist_flag_").equals(false)) { 
+              java.util.Set<String> variables_set = variables.keySet();
+              org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+              for(String s : variables_set)  
+                if (!s.equals("_persist_flag_"))
+                  hibSession.refresh(variables.get(s));
+            }
+          }
+          
+        }
+      ]|
+    with pkgname    := <BeanPackage>
+       ; bstm* := <map({\ 
+                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; x_value := <concat-strings> [<TopLevelTemplateClassName> x,".class"]
+                       \})> 
+                       <bagof-AllTopLevelTemplateNamesJavaServlet>

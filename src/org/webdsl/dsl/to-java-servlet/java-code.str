@@ -62,6 +62,7 @@ rules // statements
      <+ return-to-java-servlet
      <+ cancel-to-java-servlet
      <+ goto-to-java-servlet
+     <+ ajax-to-java-servlet
      <+ info(|["cannot translate statement:", <id>]); fail
 
    block-to-java-servlet :
@@ -197,16 +198,34 @@ rules // return
 
   return-to-java-servlet :
     Return(e1) -> bstm* |[ 
+      out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
+      PageServlet.clearHibernateCache(variables);
+      return;
+    ]|
+    where InAction; IsAjaxApp
+    with  e_url := <page-thiscall-to-url-string-java-servlet> e1
+
+  return-to-java-servlet :
+    Return(e1) -> bstm* |[ 
       try {
         response.sendRedirect(e_url);
       } catch (IOException ioe) {
         System.out.println("redirect failed");
         ioe.printStackTrace();
       }
+      PageServlet.clearHibernateCache(variables);
+      return;
+    ]|
+    where InAction; not(IsAjaxApp)
+    with  e_url := <page-thiscall-to-url-string-java-servlet> e1
+
+
+  return-to-java-servlet :
+    ReturnEmpty() -> bstm* |[ 
+      PageServlet.clearHibernateCache(variables);
       return;
     ]|
     where InAction 
-    with  e_url := <page-thiscall-to-url-string-java-servlet> e1
 
   return-to-java-servlet :
     Return(e1) -> java|[ return e2; ]|
@@ -218,16 +237,27 @@ rules // return
 
   goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
     GoTo(call@ThisCall(p, args)) -> bstm* |[ 
+      out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
+      PageServlet.clearHibernateCache(variables);      
+      return;
+    ]|
+    where IsAjaxApp
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+     
+  goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
+    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
       try {
         response.sendRedirect(e_url);
       } catch (IOException ioe) {
         System.out.println("redirect failed");
         ioe.printStackTrace();
       }
+      PageServlet.clearHibernateCache(variables);
       return;
     ]|
+    where not(IsAjaxApp)
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
-     
+       
 rules
 
    qid-to-java-servlet :
@@ -520,19 +550,19 @@ rules //vars
      <+ generic-call-to-java-servlet
 
    persist-call-to-java-servlet :
-     Call(e1, "persist", []) -> expr|[ {| hibSession.save(e2); | _persist_flag_ = true |} ]| //cancel hibernate hack
+     Call(e1, "persist", []) -> expr|[ {| hibSession.save(e2); | variables.put("_persist_flag_",new Boolean(true)) |} ]| //cancel hibernate hack
      with  e2 := <expression-to-java-servlet> e1
 
    persist-call-to-java-servlet :
-     Call(e1, "save", []) -> expr|[ {| hibSession.save(e2); | _persist_flag_ = true |} ]|//cancel hibernate hack
+     Call(e1, "save", []) -> expr|[ {| hibSession.save(e2); |variables.put("_persist_flag_",new Boolean(true)) |} ]|//cancel hibernate hack
      with  e2 := <expression-to-java-servlet> e1
 
    remove-call-to-java-servlet :
-     Call(e1, "remove", []) -> expr|[ {| hibSession.delete(e2);| _persist_flag_ = true |} ]|//cancel hibernate hack
+     Call(e1, "remove", []) -> expr|[ {| hibSession.delete(e2);| variables.put("_persist_flag_",new Boolean(true)) |} ]|//cancel hibernate hack
      with  e2 := <expression-to-java-servlet> e1
 
    remove-call-to-java-servlet :
-     Call(e1, "delete", []) -> expr|[ {| hibSession.delete(e2); | _persist_flag_ = true|} ]|//cancel hibernate hack
+     Call(e1, "delete", []) -> expr|[ {| hibSession.delete(e2); | variables.put("_persist_flag_",new Boolean(true)) |} ]|//cancel hibernate hack
      with  e2 := <expression-to-java-servlet> e1
 
    count-call-to-java-servlet :

@@ -44,7 +44,7 @@ rules
         import java.io.PrintWriter;
         import java.util.HashMap;
         import java.util.Iterator;
-        
+        import java.util.Map;
         
         import javax.servlet.ServletException;
         import javax.servlet.http.HttpServletRequest;
@@ -58,22 +58,18 @@ rules
         import pkgname2.*;
 
         @Partial
-        public class x_Page implements PageServlet
+        public class x_Page extends PageServlet
         {
         
           //templates scope
-          private static HashMap<String, Class> templates = new HashMap<String, Class>();
-          static{
-            //templates.put("maintemplate", MainTemplate.class);
-            bstm*
-
-          }
+          private static HashMap<String, Class> templates = PageServlet.getTemplates();
           
           private HashMap<String, Object> variables = new HashMap<String, Object>();
           private HashMap<String, Object> actionclasses = new HashMap<String, Object>();
         
           @Partial
-          private void initialize(){}   
+          private void initialize(){
+          }   
         
           @Partial
           private void conversion(){}     
@@ -112,7 +108,34 @@ rules
             return hiddens.toString();
           }
           
+          @Partial 
+          public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+          {
+          
+          }
+          
+          public String getHiddenPostParams()
+          {
+            java.lang.StringBuffer hiddens = new java.lang.StringBuffer();
+            hiddenPostParams(hiddens);
+            return hiddens.toString();
+          }
+          
+          
           x_specialpagetemplate templateservlet = new x_specialpagetemplate();
+
+                 
+          public void serveAsAjaxResponse(HttpServletRequest request, PrintWriter theoutStream, Object[] args)
+          {
+            this.request=request;
+            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            
+            bstm1*
+            
+            initialize();
+                          
+            templateservlet.render(this, args, 1,(HashMap<String,Class>)PageServlet.getTemplates().clone(),variables,actionclasses,theoutStream);
+          }
           
           public void serve(HttpServletRequest request, HttpServletResponse response, java.util.Map<String, String> parammap)
           {
@@ -127,6 +150,9 @@ rules
             hibSession.beginTransaction();
             try
             {	
+              //very dirty and most ugly hibernate hack
+              this.variables.put("_persist_flag_", new Boolean(false));
+            
               initialize();
               conversion();
               loadArguments();
@@ -137,10 +163,17 @@ rules
               
               //call special pagetemplate
               templateservlet.storeInputs  (this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses );
-              templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses );
-              
-              render(request,response);
-              
+             
+              java.io.StringWriter s = new java.io.StringWriter();
+              java.io.PrintWriter out = new java.io.PrintWriter(s); 
+              templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses, out);
+              if (!this.hasExecutedAction)
+              {
+                render(request,response);
+              }
+              else
+                response.getWriter().write("[" + s.toString()+ "{}]");
+                              
               storeSessionEntities();
               
               hibSession.getTransaction().commit();
@@ -227,6 +260,7 @@ rules
           public void setValidated(boolean validated) {
               this.validated = validated;
           }
+          
         }
       ]|
     where x_page    := <ThisTemplateName>; not(ThisPage)
@@ -234,12 +268,9 @@ rules
        ; pkgname2   := <DomainPackage>
        ; x_Page     := <java-servlet-page-name> x_page
        ; x_specialpagetemplate := <ThisTemplateClassName>
-       ; bstm* := <map({\ 
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<TopLevelTemplateClassName> x,".class"]
-                       \})> 
-                       <bagof-AllTopLevelTemplateNamesJavaServlet>
        ; e* := <filter({\arg@farg|[ x : srt ]| -> var-init|[ x ]| \})> farg* //just pass args of page to special pagetemplate
-
+       ; bstm1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
+                                         where x_index := <subti;int-to-string> (index,1)
+                                             ; x_arg := <argument-java-servlet-type> arg
+                                      \})> farg* //variables are generated in java-template-vars
                          
