@@ -5,7 +5,7 @@ PPTABLES   = ../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp.af \
 
 ESVS       = ${wildcard src/*.esv}
 
-all : ctrees bin/$(SYNTAX).packed.esv
+all : ctrees include/$(SYNTAX).packed.esv
 
 clean :
 	rm -f src/parser/$(SYNTAX)ParseController.java bin/$(SYNTAX).packed.esv

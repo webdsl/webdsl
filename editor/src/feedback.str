@@ -1,36 +1,54 @@
-module org/webdsl/dsl/typechecker/analysis
+module feedback
 
 imports
   libstrategolib
   libwebdsl-front
   libwebdsl-generator
 
-strategies
+strategies // editor service interface
+
+  editor-analyze:
+    (ast, path, fullpath) -> results
+    where
+      debug(!"editor-analyze called");
+      editor-init;
+      // <search-main-file> ".";
+      results := <webdsl-collect-all-errors; debug(!"collected errors: ")> ast
 
   reference-resolve:
-    (source, filename, reference, path) -> <debug(!"result: ")> target
+    (source, filename, reference, path) -> target
     where
       debug(!"reference-resolve invoked");      
       <oncetd(?Description(_); ?target)> source
-    <+
-      debug(!"oh noes1 ");
-      fail
   
   reference-info:
-    (source, filename, target, path) -> <debug(!"result: ")> info
+    (source, filename, target, path) -> info
     where
       debug(!"reference-info invoked");
-      // info := <pp-webdsl-to-string> target
-      info := <main>
-    <+
-      debug(!"oh noes2 - main not working ");
-      fail
+      info := <pp-webdsl-to-string> target
 
-strategies // testing
+strategies // type-checker interface
 
-  main =
-    <pp-webdsl-to-string> Description(["foo", "is", "foobarred"]);
-    debug
+  editor-init =
+    with(
+      <set-verbosity> 3;
+      set-default-config
+    )
+
+strategies // helpers
+
+  search-main-file:
+    dir -> app-file
+    where
+      <readdir> dir;
+      getfirst(
+        if isdir then
+         search-main-file
+        else
+          string-ends-with(|".app")
+        end
+     );
+     app-file := <conc-strings> (dir, "/", <id>)
 
 strategies // "library" strategies
 
@@ -56,7 +74,7 @@ strategies // "library" strategies
     end
   
   subterm-at-index(|index) =
-    prim("sdf2imp_subterm", <id>, index)
+    prim("SSL_EXT_subterm", <id>, index)
   <+
     get-arguments;
     index(|index)
@@ -65,3 +83,24 @@ strategies // "library" strategies
     ctor#(args) -> ctor#(args')
     where
       args' := <at-index(s|index)> args
+
+  dr-scope-all(s) =
+    where(
+      table := Hashtable(<dr-rule-sets-hashtable>);
+      keys  := <hashtable-keys> table
+    );
+    
+    dr-scopes(
+      s
+    | keys
+    );
+
+    // Remove newly defined rules    
+    where(
+      <diff> (<hashtable-keys> table, keys);
+      list-loop(
+        { key: ?key;
+          <hashtable-remove(|key)> table
+        }
+      )
+    )
