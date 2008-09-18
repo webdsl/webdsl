@@ -116,6 +116,64 @@ function notify(string)
   alert(string);
 }
 
+function replace(command, thisobject)
+{
+    var theNode = findElementById(thisobject, command.id);
+    if (command.id != "this")
+      theNode.innerHTML = unescape(command.value);
+    else //this has other semantics
+    {
+      var newElem = document.createElement("tmp"); 
+      newElem.innerHTML = unescape(command.value);
+      theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
+      //note that this might break with no template based replacements
+    }
+}
+
+function append(command, thisobject)
+{
+    var theNode = findElementById(thisobject, command.id);
+    if (command.id != "this")
+      theNode.innerHTML += unescape(command.value);
+    else //this has other semantics
+    {
+      var newElem = document.createElement("tmp"); 
+      newElem.innerHTML = unescape(command.value);
+      theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
+      //note that this might break with no template based replacements
+    }
+}
+
+var cachedDisplays = new Object(  ); //stores the default display stiles
+
+function changevisibility(command, thisobject)
+{
+    var theNode = findElementById(thisobject, command.id);
+    if (command.value == "hide" && theNode.style.display != "none")
+    {
+      cachedDisplays[command.id] = theNode.style.display; //cache the style visibility
+      theNode.style.display = "none";
+    }
+    else if (command.value == "show" && theNode.style.display == "none")
+    {
+      if (cachedDisplays[command.id] != undefined)
+        theNode.style.display = cachedDisplays[command.id];
+      else
+        theNode.style.display = "block"; //default if cache not found (e.g. the object started as being invisible)
+    }    
+}
+
+function restyle(command, thisobject)
+{
+   var theNode = findElementById(thisobject, command.id);
+   theNode.className = command.value;
+}
+
+function relocate(command)
+{
+  window.location = command.value;
+}
+
 function clientExecute(jsoncode, thisobject)
 {
   data = eval(jsoncode);
@@ -124,22 +182,15 @@ function clientExecute(jsoncode, thisobject)
     command = data[i];
 
     if (command.action == "replace")
-    { 
-      var theNode = findElementById(thisobject, command.id);
-      if (command.id != "this")
-        theNode.innerHTML = unescape(command.value);
-      else //this has other semantics
-      {
-        var newElem = document.createElement("tmp"); 
-        newElem.innerHTML = unescape(command.value);
-        theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
-        //note that this might break with no template based replacements
-      }
-    }
-        
+      replace(command, thisobject)
+    else if (command.action == "append")
+      append(command, thisobject);
+    else if (command.action == "visibility")
+      changevisibility(command, thisobject);        
     else if (command.action == "relocate")
-      window.location = command.value;
-    
+      relocate(command);
+    else if (command.action == "restyle")
+      restyle(command, thisobject);
    //other actions 
     
     else if (command.action != undefined) //last command might equal {}
