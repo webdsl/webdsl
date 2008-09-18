@@ -153,7 +153,7 @@ libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDE
 ctrees : webdsl-front.ctree webdsl-generator.ctree
 
 webdsl-front.ctree : libwebdsl-front.rtree
-	strc $(STRINCLUDES) -c --library -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 
 ## generator
@@ -175,5 +175,5 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	rm libwebdsl-generator.str
 	
 webdsl-generator.ctree : libwebdsl-generator.rtree  
-	strc $(STRINCLUDES) -c --library -F -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o webdsl-generator.ctree \
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o webdsl-generator.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
