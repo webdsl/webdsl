@@ -30,6 +30,12 @@ section datamodel
           action("cancel", cancelsave())
           action cancelsave() {
           }
+          
+          action("cancelreturn", cancelreturn())
+          action cancelreturn() {
+          
+            return home();
+          }
         }
         "User: "
         output(bob.username)
