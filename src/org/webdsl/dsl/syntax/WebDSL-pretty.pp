@@ -131,6 +131,7 @@
    Assign                             -- H hs=0[H[_1] KW[";"]],
    Stat                               -- H hs=0[H[_1] KW[";"]],
    Return                             -- H[KW["return"] H hs=0[H[_1] KW[";"]]],
+   ReturnEmpty												-- H[KW["return"] KW[";"]],
    Cancel                             -- H[KW["cancel"] H hs=0[H[_1] KW[";"]]],
    GoTo							              	  -- H[KW["goto"] H hs=0[H[_1] KW[";"]]],
    Schedule	          							  -- KW["schedule"] _1 KW["for"] _2,
