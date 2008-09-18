@@ -32,24 +32,25 @@ rules
     ; where (
         matches-definition
         ; <IsPage> matchstring
-      ) 
+      )
+      
+  match-webdsl-element =
+    ?MatchDefinition(matchstring, farg*)
+    ; where (
+        <is-xhtml-element> matchstring
+      )
 
 rules // StyleDefinitions
 
   constraint-error : 
     s@SimpleSelector(checktype, matchdef) -> <add-error(|["unknown style definition type: ", <pp-webdsl> s])>
     where <?MatchDefinition(_,_)> matchdef
-        ; <not(elem)> (checktype, [ "page"
-                                   ,"template" ])
+        ; <not(?"page")> checktype
 
   constraint-error : 
     s@SimpleSelector("page", matchdef) -> <add-error(|["page does not exist: ", <pp-webdsl> s])>
     where not( <matches-page-definition> matchdef )
   
-  constraint-error : 
-    s@SimpleSelector("template", matchdef) -> <add-error(|["template does not exist: ", <pp-webdsl> s])>
-    where not( <matches-template-definition> matchdef )
-                  
   constraint-error : 
     s@SimpleSelector(m@MatchDefinition(matchstring, farg*)) -> <add-error(|["template element does not exist: ", <pp-webdsl> s])>
     where not ( <is-xhtml-element> matchstring <+ <matches-template-definition> m )
@@ -87,25 +88,37 @@ rules // StyleExpressions
     StyleValue(sort@StyleSort(s), val*) -> <add-error(|["unknown value:", <pp-webdsl> val*, ", of sort: ", <pp-webdsl> sort])>
     where not( <is-values-of-sort> (sort, val*) )
 
+  constraint-error :
+    StyleVar(x) -> <add-error(|["Style constant ", <pp-webdsl> x, " not defined"])>
+    where not ( <StyleVariable> x )
+
+  // find duplicate global variables
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Style constants ", <list-to-separated-string(|", ")> var*, " are declared multiple times"])> ""
+    where vars := <collect(?StyleVarDecl(_, _) <+ ?StyleVarDeclInit(_, _, _));
+                    map({\ StyleVarDecl(x, s) -> <strip-annos> x \} <+ {\ StyleVarDeclInit(x, s, e) -> <strip-annos> x \})> sections
+        ; var* := <find-doubles> vars
+        ; not([] := var*)
+    
+
 rules // Layout
 
   constraint-error : 
     d@LayoutDefinition(checktype, matchdef, stat*) -> <add-error(|["unknown layout definition type: ", <pp-webdsl> d])>
     where <?MatchDefinition(_,_)> matchdef
-        ; <not(elem)> ( checktype,[ "page"
-                                   ,"template" ])
+        ; <not(?"page")> checktype
 
   constraint-error : 
     d@LayoutDefinition("page", matchdef, decl*) -> <add-error(|["layout definition target does not exist: ", <pp-webdsl> d])>
     where not( <matches-page-definition> matchdef )
 
   constraint-error : 
-    d@LayoutDefinition("template", matchdef, decl*) -> <add-error(|["layout definition target does not exist: ", <pp-webdsl> d])>
-    where not( <matches-template-definition> matchdef )
+    d@LayoutDefinition(m@MatchDefinition(_,_), decl*) -> <add-error(|["layout definition target does not exist: ", <pp-webdsl> d])>
+    where not( <matches-template-definition> m )
     
   constraint-error : 
     d@FloatStatement(def*) -> <add-error(|["float target does not exist: ", <pp-webdsl> d])>
-    where not( <map(matches-template-definition)> def* )
+    where not( <map(matches-template-definition <+ match-webdsl-element)> def* )
     
 
   //@todo: check layout statments
