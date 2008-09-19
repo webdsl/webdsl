@@ -9,21 +9,25 @@ strategies // editor service interface
 
   editor-analyze:
     (ast, path, fullpath) -> results
-    where
+    with
       debug(!"editor-analyze called");
+      
+      try(dr-scope-all-end);
+      dr-scope-all-start;      
       editor-init;
+      
       // <search-main-file> ".";
       results := <webdsl-collect-all-errors; debug(!"collected errors: ")> ast
 
   reference-resolve:
     (source, filename, reference, path) -> target
-    where
+    with
       debug(!"reference-resolve invoked");      
       <oncetd(?Description(_); ?target)> source
   
   reference-info:
     (source, filename, target, path) -> info
-    where
+    with
       debug(!"reference-info invoked");
       info := <pp-webdsl-to-string> target
 
@@ -56,7 +60,7 @@ strategies // "library" strategies
     if [] := path then
       id
     else
-      where(
+      with(
         [index | path'] := path
       );
       subterm-at-index(|index);
@@ -67,7 +71,7 @@ strategies // "library" strategies
     if [] := path then
       s
     else
-      where(
+      with(
         [index | path'] := path
       );
       apply-at-index(apply-at-path(s|path') |index)
@@ -81,11 +85,42 @@ strategies // "library" strategies
   
   apply-at-index(s|index):
     ctor#(args) -> ctor#(args')
-    where
+    with
       args' := <at-index(s|index)> args
 
-  dr-scope-all(s) =
+  dr-scope-all-start =
     where(
+      table := Hashtable(<dr-rule-sets-hashtable>);
+      names := ["DrScopedRules" | <hashtable-keys> table];
+      
+      dr-begin-scopes(|names);
+      rules(DrScopedRules := names)
+    )
+
+  dr-scope-all-end =
+    where(
+      table := Hashtable(<dr-rule-sets-hashtable>);
+      names := <DrScopedRules>;
+      
+      dr-end-scopes(|names);
+  
+      // Remove other, newly defined rules
+      <diff> (<hashtable-keys> table, names);
+      list-loop(
+        { key: ?key;
+          <hashtable-remove(|key)> table
+        }
+      )
+    )
+
+  dr-scope-all(s) =
+    finally(
+      dr-scope-all-start; s
+    , dr-scope-all-end
+    )
+  
+    /*
+    with(
       table := Hashtable(<dr-rule-sets-hashtable>);
       keys  := <hashtable-keys> table
     );
@@ -95,7 +130,7 @@ strategies // "library" strategies
     | keys
     );
 
-    // Remove newly defined rules    
+    // Remove other, newly defined rules    
     where(
       <diff> (<hashtable-keys> table, keys);
       list-loop(
@@ -104,3 +139,4 @@ strategies // "library" strategies
         }
       )
     )
+    */
