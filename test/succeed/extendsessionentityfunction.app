@@ -24,7 +24,7 @@ section datamodel
 
     define body()
     {
-      if(user.test(4,8,user)){
+      if(user.test(4,8,user) == 12){
         output(user.name)
       }
     }
