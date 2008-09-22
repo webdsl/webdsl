@@ -55,11 +55,15 @@ def generateHash(data):
     else:
         return 0
 
-def register(path, cls, param_mappings=[]):
+def register(path, cls, param_mappings=[], is_template=False):
     global mappings
     class _cls(webapp.RequestHandler):
         def __init__(self, *params, **kparams):
             self.is_post = False
+            if is_template:
+                self.template_name = path.split('/')[1]
+            else:
+                self.template_name = None
             webapp.RequestHandler.__init__(self, *params, **kparams)
 
         def get(self, *params):
@@ -92,8 +96,9 @@ def register(path, cls, param_mappings=[]):
             o.action_queue = []
             o.render(out)
 
-            stylesheets = "\n".join(map(lambda x: '<link href="/stylesheets/%s.css" rel="stylesheet" type="text/css" />' % x, o.stylesheets))
-            self.response.out.write('''
+            if not is_template:
+                stylesheets = "\n".join(map(lambda x: '<link href="/stylesheets/%s.css" rel="stylesheet" type="text/css" />' % x, o.stylesheets))
+                self.response.out.write('''
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd" >
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -110,7 +115,8 @@ def register(path, cls, param_mappings=[]):
 </head>
 <body>''' % (o.title, stylesheets))
             self.response.out.write(out.getvalue())
-            self.response.out.write('''</body></html>''')
+            if not is_template:
+                self.response.out.write('''</body></html>''')
             o.store_session()
         def post(self, *params):
             self.is_post = True
@@ -143,10 +149,35 @@ def register_feed(path, cls, param_mappings=[]):
 
     mappings.append((path, _cls))
 
+class Scope(object):
+    def __init__(self, parent=None, session_vars=[]):
+        self.parent = parent
+        if parent == None:
+            self.session_dict = {}
+            self.session_vars = session_vars
+            self.dct = {}
+        else:
+            self.session_dict = parent.session_dict
+            self.session_vars = parent.session_vars
+            self.dct = parent.dct.copy()
+        
+    def __setitem__(self, key, value):
+        if key in self.session_vars:
+            self.session_dict[key] = value
+        else:
+            self.dct[key] = value
+            logging.info("Setting %s to %s" % (key, value))
+        
+    def __getitem__(self, key):
+        if key in self.session_vars:
+            return self.session_dict[key]
+        else:
+            return self.dct[key]
+
 class RequestHandler(object):
     def __init__(self, parent, rh, **scope):
         self.template_bindings = parent.template_bindings
-        self.scope = parent.scope.copy()
+        self.scope = webdsl.utils.Scope(parent.scope)
         self.parent = parent
         self.rh = rh
         self.action_queue = None
