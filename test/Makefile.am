@@ -1,4 +1,4 @@
-TESTSSUCCEEDALL = $(wildcard succeed/*.app) $(wildcard succeed/*/*.app)
+TESTSSUCCEEDALL = $(wildcard succeed/*.app) $(wildcard succeed/*/*.app succeed/*/*/*.app))
 TESTSFAIL =$(wildcard fail/*.app) $(wildcard fail/*/*.app)
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%,$(TESTSSUCCEEDALL)) $(patsubst %.app,%,$(TESTSFAIL))
