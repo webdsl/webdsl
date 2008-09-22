@@ -8,31 +8,16 @@ imports
 
 rules
 
-
+ 
   check-for-ajax = //check if there is any need for ajax in this application
-    alltd(item-requires-java)
+    alltd(item-requires-ajax)
     
-  item-requires-java =
+  item-requires-ajax =
     ? AjaxAction(_,_,_)
     ; rules(IsAjaxApp := True())
 
-  //rewrites a list of assignments to a list of attributes. It can be extended by adding alternatives
-  //to the assignment-to-html-attr rules. Those rules are of the format Assignment(x, y) -> Assignment(a, String(b))
-  to-html-attrs :
-    attrs -> attrs3
-    with attrs1 := <map(assignment-to-html-attr)> attrs
-        ;attrs2 := <map(assignmentstring-to-html-attr)> attrs1
-        ;attrs3 := <generate-addition-exp > attrs2        
-    
-  //final (private) conversion: converts a String assignment to html    
-  assignmentstring-to-html-attr :
-    (x, e_y) -> e |[ "~x"+"='" + e_y + "' " ]|
-    
-  //object id attribute is accepted, and already a valid assignment
-  assignment-to-html-attr :
-    PropertyAssignment("id", String(y)) -> ("id", e|[ "~y" ]| )
 
-   //event call
+   //event call to java
   assignment-to-html-attr :
     tc@PropertyAssignment(x, call@ThisCall(_, args)) -> (x, e |[ "javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName() +"\",\""+ "~actionident"+uniqueid+e2 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)" ]| )
     with app := <AppRoot>
@@ -40,6 +25,7 @@ rules
         ;e1* := <map(action-id-param-encoding-java-servlet <+ debug(!"failed to generate POST data from ");!e|[""]| )> args
         ;e2 := <generate-addition-exp > e1*
         
+  //handle actions
   handle-actions-to-java-servlet: 
     tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
     bstm*|[
@@ -66,7 +52,7 @@ rules
     where <type-of;builtin-java-type> e
     with  el := <arg-to-value-string-java-servlet> e
 
- //replace/append myfirstdynamicdiv << editDocument(document);
+ //action java implementation
   ajax-to-java-servlet :
     AjaxAction(theaction, thediv, ThisCall(template, args)) -> bstm*|[ 
         Object[] x_args = { e* };
@@ -105,7 +91,7 @@ rules
 
  ajax-to-java-servlet :
     AjaxAction("relocate", "to", call@ThisCall(_,_)) -> bstm*|[ 
-      PageServlet.clearHibernateCache(variables);
+      ps.clearHibernateCache(variables);
       out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
      ]|
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
