@@ -90,6 +90,14 @@ rules // embedding expressions in presentation
     where args2 := <map(arg-to-el); separate-by(|","); concat-strings> args1
 
 
+strategies // property assignments
+
+  property-assignments-to-xhtml =
+    map(property-assignment-to-xhtml)
+  
+  property-assignment-to-xhtml :
+    PropertyAssignment("class", String(x)) -> @> class="<%= x %>" <@
+
 strategies // lists of elements
 
   elems-to-xhtml =
@@ -105,10 +113,10 @@ strategies // lists of elements
 strategies // title
 
   elem-to-xhtml :
-    TemplateCall("title", _,_, elems) ->
-    %>
+    TemplateCall("title", _,_, [Text(x)]) ->
+  %>
   <ui:define name="title">
-    <%= <elems-to-xhtml> elems::* %>
+    <%= x::cdata %>
   </ui:define>
   <%
     where AllowIncludes
@@ -151,7 +159,7 @@ rules // block
     <%
 
   elem-to-xhtml :
-    TemplateCall("block", [String(x)],_, elems) ->
+    TemplateCall("block", [String(x)], _, elems) ->
     %>
     <div class="<%= x %> block"><%= <elems-to-xhtml> elems ::*%></div>
     <%
@@ -191,56 +199,61 @@ rules // images
 rules // lists
 
   elem-to-xhtml :
-    TemplateCall("list", [],_, elems) ->
+    TemplateCall("list", [], passigns, elems) ->
     %>
       <ul>
         <%= <elems-to-xhtml> elems ::*%>
       </ul>
     <%
+    where att* := <property-assignments-to-xhtml> passigns
 
   elem-to-xhtml :
-    TemplateCall("listitem", [],_, elems) ->
+    TemplateCall("listitem", [], passigns, elems) ->
     %>
       <li>
         <%= <elems-to-xhtml> elems ::*%>
       </li>
     <%
+    where att* := <property-assignments-to-xhtml> passigns
 
 rules // groups
 
   elem-to-xhtml :
-    TemplateCall("group", [arg],_, elems) ->
+    TemplateCall("group", [arg], passigns, elems) ->
     %>
-      <fieldset>
+      <fieldset att*>
         <legend><%= <arg-to-value-string> arg::cdata %></legend>
         <ol>
           <%= <elems-to-xhtml> elems ::*%>
         </ol>
       </fieldset>
     <%
+    where att* := <property-assignments-to-xhtml> passigns
 
   elem-to-xhtml :
-    TemplateCall("group", [],_, elems) ->
+    TemplateCall("group", [], passigns, elems) ->
     %>
-      <fieldset class="fieldset_no_legend_">
+      <fieldset att*>
         <ol>
           <%= <elems-to-xhtml> elems ::*%>
         </ol>
       </fieldset>
     <%
-    
+    where att* := <property-assignments-to-xhtml> passigns
+
   elem-to-xhtml :
-    TemplateCall("groupitem", [],_, elems) ->
+    TemplateCall("groupitem", [], passigns, elems) ->
     %>
-      <li>
+      <li att*>
         <%= <elems-to-xhtml> elems ::*%>
       </li>
     <%
+    where att* := <property-assignments-to-xhtml> passigns
 
 rules // label
 
   elem-to-xhtml :
-    TemplateCall("label", [arg],_, elems) ->
+    TemplateCall("label", [arg], _, elems) ->
     %>
       <label for=""><%= <arg-to-value-string> arg::cdata %></label>
       <%= <elems-to-xhtml> elems ::*%>
@@ -249,7 +262,7 @@ rules // label
 rules // sections and headers
 
   elem-to-xhtml :
-    TemplateCall("header", [],_, elems) ->
+    TemplateCall("header", [], _, elems) ->
     %>
       <~n:tag><%= <elems-to-xhtml> elems ::*%></~n:tag>
     <%
@@ -258,7 +271,7 @@ rules // sections and headers
         ; tag := <concat-strings>["h", <int-to-string> n]
 
   elem-to-xhtml :
-    TemplateCall("section", [],_, elems1) ->
+    TemplateCall("section", [], _, elems1) ->
     %>
       <div class="<%= sectionlevel %> section"><%= elems2 ::*%></div>
     <%
@@ -269,14 +282,14 @@ rules // sections and headers
            |}
 
   elem-to-xhtml :
-    TemplateCall("par", [],_, elems1) ->
+    TemplateCall("par", [], _, elems1) ->
     %>
       <p><%= elems2 ::*%></p>
     <%
     where elems2 := <elems-to-xhtml> elems1
 
   elem-to-xhtml :
-    TemplateCall("container", [],_, elems1) ->
+    TemplateCall("container", [], _, elems1) ->
     %>
       <span><%= elems2 ::*%></span>
     <%
@@ -285,7 +298,7 @@ rules // sections and headers
 rules // tables
 
   elem-to-xhtml :
-    TemplateCall("table", [],_, elems) ->
+    TemplateCall("table", [], _, elems) ->
     %>
       <table><%= e* ::*%></table>
     <%
@@ -295,7 +308,7 @@ rules // tables
            |}
 
   elem-to-xhtml :
-    TemplateCall("header", [],_, elems) ->
+    TemplateCall("header", [], _, elems) ->
     %>
       <tr><%= <elems-to-xhtml(table-header-wrap)> elems ::*%></tr>
     <%
