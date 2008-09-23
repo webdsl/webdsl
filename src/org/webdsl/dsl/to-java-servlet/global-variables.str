@@ -42,27 +42,30 @@ rules
       
         //private static HashMap<String, Object> variables = new HashMap<String, Object>();
     
+        static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
+          for(ApplicationContextProperty a : res){
+            if(a.getName().equals(name))	
+              return true;
+          }
+          return false;
+        } 
+    
         static{
             //start hibsession
             hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
 
             org.hibernate.Query q = hibSession.createQuery("from ApplicationContextProperty");
-            List res = q.list(); 
+            List<ApplicationContextProperty> res = q.list();
     
-            if (res.isEmpty())
-            {
-  
-              bstm3*
-              bstm1*
-              bstm2*
-  
-            }
+            bstm3*
+            bstm1*
+            bstm2*
 
             org.hibernate.Query q2 = hibSession.createQuery("from ApplicationContextProperty");
-            List results = q2.list();
-            for(Object r: results)
+            List<ApplicationContextProperty> results = q2.list();
+            for(ApplicationContextProperty a : results)
             {
-              ApplicationContextProperty acp = (ApplicationContextProperty) r;
+              bstm4*
             }
         }
       }
@@ -102,6 +105,7 @@ rules
                 ; bstm1* := <filter(vardeclinit-to-method-call-java-servlet)> vardeclinits
                 //persist updates
                 ; bstm2* := <filter(vardeclinit-to-method-persist-call-java-servlet)> vardeclinits
+                ; bstm4* := <filter(vardeclinit-to-id-load)> vardeclinits
                 ; cbds1* := <filter(vardeclinit-to-method-java-servlet); concat-with-sublists> vardeclinits
           |}
         ; globals-helper-entity-java-servlet 
@@ -161,7 +165,7 @@ rules
     )
 
   vardeclinit-to-persist-statement-java-servlet:
-    vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> result
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> resultwrapped
     with  if <EntityIdName> x_class
           then x_idname := <EntityIdName> x_class
                ; idassign := <collect({e:?ObjectPropertyAssignment(idname, e);!webdsl |[ x_ident.x_idname := e; ]| });Hd> exps
@@ -171,15 +175,37 @@ rules
                                                                         ]| ]
           else result := bstm* |[ hibSession.save(x_ident);
                                   //variables.put("~x_ident",x_ident);
-                               ]| end
+                               ]| 
+          end
+        ; resultwrapped := 
+          bstm |[
+            if(!applicationContextPropertyExists("~x_ident",res)){
+              ~*result
+            }
+          ]|                 
+
+  vardeclinit-to-id-load:
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) ->
+    bstm |[	
+      if(a.getName().equals("~x_ident"))
+      {
+        x_ident#id = a.getDatabaseId();
+      }  
+    ]|
 
   vardeclinit-to-method-call-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) ->
-    bstm |[	globalDeclaration#x_ident(); ]|
+    bstm |[	
+      if(!applicationContextPropertyExists("~x_ident",res))  
+        globalDeclaration#x_ident(); 
+    ]|
 
   vardeclinit-to-method-persist-call-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),expressions) ->
-    bstm |[ globalDeclaration#x_ident#Persist(); ]|
+    bstm |[ 
+      if(!applicationContextPropertyExists("~x_ident",res))
+        globalDeclaration#x_ident#Persist(); 
+    ]|
 
   vardeclinit-to-method-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(x_class,assigns)) ->
@@ -196,16 +222,15 @@ rules
         private static void globalDeclaration#x_ident#Persist() {
           //entityManager.persist(x_ident); now done beforehand
           ApplicationContextProperty x_acpident = new ApplicationContextProperty();
-          x_acpident.setName(x_acpname);
+          x_acpident.setName("~x_ident");
           x_acpident.setDatabaseId(String.valueOf(x_ident.getId()));
           hibSession.save(x_acpident);
           GlobalVariables.x_ident#id = x_acpident.getDatabaseId();
         }
   ]|
-  with  x_acpident := <new>
+  with  x_acpident := <newname> "id"
       ; t := <java-type> SimpleSort(x_class)
       ; x_t := <sort-to-java-type-string> SimpleSort(x_class)
-      ; x_acpname := <concat-strings> ["\"global-declaration-",x_ident,"\""]
       ; digests := <filter(secret-assigns-to-digest(|x_ident,x_class))> assigns
       ; bstmvardeclinit* := <conc>
                          (<map(\ ObjectPropertyAssignment(x_prop, e) -> webdsl |[ x_ident.x_prop := e; ]| \)//Assign(Assignment(Qualified(x_ident, f), e)) \)
