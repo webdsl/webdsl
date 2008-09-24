@@ -308,6 +308,7 @@
    IdSimpleSelector                             -- H hs=0[ KW["#"] _1 ],
    ElemSimpleSelector                           -- _1,
    ClassSimpleSelector                          -- H hs=0[ KW["."] _1 ],
+   UniversalSimpleSelector					    -- KW["*"],
    SimpleSelector                               -- _1,
    SelectorAttribute                            -- H hs=0[ KW["."] _1 ],
    ChildCombinator                              -- KW[">"],
