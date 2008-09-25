@@ -60,6 +60,12 @@ strategies // extending the status entity
               this.caller.next(this.returnstate);
             }
           }
+          
+          function partialCommit() {
+            if(this.caller != null) {
+              this.caller.partialCommit();
+            }
+          }
         }
       ]|
   
@@ -101,21 +107,15 @@ rules // actual transformation
 
     
 strategies // handle sequential composition - only to be done after simplification of containing constructs
-   
-  process-sequential(|x_status, stat_lastActivity) = // sequentially connects all ProcCalls, adding a call to this.processed().
-    with(id
-        ; collect-all(?ProcCall(_,_)) 
-        ; debug(!["process-sequential ", x_status, ": "])
-        ; stat1* := <map(get-sequential-proccall)>
-        ; <debug(!"stat1*: ")> stat1*
-        ; e_current := Int(<get-state>)
-        ; stat_lastActivity* := [stat_lastActivity]
-        ; last := webdsl|[ if (state == e_current) { stat_lastActivity* } ]|
+
+
+
+/*        ; stat_last* := webdsl|[ if (state == e_current) { stat_lastActivity2* } ]|*/
 
 /*        ; <debug> stat_lastActivity*
         ; info(|["process-sequential last: "])
         ; <debug> last
-        
+
         ; stat_lastActivityB* := webdsl|[ 
             this.processed();
           ]|          
@@ -125,20 +125,86 @@ strategies // handle sequential composition - only to be done after simplificati
         ; lastB := webdsl|[ if (state == e_current) { stat_lastActivityB* } ]|
         ; info(|["process-sequential lastB: "])
         ; <debug> lastB
-        
+
         ; lastC := webdsl|[ if (state == e_current) { this.processed(); } ]|
         ; info(|["process-sequential lastC: "])
         ; <debug> lastC
         */
-        ; stat2* := [stat1*, last]        
+/*        ; <debug(!"Deel 1: ")> stat1*
+        ; <debug(!"Deel 2 gewijzigd: ")> webdsl|[ if (state == e_current) { stat_lastActivity* } ]|
+        ; stat2* := webdsl|[
+                      stat1*
+                      stat_last*
+                    ]|
+        ; debug(!"stat2*: ")
+        ; stat_test* := webdsl|[  
+            stat1*
+            if (state == e_current) {
+              this.disable2(); 
+              this.processed();
+            } 
+          ]|
+        ; debug(!"stat_test*: ")*/
+
+/*        ; stat_test* := webdsl|[ 
+            stat1*
+            this.disable2(); 
+            this.processed();
+          ]|*/
+/*        ; debug(!"stat_test2*: ")
+        ; stat2B* := [stat1*, stat_last*]
+        ; debug(!"stat2B*: ")*/
+      
+  process-sequential(|x_status, stat_lastActivity) = // sequentially connects all ProcCalls, adding a call to this.processed().
+    with(id
+        ; collect-all(?ProcCall(_,_)) 
+        ; debug(!["process-sequential ", x_status, ": "])
+        ; stat1* := <map(get-sequential-proccall)>
+        ; <debug(!"stat1*: ")> stat1*
+        ; <debug(!"stat_lastActivity")> stat_lastActivity
+        ; e_current := Int(<get-state>)
+        
+        ; if (<is-list> stat_lastActivity) then
+            stat_lastActivity* := stat_lastActivity
+          else 
+            stat_lastActivity* := [stat_lastActivity]
+          end
+        ; last := webdsl|[ if (state == e_current) { stat_lastActivity* } ]|
+        ; stat_withLast* := [stat1*, last]
+        ; <debug(!"stat_withLast*: ")> stat_withLast*
         ; try(<do-once(process-create-next(|x_status)|"Create next function")> x_status) // otherwise there is nothing to extend
         ; <emit-webdsl-code> def|[
             extend entity x_status {
               extend function next(state: Int) {
-                stat2*
+                stat_withLast*
               }
             }
           ]|
+        ; !<get-next-state>
+          
+/*        ; collect-all(?ProcCall(_,_)) 
+        ; debug(!["process-sequential ", x_status, ": "])
+        ; stat1* := <map(get-sequential-proccall)>
+        ; <debug(!"stat1*: ")> stat1*
+        ; e_current := Int(<get-state>)
+        
+        ; stat_lastActivity2* := [stat_lastActivity*]
+        ; stat_withLast* := webdsl|[  
+            stat1*
+            if (state == e_current) {
+              stat_lastActivity*
+            } 
+          ]|
+        ; try(<do-once(process-create-next(|x_status)|"Create next function")> x_status) // otherwise there is nothing to extend
+        ; <emit-webdsl-code> def|[
+            extend entity x_status {
+              extend function next(state: Int) {
+                stat_withLast*
+              }
+            }
+          ]|
+        ; !<get-next-state>*/
+          
       )
       
   process-create-next(|x_status) =
@@ -263,54 +329,16 @@ strategies // simplification of complex constructs
               this.processed(); 
             }
           ]|
+        ; <debug(!"stat_lastActivity*: ")> stat_lastActivity*
         ; e_branch1Start := Int(<get-state>)
         ; <process-sequential(|x_newstatus, stat_lastActivity*)> branch1
         ; e_branch2Start := Int(<get-state>)
         ; <process-sequential(|x_newstatus, stat_lastActivity*)> branch2
         ; rules ( State := rememberedState )
-/*        
-        // create next function, remembering branch start states
-        ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
-        ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
-        ; {| State
-           : e_branch1StartState := Int(<get-state>)
-           ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-           ; e_branch1EndState := Int(<get-state>)
-           ; lastBranch1 := |[ 
-               if (state == e_branch1EndState) { 
-                 if (this.otherBranch == 0) {
-                   this.otherBranch := 1;
-                   this.persist();
-                 } else {
-                   this.processed(); 
-                 }
-               } 
-             ]|
-           ; stat1* := [stat1Temp*, lastBranch1]
-
-           ; e_branch2StartState := Int(<get-next-state>)
-           ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-           ; e_branch2EndState := Int(<get-state>)
-           ; lastBranch2 := |[ 
-               if (state == e_branch2EndState) { 
-                 if (this.otherBranch == 0) {
-                   this.otherBranch := 1;
-                   this.persist();
-                 } else {
-                   this.processed(); 
-                 }
-               } 
-             ]|
-           ; stat2* := [stat2Temp*, lastBranch2]
-           |}*/
            
         // create disable statements; disables all descending ProcCalls
         ; stat_disable1* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch1
         ; stat_disable2* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch2
-        
-        // create disable functions; disables all descending ProcCalls
-/*        ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
-        ; stat4* := <map(get-disable-proccall)> branch2ProcCalls*/
        
         // create new procedure to replace and-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
@@ -330,40 +358,6 @@ strategies // simplification of complex constructs
               otherBranch :: Int
             }
           ]|
-          
-/*        ; <declare-generated-procedure; emit-webdsl-code> def|[
-            auto procedure x_new(x_o : srt) {
-              enabled {
-                this.enable1();
-                this.enable2();
-              }
-              disabled {
-                disable1();
-                disable2();
-              }
-            }
-          ]|
-        ; <emit-webdsl-code> def|[
-            extend entity x_newstatus {
-              otherBranch :: Int
-              function enable1() {
-                this.next(e_branch1StartState);
-              }
-              function enable2() {
-                this.next(e_branch2StartState);
-              }
-              function disable1() {
-                stat3*
-              }
-              function disable2() {
-                stat4*
-              }
-              function next(state: Int) {
-                stat1*
-                stat2*
-              }
-            }
-          ]|*/
                     
   process-xor :
     ProcXor(branch1, branch2) -> ProcCall(x_new, Var(x_o))
@@ -373,60 +367,41 @@ strategies // simplification of complex constructs
         ; x_new := <newname> "xorProc"
         ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
 
-        // create next function, remembering branch start states
-        ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
-        ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
-        ; {| State
-           : e_branch1StartState := Int(<get-state>)
-           ; stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
-           ; e_branch1EndState := Int(<get-state>)
-           ; lastBranch1 := |[ if (state == e_branch1EndState) { this.disable2(); this.processed(); } ]|
-           ; stat1* := [stat1Temp*, lastBranch1]
+        // create disable statements; disables all descending ProcCalls
+        ; stat_disabl1* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch1
+        ; stat_disabl2* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch2
 
-           ; e_branch2StartState := Int(<get-next-state>)
-           ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
-           ; e_branch2EndState := Int(<get-state>)
-           ; lastBranch2 := |[ if (state == e_branch2EndState) { this.disable1(); this.processed(); } ]|
-           ; stat2* := [stat2Temp*, lastBranch2]
-           |}
+        ; rememberedState := <get-state>
+        ; rules ( State := 0 )
+        ; stat_lastActivity1* := webdsl|[ 
+            stat_disabl2* 
+            this.processed();
+          ]|
+        ; stat_lastActivity2* := webdsl|[ 
+            stat_disabl1*
+            this.processed();
+          ]|
+        ; <debug(!"stat_lastActivity1*: ")> stat_lastActivity1*  
+        ; e_branch1Start := Int(<get-state>)
+        ; <process-sequential(|x_newstatus, stat_lastActivity1*)> branch1
+        ; e_branch2Start := Int(<get-state>)
+        ; <process-sequential(|x_newstatus, stat_lastActivity2*)> branch2
+        ; rules ( State := rememberedState )
 
-        // create disable function; disables all descending ProcCalls
-        ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
-        ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
-
-        // create new procedure to replace xor-construct
+        // create new procedure to replace and-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
             auto procedure x_new(x_o : srt) {
               enabled {
-                this.enable1();
-                this.enable2();
+                this.next(e_branch1Start);
+                this.next(e_branch2Start);
               }
               disabled {
-                disable1();
-                disable2();
+                stat_disabl1*
+                stat_disabl2*
               }
             }
           ]|
-        ; <emit-webdsl-code> def|[
-            extend entity x_newstatus {
-              function enable1() {
-                this.next(e_branch1StartState);
-              }
-              function enable2() {
-                this.next(e_branch2StartState);
-              }
-              function disable1() {
-                stat3*
-              }
-              function disable2() {
-                stat4*
-              }
-              function next(state: Int) {
-                stat1*
-                stat2*
-              }
-            }
-          ]|  
+          
           
           // note: commit reports to parent that at least one atomic procedure has been executed
               
@@ -503,6 +478,12 @@ strategies // simplification of complex constructs
               function next(state: Int) {
                 stat1*
                 stat2*
+              }
+              function partialCommit() {
+                if(this.caller != null) {
+                  
+                  this.caller.partialCommit();
+                }
               }
             }
           ]|
