@@ -16,17 +16,45 @@ strategies
     ; {| IteratedVars, IteratedVar
        : rules ( IteratedVars :+= (x, srt)
                  IteratedVar : x -> srt )
-       ; fas := <collect(analyze-potential-joins); flatten-list> t
-       ; info(|["Field accesses to analyze: ", fas])
+       ; fas := <collect-potential-joins> t
+       //; info(|["Field accesses to analyze from ", x, ": ", fas])
+       ; inlinecandidates := <filter(an-requires-inlining); remove-position-annos; make-set> fas
+       ; info(|["These should be inlined: ", inlinecandidates])
       |}
+
+  collect-potential-joins =
+    collect(an-potential-joins)
+    ; flatten-list
   
-  analyze-potential-joins =
+  an-potential-joins =
     where(?FieldAccess(Var(<IteratedVar>), _))
 
-  analyze-potential-joins =
-    ?TemplateCall(name, args,_, _)
+  an-potential-joins =
+    ?tc@TemplateCall(_, args,_, _)
     ; not([] := <collect(\ Var(x) -> <IteratedVar> x \)> args)
-    ; def := <find-definition>
-    ; not(Define([Page()], _, _, _) := def)
-    ; info(|["Interesting expression is passed on to: ", def])
-    ; fail
+    ; find-definition
+    ; not(?Define([Page()], _, _, _))
+    //; info(|["Searching in ", tc])
+    ; collect-potential-joins
+
+  an-potential-joins =
+    ?tc@ThisCall(_, args)
+    ; not([] := <collect(\ Var(x) -> <IteratedVar> x \)> args)
+    ; find-definition
+    //; info(|["Searching in ", tc])
+    ; collect-potential-joins
+
+strategies // checks for potential inlining
+
+  an-find-entity-property-pairs =
+    ?fa@FieldAccess(l, fld)
+    ; if Var(x) := l then
+        ![(<type-of> l, fld)]
+      else
+        ![(<type-of> l, fld)|<an-find-entity-property-pairs> l]
+      end
+
+  an-requires-inlining =
+    ?FieldAccess(l, fld)
+    ; an-find-entity-property-pairs
+    ; filter((where(defined-java-type), id))
