@@ -1,0 +1,121 @@
+module org/webdsl/dsl/to-java-servlet/session-variables
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+ 
+
+  GenerateCodeJavaServlet = generate-java-servlet-session-vars-template; fail
+
+  generate-java-servlet-session-vars-template  :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
+    <generate-java-servlet-template-partial> 
+    class-body-dec* |[
+      ~*cbds
+    ]|
+    with  sents := <SessionEntities<+![]>
+        ; cbds  := <map(generate-java-servlet-session-vars-template-helper);concat> sents
+
+  generate-java-servlet-session-vars-template-helper :
+    def|[ session x_ident { prop* fun* } ]| ->
+        class-body-dec*
+        |[ 
+           private t_ent x_ident = null;
+                             
+           @Partial
+           private void initialize()
+           {
+             x_ident = (x_ent) variables.get("~x_ident");
+           }
+   
+        ]| 
+    with  x_ent := <capitalize-string> x_ident
+        ; t_ent := <java-servlet-java-type> SimpleSort(x_ent)
+    
+    
+  GenerateCodeJavaServlet = generate-java-servlet-session-vars-page; fail
+  
+  //merge reference properties of session entities at page initialization
+  generate-java-servlet-session-vars-page  :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
+    <generate-java-servlet-partial> 
+    class-body-dec* |[
+      ~*cbds*
+    ]|
+    where <elem> (Page(),mod*)
+    with  sents := <SessionEntities<+![]>
+        ; cbds*  := <map(generate-java-servlet-session-vars-page-helper-1);concat> sents 
+  
+  generate-java-servlet-session-vars-page-helper-1:
+    def|[ session x_ident { prop* fun* } ]| -> 
+    class-body-dec* |[    
+           @Partial
+           private void initialize()
+           {
+             t_ent x_ident = null;
+             x_ident = (x_ent) session.getAttribute("~x_ident");
+             if(x_ident == null)
+             {
+               x_ident = new x_ent();
+               session.setAttribute("~x_ident",x_ident);
+             }
+             bstm*
+             variables.put("~x_ident",x_ident);
+           }
+           
+                      
+           @Partial
+           private void storeSessionEntities(){
+             session.setAttribute("~x_ident",variables.get("~x_ident"));
+           }  
+    ]|
+    with  x_ent := <capitalize-string> x_ident
+        ; t_ent := <java-servlet-java-type> SimpleSort(x_ent)
+        ; bstm* := <filter(generate-java-servlet-session-vars-page-helper-2-update(|x_ident))> prop*
+
+    generate-java-servlet-session-vars-page-helper-2-update(|x_ident):
+    Property(x, k, s, annos) -> java|[
+         if (x_ident.get#x() != null) {
+           hibSession.update(x_ident.get#x());
+         }
+     ]|
+    where  <defined-java-type> s
+        ;  SimpleSort(t) := s
+  
+  generate-java-servlet-session-vars-page-helper-2(|x_ident):
+    Property(x, k, s, annos) -> java|[
+         if (x_ident.get#x() != null) {
+           //hibSession.merge(x_ident.get#x());
+           x_ident.set#x((x_class)hibSession.load(x_class.class,x_ident.get#x().x_getid()));
+         }
+     ]|
+    where  <defined-java-type> s
+        ;  SimpleSort(t) := s
+    with   if <EntityIdName> t then
+             x_type := <sort-to-java-type-string> <EntityIdType> t
+           ; x_getid := <concat-strings>["get", <capitalize-string> <EntityIdName> t]
+           else
+             x_type := "Long"
+           ; x_getid := "getId"
+           end
+         ; x_class := <sort-to-java-type-string> s
+         
+     /*    
+//found some weird behavior with hibernate managed entities as properties in a session class
+// workaround is to merge them again at the beginning of an action:
+  session-variables-merging-for-action:
+    _ -> bstm*
+    with  sents := <SessionEntities<+![]>
+        ; bstm*  := <map(session-variables-merging-for-action-helper);concat> sents
+        
+  session-variables-merging-for-action-helper:
+    def|[ session x_ident { prop* fun* } ]| -> bstm*
+    with  x_ent := <capitalize-string> x_ident
+        ; t_ent := <java-servlet-java-type> SimpleSort(x_ent)
+        ; bstm* := <filter(generate-java-servlet-session-vars-page-helper-2(|x_ident))> prop*
+*/

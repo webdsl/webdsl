@@ -1,0 +1,65 @@
+module org/webdsl/dsl/analysis/main
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+  
+  analyze-all =
+    ?t
+    ; {| Root
+       : rules ( Root := t )
+       ; where(topdown(try(analyze))) // Don't adapt tree
+       |}
+
+  find-definition =
+    ?srt@SimpleSort(s)
+    ; memo(id
+      ; defined-java-type
+      ; !<Root>
+      ; collect(?Entity(s, _, _, _) <+ ?EntityNoSuper(s, _, _)) // @TODO also find extend entities
+      ; Hd
+      )
+
+  find-definition =
+    ?TemplateCall(x, args,_, _)
+    ; argtypes := <map(type-of)> args
+    ; <find-definition> (x, argtypes)
+
+  find-definition =
+    ?(x, argtypes)
+    ; memo(id
+        ; !<Root>
+        ; collect({args: \ Define(_, x, args, _) -> <id> where argtypes := <map({srt: \ Arg(_, srt) -> srt \})> args \})
+        ; Hd
+      )
+
+/*
+    get-properties-and-functions-aux(|s) :
+      Entity(s, super, props, funcs) -> (super, props, funcs)
+
+    get-properties-and-functions-aux(|s) :
+      EntityNoSuper(s, props, funcs) -> (None(), props, funcs)
+
+    get-properties-and-functions-aux(|s) :
+      ExtendEntity(s, props, funcs) -> (None(), props, funcs)
+      */
+
+
+    
+  add-analysis-hint(|msgs) =
+    where(
+      ?t
+      ; context := <error-context>
+      ; !msgs
+      ; concat-strings
+      ; ?msg
+      ; info(|["Analysis: ", msg, context, " in: ", <pp-webdsl-to-string <+ strip-annos> t])
+    )
+  
+    

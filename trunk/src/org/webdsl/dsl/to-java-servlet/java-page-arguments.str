@@ -1,0 +1,200 @@
+module org/webdsl/dsl/to-java-servlet/java-page-arguments
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules // page arguments
+                                  //ThisPage
+  GenerateCodeJavaServlet = where((ThisPage<+ThisTemplateName);not(InAction)); argument-to-java-servlet-property; fail
+   
+   argument-to-java-servlet-property :
+    arg@farg|[ x : srt ]| -> arg
+    where <?GenericSort(_,_)> srt // TODO list arguments to page or template
+   
+   argument-to-java-servlet-property :
+    arg@farg|[ x : srt ]| ->
+    <generate-java-servlet-partial> java|[
+       @Partial
+       private void conversion(){
+         if(parammap.get("~x")!=null)
+         {
+           bstm1*
+         } 
+       }
+       @Partial
+       void loadArguments() {
+         bstm*
+       }
+
+       private t x_id;
+       
+       public void set#x_id(t v) {
+         this.x_id = v;
+       }
+       public t get#x_id() {
+         return this.x_id;
+       }
+
+
+       private x_Class x;
+       
+       public void set#x(x_Class x) {
+         this.x = x;
+       }
+       
+       public x_Class get#x() {
+         return x;
+       }
+    ]|
+    where <defined-java-type> srt
+    with  <?SimpleSort(x_Class)> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; if <EntityIdName> x_Class then
+            t := <java-wrapper-type> <EntityIdType> x_Class
+          else
+            t := type|[ Long ]|
+          end
+        ; bstm* := <argument-to-java-servlet-initialization> arg
+        ; bstm1* := <java-servlet-conversion-to-object> (t,x,x_id)
+        
+
+   argument-to-java-servlet-property :
+    arg@farg|[ x : srt ]| ->
+    <generate-java-servlet-partial> java|[
+       @Partial
+       private void conversion(){
+         if(parammap.get("~x")!=null)
+         {
+           bstm1*
+         }
+       }
+       @Partial
+       void loadArguments() {
+         bstm*
+         bstm2*
+       }
+
+       
+       private t_Class x;
+       public void set#x(t_Class x) {
+         this.x = x;
+       }
+       public t_Class get#x() {
+         return x;
+       }
+    ]|
+    where t_Class := <builtin-java-type> srt
+    with <?SimpleSort(_)> srt
+        ; bstm* := <argument-to-java-servlet-initialization> arg
+        ; bstm2* := <string-argument-to-java-servlet-initialization <+ ![]> arg // fix for passing strings decode (eg. %20 -> ' ')
+        ; bstm1* := <java-servlet-conversion-to-object> (t_Class,x,x)
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_Id == null) {
+         x = new x_Class();
+      } else {
+          if (x == null) {
+          x = (x_Class) hibSession.load(x_Class.class, x_Id);
+          if(x == null) {
+              // @todo Is this a good idea?
+              x = new x_Class();
+              x.setId(x_Id);
+          }
+        }
+      }
+    ]|
+    where <defined-java-type> srt
+    with <?SimpleSort(x_Class)> srt
+        ; x_Id := <concat-strings>[x, "_id"]
+        ; e_init := <java-type-default-value> srt
+       // ; rules( Parameter :+= x )
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+          if (x == null) {
+            x = e_init;
+          }
+    ]|
+    where <builtin-java-type> srt
+    with  <?SimpleSort(x_Class)> srt
+        ; e_init := <java-type-default-value> srt
+       // ; rules( Parameter :+= x )
+
+  string-argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      try {
+          x = java.net.URLDecoder.decode(x,"UTF-8");
+      } catch (java.io.UnsupportedEncodingException uee) {
+          uee.printStackTrace();
+      }
+    ]|
+    where <builtin-java-type> srt
+        ; <?SimpleSort("String")> srt
+
+  //hiddens for form
+                                   //ThisPage
+  GenerateCodeJavaServlet =  where((ThisPage<+ThisTemplateName);not(InAction));   form-hidden-page-params-java-servlet ; fail
+       
+  form-hidden-page-params-java-servlet :
+    Arg(x_ident, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("<input type=\"hidden\" name=\""+"~x_ident"+"\" value=\""+x_ident+"\" />");    
+      }
+    ]|
+    //%> <input type="hidden" name="<%= e %>" value="#{<%= <ThisPage>%>.<%= e%>}" /> <%
+    where <builtin-java-type> s
+
+  form-hidden-page-params-java-servlet :
+    Arg(x, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("<input type=\"hidden\" name=\""+"~x"+"\" value=\""+x.getId()+"\" />");    
+      }
+    ]|
+    //%> <input type="hidden" name="<%= e1 %>" value="#{<%= <ThisPage>%>.<%= i%>.id}" /> <%
+    where <defined-java-type> s
+       
+  form-hidden-page-params-java-servlet  :
+    arg@farg|[ x : srt ]| -> arg
+    where <?GenericSort(_,_)> srt // TODO list arguments to page or template       
+       
+  GenerateCodeJavaServlet =  where((ThisPage<+ThisTemplateName);not(InAction));   form-post-page-params-java-servlet ; fail
+       
+  form-post-page-params-java-servlet :
+    Arg(x_ident, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("~x_ident"+"="+x_ident+"&");    
+      }
+    ]|
+    where <builtin-java-type> s
+
+  form-post-page-params-java-servlet :
+    Arg(x, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("~x"+"="+x.getId()+"&");    
+      }
+    ]|
+    where <defined-java-type> s
+
+  form-post-page-params-java-servlet  :
+    arg@farg|[ x : srt ]| -> arg
+    where <?GenericSort(_,_)> srt // TODO list arguments to page or template    

@@ -1,0 +1,326 @@
+module org/webdsl/dsl/modules/email
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+  
+rules
+  declare-email-definition =
+    ?def|[ define email x_name(farg*) { elem* } ]|
+    //?Define([Email()], name, args, body)
+    ; info(|["Defining email message: ", Var(x_name)])
+    ; rules(
+        IsEmail : x_name
+        CheckEmailDefinitionSignature : (None(), x_name, _) -> SimpleSort("Void")
+      )
+
+  // Why the hell is this a TemplateCall?
+  declare-email-action =
+    ?TemplateCall("email", [ThisCall(name, args)],_, []) // -> TemplateCall("email", bla, bla1)
+    ; rules ( CheckEmailActionSignature : (None(), name, _) -> SimpleSort("void") )
+
+  check-builtin-signature :
+    (None(), "email", [_]) -> SimpleSort("Void")
+  /* @REFACTOR
+  typecheck-specific-definition =
+    typecheck-email-template-definition
+
+rules // typechecking email templates
+
+  typecheck-email-template-definition :
+    def|[ define email x_email(farg*) { elem1* } ]| ->
+    def|[ define email x_email(farg*) { elem2* } ]|
+    //Define(mods, f, args, elems1) -> Define(mods, f, args, elems2)
+    where {| TypeOf, TemplateDefinition, TemplateArguments, IsEmail
+           : in-tc-context(id
+               ; <map(declare-typeof-arg)> farg*
+//               ; <check-to-arg> args
+               ; <alltd(declare-action <+ declare-template-definition <+ typecheck-vardecl)> elem1*
+               ; elem2* := <typecheck-email-elements> elem1*
+             |["email-definition ", x_email, "/"])
+           |}
+
+  check-to-arg =
+    ?[arg|tail]
+    ; if <not(?Arg(_, SimpleSort("Email")))> := arg then
+        typecheck-error(|["First argument of email template should be of type Email"])
+      end
+
+  typecheck-email-elements =
+    check-email-element-presence(|"to")
+    ; check-email-element-presence(|"from")
+    ; check-email-element-presence(|"subject")
+    ; map(typecheck-email-element)
+    <+ ?elems; typecheck-error(|["not a list of elements: ", elems])
+
+  typecheck-email-element =
+    typecheck-email-to
+    <+ typecheck-email-from
+    <+ typecheck-email-subject
+    <+ typecheck-email-body
+
+  check-email-element-presence(|tempcall) = where (
+    ?elems
+    ; t_list := <collect(?TemplateCall(tempcall, _, _))> elems
+    ; if <?[]> := t_list then
+        typecheck-error(|["Missing templatecall in email definition: ", tempcall])
+      end )
+
+  typecheck-email-to :
+    elem|[ to(e1){} ]| -> elem|[ to(e2){} ]|
+    ///TemplateCall("to", [elem1], []) -> TemplateCall("to", [elem2], [])
+    where e2 := <typecheck-expression> e1
+        ; if not(SimpleSort("Email") := <type-of> e2) then
+            typecheck-error(|["Argument of templatecall 'to' should be of type Email"])
+          end
+
+  typecheck-email-from :
+    //TemplateCall("from", [exp1, exp2], []) ->
+    elem|[ from(e1, e2){} ]| ->
+    //TemplateCall("from", [exp3, exp4], [])
+    elem|[ from(e3, e4){} ]|
+    where e3 := <typecheck-expression> e1
+        ; e4 := <typecheck-expression> e2
+        ; if (not(<type-compatible>(<type-of> e3, SimpleSort("String"))) ; not(<type-compatible>(<type-of> e3, SimpleSort("String")))) then
+            typecheck-error(|["Templatecall 'from' takes two arguments of a type compatable to String"])
+          end
+
+  typecheck-email-subject :
+    //TemplateCall("subject", [exp1], []) -> TemplateCall("subject", [exp2], [])
+    elem|[ subject(e1){} ]| -> elem|[ subject(e2){} ]|
+    where e2 := <typecheck-expression> e1
+    ; if not(<type-compatible>(<type-of> e2, SimpleSort("String"))) then
+        typecheck-error(|["Argument of templatecall 'subject' should be of a type compatable to String"])
+      end
+
+  typecheck-email-body :
+    //TemplateCall("body", [], elems1) -> TemplateCall("body", [], elems2)
+    elem|[ body() { elem1* } ]| -> elem|[ body() { elem2* } ]|
+    where elem2* := <typecheck-page-elements> elem1*
+
+rules
+
+  typecheck-template-call :
+    ThisCall(p, [e1@ThisCall(name, args)]) -> ThisCall(p, [ThisCall(name, args2)])
+    where in-tc-context(id
+            ; "email" := p
+            ; if not(<IsEmail> name) then
+                typecheck-error(|["email to undefined emailtemplate ", name])
+              else
+                args2 := <map(typecheck-expression)> args
+                ; <match-arguments> (<TemplateArguments> name, args2)
+              end
+          | ["email/"])
+
+  typecheck-other-statement :
+    Stat(e1@ThisCall("email", elems1)) -> Stat(e2)
+    where e2 := <typecheck-template-call> e1
+//        ; info(|"hier komt ie")
+*/
+
+rules // generating code
+
+   // @todo do these rules belong in back-end?
+   // @todo rewrite using :+ dynamic rules
+
+   create-email-call-rules :
+     //def@Define(modifiers, x, args, elems1) -> def
+     def@def|[ define page x(farg*) { elem1* } ]| -> def 
+     where <collect(create-email-call-rule(|x))> elem1*
+
+   create-email-call-rule(|x) =
+     ?ThisCall("email", [ThisCall(defined_template_name, args)])
+     ; where( template_file_name := <concat-strings> [defined_template_name, <new>]
+          ; if not(<GetEmailTemplateName> (defined_template_name, x)) then
+              rules (
+                GetEmailTemplateName : (defined_template_name, x) -> template_file_name
+                GetEmailTemplatePage : template_file_name -> x
+              )
+//	        ; if <not(elem)> (template_file_name, <EmailTemplates <+ ![]> defined_template_name) then
+                ; emailtemplates := [template_file_name | <EmailTemplates <+ ![]> defined_template_name]
+                ; rules (
+                  EmailTemplates : defined_template_name -> emailtemplates
+                )
+            end
+          )
+
+   stat-to-java :
+     Stat(e1@ThisCall("email", [ThisCall(name, args)])) ->
+       bstm* |[
+         ArrayList x_list = new ArrayList();
+         bstm1*
+         this.sendEmail(x_templ, x_list);
+       ]|
+     with template_name := <GetEmailTemplateName> (name, <ThisPage>)
+        ; x_templ := <concat-strings; double-quote>[template_name, ".xhtml"]
+        ; x_list := <newname> "_email_arguments"
+        ; bstm1* := <map(email-arguments-to-java(|x_list))> args
+
+  email-arguments-to-java(|x_list) =
+    ?argument
+    ; e1 := <expression-to-java> argument
+    ; !java|[
+         x_list.add(e1);
+       ]|
+
+rules // page stuff
+  /**
+   * Generate email code
+   */
+  GenerateCode = generate-email-code; fail
+
+  generate-email-code :
+    //Define([Page()], x_page, args, elems1) -> 
+    def|[ define page x_page(farg*) { elem1* } ]| ->
+    <generate-page-bean> <concat> [<email-to-code(|x_page)> elem1*, <add-email-properties(|x_page)> elem1*]
+
+  email-to-code(|page) =
+    if <oncetd(?ThisCall("email", [_]))> <id> then
+      list_property := <GetEmailArgumentsList> page
+      ; x_set := <property-setter> list_property
+      ; ! class-body-dec* |[
+        public void sendEmail(String template, ArrayList _list) {
+          x_set(_list);
+              try {
+                renderer.render(template);
+                facesMessages.add("Email sent successfully");
+              } catch (Exception ex) {
+                 log.error("Error sending mail", ex);
+                 facesMessages.add(FacesMessage.SEVERITY_INFO, "Email sending failed: " + ex.getMessage());
+              }
+        }
+      ]|
+    else
+      ![]
+    end
+
+  add-email-properties(|page) =
+    if <oncetd(?ThisCall("email", [_]))> <id> then
+            x := <GetEmailArgumentsList> page
+        ; X     := <capitalize-string> x
+        ; x_get := <concat-strings>["get", X]
+        ; x_set := <concat-strings>["set", X]
+        ; ! java|[
+              private ArrayList x;
+
+              public ArrayList x_get() {
+                //log.info("~x_get");
+                return x;
+              }
+
+              public void x_set(ArrayList x) {
+                //log.info("~x_set");
+                this.x = x;
+              }
+            ]|
+    else
+      ![]
+    end
+
+rules // JSF
+  
+  emails-to-xml =
+    //?def@Define([Email()], x, args, elems1)
+    ?def@def|[ define email x(farg*) { elem* } ]|
+    ; email_templates := <EmailTemplates> x
+    ; <map(email-to-xml(|def))> email_templates
+  
+  email-to-xml(|def) =
+    ?x_template
+    ; {| Component
+        : rules( Component := <GetEmailTemplatePage> x_template )
+       //; Define([Email()], x, fargs, elems) := def
+       ; def|[ define email x(farg*) { elem* } ]| := def
+       ; {|
+             ArrayIndex : bargs := <map(parameters-to-array-calls)> farg*
+           |}
+        ; arg_list := <zip> (farg*, bargs)
+        ; elem1* := <try(sometd(transform-variables(|arg_list)))> elem*
+        ; elem2* := <try(sometd(translate-template-expression))> elem1*
+        ; <email-to-xhtml> def|[ define email x_template(farg*) { elem2* } ]|//Define([Email()], template, fargs, elems2)
+        |}
+    
+  email-to-xhtml :
+    def|[ define email x(farg*) { elem* } ]| -> //Define([Email()], x, args, elems) ->
+      XmlFile(["view"], <concat-strings>[x, ".xhtml"], 
+    %>
+    <?xml version="1.0" encoding="UTF-8"?>
+    
+    <m:message xmlns="http://www.w3.org/1999/xhtml"
+               xmlns:m="http://jboss.com/products/seam/mail"
+               xmlns:h="http://java.sun.com/jsf/html"
+               xmlns:c="http://java.sun.com/jstl/core"
+               xmlns:s="http://jboss.com/products/seam/taglib">
+            <%= <email-elems-to-xhtml> elem* ::* %>
+    </m:message>
+    <%)
+      
+/*		
+    where {| Component
+           : rules( Component := <GetEmailTemplatePage> template )
+           ; elems' := <email-elems-to-xhtml> elems
+           |}*/
+
+  email-elems-to-xhtml =
+    filter-concat-warn(email-elem-to-xhtml <+ undefined-template-call | "email-elem-to-xhtml undefined: ")
+  
+  email-elem-to-xhtml :
+    elem|[ to(e){} ]| -> //TemplateCall("to", [elem], []) ->
+    %>
+      <m:to address="<%= email_address %>" />
+    <%
+    where email_address := <arg-to-value-string> e
+  
+  email-elem-to-xhtml :
+    elem|[ from(e1, e2){} ]| -> //TemplateCall("from", [name, email], []) ->
+    %>
+      <m:from name="<%= name %>" address="<%= email %>" />
+    <%
+  where name := <arg-to-value-string> e1
+      ; email := <arg-to-value-string> e2
+    
+  email-elem-to-xhtml :
+    elem|[ subject(e){} ]| -> //TemplateCall("subject", elems, _) ->
+    %>
+      <m:subject>
+        <%= subject::cdata %>
+      </m:subject>
+    <%
+    where //[elem] := elems
+          subject := <arg-to-value-string> e
+  
+  email-elem-to-xhtml :
+    elem|[ body() { elem* } ]| -> //TemplateCall("body", [], elems) ->
+    %>
+      <m:body>
+        <%= <elems-to-xhtml> elem* ::* %>
+      </m:body>
+    <%
+
+/*  construct-email-definition(|def) =
+    call_from_page := <id>
+    ; <transform-email-template(|call_from_page)> def
+  
+   transform-email-template(|call_from_page) : 
+     Define([Email()], x, fargs, elems1) -> Define([Email()], template_name, fargs, elems3)
+     where (template_name, page) := <EmailCallToTemplateName> call_from_page
+         ; ThisCall("email", [ThisCall(name2, aargs)]) := call_from_page
+         ; {|
+             ArrayIndex : bargs := <map(parameters-to-array-calls(|page))> aargs
+           |}
+         ; arg_list := <zip> (fargs, bargs)
+         ; rules ( Component := page )
+         ; elems2 := <try(sometd(transform-variables(|arg_list)))> elems1
+         ; elems3 := <try(sometd(translate-template-expression))> elems2
+*/
+  transform-variables(|arg_list) :
+    Var(name) -> exp
+    where <collect(?(Arg(name, _), exp))> arg_list  
+
+  parameters-to-array-calls =
+    ?farg|[ x : srt ]| //Arg(name, s)
+    ; rules( ArrayIndex := <(ArrayIndex; inc) <+ !0> )
+    ; x_parm := <concat-strings>[<GetEmailArgumentsList> <Component>, "[", <ArrayIndex; int-to-string>, "]"]
+    ; !FieldAccess(Var(<Component>), x_parm)

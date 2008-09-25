@@ -1,0 +1,102 @@
+module org/webdsl/dsl/typechecker/error
+
+imports
+  libstrategolib
+  Java-15 
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+
+  add-error(|msgs) =
+    AddError(|msgs) <+ default-report-error(|msgs)
+  
+  default-report-error(|msgs) =
+    with(
+      ?t
+      ; context := <error-context>
+      ; msg     := <error-to-string> msgs
+      ; info(|["Error: ", msg, context, " in: ", <pp-webdsl-to-string <+ strip-annos> t])
+      ; rules(
+          FoundErrors := <inc> <FoundErrors <+ !0>
+        )
+    )    
+  
+  add-warning(|msgs) =
+    AddWarning(|msgs) <+ default-report-warning(|msgs)
+  
+  default-report-warning(|msgs) =
+    with(
+      ?t
+      ; context := <error-context>
+      ; msg     := <error-to-string> msgs
+      ; info(|["Warning: ", msg, context, " in: ", <pp-webdsl-to-string <+ strip-annos> t])
+    )
+  
+  error-to-string =
+    (map(try(pp-webdsl)); concat-strings <+ try(pp-webdsl))
+
+  error-context =
+    get-annos
+    ; getfirst(?[_, area-in-file(filename, area(r, c, _, _, _, _))])
+    ; if !filename => "" then
+        <conc-strings> (" at line ", <as-string> r, " column ", <inc; as-string> c)
+      else
+        <conc-strings> (" at ", filename, ":", <as-string> r, ":", <inc; as-string> c)
+      end
+    <+
+      !""
+
+  pp-webdsl =
+    pp-webdsl-to-string
+  <+
+    rules(
+      FoundErrors := <inc> <FoundErrors <+ !0>
+    )
+  ; write-to-string
+
+rules
+  constraint-error :
+    VarDeclInit(_, srt, e) -> <add-error(|[e, " should be of type ", <pp-webdsl> srt])>
+    where not(<type-compatible> (srt, <type-of> e))
+
+  // x{} means it has no rename annotation, meaning (presumably) that this is a global variable
+  constraint-error :
+    VarDeclInit(x{}, srt, e) -> <add-error(|["Global variable ", x, " has illegal type. Global variables can only be of a defined entity type, not a list, set or builtin type."])>
+    where not(<defined-java-type> srt)
+
+  // will change with additions proposed by Jippe, 
+  // also currently no overloading of templates so just matching names
+  // these are the built-ins in the generator, types can specify their own constraints for template defs   
+  constraint-error : 
+    d@webdsl|[ define x(farg*) { elem* } ]| -> <add-error(|["redefinition of this built-in template is not allowed: ",<pp-webdsl> d])>
+    where <elem> (x,[ "menu"
+                     ,"menuheader"
+                     ,"menuitem"
+                     ,"div"
+                     ,"block"
+                     ,"text"
+                     ,"spacer"
+                     ,"image"
+                     ,"menubar"
+                     ,"navigate"
+                     ,"menuspacer"
+                     ,"table"
+                     ,"header"
+                     ,"list"
+                     ,"listitem"
+                     ,"section"
+                     ,"par"
+                     ,"container"
+                     ,"row"
+                     ,"navigateButton"
+                     ,"url"
+                     ,"form"
+                     ,"action"
+                     ,"actionLink"
+                     ,"captcha"
+//                     ,"input"
+//                     ,"output"
+                    ])

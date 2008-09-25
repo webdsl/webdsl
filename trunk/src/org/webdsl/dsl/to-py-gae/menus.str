@@ -1,0 +1,144 @@
+module org/webdsl/dsl/to-py-gae/menus
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // menus
+
+  py-page-elem-to-render :
+    TemplateCall("menubar", [exp],passign*, elems) ->
+    python*|[
+      out.write('<div class="menuwrapper menubar" id="' + e_menuid + '">');
+      out.write('<ul id="p7menubar" class="menu">');
+      stm*
+      out.write('</ul></div>');
+      ]|
+    where <?String("horizontal")> exp
+    with page := <ThisPage>
+       ; e_menuid := <concat-strings> ["'", <newname> "menubar", "'"]
+//       ; rules ( HMenuBar := x_menuid )
+       ; stm* := <py-page-elems-to-render> elems
+       ; <add-stylesheet> ("dropdownmenu", page)
+       ; rules ( JavascriptIncludes :+ page -> "dropdownmenu" )
+//       ; rules ( JavascriptOnloadBody :+ page -> %> init_dropdownmenu(); <% )
+
+  py-page-elem-to-render :
+    TemplateCall("menubar", [exp],passign*, elems) ->
+    python*|[
+      out.write('<div class="sdmenu menu" id="' + e_menuid + '">');
+      stm*
+      out.write('</div>');
+      out.write('<script>sideMenu = new SDMenu("' + e_menuid + '"); sideMenu.init();</script>');
+      ]|
+    where <?String("vertical")> exp
+    with page := <ThisPage>
+       ; x_menuid := <newname> "menubar"
+       ; e_menuid := <concat-strings> ["'", x_menuid, "'"]
+       ; <add-stylesheet> ("sdmenu", page)
+/*       ; rules ( VMenuBar := x_menuid )
+       ; rules ( JavascriptIncludes :+ page -> "sdmenu" )
+       ; rules ( JavascriptOnloadBody :+ page -> <concat-strings> [" sideMenu = new SDMenu(\"", x_menuid, "\"); sideMenu.init();"])
+*/
+       ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", [], passign*,elems) ->
+                                  TemplateCall("container", [], passign*, elems) \ <+
+                                \ TemplateCall("menu", [], passign*, elems) ->
+                                  TemplateCall("block", [], passign*, elems) \ <+
+                                \ TemplateCall("menuitem", [], passign*, elems) ->
+                                  TemplateCall("dummy", [], passign*, elems) \ <+
+                                \ TemplateCall("menuspacer", [], passign*, []) ->
+                                  TemplateCall("horizontalspacer", [], passign*, []) \
+                                  )))> elems
+       ; stm* := <py-page-elems-to-render> elems'
+
+  py-page-elem-to-render :
+    TemplateCall("menu", [], passign*, elems) ->
+      python*|[
+        out.write('<li class="menuheader">');
+        stm1*
+        stm2*
+        out.write('</li>');
+      ]|
+    where {| HeaderItems, DropDownItems
+           : <map(py-find-menuheaders)> elems
+           ; stm1* := <py-page-elems-to-render> <reverse> <HeaderItems>
+           ; if DropDownItems then
+               stm3* := <py-page-elems-to-render> <reverse> <DropDownItems>
+               ; stm2* := python*|[
+                   out.write('<ul>');
+                   stm3*
+                   out.write('</ul>');
+                 ]|
+             else
+               stm2* := []
+             end
+           |}
+
+    py-find-menuheaders =
+      ?elem
+      ; if <sometd(?TemplateCall("menuheader", _, passign*, _))> elem then
+          rules ( HeaderItems := [elem | <HeaderItems <+ ![]>] )
+        else
+          rules ( DropDownItems := [elem | <DropDownItems <+ ![]>] )
+        end
+
+  py-page-elem-to-render :
+    TemplateCall("menuheader", [], passign*, elems) -> e
+    with e := <mapconcat((menuheader-elem-to-python <+ py-page-elem-to-render <+ debug(!"Couldn't translate header thingie: "); ![]))> elems
+
+  menuheader-elem-to-python :
+    e@Text(elem) ->
+      python*|[
+        out.write('<a href="#">');
+        stm
+        out.write('</a>');
+      ]|
+    with stm := <py-page-elem-to-render> e
+
+  menuheader-elem-to-python :
+    TemplateCall("navigate",[call@ThisCall(p,args)], passign*,elems) ->
+    python*|[
+      out.write('<a href="' + e_link + '" ' + e_attr + '>');
+      stm*
+      out.write('</a>');
+    ]|
+    with <IsPage> p
+       ; stm* := <py-page-elems-to-render> elems
+       ; e_link := <py-call-to-view-string> call
+       ; if DropDownItems then
+           e_attr := "'class=\"trigger\"'"
+         else
+           e_attr := "''"
+         end
+       ; stm* := <py-page-elems-to-render> elems
+
+  /* @TODO
+  menuheader-elem-to-python :
+    TemplateCall("navigate", [ThisCall("url",[e])], elems) ->
+      %>
+        <a href="<%= url %>" att0><%= <elems-to-xhtml> elems ::* %></a>
+      <%
+    with url := <arg-to-value-string> e
+        ; if DropDownItems then
+            att0 := @> class="trigger" <@
+          else
+            att0 := []
+          end
+  */
+
+  py-page-elem-to-render :
+    TemplateCall("menuitem", [], passign*, elems) ->
+    python*|[
+      out.write('<li class="menuitem">');
+      stm*
+      out.write('</li>');
+    ]|
+    with stm* := <py-page-elems-to-render> elems
+
+  py-page-elem-to-render :
+    TemplateCall("menuspacer", [], passign*, []) ->
+    python*|[
+      out.write('<li><div class="menuspacer"/></li>');
+    ]|

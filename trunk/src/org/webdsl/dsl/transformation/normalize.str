@@ -1,0 +1,201 @@
+/**
+
+ Syntactic normalization rules for WebDSL
+
+*/
+
+// @todo : transform all rules to use concrete syntax
+
+module org/webdsl/dsl/transformation/normalize
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+    
+  /**
+   * syntactically normalize WebDSL constructs
+   */
+  
+  /*normalize-any = 
+    topdown-l(repeat(normalize))
+  */
+  desugar = normalize
+
+/*rules 
+
+  normalize :
+    [VarDeclInit(x, s, e) | stm*] -> [VarDecl(x, s), Assign(Assignment(x, e)) | stm*]
+*/
+rules // entity declarations
+
+  normalize :
+    |[ x k srt ]| -> |[ x k srt () ]|
+
+  normalize :
+    |[ x k srt := e ]| -> |[ x k srt () := e ]|
+
+rules // functions
+
+  normalize : 
+    FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
+    //|[ function x(farg*) { stat* } ]| -> |[ function x(farg*) : Void { stat* } ]|
+
+  normalize :
+    IfNoElse(e, bit) -> If(e, bit, Block([]))
+    //stat|[ if(e) { stat* } ]| -> stat|[ if(e) { stat* } else { } ]|
+
+  normalize :
+    IfNoElseTempl(e, elem*) -> IfTempl(e, elem*, [])
+
+rules // literals
+
+  normalize :
+    String(x) -> String(<un-double-quote> x)
+   
+  normalize :
+    Text(x) -> Text(<un-double-quote> x)
+
+rules // templates
+
+  normalize :
+    def |[ define x(farg*) { elem* } ]| -> def |[ define template x(farg*) { elem* } ]|
+    where not(<EnclosingDefinition> x)        
+
+  normalize :
+    def |[ define x(farg*) { elem* } ]| -> def |[ define local x(farg*) { elem* } ]|
+    where <EnclosingDefinition> x
+    
+rules // template elements
+
+  normalize :
+    elem|[ navigate(url(e))[passign*]{} ]| -> elem|[ navigate(url(e))[passign*]{url(e)} ]|
+
+//MW: those two should be necessary?
+ // normalize :
+ //   elem|[ navigate(url(e))[] ]| -> elem|[ navigate(url(e))[]{url(e)} ]|
+
+ // normalize :
+//    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e))[]{url(e)} ]|
+
+  normalize :
+    elem|[ navigate(e1, e2)[passign*]{} ]| -> elem|[ navigate(e2)[passign*]{text(e1)} ]|
+
+  normalize :
+    elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
+    where str2 := <un-double-quote> str1
+
+  // section("Header") {...} => section() { header{"Header"} }
+  // Works only for strings. Making generic is difficult, because argument to a 
+  // TemplateCall are Exp* and the body of a TemplateCall is TemplateElement*
+  normalize :
+    elem|[ section(e){elem*} ]| -> elem|[ section()[]{ header{output(e)} elem* } ]|
+
+  normalize :
+    elem|[ x ]| -> elem|[ x()[]{} ]|
+
+  normalize :
+    elem|[ x(e*) ]| -> elem|[ x(e*)[]{} ]|
+
+  normalize :
+    elem|[ x(e*)[passign*] ]| -> elem|[ x(e*)[passign*]{} ]|
+ 
+  normalize :
+    elem|[ x(e*){elem*} ]| -> elem|[x(e*)[]{elem*}]|
+    
+ normalize :
+    elem|[ x[passign*] ]| -> elem|[ x()[passign*]{} ]|
+
+ normalize :
+    elem|[ x[passign*]{elem*} ]| -> elem|[ x()[passign*]{elem*} ]|
+
+  normalize :
+    elem|[ x{elem*} ]| -> elem|[ x()[]{elem*} ]|
+
+  
+  normalize :
+    elem|[ text(x) ]| -> elem|[ text(y)[]{} ]| 
+    with y := <un-double-quote> x
+    
+  normalize :
+    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1)[]{} text(e2,e*)[]{ } elem* ]|
+
+  normalize :
+    elem|[ menubar()[passign*]{ elem* } ]| -> elem|[ menubar("horizontal")[passign*]{ elem* } ]|
+
+  normalize :
+    elem|[ from(e1){} ]| -> elem|[ from(e1,e1){} ]|
+    
+
+rules // filter noramalization
+
+  normalize :
+    FilterNoLimit(we, obe) -> Filter(we, obe, Limit(Int("1000"), Int("0")))
+
+  normalize :
+    FilterNoOrderByNoLimit(we) -> FilterNoOrderBy(we, Limit(Int("1000"), Int("0")))
+
+  normalize :
+    FilterNoWhereNoLimit(obe) -> FilterNoWhere(obe, Limit(Int("1000"), Int("0")))
+
+  normalize :
+    LimitNoLimit(e) -> Limit(Int("1000"), e)
+
+  normalize :
+    LimitNoOffset(e) -> Limit(e, Int("0"))
+
+rules // for normalization
+
+  normalize :
+    OrderNonSpecific(x) -> OrderAscending(x)
+
+  normalize :
+    ForNoFilter(x, s, e, te*) -> For(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*)
+
+  normalize :
+    For(x, s, e, FilterNoWhere(obe, l), te*) -> For(x, s, e, Filter(True(), obe, l), te*)
+
+  normalize :
+    For(x, s, e, FilterNoOrderBy(we, l), te*) -> For(x, s, e, Filter(we, OrderAscending(Null()), l), te*)
+
+  normalize :
+    ForAllNoFilter(x, s, te*) -> ForAll(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*)
+
+  normalize :
+    ForAll(x, s, FilterNoOrderBy(we, l), te*) -> ForAll(x, s, Filter(we, OrderAscending(Null()), l), te*)
+
+  normalize :
+    ForAll(x, s, FilterNoWhere(obe, l), te*) -> ForAll(x, s, Filter(True(), obe, l), te*)
+
+  normalize :
+    ForStmtNoFilter(x, s, e, block) -> ForStmt(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), block)
+
+  normalize :
+    ForStmt(x, s, e, FilterNoOrderBy(we, l), body) -> ForStmt(x, s, e, Filter(we, OrderAscending(Null()), l), body)
+
+  normalize :
+    ForStmt(x, s, e, FilterNoWhere(obe, l), body) -> ForStmt(x, s, e, Filter(True(), obe, l), body)
+
+  normalize :
+    ForAllStmtNoFilter(x, s, block) -> ForAllStmt(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), block)
+
+  normalize :
+    ForAllStmt(x, s, FilterNoOrderBy(we, l), body) -> ForAllStmt(x, s, Filter(we, OrderAscending(Null()), l), body)
+
+  normalize :
+    ForAllStmt(x, s, FilterNoWhere(obe, l), body) -> ForAllStmt(x, s, Filter(True(), obe, l), body)
+
+  normalize :
+    ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))))
+
+  normalize :
+    ForExp(oe, x, s, ie, FilterNoOrderBy(we, l)) -> ForExp(oe, x, s, ie, Filter(we, OrderAscending(Null()), l))
+
+  normalize :
+    ForExp(oe, x, s, ie, FilterNoWhere(obe, l)) -> ForExp(oe, x, s, ie, Filter(True(), obe, l))
+

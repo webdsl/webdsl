@@ -1,0 +1,113 @@
+module org/webdsl/dsl/typechecker/page
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // constraints
+
+  //duplicate page names
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Pages ", page*, " are defined multiple times."])> ""
+    where pages := <collect(?Define([Page()], _, _, _)); map(\ Define([Page()], nm, _, _) -> nm \)> sections
+        ; page* := <find-doubles> pages
+        ; not([] := page*)
+
+  /*
+  constraint-error :
+    Define([Page()], name, args, body) -> <add-error(|["Page ", name, " is defined multiple times."])>
+    where <bagof-IsPage;length;not(?1)> name
+    */
+
+// @todo: check for multiple definitions of templates
+/*  constraint-error :
+    Application(nm, sections) -> <add-error(|["Pages ", templates*, " are defined multiple times."])> ""
+    where templates := <collect(?Define([Template()], _, _, _)); map(\ Define([Page()], nm, _, _) -> nm \)> sections
+        ; templates* := <find-doubles> templates
+        ; not([] := templates*)
+
+  constraint-error :
+    Define([Template()], name, args, body) -> <add-error(|["Template ", name, " with arguments ", args, " is defined multiple times."])>
+    where <TemplateSignature> (name, <map(?Arg(_,<id>))> args)
+*/
+
+  constraint-error :
+    IfTempl(e, _, _) -> <add-error(|["Expression ", <pp-webdsl> e, " should be of type Bool"])>
+    where not(SimpleSort("Bool") := <type-of> e)
+
+  constraint-error :
+    IfNoElseTempl(e, _) -> <add-error(|["Expression ", <pp-webdsl> e, " should be of type Bool"])>
+    where not(SimpleSort("Bool") := <type-of> e)
+
+  constraint-error :
+    For(_, srt, e, _) -> <add-error(|[<pp-webdsl> e, " should be of list type of ", <pp-webdsl> srt])>
+    where not(GenericSort(_, srt) := <type-of> e)
+    
+/* Ruben: nog bezig; weet niet hoe ik kan checken of iets een entity of een andere srt is.
+  constraint-error :
+    webdsl|[ 
+      define page x_id(x_o : srt) {
+        stat*
+      }
+    ]| -> <add-error(|["Entity", <pp-webdsl> srt, " does not exist "])>
+    where not(<IsEntity> srt)*/
+
+rules // typechecking template definitions
+
+
+   /* @TODO: what to do with this?
+   typecheck-variable =
+     ?ExternalScopeVar(_) // is already checked at this point
+   typecheck-page-variable :
+     ExternalScopeVar(x) -> ExternalScopeVar(x){Type(t)}
+     where if not(t := <TypeOf> x) then
+             typecheck-error(|["variable ", x, " has no declared type",111111])
+             ; t := "Error"
+           end
+           
+      */
+
+rules // typechecking page elements
+
+  constraint-error :
+    TemplateCall("navigate", [e | _],passign*, []) -> <add-error(|["Not a valid link: ", <pp-webdsl> e])>
+    where not(<check-link> e)
+
+
+  constraint-error :
+    TemplateCall("navigate", [e | _],passign*, elems) -> <add-error(|["Not a valid link: ", <pp-webdsl> e])>
+    where not(<check-link> e)
+
+
+  constraint-error :
+    TemplateCall("navigatebutton", [e | _],passign*, elems) -> <add-error(|["Not a valid link: ", <pp-webdsl> e])>
+    where not(<check-link> e)
+
+  check-link :
+    ThisCall("url", [e]) -> ThisCall("url", [e])
+    where <type-of> e
+
+  check-link :
+    ThisCall(p, args) -> ThisCall(p, args)
+    where not("url" := p)
+        ; if not(<IsPage> p) then
+            add-error(|["link to undefined page ", p])
+          end
+
+   subtype-of =
+     eq
+
+   subtype-of =
+     ?(SimpleSort(t1), SimpleSort(t2))
+     ; where( <extends>(t1, t2) )
+
+   extends =
+     while-not(eq, (Extends, id))
+
+rules // typechecking for inits
+
+  constraint-error : 
+    InitAction(body) -> <add-error(|["An init block can not contain a return statement."])>
+    where not([] := <collect(?Return(_))> body)

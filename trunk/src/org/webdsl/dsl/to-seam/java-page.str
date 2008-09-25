@@ -1,0 +1,726 @@
+/**
+ * Generate a Seam EntityHome class for a declared entity
+ */
+
+module org/webdsl/dsl/to-seam/java-page
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules // session bean from page definition
+
+  generate-page-bean =
+    ? cbds
+    ; pkgname    := <BeanPackage>
+    ; x_Page := <ThisPage; capitalize-string>
+    //also allow a single class-body-declaration
+    ; if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
+    ; <emit-java-code>
+        compilation-unit|[
+          package pkgname;
+          @Partial
+          public class x_Page#Bean {
+            ~*cbds*
+          }
+        ]|
+
+  generate-initializer-method :
+    bstm* ->
+    java|[
+       @Partial
+       public void postInitialize() {
+         bstm*
+       }
+    ]|
+    
+rules
+  /**
+   * Generate base bean code
+   */
+  GenerateCode = generate-java-page; fail
+
+  generate-java-page :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
+    <emit-java-code> compilation-unit|[
+        package pkgname;
+
+
+        import java.util.*;
+        import java.io.Serializable;
+
+        import static javax.persistence.PersistenceContextType.EXTENDED;
+
+        import javax.persistence.PersistenceContext;
+        import javax.persistence.EntityManager;
+
+        import javax.faces.event.ValueChangeEvent;
+        import javax.faces.context.FacesContext;
+        import javax.faces.application.FacesMessage;
+
+        import javax.ejb.*;
+
+        import org.jboss.seam.ScopeType;
+
+        import org.jboss.seam.annotations.web.RequestParameter;
+        import org.jboss.seam.annotations.datamodel.DataModel;
+        import org.jboss.seam.annotations.datamodel.DataModelSelection;
+        import org.jboss.seam.faces.*;
+        import org.jboss.seam.log.Log;
+
+        import org.jboss.seam.annotations.In;
+        import org.jboss.seam.annotations.Out;
+        import org.jboss.seam.annotations.Name;
+        import org.jboss.seam.annotations.Destroy;
+        import org.jboss.seam.annotations.Create;
+        import org.jboss.seam.annotations.Logger;
+
+        import org.jboss.seam.annotations.Factory;
+
+        import pkgname2.*;
+
+        // @todo: @RequiresInterface
+        @Stateful
+        @Name(~string:String([Chars(x_page)]))
+        @Partial
+        public class x_Page#Bean implements x_Page#BeanInterface
+        {
+          private boolean initialized = false;
+
+          @Logger private Log log;
+
+          //@PersistenceContext(type = EXTENDED)
+          //@In
+          @In EntityManager entityManager;
+
+          @In private FacesMessages facesMessages;
+
+          @In private FacesContext facesContext;
+
+          @In private Renderer renderer;
+
+            /* By calling forceInitialization the initialization of a bean is forced
+             * This also enforces the execution of @Create annotated methods such as initialize()
+             * When a bean is already active, nothing happens.
+             */
+          public void forceInitialization() {
+            argumentInitialize();
+            postInitialize();
+            initialized = true;
+          }
+
+          @Partial void argumentInitialize() { }
+
+          @Partial void postInitialize() { }
+
+          @Create public void initialize() {
+            ~*stm1*
+          }
+
+          @Destroy @Remove
+          public void destroy() {}
+
+          public FacesContext getFacesContext() {
+            return this.facesContext;
+          }
+
+          public String getHostName() {
+            return "http://" + this.facesContext.getExternalContext().getRequestHeaderMap().get("host");
+          }
+        }
+      ]|
+    where ( x_page := <ThisPage> )
+        ; if <?[]> farg* <+ <is-toplevel-template> x_page then
+            stm1* := [ stm |[ if (!initialized) forceInitialization(); ]| ]
+          else
+            stm1* := []
+          end
+    with pkgname    := <BeanPackage>
+       ; pkgname2   := <DomainPackage>
+       ; x_page     := <ThisPage>
+       ; x_Page     := <capitalize-string> x_page
+    
+        // @todo scoping of variables, conflicts between session, global and page vars
+
+
+
+rules //session variables
+
+  /**
+   * Generate session entity code
+   */
+  GenerateCode = generate-session-var-initialization; fail
+
+  generate-session-var-initialization :
+    def|[ define mod* x_page (farg*) { elem* } ]| ->
+    <generate-page-bean> java|[
+       @Partial
+       void argumentInitialize() {
+         ~*bstm1*
+       }
+       ~*cbds1
+    ]|
+    where ( x_page := <ThisPage> )
+        ; sents := <SessionEntities; filter(\ se@SessionEntity(nm, _, _) -> se\)> elem* //where <oncetd(?Var(nm) <+ ?Qualified(nm, _))> elem* \)>
+        ; bstm1* := <map(session-entity-property-to-merge);concat> sents
+        ; cbds1  := <map(session-inouts);concat> sents
+
+  session-inouts :
+    def|[ session x_ident { prop* fun* } ]| -> //SessionEntity(x_ident, _, _) ->
+        class-body-dec*
+        |[
+               @org.jboss.seam.annotations.In(create=true) @org.jboss.seam.annotations.Out private x_ent x_ident;
+
+               public void set#x_ident(x_ent x_ident) {
+                 this.x_ident = x_ident;
+               }
+
+               public x_ent get#x_ident() {
+                 return x_ident;
+               }
+        ]|
+    where x_ent := <capitalize-string> x_ident
+
+  //merge references inside session entities at page initialization
+  session-entity-property-to-merge:
+    //SessionEntity(x_ident, _, _)
+    def|[ session x_ident { prop* fun* } ]| -> bstm0*
+    where classofsession := <type-of> Var(x_ident)
+        ; SimpleSort(classname) := classofsession
+        ; bstm0* := <filter(session-entity-property-to-merge(|x_ident))> prop*
+
+  session-entity-property-to-merge(|x_ident):
+    Property(x, k, s, annos) -> java|[
+         if (x_ident.get#x() != null) {
+           //x_ident.x_set(entityManager.merge(x_ident.x_get())); old setup, slower(?)
+           x_ident.set#x(entityManager.find(x_class.class,x_ident.get#x().x_getid()));
+         }
+     ]|
+    where <defined-java-type> s
+         ; SimpleSort(t) := s
+         ; if <EntityIdName> t then
+             x_type := <sort-to-java-type-string> <EntityIdType> t
+           ; x_getid := <concat-strings>["get", <capitalize-string> <EntityIdName> t]
+           else
+             x_type := "Long"
+           ; x_getid := "getId"
+           end
+         ; x_class := <sort-to-java-type-string> s
+
+rules // bean parameters
+
+  /**
+   * Generate code for bean arguments
+   */
+  /*GenerateCode = PageArgumentCode; fail
+
+  PageArgumentCode :
+    Define([Page()], x_page, args, elems1) ->
+    <generate-page-bean> |[
+       @Create @Begin(join=true)
+       public void initialize() {
+         //log.info("~x_page" + ".initalize()");
+         bstm1*
+         postInitialize();
+       }
+       ~*cbds1
+       ~cbds2
+    ]|
+    where info(|"Generating argument code")
+        ; cbds1  := <filter-concat-warn(argument-to-bean-property | "cannot generate bean property for argument: ")> args
+        ; bstm1* := <filter-concat-warn(argument-to-initialization | "cannot generate initialization code for argument: ")> args
+        ; cbds2  := <generate-initializer-method> []
+  */
+  GenerateCode = not(InAction) ; argument-to-bean-property; fail
+
+  argument-to-bean-property :
+    arg@farg|[ x : srt ]| ->
+    <generate-page-bean> java|[
+       @Partial
+       void argumentInitialize() {
+         bstm*
+       }
+       //@RequestParameter("~x")
+       private t x_id;
+       public void set#x_id(t v) {
+         this.x_id = v;
+         forceInitialization();
+       }
+       public t get#x_id() {
+         return this.x_id;
+       }
+
+       private x_Class x;
+       public void set#x(x_Class x) {
+         //log.info("~x_set");
+         this.x = x;
+       }
+       public x_Class get#x() {
+         //log.info("~x_get");
+         return x;
+       }
+    ]|
+    where <defined-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; if <EntityIdName> x_Class then
+            t := <java-wrapper-type> <EntityIdType> x_Class
+          else
+            t := type|[ Long ]|
+          end
+        ; bstm* := <argument-to-initialization> arg
+
+  argument-to-bean-property :
+    //arg@Arg(x, s@SimpleSort(_)) ->
+    arg@farg|[ x : srt ]| ->
+    <generate-page-bean> java|[
+       @Partial
+       void argumentInitialize() {
+         bstm*
+       }
+//       @RequestParameter("~x")
+       private t_Class x;
+       public void set#x(t_Class x) {
+         //log.info("~x_set");
+         this.x = x;
+       }
+       public t_Class get#x() {
+         //log.info("~x_get");
+         return x;
+       }
+    ]|
+    where t_Class := <builtin-java-type> srt
+        ; <?SimpleSort(_)> srt
+        ; bstm* := <argument-to-initialization> arg
+
+  argument-to-initialization :
+    //Arg(x, s@SimpleSort(x_Class)) ->
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_Id == null) {
+         //log.info("No " + "~x_Id" + " defined, creating new " + "~x_Class");
+         x = new x_Class();
+      } else {
+          if (x == null) {
+          x = entityManager.find(x_Class.class, x_Id);
+          if(x == null) {
+              // @todo Is this a good idea?
+              x = new x_Class();
+              x.setId(x_Id);
+          }
+        }
+      }
+    ]|
+    where <defined-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
+        ; x_Id := <concat-strings>[x, "_id"]
+        ; e_init := <java-type-default-value> srt
+        ; rules( Parameter :+= x )
+
+  argument-to-initialization :
+    //Arg(x, s@SimpleSort(x_Class)) ->
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+          if (x == null) {
+            x = e_init;
+          }
+    ]|
+    where <builtin-java-type> srt
+        ; <?SimpleSort(x_Class)> srt
+        ; e_init := <java-type-default-value> srt
+        ; rules( Parameter :+= x )
+
+rules // action methods
+
+  /**
+   * Generate action method code
+   */
+  GenerateCode = generate-action-bean-code; fail
+
+  generate-action-bean-code :
+    a@Action(_, _, _) ->
+    <generate-page-bean> [<action-to-bean-method> a]
+
+  action-to-bean-method =
+    action-to-java-method
+
+  // @todo what does it mean to delete an object?
+
+rules // init block translation
+  /**
+   * Generate action method code
+   */
+  GenerateCode = generate-initializer-method-code; fail
+
+  generate-initializer-method-code :
+    ia@InitAction(_) -> <generate-page-bean> [<generate-initializer-method> <initaction-to-initialization> ia]
+
+  initaction-to-initialization:
+    InitAction(Block(statements)) -> <statements-to-java> statements
+
+rules // view transition
+
+//  call-to-view-string :
+//    ThisCall(p,args) -> e
+//    where <IsPage> p
+//        ; fargs := <TemplateArguments> p
+//        ; params := <zip(view-string-bind-param)> (fargs, args)
+//        ; e := <page-call-to-java-url> (p, params)
+//
+  call-to-view-string :
+    ThisCall(p,args) -> java|[ "/" + "~p" + ".seam?" + e ]|
+    where <IsPage> p
+        ; fargs := <TemplateArguments> p
+        ; params := <zip(view-string-bind-param)> (fargs, args)
+        ; e := <foldr(!java|[ "" ]|, add-string-expressions)> params
+
+  add-string-expressions :
+    (e1, e2) -> java|[ e1 + e2 ]|
+
+//  view-string-bind-param :
+//    (Arg(x, s@SimpleSort(x_Class)), e) -> (x, e)
+//    where <defined-java-type> s
+//
+//  page-call-to-java-url :
+//    (fn, []) -> |[ "/" + "~fn" ]|
+//
+//  page-call-to-java-url :
+//    (fn, [fst]) -> |[ "/" + "~fn" + "/" + e.getId() ]|
+//    where (_, fid) := fst
+//        ; e := <arg-to-java-exp> fid
+//
+//  page-call-to-java-url =
+//    ?(fn, [fst|[snd|rest]])
+//    ; info(|["page calls with more than one argument are not implemented yet."])
+//    ; fail
+//
+//  param-to-request-param :
+//    (param, value) -> <concat-strings> [param, "=", value]
+//
+  view-string-bind-param :
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> java|[ "~x" + "=" + e2 ]|
+    where <builtin-java-type> s
+        ; e2 := <arg-to-java-exp> e1
+
+  view-string-bind-param :
+    (Arg(x, s@SimpleSort(x_Class)), e1) -> java|[ "~x_id" + "=" + e2.getId() ]|
+    where <defined-java-type> s
+        ; e2 := <arg-to-java-exp> e1
+        ; x_id := <concat-strings> [x, "_id"]
+
+  arg-to-java-exp :
+    Var(x) -> java|[ x ]|
+    where not(<eq>(<type-of> Var(x), "Component"))
+
+  arg-to-java-exp :
+    FieldAccess(Var(x), y) -> java|[ y ]|
+    where "Component" := <type-of> Var(x)
+
+  arg-to-java-exp :
+    FieldAccess(e1, y) -> java|[ e2.y_get() ]|
+    where e2 := <arg-to-java-exp> e1
+        ; y_get := <concat-strings>["get", <capitalize-string> y]
+
+  arg-to-java-exp :
+    Call(e1, x, e2*) -> java|[ e3.x(e4*) ]|
+    where e3 := <arg-to-java-exp> e1
+        ; e4* := <map(arg-to-java-exp)> e2*
+
+  arg-to-java-exp :
+    ThisCall(x, e1*) -> java|[ x(e2*) ]|
+    where e2* := <map(arg-to-java-exp)> e1*
+
+rules // collections
+
+  collection-to-java(|x, x_Class) =
+      dbg(|"select-declarations match: ")
+    ; X          := <capitalize-string> x
+    ; !java|[
+          @DataModel(~string:String([Chars(<concat-strings> [x, "List"])]))
+          private List<x_Class> x#List;
+
+          public List<x_Class> get#x#List() {
+            return x#List;
+          }
+
+          public int get#x#Length() {
+            return x#List.size();
+          }
+
+          @Factory(~string:String([Chars(<concat-strings> [x, "List"])]))
+          public void init#x#List() {
+            x#List = entityManager.createQuery("from " + "~x_Class").getResultList();
+          }
+       ]|
+
+  collection-init-to-java(|x) =
+      X          := <capitalize-string> x
+    ; ![ <generate-initializer-method> bstm*|[ init#x#List();]| ]
+
+rules // tables
+
+  /**
+   * Code to generate collection functions and initializations
+   */
+  GenerateCode = 
+    ?def|[ define mod* x_page (farg*) { elem* } ]| 
+    ; where ( x_page := <ThisPage> )
+    ; <alltd(?Action(_,_,_) <+ generate-function-and-initializations)> elem*
+    ; fail
+
+  generate-function-and-initializations =
+    (?c@TemplateCallDeclaredType(_, _, _, _) <+ ?c@ForAll(_, _, _, _))
+    ; <generate-page-bean> <concat> [<collection-to-declarations> c, <collection-to-initialization> c]
+
+  collection-to-declarations :
+    TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
+      <collection-to-java(|x, x_Class)>
+
+  collection-to-initialization :
+    TemplateCallDeclaredType("table", x, SimpleSort(x_Class), columns) ->
+      <collection-init-to-java(|x)>
+
+rules // for all: for(x : s) { ... }
+
+  collection-to-declarations :
+    elem|[ for(x : srt fltr) { elem* } ]| -> <collection-to-java(|x, x_Class)>
+    where <?SimpleSort(x_Class)> srt
+
+  collection-to-initialization :
+    ForAll(x, SimpleSort(x_Class), _, elems) ->
+      <collection-init-to-java(|x)>
+
+rules // select
+
+  /**
+   * Code to generate select functions and initializations
+   */
+  GenerateCode = 
+    ?def|[ define mod* x_page (farg*) { elem* } ]|
+    ; where ( x_page := <ThisPage> )
+    ; <alltd(?Action(_,_,_) <+ generate-select-code)> elem*
+    ; fail
+
+  generate-select-code :
+    elem|[ select(x : srt, str, e1) ]| ->
+    //Select(x, SimpleSort(x_Class), label, e1) -> <dbg(|"select-declarations success: ")>
+    <generate-page-bean> java|[
+      @DataModel(~string:String([Chars(<concat-strings> [x, "List"])]))
+      private List<x_Class> x#List;
+
+      public List<x_Class> get#x#List() {
+        return x#List;
+      }
+
+      @Factory(~string:String([Chars(<concat-strings> [x, "List"])]))
+      public void init#x#List() {
+        //log.info("~x_initList");
+        x#List = entityManager.createQuery("from " + "~x_Class").getResultList();
+      }
+
+      @Partial
+      public void postInitialize() {
+        init#x#List();
+      }
+    ]|
+    where not(InAction)
+        ; dbg(|"select-declarations match: ")
+        ; <?SimpleSort(x_Class)> srt
+        ; X          := <capitalize-string> x
+        ; dbg(|"select-to-declarations names: ")
+        //; e2          := <arg-to-java-exp> e1
+        ; dbg(|"select-to-declarations java-exp: ")
+
+rules // template expression functions
+   template-functions-to-code = []
+//     (x_fn, e) -> |[
+//       public boolean x_fn(
+
+
+rules // page variables
+
+  /**
+   * Generating code for page variables
+   */
+  GenerateCode = not(InAction); generate-page-variables-code; fail
+
+  generate-page-variables-code :
+    elem|[ var x : srt ]| ->
+    //VarDecl(x, s) ->
+    <generate-page-bean> java|[
+       private t x = e;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+    ]|
+    where t     := <java-type> srt
+        ; X     := <capitalize-string> x
+        ; e     := <java-type-default-value> srt
+
+  generate-page-variables-code :
+    //VarDeclInit(x, s, e1) ->
+    elem|[ var x : srt := e1 ]| ->
+    <generate-page-bean> java|[
+       private t x;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+       @Partial public void postInitialize() { x = e2; }
+    ]|
+    where not(HqlQuery(_) := e1)
+        ; t     := <java-type> srt
+        ; X     := <capitalize-string> x
+        //; stm := <statement-to-java> Assign(Assignment(x, e1)) // @TODO: these things should be avoided
+        ; e2 := <expression-to-java> e1
+
+  // page-level variables with query initializers
+
+  generate-page-variables-code :
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, HqlQuery(e1)) ->
+    <generate-page-bean> java|[
+       @DataModel(~string:String([Chars(x)])) private t x;
+       public t get#x() { return x; }
+       public void set#x(t x) { this.x = x; }
+       @Factory(~string:String([Chars(x)]))
+       public void init#x() { x = e2.getResultList(); }
+       @Partial public void postInitialize() { init#x(); }
+    ]|
+    where t      := <java-type> srt
+        ; <?HqlQuery(e1)> e
+        ; X      := <capitalize-string> x
+        ; e2     := <query-to-create-query> e1
+
+rules // List getter/setter for Set typed page variables
+
+  GenerateCode = not(InAction); generate-page-variables-code-set; fail
+
+  generate-page-variables-code-set :
+    //VarDecl(x, s@GenericSort("Set", [SimpleSort(Y)])) ->
+    elem|[ var x : Set<srt> ]| ->
+    <generate-page-bean>
+    java|[
+       public t2 get#x#List() { return new java.util.ArrayList(get#x()); }
+       public void set#x#List(t2 x) { set#x(new java.util.LinkedHashSet(x)); }
+       public int get#x#Length() { return get#x().size(); }
+    ]|
+    where //t := <java-type> srt // can't figure out what this is used for
+          <?SimpleSort(Y)> srt
+        ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
+
+  generate-page-variables-code-set :
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-page-variables-code-set> elem|[ var x : srt ]|
+
+rules // List getter/setter for List typed page variables
+
+  GenerateCode = not(InAction); generate-page-variables-code-list; fail
+
+  generate-page-variables-code-list :
+    //VarDecl(x, s@GenericSort("List", [SimpleSort(Y)])) ->
+    elem|[ var x : List<srt> ]| ->
+    <generate-page-bean>
+    java|[
+       public t2 get#x#List() { return get#x(); }
+       public void set#x#List(t2 x) { set#x(x); }
+       public int get#x#Length() { return get#x().size(); }
+    ]|
+    where //t           := <java-type> s // see above
+         <?SimpleSort(Y)> srt
+         ; t2 := <java-type> GenericSort("List", [SimpleSort(Y)])
+
+  generate-page-variables-code-list :
+    //VarDeclInit(x, s, e) -> <generate-page-variables-code-list> VarDecl(x, s)
+    elem|[ var x : srt := e ]| ->
+    //VarDeclInit(x, s, e) -> 
+    <generate-page-variables-code-list> elem|[ var x : srt ]|
+
+rules // query translation
+
+  query-to-create-query :
+    e -> <repeat(once-AddQueryParameter)> java|[ entityManager.createQuery("~q") ]|
+    where q := <alltd(replace-parameter); pp-hql-to-string; trim-chars('\n')> e
+
+  replace-parameter :
+    DslExp(e1) -> IdParam(x2)
+    where x1  := <newname> "param"
+        ; x2 := <concat-strings>[":", x1]
+        ; e2 := <expression-to-java> e1
+        ; rules(
+            AddQueryParameter :+ e -> java|[ e.setParameter("~x1", e2) ]|
+          )
+
+rules // For generating template functions
+
+  /**
+   * Generate template function code
+   */
+  GenerateCode = generate-template-function-code; fail
+
+  generate-template-function-code :
+    def|[ define mod* x_page(farg*) { elem1* } ]| -> <generate-page-bean> <template-functions-to-java> (x_page, farg*)
+    where ( x_page := <ThisPage> )
+     
+   template-functions-to-java :
+     (page, args) -> function*
+     where pkgname := <Package>
+         ; pkgname2 := <DomainPackage>
+         ; functions := <retain-all(?(page, args, _, _, _))> <AllTemplateFunctions>
+         ; function* := <map(template-function-to-java)> functions
+
+   template-function-to-java :
+     (page, args, x_fn, params, e) -> java|[
+       public t x_fn(param*) {
+         stm
+       } ]|
+     where {| InFunction, TransformParameterName
+            : param* := <map(template-function-param-to-java)> params
+            ; t := <type-of; java-type> e 
+            ; rules ( InFunction := "Yes" )
+            ; e2 := <topdown(try(replace-template-call-params))> e // <try(sometd(replace-template-call-params))> e
+            ; stm := <statement-to-java> /*<try(desugar-any)>*/ Return(e2)
+            |}
+
+   replace-template-call-params :
+     fa@FieldAccess(e, x) -> Var(y)
+     where y := <TransformParameterName> fa
+
+   replace-template-call-params :
+     v@Var(x) -> Var(y)
+     where y := <TransformParameterName> v
+
+   template-function-param-to-java :
+     fa@FieldAccess(_, _) -> java|[ t y ]|
+     where t := <type-of; java-type> fa
+         ; y := <newname> "param"
+         ; rules ( TransformParameterName : fa -> y )
+   
+   template-function-param-to-java :
+     v@Var(_) -> java|[ t y ]|
+     where t := <type-of; java-type> v
+         ; y := <newname> "param"
+         ; rules ( TransformParameterName : v -> y )
+
+rules // Download helper
+  /**
+   * Generate download helper code
+   */
+  GenerateCode = generate-download-helper-function; fail
+    
+  generate-download-helper-function :
+    def|[ define mod* x_page(farg*) { elem* } ]| -> <generate-page-bean> <concat> [<download-helper-function> elem*]
+    where ( x_page := <ThisPage> )
+
+  download-helper-function =
+    if <oncetd(?TemplateCall("outputFile",[e],_,[]))> <id> then
+      e0 := <expression-to-java> e ;
+      ! java|[
+        public void download() {
+          org.webdsl.tools.Utils.download(facesContext, e0.getData(), e0.getName(), e0.getContenttype());
+        }
+      ]|
+    else
+      ![]
+    end

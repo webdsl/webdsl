@@ -1,0 +1,97 @@
+module org/webdsl/dsl/modules/types/file
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  
+imports 
+  libwebdsl-front
+    
+rules // Desugaring
+      
+  DeriveInputBuiltins :
+    elem|[ input(e)[passign*]{} ]| -> elem|[ inputFile(e)[passign*]{} ]|
+    where SimpleSort("File") := <type-of> e
+  
+  DeriveOutputBuiltins :
+    elem|[ output(e)[passign*]{} ]| -> elem|[ outputFile()[passign*]{} ]|
+    where SimpleSort("File") := <type-of> e
+    
+  DeriveInput :
+    elem|[ input(e)[passign*]{} ]| -> elem|[ inputBinary(e)[passign*]{} ]|
+    where SimpleSort("Binary") := <type-of> e
+      
+  DeriveOutput :
+    elem|[ output(e)[passign*]{} ]| -> elem|[ outputBinary(e)[passign*]{} ]|
+    where SimpleSort("Binary") := <type-of> e
+  
+/*  Desugar :
+    Application(qid, sections) -> Application(qid, sections')
+    where [] := <collect(?EntityNoSuper("File", _, _))> sections
+        ; new_section := 
+            webdsl|[
+              section file-definition
+              
+          entity File {
+            name :: String (name)
+            contenttype :: String
+            data :: Binary
+          }
+        ]|
+    ; sections' := <concat>[sections, [new_section]]
+*/
+rules // Annotations
+
+  builtin-persistence-annotations :
+    SimpleSort("Binary") ->
+      [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
+       anno|[ @Column(columnDefinition="LONGBLOB") ]|]
+
+rules // Typechecking
+   
+  sort-to-java-type-string : SimpleSort("Binary") -> "java.lang.Byte[]"
+      
+  builtin-java-type : 
+    SimpleSort("Binary") -> type|[ byte[] ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("Binary") -> java|[ null ]|
+
+  type-default-value :
+    SimpleSort("Binary") -> exp|[ null ]|
+    
+  builtins-initialization-expression :
+    (Ref(), SimpleSort("File")) -> |[ new File() ]|
+
+rules // JSF
+  
+  elem-to-xhtml :
+    elem|[ inputFile(e)[]{} ]| ->
+    %>
+      <div>
+      <s:fileUpload id="<%= label%>"
+      data="#{<%= estring %>.data}"
+      contentType="#{<%= estring %>.contenttype}"
+      fileName="#{<%= estring %>.name}" required="<%= req %>"/>
+      </div>
+    <%
+    with estring := <arg-to-el> e
+       ; label := <newname> "inputFileId"
+       ; req := <input-of-required-property(|e)>
+  
+  elem-to-xhtml :
+    elem|[ outputFile(e)[]{} ]| ->
+    %>
+      <s:link styleClass="outputFile" value="#{<%= <arg-to-el> e %>.name}"
+         action="#{<%= <Component> %>.download()}" />
+    <%
+        
+  elem-to-xhtml =
+    ?elem|[ inputBinary(e)[passign*]{} ]|
+    ; ![]
+
+  elem-to-xhtml =
+    ?elem|[ outputBinary(e)[passign*]{} ]|
+    ; ![]
+    

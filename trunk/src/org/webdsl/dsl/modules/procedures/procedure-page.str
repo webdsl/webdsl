@@ -1,0 +1,107 @@
+module org/webdsl/dsl/modules/procedures/procedure-page
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // Translate to pages and stuff
+
+  procedures-to-pages :
+    def@def|[ procedure x_id (x_o : srt) { procelem2* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsProcedure> x_id
+    with  SimpleSort(s) := srt
+        ; x_view := <decapitalize-string> s
+        ; procelem* := <alltd(translate-object-param(|x_o))> procelem2*
+        ; stat* := <filter(procedure-do-statements); concat; add-procedure-done> procelem* // get do statements and add call to done()
+        ; if <IsDoProcedure> x_id then
+              stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
+            ; elem*  := elem*|[ 
+                init { 
+                  x_o.x_id.do();
+                  goto x_view(x_o);
+                }
+              ]|
+          else
+              stat2*      := <add-view-page-return(|x_view, Var(x_o))> stat*
+            ; viewelem*   := <procedure-view-elems> def
+            ; elem2       := elem|[ 
+                action doAction() {
+                  x_o.persist();
+                  x_o.x_id.do();
+                  return x_view(x_o);
+                } 
+              ]|
+            ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction())[]{} ]| -> elem|[ dummy ()[]{ elem elem2 } ]| \}))> viewelem*
+          end
+        ; e2 := <procedure-get-access-exp(|x_o, x_id)> procelem*
+        ; <emit-webdsl-section> |[
+            access control rules {
+              rules page x_id(x_o : srt) {
+                e2
+                rules action doAction() {
+                  e2
+                }
+              }
+            }
+          ]|
+          
+        // create procedure status including viewPage
+        ; x_Status := <concat-strings> [<capitalize-string> x_id, "ProcedureStatus"]
+        ; x_status := <decapitalize-string> x_Status
+        ; x_ent := s
+        ; stat3* := <filter(procedure-enabled-statements); concat> procelem*
+        ; stat4* := <filter(procedure-processed-statements); concat> procelem*
+        ; stat5* := <filter(procedure-done-statements); concat> procelem*
+        ; stat6* := <filter(not({e: ?webdsl|[ return e; ]| <+ ?webdsl|[ goto e; ]|}))> stat* // no returns or goto's in do
+        ; stat7* := <filter(procedure-disabled-statements); concat> procelem*
+        ; if not(<IsGeneratedProcedure> x_id); [] := <filter(?procelem|[ process { processexp } ]|)> procelem2*; not(<ProcedureHasProcess> x_id) then
+            stat8* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
+          else
+            stat8* := [webdsl|[ this.next(0); ]|] // process description - start going through process
+          end
+        ; <emit-webdsl-code> def|[
+            entity x_Status : ProcedureStatus {
+              x_o -> srt
+              function enabled() {
+                stat3*
+              }
+              function done() {
+                this.isEnabled := false;
+                this.persist();
+                stat8*
+                stat5*
+              }
+              function do() {
+                stat6*
+              }
+              function disabled() {
+                //this.isEnabled := false;
+                //this.persist();
+                stat7*
+              }
+            }
+          ]|
+        ; <emit-webdsl-code> def|[
+            define page x_status(s : x_Status) {
+              derive viewPage from s
+            }
+          ]|
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              x_id <> x_Status ()
+            }
+          ]|
+
+  add-procedure-done :
+    stat* -> webdsl|[
+          stat*
+          this.done();
+        ]|
+
+  /*
+  procedure-to-check-performed(|arg) :
+    nm -> webdsl|[ x_check(e); ]|
+    where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
+        ; e := Var(arg)
+  */
+

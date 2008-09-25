@@ -1,0 +1,257 @@
+module org/webdsl/dsl/typechecker/expression
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+signature
+  constructors
+    Op : String -> Annotation
+ 
+strategies
+
+  type-of = eq-type-of <+ <TypeOf> Var(<id>)
+
+rules // typechecking expressions
+
+  eq-type-of =
+    ?OrderAscending(e1)
+    ; <type-of> e1
+
+  eq-type-of =
+    ?OrderDescending(e1)
+    ; <type-of> e1
+
+  eq-type-of =
+    ?OrderNonSpecific(e1)
+    ; <type-of> e1
+
+  constraint-error :
+    Var(x) -> <add-error(|["Variable ", <pp-webdsl> x, " not defined"])>
+    where not(<TypeOf> x)
+
+  eq-type-of :
+    Var(x) -> <TypeOf> x
+
+  constraint-error : 
+    Cast(e, s) -> <add-error(|["Cannot cast ", <pp-webdsl> e, " to type ", <pp-webdsl> s])>
+    where not(type-of)
+
+  eq-type-of:
+    Cast(e, s) -> s
+    where <type-compatible> (s, <type-of> e)
+
+  eq-type-of :
+    ObjectCreation(x_Class, assign*) -> SimpleSort(x_Class)
+    where <map(check-field-initialization(|x_Class))> assign*
+
+  eq-type-of :
+    Assignment(y, e) -> SimpleSort("Void") //<type-of> y
+    
+  eq-type-of :
+    PropertyAssignment(y, e) -> SimpleSort("Void") //<type-of> y
+    
+  eq-type-of :
+    ObjectPropertyAssignment(y, e) -> SimpleSort("Void") //<type-of> y
+
+  check-field-initialization(|x_Class) =
+    ?ObjectPropertyAssignment(y, e)
+    ; <type-compatible> (<type-of-property> (x_Class, y),  <type-of> e)
+
+  constraint-error :
+    ObjectCreation(x_Class, assign*) -> <id>
+    where <map(field-initialization-constraint(|x_Class))> assign*
+
+  field-initialization-constraint(|x_Class) =
+    ?ObjectPropertyAssignment(y, e)
+    ; not(<type-compatible> (<type-of-property> (x_Class, y),  <type-of> e))
+    ; add-error(|["Property ", <pp-webdsl> y, " does not exist or invalid value is assigned to it."])
+
+  constraint-error :
+    FieldAccess(e, f) -> <add-error(|[<pp-webdsl> e, ", no such property ", <pp-webdsl> f])>
+    where not(type-of)
+        ; debug(!"No such property: ")
+
+  eq-type-of :
+    FieldAccess(e, f) -> <type-of-property> (x_class, f)
+    where SimpleSort(x_class) := <type-of> e
+    
+  eq-type-of :
+    FieldAccess(e, f) -> <type-of> Var(f)
+    where "Component" := <type-of> e
+
+  eq-type-of :
+    InColl(e1, e2) -> SimpleSort("Bool")
+    where t := <type-of> e1
+        ; GenericSort(_, [lt]) := <type-of> e2
+        ; <type-compatible> (lt, t)
+
+  constraint-error :
+    InColl(e1, e2) -> <add-error(|["Expression ", <pp-webdsl> e1, " has wrong type."])>
+    where not(type-of)
+
+  constraint-error :
+    AndForExp(fe) -> <add-error(|[<pp-webdsl> fe, " should be of some list type of Bool"])>
+    where not(type-of)
+
+  eq-type-of :
+    AndForExp(fe) -> SimpleSort("Bool")
+    where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
+
+  constraint-error :
+    OrForExp(fe) -> <add-error(|[<pp-webdsl> fe, " should be of some list type of Bool"])>
+    where not(type-of)
+
+  eq-type-of :
+    OrForExp(fe) -> SimpleSort("Bool")
+    where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
+
+  constraint-error :
+    ForExp(_, _, _, _, _) -> <add-error(|[<pp-webdsl> <id>, " has type error."])>
+    where not(type-of)
+
+  eq-type-of :
+    ForExp(oe, x, s, ie, Filter(we, obe, l)) -> t
+    where tie := <type-of> ie
+        ; toe := <type-of> oe
+        ; twe := <type-of> we
+        ; tobe := <type-of> obe
+        ; if <?GenericSort("List", _)> tie then
+            t := GenericSort("List", [toe])
+          else
+            t := GenericSort("Set", [toe])
+          end
+        ; SimpleSort("Bool") := twe
+
+  eq-type-of :
+    ForExp(oe, x, s, ie, FilterNoOrderBy(we, l)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, OrderNonSpecific(Null()), l))
+
+  eq-type-of :
+    ForExp(oe, x, s, ie, FilterNoOrderByNoLimit(we)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, OrderNonSpecific(Null()), Limit(Int("1000"), Int("0"))))
+  
+  eq-type-of :
+    ForExp(oe, x, s, ie, FilterNoWhereNoLimit(obe)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), obe, Limit(Int("1000"), Int("0"))))
+
+  eq-type-of :
+    ForExp(oe, x, s, ie, FilterNoWhere(obe, l)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), obe, l))
+
+  eq-type-of :
+    ForExpNoFilter(oe, x, s, ie) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), OrderNonSpecific(Var(x)), Limit(1000, 0)))
+
+  constraint-error :
+    Call(e1, f, e2*) -> <add-error(|["No function ", f, " on ", <pp-webdsl> e1, " with this signature."])>
+    where not(type-of)
+
+  // checks for wrong arguments when calling a function
+  constraint-error :
+    ThisCall(f, e2*) -> <add-error(|["No function or page ", f, " with this signature."])>
+    where not(type-of)
+        ; not("url" := f)
+
+  eq-type-of :
+    Call(e1, f, e2*) -> t
+    where te1 := <type-of> e1
+        ; t := <check-signature> (te1, f, e2*)
+
+  constraint-error :
+    Call(e1, f, e2*) -> <add-error(|["No function ", f, " on ", <pp-webdsl> e1, " with this signature."])>
+    where not(type-of)
+
+  eq-type-of :
+    ThisCall(f, e2*) -> t
+    where t := <check-signature> (None(), f, e2*)
+        
+  typecheck-binop :
+    (op, [e1, e2]) -> t
+    where t := <check-signature> (None(), op, [e1, e2])
+        
+  check-operator-signature : (None(), Op("Add"), [t1, t2]) -> t1 where <type-compatible> (t1, t2)
+  check-operator-signature : (None(), Op("Sub"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+  check-operator-signature : (None(), Op("Sub"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+  check-operator-signature : (None(), Op("Mul"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+  check-operator-signature : (None(), Op("Mul"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+  check-operator-signature : (None(), Op("Div"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+  check-operator-signature : (None(), Op("Div"), [SimpleSort("Float"), SimpleSort("Float")]) -> SimpleSort("Float")
+  check-operator-signature : (None(), Op("Mod"), [SimpleSort("Int"), SimpleSort("Int")]) -> SimpleSort("Int")
+  check-operator-signature : (None(), Op("Eq"), [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
+  check-operator-signature : (None(), Op("NotEq"), [t, t2]) -> SimpleSort("Bool") where <type-compatible> (t, t2)
+  check-operator-signature : (None(), Op("SmallerThan"), [t, t]) -> SimpleSort("Bool")
+  check-operator-signature : (None(), Op("SmallerThanOrEqual"), [t, t]) -> SimpleSort("Bool")
+  check-operator-signature : (None(), Op("LargerThan"), [t, t]) -> SimpleSort("Bool")
+  check-operator-signature : (None(), Op("LargerThanOrEqual"), [t, t]) -> SimpleSort("Bool")
+  check-operator-signature : (None(), Op("And"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
+  check-operator-signature : (None(), Op("Or"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
+  
+  constraint-error :
+    c#([e1, e2]) -> <add-error(|["Wrong operand types for operator ", c, ": ", <pp-webdsl> e1, ", ", <pp-webdsl> e2])>
+    where not(type-of)
+        ; <elem> (c, ["Add", "Sub", "Mul", "Div", "Mod", "Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual", "And", "Or"])
+
+  eq-type-of :
+    c#([e1, e2]) -> t
+    where not("IsA" := c)
+        ; t := <typecheck-binop> (Op(c), [e1, e2])
+  
+  constraint-error :
+    Not(e) -> <add-error(|[<pp-webdsl> e, " is not of type Bool"])>
+    where not(type-of)
+
+  eq-type-of :
+    Not(e) -> SimpleSort("Bool")
+    where SimpleSort("Bool") := <type-of> e
+
+  eq-type-of :
+    IsA(e, s) -> SimpleSort("Bool")
+    where <java-type> s
+        ; <type-of> e
+
+  constraint-error :
+    HqlQuery(q) -> <add-error(|["Type error in query ", <pp-webdsl> q])>
+    where not(type-of)
+
+  eq-type-of :
+    HqlQuery(q) -> <type-of-query> q
+
+rules // signature
+
+  check-signature :
+    (t3, f, e*) -> t
+    where t* := <map(type-of)> e*
+        ; t := <check-signature-aux> (t3, f, t*)
+
+  check-signature-aux =
+    ?sig
+    ; (CheckActionSignature
+       <+ check-operator-signature
+       <+ check-function-signature
+       <+ CheckPageSignature
+       <+ CheckGlobalFunctionSignature
+       <+ CheckGeneratedGlobalFunctionSignature
+       <+ CheckEmailActionSignature
+       <+ CheckEmailDefinitionSignature
+       <+ check-builtin-signature)
+       //<+ typecheck-error(|["type error in call ", sig]))
+
+  check-builtin-signature :
+    (s@SimpleSort(_), "delete", []) -> SimpleSort("Void")
+    where <defined-java-type> s
+
+  check-builtin-signature :
+    (s@SimpleSort(_), "save", []) -> SimpleSort("Void")
+    where <defined-java-type> s
+
+  check-builtin-signature :
+    (s@SimpleSort(_), "persist", []) -> SimpleSort("Void")
+    where <defined-java-type> s
+
+  check-builtin-signature :
+    (GenericSort(Z, [s@SimpleSort(_)]), "persist", []) -> SimpleSort("Void")
+    where <defined-java-type> s
+        ; <?"List" <+ ?"Set"> Z
+
+  check-function-signature = CheckFunctionSignature
+
+  check-function-signature :
+    (SimpleSort(s), f, args) -> <check-function-signature> (SimpleSort(<Extends> s), f, args)

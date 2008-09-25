@@ -1,0 +1,89 @@
+module org/webdsl/dsl/transformation/propagate-component-names
+
+imports 
+  libstrategolib
+  
+imports 
+  libwebdsl-front
+  
+strategies
+
+  propagate-component-names =
+    alltd(propagate-component-names-in-def)
+    
+  propagate-component-names-in-def :
+    Define([Page()], name, args, body1) -> Define([Page()], name, args, body2)
+    where {| PrefixComponent, SpecializeActionCall
+           : y := name{<newname> name}; rules(TypeOf : y -> "Component")
+           ; <map(declare-component-prefix(|y))> args
+           //getters of global vars are in the page bean as well
+           ; <map(declare-component-prefix(|y))> <AllGlobalVars <+ ![]>
+           ; <get-page-vardecls; map(declare-component-prefix(|y))> body1
+           ; declare-specialize-action-call(|y)
+           ; body2 := <propagate-component-names-in-expression> body1
+           |}
+
+  propagate-component-names-in-def :
+    d@Define([Template()], name, args, body1) -> Define([Template()], name, args, body2)
+    where {| PrefixComponent, SpecializeActionCall, IsTemplate
+           : rules ( IsTemplate := name )
+           //; y := name{<newname> name}
+           ; rules ( TypeOf : name -> "Component" )
+//           ; <map(declare-component-prefix(|y))> args
+           //getters of global vars are in the page bean as well
+           ; <map(declare-component-prefix(|name))> <AllGlobalVars <+ ![]>
+           ; <get-page-vardecls; map(declare-component-prefix(|name))> body1
+           ; declare-specialize-action-call(|name)
+           ; body2 := <propagate-component-names-in-expression> body1
+/*           ; if <is-overloaded-template> d then
+               <declare-template-definition> Define([Template()], name, args, body2)
+             end*/
+           |}
+
+  propagate-component-names-in-expression =
+    rec x (alltd(PrefixComponent <+ not-init-action <+ specialize-action-call(x)))
+    
+  specialize-action-call(x) =
+    TemplateCall("action" <+ "actionLink", [id, try(SpecializeActionCall); x],[], [])
+
+  not-init-action =
+    ?InitAction(_)
+
+  not-in-call =
+    ?Call(_, _, _)
+    
+  declare-component-prefix(|name) =
+    ?Arg(x, s); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?VarDecl(x, s); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?VarDeclInit(x, s, e); where(<declare-component-prefix(|name)> x)
+    
+  declare-component-prefix(|name) =
+    ?x
+    ; rules( 
+        PrefixComponent : 
+          Var(x) -> FieldAccess(Var(name), x)
+          where not("Component" := <type-of> Var(x))
+      )
+  
+  declare-specialize-action-call(|name) =
+    rules (
+      SpecializeActionCall :
+        ThisCall(f, args) -> <dbg(|"specialized: ")> Call(Var(name), f, args)
+        where dbg(|"SpecializeActionCall: ") 
+    )
+    
+strategies
+
+  get-page-vardecls = 
+    collect(fail
+      <+ \ d@VarDecl(_,_) -> [d] \
+      <+ \ d@VarDeclInit(_,_,_) -> [d] \
+      <+ \ Action(_,_,_) -> [] \
+      <+ \ InitAction(_) -> [] \
+    ); concat
+    
+    

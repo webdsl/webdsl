@@ -1,0 +1,210 @@
+module org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+// control flow page elements   : for, if, templatecall 
+
+rules // iteration
+
+  for-loop-counter-wrap-code:
+    bstm* ->
+    bstm |[
+      {
+        ident = "";
+        if(inForLoop) {
+          ident += forelementcounter;
+          forelementcounter++;
+        }
+        
+        bstm*
+      }
+    ]|
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-for(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-for(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-for(elems-to-java-servlet|)
+
+  control-flow-for(s|) :
+    For(x, srt, e, Filter(we, obe, l), elems) ->
+    bstm |[
+    {
+      inForLoop = true;
+      forLoopCounter++;
+      forelementcounter=0;
+      java.util.Collection<t> list = e1;
+      for(t x : list){
+        if(e2){ 
+          bstm*
+        }
+      }
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    }
+    ]|
+    with  bstm* := <s;concat-with-sublists> elems
+        ; e1 := <expression-to-java-servlet> e
+        ; e2 := <expression-to-java-servlet> we
+        ; t     := <java-type> srt
+    
+  control-flow-for(s|) :
+    ForAll(x, srt, Filter(we, obe, l), elems) ->
+    bstm |[
+    {
+      inForLoop = true;
+      forLoopCounter++;
+      forelementcounter=0;
+          
+      java.util.Iterator iter = hibSession.createQuery("from "+"~x_argtype").iterate() ;
+      while ( iter.hasNext() ) {
+        t x = (x_argtype) iter.next();
+        //if(e2){ 
+          bstm*
+        //}
+      }
+      
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    }
+    ]|
+    with bstm*   := <s;concat-with-sublists> elems
+        //; e2      := <expression-to-java-servlet> we;debug(!2)
+        ; t       := <java-type> srt
+        ; x_argtype := <java-servlet-type-name> srt
+
+rules // if
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-if(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-if(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-if(elems-to-java-servlet|)
+
+  control-flow-if(s|) :
+    IfTempl(e, elems, elems2) ->
+    bstm |[
+    if(e1){ 
+      bstm*
+    } else {
+      bstm2*
+    }
+    ]|
+    with  bstm* := <s;concat-with-sublists> elems
+        ; bstm2* := <s;concat-with-sublists> elems2
+        ; e1 := <expression-to-java-servlet> e
+    
+/*
+rules // template
+
+  elem-to-java-servlet :
+    def |[ define local x(farg*) { elem* } ]| ->
+    %>
+    
+    <ui:define name="<%= x %>">
+    <div id="<%= x %>">
+      <%= elems ::* %>
+    </div>
+  </ui:define>
+    <%
+    with {| InLocalTemplate
+          : rules ( InLocalTemplate := x )
+          ; elems := <elems-to-xhtml> elem*
+          |}
+          
+rules // template call
+
+  elem-to-java-servlet :
+    TemplateCall(name, args, _) ->
+    %>
+      <ui:insert name="<%= name %>">
+         <%= include::* %>
+    </ui:insert>
+    <%
+    where ( not(<IsPage> <ThisPage>) <+ InLocalTemplate )
+//        ; <debug> [">>>>", <IsPage> <ThisPage>, <InLocalTemplate>]
+//        ; <debug> ["+++++++++tc: ", name, args]
+        ; t* := <map(type-of)> args
+//        ; <debug> ["________t*", t*]
+        ; if Define(mods, n, fargs, body) := <TemplateSignature> (name, t*) then
+            target := <concat-strings> [name, ".xhtml"]
+//            ; <debug> ["________", n, fargs]
+            ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+            ; include := 
+              %>
+              <ui:include src="<%= target %>">
+                  <%= params::* %>
+            </ui:include>
+          <%
+      else
+        if Define(mods, n, fargs, body) := <LocalTemplateSignature> (name, t*) then
+             include := []
+           end
+          end
+//        ; <debug> ["_____", n, fargs]
+
+*/
+  handle-actions-input-to-java-servlet  =
+    control-flow-tcall(|"storeInputs")
+
+  handle-actions-to-java-servlet =
+    control-flow-tcall(|"handleActions")
+
+  elem-to-java-servlet =
+    control-flow-tcall(|"render")
+
+  control-flow-tcall(|x_methodname) :
+    tc@TemplateCall(x_name, args,passign*, _) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[
+    ident += "~x_tname";
+    if(templatecalls.get(ident)==null){
+      try{
+        templatecalls.put(ident,(TemplateServlet)templates.get("~x_name").newInstance());
+      }
+      catch(IllegalAccessException iae)
+      {
+        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
+      }
+      catch(InstantiationException ie)
+      {
+        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
+      }
+    }
+    Object[] x_args = { e* };
+    templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, (HashMap<String,Class>)templates.clone(),(HashMap<String,Object>)variables.clone(),(HashMap<String,Object>)actionclasses.clone(), e1*);
+    ]|
+    where t* := <map(type-of)> args 
+        ; <TemplateSignature <+ LocalTemplateSignature> (x_name,t*)
+    with  x_tname := <get-templatecallnumber> tc
+        ; e* := <map({\e -> <expression-to-java> e\})> args
+        ; x_args := <newname> "args"
+        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ e|[ out ]| ]
+            //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
+            <+ e1* := []
+          )
+        
+    /*  
+    %>
+      <ui:include src="<%= target %>">
+        <%= params::* %>
+      </ui:include>
+    <%
+    where is-call-to-toplevel-template ; <IsPage> <ThisPage>
+    with target := <concat-strings> [name, ".xhtml"]
+       ; Define([Template()], n, fargs, body) := <TemplateSignature> (name, <map(type-of)> args)
+       ; params := <try(zip(templatecall-args-to-facelets); concat)> (args, fargs)
+    */

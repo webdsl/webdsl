@@ -1,0 +1,117 @@
+/**
+
+ Security rules for WebDSL
+
+*/
+
+module org/webdsl/dsl/modules/access-control/desugar
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/modules/access-control/-
+
+rules
+  desugar = SecurityContextProperty
+
+  //declaration of principal
+  // there can be only one of these (not yet checked)
+  desugar:
+    AccessControlPrincipal(x_ident,props) -> RemoveMe()
+    with  <rename;emit-webdsl-code> def |[
+            session securityContext {
+              principal   -> x_ident 
+              loggedIn    :: Bool //for backwards comp
+            }
+          ]|
+        ; <rename;emit-webdsl-code> def |[
+            predicate loggedIn()
+            {
+              securityContext.principal != null
+            }
+          ]|
+
+  //predicate definitions
+  desugar:
+    pr@Predicate($ident,farg*,exp) -> //<rename>?
+      def |[
+        globals {
+          function $ident ( farg* ) : Bool
+          {
+            return e;
+          }
+        }        
+      ]|
+    with  e := <add-not-null-checks> exp
+
+
+  //pointcuts
+  // Desugar must fail if not applied otherwise it will repeat indefinately  
+  desugar:
+    AccessControlPointcut(pname,fa,elems) -> RemoveMe() 
+
+  desugar: 
+    AccessControlDefinition(ident,decs) -> AccessControlDefinition(ident,newdecs)
+    where <fetch(?AccessControlRule("pointcut",_,_,_,_))> decs
+    with  newdecs := <map(try(desugar-pointcut-rule));concat-with-sublists> decs
+        //; <not(fetch(?AccessControlRule("pointcut",_,_,_,_)))> newdecs
+    
+  desugar-pointcut-rule :
+    AccessControlRule("pointcut",matchident,args,check,childrules) -> newrules
+    with  MatchArgs(fargs,wc) := args
+        ; t1* := <map(?Arg(_,<id>))> fargs
+        ; pc := <MatchesAccessControlPointcut> (matchident,t1*)
+        ; theargs := <PointcutArguments> (matchident,t1*) 
+        ; rulematchtuples := <AccessControlPointcuts> pc
+        ; newrules := <map(rule-tuple-to-ac-rule(|check,childrules,theargs,fargs))> rulematchtuples
+
+  rule-tuple-to-ac-rule(|check,childrules,pcrulearg,fargs):
+    (ident,matchident,matchargs) -> AccessControlRule(ident,matchident,matchargs,check2,childrules)
+    with  
+          {| SubstCheckVar:
+               <zip( {( a@(Arg(nm1,srt1),Arg(nm2,srt2))-> a 
+                          where rules(SubstCheckVar: nm1 -> nm2) )} )> (fargs,pcrulearg)
+             ; check2 := <alltd(SubstCheckVar)> check
+          |}
+
+  concat-with-sublists=
+    foldr(![], (is-list, id) < conc + MkCons)   
+  
+  
+  
+  // rules for actions are inherited from rule for page if no action rules are provided
+  //desugar-access-control =
+   // try(sometd(DesugarAccessControlRule))
+
+  //DesugarAccessControlRule :
+  desugar:
+    AccessControlRule("page", x, fargs, check, []) ->
+    AccessControlRule("page", x, fargs, check, [AccessControlRule("action", "*", MatchArgs([], Some("*")), check, [])])
+
+  desugar://AccessControlRule :
+    AccessControlRule("template", x, fargs, check, []) ->
+    AccessControlRule("template", x, fargs, check, [AccessControlRule("action", "*", MatchArgs([], Some("*")), check, [])])
+
+  // Prevent template rules inside page rules from getting action rules, because this is not allowed.
+  // (the template rules inside page rules are for template calls which never contain actions)
+//  DesugarAccessControlRule =
+//    ?AccessControlRule("page", x, fargs, check, [a|xs])
+
+  
+  
+  //anonymous policy block syntactic normalization
+  desugar:
+    AccessControlDefinition(None(),defs) -> AccessControlDefinition(Some("anonymous"),defs)
+  
+  //emit predicate functions
+  desugar:
+    AccessControlDefinition(nm,defs) -> AccessControlDefinition(nm,newdefs)
+    where with(  
+            <alltd(\p@AccessControlPrincipal(_,_) -> p with <emit-webdsl-code> p \)> defs
+          ; <alltd(\p@Predicate(_,_,_) -> p with <emit-webdsl-code> p \)> defs
+          ; newdefs := <alltd(remove-all(?Predicate(_,_,_)<+?AccessControlPrincipal(_,_)))> defs
+          )
+        ; not(defs := newdefs)//fail if nothing done to let other desugar on this element happen as well
+ 

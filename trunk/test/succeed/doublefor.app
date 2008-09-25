@@ -1,0 +1,42 @@
+application test
+
+section datamodel
+
+  entity User{
+    name :: String
+  }
+  
+
+  entity GeenUser
+  {
+    name :: String
+  }
+  define main() 
+  {
+    body()
+  }
+  
+  define page home(){
+    main()
+    var u:User := User{};
+    
+    for(p:User){
+    output(p.name)
+      
+    }
+    
+    for(p:User){
+    output(p.name)
+    
+    }
+    
+    for(p:GeenUser){
+    output(p.name)
+    
+    }
+    
+    define body()
+    {
+
+    }
+   }

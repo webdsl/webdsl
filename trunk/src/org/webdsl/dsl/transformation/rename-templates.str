@@ -1,0 +1,197 @@
+module org/webdsl/dsl/transformation/rename-templates
+
+imports 
+  libstrategolib
+  
+imports 
+  libwebdsl-front
+
+rules
+
+  rename-templates =
+    where (remove-declared-templates)
+    ; rename-all-templates
+//    ; rename-template-calls
+  
+  rename-all-templates =
+    alltd(rename-template)
+
+/*
+  rename-template-calls =
+    alltd(rename-template-call)
+
+  rename-template-call :
+    call |[ x1(e*) { elem* } ]| -> call |[ x1(e*) { elem* } ]|
+    where <is-call-to-overloaded-template> x1
+        ; 
+        ; <debug> ["___overloaded templatecall: ", x1, e*]
+*/
+  remove-declared-templates =
+    alltd(remove-declared-template)
+  
+  remove-declared-template =
+    ?def |[ define template x(farg*) { elem* } ]|
+    ; repeat(<once-TemplateArguments> x)
+//    ; repeat(<once-TopLevelTemplateDefinitions> x)
+
+  
+  rename-template :
+    def0@def |[ define page x(farg*) { elem* } ]| -> <declare-page-definition> def1
+    where def1@def |[ define page x(farg1*) { elem1* } ]| := <rename-bound-variables> def0
+        ; <alltd(rename-template)> elem1*
+
+  rename-template :
+    def0@def |[ define template x(farg*) { elem* } ]| -> <declare-template-definition> def1
+    where {| InTemplate
+           : rules ( InTemplate := x )
+           ; def1 := <rename-bound-variables> def0
+           |}
+
+  rename-template :
+    def0@def |[ define local x(farg*) { elem* } ]| -> <declare-local-template-definition> def0
+
+
+  rename-bound-variables = 
+    RenameTemplateVar
+    <+ rename-template-definition
+    <+ rename-vardecl 
+    <+ rename-for
+    <+ rename-forall
+    <+ rename-select
+    <+ rename-action-definition
+    <+ rename-function-definition
+    <+ rename-template-call
+    <+ all(rename-bound-variables)
+  
+  rename-template-definition :
+    Define([Page()], name, args1, body1) -> Define([Page()], name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+           
+  rename-template-definition :
+    def@Define([Template()], name, args1, body1) -> Define([Template()], y, args2, body2)
+    where {| RenameTemplateVar
+           : n := <strip-annos> name
+           ; if <is-overloaded-template> def then  
+               y := <OverloadedTemplateSignature> (n, <map(?Arg(_,<id>))> args1)
+             else
+               y := n
+             end
+           ; args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+  
+  rename-template-definition :
+    Define([Local()], name, args1, body1) -> Define([Local()], name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+
+  rename-template-call :
+    TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x2, e2*,passign2*, elem2*)
+    where <is-call-to-overloaded-template> x1
+    with  t* := <map(type-of)> e1*
+        ; x2 := <OverloadedTemplateSignature> (x1, t*)
+        ; e2* := <rename-bound-variables> e1*
+        ; passign2* := <map(rename-template-assigns)> passign*
+        ; elem2* := <rename-bound-variables> elem1*
+
+  rename-template-assigns :
+    PropertyAssignment(x, y) -> PropertyAssignment(x, q)
+    with  z := <rename-bound-variables> y
+        ; tt := <type-of> y
+        ; q := <rename-bound(|tt)> z
+  
+  rename-template-call :
+    TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x1, e2*,passign2*, elem2*)
+    where <not(is-call-to-overloaded-template)> x1
+    with  e2* := <rename-bound-variables> e1*
+        ; passign2* := <map(rename-template-assigns)> passign*
+        ; elem2* := <rename-bound-variables> elem1*
+  
+  rename-action-definition :
+    Action(name, args1, body1) -> Action(name, args2, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}
+
+  rename-action-definition :
+    InitAction(body1) -> InitAction(body2)
+    where {| RenameTemplateVar
+           : body2 := <rename-bound-variables> body1
+           |}
+
+  rename-function-definition :
+    Function(name, args1, s, body1) -> Function(name, args2, s, body2)
+    where {| RenameTemplateVar
+           : args2 := <map(rename-arg)> args1
+           ; body2 := <rename-bound-variables> body1
+           |}  
+
+  rename-arg :
+    Arg(x, s) -> Arg(y, s)
+    where y := <rename-var> x
+        ; try(<declare-template-arg> Arg(y, s))
+                 
+  rename-template-arg :
+    Arg(x, s) -> Arg(y, s)
+    where y := <rename-var> x
+//        ; z := <concat-strings> ["param", <as-string(ParamNumber)>]
+//        ; rules ( RenameOverloadedTemplateVar : y -> z )
+//        ; rules ( ParamNumber := <ParamNumber; inc> )
+        ; try(<declare-template-arg> Arg(y, s))
+
+  rename-vardecl :
+    VarDecl(x, s) -> VarDecl(y, s)
+    where y := <rename-var> x
+        
+  rename-vardecl :
+    VarDeclInit(x, s, e1) -> VarDeclInit(y, s, e2)
+    where e2 := <rename-bound-variables> e1
+        ; y := <rename-var> x
+        
+  rename-for :
+    For(x, s, e1, Filter(we1, obe1, l1), elems1) -> For(y, s, e2, Filter(we2, obe2, l2), elems2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; e2 := <rename-bound-variables> e1
+           ; elems2 := <rename-bound-variables> elems1
+           ; we2 := <rename-bound-variables> we1
+           ; obe2 := <rename-bound-variables> obe1
+           ; l2 := <rename-bound-variables> l1
+           |}
+           
+  rename-forall :
+    ForAll(x, s, Filter(we1, obe1, l1), elems1) -> ForAll(y, s, Filter(we2, obe2, l2), elems2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; elems2 := <rename-bound-variables> elems1
+           ; we2 := <rename-bound-variables> we1
+           ; obe2 := <rename-bound-variables> obe1
+           ; l2 := <rename-bound-variables> l1
+           |}
+
+  rename-select :
+    Select(x, s, lab, e1) -> Select(y, s, lab, e2)
+    where {| RenameTemplateVar
+           : y := <rename-var> x
+           ; e2 := <rename-bound-variables> e1
+           |}
+
+  rename-var :
+    x -> y
+    where //z := <newname> x
+        //; y := z{<newname> x}//extra annotation probably not necessary, but more consistent
+        y := <newname> x
+        ; srt := <TypeOf> x
+        ; rules(
+            RenameTemplateVar : Var(x)           -> Var(y)
+            RenameTemplateVar : Qualified(x, f)  -> Qualified(y, f)
+            RenameTemplateVar : Assignment(x, e) -> Assignment(y, e2) where e2 := <try(sometd(rename-bound-variables))> e
+            TypeOf            : y -> srt
+          )
+

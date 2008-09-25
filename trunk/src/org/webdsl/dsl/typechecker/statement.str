@@ -1,0 +1,70 @@
+module org/webdsl/dsl/typechecker/statement
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // Utilities for typechecking Qualifieds
+
+  translate-qualified :
+    Qualified(l, r) -> FieldAccess(l2, r)
+    where l2 := <translate-qualified> l
+
+  translate-qualified =
+    ?Var(_)
+
+  translate-qualified =
+    not(?Qualified(_, _) <+ ?Var(_))
+    ; !Var(<id>)
+
+rules // typechecking statements
+
+  constraint-error :
+    Stat(Assignment(qid, e)) -> <add-error(|["invalid left-hand side in assignment: ", <pp-webdsl> qid])>
+    where not(<translate-qualified;type-of> qid)
+
+  constraint-error :
+    Stat(Assignment(qid, e)) -> <add-error(|["invalid right-hand side in assignment: ", e])>
+    where not(<type-of> e)
+
+  constraint-error :
+    Stat(Assignment(qid, e)) -> <add-error(|["expression ", e, " cannot be assigned to ", <pp-webdsl> qid, " due to type-incompatibility."])>
+    where not(<type-compatible> (<translate-qualified; type-of> qid, <type-of> e))
+
+  constraint-error =
+    (?If(e, bif, belse) <+ ?IfNoElse(e, bif))
+    ; not(SimpleSort("Bool") := <type-of> e)
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
+
+  constraint-error :
+    VarDecl(x, srt) -> <add-error(|["No such type ", <pp-webdsl> srt])>
+    where not(<java-type> srt)
+
+  constraint-error :
+    VarDeclInit(x, srt, e) -> <add-error(|["No such type ", <pp-webdsl> srt])>
+    where not(<java-type> srt)
+    
+  constraint-error :
+    VarDeclInit(x, srt, e) -> <add-error(|["Expression ", <pp-webdsl> e, " is not of type ", <pp-webdsl> srt])>
+    where not(<type-compatible> (srt, <type-of> e))
+
+  // check for expression
+  constraint-error =
+    (    ?ForStmt(_, s, e, _, _)
+      <+ ?ForStmtNoFilter(_, s, e, _) )
+    ; not(GenericSort(_, [<sort-literal> s]) := <type-of> e)
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type [SomeGenericType]<", <pp-webdsl> s, ">"]) 
+  
+  sort-literal :
+    SimpleSort(x) -> x
+
+  // check where-expression in filter
+  constraint-error =
+    (    ?ForStmt(_, _, _, Filter(we, _, _), _)
+      <+ ?ForStmt(_, _, _, FilterNoOrderBy(we, _), _) 
+      <+ ?ForStmt(_, _, _, FilterNoOrderByNoLimit(we), _) )
+    ; not(SimpleSort("Bool") := <type-of> we)
+    ; add-error(|["where clause should return a boolean: ", <pp-webdsl> we])
+

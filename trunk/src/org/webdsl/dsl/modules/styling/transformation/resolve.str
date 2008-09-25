@@ -1,0 +1,521 @@
+module org/webdsl/dsl/modules/styling/transformation/resolve
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+  resolve-style-properties =
+    alltd(resolve-style)
+  
+  translate-style-properties =
+    alltd(translate-style)
+//    ; debug (!"__________1: ")
+    ; topdown-l(repeat(add-style-emits))
+//    ; debug (!"__________2: ")
+    ; alltd(resolve-style)
+//    ; debug (!"__________3: ")
+    
+rules
+
+  resolve-style :
+    StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat2*)
+    where {| ThisSelector
+          : rules ( ThisSelector := selector )
+//          ; <debug> <pp-webdsl> selector
+//          ; <debug> stat1*
+//          ; stat2* := <bottomup-l(repeat(resolve))> stat1*
+          ; stat2* := <reduce(resolve)> stat1*
+//          ; <debug> stat2*
+          ; <declare-style-definition> StyleDefinition(selector, stat2*)
+//          ; <debug> ""
+          |}
+
+  translate-style :
+    StyleSection(name, def1*) -> StyleSection(name, def2*)
+    where {| ThisPage
+           : rules ( ThisPage := name )
+           ; def2* := <alltd(translate-style)> def1*
+           |}
+
+  translate-style :
+    StyleDefinition(selector, stat1*) -> StyleDefinition(selector, stat3*)
+    with {| ThisSelector
+          : rules ( ThisSelector := selector )
+          ; stat2* := <filter(not(translate-style-decl))> stat1*
+          ; stat3* := <reduce(resolve)> stat2*
+          ; <declare-style-definition> StyleDefinition(selector, stat3*)
+          |}
+
+rules
+
+//  desugar = resolve
+
+rules
+
+  desugar :
+    SimpleSelector(MatchDefinition("form", _)) -> ElemSimpleSelector("form")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("fieldset", _)) -> ElemSimpleSelector("fieldset")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("group", _)) -> ElemSimpleSelector("fieldset")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("action", _)) -> ElemSimpleSelector("input")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("image", _)) -> ElemSimpleSelector("img")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("inputText", _)) -> ClassSimpleSelector("inputText")
+    
+  desugar :
+    SimpleSelector(MatchDefinition("menubar", _)) -> ClassSimpleSelector("menubar")
+      
+  desugar :
+    SimpleSelector(MatchDefinition("menu", _)) -> ElemSimpleSelector("ul")
+
+  desugar :
+    SimpleSelector(MatchDefinition("menuheader", _)) -> ElemSimpleSelector("li")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("list", _)) -> ElemSimpleSelector("ul")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("listitem", _)) -> ElemSimpleSelector("li")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("navigate", _)) -> ElemSimpleSelector("a")
+    
+  desugar :
+    SimpleSelector(MatchDefinition("table", _)) -> ElemSimpleSelector("table")
+  
+  desugar :
+    SimpleSelector(MatchDefinition("section", _)) -> ClassSimpleSelector("section")
+
+  desugar :
+    SimpleSelector(MatchDefinition("block", _)) -> ClassSimpleSelector("block")
+
+  desugar :
+    SimpleSelector(MatchDefinition("text", _)) -> ClassSimpleSelector("text")
+
+  desugar :
+    Selector(SimpleSelector(MatchDefinition("groupitem", _)), s*) -> Selector(ElemSimpleSelector("ol"), [(ChildCombinator, ElemSimpleSelector("li"), None)|s*])
+
+  desugar :
+    Selector(SimpleSelector(MatchDefinition("header", _)), l1) -> Selector(ElemSimpleSelector("h1"), l1)
+
+  desugar :
+    Selector(s, l1) -> Selector(s, l2)
+    where not( <?SimpleSelector(MatchDefinition("table", _))> s <+ <?ElemSimpleSelector("table")> s )
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> (c, ElemSimpleSelector("h1"), p) \})> l1
+      
+  desugar :
+    Selector(s, l1) -> Selector(s, l2)
+    where <sometd(?(_, SimpleSelector(MatchDefinition("table", _))))> l1
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("th"), p)]
+                   \}); flatten-list> l1
+  
+  desugar :
+    Selector(s, l1) -> Selector(s, l2)
+    where ( <?SimpleSelector(MatchDefinition("table", _))> s <+ <?ElemSimpleSelector("table")> s )
+        ; l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("header", _)), p)
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("th"), p)]
+                   \}); flatten-list> l1
+
+  desugar :
+    Selector(s, l1) -> Selector(s, l2)
+    where l2 := <sometd(
+                  {\ (c, s', p)
+                      -> [(DescendantCombinator, ElemSimpleSelector("tr"), None),
+                          (ChildCombinator, ElemSimpleSelector("td"), p)]
+                      where <oncetd(?"row")> s'
+                   \}); flatten-list> l1
+  
+  desugar :
+    Selector(s, l1) -> Selector(s, l2)
+    where l2 := <sometd(
+                  {\ (c, SimpleSelector(MatchDefinition("groupitem", _)), p)
+                      -> [(c, ElemSimpleSelector("ol"), None),
+                          (ChildCombinator, ElemSimpleSelector("li"), p)]
+                   \}); flatten-list> l1
+/*    
+  resolve :
+    SimpleSelector(MatchDefinition("groupitem", _)) -> ElemSimpleSelector("li")
+    where AfterProcessStyle
+*/  
+  desugar :
+    SimpleSelector(MatchDefinition("label", _)) -> ElemSimpleSelector("label")
+
+  desugar :
+    LayoutDefinition(m@MatchDefinition(ident, args), stat*) -> LayoutDefinition("template", m, stat*)
+    where <matches-template-definition> m
+
+  desugar :
+    SimpleSelector(MatchDefinition(ident, args)) -> SimpleSelector("template", MatchDefinition(ident, args))
+    where <matches-template-definition> MatchDefinition(ident, args)
+
+rules
+
+  resolve :
+    StylePropertyValue(MatchDefinition(name, farg*), prop) -> val
+    where ThisSelector
+        ; t* := <map(?Arg(_,<id>))> farg*
+      ; s := <construct-selector> ("template", name, t*)
+      ; val := <get-style-value> (s, prop)
+//	    ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//        ; <declare-style-value> (prop, val)
+  
+  resolve :
+    StyleValueExpression(selector, prop) -> val
+    where ThisSelector
+/*       ; if <sometd(?"adminNavigation")> <ThisSelector> then
+            <debug(!"__valex: ")> StyleValueExpression(selector, prop)
+            ; <debug(!"ThisSelector1: ")> <ThisSelector>
+          end */
+        ; val := <get-style-value> (selector, prop)
+//        ; <debug(!"___")> (<pp-webdsl> prop, <pp-webdsl> val)
+//        ; <declare-style-value> (prop, val)
+
+  resolve :
+    StyleAdd(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <add-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+
+  resolve :
+    StyleSub(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <subtract-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+     
+  resolve :
+    StyleMul(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <multiply-values> (StyleValue(v1, u1), StyleValue(v2, u2))
+   
+  resolve :
+    StyleDiv(StyleValue(v1, u1), StyleValue(v2, u2)) -> value
+    where ThisSelector
+     with value := <divide-values> (StyleValue(v1, u1), StyleValue(v2, u2)) 
+      
+  resolve :
+    StyleDeclaration(prop, StyleVar(x)) -> <declare-style-declaration> StyleDeclaration(prop, val)
+    where ThisSelector
+        ; val := <StyleVariable> x
+
+  resolve :
+    StyleVar(x) -> <StyleVariable> x
+    where ThisSelector
+
+rules
+/*
+  translate-style-decl =
+    ?StyleDeclaration(StyleProperty("font"), StyleValue(sort, val*))
+    ; stval0 := StyleValue(<construct-font-names> val*)
+    ; <emit-style-declaration> |[ font-family := stval0; ]|
+    
+  construct-font-names =
+    ?[s|s*]
+    ; !<concat-strings> ["'", <construct-font-name> s, " ", <construct-font-names> s*, "'"]
+
+  construct-font-names :
+    [s] -> <construct-font-name> s
+
+  construct-font-name :
+    StyleValueExtension(stval0) -> stval0
+
+  */    
+
+    
+  resolve :
+    ststat |[ image-repeat := Repeat.horizontal; ]| -> ststat |[ background-repeat := repeat-x; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ image-repeat := Repeat.vertical; ]| -> ststat |[ background-repeat := repeat-y; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ image-repeat := Repeat.both; ]| -> ststat |[ background-repeat := repeat; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ font-color := stval0; ]| -> ststat |[ color := stval0; ]|
+    where ThisSelector
+
+  resolve :
+    ststat |[ font-line := Line.none; ]| -> ststat |[ text-decoration := none; ]|
+    where ThisSelector
+
+  resolve :
+    ststat |[ font-line := Line.under; ]| -> ststat |[ text-decoration := underline; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ font-line := Line.over; ]| -> ststat |[ text-decoration := overline; ]|
+    where ThisSelector
+    
+  resolve :
+    ststat |[ font-line := Line.through; ]| -> ststat |[ text-decoration := line-through; ]|
+    where ThisSelector
+  
+  resolve :
+    ststat |[ font-style := FontStyle.bold; ]| -> ststat |[ font-weight := bold; ]|
+    where ThisSelector
+     
+  resolve :
+    ststat |[ image-repeat := Repeat.none; ]| -> ststat |[ background-repeat := no-repeat; ]|
+    where ThisSelector 
+
+  resolve : // @todo: padding-bottom is not valid for all applications of spacing!
+    ststat |[ spacing := stval0; ]| -> ststat |[ padding-bottom := stval0; ]|
+    where ThisSelector; not(<is-defined> StyleProperty("separator"); <is-defined> StyleProperty("orientation"))
+
+  resolve :
+    ststat |[ align := Align.left; ]| -> ststat |[ margin-right := auto; ]|
+    where ThisSelector ; is-for-named-layout-identifier
+  
+  resolve :
+    ststat |[ align := Align.right; ]| -> ststat |[ margin-left := auto; ]|
+    where ThisSelector ; is-for-named-layout-identifier
+
+  resolve :
+    ststat |[ align := Align.left; ]| -> ststat |[ float := left; ]|
+    where ThisSelector ; not( <selector-contains> "label" )
+
+  resolve :
+    ststat |[ align := Align.right; ]| -> ststat |[ float := right; ]|
+    where ThisSelector ; not( <selector-contains> "label" )
+
+  resolve :
+    ststat |[ align := Align.center; ]| -> ststat |[ text-align := center; ]|
+    where ThisSelector ; not( is-for-named-layout-identifier ) ; not ( <is-defined> StyleProperty("width") )
+    
+  resolve :
+    ststat |[ spacing-right := stval0; ]| -> ststat |[ margin-right := stval0; ]|
+    where ThisSelector ; not( <is-defined> StyleProperty("separator") )
+
+  resolve :
+    ststat |[ spacing-left := stval0; ]| -> ststat |[ margin-left := stval0; ]|
+    where ThisSelector ; not( <is-defined> StyleProperty("separator") )
+    
+rules
+
+  translate-style-decl =
+    ?ststat |[ align := Align.center; ]|
+    ; where ( is-for-named-layout-identifier <+ <is-defined> StyleProperty("width") )
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+          margin-left := auto;
+          margin-right := auto;
+        ]|
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-color := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+            border-top-color := stval0;
+            border-right-color := stval0;
+            border-bottom-color := stval0;
+            border-left-color := stval0;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-width := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+            border-top-width := stval0;
+            border-right-width := stval0;
+            border-bottom-width := stval0;
+            border-left-width := stval0;
+          ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ border-style := stval0; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+            border-top-style := stval0;
+            border-right-style := stval0;
+            border-bottom-style := stval0;
+            border-left-style := stval0;
+          ]| 
+      )
+  
+  translate-style-decl =
+    ?ststat |[ align := Align.right; ]|
+    ; where ( <selector-contains> "label" )
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+          float := left;
+          text-align := right;
+        ]| 
+      )
+
+  translate-style-decl =
+    ?ststat |[ align := Align.left; ]|
+    ; where ( <selector-contains> "label" )
+    ; with (
+        <declare-style-declaration; emit-style-declaration> ststat |[
+          float := left;
+        ]|
+      )
+
+  // @todo: these separators only make sense when the orientation is set to horizontal
+  translate-style-decl =
+    ?ststat |[ separator := Separator.pipe; ]|
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li.before ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            content := '|';
+          }
+        ]|
+      )
+    ; fail // fail, so the current term will not disappear
+
+  // @todo: these separators only make sense when the orientation is set to horizontal
+  translate-style-decl =
+    ?ststat |[ separator := Separator.comma; ]|
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li.before ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            content := ',';
+          }
+        ]|
+      )
+    ; fail // fail, so the current term will not disappear
+
+  translate-style-decl =
+    ?ststat |[ separator := Separator.tab; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> |[
+            border-bottom-style := BorderStyle.solid;
+            border-bottom-color := Color.black;
+            border-bottom-width := 1px;
+          ]|
+        ; stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+              margin-top := 10px;
+              border-top-style := BorderStyle.solid;
+              border-top-color := Color.black;
+              border-top-width := 1px;
+              border-right-style := BorderStyle.solid;
+              border-right-color := Color.black;
+              border-right-width := 1px;
+              border-left-style := BorderStyle.solid;
+              border-left-color := Color.black;
+              border-left-width := 1px;
+              margin-left := 0.3em;
+              margin-right := 0.3em;
+              padding-top := 0.1em;
+              padding-bottom := 0.1em;
+              padding-left := 0.3em;
+              padding-right := 0.3em;
+          }
+        ]|
+      )
+
+  translate-style-decl =
+    ?ststat |[ separator := Separator.none; ]|
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            list-style-type := none;
+          }
+        ]|
+      )
+
+  translate-style-decl =
+    ?ststat |[ orientation := Orientation.horizontal; ]|
+    ; with (
+        <declare-style-declarations; emit-style-declarations> ststat* |[
+          list-style := none;
+          padding-left := 0;
+        ]|
+        ; stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            float := left;
+          }
+        ]|
+      )
+  
+  translate-style-decl =
+    ?ststat |[ orientation := Orientation.vertical; ]|
+    ; with (
+        <declare-style-declaration; emit-style-declaration> ststat |[
+          padding-left := 0;
+        ]|
+      )
+ 
+  translate-style-decl =
+    ?ststat |[ spacing := stval0; ]|
+    ; where (
+        stval |[ Orientation.horizontal ]| := <get-style-value> StyleProperty("orientation")
+        ; if stval |[ Separator.none ]| := <get-style-value> StyleProperty("separator") then
+            stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li ]| )
+          else
+            stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li.before ]| )
+          end
+      )
+    ; with (
+        StyleValue(value, unit) := stval0
+        ; stval1 := StyleValue(<div> (<string-to-real> value, 2), unit)
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            margin-right := stval1;
+        margin-left := stval1;
+          }
+        ]|
+      )
+  
+  translate-style-decl =
+    ?ststat |[ spacing := stval0; ]|
+    ; where ( stval |[ Orientation.vertical ]| := <get-style-value> StyleProperty("orientation") )
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            margin-bottom := stval0;
+          }
+        ]|
+      )
+
+  translate-style-decl =
+    ?ststat |[ spacing-right := stval0; ]|
+    ; where ( <is-defined> StyleProperty("separator") )
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li.before ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            margin-right := stval0;
+          }
+        ]|
+      )
+
+   translate-style-decl =
+    ?ststat |[ spacing-left := stval0; ]|
+    ; where (  <is-defined> StyleProperty("separator") )
+    ; with (
+        stsel0 := <add-simple-selector> (<ThisSelector>, |[ > li.before ]| )
+        ; <declare-style-definition; emit-style-definition> stdef |[
+          stsel0 {
+            margin-left := stval0;
+          }
+        ]|
+      )

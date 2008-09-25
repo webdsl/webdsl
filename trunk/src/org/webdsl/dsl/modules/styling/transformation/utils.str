@@ -1,0 +1,291 @@
+module org/webdsl/dsl/modules/styling/transformation/utils
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+
+rules
+
+  add-stylesheet =
+    ?(name, page)
+    ; where (
+        if not ( <elem> (name, <bagof-StylesheetIncludes> page) ) then
+          rules (
+            StylesheetIncludes :+ page -> name
+            AllStylesheets :+= name
+          )
+        end
+      )
+
+  add-stylesheets-for-all-pages =
+    ?page
+    ; where (
+        <map(\ sheet -> <add-stylesheet> (sheet, page) \)> <bagof-StyleSheetsAllPages>
+      )
+
+rules
+
+  construct-selector :
+    (type, x, t*) -> Selector(SimpleSelector(type, MatchDefinition(x, t*)), [])
+
+  construct-simple-selector :
+    (type, x, t*) -> SimpleSelector(type, MatchDefinition(x, t*))
+
+//  construct-selector :
+//    (template, name) -> Selector(IdSelector(type, MatchDefinition(x, t*)), [])
+
+  construct-descendant-selector :
+    (template, t*, name) -> Selector(s1, [ (DescendantCombinator, ClassSimpleSelector(name), None) ])
+    where s1 := <construct-simple-selector> ("template", template, t*)
+
+rules
+
+  construct-url :
+    str1 -> StyleValue(Uri( <concat-strings; double-quote> ["images/", str1] ))
+
+rules
+
+  is-for-named-layout-identifier =
+    where (
+        s := <ThisSelector> 
+        ; [ClassSimpleSelector(name)] := <collect(?ClassSimpleSelector(_))> s
+        ; <elem> ( name, <bagof-LayoutIdentifiers> )
+    )
+  
+  selector-contains =
+    ?s
+    ; where (
+        selector := <ThisSelector>
+//        ; <debug> [".....", selector, s]
+        ; <sometd(?s)> selector
+      )
+
+rules
+
+  add-simple-selector :
+    (Selector(s, l), (c, ss, p)) -> Selector(s, <concat> [l, [(c, ss, p)]])
+
+  add-simple-selector :
+    (Selector(s, l), (c, ss)) -> Selector(s, <concat> [l, [(c, ss, None)]])
+
+  add-simple-selector :
+    (Selector(s, l), ss@[(c1,s1)|t]) -> Selector(s, <concat> [l, <map(\ (c2, s2) -> (c2, s2, None) \)> ss])
+    
+  add-simple-selector :
+    (Selector(s, l), ss@[(c1,s1,p1)|t]) -> Selector(s, <concat> [l, ss])
+
+rules
+
+  set-style-property =
+    ?|[ stprop0 := stval0; ]|
+//    ; where ( pp-aterm(!"____set-property: ") )
+    ; if not( <is-defined> stprop0 ) then
+        <declare-style-value> (stprop0, stval0)
+        ; !|[ stprop0 := stval0; ]|
+      else
+        ![]
+      end
+
+  get-style-value =
+    (get-style-value-simple <+ get-style-value-lookup); try(resolve)
+
+  get-style-value-simple =
+    has-property
+
+  // @todo: is pretty similar to is-defined-lookup: combine
+  get-style-value-lookup :
+    (selector, prop) -> value
+    where Selector(s, l) := selector
+    
+        // @todo: this has to be resolved and should not have to be checked here
+/*        ; if SimpleSelector(_, MatchDefinition(s1, l1)) := s then
+            s2 := SimpleSelector(MatchDefinition(s1, l1))
+          else
+            s2 := s
+          end
+  */  
+        ; [h|t] := <reverse> l
+        ; (c, subject, p) := h
+        ; q := <get-selector-keyword> subject
+        ; defs0 := <bagof-StyleDefinitions>
+        ; sel0 := <collect(get-selectors(|q))> defs0
+        ; sel1 := <filter(filter-selectors(|s))> sel0
+/*     ; if <oncetd(?"mainNavigation")> s then
+         <debug> ["===", q, selector]
+         ; <pp-aterm(!"____sel0: ")> sel0
+         ; <pp-aterm(!"____sel1: ")> sel1
+       end*/
+        ; [(value, weight)|rest] := <filter(has-property(|prop)); order-selectors> sel1
+        // @todo: for now, just take the first value
+        // in the future, defs2 should be sorted according to specificity
+
+  get-selector-keyword :
+    SimpleSelector(MatchDefinition(q,[])) -> q
+  
+  get-selector-keyword :
+    ElemSimpleSelector(q) -> q
+
+  get-selector-keyword :
+    ClassSimpleSelector(q) -> q
+
+  get-selector-keyword :
+    IdSimpleSelector(q) -> q
+
+  is-defined =
+    is-defined-simple <+ is-defined-lookup
+
+  is-defined-simple = 
+    ?StyleProperty(prop)
+    ; where ( has-property )
+
+  is-defined-lookup = 
+    ?StyleProperty(prop)
+    ; where (
+        Selector(s, l) := <ThisSelector>
+        
+        // @todo: this has to be resolved and should not have to be checked here
+/*        ; if SimpleSelector(_, MatchDefinition(s1, l1)) := s then
+            s2 := SimpleSelector(MatchDefinition(s1, l1))
+          else
+            s2 := s
+          end
+  */      
+        
+        ; [h|t] := <reverse> l
+        ; (c, subject, p) := h
+        ; q := <get-selector-keyword> subject
+        ; defs0 := <bagof-StyleDefinitions>
+        ; defs1 := <collect(get-selectors(|q))> defs0
+//        ; <debug> ["===", q, subject, s, prop]
+//        ; <pp-aterm(!"____defs1: ")> defs1
+        ; defs2 := <filter(filter-selectors(|s))> defs1
+//        ; <pp-aterm(!"____defs2: ")> defs2
+//        ; <debug> ""
+        
+        
+/*        ; if <oncetd(?"output1")> s then
+            <debug> ["===", q, s, prop]
+            ; <pp-aterm(!"____defs1: ")> defs1
+            ; <pp-aterm(!"____defs2: ")> defs2
+          end*/
+        ; <fetch(has-property(|StyleProperty(prop)))> defs2
+      )
+
+  get-selectors(|q) :
+    s@Selector(a, []) -> Selector(a, [])
+    where <oncetd(?q)> a
+
+  get-selectors(|q) :
+    s@Selector(a, b) -> Selector(a, b)
+    where [last|rest] := <reverse> b
+        ; <oncetd(?q)> last
+
+  filter-selectors(|s) :
+    Selector(SimpleSelector(t, u), l) -> (Selector(SimpleSelector(t, u), l), 10)
+    where <?s> SimpleSelector(t, u)
+
+  filter-selectors(|s) :
+    Selector(ClassSimpleSelector(c), l) -> (Selector(ClassSimpleSelector(c), l), 20)
+    where <?s> ClassSimpleSelector(c)
+
+  filter-selectors(|s) :
+    Selector(k, l) -> (Selector(k, l), 30)
+    where not( <?SimpleSelector(_, _) <+ ?ClassSimpleSelector(_)> k )
+
+  order-selectors =
+    qsort(\ ((a, b), (c, d)) -> <lt> (b, d) \)
+
+  has-property(|p) :
+    (s, weight) -> (v, weight)
+    where v := <StyleValue> (s, p)
+        ; <style-types-compatible> (<type-of> p, <type-of> v)
+/*        ; if <?StyleValue("auto")> v then
+           w := 100
+         else
+           w := weight
+         end*/
+//    where <debug> ["===============value: ", <StyleValue> (s, p)]
+
+  has-property =
+    ?StyleProperty(prop)
+    ; <StyleValue> (<ThisSelector>, StyleProperty(prop))
+
+  has-property =
+    ?(Selector(s, s*), StyleProperty(prop))
+    ; <StyleValue> (Selector(s, s*), StyleProperty(prop))
+
+rules
+
+  add-values =
+    action-on-values(add)
+    
+  subtract-values =
+    action-on-values(subt)
+  
+  multiply-values =
+    action-on-values(mul) <+ mul-values
+
+  mul-values :
+    (StyleValue(v1, u1), StyleValue(v2, u2)) -> StyleValue(v3, "em")
+    where <?"%"> u1 <+ <?"%"> u2
+        ; i1 := <string-to-real> v1
+        ; i2 := <string-to-real> v2
+        ; v3 := <div; real-to-string> (<mul> (i1, i2), 100)
+
+  divide-values =
+    action-on-values(div)
+
+  action-on-values(s) :
+    (StyleValue(v1, u1), StyleValue(v2, u1)) -> StyleValue(v3, u1)
+    where i1 := <string-to-real> v1
+        ; i2 := <string-to-real> v2
+        ; v3 := <s; real-to-string> (i1, i2)
+
+  action-on-values(s) :
+    (StyleValue(v1, "px"), StyleValue(v2, "em")) -> StyleValue(v3, "em")
+    where i1 := <string-to-real; px-to-em> v1
+        ; i2 := <string-to-real> v2
+        ; v3 := <s; real-to-string> (i1, i2)
+
+  action-on-values(s) :
+    (StyleValue(v1, "em"), StyleValue(v2, "px")) -> StyleValue(v3, "em")
+    where i1 := <string-to-real> v1
+        ; i2 := <string-to-real; px-to-em> v2
+        ; v3 := <s; real-to-string> (i1, i2)
+
+rules
+  // @todo: 16 is only valid when font-size = 100% or 1em !!!
+  // so perhaps check if there is a font-size property for the current selector?
+  // or search up in the hierarchy
+  em-to-px :
+    v1 -> v2
+    with is-int <+ is-real
+       ; if StyleValue(v, u) := <get-style-value> (<ThisSelector>, StyleProperty("font-size")) then
+          size := <mul> (<string-to-real> v, 16)
+        else
+          size := 16; info(|["Warning: no font-size found for selector: ", <pp-webdsl-to-string> <ThisSelector> , ", using standard font-size of 16px. "])
+        end
+       ; v2 := <mul> (v1, size)
+
+  px-to-em :
+    v1 -> v2
+    with is-int <+ is-real
+       ; if StyleValue(v, u) := <get-style-value> (<ThisSelector>, StyleProperty("font-size")) then
+           size := <mul> (<string-to-real> v, 16)
+         else
+           size := 16; info(|["Warning: no font-size found for selector: ", <pp-webdsl-to-string> <ThisSelector> , ", using standard font-size of 16px. "])
+         end
+       ; v2 := <div> (v1, size)
+//       ; <debug> ["___________", <ThisSelector>]
+//       ; <debug> ["___________fontsize: ", ]
+
+
+rules
+
+  get-font-size =
+    where (
+      ?Selector(simple, more)
+      ; debug (!"___selector: ")
+      ; not( <oncetd(?MatchDefinition(_, _))> simple )
+    )

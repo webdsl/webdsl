@@ -1,0 +1,183 @@
+
+module org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  org/webdsl/dsl/to-seam/-
+  org/webdsl/dsl/to-java-servlet/-
+  org/webdsl/dsl/to-java-servlet/types/-
+  org/webdsl/dsl/to-java-servlet/uicomponents/-
+  org/webdsl/dsl/to-java-servlet/styling/-
+  org/webdsl/dsl/modules/-
+  org/webdsl/dsl/to-java-servlet/ajax/- 
+  libwebdsl-front
+  
+
+strategies
+
+  core-to-java-servlet =
+    ?Application(qid, sections)
+    ; info(|"Now going to do code generation")
+    ; rules(
+        Package       := <qid-to-package-name> qid        
+        BeanPackage   := <qid-to-package-name> Qualified(qid, "beans")
+        ActionPackage := <qid-to-package-name> Qualified(qid, "actions")
+      )
+    ; set-DomainPackage(|<qid-to-package-name> Qualified(qid, "domain")) //strategy/rule shared with seam back-end
+
+    ; !Application(qid, sections)
+   
+    ; get-all-top-level-template-names //TODO should be available in a dynamic rule somewhere
+   
+    ; annotate-with-unique-element-ids
+    
+    //; pp-aterm(|"program: ")
+    ; generate-code-java-servlet
+
+    // generate the application context java files that initialize global variables
+    ; where(pkgname1 := <BeanPackage>;pkgname2 := <DomainPackage>;pkgname3 := <ActionPackage>)
+    ; ! [  <get-java-artifacts-java-servlet>
+         , <get-web-xml>
+         , <get-css-artifacts>
+         , JavaFile(["src"],compilation-unit|[package pkgname1 ; public class Force_Bean_Package_Creation {} ]|)
+         , JavaFile(["src"],compilation-unit|[package pkgname2 ; public class Force_Domain_Package_Creation {} ]|) 
+         , JavaFile(["src"],compilation-unit|[package pkgname3 ; public class Force_Action_Package_Creation {} ]|)                   
+        ]
+
+   generate-code-java-servlet =
+     ?def@Define(mods, name, args, elems) ;
+         {| ThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables: //Variables: to hold arguments/variables of parent templates/pages
+         with(
+           if ThisTemplateName
+           then rules ( NestedTemplate := name ) end
+         ; if <elem> (Page(), mods)
+           then rules ( ThisPage := name ) end
+         ; rules ( 
+             ThisTemplateName := name
+             ThisTemplateClassName := <get-template-class-name> def
+           ) 
+         )
+         ; not(GenerateCodeJavaServlet)
+         ; all(generate-code-java-servlet)
+         |}
+   <+?Action(_, _, _) ;
+         {| InAction, Variables:
+           rules ( InAction := True() )
+         ; not(GenerateCodeJavaServlet)
+         ; all(generate-code-java-servlet)
+         |}
+   <+?Function(_,_,_,_) /*;  handled with dynamic rule that holds all functions
+         {| Variables://InFunction, Variables:
+           //rules ( InFunction := <id> )
+           not(GenerateCodeJavaServlet)
+         ; all(generate-code-java-servlet)
+         |}*/
+   <+(?Entity(_,_,_,_)<+?SessionEntity(_,_,_)<+?EntityNoSuper(_,_,_)) ;
+         {| InEntity:
+           rules ( InEntity := True() )
+         ; not(GenerateCodeJavaServlet)
+         ; all(generate-code-java-servlet)
+         |}
+   <+{?el@elem|[ var x : srt := e ]|
+         ; where(<elem> (el,<AllGlobalVars>))}
+   <+     not(GenerateCodeJavaServlet)
+         ; all(generate-code-java-servlet)
+
+// some helping annotations to create uniqueness among the static elements
+
+signature
+  constructors
+    TemplateCallNumber : String -> Annotation
+    FormNumber : String -> Annotation
+    InputNumber : String -> Annotation
+    ActionNumber : String -> Annotation //action calls/actionLink
+    TemplateClassName : String -> Annotation
+   /* ActionClassName : String -> Annotation*/
+        
+rules
+
+  get-templatecallnumber :
+    _{anno*} -> compid
+    where TemplateCallNumber(compid) := <collect(?TemplateCallNumber(_));Hd> anno*
+ 
+  get-formnumber :
+    _{anno*} -> compid
+    where FormNumber(compid) := <collect(?FormNumber(_));Hd> anno* 
+    
+  get-inputnumber :
+    _{anno*} -> compid
+    where InputNumber(compid) := <collect(?InputNumber(_));Hd> anno* 
+    
+  get-actionnumber :
+    _{anno*} -> compid
+    where ActionNumber(compid) := <collect(?ActionNumber(_));Hd> anno* 
+    
+  get-template-class-name :
+    _{anno*} -> compid
+    where TemplateClassName(compid) := <collect(?TemplateClassName(_));Hd> anno* 
+ /*
+  get-action-class-name :
+    _{anno*} -> compid
+    where ActionClassName(compid) := <collect(?ActionClassName(_));Hd> anno* 
+   */        
+strategies
+
+  annotate-with-unique-element-ids = 
+    info(|"applying unique element ids")
+    ; topdown(try(java-servlet-element-id))
+    ; info(|"applying unique element ids done")
+
+rules
+
+  java-servlet-element-id :
+    tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumber(newid),anno*} 
+    where
+          t* := <map(type-of)> args ; <TemplateSignature <+ LocalTemplateSignature> (name,t*)
+        ; newid := <newname> "tcall"
+    
+  java-servlet-element-id :
+    tc@TemplateCall("form", attrs,passign*, elems){anno*} -> tc{FormNumber(newid),anno*} 
+    where  newid := <newname> "form"
+    
+  java-servlet-element-id :
+    tc@TemplateCall("action",[e1,e2],passign*,[]){anno*} -> tc{ActionNumber(newid),anno*} 
+    where  newid := <newname> "action"
+  
+  java-servlet-element-id :
+    tc@PropertyAssignment(x, ThisCall(event, args)){anno*} -> tc{ActionNumber(newid),anno*} 
+    where  newid := <newname> "action"
+    
+  java-servlet-element-id :
+    tc@TemplateCall("actionLink",[e1,e2],passign*,[]){anno*} -> tc{ActionNumber(newid),anno*} 
+    where  newid := <newname> "action"
+          
+  java-servlet-element-id :
+    tc@webdsl|[ define mod* x(farg*) { elem* } ]| -> newtc{TemplateClassName(newid),anno*} 
+    where _{anno*} := tc
+        ; x1 := <strip-annos> x
+        ; newtc := webdsl|[ define mod* x1(farg*) { elem* } ]| 
+        ; newid := <concat-strings;newname> [x,"Template"]
+        ; if <IsTopLevelTemplateNameJavaServlet> x then rules(TopLevelTemplateClassName : x -> newid) end
+
+ /* java-servlet-element-id :
+    tc@elem|[ action x_ident(farg*){ stat*  } ]| -> tc{ActionClassName(newid),anno*} 
+    where _{anno*} := tc
+        ; newid := <concat-strings;newname> [x,"Action"]
+   */     
+    
+  get-all-top-level-template-names =
+    alltd(register-top-level-template-name)
+  register-top-level-template-name = 
+    ?webdsl|[ define mod* x(farg*) { elem* } ]|
+    ; with(
+        if not(<elem> (Page(), mod*))
+        then rules(AllTopLevelTemplateNamesJavaServlet :+= x 
+                   IsTopLevelTemplateNameJavaServlet : x
+                   TopLevelTemplateArgumentsJavaServlet : x -> farg* )
+        end
+      )
+    

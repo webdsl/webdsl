@@ -1,0 +1,96 @@
+module org/webdsl/dsl/transformation/function
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+
+  // @TODO: Rename this strategy
+  aggregate-and-combine-functions =
+    ?app@Application(qid, sections)
+    ; globalfuncs := <filter(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat;rename-bound-variables> sections
+    ; overloadedentityfuncs := <collect(find-entity-functions);concat> sections
+    ; overloadedglobalfuncs := <map(\ Function(nm, _, _, _) -> nm \); find-doubles; make-set> globalfuncs
+    ; info(|["Overloaded entity functions: ", overloadedentityfuncs])
+    ; info(|["Overloaded global functions: ", overloadedglobalfuncs])
+    ; sections2 := <alltd(rename-overloaded-global-function(|overloadedglobalfuncs) <+ rename-overloaded-entity-function(|overloadedentityfuncs))> sections
+    ; globalfuncs2 := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \);concat;rename-bound-variables> sections2
+    ; rules ( AllGlobalFunctions := globalfuncs2 )
+    ; !Application(qid, sections2)
+
+  find-entity-root =
+    ?srt
+    ; Extends
+    ; if ?"Object" then
+        !srt
+      else
+        find-entity-root
+      end
+
+  find-entity-root =
+    ?srt
+    ; not(Extends)
+
+  find-entity-functions :
+    Entity(ent, _, _, funcs) -> <map(\ Function(nm, _, _, _) -> (<find-entity-root> ent, nm) \); find-doubles> funcs
+
+  find-entity-functions :
+    EntityNoSuper(ent, _, funcs) -> <map(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> funcs
+
+  rename-overloaded-entity-function(|torename) :
+    Entity(ent, s, prop*, fun*) -> Entity(ent, s, prop*, fun2*)
+    with {| ThisEntity
+          : rules( ThisEntity := ent )
+          ; fun2* := <alltd(rename-overloaded-entity-function(|torename))> fun*
+          |}
+
+  rename-overloaded-entity-function(|torename) :
+    EntityNoSuper(ent, prop*, fun*) -> EntityNoSuper(ent, prop*, fun2*)
+    with {| ThisEntity
+          : rules( ThisEntity := ent )
+          ; fun2* := <alltd(rename-overloaded-entity-function(|torename))> fun*
+          |}
+
+  rename-overloaded-entity-function(|torename) :
+    Function(nm, farg*, rt, b) -> fun
+    where <elem> ((<ThisEntity; find-entity-root>, nm), torename)
+    with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
+       ; fun := Function(nm2, farg*, rt, b)
+       ; <declare-function(|<ThisEntity>)> fun
+
+  rename-overloaded-entity-function(|torename) :
+    Call(e, nm, arg*) -> Call(e, nm2, arg*)
+    where SimpleSort(ent) := <type-of> e
+        //; info(|["Entity root of ", <type-of> e, ".", nm])
+        //; info(|["is ", <find-entity-root> ent])
+        ; <elem> ((<find-entity-root> ent, nm), torename)
+    with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
+
+  rename-overloaded-global-function(|torename) :
+    Function(nm, farg*, rt, b) -> fun
+    where <elem> (nm, torename)
+    with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
+       ; fun := Function(nm2, farg*, rt, b)
+       ; <declare-global-func> fun
+
+  rename-overloaded-global-function(|torename) :
+    ThisCall(nm, arg*) -> ThisCall(nm2, arg*)
+    where <elem> (nm, torename)
+    with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
+
+  new-function-name :
+    (nm, argtypes) -> nm2
+    with extra := <map(sort-to-string)> argtypes
+         ; nm2 := <concat-strings> [nm, "__", <separate-by(|"__"); concat-strings> extra]
+
+  sort-to-string :
+    SimpleSort(x) -> x
+
+  sort-to-string :
+    GenericSort(t, [t2]) -> <concat-strings> [t, "_", <sort-to-string> t2]
+

@@ -1,0 +1,103 @@
+module org/webdsl/dsl/modules/procedures/utils
+
+imports
+  libstrategolib
+  libwebdsl-front
+  
+rules
+
+  procedure-who-exp =
+    ?def|[ procedure x_id (x_o : srt) { procelem* } ]|; !<filter(procedure-who-exp); Hd> procelem*
+    <+ ?procelem|[ who { e } ]|; !e
+    <+ !True()
+    
+  procedure-view-elems :
+    def|[ procedure x_id (x_o : srt) { procelem* } ]| -> 
+    <filter(procedure-view-elems); concat> procelem*
+    
+  procedure-view-elems :
+    procelem|[ view { elem* } ]| -> elem*
+
+  procedure-do-statements :
+    def|[ procedure x_id (x_o : srt) { procelem* } ]| -> 
+    <filter(procedure-do-statements); concat> procelem*
+  
+  procedure-do-statements :
+    procelem|[ do { stat* } ]| -> stat*
+
+  procedure-enabled-statements :
+    procelem|[ enabled { stat* } ]| -> stat*
+
+  procedure-disabled-statements :
+    procelem|[ disabled { stat* } ]| -> stat*
+
+  procedure-done-statements :
+    procelem|[ done { stat* } ]| -> stat*
+
+  procedure-processed-statements :
+    procelem|[ processed { stat* } ]| -> stat*
+
+  procedure-get-access-exp(|x_o, x_id) =
+    filter(procedure-who-when-exp)
+    ; foldr(!exp|[ x_o.x_id.isEnabled ]|, exp-and)
+
+  procedure-when-exp =
+    ?def|[ procedure x_id (x_o : srt) { procelem* } ]|; !<filter(procedure-when-exp); Hd> procelem* 
+    <+ ?procelem|[ when { e } ]|; !e 
+    <+ !True()
+  
+  procedure-who-when-exp =
+    procedure-who-exp 
+    <+ procedure-when-exp
+    
+rules // Utilities
+
+  add-view-page-return(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ return x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  add-view-page-goto(|x_viewpage, e) :
+    stats -> stats2
+    where if [] := <collect(?Return(_) <+ ?GoTo(_))> stats then
+            stats2 := <concat> [stats, [ webdsl|[ goto x_viewpage(e); ]| ]]
+          else
+            stats2 := stats
+          end
+
+  exp-and : (e1, e2) -> And(e1, e2)
+  exp-or : (e1, e2) -> Or(e1, e2)
+
+  // @TODO: Take scopes into account (see POPL course)
+
+  procedure-rename-var(|from, to) =
+    topdown(try(procedure-rename(|from, to)))
+
+  procedure-rename(|from, to) :
+    Var(from) -> Var(to)
+
+  procedure-rename(|from, to) :
+    Qualified(from, f) -> Qualified(to, f)
+
+  procedure-rename(|from, to) :
+    Assignment(from, e) -> Assignment(to, e)
+
+rules // translating object parameters for use within ProcedureStatus entities
+
+  translate-object-param(|x_o) =
+    ?ProcedureWho(_) <+ ?ProcedureWhen(_) <+ ?ProcedureView(_)
+
+  translate-object-param(|x_o) :
+    Var(x_o) -> FieldAccess(Var("this"), <strip-annos> x_o)
+
+  translate-object-param(|x_o) :
+    Qualified(x_o, f) -> Qualified(Qualified("this", <strip-annos> x_o), <strip-annos> f)
+
+/* Future music ;)
+rules // renaming procedure names to property names in entities
+
+  translate-procedure-to-property : x_id -> <concat-strings> ["_proc_", x_id]
+  */

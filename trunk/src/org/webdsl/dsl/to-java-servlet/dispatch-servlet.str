@@ -1,0 +1,164 @@
+module org/webdsl/dsl/to-java-servlet/dispatch-servlet
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-dispatcher; fail
+
+  generate-java-servlet-dispatcher :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      import java.io.*;
+      import java.util.HashMap;
+  
+      import javax.servlet.*;
+      import javax.servlet.http.*;
+  
+      import utils.*;
+      import pkgname.*;
+  
+      public class DispatchServlet extends HttpServlet {
+  
+          
+          public static HashMap<String, Class> pages = new HashMap<String, Class>();
+          private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
+          static{
+              bstm*
+              bstm2*
+             
+              //String[] s = {"i1","s1","li1"};
+              //pagearguments.put("testpage", s);
+              bstm1*
+              bstm3*
+          }
+          
+          public void doGet(HttpServletRequest request, HttpServletResponse response)
+          throws IOException, ServletException
+          {
+              String[] req = request.getRequestURL().toString().split("/");
+              int count;
+              for(count=0;count<req.length;count++)
+              {
+                if(req[count].equals(AppInfo.getAppName()))
+                {
+                  count++;
+                  break;
+                }
+              }
+              String requested = req[count];
+              String[] args = java.util.Arrays.copyOfRange(req, count+1, req.length);
+              String[] argnames = pagearguments.get(requested);
+
+              java.util.Map<String, String> parammap = new java.util.HashMap<String, String>();
+
+              for(java.util.Enumeration en = request.getParameterNames();en.hasMoreElements(); ){
+                String parameterName = (String)en.nextElement();
+                parammap.put(parameterName,request.getParameter(parameterName));  
+              }
+    
+              for(int count2=0; count2<args.length;count2++)
+              {
+                parammap.put(argnames[count2],args[count2]);
+              }
+              Class pc = pages.get(requested);
+        
+              if(pc != null)
+              {
+                  try{
+                      PageServlet pageservlet = (PageServlet)pc.newInstance();
+            
+                      pageservlet.serve(request,response,parammap);
+  
+                  }
+                  catch(IllegalAccessException iae)
+                  {
+                      System.out.println("Problem in dispatch servlet page lookup: "+iae.getMessage());
+                  }
+                  catch(InstantiationException ie)
+                  {
+                      System.out.println("Problem in dispatch servlet page lookup: "+ie.getMessage());
+                  }
+              }
+              else
+              {
+                  
+                  response.setContentType("text/html");
+                  PrintWriter out = response.getWriter();
+                  out.println("<html>");
+                  out.println("<body>");
+                  out.println("<head>");
+                  out.println("<title>Unknown page</title>");
+                  out.println("</head>");
+                  out.println("<body>");
+                  out.println("<h3>Page "+requested+" does not exist!</h3>");
+                  out.println("Method: " + request.getMethod());
+                  out.println("Request URI: " + request.getRequestURI());
+                  out.println("Protocol: " + request.getProtocol());
+                  out.println("PathInfo: " + request.getPathInfo());
+                  out.println("Remote Address: " + request.getRemoteAddr());
+                  out.println("</body>");
+                  out.println("</html>");
+              }
+          }
+  
+  
+          public void doPost(HttpServletRequest request, HttpServletResponse response)
+          throws IOException, ServletException
+          {
+              doGet(request, response);
+          }
+      }
+    ]|
+    with  pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
+        ; bstm*  := <map({\ 
+                           x -> bstm |[ pages.put(x_key, x_value); ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
+                        \})> 
+                        <bagof-PageNames;make-set>
+        ; bstm1* := <map({\ 
+                           x -> bstm* |[ {
+                                         String[] s = { e* };
+                                         pagearguments.put(x_key, s); 
+                                         }
+                                      ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; e* := <TemplateArguments;map( \Arg(y,_)-> e|[ "~y" ]|\ )> x
+                        \});concat> 
+                        <bagof-PageNames;make-set>
+        //ajax addition:
+        ; if IsAjaxApp then
+          bstm2*  := <map({\ 
+                           x -> bstm |[ pages.put(x_key, x_value); ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
+                        \})> 
+                        <bagof-AllTopLevelTemplateNamesJavaServlet;make-set>
+        ; bstm3* := <map({\ 
+                           x -> bstm* |[ {
+                                         String[] s = { e* };
+                                         pagearguments.put(x_key, s); 
+                                         }
+                                      ]| 
+                           with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; e* := <TopLevelTemplateArgumentsJavaServlet;map( \Arg(y,_)-> e|[ "~y" ]|\ )> x
+                        \});concat> 
+                        <bagof-AllTopLevelTemplateNamesJavaServlet;make-set>
+        else
+          bstm2* := []
+        ; bstm3* := []
+        end
+        
+        
+
+     
+

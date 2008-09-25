@@ -1,0 +1,208 @@
+module org/webdsl/dsl/typechecker/entity
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // typechecking entity declarations
+
+  //duplicate entity names
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Entities ", ent*, " are defined multiple times."])> ""
+    where entities := <collect(?Entity(_, _, _, _)); map(\ Entity(nm, _, _, _) -> nm \)> sections
+        ; ent* := <find-doubles> entities
+        ; not([] := ent*)
+    
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Entities ", ent*, " are defined multiple times."])> ""
+    where entities := <collect(?EntityNoSuper(_, _, _)); map(\ EntityNoSuper(nm, _, _) -> nm \)> sections
+        ; ent* := <find-doubles> entities
+        ; not([] := ent*)
+
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Session entities ", ent*, " are defined multiple times."])> ""
+    where entities := <collect(?SessionEntity(_, _, _)); map(\ SessionEntity(nm, _, _) -> nm \)> sections
+        ; ent* := <find-doubles> entities
+        ; not([] := ent*)
+  
+  // check for double properties and functions within entities
+  constraint-error =
+    (?Entity(x_id, _, properties, functions) <+ ?EntityNoSuper(x_id, properties, functions) <+ ?SessionEntity(x_id, properties, functions))
+    ; names := <map(entity-get-propfunc)> properties
+    ; doubles := <find-doubles> names
+    ; not([] := doubles)
+    ; !<add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles])> x_id
+  
+  constraint-error =
+    (?ent@Entity(x_id, _, properties, functions) <+ ?ent@EntityNoSuper(x_id, properties, functions) <+ ?ent@SessionEntity(x_id, properties, functions))
+    ; names := <concat> [<map(entity-get-propfunc)> properties, <map(entity-get-propfunc)> functions]
+    ; <filter(try(check-with-procedures(|ent)))> names
+    ; fail
+
+  check-with-procedures(|ent) : 
+    name -> <add-error(|["Property name and procedure name coincide: ", name])> ent
+    where <IsProcedure> name
+    
+  entity-get-propfunc : Property(x_id, _, _, _) -> x_id
+  entity-get-propfunc : PropertyNoAnno(x_id, _, _) -> x_id
+  entity-get-propfunc : DerivedProperty(x_id, _, _, _, _) -> x_id
+  entity-get-propfunc : DerivedPropertyNoAnno(x_id, _, _, _) -> x_id
+
+  constraint-error :
+    Application(nm, sections) -> <add-error(|["Session entities ", ent*, " are also defined as normal entities."])>
+    where entities := <collect(?SessionEntity(_, _, _)); map(\ SessionEntity(nm, _, _) -> <capitalize-string> nm \)> sections
+        ; ent* := <filter(\ nm -> nm where not([] := <collect(?Entity(nm, _, _, _) <+ ?EntityNoSuper(nm, _, _))> sections) \)> entities
+        ; not([] := ent*)
+
+  constraint-error :
+    Entity(x_class, s, _, _) -> <add-error(|["Super entity ", <pp-webdsl> s, " for ", x_class, " does not exist."])>
+    where not(<typecheck-supertype> s)
+
+  typecheck-supertype =
+    ?s
+    ; if not(IsEntity <+ ?"Object") then
+        add-error(|["supertype ", s, " is not a defined entity"])
+      end
+
+  constraint-error =
+    (  ?DerivedProperty(x, _, s, _, e)
+    <+ ?DerivedPropertyNoAnno(x, _, s, e) )
+    ; where (
+        te := <type-of> e
+        ; not(<type-compatible> (te, s))
+        ; add-error(|["The expression of the derived property ", x, " should have type ", <pp-webdsl> s])
+      )
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error(|["The entity ", ent, " does not exist."])>
+    where not(<IsEntity> ent)
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error(|["The field ", ent, ".", fld, " is not of the right type."])>
+    where not(<type-of-property> (ent, fld))
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error(|["Inverse annotations cannot be declared on both sides. Remove either the (inverse=", ent, ".", fld, ") or the (inverse=", i_ent, ".", i_fld, ") annotation."])>
+    where [inverse_prop] := <filter(?Property(fld, _, _, annos))> <Properties> ent
+        ; not([] := <filter(?InverseAnno(i_ent, i_fld))> annos)
+
+  constraint-error :
+    InverseAnno(ent, fld) -> <add-error(|["In a many-to-one bidirectional association the inverse annotation should be declared on the many side. (inverse=", i_ent, ".", i_fld, ")"])>
+    where <filter(?Property(fld, _, _, annos))> <Properties> ent
+        ; [InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos
+        ; SimpleSort(_) := <type-of-property> (ent, fld)
+        ; GenericSort(_, _) := <type-of-property> (i_ent, i_fld)
+  
+/**
+ * Check inverse annotations for
+ * - type-compatibility between srt2 and e2
+ * - type-compatibility between srt1 and e1
+ *
+ * Code example
+ *   entity e1 {
+ *     instance2 -> srt2 (inverse=e2.instance1)
+ *   }
+ *   entity e2 {
+ *     instance1 -> srt1
+ *   }
+ */
+  
+  // check all properties in the context of an entity. This is necessary for the inverse check on attribute type
+  constraint-error =
+    (  ?Entity(ent1, _, props, _) 
+    <+ ?EntityNoSuper(ent1, props, _) 
+    <+ ?ExtendEntity(ent1, props, _)  )
+    ; where (
+        <map(check-property-inverse-annos(|ent1))> props
+      )
+  
+  // takes care of different constructor types of properties
+  check-property-inverse-annos(|ent1) =
+    (?Property(_, _, srt2, annos) <+ ?DerivedProperty(_, _, srt2, annos, _))
+    ; <check-property-inverse-annos> (ent1, srt2, annos)
+
+  // check type-compatibility between srt2 and e2
+  check-property-inverse-annos :
+    (ent1, srt2, annos) -> <add-error(|["Type mismatch between attribute type ", <pp-webdsl> srt2, " and inverse entity type ", <pp-webdsl> ent2])>
+    where <filter(?InverseAnno(ent2, fld))> annos
+        ; not( <inverse-compatible> (srt2, SimpleSort(ent2)) )
+        
+  // check type-compatibility between srt1 and e1
+  check-property-inverse-annos :
+    (ent1, srt2, annos) -> <add-error(|["Type mismatch between inverse attribute type ", <pp-webdsl> srt1, " and entity type ", <pp-webdsl> ent1])>
+    where <filter(?InverseAnno(ent2, fld))> annos
+        ; properties := <Properties> ent2
+        ; <fetch(
+               ?Property(fld, _, srt1, _) 
+            <+ ?PropertyNoAnno(fld, _, srt1)
+            <+ ?DerivedProperty(fld, _, srt1, _, _)
+            <+ ?DerivedPropertyNoAnno(fld, _, srt1, _))
+          > properties
+        ; not( <inverse-compatible> (SimpleSort(ent1), srt1) )
+      
+  inverse-compatible = ?(srt, srt)
+  inverse-compatible = ?(GenericSort(_, [srt]), srt)
+  inverse-compatible = ?(srt, GenericSort(_, [srt]))
+  
+  constraint-error =
+    (  ?Property(x, propkind, srt, _)
+    <+ ?PropertyNoAnno(x, propkind, srt)
+    <+ ?DerivedProperty(x, propkind, srt, _, _)
+    <+ ?DerivedPropertyNoAnno(x, propkind, srt, _) )
+    ; where(
+           <check-no-null-attribute> (x, srt)         // check for wrong attribute types
+        <+ <check-no-void-attribute> (x, srt)
+        <+ <check-simple-propkind> (propkind, srt)    // check for incompatible propkinds, such as :: Set<User> (which should be -> Set<User>)
+        <+ <check-complex-propkind> (propkind, srt) 
+      )
+  
+  check-no-null-attribute :
+    (x, SimpleSort("Null")) -> <add-error(|["Attribute type Null is not allowed in attribute ", <pp-webdsl> x])>
+
+  check-no-void-attribute :
+    (x, SimpleSort("Void")) -> <add-error(|["Attribute type Void is not allowed in attribute ", <pp-webdsl> x])>
+
+  check-simple-propkind :
+    (Simple, srt) -> <add-error(|["Expected: Simple type. Encountered: ", <pp-webdsl> srt])>
+    where not(<is-simple-sort> srt)
+
+  check-complex-propkind =
+    (?(Ref, srt) <+ ?(Comp, srt))
+    ; where (
+        <is-simple-sort> srt
+        ; add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-webdsl> srt])
+      )
+    
+  check-complex-propkind =
+    (?(Ref(), srt) <+ ?(Comp(), srt))
+    ; where (
+        <?SimpleSort(s) <+ ?GenericSort(_, [SimpleSort(s)])> srt
+        ; not(<IsEntity> s)
+        ; add-error(|["Property type ", <pp-webdsl> SimpleSort(s), " unkown."])
+      )
+
+  is-simple-sort = ?SimpleSort("Bool")
+  is-simple-sort = ?SimpleSort("Date")
+  is-simple-sort = ?SimpleSort("Time")
+  is-simple-sort = ?SimpleSort("DateTime")
+  is-simple-sort = ?SimpleSort("Email")
+  is-simple-sort = ?SimpleSort("File")
+  is-simple-sort = ?SimpleSort("Image")
+  is-simple-sort = ?SimpleSort("Int")
+  is-simple-sort = ?SimpleSort("Float")
+  is-simple-sort = ?SimpleSort("Patch")
+  is-simple-sort = ?SimpleSort("Secret")
+  is-simple-sort = ?SimpleSort("String")
+  is-simple-sort = ?SimpleSort("Text")
+  is-simple-sort = ?SimpleSort("URL")
+  is-simple-sort = ?SimpleSort("WikiText")
+
+/*  constraint-error =
+    (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
+
+  check-propkind-simple :
+    srt -> <add-error(|["Expecting simple type, encountered ", <pp-webdsl> srt])>
+    where not(<is-simple-type> srt)
+*/    
