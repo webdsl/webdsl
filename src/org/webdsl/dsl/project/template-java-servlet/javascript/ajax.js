@@ -149,6 +149,15 @@ var cachedDisplays = new Object(  ); //stores the default display stiles
 function changevisibility(command, thisobject)
 {
     var theNode = findElementById(thisobject, command.id);
+    
+    if (command.value == "toggle")
+    {
+      if (theNode.style.display == "none")
+        command.value = "show";
+      else
+        command.value = "hide";
+    }       
+    
     if (command.value == "hide" && theNode.style.display != "none")
     {
       cachedDisplays[command.id] = theNode.style.display; //cache the style visibility
@@ -160,7 +169,7 @@ function changevisibility(command, thisobject)
         theNode.style.display = cachedDisplays[command.id];
       else
         theNode.style.display = "block"; //default if cache not found (e.g. the object started as being invisible)
-    }    
+    } 
 }
 
 function restyle(command, thisobject)
@@ -177,6 +186,8 @@ function relocate(command)
 function clientExecute(jsoncode, thisobject)
 {
   data = eval(jsoncode);
+  if (data == undefined)
+    alert("received no valid response from the server! "+jsoncode);
   for(i = 0; i < data.length ; i++)
   {
     command = data[i];
