@@ -11,39 +11,42 @@ imports
 strategies
   
   analyze-all =
-    ?t
-    ; {| Root
-       : rules ( Root := t )
-       ; where(topdown(try(analyze))) // Don't adapt tree
-       |}
+    analyze-definitions
+  ; with(topdown(try(analyze)))
+
+  analyze-definitions =
+    // TODO: use specific dynamic rules to record definitions,
+    //       as is done in org/webdsl/dsl/typechecker/declare?
+    rules(
+      Root := <id>
+    )
 
   find-definition =
     ?srt@SimpleSort(s)
-    ; memo(id
-      ; defined-java-type
-      ; !<Root>
-      ; collect(?Entity(s, _, _, _) <+ ?EntityNoSuper(s, _, _)) // @TODO also find extend entities
-      ; Hd
+    ; defined-java-type
+    ; find-definition(
+        // @TODO also find extend entities
+        ?Entity(s, _, _, _) <+ ?EntityNoSuper(s, _, _)
       )
+  
+  // TODO: use type-compatible
+  
+  // TODO: find-definition: FieldAccess(e, "prop"), ...
 
   find-definition =
     ?TemplateCall(x, args,_, _)
-    ; argtypes := <map(type-of)> args
-    ; memo(id
-        ; !<Root>
-        ; collect({args: \ Define(_, x, args, _) -> <id> where argtypes := <map({srt: \ Arg(_, srt) -> srt \})> args \})
-        ; Hd
+    ; with(argtypes := <map(type-of)> args)
+    ; find-definition(
+        {args: (Define(_, x, args, _) -> <id> where argtypes := <map(\Arg(_, srt) -> srt\)> args)}
       )
 
   find-definition =
     ?ThisCall(x, args)
-    ; argtypes := <map(type-of)> args
-    ; memo(id
-        ; !<Root>
+    ; with(argtypes := <map(type-of)> args)
+    ; find-definition(
         // @TODO Not entirely correct, entity functions with the same name and signature as global functions can als
         // be found like this
-        ; collect({args: \ Function(x, args, _, _) -> <id> where argtypes := <map({srt: \ Arg(_, srt) -> srt \})> args \})
-        ; Hd
+        {args: (Function(x, args, _, _) -> <id> where argtypes := <map(\Arg(_, srt) -> srt\)> args)}
       )
 
 /*
@@ -57,7 +60,19 @@ strategies
       ExtendEntity(s, props, funcs) -> (None(), props, funcs)
       */
 
+  find-definition(s) =
+    find-memo(
+      Root
+    ; collect(s) => [<id> | _] // get the _latest_ definition
+    )
 
+  find-memo(s) =
+    FindMemo
+  <+
+    ?t => <s> => t'
+  ; rules(
+      FindMemo : t -> t'
+    )
     
   add-analysis-hint(|msgs) =
     where(
