@@ -38,6 +38,11 @@ function formToPost(formObj) {
           if (formObj.elements[i].options[j].selected)
             request += formObj.elements[i].name + "=" + encodePost(formObj.elements[i].options[j].value) +"&";
       }
+      else if (formObj.elements[i].type=="checkbox")
+      {
+        if (formObj.elements[i].checked == true)
+          request = request + formObj.elements[i].name + "=1&";
+      }
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
     }
@@ -103,12 +108,44 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject)
     }
   }
   
+  data = action+"=1&"+jsonparams;
   //send a form if applicable
-  formdata = "";
   if (thisform !='')
-    formdata = formToPost(findElementById(thisobject, thisform));
+    data += formToPost(findElementById(thisobject, thisform));
+  //remove trailing &
+  if (data.charAt(data.length-1) == '&')
+    data = data.substr(0, data.length -1);
   
-  req.send(action+"=1&"+jsonparams+formdata);
+  req.send(data);
+}
+
+
+function clientExecute(jsoncode, thisobject)
+{
+  data = eval(jsoncode);
+  if (data == undefined)
+    alert("received no valid response from the server! "+jsoncode);
+  for(i = 0; i < data.length ; i++)
+  {
+    command = data[i];
+
+    if (command.action == "replace")
+      replace(command, thisobject);
+    else if (command.action == "append")
+      append(command, thisobject);
+    else if (command.action == "clear")
+      clear(command, thisobject);
+    else if (command.action == "visibility")
+      changevisibility(command, thisobject);        
+    else if (command.action == "relocate")
+      relocate(command);
+    else if (command.action == "restyle")
+      restyle(command, thisobject);
+   //other actions 
+    
+    else if (command.action != undefined) //last command might equal {}
+      alert("unknown client command: "+command.action);
+  }
 }
 
 function notify(string)
@@ -142,6 +179,15 @@ function append(command, thisobject)
       theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
     }
+}
+
+function clear(command, thisobject)
+{
+  var theNode = findElementById(thisobject, command.id);
+  while (theNode.hasChildNodes())
+  {
+    theNode.removeChild(theNode.firstChild);
+  }  
 }
 
 var cachedDisplays = new Object(  ); //stores the default display stiles
@@ -181,30 +227,4 @@ function restyle(command, thisobject)
 function relocate(command)
 {
   window.location = command.value;
-}
-
-function clientExecute(jsoncode, thisobject)
-{
-  data = eval(jsoncode);
-  if (data == undefined)
-    alert("received no valid response from the server! "+jsoncode);
-  for(i = 0; i < data.length ; i++)
-  {
-    command = data[i];
-
-    if (command.action == "replace")
-      replace(command, thisobject)
-    else if (command.action == "append")
-      append(command, thisobject);
-    else if (command.action == "visibility")
-      changevisibility(command, thisobject);        
-    else if (command.action == "relocate")
-      relocate(command);
-    else if (command.action == "restyle")
-      restyle(command, thisobject);
-   //other actions 
-    
-    else if (command.action != undefined) //last command might equal {}
-      alert("unknown client command: "+command.action);
-  }
 }

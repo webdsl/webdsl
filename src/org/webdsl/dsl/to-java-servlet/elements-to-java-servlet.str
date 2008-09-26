@@ -390,6 +390,17 @@ rules // links
 
   // link to a url, maybe constant, or obtained from an entity field
         
+  elem-to-java-servlet : //void navigate, useful for ajax
+    TemplateCall("navigate", [],passign*, elems) ->
+    bstm* |[ 
+    out.println("<a class=\"navigate\" href=\"javascript:void()\" "+e_attrs1+">");
+    bstm*
+    out.println("</a>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+        
+        
   elem-to-java-servlet :
     TemplateCall("navigate", [ThisCall("url",[e])],passign*, elems) ->
     bstm* |[ 
@@ -527,7 +538,16 @@ rules // forms
             att0 := @>  id="<%= <get-jsf-component-id-1> tc %>" <@
           else att0:= [] end
     */
-    
+
+  elem-to-java-servlet :
+    tc@TemplateCall("action",[e2],passign*,[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[ 
+    out.println("<input type=\"button\" value=\""+e4+"\" "+e_attrs1+" />");
+    ]|
+    where IsAjaxApp
+    with  e4 := <arg-to-value-string-java-servlet> e2
+        ; e_attrs1 := <to-html-attrs> passign*    
 
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2,call@ThisCall(name, args)],passign*,[]) ->
@@ -537,30 +557,30 @@ rules // forms
     out.println("onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~actionident"+uniqueid+e3 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)'/>"); 
     ]|
     where IsAjaxApp
-    with e4 := <arg-to-value-string-java-servlet> e2
-        ;actionident := <get-actionnumber> tc   
-        ;app := <AppRoot>
-        ;e1* := <map(action-id-param-encoding-java-servlet <+ debug(!"failed to generate POST data from ");!e|[""]| )> args
-        ;e3 := <generate-addition-exp > e1*
+    with  e4 := <arg-to-value-string-java-servlet> e2
+        ; actionident := <get-actionnumber> tc   
+        ; app := <AppRoot>
+        ; e3 := <actual-action-args-to-state-enc> args
         ; e_attrs1 := <to-html-attrs> passign*
   
    elem-to-java-servlet :
     tc@TemplateCall("action",[e2,e1],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.println("<input type=\"submit\" name=\""+ident+"~actionident"+uniqueid+"\" value=\""+e4+"\" "+e_attrs1+" />"); 
+    out.println("<input type=\"submit\" name=\""+ident+"~actionident"+uniqueid+e5+"\" value=\""+e4+"\" "+e_attrs1+" />"); 
     ]|
     where not(IsAjaxApp)
     with  e3 := <?ThisCall(name,args);!name> e1
         ; e4 := <arg-to-value-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
-         
+        ; e5 := <actual-action-args-to-state-enc> args         
+        
   handle-actions-to-java-servlet: 
     tc@TemplateCall("action",[e2,e1],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm*|[
-        ident += "~actionident"+uniqueid;
+        ident += "~actionident"+uniqueid+e5;
         if(ps.getRequest().getParameter(ident)!=null)
         {
             x_class temp = (x_class)actionclasses.get("~x_class");
@@ -571,8 +591,19 @@ rules // forms
         ; x_action := <?ThisCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
         ; _{x_class} := x_action
+        ; e5 := <actual-action-args-to-state-enc> args
 
-
+  elem-to-java-servlet : //actionLink without call only valid for ajax apps
+    tc@TemplateCall("actionLink",[e2],passign*,[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[ 
+    out.print("<a href=\"javascript:void()\" "+e_attrs1+">");
+    out.println(e4+"</a>");
+    ]|
+    where IsAjaxApp
+    with  e4 := <arg-to-value-string-java-servlet> e2
+        ; e_attrs1 := <to-html-attrs> passign*        
+    
   elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
@@ -584,31 +615,29 @@ rules // forms
     with  e4 := <arg-to-value-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; app := <AppRoot>
-        ; e1* := <map(action-id-param-encoding-java-servlet <+ debug(!"failed to generate POST data from ");!e|[""]| )> args
-        ; e3 := <generate-addition-exp > e1*
+        ; e3 := <actual-action-args-to-state-enc> args
         ; e_attrs1 := <to-html-attrs> passign*        
-    
- elem-to-java-servlet :
-    tc@TemplateCall("actionLink",[e2,e1],passign*,[]) ->
+        
+   elem-to-java-servlet :
+    tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.println("<input type=\"hidden\" name=\""+ident+"~actionident"+uniqueid+"\" "+e_attrs1+"/>");
+    out.println("<input type=\"hidden\" name=\""+ident+"~actionident"+uniqueid+e5+"\" "+e_attrs1+"/>");
     out.print("<a href=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\"");
-    out.print("onClick=\"document.getElementsByName('"+ident+"~actionident"+uniqueid+"')[0].value='1';document."+form_ident+".submit();\">");
+    out.print("onClick=\"document.getElementsByName('"+ident+"~actionident"+uniqueid+e5+"')[0].value='1';document."+form_ident+".submit();\">");
     out.println(e4+"</a>");
     ]|
     where not(IsAjaxApp)
-    with  e3 := <?ThisCall(name,args);!name> e1
-        ; e4 := <arg-to-value-string-java-servlet> e2
+    with  e4 := <arg-to-value-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
-         
+        ; e5 := <actual-action-args-to-state-enc> args
         
   handle-actions-to-java-servlet: 
     tc@TemplateCall("actionLink",[e2,e1],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm*|[
-        ident += "~actionident"+uniqueid;
+        ident += "~actionident"+uniqueid+e5;
         if(ps.getRequest().getParameter(ident)!=null && ps.getRequest().getParameter(ident).equals("1") )
         {
             x_class temp = (x_class)actionclasses.get("~x_class");
@@ -619,6 +648,7 @@ rules // forms
         ; x_action := <?ThisCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
         ; _{x_class} := x_action
+        ; e5 := <actual-action-args-to-state-enc> args        
 
 /*
 what are these for, e3 ignored?
