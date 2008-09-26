@@ -17,7 +17,10 @@ ctrees : feedback.ctree
 	cp ../src/*.ctree .
 	cp  $(PPTABLES) .
 
-feedback.ctree : src/feedback.str
+syntax :
+	$(MAKE) -C .. syntax
+
+feedback.ctree : src/feedback.str syntax
 	strc -F --library -I ../src -I ../src/org/webdsl/dsl/syntax -i $< -o $@
 
 feedback : src/feedback.str
@@ -27,7 +30,7 @@ feedback : src/feedback.str
                       -la ${HOME}/.nix-profile/lib/libjava-front.la \
                       -la stratego-sglr -la stratego-lib -la stratego-sglr -la stratego-tool-doc
 
-bin/$(SYNTAX).packed.esv : $(SYNTAX).def $(SYNTAX).tbl $(SDF2IMP) Makefile $(ESVS)
+include/$(SYNTAX).packed.esv : $(SYNTAX).def $(SYNTAX).tbl $(SDF2IMP) Makefile $(ESVS)
 	sdf2imp -i $< -p $(SYNTAX).tbl -m $(SYNTAX) --verbose 2 # -e app -s Unit -m WebDSL
 
 $(SYNTAX).def : $(SOURCE)
