@@ -547,6 +547,16 @@ strategies // simplification of complex constructs
             }
           ]|
     
+/*
+
+a: RepeatUntilProc0ProcedureStatus
+b: [ProcCall("isconfirmed",Var("reg"{"reg3"}))]
+c: [IfNoElse(Eq(Var("state"),Int("0")),Block([Stat(Call(FieldAccess(FieldAccess(Var("this"),"reg"),"confirmEmail"),"enable",[Cast(Var("this"),SimpleSort("ProcedureStatus")),Int("1")]))])),IfNoElse(Eq(Var("state"),Int(1)),Block([Stat(Call(Var("this"),"enable1",[])),Stat(Call(Var("this"),"enable2",[]))]))]
+[ dsl-to-seam | critical ] Internal error: with clause failed unexpectedly
+           ProcRepeatUntil(ProcCall("confirmEmail",Var("reg"{"reg3"})),ProcCall("isconfirmed",Var("reg"{"reg3"})))
+
+*/
+
   // NOTE: "repeat {(A and B) ; C } until D" will take "(A and B)" as the whole first event within the repeat block.
   process-repeat-until :
     ProcRepeatUntil(branch1, branch2) -> ProcCall(x_new, Var(x_o))
@@ -556,9 +566,14 @@ strategies // simplification of complex constructs
         ; x_new := <newname> "repeatUntilProc"
         ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
 
+        ; debug(!"a: ")
+
         // create next function, remembering branch start states
         ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
+
+        ; debug(!"b: ")
+
         ; {| State
            : e_branch1StartState := Int(<get-state>)
            ; if [first | [second | tail]] := branch1ProcCalls then
@@ -575,21 +590,31 @@ strategies // simplification of complex constructs
              ]|
            ; stat1* := [stat1Temp*, lastBranch1]
 
+        ; debug(!"c: ")
+
            ; e_branch2StartState := Int(<get-next-state>)
+        ; debug(!"c1: ")
            ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
+        ; debug(!"c2: ")
            ; e_branch2EndState := Int(<get-state>)
+        ; debug(!"c3: ")
            ; lastBranch2 := |[ 
                if (state == e_branch2EndState) { 
                  this.disable1();
                  this.processed(); 
                } 
              ]|
+        ; debug(!"c4: ")
            ; stat2* := [stat2Temp*, lastBranch2]
            |}
+
+        ; debug(!"d: ")
 
         // create disable function; disables all descending ProcCalls
         ; stat3* := <map(get-disable-proccall)> branch1ProcCalls
         ; stat4* := <map(get-disable-proccall)> branch2ProcCalls
+
+        ; debug(!"e: ")
 
         // create new procedure to replace XOR-construct
         ; <declare-generated-procedure; emit-webdsl-code> def|[
@@ -603,6 +628,9 @@ strategies // simplification of complex constructs
               }
             }
           ]|
+
+        ; debug(!"f: ")
+
         ; <emit-webdsl-code> def|[
             extend entity x_newstatus {
               function enable1() {
@@ -659,10 +687,10 @@ strategies  // Helper strategies
     FieldAccess(e2, f) -> FieldAccess(<prefix-expression(|e)> e2, f)
 
   get-state =
-    State <+ !0
+    State; try(string-to-int) <+ !"0"
 
   get-next-state =
-    n := <get-state; inc>
+    n := <addS>(<get-state>, "1")
     ; rules ( State := n )
 
 strategies // Utility strategies
