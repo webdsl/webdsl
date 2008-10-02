@@ -5,8 +5,49 @@ imports
 
 rules // constraints
 
-  constraint-error :
-    Application(nm, sections) -> <add-error(|["Property id ", theid*, " is used multiple times."])> ""
-    where ids := <collect( { ?TemplateCall(_ ,_ ,passign* ,_); fetch(?PropertyAssignment("id",String(x))); !x } )> sections
-        ; theid* := <find-doubles> ids
-        ; not([] := theid*)
+    propertyassignment-check-id-is-single(|tc) :
+      p@PropertyAssignment("id", String(x)) -> p
+      where [other|_] := <un-double-quote; bagof-HtmlEntityId> x
+          ; other2    := <strip-annos> other
+          ; tc2 := <strip-annos> tc
+          ; not(other2 := tc2)
+          ; !<add-error(|["Templatecall with id ", x, " is defined multiple times: ",tc2," and ",other2])>
+          
+    propertyassignment-check-id-is-string :
+      p@PropertyAssignment("id", x) -> p
+      where not(String(_) := x)
+          ; !<add-error(|["Templatecall id's can only be strings. "])>
+
+    constraint-error-check-propertyassignments(|tc) :
+      p@PropertyAssignment(name,val) -> p
+      where "id":= name
+          ; try(<propertyassignment-check-id-is-string> p)
+          ; try(<propertyassignment-check-id-is-single(|tc)> p)
+
+    constraint-error :
+      a@AjaxAction(_, thediv, _) -> a
+      where divs := <bagof-HtmlEntityId> thediv
+          ; 0 := <length> divs
+          ; not("this" := thediv)
+          ; !<add-error(|["Ajax action refers to unknown object with id ", thediv])>
+
+    constraint-error :
+      a@InlineAjaxAction(_, thediv, _) -> a
+      where divs := <bagof-HtmlEntityId> thediv
+          ; 0 := <length> divs
+          ; not("this" := thediv)
+          ; !<add-error(|["Ajax action refers to unknown object with id ", thediv])>
+   
+    constraint-error =
+      (  ?tc@TemplateCall(_,_,passign*,_) 
+        <+ ?tc@TemplateCallPropsNoBody(_, _,passign*) 
+        <+ ?tc@TemplateCallProps(_, passign*)
+        <+ ?tc@TemplateCallPropsNoArgs(_, passign*, _))
+      ; where (
+          props := <map(\ PropertyAssignment(x,_) -> x \)> passign*
+        ; doubles := <find-doubles> props
+        ; if (not([] := doubles))
+          then !<add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles, " in ",tc])>
+          else <filter(constraint-error-check-propertyassignments(|tc))> passign*
+          end
+       )
