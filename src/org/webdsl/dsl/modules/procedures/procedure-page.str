@@ -10,27 +10,29 @@ rules // Translate to pages and stuff
     def@def|[ procedure x_id (x_o : srt) { procelem2* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
     where <IsProcedure> x_id
     with  SimpleSort(s) := srt
+        ; <debug(!"procedure: ")> def
+        ; <debug(!"x_o: ")> x_o
         ; x_view := <decapitalize-string> s
         ; procelem* := <alltd(translate-object-param(|x_o))> procelem2*
-        ; stat* := <filter(procedure-do-statements); concat; add-procedure-done> procelem* // get do statements and add call to done()
+        ; stat* := <filter(procedure-do-statements); concat; add-procedure-done(|x_o, x_id)> procelem2* // get do statements and add call to done()
+        ; stat_do* := <filter(not({e: ?webdsl|[ return e; ]| <+ ?webdsl|[ goto e; ]|}))> stat* // no returns or goto's in do
         ; if <IsDoProcedure> x_id then
-              stat2* := <add-view-page-goto(|x_view, Var(x_o))> stat*
-            ; elem*  := elem*|[ 
+              elem*  := elem*|[ 
                 init { 
-                  x_o.x_id.do();
+                  stat_do*
                   goto x_view(x_o);
                 }
               ]|
           else
-              stat2*      := <add-view-page-return(|x_view, Var(x_o))> stat*
-            ; viewelem*   := <procedure-view-elems> def
+              viewelem*   := <procedure-view-elems> def
             ; elem2       := elem|[ 
                 action doAction() {
                   x_o.persist();
-                  x_o.x_id.do();
+                  stat_do*
                   return x_view(x_o);
                 } 
               ]|
+            ; <debug(!"elem2: ")> elem2
             ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction())[]{} ]| -> elem|[ dummy ()[]{ elem elem2 } ]| \}))> viewelem*
           end
         ; e2 := <procedure-get-access-exp(|x_o, x_id)> procelem*
@@ -52,7 +54,6 @@ rules // Translate to pages and stuff
         ; stat3* := <filter(procedure-enabled-statements); concat> procelem*
         ; stat4* := <filter(procedure-processed-statements); concat> procelem*
         ; stat5* := <filter(procedure-done-statements); concat> procelem*
-        ; stat6* := <filter(not({e: ?webdsl|[ return e; ]| <+ ?webdsl|[ goto e; ]|}))> stat* // no returns or goto's in do
         ; stat7* := <filter(procedure-disabled-statements); concat> procelem*
         ; if not(<IsGeneratedProcedure> x_id); [] := <filter(?procelem|[ process { processexp } ]|)> procelem2*; not(<ProcedureHasProcess> x_id) then
             stat8* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
@@ -70,9 +71,6 @@ rules // Translate to pages and stuff
                 this.persist();
                 stat8*
                 stat5*
-              }
-              function do() {
-                stat6*
               }
               function disabled() {
                 //this.isEnabled := false;
@@ -92,10 +90,10 @@ rules // Translate to pages and stuff
             }
           ]|
 
-  add-procedure-done :
+  add-procedure-done(|x_o, x_id) :
     stat* -> webdsl|[
           stat*
-          this.done();
+          x_o.x_id.done();
         ]|
 
   /*
