@@ -18,6 +18,9 @@ rules
   
       import java.io.*;
       import java.util.HashMap;
+      import java.util.Map;
+      import java.util.List;
+      import java.util.LinkedList;
   
       import javax.servlet.*;
       import javax.servlet.http.*;
@@ -40,6 +43,18 @@ rules
               bstm3*
           }
           
+          private void addToValues(String key, String val,Map<String, List<String>> parammapvalues){
+            List<String> current = parammapvalues.get(key); 
+            if(current==null){
+              List<String> newlist = new LinkedList<String>();
+              newlist.add(val);
+              parammapvalues.put(key,newlist) ; 
+            }
+            else{
+             current.add(val);
+            }
+          }
+            
           public void doGet(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
@@ -57,17 +72,78 @@ rules
               String[] args = java.util.Arrays.copyOfRange(req, count+1, req.length);
               String[] argnames = pagearguments.get(requested);
 
-              java.util.Map<String, String> parammap = new java.util.HashMap<String, String>();
+              java.util.Map<String, utils.File> fileUploads = new HashMap<String, utils.File>();
+              java.util.Map<String, String> parammap = new HashMap<String, String>();
+              java.util.Map<String, List<String>> parammapvalues = new HashMap<String, List<String>>();
 
               for(java.util.Enumeration en = request.getParameterNames();en.hasMoreElements(); ){
                 String parameterName = (String)en.nextElement();
                 parammap.put(parameterName,request.getParameter(parameterName));  
+                addToValues(parameterName,request.getParameter(parameterName),parammapvalues);  
               }
     
               for(int count2=0; count2<args.length;count2++)
               {
                 parammap.put(argnames[count2],args[count2]);
+                addToValues(argnames[count2],args[count2],parammapvalues);
               }
+              
+              //http://commons.apache.org/fileupload/using.html
+              // Check that we have a file upload request
+              boolean isMultipart = org.apache.commons.fileupload.servlet.ServletFileUpload.isMultipartContent(request);
+              if(isMultipart){
+                  
+                  // Create a factory for disk-based file items
+                  org.apache.commons.fileupload.FileItemFactory factory = new org.apache.commons.fileupload.disk.DiskFileItemFactory();
+          
+                  // Set factory constraints
+                  //factory.setSizeThreshold(yourMaxMemorySize);//make configurable
+                  //factory.setRepository(yourTempDirectory);//make configurable
+                  
+                  // Create a new file upload handler
+                  org.apache.commons.fileupload.servlet.ServletFileUpload upload = new org.apache.commons.fileupload.servlet.ServletFileUpload(factory);
+          
+                  // Set overall request size constraint
+                  //upload.setSizeMax(); //make configurable
+                  
+                  // Parse the request
+                  try {
+                      java.util.List<org.apache.commons.fileupload.FileItem> items = (java.util.List<org.apache.commons.fileupload.FileItem>) upload.parseRequest(request);
+                  
+                      // Process the uploaded items
+                      java.util.Iterator<org.apache.commons.fileupload.FileItem> iter = items.iterator();
+                      while (iter.hasNext()) {
+                          org.apache.commons.fileupload.FileItem item = (org.apache.commons.fileupload.FileItem) iter.next();
+          
+                          if (item.isFormField()) {
+                              String name = item.getFieldName();
+                              String value = item.getString();
+                              parammap.put(name, value);
+                              addToValues(name, value, parammapvalues);
+                          } else {
+                              String fieldName = item.getFieldName();
+                              String fileName = item.getName();
+                              String contentType = item.getContentType();
+                              boolean isInMemory = item.isInMemory();
+                              long sizeInBytes = item.getSize();
+                              utils.File temp = new utils.File();
+                              temp.setFileName(fileName);
+                              temp.setContentType(contentType);
+                              temp.setSizeInBytes(sizeInBytes);
+                           
+                              temp.setContentStream(item.getInputStream());
+          
+                              fileUploads.put(fieldName, temp);
+                          }
+                      }
+                  
+                  } catch (org.apache.commons.fileupload.FileUploadException ex) {
+                      System.out.println("exception occured in file upload handling DispatchServlet");
+                      ex.printStackTrace();
+                  }
+              }
+              
+              
               Class pc = pages.get(requested);
         
               if(pc != null)
@@ -75,7 +151,7 @@ rules
                   try{
                       PageServlet pageservlet = (PageServlet)pc.newInstance();
             
-                      pageservlet.serve(request,response,parammap);
+                      pageservlet.serve(request,response,parammap,parammapvalues,fileUploads);
   
                   }
                   catch(IllegalAccessException iae)

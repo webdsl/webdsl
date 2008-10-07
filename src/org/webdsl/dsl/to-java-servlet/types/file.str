@@ -7,6 +7,29 @@ imports
   
 imports 
   libwebdsl-front
+
+rules  
+
+//copied from string, which of these are actually used?
+  sort-to-java-type-string : SimpleSort("File") -> "utils.File"
+  
+  builtin-java-type :
+    SimpleSort("File") -> type|[ utils.File ]|
+
+  builtin-java-type-default-value :
+    SimpleSort("File") -> java|[ null ]|
+
+  type-default-value :
+    SimpleSort("File") -> exp|[ null ]|
+
+
+  type-specific-annotations :
+    Property(x_prop, k, s, annos) ->
+    [ anno |[ @OneToOne(fetch = javax.persistence.FetchType.LAZY) ]|
+    , anno |[ @org.hibernate.annotations.Cascade({org.hibernate.annotations.CascadeType.PERSIST, org.hibernate.annotations.CascadeType.SAVE_UPDATE, org.hibernate.annotations.CascadeType.MERGE}) ]|
+    ]
+    where <?SimpleSort("File")> s
+ 
 /*  
 rules // Desugaring
       
@@ -51,6 +74,37 @@ rules // Typechecking
 */
 rules
   
+  java-servlet-element-id : 
+    tc@elem|[ inputFile(e)[passign*]{} ]| -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+        ; newid := <newname> "input"
+
+  handle-actions-input-to-java-servlet :
+    tc@elem|[ inputFile(e)[passign*]{} ]| ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+      ident += "~inputident"+uniqueid;
+      if (ps.getFileUploads().get(ident)!=null) {
+         utils.File x_temp = ps.getFileUploads().get(ident);
+         bstm 
+      }
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
+    
+  elem-to-java-servlet : 
+    tc@elem|[ inputFile(e)[passign*]{} ]| ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+      String x_temp = ident+"~inputident"+uniqueid;
+      out.print("<input name=\""+x_temp+"\" "+e_attrs1+" type=\"file\" />"); 
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; e_attrs1 := <to-html-attrs> passign*        
+    
+  
   elem-to-java-servlet :
     elem|[ inputFile(e)[passign*]{} ]| ->
     java |[ out.print("todo: inputfile"); ]|
@@ -71,12 +125,12 @@ rules
   elem-to-java-servlet :
     elem|[ outputFile(e)[passign*]{} ]| ->
     java |[ out.print("todo: outputfile"); ]|
-    /*
-    %>
-      <s:link styleClass="outputFile" value="#{<%= <arg-to-el> e %>.name}"
-         action="#{<%= <Component> %>.download()}" />
-    <%
-    */  
+  /*
+  elem-to-java-servlet :
+    elem |[ outputString(e)[passign*]{} ]| ->
+    java |[ out.println(utils.HTMLFilter.filter(e1)); ]|
+    with  e1 := <arg-to-value-string-java-servlet> e
+    */   
     
   elem-to-java-servlet :
     elem|[ inputBinary(e)[passign*]{} ]| ->
