@@ -13,7 +13,7 @@ rules
   
   stylesection-to-css:
     StyleSection(name, definitions) -> s
-    where {| ThisPage
+    with {| ThisPage
            : rules ( ThisPage := name )
            ; s := <emit-css> Stylesheet(<collect(styledefinition-to-css); flatten-list> definitions)
 //           ; <debug> ["==========s", s]
@@ -27,7 +27,7 @@ rules
            decl0*
          }
       )|
-    where {| ThisSelector
+    with {| ThisSelector
            : rules ( ThisSelector := selector )
            ; sel0 := <selector-to-css> selector
            ; decl0* := <map(styledeclarations-to-css)> stat*
@@ -43,7 +43,7 @@ rules
       decl |(
         prop: val;
       )|
-    where prop := <style-expression-to-css> property
+    with  prop := <style-expression-to-css> property
 //        ; <debug> ["____styledecl:", value]
         ; val := <style-expression-to-css> value
 //        ; <debug> [".....:", val]
@@ -66,23 +66,30 @@ rules
 rules
 
   style-values-to-css =
-    style-value-to-css <+ other-value-to-css
-
+    style-value-to-css <+ other-value-to-css /* <+ style-value-exp-to-css //MW: added style-value-exp-to-css
+    
+  style-value-exp-to-css :
+    s@StyleValueExpression(selector, propertype) -> val
+    with  debug(!"Try to rewrite style value expression") //TODO: maybe code is not renamed at forehand?
+          ;val := <resolve> s
+          ;debug(!"Rewrote StyleValueExpression to ")
+    */
+    
   style-value-to-css :
     StyleValue(Uri(str1)) -> |( url(str2) )|
-    where str2 := <concat-strings; double-quote> [<AppRoot>, "/", <un-double-quote> str1]
+    with str2 := <concat-strings; double-quote> [<AppRoot>, "/", <un-double-quote> str1]
 
   style-value-to-css :
     StyleValue(Hash(color)) -> |( val )|
-    where val := <value-to-color> color
+    with val := <value-to-color> color
 
   style-value-to-css :
     StyleValueExtension(v) -> <style-values-to-css> v'
-    where v' := StyleValue(v)
+    with v' := StyleValue(v)
 
   style-value-to-css :
     StyleValue(StyleSort(sort), [valex]) -> |( val )|
-    where val := <style-values-to-css> valex
+    with val := <style-values-to-css> valex
   
   other-value-to-css :
     StyleValue(val, unit) -> |( val unit )|
@@ -95,7 +102,7 @@ rules
   selector-to-css :
     Selector(simple-selector, s*) -> sel |( ssel0 combsel* )|
 //    Selector(simple-selector, s*) -> sel |( ssel0 )|
-    where ssel0 := <selector-to-css> simple-selector
+    with  ssel0 := <selector-to-css> simple-selector
         ; combsel* := <map(selector-to-css)> s*
 
 //    ; !<concat-strings> [<selector-to-css> simple-selector, " ", <selector-to-css> s*]
@@ -112,7 +119,7 @@ rules
 */  
   selector-to-css :
     (c, selector, None) -> combsel |( comb ssel )|
-    where comb := <combinator-to-css> c
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> selector
 //    ; !<concat-strings> [<combinator-to-css> c, " ", <selector-to-css> selector]
    
@@ -122,12 +129,12 @@ rules
   */  
   selector-to-css :
     (c, selector, Some(pseudo-selector)) -> combsel |( comb ssel )|
-    where comb := <combinator-to-css> c
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> (selector, pseudo-selector)
         
   selector-to-css :
     (c, selector, pseudo-selector) -> combsel |( comb ssel )|
-    where comb := <combinator-to-css> c
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> (selector, pseudo-selector)
 //        ; <selector-to-css> pseudo-selector
 
@@ -135,14 +142,14 @@ rules
 
   selector-to-css :
     (ElemSimpleSelector(s), a@SelectorAttribute(_)) -> CSSSimpleSelector(ElementName(s), [p])
-    where p := <selector-to-css> a
+    with p := <selector-to-css> a
         
   selector-to-css :
     SimpleSelector(type, MatchDefinition(name, farg*)) -> <selector-to-class> //CSSSimpleSelector(IdSelector(name))
   
   selector-to-css :
     SimpleSelector(MatchDefinition(name, farg*)) -> <name-to-css-id> name
-    where <debug> ["________error: ", <id>]
+    with <debug> ["________error: ", <id>]
       
   selector-to-css :
     IdSimpleSelector(name) -> CSSSimpleSelector(IdSelector(name))
