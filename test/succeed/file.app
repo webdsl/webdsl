@@ -9,11 +9,16 @@ section datamodel
   }
   
   define page home(){
-    for(u:User)
-    {
-      outputString(u.name)
-      outputFile(u.storedfile)
-      //output(u.storedfile)
+    form{
+      for(u:User)
+      {
+      
+        outputString(u.name)
+        outputFile(u.storedfile)
+        //output(u.storedfile)
+        action("download",download(u))
+      
+      }
     }
     "test page"
     var u : User := User{
@@ -25,10 +30,15 @@ section datamodel
       inputFile(u.storedfile)
       //input(u.storedfile)
       action("save",save())
+
     }
     action save()
     {
       u.save();
+    }
+    action download(u:User)
+    {
+      u.storedfile.download();
     }
 
   }

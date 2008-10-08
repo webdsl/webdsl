@@ -37,7 +37,7 @@ import java.util.*;
   
   private java.sql.Blob	content	= null;
 
-  private java.sql.Blob getContent(){
+  public java.sql.Blob getContent(){
     return content;
   }
 
