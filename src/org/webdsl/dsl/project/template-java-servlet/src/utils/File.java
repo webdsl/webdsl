@@ -2,7 +2,6 @@ package utils;
 
 import utils.*;
 import java.io.Serializable;
-import test.domain.*;
 import javax.persistence.*;
 import java.util.*;
 
