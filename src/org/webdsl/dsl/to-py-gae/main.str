@@ -14,6 +14,7 @@ strategies
     info(|"Generating Python code")
     ; py-generate-code
     ; py-generate-default-template-bindings
+    ; py-generate-init-code
     ; <map({
         ?type
         ; get-python-stats
@@ -22,7 +23,7 @@ strategies
         //; optimize-python
         ; topdown(try(py-remove-pass))
         ; output-python-to-file(|<concat-strings> [type, ".py"])
-        })> ["data", "template", "function", "global_variable", "template_bindings"]
+        })> ["data", "template", "function", "global_variable", "template_bindings", "init"]
     ; !<get-css-artifacts>
 
   py-header =
@@ -116,3 +117,38 @@ strategies // styling
 
   PyGenerateCode = generate-layout-css; fail
   PyGenerateCode = stylesection-to-css; fail
+  PyGenerateCode = py-generate-global-init-blocks; fail
+
+rules // section's init blocks
+
+  py-generate-init-code =
+    where(
+      stm* := <bagof-PyInitCode; concat>
+      ; <emit-python(|"init")> python*|[
+        class Init__Entity(db.Model): {
+           pass;
+        };
+
+        def initialization(): {
+          stm*
+        };
+
+        found = False;
+        for ie in Init__Entity.all(): {
+          found = True;
+        };
+        if not found: {
+          initialization();
+          (Init__Entity()).put();
+        };
+      ]|
+    )
+
+  py-generate-global-init-blocks =
+    ?Section(_, def*)
+    ; <filter(py-generate-init-block-code)> def*
+
+  py-generate-init-block-code =
+    ?def|[ init { stat* } ]|
+    ; stm* := <statements-to-python> stat*
+    ; rules ( PyInitCode :+= stm* )

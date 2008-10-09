@@ -6,6 +6,7 @@ from datetime import datetime
 import data
 import template
 import global_variable
+import init
 import logging
 
 webdsl.querylist.query_counter = 0
