@@ -13,15 +13,25 @@ CLEANFILES = \
     $(wildcard *.dep) \
     $(wildcard *.rtree) \
     $(wildcard *.ctree) \
-    $(wildcard org/webdsl/dsl/*/*.def) \
-    $(wildcard org/webdsl/dsl/*/*.tbl) \
-    $(wildcard org/webdsl/dsl/*/*.rtg) \
     $(wildcard org/webdsl/dsl/*/*.c) \
     $(wildcard org/webdsl/dsl/*/*.o) \
     $(wildcard org/webdsl/dsl/*/*.dep) \
-    $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtree) \
     $(wildcard org/webdsl/dsl/*/*/*.rtree)
+
+FULLCLEANFILES = \
+    $(wildcard org/webdsl/dsl/*/*.def) \
+    $(wildcard org/webdsl/dsl/*/*.pp.af) \
+    $(wildcard org/webdsl/dsl/*/*.rtg) \
+	$(wildcard org/webdsl/dsl/*/*.tbl)
+
+# "make clean" leaves syntax intact; use fullclean/distclean
+
+distclean : fullclean
+
+fullclean :
+	$(MAKE) clean
+	rm -rf $(FULLCLEANFILES)
 
 EXTRA_DIST = \
     $(wildcard *.str) \
@@ -106,7 +116,7 @@ STRCFLAGS = \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
-	--format-check 0 
+	--format-check 0 -O 1
 
 XTC_IMPORT = $(JAVA_FRONT_XTC)
 
