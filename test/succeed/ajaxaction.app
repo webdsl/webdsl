@@ -4,20 +4,20 @@ section pages
 
 define page home() {
   var s: String := "hoi2"
-  block[id := "target"] {}
+  block[id := target] {}
   action("do",do2())
   action do2 () {
     replace target << template(s);
     append  target << template(s);
     
-    relocate this << apage(s);
+    relocate << apage(s);
     
-    visibility target << "hide";
-    visibility target << "show";
-    visibility target << "toggle";
+    visibility target << hide;
+    visibility target << show;
+    visibility target << toggle;
     
-    restyle target << "iets dat niet getypechecked wordt";
-    clear target << "iets dat niet uitmaakt"; 
+    restyle target << "aclass";
+    clear target <<; 
   }
 }
 

@@ -6,8 +6,8 @@ imports
 rules // constraints
 
     propertyassignment-check-id-is-single(|tc) :
-      p@PropertyAssignment("id", String(x)) -> p
-      where [other|_] := <un-double-quote; bagof-HtmlEntityId> x
+      p@PropertyAssignment("id", x) -> p
+      where [other|_] := <bagof-HtmlEntityId> x  
           ; other2    := <strip-annos> other
           ; tc2 := <strip-annos> tc
           ; not(other2 := tc2)
@@ -15,8 +15,8 @@ rules // constraints
           
     propertyassignment-check-id-is-string :
       p@PropertyAssignment("id", x) -> p
-      where not(String(_) := x)
-          ; !<add-error(|["Templatecall id's can only be strings. "])>
+      where not(<is-string> x)
+          ; !<add-error(|["Templatecall id's can only be plain id's. "])>
 
     constraint-error-check-propertyassignments(|tc) :
       p@PropertyAssignment(name,val) -> p
@@ -24,19 +24,28 @@ rules // constraints
           ; try(<propertyassignment-check-id-is-string> p)
           ; try(<propertyassignment-check-id-is-single(|tc)> p)
 
-    constraint-error :
-      a@AjaxAction(_, thediv, _) -> a
-      where divs := <bagof-HtmlEntityId> thediv
-          ; 0 := <length> divs
-          ; not("this" := thediv)
-          ; !<add-error(|["Ajax action refers to unknown object with id ", thediv])>
+    constraint-error =
+         ?a@AjaxAction(_, thediv, _) 
+      <+ ?a@AjaxActionIdParam(_, thediv, _) 
+      <+ ?a@AjaxActionNoParam(_, thediv)
+      ; where (<check-id-existence> thediv)
+      ; !a
+      
+    check-id-existence =
+      ? theid
+      ; divs := <bagof-HtmlEntityId> theid
+      ; 0 := <length> divs
+      ; not("this" := theid)
+      ; !<add-error(|["Ajax action refers to unknown object with id ", theid])>
 
+/*
     constraint-error :
       a@InlineAjaxAction(_, thediv, _) -> a
       where divs := <bagof-HtmlEntityId> thediv
           ; 0 := <length> divs
           ; not("this" := thediv)
           ; !<add-error(|["Ajax action refers to unknown object with id ", thediv])>
+*/
    
     constraint-error =
       (  ?tc@TemplateCall(_,_,passign*,_) 
