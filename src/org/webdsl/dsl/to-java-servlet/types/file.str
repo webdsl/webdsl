@@ -10,7 +10,6 @@ imports
 
 rules  
 
-//copied from string, which of these are actually used?
   sort-to-java-type-string : SimpleSort("File") -> "utils.File"
   
   builtin-java-type :
@@ -22,56 +21,17 @@ rules
   type-default-value :
     SimpleSort("File") -> exp|[ null ]|
 
-
+  //used in entity generation
+  //hibernate has a built-in mapping for java.sql.Blob
   type-specific-annotations :
-    Property(x_prop, k, s, annos) ->
-    [ anno |[ @OneToOne(fetch = javax.persistence.FetchType.LAZY) ]|
-    , anno |[ @org.hibernate.annotations.Cascade({org.hibernate.annotations.CascadeType.PERSIST, org.hibernate.annotations.CascadeType.SAVE_UPDATE, org.hibernate.annotations.CascadeType.MERGE}) ]|
-    ]
+    Property(x_prop, k, s, annos) -> <file-specific-annotations>
     where <?SimpleSort("File")> s
+    
+  file-specific-annotations =
+    ![ anno |[ @OneToOne(fetch = javax.persistence.FetchType.LAZY) ]|
+     , anno |[ @org.hibernate.annotations.Cascade({org.hibernate.annotations.CascadeType.PERSIST, org.hibernate.annotations.CascadeType.SAVE_UPDATE, org.hibernate.annotations.CascadeType.MERGE}) ]|
+     ]
  
-/*  
-rules // Desugaring
-      
-  DeriveInputBuiltins :
-    elem|[ input(e){} ]| -> elem|[ inputFile(e){} ]|
-    where SimpleSort("File") := <type-of> e
-  
-  DeriveOutputBuiltins :
-    elem|[ output(e){} ]| -> elem|[ outputFile(e){} ]|
-    where SimpleSort("File") := <type-of> e
-    
-  DeriveInput :
-    elem|[ input(e){} ]| -> elem|[ inputBinary(e){} ]|
-    where SimpleSort("Binary") := <type-of> e
-      
-  DeriveOutput :
-    elem|[ output(e){} ]| -> elem|[ outputBinary(e){} ]|
-    where SimpleSort("Binary") := <type-of> e
-
-rules // Annotations
-
-  builtin-persistence-annotations :
-    SimpleSort("Binary") ->
-      [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
-       anno|[ @Column(columnDefinition="LONGBLOB") ]|]
-
-rules // Typechecking
-   
-  sort-to-java-type-string : SimpleSort("Binary") -> "java.lang.Byte[]"
-      
-  builtin-java-type : 
-    SimpleSort("Binary") -> type|[ byte[] ]|
-
-  builtin-java-type-default-value :
-    SimpleSort("Binary") -> java|[ null ]|
-
-  type-default-value :
-    SimpleSort("Binary") -> exp|[ null ]|
-    
-  builtins-initialization-expression :
-    (Ref(), SimpleSort("File")) -> |[ new File() ]|
-*/
 rules
   
   java-servlet-element-id : 
@@ -79,6 +39,8 @@ rules
     with  _{anno*} := tc
         ; newid := <newname> "input"
 
+  requires-multipart-encoded-form = ?elem|[inputFile(e)[passign*]{}]|
+  
   handle-actions-input-to-java-servlet :
     tc@elem|[ inputFile(e)[passign*]{} ]| ->
     <for-loop-counter-wrap-code> 
@@ -102,47 +64,13 @@ rules
     ]|
     with  inputident := <get-inputnumber> tc
         ; x_temp := <newname> "temp"
-        ; e_attrs1 := <to-html-attrs> passign*        
-    
-  
-  elem-to-java-servlet :
-    elem|[ inputFile(e)[passign*]{} ]| ->
-    java |[ out.print("todo: inputfile"); ]|
-    /*
-    %>
-      <div>
-      <s:fileUpload id="<%= label%>"
-      data="#{<%= estring %>.data}"
-      contentType="#{<%= estring %>.contenttype}"
-      fileName="#{<%= estring %>.name}" required="<%= req %>"/>
-      </div>
-    <%
-    with estring := <arg-to-el> e
-       ; label := <newname> "inputFileId"
-       ; req := <input-of-required-property(|e)>
-    */
-    
-  elem-to-java-servlet :
-    elem|[ outputFile(e)[passign*]{} ]| ->
-    java |[ out.print("todo: outputfile"); ]|
-  /*
-  elem-to-java-servlet :
-    elem |[ outputString(e)[passign*]{} ]| ->
-    java |[ out.println(utils.HTMLFilter.filter(e1)); ]|
-    with  e1 := <arg-to-value-string-java-servlet> e
-    */   
-    
-  elem-to-java-servlet :
-    elem|[ inputBinary(e)[passign*]{} ]| ->
-    java |[ out.print("todo: inputbinary"); ]|
-
-  elem-to-java-servlet :
-    elem|[ outputBinary(e)[passign*]{} ]| ->
-    java |[ out.print("todo: outputbinary"); ]|
-    
+        ; e_attrs1 := <to-html-attrs> passign*
+        
+   //outputFile is already desugared, see modules/types/file.str
     
 rules //file download   
     
- call-to-java-servlet :
-   exp  |[ e.download() ]| ->   java |[ ps.setDownload(e2) ]|
-   with  e2    := <expression-to-java-servlet> e
+  file-download-call-to-java-servlet :
+    exp  |[ e.download() ]| -> java |[ ps.setDownload(e2) ]|
+    where SimpleSort("File") := <type-of> e
+    with  e2 := <expression-to-java-servlet> e

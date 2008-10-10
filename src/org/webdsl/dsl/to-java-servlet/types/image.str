@@ -5,12 +5,12 @@ imports
   Java-15 
   libjava-front 
   libwebdsl-front
-/*
+
 rules // types
-  sort-to-java-type-string : SimpleSort("Image") -> "java.lang.Byte[]"
+  sort-to-java-type-string : SimpleSort("Image") -> "utils.File"
 
   builtin-java-type :
-    SimpleSort("Image") -> type|[ byte[] ]|
+    SimpleSort("Image") -> type|[ utils.File ]|
 
   builtin-java-type-default-value :
     SimpleSort("Image") -> java|[ null ]|
@@ -18,44 +18,32 @@ rules // types
   type-default-value :
     SimpleSort("Image") -> exp|[ null ]|
 
-  builtin-persistence-annotations :
-    SimpleSort("Image") -> [anno|[ @Basic(fetch=FetchType.LAZY) ]|,
-                            anno|[ @Column(columnDefinition="LONGBLOB") ]|]
+  //used in entity generation
+  //hibernate has a built-in mapping for java.sql.Blob
+  type-specific-annotations :
+    Property(x_prop, k, s, annos) -> <file-specific-annotations>
+    where <?SimpleSort("Image")> s
 
-rules // desugar
-  DeriveInput :
-    elem|[ input(e){} ]| -> elem|[ inputImage(e){} ]|
-    where SimpleSort("Image") := <type-of> e
-
-  DeriveOutput :
-    elem|[ output(e){} ]| -> elem|[ outputImage(e){} ]|
-    where SimpleSort("Image") := <type-of> e
-*/
 rules
+
+  requires-multipart-encoded-form = ?elem|[inputImage(e)[passign*]{}]|
+  
+  handle-actions-input-to-java-servlet :
+    tc@elem|[ inputImage(e)[passign*]{} ]| -> <handle-actions-input-to-java-servlet> TemplateCall("inputFile", [e], passign*, []){anno*} //stratego bug: cannot add annotations with concrete syntax
+    where _{anno*} := tc
+   
   elem-to-java-servlet :
-    elem|[ inputImage(e)[passign*]{} ]| ->
-    java |[ out.print("todo: inputimage"); ]|
-    /*
-    %>
-      <s:decorate>
-        <s:fileUpload id="<%= label%>"
-      data="<%= <arg-to-value-string> e %>" required="<%= req %>"
-      accept="images/*" />
-      </s:decorate>
-    <%
-    where estring := <arg-to-el> e
-        ; label := <newname> "inputImage"
-        ; req := <input-of-required-property(|e)>
-        ; <debug> <arg-to-value-string> e
-    */
+    tc@elem|[ inputImage(e)[passign*]{} ]| -> <elem-to-java-servlet> TemplateCall("inputFile", [e], passign*, []){anno*} //stratego bug: cannot add annotations with concrete syntax
+    where _{anno*} := tc
     
-  elem-to-java-servlet :
-    elem|[ outputImage(e)[passign*]{} ]| ->
-    java |[ out.print("todo: outputimage"); ]|
-    /*
-    %>
-      <s:decorate>
-        <s:graphicImage value="#{<%= <arg-to-el> e %>}" />
-      </s:decorate>
-    <%
-    */
+  java-servlet-element-id : 
+    tc@elem|[ inputImage(e)[passign*]{} ]| -> <java-servlet-element-id-template-call> tc
+     
+   //outputFile is already desugared, see modules/types/file.str
+
+rules //image download   
+    
+  file-download-call-to-java-servlet :
+    exp|[ e.download() ]| -> java|[ ps.setDownload(e2) ]|
+    where SimpleSort("Image") := <type-of> e
+    with  e2 := <expression-to-java-servlet> e
