@@ -111,9 +111,9 @@ rules // embedding expressions in presentation
     with e1 := <expression-to-java-servlet> tc
 
  arg-to-value-string-java-servlet :
-    tc@Call(_,_, _) -> e |[ String.valueOf(e1) ]|
+    tc@Call(e2,_, _) -> e |[ e3 != null ? String.valueOf(e1) : "" ]|
     with e1 := <expression-to-java-servlet> tc
-
+       ; e3 := <add-not-null-checks;expression-to-java-servlet> e2
 /*
   arg-to-value-string-java-servlet :
     e -> <concat-strings>["\"+", x, "+\""]
@@ -506,7 +506,7 @@ rules // forms
         }
         
         out.print("<form "+e_enc+" name=\""+ident+"\" id=\""+ident+"\" action=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\" method=\"POST\" "+e_attrs1+">");
-        out.print("<input type=\"hidden\" name=\""+ident+"\" value=\""+ident+"\" />");
+        out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
         out.print(ps.getHiddenParams()); // page arguments
 
         bstm*
@@ -533,10 +533,10 @@ rules // forms
     <for-loop-counter-wrap-code> 
     bstm*|[
         ident += "~formident"+uniqueid;
-        if(ps.getParammap().get(ident)!=null)
-        {
-            bstm1*
-        }
+        //if(ps.getParammap().get(ident)!=null)
+        //{
+        bstm1*
+        //}
     ]|
     with // bstm* := <collect-om(handle-actions-input-to-java-servlet)> elems
          bstm1* := <collect-om(handle-actions-to-java-servlet); concat-with-sublists> elems
@@ -611,7 +611,8 @@ rules // forms
     tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~actionident"+uniqueid+e3 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
+    ident += "~actionident"+uniqueid+e3 ;
+    out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
     out.print(e4+"</a>");
     ]|
     where IsAjaxApp
@@ -625,23 +626,31 @@ rules // forms
     tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<input type=\"hidden\" name=\""+ident+"~actionident"+uniqueid+e5+"\" "+e_attrs1+"/>");
-    out.print("<a href=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\"");
-    out.print("onClick=\"document.getElementsByName('"+ident+"~actionident"+uniqueid+e5+"')[0].value='1';document."+form_ident+".submit();\">");
+    ident += "~actionident"+uniqueid+e5;
+    out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvokeDownloadCompatible(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
     out.print(e4+"</a>");
     ]|
+    /* old solution, doesn't allow downloads:
+    out.print("<input type=\"hidden\" name=\""+ident+"~actionident"+uniqueid+e5+"\" "+e_attrs1+"/>");
+    out.print("<a href=\""+"/"+AppInfo.getAppName()+"/"+ps.getPageName()+"\"");
+    out.print("onClick=\"document.getElementsByName('"+ident+"~actionident"+uniqueid+e5+"')[0].value='1';"+
+                        "submit();"+ //"document."+form_ident+".submit();"+
+                        "document.getElementsByName('"+ident+"~actionident"+uniqueid+e5+"')[0].value='0';"+
+                        "\">");
+    out.print(e4+"</a>");*/
     where not(IsAjaxApp)
     with  e4 := <arg-to-value-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
         ; e5 := <actual-action-args-to-state-enc> args
+        ; app := <AppRoot>
         
   handle-actions-to-java-servlet: 
     tc@TemplateCall("actionLink",[e2,e1],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm*|[
         ident += "~actionident"+uniqueid+e5;
-        if(ps.getParammap().get(ident)!=null && ps.getParammap().get(ident).equals("1") )
+        if(ps.getParammap().get(ident)!=null ) // not necessary: && ps.getParammap().get(ident).equals("1") )
         {
             x_class temp = (x_class)actionclasses.get("~x_class");
             temp.x_action(e*);

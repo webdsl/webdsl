@@ -38,12 +38,51 @@ rules
     
   java-servlet-element-id : 
     tc@elem|[ inputImage(e)[passign*]{} ]| -> <java-servlet-element-id-template-call> tc
+
+  //for displaying images, modified action call is used, the src of the image needs to be a call to the page with the arguments that invoke a download action
+   
+  java-servlet-element-id : 
+    tc@elem|[ outputImage(e,e1)[passign*]{} ]| -> <java-servlet-element-id-template-call> tc
      
-   //outputFile is already desugared, see modules/types/file.str
+  elem-to-java-servlet :
+    tc@TemplateCall("outputImage",[e2,ThisCall(name, args)],passign*,[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[ 
+    //out.print("<img alt=\""+e4+"\" "+e_attrs1+" src='javascript:serverInvokeGetImage(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~tcident"+ident+e5 +"\", \""+ps.getHiddenPostParams()+"\", this)' >");
+    ident += "~tcident"+e5 ;
+    out.print("<img alt=\""+e4+"\" "+e_attrs1+" src='"+"~app"+"/" + ps.getPageName()  +"?"+ ident +"=1&"+ps.getHiddenPostParams()+"' >");
+    out.print("</img>");
+    ]|
+    with  tcident := <get-inputnumber> tc   
+        ; e_attrs1 := <to-html-attrs> passign* 
+        ; e4 := <arg-to-value-string-java-servlet> e2       
+        ; e5 := <actual-action-args-to-state-enc> args
+        ; app := <AppRoot>
+        
+  handle-actions-to-java-servlet: 
+    tc@TemplateCall("outputImage",[e2,ThisCall(x_name, args)],passign*,[]) ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+        ident += "~tcident"+e5;
+        if(ps.getParammap().get(ident)!=null)
+        {
+            x_class temp = (x_class)actionclasses.get("~x_class");
+            temp.x_name(e*);
+        }
+    ]|
+    with  tcident := <get-inputnumber> tc   
+        ; e* := <map(expression-to-java-servlet)> args
+        ; _{x_class} := x_name
+        ; e5 := <actual-action-args-to-state-enc> args
 
 rules //image download   
     
-  file-download-call-to-java-servlet :
+  call-to-java-servlet :
     exp|[ e.download() ]| -> java|[ ps.setDownload(e2) ]|
+    where SimpleSort("Image") := <type-of> e
+    with  e2 := <expression-to-java-servlet> e
+    
+  call-to-java-servlet :
+    exp  |[ e.fileName() ]| -> java |[ e2.getFileName() ]|
     where SimpleSort("Image") := <type-of> e
     with  e2 := <expression-to-java-servlet> e

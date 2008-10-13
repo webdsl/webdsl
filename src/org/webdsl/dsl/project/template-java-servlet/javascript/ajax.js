@@ -108,6 +108,13 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject)
     }
   }
   
+  data = createData(action,jsonparams,thisform,thisobject);
+  
+  req.send(data);
+}
+
+function createData(action,jsonparams,thisform,thisobject)
+{
   data = action+"=1&"+jsonparams;
   //send a form if applicable
   if (thisform !='')
@@ -115,10 +122,27 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject)
   //remove trailing &
   if (data.charAt(data.length-1) == '&')
     data = data.substr(0, data.length -1);
-  
-  req.send(data);
+  return data;
 }
 
+function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, thisobject)
+{
+  // Create an IFRAME.
+  var iframe = document.createElement("iframe");
+
+  // This makes the IFRAME invisible to the user.
+  iframe.style.display = "none";
+ 
+  //encode form data
+  data = createData(action,jsonparams,thisform,thisobject);
+ 
+  // Point the IFRAME to the action invoke
+  iframe.src = template+"?"+data; 
+  
+  // Add the IFRAME to the page. This will trigger a request to the action now.
+  document.body.appendChild(iframe); 
+  
+}
 
 function clientExecute(jsoncode, thisobject)
 {

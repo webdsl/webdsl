@@ -5,7 +5,6 @@ section datamodel
   entity User{
     name :: String
     storedfile :: File
-    storedimage :: Image
   }
   
   define page home(){
@@ -14,11 +13,11 @@ section datamodel
       {
         outputString(u.name)
         
-        //output(u.storedfile)
+        output(u.storedfile)
         
-        action("custom download button",download(u))
-        
-        //actionLink("custom download link",download(u))
+        //action("custom download button",download(u))
+     //   output(u.storedfile)
+        actionLink("custom download link",download(u))
       }
     }
     "test page"
@@ -50,8 +49,9 @@ section datamodel
     form{
       for(u:User2)
       {
-        outputString(u.name)
-        action("custom image download button",downloadimage(u))
+        output(u.storedimage)
+        //outputString(u.name)
+        //action("custom image download button",downloadimage(u))
       }
     }
     "test page"
