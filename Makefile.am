@@ -5,8 +5,8 @@ am__tar = ${AMTAR} chf - "$$tardir"
 
 SUBDIRS = src src/org/webdsl/dsl/project test
 
-fullclean :
-	$(MAKE) -C src fullclean
+cleaner :
+	$(MAKE) -C src cleaner
 
 syntax :
 	$(MAKE) -C src syntax
