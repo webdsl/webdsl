@@ -140,7 +140,7 @@ bin_PROGRAMS = dsl-to-seam
 dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
                     libwebdsl-front.la libwebdsl-generator.la
 
-dsl-to-seam.c : dsl-to-seam.str rtrees
+dsl-to-seam.c : dsl-to-seam.str rtrees libwebdsl-front.la libwebdsl-generator.la
 
 ### libraries
 
