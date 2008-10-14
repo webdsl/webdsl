@@ -43,9 +43,11 @@ strategies // extending the status entity
         extend entity ProcedureStatus {
           caller -> ProcedureStatus
           returnstate :: Int
-          function enable (c: ProcedureStatus, r: Int) {
+          branch :: Int
+          function enable(c : ProcedureStatus, r : Int, b : Int) {
             this.isEnabled := true;
             this.caller := c;
+            this.branch := b;
             this.returnstate := r;
             this.persist();
             this.enabled();
@@ -57,7 +59,20 @@ strategies // extending the status entity
             this.isEnabled := false;
             this.persist();
             if(this.caller != null) {
+              if(this.branch != null) {
+                this.caller.notifyOfActivity(this.branch);
+              }
               this.caller.next(this.returnstate);
+            }
+          }
+          
+          function notifyOfActivity(branch : Int) {
+            this.cascadeNotification();
+          }
+          
+          function cascadeNotification() {
+            if(this.caller != null && this.branch != null) {
+              this.caller.notifyOfActivity(this.branch);
             }
           }
           
@@ -99,62 +114,15 @@ rules // actual transformation
           ]|
       )
     ; rules( State := 0 ) // reset state for process-sequential
-    ; process-sequential(|x_procstatus, stat_lastActivity)
+    ; process-sequential(|x_procstatus, stat_lastActivity, 0)
 
     
 strategies // handle sequential composition - only to be done after simplification of containing constructs
-
-
-
-/*        ; stat_last* := webdsl|[ if (state == e_current) { stat_lastActivity2* } ]|*/
-
-/*        ; <debug> stat_lastActivity*
-        ; info(|["process-sequential last: "])
-        ; <debug> last
-
-        ; stat_lastActivityB* := webdsl|[ 
-            this.processed();
-          ]|          
-        ; info(|["process-sequential lastActivityB: "])
-        ; <debug> stat_lastActivityB*    
-
-        ; lastB := webdsl|[ if (state == e_current) { stat_lastActivityB* } ]|
-        ; info(|["process-sequential lastB: "])
-        ; <debug> lastB
-
-        ; lastC := webdsl|[ if (state == e_current) { this.processed(); } ]|
-        ; info(|["process-sequential lastC: "])
-        ; <debug> lastC
-        */
-/*        ; <debug(!"Deel 1: ")> stat1*
-        ; <debug(!"Deel 2 gewijzigd: ")> webdsl|[ if (state == e_current) { stat_lastActivity* } ]|
-        ; stat2* := webdsl|[
-                      stat1*
-                      stat_last*
-                    ]|
-        ; debug(!"stat2*: ")
-        ; stat_test* := webdsl|[  
-            stat1*
-            if (state == e_current) {
-              this.disable2(); 
-              this.processed();
-            } 
-          ]|
-        ; debug(!"stat_test*: ")*/
-
-/*        ; stat_test* := webdsl|[ 
-            stat1*
-            this.disable2(); 
-            this.processed();
-          ]|*/
-/*        ; debug(!"stat_test2*: ")
-        ; stat2B* := [stat1*, stat_last*]
-        ; debug(!"stat2B*: ")*/
       
-  process-sequential(|x_status, stat_lastActivity) = // sequentially connects all ProcCalls, adding a call to this.processed().
+  process-sequential(|x_status, stat_lastActivity, x_branch) = // sequentially connects all ProcCalls, adding a call to this.processed().
     with(id
         ; collect-all(?ProcCall(_,_)) 
-        ; stat1* := <map(get-sequential-proccall)>
+        ; stat1* := <map(get-sequential-proccall(|x_branch))>
         ; e_current := Int(<get-state>)
         
         ; if (<is-list> stat_lastActivity) then
@@ -173,29 +141,6 @@ strategies // handle sequential composition - only to be done after simplificati
             }
           ]|
         ; !<get-next-state>
-          
-/*        ; collect-all(?ProcCall(_,_)) 
-        ; debug(!["process-sequential ", x_status, ": "])
-        ; stat1* := <map(get-sequential-proccall)>
-        ; <debug(!"stat1*: ")> stat1*
-        ; e_current := Int(<get-state>)
-        
-        ; stat_lastActivity2* := [stat_lastActivity*]
-        ; stat_withLast* := webdsl|[  
-            stat1*
-            if (state == e_current) {
-              stat_lastActivity*
-            } 
-          ]|
-        ; try(<do-once(process-create-next(|x_status)|"Create next function")> x_status) // otherwise there is nothing to extend
-        ; <emit-webdsl-code> def|[
-            extend entity x_status {
-              extend function next(state: Int) {
-                stat_withLast*
-              }
-            }
-          ]|
-        ; !<get-next-state>*/
           
       )
       
@@ -239,9 +184,9 @@ strategies // simplification of complex constructs
             this.processed();
           ]|
         ; e_ifStart := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity*)> ifBranch
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 1)> ifBranch
         ; e_elseStart := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity*)> elseBranch
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 2)> elseBranch
         ; rules ( State := rememberedState )
 
         // create disable statements; disables all descending ProcCalls
@@ -280,7 +225,7 @@ strategies // simplification of complex constructs
             this.processed();
           ]|
         ; e_ifStart := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity*)> ifBranch
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 1)> ifBranch
         ; rules ( State := rememberedState )
 
         // create disable statements; disables all descending ProcCalls
@@ -321,9 +266,9 @@ strategies // simplification of complex constructs
             }
           ]|
         ; e_branch1Start := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity*)> branch1
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 1)> branch1
         ; e_branch2Start := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity*)> branch2
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 2)> branch2
         ; rules ( State := rememberedState )
            
         // create disable statements; disables all descending ProcCalls
@@ -372,9 +317,9 @@ strategies // simplification of complex constructs
             this.processed();
           ]|
         ; e_branch1Start := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity1*)> branch1
+        ; <process-sequential(|x_newstatus, stat_lastActivity1*, 1)> branch1
         ; e_branch2Start := Int(<get-state>)
-        ; <process-sequential(|x_newstatus, stat_lastActivity2*)> branch2
+        ; <process-sequential(|x_newstatus, stat_lastActivity2*, 2)> branch2
         ; rules ( State := rememberedState )
 
         // create new procedure to replace and-construct
@@ -404,6 +349,56 @@ strategies // simplification of complex constructs
         ; x_new := <newname> "plusProc"
         ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
 
+        // create disable statements; disables all descending ProcCalls
+        ; stat_disabl1* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch1
+        ; stat_disabl2* := <collect-all(?ProcCall(_,_)); map(get-disable-proccall)> branch2
+
+        ; rememberedState := <get-state>
+        ; rules ( State := 0 )
+        ; stat_lastActivity* := webdsl|[ 
+            this.processed();
+          ]|
+        ; e_branch1Start := Int(<get-state>)
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 1)> branch1
+        ; e_branch2Start := Int(<get-state>)
+        ; <process-sequential(|x_newstatus, stat_lastActivity*, 2)> branch2
+        ; rules ( State := rememberedState )
+
+        // create new procedure to replace and-construct
+        ; <declare-generated-procedure; emit-webdsl-code> def|[
+            auto procedure x_new(x_o : srt) {
+              enabled {
+                this.next(e_branch1Start);
+                this.next(e_branch2Start);
+              }
+              disabled {
+                stat_disabl1*
+                stat_disabl2*
+              }
+            }
+          ]|
+          
+        ; <emit-webdsl-code> def|[
+            extend entity x_newstatus {
+              function notifyOfActivity(branch : Int) {
+                this.cascadeNotification();
+                if (branch == 1) {
+                  stat_disabl2* 
+                }
+                if (branch == 2) {
+                  stat_disabl1*
+                }
+              }
+            }
+          ]|
+  
+/*    ProcPlus(branch1, branch2) -> ProcCall(x_new, Var(x_o))
+    with x_id := <ProcedureName>
+        ; x_o := <ProcedureArg> x_id
+        ; srt := <ProcedureArgSort> x_id
+        ; x_new := <newname> "plusProc"
+        ; x_newstatus := <concat-strings; capitalize-string> [x_new, "ProcedureStatus"]
+
         // create next function, remembering branch start states
         ; branch1ProcCalls := <collect-all(?ProcCall(_,_))> branch1
         ; branch2ProcCalls := <collect-all(?ProcCall(_,_))> branch2
@@ -411,9 +406,9 @@ strategies // simplification of complex constructs
            : e_branch1StartState := Int(<get-state>)
            ; { first, second, tail:
                if [first | [second | tail]] := branch1ProcCalls then
-                 stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-2> second | <map(get-sequential-proccall)> tail]]
+                 stat1Temp* := [<get-sequential-proccall(|1)> first | [<get-sequential-stop-2(|1)> second | <map(get-sequential-proccall(|1))> tail]]
                else 
-                 stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
+                 stat1Temp* := <map(get-sequential-proccall(|1))> branch1ProcCalls
                end
              }
            ; e_branch1EndState := Int(<get-state>)
@@ -423,9 +418,9 @@ strategies // simplification of complex constructs
            ; e_branch2StartState := Int(<get-next-state>)
            ; { first, second, tail:
                if [first | [second | tail]] := branch2ProcCalls then
-                 stat2Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-1> second | <map(get-sequential-proccall)> tail]]
+                 stat2Temp* := [<get-sequential-proccall(|2)> first | [<get-sequential-stop-1(|2)> second | <map(get-sequential-proccall(|2))> tail]]
                else 
-                 stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
+                 stat2Temp* := <map(get-sequential-proccall(|2))> branch2ProcCalls
                end
              }
            ; e_branch2EndState := Int(<get-state>)
@@ -475,7 +470,7 @@ strategies // simplification of complex constructs
                 }
               }
             }
-          ]|
+          ]|*/
   
   process-while :
     ProcWhile(e1, loopBody) -> ProcCall(x_new, Var(x_o))
@@ -489,7 +484,7 @@ strategies // simplification of complex constructs
         ; loopProcCalls := <collect-all(?ProcCall(_,_))> loopBody
         ; {| State
            : e_loopStartState := Int(<get-state>)
-           ; statLoopTemp* := <map(get-sequential-proccall)> loopProcCalls
+           ; statLoopTemp* := <map(get-sequential-proccall(|0))> loopProcCalls
            ; e_loopEndState := Int(<get-state>)
            ; e2 := <alltd(translate-object-param(|x_o))> e1
            ; lastLoop := |[ 
@@ -562,9 +557,9 @@ c: [IfNoElse(Eq(Var("state"),Int("0")),Block([Stat(Call(FieldAccess(FieldAccess(
         ; {| State
            : e_branch1StartState := Int(<get-state>)
            ; if [first | [second | tail]] := branch1ProcCalls then
-               stat1Temp* := [<get-sequential-proccall> first | [<get-sequential-stop-2> second | <map(get-sequential-proccall)> tail]]
+               stat1Temp* := [<get-sequential-proccall(|0)> first | [<get-sequential-stop-2(|0)> second | <map(get-sequential-proccall(|0))> tail]]
              else 
-               stat1Temp* := <map(get-sequential-proccall)> branch1ProcCalls
+               stat1Temp* := <map(get-sequential-proccall(|0))> branch1ProcCalls
              end
            ; e_branch1EndState := Int(<get-state>)
            ; lastBranch1 := |[ 
@@ -576,7 +571,7 @@ c: [IfNoElse(Eq(Var("state"),Int("0")),Block([Stat(Call(FieldAccess(FieldAccess(
            ; stat1* := [stat1Temp*, lastBranch1]
 
            ; e_branch2StartState := Int(<get-next-state>)
-           ; stat2Temp* := <map(get-sequential-proccall)> branch2ProcCalls
+           ; stat2Temp* := <map(get-sequential-proccall(|0))> branch2ProcCalls
            ; e_branch2EndState := Int(<get-state>)
            ; lastBranch2 := |[ 
                if (state == e_branch2EndState) { 
@@ -627,27 +622,30 @@ c: [IfNoElse(Eq(Var("state"),Int("0")),Block([Stat(Call(FieldAccess(FieldAccess(
 
 strategies  // Helper strategies
 
-  get-sequential-proccall :
+  get-sequential-proccall(|x_branch) :
     ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { e.x1.enable(this as ProcedureStatus, e_next); } ]|
+    webdsl|[ if (state == e_current) { e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
+       ; e_branch := Int(x_branch)
 
-  get-sequential-stop-1 : // stops branch 1
+  get-sequential-stop-1(|x_branch) : // stops branch 1
     ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { this.disable1(); e.x1.enable(this as ProcedureStatus, e_next); } ]|
+    webdsl|[ if (state == e_current) { this.disable1(); e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
-       
-  get-sequential-stop-2 :
+       ; e_branch := Int(x_branch)
+              
+  get-sequential-stop-2(|x_branch) : // stops branch 2
     ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { this.disable2(); e.x1.enable(this as ProcedureStatus, e_next); } ]|
+    webdsl|[ if (state == e_current) { this.disable2(); e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
-        
+       ; e_branch := Int(x_branch)
+               
   get-disable-proccall =
     ?ProcCall(x1, x_id)
     ; e := <strip-annos; prefix-expression(|Var("this"))> x_id
