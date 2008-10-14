@@ -57,7 +57,26 @@
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
 
-   For                                          -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] KW["{"]] _5 ] KW["}"] ],
+   ForSep                                          
+      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4KW[")"] 
+                      KW["{"]]
+                   _5 ]
+            H[ KW["}"] KW[ "separated-by" ] KW["{"] _6  KW["}"] ]
+          ],
+   ForSep.5:iter-star                              -- _1,
+   ForSep.6:iter-star                              -- _1,
+
+   ForSepNoFilter                                          
+      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] 
+                      KW["{"]] _4 ] 
+            H[ KW["}"] KW[ "separated-by" ] KW["{"] _5 KW["}"] ]
+          ],
+   ForSepNoFilter.4:iter-star                              -- _1,
+   ForSepNoFilter.5:iter-star                              -- _1,
+
+   For                                          
+     -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] 
+                     KW["{"]] _5 ] KW["}"] ],
    For.5:iter-star                              -- _1,
    ForNoFilter                                  -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
    ForNoFilter.4:iter-star                      -- _1,
