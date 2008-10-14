@@ -1,4 +1,4 @@
-// No function or page nonexistent with this signature
+// Error: page nonexistent does not exist
 
 application test
 

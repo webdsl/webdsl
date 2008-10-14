@@ -104,8 +104,10 @@ rules
   selector-to-css :
     Selector(simple-selector, s*) -> sel |( ssel0 combsel* )|
 //    Selector(simple-selector, s*) -> sel |( ssel0 )|
-    where  ssel0 := <selector-to-css> simple-selector
-        ; combsel* := <map(selector-to-css)> s*
+    where not([] := s*)
+    with  ssel0 := <selector-to-css> simple-selector
+       ; combsel* := <map(selector-to-css)> s*
+
 
 //    ; !<concat-strings> [<selector-to-css> simple-selector, " ", <selector-to-css> s*]
     
@@ -124,22 +126,22 @@ rules
 
   selector-to-css :
     (c, selector, None()) -> combsel |( comb ssel )|
-    where  comb := <combinator-to-css> c
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> selector
-//    ; !<concat-strings> [<combinator-to-css> c, " ", <selector-to-css> selector]
-   
+        
 /*  selector-to-css =
     ?(c, selector, pseudo-selector)
     ; !<concat-strings> [<combinator-to-css> c, " ", <selector-to-css> selector, ":", <selector-to-css> pseudo-selector]
   */  
   selector-to-css :
     (c, selector, Some(pseudo-selector)) -> combsel |( comb ssel )|
-    where  comb := <combinator-to-css> c
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> (selector, pseudo-selector)
-        
+
   selector-to-css :
-    (c, selector, pseudo-selector) -> combsel |( comb ssel )|
-    where  comb := <combinator-to-css> c
+    (c, selector, p@pseudo-selector) -> combsel |( comb ssel )|
+    where not(Some(_) := p)
+    with  comb := <combinator-to-css> c
         ; ssel := <selector-to-css> (selector, pseudo-selector)
 //        ; <selector-to-css> pseudo-selector
 
@@ -148,6 +150,16 @@ rules
   selector-to-css :
     (ElemSimpleSelector(s), a@SelectorAttribute(_)) -> CSSSimpleSelector(ElementName(s), [p])
     where p := <selector-to-css> a
+  
+  selector-to-css :
+    ElemSimpleAttrSelector(s, a) -> CSSSimpleSelector(ElementName(s), p)
+    with p := <map(selector-to-css)> a
+
+  selector-to-css :
+    ElemClassAttrSelector(s, class, a) -> CSSSimpleSelector(ElementName(s), r)
+    with  p := <map(selector-to-css)> a
+        ; q := <selector-to-css> ClassSimpleSelector(class)
+        ; r := <concat>[[q],p]
         
   selector-to-css :
     SimpleSelector(type, MatchDefinition(name, farg*)) -> <selector-to-class> //CSSSimpleSelector(IdSelector(name))
