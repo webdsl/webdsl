@@ -11,18 +11,20 @@
  *   WebDSL code is emitted to create and extend procedures and ProcedureStatus entities.
  *
  * ProcPlus and ProcRepeatUntil make use of disabling other branches after the first event has occurred. Here, the first
- *   atomic event is meant, so (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
- *   This is because using the bottom-up traversal, descendants cannot be altered so the other branch is disabled after the 
- *   first actual ProcCall in the first branch.
+ *   event is signified by descending events calling cascadeNotification(), which notifies the caller of an activity being
+ *   performed using the function notifyOfActivity(branch : Int). The branch is passed when enabling the descending procedure,
+ *   so it can be returned when calling notifyOfActivity, to signify which branch is chosen, so the other one can be disabled. 
  *
- * Some problems have been encountered with states, as it is important that process-sequential starts with a 0 state, except
- *   when used multiple times as in if (for both branches).
+ * Some problems have been encountered with states, as it is important that process-sequential for a procedure starts with 
+ *   a 0 state. For this reason,  
+       rememberedState := <get-state>
+       ; rules ( State := 0 )
+         ...
+       ; rules ( State := rememberedState )
+ *   is used within procedures.
  *
  * NOTE: 'procedure x() { enabled{} }' and
  *       'extend entity xStatus() { enabled{} }' both end up in the entity xStatus
- *
- * TODO: process-sequential(|x_procstatus, stat_lastActivity*) and making stat_lastActivity* with processed() on different 
- *   places is not nice... avoid code duplication - process-sequential-processed which does that?
  */
 
 module org/webdsl/dsl/modules/procedures/process
@@ -119,7 +121,11 @@ rules // actual transformation
     
 strategies // handle sequential composition - only to be done after simplification of containing constructs
       
-  process-sequential(|x_status, stat_lastActivity, x_branch) = // sequentially connects all ProcCalls, adding a call to this.processed().
+  // sequentially connects all ProcCalls in x_branch, by extending next() with another case.
+  //   stat_lastActivity is added at the end of the series of ProcCalls. 
+  // If process-sequential is called multiple times, it will just add cases to next(). In this case, this.processed()
+  //   should probably only be used as stat_lastActivity during the final call 
+  process-sequential(|x_status, stat_lastActivity, x_branch) = 
     with(id
         ; collect-all(?ProcCall(_,_)) 
         ; stat1* := <map(get-sequential-proccall(|x_branch))>
@@ -141,7 +147,6 @@ strategies // handle sequential composition - only to be done after simplificati
             }
           ]|
         ; !<get-next-state>
-          
       )
       
   process-create-next(|x_status) =
@@ -336,12 +341,8 @@ strategies // simplification of complex constructs
               }
             }
           ]|
-          
-          
-          // note: commit reports to parent that at least one atomic procedure has been executed
               
   // deferred choice; disables other branch when first event within branch has been completed
-  // NOTE: (A + B) + C will take (A + B) as the whole first event within the left branch of the second +.
   process-plus :
     ProcPlus(branch1, branch2) -> ProcCall(x_new, Var(x_o))
     with x_id := <ProcedureName>
@@ -506,22 +507,6 @@ strategies  // Helper strategies
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
        ; e_branch := Int(x_branch)
-
-  get-sequential-stop-1(|x_branch) : // stops branch 1
-    ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { this.disable1(); e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
-    with e := <strip-annos; prefix-expression(|Var("this"))> x_id
-       ; e_current := Int(<get-state>)
-       ; e_next := Int(<get-next-state>)
-       ; e_branch := Int(x_branch)
-              
-  get-sequential-stop-2(|x_branch) : // stops branch 2
-    ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { this.disable2(); e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
-    with e := <strip-annos; prefix-expression(|Var("this"))> x_id
-       ; e_current := Int(<get-state>)
-       ; e_next := Int(<get-next-state>)
-       ; e_branch := Int(x_branch)
                
   get-disable-proccall =
     ?ProcCall(x1, x_id)
@@ -540,14 +525,6 @@ strategies  // Helper strategies
   get-next-state =
     n := <addS>(<get-state>, "1")
     ; rules ( State := n )
-
-strategies // Utility strategies
-  
-  fetch-left-most-td(s) = oncetd(s; ?x); !x
-
-  find-right-most-td(s) = rec x(s <+ where(id#(reverse); one(x)))
-  
-  fetch-right-most-td(s) = find-right-most-td(s; ?x); !x
 
   declare-generated-procedure =
     (?Procedure(x, _, _) <+ ?AutoProcedure(x, _, _))
