@@ -424,6 +424,69 @@ rules
             }
           ]|
 
+rules //Desugar label, which is a bit trick because it results in multiple elements
+
+  desugar :
+    Define(mods, args, name, elems) -> Define(mods, args, name, elems3)
+    where <fetch({|x, xs: ?TemplateCall("label",_,_,[x|xs])|})> elems   //only match labels having children
+    with  elems2 := <map(desugar-label <+ id)> elems 
+        ; elems3 := <concat-with-sublists> elems2
+
+  desugar :
+    TemplateCall(name,args,assigns,elems) -> TemplateCall(name,args,assigns,elems3)
+    where <fetch({|x, xs: ?TemplateCall("label",_,_,[x|xs])|})> elems
+    with  elems2 := <map(desugar-label <+ id)> elems 
+        ; elems3 := <concat-with-sublists> elems2
+  
+  desugar-label :  //the childs of a label are inserted inside a container in the parent of the label, with the label refering to it
+    elem |[ label(e*)[passign*]{ elem* } ]| -> elem* |[ label(e*)[passign2*]{} container {elem2*} ]|
+    where not([] := elem*)
+    with  nid := <newname> "forid_"
+        ; [TemplateCall(name, args, assigns, elems) | others] := elem*
+        ; passign2* := <concat>[[PropertyAssignment("for", String(nid))], passign*]  //generate for assignment
+        ; assigns2  := <concat>[[PropertyAssignment("id", nid)], assigns]           //generate id assignment
+        ; elem2*    := <concat>[[TemplateCall(name, args, assigns2, elems)], others]
+
+rules //Desugar group, groupitems become rows, group becomes table
+
+  desugar :
+    TemplateCall("group", args, passign*, elems) -> TemplateCall("group", args, passign*, elems4)
+    where not([TemplateCall("table",_,_,_)] := elems)
+    with  (elems2 := <auto-surround-with-template(|"groupitem")> elems <+ elems2 := elems)
+        ; elems3 := <map(desugar-groupitem)> elems2
+        ; elems4 := [TemplateCall("table",[],[],elems3)]        
+          
+  desugar-groupitem :              //desugar groupitems
+    TemplateCall("groupitem", args,passign*, elems) -> TemplateCall("row",args,passign*, elems)
+
+rules //Desugar rows aand tables
+
+  desugar :
+    TemplateCall("table", args, passign*, elems) -> TemplateCall("table", args, passign*, elems2)
+    where elems2 := <auto-surround-with-template(|"row")> elems
+
+  desugar :
+    TemplateCall("row", args, passign*, elems) -> TemplateCall("row", args, passign*, elems2)
+    where elems2 := <auto-surround-with-template(|"column")> elems
+
+rules //Desugar helpers 
+  auto-surround-with-template(|childname) : //ensures that all elements are a templatecall to 'childname', 
+    elems -> elems2                       //fails if this was the case already (so disugar knows it can continue)
+    where not(<all(?TemplateCall(childname,_,_,_))> elems)
+    with  elems2:= <map(auto-surround-with-template-replace(|childname))> elems
+
+  auto-surround-with-template-replace(|childname) :
+    t -> TemplateCall(childname, [],[],[t])
+    where not(TemplateCall(_,_,_,_) := t)
+  
+  auto-surround-with-template-replace(|childname) :
+    t@TemplateCall(x,_,_,_) -> TemplateCall(childname, [],[],[t])
+    where not(childname := x)  
+
+  auto-surround-with-template-replace(|childname) :
+    t -> t
+    where TemplateCall(childname,_,_,_) := t
+
 rules
 
   desugar =
