@@ -21,6 +21,8 @@ signature
 strategies
 
   all-consnil(s) = ?[_ | _] < [s | s] + all(s)
+  desugar: 
+    [TemplateCall("dummy",_,_,elems)| xs] -> <concat>[elems, xs]
 
   innermost-rep(s) =
     {| InnermostNormalForm, InnermostApplied
@@ -31,6 +33,7 @@ strategies
      ; where(InnermostApplied => True())
      |}
 
+  //rules used to determine whether any desugar was applied (might have only changed dynamic rule but not the AST)
   innermost-rep-aux(s) =
     InnermostNormalForm
     <+ all-consnil(innermost-rep-aux(s))
@@ -427,25 +430,19 @@ rules
 rules //Desugar label, which is a bit trick because it results in multiple elements
 
   desugar :
-    Define(mods, args, name, elems) -> Define(mods, args, name, elems3)
-    where <fetch({|x, xs: ?TemplateCall("label",_,_,[x|xs])|})> elems   //only match labels having children
-    with  elems2 := <map(desugar-label <+ id)> elems 
-        ; elems3 := <concat-with-sublists> elems2
-
-  desugar :
-    TemplateCall(name,args,assigns,elems) -> TemplateCall(name,args,assigns,elems3)
-    where <fetch({|x, xs: ?TemplateCall("label",_,_,[x|xs])|})> elems
-    with  elems2 := <map(desugar-label <+ id)> elems 
-        ; elems3 := <concat-with-sublists> elems2
-  
-  desugar-label :  //the childs of a label are inserted inside a container in the parent of the label, with the label refering to it
-    elem |[ label(e*)[passign*]{ elem* } ]| -> elem* |[ label(e*)[passign2*]{} container {elem2*} ]|
+    elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign2*]{} container {elem2*} } ]|
     where not([] := elem*)
-    with  nid := <newname> "forid_"
         ; [TemplateCall(name, args, assigns, elems) | others] := elem*
+    with  nid := <newname> "forid_"
         ; passign2* := <concat>[[PropertyAssignment("for", String(nid))], passign*]  //generate for assignment
         ; assigns2  := <concat>[[PropertyAssignment("id", nid)], assigns]           //generate id assignment
         ; elem2*    := <concat>[[TemplateCall(name, args, assigns2, elems)], others]
+
+  desugar :
+    elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign*]{} container {elem*} } ]|
+    where not([] := elem*)
+        ; not([TemplateCall(_, _, _, _) | others] := elem*) //elems not empty, be neither a template call to refer to at the begining
+
 
 rules //Desugar group, groupitems become rows, group becomes table
 
