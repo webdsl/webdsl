@@ -21,15 +21,26 @@ rules
     InlineAction(e1) -> <rename> ThisCall(fun, params)
     with  fun := <newname> "inline_action" 
         ; {| Param, IgnoreVars
-           : <alltd(find-params)> e1
+           : <alltd(find-lifting-params)> e1
            ; params := <bagof-Param>
           |}
         ; {| RewriteFieldAccessToFarg
-           : farg* := <map(forexp-function-param-to-farg)> params
+           : farg* := <map(lifting-param-to-farg)> params
            ; e2 := <alltd(RewriteFieldAccessToFarg)> e1
           |}
         ; newaction := <rename-action; declare-action> Action(fun, farg*, <rename-all> Block(e2))
         ; rules( InsertedActions :+= newaction )    
+
+  lifting-param-to-farg :
+    Var(x) -> farg|[ x : srt ]|
+    where srt := <type-of> Var(x)
+
+  find-lifting-params =
+    ?v@Var(x)
+    ; not(<IgnoreVars> v)
+    ; not("Component" := <type-of> v)
+    ; rules( Param :+= v )
+    ; rules( IgnoreVars : v )
 
   desugar : 
     Define(mods, name, args, elems) -> Define(mods, name, args, <rename-all> elems1)
@@ -44,11 +55,11 @@ rules
     where (action := "replace" <+ theaction := "append") 
     with  template := <newname> "inline_template" 
         ; {| Param, IgnoreVars
-           : <alltd(find-params)> e1
+           : <alltd(find-lifting-params)> e1
            ; params := <bagof-Param>
           |}
         ; {| RewriteFieldAccessToFarg
-           : farg* := <map(forexp-function-param-to-farg)> params
+           : farg* := <map(lifting-param-to-farg)> params
            ; e2 := <alltd(RewriteFieldAccessToFarg)> e1           
           |}
         ;  <emit-webdsl-code> Define([], template, farg*, e2)
