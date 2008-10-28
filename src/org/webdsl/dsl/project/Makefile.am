@@ -1,24 +1,5 @@
 bin_SCRIPTS = webdsl webdsl-plugins
 EXTRA_DIST = \
-  template/build.properties \
-  template/build.xml \
-  template/common.build.xml \
-  template/embedded-ejb/readme.txt \
-  $(wildcard template/embedded-ejb/properties/*.xml) \
-  $(wildcard template/embedded-ejb/conf/*.xml) \
-  $(wildcard template/lib/*.jar) \
-  template/Makefile \
-  $(wildcard template/resources/*.properties) \
-  $(wildcard template/resources/*.drl) \
-  $(wildcard template/resources/*.sql) \
-  $(wildcard template/resources/*.xml) \
-  $(wildcard template/resources/META-INF/*.xml) \
-  $(wildcard template/resources/WEB-INF/*.xml) \
-  $(wildcard template/view/*.html) \
-  $(wildcard template/view/images/*.gif) \
-  $(wildcard template/view/images/*.png) \
-  $(wildcard template/view/javascript/*.js) \
-  $(wildcard template/view/stylesheets/*.css) \
   $(wildcard new_project/*.app) \
   $(wildcard template-java-servlet/*.xml) \
   $(wildcard template-java-servlet/Makefile) \
