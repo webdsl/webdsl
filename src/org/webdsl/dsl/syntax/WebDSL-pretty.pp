@@ -412,5 +412,22 @@
    ProcPlus                                     -- _1 KW["+"] _2,
    ProcRepeatUntil                              -- KW["repeat"] KW["{"] _1 KW["}"] KW["until"] _2,
    RemoveMe                                     -- KW["RemoveMe"],
-   ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]]
+   ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
+   
+   MDListItem																		-- KW["*"] _1 _2,
+   MDSpacer																			-- KW["--"] _1,
+   MDHeader																			-- H[KW["="] _1 _2 KW["="]],
+   MDBlock																			-- H[KW["#["] _1 _2 KW["]"]],
+   MDBlock.2:iter-star													-- _1,
+   MDRow																				-- H[KW["<"] _1 _2 KW[">"]],
+   MDRow.2:iter-star														-- _1,
+   MDCol																				-- H[KW["|"] _1 _2],
+   MDCol.2:iter-star														-- _1,
+   MDNavigate																		-- H[KW["~"] _1 _2 KW[":"] _3],
+   MDProps																			-- H[KW["["] _1 KW["]"]],
+   MDProps.1:iter-star													-- _1,
+   MDProps.1:iter-star-sep											-- KW[","],
+   
+   None																					-- _1,
+   Some																					-- _1
 ]

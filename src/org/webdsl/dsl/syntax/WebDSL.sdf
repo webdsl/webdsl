@@ -10,6 +10,7 @@ imports
   PagedFor
   Derive
   Procedures
+  TemplateMarkdown
 
 hiddens
   context-free start-symbols
@@ -245,11 +246,10 @@ exports
     "select" "(" Exp "from" Exp ")" -> TemplateElement {cons("SelectFromList")}
 
     "if" "(" Exp ")" "{" TemplateElement* "}" "else" "{" TemplateElement* "}"
-                                                   -> TemplateElement {cons("IfTempl")}
+                                                   -> TemplateElement {cons("IfTempl"),prefer}
     "if" "(" Exp ")" "{" TemplateElement* "}"      -> TemplateElement {cons("IfNoElseTempl")}
 
-    "subtable" "(" Id ":" Sort "in" Exp ")"
-      "{" TemplateElement* "}"                              -> TemplateElement {cons("Subtable")}
+  %%
 
     Id                                             -> TemplateCall {cons("TemplateCallNoArgs")}
     Id "(" {Exp ","}* ")"                          -> TemplateCall {cons("TemplateCallNoBody")}
@@ -258,15 +258,17 @@ exports
     Id "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallPropsNoBody")}
     Id "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallProps")}
     Id "[" {PropertyAssignment ","}*"]" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallPropsNoArgs")}
+
+    Id                    "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallBody")}
+    Id "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCall")}
+
+  %%
     
     "if" "(" Exp ")" "{" TemplateElement* "}"      -> TemplateCall {reject}
     "else" "{" TemplateElement* "}"                -> TemplateCall {reject}
     "separated-by" "{" TemplateElement* "}"                -> TemplateCall {reject}
 
-    Id "(" Id ":" Sort ")" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallDeclaredType")}
-
-    Id                    "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCallBody")}
-    Id "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" "{" TemplateElement* "}" -> TemplateCall {cons("TemplateCall")}
+  %%
     
     Id ":=" PropertyValue				           -> PropertyAssignment {cons("PropertyAssignment")}
     Id											   -> PropertyValue {prefer}
@@ -275,12 +277,10 @@ exports
     "[" {PropertyValue "," }* "]"				   -> PropertyValue{cons("PropertyValueList"), prefer}
     StyleValue									   -> PropertyValue
   
-  %%AJAX desugarings
+  %%AJAX desugarings/ inline
     "{" Statements "}" -> Exp {cons("InlineAction")}
     "template" "{" TemplateElement* "}" -> Exp {cons("InlineTemplateCall"), prefer}    
-  %%    "template" 			-> Id {reject} -> problem with AC
-    %%"client" -> Id {reject}
-    
+   
     %% Template call without braces must be disambiguated in some cases
     "action" -> TemplateCall {reject}
 
