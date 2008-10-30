@@ -5,7 +5,72 @@ imports
   Java-15 
   libjava-front 
   libwebdsl-front
-/*  
+ 
+//email definitions
+  
+rules
+
+  rename :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-email-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    where <elem> (Email(), mod*)
+    with {| Rename:
+            y := x{<newname> x}
+          ; farg2* := <map(rename)> farg1*
+          ; elem2* := <rename-all> elem1*
+          |}
+
+rules
+
+  declare-email-definition =
+    ?def@Define(mod*, name, fargs, body)
+    ; where (<elem> (Email(), mod*))  
+    ; with ( 
+        t1* := <map(?Arg(_,<id>))> fargs
+      ; n := <strip-annos> name
+      ; rules (
+          EmailDefinition : (n, t1*) -> def
+          EmailArguments  : (n, t1*) -> fargs
+          CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, t2*)
+        )
+    )
+    
+    
+//email calls    
+    
+rules //constraints
+
+  constraint-error :
+    ThisCall("email", [e@ThisCall(name, args)]) -> <add-error(|["No email definition for ", <pp-webdsl> e, "."])>
+    where not(type-of)
+
+rules //typechecker
+
+  eq-type-of :
+    ThisCall("email", [e@ThisCall(name, args)]) -> t
+    where t := <CheckEmailSignature> (None(), name, args)
+        
+  /*check-builtin-signature :
+    (None(), "email", [e@ThisCall(name, args)]) -> SimpleSort("Void")
+    where EmailDefinition (name)
+    */
+  /*  
+    
+  typecheck-template-call :
+    ThisCall(p, [e1@ThisCall(name, args)]) -> ThisCall(p, [ThisCall(name, args2)])
+    where in-tc-context(id
+            ; "email" := p
+            ; if not(<IsEmail> name) then
+                typecheck-error(|["email to undefined emailtemplate ", name])
+              else
+                args2 := <map(typecheck-expression)> args
+                ; <match-arguments> (<TemplateArguments> name, args2)
+              end
+          | ["email/"])
+
+  typecheck-other-statement :
+    Stat(e1@ThisCall("email", elems1)) -> Stat(e2)
+    where e2 := <typecheck-template-call> e1   
+
 rules
   declare-email-definition =
     ?def|[ define email x_name(farg*) { elem* } ]|
