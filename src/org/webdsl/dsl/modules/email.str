@@ -6,31 +6,46 @@ imports
   libjava-front 
   libwebdsl-front
  
-//email definitions
+signature
+  constructors
+    EmailCallAnno : Annotation
+
+rules
+    
+  is-email-call :
+    _{anno*} -> True()
+    where <fetch(?EmailCallAnno())> anno*  
   
 rules
 
   rename :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-email-definition> def |[ define mod* y(farg2*) { elem2* } ]|
-    where <elem> (Email(), mod*)
+    where <fetch(?Email(){_})> mod*
     with {| Rename:
             y := x{<newname> x}
           ; farg2* := <map(rename)> farg1*
           ; elem2* := <rename-all> elem1*
           |}
+          
+  rename : 
+    ThisCall("email", [e@ThisCall(name, args)]) -> ThisCall("email", [<annotate-email-call> e1])  
+    with e1 := <rename-all> e
+          
+  annotate-email-call :
+    ThisCall(name, args){anno*} -> ThisCall(name, args){EmailCallAnno(),anno*} 
 
 rules
 
   declare-email-definition =
     ?def@Define(mod*, name, fargs, body)
-    ; where (<elem> (Email(), mod*))  
+    ; where (<fetch(?Email(){_})> mod*)  
     ; with ( 
         t1* := <map(?Arg(_,<id>))> fargs
       ; n := <strip-annos> name
       ; rules (
           EmailDefinition : (n, t1*) -> def
           EmailArguments  : (n, t1*) -> fargs
-          CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, t2*)
+          CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, <map(type-of)> t2*)
         )
     )
     
@@ -47,7 +62,8 @@ rules //typechecker
 
   eq-type-of :
     ThisCall("email", [e@ThisCall(name, args)]) -> t
-    where t := <CheckEmailSignature> (None(), name, args)
+    where n := <strip-annos> name
+        ; t := <CheckEmailSignature> (None(), n, args)
         
   /*check-builtin-signature :
     (None(), "email", [e@ThisCall(name, args)]) -> SimpleSort("Void")
