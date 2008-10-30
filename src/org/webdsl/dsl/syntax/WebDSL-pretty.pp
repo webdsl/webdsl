@@ -419,6 +419,8 @@
    MDHeader																			-- H[KW["="] _1 _2 KW["="]],
    MDBlock																			-- H[KW["#["] _1 _2 KW["]"]],
    MDBlock.2:iter-star													-- _1,
+   MDRowNoCols																	-- H[KW["<"] _1 _2 KW[">"]],
+   MDRowNoCols.2:iter-star											-- _1,   
    MDRow																				-- H[KW["<"] _1 _2 KW[">"]],
    MDRow.2:iter-star														-- _1,
    MDCol																				-- H[KW["|"] _1 _2],
