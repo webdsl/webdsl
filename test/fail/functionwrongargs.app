@@ -4,7 +4,7 @@ application test
 
 section datamodel
 
-globals {
+
   function getA(i : Int) : String {
     return "a";
   }
@@ -12,4 +12,4 @@ globals {
   function useA() {
     getA("Fiets");
   }
-}
+
