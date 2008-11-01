@@ -45,12 +45,32 @@ public final class Utils {
     }
 
     public static boolean isInstance(Object o, Class<?> c) {
+        //org.hibernate.Hibernate.initialize(o);
         if(o instanceof WebDSLEntity) {
             return ((WebDSLEntity)o).isInstance(c);
         } else {
             return c.isInstance(o);
         }
     }
+    
+    /**
+     * http://forum.hibernate.org/viewtopic.php?p=2387828
+     * 
+     * Utility method that tries to properly initialize the Hibernate CGLIB
+     * proxy.
+     *
+     * @param <T>
+     * @param maybeProxy -- the possible Hibernate generated proxy
+     * @param baseClass -- the resulting class to be cast to.
+     * @return the object of a class <T>
+     * @throws ClassCastException
+     */
+    /*public <T> T deproxy(Object maybeProxy, Class<T> baseClass) throws ClassCastException {
+       if (maybeProxy instanceof org.hibernate.proxy.HibernateProxy) {
+          return baseClass.cast(((org.hibernate.proxy.HibernateProxy) maybeProxy).getHibernateLazyInitializer().getImplementation());
+       }
+       return baseClass.cast(maybeProxy);
+    } */
 
     public static void download(FacesContext facesContext, byte[] file, String name, String type) {
         if (!facesContext.getResponseComplete()) {

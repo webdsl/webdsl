@@ -23,6 +23,19 @@ strategies
    GenerateCode = entity-to-java-entity; fail
 
    // @todo factor out code generation for properties to generate @Partial classes
+   
+  entity-cbds-equals(|x_Class) = !
+    java |[
+      public boolean equals(Object o) {
+        //return o != null && e_UTILS.isInstance(o, x_Class.class) && e_UTILS.equal(((x_Class)o).getId(), getId());
+        return o != null 
+          && o instanceof org.webdsl.WebDSLEntity
+          && ((org.webdsl.WebDSLEntity) o).instanceOf("~x_Class") 
+          && e_UTILS.equal(((o instanceof org.hibernate.proxy.HibernateProxy)? 
+               x_Class.class.cast( ((org.hibernate.proxy.HibernateProxy) o).getHibernateLazyInitializer().getImplementation()) 
+             : x_Class.class.cast(o)).getId(), getId());            
+      }
+    ]|
 
    entity-to-java-entity :
      EntityNoSuper(x_Class, props, functions) ->
@@ -38,10 +51,8 @@ strategies
           public x_Class () {}
 
           ~*idcodes
-
-          public boolean equals(Object o) {
-            return o != null && e_UTILS.isInstance(o, x_Class.class) && e_UTILS.equal(((x_Class)o).getId(), getId());
-          }
+          
+          ~*[<entity-cbds-equals(|x_Class)>]
 
           public int hashCode() {
             if (getId() == null)
@@ -57,17 +68,22 @@ strategies
           public boolean isInstance(Class<?> c) {
             return c.isInstance(this);
           }
+          
+          public boolean instanceOf(String s){
+            return s.equals("~x_Class")||s.equals("Object");
+          }
 
           ~*cbds
    
        }
      ]|
-     where {| ClassName
+     with  {| ClassName
       : rules( ClassName := x_Class )
       ; idcodes := <generate-id-code> x_Class
       ; cbds := <properties-to-code(|x_Class)> props
       ; pkgname := <DomainPackage>
       |}
+      
 
    entity-to-java-entity :
      SessionEntity(x_ident, props, functions) ->
@@ -86,9 +102,7 @@ strategies
 
         public void setId(Long id) { this.id = id; }
 
-        public boolean equals(Object o) {
-          return o != null && e_UTILS.isInstance(o, x_Class.class) && e_UTILS.equal(((x_Class)o).getId(), getId());
-        }
+        ~*[<entity-cbds-equals(|x_Class)>]
 
         public int hashCode() {
           if (getId() == null)
@@ -104,12 +118,16 @@ strategies
         public boolean isInstance(Class<?> c) {
           return c.isInstance(this);
         }
+        
+        public boolean instanceOf(String s){
+          return s.equals("~x_Class")||s.equals("Object");
+        }
 
         ~*cbds
  
        }
      ]|
-     where x_Class := <capitalize-string> x_ident
+     with x_Class := <capitalize-string> x_ident
     ; {| ClassName
         : rules( ClassName := x_Class )
         ; cbds := <properties-to-code(|x_Class)> props
@@ -124,11 +142,12 @@ strategies
        @Entity
        public class x_Class extends x_super implements org.webdsl.WebDSLEntity
        {
-         public x_Class () {}
-
-         public boolean equals(Object o) {
-           return o != null && e_UTILS.isInstance(o, x_Class.class) && e_UTILS.equal(((x_Class)o).getId(), getId());
+         public x_Class () {
+           instanceOfTypes#x_Class.add("~x_Class"); 
+           bstm*  
          }
+
+         ~*[<entity-cbds-equals(|x_Class)>]
 
          public int hashCode() {
            if (getId() == null)
@@ -144,23 +163,40 @@ strategies
          public boolean isInstance(Class<?> c) {
            return c.isInstance(this);
          }
+         
+         //@org.hibernate.annotations.CollectionOfElements
+         @Transient
+         java.util.List<String> instanceOfTypes#x_Class = new java.util.LinkedList<String>();
+         
+         public boolean instanceOf(String s){
+           return instanceOfTypes#x_Class.contains(s);
+         }
 
          ~*cbds
    
        }
      ]|
-     where {| ClassName
-      : rules( ClassName := x_Class )
-      ; cbds := <properties-to-code(|x_Class)> props
-      ; pkgname := <DomainPackage>
-      |}
+     with  {| ClassName
+         : rules( ClassName := x_Class )
+         ; cbds := <properties-to-code(|x_Class)> props
+         ; pkgname := <DomainPackage>
+           |}
+         ; {| SuperclassNames: 
+           <try(get-superclass-names(|x_Class))> x_Class 
+         ; bstm* := <bagof-SuperclassNames> 
+           |}
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
+      
+  get-superclass-names(|x_classname) : 
+    x_Class -> <get-superclass-names(|x_classname)> super 
+    where super := <Extends> x_Class 
+        ; rules(SuperclassNames :+= bstm|[ instanceOfTypes#x_classname.add("~super"); ]| )
 
    entity-to-class-fails =
      (?EntityNoSuper(_, _, _) <+ ?Entity(_,_,_,_))
      ; err(|"cannot generate code for entity")
-
+   
  strategies
    generate-id-code =
      ?x_Class

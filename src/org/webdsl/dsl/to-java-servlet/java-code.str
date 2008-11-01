@@ -288,7 +288,10 @@ rules
 
 rules // expressions
    expression-to-java-servlet :
-     Cast(e1, s) -> CastRef(t, java|[ e2 ]|)
+     Cast(e1, s) -> expr |[ (e2 instanceof org.hibernate.proxy.HibernateProxy)? 
+         t.class.cast( ((org.hibernate.proxy.HibernateProxy) e2).getHibernateLazyInitializer().getImplementation()) 
+       : t.class.cast(e2) ]| 
+     //CastRef(t, java|[ e2 ]|)
      with  e2 := <expression-to-java-servlet> e1
          ; t := <java-type> s
 
@@ -391,9 +394,16 @@ rules // expressions
 
    expression-to-java-servlet :
 //     IsA(x, s) -> expr |[ e instanceof t ]|
-     IsA(x, s@SimpleSort(_)) -> expr |[ (e instanceof tname) ]|
-     with  tname := <java-type> s
+     IsA(x, s@SimpleSort(_)) -> expr |[ e.instanceOf("~x_name") ]| //expr |[ {| org.hibernate.Hibernate.initialize(e); boolean x_var = e instanceof tname; | x_var |} ]|
+    /* expr |[ {|  if(e instanceof org.hibernate.proxy.HibernateProxy){
+                   e = (tname2) (((org.hibernate.proxy.HibernateProxy) e).getHibernateLazyInitializer().getImplementation());
+                 }
+                 boolean x_var = e instanceof tname; | x_var |} ]| */
+     with  //tname := <java-type> s
+           x_name := <java-servlet-type-name> s
          ; e := <expression-to-java-servlet> x
+         //; x_var := <newname> "bool"
+         //; tname2 := <type-of;java-type> e
 
 /*
    expression-to-java-servlet :
