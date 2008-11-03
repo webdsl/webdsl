@@ -415,9 +415,11 @@
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
    
    MDListItem																		-- KW["*"] _1 _2,
+   MDListItemMulti															-- KW["*"] _1 KW["{"] _2 KW["}"],
+   MDListItemMulti.2:iter-star									-- _1,
    MDSpacer																			-- KW["--"] _1,
    MDHeader																			-- H[KW["="] _1 _2 KW["="]],
-   MDBlock																			-- H[KW["#["] _1 _2 KW["]"]],
+   MDBlock																			-- H[KW["#"] _1 KW["{"] _2 KW["}"]],
    MDBlock.2:iter-star													-- _1,
    MDRowNoCols																	-- H[KW["<"] _1 _2 KW[">"]],
    MDRowNoCols.2:iter-star											-- _1,   

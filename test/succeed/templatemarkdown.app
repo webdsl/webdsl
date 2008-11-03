@@ -20,12 +20,12 @@ define page home() {
   = "below, a list" =
   list {
    * "1"
-   * "2"
+   * { "2" }
    * "3"
   }
   
   = "below, a block" =
-  #[ "i am inside a block " ]
+  #{ "i am inside a block " }
 
   
   ="below, a link"=
@@ -33,8 +33,8 @@ define page home() {
   
   ="another group"=
   group {
-    < |label("1"){"2"} >
-    < |label("3"){"4"} >
+    < label("1"){"2"} >
+    < label("3"){"4"} >
   }
 }
 
