@@ -168,6 +168,12 @@
    If                                 -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 KW["else"] _3],
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
 
+   Case                               -- V[V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2] KW["}"]],
+   Case.2:iter-star                   -- _1,
+   CaseAlt                            -- _1 _2,
+   CaseDefault                        -- KW["default"] _1,
+  
+
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
    FilterNoOrderByNoLimit             -- KW["where"] _1,
    FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1, 

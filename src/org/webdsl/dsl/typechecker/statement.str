@@ -19,6 +19,13 @@ rules // Utilities for typechecking Qualifieds
     not(?Qualified(_, _) <+ ?Var(_))
     ; !Var(<id>)
 
+rules 
+
+  is-constant-type = 
+    ?SimpleSort("Int")
+    <+ ?SimpleSort("Float")
+    <+ ?SimpleSort("String")
+
 rules // typechecking statements
 
   constraint-error :
@@ -38,13 +45,22 @@ rules // typechecking statements
     ; not(SimpleSort("Bool") := <type-of> e)
     ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
 
-  constraint-error = 
-    ?Case(e1, alt*) 
-    ; t := <type-of> e1
-    ; <fetch(where(<type-compatible>(<?CaseAlt(<type-of>,_)>, t)) => CaseAlt(e2, _))> alt*
-    ; add-error(|["constant in case alternative ", e2, 
-		  " should have same type as case expression ", e1])
+  constraint-error :
+    Case(e, alt*) -> <add-error(|["case expression should have value type instead of ", t])>
+    where t := <type-of> e
+	; not(<is-constant-type> t)
 
+  constraint-error :
+    s@Case(e, alt*) -> s
+    where t := <type-of> e
+	; not(<filter(constraint-error-case-alt(|t))> alt* => [])
+
+  constraint-error-case-alt(|t1) :
+    s@CaseAlt(e, alt*) -> <add-error(|["constant in case alternative ", e, 
+		                     " should have same type as case expression ", t1])>
+    where t2 := <type-of> e
+        ; not(<type-compatible>(t1,t2))
+        
   constraint-error :
     VarDecl(x, srt) -> <add-error(|["No such type ", <pp-webdsl> srt])>
     where not(<java-type> srt)
