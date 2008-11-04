@@ -77,12 +77,6 @@ strategies // extending the status entity
               this.caller.notifyOfActivity(this.branch);
             }
           }
-          
-          function partialCommit() {
-            if(this.caller != null) {
-              this.caller.partialCommit();
-            }
-          }
         }
       ]|
   
@@ -127,8 +121,12 @@ strategies // handle sequential composition - only to be done after simplificati
   //   should probably only be used as stat_lastActivity during the final call 
   process-sequential(|x_status, stat_lastActivity, x_branch) = 
     with(id
-        ; collect-all(?ProcCall(_,_)) 
-        ; stat1* := <map(get-sequential-proccall(|x_branch))>
+        ; procCalls := <collect-all(?ProcCall(_,_))>
+/*        ; info(|"Voor procedure-prepare-function")
+        ; debug
+        ; <map(procedure-prepare-function)> procCalls
+        ; info(|"Na procedure-prepare-function")*/
+        ; stat1* := <map(get-sequential-proccall(|x_branch))> procCalls
         ; e_current := Int(<get-state>)
         
         ; if (<is-list> stat_lastActivity) then
@@ -502,16 +500,17 @@ strategies  // Helper strategies
 
   get-sequential-proccall(|x_branch) :
     ProcCall(x1, x_id) -> 
-    webdsl|[ if (state == e_current) { e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
+    webdsl|[ if (state == e_current) { e.x_prepareFunction(); e.x1.enable(this as ProcedureStatus, e_next, e_branch); } ]|
     with e := <strip-annos; prefix-expression(|Var("this"))> x_id
        ; e_current := Int(<get-state>)
        ; e_next := Int(<get-next-state>)
        ; e_branch := Int(x_branch)
+       ; x_prepareFunction := <concat-strings> ["prepare", <capitalize-string> x1]
                
   get-disable-proccall =
     ?ProcCall(x1, x_id)
     ; e := <strip-annos; prefix-expression(|Var("this"))> x_id
-    ; !webdsl|[ e.x1.disable(); ]|
+    ; !webdsl|[ if (e.x1 != null) { e.x1.disable(); } ]|
 
   prefix-expression(|e) :
     Var(v) -> FieldAccess(e, v)

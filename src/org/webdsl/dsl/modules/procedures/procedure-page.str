@@ -48,7 +48,8 @@ rules // Translate to pages and stuff
           ]|
           
         // create procedure status including viewPage
-        ; x_Status := <concat-strings> [<capitalize-string> x_id, "ProcedureStatus"]
+        ; x_Id := <capitalize-string> x_id
+        ; x_Status := <concat-strings> [x_Id, "ProcedureStatus"]
         ; x_status := <decapitalize-string> x_Status
         ; x_ent := s
         ; stat3* := <filter(procedure-enabled-statements); concat> procelem*
@@ -59,6 +60,7 @@ rules // Translate to pages and stuff
             stat8* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
           else
             stat8* := [webdsl|[ this.next(0); ]|] // process description - start going through process
+            ; hasProcessDescription := True()
           end
         ; <emit-webdsl-code> def|[
             entity x_Status : ProcedureStatus {
@@ -89,12 +91,40 @@ rules // Translate to pages and stuff
               x_id <> x_Status ()
             }
           ]|
+          
+        // prepareProcedure is called on an entity before the procedure can be enabled
+        // this is done automatically within procedures. Otherwise, startProcedure can be called
+        ; x_prepareFunction := <concat-strings> ["prepare", x_Id]
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              function x_prepareFunction() {
+                if (this.x_id == null) {
+                  this.x_id := x_Status {};
+                  this.x_id.x_o := this;
+                  this.x_id.persist();  
+                  this.persist();
+                }
+              }
+            }
+          ]|
+          
+        // for starting the procedure - preferred above enable(), as this will create the ProcedureStatus if necessary
+        ; x_startFunction := <concat-strings> ["start", x_Id]
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              function x_startFunction() {
+                this.x_prepareFunction();
+                this.x_id.enable();
+              }
+            }
+          ]|
 
   add-procedure-done(|x_o, x_id) :
     stat* -> webdsl|[
           stat*
           x_o.x_id.done();
         ]|
+        
 
   /*
   procedure-to-check-performed(|arg) :
