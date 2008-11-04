@@ -9,25 +9,25 @@ section datamodel
   
   define main() 
   {
+    for(u:User){
+      output(u.username) " "
+    }
     body()
   }
   
   define page home()
   {
     main()
-  
     define body() {
       section {
         form { 
-       
           actionLink("Register", createUser())
           action createUser() {
-            
             var user:User := User{username := "1"};
-           
             var users:List<User> := [user]; 
-            
             var l:Int := users.length;
+            user.save();
+            return home2();
 
           }
         }
@@ -35,3 +35,15 @@ section datamodel
     }
   }
   
+  define page home2()
+  {
+    main()
+    define body{
+      form { 
+        actionLink("return", ret())
+        action ret() {
+            return home();
+        }
+      }
+    }
+  }
