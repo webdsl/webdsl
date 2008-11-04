@@ -23,11 +23,11 @@ public class StrategoProgram {
 	/**
 	 * Register a new Stratego program.
 	 */
-	public static synchronized StrategoProgram get(String programName, Class<?> tableOwner) {
+	public static synchronized StrategoProgram get(String programName, Class<?> ownerClass) {
 		try {
 			StrategoProgram result = get(programName);
 			if (result == null)
-				result = register(programName, tableOwner.getResourceAsStream("/" + programName + ".ctree"));
+				result = register(programName, ownerClass.getResourceAsStream("/" + programName + ".ctree"));
 			return result;
 		} catch (InterpreterException e) {
 			throw new RuntimeException(e);

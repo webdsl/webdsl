@@ -33,11 +33,11 @@ public class SDF {
 		parser = Environment.createSGLR(table);
 	}
 	
-	public static synchronized SDF get(String language, Class<?> tableOwner) {
+	public static synchronized SDF get(String language, Class<?> ownerClass) {
 		try {
 			SDF result = get(language);
 			if (result == null)
-				result = register(language, tableOwner.getResourceAsStream("/" + language + ".tbl"));
+				result = register(language, ownerClass.getResourceAsStream("/" + language + ".tbl"));
 			return result;
 		} catch (InterpreterException e) {
 			throw new RuntimeException(e);
