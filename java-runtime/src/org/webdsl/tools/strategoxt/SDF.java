@@ -90,7 +90,7 @@ public class SDF {
 		} catch (IOException e) {
 			throw new RuntimeException(e); // unexpected; fatal
 		} catch (SGLRException e) {
-			throw new RuntimeException(e);
+			throw new RuntimeException(e); // TODO: Handle SGLRException
 		}
 	}
 

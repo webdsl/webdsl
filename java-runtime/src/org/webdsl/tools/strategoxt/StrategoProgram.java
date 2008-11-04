@@ -26,8 +26,12 @@ public class StrategoProgram {
 	public static synchronized StrategoProgram get(String programName, Class<?> ownerClass) {
 		try {
 			StrategoProgram result = get(programName);
-			if (result == null)
-				result = register(programName, ownerClass.getResourceAsStream("/" + programName + ".ctree"));
+			if (result == null) {
+				InputStream stream = ownerClass.getResourceAsStream("/" + programName + ".ctree");
+				if (stream == null)
+					throw new IOException("No bundled ctree found with name " + programName + ".ctree for class " + ownerClass.getName());
+				result = register(programName, stream);
+			}
 			return result;
 		} catch (InterpreterException e) {
 			throw new RuntimeException(e);
