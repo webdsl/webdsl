@@ -25,11 +25,13 @@ FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
 	$(wildcard org/webdsl/dsl/*/*.tbl)
 
-# "make clean" leaves syntax intact; use cleaner/distclean
+# "make clean" leaves syntax intact; use fullclean/distclean
 
-distclean : cleaner
+distclean : fullclean
 
-cleaner :
+cleaner : fullclean # alias
+
+fullclean :
 	$(MAKE) clean
 	rm -rf $(FULLCLEANFILES)
 
