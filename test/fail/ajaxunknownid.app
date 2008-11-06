@@ -5,5 +5,5 @@ application test
 section pages
 
 define page home() {
-  block[id:= hoi, onclick := {clear fout <<;}] { "hoi1"} 
+  block[id:= hoi, onclick := action {clear fout <<;}] { "hoi1"} 
 }

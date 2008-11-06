@@ -17,11 +17,10 @@ section datamodel
   define page home()
   {
     main()
- 
-  
     define body() {
       section {
-        form { 
+        form {
+        
           input(bob.username)
           action("change", change())
           action change() {
@@ -42,4 +41,3 @@ section datamodel
       }
     }
   }
-  
