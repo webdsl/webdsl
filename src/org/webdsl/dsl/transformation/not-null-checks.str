@@ -14,17 +14,40 @@ imports
 imports
   libwebdsl-front
 
+signature
+  constructors 
+    HasNullChecks : Annotation
+
 rules
    add-not-null-checks:
     expr -> e0
+//    with e0 := <topdown(try(add-not-null-checks-helper))> expr
     with  e0 := <bottomup(try(match-any-bool-expr-and-add-null-checks))> expr
 
-  match-any-bool-expr-and-add-null-checks:
+/*  add-not-null-checks-helper:
     anyexp -> newexp
+//    where SimpleSort("Bool") := <type-of> anyexp
+  where <is-boolean-exp> anyexp
+    with // newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp  
+          extracheck := 
+          newexp := <generate-conjuction-exp>[extracheck, anyexp]
+          
+  
+  is-boolean-exp :
+     Eq(_,_) <+ NotEq(_,_) <+  LargerThan(_,_) <+ LargerThanOrEqual(_,_) <+ SmallerThan(_,_) <+ SmallerThanOrEqual(_,_) <+ And(_,_) <+ Or(_,_) <+ Not(_) -> True()          
+*/
+
+  get-has-null-checks =
+    ?_{anno*} 
+    ; where (<collect(?HasNullChecks());Hd> anno*) 
+          
+  match-any-bool-expr-and-add-null-checks:
+    anyexp{anno*} -> newexp{anno*,HasNullChecks()} 
     where //must not contain other bool expressions otherwise not-null checks have already been made
-        SimpleSort("Bool") := <type-of> anyexp
+        SimpleSort("Bool") := <type-of> anyexp; not(<oncetd(get-has-null-checks)> anyexp)
+    with
         //; [] := <all(collect({(anyexp -> <id> where SimpleSort("Bool") := <type-of> anyexp )}))> anyexp
-        ; newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
+          newe := <collect(ignore-certain-exp <+ field-access-to-not-null-checks-first);concat> anyexp
         ; if InColl(element,thecol) := anyexp
           then
             coll-not-null := <field-access-to-not-null-checks> thecol
@@ -44,7 +67,7 @@ rules
       
 
   field-access-to-not-null-checks-first:
-    fa@FieldAccess(ent,prop)-> extrachecks//return // extrachecks
+    fa@FieldAccess(ent,prop)-> return // extrachecks
     where //check := NotEq(fa,Null())
         if Var(varname) := ent // case of just one property access
         then
@@ -60,13 +83,14 @@ rules
           return := checks
         end
         // add a loggedIn check when principal is used
-        ; if fa:=FieldAccess(Var("securityContext"),"principal")
+/*        ; if fa:=FieldAccess(Var("securityContext"),"principal")
            ; SimpleSort("SecurityContext") := <type-of> Var("securityContext")
           then
             extrachecks := <concat>[ return, [|[ securityContext.loggedIn ]|] ]
           else
             extrachecks := return
           end
+*/
 
   field-access-to-not-null-checks:
     fa@FieldAccess(ent,prop)-> return
