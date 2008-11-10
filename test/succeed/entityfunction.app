@@ -9,6 +9,11 @@ section datamodel
       u.name == this.name;
       return a<b;
     }
+    function test2(a:Int, b:Int, u:User) : Bool
+    {
+      this.test(a,b,u);
+      return test(a,b,u);
+    }
   }
 
   define main() 
@@ -21,7 +26,7 @@ section datamodel
     var u:User := User{name := "testuser"};
     define body()
     {
-      if(u.test(4,8,u)){
+      if(u.test2(4,8,u)){
         output(u.name)
       }
     }
