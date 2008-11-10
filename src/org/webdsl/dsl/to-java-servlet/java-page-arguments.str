@@ -18,20 +18,28 @@ rules // page arguments
          private void conversion(){
            if(parammap.get("~x")!=null)
            {
-             bstm1*
+             try{ 
+                String[] ids = parammap.get("~x").split(","); 
+                x_ids = e;
+                for(String anid : ids){
+                  x_ids.add(Integer.valueOf(anid));
+                }
+             }
+             catch(NumberFormatException nfe){System.out.println(nfe.getMessage());}  
            } 
          }
+         
          @Partial
          void loadArguments() {
            bstm*
          }
         
-         private x1<t> x_ids;
+         private t_idstype x_ids;
        
-         public void set#x_ids(x1<t> v) {
-           this.x_id = v;
+         public void set#x_ids(t_idstype v) {
+           this.x_ids = v;
          }
-         public x1<t> get#x_ids() {
+         public t_idstype get#x_ids() {
            return this.x_ids;
          }
         
@@ -45,18 +53,18 @@ rules // page arguments
            return x;
          }
       ]|    
-      where <?GenericSort(x1,[x2])> srt // TODO list arguments to page or template
-      with    debug(!3) ;<?SimpleSort(x_Class)> x2      
-          ; debug(!4) ;x_id := <concat-strings>[x, "_id"]
+      where <?GenericSort(x1,[x2])> srt
+      with  <?SimpleSort(x_Class)> x2      
+          ; x_id := <concat-strings>[x, "_id"]
           ; if <EntityIdName> x_Class then
-              t := <java-wrapper-type> <EntityIdType> x_Class
+              t := <EntityIdType> x_Class
             else
-              t := type|[ Long ]|
+              t := SimpleSort("Int")
             end
-          ; debug(!5) ;bstm* := <argument-to-java-servlet-initialization> arg
-          ; debug(!6) ;x_ids := <concat-strings>[x1,x_Class, "_ids"]
-          ; debug(!7) ;bstm1* := <java-servlet-conversion-to-object> (x_Class,x,x_ids)      // TODO: x1<x_class>
-          ; debug(!8)
+          ; t_idstype := <builtin-java-type> GenericSort(x1,[t])
+          ; e := <builtin-java-type-default-value> GenericSort(x1, [t])
+          ; bstm* := <argument-to-java-servlet-initialization> arg
+          ; x_ids := <concat-strings>[x,"_ids"]
      
    argument-to-java-servlet-property :
     arg@farg|[ x : srt ]| ->
@@ -130,7 +138,7 @@ rules // page arguments
          return x;
        }
     ]|
-    where t_Class := <builtin-java-type> srt
+    where t_Class := <builtin-java-type> srt; not(GenericSort(_,_) := srt)
     with <?SimpleSort(_)> srt
         ; bstm* := <argument-to-java-servlet-initialization> arg
         ; bstm2* := <string-argument-to-java-servlet-initialization <+ ![]> arg // fix for passing strings decode (eg. %20 -> ' ')
@@ -162,25 +170,21 @@ rules // page arguments
     arg@farg|[ x : srt ]| ->
     bstm*|[
       if (x_ids == null) {            
-         x_ids = new x1<x_Class>();
-      } else {
-          if (x_ids == null) {
-          //todo: loop and load
-          //x = (x_Class) hibSession.load(x1<x2>.class, x_Id);
-//          if(x == null) {
-              // @todo Is this a good idea?
-//              x = new x_Class();
-//              x.setId(x_Id);
-//          }
+         //x_ids = new x3();
+      } 
+      else {
+        if (x == null) {
+          x = e;
+          for(Integer anid: x_ids) {
+            x.add((x_Class) hibSession.load(x_Class.class, anid));
+          }
         }
       }
     ]|
-    where <?GenericSort(x1,[x2])> srt
-    with  debug(!17) ;<?SimpleSort(x_Class)> x2
-        ; debug(!18) ;x_ids := <concat-strings>[x1,x_Class, "_ids"]
-//        ; debug(!19) ;e_init := <java-type-default-value> srt
-       // ; rules( Parameter :+= x )
-
+    where <?GenericSort(x1,[x2])> srt; <defined-java-type> x2
+    with  <?SimpleSort(x_Class)> x2
+        ; e :=    <builtin-java-type-default-value> srt
+        ; x_ids := <concat-strings>[x, "_ids"]
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -232,7 +236,23 @@ rules // page arguments
       }
     ]|
     //%> <input type="hidden" name="<%= e1 %>" value="#{<%= <ThisPage>%>.<%= i%>.id}" /> <%
-    where <defined-java-type> s
+    where <defined-java-type> s; not( GenericSort(_,_) := s)
+    
+  form-hidden-page-params-java-servlet :
+    Arg(x, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenParams(java.lang.StringBuffer combinedparams)
+      {
+        String x_ids;
+        for(WebDSLEntity o: x) {
+          x_ids += o.getId()+",";
+        }        
+        combinedparams.append("<input type=\"hidden\" name=\""+"~x"+"\" value=\""+x_ids+"\" />");    
+      }
+    ]|
+    where GenericSort(_,_):= s    
+    with  x_ids := <concat-strings> [x, "_ids"]
        
   form-hidden-page-params-java-servlet  :
     arg@farg|[ x : srt ]| -> arg
@@ -263,5 +283,12 @@ rules // page arguments
     where <defined-java-type> s
 
   form-post-page-params-java-servlet  :
-    arg@farg|[ x : srt ]| -> arg
-    where <?GenericSort(_,_)> srt // TODO list arguments to page or template    
+    arg@farg|[ x_ident : srt ]| -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("~x_ident"+"="+org.webdsl.tools.Utils.encodeIdList(x_ident)+"&");
+      }
+    ]|
+    where <?GenericSort(_,_)> srt 

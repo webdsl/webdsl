@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+
 import javax.faces.context.FacesContext;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
@@ -51,6 +53,15 @@ public final class Utils {
         } else {
             return c.isInstance(o);
         }
+    }
+    
+    public static String encodeIdList(Object o){
+        List<WebDSLEntity> l = (List<WebDSLEntity>) o;
+        String res = "";
+        for(WebDSLEntity obj: l) {
+            res+=obj.getId()+",";
+        }        
+        return res.substring(0, Math.max(0,res.length()-1));
     }
     
     /**
