@@ -17,6 +17,7 @@ section datamodel
   define page home()
   {
     main()
+    action a() {}
     define body() {
       section {
         form {

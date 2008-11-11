@@ -36,10 +36,6 @@ strategies // register all declared entities
         !<concat> [functions, <Extends; all-functions> x_class]
       end
 
-  is-function =
-    ?(x_class, fun)
-    ; (IsFunction <+ <is-function> (<Extends> x_class, fun))
-
   declare-entity = 
     where ( try(inherit-object)
         ; ?Entity(x_class, x_super, props, funcs) )
@@ -191,25 +187,15 @@ strategies // register all declared entities
 
   declare-function(|x_class) =
     ?FunctionNoReturn(f, args, body)
-    ; where(<declare-function(|x_class)> Function(f, args, SimpleSort("Void"), body))
+    ; with(<declare-function(|x_class)> Function(f, args, SimpleSort("Void"), body))
 
   declare-function(|x_class) =
     ?Function(f, args, sort, body1)
-    ; where(id
+    ; with(id
       ; t1* := <map(?Arg(_,<id>))> args
       ; rules( CheckFunctionSignature :+
                     (SimpleSort(x_class), f, t2*) -> sort
                         where <zip(type-compatible)> (t1*, t2*)
-             )
-      ; rules( CheckFunctionSignature :+ // For after desugar
-                    (None(), f, t3*) -> sort
-                        where [SimpleSort(x_class)|t2*] := t3*
-                            ; <zip(type-compatible)> (t1*, t2*)
-             )
-      ; rules( CheckFunctionSignature :+
-                    (None(), f, t2*) -> sort
-                        where <zip(type-compatible)> (t1*, t2*)
-               IsFunction : (x_class, f)
              )
       )
 
@@ -288,16 +274,19 @@ strategies
 
   declare-action =
     ?def@Action(name, fargs, body)
-    ; where( t1* := <map(?Arg(_,<id>))> fargs )
-    ; rules(
-        ActionDefinition  : name -> def
-        ActionArguments  : name -> fargs
-
-        CheckActionSignature :
-          (None(), name, t2*) -> SimpleSort("void")
-          where <zip(type-compatible)> (t1*, t2*)
+    ; with( 
+        t1* := <map(?Arg(_,<id>))> fargs 
+       ; (parent := <InPage> <+ parent := <InTemplate> <+ parent:= None()) //TODO: Parent NONE?! sounds 'global' -> dangerous
       )
-
+      ; rules(
+          ActionDefinition  : name -> def
+          ActionArguments  : name -> fargs
+  
+          CheckActionSignature :
+            (parent, name, t2*) -> SimpleSort("void")
+            where <zip(type-compatible)> (t1*, t2*)
+        )
+      
 strategies
 
   /*
