@@ -14,7 +14,7 @@ rules
     
   is-email-call :
     _{anno*} -> True()
-    where <fetch(?EmailCallAnno())> anno*  
+    where <fetch(?EmailCallAnno(){})> anno*  
   
 rules
 
@@ -28,8 +28,10 @@ rules
           |}
           
   rename : 
-    ThisCall("email", [e@ThisCall(name, args)]) -> ThisCall("email", [<annotate-email-call> e1])  
-    with e1 := <rename-all> e
+    tc@ThisCall("email", [e@ThisCall(name, args)]) -> ThisCall("email", [e2])  
+    with  e1 := <rename-all> e
+        //add annotation once, used to differentiate between normal call and email call during constraint checking
+        ; if <is-email-call> e then e2 := e1 else e2 := <annotate-email-call> e1 end
           
   annotate-email-call :
     ThisCall(name, args){anno*} -> ThisCall(name, args){EmailCallAnno(),anno*} 
@@ -47,6 +49,7 @@ rules
           EmailArguments  : (n, t1*) -> fargs
           CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, <map(type-of)> t2*)
         )
+     //; fetch(?elem|[ to(e){} ]|)
     )
     
     
@@ -64,6 +67,11 @@ rules //typechecker
     ThisCall("email", [e@ThisCall(name, args)]) -> t
     where n := <strip-annos> name
         ; t := <CheckEmailSignature> (None(), n, args)
+        
+
+        
+        
+        
         
   /*check-builtin-signature :
     (None(), "email", [e@ThisCall(name, args)]) -> SimpleSort("Void")
