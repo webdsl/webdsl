@@ -1,5 +1,4 @@
-// Type mismatch between attribute type Set<Nonexisting> and inverse entity type Paper
-
+// Type mismatch between attribute type
 application test
 
 section datamodel

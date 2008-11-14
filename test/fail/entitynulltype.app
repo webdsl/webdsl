@@ -1,4 +1,5 @@
-// Attribute type Null is not allowed in attribute authoredPapers
+// Type not defined 
+authoredPapers
 
 application test
 

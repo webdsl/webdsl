@@ -41,20 +41,26 @@ rules
   rename-bound-rules(|x,y,srt) =
     rules ( 
       Rename : Var(x) -> Var(y)
+      RenameType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y]) 
       Rename : Qualified(x, z) -> Qualified(y, z)
       Rename : Stat(Assignment(x, e)) -> Stat(Assignment(y, <rename-all> e))
       TypeOf : y -> srt
     )
+    
+  rename-type = ?s; (RenameType <+ rename-sdf-input <+ !s)
 
   rename :
-    VarDecl(x, srt) -> VarDecl(y, <rename-all>srt)
-    with y := <rename-bound(|srt)> x
+    VarDecl(x, srt) -> VarDecl(y, srt2)
+    with  srt2 := <rename-sort-for-generic> <rename-type> srt
+        ; y := <rename-bound(|srt2)> x
 
   rename :
-    VarDeclInit(x, srt, e) -> VarDeclInit(y, srt, e')
-    where InDef
-        ; e' := <rename-all> e
-        ; y := <rename-bound(|srt)> x
+    VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
+    where InDef 
+    with srt3 := <rename-type> srt
+        ;srt2 := <rename-sort-for-generic> srt3
+        ;e' := <rename-all> e
+        ;y := <rename-bound(|srt2)> x
 
   rename :
     VarDeclInit(x, srt, e) -> VarDeclInit(x, srt, e')
@@ -89,7 +95,9 @@ rules
           : rules ( InDef := True() )
           ; rules ( InTemplate := x )
           ; y := x{<newname> x}
-          ; farg2* := <map(rename; declare-template-arg)> farg1*
+          ; genargs := <get-generictype-args> farg1*
+          ; farg3* := <map(rebind-generic-in-farg(|genargs))> farg1*
+          ; farg2* := <map(rename; declare-template-arg)> farg3*
           ; elem2* := <alltd(rename-action); rename-all> elem1*
           |}
         
@@ -342,8 +350,9 @@ rules
           |} 
 
   rename :
-    Arg(x, srt) -> Arg(y, srt)
-    with y := <rename-bound(|srt)> x
+    Arg(x, srt) -> Arg(y, srt2)
+    with  srt2 := <rename-type> srt
+        ; y := <rename-bound(|srt2)> x
   
   rename :
     InitAction(bl) -> InitAction(bl2)
@@ -384,6 +393,6 @@ rules
 
   // rename hack to avoid checks on argument type
 
-  rename :
+  rename-sdf-input :
     GenericSort("SDFInput", [SimpleSort(x{anno1*})]){anno2*} -> 
     GenericSort("SDFInput", [x{anno1*}]){anno2*}

@@ -1,4 +1,4 @@
-//  Error: No function or page test with this signature in:
+//No function or page test
 
 application test
 

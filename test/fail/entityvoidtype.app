@@ -1,4 +1,4 @@
-// Attribute type Void is not allowed in attribute authoredPapers
+// Type not defined
 
 application test
 

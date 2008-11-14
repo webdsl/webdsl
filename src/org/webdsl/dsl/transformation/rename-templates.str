@@ -50,6 +50,7 @@ rules
   rename-template :
     def0@def |[ define local x(farg*) { elem* } ]| -> <declare-local-template-definition> def0
 
+  rename-var-type = RenameGenericType <+ id
 
   rename-bound-variables = 
     RenameTemplateVar
@@ -137,26 +138,30 @@ rules
            |}  
 
   rename-arg :
-    Arg(x, s) -> Arg(y, s)
-    where y := <rename-var> x
-        ; try(<declare-template-arg> Arg(y, s))
+    Arg(x, s) -> Arg(y, s2)
+    with  y := <rename-var> x
+        ; s2 := <rename-var-type> s
+        ; try(<declare-template-arg> Arg(y, s2))
                  
   rename-template-arg :
-    Arg(x, s) -> Arg(y, s)
-    where y := <rename-var> x
+    Arg(x, s) -> Arg(y, s2)
+    with   y := <rename-var> x
 //        ; z := <concat-strings> ["param", <as-string(ParamNumber)>]
 //        ; rules ( RenameOverloadedTemplateVar : y -> z )
 //        ; rules ( ParamNumber := <ParamNumber; inc> )
-        ; try(<declare-template-arg> Arg(y, s))
+        ; s2 := <rename-var-type> s
+        ; try(<declare-template-arg> Arg(y, s2))
 
   rename-vardecl :
-    VarDecl(x, s) -> VarDecl(y, s)
+    VarDecl(x, s) -> VarDecl(y, s2)
     where y := <rename-var> x
+        ; s2:= <rename-var-type> s
         
   rename-vardecl :
-    VarDeclInit(x, s, e1) -> VarDeclInit(y, s, e2)
+    VarDeclInit(x, s, e1) -> VarDeclInit(y, s2, e2)
     where e2 := <rename-bound-variables> e1
         ; y := <rename-var> x
+        ; s2:= <rename-var-type> s        
         
   rename-for :
     For(x, s, e1, Filter(we1, obe1, l1), elems1) -> For(y, s, e2, Filter(we2, obe2, l2), elems2)
@@ -196,6 +201,7 @@ rules
             RenameTemplateVar : Var(x)           -> Var(y)
             RenameTemplateVar : Qualified(x, f)  -> Qualified(y, f)
             RenameTemplateVar : Assignment(x, e) -> Assignment(y, e2) where e2 := <try(sometd(rename-bound-variables))> e
+            RenameGenericType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y]) with <debug(!"Renamed2: ")>[<id>, y]
             TypeOf            : y -> srt
           )
           
