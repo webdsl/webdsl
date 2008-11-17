@@ -1,4 +1,4 @@
-module org/webdsl/dsl/analysis/bigtable
+module org/webdsl/dsl/analysis/datamodel
 
 imports
   libstrategolib
@@ -9,29 +9,22 @@ imports
   libwebdsl-front
 
 strategies
-
-  /* DISABLED FOR NOW
+ 
   analyze =
-    ?Application(_, _)
-    ; {| PropertiesToInline
-       : topdown(try(analyze-bigtable))
-       ; info(|["We would recommend to inline the following: ", <bagof-PropertiesToInline; make-set>])
-       |}
-    ; fail
-  
-  analyze-bigtable =
     (?For(x, srt, _, _, _) <+ ?ForAll(x, srt, _, _) <+ ?ForStmt(x, srt, _, _, _) <+ ?ForAllStmt(x, srt, _, _))
     ; ?t
+    //; debug(!"Checking for joinable stuff: ")
     ; {| IteratedVars, IteratedVar
        : rules ( IteratedVars :+= (x, srt)
                  IteratedVar : Var(x) -> srt )
        //; info(|["Looking for property use of variable ", x, " of type ", srt])
        ; fas := <collect-potential-joins> t
        //; info(|["Field accesses to analyze from ", x, ": ", fas])
-       ; inlinecandidates := <filter(an-requires-inlining); remove-position-annos; make-set> fas
-       ; if not([] := inlinecandidates) then
-           rules ( PropertiesToInline :+= inlinecandidates )
-         end
+       ; joincandidates := <filter(an-requires-joining); make-set> fas
+       //; debug(!"Join candidates: ")
+       ; cleant := <topdown(try(strip-annos))> t
+       ; rules ( PropertiesToJoin : cleant -> joincandidates )
+       
        //; info(|["These should be inlined: ", inlinecandidates])
       |}
 
@@ -91,14 +84,11 @@ strategies // checks for potential inlining
   an-find-entity-property-pair =
     ?fa@FieldAccess(l, fld)
     ; if Var(x) := l then
-        !(<type-of> l, fld)
+        !<concat-strings> ["_", fld]
       else
-        !(<an-find-entity-property-pair> l, fld)
+        !<concat-strings> [<an-find-entity-property-pair> l, "._", fld]
       end
   
-  an-requires-inlining =
-    ?FieldAccess(l, fld)
-    ; an-find-entity-property-pair
-    ; ?((_, _), _)
-  */
-    
+  an-requires-joining =
+    ?FieldAccess(fa@FieldAccess(_, _), _)
+    ; <an-find-entity-property-pair> fa
