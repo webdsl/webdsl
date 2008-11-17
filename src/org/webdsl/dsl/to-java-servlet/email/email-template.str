@@ -53,7 +53,7 @@ rules
         import pkgname3.*;
 
         @Partial
-        public class x_Page implements EmailServlet
+        public class x_Page extends EmailServlet
         {
           private void storeArguments(Object[] args) {
             bstm1*
@@ -96,7 +96,7 @@ rules
           
           }
 
-          public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out) { 
+          public void render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out) { 
             if(!initialized)
             {
             
@@ -120,13 +120,47 @@ rules
               initialize2();
             } 
          
-            this.out = out;
+            //this.out = out;
+            this.out = new java.io.PrintWriter(new java.io.StringWriter()); 
             
-            out.write("<span id=\"this\" class=\"scopediv\">");
+            //out.write("<span id=\"this\" class=\"scopediv\">");
             renderInternal();
-            out.write("</span>");
+            //out.write("</span>");
             
-            return this.templatecounter;
+            String host     = EmailServlet.props.getProperty("webdsl.email.host");
+            String username = EmailServlet.props.getProperty("webdsl.email.user");
+            String password = EmailServlet.props.getProperty("webdsl.email.pass");
+            java.util.Properties props = new java.util.Properties();
+            props.put("mail.smtps.auth", "true");
+            props.put("mail.smtps.port", EmailServlet.props.getProperty("webdsl.email.port"));
+            javax.mail.Session session = javax.mail.Session.getInstance(props, null);
+            //TODO set SSL/TLS
+            
+            javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
+       
+            try{
+                
+                msg.setRecipients(javax.mail.Message.RecipientType.TO,
+                        javax.mail.internet.InternetAddress.parse("", false));
+    
+                msg.setSubject("test mail");
+          
+                msg.setText(out.toString());
+                
+                javax.mail.Address sender = javax.mail.internet.InternetAddress.parse("", false)[0];
+                msg.setSender(sender);
+    
+                javax.mail.Transport transport = session.getTransport("smtps");
+                try {
+                    transport.connect(host, username, password);
+                    transport.sendMessage(msg, msg.getAllRecipients());
+                } finally {
+                    transport.close();
+                }
+            }
+            catch(javax.mail.internet.AddressException ae){System.out.println(ae);}
+            catch(javax.mail.MessagingException me){System.out.println(me);}
+            
           }
         }
           
