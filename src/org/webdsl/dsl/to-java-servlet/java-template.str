@@ -9,6 +9,7 @@ rules
 
   generate-java-servlet-template-partial =
     ? cbds
+    //; where(not(ThisEmail)) also used for common parts in email
     ; with(
         pkgname    := <BeanPackage>
       ; x_Page  := <ThisTemplateClassName>
@@ -26,7 +27,7 @@ rules
 
 rules
     
-  GenerateCodeJavaServlet = generate-java-servlet-template; fail
+  GenerateCodeJavaServlet = where(not(ThisEmail));generate-java-servlet-template; fail
 
   generate-java-servlet-template :
     def |[ define mod* x(farg*) { elem* } ]| ->
@@ -174,38 +175,13 @@ rules
         }
           
       ]|
-    //where x_page     := <ThisPage>
     with pkgname    := <BeanPackage>
        ; pkgname2   := <DomainPackage>
        ; pkgname3   := <ActionPackage>
-       ; //if NestedTemplate
-         //then x_Page    := <java-servlet-local-template-name> (<ThisPage>,<ThisTemplateName>)
-         //else
-         x_Page  := <ThisTemplateClassName>
-         //end
-   /*    ; if x_page := <ThisPage> 
-         then 
-           if <elem> (Page(), mod*)
-           then  x_Page    := <java-servlet-page-template-name> x
-           else  x_Page    := <java-servlet-local-template-name> (<ThisPage>,x) end
-         else x_Page     := <java-servlet-template-name> x end*/
+       ; x_Page  := <ThisTemplateClassName>
        ; x_pnamequoted := <double-quote> x_Page
-       ; //if ThisPage then // for now only local def in pages supported
-         
-         bstm* := <map({\
-                           (x,xclass) -> bstm |[ templates.put(x_key, x_value); ]| 
-                           where x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [xclass,".class"]
-                       \})> 
-                       <collect({\def@webdsl|[ define mod* x(farg*) { elem* } ]| -> (x,<get-template-class-name> def)\})> elem*
-                       //<!x;bagof-LocalTemplateNames;make-set>
-         //else bstm* := [] 
-         //end
-       ; bstm1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
-                                         where x_index := <subti;int-to-string> (index,1)
-                                             ; x_arg := <argument-java-servlet-type> arg
-                                      \})> farg* //variables are generated in java-template-vars
-                                      
+       ; bstm* := <local-defined-templates-to-hashmap> elem*
+       ; bstm1* := <formal-arguments-to-store-statements> farg*
        ; bstm2* := bstm* |[
             if(!initialized)
             {
@@ -230,51 +206,19 @@ rules
               initialize2();
             } 
        ]|
-                                      
-   
-rules //webdsl arguments to java types
-
-  argument-java-servlet-java-type:
-    arg@farg|[ x : srt ]| -> type |[ x_Class ]|
-    where <defined-java-type> srt
-        ; <?SimpleSort(x_Class)> srt
-
-  argument-java-servlet-java-type:
-    arg@farg|[ x : srt ]| -> x_Class
-    where x_Class := <builtin-java-type> srt
-
-  // give just the name of the type, (eg. for use in a cast)
-  argument-java-servlet-type:
-    arg@farg|[ x : srt ]| -> x_Class
-    where <defined-java-type> srt
-        ; <?SimpleSort(x_Class)> srt
-
-  argument-java-servlet-type:
-    arg@farg|[ x : srt ]| -> x_Class
-    where x_Class := <builtin-java-type;pp-java5-to-string> srt      
-   
-rules //webdsl types to java types
-
-  java-servlet-java-type:
-    srt -> type |[ x_Class ]|
-    where <defined-java-type> srt
-        ; <?SimpleSort(x_Class)> srt
-
-  java-servlet-java-type:
-    srt -> x_Class
-    where x_Class := <builtin-java-type> srt
-   
-  java-servlet-type-name : 
-    srt -> x_Class
-    where <defined-java-type> srt
-        ; <?SimpleSort(x_Class)> srt
-
-  java-servlet-type-name :
-    srt -> x_Class
-    where x_Class := <builtin-java-type;pp-java5-to-string> srt     
-  
-rules //webdsl formal argument to java formal argument 
-  
-  arguments-to-java-servlet :  
-    arg@farg|[ x : srt ]| -> param |[ t x ]|
-    with  t := <argument-java-servlet-java-type> arg
+       
+rules
+  local-defined-templates-to-hashmap :
+    elem* -> result
+    with  localtemplates := <collect({\def@webdsl|[ define mod* x(farg*) { elem* } ]| -> (x,<get-template-class-name> def)\})> elem*
+        ; result := <map({\ (x,xclass) -> bstm |[ templates.put(x_key, x_value); ]| 
+                             where x_key := <concat-strings> ["\"",x,"\""]
+                                 ; x_value := <concat-strings> [xclass,".class"]
+                          \})> localtemplates 
+ 
+  formal-arguments-to-store-statements :
+    farg* -> result
+    where  result := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
+                                            where x_index := <subti;int-to-string> (index,1)
+                                                ; x_arg := <argument-java-servlet-type> arg
+                                          \})> farg* //variables are generated in java-template-vars
