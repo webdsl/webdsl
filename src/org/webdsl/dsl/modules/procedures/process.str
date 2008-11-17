@@ -39,9 +39,22 @@ strategies // hooking into rest of the system
   desugar = where(<do-once(process-extend-status-entity|"Extend status entity")> None())
   
 strategies // extending the status entity
+  processed-stats = 
+    !webdsl|[
+      this.isEnabled := false;
+      this.isProcessed := true;
+      this.persist();
+      if(this.caller != null) {
+        if(this.branch != null) {
+          this.caller.notifyOfActivity(this.branch);
+        }
+        this.caller.next(this.returnstate);
+      }
+    ]|
 
   process-extend-status-entity = 
-    <emit-webdsl-code> def|[
+    stat_processed* := <processed-stats>
+    ; <emit-webdsl-code> def|[
         extend entity ProcedureStatus {
           caller -> ProcedureStatus
           returnstate :: Int
@@ -58,14 +71,7 @@ strategies // extending the status entity
           function next(state : Int) { }
 
           function processed() {
-            this.isEnabled := false;
-            this.persist();
-            if(this.caller != null) {
-              if(this.branch != null) {
-                this.caller.notifyOfActivity(this.branch);
-              }
-              this.caller.next(this.returnstate);
-            }
+            stat_processed*
           }
           
           function notifyOfActivity(branch : Int) {

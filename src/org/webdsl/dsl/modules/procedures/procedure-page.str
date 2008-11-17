@@ -14,9 +14,6 @@ rules // Translate to pages and stuff
         ; procelem* := <alltd(translate-object-param(|x_o))> procelem2*
 
         ; stat_do* := <get-procedure-do-statements(|x_o, x_id)> procelem2*
-/*        ; stat* := <filter(procedure-do-statements); concat; add-procedure-done(|x_o, x_id)> procelem2* // get do statements and add call to done()
-        ; stat_do* := <filter(not({e: ?webdsl|[ return e; ]| <+ ?webdsl|[ goto e; ]|}))> stat* // no returns or goto's in do
-*/
         ; if <IsDoProcedure> x_id then
               elem*  := elem*|[ 
                 init { 
@@ -35,13 +32,14 @@ rules // Translate to pages and stuff
               ]|
             ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction())[]{} ]| -> elem|[ dummy ()[]{ elem elem2 } ]| \}))> viewelem*
           end
-        ; e2 := <procedure-get-access-exp(|x_o, x_id)> procelem*
+        ; e_canPerform := <procedure-get-access-exp(|x_o, x_id)> procelem*
+        ; e_self := <procedure-get-self-access-exp> procelem*
         ; <emit-webdsl-section> |[
             access control rules {
               rules page x_id(x_o : srt) {
-                e2
+                e_canPerform
                 rules action doAction() {
-                  e2
+                  e_canPerform
                 }
               }
             }
@@ -52,32 +50,33 @@ rules // Translate to pages and stuff
         ; x_Status := <concat-strings> [x_Id, "ProcedureStatus"]
         ; x_status := <decapitalize-string> x_Status
         ; x_ent := s
-        ; stat3* := <filter(procedure-enabled-statements); concat> procelem*
-        ; stat4* := <filter(procedure-processed-statements); concat> procelem*
-        ; stat5* := <filter(procedure-done-statements); concat> procelem*
-        ; stat7* := <filter(procedure-disabled-statements); concat> procelem*
+        ; stat_enabled* := <filter(procedure-enabled-statements); concat> procelem*
+        ; stat_processed* := <filter(procedure-processed-statements); concat> procelem*
+        ; stat_done* := <filter(procedure-done-statements); concat> procelem*
+        ; stat_disabled* := <filter(procedure-disabled-statements); concat> procelem*
         ; if not(<IsGeneratedProcedure> x_id); [] := <filter(?procelem|[ process { processexp } ]|)> procelem2*; not(<ProcedureHasProcess> x_id) then
-            stat8* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
+            stat_afterdone* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
           else
-            stat8* := [webdsl|[ this.next(0); ]|] // process description - start going through process
+            stat_afterdone* := [webdsl|[ this.next(0); ]|] // process description - start going through process
             ; hasProcessDescription := True()
           end
         ; <emit-webdsl-code> def|[
             entity x_Status : ProcedureStatus {
               x_o -> srt
               function enabled() {
-                stat3*
+                stat_enabled*
               }
               function done() {
                 this.isEnabled := false;
                 this.persist();
-                stat8*
-                stat5*
+                stat_done*
+                stat_afterdone*
               }
               function disabled() {
-                //this.isEnabled := false;
-                //this.persist();
-                stat7*
+                stat_disabled*
+              }
+              function canPerform() : Bool {
+                return e_self;
               }
             }
           ]|
@@ -89,6 +88,14 @@ rules // Translate to pages and stuff
         ; <emit-webdsl-code> def|[
             extend entity x_ent {
               x_id <> x_Status ()
+            }
+          ]|
+          
+        ; <emit-webdsl-code> def|[
+            extend procedure x_id(x_o : srt) {
+              processed {
+                stat_processed*
+              }
             }
           ]|
           
@@ -115,6 +122,14 @@ rules // Translate to pages and stuff
               function x_startFunction() {
                 this.x_prepareFunction();
                 this.x_id.enable();
+              }
+            }
+          ]|
+        
+        ; <emit-webdsl-code> def|[
+            extend entity x_Status {
+              extend function processed() {
+                stat_processed*
               }
             }
           ]|

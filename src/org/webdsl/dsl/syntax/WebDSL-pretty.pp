@@ -43,6 +43,7 @@
    InverseSlaveAnno		      -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
    InlineAnno		              	      -- KW["inline"] KW["("] _1 KW[")"],
    InlineAnno.1:iter-stat-sep         -- _1 KW[","],
+   SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
@@ -386,7 +387,7 @@
    LayoutExpression                             -- _1,
    LayoutExpression                             -- _1,
 
-   %% Operations 
+   %% Procedures 
    Procedures                                   -- V is=2 vs=1 [H[KW["procedures"] _1] _2],
    Procedure                                    -- V[V is=2[H[KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
    AutoProcedure                                -- V[V is=2[H[KW["auto"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
@@ -400,16 +401,8 @@
    ProcedureEnabled                             -- V[V is=2[H[KW["enabled"] KW["{"]] _1] KW["}"]],
    ProcedureDisabled                            -- V[V is=2[H[KW["disabled"] KW["{"]] _1] KW["}"]],
    ProcedureView                                -- V[V is=2[H[KW["view"] KW["{"]] _1] KW["}"]],
-   %% Derive
-   Derive                                       -- H[KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"]],
-   Derive.3:iter-star-sep                       -- H[_1 KW[","]],
-   Derive                                       -- H[KW["derive"] _1 KW["for"] _2],
-   DeriveDefault                                -- _1,
-   DeriveMode                                   -- H[_1 KW["("] _2 KW[")"]],
-   EditPage                                     -- KW["editPage"],
-   EditRows                                     -- KW["editRows"],
-   ViewPage                                     -- KW["viewPage"],
-   ViewRows                                     -- KW["viewRows"],
+
+   %% Procedure Process
    ProcedureProcess                             -- V[ V is=2[ H[KW["process"] KW["{"] _1] ] KW["}"] ],
    ProcCall                                     -- _1 KW["("] _2 KW[")"],
    ProcSeq                                      -- _1 KW[";"] _2,
@@ -423,6 +416,21 @@
    RemoveMe                                     -- KW["RemoveMe"],
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
    
+   %% Derive
+   Derive                                       -- H[KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"]],
+   Derive.3:iter-star-sep                       -- H[_1 KW[","]],
+   Derive                                       -- H[KW["derive"] _1 KW["for"] _2],
+   DeriveDefault                                -- _1,
+   DeriveMode                                   -- H[_1 KW["("] _2 KW[")"]],
+   EditPage                                     -- KW["editPage"],
+   EditRows                                     -- KW["editRows"],
+   ViewPage                                     -- KW["viewPage"],
+   ViewRows                                     -- KW["viewRows"],
+
+   %% string-select-entity
+   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
+   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
+
    MDListItem																		-- KW["*"] _1 _2,
    MDListItemMulti															-- KW["*"] _1 KW["{"] _2 KW["}"],
    MDListItemMulti.2:iter-star									-- _1,
