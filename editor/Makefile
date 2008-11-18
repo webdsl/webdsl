@@ -5,6 +5,8 @@ PPTABLES   = ../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp.af \
 
 ESVS       = ${wildcard src/*.esv}
 
+EDITORSUPPORT = include # $(IMP)/org.strategoxt.imp.runtime/src/stratego-editor-support
+
 all : ctrees include/$(SYNTAX).packed.esv
 
 clean :
@@ -21,7 +23,7 @@ syntax :
 	$(MAKE) -C .. syntax
 
 feedback.ctree : src/feedback.str syntax
-	strc -F --library -I ../src -I ../src/org/webdsl/dsl/syntax -I $(IMP)/org.strategoxt.imp.runtime/src/stratego-editor-support -i $< -o $@
+	strc -F --library -I ../src -I ../src/org/webdsl/dsl/syntax -I $(EDITORSUPPORT) -i $< -o $@
 
 feedback : src/feedback.str
 	strc -i $< -o $@ \
