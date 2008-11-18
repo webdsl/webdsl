@@ -2,11 +2,18 @@
    HqlQuery -- _1,
    DslExp -- _1,
 
-   Module -- V[H[KW["module"] _1] _2],
+   Module                             -- V[H[KW["module"] _1] _2],
+   Module.2:iter-star                 -- _1,
+   ModuleDefs                         -- V[H[KW["module"] _1] _2 _3],
+   ModuleDefs.2:iter-star             -- _1,
+   ModuleDefs.3:iter-star             -- _1,
 
-   Imports -- H[KW["imports"] _1],
+   Imports                            -- H[KW["imports"] _1],
 
    Qualified                          -- H hs=0[_1 KW["."] _2],
+   ApplicationDefs                    -- V vs=1[H[KW["application"] _1] _2 _3],
+   ApplicationDefs.2:iter-star        -- _1,
+   ApplicationDefs.3:iter-star        -- _1,
    Application                        -- V vs=1[H[KW["application"] _1] _2],
    Application.2:iter-star            -- _1,
    Section                            -- V is=2 vs=1 [H[KW["section"] _1 KW["."]] _2],
