@@ -90,11 +90,11 @@ org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/ds
 ### pre-parsing Stratego modules
 
 STRFILES = $(wildcard ./org/webdsl/dsl/*/*.str) \
-	   $(wildcard ./org/webdsl/dsl/*/*/*.str)
+           $(wildcard ./org/webdsl/dsl/*/*/*.str) \
+           $(SIGS)
 
 # bogus dependency to force pre-parsing of .str files
 rtrees : $(STRFILES:.str=.rtree)
-	touch rtrees
 
 STRINCLUDES = \
 	-I . \
@@ -157,7 +157,7 @@ libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS:.str=.rtree) $(PPTABLES) $(SYNTAXDEFS) 
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
@@ -181,7 +181,7 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+libwebdsl-generator.rtree libwebdsl-generator.c : rtrees $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
