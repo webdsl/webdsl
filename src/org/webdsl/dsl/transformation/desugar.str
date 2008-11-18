@@ -379,6 +379,57 @@ rules
             }
           ]|
 
+  //nice bunch of code duplication below....
+
+  desugar :
+    TypedListCreation(srt1, e1*) -> ThisCall($fun, params)
+    where not([] := e1*)
+        ; $fun := <newname> "typedlistCr"
+        ; {| Param, IgnoreVars
+           : <alltd(find-params)> e1*
+           ; params := <bagof-Param>
+           |}
+        ; debug(!"TYPED LIST CREATEION")   
+        ; {| RewriteFieldAccessToFarg
+           : farg* := <map(forexp-function-param-to-farg)> params
+          |}
+        ; <debug(!" PARAMS, FARG ")> [ params, " ---- ", farg* ]
+        ; srt2 := GenericSort("List", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> e1*
+        ; debug(!"statements")
+        ; <emit-webdsl-code> def|[
+            globals {
+              function $fun (farg*) : srt2 {
+                var l : srt2 := List<srt1>();
+                stat*
+                return l;
+              }
+            }
+          ]|
+
+  desugar :
+    TypedSetCreation(srt1, e1*) -> ThisCall($fun, params)
+    where not([] := e1*)
+        ; $fun := <newname> "typedsetCr"
+        ; {| Param, IgnoreVars
+           : <alltd(find-params)> e1*
+           ; params := <bagof-Param>
+           |}
+        ; {| RewriteFieldAccessToFarg
+           : farg* := <map(forexp-function-param-to-farg)> params
+          |}
+        ; srt2 := GenericSort("Set", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> e1*
+        ; <emit-webdsl-code> def|[
+            globals {
+              function $fun (farg*) : srt2 {
+                var l : srt2 := Set<srt1>();
+                stat*
+                return l;
+              }
+            }
+          ]|
+
   desugar :
     ListCreation([e1|e1*]) -> ThisCall($fun, params)
     where $fun := <newname> "listCr"

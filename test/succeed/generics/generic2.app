@@ -7,13 +7,16 @@ entity User {
 }
 
 define page home(){
-	var u1: User := User{ name := "ikke"}
+	var u1: List<User> := [ User{ name := "ikke"} ]
 	first(User, u1)
 }
 
 
-define first(T : EntityType	, obj1 : T) {
-	var a : T	:= obj1 					
+define first(T : EntityType, obj1 : List<T>) {
+	var a : List<T>	:= obj1 
+	for(b: T in a) {
+		output(a)
+	}
 	output(a)
 }
 

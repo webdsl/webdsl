@@ -41,24 +41,24 @@ rules
   rename-bound-rules(|x,y,srt) =
     rules ( 
       Rename : Var(x) -> Var(y)
-      RenameType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y]) 
+      RenameType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y])
+      RenameType : SimpleSort(x) -> GenericSort("EntityTypeNamed",[y])
       Rename : Qualified(x, z) -> Qualified(y, z)
       Rename : Stat(Assignment(x, e)) -> Stat(Assignment(y, <rename-all> e))
       TypeOf : y -> srt
     )
     
-  rename-type = ?s; (RenameType <+ rename-sdf-input <+ !s)
+  rename-type = ?s; (RenameType <+ !s)
 
   rename :
     VarDecl(x, srt) -> VarDecl(y, srt2)
-    with  srt2 := <rename-sort-for-generic> <rename-type> srt
+    with  srt2 := <rename-all> srt 
         ; y := <rename-bound(|srt2)> x
 
   rename :
     VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
     where InDef 
-    with srt3 := <rename-type> srt
-        ;srt2 := <rename-sort-for-generic> srt3
+    with  srt2 := <rename-all> srt
         ;e' := <rename-all> e
         ;y := <rename-bound(|srt2)> x
 
@@ -68,8 +68,18 @@ rules
     with e' := <rename-all> e
        ; rules ( TypeOf : x -> srt )
        ; rules ( IsGlobal : x )
+  
+   rename :
+     s@SimpleSort(_) -> s2
+     with  s3 := <rename-type> s
+         ; s2 := <rename-sort-for-generic> s3
+         
+   rename :
+     GenericSort(g, types) -> GenericSort(g, types2)
+     where not( g := "SDFInput")
+     with  types2 := <rename-all> types
 
-  rename :
+ rename :
     Block(stat1*) -> Block(stat2*)
     with {| Rename
           : stat2* := <rename-all> stat1*
@@ -240,26 +250,29 @@ rules
 //  rename = RenameActionCall
 
   rename :
-    For(x, srt, e1, f1, elems1) -> For(y, srt, e2, f2, elems2)
+    For(x, srt, e1, f1, elems1) -> For(y, srt2, e2, f2, elems2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; f2 := <rename-all> f1
           ; elems2 := <rename-all> elems1
           |}
 
   rename :
-    ForNoFilter(x, srt, e1, elems1) -> ForNoFilter(y, srt, e2, elems2)
+    ForNoFilter(x, srt, e1, elems1) -> ForNoFilter(y, srt2, e2, elems2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; elems2 := <rename-all> elems1
           |}
 
   rename :
-    ForSep(x, srt, e1, f1, elems1, elems2) -> ForSep(y, srt, e2, f2, elems3, elems4)
+    ForSep(x, srt, e1, f1, elems1, elems2) -> ForSep(y, srt2, e2, f2, elems3, elems4)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; f2 := <rename-all> f1
           ; elems3 := <rename-all> elems1
@@ -267,76 +280,85 @@ rules
           ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
 
   rename :
-    ForSepNoFilter(x, srt, e1, elems1, elems2) -> ForSepNoFilter(y, srt, e2, elems3, elems4)
+    ForSepNoFilter(x, srt, e1, elems1, elems2) -> ForSepNoFilter(y, srt2, e2, elems3, elems4)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; elems3 := <rename-all> elems1
           |}
           ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
 
   rename :
-    ForAll(x, srt, f1, elems1) -> ForAll(y, srt, f2, elems2)
+    ForAll(x, srt, f1, elems1) -> ForAll(y, srt2, f2, elems2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; f2 := <rename-all> f1
           ; elems2 := <rename-all> elems1
           |}
 
 
   rename :
-    ForAllNoFilter(x, srt, elems1) -> ForAllNoFilter(y, srt, elems2)
+    ForAllNoFilter(x, srt, elems1) -> ForAllNoFilter(y, srt2, elems2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; elems2 := <rename-all> elems1
           |}
 
 
   rename :
-    ForStmt(x, srt, e1, f1, b1) -> ForStmt(y, srt, e2, f2, b2)
+    ForStmt(x, srt, e1, f1, b1) -> ForStmt(y, srt2, e2, f2, b2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
           |}
 
   rename :
-    ForStmtNoFilter(x, srt, e1, b1) -> ForStmtNoFilter(y, srt, e2, b2)
+    ForStmtNoFilter(x, srt, e1, b1) -> ForStmtNoFilter(y, srt2, e2, b2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; e2 := <rename-all> e1
           ; b2 := <rename-all> b1
           |}
 
   rename :
-    ForAllStmt(x, srt, f1, b1) -> ForAllStmt(y, srt, f2, b2)
+    ForAllStmt(x, srt, f1, b1) -> ForAllStmt(y, srt2, f2, b2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
           |}
 
   rename :
-    ForAllStmtNoFilter(x, srt, b1) -> ForAllStmtNoFilter(y, srt, b2)
+    ForAllStmtNoFilter(x, srt, b1) -> ForAllStmtNoFilter(y, srt2, b2)
     with {| Rename
-          : y := <rename-bound(|srt)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; b2 := <rename-all> b1
           |}
 
   rename :
-    ForExp(oe1, x, s, ie1, f1) -> ForExp(oe2, y, s, ie2, f2)
+    ForExp(oe1, x, srt, ie1, f1) -> ForExp(oe2, y, srt2, ie2, f2)
     with  {| Rename
-           : y := <rename-bound(|s)> x
+           : srt2 := <rename-all> srt
+           ; y := <rename-bound(|srt2)> x
            ; oe2 := <rename-all> oe1
            ; f2 := <rename-all> f1
            |}
           ; ie2 := <rename-all> ie1
 
   rename :
-    ForExpNoFilter(oe1, x, s, ie1) -> ForExpNoFilter(oe2, y, s, ie2)
+    ForExpNoFilter(oe1, x, srt, ie1) -> ForExpNoFilter(oe2, y, srt2, ie2)
     with {| Rename
-          : y := <rename-bound(|s)> x
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
           ; oe2 := <rename-all> oe1
           |}
          ; ie2 := <rename-all> ie1
@@ -393,6 +415,7 @@ rules
 
   // rename hack to avoid checks on argument type
 
-  rename-sdf-input :
+  rename :
     GenericSort("SDFInput", [SimpleSort(x{anno1*})]){anno2*} -> 
     GenericSort("SDFInput", [x{anno1*}]){anno2*}
+//    where debug(!"using SDFInput")

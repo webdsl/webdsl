@@ -19,6 +19,8 @@ strategies
     TemplateCall(x, args, [],[]) -> TemplateCall(y, args2, [],[])  
     where def@Define(_,_, fargs, elems) := <strip-annos;TemplateDefinition> x 
         ; generics := <get-generictype-args> fargs
+        ; (gargs,_) := <split-at(|<length> generics)> args      //get the generic arguments and check their type existence
+        ; <map( \ Var(gtype) -> True() where <type-exists> SimpleSort(gtype) \ )> gargs
         ; not([] := generics)
     with  typeencoding := <zip;map(encode-farg-for-generic-call <+ !"")> (fargs,args)
         ; y := <concat; concat-strings> [[x], typeencoding]
@@ -32,16 +34,27 @@ strategies
   extract-generic-args :
       tupels  -> (rewrites, realargs)
       with rwr := <filter(?(Arg(_, SimpleSort("EntityType")), _))> tupels
-         ; rewrites := <map(?(Arg(name,_),Var(value));!(name, SimpleSort(value)))> rwr
+         ; rewrites := <map( \ (Arg(name,_),Var(value)) -> (name, SimpleSort(value)) \ )> rwr
          ; rlargs := <remove-all(?(Arg(_, SimpleSort("EntityType")), _))> tupels
-         ; realargs := <map(replace-bound-type(|rewrites) <+ id)> rlargs
+         ; realargs := <map(replace-bound-type-in-generic-arg(|rewrites) <+ id)> rlargs
       
-  replace-bound-type(|rewrites) :
-      (Arg(name, sort), value) -> (Arg(name, thetype), value)
-      where ( GenericSort("EntityTypeNamed",[t]) := sort 
-            <+  SimpleSort(t) := sort)
-            ; <fetch(?(t, thetype))> rewrites 
-  
+  replace-bound-type-in-generic-arg(|rewrites) :
+      (Arg(name, sort), value) -> (Arg(name, sort2), value)
+      with  sort2 := <replace-bound-type-in-sort(|rewrites)> sort
+
+  replace-bound-type-in-sort(|rewrites) :
+      SimpleSort(t){anno*} -> t2{anno*}
+      where <fetch(?(t, t2))> rewrites
+
+  replace-bound-type-in-sort(|rewrites) :
+      t@GenericSort(g,[s]){anno*} -> GenericSort(g,[s2]){anno*}
+      where not(g:= "EntityTypeNamed")
+          ;  s2:= <replace-bound-type-in-sort(|rewrites)> s
+
+  replace-bound-type-in-sort(|rewrites) :
+      t@GenericSort("EntityTypeNamed",[t]){anno*} -> t2{anno*}
+      with t2 := <fetch(?(t, t2))> rewrites
+
   expand-generic-template(|name, fargs, rewrites) = ?_; where(<EmittedGenericTemplate> name)
   
   expand-generic-template(|name, fargs, rewrites) :
@@ -49,10 +62,13 @@ strategies
     where not(<EmittedGenericTemplate> name)
     with {| InjectType :
             rules( 
-              InjectType : sort -> v
-                       where (SimpleSort(t) := sort
-                             <+ GenericSort("EntityTypeNamed",[t]) := sort) 
-                           ; <fetch(?(t,v))> rewrites )
+              InjectType : SimpleSort(t) -> v  //replace Sorts
+                       where <fetch(?(t,v))> rewrites 
+              InjectType : GenericSort("EntityTypeNamed",[t]) -> v  //replace Sorts
+                       where <fetch(?(t,v))> rewrites                            
+              InjectType : Var(t) -> Var(v) //replace direct field access: (when calling other generic templates0
+                       where <fetch(?(t,SimpleSort(v)))> rewrites
+            )
          ; elems2 := <topdown(try(InjectType))> elems
          ; <emit-webdsl-code> Define(mods, name, fargs, elems2)
          ; rules ( EmittedGenericTemplate : name -> True() )

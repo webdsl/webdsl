@@ -45,6 +45,12 @@ public final class Utils {
         }
         return a.equals(b);
     }
+    
+    public static Object cast(Object e2 , Class<?> t) {
+        return (e2 instanceof org.hibernate.proxy.HibernateProxy)? 
+            t.cast( ((org.hibernate.proxy.HibernateProxy) e2).getHibernateLazyInitializer().getImplementation()) 
+          : t.cast(e2);
+    }
 
     public static boolean isInstance(Object o, Class<?> c) {
         //org.hibernate.Hibernate.initialize(o);
