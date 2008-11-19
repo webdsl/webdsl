@@ -3,7 +3,7 @@ package org.webdsl.querylist;
 import java.util.Iterator;
 import java.util.List;
 
-public interface QueryList<T extends Comparable> {
+public interface QueryList<T extends Comparable<Object>> {
 
 	public abstract void addFilter(Filter filter);
 

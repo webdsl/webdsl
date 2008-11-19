@@ -1,12 +1,15 @@
 package test;
 
-import java.io.PrintWriter;
-import java.io.Serializable;
-import javax.persistence.*;
 import java.util.*;
 
-@Entity @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE) @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255) public class User  implements org.webdsl.WebDSLEntity
-{ 
+import javax.persistence.*;
+
+import org.hibernate.Session;
+
+import org.webdsl.querylist.HibernateQueryList;
+import org.webdsl.querylist.QueryList;
+
+@Entity @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE) @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255) public class User  implements org.webdsl.WebDSLEntity, Comparable<Object> { 
   public User () 
   { }
   
@@ -109,6 +112,16 @@ import java.util.*;
     return _messages;
   }
 
+  private QueryList<Message> _messagesQl = null;
+
+  @Transient
+  public QueryList<Message> getMessagesQL(Session hibSession) {
+    if(_messagesQl == null) {
+      _messagesQl = new HibernateQueryList<Message>(Message.class, hibSession, this, "messages", "author");
+    }
+    return _messagesQl;
+  }
+
   public void setMessages(java.util.Set<Message> newitem)
   { 
     _messages = newitem;
@@ -153,5 +166,10 @@ import java.util.*;
   
   public String toString() {
 	  return getName();
+  }
+
+  @Override
+  public int compareTo(Object o) {
+    return id.compareTo(((User)o).getId());
   }
 }

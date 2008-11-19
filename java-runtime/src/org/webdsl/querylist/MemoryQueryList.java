@@ -4,12 +4,19 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class MemoryQueryList<T extends Comparable> implements QueryList<T> {
+import org.webdsl.tools.ReflectionTools;
+
+public class MemoryQueryList<T extends Comparable<Object>> implements QueryList<T> {
 	protected ArrayList<T> lst = new ArrayList<T>();
 	protected ArrayList<Filter> filters = new ArrayList<Filter>();
+  protected String inverseProperty = null;
 
 	public MemoryQueryList() {
 
+	}
+
+	public MemoryQueryList(String inverseProperty) {
+    this.inverseProperty = inverseProperty;
 	}
 
 	/* (non-Javadoc)
@@ -39,6 +46,9 @@ public class MemoryQueryList<T extends Comparable> implements QueryList<T> {
 	 * @see org.webdsl.querylist.QueryList#add(T)
 	 */
 	public void add(T o) {
+    if(inverseProperty != null) {
+      ReflectionTools.setProperty(o, inverseProperty, this);
+    }
 		lst.add(o);
 	}
 
@@ -67,6 +77,9 @@ public class MemoryQueryList<T extends Comparable> implements QueryList<T> {
 	 * @see org.webdsl.querylist.QueryList#remove(T)
 	 */
 	public boolean remove(T o) {
+    if(inverseProperty != null) {
+      ReflectionTools.setProperty(o, inverseProperty, null);
+    }
 		return lst.remove(o);
 	}
 

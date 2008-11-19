@@ -1,9 +1,7 @@
 package org.webdsl.querylist;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
+import org.webdsl.tools.*;
 
 public class Filters {
 	public static Filter and(final Filter f1, final Filter f2) {
@@ -44,7 +42,7 @@ public class Filters {
 
 			@Override
 			public boolean matches(Comparable<Object> o) {
-				return getObjectFromProperty(o, property).equals(value);
+				return ReflectionTools.getProperty(o, property).equals(value);
 			}
 		};
 	}
@@ -59,27 +57,12 @@ public class Filters {
 
 			@Override
 			public boolean matches(Comparable<Object> o) {
-				return !getObjectFromProperty(o, property).equals(value);
+				return !ReflectionTools.getProperty(o, property).equals(value);
 			}
 		};
 	}
 	
 	private static String propertyNameToHibernateProperty(String property) {
 		return "_" + property.replace(".", "._");
-	}
-
-	private static Object getObjectFromProperty(Object o, String property) {
-		String[] parts = property.split("\\.");
-		try {
-			for (String prop : parts) {
-				Method m = o.getClass().getMethod(
-						"get" + Character.toUpperCase(prop.charAt(0))
-								+ prop.substring(1));
-				o = m.invoke(o);
-			}
-			return o;
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
 	}
 }
