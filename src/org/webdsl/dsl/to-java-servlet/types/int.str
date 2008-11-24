@@ -12,10 +12,10 @@ rules
     tc@elem|[ inputInt(e)[passign*]{} ]| -> tc{InputNumber(newid),anno*} 
     with  _{anno*} := tc
           ; newid := <newname> "input"
-    
-    //just load
+          
+  //load the input string and try to convert it to int, insert null if it fails and specify an error
   handle-actions-input-to-java-servlet :
-    tc@elem|[ inputInt(e)[passign*]{} ]| -> //elem|[ var x : srt := e1 ]| ->
+    tc@elem|[ inputInt(e)[passign*]{} ]| ->
     <for-loop-counter-wrap-code> 
     bstm*|[
           
@@ -24,49 +24,31 @@ rules
         if(ps.getParammap().get(ident)!=null)
         {
             String name = ps.getParammap().get(ident);
-            //Integer x_temp1;
-            //bstm
-            //@todo use setter...
-            //e1 = x_temp1;
-            //out.println("todo:store result in hashmap");
-            //inputs.put(ident,Integer.parseInt(name));
-            int x_temp = Integer.parseInt(name);
+
+            Integer x_temp;
+            
+            if(!name.matches("-?\\d+")){
+              ps.getConversionErrorMessages().put("~name",name+" is not a valid number");
+              x_temp = null;
+            }
+            else {
+              try {
+                x_temp = Integer.parseInt(name);
+              }
+              catch(NumberFormatException nfe) {
+                ps.getConversionErrorMessages().put("~name",name+" is outside of possible number range");
+                x_temp = null;
+              }  
+            }
+            
             bstm 
         }
       
     ]|
     with  inputident := <get-inputnumber> tc
-        //; e1 := <expression-to-java-servlet> e
         ; x_temp := <newname> "temp"
-        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
-        
-        
-
-     
-/* @todo is going to be part of a strategy similar to the render, taking into account cflow elements 
-(eg need to generate a dyn id for inputs in for loops)
-  input-to-java-servlet-template :
-    elem|[ inputInt(e){} ]| -> //elem|[ var x : srt := e1 ]| ->
-    <generate-java-servlet-template-partial> java|[
-       @Partial
-       private void storeInputs() {
-        String x_temp = "~inputident"+uniqueid;
-        if(ps.getParammap().get(x_temp)!=null)
-        {
-            String name = ps.getRequest().getParameter(x_temp);
-            Integer x_temp1;
-            bstm
-            //@todo use setter...
-            e1 = x_temp1;
-        }
-       }
-    ]|
-    with  e1 := <expression-to-java> e
-        ; inputident := <pp-webdsl> e
-        ; x_temp := <newname> "temp"
-        ; x_temp1 := <newname> "temp1"
-        ; bstm := <java-servlet-conversion-to-object> (type|[ Integer ]|,x_temp,x_temp1)
- */       
+        ; name := <pp-webdsl> e
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e      
         
   elem-to-java-servlet :
     tc@elem|[ inputInt(e)[passign*]{} ]| ->
@@ -89,55 +71,11 @@ rules
         ; x_temp := <newname> "temp"
         ; e_attrs1 := <to-html-attrs> passign*
 
-    /*
-    %>
-      <s:decorate>
-        <h:inputText styleClass="inputInt" value="<%= estring %>" required="<%= req %>"/>
-      </s:decorate>
-    <%
-    with estring := <arg-to-value-string> e
-        ; req := <input-of-required-property(|e)>
-    */
   elem-to-java-servlet :
     elem|[ outputInt(e)[passign*]{} ]| ->
-    java |[ out.print(utils.HTMLFilter.filter(e1)); ]|
-    with  e1 := <arg-to-value-string-java-servlet> e
-    /*
-    %>
-      <h:outputText styleClass="outputInt" value="<%= estring %>"/>
-    <%
-    with estring := <arg-to-value-string> e
-    */
-/*
-rules // type
+    java |[ out.print(utils.HTMLFilter.filter(String.valueOf(e1))); ]|
+    with  e1 := <expression-to-java-servlet> e
 
-  sort-to-java-type-string : SimpleSort("Int") -> "java.lang.Integer"
-
-  builtin-java-type :
-    SimpleSort("Int") -> type|[ Integer ]|
-
-  builtin-wrapper-java-type :
-    SimpleSort("Int") -> type|[ Integer ]|
-
-  builtin-java-type-default-value :
-    SimpleSort("Int") -> java|[ 0 ]|
-
-  type-default-value :
-    SimpleSort("Int") -> exp|[ 0 ]|
-
-  eq-type-of :
-    Int(x) -> SimpleSort("Int")
-
-rules // desugar
-  DeriveInput :
-    elem|[ input(e){} ]| -> elem|[ inputInt(e){} ]|
-    where SimpleSort("Int") := <type-of> e
-
-
-  DeriveOutput :
-    elem|[ output(e){} ]| -> elem|[ text(e){} ]|
-    where SimpleSort("Int") := <type-of> e
-*/
 rules // java
    expression-to-java-servlet :
      Int(x) -> Lit(Deci(x))
