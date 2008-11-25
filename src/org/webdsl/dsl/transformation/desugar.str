@@ -496,18 +496,16 @@ rules //Desugar label, which is a bit trick because it results in multiple eleme
 rules //Desugar group, groupitems become rows, group becomes table
 
   desugar :
-    TemplateCall("group", args, passign*, elems) -> TemplateCall("group", args, passign*, elems4)
-    where not([TemplateCall("table",_,_,_)] := elems)
-    with  (elems2 := <auto-surround-with-template(|"groupitem")> elems <+ elems2 := elems)
-        ; elems3 := <map(desugar-groupitem)> elems2
-        ; elems4 := [TemplateCall("table",[],[],elems3)]        
+    TemplateCall("group", args, passign*, elems1) -> TemplateCall("group", args, passign*, [TemplateCall("table",[],[],elems2)])
+    where not([TemplateCall("table",_,_,_)] := elems1) // this is needed to avoid non-termination
+        ; elems2 := <try(auto-surround-with-template(|"groupitem")); map(desugar-groupitem)> elems1
           
-  desugar-groupitem :              //desugar groupitems
+  desugar-groupitem :
     TemplateCall("groupitem", args,passign*, elems) -> TemplateCall("row",args,passign*, elems)
 
   desugar = desugar-groupitem
 
-rules //Desugar rows aand tables
+rules //Desugar rows and tables
 
   desugar :
     TemplateCall("table", args, passign*, elems) -> TemplateCall("table", args, passign*, elems2)
@@ -518,6 +516,7 @@ rules //Desugar rows aand tables
     where elems2 := <auto-surround-with-template(|"column")> elems
 
 rules //Desugar helpers 
+
   auto-surround-with-template(|childname) : //ensures that all elements are a templatecall to 'childname', 
     elems -> elems2                       //fails if this was the case already (so disugar knows it can continue)
     where not(<all(?TemplateCall(childname,_,_,_) <+ ?TemplateCall("form",_,_,_) <+ not(?TemplateCall(_,_,_,_)))> elems)
