@@ -56,15 +56,16 @@ rules
         ; y := <rename-bound(|srt2)> x
 
   rename :
-    VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
-    where InDef 
+    v@VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
+    where InDef
     with  srt2 := <rename-all> srt
-        ;e' := <rename-all> e
-        ;y := <rename-bound(|srt2)> x
+        ; e' := <rename-all> e
+        ; y := <rename-bound(|srt2)> x
 
   rename :
-    VarDeclInit(x, srt, e) -> VarDeclInit(x, srt, e')
-    where not(InDef)
+    v@VarDeclInit(x, srt, e) -> VarDeclInit(x, srt, e')
+    where not(InDef)//needed for inital rename
+        ; not(IsGlobal)//needed for rename from model-to-model innermost without context
     with e' := <rename-all> e
        ; rules ( TypeOf : x -> srt )
        ; rules ( IsGlobal : x )
@@ -113,23 +114,13 @@ rules
         
   rename :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
-    where InPage
+    where (InPage <+ InTemplate)
         ; not(<elem> (Page(), mod*))
         ; not(<elem> (Email(), mod*))
-        ; not(InProcedure)
-    with {| Rename, RenameActionCall
-         : y := x{<newname> x}
-         ; farg2* := <map(rename)> farg1*
-         ; elem2* := <alltd(rename-action); rename-all> elem1*
-         |}
-
-  rename :
-    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
-    where InPage; InProcedure
-        ; not(<elem> (Page(), mod*))
-        ; not(<elem> (Email(), mod*))
-    with {| RenameActionCall
-         : y := x{<newname> x}
+    with {| Rename, InDef, InTemplate, RenameActionCall
+         : rules ( InDef := True() )
+         ; rules ( InTemplate := x )
+         ; y := x{<newname> x}
          ; farg2* := <map(rename)> farg1*
          ; elem2* := <alltd(rename-action); rename-all> elem1*
          |}
