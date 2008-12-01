@@ -44,8 +44,8 @@ section pages
 section test pages
 
   define page createNewsItem() {
-    var item : NewsItem := NewsItem{}
-    derive viewPage from item
+    var item : NewsItem := NewsItem{}	
+    derive createPage from item
   }
 
   define page newsItem(i : NewsItem) {

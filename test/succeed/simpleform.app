@@ -9,6 +9,13 @@ section datamodel
     text :: Text
     wiki :: WikiText
   }
+    var u : User := User{
+      name := "bob"  
+      bool := true
+      rank := 3
+      text := "text"
+      wiki := "wiki"
+    };
   
   define page home(){
     for(u:User)
@@ -20,13 +27,7 @@ section datamodel
       outputWikiText(u.wiki)
     }
     "test page"
-    var u : User := User{
-      name := "bob"  
-      bool := true
-      rank := 3
-      text := "text"
-      wiki := "wiki"
-    };
+
     form{
       inputString(u.name)
       inputInt(u.rank)
