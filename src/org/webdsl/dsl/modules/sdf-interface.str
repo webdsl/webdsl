@@ -7,8 +7,7 @@ imports
 
 strategies // typechecking
 
-  type-exists = 
-    ?GenericSort("SDFInput",_)
+  type-exists = ?GenericSort("SDFInput",_)
       
   language-of :
     e -> language
@@ -76,10 +75,42 @@ strategies
 strategies
 
   // TODO: input SDF<T> should do automatic validation
-
+  
   DeriveInput :
-    elem |[ input(e)[passign*] {} ]| -> elem |[ inputString(e)[passign*] {} ]|
+    elem |[ input(e)[passign*] {} ]| -> elem |[ inputSDF(e)[passign*] {} ]|
     where GenericSort("SDFInput", _) := <type-of> e
+    
+  java-servlet-element-id : 
+    tc@elem|[ inputSDF(e)[passign*]{} ]| -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+    
+  elem-to-java-servlet : 
+    tc@elem |[ inputSDF(e)[passign*]{} ]| -> <elem-to-java-servlet>    TemplateCall("inputText",[e],passign*,[]){anno*}//elem |[ inputText(e)[passign*]{} ]|{anno*} 
+    with  _{anno*} := tc
+    
+  //customized from string
+  handle-actions-input-to-java-servlet :
+    tc@elem|[ inputSDF(e)[passign*]{} ]| ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+      ident += "~inputident"+uniqueid;
+      if (ps.getParammap().get(ident)!=null) {
+        String x_temp = ps.getParammap().get(ident);
+        if(!org.webdsl.tools.strategoxt.SDF
+              .get("~language", utils.AppInfo.class)
+              .isValid(x_temp)) {
+          ps.getConversionErrorMessages().put("~name",org.webdsl.tools.strategoxt.SDF.getSGLRErrors().get(x_temp));
+          x_temp = null;
+        }
+        bstm 
+      }
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; name := <pp-webdsl> e
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e
+        ; language := <language-of> e
 
 strategies // Basic type definitions
   
@@ -97,4 +128,6 @@ strategies // Basic type definitions
 
   type-compatible =
     ?(SimpleSort("String"), GenericSort("SDFInput", _))
-    
+
+  type-compatible =
+    ?(SimpleSort("Object"), GenericSort("SDFInput", _)) // SDFInput is subclass of Object for typechecker 

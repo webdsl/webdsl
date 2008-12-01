@@ -21,7 +21,12 @@ import aterm.ATerm;
  */
 public class SDF {
 	private static final HashMap<String, SDF> allSDF = new HashMap<String, SDF>();
+	private static final HashMap<String, String> SGLRErrors = new HashMap<String, String>();
 	
+	public static HashMap<String, String> getSGLRErrors() {
+		return SGLRErrors;
+	}
+
 	private static Interpreter imploder;
 	
 	private final SGLR parser;
@@ -80,7 +85,7 @@ public class SDF {
 		try {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
-		
+
 			InputStream stream = new ByteArrayInputStream(input.getBytes());
 			ATerm asfix = parser.parse(stream);
 
@@ -88,8 +93,10 @@ public class SDF {
 			parseCache.put(input, result);
 			return result;
 		} catch (IOException e) {
+			SGLRErrors.put(input,e.getMessage());
 			throw new RuntimeException(e); // unexpected; fatal
 		} catch (SGLRException e) {
+			SGLRErrors.put(input,e.getMessage());
 			throw new RuntimeException(e); // TODO: Handle SGLRException
 		}
 	}
