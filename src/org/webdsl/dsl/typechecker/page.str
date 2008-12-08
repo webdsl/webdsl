@@ -110,10 +110,56 @@ rules // using page as template produces warning; tested in fail/pageastemplate.
   
   //not all templatecall variants can be calls to defined templates    
   constraint-error = ?tc@TemplateCallNoBody(p,_)       ;where(<constraint-error-page-as-template(|p)> tc)
-  constraint-error = ?tc@TemplateCallNoArgs(p)         ;where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error = ?tc@TemplateCallNoAssigns(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc)
+  //constraint-error = ?tc@TemplateCallNoArgs(p)         ;where(<constraint-error-page-as-template(|p)> tc) //has no args
+  //constraint-error = ?tc@TemplateCallNoAssigns(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc) //has a body
   constraint-error = ?tc@TemplateCallPropsNoBody(p,_,_);where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error = ?tc@TemplateCallProps(p,_)        ;where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error = ?tc@TemplateCallPropsNoArgs(p,_,_);where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error = ?tc@TemplateCallBody(p,_)         ;where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error = ?tc@TemplateCall(p,_,_,_)         ;where(<constraint-error-page-as-template(|p)> tc)
+  //constraint-error = ?tc@TemplateCallProps(p,_)        ;where(<constraint-error-page-as-template(|p)> tc) //has no args
+  //constraint-error = ?tc@TemplateCallPropsNoArgs(p,_,_);where(<constraint-error-page-as-template(|p)> tc) //has a body
+  //constraint-error = ?tc@TemplateCallBody(p,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
+  //constraint-error = ?tc@TemplateCall(p,_,_,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
+ 
+rules //template not defined
+
+  constraint-error-template-not-defined(|p,arg*) :
+    x -> <add-error(|["Template with this signature not defined "])>
+    where t* := <map(type-of)> arg* 
+        ; not(<TemplateSignature> (p,t*))//TODO use lookup   // any local define is also correct here
+        ; not(<CompatibleWithBuiltInTemplate> (p,t*))
+        ; not(<TemplateWithGenerics> p)//TODO simplified lookup for generics for now
+        ;<debug(!"check")> (p,t*)
+    
+  constraint-error = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  constraint-error = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-template-not-defined(|p,[])> tc)
+  constraint-error = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  constraint-error = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  constraint-error = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-template-not-defined(|p,[])> tc)
+  constraint-error = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-template-not-defined(|p,[])> tc)
+  constraint-error = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-template-not-defined(|p,[])> tc)
+  constraint-error = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  
+  
+/* local redefine static checks
+rules //check local defines
+  constraint-error : 
+    def@Define(mods, name, fargs, body) -> def
+    with <alltd(c-e-necessary-template-override-not-defined-1(|def))> body
+    
+  c-e-necessary-template-override-not-defined-1(|def) = ?tc@TemplateCallNoBody(p,arg*)       ;where(<c-e-necessary-template-override-not-defined-2(|<strip-annos> p,arg*)> def)
+  c-e-necessary-template-override-not-defined-1(|def) = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<c-e-necessary-template-override-not-defined-2(|<strip-annos> p,arg*)> def)
+
+  c-e-necessary-template-override-not-defined-2(|p,arg*) :
+    def@Define(_, _, _, body) -> <add-error(|["Template override not defined: ",<pp-webdsl> p])>
+    where t* := <map(type-of)> arg*
+        ; not(<CompatibleWithBuiltInTemplate> (p,t*))
+        ; reqs := <remove-all(CompatibleWithBuiltInTemplate);debug(!"filtered")> <bagof-TemplateRequires> (p,t*)
+        ; not([] := reqs)
+        ; <debug(!"local template check")> [p,arg*,<map(type-of <+ !"failed type-of")>arg*, (p,t*)]
+        ; <map(\(p,t*) -> (p,t*) where [] := <collect(c-e-necessary-template-override-not-defined-3(|p,t*))> body \)> reqs
+
+  c-e-necessary-template-override-not-defined-3(|p,t*) :
+    def@Define(_,p,fargs,_) -> (p,t*)
+    where not(<OverloadedTemplateSignature> (p,t*)) //there is no toplevel template for this call
+        ; argtype* := <map(\Arg(_,srt) -> srt\)> fargs
+        ; <zip(type-compatible)> (argtype*,t*)// generic,specific
+*/
+    

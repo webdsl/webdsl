@@ -16,8 +16,8 @@ strategies
     where not([]:= <get-generictype-args> fargs)
 
   desugar-generic-call :
-    TemplateCall(x, args, [],[]) -> TemplateCall(y, args2, [],[])  
-    where def@Define(_,_, fargs, elems) := <strip-annos;TemplateDefinition> x 
+    TemplateCall(x, args, [],[]){anno*} -> TemplateCall(y, args2, [],[]){anno*}
+    where def@Define(_,_, fargs, elems) := <TemplateWithGenerics;TemplateDefinition> <strip-annos> x 
         ; generics := <get-generictype-args> fargs
         ; (gargs,_) := <split-at(|<length> generics)> args      //get the generic arguments and check their type existence
         ; <map( \ Var(gtype) -> True() where <type-exists> SimpleSort(gtype) \ )> gargs
@@ -34,7 +34,7 @@ strategies
   extract-generic-args :
       tupels  -> (rewrites, realargs)
       with rwr := <filter(?(Arg(_, SimpleSort("EntityType")), _))> tupels
-         ; rewrites := <map( \ (Arg(name,_),Var(value)) -> (name, SimpleSort(value)) \ )> rwr
+         ; rewrites := <map( \ (Arg(name,_),Var(value)) -> (name, SimpleSort(value)) \ )> rwr //<strip-annos>
          ; rlargs := <remove-all(?(Arg(_, SimpleSort("EntityType")), _))> tupels
          ; realargs := <map(replace-bound-type-in-generic-arg(|rewrites) <+ id)> rlargs
       
@@ -44,7 +44,8 @@ strategies
 
   replace-bound-type-in-sort(|rewrites) :
       SimpleSort(t){anno*} -> t2{anno*}
-      where <fetch(?(t, t2))> rewrites
+      where //tstripped := <strip-annos> t;
+           <fetch(?(tstripped, t2))> rewrites
 
   replace-bound-type-in-sort(|rewrites) :
       t@GenericSort(g,[s]){anno*} -> GenericSort(g,[s2]){anno*}
@@ -52,8 +53,9 @@ strategies
           ;  s2:= <replace-bound-type-in-sort(|rewrites)> s
 
   replace-bound-type-in-sort(|rewrites) :
-      t@GenericSort("EntityTypeNamed",[t]){anno*} -> t2{anno*}
-      with t2 := <fetch(?(t, t2))> rewrites
+      GenericSort("EntityTypeNamed",[t]){anno*} -> tnew{anno*}
+      with //  tstripped := <strip-annos> t;
+           <fetch(?(tstripped, tnew))> rewrites
 
   expand-generic-template(|name, fargs, rewrites) = ?_; where(<EmittedGenericTemplate> name)
   
@@ -70,6 +72,7 @@ strategies
                        where <fetch(?(t,SimpleSort(v)))> rewrites
             )
          ; elems2 := <topdown(try(InjectType))> elems
-         ; <emit-webdsl-code> Define(mods, name, fargs, elems2)
-         ; rules ( EmittedGenericTemplate : name -> True() )
+         ; <emit-webdsl-code> Define(mods, <strip-annos> name, fargs, elems2)
+         ; rules ( EmittedGenericTemplate :+ name -> True() )
+         ; rules ( TemplateWithGenerics : name)
          |}

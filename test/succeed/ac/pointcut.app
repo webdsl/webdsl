@@ -20,7 +20,7 @@ section pc
       
       for(i:Int in [3,4,5,6])
       {
-        navigate("testpage",testpage(i))
+        navigate(testpage(i)){"testpage"}
       }
     }
    }

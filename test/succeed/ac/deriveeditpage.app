@@ -21,7 +21,7 @@ section datamodel
     define body()
     {
       "body"
-      navigate("editpage",editUser(u))
+      navigate(editUser(u)){"editpage"}
     }
    }
    

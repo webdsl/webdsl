@@ -33,7 +33,7 @@ section somesection
   
     title{ "homepage" }
   
-    navigate("testpage",testpage(6))
+    navigate(testpage(6)){"testpage"}
    }
    
    

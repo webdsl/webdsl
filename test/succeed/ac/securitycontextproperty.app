@@ -39,6 +39,8 @@ section somesection
   }
     
   define page home(){
+    main()
+    define body(){
       if(!loggedIn())
       {
         "not logged in"
@@ -60,6 +62,7 @@ section somesection
           securityContext.principal := null;
         }
       }
+    }
   }
   
   define main(){body()}
