@@ -14,6 +14,8 @@ section datamodel
   var u3:User := User{name := "dave"};
   
   define page home(){
+    main()
+    define body(){
     init{
       var u11:User := User{name := "alice" self := u1};
       var u22:User := User{name := "charlie" self := u2};
@@ -34,6 +36,7 @@ section datamodel
     output(u.children)
     "-"
     output(u.childrenset)
+    }
   }
   
   define main(){

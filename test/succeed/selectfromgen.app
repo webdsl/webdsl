@@ -24,7 +24,8 @@ section datamodel
   var u6:User := User{name := "guy"};
   var uset:UserSet := UserSet{users:={u2,u3,u4,u5,u6}};
   define page home(){
-    
+    main()
+    define body(){
     "name: " output(u.name) " "
  //   if(u.children != null)
  //   {
@@ -42,6 +43,5 @@ section datamodel
         u.save();
       }
     }
-     
-    
+    }
   }
