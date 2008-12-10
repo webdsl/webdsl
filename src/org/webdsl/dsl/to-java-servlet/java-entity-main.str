@@ -265,11 +265,13 @@ strategies
        public t get#x() {
          return _#x;
        }
-
+       
        public void set#x(t newitem) {
          ~*bas*
          _#x = newitem;
        }
+       
+       @Transient boolean x#BeingSet = false;
 
        ~*cbd*
 
@@ -286,7 +288,7 @@ strategies
         ; mod3*   := <field-access-for-simple-sorts <+ ![]> prop
         ; mod4*   := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-java-servlet/types/file.str
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
-        ; bas*	 := <inverse-mutation-in-setter <+ ![]> prop
+        ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
         
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
@@ -592,10 +594,11 @@ rules // special methods
  
 rules //associations  
 
-  inverse-mutation-in-setter :
+  inverse-mutation-in-setter(|x) :
     prop@Property(x_prop, k, SimpleSort(y), annos) ->
     bstm* |[
-      //public void setter#x_prop(t_y newitem) {
+      if(!x#BeingSet) {
+        x#BeingSet = true;
         t_y item = newitem;
         t_y oldthing = get#x_prop();
         if(oldthing!= null && item == null){
@@ -610,8 +613,8 @@ rules //associations
         else if(oldthing == null && item != null ){
           bstm1*
         }
-        //set#x_prop(value);
-      //}
+        x#BeingSet = false;
+      }
     ]|
     with  t_y       := <java-type> SimpleSort(y)
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
@@ -685,7 +688,7 @@ rules //associations
 
   remove-bidirectional-reference :
     name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
-    where <?"InverseSlaveAnno"> name
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
         ; SimpleSort(_) := <type-of-property> (x_c, x_p)
 
   add-bidirectional-reference :
@@ -706,7 +709,7 @@ rules //associations
         item.set#x_p(this);
         //}
       ]|
-    where <?"InverseSlaveAnno"> name
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
         ; SimpleSort(_) := <type-of-property> (x_c, x_p)
         
   
