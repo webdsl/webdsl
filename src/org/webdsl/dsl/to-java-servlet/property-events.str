@@ -1,0 +1,48 @@
+module org/webdsl/dsl/to-java-servlet/property-events
+
+imports
+  libstratego-lib
+imports
+  libwebdsl-front
+
+rules
+
+  entity-cbds-property-events(|x_Class) = !
+    java:class-body-dec* |[
+      @Transient
+      private boolean propertyEventsEnabled = false;
+      
+      @Transient
+      private org.hibernate.Session hibSession = null;
+      
+      @Transient
+      private HashMap<String, Object> variables = null;
+      
+      @Transient
+      private PageServlet ps = null;
+      
+      @Transient
+      private java.io.PrintWriter out = null;
+      
+      public x_Class setupForPropertyEvents(org.hibernate.Session hibSession, java.io.PrintWriter out, PageServlet ps, HashMap<String, Object> variables) {
+        if(!propertyEventsEnabled) {
+          this.hibSession = hibSession;
+          this.out = out;
+          this.ps = ps;
+          this.variables = variables;
+          propertyEventsEnabled = true;
+        }
+        return this;
+      }
+    ]|         
+   
+  entity-bstm-property-events :
+    (x_Class,propname,propsrt,methodnamestart,x_var) -> bstm_extension
+    with  oldnameset := <concat-strings> [methodnamestart,<capitalize-string> propname]
+        ; if <elem> ((<find-entity-root>x_Class,oldnameset),<RenamedEntityFunctions>) // check whether it was renamed due to overloading
+          then x_setfunname := <new-function-name> (oldnameset,[propsrt])
+          else x_setfunname := oldnameset end 
+        ; if <HasPropertyEvent> (x_Class,propname,methodnamestart)
+          then bstm_extension := [java:bstm|[ if(propertyEventsEnabled){this.x_setfunname#_(hibSession, variables, x_var, ps, out);} ]|]
+          else bstm_extension := []
+          end 

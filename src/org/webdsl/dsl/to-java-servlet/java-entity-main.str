@@ -4,15 +4,16 @@
 
  */
 
- module org/webdsl/dsl/to-seam/java-entity-main
+module org/webdsl/dsl/to-seam/java-entity-main
 
- imports
-   libstrategolib
-   libjava-front
+imports
+  libstrategolib
+  libjava-front
 
- imports
-   libwebdsl-front
-   org/webdsl/dsl/typechecker/typechecker
+imports
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/typechecker
+  org/webdsl/dsl/to-java-servlet/property-events
 
 overlays
 
@@ -53,6 +54,7 @@ strategies
           ~*idcodes
           
           ~*[<entity-cbds-equals(|x_Class)>]
+          ~*cbds_propertyevents
 
           public int hashCode() {
             if (getId() == null)
@@ -82,6 +84,7 @@ strategies
       ; idcodes := <generate-id-code> x_Class
       ; cbds := <properties-to-code(|x_Class)> props
       ; pkgname := <DomainPackage>
+      ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
       |}
       
 
@@ -103,6 +106,7 @@ strategies
         public void setId(Long id) { this.id = id; }
 
         ~*[<entity-cbds-equals(|x_Class)>]
+        ~*cbds_propertyevents
 
         public int hashCode() {
           if (getId() == null)
@@ -134,6 +138,7 @@ strategies
         ; cbds := <properties-to-code(|x_Class)> props
         ; cbds1 := <filter(property-to-session-prop-ids(|x_Class));try(concat)> props
         ; pkgname := <DomainPackage>
+        ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
         |}
 
    entity-to-java-entity :
@@ -150,6 +155,7 @@ strategies
          }
 
          ~*[<entity-cbds-equals(|x_Class)>]
+         ~*cbds_propertyevents
 
          public int hashCode() {
            if (getId() == null)
@@ -187,6 +193,7 @@ strategies
            <try(get-superclass-names(|x_Class))> x_Class 
          ; bstm* := <bagof-SuperclassNames> 
            |}
+         ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
       
@@ -267,8 +274,15 @@ strategies
        }
        
        public void set#x(t newitem) {
-         ~*bas*
-         _#x = newitem;
+         if(!x#BeingSet) {
+           x#BeingSet = true;
+           
+           ~*bas*
+           bstm_setterextension*
+           _#x = newitem;
+         
+           x#BeingSet = false;
+         }
        }
        
        @Transient boolean x#BeingSet = false;
@@ -289,7 +303,8 @@ strategies
         ; mod4*   := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-java-servlet/types/file.str
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
-        
+    with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
+          
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
 
@@ -535,7 +550,7 @@ rules // cascading annotations
 
 rules // special methods
 
-   property-to-special-getters(|x_Class) :
+  property-to-special-getters(|x_Class) :
     prop@Property(x, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public t get#x#List() {
@@ -558,7 +573,7 @@ rules // special methods
         ; x_listvar := <newname> "list"
         ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
         //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
-        ; cbds      := <collection-mutation-methods <+ ![]> prop
+        ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
 
   property-to-special-getters(|x_Class) :
     DerivedProperty(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos, expr) ->
@@ -597,8 +612,6 @@ rules //associations
   inverse-mutation-in-setter(|x) :
     prop@Property(x_prop, k, SimpleSort(y), annos) ->
     bstm* |[
-      if(!x#BeingSet) {
-        x#BeingSet = true;
         t_y item = newitem;
         t_y oldthing = get#x_prop();
         if(oldthing!= null && item == null){
@@ -613,8 +626,6 @@ rules //associations
         else if(oldthing == null && item != null ){
           bstm1*
         }
-        x#BeingSet = false;
-      }
     ]|
     with  t_y       := <java-type> SimpleSort(y)
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
@@ -637,12 +648,17 @@ rules //associations
         ; t         := <java-type> s
   */
   
-  collection-mutation-methods :
+  collection-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public void removeFrom#x_prop(t_y item) {
-        get#x_prop().remove(item);
-        bstm0*
+        if(!x_prop#BeingSet) {
+          x_prop#BeingSet = true;
+          get#x_prop().remove(item);
+          bstm0*
+          bstm_removeextension*
+          x_prop#BeingSet = false;
+        }
       }
       
       public void removeAllFrom#x_prop() { 
@@ -654,15 +670,22 @@ rules //associations
       }
 
       public void addTo#x_prop(t_y item) {
-        t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
-        get#x_prop().add(item);
-        bstm1*
+        if(!x_prop#BeingSet) {
+          x_prop#BeingSet = true;        
+          t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
+          get#x_prop().add(item);
+          bstm1*
+          bstm_addextension*
+          x_prop#BeingSet = false;
+        }        
       }
     ]|
     with  t_y       := <java-type> SimpleSort(y)
         ; x_y       := <java-servlet-type-name> SimpleSort(y)
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
+        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
+        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
 
   association-update-statements(s) :
     annos -> bstm0*

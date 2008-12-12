@@ -6,7 +6,7 @@ section datamodel
     name :: String
 
     function extendMe() {
-      var s : String := "";
+      name := name + "one";
     }
   }
   
@@ -17,7 +17,7 @@ section datamodel
       return a+b;
     }
     extend function extendMe() {
-      var a : String := "";
+      name := name + "two";
     }
   }
 
@@ -26,13 +26,30 @@ section datamodel
     body()
   }
   
+  
   define page home(){
     main()
-    var u:User := User{};
+   
+    var u:User := User{name := "Alice"};
+  
+    init{ 
+      u.extendMe();
+    }
+    
     define body()
     {
       if(u.test(4,8,u)>0){
         output(u.name)
       }
+      
     }
    }
+
+   
+   
+  extend entity User{
+
+    extend function extendMe() {
+      name := name + "three";
+    }
+  }
