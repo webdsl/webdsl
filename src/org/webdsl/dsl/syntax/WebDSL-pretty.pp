@@ -172,6 +172,7 @@
    Schedule	          							  -- KW["schedule"] _1 KW["for"] _2,
    ScheduleNoFor       							  -- KW["schedule"] _1,
    VarDeclInit                        -- H[KW["var"] _1 KW[":"] _2 KW[":="] _3 KW[";"]],
+   VarDeclInitInferred                -- KW["var"] _1 KW[":="] _2 KW[";"],
    VarDecl                            -- H[KW["var"] _1 KW[":"] _2 KW[";"]],
    If                                 -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 KW["else"] _3],
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
