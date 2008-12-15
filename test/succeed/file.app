@@ -57,9 +57,11 @@ section datamodel
     "test page"
     var u : User2 := User2{ name := "alice" };
     form{
-      inputString(u.name)
-      input(u.storedimage)
-      action("save image",save())
+      group("image"){
+        r{c{inputString(u.name)}}
+        r{c{input(u.storedimage)}}
+        r{c{action("save image",save())}}
+      }
     }
     action save() {
       u.save();
