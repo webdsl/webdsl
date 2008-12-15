@@ -1,5 +1,3 @@
-//Wrong operand types for operator
-
 application test
 
 section functions
