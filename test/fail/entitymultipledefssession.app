@@ -1,4 +1,4 @@
-//Error: Session entities User are also defined as normal entities.
+//are also defined as normal entities
 
 
 application test

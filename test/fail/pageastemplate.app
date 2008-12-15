@@ -1,4 +1,4 @@
-//Warning: Shouldn't use page as template: home2 at
+//Shouldn't use page as template
 
 application test
 

@@ -1,4 +1,4 @@
-//Error: Properties are defined multiple times
+//Properties are defined multiple times
 application test
 
 section pages

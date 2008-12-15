@@ -1,4 +1,4 @@
-//Error: rule should contain a Bool expression:
+//rule should contain a Bool expression
 application test
 
 access control rules

@@ -1,4 +1,4 @@
-//Error: Templatecall with id hoi is defined multiple times
+//is defined multiple times
 application test
 
 section pages

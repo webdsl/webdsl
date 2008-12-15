@@ -1,4 +1,4 @@
-//Error: pointcut somepointcut does not exist:
+//does not exist
 
 application test
 

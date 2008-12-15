@@ -1,4 +1,4 @@
-//Error: cannot have access control rules without a principal declaration:
+//cannot have access control rules without a principal declaration
 application test
 
 access control rules

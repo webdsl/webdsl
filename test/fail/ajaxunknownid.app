@@ -1,4 +1,4 @@
-//Error: Ajax action refers to unknown object with id
+//action refers to unknown object
 
 application test
 

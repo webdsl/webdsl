@@ -1,4 +1,4 @@
-//Error: Entities User are defined multiple times
+//are defined multiple times
 
 
 application test

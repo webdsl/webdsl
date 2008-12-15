@@ -1,4 +1,4 @@
-//Error: principal entity does not exist:
+//entity does not exist
 
 application test
 

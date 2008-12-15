@@ -1,4 +1,4 @@
-// Variable a not defined
+//invalid right-hand side in assignment
 
 application test
 

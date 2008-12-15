@@ -1,4 +1,4 @@
-//Error: principal credentials are not valid:
+//credentials are not valid
 
 application test
 

@@ -1,4 +1,4 @@
-//Error: Wrong operand types for operator Add
+//Wrong operand types for operator
 
 application test
 

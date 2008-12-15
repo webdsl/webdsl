@@ -1,4 +1,4 @@
-// Variable nonexistent not defined
+//not defined
 
 application test
 

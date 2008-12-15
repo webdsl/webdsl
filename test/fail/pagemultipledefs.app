@@ -1,4 +1,4 @@
-//Error: Pages home are defined multiple times.
+//are defined multiple times
 
 application test
 

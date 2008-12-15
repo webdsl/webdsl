@@ -1,4 +1,4 @@
-//Error: nested rule type unknown:
+//nested rule type unknown
 
 application test
 

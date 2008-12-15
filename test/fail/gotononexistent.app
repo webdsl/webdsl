@@ -1,4 +1,4 @@
-// Error: page nonexistent does not exist
+//does not exist
 
 application test
 

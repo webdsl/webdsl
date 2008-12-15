@@ -1,4 +1,4 @@
-//Error: Templatecall id's can only be plain id's
+//can only be plain
 application test
 
 section pages
