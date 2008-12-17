@@ -108,7 +108,7 @@ GENERATORSTRFILES = $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                     
 ### pre-parsing Stratego modules
 
-STRFILES = ./webdslc.str
+STRFILES = ./webdslc.str \
            $(wildcard ./org/webdsl/dsl/*/*.str) \
            $(wildcard ./org/webdsl/dsl/*/*/*.str) \
            $(wildcard ./org/webdsl/dsl/*/*/*/*.str)
