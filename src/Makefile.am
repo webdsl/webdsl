@@ -104,7 +104,6 @@ STRINCLUDES = \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(XML_FRONT)/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
-	-I org/webdsl/dsl/modules \
 	--verbose 2
 
 # UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
@@ -140,9 +139,9 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = dsl-to-seam
 
 dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la
+                    libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
 
-dsl-to-seam.c : dsl-to-seam.str rtrees libwebdsl-front.la libwebdsl-generator.la
+dsl-to-seam.c : dsl-to-seam.str rtrees libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
 
 ### libraries
 
@@ -162,7 +161,7 @@ libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDE
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
 
-ctrees : webdsl-front.ctree webdsl-generator.ctree
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-py-gae.ctree
 
 webdsl-front.ctree : libwebdsl-front.rtree
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
@@ -188,4 +187,26 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o webdsl-generator.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+
+### python gae back-end
+
+nobase_data_DATA += libto-py-gae.rtree 
+lib_LTLIBRARIES  += libto-py-gae.la 
+
+libto_py_gae_la_SOURCES = libto-py-gae.c
+libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0
+libto_py_gae_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
+			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
+			      $(STRATEGO_UNINSTALLED_LIBS)
+
+libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o libto-py-gae.rtree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+	rm libto-py-gae.str
+
+to-py-gae.ctree : libto-py-gae.rtree
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o to-py-gae.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
