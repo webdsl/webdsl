@@ -223,11 +223,6 @@ rules // text
     TemplateCall("text", [arg],passign*, []) -> bstm |[ out.print(utils.HTMLFilter.filter(e)); ]|
     with  e := <arg-to-value-string-java-servlet> arg
 
-/*
-  elem-to-java-servlet :
-    TemplateCall("text", [e], []) ->
-    %> <h:outputText value="<%= <ConditionExpressionToEL> (<ThisPage>, e) %>"/> <%
-*/
 rules // spacers
 
   elem-to-java-servlet :
@@ -290,7 +285,7 @@ rules // sections and headers
       bstm*
       out.print("</"+"~tag"+">");
     ]|
-    where not(TableScope)
+    where not(JavaTableScope)
     with  n := <(SectionDepth <+ !1); int-to-string>
         ; tag := <concat-strings>["h", n]
         ; sectionlevel := <concat-strings>["section", n]
@@ -352,8 +347,8 @@ rules // tables
     bstm*
     out.print("</table>");
     ]|
-    with  {| TableScope
-           : rules ( TableScope := 1 )
+    with  {| JavaTableScope
+           : rules ( JavaTableScope := 1 )
            ; bstm* := <elems-to-java-servlet> elems
            |}
         ; e_attrs1 := <to-html-attrs> passign*
@@ -365,14 +360,14 @@ rules // tables
       bstm*
       out.print("</th>");
     ]|
-    where TableScope
+    where JavaTableScope
     with  bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
     
 /*    bstm* |[ 
     bstm*
     ]|
-    where TableScope
+    where JavaTableScope
     with  //e_attrs1 := <to-html-attrs> passign*
           bstm* := <map(elem-to-java-servlet);map({\ bstms -> <concat-with-sublists> bstm* |[ out.print("<th>"); bstm1* out.print("</th>"); ]| 
                                                      with if <is-list> bstms then bstm1* := bstms else bstm1* := [bstms] end\});concat-with-sublists> elems
@@ -685,217 +680,3 @@ rules // forms
         ; x_action := <?ThisCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
         ; e5 := <actual-action-args-to-state-enc> args        
-
-/*
-what are these for, e3 ignored?
-  elem-to-java-servlet :
-    TemplateCall("action",[e1,e2,e3],[]) ->
-    %>
-       <h:commandButton type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
-    <%
-    where e1string := <arg-to-value-string> e1
-        ; e2string := <arg-to-value-string> e2
-
-  elem-to-java-servlet :
-    TemplateCall("action",[e1,e2,e3],[]) ->
-    %>
-       <s:button type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
-    <%
-    where e1string := <arg-to-value-string> e1
-        ; e2string := <arg-to-value-string> e2
-*/
-
-/*
-support
-  elem-to-java-servlet :
-    TemplateCall("actionLink",[e1,e2],[]) ->
-    %>
-       <h:commandLink type="submit" value="<%= e1string %>" action="<%= e2string %>"/>
-    <%
-    where e1string := <arg-to-value-string> e1
-        ; e2string := <arg-to-value-string> e2
-*/
-
-   /*is-cancel-action =
-     ?Call(Var(component), "cancel", [])
-
-   elem-to-java-servlet :
-    TemplateCall("action",[e1,e2],[]) ->
-    %>
-       <h:commandButton value="<%= e1string %>" action="<%= e2string %>"/>
-    <%
-    where e1string := <arg-to-value-string> e1
-        ; e2string := <arg-to-value-string> e2
-
-   elem-to-java-servlet :
-     Action(name, args, body) -> []
-     */
-/*
-rules // captcha
-
-  elem-to-java-servlet :
-    TemplateCall("captcha", [], []) ->
-    %>
-      <div class="captcha">
-        <div>
-          <h:graphicImage value="/seam/resource/captcha?#{captcha.id}"/>
-        </div>
-        <div>
-          <h:outputLabel for="verifyCaptcha">Enter the above letters</h:outputLabel>
-          <h:inputText id="verifyCaptcha" value="#{captcha.response}" required="true">
-            <s:validate />
-          </h:inputText>
-          <div class="validationError"><h:message for="verifyCaptcha"/></div>
-        </div>
-      </div>
-    <%
-
-rules // helper rules for input
-
-  input-of-required-property(|e)=
-    if <page-var-access-to-class-prop-tuple;PropertyIsRequired> e
-    then
-      !"true"
-    else
-      !"false"
-    end
-
-  get-type-of-right-side-field-access:
-    fa@FieldAccess(e, f) -> thetype
-    where SimpleSort(thetype) := <type-of> fa
-
-  page-var-access-to-class-prop-tuple :
-    FieldAccess(e, f) -> (<get-type-of-right-side-field-access> e,f)
-
-rules // input
-
-    // @todo configure requiredness of fields
-
-    // @todo support different types of input based on type
-    // maybe deal with that through desugaring, i.e., have more
-    // specific inputX template calls
-
-    // @todo also special support for Email, URL, Image
-
-  elem-to-java-servlet :
-    TemplateCall("input",[e],[]) ->
-    %>
-      <s:decorate>
-        <h:inputText styleClass="inputText" value="<%= estring %>" required="<%= req %>"/>
-      </s:decorate>
-    <%
-    where warn(|["underived input element"])
-        ; estring := <arg-to-value-string> e
-        ; req := <input-of-required-property(|e)>
-
-    // @todo validate image
-
-    // @todo upload real image file
-
-
-rules // output
-
-  elem-to-java-servlet :
-    TemplateCall("output",[e],[]) ->
-    %>
-      <h:outputText styleClass="output" value="<%= estring %>"/>
-    <%
-    where warn(|["underived output element"])
-        ; estring := <arg-to-value-string> e
-
-rules
-  // Generate URL rewrite rules
-   
-   GenerateCode = page-to-rewrite-rule; fail
-   
-   page-to-rewrite-rule =
-     ?Define([Page()], x, [], body)
-     ; with ( rules ( PageRewriteRules :+=
-              %>
-      <rule>
-        <from>/<%= x::cdata %>/?$</from>
-        <to>/<%= x::cdata %>.seam</to>
-      </rule>
-      <rule>
-        <from>/<%= x::cdata %>/?\?(.*)$</from>
-        <to>/<%= x::cdata %>.seam?$2</to>
-      </rule>
-              <% ) )
-      
-   page-to-rewrite-rule =
-     ?Define([Page()], x, args, body)
-     ; with ( Arg(fi, t) := <Hd> args
-          ; if <builtin-java-type> t then
-              first := fi
-            else
-              first := <concat-strings> [fi, "_id"]
-            end
-            ; rules ( PageRewriteRules :+=
-      %>
-      <rule>
-        <from>/<%= x::cdata %>/([^\?]+)$</from>
-        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1</to>
-      </rule>
-      <rule>
-        <from>/<%= x::cdata %>/([^\?]+)\?(.*)$</from>
-        <to>/<%= x::cdata %>.seam?<%= first::cdata %>=$1&amp;$2</to>
-      </rule>
-      <% ) )
-
-   rewrite-rules-to-xml =
-     with ( {| ThisPage
-             : rules ( ThisPage := "urlrewrite" )
-             ; rule* := <bagof-PageRewriteRules; flatten-list>
-             ; <emit-seam-config>
-               %>
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE urlrewrite PUBLIC "-//tuckey.org//DTD UrlRewrite 2.6//EN"
-                            "http://tuckey.org/res/dtds/urlrewrite2.6.dtd">
-<urlrewrite>
-  <%= rule* ::*%>
-</urlrewrite>
-               <% |} )
-
-
-rules
-  // Generate page action config file
-   
-   GenerateCode = page-to-action-rule; fail
-   
-   page-to-action-rule =
-     ?Define([Page()], x, args, elems)
-     ; with ( viewid := <concat-strings>["/", x, ".xhtml"]
-            ; pageaction := <concat-strings>[x, ".forceInitialization()"]
-            ; page-parameters := <mapconcat(arg-for-page-action(|x))> <TemplateArguments> x
-            ; rules ( PageActions :+= 
-              %>
-    <page view-id="<%= viewid %>" action="#{<%= pageaction %>}">
-        <%= page-parameters::* %>
-    </page>
-              <%
-            ) )
-
-   generate-page-actions-file =
-     with ( {| ThisPage
-             : rules ( ThisPage := "pages" )
-             ; action* := <bagof-PageActions; flatten-list>
-             ; <emit-seam-config>
-               %>
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE page PUBLIC "-//JBoss/Seam Pages Configuration DTD 1.2//EN"
-                      "http://jboss.com/products/seam/pages-2.0.dtd">
-<pages>
-  <%= action* ::*%>
-</pages>
-               <% |} )
-
-   arg-for-page-action(|page) :
-     Arg(i, s) -> %> <param name="<%= e1 %>" value="#{<%= page %>.<%= e1 %>}" /> <%
-     where <defined-java-type> s
-      with e1 := <concat-strings>[i, "_id"]
-
-   arg-for-page-action(|page) :
-     Arg(e, s) -> %> <param name="<%= e %>" value="#{<%= page %>.<%= e %>}" /> <%
-     where <builtin-java-type> s
-     
-     */

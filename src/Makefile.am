@@ -92,19 +92,19 @@ org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/ds
 PYTHONSTRFILES = $(wildcard ./org/webdsl/dsl/to-py-gae/*.str) \
                  $(wildcard ./org/webdsl/dsl/to-py-gae/*/*.str)
                  
-FRONTSTRFILES  = $(wildcard ./org/webdsl/dsl/syntax/*.str) \
+FRONTSTRFILES =  $(wildcard ./org/webdsl/dsl/syntax/*.str) \
                  $(wildcard ./org/webdsl/dsl/utils/*.str)
                  
-GENERATORSTRFILES = $(wildcard ./org/webdsl/dsl/analysis/*.str) \
-                    $(wildcard ./org/webdsl/dsl/attic/*.str) \
-                    $(wildcard ./org/webdsl/dsl/generation/*.str) \
-                    $(wildcard ./org/webdsl/dsl/modules/*.str) \
-                    $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
-                    $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
-                    $(wildcard ./org/webdsl/dsl/to-java-servlet/*.str) \
-                    $(wildcard ./org/webdsl/dsl/to-java-servlet/*/*.str) \
-                    $(wildcard ./org/webdsl/dsl/transformation/*.str) \
-                    $(wildcard ./org/webdsl/dsl/typechecker/*.str) 
+JAVASTRFILES =   $(wildcard ./org/webdsl/dsl/to-java-servlet/*.str) \
+                 $(wildcard ./org/webdsl/dsl/to-java-servlet/*/*.str)
+            
+GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
+                 $(wildcard ./org/webdsl/dsl/generation/*.str) \
+                 $(wildcard ./org/webdsl/dsl/modules/*.str) \
+                 $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
+                 $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
+                 $(wildcard ./org/webdsl/dsl/transformation/*.str) \
+                 $(wildcard ./org/webdsl/dsl/typechecker/*.str) 
                     
 ### pre-parsing Stratego modules
 
@@ -160,9 +160,11 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = webdslc
 
 webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
+                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la
 
-webdslc.c : webdslc.str rtrees libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la webdslc.str
+
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
 
 ### libraries
 
@@ -181,8 +183,6 @@ libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDE
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
-
-ctrees : webdsl-front.ctree webdsl-generator.ctree to-py-gae.ctree
 
 webdsl-front.ctree : libwebdsl-front.rtree
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
@@ -208,6 +208,28 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+
+### java servlet back-end
+
+nobase_data_DATA += libto-java-servlet.rtree 
+lib_LTLIBRARIES  += libto-java-servlet.la 
+
+libto_java_servlet_la_SOURCES = libto-java-servlet.c
+libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0
+libto_java_servlet_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
+			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
+			      $(STRATEGO_UNINSTALLED_LIBS)
+
+libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES) libwebdsl-front.la libwebdsl-generator.la 
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+	rm libto-java-servlet.str
+
+to-java-servlet.ctree : libto-java-servlet.rtree
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o to-java-servlet.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 
 ### python gae back-end

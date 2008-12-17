@@ -47,3 +47,65 @@ strategies
          }
        ]|))
     where methodsdecs   := <extract-method-signatures> cu
+    
+rules
+
+  sort-to-java-type-string : SimpleSort("Object") -> "java.lang.Object"
+  sort-to-java-type-string : GenericSort("List", [x]) -> <concat-strings> ["java.util.List<", <sort-to-java-type-string> x, ">"]
+  sort-to-java-type-string : GenericSort("Set", [x]) -> <concat-strings> ["java.util.Set<", <sort-to-java-type-string> x, ">"]
+  sort-to-java-type-string : GenericSort("Map", [x, y]) -> <concat-strings> ["java.util.Map<", <sort-to-java-type-string> x, ",", <sort-to-java-type-string> y, ">"]
+  sort-to-java-type-string : SimpleSort(x_class) -> <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class] where <IsEntity> x_class
+  
+strategies
+
+  java-type =
+    defined-java-type <+ builtin-java-type <+ object-type
+
+  java-wrapper-type =
+    defined-java-type <+ builtin-wrapper-java-type <+ builtin-java-type <+ object-type
+
+  defined-java-type :
+    SimpleSort(x_class) -> type|[ x_class ]| where <IsEntity> x_class
+
+  persistence-annotations =
+    builtin-persistence-annotations <+ ![]
+
+  java-type-default-value =
+    defined-java-type-default-value
+    <+ builtin-java-type-default-value
+
+  defined-java-type-default-value :
+//s@SimpleSort(y) -> java |[ null ]| //|[ new y() ]|
+    s@SimpleSort(y) -> java |[ new y() ]|
+    where <defined-java-type> s
+
+rules
+
+  object-type :
+    SimpleSort("Object") -> type|[ Object ]|
+
+  builtin-java-type :
+    GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type-default-value :
+    GenericSort("List", [s]) -> java |[ new java.util.ArrayList<t>() ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type :
+    GenericSort("Set", [s]) -> type|[ java.util.Set<t> ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type-default-value :
+    GenericSort("Set", [s]) -> java |[ new java.util.LinkedHashSet<t>() ]|
+    where t := <java-wrapper-type> s
+
+  builtin-java-type :
+    GenericSort("Map", [s1, s2]) -> type|[ java.util.Map<t1, t2> ]|
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
+
+  builtin-java-type-default-value :
+    GenericSort("Map", [s1,s2]) -> java |[ new java.util.HashMap<t1,t2>() ]|
+    where t1 := <java-wrapper-type> s1
+        ; t2 := <java-wrapper-type> s2
