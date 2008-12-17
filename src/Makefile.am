@@ -136,12 +136,12 @@ Mix%.sdf : %.def
 
 SCFLAGS = --main $*-main	
 
-bin_PROGRAMS = dsl-to-seam
+bin_PROGRAMS = webdslc
 
-dsl_to_seam_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
+webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
                     libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
 
-dsl-to-seam.c : dsl-to-seam.str rtrees libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
+webdslc.c : webdslc.str rtrees libwebdsl-front.la libwebdsl-generator.la libto-py-gae.la
 
 ### libraries
 
@@ -181,12 +181,12 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
 libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
-	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o libwebdsl-generator.rtree \
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
 	
 webdsl-generator.ctree : libwebdsl-generator.rtree  
-	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/dsl-to-seam.str -o webdsl-generator.ctree \
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 
 ### python gae back-end
