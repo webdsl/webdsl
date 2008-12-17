@@ -87,10 +87,31 @@ PPTABLES = \
 
 org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/MixPython.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
 
+# .str dependencies
+
+PYTHONSTRFILES = $(wildcard ./org/webdsl/dsl/to-py-gae/*.str) \
+                 $(wildcard ./org/webdsl/dsl/to-py-gae/*/*.str)
+                 
+FRONTSTRFILES  = $(wildcard ./org/webdsl/dsl/syntax/*.str) \
+                 $(wildcard ./org/webdsl/dsl/utils/*.str)
+                 
+GENERATORSTRFILES = $(wildcard ./org/webdsl/dsl/analysis/*.str) \
+                    $(wildcard ./org/webdsl/dsl/attic/*.str) \
+                    $(wildcard ./org/webdsl/dsl/generation/*.str) \
+                    $(wildcard ./org/webdsl/dsl/modules/*.str) \
+                    $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
+                    $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
+                    $(wildcard ./org/webdsl/dsl/to-java-servlet/*.str) \
+                    $(wildcard ./org/webdsl/dsl/to-java-servlet/*/*.str) \
+                    $(wildcard ./org/webdsl/dsl/transformation/*.str) \
+                    $(wildcard ./org/webdsl/dsl/typechecker/*.str) 
+                    
 ### pre-parsing Stratego modules
 
-STRFILES = $(wildcard ./org/webdsl/dsl/*/*.str) \
-	   $(wildcard ./org/webdsl/dsl/*/*/*.str)
+STRFILES = ./webdslc.str
+           $(wildcard ./org/webdsl/dsl/*/*.str) \
+           $(wildcard ./org/webdsl/dsl/*/*/*.str) \
+           $(wildcard ./org/webdsl/dsl/*/*/*/*.str)
 
 # bogus dependency to force pre-parsing of .str files
 rtrees : $(STRFILES:.str=.rtree)
@@ -156,7 +177,7 @@ libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES)
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
@@ -180,7 +201,7 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENERATORSTRFILES) libwebdsl-front.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
@@ -202,7 +223,7 @@ libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) 
+libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES) libwebdsl-front.la libwebdsl-generator.la 
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o libto-py-gae.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libto-py-gae.str
