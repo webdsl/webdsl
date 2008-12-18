@@ -124,6 +124,7 @@ STRINCLUDES = \
 	-I $(JAVA_FRONT)/share/java-front-syntax \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(XML_FRONT)/share/sdf/xml-front \
+	-I $(PIL)/share/sdf/pil \
 	-I org/webdsl/dsl/syntax \
 	--verbose 2
 
@@ -137,10 +138,12 @@ STRCFLAGS = \
 	-la stratego-gpp \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
+	-la $(PIL_LIB)/libpil-front.la \
+	-la $(PIL_LIB)/libpil-java-backend.la \
 	-la $(JAVA_FRONT_LIBS) \
 	--format-check 0 -O 1
 
-XTC_IMPORT = $(JAVA_FRONT_XTC)
+XTC_IMPORT = $(JAVA_FRONT_XTC) $(PIL_XTC)
 
 # Disable some of the bogus warnings:
 # - multiple external references are the unfortunate effect of librarification and is out of our control right now
