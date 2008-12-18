@@ -114,7 +114,7 @@ STRFILES = ./webdslc.str \
            $(wildcard ./org/webdsl/dsl/*/*/*/*.str)
 
 # bogus dependency to force pre-parsing of .str files
-rtrees : $(STRFILES:.str=.rtree)
+rtrees : $(STRFILES:.str=.rtree) 
 	touch rtrees
 
 STRINCLUDES = \
@@ -179,7 +179,7 @@ libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES)
+libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
@@ -201,7 +201,7 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENERATORSTRFILES) libwebdsl-front.la
+libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENERATORSTRFILES:.str=.rtree) libwebdsl-front.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
@@ -223,7 +223,7 @@ libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES) libwebdsl-front.la libwebdsl-generator.la 
+libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libto-java-servlet.str
@@ -245,7 +245,7 @@ libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES) libwebdsl-front.la libwebdsl-generator.la 
+libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o libto-py-gae.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libto-py-gae.str

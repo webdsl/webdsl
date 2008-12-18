@@ -14,6 +14,16 @@ section datamodel
     body()
   }
   
+  define page home2(){
+      main()
+  }
+  define page home2(){
+      main()
+  }
+  define page home2(){
+      main()
+  }
+
   define page home(){
     main()
     var u:User := User{};
@@ -31,3 +41,9 @@ section datamodel
       output(u.name)
     }
    }
+   
+section bla
+
+  define page test(){title{"1"}}
+  define page test(){title{"2"}}
+   
