@@ -55,6 +55,7 @@ rules // statements
      block-to-java-servlet
      <+ assignment-to-java-servlet
      <+ vardecl-to-java-servlet
+     <+ while-to-java-servlet
      <+ for-to-java-servlet
      <+ if-to-java-servlet
      //<+ email-to-java
@@ -134,6 +135,28 @@ rules // if
          ; e2 := <expression-to-java-servlet> e1
 
 rules // for
+
+   while-to-java-servlet :
+     WhileStmt(e1, bstm1) -> stm|[ while(e2) { ~bstm2 } ]|
+     with e2    := <expression-to-java-servlet> e1
+        ; bstm2 := <statement-to-java-servlet> bstm1
+
+   for-to-java-servlet :
+     ForCountStmt(x, e1, e2, bstm1) -> stm|[
+       {
+         int x = e3;
+         int x_bound = e4;
+         while(x < x_bound) {
+           ~bstm2
+           x = x + 1;
+         }
+       }
+     ]|
+     with x_index := <newname>x
+        ; x_bound := <newname>"stop"
+        ; e3 := <expression-to-java-servlet> e1
+        ; e4 := <expression-to-java-servlet> e2
+        ; bstm2 := <statement-to-java-servlet> bstm1
 
    for-to-java-servlet : // No where clause, with order by clause
      ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> stm|[
@@ -534,6 +557,25 @@ rules //vars
         ; <?FieldAccess(e_entity,x_field)> e1
     with  e3 := <expression-to-java-servlet> e_entity 
 
+  index-in-list-java-servlet :
+    Call(e1, "indexOf", [e2]) -> java|[ e3.indexOf(e4) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e3 := <expression-to-java-servlet> e1
+    with e4 := <expression-to-java-servlet> e2
+
+  get-from-list-java-servlet :
+    Call(e1, "get", [e2]) -> java|[ e3.get(e4) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e3 := <expression-to-java-servlet> e1
+    with e4 := <expression-to-java-servlet> e2
+
+  set-in-list-java-servlet :
+    Call(e1, "set", [e2,e3]) -> java|[ e4.set(e5,e6) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e4 := <expression-to-java-servlet> e1
+    with e5 := <expression-to-java-servlet> e2
+    with e6 := <expression-to-java-servlet> e3
+
    add-to-collection-java-servlet :
      Call(e1, "add", [e2])  -> java|[ e3.add(e4) ]|
      where GenericSort(_,_) := <type-of> e1
@@ -555,6 +597,9 @@ rules //vars
      persist-call-to-java-servlet
      <+ remove-call-to-java-servlet
      <+ add-to-collection-property-java-servlet
+     <+ index-in-list-java-servlet
+     <+ get-from-list-java-servlet
+     <+ set-in-list-java-servlet
      <+ remove-from-collection-property-java-servlet
      <+ clear-collection-property-java-servlet
      <+ add-all-to-collection-java-servlet
