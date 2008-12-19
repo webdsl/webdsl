@@ -7,45 +7,7 @@ imports
 
 imports
   libwebdsl-front
-/*
-rules // action to method
 
-  action-to-java-method =
-    {| InAction :
-         rules(InAction := <id>)
-         ; action-view-to-java-method
-           <+ action-void-to-java-method
-    |}
-
-  // @TODO are these now the same?
-  action-void-to-java-method :
-    webdsl |[ action x_action(farg*) { stat* } ]| ->
-    //Action(x_action, args, Block(stm*)) ->
-    java|[
-        public void x_action(param*) {
-          bstm*
-        }
-    ]|
-    where param* := <map(action-arg-to-method-arg)> farg*
-        ; bstm* := <statements-to-java> stat*
-
-  action-view-to-java-method :
-    webdsl |[ action x_action(farg*) { stat* } ]| ->
-    //Action(x_action, args, Block(stm*)) ->
-    java|[
-        public String x_action(param*) {
-          bstm*
-        }
-    ]|
-    where <oncetd(?Return(_) <+ ?Cancel(_))> stat*
-        ; param* := <map(action-arg-to-method-arg)> farg*
-        ; bstm* := <statements-to-java> stat*
-
-  action-arg-to-method-arg :
-    farg|[ x : srt ]| -> //Arg(y, s) ->
-    param|[ t x ]|
-    where t := <java-type> srt
-*/
 rules // statements
 
    statements-to-java-servlet =
@@ -100,31 +62,7 @@ rules // assignment
           
   assignment-to-java-servlet-exp-helper :
     Qualified(e, x) -> e |[ e1.get#x() ]|
-    where e1 := <assignment-to-java-servlet-exp-helper> e    
-     /*
-     // fix added in next line for assignment to global var
-     //; e2 := <{y:is-string;IsGlobalFunction;?y;!Var(y);global-var-to-java} <+ 
-     ;e2 :=<qid-to-java-servlet> qid
-     
-     ; e3 := <expression-to-java-servlet> e1
-     // @todo: ugly hack, fix!
-     ; if SimpleSort(p) := <type-of> qid ; t := <type-of-property> (p, x) then
-          if GenericSort("List",_) := t then
-            x_set := <concat-strings>["set", <capitalize-string> x, "List"]
-            ; !java|[ e2.x_set(e3); ]|
-          else
-            if GenericSort("Set", _) := t then
-              x_set := <concat-strings>["set", <capitalize-string> x, "List"]
-              ; !java|[ e2.x_set(new ArrayList(e3)); ]|
-            else
-               x_set := <concat-strings>["set", <capitalize-string> x]
-               ; !java|[ e2.x_set(e3); ]|
-            end
-          end
-        else
-          x_set := <concat-strings>["set", <capitalize-string> x]
-          ; !java|[ e2.x_set(e3); ]|
-       end*/
+    where e1 := <assignment-to-java-servlet-exp-helper> e
 
 rules // if
 
@@ -219,7 +157,7 @@ rules // for
     ]|
     with bstm*   := <statements-to-java-servlet> stat*
         ; t       := <java-type> srt
-        ; x_argtype := <java-servlet-type-name> srt
+        ; x_argtype := <java-type-name> srt
         ; e_criteria := <hibernate-forall-criteria> (fas, t, fltr)
         ; e2 := <expression-to-java-servlet> we
         ; x_list := <newname> "list"
@@ -324,7 +262,7 @@ rules // expressions
      //CastRef(t, java|[ e2 ]|)
      with  e2 := <expression-to-java-servlet> e1
          ; t := <java-type> s
-         ; x := <java-servlet-type-name> s
+         ; x := <java-type-name> s
 
    expression-to-java-servlet :
      InColl(e1, e2) -> expr|[ ( !org.webdsl.tools.Utils.equal(e4,null) && e4.contains(e3)) ]|
@@ -400,89 +338,31 @@ rules // expressions
      with  xt := <expression-to-java-servlet> x
          ; yt := <expression-to-java-servlet> y
 
-/*   expression-to-java-servlet :
-     IsA(x, s) -> Invoke(
-                     Method(
-                      MethodName(
-                        AmbName(
-                          AmbName(
-                            AmbName(AmbName(Id("org")), Id("webdsl"))
-                          , Id("tools")
-                          )
-                        , Id("Utils")
-                        )
-                      , Id("isInstance")
-                      )
-                    )
-                  , [ e_t
-                    , Lit(Class(t))
-                    ]
-                  )
-     //expr|[ e_UTILS.isInstance(x_t, t.class) ]|
-     where t := <java-type> s
-         ; e_t := <expression-to-java-servlet> x
-*/
+rules
 
    expression-to-java-servlet :
-//     IsA(x, s) -> expr |[ e instanceof t ]|
+   //IsA(x, s) -> expr |[ e instanceof t ]|
      IsA(x, s@SimpleSort(_)) -> expr |[ e.instanceOf("~x_name") ]| //expr |[ {| org.hibernate.Hibernate.initialize(e); boolean x_var = e instanceof tname; | x_var |} ]|
     /* expr |[ {|  if(e instanceof org.hibernate.proxy.HibernateProxy){
                    e = (tname2) (((org.hibernate.proxy.HibernateProxy) e).getHibernateLazyInitializer().getImplementation());
                  }
                  boolean x_var = e instanceof tname; | x_var |} ]| */
      with  //tname := <java-type> s
-           x_name := <java-servlet-type-name> s
+           x_name := <java-type-name> s
          ; e := <expression-to-java-servlet> x
          //; x_var := <newname> "bool"
-         //; tname2 := <type-of;java-type> e
+         //; tname2 := <type-of;java-type> e   
 
-/*
-   expression-to-java-servlet :
-     IsA(x, s@GenericSort(_, [s1])) -> expr |[ (e1).toArray(new tname2[0]) instanceof tname2[] ]|
-     where tname1 := <java-type> s
-         ; tname2 := <java-type> s1
-         ; e0 := <expression-to-java-servlet> x
-         ; e1 := CastRef(tname1, java|[ e0 ]|)
+rules
 
-
-   expression-to-java-servlet :
-     IsA(x, s@GenericSort(_, [s1])) -> Invoke(
-                               Method(
-                                MethodName(
-                                  AmbName(
-                                    AmbName(
-                                      AmbName(AmbName(Id("org")), Id("webdsl"))
-                                    , Id("tools")
-                                    )
-                                  , Id("Utils")
-                                  )
-                                , Id("isInstance")
-                                )
-                              )
-                            , [ e1
-                              , e2
-//					                    , Lit(Class(tname1))
-                              , Lit(Class(tname2))
-                              ]
-                            )
-     where tname1 := <java-type> s
-         ; tname2 := <java-type> s1
-         ; e0 := <expression-to-java-servlet> x
-         ; e1 := CastRef(tname1, java|[ e0 ]|)
-         ; e2 := expr |[ new tname2[0] ]|
-*/         
-/*
-  expression-to-java-servlet :
-     IsA(x, s@GenericSort(_, [s1])) -> expr |[ t2.class.isInstance(e3) ]|
-     where t1 := <java-type; debug (!"t1: ")> s
-         ; t2 := <java-type; debug (!"t2: ")> s1
-         ; e0 := <expression-to-java-servlet> x
-         ; e1 := CastRef(t1, java|[ e0 ]|)
-         ; e2 := NewArray(t2, Dim(expr|[ 0 ]|), [])
-         ; e3 := expr |[ (e1).toArray(e2) ]|
-*/         
-
-
+   expression-to-java-servlet : 
+     ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
+     java|[
+        {| x_Class x_var = new x_Class(); bstm* bstm_event* | x_var |}
+     ]|
+     with  x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_var)| "cannot translate asssignment")> assigns
+         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var)
      
 rules //vars     
 
@@ -509,28 +389,10 @@ rules //vars
      with  e2 := <expression-to-java-servlet> e1
          ; GenericSort(_, _) := <type-of> e1
 
-   expression-to-java-servlet : 
-     ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
-     java|[
-        {| x_Class x_var = new x_Class(); bstm* bstm_event* | x_var |}
-     ]|
-     with  x_var := <newname> "var"
-         ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_var)| "cannot translate asssignment")> assigns
-         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var)
-
    field-assign-to-java-servlet(|x_var) :
      ObjectPropertyAssignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
      with  e2 := <expression-to-java-servlet> e1
          ; y_set := <concat-strings>["set", <capitalize-string> y_field]
-
-
-   expression-to-java-servlet : // The version with items (!= []) will be desugared in desugar.str
-     TypedListCreation(s, []) -> java|[ new ArrayList<t>() ]|
-     with  t := <java-type> s
-
-   expression-to-java-servlet :
-     TypedSetCreation(s, []) -> java|[ new LinkedHashSet<t>() ]|
-     with  t := <java-type> s
 
    add-all-to-collection-java-servlet :
      Call(e1, "addAll", [e2]) -> java|[ e3.addAll(e4) ]|
