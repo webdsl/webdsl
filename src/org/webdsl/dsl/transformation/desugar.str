@@ -43,52 +43,40 @@ strategies
      repeat(innermost-rep(desugar))
    //  |}
 
-rules
-
+rules //extend entity functions create dr
+  
   desugar :
-    Entity(x, sup, prop*, fun1*) -> Entity(x, sup, prop*, fun2*)
-    where extendfunctions := <filter(?ExtendFunction(_))> fun1*
-        ; not([] := extendfunctions)
-    with {| ExtendFunction
-          : <map(extend-function-drs)> extendfunctions
-          ; fun2* := <map(try(ExtendFunction)); remove-all(?ExtendFunction(_))> fun1*
-          |}
-
+    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
   desugar :
-    EntityNoSuper(x, prop*, fun1*) -> EntityNoSuper(x, prop*, fun2*)
+    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+  desugar :
+    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+        
+  desugar-extend-entity-functions-create-dr :
+    (x_class,fun1*) -> fun2*
     where extendfunctions := <filter(?ExtendFunction(_))> fun1*
-        ; not([] := extendfunctions)
-    with {| ExtendFunction
-          : <map(extend-function-drs)> extendfunctions
-          ; fun2* := <map(try(ExtendFunction)); remove-all(?ExtendFunction(_))> fun1*
-          |}
+        ; not(?[])
+    with  <map(extend-entity-function-dr(|x_class))> extendfunctions
+        ; fun2* := <remove-all(?ExtendFunction(_))> fun1*
 
-  extend-function-drs =
+  extend-entity-function-dr(|x_class) =
     ?ExtendFunction(Function(fun, fargs, _, Block(stats)))
-    ; with(id
-        ; fsig := <map(?Arg(_,<id>))> fargs
-        ; rules (
-            ExtendFunction :+
-              Function(fun, fargs2, SimpleSort("Void"), Block(stats2)) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
-              where renamepairs := <zip> (<map(?Arg(<id>,_))> fargs, <map(?Arg(<id>,_))> fargs2)
-                  ; (stats3, []) := <rename-all-vars> (stats, renamepairs)
-                  ; newstats := <concat> [stats2, stats3]
+    ; with(
+          rules (
+            ExtendEntityFunction :+
+              (x_class,Function(fun, fargs2, SimpleSort("Void"), Block(stats2))) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
+              with  newstats := <rename-vars-in-added-stmts-with-fargs> (fargs,fargs2,stats,stats2)
             )
           )
-
-  desugar = once-ExtendFunction
-
-  desugar :
-    ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
-    where <IsGlobalFunctionSignature> (fun,<map(?Arg(_,<id>))> fargs)
-    with fsig := <map(?Arg(_,<id>))> fargs
-       ; rules (
-           ExtendFunction :+
-             Function(fun, fargs2, SimpleSort("Void"), Block(stats2)) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
-             where renamepairs := <zip> (<map(?Arg(<id>,_))> fargs, <map(?Arg(<id>,_))> fargs2)
-                 ; (stats3, []) := <rename-all-vars> (stats, renamepairs)
-                 ; newstats := <concat> [stats2, stats3]
-         )
+          
+  rename-vars-in-added-stmts-with-fargs :
+    (currentfargs,otherfargs,currentstmts,otherstmts) -> newstmts
+    with  renamepairs := <zip> (<map(?Arg(<id>,_))> currentfargs, <map(?Arg(<id>,_))> otherfargs)
+        ; (stats3, []) := <rename-all-vars> (currentstmts, renamepairs)
+        ; newstmts := <concat> [otherstmts, stats3]
 
   rename-all-vars :
     (t, []) -> (t, [])
@@ -97,6 +85,37 @@ rules
     (t, [(from, to)|rst]) -> <rename-all-vars> (t2, rst)
     where t2 := <procedure-rename-var(|from, to)> t
 
+rules //apply extend entity functions
+
+  desugar :
+    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+  desugar :
+    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+  desugar :
+    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+ 
+  desugar-extend-entity-functions-apply-dr :
+    (x_class,fun1*) -> fun2*
+    where fun2* := <map(try(<once-ExtendEntityFunction;where(applied:=True())> (x_class,<id>)))> fun1*
+        ; !applied
+    
+rules //extend global functions create dr and apply
+
+  desugar :
+    ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
+    where <IsGlobalFunctionSignature> (fun,<map(?Arg(_,<id>))> fargs)
+    with rules (
+           ExtendFunction :+
+             Function(fun, fargs2, SimpleSort("Void"), Block(stats2)) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
+             with  newstats := <rename-vars-in-added-stmts-with-fargs> (fargs,fargs2,stats,stats2)
+         )
+
+  desugar = once-ExtendFunction
+
+rules
 
   desugar = once-ExtendEntity
   
