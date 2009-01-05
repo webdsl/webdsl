@@ -77,57 +77,6 @@ rules // block
     with bstm* := <elems-to-java-servlet> elems 
         ;e_attrs1 := <to-html-attrs> passign*
 
-rules // embedding expressions in presentation
-
-  arg-to-value-string-java-servlet :
-    Cast(x, s) -> <arg-to-value-string-java-servlet> x
-
-  arg-to-value-string-java-servlet :
-    String(x) -> e |[ "~x" ]|
-
-  arg-to-value-string-java-servlet :
-    Bool(x) -> e |[ String.valueOf(x) ]|
-    
-  arg-to-value-string-java-servlet :
-    Int(x) -> e |[ String.valueOf(x) ]|
-    
-  arg-to-value-string-java-servlet :
-    tc@ThisCall(_,_) -> e |[ String.valueOf(e1) ]|
-    with e1 := <expression-to-java-servlet> tc
-
- arg-to-value-string-java-servlet :
-    tc@Call(e2,_, _) -> e |[ e3 != null ? String.valueOf(e1) : "" ]|
-    with e1 := <expression-to-java-servlet> tc
-       ; e3 := <add-not-null-checks;expression-to-java-servlet> e2
-
-  arg-to-value-string-java-servlet :
-    Add(e1, e2) -> e |[ e3 + e4 ]|
-    where e3 := <arg-to-value-string-java-servlet> e1
-        ; e4 := <arg-to-value-string-java-servlet> e2
-
-  arg-to-value-string-java-servlet :
-    Var(x) -> e |[ x ]|
-    where InFieldAccess
-
-  arg-to-value-string-java-servlet :
-    Var(x) -> e |[ String.valueOf(x) ]|
-    where not(InFieldAccess)
-
-  arg-to-value-string-java-servlet :
-    FieldAccess(e, x) -> e |[ String.valueOf(e2 != null ? e1.get#x() : "") ]|//e |[ String.valueOf(e1.get#x()) ]|
-    where not(InFieldAccess)
-    with  {| InFieldAccess:
-             rules (InFieldAccess := True() )
-             ; e1 := <arg-to-value-string-java-servlet> e
-          |}
-        ; e2 := <add-not-null-checks;expression-to-java-servlet> e
-          
-          
-  arg-to-value-string-java-servlet :
-    FieldAccess(e, x) -> e |[ e1.get#x() ]|
-    where InFieldAccess
-    with  e1 := <arg-to-value-string-java-servlet> e
-
 strategies // title
 
   elem-to-java-servlet :
@@ -153,8 +102,8 @@ rules // text
   // convert an expression to text (string value of the expression)
 
   elem-to-java-servlet :
-    TemplateCall("text", [arg],passign*, []) -> bstm |[ out.print(utils.HTMLFilter.filter(e)); ]|
-    with  e := <arg-to-value-string-java-servlet> arg
+    TemplateCall("text", [arg],passign*, []) -> bstm_exptostring*
+    with  bstm_exptostring* := <to-page-string-java-servlet(|"utils.HTMLFilter.filter")> arg
 
 rules // spacers
 
@@ -172,19 +121,27 @@ rules // images
 
   elem-to-java-servlet :
     TemplateCall("image",[e],passign*,[]) -> 
-    bstm |[ out.print("<img src=\""+e1+"\" "+e_attrs1+" />"); ]|
+    bstm* |[ 
+      out.print("<img src=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" />"); 
+    ]|
     where String(url) := e
         ; <is-substring(!"://")> url
-    with  e1 := <arg-to-value-string-java-servlet> e
+    with  bstm_exptostring* := <to-page-string-java-servlet> e
         ; e_attrs1 := <to-html-attrs> passign*
 
 
   elem-to-java-servlet :
     TemplateCall("image",[e ],passign*,[]) -> 
-    bstm |[ out.print("<img src=\""+"~<AppRoot>"+e1+"\" "+e_attrs1+" />"); ]|
+    bstm |[ 
+      out.print("<img src=\""+"~<AppRoot>");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" />"); 
+    ]|
     where String(url) := e
         ; not(<is-substring(!"://")> url)
-    with  e1 := <arg-to-value-string-java-servlet> e
+    with  bstm_exptostring* := <to-page-string-java-servlet> e
         ; e_attrs1 := <to-html-attrs> passign*
 
 rules // lists
@@ -375,11 +332,13 @@ rules // links
   elem-to-java-servlet :
     TemplateCall("navigate", [ThisCall("url",[e])],passign*, elems) ->
     bstm* |[ 
-    out.print("<a class=\"navigate\" href=\""+e1+"\" "+e_attrs1+">");
+    out.print("<a class=\"navigate\" href=\"");
+    bstm_exptostring*
+    out.print("\" "+e_attrs1+">");
     bstm*
     out.print("</a>");
     ]|
-    with  e1 := <arg-to-value-string-java-servlet> e
+    with  bstm_exptostring* := <to-page-string-java-servlet> e
         ; bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
 
@@ -401,13 +360,15 @@ rules // links
   elem-to-java-servlet :
     TemplateCall("navigatebutton",[call@ThisCall(p,args), e],passign*,[]) ->
     bstm* |[
-    out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_url+"'\"");
-    out.print("value=\""+e1+"\"");
-    out.print(" />");
+      out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_url+"'\"");
+      out.print("value=\"");
+      bstm_exptostring*
+      out.print("\"");
+      out.print(" />");
     ]|
     where <IsPage> p
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
-        ; e1 := <arg-to-value-string-java-servlet> e
+        ; bstm_exptostring* := <to-page-string-java-servlet> e
         ; e_attrs1 := <to-html-attrs> passign*
         
   page-thiscall-to-url-string-java-servlet :
@@ -419,12 +380,12 @@ rules // links
   bind-param-java-servlet :
     (Arg(x, srt), e) -> (x, el)
     where <is-entity-type> srt
-    with  el := <arg-to-value-string-java-servlet> FieldAccess(e, "id")
+    with  el := <expression-to-java-servlet> FieldAccess(e, "id")
  
   bind-param-java-servlet :
     (Arg(x, srt), e) -> (x, el)
     where <is-simple-sort> srt
-    with  el := <arg-to-value-string-java-servlet> e
+    with  el := <expression-to-java-servlet> e
 
   page-call-to-url-java-servlet :
     (fn, []) -> e |[ "~s" ]| 
@@ -502,21 +463,25 @@ rules // forms
     tc@TemplateCall("action",[e2],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<input type=\"button\" value=\""+e4+"\" "+e_attrs1+" />");
+      out.print("<input type=\"button\" value=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" />");
     ]|
     where IsAjaxApp
-    with  e4 := <arg-to-value-string-java-servlet> e2
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; e_attrs1 := <to-html-attrs> passign*    
 
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2,call@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<input type=\"button\" value=\""+e4+"\" "+e_attrs1+" ");
-    out.print("onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~actionident"+uniqueid+e3 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)'/>"); 
+      out.print("<input type=\"button\" value=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" ");
+      out.print("onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~actionident"+uniqueid+e3 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)'/>"); 
     ]|
     where IsAjaxApp
-    with  e4 := <arg-to-value-string-java-servlet> e2
+    with  bstm_exptostring* := <to-page-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; app := <AppRoot>
         ; e3 := <actual-action-args-to-state-enc> args
@@ -526,11 +491,13 @@ rules // forms
     tc@TemplateCall("action",[e2,e1],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<input type=\"submit\" name=\""+ident+"~actionident"+uniqueid+e5+"\" value=\""+e4+"\" "+e_attrs1+" />"); 
+      out.print("<input type=\"submit\" name=\""+ident+"~actionident"+uniqueid+e5+"\" value=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" />"); 
     ]|
     where not(IsAjaxApp)
     with  e3 := <?ThisCall(name,args);!name> e1
-        ; e4 := <arg-to-value-string-java-servlet> e2
+        ; bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
         ; e5 := <actual-action-args-to-state-enc> args         
@@ -555,23 +522,25 @@ rules // forms
     tc@TemplateCall("actionLink",[e2],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    out.print("<a href=\"javascript:void()\" "+e_attrs1+">");
-    out.print(e4+"</a>");
+      out.print("<a href=\"javascript:void()\" "+e_attrs1+">");
+      bstm_exptostring*
+      out.print("</a>");
     ]|
     where IsAjaxApp
-    with  e4 := <arg-to-value-string-java-servlet> e2
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; e_attrs1 := <to-html-attrs> passign*        
     
   elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ 
-    ident += "~actionident"+uniqueid+e3 ;
-    out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
-    out.print(e4+"</a>");
+      ident += "~actionident"+uniqueid+e3 ;
+      out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
+      bstm_exptostring*
+      out.print("</a>");
     ]|
     where IsAjaxApp
-    with  e4 := <arg-to-value-string-java-servlet> e2
+    with  bstm_exptostring* := <to-page-string-java-servlet> e2
         ; actionident := <get-actionnumber> tc   
         ; app := <AppRoot>
         ; e3 := <actual-action-args-to-state-enc> args
@@ -581,17 +550,18 @@ rules // forms
     tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,[]) ->
     <for-loop-counter-wrap-code> 
     bstm* |[ //this doesn't allow downloads, use special downloadLink (see types/file.str)
-    ident += "~actionident"+uniqueid+e5;
-    out.print("<input type=\"hidden\" name=\""+ident+"\" "+e_attrs1+"/>");
-    out.print("<a href=\"#\"");
-    out.print("onClick=\"document.getElementsByName('"+ident+"')[0].value='1';"+
-                        "document."+form_ident+".submit();"+
-                        "document.getElementsByName('"+ident+"')[0].value='0';"+
-                        "\">");
-    out.print(e4+"</a>");
+      ident += "~actionident"+uniqueid+e5;
+      out.print("<input type=\"hidden\" name=\""+ident+"\" "+e_attrs1+"/>");
+      out.print("<a href=\"#\"");
+      out.print("onClick=\"document.getElementsByName('"+ident+"')[0].value='1';"+
+                          "document."+form_ident+".submit();"+
+                          "document.getElementsByName('"+ident+"')[0].value='0';"+
+                          "\">");
+      bstm_exptostring*
+      out.print("</a>");
     ]|
     where not(IsAjaxApp)
-    with  e4 := <arg-to-value-string-java-servlet> e2
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
         ; e5 := <actual-action-args-to-state-enc> args
