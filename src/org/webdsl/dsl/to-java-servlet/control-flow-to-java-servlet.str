@@ -17,11 +17,26 @@ rules // iteration
         ident = "";
         if(inForLoop) {
           ident += forelementcounter;
-          //forelementcounter++;
         }
-        
         bstm*
     ]|
+    
+  wrap-in-for-loop(|x,t,e) :
+    bstm ->
+    bstm* |[
+      Object[] x_array = e.toArray(); // need to iterate set too without iterator, this copied array also makes sure a remove on the collection doesn't cause skipped elements
+      for(int x_i = 0; x_i < x_array.length; x_i++)
+      { 
+        t x = (x_argtype) x_array[x_i];
+        bstm*
+      }
+    ]|
+    with  x_array := <newname> "array"
+        ; x_i := <newname> "i"
+        ; x_argtype := <pp-java5-to-string> t
+        ; if <is-list> bstm
+          then bstm* := bstm
+          else bstm* := [bstm] end
 
   handle-actions-input-to-java-servlet  =
     control-flow-for(collect-om(handle-actions-input-to-java-servlet)|)
@@ -37,16 +52,13 @@ rules // iteration
     bstm* |[
       inForLoop = true;
       forLoopCounter++;
-      java.util.x_setorlist<t> x_list = e1;
-      Object[] x_array = x_list.toArray(); // need to iterate set too without iterator
-      for(int x_i = 0; x_i < x_array.length; x_i++)
-      { 
+      ~*<wrap-in-for-loop(|x,t,e1)>
+      bstm* |[  
         forelementcounter++;
-        t x = (x_argtype) x_array[x_i];
         if(e2){ 
           bstm*
         }
-      }
+      ]|
       forLoopCounter--;
       if(forLoopCounter == 0)
       inForLoop = false;
@@ -54,11 +66,8 @@ rules // iteration
     with  bstm* := <s;concat-with-sublists> elems
         ; e1 := <expression-to-java-servlet> e
         ; e2 := <expression-to-java-servlet> we
-        ; t     := <java-type> srt
-        ; x_argtype := <java-type-name> srt
+        ; t := <java-type> srt
         ; x_list := <newname> "list"
-        ; x_array := <newname> "array"
-        ; x_i := <newname> "i"
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
     
   control-flow-for(s|) :
@@ -67,12 +76,9 @@ rules // iteration
       inForLoop = true;
       forLoopCounter++;
       int separatorindex=0;
-      java.util.x_setorlist<t> x_list = e1;
-      Object[] x_array = x_list.toArray(); // need to iterate set too without iterator
-      for(int x_i = 0; x_i < x_array.length; x_i++)
-      { 
+      ~*<wrap-in-for-loop(|x,t,e1)>
+      bstm* |[  
         forelementcounter++;
-        t x = (x_argtype) x_array[x_i];
         if(e2){ 
           if(separatorindex > 0) {
             bstm2* // place separator if there was an element before this one
@@ -80,7 +86,7 @@ rules // iteration
           bstm1*
           separatorindex++;
         }
-      }
+      ]|
       forLoopCounter--;
       if(forLoopCounter == 0)
       inForLoop = false;
@@ -90,10 +96,6 @@ rules // iteration
         ; e1 := <expression-to-java-servlet> e
         ; e2 := <expression-to-java-servlet> we
         ; t     := <java-type> srt
-        ; x_argtype := <java-type-name> srt
-        ; x_list := <newname> "list"
-        ; x_array := <newname> "array"
-        ; x_i := <newname> "i"
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
 
   control-flow-for(s|) :
@@ -109,26 +111,20 @@ rules // iteration
         x_list = e_criteria.list();
         queryCache.put(e_queryid, x_list);
       }
-      Object[] x_array = x_list.toArray(); // need to iterate set too without iterator
-      for(int x_i = 0; x_i < x_array.length; x_i++)
-      { 
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
+      bstm* |[  
         forelementcounter++;
-        t x = (x_argtype) x_array[x_i];
         if(e2){ 
           bstm*
         }
-      }
-      
+      ]|
       forLoopCounter--;
       if(forLoopCounter == 0)
       inForLoop = false;
     ]|
     with bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
-        ; x_argtype := <java-type-name> srt
         ; x_list := <newname> "list"
-        ; x_array := <newname> "array"
-        ; x_i := <newname> "i"
         ; e2 := <expression-to-java-servlet> we
         ; if <HibernateQueryId> fa then
             queryid := <HibernateQueryId> fa

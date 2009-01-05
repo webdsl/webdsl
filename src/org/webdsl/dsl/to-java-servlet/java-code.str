@@ -82,7 +82,7 @@ rules // for
    for-to-java-servlet :
      ForCountStmt(x, e1, e2, bstm1) -> stm|[
        {
-         int x = e3;
+         int x = e3; //x has been renamed already
          int x_bound = e4;
          while(x < x_bound) {
            ~bstm2
@@ -90,28 +90,30 @@ rules // for
          }
        }
      ]|
-     with x_index := <newname>x
-        ; x_bound := <newname>"stop"
+     with x_bound := <newname> "stop"
         ; e3 := <expression-to-java-servlet> e1
         ; e4 := <expression-to-java-servlet> e2
         ; bstm2 := <statement-to-java-servlet> bstm1
 
    for-to-java-servlet : // No where clause, with order by clause
-     ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> stm|[
+     ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> 
+     stm|[
         {
-          java.util.ArrayList<t2> x_lst = new java.util.ArrayList<t2>(e2);
-          Collections.sort(x_lst, new Comparator<t2>() {
-            public int compare(t2 o1, t2 o2) {
+          java.util.ArrayList<t1> x_lst = new java.util.ArrayList<t1>(e2);
+          Collections.sort(x_lst, new Comparator<t1>() {
+            public int compare(t1 o1, t1 o2) {
               stm1
             }
           });
-          for (t1 x : x_lst)
-              ~bstm2
-        } ]|
+          ~*<wrap-in-for-loop(|x,t1,expr|[ x_lst ]|)>
+          bstm |[  
+            ~bstm2
+          ]|
+        } 
+     ]|
      where not(<?OrderAscending(Null())> obe1)
      with  e2 := <expression-to-java-servlet> e1
          ; t1 := <java-type> s
-         ; t2 := <java-type> s
          ; x_lst := <newname> "lst"
          ; bstm2 := <statement-to-java-servlet> bstm1
          ; if <?OrderAscending(_)> obe1 then
@@ -121,20 +123,31 @@ rules // for
            end
 
    for-to-java-servlet : // No where clause, no order by clause
-     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> stm|[
-        for (t1 x : e2)
-            ~bstm2
-        ]|
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> 
+     stm|[
+       {
+         ~*<wrap-in-for-loop(|x,t1,e2)>
+         bstm |[  
+           ~bstm2
+         ]|
+       }
+     ]|
      with  e2 := <expression-to-java-servlet> e1
          ; t1 := <java-type> s
          ; bstm2 := <statement-to-java-servlet> bstm1
 
    for-to-java-servlet : // With where clause
-     ForStmt(x, s, e1, Filter(we, obe1, l), bstm1) -> java|[
-        for (t1 x : e2)
-          if(e3)
-            ~bstm2
+     ForStmt(x, s, e1, Filter(we, obe1, l), bstm1) ->
+     stm|[
+       {
+         ~*<wrap-in-for-loop(|x,t1,e2)>
+         bstm |[  
+           if(e3){
+             ~bstm2
+           }
          ]|
+       }
+     ]|
      where not(True() := we)
      with  e2 := <expression-to-java-servlet> e1
          ; e3 := <expression-to-java-servlet> we
@@ -146,23 +159,18 @@ rules // for
     fas@ForAllStmt(x, srt, fltr@Filter(we, obe, l), Block(stat*)) ->
     bstm* |[
       java.util.List x_list = e_criteria.list();
-      Object[] x_array = x_list.toArray(); // need to iterate set too without iterator
-      for(int x_i = 0; x_i < x_array.length; x_i++)
-      { 
-        t x = (x_argtype) x_array[x_i];
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
+      bstm |[  
         if(e2) {
           bstm*
         }
-      } 
+      ]|
     ]|
-    with bstm*   := <statements-to-java-servlet> stat*
+    with  bstm*   := <statements-to-java-servlet> stat*
         ; t       := <java-type> srt
-        ; x_argtype := <java-type-name> srt
         ; e_criteria := <hibernate-forall-criteria> (fas, t, fltr)
         ; e2 := <expression-to-java-servlet> we
         ; x_list := <newname> "list"
-        ; x_array := <newname> "array"
-        ; x_i := <newname> "i"
 
 rules // return
 
