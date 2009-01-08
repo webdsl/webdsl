@@ -1,0 +1,205 @@
+module org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+// control flow page elements   : for, if, templatecall 
+
+rules // iteration
+
+  for-loop-counter-wrap-code:
+    bstm* ->
+    bstm* |[
+        ident = "";
+        if(inForLoop) {
+          ident += forelementcounter;
+        }
+        bstm*
+    ]|
+    
+  wrap-in-for-loop(|x,t,e) :
+    bstm ->
+    bstm* |[
+      Object[] x_array = e.toArray(); // need to iterate set too without iterator, this copied array also makes sure a remove on the collection doesn't cause skipped elements
+      for(int x_i = 0; x_i < x_array.length; x_i++)
+      { 
+        t x = (x_argtype) x_array[x_i];
+        bstm*
+      }
+    ]|
+    with  x_array := <newname> "array"
+        ; x_i := <newname> "i"
+        ; x_argtype := <pp-java5-to-string> t
+        ; if <is-list> bstm
+          then bstm* := bstm
+          else bstm* := [bstm] end
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-for(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-for(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-for(elems-to-java-servlet|)
+
+  control-flow-for(s|) :
+    For(x, srt, e, Filter(we, obe, l), elems) ->
+    bstm* |[
+      inForLoop = true;
+      forLoopCounter++;
+      ~*<wrap-in-for-loop(|x,t,e1)>
+      bstm* |[  
+        forelementcounter++;
+        if(e2){ 
+          bstm*
+        }
+      ]|
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    ]|
+    with  bstm* := <s;concat-with-sublists> elems
+        ; e1 := <expression-to-java-servlet> e
+        ; e2 := <expression-to-java-servlet> we
+        ; t := <java-type> srt
+        ; x_list := <newname> "list"
+        ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
+    
+  control-flow-for(s|) :
+    ForSep(x, srt, e, Filter(we, obe, l), elems1, elems2) ->
+    bstm* |[
+      inForLoop = true;
+      forLoopCounter++;
+      int separatorindex=0;
+      ~*<wrap-in-for-loop(|x,t,e1)>
+      bstm* |[  
+        forelementcounter++;
+        if(e2){ 
+          if(separatorindex > 0) {
+            bstm2* // place separator if there was an element before this one
+          }
+          bstm1*
+          separatorindex++;
+        }
+      ]|
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    ]|
+    with  bstm1* := <s;concat-with-sublists> elems1
+        ; bstm2* := <s;concat-with-sublists> elems2
+        ; e1 := <expression-to-java-servlet> e
+        ; e2 := <expression-to-java-servlet> we
+        ; t     := <java-type> srt
+        ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
+
+  control-flow-for(s|) :
+    fa@ForAll(x, srt, fltr@Filter(we, obe, l), elems) ->
+    bstm* |[
+      inForLoop = true;
+      forLoopCounter++;
+      
+      java.util.List<t> x_list;    
+      if(queryCache.containsKey(e_queryid)) {
+        x_list = queryCache.get(e_queryid);
+      } else {
+        x_list = e_criteria.list();
+        queryCache.put(e_queryid, x_list);
+      }
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
+      bstm* |[  
+        forelementcounter++;
+        if(e2){ 
+          bstm*
+        }
+      ]|
+      forLoopCounter--;
+      if(forLoopCounter == 0)
+      inForLoop = false;
+    ]|
+    with bstm*   := <s;concat-with-sublists> elems
+        ; t       := <java-type> srt
+        ; x_list := <newname> "list"
+        ; e2 := <expression-to-java-servlet> we
+        ; if <HibernateQueryId> fa then
+            queryid := <HibernateQueryId> fa
+          else
+            queryid := <newname> "query"
+            ; rules ( HibernateQueryId : fa -> queryid )
+          end
+        ; e_queryid := expr|[ "~queryid" ]|
+        ; e_criteria := <hibernate-forall-criteria> (fa, t, fltr)
+        //; info(|["Criteria: ", <topdown(try(strip-annos)); PropertiesToJoin <+ ![]> fa])
+//        ; info(|["For ", <pp-webdsl> fa, " join: ", ])
+        // setFetchMode("_author", org.hibernate.FetchMode.JOIN)
+
+rules // if
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-if(collect-om(handle-actions-input-to-java-servlet)|)
+
+  handle-actions-to-java-servlet =
+    control-flow-if(collect-om(handle-actions-to-java-servlet)|)
+
+  elem-to-java-servlet =
+    control-flow-if(elems-to-java-servlet|)
+
+  control-flow-if(s|) :
+    IfTempl(e, elems, elems2) ->
+    bstm |[
+    if(e1){ 
+      bstm*
+    } else {
+      bstm2*
+    }
+    ]|
+    with  bstm* := <s;concat-with-sublists> elems
+        ; bstm2* := <s;concat-with-sublists> elems2
+        ; e1 := <expression-to-java-servlet> e
+
+rules //templatecall    
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-tcall(|"storeInputs")
+
+  handle-actions-to-java-servlet =
+    control-flow-tcall(|"handleActions")
+
+  elem-to-java-servlet =
+    control-flow-tcall(|"render")
+
+  control-flow-tcall(|x_methodname) :
+    tc@TemplateCall(x_name, args,passign*, _) ->
+    <for-loop-counter-wrap-code> 
+    bstm* |[
+    ident += "~x_tname";
+    if(templatecalls.get(ident)==null){
+      try{
+        templatecalls.put(ident,(TemplateServlet)templates.get("~x_name").newInstance());
+      }
+      catch(IllegalAccessException iae)
+      {
+        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
+      }
+      catch(InstantiationException ie)
+      {
+        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
+      }
+    }
+    Object[] x_args = { e* };
+    templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, (HashMap<String,Class>)templates.clone(),(HashMap<String,Object>)variables.clone(),(HashMap<String,Object>)actionclasses.clone(), e1*);
+    ]|
+    where t* := <map(type-of)> args 
+        ; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos>x_name;TemplateWithGenerics> (x_name,t*)
+    with  x_tname := <get-templatecallnumber> tc
+        ; e* := <map({\e -> <expression-to-java-servlet> e\})> args
+        ; x_args := <newname> "args"
+        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ e|[ out ]| ]
+            //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
+            <+ e1* := []
+          )

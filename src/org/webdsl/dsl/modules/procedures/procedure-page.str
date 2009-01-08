@@ -1,0 +1,152 @@
+module org/webdsl/dsl/modules/procedures/procedure-page
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // Translate to pages and stuff
+
+  procedures-to-pages :
+    def@def|[ procedure x_id (x_o : srt) { procelem2* } ]| -> <rename-all> def|[ define page x_id(x_o : srt) { elem* } ]|
+    where <IsProcedure> x_id
+    with  SimpleSort(s) := srt
+        ; x_view := <decapitalize-string> s
+        ; procelem* := <alltd(translate-object-param(|x_o))> procelem2*
+
+        ; stat_do* := <get-procedure-do-statements(|x_o, x_id)> procelem2*
+        ; if <IsDoProcedure> x_id then
+              elem*  := elem*|[ 
+                init { 
+                  stat_do*
+                  goto x_view(x_o);
+                }
+              ]|
+          else
+              viewelem*   := <procedure-view-elems> def
+            ; elem2       := elem|[ 
+                action doAction() {
+                  x_o.persist();
+                  stat_do*
+                  return x_view(x_o);
+                } 
+              ]|
+            ; elem*       := <try(oncetd({elem, e: \ elem@elem|[ action(e, doAction())[]{} ]| -> elem|[ dummy ()[]{ elem elem2 } ]| \}))> viewelem*
+          end
+        ; e_canPerform := <procedure-get-access-exp(|x_o, x_id)> procelem*
+        ; e_self := <procedure-get-self-access-exp> procelem*
+        ; <emit-webdsl-section> |[
+            access control rules {
+              rules page x_id(x_o : srt) {
+                e_canPerform
+                rules action doAction() {
+                  e_canPerform
+                }
+              }
+            }
+          ]|
+          
+        // create procedure status including viewPage
+        ; x_Id := <capitalize-string> x_id
+        ; x_Status := <concat-strings> [x_Id, "ProcedureStatus"]
+        ; x_status := <decapitalize-string> x_Status
+        ; x_ent := s
+        ; stat_enabled* := <filter(procedure-enabled-statements); concat> procelem*
+        ; stat_processed* := <filter(procedure-processed-statements); concat> procelem*
+        ; stat_done* := <filter(procedure-done-statements); concat> procelem*
+        ; stat_disabled* := <filter(procedure-disabled-statements); concat> procelem*
+        ; if not(<IsGeneratedProcedure> x_id); [] := <filter(?procelem|[ process { processexp } ]|)> procelem2*; not(<ProcedureHasProcess> x_id) then
+            stat_afterdone* := [webdsl|[ this.processed(); ]|] // no process description - finished processing
+          else
+            stat_afterdone* := [webdsl|[ this.next(0); ]|] // process description - start going through process
+            ; hasProcessDescription := True()
+          end
+        ; x_ostripped := <strip-annos> x_o
+        ; <emit-webdsl-code> def|[
+            entity x_Status : ProcedureStatus {
+              x_ostripped -> srt
+              function enabled() {
+                stat_enabled*
+              }
+              function done() {
+                this.isEnabled := false;
+                this.persist();
+                stat_done*
+                stat_afterdone*
+              }
+              function disabled() {
+                stat_disabled*
+              }
+              function canPerform() : Bool {
+                return e_self;
+              }
+            }
+          ]|
+        ; <emit-webdsl-code> def|[
+            define page x_status(s : x_Status) {
+              derive viewPage from s
+            }
+          ]|
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              x_id <> x_Status ()
+            }
+          ]|
+          
+        ; <emit-webdsl-code> def|[
+            extend procedure x_id(x_o : srt) {
+              processed {
+                stat_processed*
+              }
+            }
+          ]|
+          
+        // prepareProcedure is called on an entity before the procedure can be enabled
+        // this is done automatically within procedures. Otherwise, startProcedure can be called
+        ; x_prepareFunction := <concat-strings> ["prepare", x_Id]
+        ; srt0 := SimpleSort(x_Status)
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              function x_prepareFunction() {
+                if (this.x_id == null) {
+                  this.x_id := srt0 {};
+                  this.x_id.x_ostripped := this;
+                  this.x_id.persist();  
+                  this.persist();
+                }
+              }
+            }
+          ]|
+          
+        // for starting the procedure - preferred above enable(), as this will create the ProcedureStatus if necessary
+        ; x_startFunction := <concat-strings> ["start", x_Id]
+        ; <emit-webdsl-code> def|[
+            extend entity x_ent {
+              function x_startFunction() {
+                this.x_prepareFunction();
+                this.x_id.enable();
+              }
+            }
+          ]|
+        
+        ; <emit-webdsl-code> def|[
+            extend entity x_Status {
+              extend function processed() {
+                stat_processed*
+              }
+            }
+          ]|
+
+  add-procedure-done(|x_o, x_id) :
+    stat* -> webdsl|[
+          stat*
+          x_o.x_id.done();
+        ]|
+        
+
+  /*
+  procedure-to-check-performed(|arg) :
+    nm -> webdsl|[ x_check(e); ]|
+    where x_check := <concat-strings> ["check", <capitalize-string> nm, "Performed"]
+        ; e := Var(arg)
+  */
+

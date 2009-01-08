@@ -1,0 +1,74 @@
+module org/webdsl/dsl/modules/email
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+ 
+rules // should only be allowed in email, this makes them available as general template calls
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("to",[SimpleSort("String")]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("from",[SimpleSort("String")]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("subject",[SimpleSort("String")]);fail 
+ 
+signature
+  constructors
+    EmailCallAnno : Annotation
+
+rules
+    
+  is-email-call :
+    _{anno*} -> True()
+    where <collect(?EmailCallAnno(){});Hd> anno*  
+  
+rules
+
+  rename :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-email-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    where <fetch(?Email(){_})> mod*
+    with {| Rename:
+            y := x{<newname> x}
+          ; farg2* := <map(rename)> farg1*
+          ; elem2* := <rename-all> elem1*
+          |}
+          
+  rename : 
+    tc@ThisCall("email", [e@ThisCall(name, args)]) -> ThisCall("email", [e2])  
+    with  e1 := <rename-all> e
+        //add annotation once, used to differentiate between normal call and email call during constraint checking
+        ; if <is-email-call> e then e2 := e1 else e2 := <annotate-email-call> e1 end
+          
+  annotate-email-call :
+    ThisCall(name, args){anno*} -> ThisCall(name, args){EmailCallAnno(),anno*} 
+
+rules
+
+  declare-email-definition =
+    ?def@Define(mod*, name, fargs, body)
+    ; where (<oncetd(?Email())> mod*)  
+    ; with ( 
+        t1* := <map(?Arg(_,<id>))> fargs
+      ; n := <strip-annos> name
+      ; rules (
+          EmailDefinition : (n, t1*) -> def
+          EmailArguments  : (n, t1*) -> fargs
+          CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, <map(type-of)> t2*)
+        )
+     //; fetch(?elem|[ to(e){} ]|)
+    )
+    
+    
+//email calls    
+    
+rules //constraints
+
+  constraint-error :
+    ThisCall("email", [e@ThisCall(name, args)]) -> <add-error(|["No email definition for ", <pp-webdsl> e, "."])>
+    where not(type-of)
+
+rules //typechecker
+
+  eq-type-of :
+    ThisCall("email", [e@ThisCall(name, args)]) -> t
+    where n := <strip-annos> name
+        ; t := <CheckEmailSignature> (None(), n, args)

@@ -1,0 +1,380 @@
+module org/webdsl/dsl/to-pil/types/collection
+
+imports 
+  libstrategolib 
+  libwebdsl-front
+
+/*
+rules //types
+
+  builtin-java-type :
+    GenericSort("List", [s]) -> type|[ java.util.List<t> ]|
+    where t := <java-type> s
+
+  builtin-java-type :
+    GenericSort("Set", [s]) -> type|[ java.util.Set<t> ]|
+    where t := <java-type> s
+    
+  type-default-value-override-java :
+    GenericSort("List", [s]) -> e|[ new java.util.ArrayList<t>() ]|
+    where t := <java-type> s
+    
+  type-default-value-override-java :
+    GenericSort("Set", [s]) -> e|[ new java.util.LinkedHashSet<t>() ]|
+    where t := <java-type> s
+
+rules //functions
+
+  call-to-pil :
+     Call(e1, "addAll", [e2]) -> java|[ e3.addAll(e4) ]|
+     with e3 := <expression-to-pil> e1
+     with e4 := <expression-to-pil> e2
+
+  call-to-pil :
+    Call(e1, "add", [e2])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).addTo#x_field(e4) ]|
+    where GenericSort(_,_) := <type-of> e1
+        ; <?FieldAccess(e_entity,x_field)> e1
+    with  e3 := <expression-to-pil> e_entity
+        ; e4 := <expression-to-pil> e2
+
+  call-to-pil :
+    Call(e1, "remove", [e2])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).removeFrom#x_field(e4) ]|
+    where GenericSort(_,_) := <type-of> e1
+        ; <?FieldAccess(e_entity,x_field)> e1
+    with  e3 := <expression-to-pil> e_entity 
+        ; e4 := <expression-to-pil> e2
+        
+  call-to-pil :
+    Call(e1, "clear", [])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).removeAllFrom#x_field() ]|
+    where GenericSort(_,_) := <type-of> e1
+        ; <?FieldAccess(e_entity,x_field)> e1
+    with  e3 := <expression-to-pil> e_entity 
+
+  call-to-pil :
+    Call(e1, "indexOf", [e2]) -> java|[ e3.indexOf(e4) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e3 := <expression-to-pil> e1
+    with e4 := <expression-to-pil> e2
+
+  call-to-pil :
+    Call(e1, "get", [e2]) -> java|[ e3.get(e4) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e3 := <expression-to-pil> e1
+    with e4 := <expression-to-pil> e2
+
+  call-to-pil :
+    Call(e1, "set", [e2,e3]) -> java|[ e4.set(e5,e6) ]|
+    where GenericSort("List",[s]) := <type-of> e1
+    with e4 := <expression-to-pil> e1
+    with e5 := <expression-to-pil> e2
+    with e6 := <expression-to-pil> e3
+
+  call-to-pil :
+     Call(e1, "add", [e2])  -> java|[ e3.add(e4) ]|
+     where GenericSort(_,_) := <type-of> e1
+     with  e3 := <expression-to-pil> e1
+         ; e4 := <expression-to-pil> e2
+
+  call-to-pil :
+     Call(e1, "remove", [e2])  -> java|[ e3.remove(e4) ]|
+     where GenericSort(_,_) := <type-of> e1
+     with  e3 := <expression-to-pil> e1
+         ; e4 := <expression-to-pil> e2
+         
+  call-to-pil :
+     Call(e1, "clear", [])  -> java|[ e3.clear() ]|
+     where GenericSort(_,_) := <type-of> e1
+     with  e3 := <expression-to-pil> e1
+
+rules //typed collection creations
+
+   expression-to-pil : // The version with items (!= []) will be desugared in desugar.str
+     TypedListCreation(s, []) -> java|[ new java.util.ArrayList<t>() ]|
+     with  t := <java-type> s
+
+   expression-to-pil :
+     TypedSetCreation(s, []) -> java|[ new java.util.LinkedHashSet<t>() ]|
+     with  t := <java-type> s
+
+rules //fields
+
+  field-access-to-pil :
+    FieldAccess(e1, "length") -> expr|[ e2.size() ]|
+    with  e2 := <expression-to-pil> e1
+        ; GenericSort(_, _) := <type-of> e1
+
+rules //pages
+ 
+  pil-element-id : 
+    tc@Select(x, SimpleSort(s), label, e) -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+        ; newid := <newname> "input"
+
+  //SimpleSort property select
+  handle-actions-input-to-pil :
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getParammap().get(ident)!=null)
+        {
+            t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(ps.getParammap().get(ident)));
+            bstm 
+        }
+    ]|
+    where SimpleSort(_) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; bstm := <input-assignment-to-pil(|x_temp)> e
+    
+  elem-to-pil : 
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" >");
+    java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
+    while ( x_iter.hasNext() ) {
+      t x = (x_argtype) x_iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.print(">"+x.getName()+"</option>");
+    }
+    out.print("</select>"); 
+    ]|
+    where SimpleSort(_) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; x_iter := <newname> "iter"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; e2 := <expression-to-pil> e
+
+          
+  //GenericSort property select
+  handle-actions-input-to-pil :
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        if(ps.getParammap().get(ident+"_isinput")!=null){
+          e_clear;
+          if(ps.getParammapvalues().get(ident) != null){
+            for(String elem : ps.getParammapvalues().get(ident))
+            {
+              t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(elem));
+              e_add;  
+            }
+          }
+        }
+    ]|
+    where GenericSort(_, _) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; bstm := <input-assignment-to-pil(|x_temp)> e
+        ; e_add := <expression-to-pil> webdsl:e |[ e.add(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
+        ; e_clear := <expression-to-pil> webdsl:e |[ e.clear() ]| //reuse expression translation for inverse relation clear operation
+    
+  elem-to-pil : 
+    tc@Select(x, srt, label, e)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
+    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
+    java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
+    while ( x_iter.hasNext() ) {
+      t x = (x_argtype) x_iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getParammapvalues().get(x_temp) != null){
+          for(String elem : ps.getParammapvalues().get(x_temp))
+          {
+            if(elem.equals(String.valueOf(x.getId())))
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.print(">"+x.getName()+"</option>");
+    }
+    out.print("</select>"); 
+    ]|
+    where GenericSort(_, _) := <type-of> e
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; x_iter := <newname> "iter"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; e2 := <expression-to-pil> e
+
+rules // select from
+
+  pil-element-id : 
+    tc@SelectFromList(e1, e7)-> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+
+  //SimpleSort property select
+  handle-actions-input-to-pil :
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getParammap().get(ident)!=null)
+        {
+            t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(ps.getParammap().get(ident)));
+            if(e8.contains(x_temp))
+            {
+              bstm
+            } 
+        }
+    ]|
+    where SimpleSort(_) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; srt := <type-of> e1
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; bstm := <input-assignment-to-pil(|x_temp)> e1
+        ; e8 := <expression-to-pil> e7
+    
+  elem-to-pil : 
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<select name=\""+x_temp+"\" >");
+    java.util.Iterator iter = e8.iterator() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.print(">"+x.getName()+"</option>");
+    }
+    out.print("</select>"); 
+    ]|
+    where SimpleSort(_) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; srt        := <type-of> e1
+        ; x_temp     := <newname> "temp"
+        ; x          := <newname> "x"
+        ; t          := <java-type> srt
+        ; x_argtype  := <java-type-name> srt
+        ; e2         := <expression-to-pil> e1
+        ; e8         := <expression-to-pil> e7
+
+          
+  //GenericSort property select
+  handle-actions-input-to-pil :
+    tc@SelectFromList(e1, e7)  ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~inputident"+uniqueid;
+        if(ps.getParammap().get(ident+"_isinput")!=null){
+          e_clear;
+          if(ps.getParammapvalues().get(ident) != null){
+            for(String elem : ps.getParammapvalues().get(ident))
+            {
+              t x_temp = (x_argtype) hibSession.load(x_argtype.class, Long.valueOf(elem));
+              if(e8.contains(x_temp)) {
+                e_add;  
+              } 
+            }
+          }
+        }
+    ]|
+    where GenericSort(_, [srt]) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x_argtype := <java-type-name> srt
+        ; bstm := <input-assignment-to-pil(|x_temp)> e1
+        ; e_add := <expression-to-pil> webdsl:e |[ e1.add(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
+        ; e8 := <expression-to-pil> e7
+        ; e_clear := <expression-to-pil> webdsl:e |[ e1.clear() ]| //reuse expression translation for inverse relation clear operation
+    
+  elem-to-pil : 
+    tc@SelectFromList(e1, e7) ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
+    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
+    java.util.Iterator iter =  e8.iterator() ;
+    while ( iter.hasNext() ) {
+      t x = (x_argtype) iter.next();
+      out.print("<option value=\""+x.getId()+"\"");
+      if(inSubmittedForm)
+      {
+        if(ps.getParammapvalues().get(x_temp) != null){
+          for(String elem : ps.getParammapvalues().get(x_temp))
+          {
+            if(elem.equals(String.valueOf(x.getId())))
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+        }
+      }
+      else
+      {
+        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
+        {
+          out.print("selected=\"selected\"");
+        }
+      }
+      out.print(">"+x.getName()+"</option>");
+    }
+    out.print("</select>"); 
+    ]|
+    where GenericSort(_, [srt]) := <type-of> e1
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; t       := <java-type> srt
+        ; x := <newname> "x"
+        ; x_argtype := <java-type-name> srt
+        ; e2 := <expression-to-pil> e1
+        ; e8 := <expression-to-pil> e7
+        */

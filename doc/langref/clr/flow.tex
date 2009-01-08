@@ -1,0 +1,107 @@
+\chapter{Control flow elements}\ii{flow elements}\ii{control flow elements}
+WebDSL has a small number of elements to influence the flow of the rendering of a page or template, for example to make certain parts of the interface optional, or to iterate over a set of elements. Note that those control flow elements can be used as \e{statements} too. 
+
+% "var" Id ":" Sort (":=" Exp)?
+\section{Variable declarations}
+Variables can be used troughout a template to rembember and manipulate complex objects troughout the template. Variables in WebDSL are scoped as one might expect. Variables are declared with the following syntax:
+\begin{shell}
+VarDecl := "var" Id ":" Sort (":=" Exp)?
+\end{shell}
+Note that the declaration is not ended with semilicon if used inside a template. If the declaration is used as statement (inside an action for example) one \e{must} end it with a semilicon. Inside the scope the variable is directly accessable using the given id, and it hides any parameters with the same name. 
+
+If an action is declared inside the scope were the variable was declared, it is not always necessary to pass the variable along as parameter, but it is recommended as the behaviour is defined more explicly. If the variable is changed during execution (for example due to reassignment by a for-loop) it is necessary to use it as a parameter. 
+\begin{webdsl}{optional but recommended variable passing}
+define t () {
+	var s : String := "foo"
+	action("execute", doSomethingWithVar(s))	
+			//can be invoked without passing 's'
+	action doSomethingWithVar(s: String) { 		
+			//if this formal argument was omitted
+		return v(s); 														
+			//but now the outer 's' is hidden
+	}
+}
+
+define u () {																
+			//this style is unrecommended
+	var s : String := "foo"
+	action("execute", doSomethingWithVar())		
+	action doSomethingWithVar() { 		
+		return v(s); 														
+			//s is available due to the scoping
+	}
+}
+
+define page v (s2: String) {
+	//...
+}
+\end{webdsl}
+
+%     "if" "(" Exp ")" "{" TemplateElement* "}" "else" "{" TemplateElement* "}"
+%                                                    -> TemplateElement {cons("IfTempl")}
+\section{If-else construction}\ii{if}\ii{else}\i{conditional template elements}
+WebDSL has an \e{if-else} construction very similar to the ones available in GPL's like Java. The syntax is defined as
+\begin{shell}
+If	:= "if" "(" Exp ")" "{" element* "}" ( "else" "{" element* "}" )?
+\end{shell}
+Note that the curly braces are not optional in the case of a single statement, which is usual in other languages. The \e{else} part is optional. The expression needs to evaluate to a \e{boolean} value. 
+
+\section{For-loops}\ii{for}\ii{for loop}\ii{iterator}\ii{in}\ii{filter}\ii{limit}\ii{order by}\ii{where}\ii{offset}\ii{seperated-by}
+The for statement is quite powerful construction in WebDSL. It is able to fetch objects from the datastore automatically, and iterate over them. The behaviour is very similar to the \ii{select}\e{SQL Select} statement The syntax is defined as 
+\begin{shell}
+For       := for "(" Id ":" Sort ("in" Exp)? Filter? ")" "{" element* "}" ( "seperated-by" "{" element* "}" )?
+Filter 		:= ("where" Exp) ? ("order" "by" OrderExp)? (Limit | Offset)?
+OrderExp 	:= Exp ("asc" | "desc")?
+Limit			:= "limit" Exp Offset?
+Offset		:= "offset" Exp?
+\end{shell}
+The most simple form of for, like \e{for(u: User)}, iterates over all objects of a certain type (or inheriting from) available in the application. To restrict the set of objects to be evaluated one can use the \e{in} construction. In requires an expression that returns a \e{list} of the provided \e{sort}. The \emph{filter} and \e{order} parts need to be defined in terms of the iteration variable (identified by the first \e{id}). 
+
+The \e{seperated-by} part can be used to put elements \e{between} every of iteration of the for-loop. In other words, the elements are not inserted if the loop is executed zero or one times and inserted once (between the first and second element) if the loop is executed twice, etc. This is very useful for creating comma-seperated lists without a comma to much at the end (or beginning) of the list. 
+
+\begin{webdsl}{For-loop advanced example}
+define t(persons : List<Person>) {
+	for(p : Person in persons where p.lastName = "Foo" order by p.firstname asc limit 10 offset 0) {
+		output(p.firstname)
+  } seperated-by { "," }
+}
+\end{webdsl}
+
+
+	%%TODO kunnen eze items rechtstreeks aangesproken worden?
+%	\item[Select(x, type-to-select-from, label, current-selection)]\iiex{select} result in a select box being createad. It is able to select a number of objects from all objects in the collection\emph{type} available. So the whole collection of a certain type will be displayed. If the provided object is a collection (\emph{List} or \emph{Set}) multiple items can be selected, otherwise just a single item can be selected. %TODO: x??
+%	\item[SelectFromList(current-selection, available-items)]\iiex{selectFromList}\iiex{dropdown} creates a dropdown box from which items can be selected. 
+
+
+
+%     "where" Exp                              -> Filter {cons("FilterNoOrderByNoLimit")}
+%     "order" "by" OrderExp                    -> Filter {cons("FilterNoWhereNoLimit")}
+%     "where" Exp "order" "by" OrderExp        -> Filter {cons("FilterNoLimit")}
+%     "where" Exp Limit                        -> Filter {cons("FilterNoOrderBy")}
+%     "order" "by" OrderExp Limit              -> Filter {cons("FilterNoWhere")}
+%     Limit                                    -> Filter {cons("FilterNoWhereNoOrderBy")}
+%     "where" Exp "order" "by" OrderExp Limit  -> Filter {cons("Filter")}
+%     Exp                                      -> OrderExp {cons("OrderNonSpecific")}
+%     Exp "asc"                                -> OrderExp {cons("OrderAscending")}
+%     Exp "desc"                               -> OrderExp {cons("OrderDescending")}
+%     "limit" Exp "offset" Exp                 -> Limit {cons("Limit")}
+%     "limit" Exp                              -> Limit {cons("LimitNoOffset")}
+%     "offset" Exp                             -> Limit {cons("LimitNoLimit")}
+% 
+% 
+% for "(" Id ":" Sort ("in" Exp)? Filter? ")" "{" element* "}" ( "seperated-by" "{" element* "}" )?
+% 
+%     %%
+% 
+%     "select" "(" Id ":" Sort "," String "," Exp ")" -> TemplateElement {cons("Select")}
+% 
+%     "select" "(" Exp "from" Exp ")" -> TemplateElement {cons("SelectFromList")}
+% 
+%     "if" "(" Exp ")" "{" TemplateElement* "}" "else" "{" TemplateElement* "}"
+%                                                    -> TemplateElement {cons("IfTempl")}
+%     "if" "(" Exp ")" "{" TemplateElement* "}"      -> TemplateElement {cons("IfNoElseTempl")}
+% 
+%     "subtable" "(" Id ":" Sort "in" Exp ")"
+%       "{" TemplateElement* "}"                              -> TemplateElement {cons("Subtable")}
+
+

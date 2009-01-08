@@ -1,0 +1,87 @@
+module org/webdsl/dsl/to-java-servlet/types/float
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+
+rules
+
+  builtin-java-type :
+    SimpleSort("Float") -> type|[ Float ]|
+    
+rules // java
+
+  expression-to-java-servlet :
+    Float(x) -> expr |[ ~float:Float(<concat-strings> [x1,"f"]) ]|
+    where x1 := <string-replace(|"f", "");string-replace(|"F", "")> x
+
+rules
+  java-servlet-element-id :
+    tc@elem|[ inputFloat(e)[passign*]{} ]| -> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"
+
+  //load the input string and try to convert it to float, insert null if it fails and specify an error
+  handle-actions-input-to-java-servlet :
+    tc@elem|[ inputFloat(e)[passign*]{} ]|->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+          
+        ident += "~inputident"+uniqueid;
+        
+        if(ps.getParammap().get(ident)!=null)
+        {
+            String name = ps.getParammap().get(ident);
+
+            Float x_temp;
+            
+            if(!(name.matches("-?\\d\\d*\\.\\d*")||name.matches("-?\\d\\d*")||name.matches("-?\\.\\d\\d*"))){
+              ps.getConversionErrorMessages().put("~name",name+" is not a valid decimal number");
+              x_temp = null;
+            }
+            else {
+              try {
+                x_temp = Float.parseFloat(name);
+              }
+              catch(NumberFormatException nfe) {
+                ps.getConversionErrorMessages().put("~name",name+" is outside of possible decimal number range");
+                x_temp = null;
+              }  
+            }
+            
+            bstm 
+        }
+      
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; x_temp := <newname> "temp"
+        ; name := <pp-webdsl> e
+        ; bstm := <input-assignment-to-java-servlet(|x_temp)> e      
+        
+  elem-to-java-servlet :
+    tc@elem|[ inputFloat(e)[passign*]{} ]| ->
+    <for-loop-counter-wrap-code>
+    bstm* |[ 
+    String x_temp = ident+"~inputident"+uniqueid;
+    out.print("<input name=\""+x_temp+"\" "+e_attrs1+" value=\"");
+    if(inSubmittedForm)
+    {
+      out.print(ps.getParammap().get(x_temp));
+    }
+    else
+    {
+      bstm_exptostring*
+    }
+    out.print("\" />"); 
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; bstm_exptostring* := <to-page-string-java-servlet> e
+        ; x_temp := <newname> "temp"
+        ; e_attrs1 := <to-html-attrs> passign*
+
+  elem-to-java-servlet :
+    elem|[ outputFloat(e)[passign*]{} ]|->
+    java |[ out.print(utils.HTMLFilter.filter(String.valueOf(e1))); ]|
+    with  e1 := <expression-to-java-servlet> e

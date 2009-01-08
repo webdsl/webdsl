@@ -1,0 +1,59 @@
+module org/webdsl/dsl/typechecker/extend-entity
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+
+  rules //extend entity
+  
+  constraint-error :
+    a@ExtendSessionEntity(x_class, props, funcs) -> <add-error(|["Extended session entity ",x_class1," does not exist: ", <pp-webdsl> a])>
+    where x_class1 := <capitalize-string> x_class
+        ; not(<IsEntity> x_class1)
+  constraint-error :
+    a@ExtendEntity(x_class, props, funcs) -> <add-error(|["Extended entity ",x_class," does not exist: ", <pp-webdsl> a])>
+    where not(<IsEntity> x_class)
+    
+
+  constraint-error :
+    a@ExtendSessionEntity(x_class, props, funcs) -> []
+    where <fetch-elem(find-double-props(| <capitalize-string> x_class))> props
+       
+  constraint-error :
+    a@ExtendEntity(x_class, props, funcs) -> []
+    where <fetch-elem(find-double-props(|x_class))> props
+        
+  find-double-props(|x_class) :
+    a@consname#([chld*]) -> <add-error(|["Extend session/entity redefines property: ", <pp-webdsl> a])>
+    where <?"Property"<+?"PropertyNoAnno"<+?"DerivedProperty"<+?"DerivedPropertyNoAnno"> consname
+        ; props := <Properties> x_class
+        ; x := <index(|1)> chld*
+        ; not( <filter(   ?Property(x,_,_,_)
+                       <+ ?PropertyNoAnno(x,_,_)
+                       <+ ?DerivedProperty(x,_,_,_,_)
+                       <+ ?DerivedPropertyNoAnno(x,_,_,_)
+                      );length;(?0<+?1)> props )
+    
+                      
+  constraint-error :
+    a@ExtendSessionEntity(x_class, props, funcs) -> []
+    where <fetch-elem(find-double-funcs(| <capitalize-string> x_class))> funcs
+        
+  constraint-error :
+    a@ExtendEntity(x_class, props, funcs) -> []
+    where <fetch-elem(find-double-funcs(|x_class))> funcs
+    
+  find-double-funcs(|x_class) :
+    a@consname#([chld*]) -> <add-error(|["Extend session/entity redefines function: ", <pp-webdsl> a])>
+    where <?"Function"<+?"FunctionNoReturn"> consname
+        ; funcs := <Functions;make-set> x_class
+        ; x := <index(|1)> chld*
+        ; arg := <index(|2);map(\Arg(_,y) -> y\)> chld*
+        ; not( <filter(   {fname, farg: 
+                           ( (   ?Function(fname,farg,_,_) <+ ?FunctionNoReturn(fname,farg,_) )
+                           ; (x,arg) := (fname,<map(\Arg(_,y)->y\)>farg) 
+                           )} 
+                      );length; (?0<+?1)> funcs )

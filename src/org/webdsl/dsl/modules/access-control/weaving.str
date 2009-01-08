@@ -1,0 +1,204 @@
+/**
+
+ Security rules for WebDSL
+
+*/
+
+module org/webdsl/dsl/modules/access-control/weaving
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/transformation/-
+  org/webdsl/dsl/modules/access-control/-
+rules
+
+
+  process-access-control-checks =
+    topdown(try(process-page-checks))
+                //<+ process-action-checks//TODOcontext sensitive when inferring visibility may need to apply right away in templates and wait for pages
+               /* <+ process-function-checks//TODO can be done earlier as well, doesn't need typechecker fix   */
+ // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
+ // ; alltd(   process-action-checks )
+  ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end)
+
+  
+  process-page-checks://TODO substpagevars
+    def|[ define page x_ident(farg*){ elem* }       ]| -> 
+    def|[ define page x_ident(farg*){ elem elem1* } ]|
+    with // collect takes care of duplicates
+          listofchecks := <collect(\ elem|[acpagecheck(x,e)[]{}]| -> (x,e) \)> elem*
+        ; e := <combine-checks> listofchecks
+        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
+        ; elem1* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
+                                            <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elem*
+        ; x_predname := <newname> "genpagepredicatecombined"
+        ; <emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
+        ; e2* := <map(get-varname-from-formarg)> farg*
+        ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
+        ; rules( WeaveAccessControlInferred :+
+                   elem|[                        navigate( x_ident(e*) )[passign*]{ elem2* }   ]| ->
+                   elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) )[passign*]{ elem2* } } ]|
+                         
+                          //todo match argument types although not really necessary since overloading is not possible for pages
+               ) 
+        //;    <debug> ["navlink created ",x_ident]
+ 
+  
+  //separated from page and template accheck processing for clarity
+  process-page-actions:
+    def|[ define page x_ident(farg*){ elem*  } ]| ->
+    def|[ define page x_ident(farg*){ elem2* } ]|
+    with  elem1* := <alltd(process-action-checks(|farg*))> elem*
+        ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+  
+  process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
+    def|[ define mod* x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
+    def|[ define mod* x_ident(farg*){ elem3* } ]|
+    where not(<elem> (Page(), mod*))
+    with  {| InTemplate: rules(InTemplate:anything)
+             ; elem1* := <alltd(process-action-checks(|farg*))> elem*
+             ; elem2* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
+             ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
+          |}
+  
+  substitute-parent-vars-1:
+    (farg1*,e1) -> (farg2*,e2)
+    with  {| subst-vars:
+               farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
+                          with  varname := <newname> "genuniquevar" 
+                              ; rules(//subst-vars: PageVar(nm)->Var(varname)
+                                     TypeOf : varname -> srt
+                                     subst-vars: Var(nm)->Var(varname)
+                              ))})> farg1*
+           ; e2 := <alltd(subst-vars)> e1
+           |}
+  substitute-parent-vars-2: //special because it is expanded in webdsl
+    (farg1*,e1) -> (farg2*,e2)
+    with  {| subst-vars:
+               farg2* := <map({(Arg(nm,srt) -> Arg(varname,srt) 
+                          with  varname := <newname> "genuniquevar" 
+                              ; rules(
+                                     TypeOf : varname -> srt
+                                     subst-vars: ExternalScopeVar(nm)->Var(varname)
+                                     //subst-vars: Var(nm)->Var(varname)
+                              ))}<+info(|["map failed",<id>]))> farg1*
+           ; e2 := <alltd(subst-vars)> e1
+           |}
+
+  
+  process-action-checks(|farg4*): //page farg
+    elem|[ action x_ident(farg*){ stat*  } ]| -> 
+    elem|[ action x_ident(farg2*){ stat3* } ]|
+    with  
+          listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*
+        ; e1 := <combine-checks> listofchecks
+        ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
+        ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1)
+        ; farg5* := [farg6*,farg*] //TODO Duplicate names in farg
+        ; <emit-webdsl-code> def|[ predicate x_predname(farg5*) { e2 } ]|
+        ; e2* := <map(get-varname-from-formarg)> [farg4*,farg*]
+        //remove ac calls
+        ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
+        //determine whether it returns to the same or a different page, to either redirect with goto or return
+        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> stat1*
+        ; if returnstat := [] 
+          then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
+          else stat2* := [webdsl |[ return(accessDenied()); ]|] end
+        ; stat3* := [webdsl |[ if ( x_predname(e2*) ) { stat1* } else { stat2* } ]|]
+        ; rules( WeaveAccessControlInferredAction :+
+                a@ elem|[                         x ( e7, x_ident(e3*) )[passign*] { elem* }    ]| ->
+                   elem|[ if( x_predname(e4*) ) { x ( e7, x_ident(e3*) )[passign*] { elem* } } ]|
+                   where <?"action"<+?"actionLink"> x 
+                   with  e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
+                       ; e4* := [e5*,e3*]
+               )
+        // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
+        // reach it, eg in the case of a for loop var in the page passed as argument to a template
+        ; if InTemplate then
+            farg2* := [farg4*,farg*]
+          ; e8* := <map(get-varname-from-formarg)> farg4*
+          ; rules (AddTemplateArgToActionArg: 
+                       elem|[  x ( e7, x_ident(e3*) )[passign*] { elem* }  ]| ->
+                       elem|[  x ( e7, x_ident(e9*) )[passign*] { elem* }  ]|
+                       with  e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
+            )  
+          else
+            farg2* := farg*
+          end
+      
+  process-template-checks:
+    def|[ define mod* x_ident(farg*){ elem* }  ]| -> <declare-template-definition> 
+    def|[ define mod* x_ident(farg*){ elem2* } ]|
+    where not(<elem> (Page(), mod*))
+    with  listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
+        ; e := <combine-checks> listofchecks
+        ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
+        ; elem2* := elem* |[ if ( e ) { elem1* } ]|
+ 
+  
+ /* 
+  process-function-checks://TODO add external scope vars and subst
+    a@|[ acfunctioncheck(x_group,e) e1 ]| -> 
+      |[ x_funcname(e*) ]|
+    where listofchecks := <collect-all(\ |[acfunctioncheck(x_group,e) e1]| -> (x_group,e) \)> a
+        ; e2 := <combine-checks> listofchecks
+        ; thecall := <collect(\ |[acfunctioncheck(x_group3,e3) x_name3(e3*)]| -> |[x_name3(e3*)]| \);Hd> a
+        ; |[ x_fname(e*) ]| := thecall
+        ; farg* := <GlobalFunctionArgs> x_fname  //TODO fix overloading,search using name and arg types instead, make sure typechecker adds types to the expressions
+        ; srt := <GlobalFunctionReturn> x_fname
+        ; e1* := <map(get-varname-from-formarg)> farg*
+        ; {| subst-vars:     
+               <zip({\ tup@(exp,Arg(nm,srt)) -> tup
+                        where exp1 := exp{}  // scoped with { } because exp1 is not scoped by \ \ 
+                            ; rules( subst-vars: exp1 -> Var(nm) )
+                    \})> (e*,farg*)
+             ; e3 := <alltd(subst-vars)> e2
+           |}
+        ; x_funcname := <newname> "genfunction"
+        ; <emit-webdsl-code> def|[ globals {  function x_funcname(farg*) :srt
+                                              { 
+                                                if (e3) { var temp : srt := x_fname(e1*); return temp; } else { goto(accessDenied()); return null; } 
+                                              }
+                                            } ]|
+        */
+        
+        
+  //strategy that takes list of (groupname,check) tuples and creates the combination
+  combine-checks=
+    ?checks
+  ; with (final-check := <AC-Policy-Expression<+!Name("anonymous")>
+          ; groupnames := <collect(\Name(x)->x\)> final-check
+          ; groupchecks := <map({x:?x;<filter(?(x,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
+  ; if <map(?[])> groupchecks
+    then !False()
+    else
+      with (
+            {| groupresult:
+                 <zip(\(thename,thecheck) -> None() 
+                        with rules(groupresult : Name(thename) -> thecheck)\)> (groupnames,groupchecks)
+               ; subst-final-check := <topdown(try(groupresult))> final-check
+               ; substituted-final-check := <bottomup(try(  \PolicyAnd([],[])-> []\
+                                                         <+ \PolicyOr([],[])-> []\
+                                                         
+                                                         <+ \PolicyAnd([],x)-> x\
+                                                         <+ \PolicyAnd(x,[])-> x\
+                                                         <+ \PolicyOr([],x)-> x\
+                                                         <+ \PolicyOr(x,[])-> x\
+                                                         
+                                                         <+ \PolicyAnd(True(),True())-> True()\
+                                                         <+ \PolicyAnd(False(),False())-> False()\
+                                                         //<+ \And(False(),_)-> False()\
+                                                         //<+ \And(_,False())-> False()\ 
+                                                         <+ \PolicyOr(False(),False())-> False()\
+                                                         <+ \PolicyOr(True(),True())-> True()\
+                                                         //<+ \Or(True(),_)-> True()\
+                                                         //<+ \Or(_,True())-> True()\ 
+                                                          ))> subst-final-check
+             |})
+    ; !substituted-final-check
+    ; alltd(\PolicyAnd(x,y)->And(x,y)\<+\PolicyOr(x,y)->Or(x,y)\)
+    end
+      

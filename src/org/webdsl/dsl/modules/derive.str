@@ -1,0 +1,227 @@
+/**
+ * Derive
+ * 
+ * Derive a page from an entity and a list of properties - only for the given properties, form fields are generated
+ *
+ * derive editPage for p (name, comment)
+ *   => Derive(EditPage(), p, [name, comment])
+ * derive editPage for p
+ *   => Derive(EditRows(), p, [])
+ */
+
+
+// @todo : enable customization of header, title, description of derived pages
+//
+// e.g. derive editPage from foo for (bar, baz) with { header{"Provide Bar/Baz Info"} }
+
+module org/webdsl/dsl/modules/derive
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules // typechecking derive statements
+
+  /**
+   * checks whether the given entity e has a property with name prop
+   * fails so that the other constraints with this left-hand side also fire
+   */
+  constraint-error =
+    ?elem|[ derive x_deriveType from e for (dprop*) ]|
+    ; SimpleSort(srt) := <type-of> e
+    ; <map(try(check-derive-property-exists(|srt)))> dprop*
+    ; fail
+  
+  check-derive-property-exists(|srt) :
+    DeriveDefault(prop) -> <add-error(|["entity '", srt, "' has no property '", prop, "'"])>
+    where not(<type-of-property> (srt, prop))
+
+  /**
+   * checks whether the given property is not a derived property
+   * fails so that the other constraints with this left-hand side also fire
+   */
+  constraint-error =
+    ?elem|[ derive x_deriveType from e for (dprop*) ]|
+    ; where(
+        <is-derive-edit-type> x_deriveType
+        ; SimpleSort(srt) := <type-of> e
+        ; <map(try(check-derive-derivedproperty(|srt)))> dprop*
+        ; fail
+      )
+
+  check-derive-derivedproperty(|srt) :
+    DeriveDefault(prop) -> <add-error(|["property ", prop, " is a derived property and hence cannot be edited"])>
+    where <IsDerivedProperty> (srt, prop)
+
+  /**
+   * checks for unknown derive types
+   */
+  constraint-error =
+    ?elem|[ derive x_deriveType from e for (dprop*) ]|
+    <+ ?elem|[ derive x_deriveType from e ]|
+    ; where (
+        not(<is-derive-type> x_deriveType)
+        ; add-error(|[x_deriveType, " is an unknown derive type"])
+      )
+
+
+rules // desugaring
+
+  desugar = derive-page 
+  desugar = derive-edit-rows 
+  desugar = derive-view-rows
+  desugar = desugar-derive
+  
+  /**
+   * If no properties given, add all properties
+   *
+   * The difference between viewPage and other pages is that for viewPage, derived properties
+   *   are included.
+   */
+  desugar-derive : // gather properties for derive editPage and createPage
+    elem|[ derive x_deriveType from e ]| -> 
+    elem|[ derive x_deriveType from e for (dprop*) ]|
+    where <is-derive-edit-type> x_deriveType
+        ; SimpleSort(t) := <type-of> e
+        ; dprop* := <all-properties; filter(
+               \Property(name,_,_,_) -> DeriveDefault(name) \ 
+            <+ \PropertyNoAnno(name,_,_) -> DeriveDefault(name)\ 
+          )> t
+  
+  desugar-derive : // gather properties for derive viewPage
+    elem|[ derive x_deriveType from e ]| -> 
+    elem|[ derive x_deriveType from e for (dprop*) ]|
+    where <is-derive-view-type> x_deriveType
+        ; SimpleSort(t) := <type-of> e
+        ; dprop* := <all-properties; filter( 
+               \Property(name,_,_,_) -> DeriveDefault(name) \
+            <+ \PropertyNoAnno(name,_,_) -> DeriveDefault(name) \
+            <+ \DerivedProperty(name,_,_,_,_) -> DeriveDefault(name) \
+            <+ \DerivedPropertyNoAnno(name,_,_,_) -> DeriveDefault(name) \
+          )> t
+          
+  // used for typechecking: giving an error for not-supported derive types
+  is-derive-type = is-derive-edit-type <+ is-derive-view-type
+
+  is-derive-edit-type =
+    ?"editPage" <+ ?"createPage"
+
+  is-derive-view-type = ?"viewPage"
+  is-derive-view-type = ?"viewRows"
+  is-derive-view-type = ?"editRows"
+
+
+rules // deriving pages
+
+  // derive editPage from e for (property1, property2)
+  derive-page : 
+    elem|[ derive editPage from e for (dprop*) ]| -> 
+    <rename-all> elem|[ 
+      dummy() {
+        main()
+        define local body() {
+          header{"Edit " text(e.name) } 
+          form { 
+            group("Details") { 
+              derive editRows from e for (dprop*)
+            } 
+            group() {
+              action("Save", save())
+              action("Cancel", cancel())
+            }
+          }
+          action save() { 
+            e.save(); 
+            //return x_view (e ); @todo: what pages do exist at this time?
+            return home();
+          }
+          action cancel() {
+          cancel home();
+        }
+        }
+      } 
+    ]| 
+    where SimpleSort(srt) := <type-of> e
+        ; x_view := <decapitalize-string> srt 
+
+  // derive createPage from e for (property1, property2)
+  derive-page : 
+    elem|[ derive createPage from e for (dprop*) ]| ->
+    <rename-all> elem|[ 
+      dummy() {
+        main()
+        define local body() {
+          header{"Create " text(e.name) } 
+          form { 
+            group("Details") { 
+              derive editRows from e for (dprop*)
+            } 
+            group() {
+              action("Save", save())
+              action("Cancel", cancel())
+            }
+          }
+          action save() { 
+            e.save(); 
+            //return x_view (e ); @todo: what pages do exist at this time?
+            return home();
+          }
+          action cancel() {
+          cancel home();
+        }
+        }
+      } 
+    ]| 
+    where SimpleSort(srt) := <type-of> e
+        ; x_view := <decapitalize-string> srt
+
+  // derive viewPage from e for (property1, property2)
+  derive-page : 
+    elem|[ derive viewPage from e for (dprop*) ]| ->
+    <rename-all> elem|[ 
+      dummy() {
+        main()
+        define local body() {
+          header{text(e.name) } 
+          group("Details") { 
+            derive viewRows from e for (dprop*)
+          }
+        } 
+      }
+    ]| 
+    where SimpleSort(srt) := <type-of> e
+        ; x_view := <decapitalize-string> srt 
+
+rules // derives edit rows for specified properties
+
+  derive-edit-rows :
+    elem|[ derive editRows from e for (dprop*) ]| -> elem|[ dummy() [] { elem* } ]| 
+    where elem* := <filter-warn(derive-edit-row(|e )|"not a valid mode for edit row")> dprop*
+
+  derive-edit-row(|e) : 
+    DeriveDefault(y) -> <derive-edit-row(|e)> DeriveMode("edit", y)
+    
+  derive-edit-row(|e ) : 
+    DeriveMode("edit", y) -> elem|[ groupitem { label(str)[] { input(e.y)[]{} } } ]| 
+    with str := <concat-strings> [<make-human-readable> y , ": "]
+    
+  derive-edit-row(|e ) : 
+    DeriveMode("view", y) -> elem|[ groupitem { label(str)[] { output(e.y)[]{} } } ]| 
+    with str := <concat-strings> [<make-human-readable> y , ": "]
+
+rules // derives view rows for specified properties
+
+  derive-view-rows :
+    elem|[ derive viewRows from e for (dprop*) ]| -> elem|[ dummy()[]{elem*} ]| 
+    where elem* := <filter-warn(derive-view-row(|e )|"not a valid mode for view row")> dprop*
+
+  derive-view-row(|e) : 
+    DeriveDefault(y) -> <derive-view-row(|e)> DeriveMode("view", y)
+    
+  derive-view-row(|e ) : 
+    DeriveMode("view", y) -> elem|[ groupitem { label(str) []{ output(e.y)[]{} } } ]| 
+    with str := <concat-strings> [<make-human-readable> y , ": "]
+    
+    
+    
+  

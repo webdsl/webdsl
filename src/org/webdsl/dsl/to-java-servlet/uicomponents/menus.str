@@ -1,0 +1,147 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/menus
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // menus
+
+  elem-to-java-servlet :
+    TemplateCall("menubar", [exp],passign*, elems) ->
+    bstm* |[ 
+    out.print("<div class=\"menuwrapper\" id=\""+"~x_menuid"+"\" "+e_attrs1+">"); //style: menubar
+    out.print("<ul id=\"p7menubar\" class=\"menubar\">");
+    bstm*
+    out.print("</ul></div>");
+    ]|
+    where <?String("horizontal")> exp
+    with x_menuid := <newname> "menubar"
+       ; bstm* := <elems-to-java-servlet> elems    
+       ; e_attrs1 := <to-html-attrs> passign*     
+
+  elem-to-java-servlet :
+    TemplateCall("menubar", [exp],passign*, elems) ->
+    bstm* |[ 
+    out.print("<div class=\"sdmenu\" id=\""+"~x_menuid"+"\" "+e_attrs1+">");
+    out.print("<ul id=\"p7menubar\" class=\"menubar\">");
+    bstm*
+    out.print("</ul></div>");
+    out.print("<script type=\"text/javascript\">sideMenu = new SDMenu(\""+"~x_menuid"+"\"); sideMenu.init();</script>");    
+    ]|     
+    where <?String("vertical")> exp
+    with x_menuid := <newname> "menubar"
+       ; elems' := <try(repeat(sometd(\ TemplateCall("menuheader", a,passign*, elems) ->
+                                  TemplateCall("container", a,passign*, elems) \ <+
+                                \ TemplateCall("menu", a,passign*, elems) ->
+                                  TemplateCall("block", a,passign*, elems) \ <+
+                                \ TemplateCall("menuitem", a,passign*, elems) ->
+                                  TemplateCall("dummy", a,passign*, elems) \ <+
+                                \ TemplateCall("menuspacer", a,passign*, []) ->
+                                  TemplateCall("horizontalspacer", a,passign*, []) \
+                                  )))> elems
+       ; bstm* := <elems-to-java-servlet> elems'   
+       ; e_attrs1 := <to-html-attrs> passign*
+
+  elem-to-java-servlet :
+    TemplateCall("menu", [],passign*, elems) ->
+    bstm* |[ 
+    out.print("<li class=\"menu\" "+e_attrs1+">");
+    bstm*
+    bstm1*
+    out.print("</li>");
+    ]|     
+    with  e_attrs1 := <to-html-attrs> passign* 
+          ;{| HeaderItems, DropDownItems
+           : <map(try(find-menuheaders-java-servlet))> elems
+           ; bstm* := <elems-to-java-servlet> <reverse> <HeaderItems <+ ![]>
+           ; if DropDownItems then
+               bstm1* := bstm* |[ out.print("<ul class=\"menuitems\">"); ~bstm*:<elems-to-java-servlet> <reverse> <DropDownItems> out.print("</ul>"); ]|
+             else
+               bstm1* := []
+             end
+           |}
+
+  find-menuheaders-java-servlet =
+    ?elem
+    ; if <sometd(?TemplateCall("menuheader", _,_, _))> elem then
+        rules ( HeaderItems := [elem | <HeaderItems <+ ![]>] )
+      else
+        rules ( DropDownItems := [elem | <DropDownItems <+ ![]>] )
+      end
+
+  elem-to-java-servlet :
+    TemplateCall("menuheader", [],passign*, elems) -> 
+    bstm* |[ 
+      out.print("<span  class=\"menuheader\" "+e_attrs1+">");
+      bstm*
+      out.print("</span>"); ]|
+    with  e_attrs1 := <to-html-attrs> passign* 
+        ; bstm* := <filter(menuheader-elem-to-java-servlet <+ elem-to-java-servlet <+ undefined-template-call); concat-with-sublists>elems
+
+  //TODO whats this about
+  menuheader-elem-to-java-servlet :
+    e@Text(elem) ->
+    bstm* |[ 
+    out.print("<a href=\"#\">");
+    bstm
+    out.print("</a>");
+    ]|
+    with bstm := <elem-to-java-servlet> e 
+
+  menuheader-elem-to-java-servlet :
+    TemplateCall("navigate",[call@ThisCall(p,args)],passign*,elems) ->
+    bstm* |[ 
+    out.print("<a href=\""+e_url+"\" "+e0+" "+e_attrs1+">");
+    bstm*
+    out.print("</a>");
+    ]|
+    where <IsPage> p
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+        ; if DropDownItems then
+            e0 := e |[ "class=\"trigger\"" ]|
+          else
+            e0 := e |[ "" ]|
+          end
+        ; bstm* := <elems-to-java-servlet> elems 
+        ; e_attrs1 := <to-html-attrs> passign* 
+
+  menuheader-elem-to-java-servlet :
+    TemplateCall("navigate", [ThisCall("url",[e])],passign*, elems) ->
+    bstm* |[ 
+    out.print("<a href=\"");
+    bstm_exptostring*
+    out.print("\" "+e0+" "+e_attrs1+">");
+    bstm*
+    out.print("</a>");
+    ]|
+    with  bstm_exptostring* := <to-page-string-java-servlet> e
+        ; if DropDownItems then
+            e0 := e |[ "class=\"trigger\"" ]|
+          else
+            e0 := e |[ "" ]|
+          end
+        ; bstm* := <elems-to-java-servlet> elems 
+        ; e_attrs1 := <to-html-attrs> passign* 
+
+  elem-to-java-servlet :
+    TemplateCall("menuitem", _,passign*, elems) ->
+    bstm* |[ 
+    out.print("<li class=\"menuitem\" "+e_attrs1+">");
+    bstm*
+    out.print("</li>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems 
+        ; e_attrs1 := <to-html-attrs> passign* 
+
+  elem-to-java-servlet :
+    TemplateCall("menuspacer", attrs,passign*, []) ->
+    bstm* |[ 
+    out.print("<li "+e_attrs1+">");
+    bstm
+    out.print("</li>");
+    ]|
+    with  bstm := <elem-to-java-servlet> TemplateCall("horizontalspacer",attrs,passign*, []) 
+        ; e_attrs1 := <to-html-attrs> passign* 
+    

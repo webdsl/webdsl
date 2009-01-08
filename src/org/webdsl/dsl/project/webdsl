@@ -1,0 +1,630 @@
+#!/bin/bash
+
+# Author: Zef Hemel (zef@zefhemel.com)
+
+export prefix=/usr/local
+export datarootdir=${prefix}/share
+
+SEAMPROJECTDIR=.seamapp
+SERVLETPROJECTDIR=.servletapp
+PYTHONPROJECTDIR=dist
+
+function stop_jboss {
+  ps a | grep jboss | grep java | grep -oE "^\s*[0-9]+" | xargs kill
+  for i in `seq 1 20`;
+  do
+    if [ `ps a | grep jboss | grep java | wc -l` == 0 ]; then
+      echo "JBoss stopped."
+      return 0
+    else
+      echo "JBoss still shutting down. Waiting another 5 seconds."
+    fi
+    sleep 5
+  done
+  echo "Gave on waiting."
+  return 1
+}
+
+function start_jboss {
+  echo "Starting JBoss..."
+  screen -d -m $JBOSSPATH/bin/run.sh -b 0.0.0.0
+   for i in `seq 1 20`;
+   do
+     sleep 5
+     echo "Checking if JBoss is running yet..."
+     curl http://localhost:8080 > /dev/null 2> /dev/null
+     if [ "$?" == 0 ]; then
+       echo "Yep!"
+       echo "You can watch the JBoss output by running 'screen -r', to detach the screen press Ctrl-a-d"
+       return 0
+     else
+       echo "Nope, not yet, waiting another 5 seconds..."
+     fi
+   done  
+   echo "Gave up."
+   return 1
+}
+
+function restart_jboss {
+  stop_jboss
+  start_jboss
+}
+
+function load_config {
+  echo "Loading application settings (application.ini)..."
+  if [ -f "application.ini" ]
+  then
+    . application.ini
+    if [ "$BACKEND" != "python" ]; then
+      NEEDED_SETTINGS="APPNAME, DBSERVER, DBUSER, DBPASSWORD, DBNAME, JBOSSPATH, DBMODE, TOMCATPATH, BACKEND"
+      GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
+      SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
+      if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
+      then
+        echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
+        echo -n "Want to adapt your application.ini now? [y/n] "
+        read ANSWER
+        if [ "$ANSWER" == "y" ]
+        then
+          APPNAME=`basename \`pwd\``
+          create_config $APPNAME
+          echo "Adapted application.ini. Run webdsl again to compile your project."
+        fi
+        return 0
+        fi
+      return 1
+    else
+      return 1
+    fi
+  else
+    echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n] "
+    read ANSWER
+    if [ "$ANSWER" == "y" ]
+    then
+      APPNAME=`basename \`pwd\``
+      echo "Creating application.ini for application with name $APPNAME."
+      create_config $APPNAME
+      echo "Created application.ini. Run webdsl again to compile your project."
+    fi
+    return 0
+  fi
+}
+
+function create_config {
+  echo "---- Back-end choice ----"
+  echo "available back-ends: servlet, python"
+  if [ "$BACKEND" == "" ]; then
+     BACKEND=servlet
+  fi
+  echo -n "Back-end [$BACKEND]: "
+  read BACK_END
+  if [ "$BACK_END" != "" ]
+  then
+     BACKEND=$BACK_END
+  fi
+
+  if [ "$BACKEND" != "python" ]; then
+    echo "---- Database information ----"
+    echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
+    if [ "$DBSERVER" == "" ]; then
+       DBSERVER=localhost
+    fi
+    echo -n "MySQL Host [$DBSERVER]: "
+    read DB_SERVER
+    if [ "$DB_SERVER" != "" ]
+    then
+       DBSERVER=$DB_SERVER
+    fi
+
+    if [ "$DBUSER" == "" ]; then
+       DBUSER=webdsluser
+    fi
+    echo -n "MySQL Username [$DBUSER]: "
+    read DB_USER
+    if [ "$DB_USER" != "" ]
+    then
+       DBUSER=$DB_USER
+    fi
+    
+    if [ "$DBPASSWORD" == "" ]; then
+       DBPASSWORD=webdslpassword
+    fi
+    echo -n "MySQL Password [$DBPASSWORD]: "
+    stty -echo
+    read DB_PASSWORD
+    stty echo
+    echo
+    if [ "$DB_PASSWORD" != "" ]
+    then
+       DBPASSWORD=$DB_PASSWORD
+    fi
+
+    if [ "$DBNAME" == "" ]; then
+       DBNAME=webdsldb
+    fi
+    echo -n "MySQL Database [$DBNAME]: "
+    read DB_NAME
+    if [ "$DB_NAME" != "" ]
+    then
+       DBNAME=$DB_NAME
+    fi
+    if [ "$DBMODE" == "" ]; then
+       DBMODE=create-drop
+    fi
+    echo -n "Hibernate database mode (e.g. 'update' or 'create-drop') [$DBMODE] "
+    read DB_MODE
+    if [ "$DB_MODE" != "" ]
+    then
+       DBMODE=$DB_MODE
+    fi
+
+    echo "Now checking if database info works."
+    echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME > /dev/null 2> /dev/null
+    if [ "$?" == 0 ]
+    then
+       echo "Succesful!"
+    else
+       echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
+       echo -n "MySQL root password: "
+       stty -echo
+       read ROOTPW
+       stty echo
+       echo
+       if [ "$ROOTPW" == "" ]
+       then
+          mysqladmin -uroot create $DBNAME
+          echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
+       else
+     mysqladmin -uroot -p$ROOTPW create $DBNAME
+     echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
+       fi
+       echo "Now checking if database creation worked..."
+       `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
+       if [ "$?" == 0 ]
+       then
+          echo "Yes!"
+       else
+    echo "No, unfortunately you'll have to create the database yourself."
+       fi
+    fi
+  else
+    if [ "$DBMODE" == "" ]; then
+       DBMODE=create-drop
+    fi
+    echo -n "BigTable local database mode (either 'update' or 'create-drop') [$DBMODE] "
+    read DB_MODE
+    if [ "$DB_MODE" != "" ]
+    then
+       DBMODE=$DB_MODE
+    fi
+  fi
+
+  echo -n "Do you want to configure your application for sending email? [y/n] "
+  read SMTPANSWER
+  if [ "$SMTPANSWER" == "y" ]
+  then
+     echo -n "SMTP host [smtp-a.tudelft.nl]: "
+     read SMTPHOST
+     if [ "$SMTPHOST" == "" ]
+     then
+       SMTPHOST=smtp-a.tudelft.nl
+     fi
+
+     echo -n "SMTP port [465]: "
+     read SMTPPORT
+     if [ "$SMTPPORT" == "" ]
+     then
+       SMTPPORT=465
+     fi
+
+     echo -n "SMTP username []: "
+     read SMTPUSER
+
+     echo -n "SMTP password []: "
+     stty -echo
+     read SMTPPASS
+     stty echo
+     echo
+
+     echo -n "SMTP use SSL [true]: "
+     read SMTPSSL
+     if [ "$SMTPSSL" == "" ]
+     then
+       SMTPSSL=true
+     fi
+
+     echo -n "SMTP use TLS [false]: "
+     read SMTPTLS
+     if [ "$SMTPTLS" == "" ]
+     then
+       SMTPTLS=false
+     fi
+  else
+     SMTPHOST=localhost
+     SMTPPORT=25
+     SMTPSSL=false
+     SMTPTLS=false
+  fi
+  
+  
+  if [ "$BACKEND" == "seam" ]; then
+    echo "---- JBoss information ----"
+    if [ "$JBOSSPATH" == "" ]; then
+      JBOSSPATH=/opt/jboss
+    fi
+    echo -n "JBoss path for deployment [$JBOSSPATH]: "
+    read BOSSPATH
+    if [ "$BOSSPATH" == "" ]
+    then
+       BOSSPATH=$JBOSSPATH
+    fi
+    JBOSSPATH=$BOSSPATH
+  fi
+  
+  if [ "$BACKEND" == "servlet" ]; then
+    echo "---- Tomcat information ----"
+    if [ "$TOMCATPATH" == "" ]; then
+      TOMCATPATH=/opt/tomcat
+    fi
+    echo -n "Tomcat path for deployment [$TOMCATPATH]: "
+    read CATPATH
+    if [ "$CATPATH" == "" ]
+    then
+       CATPATH=$TOMCATPATH
+    fi
+    TOMCATPATH=$CATPATH
+  fi
+
+
+  echo "export BACKEND=$BACKEND" >> application.ini
+  echo "export TOMCATPATH=$TOMCATPATH" >> application.ini
+  echo "export JBOSSPATH=$JBOSSPATH" >> application.ini
+  echo "export APPNAME=$APPNAME" >> application.ini
+  echo "export DBSERVER=$DBSERVER" >> application.ini
+  echo "export DBUSER=$DBUSER" >> application.ini
+  echo "export DBPASSWORD=$DBPASSWORD" >> application.ini
+  echo "export DBNAME=$DBNAME" >> application.ini
+  echo "export DBMODE=$DBMODE" >> application.ini
+  echo "export SMTPHOST=$SMTPHOST" >> application.ini
+  echo "export SMTPPORT=$SMTPPORT" >> application.ini
+  echo "export SMTPUSER=$SMTPUSER" >> application.ini
+  echo "export SMTPPASS=$SMTPPASS" >> application.ini
+  echo "export SMTPSSL=$SMTPSSL" >> application.ini
+  echo "export SMTPTLS=$SMTPTLS" >> application.ini
+  
+  if [ "$BACKEND" == "seam" ]; then
+    rm -rf $SEAMPROJECTDIR
+  fi
+  if [ "$BACKEND" == "servlet" ]; then
+    rm -rf $SERVLETPROJECTDIR
+  fi
+  if [ "$BACKEND" == "python" ]; then
+    rm -rf $PYTHONPROJECTDIR
+  fi
+}
+
+function make_app_code {
+  load_config
+  if [ "$?" == 0 ]
+  then
+    return 1
+  fi
+  
+  if [ "$BACKEND" == "seam" ]; then
+    if [ ! -e "$SEAMPROJECTDIR" ]
+    then
+      export WEBDSLPATH=/usr/local
+      export DSLTOSEAM=/usr/local/bin/webdslc
+      export TEMPLATEPATH=${datarootdir}/webdsl/template
+      
+      export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+      export ESCAPED_JBOSSPATH=`echo $JBOSSPATH | sed 's/\\//\\\\\\//g'`
+  
+      echo "Creating Seam application in $SEAMPROJECTDIR..."
+      mkdir $SEAMPROJECTDIR
+      
+      cd $SEAMPROJECTDIR
+      #tar xzf $WEBDSLPATH/src/org/webdsl/dsl/project/template.tar.gz
+      cp -r $TEMPLATEPATH/* .
+      chmod -R u+w .
+      find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+      mv resources/GENERICAPP-prod-ds.xml resources/$APPNAME-prod-ds.xml
+      mv resources/GENERICAPP-dev-ds.xml resources/$APPNAME-dev-ds.xml
+      find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@JBOSSPATH@@/$ESCAPED_JBOSSPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+      cd ..
+    fi
+    
+    cp *.tbl *.ctree $SEAMPROJECTDIR/resources 2>/dev/null
+    
+    cd $SEAMPROJECTDIR
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xf - ) || (echo -n ""; exit 1)
+    # Move all non-.app files to the view/ directory (keeping directory structure intact)
+    tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (cd view; tar xf - ) || (echo -n ""; exit 1)
+    echo "Building application..."
+    make || exit 1
+    RET="$?"
+    cd ..
+    bash /usr/local/bin/webdsl-plugins || exit 1
+    return $RET
+  fi
+  if [ "$BACKEND" == "servlet" ]; then
+    if [ ! -e "$SERVLETPROJECTDIR" ]
+    then
+      export WEBDSLPATH=/usr/local
+      export DSLTOSEAM=/usr/local/bin/webdslc
+      export TEMPLATEPATH=${datarootdir}/webdsl/template-java-servlet
+      
+      export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+      export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
+  
+      echo "Creating Java Servlet application in $SERVLETPROJECTDIR..."
+      mkdir $SERVLETPROJECTDIR
+      cd $SERVLETPROJECTDIR
+      cp -r $TEMPLATEPATH/* .
+      chmod -R u+w .
+      find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+      find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@TOMCATPATH@@/$ESCAPED_TOMCATPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+      cd ..
+    fi
+    
+    cp *.tbl *.ctree $SERVLETPROJECTDIR/src/ 2>/dev/null
+    
+    cd $SERVLETPROJECTDIR
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xf - )  || (echo -n ""; exit 1)
+    # Move all non-.app files to the / directory (keeping directory structure intact)
+    tar -cf - `find .. ! -name "Makefile" ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || (echo -n ""; exit 1)
+    echo "Building application..."
+    make || exit 1
+    RET="$?"
+    cd ..
+    bash /usr/local/bin/webdsl-plugins || exit 1
+    return $RET
+  fi    
+  if [ "$BACKEND" == "python" ]; then
+    rm -rf $PYTHONPROJECTDIR
+    export WEBDSLPATH=/usr/local
+    export DSLTOSEAM=/usr/local/bin/webdslc
+    export TEMPLATEPATH=${datarootdir}/webdsl/template-python
+    
+    export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+    export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
+    export ESCAPED_PREFIX=`echo /usr/local | sed 's/\\//\\\\\\//g'`
+
+    echo "Creating Python AppEngine application in $PYTHONPROJECTDIR..."
+    mkdir $PYTHONPROJECTDIR
+    cd $PYTHONPROJECTDIR
+    cp -r $TEMPLATEPATH/* .
+    chmod -R u+w .
+    find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+    find . -type f -exec sh -c 'sed -e "s/@@PREFIX@@/$ESCAPED_PREFIX/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xf - ) || exit 1
+    # Move all non-.app files to the / directory (keeping directory structure intact)
+    tar -cf - `find .. ! -name "Makefile" ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || exit 1
+    echo "Building application..."
+    chmod +x maak
+    bash maak || exit 1
+    RET="$?"
+    cd ..
+    bash /usr/local/bin/webdsl-plugins || exit 1
+    echo "The resulting application is in $PYTHONPROJECTDIR."
+    return $RET
+  fi    
+  
+}
+
+function make_app {
+  make_app_code
+  if [ "$?" != 0 ]
+  then
+    return 1
+  fi
+  if [ "$BACKEND" == "seam" ]; then
+    cd $SEAMPROJECTDIR
+    echo "Now compiling generated Java code..."
+    ant archive
+    RET="$?"  
+    cd ..
+    if [ ! -e "dist" ]
+    then
+      mkdir dist
+    fi
+    cp $SEAMPROJECTDIR/dist/$APPNAME.ear $SEAMPROJECTDIR/resources/$APPNAME-dev-ds.xml dist
+    return $RET
+  fi
+  if [ "$BACKEND" == "servlet" ]; then
+    cd $SERVLETPROJECTDIR
+    echo "Now compiling generated Java code..."
+    ant compile
+    RET="$?"  
+    cd ..
+    return $RET
+  fi
+}
+
+echo "WebDSL script by Zef Hemel"
+
+commands="$*"
+if [ "$*" == "" ]; then
+  commands="build"
+fi
+
+if [ "$1" == "test" ]; then
+  rm -rf .seamapp
+  rm -rf .servletapp
+  rm -rf dist
+  rm -f application.ini
+  if [ "$3" == "" ]; then
+    for backend in servlet; do
+      echo BACKEND: $backend
+      bash $0 $1 $2 $backend || exit 1
+    done
+    exit 0
+  fi
+  if [ "$3" == "seam" ]; then
+  echo "export BACKEND=seam" >> application.ini
+  fi
+  if [ "$3" == "servlet" ]; then
+  echo "export BACKEND=servlet" >> application.ini
+  fi
+  if [ "$3" == "python" ]; then
+  echo "export BACKEND=python" >> application.ini
+  fi
+  echo "export TOMCATPATH=/dev/null" >> application.ini
+  echo "export JBOSSPATH=/dev/null" >> application.ini
+  echo "export APPNAME=$2" >> application.ini
+  echo "export DBSERVER=localhost" >> application.ini
+  echo "export DBUSER=whatever" >> application.ini
+  echo "export DBPASSWORD=whatever" >> application.ini
+  echo "export DBNAME=whatever" >> application.ini
+  echo "export DBMODE=whatever" >> application.ini
+  echo "export SMTPHOST=localhost" >> application.ini
+  echo "export SMTPPORT=1" >> application.ini
+  echo "export SMTPUSER=naam" >> application.ini
+  echo "export SMTPPASS=pass" >> application.ini
+  echo "export SMTPSSL=true" >> application.ini
+  echo "export SMTPTLS=true" >> application.ini
+  make_app
+  RET=$?
+  rm -rf .seamapp
+  rm -rf dist
+  rm -f application.ini
+  exit $RET
+fi
+
+for i in $commands; do
+  case "$i" in
+    "deploy" )
+       load_config
+       if [ "$?" == 0 ]
+       then
+         return 0
+       fi
+       if [ "$BACKEND" == "seam" ]; then
+         if [ ! -e "$SEAMPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $SEAMPROJECTDIR/
+         ant deploy
+         cd ..
+         echo "Application has been deployed. In a minute it should be available on http://localhost:8080/$APPNAME/"
+         if [ "$2" == "restart" ]; then
+           echo "Will now attempt to restart JBoss. This requires the 'screen' command, make sure it is installed."
+           restart_jboss
+         fi
+       fi
+       if [ "$BACKEND" == "servlet" ]; then
+         if [ ! -e "$SERVLETPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $SERVLETPROJECTDIR/
+         ant war
+         cd ..
+         echo "Application has been deployed. In a moment it should be available on http://localhost:8080/$APPNAME/" 
+       fi
+       if [ "$BACKEND" == "python" ]; then
+         if [ ! -e "$PYTHONPROJECTDIR" ]
+         then
+           make_app
+         fi
+         echo "Now deploying application..."
+         cd $PYTHONPROJECTDIR/
+         appcfg.py update .
+         cd ..
+         echo "Application has been deployed. You can test it at http://$APPNAME.appspot.com"
+       fi
+       ;;
+    "undeploy" )
+       load_config
+       if [ "$?" == 0 ]
+       then
+         return 0
+       fi
+       if [ "$BACKEND" == "seam" ]; then
+         if [ ! -e "$SEAMPROJECTDIR" ]
+         then
+           make_app_code
+         fi
+         echo "Now undeploying application..."
+         cd $SEAMPROJECTDIR/
+         ant undeploy
+         cd ..
+         echo "Application undeployed."
+       fi
+       ;;
+    "run" )
+       load_config
+       if [ ! -e "$PYTHONPROJECTDIR" ]
+       then
+         make_app
+       fi
+       if [ "$DBMODE" == "create-drop" ]; then
+         APPSWITCH="-c"
+       else
+         APPSWITCH=""
+       fi
+       dev_appserver.py $APPSWITCH $PYTHONPROJECTDIR
+       ;;
+    "new" )
+       echo -n "Application name (one word): "
+       read APPNAME
+       mkdir $APPNAME
+       cd $APPNAME
+       create_config $APPNAME
+       echo "Now creating bare-bones application in $APPNAME.app..."
+       mkdir stylesheets
+       cp ${datarootdir}/webdsl/new_project/*.app .
+       
+       sed "s/APPLICATION_NAME/$APPNAME/" hello.app > $APPNAME.app
+       rm hello.app
+       echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
+       ;;
+    "clean" )
+       echo "Removing project files"
+       rm -rf $SEAMPROJECTDIR
+       rm -rf $SERVLETPROJECTDIR
+       rm -rf $PYTHONPROJECTDIR
+       ;;
+    "cleanall" )
+       echo "Removing seam project files and dist directory."
+       rm -rf $SEAMPROJECTDIR dist
+       echo "Removing servlet project files and dist directory."
+       rm -rf $SERVLETPROJECTDIR
+       ;;
+    "code" )
+       make_app_code
+       if [ "$BACKEND" == "seam" ]; then
+         echo "Done, result is in $SEAMPROJECTDIR."
+       fi
+       ;;
+    "analyze" )
+       load_config
+       /usr/local/bin/webdslc -i $APPNAME.app --analysis --no-generation > /dev/null
+       ;;
+    "build" )
+       make_app
+       if [ "$?" == 1 ]
+       then
+         echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
+       fi
+       ;;
+    * )
+       echo "Options:"
+       echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
+       echo "     code : Compile your application to Java or Python code, but do not compile them."
+       echo "      new : Create a new, empty WebDSL application."
+       echo "   deploy : Deploys your application to JBoss."
+       echo "      run : Runs the application (Python AppEngine backend only)."
+       echo "  analyze : Perform various analyses on the application but do not generate code."
+       echo "    clean : Removes the created Seam project."
+       echo " cleanall : Removes the created Seam project and dist directory."
+       ;;
+  esac
+done
+

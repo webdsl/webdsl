@@ -1,0 +1,78 @@
+module org/webdsl/dsl/transformation/generic
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+strategies
+
+  desugar = desugar-generic-call
+
+  desugar : 
+    Define(_,_,fargs,_) -> RemoveMe()  //remove the original generic definition before code generation
+                                       //(it still exists in dynamic rules)
+    where not([]:= <get-generictype-args> fargs)
+
+  desugar-generic-call :
+    TemplateCall(x, args, [],[]){anno*} -> TemplateCall(y, args2, [],[]){anno*}
+    where def@Define(_,_, fargs, elems) := <TemplateWithGenerics;TemplateDefinition> <strip-annos> x 
+        ; generics := <get-generictype-args> fargs
+        ; (gargs,_) := <split-at(|<length> generics)> args      //get the generic arguments and check their type existence
+        ; <map( \ Var(gtype) -> True() where <type-exists> SimpleSort(gtype) \ )> gargs
+        ; not([] := generics)
+    with  typeencoding := <zip;map(encode-farg-for-generic-call <+ !"")> (fargs,args)
+        ; y := <concat; concat-strings> [[x], typeencoding]
+        ; (rewrites, realargs) := <zip; extract-generic-args> (fargs, args)
+        ; (fargs2, args2) := <unzip> realargs
+        ; <expand-generic-template(|y, fargs2, rewrites)> def
+  
+  encode-farg-for-generic-call :
+      (Arg(_, SimpleSort("EntityType")),Var(actualtype)) -> <concat-strings>["__",actualtype]
+      
+  extract-generic-args :
+      tupels  -> (rewrites, realargs)
+      with rwr := <filter(?(Arg(_, SimpleSort("EntityType")), _))> tupels
+         ; rewrites := <map( \ (Arg(name,_),Var(value)) -> (name, SimpleSort(value)) \ )> rwr //<strip-annos>
+         ; rlargs := <remove-all(?(Arg(_, SimpleSort("EntityType")), _))> tupels
+         ; realargs := <map(replace-bound-type-in-generic-arg(|rewrites) <+ id)> rlargs
+      
+  replace-bound-type-in-generic-arg(|rewrites) :
+      (Arg(name, sort), value) -> (Arg(name, sort2), value)
+      with  sort2 := <replace-bound-type-in-sort(|rewrites)> sort
+
+  replace-bound-type-in-sort(|rewrites) :
+      SimpleSort(t){anno*} -> t2{anno*}
+      where //tstripped := <strip-annos> t;
+           <fetch(?(tstripped, t2))> rewrites
+
+  replace-bound-type-in-sort(|rewrites) :
+      t@GenericSort(g,[s]){anno*} -> GenericSort(g,[s2]){anno*}
+      where not(g:= "EntityTypeNamed")
+          ;  s2:= <replace-bound-type-in-sort(|rewrites)> s
+
+  replace-bound-type-in-sort(|rewrites) :
+      GenericSort("EntityTypeNamed",[t]){anno*} -> tnew{anno*}
+      with //  tstripped := <strip-annos> t;
+           <fetch(?(tstripped, tnew))> rewrites
+
+  expand-generic-template(|name, fargs, rewrites) = ?_; where(<EmittedGenericTemplate> name)
+  
+  expand-generic-template(|name, fargs, rewrites) :
+    d@Define(mods,_,_,elems) -> d
+    where not(<EmittedGenericTemplate> name)
+    with {| InjectType :
+            rules( 
+              InjectType : SimpleSort(t) -> v  //replace Sorts
+                       where <fetch(?(t,v))> rewrites 
+              InjectType : GenericSort("EntityTypeNamed",[t]) -> v  //replace Sorts
+                       where <fetch(?(t,v))> rewrites                            
+              InjectType : Var(t) -> Var(v) //replace direct field access: (when calling other generic templates0
+                       where <fetch(?(t,SimpleSort(v)))> rewrites
+            )
+         ; elems2 := <topdown(try(InjectType))> elems
+         ; <emit-webdsl-code> Define(mods, <strip-annos> name, fargs, elems2)
+         ; rules ( EmittedGenericTemplate :+ name -> True() )
+         ; rules ( TemplateWithGenerics : name)
+         |}

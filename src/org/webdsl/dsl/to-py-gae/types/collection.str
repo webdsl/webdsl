@@ -1,0 +1,187 @@
+module org/webdsl/dsl/to-py-gae/types/collection
+
+imports 
+  libwebdsl-front
+
+rules
+
+  python-property-type(|e_name) :
+    GenericSort("Set", [s]) -> py-exp|[ db.ListProperty(e, name=e_name) ]|
+    with e := <python-type> s
+
+  python-type :
+    GenericSort("Set", _) -> py-exp|[ webdsl.querylist.QuerySet ]|
+
+  python-type-default-value :
+    GenericSort("Set", _) -> py-exp|[ webdsl.querylist.QuerySet([]) ]|
+
+  python-type :
+    GenericSort("List", _) -> py-exp|[ webdsl.querylist.QueryList ]|
+
+  python-type-default-value :
+    GenericSort("List", _) -> py-exp|[ webdsl.querylist.QueryList([]) ]|
+
+  python-property-type(|e_name) :
+    GenericSort("List", [s]) -> py-exp|[ db.ListProperty(e, name=e_name) ]|
+    with e := <python-type> s
+  
+rules // expressions
+
+   expression-to-python : // The version with items (!= []) will be desugared in desugar.str
+     TypedListCreation(s, []) -> py-exp|[ webdsl.querylist.QueryList([]) ]|
+
+   expression-to-python :
+     TypedSetCreation(s, []) -> py-exp|[ webdsl.querylist.QuerySet([]) ]|
+
+rules // select from list
+
+  py-page-elem-to-render :
+    SelectFromList(e, e_in) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        out.write('<select name="' + field_id + '">');
+        for item in e_coll: {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(unicode(item.id), True) + '">');
+            out.write(cgi.escape(unicode(item.name), True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where SimpleSort(x_type) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_coll := <expression-to-python> e_in
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-databind :
+    SelectFromList(e, e_in) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = data.x_type.fetch_by_id(self.rh.request.get( field_id ));
+        };
+    ]|    
+    where SimpleSort(x_type) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
+    SelectFromList(e, e_in) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        out.write('<select multiple="multiple" name="' + field_id + '">');
+        for item in e_coll: {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(unicode(item.id), True) + '">');
+            out.write(cgi.escape(unicode(item.name), True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where GenericSort(_, [SimpleSort(x_type)]) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+       ; e_coll := <expression-to-python> e_in
+
+  py-page-elem-to-databind :
+    SelectFromList(e, e_in) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = [];
+            for item_id in self.rh.request.params.getall(field_id): {
+              e_target.append(data.x_type.fetch_by_id(item_id));
+            };
+        };
+    ]|    
+    where GenericSort(_, [SimpleSort(x_type)]) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+rules // Select
+
+  py-page-elem-to-render :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        out.write('<select name="' + field_id + '">');
+        for item in webdsl.querylist.AllDbQuerySet(data.x_type): {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(unicode(item.id), True) + '">');
+            out.write(cgi.escape(unicode(item.name), True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where SimpleSort(_) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-databind :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = data.x_type.fetch_by_id(self.rh.request.get( field_id ));
+        };
+    ]|    
+    where SimpleSort(_) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-render :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        out.write('<select multiple="multiple" name="' + field_id + '">');
+        for item in webdsl.querylist.AllDbQuerySet(data.x_type): {
+            if e_target == item: {
+                out.write('<option selected="selected" ');
+            } else: {
+                out.write('<option ');
+            };
+            out.write('value="' + cgi.escape(unicode(item.id), True) + '">');
+            out.write(cgi.escape(unicode(item.name), True));
+            out.write('</option>');
+        };
+        out.write('</select>');
+    ]|    
+    where GenericSort(_, _) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+
+  py-page-elem-to-databind :
+    Select(x, SimpleSort(x_type), label, e) ->
+    python*|[
+        field_id = webdsl.utils.generateUniqueFieldName( e_data,  e_fld ,  self );
+        if is_submitted_form: {
+            e_target = [];
+            for item_id in self.rh.request.params.getall(field_id): {
+              e_target.append(data.x_type.fetch_by_id(item_id));
+            };
+        };
+    ]|    
+    where GenericSort(_, _) := <type-of> e
+    with e_target := <expression-to-python> e
+       ; e_fld := <concat-strings> ["'", <pp-webdsl> e, "'"]
+       ; e_data := <py-get-data-object> e
+

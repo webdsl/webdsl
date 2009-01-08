@@ -1,0 +1,63 @@
+module org/webdsl/dsl/transformation/template-overloading
+
+imports 
+  libstrategolib
+  
+imports 
+  libwebdsl-front
+
+rules //TODO proper overload resolution
+
+  resolve-overloaded-templates =
+    topdown(try(template-overloading))
+  
+  template-overloading = resolve-overloaded-template-definition
+  template-overloading = resolve-overloaded-template-call
+           
+  resolve-overloaded-template-definition :
+    def@Define([Template()], name, args1, body1) -> <declare-template-definition> Define([Template()], y, args1, body1)
+    where {| RenameTemplateVar
+           : n := <strip-annos> name
+           ; if <is-overloaded-template> def then
+               y := <OverloadedTemplateSignature> (n, <map(?Arg(_,<id>))> args1)
+             else
+               y := n
+             end
+           |}
+ 
+  resolve-overloaded-template-call :
+    TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x2, e1*,passign*, elem1*)
+    where <is-call-to-overloaded-template> x1
+    with  t* := <map(type-of)> e1*
+        ; x2 := <OverloadedTemplateSignature> (x1, t*)
+
+rules //utils //TODO check which ones are still needed
+
+  contains-template-call =
+    where ( sometd(?TemplateCall(name, args,_, _))
+          ; <TemplateSignature> (name, <map(type-of)> args) )
+    
+  get-superclass :
+    SimpleSort(s) -> SimpleSort(<find-superclass> s)
+    
+  get-superclass :
+    GenericSort(k, [SimpleSort(s)]) -> GenericSort(k, [<get-superclass> SimpleSort(s)])
+
+  find-superclass =
+    Extends ; not(?"Object") ; find-superclass <+ id
+
+  is-page-or-template =
+    ?def |[ define mod* x(farg*) { elem* } ]| ; where ( [Page()] := mod* <+ [Template()] := mod* )
+
+  is-overloaded-template =
+    ?def |[ define template x(farg*) { elem* } ]| ; where (<bagof-TopLevelTemplateDefinitions;length;not(?0);not(?1)> <strip-annos> x)
+    
+  is-call-to-overloaded-template =
+    where ( bagof-TopLevelTemplateDefinitions;length;not(?0);not(?1) )
+  
+  is-toplevel-template =
+    where ( bagof-TopLevelTemplateDefinitions;length;not(?0) )
+  
+  is-call-to-toplevel-template =
+    ?TemplateCall(name, args,_, _) ; where ( <TemplateSignature> (name, <map(type-of)> args); <is-toplevel-template> name )
+

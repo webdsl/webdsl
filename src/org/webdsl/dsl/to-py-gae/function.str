@@ -1,0 +1,98 @@
+module org/webdsl/dsl/to-py-gae/function
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+imports 
+  org/webdsl/dsl/to-py-gae/-
+  
+strategies
+  PyGenerateCode = py-global-functions-to-code; fail
+  PyGenerateCode = py-global-variables-to-code; fail
+
+  py-global-functions-to-code =
+    ?Section(nm, defs)
+    ; <filter(py-global-function-to-code)> defs
+
+  py-global-variables-to-code =
+    ?Application(_, sections)
+    ; part1 := <collect(\ Section(_, defs) -> <filter(py-global-var-to-code-part1)> defs \;concat)> sections
+    ; part2 := <collect(\ Section(_, defs) -> <filter(py-global-var-to-code-part2)> defs \;concat)> sections
+    //; part2 := <filter(py-global-var-to-code-part2)> sections
+    ; <emit-python(|"global_variable")> <concat> [part1, part2]
+
+  py-global-function-to-code =
+    ?Function(x_fun, farg*, _, Block(stat*)) 
+    ; e* := [py-exp|[ self ]| | <map(\ Arg(x, _) -> py-exp|[ x ]| \)> farg*]
+    ; {| PyInFunction
+       : rules ( PyInFunction := True() )
+       ; stm* := <statements-to-python> stat*
+       |}
+    ; <emit-python(|"function")> python*|[
+        def x_fun(e*): {
+          import global_variable;
+          stm*
+        };
+      ]|
+
+
+  py-global-var-to-code-part1 :
+    VarDeclInit(x, srt, obj@ObjectCreation(_, assign*)) -> 
+         python*|[
+           x = e2.get();
+           if not x: {
+             x_created = True;
+             x = e_create;
+           } else: {
+             x_created = False;
+           };
+         ]|
+    with e_type := <python-type> srt
+       ; filters := <filter(py-global-var-assign-to-filter(|x))> assign*
+       ; e_start := py-exp|[ e_type.all() ]|
+       ; e2 := <foldr(!e_start, \ (tuple, e) -> <py-add-gae-filter(|tuple)> e \)> filters
+       ; e_create := <python-type-default-value> srt
+       ; x_created := <concat-strings> [x, "_created"]
+
+  py-global-var-assign-to-filter(|x) :
+    ObjectPropertyAssignment(f, e) -> (f, "eq", e)
+    where <type-of; is-simple-sort; not(?SimpleSort("Secret"))> FieldAccess(Var(x), f)
+
+  py-global-var-assign-to-filter(|x) :
+    ObjectPropertyAssignment(f, e) -> (f, "eq", e2)
+    where <type-of; ?SimpleSort("Secret")> FieldAccess(Var(x), f)
+    with e2 := exp|[ (e as Secret).digest() ]|
+
+  py-global-var-to-code-part2 :
+    VarDeclInit(x, srt, obj@ObjectCreation(_, assign*)) -> 
+         python*|[
+           if x_created: {
+             import global_variable;
+             stm*
+             x.put();
+           };
+         ]|
+
+    with e_type := <python-type> srt
+       ; x_created := <concat-strings> [x, "_created"]
+       ; {| InGlobal
+          : rules ( InGlobal := True() )
+          ; stm* := <map(\ObjectPropertyAssignment(x,y)-> Assignment(x,y)\; py-assignment-to-python-assignment(|x))> assign*
+          |}
+
+  py-assignment-to-python-assignment(|x) :
+    Assignment(x_f, e) -> python|[ x.x_f = e2; ]|
+    where not(SimpleSort("Secret") := <type-of> FieldAccess(Var(x), x_f))
+    with e2 := <expression-to-python> e
+
+  py-assignment-to-python-assignment(|x) :
+    Assignment(x_f, e) -> python|[ x.x_f = (md5.md5(e2)).hexdigest(); ]|
+    where SimpleSort("Secret") := <type-of> FieldAccess(Var(x), x_f)
+    with e2 := <expression-to-python> e
+
+  py-add-gae-filter(|filter) :
+    e -> py-exp|[ e.filter(e_propeq, e_value) ]|
+    with (prop, type, value) := filter
+       ; e_value := <expression-to-python> value
+       ; e_propeq := <concat-strings> ["'", prop, " ='"]

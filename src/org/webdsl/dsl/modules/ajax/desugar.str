@@ -1,0 +1,66 @@
+module org/webdsl/dsl/modules/ajax/desugar
+   
+imports
+  libstrategolib  
+  libwebdsl-front
+
+rules
+
+
+  //desugar InlineAction
+ desugar : 
+    Define(mods, name, args, elems) -> Define(mods, name, args, elems2)
+    where not(<RemovedInlineActions> name)
+    with rules( RemovedInlineActions : name )
+       ; {| InsertedActions  
+          : elems1 := <alltd(desugar-inline-action-call)> elems
+          ; elems2 := <concat; alltd(rename-action); rename-all> [elems1, <bagof-InsertedActions>]
+         |}
+
+  desugar-inline-action-call :
+    InlineAction(Block(e1)) -> <rename> ThisCall(fun, params)
+    with  fun := <newname> "inline_action" 
+        ; {| Param, IgnoreVars
+           : <alltd(find-lifting-params)> e1
+           ; params := <bagof-Param>
+          |}
+        ; {| RewriteFieldAccessToFarg
+           : farg* := <map(lifting-param-to-farg)> params
+           ; e2 := <alltd(RewriteFieldAccessToFarg)> e1
+          |}
+        ; newaction := <rename-action; declare-action> Action(fun, farg*, <rename-all> Block(e2))
+        ; rules( InsertedActions :+= newaction )    
+
+  lifting-param-to-farg :
+    Var(x) -> farg|[ x : srt ]|
+    where srt := <type-of> Var(x)
+
+  find-lifting-params =
+    ?v@Var(x)
+    ; not(<IgnoreVars> v)
+    ; not("Component" := <type-of> v)
+    ; rules( Param :+= v )
+    ; rules( IgnoreVars : v )
+
+  desugar : 
+    Define(mods, name, args, elems) -> Define(mods, name, args, <rename-all> elems1)
+    where not(<RemovedInlineTemplateCalls> name)
+    with rules( RemovedInlineTemplateCalls : name )
+       ; {| InsertedTemplates
+          : elems1 := <alltd(desugar-inline-template-call)> elems
+         |}
+
+  desugar-inline-template-call :
+    AjaxAction(action, div, InlineTemplateCall(e1)) -> AjaxAction(action, div, ThisCall(template, params)) //add bound variables?
+    where (action := "replace" <+ theaction := "append") 
+    with  template := <newname> "inline_template" 
+        ; {| Param, IgnoreVars
+           : <alltd(find-lifting-params)> e1
+           ; params := <bagof-Param>
+          |}
+        ; {| RewriteFieldAccessToFarg
+           : farg* := <map(lifting-param-to-farg)> params
+           ; e2 := <alltd(RewriteFieldAccessToFarg)> e1           
+          |}
+        ;  <emit-webdsl-code> Define([], template, farg*, e2)
+        

@@ -1,0 +1,196 @@
+module org/webdsl/dsl/modules/styling/to-css/style-to-css
+
+imports 
+  libstrategolib  
+  libjava-front 
+  libwebdsl-front
+  
+rules
+  /**
+   * Generate css based on style definition
+   */
+  GenerateCode = stylesection-to-css; fail
+  
+  stylesection-to-css:
+    StyleSection(name, definitions) -> s
+    with {| ThisPage
+           : rules ( ThisPage := name )
+           ; s := <emit-css> Stylesheet(<collect(styledefinition-to-css); flatten-list> definitions)
+//           ; <debug> ["==========s", s]
+//           ; <debug> ""
+           |}
+
+  styledefinition-to-css:
+    StyleDefinition(selector, stat*) -> 
+      rule |(
+         sel0 {
+           decl0*
+         }
+      )|
+    with {| ThisSelector
+           : rules ( ThisSelector := selector )
+           ; sel0 := <selector-to-css> selector
+           ; decl0* := <map(styledeclarations-to-css)> stat*
+           |}
+//        ; <debug> ["_______StyleDefinition:", sel0, stat*]
+
+
+  styledeclarations-to-css =
+    styledeclaration-to-css <+ generic-declaration-to-css
+        
+  generic-declaration-to-css:
+    StyleDeclaration(property, value) ->
+      decl |(
+        prop: val;
+      )|
+    with  prop := <style-expression-to-css> property
+//        ; <debug> ["____styledecl:", value]
+        ; val := <style-expression-to-css> value
+//        ; <debug> [".....:", val]
+
+  style-expression-to-css =
+    style-properties-to-css
+    <+ style-values-to-css
+
+rules
+
+  style-properties-to-css =
+    style-property-to-css <+ other-property-to-css
+
+  style-property-to-css :
+    StyleProperty("image") -> |( background-image )|
+
+  other-property-to-css :
+    StyleProperty(prop) -> |( prop )|
+  
+rules
+
+  style-values-to-css =
+    style-value-to-css <+ other-value-to-css /* <+ style-value-exp-to-css //MW: added style-value-exp-to-css
+    
+  style-value-exp-to-css :
+    s@StyleValueExpression(selector, propertype) -> val
+    with  debug(!"Try to rewrite style value expression") //TODO: maybe code is not renamed at forehand?
+          ;val := <resolve> s
+          ;debug(!"Rewrote StyleValueExpression to ")
+    */
+    
+  style-value-to-css :
+    StyleValue(Uri(str1)) -> |( url(str2) )|
+    with str2 := <concat-strings; double-quote> [<AppRoot>, "/", <un-double-quote> str1]
+
+  style-value-to-css :
+    StyleValue(Hash(color)) -> |( val )|
+    with val := <value-to-color> color
+
+  style-value-to-css :
+    StyleValueExtension(v) -> <style-values-to-css> v'
+    with v' := StyleValue(v)
+
+  style-value-to-css :
+    StyleValue(StyleSort(sort), [valex]) -> |( val )|
+    with val := <style-values-to-css> valex
+  
+  other-value-to-css :
+    StyleValue(val, unit) -> |( val unit )|
+    
+  other-value-to-css :
+    StyleValue(val) -> |( val )|
+
+rules
+
+// (DescendantCombinator,SimpleSelector(MatchDefinition("menuitem",[])),Some(SelectorAttribute("hover")))
+
+  selector-to-css :
+    Selector(simple-selector, s*) -> sel |( ssel0 combsel* )|
+//    Selector(simple-selector, s*) -> sel |( ssel0 )|
+    where not([] := s*)
+    with  ssel0 := <selector-to-css> simple-selector
+       ; combsel* := <map(selector-to-css)> s*
+
+
+//    ; !<concat-strings> [<selector-to-css> simple-selector, " ", <selector-to-css> s*]
+    
+  selector-to-css :
+    Selector(simple-selector, []) -> <selector-to-css> simple-selector
+/*  
+  selector-to-css =
+    ?[s|s*]
+    ; !<concat-strings> [<selector-to-css> s, " ", <selector-to-css> s*]
+
+  selector-to-css :
+    [s] -> <selector-to-css> s
+*/  
+
+// cannot use with in following conditions,  since rules overlap
+
+  selector-to-css :
+    (c, selector, None()) -> combsel |( comb ssel )|
+    with  comb := <combinator-to-css> c
+        ; ssel := <selector-to-css> selector
+        
+/*  selector-to-css =
+    ?(c, selector, pseudo-selector)
+    ; !<concat-strings> [<combinator-to-css> c, " ", <selector-to-css> selector, ":", <selector-to-css> pseudo-selector]
+  */  
+  selector-to-css :
+    (c, selector, Some(pseudo-selector)) -> combsel |( comb ssel )|
+    with  comb := <combinator-to-css> c
+        ; ssel := <selector-to-css> (selector, pseudo-selector)
+
+  selector-to-css :
+    (c, selector, p@pseudo-selector) -> combsel |( comb ssel )|
+    where not(Some(_) := p)
+    with  comb := <combinator-to-css> c
+        ; ssel := <selector-to-css> (selector, pseudo-selector)
+//        ; <selector-to-css> pseudo-selector
+
+//    ; !<concat-strings> [<combinator-to-css> c, " ", <selector-to-css> selector, ":", <selector-to-css> pseudo-selector]
+
+  selector-to-css :
+    (ElemSimpleSelector(s), a@SelectorAttribute(_)) -> CSSSimpleSelector(ElementName(s), [p])
+    where p := <selector-to-css> a
+  
+  selector-to-css :
+    ElemSimpleAttrSelector(s, a) -> CSSSimpleSelector(ElementName(s), p)
+    with p := <map(selector-to-css)> a
+
+  selector-to-css :
+    ElemClassAttrSelector(s, class, a) -> CSSSimpleSelector(ElementName(s), r)
+    with  p := <map(selector-to-css)> a
+        ; q := <selector-to-css> ClassSimpleSelector(class)
+        ; r := <concat>[[q],p]
+        
+  selector-to-css :
+    SimpleSelector(type, MatchDefinition(name, farg*)) -> <selector-to-class> //CSSSimpleSelector(IdSelector(name))
+  
+  selector-to-css :
+    SimpleSelector(MatchDefinition(name, farg*)) -> <name-to-css-id> name
+    where <debug> ["________error: ", <id>]
+      
+  selector-to-css :
+    IdSimpleSelector(name) -> CSSSimpleSelector(IdSelector(name))
+
+  selector-to-css :
+    ElemSimpleSelector(name) -> CSSSimpleSelector(ElementName(name))
+
+  selector-to-css :
+    ClassSimpleSelector(name) -> CSSSimpleSelector(Class(name))
+
+  selector-to-css :
+    UniversalSimpleSelector -> CSSSimpleSelector(ElementName("*"))
+
+  selector-to-css :
+    SelectorAttribute("first-child") -> Pseudo("first-child")
+
+  selector-to-css :
+    SelectorAttribute("before") -> Pseudo("before")
+
+  selector-to-css :
+    SelectorAttribute("hover") -> Pseudo("hover")
+
+  combinator-to-css :
+    ChildCombinator -> CSSChildCombinator
+
+  combinator-to-css :
+    DescendantCombinator -> CSSDescendantCombinator

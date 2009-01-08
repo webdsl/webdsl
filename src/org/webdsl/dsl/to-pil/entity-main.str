@@ -1,0 +1,776 @@
+ /**
+
+   Generate a JPA/Hibernate entity class from an entity declaration
+
+ */
+
+module org/webdsl/dsl/to-pil/entity-main
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/to-pil/property-events
+
+overlays
+  e_UTILS = expr|[ org.webdsl.tools.Utils ]|
+/*
+strategies
+
+   // @todo factor out code generation for properties to generate @Partial classes
+   
+  entity-cbds-equals(|x_Class) = !
+    java |[
+      public boolean equals(Object o) {
+        //return o != null && e_UTILS.isInstance(o, x_Class.class) && e_UTILS.equal(((x_Class)o).getId(), getId());
+        return o != null 
+          && o instanceof org.webdsl.WebDSLEntity
+          && ((org.webdsl.WebDSLEntity) o).instanceOf("~x_Class") 
+          && e_UTILS.equal(((o instanceof org.hibernate.proxy.HibernateProxy)? 
+               x_Class.class.cast( ((org.hibernate.proxy.HibernateProxy) o).getHibernateLazyInitializer().getImplementation()) 
+             : x_Class.class.cast(o)).getId(), getId());            
+      }
+    ]|
+
+   entity-to-java-entity :
+     EntityNoSuper(x_Class, props, functions) ->
+     <emit-java-code> compilation-unit|[
+       package pkgname;
+
+       @Entity
+       //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
+       @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
+       @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
+       public class x_Class implements org.webdsl.WebDSLEntity
+       {
+          public x_Class () {}
+
+          ~*idcodes
+          
+          ~*[<entity-cbds-equals(|x_Class)>]
+          ~*cbds_propertyevents
+
+          public int hashCode() {
+            if (getId() == null)
+              return super.hashCode();
+            else
+              return getId().hashCode();
+          }
+
+          public int compareTo(org.webdsl.WebDSLEntity o) {
+            return getId().compareTo(((x_Class)o).getId());
+          }
+
+          public boolean isInstance(Class<?> c) {
+            return c.isInstance(this);
+          }
+          
+          public boolean instanceOf(String s){
+            return s.equals("~x_Class")||s.equals("Object");
+          }
+
+          ~*cbds
+   
+       }
+     ]|
+     with  {| ClassName
+      : rules( ClassName := x_Class )
+      ; idcodes := <generate-id-code> x_Class
+      ; cbds := <properties-to-code(|x_Class)> props
+      ; pkgname := <DomainPackage>
+      ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
+      |}
+      
+
+   entity-to-java-entity :
+     SessionEntity(x_ident, props, functions) ->
+     <emit-java-code> compilation-unit|[
+       package pkgname;
+
+       @Entity
+       public class x_Class implements org.webdsl.WebDSLEntity
+       {
+        public x_Class () {}
+
+        @Id @GeneratedValue
+        private Long id;
+
+        public Long getId() { return id; }
+
+        public void setId(Long id) { this.id = id; }
+
+        ~*[<entity-cbds-equals(|x_Class)>]
+        ~*cbds_propertyevents
+
+        public int hashCode() {
+          if (getId() == null)
+            return super.hashCode();
+          else
+            return getId().hashCode();
+        }
+
+        public int compareTo(org.webdsl.WebDSLEntity o) {
+          return getId().compareTo(((x_Class)o).getId());
+        }
+
+        public boolean isInstance(Class<?> c) {
+          return c.isInstance(this);
+        }
+        
+        public boolean instanceOf(String s){
+          return s.equals("~x_Class")||s.equals("Object");
+        }
+
+        ~*cbds
+        ~*cbds1
+ 
+       }
+     ]|
+     with x_Class := <capitalize-string> x_ident
+    ; {| ClassName
+        : rules( ClassName := x_Class )
+        ; cbds := <properties-to-code(|x_Class)> props
+        ; cbds1 := <filter(property-to-session-prop-ids(|x_Class));try(concat)> props
+        ; pkgname := <DomainPackage>
+        ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
+        |}
+
+   entity-to-java-entity :
+     Entity(x_Class, x_super, props, functions) ->
+     <emit-java-code> compilation-unit|[
+       package pkgname;
+
+       @Entity
+       public class x_Class extends x_super implements org.webdsl.WebDSLEntity
+       {
+         public x_Class () {
+           instanceOfTypes#x_Class.add("~x_Class"); 
+           bstm*  
+         }
+
+         ~*[<entity-cbds-equals(|x_Class)>]
+         ~*cbds_propertyevents
+
+         public int hashCode() {
+           if (getId() == null)
+             return super.hashCode();
+           else
+             return getId().hashCode();
+         }
+
+         public int compareTo(org.webdsl.WebDSLEntity o) {
+           return getId().compareTo(((x_Class)o).getId());
+         }
+
+         public boolean isInstance(Class<?> c) {
+           return c.isInstance(this);
+         }
+         
+         //@org.hibernate.annotations.CollectionOfElements
+         @Transient
+         java.util.List<String> instanceOfTypes#x_Class = new java.util.LinkedList<String>();
+         
+         public boolean instanceOf(String s){
+           return instanceOfTypes#x_Class.contains(s);
+         }
+
+         ~*cbds
+   
+       }
+     ]|
+     with  {| ClassName
+         : rules( ClassName := x_Class )
+         ; cbds := <properties-to-code(|x_Class)> props
+         ; pkgname := <DomainPackage>
+           |}
+         ; {| SuperclassNames: 
+           <try(get-superclass-names(|x_Class))> x_Class 
+         ; bstm* := <bagof-SuperclassNames> 
+           |}
+         ; cbds_propertyevents := <entity-cbds-property-events-subclass(|x_Class)>
+      // @note: don't definne setupForPropertyEvents; it is inherited from superclass (EV)
+      // @note: don't define id on an entity with a super class; it
+      // is inherited from the super class
+      
+  get-superclass-names(|x_classname) : 
+    x_Class -> <get-superclass-names(|x_classname)> super 
+    where super := <Extends> x_Class 
+        ; rules(SuperclassNames :+= bstm|[ instanceOfTypes#x_classname.add("~super"); ]| )
+
+   entity-to-class-fails =
+     (?EntityNoSuper(_, _, _) <+ ?Entity(_,_,_,_))
+     ; err(|"cannot generate code for entity")
+   
+ strategies
+   generate-id-code =
+     ?x_Class
+     ; if <EntityIdName> x_Class then
+         x_idget := <concat-strings> ["get", <capitalize-string> <EntityIdName> x_Class]
+         ; x_idset := <concat-strings> ["set", <capitalize-string> <EntityIdName> x_Class]
+         ; t := <java-type> <EntityIdType> x_Class
+         ; !class-body-dec* |[
+            public t getId() { return x_idget(); }
+            public void setId(t val) { x_idset(val); }
+          ]|
+       else
+         !class-body-dec* |[
+           @Id @GeneratedValue
+           private Long id;
+
+           public Long getId() { return id; }
+
+           public void setId(Long id) { this.id = id; }
+         ]|
+       end
+
+   properties-to-code(|x_Class) :
+     props -> cbds
+     where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class)
+                                        | "cannot generate code for property: ")> props
+         ; cbds2 := <all-properties; name-property(|x_Class) <+ ![]> x_Class
+         ; cbds  := <concat>[cbds1, cbds2]
+
+
+ strategies
+
+   name-property(|x_Class) :
+     props -> class-body-dec* |[
+       public String getName() {
+         if(x_get()!=null)
+         {
+           return x_get().toString();
+         }
+         else
+         {
+           return "";
+         }
+       }
+     ]|
+     where <not(fetch(    ?Property             ("name",_,_,_  )
+                       <+ ?PropertyNoAnno       ("name",_,_    )
+                       <+ ?DerivedProperty      ("name",_,_,_,_)
+                       <+ ?DerivedPropertyNoAnno("name",_,_,_  )))> props
+         ; x_prop := <get-namefield> props
+         ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
+
+ rules
+
+*/
+   /**
+    * Property is a protected field with a getter and a setter.
+    */
+
+/*
+   property-to-property-code(|x_Class) :
+     prop@Property(x, k, s, annos) -> class-body-dec* |[
+
+       mod0* mod1* mod2* mod3* mod4* protected t _#x = e;
+       
+       public t get#x() {
+         return _#x;
+       }
+       
+       public void set#x(t newitem) {
+         if(!x#BeingSet) {
+           x#BeingSet = true;
+           
+           ~*bas*
+           bstm_setterextension*
+           _#x = newitem;
+         
+           x#BeingSet = false;
+         }
+       }
+       
+       @Transient boolean x#BeingSet = false;
+
+       ~*cbd*
+
+     ]|
+    where t      := <java-type> s
+        ; e      := <java-type-default-value> s
+        ; if x := <EntityIdName> x_Class then
+            mod0* := [anno|[ @Id ]|]
+          else
+            mod0* := []
+          end
+        ; mod1*  := <persistence-annotations> s
+        ; mod2*  := <property-to-persistence-annotations(|x_Class)> prop
+        ; mod3*   := <field-access-for-simple-sorts <+ ![]> prop
+        ; mod4*   := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-pil/types/file.str
+        ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
+        ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
+    with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
+          
+   field-access-for-simple-sorts:
+     prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
+
+   property-to-property-code(|x_Class) :
+     prop@DerivedProperty(x, k, s, annos, e) -> class-body-dec* |[
+
+       public t get#x() {
+         return ~e:gettercode;
+       }
+
+       ~*cbd*
+     ]|
+     where t      := <java-type> s
+         ; gettercode := <expression-to-pil> e
+         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
+         
+rules // special session entity props
+
+   property-to-session-prop-ids(|x_Class) :
+     prop@Property(x, k, s, annos) -> class-body-dec* |[
+
+       @Transient
+       protected String x#ident = "";
+       
+       public String get#x#ident() {
+         return x#ident;
+       }
+
+       public void set#x#ident(String newitem) {
+         x#ident = newitem;
+       }
+
+     ]|
+     where t := <defined-java-type> s // only succeeds for entity refs
+
+ rules // annotations for properties
+
+   property-to-persistence-annotations(|x_Class) :
+     Property(x_prop, k, s, annos) ->
+     <concat>[
+       <association-annotations(|x_Class, x_prop, annos)> s,
+       <cascade-annotations> k
+     ]
+
+
+ rules // association annotations
+
+   // Property with a value type
+
+   association-annotations(|x_Class, x_prop, annos) :
+     s@SimpleSort(y) -> []
+     where <builtin-java-type> s
+
+   // Property with a reference association type
+
+   // Many-to-One associations
+
+   association-annotations(|x_Class, x_prop, annos) :
+     s@SimpleSort(y) -> [anno]
+     where t := <defined-java-type> s
+         ; [] := <filter(?SimpleAnno(_))> annos
+         ; [] := <collect(?InverseAnno(_, _))> annos
+         ; [] := <collect(?InverseSlaveAnno(_, _))> annos
+         ; if <SubClass> y then
+             anno := anno|[ @ManyToOne(fetch=javax.persistence.FetchType.EAGER) ]|
+           else
+             anno := anno|[ @ManyToOne(fetch=javax.persistence.FetchType.LAZY) ]|
+           end
+
+   // bidirectional many-to-one controlling side
+   association-annotations(|x_Class, x_prop, annos) :
+     s@SimpleSort(y) ->
+     [
+       anno|[ @ManyToOne(fetch=javax.persistence.FetchType.LAZY) ]|,
+       anno|[ @JoinColumn(name="~columnname") ]|
+     ]
+     where t := <defined-java-type> s
+         ; [InverseAnno(ent, fld) | xs ]       := <collect(?InverseAnno(_, _))> annos
+         ; GenericSort(coll, [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+         ; columnname := <concat-strings>[x_Class, x_prop]
+
+
+   // Property with a reference one-to-one association type
+
+   // bidirectional one-to-one controlling side
+   association-annotations(|x_Class, x_prop, annos) :
+     s@SimpleSort(y) ->
+     [
+       anno|[ @OneToOne(fetch=javax.persistence.FetchType.LAZY) ]|,
+       anno|[ @JoinColumn(name="~x_fk") ]|
+     ]
+     where t := <defined-java-type> s
+         ; [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
+         ; SimpleSort(yy)                := <type-of-property> (ent, fld)
+         ; x_fk                          := <concat-strings> [x_Class, x_prop, "_fk"]
+
+   // bidirectional one-to-one inverse side
+   association-annotations(|x_Class, x_prop, annos) :
+     s@SimpleSort(y) ->
+     [
+       anno|[ @OneToOne(mappedBy="~mappedby",fetch=javax.persistence.FetchType.LAZY) ]|
+     ]
+     where t := <defined-java-type> s
+         ; [InverseSlaveAnno(ent, fld)|xs] := <collect(?InverseSlaveAnno(_, _))> annos
+         ; SimpleSort(yy) := <type-of-property> (ent, fld)
+         ; mappedby       := <concat-strings> ["_", fld]
+
+
+   // Collection types
+
+   // One-to-Many association
+
+   // bidirectional one-to-many inverse side
+   association-annotations(|x_Class, x_prop, annos) :
+     GenericSort(coll, [s]) -> [
+       anno|[ @OneToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
+     ]
+     where <?"Set" <+ ?"List"> coll
+         ; t := <defined-java-type> s
+         ; [InverseSlaveAnno(ent, fld)|xs] := <collect(?InverseSlaveAnno(_, _))> annos
+         ; SimpleSort(ident) := <type-of-property> (ent, fld)
+         ; x_ent             := <concat-strings> [ent, ".class"]
+         ; mappedby          := <concat-strings> ["_", fld]
+
+   // Many-to-Many associations
+
+   // unidirectional many-to-many
+   association-annotations(|x_Class, x_prop, annos) :
+     GenericSort(coll, [s@SimpleSort(ss)]) -> [
+       anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|,
+       anno|[ @JoinTable(name = "~tableName") ]|
+       ]
+    where <?"Set" <+ ?"List"> coll
+        ; t := <defined-java-type> s
+        ; [] := <collect(?InverseSlaveAnno(_, _))> annos
+        ; [] := <collect(?InverseAnno(_, _))> annos
+        ; tableName := <concat-strings> [x_Class, "_", x_prop]
+
+   // bidirectional many-to-many controlling side
+   association-annotations(|x_Class, x_prop, annos) :
+      GenericSort(coll, [s@SimpleSort(ss)]) ->
+      [
+        anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|,
+        anno|[ @JoinTable( name="~colname",
+                           joinColumns={@JoinColumn(name="~thisid")},
+                           inverseJoinColumns={@JoinColumn(name="~otherid")} )
+        ]|
+      ]
+    where <?"Set" <+ ?"List"> coll
+        ; t := <defined-java-type> s
+        ; [InverseAnno(ent, fld) | xs ] := <collect(?InverseAnno(_, _))> annos
+        ; colname   := <concat-strings> [x_Class, "_", x_prop, "_", ss]
+        ; thisid    := <concat-strings> [x_Class, "_id_this"]
+        ; otherid   := <concat-strings> [ent, "_id_other"]
+
+   // bidirectional many-to-many inverse side
+   association-annotations(|x_Class, x_prop, annos) :
+     GenericSort(coll, [s@SimpleSort(ss)]) ->
+       [
+         anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
+       ]
+     where <?"Set" <+ ?"List"> coll
+         ; t := <defined-java-type> s
+         ; [InverseSlaveAnno(ent, fld)|xs]  := <collect(?InverseSlaveAnno(_, _))> annos
+         ; x_ent                            := <concat-strings> [ent, ".class"]
+         ; mappedby                         := <concat-strings> ["_", fld]
+
+   association-annotations(|x_Class, x_prop, annos) :
+     GenericSort("Map", [s1, s2]) -> [anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|]
+     where t1 := <builtin-java-type> s1
+         ; t2 := <defined-java-type> s2
+
+   // Set of values.
+
+   association-annotations(|x_Class, x_prop, annos) :
+     GenericSort("Set", [s@SimpleSort(_)])->
+     [
+       anno|[
+         @org.hibernate.annotations.CollectionOfElements(targetElement = t.class)
+       ]|,
+
+       anno|[ @JoinTable(name = "~tableName") ]|, //, joinColumns = @JoinColumn(name = "~joincolumn")
+
+       anno|[ @Column(name = "~x_prop", nullable = false) ]|
+     ]
+     where t         := <builtin-java-type> s
+         ; x_Prop    := <capitalize-string> x_prop
+         ; tableName := <concat-strings>[x_Class, "_", x_Prop]
+
+  // Property with a composite association type,
+  // i.e., to a defined entity that is owned by x_Class.
+  // @note might be translated as @Embeddable
+
+  association-annotations(|x_Class, x_prop, annos) :
+    s@SimpleSort(y) ->
+    [
+      anno|[ @ManyToOne(fetch=javax.persistence.FetchType.LAZY) ]|,
+      anno|[ @JoinColumn(name = "~columnname") ]|
+    ]
+    where t          := <defined-java-type> s
+        ; x_Prop     := <capitalize-string> x_prop
+        ; columnname := <concat-strings>[x_Class, x_Prop]
+
+rules // cascading annotations
+
+  cascade-annotations :
+    Ref() -> [anno|[
+      @org.hibernate.annotations.Cascade({
+      org.hibernate.annotations.CascadeType.PERSIST,
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+    ]|]
+
+  cascade-annotations :
+    Comp() -> [anno|[
+      @org.hibernate.annotations.Cascade({
+      org.hibernate.annotations.CascadeType.ALL
+      })
+    ]|]
+
+  cascade-annotations :
+    Simple() -> []
+
+rules // special methods
+
+  property-to-special-getters(|x_Class) :
+    prop@Property(x, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public t get#x#List() {
+        return new ArrayList(get#x());
+      }
+
+      public void set#x#List(t x_listvar) {
+        //~*bas*
+        set#x(e_newgen);
+      }
+
+      public int get#x#Length() {
+        return get#x().size();
+      }
+
+      ~*cbds
+    ]|
+    where <?"Set" <+ ?"List"> coll
+    with  t         := <java-type> GenericSort("List", [SimpleSort(y)])
+        ; x_listvar := <newname> "list"
+        ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
+        //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
+        ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
+
+  property-to-special-getters(|x_Class) :
+    DerivedProperty(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos, expr) ->
+    class-body-dec* |[
+      public t x_getList() {
+        return new ArrayList(x_get());
+      }
+
+      public int x_getLength() {
+        return x_get().size();
+      }
+    ]|
+    where <?"Set" <+ ?"List"> coll
+    with  t         := <java-type> GenericSort("List", [SimpleSort(y)])
+        ; x_Prop    := <capitalize-string> x_prop
+        ; x_getList := <concat-strings>["get", x_Prop, "List"]
+        ; x_getLength := <concat-strings>["get", x_Prop, "Length"]
+        ; x_get     := <concat-strings>["get", x_Prop]
+     
+
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("List", [s]) -> |[ new java.util.ArrayList<t>(x_listvar) ]|
+    with  t := <java-type> s
+
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("Set", [s]) -> |[ new java.util.LinkedHashSet<t>(x_listvar) ]|
+    with  t := <java-type> s
+
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("Map", [s1,s2]) -> |[ new java.util.HashMap<t1,t2>(x_listvar) ]|
+    with  t1 := <java-type> s1
+        ; t2 := <java-type> s2  
+ 
+rules //associations  
+
+  inverse-mutation-in-setter(|x) :
+    prop@Property(x_prop, k, SimpleSort(y), annos) ->
+    bstm* |[
+        t_y item = newitem;
+        t_y oldthing = get#x_prop();
+        if(oldthing!= null && item == null){
+          item = oldthing;
+          bstm0*
+        }
+        else if(oldthing != null && item != null){
+          bstm1*
+          item = oldthing;
+          bstm0*
+        }
+        else if(oldthing == null && item != null ){
+          bstm1*
+        }
+    ]|
+    with  t_y       := <java-type> SimpleSort(y)
+        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
+        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
+  
+  collection-mutation-methods(|x_Class) :
+    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public void removeFrom#x_prop(t_y item) {
+        if(item != null && !x_prop#BeingSet) {
+          x_prop#BeingSet = true;
+          get#x_prop().remove(item);
+          bstm0*
+          bstm_removeextension*
+          x_prop#BeingSet = false;
+        }
+      }
+      
+      public void removeAllFrom#x_prop() { 
+        //force retrieval
+        org.hibernate.Hibernate.initialize(get#x_prop()); 
+        while(!get#x_prop().isEmpty()) {
+          removeFrom#x_prop(get#x_prop().iterator().next());
+        }
+      }
+
+      public void addTo#x_prop(t_y item) {
+        if(item != null && !x_prop#BeingSet) {
+          x_prop#BeingSet = true;        
+          t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
+          get#x_prop().add(item);
+          bstm1*
+          bstm_addextension*
+          x_prop#BeingSet = false;
+        }        
+      }
+    ]|
+    with  t_y       := <java-type> SimpleSort(y)
+        ; x_y       := <java-type-name> SimpleSort(y)
+        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
+        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
+        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
+        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
+
+  association-update-statements(s) :
+    annos -> bstm0*
+    where inverse := <filter(?InverseSlaveAnno(_, _) + ?InverseAnno(_, _))> annos
+        ; if [] := inverse then
+            bstm0* := []
+          else
+            bstm0* := <filter(s);concat-with-sublists> inverse
+          end   
+
+  remove-bidirectional-reference :
+    name#([x_c, x_p]) ->
+      bstm* |[
+        if ( item.x_getInverse().contains(this) ) {
+          item.x_getInverse().remove(this);
+        }
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <type-of-property> (x_c, x_p)
+        ; <?"Set" <+ ?"List"> coll
+    with  x_P := <capitalize-string> x_p
+        ; x_getInverse := <concat-strings>["get", x_P]
+
+  remove-bidirectional-reference :
+    name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; SimpleSort(_) := <type-of-property> (x_c, x_p)
+
+  add-bidirectional-reference :
+    name#([x_c, x_p]) ->
+      bstm* |[
+        if ( !item.get#x_p().contains(this) ) {
+          item.get#x_p().add(this);
+        }
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <type-of-property> (x_c, x_p)
+        ; <?"Set" <+ ?"List"> coll
+
+  add-bidirectional-reference :
+    name#([x_c, x_p]) ->
+      bstm* |[
+        //if (value.get#x_p() != this) {
+        item.set#x_p(this);
+        //}
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; SimpleSort(_) := <type-of-property> (x_c, x_p)
+        
+  
+  // one-to-many
+  bidirectional-association-setter :
+    Property(prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+      bstm* |[
+        for (t1 var1 : this.x_items()) {
+            var1.x_set(null);
+      }
+        for (t1 var1 : x_prop) {
+            if (var1.x_get() != this) {
+            var1.x_set(this);
+          }
+      }
+      ]|
+    where [InverseSlaveAnno(ent, fld) | xs] := <collect(?InverseSlaveAnno(_, _))> annos
+        ; <?"Set" <+ ?"List"> coll
+    with  SimpleSort(x_Class) := <type-of-property> (ent, fld)
+        ; t1					:= <java-type> SimpleSort(y)
+        ; x_set  				:= <property-setter> fld
+        ; x_get  				:= <property-getter> fld
+        ; x_prop 				:= <concat-strings>["_", prop]
+        ; x_items               := <property-getter> prop
+
+   // many-to-many
+   bidirectional-manytomany-setter(|x_listvar) :
+    Property(prop, k, s@GenericSort(coll1, [SimpleSort(y)]), annos) ->
+      bstm* |[
+          for (t1 var1 : this.x_prop()) {
+            if (!x_listvar.contains(var1)) {
+              var1.x_removeFrom(this);
+            }
+        }
+        for (t1 var1 : x_listvar) {
+          if (!this.x_prop().contains(var1)) {
+              var1.x_addTo(this);
+            }
+        }
+      ]|
+    where [name#([ent, fld])] := <filter(?InverseSlaveAnno(_, _))> annos
+        ; GenericSort(coll2, [SimpleSort(x_Class)]) := <type-of-property> (ent, fld)
+        ; <?"Set" <+ ?"List"> coll1
+        ; <equal> (coll1, coll2)
+    with  t1				  := <java-type> SimpleSort(y)
+        ; x_addTo             := <concat-strings> ["addTo", <capitalize-string> fld]
+        ; x_removeFrom        := <concat-strings> ["removeFrom", <capitalize-string> fld]
+        ; x_var 			  := <concat-strings>["_", prop]
+        ; x_prop 			  := <property-getter> prop
+
+   // many-to-one
+   bidirectional-association-setter :
+    Property(prop, k, SimpleSort(y), annos) ->
+      bstm* |[
+        if (x_prop != null && !x_prop.x_get().contains(this)) {
+          x_prop.x_addTo(this);
+        }
+      ]|
+    where [InverseAnno(ent, fld)] := <filter(?InverseAnno(_, _))> annos
+        ; GenericSort(coll, [SimpleSort(x_Class)]) := <type-of-property> (ent, fld)
+        ; <?"Set" <+ ?"List"> coll
+    with  x_addTo               := <concat-strings> ["addTo", <capitalize-string> fld]
+        ; x_prop 				:= <concat-strings>["_", prop]
+        ; x_get                 := <property-getter> fld
+
+   // one-to-one
+   bidirectional-association-setter :
+    Property(prop, k, SimpleSort(y), annos) ->
+      bstm* |[
+        if (x_prop != null && x_prop.x_get() != this) {
+          x_prop.x_set(this);
+        }
+      ]|
+    where [name#([ent, fld])] := <filter(?InverseAnno(_, _) + ?InverseSlaveAnno(_, _))> annos
+        ; SimpleSort(x_Class) := <type-of-property> (ent, fld)
+    with  x_prop 		      := <concat-strings>["_", prop]
+        ; x_get               := <property-getter> fld
+        ; x_set               := <property-setter> fld
+        */

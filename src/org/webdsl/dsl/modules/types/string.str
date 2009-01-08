@@ -1,0 +1,57 @@
+module org/webdsl/dsl/modules/types/string
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+
+rules
+  is-simple-sort = ?SimpleSort("String")  
+  extends-builtin : "String" -> "Object"
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("inputString",[SimpleSort("String")]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("outputString",[SimpleSort("String")]);fail
+  
+rules
+
+  type-default-value :
+    SimpleSort("String") -> exp|[ "" ]|
+  
+  eq-type-of :
+    String(x) -> SimpleSort("String")
+
+  check-builtin-signature :
+    (_, "toString", []) -> SimpleSort("String")
+
+rules // Desugar
+
+  DeriveInput :
+    elem|[ input(e)[passign*]{} ]| -> elem|[ inputString(e)[passign*]{} ]|
+    where SimpleSort("String") := <type-of> e
+        ; not(<get-select-anno> e)
+
+  DeriveInput : // for an inputSelectString, the property has an annotation 'select' that points to the values to select from
+    elem|[ input(e)[passign*]{} ]| -> elem|[ inputSelectString(e)[passign*]{} ]|
+    where SimpleSort("String") := <type-of> e
+        ; SelectAnno(srt) := <get-select-anno> e
+
+  get-select-anno = // gets the select anno or fails if there is none
+    ?exp|[ e_object.x_property ]|
+    ; SimpleSort(srt) := <type-of> e_object
+    ; <PropertyAnnos> (srt, x_property)
+    ; fetch-elem(?SelectAnno(_))
+
+  DeriveOutput :
+    elem|[ output(e)[passign*]{} ]| -> elem|[ text(e)[passign*]{} ]|
+    where SimpleSort("String") := <type-of> e
+
+
+rules //native string operations
+
+ check-builtin-signature :
+    (SimpleSort("String"), "contains", [s]) ->  SimpleSort("Bool")
+    where <type-compatible> (s, SimpleSort("String"))
+
+ check-builtin-signature :
+    (None(), "log", [s]) ->  SimpleSort("Void")
+    where <type-compatible> (s, SimpleSort("String"))

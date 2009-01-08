@@ -1,0 +1,120 @@
+module org/webdsl/dsl/to-java-servlet/global-init
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-global-init; fail
+
+  generate-java-servlet-global-init :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      import java.io.*;
+      import java.util.HashMap;
+  
+      import javax.servlet.*;
+      import javax.servlet.http.*;
+      import java.util.*;
+      import utils.*;
+      import pkgname.*;
+      import pkgname2.*;
+  
+      @Partial
+      public class GlobalInit {
+        private static org.hibernate.Session hibSession;
+        
+        static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
+          for(ApplicationContextProperty a : res){
+            if(a.getName().equals(name))	
+              return true;
+          }
+          return false;
+        }
+
+        static java.io.PrintWriter out;
+
+        @Partial private static void initialize(){}   
+        
+        private static HashMap<String, Object> variables = new HashMap<String,Object>(); 
+        private static PageServlet ps = new GlobalsPageServlet(variables);
+              
+        @Partial public static void initActions(){}
+        
+        public static void load(){
+            try
+            {	
+              //start hibsession
+              hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+              hibSession.beginTransaction();
+            
+              org.hibernate.Query q = hibSession.createQuery("from ApplicationContextProperty where name = '__global__init__'");
+              List<ApplicationContextProperty> res = q.list();
+              
+              if(res.isEmpty())
+              {
+                initialize();
+                initActions();
+                
+                ApplicationContextProperty flag = new ApplicationContextProperty();
+                flag.setName("__global__init__");
+                hibSession.save(flag);
+              }
+              
+              hibSession.getTransaction().commit();
+    
+            }	
+            catch (Exception ex) {
+              System.out.println("exception occured: "+ex.getMessage());	
+              ex.printStackTrace();
+              hibSession.getTransaction().rollback();
+            }   
+        }
+      }
+    ]|
+    with  pkgname    := <BeanPackage>
+        ; pkgname2   := <DomainPackage>
+        ; <map(load-init-global-variables-cbds-helper)> <AllGlobalVars> 
+    
+  load-init-global-variables-cbds-helper :   
+    elem |[ var x : srt := e ]| -> 
+    <emit-java-code>
+    compilation-unit|[
+      package utils;
+      @Partial
+      public class GlobalInit {
+        private static t x = null;
+        @Partial private static void initialize(){    
+          x = GlobalVariables.get#x(hibSession);
+          variables.put("~x", x);
+        }
+      }
+    ]| 
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+
+  GenerateCodeJavaServlet = where(not(InAction <+ InFunction <+ JavaInEntity <+ JavaThisPage <+ ThisTemplateName <+ NestedTemplate)); generate-global-init-java-servlet-code; fail
+
+  generate-global-init-java-servlet-code :
+    webdsl |[ init { stat* } ]| ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      @Partial
+      public class GlobalInit {
+        @Partial public static void initActions() {
+          bstm*        
+        }
+      }
+    ]|
+    with  
+    {| InAction :
+         rules(InAction := <id>)
+       ; bstm* := <statements-to-java-servlet> stat*
+    |}

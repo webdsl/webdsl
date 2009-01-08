@@ -1,0 +1,89 @@
+module org/webdsl/dsl/analysis/main
+
+imports
+  libstrategolib
+  Java-15
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+  
+  analyze-all =
+    analyze-definitions
+  ; topdown(try(analyze))
+ 
+  analyze = fail
+
+  analyze-definitions =
+    // TODO: use specific dynamic rules to record definitions,
+    //       as is done in org/webdsl/dsl/typechecker/declare?
+    rules(
+      Root := <id>
+    )
+
+  find-definition =
+    ?srt@SimpleSort(s)
+    ; where(<IsEntity> s)
+    ; find-definition(
+        // @TODO also find extend entities
+        ?Entity(s, _, _, _) <+ ?EntityNoSuper(s, _, _)
+      )
+  
+  // TODO: use type-compatible
+  
+  // TODO: find-definition: FieldAccess(e, "prop"), ...
+
+  find-definition =
+    ?TemplateCall(x, args,_, _)
+    ; where(argtypes := <map(type-of)> args)
+    ; find-definition(
+        {args: (Define(_, x, args, _) -> <id> where argtypes := <map(\Arg(_, srt) -> srt\)> args)}
+      )
+
+  find-definition =
+    ?ThisCall(x, args)
+    ; where(argtypes := <map(type-of)> args)
+    ; find-definition(
+        // @TODO Not entirely correct, entity functions with the same name and signature as global functions can als
+        // be found like this
+        {args: (Function(x, args, _, _) -> <id> where argtypes := <map(\Arg(_, srt) -> srt\)> args)}
+      )
+
+/*
+    get-properties-and-functions-aux(|s) :
+      Entity(s, super, props, funcs) -> (super, props, funcs)
+
+    get-properties-and-functions-aux(|s) :
+      EntityNoSuper(s, props, funcs) -> (None(), props, funcs)
+
+    get-properties-and-functions-aux(|s) :
+      ExtendEntity(s, props, funcs) -> (None(), props, funcs)
+      */
+
+  find-definition(s) =
+    find-memo(
+      Root
+    ; collect(s) => [<id> | _] // get the _latest_ definition
+    )
+
+  find-memo(s) =
+    FindMemo
+  <+
+    ?t => <s> => t'
+  ; rules(
+      FindMemo : t -> t'
+    )
+    
+  add-analysis-hint(|msgs) =
+    where(
+      ?t
+      ; context := <error-context>
+      ; !msgs
+      ; concat-strings
+      ; ?msg
+      ; info(|["Analysis: ", msg, context, " in: ", <pp-webdsl-to-string <+ strip-annos> t])
+    )
+  
+    

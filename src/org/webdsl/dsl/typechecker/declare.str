@@ -1,0 +1,381 @@
+module org/webdsl/dsl/typechecker/declare
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  
+strategies 
+
+  declare-all = alltd(declare-any) //initial declaration of globally visible elements
+    
+  declare-any = declare-entity  
+  declare-any = declare-extend-entity
+  declare-any = declare-page-definition
+  declare-any = declare-template-definition 
+  declare-any = declare-global-func
+  //also defined in modules, eg. /access-control/rename.str
+ 
+strategies // register all declared entities
+
+  inherit-object :
+    EntityNoSuper(x_class, props, functions) -> Entity(x_class, "Object", props, functions)
+
+  all-properties =
+    ?x_class
+    ; props := <bagof-Properties; concat> x_class
+    ; if not("Object" := <Extends> x_class) then
+        !<concat> [props, <Extends; all-properties> x_class]
+      end
+    ; uniq
+
+  all-functions =
+    ?x_class
+    ; functions := <bagof-Functions; concat> x_class
+    ; if not("Object" := <Extends> x_class) then
+        !<concat> [functions, <Extends; all-functions> x_class]
+      end
+    ; uniq
+
+rules
+
+  is-entity-type = ?SimpleSort(<IsEntity>)
+
+  declare-entity = 
+    where ( try(inherit-object)
+        ; ?Entity(x_class, x_super, props, funcs) )
+    ; with (id
+      ; rules(
+          Entities :+= x_class
+
+          IsEntity :+
+            x_class -> x_class
+
+          Properties :+
+            x_class -> props
+
+          Functions :+
+            x_class -> funcs
+
+          Extends :
+            x_class -> x_super
+
+          SubClasses :+
+            l -> [(x_super, x_class)|l] where not(<elem> ((x_super, x_class), l))
+
+          SubClass :+
+            x_super -> x_class
+
+          //DefinedJavaType :
+          //  SimpleSort(x_class) -> type|[ x_class ]|
+
+          //DefinedJavaTypeString :
+          //  SimpleSort(x_class) -> <concat-strings> [<packagename-to-string> <DomainPackage>, ".", x_class]
+        )
+      ; <map(declare-property(|x_class))> [NameProperty() | props]
+      ; <map(declare-function(|x_class))> funcs
+      ; <filter(extract-entity-id(|x_class))> props
+      ; not(<extend-entity-declare> Entity(x_class, x_super, props, funcs)) //for example used in typechecker/entity-events, ends in fail for extensibility
+    )
+
+  declare-entity = 
+    ?SessionEntity(nm, props, functions)
+    ; with (id
+      ; x_class := <capitalize-string> nm
+      ; rules(
+          TypeOf : nm -> SimpleSort(x_class)
+          IsSessionVariable : nm 
+          SessionVariable :+= nm
+        )
+      ; <declare-entity> Entity(x_class, "Object", props, functions)
+    )
+    
+  declare-extend-entity :
+    ExtendSessionEntity(x_class, props, funcs) -> ExtendSessionEntity(x_class, props, funcs)
+    with <declare-extend-entity> ExtendEntity(<capitalize-string> x_class, props, funcs)
+    
+  declare-extend-entity :
+    ExtendEntity(x_class, props, funcs) -> ExtendEntity(x_class, props, funcs)
+    with rules( Properties :+
+                  x_class -> props
+
+                Functions :+
+                  x_class -> funcs
+         )
+       ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
+       ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
+
+  extract-entity-id(|x_Class) =
+    ?Property(x, k, s, annos)
+    ; with(
+        if <fetch(?SimpleAnno("id"))> annos then
+          rules (
+            EntityIdType : x_Class -> s
+            EntityIdName : x_Class -> x
+          )
+        end
+      )
+
+  extract-entity-id(|x_Class) =
+    ?DerivedProperty(_, _, _, _, _)
+
+  declare-property(|x_class) =
+    ?prop@Property(x, k, s, annos)
+    ; where( y := x{<newname> x})
+    ; rules( TypeOfProperty : (x_class, x) -> s 
+             PropertyAnnos  : (x_class, x) -> annos
+             IsProperty     : (x_class, x)
+             //renaming to allow direct references to properties in entity functions/derived properties
+             //RenameProperty : (x_class,x) -> y
+             Rename :+ Var(x) -> Var(y) where x_class := <InEntity>
+             Rename :+ Qualified(x, z) -> Qualified(y, z) where x_class := <InEntity>
+             Rename :+ Stat(Assignment(x, e)) -> Stat(Assignment(y, <rename-all> e)) where x_class := <InEntity>
+             TypeOf : y -> s
+           )
+    ; where( escapedname := <concat-strings> ["_",x]
+           ; y1 := escapedname{y} 
+           )
+    ; rules( //don't add the new name in the generated code
+             ExcludeFromVarRenaming : Var(y) -> Var(y1)
+             ExcludeFromVarRenaming : Qualified(y, z) -> Qualified(y1, z)
+             ExcludeFromVarRenaming : Stat(Assignment(y, e)) -> Stat(Assignment(y1, <rename-identifiers> e))
+             TypeOf : y1 -> s
+             OriginalNonUniqueName : y1 -> x
+           )
+    ; try(declare-list-property(|x_class))
+    ; try(<create-prop-required-rule(|x_class,x)> annos)
+    ; not(<extend-property-declare(|x_class)> prop) //for example used in typechecker/property-events, ends in fail for extensibility
+    ; !prop
+    
+  declare-property(|x_class) =
+    ?PropertyNoAnno(x, k, s)
+    ; <declare-property(|x_class)> Property(x, k, s, [])
+
+  create-prop-required-rule(|class,propname) =
+    ?annos
+    ; not([] := <collect(?ValidationAnnoNotNull() + ?ValidationAnnoNotEmpty())> annos)
+    ; rules(
+        PropertyIsRequired : (class, propname) -> True()
+      )
+
+  declare-list-property(|x_class) =
+    ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
+    ; where(
+             y := <concat-strings>[x, "List"]
+           ; t := GenericSort("List", [s])
+           )
+        ; rules(
+            TypeOfProperty : (x_class, y) -> t
+          )
+    
+  declare-property(|x_class) =
+    ?DerivedProperty(x, k, s, annos, e)
+    ; rules(
+        TypeOfProperty : (x_class, x) -> s
+        IsProperty : (x_class, x)
+        IsDerivedProperty : (x_class, x)
+      )
+    ; where(try(declare-list-property(|x_class)))
+
+  declare-property(|x_class) =
+    ?DerivedPropertyNoAnno(x, k, s, e)
+    ; <declare-property(|x_class)> DerivedProperty(x, k, s, [], e)
+
+
+  declare-property(|x_class) =
+    ?DerivedPropertyNoAnno(x, k, srt, e)
+    ; <declare-property(|x_class)> DerivedProperty(x, k, srt, [], e)
+
+  declare-property(|x_class) =
+    ?PropertyNoAnno(x, k, srt)
+    ; <declare-property(|x_class)> Property(x, k, srt, [])
+
+  declare-list-property(|x_class) =
+    ?DerivedProperty(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos, e)
+    ; where(
+        y := <concat-strings>[x, "List"]
+      ; t := GenericSort("List", [s])
+      )
+    ; rules(
+        TypeOfProperty : (x_class, y) -> t
+      )
+
+  declare-function(|x_class) =
+    ?ExtendFunction(_)
+
+  declare-function(|x_class) =
+    ?FunctionNoReturn(f, args, body)
+    ; with(<declare-function(|x_class)> Function(f, args, SimpleSort("Void"), body))
+
+  declare-function(|x_class) =
+    ?Function(f, args, sort, body1)
+    ; with(id
+      ; t1* := <map(?Arg(_,<id>))> args
+      ; rules( CheckFunctionSignature :+
+                    (SimpleSort(x_class), f, t2*) -> sort
+                        where <zip(type-compatible)> (t1*, t2*)
+             )
+      )
+
+overlays
+
+  NameProperty =
+    Property("name", Simple(), SimpleSort("String"), [])
+
+strategies // register definitions
+
+  declare-page-definition =
+    ?def@Define([Page()], name, args, body)
+    ; with(common-declare-template-rules)
+    ; where (
+      t1* := <map(?Arg(_,<id>))> args
+      ; rules (
+          IsPage :+ name -> name
+          PageNames :+= name
+          CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
+        )
+    )
+
+  declare-template-definition =
+    ?def@Define(mods, name, fargs, body)
+    ; where ( 
+        fargs2 := <declare-generic-template-args> def
+      ; !Define(mods, name, fargs2, body)
+      ; with(common-declare-template-rules)
+    )
+
+  declare-toplevel-template-definition =
+    ?Define(mods, name, fargs, body)
+    ; where (
+        t* := <map(?Arg(_,<id>))> fargs
+      ; n := <strip-annos> name
+      ; if not(<elem> ((n, t*), <bagof-TopLevelTemplateDefinitions> n)) then
+          y := <newname> n
+          ; rules (
+            TopLevelTemplateNames :+= n
+            TopLevelTemplateDefinitions :+ n -> (n, t*)
+            OverloadedTemplateSignature : (n, t*) -> y
+            CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
+          )
+        end
+    )
+    ; declare-template-definition    
+
+  declare-local-template-definition =
+    ?def@Define(mods, name, fargs, body)
+    ; with(common-declare-template-rules)
+    ; where ( 
+        page := <InPage>
+        ; t1* := <map(?Arg(_,<id>))> fargs
+        ; n := <strip-annos> name
+        ; rules (
+            LocalTemplateNames :+ page -> name
+            LocalTemplateSignature : (n, t1*) -> def
+            EnclosingDefinition : name -> page
+          )
+      )
+ 
+  declare-template-arg :
+    Arg(x, s) -> Arg(x, s)
+    where template := <InTemplate>
+        ; rules ( TemplateArguments :+ template -> Arg(x, s) ) 
+     
+  common-declare-template-rules :
+    def@Define(mods, name, fargs, body) -> def
+    with  t* := <map(?Arg(_,<id>))> fargs
+        ; n := <strip-annos> name
+        ; rules( TemplateSignature  : (n, t*) -> def
+                 TemplateDefinition : n -> def // only for use in code gen when renaming is applied which makes the names unique
+                 TemplateArguments  : n -> fargs //''
+               )
+        ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end // TODO: simplified lookup for generics
+
+/* implementation of more advanced checks for local redefinitions, eg check that there is always some def even when no global def defined 
+        ; <declare-templates-called-from-template(|n,t*)> def
+        
+  declare-templates-called-from-template(|n,t*) :
+    def@Define(mods, name, fargs, body) -> def
+    with  <alltd(declare-templates-called-from-template-helper(|n,t*))> body
+    
+  declare-templates-called-from-template-helper(|n,t*) : 
+    tc@TemplateCallNoBody(p,arg*) -> tc     
+    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
+    
+  declare-templates-called-from-template-helper(|n,t*) : 
+    tc@TemplateCallPropsNoBody(p,arg*,_) -> tc
+    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
+   
+  declare-templates-called-from-template-helper-2(|n,t*) : //fails in initial declarations before renaming
+    (p,arg*) -> (p,arg*)    
+    where t1* := <map(type-of)> arg*
+        ; p1 := <strip-annos> p
+        ; if not(<elem> ((p1,t1*),<bagof-TemplateRequires> (n,t*))) then
+            rules( TemplateRequires :+ (n,t*) -> (p1,t1*) ) end*/
+        
+strategies
+
+  declare-action =
+    ?def@Action(name, fargs, body)
+    ; with( 
+        t1* := <map(?Arg(_,<id>))> fargs 
+       ; (parent := <InPage> <+ parent := <InTemplate> <+ parent:= None()) //TODO: Parent NONE?! sounds 'global' -> dangerous
+      )
+      ; rules(
+          ActionDefinition  : name -> def
+          ActionArguments  : name -> fargs
+  
+          CheckActionSignature :
+            (parent, name, t2*) -> SimpleSort("Void")
+            where <zip(type-compatible)> (t1*, t2*)
+        )
+      
+strategies
+
+  /*
+  declare-globals =
+    ?gd@GlobalsDefinition(decls)
+    ; <map(declare-global-vars <+ declare-global-funcs)> decls
+    ; !gd
+
+  declare-global-vars =
+    ?VarDeclInit(ident,sort,_)
+    ; rules (
+        TypeOf : ident -> sort
+        IsGlobal : ident )
+
+*/
+  declare-global-func = where (
+    ?fu@Function(f, args, s, b)
+    ; t1* := <map(?Arg(_,<id>))> args
+    ; f2 := f
+    ; rules ( CheckGlobalFunctionSignature :+ (None(), f2, t2*) -> s // TODO: Mapping of FunctionCall() to Function using this info
+                       where <zip(type-compatible)> (t1*, t2*)
+              CheckGlobalFunctionSignatureArgumentTypes :+ (None(), f2, t2*) -> t1* // TODO: Mapping of FunctionCall() to Function using this info
+                       where <zip(type-compatible)> (t1*, t2*)
+              IsGlobalFunctionSignature : (f, t1*)
+              IsGlobalFunction : (f, args, s)
+              IsGlobalFunction : f
+              GlobalFunctionArgs : f -> args
+              GlobalFunctionBlock : f -> b
+            )
+    )
+
+  declare-global-func =
+    ?FunctionNoReturn(f, args, b)
+    ; where(<declare-global-func> Function(f, args, SimpleSort("Void"), b))
+    
+    
+  //given a list of property assignmenst and a corresponding templatecall, it declares HtmlEntityId if a "id" property exists
+  declare-template-html-id(|tc) =
+     all({x, y : 
+         ?PropertyAssignment("id", x) ;rules( HtmlEntityId :+ x -> tc )
+         <+ !"something" //build something
+         })
+  
+
+rules // typechecking
+
+  constraint-error : 
+    GoTo(ThisCall(p, args)) -> <add-error(|["page ", <pp-webdsl> p, " does not exist."])>
+    where not(<IsPage> p)

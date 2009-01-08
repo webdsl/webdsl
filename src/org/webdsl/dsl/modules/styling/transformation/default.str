@@ -1,0 +1,205 @@
+module org/webdsl/dsl/modules/styling/transformation/default
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+  insert-default-style =
+    where (
+      {| ThisPage
+       : rules ( 
+           ThisPage := "default_"
+           StyleSheetsAllPages :+= "default_"
+         )
+       ; alltd(default-style)
+       ; insert-default-global-style
+       ; insert-default-template-style
+       ; insert-default-form-style
+       ; insert-default-input-style
+       |} )
+
+  insert-default-global-style =
+    <declare-style-definition; emit-style-definition>
+      stdef |[
+        body {
+          font-size := 100%;
+//          line-height := 1.125em;
+          margin := 0;
+          padding := 0;
+        }
+      ]|
+    
+  insert-default-form-style =
+    <declare-style-definitions; emit-style-definitions>
+      stdef* |[
+        fieldset {
+          float := left;
+          clear := left;
+        }
+        fieldset >> ol {
+          list-style := none;
+          float := left;  
+          padding-left := 0;
+          margin := 0;
+        }
+        fieldset >> li {
+          float := left;  
+	      clear := left;
+        }
+		fieldset >> fieldset {
+		  border-style := none;  
+		  background-color := transparent;  
+		  background-image := none;
+		  margin-bottom := -1.2em; /* @todo */ 
+		}
+		fieldset >> fieldset >> ol {
+		  position := relative;  
+		  top := -1.2em;  /* @todo */ 
+		  margin-left := 6em;  /* Depends on li > label width + margin-right */
+		  margin := 0;
+		  padding := 0;
+		}
+		fieldset >> fieldset >> label {  
+		  float := none;  
+		  width := auto;
+		  margin-right := auto;
+		  display := inline-block;
+		}
+		label {
+		  display := block;
+		}
+		li > * {
+		  display := inline;
+		}
+		fieldset >> li > * {
+		  display := inline;
+		  display := table-cell; /* Does not work in IE! */
+		}
+      ]|
+
+  insert-default-template-style =
+     where ( 
+       stdef* := []
+       ; <emit-style-section> |[ style default_ stdef* ]|
+       ; <map(default-templates-style)> <bagof-TopLevelTemplateNames>
+     )
+
+  insert-default-input-style =
+    <declare-style-definitions; emit-style-definitions>
+      stdef* |[
+        .inputSimpleRefAssociation {
+          display := inline;
+        }
+        .inputAssociationGenericSort {
+          display := inline;
+        }
+        form >> fieldset > ol > li >> input {
+          font-size := 1em;
+		  width := 16em;
+		  border-style := BorderStyle.solid;
+		  border-width := 1px;
+		  border-color := Color.grey;
+        }
+      ]|
+  
+rules
+
+  default-templates-style =
+    ?n
+    ; <try(map(default-template-style))> <bagof-TopLevelTemplateDefinitions> n
+    
+  default-template-style =
+    ?(a_0, t*)
+    ; <emit-style-definition> 
+        stdef |[
+          template a_0() {}
+        ]|
+    ; {| ThisPage, ThisArgumentTypes, ThisSelector
+       : s := <construct-selector> ("template", a_0, t*)
+       ; rules (
+           ThisPage := a_0
+           ThisArgumentTypes := t*
+           ThisSelector := s
+         )
+       ; add-default-properties
+       |}
+
+  add-default-properties =
+//    add-default-background-color
+    add-default-background-repeat
+
+  add-default-background-color =
+    where ( <set-style-property; emit-style-declaration> ststat |[ background-color := Color.white; ]| )
+  
+  // @todo: this must be done for all elements, not only templates.  
+  add-default-background-repeat =
+    where (
+      if <StyleValue> (<ThisSelector>, StyleProperty("image")) then
+        <set-style-property; emit-style-declaration> ststat |[ image-repeat := Repeat.horizontal; ]|
+      end
+    )
+
+rules
+/*
+  default-style =
+    ?def |[ define page x(farg*) { elem* } ]|
+    ; where (
+//      {| ThisSelector
+//       : s := <construct-selector> ("page", <strip-annos> x, <map(?Arg(_,<id>))> farg*)
+//       ; rules ( ThisSelector := s )
+       <add-stylesheet> ("default_", x) )
+//       ; <alltd(default-style)> elem*
+//       |} )
+*/
+
+  default-style =
+    ?def |[ define template x(farg*) { elem* } ]|
+    ; where (
+      {| ThisSelector
+       : s := <construct-selector> ("template", <strip-annos> x, <map(?Arg(_,<id>))> farg*)
+       ; rules ( ThisSelector := s )
+       ; <alltd(default-style)> elem*
+       |}  )
+
+
+
+  default-style =
+    ?call |[ inputDate(e)[passign*] { elem* } ]|
+    ; where (
+      {| ThisSelector
+       : stsel0 := <add-simple-selector> (<ThisSelector>, |[ >> .rich-calendar-input ]| )
+       ; rules ( ThisSelector := stsel0 )
+       
+       ; <alltd(default-style)> elem*
+       ; not( <elem> ("inputDate", <bagof-ProcessedElements> ) )
+       
+       ; ststat0* := <flatten-list>
+                     [ <set-style-property> ststat |[ width := 6.5em; ]| ]
+       ; <declare-style-definition; emit-style-definition> stdef |[ stsel0 { ststat0* } ]|
+
+       ; rules ( ProcessedElements :+= "inputDate" )
+       |}
+      )
+
+  /* Add a standard width to a column of a 2-column layout if not provided. */
+  default-style =
+    ?NamedLayoutExpression(name, [expr1, expr2])
+    ; where ( {| ThisSelector
+		       : LayoutExpression(MatchDefinition(x1, farg1*)) := expr1
+		       ; LayoutExpression(MatchDefinition(x2, farg2*)) := expr2
+   		       ; s1 := <construct-selector> ("template", x1, <map(?Arg(_,<id>))> farg1*)
+		       ; s2 := <construct-selector> ("template", x2, <map(?Arg(_,<id>))> farg2*)		       
+		       ; not( <StyleValue> (s1, StyleProperty("width")) )
+		       ; not( <StyleValue> (s2, StyleProperty("width")) )
+		       ; not( <StyleValue> (s1, StyleProperty("align")) )
+		       ; not( <StyleValue> (s2, StyleProperty("align")) )
+               ; rules (
+                   ThisSelector := s1
+                 )
+		       ; <emit-style-declaration> |[ width := 12em; ]|
+		       ; <declare-style-value> (StyleProperty("width"), StyleValue("12", "em"))
+		       |}
+      )
+

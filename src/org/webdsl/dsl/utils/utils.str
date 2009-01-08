@@ -1,0 +1,216 @@
+module org/webdsl/dsl/utils/utils
+
+imports
+  libstrategolib
+  //Java-15
+  libjava-front
+  libstratego-gpp
+  libstratego-xtc // TODO: XTC detox
+
+imports
+  org/webdsl/dsl/utils/xml-doc2abox
+  org/webdsl/dsl/utils/core-lift-eblocks
+  org/webdsl/dsl/utils/java-concat-ids
+
+strategies
+
+  filter-warn(s | msg) =
+    filter(s <+ notice(|msg); <exit> 1)
+
+  filter-concat-warn(s | msg) =
+    filter(s; if not(is-list) then notice(|"should be a list: "); fail end <+ notice(|msg); fail); concat
+
+strategies
+
+  /* Create a nested directory structure. Works on a
+     list containing the directories to be created,
+     returns the path to the last (innermost) directory
+     Current working directory remains unchanged.
+
+     @type List(String) -> String
+  */
+
+  create-dirs =
+    where(root := <getcwd>)
+  ; map((file-exists <+ mkdir(|"w")) ; chdir)
+  ; getcwd // return path to innermost created dir.
+    ; where (<chdir> root) // restore old cwd'
+
+  capitalize-string =
+    explode-string
+    ; [to-upper | id]
+    ; implode-string
+
+  decapitalize-string =
+    explode-string
+    ; [to-lower | id]
+    ; implode-string
+
+  list-to-separated-string(|separator) =
+    ?[head|tail]; where (not(<?[]> tail))
+    ; !<concat-strings> [head, separator, <list-to-separated-string(|separator)> tail]
+
+  list-to-separated-string(|separator) =
+    ?[head]; !head
+
+  make-human-readable =
+    explode-string
+    ; make-human-readable-internal
+    ; concat
+    ; implode-string
+    ; if string-starts-with(|" ") then
+        explode-string
+        ; Tl
+        ; implode-string
+      end
+    ; capitalize-string
+
+  make-human-readable-internal :
+    [f|r] -> [[f]|<make-human-readable-internal> r]
+    where <not(is-upper)> f
+
+  make-human-readable-internal :
+    [F|r] -> [[' ', f]|<make-human-readable-internal> r]
+    where <is-upper> F
+        ; f := <to-lower> F
+
+  make-human-readable-internal :
+    [] -> []
+
+
+signature
+  constructors
+    TextFile : String * CompilationUnit -> File
+
+strategies
+
+  text-file-to-file =
+    ?TextFile(name, text)
+    ; where(
+      file := <fopen> (name, "w")
+      ; <fputs> (text, file)
+      ; <fclose> file
+    )
+
+signature
+  constructors
+    JavaFile : List(String) * CompilationUnit -> File
+
+strategies
+
+  java-file-to-file =
+    ? JavaFile(name, doc)
+    ; (
+        java-file-to-text-file
+        ; text-file-to-file
+        <+ 
+          <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
+      )
+
+  //java-file-to-text-file :
+  //  JavaFile(prefix, pkg, name, cu) -> TextFile(filename, text)
+  //  where path := <conc; create-dirs> (prefix, <qid-to-list> pkg)
+  //    ; filename := <concat-strings> [path, "/", name, ".java"]
+  //	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
+
+  java-file-to-text-file :
+    JavaFile(prefix, cu) -> TextFile(filename, text)
+    where pkg      := <package-name> cu
+        ; name     := <class-name> cu
+        ; path     := <conc; create-dirs> (prefix, pkg)
+        ; filename := <concat-strings> [path, "/", name, ".java"]
+        ; java     := <java-concat-ids; core-lift-eblocks> cu
+        ; text     := <pp-java5-to-string> java
+
+  package-name :
+    CompilationUnit(Some(PackageDec(_, PackageName(ids))), _, _) -> xs
+    where xs := <map(?Id(<id>))> ids
+
+  package-name :
+    CompilationUnit(None(), _, _) -> []
+
+  class-name :
+    CompilationUnit(_, _, [ClassDec(ClassDecHead(_,Id(x),_,_,_),_)|_]) -> x
+
+  class-name :
+    CompilationUnit(_, _, [InterfaceDec(InterfaceDecHead(_,Id(x),_,_),_)|_]) -> x
+
+signature
+  constructors
+    XmlFile : String * String * Document -> File
+
+strategies
+
+  xml-file-to-file =
+    xml-file-to-text-file
+    ; try(text-file-to-file)
+
+  xml-file-to-text-file :
+    XmlFile(pkg, name, doc) -> TextFile(filename, text)
+    where path     := <create-dirs> pkg
+        ; filename := <concat-strings> [path, "/", name]
+        ; xml      := <xml-doc2abox> doc
+        ; text     := <box2text-string(|80)> xml
+        <+ 
+          <pp-format-checker-error(|"Internal error: generated XML AST is malformed", "xml-doc.rtg")> doc
+   
+   // TODO: Only dump ASTs if verbosity is 2; needs support for verbose parameter in webdsl script
+   pp-format-checker-error(|msg, rtg) =
+      err-msg(|msg)
+    ; write-to => FILE(file)
+    ; try(<xtc-command(!"format-check")> ["--vis", "-i", file, "--rtg", <xtc-find> rtg | <pass-verbose>])
+    ; log(|Critical(), "Fatal errors encountered in generated code")
+    ; <xtc-exit> 1
+     
+   // TODO: use rtg library instead of xtcx
+
+strategies // do-once is applied on the same term only once for each action
+
+  do-once(s|action) = 
+    ?elem
+    ; not(<DoneOnce> (action, elem))
+    ; s
+    ; rules( DoneOnce : (action, elem) )
+    
+strategies // print a pretty-printed aterm
+
+  pp-aterm =
+    where(write-to => FILE(file);<xtc-command(!"pp-aterm")> ["-i", file | <pass-verbose>])
+
+  pp-aterm(|msg) =
+    where(<debug> msg)
+  ; pp-aterm
+  
+  pp-aterm(msg) =
+    where(msg; debug)
+  ; pp-aterm
+  
+  pp-aterm(|msg1,msg2) = 
+    where(<debug> msg1)
+  ; pp-aterm(|msg2)
+    
+rules 
+  find-doubles :
+    [] -> []
+
+  find-doubles :
+    [a|k] -> <find-doubles> k
+    where not(<elem> (a, k))
+
+  find-doubles :
+    [a|k] -> [a|<find-doubles> k]
+    where <elem> (a, k)
+    
+rules //concatenates a list of java expressions to a single expression using the + operator (useful for string or numeric expressions)
+  generate-addition-exp :
+    [x|xs] ->  e|[ e0 + e1 ]|
+    where not([] := xs)
+        ; e0 := x
+        ; e1 := <generate-addition-exp> xs
+
+  generate-addition-exp :
+    [e0] -> e|[ e0 ]|
+    
+  generate-addition-exp :
+    [] -> e|[ "" ]|
+    

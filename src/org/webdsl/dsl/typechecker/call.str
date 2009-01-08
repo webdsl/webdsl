@@ -1,0 +1,52 @@
+module org/webdsl/dsl/typechecker/call
+
+imports
+  libstrategolib
+  Java-15 
+  libjava-front
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/expression
+
+signature
+  constructors
+    ThisCallParent : String -> Annotation
+  
+rules //calls
+  get-this-call-parent :
+    _{anno*} -> p
+    where <fetch(?ThisCallParent(p))> anno*
+        
+  constraint-error :
+    Call(e1, f, e2*) -> <add-error(|["No function '", f, "' for '", e1, "' with this signature"])>
+    where not(type-of)
+
+  // checks for wrong arguments when calling a function
+  constraint-error :
+    tc@ThisCall(f, e2*) -> <add-error(|["No function or page '", f, "' with this signature"])>
+    where not(type-of)
+        ; not("url" := f)
+        ; not(<is-email-call> tc)
+
+  eq-type-of :
+    Call(e1, f, e2*) -> t
+    where te1 := <type-of> e1
+        ; t := <check-signature> (te1, f, e2*)
+
+  eq-type-of =
+    eq-type-of-this-call-local <+ eq-type-of-this-call-global
+
+  eq-type-of-this-call-local :
+    c@ThisCall(f, e2*) -> t
+    where cl := <get-this-call-parent> 
+        ; t := <check-signature> (cl, f, e2*)
+
+  eq-type-of-this-call-global :
+    c@ThisCall(f, e2*) -> t
+    where t := <check-signature> (None(), f, e2*) 
+        
+/*  eq-type-of :
+    ThisCall(f, []) -> t
+    where procedure-names := <bagof-Procedures; make-set> SimpleSort(x_ent)
+        ; map(?)*/        

@@ -1,0 +1,427 @@
+module org/webdsl/dsl/to-pil/code
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // statements
+
+   statements-to-pil =
+     filter-warn(statement-to-pil | "cannot translate statement"); flatten-list
+
+   statement-to-pil =
+     block-to-pil
+     <+ assignment-to-pil
+     <+ vardecl-to-pil
+     <+ while-to-pil
+     <+ for-to-pil
+     <+ if-to-pil
+     //<+ email-to-java
+     <+ stat-to-pil
+     <+ return-to-pil
+     <+ cancel-to-pil
+     <+ goto-to-pil
+     <+ ajax-to-pil
+     <+ info(|["cannot translate statement:", <id>]); fail
+
+   block-to-pil :
+     //Block(stm*) ->
+     webdsl|[ { stat* } ]| -> pil-stat|[ { bstm* } ]|
+     with  bstm* := <statements-to-pil> stat*
+
+   stat-to-pil :
+     Stat(e1) -> pil-stat|[ e2; ]|
+     with  e2 := <expression-to-pil> e1
+
+rules // assignment
+
+   assignment-to-pil :
+     Stat(Assignment(x, e1)) -> pil-stat|[ x = e2; ]|
+     where <is-string> x
+         ; not(<is-property> (<ClassName>, x))
+         ; e2 := <expression-to-pil> e1
+
+   assignment-to-pil :
+     Stat(Assignment(x, e1)) -> pil-stat|[ x_set(e2); ]|
+     where <is-property> (<ClassName>, x)
+         ; e2 := <expression-to-pil> e1
+         ; x_set := <concat-strings>["set", <capitalize-string> x]
+
+  assignment-to-pil :
+    Stat(Assignment(Qualified(qid, x), e1)) -> pil-stat|[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
+    where e2 := <assignment-to-pil-exp-helper> qid
+        ; e3 := <expression-to-pil> e1
+   
+  assignment-to-pil-exp-helper:
+    x -> pil-exp|[ x ]|
+    where not(<?Qualified(_,_)> x)
+          
+  assignment-to-pil-exp-helper :
+    Qualified(e, x) -> pil-exp|[ e1.get#x() ]|
+    where e1 := <assignment-to-pil-exp-helper> e
+
+rules // if
+
+   if-to-pil :
+     If(e1, bsit1, bsif1) -> pil-stat|[ if(e2) ~bsit2 else ~bsif2 ]|
+     with  bsit2 := <statement-to-pil> bsit1
+         ; bsif2 := <statement-to-pil> bsif1
+         ; e2 := <expression-to-pil> e1
+
+rules // for
+
+   while-to-pil :
+     WhileStmt(e1, bstm1) -> pil-stat|[ while(e2)  ~bstm2 } ]|
+     with e2    := <expression-to-pil> e1
+        ; bstm2 := <statement-to-pil> bstm1
+
+   for-to-pil :
+     ForCountStmt(x, e1, e2, bstm1) -> pil-stat|[
+       {
+         Int x = e3; //x has been renamed already
+         Int x_bound = e4;
+         while(x < x_bound) {
+           ~bstm2
+           x = x + 1;
+         }
+       }
+     ]|
+     with x_bound := <newname> "stop"
+        ; e3 := <expression-to-pil> e1
+        ; e4 := <expression-to-pil> e2
+        ; bstm2 := <statement-to-pil> bstm1
+
+   for-to-pil : // No where clause, with order by clause
+     ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> 
+     pil-stat|[
+        {
+          var x_lst = new List<t1>(e2);
+          x_lst.sort();
+          stat1
+          /*
+          Collections.sort(x_lst, new Comparator<t1>() {
+            public int compare(t1 o1, t1 o2) {
+              stm1
+            }
+          });
+          */
+          ~*<wrap-in-for-loop(|x,t1,expr|[ x_lst ]|)>
+          bstm |[  
+            ~bstm2
+          ]|
+        } 
+     ]|
+     where not(<?OrderAscending(Null())> obe1)
+     with  e2 := <expression-to-pil> e1
+         ; t1 := <java-type> s
+         ; x_lst := <newname> "lst"
+         ; bstm2 := <statement-to-pil> bstm1
+         ; if <?OrderAscending(_)> obe1 then
+             stat1 := pil-stat|[ {} ]|
+           else
+             stat1 := pil-stat|[ x_lst.reverse(); ]|
+           end
+
+   for-to-pil : // No where clause, no order by clause
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> 
+     stm|[
+       {
+         ~*<wrap-in-for-loop(|x,t1,e2)>
+         bstm |[  
+           ~bstm2
+         ]|
+       }
+     ]|
+     with  e2 := <expression-to-pil> e1
+         ; t1 := <java-type> s
+         ; bstm2 := <statement-to-pil> bstm1
+
+   for-to-pil : // With where clause
+     ForStmt(x, s, e1, Filter(we, obe1, l), bstm1) ->
+     stm|[
+       {
+         ~*<wrap-in-for-loop(|x,t1,e2)>
+         bstm |[  
+           if(e3){
+             ~bstm2
+           }
+         ]|
+       }
+     ]|
+     where not(True() := we)
+     with  e2 := <expression-to-pil> e1
+         ; e3 := <expression-to-pil> we
+         ; t1 := <java-type> s
+         ; t2 := <java-type> s
+         ; bstm2 := <statement-to-pil> bstm1
+         
+  for-to-pil : // No where clause, no order by clause
+    fas@ForAllStmt(x, srt, fltr@Filter(we, obe, l), Block(stat*)) ->
+    bstm* |[
+      java.util.List x_list = e_criteria.list();
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
+      bstm |[  
+        if(e2) {
+          bstm*
+        }
+      ]|
+    ]|
+    with  bstm*   := <statements-to-pil> stat*
+        ; t       := <java-type> srt
+        ; e_criteria := <hibernate-forall-criteria> (fas, t, fltr)
+        ; e2 := <expression-to-pil> we
+        ; x_list := <newname> "list"
+
+rules // return
+
+  return-to-pil :
+    Return(e1) -> bstm* |[ 
+      out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
+      ps.clearHibernateCache(variables);
+      return;
+    ]|
+    where InAction; IsAjaxApp
+    with  e_url := <page-thiscall-to-url-string-pil> e1
+
+  return-to-pil :
+    Return(e1) -> bstm* |[ 
+      try {
+        response.sendRedirect(e_url);
+      } catch (IOException ioe) {
+        System.out.println("redirect failed");
+        ioe.printStackTrace();
+      }
+      ps.clearHibernateCache(variables);
+      return;
+    ]|
+    where InAction; not(IsAjaxApp)
+    with  e_url := <page-thiscall-to-url-string-pil> e1
+
+
+  return-to-pil :
+    ReturnEmpty() -> bstm* |[ 
+      ps.clearHibernateCache(variables);
+      return;
+    ]|
+    where InAction 
+
+  return-to-pil :
+    Return(e1) -> java|[ return e2; ]|
+    where InFunction
+    with  e2 := <expression-to-pil> e1
+
+  cancel-to-pil :
+    Cancel(e1) -> bstm* |[ out.println("ugly cancel not implemented"); ]|
+
+  goto-to-pil :  // similar to navigate link code in elements-to-java-servlet
+    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
+      out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
+      ps.clearHibernateCache(variables);      
+      return;
+    ]|
+    where IsAjaxApp
+    with  e_url := <page-thiscall-to-url-string-pil> call
+     
+  goto-to-pil :  // similar to navigate link code in elements-to-java-servlet
+    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
+      try {
+        response.sendRedirect(e_url);
+      } catch (IOException ioe) {
+        System.out.println("redirect failed");
+        ioe.printStackTrace();
+      }
+      ps.clearHibernateCache(variables);
+      return;
+    ]|
+    where not(IsAjaxApp)
+    with  e_url := <page-thiscall-to-url-string-pil> call
+       
+rules
+
+   qid-to-pil :
+     Qualified(qid, x) -> java|[ e.x_get() ]|
+     with  x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e := <qid-to-pil> qid
+
+   qid-to-pil :
+     x -> java|[ x ]|
+     where <is-string> x
+
+   // @note : this is compensating for an erroneous annotation of component
+   // accessess
+   qid-to-pil :
+     FieldAccess(Var(x),y) -> expr|[ this.y ]|
+     where
+         "Component" := <type-of> Var(x)
+
+   vardecl-to-pil :
+     VarDeclInit(x, s, e1) -> bstm|[ t x = e2; ]|
+     where t := <java-type> s
+         ; e2 := <expression-to-pil> e1
+
+   vardecl-to-pil :
+     VarDecl(x, s) -> bstm|[ t x = e; ]|
+     where t := <java-type> s
+         ; e := <java-type-default-value> s
+
+rules // expressions
+   expression-to-pil :
+     Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]| 
+     //CastRef(t, java|[ e2 ]|)
+     with  e2 := <expression-to-pil> e1
+         ; t := <java-type> s
+         ; x := <java-type-name> s
+
+   expression-to-pil :
+     InColl(e1, e2) -> expr|[ ( !org.webdsl.tools.Utils.equal(e4,null) && e4.contains(e3)) ]|
+     with  e3 := <expression-to-pil> e1
+         ; e4 := <expression-to-pil> e2
+
+   expression-to-pil :
+     Add(x, y) -> expr|[ ~xt + ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Sub(x, y) -> expr|[ ~xt - ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Mul(x, y) -> expr|[ ~xt * ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Div(x, y) -> expr|[ ~xt / ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Mod(x, y) -> expr|[ ~xt % ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Eq(x, y) -> expr|[ org.webdsl.tools.Utils.equal(e_x,e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     NotEq(x, y) -> expr|[ !org.webdsl.tools.Utils.equal(e_x,e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     LargerThan(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x > e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     LargerThanOrEqual(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x >= e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     SmallerThan(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x < e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     SmallerThanOrEqual(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x <= e_y) ]|
+     with  e_x := <expression-to-pil> x
+         ; e_y := <expression-to-pil> y
+
+   expression-to-pil :
+     Not(x) -> expr|[ !(~x2) ]|
+     with  x2 := <expression-to-pil> x
+
+   expression-to-pil :
+     And(x, y) -> expr|[ ~xt && ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+   expression-to-pil :
+     Or(x, y) -> expr|[ ~xt || ~yt ]|
+     with  xt := <expression-to-pil> x
+         ; yt := <expression-to-pil> y
+
+rules
+
+  expression-to-pil :
+    IsA(x, s@SimpleSort(x_name)) -> expr |[ e.instanceOf("~x_name") ]|
+    with  e := <expression-to-pil> x
+
+rules
+
+   expression-to-pil : 
+     ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
+     java|[
+        {| x_Class x_var = new x_Class(); bstm* bstm_event* | x_var |}
+     ]|
+     with  x_var := <newname> "var"
+         ; bstm* := <filter-warn(field-assign-to-pil(|x_var)| "cannot translate asssignment")> assigns
+         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var)
+     
+   field-assign-to-pil(|x_var) :
+     ObjectPropertyAssignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
+     with  e2 := <expression-to-pil> e1
+         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+     
+rules //vars     
+
+   expression-to-pil =
+      var-to-pil
+
+   var-to-pil :
+     Var(x) -> expr|[ x ]|
+     
+   var-to-pil :
+     ExternalScopeVar(x) -> expr|[ this.x ]|
+
+   expression-to-pil =
+   field-access-to-pil
+   <+ generic-field-access-to-pil
+   
+   generic-field-access-to-pil :
+     FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
+     with  x_get := <concat-strings>["get", <capitalize-string> x]
+         ; e2 := <expression-to-pil> e1
+
+   expression-to-pil =
+     call-to-pil
+     <+ generic-call-to-pil
+
+   generic-call-to-pil :
+     Call(e1, x, e2*) -> expr|[ e3.x#_(hibSession,variables,e4*, ps, out) ]|
+     with  e3 := <expression-to-pil> e1
+         ; e4* := <map(expression-to-pil)> e2*
+
+   generic-call-to-pil :
+     tc@ThisCall(x, e1*) -> result
+     with  e2* := <map(expression-to-pil)> e1*
+ //      ; if ent := <JavaInEntity> then //if the call is inside an entity (entity function)
+         ; if (ent := <get-this-call-parent> tc) <+ (ent := <JavaInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
+             if <CheckFunctionSignature> (ent, x, <map(type-of)> e1*)// and the call could be to an entity function of that same entity
+             then
+               result := expr|[ this.x#_(hibSession,variables,e2*, ps, out) ]| // then add this.
+             else
+               result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
+             end
+           else
+             {| PredicateFoundInCall:
+             t2* := <map(type-of)> e1*
+           ; x1 := <strip-annos> x
+           ; if 
+               <IsPredicate> (x1,t2*)
+             ; not(PredicateFoundInCall)
+             then
+               rules(PredicateFoundInCall := True())
+             ; result := <add-not-null-checks;expression-to-pil> tc
+             else
+               result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
+             end
+             |}
+           end

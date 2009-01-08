@@ -1,0 +1,90 @@
+/**
+ * Parsing WebDSL web application definitions.
+ */
+
+module org/webdsl/dsl/syntax/parse-webdsl
+
+imports
+  libstratego-lib
+  libstratego-sglr
+
+signature
+  constructors
+    At : File * Row * Column -> Location
+
+/**
+ * Main parsing strategies.
+ */
+strategies
+
+  xtc-parse-webdsl =
+    xtc-ensure-file;
+    where(id
+      ; path := <path-of-xtc-file>
+      ; tbl := <get-webdsl-parse-table>
+      ; (appname, _) := <split-before> (path, ".app")
+      /*
+      ; rules ( AppName := appname )
+      ; if PythonBackend then
+          rules ( AppRoot := "" )
+        else
+          rules ( AppRoot := <concat-strings> ["/", appname] )
+        end
+        */
+    )
+    ; parse-xtc-file-pt(err(|["cannot open file ", path]), strsglr-report-parse-error  | tbl, "Application", path)
+    ; webdsl-anno-location(|path)
+    ; implode-asfix    
+    ; check-for-ambiguities(|path)
+    ; try(simplify-application-constructor)
+    
+  simplify-application-constructor :
+    ApplicationDefs(qid, defs, sections) -> Application(qid, [Section("definitions", defs)|sections])
+  
+  webdsl-anno-location(|path) = // NOTE: this requires Stratego/XT revision 18217 or newer
+    asfix-anno-location
+  ; topdown(
+        try(\t {Location(r, c, _, _)} -> t {At(path, r, c)}\)
+      )
+  
+  xtc-parse-webdsl-module = 
+    xtc-ensure-file;
+    where(id
+      ; path := <path-of-xtc-file>
+      ; tbl := <get-webdsl-parse-table>
+    )
+    ; (parse-xtc-file-pt(err(|["cannot open file ", path]), strsglr-report-parse-error | tbl, "Module", path)
+       <+ <exit> 1)
+    ; webdsl-anno-location(|path)
+    ; implode-asfix
+    ; check-for-ambiguities(|path)
+    ; try(simplify-module-constructor)
+
+  simplify-module-constructor :
+    ModuleDefs(qid, defs, sections) -> Module(qid, [Section("definitions", defs)|sections])
+
+  /**
+   * @type String -> ParseTree(sort)
+   */
+  parse-webdsl-string-pt =
+    where(tbl := <get-webdsl-parse-table>)
+    ; parse-string-pt(strsglr-report-parse-error | tbl, "Application", "string")
+    ; webdsl-anno-location(|"")
+
+  parse-webdsl-string =
+    parse-webdsl-string-pt
+    ; implode-asfix
+    ; check-for-ambiguities(|"")
+
+  /**
+   * Returns an open parse table for the given sort.
+   *
+   * @type Sort -> OpenParseTable
+   */
+  get-webdsl-parse-table =
+    <jfr-memo-open-parse-table(import-term(WebDSL.tbl))> "WebDSL.tbl"
+    
+  //report amb terms  
+  check-for-ambiguities(|path) = 
+    where(try(collect(?amb(_));not(?[]);map(strip-annos; pp-aterm(|"Ambiguities found during parsing of ",path));<exit> 1))
+   
