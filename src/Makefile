@@ -143,8 +143,8 @@ DATA = $(nobase_data_DATA) $(sdfdata_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run aclocal-1.10
-AMTAR = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run tar
+ACLOCAL = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run aclocal-1.10
+AMTAR = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run tar
 AR = ar
 ASFIX_TOOLS = $(STRATEGOXT)
 ASF_LIBRARY = $(SDF)
@@ -154,11 +154,11 @@ ATERM_FRONT = $(STRATEGOXT)
 ATERM_LIBS = -L/nix/store/wn1bq7f0ph1nxwzmr2pqm30a9yin4qjj-aterm-2.5pre21238/lib -lATerm  
 ATERM_STRCFLAGS = 
 ATERM_XTC = 
-AUTOCONF = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run autoconf
-AUTOHEADER = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run autoheader
-AUTOMAKE = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run automake-1.10
+AUTOCONF = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run autoconf
+AUTOHEADER = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run autoheader
+AUTOMAKE = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run automake-1.10
 AWK = gawk
-BUILD_REPOSITORY = /Users/zef/svn/webdsl/new-pil-branch/BUILDTIME_XTC
+BUILD_REPOSITORY = /Users/zef/svn/webdsl/pil-branch/BUILDTIME_XTC
 CC = gcc
 CCDEPMODE = depmode=gcc3
 
@@ -179,7 +179,7 @@ C_TOOLS_CFLAGS = -I/nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt/includ
 C_TOOLS_LIBS = -L/nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt/lib -L/nix/store/wn1bq7f0ph1nxwzmr2pqm30a9yin4qjj-aterm-2.5pre21238/lib -lstratego-lib -lstratego-lib-native -lstratego-runtime -lm -lATerm  
 C_TOOLS_STRCFLAGS = -I /nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt/share/c-tools -I /nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt/share/sdf/c-tools
 C_TOOLS_XTC = 
-DEFS = -DPACKAGE_NAME=\"webdsl\" -DPACKAGE_TARNAME=\"webdsl\" -DPACKAGE_VERSION=\"8.8\" -DPACKAGE_STRING=\"webdsl\ 8.8\" -DPACKAGE_BUGREPORT=\"webdsl@st.ewi.tudelft.nl\" -DPACKAGE=\"webdsl\" -DVERSION=\"8.8\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DSIZEOF_VOID_P=4 -DSIZEOF_INT=4 -DSIZEOF_LONG=4 -DSIZEOF_DOUBLE=8 -DSVN_REVISION=\"0\" -DHAVE_DLFCN_H=1
+DEFS = -DPACKAGE_NAME=\"webdsl\" -DPACKAGE_TARNAME=\"webdsl\" -DPACKAGE_VERSION=\"8.8\" -DPACKAGE_STRING=\"webdsl\ 8.8\" -DPACKAGE_BUGREPORT=\"webdsl@st.ewi.tudelft.nl\" -DPACKAGE=\"webdsl\" -DVERSION=\"8.8\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DSIZEOF_VOID_P=4 -DSIZEOF_INT=4 -DSIZEOF_LONG=4 -DSIZEOF_DOUBLE=8 -DSVN_REVISION=\"2346\" -DHAVE_DLFCN_H=1
 DEPDIR = .deps
 DSYMUTIL = dsymutil
 ECHO = echo
@@ -208,7 +208,7 @@ LIBS =
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /Users/zef/svn/webdsl/new-pil-branch/config/missing --run makeinfo
+MAKEINFO = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run makeinfo
 MKDIR_P = ../config/install-sh -c -d
 NMEDIT = nmedit
 OBJEXT = o
@@ -217,7 +217,7 @@ PACKAGE_BUGREPORT = webdsl@st.ewi.tudelft.nl
 PACKAGE_NAME = webdsl
 PACKAGE_STRING = webdsl 8.8
 PACKAGE_TARNAME = webdsl
-PACKAGE_VERSION = 8.8pre0
+PACKAGE_VERSION = 8.8pre2346
 PATH_SEPARATOR = :
 PGEN = $(SDF)
 PIL = /usr/local
@@ -301,8 +301,8 @@ STRC = $(STRATEGOXT)
 STRIP = strip
 STR_CFLAGS =  -Wall -Wno-unused-label -Wno-unused-variable -Wno-unused-function -Wno-unused-parameter
 STR_LDFLAGS =  -bind_at_load
-SVN_REVISION = 0
-VERSION = 8.8pre0
+SVN_REVISION = 2346
+VERSION = 8.8pre2346
 XML_FRONT = $(STRATEGOXT)
 XTC = /nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt
 XTC_CFLAGS =  
@@ -310,10 +310,10 @@ XTC_LIBS = $(STRATEGO_XTC_LIBS)
 XTC_PROG = /nix/store/4iva8bw57ywcbyv9j04k7427v4ll24k5-strategoxt/bin/xtc
 XTC_STRCFLAGS = $(STRATEGO_XTC_STRCFLAGS)
 XTC_XTC = 
-abs_builddir = /Users/zef/svn/webdsl/new-pil-branch/src
-abs_srcdir = /Users/zef/svn/webdsl/new-pil-branch/src
-abs_top_builddir = /Users/zef/svn/webdsl/new-pil-branch
-abs_top_srcdir = /Users/zef/svn/webdsl/new-pil-branch
+abs_builddir = /Users/zef/svn/webdsl/pil-branch/src
+abs_srcdir = /Users/zef/svn/webdsl/pil-branch/src
+abs_top_builddir = /Users/zef/svn/webdsl/pil-branch
+abs_top_srcdir = /Users/zef/svn/webdsl/pil-branch
 ac_ct_CC = gcc
 ac_ct_CXX = g++
 ac_ct_F77 = 
@@ -342,7 +342,7 @@ host_vendor = apple
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = $(SHELL) /Users/zef/svn/webdsl/new-pil-branch/config/install-sh
+install_sh = $(SHELL) /Users/zef/svn/webdsl/pil-branch/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -1107,17 +1107,17 @@ all-local::
 	done
 	@for file in fordummy $(data_DATA) $(pkgdata_DATA) $(sdfdata_DATA) $(bin_SCRIPTS) $(libexec_SCRIPTS); do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/new-pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t `basename $$file` ; \
 	done
 	@for file in fordummy $(nobase_data_DATA) $(nobase_pkgdata_DATA) $(nobase_sdfdata_DATA) ; do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/new-pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t $$file ; \
 	done
 	@for file in fordummy $(bin_PROGRAMS) $(libexec_PROGRAMS) ; do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/new-pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t `basename $$file $(EXEEXT)` ; \
 	done
 	@echo "Tools registered in repository $(BUILD_REPOSITORY): $(bin_PROGRAMS) $(bin_SCRIPTS) $(libexec_PROGRAMS) $(libexec_SCRIPTS)"
