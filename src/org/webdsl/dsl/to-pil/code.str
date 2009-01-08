@@ -18,7 +18,6 @@ rules // statements
      <+ while-to-pil
      <+ for-to-pil
      <+ if-to-pil
-     //<+ email-to-java
      <+ stat-to-pil
      <+ return-to-pil
      <+ cancel-to-pil
@@ -28,8 +27,8 @@ rules // statements
 
    block-to-pil :
      //Block(stm*) ->
-     webdsl|[ { stat* } ]| -> pil-stat|[ { bstm* } ]|
-     with  bstm* := <statements-to-pil> stat*
+     webdsl|[ { stat* } ]| -> pil-stat|[ { stat* } ]|
+     with  stat* := <statements-to-pil> stat*
 
    stat-to-pil :
      Stat(e1) -> pil-stat|[ e2; ]|
@@ -73,17 +72,17 @@ rules // if
 rules // for
 
    while-to-pil :
-     WhileStmt(e1, bstm1) -> pil-stat|[ while(e2)  ~bstm2 } ]|
+     WhileStmt(e1, Block(stat1*)) -> pil-stat|[ while(e2) { stat2* } ]|
      with e2    := <expression-to-pil> e1
-        ; bstm2 := <statement-to-pil> bstm1
+        ; stat2* := <statement-to-pil> stat1*
 
    for-to-pil :
-     ForCountStmt(x, e1, e2, bstm1) -> pil-stat|[
+     ForCountStmt(x, e1, e2, stat1) -> pil-stat|[
        {
          Int x = e3; //x has been renamed already
          Int x_bound = e4;
          while(x < x_bound) {
-           ~bstm2
+           ~stat2
            x = x + 1;
          }
        }
@@ -91,33 +90,23 @@ rules // for
      with x_bound := <newname> "stop"
         ; e3 := <expression-to-pil> e1
         ; e4 := <expression-to-pil> e2
-        ; bstm2 := <statement-to-pil> bstm1
+        ; stat2 := <statement-to-pil> stat1
 
    for-to-pil : // No where clause, with order by clause
-     ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> 
+     ForStmt(x, s, e1, Filter(True(), obe1, l), stat1) -> 
      pil-stat|[
         {
           var x_lst = new List<t1>(e2);
           x_lst.sort();
           stat1
-          /*
-          Collections.sort(x_lst, new Comparator<t1>() {
-            public int compare(t1 o1, t1 o2) {
-              stm1
-            }
-          });
-          */
-          ~*<wrap-in-for-loop(|x,t1,expr|[ x_lst ]|)>
-          bstm |[  
-            ~bstm2
-          ]|
+          ~*<wrap-in-for-loop-pil(|x,t1, pil-exp|[ x_lst ]|)> stat2
         } 
      ]|
      where not(<?OrderAscending(Null())> obe1)
      with  e2 := <expression-to-pil> e1
-         ; t1 := <java-type> s
+         ; t1 := <pil-type> s
          ; x_lst := <newname> "lst"
-         ; bstm2 := <statement-to-pil> bstm1
+         ; stat2 := <statement-to-pil> stat1
          ; if <?OrderAscending(_)> obe1 then
              stat1 := pil-stat|[ {} ]|
            else
@@ -125,27 +114,24 @@ rules // for
            end
 
    for-to-pil : // No where clause, no order by clause
-     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> 
-     stm|[
+     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), stat1) -> 
+     pil-stat|[
        {
-         ~*<wrap-in-for-loop(|x,t1,e2)>
-         bstm |[  
-           ~bstm2
-         ]|
+         ~*<wrap-in-for-loop-pil(|x,t1,e2)> stat2
        }
      ]|
      with  e2 := <expression-to-pil> e1
-         ; t1 := <java-type> s
-         ; bstm2 := <statement-to-pil> bstm1
+         ; t1 := <pil-type> s
+         ; stat2 := <statement-to-pil> stat1
 
    for-to-pil : // With where clause
-     ForStmt(x, s, e1, Filter(we, obe1, l), bstm1) ->
-     stm|[
+     ForStmt(x, s, e1, Filter(we, obe1, l), stat1) ->
+     pil-stat|[
        {
-         ~*<wrap-in-for-loop(|x,t1,e2)>
-         bstm |[  
+         ~*<wrap-in-for-loop-pil(|x,t1,e2)>
+         pil-stat|[  
            if(e3){
-             ~bstm2
+             ~stat2
            }
          ]|
        }
@@ -153,31 +139,31 @@ rules // for
      where not(True() := we)
      with  e2 := <expression-to-pil> e1
          ; e3 := <expression-to-pil> we
-         ; t1 := <java-type> s
-         ; t2 := <java-type> s
-         ; bstm2 := <statement-to-pil> bstm1
+         ; t1 := <pil-type> s
+         ; t2 := <pil-type> s
+         ; stat2 := <statement-to-pil> stat1
          
   for-to-pil : // No where clause, no order by clause
     fas@ForAllStmt(x, srt, fltr@Filter(we, obe, l), Block(stat*)) ->
-    bstm* |[
-      java.util.List x_list = e_criteria.list();
-      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
-      bstm |[  
+    pil-stat* |[
+      List<Object> x_list = e_criteria.list();
+      ~*<wrap-in-for-loop-pil(|x,t,pil-exp|[ x_list ]|)>
+      pil-stat|[  
         if(e2) {
-          bstm*
+          stat*
         }
       ]|
     ]|
-    with  bstm*   := <statements-to-pil> stat*
-        ; t       := <java-type> srt
-        ; e_criteria := <hibernate-forall-criteria> (fas, t, fltr)
+    with  stat*   := <statements-to-pil> stat*
+        ; t       := <pil-type> srt
+        ; e_criteria := <pil-forall-criteria> (fas, t, fltr)
         ; e2 := <expression-to-pil> we
         ; x_list := <newname> "list"
 
 rules // return
 
   return-to-pil :
-    Return(e1) -> bstm* |[ 
+    Return(e1) -> pil-stat* |[ 
       out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
       ps.clearHibernateCache(variables);
       return;
@@ -186,37 +172,31 @@ rules // return
     with  e_url := <page-thiscall-to-url-string-pil> e1
 
   return-to-pil :
-    Return(e1) -> bstm* |[ 
-      try {
-        response.sendRedirect(e_url);
-      } catch (IOException ioe) {
-        System.out.println("redirect failed");
-        ioe.printStackTrace();
-      }
+    Return(e1) -> pil-stat* |[ 
+      response.redirect(e_url);
       ps.clearHibernateCache(variables);
       return;
     ]|
     where InAction; not(IsAjaxApp)
     with  e_url := <page-thiscall-to-url-string-pil> e1
 
-
   return-to-pil :
-    ReturnEmpty() -> bstm* |[ 
+    ReturnEmpty() -> pil-stat* |[ 
       ps.clearHibernateCache(variables);
       return;
     ]|
     where InAction 
 
   return-to-pil :
-    Return(e1) -> java|[ return e2; ]|
+    Return(e1) -> pil-stat|[ return e2; ]|
     where InFunction
     with  e2 := <expression-to-pil> e1
 
   cancel-to-pil :
-    Cancel(e1) -> bstm* |[ out.println("ugly cancel not implemented"); ]|
+    Cancel(e1) -> pil-stat* |[ println("ugly cancel not implemented"); ]|
 
   goto-to-pil :  // similar to navigate link code in elements-to-java-servlet
-    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
+    GoTo(call@ThisCall(p, args)) -> pil-stat* |[ 
       out.println("{ action: \"relocate\", value: \""+e_url+"\" },\n");
       ps.clearHibernateCache(variables);      
       return;
@@ -225,13 +205,8 @@ rules // return
     with  e_url := <page-thiscall-to-url-string-pil> call
      
   goto-to-pil :  // similar to navigate link code in elements-to-java-servlet
-    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
-      try {
-        response.sendRedirect(e_url);
-      } catch (IOException ioe) {
-        System.out.println("redirect failed");
-        ioe.printStackTrace();
-      }
+    GoTo(call@ThisCall(p, args)) -> pil-stat* |[ 
+      response.redirect(e_url);
       ps.clearHibernateCache(variables);
       return;
     ]|
@@ -241,129 +216,128 @@ rules // return
 rules
 
    qid-to-pil :
-     Qualified(qid, x) -> java|[ e.x_get() ]|
+     Qualified(qid, x) -> pil-exp|[ e.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e := <qid-to-pil> qid
 
    qid-to-pil :
-     x -> java|[ x ]|
+     x -> pil-exp|[ x ]|
      where <is-string> x
 
    // @note : this is compensating for an erroneous annotation of component
    // accessess
    qid-to-pil :
-     FieldAccess(Var(x),y) -> expr|[ this.y ]|
+     FieldAccess(Var(x),y) -> pil-exp|[ this.y ]|
      where
          "Component" := <type-of> Var(x)
 
    vardecl-to-pil :
-     VarDeclInit(x, s, e1) -> bstm|[ t x = e2; ]|
-     where t := <java-type> s
+     VarDeclInit(x, s, e1) -> pil-stat|[ t x = e2; ]|
+     where t := <pil-type> s
          ; e2 := <expression-to-pil> e1
 
    vardecl-to-pil :
-     VarDecl(x, s) -> bstm|[ t x = e; ]|
-     where t := <java-type> s
-         ; e := <java-type-default-value> s
+     VarDecl(x, s) -> pil-stat|[ t x = e; ]|
+     where t := <pil-type> s
+         ; e := <pil-type-default-value> s
 
 rules // expressions
    expression-to-pil :
-     Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]| 
+     Cast(e1, s) -> pil-exp|[ (t)e2 ]|
      //CastRef(t, java|[ e2 ]|)
      with  e2 := <expression-to-pil> e1
-         ; t := <java-type> s
-         ; x := <java-type-name> s
+         ; t := <pil-type> s
 
    expression-to-pil :
-     InColl(e1, e2) -> expr|[ ( !org.webdsl.tools.Utils.equal(e4,null) && e4.contains(e3)) ]|
+     InColl(e1, e2) -> pil-exp|[ e4.contains(e3) ]|
      with  e3 := <expression-to-pil> e1
          ; e4 := <expression-to-pil> e2
 
    expression-to-pil :
-     Add(x, y) -> expr|[ ~xt + ~yt ]|
+     Add(x, y) -> pil-exp|[ ~xt + ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Sub(x, y) -> expr|[ ~xt - ~yt ]|
+     Sub(x, y) -> pil-exp|[ ~xt - ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Mul(x, y) -> expr|[ ~xt * ~yt ]|
+     Mul(x, y) -> pil-exp|[ ~xt * ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Div(x, y) -> expr|[ ~xt / ~yt ]|
+     Div(x, y) -> pil-exp|[ ~xt / ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Mod(x, y) -> expr|[ ~xt % ~yt ]|
+     Mod(x, y) -> pil-exp|[ ~xt % ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Eq(x, y) -> expr|[ org.webdsl.tools.Utils.equal(e_x,e_y) ]|
+     Eq(x, y) -> pil-exp|[ webdsl::tools::utils::equal(e_x,e_y) ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     NotEq(x, y) -> expr|[ !org.webdsl.tools.Utils.equal(e_x,e_y) ]|
+     NotEq(x, y) -> pil-exp|[ !webdsl::tools::utils::equal(e_x,e_y) ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     LargerThan(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x > e_y) ]|
+     LargerThan(x, y) -> pil-exp|[ e_x > e_y ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     LargerThanOrEqual(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x >= e_y) ]|
+     LargerThanOrEqual(x, y) -> pil-exp|[ e_x >= e_y ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     SmallerThan(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x < e_y) ]|
+     SmallerThan(x, y) -> pil-exp|[ e_x < e_y ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     SmallerThanOrEqual(x, y) -> expr|[ (!(org.webdsl.tools.Utils.equal(e_x,null)||org.webdsl.tools.Utils.equal(e_y,null)) && e_x <= e_y) ]|
+     SmallerThanOrEqual(x, y) -> pil-exp|[ e_x <= e_y ]|
      with  e_x := <expression-to-pil> x
          ; e_y := <expression-to-pil> y
 
    expression-to-pil :
-     Not(x) -> expr|[ !(~x2) ]|
-     with  x2 := <expression-to-pil> x
+     Not(e1) -> pil-exp|[ !e2 ]|
+     with  e2 := <expression-to-pil> e1
 
    expression-to-pil :
-     And(x, y) -> expr|[ ~xt && ~yt ]|
+     And(x, y) -> pil-exp|[ ~xt && ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
    expression-to-pil :
-     Or(x, y) -> expr|[ ~xt || ~yt ]|
+     Or(x, y) -> pil-exp|[ ~xt || ~yt ]|
      with  xt := <expression-to-pil> x
          ; yt := <expression-to-pil> y
 
 rules
 
   expression-to-pil :
-    IsA(x, s@SimpleSort(x_name)) -> expr |[ e.instanceOf("~x_name") ]|
-    with  e := <expression-to-pil> x
+    IsA(x, s@SimpleSort(x_name)) -> pil-exp|[ e instanceof t ]|
+    with t := <pil-type> s
 
 rules
 
    expression-to-pil : 
      ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
      java|[
-        {| x_Class x_var = new x_Class(); bstm* bstm_event* | x_var |}
+        {| x_Class x_var = new x_Class(); stat* stat_event* | x_var |}
      ]|
      with  x_var := <newname> "var"
-         ; bstm* := <filter-warn(field-assign-to-pil(|x_var)| "cannot translate asssignment")> assigns
-         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var)
+         ; stat* := <filter-warn(field-assign-to-pil(|x_var)| "cannot translate asssignment")> assigns
+         ; stat_event* := <entity-stat-constructor-entity-event> (x_Class,x_var)
      
    field-assign-to-pil(|x_var) :
      ObjectPropertyAssignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
