@@ -331,18 +331,18 @@ rules
 rules
 
    expression-to-pil : 
-     ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
-     java|[
-        {| x_Class x_var = new x_Class(); stat* stat_event* | x_var |}
+     ObjectCreation(srt, assigns) -> //TODO use desugaring similar to set/list creation
+     pil-exp|[
+        {| t x_var = new t(); stat* stat_event* | x_var |}
      ]|
      with  x_var := <newname> "var"
          ; stat* := <filter-warn(field-assign-to-pil(|x_var)| "cannot translate asssignment")> assigns
-         ; stat_event* := <entity-stat-constructor-entity-event> (x_Class,x_var)
+         ; stat_event* := <entity-stat-constructor-entity-event-to-pil> (srt, x_var)
+         ; t := <pil-type> srt
      
    field-assign-to-pil(|x_var) :
-     ObjectPropertyAssignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
+     ObjectPropertyAssignment(y_field, e1) -> pil-stat|[ x_var.set#y(e2); ]|
      with  e2 := <expression-to-pil> e1
-         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
      
 rules //vars     
 
@@ -350,26 +350,25 @@ rules //vars
       var-to-pil
 
    var-to-pil :
-     Var(x) -> expr|[ x ]|
+     Var(x) -> pil-exp|[ x ]|
      
    var-to-pil :
-     ExternalScopeVar(x) -> expr|[ this.x ]|
+     ExternalScopeVar(x) -> pil-exp|[ this.x ]|
 
    expression-to-pil =
    field-access-to-pil
    <+ generic-field-access-to-pil
    
    generic-field-access-to-pil :
-     FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
-     with  x_get := <concat-strings>["get", <capitalize-string> x]
-         ; e2 := <expression-to-pil> e1
+     FieldAccess(e1, x) -> pil-exp|[ e2.x ]|
+     with e2 := <expression-to-pil> e1
 
    expression-to-pil =
      call-to-pil
      <+ generic-call-to-pil
 
    generic-call-to-pil :
-     Call(e1, x, e2*) -> expr|[ e3.x#_(hibSession,variables,e4*, ps, out) ]|
+     Call(e1, x, e2*) -> pil-exp|[ e3.x(dbConn, variables, e4*, ps, out) ]|
      with  e3 := <expression-to-pil> e1
          ; e4* := <map(expression-to-pil)> e2*
 
@@ -377,12 +376,12 @@ rules //vars
      tc@ThisCall(x, e1*) -> result
      with  e2* := <map(expression-to-pil)> e1*
  //      ; if ent := <JavaInEntity> then //if the call is inside an entity (entity function)
-         ; if (ent := <get-this-call-parent> tc) <+ (ent := <JavaInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
+         ; if (ent := <get-this-call-parent> tc) <+ (ent := <PilInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
              if <CheckFunctionSignature> (ent, x, <map(type-of)> e1*)// and the call could be to an entity function of that same entity
              then
-               result := expr|[ this.x#_(hibSession,variables,e2*, ps, out) ]| // then add this.
+               result := pil-exp|[ this.x(dbConn,variables,e2*, ps, out) ]| // then add this.
              else
-               result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
+               result := pil-exp|[ globalFunctions::x(dbConn,variables,e2*, ps, out) ]|
              end
            else
              {| PredicateFoundInCall:
@@ -395,7 +394,7 @@ rules //vars
                rules(PredicateFoundInCall := True())
              ; result := <add-not-null-checks;expression-to-pil> tc
              else
-               result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
+               result := pil-exp|[ globalFunctions::x(hibSession,variables,e2*, ps, out) ]|
              end
              |}
            end
