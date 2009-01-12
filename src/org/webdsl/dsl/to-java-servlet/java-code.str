@@ -41,21 +41,52 @@ rules // assignment
 
    assignment-to-java-servlet :
      Stat(Assignment(x, e1)) -> java|[ x = e2; ]|
-     where <is-string> x
-         ; not(<is-property> (<ClassName>, x))
+     where <is-string> x 
+         ; not(<is-property> (<ClassName>, <remove-first-character-in-string> x)) //if inside an entity, it may not be a property of that entity
          ; e2 := <expression-to-java-servlet> e1
-
-   assignment-to-java-servlet :
-     Stat(Assignment(x, e1)) -> java|[ x_set(e2); ]|
-     where <is-property> (<ClassName>, x)
-         ; e2 := <expression-to-java-servlet> e1
-         ; x_set := <concat-strings>["set", <capitalize-string> x]
+         
+  remove-first-character-in-string = // _ is in front of property names at this point
+    explode-string;?[_|<id>];implode-string
+    
+  assignment-to-java-servlet :
+    Stat(Assignment(x, e1)) -> java|[ x_set(e2); ]|
+    where <is-property> (<ClassName>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
+        ; not(GenericSort(_,_) := <type-of-property> (<ClassName>, <remove-first-character-in-string> x))
+    with  e2 := <expression-to-java-servlet> e1
+        ; x_set := <concat-strings>["set", <capitalize-string> x]
+  
+  assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
+    Stat(Assignment(x, e1)) -> 
+    bstm |[ 
+      {
+        this.removeAllFrom#x2();
+        this.addAllTo#x2(e2);
+      }
+    ]|
+    where <is-property> (<ClassName>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
+        ; GenericSort(_,_) := <type-of-property> (<ClassName>, <remove-first-character-in-string> x)
+    with  e2 := <expression-to-java-servlet> e1
+        ; x2 := <remove-first-character-in-string> x
 
   assignment-to-java-servlet :
-    Stat(Assignment(Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
-    where e2 := <assignment-to-java-servlet-exp-helper> qid
+    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
+    where not(GenericSort(_,_) := <type-of> q)
+    with  e2 := <assignment-to-java-servlet-exp-helper> qid
         ; e3 := <expression-to-java-servlet> e1
-   
+
+  assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
+    Stat(Assignment(q@Qualified(qid, x), e1)) -> 
+    bstm |[ 
+      {
+        e2.setupForPropertyEvents(hibSession,out,ps);
+        e2.removeAllFrom#x();
+        e2.addAllTo#x(e3);
+      }
+    ]|
+    where GenericSort(_,_) := <type-of> q
+    with  e2 := <assignment-to-java-servlet-exp-helper> qid
+        ; e3 := <expression-to-java-servlet> e1  
+
   assignment-to-java-servlet-exp-helper:
     x -> e |[ x ]|
     where not(<?Qualified(_,_)> x)

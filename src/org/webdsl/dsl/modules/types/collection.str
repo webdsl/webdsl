@@ -45,63 +45,62 @@ rules
      ListCreation(e*) -> GenericSort("List", [t])
      where t := <Hd; type-of> e*
 
-rules // fields, operations
+rules // fields
 
    eq-type-of :
      FieldAccess(e1, "length") -> SimpleSort("Int")
      where GenericSort(t,_) := <type-of> e1
-         ; ("List" := t <+ "Set" := t)
+         ; <?"List" <+ ?"Set"> t
+         
+rules
      
    check-builtin-signature :
-     (GenericSort("List", [s]), "add", [s]) -> SimpleSort("Void")
+     (GenericSort(x, [s]), "add", [s]) -> SimpleSort("Void")
+     where <?"List" <+ ?"Set"> x
 
    check-builtin-signature :
-     (GenericSort("List", [s]), "indexOf", [s]) -> SimpleSort("Int")
-
+     (GenericSort(x, [s]), "remove", [s]) -> SimpleSort("Void")
+     where <?"List" <+ ?"Set"> x
+     
    check-builtin-signature :
-     (GenericSort("List", [s]), "get", [SimpleSort("Int")]) -> s
+     (GenericSort(x, [s]), "clear", []) -> SimpleSort("Void") 
+     where <?"List" <+ ?"Set"> x
+     
+   check-builtin-signature :                    //_ below because this is meant to convert between collections
+     (GenericSort(x, [s]), "addAll", [GenericSort(_, [s])]) -> GenericSort(x, [s])
+     where <?"List" <+ ?"Set"> x
 
-   check-builtin-signature :
-     (GenericSort("List", [s]), "set", [SimpleSort("Int"), s]) -> SimpleSort("Void")
+rules //set only
 
-   check-builtin-signature :
-     (GenericSort("List", [s]), "remove", [s]) -> SimpleSort("Void")
+  check-builtin-signature :
+    (GenericSort("Set", [s]), "list", []) -> GenericSort("List", [s])
 
-   check-builtin-signature :
-     (GenericSort("List", [s]), name, [s]) -> SimpleSort("Void")
-     where <is-substring("remove")> name
+  desugar :
+    |[ e.list() ]| -> |[ List<srt>().addAll(e) ]| //assumes addAll returns the collection
+    where GenericSort("Set", [srt]) := <type-of> e
 
-   check-builtin-signature :
-     (GenericSort("Set", [s]), "add", [s]) -> SimpleSort("Void")
+rules //list only
 
-   check-builtin-signature :
-     (GenericSort("Set", [s]), "addAll", [GenericSort("Set", [s])]) -> SimpleSort("Void")
+  check-builtin-signature :
+    (GenericSort("List", [s]), "set", []) -> GenericSort("Set", [s])
 
-   check-builtin-signature :
-     (GenericSort("Set", [s]), "remove", [s]) -> SimpleSort("Void")
+  desugar :
+    |[ e.set() ]| -> |[ Set<srt>().addAll(e) ]| //assumes addAll returns the collection
+    where GenericSort("List", [srt]) := <type-of> e
+    
+  check-builtin-signature :
+    (GenericSort("List", [s]), "indexOf", [s]) -> SimpleSort("Int")
 
-   check-builtin-signature :
-     (GenericSort("Set", [s]), "list", []) -> GenericSort("List", [s])
+  check-builtin-signature :
+    (GenericSort("List", [s]), "get", [SimpleSort("Int")]) -> s
 
-   desugar :
-     |[ e.list() ]| -> |[ List<srt>().addAll(e) ]|
-     where GenericSort("Set", [srt]) := <type-of> e
+  check-builtin-signature :
+    (GenericSort("List", [s]), "set", [SimpleSort("Int"), s]) -> SimpleSort("Void")
+    
+rules // constraint errors
 
-   desugar :
-     |[ e.list() ]| -> |[ Set<srt>().addAll(e) ]|
-     where GenericSort("List", [srt]) := <type-of> e
-
-   check-builtin-signature :
-     (GenericSort("List", [s]), "addAll", [GenericSort("List", [s])]) -> SimpleSort("Void")
-
-   check-builtin-signature :
-     (GenericSort("List", [s]), "set", []) -> GenericSort("Set", [s])
-
-   check-builtin-signature :
-     (_, name, [s]) -> SimpleSort("Void")
-     where <is-substring("remove")> name
-
-   check-builtin-signature :
-     (_, name, [s]) -> SimpleSort("Void")
-     where <is-substring("add")> name
-         
+  constraint-error : 
+  p@Property(_, _, srt, annos) -> <add-error(|["Inverse between lists not allowed"])>
+  where GenericSort("List",_) := srt
+      ; <fetch(?InverseAnno(ent, fld))> annos
+      ; GenericSort("List", _) := <type-of-property> (ent, fld)
