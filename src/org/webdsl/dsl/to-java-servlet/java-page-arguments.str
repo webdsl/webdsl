@@ -22,7 +22,7 @@ rules // page arguments
                 String[] ids = parammap.get("~<OriginalNonUniqueName> x").split(","); 
                 x_ids = e;
                 for(String anid : ids){
-                  x_ids.add(Integer.valueOf(anid));
+                  x_ids.add(java.util.UUID.fromString(anid));
                 }
              }
              catch(NumberFormatException nfe){System.out.println(nfe.getMessage());}  
@@ -56,11 +56,7 @@ rules // page arguments
       where <?GenericSort(x1,[x2])> srt
       with  <?SimpleSort(x_Class)> x2      
           ; x_id := <concat-strings>[x, "_id"]
-          ; if <EntityIdName> x_Class then
-              t := <EntityIdType> x_Class
-            else
-              t := SimpleSort("Int")
-            end
+          ; t := SimpleSort("UUID")
           ; t_idstype := <builtin-java-type> GenericSort(x1,[t])
           ; e := <java-type-default-value> GenericSort(x1, [t])
           ; bstm* := <argument-to-java-servlet-initialization> arg
@@ -90,7 +86,6 @@ rules // page arguments
          return this.x_id;
        }
 
-
        private x_Class x;
        
        public void set#x(x_Class x) {
@@ -104,14 +99,9 @@ rules // page arguments
     where <is-entity-type> srt
     with  <?SimpleSort(x_Class)> srt
         ; x_id := <concat-strings>[x, "_id"]
-        ; if <EntityIdName> x_Class then
-            t := <builtin-java-type> <EntityIdType> x_Class
-          else
-            t := type|[ java.util.UUID ]|
-          end
+        ; t := <java-type> SimpleSort("String")
         ; bstm* := <argument-to-java-servlet-initialization> arg
         ; bstm1* := <java-servlet-conversion-to-object> (t,x,x_id)
-        
 
    argument-to-java-servlet-property :
     arg@farg|[ x : srt ]| ->
@@ -137,7 +127,8 @@ rules // page arguments
          return x;
        }
     ]|
-    where t_Class := <builtin-java-type> srt; not(GenericSort(_,_) := srt)
+    where t_Class := <builtin-java-type> srt
+        ; not(GenericSort(_,_) := srt)
     with  <?SimpleSort(_)> srt
         ; bstm* := <argument-to-java-servlet-initialization> arg
         ; bstm2* := <string-argument-to-java-servlet-initialization <+ ![]> arg // fix for passing strings decode (eg. %20 -> ' ')
@@ -146,24 +137,39 @@ rules // page arguments
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
     bstm*|[
-      if (x_Id == null) {            
-         //x = new x_Class();
-      } else {
-          if (x == null) {
-          x = (x_Class) hibSession.load(x_Class.class, x_Id);
-          /*if(x == null) {
-              // @todo Is this a good idea?
-              x = new x_Class();
-              x.setId(x_Id);
-          }*/
-        }
+      if (x_id != null && x == null) {            
+        x = (x_class) hibSession.load(x_class.class, java.util.UUID.fromString(x_id));
       }
     ]|
-    where <defined-java-type> srt
-    with <?SimpleSort(x_Class)> srt
-        ; x_Id := <concat-strings>[x, "_id"]
+    where <is-entity-type> srt
+        ; SimpleSort(webdsl_entity_name) := srt
+        ; not(<has-natural-id-superclasses> webdsl_entity_name)
+    with  x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_id != null && x == null) {            
+        try {
+          x_id = java.net.URLDecoder.decode(x_id.toString(),"UTF-8");
+        } catch (java.io.UnsupportedEncodingException uee) {
+          uee.printStackTrace();
+        }
+        List<t> results = hibSession.createCriteria( x_class.class )
+        .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
+        .list();
+        x = results.get(0);
+      }
+    ]|
+    where <is-entity-type> srt
+        ; SimpleSort(webdsl_entity_name) := srt
+        ; <has-natural-id-superclasses> webdsl_entity_name
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
         ; e_init := <java-type-default-value> srt
-       // ; rules( Parameter :+= x )
+        ; x_natidprop := <concat-strings>["_",<EntityIdName> webdsl_entity_name]
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -174,7 +180,7 @@ rules // page arguments
       else {
         if (x == null) {
           x = e;
-          for(Integer anid: x_ids) {
+          for(java.util.UUID anid: x_ids) {
             x.add((x_Class) hibSession.load(x_Class.class, anid));
           }
         }
@@ -230,7 +236,7 @@ rules // page arguments
       @Partial 
       public void hiddenParams(java.lang.StringBuffer combinedparams)
       {
-        combinedparams.append("<input type=\"hidden\" name=\""+"~<OriginalNonUniqueName> x"+"\" value=\""+x.getId()+"\" />");    
+        combinedparams.append("<input type=\"hidden\" name=\""+"~<OriginalNonUniqueName> x"+"\" value=\""+x.getNaturalId()+"\" />");    
       }
     ]|
     where <defined-java-type> s; not( GenericSort(_,_) := s)
@@ -274,7 +280,7 @@ rules // page arguments
       @Partial 
       public void hiddenPostParams(java.lang.StringBuffer combinedparams)
       {
-        combinedparams.append("~<OriginalNonUniqueName> x"+"="+x.getId()+"&");    
+        combinedparams.append("~<OriginalNonUniqueName> x"+"="+x.getNaturalId()+"&");    
       }
     ]|
     where <defined-java-type> s

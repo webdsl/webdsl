@@ -75,7 +75,7 @@ rules
         )
       ; <map(declare-property(|x_class))> [NameProperty() | props]
       ; <map(declare-function(|x_class))> funcs
-      ; <filter(extract-entity-id(|x_class))> props
+      ; <handle-entity-id(|x_class)> props      
       ; not(<extend-entity-declare> Entity(x_class, x_super, props, funcs)) //for example used in typechecker/entity-events, ends in fail for extensibility
     )
 
@@ -105,21 +105,36 @@ rules
          )
        ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
        ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
+       
+  handle-entity-id(|x_class) :
+    props -> props
+    with  <entity-declare-id-property> (x_class,"id",SimpleSort("UUID"))  
+        ; <filter(extract-entity-id(|x_class))> props //possibly overrides default
 
-  extract-entity-id(|x_Class) =
-    ?Property(x, k, s, annos)
+  entity-declare-id-property :
+    (x_class,name,srt) -> (x_class,name,srt) 
+    where rules(
+            EntityIdType : x_class -> srt
+            EntityIdName : x_class -> name
+          )
+
+  extract-entity-id(|x_class) =
+    ?Property(x, k, s, annos) //only matches this type of property, others such as derivedproperty cannot have id anno
     ; with(
         if <fetch(?SimpleAnno("id"))> annos then
-          rules (
-            EntityIdType : x_Class -> s
-            EntityIdName : x_Class -> x
-          )
+          <entity-declare-id-property> (x_class,x,s)
+        ; rules(HasNaturalId : x_class)
         end
       )
-
-  extract-entity-id(|x_Class) =
-    ?DerivedProperty(_, _, _, _, _)
-
+      
+  has-natural-id-superclasses :
+    x_class -> name 
+    where name := <HasNaturalId;EntityIdName> x_class <+ <has-natural-id-superclasses> <Extends> x_class
+    /*
+  has-natural-id-subclasses :
+    x_class -> name 
+    where name := <HasNaturalId;EntityIdName> x_class <+ <has-natural-id-subclasses> <SubClass> x_class
+*/
   declare-property(|x_class) =
     ?prop@Property(x, k, s, annos)
     ; where( y := x{<newname> x})

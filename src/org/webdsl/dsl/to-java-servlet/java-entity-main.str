@@ -41,6 +41,7 @@ strategies
        package pkgname;
 
        @Entity
+       mod0*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
@@ -78,11 +79,12 @@ strategies
      ]|
      with  {| ClassName
       : rules( ClassName := x_Class )
-      ; idcodes := <generate-id-code> x_Class
+      ; idcodes := <hibernate-default-id-prop(|x_Class)> []
       ; cbds := <properties-to-code(|x_Class)> props
       ; pkgname := <DomainPackage>
       ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
       |}
+      ; mod0* := <table-mapping-annos> x_Class
       
 
    entity-to-java-entity :
@@ -91,6 +93,7 @@ strategies
        package pkgname;
 
        @Entity
+       mod0*
        public class x_Class implements org.webdsl.WebDSLEntity
        {
         public x_Class () {}
@@ -125,13 +128,14 @@ strategies
        }
      ]|
      with x_Class := <capitalize-string> x_ident
-    ; {| ClassName
+        ; {| ClassName
         : rules( ClassName := x_Class )
         ; cbds := <properties-to-code(|x_Class)> props
         ; cbds1 := <filter(property-to-session-prop-ids(|x_Class));try(concat)> props
         ; pkgname := <DomainPackage>
         ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
         |}
+        ; mod0* := <table-mapping-annos> x_Class
 
    entity-to-java-entity :
      Entity(x_Class, x_super, props, functions) ->
@@ -200,19 +204,26 @@ strategies
      ; err(|"cannot generate code for entity")
    
  strategies
-   generate-id-code =
-     ?x_Class
-     ; if <EntityIdName> x_Class then
-         x_idget := <concat-strings> ["get", <capitalize-string> <EntityIdName> x_Class]
-         ; x_idset := <concat-strings> ["set", <capitalize-string> <EntityIdName> x_Class]
-         ; t := <java-type> <EntityIdType> x_Class
-         ; !class-body-dec* |[
-            public t getId() { return x_idget(); }
-            public void setId(t val) { x_idset(val); }
-          ]|
-       else
-         hibernate-default-id-prop(|x_Class)
-       end
+ 
+  table-mapping-annos :
+    x_class -> result
+    where x_tablename := <newname> x_class
+        ; if x_name := <HasNaturalId;EntityIdName> x_class 
+          then //java-mix needs more fine-grained elements for annotations
+            x_propunique := <concat-strings> ["_",x_name]
+          ; result := [anno |[
+              @Table(
+                name="~x_tablename", 
+                uniqueConstraints=@UniqueConstraint(columnNames={"~x_propunique"})
+              )
+            ]|]
+          else
+            result := [anno |[
+              @Table(
+                name="~x_tablename"
+              )
+            ]|]
+          end
        
   hibernate-default-id-prop(|x_class) =
     !class-body-dec* |[
@@ -226,6 +237,11 @@ strategies
       public java.util.UUID getId() { return id; }
   
       public void setId(java.util.UUID id) { this.id = id; }
+      
+      ~*<where("id":=<EntityIdName> x_class)<+![]> class-body-dec* |[ 
+        public String getNaturalId() { return id.toString(); }
+        //public static boolean hasNaturalId() { return false; }  
+      ]|
     ]|
 
    properties-to-code(|x_Class) :
@@ -267,7 +283,7 @@ strategies
    property-to-property-code(|x_Class) :
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
-       mod0* mod1* mod2* mod3* mod4* protected t _#x = e;
+       mod1* mod2* mod3* mod4* protected t _#x = e;
        
        public t get#x() {
          return _#x;
@@ -293,17 +309,31 @@ strategies
        @Transient boolean x#BeingSet = false;
 
        ~*cbd*
+       ~*cbds_naturalid
 
      ]|
     where t      := <java-type> s
         ; e      := <java-type-default-value> s
-        ; if   x := <EntityIdName> x_Class 
-          then mod0* := [anno|[ @Id ]|]
-          else mod0* := [] end
+        ; if <EntityIdName;?x> x_Class 
+          then x_index := <newname> <concat-strings>[x,"index"]
+             //; mod0* := [anno|[@org.hibernate.annotations.Index(name="~x_index")]|]  unique annotation(in table annotation) already creates index 
+             ; cbds_naturalid := class-body-dec* |[ 
+               public String getNaturalId() { 
+                 String temp = _#x.toString();
+                 try {
+                   temp = java.net.URLEncoder.encode(temp,"UTF-8");
+                 } catch (java.io.UnsupportedEncodingException uee) {
+                   uee.printStackTrace();
+                 }
+                 return temp; 
+               }
+               //public static boolean hasNaturalId() { return true; }
+             ]|
+          else cbds_naturalid:=[] end
         ; mod1*  := <persistence-annotations> s
         ; mod2*  := <property-to-persistence-annotations(|x_Class)> prop
-        ; mod3*   := <field-access-for-simple-sorts <+ ![]> prop
-        ; mod4*   := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-java-servlet/types/file.str
+        ; mod3*  := <field-access-for-simple-sorts <+ ![]> prop
+        ; mod4*  := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-java-servlet/types/file.str
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
@@ -330,13 +360,13 @@ rules // special session entity props
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
        @Transient
-       protected String x#ident = "";
+       protected java.util.UUID x#ident = null;
        
-       public String get#x#ident() {
+       public java.util.UUID get#x#ident() {
          return x#ident;
        }
 
-       public void set#x#ident(String newitem) {
+       public void set#x#ident(java.util.UUID newitem) {
          x#ident = newitem;
        }
 
