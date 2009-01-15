@@ -30,83 +30,95 @@ rules //list functions
     Call(e1, "indexOf", [e2]) -> java|[ e3.indexOf(e4) ]|
     where GenericSort("List",[s]) := <type-of> e1
     with e3 := <expression-to-java-servlet> e1
-    with e4 := <expression-to-java-servlet> e2
+       ; e4 := <expression-to-java-servlet> e2
 
   call-to-java-servlet :
     Call(e1, "get", [e2]) -> java|[ e4 >= 0 && e4 < e3.size() ? e3.get(e4) : null ]|
     where GenericSort("List",[s]) := <type-of> e1
     with e3 := <expression-to-java-servlet> e1
-    with e4 := <expression-to-java-servlet> e2
-    
-  call-to-java-servlet :
-    Call(e1, "set", [e2,e3])  -> java|[ e4.setupForPropertyEvents(hibSession,out,ps).setIn#x_field(e5,e6) ]|
-    where GenericSort("List",[s]) := <type-of> e1
-        ; <?FieldAccess(e_entity,x_field)> e1
-    with e4 := <expression-to-java-servlet> e_entity
-    with e5 := <expression-to-java-servlet> e2
-    with e6 := <expression-to-java-servlet> e3
+       ; e4 := <expression-to-java-servlet> e2
          
   call-to-java-servlet :
-    Call(e1, "set", [e2,e3])  -> java|[ e4.set(e5,e6) ]|
+    Call(e1, "set", [e2,e3]) -> <list-call-to-java-servlet> (e1,e2,e3,"set","setIn")
+    
+  call-to-java-servlet :
+    Call(e1, "insert", [e2,e3]) -> <list-call-to-java-servlet> (e1,e2,e3,"add","insertIn")
+    
+rules 
+
+  /** 
+   * Reusable translation dealing with whether this collection belongs to an entity with property events or is an ordinary collection 
+   * This needs to be improved by adding collection classes that represent both of these types, 
+   * then 'escaped' collections (eg collection property passed to function) still handle property events. 
+   * Maybe there is a way to do this with hibernate collections directly.
+  */    
+  list-call-to-java-servlet :
+    (e1,e2,e3,x_regular,x_pevents) -> <collection-call-to-java-servlet> (e1,e2,e3,x_regular,x_pevents)
     where GenericSort("List",[s]) := <type-of> e1
-         ; not(<?FieldAccess(_,_)> e1)
-    with e4 := <expression-to-java-servlet> e1
-    with e5 := <expression-to-java-servlet> e2
-    with e6 := <expression-to-java-servlet> e3
+
+  collection-call-to-java-servlet :
+    (e1,x_regular,x_pevents) -> <collection-call-to-java-servlet> (e1,"none","none",x_regular,x_pevents) 
+  
+  collection-call-to-java-servlet :
+    (e1,e2,x_regular,x_pevents) -> <collection-call-to-java-servlet> (e1,e2,"none",x_regular,x_pevents) 
+  
+  collection-call-to-java-servlet :
+    (e1,e2,e3,x_regular,x_pevents) -> java|[ e4.x_regular(e*) ]|
+    where <check-collection-not-in-entity> e1
+    with  e4 := <expression-to-java-servlet> e1
+        ; e* := <expression-arguments-for-collection-call> (e2,e3)
+  
+  check-collection-not-in-entity :
+    e1 -> e1       
+    where GenericSort(_,_) := <type-of> e1
+        ; not(<?FieldAccess(_,_)> e1)
+        ; not(<is-property> (<ClassName>, <?Var(<id>);remove-first-character-in-string> e1))    
+    
+  collection-call-to-java-servlet :
+    (e1,e2,e3,x_regular,x_pevents) -> java|[ e4.setupForPropertyEvents(hibSession,out,ps).x_pevents#x_field(e*) ]|
+    where (e4,x_field) := <check-collection-in-entity> e1
+    with  e* := <expression-arguments-for-collection-call> (e2,e3)
+        
+  check-collection-in-entity :        
+    e1 -> (e2,x_field)
+    where GenericSort(_,_) := <type-of> e1
+        ; ( <?FieldAccess(e_entity,x_field)> e1
+          ; e2 := <expression-to-java-servlet> e_entity
+         <+ x_field := <?Var(<id>);remove-first-character-in-string> e1
+          ; <is-property> (<ClassName>,x_field) //is inside an entity (otherwise <ClassName> fails) and is a property of that entity (otherwise <is-property> fails)
+          ; e2 := java:expr|[ this ]| 
+          )  
+          
+  expression-arguments-for-collection-call :
+    (e1,e2) -> e1*
+    where if "none" := e2
+          then e* := []
+          else e* := [<expression-to-java-servlet> e2]
+          end
+        ; if "none" := e1
+          then e1* := e*
+          else e1* := [<expression-to-java-servlet> e1 | e*]
+          end
 
 rules //general collection functions
 
   call-to-java-servlet :
-    Call(e1, "add", [e2])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).addTo#x_field(e4) ]|
-    where GenericSort(_,_) := <type-of> e1
-        ; <?FieldAccess(e_entity,x_field)> e1
-    with  e3 := <expression-to-java-servlet> e_entity
-        ; e4 := <expression-to-java-servlet> e2
-
+    Call(e1, "add", [e2]) -> <collection-call-to-java-servlet> (e1,e2,"add","addTo")
+    
   call-to-java-servlet :
-     Call(e1, "add", [e2])  -> java|[ e3.add(e4) ]|
-     where GenericSort(_,_) := <type-of> e1
-         ; not(<?FieldAccess(_,_)> e1)
-     with  e3 := <expression-to-java-servlet> e1
-         ; e4 := <expression-to-java-servlet> e2
-
-  call-to-java-servlet :
-    Call(e1, "remove", [e2])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).removeFrom#x_field(e4) ]|
-    where GenericSort(_,_) := <type-of> e1
-        ; <?FieldAccess(e_entity,x_field)> e1
-    with  e3 := <expression-to-java-servlet> e_entity 
-        ; e4 := <expression-to-java-servlet> e2
-  
-  call-to-java-servlet :
-    Call(e1, "remove", [e2])  -> java|[ e3.remove(e4) ]|
-    where GenericSort(_,_) := <type-of> e1
-        ; not(<?FieldAccess(_,_)> e1)
-    with  e3 := <expression-to-java-servlet> e1
-        ; e4 := <expression-to-java-servlet> e2
+    Call(e1, "remove", [e2]) -> <collection-call-to-java-servlet> (e1,e2,"remove","removeFrom")
      
   call-to-java-servlet :
-    Call(e1, "clear", [])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).removeAllFrom#x_field() ]|
-    where GenericSort(_,_) := <type-of> e1
-        ; <?FieldAccess(e_entity,x_field)> e1
-    with  e3 := <expression-to-java-servlet> e_entity      
-         
-  call-to-java-servlet :
-     Call(e1, "clear", [])  -> java|[ e3.clear() ]|
-     where GenericSort(_,_) := <type-of> e1
-         ; not(<?FieldAccess(_,_)> e1)
-     with  e3 := <expression-to-java-servlet> e1
+    Call(e1, "clear", []) -> <collection-call-to-java-servlet> (e1,"clear","removeAllFrom")
 
   call-to-java-servlet :
-    Call(e1, "addAll", [e2])  -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).addAllTo#x_field(e4) ]|
-    where GenericSort(_,_) := <type-of> e1
-        ; <?FieldAccess(e_entity,x_field)> e1
-    with  e3 := <expression-to-java-servlet> e_entity    
-        ; e4 := <expression-to-java-servlet> e2  
+    Call(e1, "addAll", [e2]) -> java|[ e3.setupForPropertyEvents(hibSession,out,ps).addAllTo#x_field(e4) ]|
+    where (e3,x_field) := <check-collection-in-entity> e1
+    with  e4 := <expression-to-java-servlet> e2  
          
   call-to-java-servlet :
-     Call(e1, "addAll", [e2])  -> java|[ {| t_tmp x_tmp = e3; x_tmp.addAll(e4); | x_tmp |} ]|
-     where GenericSort(_,_) := <type-of> e1
-         ; not(<?FieldAccess(_,_)> e1)
+     Call(e1, "addAll", [e2]) -> java|[ {| t_tmp x_tmp = e3; x_tmp.addAll(e4); | x_tmp |} ]|
+     where <check-collection-not-in-entity> e1
      with  e3 := <expression-to-java-servlet> e1
          ; e4 := <expression-to-java-servlet> e2
          ; t_tmp := <type-of;java-type> e1

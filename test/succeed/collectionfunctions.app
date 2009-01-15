@@ -11,6 +11,12 @@ section datamodel
     function replaceList(l:List<User>){
       list := l;
     }
+    function addL(u : User){
+      list.add(u);
+    }
+    function insertL(i:Int,u : User){
+      list.insert(i,u);
+    }    
     
   }
   var u1:User := User{name := "bob" };
@@ -62,7 +68,19 @@ section datamodel
           action("set to list",s2l(u1))
           action("clear list",cl(u1))
           action("clear set",cs(u1))
-          action("replace list (entity function)",replaceList(u1))
+          action("replace list",replaceList(u1))
+          var i: Int := 0;
+          input(i)
+          action("insert list",insertList(i,u1))
+
+          //action("list to set",l2s(u1))
+          //action("set to list",s2l(u1))
+          //action("clear list",cl(u1))
+          //action("clear set",cs(u1))
+          action("replace list (entity function)",replaceListE(u1))
+          var j: Int := 0;
+          input(j)
+          action("insert list (entity function)",insertListE(j,u1))
         }   
       }} 
     
@@ -110,12 +128,29 @@ section datamodel
       
       u.save();
       return home();
-    }
+    }   
     action replaceList(u:User){
-      u.replaceList([u3,u4]);
+      u.list := [u3,u4];
+      u.save();
+      return home();
+    }   
+    action insertList(i:Int,u:User){
+      u.list.insert(i,u);
       u.save();
       return home();
     }
+
+    action replaceListE(u:User){
+      u.replaceList([u3,u4]);
+      u.save();
+      return home();
+    }   
+    action insertListE(i:Int,u:User){
+      u.insertL(i,u);
+      u.save();
+      return home();
+    }  
+
   }
   
   define main(){
