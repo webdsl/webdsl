@@ -11,7 +11,7 @@ import javax.servlet.http.HttpServletResponse;
 
 public abstract class EmailServlet {
 
-    public abstract void render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out);
+    public abstract void render(PageServlet ps, Object[] args, HashMap<String, Object> variables, java.io.PrintWriter out);
     
     public static java.util.Properties props = new java.util.Properties();
     

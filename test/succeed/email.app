@@ -17,32 +17,53 @@ section datamodel
   entity User {
     name :: String
     mail :: Email
+    
+    function send(){
+      email(testemail(this));
+    }
+  }
+  
+  function emailsendfunction(u:User){
+    email(testemail(u));
   }
 
-  var u : User := User {
+  var global_u : User := User {
     name := "bob"  
     mail := "webdslorg@gmail.com"
   };
   
   define page home() {
-    output(u.name)
-    output(u.mail)
+    output(global_u.name)
+    output(global_u.mail)
     
-    
-  form {
-    action("email",send())
-  }
+    form {
+      action("email",send())
+    }
     action send() {
-      email(testemail(u));
+      email(testemail(global_u));
+    }
+    
+    form {
+      action("email (call in entity function)",send())
+    }
+    action send() {
+      global_u.send();
+    }
+    
+    form {
+      action("email (call in global function)",send())
+    }
+    action send() {
+      emailsendfunction(global_u);
     }
   
     form {
-      input(u.name)
-      input(u.mail)
+      input(global_u.name)
+      input(global_u.mail)
       action("save",save())
     }
     action save() {
-       u.save();
+       global_u.save();
     }
 
   }
