@@ -21,10 +21,10 @@ import aterm.ATerm;
  */
 public class SDF {
 	private static final HashMap<String, SDF> allSDF = new HashMap<String, SDF>();
-	private static final HashMap<String, String> SGLRErrors = new HashMap<String, String>();
+	private static final HashMap<String, String> sglrErrors = new HashMap<String, String>();
 	
 	public static HashMap<String, String> getSGLRErrors() {
-		return SGLRErrors;
+		return sglrErrors;
 	}
 
 	private static Interpreter imploder;
@@ -54,6 +54,8 @@ public class SDF {
 	}
 	
 	private synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
+		org.spoofax.jsglr.Tools.setOutput(java.io.File.createTempFile("jsglr", "log").getAbsolutePath());
+		
 		ParseTable table = Environment.loadParseTable(parseTable);
 		SDF result = new SDF(table);
 		allSDF.put(language, result);		
@@ -77,6 +79,9 @@ public class SDF {
 			parseCache.put(input, parsed);
 			return true;
 		} catch (RuntimeException e) {
+			if(e.getCause() != null && !(e.getCause() instanceof SGLRException)){
+				e.printStackTrace();
+			}
 			return false;
 		}
 	}
@@ -93,11 +98,10 @@ public class SDF {
 			parseCache.put(input, result);
 			return result;
 		} catch (IOException e) {
-			SGLRErrors.put(input,e.getMessage());
 			throw new RuntimeException(e); // unexpected; fatal
 		} catch (SGLRException e) {
-			SGLRErrors.put(input,e.getMessage());
-			throw new RuntimeException(e); // TODO: Handle SGLRException
+			sglrErrors.put(input,e.getMessage()); //store error message
+			throw new RuntimeException(e);
 		}
 	}
 
