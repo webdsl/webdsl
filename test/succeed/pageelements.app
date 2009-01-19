@@ -8,12 +8,13 @@ section datamodel
   
   define page pagearg(u:User,s:String,i:Int,f:Float,b:Bool)
   {
+    var temp: Int := i;
     form{
       if(true)
       {
-        input(i)
+        input(temp)
       }
-      action("save",someaction(i,u))
+      action("save",someaction(temp,u))
     }
     
     action someaction(i:Int,u:User){
