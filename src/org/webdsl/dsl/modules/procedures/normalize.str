@@ -6,12 +6,12 @@ imports
 
 rules // Normalization
 
-  desugar = normalize
+  normalize = normalize-procedures
   
 rules // Normalize: add missing blocks
 
   // an auto procedure is rewritten to a normal procedure which is 'done' automatically when enabled (for non-generated procs)
-  normalize : 
+  normalize-procedures : 
     def|[ auto procedure x_id (x_o : srt) { procelem_before* }]| -> def|[ procedure x_id(x_o : srt) { procelem_after* } ]|
     with ([el] := <filter(?procelem|[ enabled { stat* } ]|)> procelem_before* <+ stat* := [])
        ; if <IsGeneratedProcedure> x_id then
@@ -32,7 +32,7 @@ rules // Normalize: add missing blocks
               ]|*/
 
 /*  // add missing enabled block
-  normalize :
+  normalize-procedures :
     def|[ auto procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { procelem2* } ]| 
     where [] := <filter(?procelem|[ enabled { stat* } ]|)> procelem* 
         ; [] := <filter(?procelem|[ process { processexp } ]|)> procelem* 
@@ -43,7 +43,7 @@ rules // Normalize: add missing blocks
            procelem2* := [procelem|[ enabled { this.do(); } ]| | procelem*]
          end
 
-  normalize :
+  normalize-procedures :
     def|[ auto procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { procelem2* } ]| 
     where [] := <filter(?procelem|[ enabled { stat* } ]|)> procelem* 
         ; not([] := <filter(?procelem|[ process { processexp } ]|)> procelem*)
@@ -51,7 +51,7 @@ rules // Normalize: add missing blocks
     with  procelem2* := [procelem|[ enabled { this.next(0); } ]| | procelem*]
     
   // ... enabled
-  normalize : 
+  normalize-procedures : 
     def|[ auto procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { procelem2* } ]|
     where [el] := <filter(?procelem|[ enabled { stat* } ]|)> procelem*
         ; [] := <filter(?procelem|[ process { processexp } ]|)> procelem* 
@@ -61,7 +61,7 @@ rules // Normalize: add missing blocks
            procelem2* := [procelem|[ enabled { stat* this.do(); } ]| | <remove-all(?procelem|[ enabled { stat* } ]|)> procelem*]
          end
 
-  normalize : 
+  normalize-procedures : 
     def|[ auto procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { procelem2* } ]|
     where [el] := <filter(?procelem|[ enabled { stat* } ]|)> procelem*
         ; not([] := <filter(?procelem|[ process { processexp } ]|)> procelem*)
@@ -69,19 +69,19 @@ rules // Normalize: add missing blocks
 */
     
   // ... who
-  normalize :
+  normalize-procedures :
     def|[ procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { who { true } procelem* } ]|
     where 
       not(<fetch(?procelem|[ who { e } ]|)> procelem*)
 
   // ... when
-  normalize :
+  normalize-procedures :
     def|[ procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { when { true } procelem* } ]|
     where 
       not(<fetch(?procelem|[ when { e } ]|)> procelem*)
 
   // ... do
-  normalize :
+  normalize-procedures :
     def|[ procedure x_id (x_o : srt) { procelem* }]| -> def|[ procedure x_id(x_o : srt) { do {} procelem* } ]|
     where 
       not(<fetch(?procelem|[ do { stat* } ]|)> procelem*)
@@ -89,35 +89,35 @@ rules // Normalize: add missing blocks
 rules // Further normalizing
 
 /*
-  normalize :
+  normalize-procedures :
     def|[ procedure x_id (x_o : srt) { procelem* }]| -> <rename-all> def|[ procedure x_id(x_o : srt) { procelem2* } ]|
     where procelem2* := <manytd(normalize-object-param(|<strip-annos> x_o))> procelem*
 
 */
 
-  normalize : // make the doAction() callable as do()
+  normalize-procedures : // make the doAction() callable as do()
     exp|[ do() ]| -> exp|[ doAction() ]|
 
-  normalize :
+  normalize-procedures :
     exp|[ e.start(e*) ]| -> exp|[ x(e1, e*) ]|
     where SimpleSort("WorkflowStatus") := <type-of> e
         ; FieldAccess(e1, wf) := e
         ; x := <concat-strings> ["new", <capitalize-string> wf]
 
 /*
-  normalize :
+  normalize-procedures :
     exp|[ e.enable() ]| -> exp|[ x(e1) ]|
     where SimpleSort("ProcedureStatus") := <type-of> e
         ; FieldAccess(e1, ps) := e
         ; x := <concat-strings> [ps, "Enabled"]
 
-  normalize :
+  normalize-procedures :
     exp|[ e.disable() ]| -> exp|[ x(e1) ]|
     where SimpleSort("ProcedureStatus") := <type-of> e
         ; FieldAccess(e1, ps) := e
         ; x := <concat-strings> [ps, "Disabled"]
 
-  normalize :
+  normalize-procedures :
     exp|[ e.do() ]| -> exp|[ x(e1) ]|
     where SimpleSort("ProcedureStatus") := <type-of> e
         ; FieldAccess(e1, ps) := e

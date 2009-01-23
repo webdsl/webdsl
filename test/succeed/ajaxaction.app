@@ -7,8 +7,8 @@ define page home() {
   block[id := target] {}
   action("do",do2())
   action do2 () {
-    replace target << template(s);
-    append  target << template(s);
+    replace target << templ(s);
+    append  target << templ(s);
     
     relocate << apage(s);
     
@@ -25,7 +25,7 @@ define page apage(s: String) {
   output(s)
 }
 
-define template(s: String) {
+define templ(s: String) {
   "hoi"
   output(s)
 }

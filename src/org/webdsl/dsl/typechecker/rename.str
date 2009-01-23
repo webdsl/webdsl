@@ -50,26 +50,36 @@ rules
     
   rename-type = ?s; (RenameType <+ !s)
 
-  rename :
+
+strategies // Composition
+
+  rename = rename-action
+  rename = rename-sdf
+  rename = rename-ui
+  rename = rename-data
+
+strategies
+
+  rename-action :
     VarDecl(x, srt) -> VarDecl(y, srt2)
     with  srt2 := <rename-all> srt 
         ; y := <rename-bound(|srt2)> x
 
-  rename :
+  rename-action :
     v@VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
     where InDef
     with  srt2 := <rename-all> srt
         ; e' := <rename-all> e
         ; y := <rename-bound(|srt2)> x
         
-  rename :
+  rename-action :
     v@VarDeclInitInferred(x, e) -> VarDeclInitInferred(y, e')
     where InDef
     with  e' := <rename-all> e
         ; srt := <type-of> e'
         ; y := <rename-bound(|srt)> x
 
-  rename :
+  rename-action :
     v@VarDeclInit(x, srt, e) -> VarDeclInit(x, srt, e')
     where not(InDef)//needed for inital rename
         ; not(IsGlobal)//needed for rename from model-to-model innermost without context
@@ -77,7 +87,7 @@ rules
        ; rules ( TypeOf : x -> srt )
        ; rules ( IsGlobal : x )
        
-  rename :
+  rename-action :
     v@VarDeclInitInferred(x, e) -> VarDeclInitInferred(x, e')
     where not(InDef)//needed for inital rename
         ; not(IsGlobal)//needed for rename from model-to-model innermost without context
@@ -86,34 +96,34 @@ rules
        ; rules ( TypeOf : x -> srt )
        ; rules ( IsGlobal : x )
   
-   rename :
+   rename-action :
      s@SimpleSort(_) -> s2
      with  s3 := <rename-type> s
          ; s2 := <rename-sort-for-generic> s3
          
-   rename :
+   rename-action :
      GenericSort(g, types) -> GenericSort(g, types2)
      where not( g := "SDFInput")
      with  types2 := <rename-all> types
 
- rename :
+   rename-action :
     Block(stat1*) -> Block(stat2*)
     with {| Rename
           : stat2* := <rename-all> stat1*
           |}
 
-  rename :
+  rename-ui :
     def |[ define page x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define page x(farg2*) { elem2* } ]|
     with {| Rename, InDef, InPage, RenameActionCall
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; farg2* := <map(rename)> farg1*
-          ; elem2* := <alltd(rename-action); rename-all> elem1*
+          ; elem2* := <alltd(rename-actions); rename-all> elem1*
           ; <try(alltd(rename))> elem1*
           ; rules ( TypeOf : x -> "Component" )
           |}
 
-  rename :
+  rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
     where not(InPage)
         ; not(<elem> (Page(), mod*))
@@ -124,11 +134,11 @@ rules
           ; y := x{<newname> x}
           ; genargs := <get-generictype-args> farg1*
           ; farg3* := <map(rebind-generic-in-farg(|genargs))> farg1*
-          ; farg2* := <map(rename; declare-template-arg)> farg3*
-          ; elem2* := <alltd(rename-action); rename-all> elem1*
+          ; farg2* := <map((rename <+ debug); (declare-template-arg <+ debug(!"Declare!")))> farg3*
+          ; elem2* := <alltd(rename-actions); rename-all> elem1*
           |}
         
-  rename :
+  rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
     where (InPage <+ InTemplate)
         ; not(<elem> (Page(), mod*))
@@ -138,10 +148,10 @@ rules
          ; rules ( InTemplate := x )
          ; y := x{<newname> x}
          ; farg2* := <map(rename)> farg1*
-         ; elem2* := <alltd(rename-action); rename-all> elem1*
+         ; elem2* := <alltd(rename-actions); rename-all> elem1*
          |}
 
-  rename :
+  rename-action :
     Function(x, args1, srt, b1) -> <declare-global-func <+ debug> Function(x, args2, srt, b2)
     where not(InEntity)
     with {| Rename, InDef
@@ -150,7 +160,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     FunctionNoReturn(x, args1, b1) -> <declare-global-func <+ debug> FunctionNoReturn(x, args2, b2)
     where not(InEntity)
     with {| Rename, InDef
@@ -159,7 +169,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     Function(x, args1, srt, b1) -> Function(x, args2, srt, b2)
     where InEntity
     with {| Rename, InDef
@@ -168,7 +178,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     FunctionNoReturn(x, args1, b1) -> FunctionNoReturn(x, args2, b2)
     where InEntity
     with {| Rename, InDef
@@ -177,7 +187,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-data :
     Entity(x_class, s, props1, functions1) -> <declare-entity> Entity(x_class, s, props2, functions2)
     with {| Rename, InEntity
           : rules ( InEntity := x_class )
@@ -186,7 +196,7 @@ rules
           ; functions2 := <rename-all> functions1
           |}
 
-  rename :
+  rename-data :
     EntityNoSuper(x_class, props1, functions1) -> <declare-entity> EntityNoSuper(x_class, props2, functions2)
     with {| Rename, InEntity
           : rules ( InEntity := x_class )
@@ -195,7 +205,7 @@ rules
           ; functions2 := <rename-all> functions1
           |}
 
-  rename :
+  rename-data :
     SessionEntity(nm, props1, functions1) -> <declare-entity> SessionEntity(nm, props2, functions2)
     with {| Rename, InEntity
           : rules ( InEntity := nm )
@@ -205,7 +215,7 @@ rules
           ; functions2 := <rename-all> functions1
           |}
            
-  rename :         
+  rename-data :         
     ExtendSessionEntity(x_class, props1, funcs1) -> <declare-extend-entity> ExtendSessionEntity(x_class, props2, funcs2) 
     with {| Rename, InEntity
           : rules ( InEntity := x_class )
@@ -215,7 +225,7 @@ rules
           ; funcs2 := <rename-all> funcs1
           |}
           
-  rename :
+  rename-ui :
     t@ThisCall(_, _) -> t3
     with (t2@ThisCall(f, e2*){anno*} := <RenameActionCall> t //try to invoke renameActionCall first...
           <+ t2@ThisCall(f,e2*){anno*} := t)
@@ -230,7 +240,7 @@ rules
             t3 := ThisCall(f, e3*){anno*}
          )
 
-  rename :
+  rename-data :
     ExtendEntity(x_class, props1, funcs1) ->  <declare-extend-entity> ExtendEntity(x_class, props2, funcs2) 
     with {| Rename, InEntity
           : rules ( InEntity := x_class )
@@ -239,9 +249,9 @@ rules
           ; funcs2 := <rename-all> funcs1
           |}
 
-  rename-action = ?Define(_, _, _, _) // End of scope
+  rename-actions = ?Define(_, _, _, _) // End of scope
 
-  rename-action :
+  rename-actions :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
     with
        {| Rename
@@ -256,7 +266,7 @@ rules
 
 //  rename = RenameActionCall
 
-  rename :
+  rename-ui :
     For(x, srt, e1, f1, elems1) -> For(y, srt2, e2, f2, elems2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -266,7 +276,7 @@ rules
           ; elems2 := <rename-all> elems1
           |}
 
-  rename :
+  rename-ui :
     ForNoFilter(x, srt, e1, elems1) -> ForNoFilter(y, srt2, e2, elems2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -275,7 +285,7 @@ rules
           ; elems2 := <rename-all> elems1
           |}
 
-  rename :
+  rename-ui :
     ForSep(x, srt, e1, f1, elems1, elems2) -> ForSep(y, srt2, e2, f2, elems3, elems4)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -286,7 +296,7 @@ rules
           |}
           ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
 
-  rename :
+  rename-ui :
     ForSepNoFilter(x, srt, e1, elems1, elems2) -> ForSepNoFilter(y, srt2, e2, elems3, elems4)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -296,7 +306,7 @@ rules
           |}
           ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
 
-  rename :
+  rename-ui :
     ForAll(x, srt, f1, elems1) -> ForAll(y, srt2, f2, elems2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -306,7 +316,7 @@ rules
           |}
 
 
-  rename :
+  rename-ui :
     ForAllNoFilter(x, srt, elems1) -> ForAllNoFilter(y, srt2, elems2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -315,7 +325,7 @@ rules
           |}
 
 
-  rename :
+  rename-action :
     ForStmt(x, srt, e1, f1, b1) -> ForStmt(y, srt2, e2, f2, b2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -325,7 +335,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     ForStmtNoFilter(x, srt, e1, b1) -> ForStmtNoFilter(y, srt2, e2, b2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -334,7 +344,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     ForAllStmt(x, srt, f1, b1) -> ForAllStmt(y, srt2, f2, b2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -343,7 +353,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     ForAllStmtNoFilter(x, srt, b1) -> ForAllStmtNoFilter(y, srt2, b2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -351,7 +361,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-action :
     ForExp(oe1, x, srt, ie1, f1) -> ForExp(oe2, y, srt2, ie2, f2)
     with  {| Rename
            : srt2 := <rename-all> srt
@@ -361,7 +371,7 @@ rules
            |}
           ; ie2 := <rename-all> ie1
 
-  rename :
+  rename-action :
     ForExpNoFilter(oe1, x, srt, ie1) -> ForExpNoFilter(oe2, y, srt2, ie2)
     with {| Rename
           : srt2 := <rename-all> srt
@@ -370,7 +380,7 @@ rules
           |}
          ; ie2 := <rename-all> ie1
 
-  rename :
+  rename-action :
     ForCountStmt(x, e1, e2, b1) -> ForCountStmt(y, e3, e4, b2)
     with {| Rename
           : y := <rename-bound(|SimpleSort("Int"))> x
@@ -379,7 +389,7 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-  rename :
+  rename-ui :
     Select(x, s, lab1, e1) -> Select(y, s, lab2, e2) 
     with {| Rename
             : y := <rename-bound(|s)> x
@@ -387,12 +397,12 @@ rules
             ; lab2 := <rename-all> lab1
           |} 
 
-  rename :
+  rename-action :
     Arg(x, srt) -> Arg(y, srt2)
     with  srt2 := <rename-type> srt
         ; y := <rename-bound(|srt2)> x
   
-  rename :
+  rename-ui :
     InitAction(bl) -> InitAction(bl2)
     where not(InDef)
     with {|InDef :
@@ -402,24 +412,24 @@ rules
   
   //template call id renaming
    
-  rename :
+  rename-ui :
     tc@TemplateCallPropsNoBody(x1, e1*,passign*) -> TemplateCallPropsNoBody(x1, e2*,passign2*)
     with  e2* := <rename-all> e1*
         ; passign2* := <rename-all> passign*
         ; <declare-template-html-id(|tc)> passign*
 
-  rename :
+  rename-ui :
     tc@TemplateCallProps(x1, passign*) -> TemplateCallProps(x1, passign2*)
     with passign2* := <rename-all> passign*
         ; <declare-template-html-id(|tc)> passign*
 
-  rename :
+  rename-ui :
     tc@TemplateCallPropsNoArgs(x1, passign*, elem1*) -> TemplateCallPropsNoArgs(x1,passign2*, elem2*)
     with  elem2* := <rename-all> elem1*
         ; passign2* := <rename-all> passign*
         ; <declare-template-html-id(|tc)> passign*
     
-  rename :
+  rename-ui :
     tc@TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x1, e2*,passign2*, elem2*)
     with  e2* := <rename-all> e1*
         ; elem2* := <rename-all> elem1*
@@ -431,7 +441,7 @@ rules
 
   // rename hack to avoid checks on argument type
 
-  rename :
+  rename-sdf :
     GenericSort("SDFInput", [SimpleSort(x{anno1*})]){anno2*} -> 
     GenericSort("SDFInput", [x{anno1*}]){anno2*}
 //    where debug(!"using SDFInput")
