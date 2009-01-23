@@ -10,9 +10,12 @@ import javax.servlet.http.HttpServletResponse;
 
 
 public interface TemplateServlet {
-    public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out);	
     
     public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses);
+
+    public int validateInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses);
+
+	public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out);	
     
     public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out) ;
 }

@@ -1,0 +1,50 @@
+module org/webdsl/dsl/modules/types/data-validation
+
+imports 
+  libstrategolib 
+  Java-15 
+  libjava-front 
+  libwebdsl-front
+signature
+  constructors
+
+    PreDeriveInputDone : Annotation
+
+rules // desugar
+
+  //should be done only once
+  PreDeriveInput :
+    tc@TemplateCall(x,e*,passign*,elem*) -> TemplateCall("dummy",[],[],[TemplateCall(x,e*,passignnew*,[])|rest])
+    where not(<fetch(?PreDeriveInputDone())> passign*)//template calls get rewritten too often without handling annotations, passign* however, is passed everywhere
+        ; <  ?"input"  //TODO refactor into small declarations for input template calls in each type file
+          <+ ?"inputBool"
+          <+ ?"inputDate"
+          <+ ?"inputDateTime"
+          <+ ?"inputTime"
+          <+ ?"inputEmail"
+          <+ ?"inputFile"
+          <+ ?"inputFloat"
+          <+ ?"inputImage"
+          <+ ?"inputInt"
+          <+ ?"inputPatch"
+          <+ ?"inputSecret"
+          <+ ?"inputString"
+          <+ ?"inputText"
+          <+ ?"inputURL"
+          <+ ?"inputWikiText"
+          > x
+       ; if <oncetd(?webdsl:e|[conversionError(e*)]|)> tc // check that there wasn't an explicit mention of the conversionError, no need to add default in that case
+         then rest := elem*
+         else rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | elem*] end
+       ; passignnew* := [PreDeriveInputDone()|passign*]
+
+rules //validate template call
+
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("validate",[SimpleSort("Bool"),SimpleSort("String")]);fail
+  
+rules //validate function
+
+  check-builtin-signature :
+    (None(), "validate", [s1,s2]) -> None()
+    where <type-compatible> (SimpleSort("Bool"),s1)
+        ; <type-compatible> (SimpleSort("String"),s2)
