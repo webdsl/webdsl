@@ -21,7 +21,8 @@ signature
 strategies
 
   all-consnil(s) = ?[_ | _] < [s | s] + all(s)
-  desugar: 
+
+  desugar-ui: 
     [TemplateCall("dummy",_,_,elems)| xs] -> <concat>[elems, xs]
 
   innermost-rep(s) =
@@ -43,15 +44,22 @@ strategies
      repeat(innermost-rep(desugar))
    //  |}
 
+strategies
+
+  desugar = desugar-ui
+  desugar = desugar-action
+  desugar = desugar-data
+  desugar = desugar-util
+
 rules //extend entity functions create dr
   
-  desugar :
+  desugar-data :
     SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
-  desugar :
+  desugar-data :
     Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
-  desugar :
+  desugar-data :
     EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
         
@@ -87,13 +95,13 @@ rules //extend entity functions create dr
 
 rules //apply extend entity functions
 
-  desugar :
+  desugar-data :
     SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
-  desugar :
+  desugar-data :
     Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
-  desugar :
+  desugar-data :
     EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
  
@@ -104,7 +112,7 @@ rules //apply extend entity functions
     
 rules //extend global functions create dr and apply
 
-  desugar :
+  desugar-action :
     ExtendFunction(Function(fun, fargs, _, Block(stats))) -> RemoveMe()
     where <IsGlobalFunctionSignature> (fun,<map(?Arg(_,<id>))> fargs)
     with rules (
@@ -113,13 +121,13 @@ rules //extend global functions create dr and apply
              with  newstats := <rename-vars-in-added-stmts-with-fargs> (fargs,fargs2,stats,stats2)
          )
 
-  desugar = once-ExtendFunction
+  desugar-action = once-ExtendFunction
 
 rules
 
-  desugar = once-ExtendEntity
+  desugar-action = once-ExtendEntity
   
-  desugar :
+  desugar-action :
     ExtendEntity(ident, props, funcs) -> RemoveMe()
     with rules (
         ExtendEntity :+
@@ -292,7 +300,7 @@ rules
   // can this not be factored into smaller steps?
   // @TODO: factor out param extraction from all the following rules into a single strategy
 
-  desugar :
+  desugar-action :
     fe@ForExp(oe, x, s, ie, fltr) -> ThisCall($fun, params)
     where $fun := <newname> "listCompr"
         ; {| Param, IgnoreVars
@@ -335,7 +343,7 @@ rules
           ]|
 
   /* @REFACTOR: This must be turned into AndForExp(oe, x, s, ie, fltr) ... */
-  desugar :
+  desugar-action :
     AndForExp(fe@ForExp(oe, x, s, ie, fltr)) -> ThisCall($fun, params)
     where $fun := <newname> "listCompr"
         ; {| Param, IgnoreVars
@@ -366,7 +374,7 @@ rules
           ]|
 
   /* @REFACTOR: This must be turned into OrForExp(oe, x, s, ie, fltr) ... */
-  desugar :
+  desugar-action :
     OrForExp(fe@ForExp(oe, x, s, ie, fltr)) -> ThisCall($fun, params)
     where $fun := <newname> "listCompr"
         ; {| Param, IgnoreVars
@@ -398,7 +406,7 @@ rules
 
   //nice bunch of code duplication below....
 
-  desugar :
+  desugar-action :
     TypedListCreation(srt1, e1*) -> ThisCall($fun, params)
     where not([] := e1*)
         ; $fun := <newname> "typedlistCr"
@@ -424,7 +432,7 @@ rules
             }
           ]|
 
-  desugar :
+  desugar-action :
     TypedSetCreation(srt1, e1*) -> ThisCall($fun, params)
     where not([] := e1*)
         ; $fun := <newname> "typedsetCr"
@@ -447,7 +455,7 @@ rules
             }
           ]|
 
-  desugar :
+  desugar-action :
     ListCreation([e1|e1*]) -> ThisCall($fun, params)
     where $fun := <newname> "listCr"
         ; {| Param, IgnoreVars
@@ -470,7 +478,7 @@ rules
             }
           ]|
 
-  desugar :
+  desugar-action :
     SetCreation([e1|e1*]) -> ThisCall($fun, params)
     where $fun := <newname> "setCr"
         ; {| Param, IgnoreVars
@@ -495,7 +503,7 @@ rules
 
 rules //Desugar label, which is a bit trick because it results in multiple elements
 
-  desugar :
+  desugar-ui :
     elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign2*]{} container {elem2*} } ]|
     where not([] := elem*)
         ; [TemplateCall(name, args, assigns, elems) | others] := elem*
@@ -504,7 +512,7 @@ rules //Desugar label, which is a bit trick because it results in multiple eleme
         ; assigns2  := <concat>[[PropertyAssignment("id", nid)], assigns]           //generate id assignment
         ; elem2*    := <concat>[[TemplateCall(name, args, assigns2, elems)], others]
 
-  desugar :
+  desugar-ui :
     elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign*]{} container {elem*} } ]|
     where not([] := elem*)
         ; not([TemplateCall(_, _, _, _) | others] := elem*) //elems not empty, be neither a template call to refer to at the begining
@@ -512,7 +520,7 @@ rules //Desugar label, which is a bit trick because it results in multiple eleme
 
 rules //Desugar group, groupitems become rows, group becomes table
 
-  desugar :
+  desugar-ui :
     TemplateCall("group", args, passign*, elems1) -> TemplateCall("group", args, passign*, [TemplateCall("table",[],[],elems2)])
     where not([TemplateCall("table",_,_,_)] := elems1) // this is needed to avoid non-termination
         ; elems2 := <try(auto-surround-with-template(|"groupitem")); map(desugar-groupitem)> elems1
@@ -520,15 +528,15 @@ rules //Desugar group, groupitems become rows, group becomes table
   desugar-groupitem :
     TemplateCall("groupitem", args,passign*, elems) -> TemplateCall("row",args,passign*, elems)
 
-  desugar = desugar-groupitem
+  desugar-ui = desugar-groupitem
 
 rules //Desugar rows and tables
 
-  desugar :
+  desugar-ui :
     TemplateCall("table", args, passign*, elems) -> TemplateCall("table", args, passign*, elems2)
     where elems2 := <auto-surround-with-template(|"row")> elems
 
-  desugar :
+  desugar-ui :
     TemplateCall("row", args, passign*, elems) -> TemplateCall("row", args, passign*, elems2)
     where elems2 := <auto-surround-with-template(|"column")> elems
 
@@ -557,7 +565,7 @@ rules //Desugar helpers
 
 rules
 
-  desugar =
+  desugar-data =
     ?ent
     ; create-inverse-anno
     ; not(?ent)
