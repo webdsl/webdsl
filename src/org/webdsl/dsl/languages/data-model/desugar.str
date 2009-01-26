@@ -1,0 +1,91 @@
+module org/webdsl/dsl/languages/data-model/desugar
+
+rules
+  desugar-data :
+    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+  desugar-data :
+    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+  desugar-data :
+    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+        
+  desugar-extend-entity-functions-create-dr :
+    (x_class,fun1*) -> fun2*
+    where extendfunctions := <filter(?ExtendFunction(_))> fun1*
+        ; not(?[])
+    with  <map(extend-entity-function-dr(|x_class))> extendfunctions
+        ; fun2* := <remove-all(?ExtendFunction(_))> fun1*
+
+  extend-entity-function-dr(|x_class) =
+    ?ExtendFunction(Function(fun, fargs, _, Block(stats)))
+    ; with(
+          rules (
+            ExtendEntityFunction :+
+              (x_class,Function(fun, fargs2, SimpleSort("Void"), Block(stats2))) -> Function(fun, fargs2, SimpleSort("Void"), Block(newstats))
+              with  newstats := <rename-vars-in-added-stmts-with-fargs> (fargs,fargs2,stats,stats2)
+            )
+          )
+          
+  rename-vars-in-added-stmts-with-fargs :
+    (currentfargs,otherfargs,currentstmts,otherstmts) -> newstmts
+    with  renamepairs := <zip> (<map(?Arg(<id>,_))> currentfargs, <map(?Arg(<id>,_))> otherfargs)
+        ; (stats3, []) := <rename-all-vars> (currentstmts, renamepairs)
+        ; newstmts := <concat> [otherstmts, stats3]
+
+
+rules //apply extend entity functions
+
+  desugar-data :
+    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+  desugar-data :
+    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+  desugar-data :
+    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
+    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+ 
+  desugar-extend-entity-functions-apply-dr :
+    (x_class,fun1*) -> fun2*
+    where fun2* := <map(try(<once-ExtendEntityFunction;where(applied:=True())> (x_class,<id>)))> fun1*
+        ; !applied
+
+rules
+
+  desugar-data =
+    ?ent
+    ; create-inverse-anno
+    ; not(?ent)
+
+  create-inverse-anno :
+    Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions)
+    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
+
+  create-inverse-anno :
+    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions)
+    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
+
+  desugar-inverse-property(|x_class) :
+    Property(x, k, GenericSort(coll, [s@SimpleSort(ss)]), anno*) -> Property(x, k, GenericSort(coll, [s]), anno2*)
+    where <map(try(declare-inverse-anno(|x_class, x)))> anno*
+        ; anno2* := <create-inverse-slave-anno(|x_class,x)> anno*
+
+  desugar-inverse-property(|x_class) :
+    Property(x, k, s@SimpleSort(ss), anno*) -> Property(x, k, s, anno2*)
+    where <map(try(declare-inverse-anno(|x_class, x)))> anno*
+        ; anno2* := <create-inverse-slave-anno(|x_class,x)> anno*
+
+  create-inverse-slave-anno(|x_class,p) :
+    xs -> [slaveanno|xs]
+    where [] := <collect(?InverseSlaveAnno(_, _))> xs
+        ; (ent, fld) := <once-CreateInverseSlaveAnno> (x_class, p)
+        ; slaveanno := InverseSlaveAnno(ent, fld)
+
+  declare-inverse-anno(|x_class, p) =
+    ?InverseAnno(ent, fld)
+    ; rules(
+        CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
+      )
+
