@@ -10,146 +10,11 @@ strategies
 
   declare-all = alltd(declare-any) //initial declaration of globally visible elements
     
-strategies
-
-  declare-any = declare-ui
-  declare-any = declare-action
-
-strategies
-
-  declare-ui = declare-page-definition
-  declare-ui = declare-template-definition 
-  declare-action = declare-global-func
-  //also defined in modules, eg. /access-control/rename.str
- 
-  declare-function(|x_class) =
-    ?ExtendFunction(_)
-
-  declare-function(|x_class) =
-    ?FunctionNoReturn(f, args, body)
-    ; with(<declare-function(|x_class)> Function(f, args, SimpleSort("Void"), body))
-
-  declare-function(|x_class) =
-    ?Function(f, args, sort, body1)
-    ; with(id
-      ; t1* := <map(?Arg(_,<id>))> args
-      ; rules( CheckFunctionSignature :+
-                    (SimpleSort(x_class), f, t2*) -> sort
-                        where <zip(type-compatible)> (t1*, t2*)
-             )
-      )
-
 overlays
 
   NameProperty =
     Property("name", Simple(), SimpleSort("String"), [])
 
-strategies // register definitions
-
-  declare-page-definition =
-    ?def@Define([Page()], name, args, body)
-    ; with(common-declare-template-rules)
-    ; where (
-      t1* := <map(?Arg(_,<id>))> args
-      ; rules (
-          IsPage :+ name -> name
-          PageNames :+= name
-          CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
-        )
-    )
-
-  declare-template-definition =
-    ?def@Define(mods, name, fargs, body)
-    ; where ( 
-        fargs2 := <declare-generic-template-args> def
-      ; !Define(mods, name, fargs2, body)
-      ; with(common-declare-template-rules)
-    )
-
-  declare-toplevel-template-definition =
-    ?Define(mods, name, fargs, body)
-    ; where (
-        t* := <map(?Arg(_,<id>))> fargs
-      ; n := <strip-annos> name
-      ; if not(<elem> ((n, t*), <bagof-TopLevelTemplateDefinitions> n)) then
-          y := <newname> n
-          ; rules (
-            TopLevelTemplateNames :+= n
-            TopLevelTemplateDefinitions :+ n -> (n, t*)
-            OverloadedTemplateSignature : (n, t*) -> y
-            CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
-          )
-        end
-    )
-    ; declare-template-definition    
-
-  declare-local-template-definition =
-    ?def@Define(mods, name, fargs, body)
-    ; with(common-declare-template-rules)
-    ; where ( 
-        page := <InPage>
-        ; t1* := <map(?Arg(_,<id>))> fargs
-        ; n := <strip-annos> name
-        ; rules (
-            LocalTemplateNames :+ page -> name
-            LocalTemplateSignature : (n, t1*) -> def
-            EnclosingDefinition : name -> page
-          )
-      )
- 
-  declare-template-arg :
-    Arg(x, s) -> Arg(x, s)
-    with template := <InTemplate>
-        ; rules ( TemplateArguments :+ template -> Arg(x, s) ) 
-     
-  common-declare-template-rules :
-    def@Define(mods, name, fargs, body) -> def
-    with  t* := <map(?Arg(_,<id>))> fargs
-        ; n := <strip-annos> name
-        ; rules( TemplateSignature  : (n, t*) -> def
-                 TemplateDefinition : n -> def // only for use in code gen when renaming is applied which makes the names unique
-                 TemplateArguments  : n -> fargs //''
-               )
-        ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end // TODO: simplified lookup for generics
-
-/* implementation of more advanced checks for local redefinitions, eg check that there is always some def even when no global def defined 
-        ; <declare-templates-called-from-template(|n,t*)> def
-        
-  declare-templates-called-from-template(|n,t*) :
-    def@Define(mods, name, fargs, body) -> def
-    with  <alltd(declare-templates-called-from-template-helper(|n,t*))> body
-    
-  declare-templates-called-from-template-helper(|n,t*) : 
-    tc@TemplateCallNoBody(p,arg*) -> tc     
-    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
-    
-  declare-templates-called-from-template-helper(|n,t*) : 
-    tc@TemplateCallPropsNoBody(p,arg*,_) -> tc
-    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
-   
-  declare-templates-called-from-template-helper-2(|n,t*) : //fails in initial declarations before renaming
-    (p,arg*) -> (p,arg*)    
-    where t1* := <map(type-of)> arg*
-        ; p1 := <strip-annos> p
-        ; if not(<elem> ((p1,t1*),<bagof-TemplateRequires> (n,t*))) then
-            rules( TemplateRequires :+ (n,t*) -> (p1,t1*) ) end*/
-        
-strategies
-
-  declare-action =
-    ?def@Action(name, fargs, body)
-    ; with( 
-        t1* := <map(?Arg(_,<id>))> fargs 
-       ; (parent := <InPage> <+ parent := <InTemplate> <+ parent:= None()) //TODO: Parent NONE?! sounds 'global' -> dangerous
-      )
-      ; rules(
-          ActionDefinition  : name -> def
-          ActionArguments  : name -> fargs
-  
-          CheckActionSignature :
-            (parent, name, t2*) -> SimpleSort("Void")
-            where <zip(type-compatible)> (t1*, t2*)
-        )
       
 strategies
 
@@ -166,26 +31,6 @@ strategies
         IsGlobal : ident )
 
 */
-  declare-global-func = where (
-    ?fu@Function(f, args, s, b)
-    ; t1* := <map(?Arg(_,<id>))> args
-    ; f2 := f
-    ; rules ( CheckGlobalFunctionSignature :+ (None(), f2, t2*) -> s // TODO: Mapping of FunctionCall() to Function using this info
-                       where <zip(type-compatible)> (t1*, t2*)
-              CheckGlobalFunctionSignatureArgumentTypes :+ (None(), f2, t2*) -> t1* // TODO: Mapping of FunctionCall() to Function using this info
-                       where <zip(type-compatible)> (t1*, t2*)
-              IsGlobalFunctionSignature : (f, t1*)
-              IsGlobalFunction : (f, args, s)
-              IsGlobalFunction : f
-              GlobalFunctionArgs : f -> args
-              GlobalFunctionBlock : f -> b
-            )
-    )
-
-  declare-global-func =
-    ?FunctionNoReturn(f, args, b)
-    ; where(<declare-global-func> Function(f, args, SimpleSort("Void"), b))
-    
     
   //given a list of property assignmenst and a corresponding templatecall, it declares HtmlEntityId if a "id" property exists
   declare-template-html-id(|tc) =

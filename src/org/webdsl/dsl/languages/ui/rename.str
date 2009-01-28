@@ -1,0 +1,179 @@
+module org/webdsl/dsl/languages/ui/rename
+
+rules
+
+  rename-ui :
+    def |[ define page x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define page x(farg2*) { elem2* } ]|
+    with {| Rename, InDef, InPage, RenameActionCall
+          : rules ( InDef := True() )
+          ; rules ( InPage := x )
+          ; farg2* := <map(rename)> farg1*
+          ; elem2* := <alltd(rename-actions); rename-all> elem1*
+          ; <try(alltd(rename))> elem1*
+          ; rules ( TypeOf : x -> "Component" )
+          |}
+
+  rename-ui :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    where not(InPage)
+        ; not(<elem> (Page(), mod*))
+        //; not(<elem> (Email(), mod*))
+        ; not(<fetch(?Email())> mod*)
+    with {| Rename, InDef, InTemplate, RenameActionCall
+          : rules ( InDef := True() )
+          ; rules ( InTemplate := x )
+          ; y := x{<newname> x}
+          ; genargs := <get-generictype-args> farg1*
+          ; farg3* := <map(rebind-generic-in-farg(|genargs))> farg1*
+          ; farg2* := <map((rename <+ debug); (declare-template-arg <+ debug(!"Declare!")))> farg3*
+          ; elem2* := <alltd(rename-actions); rename-all> elem1*
+          |}
+        
+  rename-ui :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    where (InPage <+ InTemplate)
+        ; not(<elem> (Page(), mod*))
+        ; not(<fetch(?Email())> mod*)
+    with {| Rename, InDef, InTemplate, RenameActionCall
+         : rules ( InDef := True() )
+         ; rules ( InTemplate := x )
+         ; y := x{<newname> x}
+         ; farg2* := <map(rename)> farg1*
+         ; elem2* := <alltd(rename-actions); rename-all> elem1*
+         |}
+
+  rename-ui :
+    t@ThisCall(fname, _) -> t3
+    where not(fname := "email")
+    with (t2@ThisCall(f, e2*){anno*} := <RenameActionCall> t //try to invoke renameActionCall first...
+         <+ t2@ThisCall(f,e2*){anno*} := t)
+       ; e3* := <rename-all> e2*       
+       ;  (   //try to find a parent, and put it in the annotations
+           ( ( parent := SimpleSort(<InEntity>)
+               <+ parent:= <InPage> 
+               <+ parent:= <InTemplate> )
+             ; t3 := ThisCall(f, e3*){ThisCallParent(parent),anno*} // might add multiple annos, TODO check whether parent declared and/or changed.
+           )
+          <+ //no parent found
+            t3 := ThisCall(f, e3*){anno*}
+         )
+
+  rename-actions = ?Define(_, _, _, _) // End of scope
+
+  rename-actions :
+    Action(nm1, args1, b1) -> Action(nm2, args2, b2)
+    with
+       {| Rename
+          : args2 := <map(rename)> args1
+          ; b2 := <rename-all> b1
+          |}
+       ; nm2 := nm1{<newname> nm1}
+       ; rules ( RenameActionCall :
+                  ThisCall(nm1, a1*){anno*} -> ThisCall(nm2, a2*){anno*}
+                  with  a2* := <rename-all> a1* )
+       ; <declare-page-action> Action(nm2, args2, b1)
+
+//  rename = RenameActionCall
+
+  rename-ui :
+    For(x, srt, e1, f1, elems1) -> For(y, srt2, e2, f2, elems2)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; e2 := <rename-all> e1
+          ; f2 := <rename-all> f1
+          ; elems2 := <rename-all> elems1
+          |}
+
+  rename-ui :
+    ForNoFilter(x, srt, e1, elems1) -> ForNoFilter(y, srt2, e2, elems2)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; e2 := <rename-all> e1
+          ; elems2 := <rename-all> elems1
+          |}
+
+  rename-ui :
+    ForSep(x, srt, e1, f1, elems1, elems2) -> ForSep(y, srt2, e2, f2, elems3, elems4)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; e2 := <rename-all> e1
+          ; f2 := <rename-all> f1
+          ; elems3 := <rename-all> elems1
+          |}
+          ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
+
+  rename-ui :
+    ForSepNoFilter(x, srt, e1, elems1, elems2) -> ForSepNoFilter(y, srt2, e2, elems3, elems4)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; e2 := <rename-all> e1
+          ; elems3 := <rename-all> elems1
+          |}
+          ; elems4 := <rename-all> elems2 // separator cannot refer to loop index
+
+  rename-ui :
+    ForAll(x, srt, f1, elems1) -> ForAll(y, srt2, f2, elems2)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; f2 := <rename-all> f1
+          ; elems2 := <rename-all> elems1
+          |}
+
+
+  rename-ui :
+    ForAllNoFilter(x, srt, elems1) -> ForAllNoFilter(y, srt2, elems2)
+    with {| Rename
+          : srt2 := <rename-all> srt
+          ; y := <rename-bound(|srt2)> x
+          ; elems2 := <rename-all> elems1
+          |}
+
+
+
+  rename-ui :
+    Select(x, s, lab1, e1) -> Select(y, s, lab2, e2) 
+    with {| Rename
+            : y := <rename-bound(|s)> x
+            ; e2 := <rename-all> e1
+            ; lab2 := <rename-all> lab1
+          |} 
+
+  rename-ui :
+    InitAction(bl) -> InitAction(bl2)
+    where not(InDef)
+    with {|InDef :
+          rules (InDef := True())
+          ; bl2 := <rename-all> bl
+        |}
+  
+  //template call id renaming
+   
+  rename-ui :
+    tc@TemplateCallPropsNoBody(x1, e1*,passign*) -> TemplateCallPropsNoBody(x1, e2*,passign2*)
+    with  e2* := <rename-all> e1*
+        ; passign2* := <rename-all> passign*
+        ; <declare-template-html-id(|tc)> passign*
+
+  rename-ui :
+    tc@TemplateCallProps(x1, passign*) -> TemplateCallProps(x1, passign2*)
+    with passign2* := <rename-all> passign*
+        ; <declare-template-html-id(|tc)> passign*
+
+  rename-ui :
+    tc@TemplateCallPropsNoArgs(x1, passign*, elem1*) -> TemplateCallPropsNoArgs(x1,passign2*, elem2*)
+    with  elem2* := <rename-all> elem1*
+        ; passign2* := <rename-all> passign*
+        ; <declare-template-html-id(|tc)> passign*
+    
+  rename-ui :
+    tc@TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x1, e2*,passign2*, elem2*)
+    with  e2* := <rename-all> e1*
+        ; elem2* := <rename-all> elem1*
+        ; passign2* := <rename-all> passign*        
+        ; <declare-template-html-id(|tc)> passign*
+

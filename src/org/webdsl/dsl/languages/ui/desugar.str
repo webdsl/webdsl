@@ -1,0 +1,49 @@
+module org/webdsl/dsl/languages/ui/desugar
+
+strategies
+
+  desugar-ui = PreDeriveInput <+ DeriveInput
+  desugar-ui = DeriveOutput
+  
+rules //Desugar group, groupitems become rows, group becomes table
+
+  desugar-ui :
+    TemplateCall("group", args, passign*, elems1) -> TemplateCall("group", args, passign*, [TemplateCall("table",[],[],elems2)])
+    where not([TemplateCall("table",_,_,_)] := elems1) // this is needed to avoid non-termination
+        ; elems2 := <try(auto-surround-with-template(|"groupitem")); map(desugar-groupitem)> elems1
+          
+  desugar-groupitem :
+    TemplateCall("groupitem", args,passign*, elems) -> TemplateCall("row",args,passign*, elems)
+
+  desugar-ui = desugar-groupitem
+
+rules //Desugar rows and tables
+
+  desugar-ui :
+    TemplateCall("table", args, passign*, elems) -> TemplateCall("table", args, passign*, elems2)
+    where elems2 := <auto-surround-with-template(|"row")> elems
+
+  desugar-ui :
+    TemplateCall("row", args, passign*, elems) -> TemplateCall("row", args, passign*, elems2)
+    where elems2 := <auto-surround-with-template(|"column")> elems
+
+  desugar-ui: 
+    [TemplateCall("dummy",_,_,elems)| xs] -> <concat>[elems, xs]
+
+rules //Desugar label, which is a bit trick because it results in multiple elements
+
+  desugar-ui :
+    elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign2*]{} container {elem2*} } ]|
+    where not([] := elem*)
+        ; [TemplateCall(name, args, assigns, elems) | others] := elem*
+    with  nid := <newname> "forid_"
+        ; passign2* := <concat>[[PropertyAssignment("for", String(nid))], passign*]  //generate for assignment
+        ; assigns2  := <concat>[[PropertyAssignment("id", nid)], assigns]           //generate id assignment
+        ; elem2*    := <concat>[[TemplateCall(name, args, assigns2, elems)], others]
+
+  desugar-ui :
+    elem |[ label(e*)[passign*]{ elem* } ]| -> elem |[ dummy{ label(e*)[passign*]{} container {elem*} } ]|
+    where not([] := elem*)
+        ; not([TemplateCall(_, _, _, _) | others] := elem*) //elems not empty, be neither a template call to refer to at the begining
+
+
