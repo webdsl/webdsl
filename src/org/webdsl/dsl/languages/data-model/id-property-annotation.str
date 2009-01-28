@@ -19,3 +19,48 @@ rules // check for invalid id property annotations
   constraint-error-data :
     SessionEntity(name, props, _) -> <add-error(|["Id annotation not allowed in session entities"])>
     where <collect(?SimpleAnno("id"));length;not(?0)> <bagof-Properties;uniq> name
+
+rules
+
+  handle-entity-id(|x_class) :
+    props -> props
+    with  <entity-declare-id-property> (x_class,"id",SimpleSort("UUID"))  
+        ; <filter(extract-entity-id(|x_class))> props //possibly overrides default
+
+  entity-declare-id-property :
+    (x_class,name,srt) -> (x_class,name,srt) 
+    where rules(
+            EntityIdType : x_class -> srt
+            EntityIdName : x_class -> name
+          )
+
+  extract-entity-id(|x_class) =
+    ?Property(x, k, srt, annos) //only matches this type of property, others such as derivedproperty cannot have id anno
+    ; with(
+        if <fetch(?SimpleAnno("id"))> annos then
+          <entity-declare-id-property> (x_class,x,srt)
+        ; rules(HasNaturalId : x_class)
+        // get unique object function
+        ; x_funname := <concat-strings> ["getUnique",x_class]
+        ; <register-reserved-function> (x_funname,1)
+        ; srt2 := SimpleSort(x_class)
+        ; <declare-global-func> fun |[ function x_funname(name:srt):srt2 {} ]|
+        // is unique object function
+        ; x_funname2 := <concat-strings> ["isUnique",x_class]
+        ; <register-reserved-function> (x_funname2,1)
+        ; <declare-global-func> fun |[ function x_funname2(object:srt2):Bool {} ]|
+        // is unique id function
+        ; x_funname3 := <concat-strings> ["isUnique",x_class,"Id"]
+        ; <register-reserved-function> (x_funname3,1)
+        ; <declare-global-func> fun |[ function x_funname3(name:srt):Bool {} ]|
+        end
+      )
+      
+  has-natural-id-superclasses :
+    x_class -> name 
+    where name := <HasNaturalId;EntityIdName> x_class <+ <has-natural-id-superclasses> <Extends> x_class
+  /*
+  has-natural-id-subclasses :
+    x_class -> name 
+    where name := <HasNaturalId;EntityIdName> x_class <+ <has-natural-id-subclasses> <SubClass> x_class
+  */
