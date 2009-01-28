@@ -45,14 +45,35 @@ strategies // lists of elements
 rules // copy from input string to variable in template class, eg see /types/int.str
   
   input-assignment-to-java-servlet(|x_temp) :
-    Var(x) -> bstm |[ x = x_temp; ]|     
+    Var(x) -> bstm* |[ 
+      ps.getOldValuesForInputs().put(x_temp,x);System.out.println(x_temp+" 1-> "+x);
+      x = x_temp; 
+    ]|     
+
   input-assignment-to-java-servlet-exp:
     Var(x) -> e |[ x ]|
 
   input-assignment-to-java-servlet(|x_temp) :
-    FieldAccess(e, x) -> bstm |[ e1.setupForPropertyEvents(hibSession,out,ps).set#x(x_temp); ]|
+    FieldAccess(e, x) -> bstm* |[ 
+      ps.getOldValuesForInputs().put(x_temp,e1.get#x());System.out.println(x_temp+" 2-> "+e1.get#x());
+      e1.setupForPropertyEvents(hibSession,out,ps).set#x(x_temp); 
+    ]|
     where e1 := <input-assignment-to-java-servlet-exp> e
           
   input-assignment-to-java-servlet-exp :
     FieldAccess(e, x) -> e |[ e1.get#x() ]|
     where e1 := <input-assignment-to-java-servlet-exp> e
+    
+rules
+
+  catch-validation-exception-wrap-code:
+    bstm* ->
+    bstm* |[
+      try {
+        bstm*
+      }
+      catch(utils.ValidationException ve){
+        ps.getValidationExceptions().add(ve);
+        ps.setValidated(false);                
+      }
+    ]|
