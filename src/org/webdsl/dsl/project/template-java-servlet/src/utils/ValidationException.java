@@ -5,15 +5,21 @@ public class ValidationException extends RuntimeException {
 
 	private String errorMessage;
 	private List<Object> relevantObjects = new LinkedList<Object>();
+	private String name = null; 
 	
-	public ValidationException(String errorMessage){
+	public ValidationException(String name, String errorMessage){
 		this.errorMessage = errorMessage;
+		this.name = name;
 	}
 	
 	public String getErrorMessage() {
 		return errorMessage;
 	}
-
+	
+	public String getName() {
+		return name;
+	}
+	
 	public List<Object> getRelevantObjects() {
 		return relevantObjects;
 	}
