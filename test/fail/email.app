@@ -8,12 +8,10 @@ section datamodel
     to(us.mail)
     from("admin@webdsl.org")
     subject("Email confirmation")
-    body {
-      par{ "Dear " output(us.name) ", " }
-      par{
-       "Please confirm the receipt of this message by visiting the following page "
-       navigate(confirmEmail(us)){"confirm"}
-      }
+    par{ "Dear " output(us.name) ", " }
+    par{
+     "Please confirm the receipt of this message by visiting the following page "
+     navigate(confirmEmail(us)){"confirm"}
     }
   }
 
@@ -26,7 +24,6 @@ section datamodel
     for(u:User)
     {
       outputString(u.name)
-      outputBool(u.mail)
     }
     "test page"
     var u : User := User{
