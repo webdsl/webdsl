@@ -11,16 +11,69 @@ imports
 rules
 
   elem-to-java-servlet :
-    tc@elem|[ validate(e1,e2)[passign*]{} ]| -> bstm* |[
-      if(inSubmittedForm && !e3){
-        bstm_exptostring*
+    tc@elem|[ validatedInputWrapper()[passign*]{elem*} ]| -> result
+    with  input_elements := <collect(?TemplateCall(_,_,_,_));remove-all(validate-tempate-element)> elem*
+        ; result := <render-error-messages-with-error-template> (elem*, input_elements)
+       
+  validate-tempate-element = ?elem|[ validate(e1,e2)[passign*]{} ]| 
+  validate-tempate-element = ?elem|[ validationErrorsFor(e1)[passign*]{} ]| 
+  validate-tempate-element = ?ValidationErrors(_)
+  validate-tempate-element = ?ValidationErrors()
+    
+  render-error-messages-with-error-template :  
+    (elem*,input_elements) -> 
+    bstm* |[  
+      java.util.List<String> x_list = new java.util.LinkedList<String>();
+      bstm_messages*
+      if(x_list.size() > 0){
+        bstm_error*
+      }
+      else {
+        bstm*
       }
     ]|
-    with  bstm_exptostring* := <to-page-string-java-servlet(|"utils.HTMLFilter.filter")> e2
+    with x_list := <newname> "messagesList"
+       ; bstm_messages* := <collect(validation-message-production(|x_list));concat-with-sublists> elem*
+       ; bstm_error* := <inline-error-template> (elem*,x_list,input_elements)
+       ; bstm* := <elems-to-java-servlet> input_elements
+
+  inline-error-template :
+    (elem*,x_list,input_elements) -> bstm_error*
+    with Define(mods, name,[Arg(nm,srt)], body) := <get-error-template>
+       ; body3 := <alltd(insert-input-fields-in-error-template(|input_elements))> body
+       ; bstm_error* := <elems-to-java-servlet;alltd( \ ExprName(Id("errorMessages"{anno*})) -> ExprName(Id(x_list)) \ )> body3
+
+  insert-input-fields-in-error-template(|input_elements) :
+    TemplateCall("validatedInput",_,_,_) -> TemplateCall("dummy",[],[],input_elements)
+
+rules
+  
+  elem-to-java-servlet :
+    RemoveMe() -> []
+
+rules //TODO these are relevant for error messages not connected to inputs
+  elem-to-java-servlet :
+    tc@elem|[ validate(e1,e2)[passign*]{} ]| -> []
+  elem-to-java-servlet :
+    tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> []
+  elem-to-java-servlet :       
+    ValidationErrors(x1) -> <render-error-messages-with-error-template> ([<id>], [RemoveMe()])
+
+rules // add messages to list
+
+  validation-message-production(|x_list) :
+    tc@elem|[ validate(e1,e2)[passign*]{} ]| -> 
+    bstm* |[
+      if(inSubmittedForm && !e3){
+        x_list.add(e4);
+      }
+    ]|
+    with  e4 := <expression-to-java-servlet> e2
         ; e3 := <expression-to-java-servlet> e1
         
-  elem-to-java-servlet :
-    tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> bstm* |[
+  validation-message-production(|x_list) :
+    tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> 
+    bstm* |[
       if(inSubmittedForm){
         java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
         for(utils.ValidationException ve : ps.getValidationExceptions()){
@@ -30,7 +83,7 @@ rules
           }
         }
         for(utils.ValidationException ve : x){
-          out.print(utils.HTMLFilter.filter(ve.getErrorMessage()));
+          x_list.add(ve.getErrorMessage());
           ps.getValidationExceptions().remove(ve);
         }
       }
@@ -39,33 +92,37 @@ rules
         ; x := <newname> "ve"
         ; x1 := <newname> "object"
  
-  elem-to-java-servlet :       
-    ValidationErrors(x1) -> bstm* |[
-      //if(inSubmittedForm){
-        java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
-        for(utils.ValidationException ve : ps.getValidationExceptions()){
-          if(ve.getName() != null && ve.getName().equals("~x1")){
-            x.add(ve);
-          }
+  validation-message-production(|x_list) : 
+    ValidationErrors(x1) -> 
+    bstm* |[
+      java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
+      for(utils.ValidationException ve : ps.getValidationExceptions()){
+        if(ve.getName() != null && ve.getName().equals("~x1")){
+          x.add(ve);
         }
-        for(utils.ValidationException ve : x){
-          out.print(utils.HTMLFilter.filter(ve.getErrorMessage()));
-          ps.getValidationExceptions().remove(ve);
-        }
-      //}
+      }
+      for(utils.ValidationException ve : x){
+        x_list.add(ve.getErrorMessage());
+        ps.getValidationExceptions().remove(ve);
+      }
     ]|
     with  x := <newname> "ve"
+    
+  validation-message-production(|x_list) : 
+    ValidationErrors() -> 
+    bstm* |[
+      for(utils.ValidationException ve : ps.getValidationExceptions()){
+        x_list.add(ve.getErrorMessage());
+      }
+      ps.getValidationExceptions().clear();
+    ]|
 
 rules
 
   assignment-to-html-attr = ?PreDeriveInputDone()
-  
+
 rules
 
-  render-validation-exceptions :
-    x ->
-    bstm* |[
-      for(utils.ValidationException ve : ps.getValidationExceptions()){
-        out.print(utils.HTMLFilter.filter(ve.getErrorMessage()));
-      }
-    ]|
+  render-validation-exceptions = //catch all left-over validation messages, displayed at executed action
+    !<render-error-messages-with-error-template> ([ValidationErrors()], [RemoveMe()])
+    
