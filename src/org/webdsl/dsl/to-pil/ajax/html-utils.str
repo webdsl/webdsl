@@ -4,49 +4,60 @@ imports
   libstrategolib
   libjava-front
 
-/*
 rules
 
   //rewrites a list of assignments to a list of attributes. It can be extended by adding alternatives
   //to the assignment-to-html-attr rules. Those rules are of the format PropertyAssignment(x, y) ->(Id, Java-Expression-Resulting-In-String)
   //author: Michel
-  to-html-attrs :
+  to-html-attrs-pil :
     attrs -> attrs3
-    with attrs1 := <map(assignment-to-html-attr 
-                      <+ string-assignment-to-html-attr 
+    with attrs1 := <map(assignment-to-html-attr-pil
+                      <+ string-assignment-to-html-attr-pil
                       <+ debug(!"Cannot convert propertyassignment: "); <exit> 1)> attrs
-        ;attrs2 := <map(assignmentexp-to-html-attr)> attrs1
-        ;attrs3 := <generate-addition-exp > attrs2        
+        ;attrs2 := <map(assignmentexp-to-html-attr-pil)> attrs1
+        ;attrs3 := <generate-addition-exp-pil> attrs2        
 
   //final (private) conversion: converts a String assignment to html    
-  assignmentexp-to-html-attr :
-    (x, e_y) -> e |[ "~x"+"='" + e_y + "' " ]|
+  assignmentexp-to-html-attr-pil :
+    (x, e_y) -> pil-exp|[ "~x"+"='" + e_y + "' " ]|
     
   //escape behaviour, when assignments cannot be converted with a useful strategy, test if its
   //a string and insert directly
-  string-assignment-to-html-attr:
-    PropertyAssignment(x, String(y)) -> (x, e|[ "~y"]|)  
+  string-assignment-to-html-attr-pil:
+    PropertyAssignment(x, String(y)) -> (x, String(y))
     
   //object id attribute is accepted, and already a valid assignment
-  assignment-to-html-attr :
-    PropertyAssignment("id", y) -> ("id", e|[ "~y" ]| )
+  assignment-to-html-attr-pil :
+    PropertyAssignment("id", y) -> ("id", y )
 
-  assignment-to-html-attr :
-    PropertyAssignment("height", StyleValue(val, unit)) -> ("height", e|[ "~val"+"~unit" ]| )
+  assignment-to-html-attr-pil :
+    PropertyAssignment("height", StyleValue(val, unit)) -> ("height", pil-exp|[ "~val"+"~unit" ]| )
 
-  assignment-to-html-attr :
-    PropertyAssignment("width", StyleValue(val, unit)) -> ("width", e|[ "~val"+"~unit" ]| )
+  assignment-to-html-attr-pil :
+    PropertyAssignment("width", StyleValue(val, unit)) -> ("width", pil-exp|[ "~val"+"~unit" ]| )
 
     
-  assignment-to-html-attr :
-    PropertyAssignment("class", y) -> ("class", e|[ "~y" ]| )
+  assignment-to-html-attr-pil :
+    PropertyAssignment("class", y) -> ("class", pil-exp|[ "~y" ]| )
     where not (PropertyValueList(_) := y)
     
-  assignment-to-html-attr :
+  assignment-to-html-attr-pi :
     //concatenates a list of id's to a class attribute
-    PropertyAssignment("class", y) -> ("class", e|[ e1 ]| )
+    PropertyAssignment("class", y) -> ("class", pil-exp|[ e1 ]| )
     where PropertyValueList(x) := y
-    with  e1 := <map(\q -> e|[ "~q" + " "]|\); generate-addition-exp> x
+    with  e1 := <map(\q -> pil-exp|[ "~q" + " "]|\); generate-addition-exp-pil> x
     
     
-*/
+rules //concatenates a list of java expressions to a single expression using the + operator (useful for string or numeric expressions)
+  generate-addition-exp-pil :
+    [x|xs] ->  pil-exp|[ e0 + e1 ]|
+    where not([] := xs)
+        ; e0 := x
+        ; e1 := <generate-addition-exp-pil> xs
+
+  generate-addition-exp-pil :
+    [e0] -> pil-exp|[ e0 ]|
+    
+  generate-addition-exp-pil :
+    [] -> pil-exp|[ "" ]|
+    

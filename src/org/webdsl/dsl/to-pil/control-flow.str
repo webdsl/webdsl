@@ -10,18 +10,16 @@ imports
 
 rules // iteration
 
-/*
-  for-loop-counter-wrap-code:
-    bstm* ->
-    bstm* |[
+  for-loop-counter-wrap-code-pil:
+    stat* ->
+    pil-stat*|[
         ident = "";
         if(inForLoop) {
-          ident += forelementcounter;
+          ident = ident + forelementcounter;
         }
-        bstm*
+        stat*
     ]|
     
-    */
   wrap-in-for-loop-pil(|x,t,e) :
     bstm ->
     pil-stat*|[
@@ -37,93 +35,96 @@ rules // iteration
         ; if <is-list> bstm
           then stat* := bstm
           else stat* := [bstm] end
-/*
   handle-actions-input-to-pil  =
-    control-flow-for(collect-om(handle-actions-input-to-pil)|)
+    control-flow-for-pil(collect-om(handle-actions-input-to-pil)|)
 
   handle-actions-to-pil =
-    control-flow-for(collect-om(handle-actions-to-pil)|)
+    control-flow-for-pil(collect-om(handle-actions-to-pil)|)
 
   elem-to-pil =
-    control-flow-for(elems-to-pil|)
+    control-flow-for-pil(elems-to-pil|)
 
-  control-flow-for(s|) :
+  control-flow-for-pil(s|) :
     For(x, srt, e, Filter(we, obe, l), elems) ->
-    bstm* |[
+    pil-stat* |[
       inForLoop = true;
       forLoopCounter++;
-      ~*<wrap-in-for-loop(|x,t,e1)>
-      bstm* |[  
+      ~*<wrap-in-for-loop-pil(|x,t,e1)>
+      pil-stat* |[  
         forelementcounter++;
         if(e2){ 
-          bstm*
+          stat*
         }
       ]|
       forLoopCounter--;
-      if(forLoopCounter == 0)
-      inForLoop = false;
+      if(forLoopCounter == 0) {
+        inForLoop = false;
+      }
     ]|
-    with  bstm* := <s;concat-with-sublists> elems
+    with  stat* := <s;concat-with-sublists> elems
         ; e1 := <expression-to-pil> e
         ; e2 := <expression-to-pil> we
         ; t := <pil-type> srt
         ; x_list := <newname> "list"
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
     
-  control-flow-for(s|) :
+  control-flow-for-pil(s|) :
     ForSep(x, srt, e, Filter(we, obe, l), elems1, elems2) ->
-    bstm* |[
+    pil-stat* |[
       inForLoop = true;
       forLoopCounter++;
-      int separatorindex=0;
+      Int separatorindex=0;
       ~*<wrap-in-for-loop(|x,t,e1)>
-      bstm* |[  
+      pil-stat* |[  
         forelementcounter++;
         if(e2){ 
           if(separatorindex > 0) {
-            bstm2* // place separator if there was an element before this one
+            stat2* // place separator if there was an element before this one
           }
-          bstm1*
+          stat1*
           separatorindex++;
         }
       ]|
       forLoopCounter--;
-      if(forLoopCounter == 0)
-      inForLoop = false;
+      if(forLoopCounter == 0) {
+        inForLoop = false;
+      }
     ]|
-    with  bstm1* := <s;concat-with-sublists> elems1
-        ; bstm2* := <s;concat-with-sublists> elems2
+    with  stat* := <s;concat-with-sublists> elems1
+        ; stat* := <s;concat-with-sublists> elems2
         ; e1 := <expression-to-pil> e
         ; e2 := <expression-to-pil> we
         ; t     := <pil-type> srt
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e
 
-  control-flow-for(s|) :
+  control-flow-for-pil(s|) :
     fa@ForAll(x, srt, fltr@Filter(we, obe, l), elems) ->
-    bstm* |[
+    pil-stat* |[
       inForLoop = true;
       forLoopCounter++;
       
-      java.util.List<t> x_list;    
-      if(queryCache.containsKey(e_queryid)) {
-        x_list = queryCache.get(e_queryid);
+      List<t> x_list = null;
+      if(queryCache.contains(e_queryid)) {
+        x_list = queryCache[e_queryid];
       } else {
-        x_list = e_criteria.list();
-        queryCache.put(e_queryid, x_list);
+        x_list = dbSession.getAll(reflect::typeOf#x_ent());
+        queryCache[e_queryid] = x_list;
       }
-      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
-      bstm* |[  
+      ~*<wrap-in-for-loop(|x,t,pil-exp|[ x_list ]|)>
+      pil-stat* |[  
         forelementcounter++;
         if(e2){ 
-          bstm*
+          stat*
         }
       ]|
       forLoopCounter--;
-      if(forLoopCounter == 0)
-      inForLoop = false;
+      if(forLoopCounter == 0) {
+        inForLoop = false;
+      }
     ]|
-    with bstm*   := <s;concat-with-sublists> elems
+    with  stat*   := <s;concat-with-sublists> elems
         ; t       := <pil-type> srt
+        ; SimpleSort(x_ent) := srt
         ; x_list := <newname> "list"
         ; e2 := <expression-to-pil> we
         ; if <HibernateQueryId> fa then
@@ -132,8 +133,8 @@ rules // iteration
             queryid := <newname> "query"
             ; rules ( HibernateQueryId : fa -> queryid )
           end
-        ; e_queryid := expr|[ "~queryid" ]|
-        ; e_criteria := <hibernate-forall-criteria> (fa, t, fltr)
+        ; e_queryid := pil-exp|[ "~queryid" ]|
+        //; e_criteria := <hibernate-forall-criteria> (fa, t, fltr)
         //; info(|["Criteria: ", <topdown(try(strip-annos)); PropertiesToJoin <+ ![]> fa])
 //        ; info(|["For ", <pp-webdsl> fa, " join: ", ])
         // setFetchMode("_author", org.hibernate.FetchMode.JOIN)
@@ -141,66 +142,62 @@ rules // iteration
 rules // if
 
   handle-actions-input-to-pil  =
-    control-flow-if(collect-om(handle-actions-input-to-pil)|)
+    control-flow-if-pil(collect-om(handle-actions-input-to-pil))
 
   handle-actions-to-pil =
-    control-flow-if(collect-om(handle-actions-to-pil)|)
+    control-flow-if-pil(collect-om(handle-actions-to-pil))
 
   elem-to-pil =
-    control-flow-if(elems-to-pil|)
+    control-flow-if-pil(elems-to-pil)
 
-  control-flow-if(s|) :
+  control-flow-if-pil(s|) :
     IfTempl(e, elems, elems2) ->
-    bstm |[
+    pil-stat|[
     if(e1){ 
-      bstm*
+      stat1*
     } else {
-      bstm2*
+      stat2*
     }
     ]|
-    with  bstm* := <s;concat-with-sublists> elems
-        ; bstm2* := <s;concat-with-sublists> elems2
+    with  stat1* := <s;concat-with-sublists> elems
+        ; stat2* := <s;concat-with-sublists> elems2
         ; e1 := <expression-to-pil> e
 
 rules //templatecall    
 
   handle-actions-input-to-pil  =
-    control-flow-tcall(|"storeInputs")
+    control-flow-tcall-pil(|"storeInputs")
 
   handle-actions-to-pil =
-    control-flow-tcall(|"handleActions")
+    control-flow-tcall-pil(|"handleActions")
 
   elem-to-pil =
-    control-flow-tcall(|"render")
+    control-flow-tcall-pil(|"render")
 
-  control-flow-tcall(|x_methodname) :
+  control-flow-tcall-pil(|x_methodname) :
     tc@TemplateCall(x_name, args,passign*, _) ->
-    <for-loop-counter-wrap-code> 
-    bstm* |[
-    ident += "~x_tname";
-    if(templatecalls.get(ident)==null){
+    <for-loop-counter-wrap-code-pil> 
+    pil-stat* |[
+    ident = ident + "~x_tname";
+    if(templatecalls[ident] == null) {
       try{
-        templatecalls.put(ident,(TemplateServlet)templates.get("~x_name").newInstance());
+        templatecalls[ident] = (TemplateServlet)templates["~x_name"].newInstance();
       }
-      catch(IllegalAccessException iae)
+      catch(Exception iae)
       {
-        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
-      }
-      catch(InstantiationException ie)
-      {
-        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
+        log("Problem in template servlet template lookup: "+iae);
       }
     }
-    Object[] x_args = { e* };
-    templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, (HashMap<String,Class>)templates.clone(),(HashMap<String,Object>)variables.clone(),(HashMap<String,Object>)actionclasses.clone(), e1*);
+    Array<Object> x_args = new Array<Object>(e*);
+    templatecounter++;
+    templatecounter = templatecalls[ident].x_methodname(ps, x_args, templatecounter, (Map<String,pil::reflect::Class>)templates.clone(),(Map<String,Object>)variables.clone(),(Map<String,Object>)actionclasses.clone(), e1*);
     ]|
     where t* := <map(type-of)> args 
         ; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos>x_name;TemplateWithGenerics> (x_name,t*)
     with  x_tname := <get-templatecallnumber> tc
         ; e* := <map({\e -> <expression-to-pil> e\})> args
         ; x_args := <newname> "args"
-        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ e|[ out ]| ]
+        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ pil-exp|[ out ]| ]
             //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
             <+ e1* := []
           )
-        */

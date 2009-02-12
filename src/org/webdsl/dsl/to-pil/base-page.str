@@ -10,156 +10,91 @@ rules
   /**
    * Generate base bean code
    */
-   /*
-  GenerateCodeJavaServlet = generate-java-base-page; fail
+  GenerateCodePil = generate-pil-base-page; fail
 
-  generate-java-base-page :
+  generate-pil-base-page :
     Application(qid, sections) ->
-    <emit-java-code> compilation-unit|[
-      package utils;
+    <emit-pil> pil-decl*|[
       
-      import java.io.IOException;
-      import java.util.HashMap;
-      import java.util.Map;
-      import java.util.List;
-      import java.io.PrintWriter;
-      
-      import javax.servlet.ServletException;
-      import javax.servlet.http.HttpServletRequest;
-      import javax.servlet.http.HttpServletResponse;
-      import pkgname.*;
-      import org.webdsl.WebDSLEntity;
-      
-      import org.hibernate.Session;
-      
-      public abstract class PageServlet {
-          public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
-          
-          public abstract String getPageName();
-          
-          public abstract String getHiddenParams();
-          public abstract String getHiddenPostParams();
-          
-          public javax.servlet.http.HttpSession session;
-          
-          public HashMap<String, Object> variablesGlobalAndSession = null;
+      Map<String, pil::reflect::Class> templates = new Map<String, pil::reflect::Class>();
+      Map<String, pil::reflect::Class> emails = new Map<String, pil::reflect::Class>();
 
-          //templates scope
-          private static HashMap<String, Class> templates = new HashMap<String, Class>();
-          static {
-            bstm_templates*
-            bstm_pages*
+      void initTemplates() {
+        stm_templates*
+        stm_pages*
+        stm_emails*
+        GlobalInit.load();
+      }
+
+      @abstract
+      public class utils::PageServlet {
+          void serve(pil::web::Request request, pil::web::Response response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils::File> fileUploads) {
+            // dummy
           }
-          public static HashMap<String, Class> getTemplates() { 
-            return templates; 
-          }
-         
-          //emails
-          private static HashMap<String, Class> emails = new HashMap<String, Class>();
-          static {
-            bstm_emails*
-          }
-          public static HashMap<String, Class> getEmails() { 
-            return emails;
-          }
+          
+          String getPageName() { return null; }
+          
+          String getHiddenParams() { return null; }
+          String getHiddenPostParams() { return null; }
+          
+          pil::web::Session session = null;
+          
+          Map<String, Object> variablesGlobalAndSession = null;
+
           public String getAbsoluteLocation() {
-            String[] req = request.getRequestURL().toString().split("~<concat-strings> [<AppRoot>, "/"]");
-            return req[0];
+            //String[] req = request.getRequestURL().toString().split("~<concat-strings> [<AppRoot>, "/"]");
+            //return req[0];
+            return "http://someplace.com";
           }
           
           //conversion error messages
-          private java.util.Map<String,String> conversionErrorMessages = new java.util.HashMap<String, String>();
-          public java.util.Map<String, String> getConversionErrorMessages() {
-            return conversionErrorMessages;
-          }
+          Map<String,String> conversionErrorMessages = new Map<String, String>();
+
+          Bool hasExecutedAction = false;
           
-          public boolean hasExecutedAction = false;
+          cbd*
           
-          ~cbds
+          void serveAsAjaxResponse(utils::PageServlet ps, pil::utils::PrintWriter theoutStream, Array<Object> ajaxarguments) {}
           
-          public void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] ajaxarguments) {}
+          List<String> ignoreset = new List<String>();
           
-          public java.util.List<String> ignoreset= new java.util.ArrayList<String>();
+          Bool dbCacheCleared = false;
           
-          public boolean hibernateCacheCleared = false;
-          
-          public void clearHibernateCache(Map<String, Object> variables) { 
-            if(variables.get("_persist_flag_").equals(false)) { 
-              hibernateCacheCleared = true;
-              java.util.Set<String> variables_set = variables.keySet();
-              org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-              for(String s : variables_set)
-                if(!s.equals("_persist_flag_") && session.getAttribute(s) == null && !ignoreset.contains(s)  && variables.get(s) instanceof WebDSLEntity) {
-                    Object o = variables.get(s);
+          void clearHibernateCache(Map<String, Object> variables) { 
+            if(variables["_persist_flag_"] == false) { 
+              dbCacheCleared = true;
+              Set<String> variables_set = variables.keys;
+              var dbSession = pil::db::getSession();
+              for(String s : variables_set) {
+                if(s != "_persist_flag_" && session[s] == null && !ignoreset.contains(s) && variables[s] instanceof webdsl::WebDSLEntity) {
+                    Object o = variables[s];
                     try {
-                       hibSession.refresh(o);
+                       dbSession.refresh(o);
                     }
-                    catch(org.hibernate.AssertionFailure ex) {
-                       System.out.println("clearHibernateCache needs fix: "+ex.toString()); 
+                    catch(Exception e) {
+                       //System.out.println("clearHibernateCache needs fix: "+ex.toString()); 
                     }
                 }
+              }
             }
           }
           
-          static {
-            GlobalInit.load();
-          }
           // atm just used for captcha check
-          protected boolean validated=true;
-          protected Session hibSession;
-          protected HttpServletRequest request;
-          protected HttpServletResponse response;
-          protected Object[] args;  
+          Bool validated=true;
+          pil::db::DatabaseSession dbSession = null;
+          pil::web::Request request = null;
+          pil::web::Response response = null;
+          Array<Object> args = null;
           
-          public Session getHibSession() {
-              return hibSession;
-          }
+          Map<String, String> parammap = null;
+          Map<String,utils::File> fileUploads = null;
+          Map<String, List<String>> parammapvalues = null;
+          String pageTitle ="";
+          
+          utils::File download = null;
 
-          public HttpServletRequest getRequest() {
-              return request;
-          }
-      
-          public HttpServletResponse getResponse() {
-              return response;
-          }
-  
-          public boolean isValidated() {
-              return validated;
-          }
-     
-          public void setValidated(boolean validated) {
-              this.validated = validated;
-          }
-          
-          protected java.util.Map<String, String> parammap;
-          public java.util.Map<String, String> getParammap() {
-            return parammap;
-          }
-                
-          protected Map<String,utils.File> fileUploads;
-          public Map<String, utils.File> getFileUploads() {
-            return fileUploads;
-          }
-          
-          protected Map<String, List<String>> parammapvalues;
-          public Map<String, List<String>> getParammapvalues() {
-            return parammapvalues;
-          }
-          
-          protected String pageTitle ="";
-          public String getPageTitle() {
-            return pageTitle;
-          }
-          public void setPageTitle(String pageTitle) {
-              this.pageTitle = pageTitle;
-          }  
-          
-          protected utils.File download = null;
-          public void setDownload(utils.File file){
-            this.download = file;
-          }
-          
-          protected void download()
+          /*
+          void download()
           { 
             try
             { 
@@ -193,29 +128,31 @@ rules
               ex.printStackTrace();
             }
           }
+          */
         }
       ]|
-    with pkgname    := <BeanPackage>
-       ; bstm_templates* := <map({\ 
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<TopLevelTemplateClassName> x,".class"]
-                       \})> 
-                       <bagof-AllTopLevelTemplateNamesJavaServlet>
-       ; bstm_pages* := <map({\ 
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<PageClassName> x,".class"]
+    with x_tlcn := <TopLevelTemplateClassName>
+       ; x_pcn := <PageClassName>
+       ; x_ecn := <PageClassName>
+       ; stm_templates* := <map({\ 
+                           x -> pil-stat|[ templates["~key"] = x_value; ]| 
+                           with  key := <concat-strings> ["\"",x,"\""]
+                               ; e_value := pil-exp|[ reflect::typeOf#x_tlcn() ]|
+                           \})> 
+                       <bagof-AllTopLevelTemplateNamesPil>
+       ; stm_pages* := <map({\ 
+                           x -> pil-stat|[ templates["~key"] = x_value; ]| 
+                           with  key := <concat-strings> ["\"",x,"\""]
+                               ; e_value := pil-exp|[ reflect::typeOf#x_pcn() ]|
                        \})> 
                        <bagof-AllPageNames>
-       ; bstm_emails* := <map({\ 
-                           x -> bstm |[ emails.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<EmailClassName> x,".class"]
+       ; stm_emails* := <map({\ 
+                           x -> pil-stat|[ emails["~key"] = e_value; ]| 
+                           with  key := <concat-strings> ["\"",x,"\""]
+                               ; e_value := pil-exp|[ reflect::typeOf#x_ecn() ]|
                        \})> 
                        <bagof-AllEmailNames>
        ;if IsAjaxApp 
-        then cbds := java:class-body-dec |[  public static boolean isAjaxApp = true; ]|
-        else cbds := java:class-body-dec |[  public static boolean isAjaxApp = false; ]|
+        then cbd* := pil-decl|[  Bool isAjaxApp = true; ]|
+        else cbd* := pil-decl|[  Bool isAjaxApp = false; ]|
         end
-        */
