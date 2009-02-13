@@ -164,12 +164,12 @@ SCFLAGS = --main $*-main
 
 bin_PROGRAMS = webdslc
 
-webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la
+webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) $(PIL_LIB)/libpil-front.la $(PIL_LIB)/libpil-java-backend.la \
+                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libto-pil.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la webdslc.str
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libto-pil.la webdslc.str
 
-ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree to-pil.ctree
 
 ### libraries
 

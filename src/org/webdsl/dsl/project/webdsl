@@ -7,6 +7,7 @@ export datarootdir=${prefix}/share
 
 SEAMPROJECTDIR=.seamapp
 SERVLETPROJECTDIR=.servletapp
+PILPROJECTDIR=.pilapp
 PYTHONPROJECTDIR=dist
 
 function stop_jboss {
@@ -92,7 +93,7 @@ function load_config {
 
 function create_config {
   echo "---- Back-end choice ----"
-  echo "available back-ends: servlet, python"
+  echo "available back-ends: pil, servlet, python"
   if [ "$BACKEND" == "" ]; then
      BACKEND=servlet
   fi
@@ -298,6 +299,9 @@ function create_config {
   if [ "$BACKEND" == "servlet" ]; then
     rm -rf $SERVLETPROJECTDIR
   fi
+  if [ "$BACKEND" == "pil" ]; then
+    rm -rf $PILPROJECTDIR
+  fi
   if [ "$BACKEND" == "python" ]; then
     rm -rf $PYTHONPROJECTDIR
   fi
@@ -382,6 +386,40 @@ function make_app_code {
     bash /usr/local/bin/webdsl-plugins || exit 1
     return $RET
   fi    
+  if [ "$BACKEND" == "pil" ]; then
+    if [ ! -e "$PILPROJECTDIR" ]
+    then
+      export WEBDSLPATH=/usr/local
+      export DSLTOSEAM=/usr/local/bin/webdslc
+      export TEMPLATEPATH=${datarootdir}/webdsl/template-pil
+      
+      export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
+      export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
+  
+      echo "Creating PIL application in $PILPROJECTDIR..."
+      mkdir $PILPROJECTDIR
+      cd $PILPROJECTDIR
+      cp -r $TEMPLATEPATH/* .
+      chmod -R u+w .
+      find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
+      find . -type f \! -iname \*.jar -exec sh -c 'sed -e "s/@@TOMCATPATH@@/$ESCAPED_TOMCATPATH/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@DBPASSWORD@@/$DBPASSWORD/g" -e "s/@@DBUSER@@/$DBUSER/g" -e "s/@@DBNAME@@/$DBNAME/g" -e "s/@@DBSERVER@@/$DBSERVER/g" -e "s/@@DBMODE@@/$DBMODE/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
+      cd ..
+    fi
+    
+    cp *.tbl *.ctree $PILPROJECTDIR/src/ 2>/dev/null
+    
+    cd $PILPROJECTDIR
+    echo "Copying your application files..."
+    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xf - )  || (echo -n ""; exit 1)
+    # Move all non-.app files to the / directory (keeping directory structure intact)
+    tar -cf - `find .. ! -name "Makefile" ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || (echo -n ""; exit 1)
+    echo "Building application..."
+    make || exit 1
+    RET="$?"
+    cd ..
+    bash /usr/local/bin/webdsl-plugins || exit 1
+    return $RET
+  fi    
   if [ "$BACKEND" == "python" ]; then
     rm -rf $PYTHONPROJECTDIR
     export WEBDSLPATH=/usr/local
@@ -452,7 +490,7 @@ if [ "$*" == "" ]; then
 fi
 
 if [ "$1" == "test" ]; then
-  rm -rf .seamapp
+  rm -rf .pilapp
   rm -rf .servletapp
   rm -rf dist
   rm -f application.ini

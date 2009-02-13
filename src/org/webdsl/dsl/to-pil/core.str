@@ -12,31 +12,27 @@ imports
   org/webdsl/dsl/to-pil/email/-
   org/webdsl/dsl/to-pil/stratego-interface/-
 
-signature
-  constructors
-    amb : List -> Anno
-  
 rules
 
   get-templatecallnumber-pil :
     _{anno*} -> compid
-    where TemplateCallNumber(compid) := <collect(?TemplateCallNumber(_));Hd> anno*
+    where TemplateCallNumberPil(compid) := <collect(?TemplateCallNumberPil(_));Hd> anno*
  
   get-formnumber-pil :
     _{anno*} -> compid
-    where FormNumber(compid) := <collect(?FormNumber(_));Hd> anno* 
+    where FormNumberPil(compid) := <collect(?FormNumberPil(_));Hd> anno* 
     
   get-inputnumber-pil :
     _{anno*} -> compid
-    where InputNumber(compid) := <collect(?InputNumber(_));Hd> anno* 
+    where InputNumberPil(compid) := <collect(?InputNumberPil(_));Hd> anno* 
     
   get-actionnumber-pil :
     _{anno*} -> compid
-    where ActionNumber(compid) := <collect(?ActionNumber(_));Hd> anno* 
+    where ActionNumberPil(compid) := <collect(?ActionNumberPil(_));Hd> anno* 
     
   get-template-class-name-pil :
     _{anno*} -> compid
-    where TemplateClassName(compid) := <collect(?TemplateClassName(_));Hd> anno* 
+    where TemplateClassNamePil(compid) := <collect(?TemplateClassNamePil(_));Hd> anno* 
 strategies
 
   //set-DomainPackage(|pkg) = rules( DomainPackage := pkg )
@@ -77,22 +73,22 @@ strategies
 
    generate-code-pil =
      ?def@Define(mods, name, args, elems) ;
-         {| ThisEmail, ThisPagePil, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables: //Variables: to hold arguments/variables of parent templates/pages
+         {| ThisEmailPil, ThisPagePil, NestedTemplatePil, ThisTemplateNamePil, ThisTemplateClassNamePil, VariablesPil: //Variables: to hold arguments/variables of parent templates/pages
          with(
-           if ThisTemplateName       then rules ( NestedTemplate := name ) end
-         ; if <elem> (Page(), mods)  then rules ( JavaThisPage := name ) end
-         ; if <oncetd(?Email())> mods then rules ( ThisEmail := name ) end
+           if ThisTemplateNamePil       then rules ( NestedTemplatePil := name ) end
+         ; if <elem> (Page(), mods)  then rules ( ThisPagePil := name ) end
+         ; if <oncetd(?Email())> mods then rules ( ThisEmailPil := name ) end
          ; rules ( 
-             ThisTemplateName := name
-             ThisTemplateClassName := <get-template-class-name-pil> def
+             ThisTemplateNamePil := name
+             ThisTemplateClassNamePil := <get-template-class-name-pil> def
            ) 
          )
          ; not(GenerateCodePil)
          ; all(generate-code-pil)
          |}
    <+?Action(_, _, _) ;
-         {| InAction, Variables:
-           rules ( InAction := True() )
+         {| InActionPil, VariablesPil:
+           rules ( InActionPil := True() )
          ; not(GenerateCodePil)
          ; all(generate-code-pil)
          |}
@@ -111,11 +107,11 @@ strategies
 
 signature
   constructors
-    TemplateCallNumber : String -> Annotation
-    FormNumber : String -> Annotation
-    InputNumber : String -> Annotation
-    ActionNumber : String -> Annotation //action calls/actionLink
-    TemplateClassName : String -> Annotation
+    TemplateCallNumberPil : String -> Annotation
+    FormNumberPil : String -> Annotation
+    InputNumberPil : String -> Annotation
+    ActionNumberPil : String -> Annotation //action calls/actionLink
+    TemplateClassNamePil : String -> Annotation
         
 
 strategies
@@ -126,49 +122,50 @@ strategies
 rules
 
   pil-element-id :
-    tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumber(newid),anno*} 
+    tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumberPil(newid),anno*} 
     where
           t* := <map(type-of)> args ; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos> name;TemplateWithGenerics> (name,t*)
         ; newid := <newname> "tcall"
     
   pil-element-id :
-    tc@TemplateCall("form", attrs,passign*, elems){anno*} -> tc{FormNumber(newid),anno*} 
+    tc@TemplateCall("form", attrs,passign*, elems){anno*} -> tc{FormNumberPil(newid),anno*} 
     where  newid := <newname> "form"
     
   pil-element-id :
-    tc@TemplateCall("action",[e1,e2],passign*,[]){anno*} -> tc{ActionNumber(newid),anno*} 
+    tc@TemplateCall("action",[e1,e2],passign*,[]){anno*} -> tc{ActionNumberPil(newid),anno*} 
     where  newid := <newname> "action"
   
   pil-element-id :
-    tc@PropertyAssignment(x, ThisCall(event, args)){anno*} -> tc{ActionNumber(newid),anno*} 
+    tc@PropertyAssignment(x, ThisCall(event, args)){anno*} -> tc{ActionNumberPil(newid),anno*} 
     where  newid := <newname> "action"
     
   pil-element-id :
-    tc@TemplateCall("actionLink",[e1,e2],passign*,[]){anno*} -> tc{ActionNumber(newid),anno*} 
+    tc@TemplateCall("actionLink",[e1,e2],passign*,[]){anno*} -> tc{ActionNumberPil(newid),anno*} 
     where  newid := <newname> "action"
           
   pil-element-id :
-    tc@webdsl|[ define mod* x(farg*) { elem* } ]| -> newtc{TemplateClassName(newid),anno*} 
+    tc@webdsl|[ define mod* x(farg*) { elem* } ]| -> newtc{TemplateClassNamePil(newid),anno*} 
     where _{anno*} := tc
         ; x1 := <strip-annos> x
         ; newtc := webdsl|[ define mod* x1(farg*) { elem* } ]| 
         ; newid := <concat-strings;newname> [x,"Template"] // TODO add context page to the name for easier debugging
-        ; if <oncetd(?Email())> mod* then rules ( EmailClassName : x -> newid ) end
-        ; if <IsTopLevelTemplateNamePil> x then rules(TopLevelTemplateClassName : x -> newid) end
+        ; if <oncetd(?Email())> mod* then rules ( EmailClassNamePil : x -> newid ) end
+        ; if <IsTopLevelTemplateNamePil> x then rules(TopLevelTemplateClassNamePil : x -> newid) end
         ; if <elem> (Page(),mod*)
-          then rules( AllPageNames  :+= x 
-                      PageClassName : x -> newid) // used to create lookup hashmap in java-base-page.str 
+          then rules( AllPageNamesPil  :+= x 
+                      PageClassNamePil : x -> newid) // used to create lookup hashmap in java-base-page.str 
                                                   // TODO needs renaming, used for any type of template now
           end 
 
   pil-element-id-template-call : 
-    tc -> tc{InputNumber(newid),anno*} 
+    tc -> tc{InputNumberPil(newid),anno*} 
     with  _{anno*} := tc
         ; newid := <newname> "input"
 
   get-all-top-level-template-names-pil =
-    alltd(register-top-level-template-name)
-  register-top-level-template-name = 
+    alltd(register-top-level-template-name-pil)
+
+  register-top-level-template-name-pil = 
     ?webdsl|[ define mod* x(farg*) { elem* } ]|
     ; with(
         if <elem> (Template(), mod*)
@@ -176,6 +173,6 @@ rules
                    IsTopLevelTemplateNamePil : x
                    TopLevelTemplateArgumentsPil : x -> farg* )
         end
-        ; if <oncetd(?Email())> mod* then rules ( AllEmailNames :+= x ) end
+        ; if <oncetd(?Email())> mod* then rules ( AllEmailNamesPil :+= x ) end
       )
     

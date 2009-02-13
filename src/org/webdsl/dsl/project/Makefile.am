@@ -11,6 +11,16 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
   $(wildcard template-java-servlet/stylesheets/*.css) \
+  $(wildcard template-pil/*.xml) \
+  $(wildcard template-pil/Makefile) \
+  $(wildcard template-pil/lib/*.jar) \
+  $(wildcard template-pil/src/*.properties) \
+  $(wildcard template-pil/src/utils/*.java) \
+  $(wildcard template-pil/html/*.html) \
+  $(wildcard template-pil/javascript/*.js) \
+  $(wildcard template-pil/images/*.gif) \
+  $(wildcard template-pil/images/*.png) \
+  $(wildcard template-pil/stylesheets/*.css) \
   $(wildcard template-python/*.yaml) \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
@@ -31,6 +41,10 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template-java-servlet/lib
 	mkdir -p $(pkgdatadir)/template-java-servlet/src
 	mkdir -p $(pkgdatadir)/template-java-servlet/src/utils
+	mkdir -p $(pkgdatadir)/template-pil
+	mkdir -p $(pkgdatadir)/template-pil/lib
+	mkdir -p $(pkgdatadir)/template-pil/src
+	mkdir -p $(pkgdatadir)/template-pil/src/utils
 	mkdir -p $(pkgdatadir)/template-python
 
 bootclean:
