@@ -22,7 +22,7 @@ rules // statements
      <+ return-to-pil
      <+ cancel-to-pil
      <+ goto-to-pil
-     <+ ajax-to-pil
+     //<+ ajax-to-pil
      <+ info(|["cannot translate statement:", <id>]); fail
 
    block-to-pil :
@@ -39,14 +39,16 @@ rules // assignment
    assignment-to-pil :
      Stat(Assignment(x, e1)) -> pil-stat|[ x = e2; ]|
      where <is-string> x
-         ; not(<is-property> (<ClassName>, x))
+         //TODO: Reenable: ; not(<is-property> (<ClassName>, x))
          ; e2 := <expression-to-pil> e1
 
+  /* TODO: reenable
    assignment-to-pil :
      Stat(Assignment(x, e1)) -> pil-stat|[ x_set(e2); ]|
      where <is-property> (<ClassName>, x)
          ; e2 := <expression-to-pil> e1
          ; x_set := <concat-strings>["set", <capitalize-string> x]
+         */
 
   assignment-to-pil :
     Stat(Assignment(Qualified(qid, x), e1)) -> pil-stat|[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
@@ -146,7 +148,7 @@ rules // for
   for-to-pil : // No where clause, no order by clause
     fas@ForAllStmt(x, srt, fltr@Filter(we, obe, l), Block(stat*)) ->
     pil-stat* |[
-      List<Object> x_list = e_criteria.list();
+      List<Object> x_list = dbSession.getAll(reflect::typeOf#x_ent());
       ~*<wrap-in-for-loop-pil(|x,t,pil-exp|[ x_list ]|)>
       pil-stat|[  
         if(e2) {
@@ -156,7 +158,8 @@ rules // for
     ]|
     with  stat*   := <statements-to-pil> stat*
         ; t       := <pil-type> srt
-        ; e_criteria := <pil-forall-criteria> (fas, t, fltr)
+        ; SimpleSort(x_ent) := srt
+        //; e_criteria := <pil-forall-criteria> (fas, t, fltr)
         ; e2 := <expression-to-pil> we
         ; x_list := <newname> "list"
 
@@ -187,10 +190,13 @@ rules // return
     ]|
     where InAction 
 
+    // @TODO Renable this: 
+    /*
   return-to-pil :
     Return(e1) -> pil-stat|[ return e2; ]|
     where InFunction
     with  e2 := <expression-to-pil> e1
+    */
 
   cancel-to-pil :
     Cancel(e1) -> pil-stat* |[ println("ugly cancel not implemented"); ]|
@@ -327,6 +333,7 @@ rules
   expression-to-pil :
     IsA(x, s@SimpleSort(x_name)) -> pil-exp|[ e instanceof t ]|
     with t := <pil-type> s
+       ; e := <expression-to-pil> x
 
 rules
 
@@ -341,7 +348,7 @@ rules
          ; t := <pil-type> srt
      
    field-assign-to-pil(|x_var) :
-     ObjectPropertyAssignment(y_field, e1) -> pil-stat|[ x_var.set#y(e2); ]|
+     ObjectPropertyAssignment(y_field, e1) -> pil-stat|[ x_var.set#y_field(e2); ]|
      with  e2 := <expression-to-pil> e1
      
 rules //vars     
@@ -375,8 +382,8 @@ rules //vars
    generic-call-to-pil :
      tc@ThisCall(x, e1*) -> result
      with  e2* := <map(expression-to-pil)> e1*
- //      ; if ent := <JavaInEntity> then //if the call is inside an entity (entity function)
-         ; if (ent := <get-this-call-parent> tc) <+ (ent := <PilInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
+ //      ; if ent := <InEntityPil> then //if the call is inside an entity (entity function)
+         ; if (ent := <get-this-call-parent> tc) <+ (ent := <InEntityPil>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
              if <CheckFunctionSignature> (ent, x, <map(type-of)> e1*)// and the call could be to an entity function of that same entity
              then
                result := pil-exp|[ this.x(dbConn,variables,e2*, ps, out) ]| // then add this.

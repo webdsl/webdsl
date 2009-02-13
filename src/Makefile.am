@@ -139,8 +139,9 @@ STRCFLAGS = \
 	-la stratego-gpp \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
-      -la $(PIL_LIB)/libpil-front.la \
-      -la $(PIL_LIB)/libpil-java-backend.la \
+  -la $(PIL_LIB)/libpil-front.la \
+  -la $(PIL_LIB)/libpil-java-backend.la \
+  -I $(PIL)/share/pil \
 	-la $(JAVA_FRONT_LIBS) \
 	--format-check 0 -O 1
 
