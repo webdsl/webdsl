@@ -73,6 +73,10 @@ PPTBLS = $(hql)-pretty.pp.af $(python)-pretty.pp.af $(css)-pretty.pp.af $(syntax
 
 syntax : $(TBLS)
 
+$(metasyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+$(mixmetasyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+$(mixmetapilsyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+
 sdfdata_DATA = $(SYNTAXDEFS) $(TBLS) $(SIGS) $(PPTBLS)
 
 PGEN_FLAGS = -m `basename $*`

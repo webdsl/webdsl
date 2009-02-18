@@ -1142,6 +1142,10 @@ fullclean :
 
 syntax : $(TBLS)
 
+$(metasyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+$(mixmetasyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+$(mixmetapilsyntax).def : org/webdsl/dsl/syntax/MixWebDSL.sdf
+
 org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/MixPython.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
 
 # bogus dependency to force pre-parsing of .str files
