@@ -11,7 +11,7 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
   $(wildcard template-java-servlet/stylesheets/*.css) \
-  $(wildcard template-pil/*.xml) \
+  $(wildcard template-pil/*.pil) \
   $(wildcard template-pil/Makefile) \
   $(wildcard template-pil/lib/*.jar) \
   $(wildcard template-pil/src/*.properties) \
