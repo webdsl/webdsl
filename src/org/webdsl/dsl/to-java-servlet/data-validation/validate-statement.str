@@ -10,25 +10,38 @@ imports
   
 rules
 
-  validate-to-java-servlet :
-    stat |[ validate(e1,e2); ]| -> <data-validation-to-java-servlet-helper> (e |[ null ]|,e1,e2)
+  validate-to-java-servlet(s) :
+    stat |[ validate(e1,e2); ]| -> <s> (e |[ null ]|,e1,e2)
 
-  validate-to-java-servlet :
-    stat |[ x:validate(e1,e2); ]| -> <data-validation-to-java-servlet-helper> (e |[ "~x" ]|,e1,e2)
+  validate-to-java-servlet(s) :
+    stat |[ x:validate(e1,e2); ]| -> <s> (e |[ "~x" ]|,e1,e2)
     
-  validate-to-java-servlet :
-    ValidateAnno(e1,e2) -> <data-validation-to-java-servlet-helper> (e |[ null ]|,e1,e2)
+  validate-to-java-servlet(s) :
+    ValidateAnno(e1,e2) -> <s> (e |[ null ]|,e1,e2)
 
-  validate-to-java-servlet :
-    NamedValidateAnno(x,e1,e2) -> <data-validation-to-java-servlet-helper> (e |[ "~x" ]|,e1,e2)
+  validate-to-java-servlet(s) :
+    NamedValidateAnno(x,e1,e2) -> <s> (e |[ "~x" ]|,e1,e2)
         
-  data-validation-to-java-servlet-helper :
-    (e0,e1,e2) ->
+  data-validation-to-java-servlet-collect(|x_collection) :
+    (e0,e1,e2) ->    
+    bstm |[
+      if(!e3){
+        x_collection.add(e6);
+      }
+    ]|
+    with  (e3,e6) := <data-validation-to-java-servlet-helper> (e0,e1,e2)
+  
+  data-validation-to-java-servlet-throw :
+    (e0,e1,e2) ->    
     bstm |[
       if(!e3){
         throw e6;
       }
     ]|
+    with  (e3,e6) := <data-validation-to-java-servlet-helper> (e0,e1,e2)
+    
+   data-validation-to-java-servlet-helper :  
+     (e0,e1,e2) -> (e3,e6)
     with e3 := <expression-to-java-servlet> e1 //expression types should be checked by typechecker
        ; e4 := <expression-to-java-servlet> e2
        ; usedobjects := <collect(?FieldAccess(_,_) <+ ?Qualified(_,_) <+ ?Var(_))> e1
@@ -36,11 +49,15 @@ rules
        ; e6 := <add-relevant-objects(|usedobjects)> e5
     
   add-relevant-objects(|usedobjects) :
-    e -> <add-relevant-objects(|xs)> e|[ ps.getOldValuesForInputs().get(e2)==null?e.addRelevantObject(e2):e.addRelevantObject(ps.getOldValuesForInputs().get(e2)) ]|
+    e -> <add-relevant-objects(|xs)> e|[ ps.getOldValuesForInputs().get(e3)==null?e.addRelevantObject(e3):e.addRelevantObject(ps.getOldValuesForInputs().get(e3)) ]|
     where not([] := usedobjects)
         ; [e1|xs] := usedobjects
         ; e2 := <expression-to-java-servlet> e1
-        
+        ; if GenericSort(_,_) := <type-of> e1 
+          then e3 := java:expr |[ e2.hashCode() ]|
+          else e3 := e2
+          end
+                  
   add-relevant-objects(|usedobjects) :
     e -> e
     where [] := usedobjects

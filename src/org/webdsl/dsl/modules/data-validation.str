@@ -9,12 +9,21 @@ signature
   constructors
 
     PreDeriveInputDone : Annotation
+    InputErrorMessageBinding : String -> Annotation
 
 rules //should be done only once, uses above constructor in passign* to flag
 
   PreDeriveInput :
     tc@TemplateCall(x,e*,passign*,elem*) -> TemplateCall("validatedInputWrapper",[],[],newelem*)
-    where newelem* := <PreDeriveInput-helper> tc
+    where newelem* := <PreDeriveInput-helper-tc> tc
+    
+  PreDeriveInput :
+    tc@Select(x, srt, label, e, passign*) -> TemplateCall("validatedInputWrapper",[],[],newelem*)
+    where newelem* := <PreDeriveInput-helper-select> tc
+    
+  PreDeriveInput :
+    tc@SelectFromList(e1, e7, passign*)  -> TemplateCall("validatedInputWrapper",[],[],newelem*)
+    where newelem* := <PreDeriveInput-helper-selectfromlist> tc
   
   // desugaring rule which assumes innermost normalization
   wrap-label-with-data-validation :
@@ -32,15 +41,38 @@ rules //should be done only once, uses above constructor in passign* to flag
   
 rules
 
-  PreDeriveInput-helper :
+  /**
+   *   Add binding name to input templatecall, used to retrieve error messages during rendering
+   */
+  PreDeriveInput-helper-tc :
     tc@TemplateCall(x,e*,passign*,elem*) -> [TemplateCall(x,e*,passignnew*,[])|rest]
     where not(<fetch(?PreDeriveInputDone())> passign*)//template calls get rewritten too often without handling annotations, passign* however, is passed everywhere
         ; <is-input-template-call> x
+        ; x_tmp := <newname> "input"
         ; if <oncetd(?webdsl:e|[conversionError(e*)]|)> tc // check that there wasn't an explicit mention of the conversionError, no need to add default in that case
           then rest := elem*
-         // else rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsFor(e*)]| | elem*]] end
-          else rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsFor(e*)]| | elem*]] end
-        ; passignnew* := [PreDeriveInputDone()|passign*]
+          //else rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsFor(e*)]| | elem*]] end
+          else rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsForInput(x_tmp)]| | elem*]] end
+        ; passignnew* := [PreDeriveInputDone()|[InputErrorMessageBinding(x_tmp)|passign*]]
+
+  /**
+   *  Similar as above but for Select and SelectFromList
+   */
+  PreDeriveInput-helper-select :
+    tc@Select(x, srt, label, e, passign*)  -> [Select(x, srt, label, e, passignnew*)|rest]
+    where not(<fetch(?PreDeriveInputDone())> passign*)
+        ; x_tmp := <newname> "input"
+        ; e* := [ java:expr |[ x ]| ]
+        ; rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsForInput(x_tmp)]| | [] ]]
+        ; passignnew* := [PreDeriveInputDone()|[InputErrorMessageBinding(x_tmp)|passign*]]
+        
+  PreDeriveInput-helper-selectfromlist :
+    tc@SelectFromList(e1, e7, passign*)  -> [SelectFromList(e1, e7, passignnew*)|rest]
+    where not(<fetch(?PreDeriveInputDone())> passign*)
+        ; x_tmp := <newname> "input"
+        ; e* := [ e1 ]
+        ; rest := [elem|[ validate(conversionSucceeded(e*),conversionError(e*)) ]| | [elem|[ validationErrorsForInput(x_tmp)]| | [] ]]
+        ; passignnew* := [PreDeriveInputDone()|[InputErrorMessageBinding(x_tmp)|passign*]]
 
   is-input-template-call :
     x -> x
@@ -88,6 +120,18 @@ rules //error template
 
   default-error-template =
     <emit-webdsl-code> def|[
+      
+  define ignore-access-control errorTemplate(errorMessages : List<String>){
+    block()[class := error, style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      validatedInput
+      for(ve: String in errorMessages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          output(ve)
+        }     
+      }
+    }
+  } 
+  /*
       define ignore-access-control errorTemplate(errorMessages : List<String>){
         block()[class := error]{
           validatedInput()
@@ -95,6 +139,6 @@ rules //error template
             output(ve)
           } separated-by{", "}
         }
-      }
+      }*/
     ]|
   

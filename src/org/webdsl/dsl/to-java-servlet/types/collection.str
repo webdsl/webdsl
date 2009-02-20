@@ -144,15 +144,14 @@ rules //fields
 rules //pages
  
   java-servlet-element-id : 
-    tc@Select(x, SimpleSort(s), label, e) -> tc{InputNumber(newid),anno*} 
+    tc@Select(x, SimpleSort(s), label, e, passign*) -> tc{InputNumber(newid),anno*} 
     with  _{anno*} := tc
         ; newid := <newname> "input"
 
   //SimpleSort property select
   handle-actions-input-to-java-servlet :
-    tc@Select(x, srt, label, e)  ->
-    <catch-validation-exception-wrap-code> 
-    <for-loop-counter-wrap-code>
+    tc@Select(x, srt, label, e, passign*)  ->
+    <wrap-input-java-code(|passign*)>
     bstm*|[
         ident += "~inputident"+uniqueid;
         
@@ -170,7 +169,7 @@ rules //pages
         ; bstm* := <input-assignment-to-java-servlet(|x_temp)> e
     
   elem-to-java-servlet : 
-    tc@Select(x, srt, label, e)  ->
+    tc@Select(x, srt, label, e, passign*)  ->
     <for-loop-counter-wrap-code>
     bstm* |[ 
     String x_temp = ident+"~inputident"+uniqueid;
@@ -206,35 +205,49 @@ rules //pages
         ; e2 := <expression-to-java-servlet> e
 
           
-  //GenericSort property select
+  //GenericSort property select, currently works for sets and lists, but lists need a different input translation
   handle-actions-input-to-java-servlet :
-    tc@Select(x, srt, label, e)  ->
-    <catch-validation-exception-wrap-code> 
-    <for-loop-counter-wrap-code>
+    tc@Select(x, srt, label, e, passign*)  ->
+    <wrap-input-java-code(|passign*)>
     bstm*|[
         ident += "~inputident"+uniqueid;
         if(ps.getParammap().get(ident+"_isinput")!=null){
-          e_clear;
+          //e_clear;
+          java.util.Set<t> x_tempset = new java.util.HashSet<t>();
           if(ps.getParammapvalues().get(ident) != null){
             for(String elem : ps.getParammapvalues().get(ident))
             {
               t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
+              x_tempset.add(x_temp);
               e_add;  
             }
+            ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
+              if(!x_tempset.contains(x_temp)){
+                e_remove;
+              }
+            ]|
+            ~*<wrap-in-for-loop(|x_temp,t,expr |[ x_tempset ]| )> bstm* |[
+              if(!e1.contains(x_temp)){
+                e_add;
+              }
+            ]|
           }
         }
     ]|
     where GenericSort(_, _) := <type-of> e
     with  inputident := <get-inputnumber> tc
         ; x_temp := <newname> "temp"
+        ; x_tempset := <newname> "temp"
         ; t       := <java-type> srt
         ; x_argtype := <java-type-name> srt
+        ; e1 := <expression-to-java-servlet> e
         //; bstm* := <input-assignment-to-java-servlet(|x_temp)> e
         ; e_add := <expression-to-java-servlet> webdsl:e |[ e.add(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
-        ; e_clear := <expression-to-java-servlet> webdsl:e |[ e.clear() ]| //reuse expression translation for inverse relation clear operation
+        ; e_remove := <expression-to-java-servlet> webdsl:e |[ e.remove(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
+        //; e_clear := <expression-to-java-servlet> webdsl:e |[ e.clear() ]| //reuse expression translation for inverse relation clear operation
     
   elem-to-java-servlet : 
-    tc@Select(x, srt, label, e)  ->
+    tc@Select(x, srt, label, e, passign*)  ->
     <for-loop-counter-wrap-code>
     bstm* |[ 
     String x_temp = ident+"~inputident"+uniqueid;
@@ -278,15 +291,14 @@ rules //pages
 rules // select from
 
   java-servlet-element-id : 
-    tc@SelectFromList(e1, e7)-> tc{InputNumber(newid),anno*} 
+    tc@SelectFromList(e1, e7, passign*)-> tc{InputNumber(newid),anno*} 
     with  _{anno*} := tc
           ; newid := <newname> "input"
 
   //SimpleSort property select
   handle-actions-input-to-java-servlet :
-    tc@SelectFromList(e1, e7)  ->
-    <catch-validation-exception-wrap-code> 
-    <for-loop-counter-wrap-code>
+    tc@SelectFromList(e1, e7, passign*)  ->
+    <wrap-input-java-code(|passign*)>
     bstm*|[
         ident += "~inputident"+uniqueid;
         
@@ -309,7 +321,7 @@ rules // select from
         ; e8 := <expression-to-java-servlet> e7
     
   elem-to-java-servlet : 
-    tc@SelectFromList(e1, e7)  ->
+    tc@SelectFromList(e1, e7, passign*)  ->
     <for-loop-counter-wrap-code>
     bstm* |[ 
     String x_temp = ident+"~inputident"+uniqueid;
@@ -350,9 +362,8 @@ rules // select from
           
   //GenericSort property select
   handle-actions-input-to-java-servlet :
-    tc@SelectFromList(e1, e7)  ->
-    <catch-validation-exception-wrap-code> 
-    <for-loop-counter-wrap-code>
+    tc@SelectFromList(e1, e7, passign*)  ->
+    <wrap-input-java-code(|passign*)>
     bstm*|[
         ident += "~inputident"+uniqueid;
         if(ps.getParammap().get(ident+"_isinput")!=null){
@@ -379,7 +390,7 @@ rules // select from
         ; e_clear := <expression-to-java-servlet> webdsl:e |[ e1.clear() ]| //reuse expression translation for inverse relation clear operation
     
   elem-to-java-servlet : 
-    tc@SelectFromList(e1, e7) ->
+    tc@SelectFromList(e1, e7, passign*) ->
     <for-loop-counter-wrap-code>
     bstm* |[ 
     String x_temp = ident+"~inputident"+uniqueid;

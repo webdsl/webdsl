@@ -1,0 +1,65 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/formgroup
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules // formgroup, which don't use tables for layout
+
+  elem-to-java-servlet :
+    TemplateCall("formgroup", [arg],passign*, elems) ->
+    bstm* |[
+      //determine size of left column
+      int x = 0;
+      Integer[] x2 = {e*};
+      for(Integer in : x2){
+        if(in > x)
+          x = in;
+      }
+      x = x * 10;
+      bstm1*
+      bstm*
+    ]|
+    with  x := <newname> "formGroupLeftSize"
+        ; {| FormGroupLeftSize :
+          rules (FormGroupLeftSize := x)
+        ; bstm* := <elem-to-java-servlet> 
+            TemplateCall("group", [arg],<remove-all(?PropertyAssignment("labelWidth",_))> passign*, elems) //[elem|[block()[style:="width: 400px;"]{}]| |elems]
+          |}
+        ; e* := <collect(formgroup-label-list);map(\e -> java:expr|[ e.length() ]| \)> elems
+        ; x2 := <newname> "list"
+        ; if <fetch(?PropertyAssignment("labelWidth",e1))> passign*
+          then e2 := <expression-to-java-servlet> e1; bstm1* := bstm* |[ x = e2; ]|
+          else bstm1* := [] end
+    
+   formgroup-label-list :
+     TemplateCall("leftFormGroupElement",[],[],[TemplateCall("label",[e],passign*,[])]) -> 
+     <expression-to-java-servlet> e 
+   
+rules
+
+  elem-to-java-servlet : 
+    TemplateCall("leftFormGroupElement",[],[],[TemplateCall("label",e*,passign*,[])]) ->
+    bstm* |[
+      out.print("<div style=\"clear:left; float:left; width: " + x + "px\">");
+      bstm*
+      out.print("</div>");
+    ]|
+    with  x := <FormGroupLeftSize>
+        ; bstm* := <elem-to-java-servlet> TemplateCall("label",e*,passign*,[])
+    
+  elem-to-java-servlet :    
+    TemplateCall("rightFormGroupElement",[],[],elem*) ->
+    bstm* |[
+      out.print("<div style=\"float: left;\">");
+      bstm*
+      out.print("</div>");
+      //out.print("<br />");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elem*
+
+rules
+
+  assignment-to-html-attr = ?FormGroupDesugarDone()

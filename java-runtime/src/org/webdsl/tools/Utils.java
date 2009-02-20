@@ -5,6 +5,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.LinkedList;
 
 import javax.faces.context.FacesContext;
 import javax.servlet.ServletOutputStream;
@@ -105,5 +106,44 @@ public final class Utils {
             }
             facesContext.responseComplete();
         }
+    }
+    
+    public static List<String> explodeString(String s){
+    	List<String> list = new LinkedList<String>();
+    	for(char c : s.toCharArray()){
+    		list.add(new Character(c).toString());  
+    	}
+    	return list;
+    }
+    public static String implodeString(List<String> s){
+    	StringBuffer ret = new StringBuffer();
+    	for(String str : s){
+    		ret.append(str);
+    	}
+    	return ret.toString();
+    }
+    public static boolean containsDigit(String s){
+    	for(char c : s.toCharArray()){
+    		if(Character.isDigit(c)){
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+    public static boolean containsLowerCase(String s){
+    	for(char c : s.toCharArray()){
+    		if(Character.isLowerCase(c)){
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+    public static boolean containsUpperCase(String s){
+    	for(char c : s.toCharArray()){
+    		if(Character.isUpperCase(c)){
+    			return true;
+    		}
+    	}
+    	return false;
     }
 }

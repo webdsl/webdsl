@@ -40,7 +40,7 @@ strategies
      <emit-java-code> compilation-unit|[
        package pkgname;
 
-       @Entity
+       @javax.persistence.Entity
        mod0*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
@@ -144,7 +144,7 @@ strategies
      <emit-java-code> compilation-unit|[
        package pkgname;
 
-       @Entity
+       @javax.persistence.Entity
        public class x_Class extends x_super implements org.webdsl.WebDSLEntity
        {
          public x_Class () {
@@ -310,12 +310,16 @@ strategies
              x#BeingSet = true;
              ~*bas*
              bstm_setterextension*
-             bstm_validationbeforesetting*
+             //bstm_validationobjecttracking*
+             t olditem = _#x;
              _#x = newitem;
              x#BeingSet = false;
-             
              bstm_validation*
            }
+         }
+         // used by eg. unique id functions
+         public void set#x#NoEventsOrValidation(t newitem) {
+           _#x = newitem;
          }
        ]|
        ~*<where(GenericSort(_,_) := s) <+ ![]> class-body-dec* |[ //assignment for collections is rewritten to clear();addall(x);
@@ -357,19 +361,8 @@ strategies
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
-        ; bstm_validation* := <collect(validate-to-java-servlet)> annos
-        ; x_tmp := <newname> "tmp"
-        ; bstm_validationbeforesetting* := bstm* |[ 
-            if(ps != null){
-              Object x_tmp = ps.getOldValuesForInputs().get(_#x);
-              if(x_tmp == null) {
-                ps.getOldValuesForInputs().put(newitem,_#x);// System.out.println(newitem+" 3-> "+_#x);
-              }
-              else {
-                ps.getOldValuesForInputs().put(newitem,x_tmp);//System.out.println(newitem+" 4-> "+x_tmp); 
-              }
-            }
-          ]|
+        ; bstm_validation* := <validation-annotations-setter> ("olditem","newitem",annos)
+        //; bstm_validationobjecttracking* := <validation-objects-before-setting> (<concat-strings> ["_",x],"newitem")
           
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
@@ -720,11 +713,16 @@ rules //associations
       public void removeFrom#x_prop(t_y item) {
         if(item != null && !x_prop#BeingSet) {
           x_prop#BeingSet = true;
+          
+          int oldColHashCode = get#x_prop().hashCode(); 
           get#x_prop().remove(item);
+          int newColHashCode = get#x_prop().hashCode();
+          bstm_objecttrackingforvalidation*
       
           if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
             bstm0*
             bstm_removeextension*
+            bstm_validation*
           }
 
           x_prop#BeingSet = false;
@@ -743,9 +741,13 @@ rules //associations
         if(item != null && !x_prop#BeingSet) {
           x_prop#BeingSet = true;        
           t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
+          int oldColHashCode = get#x_prop().hashCode(); 
           get#x_prop().add(item);
+          int newColHashCode = get#x_prop().hashCode();
+          bstm_objecttrackingforvalidation*
           bstm1*
           bstm_addextension*
+          bstm_validation*
           x_prop#BeingSet = false;
         }        
       }
@@ -765,6 +767,8 @@ rules //associations
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
+        ; bstm_validation* := <validation-annotations-collection-operations> annos
+        ; bstm_objecttrackingforvalidation* := <validation-objects-before-setting> ("oldColHashCode","newColHashCode")
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [SimpleSort(y)]), annos) ->

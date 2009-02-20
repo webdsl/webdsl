@@ -12,10 +12,11 @@ rules
 
   elem-to-java-servlet :
     tc@elem|[ validatedInputWrapper()[passign*]{elem*} ]| -> result
-    with  input_elements := <collect(?TemplateCall(_,_,_,_));remove-all(validate-tempate-element)> elem*
+    with  input_elements := <alltd(remove-all(validate-tempate-element))> elem*
         ; result := <render-error-messages-with-error-template> (elem*, input_elements)
        
   validate-tempate-element = ?elem|[ validate(e1,e2)[passign*]{} ]| 
+  validate-tempate-element = ?elem|[ validationErrorsForInput(e1)[passign*]{} ]| 
   validate-tempate-element = ?elem|[ validationErrorsFor(e1)[passign*]{} ]| 
   validate-tempate-element = ?ValidationErrors(_)
   validate-tempate-element = ?ValidationErrors()
@@ -39,9 +40,13 @@ rules
 
   inline-error-template :
     (elem*,x_list,input_elements) -> bstm_error*
-    with Define(mods, name,[Arg(nm,srt)], body) := <get-error-template>
+    with Define(mods, name,[Arg(nm,srt)], body) := <ErrorTemplateJavaServlet> //TemplateDefinition DR doesn't contain desugared template
        ; body3 := <alltd(insert-input-fields-in-error-template(|input_elements))> body
-       ; bstm_error* := <elems-to-java-servlet;alltd( \ ExprName(Id("errorMessages"{anno*})) -> ExprName(Id(x_list)) \ )> body3
+       ; bstm_error* := <elems-to-java-servlet;alltd(inline-error-template-helper(|x_list))> body3
+
+  inline-error-template-helper(|x_list) :
+    ExprName(Id(x)) -> ExprName(Id(x_list))
+    where "errorMessages" := <OriginalNonUniqueName> x
 
   insert-input-fields-in-error-template(|input_elements) :
     TemplateCall("validatedInput",_,_,_) -> TemplateCall("dummy",[],[],input_elements)
@@ -54,6 +59,8 @@ rules
 rules //TODO these are relevant for error messages not connected to inputs
   elem-to-java-servlet :
     tc@elem|[ validate(e1,e2)[passign*]{} ]| -> []
+  elem-to-java-servlet :
+    tc@elem|[ validationErrorsForInput(e1)[passign*]{} ]| -> []
   elem-to-java-servlet :
     tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> []
   elem-to-java-servlet :       
@@ -70,6 +77,16 @@ rules // add messages to list
     ]|
     with  e4 := <expression-to-java-servlet> e2
         ; e3 := <expression-to-java-servlet> e1
+  
+  validation-message-production(|x_list) :
+    tc@elem|[ validationErrorsForInput(e)[passign*]{} ]| -> 
+    <for-loop-counter-wrap-code> 
+    bstm* |[
+      if(inSubmittedForm){
+        bstm*
+      }
+    ]|
+    with  bstm* := <validation-message-production-helper(|x_list)> java:expr |[ ident + "~<pp-webdsl> e" ]|
         
   validation-message-production(|x_list) :
     tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> 
@@ -77,8 +94,8 @@ rules // add messages to list
       if(inSubmittedForm){
         java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
         for(utils.ValidationException ve : ps.getValidationExceptions()){
-          Object x1 = ps.getOldValuesForInputs().get(e2);
-          if(ve.getName() == null && x1==null?ve.getRelevantObjects().contains(e2):ve.getRelevantObjects().contains(x1)){
+          Object x1 = ps.getOldValuesForInputs().get(e3);
+          if(ve.getName() == null && x1==null?ve.isRelevantObject(e3):ve.isRelevantObject(x1)){
             x.add(ve);
           }
         }
@@ -89,15 +106,24 @@ rules // add messages to list
       }
     ]|
     with  e2 := <expression-to-java-servlet> e1
+        ; if GenericSort(_,_) := <type-of> e1 
+          then e3 := java:expr |[ e2.hashCode() ]|
+          else e3 := e2
+          end
         ; x := <newname> "ve"
         ; x1 := <newname> "object"
  
   validation-message-production(|x_list) : 
     ValidationErrors(x1) -> 
+    <validation-message-production-helper(|x_list)> e
+    with  e := java:expr |[ "~x1" ]|
+    
+  validation-message-production-helper(|x_list) : 
+    e -> 
     bstm* |[
       java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
       for(utils.ValidationException ve : ps.getValidationExceptions()){
-        if(ve.getName() != null && ve.getName().equals("~x1")){
+        if(ve.getName() != null && ve.getName().equals(e)){
           x.add(ve);
         }
       }
@@ -106,8 +132,8 @@ rules // add messages to list
         ps.getValidationExceptions().remove(ve);
       }
     ]|
-    with  x := <newname> "ve"
-    
+    with  x := <newname> "ve"  
+      
   validation-message-production(|x_list) : 
     ValidationErrors() -> 
     bstm* |[
@@ -120,6 +146,7 @@ rules // add messages to list
 rules
 
   assignment-to-html-attr = ?PreDeriveInputDone()
+  assignment-to-html-attr = ?InputErrorMessageBinding(_)
 
 rules
 

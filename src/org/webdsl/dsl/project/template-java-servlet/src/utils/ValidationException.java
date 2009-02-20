@@ -20,6 +20,11 @@ public class ValidationException extends RuntimeException {
 		return name;
 	}
 	
+	public ValidationException setName(String name) {
+		this.name=name;
+		return this;
+	}	
+	
 	public List<Object> getRelevantObjects() {
 		return relevantObjects;
 	}
@@ -27,6 +32,16 @@ public class ValidationException extends RuntimeException {
 	public ValidationException addRelevantObject(Object o){
 		relevantObjects.add(o);
 		return this;
+	}
+	
+	//not interested in equals here, should be the exact same instance
+	public boolean isRelevantObject(Object o){
+		for(Object ob : relevantObjects){
+			if(ob==o){
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static final long serialVersionUID = 8068783435980319210L;
