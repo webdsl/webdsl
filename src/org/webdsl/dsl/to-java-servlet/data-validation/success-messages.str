@@ -1,0 +1,87 @@
+module org/webdsl/dsl/to-java-servlet/data-validation/success-messages
+imports 
+  libstrategolib  
+  Java-15
+  libjava-front 
+  
+imports 
+  libwebdsl-front
+  
+/**
+ *  Success messages
+ *  IncomingSuccessMessages partly implemented in dispatch-servlet.str and java-page.str as well
+ */  
+  
+rules //show messages
+
+  elem-to-java-servlet :
+    tc@elem|[ messages()[passign*]{elem*} ]| -> result
+    with  result := <render-success-messages-with-template> <TemplateSuccess>
+       
+  /**
+   *  Reuses error message rendering in data-validation-render.str
+   */
+  render-success-messages-with-template :  
+    messagestemplate -> 
+    bstm* |[  
+      java.util.List<String> x_list;// = new java.util.LinkedList<String>();
+      x_list = ps.getIncomingSuccessMessages();
+      if(x_list.size() > 0){
+        bstm_error*
+      }
+      ps.getIncomingSuccessMessages().clear();//only display once
+    ]|
+    with x_list := <newname> "messagesList"
+       ; bstm_error* := <inline-error-template> ([],x_list,[],messagestemplate)
+
+       
+rules //produce messages 
+
+  call-to-java-servlet :
+    exp  |[ message(e1) ]| ->   java |[ ps.getOutgoingSuccessMessages().add(e2) ]|
+    where <type-compatible> (<type-of> e1,  SimpleSort("String"))
+    with  e2 := <expression-to-java-servlet> e1
+    
+rules //store messages
+
+  GenerateCodeJavaServlet = generate-java-servlet-success-messages; fail
+
+  generate-java-servlet-success-messages:
+    Application(qid, sections) //match application node to only generate once
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+
+        private List<String> incomingSuccessMessages = new java.util.LinkedList<String>();
+
+        public List<String> getIncomingSuccessMessages() { 
+          return incomingSuccessMessages;
+        }
+
+        private List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
+
+        public List<String> getOutgoingSuccessMessages() { 
+          return outgoingSuccessMessages;
+        }  
+        
+        protected void renderIncomingSuccessMessages(java.io.PrintWriter out){
+          if(!this.getIncomingSuccessMessages().isEmpty()) {
+            PageServlet ps = this;
+             
+            ~*<render-java-servlet-template-inits>
+             
+            ~*<render-success-messages-with-template> <TemplateSuccess>
+          }        
+        }
+      }
+      
+    ]|
+    
+rules //send along messages in redirects
+
+  add-success-messages-to-url :
+    e_list -> <concat> [e_list,[java:expr|[ {| StringBuffer x1 = new StringBuffer(); for(String x2:ps.getOutgoingSuccessMessages()){ x1.append("/"); x1.append(x2); } | x1.toString() |} ]| ]]
+    with  x1 := <newname> "temp"
+        ; x2 := <newname> "temp"
