@@ -31,23 +31,29 @@ rules // action methods
               if (!ps.hasExecutedAction)
               {
                 boolean isRedirected = false;
+                boolean actionFailed = false;
                 ps.hasExecutedAction = true; 
                 try {
                   bstm*
                 } 
                 catch(utils.ValidationException ve){
-                  ps.getValidationExceptions().add(ve);
-                  ps.clearHibernateCache(variables);                 
+                  ps.getValidationExceptions().add(ve.setName(actionident));
+                  ps.clearHibernateCache(variables);
+                  actionFailed = true;                 
                 }
                 catch(utils.MultipleValidationExceptions ve){
-                  ps.getValidationExceptions().addAll(ve.getValidationExceptions());
+                  for(utils.ValidationException vex : ve.getValidationExceptions()){
+                    ps.getValidationExceptions().add(vex.setName(actionident));
+                  }
                   ps.clearHibernateCache(variables);                
+                  actionFailed = true;
                 }
                 catch(Exception excep)  {
                   System.out.println("exception");
                   ps.clearHibernateCache(variables);   
                   excep.printStackTrace();               
                   ps.getValidationExceptions().add(new ValidationException(null,"An error occured while processing your request"));
+                  actionFailed = true;
                   //throw new RuntimeException(excep);
                 }
                 //redirect to current page by default
@@ -55,7 +61,7 @@ rules // action methods
                   if(!ps.isDownloadSet()){
                     ps.clearHibernateCache(variables);
                   }
-                  if(!isRedirected && !ps.isDownloadSet()){
+                  if(!isRedirected && !ps.isDownloadSet() && !actionFailed){
                     try {
                       response.sendRedirect(ps.getRequest().getRequestURL().toString());
                     } catch (IOException ioe) {
@@ -83,51 +89,12 @@ rules // action methods
     with  
     {| InAction :
          rules(InAction := <id>)
-       ; param* := <map(arguments-to-java-servlet<+debug(!"map failed in template-action.str"))> farg*
+       ; param* := <add-input-id-for-action-as-param;map(arguments-to-java-servlet<+debug(!"map failed in template-action.str"))> farg*
        ; bstm* := <statements-to-java-servlet> stat*
     |}
     ; pkgname2 := <DomainPackage>
     ; pkgname3 := <ActionPackage>
-    //; _{x_class} := x_action
-
-
-/*
-        java |[ 
-            @Partial
-            private void handleActions()
-            {
-              {
-              String action = request.getParameter("~x_action"+uniqueid);
-              if(action != null)
-              {
-              
-                
-                  //only validate for submitted forms   
-                  //validation
-                  //if(name.equals("bob"))
-                  //{
-                  //    ps.setValidated(false);
-                  //    validated=false;
-                  //}
-                  
-                  //if(validated){
-                  //  save();
-                  //}
-                  //else
-                  //{
-                      //restore entities
-                  //    ps.getHibSession().refresh(u1);
-                  //}
-                  
-                bstm*
-              } 
-              else
-              {
-                  //not necessarily error, could be that the action is handled in template
-              }
-              
-              }          
-            }
-        ]|
-*/
-
+  
+  add-input-id-for-action-as-param :
+    params -> <concat> [params,[Arg("actionident",SimpleSort("String"))]]
+    
