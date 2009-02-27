@@ -6,120 +6,86 @@ imports
 imports
   libwebdsl-front
 
-/*
-//mostly similar to java-page but removed surrounding html body stuff to make them suitable for ajax calls
-
-
 rules
 
-  generate-pil-partial =  //same as for normal page but this one checks for not(JavaThisPage)
+  generate-pil-partial =  //same as for normal page but this one checks for not(PilThisPage)
     ? cbds
-    ; pkgname    := <BeanPackage>
     ; where (not(ThisPagePil <+ NestedTemplatePil <+ ThisEmailPil))
     ; where (IsAjaxApp)
-    ; with( x_Page := <ThisTemplateName; pil-page-name>
+    ; with( x_Page := <ThisTemplateNamePil; pil-page-name>
       //also allow a single class-body-declaration
-      ; if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
-      ; <emit-java-code>
-          compilation-unit|[
-            package pkgname;
-            @Partial
-            public class x_Page{
-              ~*cbds*
+      ; if <is-list> cbds then cbd* := cbds else cbd* := [cbds] end
+      ; <pil-emit>
+          pil-decl|[
+            class page::x_Page {
+              cbd*
             }
           ]|
     ) 
     ; !cbds
 
 rules
-  GenerateCodeJavaServlet = generate-pil-template-as-page; fail
+
+  GenerateCodePil = generate-pil-template-as-page; fail
 
   generate-pil-template-as-page :
     def|[ define mod* x_page (farg*) { elem* } ]| ->
-    <emit-java-code> compilation-unit|[
-        package pkgname;
-        
-        import java.io.IOException;
-        import java.io.PrintWriter;
-        import java.util.HashMap;
-        import java.util.Iterator;
-        import java.util.Map;
-        import java.util.List;
-        
-        import javax.servlet.ServletException;
-        import javax.servlet.http.HttpServletRequest;
-        import javax.servlet.http.HttpServletResponse;
-        import javax.servlet.http.HttpSession;
-        
-        import org.hibernate.Session;
-        
-        import utils.*;
-        
-        import pkgname2.*;
-
+    <pil-emit> pil-decl|[
         @Partial
-        public class x_Page extends PageServlet
+        class page::x_Page extends utils::PageServlet
         {
         
-          //templates scope
-          private static HashMap<String, Class> templates = PageServlet.getTemplates();
-          
-          private HashMap<String, Object> variables = new HashMap<String, Object>();
-          private HashMap<String, Object> actionclasses = new HashMap<String, Object>();
+          Map<String, Object> variables = new Map<String, Object>();
+          Map<String, Object> actionclasses = new Map<String, Object>();
         
-          @Partial
-          private void initialize(){}   
+          void initialize(){}   
         
-          @Partial
-          private void conversion(){}     
+          void conversion(){}     
           
-          @Partial
-          private void loadArguments () {}//previously argumentInitialize
+          void loadArguments () {}//previously argumentInitialize
          
-          public String getPageName()
+          String getPageName()
           {
-            return "~x_page";
+            return e_pagename; //"~x_page";
           }
           
-          @Partial 
-          public void hiddenParams(java.lang.StringBuffer combinedparams){}
+          void hiddenParams(MutableString combinedparams){}
           
-          public String getHiddenParams()
+          String getHiddenParams()
           {
-            java.lang.StringBuffer hiddens = new java.lang.StringBuffer();
+            var hiddens = new MutableString();
             hiddenParams(hiddens);
             return hiddens.toString();
           }
           
-          @Partial 
-          public void hiddenPostParams(java.lang.StringBuffer combinedparams){}
+          void hiddenPostParams(MutableString combinedparams){}
           
-          public String getHiddenPostParams()
+          String getHiddenPostParams()
           {
-            java.lang.StringBuffer hiddens = new java.lang.StringBuffer();
+            var hiddens = new MutableString();
             hiddenPostParams(hiddens);
             return hiddens.toString();
           }
           
-          x_specialpagetemplate templateservlet = new x_specialpagetemplate();
+          t_specialpagetemplate templateservlet = new t_specialpagetemplate();
                  
-          public void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] args)
+          void serveAsAjaxResponse(webdsl::PageServlet ps, webdsl::util::StringWriter theoutStream, Array<Object> args)
           { //use passed PageServlet ps here, since this is the context for this type of response
             this.request=ps.getRequest();
             this.response=ps.getResponse();
             this.parammap = ps.getParammap();
             this.parammapvalues = ps.getParammapvalues();
             this.fileUploads=ps.getFileUploads();
-            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            dbConn = webdsl::db::getSession();
             session = request.getSession(true);
-            bstm1*
+            stat1*
             
             initialize();
                           
-            templateservlet.render(ps, args, 1,(HashMap<String,Class>)PageServlet.getTemplates().clone(),variables,actionclasses,theoutStream);
+            templateservlet.render(ps, args, 1,(Map<String,Class>)templates.clone(),variables,actionclasses,theoutStream);
           }
           
-          public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
+          void serve(webdsl::Request request, webdsl::Response response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,webdsl::util::File> fileUploads)
           {
               
             this.request=request;
@@ -127,94 +93,84 @@ rules
             this.parammap = parammap;
             this.parammapvalues = parammapvalues;
             this.fileUploads=fileUploads;
-            session = request.getSession(true);
+            session = request.getSession();
             
-            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            dbConn = webdsl::db::getSession();
     
-            hibSession.beginTransaction();
+            //dbConn.beginTransaction(); // I think this is done automatically
             try
             {	
               //very dirty and most ugly hibernate hack
-              this.variables.put("_persist_flag_", new Boolean(false));
+              this.variables["_persist_flag_"] = false;
             
               initialize();
-              variablesGlobalAndSession = (HashMap<String, Object>)variables.clone();
+              variablesGlobalAndSession = (Map<String, Object>)variables.clone();
               conversion();
               loadArguments();
               //initialize();
               
-              Object[] args = { e* };
+              var args = Array<Object>(e*);
               this.args = args;
               
               //call special pagetemplate
-              templateservlet.storeInputs  (this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses );
+              templateservlet.storeInputs(this, args, 1, (Map<String,Class>)templates.clone(),variables,actionclasses );
              
-              java.io.StringWriter s = new java.io.StringWriter();
-              java.io.PrintWriter out = new java.io.PrintWriter(s); 
+              var s = new webdsl::util::StringWriter();
               if(validated) {
-                templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses, out);
+                templateservlet.handleActions(this, args, 1, (Map<String,Class>)templates.clone(),variables,actionclasses, out);
               }
-              if ( ( !this.hasExecutedAction || hibernateCacheCleared ) && !PageServlet.isAjaxApp) {
+              if ( ( !this.hasExecutedAction || dbCacheCleared ) && !isAjaxApp) {
                 render(request,response);
               }
-              if (PageServlet.isAjaxApp) {
-                response.getWriter().write("[" + s.toString()+ "{}]");
+              if (isAjaxApp) {
+                response.writer.print("[" + s.toString()+ "{}]");
               }
                               
               storeSessionEntities();
               
-              hibSession.getTransaction().commit();
+              dbConn.commit();
     
             }	
             catch (Exception ex) {
-              System.out.println("exception occured: "+ex.getMessage());	
-              ex.printStackTrace();
-              hibSession.getTransaction().rollback();
+              println("exception occured: "+ex.toString());	
+              //ex.printStackTrace();
+              dbConn.rollback();
               
-              throw new RuntimeException("serve page request failed");
+              throw new Exception("serve page request failed");
             }   
           }
           
+          void storeSessionEntities(){}
           
-          @Partial
-          private void storeSessionEntities(){}
-          
-          public void render(HttpServletRequest request,
-                  HttpServletResponse response)
-          throws ServletException, IOException {
+          void render(webdsl::util::Request request, webdsl::util::Response response) {
             this.request=request;
             this.response=response;
         
-            java.io.StringWriter s = new java.io.StringWriter();
-            java.io.PrintWriter out = new java.io.PrintWriter(s); 
+            var s = new webdsl::util::StringWriter();
                 
             //call special pagetemplate render
-            templateservlet.render(this, args, 1,(HashMap<String,Class>)templates.clone(),variables,actionclasses,out);
+            templateservlet.render(this, args, 1,(Map<String,Class>)templates.clone(),variables,actionclasses,out);
 
             if(download != null) { 
               download();
             }
             else {
-
-              java.io.PrintWriter sout = response.getWriter();
-              
+              var sout = response.writer;
               response.setContentType("text/html");
               
-              s.flush();
+              //s.flush();
               sout.print(s.toString());
             }   
           }
         }
       ]|
-    where x_page    := <ThisTemplateNamePil>; not(ThisPagePil <+ NestedTemplatePil <+ ThisEmailPil); IsAjaxAppPil
-    with pkgname    := <BeanPackage>
-       ; pkgname2   := <DomainPackage>
-       ; x_Page     := <pil-page-name> x_page
-       ; x_specialpagetemplate := <ThisTemplateClassNamePil>
-       ; e* := <filter({\arg@farg|[ x : srt ]| -> var-init|[ x ]| \})> farg* //just pass args of page to special pagetemplate
-       ; bstm1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
+    where x_page    := <ThisTemplateNamePil>; not(ThisPagePil <+ NestedTemplatePil <+ ThisEmailPil); IsAjaxApp
+    with x_Page     := <pil-page-name> x_page
+       ; e_pagename := StringLit(String([Chars(x_page)]))
+       ; t_specialpagetemplate := SimpleType(QId("template", <ThisTemplateClassNamePil>))
+       ; e* := <filter({\arg@farg|[ x : srt ]| -> pil-exp|[ x ]| \})> farg* //just pass args of page to special pagetemplate
+       ; stat1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> pil-stat|[ x = (x_arg) args[x_index]; ]|
                                          where x_index := <subti;int-to-string> (index,1)
                                              ; x_arg := <argument-pil-type> arg
                                       \})> farg* //variables are generated in java-template-vars
-                         
-                         */
+

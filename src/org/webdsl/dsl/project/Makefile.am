@@ -15,7 +15,9 @@ EXTRA_DIST = \
   $(wildcard template-pil/Makefile) \
   $(wildcard template-pil/lib/*.jar) \
   $(wildcard template-pil/src/*.properties) \
-  $(wildcard template-pil/src/utils/*.java) \
+  $(wildcard template-pil/src/*/*.java) \
+  $(wildcard template-pil/src/*/*/*.java) \
+  $(wildcard template-pil/src/*/*/*/*.java) \
   $(wildcard template-pil/html/*.html) \
   $(wildcard template-pil/javascript/*.js) \
   $(wildcard template-pil/images/*.gif) \
