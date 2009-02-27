@@ -7,6 +7,9 @@ dsltoseam = @@DSLTOSEAM@@
 apps = $(wildcard *.app)
 
 all : @@APPNAME@@.appc
+
+webdsl-lib:
+	pilc -i webdsl.pil --gen-external-classinfos --java -d src
 	
 %.appc : %.app $(apps)
 	$(dsltoseam) --pil -i $< 
