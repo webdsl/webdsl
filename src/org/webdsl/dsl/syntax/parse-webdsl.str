@@ -21,7 +21,6 @@ strategies
     xtc-ensure-file;
     where(id
       ; path := <path-of-xtc-file>
-      ; tbl := <get-webdsl-parse-table>
       ; (appname, _) := <split-before> (path, ".app")
       /*
       ; rules ( AppName := appname )
@@ -32,9 +31,7 @@ strategies
         end
         */
     )
-    ; parse-xtc-file-pt(err(|["cannot open file ", path]), strsglr-report-parse-error  | tbl, "Unit", path)
-    ; webdsl-anno-location(|path)
-    ; implode-asfix    
+    ; xtc-parse-webdsl-unit(|path)
     ; check-for-ambiguities(|path)
     ; try(simplify-application-constructor)
     
@@ -51,14 +48,25 @@ strategies
     xtc-ensure-file;
     where(id
       ; path := <path-of-xtc-file>
-      ; tbl := <get-webdsl-parse-table>
     )
-    ; (parse-xtc-file-pt(err(|["cannot open file ", path]), strsglr-report-parse-error | tbl, "Unit", path)
-       <+ <exit> 1)
-    ; webdsl-anno-location(|path)
-    ; implode-asfix
+    ; xtc-parse-webdsl-unit(|path)
     ; check-for-ambiguities(|path)
     ; try(simplify-module-constructor)
+  
+  xtc-parse-webdsl-unit(|path) =
+      XtcParseWebDslOverride(|path)
+    <+
+      with(
+        tbl := <get-webdsl-parse-table>
+      )
+    ; parse-xtc-file-pt(err(|["cannot open file ", path]), strsglr-report-parse-error | tbl, "Unit", path)
+    ; webdsl-anno-location(|path)
+    ; implode-asfix
+  
+  internal-xtc-parse-webdsl-unit-override =
+    rules(
+      XtcParseWebDslOverride(|path): _ // may be overridden externally
+    )
 
   simplify-module-constructor :
     ModuleDefs(qid, defs, sections) -> Module(qid, [Section("definitions", defs)|sections])
@@ -86,5 +94,9 @@ strategies
     
   //report amb terms  
   check-for-ambiguities(|path) = 
-    where(try(collect(?amb(_));not(?[]);map(strip-annos; pp-aterm(|"Ambiguities found during parsing of ",path));<exit> 1))
+    if collect(?amb(_)) => [_ | _] => ambs then
+      !ambs
+    ; map(strip-annos; pp-aterm(|"Ambiguities found during parsing of ",path))
+    ; fatal-err-msg(|["Internal error - ambiguities found in module ", path])
+    end
    
