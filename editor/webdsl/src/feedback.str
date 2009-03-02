@@ -11,14 +11,17 @@ strategies // editor service interface
   editor-analyze:
     (ast, path, fullpath) -> results
     with
-      <debug(!"editor-analyze called ")> path;
+      try(dr-scope-all-end);
+      with(
+        <set-verbosity> 3;
+        set-default-config;
+        <debug(!"MAIN FILE: ")> <get-main-file-name <+ !"?">
+      );
       
-      editor-init;
-      
-      // <search-main-file> ".";
       results := <try(avoid-modules); webdsl-collect-all-errors; debug(!"collected errors: ")> ast;
 
-      <analyze-definitions> ast
+      <analyze-definitions> ast;
+      dr-scope-all-start
   
   avoid-modules:
     Module(x, y) -> Application(x, y)
@@ -38,32 +41,44 @@ strategies // editor service interface
       info := <pp-webdsl-to-string> target
 
 strategies // helpers
-
-  editor-init =
-    with(
-      <set-verbosity> 3;
-      set-default-config;
-      try(dr-scope-all-end);
-      dr-scope-all-start
-    )
-
-  search-main-file:
-    dir -> app-file
-    where
-      <readdir> dir;
-      getfirst(
-        if isdir then
-         search-main-file
-        else
-          string-ends-with(|".app")
-        end
-     );
-     app-file := <conc-strings> (dir, "/", <id>)
-
-
-strategies // disabled position information annotation
-
-  asfix-anno-location = id
   
-  asfix-anno-position-info(|path) = id
+  /**
+   * Get the main file name of a WebDSL project, looking at the
+   * application.ini file in the current directory and those above it.
+   */
+  get-main-file-name =
+    <readdir> ".";
+    getfirst(
+      "application.ini";
+      application-ini-to-app-name;
+      <add-extension> "app"
+    )
+  <+
+    cwd := <getcwd>;
+    <chdir> "..";
+    not(getcwd => cwd);
+    (get-main-file-name <+ <chdir> cwd; fail)
 
+  application-ini-to-app-name:
+    filename -> appname
+    where
+      <read-text-file> filename;
+      get-lines;
+      debug(!"lines: ");
+      getfirst(string-starts-with(|"export APPNAME="));
+      debug(!"appname: ");
+      <split-after> (<id>, "=");
+      ?(_, appname)
+
+strategies // parsing
+
+  // override parsing to avoid a separate call to implode-asfix
+  xtc-parse-webdsl-unit-override(|path) =
+    with(
+      tbl := <get-webdsl-parse-table>
+    );
+    parse-xtc-file(err(|["cannot open file"]), strsglr-report-parse-error | tbl, "Unit", path)
+
+  external parse-xtc-file(on-open-error, on-parse-error | tbl, start-symbol, path)
+  
+  external strsglr-report-parse-error(|)
