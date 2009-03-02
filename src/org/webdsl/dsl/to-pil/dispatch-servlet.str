@@ -6,235 +6,59 @@ imports
 imports
   libwebdsl-front
 
-/*
 rules
 
-  GenerateCodeJavaServlet = generate-pil-dispatcher; fail
+  GenerateCodePil = generate-pil-dispatcher; fail
 
   generate-pil-dispatcher :
     Application(qid, sections) ->
-    <emit-java-code> compilation-unit|[
-      package utils;
-  
-      import java.io.*;
-      import java.util.HashMap;
-      import java.util.Map;
-      import java.util.List;
-      import java.util.LinkedList;
-  
-      import javax.servlet.*;
-      import javax.servlet.http.*;
-  
-      import utils.*;
-      import pkgname.*;
-  
-      public class DispatchServlet extends HttpServlet {
-  
-          
-          public static HashMap<String, Class> pages = new HashMap<String, Class>();
-          private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
-          static{
-              bstm*
-              bstm2*
-             
-              //String[] s = {"i1","s1","li1"};
-              //pagearguments.put("testpage", s);
-              bstm1*
-              bstm3*
-          }
-          
-          private void addToValues(String key, String val,Map<String, List<String>> parammapvalues){
-            List<String> current = parammapvalues.get(key); 
-            if(current==null){
-              List<String> newlist = new LinkedList<String>();
-              newlist.add(val);
-              parammapvalues.put(key,newlist) ; 
-            }
-            else{
-             current.add(val);
-            }
-          }
-            
-          public void doGet(HttpServletRequest request, HttpServletResponse response)
-          throws IOException, ServletException
-          {
-            boolean showerrorpage = false;
-            try{
-              String[] req = request.getRequestURL().toString().split("/");
-              int count;
-              for(count=0;count<req.length;count++)
-              {
-                if(req[count].equals(AppInfo.getAppName()))
-                {
-                  count++;
-                  break;
-                }
-              }
-              String requested = req[count];
-              String[] args = java.util.Arrays.copyOfRange(req, count+1, req.length);
-              String[] argnames = pagearguments.get(requested);
+    <map(pil-emit)> pil-decl*|[
+      Map<String, pil::reflect::Class> application::pages = new Map<String, pil::reflect::Class>();
+      Map<String, Array<String>> application::pagearguments = new Map<String, Array<String>>();
 
-              java.util.Map<String, utils.File> fileUploads = new HashMap<String, utils.File>();
-              java.util.Map<String, String> parammap = new HashMap<String, String>();
-              java.util.Map<String, List<String>> parammapvalues = new HashMap<String, List<String>>();
-
-              for(java.util.Enumeration en = request.getParameterNames();en.hasMoreElements(); ){
-                String parameterName = (String)en.nextElement();
-                parammap.put(parameterName,request.getParameter(parameterName)); 
-                for(String paramval : request.getParameterValues(parameterName)){
-                  addToValues(parameterName, paramval, parammapvalues);
-                } 
-              }
-    
-              for(int count2=0; count2<args.length;count2++)
-              {
-                parammap.put(argnames[count2],args[count2]);
-                addToValues(argnames[count2],args[count2],parammapvalues);
-              }
-              
-              //http://commons.apache.org/fileupload/using.html
-              // Check that we have a file upload request
-              boolean isMultipart = org.apache.commons.fileupload.servlet.ServletFileUpload.isMultipartContent(request);
-              if(isMultipart){
-                  
-                  // Create a factory for disk-based file items
-                  org.apache.commons.fileupload.FileItemFactory factory = new org.apache.commons.fileupload.disk.DiskFileItemFactory();
-          
-                  // Set factory constraints
-                  //factory.setSizeThreshold(yourMaxMemorySize);//make configurable
-                  //factory.setRepository(yourTempDirectory);//make configurable
-                  
-                  // Create a new file upload handler
-                  org.apache.commons.fileupload.servlet.ServletFileUpload upload = new org.apache.commons.fileupload.servlet.ServletFileUpload(factory);
-          
-                  // Set overall request size constraint
-                  //upload.setSizeMax(); //make configurable
-                  
-                  // Parse the request
-                  try {
-                      java.util.List<org.apache.commons.fileupload.FileItem> items = (java.util.List<org.apache.commons.fileupload.FileItem>) upload.parseRequest(request);
-                  
-                      // Process the uploaded items
-                      java.util.Iterator<org.apache.commons.fileupload.FileItem> iter = items.iterator();
-                      while (iter.hasNext()) {
-                          org.apache.commons.fileupload.FileItem item = (org.apache.commons.fileupload.FileItem) iter.next();
-          
-                          if (item.isFormField()) {
-                              String name = item.getFieldName();
-                              String value = item.getString();
-                              parammap.put(name, value);
-                              addToValues(name, value, parammapvalues);
-                          } else {
-                              String fieldName = item.getFieldName();
-                              String fileName = item.getName();
-                              String contentType = item.getContentType();
-                              boolean isInMemory = item.isInMemory();
-                              long sizeInBytes = item.getSize();
-                              utils.File temp = new utils.File();
-                              temp.setFileName(fileName);
-                              temp.setContentType(contentType);
-                              temp.setSizeInBytes(sizeInBytes);
-                           
-                              temp.setContentStream(item.getInputStream());
-          
-                              fileUploads.put(fieldName, temp);
-                          }
-                      }
-                  
-                  } catch (org.apache.commons.fileupload.FileUploadException ex) {
-                      System.out.println("exception occured in file upload handling DispatchServlet");
-                      ex.printStackTrace();
-                  }
-              }
-              
-              
-              Class pc = pages.get(requested);
-             
-              if(pc != null)
-              {
-                  try{
-                      PageServlet pageservlet = (PageServlet)pc.newInstance();
-            
-                      pageservlet.serve(request,response,parammap,parammapvalues,fileUploads);
-  
-                  }
-                  catch(IllegalAccessException iae){
-                      System.out.println("Problem in dispatch servlet page lookup: "+iae.getMessage());
-                      iae.printStackTrace();
-                      showerrorpage=true;
-                  }
-                  catch(InstantiationException ie){
-                      System.out.println("Problem in dispatch servlet page lookup: "+ie.getMessage());
-                      ie.printStackTrace();
-                      showerrorpage=true;
-                  }
-                  catch(RuntimeException re){   
-                    showerrorpage=true;
-                  }	  
-              }
-              else{showerrorpage=true;}
-            }
-            catch(Exception ex){
-              System.out.println("Exception in dispatch servlet: "+ex.getMessage());
-              ex.printStackTrace();
-              showerrorpage=true;
-            }
-            
-            if(showerrorpage)
-            {
-                response.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND);
-            }
-          }
-  
-          public void doPost(HttpServletRequest request, HttpServletResponse response)
-          throws IOException, ServletException
-          {
-              doGet(request, response);
-          }
+      void application::init() {
+        stat1*
+        stat2*
+        stat3*
+        stat4*
       }
     ]|
-    with  pkgname    := <BeanPackage>
-        ; pkgname2   := <DomainPackage>
-        ; bstm*  := <map({\ 
-                           x -> bstm |[ pages.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<pil-page-name> x,".class"]
+    with stat1*  := <map({\ 
+                           x -> pil-stat|[ application::pages[e_key] = e_value; ]| 
+                           with e_key := StringLit(String([Chars(<concat-strings> ["\"",x,"\""])]))
+                              ; x_ppn := <pil-page-name> x
+                              ; e_value := pil-exp|[ page::reflect::typeOf#x_ppn() ]|
                         \})> 
                         <bagof-PageNames;make-set>
-        ; bstm1* := <map({\ 
-                           x -> bstm* |[ {
-                                         String[] s = { e* };
-                                         pagearguments.put(x_key, s); 
-                                         }
+       ; stat2* := <map({\ 
+                           x -> pil-stat*|[
+                                         Array<String> s = new Array<String>(e*);
+                                         application::pagearguments[e_key] = s; 
                                       ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; e* := <TemplateArguments;map( \Arg(y,_)-> e|[ "~y" ]|\ )> x  //TemplateArguments must give unrenamed versions
+                           with e_key := StringLit(String([Chars(<concat-strings> ["\"",x,"\""])]))
+                              ; e* := <TemplateArguments;map( \Arg(y,_)-> StringLit(String([Chars(y)])) \ )> x  //TemplateArguments must give unrenamed versions
                         \});concat> 
                         <bagof-PageNames;make-set>
         //ajax addition:
         ; if IsAjaxApp then
-          bstm2*  := <map({\ 
-                           x -> bstm |[ pages.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<pil-page-name> x,".class"]
+          stat3*  := <map({\ 
+                           x -> pil-stat|[ application::pages[e_key] = e_value; ]| 
+                           with e_key := StringLit(String([Chars(<concat-strings> ["\"",x,"\""])]))
+                              ; x_ppn := <pil-page-name> x
+                              ; e_value := pil-exp|[ page::reflect::typeOf#x_ppn() ]|
                         \})> 
-                        <bagof-AllTopLevelTemplateNamesJavaServlet;make-set>
-        ; bstm3* := <map({\ 
-                           x -> bstm* |[ {
-                                         String[] s = { e* };
-                                         pagearguments.put(x_key, s); 
-                                         }
+                        <bagof-AllTopLevelTemplateNamesPil;make-set>
+        ; stat4* := <map({\ 
+                           x -> pil-stat*|[
+                                         Array<String> s = new Array<String>(e*);
+                                         pagearguments[e_key] = s; 
                                       ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; e* := <TopLevelTemplateArgumentsJavaServlet;map( \Arg(y,_)-> e|[ "~<OriginalNonUniqueName> y" ]|\ )> x // must use unrenamed versions 
+                           with e_key := StringLit(String([Chars(<concat-strings> ["\"",x,"\""])]))
+                              ; e* := <TopLevelTemplateArgumentsPil;map( \Arg(y,_)-> StringLit(String([Chars(<OriginalNonUniqueName> y)])) \ )> x // must use unrenamed versions 
                         \});concat> 
-                        <bagof-AllTopLevelTemplateNamesJavaServlet;make-set>
+                        <bagof-AllTopLevelTemplateNamesPil;make-set>
         else
-          bstm2* := []
-        ; bstm3* := []
+          stat3* := []
+        ; stat4* := []
         end
         
-        
-
-     
-*/
