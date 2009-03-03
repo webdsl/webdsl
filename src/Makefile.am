@@ -85,7 +85,7 @@ PPTABLES = \
 	$(css)-pretty.pp.af \
 	$(python)-pretty.pp.af
 
-org/webdsl/dsl/syntax/WebDSL.def: org/webdsl/dsl/syntax/MixHQL.sdf org/webdsl/dsl/syntax/MixPython.sdf org/webdsl/dsl/syntax/Python-pretty.pp.af
+org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf)
 
 # .str dependencies
 
