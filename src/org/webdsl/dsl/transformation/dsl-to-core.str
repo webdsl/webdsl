@@ -20,6 +20,7 @@ strategies
   
   dsl-to-core-analysis =
       info(|"dsl-to-core-analysis")
+    ; try(simplify-application-constructor)
     ; stop-before-importing
     ; info(|"importing modules")
     ; import-modules
@@ -85,22 +86,25 @@ strategies // IDE Plugin stuff
         // Override the error reporting behavior to collect errors
         AddError(|msgs):   node -> node where rules(AllErrors   :+= (node, <error-to-string> msgs))
         AddWarning(|msgs): node -> node where rules(AllWarnings :+= (node, <error-to-string> msgs))
-      );
-      dsl-to-core-analysis;
-      !(<bagof-AllErrors>, <bagof-AllWarnings>, [])
+      )
+    ; with(
+        dsl-to-core-analysis
+      )
+    ; !(<bagof-AllErrors <+ ![]>, <bagof-AllWarnings <+ ![]>, [])
     |}
     
 strategies // module imports
 
-  import-modules =
-    topdown(try(already-imported <+ import-module))
-  ; ?Application(name,sec)
-  ; !Application(name,<concat>[sec,<bagof-ImportedModules<+![]>])
+  import-modules :
+    Application(name, sec) -> Application(name, sec')
+    with
+      topdown(try(already-imported <+ import-module))
+    ; imported := <bagof-ImportedModules <+ ![]>
+    ; sec'     := <conc> (sec, imported)
 
   already-imported :
     Imports(name) -> Note([])
-    where name1 := <strip-annos> name
-        ; <Imported> name1
+    where <Imported> <strip-annos> name
 
   import-module :
     Imports(name) -> Note([])
@@ -113,6 +117,10 @@ strategies // module imports
          add-error(|"Unable to import this module")
 
 strategies
+
+  simplify-application-constructor :
+    ApplicationDefs(qid, defs, sections) -> Application(qid, [Section("definitions", defs)|sections])
+
   remove-position-annos =
     topdown-l(try(remove-position-anno))
 
