@@ -9,59 +9,110 @@ imports
 rules // formgroup, which don't use tables for layout
 
   elem-to-java-servlet :
-    TemplateCall("formgroup", [arg],passign*, elems) ->
+    TemplateCall("formgroup", args,passign*, elems) ->
     <wrap-common-context-code>
     bstm* |[
-      //determine size of left column
-      int x = 0;
-      Integer[] x2 = {e*};
-      for(Integer in : x2){
-        if(in > x)
-          x = in;
-      }
-      x = x * 10;
       bstm1*
+      out.print("<fieldset "+e_attrs1+"><legend>");
+      bstm_exptostring*
+      out.print("</legend>");
+      ps.enterFormGroupContext();
       bstm*
+      ps.leaveFormGroupContext();      
+      out.print("</fieldset>");
     ]|
-    with  x := <newname> "formGroupLeftSize"
-        ; {| FormGroupLeftSize :
-          rules (FormGroupLeftSize := x)
-        ; bstm* := <elem-to-java-servlet> 
-            TemplateCall("group", [arg],<remove-all(?PropertyAssignment("labelWidth",_))> passign*, elems) //[elem|[block()[style:="width: 400px;"]{}]| |elems]
-          |}
-        ; e* := <collect(formgroup-label-list);map(\e -> java:expr|[ e.length() ]| \)> elems
-        ; x2 := <newname> "list"
-        ; if <fetch(?PropertyAssignment("labelWidth",e1))> passign*
-          then e2 := <expression-to-java-servlet> e1; bstm1* := bstm* |[ x = e2; ]|
+    with  if <fetch(?PropertyAssignment("labelWidth",e1))> passign*
+          then e2 := <expression-to-java-servlet> e1; bstm1* := bstm* |[ ps.formGroupLeftSize = e2; ]|
           else bstm1* := [] end
-    
-   formgroup-label-list :
-     TemplateCall("leftFormGroupElement",[],[],[TemplateCall("label",[e],passign*,[])]) -> 
-     <expression-to-java-servlet> e 
-   
+        ; bstm* := <elems-to-java-servlet> elems
+        ; if [arg] := args
+          then bstm_exptostring* := <to-page-string-java-servlet> arg
+          else bstm_exptostring* := []
+          end
+        ; e_attrs1 := <to-html-attrs> passign*
+
 rules
 
-  elem-to-java-servlet : 
-    TemplateCall("leftFormGroupElement",[],[],[TemplateCall("label",e*,passign*,[])]) ->
-    bstm* |[
-      out.print("<div style=\"clear:left; float:left; width: " + x + "px\">");
-      bstm*
-      out.print("</div>");
-    ]|
-    with  x := <FormGroupLeftSize>
-        ; bstm* := <elem-to-java-servlet> TemplateCall("label",e*,passign*,[])
+  GenerateCodeJavaServlet = generate-java-servlet-formgroup-context-var; fail
+
+  generate-java-servlet-formgroup-context-var :
+    Application(qid, sections)
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+        public String formGroupLeftSize = "150";
+        
+        public java.util.Stack<utils.FormGroupContext> formGroupContexts = new java.util.Stack<utils.FormGroupContext>();
+
+        public utils.FormGroupContext getFormGroupContext() { 
+          return formGroupContexts.peek();
+        }
+      
+        public void enterFormGroupContext() { 
+          formGroupContexts.push(new utils.FormGroupContext());
+        }
+      
+        public void leaveFormGroupContext() { 
+          formGroupContexts.pop();
+        }
+      
+        public boolean inFormGroupContext() { 
+          return !formGroupContexts.empty();
+        }
+        
+        public java.util.Stack<String> formGroupContextClosingTags = new java.util.Stack<String>();
+       
+        public void formGroupContextsCheckEnter(PrintWriter out) {
+          if(inFormGroupContext()){
+            utils.FormGroupContext temp = getFormGroupContext();
+            if(temp.isInLeftContext()) {
+              out.print("<div style=\"clear:left; float:left; width: " + formGroupLeftSize + "px\">");
+              formGroupContextClosingTags.push("left");
+              temp.toRightContext();
+            }           
+            else {
+              out.print("<div style=\"float: left;\">");
+              formGroupContextClosingTags.push("right");
+              temp.toLeftContext();
+            }
+          }
+        }
     
-  elem-to-java-servlet :    
-    TemplateCall("rightFormGroupElement",[],[],elem*) ->
-    bstm* |[
-      out.print("<div style=\"float: left;\">");
-      bstm*
-      out.print("</div>");
-      //out.print("<br />");
+        public void formGroupContextsCheckLeave(PrintWriter out) {
+          if(inFormGroupContext()){
+            utils.FormGroupContext temp = getFormGroupContext();
+            String tags = formGroupContextClosingTags.pop();
+            if(tags.equals("left")){
+              temp.toRightContext();
+              out.print("</div>");
+            }
+            else if(tags.equals("right")){
+              temp.toLeftContext();
+              out.print("</div>");
+            }
+          }
+        }
+        
+        @Partial
+        public void commonContextsCheckEnter(PrintWriter out) {
+          formGroupContextsCheckEnter(out);
+        }
+        @Partial
+        public void commonContextsCheckLeave(PrintWriter out) {
+          formGroupContextsCheckLeave(out);
+        }
+      }
     ]|
-    with  bstm* := <elems-to-java-servlet> elem*
-/*
+
 rules
 
-  assignment-to-html-attr = ?FormGroupDesugarDone()
-*/
+  wrap-formgroup-context-code :
+    bstm* ->
+    bstm* |[
+      ps.formGroupContextsCheckEnter(out);
+      bstm*
+      ps.formGroupContextsCheckLeave(out);
+    ]|
+    

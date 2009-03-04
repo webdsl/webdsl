@@ -69,6 +69,35 @@ define page home() {
     "row x"
     rowtemp()
   }
+  
+  table{
+    label("row 1 col 1") { "row 1 col 2" }
+    label("row 2 col 1") { "row 2 col 2" }
+    label("row 3 col 1") { "row 3 col 2" }
+  }
+  
+  group("test"){
+    label("row 1 col 1") { "row 1 col 2" }
+    labels()
+  }
+  
+  
+  formgroup{
+    label("row 1 col 1") { "row 1 col 2" }
+    label("row 2 col 1") { "row 2 col 2" }
+  }
+  
+  formgroup("kdsfkajklf"){
+    label("row 1 col 1") { "row 1 col 2" }
+    labels()
+    "left"
+    "right"
+    labels()
+  }
+  
+  formgroup("bla")[labelWidth := "300"]{ // should width be in arguments, or keep style props separate
+    labels()
+  }
 }
 
 define rowtemp(){
@@ -86,4 +115,9 @@ define coltemp(){
   "col2"
   column{ "col3" }
 
+}
+
+define labels(){
+    label("row 2 col 1") { "row 2 col 2" }
+    label("row 3 col 1") { "row 3 col 2" }
 }
