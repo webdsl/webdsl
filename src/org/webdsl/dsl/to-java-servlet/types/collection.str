@@ -153,13 +153,14 @@ rules //pages
     tc@Select(x, srt, label, e, passign*)  ->
     <wrap-input-java-code(|passign*)>
     bstm*|[
-        ident += "~inputident"+uniqueid;
-        
-        if(ps.getParammap().get(ident)!=null)
-        {
-            t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
-            bstm* 
-        }
+      ident += "~inputident"+uniqueid;
+      if(ps.getParammap().get(ident)!=null)
+      {
+        ~*<wrap-validation-context-code-store-inputs> bstm*|[
+          t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
+          bstm*
+        ]| 
+      }
     ]|
     where SimpleSort(_) := <type-of> e
     with  inputident := <get-inputnumber> tc
@@ -172,29 +173,33 @@ rules //pages
     tc@Select(x, srt, label, e, passign*)  ->
     <wrap-input-render-java-code>
     bstm* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
-    out.print("<select name=\""+x_temp+"\" >");
-    java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
-    while ( x_iter.hasNext() ) {
-      t x = (x_argtype) x_iter.next();
-      out.print("<option value=\""+x.getId()+"\"");
-      if(inSubmittedForm)
-      {
-        if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
-        {
-          out.print("selected=\"selected\"");
+      String x_temp = ident+"~inputident"+uniqueid;
+      ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<select name=\""+x_temp+"\"");
+        ~*<connect-with-enclosing-label>
+        out.print(">");
+        java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
+        while ( x_iter.hasNext() ) {
+          t x = (x_argtype) x_iter.next();
+          out.print("<option value=\""+x.getId()+"\"");
+          if(inSubmittedForm)
+          {
+            if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+          else
+          {
+            if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+          out.print(">"+x.getName()+"</option>");
         }
-      }
-      else
-      {
-        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
-        {
-          out.print("selected=\"selected\"");
-        }
-      }
-      out.print(">"+x.getName()+"</option>");
-    }
-    out.print("</select>"); 
+        out.print("</select>"); 
+      ]|
     ]|
     where SimpleSort(_) := <type-of> e
     with  inputident := <get-inputnumber> tc
@@ -212,26 +217,28 @@ rules //pages
     bstm*|[
         ident += "~inputident"+uniqueid;
         if(ps.getParammap().get(ident+"_isinput")!=null){
-          //e_clear;
-          java.util.Set<t> x_tempset = new java.util.HashSet<t>();
-          if(ps.getParammapvalues().get(ident) != null){
-            for(String elem : ps.getParammapvalues().get(ident))
-            {
-              t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
-              x_tempset.add(x_temp);
-              e_add;  
+          ~*<wrap-validation-context-code-store-inputs> bstm*|[
+            //e_clear;
+            java.util.Set<t> x_tempset = new java.util.HashSet<t>();
+            if(ps.getParammapvalues().get(ident) != null){
+              for(String elem : ps.getParammapvalues().get(ident))
+              {
+                t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
+                x_tempset.add(x_temp);
+                e_add;  
+              }
+              ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
+                if(!x_tempset.contains(x_temp)){
+                  e_remove;
+                }
+              ]|
+              ~*<wrap-in-for-loop(|x_temp,t,expr |[ x_tempset ]| )> bstm* |[
+                if(!e1.contains(x_temp)){
+                  e_add;
+                }
+              ]|
             }
-            ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
-              if(!x_tempset.contains(x_temp)){
-                e_remove;
-              }
-            ]|
-            ~*<wrap-in-for-loop(|x_temp,t,expr |[ x_tempset ]| )> bstm* |[
-              if(!e1.contains(x_temp)){
-                e_add;
-              }
-            ]|
-          }
+          ]|
         }
     ]|
     where GenericSort(_, _) := <type-of> e
@@ -250,35 +257,39 @@ rules //pages
     tc@Select(x, srt, label, e, passign*)  ->
     <wrap-input-render-java-code>
     bstm* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
-    out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
-    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
-    java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
-    while ( x_iter.hasNext() ) {
-      t x = (x_argtype) x_iter.next();
-      out.print("<option value=\""+x.getId()+"\"");
-      if(inSubmittedForm)
-      {
-        if(ps.getParammapvalues().get(x_temp) != null){
-          for(String elem : ps.getParammapvalues().get(x_temp))
+      String x_temp = ident+"~inputident"+uniqueid;
+      ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
+        out.print("<select name=\""+x_temp+"\"");
+        ~*<connect-with-enclosing-label>
+        out.print("multiple=\"multiple\">");
+        java.util.Iterator x_iter = hibSession.createQuery("from "+"~x_argtype").list().iterator() ;
+        while ( x_iter.hasNext() ) {
+          t x = (x_argtype) x_iter.next();
+          out.print("<option value=\""+x.getId()+"\"");
+          if(inSubmittedForm)
           {
-            if(elem.equals(String.valueOf(x.getId())))
+            if(ps.getParammapvalues().get(x_temp) != null){
+              for(String elem : ps.getParammapvalues().get(x_temp))
+              {
+                if(elem.equals(String.valueOf(x.getId())))
+                {
+                  out.print("selected=\"selected\"");
+                }
+              }
+            }
+          }
+          else
+          {
+            if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
             {
               out.print("selected=\"selected\"");
             }
           }
+          out.print(">"+x.getName()+"</option>");
         }
-      }
-      else
-      {
-        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
-        {
-          out.print("selected=\"selected\"");
-        }
-      }
-      out.print(">"+x.getName()+"</option>");
-    }
-    out.print("</select>"); 
+        out.print("</select>"); 
+      ]|
     ]|
     where GenericSort(_, _) := <type-of> e
     with  inputident := <get-inputnumber> tc
@@ -300,16 +311,17 @@ rules // select from
     tc@SelectFromList(e1, e7, passign*)  ->
     <wrap-input-java-code(|passign*)>
     bstm*|[
-        ident += "~inputident"+uniqueid;
-        
-        if(ps.getParammap().get(ident)!=null)
-        {
-            t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
-            if(e8.contains(x_temp))
-            {
-              bstm*
-            } 
-        }
+      ident += "~inputident"+uniqueid;
+      if(ps.getParammap().get(ident)!=null)
+      {
+        ~*<wrap-validation-context-code-store-inputs> bstm*|[
+          t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
+          if(e8.contains(x_temp))
+          {
+            bstm*
+          }
+        ]|
+      }
     ]|
     where SimpleSort(_) := <type-of> e1
     with  inputident := <get-inputnumber> tc
@@ -324,29 +336,33 @@ rules // select from
     tc@SelectFromList(e1, e7, passign*)  ->
     <wrap-input-render-java-code>
     bstm* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
-    out.print("<select name=\""+x_temp+"\" >");
-    java.util.Iterator x_iter = e8.iterator() ;
-    while ( x_iter.hasNext() ) {
-      t x = (x_argtype) x_iter.next();
-      out.print("<option value=\""+x.getId()+"\"");
-      if(inSubmittedForm)
-      {
-        if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
-        {
-          out.print("selected=\"selected\"");
+      String x_temp = ident+"~inputident"+uniqueid;
+      ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<select name=\""+x_temp+"\"");
+        ~*<connect-with-enclosing-label>
+        out.print(">");
+        java.util.Iterator x_iter = e8.iterator() ;
+        while ( x_iter.hasNext() ) {
+          t x = (x_argtype) x_iter.next();
+          out.print("<option value=\""+x.getId()+"\"");
+          if(inSubmittedForm)
+          {
+            if(ps.getParammap().get(x_temp) != null && ps.getParammap().get(x_temp).equals(String.valueOf(x.getId())))
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+          else
+          {
+            if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
+            {
+              out.print("selected=\"selected\"");
+            }
+          }
+          out.print(">"+x.getName()+"</option>");
         }
-      }
-      else
-      {
-        if(e2 != null && e2.getId().equals(x.getId()))//maybe should use add-not-null checks
-        {
-          out.print("selected=\"selected\"");
-        }
-      }
-      out.print(">"+x.getName()+"</option>");
-    }
-    out.print("</select>"); 
+        out.print("</select>");
+      ]| 
     ]|
     where SimpleSort(_) := <type-of> e1
     with  inputident := <get-inputnumber> tc
@@ -367,16 +383,18 @@ rules // select from
     bstm*|[
         ident += "~inputident"+uniqueid;
         if(ps.getParammap().get(ident+"_isinput")!=null){
-          e_clear;
-          if(ps.getParammapvalues().get(ident) != null){
-            for(String elem : ps.getParammapvalues().get(ident))
-            {
-              t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
-              if(e8.contains(x_temp)) {
-                e_add;  
-              } 
+          ~*<wrap-validation-context-code-store-inputs> bstm*|[
+            e_clear; //@TODO replace with removes and adds as done for select
+            if(ps.getParammapvalues().get(ident) != null){
+              for(String elem : ps.getParammapvalues().get(ident))
+              {
+                t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
+                if(e8.contains(x_temp)) {
+                  e_add;  
+                } 
+              }
             }
-          }
+          ]|
         }
     ]|
     where GenericSort(_, [srt]) := <type-of> e1
@@ -393,35 +411,39 @@ rules // select from
     tc@SelectFromList(e1, e7, passign*) ->
     <wrap-input-render-java-code>
     bstm* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
-    out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
-    out.print("<select name=\""+x_temp+"\" multiple=\"multiple\">");
-    java.util.Iterator x_iter =  e8.iterator() ;
-    while ( x_iter.hasNext() ) {
-      t x = (x_argtype) x_iter.next();
-      out.print("<option value=\""+x.getId()+"\"");
-      if(inSubmittedForm)
-      {
-        if(ps.getParammapvalues().get(x_temp) != null){
-          for(String elem : ps.getParammapvalues().get(x_temp))
+      String x_temp = ident+"~inputident"+uniqueid;
+      ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
+        out.print("<select name=\""+x_temp+"\"");
+        ~*<connect-with-enclosing-label>
+        out.print("multiple=\"multiple\">");
+        java.util.Iterator x_iter =  e8.iterator() ;
+        while ( x_iter.hasNext() ) {
+          t x = (x_argtype) x_iter.next();
+          out.print("<option value=\""+x.getId()+"\"");
+          if(inSubmittedForm)
           {
-            if(elem.equals(String.valueOf(x.getId())))
+            if(ps.getParammapvalues().get(x_temp) != null){
+              for(String elem : ps.getParammapvalues().get(x_temp))
+              {
+                if(elem.equals(String.valueOf(x.getId())))
+                {
+                  out.print("selected=\"selected\"");
+                }
+              }
+            }
+          }
+          else
+          {
+            if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
             {
               out.print("selected=\"selected\"");
             }
           }
+          out.print(">"+x.getName()+"</option>");
         }
-      }
-      else
-      {
-        if(e2 != null && e2.contains(x))//maybe should use add-not-null checks
-        {
-          out.print("selected=\"selected\"");
-        }
-      }
-      out.print(">"+x.getName()+"</option>");
-    }
-    out.print("</select>"); 
+        out.print("</select>");
+      ]| 
     ]|
     where GenericSort(_, [srt]) := <type-of> e1
     with  inputident := <get-inputnumber> tc

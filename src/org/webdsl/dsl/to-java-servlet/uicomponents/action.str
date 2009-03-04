@@ -1,0 +1,161 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/action
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+rules 
+  elem-to-java-servlet :
+    tc@TemplateCall("action",[e2],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ 
+      out.print("<input type=\"button\" value=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" />");
+    ]|
+    where IsAjaxApp
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
+        ; e_attrs1 := <to-html-attrs> passign*    
+
+  elem-to-java-servlet :
+    tc@TemplateCall("action",[e2,call@ThisCall(name, args)],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ 
+      out.print("<input type=\"button\" value=\"");
+      bstm_exptostring*
+      out.print("\" "+e_attrs1+" ");
+      out.print("onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ "~actionident"+uniqueid+e3 +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)'/>"); 
+    ]|
+    where IsAjaxApp
+    with  bstm_exptostring* := <to-page-string-java-servlet> e2
+        ; actionident := <get-actionnumber> tc   
+        ; app := <AppRoot>
+        ; e3 := <actual-action-args-to-state-enc> args
+        ; e_attrs1 := <to-html-attrs> passign*
+  
+  action-id-encoding : //TODO make all id encodings use utility functions so the strategy can be easily modified
+    (actionident,args) -> e|[ ident+"~actionident"+uniqueid+e ]|
+    with  e := <actual-action-args-to-state-enc> args     
+  
+  id-encoding :
+    inputident -> java:expr |[ ident+"~inputident"+uniqueid ]|
+  
+  elem-to-java-servlet :
+    tc@TemplateCall("action",[e2,e1],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ 
+      ident = e4;
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(ident)!=null)
+        {
+          bstm_validation*
+        }
+        out.print("<input type=\"submit\" name=\""+ident+"\" value=\"");
+        bstm_exptostring*
+        out.print("\" "+e_attrs1+" />"); 
+      ]|
+    ]|
+    where not(IsAjaxApp)
+    with  e3 := <?ThisCall(name,args);!name> e1
+        ; bstm_exptostring* := <to-page-string-java-servlet>  e2
+        ; actionident := <get-actionnumber> tc   
+        ; e_attrs1 := <to-html-attrs> passign*        
+        ; e4 := <action-id-encoding> (actionident,args)
+        ; bstm_validation* := <render-validation-exceptions>
+        
+  handle-actions-to-java-servlet: 
+    tc@TemplateCall("action",[e2,e1],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm*|[
+      ident = e4;
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(ident)!=null)
+        {
+          x_action temp = (x_action)actionclasses.get("~x_action");
+          temp.x_action(e*,ident);
+        }
+      ]|
+    ]|
+    with  actionident := <get-actionnumber> tc   
+        ; x_action := <?ThisCall(name,args);!name> e1
+        ; e* := <map(expression-to-java-servlet)> args
+        ; e4 := <action-id-encoding> (actionident,args)
+
+  elem-to-java-servlet : //actionLink without call only valid for ajax apps
+    tc@TemplateCall("actionLink",[e2],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ 
+      out.print("<a href=\"javascript:void()\" "+e_attrs1+">");
+      bstm_exptostring*
+      out.print("</a>");
+    ]|
+    where IsAjaxApp
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
+        ; e_attrs1 := <to-html-attrs> passign*        
+    
+  elem-to-java-servlet :
+    tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ 
+      ident += "~actionident"+uniqueid+e3 ;
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
+        out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
+        bstm_exptostring*
+        out.print("</a>");
+      ]|
+    ]|
+    where IsAjaxApp
+    with  bstm_exptostring* := <to-page-string-java-servlet> e2
+        ; actionident := <get-actionnumber> tc   
+        ; app := <AppRoot>
+        ; e3 := <actual-action-args-to-state-enc> args
+        ; e_attrs1 := <to-html-attrs> passign*        
+        
+   elem-to-java-servlet :
+    tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm* |[ //this doesn't allow downloads, use special downloadLink (see types/file.str)
+      ident += "~actionident"+uniqueid+e5;
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(ident)!=null)
+        {
+          bstm_validation*
+        }
+        out.print("<input type=\"hidden\" name=\""+ident+"\" "+e_attrs1+"/>");
+        out.print("<a href=\"#\"");
+        out.print("onClick=\"document.getElementsByName('"+ident+"')[0].value='1';"+
+                            "document."+form_ident+".submit();"+
+                            "document.getElementsByName('"+ident+"')[0].value='0';"+
+                            "\">");
+        bstm_exptostring*
+        out.print("</a>");
+      ]|
+    ]|
+    where not(IsAjaxApp)
+    with  bstm_exptostring* := <to-page-string-java-servlet>  e2
+        ; actionident := <get-actionnumber> tc   
+        ; e_attrs1 := <to-html-attrs> passign*        
+        ; e5 := <actual-action-args-to-state-enc> args
+        ; app := <AppRoot>
+        ; bstm_validation* := <render-validation-exceptions>
+        
+  handle-actions-to-java-servlet: 
+    tc@TemplateCall("actionLink",[e2,e1],passign*,[]) ->
+    <wrap-action-render-java-code> 
+    bstm*|[
+      ident += "~actionident"+uniqueid+e5;
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(ident)!=null ) // not necessary: && ps.getParammap().get(ident).equals("1") )
+        {
+          x_action temp = (x_action)actionclasses.get("~x_action");
+          temp.x_action(e*,ident);
+        }
+      ]|
+    ]|
+    with  actionident := <get-actionnumber> tc   
+        ; x_action := <?ThisCall(name,args);!name> e1
+        ; e* := <map(expression-to-java-servlet)> args
+        ; e5 := <actual-action-args-to-state-enc> args        

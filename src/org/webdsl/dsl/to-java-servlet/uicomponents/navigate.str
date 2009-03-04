@@ -1,0 +1,108 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/navigate
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules // links
+
+  // link to a url, maybe constant, or obtained from an entity field
+        
+  elem-to-java-servlet : //void navigate, useful for ajax
+    TemplateCall("navigate", [],passign*, elems) ->
+    <wrap-common-context-code>
+    bstm* |[ 
+    out.print("<a class=\"navigate\" href=\"javascript:void()\" "+e_attrs1+">");
+    bstm*
+    out.print("</a>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+        
+        
+  elem-to-java-servlet :
+    TemplateCall("navigate", [ThisCall("url",[e])],passign*, elems) ->
+    <wrap-common-context-code>
+    bstm* |[ 
+    out.print("<a class=\"navigate\" href=\"");
+    bstm_exptostring*
+    out.print("\" "+e_attrs1+">");
+    bstm*
+    out.print("</a>");
+    ]|
+    with  bstm_exptostring* := <to-page-string-java-servlet> e
+        ; bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+
+  elem-to-java-servlet :
+    TemplateCall("navigate",[call@ThisCall(p,args)],passign*,elems) ->
+    <wrap-common-context-code>
+    bstm* |[ 
+    out.print("<a class=\"navigate\" href=\""+e_resulturl+"\" "+e_attrs1+">");
+    bstm*
+    out.print("</a>");
+    ]|
+    where <IsPage> p
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+        ; bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+        ; if ThisEmail 
+          then e_resulturl := expr|[ ps.getAbsoluteLocation() + e_url ]|  
+          else e_resulturl := e_url end
+
+  elem-to-java-servlet :
+    TemplateCall("navigatebutton",[call@ThisCall(p,args), e],passign*,[]) ->
+    <wrap-common-context-code>
+    bstm* |[
+      out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_url+"'\"");
+      out.print("value=\"");
+      bstm_exptostring*
+      out.print("\"");
+      out.print(" />");
+    ]|
+    where <IsPage> p
+    with  e_url := <page-thiscall-to-url-string-java-servlet> call
+        ; bstm_exptostring* := <to-page-string-java-servlet> e
+        ; e_attrs1 := <to-html-attrs> passign*
+        
+  page-thiscall-to-url-string-java-servlet :
+    ThisCall(p,args) -> e |[ e_url ]|
+    with  def |[ define mod* x(farg*) { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
+        ; params := <zip(bind-param-java-servlet)> (farg*, args)
+        ; e_url := <page-call-to-url-java-servlet> (p, params)
+        
+  bind-param-java-servlet :
+    (Arg(x, srt), e) -> (x, e|[ e1.getNaturalId()]|)
+    where <is-entity-type> srt
+    with  SimpleSort(x_class) := srt
+        ; e1 := <expression-to-java-servlet> e
+ 
+  bind-param-java-servlet :
+    (Arg(x, srt), e) -> (x, el)
+    where <is-simple-sort> srt
+    with  el := <expression-to-java-servlet> e
+
+  page-call-to-url-java-servlet :
+    (fn, []) -> java:expr |[ e1 + e2 ]|
+    with  s := <concat-strings> [<AppRoot>, "/", fn]
+        ; [e1,e2] := <add-success-messages-to-url> [e |[ "~s" ]| ]
+
+  page-call-to-url-java-servlet :
+    (fn, params) -> e |[ "~s" + e1 ]| 
+    where not([] := params)
+    with  s  := <concat-strings> [<AppRoot>, "/", fn, "/"]
+        ; e1 := <map(param-to-request-param-java-servlet); add-success-messages-to-url; combine-params-to-exp> params
+
+  combine-params-to-exp :
+    [e] -> e |[ e ]|
+  
+  combine-params-to-exp :
+    [e|e*] -> e |[ e + "/" + e1 ]|
+    with  e1 := <combine-params-to-exp> e*
+
+  param-to-request-param-java-servlet :
+    (param, value) -> value
+    //    (param, value) -> <concat-strings> [param, "=", value]
