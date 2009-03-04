@@ -9,14 +9,14 @@ imports
     
 rules // block
 
- // @obsolete; should have been removed by sugar, however seems to have to do something with menu
- elem-to-java-servlet :
+  // @obsolete; should have been removed by sugar, however seems to have to do something with menu
+  elem-to-java-servlet :
     TemplateCall("dummy", _,passign*, elems) -> <elems-to-java-servlet> elems
-
 
   // @obsolete; use block{ ... } instead of div{ ... }
   elem-to-java-servlet :
     TemplateCall("div", [String(x)],passign* , elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div "+e_attrs1 + ">");
     bstm*
@@ -28,6 +28,7 @@ rules // block
          
   elem-to-java-servlet :
     TemplateCall("block", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div "+e_attrs1+" class=\"block\" >");
     bstm*
@@ -38,6 +39,7 @@ rules // block
 
   elem-to-java-servlet :
     TemplateCall("block", [String(x)],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div class=\"block "+"~x"+"\" "+e_attrs1+" >");
     bstm*
@@ -48,6 +50,7 @@ rules // block
     
   elem-to-java-servlet :
     TemplateCall("block", [String(x), String("")],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div class=\"block "+"~x"+"\" "+e_attrs1+">");
     bstm*
@@ -58,6 +61,7 @@ rules // block
     
   elem-to-java-servlet :
     TemplateCall("block", [String(x), String(y)],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div class=\""+"~y"+" block "+"~x"+"\"  "+e_attrs1+">");
     bstm*
@@ -69,6 +73,7 @@ rules // block
     
   elem-to-java-servlet :
     TemplateCall("block", [String(""), String(y)],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<div class=\""+"~y"+" block\" "+e_attrs1+">"); 
     bstm*
@@ -95,32 +100,41 @@ strategies // title
 rules // text
 
   elem-to-java-servlet :
-    Text(val) -> bstm |[ out.print(utils.HTMLFilter.filter("~val")); ]|
+    Text(val) -> 
+    <wrap-common-context-code>
+    bstm* |[ out.print(utils.HTMLFilter.filter("~val")); ]|
 
 rules // text
 
   // convert an expression to text (string value of the expression)
 
   elem-to-java-servlet :
-    TemplateCall("text", [arg],passign*, []) -> bstm_exptostring*
+    TemplateCall("text", [arg],passign*, []) -> 
+    <wrap-common-context-code>
+    bstm_exptostring*
     with  bstm_exptostring* := <to-page-string-java-servlet(|"utils.HTMLFilter.filter")> arg
 
 rules // spacers
 
   elem-to-java-servlet :
-    TemplateCall("spacer", _,passign*, []) -> bstm |[ out.print("<hr "+e_attrs1+"/>"); ]|
+    TemplateCall("spacer", _,passign*, []) -> 
+    <wrap-common-context-code>
+    bstm* |[ out.print("<hr "+e_attrs1+"/>"); ]|
     with e_attrs1 := <to-html-attrs> passign*
     /*
     %> <rich:spacer id="<%= spacer-id %>" /> <%
     where spacer-id := <newname> "spacer"
     */
   elem-to-java-servlet :
-    TemplateCall("horizontalspacer", _,passign*, []) -> bstm |[ out.print("<hr "+e_attrs1+" />"); ]|
+    TemplateCall("horizontalspacer", _,passign*, []) -> 
+    <wrap-common-context-code>
+    bstm* |[ out.print("<hr "+e_attrs1+" />"); ]|
     with e_attrs1 := <to-html-attrs> passign*
 rules // images
 
   elem-to-java-servlet :
     TemplateCall("image",[e],passign*,[]) -> 
+    <wrap-common-context-code>
     bstm* |[ 
       out.print("<img src=\"");
       bstm_exptostring*
@@ -131,9 +145,9 @@ rules // images
     with  bstm_exptostring* := <to-page-string-java-servlet> e
         ; e_attrs1 := <to-html-attrs> passign*
 
-
   elem-to-java-servlet :
     TemplateCall("image",[e ],passign*,[]) -> 
+    <wrap-common-context-code>
     bstm* |[ 
       out.print("<img src=\""+"~<AppRoot>");
       bstm_exptostring*
@@ -148,6 +162,7 @@ rules // lists
 
   elem-to-java-servlet :
     TemplateCall("list", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
       out.print("<ul "+e_attrs1+">");
       bstm*
@@ -158,6 +173,7 @@ rules // lists
 
   elem-to-java-servlet :
     TemplateCall("listitem", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
       out.print("<li "+e_attrs1+">");
       bstm*
@@ -166,38 +182,11 @@ rules // lists
     with  bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
 
-rules // sections and headers
-
-  elem-to-java-servlet :
-    TemplateCall("header", [],passign*, elems) ->
-    bstm* |[ 
-      out.print("<"+"~tag"+" class=\"header "+"~sectionlevel"+"\" "+e_attrs1+">");
-      bstm*
-      out.print("</"+"~tag"+">");
-    ]|
-    where not(JavaTableScope)
-    with  n := <(SectionDepth <+ !1); int-to-string>
-        ; tag := <concat-strings>["h", n]
-        ; sectionlevel := <concat-strings>["section", n]
-        ; bstm* := <elems-to-java-servlet> elems
-        ; e_attrs1 := <to-html-attrs> passign*
-    
-  elem-to-java-servlet :
-    TemplateCall("section", [],passign*, elems) ->
-    bstm* |[ 
-      out.print("<span class=\"section "+"~sectionlevel"+"\" "+e_attrs1+">");
-      bstm*
-      out.print("</span>");
-    ]|
-    with  {| SectionDepth
-           : rules( SectionDepth := <(SectionDepth <+ !0); inc> )
-           ; sectionlevel := <concat-strings>["section", <SectionDepth; int-to-string>]
-           ; bstm* := <elems-to-java-servlet> elems 
-           ; e_attrs1 := <to-html-attrs> passign*
-           |}
+rules
  
   elem-to-java-servlet :
     TemplateCall("par", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<p "+e_attrs1+">");
     bstm*
@@ -208,6 +197,7 @@ rules // sections and headers
     
   elem-to-java-servlet :
     TemplateCall("container", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<span "+e_attrs1+">");
     bstm*
@@ -220,6 +210,7 @@ rules // pre-formatted text
 
   elem-to-java-servlet :
     TemplateCall("pre", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<pre "+e_attrs1+">");
     bstm*
@@ -228,82 +219,7 @@ rules // pre-formatted text
     with  bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
 
-rules // tables
-
-  elem-to-java-servlet :
-    TemplateCall("table", [],passign*, elems) ->
-    bstm* |[ 
-    out.print("<table cellspacing='0' cellpadding='0' "+e_attrs1+">");
-    bstm*
-    out.print("</table>");
-    ]|
-    with  {| JavaTableScope
-           : rules ( JavaTableScope := 1 )
-           ; bstm* := <elems-to-java-servlet> elems
-           |}
-        ; e_attrs1 := <to-html-attrs> passign*
-
-  elem-to-java-servlet :
-    TemplateCall("header", [],passign*, elems) -> 
-    bstm* |[ 
-      out.print("<th "+e_attrs1+">");
-      bstm*
-      out.print("</th>");
-    ]|
-    where JavaTableScope
-    with  bstm* := <elems-to-java-servlet> elems
-        ; e_attrs1 := <to-html-attrs> passign*
-    
-/*    bstm* |[ 
-    bstm*
-    ]|
-    where JavaTableScope
-    with  //e_attrs1 := <to-html-attrs> passign*
-          bstm* := <map(elem-to-java-servlet);map({\ bstms -> <concat-with-sublists> bstm* |[ out.print("<th>"); bstm1* out.print("</th>"); ]| 
-                                                     with if <is-list> bstms then bstm1* := bstms else bstm1* := [bstms] end\});concat-with-sublists> elems
-*/
-// elem-to-java-servlet gives either a list of or one bstm
-
-  elem-to-java-servlet :
-    TemplateCall("row", [],passign*, elems) ->
-    bstm* |[ 
-    out.print("<tr "+e_attrs1+">");
-    bstm*
-    out.print("</tr>");
-    ]|
-    with  e_attrs1 := <to-html-attrs> passign*
-        ; bstm*    := <elems-to-java-servlet> elems
-/*        ; bstm*  :=  <map(elem-to-java-servlet)
-                ;map({\ bstms -> <concat-with-sublists> bstm* |[ out.print("<td>"); bstm1* out.print("</td>"); ]| 
-                                                 with if <is-list> bstms then bstm1* := bstms else bstm1* := [bstms] end
-                      \}
-                    )
-                ;concat-with-sublists> elems
-*/
-
-  elem-to-java-servlet :
-    TemplateCall("column", [],passign*, elems) ->
-    bstm* |[ 
-    out.print("<td "+e_attrs1+">");
-    bstm*
-    out.print("</td>");
-    ]|
-    where not([TemplateCall("header",_,_,_)] := elems)
-    with  e_attrs1 := <to-html-attrs> passign*
-        ; bstm*  :=  <elems-to-java-servlet> elems
-
-  //a combination of column { header { ..}} leads to <th>
-  elem-to-java-servlet :
-    TemplateCall("column", [],passign*, [TemplateCall("header", [], passign2*, elems)]) ->
-    bstm* |[ 
-    out.print("<th "+e_attrs1+" "+e_attrs2+">");
-    bstm*
-    out.print("</th>");
-    ]|
-    with  e_attrs1 := <to-html-attrs> passign*
-        ; e_attrs2 := <to-html-attrs> passign2*
-        ; bstm*  :=  <elems-to-java-servlet> elems
-
+//table moved to uicomponents/table
 
 //for moved to control-flow-to-java-servlet
 
@@ -320,6 +236,7 @@ rules // links
         
   elem-to-java-servlet : //void navigate, useful for ajax
     TemplateCall("navigate", [],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<a class=\"navigate\" href=\"javascript:void()\" "+e_attrs1+">");
     bstm*
@@ -331,6 +248,7 @@ rules // links
         
   elem-to-java-servlet :
     TemplateCall("navigate", [ThisCall("url",[e])],passign*, elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<a class=\"navigate\" href=\"");
     bstm_exptostring*
@@ -344,6 +262,7 @@ rules // links
 
   elem-to-java-servlet :
     TemplateCall("navigate",[call@ThisCall(p,args)],passign*,elems) ->
+    <wrap-common-context-code>
     bstm* |[ 
     out.print("<a class=\"navigate\" href=\""+e_resulturl+"\" "+e_attrs1+">");
     bstm*
@@ -359,6 +278,7 @@ rules // links
 
   elem-to-java-servlet :
     TemplateCall("navigatebutton",[call@ThisCall(p,args), e],passign*,[]) ->
+    <wrap-common-context-code>
     bstm* |[
       out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_url+"'\"");
       out.print("value=\"");
@@ -414,7 +334,7 @@ rules // forms
 
   elem-to-java-servlet : 
     tc@TemplateCall("form", [],passign*, elems) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[
       {
         ident += "~formident"+uniqueid;
@@ -449,7 +369,7 @@ rules // forms
 */   
   handle-actions-to-java-servlet: 
     tc@TemplateCall("form", [],passign*, elems) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm*|[
         ident += "~formident"+uniqueid;
         //if(ps.getParammap().get(ident)!=null)
@@ -463,7 +383,7 @@ rules // forms
    
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ 
       out.print("<input type=\"button\" value=\"");
       bstm_exptostring*
@@ -475,7 +395,7 @@ rules // forms
 
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2,call@ThisCall(name, args)],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ 
       out.print("<input type=\"button\" value=\"");
       bstm_exptostring*
@@ -493,9 +413,12 @@ rules // forms
     (actionident,args) -> e|[ ident+"~actionident"+uniqueid+e ]|
     with  e := <actual-action-args-to-state-enc> args     
   
+  id-encoding :
+    inputident -> java:expr |[ ident+"~inputident"+uniqueid ]|
+  
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2,e1],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ 
       ident = e4;
       if(ps.getParammap().get(ident)!=null)
@@ -516,7 +439,7 @@ rules // forms
         
   handle-actions-to-java-servlet: 
     tc@TemplateCall("action",[e2,e1],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm*|[
       ident = e4;
       if(ps.getParammap().get(ident)!=null)
@@ -532,7 +455,7 @@ rules // forms
 
   elem-to-java-servlet : //actionLink without call only valid for ajax apps
     tc@TemplateCall("actionLink",[e2],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ 
       out.print("<a href=\"javascript:void()\" "+e_attrs1+">");
       bstm_exptostring*
@@ -544,7 +467,7 @@ rules // forms
     
   elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ 
       ident += "~actionident"+uniqueid+e3 ;
       out.print("<a href=\"javascript:void()\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+"~app"+"/" + ps.getPageName()  +"\",\""+ ident+"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)' >");
@@ -560,7 +483,7 @@ rules // forms
         
    elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm* |[ //this doesn't allow downloads, use special downloadLink (see types/file.str)
       ident += "~actionident"+uniqueid+e5;
       if(ps.getParammap().get(ident)!=null)
@@ -586,7 +509,7 @@ rules // forms
         
   handle-actions-to-java-servlet: 
     tc@TemplateCall("actionLink",[e2,e1],passign*,[]) ->
-    <for-loop-counter-wrap-code> 
+    <wrap-input-render-java-code> 
     bstm*|[
         ident += "~actionident"+uniqueid+e5;
         if(ps.getParammap().get(ident)!=null ) // not necessary: && ps.getParammap().get(ident).equals("1") )

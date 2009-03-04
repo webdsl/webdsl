@@ -6,29 +6,99 @@ imports
 imports
   libwebdsl-front
   
+rules 
+  
+  java-servlet-element-id :
+    tc@TemplateCall("label", [arg],passign*, elem*)-> tc{InputNumber(newid),anno*} 
+    with  _{anno*} := tc
+          ; newid := <newname> "input"  
+  
 rules // label
-/*
+
   elem-to-java-servlet :
-    TemplateCall("div", [String(x)], elems) ->
+    tc@TemplateCall("label", [arg],passign*, elem*) ->
+    <wrap-input-render-java-code> 
     bstm* |[ 
-    out.print("<div class=\""+"~x"+"\">");
-    bstm*
-    out.print("</div>");
-    ]|
-    with bstm* := <elems-to-java-servlet> elems 
-    */
-  elem-to-java-servlet :
-    TemplateCall("label", [arg],passign*, []) ->
-    bstm* |[ 
-    out.print("<label "+e_attrs1+">");
-    bstm_exptostring*
-    out.print("</label>");
+      String x_labelname = e_id;
+
+      ps.enterLabelContext(x_labelname); // register name for input components inside label
+     
+      //java.io.PrintWriter x_printwriter = out;
+      //java.io.StringWriter x_stringwriter = new java.io.StringWriter();
+      //java.io.PrintWriter out = new java.io.PrintWriter(x_stringwriter);
+      
+      bstm*     
+      
+      //x_printwriter.write(x_stringwriter.toString());
+      //out = x_printwriter;
+   
+      ps.leaveLabelContext();
     ]|
     with bstm_exptostring* := <to-page-string-java-servlet> arg
        ; e_attrs1 := <to-html-attrs> passign* 
-/*    
+       ; x_labelname := <newname> "label"
+       //; x_printwriter := <newname> "printwriter"
+       //; x_stringwriter := <newname> "stringwriter"
+       ; inputident := <get-inputnumber> tc
+       ; e_id := <id-encoding> inputident
+       ; bstm_elem* := <elems-to-java-servlet> elem*
+       ; bstm1* := bstm* |[
+           out.print("<label for=\""+x_labelname+"\" "+e_attrs1+">");
+           bstm_exptostring*
+           out.print("</label>");
+           bstm_elem*
+         ]|
+       ; bstm* := <render-error-messages-with-error-template> (java:expr|[ x_labelname ]|,bstm1*,<ErrorTemplateInput>)
+       
+  handle-actions-input-to-java-servlet :
+    tc@TemplateCall("label", [arg],passign*, elem*) ->
+    <for-loop-counter-wrap-code> 
+    bstm*|[
+      ident = e_id;
+      ps.enterValidationContext(ident);
+      bstm* 
+      ps.leaveValidationContext();
+    ]|
+    with  inputident := <get-inputnumber> tc
+        ; bstm* := <collect-om(handle-actions-input-to-java-servlet);concat-with-sublists> elem*
+        ; e_id := <id-encoding> inputident
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-label-context-var; fail
+
+  generate-java-servlet-label-context-var :
+    Application(qid, sections)
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+        public java.util.Stack<String> labelStrings = new java.util.Stack<String>();
+      
+        public String getLabelString() { 
+          return labelStrings.peek();
+        }
+      
+        public void enterLabelContext(String ident) { 
+          labelStrings.push(ident);
+        }
+      
+        public void leaveLabelContext() { 
+          labelStrings.pop();
+        }
+      
+        public boolean inLabelContext() { 
+          return !labelStrings.empty();
+        }
+      }
+    ]|
     
-    %>
-      <label for=""><%= <arg-to-value-string> arg::cdata %></label>
-      <%= <elems-to-xhtml> elems ::*%>
-    <%*/
+rules // to be included in input element translations
+
+  connect-with-enclosing-label =
+  ! bstm* |[
+    if(ps.inLabelContext()){
+      out.print(" id=\""+ps.getLabelString()+"\" ");
+    }
+  ]|

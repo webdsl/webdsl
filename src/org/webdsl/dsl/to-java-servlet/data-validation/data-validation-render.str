@@ -9,7 +9,7 @@ imports
   libwebdsl-front
   
 rules
-
+/*
   elem-to-java-servlet :
     tc@elem|[ validatedInputWrapper()[passign*]{elem*} ]| -> result
     with  input_elements := <alltd(remove-all(validate-tempate-element))> elem* 
@@ -20,7 +20,40 @@ rules
   validate-tempate-element = ?elem|[ validationErrorsFor(e1)[passign*]{} ]| 
   validate-tempate-element = ?ValidationErrors(_)
   validate-tempate-element = ?ValidationErrors()
-    
+  */  
+  /**
+   *  e_id: Java expression: unique identifier of the template element being validated, used to connect messages for rendering
+   *  input_elements: Java statements: the template element being validated
+   *  messagestemplate: WebDSL template: the (error) message template
+   *
+   */
+  render-error-messages-with-error-template :  
+    (e_id,input_elements,messagestemplate) -> 
+    <wrap-common-context-code>
+    bstm* |[  
+      java.util.List<String> x_list = new java.util.LinkedList<String>();
+      java.util.List<utils.ValidationException> x = new java.util.LinkedList<utils.ValidationException>();
+      for(utils.ValidationException ve : ps.getValidationExceptions()){
+        if(ve.getName() != null && ve.getName().equals(e_id)){
+          x.add(ve);
+        }
+      }
+      for(utils.ValidationException ve : x){
+        x_list.add(ve.getErrorMessage());
+        ps.getValidationExceptions().remove(ve);
+      }
+      if(x_list.size() > 0){
+        bstm_error*
+      }
+      else {
+        bstm*
+      }
+    ]|
+    with x_list := <newname> "messagesList"
+       ; bstm_error* := <inline-error-template> (x_list,input_elements,messagestemplate)
+       ; bstm* := input_elements
+       ; x := <newname> "ve"
+  /*
   render-error-messages-with-error-template :  
     (elem*,input_elements,messagestemplate) -> 
     bstm* |[  
@@ -35,11 +68,18 @@ rules
     ]|
     with x_list := <newname> "messagesList"
        ; bstm_messages* := <collect(validation-message-production(|x_list));concat-with-sublists> elem*
-       ; bstm_error* := <inline-error-template> (elem*,x_list,input_elements,messagestemplate)
+       ; bstm_error* := <inline-error-template> (x_list,input_elements,messagestemplate)
        ; bstm* := <elems-to-java-servlet> input_elements
-
+*/
+  /**
+   *  x_list: Java variable: that will replace uses of messages argument
+   *  input_elements: Java statements: will replace uses of validatedInput template call
+   *  messagestemplate: WebDSL template definition: the (error) message 
+   *  ->
+   *  bstm_error*: Java statements: code that produces the input_elements normally or wrapped in error template
+   */
   inline-error-template :
-    (elem*,x_list,input_elements,messagestemplate) -> bstm_error*
+    (x_list,input_elements,messagestemplate) -> bstm_error*
     with Define(mods, name,[Arg(nm,srt)], body) := messagestemplate 
        ; body3 := <alltd(insert-input-fields-in-error-template(|input_elements))> body
        ; bstm_error* := <elems-to-java-servlet;alltd(inline-error-template-helper(|x_list))> body3
@@ -49,7 +89,9 @@ rules
     where "messages" := <OriginalNonUniqueName> x
 
   insert-input-fields-in-error-template(|input_elements) :
-    TemplateCall("validatedInput",_,_,_) -> TemplateCall("dummy",[],[],input_elements)
+    TemplateCall("validatedInput",a,b,c) -> TemplateCall("validatedInput",a,b,input_elements)
+  elem-to-java-servlet:
+    TemplateCall("validatedInput",_,_,input_elements) -> input_elements
 
 rules
   
@@ -64,7 +106,7 @@ rules //TODO these are relevant for error messages not connected to inputs
   elem-to-java-servlet :
     tc@elem|[ validationErrorsFor(e1)[passign*]{} ]| -> []
   elem-to-java-servlet :       
-    ValidationErrors(x1) -> <render-error-messages-with-error-template> ([<id>], [RemoveMe()], <ErrorTemplateForm>)
+    ValidationErrors(x1) -> <render-error-messages-with-error-template> ([<id>], [], <ErrorTemplateForm>)
 
 rules // add messages to list
 
@@ -143,13 +185,13 @@ rules // add messages to list
       ps.getValidationExceptions().clear();
     ]|
 
+//rules
+
+//  assignment-to-html-attr = ?PreDeriveInputDone()
+//  assignment-to-html-attr = ?InputErrorMessageBinding(_)
+
 rules
 
-  assignment-to-html-attr = ?PreDeriveInputDone()
-  assignment-to-html-attr = ?InputErrorMessageBinding(_)
-
-rules
-
-  render-validation-exceptions = //catch all left-over validation messages, displayed at executed action
-    !<render-error-messages-with-error-template> ([TemplateCall("validationErrorsForInput",[""],[],[])], [RemoveMe()], <ErrorTemplateAction>)
+  render-validation-exceptions = //displayed at executed action
+    !<render-error-messages-with-error-template> (java:expr|[ ident ]|, [], <ErrorTemplateAction>)
     

@@ -64,5 +64,26 @@ define page home() {
     row { label("ik ben een input") { input(s) } }
     row { label("en ik ben oko een input") { input(s) } }  	
   }
+  
+  table{
+    "row x"
+    rowtemp()
+  }
+}
+
+define rowtemp(){
+  row{ "rowtemp1" }
+  "rowtemp2"
+  rowtempl()
+}
+
+define rowtempl(){
+ "rowtempl1"
+ row{ "rowtempl2" coltemp()} 
+}
+
+define coltemp(){
+  "col2"
+  column{ "col3" }
 
 }

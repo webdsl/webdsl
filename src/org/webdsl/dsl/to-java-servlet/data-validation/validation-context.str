@@ -1,0 +1,57 @@
+module org/webdsl/dsl/to-java-servlet/data-validation/validation-context
+
+imports 
+  libstrategolib  
+  Java-15
+  libjava-front 
+  
+imports 
+  libwebdsl-front
+  
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-validation-context-var; fail
+
+  generate-java-servlet-validation-context-var :
+    Application(qid, sections) //match application node to only generate once
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+
+        public java.util.Stack<String> validationContext = new java.util.Stack<String>();
+      
+        public String getValidationContext() { 
+          return validationContext.peek();
+        }
+      
+        public void enterValidationContext(String ident) { 
+          validationContext.push(ident);
+        }
+      
+        public void leaveValidationContext() { 
+          validationContext.pop();
+        }
+      
+        public boolean inValidationContext() { 
+          return !validationContext.empty();
+        }
+      }
+    ]|
+    
+rules //for use in input element translation
+
+  // only use bstm* once to avoid too much code being generated
+  wrap-validation-context-code-store-inputs :
+    bstm* ->
+    bstm* |[
+      if(!ps.inValidationContext()) {
+        ps.enterValidationContext(ident);
+      }
+      bstm* 
+      if(ps.validationContext.size() == 1) {
+        ps.leaveValidationContext();
+      }
+    ]|
+    

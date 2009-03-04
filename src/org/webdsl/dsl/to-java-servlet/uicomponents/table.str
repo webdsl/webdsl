@@ -1,0 +1,146 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/table
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  
+rules // tables
+
+  elem-to-java-servlet :
+    TemplateCall("table", [],passign*, elems) ->
+    <wrap-common-context-code>
+    bstm* |[ 
+      out.print("<table cellspacing='0' cellpadding='0' "+e_attrs1+">");
+      ps.enterTableContext();
+      bstm*
+      ps.leaveTableContext();
+      out.print("</table>");
+    ]|
+    with  bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+
+  elem-to-java-servlet :
+    TemplateCall("row", [],passign*, elems) ->
+    bstm* |[ 
+      out.print("<tr "+e_attrs1+">");
+      ps.getTableContext().enterRowContext();
+      bstm*
+      ps.getTableContext().leaveRowContext();
+      out.print("</tr>");
+    ]|
+    with  e_attrs1 := <to-html-attrs> passign*
+        ; bstm*    := <elems-to-java-servlet> elems
+
+  elem-to-java-servlet :
+    TemplateCall("column", [],passign*, elems) ->
+    bstm* |[ 
+      out.print("<td "+e_attrs1+">");
+      ps.getTableContext().enterColumnContext();
+      bstm*
+      ps.getTableContext().leaveColumnContext();
+      out.print("</td>");
+    ]|
+    //where not([TemplateCall("header",_,_,_)] := elems)
+    with  e_attrs1 := <to-html-attrs> passign*
+        ; bstm*  :=  <elems-to-java-servlet> elems
+
+  //a combination of column { header { ..}} leads to <th>
+  /*elem-to-java-servlet :
+    TemplateCall("column", [],passign*, [TemplateCall("header", [], passign2*, elems)]) ->
+    bstm* |[ 
+    out.print("<th "+e_attrs1+" "+e_attrs2+">");
+    bstm*
+    out.print("</th>");
+    ]|
+    with  e_attrs1 := <to-html-attrs> passign*
+        ; e_attrs2 := <to-html-attrs> passign2*
+        ; bstm*  :=  <elems-to-java-servlet> elems
+    */
+        
+/* TODO: make explicit table header
+  elem-to-java-servlet :
+    TemplateCall("header", [],passign*, elems) -> 
+    bstm* |[ 
+      out.print("<th "+e_attrs1+">");
+      bstm*
+      out.print("</th>");
+    ]|
+    //where JavaTableScope
+    with  bstm* := <elems-to-java-servlet> elems
+        ; e_attrs1 := <to-html-attrs> passign*
+*/        
+        
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-table-context-var; fail
+
+  generate-java-servlet-table-context-var :
+    Application(qid, sections)
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+        public java.util.Stack<utils.TableContext> tableContexts = new java.util.Stack<utils.TableContext>();
+
+        public utils.TableContext getTableContext() { 
+          return tableContexts.peek();
+        }
+      
+        public void enterTableContext() { 
+          tableContexts.push(new utils.TableContext());
+        }
+      
+        public void leaveTableContext() { 
+          tableContexts.pop();
+        }
+      
+        public boolean inTableContext() { 
+          return !tableContexts.empty();
+        }
+        
+        public java.util.Stack<String> tableContextClosingTags = new java.util.Stack<String>();
+        @Partial
+        public void commonContextsCheckEnter(PrintWriter out) {
+          if(inTableContext()){
+            utils.TableContext x_temp = getTableContext();
+            if(x_temp.isInRowContext()) {
+              if(x_temp.isInColumnContext()) {
+                tableContextClosingTags.push("");
+              }
+              else {
+                out.print("<td>");
+                x_temp.enterColumnContext();
+                tableContextClosingTags.push("</td>");
+              } 
+            }           
+            else {
+              out.print("<tr><td>");
+              x_temp.enterRowContext();
+              x_temp.enterColumnContext();
+              tableContextClosingTags.push("</td></tr>");
+            }
+          }
+        }
+        @Partial
+        public void commonContextsCheckLeave(PrintWriter out) {
+          if(inTableContext()){
+            utils.TableContext x_temp = getTableContext();
+            String tags = tableContextClosingTags.pop();
+            if(tags.equals("</td>")){
+              x_temp.leaveColumnContext();
+              out.print(tags);
+            }
+            else if(tags.equals("</td></tr>")){
+              x_temp.leaveColumnContext();
+              x_temp.leaveRowContext();
+              out.print(tags);
+            }
+          }
+        }
+
+      }
+    ]|
+    with  x_temp := <newname> "temp"
