@@ -1,0 +1,67 @@
+module org/webdsl/dsl/languages/ui/select
+
+rules
+
+  rename-ui :
+    Select(x, s, lab1, e1, props,elems) -> Select(y, s, lab2, e2, props,elems1) 
+    with  (y, s, lab2, e2, elems1) := <rename-select> (x, s, lab1, e1, elems)
+ 
+  rename-ui :
+    SelectNoProps(x, s, lab1, e1,elems) -> SelectNoProps(y, s, lab2, e2,elems1) 
+    with  (y, s, lab2, e2, elems1) := <rename-select> (x, s, lab1, e1, elems)
+  rename-ui :
+    SelectNoPropsNoElems(x, s, lab1, e1) -> SelectNoPropsNoElems(y, s, lab2, e2) 
+    with  (y, s, lab2, e2, []) := <rename-select> (x, s, lab1, e1, [])
+  rename-ui :
+    SelectNoElems(x, s, lab1, e1, props) -> SelectNoElems(y, s, lab2, e2, props) 
+    with  (y, s, lab2, e2, []) := <rename-select> (x, s, lab1, e1, [])
+        
+  rename-select :
+    (x, s, lab1, e1, elems1) -> (y, s, lab2, e2, elems2) 
+    with {| Rename
+            : y := <rename-bound(|s)> x
+            ; e2 := <rename-all> e1
+            ; lab2 := <rename-all> lab1
+            ; elems2 := <rename-all> elems1
+          |}
+         
+rules
+
+  normalize-ui : 
+    SelectNoProps(a,b,c,d,e) -> Select(a,b,c,d,[],e)
+  normalize-ui : 
+    SelectNoPropsNoElems(a,b,c,d) -> Select(a,b,c,d,[],[])
+  normalize-ui : 
+    SelectNoElems(a,b,c,d,e) -> Select(a,b,c,d,e,[])
+ 
+  normalize-ui : 
+    SelectFromListNoProps(a,b,c) -> SelectFromList(a,b,[],c)
+  normalize-ui : 
+    SelectFromListNoPropsNoElems(a,b) -> SelectFromList(a,b,[],[])
+  normalize-ui : 
+    SelectFromListNoElems(a,b,c) -> SelectFromList(a,b,c,[])
+    
+rules
+
+  constraint-error-ui :
+    sel@SelectFromListNoProps(e1, e2, elems) -> <constraint-error-ui-selectfrom> (e1,e2,sel)
+  constraint-error-ui :
+    sel@SelectFromList(e1, e2, passign*, elems) ->  <constraint-error-ui-selectfrom> (e1,e2,sel)
+  constraint-error-ui :
+    sel@SelectFromListNoPropsNoElems(e1, e2) ->  <constraint-error-ui-selectfrom> (e1,e2,sel)
+  constraint-error-ui :
+    sel@SelectFromListNoElems(e1, e2, passign*) ->  <constraint-error-ui-selectfrom> (e1,e2,sel)
+    
+  constraint-error-ui-selectfrom :
+    (e1,e2,passign*,sel)  -> <add-error(|[<pp-webdsl> e2, " should be of collection type"])> sel
+    where not(GenericSort(_, _) := <type-of> e2)
+
+  constraint-error-ui-selectfrom :
+    (e1,e2,sel) -> <add-error(|["type of ",<pp-webdsl> e1, " (",<pp-webdsl> srt2,") should be compatible with type in collection ",<pp-webdsl> e2," (",<pp-webdsl> srt,")"])> sel
+    where not(
+            srt3 := <type-of> e2
+          ; GenericSort(_, [srt]) := srt3
+          ; srt2 := <type-of> e1
+          ; (srt2 := srt <+ srt2 := srt3)// TODO hard check is too restrictive, but type-compatible seems broken
+          )
+    
