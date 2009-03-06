@@ -19,44 +19,50 @@ rules
 
   //final (private) conversion: converts a String assignment to html    
   assignmentexp-to-html-attr-pil :
-    (x, e_y) -> pil-exp|[ "~x"+"='" + e_y + "' " ]|
+    (x, e_y) -> pil-exp|[ e_x +"='" + e_y + "' " ]|
+    with e_x := <pil-wrap-string> x
     
   //escape behaviour, when assignments cannot be converted with a useful strategy, test if its
   //a string and insert directly
   string-assignment-to-html-attr-pil:
-    PropertyAssignment(x, String(y)) -> (x, String(y))
+    PropertyAssignment(x, String(y)) -> (x, <pil-wrap-string> y)
     
   //object id attribute is accepted, and already a valid assignment
   assignment-to-html-attr-pil :
     PropertyAssignment("id", y) -> ("id", y )
 
   assignment-to-html-attr-pil :
-    PropertyAssignment("height", StyleValue(val, unit)) -> ("height", pil-exp|[ "~val"+"~unit" ]| )
+    PropertyAssignment("height", StyleValue(val, unit)) -> ("height", pil-exp|[ e_val+e_unit ]| )
+    with e_val := <pil-wrap-string> val
+       ; e_unit := <pil-wrap-string> unit
 
   assignment-to-html-attr-pil :
-    PropertyAssignment("width", StyleValue(val, unit)) -> ("width", pil-exp|[ "~val"+"~unit" ]| )
+    PropertyAssignment("width", StyleValue(val, unit)) -> ("width", pil-exp|[ e_val+e_unit ]| )
+    with e_val := <pil-wrap-string> val
+       ; e_unit := <pil-wrap-string> unit
 
     
   assignment-to-html-attr-pil :
-    PropertyAssignment("class", y) -> ("class", pil-exp|[ "~y" ]| )
+    PropertyAssignment("class", y) -> ("class", e_y)
     where not (PropertyValueList(_) := y)
+    with e_y := <pil-wrap-string> y
     
-  assignment-to-html-attr-pi :
+  assignment-to-html-attr-pil :
     //concatenates a list of id's to a class attribute
     PropertyAssignment("class", y) -> ("class", pil-exp|[ e1 ]| )
     where PropertyValueList(x) := y
-    with  e1 := <map(\q -> pil-exp|[ "~q" + " "]|\); generate-addition-exp-pil> x
+    with  e1 := <map({e_q: \ q -> pil-exp|[ e_q + " "]| with e_q := <pil-wrap-string> q \}); generate-addition-exp-pil> x
     
     
 rules //concatenates a list of java expressions to a single expression using the + operator (useful for string or numeric expressions)
   generate-addition-exp-pil :
     [x|xs] ->  pil-exp|[ e0 + e1 ]|
     where not([] := xs)
-        ; e0 := x
+        ; e0 := pil-exp|[ x ]|
         ; e1 := <generate-addition-exp-pil> xs
 
   generate-addition-exp-pil :
-    [e0] -> pil-exp|[ e0 ]|
+    [e0] -> e0
     
   generate-addition-exp-pil :
     [] -> pil-exp|[ "" ]|

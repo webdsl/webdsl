@@ -15,7 +15,7 @@ rules // iteration
     pil-stat*|[
         ident = "";
         if(inForLoop) {
-          ident = ident + forelementcounter;
+          ident = ident + forelementcounter.toString();
         }
         stat*
     ]|
@@ -174,30 +174,32 @@ rules //templatecall
   elem-to-pil =
     control-flow-tcall-pil(|"render")
 
-  control-flow-tcall-pil(|x_methodname) :
+  control-flow-tcall-pil(|mx_methodname) :
     tc@TemplateCall(x_name, args,passign*, _) ->
     <for-loop-counter-wrap-code-pil> 
     pil-stat* |[
-    ident = ident + "~x_tname";
+    ident = ident + e_tname;
     if(templatecalls[ident] == null) {
       try{
-        templatecalls[ident] = ((webdsl::TemplateServlet)templates["~x_name"]).newInstance();
+        templatecalls[ident] = (webdsl::TemplateServlet)(templates[e_name]).newInstance();
       }
       catch(Exception iae)
       {
-        log("Problem in template servlet template lookup: "+iae);
+        println("Problem in template servlet template lookup: "+iae.toString());
       }
     }
     Array<Object> x_args = new Array<Object>(e*);
     templatecounter++;
-    templatecounter = (templatecalls[ident]).x_methodname(ps, x_args, templatecounter, ((Map<String,pil::reflect::Class>)templates).clone(),((Map<String,Object>)variables).clone(),((Map<String,Object>)actionclasses).clone(), e1*);
+    templatecounter = (templatecalls[ident]).mx_methodname(ps, x_args, templatecounter, templates.clone(), variables.clone(), actionclasses.clone(), e1*);
     ]|
     where t* := <map(type-of)> args 
         ; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos>x_name;TemplateWithGenerics> (x_name,t*)
     with  x_tname := <get-templatecallnumber-pil> tc
         ; e* := <map({\e -> <expression-to-pil> e\})> args
+        ; e_name := <pil-wrap-string> x_name
+        ; e_tname := <pil-wrap-string> x_tname
         ; x_args := <newname> "args"
-        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ pil-exp|[ out ]| ]
-            //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
+        ; (    !mx_methodname; (?"render"<+?"handleActions"); e1* := [ pil-exp|[ out ]| ]
+            //<+ mx_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
             <+ e1* := []
           )

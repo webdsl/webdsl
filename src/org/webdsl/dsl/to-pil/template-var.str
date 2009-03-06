@@ -12,103 +12,105 @@ rules // page variables
   /**
    * Generating code for page variables
    */
-/*
-  GenerateCodeJavaServlet =  where(ThisTemplateName);not(InAction <+ InFunction <+ JavaInEntity); generate-pil-variables-code; fail
+  GenerateCodePil =  where(ThisTemplateNamePil);not(InActionPil <+ InFunctionPil <+ InEntityPil); generate-pil-variables-code; fail
 
   generate-pil-variables-code :
     elem|[ var x : srt ]| ->
     //VarDecl(x, s) ->
-    <generate-pil-template-partial> java|[
-       private t x = e;
-       public t get#x() { return x; }
-       public void set#x(t x) { this.x = x; }
-       @Partial
-       private void initializeLocalVars(){ ps.ignoreset.add("~<OriginalNonUniqueName> x "); } //hibernate hack
+    <generate-pil-template-partial> pil-cbd*|[
+       t x = e;
+
+       @extend
+       void initializeLocalVars(){ ps.ignoreset.add(e_original); } //hibernate hack
     ]|
     with  t     := <pil-type> srt
-        ; X     := <capitalize-string> x
         ; e     := <pil-type-default-value> srt
+        ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
 
   generate-pil-variables-code :
     //VarDeclInit(x, s, e1) ->
     elem|[ var x : srt := e1 ]| ->
-    <generate-pil-template-partial> class-body-dec*|[
-       private t x;
-       public t get#x() { return x; }
-       public void set#x(t x) { this.x = x; }
-       @Partial
-       private void initializeLocalVars(){ 
+    <generate-pil-template-partial> pil-cbd*|[
+       t x = e;
+
+       @extend
+       void initializeLocalVars(){ 
          x = e2; 
-         ps.ignoreset.add("~<OriginalNonUniqueName> x"); //hibernate hack
+         ps.ignoreset.add(e_original);
        }
     ]|
     where not(HqlQuery(_) := e1)
     with  t     := <pil-type> srt
-        ; X     := <capitalize-string> x
+        ; e     := <pil-type-default-value> srt
         ; e2 := <expression-to-pil> e1
+        ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
 
+  /*
   // page-level variables with query initializers
   generate-pil-variables-code :
     elem|[ var x : srt := e ]| ->
-    <generate-pil-template-partial> java|[
-       private t x;
-       public t get#x() { return x; }
-       public void set#x(t x) { this.x = x; }
-       public void init#x() { x = e2.list(); }
-       @Partial 
-       private void initializeLocalVars() { 
+    <generate-pil-template-partial> pil-cbd*|[
+       t x = e;
+
+       void init#x() { x = e2.list(); }
+
+       @extend 
+       void initializeLocalVars() { 
          init#x(); 
-         ps.ignoreset.add("~<OriginalNonUniqueName> x"); //hibernate hack
+         ps.ignoreset.add(e_original);
        }
     ]|
     where <?HqlQuery(e1)> e
     with  t      := <pil-type> srt
-        ; X      := <capitalize-string> x
-        ; e2     := <query-to-create-query> e1
+        ; e      := <pil-type-default-value> srt
+        ; e2     := <query-to-create-query-pil> e1
+        ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
+  */
 
 
 //store vars in scope
-  GenerateCodeJavaServlet =  where(ThisTemplateName);not(InAction <+ InFunction <+ JavaInEntity); store-var-pil; fail
+  GenerateCodePil =  where(ThisTemplateNamePil);not(InActionPil <+ InFunctionPil <+ InEntityPil); store-var-pil; fail
  
   store-var-pil:
     elem|[ var x : srt ]| -> 
-    <generate-pil-template-partial> java|[
-       @Partial 
-       private void initializePassOn() { variables.put("~<OriginalNonUniqueName> x",x); }
+    <generate-pil-template-partial> pil-cbd|[
+       @extend 
+       void initializeLocalVars(){ ps.ignoreset.add(e_original); } //hibernate hack
     ]|
     with  rules (VariablesPil :+= elem|[ var x : srt ]|)
+       ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
                 
   store-var-pil:
     elem|[ var x : srt := e ]| -> 
-    <generate-pil-template-partial> java|[
-       @Partial 
-       private void initializePassOn() { variables.put("~<OriginalNonUniqueName> x",x); }
+    <generate-pil-template-partial> pil-cbd|[
+       @extend 
+       void initializePassOn() { variables[e_original] = x; }
     ]|
     with  rules (VariablesPil :+= elem|[ var x : srt ]|)
+       ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
     
 //retrieve vars in scope
 
-  GenerateCodeJavaServlet = retrieve-stored-vars-pil; fail
+  GenerateCodePil = retrieve-stored-vars-pil; fail
  
   retrieve-stored-vars-pil:
     def |[ define mod* x(farg*) { elem* } ]| -> []
-    where vars := <bagof-Variables>
+    where vars := <bagof-VariablesPil>
     with  <map( //\ x -> x where <oncetd(?Arg(x,_))> farg* \;debug(!1) <+ debug(!2);  //check whether arg names shadow the passed vars (check vars in page too?)
     generate-pil-passed-variables-code)> vars
                
                  
   generate-pil-passed-variables-code:
     elem|[ var x : srt ]| ->
-    <generate-pil-template-partial> java|[
-       private t x;
-       public t get#x() { return x; }
-       public void set#x(t x) { this.x = x; }
-       @Partial
-       private void initialize(){ x = (x_arg) variables.get("~<OriginalNonUniqueName> x"); }
+    <generate-pil-template-partial> pil-cbd*|[
+       t x = e;
+
+       @extend
+       void initialize(){ x = (t)variables.get(e_original); } 
     ]|
     with  t     := <pil-type> srt
-        ; x_arg := <pil-type-name> srt
-      
+        ; e     := <pil-type-default-value> srt
+        ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
 
 
 /*
