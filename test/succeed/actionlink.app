@@ -14,6 +14,10 @@ section datamodel
     }
     body()
   }
+
+  define body() {
+    "default body"
+  }
   
   define page home()
   {

@@ -12,6 +12,10 @@ section datamodel
     body()
   }
   
+  define body() {
+    "default body"
+  }
+  
   var u:User := User{username := "0"};
   
   define page home()

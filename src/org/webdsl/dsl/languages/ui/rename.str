@@ -3,11 +3,12 @@ module org/webdsl/dsl/languages/ui/rename
 rules
 
   rename-ui :
-    def |[ define page x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define page x(farg2*) { elem2* } ]|
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define mod* x(farg2*) { elem2* } ]|
+    where   <fetch(?Page())> mod*
     with {| Rename, InDef, InPage, RenameActionCall
           : rules ( InDef := True() )
           ; rules ( InPage := x )
-          ; farg2* := <map(rename)> farg1*
+          ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
           ; <try(alltd(rename))> elem1*
           ; rules ( TypeOf : x -> "Component" )
@@ -16,7 +17,7 @@ rules
   rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
     where not(InPage)
-        ; not(<elem> (Page(), mod*))
+        ; not(<fetch(?Page())> mod*)
         //; not(<elem> (Email(), mod*))
         ; not(<fetch(?Email())> mod*)
     with {| Rename, InDef, InTemplate, RenameActionCall
@@ -24,21 +25,20 @@ rules
           ; rules ( InTemplate := x )
           ; y := x{<newname> x}
           ; genargs := <get-generictype-args> farg1*
-          ; farg3* := <map(rebind-generic-in-farg(|genargs))> farg1*
-          ; farg2* := <map((rename <+ debug); (declare-template-arg <+ debug(!"Declare!")))> farg3*
+          ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
           |}
         
   rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
     where (InPage <+ InTemplate)
-        ; not(<elem> (Page(), mod*))
+        ; not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
     with {| Rename, InDef, InTemplate, RenameActionCall
          : rules ( InDef := True() )
          ; rules ( InTemplate := x )
          ; y := x{<newname> x}
-         ; farg2* := <map(rename)> farg1*
+         ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
          ; elem2* := <alltd(rename-actions); rename-all> elem1*
          |}
 
@@ -140,39 +140,4 @@ rules
           rules (InDef := True())
           ; bl2 := <rename-all> bl
         |}
-  
-  //template call id renaming
-   
-  rename-ui :
-    tc@TemplateCallPropsNoBody(x1, e1*,passign*) -> TemplateCallPropsNoBody(x1, e2*,passign2*)
-    with  e2* := <rename-all> e1*
-        ; passign2* := <rename-all> passign*
-        ; <declare-template-html-id(|tc)> passign*
-
-  rename-ui :
-    tc@TemplateCallProps(x1, passign*) -> TemplateCallProps(x1, passign2*)
-    with passign2* := <rename-all> passign*
-        ; <declare-template-html-id(|tc)> passign*
-
-  rename-ui :
-    tc@TemplateCallPropsNoArgs(x1, passign*, elem1*) -> TemplateCallPropsNoArgs(x1,passign2*, elem2*)
-    with  elem2* := <rename-all> elem1*
-        ; passign2* := <rename-all> passign*
-        ; <declare-template-html-id(|tc)> passign*
-    
-  rename-ui :
-    tc@TemplateCall(x1, e1*,passign*, elem1*) -> TemplateCall(x1, e2*,passign2*, elem2*)
-    with  e2* := <rename-all> e1*
-        ; elem2* := <rename-all> elem1*
-        ; passign2* := <rename-all> passign*        
-        ; <declare-template-html-id(|tc)> passign*
-
-strategies
-
-  //given a list of property assignmenst and a corresponding templatecall, it declares HtmlEntityId if a "id" property exists
-  declare-template-html-id(|tc) =
-     all({x, y : 
-         ?PropertyAssignment("id", x) ;rules( HtmlEntityId :+ x -> tc )
-         <+ !"something" //build something
-         })
   

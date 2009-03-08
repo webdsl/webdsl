@@ -82,7 +82,7 @@ strategies
     where <elem> (nm, torename)
     with t_arg* := <map(type-of)> arg*  
         ; if listof-t_arg* := <bagof-CheckGlobalFunctionSignatureArgumentTypes> (None(), nm, t_arg*)
-          then t_argnew* := <find-most-specific-signature(|t_arg*)> listof-t_arg*
+          then t_argnew* := <find-most-specific-signature(|t_arg*,nm)> listof-t_arg*
           else t_argnew* := t_arg* // fall back to basic lookup for now when specific search fails, need to have a clear definition of compatible types vs inheritance
           end
         ; nm2 := <new-function-name> (nm, t_argnew*)
@@ -97,64 +97,3 @@ strategies
 
   sort-to-string :
     GenericSort(t, [t2]) -> <concat-strings> [t, "_", <sort-to-string> t2]
- 
-rules //overloading resolution for global functions
-//assumes options have the same name (wrong arity is filtered here, so are doubles)
-
-  find-most-specific-signature(|t_target):
-    a@[x|xs] -> result //t_arg*
-    where arity := <length> t_target
-        ; distances := <filter(where(length;?arity));make-set;map(find-most-specific-signature-helper(|t_target))> a
-        //remove impossible matches (indicated by -1), then find most specific
-        ; {| MostSpecificFunction : 
-             <filter(not(fetch(?-1)));map(compare-distances-for-overloading)> distances
-           ; ([y{result}] := <bagof-MostSpecificFunction>) 
-              <+ <debug;!1;exit> ["multiple possible overloaded functions variants, this should be catched by typechecker",<bagof-MostSpecificFunction>] //fails if not one element, should report error in the typechecking phase, now error here
-          |}
-       
-  find-most-specific-signature-helper(|t_target):    
-    t_check -> result{t_check}
-    where newlist := <zip( {|NumberOfExtends: count-number-of-extends-traversals|} )> (<map(remove-sort-constructor-warn)>t_target, <map(remove-sort-constructor-warn)>t_check)
-        ; result := newlist
-
-  remove-sort-constructor-warn= remove-sort-constructor <+ debug(!"warning: cannot extract sort for this type, reverting to basic overloaded function lookup, ie exact match of argument types") 
-  remove-sort-constructor : SimpleSort(s) -> s
-  remove-sort-constructor : GenericSort(_,[SimpleSort(s)]) -> s
-
-  count-number-of-extends-traversals:
-    ("Object",t) -> -1  //not matching at all
-    where not(t := "Object")
-
-  count-number-of-extends-traversals:
-    (t,t) -> <NumberOfExtends <+ !0>
-    
-  count-number-of-extends-traversals:
-    (t_target,t_check) -> <count-number-of-extends-traversals> newtuple
-    where not(t_target := t_check)
-    with  newnumber := <add> (<NumberOfExtends <+ !0>,1)
-        ; rules( NumberOfExtends := newnumber)
-        ; newtuple := (<extends-check> t_target,t_check)
-        
-  compare-distances-for-overloading:
-    x -> x
-    where if not(MostSpecificFunction)
-          then rules (MostSpecificFunction :+= x)
-          else 
-            if <map(is-more-specific-function(|x))> <bagof-MostSpecificFunction>
-            then repeat(once-MostSpecificFunction);rules (MostSpecificFunction :+= x)
-            else 
-              if not(<map(is-less-specific-function(|x))> <bagof-MostSpecificFunction>)
-              then rules (MostSpecificFunction :+= x)
-              end
-            end
-          end
-          
-  is-more-specific-function(|new)=
-    ?current
-  ; !(new,current)
-  ; zip(leq)
-  
-  is-less-specific-function(|new)=
-    ?current
-  ; !(new,current)
-  ; zip(geq)

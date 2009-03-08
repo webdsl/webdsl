@@ -14,7 +14,9 @@ rules
   rename-bound-variables =
        exclude-from-var-renaming
     <+ ExcludeFromVarRenaming  
-    <+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
+    //<+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
+    <+ rename-template-def-id
+    <+ rename-template-call-id
     <+ use-existing-renaming
   
   exclude-from-var-renaming = ?"this"
@@ -25,3 +27,30 @@ rules
         ; <is-string> y
     with rules ( TypeOf : y -> <TypeOf> x{y}
                  OriginalNonUniqueName : y -> x)
+
+  rename-template-def-id :
+    Define(mod*, x, farg*,elem*) ->
+    Define(mod*, x, <rename-identifiers> farg*,<rename-identifiers> elem*)
+    where <fetch(?Page())> mod*
+       <+ <fetch(?Email())> mod* //no overloading for emails yet
+                 
+  rename-template-def-id :
+    Define(mod*, x, farg*,elem*) ->
+    Define(mod*, y, <rename-identifiers> farg*,<rename-identifiers> elem*)
+    where not(<fetch(?Page())> mod*)
+        ; not(<fetch(?Email())> mod*)
+    with  xsa := <strip-annos> x
+        ; y := <TemplateNewName> (xsa,<map(?Arg(_,<id>))> farg*)
+    
+  rename-template-call-id :
+    tc@TemplateCall(x, arg*, passign*, elem*) 
+    -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, <rename-identifiers> elem*) 
+    where y := <CallToDefinedTemplate> x  
+        ; rules( CallToDefinedTemplateAfterIdRename : y 
+                 OriginalNonUniqueName : y -> x)
+
+  rename-template-call-id :
+    tc@TemplateCall(x, arg*, passign*, elem*) 
+    -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, <rename-identifiers> elem*) 
+    where <CallToBuiltInTemplate> x
+        ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name

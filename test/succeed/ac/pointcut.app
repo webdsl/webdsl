@@ -2,6 +2,10 @@ application test
 
 section pc
 
+  define body() {
+    "default body"
+  }
+  
   entity User{
     name :: String
   }

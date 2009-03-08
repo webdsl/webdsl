@@ -2,6 +2,10 @@ application test
 
 section datamodel
 
+  define body() {
+    "default body"
+  }
+  
   session user{
     name :: String
   }

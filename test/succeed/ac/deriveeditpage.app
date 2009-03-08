@@ -2,6 +2,10 @@ application test
 
 section datamodel
 
+  define body() {
+    "default body"
+  }
+  
   principal is User with credentials name
 
   entity User{

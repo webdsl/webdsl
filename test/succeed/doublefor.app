@@ -6,6 +6,9 @@ section datamodel
     name :: String
   }
   
+  define body() {
+    "default body"
+  }
 
   entity GeenUser
   {

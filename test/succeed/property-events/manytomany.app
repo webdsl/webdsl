@@ -1,7 +1,11 @@
 application test
 
 section datamodel
-
+  
+  define body() {
+    "default body"
+  }
+  
   entity User{
     name :: String
     children -> Set<User>

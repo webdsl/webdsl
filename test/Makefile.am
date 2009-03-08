@@ -1,4 +1,11 @@
-TESTSSUCCEEDALL = $(wildcard succeed/*.app) $(wildcard succeed/*/*.app) 
+TESTSSUCCEEDALL = $(wildcard succeed/*.app) \
+$(wildcard succeed/ac/*.app) \
+$(wildcard succeed/data-validation/*.app) \
+$(wildcard succeed/entity-events/*.app) \
+$(wildcard succeed/module/*.app) \
+$(wildcard succeed/property-events/*.app)
+#    $(wildcard succeed/generics/*.app) 
+
 TESTSFAIL =$(wildcard fail/*.app) $(wildcard fail/*/*.app)
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%,$(TESTSSUCCEEDALL)) $(patsubst %.app,%,$(TESTSFAIL))

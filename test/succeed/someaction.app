@@ -2,6 +2,10 @@ application test
 
 section datamodel
 
+  define body() {
+    "default body"
+  }
+  
   entity User {
     username    :: String
     email       :: Email

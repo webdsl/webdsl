@@ -12,13 +12,15 @@ rules
   GenerateCodeJavaServlet = render-java-servlet-template; fail
   
   render-java-servlet-template =
-    ?def |[ define mod* x(farg*) { elem* } ]|
-    ; where (    
-      bstm1* := <filter-elements-for-java-servlet-handling
-                 ; elems-to-java-servlet> elem*
-      ; not(bstm1* := [])
-      )
-    ; with (
+    ?def@def |[ define mod* x(farg*) { elem* } ]|
+    ; where(with( //don't remember whether "with" scopes like "where"
+        elemfiltered* := <filter-elements-for-java-servlet-handling> elem* //removes local defines
+        ; {| CurrentTemplateRender:
+            rules(CurrentTemplateRender := def)
+          ; bstm1* := <elems-to-java-servlet> elemfiltered*
+          |}
+      ))
+    ; where(with(
         y := <match-definition-to-string> (x, farg*)
       ; <generate-java-servlet-template-partial> 
         java |[ 
@@ -35,7 +37,7 @@ rules
               out.print("</span>");                      
             }
         ]|
-      )
+      ))
       
   render-java-servlet-template-inits =
     ! bstm* |[
@@ -56,4 +58,9 @@ strategies // lists of elements
   undefined-template-call :
     t@TemplateCall(f, args,passign*, body) -> []
     where log(|Warning(), ["no definition for template ", t])
+        ; try(
+             temp := <CurrentTemplateRender>
+           ; <debug> "error occured in following template: "
+           ; <debug> temp
+          )
         ; <exit> 1

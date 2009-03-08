@@ -6,7 +6,10 @@ section datamodel
     name :: String
   }
   
-
+  define body() {
+    "default body"
+  }
+  
   define main() 
   {
     body()
@@ -18,6 +21,5 @@ section datamodel
     define body()
     {
       output(u.name)
-    
     }
-   }
+  }

@@ -10,13 +10,12 @@ rules
 
   type-default-value :
     s@SimpleSort(y) -> exp |[ null ]|
-    //s@SimpleSort(x) -> exp |[ x{} ]|
     where <is-entity-type> s
 
 rules
 
   desugar-types :
-    elem|[ output(e)[passign*]{} ]| -> elem|[ 
+    TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ 
       dummy() {
         if (e != null) {
           navigate($viewY(e))[passign*]{text(e.name)} 
@@ -26,35 +25,35 @@ rules
         }
       }
     ]|
-    where SimpleSort($Y) := <type-of> e
+    where <?"output"> x //"output" string not in lhs because the x with annotations is needed to check whether it is a call to built-in output
+        ; <CallToBuiltInTemplate> x
+        ; [e] := arg*
+        ; SimpleSort($Y) := <type-of> e
         ; <IsEntity> $Y
-        ; not(<TemplateSignature> ("output", [<type-of> e]))
-    with $viewY := <decapitalize-string> $Y
-        //; allsubclasses := <AllSubClasses>
-        //; not(<fetch(?($Y,_))> allsubclasses)
+    with  $viewY := <decapitalize-string> $Y
 
   desugar-types :
-    elem|[ output(e1)[passign*]{} ]| -> <rename-all> elem|[ list { for(x : $X in e1){ listitem{ output(e2)[passign*] } } } ]|
-    where |[ List<$X> ]| := <type-of> e1
-        ; not(<TemplateSignature> ("output", [<type-of> e1]))
-    with x := <decapitalize-string; newname> $X
-       ; e2 := Var(x)
+    TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ list { for(x1 : $X in e){ listitem{ output(e2)[passign*] } } } ]|
+    where <?"output"> x
+        ; <CallToBuiltInTemplate> x
+        ; [e] := arg*
+        ; GenericSort("List",[SimpleSort($X)]) := <type-of> e
+    with  x1 := <newname> "outputlist"
+        ; e2 := Var(x1)
 
   desugar-types :
-    elem|[ output(e1)[passign*]{} ]| -> <rename-all> elem|[ list { for(x : $X in e2.$yList){ listitem{ output(e3)[passign*] } } } ]|
-    where |[ Set<$X> ]| := <type-of> e1
-        ; |[ e2.$y ]| := e1
-        ; not(<TemplateSignature> ("output", [<type-of> e1]))
-    with x := <decapitalize-string; newname> $X
-       ; $yList := <concat-strings>[$y, "List"]
-       ; e3 := Var(x)
+    TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ list { for(x1 : $X in e){ listitem{ output(e2)[passign*] } } } ]|
+    where <?"output"> x
+        ; <CallToBuiltInTemplate> x
+        ; [e] := arg*
+        ; GenericSort("Set",[SimpleSort($X)]) := <type-of> e
+    with  x1 := <newname> "outputset"
+        ; e2 := Var(x1)
     
   desugar-types :
     elem|[ input(e)[passign*]{elem*} ]| ->
     <rename-all> elem|[
-      //block("inputSimpleRefAssociation")[passign*] {
-        select( y1 : $Y, "Select", e)[passign*]{elem*}
-      //}
+      select( y1 : $Y, "Select", e)[passign*]{elem*}
     ]|
     where SimpleSort($Y) := <type-of> e
         ; <IsEntity> $Y
@@ -64,12 +63,9 @@ rules
   desugar-types :
     elem|[ input(e)[passign*]{elem*} ]| ->
     <rename-all> elem|[
-      //block("inputAssociationGenericSort")[passign*]{
-        select(x1 : $X, str, e)[passign*]{elem*}
-      //}
+      select(x1 : $X, str, e)[passign*]{elem*}
     ]|
     where GenericSort(coll, [SimpleSort(X)]) := <type-of> e
         ; $X  := X
         ; x1  := <decapitalize-string; newname> X
         ; str := <concat-strings>["Add ", X]
-

@@ -2,35 +2,53 @@ module org/webdsl/dsl/languages/ui/declare
 
 strategies
 
-  declare-ui = declare-page-definition
-  declare-ui = declare-template-definition 
+  declare-ui = initial-declare-template-definition 
+  declare-ui = initial-declare-page-definition 
   declare-ui = declare-page-action
 
-strategies // register definitions
+strategies // inital declare for globally visible pages/templates
+
+  initial-declare-page-definition :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <with(<declare-page-definition>  def |[ define mod* x(farg1*) { elem1* } ]| )>
+    where <fetch(?Page())> mod*
+
+  initial-declare-template-definition :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <with(<declare-toplevel-template-definition>  def |[ define mod* x(farg1*) { elem1* } ]| )>
+    where not(<fetch(?Page())> mod*)
+        ; not(<fetch(?Email())> mod*)
+
+   /* no local declares here
+  declare-template-definition :
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* x(farg1*) { elem1* } ]| 
+    where (InPage <+ InTemplate)
+        ; not(<fetch(?Page())> mod*)
+        ; not(<fetch(?Email())> mod*)
+    with {| InTemplate
+          : <debug(!"local")> x;rules ( InTemplate := x )
+          ; <alltd(declare-template-definition)> elem1*
+          |}*/
+          
+rules
 
   declare-page-definition =
-    ?def@Define([Page()], name, args, body)
+    ?def@Define(mod*, name, args, body)
+    ; where(<fetch(?Page())> mod*)
     ; with(common-declare-template-rules)
-    ; where (
+    ; where(with (
       t1* := <map(?Arg(_,<id>))> args
       ; rules (
-          IsPage :+ name -> name
+          IsPage : name
           PageNames :+= name
           CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
         )
-    )
-
-  declare-template-definition =
-    ?def@Define(mods, name, fargs, body)
-    ; where ( 
-        fargs2 := <declare-generic-template-args> def
-      ; !Define(mods, name, fargs2, body)
-      ; with(common-declare-template-rules)
-    )
+    ))
 
   declare-toplevel-template-definition =
-    ?Define(mods, name, fargs, body)
-    ; where (
+    ?Define(mod*, name, fargs, body)
+    ; where(not(<fetch(?Page())> mod*))
+    ; where(not(<fetch(?Email())> mod*))
+    ; with(common-declare-template-rules)
+    ; where(with(
         t* := <map(?Arg(_,<id>))> fargs
       ; n := <strip-annos> name
       ; if not(<elem> ((n, t*), <bagof-TopLevelTemplateDefinitions> n)) then
@@ -40,15 +58,17 @@ strategies // register definitions
             TopLevelTemplateDefinitions :+ n -> (n, t*)
             OverloadedTemplateSignature : (n, t*) -> y
             CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
+            TopLevelTemplateArguments :+ n -> t* // used for overload resolution
           )
         end
-    )
-    ; declare-template-definition    
+    ))
 
   declare-local-template-definition =
-    ?def@Define(mods, name, fargs, body)
+    ?def@Define(mod*, name, fargs, body)
+    ; where(not(<fetch(?Page())> mod*))
+    ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
-    ; where ( 
+    ; where(with( 
         page := <InPage>
         ; t1* := <map(?Arg(_,<id>))> fargs
         ; n := <strip-annos> name
@@ -57,7 +77,7 @@ strategies // register definitions
             LocalTemplateSignature : (n, t1*) -> def
             EnclosingDefinition : name -> page
           )
-      )
+      ))
  
   declare-template-arg :
     Arg(x, s) -> Arg(x, s)
@@ -65,14 +85,29 @@ strategies // register definitions
         ; rules ( TemplateArguments :+ template -> Arg(x, s) ) 
      
   common-declare-template-rules :
-    def@Define(mods, name, fargs, body) -> def
+    def@Define(mods, name, fargs, body) -> Define(mods, name, fargs, body)
     with  t* := <map(?Arg(_,<id>))> fargs
         ; n := <strip-annos> name
+        ; genname := <generate-template-name> (n,t*)
         ; rules( TemplateSignature  : (n, t*) -> def
+                 TemplateNewName : (n,t*) -> genname //used for overload resolution
                  TemplateDefinition : n -> def // only for use in code gen when renaming is applied which makes the names unique
                  TemplateArguments  : n -> fargs //''
                )
         ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end // TODO: simplified lookup for generics
+
+rules 
+
+  generate-template-name :
+    (n,t*) -> name
+    with arg_part := <map(generate-template-name-helper)> t*
+       ; name := <concat-strings> [n | arg_part]
+       
+  generate-template-name-helper:
+    SimpleSort(s) -> s
+    
+  generate-template-name-helper:
+    GenericSort(x,[SimpleSort(s)]) -> <concat-strings> [x,s]
 
 /* implementation of more advanced checks for local redefinitions, eg check that there is always some def even when no global def defined 
         ; <declare-templates-called-from-template(|n,t*)> def

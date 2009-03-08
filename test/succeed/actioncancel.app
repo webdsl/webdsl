@@ -12,6 +12,10 @@ section datamodel
     body()
   }
   
+  define body() {
+    "default body"
+  }
+  
   var bob : User := User { username := "Bob"  email := "bob@gmail.com"};
   
   define page home()
