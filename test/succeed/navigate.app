@@ -14,6 +14,8 @@ section datamodel
     output(l.url)
     
     navigate(testpage(45,"bla",l)){"link to testpage"} 
+    
+    navigate("link to testpage", testpage(45,"bla",l)) //sugar for button, syntax like action button
        
     navigatebutton(testpage(45,"bla",l),"link to testpage") 
     
