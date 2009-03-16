@@ -23,14 +23,15 @@ rules
  // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
  // ; alltd(   process-action-checks )
   ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end)
-
+  ; warn-for-unused-rules
   
   process-page-checks://TODO substpagevars
-    def|[ define page x_ident(farg*){ elem* }       ]| -> 
+  d@def|[ define page x_ident(farg*){ elem* }       ]| -> 
     def|[ define page x_ident(farg*){ elem elem1* } ]|
     with // collect takes care of duplicates
-          listofchecks := <collect(\ elem|[acpagecheck(x,e)[]{}]| -> (x,e) \)> elem*
+          listofchecks := <collect(\TemplateCall("acpagecheck",[Var(x),e],[],[]){r}-> (x,e,r) \)> elem*
         ; e := <combine-checks> listofchecks
+        ; <warn-for-blocked-elements> (e,"page",x_ident,farg*)
         ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elem*
         ; elem1* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
                                             <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elem*
@@ -89,10 +90,11 @@ rules
 
   
   process-action-checks(|farg4*): //page farg
-    elem|[ action x_ident(farg*){ stat*  } ]| -> 
+  d@elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg2*){ stat3* } ]|
-    with  listofchecks := <collect(\ webdsl|[ acactioncheck(x,e); ]| -> (x,e) \)> stat*
+    with  listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
         ; e1 := <combine-checks> listofchecks
+        ; <warn-for-blocked-elements> (e1,"action",x_ident,farg*)
         ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
         ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1)
         ; farg5* := [farg6*,farg*] //TODO Duplicate names in farg
@@ -128,13 +130,14 @@ rules
           end
       
   process-template-checks:
-    def|[ define mod* x_ident(farg*){ elem* }  ]| -> <declare> def|[ define mod* x_ident(farg*){ elem2* } ]|
+    d@def|[ define mod* x_ident(farg*){ elem* }  ]| -> <declare> def|[ define mod* x_ident(farg*){ elem2* } ]|
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
         ; not(<fetch(?IgnoreAccessControl())> mod*)
-    with  listofchecks := <collect(\ elem|[actemplatecheck(x,e)]| -> (x,e) \)> elem*
+    with  listofchecks := <collect(\TemplateCall("actemplatecheck",[Var(x),e],[],[]){r} -> (x,e,r) \)> elem*
         ; e := <combine-checks> listofchecks
-        ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e) ]|} )))> elem*
+        ; <warn-for-blocked-elements> (e,"template",x_ident,farg*)
+        ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e)[]{} ]|} )))> elem*
         ; elem2* := elem* |[ if ( e ) { elem1* } ]|
  
   
@@ -168,9 +171,10 @@ rules
   //strategy that takes list of (groupname,check) tuples and creates the combination
   combine-checks=
     ?checks
+  ; where(with(map(Third;{x:?x;rules(AccessControlRuleUsed :+= x)}))) //register which rules are used, in order to produce warnings
   ; with (final-check := <AC-Policy-Expression<+!Name("anonymous")>
           ; groupnames := <collect(\Name(x)->x\)> final-check
-          ; groupchecks := <map({x:?x;<filter(?(x,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
+          ; groupchecks := <map({x:?x;<filter(?(x,_,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
   ; if <map(?[])> groupchecks
     then !False()
     else

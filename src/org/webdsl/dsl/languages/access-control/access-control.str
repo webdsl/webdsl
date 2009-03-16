@@ -42,8 +42,6 @@ rules
       //problem: template actions are handled earlier and this removes the acactioncheck, after template expansion the page actions are handled (which the template action has become) and since there is no longer an acactioncheck it becomes a false check around the earlier added template check
       //solution: do the page actions before template expansion too
       ; alltd(process-page-actions<+process-template-actions)
-      
-      //TODO ; where(warn-for-unused-rules)
     end
   ; alltd(remove-all( ?AccessControlDefinition(_,_) ))
     
@@ -94,7 +92,8 @@ rules
     
   create-page-rule(|x_rulegroup):
     r@acrule|[ rule page x_pagematchname(margs) { e acrule* } ]| -> r
-    with x_predname := <newname> "genpagepredicate"
+    with  rules(AccessControlRuleDeclared :+= r)
+        ; x_predname := <newname> "genpagepredicate"
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
         //null checks are added to predicates automatically
@@ -103,11 +102,12 @@ rules
         //; if <explode-string;not(elem('*'))> x_pagematchname then x_pagename:=x_pagematchname end
         ; rules( WeaveAccessControlPage :+
                    def|[ define page x_pagename(farg*) { elem* } ]| -> 
-                   def|[ define page x_pagename(farg*) { acpagecheck (x_rulegroup,x_predname(e*))
+                   def|[ define page x_pagename(farg*) { elem_acpagecheck
                                                          elem1* } ]|
                    where <match-names> (x_pagematchname,<strip-annos>x_pagename)
                        ; <match-arguments> (margs,<map(strip-annos)>farg*)
                    with  e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       ; elem_acpagecheck := TemplateCall("acpagecheck",[Var(x_rulegroup),ThisCall(x_predname,e*)],[],[]){r}
                        //nested actions
                        ; {| WeaveAccessControlAction:
                             <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
@@ -120,7 +120,8 @@ rules
           
   create-action-rule(|x_rulegroup,farg7*,nestingvars):
     r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
-    with  x_predname := <newname> "genactionpredicate"
+    with  rules(AccessControlRuleDeclared :+= r)
+        ; x_predname := <newname> "genactionpredicate"
         ; farg1* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg1*
         ; (farg8*,e1) := <substitute-parent-vars-1> (farg7*,e)
@@ -129,17 +130,19 @@ rules
         ; rules(   
             WeaveAccessControlAction :+
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
-              elem|[ action x_actionname(farg*) { acactioncheck(x_rulegroup,x_predname(e*));
+              elem|[ action x_actionname(farg*) { e_acactioncheck;
                                                   stat* } ]|
               where <match-names> (x_actionmatchname,<strip-annos>x_actionname)
                   ; <match-arguments> (margs,<map(strip-annos)>farg*)
                   //take length of specified arguments, these became the predicates formal arguments
               with  e* := <concat> [nestingvars,<map(get-varname-from-formarg);take(|specifiedargcount)> farg*]
+                  ; e_acactioncheck := ThisCall("acactioncheck",[Var(x_rulegroup),ThisCall(x_predname,e*)]){r}
           )
            
   create-template-rule(|x_rulegroup):
     r@acrule|[ rule template x_templatematchname(margs) { e acrule* } ]| -> r
-    with  x_predname := <newname> "gentemplatepredicate"
+    with  rules(AccessControlRuleDeclared :+= r)
+        ; x_predname := <newname> "gentemplatepredicate"
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
         //null checks are added to predicates automatically
@@ -148,7 +151,7 @@ rules
         //; if <explode-string;not(elem('*'))> x_templatematchname then x_templatename:=x_templatematchname end
         ; rules( WeaveAccessControlTemplate :+
                    def|[ define mod* x_templatename(farg*) { elem*  } ]| -> 
-                   def|[ define mod* x_templatename(farg*) { actemplatecheck (x_rulegroup,x_predname(e*))
+                   def|[ define mod* x_templatename(farg*) { elem_actemplatecheck
                                                              elem1* } ]|
                    where <match-names> (x_templatematchname,<strip-annos>x_templatename)
                        ; <match-arguments> (margs,<map(strip-annos)>farg*)
@@ -156,6 +159,7 @@ rules
                        ; not(<fetch(?Email())> mod*)
                        ; not(<fetch(?IgnoreAccessControl())> mod*)
                    with  e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
+                       ; elem_actemplatecheck := TemplateCall("actemplatecheck",[Var(x_rulegroup),ThisCall(x_predname,e*)],[],[]){r}
                        //nested actions
                        ; {| WeaveAccessControlAction:
                             <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
@@ -209,23 +213,3 @@ rules
                                 }
 
                             ]|)
-
-  
-//---------------------------------------------------------------------------  
-
-
-//  warn-for-unused-rules=
-//    !<All-AC-Rules<+![]>
-//    ; map(try(check-usage-of-rule))
-//  check-usage-of-rule=
-//    ?acr@AccessControlRule(checktype,matchstring,fargs,check,acrules)
-//    ; !(acr,<Used-AC-Rules<+![]>)
-//    ; not(elem)
-//   ; !AccessControlRule(checktype,matchstring,fargs,check,[])//don't show nested rules, that gives too much information
-//    ; pp-webdsl-to-string
-//    ; warn(|["warning: in access control rules: rule not used: "])
- /////////////////// 
- 
-
-//  generate-security-checks-from-target-var:
-//    Arg($ident,_) -> |[ acdecision.$ident := $ident; ]|
