@@ -23,7 +23,7 @@ rules
     <for-loop-counter-wrap-code-pil> 
     pil-stat*|[
           
-        ident.append("~inputident"+uniqueid);
+        ident = ident + e_inputident+uniqueid;
         
         if(ps.parammap[ident] != null)
         {
@@ -32,16 +32,17 @@ rules
         }
       
     ]|
-    with  inputident := <get-inputnumber-pil> tc
+    with  e_inputident := <get-inputnumber-pil; pil-wrap-string> tc
         ; x_temp := <newname> "temp"
         ; name := <pp-webdsl> e
         ; stat := <input-assignment-to-pil(|x_temp)> e
         
   text-length-check-pil(|x_temp,name) =
-    ! pil-stat* |[
+    e_name := <pil-wrap-string> name
+    ; ! pil-stat* |[
         String x_temp = ps.parammap[ident];
         if(x_temp.length>1000000) {
-          ps.getConversionErrorMessages().set("~name",x_temp+" is too long");
+          ps.conversionErrorMessages[e_name] = x_temp+" is too long";
           x_temp = null;
         }
       ]|
@@ -49,30 +50,25 @@ rules
   elem-to-pil : 
     tc@elem|[ inputText(e)[passign*]{} ]| ->
     <for-loop-counter-wrap-code-pil>
-    pil-stat* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
-    out.print("<textarea name=\""+x_temp+"\" "+e_attrs1+" class=\"inputTextarea\" >");
-    if(inSubmittedForm)
-    {
-      out.print(ps.parammap[x_temp]);
-    }
-    else
-    {
-      stat_exptostring*
-    }
-    out.print("</textarea>"); 
-    ]|
-    with  inputident := <get-inputnumber-pil> tc
+      pil-stat* |[ 
+        String x_temp = ident+e_inputident+uniqueid;
+        out.print("<textarea name=\""+x_temp+"\" "+e_attrs1+" class=\"inputTextarea\" >");
+        if(inSubmittedForm)
+        {
+          out.print(ps.parammap[x_temp]);
+        }
+        else
+        {
+          stat_exptostring*
+        }
+        out.print("</textarea>"); 
+      ]|
+    with  e_inputident := <get-inputnumber-pil; pil-wrap-string> tc
         ; stat_exptostring* := <to-page-string-pil> e
         ; x_temp := <newname> "temp"
         ; e_attrs1 := <to-html-attrs-pil> passign*        
     
   elem-to-pil :
-    elem |[ outputText(e)[passign*]{} ]| ->
-    pil-stat* |[ 
-      webdsl::markdown::MarkdownProcessor x_temp = new webdsl::markdown::MarkdownProcessor();
-      stat_exptostring*
-    ]|
-    with  x_temp := <newname> "temp"
-        ; stat_exptostring* := <to-page-string-pil(|<concat-strings>[x_temp,".markdown"])> e
+    elem |[ outputText(e)[passign*]{} ]| -> stat_exptostring*
+    with stat_exptostring* := <to-page-string-pil(|pil-qid|[ webdsl::encoders::encodeMarkdown ]|)> e
  

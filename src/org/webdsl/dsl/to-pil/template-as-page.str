@@ -17,7 +17,8 @@ rules
       ; if <is-list> cbds then cbd* := cbds else cbd* := [cbds] end
       ; <pil-emit>
           pil-decl|[
-            class page::x_Page {
+            @extend
+            class page::x_Page extends utils::PageServlet {
               cbd*
             }
           ]|
@@ -31,7 +32,6 @@ rules
   generate-pil-template-as-page :
     def|[ define mod* x_page (farg*) { elem* } ]| ->
     <pil-emit> pil-decl|[
-        @Partial
         class page::x_Page extends utils::PageServlet
         {
         
@@ -55,7 +55,7 @@ rules
           {
             var hiddens = new MutableString();
             hiddenParams(hiddens);
-            return hiddens.toString();
+            return hiddens.as<String>;
           }
           
           void hiddenPostParams(MutableString combinedparams){}
@@ -64,7 +64,7 @@ rules
           {
             var hiddens = new MutableString();
             hiddenPostParams(hiddens);
-            return hiddens.toString();
+            return hiddens.as<String>;
           }
           
           t_specialpagetemplate templateservlet = new t_specialpagetemplate();
@@ -82,7 +82,7 @@ rules
             
             initialize();
                           
-            templateservlet.render(ps, args, 1,(Map<String,Class>)application::templates.clone(),variables,actionclasses,theoutStream);
+            templateservlet.render(ps, args, 1,application::templates.clone(),variables,actionclasses,theoutStream);
           }
           
           void serve(webdsl::Request request, webdsl::Response response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,webdsl::util::File> fileUploads)
@@ -104,7 +104,7 @@ rules
               this.variables["_persist_flag_"] = false;
             
               initialize();
-              variablesGlobalAndSession = (Map<String, Object>)variables.clone();
+              variablesGlobalAndSession = variables.clone(); //.as<Map<String, Object>>;
               conversion();
               loadArguments();
               //initialize();
@@ -113,17 +113,17 @@ rules
               this.args = args;
               
               //call special pagetemplate
-              templateservlet.storeInputs(this, args, 1, (Map<String,Class>)application::templates.clone(),variables,actionclasses );
+              templateservlet.storeInputs(this, args, 1, application::templates.clone(),variables,actionclasses );
              
               var s = new webdsl::util::StringWriter();
               if(validated) {
-                templateservlet.handleActions(this, args, 1, (Map<String,Class>)application::templates.clone(),variables,actionclasses, out);
+                templateservlet.handleActions(this, args, 1, application::templates.clone(),variables,actionclasses, out);
               }
               if ( ( !this.hasExecutedAction || dbCacheCleared ) && !isAjaxApp) {
                 render(request,response);
               }
               if (isAjaxApp) {
-                response.writer.print("[" + s.toString()+ "{}]");
+                response.writer.print("[" + s.as<String>+ "{}]");
               }
                               
               storeSessionEntities();
@@ -132,7 +132,7 @@ rules
     
             }	
             catch (Exception ex) {
-              println("exception occured: "+ex.toString());	
+              println("exception occured: "+ex.as<String>);	
               //ex.printStackTrace();
               dbConn.rollback();
               
@@ -149,7 +149,7 @@ rules
             var s = new webdsl::util::StringWriter();
                 
             //call special pagetemplate render
-            templateservlet.render(this, args, 1,(Map<String,Class>)application::templates.clone(),variables,actionclasses,out);
+            templateservlet.render(this, args, 1,application::templates.clone(),variables,actionclasses,out);
 
             if(download != null) { 
               download();
@@ -159,7 +159,7 @@ rules
               response.setContentType("text/html");
               
               //s.flush();
-              sout.print(s.toString());
+              sout.print(s.as<String>);
             }   
           }
         }
@@ -169,7 +169,7 @@ rules
        ; e_pagename := StringLit(String([Chars(x_page)]))
        ; t_specialpagetemplate := SimpleType(QId("template", <ThisTemplateClassNamePil>))
        ; e* := <filter({\arg@farg|[ x : srt ]| -> pil-exp|[ x ]| \})> farg* //just pass args of page to special pagetemplate
-       ; stat1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> pil-stat|[ x = (x_arg) args[x_index]; ]|
+       ; stat1* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> pil-stat|[ x =  args[x_index].as<x_arg>; ]|
                                          where x_index := <subti;int-to-string> (index,1)
                                              ; x_arg := <argument-pil-type> arg
                                       \})> farg* //variables are generated in java-template-vars

@@ -4,19 +4,18 @@ imports
   libstrategolib 
   libwebdsl-front
 
-/*
 rules
 
   builtin-pil-type :
-    SimpleSort("Float") -> type|[ Float ]|
+    SimpleSort("Float") -> pil-type|[ Float ]|
     
 rules // java
 
   expression-to-pil :
-    Float(x) -> expr |[ ~float:Float(<concat-strings> [x1,"f"]) ]|
-    where x1 := <string-replace(|"f", "");string-replace(|"F", "")> x
+    Float(x) -> Float(<string-replace(|"f", "")> x)
 
 rules
+
   pil-element-id :
     tc@elem|[ inputFloat(e)[passign*]{} ]| -> tc{InputNumberPil(newid),anno*} 
     with  _{anno*} := tc
@@ -25,63 +24,60 @@ rules
   //load the input string and try to convert it to float, insert null if it fails and specify an error
   handle-actions-input-to-pil :
     tc@elem|[ inputFloat(e)[passign*]{} ]|->
-    <for-loop-counter-wrap-code> 
-    bstm*|[
+    <for-loop-counter-wrap-code-pil> 
+    pil-stat*|[
           
-        ident += "~inputident"+uniqueid;
+        ident = ident + e_inputident+uniqueid;
         
-        if(ps.getParammap().get(ident)!=null)
+        if(ps.parammap[ident]!=null)
         {
-            String name = ps.getParammap().get(ident);
+            String name = ps.parammap[ident];
 
-            Float x_temp;
+            Float x_temp = 0.0;
             
-            if(!(name.matches("-?\\d\\d*\\.\\d*")||name.matches("-?\\d\\d*")||name.matches("-?\\.\\d\\d*"))){
-              ps.getConversionErrorMessages().put("~name",name+" is not a valid decimal number");
-              x_temp = null;
+            if(!(webdsl::util::stringMatches(name, "-?\\d\\d*\\.\\d*")||webdsl::util::stringMatches(name, "-?\\d\\d*")||webdsl::util::stringMatches(name, "-?\\.\\d\\d*"))){
+              ps.conversionErrorMessages[e_name] = name+" is not a valid decimal number";
+              x_temp = -1.0;
             }
             else {
               try {
-                x_temp = Float.parseFloat(name);
+                x_temp = name.as<Float>;
               }
-              catch(NumberFormatException nfe) {
-                ps.getConversionErrorMessages().put("~name",name+" is outside of possible decimal number range");
-                x_temp = null;
+              catch(Exception nfe) {
+                ps.conversionErrorMessages[e_name] = name+" is outside of possible decimal number range";
+                x_temp = -1.0;
               }  
             }
             
-            bstm 
+            stat 
         }
       
     ]|
-    with  inputident := <get-inputnumber-pil> tc
+    with  e_inputident := <get-inputnumber-pil; pil-wrap-string> tc
         ; x_temp := <newname> "temp"
-        ; name := <pp-webdsl> e
-        ; bstm := <input-assignment-to-pil(|x_temp)> e      
+        ; e_name := <pp-webdsl; pil-wrap-string> e
+        ; stat := <input-assignment-to-pil(|x_temp)> e      
         
   elem-to-pil :
     tc@elem|[ inputFloat(e)[passign*]{} ]| ->
-    <for-loop-counter-wrap-code>
-    bstm* |[ 
-    String x_temp = ident+"~inputident"+uniqueid;
+    <for-loop-counter-wrap-code-pil>
+    pil-stat* |[ 
+    String x_temp = ident+e_inputident+uniqueid;
     out.print("<input name=\""+x_temp+"\" "+e_attrs1+" value=\"");
-    if(inSubmittedForm)
-    {
-      out.print(ps.getParammap().get(x_temp));
+    if(inSubmittedForm) {
+      out.print(ps.parammap[x_temp]);
     }
-    else
-    {
-      bstm_exptostring*
+    else {
+      stat*
     }
     out.print("\" />"); 
     ]|
-    with  inputident := <get-inputnumber-pil> tc
-        ; bstm_exptostring* := <to-page-string-pil> e
+    with  e_inputident := <get-inputnumber-pil; pil-wrap-string> tc
+        ; stat* := <to-page-string-pil> e
         ; x_temp := <newname> "temp"
         ; e_attrs1 := <to-html-attrs-pil> passign*
 
   elem-to-pil :
     elem|[ outputFloat(e)[passign*]{} ]|->
-    java |[ out.print(utils.HTMLFilter.filter(String.valueOf(e1))); ]|
+    pil-stat|[ out.print(webdsl::encoders::encodeHTML(e1.as<String>)); ]|
     with  e1 := <expression-to-pil> e
-    */

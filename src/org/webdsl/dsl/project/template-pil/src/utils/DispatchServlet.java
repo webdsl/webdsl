@@ -140,6 +140,13 @@ public class DispatchServlet extends HttpServlet {
                 webdsl.Response res = new webdsl.Response(wr);
                 //pageservlet.serve(r,res,parammap,parammapvalues,fileUploads);
                 pageservlet.serve(r,res,parammap,parammapvalues,null);
+                for(Object key : res.getHeaders().keySet()) {
+                    if(key.equals("Location")) {
+                        response.sendRedirect(res.getHeaders().get(key));
+                    } else {
+                        response.addHeader(key.toString(), res.getHeaders().get(key).toString());
+                    }
+                }
                 response.getWriter().write(res.getWriter().toString());
 
             }
