@@ -398,14 +398,18 @@ rules
      java|[
         {| x_Class x_var = (new x_Class()).setupForPropertyEvents(hibSession,out,ps); bstm* bstm_event* | x_var |}
      ]|
-     with  x_var := <newname> "var"
-         ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_var)| "cannot translate asssignment")> assigns
-         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var)
+     with  x_var := <newname> "objCr"{<newname> "objCr"}
+         ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_Class,x_var)| "cannot translate asssignment")> assigns
+         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var) // TODO take superclass constructor into account
      
-   field-assign-to-java-servlet(|x_var) :
-     ObjectPropertyAssignment(y_field, e1) -> java|[ x_var.y_set(e2); ]|
-     with  e2 := <expression-to-java-servlet> e1
-         ; y_set := <concat-strings>["set", <capitalize-string> y_field]
+   field-assign-to-java-servlet(|x_Class, x_var) :
+     ObjectPropertyAssignment(y_field, e1) -> result //java|[ x_var.y_set(e2); ]|
+     with  {| TypeOf,Rename,RenameType :
+             rename-bound-rules(|x_var,x_var,SimpleSort(x_Class))  //rules ( TypeOf : Qualified(x_var, y_field) -> type )
+           ; result := <assignment-to-java-servlet> Stat(Assignment(Qualified(x_var, y_field), e1)) //reuse normal translation, e.g. setting list properties are translated differently
+           |}
+         //  e2 := <expression-to-java-servlet> e1
+         //; y_set := <concat-strings>["set", <capitalize-string> y_field]
      
 rules //vars     
 
@@ -426,7 +430,7 @@ rules //vars
      FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e2 := <expression-to-java-servlet> e1
-	 // todo: only setupFor if derived property
+   // todo: only setupFor if derived property
 
    expression-to-java-servlet =
      call-to-java-servlet
