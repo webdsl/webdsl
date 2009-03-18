@@ -13,7 +13,7 @@ rules // formgroup, which don't use tables for layout
     <wrap-common-context-code>
     bstm* |[
       bstm1*
-      out.print("<fieldset "+e_attrs1+"><legend>");
+      out.print("<fieldset "+e_attrs1+" style=\"display:inline;\"><legend>");
       bstm_exptostring*
       out.print("</legend>");
       ps.enterFormGroupContext();
@@ -31,6 +31,18 @@ rules // formgroup, which don't use tables for layout
           end
         ; e_attrs1 := <to-html-attrs> passign*
 
+  elem-to-java-servlet :
+    TemplateCall("formgroupDoubleColumn", [],passign*, elems) ->
+    bstm* |[ 
+      out.print("<div "+e_attrs1+" style=\"clear:left; float:left;\">");
+      if(ps.inFormGroupContext()){ ps.getFormGroupContext().enterDoubleColumnContext(); }
+      bstm*
+      if(ps.inFormGroupContext()){ ps.getFormGroupContext().leaveDoubleColumnContext(); }
+      out.print("</div>");
+    ]|
+    with  e_attrs1 := <to-html-attrs> passign*
+        ; bstm*    := <elems-to-java-servlet> elems
+
 rules
 
   GenerateCodeJavaServlet = generate-java-servlet-formgroup-context-var; fail
@@ -44,22 +56,22 @@ rules
       public abstract class PageServlet {
         public String formGroupLeftSize = "150";
         
-        public java.util.Stack<utils.FormGroupContext> formGroupContexts = new java.util.Stack<utils.FormGroupContext>();
+        //public java.util.Stack<utils.FormGroupContext> formGroupContexts = new java.util.Stack<utils.FormGroupContext>();
 
         public utils.FormGroupContext getFormGroupContext() { 
-          return formGroupContexts.peek();
+          return (utils.FormGroupContext) tableContexts.peek();
         }
       
         public void enterFormGroupContext() { 
-          formGroupContexts.push(new utils.FormGroupContext());
+          tableContexts.push(new utils.FormGroupContext());
         }
       
         public void leaveFormGroupContext() { 
-          formGroupContexts.pop();
+          tableContexts.pop();
         }
       
         public boolean inFormGroupContext() { 
-          return !formGroupContexts.empty();
+          return !tableContexts.empty() && tableContexts.peek() instanceof utils.FormGroupContext;
         }
         
         public java.util.Stack<String> formGroupContextClosingTags = new java.util.Stack<String>();
@@ -67,15 +79,17 @@ rules
         public void formGroupContextsCheckEnter(PrintWriter out) {
           if(inFormGroupContext()){
             utils.FormGroupContext temp = getFormGroupContext();
-            if(temp.isInLeftContext()) {
-              out.print("<div style=\"clear:left; float:left; width: " + formGroupLeftSize + "px\">");
-              formGroupContextClosingTags.push("left");
-              temp.toRightContext();
-            }           
-            else {
-              out.print("<div style=\"float: left;\">");
-              formGroupContextClosingTags.push("right");
-              temp.toLeftContext();
+            if(!temp.isInDoubleColumnContext()){ // ignore defaults when in scope of a double column
+              if(temp.isInLeftContext()) {
+                out.print("<div style=\"clear:left; float:left; width: " + formGroupLeftSize + "px\">");
+                formGroupContextClosingTags.push("left");
+                temp.toRightContext();
+              }           
+              else {
+                out.print("<div style=\"float: left;\">");
+                formGroupContextClosingTags.push("right");
+                temp.toLeftContext();
+              }
             }
           }
         }
@@ -83,14 +97,16 @@ rules
         public void formGroupContextsCheckLeave(PrintWriter out) {
           if(inFormGroupContext()){
             utils.FormGroupContext temp = getFormGroupContext();
-            String tags = formGroupContextClosingTags.pop();
-            if(tags.equals("left")){
-              temp.toRightContext();
-              out.print("</div>");
-            }
-            else if(tags.equals("right")){
-              temp.toLeftContext();
-              out.print("</div>");
+            if(!temp.isInDoubleColumnContext()) {
+              String tags = formGroupContextClosingTags.pop();
+              if(tags.equals("left")){
+                temp.toRightContext();
+                out.print("</div>");
+              }
+              else if(tags.equals("right")){
+                temp.toLeftContext();
+                out.print("</div>");
+              }
             }
           }
         }
@@ -102,6 +118,24 @@ rules
         @Partial
         public void commonContextsCheckLeave(PrintWriter out) {
           formGroupContextsCheckLeave(out);
+        }
+        
+        public void formGroupContextsDisplayLeftEnter(PrintWriter out) {
+          if(inFormGroupContext()){
+            utils.FormGroupContext temp = getFormGroupContext();
+            out.print("<div style=\"clear:left; float:left; width: " + formGroupLeftSize + "px\">");
+            formGroupContextClosingTags.push("left");
+            temp.toRightContext();
+          }
+        }
+        
+        public void formGroupContextsDisplayRightEnter(PrintWriter out) {
+          if(inFormGroupContext()){
+            utils.FormGroupContext temp = getFormGroupContext();
+            out.print("<div style=\"float: left;\">");
+            formGroupContextClosingTags.push("right");
+            temp.toLeftContext();
+          }
         }
       }
     ]|
@@ -115,4 +149,21 @@ rules
       bstm*
       ps.formGroupContextsCheckLeave(out);
     ]|
+
+  //force display on left, used in label
+  wrap-formgroup-left-context-code :
+    bstm* ->
+    bstm* |[
+      ps.formGroupContextsDisplayLeftEnter(out);
+      bstm*
+      ps.formGroupContextsCheckLeave(out);
+    ]|
     
+  //force display on right, used in label
+  wrap-formgroup-right-context-code :
+    bstm* ->
+    bstm* |[
+      ps.formGroupContextsDisplayRightEnter(out);
+      bstm*
+      ps.formGroupContextsCheckLeave(out);
+    ]|    

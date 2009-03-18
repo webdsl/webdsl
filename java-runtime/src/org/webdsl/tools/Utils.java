@@ -146,4 +146,12 @@ public final class Utils {
     	}
     	return false;
     }
+    public static String secretDigest(String s){
+        org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
+        return temp.encryptPassword(s);
+    }
+    public static boolean secretCheck(String s1,String s2){
+    	org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
+    	return temp.checkPassword(s2,s1);
+    }
 }

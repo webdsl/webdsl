@@ -15,4 +15,17 @@ public class FormGroupContext {
   public void toRightContext() {
 	  inLeftContext = false;
   }
+  
+  public int inDoubleColumnContext = 0;
+  
+  public boolean isInDoubleColumnContext() {
+    return inDoubleColumnContext > 0;
+  }
+  public void enterDoubleColumnContext() {
+	  toLeftContext();  // after this start left
+	  this.inDoubleColumnContext++;
+  }
+  public void leaveDoubleColumnContext() {
+	  this.inDoubleColumnContext--;
+  }
 }
