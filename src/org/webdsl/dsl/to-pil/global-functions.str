@@ -6,85 +6,69 @@ imports
 imports
   libwebdsl-front
 
-strategies
-
-  dummy-rule = rules ( InFunctionPil := 1 )
-
-/*
 rules
 
-  GenerateCodeJavaServlet = generate-pil-global-functions; fail
+  GenerateCodePil = generate-pil-global-functions; fail
 
-  generate-pil-global-functions :
-    Application(qid, sections) ->
-    <emit-java-code> compilation-unit|[
-      package utils;
-  
-      import java.io.*;
-      import java.util.HashMap;
-  
-      import javax.servlet.*;
-      import javax.servlet.http.*;
-      import java.util.*;
-      import utils.*;
-      import pkgname.*;
-      import pkgname2.*;
-      import java.io.PrintWriter;
-  
-      public class GlobalFunctions {
-        private static org.hibernate.Session hibSession;
-        private static PageServlet ps = null;
-
-        ~*cbds*
+  generate-pil-global-functions =
+    ?Application(qid, sections)
+    ; with( <map(webdsl-function-to-pil-function)> <AllGlobalFunctions> )
+    /*<emit-pil> pil-decl|[
+      class utils::GlobalFunctions {
+        cbd*
       }
     ]|
     where not([] := <AllGlobalFunctions>) // fails if there are no global funcs, won't generate anything then
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
-        ; cbds* := <map(webdsl-function-to-pil-function)> <AllGlobalFunctions>
+        */
               
   webdsl-function-to-pil-function:
     function@Function(x, args, s, Block(stm*)) -> 
-    class-body-dec |[
-      public mod* t x#_(org.hibernate.Session hibSession, HashMap<String, Object> variables, param*,  PageServlet ps, PrintWriter out)  {
+    <pil-emit> pil-decl|[
+      t globalFunctions::x(webdsl::db::DatabaseSession dbConn, Map<String, Object> variables, farg*, utils::PageServlet ps, webdsl::util::StringWriter out)  {
         try {
-          bstm1*
-          bstm2*
-          bstm*
-          bstm3*
+          stat1*
+          stat2*
+          stat*
+          //stat3*
         } catch(Exception excep) {
-          throw new RuntimeException(excep);
+          throw new Exception(excep);
         }
       }
     ]|
-    with  {| InFunction:
-              rules( InFunction := <id> )
+    with  {| InFunctionPil
+            : rules( InFunctionPil := <id> )
             ; t      := <pil-type> s
-            ; param* := <map(arguments-to-pil)> args
-            ; bstm*  := <statements-to-pil> stm*
-            ; bstm1* := <get-global-vars-into-java-function>
-            ; bstm2* := <get-session-vars-into-java-function>
-            ; if JavaInEntity 
+            ; farg* := <map(arguments-to-pil)> args
+            ; stat*  := <statements-to-pil> stm*
+            ; stat1* := <get-global-vars-into-pil-function>
+            ; stat2* := <get-session-vars-into-pil-function>
+            /* @TODO figure this out
+            ; if InEntityPil
               then mod* := []
               else mod* := [ mod|[static]| ] end  
+            */
+            /*
             ; if SimpleSort("Void") := s   //TODO simply make this a void function instead of return int
-              then bstm3* := [java|[ return 0; ]| ]
-              else bstm3* := [] end     
+              then stat3* := [pil-stat|[ return 0; ]| ]
+              else stat3* := [] end
+            */
             |}
             
-  get-global-vars-into-java-function=
-    <map(get-global-vars-into-java-function-helper)> <AllGlobalVars>
+  get-global-vars-into-pil-function=
+    <map(get-global-vars-into-pil-function-helper)> <AllGlobalVars>
   
-  get-global-vars-into-java-function-helper:
-    elem |[ var x : srt := e ]| -> bstm |[ t x = (x_class) variables.get("~x"); ]| 
-    with  t := <pil-type> srt
-        ; x_class := <pil-type-name> srt 
+  get-global-vars-into-pil-function-helper:
+    elem |[ var x : srt := e ]| -> pil-stat|[ t x = variables[e_x].as<t>; ]| 
+    with t := <pil-type> srt
+       ; e_x := <pil-wrap-string> x
 
-  get-session-vars-into-java-function=
-    <map(get-session-vars-into-java-function-helper)> <SessionEntities>
+  get-session-vars-into-pil-function=
+    <map(get-session-vars-into-pil-function-helper)> <SessionEntities>
    
-  get-session-vars-into-java-function-helper:
-    def|[ session x { prop* fun* } ]| -> bstm |[ t x = (x_ent) variables.get("~x"); ]| 
+  get-session-vars-into-pil-function-helper:
+    def|[ session x { prop* fun* } ]| -> pil-stat|[ t x = variables[e_x].as<t>; ]| 
     with  x_ent := <capitalize-string> x
-        ; t := type |[ x_ent ]|
-        */
+        ; t := pil-type |[ entity::x_ent ]|
+        ; e_x := <pil-wrap-string> x
