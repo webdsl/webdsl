@@ -34,7 +34,7 @@ let
       with import nixpkgs {inherit system;};
 
       releaseTools.nixBuild {
-        name = "php-front";
+        name = "webdsl";
         src = tarball;
         buildInputs = [
           pkgconfig strategoPackages.aterm strategoPackages.sdf
