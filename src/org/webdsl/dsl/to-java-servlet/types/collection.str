@@ -157,8 +157,7 @@ rules //pages
     <wrap-input-java-code(|passign*)>
     bstm*|[
       ident += "~inputident"+uniqueid;
-      if(ps.getParammap().get(ident)!=null)
-      {
+      if(ps.getParammap().get(ident+"_isinput")!=null) {
         ~*<wrap-validation-context-code-store-inputs> bstm*|[
           t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
           bstm*
@@ -178,6 +177,7 @@ rules //pages
     bstm* |[ 
       String x_temp = ident+"~inputident"+uniqueid;
       ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
         out.print("<select name=\""+x_temp+"\"");
         ~*<connect-with-enclosing-label>
         out.print(">");
@@ -223,7 +223,12 @@ rules //pages
           ~*<wrap-validation-context-code-store-inputs> bstm*|[
             //e_clear;
             java.util.Set<t> x_tempset = new java.util.HashSet<t>();
-            if(ps.getParammapvalues().get(ident) != null){
+            if(ps.getParammapvalues().get(ident) == null) { //if none were submitted, remove all
+              ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
+                e_remove;
+              ]|
+            }
+            if(ps.getParammapvalues().get(ident) != null) {
               for(String elem : ps.getParammapvalues().get(ident))
               {
                 t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
@@ -314,8 +319,7 @@ rules // select from
     <wrap-input-java-code(|passign*)>
     bstm*|[
       ident += "~inputident"+uniqueid;
-      if(ps.getParammap().get(ident)!=null)
-      {
+      if(ps.getParammap().get(ident+"_isinput")!=null) {
         ~*<wrap-validation-context-code-store-inputs> bstm*|[
           t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(ps.getParammap().get(ident)));
           if(e8.contains(x_temp))
@@ -340,6 +344,7 @@ rules // select from
     bstm* |[ 
       String x_temp = ident+"~inputident"+uniqueid;
       ~*<render-error-messages-with-error-template(|java:expr|[ x_temp ]|,<ErrorTemplateInput>)> bstm*|[
+        out.print("<input type=\"hidden\" name=\""+x_temp+"_isinput"+"\" />");
         out.print("<select name=\""+x_temp+"\"");
         ~*<connect-with-enclosing-label>
         out.print(">");
@@ -380,34 +385,50 @@ rules // select from
           
   //GenericSort property select
   handle-actions-input-to-java-servlet :
-    tc@SelectFromList(e1, e7, passign*, elem*)  ->
+    tc@SelectFromList(e, e7, passign*, elem*)  ->
     <wrap-input-java-code(|passign*)>
     bstm*|[
         ident += "~inputident"+uniqueid;
         if(ps.getParammap().get(ident+"_isinput")!=null){
           ~*<wrap-validation-context-code-store-inputs> bstm*|[
-            e_clear; //@TODO replace with removes and adds as done for select
-            if(ps.getParammapvalues().get(ident) != null){
+            java.util.Set<t> x_tempset = new java.util.HashSet<t>();
+            if(ps.getParammapvalues().get(ident) == null) { //if none were submitted, remove all
+              ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
+                e_remove;
+              ]|
+            }
+            if(ps.getParammapvalues().get(ident) != null) {
               for(String elem : ps.getParammapvalues().get(ident))
               {
                 t x_temp = (x_argtype) hibSession.load(x_argtype.class, java.util.UUID.fromString(elem));
-                if(e8.contains(x_temp)) {
-                  e_add;  
-                } 
+                x_tempset.add(x_temp);
               }
-            }
+              ~*<wrap-in-for-loop(|x_temp,t,e1)> bstm* |[
+                if(!x_tempset.contains(x_temp)){
+                  e_remove;
+                }
+              ]|
+              ~*<wrap-in-for-loop(|x_temp,t,expr |[ x_tempset ]| )> bstm* |[
+                if(!e1.contains(x_temp) && e8.contains(x_temp)){   //TODO only line different form select, refactor
+                  e_add;
+                }
+              ]|
+            }            
           ]|
         }
     ]|
-    where GenericSort(_, [srt]) := <type-of> e1
+    where GenericSort(_, [srt]) := <type-of> e
     with  inputident := <get-inputnumber> tc
+        ; e1 := <expression-to-java-servlet> e
         ; x_temp := <newname> "temp"
+        ; x_tempset := <newname> "temp"
         ; t       := <java-type> srt
         ; x_argtype := <java-type-name> srt
         //; bstm* := <input-assignment-to-java-servlet(|x_temp)> e1
-        ; e_add := <expression-to-java-servlet> webdsl:e |[ e1.add(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
         ; e8 := <expression-to-java-servlet> e7
-        ; e_clear := <expression-to-java-servlet> webdsl:e |[ e1.clear() ]| //reuse expression translation for inverse relation clear operation
+        //; e_clear := <expression-to-java-servlet> webdsl:e |[ e1.clear() ]| //reuse expression translation for inverse relation clear operation
+        ; e_add := <expression-to-java-servlet> webdsl:e |[ e.add(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
+        ; e_remove := <expression-to-java-servlet> webdsl:e |[ e.remove(x_temp) ]| //reuse expression translation for inverse relation add/remove operations
     
   elem-to-java-servlet : 
     tc@SelectFromList(e1, e7, passign*, elem*) ->
