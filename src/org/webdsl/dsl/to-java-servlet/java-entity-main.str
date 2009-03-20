@@ -441,6 +441,7 @@ rules // set or list of defined entity without inverse
         ; tableName   := <concat-strings> [x_class, "_", x_prop, "_", ss]
               
 rules //one-to-one
+// In this case the owning side is determined by the annotation.
 
    // bidirectional one-to-one controlling side
    association-annotations(|x_class, x_prop, annos) :
@@ -450,7 +451,7 @@ rules //one-to-one
        anno|[ @JoinColumn(name="~x_fk") ]|
      ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+         ; <fetch(?InverseAnno(ent, fld))> annos
          ; SimpleSort(yy)                := <type-of-property> (ent, fld)
          ; x_fk                          := <concat-strings> [x_class, "_", x_prop]
 
@@ -461,7 +462,7 @@ rules //one-to-one
        anno|[ @OneToOne(mappedBy="~mappedby",fetch=javax.persistence.FetchType.LAZY) ]|
      ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+         ; <fetch(?InverseSlaveAnno(ent, fld))> annos
          ; SimpleSort(yy) := <type-of-property> (ent, fld)
          ; mappedby       := <concat-strings> ["_", fld]
 
@@ -523,6 +524,7 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
 
 rules   // Many-to-Many associations Set-Set
+// In this case the owning side is determined by the annotation.
 
    // bidirectional many-to-many controlling side
    association-annotations(|x_class, x_prop, annos) :
@@ -534,7 +536,7 @@ rules   // Many-to-Many associations Set-Set
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
       ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; <fetch(?InverseAnno(ent, fld))> annos 
         ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
@@ -547,7 +549,7 @@ rules   // Many-to-Many associations Set-Set
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
        ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+         ; <fetch(?InverseSlaveAnno(ent, fld))> annos
          ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
@@ -689,23 +691,6 @@ rules //associations
     with  t_y       := <java-type> SimpleSort(y)
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
-  
-  /* this might be necessary for supporting inverse when directly setting collection property, eg when using listcreation      
-  inverse-mutation-in-setter :
-    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
-    bstm* |[
-        t oldthing = get#x_prop();
-        while(!oldthing.isEmpty()){
-          removeFrom#x_prop(oldthing.iterator().next());
-        }
-        for(t_y a : newitem){
-          addTo#x_prop(a);
-        }
-    ]|
-    where <collect(?InverseSlaveAnno(_, _) + ?InverseAnno(_, _));not(?[])> annos
-    with  t_y       := <java-type> SimpleSort(y)
-        ; t         := <java-type> s
-  */
   
   collection-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
@@ -880,89 +865,3 @@ rules //associations
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
         ; SimpleSort(_) := <type-of-property> (x_c, x_p)
         
-  
-/* 
-  // one-to-many
-  bidirectional-association-setter :
-    Property(prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
-      bstm* |[
-        for (t1 var1 : this.x_items()) {
-            var1.x_set(null);
-      }
-        for (t1 var1 : x_prop) {
-            if (var1.x_get() != this) {
-            var1.x_set(this);
-          }
-      }
-      ]|
-    where [InverseSlaveAnno(ent, fld) | xs] := <collect(?InverseSlaveAnno(_, _))> annos
-        ; <?"Set" <+ ?"List"> coll
-    with  SimpleSort(x_Class) := <type-of-property> (ent, fld)
-        ; t1					:= <java-type> SimpleSort(y)
-        ; x_set  				:= <property-setter> fld
-        ; x_get  				:= <property-getter> fld
-        ; x_prop 				:= <concat-strings>["_", prop]
-        ; x_items               := <property-getter> prop
-
-   // many-to-many
-   bidirectional-manytomany-setter(|x_listvar) :
-    Property(prop, k, s@GenericSort(coll1, [SimpleSort(y)]), annos) ->
-      bstm* |[
-          for (t1 var1 : this.x_prop()) {
-            if (!x_listvar.contains(var1)) {
-              var1.x_removeFrom(this);
-            }
-        }
-        for (t1 var1 : x_listvar) {
-          if (!this.x_prop().contains(var1)) {
-              var1.x_addTo(this);
-            }
-        }
-      ]|
-    where [name#([ent, fld])] := <filter(?InverseSlaveAnno(_, _))> annos
-        ; GenericSort(coll2, [SimpleSort(x_Class)]) := <type-of-property> (ent, fld)
-        ; <?"Set" <+ ?"List"> coll1
-        ; <equal> (coll1, coll2)
-    with  t1				  := <java-type> SimpleSort(y)
-        ; x_addTo             := <concat-strings> ["addTo", <capitalize-string> fld]
-        ; x_removeFrom        := <concat-strings> ["removeFrom", <capitalize-string> fld]
-        ; x_var 			  := <concat-strings>["_", prop]
-        ; x_prop 			  := <property-getter> prop
-
-   // many-to-one
-   bidirectional-association-setter :
-    Property(prop, k, SimpleSort(y), annos) ->
-      bstm* |[
-        if (x_prop != null && !x_prop.x_get().contains(this)) {
-          x_prop.x_addTo(this);
-        }
-      ]|
-    where [InverseAnno(ent, fld)] := <filter(?InverseAnno(_, _))> annos
-        ; GenericSort(coll, [SimpleSort(x_Class)]) := <type-of-property> (ent, fld)
-        ; <?"Set" <+ ?"List"> coll
-    with  x_addTo               := <concat-strings> ["addTo", <capitalize-string> fld]
-        ; x_prop 				:= <concat-strings>["_", prop]
-        ; x_get                 := <property-getter> fld
-
-   // one-to-one
-   bidirectional-association-setter :
-    Property(prop, k, SimpleSort(y), annos) ->
-      bstm* |[
-        if (x_prop != null && x_prop.x_get() != this) {
-          x_prop.x_set(this);
-        }
-      ]|
-    where [name#([ent, fld])] := <filter(?InverseAnno(_, _) + ?InverseSlaveAnno(_, _))> annos
-        ; SimpleSort(x_Class) := <type-of-property> (ent, fld)
-    with  x_prop 		      := <concat-strings>["_", prop]
-        ; x_get               := <property-getter> fld
-        ; x_set               := <property-setter> fld
-*/
-/*
-rules
-
-   functions-to-code(|x_Class) :
-    functions -> fcbsl
-    where fcbsl := <filter-concat-warn(function-to-function-code(|x_Class)
-                    | "cannot generate code for function: ")> functions
-*/
