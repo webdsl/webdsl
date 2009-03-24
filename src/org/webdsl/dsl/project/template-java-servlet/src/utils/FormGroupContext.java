@@ -28,4 +28,17 @@ public class FormGroupContext {
   public void leaveDoubleColumnContext() {
 	  this.inDoubleColumnContext--;
   }
+  
+  public int inColumnContext = 0;
+  
+  public boolean isInColumnContext() {
+	  return inColumnContext > 0;
+  }
+  public void enterColumnContext() {
+	  toLeftContext();  // after this start left
+	  this.inColumnContext++;
+  }
+  public void leaveColumnContext() {
+	  this.inColumnContext--;
+  }
 }
