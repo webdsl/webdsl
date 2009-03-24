@@ -146,6 +146,10 @@ public final class Utils {
     	}
     	return false;
     }
+    private static java.util.regex.Pattern cleanUrlPattern = java.util.regex.Pattern.compile("[a-zA-Z0-9-]*");  
+    public static boolean isCleanUrl(String s){
+    	return cleanUrlPattern.matcher(s).matches();
+    }
     public static String secretDigest(String s){
         org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
         return temp.encryptPassword(s);
