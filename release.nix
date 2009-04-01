@@ -39,8 +39,7 @@ let
         buildInputs = [
           pkgconfig strategoPackages.aterm strategoPackages.sdf
           strategoPackages.strategoxt strategoPackages.javafront
-          apacheAnt
-        ];
+        ] ++ lib.optional stdenv.isLinux apacheAnt;
       };
 
 
