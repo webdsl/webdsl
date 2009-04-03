@@ -1,4 +1,4 @@
-// should be of type 
+//should be a collection of type 
 
 application test
 
