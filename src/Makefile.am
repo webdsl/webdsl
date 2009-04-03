@@ -175,7 +175,7 @@ lib_LTLIBRARIES  = libwebdsl-front.la
 
 libwebdsl_front_la_SOURCES = libwebdsl-front.c
 libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0
-libwebdsl_front_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libwebdsl_front_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
@@ -197,7 +197,7 @@ lib_LTLIBRARIES  += libwebdsl-generator.la
 
 libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
 libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0
-libwebdsl_generator_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libwebdsl_generator_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
@@ -219,7 +219,7 @@ lib_LTLIBRARIES  += libto-java-servlet.la
 
 libto_java_servlet_la_SOURCES = libto-java-servlet.c
 libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0
-libto_java_servlet_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libto_java_servlet_la_LDFLAGS  = $(AM_LDFLAGS)
 libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
@@ -241,7 +241,7 @@ lib_LTLIBRARIES  += libto-py-gae.la
 
 libto_py_gae_la_SOURCES = libto-py-gae.c
 libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0
-libto_py_gae_la_LDFLAGS  = -avoid-version -no-undefined $(AM_LDFLAGS)
+libto_py_gae_la_LDFLAGS  = $(AM_LDFLAGS)
 libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
