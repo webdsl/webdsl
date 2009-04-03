@@ -1,19 +1,9 @@
-//should be a collection of type 
-
+//collection in for-expression does not contain declared type
 application test
 
-section data
-  entity Stringholder {
-    string :: String
-  }
-
-section functions
-
-globals {
-  function do() {
-    var list : List<String>;
-    for(item : String in "fiets") {
-      var a : String := "dinges";
+  define page home() {
+    var list : List<String> := [ entity | i : String in [1,2,3] ];
+    for(item : String in list) {
+      output(item)
     } 
   }
-}
