@@ -107,84 +107,46 @@ rules // if
 rules // for
 
    while-to-java-servlet :
-     WhileStmt(e1, bstm1) -> stm|[ while(e2) { ~bstm2 } ]|
+     WhileStmt(e1, bstm1) -> 
+     stm|[ 
+       while(e2) { 
+         ~bstm2 
+       } 
+     ]|
      with e2    := <expression-to-java-servlet> e1
         ; bstm2 := <statement-to-java-servlet> bstm1
 
    for-to-java-servlet :
-     ForCountStmt(x, e1, e2, bstm1) -> stm|[
-       {
-         int x = e3; //x has been renamed already
-         int x_bound = e4;
-         while(x < x_bound) {
-           ~bstm2
-           x = x + 1;
-         }
+     ForCountStmt(x, e1, e2, Block(stat*)) -> 
+     bstm*|[
+       int x = e3; //x has been renamed already
+       int x_bound = e4;
+       while(x < x_bound) {
+         bstm*
+         x = x + 1;
        }
      ]|
      with x_bound := <newname> "stop"
         ; e3 := <expression-to-java-servlet> e1
         ; e4 := <expression-to-java-servlet> e2
-        ; bstm2 := <statement-to-java-servlet> bstm1
+        ; bstm* := <statements-to-java-servlet> stat*
 
    for-to-java-servlet : // No where clause, with order by clause
-     ForStmt(x, s, e1, Filter(True(), obe1, l), bstm1) -> 
-     stm|[
-        {
-          java.util.ArrayList<t1> x_lst = new java.util.ArrayList<t1>(e2);
-          Collections.sort(x_lst, new Comparator<t1>() {
-            public int compare(t1 o1, t1 o2) {
-              stm1
-            }
-          });
-          ~*<wrap-in-for-loop(|x,t1,expr|[ x_lst ]|)>
-          bstm |[  
-            ~bstm2
-          ]|
-        } 
+     ForStmt(x, s, e1, fltr, Block(stat*)) ->
+     bstm*|[
+        java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
+        bstm_order*
+        ~*<wrap-in-for-loop(|x, t, expr|[ x_list ]|)>
+        bstm* |[  
+          bstm*
+        ]|
      ]|
-     where not(<?OrderAscending(Null())> obe1)
      with  e2 := <expression-to-java-servlet> e1
-         ; t1 := <java-type> s
-         ; x_lst := <newname> "lst"
-         ; bstm2 := <statement-to-java-servlet> bstm1
-         ; if <?OrderAscending(_)> obe1 
-           then stm1 := java|[ return o1.compareTo(o2); ]|
-           else stm1 := java|[ return o2.compareTo(o1); ]| end
+         ; t := <java-type> s
+         ; x_list := <newname> "lst"
+         ; bstm* := <statements-to-java-servlet> stat*
+         ; bstm_order* := <for-filter-by-code(|x, t, x_list)> fltr
 
-   for-to-java-servlet : // No where clause, no order by clause
-     ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> 
-     stm|[
-       {
-         ~*<wrap-in-for-loop(|x,t1,e2)>
-         bstm |[  
-           ~bstm2
-         ]|
-       }
-     ]|
-     with  e2 := <expression-to-java-servlet> e1
-         ; t1 := <java-type> s
-         ; bstm2 := <statement-to-java-servlet> bstm1
-
-   for-to-java-servlet : // With where clause
-     ForStmt(x, s, e1, Filter(we, obe1, l), bstm1) ->
-     stm|[
-       {
-         ~*<wrap-in-for-loop(|x,t1,e2)>
-         bstm |[  
-           if(e3){
-             ~bstm2
-           }
-         ]|
-       }
-     ]|
-     where not(True() := we)
-     with  e2 := <expression-to-java-servlet> e1
-         ; e3 := <expression-to-java-servlet> we
-         ; t1 := <java-type> s
-         ; t2 := <java-type> s
-         ; bstm2 := <statement-to-java-servlet> bstm1
-         
   for-to-java-servlet :
     fa@ForAllStmt(x, srt, fltr@Filter(wherecl, orderby, limit), Block(stat*)) ->
     bstm* |[
@@ -198,7 +160,7 @@ rules // for
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
-        ; bstm_order* := <for-filter-by-code(|x, t , x_list)> fltr
+        ; bstm_order* := <for-filter-by-code(|x, t, x_list)> fltr
           
   for-filter-by-code(|x, t, x_list) :
     fltr -> bstm* |[
@@ -206,9 +168,9 @@ rules // for
       bstm_order* 
       bstm_limit*
     ]|
-    with  bstm_where* := <for-filter-by-code-where(|x, t, x_list)> fltr
-        ; bstm_order* := <for-filter-by-code-order-by(|x, t, x_list)> fltr
-        ; bstm_limit* := <for-filter-by-code-limit(|x, t, x_list)> fltr
+    with  bstm_where* := <?Filter(True(),_,_);![] <+ for-filter-by-code-where(|x, t, x_list)> fltr
+        ; bstm_order* := <?Filter(_,OrderAscending(Null()),_);![] <+ for-filter-by-code-order-by(|x, t, x_list)> fltr
+        ; bstm_limit* := <?Filter(_,_,Limit(Int("-1"), Int("0")));![] <+for-filter-by-code-limit(|x, t, x_list)> fltr
          
   for-filter-by-code-where(|x, t, x_list) :
     Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
@@ -248,22 +210,12 @@ rules // for
         ; tmp := <newname> "tmp"
 
   for-filter-by-code-limit(|x, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+    f@Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
       int x_lim = e1;
       int x_off = e2;
       int x_rm = 0;
       ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        if(x_i >= x_off){ 
-          if(x_lim <= 0) {
-            x_list.remove(x_i - x_rm);
-            x_rm++;
-          }
-          x_lim--;
-        }
-        else{
-          x_list.remove(x_i - x_rm);
-          x_rm++;
-        }
+        ~*<for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i)> f
       ]|  
     ]|
     with  e1 := <expression-to-java-servlet> limit
@@ -272,6 +224,37 @@ rules // for
         ; x_lim := <newname> "limit"
         ; x_off := <newname> "offset"
         ; x_rm := <newname> "removedcount"
+        
+  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+      if(x_i >= x_off){ 
+        ~*<for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
+      }
+      else{
+        x_list.remove(x_i - x_rm);
+        x_rm++;
+      }
+    ]|
+    where not(<?Int("0")> offset)
+ 
+  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> 
+    <for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
+    where <?Int("0")> offset
+        
+  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+      if(x_lim <= 0) {
+        x_list.remove(x_i - x_rm);
+        x_rm++;
+      }
+      x_lim--;
+    ]|
+    where not(<?Int("-1")> limit)
+    
+  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> []
+    where <?Int("-1")> limit
 
 rules // return
 
