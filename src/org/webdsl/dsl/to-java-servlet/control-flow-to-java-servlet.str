@@ -22,6 +22,11 @@ rules // iteration
     ]|
     
   wrap-in-for-loop(|x,t,e) :
+    bstm -> res
+    with  x_i := <newname> "i"
+        ; res := <wrap-in-for-loop(|x_i,x,t,e)> bstm
+  
+  wrap-in-for-loop(|x_i,x,t,e) :
     bstm ->
     bstm* |[
       Object[] x_array = e.toArray(); // need to iterate set too without iterator, this copied array also makes sure a remove on the collection doesn't cause skipped elements
@@ -32,7 +37,6 @@ rules // iteration
       }
     ]|
     with  x_array := <newname> "array"
-        ; x_i := <newname> "i"
         ; x_argtype := <pp-java5-to-string> t
         ; if <is-list> bstm
           then bstm* := bstm
@@ -104,20 +108,12 @@ rules // iteration
     bstm* |[
       inForLoop = true;
       forLoopCounter++;
-      
-      java.util.List<t> x_list;    
-      if(queryCache.containsKey(e_queryid)) {
-        x_list = queryCache.get(e_queryid);
-      } else {
-        x_list = e_criteria.list();
-        queryCache.put(e_queryid, x_list);
-      }
+      java.util.List<t> x_list = e_criteria.list();
+      bstm_order*
       ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
       bstm* |[  
         forelementcounter++;
-        if(e2){ 
-          bstm*
-        }
+        bstm*
       ]|
       forLoopCounter--;
       if(forLoopCounter == 0)
@@ -126,18 +122,8 @@ rules // iteration
     with bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
-        ; e2 := <expression-to-java-servlet> we
-        ; if <HibernateQueryId> fa then
-            queryid := <HibernateQueryId> fa
-          else
-            queryid := <newname> "query"
-            ; rules ( HibernateQueryId : fa -> queryid )
-          end
-        ; e_queryid := expr|[ "~queryid" ]|
-        ; e_criteria := <hibernate-forall-criteria> (fa, t, fltr)
-        //; info(|["Criteria: ", <topdown(try(strip-annos)); PropertiesToJoin <+ ![]> fa])
-//        ; info(|["For ", <pp-webdsl> fa, " join: ", ])
-        // setFetchMode("_author", org.hibernate.FetchMode.JOIN)
+        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
+        ; bstm_order* := <for-filter-by-code(|x, t , x_list)> fltr
 
 rules // if
 

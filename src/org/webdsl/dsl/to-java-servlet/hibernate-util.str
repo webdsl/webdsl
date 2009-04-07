@@ -10,8 +10,42 @@ imports
 rules
 
   hibernate-forall-criteria :
-    (term{JoinProperties(joinproperties)}, t, filter) -> expr|[ e_criteria ]|
-    with e_criteria := <foldr(!expr|[ hibSession.createCriteria(t.class) ]|, \ (str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]| \)> joinproperties
+    (term{JoinProperties(joinproperties)}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
+    with  e_criteria := <foldr(!expr|[ hibSession.createCriteria(t.class).setCacheable(true) ]|,hibernate-forall-criteria-join)> joinproperties
+        //try on next line since not all ordering can be translated to query
+        /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
+    
+  hibernate-forall-criteria-join:
+    (str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
+
+  /**
+   * Hibernate optimization below on hold, Zef is working on a replacement ORM
+   */
+  hibernate-forall-criteria-filter(|x,srt) = hibernate-forall-criteria-filter
+  
+  hibernate-forall-criteria-filter: 
+    (Limit(limit,first), e) -> expr|[ e.setFirstResult(e_first).setMaxResults(e_limit) ]|
+    with  e_limit := <expression-to-java-servlet> limit
+        ; e_first := <expression-to-java-servlet> first
+
+  hibernate-forall-criteria-filter(|x,srt) =
+    // if the order clause is simply a property, then the query can do the ordering   
+    hibernate-forall-criteria-order-is-prop(|x,srt)
+  <+\(OrderDescending(Null()), e) -> e\
+  <+\(OrderAscending(Null()), e) -> e\
+  
+  hibernate-forall-criteria-order-is-prop(|x,srt) :
+    (OrderDescending(orderexp), e) -> <hibernate-forall-criteria-order-is-prop-helper(|x,srt,"desc")> (orderexp, e)
+     
+  hibernate-forall-criteria-order-is-prop(|x,srt) :
+    (OrderAscending(orderexp), e) -> <hibernate-forall-criteria-order-is-prop-helper(|x,srt,"asc")> (orderexp, e)
+
+  hibernate-forall-criteria-order-is-prop-helper(|x,srt,x_order) :
+    (orderexp, e) -> expr|[ e.addOrder(org.hibernate.criterion.Order.x_order("~<concat-strings> ["_",prop]")) ]|
+    with  SimpleSort(ent) := srt
+    where FieldAccess(var,prop) := orderexp
+        ; Var(x) := var
+        ; <type-of-property> (ent,prop)
 
 rules
 

@@ -148,11 +148,9 @@ rules // for
          ; t1 := <java-type> s
          ; x_lst := <newname> "lst"
          ; bstm2 := <statement-to-java-servlet> bstm1
-         ; if <?OrderAscending(_)> obe1 then
-             stm1 := java|[ return o1.compareTo(o2); ]|
-           else
-             stm1 := java|[ return o2.compareTo(o1); ]|
-           end
+         ; if <?OrderAscending(_)> obe1 
+           then stm1 := java|[ return o1.compareTo(o2); ]|
+           else stm1 := java|[ return o2.compareTo(o1); ]| end
 
    for-to-java-servlet : // No where clause, no order by clause
      ForStmt(x, s, e1, Filter(True(), OrderAscending(Null()), l), bstm1) -> 
@@ -187,22 +185,93 @@ rules // for
          ; t2 := <java-type> s
          ; bstm2 := <statement-to-java-servlet> bstm1
          
-  for-to-java-servlet : // No where clause, no order by clause
-    fas@ForAllStmt(x, srt, fltr@Filter(we, obe, l), Block(stat*)) ->
+  for-to-java-servlet :
+    fa@ForAllStmt(x, srt, fltr@Filter(wherecl, orderby, limit), Block(stat*)) ->
     bstm* |[
-      java.util.List x_list = e_criteria.list();
-      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
-      bstm |[  
-        if(e2) {
-          bstm*
-        }
+      java.util.List<t> x_list = e_criteria.list();
+      bstm_order*
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)> bstm*|[ 
+        bstm* 
       ]|
     ]|
     with  bstm*   := <statements-to-java-servlet> stat*
         ; t       := <java-type> srt
-        ; e_criteria := <hibernate-forall-criteria> (fas, t, fltr)
-        ; e2 := <expression-to-java-servlet> we
         ; x_list := <newname> "list"
+        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
+        ; bstm_order* := <for-filter-by-code(|x, t , x_list)> fltr
+          
+  for-filter-by-code(|x, t, x_list) :
+    fltr -> bstm* |[
+      bstm_where* 
+      bstm_order* 
+      bstm_limit*
+    ]|
+    with  bstm_where* := <for-filter-by-code-where(|x, t, x_list)> fltr
+        ; bstm_order* := <for-filter-by-code-order-by(|x, t, x_list)> fltr
+        ; bstm_limit* := <for-filter-by-code-limit(|x, t, x_list)> fltr
+         
+  for-filter-by-code-where(|x, t, x_list) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+      int x_rm = 0;
+      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
+        if(!e2) {
+          x_list.remove(x_i - x_rm);
+          x_rm++;
+        }
+      ]|  
+    ]|
+    with  e2 := <expression-to-java-servlet> wherecl
+        ; x_i := <newname> "i"
+        ; x_rm := <newname> "removedcount"
+      
+  for-filter-by-code-order-by(|x, t, x_list) :
+    Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
+      for(t tmp : x_list){
+        // setup needed because derived properties might need context such as hibSession for queries
+        tmp.setupForPropertyEvents(hibSession, out, ps); 
+      }
+      java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
+        public int compare(t o1, t o2) {
+          //have to be nulled to prevent compiler errors related to anonymous inner classes, but have already been set in for loop above
+          org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+          java.io.PrintWriter out = new java.io.PrintWriter(new java.io.StringWriter());
+          PageServlet ps = null;
+          stm
+        }
+      });
+    ]|
+    with  e1 := <alltd(\Var(x) -> Var("o1")\);expression-to-java-servlet> exp
+        ; e2 := <alltd(\Var(x) -> Var("o2")\);expression-to-java-servlet> exp
+        ; if <?"OrderDescending"> ordertype
+          then stm := java|[ return (e2).compareTo(e1); ]|
+          else stm := java|[ return (e1).compareTo(e2); ]| end
+        ; tmp := <newname> "tmp"
+
+  for-filter-by-code-limit(|x, t, x_list) :
+    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+      int x_lim = e1;
+      int x_off = e2;
+      int x_rm = 0;
+      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
+        if(x_i >= x_off){ 
+          if(x_lim <= 0) {
+            x_list.remove(x_i - x_rm);
+            x_rm++;
+          }
+          x_lim--;
+        }
+        else{
+          x_list.remove(x_i - x_rm);
+          x_rm++;
+        }
+      ]|  
+    ]|
+    with  e1 := <expression-to-java-servlet> limit
+        ; e2 := <expression-to-java-servlet> offset
+        ; x_i := <newname> "i"
+        ; x_lim := <newname> "limit"
+        ; x_off := <newname> "offset"
+        ; x_rm := <newname> "removedcount"
 
 rules // return
 
