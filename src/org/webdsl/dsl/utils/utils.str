@@ -106,11 +106,8 @@ strategies
 
   java-file-to-file =
     ? JavaFile(name, doc)
-    ; (
-        java-file-to-text-file
-        ; text-file-to-file
-        <+ 
-          <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
+    ; (  java-file-to-text-file
+      <+ <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
       )
 
   //java-file-to-text-file :
@@ -120,14 +117,28 @@ strategies
   //	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
 
   java-file-to-text-file :
-    JavaFile(prefix, cu) -> TextFile(filename, text)
+    jf@JavaFile(prefix, cu) -> jf
     where pkg      := <package-name> cu
         ; name     := <class-name> cu
         ; path     := <conc; create-dirs> (prefix, pkg)
         ; filename := <concat-strings> [path, "/", name, ".java"]
         ; java     := <java-concat-ids; core-lift-eblocks> cu
-        ; text     := <pp-java5-to-string> java
-
+        ; box      := <pp-java5-to-abox> java
+        ; file     := <fopen> (filename, "w")
+        ; <box2text-stream(|80, file)> box
+        ; <fclose> file
+      
+  /* this works, but doesn't improve performance   
+  disable-indentation =
+      remove-box-indendation
+    ; !H([SOpt(HS,"1")],<id>)
+  remove-box-indendation:
+    V(_,body) -> <remove-box-indendation-helper> body
+  remove-box-indendation:
+    H(_,body) -> <remove-box-indendation-helper> body
+  remove-box-indendation-helper = map(try(remove-box-indendation)); flatten-list
+  */
+    
   package-name :
     CompilationUnit(Some(PackageDec(_, PackageName(ids))), _, _) -> xs
     where xs := <map(?Id(<id>))> ids
