@@ -1,0 +1,104 @@
+module org/webdsl/dsl/utils/compiler-options
+
+imports
+  libstrategolib
+
+strategies
+
+  set-appname = where(id
+      ; path := <path-of-xtc-file>
+      ; (appname, _) := <split-before> (path, ".app")
+      ; rules ( AppName := appname )
+      ; if PythonBackend then
+          rules ( AppRoot := "" )
+        else
+          if IsRootApp
+          then rules ( AppRoot := "" )
+          else rules ( AppRoot := <concat-strings> ["/", appname] ) end
+        end
+    )
+
+strategies // command-line options
+
+  set-default-config =
+    rules(
+      OptionTypecheck      := True()
+      OptionPrettyPrinting := True()
+      Stage                := 0
+    )
+
+  webdslc-options =
+    set-default-config
+    ; (python-backend-option
+    <+ java-servlet-backend-option
+    <+ stage-option
+    <+ root-app-option
+    <+ session-timeout-option
+    <+ disable-typecheck-option
+    <+ disable-pretty-print-option
+    )
+
+  // @todo check that verbosity and logging is supported by stratego-lib
+
+  // @todo code for option definition is too boilerplate
+
+strategies // desugaring
+  
+  python-backend-option =
+    Option("--python"
+    , rules( PythonBackend := True() )
+    , !HelpString("--python", "Use Python back-end.")
+    )
+    
+  java-servlet-backend-option =
+    Option("--servlet"
+    , rules(JavaServletBackend := True())
+    , !HelpString("--servlet", "Use Java Servlet back-end.")
+    )
+    
+  root-app-option =
+    Option("--root-app"
+    , rules ( IsRootApp := True() )
+    , !HelpString("--rootapp", "Deploy as ROOT application in tomcat")
+    )
+    
+  session-timeout-option =
+    ArgOption("--session-timeout"
+    , ?time; rules( SessionTimeout := time )
+    , !HelpString("--session-timeout n", "Set session timeout to n minutes")
+    ) 
+
+  stage-option =
+    ArgOption("--stop-after"
+    , ?stage; rules( OptionStage := <string-to-int> stage )
+    , !HelpString("--stop-after n", "Stop after stage n")
+    )
+
+strategies //no pretty printing
+
+  disable-pretty-print-option =
+    Option("--no-pretty-printing" + "--no-pp"
+    , disable-pretty-printing
+    , !HelpString("--no-pretty-printing | --no-pp", "Do not pretty-print")
+    )
+
+  disable-pretty-printing =
+    rules( OptionPrettyPrinting := False() )
+
+  if-pretty-printing(s1, s2) =
+    if OptionPrettyPrinting => True() then s1 else s2 end
+    
+strategies //no typechecking   
+  
+  disable-typecheck-option =
+    Option("--no-typechecking"
+    , disable-typechecking
+    , !HelpString("--no-typechecking", "Ignore all type errors")
+    )
+
+  disable-typechecking =
+    rules( OptionTypecheck := False() )
+
+  if-typechecking(s1, s2) =
+    if OptionTypecheck => True() then s1 else s2 end
+    
