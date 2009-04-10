@@ -151,37 +151,36 @@ rules
     <+ ?DerivedProperty(x, propkind, srt, _, _)
     <+ ?DerivedPropertyNoAnno(x, propkind, srt, _) )
     ; where(
-           <check-no-null-attribute> (x, srt)         // check for wrong attribute types
-        <+ <check-no-void-attribute> (x, srt)
-        <+ <check-simple-propkind> (propkind, srt)    // check for incompatible propkinds, such as :: Set<User> (which should be -> Set<User>)
-        <+ <check-complex-propkind> (propkind, srt) 
+           check-no-null-attribute(|x, srt)          // check for wrong attribute types
+        <+ check-no-void-attribute(|x, srt) 
+        <+ check-simple-propkind(|propkind, srt)    // check for incompatible propkinds, such as :: Set<User> (which should be -> Set<User>)
+        <+ check-complex-propkind(|propkind, srt) 
       )
   
-  check-no-null-attribute :
-    (x, SimpleSort("Null")) -> <add-error(|["Attribute type Null is not allowed in attribute ", <pp-webdsl> x])>
+  check-no-null-attribute(|x, srt) :
+    _ -> <add-error(|["Attribute type Null is not allowed in attribute ", <pp-webdsl> x])>
+    where srt := SimpleSort("Null")
 
-  check-no-void-attribute :
-    (x, SimpleSort("Void")) -> <add-error(|["Attribute type Void is not allowed in attribute ", <pp-webdsl> x])>
-
-  check-simple-propkind :
-    (Simple, srt) -> <add-error(|["Expected: Simple type. Encountered: ", <pp-webdsl> srt])>
-    where not(<is-simple-sort> srt)
-
-  check-complex-propkind =
-    (?(Ref, srt) <+ ?(Comp, srt))
-    ; where (
-        <is-simple-sort> srt
-      )
-      ; add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-webdsl> srt])
+  check-no-void-attribute(|x, srt) :
+    _ -> <add-error(|["Attribute type Void is not allowed in attribute ", <pp-webdsl> x])>
+    where srt := SimpleSort("Void")
     
-  check-complex-propkind =
-    (?(Ref(), srt) <+ ?(Comp(), srt))
-    ; where (
-        <?SimpleSort(s) <+ ?GenericSort(_, [SimpleSort(s)])> srt
-      )
-      ; not(<is-webdsl-type> SimpleSort(s))
-      ; add-error(|["Property type ", <pp-webdsl> SimpleSort(s), " unknown"])
+  check-simple-propkind(|propkind, srt) :
+    _ -> <add-error(|["Expected: Simple type. Encountered: ", <pp-webdsl> srt])>
+    where not(<is-simple-sort> srt)
+        ; Simple() := propkind
 
+  check-complex-propkind(|propkind, srt) :
+    _ -> <add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-webdsl> srt])>
+    where <?Ref() <+ ?Comp()> propkind
+        ; <is-simple-sort> srt
+    
+  check-complex-propkind(|propkind, srt) :
+    _ -> <add-error(|["Property type ", <pp-webdsl> SimpleSort(s), " unknown"])>
+    where <?Ref() <+ ?Comp()> propkind
+        ; <?SimpleSort(s) <+ ?GenericSort(_, [SimpleSort(s)])> srt
+        ; not(<is-webdsl-type> SimpleSort(s))
+      
 /*  constraint-error-data =
     (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
 

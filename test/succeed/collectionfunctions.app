@@ -34,36 +34,34 @@ section datamodel
       table{
       
         for(u:User){
-          r{c{
-            output(u.name)
-            output(u.parent)
-          }}
+          label("name: "){output(u.name)}
+          label("parent: "){output(u.parent)}
+          break
         }
       
-        r{c{"name: " output(u1.name)}}
+        r{"details below for: " output(u1.name)}
        
-      
-        r{c{"list: "}} 
-        
+        "list property: "
         for(user:User in u1.list){
-          r{c{
+          r{
             output(user.name)
             form{action("remove",remove(u1,user))}
             form{action("make first",makeFirst(u1,user))}
-          }}
+          }
         }
-        r{c{"add to list: "}}
+        form{action("removeFirst",removeAt(u1,0))}
+        r{"add to list: "}
         for(user:User){
-          r{c{
+          r{
             output(user.name)
             form{action("add",add(u1,user))}
-          }}
+          }
         }
-        r{c{"second element: " output(u1.list.get(1))}}
-        r{c{"location of Alice in list: " output(u1.list.indexOf(u2))}}
+        r{"second element: " output(u1.list.get(1))}
+        r{"location of Alice in list: " output(u1.list.indexOf(u2))}
         form{
-          r{c{"set: "  input(u1.set)}}     
-          r{c{action("save",save(u1))}}
+          r{"set property: "  input(u1.set)}     
+          r{action("save",save(u1))}
         }
       }
       r{c{
@@ -122,6 +120,11 @@ section datamodel
     }
     action remove(u:User,other:User){
       u.list.remove(other);
+      u.save();
+      return home();
+    }
+    action removeAt(u:User,i:Int){
+      u.list.removeAt(i);
       u.save();
       return home();
     }

@@ -44,8 +44,20 @@ rules //list functions
   call-to-java-servlet :
     Call(e1, "insert", [e2,e3]) -> <list-call-to-java-servlet> (e1,e2,e3,"add","insertIn")
  
-  //call-to-java-servlet :
-  //  Call(e1, "removeAt", [e2]) -> <collection-call-to-java-servlet> (e1,e2,"remove","remove")
+  call-to-java-servlet :
+    Call(e1, "removeAt", [e2]) -> <remove-at-call-to-java-servlet> (e1,e2,"remove","removeAt")
+    where GenericSort("List",[s]) := <type-of> e1
+   
+  remove-at-call-to-java-servlet :
+    (e1,e2,x_regular,x_pevents) -> java|[ e3.x_regular(e4) ]|
+    where <check-collection-not-in-entity> e1
+    with  e3 := <expression-to-java-servlet> e1
+        ; e4 := <convert-to-integer-primitive> e2
+   
+  remove-at-call-to-java-servlet :
+    (e1,e2,x_regular,x_pevents) -> java|[ e4.setupForPropertyEvents(hibSession,out,ps).x_pevents#x_field(e5) ]|
+    where (e4,x_field) := <check-collection-in-entity> e1
+    with  e5 := <convert-to-integer-primitive> e2
          
 rules 
 
@@ -109,7 +121,33 @@ rules //general collection functions
     Call(e1, "add", [e2]) -> <collection-call-to-java-servlet> (e1,e2,"add","addTo")
     
   call-to-java-servlet :
-    Call(e1, "remove", [e2]) -> <collection-call-to-java-servlet> (e1,e2,"remove","removeFrom")
+    Call(e1, "remove", [e2]) -> <remove-call-to-java-servlet> (e1,e2,"remove","removeFrom")
+   
+  remove-call-to-java-servlet :
+    (e1,e2,x_regular,x_pevents) -> java|[ e3.x_regular(e4) ]|
+    where <check-collection-not-in-entity> e1
+    with  e3 := <expression-to-java-servlet> e1
+        ; e4 := <convert-to-integer-class> e2
+   
+  remove-call-to-java-servlet :
+    (e1,e2,x_regular,x_pevents) -> java|[ e4.setupForPropertyEvents(hibSession,out,ps).x_pevents#x_field(e5) ]|
+    where (e4,x_field) := <check-collection-in-entity> e1
+    with  e5 := <convert-to-integer-class> e2
+
+  // java has inconveniently overloaded remove, a primitive int means remove at index and a Integer class means remove first occurence
+  // in WebDSL both primitive int and class Integer can occur, so it has to be forced 
+  convert-to-integer-class :
+    e_webdsl -> e_java
+    with  e := <expression-to-java-servlet> e_webdsl
+        ; if SimpleSort("Int") := <type-of> e_webdsl
+          then e_java := java:expr|[ new Integer(e) ]|
+          else e_java := e end
+  convert-to-integer-primitive :
+    e_webdsl -> e_java
+    with  e := <expression-to-java-servlet> e_webdsl
+        ; if SimpleSort("Int") := <type-of> e_webdsl
+          then e_java := java:expr|[ (new Integer(e)).intValue() ]|
+          else e_java := e end
 
   call-to-java-servlet :
     Call(e1, "clear", []) -> <collection-call-to-java-servlet> (e1,"clear","removeAllFrom")
