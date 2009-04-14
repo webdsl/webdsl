@@ -45,3 +45,38 @@ strategies
     //else
     //  s
     //end
+   
+  /**
+   *  Helper strategy for finding performance bottlenecks
+   */  
+  log-time(s|msg)=
+      where(times => starttime)
+    ; s
+    ; where(
+        <diff-times>(<times>,starttime)
+      ; ?time
+      ; rules( LogTimes :+ msg -> time )
+      ; <concat-strings>[ //<align-left>(' ', msg, 27)
+                          <align-helper(|' ', 29)> msg
+                        , " : [user/system] = ["
+                        , <self-children-user-time; ticks-to-seconds; real-to-string(|2)>
+                        , "s/"
+                        , <self-children-sys-time; ticks-to-seconds; real-to-string(|2)>
+                        , "s]"
+                        ]
+      //; print-stage-time(|<concat-strings> [msg,<id>])
+      ; rules ( LogTimesKey :+= msg )  
+      )
+      
+  print-total-log-time =
+    where(<map(print-total-log-time-helper)> <bagof-LogTimesKey;uniq>)
+    
+  print-total-log-time-helper :
+    x -> <debug> res
+    with  times := <bagof-LogTimes> x
+        ; total := <foldr(!(0,0,0,0),add-times)> times
+        ; t1 := <self-children-user-time; ticks-to-seconds; real-to-string(|2)> total
+        ; t2 := <self-children-sys-time; ticks-to-seconds; real-to-string(|2)> total
+        ; msg := <concat-strings> ["total time ",x]
+        ; res := <concat-strings> [msg,<align-helper(|' ', 29)> msg,": [user/system] =  ","[",t1,"s/",t2,"s]"]
+        

@@ -162,9 +162,9 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = webdslc
 
 webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la
+                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la webdslc.str
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
 
@@ -254,4 +254,26 @@ libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(
 
 to-py-gae.ctree : libto-py-gae.rtree
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o to-py-gae.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		
+### write files
+
+nobase_data_DATA += libwrite-files.rtree 
+lib_LTLIBRARIES  += libwrite-files.la 
+
+libwrite_files_la_SOURCES = libwrite-files.c
+libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0
+libwrite_files_la_LDFLAGS  = $(AM_LDFLAGS)
+libwrite_files_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libwrite_files_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
+			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
+			      $(STRATEGO_UNINSTALLED_LIBS)
+
+libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree)
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+	rm libwrite-files.str
+
+write-files.ctree : libwrite-files.rtree
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o write-files.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)

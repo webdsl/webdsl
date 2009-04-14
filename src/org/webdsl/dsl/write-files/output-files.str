@@ -1,0 +1,60 @@
+module org/webdsl/dsl/write-files/output-files
+
+imports
+  libstrategolib
+  libjava-front
+  libstratego-gpp
+  libstratego-xtc // TODO: XTC detox  
+
+strategies
+
+  output-generated-files =
+    if-pretty-printing(
+      topdown(try(output-generated-file))
+    , <WriteToTextFile>("yyy", <id>)
+    )
+
+  output-generated-file =
+    java-file-to-file
+
+  output-generated-file =
+    xml-file-to-file
+  
+strategies
+
+  /* Create a nested directory structure. Works on a
+     list containing the directories to be created,
+     returns the path to the last (innermost) directory
+     Current working directory remains unchanged.
+
+     @type List(String) -> String
+  */
+
+  create-dirs =
+    where(root := <getcwd>)
+  ; map((file-exists <+ mkdir(|"w")) ; chdir)
+  ; getcwd // return path to innermost created dir.
+    ; where (<chdir> root) // restore old cwd'
+
+strategies
+
+  text-file-to-file =
+    ?TextFile(name, text)
+    ; where(
+      file := <fopen> (name, "w")
+      ; <fputs> (text, file)
+      ; <fclose> file
+    )
+
+strategies
+   
+   // TODO: Only dump ASTs if verbosity is 2; needs support for verbose parameter in webdsl script
+   // TODO: Use rtg-format-check(true, true| <import-term of rtg.af>) instead
+   pp-format-checker-error(|msg, rtg) =
+      err-msg(|msg)
+    ; write-to => FILE(file)
+    ; try(<xtc-command(!"format-check")> ["--vis", "-i", file, "--rtg", <xtc-find> rtg | <pass-verbose>])
+    ; log(|Critical(), "Fatal errors encountered in generated code")
+    ; <xtc-exit> 1
+     
+   // TODO: use rtg library instead of xtcx

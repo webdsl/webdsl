@@ -1,0 +1,64 @@
+module org/webdsl/dsl/write-files/output-java
+
+imports
+  libstrategolib
+  libjava-front
+  libstratego-gpp
+  libwebdsl-front
+
+strategies
+
+  java-file-to-file =
+    ? JavaFile(name, doc)
+    ; (  java-file-to-text-file
+      <+ <pp-format-checker-error(|"Internal error: generated Java AST is malformed", "Java-EBlock.rtg")> doc
+      )
+
+  //java-file-to-text-file :
+  //  JavaFile(prefix, pkg, name, cu) -> TextFile(filename, text)
+  //  where path := <conc; create-dirs> (prefix, <qid-to-list> pkg)
+  //    ; filename := <concat-strings> [path, "/", name, ".java"]
+  //	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
+
+  java-file-to-text-file :
+    jf@JavaFile(prefix, cu) -> jf
+    where pkg      := <package-name> cu
+        ; name     := <class-name> cu
+        ; path     := <conc; create-dirs> (prefix, pkg)
+        ; filename := <concat-strings> [path, "/", name, ".java"]
+        ; java     := <java-concat-ids; core-lift-eblocks> cu
+        ; box      := <pp-java5-to-abox-fast> java
+        ; file     := <fopen> (filename, "w")
+        ; <box2text-stream(|80, file)> box
+        ; <fclose> file
+        
+  pp-java5-to-abox-fast =    
+    parenthesize-Java5
+    ; topdown(
+        try(very-special-conflict)
+        ; repeat(java-to-box)
+      )    
+      
+  /* this works, but doesn't improve performance   
+  disable-indentation =
+      remove-box-indendation
+    ; !H([SOpt(HS,"1")],<id>)
+  remove-box-indendation:
+    V(_,body) -> <remove-box-indendation-helper> body
+  remove-box-indendation:
+    H(_,body) -> <remove-box-indendation-helper> body
+  remove-box-indendation-helper = map(try(remove-box-indendation)); flatten-list
+  */
+    
+  package-name :
+    CompilationUnit(Some(PackageDec(_, PackageName(ids))), _, _) -> xs
+    where xs := <map(?Id(<id>))> ids
+
+  package-name :
+    CompilationUnit(None(), _, _) -> []
+
+  class-name :
+    CompilationUnit(_, _, [ClassDec(ClassDecHead(_,Id(x),_,_,_),_)|_]) -> x
+
+  class-name :
+    CompilationUnit(_, _, [InterfaceDec(InterfaceDecHead(_,Id(x),_,_),_)|_]) -> x
