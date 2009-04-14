@@ -7,6 +7,7 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/src/*.properties) \
   $(wildcard template-java-servlet/src/utils/*.java) \
   $(wildcard template-java-servlet/html/*.html) \
+  $(wildcard template-java-servlet/html/*.ico) \
   $(wildcard template-java-servlet/javascript/*.js) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
