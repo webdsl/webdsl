@@ -3,6 +3,27 @@ imports
   libstratego-lib 
   libjava-front
 
+/*
+
+Semantics that this transformation gives to e-blocks (is somewhat dubious):
+
+   Plus(PreEBlock([Assign(x1, e1)], PostEBlock(e2, [Assign(x3,e3)])),
+        PreEBlock([Assign(x4, e4)], PostEBlock(e5, [Assign(x6,e6)])))
+
+->
+
+   [Assign(x1, e1),
+    Assign(x4, e4),
+    Plus(e2, e5),
+    Assign(x3, e3),
+    Assign(x6, e6)]
+
+with left-to-right evaluation would we not expect the x3 assignment to happen
+before the x4 assignment?
+
+*/
+
+
 strategies
   
   main-core-lift-eblocks =
@@ -19,55 +40,92 @@ strategies
     <+  lift-from-constructor-blocks
     <+  lift-from-switchgroup-blocks
   
-  lift-from-blocks = 
-      ?Block(<id>)
-    ; map(lift-eblocks)
-    ; concat
-    ; flatten-inner-block
-    ; !Block(<id>)
+  lift-from-blocks : 
+    Block(bstm1*) -> Block(bstm2*)
+    with bstm2* := <mapconcat(lift-eblocks)> bstm1*
 
-  lift-from-constructor-blocks = 
-      ?ConstrBody(x, <id>)
-    ; map(lift-eblocks)
-    ; concat
-    ; flatten-inner-block
-    ; !ConstrBody(x, <id>)
+  lift-from-constructor-blocks :
+    ConstrBody(x, bstm1*) -> ConstrBody(x, bstm2*) 
+    with bstm2* := <mapconcat(lift-eblocks)> bstm1*
 
-  lift-from-switchgroup-blocks =
-      ?SwitchGroup(x, <id>)
-    ; map(lift-eblocks)
-    ; concat
-    ; flatten-inner-block
-    ; !SwitchGroup(x, <id>)
+  lift-from-switchgroup-blocks :
+    SwitchGroup(x, bstm1*) -> SwitchGroup(x, bstm2*)
+    with bstm2* := <mapconcat(lift-eblocks)> bstm1*
       
   /**
    * @todo  Nested EBlocks?
    * @todo  Nested Blocks?
    * @todo  Is Block the only block level element?
    * @todo  Anonymous inner classes?
-   * @todo  Is flatten-list required?
    */
   lift-eblocks =
       collect-split-om-pre-eblock
     ; ?(<id>, pre-stms)
     ; collect-split-om-post-eblock
     ; ?(t, post-stms)
-    ; ( !post-stms => []; !pre-stms => []
-      < ![t]
-      + <concat> [<map(lift-eblocks); concat> pre-stms, <lift-eblocks> t, <map(lift-eblocks); concat> post-stms]
-      )
+    ; if !post-stms => []; !pre-stms => [] then
+        ![t]
+      else 
+        <concat> [<mapconcat(lift-eblocks)> pre-stms, <lift-eblocks> t, <mapconcat(lift-eblocks)> post-stms]
+      end
+
+  collect-split-om-pre-eblock =
+    rules( PreEBlocks := [] )
+    ; alltd(lift-pre-eblock)
+    ; !(<id>,<PreEBlocks>)
+
+  lift-pre-eblock :
+    PreEBlock(bstm*, e) -> e
+    with rules( PreEBlocks := <conc>(bstm*, <PreEBlocks>) )
+
+  collect-split-om-post-eblock =
+    rules( PostEBlocks := [] )
+    ; alltd(lift-post-eblock)
+    ; !(<id>,<PostEBlocks>)
+
+  lift-post-eblock :
+    PostEBlock(e, bstm*) -> e
+    with rules( PostEBlocks := <conc>(bstm*, <PostEBlocks>) )
+
+/*
+  collect-split-om-pre-eblock =
+    rules( PreEBlocks := [] )
+    ; alltd(lift-pre-eblock)
+    ; !(<id>,<PreEBlocks>)
+
+  lift-pre-eblock :
+    PreEBlock(bstm*, e) -> e
+    with rules( PreEBlocks := <conc>(bstm*, <PreEBlocks>) )
+
+  collect-split-om-post-eblock =
+    rules( PostEBlocks := [] )
+    ; alltd(lift-post-eblock)
+    ; !(<id>,<PostEBlocks>)
+
+  lift-post-eblock :
+    PostEBlock(e, bstm*) -> e
+    with rules( PostEBlocks := <conc>(bstm*, <PostEBlocks>) )
+*/
+
+/*
 
   collect-split-om-pre-eblock =
     !(<alltd(?PreEBlock(_, <id>))>,<collect-om(?PreEBlock(<id>, _), conc); concat>)
 
   collect-split-om-post-eblock =
     !(<alltd(?PostEBlock(<id>, _))>, <collect-om(?PostEBlock(_, <id>), conc); concat>)
+*/
+
+/*
 
   flatten-inner-block = 
-    ?[ InnerBlock(ys) | xs ];<conc>(<flatten-inner-block>ys, <flatten-inner-block>xs)
+    \ [ InnerBlock(ys) | xs ] -> <conc>(<flatten-inner-block>ys, <flatten-inner-block>xs) \; say(!"InnerBlock")
       <+
-    ?[ x | xs ];![ x | <flatten-inner-block>xs ]
+    \ [ x | xs ] -> [ x | <flatten-inner-block>xs ] \
       <+
-    ?[ InnerBlock(ys) | [] ] ; <flatten-inner-block> ys
+    \ [ InnerBlock(ys) | [] ] -> <flatten-inner-block> ys \; say(!"InnerBlock")
       <+
-    ?[ x | [] ];![ x ]
+    \ [ x | [] ] -> [ x ] \
+      <+
+    ?[]
+*/
