@@ -1,0 +1,389 @@
+module pp2c-box-to-c
+imports
+  libstratego-lib
+  libstratego-xtc
+  C pp-table
+
+strategies
+
+  parse-s-opts =
+    !(<fetch-elem(\ SOpt(IS(), n) -> n \) <+ !"0">,
+      <fetch-elem(\ SOpt(VS(), n) -> n \) <+ !"0">,
+      <fetch-elem(\ SOpt(HS(), n) -> n \) <+ !"1">)
+
+  boxes-to-c(|path) =
+    map(box-to-c(|path)); concat
+
+  box-to-c(|path): S(str) -> c:stm*|[ print_string(~exp:str); ]|
+  box-to-c(|path): FBOX(_ ,b) -> <box-to-c(|path)> b
+  box-to-c(|path): HV(s, b) -> <box-to-c(|path)> V(s, b)
+  box-to-c(|path): V(s, b) -> c:stm*|[
+                                push_box(V, ~exp: is, ~exp: vs, ~exp: hs);
+                                { ~stm*: stm }
+                                pop_box(); ]|
+  where
+    <boxes-to-c(|path)> b => stm
+  ; <parse-s-opts> s => (is, vs, hs)
+
+  box-to-c(|path): H(s, b) -> c:stm*|[
+                                push_box(H, ~exp: is, ~exp: vs, ~exp: hs);
+                                { ~stm*: stm }
+                                pop_box(); ]|
+  where
+    <boxes-to-c(|path)> b => stm
+  ; <parse-s-opts> s => (is, vs, hs)
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      if (ATgetType(arg) == AT_LIST) {
+        ATermList l = (ATermList) arg;
+        while(ATgetLength(l) > 1) {
+          ~id:(call) ((ATerm)l);
+          l = ATgetNext(l);
+        }
+        if (!ATisEmpty(l))
+          print(ATgetFirst(l));
+      }
+      else
+        unexpected(tree, ~id:n, "\"a list\"");
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "list-sep"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      if (ATgetType(arg) == AT_LIST) {
+        ATermList l = (ATermList) arg;
+        while(ATgetLength(l) > 2) {
+          ~id:(call) ((ATerm)l);
+          l = ATgetNext(l);
+          l = ATgetNext(l);
+        }
+        if (!ATisEmpty(l))
+          print(ATgetFirst(l));
+      }
+      else
+        unexpected(tree, ~id:n, "\"a list\"");
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "list-sep2"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      if (ATgetType(arg) == AT_LIST) {
+        ATermList l = (ATermList) arg;
+        while(ATgetLength(l) > 1) {
+          ~id:(call) ((ATerm)l);
+          l = ATgetNext(l);
+        }
+        if (!ATisEmpty(l))
+          print(ATgetFirst(l));
+      }
+      else
+        unexpected(tree, ~id:n, "\"a list\"");
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "list"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      ~id:(call)(arg);
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "alt"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      ~id:(call)(arg);
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "seq"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      if (ATgetAFun(arg) == SomeFun) {
+        ~id:(call) (arg);
+      }
+      else if (ATgetAFun(arg) != NoneFun)
+        unexpected(tree, ~id:n, "\"a Some(1) or a None(0)\"");
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>]) => path'
+  ; GetKind => "opt"
+  ; <print-fun-name> path' => call
+
+  box-to-c(|path): Arg(n) -> c:stm*|[
+    {
+      ATerm arg = ATgetArgument(tree, ~id: n');
+      print(arg);
+    }
+  ]|
+  where
+    <string-to-int; dec; int-to-string> n => n'
+  ; !path
+  ; (id, ![n|<id>])
+  ; not(GetKind)
+
+  entry-to-c: PP-Entry(path, b) ->
+   ext-def*|[
+       static
+       void ~id:fun-name (ATerm tree)
+       {
+         ~stm*: <boxes-to-c(|path)> b
+       } ]|
+  where
+    <print-fun-name> path => fun-name
+  ; not(<GetKind> path => "alt")
+
+  AltStm: (_, _, []) ->
+  c:stm|[
+    {
+      ATfprintf(stderr, "\"Too big alt parameter in %a\\n\"", tree);
+      exit(1);
+    }
+  ]|
+  AltStm: (path, n, [b|bs]) -> c:stm|[ if (n == ~exp: <int-to-string> n) {
+                                         ~stm*: <box-to-c(|path)> b
+                                      }
+                                      else
+                                         ~stm: otherwise ]|
+  where
+    <AltStm> (path, <inc> n, bs) => otherwise
+
+  entry-to-c: PP-Entry(path, b) ->
+   ext-def*|[
+       static
+       void ~id:fun-name (ATerm tree)
+       {
+         if (ATgetAFun(tree) == AltFun) {
+           ATerm arg = ATgetArgument(tree, 0);
+           int n;
+           if (ATgetType(arg) != AT_INT)
+             return unexpected(tree, 1, "\"an integer\"");
+           n = ATgetInt((ATermInt) arg);
+           arg = ATgetArgument(tree, 1);
+           if (ATgetType(arg) != AT_LIST)
+             unexpected(tree, 2, "\"a list\"");
+           if (ATisEmpty((ATermList) arg))
+             unexpected(tree, 2, "\"a non empty list\"");
+           {
+             ATerm tree = ATgetFirst((ATermList) arg);
+             ~stm: <AltStm> (path, 1, b)
+           }
+         }
+         else print(tree); /* This is due to a bug in ppgen */
+       } ]|
+  where
+    <print-fun-name> path => fun-name
+  ; <GetKind> path => "alt"
+
+  entry-to-c: PP-Entry(path, b) -> []
+  where
+    <(id, ?[_|<id>])> path
+  ; GetKind => "alt"
+
+  encode-name =
+    string-as-chars(
+      map(is-alphanum <+ !'_')
+    )
+
+  print-fun-name =
+    ?(name, path)
+  ; <concat-strings> ["print_cons_", <encode-name> name] =>  init
+  ; !path
+  ; foldr(!init, \ (a, b) -> [b, "_", a] \; concat-strings)
+
+  cons-var =
+    ?name
+  ; <concat-strings> ["var_cons_", <encode-name> name]
+
+  main-fun =
+    <get-config> "-n"
+  ; !ext-def*|[
+       ATerm ~id:<id> (StrSL sl, ATerm t)
+       {
+         ATerm out;
+         static int was_init = 0;
+
+         if (!was_init) {
+           init();
+           was_init = 1;
+         }
+         init_stack();
+         out = xtc_new_file_0_0(NULL, t);
+         if (out == NULL)
+           return NULL;
+         stream = fopen(ATgetName(ATgetAFun(out)), "\"w\"");
+         if (stream == NULL)
+           return NULL;
+         print(t);
+         print_string("\"\\n\"");
+         fclose(stream);
+         return ATmake("\"FILE(<term>)\"", out);
+       }
+     ]|
+
+  main-fun =
+    not(<get-config> "-n")
+  ; !ext-def*|[
+       static int mymain(int argc, char *argv[])
+         {
+           ATerm t;
+           init();
+           init_stack();
+           if (argc == 2) {
+             FILE *f = fopen(argv[1], "\"r\"");
+             if (f == NULL) {
+               perror(argv[1]);
+               return 1;
+             }
+             t = ATreadFromFile(f);
+             fclose(f);
+           }
+           else
+             t = ATreadFromFile(stdin);
+           if (t == NULL)
+            return 1;
+           stream = stdout;
+           print(t);
+           print_string("\"\\n\"");
+           return 0;
+         }
+       int main(int argc, char *argv[])
+       {
+         ATerm bottom;
+         ATinit(argc, argv, &bottom);
+         return mymain(argc, argv);
+       }
+     ]|
+
+  choice-decl =
+    !ext-def*|[ static void print(ATerm); ]|
+
+  fun-decl:
+     c:dec|[ static void ~id: (i)(ATerm tree) { ~stm*:_ } ]|
+  -> c:dec|[ static void ~id: (i)(ATerm); ]|
+
+  GetChoiceFun: l ->
+  ext-def*|[
+     static
+     void print(ATerm tree)
+     {
+       if (ATgetType(tree) == AT_BLOB) {
+         print_string((char *)ATgetBlobData((ATermBlob)tree));
+       }
+       else if (ATgetType(tree) == AT_INT)
+         print_int(ATgetInt((ATermInt)tree));
+       else {
+         AFun cons = ATgetAFun(tree);
+         if (ATisQuoted(cons) && (ATgetArity(cons) == 0))
+           print_string(ATgetName(cons));
+         else
+         if (cons == AmbFun) {
+           ATerm a = ATgetArgument(tree, 0);
+            if (ATgetType(a) == AT_LIST) {
+               ATermList l = (ATermList) a;
+              if (ATisEmpty(l))
+                unexpected(tree, 1, "\"a non empty list\"");
+              else {
+                ATerm elt = ATgetFirst(l);
+                print(elt);
+              }
+            }
+            else
+              unexpected(tree, 1, "\"a list\"");
+         }
+         else
+           ~stm: stm
+       }
+     } ]|
+  where
+    <GetSwitchStm> l => stm
+
+  GetSwitchStm: [] -> c:stm|[ { ATfprintf(stderr,
+                                          "\"Unknown constructor: %a\\n\"",
+                                          tree);
+                                exit(1); } ]|
+
+  GetSwitchStm: [l|ls] ->
+  c:stm|[
+    if (cons == ~id: cons-var-name)
+      ~id:(cons-fun) (tree);
+    else
+      ~stm:otherwise
+  ]|
+  where
+    <print-fun-name> (l, []) => cons-fun
+  ; <cons-var> l => cons-var-name
+  ; <GetSwitchStm> ls => otherwise
+
+  GetInitFun: l -> ext-def*|[ static void init_cons(void) { ~stm*: stms } ]|
+  where
+    <map(GetInitStm); concat> l => stms
+
+  GetVar: cons -> ext-def*|[ static AFun ~id: name; ]|
+  where
+    <cons-var> cons => name
+
+  GetInitStm: cons -> c:stm*|[ ~id:(name) =
+                               ATmakeAFun(~exp:str, ~exp: arity, ATfalse);
+                               ATprotectAFun(~id:name); ]|
+  where
+    <GetArity> cons => arity
+  ; <double-quote> cons => str
+  ; <cons-var> cons => name
+
+  GetInitStm: cons -> c:stm*|[ ; ]|
+  where
+    not(<GetArity> cons)
+  ; <debug(!"Constructor unknown from the grammar: ")> cons
+
+
+  pptable-to-c =
+   ?PP-Table(<id>)
+  ; map(simplify-path)
+  ; where(
+      map(entry-to-c)
+    ; concat => funs
+    )
+  ; filter(?PP-Entry((<id>,[]), _))
+  ; where(GetChoiceFun => choice)
+  ; where(GetInitFun => init)
+  ; where(map(GetVar); concat => vars)
+  ; <concat> [vars, init, <choice-decl>, <map(fun-decl)> funs,
+              funs, choice, <main-fun>]
+  ; !c:translation-unit|[ ~ext-def*: <id> ]|

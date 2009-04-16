@@ -1,0 +1,103 @@
+module pp2c-load-grammar
+imports
+  libstratego-lib
+  libstratego-xtc
+  Sdf2
+
+signature
+  constructors
+    cons: String -> Term
+
+strategies
+/* loading syntax definition */
+
+  flatalt =
+    ?alt(a, b)
+  ; <flatalt> b
+  ; ?"alt"#(<id>)
+  ; !"alt"#([a|<id>])
+
+  register-prod =
+    ?prod(l, n, a)
+  ; <oncetd(cons(?cons))> a
+  ; !cons
+  ; <topdown(try(\ label(_, a) -> a \ )
+           ; try(flatalt))> l
+  ; filter(not(lit(id)))
+  ; where(
+      length => arity
+    ; rules(GetArity: cons -> arity)
+    )
+  ; num-params
+  ; map(\ (n, s) -> ((cons, [n]), s) \)
+  ; map(try(register-arg))
+
+  register-arg =
+    ?(path, iter-star-sep(i, s))
+  ; <register-arg> (path, iter-sep(i, s))
+
+  register-arg =
+    ?(path, iter-star(i))
+  ; <register-arg> (path, iter(i))
+
+  debug-register-arg =
+    ?path
+  ; where(if-verbose2(<debug(!"Registered: ")> path; GetKind; debug(!"as: ")))
+
+  register-arg =
+    ?(path, iter(i))
+  ; <try(register-arg)> (<(id, !["1"|<id>])> path, i)
+  ; rules(GetKind: path -> "list")
+  ; <debug-register-arg> path
+
+  register-arg =
+    ?(path, iter-sep(i, s))
+  ; <?lit(_)> s
+  ; <try(register-arg)> (<(id, !["1"|<id>])> path, i)
+  ; rules(GetKind: path -> "list-sep")
+  ; <debug-register-arg> path
+
+  register-arg =
+    ?(path, iter-sep(i, s))
+  ; <not(?lit(_))> s
+  ; <try(register-arg)> (<(id, !["1"|<id>])> path, i)
+  ; <try(register-arg)> (<(id, !["2"|<id>])> path, s)
+  ; rules(GetKind: path -> "list-sep2")
+  ; <debug-register-arg> path
+
+  register-arg =
+    ?(path, opt(i))
+  ; <try(register-arg)> (<(id, !["1"|<id>])> path, i)
+  ; rules(GetKind: path -> "opt")
+  ; <debug-register-arg> path
+
+  num-params =
+    !(1, <id>)
+  ; rec x(?(_, []); ![]
+       <+ {?(n, [l|ls]); ![(<int-to-string> n, l)|<x> (<inc> n, ls)]})
+
+  register-arg =
+    ?(path@(cons, p), "alt"#(l))
+  ; !l
+  ; num-params
+  ; map(\ (n, s) -> ((cons, [n|p]), s) \)
+  ; map(try(register-arg))
+  ; rules(GetKind: path -> "alt")
+  ; <debug-register-arg> path
+
+  register-arg =
+    ?(path@(cons, p), seq(a, b))
+  ; ![a|b]
+  ; num-params
+  ; map(\ (n, s) -> ((cons, [n|p]), s) \)
+  ; map(try(register-arg))
+  ; rules(GetKind: path -> "seq")
+  ; <debug-register-arg> path
+
+  load-grammar =
+    !FILE(<id>)
+  ; try(xtc-transform(!"parse-sdf-definition"))
+  ; read-from
+  ; collect(?context-free-syntax(<id>))
+  ; concat
+  ; map(try(register-prod))

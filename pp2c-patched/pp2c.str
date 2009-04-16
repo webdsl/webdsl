@@ -1,0 +1,44 @@
+module pp2c
+imports
+  libstratego-lib
+  libstratego-xtc
+  C pp-table
+  pp2c-load-grammar
+  pp2c-box-to-c
+
+
+strategies
+
+  simplify-path =
+    ?PP-Entry(Path1(<id>), b)
+  ; !PP-Entry((<id>, []), b)
+
+  simplify-path =
+    ?PP-Entry(Path(name, <id>), b)
+  ; map(\ selector(n, _) -> n \)
+  ; reverse
+  ; !PP-Entry((name, <id>), b)
+
+  pp2c-options =
+    ArgOption("-p"
+     , load-grammar; ![]
+     , !"-p pptable    Use the pp-table.")
+  + ArgOption("-n"
+     , <set-config> ("-n", <id>); ![]
+     , !"-n name       Function name to generate.")
+
+  pp2c =
+    xtc-io-wrap(pp2c-options,
+      xtc-ensure-file
+    ; try(xtc-transform(!"parse-pp-table"))
+    ; read-from
+    ; pptable-to-c
+    ; write-to
+    ; xtc-transform(!"pp-c")
+    ; where(
+        <xtc-new-file> ()
+      ; <copy-file> (<xtc-find> "pptools.c", <id>)
+      ; !FILE(<id>) => pptools
+      )
+    ; <xtc-cat> [pptools, <id>]
+    )
