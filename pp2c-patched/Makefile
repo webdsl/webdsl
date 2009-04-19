@@ -1,6 +1,6 @@
 all: pp2c javapp2c
 
-pp2c:
+pp2c: *.str *.meta
 	strc \
 	--main pp2c \
 	-i pp2c.str \
@@ -9,12 +9,13 @@ pp2c:
 	-la stratego-xtc \
 	--xtc-repo ~/.nix-profile/share/strategoxt/XTC
 	
-javapp2c:
+javapp2c: pp2c
 	./pp2c \
 	-i Java-15.pp \
 	-p Java-15.def \
 	-n pp_java_0_0 \
-	-o java-pp.c	
+	-o java-pp.c \
+	--verbose vomit
 	
 make deploy: all
 	cp java-pp.c ../src/	

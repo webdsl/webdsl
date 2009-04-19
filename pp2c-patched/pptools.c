@@ -81,6 +81,13 @@ void print_int(int i)
 }
 
 static
+void print_real(double i)
+{
+	next();
+	hpos += fprintf(stream, "%f", i);
+}
+
+static
 void init_cons(void);
 
 static
@@ -139,6 +146,6 @@ static
 void unexpected(ATerm tree, int n, char *str)
 {
   ATfprintf(stderr,
-   "The %dth argument was expected to be %s\n%a\n", n, str, tree);
+   "The %dth argument was expected to be %s\n%a\n", n, str, ATgetAFun(tree));
   exit(1);
 }

@@ -223,13 +223,15 @@ strategies
 
   print-fun-name =
     ?(name, path)
-  ; <concat-strings> ["print_cons_", <encode-name> name] =>  init
+  ; (name{arity} := name <+ arity := "")
+  ; <concat-strings> ["print_cons_", <encode-name> name, arity] =>  init
   ; !path
   ; foldr(!init, \ (a, b) -> [b, "_", a] \; concat-strings)
 
   cons-var =
     ?name
-  ; <concat-strings> ["var_cons_", <encode-name> name]
+  ; (name{arity} := name <+ arity := "")
+  ; <concat-strings> ["var_cons_", <encode-name> name, arity]
 
   main-fun =
     <get-config> "-n"
@@ -303,8 +305,27 @@ strategies
      static
      void print(ATerm tree)
      {
+    
+  /*printf("\"type %i\"",ATgetType(tree));
+  printf("blob %i",AT_BLOB);
+  printf("int  %i",AT_INT);
+  printf("real %i",AT_REAL);
+  printf("appl %i",AT_APPL);
+  printf("list %i",AT_LIST);
+  printf("plac %i",AT_PLACEHOLDER);*/
+  
        if (ATgetType(tree) == AT_BLOB) {
          print_string((char *)ATgetBlobData((ATermBlob)tree));
+       }
+       else if (ATgetType(tree) == AT_REAL)
+         print_real(ATgetReal((ATermReal)tree));
+       else if((ATgetType(tree) == AT_LIST)){
+         ATermList l = (ATermList) tree;
+         while(!ATisEmpty(l)){
+           ATerm elt = ATgetFirst(l);
+           print(elt);
+           l = ATgetNext(l);
+         }
        }
        else if (ATgetType(tree) == AT_INT)
          print_int(ATgetInt((ATermInt)tree));
@@ -336,7 +357,7 @@ strategies
 
   GetSwitchStm: [] -> c:stm|[ { ATfprintf(stderr,
                                           "\"Unknown constructor: %a\\n\"",
-                                          tree);
+                                          cons);
                                 exit(1); } ]|
 
   GetSwitchStm: [l|ls] ->
@@ -363,19 +384,22 @@ strategies
                                ATmakeAFun(~exp:str, ~exp: arity, ATfalse);
                                ATprotectAFun(~id:name); ]|
   where
-    <GetArity> cons => arity
+    <get-arity> cons => arity
   ; <double-quote> cons => str
   ; <cons-var> cons => name
 
   GetInitStm: cons -> c:stm*|[ ; ]|
   where
-    not(<GetArity> cons)
+    not(<get-arity> cons)
   ; <debug(!"Constructor unknown from the grammar: ")> cons
 
 
   pptable-to-c =
    ?PP-Table(<id>)
+  ; uniq //remove entries that are entirely the same
   ; map(simplify-path)
+  ; register-overloaded-constructors
+  ; map(try(add-arity-anno))
   ; where(
       map(entry-to-c)
     ; concat => funs
@@ -387,3 +411,32 @@ strategies
   ; <concat> [vars, init, <choice-decl>, <map(fun-decl)> funs,
               funs, choice, <main-fun>]
   ; !c:translation-unit|[ ~ext-def*: <id> ]|
+
+  register-overloaded-constructors =
+    where(
+      constructornames := <bagof-PathConsName;uniq>
+    ; <map(try(register-overloaded-constructor))> constructornames
+    )
+
+  register-overloaded-constructor :
+    nm -> nm 
+    where not(1 := <bagof-PathCombination;uniq;length>)
+        ; rules ( OverloadedConstructor : nm )
+        ; <debug(!"overloaded ")> nm
+
+  add-arity-anno :
+    PP-Entry((nm,e), b) -> PP-Entry((nm{arity},e), b)
+    where <OverloadedConstructor> nm
+    with  arity := <arg-count> b
+    
+  arg-count =
+    collect(?Arg(_));length;int-to-string
+    
+  get-arity :
+    nm{arity} -> arity
+    where <strip-annos;OverloadedConstructor> nm
+    
+  get-arity :
+    nm{} -> <GetArity <+ PathCombination> nm  //either the one from the syntax or pick one from the pp-table defs
+    where not(<OverloadedConstructor> nm)
+  
