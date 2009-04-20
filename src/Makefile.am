@@ -9,7 +9,7 @@ CFLAGS=-O0
 
 CLEANFILES = \
     rtrees \
-    $(wildcard *.c) \
+    $(wildcard lib*.c) \
     $(wildcard *.dep) \
     $(wildcard *.rtree) \
     $(wildcard *.ctree) \
