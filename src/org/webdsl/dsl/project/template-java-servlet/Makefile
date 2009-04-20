@@ -9,7 +9,7 @@ apps = $(wildcard *.app)
 all : @@APPNAME@@.appc
 	
 %.appc : %.app $(apps)
-	$(dsltoseam) --servlet -i $< @@ROOTAPPOPTION@@ @@SESSIONTIMEOUTOPTION@@
+	$(dsltoseam) --servlet -i $< @@ROOTAPPOPTION@@ @@SESSIONTIMEOUTOPTION@@ @@STATISTICSOPTION@@ @@FASTPPOPTION@@
 
 dump :
 	mysqldump --user=@@DBUSER@@ --password=@@DBPASSWORD@@ @@DBNAME@@ > db.sql

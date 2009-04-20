@@ -1,12 +1,15 @@
 [
+%% related to parenthesize-Java5 strategy which adds parenthesis
+   Parenthetical         -- H hs=1 ["(" _1 ")"],
+
    String -- H hs=0 [KW["\""] _1 KW["\""]],
    Chars -- _1,
    None -- ,
    Some -- _1,
-   NamedEscape -- _1,
-   OctaEscape1 -- _1,
-   OctaEscape2 -- _1,
-   OctaEscape3 -- _1,
+   NamedEscape -- "\\"_1,
+   OctaEscape1 -- "\\"_1,
+   OctaEscape2 -- "\\"_1,
+   OctaEscape3 -- "\\"_1,
    
 
    Assign                                  -- _1 KW["="] _2,
@@ -21,7 +24,7 @@
    AssignAnd                               -- _1 KW["&="] _2,
    AssignExcOr                             -- _1 KW["^="] _2,
    AssignOr                                -- _1 KW["|="] _2,
-   InstanceOf                              -- KW["("] _1 KW["instanceof"] _2 KW[")"], %%fixed
+   InstanceOf                              -- _1 KW["instanceof"] _2,
    Mul                                     -- _1 KW["*"] _2,
    Div                                     -- _1 KW["/"] _2,
    Remain                                  -- _1 KW["%"] _2,
@@ -41,15 +44,15 @@
    And                                     -- _1 KW["&"] _2,
    ExcOr                                   -- _1 KW["^"] _2,
    Or                                      -- _1 KW["|"] _2,
-   Cond                                    -- KW["("] _1 KW["?"] _2 KW[":"] _3 KW[")"], %%fixed
+   Cond                                    -- _1 KW["?"] _2 KW[":"] _3,
    Plus                                    -- KW["+"] _1,
    Minus                                   -- KW["-"] _1,
    PreIncr                                 -- KW["++"] _1,
    PreDecr                                 -- KW["--"] _1,
    Complement                              -- KW["~"] _1,
    Not                                     -- KW["!"] _1,
-   CastPrim                                -- KW["("] KW["("] _1 KW[")"] _2 KW[")"], %%fixed
-   CastRef                                 -- KW["("] KW["("] _1 KW[")"] _2 KW[")"], %%fixed
+   CastPrim                                -- KW["("] _1 KW[")"] _2,
+   CastRef                                 -- KW["("] _1 KW[")"] _2,
    PostIncr                                -- _1 KW["++"],
    PostDecr                                -- _1 KW["--"],
    Invoke                                  -- _1 KW["("] _2 KW[")"],

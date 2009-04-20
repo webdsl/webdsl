@@ -71,20 +71,25 @@ void print_string(char *str)
 {
   next();
   hpos += fprintf(stream, "%s", str);
+  //printf("print_string: %s\n",str);
 }
 
 static
 void print_int(int i)
 {
   next();
-  hpos += fprintf(stream, "%d", i);
+  //occurs with namedescape in string e.g. "\"" produced 34
+  //hpos += fprintf(stream, "%d", i);
+  hpos += fprintf(stream, "%c", i);
+  //printf("print_int: %d\n",i);
 }
 
 static
-void print_real(double i)
+void print_real(double d)
 {
 	next();
-	hpos += fprintf(stream, "%f", i);
+	hpos += fprintf(stream, "%f", d);
+    //printf("print_real: %f\n",d);
 }
 
 static
