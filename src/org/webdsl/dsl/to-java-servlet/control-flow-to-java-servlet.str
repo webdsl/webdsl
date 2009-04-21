@@ -12,14 +12,16 @@ imports
 rules // iteration
 
   for-loop-counter-wrap-code:
-    bstm* ->
-    bstm* |[
-        ident = "";
-        if(inForLoop) {
-          ident += forelementcounter;
-        }
-        bstm*
-    ]|
+    bstm* -> result
+    with  if <?[]> bstm* 
+          then result :=  []
+          else result :=  bstm*|[
+                            ident = "";
+                            if(inForLoop) {
+                              ident += forelementcounter;
+                            }
+                            bstm*
+                          ]| end
     
   wrap-in-for-loop(|x,t,e) :
     bstm -> res
@@ -52,53 +54,45 @@ rules // iteration
     control-flow-for(elems-to-java-servlet|)
 
   control-flow-for(s|) :
-     ForCount(x, e1, e2, elems) -> 
-     bstm*|[
-       inForLoop = true;
-       forLoopCounter++;
-       int x = e3; //x has been renamed already
-       int x_bound = e4;
-       while(x < x_bound) {
-         forelementcounter++;
-         bstm*
-         x = x + 1;
-       }
-       forLoopCounter--;
-       if(forLoopCounter == 0)
-         inForLoop = false;
-     ]|
-     with x_bound := <newname> "stop"
-        ; e3 := <expression-to-java-servlet> e1
-        ; e4 := <expression-to-java-servlet> e2
-        ; bstm* := <s;concat-with-sublists> elems
+     ForCount(x, e1, e2, elems) -> result
+     with  x_bound := <newname> "stop"
+         ; e3 := <expression-to-java-servlet> e1
+         ; e4 := <expression-to-java-servlet> e2
+         ; bstm* := <s;concat-with-sublists> elems
+         ; if <?[]> bstm* 
+           then result :=  []
+           else result :=  bstm*|[
+                             inForLoop = true;
+                             forLoopCounter++;
+                             int x = e3; //x has been renamed already
+                             int x_bound = e4;
+                             while(x < x_bound) {
+                               forelementcounter++;
+                               bstm*
+                               x = x + 1;
+                             }
+                             forLoopCounter--;
+                             if(forLoopCounter == 0)
+                               inForLoop = false;
+                           ]| end
 
   control-flow-for(s|) :
-    For(x, srt, e1, fltr, elems) ->
-    bstm* |[
-      java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
-      ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[    
-        bstm*
-      ]|
-    ]|
+    For(x, srt, e1, fltr, elems) -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; e2 := <expression-to-java-servlet> e1
         ; t := <java-type> srt
         ; x_list := <newname> "list"
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e1
-    
+        ; if <?[]> bstm*
+          then result :=  [] 
+          else result :=  bstm* |[
+                            java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[    
+                              bstm*
+                            ]|
+                          ]| end
   control-flow-for(s|) :
-    ForSep(x, srt, e1, fltr, elems1, elems2) ->
-    bstm* |[
-      int x_separatorindex=0;
-      java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
-      ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[  
-        if(x_separatorindex > 0) {
-          bstm2* // place separator if there was an element before this one
-        }
-        bstm1*
-        x_separatorindex++;
-      ]|
-    ]|
+    ForSep(x, srt, e1, fltr, elems1, elems2) -> result
     with  bstm1* := <s;concat-with-sublists> elems1
         ; bstm2* := <s;concat-with-sublists> elems2
         ; e2 := <expression-to-java-servlet> e1
@@ -106,19 +100,34 @@ rules // iteration
         ; x_separatorindex := <newname> "separatorindex"
         ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e1
         ; x_list := <newname> "list"
+        ; if <?[]> bstm1*
+          then result :=  [] 
+          else result :=  bstm* |[
+                            int x_separatorindex=0;
+                            java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[  
+                              if(x_separatorindex > 0) {
+                                bstm2* // place separator if there was an element before this one
+                              }
+                              bstm1*
+                              x_separatorindex++;
+                            ]|
+                          ]| end
 
   control-flow-for(s|) :
-    fa@ForAll(x, srt, fltr, elems) ->
-    bstm* |[
-      java.util.List<t> x_list = e_criteria.list();
-      ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm*|[
-        bstm*
-      ]|
-    ]|
+    fa@ForAll(x, srt, fltr, elems) -> result
     with  bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
+        ; if <?[]> bstm*
+          then result :=  [] 
+          else result :=  bstm* |[ 
+                            java.util.List<t> x_list = e_criteria.list();
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm*|[
+                              bstm*
+                            ]|
+                          ]| end
         
   control-flow-for-common(s | x_list, x, srt, t, fltr) :
     bstm* ->
@@ -149,17 +158,19 @@ rules // if
     control-flow-if(elems-to-java-servlet|)
 
   control-flow-if(s|) :
-    IfTempl(e, elems, elems2) ->
-    bstm |[
-    if(e1){ 
-      bstm*
-    } else {
-      bstm2*
-    }
-    ]|
+    IfTempl(e, elems, elems2) -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; bstm2* := <s;concat-with-sublists> elems2
         ; e1 := <expression-to-java-servlet> e
+        ; if <?([],[])> (bstm*,bstm2*)
+          then result :=  [] 
+          else result :=  bstm |[
+                            if(e1){ 
+                              bstm*
+                            } else {
+                              bstm2*
+                            }
+                          ]| end
 
 rules //templatecall    
 
