@@ -1,0 +1,87 @@
+module org/webdsl/dsl/java-transformations/merge
+
+imports
+  libstratego-lib
+  libjava-front
+
+rules
+
+  merge-classes =
+    remove-all(filter-interface-decs)
+  ; map(register-class-parts)
+  ; produce-classes
+  ; add-interfaces
+
+  register-class-parts =
+    ?class
+  ; with(
+      (packagedef, import, annos, classname, super, interface, body) := <get-class-info> class
+    ; key := (packagedef,classname)
+    ; rules ( 
+        JavaPartialClasses-Keys      :+= key 
+        JavaPartialClasses-Super     :+ key -> super
+        JavaPartialClasses-Interface :+ key -> interface
+        JavaPartialClasses-Body      :+ key -> body
+        JavaPartialClasses-Annos     :+ key -> annos
+        JavaPartialClasses-Import    :+ key -> import
+      )
+    )
+
+  produce-classes =
+    <map(produce-class)> <bagof-JavaPartialClasses-Keys;uniq>
+    
+  produce-class :
+    key@(packagedef,classname) ->
+    CompilationUnit(packagedef, import, [ClassDec(ClassDecHead(annos, Id(classname), None(), optsuper, optinterface), ClassBody(<concat> [body,methods]))]) 
+    with  optsuper := <bagof-JavaPartialClasses-Super; remove-none-cons; uniq; check-multiple-super(|key); (Hd <+ !None())> key
+        ; optinterface := <bagof-JavaPartialClasses-Interface; uniq; remove-none-cons; map(?Some(ImplementsDec(<id>))); concat; (?[];!None() <+ !Some(ImplementsDec(<id>)) )> key
+        ; annos := <bagof-JavaPartialClasses-Annos; concat; uniq; remove-partial-anno> key
+        ; import := <bagof-JavaPartialClasses-Import; concat; uniq> key
+        ; body := <bagof-JavaPartialClasses-Body; flatten-list> key
+        ; methods := <retrieve-and-merge-methods> key
+        
+  remove-none-cons = remove-all(?None())
+  
+  remove-partial-anno = remove-all(?MarkerAnno(TypeName(Id("Partial"))))
+  has-partial-anno = fetch(?MarkerAnno(TypeName(Id("Partial"))))
+       
+  check-multiple-super(|key) =
+    try(where(length;<gt> (<id>,1);<debug(!"multiple superclasses: ")> key;<exit> 1))
+    
+rules
+
+  get-class-info : 
+    CompilationUnit(packagedef, import, [ClassDec(ClassDecHead(annos, Id(classname), None(), optsuper, optinterface), ClassBody(body))]) -> 
+    (packagedef, import, annos, classname, optsuper, optinterface, <remove-all(filter-method-decs(|(packagedef,classname)))> body)
+    
+  // interfaces merge not used in WebDSL
+  filter-interface-decs =
+    ?i@CompilationUnit(_,_,[InterfaceDec(InterfaceDecHead(_,_,_,_),_)])
+  ; rules( JavaPartialClasses-Interfaces :+= i )  
+  
+  add-interfaces =
+    <concat> [<id>, <bagof-JavaPartialClasses-Interfaces>]
+  
+rules
+
+  filter-method-decs(|key) = // method key is class key, name, return type and params
+    ?MethodDec(MethodDecHead(annos, opttypeparams, result, name, params, optthrows), Block(body))
+  ; where(<has-partial-anno> annos)
+  ; with(
+      rules( 
+        JavaPartialClasses-Method-Keys   :+ key -> (key,result,name,params)
+        JavaPartialClasses-Method-Annos  :+ (key,result,name,params) -> annos
+        JavaPartialClasses-Method-Throws :+ (key,result,name,params) -> optthrows
+        JavaPartialClasses-Method-Body   :+ (key,result,name,params) -> body
+      )
+    )
+    
+  retrieve-and-merge-methods =
+    <map(retrieve-and-merge-method)> <bagof-JavaPartialClasses-Method-Keys;uniq>
+    
+  retrieve-and-merge-method :
+    mkey@(key,result,name,params) -> 
+    MethodDec(MethodDecHead(annos, None(), result, name, params, optthrows), Block(body))
+    with  annos := <bagof-JavaPartialClasses-Method-Annos; concat; uniq; remove-partial-anno> mkey 
+        ; body  := <bagof-JavaPartialClasses-Method-Body; concat> mkey
+        ; optthrows := <bagof-JavaPartialClasses-Method-Throws; uniq; remove-none-cons; map(?Some(ThrowsDec(<id>))); concat; (?[];!None() <+ !Some(ThrowsDec(<id>)) )> mkey

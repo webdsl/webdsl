@@ -162,9 +162,9 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = webdslc
 
 webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la
+                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str libjava-pp.la
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
 
@@ -210,6 +210,28 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+
+### java transformations
+
+nobase_data_DATA += libjava-transformations.rtree 
+lib_LTLIBRARIES  += libjava-transformations.la 
+
+libjava_transformations_la_SOURCES = libjava-transformations.c
+libjava_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0
+libjava_transformations_la_LDFLAGS  = $(AM_LDFLAGS)
+libjava_transformations_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libjava_transformations_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
+			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
+			      $(STRATEGO_UNINSTALLED_LIBS)
+
+libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-generator.la libto-java-servlet.la libwebdsl-front.la
+	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o libjava-transformations.rtree \
+		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+	rm libjava-transformations.str
+
+java-transformations.ctree : libjava-transformations.rtree
+	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o java-transformations.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 
 ### java servlet back-end
@@ -278,7 +300,7 @@ libwrite_files_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la  libjava-pp.la
+libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwrite-files.str
