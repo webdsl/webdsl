@@ -64,6 +64,16 @@ public final class HTMLFilter {
 
     }
 
+	public static String unfilter(String message) {
+		if (message == null)
+			return (null);
+		return message
+		  .replaceAll("&lt;","<")
+		  .replaceAll("&gt;",">")
+		  .replaceAll("&amp;","&")
+		  .replaceAll("&quot;","\"");
+	}    
+    
 
 }
 
