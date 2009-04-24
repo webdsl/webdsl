@@ -13,37 +13,64 @@ rules // forms
     tc@TemplateCall("form", [],passign*, elems) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
+      ident += "~formident"+uniqueid;
+      form_ident = ident; //just for actionLink javascript code    
+      if(ps.getParammap().get(ident)!=null)
       {
-        ident += "~formident"+uniqueid;
-        form_ident = ident; //just for actionLink javascript code    
-        if(ps.getParammap().get(ident)!=null)
-        {
-          inSubmittedForm = true; // ok, because no nested forms, otherwise need to count just like inForLoop variable
-        }
-        
-        out.print("<form "+e_enc+" name=\""+ident+"\" id=\""+ident+"\" action=\""+utils.HTMLFilter.filter(ps.getPageUrlWithParams())+"\" method=\"POST\" "+e_attrs1+">");
-        out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
-        out.print(ps.getHiddenParams()); // page arguments
-
-        bstm*
-
-        out.print("</form>");
-
-        inSubmittedForm = false;
-        form_ident = "";
+        inSubmittedForm = true; // ok, because no nested forms, otherwise need to count just like inForLoop variable
       }
+      ps.formRequiresMultipartEnc = false;
+      out.print("<form name=\""+ident+"\" id=\""+ident+"\" action=\""+
+        utils.HTMLFilter.filter(ps.getPageUrlWithParams())+"\" method=\"POST\" "+e_attrs1);
+      
+      //create temporary out stream so the decision for multipart enctype can be made after handling the contents of the form
+      java.io.PrintWriter x_out = out;
+      java.io.StringWriter x_stringwr = new java.io.StringWriter();
+      out = new java.io.PrintWriter(x_stringwr); 
+      out.print(">");
+      out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
+      out.print(ps.getHiddenParams()); // page arguments
+      bstm*
+      out.print("</form>");
+      
+      if(ps.formRequiresMultipartEnc){
+        this.out.write(" enctype=\"multipart/form-data\"");
+      }
+      this.out.write(x_stringwr.toString());
+      out = x_out; //set 'out' back to the original out stream
+  
+      ps.formRequiresMultipartEnc = false;
+      inSubmittedForm = false;
+      form_ident = "";
     ]|
     with  bstm* := <elems-to-java-servlet> elems
         ; formident := <get-formnumber> tc
         ; e_attrs1 := <to-html-attrs> passign*
-        ; if <oncetd(requires-multipart-encoded-form)> elems
-          then e_enc := java |[ "enctype=\"multipart/form-data\"" ]|
-          else e_enc := java |[ "" ]| end
+        ; x_stringwr := <newname> "stringwriter"
+        ; x_out := <newname> "out"
 /*        ; if (IsAjaxApp) //TODO: enter afvangen
           then e1 := "onsubmit
           else
           end
 */   
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-form-enctype-var; fail
+
+  generate-java-servlet-form-enctype-var :
+    Application(qid, sections)
+    ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      
+      public abstract class PageServlet {
+        public boolean formRequiresMultipartEnc = false;
+      }
+    ]|
+      
+rules
+
   handle-actions-to-java-servlet: 
     tc@TemplateCall("form", [],passign*, elems) ->
     <for-loop-counter-wrap-code>

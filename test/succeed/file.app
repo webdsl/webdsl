@@ -7,7 +7,15 @@ section datamodel
     storedfile :: File
   }
   
+  define navigation(){
+    navigate(home()){"test1"}
+    navigate(home2()){"test2"}
+    navigate(home3()){"test3"}  
+  }
+  
   define page home(){
+
+    navigation()
     form{
       for(u:User)
       {
@@ -46,6 +54,7 @@ section datamodel
   }
   
   define page home2(){
+    navigation()
     form{
       for(u:User2)
       {
@@ -71,7 +80,38 @@ section datamodel
       u.storedimage.download();
     }
   }
+  
+  entity ImageStore{
+    storedimage :: Image
+  }
+  
+  var u3_img := ImageStore{ };
+  define page home3(){
+    navigation()
+    form{
+      for(i : ImageStore)
+      {
+        output(i.storedimage)
+      }
+    }
+    "test page"
 
+    form{
+      group("image"){
+        imginputtemplate()
+        action("save image",save())
+      }
+    }
+    action save() {
+      u3_img.save();
+    }
+  }
 
+  define imginputtemplate(){
+    imginput()
+  }
 
-
+  define imginput(){
+    input(u3_img.storedimage)
+  }
+  
