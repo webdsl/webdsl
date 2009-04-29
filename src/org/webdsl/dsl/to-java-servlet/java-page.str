@@ -78,20 +78,17 @@ rules
         @Partial
         public class x_Page extends PageServlet
         {
-          //templates scope
+          //templates in scope
           private static HashMap<String, Class> templates = PageServlet.getTemplates();
-          
-          private HashMap<String, Object> variables = new HashMap<String, Object>();
-          private HashMap<String, Object> actionclasses = new HashMap<String, Object>();
+
+          @Partial
+          protected void initialize(){}   
         
           @Partial
-          private void initialize(){}   
-        
-          @Partial
-          private void conversion(){}     
+          protected void conversion(){}     
           
           @Partial
-          private void loadArguments () {}//previously argumentInitialize
+          protected void loadArguments () {}//previously argumentInitialize
          
           public String getPageName()
           {
@@ -121,6 +118,17 @@ rules
                     
           x_specialpagetemplate templateservlet = new x_specialpagetemplate();
           
+          protected void initVarsAndArgs(){
+            //this.variables.put("_persist_flag_", new Boolean(false));
+            initialize();
+            variablesGlobalAndSession = (HashMap<String, Object>)variables.clone();
+            conversion();
+            loadArguments();
+             
+            Object[] args = { e* };
+            this.args = args;
+          }
+          
           public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
           {
             this.request=request;
@@ -137,19 +145,8 @@ rules
             {	
               retrieveIncomingMessagesFromHttpSession();
               
-              //very dirty and most ugly hibernate hack
-              this.variables.put("_persist_flag_", new Boolean(false));
-              
-              initialize();
-              variablesGlobalAndSession = (HashMap<String, Object>)variables.clone();
-              conversion();
-              loadArguments();
-               
-              Object[] args = { e* };
-              this.args = args;
-              
-              //call special pagetemplate
-              
+              initVarsAndArgs();
+
               templateservlet.storeInputs   (this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses );
               templateservlet.validateInputs(this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses );
               
@@ -159,7 +156,7 @@ rules
                 templateservlet.handleActions(this, args, 1, (HashMap<String,Class>)templates.clone(),variables,actionclasses, out);
               }
               else{
-                this.clearHibernateCache(variables);
+                clearHibernateCache();
               }
               
               if(download != null) {
