@@ -110,7 +110,7 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                     
 ### pre-parsing Stratego modules
 
-STRFILES = ./nano.str \
+STRFILES = ./nanoc.str \
            $(wildcard ./org/webdsl/dsl/*/*.str) \
            $(wildcard ./org/webdsl/dsl/*/*/*.str) \
            $(wildcard ./org/webdsl/dsl/*/*/*/*.str)
@@ -159,12 +159,12 @@ Mix%.sdf : %.def
 
 SCFLAGS = --main $*-main	
 
-bin_PROGRAMS = nano
+bin_PROGRAMS = nanoc
 
-nano_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
+nanoc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
                     libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
-nano.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la nano.str
+nanoc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la nanoc.str
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
 

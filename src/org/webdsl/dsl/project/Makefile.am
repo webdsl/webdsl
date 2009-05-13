@@ -1,4 +1,4 @@
-bin_SCRIPTS = webdsl webdsl-plugins
+bin_SCRIPTS = webnano webdsl-plugins
 EXTRA_DIST = \
   $(wildcard new_project/*.app) \
   $(wildcard template-java-servlet/*.xml) \
