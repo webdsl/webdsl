@@ -440,24 +440,6 @@
    %% string-select-entity
    StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
    StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
-
-   MDListItem																		-- KW["*"] _1 _2,
-   MDListItemMulti															-- KW["*"] _1 KW["{"] _2 KW["}"],
-   MDListItemMulti.2:iter-star									-- _1,
-   MDSpacer																			-- KW["--"] _1,
-   MDHeader																			-- H[KW["="] _1 _2 KW["="]],
-   MDBlock																			-- H[KW["#"] _1 KW["{"] _2 KW["}"]],
-   MDBlock.2:iter-star													-- _1,
-   MDRowNoCols																	-- H[KW["<"] _1 _2 KW[">"]],
-   MDRowNoCols.2:iter-star											-- _1,   
-   MDRow																				-- H[KW["<"] _1 _2 KW[">"]],
-   MDRow.2:iter-star														-- _1,
-   MDCol																				-- H[KW["|"] _1 _2],
-   MDCol.2:iter-star														-- _1,
-   MDNavigate																		-- H[KW["~"] _1 _2 KW[":"] _3],
-   MDProps																			-- H[KW["["] _1 KW["]"]],
-   MDProps.1:iter-star													-- _1,
-   MDProps.1:iter-star-sep											-- KW[","],
    
    None																					-- _1,
    Some																					-- _1,
@@ -812,7 +794,13 @@
    QueryRule.2:opt                              -- _1,
    QueryRule.3:opt                              -- _1,
    QueryRule.4:opt                              -- _1,
-   QueryUnion                                   -- _1 KW["union"] _2
+   QueryUnion                                   -- _1 KW["union"] _2,
 
+   Attribute                                    -- _1 KW["="] _2,
+   XMLElement                                   -- KW["<"] _1 _2 KW[">"] _3 KW["</"] _4 KW[">"],
+   XMLElement.2:iter-star                       -- _1,
+   XMLElement.3:iter-star                       -- _1,
+   XMLEmptyElement                              -- KW["<"] _1 _2 KW["/>"],
+   XMLEmptyElement.2:iter-star                  -- _1
 
 ]
