@@ -1,0 +1,38 @@
+module org/webdsl/dsl/languages/action/normalize
+
+rules // functions
+
+  normalize-action : 
+    FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
+    //|[ function x(farg*) { stat* } ]| -> |[ function x(farg*) : Void { stat* } ]|
+
+  normalize-action :
+    IfNoElse(e, bit) -> If(e, bit, Block([]))
+    //stat|[ if(e) { stat* } ]| -> stat|[ if(e) { stat* } else { } ]|
+
+  normalize-ui :
+    IfNoElseTempl(e, elem*) -> IfTempl(e, elem*, [])
+
+rules // literals
+
+  normalize-action :
+    String(x) -> String(<un-double-quote> x)
+
+rules // case statement
+
+  // TODO: Try rename-all here?
+  normalize-action :
+    stat|[ case(e) { alt* } ]| -> <rename-closed> stat|[ { var x : srt := e; stat } ]|
+    where srt := <type-of> e
+        ; x := <newname> "caseval"
+        ; stat := <case-to-if(|x)> alt*
+
+  case-to-if(|x) :
+    [] -> stat|[ { } ]|
+
+  case-to-if(|x) :
+    [ |[ const { stat1* } ]|, alt* ] -> stat|[ if(x == const) { stat1* } else { stat2 } ]|
+    where stat2 := <case-to-if(|x)> alt*
+
+  case-to-if(|x) :
+    [ |[ default { stat1* } ]|, alt* ] -> stat|[ { stat1* } ]|
