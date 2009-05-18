@@ -59,13 +59,12 @@ mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 mixmetapysyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Python
-strategoxml = $(XML_FRONT)/share/sdf/xml-front/Stratego-xml
 
 SYNTAXDEFS = $(syntax).def					  \
 	     $(mixcss).def $(metasyntax).def $(mixmetapysyntax).def $(mixmetasyntax).def \
 	     $(hql).def $(python).def $(css).def  # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl $(strategoxml).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl 
 
 SIGS   = $(hql).rtg $(hql).str $(css).rtg $(python).str $(css).str $(syntax).rtg $(syntax).str
 
@@ -126,7 +125,7 @@ STRINCLUDES = \
 	-I $(JAVA_FRONT)/share/java-front/languages/java/eblock \
 	-I $(JAVA_FRONT)/share/java-front-syntax \
 	-I $(GPP)/share/sdf/gpp \
-	-I $(XML_FRONT)/share/sdf/xml-front \
+	-I $(GPP)/share/sdf/xml-front \
 	-I org/webdsl/dsl/syntax \
 	--verbose 2
 
@@ -208,7 +207,7 @@ libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
-	
+
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
@@ -278,11 +277,11 @@ libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(
 to-py-gae.ctree : libto-py-gae.rtree
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o to-py-gae.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
-		
+
 ## fast pretty-printer
 
 lib_LTLIBRARIES  += libjava-pp.la 
-		
+
 libjava_pp_la_SOURCES = java-pp.c
 libjava_pp_la_LIBADD  = $(STRATEGO_XTC_LIBS)   $(STRATEGO_LIB_LIBS)   $(STRATEGO_RUNTIME_LIBS)   $(ATERM_LIBS)
 libjava_pp_la_CFLAGS  = $(STRATEGO_XTC_CFLAGS) $(STRATEGO_LIB_CFLAGS) $(STRATEGO_RUNTIME_CFLAGS) $(ATERM_CFLAGS) $(AM_CFLAGS)
