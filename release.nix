@@ -21,7 +21,7 @@ let
         inherit officialRelease;
         buildInputs = [
           pkgconfig strategoPackages.aterm strategoPackages.sdf
-          strategoPackages.strategoxt strategoPackages.javafront
+          strategoPackages.strategoxt strategoPackages.javafront libtool_1_5 automake110x autoconf
         ];
       };
 
