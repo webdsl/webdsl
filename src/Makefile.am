@@ -59,12 +59,13 @@ mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 mixmetapysyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Python
+strategoxml = $(XML_FRONT)/share/sdf/xml-front/Stratego-xml
 
 SYNTAXDEFS = $(syntax).def					  \
 	     $(mixcss).def $(metasyntax).def $(mixmetapysyntax).def $(mixmetasyntax).def \
 	     $(hql).def $(python).def $(css).def  # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl $(strategoxml).tbl 
 
 SIGS   = $(hql).rtg $(hql).str $(css).rtg $(python).str $(css).str $(syntax).rtg $(syntax).str
 
