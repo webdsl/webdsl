@@ -140,7 +140,8 @@ STRCFLAGS = \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
-	--format-check 0 -O 1
+	--format-check 0 -O 1 \
+	--verbose 3
 
 XTC_IMPORT = $(JAVA_FRONT_XTC)
 
@@ -203,7 +204,7 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENERATORSTRFILES:.str=.rtree) libwebdsl-front.la
+libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-generator.str
