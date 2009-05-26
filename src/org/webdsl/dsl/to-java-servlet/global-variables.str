@@ -25,11 +25,16 @@ rules
       import utils.*;
       import pkgname.*;
       import pkgname2.*;
+      
+      import org.webdsl.lang.Environment;
   
       public class GlobalVariables {
+      
         private static org.hibernate.Session hibSession;
-        private static HashMap<String, Object> variables = new HashMap<String, Object>();
-        private static PageServlet ps = new GlobalsPageServlet(variables);
+        
+        private static Environment env; 
+        private static PageServlet ps;
+        
         private static java.io.PrintWriter out = null;
 
           //private static HashMap<String, Long> ids = new HashMap<String, Long>();
@@ -56,6 +61,9 @@ rules
         static{
             //start hibsession
             hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            
+            env = PageServlet.staticEnv;
+            ps = new GlobalsPageServlet(env);
 
             org.hibernate.Query q = hibSession.createQuery("from ApplicationContextProperty");
             List<ApplicationContextProperty> res = q.list();
@@ -72,7 +80,7 @@ rules
             }
             
             hibSession = null;
-            variables = null;
+            env = null;
             ps = null;
             out = null;
         }
@@ -117,7 +125,7 @@ rules
     with  result := 
           bstm* |[ 
             //hibSession.save(x_ident); no longer necessary here because of generated UUID for keys
-            variables.put("~x_ident",x_ident); //necessary for set/list creations in globals which use globals
+            env.putVariable("~x_ident",x_ident); //necessary for set/list creations in globals which use globals
           ]| 
         ; resultwrapped := 
           bstm |[
@@ -158,7 +166,7 @@ rules
           try {
             ~*bstmvardeclinit*
             //call constructor for entity-events:
-            x_ident.x_classcreated#_(hibSession, variables, ps, out);
+            x_ident.x_classcreated#_(hibSession, env, ps, out);
           }
           catch(Exception iea) {
             throw new RuntimeException("Catched in globalDeclaration: ",iea);
@@ -218,7 +226,7 @@ strategies //handle global vars in templates and pages
        {
            t x = null;
            x = GlobalVariables.get#x(hibSession);
-           variables.put("~x",x);
+           env.putVariable("~x",x);
        }
      ]| 
      with  t := <java-type> srt
@@ -236,7 +244,7 @@ strategies //handle global vars in templates and pages
       private t x = null;
       @Partial
       protected void initialize() {
-        x = (x_class) variables.get("~x");
+        x = (x_class) env.getVariable("~x");
       }
       @Partial
       private void cleanupGlobalAndSession() { 

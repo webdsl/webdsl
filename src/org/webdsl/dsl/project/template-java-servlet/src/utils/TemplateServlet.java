@@ -8,14 +8,16 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.webdsl.lang.Environment;
+
 
 public interface TemplateServlet {
     
-    public int storeInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses);
+    public int storeInputs(PageServlet ps,Object[] args, int templatecounter, Environment env);
 
-    public int validateInputs(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses);
+    public int validateInputs(PageServlet ps,Object[] args, int templatecounter, Environment env);
 
-	public int handleActions(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out);	
+	public int handleActions(PageServlet ps,Object[] args, int templatecounter, Environment env, java.io.PrintWriter out);	
     
-    public int render(PageServlet ps,Object[] args,int templatecounter,HashMap<String, Class> templates,HashMap<String, Object> variables,HashMap<String, Object> actionclasses, java.io.PrintWriter out) ;
+    public int render(PageServlet ps,Object[] args, int templatecounter, Environment env, java.io.PrintWriter out) ;
 }

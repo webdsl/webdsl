@@ -31,13 +31,11 @@ rules
       import javax.servlet.http.HttpServletResponse;
       import pkgname.*;
       import org.webdsl.WebDSLEntity;
+      import org.webdsl.lang.Environment;
       
       import org.hibernate.Session;
       
       public abstract class PageServlet {
-          
-          protected HashMap<String, Object> variables = new HashMap<String, Object>();
-          protected HashMap<String, Object> actionclasses = new HashMap<String, Object>();
       
           public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
           
@@ -48,21 +46,20 @@ rules
           
           public javax.servlet.http.HttpSession session;
           
-          public HashMap<String, Object> variablesGlobalAndSession = null;
+          public Environment envGlobalAndSession;
           
           public String getPageUrlWithParams(){ //used for action field in forms
             return request.getRequestURL().toString();
           }
 
           //templates scope
-          private static HashMap<String, Class> templates = new HashMap<String, Class>();
+          public static Environment staticEnv = new Environment();
           static {
             bstm_templates*
             bstm_pages*
           }
-          public static HashMap<String, Class> getTemplates() { 
-            return templates; 
-          }
+          
+          protected Environment env = new Environment(PageServlet.staticEnv);
          
           //emails
           private static HashMap<String, Class> emails = new HashMap<String, Class>();
@@ -186,8 +183,6 @@ rules
           }
           
           public void cleanup(){
-            actionclasses.clear();
-            actionclasses = null;
             args = null;
             download = null;
             fileUploads.clear();
@@ -223,10 +218,7 @@ rules
             validationContext = null;
             validationExceptions.clear();
             validationExceptions = null;
-            variables.clear();
-            variables = null;
-            variablesGlobalAndSession.clear();
-            variablesGlobalAndSession = null;
+            envGlobalAndSession = null;
           }
           
           protected void download()
@@ -278,13 +270,13 @@ rules
       ]|
     with pkgname    := <BeanPackage>
        ; bstm_templates* := <map({\ 
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           x -> bstm |[ staticEnv.putTemplate(x_key, x_value); ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<TopLevelTemplateClassName> x,".class"]
                        \})> 
                        <bagof-AllTopLevelTemplateNamesJavaServlet>
        ; bstm_pages* := <map({\ 
-                           x -> bstm |[ templates.put(x_key, x_value); ]| 
+                           x -> bstm |[ staticEnv.putTemplate(x_key, x_value); ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<PageClassName> x,".class"]
                        \})> 

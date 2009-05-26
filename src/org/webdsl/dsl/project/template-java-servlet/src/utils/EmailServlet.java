@@ -8,9 +8,11 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.webdsl.lang.Environment;
+
 public abstract class EmailServlet {
 
-	public abstract void render(PageServlet ps, Object[] args, HashMap<String, Object> variables, java.io.PrintWriter out);
+	public abstract void render(PageServlet ps, Object[] args, Environment env, java.io.PrintWriter out);
 
 	protected static java.util.Properties props = new java.util.Properties();
 	protected static java.util.Properties sessionProps = new java.util.Properties();
