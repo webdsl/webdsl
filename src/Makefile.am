@@ -165,9 +165,58 @@ bin_PROGRAMS = webdslc
 webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
                     libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str libjava-transformations.la
 
-ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree write-files.ctree java-transformations.ctree
+
+STRJ=java -server -Xss4m -Xmx1024m -XX:+UseParallelGC -jar strategoxt.jar
+STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la org.strategoxt.libjava-front -p org.webdsl -I $(JAVA_FRONT)/share
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx256m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
+JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
+
+JAVAS= \
+  bin/org/webdsl/webdsl_front.java \
+  bin/org/webdsl/webdsl_generator.java \
+  bin/org/webdsl/java_transformations.java \
+  bin/org/webdsl/java_pp_fake.java \
+  bin/org/webdsl/write_files.java \
+  bin/org/webdsl/to_java_servlet.java \
+  bin/org/webdsl/to_py_gae.java \
+  bin/org/webdsl/webdslc.java
+
+java : strategoxt.jar $(JAVAS)
+
+class : strategoxt.jar $(JAVAS)
+	$(JAVAC) -cp strategoxt.jar:bin:. bin/org/webdsl/webdslc.java
+
+jar : webdsl.jar
+
+webdsl.jar : class
+	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ . # `find bin | grep -Ev '\.java|\.svn' | sed 's!bin/!-C bin/ !'`
+
+bin/org/webdsl/webdsl_front.java : webdsl-front.ctree
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@
+
+bin/org/webdsl/webdsl_generator.java : webdsl-generator.ctree
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-front
+
+bin/org/webdsl/java_transformations.java : java-transformations.ctree
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front
+
+bin/org/webdsl/write_files.java : write-files.ctree
+	$(STRJ) $(STRJFLAGS) --library -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake
+
+bin/org/webdsl/to_java_servlet.java : to-java-servlet.ctree
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
+	
+bin/org/webdsl/to_py_gae.java : to-py-gae.ctree
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
+
+bin/org/webdsl/java_pp_fake.java : java-pp-fake.str
+	$(STRJ) $(STRJFLAGS) --library -i $< -o $@
+
+bin/org/webdsl/webdslc.java : webdslc.str
+	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.to-py-gae -la org.webdsl.write-files
 
 ### libraries
 
