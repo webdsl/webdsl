@@ -126,6 +126,7 @@ STRINCLUDES = \
 	-I $(JAVA_FRONT)/share/java-front-syntax \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(GPP)/share/sdf/xml-front \
+    -I $(GPP)/share/xml-front \
 	-I org/webdsl/dsl/syntax \
 	--verbose 2
 
@@ -337,6 +338,14 @@ libjava_pp_la_LIBADD  = $(STRATEGO_XTC_LIBS)   $(STRATEGO_LIB_LIBS)   $(STRATEGO
 libjava_pp_la_CFLAGS  = $(STRATEGO_XTC_CFLAGS) $(STRATEGO_LIB_CFLAGS) $(STRATEGO_RUNTIME_CFLAGS) $(ATERM_CFLAGS) $(AM_CFLAGS)
 libjava_pp_la_LDFLAGS = -avoid-version -no-undefined $(AM_LDFLAGS)
 
+### rtg
+
+Java-EBlock.rtg.af : $(JAVA_FRONT)/share/java-front/Java-EBlock.rtg
+	parse-rtg -i $< -o $@
+
+xml-doc.rtg.af : $(GPP)/share/xml-front/xml-doc.rtg
+	parse-rtg -i $< -o $@
+
 ### write files
 
 nobase_data_DATA += libwrite-files.rtree 
@@ -350,7 +359,7 @@ libwrite_files_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
 			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
 			      $(STRATEGO_UNINSTALLED_LIBS)
 
-libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la
+libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la Java-EBlock.rtg.af xml-doc.rtg.af
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwrite-files.str
