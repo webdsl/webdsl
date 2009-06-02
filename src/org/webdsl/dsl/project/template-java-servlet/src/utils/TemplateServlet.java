@@ -13,11 +13,11 @@ import org.webdsl.lang.Environment;
 
 public interface TemplateServlet {
     
-    public int storeInputs(PageServlet ps,Object[] args, int templatecounter, Environment env);
+    public int storeInputs(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg);
 
-    public int validateInputs(PageServlet ps,Object[] args, int templatecounter, Environment env);
+    public int validateInputs(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg);
 
-	public int handleActions(PageServlet ps,Object[] args, int templatecounter, Environment env, java.io.PrintWriter out);	
+	public int handleActions(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, java.io.PrintWriter out);	
     
-    public int render(PageServlet ps,Object[] args, int templatecounter, Environment env, java.io.PrintWriter out) ;
+    public int render(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, java.io.PrintWriter out) ;
 }

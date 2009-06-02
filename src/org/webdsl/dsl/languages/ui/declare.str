@@ -91,10 +91,20 @@ rules
         ; n := <strip-annos> name
         ; genname := <generate-template-name> (n,t*)
         ; rules( TemplateSignature  : (n, t*) -> def
-                 TemplateNewName : (n,t*) -> genname //used for overload resolution
+                 TemplateNewName : (n, t*) -> genname //used in overload resolution
                  TemplateDefinition : n -> def // only for use in code gen when renaming is applied which makes the names unique
                  TemplateArguments  : n -> fargs //''
                )
+        ; if <oncetd( // check for each variant of elements for robustness
+            ?TemplateCallNoBody("elements",_)
+            <+?TemplateCallNoArgs("elements")            
+            <+?TemplateCallNoAssigns("elements",_,_)  
+            <+?TemplateCallPropsNoBody("elements",_,_)
+            <+?TemplateCallProps("elements",_)        
+            <+?TemplateCallPropsNoArgs("elements",_,_)
+            <+?TemplateCallBody("elements",_)   
+            <+?TemplateCall("elements",_,_,_) 
+            )> body then rules( TemplateContainsElementsCall : genname ) end
         ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end // TODO: simplified lookup for generics
 
 rules 
@@ -109,28 +119,6 @@ rules
     
   generate-template-name-helper:
     GenericSort(x,[SimpleSort(s)]) -> <concat-strings> [x,s]
-
-/* implementation of more advanced checks for local redefinitions, eg check that there is always some def even when no global def defined 
-        ; <declare-templates-called-from-template(|n,t*)> def
-        
-  declare-templates-called-from-template(|n,t*) :
-    def@Define(mods, name, fargs, body) -> def
-    with  <alltd(declare-templates-called-from-template-helper(|n,t*))> body
-    
-  declare-templates-called-from-template-helper(|n,t*) : 
-    tc@TemplateCallNoBody(p,arg*) -> tc     
-    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
-    
-  declare-templates-called-from-template-helper(|n,t*) : 
-    tc@TemplateCallPropsNoBody(p,arg*,_) -> tc
-    where <declare-templates-called-from-template-helper-2(|n,t*)> (p,arg*)
-   
-  declare-templates-called-from-template-helper-2(|n,t*) : //fails in initial declarations before renaming
-    (p,arg*) -> (p,arg*)    
-    where t1* := <map(type-of)> arg*
-        ; p1 := <strip-annos> p
-        ; if not(<elem> ((p1,t1*),<bagof-TemplateRequires> (n,t*))) then
-            rules( TemplateRequires :+ (n,t*) -> (p1,t1*) ) end*/
         
 strategies
 

@@ -184,13 +184,30 @@ rules //templatecall
     control-flow-tcall(|"render")
 
   control-flow-tcall(|x_methodname) :
-    tc@TemplateCall(x_name, args,passign*, _) ->
+    tc@TemplateCall(x_name, args, passign*, _) -> result
+    where <CallToDefinedTemplateAfterIdRename> x_name
+    with  e* := <map({\e -> <expression-to-java-servlet> e\})> args
+        ; x_tname := <get-templatecallnumber> tc
+        ; arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
+        ; bstm_npe* :=
+            <![];if-debug(!bstm*|[
+              System.out.println("WebDSL warning: null reference in template arguments: "+"~x_name"+"("+"~arg_dump"+")"); // TODO proper location information; some way to disable these warnings
+              npe.printStackTrace(); // display java exception for now so it can be traced back to the template
+            ]|)>
+        // implicit template argument
+        ; if <fetch(?TemplateCall(templname,vars,_,_))> passign*
+          then e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
+          else templname := "none"; e_templ* := [] end
+        ; result := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*)
+ 
+  generate-template-call(|x_methodname):
+    (e_name, e_tname, e, e_templname, e_templ, bstm_npe*) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
-    ident += "~x_tname";
+    ident += e_tname;
     if(templatecalls.get(ident)==null){
       try{
-        templatecalls.put(ident,(TemplateServlet)env.getTemplate("~x_name").newInstance());
+        templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
       }
       catch(IllegalAccessException iae)
       {
@@ -202,25 +219,48 @@ rules //templatecall
       }
     }
     try {
-      Object[] x_args = { e* };
-      templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, new Environment(env), e1*);
+      Object[] x_args = e;
+      Object[] x_templargs = e_templ;
+      templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, new Environment(env), new utils.TemplateCall(e_templname, x_templargs), e1*);
     }
     catch(NullPointerException npe) {
-      ~*<![];if-debug(!bstm*|[
-      System.out.println("WebDSL warning: null reference in template arguments: "+"~x_name"+"("+"~arg_dump"+")"); // TODO proper location information; some way to disable these warnings
-      npe.printStackTrace(); // display java exception for now so it can be traced back to the template
-      ]|)>
+      bstm_npe*
     }
     ]|
-    where t* := <map(type-of)> args 
-        ; <CallToDefinedTemplateAfterIdRename> x_name
-        //; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos>x_name;TemplateWithGenerics> (x_name,t*)
-    with  x_tname := <get-templatecallnumber> tc
-        ; e* := <map({\e -> <expression-to-java-servlet> e\})> args
-        ; x_args := <newname> "args"
-        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ e|[ out ]| ]
-            //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
+    with  x_args := <newname> "args"
+        ; x_templargs := <newname> "args"
+        ; (    !x_methodname; (?"render"<+?"handleActions")
+               ; e1* := [ e|[ out ]| ]
             <+ e1* := []
           )
+      
+rules //elements
+
+  handle-actions-input-to-java-servlet  =
+    control-flow-elemcall(|"storeInputs")
+
+  handle-actions-to-java-servlet =
+    control-flow-elemcall(|"handleActions")
+
+  elem-to-java-servlet =
+    control-flow-elemcall(|"render")
+
+  control-flow-elemcall(|x_methodname) :
+    tc@TemplateCall("elements", _, _, _) -> result 
+    with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'elements' call"); ]|
+        ; result := <generate-template-call(|x_methodname)> 
+            (expr|[ templateArg.name ]|, expr|["elements"]|, expr|[ templateArg.args ]|, expr|["none"]|, var-init|[ {} ]|, bstm_npe*)
+ 
+    /*with  e* := <map({\e -> <expression-to-java-servlet> e\})> args
+        ; x_tname := <get-templatecallnumber> tc
         ; arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
-        
+        ; bstm_npe* :=
+            (![];if-debug(!bstm*|[
+              System.out.println("WebDSL warning: null reference in template arguments: "+"~x_name"+"("+"~arg_dump"+")"); // TODO proper location information; some way to disable these warnings
+              npe.printStackTrace(); // display java exception for now so it can be traced back to the template
+            ]|))
+        // implicit template argument
+        ; <fetch(?TemplateCall(templname,vars,_,_))> passign*
+        ; e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
+        ; result := <generate-template-call> (x_tname, x_methodname, e*, e_templ*, bstm_npe*)
+      */  
