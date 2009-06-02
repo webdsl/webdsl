@@ -8,5 +8,5 @@ section bla
       output(i)
     } separated-by { ", " }
     break
-    "example should show 7,6"
+    "example should show 7, 6"
   }
