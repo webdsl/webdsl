@@ -5,26 +5,32 @@ rules
   rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define mod* x(farg2*) { elem2* } ]|
     where   <fetch(?Page())> mod*
-    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext
+    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg
           : rules ( InDef := True() )
           ; rules ( InPage := x )
+          ; rules ( TemplateArg := farg1* ) //used in template-call.str
           ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
+          //; empty-args-in-context
+          ; <declare-args-in-context> farg2*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
           ; rules ( TypeOf : x -> "Component" )
           |}
 
   rename-ui :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
-    where not(InPage)
+    where not(InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         //; not(<elem> (Email(), mod*))
         ; not(<fetch(?Email())> mod*)
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg
           : rules ( InDef := True() )
           ; y := x{<newname> x}
           ; rules ( InTemplate := y )
+          ; rules ( TemplateArg := farg1* )
           ; genargs := <get-generictype-args> farg1*
           ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
+          //; empty-args-in-context
+          ; <declare-args-in-context> farg2*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
           |}
         
@@ -33,13 +39,21 @@ rules
     where (InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg
          : rules ( InDef := True() )
          ; y := x{<newname> x}
          ; rules ( InTemplate := y )
+         ; rules ( TemplateArg := farg1* )
          ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
+         ; <declare-args-in-context> farg2*
          ; elem2* := <alltd(rename-actions); rename-all> elem1*
          |}
+
+  empty-args-in-context =
+    repeat(once-VarInTemplateContext)
+
+  declare-args-in-context =
+    map(\Arg(name,_) -> name with rules( VarInTemplateContext :+= Var(name) )\)
 
   rename-ui :
     t@ThisCall(fname, _) -> t3
@@ -59,10 +73,16 @@ rules
 
   rename-actions = ?Define(_, _, _, _) // End of scope
 
+  rename-ui :  // don't go into actions without proper scopes; actions are sometimes renamed without going through the whole template rename rule, in that case the action rule below is not used
+  Action(nm1, args1, b1) -> Action(nm1, args2, b2)
+  with {| Rename, VarInTemplateContext
+        : args2 := <map(rename)> args1
+        ; b2 := <rename-all> b1
+       |}
+          
   rename-actions :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
-    with
-       {| Rename
+    with {| Rename, VarInTemplateContext
           : args2 := <map(rename)> args1
           ; b2 := <rename-all> b1
           |}
@@ -76,9 +96,16 @@ rules
 
   rename-ui :
     InitAction(bl) -> InitAction(bl2)
-    where not(InDef)
-    with {| InDef
+    where not(InDef) //global init
+    with {| InDef, Rename, VarInTemplateContext
           : rules (InDef := True())
           ; bl2 := <rename-all> bl
+          |}
+          
+  rename-ui :
+    InitAction(bl) -> InitAction(bl2)
+    where InDef //in template
+    with {| Rename, VarInTemplateContext
+          : bl2 := <rename-all> bl
           |}
   

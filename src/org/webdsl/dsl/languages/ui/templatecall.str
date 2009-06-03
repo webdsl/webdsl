@@ -71,6 +71,7 @@ rules //template call either refers to a defined template, or to a built-in temp
   resolve-template-call-name :
     (x,arg*) -> x1
     with  x1 := x{<newname> x}
+        //; <debug> x; <debug> arg*; <debug> <InTemplate<+InPage<+InEmail<+!"unknown context">; <debug> x1; <debug> "\n"
         ; if not(InTypeCheckingPhase) then with(<map(type-of)> arg*) end //extra check in case model-to-model produces bad code
         ; !(x1,arg*)
         ; (  rename-template-call-name-defined
@@ -79,12 +80,19 @@ rules //template call either refers to a defined template, or to a built-in temp
           )
         // collect variables for template closure
         ; oldvars := <CallContextVars <+ ![]> x
-        ; if InTemplate <+ InPage <+ InEmail 
-          then vars := <bagof-VarInTemplateContext> //whole def renamed, collect environment
+        ; if InTemplate <+ InPage 
+          then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
           else vars := <rename-all> oldvars //only this part renamed, only apply rename
           end
         ; rules ( CallContextVars : x1 -> vars )
-
+        //collect actions for template closure
+        ; ( //only for page and regular templates, not other template types like email
+            templatekey := (<InPage <+ InTemplate;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>)
+          ; actions := <TemplateActions> templatekey
+          ; rules ( CallContextActionsKey : x1 -> templatekey )
+          <+rules ( CallContextActionsKey : x1 -> None() )
+          )
+          
   rename-template-call-name-defined : 
     (x,arg*) -> x
     where xsa := <strip-annos> x
@@ -176,7 +184,9 @@ rules // desugar template argument for defined template calls
     with  x_newtempl := <newname> "templateargument"
         ; vars := <CallContextVars> x
         ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
-        ; <emit-webdsl-code> Define([], x_newtempl, farg*, elem*)
+        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
+        ; defelem* := [elem*, action*]
+        ; <emit-webdsl-code> Define([], x_newtempl, farg*, defelem*)
         ; elementscall := TemplateCall(x_newtempl,vars,[],[]) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
   built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
