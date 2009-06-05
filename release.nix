@@ -20,8 +20,15 @@ let
         src = webdslsSrc;
         inherit officialRelease;
         buildInputs = [
-          pkgconfig strategoPackages.aterm strategoPackages.sdf
-          strategoPackages.strategoxt strategoPackages.javafront libtool_1_5 automake110x autoconf
+          pkgconfig 
+          strategoPackages.aterm 
+          strategoPackages.sdf
+          strategoPackages.strategoxt 
+          strategoPackages.javafront 
+          libtool_1_5 
+          automake110x 
+          autoconf
+          ant 
         ];
       };
 
