@@ -1,0 +1,47 @@
+module WebDSL-Ajax
+
+exports
+
+  sorts Statement Exp InlineTemplate AjaxStatement
+  context-free syntax
+
+    %%AJAX desugarings/ inline
+    "action" Block -> Exp {cons("InlineAction"), prefer}
+    "template" "{" TemplateElement* "}" -> InlineTemplate {cons("InlineTemplateCall")}    
+%%    "template"               -> Id {reject}
+   
+    %% Template call without braces must be disambiguated in some cases
+    "action" -> TemplateCall {reject}  %%this is an action definiton, not a templatecall without params
+    "action" -> Exp {reject}		   %%this is an inline action, not a variable
+    "action" -> PropertyValue {reject} %%this is an inline action, not an id
+  
+  
+%%  	replace <element_id> << <templatecall>(<argumenten>);
+%%	append  <element_id> << <templatecall>(<argumenten>);
+%%	visibility <element_id> << < "show" | "hide" | "toggle">;
+%%	relocate this << <pagecall>(<argumenten>);
+%%	restyle <element_id> << "<css classname>";
+%%	clear <element_id> << "<niet terzake doende string>"
+
+  AjaxStatement ";" -> Statement {cons("AjaxStatement"), prefer}   
+    "replace" "(" Id "," TemplateCall ")" -> AjaxStatement {cons("AjaxReplace")}
+    "replace" "(" Id "," InlineTemplate ")" -> AjaxStatement {cons("AjaxReplace"), prefer}  	
+
+    "append" "(" Id "," TemplateCall ")" -> AjaxStatement {cons("AjaxAppend")}
+    "append" "(" Id "," InlineTemplate ")" -> AjaxStatement {cons("AjaxAppend"), prefer}  	
+
+    "visibility" "(" Id "," AjaxVisibility ")" -> AjaxStatement {cons("AjaxVisibility")}
+    "show" -> AjaxVisibility{cons("Show")}
+    "toggle" -> AjaxVisibility{cons("Toggle")}
+    "hide" -> AjaxVisibility{cons("Hide")}        
+    
+    "relocate" "(" Exp ")" -> AjaxStatement { cons("AjaxRelocate") }
+    "restyle" "(" Id "," Exp ")" -> AjaxStatement { cons("AjaxRestyle") }
+    
+    "clear" "(" Id ")" -> AjaxStatement{cons("AjaxClear")}
+    
+%%    Id Id "<<" Id  ";" 	 -> Statement {cons("AjaxActionIdParam"),prefer}
+%%    Id Id "<<" ";"		-> Statement {cons("AjaxActionNoParam")}
+%%    Id "<<" Exp ";"	 	-> Statement {cons("AjaxActionNoTarget")}
+%%    Id Id "<<" Exp ";"   	-> Statement {cons("AjaxAction")}
+  

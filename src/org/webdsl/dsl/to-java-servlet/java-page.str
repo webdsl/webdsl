@@ -30,16 +30,19 @@ rules
 
   generate-java-servlet-partial =
     ? cbds
+    ; where (not(NestedTemplate <+ ThisEmail))
     ; pkgname    := <BeanPackage>
-    ; x_Page := <JavaThisPage; java-servlet-page-name>
+    ; x_Page := <(JavaThisPage <+ IsAjaxApp; ThisTemplateName); java-servlet-page-name> 
     //also allow a single class-body-declaration
     ; with (
         if <is-list> cbds then cbds* := cbds else cbds* := [cbds] end
       ; <emit-java-code>
           compilation-unit|[
             package pkgname;
+            import utils.*;
+            
             @Partial
-            public class x_Page{
+            public class x_Page extends PageServlet{
               ~*cbds*
             }
           ]|
@@ -164,10 +167,10 @@ rules
                 download();
               }
               else {
-                if ( ( !this.hasExecutedAction || hibernateCacheCleared ) && !PageServlet.isAjaxApp) {
+                if ( ( !this.hasExecutedAction || hibernateCacheCleared )) {
                   render(request,response);
                 }
-                if (PageServlet.isAjaxApp) {
+                if (PageServlet.isAjaxApp && this.hasExecutedAction) {
                   response.getWriter().write("[" + s.toString()+ "{}]");
                 }
               }
@@ -240,16 +243,37 @@ rules
             sout.print("</body>");
             sout.println("</html>");
           }
+          
+          public void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] args, Environment env)
+          { //use passed PageServlet ps here, since this is the context for this type of response
+            this.request=ps.getRequest();
+            this.env = env;
+            this.response=ps.getResponse();
+            this.parammap = ps.getParammap();
+            this.parammapvalues = ps.getParammapvalues();
+            this.fileUploads=ps.getFileUploads();
+            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            session = request.getSession(true);
+            
+            bstm_args*
+            
+            initialize();
+                          
+            templateservlet.render(this, args, 1, new Environment(env), TemplateCall.None, theoutStream);
+          }          
         }
       ]|
-    where x_page    := <JavaThisPage>
+    where x_Page    := <(JavaThisPage <+ IsAjaxApp; ThisTemplateName); java-servlet-page-name>
+        ; not(NestedTemplate <+ ThisEmail)
     with pkgname    := <BeanPackage>
        ; pkgname2   := <DomainPackage>
-       ; x_Page     := <java-servlet-page-name> x_page
        ; x_specialpagetemplate := <ThisTemplateClassName>
        ; e* := <filter({\arg@farg|[ x : srt ]| -> var-init|[ x ]| \})> farg* //just pass args of page to special pagetemplate
        ; bstm1* :=  <map({\ 
                            x -> bstm |[ sout.println("<link href=\""+"~<AppRoot>"+"/stylesheets/"+"~x"+".css\" rel=\"stylesheet\" type=\"text/css\" />"); ]| 
                          \})> 
                          <concat;make-set> [<bagof-AllStylesheets>,<bagof-StyleSheetsAllPages>]
-                         
+       ; bstm_args* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
+                                         where x_index := <subti;int-to-string> (index,1)
+                                             ; x_arg := <argument-java-servlet-type> arg
+                                      \})> farg* //variables are generated in java-template-vars                   
