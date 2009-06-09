@@ -47,8 +47,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = i386-apple-darwin9.6.0
-host_triplet = i386-apple-darwin9.6.0
+build_triplet = i386-apple-darwin9.7.0
+host_triplet = i386-apple-darwin9.7.0
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/Makefile.xt
 am__append_1 = -DDEFAULT_XTC_REPOSITORY="\"$(REPOSITORY)\""
@@ -145,8 +145,8 @@ DATA = $(nobase_data_DATA) $(sdfdata_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run aclocal-1.10
-AMTAR = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run tar
+ACLOCAL = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run aclocal-1.10
+AMTAR = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run tar
 AR = ar
 ASFIX_TOOLS = $(STRATEGOXT)
 ASF_LIBRARY = $(SDF)
@@ -156,11 +156,11 @@ ATERM_FRONT = $(STRATEGOXT)
 ATERM_LIBS = -L/nix/store/wn1bq7f0ph1nxwzmr2pqm30a9yin4qjj-aterm-2.5pre21238/lib -lATerm  
 ATERM_STRCFLAGS = 
 ATERM_XTC = 
-AUTOCONF = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run autoconf
-AUTOHEADER = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run autoheader
-AUTOMAKE = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run automake-1.10
+AUTOCONF = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run autoconf
+AUTOHEADER = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run autoheader
+AUTOMAKE = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run automake-1.10
 AWK = gawk
-BUILD_REPOSITORY = /Users/zef/svn/webdsl/pil-branch/BUILDTIME_XTC
+BUILD_REPOSITORY = /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/BUILDTIME_XTC
 CC = gcc
 CCDEPMODE = depmode=gcc3
 
@@ -181,12 +181,12 @@ C_TOOLS_CFLAGS = -I/nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt/includ
 C_TOOLS_LIBS = -L/nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt/lib -L/nix/store/wn1bq7f0ph1nxwzmr2pqm30a9yin4qjj-aterm-2.5pre21238/lib -lstratego-lib -lstratego-lib-native -lstratego-runtime -lm -lATerm  
 C_TOOLS_STRCFLAGS = -I /nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt/share/c-tools -I /nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt/share/sdf/c-tools
 C_TOOLS_XTC = 
-DEFS = -DPACKAGE_NAME=\"webdsl\" -DPACKAGE_TARNAME=\"webdsl\" -DPACKAGE_VERSION=\"8.8\" -DPACKAGE_STRING=\"webdsl\ 8.8\" -DPACKAGE_BUGREPORT=\"webdsl@st.ewi.tudelft.nl\" -DPACKAGE=\"webdsl\" -DVERSION=\"8.8\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DSIZEOF_VOID_P=4 -DSIZEOF_INT=4 -DSIZEOF_LONG=4 -DSIZEOF_DOUBLE=8 -DSVN_REVISION=\"2346\" -DHAVE_DLFCN_H=1
+DEFS = -DPACKAGE_NAME=\"webdsl\" -DPACKAGE_TARNAME=\"webdsl\" -DPACKAGE_VERSION=\"8.8\" -DPACKAGE_STRING=\"webdsl\ 8.8\" -DPACKAGE_BUGREPORT=\"webdsl@st.ewi.tudelft.nl\" -DPACKAGE=\"webdsl\" -DVERSION=\"8.8\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DSIZEOF_VOID_P=4 -DSIZEOF_INT=4 -DSIZEOF_LONG=4 -DSIZEOF_DOUBLE=8 -DSVN_REVISION=\"2704\" -DHAVE_DLFCN_H=1
 DEPDIR = .deps
 DSYMUTIL = dsymutil
-ECHO = echo
-ECHO_C = 
-ECHO_N = -n
+ECHO = /bin/echo
+ECHO_C = \c
+ECHO_N = 
 ECHO_T = 
 EGREP = /usr/bin/grep -E
 EXEEXT = 
@@ -210,7 +210,7 @@ LIBS =
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /Users/zef/svn/webdsl/pil-branch/config/missing --run makeinfo
+MAKEINFO = ${SHELL} /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/missing --run makeinfo
 MKDIR_P = ../config/install-sh -c -d
 NMEDIT = nmedit
 OBJEXT = o
@@ -219,7 +219,7 @@ PACKAGE_BUGREPORT = webdsl@st.ewi.tudelft.nl
 PACKAGE_NAME = webdsl
 PACKAGE_STRING = webdsl 8.8
 PACKAGE_TARNAME = webdsl
-PACKAGE_VERSION = 8.8pre2346
+PACKAGE_VERSION = 8.8pre2704
 PATH_SEPARATOR = :
 PGEN = $(SDF)
 PIL = /usr/local
@@ -303,8 +303,8 @@ STRC = $(STRATEGOXT)
 STRIP = strip
 STR_CFLAGS =  -Wall -Wno-unused-label -Wno-unused-variable -Wno-unused-function -Wno-unused-parameter
 STR_LDFLAGS =  -bind_at_load
-SVN_REVISION = 2346
-VERSION = 8.8pre2346
+SVN_REVISION = 2704
+VERSION = 8.8pre2704
 XML_FRONT = $(STRATEGOXT)
 XTC = /nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt
 XTC_CFLAGS =  
@@ -312,10 +312,10 @@ XTC_LIBS = $(STRATEGO_XTC_LIBS)
 XTC_PROG = /nix/store/amrry2l8wa4rrzn0hcn7qv7i16ypwamz-strategoxt/bin/xtc
 XTC_STRCFLAGS = $(STRATEGO_XTC_STRCFLAGS)
 XTC_XTC = 
-abs_builddir = /Users/zef/svn/webdsl/pil-branch/src
-abs_srcdir = /Users/zef/svn/webdsl/pil-branch/src
-abs_top_builddir = /Users/zef/svn/webdsl/pil-branch
-abs_top_srcdir = /Users/zef/svn/webdsl/pil-branch
+abs_builddir = /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/src
+abs_srcdir = /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/src
+abs_top_builddir = /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch
+abs_top_srcdir = /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch
 ac_ct_CC = gcc
 ac_ct_CXX = g++
 ac_ct_F77 = 
@@ -325,10 +325,10 @@ am__quote =
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = i386-apple-darwin9.6.0
+build = i386-apple-darwin9.7.0
 build_alias = 
 build_cpu = i386
-build_os = darwin9.6.0
+build_os = darwin9.7.0
 build_vendor = apple
 builddir = .
 datadir = ${datarootdir}
@@ -336,15 +336,15 @@ datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE_TARNAME}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = i386-apple-darwin9.6.0
+host = i386-apple-darwin9.7.0
 host_alias = 
 host_cpu = i386
-host_os = darwin9.6.0
+host_os = darwin9.7.0
 host_vendor = apple
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = $(SHELL) /Users/zef/svn/webdsl/pil-branch/config/install-sh
+install_sh = $(SHELL) /Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -1110,17 +1110,17 @@ all-local::
 	done
 	@for file in fordummy $(data_DATA) $(pkgdata_DATA) $(sdfdata_DATA) $(bin_SCRIPTS) $(libexec_SCRIPTS); do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t `basename $$file` ; \
 	done
 	@for file in fordummy $(nobase_data_DATA) $(nobase_pkgdata_DATA) $(nobase_sdfdata_DATA) ; do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t $$file ; \
 	done
 	@for file in fordummy $(bin_PROGRAMS) $(libexec_PROGRAMS) ; do \
 	  if [ "$$file" = "fordummy" ]; then continue; fi; \
-	  if test -f "$$file"; then d="`pwd`"; else d="/Users/zef/svn/webdsl/pil-branch/src"; fi; \
+	  if test -f "$$file"; then d="`pwd`"; else d="/Domain/tudelft.net/Users/zhemel/svn/webdsl/pil-branch/src"; fi; \
 	  $(XTC_PROG) -r $(BUILD_REPOSITORY) register -l "$$d" -V $(VERSION) -t `basename $$file $(EXEEXT)` ; \
 	done
 	@echo "Tools registered in repository $(BUILD_REPOSITORY): $(bin_PROGRAMS) $(bin_SCRIPTS) $(libexec_PROGRAMS) $(libexec_SCRIPTS)"
