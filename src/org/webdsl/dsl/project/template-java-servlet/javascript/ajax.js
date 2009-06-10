@@ -65,17 +65,28 @@ function findElementById(thisobject, id)
 {
   //step one, find the right parent to search within
   current = thisobject;
-  while(current != null && current.id != "this")
-    current = current.parentNode;
-  
   result = null;
-  if(current != null)
-    result = findTopDown(current, id);
+  foundscope = false;
+  while(current != null && !foundscope && result == null) {
+    //while going up in the tree, found the id. 
+    if (current.id == id) { 
+      result = current;
+    }
+    //found the scope boundary of this template, search inward
+    else if (current.class == "scopediv") {
+      foundscope = true;
+      result = findTopDown(current, id);
+    } 
+    current = current.parentNode;
+  }  	
   
   //nothing found, search in the whole document
   if (result == null) 
     result = document.getElementById(id);
  
+  if (result == null)
+    alert("Object with id '"+id+"' does not exist in the document!");
+      
   return result;
 }
 
