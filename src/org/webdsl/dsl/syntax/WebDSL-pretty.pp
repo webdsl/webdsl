@@ -162,6 +162,7 @@
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
    FunctionNoReturn                   -- V[ H[KW["function"] _1 KW["("] _2 KW[")"]] _3 ],
    FunctionNoReturn.2:iter-star-sep   -- H hs=0[_1 KW[","]],
+   NativeFunction                     -- H[KW["native"] KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3 KW[";"]],
    ExtendFunction                     -- KW["extend"] _1,
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
    Block.1:iter-star                  -- _1,
