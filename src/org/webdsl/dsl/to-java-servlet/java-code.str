@@ -20,13 +20,10 @@ rules // statements
      <+ while-to-java-servlet
      <+ for-to-java-servlet
      <+ if-to-java-servlet
-     //<+ email-to-java
      <+ stat-to-java-servlet
      <+ return-to-java-servlet
      <+ cancel-to-java-servlet
      <+ goto-to-java-servlet
-     //<+ ajax-to-java-servlet
-     //<+ validate-to-java-servlet(data-validation-to-java-servlet-throw)
      <+ info(|["cannot translate statement:", <id>]); fail
 
    block-to-java-servlet :
@@ -104,7 +101,7 @@ rules // if
          ; bsif2 := <statement-to-java-servlet> bsif1
          ; e2 := <expression-to-java-servlet> e1
 
-rules // for
+rules // while
 
    while-to-java-servlet :
      WhileStmt(e1, bstm1) -> 
@@ -116,162 +113,40 @@ rules // for
      with e2    := <expression-to-java-servlet> e1
         ; bstm2 := <statement-to-java-servlet> bstm1
 
-   for-to-java-servlet :
-     ForCountStmt(x, e1, e2, Block(stat*)) -> 
-     bstm*|[
-       int x = e3; //x has been renamed already
-       int x_bound = e4;
-       while(x < x_bound) {
-         bstm*
-         x = x + 1;
-       }
-     ]|
-     with x_bound := <newname> "stop"
-        ; e3 := <expression-to-java-servlet> e1
-        ; e4 := <expression-to-java-servlet> e2
-        ; bstm* := <statements-to-java-servlet> stat*
+rules // for
 
-   for-to-java-servlet : // No where clause, with order by clause
-     ForStmt(x, srt, e1, fltr, Block(stat*)) ->
+   for-to-java-servlet : 
+     ForStmtNoFilter(x, srt, e1, Block(stat*)) ->
      bstm*|[
         java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
         bstm_for*
      ]|
      with  x_list := <newname> "lst"
          ; t      := <java-type> srt
-         ; e2 := <expression-to-java-servlet> e1
-         ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
+         ; e2     := <expression-to-java-servlet> e1
+         ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x)>
          
   for-to-java-servlet :
-    fa@ForAllStmt(x, srt, fltr@Filter(wherecl, orderby, limit), Block(stat*)) ->
+    fa@ForAllStmtNoFilter(x, srt, Block(stat*)) ->
     bstm* |[
-      java.util.List<t> x_list = e_criteria.list();
+      java.util.List<t> x_list = hibSession.createCriteria(t.class).list();
       bstm_for*
     ]|
     with  x_list := <newname> "list"
         ; t      := <java-type> srt
-        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
-        ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
+        //; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
+        ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x)>
         
-  for-translation-common(|x_list, stat*, srt, t, x, fltr) :
+  for-translation-common(|x_list, stat*, srt, t, x) :
     _ ->
     bstm* |[
-      bstm_order*
       ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)> bstm*|[ 
         bstm* 
       ]|
     ]|
-    with  bstm*   := <statements-to-java-servlet> stat*
-        ; bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
+    with  bstm* := <statements-to-java-servlet> stat*
                   
-  for-filter-by-code(|x, srt, t, x_list) :
-    fltr -> bstm* |[
-      bstm_where* 
-      bstm_order* 
-      bstm_limit*
-    ]|
-    with  bstm_where* := <?Filter(True(),_,_);![] <+ for-filter-by-code-where(|x, t, x_list)> fltr
-        ; bstm_order* := <?Filter(_,OrderAscending(Null()),_);![] <+ for-filter-by-code-order-by(|x, srt, t, x_list)> fltr
-        ; bstm_limit* := <?Filter(_,_,Limit(Int("-1"), Int("0")));![] <+for-filter-by-code-limit(|x, t, x_list)> fltr
-         
-  for-filter-by-code-where(|x, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      int x_rm = 0;
-      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        if(!e2) {
-          x_list.remove(x_i - x_rm);
-          x_rm++;
-        }
-      ]|  
-    ]|
-    with  e2 := <expression-to-java-servlet> wherecl
-        ; x_i := <newname> "i"
-        ; x_rm := <newname> "removedcount"
-      
-  for-filter-by-code-order-by(|x, srt, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
-      ~*<where(<is-entity-type> srt) <+ ![]> bstm*|[
-        for(t tmp : x_list){
-          // setup needed because derived properties might need context such as hibSession for queries
-          tmp.setupForPropertyEvents(hibSession, out, ps); 
-        }
-      ]|
-      java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
-        public int compare(t o1, t o2) {
-          //have to be nulled to prevent compiler errors related to anonymous inner classes, but have already been set in for loop above
-          org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-          java.io.PrintWriter out = new java.io.PrintWriter(new java.io.StringWriter());
-          PageServlet ps = null;
-          stm
-        }
-      });
-    ]|
-    with  e1 := <alltd(\Var(x) -> Var("o1")\);expression-to-java-servlet> exp
-        ; e2 := <alltd(\Var(x) -> Var("o2")\);expression-to-java-servlet> exp
-        ; if <?"OrderDescending"> ordertype
-          then stm := java|[ return (e2).compareTo(e1); ]|
-          else stm := java|[ return (e1).compareTo(e2); ]| end
-        ; tmp := <newname> "tmp"
-
-  for-filter-by-code-limit(|x, t, x_list) :
-    f@Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      int x_lim = e1;
-      int x_off = e2;
-      int x_rm = 0;
-      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        ~*<for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i)> f
-      ]|  
-    ]|
-    with  e1 := <expression-to-java-servlet> limit
-        ; e2 := <expression-to-java-servlet> offset
-        ; x_i := <newname> "i"
-        ; x_lim := <newname> "limit"
-        ; x_off := <newname> "offset"
-        ; x_rm := <newname> "removedcount"
-        
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      if(x_i >= x_off){ 
-        ~*<for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
-      }
-      else{
-        x_list.remove(x_i - x_rm);
-        x_rm++;
-      }
-    ]|
-    where not(<?Int("0")> offset)
- 
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> 
-    <for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
-    where <?Int("0")> offset
-        
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      if(x_lim <= 0) {
-        x_list.remove(x_i - x_rm);
-        x_rm++;
-      }
-      x_lim--;
-    ]|
-    where not(<?Int("-1")> limit)
-    
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> []
-    where <?Int("-1")> limit
-
 rules // return
-
-/*
-  return-to-java-servlet :
-    Return(e1) -> bstm* |[ 
-      out.println("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
-      //ps.clearHibernateCache(variables);
-      return;
-    ]|
-    where InAction; IsAjaxApp
-    with  e_url := <page-thiscall-to-url-string-java-servlet> e1
-*/
 
   return-to-java-servlet :
     Return(e1) -> bstm* |[ 
@@ -309,17 +184,6 @@ rules // return
 
   cancel-to-java-servlet :
     Cancel(e1) -> bstm* |[ out.println("ugly cancel not implemented"); ]|
-
-/*
-  goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
-    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
-      out.println("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
-      //ps.clearHibernateCache(variables);      
-      return;
-    ]|
-    where IsAjaxApp
-    with  e_url := <page-thiscall-to-url-string-java-servlet> call
-*/
 
   goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
     GoTo(call@ThisCall(p, args)) -> bstm* |[ 

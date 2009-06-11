@@ -22,25 +22,15 @@ strategies
    * syntactically normalize WebDSL constructs
    */
   
-  /*normalize-any = 
-    topdown-l(repeat(normalize))
-  */
   desugar = normalize
 
-/*rules 
-
-  normalize-action :
-    [VarDeclInit(x, s, e) | stm*] -> [VarDecl(x, s), Assign(Assignment(x, e)) | stm*]
-*/
 rules // functions
 
   normalize-action : 
     FunctionNoReturn(x, farg*, stat*) -> Function(x, farg*, SimpleSort("Void"), stat*)
-    //|[ function x(farg*) { stat* } ]| -> |[ function x(farg*) : Void { stat* } ]|
 
   normalize-action :
     IfNoElse(e, bit) -> If(e, bit, Block([]))
-    //stat|[ if(e) { stat* } ]| -> stat|[ if(e) { stat* } else { } ]|
 
   normalize-ui :
     IfNoElseTempl(e, elem*) -> IfTempl(e, elem*, [])
@@ -104,68 +94,56 @@ rules // templates
 rules // template elements
 
   normalize-ui :
-    elem|[ navigate(url(e))[passign*]{} ]| -> elem|[ navigate(url(e))[passign*]{url(e)} ]|
+    elem|[ navigate(url(e)){} ]| -> elem|[ navigate(url(e)){url(e)} ]|
 
 //MW: those two should be necessary?
   normalize-ui :
-    elem|[ navigate(url(e))[] ]| -> elem|[ navigate(url(e))[]{url(e)} ]|
+    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e)){url(e)} ]|
 
   normalize-ui :
-    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e))[]{url(e)} ]|
+    elem|[ navigate(url(e)) ]| -> elem|[ navigate(url(e)){url(e)} ]|
 
   normalize-ui :
-    elem|[ navigate(e1, e2)[passign*]{} ]| -> elem|[ navigate(e2)[passign*]{text(e1)} ]|
+    elem|[ navigate(e1, e2){} ]| -> elem|[ navigate(e2){text(e1)} ]|
 
-  normalize-ui :
-    elem|[ select( x : srt, str1, e) ]| -> elem|[ select( x : srt, str2, e ) ]|
-    where str2 := <un-double-quote> str1
-
-  // section("Header") {...} => section() { header{"Header"} }
   // Works only for strings. Making generic is difficult, because argument to a 
   // TemplateCall are Exp* and the body of a TemplateCall is TemplateElement*
   normalize-ui :
-    elem|[ section(e){elem*} ]| -> elem|[ section()[]{ header{output(e)} elem* } ]|
+    elem|[ section(e){elem*} ]| -> elem|[ section(){ header{output(e)} elem* } ]|
 
   normalize-ui :
-    elem|[ x ]| -> elem|[ x()[]{} ]|
+    elem|[ x ]| -> elem|[ x(){} ]|
 
   normalize-ui :
-    elem|[ x(e*) ]| -> elem|[ x(e*)[]{} ]|
+    elem|[ x(e*) ]| -> elem|[ x(e*){} ]|
 
-  normalize-ui :
-    elem|[ x(e*)[passign*] ]| -> elem|[ x(e*)[passign*]{} ]|
+  //normalize-ui :
+  //  elem|[ x(e*)[passign*] ]| -> elem|[ x(e*)[passign*]{} ]|
  
-  normalize-ui :
-    elem|[ x(e*){elem*} ]| -> elem|[x(e*)[]{elem*}]|
+  //normalize-ui :
+  //  elem|[ x(e*){elem*} ]| -> elem|[x(e*)[]{elem*}]|
     
- normalize-ui :
-    elem|[ x[passign*] ]| -> elem|[ x()[passign*]{} ]|
+ //normalize-ui :
+ //   elem|[ x[passign*] ]| -> elem|[ x()[passign*]{} ]|
 
- normalize-ui :
-    elem|[ x[passign*]{elem*} ]| -> elem|[ x()[passign*]{elem*} ]|
-
-  normalize-ui :
-    elem|[ x{elem*} ]| -> elem|[ x()[]{elem*} ]|
+ //normalize-ui :
+ //   elem|[ x[passign*]{elem*} ]| -> elem|[ x()[passign*]{elem*} ]|
 
   normalize-ui :
-    elem|[ text(x) ]| -> elem|[ text(y)[]{} ]| 
+    elem|[ x{elem*} ]| -> elem|[ x(){elem*} ]|
+
+  //normalize-ui :
+  //  elem|[ x{elem*} ]| -> elem|[ x()[]{elem*} ]|
+
+  normalize-ui :
+    elem|[ text(x) ]| -> elem|[ text(y){} ]| 
     with y := <un-double-quote> x
     
   normalize-ui :
-    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1)[]{} text(e2,e*)[]{ } elem* ]|
+    elem*|[ text(e1,e2,e*){} elem* ]| -> elem*|[ text(e1){} text(e2,e*){ } elem* ]|
 
   normalize-ui :
-    elem|[ menubar()[passign*]{ elem* } ]| -> elem|[ menubar("horizontal")[passign*]{ elem* } ]|
+    elem|[ menubar(){ elem* } ]| -> elem|[ menubar("horizontal"){ elem* } ]|
 
   normalize-ui :
     elem|[ from(e1){} ]| -> elem|[ from(e1,e1){} ]|
-
-rules //normalize Ajax
-  normalize-ajax :
-    AjaxActionIdParam(a, d, v) -> AjaxAction(a, d, String(v))
-    
-  normalize-ajax : 
-    AjaxActionNoParam(a, d) -> AjaxAction(a, d, String(""))
-    
-  normalize-ajax :
-    AjaxActionNoTarget(a, v) -> AjaxAction(a, "this", v)

@@ -9,37 +9,12 @@ module org/webdsl/dsl/languages/ui/templatecall
 
 
 rules //rename rule for each templatecall variant
-   
-  rename-ui :
-    tc@TemplateCallPropsNoBody(x1, arg1*, passign1*) 
-    -> TemplateCallPropsNoBody(x2, arg2*, passign2*)
-    with  arg2*     := <rename-all> arg1*
-        ; passign2* := <rename-all> passign1*
-        ; <declare-template-html-id(|tc)> passign1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
-        
-  rename-ui :
-    tc@TemplateCallProps(x1, passign1*) 
-    -> TemplateCallProps(x2, passign2*)
-    with  passign2* := <rename-all> passign1*
-        ; <declare-template-html-id(|tc)> passign1*
-        ; x2 := <resolve-template-call-name> (x1,[])
-        
-  rename-ui :
-    tc@TemplateCallPropsNoArgs(x1, passign1*, elem1*) 
-    -> TemplateCallPropsNoArgs(x2, passign2*, elem2*)
-    with  elem2*    := <rename-all> elem1*
-        ; passign2* := <rename-all> passign1*
-        ; <declare-template-html-id(|tc)> passign1*
-        ; x2 := <resolve-template-call-name> (x1,[])
             
   rename-ui :
-    tc@TemplateCall(x1, arg1*, passign1*, elem1*) 
-    -> TemplateCall(x2, arg2*, passign2*, elem2*)
+    tc@TemplateCall(x1, arg1*, elem1*) 
+    -> TemplateCall(x2, arg2*, elem2*)
     with  arg2*     := <rename-all> arg1*
-        ; elem2*    := <rename-all> elem1*
-        ; passign2* := <rename-all> passign1*        
-        ; <declare-template-html-id(|tc)> passign1*
+        ; elem2*    := <rename-all> elem1*    
         ; x2 := <resolve-template-call-name> (x1,arg2*)
    
   rename-ui :
@@ -52,13 +27,6 @@ rules //rename rule for each templatecall variant
     tc@TemplateCallNoArgs(x1) 
     -> TemplateCallNoArgs(x2)
     with  x2 := <resolve-template-call-name> (x1,[])
-  
-  rename-ui : 
-    tc@TemplateCallNoAssigns(x1, arg1*, elem1*) 
-    -> TemplateCallNoAssigns(x2, arg2*, elem2*)
-    with  arg2*  := <rename-all> arg1*
-        ; elem2* := <rename-all> elem1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
   
   rename-ui : 
     tc@TemplateCallBody(x1, elem1*) 
@@ -117,12 +85,14 @@ rules //template call either refers to a defined template, or to a built-in temp
 
 strategies
 
+/*
   //given a list of property assignmenst and a corresponding templatecall, it declares HtmlEntityId if a "id" property exists
   declare-template-html-id(|tc) =
      all({x, y : 
          ?PropertyAssignment("id", x) ;rules( HtmlEntityId :+ x -> tc )
          <+ !"something" //build something
          })
+*/
 
 rules // using page as template produces warning; tested in fail/pageastemplate.app
 
@@ -132,14 +102,8 @@ rules // using page as template produces warning; tested in fail/pageastemplate.
   
   //not all templatecall variants can be calls to defined templates    
   constraint-error-tc = ?tc@TemplateCallNoBody(p,_)       ;where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error-ui = ?tc@TemplateCallNoArgs(p)         ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  //constraint-error-ui = ?tc@TemplateCallNoAssigns(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-tc = ?tc@TemplateCallPropsNoBody(p,_,_);where(<constraint-error-page-as-template(|p)> tc)
-  //constraint-error-ui = ?tc@TemplateCallProps(p,_)        ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  //constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_);where(<constraint-error-page-as-template(|p)> tc) //has a body
-  //constraint-error-ui = ?tc@TemplateCallBody(p,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  //constraint-error-ui = ?tc@TemplateCall(p,_,_,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
- 
+  constraint-error-ui = ?tc@TemplateCall(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc) //has a body
+
 rules //template not defined
 
   constraint-error-template-not-defined(|p,arg*) :
@@ -150,46 +114,7 @@ rules //template not defined
           then err* := <ErrorDuringOverloadResolution>
           else err* := ["Template with this signature not defined "] end
     
-/*
-  constraint-error-template-not-defined(|p,arg*) :
-    x -> <add-error(|["Template with this signature not defined "])>
-    where t* := <map(type-of)> arg* 
-        ; not(<TemplateSignature> (p,t*))//TODO use lookup   // any local define is also correct here
-        ; not(<CompatibleWithBuiltInTemplate> (p,t*))
-        ; not(<TemplateWithGenerics> p)//TODO simplified lookup for generics for now
-        ;<debug(!"check")> (p,t*)
-  */  
   constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
   constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCall(p,arg*,_)  ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
   constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  
-  
-/* local redefine static checks
-rules //check local defines
-  constraint-error-ui : 
-    def@Define(mods, name, fargs, body) -> def
-    with <alltd(c-e-necessary-template-override-not-defined-1(|def))> body
-    
-  c-e-necessary-template-override-not-defined-1(|def) = ?tc@TemplateCallNoBody(p,arg*)       ;where(<c-e-necessary-template-override-not-defined-2(|<strip-annos> p,arg*)> def)
-  c-e-necessary-template-override-not-defined-1(|def) = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<c-e-necessary-template-override-not-defined-2(|<strip-annos> p,arg*)> def)
-
-  c-e-necessary-template-override-not-defined-2(|p,arg*) :
-    def@Define(_, _, _, body) -> <add-error(|["Template override not defined: ",<pp-webdsl> p])>
-    where t* := <map(type-of)> arg*
-        ; not(<CompatibleWithBuiltInTemplate> (p,t*))
-        ; reqs := <remove-all(CompatibleWithBuiltInTemplate);debug(!"filtered")> <bagof-TemplateRequires> (p,t*)
-        ; not([] := reqs)
-        ; <debug(!"local template check")> [p,arg*,<map(type-of <+ !"failed type-of")>arg*, (p,t*)]
-        ; <map(\(p,t*) -> (p,t*) where [] := <collect(c-e-necessary-template-override-not-defined-3(|p,t*))> body \)> reqs
-
-  c-e-necessary-template-override-not-defined-3(|p,t*) :
-    def@Define(_,p,fargs,_) -> (p,t*)
-    where not(<OverloadedTemplateSignature> (p,t*)) //there is no toplevel template for this call
-        ; argtype* := <map(\Arg(_,srt) -> srt\)> fargs
-        ; <zip(type-compatible)> (argtype*,t*)// generic,specific
-*/

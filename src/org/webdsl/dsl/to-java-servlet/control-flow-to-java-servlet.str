@@ -54,30 +54,7 @@ rules // iteration
     control-flow-for(elems-to-java-servlet|)
 
   control-flow-for(s|) :
-     ForCount(x, e1, e2, elems) -> result
-     with  x_bound := <newname> "stop"
-         ; e3 := <expression-to-java-servlet> e1
-         ; e4 := <expression-to-java-servlet> e2
-         ; bstm* := <s;concat-with-sublists> elems
-         ; if <?[]> bstm* 
-           then result :=  []
-           else result :=  bstm*|[
-                             inForLoop = true;
-                             forLoopCounter++;
-                             int x = e3; //x has been renamed already
-                             int x_bound = e4;
-                             while(x < x_bound) {
-                               forelementcounter++;
-                               bstm*
-                               x = x + 1;
-                             }
-                             forLoopCounter--;
-                             if(forLoopCounter == 0)
-                               inForLoop = false;
-                           ]| end
-
-  control-flow-for(s|) :
-    For(x, srt, e1, fltr, elems) -> result
+    ForNoFilter(x, srt, e1, elems) -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; e2 := <expression-to-java-servlet> e1
         ; t := <java-type> srt
@@ -87,54 +64,31 @@ rules // iteration
           then result :=  [] 
           else result :=  bstm* |[
                             java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[    
+                            ~*<control-flow-for-common(s | x_list, x, srt, t)> bstm* |[    
                               bstm*
-                            ]|
-                          ]| end
-  control-flow-for(s|) :
-    ForSep(x, srt, e1, fltr, elems1, elems2) -> result
-    with  bstm1* := <s;concat-with-sublists> elems1
-        ; bstm2* := <s;concat-with-sublists> elems2
-        ; e2 := <expression-to-java-servlet> e1
-        ; t  := <java-type> srt
-        ; x_separatorindex := <newname> "separatorindex"
-        ; GenericSort(x_setorlist,[SimpleSort(_)]) := <type-of> e1
-        ; x_list := <newname> "list"
-        ; if <?[]> bstm1*
-          then result :=  [] 
-          else result :=  bstm* |[
-                            int x_separatorindex=0;
-                            java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm* |[  
-                              if(x_separatorindex > 0) {
-                                bstm2* // place separator if there was an element before this one
-                              }
-                              bstm1*
-                              x_separatorindex++;
                             ]|
                           ]| end
 
   control-flow-for(s|) :
-    fa@ForAll(x, srt, fltr, elems) -> result
+    fa@ForAllNoFilter(x, srt, elems) -> result
     with  bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
-        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
+        //; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
         ; if <?[]> bstm*
           then result :=  [] 
           else result :=  bstm* |[ 
-                            java.util.List<t> x_list = e_criteria.list();
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr)> bstm*|[
+                            java.util.List<t> x_list = hibSession.createCriteria(t.class).list();
+                            ~*<control-flow-for-common(s | x_list, x, srt, t)> bstm*|[
                               bstm*
                             ]|
                           ]| end
         
-  control-flow-for-common(s | x_list, x, srt, t, fltr) :
+  control-flow-for-common(s | x_list, x, srt, t) :
     bstm* ->
     bstm* |[
       inForLoop = true;
       forLoopCounter++;
-      bstm_order*
       ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
       bstm* |[  
         forelementcounter++;
@@ -144,7 +98,6 @@ rules // iteration
       if(forLoopCounter == 0)
       inForLoop = false;
     ]|
-    with  bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
 
 rules // if
 
@@ -172,52 +125,3 @@ rules // if
                             }
                           ]| end
 
-rules //templatecall    
-
-  handle-actions-input-to-java-servlet  =
-    control-flow-tcall(|"storeInputs")
-
-  handle-actions-to-java-servlet =
-    control-flow-tcall(|"handleActions")
-
-  elem-to-java-servlet =
-    control-flow-tcall(|"render")
-
-  control-flow-tcall(|x_methodname) :
-    tc@TemplateCall(x_name, args,passign*, _) ->
-    <for-loop-counter-wrap-code> 
-    bstm* |[
-    ident += "~x_tname";
-    if(templatecalls.get(ident)==null){
-      try{
-        templatecalls.put(ident,(TemplateServlet)templates.get("~x_name").newInstance());
-      }
-      catch(IllegalAccessException iae)
-      {
-        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
-      }
-      catch(InstantiationException ie)
-      {
-        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
-      }
-    }
-    try {
-      Object[] x_args = { e* };
-      templatecounter = templatecalls.get(ident).x_methodname(ps, x_args, ++templatecounter, (HashMap<String,Class>)templates.clone(),(HashMap<String,Object>)variables.clone(),(HashMap<String,Object>)actionclasses.clone(), e1*);
-    }
-    catch(NullPointerException npe) {
-      System.out.println("WebDSL warning: null reference in template arguments: "+"~x_name"+"("+"~arg_dump"+")"); // TODO proper location information; some way to disable these warnings
-      npe.printStackTrace(); // display java exception for now so it can be traced back to the template
-    }
-    ]|
-    where t* := <map(type-of)> args 
-        ; <CallToDefinedTemplateAfterIdRename> x_name
-        //; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos>x_name;TemplateWithGenerics> (x_name,t*)
-    with  x_tname := <get-templatecallnumber> tc
-        ; e* := <map({\e -> <expression-to-java-servlet> e\})> args
-        ; x_args := <newname> "args"
-        ; (    !x_methodname; (?"render"<+?"handleActions"); e1* := [ e|[ out ]| ]
-            //<+ x_methodname := "handleActions";e1* := [ e|[ actionclasses ]| ]
-            <+ e1* := []
-          )
-        ; arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
