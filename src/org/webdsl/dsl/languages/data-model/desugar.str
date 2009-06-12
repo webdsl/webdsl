@@ -2,9 +2,6 @@ module org/webdsl/dsl/languages/data-model/desugar
 
 rules
   desugar-data :
-    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
-  desugar-data :
     Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
   desugar-data :
@@ -34,12 +31,8 @@ rules
         ; (stats3, []) := <rename-all-vars> (currentstmts, renamepairs)
         ; newstmts := <concat> [otherstmts, stats3]
 
-
 rules //apply extend entity functions
 
-  desugar-data :
-    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
   desugar-data :
     Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
     where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
@@ -52,63 +45,4 @@ rules //apply extend entity functions
     where fun2* := <map(try(<once-ExtendEntityFunction;where(applied:=True())> (x_class,<id>)))> fun1*
         ; !applied
 
-  desugar-data = once-ExtendEntity
-  
-  desugar-data :
-    ExtendEntity(ident, props, funcs) -> RemoveMe()
-    with rules (
-        ExtendEntity :+
-          EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
-                       ExtendEntity :- SessionEntity(ident, props2, funcs2) ) // Remove the other two
-                       
-        // @TODO: normalize EntityNoSuper to Entity extends Object
-        
-        ExtendEntity :+
-          Entity(ident, s, props2, funcs2) -> Entity(ident, s, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- EntityNoSuper(ident, props2, funcs2)
-                       ExtendEntity :- SessionEntity(ident, props2, funcs2) )
-
-        ExtendEntity :+
-          SessionEntity(ident, props2, funcs2) -> SessionEntity(ident, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
-                       ExtendEntity :- EntityNoSuper(ident, props2, funcs2) )
-                       
-          // @TODO: move to extend session entity case below
-      )
-      // this approach causes rules to be created which will not be used
-      // invariant should be to consume all rules applied with once- (?)
-      
-      // desugar all entities to inherit from Object?
-rules
-
-  desugar-data =
-    ?ent
-    ; create-inverse-anno
-    ; not(?ent)
-
-  create-inverse-anno :
-    Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions)
-    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
-
-  create-inverse-anno :
-    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions)
-    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
-
-  desugar-inverse-property(|x_class) :
-    Property(x, k, s, anno*) -> Property(x, k, s, anno2*)
-    where <map(try(declare-inverse-anno(|x_class, x)))> anno*
-        ; anno2* := <create-inverse-slave-anno(|x_class,x)> anno*
-
-  create-inverse-slave-anno(|x_class,p) :
-    xs -> [slaveanno|xs]
-    where [] := <collect(?InverseSlaveAnno(_, _))> xs
-        ; (ent, fld) := <once-CreateInverseSlaveAnno> (x_class, p)
-        ; slaveanno := InverseSlaveAnno(ent, fld)
-
-  declare-inverse-anno(|x_class, p) =
-    ?InverseAnno(ent, fld)
-    ; rules(
-        CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
-      )
       
