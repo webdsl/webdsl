@@ -6,77 +6,11 @@ imports
   libjava-front 
   libwebdsl-front
 
-
-//conversion from request param string to actual object is implicit in WebDSL, 
-// but when it fails (the property equals null) you can get the specific error using this function
-rules
-  call-to-java-servlet :
-    exp  |[ conversionError(e) ]| -> java |[ e1.conversionError#x_field ]|
-    where (e1,x_field) := <is-entity-property-conversion> e
-   
-  call-to-java-servlet :
-    exp  |[ conversionError(e) ]| -> java |[ conversionError#x_field ]|
-    where x_field := <is-template-var-conversion> e
-
-  call-to-java-servlet :
-    exp  |[ conversionFailed(e) ]| -> java |[ e1.conversionFailed#x_field ]|
-    where (e1,x_field) := <is-entity-property-conversion> e
-
-  call-to-java-servlet :
-    exp  |[ conversionFailed(e) ]| -> java |[ conversionFailed#x_field ]|
-    where x_field := <is-template-var-conversion> e
-        
-  //exclude-from-var-renaming = ?exp |[ conversionError(e) ]|
-
 rules
 
-  is-entity-property-conversion :
-    e -> (e1,x_field)
-    where <?FieldAccess(e_entity,x_field)> e
-    with  e1 := <expression-to-java-servlet> e_entity
-    
-  is-template-var-conversion :
-    e -> x_field
-    where not(<?FieldAccess(_,_)> e)
-    with  Var(x_field) := e
-    
-rules
-
-  add-conversion-error : //entity properties, validation result stored in entity
-    (e,e1) -> bstm*|[
-      e2.conversionFailed#x_field = true;
-      e2.conversionError#x_field = e1;
-      ~*<add-conversion-error-common> (e1)
-    ]|
-    where (e2,x_field) := <is-entity-property-conversion> e
-
-  add-conversion-error : // template vars, validation result stored in template class
-    (e,e1) -> bstm*|[
-      conversionFailed#x_field = true;
-      conversionError#x_field = e1;
-      ~*<add-conversion-error-common> (e1)
-    ]|
-    where x_field := <is-template-var-conversion> e
-    
-  add-conversion-error-common :
-    (e1) -> bstm*|[
+  add-conversion-error :
+    (_,e1) -> bstm*|[
       throw new ValidationException(null,e1);
     ]|
 
-rules
-
-  conversion-log-methods :
-    x ->
-    class-body-dec* |[
-      public boolean conversionFailed#x = false;
-      public String conversionError#x = "";
-    ]|
     
-  conversion-log-methods-entity :
-    x ->
-    class-body-dec* |[
-      @Transient
-      public boolean conversionFailed#x = false;
-      @Transient
-      public String conversionError#x = "";
-    ]| 
