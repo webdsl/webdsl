@@ -30,17 +30,11 @@ rules
   
       public class DispatchServlet extends HttpServlet {
   
-          
           public static HashMap<String, Class> pages = new HashMap<String, Class>();
           private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
           static{
               bstm*
-              bstm2*
-             
-              //String[] s = {"i1","s1","li1"};
-              //pagearguments.put("testpage", s);
               bstm1*
-              bstm3*
           }
           
           private void addToValues(String key, String val,Map<String, List<String>> parammapvalues){
@@ -58,8 +52,6 @@ rules
           public void doGet(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
-            //System.out.println("dispatch" + request.getRequestURL().toString());
-          
             boolean showerrorpage = false;
             try{
               String[] req = request.getRequestURL().toString().split("/");
@@ -98,17 +90,7 @@ rules
               List<String> messages = new LinkedList<String>();
               for(int count2=0; count2<args.length;count2++)
               {
-                if(count2 >= argnames.length){
-                  /*
-                  // previous message implementation appended messages at end of url, might still be useful for variable argcount
-                  try {
-                    messages.add(java.net.URLDecoder.decode(args[count2],"UTF-8"));
-                  } catch (java.io.UnsupportedEncodingException uee) {
-                    uee.printStackTrace();
-                  }*/
-                }
-                else
-                {
+                if(count2 < argnames.length){
                   parammap.put(argnames[count2],args[count2]);
                   addToValues(argnames[count2],args[count2],parammapvalues);
                 }
@@ -116,22 +98,16 @@ rules
               
               //http://commons.apache.org/fileupload/using.html
               // Check that we have a file upload request
+/*
               boolean isMultipart = org.apache.commons.fileupload.servlet.ServletFileUpload.isMultipartContent(request);
               if(isMultipart){
                   
                   // Create a factory for disk-based file items
                   org.apache.commons.fileupload.FileItemFactory factory = new org.apache.commons.fileupload.disk.DiskFileItemFactory();
-          
-                  // Set factory constraints
-                  //factory.setSizeThreshold(yourMaxMemorySize);//make configurable
-                  //factory.setRepository(yourTempDirectory);//make configurable
-                  
+
                   // Create a new file upload handler
                   org.apache.commons.fileupload.servlet.ServletFileUpload upload = new org.apache.commons.fileupload.servlet.ServletFileUpload(factory);
           
-                  // Set overall request size constraint
-                  //upload.setSizeMax(); //make configurable
-                  
                   // Parse the request
                   try {
                       java.util.List<org.apache.commons.fileupload.FileItem> items = (java.util.List<org.apache.commons.fileupload.FileItem>) upload.parseRequest(request);
@@ -167,6 +143,7 @@ rules
                       ex.printStackTrace();
                   }
               }
+*/
               
               Class pc = pages.get(requested);
 
@@ -177,10 +154,6 @@ rules
               if(pc != null) {
                   try{
                       PageServlet pageservlet = (PageServlet)pc.newInstance();
-                      
-                      //@TODO integrate these into call to serve, more explicit flow of data
-                      //pageservlet.getIncomingSuccessMessages().addAll(messages);                      
-                      
                       pageservlet.serve(request,response,parammap,parammapvalues,fileUploads);
                   }
                   catch(IllegalAccessException iae){
@@ -208,23 +181,6 @@ rules
             if(showerrorpage)
             {
                 response.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND);
-                /*
-                response.setContentType("text/html");
-                PrintWriter out = response.getWriter();
-                out.println("<html>");
-                out.println("<head>");
-                out.println("<title>Unknown page</title>");
-                out.println("</head>");
-                out.println("<body>");
-                out.println("<h3>Page "+requested+" does not exist!</h3>");
-                out.println("Method: " + request.getMethod());
-                out.println("Request URI: " + request.getRequestURI());
-                out.println("Protocol: " + request.getProtocol());
-                out.println("PathInfo: " + request.getPathInfo());
-                out.println("Remote Address: " + request.getRemoteAddr());
-                out.println("</body>");
-                out.println("</html>");
-                */
             }
           }
   
@@ -237,26 +193,20 @@ rules
     ]|
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
-        ; bstm*  := <map({\ 
-                           x -> bstm |[ pages.put(x_key, x_value); ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
-                        \})> 
-                        <bagof-PageNames;make-set>
-        ; bstm1* := <map({\ 
-                           x -> bstm* |[ {
-                                         String[] s = { e* };
-                                         pagearguments.put(x_key, s); 
-                                         }
-                                      ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
-                               ; e* := <TemplateArguments;map( \Arg(y,_)-> e|[ "~y" ]|\ )> x  //TemplateArguments must give unrenamed versions
-                        \});concat> 
-                        <bagof-PageNames;make-set>
-        ; bstm2* := []
-        ; bstm3* := []
-        
-        
+        ; page-names := <bagof-PageNames; make-set>
+        ; bstm*      := <map(make-page-table)> page-names
+        ; bstm1*     := <map({register-page-arguments});concat> page-names
 
-     
-
+  make-page-table :
+    x -> bstm |[ pages.put(x_key, x_value); ]| 
+    with x_key   := <concat-strings> ["\"",x,"\""]
+       ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
+                        
+  register-page-arguments :
+    x -> bstm* |[ {
+           String[] s = { e* };
+           pagearguments.put(x_key, s); 
+         }]| 
+    with x_key := <concat-strings> ["\"",x,"\""]
+       ; e* := <TemplateArguments; map( \ Arg(y,_) -> e|[ "~y" ]| \ )> x  //TemplateArguments must give unrenamed versions
+                         

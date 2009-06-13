@@ -23,8 +23,13 @@ strategies
     ; log-time(generate-code-java-servlet      |"generate-code-java-servlet")
 
    generate-code-java-servlet =
-     ?def@Define(mods, name, args, elems) ;
-         {| JavaThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables: 
+     generate-code-java-servlet-aux
+     <+ log-time(not(GenerateCodeJavaServlet)|"generate code other")
+        ; all(generate-code-java-servlet)
+
+   generate-code-java-servlet-aux =
+     ?def@Define(mods, name, args, elems)
+     ; {| JavaThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables: 
             //Variables: to hold arguments/variables of parent templates/pages
          with(
            if ThisTemplateName       then rules ( NestedTemplate := name ) end
@@ -37,32 +42,36 @@ strategies
          ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
          ; all(generate-code-java-servlet)
          |}
-   <+?Action(_, _, _) ;
-         {| InAction, Variables:
-           rules ( InAction := True() )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
-         ; all(generate-code-java-servlet)
-         |}
-   <+?Function(_,_,_,_) 
-   <+(?Entity(ent_name,_,_,_)<+?EntityNoSuper(ent_name,_,_)) ;
-         {| JavaInEntity, ClassName: //needs refactoring, should be only one dr to check in-entity status
-           rules ( JavaInEntity := True() ClassName := ent_name )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code entity")
-         ; all(generate-code-java-servlet)
-         |}
-   <+      log-time(not(GenerateCodeJavaServlet)|"generate code other")
-         ; all(generate-code-java-servlet)
+
+   generate-code-java-servlet-aux =
+     ?Action(_, _, _)
+     ; {| InAction, Variables
+        : rules ( InAction := True() )
+        ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
+        ; all(generate-code-java-servlet)
+        |}
+
+   generate-code-java-servle-auxt =
+     ?Function(_,_,_,_) 
+
+   generate-code-java-servlet-aux =
+     (?Entity(ent_name,_,_,_)<+?EntityNoSuper(ent_name,_,_)) 
+     ; {| JavaInEntity, ClassName //needs refactoring, should be only one dr to check in-entity status
+        : rules ( JavaInEntity := True() ClassName := ent_name )
+        ; log-time(not(GenerateCodeJavaServlet)|"generate code entity")
+        ; all(generate-code-java-servlet)
+        |}
+
 
 // some helping annotations to create uniqueness among the static elements
 
 signature
   constructors
     TemplateCallNumber : String -> Annotation
-    FormNumber : String -> Annotation
-    InputNumber : String -> Annotation
-    ActionNumber : String -> Annotation //action calls/actionLink
-    TemplateClassName : String -> Annotation
-   /* ActionClassName : String -> Annotation*/
+    FormNumber         : String -> Annotation
+    InputNumber        : String -> Annotation
+    ActionNumber       : String -> Annotation //action calls/actionLink
+    TemplateClassName  : String -> Annotation
         
 rules
 
@@ -96,8 +105,7 @@ rules
   java-servlet-element-id :
     tc@TemplateCall(name, args,_){anno*} -> tc{TemplateCallNumber(newid),anno*} 
     where t* := <map(type-of)> args 
-          ; <CallToDefinedTemplateAfterIdRename> name
-        //; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos> name;TemplateWithGenerics> (name,t*)
+        ; <CallToDefinedTemplateAfterIdRename> name
         ; newid := <newname> "tcall"
     
   java-servlet-element-id :
@@ -119,6 +127,7 @@ rules
 
   get-all-top-level-template-names =
     alltd(register-top-level-template-name)
+
   register-top-level-template-name = 
     ?tmplt@webdsl|[ define mod* x(farg*) { elem* } ]|
     ; with(
@@ -148,4 +157,3 @@ rules
                                                   // TODO needs renaming, used for any type of template now
           end
         ; elem1* := <alltd(register-template-name(|False()))> elem*
-        
