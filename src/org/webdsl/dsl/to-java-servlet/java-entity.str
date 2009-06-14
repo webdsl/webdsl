@@ -21,6 +21,7 @@ strategies
 
    GenerateCodeJavaServlet = entity-to-java-servlet-entity-imports; fail
    
+
    entity-to-java-servlet-entity-imports :
      EntityNoSuper(x_Class, props, functions) ->
      <emit-java-code> compilation-unit|[
@@ -40,7 +41,8 @@ strategies
        }
      ]|
      with  pkgname := <DomainPackage>
-        
+
+/*
    entity-to-java-servlet-entity-imports :
      Entity(x_Class, x_super, props, functions) ->
      <emit-java-code> compilation-unit|[
@@ -60,50 +62,296 @@ strategies
        }
      ]|
      with  pkgname := <DomainPackage>
+*/
+
+overlays
+
+  e_UTILS = expr|[ org.webdsl.tools.Utils ]|
 
 strategies
 
-   GenerateCodeJavaServlet = entity-to-java-servlet-entity-functions; fail
-   
-   entity-to-java-servlet-entity-functions :
-     EntityNoSuper(x_Class, props, funcs) ->
+  entity-cbds-equals(|x_Class) = !
+    java |[
+      public boolean equals(Object o) {
+        return o != null 
+          && o instanceof org.webdsl.WebDSLEntity
+          && ((org.webdsl.WebDSLEntity) o).instanceOf("~x_Class") 
+          && e_UTILS.equal(((o instanceof org.hibernate.proxy.HibernateProxy)? 
+               x_Class.class.cast( ((org.hibernate.proxy.HibernateProxy) o).getHibernateLazyInitializer().getImplementation()) 
+             : x_Class.class.cast(o)).getId(), getId());            
+      }
+    ]|
+
+   entity-to-java-entity :
+     EntityNoSuper(x_Class, props, functions) ->
      <emit-java-code> compilation-unit|[
        package pkgname;
-       
-       @Partial
-       public class x_Class
+
+       @javax.persistence.Entity
+       mod0*
+       @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
+       @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
+       public class x_Class implements org.webdsl.WebDSLEntity
        {
-         ~*cbds*
+          public x_Class () {}
+
+          ~*idcodes
+          ~*<version-property>[]
+          
+          ~*[<entity-cbds-equals(|x_Class)>]
+
+          public int hashCode() {
+            if (getId() == null)
+              return super.hashCode();
+            else
+              return getId().hashCode();
+          }
+          public int compareTo(org.webdsl.WebDSLEntity o) {
+            return getId().compareTo(((x_Class)o).getId());
+          }
+          public boolean isInstance(Class<?> c) {
+            return c.isInstance(this);
+          }
+          public boolean instanceOf(String s){
+            return s.equals("~x_Class")||s.equals("Object");
+          }
+          ~*cbds
        }
      ]|
-     with  pkgname := <DomainPackage>
-         ; cbds* := <grab-uniquely-named-functions;map(webdsl-function-to-java-servlet-function <+ debug(!"Could not generate for entity function: "))> funcs
+     with {| ClassName
+           : rules( ClassName := x_Class )
+           ; idcodes := <hibernate-default-id-prop(|x_Class)> []
+           ; cbds    := <properties-to-code(|x_Class)> props
+           ; pkgname := <DomainPackage>
+           |}
+        ; mod0* := <table-mapping-annos> x_Class
+
+strategies
+ 
+  version-property =
+    !class-body-dec* |[
+      @Version
+      @Column(name="version_opt_lock")
+      protected Integer _version = 0; //set to 0 to prevent queries from flushing
+      public Integer getVersion() {
+        return _version;
+      }
+      public void setVersion(Integer version) {
+        this._version = _version;
+      }
+    ]|
+ 
+  table-mapping-annos :
+    x_class -> result
+    where x_tablename := <concat-strings> ["_",x_class]
+        ; if x_name := <HasNaturalId; EntityIdName> x_class 
+          then //java-mix needs more fine-grained elements for annotations
+            x_propunique := <concat-strings> ["_",x_name]
+          ; result := [anno |[
+              @Table(
+                name="~x_tablename", 
+                uniqueConstraints=@UniqueConstraint(columnNames={"~x_propunique"})
+              )
+            ]|]
+          else
+            result := [anno |[
+              @Table(
+                name="~x_tablename"
+              )
+            ]|]
+          end
+       
+  hibernate-default-id-prop(|x_class) =
+    !class-body-dec* |[
+      //not using native id generator of dbms, because this can cause flushes when executing queries with transient entities in the where-clause    
+      @javax.persistence.Id
+      @org.hibernate.annotations.Type(type = "utils.UUIDUserType")
+      @javax.persistence.Column(name="id",length=16) //mysql adds 1 byte prefix for length internally http://dev.mysql.com/doc/refman/5.0/en/char.html
+      protected java.util.UUID _id = java.util.UUID.randomUUID();
+  
+      public java.util.UUID getId() { return _id; }
+  
+      public void setId(java.util.UUID id) { this._id = _id; }
+      
+      ~*<where("id":=<EntityIdName> x_class)<+![]> class-body-dec* |[ 
+        public String getNaturalId() { return _id.toString(); }
+      ]|
+    ]|
+
+   properties-to-code(|x_Class) :
+     props -> cbds
+     where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class)
+                                        | "cannot generate code for property: ")> props
+         ; cbds2 := <all-properties; name-property(|x_Class) <+ ![]> x_Class
+         ; cbds  := <concat>[cbds1, cbds2]
+
+
+ strategies
+
+   name-property(|x_Class) :
+     props -> class-body-dec* |[
+       public String getName() {
+         if(x_get()!=null)
+         {
+           return x_get().toString();
+         }
+         else
+         {
+           return "";
+         }
+       }
+     ]|
+     where <not(fetch(    ?Property             ("name",_,_,_  )
+                       <+ ?PropertyNoAnno       ("name",_,_    )))> props
+         ; x_prop := <get-namefield> props
+         ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
+
+ rules
+
+   /**
+    * Property is a protected field with a getter and a setter.
+    */
+
+   property-to-property-code(|x_Class) :
+     prop@Property(x, k, s, annos) -> class-body-dec* |[
+
+       mod1* mod2* mod3* protected t _#x = e;
+       
+       public t get#x() {
+         return _#x;
+       }
+       public void set#x(t newitem) {
+           _#x = newitem;
+       }
+       ~*cbd*
+       ~*cbds_naturalid
+     ]|
+    where t      := <java-type> s
+        ; e      := <java-type-default-value> s
+        ; mod1*  := <persistence-annotations> s
+        ; mod2*  := <property-to-persistence-annotations(|x_Class)> prop
+        ; mod3*  := <field-access-for-simple-sorts <+ ![]> prop
+        ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
+        ; cbds_naturalid := <property-to-natural-id(|x_Class) <+ ![]> prop
+
+   property-to-natural-id(|x_Class) :
+     prop@Property(x, k, s, annos) ->
+     class-body-dec* |[ 
+       public String getNaturalId() { 
+         return utils.IdAnnoURLFilter.filter(_#x.toString()); //custom encoding of problematic characters in URLs
+       }
+     ]|
+    where <EntityIdName> x_Class => x
+     with <gen-unique-function-for-id-prop> (x_Class,x,s)
+          
+   field-access-for-simple-sorts:
+     prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
+
+rules // annotations for properties
+
+  property-to-persistence-annotations(|x_Class) :
+    Property(x_prop, k, s, annos) -> <concat> [association-annos, cascade-annos]
+    with association-annos := <association-annotations(|x_Class, x_prop, annos)> s
+       ; cascade-annos := <cascade-annotations> k
+
+rules // Property with a value type
+
+  association-annotations(|x_Class, x_prop, annos) :
+    s@SimpleSort(y) -> []
+    where <builtin-java-type> s
+
+rules // Property with a reference or composite association type
+
+  association-annotations(|x_class, x_prop, annos) :
+    s@SimpleSort(y) ->
+    [
+      anno|[ @ManyToOne(fetch=javax.persistence.FetchType.LAZY) ]|,
+      anno|[ @JoinColumn(name = "~columnname") ]|
+    ]
+    where t          := <defined-java-type> s
+    with  x_Prop     := <capitalize-string> x_prop
+        ; columnname := <concat-strings>[x_class, "_", x_prop]
         
-   entity-to-java-servlet-entity-functions :
-     Entity(x_Class, x_super, props, funcs) ->
-     <emit-java-code> compilation-unit|[
-       package pkgname;
-       
-       @Partial
-       public class x_Class
-       {
-         ~*cbds*
-       }
-     ]|
-     with  pkgname := <DomainPackage>
-         ; //{| JavaInEntity: rules(InEntity := x_Class);
-           cbds* := <grab-uniquely-named-functions;map(webdsl-function-to-java-servlet-function <+ debug(!"Could not generate for entity function: "))> funcs
-           //|}
-           
-  grab-uniquely-named-functions : // TODO shouldn't be necessary...
-    funcs -> funcs2
-    with  {| FuncNameUsed, ResultingFunctions:
-            filter(grab-uniquely-named-functions-helper)
-          ; funcs2 := <bagof-ResultingFunctions>
-          |}
-     
-  grab-uniquely-named-functions-helper :
-    fu@Function(name,_,_,_) -> fu
-    where not(<FuncNameUsed> name)
-        ; rules ( FuncNameUsed : name
-                  ResultingFunctions :+= fu )
+rules // set or list of defined entity without inverse
+
+  association-annotations(|x_class, x_prop, annos) :
+    GenericSort(coll, [s@SimpleSort(ss)]) -> 
+      [ anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|
+      , anno|[ @JoinTable( name="~tableName" ) ]|
+      | anno-list*
+      ]
+    where <?"Set"> coll
+        ; t          := <defined-java-type> s
+        ; indexname  := <concat-strings> [x_class, x_prop,"index"]
+        ; anno-list* := <?"List"; ![anno |[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|] <+ ![]> coll 
+        ; tableName  := <concat-strings> [x_class, "_", x_prop, "_", ss]
+
+rules // cascading annotations
+
+  cascade-annotations :
+    Ref() -> [anno|[
+      @org.hibernate.annotations.Cascade({
+      org.hibernate.annotations.CascadeType.PERSIST,
+        org.hibernate.annotations.CascadeType.SAVE_UPDATE,
+        org.hibernate.annotations.CascadeType.MERGE
+      })
+    ]|]
+
+  cascade-annotations :
+    Simple() -> []
+
+rules // special methods
+
+  property-to-special-getters(|x_Class) :
+    prop@Property(x, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public t get#x#List() {
+        return new ArrayList(get#x());
+      }
+      public void set#x#List(t x_listvar) {
+        set#x(e_newgen);
+      }
+      public int get#x#Length() {
+        return get#x().size();
+      }
+      ~*cbds
+    ]|
+    where <?"Set"> coll
+    with  t         := <java-type> GenericSort("List", [SimpleSort(y)])
+        ; x_listvar := <newname> "list"
+        ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
+        ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
+
+  transform-list-to-genericset(|x_listvar) :
+    GenericSort("Set", [s]) -> |[ new java.util.LinkedHashSet<t>(x_listvar) ]|
+    with  t := <java-type> s
+
+rules //associations  
+
+  collection-mutation-methods(|x_Class) :
+    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public void removeFrom#x_prop(t_y item) {
+          get#x_prop().remove(item);
+      }
+      public void removeAllFrom#x_prop() { 
+        //force retrieval
+        org.hibernate.Hibernate.initialize(get#x_prop()); 
+        while(!get#x_prop().isEmpty()) {
+          removeFrom#x_prop(get#x_prop().iterator().next());
+        }
+      }
+      public void addTo#x_prop(t_y item) {
+          get#x_prop().add(item);
+      }
+      public t_col addAllTo#x_prop(java.util.Collection<t_y> col) { 
+        Iterator<t_y> it = col.iterator();
+        while(it.hasNext()) {
+          addTo#x_prop(it.next());
+        }
+        return get#x_prop(); //needed for desugaring of List.set() and Set.list()
+      }
+    ]|
+    with  t_y   := <java-type> SimpleSort(y)
+        ; x_y   := <java-type-name> SimpleSort(y)
+        ; t_col := <java-type> s
