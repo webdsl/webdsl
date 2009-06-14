@@ -13,7 +13,7 @@ public class GlobalsPageServlet extends PageServlet
 	public GlobalsPageServlet(HashMap<String,Object> vars){
 		this.variablesGlobalAndSession = vars;
 	}
-	public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String, utils.File> fileUploads){}
+	public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues){}
 	public String getPageName(){return "";}
 	public String getHiddenParams(){return "";}
 	public String getHiddenPostParams(){return "";}
