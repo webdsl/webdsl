@@ -14,7 +14,8 @@ signature
 
 strategies
 
-  all-consnil(s) = ?[_ | _] < [s | s] + all(s)
+  desugar-top =
+    repeat(innermost-rep(desugar))
 
   innermost-rep(s) =
     {| InnermostNormalForm, InnermostApplied
@@ -23,20 +24,25 @@ strategies
      ; where(InnermostApplied => True())
      |}
 
-  //rules used to determine whether any desugar was applied (might have only changed dynamic rule but not the AST)
   innermost-rep-aux(s) =
-    InnermostNormalForm
-    <+ all-consnil(innermost-rep-aux(s))
-       ; try(s; rules( InnermostApplied := True() ); innermost-rep-aux(s))
-       ; {?q; rules( InnermostNormalForm : q )}
+    InnermostNormalForm                           // don't normalize terms in normal form
+    <+ all-consnil(innermost-rep-aux(s))          // bottom-up traversal
+       ; try(
+           s                                      // apply rule
+           ; rules( InnermostApplied := True() )  // remember that a rule was applied
+           ; innermost-rep-aux(s)                 // normalize reduct
+         )
+       ; {?q; rules( InnermostNormalForm : q )}   // memoize normal forms
 
-  desugar-top =
-    //{| AspectWeavingRules ... :
-     repeat(innermost-rep(desugar))
-   //  |}
+  all-consnil(s) = 
+    ?[_ | _] < [s | s] + all(s)
 
+    // (standard all(s) behaves as map on lists; does not normalize sub-lists)
 
-rules //extend entity functions create dr
+  desugar :
+    [RemoveMe()|lst] -> lst
+
+rules 
   
   rename-all-vars :
     (t, []) -> (t, [])
@@ -45,8 +51,4 @@ rules //extend entity functions create dr
     (t, [(from, to)|rst]) -> <rename-all-vars> (t2, rst)
     where t2 := <rename-var(|from, to)> t
 
-rules
-
-  desugar :
-    [RemoveMe()|lst] -> lst
 
