@@ -6,9 +6,6 @@ imports
   org/webdsl/dsl/to-java-servlet/uicomponents/-
 
 strategies
-
-  //set-DomainPackage(|pkg) = 
-  //  rules( DomainPackage := pkg )
   
   core-to-java-servlet =
     ?Application(qid, sections)
@@ -18,36 +15,37 @@ strategies
         ActionPackage := <qid-to-package-name> Qualified(qid, "actions")
         DomainPackage := <qid-to-package-name> Qualified(qid, "domain")
       )
-    //; where( set-DomainPackage(|<qid-to-package-name> Qualified(qid, "domain")) )
-    ; log-time( get-all-top-level-template-names | "get-all-top-level-template-names" ) //TODO should be available in a dynamic rule somewhere
+    ; log-time( get-all-top-level-template-names | "get-all-top-level-template-names" )
     ; log-time( annotate-with-unique-element-ids | "annotate-with-unique-element-ids" )
     ; log-time( generate-code-java-servlet       | "generate-code-java-servlet" )
 
-   generate-code-java-servlet =
-     generate-code-java-servlet-aux
-     <+ log-time(not(GenerateCodeJavaServlet)|"generate code other")
-        ; all(generate-code-java-servlet)
+strategies // code generation for definitions
 
-   generate-code-java-servlet-aux =
-     ?def@Define(mods, name, args, elems)
-     ; {| JavaThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables: 
-            //Variables: to hold arguments/variables of parent templates/pages
-         with(
-           if ThisTemplateName       then rules ( NestedTemplate := name ) end
-         ; if <elem> (Page(), mods)  then rules ( JavaThisPage := name ) end
-         ; rules ( 
-             ThisTemplateName := name
-             ThisTemplateClassName := <get-template-class-name> def
-           )
+  generate-code-java-servlet =
+    generate-code-java-servlet-aux
+    <+ log-time( not(GenerateCodeJavaServlet) | "generate code other" )
+       ; all(generate-code-java-servlet)
+
+  generate-code-java-servlet-aux =
+    ?def@Define(mods, name, args, elems)
+    ; {| JavaThisPage, NestedTemplate, ThisTemplateName, ThisTemplateClassName, Variables
+         // Variables: to hold arguments/variables of parent templates/pages
+       : with(
+           if ThisTemplateName       then rules( NestedTemplate := name ) end
+           ; if <elem>(Page(), mods) then rules( JavaThisPage   := name ) end
+           ; rules ( 
+               ThisTemplateName := name
+               ThisTemplateClassName := <get-template-class-name> def
+             )
          )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
-         ; all(generate-code-java-servlet)
-         |}
+       ; log-time( not(GenerateCodeJavaServlet) | "generate code define")
+       ; all(generate-code-java-servlet)
+       |}
 
    generate-code-java-servlet-aux =
      ?Action(_, _, _)
      ; {| InAction, Variables
-        : rules ( InAction := True() )
+        : rules( InAction := True() )
         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
         ; all(generate-code-java-servlet)
         |}
@@ -132,11 +130,13 @@ rules
     ?tmplt@webdsl|[ define mod* x(farg*) { elem* } ]|
     ; with(
         if <not(fetch(?Page()))> mod*
-        then rules(AllTopLevelTemplateNamesJavaServlet :+= x  // used to create lookup hashmap in java-base-page.str
-                   IsTopLevelTemplateNameJavaServlet : x
-                   TopLevelTemplateArgumentsJavaServlet : x -> farg* 
-                   GetTopLevelTemplateJavaServlet : x -> tmplt
-                   )
+        then 
+          rules(
+            AllTopLevelTemplateNamesJavaServlet  :+= x  // used to create lookup hashmap in java-base-page.str
+            IsTopLevelTemplateNameJavaServlet    : x
+            TopLevelTemplateArgumentsJavaServlet : x -> farg* 
+            GetTopLevelTemplateJavaServlet       : x -> tmplt
+          )
         end
         ; if "errorTemplateInputListString"  := x then rules ( ErrorTemplateInput := tmplt ) end
         ; if "errorTemplateFormListString"   := x then rules ( ErrorTemplateForm := tmplt ) end

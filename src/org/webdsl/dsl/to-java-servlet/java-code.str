@@ -51,23 +51,9 @@ rules // assignment
     with  e2 := <expression-to-java-servlet> e1
         ; x_set := <concat-strings>["set", <remove-first-character-in-string;capitalize-string> x]
   
-/*
-  assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(x, e1)) -> 
-    bstm |[ 
-      {
-        this.removeAllFrom#x2();
-        this.addAllTo#x2(e2);
-      }
-    ]|
-    where <is-property> (<ClassName>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
-        ; GenericSort(_,_) := <type-of-property> (<ClassName>, <remove-first-character-in-string> x)
-    with  e2 := <expression-to-java-servlet> e1
-        ; x2 := <remove-first-character-in-string> x
-*/
-
   assignment-to-java-servlet :
-    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
+    //Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
+    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.set#x(e3); ]|
     where not(GenericSort(_,_) := <type-of> q)
     with  e2 := <assignment-to-java-servlet-exp-helper> qid
         ; e3 := <expression-to-java-servlet> e1
@@ -76,7 +62,7 @@ rules // assignment
     Stat(Assignment(q@Qualified(qid, x), e1)) -> 
     bstm |[ 
       {
-        e2.setupForPropertyEvents(hibSession,out,ps);
+        //e2.setupForPropertyEvents(hibSession,out,ps);
         e2.removeAllFrom#x();
         e2.addAllTo#x(e3);
       }
@@ -196,7 +182,8 @@ rules // return
 rules
 
    qid-to-java-servlet :
-     Qualified(qid, x) -> java|[ e.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     //Qualified(qid, x) -> java|[ e.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     Qualified(qid, x) -> java|[ e.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e := <qid-to-java-servlet> qid
 
@@ -222,9 +209,9 @@ rules
          ; e := <java-type-default-value> s
 
 rules // expressions
+
    expression-to-java-servlet :
      Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]| 
-     //CastRef(t, java|[ e2 ]|)
      with  e2 := <expression-to-java-servlet> e1
          ; t := <java-type> s
          ; x := <java-type-name> s
@@ -314,20 +301,18 @@ rules
    expression-to-java-servlet : 
      ObjectCreation(SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
      java|[
-        {| x_Class x_var = (new x_Class()).setupForPropertyEvents(hibSession,out,ps); bstm* bstm_event* | x_var |}
+        //{| x_Class x_var = (new x_Class()).setupForPropertyEvents(hibSession,out,ps); bstm* | x_var |}
+        {| x_Class x_var = (new x_Class()); bstm* | x_var |}
      ]|
      with  x_var := <newname> "objCr"{<newname> "objCr"}
          ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_Class,x_var)| "cannot translate asssignment")> assigns
-         ; bstm_event* := <entity-bstm-constructor-entity-event> (x_Class,x_var) // TODO take superclass constructor into account
      
    field-assign-to-java-servlet(|x_Class, x_var) :
-     ObjectPropertyAssignment(y_field, e1) -> result //java|[ x_var.y_set(e2); ]|
-     with  {| TypeOf,Rename,RenameType :
-             rename-bound-rules(|x_var,x_var,SimpleSort(x_Class))  //rules ( TypeOf : Qualified(x_var, y_field) -> type )
-           ; result := <assignment-to-java-servlet> Stat(Assignment(Qualified(x_var, y_field), e1)) //reuse normal translation, e.g. setting list properties are translated differently
-           |}
-         //  e2 := <expression-to-java-servlet> e1
-         //; y_set := <concat-strings>["set", <capitalize-string> y_field]
+     ObjectPropertyAssignment(y_field, e1) -> result 
+     with  {| TypeOf,Rename,RenameType 
+            : rename-bound-rules(|x_var,x_var,SimpleSort(x_Class))  
+            ; result := <assignment-to-java-servlet> Stat(Assignment(Qualified(x_var, y_field), e1)) 
+            |}
      
 rules //vars     
 
@@ -342,9 +327,11 @@ rules //vars
    <+ generic-field-access-to-java-servlet
    
    generic-field-access-to-java-servlet :
-     FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     //FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e2 := <expression-to-java-servlet> e1
+
    // todo: only setupFor if derived property
 
    expression-to-java-servlet =
@@ -367,9 +354,9 @@ rules //vars
                result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
              end
            else
-             {| PredicateFoundInCall:
-             t2* := <map(type-of)> e1*
-           ; x1 := <strip-annos> x
-           ; result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
-             |}
+             {| PredicateFoundInCall
+              : t2*    := <map(type-of)> e1*
+              ; x1     := <strip-annos> x
+              ; result := expr|[ GlobalFunctions.x#_(hibSession,variables,e2*, ps, out) ]|
+              |}
            end
