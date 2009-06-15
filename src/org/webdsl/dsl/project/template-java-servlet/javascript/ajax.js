@@ -263,3 +263,31 @@ function relocate(command)
 {
   window.location = command.value;
 }
+
+// Function to initialize the Dojo library
+// it is safe to invoke this function multiple times. 
+// dependse on javascript/dojo-release-1.3.0/dojo/dojo.js
+// or (by default) uses the dojorelease at aolcdn.com
+var loadedDojo = false;
+function loadDojo(loadlocal) {
+ 
+  if(!loadedDojo) {
+    var e = document.createElement("script");
+    e.type = "text/javascript";
+    if (loadlocal == null) {
+        e.src= "javascript/dojo-release-1.3.0/dojo/dojo.js";
+    }
+    else {
+        e.src= "http://o.aolcdn.com/dojo/1.3.1/dojo/dojo.xd.js";
+    }
+    document.getElementsByTagName("head")[0].appendChild(e);
+
+    djConfig = {
+        afterOnLoad : false
+ //       ,addOnLoad: function() { window.alert("ready");
+        }
+        ,parseOnLoad:true
+    };
+    loadedDojo = true;
+  }
+}
