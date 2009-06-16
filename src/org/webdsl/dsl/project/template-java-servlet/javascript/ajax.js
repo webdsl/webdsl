@@ -275,7 +275,7 @@ function loadDojo(loadlocal,addonload) {
     loadedDojo = true;
     var e = document.createElement("script");
     e.type = "text/javascript";
-    if (loadlocal != true) {
+    if (loadlocal == true) {
         e.src= "javascript/dojo-release-1.3.0/dojo/dojo.js";
         loadCSS("javascript/dojo-release-1.3.0/dijit/themes/tundra/tundra.css");
         loadCSS("javascript/dojo-release-1.3.0/dojo/resources/dojo.css");
