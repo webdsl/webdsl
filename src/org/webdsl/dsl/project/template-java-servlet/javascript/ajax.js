@@ -269,25 +269,44 @@ function relocate(command)
 // dependse on javascript/dojo-release-1.3.0/dojo/dojo.js
 // or (by default) uses the dojorelease at aolcdn.com
 var loadedDojo = false;
-function loadDojo(loadlocal) {
+function loadDojo(loadlocal,addonload) {
  
   if(!loadedDojo) {
+    loadedDojo = true;
     var e = document.createElement("script");
     e.type = "text/javascript";
-    if (loadlocal == null) {
+    if (loadlocal != true) {
         e.src= "javascript/dojo-release-1.3.0/dojo/dojo.js";
+        loadCSS("javascript/dojo-release-1.3.0/dijit/themes/tundra/tundra.css");
+        loadCSS("javascript/dojo-release-1.3.0/dojo/resources/dojo.css");
     }
     else {
         e.src= "http://o.aolcdn.com/dojo/1.3.1/dojo/dojo.xd.js";
+        loadCSS("http://o.aolcdn.com/dojo/1.3.0/dijit/themes/tundra/tundra.css");
+        loadCSS("http://o.aolcdn.com/dojo/1.3.0/dojo/resources/dojo.css");
     }
     document.getElementsByTagName("head")[0].appendChild(e);
-
+    
     djConfig = {
-        afterOnLoad : false
- //       ,addOnLoad: function() { window.alert("ready");
+      afterOnLoad : false,
+      addOnLoad: function() { 
+        if(addonload != null) {
+          addonload();
         }
-        ,parseOnLoad:true
+      },
+      parseOnLoad:true
     };
-    loadedDojo = true;
   }
+  //already loaded dojo, execute method directly
+  else if (addonload != null) {
+    addonload();
+  }
+}
+
+function loadCSS(url) {
+    e = document.createElement("link");
+    e.setAttribute("rel", "stylesheet")
+    e.setAttribute("type", "text/css")
+    e.setAttribute("href", url)
+    document.getElementsByTagName("head")[0].appendChild(e);  	
 }
