@@ -16,6 +16,7 @@
    FromRangeJoin            -- _1 _2,
    FromRangeJoin.2:opt      -- _1,
    LeftJoin                 -- KW["left"],
+   Fetch                    -- KW["fetch"],
    RightJoin                -- KW["right"],
    LeftOuterJoin            -- KW["left"] KW["outer"],
    RightOuterJoin           -- KW["right"] KW["outer"],

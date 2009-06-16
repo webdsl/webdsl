@@ -2,6 +2,7 @@ module WebDSL-Action
 
 imports
   WebDSL-Lexical
+  MixHQL[HQL]
 
 exports
 
@@ -81,6 +82,7 @@ exports %% Expression language
 
   context-free syntax
     Int                    -> ConstValue {cons("Int")}
+    Long                   -> ConstValue {cons("Long")}
     Float                  -> ConstValue {cons("Float")}
     String                 -> ConstValue {cons("String")}
 
@@ -120,6 +122,9 @@ exports %% Expression language
 
     Exp "is" "a" Sort      -> Exp {cons("IsA")}
     Exp "as" Sort          -> Exp {cons("Cast"), avoid} %% Casting, hooray!
+
+    HqlExp "as" Sort       -> Exp {reject}
+
   context-free restrictions
     "as" -/- [a-zA-Z0-9\_] %% prevent ambiguity between as and asc (used in for-filters)
  
@@ -188,11 +193,20 @@ context-free priorities
        Exp "||" Exp -> Exp }
   > Assignment -> Exp 
 
+
 exports
 
   context-free syntax
 
-    QueryRule[[HQL]] -> Exp {cons("HqlQuery"), prefer}
+    QueryRule[[HQL]]                     -> HqlExp {cons("HqlQuery")}
+    QueryRule[[HQL]] "limit" Exp         -> HqlExp {cons("HqlQueryLimit")}
+    QueryRule[[HQL]] "limit" Exp "," Exp -> HqlExp {cons("HqlQueryLimitOffset")}
+
+    HqlExp -> Exp {prefer}
 
     "~" Exp -> Expression[[HQL]] {cons("DslExp")}
+
+  context-free syntax
+
+    QueryRule[[HQL]] "." Id -> Exp {reject}
 
