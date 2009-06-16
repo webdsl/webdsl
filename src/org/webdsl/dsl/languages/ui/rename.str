@@ -3,9 +3,9 @@ module org/webdsl/dsl/languages/ui/rename
 rules
 
   rename-ui :
-    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-page-definition> def |[ define mod* x(farg2*) { elem2* } ]|
+    Define(mod*, x,farg1*, req*, elem1*) -> <declare-page-definition> Define(mod*, x, farg2*, req*, elem2*)
     where   <fetch(?Page())> mod*
-    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg
+    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; rules ( TemplateArg := farg1* ) //used in template-call.str
@@ -14,15 +14,16 @@ rules
           ; <declare-args-in-context> farg2*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
           ; rules ( TypeOf : x -> "Component" )
+          ; <declare-require-sig>req*
           |}
 
   rename-ui :
-    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-toplevel-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    Define(mod*, x,farg1*, req*, elem1*) -> <declare-toplevel-template-definition> Define(mod*, y, farg2*, req*, elem2*)
     where not(InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         //; not(<elem> (Email(), mod*))
         ; not(<fetch(?Email())> mod*)
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
           ; y := x{<newname> x}
           ; rules ( InTemplate := y )
@@ -32,14 +33,15 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; elem2* := <alltd(rename-actions); rename-all> elem1*
+          ; <debug(!"Declaring"); declare-require-sig> req*
           |}
         
   rename-ui :
-    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* y(farg2*) { elem2* } ]|
+    Define(mod*, x,farg1*, req*, elem1*) -> <declare-local-template-definition> Define(mod*, y, farg2*, req*, elem2*)
     where (InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
          : rules ( InDef := True() )
          ; y := x{<newname> x}
          ; rules ( InTemplate := y )
@@ -47,8 +49,20 @@ rules
          ; farg2* := <map(rename);declare-generic-template-args(|x)> farg1*
          ; <declare-args-in-context> farg2*
          ; elem2* := <alltd(rename-actions); rename-all> elem1*
+         ; <declare-require-sig> req*
          |}
 
+  declare-require-sig = ?[]
+  declare-require-sig = ?None()
+  declare-require-sig :
+    a@""#([args]) -> a
+    with <debug(!"Trying"); ?None() <+ map(declare-require-sig-internal)> args
+    
+  declare-require-sig-internal =
+    ?d@TemplateArg(name, _)
+    ; debug(!"declaring: ") 
+    ; rules (ReqTemplateSig :+ name -> d )
+    
   empty-args-in-context =
     repeat(once-VarInTemplateContext)
 
