@@ -3,9 +3,7 @@ package org.webdsl.tools;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-import java.util.LinkedList;
+import java.util.*;
 
 import javax.faces.context.FacesContext;
 import javax.servlet.ServletOutputStream;
@@ -14,6 +12,15 @@ import javax.servlet.http.HttpServletResponse;
 import org.webdsl.WebDSLEntity;
 
 public final class Utils {
+    public static Object[] concatArrays(Object[] ar1, Object[] ar2) {
+        List<Object> thelist = new ArrayList<Object>();
+        for(Object o : ar1) 
+            thelist.add(o);
+        for(Object o : ar2) 
+            thelist.add(o);
+        return thelist.toArray();		
+    }
+    
     public static Date parseDate(String date, String format) {
         try {
             return new SimpleDateFormat(format).parse(date);
@@ -109,53 +116,53 @@ public final class Utils {
     }
     
     public static List<String> explodeString(String s){
-    	List<String> list = new LinkedList<String>();
-    	for(char c : s.toCharArray()){
-    		list.add(new Character(c).toString());  
-    	}
-    	return list;
+        List<String> list = new LinkedList<String>();
+        for(char c : s.toCharArray()){
+            list.add(new Character(c).toString());  
+        }
+        return list;
     }
     public static String implodeString(List<String> s){
-    	StringBuffer ret = new StringBuffer();
-    	for(String str : s){
-    		ret.append(str);
-    	}
-    	return ret.toString();
+        StringBuffer ret = new StringBuffer();
+        for(String str : s){
+            ret.append(str);
+        }
+        return ret.toString();
     }
     public static boolean containsDigit(String s){
-    	for(char c : s.toCharArray()){
-    		if(Character.isDigit(c)){
-    			return true;
-    		}
-    	}
-    	return false;
+        for(char c : s.toCharArray()){
+            if(Character.isDigit(c)){
+                return true;
+            }
+        }
+        return false;
     }
     public static boolean containsLowerCase(String s){
-    	for(char c : s.toCharArray()){
-    		if(Character.isLowerCase(c)){
-    			return true;
-    		}
-    	}
-    	return false;
+        for(char c : s.toCharArray()){
+            if(Character.isLowerCase(c)){
+                return true;
+            }
+        }
+        return false;
     }
     public static boolean containsUpperCase(String s){
-    	for(char c : s.toCharArray()){
-    		if(Character.isUpperCase(c)){
-    			return true;
-    		}
-    	}
-    	return false;
+        for(char c : s.toCharArray()){
+            if(Character.isUpperCase(c)){
+                return true;
+            }
+        }
+        return false;
     }
     private static java.util.regex.Pattern cleanUrlPattern = java.util.regex.Pattern.compile("[a-zA-Z0-9-]*");  
     public static boolean isCleanUrl(String s){
-    	return cleanUrlPattern.matcher(s).matches();
+        return cleanUrlPattern.matcher(s).matches();
     }
     public static String secretDigest(String s){
         org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
         return temp.encryptPassword(s);
     }
     public static boolean secretCheck(String s1,String s2){
-    	org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
-    	return temp.checkPassword(s2,s1);
+        org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
+        return temp.checkPassword(s2,s1);
     }
 }

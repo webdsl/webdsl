@@ -103,15 +103,12 @@ rules //template call either refers to a defined template, or to a built-in temp
   rename-template-call-name-required(|x_old) : 
     (x,arg*) -> x
     where if (InTemplate <+ InPage) then
-          debug(!"Searching ..")
-        ; xsa := <strip-annos> x
+          xsa := <strip-annos> x
         ; <ReqTemplateSig> xsa
         else 
-          debug(!"Searching for old..")
-        ; <CallToRequiredTemplate> x_old
+          <CallToRequiredTemplate> x_old
         end        
     with  rules ( CallToRequiredTemplate : x )
-       ; debug(!"Found required")
 
   rename-template-call-name-builtin :
     (x,arg*) -> x
@@ -201,6 +198,39 @@ rules // desugar template argument for defined template calls
         ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
         ; defelem* := [elem*, action*]
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, None(), defelem*)
+        ; elementscall := TemplateCall(x_newtempl,vars,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+
+  desugar-ui :
+    tc@TemplateCall(x,arg*,passign,TemplateWith(argdef*)) -> TemplateCall(x,arg*,passign2,TemplateBody([])) 
+    with elementscall := <map(desugar-argdef(|x))> argdef*
+       ; passign2 := <conc>(elementscall, passign)
+        
+signature         
+  constructors 
+    ResolvedRequireKey: Term -> Term
+
+
+rules        
+  desugar-argdef(|templatename) :
+    ArgDefine(x,fargsorig*,elem*) -> TemplateCall(x_newtempl, vars,[ResolvedRequireKey(x)],TemplateBody([]))
+    with x_newtempl := <conc-strings; newname> (x,"_argdef")
+        ; vars := <CallContextVars> templatename
+        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
+        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
+        ; defelem* := [elem*, action*]
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [fargsorig*, farg*], None(), defelem*)
+    
+/*  desugar-ui :
+    tc@TemplateCall(x,arg*,passign*,Template(elem*)) -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])) 
+    where <CallToRequiredTemplate> x
+        ; not(<fetch(?TemplateCall(_,_,_,_))> passign*)
+    with  x_newtempl := <newname> "templateargument"
+        ; vars := <CallContextVars> x
+        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
+        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
+        ; defelem* := [elem*, action*]
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, None(), defelem*)
         ; elementscall := TemplateCall(x_newtempl,vars,[],[]) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+*/
 
   built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
