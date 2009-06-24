@@ -47,6 +47,8 @@ let
           pkgconfig strategoPackages.aterm strategoPackages.sdf
           strategoPackages.strategoxt strategoPackages.javafront
         ] ++ lib.optional stdenv.isLinux apacheAnt;
+        
+        doCheck = if stdenv.isLinux then true else false;
       };
 
 
