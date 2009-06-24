@@ -46,7 +46,7 @@ define page home() {
   }
   action listaction(news : List<News>) {
     for(n: News in news) {
-      append target2 << template { li { out (n.caption) } } ;
+      append(target2,template { li { out (n.caption) } });
     }
   }
 }
@@ -62,7 +62,7 @@ define displaynews (news: List<News>, user: User) {
 
 function dosearch(s: String, anuser: User) {
   var news : List<News> := searchHelper(s);
-  append target << displaynews(news, anuser);
+  append(target,displaynews(news, anuser));
 }
 
 function searchHelper(s: String):  List<News> {

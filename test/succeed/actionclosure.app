@@ -49,23 +49,18 @@ section datamodel
         define body() {
           form { 
             group("Details") { 
-            } 
-            group() {
-               
-               action("Save", save())
-                 action("Cancel", cancel()) 
-         
+              action("Save", save())
+              action("Cancel", cancel()) 
             }
           }
      
-             action save() { 
+          action save() { 
             return home();
           }
-                    action cancel() {
+          action cancel() {
             cancel home();
           }
      
-       
         }
   }
  

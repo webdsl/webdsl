@@ -42,7 +42,7 @@ section datamodel
   define page home2()
   {
     main()
-    define body{
+    define body(){
       form { 
         actionLink("return", ret())
         action ret() {
