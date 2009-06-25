@@ -111,6 +111,7 @@
    True				                        -- KW["true"],
    False			                        -- KW["false"],
    Null                               -- KW["null"],
+   TemplateBody                       -- _1,
    TemplateCallNoBody                 -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    TemplateCallNoBody.2:iter-star-sep -- H hs=0[_1 KW[","]],
    TemplateCallNoBody.2:iter-star			-- _1,

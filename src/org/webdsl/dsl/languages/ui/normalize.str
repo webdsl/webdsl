@@ -9,19 +9,24 @@ rules // case template element
 
   // TODO: Try rename-all here?
   normalize-ui :
-    elem|[ case(e) { talt* } ]| -> <rename-closed> elem|[ dummy(){ var x : srt := e; elem } ]|
-    where srt  := <type-of> e
-        ; x    := <newname> "caseval"
-        ; elem := <template-case-to-if(|x)> talt*
+    elem|[ case(e*) { talt* } ]| -> <rename-closed> elem|[ dummy(){ elem* elem } ]|
+    where (x*, elem*) := <map(template-case-vardecl); unzip> e*
+        ; elem := <template-case-to-if(|x*)> talt*
 
-  template-case-to-if(|x) :
+  template-case-vardecl :
+    e -> (x, elem|[ var x : srt := e; ]|)
+    where srt := <type-of> e
+        ; x := <newname> "caseval"
+    
+  template-case-to-if(|x*) :
     [] -> elem|[ dummy(){ } ]|
 
-  template-case-to-if(|x) :
-    [ TemplateCaseAlt(const, elem1*), talt* ] -> elem|[ if(x == const) { elem1* } else { elem2 } ]|
-    where elem2 := <template-case-to-if(|x)> talt*
+  template-case-to-if(|x*) :
+    [ TemplateCaseAlt(const*, elem1*), talt* ] -> elem|[ if(e) { elem1* } else { elem2 } ]|
+    where elem2 := <template-case-to-if(|x*)> talt*
+        ; e := <zip(\ (x, const) -> |[ x == const]|\ ); foldr(!|[ true ]|, \ (e1,e2) -> |[ e1 && e2]|\ )> (x*, const*)
 
-  template-case-to-if(|x) :
+  template-case-to-if(|x*) :
     [ TemplateCaseAltDefault(elem1*), talt* ] -> elem|[ dummy(){ elem1* } ]|
 
 rules // templates
