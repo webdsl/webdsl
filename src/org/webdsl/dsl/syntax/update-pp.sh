@@ -1,7 +1,7 @@
  #!/bin/sh
 ppgen -i WebDSL.def -o __generated-webdsl-pp.pp
 # parse-pp-table cannot parse this line
-sed '/HqlQuery.1:parameterized-sort.1:"QueryRule"/d' __generated-webdsl-pp.pp > __generated-webdsl-pp-fixed.pp
+sed -e '/HqlQuery.1:parameterized-sort.1:"QueryRule"/d' -e '/HqlQueryLimit.1:parameterized-sort.1:"QueryRule"/d' -e '/HqlQueryLimitOffset.1:parameterized-sort.1:"QueryRule"/d' __generated-webdsl-pp.pp > __generated-webdsl-pp-fixed.pp
 parse-pp-table -i __generated-webdsl-pp-fixed.pp -o __generated-webdsl-pp.pp.af
 parse-pp-table -i WebDSL-pretty.pp -o __WebDSL-pretty.pp.af
 pptable-diff -i __generated-webdsl-pp.pp.af --old __WebDSL-pretty.pp.af 2> __ppdiff
