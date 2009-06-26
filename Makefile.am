@@ -16,6 +16,15 @@ syntax :
 ctrees : 
 	$(MAKE) -C src ctrees
 
+java : 
+	$(MAKE) -C src java
+
+jar : 
+	$(MAKE) -C src jar
+
+class : 
+	$(MAKE) -C src class
+
 #src/org/webdsl/dsl/generation
 
 BOOTCLEAN_SUBDIRS = $(SUBDIRS)
