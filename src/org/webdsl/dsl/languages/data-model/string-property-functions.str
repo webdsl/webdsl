@@ -1,0 +1,56 @@
+module org/webdsl/dsl/languages/data-model/string-property-functions
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules
+
+  extend-entity-declare :
+    Entity(x_class, x_super, props, funcs) -> <fail>
+    with  <filter(string-property-addition(|x_class))> props
+
+  string-property-addition(|x_class) =
+    ?Property(x, k, srt, annos) //derivedproperty will need special handling
+  <+?PropertyNoAnno(x, k, srt)
+    ; <type-compatible> (srt, SimpleSort("String"))
+    ; with(
+        // find entity by string property function
+          x_funname := <concat-strings> ["find",x_class,"By",<capitalize-string> x]
+        ; <register-reserved-function> (x_funname,1)
+        ; <declare> fun |[ function x_funname(prop:srt):x_class {} ]|
+      )
+      
+rules //emit functions for string properties, these are implemented entirely in WebDSL code
+
+  desugar-data :
+    EntityNoSuper(name, props1, funcs) -> EntityNoSuper(name, props2, funcs)
+    where props2 := <oncetd(desugar-data-string-property(|name))> props1
+
+  desugar-data :
+    Entity(name, sup, props1, fun) -> Entity(name, sup, props2, fun)
+    where props2 := <oncetd(desugar-data-string-property(|name))> props1
+
+signature
+  constructors
+    StringPropertyFunctionDesugarDone : Term
+   
+rules
+
+  desugar-data-string-property(|x_class) :
+    Property(x, k, srt, annos) -> Property(x, k, srt, [StringPropertyFunctionDesugarDone()|annos]) //only matches this type of property, others such as derivedproperty cannot have id anno
+    where <type-compatible> (srt, SimpleSort("String"))
+        ; not(<fetch(?StringPropertyFunctionDesugarDone())> annos)
+    with  x_funname := <concat-strings> ["find",x_class,"By",<capitalize-string> x]
+        ; <emit-webdsl-code> fun |[ 
+            function x_funname(prop:srt):x_class {
+              var list : List<x_class> := select g from x_class as g where g.x = ~prop;
+              if(list.length > 0) {
+                return list.get(0);
+              } else {
+                return null;
+              }
+            } 
+          ]|
