@@ -1,26 +1,26 @@
 application test
 
   entity User{
-    name :: String(id)
+    firstname :: String(id)
   }
 
-  var u_1 := User { name := "Alice" }
+  var u_1 := User { firstname := "Alice" }
   
-  var u_2 := User { name := "Bob" }
+  var u_2 := User { firstname := "Bob" }
   
   define page home(){
     for(u:User){
-      "users: " output(u.name)
+      "users: " output(u.firstname)
     }
-    var name : String := "enter name here";
+    var enteredname : String := "enter firstname here";
     form{
-      input(name)
+      input(enteredname)
       action("save",save())
     }
     action save()
     {
-      validate(findUser(name) == null,"User name taken");
-      var newUser:User := User{ name := name };
+      validate(findUser(enteredname) == null,"User name taken");
+      var newUser:User := User{ firstname := enteredname };
       newUser.save();
       return home();
     }
