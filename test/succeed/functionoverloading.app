@@ -20,18 +20,19 @@ section datamodel
     return "Whatever dude";
   }
 
+  /* 
   function a(o : Object) : String {
     return "none";
   }
-  
+  */
   function a(s:WikiText,s:WikiText) : String {
     return "none";
   }
-  
+  /*
   function a(s : WikiText,o :Object) : String {
     return "Whatever dude";
   }
-
+  */
 
   function f(s : String) : String {
     return s;
@@ -44,7 +45,7 @@ section datamodel
     output(an.a("Really"))
     output(a("Really"))
     output(a("Really" as WikiText))
-    output(a(67))
+    //output(a(67))
     output(a("Really" as WikiText,"Really" as WikiText))
   }
 
