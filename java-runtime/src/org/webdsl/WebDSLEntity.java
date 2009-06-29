@@ -6,4 +6,5 @@ public interface WebDSLEntity extends Serializable {
     boolean isInstance(Class<?> c);
     public boolean instanceOf(String s);
     public Object getId();
+    public String getType();
 }
