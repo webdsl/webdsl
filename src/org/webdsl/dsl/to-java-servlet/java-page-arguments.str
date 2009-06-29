@@ -11,7 +11,10 @@ rules // page arguments
                                   //JavaThisPage
   GenerateCodeJavaServlet = where((JavaThisPage<+ThisTemplateName);not(InAction)); page-class-generation-test; argument-to-java-servlet-property; fail
    
-   argument-to-java-servlet-property :
+  /**
+   *  GenericSort -List and Set- page arguments 
+   */ 
+  argument-to-java-servlet-property :
     arg@farg|[ x : srt ]| -> 
      <generate-java-servlet-partial> java|[
          @Partial
@@ -45,18 +48,19 @@ rules // page arguments
            return this.x_ids;
          }
         
-         private x1<x_Class> x;
+         private x1<t_class> x;
          
-         public void set#x(x1<x_Class> x) {
+         public void set#x(x1<t_class> x) {
            this.x = x;
          }
          
-         public x1<x_Class> get#x() {
+         public x1<t_class> get#x() {
            return x;
          }
       ]|    
       where <?GenericSort(x1,[x2])> srt
-      with  <?SimpleSort(x_Class)> x2      
+      with  <?SimpleSort(_)> x2
+          ; t_class := <java-type> x2    
           ; x_id := <concat-strings>[x, "_id"]
           ; t := SimpleSort("UUID")
           ; t_idstype := <builtin-java-type> GenericSort(x1,[t])
@@ -64,7 +68,10 @@ rules // page arguments
           ; bstm* := <argument-to-java-servlet-initialization> arg
           ; x_ids := <concat-strings>[x,"_ids"]
      
-   argument-to-java-servlet-property :
+  /**
+   *  defined entities and Entity type page arguments
+   */  
+  argument-to-java-servlet-property :
     arg@farg|[ x : srt ]| ->
     <generate-java-servlet-partial> java|[
        @Partial
@@ -88,26 +95,30 @@ rules // page arguments
          return this.x_id;
        }
 
-       private x_Class x;
+       private t_class x;
        
        @Partial private void cleanupPageArgAndVar(){ x_id = null; x = null; }
        
-       public void set#x(x_Class x) {
+       public void set#x(t_class x) {
          this.x = x;
        }
        
-       public x_Class get#x() {
+       public t_class get#x() {
          return x;
        }
     ]|
     where <is-entity-type> srt
-    with  <?SimpleSort(x_Class)> srt
+    with  <?SimpleSort(_)> srt
+        ; t_class := <java-type> srt
         ; x_id := <concat-strings>[x, "_id"]
         ; t := <java-type> SimpleSort("String")
         ; bstm* := <argument-to-java-servlet-initialization> arg
         ; bstm1* := <java-servlet-conversion-to-object> (t,x,x_id)
 
-   argument-to-java-servlet-property :
+  /**
+   *  Built-in type page arguments
+   */ 
+  argument-to-java-servlet-property :
     arg@farg|[ x : srt ]| ->
     <generate-java-servlet-partial> java|[
        @Partial
@@ -141,6 +152,8 @@ rules // page arguments
         ; bstm2* := <string-argument-to-java-servlet-initialization <+ ![]> arg // fix for passing strings decode (eg. %20 -> ' ')
         ; bstm1* := <java-servlet-conversion-to-object> (t_Class,x,x)
 
+rules //initialization
+
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
     bstm*|[
@@ -150,9 +163,34 @@ rules // page arguments
     ]|
     where <is-entity-type> srt
         ; SimpleSort(webdsl_entity_name) := srt
+        ; not(SimpleSort("Entity") := srt)
         ; not(<natural-id-name-include-superclass> webdsl_entity_name)
     with  x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_id != null) {   
+        String[] x_ar = x_id.split(":");
+        String x_type = x_ar[0];
+        String x_uuid = x_ar[1];
+        try { 
+          Class<?> cl = org.hibernate.util.ReflectHelper.classForName(e_pre + x_type);
+          x = (x_class) hibSession.load(cl, java.util.UUID.fromString(x_uuid));
+        } 
+        catch (ClassNotFoundException cnfe) { 
+          throw new RuntimeException(cnfe); 
+        }       
+      }
+    ]|
+    where SimpleSort("Entity") := srt
+    with  x_id := <concat-strings>[x, "_id"]
+        ; x_class := <java-type-name> SimpleSort("Entity")
+        ; e_pre := java:expr|[ "~<concat-strings> [<pp-java5-to-string> <DomainPackage>, "."]" ]|
+        ; x_uuid := <newname> "uuid"
+        ; x_type := <newname> "type"
+        ; x_ar := <newname> "array"
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -181,6 +219,7 @@ rules // page arguments
     ]|
     where <is-entity-type> srt
         ; SimpleSort(webdsl_entity_name) := srt
+        ; not(SimpleSort("Entity") := srt)
         ; x_natidprop := <concat-strings>["_",<natural-id-name-include-superclass> webdsl_entity_name]
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt

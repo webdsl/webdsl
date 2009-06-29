@@ -20,19 +20,18 @@ section datamodel
     return "Whatever dude";
   }
 
-  /* 
+  
   function a(o : Object) : String {
     return "none";
   }
-  */
+  
   function a(s:WikiText,s:WikiText) : String {
     return "none";
   }
-  /*
+  
   function a(s : WikiText,o :Object) : String {
     return "Whatever dude";
   }
-  */
 
   function f(s : String) : String {
     return s;
