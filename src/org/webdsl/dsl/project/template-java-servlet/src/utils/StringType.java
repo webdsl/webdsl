@@ -10,5 +10,13 @@ public class StringType {
     	  return null;
       }
     }
+    public static java.util.UUID parseUUID(String s){
+    	try{
+    		return java.util.UUID.fromString(s);
+    	}
+    	catch(Exception e){
+    		return null;
+    	}
+    }
     
 }

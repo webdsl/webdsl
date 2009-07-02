@@ -1,0 +1,68 @@
+module org/webdsl/dsl/languages/data-model/load-entity-function
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules
+
+  extend-entity-declare :
+    Entity(x_class, x_super, props, funcs) -> <fail>
+    with  load-entity-function-declare(|x_class)
+
+  load-entity-function-declare(|x_class) =
+    with(// load entity with id (property)
+        x_funname := <concat-strings> ["load",x_class]
+      ; <register-reserved-function> (x_funname,1)
+      ; (srt := <HasNaturalId;EntityIdType> x_class <+ srt := SimpleSort("UUID"))
+      ; <declare> fun |[ function x_funname(prop:srt):x_class {} ]|
+    )
+      
+rules //emit functions, implemented entirely in WebDSL code
+
+  desugar-data :
+    EntityNoSuper(name, props, funcs) -> EntityNoSuper(name, props, funcs)
+    where <desugar-load-function> name
+
+  desugar-data :
+    Entity(name, sup, props, fun) -> Entity(name, sup, props, fun)
+    where <desugar-load-function> name
+/*
+signature
+  constructors
+    LoadFunctionDesugarDone : Term
+*/ 
+rules
+
+  desugar-load-function :
+    x_class -> x_class
+    where not(<LoadFunctionDesugarDone> x_class)
+    with  rules( LoadFunctionDesugarDone : x_class)
+        ; x_funname := <concat-strings> ["load",x_class]
+        ; if srt := <HasNaturalId;EntityIdType> x_class
+          then
+            x_funnamefind := <concat-strings> ["find",x_class]
+          ; <emit-webdsl-code> fun |[ 
+              function x_funname(prop: srt):x_class {
+                return x_funnamefind(prop);
+              }
+            ]|
+          else
+            str0 := x_class
+          ; <emit-webdsl-code> fun |[ 
+              function x_funname(prop: UUID):x_class {
+                return loadEntity(str0,prop) as x_class;
+              } 
+            ]|
+          end
+
+rules //loadEntity primarily for internal use in function above, implemented in back-end
+
+  built-in-template-rule-setup = 
+    x_funname := "loadEntity"
+  ; <register-reserved-function> (x_funname,1)
+  ; <declare> fun |[ function x_funname(type:String,id:UUID):Entity {} ]| //put type into string and extract in back-end to produce the actual java type to be loaded. type must be string literal
+  ; fail
+  
