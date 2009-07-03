@@ -32,6 +32,11 @@ public class Message implements org.webdsl.WebDSLEntity, Comparable<Object> {
     return getId().compareTo(((Message) o).getId());
   }
 
+
+    public String get_WebDslEntityType() {
+	return "Message";
+    }
+
   public boolean isInstance(Class<?> c) {
     return c.isInstance(this);
   }

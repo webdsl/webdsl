@@ -43,6 +43,11 @@ import org.webdsl.querylist.QueryList;
     return getId().compareTo(((User)o).getId());
   }
 
+
+    public String get_WebDslEntityType() {
+	return "User";
+    }
+
   public boolean isInstance(Class<?> c)
   { 
     return c.isInstance(this);
