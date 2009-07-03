@@ -6,7 +6,13 @@ section datamodel
     name :: String
     address :: String
   }
-  
+
+  var t_u1 := User{ name := "test1" }
+  var t_u2 := User{ name := "test2" }
+  var t_u3 := User{ name := "test3" }
+  var t_u4 := User{ name := "test4" }
+
+ 
   define page home(){
     form{
       for(u1:User)
@@ -34,18 +40,24 @@ section datamodel
 
 
   define page user(u:User){
+    "1 "
+    var ps : List<User> :=
+      select p from User as p
+      where (~u = p)
 
-     var ps : List<User> :=
-         select p from User as p
-          where (~u = p);
-     section{
+    list{
+      for(pers : User in ps) {
+        listitem{ output(pers) }
+      }
+    }
+    "2 " 
+    var s := "test%"
+    var ps2 : List<User> :=
+      from User as u where u.name like ~s;
 
-       list{
-         for(pers : User in ps) {
-           listitem{ output(pers) }
-         }
-       }
-     }
-
-
+    list{
+      for(pers : User in ps2) {
+        listitem{ output(pers) }
+      }
+    }
   }

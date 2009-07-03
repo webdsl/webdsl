@@ -18,7 +18,8 @@ application test
     }
     action save()
     {
-      validate(findUserByFirstname(enteredname) == null,"User name taken");
+      validate(findUserByFirstname(enteredname).length == 0,"User name taken");
+      message("There are " + findUserByFirstnameLike(enteredname).length + " similar usernames");
       var newUser:User := User{ firstname := enteredname };
       newUser.save();
       return home();
