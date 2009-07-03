@@ -8,7 +8,7 @@ section datamodel
     }
 
     function a(arg : String) : String {
-      return arg + "!";
+      return ", " + arg;
     }
   }
 
@@ -40,8 +40,8 @@ section datamodel
   var an : AnEntity := AnEntity {};
   
   define page home(){
-    output(an.a(7))
-    output(an.a("Really"))
+    output(an.a(0))
+    output(an.a("2"))
     output(a("Really"))
     output(a("Really" as WikiText))
     //output(a(67))
