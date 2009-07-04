@@ -127,8 +127,9 @@ STRINCLUDES = \
 	-I $(GPP)/share/sdf/gpp \
 	-I $(GPP)/share/sdf/xml-front \
     -I $(GPP)/share/xml-front \
-	-I org/webdsl/dsl/syntax \
-	--verbose 2
+	-I org/webdsl/dsl/syntax
+
+#	--verbose 2
 
 # UNDONE: $(JAVA_FRONT_STRCFLAGS) --verbose 1
 
@@ -209,7 +210,7 @@ bin/org/webdsl/write_files.java : write-files.ctree
 
 bin/org/webdsl/to_java_servlet.java : to-java-servlet.ctree
 	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
-	
+
 bin/org/webdsl/to_py_gae.java : to-py-gae.ctree
 	$(STRJ) $(STRJFLAGS) --library -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
 
