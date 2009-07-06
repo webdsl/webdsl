@@ -79,7 +79,7 @@ rules
     where not(<IsEntity> ent)
 
   constraint-error-data :
-    InverseAnno(ent, fld) -> <add-error(|["The field ", ent, ".", fld, " is not of the right type"])>
+    InverseAnno(ent, fld) -> <add-error(|["The field ", ent, ".", fld, " does not exist"])>
     where not(<type-of-property> (ent, fld))
 
   constraint-error-data :
@@ -107,7 +107,6 @@ rules
  *     instance1 -> srt1
  *   }
  */
-  
   // check all properties in the context of an entity. This is necessary for the inverse check on attribute type
   constraint-error-data =
     (  ?Entity(ent1, _, props, _) 
@@ -119,31 +118,36 @@ rules
   
   // takes care of different constructor types of properties
   check-property-inverse-annos(|ent1) =
-    (?Property(_, _, srt2, annos) <+ ?DerivedProperty(_, _, srt2, annos, _))
-    ; <check-property-inverse-annos> (ent1, srt2, annos)
+    (?p@Property(_, proptype, srt2, annos) <+ ?p@DerivedProperty(_, proptype, srt2, annos, _))
+    ; (   <check-entity-type-inverse-annos(|ent1, srt2, annos, proptype)> p
+       <+ <check-property-inverse-annos(|ent1, srt2, annos)> p
+      )
 
-  // check type-compatibility between srt2 and e2
-  check-property-inverse-annos :
-    (ent1, srt2, annos) -> <add-error(|["Type mismatch between attribute type ", <pp-webdsl> srt2, " and inverse entity type ", <pp-webdsl> ent2])>
-    where <filter(?InverseAnno(ent2, fld))> annos
-        ; not( <inverse-compatible> (srt2, SimpleSort(ent2)) )
+  // check that inverse is declared on entity type properties
+  check-entity-type-inverse-annos(|ent1, srt2, annos, proptype) :
+    p -> <add-error(|["Inverse is only allowed on reference type properties."])>
+    where <fetch(?InverseAnno(ent2, fld2))> annos
+        ; not(<?Ref()> proptype)  
         
-  // check type-compatibility between srt1 and e1
-  check-property-inverse-annos :
-    (ent1, srt2, annos) -> <add-error(|["Type mismatch between inverse attribute type ", <pp-webdsl> srt1, " and entity type ", <pp-webdsl> ent1])>
-    where <filter(?InverseAnno(ent2, fld))> annos
-        ; properties := <Properties> ent2
-        ; <fetch(
-               ?Property(fld, _, srt1, _) 
-            <+ ?PropertyNoAnno(fld, _, srt1)
-            <+ ?DerivedProperty(fld, _, srt1, _, _)
-            <+ ?DerivedPropertyNoAnno(fld, _, srt1, _))
-          > properties
-        ; not( <inverse-compatible> (SimpleSort(ent1), srt1) )
+  // check type-compatibility of inverse
+  check-property-inverse-annos(|ent1, srt2, annos) :
+    p -> <add-error(|["Inverse not allowed between types ", <pp-webdsl> srt2, " and ", <pp-webdsl> type_other_side, " (inverse property ",ent2, ".", fld2, ")."])>
+    where <fetch(?InverseAnno(ent2, fld2))> annos
+        ; type_other_side := <TypeOfProperty> (ent2,fld2)
+        ; not( <inverse-compatible> (SimpleSort(ent1), SimpleSort(ent2), srt2, type_other_side) )
       
-  inverse-compatible = ?(srt, srt)
-  inverse-compatible = ?(GenericSort(_, [srt]), srt)
-  inverse-compatible = ?(srt, GenericSort(_, [srt]))
+  /**
+   *  (e1,e2,srt2,srt1)
+   */
+  
+  inverse-compatible = ?(srt1, srt2, srt2, srt1)
+  
+  inverse-compatible = ?(srt1, srt2, GenericSort("Set", [srt2]), srt1)
+  inverse-compatible = ?(srt1, srt2, srt2, GenericSort("Set", [srt1]))
+  inverse-compatible = ?(srt1, srt2, GenericSort("Set", [srt2]), GenericSort("Set", [srt1]))
+  
+  inverse-compatible = ?(srt1, srt2, GenericSort("List", [srt2]), srt1)
+  inverse-compatible = ?(srt1, srt2, srt2, GenericSort("List", [srt1]))
   
   constraint-error-data =
     (  ?Property(x, propkind, srt, _)
