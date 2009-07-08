@@ -1,0 +1,77 @@
+module org/webdsl/dsl/modules/exceptions
+ 
+strategies
+/*
+TryStatement(
+  Block(
+    [Stat(ThisCall("ghghd", [])), Stat(ThisCall("ertertert", []))]
+  )
+, [ Catch(
+      "v"
+    , SimpleSort("ValidationException")
+    , Block([Stat(ThisCall("jdfgkjdgjkdf", [Var("v")]))])
+    )
+  ]
+)
+
+ThrowStatement([String("\"43t\"")])
+
+
+TryTemplate(
+  Block(
+    [ Stat(ThisCall("log", [String("\"1\"")]))
+    , ThrowStatement(
+        [ObjectCreation(SimpleSort("SomethingHappened"), [ObjectPropertyAssignment("whatHappened", String("\"an exception\""))])]
+      )
+    , Stat(ThisCall("log", [String("\"2\"")]))
+    , Return(String("\"error\""))
+    ]
+  )
+, [ Catch(
+      "sh"
+    , SimpleSort("SomethingHappened")
+    , Block(
+        [Return(Add(String("\"ok \""), FieldAccess(Var("sh"), "whatHappened")))]
+      )
+    )
+  ]
+)
+
+*/
+
+  built-in-template-rule-setup = declare-exception-type;fail
+  declare-exception-type = 
+    <declare> def |[
+      entity Exception {
+        entity -> Entity
+      }
+    ]|
+
+  rename :
+    Catch(ident1,srt,blck1) -> Catch(ident2,srt,blck2)
+    with {| Rename:    
+            ident2 := <rename-bound(|srt)> ident1
+          ; blck2 := <rename-all> blck1
+          |}
+
+signature
+  constructors
+    CatchDesugarDone : Term
+
+rules
+  
+  desugar :
+    TryStatement(blck,catch1*){anno*} -> <rename> TryStatement(blck,catch2*){CatchDesugarDone()}
+    where <not(fetch(?CatchDesugarDone()))> anno*
+    with  catch2* := <map(desugar-catch)> catch1*
+    
+  desugar :
+    TryTemplate(blck,catch1*){anno*} -> <rename> TryTemplate(blck,catch2*){CatchDesugarDone()}
+    where <not(fetch(?CatchDesugarDone()))> anno*
+    with  catch2* := <map(desugar-catch)> catch1*
+    
+  desugar-catch:
+    Catch(x_ident,srt,Block(stat*)) -> Catch(x_name,SimpleSort("Exception"),stat)
+    with  debug(!1);x_name := <newname> "ident"
+        ; stat := webdsl|[ if(x_name.entity is a srt) { var x_ident : srt := x_name.entity; stat* } ]|;debug(!2)
+        

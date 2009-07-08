@@ -99,6 +99,15 @@ rules //template call either refers to a defined template, or to a built-in temp
     where xsa := <strip-annos> x
         ; name := <resolve-overloaded-template> (xsa,arg*,x) 
     with  rules ( CallToDefinedTemplate : x -> name )
+    
+  /**
+   *  Some template names are generated uniquely so no need for overloading, see desugar of ArgDef below
+   */ 
+  rename-template-call-name-defined : 
+    (x,arg*) -> x
+    where xsa := <strip-annos> x
+        ; name := <UniqueNameTemplateCall> xsa
+    with  rules ( CallToDefinedTemplate : x -> name )
 
   rename-template-call-name-required(|x_old) : 
     (x,arg*) -> x
@@ -106,7 +115,7 @@ rules //template call either refers to a defined template, or to a built-in temp
           xsa := <strip-annos> x
         ; <ReqTemplateSig> xsa
         else 
-          <CallToRequiredTemplate> x_old
+          <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
         end        
     with  rules ( CallToRequiredTemplate : x )
 
@@ -208,18 +217,27 @@ rules // desugar 'elements' template argument for defined template calls
 signature         
   constructors 
     ResolvedRequireKey: Term -> Term
-
-
 rules        
   desugar-argdef(|templatename) :
-    ArgDefine(x,fargsorig*,elem*) -> TemplateCall(x_newtempl, vars,[ResolvedRequireKey(x)],TemplateBody([]))
+    ArgDefine(x,origfarg*,elem*) -> TemplateCall(x_newtempl, var*,[ResolvedRequireKey(x)],TemplateBody([]))
     with x_newtempl := <conc-strings; newname> (x,"_argdef")
-        ; vars := <CallContextVars> templatename
-        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
+        ; var* := <CallContextVars> templatename
+        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> var*
         ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
         ; defelem* := [elem*, action*]
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [fargsorig*, farg*], None(), defelem*)
-    
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg*, farg*], None(), defelem*)
+         /**
+           *  a special templatecall that only needs resolving by name, since the name is uniquely generated
+           *  produces the name that should be used to look up the template in the hashmap
+           */
+        ; t* := <map(?Arg(_,<id>))> [origfarg*, farg*]
+        ; rules (   
+            UniqueNameTemplateCall : x_newtempl -> <generate-template-name> (x_newtempl,t*)
+          )
+        /*; x_newtempldelegator := <conc-strings; newname> (x,"_argdef_delegate")
+        ; origvar* := <map(?Arg(<!Var(<id>)>,_))> origfarg*
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempldelegator, origfarg*, None(), TemplateBody([ TemplateCall(x_newtempl, [origvar*,var*],[],TemplateBody([])) ]) )
+        */
 /*  desugar-ui :
     tc@TemplateCall(x,arg*,passign*,Template(elem*)) -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])) 
     where <CallToRequiredTemplate> x
