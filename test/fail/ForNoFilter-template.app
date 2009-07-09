@@ -2,14 +2,14 @@
 
 application test
 
-  entity Entity{
+  entity Entity0{
     name :: String
   }
   
   define page home(){
     var entList : List<String> := ["1","2"]
     
-    for(e:Entity in entList){ //type error
+    for(e:Entity0 in entList){ //type error
       output(e.name)
     }
   }

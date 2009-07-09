@@ -2,14 +2,14 @@
 
 application test
 
-  entity Entity{
+  entity Entity2{
     name :: String
   }
   
   function home(){
-    var entList : List<Entity> := [Entity{name:="1"},Entity{name:="2"}];
+    var entList : List<Entity2> := [Entity2{name:="1"},Entity2{name:="2"}];
     
-    for(e:Entity in entList where e.name order by e.name limit 5){ 
+    for(e:Entity2 in entList where e.name order by e.name limit 5){ 
       log(e.name);
     }
   }

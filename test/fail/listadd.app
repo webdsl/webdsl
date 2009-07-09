@@ -2,9 +2,9 @@
 
 application test
 
-  entity Entity{}
+  entity Entity0{}
 
   function do() {
     var list : List<String> := List<String>();
-    list.add(Entity{});
+    list.add(Entity0{});
   }

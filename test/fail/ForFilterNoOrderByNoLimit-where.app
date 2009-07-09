@@ -2,14 +2,14 @@
 
 application test
 
-  entity Entity{
+  entity Entity0{
     name :: String
   }
   
   function home(){
-    var entList : List<Entity> := [Entity{name:="1"},Entity{name:="2"}];
+    var entList : List<Entity0> := [Entity0{name:="1"},Entity0{name:="2"}];
     
-    for(e:Entity in entList where 56.67f){ 
+    for(e:Entity0 in entList where 56.67f){ 
       log(e.name);
     }
   }

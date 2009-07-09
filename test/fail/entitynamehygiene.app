@@ -1,3 +1,4 @@
+//is not allowed
 application test
 
   entity Entity {

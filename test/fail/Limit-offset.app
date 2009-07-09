@@ -2,12 +2,12 @@
 
 application test
 
-  entity Entity{
+  entity Entity0{
     name :: String
   }
   
   function home(){
-    for(e:Entity limit 5 offset Entity{}){ 
+    for(e:Entity0 limit 5 offset Entity0{}){ 
       log(e.name);
     }
   }

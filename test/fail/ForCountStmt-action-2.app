@@ -2,11 +2,11 @@
 
 application test
 
-  entity Entity {
+  entity Entity2 {
     
   }
 
   function home(){
-    for(i:Int from Entity{} to 4){
+    for(i:Int from Entity2{} to 4){
     }
   }

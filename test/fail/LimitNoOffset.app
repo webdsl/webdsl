@@ -2,12 +2,12 @@
 
 application test
 
-  entity Entity{
+  entity Entity0{
     name :: String
   }
   
   function home(){
-    for(e:Entity limit 5.5){ 
+    for(e:Entity0 limit 5.5){ 
       log(e.name);
     }
   }
