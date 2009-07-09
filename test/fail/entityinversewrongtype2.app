@@ -1,4 +1,4 @@
-// Type mismatch between inverse attribute type String and entity type User
+//Inverse not allowed between types
 
 application test
 

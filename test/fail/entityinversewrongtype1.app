@@ -1,4 +1,4 @@
-// Type mismatch between attribute type Set<String> and inverse entity type Paper
+//Inverse not allowed between types
 
 application test
 

@@ -1,4 +1,4 @@
-//error: No function or page 'test' with this signature
+//No function
 application test
 
   function do() {

@@ -1,4 +1,4 @@
-//No function 'add' for 'list' with this signature list.add(Entity{})
+//No function
 
 application test
 

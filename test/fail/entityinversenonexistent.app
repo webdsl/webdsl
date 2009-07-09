@@ -1,4 +1,4 @@
-// Type mismatch between attribute type
+//Inverse not allowed between types
 application test
 
 section datamodel

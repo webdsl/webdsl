@@ -1,4 +1,4 @@
-//with this signature
+//No function or page
 
 application test
 
