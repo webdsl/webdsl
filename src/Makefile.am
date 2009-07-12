@@ -164,7 +164,7 @@ SCFLAGS = --main $*-main
 
 bin_PROGRAMS = webdslc
 
-webdslc_SOURCES = libwebdsl-front.c
+webdslc_SOURCES = webdslc.c
 webdslc_CFLAGS   = $(AM_CFLAGS) -O0
 webdslc_LDFLAGS  = $(AM_LDFLAGS)
 webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
