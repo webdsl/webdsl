@@ -173,7 +173,7 @@ webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                    $(STRATEGO_TOOL_DOC_CFLAGS) \
                    $(STRATEGO_CFLAGS) \
                    $(JAVA_FRONT_CFLAGS)) 
-webdslc_LIBADD   = $(STRATEGO_XTC_LIBS) \
+webdslc_LDADD   = $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_GPP_LIBS) \
                    $(STRATEGO_SGLR_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
