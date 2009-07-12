@@ -172,13 +172,13 @@ webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                    $(STRATEGO_SGLR_CFLAGS) \
                    $(STRATEGO_TOOL_DOC_CFLAGS) \
                    $(STRATEGO_CFLAGS) \
-                   $(JAVA_FRONT_CFLAGS)) 
+                   $(JAVA_FRONT_CFLAGS) 
 webdslc_LDADD   = $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_GPP_LIBS) \
                    $(STRATEGO_SGLR_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
                    $(STRATEGO_LIBS) \
-                   $(JAVA_FRONT_LIBS)) \
+                   $(JAVA_FRONT_LIBS) \
                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
 #webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
