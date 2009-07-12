@@ -164,8 +164,25 @@ SCFLAGS = --main $*-main
 
 bin_PROGRAMS = webdslc
 
-webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
+webdslc_SOURCES = libwebdsl-front.c
+webdslc_CFLAGS   = $(AM_CFLAGS) -O0
+webdslc_LDFLAGS  = $(AM_LDFLAGS)
+webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                   $(STRATEGO_GPP_CFLAGS) \
+                   $(STRATEGO_SGLR_CFLAGS) \
+                   $(STRATEGO_TOOL_DOC_CFLAGS) \
+                   $(STRATEGO_CFLAGS) \
+                   $(JAVA_FRONT_CFLAGS)) 
+webdslc_LIBADD   = $(STRATEGO_XTC_LIBS) \
+                   $(STRATEGO_GPP_LIBS) \
+                   $(STRATEGO_SGLR_LIBS) \
+                   $(STRATEGO_TOOL_DOC_LIBS) \
+                   $(STRATEGO_LIBS) \
+                   $(JAVA_FRONT_LIBS)) \
+                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
+
+#webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
+#                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
 webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str libjava-transformations.la
 
@@ -228,10 +245,14 @@ lib_LTLIBRARIES  = libwebdsl-front.la
 libwebdsl_front_la_SOURCES = libwebdsl-front.c
 libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwebdsl_front_la_LDFLAGS  = $(AM_LDFLAGS)
-libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(STRATEGO_SGLR_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
+libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+			      $(STRATEGO_SGLR_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
@@ -250,10 +271,14 @@ lib_LTLIBRARIES  += libwebdsl-generator.la
 libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
 libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwebdsl_generator_la_LDFLAGS  = $(AM_LDFLAGS)
-libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(JAVA_FRONT_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
+libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+                              $(JAVA_FRONT_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
@@ -273,9 +298,9 @@ libjava_transformations_la_SOURCES = libjava-transformations.c
 libjava_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0
 libjava_transformations_la_LDFLAGS  = $(AM_LDFLAGS)
 libjava_transformations_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libjava_transformations_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libjava_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-generator.la libto-java-servlet.la libwebdsl-front.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o libjava-transformations.rtree \
@@ -295,9 +320,9 @@ libto_java_servlet_la_SOURCES = libto-java-servlet.c
 libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0
 libto_java_servlet_la_LDFLAGS  = $(AM_LDFLAGS)
 libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
@@ -316,10 +341,12 @@ lib_LTLIBRARIES  += libto-py-gae.la
 libto_py_gae_la_SOURCES = libto-py-gae.c
 libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0
 libto_py_gae_la_LDFLAGS  = $(AM_LDFLAGS)
-libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
+libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o libto-py-gae.rtree \
@@ -356,9 +383,9 @@ libwrite_files_la_SOURCES = libwrite-files.c
 libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwrite_files_la_LDFLAGS  = $(AM_LDFLAGS)
 libwrite_files_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
-libwrite_files_la_LIBADD   = $(STRATEGO_XTC_UNINSTALLED_LIBS) \
-			      $(STRATEGO_GPP_UNINSTALLED_LIBS) \
-			      $(STRATEGO_UNINSTALLED_LIBS)
+libwrite_files_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+			      $(STRATEGO_GPP_LIBS) \
+			      $(STRATEGO_LIBS)
 
 libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la Java-EBlock.rtg.af xml-doc.rtg.af
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
