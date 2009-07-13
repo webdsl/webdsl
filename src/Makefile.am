@@ -248,10 +248,12 @@ libwebdsl_front_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \
                               $(STRATEGO_SGLR_CFLAGS) \
+                              $(STRATEGO_TOOL_DOC_CFLAGS) \
                               $(STRATEGO_CFLAGS)
 libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_GPP_LIBS) \
 			      $(STRATEGO_SGLR_LIBS) \
+                              $(STRATEGO_TOOL_DOC_LIBS) \
 			      $(STRATEGO_LIBS)
 
 libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
@@ -319,9 +321,13 @@ lib_LTLIBRARIES  += libto-java-servlet.la
 libto_java_servlet_la_SOURCES = libto-java-servlet.c
 libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0
 libto_java_servlet_la_LDFLAGS  = $(AM_LDFLAGS)
-libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)\
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(JAVA_FRONT_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
 libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_GPP_LIBS) \
+                              $(JAVA_FRONT_LIBS) \
 			      $(STRATEGO_LIBS)
 
 libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
@@ -382,9 +388,13 @@ lib_LTLIBRARIES  += libwrite-files.la
 libwrite_files_la_SOURCES = libwrite-files.c
 libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0
 libwrite_files_la_LDFLAGS  = $(AM_LDFLAGS)
-libwrite_files_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
+libwrite_files_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(JAVA_FRONT_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
 libwrite_files_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_GPP_LIBS) \
+                              $(JAVA_FRONT_LIBS) \
 			      $(STRATEGO_LIBS)
 
 libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la Java-EBlock.rtg.af xml-doc.rtg.af
