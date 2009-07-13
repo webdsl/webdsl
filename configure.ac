@@ -39,3 +39,4 @@ src/org/webdsl/dsl/project/Makefile
 webdsls.pc
 ])
 AC_OUTPUT
+
