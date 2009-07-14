@@ -4,8 +4,8 @@ section pages
 
 define page home() {
   header{"0"}
-  section{header{"1"}
-  section{header{"2"}
+  section[class:=test, style:= "qwerty"+123]{header{"1"}
+  section[class:="test2"]{header{"2"}
   section{header{"3"}
   section{header{"4"}
   section{header{"5"}
