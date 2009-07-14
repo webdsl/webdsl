@@ -17,4 +17,15 @@ application test
     if(/1234[0-9]/.match("12349")){
       "3 "
     }
+    
+    for(s : String in /-/.split("1-10-100-1000")){
+      output(s)
+    }separated-by{".."}
+    
+    //output(/\//.replaceAll("-", "1/10/100/1000"))
+    output(/-/.replaceFirst("/", "1-10-100-1000"))
+    output(/-/.replaceAll("/", "1-10-100-1000"))
+ 
+   
+    
   }
