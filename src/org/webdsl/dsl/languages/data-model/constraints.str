@@ -9,22 +9,47 @@ imports
 rules
 
   constraint-error-data :
-    Application(nm, sections) -> <add-error(|["Entities ", ent*, " are defined multiple times."])>
-    where entities := <collect(?Entity(_, _, _, _)); map(\ Entity(nm, _, _, _) -> nm \)> sections
-        ; ent* := <find-doubles> entities
+    Application(_, sections) -> <fail>
+    where entities := <collect(?Entity(_, _, _, _) <+ ?EntityNoSuper(_, _, _))> sections
+        ; entitynames := <map(\Entity(nm, _, _, _) -> nm\ <+ \EntityNoSuper(nm, _, _) -> nm\)> entities
+        ; ent* := <find-doubles> entitynames
         ; not([] := ent*)
+        ; <map(try(constraint-error-entity-name(|ent*)))> entities
+        
+  constraint-error-entity-name(|doublenames) :
+    Entity(x, _, _, _) -> <constraint-error-entity-name-helper(|doublenames,x)>
     
-  constraint-error-data :
-    Application(nm, sections) -> <add-error(|["Entities ", ent*, " are defined multiple times."])>
-    where entities := <collect(?EntityNoSuper(_, _, _)); map(\ EntityNoSuper(nm, _, _) -> nm \)> sections
-        ; ent* := <find-doubles> entities
-        ; not([] := ent*)
+  constraint-error-entity-name(|doublenames) :
+    EntityNoSuper(x, _, _) -> <constraint-error-entity-name-helper(|doublenames,x)>
+    
+  constraint-error-entity-name-helper(|doublenames,x) :
+    _ -> <add-error(|["Entity ", x, " is defined multiple times."])>
+    where <fetch(?x)> doublenames
 
   constraint-error-data :
-    Application(nm, sections) -> <add-error(|["Session entities ", ent*, " are defined multiple times."])> 
-    where entities := <collect(?SessionEntity(_, _, _)); map(\ SessionEntity(nm, _, _) -> nm \)> sections
-        ; ent* := <find-doubles> entities
+    Application(_, sections) -> <fail>
+    where sentities := <collect(?SessionEntity(_, _, _))> sections
+        ; sentitynames := <map(\SessionEntity(x, _, _) -> x\)> sentities
+        ; ent* := <find-doubles> sentitynames
         ; not([] := ent*)
+        ; <map(try(constraint-error-session-entity(|ent*)))> sentities
+    
+  constraint-error-session-entity(|doublenames) :
+    SessionEntity(x, _, _) -> <add-error(|["Session entity ", x, " is defined multiple times."])> 
+    where <fetch(?x)> doublenames   
+        
+  constraint-error-data :
+    Application(_, sections) -> <fail>
+    where sentities := <collect(?SessionEntity(_, _, _))> sections
+        ; sentitytypenames := <map(\SessionEntity(x, _, _) -> <capitalize-string> x\)> sentities
+        ; ent* := <filter(\nm -> nm where not([] := <collect(?Entity(nm, _, _, _) <+ ?EntityNoSuper(nm, _, _))> sections) \)> sentitytypenames
+        ; not([] := ent*)
+        ; <map(try(constraint-error-session-entity-type(|ent*)))> sentities
+        
+  constraint-error-session-entity-type(|doublenames) :
+    SessionEntity(x, _, _) -> <add-error(|["Session entity type ", xc, " is also defined as normal entity."])>
+    where xc := <capitalize-string> x
+        ; <fetch(?xc)> doublenames           
   
   // check for double properties and functions within entities
   constraint-error-data =
@@ -48,12 +73,6 @@ rules
   entity-get-propfunc : PropertyNoAnno(x_id, _, _) -> x_id
   entity-get-propfunc : DerivedProperty(x_id, _, _, _, _) -> x_id
   entity-get-propfunc : DerivedPropertyNoAnno(x_id, _, _, _) -> x_id
-
-  constraint-error-data :
-    Application(nm, sections) -> <add-error(|["Session entities ", ent*, " are also defined as normal entities."])>
-    where entities := <collect(?SessionEntity(_, _, _)); map(\ SessionEntity(nm, _, _) -> <capitalize-string> nm \)> sections
-        ; ent* := <filter(\ nm -> nm where not([] := <collect(?Entity(nm, _, _, _) <+ ?EntityNoSuper(nm, _, _))> sections) \)> entities
-        ; not([] := ent*)
 
   constraint-error-data :
     Entity(x_class, s, _, _) -> <add-error(|["Super entity ", <pp-webdsl> s, " for ", x_class, " does not exist."])>

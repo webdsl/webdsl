@@ -1,28 +1,14 @@
-//are also defined as normal entities
-
+//is defined multiple times
 
 application test
 
-section datamodel
-
-  entity User{
+  
+  session user{
     name :: String
   }
   
   session user{
     name :: String
+    password :: Secret
   }
 
-  define main() 
-  {
-    body()
-  }
-  
-  define page home(){
-    main()
-    var u:User := User{};
-    define body()
-    {
-      output(u.name)
-    }
-   }

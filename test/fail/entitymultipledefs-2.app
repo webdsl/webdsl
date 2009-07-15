@@ -5,11 +5,15 @@ application test
 
 section datamodel
 
-  entity User{
+  entity SuperUser{
     name :: String
   }
   
   entity User{
+    name :: String
+  }
+  
+  entity User : SuperUser{
     password :: Secret
   }
 
@@ -17,7 +21,7 @@ section datamodel
   {
     body()
   }
-
+  
   define body(){}
   
   define page home(){

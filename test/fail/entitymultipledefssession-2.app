@@ -1,5 +1,4 @@
-//is defined multiple times
-
+//is also defined as normal entity
 
 application test
 
@@ -9,15 +8,15 @@ section datamodel
     name :: String
   }
   
-  entity User{
-    password :: Secret
+  session user{
+    name :: String
   }
 
   define main() 
   {
     body()
   }
-
+  
   define body(){}
   
   define page home(){
