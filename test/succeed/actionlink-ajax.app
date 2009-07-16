@@ -23,8 +23,12 @@ application test
         t := t
       };
       temp.save();
-      return red();
+      return home();
     }
+    action enableajax() {
+      replace(p,template { "sdfsd" } );
+    }
+    placeholder p {}
     
     for(u:User){
       output(u.s)

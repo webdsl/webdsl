@@ -101,7 +101,37 @@ function findTopDown(element, id)
         return findTopDown(element.childNodes[i], id);
 }
 
+function actionLinkServerInvoke(template, action, jsonparams, thisform, thisobject)
+{
+  serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
+    function()
+    {
+      if (this.readyState == 4 && this.status == 200) {
+        window.location = this.responseText;
+      }
+      else if(this.readyState == 4 && this.status != 200) {
+        notify('Invalid return of server: '+this.status); 
+      }
+    }
+  );
+}
+
 function serverInvoke(template, action, jsonparams, thisform, thisobject)
+{
+  serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
+    function()
+    {
+      if (this.readyState == 4 && this.status == 200) {
+         clientExecute(this.responseText, thisobject);
+      }
+      else if(this.readyState == 4 && this.status != 200) {
+        notify('Invalid return of server: '+this.status); 
+      }
+    }
+  );
+}
+
+function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
   req.open("POST", template , true);
@@ -109,15 +139,7 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject)
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
   
-  req.onreadystatechange = function()
-  {
-    if (this.readyState == 4 && this.status == 200) {
-       clientExecute(this.responseText, thisobject);
-    }
-    else if(this.readyState == 4 && this.status != 200) {
-      notify('Invalid return of server: '+this.status); 
-    }
-  }
+  req.onreadystatechange = callback;
   
   data = createData(action,jsonparams,thisform,thisobject);
   
