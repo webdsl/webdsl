@@ -97,9 +97,7 @@ rules
            : <alltd(find-params)> fe
            ; params := <bagof-Param>
            |}
-        ; {| RewriteFieldAccessToFarg
-           : farg* := <map(forexp-function-param-to-farg)> params
-          |}
+        ; farg* := <map(forexp-function-param-to-farg)> params
         // finding parameters = finding free variables?
         // @TODO: turn into reusable strategy; with built-in scope; should not be part of caller
         
@@ -117,7 +115,7 @@ rules
             ; e5 := |[ Set<srt3>() ]|            
           end
         ; if <?FieldAccess(Var("this"),_)> e3 then e7 := True() else e7 := <add-not-null-checks> NotEq(e3,Null()) end
-        ; <fix-forexp-in-entity-function;emit-webdsl-code> def|[
+        ; <rename-this-var;emit-webdsl-code> def|[
             globals { 
               function $fun (farg*) : srt4 {
                 var l : srt4;
@@ -136,7 +134,7 @@ rules
     AndForExp(e) -> ThisCall(x_fun, [])
     where x := <newname> "x"
         ; x_fun := <newname> "andForExp"
-        ; <fix-forexp-in-entity-function;emit-webdsl-code> def|[
+        ; <rename-this-var;emit-webdsl-code> def|[
             function x_fun () : Bool {
               for(x : Bool in e) {
                 if(!x) {
@@ -151,7 +149,7 @@ rules
     OrForExp(e) -> ThisCall(x_fun, [])
     where x := <newname> "x"
         ; x_fun := <newname> "orForExp"
-        ; <fix-forexp-in-entity-function;emit-webdsl-code> def|[
+        ; <rename-this-var;emit-webdsl-code> def|[
             function x_fun () : Bool {
               for(x : Bool in e) {
                 if(x) {
@@ -188,19 +186,15 @@ rules
     ; <try(sometd(find-expression-params))> ie
 
   forexp-function-param-to-farg :
-     f@FieldAccess(_, x) -> farg|[ x : srt ]|
-     where srt := <type-of> f
-     ; rules( RewriteFieldAccessToFarg : f -> Var(x) ) //we need a rewrite rule that rebinds f  to  x, because the context is away due to lifting
-
-  forexp-function-param-to-farg :
     Var(x) -> farg|[ x : srt ]|
     where srt := <type-of> Var(x)
 
   find-params =
     ?fa@FieldAccess(v, _)
-    ; not(<IgnoreVars> fa) // v
-    ; rules( Param :+= fa )
-    ; rules( IgnoreVars :  fa) // v
+    ; where (<?Var(_)> v) //match the deepest fieldaccess only, e.g. the i in i.set.content
+    ; not(<IgnoreVars> v)
+    ; rules( Param :+= v )
+    ; rules( IgnoreVars : v)
 
   find-params =
     ?v@Var(x)
@@ -220,6 +214,11 @@ rules
        |}
     ; <alltd(find-params)> ie
 
-  fix-forexp-in-entity-function=
-    alltd({\FieldAccess(Var("this"{anno*}),rest) -> Var(rest)\})
+  /**
+   *  'this' is normally not renamed, but in this case it should, because 'this' as farg name is not allowed
+   */
+  rename-this-var =
+    where( varname := <newname> "this" )
+  ; alltd(\Var("this"{anno*}) -> Var(varname)\)
+  ; alltd(\Arg("this"{anno*},srt) -> Arg(varname,srt)\)
     
