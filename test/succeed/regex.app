@@ -22,10 +22,21 @@ application test
       output(s)
     }separated-by{".."}
     
-    //output(/\//.replaceAll("-", "1/10/100/1000"))
+    break
+    
+    output(/ / /.replaceAll("-", "1/10/100/1000"))
+    
+    break
+    
     output(/-/.replaceFirst("/", "1-10-100-1000"))
+    
+    break
+    
     output(/-/.replaceAll("/", "1-10-100-1000"))
  
-   
+    break
+    
+    output(/\./.replaceAll("/", "1.10.00.000"))
+ 
     
   }
