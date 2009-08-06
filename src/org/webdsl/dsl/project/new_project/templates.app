@@ -17,14 +17,18 @@ section main template.
 
 section basic page elements.
 
+  define body(){
+  
+  }
+
   define sidebar() {
 
   }
   
   define footer() {
     "generated with "
-    navigate("WebDSL", url("http://www.webdsl.org")) " and "
-    navigate("Stratego/XT", url("http://www.strategoxt.org"))
+    navigate(url("http://www.webdsl.org")){ "WebDSL" } " and "
+    navigate(url("http://www.strategoxt.org")){ "Stratego/XT" }
   }
   
 section menus.
@@ -42,8 +46,7 @@ section entity management.
     main()
     define sidebar() {}
     define body() {
-      createMenu()
-      allMenu()
+
     }
   }
 
