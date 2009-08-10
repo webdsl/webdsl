@@ -160,7 +160,8 @@ public class DispatchServlet extends HttpServlet {
                 ie.printStackTrace();
                 showerrorpage=true;
             }*/
-            catch(RuntimeException re){   
+            catch(Exception re){   
+                re.printStackTrace();
               showerrorpage=true;
             }	  
         }

@@ -19,7 +19,7 @@ strategies
           //~*idcodes
           
           //~*[<entity-cbds-equals-pil(|x_Class)>]
-          ~*cbds_propertyevents
+          //~*cbds_propertyevents
 
           /*
           public int compareTo(org.webdsl.WebDSLEntity o) {
@@ -43,7 +43,7 @@ strategies
       : rules( ClassNamePil := x_Class )
       //; idcodes := <generate-id-code> x_Class
       ; cbds := <properties-to-code-pil(|x_Class)> props
-      ; cbds_propertyevents := <entity-cbds-property-events-pil(|x_Class)>
+      //; cbds_propertyevents := <entity-cbds-property-events-pil(|x_Class)>
       |}
       
    entity-to-pil-entity :
@@ -124,8 +124,31 @@ strategies
      where cbds1 := <filter-concat-warn(property-to-property-code-pil(|x_Class)
                                         | "cannot generate code for property: ")> props
          ; cbds2 := <all-properties; name-property-pil(|x_Class) <+ ![]> x_Class
-         ; cbds  := <concat>[cbds1, cbds2]
+         ; cbd3 := <property-mappings-pil> (x_Class, <all-properties> x_Class)
+         ; cbds  := <concat>[cbds1, cbds2, [cbd3]]
 
+  property-mappings-pil :
+    (x_class, prop*) -> pil-cbd|[
+      pil::db::model::ClassMapping getMapping() {
+        var fields = new List<FieldMapping>();
+        stat*
+        return new pil::db::model::ClassMapping(typeof data::x_class, e_xclass, fields.as<Array<FieldMapping>>);
+      }
+    ]|    
+    with e_xclass := <pil-wrap-string> x_class
+       ; stat* := <map(try(normalize); property-to-mapping-pil)> prop*
+
+  property-to-mapping-pil :
+    Property(x, _, SimpleSort("String"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
+    with e_x := <pil-wrap-string> x
+
+  property-to-mapping-pil :
+    Property(x, _, SimpleSort("Secret"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
+    with e_x := <pil-wrap-string> x
+
+  property-to-mapping-pil :
+    Property(x, _, SimpleSort("Int"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::intType, 0)); ]|
+    with e_x := <pil-wrap-string> x
 
  strategies
 
@@ -155,28 +178,13 @@ strategies
    property-to-property-code-pil(|x_Class) :
      prop@Property(mx@x, k, s, annos) -> pil-cbd* |[
 
-       t x = e;
-       
-       t get#mx() {
-         return x;
-       }
-       
-       void set#mx(t newitem) {
-         if(!x#BeingSet) {
-           x#BeingSet = true;
-           //stat_setterextension*
-           this.x = newitem;
-           x#BeingSet = false;
-         }
-       }
-       
-       Bool x#BeingSet = false;
-
+       SimpleValue<t> x = new SimpleValue<t>(this, e_propname, typeof t, e);
 
      ]|
     where t      := <pil-type> s
         ; e      := <webdsl-pil-type-default-value> s
-    with  stat_setterextension* := <entity-bstm-property-events-pil> (x_Class,x,s,"set","newitem")
+        ; e_propname := <pil-wrap-string> mx
+    //with  stat_setterextension* := <entity-bstm-property-events-pil> (x_Class,x,s,"set","newitem")
           
    property-to-property-code-pil(|x_Class) :
      prop@DerivedProperty(x, k, s, annos, e) -> pil-cbd* |[
