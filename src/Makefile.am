@@ -16,9 +16,7 @@ CLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.c) \
     $(wildcard org/webdsl/dsl/*/*.o) \
     $(wildcard org/webdsl/dsl/*/*.dep) \
-    $(wildcard org/webdsl/dsl/*/*.rtree) \
-    $(wildcard org/webdsl/dsl/*/*/*.rtree) \
-    $(wildcard org/webdsl/dsl/*/*/*/*.rtree)
+    $(STRFILES:.str=.rtree)
 
 FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.def) \
