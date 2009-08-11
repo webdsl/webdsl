@@ -38,6 +38,7 @@ public final class WikiFormatter {
         StringBuffer sb = new StringBuffer();
         while (m.find()) {
             String newText = m.group(1).replaceAll("\n", "\n        ");
+            newText = newText.replaceAll("\\\\", "\\\\\\\\").replaceAll("\\$", "\\\\\\$");
             m.appendReplacement(sb, "\n        "+newText+"\n");
         }
         m.appendTail(sb);
@@ -47,6 +48,6 @@ public final class WikiFormatter {
     public static void main(String[] args) {
         System.out.println("The output:");
         System.out
-                .println(wikiFormat("This is a header\n=========\n\nAnd here's a link [[page(MainPage)|Main page]].\nHello people! [[home()]] -- [[home|Terug naar de homepage]]\n\nHere is some verbatim:\n<verbatim>Dit is een test <hoi>. Enzovoorts\nBlabla\n\n  Ha</verbatim>Doei.", "/test"));
+                .println(wikiFormat("This is a header\n=========\n\nAnd here's a link [[page(MainPage)|Main page]].\nHello people! [[home()]] -- [[home|Terug naar de homepage]]\n\nHere is some verbatim:\n<verbatim>Dit is een test <hoi>. Enzovoorts\nBlabla\n\n  Free $$$ for all!</verbatim>Doei.", "/test"));
     }
 }
