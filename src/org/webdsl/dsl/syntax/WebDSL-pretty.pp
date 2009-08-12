@@ -1156,7 +1156,13 @@
    TypeValidate                                           -- KW["validate"] KW["("] _1 KW[","] _2 KW[")"],
    TypeDef.2:iter-star                                    -- _1,
    TypeDef                                                -- KW["type"] _1 KW["{"] _2 KW["}"],
-   TypeDef.2:iter-star                                    -- _1
+   TypeDef.2:iter-star                                    -- _1,
+   
+   CountStar                                              -- KW["count"] KW["("] KW["*"] KW[")"],
+   Count                                                  -- KW["count"] KW["("] _1 KW[")"],
+   Max                                                    -- KW["max"] KW["("] _1 KW[")"],
+   Min                                                    -- KW["min"] KW["("] _1 KW[")"],
+   Avg                                                    -- KW["avg"] KW["("] _1 KW[")"]
 
 
 ]
