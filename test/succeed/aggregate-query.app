@@ -48,9 +48,9 @@ section datamodel
     break
     "min f: " output(testFloat(select min(u.fval) from User as u))
     break
-    "avg i: " output(select avg(u.ival) from User as u)
+    "avg i: " output(testFloat(select avg(u.ival) from User as u))
     break
-    "avg f: " output(select avg(u.fval) from User as u)
+    "avg f: " output(testFloat(select avg(u.fval) from User as u))
     break
     "sum i: " output(testInt(select sum(u.ival) from User as u))
     break
