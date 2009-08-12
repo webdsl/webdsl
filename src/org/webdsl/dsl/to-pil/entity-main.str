@@ -124,7 +124,7 @@ strategies
      where cbds1 := <filter-concat-warn(property-to-property-code-pil(|x_Class)
                                         | "cannot generate code for property: ")> props
          ; cbds2 := <all-properties; name-property-pil(|x_Class) <+ ![]> x_Class
-         ; cbd3 := <property-mappings-pil> (x_Class, <all-properties> x_Class)
+         ; cbd3 := <property-mappings-pil> (x_Class, props)
          ; cbds  := <concat>[cbds1, cbds2, [cbd3]]
 
   property-mappings-pil :
@@ -136,18 +136,39 @@ strategies
       }
     ]|    
     with e_xclass := <pil-wrap-string> x_class
-       ; stat* := <map(try(normalize); property-to-mapping-pil)> prop*
+       ; stat* := <map(property-to-mapping-pil(|x_class))> prop*
 
-  property-to-mapping-pil :
+  property-to-mapping-pil(|x_class) :
+    Property(x, _, GenericSort("Set", [SimpleSort(x_s)]), anno*) ->
+    pil-stat|[ fields.add(new pil::db::model::ManyToManyFieldMapping(e_x, e_inverse, typeof data::x_class, typeof data::x_s, e_managing)); ]|
+    with e_x := <pil-wrap-string> x
+       ; <filter(?managing@InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
+       ; if !managing then
+           e_managing := pil-exp|[ true ]|
+         else
+           e_managing := pil-exp|[ false ]|
+         end
+       ; e_inverse := <pil-wrap-string> nm
+
+  property-to-mapping-pil(|x_class) :
     Property(x, _, SimpleSort("String"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
     with e_x := <pil-wrap-string> x
 
-  property-to-mapping-pil :
+  property-to-mapping-pil(|x_class) :
+    Property(x, _, SimpleSort("Text"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 10000)); ]|
+    with e_x := <pil-wrap-string> x
+
+  property-to-mapping-pil(|x_class) :
     Property(x, _, SimpleSort("Secret"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
     with e_x := <pil-wrap-string> x
 
-  property-to-mapping-pil :
+  property-to-mapping-pil(|x_class) :
     Property(x, _, SimpleSort("Int"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::intType, 0)); ]|
+    with e_x := <pil-wrap-string> x
+
+  property-to-mapping-pil(|x_class) :
+    Property(x, _, srt@SimpleSort(x_s), _) -> pil-stat|[ fields.add(new pil::db::model::SimpleReferenceFieldMapping(e_x, typeof data::x_s)); ]|
+    where <defined-pil-type> srt
     with e_x := <pil-wrap-string> x
 
  strategies
@@ -171,20 +192,25 @@ strategies
 
  rules
 
-   /**
-    * Property is a protected field with a getter and a setter.
-    */
-
    property-to-property-code-pil(|x_Class) :
      prop@Property(mx@x, k, s, annos) -> pil-cbd* |[
 
        SimpleValue<t> x = new SimpleValue<t>(this, e_propname, typeof t, e);
 
      ]|
-    where t      := <pil-type> s
-        ; e      := <webdsl-pil-type-default-value> s
-        ; e_propname := <pil-wrap-string> mx
-    //with  stat_setterextension* := <entity-bstm-property-events-pil> (x_Class,x,s,"set","newitem")
+    where t      := <builtin-pil-type> s
+    with e      := <webdsl-pil-type-default-value> s
+       ; e_propname := <pil-wrap-string> mx
+
+   property-to-property-code-pil(|x_Class) :
+     prop@Property(mx@x, k, srt@SimpleSort(s), annos) -> pil-cbd* |[
+
+       SimpleReference<t> x = new SimpleReference<t>(typeof t);
+
+     ]|
+    where t      := <defined-pil-type> srt
+    with e      := <webdsl-pil-type-default-value> s
+       ; e_propname := <pil-wrap-string> mx
           
    property-to-property-code-pil(|x_Class) :
      prop@DerivedProperty(x, k, s, annos, e) -> pil-cbd* |[
