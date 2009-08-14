@@ -11,7 +11,13 @@ section datamodel
     par{
      "Please confirm the receipt of this message by visiting the following page "
      navigate(confirmEmail(us)){"confirm"}
+     
+     "confirm link in template: " confirmtemplate(us)
     }
+  }
+  
+  define confirmtemplate(us:User){
+    navigate(confirmEmail(us)){"confirm"} 
   }
 
   entity User {
