@@ -18,21 +18,22 @@ rules
       bstm*
       //}
     ]|
-    with  bstm* := <validation-annotations-entity-helper-no-crud-anno> annos
+    with  bstm* := <validation-annotations-entity-helper-no-crud-anno(|x_new)> annos
     
   validation-annotations-collection-operations : //delete annos not checked here, see rules below
-    annos -> <validation-annotations-entity-helper-no-crud-anno> annos
+    annos -> <validation-annotations-entity-helper-no-crud-anno(|None())> annos
  
-  validation-annotations-entity-helper-no-crud-anno =
+  validation-annotations-entity-helper-no-crud-anno(|x) =
     remove-all(?ValidateDeleteAnno(_,_)<+?ValidateCreateAnno(_,_)<+?ValidateUpdateAnno(_,_))
-  ; validation-annotations-entity-helper
+  ; validation-annotations-entity-helper(|x)
     
-  validation-annotations-entity-helper :
+  validation-annotations-entity-helper(|x) :
     annos ->
     bstm* |[
         java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
        
         bstm_validation*
+        bstm_lengthvalidation*
        
         if(exceptions.size() > 0){
           //overwrite relevant objects the place of the validate anno determines this here
@@ -45,7 +46,12 @@ rules
         }
     ]|
     with  bstm_validation* := <collect(validate-to-java-servlet(data-validation-to-java-servlet-collect(|"exceptions")))> annos
-  
+        ; if <fetch(?SingleParamAnno("length", x_length))> annos then
+            bstm_lengthvalidation* := 
+              [ <data-validation-to-java-servlet-collect-jexp(|"exceptions")> 
+                  (e |[ null ]|, java:expr|[ x.length() <= x_length ]|, java:expr|[ "value too long (max "+x_length+" characters)" ]| ) ]
+          else bstm_lengthvalidation* := [] end
+                   
 rules //delete anno
 
    GenerateCodeJavaServlet = entity-to-java-servlet-validation-annotation; fail
@@ -104,8 +110,8 @@ rules //delete anno
       }
     ]|
     with  annos := <collect(?ValidateDeleteAnno(_,_))> props
-        ; bstm* := <validation-annotations-entity-helper> annos
+        ; bstm* := <validation-annotations-entity-helper(|None())> annos
         ; annos1 := <collect(?ValidateAnno(_,_)<+?ValidateCreateAnno(_,_)<+?ValidateUpdateAnno(_,_))> props
-        ; bstm1* := <validation-annotations-entity-helper> annos1
+        ; bstm1* := <validation-annotations-entity-helper(|None())> annos1
 
         
