@@ -75,6 +75,8 @@ rules // desugaring
   desugar-derive = derive-page 
   desugar-derive = derive-edit-rows 
   desugar-derive = derive-view-rows
+
+  desugar-derive = derive-init-function
   
   /**
    * If no properties given, add all properties
@@ -107,13 +109,15 @@ rules // desugaring
   // used for typechecking: giving an error for not-supported derive types
   is-derive-type = is-derive-edit-type <+ is-derive-view-type
 
-  is-derive-edit-type =
-    ?"editPage" <+ ?"createPage"
-
   is-derive-view-type = ?"viewPage"
   is-derive-view-type = ?"viewRows"
-  is-derive-view-type = ?"editRows"
 
+  is-derive-edit-type = ?"editPage"
+  is-derive-edit-type = ?"createPage"
+  is-derive-edit-type = ?"editRows"
+  is-derive-edit-type = ?"editRowsInline"
+
+  is-derive-edit-type = ?"initFunction"
 
 rules // deriving pages
 
@@ -236,6 +240,19 @@ rules // derives edit rows for specified properties
            }
          ]|
 
+  derive-edit-rows :
+    elem|[ derive editRowsInline from e for (dprop*) ]| -> elem|[ dummy() [] { elem* } ]| 
+    with elem* := <filter-warn(derive-edit-row-inline(|e) <+ derive-edit-row(|e)|"not a valid mode for edit row inline")> dprop*
+
+  derive-edit-row-inline(|e) : 
+    DeriveDefault(y) -> <derive-edit-row-inline(|e)> DeriveMode("edit", y)
+
+  derive-edit-row-inline(|e) : 
+    DeriveMode("edit", y) -> elem|[ x_template(str, e.y) ]| 
+    with SimpleSort(t) := <type-of> |[ e.y ]|
+       ; x_template := <concat-strings> ["edit", t]
+       ; str := <make-human-readable> y
+
 rules // derives view rows for specified properties
 
   derive-view-rows :
@@ -250,7 +267,25 @@ rules // derives view rows for specified properties
     with str := <concat-strings> [<make-human-readable> y , ": "]
        ; x_class := <concat-strings> ["output", y]
 
+rules 
+
+  derive-init-function :
+    elem|[ derive initFunction from e for (dprop*) ]| -> elem|[ 
+      form{
+        action("Initialize", init())
+        action init(){ e.initialize(); }
+      }
+    ]|
+    with SimpleSort(x_class) := <type-of> e
+       ; stat* := <filter-warn(derive-init-property(|e)|"not a valid mode for init property")> dprop*
+       ; <rename-all; emit-webdsl-code> def|[
+            extend entity x_class { 
+              extend function init() { stat* }
+            }
+         ]|
+
+  derive-init-property(|e) : 
+    DeriveDefault(y) -> stat|[ if(this.y == null) { this.y := x_init(); } ]| 
+    with SimpleSort(x) := <type-of> |[ e.y ]|
+       ; x_init := <concat-strings> ["default", x]
     
-    
-    
-  
