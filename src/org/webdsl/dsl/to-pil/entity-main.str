@@ -5,7 +5,7 @@ imports
 
 imports
   libwebdsl-front
-  org/webdsl/dsl/to-pil/property-events
+  //org/webdsl/dsl/to-pil/property-events
 
 strategies
 
@@ -41,9 +41,7 @@ strategies
      ]|
      with  {| ClassNamePil
       : rules( ClassNamePil := x_Class )
-      //; idcodes := <generate-id-code> x_Class
       ; cbds := <properties-to-code-pil(|x_Class)> props
-      //; cbds_propertyevents := <entity-cbds-property-events-pil(|x_Class)>
       |}
       
    entity-to-pil-entity :
@@ -51,8 +49,6 @@ strategies
      <pil-emit> pil-decl|[
        class data::x_Class extends pil::db::model::Entity {
         new() { }
-
-        ~*cbds_propertyevents
 
         ~*cbds
         ~*cbds1
@@ -64,15 +60,12 @@ strategies
         : rules( ClassNamePil := x_Class )
         ; cbds := <properties-to-code-pil(|x_Class)> props
         ; cbds1 := <filter(property-to-session-prop-ids-pil(|x_Class));try(concat)> props
-        ; cbds_propertyevents := <entity-cbds-property-events-pil(|x_Class)>
         |}
 
    entity-to-pil-entity :
      Entity(x_Class, x_super, props, functions) ->
      <pil-emit> pil-decl|[
        class data::x_Class extends data::x_super {
-
-         ~*cbds_propertyevents
 
          ~*cbds
    
@@ -82,7 +75,6 @@ strategies
          : rules( ClassNamePil := x_Class )
          ; cbds := <properties-to-code-pil(|x_Class)> props
            |}
-         ; cbds_propertyevents := <entity-cbds-property-events-subclass-pil(|x_Class)>
       // @note: don't definne setupForPropertyEvents; it is inherited from superclass (EV)
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
@@ -124,7 +116,7 @@ strategies
      where 
          cbds1 := <filter-concat-warn(property-to-property-code-pil(|x_Class)
                                         | "cannot generate code for property: ")> props
-         ; cbds2 := <all-properties; name-property-pil(|x_Class) <+ ![]> x_Class
+         ; cbds2 := <name-property-pil(|x_Class) <+ ![]> props
          ; cbd3 := <property-mappings-pil> (x_Class, props)
          ; cbds  := <concat>[cbds1, cbds2, [cbd3]]
 
@@ -141,8 +133,9 @@ strategies
 
   property-to-mapping-pil(|x_class) :
     Property(x, _, GenericSort("Set", [SimpleSort(x_s)]), anno*) ->
-    pil-stat|[ fields.add(new pil::db::model::ManyToManyFieldMapping(e_x, e_inverse, typeof data::x_class, typeof data::x_s, e_managing)); ]|
+    pil-stat|[ fields.add(new pil::db::model::OneToManyFieldMapping(e_x, typeof data::x_s)); ]|
     with e_x := <pil-wrap-string> x
+       /*
        ; <filter(?managing@InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
        ; if !managing then
            e_managing := pil-exp|[ true ]|
@@ -150,6 +143,7 @@ strategies
            e_managing := pil-exp|[ false ]|
          end
        ; e_inverse := <pil-wrap-string> nm
+       */
 
   property-to-mapping-pil(|x_class) :
     Property(x, _, SimpleSort("String"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
@@ -168,8 +162,13 @@ strategies
     with e_x := <pil-wrap-string> x
 
   property-to-mapping-pil(|x_class) :
-    Property(x, _, srt@SimpleSort(x_s), _) -> pil-stat|[ fields.add(new pil::db::model::SimpleReferenceFieldMapping(e_x, typeof data::x_s)); ]|
-    where <defined-pil-type> srt
+    Property(x, _, srt@SimpleSort(x_s), anno*) -> pil-stat|[ fields.add(new pil::db::model::SimpleReferenceFieldMapping(e_x, typeof data::x_s)); ]|
+    where <defined-pil-type> srt; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> anno*)
+    with e_x := <pil-wrap-string> x
+
+  property-to-mapping-pil(|x_class) :
+    Property(x, _, srt@SimpleSort(x_s), anno*) -> pil-stat|[ fields.add(new pil::db::model::ManyToOneFieldMapping(e_x, typeof data::x_s)); ]|
+    where <defined-pil-type> srt; <fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> anno*
     with e_x := <pil-wrap-string> x
 
  strategies
@@ -199,24 +198,41 @@ strategies
  rules
 
    property-to-property-code-pil(|x_Class) :
-     prop@Property(mx@x, k, s, annos) -> pil-cbd* |[
+     prop@Property(mx@x, k, srt@SimpleSort(_), annos) -> pil-cbd* |[
 
        SimpleValue<t> x = new SimpleValue<t>(this, e_propname, typeof t, e);
 
      ]|
-    where t      := <builtin-pil-type> s
-    with e      := <webdsl-pil-type-default-value> s
+    where t      := <builtin-pil-type> srt
+    with e      := <webdsl-pil-type-default-value> srt
        ; e_propname := <pil-wrap-string> mx
 
    property-to-property-code-pil(|x_Class) :
-     prop@Property(mx@x, k, srt@SimpleSort(s), annos) -> pil-cbd* |[
-
-       SimpleReference<t> x = new SimpleReference<t>(typeof t);
-
+     prop@Property(x, k, GenericSort("Set", [srt]), annos) -> pil-cbd* |[
+       OneToMany<t> x = new OneToMany<t>(this, typeof t, e_invpropname);
      ]|
     where t      := <defined-pil-type> srt
     with e      := <webdsl-pil-type-default-value> srt
+       ; <fetch(?InverseAnno(_, invpropname) <+ ?InverseSlaveAnno(_, invpropname))> annos
+       ; e_invpropname := <pil-wrap-string> invpropname
+
+   property-to-property-code-pil(|x_Class) :
+     prop@Property(mx@x, k, srt@SimpleSort(s), anno*) -> pil-cbd* |[
+       SimpleReference<t> x = new SimpleReference<t>(typeof t);
+     ]|
+    where t      := <defined-pil-type> srt
+        ; not(<fetch(?InverseAnno(_, _) <+ ?InverseSlaveAnno(_, _))> anno*)
+    with e      := <webdsl-pil-type-default-value> srt
        ; e_propname := <pil-wrap-string> mx
+
+   property-to-property-code-pil(|x_Class) :
+     prop@Property(mx@x, k, srt@SimpleSort(s), anno*) -> pil-cbd* |[
+       ManyToOne<t> x = new ManyToOne<t>(this, typeof t, e_inverseprop);
+     ]|
+    where t      := <defined-pil-type> srt
+        ; <fetch(?InverseAnno(_, inverseprop) <+ ?InverseSlaveAnno(_, inverseprop))> anno*
+    with e      := <webdsl-pil-type-default-value> srt
+       ; e_inverseprop := <pil-wrap-string> inverseprop
           
    property-to-property-code-pil(|x_Class) :
      prop@DerivedProperty(x, k, s, annos, e) -> pil-cbd* |[
