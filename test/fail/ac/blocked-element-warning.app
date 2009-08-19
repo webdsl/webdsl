@@ -7,6 +7,6 @@ entity User{name :: String}
 principal is User with credentials name
 
 
-  define page home(){
+  define page root(){
   
   }

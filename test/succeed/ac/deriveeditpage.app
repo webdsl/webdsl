@@ -18,7 +18,7 @@ section datamodel
     body()
   }
 
-  define page home(){
+  define page root(){
     "home"
     main()
     var u:User := User{};
@@ -40,5 +40,5 @@ section datamodel
     {
       us != null
     }
-    rule page home(){true}
+    rule page root(){true}
     rule template main(){true}

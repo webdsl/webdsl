@@ -13,19 +13,19 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home()
+    rule page root()
     {
       true
     }
-    rule page home(*)
+    rule page root(*)
     {
       1==1
     }
-    rules page home()
+    rules page root()
     {
       2==2
     }
-    rules page home(*)
+    rules page root(*)
     {
       3==3
     }
@@ -38,7 +38,7 @@ section somesection
     body()
   }
   
-  define page home(){
+  define page root(){
     main()
     define body()
     {
@@ -53,19 +53,19 @@ section somesection
    
    
   access control rules
-    rule page home()
+    rule page root()
     {
       4==4
     }
-    rule page home(*)
+    rule page root(*)
     {
       5==5
     }
-    rules page home()
+    rules page root()
     {
       6==6
     }
-    rules page home(*)
+    rules page root(*)
     {
       7==7
     }

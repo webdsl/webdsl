@@ -13,7 +13,7 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home()
+    rule page root()
     {
       true
     }
@@ -38,11 +38,11 @@ section somesection
     action test(a:Int)
     {
       a==6;
-      return home();
+      return root();
     }
   }
   
-  define page home(){
+  define page root(){
     main(6)
     define body()
     {

@@ -13,7 +13,7 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home()
+    rule page root()
     {
       true
     }
@@ -25,7 +25,7 @@ section somesection
     body()
   }
   
-  define page home(){
+  define page root(){
     main()
     define body()
     {

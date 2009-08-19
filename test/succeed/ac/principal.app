@@ -18,7 +18,7 @@ section principal
     body()
   }
   
-  define page home(){
+  define page root(){
     "home"
     main()
     define body()
@@ -37,7 +37,7 @@ section principal
    
    
    access control rules 
-     rule page home(){
+     rule page root(){
        true
      }
      rule template main(){

@@ -18,7 +18,7 @@ section datamodel
   
   var u:User := User{username := "0"};
   
-  define page home()
+  define page root()
   {
     main()
     action save() {
@@ -55,10 +55,10 @@ section datamodel
           }
      
           action save() { 
-            return home();
+            return root();
           }
           action cancel() {
-            cancel home();
+            cancel root();
           }
      
         }

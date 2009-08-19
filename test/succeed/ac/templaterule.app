@@ -13,7 +13,7 @@ section principal
     {
       1==1
     }
-    rule page home()
+    rule page root()
     {
       true
     }
@@ -25,7 +25,7 @@ section somesection
     "tester"
   }
   
-  define page home(){
+  define page root(){
     bla()
     action save()
     {

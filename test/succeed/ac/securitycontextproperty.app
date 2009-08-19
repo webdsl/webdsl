@@ -21,7 +21,7 @@ section principal
     }
   
   access control rules
-    rule page home()
+    rule page root()
     {
       principal == null && check() && check2()
     }
@@ -42,7 +42,7 @@ section somesection
     derive editPage from u
   }
     
-  define page home(){
+  define page root(){
     main()
     define body(){
       if(!loggedIn())

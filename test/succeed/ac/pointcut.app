@@ -16,7 +16,7 @@ section pc
   }
   
   
-  define page home(){
+  define page root(){
     main()
     define body()
     {
@@ -49,7 +49,7 @@ section pc
     
     pointcut test2()
     {
-      page home(),
+      page root(),
       template main(),
       template body(),
       action someaction(*)

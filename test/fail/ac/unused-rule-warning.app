@@ -8,7 +8,7 @@ principal is User with credentials name
 
 access control rules
 
-  rule page home() {
+  rule page root() {
     true
   }
 
@@ -22,7 +22,7 @@ access control rules
   
 section pages  
   
-  define page home(){
+  define page root(){
     "test"
     templ()
   }

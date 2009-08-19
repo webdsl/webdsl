@@ -21,7 +21,7 @@ section principal
         first==second
       }
     }
-    rule page home(){true}
+    rule page root(){true}
     rule template main(){true}
 
   
@@ -33,7 +33,7 @@ section somesection
   }
   
 
-  define page home(){
+  define page root(){
   
     title{ "homepage" }
   
@@ -53,7 +53,7 @@ section somesection
     
       action test(a:Int)
       {
-        return home();
+        return root();
       }
     }
    }

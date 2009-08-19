@@ -8,7 +8,7 @@ application test
   var p2 := Publication{ title := "p2" };
   var p3 := Publication{ title := "p3" };
   
-  define page home(){
+  define page root(){
     table{
       for(p : Publication){
         output(p)
@@ -23,7 +23,7 @@ application test
     "title: " output(p.title)
     " views: " output(p.views)
     " "
-    navigate(home()){"home"}
+    navigate(root()){"home"}
   }
    
   session stats {

@@ -11,7 +11,7 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home()
+    rule page root()
     {
       true
     }
@@ -19,7 +19,7 @@ section principal
   
 section somesection  
     
-  define page home(){
+  define page root(){
       if(!loggedIn())
       {
         "not logged in"
