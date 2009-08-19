@@ -24,8 +24,6 @@ import javax.persistence.*;
 
   private String name;
 
-  private String databaseId;
-
   public String getName() {
     return name;
   }
@@ -33,12 +31,15 @@ import javax.persistence.*;
   public void setName(String name) {
     this.name = name;
   }
+  
+  @org.hibernate.annotations.Type(type = "utils.UUIDUserType") @javax.persistence.Column(name = "databaseId")//, length = 16) 
+  private java.util.UUID databaseId;
 
-  public String getDatabaseId() {
+  public UUID getDatabaseId() {
     return databaseId;
   }
 
-  public void setDatabaseId(String databaseId) {
+  public void setDatabaseId(UUID databaseId) {
     this.databaseId = databaseId;
   }
 }

@@ -343,9 +343,9 @@ function make_app_code {
         export VERBOSEOPTION="--verbose $VERBOSE"
       fi
       
-      export DBSTORAGEOPTION="org.hibernate.dialect.MySQL5InnoDBDialect"
+      export DBSTORAGEOPTION="utils.MySQL5InnoDBDialectUTF8"
       if [ "$DBSTORAGE" == "myisam" ]; then
-        export DBSTORAGEOPTION="org.hibernate.dialect.MySQLMyISAMDialect"
+        export DBSTORAGEOPTION="utils.MySQLMyISAMDialectUTF8"
       fi
            
       echo "Creating Java Servlet application in $SERVLETPROJECTDIR..."
@@ -608,6 +608,25 @@ for i in $commands; do
        if [ "$?" == 1 ]
        then
          echo "Done. Resulting application (.ear and datasource file) are in dist/. Run 'webdsl deploy' to deploy."
+       fi
+       ;;
+    "convert-to-unicode" )
+       load_config
+       echo "note: the specified database username in application.ini needs read permission on the 'information_schema' database in mysql"
+       echo "select t.table_name, c.column_name from tables t, columns c where t.table_schema = '$DBNAME' and t.table_schema=c.table_schema and t.table_name=c.table_name and column_type = 'varchar(16)';" \
+       | mysql -u$DBUSER -p$DBPASSWORD information_schema > .servletapp/mysqloutput.tmp # 2> /dev/null
+       if [ "$?" == 0 ]
+       then
+         echo "mysql query to retrieve id columns succeeded"
+         echo "select t.table_name, c.column_name, c.column_type from tables t, columns c where t.table_schema = '$DBNAME' and t.table_schema=c.table_schema and t.table_name=c.table_name and (data_type = 'varchar' or data_type = 'longtext');" \
+         | mysql -u$DBUSER -p$DBPASSWORD information_schema > .servletapp/mysqloutput2.tmp # 2> /dev/null
+         if [ "$?" == 0 ]
+         then
+           echo "mysql query to retrieve string columns succeeded"
+           cd .servletapp
+           ant convertoldglobals
+           echo "finished converting id's"
+       fi
        fi
        ;;
     * )

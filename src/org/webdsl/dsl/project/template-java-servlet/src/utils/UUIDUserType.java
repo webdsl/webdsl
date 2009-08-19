@@ -41,6 +41,10 @@ public class UUIDUserType implements UserType
 	 */
 	public Object deepCopy (Object value) throws HibernateException
 	{
+		if (value==null)
+		{
+			return null;
+		}
 
 		if (!UUID.class.isAssignableFrom (value.getClass ()))
 		{
@@ -123,10 +127,7 @@ public class UUIDUserType implements UserType
 	public Object nullSafeGet (ResultSet rs, String[] names, Object owner) throws HibernateException,
 	SQLException
 	{
-		//System.out.println("get start");
-		byte[] value;
-
-		value = rs.getBytes(names[0]);//rs.getString (names[0]) ;
+		String value = rs.getString (names[0]) ;
 
 		if (value == null)
 		{
@@ -134,27 +135,29 @@ public class UUIDUserType implements UserType
 		}
 		else
 		{
-			//System.out.println("get length: "+value.length);
-			try {
-				java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.ByteArrayInputStream(value));
-
-				long most=(Long)dis.readLong();
-				long least=(Long)dis.readLong();
-				UUID temp = new UUID(most,least);
-
-
-				//System.out.println("get success");
-				return temp;
-			} catch (IOException e) {
-				e.printStackTrace();
-				//System.out.println("get fail");
-				return null;
-			} 
+			return retrieveUUID(value);
 		}
-
-
 	}
-
+	
+	public static String persistUUIDString(UUID uuid){
+		StringBuffer sb = new StringBuffer(uuid.toString());
+		//remove hyphens
+		sb.deleteCharAt(23);
+		sb.deleteCharAt(18);
+		sb.deleteCharAt(13);
+		sb.deleteCharAt(8);
+		return sb.toString();
+	}
+	public static UUID retrieveUUID(String value){
+		StringBuffer sb = new StringBuffer(value);
+		//add hyphens
+		sb.insert(8, '-');
+		sb.insert(13, '-');
+		sb.insert(18, '-');
+		sb.insert(23, '-');
+		return UUID.fromString(sb.toString());
+	}
+	
 	/*
 	 * (non-Javadoc)
 	 * @see
@@ -177,38 +180,9 @@ public class UUIDUserType implements UserType
 			//	System.out.println("set fail");
 			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
 		}
-
-		java.io.ByteArrayOutputStream bytesOutput = new java.io.ByteArrayOutputStream();
-		// java.io.ObjectInputStream valueInput = null;
-
-		try {
-			//java.io.ObjectOutputStream valueOutput = new java.io.ObjectOutputStream(bytesOutput);
-
-			UUID temp = (UUID) value;
-
-			//bytesOutput.write(new Long(temp.getMostSignificantBits()).);
-
-			//ByteArrayOutputStream bos = new ByteArrayOutputStream();  
-			java.io.DataOutputStream dos = new java.io.DataOutputStream(bytesOutput);  
-			dos.writeLong(temp.getMostSignificantBits());  
-			dos.writeLong(temp.getLeastSignificantBits());  
-			dos.flush();  
-			//byte[] data = bytesOutput.toByteArray(); 
-
-			//valueOutput.writeObject();
-			// valueOutput.writeObject(temp.getLeastSignificantBits());
-
-			//valueInput = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytesOutput.toByteArray()));//rs.getString (names[0]) ;
-			//System.out.println("set length: "+bytesOutput.toByteArray().length);
-		} catch (IOException e) {
-			//System.out.println("set fail");
-			e.printStackTrace();
-		}
-		//System.out.println("set success");
-		//st.setString (index, value.toString ()) ;
-		st.setBytes(index, bytesOutput.toByteArray());
-		//(index, valueInput, theLength);
-		// st.set
+		
+		st.setString (index, persistUUIDString((UUID) value));
+		
 	}
 
 	/*
