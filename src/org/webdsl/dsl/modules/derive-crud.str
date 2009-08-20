@@ -1,0 +1,107 @@
+module org/webdsl/dsl/modules/derive-crud
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+rules
+
+  constraint-error = constraint-error-crud
+
+  constraint-error-crud :
+    DeriveCrud(ent) -> <add-error(|["The entity ", ent, " does not exist"])>
+    where not(<IsEntity> ent)
+    
+rules
+
+  desugar = desugar-crud 
+ 
+  desugar-crud :
+    DeriveCrud(ent) -> RemoveMe()
+    with  (x_create, x_view, x_edit, x_manage) := <crud-page-names> ent
+        ; srt := SimpleSort(ent)
+        ; x_ent := ent
+        ; create-body-template-if-not-defined
+        ; create-main-template-if-not-defined
+        ; <emit-webdsl-code> def|[ 
+            define page x_create(){
+              var temp := x_ent{}
+              derive createPage from temp
+            } 
+          ]|
+        ; <emit-webdsl-code> def|[ 
+            define page x_view(arg : srt){
+              derive viewPage from arg
+            } 
+          ]|
+        ; <emit-webdsl-code> def|[ 
+            define page x_edit(arg : srt){
+              derive editPage from arg
+            } 
+          ]|
+        ; <emit-webdsl-code> def|[ 
+            define page x_manage(){
+              navigate(x_create()){ "create" }
+              list{
+                for(elem : srt){
+                  listitem{ 
+                    output(elem)
+                    " "
+                    navigate(x_edit(elem)){ "edit" }
+                    " "
+                    form{action("remove",remove(elem))}
+                  }
+                }
+              }
+              action remove(arg :srt){
+                arg.remove();
+              }
+            } 
+          ]|
+rules
+
+  declare = declare-crud
+  
+  declare-crud :
+    DeriveCrud(ent) -> DeriveCrud(ent)
+    with  (x_create, x_view, x_edit, x_manage) := <crud-page-names> ent
+        ; srt := SimpleSort(ent)
+        ; <declare> def|[ define page x_create(){} ]|
+        ; <declare> def|[ define page x_view(arg : srt){} ]|
+        ; <declare> def|[ define page x_edit(arg : srt){} ]|
+        ; <declare> def|[ define page x_manage(){} ]|
+    
+rules //util
+ 
+  crud-page-names :
+    ent -> (create, view, edit, manage)
+    with  create := <concat-strings> ["create",ent]
+        ; view := <decapitalize-string> ent
+        ; edit := <concat-strings> ["edit",ent]
+        ; manage := <concat-strings> ["manage",ent]
+        
+rules        
+        
+  create-body-template-if-not-defined = get-body-template <+ default-body-template
+  
+  get-body-template  = !<TemplateDefinition> "body"
+
+  default-body-template =
+    <emit-webdsl-code> def|[
+      define body(){
+        "default body"
+      } 
+    ]|
+    
+  create-main-template-if-not-defined = get-main-template <+ default-main-template
+  
+  get-main-template  = !<TemplateDefinition> "main"
+
+  default-main-template =
+    <emit-webdsl-code> def|[
+      define main(){
+        body
+      } 
+    ]|

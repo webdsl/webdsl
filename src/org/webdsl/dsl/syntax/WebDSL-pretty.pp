@@ -1162,7 +1162,9 @@
    Count                                                  -- KW["count"] KW["("] _1 KW[")"],
    Max                                                    -- KW["max"] KW["("] _1 KW[")"],
    Min                                                    -- KW["min"] KW["("] _1 KW[")"],
-   Avg                                                    -- KW["avg"] KW["("] _1 KW[")"]
+   Avg                                                    -- KW["avg"] KW["("] _1 KW[")"],
+   
+   DeriveCrud -- KW["derive"] KW["crud"] _1
 
 
 ]
