@@ -82,7 +82,7 @@ public class ConvertOldGlobals {
 			while(srs.next()){
 
 				byte[] value = srs.getBytes(1);
-				if(value != null){
+				if(value != null && value.length > 0){
 					java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.ByteArrayInputStream(value));
 					long most=(Long)dis.readLong();
 					long least=(Long)dis.readLong();
@@ -97,6 +97,7 @@ public class ConvertOldGlobals {
 					updateIds.executeUpdate();
 				}
 			}
+      srs.close();
 			System.out.println("done altering column data "+table+"."+column);
 		}
 		catch(Exception ex){
