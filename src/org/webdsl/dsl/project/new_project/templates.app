@@ -1,52 +1,36 @@
 module templates
 
-section main template.
+define main() {
+  <div id="pagewrapper">
+     <div id="header">
+        mainheader()
+     </div>
+     <div id="navbar">
+       applicationmenu()
+     </div>
+     <div id="content">
+       body()
+     </div>
+     <div id="footer">
+       <p />"powered by " <a href="http://webdsl.org">"WebDSL"</a><p />
+     </div>
+  </div>
+}
 
-  define main() {
-    div("outersidebar") {
-      sidebar()
-    }
-    div("outerbody") {
-      div("menubar") {
-        menu()
-      }
-      body()
-      footer()
-    }
+define body(){
+  "default body"
+}
+
+define mainheader() {
+  navigate(root()){
+    image("/images/logosmall.png")
   }
+}
 
-section basic page elements.
-
-  define body(){
-  
-  }
-
-  define sidebar() {
-
-  }
-  
-  define footer() {
-    "generated with "
-    navigate(url("http://www.webdsl.org")){ "WebDSL" } " and "
-    navigate(url("http://www.strategoxt.org")){ "Stratego/XT" }
-  }
-  
-section menus.
-  
-  define menu() {
-
-    
-  }
-  
-section entity management.
-
-  define manageMenu() {}
-  
-  define page manage() {
-    main()
-    define sidebar() {}
-    define body() {
-
-    }
-  }
-
+define applicationmenu() {
+  <ul>
+    <li>navigate(root()){"Home"}</li>
+    <li>navigate(manageExampleEntity()){ "Manage ExampleEntity" }</li>
+  </ul>
+}
+ 

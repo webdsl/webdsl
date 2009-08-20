@@ -14,7 +14,8 @@ define page root() {
   }
 }
 
-entity exampleEntity {
-  property :: String
+entity ExampleEntity {
+  property :: String (name)
 }
 
+derive crud ExampleEntity
