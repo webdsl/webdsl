@@ -9,3 +9,6 @@ section datamodel
   entity Paper {
     authors        -> Set<User>
   }
+
+  define page root() {
+  }

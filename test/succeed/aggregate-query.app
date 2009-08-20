@@ -29,7 +29,7 @@ section datamodel
     output(u.name)
   }
 
-  define page home(){
+  define page root(){
     for(u:User){
       " name: " output(u.name)
       " i: " output(u.ival)

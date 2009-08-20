@@ -2,7 +2,7 @@ application test
 
 section pages
 
-define page home() {
+define page root() {
 
   h { "en hier begint het weer opnieuw!" }
   t {
@@ -33,9 +33,9 @@ define page home() {
 
   
   h{"below, a link"}
-  link(home()) { "i, refresh" }
+  link(root()) { "i, refresh" }
   form {
-    button("i, refresh", action{ return home(); })
+    button("i, refresh", action{ return root(); })
   }
   
   h{"another group"}

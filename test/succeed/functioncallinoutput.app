@@ -6,7 +6,7 @@ section bla
     return "jdsfkljslfsd";
   }
   
-  define page home(){
+  define page root(){
     output(show())
     outputText(show())
   }

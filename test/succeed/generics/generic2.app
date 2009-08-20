@@ -6,7 +6,7 @@ entity User {
 	name :: String
 }
 
-define page home(){
+define page root(){
 	var u1: List<User> := [ User{ name := "ikke"} ]
 	first(User, u1)
 }

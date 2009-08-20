@@ -6,7 +6,7 @@ section datamodel
     name :: String
   }
   
-  define page home(){
+  define page root(){
     navigate(viewUser(45,"thestring",true,345.54)) {"view"}
   }
 

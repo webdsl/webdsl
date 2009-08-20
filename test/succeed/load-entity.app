@@ -12,7 +12,7 @@ application test
   
   var p_1 := Paper { title := "paper 1" }
   
-  define page home(){
+  define page root(){
     output(loadEntity("Journal",j_1.id) as Journal)
     output(loadEntity("Paper",p_1.id) as Paper)
     output(loadJournal(j_1.id))

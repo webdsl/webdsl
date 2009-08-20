@@ -2,7 +2,7 @@ application test
 
 section bla
   
-  define page home(){
+  define page root(){
     var list : List<Int> := genList()
     var list2 : List<Int> := genList2()
     

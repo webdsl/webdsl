@@ -10,3 +10,7 @@ entity User { name :: String }
     return b;
     
   }
+
+  define page root() {
+
+  }

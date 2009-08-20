@@ -6,7 +6,7 @@ application test
   
   var u1 := User{username :="Alice"}
   
-  define page home(){
+  define page root(){
     for(u:User){
       output(u.username) " "
     }
@@ -19,7 +19,7 @@ application test
     action test(j:Int){
       var uzer := User{username:=j.toString()};
       uzer.save();
-      return home();  
+      return root();  
     }
     for(i:Int from 1 to 10){
       hd{
@@ -45,7 +45,7 @@ application test
    
     action save(){
       u.save();
-      return home();
+      return root();
     }      
 
     body()

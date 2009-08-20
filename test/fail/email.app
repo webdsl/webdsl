@@ -20,7 +20,7 @@ section datamodel
     mail :: Email
   }
   
-  define page home(){
+  define page root(){
     for(u:User)
     {
       outputString(u.name)

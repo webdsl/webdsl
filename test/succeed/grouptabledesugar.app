@@ -2,7 +2,7 @@ application grouptabledesugar
 
 section pages
 
-define page home() {
+define page root() {
   "ik ben de body2"
   var s: String := "hoi";
  

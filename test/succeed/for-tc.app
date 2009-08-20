@@ -19,7 +19,7 @@ section bla
   var e7 := Entity2 { name := "e7" };
   var thelist := Entity2List{ list := [e1,e2,e3,e4,e5,e6,e7] };  
   
-  define page home(){
+  define page root(){
     for(e:Entity2 in thelist.list where e.name != "e4" order by e.name desc limit 2 offset 1){
       output(e.name)
     }

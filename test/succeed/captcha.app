@@ -6,7 +6,7 @@ section datamodel
     name :: String
   }
   
-  define page home(){
+  define page root(){
     for(u:User)
     {
       output(u.name) " "

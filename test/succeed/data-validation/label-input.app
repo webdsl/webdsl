@@ -5,7 +5,7 @@ application labelinput
     age :: Int (validate(age >= 0,"Age cannot be a negative number."))
   }
   
-  define page home() {
+  define page root() {
     for(us:User){
       output(us.name)
       output(us.age)

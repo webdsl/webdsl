@@ -40,7 +40,7 @@ section datamodel
     derive viewPage from u
   }
     
-  define page home(){
+  define page root(){
     main()
    
     define body()
@@ -61,7 +61,7 @@ section datamodel
         }
         action save(user:User){
           user.save();
-          return home();
+          return root();
         } 
       }
     }

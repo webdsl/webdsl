@@ -13,7 +13,7 @@ section datamodel
   var t_u4 := User{ name := "test4" }
 
  
-  define page home(){
+  define page root(){
     form{
       for(u1:User)
       {

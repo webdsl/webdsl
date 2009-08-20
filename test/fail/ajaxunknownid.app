@@ -4,6 +4,6 @@ application test
 
 section pages
 
-define page home() {
+define page root() {
   block[id:= hoi, onclick := action {clear(fout);}] { "hoi1"} 
 }

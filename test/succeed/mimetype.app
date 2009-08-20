@@ -1,7 +1,7 @@
 application test
 
 
-  define page home() {
+  define page root() {
     navigate(test()){ "test mimetype" }
     navigate(testraw()){ "test rawoutput" }
   }

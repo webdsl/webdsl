@@ -6,7 +6,7 @@ application test
     property :: String
   }
 
-  define page home() {
+  define page root() {
     var e := Entity0{}
-    home()
+    root()
   }

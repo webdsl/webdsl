@@ -24,7 +24,7 @@ section datamodel
       main()
   }
 
-  define page home(){
+  define page root(){
     main()
     var u:User := User{};
     define body()
@@ -33,7 +33,7 @@ section datamodel
     }
    }
    
-  define page home(){
+  define page root(){
     main()
     var u:User := User{};
     define body()

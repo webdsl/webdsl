@@ -7,7 +7,7 @@ section datamodel
   }
 
 
-  define page home(){
+  define page root(){
     var u:User := User{name := "bob"};
     var s:String := "dgfdfgd"
     "homepage"

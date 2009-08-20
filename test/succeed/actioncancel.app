@@ -18,7 +18,7 @@ section datamodel
   
   var bob : User := User { username := "Bob"  email := "bob@gmail.com"};
   
-  define page home()
+  define page root()
   {
     main()
     action a() {}
@@ -38,7 +38,7 @@ section datamodel
           action("cancelreturn", cancelreturn())
           action cancelreturn() {
           
-            return home();
+            return root();
           }
         }
         "User: "

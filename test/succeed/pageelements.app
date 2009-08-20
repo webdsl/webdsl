@@ -23,7 +23,7 @@ section datamodel
     }
   }
 
-  define page home(){
+  define page root(){
     var u:User := User{};
     var s:String;
     var i:Int;

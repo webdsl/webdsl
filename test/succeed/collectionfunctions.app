@@ -28,7 +28,7 @@ section datamodel
   var u3:User := User{name := "charlie"};
   var u4:User := User{name := "dave"};
   
-  define page home(){
+  define page root(){
     main()
     define body() {
       table{
@@ -91,42 +91,42 @@ section datamodel
       //var se : Set<User> := u.list.set();
       u.set := u.list.set();
       u.save();
-      return home();
+      return root();
     }
     action s2l(u:User){
       //var li : List<User> := u.set.list();
       u.list := u.set.list();
       u.save();
-      return home();
+      return root();
     }
     action cl(u:User){
       u.list.clear();
       u.save();
-      return home();
+      return root();
     }
     action cs(u:User){
       u.set.clear();
       u.save();
-      return home();
+      return root();
     }
     action save(u:User){
       u.save();
-      return home();
+      return root();
     }
     action add(u:User,other:User){
       u.list.add(other);
       u.save();
-      return home();
+      return root();
     }
     action remove(u:User,other:User){
       u.list.remove(other);
       u.save();
-      return home();
+      return root();
     }
     action removeAt(u:User,i:Int){
       u.list.removeAt(i);
       u.save();
-      return home();
+      return root();
     }
     action makeFirst(u:User,other:User){
       
@@ -134,28 +134,28 @@ section datamodel
       u.list.set(0,other);
       
       u.save();
-      return home();
+      return root();
     }   
     action replaceList(u:User){
       u.list := [u3,u4];
       u.save();
-      return home();
+      return root();
     }   
     action insertList(i:Int,u:User){
       u.list.insert(i,u);
       u.save();
-      return home();
+      return root();
     }
 
     action replaceListE(u:User){
       u.replaceList([u3,u4]);
       u.save();
-      return home();
+      return root();
     }   
     action insertListE(i:Int,u:User){
       u.insertL(i,u);
       u.save();
-      return home();
+      return root();
     }  
 
   }

@@ -2,7 +2,7 @@ application test
 
 section bla
   
-  define page home(){
+  define page root(){
     for(bla : Int from 0 to 4){
       output(bla)
     }

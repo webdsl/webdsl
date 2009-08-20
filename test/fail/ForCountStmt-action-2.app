@@ -6,7 +6,7 @@ application test
     
   }
 
-  function home(){
+  function root(){
     for(i:Int from Entity2{} to 4){
     }
   }

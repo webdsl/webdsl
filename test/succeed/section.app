@@ -2,7 +2,7 @@ application section
 
 section pages
 
-define page home() {
+define page root() {
   header{"0"}
   section[class:=test, style:= "qwerty"+123]{header{"1"}
   section[class:="test2"]{header{"2"}

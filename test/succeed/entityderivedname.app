@@ -22,7 +22,7 @@ section datamodel
   var u : User := User { name := "the user" };
   var p : PdpMeeting := PdpMeeting { employee := u };
   
-  define page home() {
+  define page root() {
     output(u.name)
     output(p.name)
     output(p.name2)

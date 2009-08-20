@@ -7,7 +7,7 @@ application test
   var u_1 := User { firstname := "Alice" }
   var u_2 := User { firstname := "Bob" }
   
-  define page home(){
+  define page root(){
     for(u:User){
       "users: " output(u.firstname)
     }
@@ -22,7 +22,7 @@ application test
       message("There are " + findUserByFirstnameLike(enteredname).length + " similar usernames");
       var newUser:User := User{ firstname := enteredname };
       newUser.save();
-      return home();
+      return root();
     }
 
 

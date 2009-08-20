@@ -11,7 +11,7 @@ section datamodel
   var u2:User := User{name := "charlie"};
   var u3:User := User{name := "dave"};
   
-  define page home(){
+  define page root(){
     
     "name: " output(u.name)
  /*   if(u.children != null)

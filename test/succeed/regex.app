@@ -1,7 +1,7 @@
 application test
 
 
-  define page home() {
+  define page root() {
     if(/[0-9]/.find("ofsdfjsd=s7")){
       "1 "
     }

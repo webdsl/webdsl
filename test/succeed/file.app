@@ -8,12 +8,12 @@ section datamodel
   }
   
   define navigation(){
-    navigate(home()){"test1"}
+    navigate(root()){"test1"}
     navigate(home2()){"test2"}
     navigate(home3()){"test3"}  
   }
   
-  define page home(){
+  define page root(){
 
     navigation()
     form{

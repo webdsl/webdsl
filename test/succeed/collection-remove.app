@@ -20,7 +20,7 @@ section datamodel
   
   var ulist := UserList{users := [u1,u2,u3,u4,u1,u1,u2]};
   
-  define page home(){
+  define page root(){
     main()
     define body() {
       var i:Int := 0

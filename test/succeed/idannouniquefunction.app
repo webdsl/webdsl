@@ -7,7 +7,7 @@ section datamodel
   }
 
   
-  define page home(){
+  define page root(){
     for(u:User){
       "users: " output(u.name)
     }
@@ -27,7 +27,7 @@ section datamodel
     {
       var newUser:User := getUniqueUser(name);
       newUser.save();
-      return home();
+      return root();
     }
     
     action save2()

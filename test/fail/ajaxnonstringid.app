@@ -3,7 +3,7 @@ application test
 
 section pages
 
-define page home() {
+define page root() {
   //var s: String := "hoi"
   block[id:= "s"] { "hoi1"} 
 }

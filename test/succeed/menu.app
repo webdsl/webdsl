@@ -60,11 +60,11 @@ section datamodel
     }
   }
   
-  define page home(){
+  define page root(){
     sitemenu1()
     sitemenu2()
     sitemenu3()
-    "home"
+    "root"
   }
 
   define page user(u:User)

@@ -2,7 +2,7 @@
 
 application test
 
-  function home(){
+  function root(){
     for(i:Int from 0 to "7"){
     }
   }

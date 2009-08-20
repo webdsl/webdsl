@@ -20,7 +20,7 @@ section datamodel
   }
 
 
-  define page home(){
+  define page root(){
     var u:User := User{};
     out(u.name2)
     "expects 7 : " out(u.test(2, 3))

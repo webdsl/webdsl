@@ -5,7 +5,7 @@ application test
     title :: String
   }
 
-  define page home(){
+  define page root(){
     for(jo:Journal){
       navigate(hom/jo/dfg/g/df){ "show" output(jo.title) } 
     }

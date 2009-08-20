@@ -10,7 +10,7 @@ section bla
   var t_2 := Test{ test := 2 }
   var t_3 := Test{ test := 3 }
   
-  define page home(){
+  define page root(){
     
     for(i:Int in [1,2,3,4,5,6,7] where i > 3 order by i desc limit 2){
       output(i)

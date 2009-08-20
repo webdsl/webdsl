@@ -10,7 +10,7 @@ entity Admin: User {
 	ismod :: Bool
 }
 
-define page home(){
+define page root(){
 	var u1: User := User{ name := "ikke"}
 	var u2: Admin := Admin{ismod := true }
 	first(User,Admin, u1, u2)

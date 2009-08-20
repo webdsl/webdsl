@@ -7,3 +7,6 @@ globals {
     return i + "test";
   }
 }
+
+define page root() {
+}

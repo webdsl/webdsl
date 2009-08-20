@@ -4,7 +4,7 @@ application formcheckseparate
     name :: String
   }
   
-  define page home() {
+  define page root() {
     for(us:User){
       output(us.name)
     }

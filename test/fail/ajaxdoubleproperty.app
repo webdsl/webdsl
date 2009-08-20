@@ -3,6 +3,6 @@ application test
 
 section pages
 
-define page home() {
+define page root() {
   block[id:= hoi, id:= hoi2] { "hoi1"} 
 }

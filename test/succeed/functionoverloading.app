@@ -39,7 +39,7 @@ section datamodel
 
   var an : AnEntity := AnEntity {};
   
-  define page home(){
+  define page root(){
     output(an.a(0))
     output(an.a("2"))
     output(a("Really"))

@@ -12,7 +12,7 @@ application test
 
   define page red(){"redirected"}
 
-  define page home()
+  define page root()
   {
     action ret(i:Int, s:String, b:Bool, u:User,t:Text) {
       var temp := User {
@@ -23,7 +23,7 @@ application test
         t := t
       };
       temp.save();
-      return home();
+      return root();
     }
     action enableajax() {
       replace(p,template { "sdfsd" } );

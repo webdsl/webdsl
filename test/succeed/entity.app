@@ -11,7 +11,7 @@ application test
   var one := Bib { title := "Bib one" };
   var two := Test { bla := "Test two" };
 
-  define page home(){
+  define page root(){
     test(one)
     " "
     navigate(testpage(one as Entity)){"testpage"}

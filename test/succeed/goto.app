@@ -15,10 +15,10 @@ section datamodel
     body()
   }
   
-  define page home(){
+  define page root(){
     main()
     init{
-      goto home2();
+      goto root2();
     
     }
     define body()
@@ -27,7 +27,7 @@ section datamodel
     }
    }
    
-  define page home2(){
+  define page root2(){
     main()
 
     define body()

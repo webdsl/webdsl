@@ -17,7 +17,7 @@ var subclass1 := SubClassOne{name := "sub1"};
 var subclass2 := SubClassTwo{name := "sub2"};
 var subclass3 := SubClassThree{name := "sub3"};
 
-define page home(){
+define page root(){
   var super := SuperClass{name := "super"};
   var sub1 := SubClassOne{name := "sub1"};
   var sub2 := SubClassTwo{name := "sub2"};

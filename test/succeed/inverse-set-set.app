@@ -16,7 +16,7 @@ application test
   var p2 := Publication{ name := "p2" };
   var p3 := Publication{ name := "p3" };
  
-  define page home(){
+  define page root(){
     for(p:Publication){
       "name: " output(p.name)
       break

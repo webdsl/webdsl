@@ -29,7 +29,7 @@ section datamodel
     body()
   }
   
-  define page home(){
+  define page root(){
     main()
     
     define body()

@@ -10,7 +10,7 @@ section datamodel
     name :: String (id)
   }
   
-  define page home(){
+  define page root(){
     var u:User := User{};
     var u1:User2 := User2{};
   

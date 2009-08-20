@@ -8,7 +8,7 @@ section datamodel
 
   var global_u : User := User { username := "Dave" };
 
-  define page home(){
+  define page root(){
     output(global_u.username)
 
     

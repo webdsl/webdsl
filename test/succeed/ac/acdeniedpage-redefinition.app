@@ -9,14 +9,14 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page home()
+    rule page root()
     {
       false
     }
   
 section somesection  
 
-   define page home(){
+   define page root(){
      "should not be able to see this"
    }
    

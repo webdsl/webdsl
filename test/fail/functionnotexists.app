@@ -11,7 +11,7 @@ section functions
     }
   }
 
-define page home() {
+define page root() {
   var u : User := User { name := "hoi"}
   action a() { test(); }
 }

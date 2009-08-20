@@ -11,7 +11,7 @@ entity SubClassTwo : SuperClass{}
 
 entity SubClassThree : SubClassOne{}
 
-define page home(){
+define page root(){
   var super := SuperClass{name := "super"};
   var sub1 := SubClassOne{name := "sub1"};
   var sub2 := SubClassTwo{name := "sub2"};

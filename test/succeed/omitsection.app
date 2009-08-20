@@ -1,3 +1,3 @@
 application test
 
-  define page home(){}
+  define page root(){}

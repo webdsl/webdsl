@@ -52,7 +52,7 @@ section datamodel
     derive viewPage from u
   }
     
-  define page home(){
+  define page root(){
     main()
    
     define body()
@@ -78,7 +78,7 @@ section datamodel
                   action removeChild(parent:User,child:User){
                     parent.children.remove(child);
                     parent.save();
-                    return home();
+                    return root();
                   }
                 }
                 if(!(child in user.children)){
@@ -88,7 +88,7 @@ section datamodel
                   action addChild(parent:User,child:User){
                     parent.children.add(child);
                     parent.save();
-                    return home();
+                    return root();
                   }                
                 }
               }
@@ -114,7 +114,7 @@ section datamodel
 
         action save(user:User){
           user.save();
-          return home();
+          return root();
         } 
       }
     }

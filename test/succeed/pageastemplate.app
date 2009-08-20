@@ -3,7 +3,7 @@ application test
 section datamodel
 
   
-  define page home(){
+  define page root(){
     "1"
    /* home2() */
   }

@@ -9,7 +9,7 @@ section datamodel
   
   var l : Link := Link { url := "http://webdsl.org" };
   
-  define page home(){
+  define page root(){
     
     output(l.url)
     

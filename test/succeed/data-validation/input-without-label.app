@@ -15,7 +15,7 @@ application input
     secret :: Secret
   }
   
-  define page home() {
+  define page root() {
     for(us:User){
       output(us.name)" "
       output(us.age)" "

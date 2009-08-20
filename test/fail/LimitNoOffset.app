@@ -11,3 +11,5 @@ application test
       log(e.name);
     }
   }
+  define page root() {
+  }

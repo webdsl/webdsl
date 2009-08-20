@@ -1,7 +1,7 @@
 
 application test
 
-  define page home() {
+  define page root() {
     var v := Test{ itemSet := ItemSet{ items := {i_1, Item{name:="2"}, Item{name:="3"}} } }
     output(test(v))
     output(v.show1())

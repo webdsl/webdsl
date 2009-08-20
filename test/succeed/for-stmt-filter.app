@@ -21,7 +21,7 @@ section bla
   var thelist := Entity2List{ list := [e1,e2,e3,e4,e5,e6,e7] };  
   
   
-  define page home(){
+  define page root(){
     var entList : List<Entity2> := genEntList()
     var entList2 : List<Entity2> := genEntList2()
     var entList3 : List<Entity2> := genEntList3()

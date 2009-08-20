@@ -19,7 +19,7 @@ section datamodel
   
   define body(){}
   
-  define page home(){
+  define page root(){
     main()
     var u:User := User{};
     define body()

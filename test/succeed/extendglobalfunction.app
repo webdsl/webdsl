@@ -10,3 +10,5 @@ section datamodel
     var s : String := "";
   }
 
+  define page root() {
+  }

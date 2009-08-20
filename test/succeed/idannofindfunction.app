@@ -8,7 +8,7 @@ application test
   
   var u_2 := User { firstname := "Bob" }
   
-  define page home(){
+  define page root(){
     for(u:User){
       "users: " output(u.firstname)
     }
@@ -22,7 +22,7 @@ application test
       validate(findUser(enteredname) == null,"User name taken");
       var newUser:User := User{ firstname := enteredname };
       newUser.save();
-      return home();
+      return root();
     }
 
 

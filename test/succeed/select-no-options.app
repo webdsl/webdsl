@@ -7,7 +7,7 @@ section datamodel
     child -> User
   }
 
-  define page home(){
+  define page root(){
     for(us : User){
       output(us.name)
     }

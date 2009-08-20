@@ -27,7 +27,7 @@ section datamodel
   var u5:User := User{name := "fred"};
   var u6:User := User{name := "guy"};
   var uset:UserSet := UserSet{users:={u2,u3,u4,u5,u6}};
-  define page home(){
+  define page root(){
     main()
     define body(){
     "name: " output(u.name) " "

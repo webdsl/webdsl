@@ -1,6 +1,6 @@
 application test
 
-  define page home(){
+  define page root(){
     <h1 foo="value">
     <br />
     "title"

@@ -10,3 +10,7 @@ globals {
     a := 3;
   }
 }
+
+define page root() {
+
+}

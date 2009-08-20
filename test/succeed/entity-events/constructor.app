@@ -36,7 +36,7 @@ application constructor
   
 
   
-  define page home(){
+  define page root(){
     for(u:User){
       group(u.name){
         showPage(u.page)
@@ -48,7 +48,7 @@ application constructor
           action("save",save(u))
           action save(u:User){
             u.save();
-            return home();
+            return root();
           }
         }
       }

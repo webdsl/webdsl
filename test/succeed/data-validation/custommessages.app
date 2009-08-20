@@ -6,7 +6,7 @@ application messages
   var u : User := User{ name := "bob" };
   var u1 : User := User{ name := "alice" };
   
-  define page home(){
+  define page root(){
     for(u:User) {
       output(u.name)
     }

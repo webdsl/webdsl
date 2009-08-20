@@ -27,7 +27,7 @@ section datamodel
     mail := "webdslorg@gmail.com"
   };
   
-  define page home() {
+  define page root() {
     output(global_u.name)
     output(global_u.mail)
     

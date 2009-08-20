@@ -23,7 +23,7 @@ section bla
     e7.save();
   }
   
-  define page home(){
+  define page root(){
     var entList : List<Entity2> := genEntList()
     var entList2 : List<Entity2> := genEntList2()
     

@@ -4,7 +4,7 @@ application test
     name :: String
   }
   
-  define page home(){
+  define page root(){
     test() with {
       content(s:String){ "123" output(s) }
     }

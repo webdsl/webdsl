@@ -8,6 +8,6 @@ section datamodel
     authoredPapers :: String
   }
 
-  define page home() {
+  define page root() {
     "Hello world!"
   }

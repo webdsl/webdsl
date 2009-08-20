@@ -6,7 +6,7 @@ application test
     name :: String
   }
   
-  define page home(){
+  define page root(){
     var entList : List<String> := ["1","2"]
     
     for(e:Entity2 in entList where e.name == "1"){ //type error

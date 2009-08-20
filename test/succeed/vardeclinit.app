@@ -9,3 +9,7 @@ globals {
     var a : Int := 3;
   }
 }
+
+define page root() {
+
+}

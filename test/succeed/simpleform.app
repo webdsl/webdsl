@@ -17,7 +17,7 @@ section datamodel
       wiki := "wiki"
     };
   
-  define page home(){
+  define page root(){
     for(u:User)
     {
       outputString(u.name)

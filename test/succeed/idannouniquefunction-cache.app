@@ -6,7 +6,7 @@ section datamodel
     name :: String(id)
   }
 
-  define page home(){
+  define page root(){
     for(u:User){
       "users: " output(u.name)
     }
@@ -32,7 +32,7 @@ section datamodel
       var u5:Bool := isUniqueUserId("CACHE", User{name:="456"});
       validate(!u5, "error in isUniqueUserId(2)");
       
-      return home();
+      return root();
     }
     
   }

@@ -10,7 +10,7 @@ section datamodel
     body()
   }
   
-  define page home(){
+  define page root(){
     main()
     init{
       goto home2();

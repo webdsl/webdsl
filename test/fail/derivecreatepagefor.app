@@ -37,7 +37,7 @@ section data model
 
 section pages
 
-  define page home() {
+  define page root() {
     table {
       row { navigate(createNewsItem()){"Create news item"} }
     }

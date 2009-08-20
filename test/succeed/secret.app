@@ -9,7 +9,7 @@ section datamodel
 
   var bob : User := User { username := "Bob" };
 
-  define page home(){
+  define page root(){
     output(bob.username)
     output(bob.password)
     

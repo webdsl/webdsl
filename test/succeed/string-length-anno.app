@@ -23,7 +23,7 @@ application test
     s5 := "default length"
   }
 
-  define page home() {
+  define page root() {
     output(u_1.s1)    
     output(u_1.s2)    
     output(u_1.s3)    

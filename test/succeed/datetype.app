@@ -10,7 +10,7 @@ section datamodel
   
   var dt : DateTest := DateTest{};
   
-  define page home(){
+  define page root(){
     " date: " output(dt.date)
     " time: " output(dt.time)
     " datetime: " output(dt.datetime)
@@ -25,7 +25,7 @@ section datamodel
     action save()
     {
       dt.save();
-      return home();
+      return root();
     }
 
   }

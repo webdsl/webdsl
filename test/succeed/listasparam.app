@@ -19,7 +19,7 @@ init {
   n3.save();	  
 }
 
-define page home() {
+define page root() {
   h { "news" }
   var n: List<News> :=  select a from News as a;
   list {

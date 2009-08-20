@@ -2,7 +2,7 @@ application test
 
 section functions
 
-define page home(i : Int) {
+define page root() {
   init {
     goto firstPage(i);
   }

@@ -2,7 +2,7 @@ application test
 
 section pages
 
-define page home() {
+define page root() {
   var s: String := "hoi2"
   //block[id := target] {}
   placeholder target {}
