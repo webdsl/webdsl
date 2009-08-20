@@ -4,7 +4,7 @@ section functions
 
 define page root() {
   init {
-    goto firstPage(i);
+    goto firstPage(7);
   }
 }
 
