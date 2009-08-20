@@ -187,7 +187,7 @@ webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libt
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree write-files.ctree java-transformations.ctree
 
-STRJ=java -server -Xss4m -Xmx1024m -XX:+UseParallelGC -jar strategoxt.jar
+STRJ=`if which strj >/dev/null; then echo strj; else echo java -server -Xss4m -Xmx1024m -XX:+UseParallelGC -jar strategoxt.jar; fi`
 STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la org.strategoxt.libjava-front -p org.webdsl -I $(JAVA_FRONT)/share
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx256m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
