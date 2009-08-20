@@ -17,16 +17,7 @@ rules // page arguments
          void conversion(){
            if(parammap[e_original] !=null)
            {
-             try{ 
-                Array<String> ids = parammap[e_original].split(","); 
-                x_ids = e;
-                for(String anid : ids) {
-                  x_ids.add(anid.as<Int>);
-                }
-             }
-             catch(NumberFormatException nfe){
-               println(nfe.getMessage());
-             }  
+              x_ids = parammap[e_original].split(","); 
            } 
          }
          
@@ -35,26 +26,18 @@ rules // page arguments
            stat*
          }
         
-         t_idstype x_ids = null;
+         Array<String> x_ids = null;
         
-         qid1<data::x_Class> x = null;
+         x_type<data::x_Class> x = null;
       ]|    
-      where <?GenericSort(qid1,[x2])> srt
+      where <?GenericSort(x_type,[x2])> srt
       with  <?SimpleSort(x_Class)> x2      
           ; x_id := <concat-strings>[x, "_id"]
           ; e_original := <pil-wrap-string> <OriginalNonUniqueName> x
-          /* TODO: Re-enable
-          ; if <EntityIdName> x_Class then
-              t := <EntityIdType> x_Class
-            else */
-              ; t := SimpleSort("Int")
-            //end
-          ; t_idstype := <builtin-pil-type> GenericSort(qid1,[t])
-          ; e := <webdsl-pil-type-default-value> GenericSort(qid1, [t])
+          //; e := <webdsl-pil-type-default-value> GenericSort(x_type, [t])
           ; stat* := <argument-to-pil-initialization> arg
           ; x_ids := <concat-strings>[x,"_ids"]
      
-   /* TODO: re-enable
    argument-to-pil-property :
     arg@farg|[ x : srt ]| ->
     <generate-pil-partial> pil-cbd*|[
@@ -70,17 +53,9 @@ rules // page arguments
          stat*
        }
 
-       t x_id = e_init;
+       t x_id = null;
        
-       x_Class x;
-       
-       public void set#x(x_Class x) {
-         this.x = x;
-       }
-       
-       public x_Class get#x() {
-         return x;
-       }
+       data::x_Class x = null;
     ]|
     where <is-entity-type> srt
     with  <?SimpleSort(x_Class)> srt
@@ -89,11 +64,10 @@ rules // page arguments
         ; if <EntityIdName> x_Class then
             t := <builtin-pil-type> <EntityIdType> x_Class
           else
-            t := type|[ Long ]|
+            t := pil-type|[ String ]|
           end
-        ; bstm* := <argument-to-pil-initialization> arg
-        ; bstm1* := <pil-conversion-to-object> (t,x,x_id)
-   */ 
+        ; stat* := <argument-to-pil-initialization> arg
+        ; stat1* := <pil-conversion-to-object> (t,x,x_id)
 
    argument-to-pil-property :
     arg@farg|[ x : srt ]| ->
@@ -121,7 +95,6 @@ rules // page arguments
         ; stat1* := <pil-conversion-to-object <+ debug(!"pil-conversion-to-object failed: "); fail> (t_Class,x,x)
         ; e_init := <webdsl-pil-type-default-value <+ debug(!"Default value failed: "); fail> srt
 
-  /* TODO: re-enable
   argument-to-pil-initialization :
     arg@farg|[ x : srt ]| ->
     pil-stat*|[
@@ -129,7 +102,7 @@ rules // page arguments
          //x = new x_Class();
       } else {
           if (x == null) {
-            x = (t_Class) dbConn.load(x_Class.class, x_Id);
+            x = dbSession.get(typeof data::x_Class, x_Id).as<data::x_Class>;
           }
       }
     ]|
@@ -137,19 +110,18 @@ rules // page arguments
     with <?SimpleSort(x_Class)> srt
         ; x_Id := <concat-strings>[x, "_id"]
         ; e_init := <webdsl-pil-type-default-value> srt
-       // ; rules( Parameter :+= x )
 
   argument-to-pil-initialization :
     arg@farg|[ x : srt ]| ->
-    bstm*|[
+    pil-stat*|[
       if (x_ids == null) {            
          //x_ids = new x3();
       } 
       else {
         if (x == null) {
           x = e;
-          for(Integer anid: x_ids) {
-            x.add((x_Class) hibSession.load(x_Class.class, anid));
+          for(String anid: x_ids) {
+            x.add(dbSession.get(typeof data::x_Class, anid).as<data::x_Class>);
           }
         }
       }
@@ -158,7 +130,6 @@ rules // page arguments
     with  <?SimpleSort(x_Class)> x2
         ; e :=    <webdsl-pil-type-default-value> srt
         ; x_ids := <concat-strings>[x, "_ids"]
-  */
 
   argument-to-pil-initialization :
     arg@farg|[ x : srt ]| ->
@@ -203,18 +174,17 @@ rules // page arguments
     where <builtin-pil-type> s
     with e_original := <pil-wrap-string> <OriginalNonUniqueName> x_ident
 
-  /* TODO: re-enable
   form-hidden-page-params-pil :
     Arg(x, s) -> <generate-pil-partial>
-    java |[ 
-      @Partial 
-      public void hiddenParams(java.lang.StringBuffer combinedparams)
+    pil-cbd |[ 
+      @extend
+      void hiddenParams(MutableString combinedparams)
       {
-        combinedparams.append("<input type=\"hidden\" name=\""+"~<OriginalNonUniqueName> x"+"\" value=\""+x.getId()+"\" />");    
+        combinedparams.append("<input type=\"hidden\" name=\""+e_nonunique+"\" value=\""+x.id+"\" />");    
       }
     ]|
     where <defined-pil-type> s; not( GenericSort(_,_) := s)
-  */
+        ; e_nonunique := <OriginalNonUniqueName> x
     
   form-hidden-page-params-pil :
     Arg(x, s) -> <generate-pil-partial>

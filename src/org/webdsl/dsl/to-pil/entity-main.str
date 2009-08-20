@@ -26,13 +26,6 @@ strategies
             return getId().compareTo(((x_Class)o).getId());
           }
 
-          public boolean isInstance(Class<?> c) {
-            return c.isInstance(this);
-          }
-          
-          public boolean instanceOf(String s){
-            return s.equals("~x_Class")||s.equals("Object");
-          }
           */
 
           ~*cbds
@@ -88,29 +81,6 @@ strategies
 
  strategies
 
-   /*
-   generate-id-code =
-     ?x_Class
-     ; if <EntityIdName> x_Class then
-         x_idget := <concat-strings> ["get", <capitalize-string> <EntityIdName> x_Class]
-         ; x_idset := <concat-strings> ["set", <capitalize-string> <EntityIdName> x_Class]
-         ; t := <pil-type> <EntityIdType> x_Class
-         ; !class-body-dec* |[
-            public t getId() { return x_idget(); }
-            public void setId(t val) { x_idset(val); }
-          ]|
-       else
-         !class-body-dec* |[
-           @Id @GeneratedValue
-           private Long id;
-
-           public Long getId() { return id; }
-
-           public void setId(Long id) { this.id = id; }
-         ]|
-       end
-   */
-
    properties-to-code-pil(|x_Class) :
      props -> cbds
      where 
@@ -131,19 +101,29 @@ strategies
     with e_xclass := <pil-wrap-string> x_class
        ; stat* := <map(property-to-mapping-pil(|x_class))> prop*
 
+  // 1:N
   property-to-mapping-pil(|x_class) :
     Property(x, _, GenericSort("Set", [SimpleSort(x_s)]), anno*) ->
     pil-stat|[ fields.add(new pil::db::model::OneToManyFieldMapping(e_x, typeof data::x_s)); ]|
-    with e_x := <pil-wrap-string> x
-       /*
+    where e_x := <pil-wrap-string> x
+       ; <filter(?InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
+       ; not([] := <filter(try(normalize); ?Property(nm, _, SimpleSort(_), _))> <all-properties> x_s)
+
+  // N:M
+  property-to-mapping-pil(|x_class) :
+    Property(x, _, GenericSort("Set", [SimpleSort(x_s)]), anno*) ->
+    pil-stat|[ fields.add(new pil::db::model::ManyToManyFieldMapping(e_x, e_relname, typeof data::x_class, typeof data::x_s, e_managing)); ]|
+    where e_x := <pil-wrap-string> x
        ; <filter(?managing@InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
-       ; if !managing then
+       ; not([] := <filter(try(normalize); ?Property(nm, _, GenericSort("Set", _), _))> <all-properties> x_s)
+    with if !managing then
            e_managing := pil-exp|[ true ]|
+           ; e_relname := <pil-wrap-string> x
          else
            e_managing := pil-exp|[ false ]|
+           ; e_relname := <pil-wrap-string> nm
          end
        ; e_inverse := <pil-wrap-string> nm
-       */
 
   property-to-mapping-pil(|x_class) :
     Property(x, _, SimpleSort("String"), _) -> pil-stat|[ fields.add(new pil::db::model::ValueFieldMapping(e_x, pil::db::type::stringType, 255)); ]|
@@ -208,13 +188,27 @@ strategies
        ; e_propname := <pil-wrap-string> mx
 
    property-to-property-code-pil(|x_Class) :
-     prop@Property(x, k, GenericSort("Set", [srt]), annos) -> pil-cbd* |[
+     prop@Property(x, k, GenericSort("Set", [srt@SimpleSort(x_s)]), anno*) -> pil-cbd* |[
        OneToMany<t> x = new OneToMany<t>(this, typeof t, e_invpropname);
      ]|
     where t      := <defined-pil-type> srt
-    with e      := <webdsl-pil-type-default-value> srt
-       ; <fetch(?InverseAnno(_, invpropname) <+ ?InverseSlaveAnno(_, invpropname))> annos
-       ; e_invpropname := <pil-wrap-string> invpropname
+       ; <filter(?InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
+       ; not([] := <filter(try(normalize); ?Property(nm, _, SimpleSort(_), _))> <all-properties> x_s)
+    with e_invpropname := <pil-wrap-string> nm
+
+   property-to-property-code-pil(|x_Class) :
+     prop@Property(x, k, GenericSort("Set", [srt@SimpleSort(x_s)]), anno*) -> pil-cbd* |[
+       ManyToMany<t> x = new ManyToMany<t>(this, typeof data::x_s, e_invpropname, e_relname);
+     ]|
+    where t      := <defined-pil-type> srt
+       ; <filter(?managing@InverseAnno(_, nm) <+ ?InverseSlaveAnno(_, nm))> anno* 
+       ; not([] := <filter(try(normalize); ?Property(nm, _, GenericSort("Set", _), _))> <all-properties> x_s)
+    with e_invpropname := <pil-wrap-string> nm
+       ; if !managing then
+           e_relname := <pil-wrap-string> x
+         else
+           e_relname := <pil-wrap-string> nm
+         end
 
    property-to-property-code-pil(|x_Class) :
      prop@Property(mx@x, k, srt@SimpleSort(s), anno*) -> pil-cbd* |[
