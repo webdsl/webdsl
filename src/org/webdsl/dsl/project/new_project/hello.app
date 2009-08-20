@@ -7,7 +7,7 @@ description {
 imports templates
 section pages
 
-define page home() {
+define page root() {
 	main()
 	define body() {
 		"Hello world!"
