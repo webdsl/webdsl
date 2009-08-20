@@ -17,6 +17,8 @@ EXTRA_DIST = \
   $(wildcard template-python/*/*.*) \
   template-python/maak
 
+TESTS = testnewproject.sh
+
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
 
 install-data-local:
