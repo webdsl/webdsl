@@ -208,7 +208,8 @@ rules //templatecall
           else templname := "none"; e_templ* := [] end
         //templatecall with 'with' arguments
         ; withcallsmap := <collect(control-flow-emit-with-calls);concat> passign* 
-        ; result := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*, withcallsmap)
+        ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passign* 
+        ; result := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*, withcallsmap, attrsmap)
  
   /**
    *  'TemplateCall' for element in with { } arguments (derived from ArgDef constructor), 
@@ -220,9 +221,20 @@ rules //templatecall
    with e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
    //      ; origname := <OriginalNonUniqueName>  templname
       ; x_array := <newname> "array"
+      
+  control-flow-emit-attrs-calls :
+    PropertyAssignment(name, val) -> bstm* |[
+      attrsmapout.put("~name",e_val);
+    ]|
+    with e_val := <control-flow-emit-attrs-value <+ expression-to-java-servlet> val
+  
+  //translate ids
+  control-flow-emit-attrs-value :
+    val -> expr |[ "~val" ]|
+    where <is-string> val
  
   generate-template-call(|x_methodname):
-    (e_name, e_tname, e, e_templname, e_templ, bstm_npe*, bstm_withcallsmap*) ->
+    (e_name, e_tname, e, e_templname, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
     ident += e_tname;
@@ -248,7 +260,9 @@ rules //templatecall
         try {
           withcallsmapout = new HashMap<String, utils.TemplateCall>();
           bstm_withcallsmap*
-          templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(context, x_args, tc2, env2, new utils.TemplateCall(e_templname, x_templargs), withcallsmapout, e1*);
+          Map<String,String> attrsmapout = new HashMap<String, String>();
+          bstm_attrs*
+          templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(context, x_args, tc2, env2, new utils.TemplateCall(e_templname, x_templargs), withcallsmapout, attrsmapout, e1*);
         }
         catch(NullPointerException npe) {
           bstm_npe*
@@ -286,7 +300,7 @@ rules //elements
     with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'elements' call"); ]|
 //        ; x_tname := <get-templatecallnumber> tc
         ; result := <generate-template-call(|x_methodname)> 
-            (expr|[ templateArg.name ]|, expr|["elements"]|, expr|[ templateArg.args ]|, expr|["none"]|, var-init|[ {} ]|, bstm_npe*, [])
+            (expr|[ templateArg.name ]|, expr|["elements"]|, expr|[ templateArg.args ]|, expr|["none"]|, var-init|[ {} ]|, bstm_npe*, [],[])
 
 
 /**
@@ -313,6 +327,7 @@ rules //with element calls
         ; x_tname := <get-templatecallnumber> tc
         ; e_origargs* := <map(expression-to-java-servlet)> args
         ; originalname := <OriginalNonUniqueName> x
+        ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passigns 
 //        ; e_origargs := var-init |[ { e_origargs* } ]|
         ; result := <generate-template-call(|x_methodname)> 
             (expr|[ withcallsmap.get("~originalname").name ]|, 
@@ -321,4 +336,5 @@ rules //with element calls
              expr|["none"]|, 
              var-init|[ {} ]|, 
              bstm_npe*,
-             [])
+             [],
+             attrsmap)

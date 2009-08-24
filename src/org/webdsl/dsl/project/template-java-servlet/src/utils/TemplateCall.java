@@ -26,4 +26,13 @@ public class TemplateCall {
   public String name;
   public Object[] args;
   
+  public static String getAttribute(Map<String,String> attrs, String key, String def) {
+    if (attrs == null) 
+        return def;
+    else if (attrs.containsKey(key))
+        return attrs.get(key);
+    else 
+        return def;  
+  }
+  
 }
