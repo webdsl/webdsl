@@ -17,7 +17,8 @@ EXTRA_DIST = \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
   $(wildcard template-python/*/*.*) \
-  template-python/maak
+  template-python/maak \
+  testnewproject.sh
 
 TESTS = testnewproject.sh
 
