@@ -12,6 +12,7 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/images/*.png) \
   $(wildcard template-java-servlet/stylesheets/*.css) \
   $(wildcard template-pil/*.pil) \
+  $(wildcard template-pil/*.pil.h) \
   $(wildcard template-pil/*.xml) \
   $(wildcard template-pil/Makefile) \
   $(wildcard template-pil/lib/*.jar) \
