@@ -1,5 +1,4 @@
-//invalid right-hand side in assignment
-
+//Variable 'a' not defined a
 application test
 
 section functions
