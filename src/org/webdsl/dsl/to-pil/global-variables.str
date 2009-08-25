@@ -6,106 +6,70 @@ imports
 imports
   libwebdsl-front
 
-/*
 rules
 
-  GenerateCodeJavaServlet = generate-pil-global-vars; fail
+  GenerateCodePil = generate-pil-global-vars; fail
 
   generate-pil-global-vars :
     Application(qid, sections) ->
-    <emit-java-code> compilation-unit|[
-      package utils;
-  
-      import java.io.*;
-      import java.util.HashMap;
-  
-      import javax.servlet.*;
-      import javax.servlet.http.*;
-      import java.util.*;
-      import utils.*;
-      import pkgname.*;
-      import pkgname2.*;
-  
-      public class GlobalVariables {
-        private static org.hibernate.Session hibSession;
-        private static HashMap<String, Object> variables = new HashMap<String, Object>();
-        private static PageServlet ps = new GlobalsPageServlet(variables);
-        private static java.io.PrintWriter out = null;
-
-          //private static HashMap<String, Long> ids = new HashMap<String, Long>();
-          
-          //cope with either primary key types as well? or keep consistent, always Long primary key
-          
-        ~*cbds*
-        ~*cbds1*
+    <map(pil-emit)> pil-decl*|[
+        decl*
       
-        //private static HashMap<String, Object> variables = new HashMap<String, Object>();
-    
-        static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
-          for(ApplicationContextProperty a : res){
-            if(a.getName().equals(name))	
-              return true;
+        void application::initGlobals(DatabaseSession dbSession) {
+          var allGlobals = dbSession.all(typeof webdsl::internal::ApplicationContext);
+          for(webdsl::internal::ApplicationContext ctx : allGlobals) {
+            stat*
           }
-          return false;
-        } 
-    
-        static{
-            //start hibsession
-            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-
-            org.hibernate.Query q = hibSession.createQuery("from ApplicationContextProperty");
-            List<ApplicationContextProperty> res = q.list();
-    
-            bstm3*
-            bstm1*
-            bstm2*
-
-            org.hibernate.Query q2 = hibSession.createQuery("from ApplicationContextProperty");
-            List<ApplicationContextProperty> results = q2.list();
-            for(ApplicationContextProperty a : results)
-            {
-              bstm4*
-            }
+          stat2*
         }
-      }
     ]|
     where not([] := <AllGlobalVars>) // fails if there are no global vars, wont generate anything then
-    with  pkgname    := <BeanPackage>
-        ; pkgname2   := <DomainPackage>
-        ; cbds* := <map({\ 
+    with decl* := <map({\ 
                            elem |[ var x : srt := e ]| -> 
-                           class-body-dec*|[ 
-                             //private static t x = null;
-                             private static String x#id = null;
+                           pil-decl*|[ 
+                             String globals::x#__id = null;
+                             t globals::x = null;
                               
-                             public static x_class get#x(org.hibernate.Session hibSession)
-                             {
-                                 t x = (x_class) hibSession.load(x_class.class, x_type.valueOf(x#id));
-                                 return x;
+                             t globals::get#x(DatabaseSession dbSession) {
+                               if(globals::x == null) {
+                                 globals::x = dbSession.get(typeof t, globals::x#__id).as<t>;
+                               }
+                               return globals::x;
                              }
-                              
                            ]| 
                            with  t := <pil-type> srt
-                               ; SimpleSort(typename) := srt
-                               ; x_class := <pil-type-name> srt
-                               ; if <EntityIdName> typename then
-                                   x_type := <pil-type-name> <EntityIdType> typename
-                                 else
-                                   x_type := "Long"
-                                 end
                        \});concat> 
                        <AllGlobalVars<+ ![]>
-        ; vardeclinits := <AllGlobalVars <+ ![]>
-        // persist right away to get an id
-        ; bstm3* := <map(vardeclinit-to-persist-statement-pil <+ pp-aterm(!"vardeclinit-to-persist-statement-java-servlet: ");fail);concat-with-sublists> vardeclinits
-        //update with assignments
-        ; bstm1* := <map(vardeclinit-to-method-call-pil <+ pp-aterm(!"vardeclinit-to-method-call-java-servlet: ");fail)> vardeclinits
-        //persist updates
-        ; bstm2* := <map(vardeclinit-to-method-persist-call-pil <+ pp-aterm(!"vardeclinit-to-method-persist-call-java-servlet: ");fail)> vardeclinits
-        ; bstm4* := <map(vardeclinit-to-id-load <+ pp-aterm(!"vardeclinit-to-id-load: ");fail)> vardeclinits
-        ; cbds1* := <map(vardeclinit-to-method-pil <+ pp-aterm(!"vardeclinit-to-method-java-servlet: ");fail); concat-with-sublists> vardeclinits
+        ; stat* := <map({\ 
+                           elem |[ var x : srt := e ]| -> 
+                           pil-stat*|[ 
+                             if(ctx.name.get(dbSession) == e_x) {
+                               globals::x#__id = ctx.key.get(dbSession);
+                             }
+                           ]| 
+                           with e_x := <pil-wrap-string> x
+                       \});concat> 
+                       <AllGlobalVars<+ ![]>
+        ; stat2* := <map({\ 
+                           elem |[ var x : srt := e ]| -> 
+                           pil-stat*|[ 
+                             if(globals::x#__id == null) {
+                               globals::x = e2;
+                               var ctx = new webdsl::internal::ApplicationContext();
+                               ctx.name.set(e_x, dbSession);
+                               ctx.key.set(globals::x.id, dbSession);
+                               dbSession.add(ctx);
+                               dbSession.add(globals::x);
+                               globals::x#__id = globals::x.id;
+                             }
+                           ]| 
+                           with e_x := <pil-wrap-string> x
+                              ; e2 := <expression-to-pil> e
+                       \});concat> 
+                       <AllGlobalVars<+ ![]>
  
 
+  /*
   vardeclinit-to-persist-statement-pil:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> resultwrapped
     with  if <EntityIdName> x_class
