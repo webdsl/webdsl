@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.hibernate.*;
 import java.util.*;
 
+@SuppressWarnings("deprecation")
 public class ConvertOldGlobals {
 
 	static Session hibSession;
