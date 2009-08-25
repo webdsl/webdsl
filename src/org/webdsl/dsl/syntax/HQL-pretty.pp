@@ -95,6 +95,9 @@
    Count                                                  -- KW["count"] KW["("] _1 KW[")"],
    Max                                                    -- KW["max"] KW["("] _1 KW[")"],
    Min                                                    -- KW["min"] KW["("] _1 KW[")"],
-   Avg                                                    -- KW["avg"] KW["("] _1 KW[")"]
+   Avg                                                    -- KW["avg"] KW["("] _1 KW[")"],
+   
+   DeleteStatement -- KW["delete"] _1 _2,
+   None --
    
 ]
