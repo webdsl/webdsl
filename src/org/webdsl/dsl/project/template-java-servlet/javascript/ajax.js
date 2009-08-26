@@ -73,7 +73,7 @@ function findElementById(thisobject, id)
       result = current;
     }
     //found the scope boundary of this template, search inward
-    else if (current.className == "scopediv") {
+    else if (current.className.indexOf("scopediv") != -1) {
       foundscope = true;
       if (id == "this") 
         result = current;
