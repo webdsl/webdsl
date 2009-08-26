@@ -452,6 +452,20 @@ function make_app {
   fi
 }
 
+function check_app {
+  cd .servletapp
+  ant check
+  RET="$?"
+  cd ..
+  if [ "$RET" == 0 ]
+  then
+    echo "Check succesful."
+    return $RET
+  fi
+  echo "Check failed."
+  return $RET
+}
+
 commands="$*"
 if [ "$*" == "" ]; then
   commands="build"
@@ -461,7 +475,7 @@ if [ "$1" == "test" ]; then
   rm -rf .seamapp
   rm -rf .servletapp
   rm -rf dist
-  rm -f application.ini
+  mv application.ini application.ini.temp
   if [ "$3" == "" ]; then
     for backend in servlet; do
       echo BACKEND: $backend
@@ -480,23 +494,31 @@ if [ "$1" == "test" ]; then
   fi
   echo "export TOMCATPATH=/dev/null" >> application.ini
   echo "export JBOSSPATH=/dev/null" >> application.ini
-  echo "export APPNAME=$2" >> application.ini
-  echo "export DBSERVER=localhost" >> application.ini
-  echo "export DBUSER=whatever" >> application.ini
-  echo "export DBPASSWORD=whatever" >> application.ini
-  echo "export DBNAME=whatever" >> application.ini
-  echo "export DBMODE=whatever" >> application.ini
+  echo "export APPNAME=$2" >> application.ini  
+  echo "export DB=sqlite" >> application.ini
+  echo "export DBFILE=`pwd`/temp_test.db" >> application.ini
+  #echo "export DBSERVER=localhost" >> application.ini
+  #echo "export DBUSER=whatever" >> application.ini
+  #echo "export DBPASSWORD=whatever" >> application.ini
+  #echo "export DBNAME=whatever" >> application.ini
+  echo "export DBMODE=create-drop" >> application.ini
   echo "export SMTPHOST=localhost" >> application.ini
   echo "export SMTPPORT=1" >> application.ini
   echo "export SMTPUSER=naam" >> application.ini
   echo "export SMTPPASS=pass" >> application.ini
   echo "export SMTPSSL=true" >> application.ini
   echo "export SMTPTLS=true" >> application.ini
+  echo "" > temp_test.db
   make_app
   RET=$?
+  if [ $RET == 0 ]
+  then
+    check_app
+    RET=$?
+  fi
   rm -rf .seamapp
   rm -rf dist
-  rm -f application.ini
+  mv application.ini.temp application.ini
   exit $RET
 fi
 
@@ -622,6 +644,10 @@ for i in $commands; do
        then
          echo "Build done. Resulting application (.war file) is in .servletapp/. Run 'webdsl deploy' to deploy."
        fi
+       ;;
+    "check" )
+       make_app
+       check_app
        ;;
     "convert-to-unicode" )
        load_config

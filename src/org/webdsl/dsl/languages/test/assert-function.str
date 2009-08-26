@@ -1,0 +1,74 @@
+module org/webdsl/dsl/languages/test/assert-function
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules //implemented in back-end
+
+  built-in-template-rule-setup = 
+    x_funname := "assert"
+  ; <register-reserved-function> (x_funname,2)
+  ; <declare> fun |[ function x_funname(test:Bool,message:String){} ]|
+  ; <register-reserved-function> (x_funname,1)
+  ; <declare> fun |[ function x_funname(test:Bool){} ]|
+  ; fail
+  
+  keep-position-anno = ?exp |[ assert(e,e1) ]|
+  keep-position-anno = ?exp |[ assert(e) ]|
+
+  built-in-template-rule-setup = 
+    x_funname := "assertEquals"
+  ; <register-reserved-function> (x_funname,2)
+  ; <declare> fun |[ function x_funname(o1:Object, o2:Object, message:String){} ]|
+  ; <register-reserved-function> (x_funname,1)
+  ; <declare> fun |[ function x_funname(o1:Object, o2:Object){} ]|
+  ; fail
+  
+  keep-position-anno = ?exp |[ assertEquals(e,e1,e2) ]|
+  keep-position-anno = ?exp |[ assertEquals(e,e1) ]|
+  
+  built-in-template-rule-setup = 
+    x_funname := "assertNotSame"
+  ; <register-reserved-function> (x_funname,2)
+  ; <declare> fun |[ function x_funname(o1:Object, o2:Object, message:String){} ]|
+  ; <register-reserved-function> (x_funname,1)
+  ; <declare> fun |[ function x_funname(o1:Object, o2:Object){} ]|
+  ; fail
+  
+  keep-position-anno = ?exp |[ assertNotSame(e,e1,e2) ]|
+  keep-position-anno = ?exp |[ assertNotSame(e,e1) ]|
+  
+/**
+ *  assert(e1 == e2) -> assertEquals(e1,e2)  
+ *  assertEquals will show the values of e1 and e2 in the message
+ *  also assert(e1 != e) -> assertNotSame(e1,e2)
+ */
+rules  
+
+  desugar-test: 
+    call@exp|[ assert(e1 == e2,e_message) ]| -> newcall{newanno*}
+    with  _{anno*} := call
+        ; newanno* := [<fetch(?at@At(_,_,_));!at> anno*]
+        ; newcall := exp |[ assertEquals(e1,e2,e_message) ]|
+        
+  desugar-test:
+    call@exp|[ assert(e1 == e2) ]| -> newcall{newanno*}
+    with  _{anno*} := call
+        ; newanno* := [<fetch(?at@At(_,_,_));!at> anno*]
+        ; newcall := exp |[ assertEquals(e1,e2) ]|
+        
+  desugar-test: 
+    call@exp|[ assert(e1 != e2,e_message) ]| -> newcall{newanno*}
+    with  _{anno*} := call
+        ; newanno* := [<fetch(?at@At(_,_,_));!at> anno*]
+        ; newcall := exp |[ assertNotSame(e1,e2,e_message) ]|
+        
+  desugar-test:
+    call@exp|[ assert(e1 != e2) ]| -> newcall{newanno*}
+    with  _{anno*} := call
+        ; newanno* := [<fetch(?at@At(_,_,_));!at> anno*]
+        ; newcall := exp |[ assertNotSame(e1,e2) ]|
+        

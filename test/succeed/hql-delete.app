@@ -20,3 +20,19 @@ application crudpages
     
     output("number of stored User entities: "+(from User).length)
   }
+
+  test fsdfs{
+    assert((from User).length==5);
+    delete from User;
+    assert((from User).length==0);
+  }
+  test fsdfs{
+    assert((from User).length==5);
+    delete from User;
+    assert((from User).length==0);
+  }
+  test fsdfs{
+    assert((from User).length==5);
+    delete from User;
+    assert((from User).length==0);
+  }

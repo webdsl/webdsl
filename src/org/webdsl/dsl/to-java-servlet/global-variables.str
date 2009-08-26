@@ -57,10 +57,14 @@ rules
           }
           return false;
         } 
-    
-        static{
+        
+        public static void load(){
+          try{
+            bstm_initobjects*
+          
             //start hibsession
             hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            hibSession.beginTransaction();
             
             env = PageServlet.staticEnv;
             ps = new GlobalsPageServlet(env);
@@ -83,10 +87,19 @@ rules
             env = null;
             ps = null;
             out = null;
+          }
+          catch(Exception se){
+            System.out.println("Exception occured while instantiating global variables.");
+            se.printStackTrace();
+          }
+        }
+    
+        static{
+          load();
         }
       }
     ]|
-    where not([] := <AllGlobalVars>) // fails if there are no global vars, wont generate anything then
+    //where not([] := <AllGlobalVars>) // fails if there are no global vars, wont generate anything then
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
         ; cbds* := <map({\ 
@@ -118,7 +131,12 @@ rules
         ; bstm2* := <map(vardeclinit-to-method-persist-call-java-servlet <+ pp-aterm(!"vardeclinit-to-method-persist-call-java-servlet: ");fail)> vardeclinits
         ; bstm4* := <map(vardeclinit-to-id-load <+ pp-aterm(!"vardeclinit-to-id-load: ");fail)> vardeclinits
         ; cbds1* := <map(vardeclinit-to-method-java-servlet <+ pp-aterm(!"vardeclinit-to-method-java-servlet: ");fail); concat-with-sublists> vardeclinits
+        ; bstm_initobjects* := <map(vardeclinit-to-init-object-java)> vardeclinits
  
+  vardeclinit-to-init-object-java :
+    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(SimpleSort(x_classcreated),assigns)) -> 
+    bstm|[ x_ident = new x_t(); ]|
+    with  x_t := <java-type-name> SimpleSort(x_classcreated)
 
   vardeclinit-to-persist-statement-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> resultwrapped
@@ -160,7 +178,7 @@ rules
   vardeclinit-to-method-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(SimpleSort(x_classcreated),assigns)) ->
       class-body-dec* |[
-        private static t x_ident = new x_t();
+        private static t x_ident = null;
 
         private static void globalDeclaration#x_ident() {
           try {

@@ -1,0 +1,118 @@
+module org/webdsl/dsl/to-java-servlet/test/test
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+strategies
+
+  GenerateCodeJavaServlet = generate-tests; fail
+
+  generate-tests :
+     Test(ident,Block(stat*)) ->
+     <emit-java-code> compilation-unit|[
+       package pkgname;
+
+       import pkgname2.*;
+       import pkgname3.*;
+       import utils.*;
+       import org.webdsl.lang.*;
+       import org.webdsl.tools.*;
+       
+       @Partial
+       public class x_class extends utils.Test
+       {
+          public x_class () {
+            
+            hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            hibSession.beginTransaction();
+            hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
+             
+            env = PageServlet.staticEnv;
+            ps = new GlobalsPageServlet(env);
+
+            TestAll.reloadGlobalVarsInit(hibSession);
+
+            initialize();
+          }
+
+          public boolean run(){
+            boolean exceptionOccuredWhileRunningTests = false;
+            try
+            { 
+              System.out.println("\nTest: " + "~origident");
+            
+              bstm*
+
+              hibSession.flush();
+              hibSession.getTransaction().commit();
+            }	
+            catch(Exception ex)
+            { 
+              System.out.println("exception occured: " + ex.getMessage());
+              ex.printStackTrace();
+              hibSession.getTransaction().rollback();
+              exceptionOccuredWhileRunningTests = true;
+              //throw new RuntimeException("error in test");
+            }
+            finally{
+            
+            
+              System.out.println("Succeeded: " + assertsSucceeded +" / "+assertsChecked);            
+              System.out.println("Failed:    " + assertsFailed+" / "+assertsChecked);   
+              if(!exceptionOccuredWhileRunningTests){
+                if(assertsSucceeded == assertsChecked){
+                  System.out.println("All assertions in "+"~origident"+" succeeded.");   
+                }
+                else {
+                  System.out.println("Some assertions failed:");
+                  for(String s : messages){
+                    System.out.println(s);
+                  }
+                }
+              }
+              TestAll.clearDB();
+              if(assertsFailed>0 || exceptionOccuredWhileRunningTests){
+                return false;
+              }         
+              return true;
+            }
+          }
+          
+          private org.hibernate.Session hibSession;
+          private java.io.PrintWriter out;
+          private Environment env; 
+          private PageServlet ps;
+          
+          @Partial
+          protected void initialize(){}
+          
+       }
+     ]|
+     with x_class := <concat-strings> ["Test",ident]
+        ; pkgname := <TestPackage>
+        ; pkgname2 := <BeanPackage>
+        ; pkgname3 := <DomainPackage>          
+        ; bstm* := <statements-to-java-servlet> stat*
+        ; origident := <OriginalNonUniqueName> ident
+        ; <map(load-init-global-variables-cbds-test(|x_class, pkgname))> <AllGlobalVars> 
+    
+  load-init-global-variables-cbds-test(|x_class, pkgname) :   
+    elem |[ var x : srt := e ]| -> 
+    <emit-java-code>
+    compilation-unit|[
+      package pkgname;
+      @Partial
+      public class x_class {
+        private t x = null;
+        @Partial protected void initialize(){    
+          x = GlobalVariables.get#x(hibSession);
+          env.putVariable("~x", x);
+        }
+      }
+    ]| 
+    with  t := <java-type> srt
+        
