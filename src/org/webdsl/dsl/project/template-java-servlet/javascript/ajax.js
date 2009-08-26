@@ -75,7 +75,10 @@ function findElementById(thisobject, id)
     //found the scope boundary of this template, search inward
     else if (current.className == "scopediv") {
       foundscope = true;
-      result = findTopDown(current, id);
+      if (id == "this") 
+        result = current;
+      else
+        result = findTopDown(current, id);
     } 
     current = current.parentNode;
   }  	

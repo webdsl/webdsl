@@ -21,4 +21,6 @@ public interface TemplateServlet {
     public int handleActions(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out);	
     
     public int render(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out) ;
+    
+    public String getUniqueName();
 }
