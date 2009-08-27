@@ -1,0 +1,34 @@
+module org/webdsl/dsl/languages/ui/define-template-constraints
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules
+
+  //duplicate template signatures
+  constraint-error-ui :
+    Application(nm, sections) -> <fail>
+    where //get all top-level template defines (local defines are meant to be duplicate)
+          defines := <collect-om(?Define(_, _, _, _, _))> sections 
+          //remove 'define page' and 'define email'
+        ; templatedefines := <remove-all(?Define(<fetch(?Page())>, _, _, _, _);?Define(<fetch(?Email())>, _, _, _, _))> defines
+        ; doubledefinesigs := <map(template-def-to-sig);find-doubles> templatedefines
+        ; not([] := doubledefinesigs)
+    with <map(try(constraint-error-template-sigs(|doubledefinesigs)))> templatedefines
+    
+  template-def-to-sig :
+    Define(_, nm, arg, _, _) -> (<strip-annos> nm,<map(?Arg(_,<id>))> arg) 
+    
+  constraint-error-template-sigs(|doublesigs):
+    def -> <add-error(|["Template with signature ", pp, " is defined multiple times."])> 
+    where sig := <template-def-to-sig> def
+        ; <fetch(?sig)> doublesigs
+    with  pp := <pretty-print-template-signature> sig
+        
+  pretty-print-template-signature :
+    (ident,fargs) -> result 
+    with result := <concat-strings> [ident,"(",<map(pp-webdsl-to-string);separate-by(|",");concat-strings> fargs,")"]
+    
