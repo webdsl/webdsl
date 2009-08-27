@@ -14,7 +14,7 @@ application test
     test2()
   }
 
-  define test() requires content(s:String){
+  define test() requires content(String){
     "content: " content("456")
   }
 
@@ -34,7 +34,7 @@ application test
     </h1>
   }
    
-  define validationContextTest() requires error(m: List<String>), content(){
+  define validationContextTest() requires error(List<String>), content(){
     error(["123","456","789"]){
       content
     }

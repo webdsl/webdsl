@@ -1,4 +1,4 @@
-//No function or page 'testpae' with signature
+//No function or page
 application test
 
   define page root(){
