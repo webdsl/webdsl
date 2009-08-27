@@ -76,7 +76,8 @@ rules //template call either refers to a defined template, or to a built-in temp
         ; !(x1,arg*)
         ; (  rename-template-call-name-required(|x)
            <+rename-template-call-name-defined
-           <+rename-template-call-name-defined-input
+           <+rename-template-call-name-defined-input //<- MW: seperate rule for input templates, since their calls refer 
+                                                     //to a definition with an extra String param (supplied by the compiler)
            <+rename-template-call-name-builtin
            <+rename-template-call-name-error
           )
@@ -89,10 +90,14 @@ rules //template call either refers to a defined template, or to a built-in temp
         ; rules ( CallContextVars : x1 -> vars )
         //collect actions for template closure
         ; ( //only for page and regular templates, not other template types like email
+            //stores the key of the surrounding template
             templatekey := (<InPage <+ InTemplate;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>)
-          ; actions := <TemplateActions> templatekey
           ; rules ( CallContextActionsKey : x1 -> templatekey )
-          <+rules ( CallContextActionsKey : x1 -> None() )
+          ; rules ( CallRequiresKey       : x1 -> templatekey )
+          <+ 
+            rules ( CallContextActionsKey : x1 -> None() )
+          ; rules ( CallRequiresKey       : x1 -> None() )
+            
           )
           
   rename-template-call-name-defined : 
@@ -227,21 +232,45 @@ signature
     ResolvedRequireKey: Term -> Term
 rules        
   desugar-argdef(|templatename) :
+    ArgDefine(x,origfarg,elem*) -> TemplateCall(x_newtempl, [],[ResolvedRequireKey(x)],TemplateBody([]))
+    with x_newtempl := <conc-strings; newname> (x,"_argdef")
+        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
+        ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> templatename
+        ; defelem* := [elem*, action*]
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, origfarg, requires*, defelem*) 
+         /**
+           *  a special templatecall that only needs resolving by name, since the name is uniquely generated
+           *  produces the name that should be used to look up the template in the hashmap
+           */
+        ; t* := <map(?Arg(_,<id>))> origfarg
+        ; rules (   
+            UniqueNameTemplateCall : x_newtempl -> <generate-template-name> (x_newtempl,t*)
+          )
+
+/* implementation which supports the usage of outlying variables in with definitions: e.g:
+  template x() {
+    var s: String := "abc"
+    y() with {
+      z() { output(s) }
+    }
+  }
+            
+  desugar-argdef(|templatename) :
     ArgDefine(x,origfarg*,elem*) -> TemplateCall(x_newtempl, var*,[ResolvedRequireKey(x)],TemplateBody([]))
     with x_newtempl := <conc-strings; newname> (x,"_argdef")
         ; var* := <CallContextVars> templatename
         ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> var*
         ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
+        ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> templatename
         ; defelem* := [elem*, action*]
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg*, farg*], None(), defelem*)
-         /**
-           *  a special templatecall that only needs resolving by name, since the name is uniquely generated
-           *  produces the name that should be used to look up the template in the hashmap
-           */
+        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg, farg], requires*, defelem*) 
+         // a special templatecall that only needs resolving by name, since the name is uniquely generated
+         //  produces the name that should be used to look up the template in the hashmap
         ; t* := <map(?Arg(_,<id>))> [origfarg*, farg*]
         ; rules (   
             UniqueNameTemplateCall : x_newtempl -> <generate-template-name> (x_newtempl,t*)
           )
+*/  
         /*; x_newtempldelegator := <conc-strings; newname> (x,"_argdef_delegate")
         ; origvar* := <map(?Arg(<!Var(<id>)>,_))> origfarg*
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempldelegator, origfarg*, None(), TemplateBody([ TemplateCall(x_newtempl, [origvar*,var*],[],TemplateBody([])) ]) )
