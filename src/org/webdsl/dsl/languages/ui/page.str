@@ -7,18 +7,29 @@ imports
   libwebdsl-front
 
 rules // constraints
-
+        
   //duplicate page names
   constraint-error-ui :
-    Application(nm, sections) -> <add-error(|["Pages ", <separate-by(|",")> page*, " are defined multiple times"])> 
-    where pages := <collect(?Define([Page()], _, _, _, _)); map(\ Define([Page()], nm, _, _, _) -> nm \)> sections
-        ; page* := <find-doubles> pages
-        ; not([] := page*)
+    Application(nm, sections) -> <fail>
+    where defines := <collect-om(?Define(_, _, _, _, _))> sections 
+        ; pagedefines := <filter(\d@Define(mod*, _, _, _, _)->d where <fetch(?Page())> mod*\)> defines
+        ; doublepagenames := <map(?Define(_, <strip-annos>, _, _, _));find-doubles> pagedefines
+        ; not([] := doublepagenames)
+    with <map(try(constraint-error-page-names(|doublepagenames)))> pagedefines
+    
+  constraint-error-page-names(|doublepagenames):
+    Define(_,name,_,_,_) -> <add-error(|["Page with name ", namestripped, " is defined multiple times."])> 
+    where namestripped := <strip-annos> name
+       ; <fetch(?namestripped)> doublepagenames
+    
+rules     
 
   constraint-error-ui :
     Define(mods, name, args, body, requires) -> <add-error(|["type \"Object\" not allowed in page arguments "])>
     where <fetch(?Page())> mods
         ; <oncetd(?SimpleSort("Object"))> args
+
+rules
 
   constraint-error-ui :
     Application(nm, sections) -> <add-error(|["no root page root() defined."])> ""

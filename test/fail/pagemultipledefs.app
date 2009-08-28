@@ -1,4 +1,4 @@
-//are defined multiple times
+//is defined multiple times
 
 application test
 
@@ -46,4 +46,6 @@ section bla
 
   define page test(){title{"1"}}
   define page test(){title{"2"}}
+  
+  define body(){ "default body" }
    
