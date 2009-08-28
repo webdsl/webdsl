@@ -9,8 +9,7 @@ ESVS       = ${wildcard *.esv}
 all : eclipse-deps
 
 clean :
-	rm -f src/parser/$(SYNTAX)ParseController.java plugin.xml
-	rm -rf src/parser/ast
+	rm -f plugin.xml
 	# ...
 
 eclipse-deps : plugin.xml # and others

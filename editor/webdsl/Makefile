@@ -3,15 +3,15 @@ SOURCE     = ../../src/org/webdsl/dsl/syntax/$(SYNTAX).def
 PPTABLES   = ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp.af \
              ../../src/org/webdsl/dsl/syntax/HQL-pretty.pp.af
 
-ESVS       = ${wildcard src/*.esv}
+ESVS       = ${wildcard editor/*.esv}
 
-EDITORSUPPORT = include # $(IMP)/org.strategoxt.imp.runtime/src/stratego-editor-support
+EDITORSUPPORT = include # $(IMP)/org.strategoxt.imp.runtime/editor/stratego-editor-support
 
 all : ctrees include/$(SYNTAX).packed.esv
 
 clean :
-	rm -f src/parser/$(SYNTAX)ParseController.java bin/$(SYNTAX).packed.esv
-	rm -rf src/parser/ast
+	rm -f editor/parser/$(SYNTAX)ParseController.java bin/$(SYNTAX).packed.esv
+	rm -rf editor/parser/ast
 	# ...
 
 ctrees : include/feedback.ctree
@@ -22,10 +22,10 @@ ctrees : include/feedback.ctree
 syntax :
 	$(MAKE) -C ../.. syntax
 
-include/feedback.ctree : src/feedback.str syntax
+include/feedback.ctree : editor/feedback.str syntax
 	strc -F --library -I ../../src -I ../../src/org/webdsl/dsl/syntax -I $(EDITORSUPPORT) -i $< -o $@
 
-feedback : src/feedback.str
+feedback : editor/feedback.str
 	strc -i $< -o $@ \
          -I ../../src -I ../../src/org/webdsl/dsl/syntax -I include \
 	     -la ../../src/libwebdsl-front.la \
