@@ -30,7 +30,19 @@ define mainheader() {
 define applicationmenu() {
   <ul>
     <li>navigate(root()){"Home"}</li>
-    <li>navigate(manageExampleEntity()){ "Manage ExampleEntity" }</li>
+    <li>navigate(managePerson()){ "Manage Person" }</li>
   </ul>
+}
+ 
+define ignore-access-control errorTemplateInput(messages : List<String>){
+  validatedInput
+  for(ve: String in messages){
+    row[style := "color: #FF0000;border: 1px solid #FF0000;"]{
+      column{}
+      column{ 
+        output(ve)
+      }
+    }
+  }
 }
  
