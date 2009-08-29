@@ -25,6 +25,26 @@ entity Person {
   children    -> Set<Person> (inverse = Person.parents)
   photo       :: Image  
   admin       :: Bool
+  favoriteColor -> Color
 }
 
 derive crud Person
+
+entity Color {
+  name :: String (id, validate(isUniqueColor(this), "Color exists already")
+                    , validate(name.length() > 0, "Color name may not be empty"))
+}
+
+derive crud Color
+
+init {
+  var color : Color;
+  color := Color { name := "blue" };
+  color.save();
+  color := Color { name := "yellow" };
+  color.save();
+  color := Color { name := "red" };
+  color.save();
+  color := Color { name := "green" };
+  color.save();
+}
