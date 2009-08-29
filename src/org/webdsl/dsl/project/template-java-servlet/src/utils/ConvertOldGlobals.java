@@ -69,36 +69,61 @@ public class ConvertOldGlobals {
 		System.out.println("altering column "+table+"."+column);
 		try
 		{ 
-			PreparedStatement alterTable = hibSession.connection().prepareStatement(
-					"ALTER TABLE "+table+" MODIFY COLUMN "+column+" VARCHAR(32)" //DEFAULT '1';"
-			);	
-			alterTable.executeUpdate();
+			PreparedStatement alterTable1 = hibSession.connection().prepareStatement(
+					"ALTER TABLE "+table+" ADD COLUMN "+column+"TEMPORARY234987 VARCHAR(32)");	
+			alterTable1.executeUpdate();
 
 			System.out.println("done altering column "+table+"."+column);
-
-
 			System.out.println("altering column data "+table+"."+column);
-			java.sql.Statement stmt = hibSession.connection().createStatement(java.sql.ResultSet.TYPE_SCROLL_SENSITIVE,java.sql.ResultSet.CONCUR_READ_ONLY);
-			java.sql.ResultSet srs = stmt.executeQuery("select "+column+" from "+table);
-			while(srs.next()){
+			
+			boolean itemProcessed;
+			do {
+				java.sql.Statement stmt = hibSession.connection().createStatement(java.sql.ResultSet.TYPE_SCROLL_SENSITIVE,java.sql.ResultSet.CONCUR_READ_ONLY);			
+				java.sql.ResultSet srs = stmt.executeQuery("select "+column+" from "+table+" WHERE "+column+"TEMPORARY234987 IS NULL LIMIT 50000" );
+				
+				itemProcessed = false;
+				while(srs.next()){
+					byte[] value = srs.getBytes(1);
+					if(value != null && value.length > 0){
+						java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.ByteArrayInputStream(value));
+						long most=(Long)dis.readLong();
+						long least=(Long)dis.readLong();
+						UUID temp = new UUID(most,least);
 
-				byte[] value = srs.getBytes(1);
-				if(value != null && value.length > 0){
-					java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.ByteArrayInputStream(value));
-					long most=(Long)dis.readLong();
-					long least=(Long)dis.readLong();
-					UUID temp = new UUID(most,least);
+						PreparedStatement updateIds = hibSession.connection().prepareStatement("UPDATE "+table+" SET "+column+"TEMPORARY234987 = ? WHERE "+column+" = ?");
 
+						updateIds.setString(1, persistUUIDString(temp));
+						updateIds.setBytes(2, value);
 
-					PreparedStatement updateIds = hibSession.connection().prepareStatement("UPDATE "+table+" SET "+column+" = ? WHERE "+column+" = ?");
-
-					updateIds.setString(1, persistUUIDString(temp));
-					updateIds.setBytes(2, value);
-
-					updateIds.executeUpdate();
+						updateIds.executeUpdate();
+						updateIds.close();
+					}
+					itemProcessed = true;
 				}
-			}
-      srs.close();
+				srs.close();
+				stmt.close();
+				
+				java.sql.Statement stmt2 = hibSession.connection().createStatement(java.sql.ResultSet.TYPE_SCROLL_SENSITIVE,java.sql.ResultSet.CONCUR_READ_ONLY);			
+				java.sql.ResultSet srs2 = stmt2.executeQuery("SELECT count(*) FROM "+table+" WHERE "+column+"TEMPORARY234987 IS NULL" );
+				srs2.next();
+				System.out.println("Items to proccess in this column: " + srs2.getLong(1));
+				srs2.close();
+				stmt2.close();
+			} while(itemProcessed);
+		         
+         		PreparedStatement alterTable2 = hibSession.connection().prepareStatement(
+			   "ALTER TABLE "+table+" MODIFY COLUMN "+column+" VARCHAR(32)");
+			alterTable2.executeUpdate();
+			
+			PreparedStatement update1 = hibSession.connection().prepareStatement(
+			   "UPDATE "+table+" SET "+column+"="+column+"TEMPORARY234987");
+  			update1.executeUpdate();
+  			
+  			PreparedStatement alterTable3 = hibSession.connection().prepareStatement(
+			   "ALTER TABLE "+table+" DROP "+column+"TEMPORARY234987");
+  			alterTable3.executeUpdate();
+
+
 			System.out.println("done altering column data "+table+"."+column);
 		}
 		catch(Exception ex){
@@ -147,7 +172,7 @@ public class ConvertOldGlobals {
 
 		hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
 		hibSession.beginTransaction();
-		hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
+//		hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
 		emptySessionObjects();
 		convertGlobals();
 		
