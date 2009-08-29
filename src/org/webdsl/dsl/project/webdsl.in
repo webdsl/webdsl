@@ -83,6 +83,14 @@ function load_config {
     then
       APPNAME=`basename \`pwd\``
       echo "Creating application.ini for application with name $APPNAME."
+      
+      echo -n "Application name, also the name of the main .app file (without .app extension) [$APPNAME] "
+      read APP_NAME
+      if [ "$APP_NAME" != "" ]
+      then
+        APPNAME=$APP_NAME
+      fi  
+      
       create_config $APPNAME
       echo "Created application.ini. Run webdsl again to compile your project."
     fi
@@ -91,21 +99,23 @@ function load_config {
 }
 
 function create_config {
-  echo "---- Back-end choice ----"
-  echo "available back-ends: servlet, python"
-  if [ "$BACKEND" == "" ]; then
-     BACKEND=servlet
-  fi
-  echo -n "Back-end [$BACKEND]: "
-  read BACK_END
-  if [ "$BACK_END" != "" ]
-  then
-     BACKEND=$BACK_END
-  fi
+#  echo "---- Back-end choice ----"
+#  echo "available back-ends: servlet, python"
+#  if [ "$BACKEND" == "" ]; then
+#     BACKEND=servlet
+#  fi
+#  echo -n "Back-end [$BACKEND]: "
+#  read BACK_END
+#  if [ "$BACK_END" != "" ]
+#  then
+#     BACKEND=$BACK_END
+#  fi
+
+  BACKEND=servlet
 
   if [ "$BACKEND" != "python" ]; then
     echo "---- Database information ----"
-    echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the databse with the given username and password for you."
+    echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the database with the given username and password for you."
     if [ "$DBSERVER" == "" ]; then
        DBSERVER=localhost
     fi
@@ -151,7 +161,7 @@ function create_config {
     if [ "$DBMODE" == "" ]; then
        DBMODE=create-drop
     fi
-    echo -n "Hibernate database mode (e.g. 'update' or 'create-drop') [$DBMODE] "
+    echo -n "Hibernate database mode (create-drop / update / false) [$DBMODE] "
     read DB_MODE
     if [ "$DB_MODE" != "" ]
     then
@@ -203,11 +213,11 @@ function create_config {
   read SMTPANSWER
   if [ "$SMTPANSWER" == "y" ]
   then
-     echo -n "SMTP host [smtp-a.tudelft.nl]: "
+     echo -n "SMTP host [smtp.gmail.com]: "
      read SMTPHOST
      if [ "$SMTPHOST" == "" ]
      then
-       SMTPHOST=smtp-a.tudelft.nl
+       SMTPHOST=smtp.gmail.com
      fi
 
      echo -n "SMTP port [465]: "
@@ -278,7 +288,7 @@ function create_config {
 
   echo "export BACKEND=$BACKEND" >> application.ini
   echo "export TOMCATPATH=$TOMCATPATH" >> application.ini
-  echo "export JBOSSPATH=$JBOSSPATH" >> application.ini
+#  echo "export JBOSSPATH=$JBOSSPATH" >> application.ini
   echo "export APPNAME=$APPNAME" >> application.ini
   echo "export DBSERVER=$DBSERVER" >> application.ini
   echo "export DBUSER=$DBUSER" >> application.ini
@@ -466,9 +476,31 @@ function check_app {
   return $RET
 }
 
+function clean_app {
+  echo "Removing servlet project files and dist directory."
+  rm -rf $SERVLETPROJECTDIR
+#  rm -rf $SEAMPROJECTDIR
+#  rm -rf $PYTHONPROJECTDIR
+}
+
+function show_help {
+  echo "Options:"
+  echo "     build : Performs 'webdsl clean' and compiles the application using the settings in application.ini."
+#  echo "      code : Compile your application to Java or Python code, but do not compile them."
+  echo "       new : Creates an example WebDSL application in a subdirectory of the current directory. The application name is also the name of the directory."
+  echo "    deploy : Deploys the application to Tomcat. Changing the settings in application.ini requires a new 'webdsl build' first."
+#  echo "       run : Runs the application (Python AppEngine backend only)."
+#  echo "  analyze : Perform various analyses on the application but do not generate code."
+  echo "     clean : Removes the .servletapp directory which contains generated files."
+#  echo " cleanall : Removes the created Seam project and dist directory."
+  echo "     check : Runs all tests using the database settings in application.ini."
+  echo "test [app] : Builds [app] using a generated application.ini and runs all tests on a Sqlite database file."
+}
+
+
 commands="$*"
 if [ "$*" == "" ]; then
-  commands="build"
+  commands="help"
 fi
 
 if [ "$1" == "test" ]; then
@@ -617,16 +649,10 @@ for i in $commands; do
        echo "Application created in $APPNAME. You can now cd to this directory and call the webdsl script to compile your program."
        ;;
     "clean" )
-       echo "Removing project files"
-       rm -rf $SEAMPROJECTDIR
-       rm -rf $SERVLETPROJECTDIR
-       rm -rf $PYTHONPROJECTDIR
+       clean_app
        ;;
     "cleanall" )
-       #echo "Removing seam project files and dist directory."
-       #rm -rf $SEAMPROJECTDIR dist
-       echo "Removing servlet project files and dist directory."
-       rm -rf $SERVLETPROJECTDIR
+       clean_app
        ;;
     "code" )
        make_app_code
@@ -639,6 +665,7 @@ for i in $commands; do
        @prefix@/bin/webdslc -i $APPNAME.app --analysis --no-generation > /dev/null
        ;;
     "build" )
+       clean_app
        make_app
        if [ "$?" == 0 ]
        then
@@ -668,17 +695,13 @@ for i in $commands; do
        fi
        fi
        ;;
+    "help" )
+       show_help
+       ;;
     * )
-       echo "Options:"
-       echo "   [none] : Compile your application. Takes all your .app and .css files, creates a new Seam project, compiles everything."
-       echo "     code : Compile your application to Java or Python code, but do not compile them."
-       echo "      new : Create a new, empty WebDSL application."
-       echo "   deploy : Deploys your application to JBoss."
-       echo "      run : Runs the application (Python AppEngine backend only)."
-       echo "  analyze : Perform various analyses on the application but do not generate code."
-       echo "    clean : Removes the created Seam project."
-       echo " cleanall : Removes the created Seam project and dist directory."
+       show_help
        ;;
   esac
 done
+
 
