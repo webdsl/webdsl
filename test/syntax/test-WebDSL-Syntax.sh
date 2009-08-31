@@ -15,10 +15,12 @@ echo sglri -p $1.tbl -i $VAR -o __test-$VAR
 sglri -p $1.tbl -i $VAR -o __test-$VAR
 cat __test-$VAR | pp-aterm
 
-#if sglri -A -p $1.tbl -i $VAR; then
-#else
-#fi
-
+sglri -A -p $1.tbl -i $VAR -o __ignore
+RET=$?
+if [ $RET == 1 ]
+then
+  sglr -p $1.tbl -i $VAR | pp-aterm
+fi
 
 #echo parse-pp-table -i ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -o __WebDSL-pretty.pp.af
 #     parse-pp-table -i ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -o __WebDSL-pretty.pp.af
