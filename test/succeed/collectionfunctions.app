@@ -23,10 +23,41 @@ section datamodel
     }    
     
   }
+  
   var u1:User := User{name := "bob" };
   var u2:User := User{name := "alice"};
   var u3:User := User{name := "charlie"};
   var u4:User := User{name := "dave"};
+  
+  entity SubUser : User{
+  
+  }
+  
+  test listAddSub{
+    var x := List<User>();
+    x.add(SubUser{});
+    assert(x.length == 1);
+  }
+  test listRemoveSub{
+    var y := SubUser{};
+    var x := [y];
+    x.remove(y);
+    assert(x.length == 0);
+  }
+  test listAddAllSub{
+    var y := [SubUser{}];
+    var x := List<User>();
+    x.addAll(y);
+    assert(x.length == 1);
+  }
+  test listIndexOfSub{
+    var us := SubUser{};
+    var list := [User{},us];
+    var index := list.indexOf(us);
+    assert(index==1);
+  }
+  
+  
   
   define page root(){
     main()
