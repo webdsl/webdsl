@@ -79,7 +79,7 @@ public class ConvertOldGlobals {
 			boolean itemProcessed;
 			do {
 				java.sql.Statement stmt = hibSession.connection().createStatement(java.sql.ResultSet.TYPE_SCROLL_SENSITIVE,java.sql.ResultSet.CONCUR_READ_ONLY);			
-				java.sql.ResultSet srs = stmt.executeQuery("select "+column+" from "+table+" WHERE "+column+"TEMPORARY234987 IS NULL LIMIT 50000" );
+				java.sql.ResultSet srs = stmt.executeQuery("select "+column+" from "+table+" WHERE "+column+"TEMPORARY234987 IS NULL AND "+column+" IS NOT NULL LIMIT 50000" );
 				
 				itemProcessed = false;
 				while(srs.next()){
