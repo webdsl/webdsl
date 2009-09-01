@@ -32,6 +32,26 @@ section datamodel
   entity SubUser : User{
   
   }
+  entity SubSubUser : SubUser{
+  
+  }
+
+  test listCreation {
+    var x := List<User>();
+    assert(x.length == 0);
+    var y := List<User>(User{},SubSubUser{},SubUser{});
+    assert(y.length == 3);
+    var z := [User{},User{},User{}];
+    assert(z.length == 3);
+  }
+  test setCreation {
+    var x := Set<User>();
+    assert(x.length == 0);
+    var y := Set<User>(User{},SubUser{},SubSubUser{});
+    assert(y.length == 3);
+    var z := {User{},User{},User{}};
+    assert(z.length == 3);
+  }
   
   test listAddSub{
     var x := List<User>();
