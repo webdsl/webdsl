@@ -1,7 +1,9 @@
 package org.webdsl.querylist;
 
 import java.util.List;
-import org.webdsl.tools.*;
+
+import org.webdsl.tools.ReflectionTools;
+import org.webdsl.tools.strategoxt.*;
 
 public class Filters {
 	public static Filter and(final Filter f1, final Filter f2) {

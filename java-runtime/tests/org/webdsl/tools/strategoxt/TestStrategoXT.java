@@ -1,4 +1,4 @@
-package org.webdsl.tools;
+package org.webdsl.tools.strategoxt;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,19 +34,13 @@ public class TestStrategoXT extends TestCase {
 	}
 	
 	public void testParse() throws Exception {
-		IStrategoTerm term = SDF.get("WebDSL").parseToTerm(WEBDSL_EXAMPLE);
+		IStrategoTerm term = SDF.get("WebDSL").parse(WEBDSL_EXAMPLE);
 		
 		assertTrue(term.getTermType() == IStrategoTerm.APPL);
 		
 		IStrategoConstructor constructor = ((IStrategoAppl) term).getConstructor();
 		
 		assertTrue(constructor.getName().equals("Module"));
-	}
-	
-	public void testParseToString() throws Exception {
-		String term = SDF.get("WebDSL").parseToString(WEBDSL_EXAMPLE);
-		
-		assertTrue(term.startsWith("Module"));
 	}
 	
 	/* TODO: Proper StrategoProgram unit test

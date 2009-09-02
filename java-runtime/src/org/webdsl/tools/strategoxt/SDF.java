@@ -53,7 +53,7 @@ public class SDF {
 		}
 	}
 	
-	private synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
+	protected synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
 		org.spoofax.jsglr.Tools.setOutput(java.io.File.createTempFile("jsglr", "log").getAbsolutePath());
 		
 		ParseTable table = Environment.loadParseTable(parseTable);
@@ -67,7 +67,7 @@ public class SDF {
 		return result;
 	}
 	
-	private static synchronized SDF get(String language) {
+	protected static synchronized SDF get(String language) {
 		return allSDF.get(language);
 	}
 	
