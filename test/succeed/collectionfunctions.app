@@ -64,17 +64,72 @@ section datamodel
     x.remove(y);
     assert(x.length == 0);
   }
+  test listClear{
+    var x := [User{},User{}];
+    x.clear();
+    assert(x.length == 0);
+  }
   test listAddAllSub{
     var y := [SubUser{}];
     var x := List<User>();
     x.addAll(y);
     assert(x.length == 1);
   }
+  test listToSet{
+    var us := SubUser{};
+    var list : List<User> := [User{},us];
+    var set : Set<User> := list.set();
+    assert(set.length == 2);
+  }  
+  test setTolist{
+    var us := SubUser{};
+    var set : Set<User> := {User{},us};
+    var list : List<User> := set.list();
+    assert(list.length == 2);
+  }  
   test listIndexOfSub{
     var us := SubUser{};
     var list := [User{},us];
     var index := list.indexOf(us);
     assert(index==1);
+  }
+  test listGetSet{
+    var us := SubUser{};
+    var list := [User{}, us, SubUser{}, SubSubUser{}];
+    assert(list.length == 4);
+    assert(list.get(1) == us);
+    list.set(1,User{});
+    assert(list.get(1) != us);
+  }
+  test listInsertRemoveAt{
+    var us := SubUser{};
+    var list := [User{}, us, SubUser{}, SubSubUser{}];
+    assert(list.length == 4);
+    list.insert(1,User{});
+    assert(list.get(2) == us);
+    list.removeAt(1);
+    assert(list.get(1) == us);
+  }
+  test listIndexOfNull{
+    assert([User{},User{}].indexOf(null) == -1);
+  }
+  test listGetOutOfBounds{
+    assert([User{},User{}].get(34) == null);
+  }
+  test listSetOutOfBounds{
+    var x := [User{},User{}];
+    x.set(34,User{});
+    assert(x.length == 2);
+  }
+  test listInsertOutOfBounds{
+    var x := [User{},User{}];
+    x.insert(34,User{});
+    assert(x.length == 2);
+  }
+  test listRemoveAtOutOfBounds{
+    var x := [User{},User{}];
+    x.removeAt(34);
+    assert(x.length == 2);
   }
   
   

@@ -30,7 +30,7 @@ public class Test {
 	}
 	
     public void assertEquals(Object o1, Object o2, String message, String loc){
-       assertTrue(o1.equals(o2),message+"\nfirst value was:  "+o1.toString()+"\nsecond value was: "+o2.toString(), loc);
+       assertTrue(org.webdsl.tools.Utils.equal(o1,o2),message+"\nassert equals\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
     }
     
     public void assertEquals(Object o1, Object o2, String loc){
@@ -38,7 +38,7 @@ public class Test {
     }
     
     public void assertNotSame(Object o1, Object o2, String message, String loc){
-    	assertTrue(!o1.equals(o2),message+"\nfirst value was:  "+o1.toString()+"\nsecond value was: "+o2.toString(), loc);
+    	assertTrue(!org.webdsl.tools.Utils.equal(o1,o2),message+"\nassert not same\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
     }
     
     public void assertNotSame(Object o1, Object o2, String loc){
