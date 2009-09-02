@@ -37,7 +37,13 @@ application test
     //explodeString
     //List<String>: implodeString
     assert("34gDE".explodeString() == ["3","4","g","D","E"]);
-    assert("34gDE".explodeString().implodeString() == "34gDE");
+    assert("34gDE".explodeString().concat() == "34gDE");
+    assert("34gDE".explodeString().concat(", ") == "3, 4, g, D, E");
 
     //debugging: log
+  }
+  
+  test defaultValue{
+    var s : String;
+    assert(s == "");
   }
