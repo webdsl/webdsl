@@ -8,15 +8,17 @@ imports
 
 rules
 
+  ajax-action-call-to-exp :
+    call@ThisCall(act, args) -> e |[ 
+      "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this);" 
+     ]| 
+    with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
+    
   //event call to java
   assignment-to-html-attr :
-    tc@PropertyAssignment(x, call@ThisCall(act, args)) -> (x, 
-    e |[ 
-      "javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this)" ]| 
-    
-    )
+    tc@PropertyAssignment(x, call@ThisCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
     //TODO: check wheter x is a valid event
-    with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
+    with e2 := <ajax-action-call-to-exp> call 
         
   //handle actions
   handle-actions-to-java-servlet: 
@@ -32,6 +34,29 @@ rules
     with  actionident := <get-actionnumber> tc   
         ; e* := <map(expression-to-java-servlet)> args
         ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
+
+ handle-actions-to-java-servlet: 
+    exp |[ event(e1) ]|  ->
+    bstm*|[
+       ident = utils.TemplateCall.getAttribute(attrs, e2+"_uid","<undefined action!>");
+       if(ps.getParammap().get(ident)!=null)
+       {
+            String action_name = utils.TemplateCall.getAttribute(attrs, e2,"<undefined action!>");
+            Object temp = env.getAction(action_name);
+            try {
+              java.lang.reflect.Method m = temp.getClass().getMethod(action_name, /*other args*/ String.class );
+              m.invoke(temp, /*other args*/ ident);
+            } catch (Exception ae1) {
+              System.out.println("Error invoking event "+action_name+": ");
+              ae1.printStackTrace();
+            }
+       }
+    ]|
+    with e2 := <expression-to-java-servlet> e1 
+  //      ; e* := <map(expression-to-java-servlet)> args
+  //      ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
+  //      */
+
 
   statement-to-java-servlet :
   AjaxStatement(stat) -> stats
