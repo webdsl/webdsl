@@ -8,9 +8,9 @@ imports
 
 rules
 
-  ajax-action-call-to-exp :
+  ajax-action-call-to-exp(|e_extraparams) :
     call@ThisCall(act, args) -> e |[ 
-      "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+"\",\""+form_ident+"\", this);" 
+      "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+e_extraparams+"\",\""+form_ident+"\", this);" 
      ]| 
     with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
     
@@ -18,7 +18,7 @@ rules
   assignment-to-html-attr :
     tc@PropertyAssignment(x, call@ThisCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
     //TODO: check wheter x is a valid event
-    with e2 := <ajax-action-call-to-exp> call 
+    with e2 := <ajax-action-call-to-exp(| e|[ "" ]|)> call 
         
   //handle actions
   handle-actions-to-java-servlet: 
@@ -31,32 +31,16 @@ rules
             temp.x_action(e*,ident);
         }
     ]|
-    with  actionident := <get-actionnumber> tc   
-        ; e* := <map(expression-to-java-servlet)> args
+    with  Action(_,fargs,_) := <OriginalNonUniqueName; ActionDefinition> x_action
+        //; actionident := <get-actionnumber> tc   
+        ; e* := <zip; map(
+            ajax-action-arg-to-java-servlet <+ 
+            ?(_,<id>); expression-to-java-servlet
+          )> (fargs, args)
         ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
 
- handle-actions-to-java-servlet: 
-    exp |[ event(e1) ]|  ->
-    bstm*|[
-       ident = utils.TemplateCall.getAttribute(attrs, e2+"_uid","<undefined action!>");
-       if(ps.getParammap().get(ident)!=null)
-       {
-            String action_name = utils.TemplateCall.getAttribute(attrs, e2,"<undefined action!>");
-            Object temp = env.getAction(action_name);
-            try {
-              java.lang.reflect.Method m = temp.getClass().getMethod(action_name, /*other args*/ String.class );
-              m.invoke(temp, /*other args*/ ident);
-            } catch (Exception ae1) {
-              System.out.println("Error invoking event "+action_name+": ");
-              ae1.printStackTrace();
-            }
-       }
-    ]|
-    with e2 := <expression-to-java-servlet> e1 
-  //      ; e* := <map(expression-to-java-servlet)> args
-  //      ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
-  //      */
-
+  ajax-action-arg-to-java-servlet :
+    (Arg(name, SimpleSort("String")), Null()) -> e |[ ps.getParammap().get("~name") ]|
 
   statement-to-java-servlet :
   AjaxStatement(stat) -> stats

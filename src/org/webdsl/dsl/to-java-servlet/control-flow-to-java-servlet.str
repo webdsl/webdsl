@@ -191,7 +191,7 @@ rules //templatecall
     control-flow-tcall(|"render")
 
   control-flow-tcall(|x_methodname) :
-    tc@TemplateCall(x_name, args, passign*, _) -> result
+    tc@TemplateCall(x_name, args, passign*, _) -> bstm* |[ bstm_result2* bstm_result* ]|
     where <CallToDefinedTemplateAfterIdRename> x_name
           ; not(<is-input-template> tc)
     with  e* := <map({\e -> <expression-to-java-servlet> e\})> args
@@ -209,7 +209,12 @@ rules //templatecall
         //templatecall with 'with' arguments
         ; withcallsmap := <collect(control-flow-emit-with-calls);concat> passign* 
         ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passign* 
-        ; result := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*, withcallsmap, attrsmap)
+        ; bstm_result* := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*, withcallsmap, attrsmap)
+        ; if "handleActions" := x_methodname then
+            bstm_result2* := <filter(handle-actions-to-java-servlet); concat> passign*
+          else
+            bstm_result2* := []
+          end
  
   /**
    *  'TemplateCall' for element in with { } arguments (derived from ArgDef constructor), 
@@ -226,20 +231,11 @@ rules //templatecall
     PropertyAssignment(name, val) -> bstm* |[
       attrsmapout.put("~name",e_val);
     ]|
-    where not(ThisCall(_,_) := val)
     with e_val := <  control-flow-emit-attrs-value 
+                  <+ ajax-action-call-to-exp(| e|[ "{_args_}" ]| )
                   <+ expression-to-java-servlet
                   > val
   
-  control-flow-emit-attrs-calls :
-    PropertyAssignment(name, tc@ThisCall(act, args)) -> bstm* |[
-      attrsmapout.put("~name","~act");
-      attrsmapout.put("~name"+"_uid",e_actionid);
-      attrsmapout.put("~name"+"_js",e_js);
-    ]|
-    with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
-       ; e_js := <ajax-action-call-to-exp> tc
-       
   //translate identifiers
   control-flow-emit-attrs-value :
     val -> expr |[ "~val" ]|
@@ -322,7 +318,7 @@ rules //with element calls
     control-flow-elemwithcall(|"render")
 
   control-flow-elemwithcall(|x_methodname) :
-  tc@TemplateCall(x,args,passigns,_) -> result
+  tc@TemplateCall(x,args,passigns,_) -> bstm* |[ bstm_result2* bstm_result* ]|
   where <CallToRequiredTemplateAfterIdRename> x 
   with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'with' clause of call"); ]|
         ; x_tname := <get-templatecallnumber> tc
@@ -330,7 +326,7 @@ rules //with element calls
         ; originalname := <OriginalNonUniqueName> x
         ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passigns 
 //        ; e_origargs := var-init |[ { e_origargs* } ]|
-        ; result := <generate-template-call(|x_methodname)> 
+        ; bstm_result* := <generate-template-call(|x_methodname)> 
             (expr|[ withcallsmap.get("~originalname").name ]|, 
              expr|["~x_tname"]|, 
              expr|[ Utils.concatArrays(new Object[] { e_origargs* } ,withcallsmap.get("~originalname").args) ]|, 
@@ -339,3 +335,8 @@ rules //with element calls
              bstm_npe*,
              [],
              attrsmap)
+         ; if "handleActions" := x_methodname then
+            bstm_result2* := <filter(handle-actions-to-java-servlet); concat> passigns
+          else
+            bstm_result2* := []
+          end
