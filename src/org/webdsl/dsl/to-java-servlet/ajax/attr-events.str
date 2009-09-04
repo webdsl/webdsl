@@ -1,0 +1,74 @@
+module org/webdsl/dsl/to-java-servlet/ajax/attr-events
+   
+imports
+  libstrategolib  
+
+imports 
+  libwebdsl-front
+
+rules
+
+  // CONTROL FLOW
+  control-flow-emit-attrs-calls :
+    PropertyAssignment(name, val) -> bstm* |[
+      attrsmapout.put("~name",e_val);
+    ]|
+    with e_val := <  control-flow-emit-attrs-value 
+                  <+ ajax-action-call-to-exp(| e|[ "{_args_}" ]| )
+                  <+ expression-to-java-servlet
+                  > val
+  
+  //translate identifiers
+  control-flow-emit-attrs-value :
+    val -> expr |[ "~val" ]|
+    where <is-string> val    
+  
+  //USING ATTRIBUTES
+  //translates the attribute(String, String) function  
+  call-to-java-servlet :
+    exp |[ attribute(e1,e2) ]| -> expr |[ utils.TemplateCall.getAttribute(attrs, e3,e4) ]|
+    with  e3 := <expression-to-java-servlet> e1
+        ; e4 := <expression-to-java-servlet> e2    
+
+  expression-to-java-servlet :
+    EventCall(name,args) -> expr |[ utils.TemplateCall.getAttribute(attrs, "~name","").replace("{_args_}",e4) ]|
+    with  e4 := <map(event-call-args-to-java-servlet);generate-addition-exp> args
+    
+  event-call-args-to-java-servlet :
+    EventArg(name, e) -> e |[ "~name"+"=\"+"+e1+"+\"&" ]|
+    with e1 := <expression-to-java-servlet> e
+       
+  ajax-action-call-to-exp(|e_extraparams) :
+    call@ThisCall(act, args) -> e |[ 
+      "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+e_extraparams+"\",\""+form_ident+"\", this);" 
+     ]| 
+    with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
+
+   //PROVIDING ATTRIBUTES    
+  //event call to java
+  assignment-to-html-attr :
+    tc@PropertyAssignment(x, call@ThisCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
+    //TODO: check wheter x is a valid event
+    with e2 := <ajax-action-call-to-exp(| e|[ "" ]|)> call 
+        
+  //handle actions
+  handle-actions-to-java-servlet: 
+    tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
+    bstm*|[
+        ident = e_actionid;
+        if(ps.getParammap().get(ident)!=null)
+        {
+            x_action temp = (x_action)env.getAction("~x_action");
+            temp.x_action(e*,ident);
+        }
+    ]|
+    with  Action(_,fargs,_) := <OriginalNonUniqueName; ActionDefinition> x_action
+        //; actionident := <get-actionnumber> tc   
+        ; e* := <zip; map(
+            ajax-action-arg-to-java-servlet <+ 
+            ?(_,<id>); expression-to-java-servlet
+          )> (fargs, args)
+        ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
+
+  ajax-action-arg-to-java-servlet :
+    (Arg(name, SimpleSort("String")), Null()) -> e |[ ps.getParammap().get("~name") ]|       
