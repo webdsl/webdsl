@@ -11,23 +11,66 @@ section datamodel
   var dt : DateTest := DateTest{};
   
   define page root(){
-    " date: " output(dt.date)
-    " time: " output(dt.time)
-    " datetime: " output(dt.datetime)
+    " date: " output(dt.date) 
+    " date as time: " output(dt.date as Time)
+    " date as datetime: " output(dt.date as DateTime)
+    " time: " output(dt.time) 
+    " time as date: " output(dt.time as Date)
+    " time as datetime: " output(dt.time as DateTime)
+    " datetime: " output(dt.datetime) 
+    " datetime as date: " output(dt.datetime as Date)
+    " datetime as time: " output(dt.datetime as Time)
 
     form{
       input(dt.date)
       input(dt.time)
       input(dt.datetime)
       
-      action("save",save())
+      action("save",action{})
     }
-    action save()
-    {
-      dt.save();
-      return root();
-    }
-
   }
 
-
+  test dateConstruction{
+    var d : Date := Date("22/06/1983");
+    var t : Time := Time("22:08");
+    var dt : DateTime := DateTime("22/06/1983 22:08");
+    
+    var d1 : Date := Date("12-20-1990", "MM-dd-yyyy");
+    assert(d1 == Date("20/12/1990"));
+    var t1 : Time := Time("59:08", "mm:H");
+    assert(t1 == Time("08:59"));
+    var dt1 : DateTime := DateTime("12:13 05-1994-06", "mm:H MM-yyyy-dd");
+    assert(dt1 == DateTime("06/05/1994 13:12"));
+  }
+  
+  test dateFunctions{
+    var d: Date := now();
+    var t: Time := now();
+    var dt: DateTime := now();
+    
+    var d: Date := today();
+    
+    var date : Date := Date("04/09/2009");
+    assert(date.after(Date("01/02/1975")));
+    assert((date as Time).after(DateTime("31/12/1981 23:23")));
+    assert((date as DateTime).after(Date("01/02/1975")));
+    
+    assert(date.before(Date("01/02/2020")));
+    assert((date as Time).before(Date("13/10/2010")));
+    assert((date as DateTime).before(Date("01/02/2050")));
+    
+  }
+  
+  test dateConversions{
+    var d : Date := Date("22/06/1983");
+    assert(d as Time == DateTime("22/06/1983 00:00") as Time);
+    assert(d as DateTime == DateTime("22/06/1983 00:00"));
+        
+    var t : Time := Time("22:08");
+    assert(t as Date == DateTime("01/01/1970 22:08") as Date);
+    assert(t as DateTime == DateTime("01/01/1970 22:08"));
+    
+    var dt : DateTime := DateTime("22/06/1983 22:08");
+    assert(dt as Time == DateTime("22/06/1983 22:08") as Time);
+    assert(dt as Date == DateTime("22/06/1983 22:08") as Date);
+  }
