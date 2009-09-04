@@ -76,7 +76,7 @@ function findElementById(thisobject, id)
       result = current;
     }
     //found the scope boundary of this template, search inward
-    else if (current.classname && current.className.indexOf("scopediv") != -1) {
+    else if (current.className && current.className.indexOf("scopediv") != -1) {
       foundscope = true;
       if (id == "this") 
         result = current;
@@ -103,8 +103,12 @@ function findTopDown(element, id)
 
   if (element.childNodes != undefined)
     for(var i = 0; i< element.childNodes.length; i++)
-      if (element.childNodes[i].nodeType == 1) //element node
-        return findTopDown(element.childNodes[i], id);
+      if (element.childNodes[i].nodeType == 1) { //element node
+        result = findTopDown(element.childNodes[i], id);
+        if (result != null)
+          return result;
+      }
+  return null;
 }
 
 function actionLinkServerInvoke(template, action, jsonparams, thisform, thisobject)
