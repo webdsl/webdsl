@@ -206,10 +206,25 @@ rules //templatecall
         ; if <fetch(?TemplateCall(templname,vars,_,_))> passign*
           then e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
           else templname := "none"; e_templ* := [] end
-        //templatecall with 'with' arguments
+        ; x_templargs := <newname> "args"
+        //templatecall with 'with' arguments, if with, the template argument is the templateArg of this template. With is desugared away, so test the number of statements
         ; withcallsmap := <collect(control-flow-emit-with-calls);concat> passign* 
+        ; if 0 := <length> withcallsmap then
+            e_templarg := expr|[new utils.TemplateCall("~templname", x_templargs) ]|
+          else
+            e_templarg := expr|[ this.templateArg ]|
+          end
         ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passign* 
-        ; bstm_result* := <generate-template-call(|x_methodname)> (expr|["~x_name"]|, expr|["~x_tname"]|, var-init|[ { e* } ]|, expr|["~templname"]|, var-init|[ { e_templ* } ]|, bstm_npe*, withcallsmap, attrsmap)
+        ; bstm_result* := <generate-template-call(|x_methodname)> (
+            expr|["~x_name"]|, 
+            expr|["~x_tname"]|, 
+            var-init|[ { e* } ]|, 
+            e_templarg,
+            var-init|[ { e_templ* } ]|, 
+            bstm_npe*, 
+            withcallsmap, 
+            attrsmap,
+            x_templargs)
         ; if "handleActions" := x_methodname then
             bstm_result2* := <filter(handle-actions-to-java-servlet); concat> passign*
           else
@@ -228,7 +243,7 @@ rules //templatecall
       ; x_array := <newname> "array"
       
   generate-template-call(|x_methodname):
-    (e_name, e_tname, e, e_templname, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
+    (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
     ident += e_tname;
@@ -245,7 +260,7 @@ rules //templatecall
           bstm_withcallsmap*
           Map<String,String> attrsmapout = new HashMap<String, String>();
           bstm_attrs*
-          templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(ps, x_args, tc2, new Environment(env), new utils.TemplateCall(e_templname, x_templargs), withcallsmapout, attrsmapout, e1*);
+          templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(ps, x_args, tc2, new Environment(env), e_templarg, withcallsmapout, attrsmapout, e1*);
         }
         catch(NullPointerException npe) {
           bstm_npe*
@@ -261,7 +276,6 @@ rules //templatecall
       }
     ]|
     with  x_args := <newname> "args"
-        ; x_templargs := <newname> "args"
         ; (    !x_methodname; (?"render"<+?"handleActions")
                ; e1* := [ e|[ out ]| ]
             <+ e1* := []
@@ -282,8 +296,17 @@ rules //elements
     tc@TemplateCall("elements", _, _, _) -> result 
     with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'elements' call"); ]|
 //        ; x_tname := <get-templatecallnumber> tc
+        ; x_templargs := <newname> "args"
         ; result := <generate-template-call(|x_methodname)> 
-            (expr|[ templateArg.name ]|, expr|["elements"]|, expr|[ templateArg.args ]|, expr|["none"]|, var-init|[ {} ]|, bstm_npe*, [],[])
+            (expr|[ templateArg.name ]|, 
+             expr|["elements"]|, 
+             expr|[ templateArg.args ]|, 
+             expr|[new utils.TemplateCall("none", x_templargs) ]|, 
+             var-init|[ {} ]|, 
+             bstm_npe*, 
+             [],
+             [],
+             x_templargs)
 
 
 /**
@@ -311,16 +334,19 @@ rules //with element calls
         ; e_origargs* := <map(expression-to-java-servlet)> args
         ; originalname := <OriginalNonUniqueName> x
         ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passigns 
+        ; x_templargs := <newname> "args"
 //        ; e_origargs := var-init |[ { e_origargs* } ]|
         ; bstm_result* := <generate-template-call(|x_methodname)> 
             (expr|[ withcallsmap.get("~originalname").name ]|, 
              expr|["~x_tname"]|, 
              expr|[ Utils.concatArrays(new Object[] { e_origargs* } ,withcallsmap.get("~originalname").args) ]|, 
-             expr|["none"]|, 
+             //expr|["none"]|, 
+             expr|[ this.templateArg ]|,
              var-init|[ {} ]|, 
              bstm_npe*,
              [],
-             attrsmap)
+             attrsmap,
+             x_templargs)
          ; if "handleActions" := x_methodname then
             bstm_result2* := <filter(handle-actions-to-java-servlet); concat> passigns
           else
