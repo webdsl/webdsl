@@ -34,6 +34,15 @@ rules
           
           public static HashMap<String, Class> pages = new HashMap<String, Class>();
           private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
+          
+          Class pc;
+          java.util.Map<String, utils.File> fileUploads;
+          java.util.Map<String, String> parammap;
+          java.util.Map<String, List<String>> parammapvalues;
+          HttpServletRequest request;
+          HttpServletResponse response;
+          List<String> messages;
+          
           static{
               bstm*
               bstm2*
@@ -59,6 +68,8 @@ rules
           public void doGet(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
+            this.request=request;
+            this.response=response;
           
             ThreadLocalServlet.set(this);
           
@@ -97,9 +108,9 @@ rules
                 argnames = pagearguments.get(requested);
               }
 
-              java.util.Map<String, utils.File> fileUploads = new HashMap<String, utils.File>();
-              java.util.Map<String, String> parammap = new HashMap<String, String>();
-              java.util.Map<String, List<String>> parammapvalues = new HashMap<String, List<String>>();
+              fileUploads = new HashMap<String, utils.File>();
+              parammap = new HashMap<String, String>();
+              parammapvalues = new HashMap<String, List<String>>();
 
               for(java.util.Enumeration en = request.getParameterNames();en.hasMoreElements(); ){
                 String parameterName = (String)en.nextElement();
@@ -109,8 +120,9 @@ rules
                 } 
               }
     
-              List<String> messages = new LinkedList<String>();
-              for(int count2=0; count2<args.length;count2++)
+              messages = new LinkedList<String>();
+              int count2 = 0;
+              for(count2 = 0; count2<args.length;count2++)
               {
                 if(count2 >= argnames.length){
                   /*
@@ -126,6 +138,9 @@ rules
                   parammap.put(argnames[count2],args[count2]);
                   addToValues(argnames[count2],args[count2],parammapvalues);
                 }
+              }
+              if(count2 < argnames.length){
+                throw new utils.TooFewArgumentsException();
               }
               
               //http://commons.apache.org/fileupload/using.html
@@ -184,36 +199,18 @@ rules
                   }
               }
               
-              Class pc = pages.get(requested);
+              pc = pages.get(requested);
 
-            if(pc == null) {
+              if(pc == null) {
                 pc = pages.get("pagenotfound");
               }
-             
-              if(pc != null) {
-                  try{
-                      PageServlet pageservlet = (PageServlet)pc.newInstance();
-                      
-                      //@TODO integrate these into call to serve, more explicit flow of data
-                      //pageservlet.setPageArguments(java.util.Arrays.copyOfRange(args, argnames.length, args.length)); //strip page name and arguments, this array is used for the dispatch template element
-                      pageservlet.getIncomingSuccessMessages().addAll(messages);                      
-                      pageservlet.serve(request,response,parammap,parammapvalues,fileUploads);
-                  }
-                  catch(IllegalAccessException iae){
-                      System.out.println("Problem in dispatch servlet page lookup: "+iae.getMessage());
-                      iae.printStackTrace();
-                      showerrorpage=true;
-                  }
-                  catch(InstantiationException ie){
-                      System.out.println("Problem in dispatch servlet page lookup: "+ie.getMessage());
-                      ie.printStackTrace();
-                      showerrorpage=true;
-                  }
-                  catch(RuntimeException re){   
-                    showerrorpage=true;
-                  }	  
-              }
-              else{showerrorpage=true;}
+              showerrorpage = !handlePage();
+            }
+            catch(utils.TooFewArgumentsException ex){
+              ~*<![];if-debug(!bstm*|[
+                System.out.println("Too few arguments in page request, showing 404.");
+              ]|)>
+              showerrorpage=true;
             }
             catch(Exception ex){
               System.out.println("Exception in dispatch servlet: "+ex.getMessage());
@@ -223,9 +220,11 @@ rules
             
             if(showerrorpage)
             {
+              pc = pages.get("pagenotfound"); 
+              if(!handlePage()){
                 response.setStatus(404);
-                
                 response.getWriter().write("<h3>404 Not Found</h3>");
+              }
                 //response.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND);
                 /*
                 response.setContentType("text/html");
@@ -245,6 +244,39 @@ rules
                 out.println("</html>");
                 */
             }
+          }
+          
+          private boolean handlePage() {
+            if(pc != null)
+            { 
+              try
+              { 
+                PageServlet pageservlet = (PageServlet)pc.newInstance();
+                pageservlet.getIncomingSuccessMessages().addAll(messages);
+                pageservlet.serve(request, response, parammap, parammapvalues, fileUploads);
+              }
+              catch(IllegalAccessException iae)
+              { 
+                System.out.println("Problem in dispatch servlet page lookup: " + iae.getMessage());
+                iae.printStackTrace();
+                return false;
+              }
+              catch(InstantiationException ie)
+              { 
+                System.out.println("Problem in dispatch servlet page lookup: " + ie.getMessage());
+                ie.printStackTrace();
+                return false;
+              }
+              catch(RuntimeException re)
+              { 
+                return false;
+              }
+            }
+            else
+            { 
+              return false;
+            }
+            return true;
           }
   
           public void doPost(HttpServletRequest request, HttpServletResponse response)
