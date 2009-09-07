@@ -54,3 +54,12 @@ section datamodel
   }
 
 
+
+  test getUnique {
+    var newUser:User := getUniqueUser("testname");
+    newUser := getUniqueUser("testname");
+    newUser := getUniqueUser("testname");
+    newUser := getUniqueUser("testname");
+    
+    assert((from User).length == 1);
+  }
