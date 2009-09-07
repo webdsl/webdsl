@@ -34,6 +34,7 @@ rules
           
           public static HashMap<String, Class> pages = new HashMap<String, Class>();
           private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
+          private static HashMap<String, Boolean[]> pageEntityArgs = new HashMap<String, Boolean[]>();
           
           Class pc;
           java.util.Map<String, utils.File> fileUploads;
@@ -63,6 +64,16 @@ rules
             else{
              current.add(val);
             }
+          }
+          
+          public boolean unspecifiedArgumentsContainEntityTypes(String requested, String[] argnames, int count){
+            Boolean[] argEntityTypes = pageEntityArgs.get(requested);
+            for(int in = argnames.length-1; in >= count; in--){
+              if(argEntityTypes[in] == true){
+                return true;
+              }
+            }
+            return false;
           }
             
           public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -140,7 +151,11 @@ rules
                 }
               }
               if(count2 < argnames.length){
-                throw new utils.TooFewArgumentsException();
+                if(!isPostRequest){ //ajax calls, which are always post, only have the page name in the url
+                  if(unspecifiedArgumentsContainEntityTypes(requested,argnames,count2)){
+                    throw new utils.TooFewArgumentsException();
+                  }
+                }
               }
               
               //http://commons.apache.org/fileupload/using.html
@@ -279,9 +294,12 @@ rules
             return true;
           }
   
+          public boolean isPostRequest = false;
+      
           public void doPost(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
+              boolean isPostRequest = true;
               doGet(request, response);
           }
       }
@@ -297,10 +315,13 @@ rules
         ; bstm1* := <map({\ 
                            x -> bstm* |[ {
                                          String[] s = { e* };
-                                         pagearguments.put(x_key, s); 
+                                         pagearguments.put(x_key, s);
+                                         Boolean[] b = { e1* };
+                                         pageEntityArgs.put(x_key, b);
                                          }
                                       ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
                                ; e* := <TemplateFormalArguments;map( \Arg(y,_)-> e|[ "~<OriginalNonUniqueName> y" ]|\ )> x  
                                //TemplateFormalArguments is defined in back-end after rename of templates and variables, for vars must give unrenamed versions so OriginalNonUniqueName is used
                         \});concat> 
@@ -316,10 +337,13 @@ rules
         ; bstm3* := <map({\ 
                            x -> bstm* |[ {
                                          String[] s = { e* };
-                                         pagearguments.put(x_key, s); 
+                                         pagearguments.put(x_key, s);
+                                         Boolean[] b = { e1* };
+                                         pageEntityArgs.put(x_key, b); 
                                          }
                                       ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
+                               ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
                                ; e* := <TopLevelTemplateArgumentsJavaServlet;map( \Arg(y,_)-> e|[ "~<OriginalNonUniqueName> y" ]|\ )> x // must use unrenamed versions 
                         \});concat> 
                         <bagof-AllTopLevelTemplateNamesJavaServlet;make-set>
@@ -328,7 +352,10 @@ rules
         ; bstm3* := []
         end
         
-        
-
-     
+  true-when-entity-type-arg :
+    Arg(_,srt)-> e|[ true ]| 
+    where <is-entity-type> srt
+  true-when-entity-type-arg :
+    Arg(_,srt)-> e|[ false ]| 
+    where not(<is-entity-type> srt)
 

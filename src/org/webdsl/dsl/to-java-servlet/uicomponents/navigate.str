@@ -80,7 +80,7 @@ rules
     ThisCall(p,args) -> e |[ utils.HTMLFilter.filter(e_url) ]|
     with  def |[ define mod* x(farg*) req* { elem* } ]| := <TemplateSignature> (p, <map(type-of)> args)
         ; params := <zip(bind-param-java-servlet)> (farg*, args)
-        ; e_url := <page-call-to-url-java-servlet> (p, params)
+        ; e_url := <page-call-to-url-java-servlet> (p, params, farg*)
         
   bind-param-java-servlet :
     (Arg(x, srt), e) -> (x, e|[ e1.getNaturalId()]|)
@@ -100,19 +100,23 @@ rules
     with  el := <expression-to-java-servlet> e
 
   page-call-to-url-java-servlet :
-    (fn, []) -> java:expr |[ ThreadLocalServlet.getContextPath() + "~s" ]| //java:expr |[ e1 + e2 ]|
+    (fn, [], []) -> java:expr |[ ThreadLocalServlet.getContextPath() + "~s" ]| //java:expr |[ e1 + e2 ]|
     where not("root" := fn)
     with  s := <concat-strings> ["/", fn]
         //; [e1,e2] := <add-success-messages-to-url> [e |[ "~s" ]| ]
 
   page-call-to-url-java-servlet :
-    ("root", []) -> java:expr |[ ThreadLocalServlet.getContextPath() + "/" ]|
+    ("root", [], []) -> java:expr |[ ThreadLocalServlet.getContextPath() + "/" ]|
 
   page-call-to-url-java-servlet :
-    (fn, params) -> e |[ ThreadLocalServlet.getContextPath() + "~s" + e1 ]| 
+    (fn, params, farg*) -> e |[ ThreadLocalServlet.getContextPath() + "~s" + utils.StringType.removeTrailingDefaultValues(String.valueOf(e1),e*) ]| 
     where not([] := params)
     with  s  := <concat-strings> ["/", fn, "/"]
-        ; e1 := <map(param-to-request-param-java-servlet);combine-params-to-exp> params // add-success-messages-to-url; 
+        ; e1 := <map(param-to-request-param-java-servlet);combine-params-to-exp> params // add-success-messages-to-url;
+        ; e* := <map(param-tuple-type-java-string)> farg*
+        
+  param-tuple-type-java-string :
+    Arg(x, srt) -> java:expr|[ "~<pp-webdsl-to-string> srt" ]|
 
   combine-params-to-exp :
     [e] -> e |[ e ]|

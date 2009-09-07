@@ -35,4 +35,22 @@ public class StringType {
         return ret.toString();
     }
     
+    public static String removeTrailingDefaultValues(String s, String... strings){
+        String[] parts = s.split("/");
+        int i = 0;
+        for(i = parts.length - 1; i >= 0; i--){
+          if( !(parts[i].equals("") && utils.TypesInfo.getStringCompatibleTypes().contains(strings[i]))
+           && !(parts[i].equals("0") && strings[i].equals("Int"))
+           && !(parts[i].equals("0.0") && strings[i].equals("Float"))
+          ){
+        	  break;
+          }
+        }
+        StringBuffer sb = new StringBuffer();
+        for(int j = 0; j <= i; j++){
+        	sb.append(parts[j]);
+        	sb.append("/");
+        }
+        return sb.toString();
+    }
 }

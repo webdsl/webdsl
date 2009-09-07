@@ -60,3 +60,52 @@ section datamodel
       goto testpage(i,s,li);
     }
   }
+
+  
+  var u1 := User{ name := "testuser"};
+
+  define page root2(){
+    navigate(test(u1,"")){"test"}
+    navigate(test1(u1,"",0)){"test1"}
+    navigate(test2(0,"",u1)){"test2"}
+    navigate(test3(0,u1,"")){"test3"}
+    navigate(test4(0,u1,"",0.0)){"test4"}
+  }
+  
+  entity User {
+    name :: String
+  }
+  
+  define page test(u:User, s:String){
+    output(u.name)
+    output(s)
+  }
+  
+  define page test1(u:User, s:String, i:Int){
+    output(u.name)
+    output(s)
+    output(i)
+  }
+  
+  define page test2(i:Int,s:String, u:User){
+    output(u.name)
+    output(s)
+    output(i)
+  }
+
+  define page test3(i:Int, u:User,s:String){
+    output(u.name)
+    output(s)
+    output(i)
+  }
+  
+  define page test4(i:Int, u:User,s:String,f:Float){
+    output(u.name)
+    output(s)
+    output(i)
+  }
+  
+  define page pagenotfound(){
+   "PAGE NOT FOUND :/"
+  }
+  
