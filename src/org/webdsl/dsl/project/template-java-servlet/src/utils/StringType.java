@@ -49,7 +49,9 @@ public class StringType {
         StringBuffer sb = new StringBuffer();
         for(int j = 0; j <= i; j++){
         	sb.append(parts[j]);
-        	sb.append("/");
+        	if(j != i){ //skip last /
+        	  sb.append("/");
+        	}
         }
         return sb.toString();
     }
