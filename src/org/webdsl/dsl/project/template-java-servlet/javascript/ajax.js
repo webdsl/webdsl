@@ -72,7 +72,7 @@ function findElementById(thisobject, id)
   foundscope = false;
   while(current != null && !foundscope && result == null) {
     //while going up in the tree, found the id. 
-    if (current.id == id) { 
+    if (current.id != undefined && current.id == id) { 
       result = current;
     }
     //found the scope boundary of this template, search inward
@@ -98,16 +98,19 @@ function findElementById(thisobject, id)
 
 function findTopDown(element, id)
 {
-  if (element.id != undefined && element.id == id)
-    return element;
-
-  if (element.childNodes != undefined)
+  if (element.childNodes != undefined) {
+    for(var i = 0; i< element.childNodes.length; i++) {
+      var child = element.childNodes[i];
+      if (child.id != undefined && child.id == id)
+        return child;
+    }
     for(var i = 0; i< element.childNodes.length; i++)
       if (element.childNodes[i].nodeType == 1) { //element node
         result = findTopDown(element.childNodes[i], id);
         if (result != null)
           return result;
       }
+  }
   return null;
 }
 

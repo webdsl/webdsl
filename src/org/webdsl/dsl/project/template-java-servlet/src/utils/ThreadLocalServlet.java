@@ -4,16 +4,16 @@ public class ThreadLocalServlet {
 
     private static ThreadLocal dispatchServlet = new ThreadLocal();
 
-    public static HttpServlet get() {
-        return (HttpServlet) dispatchServlet.get();
+    public static DispatchServletHelper get() {
+        return (DispatchServletHelper) dispatchServlet.get();
     }
     
-    public static void set(HttpServlet d) {
-    	dispatchServlet.set(d);
+    public static void set(DispatchServletHelper d) {
+        dispatchServlet.set(d);
     }
     
     public static String getContextPath(){
-    	return	get().getServletConfig().getServletContext().getContextPath();
+        return	get().getServlet().getServletConfig().getServletContext().getContextPath();
     }
     
 }
