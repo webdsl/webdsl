@@ -91,7 +91,7 @@ public class SDF {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
 
-			InputStream stream = new ByteArrayInputStream(input.getBytes());
+			InputStream stream = new ByteArrayInputStream(input.getBytes("ISO-8859-1"));
 			ATerm asfix = parser.parse(stream);
 
 			result = implode(asfix);
