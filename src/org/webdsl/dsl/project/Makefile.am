@@ -6,9 +6,11 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/*.xml) \
   $(wildcard template-java-servlet/Makefile) \
   $(wildcard template-java-servlet/lib/*.jar) \
+  $(wildcard template-java-servlet/lib-test/*.jar) \
   $(wildcard template-java-servlet/src/*.properties) \
   $(wildcard template-java-servlet/src/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
+  $(wildcard template-java-servlet/tomcat/*) \
   $(wildcard template-java-servlet/javascript/*.js) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \

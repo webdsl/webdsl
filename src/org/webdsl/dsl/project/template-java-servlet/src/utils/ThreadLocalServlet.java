@@ -13,7 +13,7 @@ public class ThreadLocalServlet {
     }
     
     public static String getContextPath(){
-        return	get().getServlet().getServletConfig().getServletContext().getContextPath();
+        return	get().getContextPath();
     }
     
 }
