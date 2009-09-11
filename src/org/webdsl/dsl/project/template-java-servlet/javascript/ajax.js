@@ -86,6 +86,16 @@ function findElementById(thisobject, id)
     current = current.parentNode;
   }  	
   
+  //nothing found, search upwards, to the closest enclosing node with the id
+  //useful in recursion
+  if (result == null) {
+    while (current.parentNode != null) {
+      current = current.parentNode;
+      if (current.id != undefined && current.id == id)
+        return current;
+    }
+   }
+  
   //nothing found, search in the whole document
   if (result == null) 
     result = document.getElementById(id);
@@ -234,7 +244,10 @@ function replace(command, thisobject)
       newElem.innerHTML = unescape(command.value);
       theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
+      theNode = newElem.childNodes[0];
     }
+    if (dojo != undefined)
+      dojo.parser.parse(theNode);
 }
 
 function append(command, thisobject)
@@ -248,7 +261,10 @@ function append(command, thisobject)
       newElem.innerHTML = unescape(command.value);
       theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
+      theNode = newElem.childNodes[0];
     }
+    if (dojo != undefined)
+      dojo.parser.parse(theNode);
 }
 
 function clear(command, thisobject)
@@ -297,45 +313,6 @@ function restyle(command, thisobject)
 function relocate(command)
 {
   window.location = command.value;
-}
-
-// Function to initialize the Dojo library
-// it is safe to invoke this function multiple times. 
-// dependse on javascript/dojo-release-1.3.0/dojo/dojo.js
-// or (by default) uses the dojorelease at aolcdn.com
-var loadedDojo = false;
-function loadDojo(loadlocal,addonload) {
- 
-  if(!loadedDojo) {
-    loadedDojo = true;
-    var e = document.createElement("script");
-    e.type = "text/javascript";
-    if (loadlocal == true) {
-        e.src= "javascript/dojo-release-1.3.0/dojo/dojo.js";
-        loadCSS("javascript/dojo-release-1.3.0/dijit/themes/tundra/tundra.css");
-        loadCSS("javascript/dojo-release-1.3.0/dojo/resources/dojo.css");
-    }
-    else {
-        e.src= "http://o.aolcdn.com/dojo/1.3.1/dojo/dojo.xd.js";
-        loadCSS("http://o.aolcdn.com/dojo/1.3.0/dijit/themes/tundra/tundra.css");
-        loadCSS("http://o.aolcdn.com/dojo/1.3.0/dojo/resources/dojo.css");
-    }
-    document.getElementsByTagName("head")[0].appendChild(e);
-    
-    djConfig = {
-      afterOnLoad : false,
-      addOnLoad: function() { 
-        if(addonload != null) {
-          addonload();
-        }
-      },
-      parseOnLoad:true
-    };
-  }
-  //already loaded dojo, execute method directly
-  else if (addonload != null) {
-    addonload();
-  }
 }
 
 function loadCSS(url) {
