@@ -86,9 +86,10 @@ function findElementById(thisobject, id)
     current = current.parentNode;
   }  	
   
-  //nothing found, search upwards, to the closest enclosing node with the id
+  //nothing found, search upwards, to the closest enclosing node with the proper id
   //useful in recursion
   if (result == null) {
+    current = thisobject;
     while (current.parentNode != null) {
       current = current.parentNode;
       if (current.id != undefined && current.id == id)
