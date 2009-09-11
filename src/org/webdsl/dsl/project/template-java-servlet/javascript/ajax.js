@@ -247,7 +247,7 @@ function replace(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (dojo != undefined)
+    if (typeof(dojo) != undefined)
       dojo.parser.parse(theNode);
 }
 
@@ -264,7 +264,7 @@ function append(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (dojo != undefined)
+    if (typeof(dojo) != undefined)
       dojo.parser.parse(theNode);
 }
 
