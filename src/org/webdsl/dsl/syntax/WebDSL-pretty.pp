@@ -994,7 +994,11 @@
    AjaxStatement                                          -- _1 KW[";"],
    HqlQueryLimitOffset.1:parameterized-sort               -- _1 _2,
    HqlQueryLimit.1:parameterized-sort                     -- _1 _2,
-   JSElement                                              -- KW["<"] KW["script"] KW[">"] _1 KW["</"] KW["script"] KW[">"],
+   JSElement                                              -- KW["<"] KW["script"] _1 KW[">"] _2 KW["</"] KW["script"] KW[">"],
+   JSString -- _1,
+   JSExp -- KW["~"] _1,
+   JSTilde -- KW["\\~"],
+  
    NativeFunction.2:iter-star-sep                         -- _1 KW[","],
    
    TemplateCaseAlt.1:iter-star-sep                        -- _1 KW[","],
