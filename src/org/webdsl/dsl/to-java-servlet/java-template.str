@@ -64,9 +64,10 @@ rules
           } 
     
           public int storeInputs(final PageServlet ps, Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
-            bstm2*
-            storeInputsInternal();
-
+            if(!skipThisTemplate){
+              bstm2*
+              storeInputsInternal();
+            }
             return this.templatecounter;
           }         
           @Partial
@@ -74,9 +75,10 @@ rules
           }
           
           public int validateInputs(final PageServlet ps, Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
-            bstm2*
-            validateInputsInternal();
-
+            if(!skipThisTemplate){
+              bstm2*
+              validateInputsInternal();
+            }
             return this.templatecounter;
           }         
           @Partial
@@ -95,10 +97,11 @@ rules
           private void initializeLocalVars() {}
                 
           public int handleActions(final PageServlet ps, Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs,  PrintWriter out) {          
-            bstm2*
-          this.out = out;         
-            handleActionsInternal();
-
+            if(!skipThisTemplate){
+              bstm2*
+              this.out = out;         
+              handleActionsInternal();
+            }
             return this.templatecounter;
           }    
           
@@ -125,6 +128,9 @@ rules
           String uniqueid;
           
           Environment env;
+          
+          // cancels further handling of this template, e.g. when validation error occurs in init
+          boolean skipThisTemplate = false;
           
           private java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
           //HashMap<String,Object> inputs = new HashMap<String,Object>();
@@ -164,18 +170,20 @@ rules
           @Partial private void renderInternal(){ }
 
           public int render(final PageServlet ps,Object[] args,int templatecounter, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, PrintWriter out) { 
-            bstm2*
-         
-            java.io.PrintWriter outtemp = out;
-            java.io.StringWriter s = new java.io.StringWriter();
-            this.out = new java.io.PrintWriter(s); 
-            
-            renderInternal();
-            bstm_so*
-            outtemp.write(s.toString());
-            bstm_sc*
-            
-            cleanup();
+            if(!skipThisTemplate){
+              bstm2*
+           
+              java.io.PrintWriter outtemp = out;
+              java.io.StringWriter s = new java.io.StringWriter();
+              this.out = new java.io.PrintWriter(s); 
+              
+              renderInternal();
+              bstm_so*
+              outtemp.write(s.toString());
+              bstm_sc*
+              
+              cleanup();
+            }
             return this.templatecounter;
           }
           
@@ -190,6 +198,7 @@ rules
        ; pkgname3   := <ActionPackage>
        ; x_Page  := <ThisTemplateClassName>
        ; x_TemplateName := <OriginalNonUniqueName> x
+       ; x_TemplateSig := <concat-strings> [x_TemplateName,"(",<map(\Arg(nm,srt)->Arg(<OriginalNonUniqueName> nm,srt)\;pp-webdsl-to-string);separate-by(|", ");concat-strings> farg*,")"]
        ; x_pnamequoted := <double-quote> x_Page
        ; if <fetch(?NoSpan())> mod* <+ JavaThisPage; not(NestedTemplate) then //no span for templates with no-span modifier, or pages
             bstm_so* := []
@@ -219,12 +228,29 @@ rules
               this.withcallsmap = withcallsmap;
               this.attrs = attrs;
      
-              storeArguments(args);
-              
-              initialize();
-              initializeLocalVars();
-              initializePassOn();
-              initActions();
+              try {
+                storeArguments(args);
+                initialize();
+                initializeLocalVars();
+                initializePassOn();
+                initActions();
+              }
+              catch(utils.ValidationException ve){
+                ps.getValidationExceptions().add(ve.setName(ps.getValidationContext()));
+                ps.setValidated(false);
+                utils.Warning.warn("Validation failed in initialization of "+"~x_TemplateSig"+": "+ve.getErrorMessage());  
+                skipThisTemplate = true;
+                return this.templatecounter;
+              }
+              catch(utils.MultipleValidationExceptions ve){
+                for(utils.ValidationException vex : ve.getValidationExceptions()){
+                  ps.getValidationExceptions().add(vex.setName(ps.getValidationContext()));
+                  utils.Warning.warn("Validation failed in initialization of "+"~x_TemplateSig"+": "+vex.getErrorMessage());  
+                }
+                ps.setValidated(false); 
+                skipThisTemplate = true;
+                return this.templatecounter;
+              }
             } 
        ]|
        
