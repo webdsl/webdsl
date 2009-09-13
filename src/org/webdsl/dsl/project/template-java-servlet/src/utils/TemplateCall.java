@@ -34,5 +34,8 @@ public class TemplateCall {
     else 
         return def;  
   }
+
+  //this one should stay empty!!
+  public static final Map<String, String> EmptyAttrs = new HashMap<String, String>();
   
 }

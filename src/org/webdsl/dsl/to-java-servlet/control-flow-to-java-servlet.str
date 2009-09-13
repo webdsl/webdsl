@@ -210,13 +210,13 @@ rules //templatecall
           else templname := "none"; e_templ* := [] end
         ; x_templargs := <newname> "args"
         //templatecall with 'with' arguments, if with, the template argument is the templateArg of this template. With is desugared away, so test the number of statements
-        ; withcallsmap := <collect(control-flow-emit-with-calls);concat> passign* 
-        ; if 0 := <length> withcallsmap then
+        ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
+        ; if 1 := <length> withcallsmap then
             e_templarg := expr|[new utils.TemplateCall("~templname", x_templargs) ]|
           else
             e_templarg := expr|[ this.templateArg ]|
           end
-        ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passign* 
+        ; attrsmap := <control-flow-emit-attrs-calls-map> passign* 
         ; bstm_result* := <generate-template-call(|x_methodname)> (
             expr|["~x_name"]|, 
             expr|["~x_tname"]|, 
@@ -233,16 +233,36 @@ rules //templatecall
             bstm_result2* := []
           end
  
+  
   /**
    *  'TemplateCall' for element in with { } arguments (derived from ArgDef constructor), 
    *  stored in TemplateCall with only part of the needed arguments, the closure at the call
    */
+  
+  control-flow-emit-with-calls-map : //optimization when withcallsmap is empty
+  passign* -> bstm_1* 
+  with
+      bstm* := <collect(control-flow-emit-with-calls);concat> passign*
+    ; if (0 := <length> bstm*) then
+      bstm_1* := <control-flow-emit-with-calls-map-def>
+      else 
+      bstm_1* := bstm* |[
+          withcallsmapout = new HashMap<String, utils.TemplateCall>();
+          withcallsmapout.putAll(withcallsmap);
+          bstm*
+      ]|
+      end
+
+  control-flow-emit-with-calls-map-def =
+    !bstm* |[ withcallsmapout = withcallsmap; ]|
+      
   control-flow-emit-with-calls :
-   TemplateCall(templname,vars,passigns,_) -> bstm* |[ Object[] x_array = { e_templ* }; withcallsmapout.put("~origname", new utils.TemplateCall("~templname", x_array)); ]|
+//   TemplateCall(templname,vars,passigns,_) -> bstm* |[ Object[] x_array = { e_templ* }; withcallsmapout.put("~origname", new utils.TemplateCall("~templname", x_array)); ]|
+   TemplateCall(templname,vars,passigns,_) -> bstm* |[ withcallsmapout.put("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* } )); ]|
    where <fetch(?ResolvedRequireKey(origname))> passigns //also matches on elements calls
    with e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
    //      ; origname := <OriginalNonUniqueName>  templname
-      ; x_array := <newname> "array"
+//      ; x_array := <newname> "array"
       
   generate-template-call(|x_methodname):
     (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs) ->
@@ -257,10 +277,7 @@ rules //templatecall
           templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
         }
         try {
-          withcallsmapout = new HashMap<String, utils.TemplateCall>();
-          withcallsmapout.putAll(withcallsmap);
           bstm_withcallsmap*
-          Map<String,String> attrsmapout = new HashMap<String, String>();
           bstm_attrs*
           templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(ps, x_args, tc2, new Environment(env), e_templarg, withcallsmapout, attrsmapout, e1*);
           if (ps.hasExecutedAction)
@@ -308,8 +325,8 @@ rules //elements
              expr|[new utils.TemplateCall("none", x_templargs) ]|, 
              var-init|[ {} ]|, 
              bstm_npe*, 
-             [],
-             [],
+             <control-flow-emit-with-calls-map-def>,
+             <control-flow-emit-attrs-calls-map-def>,
              x_templargs)
 
 
@@ -337,7 +354,7 @@ rules //with element calls
         ; x_tname := <get-templatecallnumber> tc
         ; e_origargs* := <map(expression-to-java-servlet)> args
         ; originalname := <OriginalNonUniqueName> x
-        ; attrsmap := <filter(control-flow-emit-attrs-calls);concat> passigns 
+        ; attrsmap := <control-flow-emit-attrs-calls-map> passigns 
         ; x_templargs := <newname> "args"
 //        ; e_origargs := var-init |[ { e_origargs* } ]|
         ; bstm_result* := <generate-template-call(|x_methodname)> 
@@ -348,7 +365,7 @@ rules //with element calls
              expr|[ this.templateArg ]|,
              var-init|[ {} ]|, 
              bstm_npe*,
-             [],
+             <control-flow-emit-with-calls-map-def>,
              attrsmap,
              x_templargs)
          ; if "handleActions" := x_methodname then
