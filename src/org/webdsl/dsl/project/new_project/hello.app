@@ -48,3 +48,7 @@ init {
   color := Color { name := "green" };
   color.save();
 }
+
+test colorsInitialized {
+  assert((from Color).length == 4);
+}
