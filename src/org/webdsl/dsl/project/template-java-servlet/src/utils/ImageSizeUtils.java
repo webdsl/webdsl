@@ -12,17 +12,6 @@ import org.hibernate.Session;
 import javax.imageio.ImageIO;
 
 public class ImageSizeUtils {
-	static BufferedImage crop(BufferedImage source, Rectangle rect) {
-    		BufferedImage dest = new BufferedImage(rect.width, rect.height,
-    				BufferedImage.TYPE_INT_ARGB);
-    		Graphics imageG = dest.createGraphics();
-    		imageG.drawImage(source, 0, 0, rect.width, rect.height, rect.x, rect.y,
-    				rect.x + rect.width, rect.y + rect.height, null);
-    		imageG.dispose();
-    		return dest;
-    	}
-    
-
 	public static BufferedImage getScaledInstance(BufferedImage img, int targetWidth,
 			int targetHeight, Object hint, boolean higherQuality) {
 		int type = (img.getTransparency() == Transparency.OPAQUE) ? BufferedImage.TYPE_INT_RGB
@@ -71,6 +60,12 @@ public class ImageSizeUtils {
     		if(height == 0) {
     		    height = img.getHeight();
     		}
+    		if(width > img.getWidth()) {
+    		    width = img.getWidth();
+    		}
+    		if(height > img.getHeight()) {
+    		    height = img.getHeight();
+    		}
     		if((float)height/(float)img.getHeight() > (float)width/(float)img.getWidth()) {
     		    float factor = (float)width/(float)img.getWidth();
     		    int newWidth=(int)(factor*(float)img.getWidth());
@@ -83,21 +78,6 @@ public class ImageSizeUtils {
     			img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
 		    }
     		
-    		/*if ((float)img.getHeight()/(float)height > (float)img.getWidth()/(float)width) {
-    			// crop height
-    			int y = (img.getWidth() - width) / 2;
-    			System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
-    			img = img.getSubimage(0, y, img.getWidth(), img.getHeight()-(img.getWidth()-width));
-    			System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
-    			img = getScaledInstance(img, width, height, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
-    		} else { // crop width
-    		    float factor = width/height;
-    			int x = (img.getHeight() - width) / 2;
-			    System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
-    			img = img.getSubimage(x, 0, img.getWidth()-(img.getHeight()-height), img.getHeight());
-    			System.out.println("++Width: " + img.getWidth() + " height: " + img.getHeight());
-    			img = getScaledInstance(img, width, height, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
-    		}*/
     		ByteArrayOutputStream out = new ByteArrayOutputStream();
     		if(file.getFileName().endsWith(".png")) {
     		    ImageIO.write(img, "png", out);
