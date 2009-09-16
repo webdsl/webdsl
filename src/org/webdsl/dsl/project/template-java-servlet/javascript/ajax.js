@@ -30,7 +30,7 @@ function encodePost(string)
 function formToPost(formObj) {
   var request = "";
   for (var i = 0; i < formObj.length; i++) 
-    if (formObj.elements[i].name != "")
+    if (formObj.elements != undefined && formObj.elements[i] != undefined && formObj.elements[i].name != "")
     {
       if (formObj.elements[i].type=="select-multiple")
       {
@@ -42,6 +42,9 @@ function formToPost(formObj) {
       {
         if (formObj.elements[i].checked == true)
           request = request + formObj.elements[i].name + "=1&";
+      }
+      else if (formObj.elements[i].name == "textarea") {
+        request = request + formObj.elements[i].innerHTML;
       }
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
