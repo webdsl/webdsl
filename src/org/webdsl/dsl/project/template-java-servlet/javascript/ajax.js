@@ -241,11 +241,11 @@ function notify(string)
 }
 
 function replaceall(command) {
-    theNode = window.document.documentElement;
+    var theNode = window.document.documentElement;
 
     var newElem = document.createElement("tmp"); 
     newElem.innerHTML = unescape(command.value);
-    theNode.innerHTML = newElem.childNodes[0].innerHTML;
+    theNode.innerHTML = newElem.innerHTML;
     
     if (typeof(dojo) != undefined)
       dojo.parser.parse(theNode);	

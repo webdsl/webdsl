@@ -174,7 +174,7 @@ rules
                   templateservlet.handleActions(this, args, 1, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null, out);
                 }
                 else{
-                  clearHibernateCache();
+                  clearHibernateCache(); //note: already flushed changes are still saved
                 }
               }
               
@@ -184,11 +184,21 @@ rules
               else {
                 if ( ( !this.hasExecutedAction || hibernateCacheCleared )) {
                   if (!hibernateCacheCleared && ThreadLocalServlet.get().isPostRequest) {
+                    clearHibernateCache(); //note: already flushed changes are still saved
                     System.out.println("Error: server received POST request but was unable to dispatch to a proper action"); 
                     response.getWriter().write("404 \n Error: server received POST request but was unable to a proper action");
                   }
                   else {
-                    render(request,response);
+                    if(PageServlet.isAjaxApp && ThreadLocalServlet.get().isPostRequest){ //validation fail with ajax
+                        java.io.StringWriter s1 = new java.io.StringWriter();
+                        java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
+                        render(request, response, out1,true);
+                        response.getWriter().write("[{action:\"replace\", id:\""+this.getActionTarget()+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) + "\"}]");
+                        
+                    }
+                    else{ //validation fail without ajax
+                        render(request, response, response.getWriter(),false);
+                    }
                   }
                 }
                 else if (PageServlet.isAjaxApp && this.hasExecutedAction) {
@@ -246,8 +256,7 @@ rules
           @Partial
           private void storeSessionEntities(){}     
         
-          public void render(HttpServletRequest request,
-                  HttpServletResponse response)
+          public void render(HttpServletRequest request, HttpServletResponse response, java.io.PrintWriter sout, boolean onlyContent)
           throws ServletException, IOException {
             this.request=request;
             this.response=response;
@@ -260,8 +269,8 @@ rules
           
             response.setContentType(getMimetype());
             
-            java.io.PrintWriter sout = response.getWriter();
-            if(!mimetypeChanged){
+            //java.io.PrintWriter sout = response.getWriter();
+            if(!mimetypeChanged && !onlyContent){
               sout.println("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">");
               sout.println("<html>");
               sout.println("<head>");
@@ -279,14 +288,14 @@ rules
               sout.println("<script type=\"text/javascript\">window.onload = function () { init_dropdownmenu(); }</script>");
              
               sout.println("</head>");
-              sout.print("<body>");
+              sout.print("<body id=\""+this.getPageName()+"\">");
               
               renderIncomingSuccessMessages(sout);
               
               s.flush();
             }
             sout.write(s.toString());
-            if(!mimetypeChanged){
+            if(!mimetypeChanged && !onlyContent){
               sout.print("</body>");
               sout.println("</html>");
             }
