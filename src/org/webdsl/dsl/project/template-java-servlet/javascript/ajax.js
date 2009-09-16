@@ -43,8 +43,8 @@ function formToPost(formObj) {
         if (formObj.elements[i].checked == true)
           request = request + formObj.elements[i].name + "=1&";
       }
-      else if (formObj.elements[i].name == "textarea") {
-        request = request + formObj.elements[i].innerHTML;
+      else if (formObj.elements[i].nodeName.toLowerCase() == "textarea") {
+        request = request + formObj.elements[i].name + "=" + escape(formObj.elements[i].value) + "&";
       }
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
