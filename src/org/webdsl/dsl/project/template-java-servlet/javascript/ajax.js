@@ -222,6 +222,12 @@ function clientExecute(jsoncode, thisobject)
       relocate(command);
     else if (command.action == "restyle")
       restyle(command, thisobject);
+    else if (command.action == "refresh") 
+      location.reload(true);
+    //used for displaying validation messages
+    else if (command.action == "replaceall") {
+      replaceall(command);
+    }
    //other actions 
     
     else if (command.action != undefined) //last command might equal {}
@@ -232,6 +238,17 @@ function clientExecute(jsoncode, thisobject)
 function notify(string)
 {
   alert(string);
+}
+
+function replaceall(command) {
+    theNode = window.document.documentElement;
+
+    var newElem = document.createElement("tmp"); 
+    newElem.innerHTML = unescape(command.value);
+    theNode.innerHTML = newElem.childNodes[0].innerHTML;
+    
+    if (typeof(dojo) != undefined)
+      dojo.parser.parse(theNode);	
 }
 
 function replace(command, thisobject)
