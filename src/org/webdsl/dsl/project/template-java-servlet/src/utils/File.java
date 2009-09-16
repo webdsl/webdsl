@@ -4,6 +4,7 @@ import utils.*;
 import java.io.Serializable;
 import javax.persistence.*;
 import java.util.*;
+import org.hibernate.Session;
 
 @Entity public class File
 { 
@@ -93,6 +94,13 @@ import java.util.*;
     this.contentType = contentType;
   }
   
-  
+  public utils.File makeClone() {
+      utils.File newF = new utils.File();
+      newF.setContent(content);
+      newF.setFileName(fileName);
+      newF.setSizeInBytes(sizeInBytes);
+      newF.setContentType(contentType);
+      return newF;
+  }
       
 }

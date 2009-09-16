@@ -75,13 +75,11 @@ public class ImageSizeUtils {
     		    float factor = (float)width/(float)img.getWidth();
     		    int newWidth=(int)(factor*(float)img.getWidth());
     		    int newHeight=(int)(factor*(float)img.getHeight());
-    		    System.out.println("Resizing to: " + newWidth + ", " + newHeight);
     			img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
 		    } else {
     		    float factor = (float)height/(float)img.getHeight();
     		    int newWidth=(int)(factor*(float)img.getWidth());
     		    int newHeight=(int)(factor*(float)img.getHeight());
-    		    System.out.println("Resizing to: " + newWidth + ", " + newHeight);
     			img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
 		    }
     		
