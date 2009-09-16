@@ -1,0 +1,160 @@
+package utils;
+
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
+import java.awt.image.BufferedImageOp;
+import java.io.*;
+import java.util.*;
+import org.hibernate.Session;
+
+import javax.imageio.ImageIO;
+
+public class ImageSizeUtils {
+	static BufferedImage crop(BufferedImage source, Rectangle rect) {
+    		BufferedImage dest = new BufferedImage(rect.width, rect.height,
+    				BufferedImage.TYPE_INT_ARGB);
+    		Graphics imageG = dest.createGraphics();
+    		imageG.drawImage(source, 0, 0, rect.width, rect.height, rect.x, rect.y,
+    				rect.x + rect.width, rect.y + rect.height, null);
+    		imageG.dispose();
+    		return dest;
+    	}
+    
+
+	public static BufferedImage getScaledInstance(BufferedImage img, int targetWidth,
+			int targetHeight, Object hint, boolean higherQuality) {
+		int type = (img.getTransparency() == Transparency.OPAQUE) ? BufferedImage.TYPE_INT_RGB
+				: BufferedImage.TYPE_INT_ARGB;
+		BufferedImage ret = (BufferedImage) img;
+		int w, h;
+		if (higherQuality) {
+			w = img.getWidth();
+			h = img.getHeight();
+		} else {
+			w = targetWidth;
+			h = targetHeight;
+		}
+
+		do {
+			if (higherQuality && w > targetWidth) {
+				w /= 2;
+				if (w < targetWidth) {
+					w = targetWidth;
+				}
+			}
+			if (higherQuality && h > targetHeight) {
+				h /= 2;
+				if (h < targetHeight) {
+					h = targetHeight;
+				}
+			}
+			BufferedImage tmp = new BufferedImage(w, h, type);
+			Graphics2D g2 = tmp.createGraphics();
+			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
+			g2.drawImage(ret, 0, 0, w, h, null);
+			g2.dispose();
+			ret = tmp;
+		} while (w != targetWidth || h != targetHeight);
+
+		return ret;
+	}
+
+	public static void resizeImage(Session session, utils.File file, int width, int height) {
+	    try {
+	        session.refresh(file);
+    		BufferedImage img = ImageIO.read(file.getContentStream());
+    		if(width == 0) {
+    		    width = img.getWidth();
+    		}
+    		if(height == 0) {
+    		    height = img.getHeight();
+    		}
+    		if((float)height/(float)img.getHeight() > (float)width/(float)img.getWidth()) {
+    		    float factor = (float)width/(float)img.getWidth();
+    		    int newWidth=(int)(factor*(float)img.getWidth());
+    		    int newHeight=(int)(factor*(float)img.getHeight());
+    		    System.out.println("Resizing to: " + newWidth + ", " + newHeight);
+    			img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
+		    } else {
+    		    float factor = (float)height/(float)img.getHeight();
+    		    int newWidth=(int)(factor*(float)img.getWidth());
+    		    int newHeight=(int)(factor*(float)img.getHeight());
+    		    System.out.println("Resizing to: " + newWidth + ", " + newHeight);
+    			img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
+		    }
+    		
+    		/*if ((float)img.getHeight()/(float)height > (float)img.getWidth()/(float)width) {
+    			// crop height
+    			int y = (img.getWidth() - width) / 2;
+    			System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
+    			img = img.getSubimage(0, y, img.getWidth(), img.getHeight()-(img.getWidth()-width));
+    			System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
+    			img = getScaledInstance(img, width, height, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
+    		} else { // crop width
+    		    float factor = width/height;
+    			int x = (img.getHeight() - width) / 2;
+			    System.out.println("--Width: " + img.getWidth() + " height: " + img.getHeight());
+    			img = img.getSubimage(x, 0, img.getWidth()-(img.getHeight()-height), img.getHeight());
+    			System.out.println("++Width: " + img.getWidth() + " height: " + img.getHeight());
+    			img = getScaledInstance(img, width, height, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
+    		}*/
+    		ByteArrayOutputStream out = new ByteArrayOutputStream();
+    		if(file.getFileName().endsWith(".png")) {
+    		    ImageIO.write(img, "png", out);
+    	    } else {
+    	        ImageIO.write(img, "jpg", out);
+    	    }
+    		file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
+    		if(!file.getFileName().endsWith(".png")) {
+    		    file.setContentType("image/jpeg");
+    		}
+    		session.flush();
+    	} catch(Exception e) {
+    	    throw new RuntimeException(e);
+    	}
+	}
+	
+	public static void cropImage(Session session, utils.File file, int x, int y, int width, int height) {
+	    try {
+	        session.refresh(file);
+    		BufferedImage img = ImageIO.read(file.getContentStream());
+			img = img.getSubimage(x, y, width, height);
+    		ByteArrayOutputStream out = new ByteArrayOutputStream();
+    		if(file.getFileName().endsWith(".png")) {
+    		    ImageIO.write(img, "png", out);
+    	    } else {
+    	        ImageIO.write(img, "jpg", out);
+    	    }
+    		file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
+    		if(!file.getFileName().endsWith(".png")) {
+    		    file.setContentType("image/jpeg");
+    		}
+    		session.flush();
+    	} catch(Exception e) {
+    	    throw new RuntimeException(e);
+    	}
+	}
+	
+	
+	public static int getWidth(Session session, utils.File file) {
+	    try {
+	        session.refresh(file);
+    	    BufferedImage img = ImageIO.read(file.getContentStream());
+    	    return img.getWidth();
+	    } catch(Exception e) {
+	        throw new RuntimeException(e);
+	    }
+	}
+
+	public static int getHeight(Session session, utils.File file) {
+	    try {
+	        session.refresh(file);
+    	    BufferedImage img = ImageIO.read(file.getContentStream());
+    	    return img.getHeight();
+	    } catch(Exception e) {
+	        throw new RuntimeException(e);
+	    }
+	}
+}
