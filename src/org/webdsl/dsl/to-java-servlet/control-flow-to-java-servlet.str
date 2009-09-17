@@ -198,10 +198,23 @@ rules //templatecall
     control-flow-tcall(|"render")
 
   control-flow-tcall(|x_methodname) :
-    tc@TemplateCall(x_name, args, passign*, _) -> bstm* |[ bstm_result2* bstm_result* ]|
+    tc@TemplateCall(x_name, args, passign*, _) -> bstm* 
     where <CallToDefinedTemplateAfterIdRename> x_name
           ; not(<is-input-template> tc)
-    with  e* := <map({\e -> <expression-to-java-servlet> e\})> args
+    with  bstm* := <control-flow-tcall-helper(|x_methodname,[])> tc
+    
+  control-flow-tcall-helper(|x_methodname, e_extrainputarg) :
+    tc@TemplateCall(x_name, args, passign*, _) -> bstm* |[ bstm_result2* bstm_result* ]|
+    with  e1* := <map({\e -> <expression-to-java-servlet> e\})> args
+        ; if ([] := e_extrainputarg) then
+            e* := e1*
+          else
+            <debug(!1)> e1*
+          ; <debug(!2)> e_extrainputarg
+          
+          ; e* := <debug(!4); conc>(e1*, [ e_extrainputarg ] )
+          ;debug(!3)
+          end
         ; x_tname := <get-templatecallnumber> tc
         ; arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
         ; bstm_npe* :=
@@ -232,6 +245,7 @@ rules //templatecall
             withcallsmap, 
             attrsmap,
             x_templargs)
+//NOT NEEDED ANYMORE? :              
         ; if "handleActions" := x_methodname then
             bstm_result2* := <filter(handle-actions-to-java-servlet); concat> passign*
           else
