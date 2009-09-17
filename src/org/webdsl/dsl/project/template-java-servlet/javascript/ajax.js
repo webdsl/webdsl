@@ -250,7 +250,7 @@ function replaceall(command) {
     newElem.innerHTML = unescape(command.value);
     theNode.innerHTML = newElem.innerHTML;
     
-    if (typeof(dojo) != undefined)
+    if (typeof(dojo) != "undefined")
       dojo.parser.parse(theNode);	
 }
 
@@ -267,7 +267,7 @@ function replace(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (typeof(dojo) != undefined)
+    if (typeof(dojo) != "undefined")
       dojo.parser.parse(theNode);
 }
 
@@ -284,7 +284,7 @@ function append(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (typeof(dojo) != undefined)
+    if (typeof(dojo) != "undefined")
       dojo.parser.parse(theNode);
 }
 

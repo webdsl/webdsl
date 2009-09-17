@@ -11,13 +11,20 @@ rules
   // CONTROL FLOW
   
   //attrsmap optimization, if there are no attrs, do not initialize a new one
-  control-flow-emit-attrs-calls-map :
+  control-flow-emit-attrs-calls-map(|x_methodname) :
   passign* -> bstm_1*
   with bstm* := <filter(control-flow-emit-attrs-calls);concat> passign*
      ; if (0 := <length> bstm* ) then
          bstm_1* := <control-flow-emit-attrs-calls-map-def>
        else
-         bstm_1* := bstm* |[
+         //for not built in templates, actioncalls need to be handled at the place where they were put in the attributes map, without forwrap code
+         if "handleActions" := x_methodname then
+           bstm_action* := <filter(attribute-handle-actions); concat> passign* 
+         else
+           bstm_action* := []
+         end
+       ; bstm_1* := bstm* |[
+           bstm_action*
            Map<String,String> attrsmapout = new HashMap<String, String>();
            bstm*
          ]|
@@ -35,7 +42,7 @@ rules
       attrsmapout.put("~name",e_val);
     ]|
     where actionident := <get-actionnumber> tc
-        ; e_val := <ajax-action-call-to-exp(| e|[ "{_args_}" ]| )> (actionident, call)
+        ; e_val := <ajax-action-call-to-exp(| e|[ "{_args_}" ]|, False() )> (actionident, call)
     
   control-flow-emit-attrs-calls-2 :
     PropertyAssignment(name, val) -> bstm* |[
@@ -65,33 +72,41 @@ rules
     EventArg(name, e) -> e |[ "~name"+"=\"+"+e1+"+\"&" ]|
     with e1 := <expression-to-java-servlet> e
        
-  ajax-action-call-to-exp(|e_extraparams) :
+  ajax-action-call-to-exp(|e_extraparams, needsFor) :
     (actionident, call@ThisCall(act, args)) -> e |[ 
       "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+e_extraparams+"\",\""+form_ident+"\", this);" 
      ]| 
     where Action(_,_,_) := <OriginalNonUniqueName; ActionDefinition> act //Where, because thiscall can refer to an ordinary expression
-    with e_actionid := <action-id-encoding/*-as-expr-for-ajax*/> (actionident, args)
+    with e_actionid := <action-id-encoding; 
+                        try(
+                            where(True() := needsFor)
+                          ; for-loop-counter-wrap-code-expr
+                        )> (actionident, args)
 
    //PROVIDING ATTRIBUTES    
   //event call to java
   assignment-to-html-attr :
     tc@PropertyAssignment(x, call@ThisCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
     where actionident := <get-actionnumber> tc
-        ; e2 := <ajax-action-call-to-exp(| e|[ "" ]|)> (actionident, call)
+        ; e2 := <ajax-action-call-to-exp(| e|[ "" ]|, True() )> (actionident, call)
         
-  //handle actions
-  handle-actions-to-java-servlet: 
+        
+  handle-actions-to-java-servlet =
+    attribute-handle-actions; wrap-action-render-java-code
+        
+  //handle actions: Note that this code will be executed twice for not build in template calls: just before the template call (to support built ins),
+  //and inside the template call, to make the tcall number match
+  attribute-handle-actions: 
     tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
-    <wrap-action-render-java-code>
     bstm*|[
-        ident = e_actionid;
-        ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
-          if(ps.getParammap().get(ident)!=null)
-          {
-            x_action temp = (x_action)env.getAction("~x_action");
-            temp.x_action(e*,ident);
-          }
-        ]|
+        ~*<render-error-messages-with-error-template(|java:expr|[ e_actionid ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(e_actionid)!=null)
+        {
+          x_action temp = (x_action)env.getAction("~x_action");
+          temp.x_action(e*,e_actionid);
+          return; 
+        }
+      ]|
     ]|
     where  Action(_,fargs,_) := <OriginalNonUniqueName; ActionDefinition> x_action //Where, because thiscall can refer to an ordinary expression
         //; actionident := <get-actionnumber> tc   
