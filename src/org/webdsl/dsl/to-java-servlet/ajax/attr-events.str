@@ -17,7 +17,10 @@ rules
      ; if (0 := <length> bstm* ) then
          bstm_1* := <control-flow-emit-attrs-calls-map-def>
        else
-         //for not built in templates, actioncalls need to be handled at the place where they were put in the attributes map, without forwrap code
+         //for not built in templates, actioncalls need to be handled at the place where they were put in the attributes map, 
+         //so the tcall number is set
+         //not that property assignments are already translated by handle-actions-to-java-servlet,  
+         //so they appear twice in the code. The first one however is needed to detect actioncalls to built in templates
          if "handleActions" := x_methodname then
            bstm_action* := <filter(attribute-handle-actions); concat> passign* 
          else
@@ -99,22 +102,23 @@ rules
   attribute-handle-actions: 
     tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
     bstm*|[
-        ~*<render-error-messages-with-error-template(|java:expr|[ e_actionid ]|,<ErrorTemplateAction>)> bstm*|[
-        if(ps.getParammap().get(e_actionid)!=null)
+        String x_actionid = e_actionid;
+        ~*<render-error-messages-with-error-template(|java:expr|[ x_actionid ]|,<ErrorTemplateAction>)> bstm*|[
+        if(ps.getParammap().get(x_actionid)!=null)
         {
           x_action temp = (x_action)env.getAction("~x_action");
-          temp.x_action(e*,e_actionid);
+          temp.x_action(e*,x_actionid);
           return; 
         }
       ]|
     ]|
     where  Action(_,fargs,_) := <OriginalNonUniqueName; ActionDefinition> x_action //Where, because thiscall can refer to an ordinary expression
-        //; actionident := <get-actionnumber> tc   
     with   e* := <zip; map(
             ajax-action-arg-to-java-servlet <+ 
             ?(_,<id>); expression-to-java-servlet
           )> (fargs, args)
-        ; e_actionid := <action-id-encoding/*-as-expr-for-ajax*/> (<get-actionnumber> tc, args) //was actionident
+        ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args) 
+        ; x_actionid := <newname> "actionid"
 
   ajax-action-arg-to-java-servlet :
     (Arg(name, SimpleSort("String")), Null()) -> e |[ ps.getParammap().get("~name") ]|       

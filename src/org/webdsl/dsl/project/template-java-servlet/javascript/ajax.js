@@ -1,3 +1,6 @@
+//function which will be invoked after execute replace or append
+var __ajax_postprocessor = function(node) { console.log("Applied ajax transformation to: "+node); }; 
+
 function formToJSON(formObj) {
   var request = "{";
   for (var i = 0; i < formObj.length; i++) 
@@ -250,8 +253,7 @@ function replaceall(command) {
     newElem.innerHTML = unescape(command.value);
     theNode.innerHTML = newElem.innerHTML;
     
-    if (typeof(dojo) != "undefined")
-      dojo.parser.parse(theNode);	
+    __ajax_postprocessor(theNode);
 }
 
 function replace(command, thisobject)
@@ -267,8 +269,8 @@ function replace(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (typeof(dojo) != "undefined")
-      dojo.parser.parse(theNode);
+    
+    __ajax_postprocessor(theNode);
 }
 
 function append(command, thisobject)
@@ -284,8 +286,8 @@ function append(command, thisobject)
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    if (typeof(dojo) != "undefined")
-      dojo.parser.parse(theNode);
+    
+    __ajax_postprocessor(theNode);
 }
 
 function clear(command, thisobject)
