@@ -25,13 +25,23 @@ rules
   
   control-flow-emit-attrs-calls-map-def =
     !bstm* |[ Map<String,String> attrsmapout = TemplateCall.EmptyAttrs; ]|
+  
     
-  control-flow-emit-attrs-calls :
+  control-flow-emit-attrs-calls =
+    control-flow-emit-attrs-calls-1 <+ control-flow-emit-attrs-calls-2
+    
+  control-flow-emit-attrs-calls-1 :
+    tc@PropertyAssignment(name, call@ThisCall(_,_)) -> bstm* |[
+      attrsmapout.put("~name",e_val);
+    ]|
+    where actionident := <get-actionnumber> tc
+        ; e_val := <ajax-action-call-to-exp(| e|[ "{_args_}" ]| )> (actionident, call)
+    
+  control-flow-emit-attrs-calls-2 :
     PropertyAssignment(name, val) -> bstm* |[
       attrsmapout.put("~name",e_val);
     ]|
     with e_val := <  control-flow-emit-attrs-value 
-                  <+ ajax-action-call-to-exp(| e|[ "{_args_}" ]| )
                   <+ expression-to-java-servlet
                   > val
   
@@ -56,21 +66,23 @@ rules
     with e1 := <expression-to-java-servlet> e
        
   ajax-action-call-to-exp(|e_extraparams) :
-    call@ThisCall(act, args) -> e |[ 
+    (actionident, call@ThisCall(act, args)) -> e |[ 
       "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ps.getActionTarget() +"\",\""+ e_actionid +"\", \""+ps.getHiddenPostParams()+e_extraparams+"\",\""+form_ident+"\", this);" 
      ]| 
     where Action(_,_,_) := <OriginalNonUniqueName; ActionDefinition> act //Where, because thiscall can refer to an ordinary expression
-    with e_actionid := <action-id-encoding-as-expr-for-ajax> (act, args)
+    with e_actionid := <action-id-encoding/*-as-expr-for-ajax*/> (actionident, args)
 
    //PROVIDING ATTRIBUTES    
   //event call to java
   assignment-to-html-attr :
     tc@PropertyAssignment(x, call@ThisCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
-    where e2 := <ajax-action-call-to-exp(| e|[ "" ]|)> call 
+    where actionident := <get-actionnumber> tc
+        ; e2 := <ajax-action-call-to-exp(| e|[ "" ]|)> (actionident, call)
         
   //handle actions
   handle-actions-to-java-servlet: 
     tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
+    <wrap-action-render-java-code>
     bstm*|[
         ident = e_actionid;
         if(ps.getParammap().get(ident)!=null)
@@ -85,7 +97,7 @@ rules
             ajax-action-arg-to-java-servlet <+ 
             ?(_,<id>); expression-to-java-servlet
           )> (fargs, args)
-        ; e_actionid := <action-id-encoding-as-expr-for-ajax> (x_action, args) //was actionident
+        ; e_actionid := <action-id-encoding/*-as-expr-for-ajax*/> (<get-actionnumber> tc, args) //was actionident
 
   ajax-action-arg-to-java-servlet :
     (Arg(name, SimpleSort("String")), Null()) -> e |[ ps.getParammap().get("~name") ]|       
