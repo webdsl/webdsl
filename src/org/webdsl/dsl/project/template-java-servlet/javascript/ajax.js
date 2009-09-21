@@ -1,5 +1,15 @@
 //function which will be invoked after execute replace or append
-var __ajax_postprocessor = function(node) { console.log("Applied ajax transformation to: "+node); }; 
+var __ajax_postprocessor = null;
+
+function ajax_post_process(node) {
+  // node.scrollIntoView();
+  if(typeof(console) != "undefined") {
+    console.debug("Applied ajax transformation");
+  }
+  if (__ajax_postprocessor != null) {
+    __ajax_postprocessor(node);
+  } 
+} 
 
 function formToJSON(formObj) {
   var request = "{";
@@ -253,7 +263,7 @@ function replaceall(command) {
     newElem.innerHTML = unescape(command.value);
     theNode.innerHTML = newElem.innerHTML;
     
-    __ajax_postprocessor(theNode);
+    ajax_post_process(theNode);
 }
 
 function replace(command, thisobject)
@@ -270,7 +280,7 @@ function replace(command, thisobject)
       theNode = newElem.childNodes[0];
     }
     
-    __ajax_postprocessor(theNode);
+    ajax_post_process(theNode);
 }
 
 function append(command, thisobject)
@@ -287,7 +297,7 @@ function append(command, thisobject)
       theNode = newElem.childNodes[0];
     }
     
-    __ajax_postprocessor(theNode);
+    ajax_post_process(theNode);
 }
 
 function clear(command, thisobject)
