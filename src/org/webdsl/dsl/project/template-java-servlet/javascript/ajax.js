@@ -60,7 +60,7 @@ function formToPost(formObj) {
           request = request + formObj.elements[i].name + "=1&";
       }
       else if (formObj.elements[i].nodeName.toLowerCase() == "textarea") {
-        request = request + formObj.elements[i].name + "=" + escape(formObj.elements[i].value) + "&";
+        request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
       }
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
@@ -179,6 +179,7 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   req = newRequest();
   req.open("POST", template , true);
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  req.setRequestHeader("charset", "UTF-8");  
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
   
