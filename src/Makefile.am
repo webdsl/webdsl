@@ -166,7 +166,7 @@ SCFLAGS = --main $*-main
 bin_PROGRAMS = webdslc
 
 webdslc_SOURCES = webdslc.c
-webdslc_CFLAGS   = $(AM_CFLAGS) -O0
+webdslc_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
 webdslc_LDFLAGS  = $(AM_LDFLAGS)
 webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                    $(STRATEGO_GPP_CFLAGS) \
@@ -247,7 +247,7 @@ nobase_data_DATA = libwebdsl-front.rtree
 lib_LTLIBRARIES  = libwebdsl-front.la 
 
 libwebdsl_front_la_SOURCES = libwebdsl-front.c
-libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0
+libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0 $(STRATEGO_LIB_CFLAGS)
 libwebdsl_front_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \
@@ -275,7 +275,7 @@ nobase_data_DATA += libwebdsl-generator.rtree
 lib_LTLIBRARIES  += libwebdsl-generator.la 
 
 libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
-libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0
+libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0 $(STRATEGO_LIB_CFLAGS)
 libwebdsl_generator_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_generator_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \
@@ -301,7 +301,7 @@ nobase_data_DATA += libjava-transformations.rtree
 lib_LTLIBRARIES  += libjava-transformations.la 
 
 libjava_transformations_la_SOURCES = libjava-transformations.c
-libjava_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0
+libjava_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
 libjava_transformations_la_LDFLAGS  = $(AM_LDFLAGS)
 libjava_transformations_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)
 libjava_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
@@ -323,7 +323,7 @@ nobase_data_DATA += libto-java-servlet.rtree
 lib_LTLIBRARIES  += libto-java-servlet.la 
 
 libto_java_servlet_la_SOURCES = libto-java-servlet.c
-libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0
+libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
 libto_java_servlet_la_LDFLAGS  = $(AM_LDFLAGS)
 libto_java_servlet_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)\
                               $(STRATEGO_GPP_CFLAGS) \
@@ -349,7 +349,7 @@ nobase_data_DATA += libto-py-gae.rtree
 lib_LTLIBRARIES  += libto-py-gae.la 
 
 libto_py_gae_la_SOURCES = libto-py-gae.c
-libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0
+libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
 libto_py_gae_la_LDFLAGS  = $(AM_LDFLAGS)
 libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \
@@ -390,7 +390,7 @@ nobase_data_DATA += libwrite-files.rtree
 lib_LTLIBRARIES  += libwrite-files.la 
 
 libwrite_files_la_SOURCES = libwrite-files.c
-libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0
+libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
 libwrite_files_la_LDFLAGS  = $(AM_LDFLAGS)
 libwrite_files_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \

@@ -33,10 +33,23 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 test/Makefile
+src/org/webdsl/dsl/project/testnewproject.sh
 src/org/webdsl/dsl/project/webdsl
 src/org/webdsl/dsl/project/webdsl-plugins
 src/org/webdsl/dsl/project/Makefile
 webdsls.pc
+test/run
+test/run-test-fail-servlet.sh
+test/run-test-fail.sh
+test/run-test-succeed-all-servlet.sh
+test/run-test-succeed-all.sh
+],
+[ chmod +x src/org/webdsl/dsl/project/testnewproject.sh
+  chmod +x test/run
+  chmod +x test/run-test-fail-servlet.sh
+  chmod +x test/run-test-fail.sh
+  chmod +x test/run-test-succeed-all-servlet.sh
+  chmod +x test/run-test-succeed-all.sh
 ])
 AC_OUTPUT
 
