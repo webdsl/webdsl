@@ -364,6 +364,8 @@ function loadCSS(url) {
 var Utf8 = {
   // public method for url encoding
   encode : function (string) {
+    if (string == null) 
+      return "";
     string = string.replace(/\r\n/g,"\n");
     var utftext = "";
     for (var n = 0; n < string.length; n++) {
