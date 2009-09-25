@@ -7,4 +7,5 @@ public interface WebDSLEntity extends Serializable {
     public boolean instanceOf(String s);
     public Object getId();
     public String get_WebDslEntityType();
+    public java.lang.Integer getVersion(); 
 }

@@ -14,8 +14,8 @@ import org.webdsl.querylist.QueryList;
   { }
   
   public User(String name, int age) {
-	  _name = name;
-	  _age = age;
+      _name = name;
+      _age = age;
   }
 
   @Id @GeneratedValue private Long id;
@@ -45,7 +45,7 @@ import org.webdsl.querylist.QueryList;
 
 
     public String get_WebDslEntityType() {
-	return "User";
+    return "User";
     }
 
   public boolean isInstance(Class<?> c)
@@ -170,11 +170,13 @@ import org.webdsl.querylist.QueryList;
   }
   
   public String toString() {
-	  return getName();
+      return getName();
   }
 
   @Override
   public int compareTo(Object o) {
     return id.compareTo(((User)o).getId());
   }
+  
+  public java.lang.Integer getVersion() { return 0; }
 }

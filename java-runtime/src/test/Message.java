@@ -2,6 +2,7 @@ package test;
 
 import javax.persistence.*;
 
+
 @Entity
 @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
 @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
@@ -34,7 +35,7 @@ public class Message implements org.webdsl.WebDSLEntity, Comparable<Object> {
 
 
     public String get_WebDslEntityType() {
-	return "Message";
+    return "Message";
     }
 
   public boolean isInstance(Class<?> c) {
@@ -136,4 +137,6 @@ public class Message implements org.webdsl.WebDSLEntity, Comparable<Object> {
   public int compareTo(Object o) {
     return id.compareTo(((Message)o).getId());
   }
+  
+  public java.lang.Integer getVersion() { return 0; } //MW: always valid? 
 }

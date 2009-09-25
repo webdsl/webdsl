@@ -76,7 +76,7 @@ rules // iteration
                              int x_separatorindex = 0;
                              int x_delta = (x < x_bound? 1 : -1);
                              while(x != x_bound) {
-                               forelementcounter = Integer.toString(Integer.parseInt(forelementcounter) + 1);
+                               forelementcounter = Integer.toString(++fallbackcounter);
                                ~*<control-flow-for-separator(s|sep, x_separatorindex)> bstm*|[
                                  bstm*
                                ]|
@@ -86,6 +86,7 @@ rules // iteration
                              if(forLoopCounter == 0){
                                inForLoop = false;
                                forelementcounter = "0";
+                               fallbackcounter = 0;
                              }
                            ]| end
 
@@ -130,20 +131,28 @@ rules // iteration
       ~*<  control-flow-for-separator(s|sep, x_separatorindex)
          ; wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
       bstm* |[  
-        if(WebDSLEntity.class.isInstance(x))
-          forelementcounter = ((WebDSLEntity) ((Object) x)).getId().toString();
+      //MW: no clue why it doesnt work for non ajax apps...
+        fallbackcounter += 1; 
+        if(PageServlet.isAjaxApp && WebDSLEntity.class.isInstance(x)) {
+           WebDSLEntity x_ent = ((WebDSLEntity) ((Object) x));
+           forelementcounter = (x_ent.getVersion() == 0 
+             ? Integer.toString(fallbackcounter) 
+             : x_ent.getId().toString());
+        }
         else
-          forelementcounter = Integer.toString(Integer.parseInt(forelementcounter) + 1);
+          forelementcounter = Integer.toString(fallbackcounter);
         bstm*
       ]|
       forLoopCounter--;
       if(forLoopCounter == 0){
         inForLoop = false;
         forelementcounter = "0";
+        fallbackcounter = 0;
       }
     ]|
     with  bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
         ; x_separatorindex := <newname> "separatorindex"
+        ; x_ent := <newname> "temp"
                           
   control-flow-for-separator(s|sep, x_separatorindex) :
     bstm* -> bstm*
