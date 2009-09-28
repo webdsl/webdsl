@@ -1,0 +1,67 @@
+module org/webdsl/dsl/languages/data-model/type-define
+ 
+strategies
+
+  rename :
+    TypeDef(ident,elems1) -> <declare-type-def> TypeDef(ident,elems2)
+    with {| Rename:    
+            y := <rename-bound(|SimpleSort(ident))> "this"
+          ; elems2 := <rename-all> elems1
+          |}
+
+rules
+
+  declare-type-def:
+   td@TypeDef(ident,elems) -> td
+   with  anno* := <filter(?TypeDefAnno(<id>))> elems
+       ; <map(declare-type-def-anno(|ident))> anno*   
+     
+  declare-type-def-anno(|ident):
+    anno -> anno
+    with  annonumber := <newname> "typeanno"
+        ; rules( 
+            TypeAnnotation :+ ident -> (annonumber,anno)  
+            TypeHasBeenExtended : ident
+          )
+     
+rules
+
+  desugar-ui :
+    Entity(x_class,super,props,funcs) -> <rename> Entity(x_class,super,props1,funcs) 
+    where props1 := <apply-type-def-annos> props
+        ; not(props1 := props)
+    
+  desugar-ui : 
+    EntityNoSuper(x_class,props,funcs) -> <rename> EntityNoSuper(x_class,props1,funcs) 
+    where props1 := <apply-type-def-annos> props
+        ; not(props1 := props)
+    
+  desugar-ui :
+    SessionEntity(x_class,props,funcs) -> <rename> SessionEntity(x_class,props1,funcs) 
+    where props1 := <apply-type-def-annos> props
+        ; not(props1 := props)
+  
+signature
+  constructors 
+    TypeAnnotationGenerated: Term -> Term
+  
+rules
+
+  apply-type-def-annos:
+    props -> props1
+    with  props1 := <map(try(apply-type-def-annos-to-prop))> props
+
+  apply-type-def-annos-to-prop :  
+    prop@Property(x, k, ss@SimpleSort(s), anno*) -> 
+    Property(x, k, ss, [newanno*,anno*])
+    where <is-simple-sort> ss
+        ; <TypeHasBeenExtended> s
+    with  alltypeannos := <bagof-TypeAnnotation> s
+        ; newtypeannos := <remove-all(is-already-applied-anno(|anno*))> alltypeannos
+        ; newanno* := <alltd(\ Var("this") -> Var(<strip-annos> x) \)//FieldAccess(Var("this"),Var(<strip-annos> x)) \)
+                             ; map(\(num,an)->[TypeAnnotationGenerated(num),an]  \)
+                             ; try(concat)> newtypeannos
+        
+  is-already-applied-anno(|anno*):
+    (annonumber,anno) -> anno
+    where <fetch(?TypeAnnotationGenerated(annonumber))> anno*  
