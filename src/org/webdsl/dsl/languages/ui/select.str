@@ -65,6 +65,9 @@ rules
           ; (srt2 := srt <+ srt2 := srt3)// TODO hard check is too restrictive, but type-compatible seems broken
           )
 
+/**
+ *  'allowed=exp' annotation
+ */
 rules
 
   desugar-ui :
@@ -131,3 +134,27 @@ rules
      
   allowed-collection-function-name : x -> <concat-strings> ["allowedCollectionForProperty",<capitalize-string> x]   
   
+
+/**
+ *  'not null' annotation
+ */
+ rules
+ 
+  desugar-ui :
+    Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*) ->
+    Select(x, srt, label, FieldAccess(var,x_prop), passign1*, elem*)
+    where passign1* := <desugar-not-null-anno(|passign*, var, x_prop)>
+    
+  desugar-ui :
+    SelectFromList(FieldAccess(var,x_prop), e, passign*, elem*) ->
+    SelectFromList(FieldAccess(var,x_prop), e, passign1*, elem*)
+    where passign1* := <desugar-not-null-anno(|passign*, var, x_prop)>
+       
+  desugar-not-null-anno(|passign*, var, x_prop) :
+    _ -> passign1*
+    where not(<fetch(?PropertyAssignment("notnull", "true"))> passign*)
+        ; SimpleSort(x_vartypename) := <type-of> var
+        ; propannos := <property-annos> (x_vartypename,x_prop) 
+        ; <fetch(?NotNullAnno())> propannos
+    with  passign1* := [PropertyAssignment("notnull", "true") | passign*]
+        
