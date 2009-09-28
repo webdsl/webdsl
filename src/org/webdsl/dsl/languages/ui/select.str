@@ -64,4 +64,70 @@ rules
           ; srt2 := <type-of> e1
           ; (srt2 := srt <+ srt2 := srt3)// TODO hard check is too restrictive, but type-compatible seems broken
           )
+
+rules
+
+  desugar-ui :
+    tc@Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*) ->
+    result
+    where SimpleSort(x_vartypename) := <type-of> var
+        ; propannos := <property-annos> (x_vartypename,x_prop) 
+        ; <fetch(?AllowedAnno(e1))> propannos
+    with  t_typeofcol := <type-of> e1
+        ; x_name := <allowed-collection-function-name> x_prop
+        ; e_col := Call(var,x_name,[])
+        ; result := SelectFromList(FieldAccess(var,x_prop), e_col, passign*, elem*)
+
+// TODO constraint: 'allowed=' collection must be Set or List of property type
+// constraint: only 1 'allowed'
+// constraint: overlap with generated function below
+
+strategies
+
+  desugar-ui :
+    Entity(x_class,super,props,funcs) -> <rename> Entity(x_class,super,props1,funcs1) 
+    where <oncetd(not-translated-allowed-anno)> props
+    with  (props1,funcs1) := <get-all-function-allowed-annotation(|x_class)> (props,funcs)
     
+  desugar-ui : 
+    EntityNoSuper(x_class,props,funcs) -> <rename> EntityNoSuper(x_class,props1,funcs1) 
+    where <oncetd(not-translated-allowed-anno)> props
+    with  (props1,funcs1) := <get-all-function-allowed-annotation(|x_class)> (props,funcs)
+    
+  desugar-ui :
+    SessionEntity(x_class,props,funcs) -> <rename> SessionEntity(x_class,props1,funcs1) 
+    where <oncetd(not-translated-allowed-anno)> props
+    with  (props1,funcs1) := <get-all-function-allowed-annotation(|x_class)> (props,funcs) 
+   
+signature
+  constructors 
+    AllowedAnnotationFunctionGenerated: Term
+  
+rules 
+
+  not-translated-allowed-anno : 
+    prop@Property(x, k, srt, annos) -> prop
+    where <fetch(?AllowedAnno(e1))> annos
+        ; <not(fetch(AllowedAnnotationFunctionGenerated))> annos
+
+  get-all-function-allowed-annotation(|x_class):
+    (props,funcs) -> (props2,funcs2)
+    with  tuples := <map(get-function-allowed-annotation(|x_class) <+ !(<id>,[]) )> props
+        ; (props2,funcs1) := <unzip> tuples
+        ; funcs2 := <flatten-list> funcs1
+
+  get-function-allowed-annotation(|x_class) :  
+    prop@Property(x, k, srt, annos) -> 
+    (Property(x, k, srt, [AllowedAnnotationFunctionGenerated()|annos])
+    ,result)
+    where not-translated-allowed-anno
+    with  <fetch(?AllowedAnno(e1))> annos
+        ; x_name := <allowed-collection-function-name> x
+        ; srt_typeofcol := <type-of> e1
+        ; result := 
+            fun |[ 
+              function x_name():srt_typeofcol { return e1; } 
+            ]|
+     
+  allowed-collection-function-name : x -> <concat-strings> ["allowedCollectionForProperty",<capitalize-string> x]   
+  

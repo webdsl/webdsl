@@ -1170,7 +1170,7 @@
    
    DeriveCrud -- KW["derive"] KW["crud"] _1,
    
-   HqlStatement -- _1 KW[";"]
-
+   HqlStatement -- _1 KW[";"],
+   NotNullAnno -- "not null"        
 
 ]
