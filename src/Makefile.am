@@ -52,22 +52,19 @@ syntax 		= org/webdsl/dsl/syntax/WebDSL
 hql 		= org/webdsl/dsl/syntax/HQL
 mixhql 		= org/webdsl/dsl/syntax/MixHQL
 css 		= org/webdsl/dsl/syntax/CSS
-python 		= org/webdsl/dsl/syntax/Python
-mixpython 	= org/webdsl/dsl/syntax/MixPython
 mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
-mixmetapysyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Python
 
 SYNTAXDEFS = $(syntax).def					  \
-	     $(mixcss).def $(metasyntax).def $(mixmetapysyntax).def $(mixmetasyntax).def \
-	     $(hql).def $(python).def $(css).def  # used for mixing		  
+	     $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
+	     $(hql).def $(css).def  # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixmetapysyntax).tbl $(mixpython).tbl $(mixcss).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl 
 
-SIGS   = $(hql).rtg $(hql).str $(css).rtg $(python).str $(css).str $(syntax).rtg $(syntax).str
+SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str
 
-PPTBLS = $(hql)-pretty.pp.af $(python)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
+PPTBLS = $(hql)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
 
 syntax : $(TBLS)
 
@@ -80,18 +77,12 @@ PPTABLES = \
 	$(syntax).tbl \
 	$(hql)-pretty.pp.af \
 	$(css).tbl \
-	$(python).tbl \
-	$(css)-pretty.pp.af \
-	$(python)-pretty.pp.af
+	$(css)-pretty.pp.af
 
 org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \
-                                  org/webdsl/dsl/syntax/MixHQL.sdf \
-                                  org/webdsl/dsl/syntax/MixPython.sdf
+                                  org/webdsl/dsl/syntax/MixHQL.sdf
 
 # .str dependencies
-
-PYTHONSTRFILES = $(wildcard ./org/webdsl/dsl/to-py-gae/*.str) \
-                 $(wildcard ./org/webdsl/dsl/to-py-gae/*/*.str)
                  
 FRONTSTRFILES =  $(wildcard ./org/webdsl/dsl/syntax/*.str) \
                  $(wildcard ./org/webdsl/dsl/utils/*.str)
@@ -180,14 +171,14 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
                    $(STRATEGO_LIBS) \
                    $(JAVA_FRONT_LIBS) \
-                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
+                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
 #webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-#                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la libjava-pp.la libjava-transformations.la
+#                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libto-py-gae.la libwrite-files.la webdslc.str libjava-transformations.la
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la
 
-ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree to-py-gae.ctree write-files.ctree java-transformations.ctree
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree
 
 STRJ=`if which strj >/dev/null; then echo strj; else echo java -server -Xss4m -Xmx1024m -XX:+UseParallelGC -jar strategoxt.jar; fi`
 STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean
@@ -201,7 +192,6 @@ JAVAS= \
   bin/org/webdsl/java_pp_fake/Main.java \
   bin/org/webdsl/write_files/Main.java \
   bin/org/webdsl/to_java_servlet/Main.java \
-  bin/org/webdsl/to_py_gae/Main.java \
   bin/org/webdsl/webdslc/Main.java
 
 java : strategoxt.jar $(JAVAS)
@@ -232,14 +222,11 @@ bin/org/webdsl/write_files/Main.java : write-files.ctree
 bin/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
 
-bin/org/webdsl/to_py_gae/Main.java : to-py-gae.ctree
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_py_gae -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
-
 bin/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
 
 bin/org/webdsl/webdslc/Main.java : webdslc.str
-	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.to-py-gae -la org.webdsl.write-files
+	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files
 
 ### libraries
 
@@ -343,30 +330,6 @@ to-java-servlet.ctree : libto-java-servlet.rtree
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o to-java-servlet.ctree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 
-### python gae back-end
-
-nobase_data_DATA += libto-py-gae.rtree 
-lib_LTLIBRARIES  += libto-py-gae.la 
-
-libto_py_gae_la_SOURCES = libto-py-gae.c
-libto_py_gae_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
-libto_py_gae_la_LDFLAGS  = $(AM_LDFLAGS)
-libto_py_gae_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
-                              $(STRATEGO_GPP_CFLAGS) \
-                              $(STRATEGO_CFLAGS)
-libto_py_gae_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
-			      $(STRATEGO_GPP_LIBS) \
-			      $(STRATEGO_LIBS)
-
-libto-py-gae.rtree libto-py-gae.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libwebdsl-generator.la
-	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o libto-py-gae.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
-	rm libto-py-gae.str
-
-to-py-gae.ctree : libto-py-gae.rtree
-	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-py-gae/to-py-gae.str -o to-py-gae.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
-
 ## fast pretty-printer
 
 lib_LTLIBRARIES  += libjava-pp.la 
@@ -401,7 +364,7 @@ libwrite_files_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
                               $(JAVA_FRONT_LIBS) \
 			      $(STRATEGO_LIBS)
 
-libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(PYTHONSTRFILES:.str=.rtree) libwebdsl-front.la libjava-pp.la Java-EBlock.rtg.af xml-doc.rtg.af
+libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.la libjava-pp.la Java-EBlock.rtg.af xml-doc.rtg.af
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwrite-files.str
