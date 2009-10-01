@@ -124,8 +124,10 @@ rules
   handle-actions-input-to-java-servlet :
     tc@elem|[ inputDate(e)[passign*]{elem*} ]| ->
     <handle-actions-input-to-java-servlet-input-date> 
-      (inputident,e,passign*,<date-format-string>,e|["Required format is " + ~<date-format-in-validation-message>]|)    
-    with inputident := <get-inputnumber> tc     
+      (inputident, e, passign*, javaformatstring, e|["Required format is " + ~javaformatmessage]|)    
+    with inputident := <get-inputnumber> tc
+       ; javaformatstring := <date-java-format-string-from-passign> passign*     
+       ; javaformatmessage := <date-java-format-message-from-passign> passign*
 
   handle-actions-input-to-java-servlet :
     tc@elem|[ inputTime(e)[passign*]{elem*} ]| ->
@@ -163,8 +165,26 @@ rules
 
   elem-to-java-servlet :
     tc@elem|[ inputDate(e)[passign*]{elem*} ]| ->
-    <elem-to-java-servlet-input-date> (inputident,e,passign*,<date-format-string>)    
-    with inputident := <get-inputnumber> tc     
+    <elem-to-java-servlet-input-date> (inputident,e,passign1*,javaformatstring)    
+    with  javaformatstring := <date-java-format-string-from-passign> passign*
+        ; inputident := <get-inputnumber> tc
+        ; passign1* := <remove-all(?PropertyAssignment("format",_))> passign*
+        
+  date-java-format-string-from-passign :
+    passign* -> javaformatstring
+    with if <fetch(?PropertyAssignment("format", formatstring))> passign*
+         then javaformat := <un-double-quote; string-replace(|"m","M")> formatstring
+            ; javaformatstring := e|[ "~javaformat" ]|
+         else javaformatstring := <date-format-string>
+         end
+
+  date-java-format-message-from-passign :
+    passign* -> javaformatmessage
+    with if <fetch(?PropertyAssignment("format", formatstring))> passign*
+         then javaformat := <un-double-quote> formatstring
+            ; javaformatmessage := e|[ "~javaformat" ]|
+         else javaformatmessage := <date-format-in-validation-message>
+         end
     
   elem-to-java-servlet :
     tc@elem|[ inputTime(e)[passign*]{elem*} ]| ->
@@ -201,7 +221,8 @@ rules
   elem-to-java-servlet :
     elem|[ outputDate(e)[passign*]{} ]| ->
     <wrap-common-context-code>
-    <webdsl-exp-to-java-bstms-format-as-date(|<date-format-string>)> e
+    <webdsl-exp-to-java-bstms-format-as-date(|javaformatstring)> e
+    with  javaformatstring := <date-java-format-string-from-passign> passign*     
 
   elem-to-java-servlet :
     elem|[ outputTime(e)[passign*]{} ]| ->
