@@ -12,7 +12,7 @@ public final class Encoders {
     public static MessageDigest md = null;
     private static int hits = 0;
     
-    public static String encodeTemplateId(String name, Object[] args,int counter)
+    public static String encodeTemplateId(String name, String argsrep,int counter)
     {
         //mw: append before update, and cache:
         String d = name + counter;
@@ -27,8 +27,7 @@ public final class Encoders {
             // This can be performed multiple times before creating the hash
             md.reset();
             md.update(d.getBytes());
-            //for(Object o:args)
-            //    md.update(o.toString().getBytes());
+            md.update(argsrep.getBytes());
 
             // Create the digest from the message
             String s = new String(Hex.encodeHex(md.digest()));
