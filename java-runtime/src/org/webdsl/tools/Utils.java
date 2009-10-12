@@ -69,14 +69,14 @@ public final class Utils {
         }
     }
     
-    public static String encodeIdList(Object o){
-        List<WebDSLEntity> l = (List<WebDSLEntity>) o;
+    public static String encodeIdList(Collection<?> c){
         String res = "";
-        for(WebDSLEntity obj: l) {
-            res+=obj.getId()+",";
+        for(Object obj: c) {
+            WebDSLEntity e = (WebDSLEntity) obj;
+        	res+=e.getId()+",";
         }        
         return res.substring(0, Math.max(0,res.length()-1));
-    }
+    }    
     
     /**
      * http://forum.hibernate.org/viewtopic.php?p=2387828
