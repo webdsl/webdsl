@@ -215,6 +215,10 @@ rules //templatecall
           ; not(<is-input-template> tc)
     with  bstm* := <control-flow-tcall-helper(|x_methodname,[])> tc
     
+  template-call-to-java-string: 
+    (x_name,args) -> java:expr|[ "~x_name"+"("+"~arg_dump"+")" ]|
+    with  arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
+    
   control-flow-tcall-helper(|x_methodname, e_extrainputarg) :
     tc@TemplateCall(x_name, args, passign*, _) -> bstm* |[  bstm_result* ]|
     with  e1* := <map({\e -> <expression-to-java-servlet> e\})> args
@@ -224,10 +228,10 @@ rules //templatecall
             e* := <conc>(e1*, [ e_extrainputarg ] )
           end
         ; x_tname := <get-templatecallnumber> tc
-        ; arg_dump := <alltd(OriginalNonUniqueName);map(pp-webdsl);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
+        ; e_tc := <template-call-to-java-string> (x_name,args)
         ; bstm_npe* :=
             <![];if-debug(!bstm*|[
-              System.out.println("WebDSL warning: null reference in template arguments: "+"~x_name"+"("+"~arg_dump"+")"); // TODO proper location information; some way to disable these warnings
+              System.out.println("WebDSL warning: null reference in template arguments: "+e_tc); // TODO proper location information; some way to disable these warnings
               npe.printStackTrace(); // display java exception for now so it can be traced back to the template
             ]|)>
         // implicit template argument
@@ -307,6 +311,7 @@ rules //templatecall
           ]|)>
         }
         catch(NullPointerException npe) {
+          
           bstm_npe*
         }
       }
@@ -374,7 +379,12 @@ rules //with element calls
   control-flow-elemwithcall(|x_methodname) :
   tc@TemplateCall(x,args,passigns,_) -> bstm* |[ bstm_result* ]|
   where <CallToRequiredTemplateAfterIdRename> x 
-  with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'with' clause of call"); ]|
+  with  e_tc := <template-call-to-java-string> (x,args)
+        ; bstm_npe* :=
+            <![];if-debug(!bstm*|[
+              System.out.println("WebDSL warning: null reference in environment of 'with' clause of call: "+e_tc);
+              npe.printStackTrace(); // display java exception for now so it can be traced back to the template
+            ]|)>
         ; x_tname := <get-templatecallnumber> tc
         ; e_origargs* := <map(expression-to-java-servlet)> args
         ; originalname := <OriginalNonUniqueName> x
