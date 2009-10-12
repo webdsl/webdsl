@@ -264,11 +264,33 @@ rules // for
 
 rules // return
 
+  normal-redirect-statements :
+    e_url -> bstm* |[
+    try {
+      ps.setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
+      if(!ps.isActionLinkUsed()){ response.sendRedirect(ps.getRedirectUrl()); }
+    } catch (IOException ioe) {
+      System.out.println("redirect failed");
+      ioe.printStackTrace();
+    }
+  ]|
+  
+  ajax-redirect-statements :
+    e_url -> bstm* |[
+      //redirect in init action can be triggered with get as well, 
+      //should not use ajax response in this case since the page wasn't accessed through the ajax run-time
+      if(!ThreadLocalServlet.get().isPostRequest){ 
+        ~*<normal-redirect-statements> e_url
+      }
+      else{
+        out.println("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");   
+      }
+    ]|
+
   return-to-java-servlet :
     Return(e1) -> bstm* |[ 
-      out.println("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
-      isRedirected = true;      
-      //ps.clearHibernateCache(variables);
+      ~*<ajax-redirect-statements> e_url
+      isRedirected = true; // declared in template-action.str
       return;
     ]|
     where InAction; IsAjaxApp
@@ -276,25 +298,15 @@ rules // return
 
   return-to-java-servlet :
     Return(e1) -> bstm* |[ 
-      try {
-        //System.out.println(e_url+"    "+utils.HTMLFilter.unfilter(e_url));
-        ps.setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-        if(!ps.isActionLinkUsed()){ response.sendRedirect(ps.getRedirectUrl()); }
-        isRedirected = true; // declared in template-action.str
-      } catch (IOException ioe) {
-        System.out.println("redirect failed");
-        ioe.printStackTrace();
-      }
-      //ps.clearHibernateCache(variables);
+      ~*<normal-redirect-statements> e_url
+      isRedirected = true; // declared in template-action.str
       return;
     ]|
     where InAction; not(IsAjaxApp)
     with  e_url := <page-thiscall-to-url-string-java-servlet> e1
 
-
   return-to-java-servlet :
-    ReturnEmpty() -> bstm* |[ 
-      //ps.clearHibernateCache(variables);
+    ReturnEmpty() -> bstm* |[
       isRedirected = true;
       return;
     ]|
@@ -322,8 +334,7 @@ rules // return
 
   goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
     GoTo(call@ThisCall(p, args)) -> bstm* |[ 
-      out.println("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
-      //ps.clearHibernateCache(variables);      
+      ~*<ajax-redirect-statements> e_url
       return;
     ]|
     where IsAjaxApp
@@ -331,14 +342,7 @@ rules // return
      
   goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
     GoTo(call@ThisCall(p, args)) -> bstm* |[ 
-      try {
-        ps.setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-        if(!ps.isActionLinkUsed()){ response.sendRedirect(ps.getRedirectUrl()); }
-      } catch (IOException ioe) {
-        System.out.println("redirect failed");
-        ioe.printStackTrace();
-      }
-      //ps.clearHibernateCache(variables);
+      ~*<normal-redirect-statements> e_url
       return;
     ]|
     where not(IsAjaxApp)
