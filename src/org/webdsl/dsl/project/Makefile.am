@@ -3,7 +3,8 @@ EXTRA_DIST = \
   $(wildcard new_project/*.app) \
   $(wildcard new_project/stylesheets/*.css) \
   $(wildcard new_project/images/*.*) \
-  $(wildcard template-java-servlet/*.xml) \
+  $(wildcard template-java-servlet/build.xml) \
+  $(wildcard template-java-servlet/build.properties) \
   $(wildcard template-java-servlet/Makefile) \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
