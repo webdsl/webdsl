@@ -11,17 +11,17 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/src/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
   $(wildcard template-java-servlet/tomcat/*) \
-  $(wildcard template-java-servlet/javascript/*.js) \
+  $(shell find template-java-servlet/javascript -name "*.*") \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
-  $(wildcard template-java-servlet/stylesheets/*.css) \
+  $(shell find template-java-servlet/stylesheets -name "*.*") \
   $(wildcard template-python/*.yaml) \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
   $(wildcard template-python/*/*.*) \
   template-python/maak \
   testnewproject.sh
-
+  
 TESTS = testnewproject.sh
 
 nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
