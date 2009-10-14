@@ -6,10 +6,8 @@ dsltoseam = @@DSLTOSEAM@@
 
 apps = $(wildcard *.app)
 
-all : @@APPNAME@@.appc
-	
-%.appc : %.app $(apps)
-	$(dsltoseam) --servlet -i $< @@SESSIONTIMEOUTOPTION@@ @@STATISTICSOPTION@@ @@FASTPPOPTION@@ @@VERBOSEOPTION@@ @@DEBUGOPTION@@
+all :
+	$(dsltoseam) --servlet -i ../@@APPNAME@@.app @@SESSIONTIMEOUTOPTION@@ @@STATISTICSOPTION@@ @@FASTPPOPTION@@ @@VERBOSEOPTION@@ @@DEBUGOPTION@@
 
 dump :
 	mysqldump --user=@@DBUSER@@ --password=@@DBPASSWORD@@ @@DBNAME@@ > db.sql
