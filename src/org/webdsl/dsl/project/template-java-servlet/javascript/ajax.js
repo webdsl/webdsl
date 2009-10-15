@@ -121,7 +121,7 @@ function findElementById(thisobject, id)
     result = document.getElementById(id);
  
   if (result == null)
-    alert("Object with id '"+id+"' does not exist in the document!");
+    if(show_webdsl_debug){ alert("Object with id '"+id+"' does not exist in the document!"); }
       
   return result;
 }
@@ -225,7 +225,7 @@ function clientExecute(jsoncode, thisobject)
 {
   data = eval(jsoncode);
   if (data == undefined)
-    alert("received no valid response from the server! "+jsoncode);
+    if(show_webdsl_debug){ alert("received no valid response from the server! "+jsoncode); }
   for(i = 0; i < data.length ; i++)
   {
     command = data[i];
@@ -251,13 +251,13 @@ function clientExecute(jsoncode, thisobject)
    //other actions 
     
     else if (command.action != undefined) //last command might equal {}
-      alert("unknown client command: "+command.action);
+      if(show_webdsl_debug){ alert("unknown client command: "+command.action); }
   }
 }
 
 function notify(string)
 {
-  alert(string);
+  if(show_webdsl_debug){ alert(string); }
 }
 
 function replaceall(command) {
