@@ -202,7 +202,7 @@ class : strategoxt.jar $(JAVAS)
 jar : webdsl.jar
 
 strategoxt.jar :
-	wget -N -nv http://www.st.ewi.tudelft.nl/~kats/strategoxt/18a/strategoxt.jar
+	wget -N -nv http://www.st.ewi.tudelft.nl/~kats/strategoxt/18b/strategoxt.jar
 
 webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
