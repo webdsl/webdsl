@@ -12,10 +12,10 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/src/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
   $(wildcard template-java-servlet/tomcat/*) \
-  $(shell find template-java-servlet/javascript -name "*.*") \
+  $(wildcard template-java-servlet/javascript/*) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
-  $(shell find template-java-servlet/stylesheets -name "*.*") \
+  $(wildcard template-java-servlet/stylesheets/*) \
   $(wildcard template-python/*.yaml) \
   $(wildcard template-python/*.py) \
   $(wildcard template-python/*.pyc) \
