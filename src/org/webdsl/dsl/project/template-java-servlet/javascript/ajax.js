@@ -3,8 +3,10 @@ var __ajax_postprocessor = null;
 
 function ajax_post_process(node) {
   // node.scrollIntoView();
-  if(typeof(console) != "undefined") {
-    console.debug("Applied ajax transformation");
+  if(show_webdsl_debug){
+    if(typeof(console) != "undefined") {
+      console.debug("Applied ajax transformation");
+    }
   }
   if (__ajax_postprocessor != null) {
     __ajax_postprocessor(node);
@@ -411,5 +413,3 @@ var Utf8 = {
     return string;
   }
 };
-
-function void() {} ;
