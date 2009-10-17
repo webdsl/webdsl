@@ -250,7 +250,10 @@ function clientExecute(jsoncode, thisobject)
     else if (command.action == "replaceall") {
       replaceall(command);
     }
-   //other actions 
+    else if (command.action == "runscript") {
+      eval(command.value);
+    }
+    //other actions 
     
     else if (command.action != undefined) //last command might equal {}
       if(show_webdsl_debug){ alert("unknown client command: "+command.action); }
