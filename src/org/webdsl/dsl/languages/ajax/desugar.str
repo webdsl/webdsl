@@ -9,23 +9,24 @@ rules
 
   //desugar InlineAction
   desugar-ajax : 
-    Define(mods, name, args, targs, elems) -> Define(mods, name, args, targs, elems2)
+    Define(mods, name, args, targs, elems) -> result
     where not(<RemovedInlineActions> name)
-    with rules( RemovedInlineActions : name )
-       ; {| InsertedActions  
+    with {| InsertedActions  
           : elems1 := <alltd(desugar-inline-action-call)> elems
-          ; elems2 := <concat; alltd(rename-actions); rename-all> [elems1, <bagof-InsertedActions>]
+          ; elems2 := <concat> [elems1, <bagof-InsertedActions>]
          |}
+       ; result@Define(_, renamedname, _, _, _) := <rename> Define(mods, name, args, targs, elems2)
+       ; rules( RemovedInlineActions : renamedname )
 
   desugar-inline-action-call :
-    InlineAction(Block(e1)) -> <rename> ThisCall(fun, params)
+    InlineAction(Block(e1)) -> ThisCall(fun, params)
     with  fun := <newname> "inline_action" 
         ; {| Param, IgnoreVars
            : <alltd(find-lifting-params)> e1
            ; params := <bagof-Param>
           |}
         ; farg* := <map(lifting-param-to-farg)> params
-        ; newaction := <rename-actions; declare-page-action> Action(fun, farg*, <rename-all> Block(e1))
+        ; newaction := Action(fun, farg*, Block(e1))
         ; rules( InsertedActions :+= newaction )    
 
   lifting-param-to-farg :
