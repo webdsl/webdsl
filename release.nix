@@ -53,6 +53,7 @@ let
 
     buildJava =
       { tarball ? jobs.tarball {}
+      , strcJava 
       }:
 
       with import nixpkgs { system = "i686-linux"; };
@@ -63,8 +64,10 @@ let
         buildInputs = [
           pkgconfig strategoPackages.aterm strategoPackages.sdf
           strategoPackages.strategoxt strategoPackages.javafront
-          ecj apacheAnt];
-        
+          ecj apacheAnt strcJava];
+
+        configureFlags = ["--enable-java-backend"] ;
+
         doCheck = true;
       };
 
