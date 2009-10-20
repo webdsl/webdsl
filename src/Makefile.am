@@ -154,7 +154,11 @@ Mix%.sdf : %.def
 
 SCFLAGS = --main $*-main	
 
-bin_PROGRAMS = webdslc
+if XT_ENABLE_JAVA_BACKEND
+  bin_PROGRAMS = webdsl.jar
+else
+  bin_PROGRAMS = webdslc
+endif
 
 webdslc_SOURCES = webdslc.c
 webdslc_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
@@ -182,7 +186,7 @@ ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-f
 
 STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
-STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean
+STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
@@ -229,7 +233,9 @@ bin/org/webdsl/webdslc/Main.java : webdslc.str
 ### libraries
 
 nobase_data_DATA = libwebdsl-front.rtree 
-lib_LTLIBRARIES  = libwebdsl-front.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  = libwebdsl-front.la 
+endif
 
 libwebdsl_front_la_SOURCES = libwebdsl-front.c
 libwebdsl_front_la_CFLAGS   = $(AM_CFLAGS) -O0 $(STRATEGO_LIB_CFLAGS)
@@ -245,7 +251,7 @@ libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
                               $(STRATEGO_TOOL_DOC_LIBS) \
 			      $(STRATEGO_LIBS)
 
-libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
+libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
 	rm libwebdsl-front.str
@@ -257,7 +263,9 @@ webdsl-front.ctree : libwebdsl-front.rtree
 ## generator
 
 nobase_data_DATA += libwebdsl-generator.rtree 
-lib_LTLIBRARIES  += libwebdsl-generator.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libwebdsl-generator.la 
+endif
 
 libwebdsl_generator_la_SOURCES = libwebdsl-generator.c
 libwebdsl_generator_la_CFLAGS   = $(AM_CFLAGS) -O0 $(STRATEGO_LIB_CFLAGS)
@@ -283,7 +291,9 @@ webdsl-generator.ctree : libwebdsl-generator.rtree
 ### java transformations
 
 nobase_data_DATA += libjava-transformations.rtree 
-lib_LTLIBRARIES  += libjava-transformations.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libjava-transformations.la 
+endif
 
 libjava_transformations_la_SOURCES = libjava-transformations.c
 libjava_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
@@ -305,7 +315,9 @@ java-transformations.ctree : libjava-transformations.rtree
 ### java servlet back-end
 
 nobase_data_DATA += libto-java-servlet.rtree 
-lib_LTLIBRARIES  += libto-java-servlet.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libto-java-servlet.la 
+endif
 
 libto_java_servlet_la_SOURCES = libto-java-servlet.c
 libto_java_servlet_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
@@ -330,7 +342,9 @@ to-java-servlet.ctree : libto-java-servlet.rtree
 
 ## fast pretty-printer
 
-lib_LTLIBRARIES  += libjava-pp.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libjava-pp.la 
+endif
 
 libjava_pp_la_SOURCES = java-pp.c
 libjava_pp_la_LIBADD  = $(STRATEGO_XTC_LIBS)   $(STRATEGO_LIB_LIBS)   $(STRATEGO_RUNTIME_LIBS)   $(ATERM_LIBS)
@@ -348,7 +362,9 @@ xml-doc.rtg.af : $(GPP)/share/xml-front/xml-doc.rtg
 ### write files
 
 nobase_data_DATA += libwrite-files.rtree 
-lib_LTLIBRARIES  += libwrite-files.la 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libwrite-files.la 
+endif
 
 libwrite_files_la_SOURCES = libwrite-files.c
 libwrite_files_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)

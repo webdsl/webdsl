@@ -30,6 +30,9 @@ PKG_PROG_PKG_CONFIG
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+WEBDSLC=$prefix/bin/webdslc
+AC_SUBST(WEBDSLC)
+
 ### OUTPUT ########################################
 
 AC_CONFIG_FILES([
