@@ -180,7 +180,8 @@ webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libw
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree
 
-STRJ=`if which strj >/dev/null; then echo strj; else echo java -server -Xss8m -Xmx1024m -XX:+UseParallelGC -jar strategoxt.jar; fi`
+STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
+STRJ=$(STRC_JAVA)/bin/strj
 STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
@@ -194,15 +195,12 @@ JAVAS= \
   bin/org/webdsl/to_java_servlet/Main.java \
   bin/org/webdsl/webdslc/Main.java
 
-java : strategoxt.jar $(JAVAS)
+java : $(JAVAS)
 
-class : strategoxt.jar $(JAVAS)
-	$(JAVAC) -cp strategoxt.jar:bin:. bin/org/webdsl/webdslc/Main.java
+class : $(JAVAS)
+	$(JAVAC) -cp $(STRATEGOXT_JAR):bin:. bin/org/webdsl/webdslc/Main.java
 
 jar : webdsl.jar
-
-strategoxt.jar :
-	wget -N -nv http://www.st.ewi.tudelft.nl/~kats/strategoxt/18b/strategoxt.jar
 
 webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
