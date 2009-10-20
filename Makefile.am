@@ -34,4 +34,4 @@ CLEANFILES        = XTC
 
 ACLOCAL_AMFLAGS = -I.
 
-pkgconfig_DATA = webdsls.pc
+pkgconfig_DATA = webdsls.pc webdsl.m4
