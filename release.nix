@@ -51,6 +51,23 @@ let
         doCheck = if stdenv.isLinux then true else false;
       };
 
+    buildJava =
+      { tarball ? jobs.tarball {}
+      }:
+
+      with import nixpkgs { system = "i686-linux"; };
+
+      releaseTools.nixBuild {
+        name = "webdsl-java";
+        src = tarball;
+        buildInputs = [
+          pkgconfig strategoPackages.aterm strategoPackages.sdf
+          strategoPackages.strategoxt strategoPackages.javafront
+          ecj apacheAnt];
+        
+        doCheck = true;
+      };
+
 
   };
 
