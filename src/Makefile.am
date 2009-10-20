@@ -156,6 +156,7 @@ SCFLAGS = --main $*-main
 
 if XT_ENABLE_JAVA_BACKEND
   bin_PROGRAMS = webdsl.jar
+  webdsl_jar_SOURCES = 
 else
   bin_PROGRAMS = webdslc
 endif
@@ -199,13 +200,10 @@ JAVAS= \
   bin/org/webdsl/to_java_servlet/Main.java \
   bin/org/webdsl/webdslc/Main.java
 
-java : $(JAVAS)
-
 class : $(JAVAS)
 	$(JAVAC) -cp $(STRATEGOXT_JAR):bin:. bin/org/webdsl/webdslc/Main.java
 
-jar : webdsl.jar
-
+if XT_ENABLE_JAVA_BACKEND
 webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
 
@@ -229,6 +227,7 @@ bin/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 
 bin/org/webdsl/webdslc/Main.java : webdslc.str
 	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files
+endif
 
 ### libraries
 
