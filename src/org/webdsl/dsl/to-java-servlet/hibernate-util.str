@@ -60,6 +60,10 @@ rules
     
     import org.hibernate.*;
     import org.hibernate.cfg.*;
+    import org.webdsl.*;
+    import org.hibernate.event.*;
+    import org.hibernate.event.def.*;
+    import java.util.*;
     
     import pkgname.*;
     public class HibernateUtilConfigured {
@@ -82,8 +86,8 @@ rules
                 bstm*
     
                 //annotationConfiguration.addProperties(prop);
-                
                 //bstm1*
+                annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
     
                 sessionFactory = annotationConfiguration.buildSessionFactory();
                 
@@ -100,7 +104,28 @@ rules
         { 
           return annotationConfiguration;
         }
-    
+        
+        // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
+        private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 
+        {
+          public void onSaveOrUpdate(SaveOrUpdateEvent event)  throws HibernateException
+          { 
+            setVersion(event.getObject());
+            super.onSaveOrUpdate(event);
+          }
+      
+          public void setVersion(Object o)
+          { 
+            if(o instanceof WebDSLEntity)
+            { 
+              WebDSLEntity we = (WebDSLEntity)o;
+              if(we.getVersion() <= 0)
+              { 
+                we.setVersion(1);
+              }
+            }
+          }
+        }   
     }
     ]|
     with pkgname := <DomainPackage>
