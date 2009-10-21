@@ -73,11 +73,14 @@ let
       };
 
    docs = 
-     { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} } :
+     { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} 
+     , xdoc
+     } :
      let
        builder = import "${hydraConfig}/build.nix" {
-                   pkgsDefault = pkgs; baseline = import "${hydraConfig}/baseline.nix" ;
-                   inherit hydraConfig nixpkgs;
+                   pkgsDefault = import nixpkgs { system = "i686-linux"; }; 
+                   baseline = import "${hydraConfig}/baseline.nix" ;
+                   inherit hydraConfig nixpkgs xdoc;
                  };
      in builder.easyDocsTarball {
        title = "WebDSL xdoc documentation";
