@@ -1,9 +1,10 @@
-{nixpkgs ? ../nixpkgs}:
+{ nixpkgs ? ../../nixpkgs
+, hydraConfig ? ../../hydraconfig
+}:
 
 let
 
   pkgs = import nixpkgs {};
-
 
   jobs = rec {
 
@@ -71,6 +72,18 @@ let
         doCheck = true;
       };
 
+   docs = 
+     { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} } :
+     let
+       builder = import "${hydraConfig}/build.nix" {
+                   pkgsDefault = pkgs; baseline = import "${hydraConfig}/baseline.nix" ;
+                   inherit hydraConfig nixpkgs;
+                 };
+     in builder.easyDocsTarball {
+       title = "WebDSL xdoc documentation";
+       checkout = webdslsSrc; 
+       packageName = "webdsl";
+     } ;
 
   };
 
