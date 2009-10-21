@@ -135,14 +135,6 @@ STRCFLAGS = \
 
 XTC_IMPORT = $(JAVA_FRONT_XTC)
 
-# Disable some of the bogus warnings:
-# - multiple external references are the unfortunate effect of librarification and is out of our control right now
-# - nullary constructor warnings are not interesting unless they're lowercase imho, like 'top'
-#   specifically, you don't want warnings for nullary constructor builds, especially for overlays (e.g., |[ e_UTILS.isInstance(...) ]|)
-#
-SCLIMITWARNS = 2>&1 | grep -vE 'warning ] Nullary constructor .*[A-Z]|warning ] multiple external| \[ExtSDef\("' \
-               >&2
-
 SDF2RTG_FLAGS = --main `basename $*` --ignore-missing-cons
 
 Mix%.sdf : %.def
@@ -259,12 +251,12 @@ endif
 
 libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 	rm libwebdsl-front.str
 
 webdsl-front.ctree : libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 
 ## generator
 
@@ -288,12 +280,12 @@ endif
 
 libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.rtree
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 	rm libwebdsl-generator.str
 
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 
 ### java transformations
 
@@ -312,12 +304,12 @@ endif
 
 libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-generator.rtree libto-java-servlet.rtree libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o libjava-transformations.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS)
 	rm libjava-transformations.str
 
 java-transformations.ctree : libjava-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o java-transformations.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS)
 
 ### java servlet back-end
 
@@ -341,12 +333,12 @@ endif
 
 libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libwebdsl-generator.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 	rm libto-java-servlet.str
 
 to-java-servlet.ctree : libto-java-servlet.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o to-java-servlet.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 
 ## fast pretty-printer
 
@@ -389,10 +381,10 @@ endif
 
 libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree Java-EBlock.rtg.af xml-doc.rtg.af
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 	rm libwrite-files.str
 
 write-files.ctree : libwrite-files.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o write-files.ctree \
-		--verbose 1 $(STRCFLAGS) $(SCLIMITWARNS)
+		--verbose 1 $(STRCFLAGS) 
 
