@@ -75,6 +75,7 @@ let
    docs = 
      { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} 
      , xdoc
+     , build ? jobs.build {}
      } :
      let
        builder = import "${hydraConfig}/build.nix" {
@@ -86,6 +87,7 @@ let
        title = "WebDSL xdoc documentation";
        checkout = webdslsSrc; 
        packageName = "webdsl";
+       xdocIncludes = ["${build}/share/sdf/webdsl"];
      } ;
 
   };
