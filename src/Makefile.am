@@ -44,7 +44,8 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*/*/*.str) \
-    $(wildcard org/webdsl/dsl/*/*/*/*.meta)
+    $(wildcard org/webdsl/dsl/*/*/*/*.meta) \
+    META-INF/MANIFEST.MF
 
 ### syntax definitions
 
