@@ -13,8 +13,19 @@ application test
 
   define page red(){"redirected"}
 
+  define page test(s1:String,s2:String,s3:String){
+    output(s1+s2+s3)
+    actionLink("refresh",ref())
+    action ref(){
+    
+    }
+  }
+
   define page root()
   {
+  
+    navigate(test("12","34","56")){"test page"}
+    
     action ret(i:Int, s:String, b:Bool, u:User,t:Text) {
       var temp := User {
         s := s
@@ -33,8 +44,12 @@ application test
       output(u.b)
       //output(u.t)
     }
+    
        
-    form { 
+    form {
+      actionLink("imlicit return",action{u_2.s := "default";})
+      
+      
       actionLink("return",ret(42," first ",true,u_1,"dfgdfg"))
 
       for(i:Int from 0 to 5){
