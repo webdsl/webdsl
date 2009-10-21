@@ -64,7 +64,7 @@ let
         buildInputs = [
           pkgconfig strategoPackages.aterm strategoPackages.sdf
           strategoPackages.strategoxt strategoPackages.javafront
-          ecj apacheAnt strcJava which];
+          ecj apacheAnt strcJava which fastjar];
 
         configureFlags = ["--enable-java-backend"] ;
 
