@@ -9,6 +9,7 @@ application test
   }
 
   var u_1 := User {}
+  var u_2 := User {}
 
   define page red(){"redirected"}
 
@@ -42,22 +43,24 @@ application test
     }
     
     break
-    var b : Bool
-    var s : String := " third "
     for(i:Int from 200 to 205){
       form{
-        input(b)
-        input(s)
-        actionLink("return"+i,ret(i,s,b,u_1,"dfgdfg"))
+        input(u_2.b)
+        input(u_2.s)
+        actionLink("return"+i,ret(i,u_2.s,u_2.b,u_1,"dfgdfg"))
       }
     }
     
     break
 
     
-    for(u:User){
-      form{
-        actionLink("return",ret(9," third ",true,u_1,"dfgdfg"))
+    for(i:Int from 0 to 5){
+      for(j:Int from 0 to 5){
+        for(k:Int from 0 to 5){
+          form{
+            actionLink("return",ret(9," third ",true,u_1,"dfgdfg"))
+          }
+        }
       }
     }
 
