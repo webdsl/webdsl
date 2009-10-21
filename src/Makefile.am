@@ -178,12 +178,12 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(JAVA_FRONT_LIBS) \
                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la
 
-#webdslc_LDADD = $(LDADD) $(JAVA_FRONT_LIBS) $(STRATEGO_GPP_LIBS) $(STRATEGO_SGLR_LIBS) $(STRATEGO_TOOL_DOC_LIBS) \
-#                    libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la
-
 webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree
+
+
+if XT_ENABLE_JAVA_BACKEND
 
 STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
@@ -200,14 +200,23 @@ JAVAS= \
   bin/org/webdsl/to_java_servlet/Main.java \
   bin/org/webdsl/webdslc/Main.java
 
+mkdirs :
+	mkdir -p bin/org/webdsl/webdsl_front
+	mkdir -p bin/org/webdsl/webdsl_generator
+	mkdir -p bin/org/webdsl/java_transformations
+	mkdir -p bin/org/webdsl/java_pp_fake
+	mkdir -p bin/org/webdsl/write_files
+	mkdir -p bin/org/webdsl/to_java_servlet
+	mkdir -p bin/org/webdsl/webdslc
+
+
 class : $(JAVAS)
 	$(JAVAC) -cp $(STRATEGOXT_JAR):bin:. bin/org/webdsl/webdslc/Main.java
 
-if XT_ENABLE_JAVA_BACKEND
 webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
 
-bin/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree
+bin/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_front -i $< -o $@ 
 
 bin/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
