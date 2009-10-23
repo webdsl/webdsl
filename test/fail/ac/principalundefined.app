@@ -1,4 +1,4 @@
-//entity does not exist
+//does not exist, and cannot be used as principal for access control
 
 application test
 

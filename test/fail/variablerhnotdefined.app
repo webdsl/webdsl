@@ -1,4 +1,4 @@
-//Variable 'a' not defined a
+//Variable 'a' not defined
 application test
 
 section functions
