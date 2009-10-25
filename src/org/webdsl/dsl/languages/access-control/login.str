@@ -1,0 +1,196 @@
+module org/webdsl/dsl/languages/access-control/login
+
+rules
+
+  declare-login : 
+    acp@AccessControlPrincipal(x_ident,props) -> acp
+    with  farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
+        ; len := <length> props
+        ; <register-reserved-function> ("authenticate",len)
+        ; <register-reserved-function> ("logout",0)
+        ; <map(declare)> def* |[
+            function authenticate(farg_loginfun*):Bool{}
+            function logout(){}
+          ]|
+        ; <get-login-template <+ declare; rules(LoginTemplateGenerated  := True())> 
+            def|[ define login(){} ]|
+        ; <get-logout-template<+ declare; rules(LogoutTemplateGenerated := True())> 
+            def|[ define logout(){} ]|
+        ; <get-auth-template  <+ declare; rules(AuthenticationTemplateGenerated := True())> 
+            def|[ define authentication(){} ]|
+          
+  create-farg-for-login-fun(|x_ident) :
+  x -> result
+  with  type := <entity-prop-to-type(|x_ident)> x
+      ; result := Arg(<credential-to-var-name> x, type) 
+      
+  credential-to-var-name = <concat-strings> ["cred",<id>]     
+          
+  entity-prop-to-type(|x_ident) :
+    x -> result
+    with result := <TypeOfProperty> (x_ident,x)
+
+  desugar-login : 
+    acp@AccessControlPrincipal(x_ident,props) -> acp
+    with  create-login-template-if-not-defined(|x_ident,props)
+        ; create-logout-template-if-not-defined(|x_ident,props)
+        ; create-auth-template-if-not-defined(|x_ident,props)
+    
+  create-login-template-if-not-defined(|x_ident,props) = 
+    try(where(LoginTemplateGenerated); default-login-template(|x_ident,props))
+  
+  get-login-template = !<TemplateDefinition> "login"
+
+  default-login-template(|x_ident,props) =
+    with(
+      farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
+    ; e_loginfunarg* := <map(!Var(<credential-to-var-name>))> props
+    ; elem_loginvar* := <map(create-vars-for-login-tpl(|x_ident))> props
+    ; elem_logininput* := <map(create-inputs-for-login-tpl(|x_ident))> props
+    )
+  ; <emit-webdsl-code> def|[
+      define login() {
+      
+        elem_loginvar*
+      
+        form { 
+          group("Login") {
+            table {
+              elem_logininput*
+            }
+            action("Login", signinAction())
+          }
+        }
+        
+        action signinAction() {
+          validate(authenticate(e_loginfunarg*), "The login credentials are not valid.");
+          message("You are now logged in.");
+          return root();
+        }
+      }
+    ]|
+  ; with(
+      x_firstprop := <Hd> props
+    ; x_firstpropvarname := <credential-to-var-name> x_firstprop
+    ; x_findfun := <concat-strings> ["find",x_ident,"By",<capitalize-string> x_firstprop]
+    ; srt_ent := SimpleSort(x_ident)
+    ; stat_auth* := <Tl; map(cred-prop-to-auth-stat(|x_ident))> props 
+    )
+  ; <emit-webdsl-code> def|[
+      function authenticate(farg_loginfun*) : Bool {
+        var tmpentitylist : List<srt_ent> := x_findfun(x_firstpropvarname);
+        if(tmpentitylist.length > 0) {
+          for(tmpentity : srt_ent in tmpentitylist){
+            var allow : Bool := true;
+            
+            stat_auth*
+            
+            if(allow){
+              securityContext.principal := tmpentity;
+              securityContext.loggedIn := true;
+              return true;
+            }
+          }
+        }
+        securityContext.principal := null;
+        securityContext.loggedIn := false;
+        return false;
+      }
+    ]|
+  ; <emit-webdsl-section> webdsl |[ 
+      access control rules anonymous
+        rule template login(){
+          true
+        }
+    ]|
+    
+  cred-prop-to-auth-stat(|x_ident) =
+     cred-prop-to-auth-stat-secret(|x_ident)
+  <+ cred-prop-to-auth-stat-stringcomp(|x_ident)
+  
+  cred-prop-to-auth-stat-secret(|x_ident) :
+    x -> stat*
+    where SimpleSort("Secret") := <entity-prop-to-type(|x_ident)> x
+    with  x_varname := <credential-to-var-name> x
+        ; stat* := webdsl |[
+            if(!tmpentity.x.check(x_varname)) {
+              allow := false;
+            }
+          ]|
+          
+  cred-prop-to-auth-stat-stringcomp(|x_ident) :
+    x -> stat*
+    where <type-compatible> (<entity-prop-to-type(|x_ident)> x, SimpleSort("String"))
+    with  x_varname := <credential-to-var-name> x
+        ; stat* := webdsl |[
+            if(tmpentity.x != x_varname){
+              allow := false;
+            }
+          ]|
+ 
+  create-vars-for-login-tpl(|x_ident) :
+    x -> result
+    with  type := <entity-prop-to-type(|x_ident)> x
+        ; result := VarDecl(<credential-to-var-name> x,type) 
+ 
+  create-inputs-for-login-tpl(|x_ident) :
+    x -> result
+    with  x1 := <credential-to-var-name> x
+        ; str := <concat-strings> [<make-human-readable> x , ": "]
+        ; result := elem |[ groupitem{ label(str){input(x1)} } ]|
+    
+  create-logout-template-if-not-defined(|x_ident,props) = 
+    try(where(LogoutTemplateGenerated); default-logout-template(|x_ident,props))
+  
+  get-logout-template  = !<TemplateDefinition> "logout"
+
+  default-logout-template(|x_ident,props) =
+    with(
+      x := <Hd> props
+  ; <emit-webdsl-code> def|[
+      define logout() {
+        "Logged in as: " output(securityContext.principal.x)
+        form{ 
+          actionLink("Logout", signoffAction())
+          action signoffAction() { logout(); }
+        }
+      }
+    ]|
+  ; <emit-webdsl-code> def|[
+      function logout() {
+        securityContext.loggedIn := false;
+        securityContext.principal := null;
+      }
+    ]|
+  ; <emit-webdsl-section> webdsl |[ 
+      access control rules anonymous
+        rule template logout(){
+          true
+        }
+    ]|
+  )
+    
+  create-auth-template-if-not-defined(|x_ident,props) = 
+    try(where(AuthenticationTemplateGenerated); default-auth-template(|x_ident,props))
+  
+  get-auth-template = !<TemplateDefinition> "authentication"
+
+  default-auth-template(|x_ident,props) =
+    <emit-webdsl-code> def|[
+      define authentication() {
+        if(loggedIn()){
+          logout()
+        }
+        else{
+          login()
+        }
+      }
+    ]|
+  ; <emit-webdsl-section> webdsl |[ 
+      access control rules anonymous
+        rule template authentication(){
+          true
+        }
+    ]|
+  
+    
