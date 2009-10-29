@@ -88,6 +88,9 @@ let
        checkout = webdslsSrc; 
        packageName = "webdsl";
        xdocIncludes = ["${build}/share/sdf/webdsl"];
+       stratego = true ;
+       sdf = false ;
+       stats = false;
      } ;
 
   };
