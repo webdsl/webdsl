@@ -26,6 +26,8 @@ section datamodel
     {
       "body"
       navigate(editUser(u)){"editpage"}
+      var s :String
+      form{ input(s) action("login with name",action{ authenticate(s); })}
     }
    }
    
