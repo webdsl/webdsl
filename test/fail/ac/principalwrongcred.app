@@ -1,4 +1,4 @@
-//credentials are not valid
+//is not a property of entity
 
 application test
 
