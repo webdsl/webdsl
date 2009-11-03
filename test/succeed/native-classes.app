@@ -9,6 +9,7 @@ application nativeclass
   
   native class  nativejava.TestSuper as SuperClass  {
     getProp():String
+    static getStatic(): String
   }
 
   define page root() {
@@ -23,5 +24,8 @@ application nativeclass
       s.setProp("test");
     }
     output(s.prop)
+    
+    
+    output(SuperClass.getStatic())
     
   }
