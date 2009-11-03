@@ -1174,11 +1174,12 @@
    NotNullAnno -- "not null",
    SingleParamAnno -- _1 KW["="] _2,
    
-   NativeClass -- KW["native"] KW["class"] _1 _2 KW["{"] _3 KW["}"],
+   NativeClass -- KW["native"] KW["class"] _1 _2 _3 KW["{"] _4 KW["}"],
    NativeClassAlias -- KW["as"] _1,
    NativeClassProperty -- _1 KW[":"] _2,
    NativeClassFunction -- _1 KW["("] _2 KW[")"] _3,
    NativeClassFunctionReturn -- KW[":"] _1,
-   NativeClassConstructor -- KW["constructor"] KW["("] _1 KW[")"]    
+   NativeClassConstructor -- KW["constructor"] KW["("] _1 KW[")"],
+   NativeClassSuper -- KW[":"] _1 
 
 ]
