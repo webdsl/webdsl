@@ -1,21 +1,29 @@
-TESTSSUCCEEDALL = $(wildcard succeed/*.app) \
-$(wildcard succeed/ac/*.app) \
-$(wildcard succeed/data-validation/*.app) \
-$(wildcard succeed/entity-events/*.app) \
-$(wildcard succeed/module/*.app) \
-$(wildcard succeed/property-events/*.app)
-#    $(wildcard succeed/generics/*.app) 
+TESTSSUCCEEDALL = \
+  $(wildcard succeed/*.app) \
+  $(wildcard succeed/ac/*.app) \
+  $(wildcard succeed/data-validation/*.app) \
+  $(wildcard succeed/email/*.app) \
+  $(wildcard succeed/entity-events/*.app) \
+  $(wildcard succeed/module/*.app) \
+  $(wildcard succeed/module/module/*.app) \
+  $(wildcard succeed/nativejava/*.app) \
+  $(wildcard succeed/overloading/*.app) \
+  $(wildcard succeed/property-events/*.app)
+#  $(wildcard succeed/generics/*.app) 
 
-TESTSFAIL =$(wildcard fail/*.app) $(wildcard fail/*/*.app)
+TESTSFAIL = \
+  $(wildcard fail/*.app) \
+  $(wildcard fail/*/*.app)
+
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
-TESTS = $(patsubst %.app,%,$(TESTSSUCCEEDALL)) $(patsubst %.app,%,$(TESTSFAIL))
+TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL))
 
 EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) succeed/module/module/goto.app $(wildcard *.sh) run
 	
-$(TESTSSUCCEEDALL:.app=): run-test-succeed-all.sh
+$(TESTSSUCCEEDALL:.app=.sh): run-test-succeed-all.sh
 	@$(LN_S) $$(pwd)/$< ./$@
 
-$(TESTSFAIL:.app=): run-test-fail.sh
+$(TESTSFAIL:.app=.sh): run-test-fail.sh
 	@$(LN_S) $$(pwd)/$< ./$@
 
 clean:
