@@ -10,6 +10,7 @@ application nativeclass
   native class  nativejava.TestSuper as SuperClass  {
     getProp():String
     static getStatic(): String
+    returnList(): List<SubClass>
   }
 
   define page root() {
@@ -27,5 +28,9 @@ application nativeclass
     
     
     output(SuperClass.getStatic())
+    
+    for(a: SubClass in d.returnList()){
+      output(a.prop)
+    }
     
   }

@@ -1182,6 +1182,8 @@
    NativeClassConstructor -- KW["constructor"] KW["("] _1 KW[")"],
    NativeClassSuper -- KW[":"] _1,
    NativeClassFunctionStatic -- KW["static"],
+   NativeSimpleType -- _1,
+   NativeGenericType -- _1 KW["<"] _2 KW[">"],
    
    Test -- KW["test"] _1 _2
 

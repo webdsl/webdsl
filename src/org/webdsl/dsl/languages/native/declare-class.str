@@ -32,31 +32,37 @@ strategies
         
   declare-native-class-prop(|class):
     ncp@NativeClassProperty(name,type) -> ncp
-    with  rules( //use same DRs as entity for now, might need specialized DRs 
-            TypeOfProperty : (class,name) -> SimpleSort(type) 
+    with  webdsltype := <native-type-to-webdsl-type> type
+        ; rules( //use same DRs as entity for now, might need specialized DRs 
+            TypeOfProperty : (class,name) -> webdsltype
             IsProperty     : (class,name)
           )
+          
+  native-type-to-webdsl-type :
+    NativeSimpleType(a) -> SimpleSort(a)
+  native-type-to-webdsl-type :
+    NativeGenericType(a,b) -> GenericSort(a,<map(native-type-to-webdsl-type)> b)
   
   declare-native-class-func(|class):
-    ncf@NativeClassFunction(static,name,args,returntype) -> ncf
-    with  t1* := <map(!SimpleSort(<id>))> args
-        ; if rettypename := <?NativeClassFunctionReturn(<id>)> returntype
-          then  ret := rettypename
-          else  ret := "Void" 
+    ncf@NativeClassFunction(static,name,args,return) -> ncf
+    with  t1* := <map(native-type-to-webdsl-type)> args
+        ; if rettype := <?NativeClassFunctionReturn(<id>)> return
+          then  ret := <native-type-to-webdsl-type> rettype
+          else  ret := SimpleSort("Void") 
           end 
         ; if staticfunction := <?NativeClassFunctionStatic()> static
           then  callee := ClassSort(class)
           else  callee := SimpleSort(class) 
           end 
         ; rules( CheckFunctionSignature :+
-                    (callee, name, t2*) -> SimpleSort(ret)
+                    (callee, name, t2*) -> ret
                         where <zip(type-compatible)> (t1*, t2*)
                  
           )
           
   declare-native-class-cons(|class,fullyqualified):
     ncf@NativeClassConstructor(args) -> ncf
-    with  t1* := <map(!SimpleSort(<id>))> args
+    with  t1* := <map(native-type-to-webdsl-type)> args
         ; rules( CheckFunctionSignature :+
                     (None(), class, t2*) -> SimpleSort(class)
                         where <zip(type-compatible)> (t1*, t2*)
