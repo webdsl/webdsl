@@ -5,7 +5,6 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/email/*.app) \
   $(wildcard succeed/entity-events/*.app) \
   $(wildcard succeed/module/*.app) \
-  $(wildcard succeed/module/module/*.app) \
   $(wildcard succeed/nativejava/*.app) \
   $(wildcard succeed/overloading/*.app) \
   $(wildcard succeed/property-events/*.app)

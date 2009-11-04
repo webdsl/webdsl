@@ -45,8 +45,8 @@ define page root(){
   "genericsorts"
   break
   templist([super])
-  //allowed: same collection of subtypes
-  templist([sub1])
+  //should be allowed?: pass collection of subtypes
+  //templist([sub1])
 
 }
 
