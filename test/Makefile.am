@@ -15,7 +15,7 @@ TESTSFAIL = \
   $(wildcard fail/*/*.app)
   
 TESTSSUCCEEDWEBALL = \
-  $(wildcard succeed/*.app)
+  $(wildcard succeed-web/*.app)
 
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))

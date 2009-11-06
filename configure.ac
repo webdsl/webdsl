@@ -51,6 +51,7 @@ test/run-test-fail-servlet.sh
 test/run-test-fail.sh
 test/run-test-succeed-all-servlet.sh
 test/run-test-succeed-all.sh
+test/run-test-succeed-web-all.sh
 ],
 [ chmod +x src/org/webdsl/dsl/project/testnewproject.sh
   chmod +x test/run
@@ -58,6 +59,7 @@ test/run-test-succeed-all.sh
   chmod +x test/run-test-fail.sh
   chmod +x test/run-test-succeed-all-servlet.sh
   chmod +x test/run-test-succeed-all.sh
+  chmod +x test/run-test-succeed-web-all.sh
 ])
 AC_OUTPUT
 
