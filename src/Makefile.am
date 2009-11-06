@@ -127,6 +127,7 @@ STRCFLAGS = \
 	-la stratego-xtc \
 	-la stratego-lib \
 	-la stratego-gpp \
+	-la stratego-aterm \
 	-la stratego-tool-doc \
 	-la stratego-sglr \
 	-la $(JAVA_FRONT_LIBS) \
@@ -177,7 +178,7 @@ if XT_ENABLE_JAVA_BACKEND
 
 STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
-STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
+STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-aterm -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
@@ -240,13 +241,15 @@ libwebdsl_front_la_LDFLAGS  = $(AM_LDFLAGS)
 libwebdsl_front_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                               $(STRATEGO_GPP_CFLAGS) \
                               $(STRATEGO_SGLR_CFLAGS) \
+                              $(STRATEGO_ATERM_CFLAGS) \
                               $(STRATEGO_TOOL_DOC_CFLAGS) \
                               $(STRATEGO_CFLAGS)
 libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
-			      $(STRATEGO_GPP_LIBS) \
-			      $(STRATEGO_SGLR_LIBS) \
+			                  $(STRATEGO_GPP_LIBS) \
+			                  $(STRATEGO_SGLR_LIBS) \
+			                  $(STRATEGO_ATERM_LIBS) \
                               $(STRATEGO_TOOL_DOC_LIBS) \
-			      $(STRATEGO_LIBS)
+			                  $(STRATEGO_LIBS)
 endif
 
 libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
