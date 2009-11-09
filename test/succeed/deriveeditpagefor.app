@@ -40,7 +40,7 @@ section pages
     
     init {
       item := NewsItem{};
-      item.persist();
+      item.save();
     }
     table {
       row { navigate(editNewsItem(item)){"Edit news item"} }

@@ -1,0 +1,42 @@
+module org/webdsl/dsl/languages/ui/inline-action
+
+signature
+  constructors
+    InlineActionClosure : List(Exp) -> Annotation
+
+rules
+
+  rename :
+    InlineAction(blk){anno*} -> InlineAction(blk1){anno1*}
+    with  // collect variables for inline action closure, similar to elements/with templatecall ui/templatecall.str
+          oldvars := <fetch-elem(?InlineActionClosure(<id>)) <+ ![]> anno*
+        ; if InTemplate <+ InPage 
+          then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
+          else vars := <rename-all> oldvars //only this part renamed, only apply rename
+          end
+        ; blk1 := <rename-all> blk
+        ; anno1* := [InlineActionClosure(vars)|anno*]
+        
+  desugar-ajax : 
+    Define(mods, name, args, targs, elems) -> result
+    where not(<RemovedInlineActions> name)
+    with {| InsertedActions  
+          : elems1 := <alltd(desugar-inline-action-call)> elems
+          ; elems2 := <concat> [elems1, <bagof-InsertedActions>]
+         |}
+       ; result@Define(_, renamedname, _, _, _) := <rename> Define(mods, name, args, targs, elems2)
+       ; rules( RemovedInlineActions : renamedname )      
+  
+  desugar-inline-action-call :
+    InlineAction(Block(e1)){anno*} -> ThisCall(fun, vars)
+    with  fun := <newname> "inline_action"
+        ; vars := <fetch-elem(?InlineActionClosure(<id>))> anno*
+        ; farg* := <map(lifting-param-to-farg)> vars
+        ; newaction := Action(fun, farg*, Block(e1))
+        ; rules( InsertedActions :+= newaction )
+        
+  lifting-param-to-farg :
+    Var(x) -> farg|[ x : srt ]|
+    where srt := <type-of> Var(x)
+    
+        

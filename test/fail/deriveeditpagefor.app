@@ -40,7 +40,7 @@ section pages
   define page root() {
     init {
       var item : NewsItem := NewsItem{};
-      item.persist();
+      item.save();
     }
     table {
       row { navigate(editNewsItem(item)){"Edit news item"} }
