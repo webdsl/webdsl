@@ -37,10 +37,12 @@ strategies
     ; not(Extends)
 
   find-entity-functions :
-    Entity(ent, _, _, funcs) -> <map(\ Function(nm, _, _, _) -> (<find-entity-root> ent, nm) \); find-doubles> funcs
+    Entity(ent, _, _, funcs) -> result
+    with result := <map(\ Function(nm, _, _, _) -> (<find-entity-root> ent, nm) \); find-doubles> funcs
 
   find-entity-functions :
-    EntityNoSuper(ent, _, funcs) -> <map(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> funcs
+    EntityNoSuper(ent, _, funcs) -> result
+    with result := <map(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> funcs
 
   rename-overloaded-entity-function(|torename) :
     Entity(ent, s, prop*, fun*) -> Entity(ent, s, prop*, fun2*)
@@ -70,11 +72,23 @@ strategies
         ; <elem> ((<find-entity-root> ent, nm), torename)
     with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
 
+  rename-overloaded-entity-function(|torename) :
+    ThisCall(nm, arg*) -> result
+    where ent := <ThisEntity>
+        ; <CheckFunctionSignature> (SimpleSort(ent), nm, <map(type-of)> arg*) // is call to member function of this entity
+        ; <elem> ((<find-entity-root> ent, nm), torename)
+    with  nm2 := <new-function-name> (nm, <map(type-of)> arg*)
+        ; {| Rename:
+            <rename-bound(|SimpleSort(ent))> "this"
+          ; result := Call(<rename-all> Var("this"),nm2,arg*)
+          |}
+
   rename-overloaded-global-function(|torename) :
     Function(nm, farg*, rt, b) -> fun
     where <elem> (nm, torename)
     with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
-       ; fun := Function(nm2, farg*, rt, b)
+       ; b2 := <alltd(rename-overloaded-global-function(|torename))> b
+       ; fun := Function(nm2, farg*, rt, b2)
        ; <declare-global-func> fun
 
   rename-overloaded-global-function(|torename) :

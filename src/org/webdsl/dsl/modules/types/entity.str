@@ -20,6 +20,43 @@ rules //defined entities and built-in Entity type
 
 rules
 
+  check-builtin-signature :
+    (s@SimpleSort(_), "delete", []) -> SimpleSort("Void")
+    where <is-entity-type; not(IsSessionEntityType)> s
+
+  check-builtin-signature :
+    (s@SimpleSort(_), "save", []) -> SimpleSort("Void")
+    where <is-entity-type; not(IsSessionEntityType)> s
+  
+  desugar-data :
+    Entity(x_class, sup, prop*, fun1*) -> <rename> Entity(x_class, sup, prop*, fun2*)
+    where fun2* := <oncetd(desugar-save-delete-call);alltd(desugar-save-delete-call)> fun1*
+  desugar-data :
+    EntityNoSuper(x_class, prop*, fun1*) -> <rename> EntityNoSuper(x_class, prop*, fun2*)
+    where fun2* := <oncetd(desugar-save-delete-call);alltd(desugar-save-delete-call)> fun1*
+    
+  desugar-save-delete-call : ThisCall("save",[])   -> Call(Var("this"),"save",[])  
+  desugar-save-delete-call : ThisCall("delete",[]) -> Call(Var("this"),"delete",[]) 
+    
+  constraint-error : e@Entity(x, _, _, fun)   -> <filter(constraint-error-ent-fun-name);fail> fun
+  constraint-error : e@EntityNoSuper(x,_,fun) -> <filter(constraint-error-ent-fun-name);fail> fun
+
+  constraint-error-ent-fun-name :
+    FunctionNoReturn(name,_,_) -> <constraint-error-ent-fun-name-error(|name)>
+    where <not-allowed-ent-fun-name> name
+
+  constraint-error-ent-fun-name :  
+    Function(name,_,_,_) -> <constraint-error-ent-fun-name-error(|name)>
+    where <not-allowed-ent-fun-name> name
+    
+  constraint-error-ent-fun-name-error(|name) = 
+    add-error(|["Entity function with name '", name, "' collides with a built-in function that you are not allowed to overwrite."])
+
+  not-allowed-ent-fun-name = ?"save"
+  not-allowed-ent-fun-name = ?"delete"
+
+rules
+
   desugar-types :
     TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ 
       dummy() {
