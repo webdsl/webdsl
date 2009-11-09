@@ -1,0 +1,36 @@
+module org/webdsl/dsl/languages/ui/inline-template
+
+signature
+  constructors
+    InlineTemplateClosure : List(Exp) -> Annotation
+
+rules
+
+  rename-ui :
+    InlineTemplateCall(tbody){anno*} -> InlineTemplateCall(tbody1){anno1*}
+    with  // collect variables for inline template closure, similar to elements/with templatecall ui/templatecall.str
+          oldvars := <fetch-elem(?InlineTemplateClosure(<id>)) <+ ![]> anno*
+        ; if InTemplate <+ InPage 
+          then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
+          else vars := <rename-all> oldvars //only this part renamed, only apply rename
+          end
+        ; tbody1 := <rename-all> tbody
+        ; anno1* := [InlineTemplateClosure(vars)|anno*]
+
+  desugar-ui : 
+    Define(mods, name, args, targs, elems) -> Define(mods, name, args, targs, <rename-all> elems1)
+    where not(<RemovedInlineTemplateCalls> name)
+    with rules( RemovedInlineTemplateCalls : name )
+       ; {| InsertedTemplates
+          : elems1 := <alltd(desugar-inline-template-call)> elems
+         |}
+
+  desugar-inline-template-call :
+    InlineTemplateCall(tbody){anno*} -> TemplateCall(template, params,[], TemplateBody([
+      TemplateCallNoArgs("elements") //make elements() usable in inline templates
+    ])) 
+    with  template := <newname> "inline_template" 
+        ; params := <fetch-elem(?InlineTemplateClosure(<id>))> anno*
+        ; farg* := <map(lifting-param-to-farg)> params
+        ; <emit-webdsl-code> Define([], template, farg*, None(), tbody)
+        
