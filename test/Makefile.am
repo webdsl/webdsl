@@ -23,7 +23,7 @@ NATIVEJAVAFILESUSEDINTESTS = \
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
 
-EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app $(wildcard *.sh) run NATIVEJAVAFILESUSEDINTESTS
+EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS)
 	
 $(TESTSSUCCEEDALL:.app=.sh): run-test-succeed-all.sh
 	@$(LN_S) $$(pwd)/$< ./$@
