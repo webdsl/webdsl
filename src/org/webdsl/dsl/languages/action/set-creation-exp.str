@@ -1,0 +1,38 @@
+module org/webdsl/dsl/languages/action/desugar
+
+rules
+
+  rename-action :
+    TypedSetCreation(srt1, e1*){anno*} -> TypedSetCreation(srt1, e2*){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2* := <rename-all> e1*
+    
+  rename-action :
+    SetCreation(e1*){anno*} -> SetCreation(e2*){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2* := <rename-all> e1*
+
+rules
+
+  desugar-action = desugar-typed-set-cr-exp
+
+  desugar-typed-set-cr-exp :
+    TypedSetCreation(srt1, e1*){anno*} -> ThisCall($fun, arg*)
+    where not([] := e1*) // prevent loop, empty Set<srt1>() is generated here
+    with  $fun := <newname> "typedsetCr"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
+        ; srt2 := GenericSort("Set", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> e1*
+        ; <emit-webdsl-code> def|[
+            function $fun (farg*) : srt2 {
+              var l : srt2 := Set<srt1>();
+              stat*
+              return l;
+            }
+          ]|
+
+  desugar-action :
+    SetCreation([e1|e1*]){anno*} -> result
+    with  srt1 := <type-of> e1
+        ; result := <desugar-typed-set-cr-exp> TypedSetCreation(srt1,[e1|e1*]){anno*}
+        

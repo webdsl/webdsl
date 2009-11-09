@@ -1,21 +1,11 @@
 module org/webdsl/dsl/languages/ui/inline-action
 
-signature
-  constructors
-    InlineActionClosure : List(Exp) -> Annotation
-
 rules
 
   rename-ui :
     InlineAction(blk){anno*} -> InlineAction(blk1){anno1*}
-    with  // collect variables for inline action closure, similar to elements/with templatecall ui/templatecall.str
-          oldvars := <fetch-elem(?InlineActionClosure(<id>)) <+ ![]> anno*
-        ; if InTemplate <+ InPage 
-          then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
-          else vars := <rename-all> oldvars //only this part renamed, only apply rename
-          end
+    with  anno1* := <put-closure-in-anno> anno*
         ; blk1 := <rename-all> blk
-        ; anno1* := [InlineActionClosure(vars)|anno*]
         
   desugar-ui : 
     Define(mods, name, args, targs, elems) -> result
@@ -28,10 +18,9 @@ rules
        ; rules( RemovedInlineActions : renamedname )      
   
   desugar-inline-action-call :
-    InlineAction(Block(e1)){anno*} -> ThisCall(fun, params)
+    InlineAction(Block(e1)){anno*} -> ThisCall(fun, arg*)
     with  fun := <newname> "inline_action"
-        ; params := <fetch-elem(?InlineActionClosure(<id>))> anno*
-        ; farg* := <map(lifting-param-to-farg)> params
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
         ; newaction := Action(fun, farg*, Block(e1))
         ; rules( InsertedActions :+= newaction )
         

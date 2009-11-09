@@ -1,0 +1,42 @@
+module org/webdsl/dsl/languages/action/list-creation-exp
+
+rules
+
+  rename-action :
+    TypedListCreation(srt1, e1*){anno*} -> TypedListCreation(srt1, e2*){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2* := <rename-all> e1*
+    
+  rename-action :
+    ListCreation(e1*){anno*} -> ListCreation(e2*){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2* := <rename-all> e1*
+
+rules
+
+  constraint-error-action :
+    ListCreation([]) -> <add-error(|["Type cannot be determined for empty untyped list creation."])>
+
+rules
+
+  desugar-action = desugar-typed-list-cr-exp
+  
+  desugar-typed-list-cr-exp :
+    TypedListCreation(srt1, e1*){anno*} -> ThisCall($fun, arg*)
+    where not([] := e1*) // prevent loop, empty List<srt1>() is generated here
+    with  $fun := <newname> "typedlistCr"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
+        ; srt2 := GenericSort("List", [srt1])
+        ; stat* := <map(\ e -> |[ l.add(e); ]| \)> e1*
+        ; <emit-webdsl-code> def|[
+            function $fun (farg*) : srt2 {
+              var l : srt2 := List<srt1>();
+              stat*
+              return l;
+            }
+          ]|
+
+  desugar-action :
+    ListCreation([e1|e1*]){anno*} -> result
+    with  srt1 := <type-of> e1
+        ; result := <desugar-typed-list-cr-exp> TypedListCreation(srt1,[e1|e1*]){anno*}

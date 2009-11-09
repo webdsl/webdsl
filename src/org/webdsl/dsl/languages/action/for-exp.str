@@ -6,32 +6,70 @@ imports
 imports
   libwebdsl-front
 
+signature
+  constructors
+    ClosureInAnno : List(Exp) -> Annotation
+
 rules
 
   normalize-action :
-    ForExpNoFilter(oe, x, s, ie) -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))))
+    ForExpNoFilter(oe, x, s, ie){anno*} -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0")))){anno*}
 
 rules
 
   rename-action :
-    ForExp(oe1, x, srt, ie1, f1) -> ForExp(oe2, y, srt2, ie2, f2)
-    with {| Rename
+    ForExp(oe1, x, srt, ie1, f1){anno*} -> ForExp(oe2, y, srt2, ie2, f2){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; {| Rename
           : srt2 := <rename-all> srt
           ; y := <rename-bound(|srt2)> x
           ; oe2 := <rename-all> oe1
           ; f2 := <rename-all> f1
           |}
-       ; ie2 := <rename-all> ie1
+        ; ie2 := <rename-all> ie1
 
   rename-action :
-    ForExpNoFilter(oe1, x, srt, ie1) -> ForExpNoFilter(oe2, y, srt2, ie2)
-    with {| Rename
+    ForExpNoFilter(oe1, x, srt, ie1){anno*} -> ForExpNoFilter(oe2, y, srt2, ie2){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; {| Rename
           : srt2 := <rename-all> srt
           ; y := <rename-bound(|srt2)> x
           ; oe2 := <rename-all> oe1
           |}
-       ; ie2 := <rename-all> ie1
+        ; ie2 := <rename-all> ie1
+        
+  rename-action :
+    AndForExp(e1){anno*} -> AndForExp(e2){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2 := <rename-all> e1
 
+  rename-action :
+    OrForExp(e1){anno*} -> OrForExp(e2){anno1*}
+    with  anno1* := <put-closure-in-anno> anno*
+        ; e2 := <rename-all> e1
+
+rules
+
+  put-closure-in-anno :
+    anno* -> anno1*
+    with  // collect variables for for expression closure, similar to elements/with templatecall ui/templatecall.str
+          oldvars := <fetch-elem(?ClosureInAnno(<id>)) <+ ![]> anno*
+        ; if InTemplate <+ InPage 
+          then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
+          else vars := <rename-all> oldvars //only this part renamed, only apply rename
+          end
+        ; anno1* := [ClosureInAnno(vars)|anno*]
+        
+  get-closure-from-anno :
+    anno* -> params
+    with  params := <fetch-elem(?ClosureInAnno(<id>)) <+ ![]> anno*
+          //if not renamed/no closure in annotation, assume nothing in scope/empty closure (<+ ![])
+          
+  get-args-fargs-from-closure-in-anno :
+    anno* -> (arg*,farg*)
+    with  arg* := <get-closure-from-anno> anno*
+        ; farg* := <map(lifting-param-to-farg)> arg*
+        
 rules
 
   eq-type-of-action :
@@ -91,22 +129,14 @@ rules
 rules
 
   desugar-action :
-    fe@ForExp(oe, x, s, ie, fltr) -> ThisCall($fun, params)
-    where $fun := <newname> "listCompr"
-        ; {| Param, IgnoreVars
-           : <alltd(find-params)> fe
-           ; params := <bagof-Param>
-           |}
-        ; farg* := <map(forexp-function-param-to-farg)> params
-        // finding parameters = finding free variables?
-        // @TODO: turn into reusable strategy; with built-in scope; should not be part of caller
-        
+    fe@ForExp(oe, x, s, ie, fltr){anno*} -> ThisCall($fun, arg*)
+    with  $fun := <newname> "listCompr"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
         ; srt2 := <type-of> ie
         ; GenericSort(_, [srt]) := srt2
         ; srt3 := <type-of> oe
         ; e3 := ie                                                 // alias
         ; e4 := oe                                                 // alias
-        //; newnm := <new-forexp-name>
         ; if <?GenericSort("List",_)> srt2 then  
             srt4 := GenericSort("List", [srt3])  
             ; e5 := |[ List<srt3>() ]|           
@@ -131,11 +161,12 @@ rules
           ]|
 
   desugar-action :
-    AndForExp(e) -> ThisCall(x_fun, [])
-    where x := <newname> "x"
+    AndForExp(e){anno*} -> ThisCall(x_fun, arg*)
+    with  x := <newname> "x"
         ; x_fun := <newname> "andForExp"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
         ; <rename-this-var;emit-webdsl-code> def|[
-            function x_fun () : Bool {
+            function x_fun (farg*) : Bool {
               for(x : Bool in e) {
                 if(!x) {
                   return false;
@@ -146,11 +177,12 @@ rules
           ]|
 
   desugar-action :
-    OrForExp(e) -> ThisCall(x_fun, [])
-    where x := <newname> "x"
+    OrForExp(e){anno*} -> ThisCall(x_fun, arg*)
+    with  x := <newname> "x"
         ; x_fun := <newname> "orForExp"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
         ; <rename-this-var;emit-webdsl-code> def|[
-            function x_fun () : Bool {
+            function x_fun (farg*) : Bool {
               for(x : Bool in e) {
                 if(x) {
                   return true;
@@ -161,58 +193,6 @@ rules
           ]|
 
 rules
-
-  find-expression-params =
-    ?fa@FieldAccess(v, _)
-    ; not(<IgnoreVars> v)
-    ; rules( Param :+= fa )
-    ; rules( IgnoreVars : v )
-
-  find-expression-params =
-    ?v@Var(x)
-    ; not(<IgnoreVars> v)
-    ; not("Component" := <type-of> v)
-    ; rules( Param :+= v )
-    ; rules( IgnoreVars : v )
-
-  find-expression-params = // Have to filter this one out later, but point is to ignore everything inside for-exps
-    ?ForExp(oe, x, srt, ie, Filter(we, obe, l))
-    ; {| IgnoreVars
-       : rules ( IgnoreVars : Var(x) )
-       ; <alltd(find-expression-params)> we
-       ; <alltd(find-expression-params)> oe
-       ; <alltd(find-expression-params)> l
-       |}
-    ; <try(sometd(find-expression-params))> ie
-
-  forexp-function-param-to-farg :
-    Var(x) -> farg|[ x : srt ]|
-    where srt := <type-of> Var(x)
-
-  find-params =
-    ?fa@FieldAccess(v, _)
-    ; where (<?Var(_)> v) //match the deepest fieldaccess only, e.g. the i in i.set.content
-    ; not(<IgnoreVars> v)
-    ; rules( Param :+= v )
-    ; rules( IgnoreVars : v)
-
-  find-params =
-    ?v@Var(x)
-    ; not(<IgnoreVars> v)
-    ; not("Component" := <type-of> v)
-    ; rules( Param :+= v )
-    ; rules( IgnoreVars : v )
-
-  find-params = //ignore the identifier of the for-exp iteration in the param lookup
-    ?ForExp(oe, x, srt, ie, Filter(we, obe, l))
-    ; {| IgnoreVars
-       : rules ( IgnoreVars : Var(x) 
-                 IgnoreVars : FieldAccess(Var(x), _) )
-       ; <alltd(find-params)> we
-       ; <alltd(find-params)> oe
-       ; <alltd(find-params)> l
-       |}
-    ; <alltd(find-params)> ie
 
   /**
    *  'this' is normally not renamed, but in this case it should, because 'this' as farg name is not allowed
