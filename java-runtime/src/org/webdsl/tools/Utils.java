@@ -115,20 +115,6 @@ public final class Utils {
         }
     }
     
-    public static List<String> explodeString(String s){
-        List<String> list = new LinkedList<String>();
-        for(char c : s.toCharArray()){
-            list.add(new Character(c).toString());  
-        }
-        return list;
-    }
-    public static String implodeString(List<String> s){
-        StringBuffer ret = new StringBuffer();
-        for(String str : s){
-            ret.append(str);
-        }
-        return ret.toString();
-    }
     public static boolean containsDigit(String s){
         for(char c : s.toCharArray()){
             if(Character.isDigit(c)){

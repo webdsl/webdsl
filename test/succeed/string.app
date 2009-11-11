@@ -34,11 +34,15 @@ application test
     //toLowerCase    
     assert("SDFEWRGDBTG123".toLowerCase() == "sdfewrgdbtg123");
 
-    //explodeString
+    //split
     //List<String>: implodeString
-    assert("34gDE".explodeString() == ["3","4","g","D","E"]);
-    assert("34gDE".explodeString().concat() == "34gDE");
-    assert("34gDE".explodeString().concat(", ") == "3, 4, g, D, E");
+    assert("34gDE".split() == ["3","4","g","D","E"]);
+    assert("34gDE".split().concat() == "34gDE");
+    assert("34gDE".split().concat(", ") == "3, 4, g, D, E");
+
+    assert("34gDE".split("4").concat("4") == "34gDE");
+    assert("ery54h-tyjfu-kfyj-u".split("-").length == 4);
+    assert("tfhfg6tyhj".split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
 
     //debugging: log
   }

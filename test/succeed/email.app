@@ -53,11 +53,14 @@ application test
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as Email).toLowerCase() as Email == "sdfewrgdbtg123" as Email);
 
-    //explodeString
-    assert(("34gDE" as Email).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as Email).explodeString().concat() == "34gDE");
-    assert(("34gDE" as Email).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as Email).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as Email).split().concat() == "34gDE");
+    assert(("34gDE" as Email).split().concat(", ") == "3, 4, g, D, E");
 
+    assert(("34gDE" as Email).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as Email).split("-").length == 4);
+    assert(("tfhfg6tyhj" as Email).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
   }
   
   test callStringArg{

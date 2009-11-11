@@ -54,11 +54,14 @@ application text
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as Text).toLowerCase() as Text == "sdfewrgdbtg123" as Text);
 
-    //explodeString
-    assert(("34gDE" as Text).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as Text).explodeString().concat() == "34gDE");
-    assert(("34gDE" as Text).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as Text).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as Text).split().concat() == "34gDE");
+    assert(("34gDE" as Text).split().concat(", ") == "3, 4, g, D, E");
 
+    assert(("34gDE" as Text).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as Text).split("-").length == 4);
+    assert(("tfhfg6tyhj" as Text).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
   }
   
   test callStringArg{

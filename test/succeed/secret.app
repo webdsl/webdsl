@@ -80,11 +80,14 @@ section datamodel
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as Secret).toLowerCase() as Secret == "sdfewrgdbtg123" as Secret);
 
-    //explodeString
-    assert(("34gDE" as Secret).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as Secret).explodeString().concat() == "34gDE");
-    assert(("34gDE" as Secret).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as Secret).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as Secret).split().concat() == "34gDE");
+    assert(("34gDE" as Secret).split().concat(", ") == "3, 4, g, D, E");
 
+    assert(("34gDE" as Secret).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as Secret).split("-").length == 4);
+    assert(("tfhfg6tyhj" as Secret).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
   }
   
   test callStringArg{

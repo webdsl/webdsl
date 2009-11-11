@@ -35,6 +35,31 @@ public class StringType {
         return ret.toString();
     }
     
+    public static String concat(List<String> s){
+    	StringBuffer ret = new StringBuffer();
+    	for(String str : s){
+    		ret.append(str);
+    	}
+    	return ret.toString();
+    }
+    
+    public static List<String> splitWithSeparator(String s, String sep){
+        List<String> list = new LinkedList<String>();
+        String[] tokens = s.split(sep);
+        for(String c : tokens){
+            list.add(c);  
+        }
+        return list;
+    }
+    
+    public static List<String> split(String s){
+        List<String> list = new LinkedList<String>();
+        for(char c : s.toCharArray()){
+            list.add(new Character(c).toString());  
+        }
+        return list;
+    }
+    
     public static String removeTrailingDefaultValues(String s, String... strings){
         String[] parts = s.split("/");
         int i = 0;

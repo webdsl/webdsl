@@ -63,11 +63,14 @@ application test
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as Patch).toLowerCase() as Patch == "sdfewrgdbtg123" as Patch);
 
-    //explodeString
-    assert(("34gDE" as Patch).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as Patch).explodeString().concat() == "34gDE");
-    assert(("34gDE" as Patch).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as Patch).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as Patch).split().concat() == "34gDE");
+    assert(("34gDE" as Patch).split().concat(", ") == "3, 4, g, D, E");
 
+    assert(("34gDE" as Patch).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as Patch).split("-").length == 4);
+    assert(("tfhfg6tyhj" as Patch).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
   }
   
   test callStringArg{

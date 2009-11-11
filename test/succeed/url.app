@@ -55,10 +55,14 @@ application test
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as URL).toLowerCase() as URL == "sdfewrgdbtg123" as URL);
 
-    //explodeString
-    assert(("34gDE" as URL).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as URL).explodeString().concat() == "34gDE");
-    assert(("34gDE" as URL).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as URL).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as URL).split().concat() == "34gDE");
+    assert(("34gDE" as URL).split().concat(", ") == "3, 4, g, D, E");
+    
+    assert(("34gDE" as URL).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as URL).split("-").length == 4);
+    assert(("tfhfg6tyhj" as URL).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
 
   }
   

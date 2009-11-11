@@ -54,10 +54,14 @@ application text
     //toLowerCase    
     assert(("SDFEWRGDBTG123" as WikiText).toLowerCase() as WikiText == "sdfewrgdbtg123" as WikiText);
 
-    //explodeString
-    assert(("34gDE" as WikiText).explodeString() == ["3","4","g","D","E"]);
-    assert(("34gDE" as WikiText).explodeString().concat() == "34gDE");
-    assert(("34gDE" as WikiText).explodeString().concat(", ") == "3, 4, g, D, E");
+    //split
+    assert(("34gDE" as WikiText).split() == ["3","4","g","D","E"]);
+    assert(("34gDE" as WikiText).split().concat() == "34gDE");
+    assert(("34gDE" as WikiText).split().concat(", ") == "3, 4, g, D, E");
+    
+    assert(("34gDE" as WikiText).split("4").concat("4") == "34gDE");
+    assert(("ery54h-tyjfu-kfyj-u" as WikiText).split("-").length == 4);
+    assert(("tfhfg6tyhj" as WikiText).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
 
   }
   
