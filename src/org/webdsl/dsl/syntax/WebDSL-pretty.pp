@@ -1185,6 +1185,9 @@
    NativeSimpleType -- _1,
    NativeGenericType -- _1 KW["<"] _2 KW[">"],
    
-   Test -- KW["test"] _1 _2
+   Test -- KW["test"] _1 _2,
+   
+   CollectionIndex -- _1 KW["["] _2 KW["]"],
+   CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3  
 
 ]

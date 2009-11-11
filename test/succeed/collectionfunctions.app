@@ -273,3 +273,19 @@ section datamodel
   define page user(u:User){
     derive viewPage from u
   }
+  
+  test index{
+    var s := ["fdgdgr","234232","regerge","2342gr"];
+    assert(s[2] == "regerge");
+    s[3] := "wefdg";
+    assert(s[3] == "wefdg");
+    getList()[0] := User{ name := "assigned"};
+    assert(testuser.list[0].name == "assigned");
+  }
+
+  function getList():List<User>{
+    return testuser.list;
+  }
+   
+  var testuser:User := User{name := "test" list := [u1,u2,u3] }
+  
