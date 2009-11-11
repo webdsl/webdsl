@@ -54,7 +54,7 @@ rules
     anno* -> anno1*
     with  // collect variables for for expression closure, similar to elements/with templatecall ui/templatecall.str
           oldvars := <fetch-elem(?ClosureInAnno(<id>)) <+ ![]> anno*
-        ; if InTemplate <+ InPage 
+        ; if InDef <+ InEntity //includes template/page defines, global/entity functions 
           then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
           else vars := <rename-all> oldvars //only this part renamed, only apply rename
           end
@@ -65,10 +65,25 @@ rules
     with  params := <fetch-elem(?ClosureInAnno(<id>)) <+ ![]> anno*
           //if not renamed/no closure in annotation, assume nothing in scope/empty closure (<+ ![])
           
-  get-args-fargs-from-closure-in-anno :
+  get-args-fargs-from-closure-in-anno-filtered : //only add what is actually used
+    (anno*,code) -> (argfiltered*,farg*)
+    with  arg* := <get-closure-from-anno> anno*
+        ; argfiltered* := <filter(var-is-used-in(|code))> arg*
+        ; farg* := <map(lifting-param-to-farg)> argfiltered*
+   
+  var-is-used-in(|code):
+    a@Var(x){anno*} -> Var(x){anno*}
+    where <collect(?a{anno*})> code
+        ; not(?[])
+    
+  get-args-fargs-from-closure-in-anno : //get the entire closure
     anno* -> (arg*,farg*)
     with  arg* := <get-closure-from-anno> anno*
         ; farg* := <map(lifting-param-to-farg)> arg*
+        
+  lifting-param-to-farg :
+    Var(x) -> farg|[ x : srt ]|
+    with  srt := <type-of> Var(x)
         
 rules
 
@@ -131,32 +146,35 @@ rules
   desugar-action :
     fe@ForExp(oe, x, s, ie, fltr){anno*} -> ThisCall($fun, arg*)
     with  $fun := <newname> "listCompr"
-        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,fe)
         ; srt2 := <type-of> ie
         ; GenericSort(_, [srt]) := srt2
         ; srt3 := <type-of> oe
         ; e3 := ie                                                 // alias
         ; e4 := oe                                                 // alias
-        ; if <?GenericSort("List",_)> srt2 then  
+        ; if <?GenericSort("List",_)> srt2 
+          then  
             srt4 := GenericSort("List", [srt3])  
             ; e5 := |[ List<srt3>() ]|           
           else // Set
             srt4 := GenericSort("Set", [srt3])   
             ; e5 := |[ Set<srt3>() ]|            
           end
-        ; if <?FieldAccess(Var("this"),_)> e3 then e7 := True() else e7 := <add-not-null-checks> NotEq(e3,Null()) end
+        ; if <?FieldAccess(Var("this"),_)> e3 
+          then e7 := True() 
+          else e7 := <add-not-null-checks> NotEq(Var("thecollection"),Null()) 
+          end
         ; <rename-this-var;emit-webdsl-code> def|[
-            globals { 
-              function $fun (farg*) : srt4 {
-                var l : srt4;
-                l := e5;
-                if(e7) {
-                  for(x : srt in e3 fltr) {
-                    l.add(e4);
-                  }
-                } else {}
-                return l;
-              }
+            function $fun (farg*) : srt4 {
+              var l : srt4;
+              l := e5;
+              var thecollection := e3;
+              if(e7) {
+                for(x : srt in thecollection fltr) {
+                  l.add(e4);
+                }
+              } else {}
+              return l;
             }
           ]|
 
@@ -164,7 +182,7 @@ rules
     AndForExp(e){anno*} -> ThisCall(x_fun, arg*)
     with  x := <newname> "x"
         ; x_fun := <newname> "andForExp"
-        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,e)
         ; <rename-this-var;emit-webdsl-code> def|[
             function x_fun (farg*) : Bool {
               for(x : Bool in e) {
@@ -180,7 +198,7 @@ rules
     OrForExp(e){anno*} -> ThisCall(x_fun, arg*)
     with  x := <newname> "x"
         ; x_fun := <newname> "orForExp"
-        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno> anno*
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,e)
         ; <rename-this-var;emit-webdsl-code> def|[
             function x_fun (farg*) : Bool {
               for(x : Bool in e) {
@@ -198,7 +216,11 @@ rules
    *  'this' is normally not renamed, but in this case it should, because 'this' as farg name is not allowed
    */
   rename-this-var =
-    where( varname := <newname> "this" )
-  ; alltd(\Var("this"{anno*}) -> Var(varname)\)
-  ; alltd(\Arg("this"{anno*},srt) -> Arg(varname,srt)\)
+    try(
+      where( 
+        varname := <newname> "renamedthis"
+      )
+    ; alltd(\Var("this"{anno*}) -> Var(varname)\)
+    ; alltd(\Arg("this"{anno*},srt) -> Arg(varname,srt)\)
+    )
     

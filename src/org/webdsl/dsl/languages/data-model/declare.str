@@ -21,21 +21,21 @@ strategies // register all declared entities
   inherit-object :
     EntityNoSuper(x_class, props, functions) -> Entity(x_class, "Entity", props, functions)
 
-  all-properties =
-    ?x_class
-    ; props := <bagof-Properties; concat> x_class
-    ; if not("Entity" := <Extends> x_class) then
-        !<concat> [props, <Extends; all-properties> x_class]
-      end
-    ; uniq
+  all-properties :
+    x_class -> result
+    with  props := <bagof-Properties; concat> x_class
+        ; if not("Entity" := <Extends> x_class) 
+          then props1 := <concat> [props, <Extends; all-properties> x_class]
+          else props1 := props end
+        ; result := <uniq> props1
 
-  all-functions =
-    ?x_class
-    ; functions := <bagof-Functions; concat> x_class
-    ; if not("Entity" := <Extends> x_class) then
-        !<concat> [functions, <Extends; all-functions> x_class]
-      end
-    ; uniq
+  all-functions :
+    x_class -> result
+    with  funcs := <bagof-Functions; concat> x_class
+        ; if not("Entity" := <Extends> x_class)
+          then funcs1 := <concat> [funcs, <Extends; all-functions> x_class]
+          else funcs1 := funcs end
+        ; result := <uniq> funcs1
 
 rules
 
@@ -51,10 +51,10 @@ rules
           IsEntity :+
             x_class -> x_class
 
-          Properties :
+          Properties :+
             x_class -> props
 
-          Functions :
+          Functions :+
             x_class -> funcs
 
           Extends :
@@ -111,13 +111,21 @@ rules
        
   declare-property(|x_class) =
     ?prop@Property(x, k, s, annos)
-    ; where( y := x{<newname> x})
+    ; where( 
+        y := x{<newname> x}
+      ; xsa := <strip-annos> x
+      )
     ; rules( TypeOfProperty : (x_class, x) -> s 
              PropertyAnnos  : (x_class, x) -> annos
              IsProperty     : (x_class, x)
              //renaming to allow direct references to properties in entity functions/derived properties
              //RenameProperty : (x_class,x) -> y
+             /**
+              *  These Rename rules are not scoped in the entity, since an extend entity is not part of the entity def
+              *  Scoping is done by the 'where x_class := <InEntity>' condition
+              */
              Rename :+ Var(x) -> Var(y) where x_class := <InEntity>
+             PropertyNameToUniqueName : xsa -> y //this dynamic rule is renewed each time a new Rename is performed
              Rename :+ Qualified(x, z) -> Qualified(y, z) where x_class := <InEntity>
              Rename :+ Stat(Assignment(x, e)) -> Stat(Assignment(y, <rename-all> e)) where x_class := <InEntity>
              TypeOf : y -> s
@@ -136,10 +144,6 @@ rules
     ; try(<create-prop-required-rule(|x_class,x)> annos)
     ; not(<extend-property-declare(|x_class)> prop) //for example used in typechecker/property-events, ends in fail for extensibility
     ; !prop
-    
-  declare-property(|x_class) =
-    ?PropertyNoAnno(x, k, s)
-    ; <declare-property(|x_class)> Property(x, k, s, [])
 
   create-prop-required-rule(|class,propname) =
     ?annos
@@ -147,30 +151,13 @@ rules
     ; rules(
         PropertyIsRequired : (class, propname) -> True()
       )
-
-  declare-list-property(|x_class) =
-    ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
-    ; where(
-             y := <concat-strings>[x, "List"]
-           ; t := GenericSort("List", [s])
-           )
-        ; rules(
-            TypeOfProperty : (x_class, y) -> t
-          )
     
   declare-property(|x_class) =
-    ?DerivedProperty(x, k, s, annos, e)
+    ?DerivedProperty(x, k, srt, annos, e)
+    ; <declare-property(|x_class)> Property(x, k, srt, [])
     ; rules(
-        TypeOfProperty : (x_class, x) -> s
-        IsProperty : (x_class, x)
-        IsDerivedProperty : (x_class, x)
+        IsDerivedProperty : (x_class, x) //use in constraint to prevent assignment to derived prop
       )
-    ; where(try(declare-list-property(|x_class)))
-
-  declare-property(|x_class) =
-    ?DerivedPropertyNoAnno(x, k, s, e)
-    ; <declare-property(|x_class)> DerivedProperty(x, k, s, [], e)
-
 
   declare-property(|x_class) =
     ?DerivedPropertyNoAnno(x, k, srt, e)
@@ -180,16 +167,24 @@ rules
     ?PropertyNoAnno(x, k, srt)
     ; <declare-property(|x_class)> Property(x, k, srt, [])
 
-  declare-list-property(|x_class) =
-    ?DerivedProperty(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos, e)
-    ; where(
-        y := <concat-strings>[x, "List"]
-      ; t := GenericSort("List", [s])
-      )
-    ; rules(
-        TypeOfProperty : (x_class, y) -> t
-      )
+rules
 
+declare-list-property(|x_class) =
+    ?Property(x, k, GenericSort(coll, [s@SimpleSort(_)]), annos)
+    ; where(
+             y := <concat-strings>[x, "List"]
+           ; t := GenericSort("List", [s])
+           )
+        ; rules(
+            TypeOfProperty : (x_class, y) -> t
+          )
+
+rules
+
+  is-derived-property =
+    ?(x_class, x)
+    ; (IsDerivedProperty <+ <is-derived-property> (<Extends> x_class, x))
+    
   is-property =
     ?(x_class, x)
     ; (IsProperty <+ <is-property> (<Extends> x_class, x))
@@ -204,3 +199,4 @@ rules
 
   built-in-template-rule-setup = 
     <map(declare-property(|"Entity"));fail> [VersionProperty(), IdProperty(), NameProperty()]
+    
