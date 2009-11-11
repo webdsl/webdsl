@@ -16,6 +16,7 @@ TESTSFAIL = \
   
 TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/*.app)
+  $(wildcard succeed-web/data-validation/*.app)
 
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)
