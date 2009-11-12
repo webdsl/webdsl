@@ -39,26 +39,23 @@ application registerexample
     var d : WebDriver := HtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!/404/.find(d.getPageSource()), "root page may not produce a 404 error");
+    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 4, "expected 4 <input> elements");
     
-    elist.get(1).sendKeys("123");
-    elist.get(2).sendKeys("111");
+    elist[1].sendKeys("123");
+    elist[2].sendKeys("111");
     
-    elist.get(3).click();
+    elist[3].click();
     
     var pagesource := d.getPageSource();
     
-    var list := /<hr\/>/.split(pagesource);
+    var list := pagesource.split("<hr/>");
     
     assert(list.length == 3, "expected two occurences of \"<hr/>\"");
-    for(i:Int from 0 to 3){
-      log(i+"    "+list.get(i));
-    }
  
-    assert(/inputcheck/.find(list.get(1)), "cannot find inputcheck message");
-    assert(/formcheck/.find(list.get(2)), "cannot find formcheck message");
+    assert(list[1].contains("inputcheck"), "cannot find inputcheck message");
+    assert(list[2].contains("formcheck"), "cannot find formcheck message");
     
   }

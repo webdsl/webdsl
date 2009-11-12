@@ -45,7 +45,7 @@ public class StringType {
     
     public static List<String> splitWithSeparator(String s, String sep){
         List<String> list = new LinkedList<String>();
-        String[] tokens = s.split(sep);
+        String[] tokens = org.apache.commons.lang.StringUtils.splitByWholeSeparator(s,sep);
         for(String c : tokens){
             list.add(c);  
         }
