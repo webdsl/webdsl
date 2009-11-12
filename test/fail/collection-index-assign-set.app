@@ -1,4 +1,5 @@
-//Indexed access [] in left-hand side of assignment is only allowed
+//Indexed access
+
 application test
 
 define page root() {

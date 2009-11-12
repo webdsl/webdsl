@@ -1,4 +1,5 @@
-//Indexed access [] is only allowed for
+//Indexed access
+
 application test
 
 define page root() {
