@@ -72,6 +72,7 @@ let
         doCheck = true;
       };
 
+/*
    docs = 
      { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} 
      , xdoc
@@ -92,6 +93,7 @@ let
        sdf = false ;
        stats = false;
      } ;
+*/
 
   };
 
