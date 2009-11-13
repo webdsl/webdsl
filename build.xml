@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<project name="nwl" default="all">
+        
+        <!-- Key input modules -->
+        <property name="sdfmodule" value="nwl"/>
+        <property name="esvmodule" value="nwl"/>
+        <property name="strmodule" value="nwl"/>
+    
+        <!-- Project directories -->
+        <property name="trans" location="trans"/>
+        <property name="src-gen" location="editor/java"/>
+        <property name="syntax" location="syntax"/>
+        <property name="lib" location="lib"/>
+        <property name="build" location="bin"/>
+        <property name="dist" location="bin/dist"/>
+        
+        <!-- External .def and .jar locations
+        <property name="externaldef" location="syntax/${sdfmodule}.def"/>
+        <property name="externaljar" value="../lib.jar"/>
+        <property name="externaljarflags" value="-la org.lib"/>
+        -->
+        
+        <!-- Environment configuration -->
+        <property name="build.strategoxt" location="${user.home}/.nix-profile/bin"/>
+        <property name="build.sdf.imports" value=""/>
+        <property name="build.stratego.args" value="-m main-${strmodule} --library -I ${trans} -I ${build} -I ${lib}
+                        -la stratego-lib -la stratego-sglr -la stratego-gpp -la stratego-xtc
+                        -I ${user.home}/.nix-profile/share/java-front
+                        -I ${basedir}
+                        -la ${user.home}/.nix-profile/lib/libjava-front.la"/>
+        
+        <!-- Initialization -->
+        <available file="${trans}/${strmodule}.str" property="build.stratego.enabled"/>
+        <available file="${build.strategoxt}/strj" property="build.stratego.usenativestrj"/>
+        <dirname property="externaldefdir" file="${externaldef}"/>
+        <condition property="externaldefimport" value="-I ${externaldefdir}" else="">
+            <isset property="externaldef"/>
+        </condition>
+        <condition property="externaljarimport" value=":${externaljar}" else="">
+            <isset property="externaljar"/>
+        </condition>
+        <fail if="externaljar" unless="externaljarflags"/>
+        <condition property="externaljarflags" value="${externaljarflags}" else="">
+            <isset property="externaljarflags"/>
+        </condition>
+        <mkdir dir="${build}"/>
+        <mkdir dir="${src-gen}"/>
+        <mkdir dir="${dist}"/>
+        <mkdir dir="include"/>
+    
+        <target name="all" depends="stratego.ctree,sdf2table,sdf2imp"/>
+
+        <target name="sdf2imp" depends="sdf2imp.eclipse,sdf2imp.standalone"/>
+        
+        <target name="sdf2imp.eclipse" depends="sdf2table" if="eclipse.running">
+            <!-- In Eclipse, we trigger the Eclipse builder rather than build it here -->
+            <touch file="include/${esvmodule}.packed.esv"/>
+            <eclipse.refreshLocal resource="include/${esvmodule}.packed.esv"/>
+        </target>
+        
+        <target name="sdf2imp.standalone" depends="sdf2table,aux-files" unless="eclipse.running">
+            <java classname="org.strategoxt.imp.generator.sdf2imp" classpath="aux/sdf2imp.jar:aux/strategoxt.jar" failonerror="true" fork="true">
+                <jvmarg line="-ss4m -server"/> 
+                <arg value="-i"/>
+                <arg value="${basedir}/editor/${esvmodule}.main.esv"/>
+                <arg value="-p"/>
+                <arg value="${basedir}/include/${sdfmodule}.tbl"/>
+            </java>
+        </target>
+    
+        <target name="sdf2table" depends="make-permissive">
+            <apply executable="${build.strategoxt}/sdf2table" dest="include" failonerror="true">
+                <arg value="-i"/>
+                <srcfile/>
+                <arg value="-o"/>
+                <targetfile/>
+                <arg value="-m"/>
+                <arg value="${sdfmodule}"/>
+                
+                <fileset file="include/${sdfmodule}-Permissive.def"/>
+                <mapper type="glob" from="*-Permissive.def" to="*.tbl"/>
+            </apply>
+        </target>
+        
+        <target name="make-permissive" depends="pack-sdf,copy-sdf">
+            <dependset>
+                <srcfileset file="include/${sdfmodule}.def"/>
+                <targetfileset file="include/${sdfmodule}-Permissive.def"/>
+            </dependset>
+            <available file="include/${sdfmodule}-Permissive.def" property="permissive-grammar.available"/>
+            <antcall target="make-permissive.helper"/>
+        </target>
+    
+        <target name="make-permissive.helper" unless="permissive-grammar.available" depends="aux-files">
+            <java classname="org.strategoxt.permissivegrammars.make_permissive" classpath="aux/make_permissive.jar:aux/strategoxt.jar" failonerror="true">
+                <arg value="-i"/>
+                <arg value="${basedir}/include/${sdfmodule}.def"/>
+                <arg value="-o"/>
+                <arg value="${basedir}/include/${sdfmodule}-Permissive.def"/>
+            </java>
+        </target>
+
+        <target name="aux-files">
+            <property name="site" value="http://www.st.ewi.tudelft.nl/~kats/strategoxt/18a"/>
+            <mkdir dir="aux"/>
+            <get src="${site}/strategoxt.jar" dest="aux/strategoxt.jar" usetimestamp="true" ignoreerrors="true"/>
+            <get src="${site}/make_permissive.jar" dest="aux/make_permissive.jar" usetimestamp="true" ignoreerrors="true"/>
+            <get src="${site}/sdf2imp.jar" dest="aux/sdf2imp.jar" usetimestamp="true" ignoreerrors="true"/>
+        </target>
+    
+        <target name="pack-sdf" unless="externaldef">
+            <dependset>
+                <srcfilelist dir="${syntax}" files="**/*.sdf"/>
+                <targetfileset file="${syntax}/${sdfmodule}.def"/>
+            </dependset>
+            <apply executable="${build.strategoxt}/pack-sdf" failonerror="true" dest="include">
+                <arg value="-i"/>
+                <srcfile/>
+                <arg value="-o"/>
+                <targetfile/>
+                <arg value="-I"/>
+                <arg value="${trans}"/>
+                <arg value="-I"/>
+                <arg value="${lib}"/>
+                <arg line="${build.sdf.imports}"/>
+                
+                <fileset file="${syntax}/${sdfmodule}.sdf"/>
+                <mapper type="glob" from="*.sdf" to="*.def"/>
+            </apply>
+        </target>
+    
+        <target name="copy-sdf" if="externaldef">
+            <copy file="${externaldef}" todir="include" preservelastmodified="true"/>
+        </target>
+    
+        <target name="copy-jar" if="externaljar">
+            <copy file="${externaljar}" todir="include" preservelastmodified="true"/>
+        </target>
+    
+        <target name="rtg2sig" depends="sdf2rtg" if="build.stratego.enabled" unless="external-def">
+            <apply executable="${build.strategoxt}/rtg2sig" dest="include" failonerror="true">
+                <arg value="-i"/>
+                <srcfile/>
+                <arg value="-o"/>
+                <targetfile/>
+                <arg value="--module"/>
+                <arg value="${sdfmodule}"/>
+                
+                <fileset file="include/${sdfmodule}.rtg"/>
+                <mapper type="glob" from="*.rtg" to="*.str"/>
+            </apply>
+        </target>
+        
+        <target name="sdf2rtg" depends="pack-sdf" if="build.stratego.enabled" unless="external-def">
+            <apply executable="${build.strategoxt}/sdf2rtg" dest="include" failonerror="true">
+                <arg value="-i"/>
+                <srcfile/>
+                <arg value="-m"/>
+                <arg value="${sdfmodule}"/>
+                <arg value="-o"/>
+                <targetfile/>
+                
+                <fileset file="include/${sdfmodule}.def"/>
+                <mapper type="glob" from="*.def" to="*.rtg"/>
+            </apply>
+        </target>
+    
+        <!-- Stratego to Java interpreter -->
+        <target name="stratego.ctree">
+            <dependset>
+                <srcfileset dir="${basedir}">
+                  <include name="**/*.str"/>
+                </srcfileset>
+                <targetfileset file="${include}/{strmodule}.ctree"/>
+            </dependset>
+            <available file="${src-gen}/trans/Main.java" property="strc-java.available"/>
+            <antcall target="copy-jar"/>            
+            <antcall target="stratego.jvm.helper">
+                <param name="build.stratego.outputpath" value="${basedir}/include"/>
+                <param name="build.stratego.extraargs" value="-F --library"/>
+                <param name="build.stratego.extension" value="ctree"/>
+                <param name="build.stratego.compiler" value="strc"/>
+            </antcall>
+        </target>
+    
+        <!-- Stratego to Java compiler -->
+        <target name="stratego.java" depends="stratego.java.native,stratego.java.jvm"/>
+    
+        <target name="stratego.java.native" if="build.stratego.usenativestrj"> 
+            <antcall target="stratego.helper">
+                <param name="build.stratego.outputpath" value="${basedir}/${src-gen}"/>
+                <param name="build.stratego.extraargs" value="-la java-front"/>
+                <param name="build.stratego.extension" value="java"/>
+                <param name="build.stratego.compiler" value="strj"/>
+            </antcall>
+        </target>
+    
+        <target name="stratego.java.jvm" unless="build.stratego.usenativestrj">
+            <dependset>
+                <srcfileset dir="${basedir}">
+                  <include name="**/*.str"/>
+                </srcfileset>
+                <targetfileset file="${src-gen}/trans/Main.java"/>
+            </dependset>
+            <available file="${src-gen}/trans/Main.java" property="strc-java.available"/>
+            <antcall target="copy-jar"/>
+            <antcall target="stratego.jvm.helper">
+                <param name="build.stratego.outputpath" value="${src-gen}/trans"/>
+                <param name="build.stratego.extraargs" value="-la java-front"/>
+                <param name="build.stratego.extension" value="java"/>
+            </antcall>
+            <javac classpath="aux/strategoxt.jar${externaljarimport}" srcdir="${src-gen}/trans" destdir="${build}" source="1.5" debug="on"/>
+            <jar basedir="${build}" includes="trans/**" destfile="include/${strmodule}.jar"/>
+        </target>
+            
+        <target name="stratego.jvm.helper" depends="aux-files,rtg2sig" unless="strc-java.available">
+            <java classname="org.strategoxt.strj.Main" classpath="aux/strategoxt.jar:aux/sdf2imp.jar" failonerror="true">
+                <arg value="-i"/>
+                <arg value="${trans}/${strmodule}.str"/>
+                <arg value="-o"/>
+                <arg value="${build.stratego.outputpath}/${strmodule}.${build.stratego.extension}"/>
+                <arg value="-p"/>
+                <arg value="trans"/>
+                <arg value="-clean"/>
+                <arg line="${build.stratego.args}"/>
+                <arg line="${build.stratego.extraargs}"/>
+                <arg line="${externaljarflags}"/>
+                <arg line="${externaldefimport}"/>
+            </java>
+            <mkdir dir="${build}/trans"/>
+        </target>
+                
+        <!-- Stratego to C-based native executable -->
+        <target name="stratego.c">
+            <antcall target="stratego.c.helper">
+                <param name="build.stratego.outputpath" value="include"/>
+                <param name="build.stratego.extraargs" value=""/>
+                <param name="build.stratego.extension" value=""/>
+                <param name="build.stratego.compiler" value="strc"/>
+            </antcall>
+        </target>
+        
+        <!-- Helper target for calling the stratego compiler -->
+        <target name="stratego.c.helper" depends="rtg2sig" if="build.stratego.enabled">
+            <apply executable="${build.strategoxt}/${build.stratego.compiler}" dest="${build.stratego.outputpath}" failonerror="true">
+                <arg value="-i"/>
+                <srcfile/>
+                <arg value="-o"/>
+                <targetfile/>
+                <arg line="${build.stratego.args}"/>
+                <arg line="${build.stratego.extraargs}"/>
+                <arg line="${externaldefimport}"/>
+                
+                <fileset file="${trans}/${strmodule}.str"/>
+                <mapper type="glob" from="*.str" to="*.${build.stratego.extension}"/>
+            </apply>
+        </target>
+        
+        <target name="clean" description="clean up">
+            <delete dir="${build}"/>
+            <delete file="${src-gen}/trans/Main.java"/>
+        </target>
+    </project>

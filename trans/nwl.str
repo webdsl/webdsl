@@ -1,0 +1,137 @@
+module nwl
+
+imports
+  libstratego-lib
+  include/nwl
+
+strategies // editor interface
+
+  main-nwl =
+    fatal-err(|"No main strategy")
+  
+  editor-analyze:
+    (ast, path, fullpath) -> (errors, warnings, notes)
+    with
+      // Analysis: scope and record dynamic ruless
+      try(dr-scope-all-end);
+      dr-scope-all-start;
+      declare-all;
+      rename-all
+    with
+      errors   := <collect-markers(constraint-error)> ast;
+      warnings := <collect-markers(constraint-warning)> ast;
+      notes    := <collect-markers(constraint-note)> ast
+      
+    collect-markers(s) =
+      collect-all(s);
+      try(flatten-list);
+      map((id,try(concat-strings)))
+
+  editor-resolve:
+    (SimpleType(type), position, ast, path, fullpath) -> target
+    where
+      Entity(target,_) := <GetEntity> type
+
+  editor-hover:
+    (term, position, ast, path, fullpath) -> <conc-strings> ("Hover help: ", <write-to-string> term)
+    
+rules // declare-all and rename-all
+
+  declare-all =
+    alltd(declare-entity)
+    
+  rename-all =
+    id
+
+rules // modules
+
+  constraint-note:
+    Module("example", _) -> "This is just an example program in the \"entities\" language"
+    
+rules // declaring entities
+
+  declare-entity:
+    Entity(x, prop*) -> Entity(x, prop*)
+    with ?ent; rules( GetEntity: x -> ent )
+    
+  declaration-of :
+    SimpleType(x) -> <GetEntity> x
+    
+  is-entity-type =
+    where(SimpleType(GetEntity))
+    
+  is-primitive-type =
+     ?"String" <+ ?"Int" <+ ?"WikiText" <+ ?"Secret"
+     
+  is-string-type =
+    ?SimpleType("String")
+     
+rules // entity constraints
+
+  constraint-warning:
+    Entity(x, _) -> (x, "Entity names must start with a capital letter") 
+    where not(<explode-string; Hd; is-upper> x)
+      
+  constraint-error:
+    Entity(x, prop*) -> (x, ["Entity ", x, " defined more than once"])
+    where ?ent; not(<GetEntity> x => ent)
+
+  constraint-error:
+    SimpleType(type) -> (type, ["Type ", type, " is not defined"])
+    where not(<is-primitive-type <+ GetEntity> type)
+    
+  constraint-error:
+    SetType(type) -> (t, ["Set should have entity type as argument"])
+    where ?t; not(<is-entity-type> type)
+    
+rules // finding properties
+
+  lookup-property(s) :
+    Entity(x, prop*) -> <fetch-elem(s)> prop*
+    
+  lookup-property(s) :
+    SimpleType(x) -> <declaration-of; lookup-property(s)>
+
+  lookup-property(|name) =
+    lookup-property(?Property(name,_,_))
+    
+  is-id-property   = Property(id,id,Some(Annotations(fetch(?Id()))))
+  is-name-property = Property(id,id,Some(Annotations(fetch(?Name()))))
+    
+  lookup-id-property   = lookup-property(is-id-property)
+  lookup-name-property = lookup-property(is-name-property)
+   
+  lookup-property-type(|name) = lookup-property(|name); type-of
+    
+  type-of :
+    Property(_, type, _) -> type
+    
+rules // entities: constraints
+
+  constraint-error:
+    Entity(x, prop*) -> errors
+    where ?ent; errors := <filter(constraint-error-property(|ent))> prop*
+    
+  constraint-error-property(|ent):
+    Property(name, type, annos) -> (name, ["Property ", name, " defined more than once"])
+    where not(<lookup-property-type(|name)>ent => type)
+   
+  constraint-error-property(|ent):
+    Property(name, type, annos) -> (annos, ["More than one property with annotation id"])
+    where ?prop; is-id-property; not(<lookup-id-property>ent => prop)
+     
+  constraint-error-property(|ent):
+    Property(name, type, annos) -> (annos, ["More than one property with annotation name"])
+    where ?prop; is-name-property; not(<lookup-name-property>ent => prop)
+    
+  constraint-error-property(|ent):
+    Property(name, type, annos) -> (type, ["Name property should have type String"])
+    where ?prop; is-name-property; not(<is-string-type>type)
+   
+  // f : T (inverse:g) => T has property g of type E or Set<E>
+  
+ rules // expressions
+    
+  type-of :
+    GetProperty(e, f) -> <type-of; lookup-property-type(|f)> e
+  
