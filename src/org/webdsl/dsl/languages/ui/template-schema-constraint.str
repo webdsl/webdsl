@@ -1,0 +1,74 @@
+module org/webdsl/dsl/languages/ui/template-schema-constraint
+
+rules
+
+  constraint-error-ui:
+    def@Define(mods,name,_,_,body) -> <fail>
+    where <fetch(?Page())> mods
+        ; {| CheckedTemplateCallForSchema:
+            result := <get-schema-violating-tcs(|name)> def
+          |}
+    with  if <is-list> result
+          then <flatten-list; map(print-error-for-schema-constraint)> result
+          else <print-error-for-schema-constraint> result
+          end 
+          
+  print-error-for-schema-constraint :
+    (errmsg,item) -> <add-error(|["listitem not wrapped in list: ",errmsg])> item
+
+  get-schema-violating-tcs(|errmsg) :
+    def -> (errmsg, listitem)
+    where listitem := <check-schema-simple-constraint> def
+
+  get-schema-violating-tcs(|errmsg) :
+    def@Define(mods,_,_,_,body)  -> resboth
+    where not(<check-schema-simple-constraint> def)
+    with  results := <collect-om(find-schema-template-traverse);filter(is-defined-template-call)> body 
+        ; callstocheck := <remove-all(CheckedTemplateCallForSchema)> results //only check a specific templatecall once, to avoid infinite recursion
+        ; <map(\ x -> <rules( CheckedTemplateCallForSchema : x )> \)> callstocheck
+        ; res := <filter(defined-tc-to-schema-violation(|errmsg))> callstocheck
+        ; reselements := <filter(get-tc-elements-with-violations(|errmsg))> callstocheck
+        ; resboth := <concat> [res,reselements]
+    where not(resboth := [])
+    
+  defined-tc-to-schema-violation(|errmsg) = 
+    is-defined-tc-get-called-tc
+  ; ?y
+  ; TemplateDefinitionFromAnnoName
+  ; get-schema-violating-tcs(|<concat-strings> [errmsg," -> ",y])
+    
+  find-schema-template-traverse = is-defined-template-call
+  find-schema-template-traverse = find-template-with-name(|"list")
+  find-schema-template-traverse = find-template-with-name(|"elements")
+  find-schema-template-traverse = ?Define(_,_,_,_,_)//dont go into local template defines
+
+rules 
+
+  get-tc-elements-with-violations(|errmsg) :
+    tcall -> result
+    where name := <is-defined-tc-get-called-tc> tcall
+        ; violater := <TemplateDefinitionFromAnnoName; check-schema-simple-elements> name // TODO show violating elements call location in error
+        ; elements := <get-tc-elements> tcall
+        ; not(elements := [])
+        ; result := <get-schema-violating-tcs(|<concat-strings> [errmsg," elements> ",name])> 
+            Define([],[],[],[],TemplateBody(elements)) //as 
+  
+rules //simple case, check content of that particular template
+//TODO cache the results here?
+
+  check-schema-simple-constraint :
+    def@Define(_,_,_,_,elems)  -> listitem
+    with  results := <collect-om(find-schema-simple)> elems
+    where listitem := <fetch-elem(find-template-with-name(|"listitem"))> results
+          
+  check-schema-simple-elements :
+    def@Define(_,_,_,_,elems)  -> elementscall
+    with  results := <collect-om(find-schema-simple)> elems
+    where elementscall := <fetch-elem(find-template-with-name(|"elements"))> results
+    
+  find-schema-simple = find-template-with-name(|"list")
+  find-schema-simple = find-template-with-name(|"listitem")
+  find-schema-simple = ?Define(_,_,_,_,_) //dont go into local template defines
+  find-schema-simple = find-template-with-name(|"elements") //dont go into elements calls
+  find-schema-simple = is-defined-template-call // dont go deeper, elements part handled separately
+  
