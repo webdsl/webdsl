@@ -1,18 +1,20 @@
 package org.webdsl.tools.strategoxt;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.WeakHashMap;
 
-import org.spoofax.interpreter.core.Interpreter;
 import org.spoofax.interpreter.core.InterpreterException;
 import org.spoofax.interpreter.terms.IStrategoTerm;
+import org.spoofax.interpreter.terms.TermConverter;
 import org.spoofax.jsglr.InvalidParseTableException;
 import org.spoofax.jsglr.ParseTable;
 import org.spoofax.jsglr.SGLR;
 import org.spoofax.jsglr.SGLRException;
+import org.strategoxt.HybridInterpreter;
+import org.strategoxt.stratego_sglr.implode_asfix_0_0;
+import org.strategoxt.stratego_sglr.stratego_sglr;
 
 import aterm.ATerm;
 
@@ -27,7 +29,7 @@ public class SDF {
 		return sglrErrors;
 	}
 
-	private static Interpreter imploder;
+	private static HybridInterpreter imploder;
 	
 	private final SGLR parser;
 	
@@ -91,9 +93,7 @@ public class SDF {
 			IStrategoTerm result = parseCache.get(input);
 			if (result != null) return result;
 
-			// TODO: Use SGLR.parse(String, String) instead
-			InputStream stream = new ByteArrayInputStream(input.getBytes("ISO-8859-1"));
-			ATerm asfix = parser.parse(stream);
+			ATerm asfix = parser.parse(input, null); // TODO: start symbol?!
 
 			result = implode(asfix);
 			parseCache.put(input, result);
@@ -107,13 +107,9 @@ public class SDF {
 	}
 
 	private IStrategoTerm implode(ATerm asfix) {
-		try {
-			imploder.setCurrent(Environment.getWrappedTermFactory().wrapTerm(asfix));
-			imploder.invoke("implode_asfix_0_0");
-		
-			return imploder.current();
-		} catch (InterpreterException x) {
-			throw new RuntimeException(x); // unexpected; fatal
-		}
+		IStrategoTerm wrappedTerm = Environment.getWrappedTermFactory().wrapTerm(asfix);
+		IStrategoTerm term = TermConverter.convert(Environment.getTermFactory(), wrappedTerm);
+		stratego_sglr.init(imploder.getCompiledContext());
+		return implode_asfix_0_0.instance.invoke(imploder.getCompiledContext(), term);
 	}
 }

@@ -179,4 +179,9 @@ import org.webdsl.querylist.QueryList;
   }
   
   public java.lang.Integer getVersion() { return 0; }
+
+  @Override
+  public void setVersion(Integer i) {
+	// Not implemented
+  }
 }

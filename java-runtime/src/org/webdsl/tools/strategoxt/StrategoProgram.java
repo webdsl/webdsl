@@ -60,7 +60,7 @@ public class StrategoProgram {
 	// TODO: Finer grained synchronization (but probably register in a synchronized fashion)
 	
 	public synchronized IStrategoTerm invoke(String strategy, String string) {
-		return invoke(strategy, Environment.getWrappedTermFactory().makeString(string));
+		return invoke(strategy, Environment.getTermFactory().makeString(string));
 	}
 	
 	public synchronized IStrategoTerm invoke(String strategy, IStrategoTerm term) {
@@ -68,7 +68,7 @@ public class StrategoProgram {
 		
 		try {
 			boolean success = interpreter.invoke(strategy);
-			if (!success) return Environment.getWrappedTermFactory().makeString("Evaluation failed");
+			if (!success) return Environment.getTermFactory().makeString("Evaluation failed");
 		} catch (InterpreterException e) {
 			throw new RuntimeException(e);
 		}

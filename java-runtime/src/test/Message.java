@@ -139,4 +139,9 @@ public class Message implements org.webdsl.WebDSLEntity, Comparable<Object> {
   }
   
   public java.lang.Integer getVersion() { return 0; } //MW: always valid? 
+
+  @Override
+  public void setVersion(Integer i) {
+	// Not implemented
+  }
 }
