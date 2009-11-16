@@ -38,7 +38,7 @@ strategies // editor interface
 rules // declare-all and rename-all
 
   declare-all =
-    alltd(declare-entity)
+    alltd(declare-entity <+ declare-page)
     
   rename-all =
     id
@@ -65,22 +65,25 @@ rules // declaring entities
      
   is-string-type =
     ?SimpleType("String")
-     
+    
+  name-of :
+    Entity(x, prop*) -> x
+
 rules // entity constraints
 
-  constraint-warning:
+  constraint-warning :
     Entity(x, _) -> (x, "Entity names must start with a capital letter") 
     where not(<explode-string; Hd; is-upper> x)
       
-  constraint-error:
+  constraint-error :
     Entity(x, prop*) -> (x, ["Entity ", x, " defined more than once"])
     where ?ent; not(<GetEntity> x => ent)
 
-  constraint-error:
+  constraint-error :
     SimpleType(type) -> (type, ["Type ", type, " is not defined"])
     where not(<is-primitive-type <+ GetEntity> type)
     
-  constraint-error:
+  constraint-error :
     SetType(type) -> (t, ["Set should have entity type as argument"])
     where ?t; not(<is-entity-type> type)
     
@@ -95,13 +98,18 @@ rules // finding properties
   lookup-property(|name) =
     lookup-property(?Property(name,_,_))
     
-  is-id-property   = Property(id,id,Some(Annotations(fetch(?Id()))))
-  is-name-property = Property(id,id,Some(Annotations(fetch(?Name()))))
+  is-id-property   = 
+    Property(id,id,Some(Annotations(fetch(?Id()))))
+  is-name-property = 
+    Property(id,id,Some(Annotations(fetch(?Name()))))
     
-  lookup-id-property   = lookup-property(is-id-property)
-  lookup-name-property = lookup-property(is-name-property)
+  lookup-id-property   = 
+    lookup-property(is-id-property)
+  lookup-name-property = 
+    lookup-property(is-name-property)
    
-  lookup-property-type(|name) = lookup-property(|name); type-of
+  lookup-property-type(|name) = 
+    lookup-property(|name); type-of
     
   type-of :
     Property(_, type, _) -> type
@@ -112,27 +120,55 @@ rules // entities: constraints
     Entity(x, prop*) -> errors
     where ?ent; errors := <filter(constraint-error-property(|ent))> prop*
     
-  constraint-error-property(|ent):
+  constraint-error-property(|ent) :
     Property(name, type, annos) -> (name, ["Property ", name, " defined more than once"])
     where not(<lookup-property-type(|name)>ent => type)
    
-  constraint-error-property(|ent):
+  constraint-error-property(|ent) :
     Property(name, type, annos) -> (annos, ["More than one property with annotation id"])
     where ?prop; is-id-property; not(<eq>(<lookup-id-property>ent,prop))
      
-  constraint-error-property(|ent):
+  constraint-error-property(|ent) :
     Property(name, type, annos) -> (annos, ["More than one property with annotation name"])
-    where ?prop; debug(!"name? "); is-name-property; not(<eq>(<lookup-name-property; debug(!"a: ")>ent,prop));
-    debug(!"multiple name: ")
+    where ?prop; is-name-property; not(<lookup-name-property>ent => prop)
  
-  constraint-error-property(|ent):
+  constraint-error-property(|ent) :
     Property(name, type, annos) -> (type, ["Name property should have type String"])
     where ?prop; is-name-property; not(<is-string-type>type)
+    
+  constraint-error-property(|ent) : 
+     Property(name, type, annos) -> (anno, ["Multiple inverse annotations"])
+     where <gt>(<filter(?Inverse(_)); length> annos, 1)
    
-  // f : T (inverse:g) => T has property g of type E or Set<E>
-  
+  constraint-error-property(|ent) : 
+     Property(name, type, annos) -> (anno, [type, " has no property ", f])
+     where <fetch(?anno@Inverse(f))> annos;
+           not(<lookup-property(|f)> type)
+         
+  // note: [foo "bla" ] causes stackoverflow in parser (missing comma)
+   
+  // name: type (inverse:g) => type has property g of type E or Set<E>
+  constraint-error-property(|ent) : 
+     Property(name, type, annos) -> (anno, ["Type of ", type, ".", g, " is not ", type', " or Set<", type', ">"])
+     where <fetch(?anno@Inverse(name))> annos;
+           not(<lookup-property(|f); type-of; try(?SetType(<id>)); declaration-of> type => ent);
+           type' := <name-of> ent
+
  rules // expressions
     
   type-of :
     GetProperty(e, f) -> <type-of; lookup-property-type(|f)> e
+    
+    
+rules // declare pages
+
+  declare-page :
+    TemplateDef(Page(), x, params, elems) -> TemplateDef(Page(), x, params, elems)
+    where ?def; rules( Template : x -> def )
+    
+rules // page elements
+
+  constraint-error :
+    Navigate(x, args, elems) -> (x, ["Navigation to non-existing page"])
+    where not(id)
   
