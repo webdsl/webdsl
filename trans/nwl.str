@@ -3,6 +3,9 @@ module nwl
 imports
   libstratego-lib
   include/nwl
+  entities
+  expressions
+  templates
 
 strategies // editor interface
 
@@ -16,159 +19,36 @@ strategies // editor interface
       try(dr-scope-all-end);
       dr-scope-all-start;
       declare-all;
-      rename-all
+      debug(!"declared: ");
+      rename-all => ast2;
+      debug(!"renamed: ")
     with
-      errors   := <collect-markers(constraint-error)> ast;
-      warnings := <collect-markers(constraint-warning)> ast;
-      notes    := <collect-markers(constraint-note)> ast
+      errors   := <collect-markers(constraint-error)> ast2;
+      warnings := <collect-markers(constraint-warning)> ast2;
+      notes    := <collect-markers(constraint-note)> ast2
       
-    collect-markers(s) =
-      collect-all(s);
-      try(flatten-list);
-      map((id,try(concat-strings)))
+  collect-markers(s) =
+    collect-all(s);
+    try(flatten-list);
+    map((id,try(concat-strings)))
+
+  editor-hover:
+    (term, position, ast, path, fullpath) -> <conc-strings> ("Hover help: ", <write-to-string> term)
+    
+  constraint-note:
+    Module("example", _) -> "This is just an example program in the \"entities\" language"
+    
+rules // resolution
 
   editor-resolve:
     (SimpleType(type), position, ast, path, fullpath) -> target
     where
       Entity(target,_) := <GetEntity> type
-
-  editor-hover:
-    (term, position, ast, path, fullpath) -> <conc-strings> ("Hover help: ", <write-to-string> term)
-    
+      
 rules // declare-all and rename-all
 
   declare-all =
-    alltd(declare-entity <+ declare-page)
+    alltd(declare-entity <+ declare-template)
     
   rename-all =
-    id
-
-rules // modules
-
-  constraint-note:
-    Module("example", _) -> "This is just an example program in the \"entities\" language"
-    
-rules // declaring entities
-
-  declare-entity:
-    Entity(x, prop*) -> Entity(x, prop*)
-    with ?ent; rules( GetEntity: x -> ent )
-    
-  declaration-of :
-    SimpleType(x) -> <GetEntity> x
-    
-  is-entity-type =
-    where(SimpleType(GetEntity))
-    
-  is-primitive-type =
-     ?"String" <+ ?"Int" <+ ?"WikiText" <+ ?"Secret"
-     
-  is-string-type =
-    ?SimpleType("String")
-    
-  name-of :
-    Entity(x, prop*) -> x
-
-rules // entity constraints
-
-  constraint-warning :
-    Entity(x, _) -> (x, "Entity names must start with a capital letter") 
-    where not(<explode-string; Hd; is-upper> x)
-      
-  constraint-error :
-    Entity(x, prop*) -> (x, ["Entity ", x, " defined more than once"])
-    where ?ent; not(<GetEntity> x => ent)
-
-  constraint-error :
-    SimpleType(type) -> (type, ["Type ", type, " is not defined"])
-    where not(<is-primitive-type <+ GetEntity> type)
-    
-  constraint-error :
-    SetType(type) -> (t, ["Set should have entity type as argument"])
-    where ?t; not(<is-entity-type> type)
-    
-rules // finding properties
-
-  lookup-property(s) :
-    Entity(x, prop*) -> <fetch-elem(s)> prop*
-    
-  lookup-property(s) :
-    SimpleType(x) -> <declaration-of; lookup-property(s)>
-
-  lookup-property(|name) =
-    lookup-property(?Property(name,_,_))
-    
-  is-id-property   = 
-    Property(id,id,Some(Annotations(fetch(?Id()))))
-  is-name-property = 
-    Property(id,id,Some(Annotations(fetch(?Name()))))
-    
-  lookup-id-property   = 
-    lookup-property(is-id-property)
-  lookup-name-property = 
-    lookup-property(is-name-property)
-   
-  lookup-property-type(|name) = 
-    lookup-property(|name); type-of
-    
-  type-of :
-    Property(_, type, _) -> type
-    
-rules // entities: constraints
-
-  constraint-error:
-    Entity(x, prop*) -> errors
-    where ?ent; errors := <filter(constraint-error-property(|ent))> prop*
-    
-  constraint-error-property(|ent) :
-    Property(name, type, annos) -> (name, ["Property ", name, " defined more than once"])
-    where not(<lookup-property-type(|name)>ent => type)
-   
-  constraint-error-property(|ent) :
-    Property(name, type, annos) -> (annos, ["More than one property with annotation id"])
-    where ?prop; is-id-property; not(<eq>(<lookup-id-property>ent,prop))
-     
-  constraint-error-property(|ent) :
-    Property(name, type, annos) -> (annos, ["More than one property with annotation name"])
-    where ?prop; is-name-property; not(<lookup-name-property>ent => prop)
- 
-  constraint-error-property(|ent) :
-    Property(name, type, annos) -> (type, ["Name property should have type String"])
-    where ?prop; is-name-property; not(<is-string-type>type)
-    
-  constraint-error-property(|ent) : 
-     Property(name, type, annos) -> (anno, ["Multiple inverse annotations"])
-     where <gt>(<filter(?Inverse(_)); length> annos, 1)
-   
-  constraint-error-property(|ent) : 
-     Property(name, type, annos) -> (anno, [type, " has no property ", f])
-     where <fetch(?anno@Inverse(f))> annos;
-           not(<lookup-property(|f)> type)
-         
-  // note: [foo "bla" ] causes stackoverflow in parser (missing comma)
-   
-  // name: type (inverse:g) => type has property g of type E or Set<E>
-  constraint-error-property(|ent) : 
-     Property(name, type, annos) -> (anno, ["Type of ", type, ".", g, " is not ", type', " or Set<", type', ">"])
-     where <fetch(?anno@Inverse(name))> annos;
-           not(<lookup-property(|f); type-of; try(?SetType(<id>)); declaration-of> type => ent);
-           type' := <name-of> ent
-
- rules // expressions
-    
-  type-of :
-    GetProperty(e, f) -> <type-of; lookup-property-type(|f)> e
-    
-    
-rules // declare pages
-
-  declare-page :
-    TemplateDef(Page(), x, params, elems) -> TemplateDef(Page(), x, params, elems)
-    where ?def; rules( Template : x -> def )
-    
-rules // page elements
-
-  constraint-error :
-    Navigate(x, args, elems) -> (x, ["Navigation to non-existing page"])
-    where not(id)
-  
+    alltd(rename)
