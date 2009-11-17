@@ -4,10 +4,10 @@
 
 let
   strPkgs = pkgs: [
-    strategoPackages018.aterm 
-    strategoPackages018.sdf
-    strategoPackages018.strategoxt 
-    strategoPackages018.javafront 
+    pkgs.strategoPackages018.aterm 
+    pkgs.strategoPackages018.sdf
+    pkgs.strategoPackages018.strategoxt 
+    pkgs.strategoPackages018.javafront 
   ];
 
   pkgs = import nixpkgs {};
