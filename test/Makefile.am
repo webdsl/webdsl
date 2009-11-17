@@ -3,6 +3,7 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/ac/*.app) \
   $(wildcard succeed/data-validation/*.app) \
   $(wildcard succeed/email/*.app) \
+  $(wildcard succeed/stratego/*.app) \
   $(wildcard succeed/entity-events/*.app) \
   $(wildcard succeed/module/*.app) \
   $(wildcard succeed/nativejava/*.app) \
