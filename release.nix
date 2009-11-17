@@ -3,7 +3,7 @@
 }:
 
 let
-  strPkgs = with pkgs; [
+  strPkgs = pkgs: [
     strategoPackages018.aterm 
     strategoPackages018.sdf
     strategoPackages018.strategoxt 
@@ -32,7 +32,7 @@ let
           automake110x 
           autoconf
           ant 
-        ] ++ strPkgs ;
+        ] ++ strPkgs pkgs ;
       };
 
 
@@ -41,14 +41,14 @@ let
       , system ? "i686-linux"
       }:
 
-      with import nixpkgs {inherit system;};
-
+      let pkgs = import nixpkgs {inherit system;};
+      in with pkgs;
       releaseTools.nixBuild {
         name = "webdsl";
         src = tarball;
         buildInputs = [
           pkgconfig 
-        ] ++ strPkgs ++ lib.optional stdenv.isLinux apacheAnt;
+        ] ++ strPkgs pkgs ++ lib.optional stdenv.isLinux apacheAnt;
         
         doCheck = if stdenv.isLinux then true else false;
       };
@@ -58,12 +58,12 @@ let
       , strcJava 
       }:
 
-      with import nixpkgs { system = "i686-linux"; };
-
+      let pkgs = import nixpkgs { system = "i686-linux"; };
+      in with pkgs;
       releaseTools.nixBuild {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig ecj apacheAnt strcJava which fastjar jdk] ++ strPkgs;
+        buildInputs = [pkgconfig ecj apacheAnt strcJava which fastjar jdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
