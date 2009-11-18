@@ -1,4 +1,4 @@
-// Type not defined 
+//Attribute type Null is not allowed
 application test
 
 section datamodel

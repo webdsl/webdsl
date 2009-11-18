@@ -43,6 +43,6 @@ test bla {
   var sdf : String := testSDF();
   var str : String := testSTR();
 
-  assert(sdf == "parseme");
-  assert(str == "foo");
+  assert(sdf == "\"parseme\"");
+  assert(str == "\"foo\"");
 }
