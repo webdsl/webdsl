@@ -1,0 +1,50 @@
+module org/webdsl/dsl/languages/action/request-var
+ 
+rules 
+
+  //request scoped var, always global
+  rename-action :
+    RequestScope(VarDecl(x, srt)) -> RequestScope(VarDecl(y, srt2))
+    with  srt2 := <rename-all> srt
+        ; y := <rename-bound(|srt2)> x
+        ; rules ( IsRequestScopedVarDecl : y)
+                
+  rename-action :
+    RequestScope(VarDeclInitInferred(x, e)) -> RequestScope(VarDeclInitInferred(y, e'))
+    with  e' := <rename-all> e
+        ; srt := <type-of <+ !"unknown"> e' // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
+        ; y := <rename-bound(|srt)> x
+        ; rules ( IsRequestScopedVarDecl : y)
+                
+  rename-action :
+    RequestScope(VarDeclInit(x, srt, e)) -> RequestScope(VarDeclInit(y, srt, e'))
+    with  e' := <rename-all> e
+        ; y := <rename-bound(|srt)> x
+        ; rules ( IsRequestScopedVarDecl : y)
+
+// more specific constructors to simplify back-end rewrite rules
+signature constructors
+  RequestScopeVarDecl : Id * Sort -> VarDecl
+  RequestScopeVarDeclInit : Id * Sort * Exp -> VarDecl
+  RequestVar : Id -> Var
+  
+rules
+  
+  //assert
+  desugar-action = ?RequestScope(VarDeclInitInferred(x, e)); debug(!"Assertion failed: VarDeclInitInferred should have been desugared already!"); <exit> 1
+
+  desugar-action :    
+    VarDeclInit(x, srt, e) -> RequestScopeVarDeclInit(x, srt, e)
+    where <IsRequestScopedVarDecl> x
+    
+  desugar-action :    
+    VarDecl(x, srt) -> RequestScopeVarDecl(x, srt)
+    where <IsRequestScopedVarDecl> x
+        
+  desugar-action :    
+    Var(x) -> RequestVar(x)
+    where <IsRequestScopedVarDecl> x
+        
+  eq-type-of-action :
+    RequestVar(x) -> <TypeOf> x
+    

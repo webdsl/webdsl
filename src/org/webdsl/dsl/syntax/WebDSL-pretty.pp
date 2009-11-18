@@ -1188,6 +1188,8 @@
    Test -- KW["test"] _1 _2,
    
    CollectionIndex -- _1 KW["["] _2 KW["]"],
-   CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3  
+   CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3,
+   
+   RequestScope -- KW["request"] _1  
 
 ]

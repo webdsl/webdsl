@@ -1,0 +1,64 @@
+module org/webdsl/dsl/to-java-servlet/request-var
+
+rules
+
+  GenerateCodeJavaServlet = generate-java-servlet-request-vars-init; fail
+
+  generate-java-servlet-request-vars-init :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      @Partial
+      public abstract class PageServlet {
+                
+        public HashMap<String, Object> requestScopedVariables = new HashMap<String, Object>();  
+      
+        public void initRequestVars(){
+          initRequestVars(null,this);
+        }
+      }
+    ]|
+
+  GenerateCodeJavaServlet = generate-java-servlet-request-vars; fail
+
+  generate-java-servlet-request-vars :
+    RequestScopeVarDeclInit(x, srt, e) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      @Partial
+      public abstract class PageServlet {
+        @Partial
+        public void initRequestVars(PrintWriter out, PageServlet ps){
+          t x = e1;
+          requestScopedVariables.put("~x",x);
+        }
+      }
+    ]|
+    with  e1 := <expression-to-java-servlet> e
+        ; t := <java-type> srt
+        
+  generate-java-servlet-request-vars :
+    RequestScopeVarDecl(x, srt) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+      @Partial
+      public abstract class PageServlet {
+        @Partial
+        public void initRequestVars(PrintWriter out, PageServlet ps){
+          t x = null;
+          requestScopedVariables.put("~x",x);
+        }
+      }
+    ]|
+    with  t := <java-type> srt
+        
+  expression-to-java-servlet :
+    rv@RequestVar(x) -> java|[ (x_class) ThreadLocalPage.get().requestScopedVariables.get("~x") ]|
+    with  x_class := <type-of;java-type-name> rv
+    
+  /**
+   *  Need to overwrite direct assignment to request var, since this would otherwise only overwrite a local reference and not the actual request var
+   */
+  assignment-to-java-servlet-specific:
+    Stat(Assignment(RequestVar(x), e1)) -> java|[ ThreadLocalPage.get().requestScopedVariables.put("~x",e2); ]|
+    with  e2 := <expression-to-java-servlet> e1
