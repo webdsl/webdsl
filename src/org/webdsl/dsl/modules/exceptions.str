@@ -49,8 +49,9 @@ TryTemplate(
 
   rename :
     Catch(ident1,srt,blck1) -> Catch(ident2,srt,blck2)
-    with {| Rename:    
+    with {| Rename, VarInTemplateContext:    
             ident2 := <rename-bound(|srt)> ident1
+          ; <declare-vars-in-context> ident2
           ; blck2 := <rename-all> blck1
           |}
 
@@ -61,17 +62,23 @@ signature
 rules
   
   desugar :
-    TryStatement(blck,catch1*){anno*} -> <rename> TryStatement(blck,catch2*){CatchDesugarDone()}
+    TryStatement(blck,catch1*){anno*} -> <with(rename-all)> TryStatement(blck,catch2*){anno1*}
     where <not(fetch(?CatchDesugarDone()))> anno*
-    with  catch2* := <map(desugar-catch)> catch1*
+    with  catch2* := <desugar-catches> catch1*
+        ; anno1* := [CatchDesugarDone()|anno*]
     
   desugar :
-    TryTemplate(blck,catch1*){anno*} -> <rename> TryTemplate(blck,catch2*){CatchDesugarDone()}
+    TryTemplate(blck,catch1*){anno*} -> <with(rename-all)> TryTemplate(blck,catch2*){anno1*}
     where <not(fetch(?CatchDesugarDone()))> anno*
-    with  catch2* := <map(desugar-catch)> catch1*
+    with  catch2* := <desugar-catches> catch1*
+        ; anno1* := [CatchDesugarDone()|anno*]
     
-  desugar-catch:
-    Catch(x_ident,srt,Block(stat*)) -> Catch(x_name,SimpleSort("Exception"),stat)
-    with  debug(!1);x_name := <newname> "ident"
-        ; stat := webdsl|[ if(x_name.entity is a srt) { var x_ident : srt := x_name.entity; stat* } ]|;debug(!2)
+  desugar-catches:
+    catch* -> [Catch(x_name,SimpleSort("Exception"),Block(stat*))]
+    with  x_name := <newname> "ident"
+        ; stat* := <map(desugar-catch(|x_name))> catch*
+
+  desugar-catch(|x_name):
+    Catch(x_ident,srt,Block(stat*)) -> stat
+    with  stat := webdsl|[ if(x_name.entity is a srt) { var x_ident : srt := x_name.entity as srt; stat* } ]|
         

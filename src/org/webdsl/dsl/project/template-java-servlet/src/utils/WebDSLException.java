@@ -18,4 +18,7 @@ public class WebDSLException extends RuntimeException {
   public void setEntity(org.webdsl.WebDSLEntity e){
 	  entity = e;
   }
+  
+  //make compiler happy, should no longer be necessary when refactoring these setup calls to threadlocals
+  public WebDSLException setupForPropertyEvents(org.hibernate.Session hibSession,java.io.PrintWriter out,utils.PageServlet ps){return this;}
 }
