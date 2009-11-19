@@ -6,7 +6,7 @@ function testSDF() : String {
   
   // Parse input
   var parsed : ATerm := input.parse();
-  var appName : String := parsed.get(0).toString();
+  var appName : String := parsed.get(0).stringValue();
   
   return appName;
 }
@@ -19,7 +19,7 @@ function testSTR() : String {
   var importReader : Stratego := Stratego("read-imports");
   var importName : ATerm := importReader.invoke("read-import", parsed);
   
-  return importName.toString();
+  return importName.stringValue();
 }
 
 define page root() {
@@ -43,6 +43,6 @@ test bla {
   var sdf : String := testSDF();
   var str : String := testSTR();
 
-  assert(sdf == "\"parseme\"");
-  assert(str == "\"foo\"");
+  assert(sdf == "parseme");
+  assert(str == "foo");
 }
