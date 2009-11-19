@@ -7,7 +7,8 @@ rules // declaring entities
     with ?ent; rules( GetEntity: x -> ent )
     
   declaration-of :
-    SimpleType(x) -> <GetEntity> x
+    SimpleType(x) -> <GetEntity; debug(!" = ")> x
+    where debug(!"declaration-of: ")
     
   is-entity-type =
     where(SimpleType(GetEntity))
@@ -24,7 +25,7 @@ rules // declaring entities
 rules // entity constraints
 
   constraint-warning :
-    Entity(x, _) -> (x, "Entity names must start with a capital letter") 
+    Entity(x, _) -> (x, "Entity names must start with a capital letter")
     where not(<explode-string; Hd; is-upper> x)
       
   check :
@@ -41,30 +42,22 @@ rules // entity constraints
     
 rules // finding properties
 
-  lookup-property(s) :
-    Entity(x, prop*) -> <fetch-elem(s)> prop*
-    
-  lookup-property(s) :
-    SimpleType(x) -> <declaration-of; lookup-property(s)>
+  desugar : Property(x, t) -> Property(x, t, [])
 
-  lookup-property(|name) =
-    lookup-property(?Property(name,_,_))
+  lookup-property(s) : Entity(x, prop*) -> <fetch-elem(s)> prop*
+  lookup-property(s) : SimpleType(x) -> <declaration-of; lookup-property(s)>
+
+  lookup-property(|name) = lookup-property(?Property(name,_,_))
     
-  is-id-property   = 
-    Property(id,id,Some(Annotations(fetch(?Id()))))
-  is-name-property = 
-    Property(id,id,Some(Annotations(fetch(?Name()))))
+  is-id-property   = Property(id,id,fetch(?Id()))
+  is-name-property = Property(id,id,fetch(?Name()))
     
-  lookup-id-property   = 
-    lookup-property(is-id-property)
-  lookup-name-property = 
-    lookup-property(is-name-property)
+  lookup-id-property   = lookup-property(is-id-property)
+  lookup-name-property = lookup-property(is-name-property)
    
-  lookup-property-type(|name) = 
-    lookup-property(|name); type-of
+  lookup-property-type(|name) = lookup-property(|name); type-of
     
-  type-of :
-    Property(_, type, _) -> type
+  type-of : Property(_, type, _) -> type
     
 rules // entities: constraints
 
@@ -90,18 +83,28 @@ rules // entities: constraints
     
   check-property(|ent) : 
      Property(name, type, annos) -> (annos, ["Multiple inverse annotations"])
-     where <gt>(<filter(?Inverse(_)); length> annos, 1) 
+     where <gt>(<filter(?Inverse(_)); length> annos, 1)
     
   check-property(|ent) : 
-     Property(name, type, annos) -> (anno, [type, " has no property ", f])
+     Property(name, type, annos) -> (anno, ["'", <pp>type, "' has no property '", f, "'"])
      where anno := <fetch(?Inverse(f))> annos;
            not(<lookup-property(|f)> type)
          
-  // note: [foo "bla" ] causes stackoverflow in parser (missing comma)
-   
   // name: type (inverse:name2) => type has property g of type E or Set<E>
   check-property(|ent) : 
-     Property(name, type, annos) -> (anno, ["Type of ", type, ".", name2, " is not ", type', " or Set<", type', ">"])
+     Property(name, type, annos) -> (anno, ["Type of '", <pp>type, ".", name2, "' is not ", <pp>type', " or ", <pp>SetType(type')])
      where anno := <fetch-elem(?Inverse(name2))> annos;
-           not(<lookup-property(|name); type-of; try(?SetType(<id>)); declaration-of> type => ent);
-           type' := <name-of> ent
+           not(<lookup-property(|name2); type-of; try(?SetType(<id>)); declaration-of> type => ent);
+           type' := SimpleType(<name-of>ent)
+
+  pp : SimpleType(x) -> x
+  pp : SetType(t) -> <concat-strings>[ "Set<", <pp> t, ">"]
+
+
+
+
+
+
+
+
+
