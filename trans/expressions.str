@@ -1,25 +1,64 @@
  module expressions
  
+ rules // renaming and declaring (local) variables
+
+  rename-var :
+     (x, t) -> y
+     where y := x{<new>};
+           rules(
+             TypeOf   : y -> t 
+             RenameId : x -> y
+           )
+
+  rename :
+    Var(x) -> <debug(!" to: ")> Var(y)
+    where debug(!"rename var: "); y := <RenameId> x
+
+  type-of :
+    Var(x) -> t
+    where t := <TypeOf> x
+    
+  check :
+    Var(x) -> (<id>, ["Variable not declared"])
+    where not(type-of)
+
  rules // expressions
  
-   rename = 
-     Rename; debug(!"renamed: "); where(try(TypeOf; debug(!"type: ")))
- 
   type-of :
-    Id(x) -> t
-    where t := <TypeOf>
-    
-  check :
-    Id(x) -> (<id>, ["Variable not declared"])
-    where debug(!"ce(x): "); not(type-of)
-    
-    // bug: variable not declared error shows up only once for same variable (name)
-    
-  type-of :
-    GetProperty(e, f) -> t
+    PropertyAccess(e, f) -> t
     where t := <type-of; lookup-property-type(|f)> e
     
+  type-of :
+    PropertyAccess(e, "name") -> t
+    where t := <type-of; lookup-name-property; type-of> e
+          
   check :
-    GetProperty(e, f) -> (<id>, [t, " has no property ", f])
+    PropertyAccess(e, f) -> (<id>, [t, " has no property ", f])
     where not(type-of); t := <type-of> e
     
+rules // constructors
+
+  type-of :
+    Constructor(x) -> SimpleType(x)
+    
+  check :
+    Constructor(x) -> (x, ["Constructor for undefined type '", x, "'"])
+    where not(type-of; is-entity-type)
+    
+  check :
+    Constructor(x) -> (x, ["Cannot construct objects for primitive types"])
+    where type-of; is-primitive-type
+
+rules // method calls
+
+  type-of :
+    MethodCall(e, f, e*) -> t
+    where t := <method-type> (<type-of>e, f, <map(type-of)> e*)
+    
+  method-type :
+    (t, "save", []) -> SimpleType("Void")
+    where <is-entity-type> t
+    
+  check :
+    MethodCall(e, f, e*) -> (f, ["Method not defined"])
+    where not(type-of)
