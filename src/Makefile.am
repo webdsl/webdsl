@@ -208,6 +208,9 @@ webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
 
 bin/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
+	@if ! which ecj >/dev/null; then \
+	  echo "WARNING: ecj is not installed; using the (much) slower javac compiler instead" >&2; \
+	fi
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_front -i $< -o $@ 
 
 bin/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
