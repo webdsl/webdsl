@@ -45,8 +45,8 @@ define page root() {
     list[id:= target2] {  }
   }
   action listaction(news : List<News>) {
-    for(n: News in news) {
-      append(target2,template { li { out (n.caption) } });
+    for(ns: News in news) {
+      append(target2,template { li { out (ns.caption) } });
     }
   }
 }
