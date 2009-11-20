@@ -3,14 +3,14 @@ module templates
 rules // template definitions
 
   declare-template :
-    TemplateDef(mod*, x, params, elems) -> TemplateDef(mod*, x, params, elems)
+    TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
     with ?def; rules( Template : x -> def )
              
   is-page-def =
     ?TemplateDef([Page()],_,_,_)
     
   param-types :
-    TemplateDef(mod*, x, params, elems) -> <map(?Param(_,<id>))> params 
+    TemplateDef(mod*, x, param*, elem*) -> <map(?Param(_,<id>))> param*
     
   rename :
     TemplateDef(mod*, x, param1*, elem1*) -> TemplateDef(mod*, x, param2*, elem2*)
@@ -21,28 +21,47 @@ rules // template definitions
  
   rename : 
     Param(x, t) -> Param(y, t)
-    with y := <rename-var>(x, t) 
-     
+    with y := <rename-var>(x, t)
+    
+rules // checking template definitions
+
+  // page definitions cannot be overloaded
+  
+  check :
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, ["Multiple page '", x, "' definitions"])
+    where <is-page-def> def
+    where not(<Template> x => def)
+  
+  // template definition can be overloaded; signatures should be different
+    
+  check :
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, ["Multiple template '", x, "' definitions with same signature"])
+    where not(is-page-def)
+    where def2 := <Template> x
+    where not(<eq>(def, def2))
+    where not(<eq>(<param-types> def, <param-types> def2))
+    
 rules // template variables
 
   rename :
     VarDeclElem(x, t, e1) -> VarDeclElem(y, t, e2)
-    with e2 := <rename-all> e1; 
-         y := <rename-var> (x, t)
+    with e2 := <rename-all> e1
+    with y := <rename-var> (x, t)
          
   check :
     VarDeclElem(x, t, e) -> (e, ["Expression should have type '", <pp>t, "'"])
-    where not(<type-of> e => t)
+    where t2 := <type-of> e
+    where not(<eq>(t, t2))
     
 rules // template element iteration 
          
   rename :
     ForElem(x, t, e1, elem1*) -> ForElem(y, t, e2, elem2*)
-    with e2 := <rename-all> e1;
-          {| RenameId 
-           : y := <rename-var>(x, t)
-           ; elem2* := <rename-all> elem1*
-           |}
+    with e2 := <rename-all> e1
+    with {| RenameId 
+          : y := <rename-var>(x, t)
+          ; elem2* := <rename-all> elem1*
+          |}
            
   check :
     ForElem(x, t, e, elem*) -> (e, ["Should have type '", <pp>SetType(t), "'"])
@@ -50,36 +69,39 @@ rules // template element iteration
     
 rules // navigation
 
-  template-of :
-    Navigate(ref, elems) -> <template-of> ref
+  declaration-of :
+    Navigate(ref, elems) -> <declaration-of> ref
     
-  template-of :
+  declaration-of :
     PageRef(x, e*) -> <Template> x
       
+rules // check page references
+
   check :
     PageRef(x, e*) -> (x, ["Navigation to non-existing page"])
-    where not(template-of)
+    where not(declaration-of)
  
   check :
-    PageRef(x, e*) -> [(x, ["Navigation to (non-page) template definition"])]
-    where not(template-of; is-page-def)
+    PageRef(x, e*) -> [(x, ["Navigation to template '", x, "' (not a page)"])]
+    where def := <declaration-of>
+    where not(<is-page-def> def)
   
   check :
     PageRef(x, e*) -> [(e*, ["Page '", x, "' expects ", k, " arguments, not ", l])]
-    where k := <template-of; param-types; length>;
-          l := <length> e*;
-          not(<eq>(k,l))
+    where k := <declaration-of; param-types; length>; l := <length> e*
+    where not(<eq>(k,l))
           
   check :
     PageRef(x, e*) -> errors 
-    where t* := <template-of; param-types>; 
-          errors := <zip(check-arg)> (e*, t*)
+    where def := <declaration-of>
+    with errors := <zip; filter(check-arg)> (e*, <param-types> def)
 
   check-arg :
-    (e, t) -> (e, ["Type of argument should be '", <pp>t, "'"])
-    where not(<type-of> e => t)
+    (e, t) -> (e, ["Argument of type '", <pp>t, "' expected (not of type '", <pp>t2, "'"])
+    where t2 := <type-of> e
+    where not(<eq>(t, t2))
 
-rules // Template calls
+rules // desugaring template calls
 
   desugar :
     CallArgs(x, e*) -> Call(x, e*, [])
@@ -89,13 +111,35 @@ rules // Template calls
     
   desugar :
     Call(x) -> Call(x, [], [])
-
-  // check that argument of input is an lvalue (syntactic constraint gives bad error message)
-  
+    
+  declaration-of :
+    Call(x, e*, elem*) -> <Template> x
+    
+rules // checking template calls
+    
   check :
     Call("input", [e], []) -> (e, ["Argument of input should be variable or property access"])
     where not(<is-lvalue> e)
   
+  check :
+    Call(x, e*, elem*) -> (x, ["Template '", x, "' is not defined"])
+    where not(declaration-of)
+ 
+  constraint-warning :
+    Call(x, e*, elem*) -> [(x, ["Page definition is used as template"])]
+    where def := <declaration-of>
+    where not(not(<is-page-def> def))
+  
+  check :
+    Call(x, e*, elem*) -> [(e*, ["Template '", x, "' expects ", k, " arguments (not ", l, ")"])]
+    where k := <declaration-of; param-types; length>; l := <length> e*
+    where not(<eq>(k,l))
+          
+  check :
+    Call(x, e*, elem*) -> errors 
+    where def := <declaration-of>
+    with errors := <zip; filter(check-arg)> (e*, <param-types> def)
+          
 rules
 
   // element composition validation
@@ -103,12 +147,10 @@ rules
   // listitem should occur in list
   
 rules
-
-  // calling tempaltes in pages ?
-  
-  // navigation is like a regular template call
-  
-  // navigate TemplateCall
+    
+  // action called by submit should exist
   
   
+  
+ 
     
