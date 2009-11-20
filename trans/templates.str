@@ -51,34 +51,50 @@ rules // template element iteration
 rules // navigation
 
   template-of :
-    Navigate(x, args, elems) -> <Template> x
+    Navigate(ref, elems) -> <template-of> ref
     
+  template-of :
+    PageRef(x, e*) -> <Template> x
+      
   check :
-    Navigate(x, args, elems) -> (x, ["Navigation to non-existing page"])
+    PageRef(x, e*) -> (x, ["Navigation to non-existing page"])
     where not(template-of)
-    
+ 
   check :
-    Navigate(x, args, elems) -> (x, ["Navigation to (non-page) template definition"])
+    PageRef(x, e*) -> [(x, ["Navigation to (non-page) template definition"])]
     where not(template-of; is-page-def)
   
   check :
-    Navigate(x, e*, elems) -> (e*, ["Template '", x, "' expects ", k, " arguments, not ", l])
+    PageRef(x, e*) -> [(e*, ["Page '", x, "' expects ", k, " arguments, not ", l])]
     where k := <template-of; param-types; length>;
           l := <length> e*;
           not(<eq>(k,l))
           
   check :
-    Navigate(x, e*, elems) -> errors 
+    PageRef(x, e*) -> errors 
     where t* := <template-of; param-types>; 
           errors := <zip(check-arg)> (e*, t*)
 
   check-arg :
     (e, t) -> (e, ["Type of argument should be '", <pp>t, "'"])
-    where not(<type-of> e => t) 
+    where not(<type-of> e => t)
 
-rules
+rules // Template calls
+
+  desugar :
+    CallArgs(x, e*) -> Call(x, e*, [])
+    
+  desugar :
+    CallElems(x, elem*) -> Call(x, [], elem*)
+    
+  desugar :
+    Call(x) -> Call(x, [], [])
 
   // check that argument of input is an lvalue (syntactic constraint gives bad error message)
+  
+  check :
+    Call("input", [e], []) -> (e, ["Argument of input should be variable or property access"])
+    where not(<is-lvalue> e)
   
 rules
 

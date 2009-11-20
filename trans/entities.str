@@ -4,11 +4,18 @@ rules // declaring entities
 
   declare-entity:
     Entity(x, prop*) -> Entity(x, prop*)
-    with ?ent; rules( GetEntity: x -> ent )
+    with ?ent; 
+         rules( 
+           GetEntity: x -> ent 
+           TypeOf : x -> EntityType(x)
+         )
     
   declaration-of :
     SimpleType(x) -> <GetEntity; debug(!" = ")> x
     where debug(!"declaration-of: ")
+    
+  is-simple-type =
+    SimpleType(is-primitive-type) <+ is-entity-type
     
   is-entity-type =
     where(SimpleType(GetEntity))
@@ -33,12 +40,12 @@ rules // entity constraints
     where ?ent; not(<GetEntity> x => ent)
 
   check :
-    SimpleType(type) -> (type, ["Type '", <pp>type, "' is not defined"])
-    where not(<is-primitive-type <+ GetEntity> type)
+    SimpleType(x) -> (x, ["Type '", x, "' is not defined"])
+    where not(is-simple-type)
     
   check :
     SetType(type) -> (t, ["Set should have entity type as argument"])
-    where ?t; not(<is-entity-type> type)
+    where ?t; <is-simple-type> type;  not(<is-entity-type> type)
     
 rules // finding properties
 
@@ -88,13 +95,14 @@ rules // entities: constraints
   check-property(|ent) : 
      Property(name, type, annos) -> (anno, ["Entity '", <pp>type, "' has no property '", f, "'"])
      where anno := <fetch(?Inverse(f))> annos;
-           not(<lookup-property(|f)> type)
+           not(<try(?SetType(<id>)); lookup-property(|f)> type)
          
   // name: type (inverse:name2) => type has property g of type E or Set<E>
   check-property(|ent) : 
-     Property(name, type, annos) -> (anno, ["Type of '", <pp>type, ".", name2, "' should be ", <pp>type', " or ", <pp>SetType(type')])
-     where anno := <fetch-elem(?Inverse(name2))> annos;
-           not(<lookup-property(|name2); type-of; try(?SetType(<id>)); declaration-of> type => ent);
+     Property(name, type, anno*) -> (anno, ["Type of '", <pp>type2, ".", name2, "' should be ", <pp>type', " or ", <pp>SetType(type')])
+     where anno := <fetch-elem(?Inverse(name2))> anno*;
+           type2 := <try(?SetType(<id>))> type; 
+           not(<lookup-property(|name2); type-of; try(?SetType(<id>)); declaration-of> type2 => ent);
            type' := SimpleType(<name-of>ent)
 
   pp : SimpleType(x) -> x
