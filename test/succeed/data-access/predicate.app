@@ -40,27 +40,33 @@ section somesection
     main()
     define body() {
       table {
-          header { "Sender" "Entry" "Action" }
+         row { output("Sender") output("Entry") output("Action") }
          for(m : Entry order by m.date desc) {
               row { 
                 output(m.sender.username) 
-              	 output(m.message) 
+              	output(m.message) 
               	navigate(editEntry(m)) { "Edit" }
               	}
           }
       }
-
-    if(loggedIn())
-      {
-      addEntryTemplate()
-      }
-      menuBar() 
-    }
+      if(loggedIn())
+        {
+        addEntryTemplate()
+        }
+	 }
   }
 
-define menuBar() {
-    if(loggedIn())
-      {
+ 
+define page editEntry(m : Entry) {
+    main()
+    define body() {
+        editEntryTemplate(m)
+    }
+}
+
+define page logout() {
+   main()
+   define body() {  
         form{
           action("logout",logout())
         }
@@ -68,16 +74,6 @@ define menuBar() {
           securityContext.principal := null;
           return root();
         }
-     }     else {
-        navigate(login("")){ "login" }     
-        navigate(register("")){ "register" } 
-     }   
-}
- 
-define page editEntry(m : Entry) {
-    main()
-    define body() {
-        editEntryTemplate(m)
     }
 }
 
@@ -101,6 +97,7 @@ define editEntryTemplate(m : Entry) {
 
  define addEntryTemplate() {
     var msg : String;
+//    var entry := Entry{ sender := securityContext.principal };
     section {
       section { 
         header{ "Add entry" } 
@@ -111,11 +108,11 @@ define editEntryTemplate(m : Entry) {
           action("Add", save())
         }
         action save() {
-	    var m := Entry{};
-	    m.sender := securityContext.principal;
-	    m.message := msg;
-         m.date := today();
-          m.save();
+         var entry := Entry{};
+         entry.sender := securityContext.principal;
+         entry.message := msg;
+         entry.date := now();
+          entry.save();
           return root();
         }
       }
@@ -135,11 +132,10 @@ define editEntryTemplate(m : Entry) {
           row{ "Password: " input(password) }
           row{ action("Sign in", signin()) "" }
         }
-        navigate(register("")){ "register" }     
         action signin() {
-          for (us : User where us.username == username) {
-            if (us.password.check(password)) {
-              securityContext.principal := us;
+          for (user : User where user.username == username) {
+            if (user.password.check(password)) {
+              securityContext.principal := user;
               securityContext.loggedIn := true;
               return root();
             }
@@ -155,20 +151,29 @@ define page register(msg : String) {
 //  title {"New User Registration"}
   main()
   define body() {
-    var user : User := User{};
+    var user := User{};
+    var confirmation : Secret;
     output(msg)
     form {
-      par { "Username: " input(user.username) }
-      par { "Password: " input(user.password) }
-      action("Register", newUser())
+        table {
+          row{ "Username: " input(user.username) }
+          row{ "Password: " input(user.password) }
+          row{ "Confirm: " input(confirmation) }
+          row{ "" action("Register", newUser()) }
+        }
     }
     action newUser() {
+     if (confirmation != user.password) {
+        return register("Passwords do not match.");
+      }
       for(u : User where u.username == user.username) {
         return register("User already registered. Sorry.");
       }
       user.password := user.password.digest();
       user.save();
-      return login("Successfully registered. Please log in");
+      securityContext.principal := user;
+      securityContext.loggedIn := true;
+      return root();
     }
   }
 }

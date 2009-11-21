@@ -7,7 +7,7 @@ define main() {
      </div>
      <div id="navbar">
        applicationmenu()
-     </div>
+     </div><br/>
      <div id="content">
        body()
      </div>
@@ -34,9 +34,17 @@ define title(s : String) {
 define applicationmenu() {
   <ul>
     <li>navigate(root()){"Home"}</li>
- //   <li>navigate(managePerson()){ "Manage Person" }</li>
+    if(loggedIn())
+      {
+	    <li>navigate(logout()){"Logout"}</li>
+     } else {
+        <li>navigate(login("")){ "login" }  </li>   
+        <li>navigate(register("")){ "register" } </li>
+     }   
   </ul>
 }
+
+
  
 define ignore-access-control errorTemplateInput(messages : List<String>){
   validatedInput
