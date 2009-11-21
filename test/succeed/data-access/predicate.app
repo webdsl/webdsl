@@ -110,13 +110,11 @@ define editEntryTemplate(m : Entry) {
           action("Add", save())
         }
         action save() {
-          return editEntry(m);
-/*
           m.sender := securityContext.principal;
-          m.date := today();
-          m.save();
-          return root();
-*/
+ //         m.date := today();
+          return editEntry(m);
+//          m.save();
+//          return root();
         }
       }
   }
