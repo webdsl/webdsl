@@ -263,6 +263,12 @@
    Cast                               -- H[_1 KW["as"] _2],
    None                               -- KW["None()"], %% Shoudl never apear
 
+    %%data access control syntax
+    AllowFieldAccess				-- KW["allow"] _1 _2 KW["."] _3 KW["if"] _4,
+    ReadMode						-- KW["read"],
+    WriteMode						-- KW["write"],
+    DeleteMode						-- KW["delete"],
+    CreateMode						-- KW["create"],
 
     %%access control syntax
    ValidationAnnoLength                         -- KW["length"] KW["("] _1 KW[","] _2 KW[")"],
