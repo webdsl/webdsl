@@ -16,7 +16,9 @@ entity Entry {
   message  :: Text
 }
 
-  var Current : User;
+//  var Current : User;
+
+  allow write Entry.message if sender == securityContext.principal
 
   principal is User with credentials name
   
@@ -43,7 +45,7 @@ section somesection
               row { 
                 output(m.sender.username) 
               	 output(m.message) 
-              	"c" //navigate(editEntry(m)) { "Edit" }
+              	navigate(editEntry(m)) { "Edit" }
               	}
           }
       }
@@ -59,7 +61,6 @@ section somesection
 define menuBar() {
     if(loggedIn())
       {
-      var newEntry : Entry := Entry{};
         form{
           action("logout",logout())
         }
@@ -99,22 +100,23 @@ define editEntryTemplate(m : Entry) {
 }
 
  define addEntryTemplate() {
-    var m : Entry;
+    var msg : String;
     section {
       section { 
         header{ "Add entry" } 
         form {
           table {
-            row { "Message: " input(m.message) }
+            row { "Message: " input(msg) }
           }
           action("Add", save())
         }
         action save() {
-          m.sender := securityContext.principal;
- //         m.date := today();
-          return editEntry(m);
-//          m.save();
-//          return root();
+	    var m := Entry{};
+	    m.sender := securityContext.principal;
+	    m.message := msg;
+         m.date := today();
+          m.save();
+          return root();
         }
       }
   }
