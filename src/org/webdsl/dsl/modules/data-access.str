@@ -3,6 +3,14 @@ module org/webdsl/dsl/modules/types/data-access
 rules //validate template call
 
 /*
+data-access ::=
+   ("allow"|"deny") ("create"|"delete"|"read") entity "if" condition
+   ("allow"|"deny") ("read"|"write") entity field-spec "if" condition
+field-spec ::= field-set | "*" [ "except" field-set ]
+field-set ::= field [ "," fieldset ]
+ 
+
+
 AllowFieldAccess(
   WriteMode()
 , "Person"
@@ -50,7 +58,9 @@ rules
   desugar : 
     AllowFieldAccess(WriteMode(),x_entity,x_field,e_cond) -> def |[ 
          extend entity x_entity {
-            function x_check(x_field:srt_type) : Bool { return e_cond; }
+            function x_check(x_field:srt_type) : Bool { 
+              return e_cond; 
+            }
             extend function x_method(var:srt_type) { 
               if (!this.x_check(var)) { 
                 validate(false, "Access control violation"); 
@@ -58,21 +68,28 @@ rules
               }
          }
      ]|
-     with x_check := <concat-strings>["canWrite", x_field];
+     with x_check := <concat-strings>["canWrite", <capitalize-string>x_field];
           x_method := <concat-strings>["set", <capitalize-string>x_field];
           srt_type := <TypeOfProperty> (x_entity,x_field);
           rules ( HasPropertyEvent : (x_entity,x_field,"set") )
 
 //          ; debug
-/*
+
   desugar : 
     AllowFieldAccess(ReadMode(),x_entity,x_field,e_cond) -> def |[ 
          extend entity x_entity {
-            function x_check() : Bool { return e_cond; }
-            extend function x_method() : srt_type { if (!x_check()) { validate(false, "Access control violation"); } }
+            function x_check() : Bool { 
+              return e_cond; 
+            }
+            extend function x_method() { 
+              if (!this.x_check()) { 
+                validate(false, "Access control violation"); 
+                } 
+              }
          }
      ]|
-     with x_check := <concat-strings>["canRead", x_field];
+     with x_check := <concat-strings>["canRead", <capitalize-string>x_field];
           x_method := <concat-strings>["get", <capitalize-string>x_field];
-          srt_type := <TypeOfProperty> (x_entity,x_field)
-*/
+          srt_type := <TypeOfProperty> (x_entity,x_field);
+          rules ( HasPropertyEvent : (x_entity,x_field,"get") )
+

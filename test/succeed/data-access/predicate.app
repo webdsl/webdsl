@@ -18,6 +18,7 @@ entity Entry {
 
 //  var Current : User;
 
+  allow read Entry.date if sender == securityContext.principal
   allow write Entry.message if sender == securityContext.principal
 
   principal is User with credentials name
@@ -39,15 +40,10 @@ section somesection
 //    title{"Guestbook"}
     main()
     define body() {
-      table {
-         row { output("Sender") output("Entry") output("Action") }
-         for(m : Entry order by m.date desc) {
-              row { 
-                output(m.sender.username) 
-              	output(m.message) 
-              	navigate(editEntry(m)) { "Edit" }
-              	}
-          }
+      for(m : Entry ) { // order by m.date desc
+        <p>output(m.sender.username) ": "
+        output(m.date) <br/>
+        output(m.message)</p> 
       }
       if(loggedIn())
         {
@@ -64,18 +60,6 @@ define page editEntry(m : Entry) {
     }
 }
 
-define page logout() {
-   main()
-   define body() {  
-        form{
-          action("logout",logout())
-        }
-        action logout(){
-          securityContext.principal := null;
-          return root();
-        }
-    }
-}
 
 define editEntryTemplate(m : Entry) {
   form {
@@ -161,7 +145,7 @@ define page register(msg : String) {
           row{ "Confirm: " input(confirmation) }
           row{ "" action("Register", newUser()) }
         }
-    }
+    } 
     action newUser() {
      if (confirmation != user.password) {
         return register("Passwords do not match.");

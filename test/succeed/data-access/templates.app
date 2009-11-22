@@ -36,12 +36,16 @@ define applicationmenu() {
     <li>navigate(root()){"Home"}</li>
     if(loggedIn())
       {
-	    <li>navigate(logout()){"Logout"}</li>
+	    <li>actionLink("Logout", logout())</li>
      } else {
         <li>navigate(login("")){ "login" }  </li>   
         <li>navigate(register("")){ "register" } </li>
      }   
   </ul>
+        action logout(){
+          securityContext.principal := null;
+          return root();
+        }
 }
 
 
