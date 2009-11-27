@@ -179,56 +179,56 @@ if XT_ENABLE_JAVA_BACKEND
 STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
 STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-aterm -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
-JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5  -nowarn
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
 JAVAS= \
-  bin/org/webdsl/webdsl_front/Main.java \
-  bin/org/webdsl/webdsl_generator/Main.java \
-  bin/org/webdsl/java_transformations/Main.java \
-  bin/org/webdsl/java_pp_fake/Main.java \
-  bin/org/webdsl/write_files/Main.java \
-  bin/org/webdsl/to_java_servlet/Main.java \
-  bin/org/webdsl/webdslc/Main.java
+  src-gen/org/webdsl/webdsl_front/Main.java \
+  src-gen/org/webdsl/webdsl_generator/Main.java \
+  src-gen/org/webdsl/java_transformations/Main.java \
+  src-gen/org/webdsl/java_pp_fake/Main.java \
+  src-gen/org/webdsl/write_files/Main.java \
+  src-gen/org/webdsl/to_java_servlet/Main.java \
+  src-gen/org/webdsl/webdslc/Main.java
 
 mkdirs :
-	mkdir -p bin/org/webdsl/webdsl_front
-	mkdir -p bin/org/webdsl/webdsl_generator
-	mkdir -p bin/org/webdsl/java_transformations
-	mkdir -p bin/org/webdsl/java_pp_fake
-	mkdir -p bin/org/webdsl/write_files
-	mkdir -p bin/org/webdsl/to_java_servlet
-	mkdir -p bin/org/webdsl/webdslc
+	mkdir -p src-gen/org/webdsl/webdsl_front
+	mkdir -p src-gen/org/webdsl/webdsl_generator
+	mkdir -p src-gen/org/webdsl/java_transformations
+	mkdir -p src-gen/org/webdsl/java_pp_fake
+	mkdir -p src-gen/org/webdsl/write_files
+	mkdir -p src-gen/org/webdsl/to_java_servlet
+	mkdir -p src-gen/org/webdsl/webdslc
 
 
 class : $(JAVAS)
-	$(JAVAC) -cp $(STRATEGOXT_JAR):bin:. bin/org/webdsl/webdslc/Main.java
+	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
 
 webdsl.jar : class
-	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF `find bin -type f | grep -Ev '(\.java|\.svn)' | sed 's!bin/!-C bin/ !'`
+	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
 
-bin/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
+src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
 	@if ! which ecj >/dev/null; then \
 	  echo "WARNING: ecj is not installed; using the (much) slower javac compiler instead" >&2; \
 	fi
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_front -i $< -o $@ 
 
-bin/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
+src-gen/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_generator -i $< -o $@ -la org.webdsl.webdsl-front
 
-bin/org/webdsl/java_transformations/Main.java : java-transformations.ctree
+src-gen/org/webdsl/java_transformations/Main.java : java-transformations.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_transformations -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front
 
-bin/org/webdsl/write_files/Main.java : write-files.ctree
+src-gen/org/webdsl/write_files/Main.java : write-files.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake
 
-bin/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
+src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
 
-bin/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
+src-gen/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
 
-bin/org/webdsl/webdslc/Main.java : webdslc.str
+src-gen/org/webdsl/webdslc/Main.java : webdslc.str
 	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files
 endif
 
