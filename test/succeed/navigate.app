@@ -14,6 +14,7 @@ section datamodel
     output(l.url)
     
     navigate(testpage(45,"bla",l)){"link to testpage"} 
+    navigate testpage(45,"bla",l) {"link to testpage"} 
     
     navigate("link to testpage", testpage(45,"bla",l)) //sugar for button, syntax like action button
        
@@ -43,7 +44,13 @@ section datamodel
     
     
     navigate(home2("bla2",l,42)){"test redirect"} 
+    navigate(root()){"root"}
+    navigate(testpagenoarg()){"testpagenoarg"}
 
+  }
+
+  define page testpagenoarg(){
+  
   }
   
   define page testpage(i:Int,s:String,li:Link)
@@ -51,6 +58,7 @@ section datamodel
     output(i)
     output(s)
     output(li.url)
+    
   
   }
 
@@ -70,6 +78,7 @@ section datamodel
     navigate(test2(0,"",u1)){"test2"}
     navigate(test3(0,u1,"")){"test3"}
     navigate(test4(0,u1,"",0.0)){"test4"}
+        navigate(root()){"root"}
   }
   
   entity User {
@@ -108,4 +117,3 @@ section datamodel
   define page pagenotfound(){
    "PAGE NOT FOUND :/"
   }
-  

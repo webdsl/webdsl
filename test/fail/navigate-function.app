@@ -1,4 +1,4 @@
-//No function or page
+//Not a valid navigate link
 application test
 
   define page root(){

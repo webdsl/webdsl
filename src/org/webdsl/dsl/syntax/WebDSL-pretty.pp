@@ -1190,6 +1190,11 @@
    CollectionIndex -- _1 KW["["] _2 KW["]"],
    CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3,
    
-   RequestScope -- KW["request"] _1  
-
+   RequestScope -- KW["request"] _1,
+   
+   NavigateCall -- KW["navigate"] _1 "[" _2 "]" KW["{"] _3 KW["}"],
+   NavigateCall.2:iter-star-sep -- KW[","],
+   
+   PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
+   PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]]
 ]

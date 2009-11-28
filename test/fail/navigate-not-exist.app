@@ -1,4 +1,4 @@
-//Not a valid navigate link, page does not exist
+//Page with name 'bla' does not exist, this call expects a page with signature bla
 application test
 
   entity Entity0 {

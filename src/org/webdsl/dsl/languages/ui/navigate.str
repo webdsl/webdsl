@@ -6,7 +6,7 @@ overlays
     "Not a valid navigate link, page does not exist: "   
         
 rules // typechecking page elements
-
+/*
   constraint-error-tc = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-navigate(|tc)> (p,arg*))
   constraint-error-tc = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-navigate(|tc)> (p,[]  ))
   constraint-error-tc = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-navigate(|tc)> (p,arg*))
@@ -27,14 +27,16 @@ rules // typechecking page elements
   constraint-error-navigate(|tc) :
     ("navigatebutton", [e,e1]) -> <add-error(|[NavigateErrorMessage()])> tc
     where <check-link> e
-    
+*/    
+
   check-link :
     tc@ThisCall("url", [e]) -> tc
     where not(<type-of> e)
 
   check-link :
-    tc@ThisCall(p, args) -> tc
-    where pstripped := <strip-annos> p
+    tc@c#([p, args]) -> tc
+    where <?"ThisCall" <+ ?"PageCall"> c
+        ; pstripped := <strip-annos> p
         ; not("url" := pstripped)
         ; not(<IsPage> pstripped)
 
@@ -42,3 +44,22 @@ rules // desugar
 
   desugar-ui: 
     TemplateCall("navigate", [e1,e2], passign*, elem*) -> TemplateCall("navigatebutton", [e2,e1], passign*, elem*)
+
+rules //more specific NavigateCall
+/*
+  constraint-error-ui = ?tc@NavigateCall(arg*,_,_); where(<constraint-error-navigate(|tc)> ("navigate",arg*))
+*/    
+  desugar-ui: 
+    NavigateCall(PageCall(x,arg*),passign*,elem*) -> 
+    TemplateCall("navigate", [ThisCall(x,arg*)], passign*, elem*)
+      
+rules
+
+  constraint-error-action :
+    tc@PageCall(p, e2*) -> <add-error(|["Page with name '", p, "' does not exist, this call expects a page with signature ", sig,"."])>
+    where pstripped := <strip-annos> p
+        ; not("url" := pstripped)
+        ; not(<IsPage> pstripped)
+        ; argtypes := <map(type-of)> e2* // don't report when sub-expression was already wrong
+    with  sig := <pretty-print-call(|p,argtypes)>  
+   
