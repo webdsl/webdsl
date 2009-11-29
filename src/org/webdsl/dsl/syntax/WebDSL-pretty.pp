@@ -153,8 +153,6 @@
    AjaxActionIdParam								  -- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionNoParam									-- H[ _1 _2 KW["<<"] KW[";"]],
    AjaxActionNoTarget									-- H[ _1 KW["<<"] _2 KW[";"]],
-   InlineAction												-- H[ KW["{"] _1 KW["}"] ],
-   InlineAction.1:iter-star           -- _1,
    InlineTemplateCall									-- H[ KW["template"] KW ["{"] _1 KW["}"]],
    InlineTemplateCall.1:iter-star-sep -- H hs=0[_1 KW[","]],
    InlineTemplateCall.1:iter-star     -- _1,
@@ -1192,9 +1190,22 @@
    
    RequestScope -- KW["request"] _1,
    
-   NavigateCall -- KW["navigate"] _1 "[" _2 "]" KW["{"] _3 KW["}"],
-   NavigateCall.2:iter-star-sep -- KW[","],
+   NavigateCall -- KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
+   NavigateCall.2:iter-star-sep -- _1 KW[","],
+   NavigateCall.2:iter-star           -- _1,
    
    PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
-   PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]]
+   PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   PageCall.2:iter-star           -- _1,
+   
+   Submit -- KW["submit"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
+   Submit.3:iter-star-sep -- _1 KW[","],
+   Submit.3:iter-star           -- _1,
+   SubmitLink -- KW["submitlink"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
+   SubmitLink.3:iter-star-sep -- _1 KW[","],
+   SubmitLink.3:iter-star           -- _1,
+
+   ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
+   ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   ActionCall.2:iter-star           -- _1
 ]

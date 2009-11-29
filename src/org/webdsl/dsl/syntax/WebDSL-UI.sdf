@@ -115,43 +115,77 @@ exports
 
   %%
 
-    Id                                             -> TemplateCall {cons("TemplateCallNoArgs")}
-    Id "(" {Exp ","}* ")"                          -> TemplateCall {cons("TemplateCallNoBody")}
-    Id "(" {Exp ","}* ")" TemplateBody -> TemplateCall {cons("TemplateCallNoAssigns")}
+    TemplateCallId                                             -> TemplateCall {cons("TemplateCallNoArgs")}
+    TemplateCallId "(" {Exp ","}* ")"                          -> TemplateCall {cons("TemplateCallNoBody")}
+    TemplateCallId "(" {Exp ","}* ")" TemplateBody -> TemplateCall {cons("TemplateCallNoAssigns")}
   
-    Id "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallPropsNoBody")}
-    Id "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallProps")}
-    Id "[" {PropertyAssignment ","}*"]" TemplateBody -> TemplateCall {cons("TemplateCallPropsNoArgs")}
+    TemplateCallId "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallPropsNoBody")}
+    TemplateCallId "[" {PropertyAssignment ","}*"]" -> TemplateCall {cons("TemplateCallProps")}
+    TemplateCallId "[" {PropertyAssignment ","}*"]" TemplateBody -> TemplateCall {cons("TemplateCallPropsNoArgs")}
 
-    Id  TemplateBody -> TemplateCall {cons("TemplateCallBody")}
-    Id "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" TemplateBody -> TemplateCall {cons("TemplateCall")}
+    TemplateCallId  TemplateBody -> TemplateCall {cons("TemplateCallBody")}
+    TemplateCallId "(" {Exp ","}* ")" "[" {PropertyAssignment ","}*"]" TemplateBody -> TemplateCall {cons("TemplateCall")}
     
     "{" TemplateElement* "}" -> TemplateBody {cons("TemplateBody")}
     "with" "{" ArgDefine* "}" -> TemplateBody {cons("TemplateWith")}
-    Id "(" {FormalArg ","}* ")"
+    TemplateCallId "(" {FormalArg ","}* ")"
       "{" TemplateElement* "}" -> ArgDefine {cons("ArgDefine")}
 
     "with" "{" TemplateElement* "}"                -> TemplateCall {reject}
-  
+    
+    %%disambiguate
+    "define"                        -> TemplateCallId {reject}
+    "for"                        -> TemplateCallId {reject}
+    
   %%
   
+    %% deprecated
     "navigate" "(" PageCall ")" UNDEFINED* "{" TemplateElement* "}" -> TemplateElement {cons("NavigateCall"), prefer}
     "navigate" "(" PageCall ")" "[" {PropertyAssignment ","}* "]" "{" TemplateElement* "}" -> TemplateElement {cons("NavigateCall"), prefer}
-    "navigate" "(" {Exp ","}* ")" TemplateBody -> TemplateCall {reject}
-    "navigate" -> TemplateCall {reject}
+
     "navigate" PageCall UNDEFINED* "{" TemplateElement* "}" -> TemplateElement {cons("NavigateCall"), prefer}
     "navigate" PageCall "[" {PropertyAssignment ","}* "]" "{" TemplateElement* "}" -> TemplateElement {cons("NavigateCall"), prefer}
 
     Id "(" {Exp ","}* ")"  -> PageCall {cons("PageCall")}
+
+    %%disambiguate
+    "navigate" -> TemplateCallId {reject}
+    
+  %%
+
+    %% deprecated
+    "action" "(" Exp "," ActionCallOrInline ")" UNDEFINED* -> TemplateElement {cons("Submit"), prefer}
+    "action" "(" Exp "," ActionCallOrInline ")" "[" {PropertyAssignment ","}* "]" -> TemplateElement {cons("Submit"), prefer}
+    "actionLink" "(" Exp "," ActionCallOrInline ")" UNDEFINED* -> TemplateElement {cons("SubmitLink"), prefer}
+    "actionLink" "(" Exp "," ActionCallOrInline ")" "[" {PropertyAssignment ","}* "]" -> TemplateElement {cons("SubmitLink"), prefer}
+
+    "submit" "(" Exp "," ActionCallOrInline ")" UNDEFINED* -> TemplateElement {cons("Submit"), prefer}
+    "submit" "(" Exp "," ActionCallOrInline ")" "[" {PropertyAssignment ","}* "]" -> TemplateElement {cons("Submit"), prefer}
+    "submitlink" "(" Exp "," ActionCallOrInline ")" UNDEFINED* -> TemplateElement {cons("SubmitLink"), prefer}
+    "submitlink" "(" Exp "," ActionCallOrInline ")" "[" {PropertyAssignment ","}* "]" -> TemplateElement {cons("SubmitLink"), prefer}
+
+    ActionCall -> ActionCallOrInline
+    InlineAction -> ActionCallOrInline
+
+    Id "(" {Exp ","}* ")"  -> ActionCall {cons("ActionCall")}
+    
+    %%disambiguate
+    "action"                        -> TemplateCallId {reject}
+    "actionLink"                  -> TemplateCallId {reject}
+    "submit"                   -> TemplateCallId {reject}
+    "submitlink"                   -> TemplateCallId {reject}
+    
     
   %%
     
     Id ":=" PropertyValue				           -> PropertyAssignment {cons("PropertyAssignment")}
     Id											   -> PropertyValue {prefer}
     String										   -> PropertyValue {cons("String"),prefer}  %% needed to deconfuse StyleValue and Exp
-    Exp								        	   -> PropertyValue 
+    Exp								        	   -> PropertyValue {avoid}
     "[" {PropertyValue "," }* "]"				   -> PropertyValue{cons("PropertyValueList"), prefer}
-    %%StyleValue									   -> PropertyValue
+    StyleValue									   -> PropertyValue
+    
+  context-free syntax
   %%
     
     "if" "(" Exp ")" "{" TemplateElement* "}"      -> TemplateCall {reject}
@@ -163,5 +197,4 @@ exports
       Id "(" {FormalArg ","}* ")" 
       Block  			-> Action {cons("Action")}
 
-  context-free syntax
 

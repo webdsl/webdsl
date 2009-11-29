@@ -1,0 +1,39 @@
+module org/webdsl/dsl/languages/ui/submit
+
+rules
+
+  rename-ui :
+    t@ActionCall(_, _) -> result
+    with t2@ActionCall(name, e2*){anno*} := <RenameActionCall> t
+       ; e3* := <rename-all> e2*       
+       ;  (   //try to find a parent, and put it in the annotations
+           ( ( parent := SimpleSort(<InEntity>)
+               <+ parent:= <InPage> 
+               <+ parent:= <InTemplate> )
+             ; result := ActionCall(name, e3*){ThisCallParent(parent),anno*}
+           )
+          <+ //no parent found
+            result := ActionCall(name, e3*){anno*}
+         )
+
+rules
+
+  constraint-error-ui :
+    tc@ActionCall(f, e2*) -> <add-error(|["Cannot find action with signature ", sig, "."])>
+    where not(type-of)
+        ; argtypes := <map(type-of)> e2* // don't report when sub-expression was already wrong
+    with  sig := <pretty-print-call(|f,argtypes)>
+
+  eq-type-of-ui :
+    ActionCall(f,e*){anno*} -> <eq-type-of-this-call-local> ThisCall(f,e*){anno*}
+
+rules
+ 
+  desugar-in-define-context : //after desugaring, this rule calls rename on the whole define
+    Submit(e,ActionCall(x,arg*),passign*) -> 
+    TemplateCall("action", [e, ThisCall(x,arg*)], passign*,TemplateBody([])) 
+ 
+  desugar-in-define-context : //after desugaring, this rule calls rename on the whole define
+    SubmitLink(e,ActionCall(x,arg*),passign*) -> 
+    TemplateCall("actionLink", [e, ThisCall(x,arg*)], passign*,TemplateBody([]))
+    
