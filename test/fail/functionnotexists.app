@@ -1,4 +1,4 @@
-//No function or page
+//No function
 
 application test
 

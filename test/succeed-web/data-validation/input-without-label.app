@@ -35,7 +35,7 @@ application input
       return viewUser(u);
     }
     for(user:User){
-      navigate(viewUser(user))
+      navigate(viewUser(user)){output(user.name)}
     }
   }
   
