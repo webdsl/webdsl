@@ -30,7 +30,7 @@ section datamodel
       select(u.child from uset.users)
       select(u.children from uset.users)
       ac()
-      actionLink("savelink")[onclick:=action{}]
+      submitlink("savelink", action{})
     }
   }
 
