@@ -75,7 +75,7 @@ rules // assignment
         ; x2 := <remove-first-character-in-string> x
 
   assignment-to-java-servlet :
-    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out,ps).set#x(e3); ]|
+    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out).set#x(e3); ]|
     where not(GenericSort(_,_) := <type-of> q)
     with  e2 := <assignment-to-java-servlet-exp-helper> qid
         ; e3 := <expression-to-java-servlet> e1
@@ -84,7 +84,7 @@ rules // assignment
     Stat(Assignment(q@Qualified(qid, x), e1)) -> 
     bstm |[ 
       {
-        e2.setupForPropertyEvents(hibSession,out,ps);
+        e2.setupForPropertyEvents(hibSession,out);
         e2.removeAllFrom#x();
         e2.addAllTo#x(e3);
       }
@@ -200,7 +200,7 @@ rules // for
       ~*<where(<is-entity-type> srt) <+ ![]> bstm*|[
         for(t tmp : x_list){
           // setup needed because derived properties might need context such as hibSession for queries
-          tmp.setupForPropertyEvents(hibSession, out, ps); 
+          tmp.setupForPropertyEvents(hibSession, out); 
         }
       ]|
       java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
@@ -271,8 +271,8 @@ rules // return
   normal-redirect-statements :
     e_url -> bstm* |[
     try {
-      ps.setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-      if(!ps.isActionLinkUsed()){ response.sendRedirect(ps.getRedirectUrl()); }
+      ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
+      if(!ThreadLocalPage.get().isActionLinkUsed()){ response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); }
     } catch (IOException ioe) {
       System.out.println("redirect failed");
       ioe.printStackTrace();
@@ -355,7 +355,7 @@ rules // return
 rules
 
    qid-to-java-servlet :
-     Qualified(qid, x) -> java|[ e.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     Qualified(qid, x) -> java|[ e.setupForPropertyEvents(hibSession,out).x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e := <qid-to-java-servlet> qid
 
@@ -473,7 +473,7 @@ rules
    expression-to-java-servlet : 
      ObjectCreation(srt@SimpleSort(x_Class), assigns) -> //TODO use desugaring similar to set/list creation
      java|[
-        {| x_class x_var = (new x_class()).setupForPropertyEvents(hibSession,out,ps); bstm* bstm_event* | x_var |}
+        {| x_class x_var = (new x_class()).setupForPropertyEvents(hibSession,out); bstm* bstm_event* | x_var |}
      ]|
      with  x_var := <newname> "objCr"{<newname> "objCr"}
          ; bstm* := <filter-warn(field-assign-to-java-servlet(|x_Class,x_var)| "cannot translate asssignment")> assigns
@@ -505,7 +505,7 @@ rules //vars
    <+ generic-field-access-to-java-servlet
    
    generic-field-access-to-java-servlet :
-     FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out,ps).x_get() ]|
+     FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out).x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e2 := <expression-to-java-servlet> e1
    // todo: only setupFor if derived property
@@ -515,7 +515,7 @@ rules //vars
      <+ generic-call-to-java-servlet
 
    generic-call-to-java-servlet :
-     Call(e1, x, e2*) -> expr|[ e3.x#_(hibSession, env, e4*, ps, out) ]|
+     Call(e1, x, e2*) -> expr|[ e3.x#_(hibSession, env, e4*, out) ]|
      with  e3 := <expression-to-java-servlet> e1
          ; e4* := <map(expression-to-java-servlet)> e2*
 
@@ -526,13 +526,13 @@ rules //vars
          ; if (ent := <get-this-call-parent> tc) <+ (ent := <JavaInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
              if <CheckFunctionSignature> (ent, x, <map(type-of)> e1*)// and the call could be to an entity function of that same entity
              then
-               result := expr|[ this.x#_(hibSession, env, e2*, ps, out) ]| // then add this.
+               result := expr|[ this.x#_(hibSession, env, e2*, out) ]| // then add this.
              else
                if <IsNativeFunction> x then
                  x_X := <capitalize-string> x
-                 ; result := expr|[ nativejava.x_X.x(ps, e2*) ]|
+                 ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
                else
-                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, ps, out) ]|
+                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, out) ]|
                end
              end
            else
@@ -549,9 +549,9 @@ rules //vars
                if <IsNativeFunction> x then
                  x_X := <capitalize-string> x
                  //; result := expr|[ nativejava.x_X.x(e2*) ]|
-                 ; result := expr|[ nativejava.x_X.x(ps, e2*) ]|
+                 ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
                else
-                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, ps, out) ]|
+                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, out) ]|
                end
              end
              |}

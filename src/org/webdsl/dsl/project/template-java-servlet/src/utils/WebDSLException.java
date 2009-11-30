@@ -20,5 +20,5 @@ public class WebDSLException extends RuntimeException {
   }
   
   //make compiler happy, should no longer be necessary when refactoring these setup calls to threadlocals
-  public WebDSLException setupForPropertyEvents(org.hibernate.Session hibSession,java.io.PrintWriter out,utils.PageServlet ps){return this;}
+  public WebDSLException setupForPropertyEvents(org.hibernate.Session hibSession,java.io.PrintWriter out){return this;}
 }

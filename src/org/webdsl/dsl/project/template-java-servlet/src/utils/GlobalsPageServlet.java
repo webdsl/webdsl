@@ -6,6 +6,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.webdsl.lang.Environment;
+import java.io.*;
 
 //dummy pageservlet instance for global init and global variables
 //some expressions require this to be available, eg. property setters with extension events
@@ -22,4 +23,6 @@ public class GlobalsPageServlet extends PageServlet
     protected void conversion(){}
     protected void loadArguments(){}
     protected void initVarsAndArgs(){}
+    public void initializeBasics(PageServlet ps, Object[] args, Environment env){}
+    public void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] ajaxarguments, Environment env, TemplateCall templateArg){}
 }

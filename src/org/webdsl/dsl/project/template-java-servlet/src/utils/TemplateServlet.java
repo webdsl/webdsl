@@ -14,13 +14,13 @@ import org.webdsl.lang.Environment;
 
 public interface TemplateServlet {
     
-    public int storeInputs(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs);
+    public int storeInputs(Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs);
 
-    public int validateInputs(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs);
+    public int validateInputs(Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs);
 
-    public int handleActions(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out);	
+    public int handleActions(Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out);	
     
-    public int render(PageServlet ps,Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out) ;
+    public int render(Object[] args, int templatecounter, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, java.io.PrintWriter out) ;
     
     public String getUniqueName();
 }
