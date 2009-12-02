@@ -53,6 +53,21 @@ let
         doCheck = if stdenv.isLinux then true else false;
       };
 
+    buildJavaZip = 
+      { buildJava ? jobs.buildJava {} }:
+      pkgs.stdenv.mkDerivation {
+        name = "webdsl-java.zip"; 
+        buildCommand = ''
+          ensureDir $out 
+          ensureDir $out/nix-support
+
+          mkdir webdsl 
+          cp -R ${buildJava}/* webdsl/
+          zip -r $out/webdsl-java.zip webdsl
+          echo "file zip $out/webdsl-java.zip" > $out/nix-support/hydra-build-products
+        ''; 
+      } ;      
+
     buildJava =
       { tarball ? jobs.tarball {}
       , strcJava 
