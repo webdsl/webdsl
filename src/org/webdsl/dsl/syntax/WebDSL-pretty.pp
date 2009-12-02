@@ -1207,5 +1207,7 @@
 
    ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
-   ActionCall.2:iter-star           -- _1
+   ActionCall.2:iter-star           -- _1,
+   
+   GlobalVar -- H hs=0[KW["global"] KW["."] _1]
 ]

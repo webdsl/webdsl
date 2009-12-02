@@ -46,7 +46,7 @@ rules // assignment
   <+ assignment-to-java-servlet
 
    assignment-to-java-servlet :
-     Stat(Assignment(x, e1)) -> java|[ x = e2; ]|
+     Stat(Assignment(Var(x), e1)) -> java|[ x = e2; ]|
      where <is-string> x 
          ; not(<is-property> (<ClassName>, <remove-first-character-in-string> x)) //if inside an entity, it may not be a property of that entity
          ; e2 := <expression-to-java-servlet> e1
@@ -55,14 +55,14 @@ rules // assignment
     explode-string;?[_|<id>];implode-string
     
   assignment-to-java-servlet :
-    Stat(Assignment(x, e1)) -> java|[ x_set(e2); ]|
+    Stat(Assignment(Var(x), e1)) -> java|[ x_set(e2); ]|
     where <is-property> (<ClassName>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
         ; not(GenericSort(_,_) := <type-of-property> (<ClassName>, <remove-first-character-in-string> x))
     with  e2 := <expression-to-java-servlet> e1
         ; x_set := <concat-strings>["set", <remove-first-character-in-string;capitalize-string> x]
   
   assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(x, e1)) -> 
+    Stat(Assignment(Var(x), e1)) -> 
     bstm |[ 
       {
         this.removeAllFrom#x2();
@@ -75,13 +75,13 @@ rules // assignment
         ; x2 := <remove-first-character-in-string> x
 
   assignment-to-java-servlet :
-    Stat(Assignment(q@Qualified(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out).set#x(e3); ]|
+    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out).set#x(e3); ]|
     where not(GenericSort(_,_) := <type-of> q)
-    with  e2 := <assignment-to-java-servlet-exp-helper> qid
+    with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1
 
   assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(q@Qualified(qid, x), e1)) -> 
+    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> 
     bstm |[ 
       {
         e2.setupForPropertyEvents(hibSession,out);
@@ -90,16 +90,8 @@ rules // assignment
       }
     ]|
     where GenericSort(_,_) := <type-of> q
-    with  e2 := <assignment-to-java-servlet-exp-helper> qid
+    with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1  
-
-  assignment-to-java-servlet-exp-helper:
-    x -> e |[ x ]|
-    where not(<?Qualified(_,_)> x)
-          
-  assignment-to-java-servlet-exp-helper :
-    Qualified(e, x) -> e |[ e1.get#x() ]|
-    where e1 := <assignment-to-java-servlet-exp-helper> e
 
 rules // if
 
@@ -484,7 +476,7 @@ rules
      ObjectPropertyAssignment(y_field, e1) -> result //java|[ x_var.y_set(e2); ]|
      with  {| TypeOf,Rename,RenameType :
              rename-bound-rules(|x_var,x_var,SimpleSort(x_Class))  //rules ( TypeOf : Qualified(x_var, y_field) -> type )
-           ; result := <assignment-to-java-servlet> Stat(Assignment(Qualified(x_var, y_field), e1)) //reuse normal translation, e.g. setting list properties are translated differently
+           ; result := <assignment-to-java-servlet> Stat(Assignment(FieldAccess(Var(x_var), y_field), e1)) //reuse normal translation, e.g. setting list properties are translated differently
            |}
          //  e2 := <expression-to-java-servlet> e1
          //; y_set := <concat-strings>["set", <capitalize-string> y_field]

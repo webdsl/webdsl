@@ -23,5 +23,6 @@ section datamodel
     define body()
     {
       output(bob.username)
+      output(global.bob.username)
     }
    }
