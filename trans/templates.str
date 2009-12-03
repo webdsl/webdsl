@@ -3,8 +3,12 @@ module templates
 rules // template definitions
 
   declare-def :
-    TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
-    with ?def; rules( Template :+ x -> def )
+    def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
+    with t* := <param-types> def;
+         rules( 
+           Template :+ x -> def
+           Template :+ (x, t*) -> def
+         )
              
   is-page-def =
     ?TemplateDef([Page()],_,_,_)
@@ -24,22 +28,16 @@ rules // template definitions
     with y := <rename-var>(x, t)
     
 rules // checking template definitions
-
-  // page definitions cannot be overloaded
   
   check :
-    def@TemplateDef(mod*, x, param*, elem*) -> (x, ["Multiple page '", x, "' definitions"])
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
     where <is-page-def> def
-    where not(<Template> x => def)
-  
-  // template definition can be overloaded; signatures should be different
+    where not(<bagof-Template; length> x => 1)
     
   check :
-    def@TemplateDef(mod*, x, param*, elem*) -> (x, ["Multiple template '", x, "' definitions with same signature"])
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template '[x]' with same signature])
     where not(is-page-def)
-    where def2 := <bagof-Template> x
-    where not(<eq>(def, def2))
-    where not(<eq>(<param-types> def, <param-types> def2))
+    where not(<bagof-Template; length> (x, <param-types> def) => 1)
     
 rules // template variables
 
@@ -49,7 +47,7 @@ rules // template variables
     with y := <rename-var> (x, t)
          
   check :
-    VarDeclElem(x, t, e) -> (e, ["Expression should have type '", <pp>t, "'"])
+    VarDeclElem(x, t, e) -> (e, $[Expression should have type '[<pp>t]'])
     where t2 := <type-of> e
     where not(<eq>(t, t2))
     
@@ -64,7 +62,7 @@ rules // template element iteration
           |}
            
   check :
-    ForElem(x, t, e, elem*) -> (e, ["Should have type '", <pp>SetType(t), "'"])
+    ForElem(x, t, e, elem*) -> (e, $[Should have type '[<pp>SetType(t)]'])
     where not(<type-of> e => SetType(t))
     
 rules // navigation
@@ -78,16 +76,16 @@ rules // navigation
 rules // check page references
 
   check :
-    PageRef(x, e*) -> (x, ["Navigation to non-existing page"])
+    PageRef(x, e*) -> (x, $[Navigation to non-existing page])
     where not(declaration-of)
  
   check :
-    PageRef(x, e*) -> [(x, ["Navigation to template '", x, "' (not a page)"])]
+    PageRef(x, e*) -> [(x, $[Navigation to template '[x]' (not a page)])]
     where def := <declaration-of>
     where not(<is-page-def> def)
   
   check :
-    PageRef(x, e*) -> [(e*, ["Page '", x, "' expects ", k, " arguments, not ", l])]
+    PageRef(x, e*) -> [(e*, $[Page '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] provided])]
     where k := <declaration-of; param-types; length>; l := <length> e*
     where not(<eq>(k,l))
           
@@ -131,7 +129,7 @@ rules // checking template calls
     where not(not(<is-page-def> def))
   
   check :
-    Call(x, e*, elem*) -> [(e*, $[Template '[x]' expects [k] arguments; [l] given])]
+    Call(x, e*, elem*) -> [(e*, $[Template '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] given])]
     where k := <declaration-of; param-types; length>; l := <length> e*
     where not(<eq>(k,l))
           
