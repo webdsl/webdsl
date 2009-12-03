@@ -26,7 +26,7 @@ rules // template definitions
   rename : 
     Param(x, t) -> Param(y, t)
     with y := <rename-var>(x, t)
-    
+
 rules // checking template definitions
   
   check :
@@ -111,26 +111,44 @@ rules // desugaring template calls
     Call(x) -> Call(x, [], [])
     
   declaration-of :
-    Call(x, e*, elem*) -> <Template> x
+    Call(x, e*, elem*) -> <Template> (x, <map(type-of)> e*)
     
-rules // checking template calls
+  is-builtin-call = 
+    ?"input" <+ ?"output" <+ ?"form"
+  
+rules // checking calls to builtin templates
     
   check :
     Call("input", [e], []) -> (e, $[Argument of input should be variable or property access])
     where not(<is-lvalue> e)
   
   check :
+    Call("output", [e], []) -> (e, $[Navigation to undefined page '[n](x: [n])'])
+    where t@SimpleType(n) := <type-of> e
+    where <is-entity-type> t
+    where not(<Template> ("output", [t]))
+    where not(<Template> (n, t))
+    
+  check :
+    Call("form", [e*], []) -> (e*, $[Form should not have arguments])
+    where not(<length> e* => 0)
+  
+rules // checking template calls
+
+  check :
     Call(x, e*, elem*) -> (x, $[Template '[x]' is not defined])
+    where not(<is-builtin-call> x)
     where not(declaration-of)
  
   constraint-warning :
     Call(x, e*, elem*) -> [(x, $[Page definition is used as template])]
     where def := <declaration-of>
-    where not(not(<is-page-def> def))
+    where <is-page-def> def
   
   check :
     Call(x, e*, elem*) -> [(e*, $[Template '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] given])]
-    where k := <declaration-of; param-types; length>; l := <length> e*
+    where k := <declaration-of; param-types; length>
+    where l := <length> e*
     where not(<eq>(k,l))
           
   check :
