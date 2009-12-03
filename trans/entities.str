@@ -3,25 +3,25 @@ module entities
 signature
   constructors
     EntityType : ID -> Type
+    
 
 rules // declaring entities
 
-  declare-entity:
-    Entity(x, prop*) -> Entity(x, prop*)
-    with ?ent; 
-         rules( 
-           GetEntity: x -> ent 
+  declare-def:
+    ent@Entity(x, prop*) -> Entity(x, prop*)
+    with rules( 
+           EntityDeclaration :+ x -> ent 
            TypeOf : x -> EntityType(x)
          )
     
   declaration-of :
-    SimpleType(x) -> <GetEntity> x
+    SimpleType(x) -> <EntityDeclaration> x
     
   is-simple-type =
     SimpleType(is-primitive-type) <+ is-entity-type
     
   is-entity-type =
-    where(SimpleType(GetEntity))
+    where(SimpleType(EntityDeclaration))
     
   is-primitive-type =
      ?"String" <+ ?"Int" <+ ?"WikiText" <+ ?"Secret"
@@ -32,42 +32,58 @@ rules // declaring entities
   name-of :
     Entity(x, prop*) -> x
     
+  carrier-type =
+    try(?SetType(<id>))
+    
+  pp : SimpleType(x) -> x
+  pp : SetType(t) -> $[Set<[<pp> t]>]
+  
 rules // entity constraints
 
   constraint-warning :
-    Entity(x, _) -> (x, "Entity names must start with a capital letter")
+    Entity(x, _) -> (x, $[Entity names must start with a capital letter])
     where not(<explode-string; Hd; is-upper> x)
       
   check :
-    Entity(x, prop*) -> (x, ["Entity '", x, "' defined more than once"])
-    where ?ent; not(<GetEntity> x => ent)
+    Entity(x, prop*) -> (x, $[Entity '[x]' defined more than once])
+    where ?ent; not(<bagof-EntityDeclaration; length> x => 1)
 
   check :
-    SimpleType(x) -> (x, ["Type '", x, "' is not defined"])
+    SimpleType(x) -> (x, $[Type '[x]' is not defined])
     where not(is-simple-type)
     
   check :
-    SetType(type) -> (t, ["Set should have entity type as argument"])
+    SetType(type) -> (t, $[Set should have entity type as argument])
     where ?t; <is-simple-type> type;  not(<is-entity-type> type)
     
 rules // finding properties
 
-  desugar : Property(x, t) -> Property(x, t, [])
+  desugar : 
+    Property(x, t) -> Property(x, t, [])
 
-  lookup-property(s) : Entity(x, prop*) -> <fetch-elem(s)> prop*
-  lookup-property(s) : SimpleType(x) -> <declaration-of; lookup-property(s)>
+  lookup-property(s) : 
+    Entity(x, prop*) -> <fetch-elem(s)> prop*
+  lookup-property(s) : 
+    SimpleType(x) -> <declaration-of; lookup-property(s)>
 
-  lookup-property(|name) = lookup-property(?Property(name,_,_))
+  lookup-property(|name) = 
+    lookup-property(?Property(name,_,_))
     
-  is-id-property   = Property(id,id,fetch(?Id()))
-  is-name-property = Property(id,id,fetch(?Name()))
+  is-id-property = 
+    Property(id,id,fetch(?Id()))
+  is-name-property = 
+    Property(id,id,fetch(?Name()))
     
-  lookup-id-property   = lookup-property(is-id-property)
-  lookup-name-property = lookup-property(is-name-property)
+  lookup-id-property = 
+    lookup-property(is-id-property)
+  lookup-name-property = 
+    lookup-property(is-name-property)
    
-  lookup-property-type(|name) = lookup-property(|name); type-of
+  lookup-property-type(|name) = 
+    lookup-property(|name); type-of
     
-  type-of : Property(_, type, _) -> type
+  type-of : 
+    Property(_, type, _) -> type
     
 rules // entities: constraints
 
@@ -76,41 +92,38 @@ rules // entities: constraints
     where ?ent; errors := <filter(check-property(|ent))> prop*
     
   check-property(|ent) :
-    Property(name, type, annos) -> (name, ["Property ", name, " defined more than once"])
+    Property(name, type, annos) -> (name, $[Property [name] defined more than once])
     where not(<lookup-property-type(|name)>ent => type)
    
   check-property(|ent) :
-    Property(name, type, annos) -> (annos, ["More than one property with annotation id"])
+    Property(name, type, annos) -> (annos, $[More than one property with annotation id])
     where ?prop; is-id-property; not(<eq>(<lookup-id-property>ent,prop))
      
   check-property(|ent) :
-    Property(name, type, annos) -> (annos, ["More than one property with annotation name"])
+    Property(name, type, annos) -> (annos, $[More than one property with annotation name])
     where ?prop; is-name-property; not(<lookup-name-property>ent => prop)
  
   check-property(|ent) :
-    Property(name, type, annos) -> (type, ["Name property should have type String"])
-    where ?prop; is-name-property; not(<is-string-type>type)
+    Property(name, type, annos) -> (type, $[Name property should have type String])
+    where ?prop; is-name-property
+    where not(<is-string-type>type)
     
   check-property(|ent) : 
-     Property(name, type, annos) -> (annos, ["Multiple inverse annotations"])
+     Property(name, type, annos) -> (annos, $[Multiple inverse annotations])
      where <gt>(<filter(?Inverse(_)); length> annos, 1)
     
   check-property(|ent) : 
-     Property(name, type, annos) -> (anno, ["Entity '", <pp>type, "' has no property '", f, "'"])
-     where anno := <fetch(?Inverse(f))> annos;
-           not(<try(?SetType(<id>)); lookup-property(|f)> type)
+     Property(name, t, annos) -> (anno, $[Entity '[<carrier-type;pp>t]' has no property '[f]'])
+     where anno := <fetch(?Inverse(f))> annos
+     where ent := <carrier-type; declaration-of> t
+     where not(<lookup-property(|f)> ent)
          
-  // name: type (inverse:name2) => type has property g of type E or Set<E>
   check-property(|ent) : 
-     Property(name, type, anno*) -> (anno, ["Type of '", <pp>type2, ".", name2, "' should be ", <pp>type', " or ", <pp>SetType(type')])
-     where anno := <fetch-elem(?Inverse(name2))> anno*;
-           type2 := <try(?SetType(<id>))> type; 
-           not(<lookup-property(|name2); type-of; try(?SetType(<id>)); declaration-of> type2 => ent);
-           type' := SimpleType(<name-of>ent)
-
-  pp : SimpleType(x) -> x
-  pp : SetType(t) -> <concat-strings>[ "Set<", <pp> t, ">"]
-
+     Property(f, t, anno*) -> (anno, $[Type of '[<carrier-type;pp>t].[g]' should be [<pp>t3] or [<pp>SetType(t3)]])
+     where anno := <fetch-elem(?Inverse(g))> anno*
+     where t2 := <carrier-type; lookup-property(|g); type-of> t 
+     where not(<declaration-of> t2 => ent)
+     where t3 := SimpleType(<name-of> ent)
 
 
 
