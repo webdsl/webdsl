@@ -71,6 +71,14 @@ let
 
           mkdir webdsl 
           cp -R ${buildJava}/* webdsl/
+          chmod -R 755 webdsl/
+ 
+          # cleanup
+          rm -rf webdsl/nix-support
+          # remove nix store deps
+          sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl
+          sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl-plugins
+
           zip -r $out/webdsl-java.zip webdsl
           echo "file zip $out/webdsl-java.zip" > $out/nix-support/hydra-build-products
         ''; 
