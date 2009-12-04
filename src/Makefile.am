@@ -144,9 +144,9 @@ Mix%.sdf : %.def
 SCFLAGS = --main $*-main	
 
 if XT_ENABLE_JAVA_BACKEND
-  STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
-  bin_PROGRAMS = webdsl.jar $(STRATEGOXT_JAR)
+  bin_PROGRAMS = webdsl.jar strategoxt.jar
   webdsl_jar_SOURCES = 
+  strategoxt_jar_SOURCES = 
 else
   bin_PROGRAMS = webdslc
 
@@ -177,6 +177,7 @@ ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-f
 
 if XT_ENABLE_JAVA_BACKEND
 
+STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
 STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-aterm -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
@@ -200,6 +201,8 @@ mkdirs :
 	mkdir -p src-gen/org/webdsl/to_java_servlet
 	mkdir -p src-gen/org/webdsl/webdslc
 
+strategoxt.jar: $(STRATEGOXT_JAR)
+	cp $(STRATEGOXT_JAR) strategoxt.jar
 
 class : $(JAVAS)
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
