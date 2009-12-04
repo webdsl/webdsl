@@ -1,5 +1,6 @@
 bin_SCRIPTS = webdsl webdsl-plugins
-EXTRA_DIST = \
+
+WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
   $(wildcard new_project/stylesheets/*.css) \
   $(wildcard new_project/images/*.*) \
@@ -15,17 +16,15 @@ EXTRA_DIST = \
   $(wildcard template-java-servlet/javascript/*) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
-  $(wildcard template-java-servlet/stylesheets/*) \
-  $(wildcard template-python/*.yaml) \
-  $(wildcard template-python/*.py) \
-  $(wildcard template-python/*.pyc) \
-  $(wildcard template-python/*/*.*) \
-  template-python/maak \
+  $(wildcard template-java-servlet/stylesheets/*) 
+
+EXTRA_DIST = \
+  $(WEBDSL_TEMPLATES) \
   testnewproject.sh
   
 TESTS = testnewproject.sh
 
-nobase_dist_pkgdata_DATA = $(EXTRA_DIST)
+nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES)
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/template/app
