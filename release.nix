@@ -75,6 +75,8 @@ let
  
           # cleanup
           rm -rf webdsl/nix-support
+          rm -rf webdsl/lib/pkgconfig
+
           # remove nix store deps
           sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl
           sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl-plugins
