@@ -11,7 +11,7 @@ AC_DEFUN([XT_USE_STRC_JAVA], [
 
   if test "$USE_JAVA_BACKEND" = "yes"; then
     XT_CHECK_PACKAGE([STRC_JAVA],[strc-java])
-    WEBDSLC="java -ss4m -cp $STRC_JAVA/share/strc-java/strategoxt.jar:$prefix/bin/webdsl.jar org.webdsl.webdslc.Main"
+    WEBDSLC="java -ss4m -cp $prefix/bin/strategoxt.jar:$prefix/bin/webdsl.jar org.webdsl.webdslc.Main"
     AC_SUBST(WEBDSLC)
 
     AC_MSG_CHECKING([for strategoxt.jar at $STRC_JAVA/share/strc-java/strategoxt.jar])
