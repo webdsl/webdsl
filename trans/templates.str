@@ -18,15 +18,35 @@ rules // template definitions
     
   rename :
     TemplateDef(mod*, x, param1*, elem1*) -> TemplateDef(mod*, x, param2*, elem2*)
-    with {| RenameId
+    with {| RenameId, RenameAction
           : param2* := <rename-all> param1*
-          ; elem2*  := <rename-all> elem1*
+          ; elem2*  := <alltd(rename-action)> elem1*
+          ; elem3*  := <rename-all> elem2*
           |}
  
   rename : 
     Param(x, t) -> Param(y, t)
     with y := <rename-var>(x, t)
+    
+rules // actions
 
+  rename-action :
+    Action(f, param1*, stat1*) -> Action(g, param2*, stat2*)
+    where g := f{<newname>f};
+          {| 
+          rules( 
+            RenameAction : f -> g
+          )
+
+rules
+    
+  // action called by submit should exist
+  
+  check :
+    Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+    
+  
+  
 rules // checking template definitions
   
   check :
@@ -62,7 +82,7 @@ rules // template element iteration
           |}
            
   check :
-    ForElem(x, t, e, elem*) -> (e, $[Should have type '[<pp>SetType(t)]'])
+    ForElem(x, t, e, elem*) -> (e, $[[<pp>SetType(t)] expected])
     where not(<type-of> e => SetType(t))
     
 rules // navigation
@@ -138,8 +158,15 @@ rules // checking template calls
   check :
     Call(x, e*, elem*) -> (x, $[Template '[x]' is not defined])
     where not(<is-builtin-call> x)
+    where not(<Template> x)
+    //where not(declaration-of)
+
+  check :
+    Call(x, e*, elem*) -> (x, $[No definition for template with signature '[x]([<map(type-of);pp> e*])'])
+    where not(<is-builtin-call> x)
+    where <Template> x
     where not(declaration-of)
- 
+    
   constraint-warning :
     Call(x, e*, elem*) -> [(x, $[Page definition is used as template])]
     where def := <declaration-of>
@@ -161,10 +188,6 @@ rules
   // element composition validation
   // input should occur in form
   // listitem should occur in list
-  
-rules
-    
-  // action called by submit should exist
   
   
   
