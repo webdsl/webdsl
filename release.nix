@@ -10,7 +10,7 @@ let
     pkgs.strategoPackages018.javafront 
   ];
 
-  pkgs = import nixpkgs { system = "i686-linux"; };
+  pkgs = import nixpkgs {};
 
   jobs = rec {
 
@@ -26,6 +26,13 @@ let
         name = "webdsl-tarball";
         src = webdslsSrc;
         inherit officialRelease;
+        preConfigure = '' 
+          echo "ulimit before:"
+          ulimit -a
+          ulimit -s unlimited
+          echo "ulimit after:"
+          ulimit -a
+        '';
         buildInputs = [
           pkgconfig 
           libtool_1_5 
