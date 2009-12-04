@@ -10,7 +10,7 @@ let
     pkgs.strategoPackages018.javafront 
   ];
 
-  pkgs = import nixpkgs {};
+  pkgs = import nixpkgs { system = "i686-linux"; };
 
   jobs = rec {
 
@@ -57,6 +57,7 @@ let
       { buildJava ? jobs.buildJava {} }:
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
+        buildInputs = [pkgs.zip]; 
         buildCommand = ''
           ensureDir $out 
           ensureDir $out/nix-support
