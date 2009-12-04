@@ -4,60 +4,47 @@ rules // template definitions
 
   declare-def :
     def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
-    with t* := <param-types> def;
-         rules( 
-           Template :+ x -> def
-           Template :+ (x, t*) -> def
+    with sig := <signature-of> def;
+         rules(
+           Template : x -> def
+           Template : sig -> def
          )
-             
+
+  rename :
+    TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
+    with {| RenameId, RenameAction
+          : param2* := <rename-all> param1*
+          ; elem2*  := <alltd(declare-action)> elem1*
+          ; elem3*  := <rename-all> elem2*
+          |}
+ 
   is-page-def =
     ?TemplateDef([Page()],_,_,_)
     
   param-types :
-    TemplateDef(mod*, x, param*, elem*) -> <map(?Param(_,<id>))> param*
+    TemplateDef(mod*, x, param*, elem*) -> <param-types> param*
     
-  rename :
-    TemplateDef(mod*, x, param1*, elem1*) -> TemplateDef(mod*, x, param2*, elem2*)
-    with {| RenameId, RenameAction
-          : param2* := <rename-all> param1*
-          ; elem2*  := <alltd(rename-action)> elem1*
-          ; elem3*  := <rename-all> elem2*
-          |}
- 
-  rename : 
-    Param(x, t) -> Param(y, t)
-    with y := <rename-var>(x, t)
+  signature-of :
+    TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
     
-rules // actions
-
-  rename-action :
-    Action(f, param1*, stat1*) -> Action(g, param2*, stat2*)
-    where g := f{<newname>f};
-          {| 
-          rules( 
-            RenameAction : f -> g
-          )
-
-rules
+  declaration-of :
+    TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
     
-  // action called by submit should exist
-  
-  check :
-    Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+  pp-sig :
+    (x, t*) -> $[[x]([<pp>t*])]
     
-  
-  
 rules // checking template definitions
   
   check :
     def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
     where <is-page-def> def
-    where not(<bagof-Template; length> x => 1)
+    where not(<Template> x => def)
     
   check :
-    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template '[x]' with same signature])
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template with signature [sig]])
     where not(is-page-def)
-    where not(<bagof-Template; length> (x, <param-types> def) => 1)
+    where not(<declaration-of> def => def)
+    where sig := <signature-of;pp-sig> def
     
 rules // template variables
 
@@ -104,21 +91,16 @@ rules // check page references
     where def := <declaration-of>
     where not(<is-page-def> def)
   
-  check :
-    PageRef(x, e*) -> [(e*, $[Page '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] provided])]
-    where k := <declaration-of; param-types; length>; l := <length> e*
-    where not(<eq>(k,l))
+  //check :
+  //  PageRef(x, e*) -> [(e*, $[Page '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] provided])]
+  //  where k := <declaration-of; param-types; length>; l := <length> e*
+  //  where not(<eq>(k,l))
           
   check :
     PageRef(x, e*) -> errors 
     where def := <declaration-of>
-    with errors := <zip; filter(check-arg)> (e*, <param-types> def)
-
-  check-arg :
-    (e, t) -> (e, $[Argument of type '[<pp>t]' expected (not of type '[<pp>t2]')])
-    where t2 := <type-of> e
-    where not(<eq>(t, t2))
-
+    where errors := <check-args> (x, e*, def)
+    
 rules // desugaring template calls
 
   desugar :
@@ -130,8 +112,11 @@ rules // desugaring template calls
   desugar :
     Call(x) -> Call(x, [], [])
     
+  signature-of :
+    Call(x, e*, elem*) -> (x, <map(type-of)> e*)
+    
   declaration-of :
-    Call(x, e*, elem*) -> <Template> (x, <map(type-of)> e*)
+    Call(x, e*, elem*) -> <signature-of; Template>
     
   is-builtin-call = 
     ?"input" <+ ?"output" <+ ?"form"
@@ -171,17 +156,11 @@ rules // checking template calls
     Call(x, e*, elem*) -> [(x, $[Page definition is used as template])]
     where def := <declaration-of>
     where <is-page-def> def
-  
-  check :
-    Call(x, e*, elem*) -> [(e*, $[Template '[x]' expects [<int-to-string>k] arguments; [<int-to-string>l] given])]
-    where k := <declaration-of; param-types; length>
-    where l := <length> e*
-    where not(<eq>(k,l))
           
   check :
     Call(x, e*, elem*) -> errors 
     where def := <declaration-of>
-    with errors := <zip; filter(check-arg)> (e*, <param-types> def)
+    where errors := <check-args> (x, e*, def)
           
 rules
 

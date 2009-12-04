@@ -1,0 +1,79 @@
+module properties
+
+rules // finding properties
+
+  desugar : 
+    Property(x, t) -> Property(x, t, [])
+
+  lookup-property(s) : 
+    Entity(x, prop*) -> <fetch-elem(s)> prop*
+    
+  lookup-property(s) : 
+    SimpleType(x) -> <declaration-of; lookup-property(s)>
+
+  lookup-property(|name) = 
+    lookup-property(?Property(name,_,_))
+    
+  is-id-property = 
+    Property(id,id,fetch(?Id()))
+  is-name-property = 
+    Property(id,id,fetch(?Name()))
+    
+  lookup-id-property = 
+    lookup-property(is-id-property)
+  lookup-name-property = 
+    lookup-property(is-name-property)
+   
+  lookup-property-type(|name) = 
+    lookup-property(|name); type-of
+    
+  type-of : 
+    Property(_, type, _) -> type
+    
+rules // checking properties
+
+  check:
+    ent@Entity(x, prop*) -> errors
+    where errors := <filter(check-property(|ent))> prop*
+    
+  check-property(|ent) :
+    Property(name, type, annos) -> (name, $[Property [name] defined more than once])
+    where not(<lookup-property-type(|name)>ent => type)
+   
+  check-property(|ent) :
+    prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'id'])
+    where is-id-property
+    where not(<lookup-id-property>ent => prop)
+     
+  check-property(|ent) :
+    prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'name'])
+    where is-name-property
+    where not(<lookup-name-property>ent => prop)
+ 
+  check-property(|ent) :
+    prop@Property(name, type, annos) -> (type, $[Name property should have type 'String'])
+    where is-name-property
+    where not(<is-string-type>type)
+    
+  check-property(|ent) : 
+     Property(name, type, annos) -> (annos, $[Multiple inverse annotations])
+     where not(<leq>(<filter(?Inverse(_)); length> annos, 1))
+  
+  check-property(|ent) : 
+     Property(name, t, annos) -> (anno, $[No inverse relations supported on primitive type '[<carrier-type;pp>t]'])
+     where anno := <fetch(?Inverse(f))> annos
+     where <carrier-type; is-primitive-type> t
+        
+  check-property(|ent) : 
+     Property(name, t, annos) -> (anno, $[Entity '[<carrier-type;pp>t]' has no property '[f]'])
+     where anno := <fetch(?Inverse(f))> annos
+     where ent := <carrier-type; declaration-of> t
+     where not(<lookup-property(|f)> ent)
+         
+  check-property(|ent) : 
+     Property(f, t, anno*) -> (anno, $[Type of '[<carrier-type;pp>t].[g]' should be [<pp>t3] or [<pp>SetType(t3)]])
+     where anno := <fetch-elem(?Inverse(g))> anno*
+     where t2 := <carrier-type; lookup-property(|g); type-of; carrier-type> t
+     where t3 := SimpleType(<name-of> ent)
+     where not(<eq>(t2, t3))
+     

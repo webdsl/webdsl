@@ -3,7 +3,29 @@ module entities
 signature
   constructors
     EntityType : ID -> Type
-    
+  
+rules // declaring entities
+
+  declare-def:
+    ent@Entity(x, prop*) -> Entity(x, prop*)
+    with rules( 
+           EntityDeclaration : x -> ent
+           TypeOf : x -> EntityType(x)
+         )
+         
+  declaration-of :
+    SimpleType(x) -> <EntityDeclaration> x
+ 
+rules // checking entity declarations
+
+  constraint-warning :
+    Entity(x, _) -> (x, $[Entity names must start with a capital letter])
+    where not(<explode-string; Hd; is-upper> x)
+      
+  check :
+    ent@Entity(x, prop*) -> (x, $[Entity '[x]' defined more than once])
+    where not(<EntityDeclaration> x => ent)
+
 rules // primitive types
 
   declare-primitive-types =
@@ -21,17 +43,13 @@ rules // primitive types
   is-primitive-type =
      IsPrimitiveType
      
-rules // declaring entities
-
-  declare-def:
-    ent@Entity(x, prop*) -> Entity(x, prop*)
-    with rules( 
-           EntityDeclaration :+ x -> ent 
-           TypeOf : x -> EntityType(x)
-         )
+  is-string-type =
+    ?SimpleType("String")
     
-  declaration-of :
-    SimpleType(x) -> <EntityDeclaration> x
+  carrier-type =
+    try(?SetType(<id>))
+ 
+rules 
     
   is-simple-type =
     SimpleType(is-primitive-type) <+ is-entity-type
@@ -39,110 +57,25 @@ rules // declaring entities
   is-entity-type =
     where(SimpleType(EntityDeclaration))
 
-  is-string-type =
-    ?SimpleType("String")
-     
   name-of :
     Entity(x, prop*) -> x
-    
-  carrier-type =
-    try(?SetType(<id>))
-    
+
+rules // pretty-printing types
+
   pp : SimpleType(x) -> x
   pp : SetType(t) -> $[Set<[<pp> t]>]
   pp : [] -> $[]
   pp : [t] -> <pp>t
   pp : [t1,t2|ts] -> $[[<pp>t1],[<pp>[t2|ts]]]
   
-rules // entity constraints
-
-  constraint-warning :
-    Entity(x, _) -> (x, $[Entity names must start with a capital letter])
-    where not(<explode-string; Hd; is-upper> x)
-      
-  check :
-    Entity(x, prop*) -> (x, $[Entity '[x]' defined more than once])
-    where ?ent; not(<bagof-EntityDeclaration; length> x => 1)
+rules // checking types
 
   check :
     SimpleType(x) -> (x, $[Type '[x]' is not defined])
     where not(is-simple-type)
     
   check :
-    SetType(type) -> (t, $[Set should have entity type as argument])
-    where ?t; <is-simple-type> type;  not(<is-entity-type> type)
+    t@SetType(type) -> (t, $[Set should have entity type as argument])
+    where <is-simple-type> type
+    where not(<is-entity-type> type)
     
-rules // finding properties
-
-  desugar : 
-    Property(x, t) -> Property(x, t, [])
-
-  lookup-property(s) : 
-    Entity(x, prop*) -> <fetch-elem(s)> prop*
-    
-  lookup-property(s) : 
-    SimpleType(x) -> <declaration-of; lookup-property(s)>
-
-  lookup-property(|name) = 
-    lookup-property(?Property(name,_,_))
-    
-  is-id-property = 
-    Property(id,id,fetch(?Id()))
-  is-name-property = 
-    Property(id,id,fetch(?Name()))
-    
-  lookup-id-property = 
-    lookup-property(is-id-property)
-  lookup-name-property = 
-    lookup-property(is-name-property)
-   
-  lookup-property-type(|name) = 
-    lookup-property(|name); type-of
-    
-  type-of : 
-    Property(_, type, _) -> type
-    
-rules // entities: constraints
-
-  check:
-    Entity(x, prop*) -> errors
-    where ?ent; errors := <filter(check-property(|ent))> prop*
-    
-  check-property(|ent) :
-    Property(name, type, annos) -> (name, $[Property [name] defined more than once])
-    where not(<lookup-property-type(|name)>ent => type)
-   
-  check-property(|ent) :
-    Property(name, type, annos) -> (annos, $[More than one property with annotation id])
-    where ?prop; is-id-property; not(<eq>(<lookup-id-property>ent,prop))
-     
-  check-property(|ent) :
-    Property(name, type, annos) -> (annos, $[More than one property with annotation name])
-    where ?prop; is-name-property; not(<lookup-name-property>ent => prop)
- 
-  check-property(|ent) :
-    Property(name, type, annos) -> (type, $[Name property should have type String])
-    where ?prop; is-name-property
-    where not(<is-string-type>type)
-    
-  check-property(|ent) : 
-     Property(name, type, annos) -> (annos, $[Multiple inverse annotations])
-     where <gt>(<filter(?Inverse(_)); length> annos, 1)
-    
-  check-property(|ent) : 
-     Property(name, t, annos) -> (anno, $[Entity '[<carrier-type;pp>t]' has no property '[f]'])
-     where anno := <fetch(?Inverse(f))> annos
-     where ent := <carrier-type; declaration-of> t
-     where not(<lookup-property(|f)> ent)
-         
-  check-property(|ent) : 
-     Property(f, t, anno*) -> (anno, $[Type of '[<carrier-type;pp>t].[g]' should be [<pp>t3] or [<pp>SetType(t3)]])
-     where anno := <fetch-elem(?Inverse(g))> anno*
-     where t2 := <carrier-type; lookup-property(|g); type-of; carrier-type> t
-     where t3 := SimpleType(<name-of> ent)
-     where not(<eq>(t2, t3))
-
-
-
-
-
