@@ -6,10 +6,8 @@ signature
   constructors
     TemplateDef : List(Mod) * ID * List(Param) * List(Element) -> Definition // define mod* x(param*){elem*}
     Page        : Mod // page
-    Call        : ID * List(Exp) * List(Element) -> Element // x(e*){elem*}
     PageRef     : ID * List(Exp) -> PageRef // x(e*)
     Navigate    : PageRef * List(Element) -> Element // navigate x(e*){elem*}
-    String      : STRING -> Element // "..."
 
 rules // projection
  
@@ -21,12 +19,6 @@ declaration-of : TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
 declaration-of : Navigate(ref, elems) -> <declaration-of> ref
 declaration-of : PageRef(x, e*) -> <Template> x
 call-of        : PageRef(x, e*) -> (x, e*)
-
-signature-of   : Call(x, e*, elem*) -> (x, <map(type-of)> e*)
-call-of        : Call(x, e*, elem*) -> (x, e*)
-declaration-of : Call(x, e*, elem*) -> <signature-of; Template>
-
-is-primitive-template =  ?"input" <+ ?"output" <+ ?"form"
 
 rules // name resolution
 
@@ -48,17 +40,6 @@ rename :
 rules // checking 
 
 check :
-  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
-  where <is-page-def> def
-  where not(<Template> x => def)
-  
-check :
-  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template with signature [sig]])
-  where not(is-page-def)
-  where not(<declaration-of> def => def)
-  where sig := <signature-of;pp-sig> def
-
-check :
   PageRef(x, e*) -> (x, $[Navigation to non-existing page])
   where not(declaration-of)
  
@@ -68,66 +49,19 @@ check :
   where not(<is-page-def> def)
         
 check :
-  PageRef(x, e*) -> <check-args>
-
-check :
-  Call("input", [e], []) -> (e, $[Argument of input should be variable or property access])
-  where not(<is-lvalue> e)
-
-check :
-  Call("output", [e], []) -> (e, $[Navigation to undefined page '[n](x: [n])'])
-  where t@SimpleType(n) := <type-of> e
-  where <is-entity-type> t
-  where not(<Template> ("output", [t]))
-  where not(<Template> (n, [t]))
-
-check :
-  Call(x, e*, elem*) -> (x, $[Template '[x]' is not defined])
-  where not(<is-primitive-template> x)
-  where not(<Template> x)
-
-check :
-  Call(x, e*, elem*) -> (x, $[No definition for template with signature '[x]([<map(type-of);pp> e*])'])
-  where not(<is-primitive-template> x)
-  where <Template> x
-  where not(declaration-of)
+  PageRef(x, e*) -> <check-args> 
   
-constraint-warning :
-  Call(x, e*, elem*) -> [(x, $[Page definition is used as template])]
-  where def := <declaration-of>
+  
+rules // cut here ----------
+
+check :
+  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
   where <is-page-def> def
-        
-check :
-  Call(x, e*, elem*) -> <check-args>
-        
-rules // cut here ----------------------------------------------
-
-// element composition validation
-// input should occur in form
-// listitem should occur in list
-
-rules // pretty-print
-
-pp-sig : (x, t*) -> $[[x]([<pp>t*])]
-
- signature
-  constructors
-    CallElems      : ID * List(Element) -> Element
-    CallArgs       : ID * List(Exp) -> Element
-    Call           : ID -> Element
-            
-rules // desugaring template calls
-
-desugar :
-  CallArgs(x, e*) -> Call(x, e*, [])
+  where not(<Template> x => def)
   
-desugar :
-  CallElems(x, elem*) -> Call(x, [], elem*)
-  
-desugar : 
-  Call(x) -> Call(x, [], [])
- 
 check :
-  Call("form", [e*], []) -> (e*, $[Form should not have arguments])
-  where not(<length> e* => 0)
- 
+  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template with signature [sig]])
+  where not(is-page-def)
+  where not(<declaration-of> def => def)
+  where sig := <signature-of;pp-sig> def
+  
