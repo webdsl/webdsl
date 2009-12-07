@@ -2,70 +2,70 @@ module actions
 
 rules // actions
 
-  declare-action :
-    act1@Action(f, param*, stat*) -> act2
-    where if <ActionDef> f then
-            g := f; act2 := act1
-          else 
-            f'   := <newname>f;
-            g    := f{f'};
-            act2 := Action(g, param*, stat*);
-            rules( RenameAction : f -> f' )
-          end;
-          rules( ActionDef : g -> act2 )
-          
-  rename-action :
-    f -> f{<RenameAction>f}
+rename-action :
+  act@Action(f, param1*, stat1*) -> <declare-action> Action(f{f'}, param2*, stat2*)
+  where {| RenameId 
+         : f' := <new-action-name> f
+         ; param2* := <rename-all> param1*
+         ; stat2* := <rename-all> stat1*
+         |}
+         
+new-action-name =
+  RenameAction <+ {?f; f' := <newname> f; rules( RenameAction : f -> f' )}
+               
+declare-action :
+  act@Action(g, param*, stat*) -> act
+  where rules( ActionDef : g -> act )
+                  
+rename-action :
+  f -> f{<RenameAction>}
+ 
+rename :
+  Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
+  where g := <try(rename-action)> f;
+        e2* := <rename-all> e1*;
+        elem2* := <rename-all> elem1*
     
-  rename :
-    Action(f, param1*, stat1*) -> <declare-action> Action(f, param2*, stat2*)
-    where {| RenameId 
-           : param2* := <rename-all> param1*
-           ; stat2* := <rename-all> stat1*
-           |}
-          
-  rename :
-    Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
-    where g := <try(rename-action)> f;
-          e2* := <rename-all> e1*;
-          elem2* := <rename-all> elem1*     
-      
-  declaration-of : 
-    Action(f, param*, stat*) -> <ActionDef> f
-           
-  param-types :
-    Action(f, param*, stat*) -> <param-types> param*
-    
-  signature-of :
-    Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
-    
-  call-of :
-    Submit(f, e*, elem*) -> (f, e*)
-    
-  declaration-of :
-    Submit(f, e*, elem*) -> <ActionDef> f
-    
+rules // projections
+
+declaration-of : 
+  Action(f, param*, stat*) -> <ActionDef> f
+         
+param-types :
+  Action(f, param*, stat*) -> <param-types> param*
+  
+signature-of :
+  Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
+  
+call-of :
+  Submit(f, e*, elem*) -> (f, e*)
+  
+declaration-of :
+  Submit(f, e*, elem*) -> <ActionDef> f
+  
 rules
-   
-  check :
-    elem@Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
-    where not(<declaration-of> elem)
-    
-  check :
-    Submit(f, e*, elem*) -> <check-args>
-    
+ 
+check :
+  elem@Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+  where not(<declaration-of> elem)
+  
+check :
+  Submit(f, e*, elem*) -> <check-args>
+  
 rules // assignment
 
-  check :
-    Assign(e1, e2) -> (e1, ["Left-hand side of assignment should be variable or property access"])
-    where not(<is-lvalue> e1)
+check :
+  Assign(e1, e2) -> (e1, $[Left-hand side of assignment should be variable or property access])
+  where not(<is-lvalue> e1)
 
-  check :
-    Assign(lval, e) -> (<id>, ["Type of lhs ('", <pp>t1, "') does not match type of rhs ('", <pp>t2, "')"])
-    where t1 := <type-of>lval; t2 := <type-of> e; not(<eq>(t1, t2))
+check :
+  Assign(lval, e) -> (<id>, $[Type of lhs ('[<pp>t1]') does not match type of rhs ('[<pp>t2]')])
+  where t1 := <type-of>lval
+  where t2 := <type-of> e
+  where not(<eq>(t1, t2))
 
 rules // return
 
-  // no checks needed for return
-  // should an action always have a return?
-  // check for hidden return in action, i.e. shadowed by earlier return
+// no checks needed for return
+// should an action always have a return?
+// check for hidden return in action, i.e. shadowed by earlier return
