@@ -1,55 +1,50 @@
  module expressions 
  
-rules
+ imports entities
+ 
+ signature
+  constructors
+    Constructor    : ID -> Exp
+    MethodCall     : Exp * ID * List(Exp) -> Exp
+    PropertyAccess : Exp * ID -> Exp
+    Var            : ID -> Exp
+    StringLit      : STRING -> Exp
 
-hover-help :
-  e -> <pp> t
-  where t := <type-of> e
+ rules // type-of
  
- rules
- 
- is-lvalue = 
-   ?Var(_) <+ ?PropertyAccess(_, _)
- 
- rules // string literals
- 
- type-of :
-   StringLit(x) -> SimpleType("String")
-   
- rules // expressions
- 
-type-of :
-  PropertyAccess(e, f) -> t
-  where t := <type-of; lookup-property-type(|f)> e
-  
-type-of :
-  PropertyAccess(e, "name") -> t
-  where t := <type-of; lookup-name-property; type-of> e
-        
+type-of : StringLit(x)              -> SimpleType("String")
+type-of : Constructor(x)            -> SimpleType(x)
+type-of : PropertyAccess(e, f)      -> <type-of; lookup-property(|f); type-of> e
+type-of : PropertyAccess(e, "name") -> <type-of; lookup-name-property; type-of> e
+type-of : MethodCall(e, f, e*)      -> <method-type> (<type-of>e, f, <map(type-of)> e*)
+
+//method-type : (t1, x, t*) -> <type of method x applied to type t1 with arguments of type t*>
+
+rules // checks
+
 check :
   e1@PropertyAccess(e2, f) -> (f, $[[<pp>t] has no property '[f]])
   where t := <type-of> e2
   where not(<type-of>e1)
-  
-rules // constructors
 
-type-of :
-  Constructor(x) -> SimpleType(x)
-  
 check :
   Constructor(x) -> (x, $[Constructor for undefined type '[x]'])
   where not(type-of; is-entity-type)
   
 check :
   Constructor(x) -> (x, $[Cannot construct objects for non-entity types])
-  where type-of; not(is-entity-type)
+  where type-of
+  where not(is-entity-type)
 
-rules // method calls
-
-type-of :
-  MethodCall(e, f, e*) -> t
-  where t := <method-type> (<type-of>e, f, <map(type-of)> e*)
+check :
+  MethodCall(e, f, e*) -> (f, $[Method not defined])
+  where not(type-of)
   
+
+
+// cut here
+rules // method type
+
 method-type :
   (t, "save", []) -> SimpleType("Void")
   where <is-entity-type> t
@@ -60,8 +55,9 @@ method-type :
 method-type :
   (SimpleType("Int"), "add", [SimpleType("Int")]) -> SimpleType("Int")
   
-check :
-  MethodCall(e, f, e*) -> (f, $[Method not defined])
-  where not(type-of)
+rules
+
+hover-help : e -> <pp> t where t := <type-of> e
+
   
   

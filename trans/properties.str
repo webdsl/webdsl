@@ -1,39 +1,19 @@
 module properties
 
-rules // desugaring
+imports entities
 
-desugar : 
-  Property(x, t) -> Property(x, t, [])
+signature
+  constructors
+    Property : ID * Type * List(Annotation) -> Property
+    Inverse  : ID -> Annotation
 
 rules // looking up properties
 
-lookup-property(s) : 
-  Entity(x, prop*) -> <fetch-elem(s)> prop*
-  
-lookup-property(s) : 
-  SimpleType(x) -> <declaration-of; lookup-property(s)>
-
-lookup-property(|name) = 
-  lookup-property(?Property(name,_,_))
-  
-is-id-property = 
-  Property(id,id,fetch(?Id()))
-is-name-property = 
-  Property(id,id,fetch(?Name()))
-  
-lookup-id-property = 
-  lookup-property(is-id-property)
-lookup-name-property = 
-  lookup-property(is-name-property)
- 
-lookup-property-type(|name) = 
-  lookup-property(|name); type-of
-  
-type-of : 
-  Property(_, type, _) -> type
-  
-inverse :
-  Property(_, _, anno*) -> <fetch-elem(?Inverse(_))> anno*
+lookup-property(|x) = lookup-property(?Property(x,_,_))
+lookup-property(s)  : Entity(x, prop*) -> <fetch-elem(s)> prop*
+lookup-property(s)  : SimpleType(x) -> <declaration-of; lookup-property(s)>
+type-of             : Property(_, type, _) -> type
+inverse             : Property(_, _, anno*) -> <fetch-elem(?Inverse(_))> anno*
   
 rules // checking properties
 
@@ -41,29 +21,6 @@ check:
   ent@Entity(x, prop*) -> errors
   where errors := <filter(check-property(|ent)); not(?[])> prop*
   
-check-property(|ent) :
-  Property(name, type, annos) -> (name, $[Property '[name]' defined more than once])
-  where not(<lookup-property-type(|name)>ent => type)
- 
-check-property(|ent) :
-  prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'id'])
-  where is-id-property
-  where not(<lookup-id-property>ent => prop)
-   
-check-property(|ent) :
-  prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'name'])
-  where is-name-property
-  where not(<lookup-name-property>ent => prop)
- 
-check-property(|ent) :
-  prop@Property(name, type, annos) -> (type, $[Name property should have type 'String'])
-  where is-name-property
-  where not(<is-string-type>type)
-  
-check-property(|ent) : 
-  Property(name, type, annos) -> (annos, $[Multiple inverse annotations])
-  where not(<leq>(<filter(?Inverse(_)); length> annos, 1))
-
 check-property(|ent) : 
   Property(f, t, annos) -> (g, $[Inverse relation requires entity type])
   where Inverse(g) := <inverse>
@@ -85,4 +42,50 @@ check-property(|ent) :
   where t2 := <lookup-property(|g); type-of; carrier-type> t1
   where t3 := <type-of>ent
   where not(<eq>(t2, t3))
+
+
+// cut here
+
+signature
+  constructors
+    Name     : Annotation
+    Id       : Annotation
+    
+    Property : ID * Type -> Property
+    
+rules // desugaring
+
+desugar : Property(x, t) -> Property(x, t, [])
+
+rules // id and name properties
   
+is-id-property       = Property(id,id,fetch(?Id()))
+is-name-property     = Property(id,id,fetch(?Name()))
+lookup-id-property   = lookup-property(is-id-property)
+lookup-name-property = lookup-property(is-name-property)
+
+rules // multiple definitions
+ 
+check-property(|ent) :
+  Property(name, type, annos) -> (name, $[Property '[name]' defined more than once])
+  where not(<lookup-property(|name)>ent => type)
+ 
+check-property(|ent) :
+  prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'id'])
+  where is-id-property
+  where not(<lookup-id-property>ent => prop)
+   
+check-property(|ent) :
+  prop@Property(name, type, annos) -> (annos, $[More than one property with annotation 'name'])
+  where is-name-property
+  where not(<lookup-name-property>ent => prop)
+ 
+check-property(|ent) :
+  prop@Property(name, type, annos) -> (type, $[Name property should have type 'String'])
+  where is-name-property
+  where not(<is-string-type>type)
+  
+check-property(|ent) : 
+  Property(name, type, annos) -> (annos, $[Multiple inverse annotations])
+  where not(<leq>(<filter(?Inverse(_)); length> annos, 1))
+ 

@@ -1,5 +1,15 @@
 module actions
 
+imports expressions parameters
+
+signature
+  constructors
+    Submit     : ID * List(Exp) * List(Element) -> Element
+    Action     : ID * List(Param) * List(Statement) -> Element
+    Assign     : Exp * Exp -> Statement
+    ReturnPage : PageRef -> Statement
+    ExpStat    : Exp -> Statement
+ 
 rules // actions
 
 rename-action :
@@ -12,7 +22,7 @@ rename-action :
          
 new-action-name =
   RenameAction <+ {?f; f' := <newname> f; rules( RenameAction : f -> f' )}
-               
+
 declare-action :
   act@Action(g, param*, stat*) -> act
   where rules( ActionDef : g -> act )
@@ -22,38 +32,26 @@ rename-action :
  
 rename :
   Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
-  where g := <try(rename-action)> f;
-        e2* := <rename-all> e1*;
-        elem2* := <rename-all> elem1*
+  where g := <try(rename-action)> f; e2* := <rename-all> e1*; elem2* := <rename-all> elem1*
     
 rules // projections
 
-declaration-of : 
-  Action(f, param*, stat*) -> <ActionDef> f
-         
-param-types :
-  Action(f, param*, stat*) -> <param-types> param*
-  
-signature-of :
-  Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
-  
-call-of :
-  Submit(f, e*, elem*) -> (f, e*)
-  
-declaration-of :
-  Submit(f, e*, elem*) -> <ActionDef> f
-  
-rules
- 
+declaration-of : Action(f, param*, stat*) -> <ActionDef> f
+param-types    : Action(f, param*, stat*) -> <param-types> param*
+signature-of   : Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
+call-of        : Submit(f, e*, elem*) -> (f, e*)
+declaration-of : Submit(f, e*, elem*) -> <ActionDef> f
+is-lvalue      = ?Var(_) <+ ?PropertyAccess(_, _)
+
+rules // checking 
+
 check :
-  elem@Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
-  where not(<declaration-of> elem)
+  Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+  where not(declaration-of)
   
 check :
   Submit(f, e*, elem*) -> <check-args>
   
-rules // assignment
-
 check :
   Assign(e1, e2) -> (e1, $[Left-hand side of assignment should be variable or property access])
   where not(<is-lvalue> e1)
@@ -63,9 +61,3 @@ check :
   where t1 := <type-of>lval
   where t2 := <type-of> e
   where not(<eq>(t1, t2))
-
-rules // return
-
-// no checks needed for return
-// should an action always have a return?
-// check for hidden return in action, i.e. shadowed by earlier return
