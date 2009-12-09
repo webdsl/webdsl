@@ -10,7 +10,7 @@ let
     pkgs.strategoPackages018.javafront 
   ];
 
-  pkgs = import nixpkgs {};
+  pkgs = import nixpkgs { system = "i686-linux"; };
 
   jobs = rec {
 
