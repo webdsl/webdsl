@@ -47,7 +47,7 @@ define page root() {
 
 
 
-style global 
+style somestyle 
 
 .rood {
   font-color := Color.red;

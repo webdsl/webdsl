@@ -1,4 +1,4 @@
-//is incompatible with type in collection
+//is incompatible with type in left-hand side
 application test
 
 define page root() {
