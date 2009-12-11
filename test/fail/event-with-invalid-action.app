@@ -1,4 +1,4 @@
-//No function
+//Cannot find action with signature
 application test
 
   define page root(){
