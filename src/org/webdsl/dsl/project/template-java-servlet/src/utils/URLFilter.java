@@ -18,6 +18,12 @@ package utils;
 public final class URLFilter {
 	public static final String encoding = "UTF-8";
 
+	public static String filter(int message) {
+		return filter(String.valueOf(message));
+	}
+	public static String filter(float message) {
+		return filter(String.valueOf(message));
+	}
 	public static String filter(String message) {
 		if (message == null)
 			return (null);
