@@ -33,13 +33,13 @@ TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSF
 EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
 	
 $(TESTSSUCCEEDALL:.app=.sh): run-test-succeed-all.sh
-	@$(LN_S) $$(pwd)/$< ./$@
+	@$(LN_S) -f $$(pwd)/$< ./$@
 	
 $(TESTSSUCCEEDWEBALL:.app=.sh): run-test-succeed-web-all.sh
-	@$(LN_S) $$(pwd)/$< ./$@
+	@$(LN_S) -f $$(pwd)/$< ./$@
 
 $(TESTSFAIL:.app=.sh): run-test-fail.sh
-	@$(LN_S) $$(pwd)/$< ./$@
+	@$(LN_S) -f $$(pwd)/$< ./$@
 
 clean:
 	@echo "Removing all symbolic links to tests";
