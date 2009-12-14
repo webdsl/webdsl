@@ -41,6 +41,7 @@ let
         buildInputs = [
           pkgconfig 
           libtool_1_5 
+          subversion
           automake110x 
           autoconf
           ant 
