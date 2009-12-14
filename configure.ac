@@ -20,6 +20,8 @@ XT_PRE_RELEASE
 XT_USE_XT_PACKAGES
 XT_USE_JAVA_FRONT
 
+## makes the autoconf and svn revision numbers visible through primitives, see stratego sources
+XT_TERM_DEFINE
 
 AC_PROG_CC
 AC_PROG_INSTALL
