@@ -146,21 +146,6 @@ function findTopDown(element, id)
   return null;
 }
 
-function actionLinkServerInvoke(template, action, jsonparams, thisform, thisobject)
-{
-  serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
-    function()
-    {
-      if (this.readyState == 4 && this.status == 200) {
-        window.location = this.responseText;
-      }
-      else if(this.readyState == 4 && this.status != 200) {
-        notify('Invalid return of server: '+this.status); 
-      }
-    }
-  );
-}
-
 function serverInvoke(template, action, jsonparams, thisform, thisobject)
 {
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
