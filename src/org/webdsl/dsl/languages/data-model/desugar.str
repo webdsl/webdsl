@@ -2,21 +2,21 @@ module org/webdsl/dsl/languages/data-model/desugar
 
 rules
   desugar-data :
-    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+    SessionEntity(x_class, entbodydecs1) -> SessionEntity(x_class, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-create-dr> (x_class,entbodydecs1)
   desugar-data :
-    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+    Entity(x_class, sup, entbodydecs1) -> Entity(x_class, sup, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-create-dr> (x_class,entbodydecs1)
   desugar-data :
-    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-create-dr> (x_class,fun1*)
+    EntityNoSuper(x_class, entbodydecs1) -> EntityNoSuper(x_class, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-create-dr> (x_class,entbodydecs1)
         
   desugar-extend-entity-functions-create-dr :
-    (x_class,fun1*) -> fun2*
-    where extendfunctions := <filter(?ExtendFunction(_))> fun1*
+    (x_class, entbodydecs1) -> entbodydecs2
+    where extendfunctions := <filter(?ExtendFunction(_))> entbodydecs1
         ; not(?[])
     with  <map(extend-entity-function-dr(|x_class))> extendfunctions
-        ; fun2* := <remove-all(?ExtendFunction(_))> fun1*
+        ; entbodydecs2 := <remove-all(?ExtendFunction(_))> entbodydecs1
 
   extend-entity-function-dr(|x_class) =
     ?ExtendFunction(Function(fun, fargs, _, Block(stats)))
@@ -38,41 +38,41 @@ rules
 rules //apply extend entity functions
 
   desugar-data :
-    SessionEntity(x_class, prop*, fun1*) -> SessionEntity(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+    SessionEntity(x_class, entbodydecs1) -> SessionEntity(x_class, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-apply-dr> (x_class, entbodydecs1)
   desugar-data :
-    Entity(x_class, sup, prop*, fun1*) -> Entity(x_class, sup, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+    Entity(x_class, sup, entbodydecs1) -> Entity(x_class, sup, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-apply-dr> (x_class, entbodydecs1)
   desugar-data :
-    EntityNoSuper(x_class, prop*, fun1*) -> EntityNoSuper(x_class, prop*, fun2*)
-    where fun2* := <desugar-extend-entity-functions-apply-dr> (x_class,fun1*)
+    EntityNoSuper(x_class, entbodydecs1) -> EntityNoSuper(x_class, entbodydecs2)
+    where entbodydecs2 := <desugar-extend-entity-functions-apply-dr> (x_class, entbodydecs1)
  
   desugar-extend-entity-functions-apply-dr :
-    (x_class,fun1*) -> fun2*
-    where fun2* := <map(try(<once-ExtendEntityFunction;where(applied:=True())> (x_class,<id>)))> fun1*
+    (x_class,entbodydecs1) -> entbodydecs2
+    where entbodydecs2 := <map(try(<once-ExtendEntityFunction;where(applied:=True())> (x_class,<id>)))> entbodydecs1
         ; !applied
 
   desugar-data = once-ExtendEntity
   
   desugar-data :
-    ExtendEntity(ident, props, funcs) -> RemoveMe()
+    ExtendEntity(ident, entbodydecs1) -> RemoveMe()
     with rules (
         ExtendEntity :+
-          EntityNoSuper(ident, props2, funcs2) -> EntityNoSuper(ident, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
-                       ExtendEntity :- SessionEntity(ident, props2, funcs2) ) // Remove the other two
+          EntityNoSuper(ident, entbodydecs2) -> EntityNoSuper(ident, <concat> [entbodydecs1,entbodydecs2])
+          with rules ( ExtendEntity :- Entity(ident, s, entbodydecs2)
+                       ExtendEntity :- SessionEntity(ident, entbodydecs2) ) // Remove the other two
                        
         // @TODO: normalize EntityNoSuper to Entity extends Object
         
         ExtendEntity :+
-          Entity(ident, s, props2, funcs2) -> Entity(ident, s, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- EntityNoSuper(ident, props2, funcs2)
-                       ExtendEntity :- SessionEntity(ident, props2, funcs2) )
+          Entity(ident, s, entbodydecs2) -> Entity(ident, s, <concat> [entbodydecs1,entbodydecs2])
+          with rules ( ExtendEntity :- EntityNoSuper(ident, entbodydecs2)
+                       ExtendEntity :- SessionEntity(ident, entbodydecs2) )
 
         ExtendEntity :+
-          SessionEntity(ident, props2, funcs2) -> SessionEntity(ident, <concat> [props, props2], <concat> [funcs, funcs2])
-          with rules ( ExtendEntity :- Entity(ident, s, props2, funcs2)
-                       ExtendEntity :- EntityNoSuper(ident, props2, funcs2) )
+          SessionEntity(ident, entbodydecs2) -> SessionEntity(ident, <concat> [entbodydecs1,entbodydecs2])
+          with rules ( ExtendEntity :- Entity(ident, s, entbodydecs2)
+                       ExtendEntity :- EntityNoSuper(ident, entbodydecs2) )
                        
           // @TODO: move to extend session entity case below
       )
@@ -88,12 +88,12 @@ rules
     ; not(?ent)
 
   create-inverse-anno :
-    Entity(x_class,superclass, props, functions) -> Entity(x_class,superclass, props2, functions)
-    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
+    Entity(x_class,superclass, entbodydecs1) -> Entity(x_class,superclass, entbodydecs2)
+    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)))> entbodydecs1
 
   create-inverse-anno :
-    EntityNoSuper(x_class, props, functions) -> EntityNoSuper(x_class, props2, functions)
-    where props2 := <map(try(desugar-inverse-property(|x_class)))> props
+    EntityNoSuper(x_class, entbodydecs1) -> EntityNoSuper(x_class, entbodydecs2)
+    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)))> entbodydecs1
 
   desugar-inverse-property(|x_class) :
     Property(x, k, s, anno*) -> Property(x, k, s, anno2*)

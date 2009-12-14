@@ -22,15 +22,15 @@
    Description                        -- V[V is=2[H[KW["description"] KW["{"]] HV[_1]] KW["}"]],
    Note                               -- V[V is=2[KW["note"] HV[_1]] KW["end"]],
    GlobalsDefinition                  -- KW["globals"] KW["{"] _1 KW["}"],
-   Entity                             -- V[V is=2[H[KW["entity"] _1 KW[":"] _2 KW["{"]] _3 _4] KW["}"]],
+   Entity                             -- V[V is=2[H[KW["entity"] _1 KW[":"] _2 KW["{"]] _3] KW["}"]],
    Entity.4:iter-star                 -- _1,
-   EntityNoSuper                      -- V[V is=2[H[KW["entity"] _1 KW["{"]] _2 _3] KW["}"]],
+   EntityNoSuper                      -- V[V is=2[H[KW["entity"] _1 KW["{"]] _2] KW["}"]],
    EntityNoSuper.3:iter-star          -- _1,
-   SessionEntity                      -- V[V is=2[H[KW["session"] _1 KW["{"]] _2 _3] KW["}"]],
+   SessionEntity                      -- V[V is=2[H[KW["session"] _1 KW["{"]] _2] KW["}"]],
    SessionEntity.2:iter-star          -- _1,
    SessionEntity.3:iter-star          -- _1,
-   ExtendEntity                       -- V[V is=2[H[KW["extend"] KW["entity"] _1 KW["{"]] _2 _3] KW["}"]],
-   ExtendSessionEntity                -- KW["extend"] KW["session"] _1 KW["{"] _2 _3 KW["}"],
+   ExtendEntity                       -- V[V is=2[H[KW["extend"] KW["entity"] _1 KW["{"]] _2] KW["}"]],
+   ExtendSessionEntity                -- KW["extend"] KW["session"] _1 KW["{"] _2 KW["}"],
    Property                           -- H[_1 _2 _3 KW["("] _4 KW[")"]],
    Property.4:iter-star-sep           -- H hs=0[_1 KW[","]],
    PropertyNoAnno                     -- H[_1 _2 _3],
@@ -1209,5 +1209,7 @@
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    ActionCall.2:iter-star           -- _1,
    
-   GlobalVar -- H hs=0[KW["global"] KW["."] _1]
+   GlobalVar -- H hs=0[KW["global"] KW["."] _1],
+   
+   ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ]
 ]

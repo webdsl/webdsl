@@ -22,7 +22,7 @@ strategies
 strategies // register all declared entities
 
   inherit-object :
-    EntityNoSuper(x_class, props, functions) -> Entity(x_class, "Entity", props, functions)
+    EntityNoSuper(x_class, entbodydecs) -> Entity(x_class, "Entity", entbodydecs)
 
   all-properties :
     x_class -> result
@@ -54,7 +54,10 @@ rules
 
   declare-entity = 
     where ( try(inherit-object)
-        ; ?Entity(x_class, x_super, props, funcs) )
+        ; ?Entity(x_class, x_super, entbodydecs) 
+        ; props := <filter(is-property-cons)> entbodydecs
+        ; funcs := <filter(is-function-cons)> entbodydecs
+        )
     ; with (id
       ; rules(
           Entities :+= x_class
@@ -80,7 +83,7 @@ rules
       ; <map(declare-property(|x_class))> [VersionProperty(), IdProperty(), NameProperty() | props]
       ; <map(declare-function(|x_class))> funcs
       ; <handle-entity-id(|x_class)> props      
-      ; not(<extend-entity-declare> Entity(x_class, x_super, props, funcs)) //for example used in typechecker/entity-events, ends in fail for extensibility
+      ; not(<extend-entity-declare> Entity(x_class, x_super, entbodydecs)) //for example used in typechecker/entity-events, ends in fail for extensibility
     )
 
   defined-superclasses :
@@ -94,7 +97,7 @@ rules
         ; not("Extends" := super)
 
   declare-entity = 
-    ?SessionEntity(nm, props, functions)
+    ?SessionEntity(nm, entbodydecs)
     ; with (id
       ; x_class := <capitalize-string> nm
       ; rules(
@@ -103,23 +106,25 @@ rules
           IsSessionEntityType : SimpleSort(x_class) 
           SessionVariable :+= nm
         )
-      ; <declare-entity> Entity(x_class, "Entity", props, functions)
+      ; <declare-entity> Entity(x_class, "Entity", entbodydecs)
     )
     
   declare-extend-entity :
-    ExtendSessionEntity(x_class, props, funcs) -> ExtendSessionEntity(x_class, props, funcs)
-    with <declare-extend-entity> ExtendEntity(<capitalize-string> x_class, props, funcs)
+    ExtendSessionEntity(x_class, entbodydecs) -> ExtendSessionEntity(x_class, entbodydecs)
+    with <declare-extend-entity> ExtendEntity(<capitalize-string> x_class, entbodydecs)
     
   declare-extend-entity :
-    ExtendEntity(x_class, props, funcs) -> ExtendEntity(x_class, props, funcs)
-    with rules( Properties :+
+    ExtendEntity(x_class, entbodydecs) -> ExtendEntity(x_class, entbodydecs)
+    with  props := <filter(is-property-cons)> entbodydecs
+        ; funcs := <filter(is-function-cons)> entbodydecs
+        ; rules( Properties :+
                   x_class -> props
 
-                Functions :+
-                  x_class -> funcs
-         )
-       ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
-       ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
+                 Functions :+
+                   x_class -> funcs
+          )
+        ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
+        ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
        
   declare-property(|x_class) =
     ?prop@Property(x, k, s, annos)
