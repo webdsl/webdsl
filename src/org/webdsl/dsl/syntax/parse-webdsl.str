@@ -42,9 +42,9 @@ strategies
     ; try(simplify-module-constructor)
   
   xtc-parse-webdsl-unit(|path) =
-      with(
+    with(
         tbl := <get-webdsl-parse-table>
-      ; cachepath := <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,".parsecache"]
+      ; cachepath := <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,<get-webdsl-version>,".parsecache"]
       ; dirs := <dirname; string-tokenize(|['/'])> cachepath
       ; <create-dirs> dirs
       )
@@ -52,23 +52,29 @@ strategies
       then
         if not(<file-exists> cachepath) <+ <gt> (<modification-time> path, <modification-time> cachepath) 
         then
-        ( parse-xtc-file-pt(err(|["cannot open file ", <trim-initial-dots-slashes> path]), strsglr-report-parse-error | tbl, "Unit", path) 
-          <+ not(is-verbose-2); <exit> 1 
-        )
-        ; webdsl-anno-location(|path)
-        ; implode-asfix
-        ; where(
-            <WriteToBinaryFile> (cachepath,<id>)
-          )
+          parse-and-write-cache(|path,tbl,cachepath) //current term relevant
         else
-          <ReadFromFile> cachepath
+           // if cache read fails for some reason, e.g. it contains an invalid term because 
+           // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
+           <ReadFromFile> cachepath 
+        <+ parse-and-write-cache(|path,tbl,cachepath) //current term relevant
         end
       else
         <debug> "File does not exist: "
       ; <trim-initial-dots-slashes;debug> path
       ; <exit> 1
       end
-  
+      
+  parse-and-write-cache(|path,tbl,cachepath) =
+   ( parse-xtc-file-pt(err(|["cannot open file ", <trim-initial-dots-slashes> path]), strsglr-report-parse-error | tbl, "Unit", path) 
+     <+ not(is-verbose-2); <exit> 1 
+   )
+   ; webdsl-anno-location(|path)
+   ; implode-asfix
+   ; where(
+       <WriteToBinaryFile> (cachepath,<id>)
+     )
+
   xtc-parse-webdsl-unit-override(|path) =
     fail // may be overridden externally
 
