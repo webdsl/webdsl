@@ -79,6 +79,9 @@ PPTABLES = \
 	$(css).tbl \
 	$(css)-pretty.pp.af
 
+webdslversionterm.trm :
+	echo \"@PACKAGE_VERSION@\" > webdslversionterm.trm 
+
 org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \
                                   org/webdsl/dsl/syntax/MixHQL.sdf
 
@@ -275,7 +278,7 @@ libwebdsl_front_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			                  $(STRATEGO_LIBS)
 endif
 
-libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree)
+libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree) webdslversionterm.trm
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm libwebdsl-front.str
