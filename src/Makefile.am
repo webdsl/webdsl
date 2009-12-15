@@ -182,7 +182,21 @@ if XT_ENABLE_JAVA_BACKEND
 
 STRATEGOXT_JAR=$(STRC_JAVA)/share/strc-java/strategoxt.jar
 STRJ=$(STRC_JAVA)/bin/strj
-STRJFLAGS=-O 3 --verbose 3 -la stratego-lib -la stratego-rtg -la stratego-sglr -la stratego-gpp -la stratego-xtc -la stratego-aterm -la stratego-tool-doc -la java-front -I $(JAVA_FRONT)/share -clean -I org/webdsl/dsl/syntax/
+STRJFLAGS=-O 3 \
+  --verbose 3 \
+  -la stratego-lib \
+  -la stratego-rtg \
+  -la stratego-sglr \
+  -la stratego-gpp \
+  -la stratego-xtc \
+  -la stratego-aterm \
+  -la stratego-tool-doc \
+  -la java-front \
+  -I $(JAVA_FRONT)/share \
+  -clean \
+  -I org/webdsl/dsl/syntax/ \
+  -D PACKAGE_VERSION_TERM_0_0=\"@PACKAGE_VERSION@\"
+  
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
