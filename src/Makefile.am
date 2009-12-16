@@ -32,6 +32,7 @@ cleaner : fullclean # alias
 fullclean :
 	$(MAKE) clean
 	rm -rf $(FULLCLEANFILES)
+	rm -rf src-gen
 
 EXTRA_DIST = \
     $(wildcard *.str) \
@@ -49,7 +50,7 @@ EXTRA_DIST = \
 ### developer targets
 
 only-backend-trans :
-	make libwebdsl-back-end-transformations.la
+	make libback-end-transformations.la
 	touch .libs/libto-java-servlet.la
 	touch .libs/libto-java-servlet.so
 	make webdslc
@@ -178,15 +179,14 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_SGLR_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
                    $(STRATEGO_LIBS) \
-                   $(JAVA_FRONT_LIBS) \
-                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la libwebdsl-back-end-transformations.la
+                   $(JAVA_FRONT_LIBS)
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la libwebdsl-back-end-transformations.la
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la libback-end-transformations.la
 
 endif
 
 
-ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree
+ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree back-end-transformations.ctree
 
 
 if XT_ENABLE_JAVA_BACKEND
@@ -217,6 +217,7 @@ JAVAS= \
   src-gen/org/webdsl/java_transformations/Main.java \
   src-gen/org/webdsl/java_pp_fake/Main.java \
   src-gen/org/webdsl/write_files/Main.java \
+  src-gen/org/webdsl/back_end_transformations/Main.java \
   src-gen/org/webdsl/to_java_servlet/Main.java \
   src-gen/org/webdsl/webdslc/Main.java
 
@@ -226,6 +227,7 @@ mkdirs :
 	mkdir -p src-gen/org/webdsl/java_transformations
 	mkdir -p src-gen/org/webdsl/java_pp_fake
 	mkdir -p src-gen/org/webdsl/write_files
+	mkdir -p src-gen/org/webdsl/back_end_transformations
 	mkdir -p src-gen/org/webdsl/to_java_servlet
 	mkdir -p src-gen/org/webdsl/webdslc
 
@@ -253,14 +255,17 @@ src-gen/org/webdsl/java_transformations/Main.java : java-transformations.ctree
 src-gen/org/webdsl/write_files/Main.java : write-files.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake
 
+src-gen/org/webdsl/back_end_transformations/Main.java : back-end-transformations.ctree
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $< -o $@ -la org.webdsl.webdsl-front
+
 src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator -la org.webdsl.back-end-transformations
 
 src-gen/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
 
 src-gen/org/webdsl/webdslc/Main.java : webdslc.str
-	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files
+	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations
 endif
 
 ### libraries
@@ -350,31 +355,31 @@ java-transformations.ctree : libjava-transformations.rtree
 		
 ### back-end transformations
 
-nobase_data_DATA += libwebdsl-back-end-transformations.rtree 
+nobase_data_DATA += libback-end-transformations.rtree 
 if !XT_ENABLE_JAVA_BACKEND
-  lib_LTLIBRARIES  += libwebdsl-back-end-transformations.la 
+  lib_LTLIBRARIES  += libback-end-transformations.la 
 
-libwebdsl_back_end_transformations_la_SOURCES = libwebdsl-back-end-transformations.c
-libwebdsl_back_end_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
-libwebdsl_back_end_transformations_la_LDFLAGS  = $(AM_LDFLAGS)
-libwebdsl_back_end_transformations_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)\
+libback_end_transformations_la_SOURCES = libback-end-transformations.c
+libback_end_transformations_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
+libback_end_transformations_la_LDFLAGS  = $(AM_LDFLAGS)
+libback_end_transformations_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS)\
                               $(STRATEGO_GPP_CFLAGS) \
                               $(JAVA_FRONT_CFLAGS) \
                               $(STRATEGO_CFLAGS)
-libwebdsl_back_end_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+libback_end_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_GPP_LIBS) \
                               $(JAVA_FRONT_LIBS) \
 			      $(STRATEGO_LIBS)
 endif
 
 
-libwebdsl-back-end-transformations.rtree libwebdsl-back-end-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES:.str=.rtree) libwebdsl-front.rtree
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o libwebdsl-back-end-transformations.rtree \
+libback-end-transformations.rtree libback-end-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES:.str=.rtree) libwebdsl-front.rtree
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o libback-end-transformations.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libwebdsl-back-end-transformations.str
+	rm libback-end-transformations.str
 
-webdsl-back-end-transformations.ctree : libwebdsl-back-end-transformations.rtree
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o webdsl-back-end-transformations.ctree \
+back-end-transformations.ctree : libback-end-transformations.rtree
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o back-end-transformations.ctree \
 		--verbose 1 $(STRCFLAGS) 
 
 ### java servlet back-end
@@ -397,7 +402,7 @@ libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 
-libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libwebdsl-generator.rtree libwebdsl-back-end-transformations.rtree
+libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libwebdsl-generator.rtree libback-end-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm libto-java-servlet.str
