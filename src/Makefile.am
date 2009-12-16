@@ -46,6 +46,14 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*/*/*.meta) \
     META-INF/MANIFEST.MF
 
+### developer targets
+
+only-backend-trans :
+	make libwebdsl-back-end-transformations.la
+	touch .libs/libto-java-servlet.la
+	touch .libs/libto-java-servlet.so
+	make webdslc
+
 ### syntax definitions
 
 syntax 		= org/webdsl/dsl/syntax/WebDSL
