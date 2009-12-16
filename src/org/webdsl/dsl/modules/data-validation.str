@@ -10,13 +10,43 @@ rules //validate template call
 
   built-in-template-rule-setup = <declare-built-in-template-rules> ("validate",[SimpleSort("Bool"),SimpleSort("String")]);fail
  
-/*rules //validate function
+rules //desugar entity validation
 
-  check-builtin-signature :
-    (None(), "validate", [s1,s2]) -> None()
-    where <type-compatible> (SimpleSort("Bool"),s1)
-        ; <type-compatible> (SimpleSort("String"),s2)*/
+  desugar : 
+    EntityNoSuper(name,entbodydecs) -> EntityNoSuper(name,entbodydecs2)
+    where entbodydecs2 := <desugar-entity-validation> entbodydecs
+  desugar : 
+    Entity(name,super,entbodydecs) -> Entity(name,super,entbodydecs2)
+    where entbodydecs2 := <desugar-entity-validation> entbodydecs
+  desugar : 
+    SessionEntity(name, entbodydecs) -> SessionEntity(name, entbodydecs2)
+    where entbodydecs2 := <desugar-entity-validation> entbodydecs
+
+  desugar-entity-validation : 
+    entbodydecs -> entbodydecs2
+    where <oncetd(?ValidateEntity(_,_))> entbodydecs //must have validations left to desugar
+    with  (props1,functions,validations) := <split-entity-body> entbodydecs
+        ; props2 := <try(desugar-entity-validation(|validations))> props1
+        ; entbodydecs2 := <concat> [props2,functions] 
         
+  split-entity-body :
+    entbodydecs -> (props,functions,validations)
+    with  props := <filter(is-property-cons)> entbodydecs
+        ; validations := <filter(?ValidateEntity(_,_))> entbodydecs
+        ; functions := <filter(is-function-cons)> entbodydecs  
+     
+  desugar-entity-validation(|validationrules):
+    props -> props3
+    where <?[ValidateEntity(echeck,emessage)|rest]> validationrules
+    with  varnames := <collect(?Var(<strip-annos>) <+ ?FieldAccess(Var("this"),<strip-annos>))> echeck
+        ; props2 := <map(try(desugar-entity-validation-helper(|varnames, echeck, emessage)))> props
+        ; props3 := <try(desugar-entity-validation(|rest))> props2
+          
+  desugar-entity-validation-helper(|varnames,echeck,emessage):
+    Property(name,kind,type,anno) -> //properties are normalized due to innermost
+    Property(name,kind,type,[ValidateAnno(echeck,emessage)|anno])
+    where <fetch(?name)> varnames
+   
 rules //error template
 
   after-tc-declare-hook = validated-input-template;fail
