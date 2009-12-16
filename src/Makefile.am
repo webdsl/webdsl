@@ -198,7 +198,7 @@ STRJFLAGS=-O 3 \
   -I $(JAVA_FRONT)/share \
   -clean \
   -I org/webdsl/dsl/syntax/ \
-  -D PACKAGE_VERSION_TERM_0_0=\"@PACKAGE_VERSION@\"
+  -D PACKAGE_VERSION_TERM=\"@PACKAGE_VERSION@\"
   
 JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
