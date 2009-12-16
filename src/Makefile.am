@@ -171,9 +171,9 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
                    $(STRATEGO_LIBS) \
                    $(JAVA_FRONT_LIBS) \
-                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la
+                   libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la libjava-pp.la libjava-transformations.la libwebdsl-back-end-transformations.la
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la
+webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la libwebdsl-back-end-transformations.la
 
 endif
 
