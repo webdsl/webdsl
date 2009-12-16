@@ -174,15 +174,26 @@ webdslc_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
                    $(STRATEGO_TOOL_DOC_CFLAGS) \
                    $(STRATEGO_CFLAGS) \
                    $(JAVA_FRONT_CFLAGS) 
+                   
+ALL_LIBS = \
+                   libwebdsl-front.la \
+                   libwebdsl-generator.la \
+                   libto-java-servlet.la \
+                   libwrite-files.la \
+                   libjava-transformations.la \
+                   libback-end-transformations.la \
+                   libjava-pp.la                    
+                   
 webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_GPP_LIBS) \
                    $(STRATEGO_SGLR_LIBS) \
                    $(STRATEGO_TOOL_DOC_LIBS) \
                    $(STRATEGO_LIBS) \
-                   $(JAVA_FRONT_LIBS)
+                   $(JAVA_FRONT_LIBS) \
+                   $(ALL_LIBS) 
 
-webdslc.c : libwebdsl-front.la libwebdsl-generator.la libto-java-servlet.la libwrite-files.la webdslc.str libjava-transformations.la libback-end-transformations.la
-
+webdslc.c : webdslc.str \
+			$(ALL_LIBS)
 endif
 
 
