@@ -30,6 +30,8 @@ PKG_PROG_PKG_CONFIG
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+AC_CHECK_PROG([bash], [bash], [`type -p bash`], [/bin/bash])
+
 WEBDSLC=$prefix/bin/webdslc
 
 XT_ENABLE_JAVA_BACKEND
