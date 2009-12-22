@@ -3,24 +3,23 @@ module org/webdsl/dsl/languages/ui/submit
 rules
 
   rename-ui :
-    t@ActionCall(_, _) -> result
-    with t2@ActionCall(name, e2*){anno*} := <try(RenameActionCall)> t
-       ; e3* := <rename-all> e2*       
-       ;  (   //try to find a parent, and put it in the annotations
-           ( ( parent := SimpleSort(<InEntity>)
-               <+ parent:= <InPage> 
-               <+ parent:= <InTemplate> )
-             ; result := ActionCall(name, e3*){ThisCallParent(parent),anno*}
-           )
-          <+ //no parent found
-            result := ActionCall(name, e3*){anno*}
-         )
+    t@ActionCall(origname, e1*){annoorig*} -> result
+    with if t2@ActionCall(renamedname, e2*){anno*} := <try(RenameActionCall)> t
+         then
+           parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
+         ; result := ActionCall(renamedname, e2*){ThisCallParent(parent),anno*}
+         else //the action call is being renamed, but the outer definition is not.
+              // in this case RenameActionCall fails, the action is not visible, and only the expression
+              // arguments are renamed
+           e3* := <rename-all> e1* 
+         ; t3 := ThisCall(origname, e3*){annoorig*}
+         end
 
 rules
 
   constraint-error-ui :
     tc@ActionCall(f, e2*) -> <add-error(|["Cannot find action with signature ", sig, "."])>
-    where not(type-of)
+    where debug(!1);not(type-of)
         ; argtypes := <map(type-of)> e2* // don't report when sub-expression was already wrong
     with  sig := <pretty-print-call(|f,argtypes)>
 
@@ -31,13 +30,13 @@ rules
  
   //inline action is already transformed to ThisCall here
   desugar-in-define-context : //after desugaring, this rule calls rename on the whole define
-    Submit(e,ThisCall(x,arg*),passign*) -> 
-    TemplateCall("action", [e, ThisCall(x,arg*)], passign*,TemplateBody([])) 
+    Submit(e,ThisCall(x,arg*){anno*},passign*) -> 
+    TemplateCall("action", [e, ThisCall(x,arg*){anno*}], passign*,TemplateBody([])) 
 
   //inline action is already transformed to ThisCall here 
   desugar-in-define-context : //after desugaring, this rule calls rename on the whole define
-    SubmitLink(e,ThisCall(x,arg*),passign*) -> 
-    TemplateCall("actionLink", [e, ThisCall(x,arg*)], passign*,TemplateBody([]))
+    SubmitLink(e,ThisCall(x,arg*){anno*},passign*) -> 
+    TemplateCall("actionLink", [e, ThisCall(x,arg*){anno*}], passign*,TemplateBody([]))
     
-  desugar : ActionCall(x,arg) -> ThisCall(x,arg) //TODO remove ThisCall for action calls entirely
+  desugar : ActionCall(x,arg){anno*} -> ThisCall(x,arg){anno*} //TODO remove ThisCall for action calls entirely
     
