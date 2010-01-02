@@ -60,14 +60,44 @@ rules // (front-end) types to (back-end) annotations
     while-not(eq, (extends-check, id))
 
   types-to-annotations =
-    bottomup(try(type-to-annotation))
+    topdown(try(type-to-annotation))
   
   type-to-annotation =
-      where(sort := <type-of; try(add-extra-annotations)>)
+      where(sort := <type-of; topdown(try(add-extra-annotations))>)
     ; add-anno(|TypeAnno(sort))
-      
+    
+  type-to-annotation = add-extra-annotations
+    
+  /* Entities */
+  add-extra-annotations =
+      ?type@SimpleSort(name)
+    ; is-entity-type
+    ; with(
+        idname := <EntityIdName <+ !None()> name
+      ; hasnatural := <HasNaturalId; !True() <+ !False()> name
+      ; anno := EntityAnno(idname, hasnatural)
+      ; <add-anno(|anno)> type
+      ; ?x
+    )
+    ; !x
+  
+  // Annotate entities with type information.
+  get-entity-class = ?Entity(<id>,_,_) <+ ?EntityNoSuper(<id>,_) <+ ?SessionEntity(<capitalize-string>,_)
+  
+  type-to-annotation =  
+      ?entity
+    ; class := <get-entity-class> entity
+    ; <add-entity-anno(|class)> entity
+   
+  add-entity-anno(|class) =
+        ?entity
+      ; <try(add-extra-annotations)> SimpleSort(class)
+      ; anno := TypeAnno(<id>)
+      ; <add-anno(|anno)> entity
+     
   /* For SimpleSort(name) remember whether name represents a native class */
   add-extra-annotations =
       ?type@SimpleSort(name)
     ; class := <NativeClassQualifiedName> name         // fails if name is not a native class
     ; <add-anno(|NativeClassAnno(name, class))> type
+

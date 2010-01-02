@@ -36,7 +36,7 @@ strategies
     ]|
 
    entity-to-java-entity :
-     EntityNoSuper(x_Class, entbodydecs) ->
+     ent@EntityNoSuper(x_Class, entbodydecs) ->
      <emit-java-code> compilation-unit|[
        package pkgname;
 
@@ -83,7 +83,7 @@ strategies
      ]|
      with  {| ClassName
       : rules( ClassName := x_Class )
-      ; idcodes := <hibernate-default-id-prop(|x_Class)> []
+      ; idcodes := <hibernate-default-id-prop(|x_Class)> ent
       ; props := <filter(is-property-cons)> entbodydecs
       ; cbds := <properties-to-code(|x_Class)> props
       ; pkgname := <DomainPackage>
@@ -236,7 +236,7 @@ strategies
   table-mapping-annos :
     x_class -> result
     where x_tablename := <concat-strings> ["_",x_class]
-        ; if x_name := <HasNaturalId;EntityIdName> x_class 
+        ; if x_name := <get-type-anno;has-natural-id;get-entity-id-name> x_class 
           then //java-mix needs more fine-grained elements for annotations
             x_propunique := <concat-strings> ["_",x_name]
           ; result := [anno |[
@@ -254,6 +254,7 @@ strategies
           end
        
   hibernate-default-id-prop(|x_class) =
+    ?ent;
     !class-body-dec* |[
    
       //not using native id generator of dbms, because this can cause flushes when executing queries with transient entities in the where-clause    
@@ -266,7 +267,7 @@ strategies
   
       public void setId(java.util.UUID idarg) { this._id = idarg; }
       
-      ~*<where("id":=<EntityIdName> x_class)<+![]> class-body-dec* |[ 
+      ~*<where("id":=<get-type-anno;get-entity-id-name> ent)<+![]> class-body-dec* |[ 
         public String getNaturalId() { return _id.toString(); }
         //public static boolean hasNaturalId() { return false; }  
       ]|
@@ -629,7 +630,7 @@ rules // cascading annotations
 rules // special methods
 
   property-to-special-getters(|x_Class) :
-    prop@Property(x, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    prop@Property(x, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public t get#x#List() {
         return new ArrayList(get#x());
@@ -648,7 +649,7 @@ rules // special methods
       ~*cbdslist
     ]|
     where <?"Set" <+ ?"List"> coll
-    with  t         := <java-type> GenericSort("List", [SimpleSort(y)])
+    with  t         := <java-type> GenericSort("List", [y_srt])
         ; x_listvar := <newname> "list"
         ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
         //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
@@ -690,7 +691,7 @@ rules // special methods
 rules //associations  
 
   inverse-mutation-in-setter(|x) :
-    prop@Property(x_prop, k, SimpleSort(y), annos) ->
+    prop@Property(x_prop, k, y_srt@SimpleSort(y), annos) ->
     bstm* |[
         t_y item = newitem;
         t_y oldthing = get#x_prop();
@@ -707,12 +708,12 @@ rules //associations
           bstm1*
         }
     ]|
-    with  t_y       := <java-type> SimpleSort(y)
+    with  t_y       := <java-type> y_srt
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
   
   collection-mutation-methods(|x_Class) :
-    prop@Property(x_prop, k, s@GenericSort(coll, [SimpleSort(y)]), annos) ->
+    prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public void removeFrom#x_prop(t_y item) {
         if(item != null && !x_prop#BeingSet) {
@@ -758,17 +759,17 @@ rules //associations
         return get#x_prop(); //needed for desugaring of List.set() and Set.list()
       }
     ]|
-    with  t_y       := <java-type> SimpleSort(y)
-        ; x_y       := <java-type-name> SimpleSort(y)
+    with  t_y       := <java-type> y_srt
+        ; x_y       := <java-type-name> y_srt
         ; t_col       := <java-type> s
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
-        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
-        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
+        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
+        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
         ; bstm_validation* := <validation-annotations-collection-operations> annos
 
   list-mutation-methods(|x_Class) :
-    prop@Property(x_prop, k, s@GenericSort("List", [SimpleSort(y)]), annos) ->
+    prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public void setIn#x_prop(int index, t_y newitem) {
         if(newitem != null && !x_prop#BeingSet && index >= 0 && index < get#x_prop().size() ) {
@@ -827,8 +828,8 @@ rules //associations
         }
       }
     ]|
-    with  t_y       := <java-type> SimpleSort(y)
-        ; x_y       := <java-type-name> SimpleSort(y)
+    with  t_y       := <java-type> srt_y
+        ; x_y       := <java-type-name> srt_y
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
