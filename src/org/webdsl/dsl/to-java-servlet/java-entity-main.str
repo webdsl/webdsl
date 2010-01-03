@@ -85,15 +85,16 @@ strategies
       : rules( ClassName := x_Class )
       ; idcodes := <hibernate-default-id-prop(|x_Class)> ent
       ; props := <filter(is-property-cons)> entbodydecs
-      ; cbds := <properties-to-code(|x_Class)> props
+      ; idname := <get-type-anno; get-entity-id-name> ent
+      ; cbds := <properties-to-code(|x_Class,idname)> props
       ; pkgname := <DomainPackage>
       ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
       |}
-      ; mod0* := <table-mapping-annos> x_Class
+      ; mod0* := <table-mapping-annos> (ent, x_Class)
       
 
    entity-to-java-entity :
-     SessionEntity(x_ident, entbodydecs) ->
+     sent@SessionEntity(x_ident, entbodydecs) ->
      <emit-java-code> compilation-unit|[
        package pkgname;
 
@@ -141,15 +142,16 @@ strategies
         ; {| ClassName
         : rules( ClassName := x_Class )
         ; props := <filter(is-property-cons)> entbodydecs
-        ; cbds := <properties-to-code(|x_Class)> props
+        ; idname := <get-type-anno; get-entity-id-name> sent
+        ; cbds := <properties-to-code(|x_Class,idname)> props
         ; cbds1 := <filter(property-to-session-prop-ids(|x_Class));try(concat)> props
         ; pkgname := <DomainPackage>
         ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
         |}
-        ; mod0* := <table-mapping-annos> x_Class
+        ; mod0* := <table-mapping-annos> (sent, x_Class)
 
    entity-to-java-entity :
-     Entity(x_Class, x_super, entbodydecs) ->
+     ent@Entity(x_Class, x_super, entbodydecs) ->
      <emit-java-code> compilation-unit|[
        package pkgname;
 
@@ -197,7 +199,8 @@ strategies
      with  {| ClassName
          : rules( ClassName := x_Class )
          ; props := <filter(is-property-cons)> entbodydecs
-         ; cbds := <properties-to-code(|x_Class)> props
+         ; idname := <get-type-anno; get-entity-id-name> ent
+         ; cbds := <properties-to-code(|x_Class, idname)> props
          ; pkgname := <DomainPackage>
            |}
          ; {| SuperclassNames: 
@@ -234,9 +237,9 @@ strategies
     ]|
  
   table-mapping-annos :
-    x_class -> result
+    (ent, x_class) -> result
     where x_tablename := <concat-strings> ["_",x_class]
-        ; if x_name := <get-type-anno;has-natural-id;get-entity-id-name> x_class 
+        ; if x_name := <get-type-anno;has-natural-id;get-entity-id-name> ent
           then //java-mix needs more fine-grained elements for annotations
             x_propunique := <concat-strings> ["_",x_name]
           ; result := [anno |[
@@ -273,9 +276,9 @@ strategies
       ]|
     ]|
 
-   properties-to-code(|x_Class) :
+   properties-to-code(|x_Class,x_idname) :
      props -> cbds
-     where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class)
+     where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class,x_idname)
                                         | "cannot generate code for property: ")> props
          ; cbds2 := <all-properties; name-property(|x_Class) <+ ![]> x_Class
          ; cbds  := <concat>[cbds1, cbds2]
@@ -309,7 +312,7 @@ strategies
     * Property is a protected field with a getter and a setter.
     */
 
-   property-to-property-code(|x_Class) :
+   property-to-property-code(|x_Class,id_name) :
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
        mod1* mod2* mod3* mod4* protected t _#x = e;
@@ -350,7 +353,7 @@ strategies
      ]|
     where t      := <java-type> s
         ; e      := <java-type-default-value> s
-        ; if <EntityIdName;?x> x_Class 
+        ; if <!id_name;?x> x_Class     // if this is the id property
           then x_index := <newname> <concat-strings>[x,"index"]
              //; mod0* := [anno|[@org.hibernate.annotations.Index(name="~x_index")]|]  unique annotation(in table annotation) already creates index 
              ; cbds_naturalid := class-body-dec* |[ 
