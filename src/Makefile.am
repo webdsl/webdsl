@@ -51,8 +51,15 @@ EXTRA_DIST = \
 
 only-backend-trans :
 	make libback-end-transformations.la
+	touch libto-java-servlet.rtree
+	touch libto-java-servlet.c
 	touch .libs/libto-java-servlet.la
-	touch .libs/libto-java-servlet.so
+	touch .libs/libto_java_servlet_la-libto-java-servlet.o
+	touch .libs/libto_java_servlet_la-libto-java-servlet.lo
+	touch .libs/libjava-transformations.la
+	touch .libs/libjava-transformations.so
+	touch libjava-transformations.str
+	touch libjava-transformations.rtree libjava-transformations.c
 	make webdslc
 
 ### syntax definitions
@@ -348,7 +355,7 @@ endif
 libwebdsl-front.rtree libwebdsl-front.c : $(TBLS) $(SIGS) $(PPTABLES) $(PPTBLS) $(SYNTAXDEFS) $(FRONTSTRFILES:.str=.rtree) webdslversionterm.trm
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o libwebdsl-front.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libwebdsl-front.str
+	rm -f libwebdsl-front.str
 
 webdsl-front.ctree : libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/syntax/webdsl-front.str -o webdsl-front.ctree \
@@ -377,7 +384,7 @@ endif
 libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.rtree
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libwebdsl-generator.str
+	rm -f libwebdsl-generator.str
 
 webdsl-generator.ctree : libwebdsl-generator.rtree  
 	strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o webdsl-generator.ctree \
@@ -401,7 +408,7 @@ endif
 libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-generator.rtree libto-java-servlet.rtree libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o libjava-transformations.rtree \
 		--verbose 1 $(STRCFLAGS)
-	rm libjava-transformations.str
+	rm -f libjava-transformations.str
 
 java-transformations.ctree : libjava-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o java-transformations.ctree \
@@ -430,7 +437,7 @@ endif
 libback-end-transformations.rtree libback-end-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES:.str=.rtree) libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o libback-end-transformations.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libback-end-transformations.str
+	rm -f libback-end-transformations.str
 
 back-end-transformations.ctree : libback-end-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o back-end-transformations.ctree \
@@ -459,7 +466,7 @@ endif
 libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libwebdsl-generator.rtree libback-end-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libto-java-servlet.str
+	rm -f libto-java-servlet.str
 
 to-java-servlet.ctree : libto-java-servlet.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o to-java-servlet.ctree \
@@ -507,7 +514,7 @@ endif
 libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree Java-EBlock.rtg.af xml-doc.rtg.af
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
 		--verbose 1 $(STRCFLAGS) 
-	rm libwrite-files.str
+	rm -f libwrite-files.str
 
 write-files.ctree : libwrite-files.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o write-files.ctree \
