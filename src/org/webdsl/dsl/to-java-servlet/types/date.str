@@ -159,66 +159,107 @@ rules
       java.util.Date x_temp1 = null;
       java.util.Date x_temp2 = null;      
 
-      ident = x_identBase + "~inputident" + "-d" + uniqueid;
-      if (ThreadLocalPage.get().getParammap().get(ident)!=null) {
-          ~*<wrap-validation-context-code-store-inputs> bstm*|[
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e_date);
-            x_temp1 = sdf.parse(ThreadLocalPage.get().getParammap().get(ident),new java.text.ParsePosition(0));
-            if (x_temp1==null) {
-              ~*<add-conversion-error> (e_date, e_errormessagedate)
-            }
-        ]|
-      }
+      String x_dateval = ThreadLocalPage.get().getParammap().get(
+        x_identBase + "~inputident" + "-d" + uniqueid
+      );
+      String x_timeval = ThreadLocalPage.get().getParammap().get(
+        x_identBase + "~inputident" + "-t" + uniqueid
+      );
       
-      ident = x_identBase + "~inputident" + "-t" + uniqueid;
-      if (ThreadLocalPage.get().getParammap().get(ident)!=null) {
-          ~*<wrap-validation-context-code-store-inputs> bstm*|[
-            // Parse time as GMT, avoiding daylight saving time-issues
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e_time + " z");
-            x_temp2 = sdf.parse(ThreadLocalPage.get().getParammap().get(ident) + " GMT",new java.text.ParsePosition(0));
-            if(x_temp2==null) {
-              ~*<add-conversion-error> (e_time, e_errormessagetime)
-            }
-          ]|
-      }
-      
-      ident = x_identBase;
-
       java.util.Date x_temp = null;
-      if (x_temp1 != null && x_temp2 != null) {
-        x_temp = new java.util.Date(x_temp1.getTime() + x_temp2.getTime());
-        
+      
+      //if both are empty, then the value will become null
+      if(  e_noneoption
+        && x_dateval!=null
+        && x_timeval!=null
+        && x_dateval.equals("")
+        && x_timeval.equals("")
+        ){
         bstm*
+      }
+      else{
+        if (x_dateval!=null) {
+          ~*<wrap-validation-context-code-store-inputs> bstm*|[
+              java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e_date);
+              x_temp1 = sdf.parse(x_dateval,new java.text.ParsePosition(0));
+              if (x_temp1==null) {
+                ~*<add-conversion-error> (e_date, e_errormessagedate)
+              }
+          ]|
+        }
+        
+        if (x_timeval!=null) {
+          ~*<wrap-validation-context-code-store-inputs> bstm*|[
+              // Parse time as GMT, avoiding daylight saving time-issues
+              java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e_time + " z");
+              x_temp2 = sdf.parse(x_timeval + " GMT",new java.text.ParsePosition(0));
+              if(x_temp2==null) {
+                ~*<add-conversion-error> (e_time, e_errormessagetime)
+              }
+          ]|
+        }
+        
+        ident = x_identBase;
+  
+        if (x_temp1 != null && x_temp2 != null) {
+          x_temp = new java.util.Date(x_temp1.getTime() + x_temp2.getTime());
+          
+          bstm*
+        }
       }
     ]|
     with  x_identBase := <newname> "ident_base"
         ; x_temp := <newname> "temp"
         ; x_temp1 := <newname> "temp"
         ; x_temp2 := <newname> "temp"
+        ; x_dateval := <newname> "dateval"
+        ; x_timeval := <newname> "timeval"
         ; name := <pp-webdsl-to-string> e
         ; bstm* := <input-assignment-to-java-servlet(|x_temp)> e 
+        ; if <fetch(?PropertyAssignment("notnull", "true"))> passign*
+          then e_noneoption := java:expr|[ false ]|
+          else e_noneoption := java:expr|[ true ]|
+          end
     
   handle-actions-input-to-java-servlet-input-date :
     (inputident,e,passign*,e1,e_errormessage) ->
     <wrap-input-java-code(|passign*)>
     bstm*|[
       ident += "~inputident"+uniqueid;
-      if (ThreadLocalPage.get().getParammap().get(ident)!=null) {
-        ~*<wrap-validation-context-code-store-inputs> bstm*|[
-          java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e1);
+      String x_val = ThreadLocalPage.get().getParammap().get(ident);
+      
+      java.util.Date x_temp = null;
+      
+      //if empty, then the value will become null
+      if(  e_noneoption
+        && x_val!=null
+        && x_val.equals("")
+        ){
+        bstm*
+      }
+      else{
+        if (x_val!=null) {
+          ~*<wrap-validation-context-code-store-inputs> bstm*|[
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(e1);
+            
+            x_temp = sdf.parse(x_val, new java.text.ParsePosition(0));
+            if(x_temp==null) { 
+              ~*<add-conversion-error> (e, e_errormessage)
+            }
           
-          java.util.Date x_temp = sdf.parse(ThreadLocalPage.get().getParammap().get(ident),new java.text.ParsePosition(0));
-          if(x_temp==null) { 
-            ~*<add-conversion-error> (e, e_errormessage)
-          }
-        
-          bstm* 
-        ]|
+            bstm* 
+          ]|
+        }
       }
     ]|
     with  x_temp := <newname> "temp"
+        ; x_val := <newname> "dateval"
         ; name := <pp-webdsl-to-string> e
         ; bstm* := <input-assignment-to-java-servlet(|x_temp)> e 
+        ; if <fetch(?PropertyAssignment("notnull", "true"))> passign*
+          then e_noneoption := java:expr|[ false ]|
+          else e_noneoption := java:expr|[ true ]|
+          end
 
   elem-to-java-servlet :
     tc@elem|[ inputDate(e)[passign*]{elem*} ]| ->
