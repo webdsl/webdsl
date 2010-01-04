@@ -2,8 +2,8 @@ application datepicker
 
   entity DateHolder {
     datetime :: DateTime
-    time :: Date (not null)
-    date :: Time
+    time :: Time
+    date :: Date (not null)
   }
 
   var dh := DateHolder{ datetime := null time := null date := null };
