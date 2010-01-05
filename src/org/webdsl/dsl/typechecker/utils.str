@@ -62,15 +62,30 @@ rules // (front-end) types to (back-end) annotations
   types-to-annotations =
     topdown(try(type-to-annotation))
   
+  // Add type of elements to AST
   type-to-annotation =
-      where(sort := <type-of; topdown(try(add-extra-annotations))>)
+      where(sort := <type-of; topdown(add-type-annotations)>)
     ; add-anno(|TypeAnno(sort))
-    
-  type-to-annotation = add-extra-annotations
-    
+  
+  // Add extra typing information to types in the AST
+  type-to-annotation = 
+     (  ?SimpleSort(_) <+ ?GenericSort(_,_) )
+     ; add-type-annotations
+  
+  add-type-annotations = repeat(add-type-annotation)
+
+  /* General */
+  add-type-annotation =
+       ?type
+     ; where(has-no-anno(?DefValueAnno(_)))
+     ; def := <type-default-value> type
+     ; anno := DefValueAnno(def)
+     ; <add-anno(|anno)> type
+     
   /* Entities */
-  add-extra-annotations =
+  add-type-annotation =
       ?type@SimpleSort(name)
+    ; where(has-no-anno(?EntityAnno(_,_,_)))
     ; is-entity-type
     ; with(
         idname := <EntityIdName <+ !None()> name
@@ -81,7 +96,7 @@ rules // (front-end) types to (back-end) annotations
       ; ?x
     )
     ; !x
-  
+    
   // Annotate entities with type information.
   get-entity-class = ?Entity(<id>,_,_) <+ ?EntityNoSuper(<id>,_) <+ ?SessionEntity(<capitalize-string>,_)
   
@@ -92,13 +107,14 @@ rules // (front-end) types to (back-end) annotations
    
   add-entity-anno(|class) =
         ?entity
-      ; <try(add-extra-annotations)> SimpleSort(class)
+      ; <add-type-annotations> SimpleSort(class)
       ; anno := TypeAnno(<id>)
       ; <add-anno(|anno)> entity
      
   /* For SimpleSort(name) remember whether name represents a native class */
-  add-extra-annotations =
+  add-type-annotation =
       ?type@SimpleSort(name)
+    ; where(has-no-anno(?NativeClassAnno(_,_)))
     ; class := <NativeClassQualifiedName> name         // fails if name is not a native class
     ; <add-anno(|NativeClassAnno(name, class))> type
-
+  
