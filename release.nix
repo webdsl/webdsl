@@ -108,8 +108,8 @@ let
         configureFlags = ["--enable-java-backend"] ;
 
         doCheck = true;
+        phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
-
   };
 
   
