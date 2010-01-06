@@ -21,22 +21,23 @@ define page root() {
   var sset: Set<Test> := {t_1,t_2,t_3,t_4,t_5}
   templ(s)
   placeholder target {
-    "placeholder 1"
+    "placeholder: 'target'"
   }
-  action("do",do2())
+  form{ submit("do",do2())[ajax] }
   action do2 () {
+    log("replacing: 'target'");
     replace (target, templ(s));
   }
   
   break
   placeholder pl {
-    "placeholder 2"
+    "placeholder: 'pl'"
   }
   test(s)
 
   break
   placeholder pl3 {
-    "placeholder 3"
+    "placeholder: 'pl3'"
   }
   testset(sset)
   
@@ -71,22 +72,24 @@ define page apage(s: String) {
   output(s)
 }
 
-define templ(s: List<Test>) {
+define ajax templ(s: List<Test>) {
   for(t:Test in s){
     output(t.bla)
   }
 }
 
-define test(s: List<Test>) {
-  action("do",do2())
+define ajax test(s: List<Test>) {
+  form { submit("do",do2())[ajax]}
   action do2 () {
+    log("replacing: 'pl'");
     replace (pl, test(s));
   }
 }
 
-define testset(s: Set<Test>) {
-  action("do",do2())
+define ajax testset(s: Set<Test>) {
+  form { submit("do",do2())[ajax] }
   action do2 () {
+    log("replacing: 'pl3'");
     replace (pl3, testset(s));
   }
 }

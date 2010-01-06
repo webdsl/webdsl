@@ -61,6 +61,21 @@ only-backend-trans :
 	touch libjava-transformations.str
 	touch libjava-transformations.rtree libjava-transformations.c
 	make webdslc
+	
+only-gen :
+	make libwebdsl-generator.la
+	touch .libs/libto-java-servlet.la
+	touch .libs/libback-end-transformations.la
+	touch libto-java-servlet.c
+	touch libto-java-servlet.rtree
+	touch .libs/libto-java-servlet.la
+	touch libjava-transformations.c
+	touch libjava-transformations.rtree
+	touch .libs/libjava-transformations.la
+	touch .libs/libwrite-files.la
+	touch .libs/libjava-pp.la     
+	make webdslc
+	make install
 
 ### syntax definitions
 

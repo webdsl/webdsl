@@ -15,19 +15,19 @@ rules
 
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2],passign*,TemplateBody([])) ->
-    <wrap-common-context-code> 
-    bstm* |[ 
+    <wrap-action-render-java-code>
+    bstm* |[
       out.print("<input type=\"button\" value=\"");
       bstm_exptostring*
       out.print("\" "+e_attrs1+" />");
     ]|
-    where IsAjaxApp
+    where <fetch(TemplateCallPropertyAjax)> passign*
     with  bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; e_attrs1 := <to-html-attrs> [PropertyAssignment("class", "button") | passign*]
 
   elem-to-java-servlet :
     tc@TemplateCall("action",[e2,call@ThisCall(name, args)],passign*,TemplateBody([])) ->
-    <wrap-common-context-code> 
+    <wrap-action-render-java-code>
     bstm* |[
       ident = e_actionid;
       ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
@@ -37,7 +37,7 @@ rules
         out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", \""+ThreadLocalPage.get().getHiddenPostParams()+"\",\""+ThreadLocalPage.get().getFormIdent()+"\", this)'/>"); 
       ]|
     ]|
-    where IsAjaxApp; not(<is-classic-action> tc) 
+    where <fetch(TemplateCallPropertyAjax)> passign*
     with  bstm_exptostring* := <to-page-string-java-servlet> e2
         ; e_attrs1 := <to-html-attrs> [PropertyAssignment("class", "button") | passign*]
         ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
@@ -57,7 +57,7 @@ rules
         out.print("\" "+e_attrs1+" />"); 
       ]|
     ]|
-    where not(IsAjaxApp) <+ <is-classic-action> tc
+    where not(<fetch(TemplateCallPropertyAjax)> passign*)
     with  e3 := <?ThisCall(name,args);!name> e1
         ; bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; actionident := <get-actionnumber> tc   
@@ -74,22 +74,28 @@ rules
     inputident -> java:expr |[ ident+"~inputident"+uniqueid ]|
         
   handle-actions-to-java-servlet: 
-    tc@TemplateCall("action",[e2,e1],passign*,TemplateBody([])) ->
-    <wrap-action-render-java-code> 
-    bstm*|[
-      ident = e4;
-      if(ThreadLocalPage.get().getParammap().get(ident)!=null)
-      {
-        x_action temp = (x_action)env.getAction("~x_action");
-        temp.x_action(e*,ident);
-      }
-      bstm_passign*
-    ]|
+    tc@TemplateCall("action",[e2,e1],passign*,TemplateBody([])) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ThisCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
         ; e4 := <action-id-encoding> (actionident,args)
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
+        ; if <fetch(TemplateCallPropertyAjax)> passign*
+          then bstm* := bstm*|[ ThreadLocalPage.get().enableAjaxActionExecuted(); ]|
+          else bstm* := []
+          end
+        ; result :=
+            <wrap-action-render-java-code> 
+            bstm*|[
+              ident = e4;
+              if(ThreadLocalPage.get().getParammap().get(ident)!=null)
+              {
+                bstm*
+                x_action temp = (x_action)env.getAction("~x_action");
+                temp.x_action(e*,ident);
+              }
+              bstm_passign*
+            ]|
 
   elem-to-java-servlet : //actionLink without call only valid for ajax apps
     tc@TemplateCall("actionLink",[e2],passign*,TemplateBody([])) ->
@@ -99,13 +105,13 @@ rules
       bstm_exptostring*
       out.print("</a>");
     ]|
-    where IsAjaxApp
+    where <fetch(TemplateCallPropertyAjax)> passign*
     with  bstm_exptostring* := <to-page-string-java-servlet>  e2
         ; e_attrs1 := <to-html-attrs> passign*        
     
   elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,call@ThisCall(name, args)],passign*,TemplateBody([])) ->
-    <wrap-common-context-code> 
+    <wrap-action-render-java-code> 
     bstm* |[ 
       ident = e4;
       ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
@@ -116,12 +122,12 @@ rules
         out.print("</a>");
       ]|
     ]|
-    where IsAjaxApp
+    where <fetch(TemplateCallPropertyAjax)> passign*
     with  bstm_exptostring* := <to-page-string-java-servlet> e2
         ; e4 := <action-id-encoding> (<get-actionnumber> tc,args) 
         ; e_attrs1 := <to-html-attrs> passign*        
         
-   elem-to-java-servlet :
+  elem-to-java-servlet :
     tc@TemplateCall("actionLink",[e2,e3@ThisCall(name, args)],passign*,TemplateBody([])) ->
     <wrap-action-render-java-code> 
     bstm* |[ //this doesn't allow downloads, use special downloadLink (see types/file.str)
@@ -143,7 +149,7 @@ rules
         out.print("</a>");
       ]|
     ]|
-    where not(IsAjaxApp)
+    where not(<fetch(TemplateCallPropertyAjax)> passign*)
     with  bstm_exptostring* := <to-page-string-java-servlet>  e2
        // ; actionident := <get-actionnumber> tc   
         ; e_attrs1 := <to-html-attrs> passign*        
@@ -151,21 +157,27 @@ rules
         ; bstm_validation* := <render-validation-exceptions>
         
   handle-actions-to-java-servlet: 
-    tc@TemplateCall("actionLink",[e2,e1],passign*,TemplateBody([])) ->
-    <wrap-action-render-java-code> 
-    bstm*|[
-      ident = e4;
-      if(ThreadLocalPage.get().getParammap().get(ident)!=null )
-      {
-        x_action temp = (x_action)env.getAction("~x_action");
-        temp.x_action(e*,ident);
-      }
-      bstm_passign*
-    ]|
+    tc@TemplateCall("actionLink",[e2,e1],passign*,TemplateBody([])) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ThisCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
         ; e4 := <action-id-encoding> (actionident,args)        
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
         ; x_temp := <newname> "temp"
-  
+        ; if <fetch(TemplateCallPropertyAjax)> passign*
+          then bstm* := bstm*|[ ThreadLocalPage.get().enableAjaxActionExecuted(); ]|
+          else bstm* := []
+          end
+        ; result :=
+            <wrap-action-render-java-code> 
+            bstm*|[
+              ident = e4;
+              if(ThreadLocalPage.get().getParammap().get(ident)!=null )
+              {
+                bstm*
+                x_action temp = (x_action)env.getAction("~x_action");
+                temp.x_action(e*,ident);
+              }
+              bstm_passign*
+            ]|
+        

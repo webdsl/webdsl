@@ -6,6 +6,6 @@ define page root() {
   block[id:= hoi, onclick :=action { replace (hoi , mytemplate()); }  ] { "hoi1"} 
 }
 
-define mytemplate() {
+define ajax mytemplate() {
   "hoi2"
 }

@@ -6,14 +6,14 @@ application test
     }  
   }
   
-  define bla(s:String){
+  define ajax bla(s:String){
     output(s)
     block[onclick := action{ replace(one,test(45)); }]{
       "click to swap"
     }
   }
   
-  define test(i:Int){
+  define ajax test(i:Int){
     output(i)
     block[onclick := action{ replace(one,bla("g34gf")); }]{
       "click to swap"

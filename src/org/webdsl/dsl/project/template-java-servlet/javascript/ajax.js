@@ -64,6 +64,9 @@ function formToPost(formObj) {
       else if (formObj.elements[i].nodeName.toLowerCase() == "textarea") {
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
       }
+      //exclude submit buttons
+      else if (formObj.elements[i].nodeName.toLowerCase() == "input" 
+               && formObj.elements[i].type=="submit"){}
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
     }

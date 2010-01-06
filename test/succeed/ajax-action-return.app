@@ -18,8 +18,13 @@ application test
       for(t:Test){
         in(t)
       }
-      action("save return",action{return red();})
-      action("save refresh",action{refresh();})
+      submit("save return",action{return red();})
+      submit("save return (ajax)",action{return red();})[ajax]
+      submit("save refresh (ajax)",action{refresh();})[ajax]
+      submit("save do nothing else (ajax)",action{refresh();})[ajax]
+      actionLink("link",action{})
+      actionLink("link (ajax)",action{refresh();})[ajax]
+      
     }
   }
   

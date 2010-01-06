@@ -1211,5 +1211,8 @@
    
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
    
-   ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ]
+   ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ],
+   
+   TemplateCallPropertyAjax -- KW["ajax"],
+   AjaxTemplate -- KW["ajax"]
 ]

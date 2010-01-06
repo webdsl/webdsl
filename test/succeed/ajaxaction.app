@@ -6,7 +6,7 @@ define page root() {
   var s: String := "hoi2"
   //block[id := target] {}
   placeholder target {}
-  action("do",do2())
+  form { action("do",do2())[ajax] }
   action do2 () {
     replace (target, templ(s));
     append  (target, templ(s));
@@ -26,7 +26,7 @@ define page apage(s: String) {
   output(s)
 }
 
-define templ(s: String) {
+define ajax templ(s: String) {
   "hoi"
   output(s)
 }

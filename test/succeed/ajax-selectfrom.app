@@ -30,14 +30,12 @@ section datamodel
       select(u.child from uset.users)
       select(u.children from uset.users)
       ac()
-      submitlink("savelink", action{})
+      submitlink("savelink", action{})[ajax]
     }
   }
 
   define ac(){
-    action("save",save())
+    action("save",save())[ajax]
     action save()
-    {
-      refresh();
-    }
+    { }
   }
