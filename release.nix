@@ -107,30 +107,8 @@ let
         configureFlags = ["--enable-java-backend"] ;
 
         doCheck = true;
+        phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
-
-/*
-   docs = 
-     { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;} 
-     , xdoc
-     , build ? jobs.build {}
-     } :
-     let
-       builder = import "${hydraConfig}/build.nix" {
-                   pkgsDefault = import nixpkgs { system = "i686-linux"; }; 
-                   baseline = import "${hydraConfig}/baseline.nix" ;
-                   inherit hydraConfig nixpkgs xdoc;
-                 };
-     in builder.easyDocsTarball {
-       title = "WebDSL xdoc documentation";
-       checkout = webdslsSrc; 
-       packageName = "webdsl";
-       xdocIncludes = ["${build}/share/sdf/webdsl"];
-       stratego = true ;
-       sdf = false ;
-       stats = false;
-     } ;
-*/
 
   };
 
