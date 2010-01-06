@@ -64,6 +64,7 @@ let
         ] ++ strPkgs pkgs ++ lib.optional stdenv.isLinux apacheAnt;
         
         doCheck = if stdenv.isLinux then true else false;
+        phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
 
     buildJavaZip = 
@@ -107,7 +108,6 @@ let
         configureFlags = ["--enable-java-backend"] ;
 
         doCheck = true;
-        phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
 
   };
