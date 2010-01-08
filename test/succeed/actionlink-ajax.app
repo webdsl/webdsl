@@ -26,7 +26,7 @@ application test
       return root();
     }
     action enableajax() {
-      replace(p,template { "sdfsd" } );
+      replace(p,bla());
     }
     placeholder p {}
     
@@ -65,4 +65,8 @@ application test
       }
     }
 
+  }
+
+  define ajax bla(){
+    "sdfsd"
   }

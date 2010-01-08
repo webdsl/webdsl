@@ -25,7 +25,7 @@ section datamodel
     }
     placeholder status {}
     action dummy() {
-      append(status, template { "used ajax" }); //this actions sets the compileroption IsAjax to true
+      append(status, verify()); //this actions sets the compileroption IsAjax to true
     }
     action save() {
       u3_img.save();
@@ -41,3 +41,6 @@ section datamodel
     input(u3_img.storedimage)
   }
   
+  define ajax verify(){
+    "used ajax"
+  }
