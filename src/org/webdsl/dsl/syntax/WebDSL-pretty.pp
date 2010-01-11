@@ -1214,5 +1214,13 @@
    ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ],
    
    TemplateCallPropertyAjax -- KW["ajax"],
-   AjaxTemplate -- KW["ajax"]
+   AjaxTemplate -- KW["ajax"],
+   Weeks                                                  -- _1 KW["weeks"],
+   Days                                                   -- _1 KW["days"],
+   Hours                                                  -- _1 KW["hours"],
+   Minutes                                                -- _1 KW["minutes"],
+   Seconds                                                -- _1 KW["seconds"],
+   Milliseconds                                           -- _1 KW["milliseconds"],
+   TimeInterval                                           -- _1,
+   TimeInterval.1:iter-star                               -- _1
 ]

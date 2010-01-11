@@ -5,77 +5,14 @@
 export prefix=`dirname "$(cd ${0%/*}/.. && echo $PWD/${0##*/})"`
 export datarootdir=@datarootdir@
 
-SEAMPROJECTDIR=.seamapp
 SERVLETPROJECTDIR=.servletapp
-PYTHONPROJECTDIR=dist
-
-function stop_jboss {
-  ps a | grep jboss | grep java | grep -oE "^\s*[0-9]+" | xargs kill
-  for i in `seq 1 20`;
-  do
-    if [ `ps a | grep jboss | grep java | wc -l` == 0 ]; then
-      echo "JBoss stopped."
-      return 0
-    else
-      echo "JBoss still shutting down. Waiting another 5 seconds."
-    fi
-    sleep 5
-  done
-  echo "Gave on waiting."
-  return 1
-}
-
-function start_jboss {
-  echo "Starting JBoss..."
-  screen -d -m $JBOSSPATH/bin/run.sh -b 0.0.0.0
-   for i in `seq 1 20`;
-   do
-     sleep 5
-     echo "Checking if JBoss is running yet..."
-     curl http://localhost:8080 > /dev/null 2> /dev/null
-     if [ "$?" == 0 ]; then
-       echo "Yep!"
-       echo "You can watch the JBoss output by running 'screen -r', to detach the screen press Ctrl-a-d"
-       return 0
-     else
-       echo "Nope, not yet, waiting another 5 seconds..."
-     fi
-   done  
-   echo "Gave up."
-   return 1
-}
-
-function restart_jboss {
-  stop_jboss
-  start_jboss
-}
 
 function load_config {
   echo "Loading application settings (application.ini)..."
   if [ -f "application.ini" ]
   then
     . application.ini
-    if [ "$BACKEND" != "python" ]; then
-      NEEDED_SETTINGS="APPNAME, BACKEND"
-      GREP_SET=`echo $NEEDED_SETTINGS | sed "s/, /\|/g"`
-      SETTING_COUNT=`echo $NEEDED_SETTINGS | wc -w`
-      if [ `export | grep -E "($GREP_SET)" | wc -l` -lt $SETTING_COUNT ]
-      then
-        echo "application.ini file not complete. It needs to include: $NEEDED_SETTINGS"
-        echo -n "Want to adapt your application.ini now? [y/n] "
-        read ANSWER
-        if [ "$ANSWER" == "y" ]
-        then
-          APPNAME=`basename \`pwd\``
-          create_config $APPNAME
-          echo "Adapted application.ini. Run webdsl again to compile your project."
-        fi
-        return 0
-        fi
-      return 1
-    else
-      return 1
-    fi
+    return 1
   else
     echo -n "Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n] "
     read ANSWER
@@ -99,114 +36,90 @@ function load_config {
 }
 
 function create_config {
-#  echo "---- Back-end choice ----"
-#  echo "available back-ends: servlet, python"
-#  if [ "$BACKEND" == "" ]; then
-#     BACKEND=servlet
-#  fi
-#  echo -n "Back-end [$BACKEND]: "
-#  read BACK_END
-#  if [ "$BACK_END" != "" ]
-#  then
-#     BACKEND=$BACK_END
-#  fi
-
   BACKEND=servlet
 
-  if [ "$BACKEND" != "python" ]; then
-    echo "---- Database information ----"
-    echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the database with the given username and password for you."
-    if [ "$DBSERVER" == "" ]; then
-       DBSERVER=localhost
-    fi
-    echo -n "MySQL Host [$DBSERVER]: "
-    read DB_SERVER
-    if [ "$DB_SERVER" != "" ]
-    then
-       DBSERVER=$DB_SERVER
-    fi
+  echo "---- Database information ----"
+  echo "You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the database with the given username and password for you."
+  if [ "$DBSERVER" == "" ]; then
+     DBSERVER=localhost
+  fi
+  echo -n "MySQL Host [$DBSERVER]: "
+  read DB_SERVER
+  if [ "$DB_SERVER" != "" ]
+  then
+     DBSERVER=$DB_SERVER
+  fi
 
-    if [ "$DBUSER" == "" ]; then
-       DBUSER=webdsluser
-    fi
-    echo -n "MySQL Username [$DBUSER]: "
-    read DB_USER
-    if [ "$DB_USER" != "" ]
-    then
-       DBUSER=$DB_USER
-    fi
-    
-    if [ "$DBPASSWORD" == "" ]; then
-       DBPASSWORD=
-    fi
-    echo -n "MySQL Password [$DBPASSWORD]: "
-    stty -echo
-    read DB_PASSWORD
-    stty echo
-    echo
-    if [ "$DB_PASSWORD" != "" ]
-    then
-       DBPASSWORD=$DB_PASSWORD
-    fi
+  if [ "$DBUSER" == "" ]; then
+     DBUSER=webdsluser
+  fi
+  echo -n "MySQL Username [$DBUSER]: "
+  read DB_USER
+  if [ "$DB_USER" != "" ]
+  then
+     DBUSER=$DB_USER
+  fi
+  
+  if [ "$DBPASSWORD" == "" ]; then
+     DBPASSWORD=
+  fi
+  echo -n "MySQL Password [$DBPASSWORD]: "
+  stty -echo
+  read DB_PASSWORD
+  stty echo
+  echo
+  if [ "$DB_PASSWORD" != "" ]
+  then
+     DBPASSWORD=$DB_PASSWORD
+  fi
 
-    if [ "$DBNAME" == "" ]; then
-       DBNAME=webdsldb
-    fi
-    echo -n "MySQL Database [$DBNAME]: "
-    read DB_NAME
-    if [ "$DB_NAME" != "" ]
-    then
-       DBNAME=$DB_NAME
-    fi
-    if [ "$DBMODE" == "" ]; then
-       DBMODE=create-drop
-    fi
-    echo -n "Hibernate database mode (create-drop / update / false) [$DBMODE] "
-    read DB_MODE
-    if [ "$DB_MODE" != "" ]
-    then
-       DBMODE=$DB_MODE
-    fi
+  if [ "$DBNAME" == "" ]; then
+     DBNAME=webdsldb
+  fi
+  echo -n "MySQL Database [$DBNAME]: "
+  read DB_NAME
+  if [ "$DB_NAME" != "" ]
+  then
+     DBNAME=$DB_NAME
+  fi
+  if [ "$DBMODE" == "" ]; then
+     DBMODE=create-drop
+  fi
+  echo -n "Hibernate database mode (create-drop / update / false) [$DBMODE] "
+  read DB_MODE
+  if [ "$DB_MODE" != "" ]
+  then
+     DBMODE=$DB_MODE
+  fi
 
-    echo "Now checking if database info works."
-    echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME > /dev/null 2> /dev/null
-    if [ "$?" == 0 ]
-    then
-       echo "Succesful!"
-    else
-       echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
-       echo -n "MySQL root password: "
-       stty -echo
-       read ROOTPW
-       stty echo
-       echo
-       if [ "$ROOTPW" == "" ]
-       then
-          mysqladmin -uroot create $DBNAME
-          echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
-       else
-     mysqladmin -uroot -p$ROOTPW create $DBNAME
-     echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
-       fi
-       echo "Now checking if database creation worked..."
-       `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
-       if [ "$?" == 0 ]
-       then
-          echo "Yes!"
-       else
-    echo "No, unfortunately you'll have to create the database yourself."
-       fi
-    fi
+  echo "Now checking if database info works."
+  echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME > /dev/null 2> /dev/null
+  if [ "$?" == 0 ]
+  then
+     echo "Succesful!"
   else
-    if [ "$DBMODE" == "" ]; then
-       DBMODE=create-drop
-    fi
-    echo -n "BigTable local database mode (either 'update' or 'create-drop') [$DBMODE] "
-    read DB_MODE
-    if [ "$DB_MODE" != "" ]
-    then
-       DBMODE=$DB_MODE
-    fi
+     echo "Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."
+     echo -n "MySQL root password: "
+     stty -echo
+     read ROOTPW
+     stty echo
+     echo
+     if [ "$ROOTPW" == "" ]
+     then
+        mysqladmin -uroot create $DBNAME
+        echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot
+     else
+   mysqladmin -uroot -p$ROOTPW create $DBNAME
+   echo "GRANT ALL ON $DBNAME.* TO $DBUSER@localhost identified by '$DBPASSWORD';" | mysql -uroot -p$ROOTPW
+     fi
+     echo "Now checking if database creation worked..."
+     `echo 'SHOW TABLES;' | mysql -u$DBUSER -p$DBPASSWORD $DBNAME`
+     if [ "$?" == 0 ]
+     then
+        echo "Yes!"
+     else
+  echo "No, unfortunately you'll have to create the database yourself."
+     fi
   fi
 
   echo -n "Do you want to configure your application for sending email? [y/n] "
@@ -257,38 +170,20 @@ function create_config {
   fi
   
   
-  if [ "$BACKEND" == "seam" ]; then
-    echo "---- JBoss information ----"
-    if [ "$JBOSSPATH" == "" ]; then
-      JBOSSPATH=/opt/jboss
-    fi
-    echo -n "JBoss path for deployment [$JBOSSPATH]: "
-    read BOSSPATH
-    if [ "$BOSSPATH" == "" ]
-    then
-       BOSSPATH=$JBOSSPATH
-    fi
-    JBOSSPATH=$BOSSPATH
+  echo "---- Tomcat information ----"
+  if [ "$TOMCATPATH" == "" ]; then
+    TOMCATPATH=/opt/tomcat
   fi
-  
-  if [ "$BACKEND" == "servlet" ]; then
-    echo "---- Tomcat information ----"
-    if [ "$TOMCATPATH" == "" ]; then
-      TOMCATPATH=/opt/tomcat
-    fi
-    echo -n "Tomcat path for deployment [$TOMCATPATH]: "
-    read CATPATH
-    if [ "$CATPATH" == "" ]
-    then
-       CATPATH=$TOMCATPATH
-    fi
-    TOMCATPATH=$CATPATH
+  echo -n "Tomcat path for deployment [$TOMCATPATH]: "
+  read CATPATH
+  if [ "$CATPATH" == "" ]
+  then
+     CATPATH=$TOMCATPATH
   fi
-
+  TOMCATPATH=$CATPATH
 
   echo "export BACKEND=$BACKEND" >> application.ini
   echo "export TOMCATPATH=$TOMCATPATH" >> application.ini
-#  echo "export JBOSSPATH=$JBOSSPATH" >> application.ini
   echo "export APPNAME=$APPNAME" >> application.ini
   echo "export DBSERVER=$DBSERVER" >> application.ini
   echo "export DBUSER=$DBUSER" >> application.ini
@@ -302,15 +197,7 @@ function create_config {
   echo "export SMTPSSL=$SMTPSSL" >> application.ini
   echo "export SMTPTLS=$SMTPTLS" >> application.ini
   
-  if [ "$BACKEND" == "seam" ]; then
-    rm -rf $SEAMPROJECTDIR
-  fi
-  if [ "$BACKEND" == "servlet" ]; then
-    rm -rf $SERVLETPROJECTDIR
-  fi
-  if [ "$BACKEND" == "python" ]; then
-    rm -rf $PYTHONPROJECTDIR
-  fi
+  rm -rf $SERVLETPROJECTDIR
 }
 
 function extract_archives {
@@ -321,7 +208,7 @@ function extract_archives {
   (
     cd $1
     for i in *.tar.gz; do
-      tar xzvf $i > /dev/null
+      tar xzf $i
       rm $i
     done
   )
@@ -334,42 +221,9 @@ function make_app_code {
     return 1
   fi
   
-  if [ "$BACKEND" == "servlet" ]; then
-    setup_application_template
-    invoke_webdslc
-    return $?
-  fi    
-  if [ "$BACKEND" == "python" ]; then
-    rm -rf $PYTHONPROJECTDIR
-    export WEBDSLPATH=$prefix
-    export DSLTOSEAM=$prefix/bin/webdslc
-    export TEMPLATEPATH=@datadir@/@PACKAGE@/template-python
-    
-    export ESCAPED_DSLTOSEAM=`echo $DSLTOSEAM | sed 's/\\//\\\\\\//g'`
-    export ESCAPED_TOMCATPATH=`echo $TOMCATPATH | sed 's/\\//\\\\\\//g'`
-    export ESCAPED_PREFIX=`echo $prefix | sed 's/\\//\\\\\\//g'`
-
-    echo "Creating Python AppEngine application in $PYTHONPROJECTDIR..."
-    mkdir $PYTHONPROJECTDIR
-    cd $PYTHONPROJECTDIR
-    cp -r $TEMPLATEPATH/* .
-    chmod -R u+w .
-    find -type d -iname '.svn' -exec rm -rf {} \; 2> /dev/null
-    find . -type f -exec sh -c 'sed -e "s/@@PREFIX@@/$ESCAPED_PREFIX/g" -e "s/@@SMTPHOST@@/$SMTPHOST/g" -e "s/@@SMTPPORT@@/$SMTPPORT/g" -e "s/@@SMTPUSER@@/$SMTPUSER/g" -e "s/@@SMTPPASS@@/$SMTPPASS/g" -e "s/@@SMTPSSL@@/$SMTPSSL/g" -e "s/@@SMTPTLS@@/$SMTPTLS/g" -e "s/@@APPNAME@@/$APPNAME/g" -e "s/@@DSLTOSEAM@@/$ESCAPED_DSLTOSEAM/g" $0 > $0.new && mv $0.new $0' {} \;
-    echo "Copying your application files..."
-    tar -cf - `find .. -name "*.app" ! -regex '.*/\..*' -print` 2> /dev/null | ( tar xf - ) || exit 1
-    # Move all non-.app files to the / directory (keeping directory structure intact)
-    tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || exit 1
-    echo "Building application..."
-    chmod +x maak
-    bash maak || exit 1
-    RET="$?"
-    cd ..
-    bash $prefix/bin/webdsl-plugins || exit 1
-    echo "The resulting application is in $PYTHONPROJECTDIR."
-    return $RET
-  fi    
-  
+  setup_application_template
+  invoke_webdslc
+  return $?
 }
 
 function setup_application_template {
@@ -470,7 +324,7 @@ function invoke_webdslc {
     cd $SERVLETPROJECTDIR
     echo "Copying your application files..."
     # Move all non-.app files to the / directory (keeping directory structure intact)
-    tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || (echo -n ""; exit 1)
+    #tar -cf - `find .. ! -name "*.app" ! -regex '.*/\..*' ! -regex '\.\./dist/.*' ! -regex '\.\./application\.ini' -type f -print` 2> /dev/null | (tar xf - ) || (echo -n ""; exit 1)
     # Copy all native java code
     mkdir src/nativejava
     cp -r ../nativejava/*.java src/nativejava/ > /dev/null 2> /dev/null
