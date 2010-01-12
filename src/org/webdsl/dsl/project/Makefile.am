@@ -24,7 +24,8 @@ EXTRA_DIST = \
   
 TESTS = testnewproject.sh
 
-nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES)
+nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES) \
+                           webdsl-build.xml
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/template/app
