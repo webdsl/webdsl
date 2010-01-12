@@ -11,17 +11,17 @@ import org.strategoxt.imp.runtime.dynamicloading.DynamicParseController;
 
 public class NwlParseController extends DynamicParseController 
 { 
-  private static final String LANGUAGE = "nwl";
+  public static final String LANGUAGE = new String("nwl");
 
   private static final String TABLE = "/include/" + LANGUAGE + ".tbl";
 
   private static final String DESCRIPTOR = "/include/" + LANGUAGE + ".packed.esv";
 
-  private static Descriptor descriptor;
+  private static volatile Descriptor descriptor;
 
   private static Throwable notLoadingCause;
 
-  public static Descriptor getDescriptor()
+  public static synchronized Descriptor getDescriptor()
   { 
     if(notLoadingCause != null)
       throw new RuntimeException(notLoadingCause);
@@ -70,7 +70,7 @@ public class NwlParseController extends DynamicParseController
         throw new RuntimeException(notLoadingCause);
       try
       { 
-        initialize(getDescriptor().getLanguage());
+        initialize(this, getDescriptor().getLanguage());
       }
       catch(BadDescriptorException exc)
       { 

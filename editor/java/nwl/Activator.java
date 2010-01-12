@@ -1,6 +1,5 @@
 package nwl;
 
-import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.imp.preferences.PreferencesService;
 import org.eclipse.imp.runtime.PluginBase;
 import org.osgi.framework.BundleContext;
@@ -36,15 +35,10 @@ public class Activator extends PluginBase
     return kPluginID;
   }
 
-  protected static PreferencesService preferencesService = null;
-
-  public static PreferencesService getPreferencesService()
+  @Override public String getLanguageID()
   { 
-    if(preferencesService == null)
-    { 
-      preferencesService = new PreferencesService(ResourcesPlugin.getWorkspace().getRoot().getProject());
-      preferencesService.setLanguageName(kLanguageName);
-    }
-    return preferencesService;
+    return kLanguageName;
   }
+
+  protected static PreferencesService preferencesService = null;
 }
