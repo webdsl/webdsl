@@ -48,3 +48,50 @@ strategies
                                         where not([] := <filter(?SimpleAnno("searchable"))> anno*)
                                             ; name2 := <concat-strings> ["_", name] \}); make-set> x_Class
 
+strategies
+
+  GenerateCodeJavaServlet = generate-java-servlet-reindexer; fail
+
+  generate-java-servlet-reindexer :
+    Application(qid, sections) ->
+    <emit-java-code> compilation-unit|[
+      package utils;
+  
+      import java.util.List;
+  
+      import javax.servlet.*;
+      import javax.servlet.http.*;
+  
+      import utils.*;
+      import pkgname.*;
+  
+      public class ReIndex {
+        public static void main(String[] args) {
+          bstm*
+          System.exit(0);
+        }
+
+        ~*cbd*
+      }
+    ]|
+    with pkgname := <DomainPackage>
+       ; bstm* := <bagof-IndexedEntities; make-set; map(\ x_name -> java|[ for(int p = 0; index#x_name(p); p++); ]|\)> 
+       ; cbd* := <bagof-IndexedEntities; make-set; map(generate-java-servlet-indexer)>
+
+  generate-java-servlet-indexer :
+    x_Class -> class-body-dec |[
+        private static boolean index#x_Class(int page) {
+          System.out.println("Indexing " + "~x_Class" + ": " + (page * 1000) + " - " + ((page + 1) * 1000));
+          org.hibernate.Session session = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+          session.beginTransaction();
+          List<x_Class> results = session.createQuery("from " + "~x_Class").setFirstResult(1000*page).setMaxResults(1000).list();
+          org.hibernate.search.FullTextSession ftem = org.hibernate.search.Search.getFullTextSession(session);
+          ftem.getTransaction().begin();
+          for(x_Class r : results) {
+            ftem.index(r);
+          }
+          int resultLength = results.size();
+          ftem.getTransaction().commit();
+          return resultLength == 1000;
+        }
+      ]|
