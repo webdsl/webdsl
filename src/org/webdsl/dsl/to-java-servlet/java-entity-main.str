@@ -42,6 +42,7 @@ strategies
 
        @javax.persistence.Entity
        mod0*
+       mod1*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
@@ -91,6 +92,11 @@ strategies
       ; cbds_propertyevents := <entity-cbds-property-events(|x_Class)>
       |}
       ; mod0* := <table-mapping-annos> (ent, x_Class)
+      ; if <IndexedEntity> x_Class then
+          mod1* := [anno|[ @org.hibernate.search.annotations.Indexed ]|]
+        else
+          mod1* := []
+        end
       
 
    entity-to-java-entity :
@@ -258,11 +264,21 @@ strategies
        
   hibernate-default-id-prop(|x_class) =
     ?ent;
-    !class-body-dec* |[
+    where(
+      if <IndexedEntity> x_class then
+        mod0* := [anno|[ @org.hibernate.search.annotations.DocumentId ]|,
+                  anno|[ @org.hibernate.search.annotations.FieldBridge(impl=UUIDFieldBridge.class) ]|]
+      else
+        mod0* := []
+      end
+    
+    )
+    ; !class-body-dec* |[
    
       //not using native id generator of dbms, because this can cause flushes when executing queries with transient entities in the where-clause    
       @javax.persistence.Id
       @org.hibernate.annotations.Type(type = "utils.UUIDUserType")
+      mod0*
       @javax.persistence.Column(name="id",length=32) //mysql adds 1 byte prefix for length internally http://dev.mysql.com/doc/refman/5.0/en/char.html
       protected java.util.UUID _id = java.util.UUID.randomUUID();
   
@@ -315,7 +331,7 @@ strategies
    property-to-property-code(|x_Class,id_name) :
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
-       mod1* mod2* mod3* mod4* protected t _#x = e;
+       mod1* mod2* mod3* mod4* mod5* protected t _#x = e;
        
        public t get#x() {
          return _#x;
@@ -372,6 +388,7 @@ strategies
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
         ; bstm_validation* := <validation-annotations-setter> ("olditem","newitem",annos)
+        ; mod5*  := <property-to-index-annos> prop
         //; bstm_validationobjecttracking* := <validation-objects-before-setting> (<concat-strings> ["_",x],"newitem")
           
    field-access-for-simple-sorts:
