@@ -61,9 +61,12 @@ let
         src = tarball;
         buildInputs = [
           pkgconfig 
-        ] ++ strPkgs pkgs ++ lib.optional stdenv.isLinux apacheAnt;
+        ] ++ strPkgs pkgs 
+          ++ lib.optional stdenv.isLinux apacheAnt
+          ++ lib.optional stdenv.isDarwin antDarwin
+          ;
         
-        doCheck = if stdenv.isLinux then true else false;
+        doCheck = if stdenv.isLinux || stdenv.isDarwin then true else false;
         phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
 
