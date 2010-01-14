@@ -294,34 +294,10 @@ strategies
 
    properties-to-code(|x_Class,x_idname) :
      props -> cbds
-     where cbds1 := <filter-concat-warn(property-to-property-code(|x_Class,x_idname)
+     where cbds := <filter-concat-warn(property-to-property-code(|x_Class,x_idname)
                                         | "cannot generate code for property: ")> props
-         ; cbds2 := <all-properties; name-property(|x_Class) <+ ![]> x_Class
-         ; cbds  := <concat>[cbds1, cbds2]
-
-
- strategies
-
-   name-property(|x_Class) :
-     props -> class-body-dec* |[
-       public String getName() {
-         if(x_get()!=null)
-         {
-           return x_get().toString();
-         }
-         else
-         {
-           return "";
-         }
-       }
-     ]|
-     where <not(fetch(    ?Property             ("name",_,_,_  )
-                       <+ ?PropertyNoAnno       ("name",_,_    )
-                       <+ ?DerivedProperty      ("name",_,_,_,_)
-                       <+ ?DerivedPropertyNoAnno("name",_,_,_  )))> props
-         ; x_prop := <get-namefield> props
-         ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
-
+         
+ 
  rules
 
    /**
@@ -491,8 +467,8 @@ rules //one-to-one
        anno|[ @JoinColumn(name="~x_fk") ]|
      ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseAnno(ent, fld))> annos
-         ; SimpleSort(yy)                := <type-of-property> (ent, fld)
+         ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos
+         ; SimpleSort(yy)                := <get-type-anno> inv
          ; x_fk                          := <concat-strings> [x_class, "_", x_prop]
 
    // bidirectional one-to-one inverse side
@@ -502,8 +478,8 @@ rules //one-to-one
        anno|[ @OneToOne(mappedBy="~mappedby",fetch=javax.persistence.FetchType.LAZY) ]|
      ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld))> annos
-         ; SimpleSort(yy) := <type-of-property> (ent, fld)
+         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
+         ; SimpleSort(yy) := <get-type-anno> inv
          ; mappedby       := <concat-strings> ["_", fld]
 
 rules // One-to-Many association with Set
@@ -516,8 +492,8 @@ rules // One-to-Many association with Set
     , anno|[ @JoinColumn(name="~joinColumnName") ]|
     ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-        ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
         ; joinColumnName := <concat-strings> [x_class, "_", x_prop]
 
   // bidirectional one-to-many inverse side Set-Ref
@@ -527,8 +503,8 @@ rules // One-to-Many association with Set
     , anno|[ @JoinColumn(name="~joinColumnName", insertable=false, updatable=false) ]|
     ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-        ; SimpleSort(ident) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; SimpleSort(ident) := <get-type-anno> inv
         //; other_prop := <concat-strings>["_", fld]
         //; x_ent := <concat-strings> [ent, ".class"]
         ; joinColumnName := <concat-strings> [ent, "_", fld]
@@ -542,8 +518,8 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
     , anno|[ @JoinColumn(name = "~joinColumnNameOneSide") ]|
     ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-        ; GenericSort("List", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; GenericSort("List", [SimpleSort(yy)]) := <get-type-anno> inv
         ; joinColumnNameOneSide := <concat-strings> [x_class, "_", x_prop] //[ent, "_", fld, "_one_side"]
 
   // bidirectional one-to-many owning side List-Ref
@@ -556,8 +532,8 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
     , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
     ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-        ; SimpleSort(ident) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; SimpleSort(ident) := <get-type-anno> inv
         ; indexname := <concat-strings> [x_class, x_prop,"index"]
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
@@ -576,8 +552,8 @@ rules   // Many-to-Many associations Set-Set
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
       ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseAnno(ent, fld))> annos 
-        ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos 
+        ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
@@ -589,8 +565,8 @@ rules   // Many-to-Many associations Set-Set
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
        ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld))> annos
-         ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
+         ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
 
@@ -607,8 +583,8 @@ rules   // Many-to-Many associations List-Set
       , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
       ]
     where t := <defined-java-type> s
-        ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-        ; GenericSort("Set", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+        ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+        ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
@@ -621,8 +597,8 @@ rules   // Many-to-Many associations List-Set
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
        ]
      where t := <defined-java-type> s
-         ; <fetch(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
-         ; GenericSort("List", [SimpleSort(yy)]) := <type-of-property> (ent, fld)
+         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
+         ; GenericSort("List", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
 
@@ -855,24 +831,28 @@ rules //associations
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
         ; bstm_validation* := <validation-annotations-collection-operations> annos
-        
+  
+  get-inverse-anno:
+    annos -> (inv, type)
+    with   inv := <fetch-elem(?InverseSlaveAnno(x_c, x_p) + ?InverseAnno(x_c, x_p))> annos
+         ; type := <get-type-anno> inv
+  
+  get-inverse-type = get-inverse-anno; ?(_, <id>)
+  
   if-inverse-is-set(|annos) = inverse-is-set(|annos) <+ ![]
   inverse-is-set(|annos) :
     bstm* -> bstm*
-    where <fetch(?InverseSlaveAnno(x_c, x_p) + ?InverseAnno(x_c, x_p))> annos
-        ; GenericSort("Set",[_]) := <type-of-property> (x_c, x_p)
+    where GenericSort("Set",[_]) := <get-inverse-type> annos
 
   if-inverse-is-list(|annos) = inverse-is-list(|annos) <+ ![]
   inverse-is-list(|annos) :
     bstm* -> bstm*
-    where <fetch(?InverseSlaveAnno(x_c, x_p) + ?InverseAnno(x_c, x_p))> annos
-        ; GenericSort("List",[_]) := <type-of-property> (x_c, x_p)
+    where GenericSort("List",[_]) := <get-inverse-type> annos
  
   if-inverse-is-simple(|annos) = inverse-is-simple(|annos) <+ ![]
   inverse-is-simple(|annos) :
     bstm* -> bstm*
-    where <fetch(?InverseSlaveAnno(x_c, x_p) + ?InverseAnno(x_c, x_p))> annos
-        ; SimpleSort(_) := <type-of-property> (x_c, x_p)
+    where SimpleSort(_) := <get-inverse-type> annos
  
   association-update-statements(s) :
     annos -> bstm0*
@@ -884,41 +864,41 @@ rules //associations
           end   
 
   remove-bidirectional-reference :
-    name#([x_c, x_p]) ->
+    inv@name#([x_c, x_p]) ->
       bstm* |[
         //if ( item.x_getInverse().contains(this) ) { //check not necessary
           item.removeFrom#x_p(this);
         //}
       ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; GenericSort(coll,[_]) := <type-of-property> (x_c, x_p)
+        ; GenericSort(coll,[_]) := <get-type-anno> inv
         ; <?"Set" <+ ?"List"> coll
     with  x_P := <capitalize-string> x_p
         ; x_getInverse := <concat-strings>["get", x_P]
 
   remove-bidirectional-reference :
-    name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
+    inv@name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; SimpleSort(_) := <type-of-property> (x_c, x_p)
+        ; SimpleSort(_) := <get-type-anno> inv
 
   add-bidirectional-reference :
-    name#([x_c, x_p]) ->
+    inv@name#([x_c, x_p]) ->
       bstm* |[
         //if ( !item.get#x_p().contains(this) ) { //check disabled because it would cause incorrect behavior for lists which can contain duplicates
           item.addTo#x_p(this);
         //}
       ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; GenericSort(coll,[_]) := <type-of-property> (x_c, x_p)
+        ; GenericSort(coll,[_]) := <get-type-anno> inv
         ; <?"Set" <+ ?"List"> coll
 
   add-bidirectional-reference :
-    name#([x_c, x_p]) ->
+    inv@name#([x_c, x_p]) ->
       bstm* |[
         //if (value.get#x_p() != this) {
         item.set#x_p(this);
         //}
       ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; SimpleSort(_) := <type-of-property> (x_c, x_p)
+        ; SimpleSort(_) := <get-type-anno> inv
         
