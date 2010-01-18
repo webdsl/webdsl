@@ -131,57 +131,14 @@ rules //add length anno if not specified
   type-default-length : SimpleSort("Patch") -> "1000000"
   type-default-length : SimpleSort("WikiText") -> "1000000"
   type-default-length : SimpleSort("Text") -> "1000000"
-
- rules // add getName function
- 
-   desugar-data = transform-entity-body(add-getname-function)
-   
-   // Add getName for entity without name property
-   add-getname-function(|x_class):
-     props -> props
-     where <not(EntityGetnameFunctionDeclared)> x_class
-         ; <not(fetch(    ?Property             ("name",_,_,_  )
-                       <+ ?PropertyNoAnno       ("name",_,_    )
-                       <+ ?DerivedProperty      ("name",_,_,_,_)
-                       <+ ?DerivedPropertyNoAnno("name",_,_,_  )))> props
-     with x_prop := <get-namefield> props
-        ; x_get := <concat-strings>["get", <capitalize-string> x_prop]
-        ; <emit-webdsl-code> def |[
-            extend entity x_class {
-              function getName() : String {
-                if (this.x_prop != null) {
-                  return this.x_prop as String;
-                } else {
-                  return "";
-                }
-              }
-            }
-          ]|
-        ; rules ( EntityGetnameFunctionDeclared : x_class )
-        
-    // Add getName for entity with name property
-    add-getname-function(|x_class):
-     props -> props
-     where <not(EntityGetnameFunctionDeclared)> x_class
-     with e_expr1 := exp |[ this.name ]|
-		; e_expr2 := <add-anno(|SimpleAnno("getname-internal"))> e_expr1
-     	; <emit-webdsl-code> def |[
-            extend entity x_class {
-              function getName() : String {
-                return e_expr2;
-              }
-            }
-          ]|
-        ; rules ( EntityGetnameFunctionDeclared : x_class )
-        
-    // disallow getName as entity function name
-    is-builtin-ent-func-signature = ?("getName", _)
   
-  rules // entity.name to entity.getName()
+  rules // entity name property annotation
   
-    desugar-data:
-      FieldAccess(x, "name") -> Call(x, "getName", [])
-      where not(get-anno(?SimpleAnno("getname-internal"))) 
-      	  ; SimpleSort(x_class) := <type-of> x
-          ; <not(has-name-property)> x_class
-  	
+  	add-backend-annotation =
+  	   ( ?ent@Entity(_,_,props) <+ ?ent@SessionEntity(_,props) <+ ?ent@EntityNoSuper(_,props) )
+  	  ; where(has-no-anno(?NamePropertyAnno(_)))
+  	  ; where(not(<fetch(  ?Property             ("name",_,_,_  )
+                        <+ ?PropertyNoAnno       ("name",_,_    )
+                        <+ ?DerivedProperty      ("name",_,_,_,_)
+                        <+ ?DerivedPropertyNoAnno("name",_,_,_  ))> props))
+      ; add-anno(|NamePropertyAnno(<get-namefield> props))
