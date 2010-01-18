@@ -1,0 +1,141 @@
+<project name="webdsl-build-command" default="command">
+  
+  
+  <target name="command">
+    <if>
+      <or>
+        <equals arg1="${buildoptions}" arg2="$${buildoptions}"/>
+        <equals arg1="${buildoptions}" arg2=""/>
+      </or>
+      <then>
+        <antcall target="help"/>
+      </then>
+      <else>
+        <!-- tokenize the buildoptions -->
+        <script language="javascript"> <![CDATA[
+          importClass(java.util.regex.Pattern);
+          importClass(java.util.regex.Matcher);
+
+          buildoptions = project.getProperty("buildoptions");
+
+          p = Pattern.compile("\\s");
+          commands = p.split(buildoptions);
+          
+          for(i=0; i<commands.length; i++){
+            project.setProperty("command"+i,commands[i])
+            echo = project.createTask("echo");
+            echo.setMessage("command"+i+": "+commands[i]);
+            echo.perform(); 	
+          }
+          
+          project.setProperty("numberofcommands",commands.length)
+        ]]></script>
+        <fail unless="command0"/>
+        <if>
+          <or>
+            <equals arg1="${command0}" arg2="test"/>
+            <equals arg1="${command0}" arg2="test-web"/>
+          </or>
+          <then>
+            <fail unless="command1"/>
+            <antcall target="clean-all"/>
+            <echo file="${currentdir}/application.ini">backend=servlet
+tomcatpath=/dev/null
+appname=${command1}
+db=sqlite
+dbfile=${currentdir}/temp_test.db
+dbmode=create-drop</echo>  
+            <echo file="${currentdir}/temp_test.db"></echo>  
+            <property name="passtestoption" value="--test" />
+            <antcall target="make-app"/>
+            <if>
+              <equals arg1="${command0}" arg2="test-web"/>
+              <then>
+                <antcall target="check-web-app"/>
+              </then>
+              <else>
+                <antcall target="check-app"/>
+              </else>
+            </if>
+          </then>
+          <else>
+            <!-- non-test commands -->
+            <foreach list="${buildoptions}" delimiter=" " target="do-command" param="command"/> 
+          </else>
+        </if>
+      </else>	
+    </if>
+  </target>
+  
+  
+  <target name="do-command">
+    <switch value="${command}">
+      <case value="deploy"><antcall target="deploy"/></case>
+      <case value="undeploy"><antcall target="undeploy"/></case>
+      <case value="tomcatdeploy"><antcall target="tomcatdeploy"/></case>
+      <case value="tomcatundeploy"><antcall target="tomcatundeploy"/></case>
+      <case value="new"><antcall target="new"/></case>
+      <case value="clean"><antcall target="clean"/></case>
+      <case value="cleanall"><antcall target="clean-all"/></case>
+      <case value="build"><antcall target="build"/></case>
+      <case value="check"><antcall target="check"/></case>
+      <case value="check-web"><antcall target="check-web"/></case>
+      <case value="typecheck"><antcall target="typecheck"/></case>
+      <case value="reindex"><antcall target="reindex"/></case>
+      <case value="help"><antcall target="help"/></case>
+      <default>
+        <echo message="Not a valid command: ${command}" />
+        <antcall target="help"/>
+      </default>
+    </switch>
+  </target>
+<!--
+      "run" )
+         load_config
+         if [ ! -e "$PYTHONPROJECTDIR" ]
+         then
+           make_app
+         fi
+         if [ "$DBMODE" == "create-drop" ]; then
+           APPSWITCH="-c"
+         else
+           APPSWITCH=""
+         fi
+         dev_appserver.py $APPSWITCH $PYTHONPROJECTDIR
+         ;;
+      "code" )
+         make_app_code
+         if [ "$BACKEND" == "seam" ]; then
+           echo "Done, result is in $SEAMPROJECTDIR."
+         fi
+         ;;
+      "analyze" )
+         load_config
+         $prefix/bin/webdslc -i $APPNAME.app - -analysis - -no-generation > /dev/null
+         ;;
+      "convert-to-unicode" )
+         load_config
+         echo "note: the specified database username in application.ini needs read permission on the 'information_schema' database in mysql"
+         echo "select t.table_name, c.column_name from tables t, columns c where t.table_schema = '$DBNAME' and t.table_schema=c.table_schema and t.table_name=c.table_name and column_type = 'varchar(16)';" \
+         | mysql -u$DBUSER -p$DBPASSWORD information_schema > .servletapp/mysqloutput.tmp # 2> /dev/null
+         if [ "$?" == 0 ]
+         then
+           echo "mysql query to retrieve id columns succeeded"
+           echo "select t.table_name, c.column_name, c.column_type from tables t, columns c where t.table_schema = '$DBNAME' and t.table_schema=c.table_schema and t.table_name=c.table_name and (data_type = 'varchar' or data_type = 'longtext');" \
+           | mysql -u$DBUSER -p$DBPASSWORD information_schema > .servletapp/mysqloutput2.tmp # 2> /dev/null
+           if [ "$?" == 0 ]
+           then
+             echo "mysql query to retrieve string columns succeeded"
+             cd .servletapp
+             ant convertoldglobals
+             echo "finished converting id's"
+         fi
+         fi
+         ;;
+      "config" )
+         java -ss4m -cp $prefix/bin/strategoxt.jar:$prefix/bin/webdsl-config.jar org.webdsl.webdsl_config.Main
+         ;;
+-->
+  
+  
+</project>

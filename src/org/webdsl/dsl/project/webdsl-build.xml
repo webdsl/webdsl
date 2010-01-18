@@ -1,260 +1,437 @@
-<project name="webdsl-config" default="help">
+<project name="webdsl-build" default="help">
+  
+  <import file="webdsl-build-command.xml"/>
+  <import file="webdsl-build-deploy.xml"/>
+  <import file="webdsl-build-new.xml"/>
+  <import file="webdsl-build-help.xml"/>
+  <import file="webdsl-build-check.xml"/>
+  <import file="webdsl-build-clean.xml"/>
+  <import file="webdsl-build-index.xml"/>
   
   <property name="libdir" value="${templatedir}/template-java-servlet/lib"/>
   <property name="testlibdir" value="${templatedir}/template-java-servlet/lib-test"/>
   <property name="newprojectdir" value="${templatedir}/new_project"/>
+  <property name="javatemplatedir" value="${templatedir}/template-java-servlet"/>
+  
   
   <taskdef resource="net/sf/antcontrib/antcontrib.properties">
     <classpath>
       <pathelement location="${testlibdir}/ant-contrib-1.0b3.jar"/>
     </classpath>
-  </taskdef> 	
+  </taskdef>
   
-  <target name="help">
-    <echo>
-Options:
-    build : Performs 'webdsl clean' and compiles the application
-            using the settings in application.ini.
-
-      new : Creates an example WebDSL application in a subdirectory
-            of the current directory. The application name is also
-            the name of the directory.
-
-   deploy : Deploys the application to Tomcat. Changing the settings
-            in application.ini requires a new 'webdsl build' first.
-
-    clean : Removes the .servletapp directory which contains generated files.
-
-    check : Runs all tests using the database settings in application.ini.
-
-test [app]: Builds [app] using a generated application.ini and
-            runs all tests on a Sqlite database file.
-    </echo>
+  
+  <target name="check-servletapp-dir-exists">
+    <if>
+      <available file="${currentdir}/.servletapp" type="dir"/>
+      <then></then>
+      <else>
+        <property name="servletapp-dir-not-exists" value="y"/>    	
+      </else>
+    </if>
   </target>
-
-  <target name="new">
-    <input
-      message="Application name (one word): "
-      addproperty="new.appname"
-      defaultvalue="helloworld"
-    />
-    <echo>Application name: ${new.appname}</echo>
-    <mkdir dir="${currentdir}/${new.appname}"/>
+  
+  
+  <target name="setup-application-template" depends="check-servletapp-dir-exists" if="servletapp-dir-not-exists" unless="stop-because-load-config-failed">
+    <if>
+      <equals arg1="${sessiontimeout}" arg2="$${sessiontimeout}" />
+      <then><property name="sessiontimeoutoption" value=""/></then>
+      <else><property name="sessiontimeoutoption" value="--session-timeout ${sessiontimeout}"/></else>
+    </if>
+    <if>
+      <equals arg1="${fastpp}" arg2="true" />
+      <then><property name="fastppoption" value="--fast-pp"/></then>
+      <else><property name="fastppoption" value=""/></else>
+    </if>
+    <if>
+      <equals arg1="${statistics}" arg2="true" />
+      <then><property name="statisticsoption" value="--statistics"/></then>
+      <else><property name="statisticsoption" value=""/></else>
+    </if>
+    <if>
+      <equals arg1="${debug}" arg2="true" />
+      <then>
+        <property name="debugoption" value="--debug"/>
+        <property name="debughibernate" value="hibernate.show_sql=true"/>
+        <property name="debuglog4j1" value="log4j.rootLogger=info, stdout"/>
+        <property name="debuglog4j2" value="log4j.logger.org.hibernate.type=trace"/>
+      </then>
+      <else>
+        <property name="debugoption" value=""/>
+        <property name="debughibernate" value=""/>
+        <property name="debuglog4j1" value=""/>
+        <property name="debuglog4j2" value=""/>
+      </else>
+    </if>
+    <if>
+      <equals arg1="${verbose}" arg2="$${verbose}" />
+      <then><property name="verboseoption" value=""/></then>
+      <else><property name="verboseoption" value="--verbose ${verbose}"/></else>
+    </if>
+    <if>
+      <equals arg1="${extratypecheck}" arg2="true" />
+      <then><property name="extratypecheckoption" value="--extra-typecheck"/></then>
+      <else><property name="extratypecheckoption" value=""/></else>
+    </if>
+    <if>
+      <equals arg1="${dbstorage}" arg2="myisam" />
+      <then><property name="dbstorageoption" value="utils.MySQLMyISAMDialectUTF8"/></then>
+      <else><property name="dbstorageoption" value="utils.MySQL5InnoDBDialectUTF8"/></else>
+    </if>
+    <if>
+      <equals arg1="${dbfile}" arg2="$${dbfile}" />
+      <then><property name="dbfileoption" value="/dev/null"/></then>
+      <else><property name="dbfileoption" value="${dbfile}"/></else>
+    </if>
+    <if>
+      <equals arg1="${tomcatmanager}" arg2="$${tomcatmanager}" />
+      <then><property name="tomcatmanager" value="http://localhost:8080/manager"/></then>
+    </if>
+    <if>
+      <equals arg1="${tomcatuser}" arg2="$${tomcatuser}" />
+      <then><property name="tomcatuser" value="tomcat"/></then>
+    </if>
+    <if>
+      <equals arg1="${tomcatpassword}" arg2="$${tomcatpassword}" />
+      <then><property name="tomcatpassword" value="tomcat"/></then>
+    </if>
     
-    <antcall target="create-config"/>
-
-    <echo>Now copying a simple WebDSL application to ${new.appname}/</echo>
-    <antcall target="copy-new-app-files"/>
+    <fail unless="sessiontimeoutoption"/>
+    <fail unless="fastppoption"/>
+    <fail unless="statisticsoption"/>
+    <fail unless="debugoption"/>
+    <fail unless="debughibernate"/>
+    <fail unless="debuglog4j1"/>
+    <fail unless="debuglog4j2"/>
+    <fail unless="verboseoption"/>
+    <fail unless="extratypecheckoption"/>
+    <fail unless="dbstorageoption"/>
+    <fail unless="dbfileoption"/>
+    <fail unless="tomcatmanager"/>
+    <fail unless="tomcatuser"/>
+    <fail unless="tomcatpassword"/>
+    <fail unless="appname"/>
     
-    <echo>Application created in ${new.appname}. You can now cd to this directory and call the webdsl script to compile your program.</echo>
-  </target>
-   
-  <target name="copy-new-app-files">
-    <copy overwrite="true" todir="${currentdir}/${new.appname}">
-      <fileset dir="${newprojectdir}">
-        <include name="*.app"/>
-      </fileset>
-      <filterchain>
-        <replacetokens>
-          <token key="APPLICATION_NAME" value="${new.appname}"/>
-        </replacetokens>
-      </filterchain>
-    </copy>
-    <copy overwrite="true" todir="${currentdir}/${new.appname}/stylesheets">
-      <fileset dir="${newprojectdir}/stylesheets">
-        <include name="*.css"/>
-      </fileset>
-    </copy>
-    <copy overwrite="true" todir="${currentdir}/${new.appname}/images">
-      <fileset dir="${newprojectdir}/images">
+    <mkdir dir="${currentdir}/.servletapp"/>
+    
+    <if>
+      <equals arg1="${passtestoption}" arg2="--test" />
+      <then>
+        <echo>Copying template for tests</echo>
+        <copy overwrite="true" todir="${currentdir}/.servletapp/lib-test">
+          <fileset dir="${javatemplatedir}/lib-test">
+            <include name="*.*"/>
+          </fileset>
+        </copy>
+        <copy overwrite="true" todir="${currentdir}/.servletapp/tomcat">
+          <fileset dir="${javatemplatedir}/tomcat">
+            <include name="*.*"/>
+          </fileset>
+        </copy>
+      </then>
+      <else>
+        <mkdir dir="${currentdir}/.servletapp/lib-test"/>
+      </else>
+    </if>
+    
+    <echo>Copying template for webdsl application</echo>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/html">
+      <fileset dir="${javatemplatedir}/html">
         <include name="*.*"/>
       </fileset>
     </copy>
-    <move file="${currentdir}/${new.appname}/APPLICATION_NAME.app" tofile="${currentdir}/${new.appname}/${new.appname}.app"/>
-  </target>
-  
-  <target name="test-copy-new-app-files">
-    <mkdir dir="bla"/>
-    <antcall target="copy-new-app-files">
-      <param name="new.appname" value="bla"/>  	
-    </antcall>
-  </target>
-  
-  <target name="create-config">
-    <antcallback target="config-db" return="config.db.host, config.db.name, config.db.user, config.db.pass, config.db.mode"/>
-    <antcallback target="config-email" return="config.smtp.host, config.smtp.port, config.smtp.user, config.smtp.pass"/>
-    <antcallback target="config-webserver" return="config.web.tomcat"/>
-    <antcall target="generate-new-application-ini"/>
-  </target>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/images">
+      <fileset dir="${javatemplatedir}/images">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/javascript">
+      <fileset dir="${javatemplatedir}/javascript">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/lib">
+      <fileset dir="${javatemplatedir}/lib">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/src">
+      <fileset dir="${javatemplatedir}/src">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/src/utils">
+      <fileset dir="${javatemplatedir}/src/utils">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/.servletapp/stylesheets">
+      <fileset dir="${javatemplatedir}/stylesheets">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
 
-  <target name="config-db">
-    <echo message="---- Database information ----"/>
-    <echo message="You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the database with the given username and password for you."/>
-    <input
-      message="MySQL Host: "
-      addproperty="config.db.host"
-      defaultvalue="localhost"
-    />
-    <input
-      message="MySQL Username: "
-      addproperty="config.db.user"
-      defaultvalue="webdsluser"
-    />
-    <input
-      message="MySQL Password: "
-      addproperty="config.db.pass"
-      defaultvalue=""
-    />
-    <input
-      message="MySQL Database: "
-      addproperty="config.db.name"
-      defaultvalue="webdsldb"
-    />
-    <input
-      message="Hibernate database mode (create-drop / update / false): "
-      addproperty="config.db.mode"
-      defaultvalue="create-drop"
-    />
-   
-    <echo>Now checking if database info works.</echo>
+    <echo>Configuring .servletapp/build.properties</echo>
+    <copy overwrite="true" todir="${currentdir}/.servletapp">
+      <fileset dir="${javatemplatedir}/">
+        <include name="build.properties"/>
+        <include name="build.xml"/>
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="APPNAME" value="${appname}"/>
+          <token key="TEMPLATEPATH" value="${javatemplatedir}"/>
+          <token key="DEBUGLOG4J1" value="${debuglog4j1}"/>
+          <token key="DEBUGLOG4J2" value="${debuglog4j2}"/>
+          <token key="SMTPHOST" value="${debuglog4j2}"/>
+          <token key="SMTPPORT" value="${debuglog4j2}"/>
+          <token key="SMTPUSER" value="${debuglog4j2}"/>
+          <token key="SMTPPASS" value="${debuglog4j2}"/>
+          <token key="DB" value="${db}"/>
+          <token key="DBFILEOPTION" value="${dbfileoption}"/>
+          <token key="DEBUGHIBERNATE" value="${debughibernate}"/>
+          <token key="DBMODE" value="${dbmode}"/>
+          <token key="DBSTORAGEOPTION" value="${dbstorageoption}"/>
+          <token key="DBSERVER" value="${dbserver}"/>
+          <token key="DBNAME" value="${dbname}"/>
+          <token key="DBUSER" value="${dbuser}"/>
+          <token key="DBPASSWORD" value="${dbpassword}"/>
+          <token key="TOMCATMANAGER" value="${tomcatmanager}"/>
+          <token key="TOMCATUSER" value="${tomcatuser}"/>
+          <token key="TOMCATPASSWORD" value="${tomcatpassword}"/>
+          <token key="TOMCATPATH" value="${tomcatpath}"/>
+        </replacetokens>
+      </filterchain>
+    </copy>
     
-    <trycatch>
-      <try>
-        <antcall target="execute-sql">
-          <param name="sql.dbhost" value="${config.db.host}"/>
-          <param name="sql.dbname" value="${config.db.name}"/>
-          <param name="sql.dbuser" value="${config.db.user}"/>
-          <param name="sql.dbpass" value="${config.db.pass}"/>
-          <param name="sql.query" value="show tables;"/>
-        </antcall>
-        <echo>Successful!</echo>	
-      </try>
-      <catch>
-        <echo message="Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."/>
-        <input
-          message="MySQL root user password: "
-          addproperty="config.db.rootpass"
-          defaultvalue=""
-        />
-        <antcall target="execute-sql">
-          <param name="sql.dbhost" value="${config.db.host}"/>
-          <param name="sql.dbname" value=""/>
-          <param name="sql.dbuser" value="root"/>
-          <param name="sql.dbpass" value="${config.db.rootpass}"/>
-          <param name="sql.query" value="create database ${config.db.name};"/> 
-        </antcall>
-        <antcall target="execute-sql">
-          <param name="sql.dbhost" value="${config.db.host}"/>
-          <param name="sql.dbname" value=""/>
-          <param name="sql.dbuser" value="root"/>
-          <param name="sql.dbpass" value="${config.db.rootpass}"/>
-          <param name="sql.query" value="grant all on ${config.db.name}.* to ${config.db.user}@${config.db.host} identified by '${config.db.pass}';"/> 
-        </antcall>
-      </catch>
-    </trycatch>
+    <antcall target="extract-archives"/>
+        
   </target>
   
-  <target name="execute-sql">
-    <property name="sql.driver" value="com.mysql.jdbc.Driver"/>
-    <property name="sql.url" value="jdbc:mysql://${sql.dbhost}/${sql.dbname}"/>
-    <property name="sql.classpath" value="${libdir}/mysql-connector-java-5.1.6-bin.jar"/>
-    <echo>Executing query:
-  ${sql.query}
-    </echo>
-    <sql
-      driver="${sql.driver}"
-      url="${sql.url}"
-      userid="${sql.dbuser}"
-      password="${sql.dbpass}"
-      classpath="${sql.classpath}"
-    >
-        ${sql.query}
-    </sql>
+  
+  <target name="extract-archives">
+    <antcall target="extract-archives-in-dir"><param name="dir-of-archives-to-extract" value="javascript"/></antcall>
+    <antcall target="extract-archives-in-dir"><param name="dir-of-archives-to-extract" value="stylesheets"/></antcall>
+  </target>
+  
+  
+  <target name="extract-archives-in-dir" if="dir-of-archives-to-extract">
+    <untar dest="${currentdir}/.servletapp/${dir-of-archives-to-extract}" compression="gzip">
+      <fileset dir="${currentdir}/.servletapp/${dir-of-archives-to-extract}">
+        <include name="**/*.tar.gz"/>
+      </fileset>
+    </untar>
   </target>
 
-  <target name="test-sql">
-    <antcall target="execute-sql">
-      <param name="sql.dbhost" value="localhost"/>
-      <param name="sql.dbname" value="testdb"/>
-      <param name="sql.dbuser" value="root"/>
-      <param name="sql.dbpass" value=""/>
-      <param name="sql.query" value="show tables;"/>
-    </antcall>
-  </target>
-  <target name="test-sql-fail">
-    <antcall target="execute-sql">
-      <param name="sql.dbhost" value="localhost"/>
-      <param name="sql.dbname" value="5yrhtryht"/>
-      <param name="sql.dbuser" value="4tegrhy5trg"/>
-      <param name="sql.dbpass" value="5rthy5rth"/>
-      <param name="sql.query" value="show tables;"/>
-    </antcall>
-  </target>
-
+  
+  <target name="invoke-webdslc" unless="stop-because-load-config-failed">
+    <echo>Copying your application files</echo>
     
-  <target name="config-email">
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/src/nativejava">
+      <fileset dir="${currentdir}/nativejava">
+        <include name="*.java"/>
+      </fileset>
+    </copy>
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/lib">
+      <fileset dir="${currentdir}/lib">
+        <include name="*.jar"/>
+      </fileset>
+    </copy>
+    
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/javascript">
+      <fileset dir="${currentdir}/javascript">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/images">
+      <fileset dir="${currentdir}/images">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/stylesheets">
+      <fileset dir="${currentdir}/stylesheets">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp/html">
+      <fileset dir="${currentdir}/html">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    
+    <copy failonerror="no" overwrite="true" todir="${currentdir}/.servletapp">
+      <fileset dir="${currentdir}/">
+        <include name="*.ctree"/>
+      </fileset>
+      <fileset dir="${currentdir}/">
+        <include name="*.tbl"/>
+      </fileset>
+    </copy>
+
+    <echo>Building application</echo>
+
+    <fail unless="webdslexec"/>
+    <fail unless="appname"/>
+    <fail unless="sessiontimeoutoption"/>
+    <fail unless="statisticsoption"/>
+    <fail unless="fastppoption"/>
+    <fail unless="verboseoption"/>
+    <fail unless="debugoption"/>
+    <fail unless="passtestoption"/>
+    <fail unless="extratypecheckoption"/>
+    
+    <echo>webdslc arguments: </echo>
+    <property name="webdslc-args" value="--servlet -i ../${appname}.app ${sessiontimeoutoption} ${statisticsoption} 
+      ${fastppoption} ${verboseoption} ${debugoption} ${passtestoption} ${extratypecheckoption}"/>
+    <echo>${webdslc-args}</echo>
+    
+    <exec executable="${webdslexec}" dir="${currentdir}/.servletapp" failonerror="true">
+      <arg line="${webdslc-args}"/>
+    </exec>
+  </target>
+  
+  
+  <target name="suggest-to-create-application-ini">
     <input
-      message="Do you want to configure your application for sending email? [y/n]"
-      addproperty="config.email"
+      message="Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n]:"
+      addproperty="loadconfig.createini"
       defaultvalue="n"
     />
     <if>
-      <equals arg1="${config.email}" arg2="y" />
+      <equals arg1="${loadconfig.createini}" arg2="y" />
       <then>
+        <basename property="loadconfig.dirname" file="${currentdir}"/>
         <input
-          message="SMTP host: "
-          addproperty="config.smtp.host"
-          defaultvalue="smtp.gmail.com"
+          message="Application name, also the name of the main .app file (without .app extension):"
+          addproperty="new.appname"
+          defaultvalue="${loadconfig.dirname}"
         />
-        <input
-          message="SMTP Port"
-          addproperty="config.smtp.port"
-          defaultvalue="465"
-        />
-        <input
-          message="SMTP Username: "
-          addproperty="config.smtp.user"
-          defaultvalue=""
-        /> 
-        <input
-          message="SMTP Password: "
-          addproperty="config.smtp.pass"
-          defaultvalue=""
-        /> 
+        <antcall target="create-config">
+          <param name="dir-for-application-ini" value="${currentdir}" />
+        </antcall>
+        <echo>Created application.ini.</echo>
       </then>
       <else>
-        <property name="config.smtp.host" value=""/>
-        <property name="config.smtp.port" value=""/>
-        <property name="config.smtp.user" value=""/>
-        <property name="config.smtp.pass" value=""/>
+        <property name="stop-because-load-config-failed" value="y"/>
       </else>
     </if>
-    <echo>Email configuration done!</echo>
   </target>
   
-  <target name="config-webserver">
-    <input
-      message="Tomcat path for deployment: "
-      addproperty="config.web.tomcat"
-      defaultvalue="/opt/tomcat"
-    />
-    <echo>Web server configuration done!</echo>
+  
+  <!-- to be used in the 'depends' property of a target, so you don't have to list all the vars -->
+  <target name="load-config">
+    <if>
+      <available file="${currentdir}/application.ini"/>
+      <then>
+        <echo>Loading application settings (application.ini)</echo>
+        <loadproperties srcFile="${currentdir}/application.ini"/>
+        <if>
+          <equals arg1="${appname}" arg2="$${appname}"/>
+          <then>
+            <echo>Updating application.ini to new syntax</echo>  
+
+            <!-- convert old style application.ini to new style application.ini -->
+            <script language="javascript"> <![CDATA[
+              importClass(java.io.File);
+              importClass(java.io.BufferedReader);
+              importClass(java.io.FileReader);
+              importClass(java.io.BufferedWriter);
+              importClass(java.io.FileWriter);
+              importClass(java.lang.StringBuilder);
+              importClass(java.util.regex.Pattern);
+              importClass(java.util.regex.Matcher);
+
+              // Access to Ant-Properties by their names
+              currentdir = project.getProperty("currentdir");
+
+              newcontents = new StringBuilder();
+              p = Pattern.compile("export (.*)=(.*)");
+              ptrailingspaces = Pattern.compile("\\s+$");
+
+              try {
+                fr = new FileReader(currentdir+"/application.ini");
+                br = new BufferedReader(fr);
+                while (( line = br.readLine()) != null && line.startsWith("export")){
+                  echo = project.createTask("echo");
+                  echo.setMessage("- "+line);
+                  echo.perform();
+              
+                  m = p.matcher(line);
+                  m.find();
+                  transformedline=m.group(1).toLowerCase()+"="+m.group(2);
+                  //remove trailing spaces
+                  mspaces = ptrailingspaces.matcher(transformedline);
+                  transformedline = mspaces.replaceAll("");
+                  newcontents.append(transformedline+"\n");
+                
+                  echo = project.createTask("echo");
+                  echo.setMessage("+ "+transformedline);
+                  echo.perform();
+                }
+                br.close();
+                fr.close();
+              
+                //write result
+                fw = new FileWriter(currentdir+"/application.ini");
+                bw = new BufferedWriter(fw);
+                bw.write(newcontents.toString());
+                bw.close();
+                fw.close();
+              } catch (e) {
+                echo = project.createTask("echo");
+                echo.setMessage(e);
+                echo.perform();
+              }
+            ]]></script>
+
+            <echo>Retry loading application settings (application.ini)</echo>
+            <loadproperties srcFile="${currentdir}/application.ini"/>
+            <fail unless="appname"/>
+          </then>
+        </if>
+      </then>
+      <else>
+        <antcallback target="suggest-to-create-application-ini" return="stop-because-load-config-failed"/>
+        <if>
+          <equals arg1="${stop-because-load-config-failed}" arg2="$${stop-because-load-config-failed}"/>
+          <then>
+            <echo>Loading application settings (application.ini)...</echo>
+            <loadproperties srcFile="${currentdir}/application.ini"/>
+          </then>
+        </if>
+      </else>
+    </if>
   </target>
   
-  <target name="generate-new-application-ini">
-    <echo file="${currentdir}/${new.appname}/application.ini">export BACKEND=servlet
-export TOMCATPATH=${config.web.tomcat} 
-export APPNAME=${new.appname} 
-export DBSERVER=${config.db.host}
-export DBUSER=${config.db.user}
-export DBPASSWORD=${config.db.pass} 
-export DBNAME=${config.db.name}
-export DBMODE=${config.db.mode}
-export SMTPHOST=${config.smtp.host}
-export SMTPPORT=${config.smtp.port}
-export SMTPUSER=${config.smtp.user}
-export SMTPPASS=${config.smtp.pass} 
-    </echo>  
+  
+  <target name="make-app-code" depends="load-config">
+    <echo>appname: ${appname}</echo>
+    <antcallback target="setup-application-template" return="sessiontimeoutoption, statisticsoption, fastppoption, verboseoption, debugoption, extratypecheckoption"/>
+    <if>
+      <equals arg1="${passtestoption}" arg2="$${passtestoption}"/>
+      <then>
+        <property name="passtestoption" value=""/>
+      </then>
+    </if>
+    <antcall target="invoke-webdslc" />
+  </target>	
+  
+  
+  <target name="make-app">
+    <antcallback target="make-app-code" return="appname"/>
+    <echo>Now compiling generated Java code</echo>
+    <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/.servletapp/build.xml" target="war"/>
   </target>
-    
+  
+
+  <target name="build">
+    <antcall target="clean-app"/>
+    <antcall target="make-app"/>
+    <echo>Build done. Resulting application (.war file) is in .servletapp/. Run 'webdsl deploy' to deploy.</echo>
+  </target>
+
+  
 </project>

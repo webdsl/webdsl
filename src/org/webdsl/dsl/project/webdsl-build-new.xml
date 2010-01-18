@@ -1,0 +1,254 @@
+<project name="webdsl-build-new" default="new">
+ 
+  
+  <target name="new">
+    <input
+      message="Application name (one word): "
+      addproperty="new.appname"
+      defaultvalue="helloworld"
+    />
+    <echo>Application name: ${new.appname}</echo>
+    <mkdir dir="${currentdir}/${new.appname}"/>
+    
+    <antcall target="create-config">
+      <param name="dir-for-application-ini" value="${currentdir}/${new.appname}" />
+    </antcall>
+
+    <echo>Now copying a simple WebDSL application to ${new.appname}/</echo>
+    <antcall target="copy-new-app-files"/>
+    
+    <echo>Application created in ${new.appname}. You can now cd to this directory and call the webdsl script to compile your program.</echo>
+  </target>
+  
+   
+  <target name="copy-new-app-files">
+    <copy overwrite="true" todir="${currentdir}/${new.appname}">
+      <fileset dir="${newprojectdir}">
+        <include name="*.app"/>
+      </fileset>
+      <filterchain>
+        <replacetokens>
+          <token key="APPLICATION_NAME" value="${new.appname}"/>
+        </replacetokens>
+      </filterchain>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/${new.appname}/stylesheets">
+      <fileset dir="${newprojectdir}/stylesheets">
+        <include name="*.css"/>
+      </fileset>
+    </copy>
+    <copy overwrite="true" todir="${currentdir}/${new.appname}/images">
+      <fileset dir="${newprojectdir}/images">
+        <include name="*.*"/>
+      </fileset>
+    </copy>
+    <move file="${currentdir}/${new.appname}/APPLICATION_NAME.app" tofile="${currentdir}/${new.appname}/${new.appname}.app"/>
+  </target>
+  
+  
+  <target name="test-copy-new-app-files">
+    <mkdir dir="bla"/>
+    <antcall target="copy-new-app-files">
+      <param name="new.appname" value="bla"/>  	
+    </antcall>
+  </target>
+  
+  
+  <target name="create-config">
+    <antcallback target="config-db" return="config.db.host, config.db.name, config.db.user, config.db.pass, config.db.mode"/>
+    <antcallback target="config-email" return="config.smtp.host, config.smtp.port, config.smtp.user, config.smtp.pass"/>
+    <antcallback target="config-webserver" return="config.web.tomcat"/>
+    <antcall target="generate-new-application-ini"/>
+  </target>
+
+  
+  <target name="config-db">
+    <echo message="---- Database information ----"/>
+    <echo message="You will now be asked for database info such as hostname, username, password and database. Do note that this script will check if this information is valid, if it is not, it will attempt to create the database with the given username and password for you."/>
+    <input
+      message="MySQL Host: "
+      addproperty="config.db.host"
+      defaultvalue="localhost"
+    />
+    <input
+      message="MySQL Username: "
+      addproperty="config.db.user"
+      defaultvalue="webdsluser"
+    />
+    <input
+      message="MySQL Password: "
+      addproperty="config.db.pass"
+      defaultvalue=""
+    />
+    <input
+      message="MySQL Database: "
+      addproperty="config.db.name"
+      defaultvalue="webdsldb"
+    />
+    <input
+      message="Hibernate database mode (create-drop / update / false): "
+      addproperty="config.db.mode"
+      defaultvalue="create-drop"
+    />
+    <echo>Now checking if database info works.</echo>
+    <trycatch>
+      <try>
+        <antcall target="execute-sql">
+          <param name="sql.dbhost" value="${config.db.host}"/>
+          <param name="sql.dbname" value="${config.db.name}"/>
+          <param name="sql.dbuser" value="${config.db.user}"/>
+          <param name="sql.dbpass" value="${config.db.pass}"/>
+          <param name="sql.query" value="show tables;"/>
+        </antcall>
+        <echo>Successful!</echo>	
+      </try>
+      <catch>
+        <echo message="Unsuccessful, will now attempt to create database. For this we need your MySQL's root password (by default this is blank)."/>
+        <input
+          message="MySQL root user password: "
+          addproperty="config.db.rootpass"
+          defaultvalue=""
+        />
+        <antcall target="execute-sql">
+          <param name="sql.dbhost" value="${config.db.host}"/>
+          <param name="sql.dbname" value=""/>
+          <param name="sql.dbuser" value="root"/>
+          <param name="sql.dbpass" value="${config.db.rootpass}"/>
+          <param name="sql.query" value="create database ${config.db.name};"/> 
+        </antcall>
+        <antcall target="execute-sql">
+          <param name="sql.dbhost" value="${config.db.host}"/>
+          <param name="sql.dbname" value=""/>
+          <param name="sql.dbuser" value="root"/>
+          <param name="sql.dbpass" value="${config.db.rootpass}"/>
+          <param name="sql.query" value="grant all on ${config.db.name}.* to ${config.db.user}@${config.db.host} identified by '${config.db.pass}';"/> 
+        </antcall>
+      </catch>
+    </trycatch>
+  </target>
+  
+  
+  <target name="execute-sql">
+    <property name="sql.driver" value="com.mysql.jdbc.Driver"/>
+    <property name="sql.url" value="jdbc:mysql://${sql.dbhost}/${sql.dbname}"/>
+    <property name="sql.classpath" value="${libdir}/mysql-connector-java-5.1.6-bin.jar"/>
+    <echo>Executing query:
+  ${sql.query}
+    </echo>
+    <sql
+      driver="${sql.driver}"
+      url="${sql.url}"
+      userid="${sql.dbuser}"
+      password="${sql.dbpass}"
+      classpath="${sql.classpath}"
+    >
+        ${sql.query}
+    </sql>
+  </target>
+
+  
+  <target name="test-sql">
+    <antcall target="execute-sql">
+      <param name="sql.dbhost" value="localhost"/>
+      <param name="sql.dbname" value="testdb"/>
+      <param name="sql.dbuser" value="root"/>
+      <param name="sql.dbpass" value=""/>
+      <param name="sql.query" value="show tables;"/>
+    </antcall>
+  </target>
+  
+  
+  <target name="test-sql-fail">
+    <antcall target="execute-sql">
+      <param name="sql.dbhost" value="localhost"/>
+      <param name="sql.dbname" value="5yrhtryht"/>
+      <param name="sql.dbuser" value="4tegrhy5trg"/>
+      <param name="sql.dbpass" value="5rthy5rth"/>
+      <param name="sql.query" value="show tables;"/>
+    </antcall>
+  </target>
+
+    
+  <target name="config-email">
+    <input
+      message="Do you want to configure your application for sending email? [y/n]"
+      addproperty="config.email"
+      defaultvalue="n"
+    />
+    <if>
+      <equals arg1="${config.email}" arg2="y" />
+      <then>
+        <input
+          message="SMTP host: "
+          addproperty="config.smtp.host"
+          defaultvalue="smtp.gmail.com"
+        />
+        <input
+          message="SMTP Port"
+          addproperty="config.smtp.port"
+          defaultvalue="465"
+        />
+        <input
+          message="SMTP Username: "
+          addproperty="config.smtp.user"
+          defaultvalue=""
+        /> 
+        <input
+          message="SMTP Password: "
+          addproperty="config.smtp.pass"
+          defaultvalue=""
+        /> 
+      </then>
+      <else>
+        <property name="config.smtp.host" value=""/>
+        <property name="config.smtp.port" value=""/>
+        <property name="config.smtp.user" value=""/>
+        <property name="config.smtp.pass" value=""/>
+      </else>
+    </if>
+    <echo>Email configuration done!</echo>
+  </target>
+  
+  
+  <target name="config-webserver">
+    <input
+      message="Tomcat path for deployment: "
+      addproperty="config.web.tomcat"
+      defaultvalue="/opt/tomcat"
+    />
+    <echo>Web server configuration done!</echo>
+  </target>
+  
+  
+  <target name="generate-new-application-ini">
+    <fail unless="dir-for-application-ini"/>
+    <echo>${dir-for-application-ini}</echo>
+<!--    <echo file="${dir-for-application-ini}/application.ini">export BACKEND=servlet
+export TOMCATPATH=${config.web.tomcat}
+export APPNAME=${new.appname}
+export DBSERVER=${config.db.host}
+export DBUSER=${config.db.user}
+export DBPASSWORD=${config.db.pass}
+export DBNAME=${config.db.name}
+export DBMODE=${config.db.mode}
+export SMTPHOST=${config.smtp.host}
+export SMTPPORT=${config.smtp.port}
+export SMTPUSER=${config.smtp.user}
+export SMTPPASS=${config.smtp.pass}
+    </echo>-->  
+    <echo file="${dir-for-application-ini}/application.ini">backend=servlet
+tomcatpath=${config.web.tomcat}
+appname=${new.appname}
+dbserver=${config.db.host}
+dbuser=${config.db.user}
+dbpassword=${config.db.pass}
+dbname=${config.db.name}
+dbmode=${config.db.mode}
+smtphost=${config.smtp.host}
+smtpport=${config.smtp.port}
+smtpuser=${config.smtp.user}
+smtppass=${config.smtp.pass}</echo>  
+  </target>
+   
+  
+</project>

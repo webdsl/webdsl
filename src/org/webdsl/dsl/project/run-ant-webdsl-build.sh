@@ -1,1 +1,1 @@
-ant -f webdsl-build.xml -Dtemplatedir=/Users/dan/workspace/webdsl/src/org/webdsl/dsl/project -Dcurrentdir=. $1
+ant -f webdsl-build.xml -Dtemplatedir=/Users/dan/workspace/webdsl/src/org/webdsl/dsl/project -Dcurrentdir=. -Dwebdslexec=/usr/local/bin/webdslc $1

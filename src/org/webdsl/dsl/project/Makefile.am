@@ -6,7 +6,6 @@ WEBDSL_TEMPLATES= \
   $(wildcard new_project/images/*.*) \
   $(wildcard template-java-servlet/build.xml) \
   $(wildcard template-java-servlet/build.properties) \
-  $(wildcard template-java-servlet/Makefile) \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
   $(wildcard template-java-servlet/src/*.properties) \
@@ -25,7 +24,14 @@ EXTRA_DIST = \
 TESTS = testnewproject.sh
 
 nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES) \
-                           webdsl-build.xml
+                           webdsl-build.xml \
+                           webdsl-build-command.xml \
+                           webdsl-build-deploy.xml \
+                           webdsl-build-new.xml \
+                           webdsl-build-help.xml \
+                           webdsl-build-check.xml \
+                           webdsl-build-clean.xml \
+                           webdsl-build-index.xml
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/template/app
