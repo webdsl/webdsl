@@ -23,9 +23,11 @@ define page root() {
   placeholder target {
     "placeholder: 'target'"
   }
-  form{ submit("do",do2())[ajax] }
+  form{ container[onclick:=do2()]{ "do"} }
+  form{ submit("doit",do2())[ajax] }
   action do2 () {
     log("replacing: 'target'");
+    for(i:Int from 0 to 10000000) { var a := i; } //just take some time
     replace (target, templ(s));
   }
   
@@ -62,9 +64,21 @@ define page root() {
       }
     }
   }
-  
   action saveboth(){
-    newt.save(); newt2.save();
+    newt.save();
+    newt2.save();
+  }
+  //large number of buttons to verify load image and no double submits
+  var newt3 := TestEnt{ one := "another text" }
+  form {
+    input(newt3.one)
+    for(forone : Int from 0 to 500){
+      container[onclick:=saveit()]{"save"}
+    }
+  }
+  
+  action saveit(){
+    newt3.save();
   }
 }
 

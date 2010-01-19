@@ -151,11 +151,13 @@ function findTopDown(element, id)
 
 function serverInvoke(template, action, jsonparams, thisform, thisobject)
 {
+  loadingimage = startLoading(thisobject);
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
     function()
     {
       if (this.readyState == 4 && this.status == 200) {
          clientExecute(this.responseText, thisobject);
+         stopLoading(thisobject, loadingimage);
       }
       else if(this.readyState == 4 && this.status != 200) {
         notify('Invalid return of server: '+this.status); 
@@ -178,6 +180,25 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   data = createData(action,jsonparams,thisform,thisobject);
   
   req.send(data);
+}
+
+function startLoading(thisobject){
+  var container = document.createElement("div");
+  var image = document.createElement("img");
+  image.src = contextpath+"/images/ajax-loader.gif";
+  container.appendChild(image);
+  container.style.display = 'inline';
+  thisobject.appendChild(container);
+  thisobject.disabled = true;
+  thisobject.temp_onclick = thisobject.onclick;
+  thisobject.onclick = "false;";
+  return container;
+}
+
+function stopLoading(thisobject, loadingimage){
+  thisobject.removeChild(loadingimage);
+  thisobject.disabled=false;
+  thisobject.onclick = thisobject.temp_onclick;
 }
 
 function createData(action,jsonparams,thisform,thisobject)
