@@ -73,7 +73,7 @@ only-gen :
 	touch libjava-transformations.rtree
 	touch .libs/libjava-transformations.la
 	touch .libs/libwrite-files.la
-	touch .libs/libjava-pp.la     
+	touch .libs/libfast-java-pp.la     
 	make webdslc
 	make install
 
@@ -204,7 +204,7 @@ ALL_LIBS = \
                    libwrite-files.la \
                    libjava-transformations.la \
                    libback-end-transformations.la \
-                   libjava-pp.la                    
+                   libfast-java-pp.la                    
                    
 webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_GPP_LIBS) \
@@ -490,12 +490,12 @@ to-java-servlet.ctree : libto-java-servlet.rtree
 ## fast pretty-printer
 
 if !XT_ENABLE_JAVA_BACKEND
-  lib_LTLIBRARIES  += libjava-pp.la 
+  lib_LTLIBRARIES  += libfast-java-pp.la 
 
-libjava_pp_la_SOURCES = java-pp.c
-libjava_pp_la_LIBADD  = $(STRATEGO_XTC_LIBS)   $(STRATEGO_LIB_LIBS)   $(STRATEGO_RUNTIME_LIBS)   $(ATERM_LIBS)
-libjava_pp_la_CFLAGS  = $(STRATEGO_XTC_CFLAGS) $(STRATEGO_LIB_CFLAGS) $(STRATEGO_RUNTIME_CFLAGS) $(ATERM_CFLAGS) $(AM_CFLAGS)
-libjava_pp_la_LDFLAGS = -avoid-version -no-undefined $(AM_LDFLAGS)
+libfast_java_pp_la_SOURCES = fast-java-pp.c
+libfast_java_pp_la_LIBADD  = $(STRATEGO_XTC_LIBS)   $(STRATEGO_LIB_LIBS)   $(STRATEGO_RUNTIME_LIBS)   $(ATERM_LIBS)
+libfast_java_pp_la_CFLAGS  = $(STRATEGO_XTC_CFLAGS) $(STRATEGO_LIB_CFLAGS) $(STRATEGO_RUNTIME_CFLAGS) $(ATERM_CFLAGS) $(AM_CFLAGS)
+libfast_java_pp_la_LDFLAGS = -avoid-version -no-undefined $(AM_LDFLAGS)
 
 endif
 
