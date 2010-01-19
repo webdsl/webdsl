@@ -225,7 +225,7 @@ function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, 
   data = createData(action,jsonparams,thisform,thisobject);
  
   // Point the IFRAME to the action invoke
-  iframe.src = template+"?"+data; 
+  iframe.src = template+"?action-call-with-get-request-type=1&"+data; 
   
   // Add the IFRAME to the page. This will trigger a request to the action now.
   document.body.appendChild(iframe); 

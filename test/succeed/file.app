@@ -25,7 +25,7 @@ section datamodel
         
         //action("custom download button",download(u))
      //   output(u.storedfile)
-        actionLink("custom download link",download(u))
+        downloadLink("custom download link",download(u))
       }
     }
     "test page"
@@ -35,6 +35,7 @@ section datamodel
       input(u.storedfile)
 
       action("save",save())
+      actionLink("save",save())
     }
 
     action save() {
