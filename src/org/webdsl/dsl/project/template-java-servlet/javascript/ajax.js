@@ -188,6 +188,7 @@ function startLoading(thisobject){
   image.src = contextpath+"/images/ajax-loader.gif";
   container.appendChild(image);
   container.style.display = 'inline';
+  container.style.position = 'absolute';
   thisobject.appendChild(container);
   thisobject.disabled = true;
   thisobject.temp_onclick = thisobject.onclick;
