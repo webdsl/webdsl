@@ -74,3 +74,10 @@ section datamodel
     assert(dt as Time == DateTime("22/06/1983 22:08") as Time);
     assert(dt as Date == DateTime("22/06/1983 22:08") as Date);
   }
+  
+  test dateDefault {
+    var test : DateTest := DateTest{};
+    assert(test.date == null);  
+    assert(test.time == null);  
+    assert(test.datetime == null);  
+  }
