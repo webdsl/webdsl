@@ -149,15 +149,15 @@ function findTopDown(element, id)
   return null;
 }
 
-function serverInvoke(template, action, jsonparams, thisform, thisobject)
+function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback)
 {
-  loadingimage = startLoading(thisobject);
+  if(loadfeedback){ loadingimage = startLoading(thisobject); }
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
     function()
     {
       if (this.readyState == 4 && this.status == 200) {
          clientExecute(this.responseText, thisobject);
-         stopLoading(thisobject, loadingimage);
+         if(loadfeedback){ stopLoading(thisobject, loadingimage); }
       }
       else if(this.readyState == 4 && this.status != 200) {
         notify('Invalid return of server: '+this.status); 
