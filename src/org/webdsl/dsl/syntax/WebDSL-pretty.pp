@@ -1222,5 +1222,6 @@
    Seconds                                                -- _1 KW["seconds"],
    Milliseconds                                           -- _1 KW["milliseconds"],
    TimeInterval                                           -- _1,
-   TimeInterval.1:iter-star                               -- _1
+   TimeInterval.1:iter-star                               -- _1,
+   NotEmptyAnno -- KW["not empty"]
 ]
