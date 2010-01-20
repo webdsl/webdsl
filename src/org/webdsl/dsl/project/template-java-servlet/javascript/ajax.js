@@ -74,6 +74,23 @@ function formToPost(formObj) {
   return request;
 };
 
+function clickFirstButton(formObj) {
+  for (var i = 0; i < formObj.length; i++) {
+    if (formObj.elements != undefined && formObj.elements[i] != undefined && formObj.elements[i].name != "")
+    {
+      if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="submit"){
+        formObj.elements[i].submit();
+        return false;
+      } 
+      if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="button"){
+        formObj.elements[i].click();
+        return false;
+      } 
+    }
+  }
+  return false;
+}
+
 function newRequest()
 {
   xmlHttp = null;
