@@ -4,6 +4,7 @@ imports
   libstrategolib
   Java-15
   libjava-front
+  libback-end-transformations
 
 imports
   libwebdsl-front
@@ -461,8 +462,9 @@ rules
    field-assign-to-java-servlet(|x_Class, x_var) :
      ObjectPropertyAssignment(y_field, e1) -> result //java|[ x_var.y_set(e2); ]|
      with  {| TypeOf,Rename,RenameType :
-             rename-bound-rules(|x_var,x_var,SimpleSort(x_Class))  //rules ( TypeOf : Qualified(x_var, y_field) -> type )
-           ; result := <assignment-to-java-servlet> Stat(Assignment(FieldAccess(Var(x_var), y_field), e1)) //reuse normal translation, e.g. setting list properties are translated differently
+             srt := <get-type-anno> y_field
+           ; field_access := <add-anno(|TypeAnno(srt))> FieldAccess(Var(x_var), y_field)
+           ; result := <assignment-to-java-servlet> Stat(Assignment(field_access, e1)) //reuse normal translation, e.g. setting list properties are translated differently
            |}
          //  e2 := <expression-to-java-servlet> e1
          //; y_set := <concat-strings>["set", <capitalize-string> y_field]
@@ -497,40 +499,23 @@ rules //vars
      with  e3 := <expression-to-java-servlet> e1
          ; e4* := <map(expression-to-java-servlet)> e2*
 
-   generic-call-to-java-servlet :
-     tc@ThisCall(x, e1*) -> result
-     with  e2* := <map(expression-to-java-servlet)> e1*
- //      ; if ent := <JavaInEntity> then //if the call is inside an entity (entity function)
-         ; if (ent := <get-this-call-parent> tc) <+ (ent := <JavaInEntity>) then //checkif the call is inside an entity (entity function), however one condition should sufice...!
-             if <CheckFunctionSignature> (ent, x, <map(get-type-anno)> e1*)// and the call could be to an entity function of that same entity
-             then
-               result := expr|[ this.x#_(hibSession, env, e2*, out) ]| // then add this.
-             else
-               if <is-native-function> x then
-                 x_X := <capitalize-string> x
-                 ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
-               else
-                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, out) ]|
-               end
-             end
-           else
-             {| PredicateFoundInCall:
-             t2* := <map(get-type-anno)> e1*
-           ; x1 := <strip-annos> x
-           ; if 
-               <IsPredicate> (x1,t2*)
-             ; not(PredicateFoundInCall)
-             then
-               rules(PredicateFoundInCall := True())
-             ; result := <add-not-null-checks;expression-to-java-servlet> tc
-             else
-               if <is-native-function> x then
-                 x_X := <capitalize-string> x
-                 //; result := expr|[ nativejava.x_X.x(e2*) ]|
-                 ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
-               else
-                 result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, out) ]|
-               end
-             end
-             |}
-           end
+  // Native function call
+  generic-call-to-java-servlet :
+    tc@ThisCall(x, e1*) -> result
+    where (get-anno(?NativeFunctionCallAnno()))
+    with  e2* := <map(expression-to-java-servlet)> e1*
+        ; x_X := <capitalize-string> x
+        ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
+    
+  // Global function call
+  generic-call-to-java-servlet :
+    tc@ThisCall(x, e1*) -> result
+    where (get-anno(?GlobalCallAnno())) 
+    with  e2* := <map(expression-to-java-servlet)> e1*
+        ; result := expr|[ GlobalFunctions.x#_(hibSession, env, e2*, out) ]|
+  
+  // Entity function call
+  generic-call-to-java-servlet :
+    tc@ThisCall(x, e1*) -> result
+    with  e2* := <map(expression-to-java-servlet)> e1*
+        ; result := expr|[ this.x#_(hibSession, env, e2*, out) ]|
