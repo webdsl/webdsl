@@ -4,8 +4,8 @@ WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
   $(wildcard new_project/stylesheets/*.css) \
   $(wildcard new_project/images/*.*) \
-  $(wildcard template-java-servlet/build.xml) \
-  $(wildcard template-java-servlet/build.properties) \
+	template-java-servlet/webdsl-reindex \
+  $(wildcard template-java-servlet/build.*) \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
   $(wildcard template-java-servlet/src/*.properties) \
