@@ -1,4 +1,5 @@
-bin_SCRIPTS = webdsl webdsl-plugins webdsl.bat
+bin_SCRIPTS = webdsl webdsl-plugins
+bin_PROGRAMS = webdsl.bat
 
 WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
