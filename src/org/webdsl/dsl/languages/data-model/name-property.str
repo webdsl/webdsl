@@ -11,17 +11,10 @@ rules
     where not(<fetch(?IsGeneratedProperty())> anno*)
         ; x := <get-property-name> prop // cope with different property constructors
         ; if <?"name"> x then rules ( HasNameProperty : x_class ) end
-        ; if <is-namefield> prop then rules ( HasNamePropertyOrAnnotation : x_class ) end
+        ; if <is-namefield> prop then rules ( HasNameAnnotation : x_class ) end
 
 strategies
 
-  /**
-   *  Determine whether the entity or its supers has a 'name' property or property with 'name' annotation
-   */ 
-  has-name-property-or-annotation =
-    ?x_class
-    ; (HasNamePropertyOrAnnotation <+ <has-name-property-or-annotation> <Extends> x_class)
-    
   /**
    *  Determine whether the entity or its supers has a 'name' property
    */ 
@@ -31,16 +24,35 @@ strategies
     
 strategies
 
+	// get name of property with name annotation, or return "id"
   get-namefield =
     (   oncetd(\ Property(name, k, type, annos) -> name where <fetch(?SimpleAnno("name"))> annos \; ?name ) 
      <+ oncetd(\ DerivedProperty(name, k, type, annos, e) -> name where <fetch(?SimpleAnno("name"))> annos \; ?name ))
     ; !name
     <+ !"id"
 
-  is-namefield =
+	// succeed if property has name annotation
+  is-namefield = 
     ?Property(name, k, type, annos)
     ; where( <fetch(?SimpleAnno("name"))> annos)
 
   is-namefield =
     ?DerivedProperty(name, k, type, annos, e)
     ; where( <fetch(?SimpleAnno("name"))> annos)
+    
+rules // entity name property annotation for entities without a property 'name'
+  
+  // entity with super: generate custom getter if *this class* has a property with name anno, otherwise inherit from super
+  add-backend-annotation =
+		  ?Entity(class,_,_)
+	   ; where(<HasNameAnnotation> class)
+	   ; where(namefield := <get-namefield>) 	// will return name anno, not "id"
+		 ; add-new-anno(|NamePropertyAnno(namefield))
+  
+  // entity without super: generate custom getter if this class does not have a name property
+	add-backend-annotation =
+	   ( ?ent@SessionEntity(class,_) <+ ?ent@EntityNoSuper(class,_) )
+	   ; where(<not(HasNameProperty)> class)
+	   ; where(namefield := <get-namefield>)	// either a property with name anno, or "id"
+		 ; add-new-anno(|NamePropertyAnno(namefield))
+  
