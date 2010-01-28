@@ -6,6 +6,8 @@ imports
 
 imports
   libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/-
 
 strategies
 
@@ -20,6 +22,18 @@ strategies
   property-to-index-annos :
     DerivedProperty(x, _, s, anno*, e) -> []
 
+rules 		// get all properties of an entity, including supertypes (similar to front-end rule: all-roperties)
+
+	get-all-properties-in-entity:
+		ent -> props
+		with (_,body) := <get-entity-def> ent
+			 ; ourprops := <filter(is-property-cons)> body
+			 ; if <?Entity(_, x_super, _)> ent then
+			 		props := <conc> (ourprops, <EntityFromName; get-all-properties-in-entity> x_super)
+			   else
+			    props := ourprops
+			   end
+			 
 strategies
 
   generate-java-search-functions =
@@ -49,7 +63,7 @@ strategies
       }
     ]|
     with x := <concat-strings> ["search", x_class]
-       ; e_sf* := <all-properties; filter(\ Property(name, _, _, anno*) -> expr|[ "~name" ]|
+       ; e_sf* := <EntityFromName; get-all-properties-in-entity; debug(!"All props: "); filter(\ Property(name, _, _, anno*) -> expr|[ "~name" ]|
                                         where not([] := <filter(?SimpleAnno("searchable"))> anno*) \); make-set> x_class
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
 
