@@ -5,6 +5,7 @@ imports
 
 imports 
   libwebdsl-front
+  org/webdsl/dsl/to-java-servlet/-
 
 rules
 
@@ -79,7 +80,7 @@ rules
     call@ThisCall(act, args) -> e |[ 
       "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget() +"\",\""+ e_actionid +"\", \""+ThreadLocalPage.get().getHiddenPostParams()+e_extraparams+"\",\""+ThreadLocalPage.get().getFormIdent()+"\", this, "+"~x_showloadingfeedback"+");" 
     ]| 
-    where Action(_,_,_) := <get-original-name; ActionDefinition> act //Where, because thiscall can refer to an ordinary expression
+    where get-anno(?ActionCallArgsAnno(_)) //Where, because thiscall can refer to an ordinary expression
     with e_actionid := <action-id-encoding> (actionident, args)
        ; if <?"onclick" <+ ?"onsubmit"> propname //other events are better off without loading indicator (or loading indicator in the target placeholder)
          then x_showloadingfeedback := "true"
@@ -100,7 +101,7 @@ rules
   //handle actions: Note that this code will be executed twice for not build in template calls: just before the template call (to support built ins),
   //and inside the template call, to make the tcall number match
   attribute-handle-actions: 
-    tc@PropertyAssignment(x, ThisCall(x_action, args)) ->
+    tc@PropertyAssignment(x, call@ThisCall(x_action, args)) ->
     bstm*|[
         String x_actionid = e_actionid;
         ~*<render-error-messages-with-error-template(|java:expr|[ x_actionid ]|,<ErrorTemplateAction>)> bstm*|[
@@ -115,7 +116,7 @@ rules
         }
       ]|
     ]|
-    where  Action(_,fargs,_) := <get-original-name; ActionDefinition> x_action //Where, because thiscall can refer to an ordinary expression
+    where  <get-anno(?ActionCallArgsAnno(fargs))> call //Where, because thiscall can refer to an ordinary expression
     with   e* := <zip; map(
             ajax-action-arg-to-java-servlet <+ 
             ?(_,<id>); expression-to-java-servlet
