@@ -1,5 +1,4 @@
-bin_SCRIPTS = webdsl webdsl-plugins
-bin_PROGRAMS = webdsl.bat
+bin_SCRIPTS = webdsl webdsl-plugins webdsl.bat
 
 WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
@@ -19,6 +18,7 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/stylesheets/*) 
 
 EXTRA_DIST = \
+  webdsl.bat \
   $(WEBDSL_TEMPLATES) \
   testnewproject.sh
   
