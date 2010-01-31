@@ -478,7 +478,7 @@ libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 
-libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libwebdsl-generator.rtree libback-end-transformations.rtree
+libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libback-end-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libto-java-servlet.str
