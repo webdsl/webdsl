@@ -5,105 +5,36 @@ imports
 
 imports
   libwebdsl-front
+  org/webdsl/dsl/generation/webdsl-generator
 
+rules	// property checks using general traversal
+	
+	constraint-error-data = constraint-error-data-general(
+		get-entity-def,
+		traverse-entity-hierarchy(bagof-Properties); flatten-list; unique-locations, 
+		check-property
+	)
+	
+rules	// same name
+  
+  check-property: (classname, props) -> <fail>
+  	with property-names := <map(get-property-name)> props
+  	   ; double-names := <find-doubles> property-names
+  	   ; double-props := <filter(where(<member> (<get-property-name>, double-names)))> props
+  	   ; <map(add-double-property-error(|classname))> double-props
+  	   
+ 	add-double-property-error(|classname):
+ 		def -> <add-error(|["Property ",propname," for Entity ", classname, " is defined multiple times."])>
+ 		with propname := <get-property-name>
 
-rules //session entity
-  
-  constraint-error-data :
-    Application(_, sections) -> 
-    <constraint-error-data-duplication-in-session-entity(constraint-error-double-prop-session)>
-        
-  constraint-error-data-duplication-in-session-entity(check) :
-    Application(_, sections) ->
-    <constraint-error-data-duplication-in-entity-common(match-session-entity-extend, extract-session-entity-extend-name, check)>
-        
-  constraint-error-data-duplication-in-entity-common(match,extract,check) :
-    Application(_, sections) -> <fail>
-    with  entities := <collect(match)> sections  
-        ; entitynames := <map(extract)> entities
-        ; uniqentitynames := <uniq> entitynames
-        ; <map(check(|entities))> uniqentitynames
-       
-  match-session-entity-extend =
-     ?SessionEntity(_, _) 
-  <+ ?ExtendSessionEntity(_,_)
-  
-  extract-session-entity-extend-name =
-     \SessionEntity(x, _)  -> x\ 
-  <+ \ExtendSessionEntity(x,_) -> x\ 
-  
-  get-properties-of-session-entities-by-name(|entities):
-    x -> <collect(extract-session-entity-extend-properties-by-name(|x)); flatten-list> entities
-    
-  extract-session-entity-extend-properties-by-name(|x) =
-    (  ?SessionEntity(x, <id>)
-    <+ ?ExtendSessionEntity(x, <id>)
-    )
-  ; filter(is-property-cons)
-  
-  constraint-error-double-prop-session(|entities) :
-    x -> <id>
-    with  properties := <get-properties-of-session-entities-by-name(|entities)> x
-        ; <constraint-error-double-prop-common(|properties, "Session Entity")> x
+rules	// property types
 
-rules //entity
+	constraint-error-data =
+		where(
+			  (name,_,sort) := <get-property-def>
+			; ?GenericSort(_, [<id>])
+			; not(is-entity-type)
+		)
+		; add-error(|["Property ",name," must be a collection of entities, not of a builtin type."])
 
-  constraint-error-data :
-    Application(_, sections) -> 
-    <constraint-error-data-duplication-in-entity(constraint-error-double-prop-entity)>
-        
-  constraint-error-data-duplication-in-entity(check) :
-    Application(_, sections) ->
-    <constraint-error-data-duplication-in-entity-common(match-entity-extend, extract-entity-extend-name, check)>
-  
-  match-entity-extend =
-     ?Entity(_, _, _) 
-  <+ ?EntityNoSuper(_, _) 
-  <+ ?ExtendEntity(_,_)
-  
-  extract-entity-extend-name =
-     \Entity(x, _, _) -> x\ 
-  <+ \EntityNoSuper(x, _) -> x\ 
-  <+ \ExtendEntity(x,_) -> x\
-        
-  constraint-error-double-prop-entity(|entities) :
-    x -> <id>
-    with  properties := <map(get-properties-of-entities-by-name(|entities)); flatten-list> [x|<defined-superclasses> x] //get all properties of x and defined superclasses of x
-        ; <constraint-error-double-prop-common(|properties, "Entity")> x
-  
-  get-properties-of-entities-by-name(|entities):
-    x -> <collect(extract-entity-extend-properties-by-name(|x)); flatten-list> entities
-    
-  extract-entity-extend-properties-by-name(|x) =
-    (  ?Entity(x, _, <id>)
-    <+ ?EntityNoSuper(x, <id>)
-    <+ ?ExtendEntity(x, <id>)
-    )
-  ; filter(is-property-cons)
-
-rules //common  
-  
-  constraint-error-double-prop-common(|properties, entitytype) :
-    x -> <id>
-    with  propertynames := <map(get-property-name)> properties
-        ; doublepropnames := <find-doubles> propertynames
-        ; <map(try(constraint-error-double-prop-helper(|doublepropnames, x, entitytype)))> properties        
-
-  constraint-error-double-prop-helper(|doublenames, x, entitytype) :
-    p -> <add-error(|["Property ",pname," for ", entitytype," ", x, " is defined multiple times."])>
-    where pname := <get-property-name> p
-        ; <fetch(?pname)> doublenames    
-  
-/*        
-  match-any-property = 
-     ?Property(_,_,_,_)
-  <+ ?PropertyNoAnno(_,_,_)
-  <+ ?DerivedProperty(_,_,_,_,_)
-  <+ ?DerivedPropertyNoAnno(_,_,_,_)      
-  
-  match-property-by-name(|x) = 
-     ?Property(x,_,_,_)
-  <+ ?PropertyNoAnno(x,_,_)
-  <+ ?DerivedProperty(x,_,_,_,_)
-  <+ ?DerivedPropertyNoAnno(x,_,_,_) 
-*/             
+		
