@@ -14,15 +14,15 @@ section datamodel
   define page root(){
     table{
       for(u:User){
-        r{c{ 
+        row{column{ 
         "user: "
         output(u.name)
         }}
-        r{c{
+        row{column{
         "parent: "
         output(u.parent.name) // parent is null for u1, should not break page
         }}
-        r{c{
+        row{column{
         "parent's parent: "
         output(u.parent.parent.name)
         }}

@@ -145,32 +145,32 @@ section datamodel
           break
         }
       
-        r{"details below for: " output(u1.name)}
+        row{"details below for: " output(u1.name)}
        
         "list property: "
         for(user:User in u1.list){
-          r{
+          row{
             output(user.name)
             form{action("remove",remove(u1,user))}
             form{action("make first",makeFirst(u1,user))}
           }
         }
         form{action("removeFirst",removeAt(u1,0))}
-        r{"add to list: "}
+        row{"add to list: "}
         for(user:User){
-          r{
+          row{
             output(user.name)
             form{action("add",add(u1,user))}
           }
         }
-        r{"second element: " output(u1.list.get(1))}
-        r{"location of Alice in list: " output(u1.list.indexOf(u2))}
+        row{"second element: " output(u1.list.get(1))}
+        row{"location of Alice in list: " output(u1.list.indexOf(u2))}
         form{
-          r{"set property: "  input(u1.set)}     
-          r{action("save",save(u1))}
+          row{"set property: "  input(u1.set)}     
+          row{action("save",save(u1))}
         }
       }
-      r{c{
+      row{column{
         form{
           action("list to set",l2s(u1))
           action("set to list",s2l(u1))

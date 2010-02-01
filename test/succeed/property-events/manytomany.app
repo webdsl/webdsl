@@ -59,15 +59,15 @@ section datamodel
     { 
       table{row{
       for(user:User){
-          c{"-----"}
-          c{
-            c{output(user.name)" "}
-            c{
+          column{"-----"}
+          column{
+            column{output(user.name)" "}
+            column{
               " parent: "
               output(user.parents)
 
             }
-            c{
+            column{
               " children: "output(user.children)
               for(child : User){
                 output(child.name)

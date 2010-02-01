@@ -11,7 +11,7 @@ section datamodel
   }
   
   extend entity User{
-  	name2 :: String
+    name2 :: String
   
     function test(a:Int, b:Int) : Int
     {
@@ -22,6 +22,6 @@ section datamodel
 
   define page root(){
     var u:User := User{};
-    out(u.name2)
-    "expects 7 : " out(u.test(2, 3))
+    output(u.name2)
+    "expects 7 : " output(u.test(2, 3))
    }
