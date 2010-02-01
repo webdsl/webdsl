@@ -5,7 +5,6 @@ imports
 
 imports
   libwebdsl-front
-  org/webdsl/dsl/generation/webdsl-generator
 
 rules
 
@@ -51,6 +50,14 @@ rules
     SessionEntity(x, _) -> <add-error(|["Session entity type ", xc, " is also defined as normal entity."])>
     where xc := <capitalize-string> x
         ; <fetch(?xc)> doublenames           
+  
+  // check for double properties and functions within entities
+  constraint-error-data =
+    (?Entity(x_id, _, entbodydecs) <+ ?EntityNoSuper(x_id, entbodydecs) <+ ?SessionEntity(x_id, entbodydecs))
+    ; names := <map(get-property-name)> entbodydecs
+    ; doubles := <find-doubles> names
+    ; not([] := doubles)
+    ; <add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles])> x_id
   
   constraint-error-data =
     (?ent@Entity(x_id, _, entbodydecs) <+ ?ent@EntityNoSuper(x_id, entbodydecs) <+ ?ent@SessionEntity(x_id, entbodydecs))
@@ -220,18 +227,3 @@ rules //check for illegal entity names; built-ins are reserved
     x -> <add-error(|["Entity name: \"",entname,"\" is not allowed"])>
     where <is-simple-sort> SimpleSort(entname)
        <+ <reserved-entity-name> entname
-
-rules // extendable traversals
-
-	constraint-error-data-general(match-elem, extract-body, check):
-		ent -> <fail>
-  	where ((classname,body) := <match-elem>)
-  	with allelems := <extract-body> classname
-		where( <check> (classname, allelems) ) 		// check might fail
-		
-	unique-locations: elems -> elems2
-		with locs := <map(get-anno(?At(_,_,_)))> elems
-			 ; elems2 := <uniq; map(\ x -> <fetch-elem(where(get-anno(|x)))> elems\)> locs 
-
-	traverse-entity-hierarchy(s) = get-class-hierarchy; map(s)
-
