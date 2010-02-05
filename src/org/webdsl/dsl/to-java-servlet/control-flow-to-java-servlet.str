@@ -81,7 +81,9 @@ rules // iteration
                              while(x != x_bound) {
                                forelementcounter = Integer.toString(++fallbackcounter);
                                ~*<control-flow-for-separator(s|sep, x_separatorindex)> bstm*|[
+                                 ThreadLocalPage.get().enterTemplateContext(forelementcounter);
                                  bstm*
+                                 ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter);
                                ]|
                                x += x_delta;
                              }
@@ -143,7 +145,9 @@ rules // iteration
         }
         else
           forelementcounter = Integer.toString(fallbackcounter);
+        ThreadLocalPage.get().enterTemplateContext(forelementcounter);
         bstm*
+        ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter);
       ]|
       forLoopCounter--;
       if(forLoopCounter == 0){
@@ -301,18 +305,18 @@ rules //templatecall
     (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
-    ident += e_tname;
+      ident += e_tname;
+      ThreadLocalPage.get().enterTemplateContext(e_tname);
       try{
         Object[] x_args = e;
         Object[] x_templargs = e_templ;
-        int tc2 = ++templatecounter; 
         if(templatecalls.get(ident)==null){
           templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
         }
         try {
           bstm_withcallsmap*
           bstm_attrs*
-          templatecounter = ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, tc2, new Environment(env), e_templarg, withcallsmapout, attrsmapout, e1*);
+          ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout, e1*);
           ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
             if (ThreadLocalPage.get().hasExecutedAction)
               return;
@@ -335,6 +339,7 @@ rules //templatecall
         npe.printStackTrace();
       }
       ident = "";
+      ThreadLocalPage.get().leaveTemplateContextChecked(e_tname);
     ]|
     with  x_args := <newname> "args"
         ; (    !x_methodname; (?"render"<+?"handleActions")

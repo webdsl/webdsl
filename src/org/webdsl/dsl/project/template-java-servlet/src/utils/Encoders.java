@@ -12,10 +12,10 @@ public final class Encoders {
     public static MessageDigest md = null;
     private static int hits = 0;
     
-    public static String encodeTemplateId(String name, String argsrep,int counter)
+    public static String encodeTemplateId(String name, String argsrep, String templateContext)
     {
         //mw: append before update, and cache:
-        String d = name + counter;
+        String d = name + templateContext;
         try{
             hits+=1;
             // Create a Message Digest from a Factory method
