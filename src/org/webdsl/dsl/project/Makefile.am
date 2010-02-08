@@ -32,6 +32,7 @@ nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES) \
                            webdsl-build-help.xml \
                            webdsl-build-check.xml \
                            webdsl-build-clean.xml \
+                           webdsl-build-eclipse.xml \
                            webdsl-build-index.xml
 
 install-data-local:
