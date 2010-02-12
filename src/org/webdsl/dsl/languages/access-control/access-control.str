@@ -8,7 +8,6 @@ module org/webdsl/dsl/languages/access-control/access-control
 
 imports
   libstrategolib
-  //Java-15
   libjava-front
 
 imports
@@ -93,7 +92,7 @@ rules
   create-page-rule(|x_rulegroup):
     r@acrule|[ rule page x_pagematchname(margs) { e acrule* } ]| -> r
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <newname> "genpagepredicate"
+        ; x_predname := <get-pred-id> ("genpagepredicate_", x_pagematchname)
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
         //null checks are added to predicates automatically
@@ -121,7 +120,7 @@ rules
   create-action-rule(|x_rulegroup,farg7*,nestingvars):
     r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <newname> "genactionpredicate"
+        ; x_predname := <get-pred-id> ("genactionpredicate", x_actionmatchname)
         ; farg1* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg1*
         ; (farg8*,e1) := <substitute-parent-vars-1> (farg7*,e)
@@ -138,13 +137,13 @@ rules
               with  e* := <concat> [nestingvars,<map(get-varname-from-formarg);take(|specifiedargcount)> farg*]
                   ; e_acactioncheck := ThisCall("acactioncheck",[Var(x_rulegroup),ThisCall(x_predname,e*)]){r}
           )
-           
+  
   create-template-rule(|x_rulegroup):
     //r@acrule|[ rule template x_templatematchname(margs) { e acrule* } ]| -> r
     r@AccessControlRule(ruletype, x_templatematchname, margs, e, acrule*) -> r
     where <?"template" <+ ?"ajaxtemplate";?isajaxtemplate> ruletype
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <newname> "gentemplatepredicate"
+        ; x_predname := <get-pred-id> ("gentemplatepredicate_", x_templatematchname)
         ; farg2* := <get-formarg-from-matcharg> margs
         ; specifiedargcount := <length> farg2*
         //null checks are added to predicates automatically
@@ -211,4 +210,15 @@ rules
     ; with(<emit-webdsl-section> 
         Section("ac page",[DefaultAccessDeniedPage()])
       )
-      
+
+rules // rule name to identifier (replace non-letters with underscore)
+
+	get-pred-id: (prefix, rulename) -> idname
+		with rulestr := <match-name-to-id> rulename
+			 ; idname := <concat-strings; newname> [prefix, rulestr]
+
+	// If not in [a-zA-Z], replace with underscore
+  replace-unsafe-char: x -> 95
+  	where(not(is-alpha))
+  
+  match-name-to-id = string-as-chars(map(try(replace-unsafe-char)))
