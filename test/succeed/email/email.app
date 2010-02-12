@@ -43,23 +43,23 @@ section datamodel
     output(global_u.mail)
     
     form {
-      action("email",send())
+      action("email",send1())
     }
-    action send() {
+    action send1() {
       email(testemail(global_u));
     }
     
     form {
-      action("email (call in entity function)",send())
+      action("email (call in entity function)",send2())
     }
-    action send() {
+    action send2() {
       global_u.send();
     }
     
     form {
-      action("email (call in global function)",send())
+      action("email (call in global function)",send3())
     }
-    action send() {
+    action send3() {
       emailsendfunction(global_u);
     }
   
