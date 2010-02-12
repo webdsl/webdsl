@@ -25,4 +25,5 @@ public class GlobalsPageServlet extends PageServlet
     protected void initVarsAndArgs(){}
     public void initializeBasics(PageServlet ps, Object[] args, Environment env){}
     public void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] ajaxarguments, Environment env, TemplateCall templateArg){}
+    public String getUniqueName(){ return "#### GlobalsPageServlet #### Should not call getUniqueName here."; }
 }
