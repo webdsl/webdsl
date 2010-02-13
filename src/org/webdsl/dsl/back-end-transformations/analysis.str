@@ -2,39 +2,44 @@ module org/webdsl/dsl/back-end-transformations/analysis
 
 imports
 	libwebdsl-front
-
-rules
-
-  collect-global-vars= 
-    ?app@Application(qid, sections)
-    ; where(
-      globalvars := <collect( \ Section(_,defs) -> <filter(?VarDeclInit(_, _, _))> defs\) ;concat> sections
-      ; rules ( AllGlobalVars := globalvars )
-    )
-    
-  collect-session-vars= 
-    ?app@Application(qid, sections)
-    ; sessionvars := <collect( \ Section(_,defs) -> <filter(?SessionEntity(_, _))> defs\) ;concat> sections
-    ; rules ( SessionEntities := sessionvars )
-    ; !app
+	org/webdsl/dsl/back-end-transformations/back-end-transformations
 
 rules      // analyze-elem
-    
-  //find all entity names that are left in AST 
-  analyze-elem: ent -> ent
-    where class := <?Entity(<id>,_,_) <+ ?EntityNoSuper(<id>,_) <+ ?SessionEntity(<capitalize-string>,_)>
+  
+  // Optimization: currently only global definitions have to be searched, succeed if we're done
+  // with the section to avoid complete traversal of the tree
+  	analyze-elem: sec -> sec
+  	where Section(_,defs) := sec
+  			; <map(try(analyze-elem-global))> defs
+  			
+rules	// analyze-elem for global elements
+
+	// entity
+  analyze-elem-global: ent -> ent
+    where class := <?Entity(<id>,_,body) <+ ?EntityNoSuper(<id>,body) <+ ?SessionEntity(<capitalize-string>,body)>
         ; rules (AllEntityNames :+= class)
         ; rules (EntityFromName : class -> ent)
-        ; <try(get-anno(?IndexedAnno())
-               ; rules(IndexedEntities :+= class))> ent
-    
-  analyze-elem =
+        ; where(<try(get-anno(?IndexedAnno())
+               ; rules(IndexedEntities :+= class))> ent)
+        ; where(
+        			idname := <get-type-anno; get-entity-id-name> ent
+        		; (_,_,sort) := <fetch-elem(get-property-def; ?(idname,_,_))> body
+        		; rules(AllIdProperties :+= (class, idname, sort))
+        )
+  
+  // test
+  analyze-elem-global =
     where(
       ?Test(name,body); rules (AllTestNames :+= name)
     )
+	
+	// global var
+	analyze-elem-global =
+  		?VarDeclInit(_,_,_)
+		; rules(AllGlobalVars :+= <id>)
+	
+	// session entity
+	analyze-elem-global =
+			?SessionEntity(_, _)
+		; rules(SessionEntities :+= <id>)
  
-rules // collect-annos
-
- collect-annos: 
-   elem -> elem
-   where get-annos
