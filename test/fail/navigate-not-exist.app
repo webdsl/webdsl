@@ -1,4 +1,4 @@
-//Page with name 'bla' does not exist, this call expects a page with signature bla
+//There is no page with signature bla()
 application test
 
   entity Entity0 {
