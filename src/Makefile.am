@@ -420,7 +420,7 @@ libjava_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_LIBS)
 endif
 
-libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-generator.rtree libto-java-servlet.rtree libwebdsl-front.rtree
+libjava-transformations.rtree libjava-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o libjava-transformations.rtree \
 		--verbose 1 $(STRCFLAGS)
 	rm -f libjava-transformations.str
@@ -478,7 +478,7 @@ libto_java_servlet_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 
-libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libback-end-transformations.rtree
+libto-java-servlet.rtree libto-java-servlet.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVASTRFILES:.str=.rtree) libwebdsl-front.rtree libback-end-transformations.rtree libwrite-files.rtree libjava-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o libto-java-servlet.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libto-java-servlet.str
