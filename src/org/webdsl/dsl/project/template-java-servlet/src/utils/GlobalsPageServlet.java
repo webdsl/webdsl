@@ -19,6 +19,7 @@ public class GlobalsPageServlet extends PageServlet
 	public String getPageName(){return "";}
 	public String getHiddenParams(){return "";}
 	public String getHiddenPostParams(){return "";}
+	public String getHiddenPostParamsJson(){return "";}
     protected void initialize(){}
     protected void conversion(){}
     protected void loadArguments(){}

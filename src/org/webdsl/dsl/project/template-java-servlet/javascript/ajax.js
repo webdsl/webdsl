@@ -40,7 +40,7 @@ function encodePost(string)
 {
     if (string == undefined) 
       return "";
-    return escape(Utf8.encode(string).replace(/\+/g,"%2B"));
+    return escape(Utf8.encode(string)).replace(/\+/g,"%2B"); // + is not being encoded, but will be incorrectly interpreted as a space
  // return escape(encodeURI(string).replace(/%20/g,"+"));  //stupid replace because of difference between urlencode, en post encoding (see http://www.devpro.it/examples/php_js_escaping.php), 
                                                         //using regexp to replaceAll
 }
@@ -221,7 +221,15 @@ function stopLoading(thisobject, loadingimage){
 
 function createData(action,jsonparams,thisform,thisobject)
 {
-  data = action+"=1&"+jsonparams;
+  data = action+"=1&"
+  
+  paramsdata = eval(jsonparams);
+  if (paramsdata == undefined)
+    if(show_webdsl_debug){ alert("invalid JSON page parameters in ajax action call: "+jsonparams); }
+  for(i = 0; i < paramsdata.length ; i++)
+  {
+    data += paramsdata[i].name + "=" + encodePost(paramsdata[i].value) + "&";
+  }
   //send a form if applicable
   if (thisform !='')
     data += formToPost(findElementById(thisobject, thisform));
