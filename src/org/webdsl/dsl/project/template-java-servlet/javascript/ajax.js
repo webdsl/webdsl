@@ -294,11 +294,7 @@ function notify(string)
 
 function replaceall(command) {
     var theNode = window.document.documentElement;
-
-    var newElem = document.createElement("tmp"); 
-    newElem.innerHTML = unescape(command.value);
-    theNode.innerHTML = newElem.innerHTML;
-    
+    theNode.innerHTML = command.value;
     ajax_post_process(theNode);
 }
 
@@ -306,11 +302,11 @@ function replace(command, thisobject)
 {
     var theNode = findElementById(thisobject, command.id);
     if (command.id != "this")
-      theNode.innerHTML = unescape(command.value);
+      theNode.innerHTML = command.value;
     else //this has other semantics
     {
       var newElem = document.createElement("tmp"); 
-      newElem.innerHTML = unescape(command.value);
+      newElem.innerHTML = command.value;
       theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
@@ -323,11 +319,11 @@ function append(command, thisobject)
 {
     var theNode = findElementById(thisobject, command.id);
     if (command.id != "this")
-      theNode.innerHTML += unescape(command.value);
+      theNode.innerHTML += command.value;
     else //this has other semantics
     {
       var newElem = document.createElement("tmp"); 
-      newElem.innerHTML = unescape(command.value);
+      newElem.innerHTML = command.value;
       theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
