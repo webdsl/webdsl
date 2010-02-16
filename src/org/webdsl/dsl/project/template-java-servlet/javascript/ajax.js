@@ -76,11 +76,10 @@ function formToPost(formObj) {
 
 function clickFirstButton(formObj) {
   for (var i = 0; i < formObj.length; i++) {
-    if (formObj.elements != undefined && formObj.elements[i] != undefined && formObj.elements[i].name != "")
+    if (formObj.elements != undefined && formObj.elements[i] != undefined)
     {
       if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="submit"){
-        formObj.elements[i].submit();
-        return false;
+        return true; //just let the normal form submit proceed
       } 
       if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="button"){
         formObj.elements[i].click();
