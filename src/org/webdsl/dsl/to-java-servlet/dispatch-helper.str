@@ -33,9 +33,7 @@ rules
   
       public class DispatchServletHelper {
           
-          public static HashMap<String, Class> pages = new HashMap<String, Class>();
-          private static HashMap<String, String[]> pagearguments = new HashMap<String, String[]>();
-          private static HashMap<String, Boolean[]> pageEntityArgs = new HashMap<String, Boolean[]>();
+          public static HashMap<String, utils.PageDispatch> pages = new HashMap<String, utils.PageDispatch>();
           
           Class pc;
           java.util.Map<String, utils.File> fileUploads;
@@ -46,6 +44,10 @@ rules
           List<String> messages;
           public boolean isPostRequest;
           public String contextPath;
+          private String requested;
+          public String getRequestedPage(){
+            return requested;
+          }
           
           DispatchServlet servlet;
           
@@ -60,12 +62,7 @@ rules
           
           static{
               bstm*
-              bstm2*
-             
-              //String[] s = {"i1","s1","li1"};
-              //pagearguments.put("testpage", s);
               bstm1*
-              bstm3*
           }
           
           private void addToValues(String key, String val,Map<String, List<String>> parammapvalues){
@@ -80,8 +77,8 @@ rules
             }
           }
           
-          public boolean unspecifiedArgumentsContainEntityTypes(String requested, String[] argnames, int count){
-            Boolean[] argEntityTypes = pageEntityArgs.get(requested);
+          public boolean unspecifiedArgumentsContainEntityTypes(String[] argnames, int count){
+            Boolean[] argEntityTypes = pages.get(requested).getEntityArgs();
             for(int in = argnames.length-1; in >= count; in--){
               if(argEntityTypes[in] == true){
                 return true;
@@ -141,7 +138,6 @@ rules
                 count = 3;
               }
              
-              String requested;
               String[] argnames;
               String[] args;
 
@@ -152,7 +148,7 @@ rules
               } else {
                 requested = req[count];
                 args = java.util.Arrays.copyOfRange(req, count+1, req.length);
-                argnames = pagearguments.get(requested);
+                argnames = pages.get(requested).getArgs();
               }
 
               fileUploads = new HashMap<String, utils.File>();
@@ -193,7 +189,7 @@ rules
                 if(!isPostRequest && parammap.get("~<action-call-with-get-param-name>") == null){ 
                 //ajax calls, which are always post, only have the page name in the url
                 //action-call-with-get-param-name is used in imageOutput, to indicate a 'get' request containing an action call
-                  if(unspecifiedArgumentsContainEntityTypes(requested,argnames,count2)){
+                  if(unspecifiedArgumentsContainEntityTypes(argnames,count2)){
                     throw new utils.TooFewArgumentsException();
                   }
                 }
@@ -255,11 +251,14 @@ rules
                   }
               }
               
-              pc = pages.get(requested);
-
-              if(pc == null) {
-                pc = pages.get("pagenotfound");
+              utils.PageDispatch pd = pages.get(requested);
+              if(pd == null) {
+                pc = pages.get("pagenotfound").getPageClass(); //pagenotfound is always generated
               }
+              else{
+                pc = pd.getPageClass();
+              }
+              
               showerrorpage = !handlePage();
             }
             catch(utils.TooFewArgumentsException ex){
@@ -282,7 +281,7 @@ rules
             
             if(showerrorpage)
             {
-              pc = pages.get("pagenotfound"); 
+              pc = pages.get("pagenotfound").getPageClass(); 
               if(!handlePage()){
                 response.setStatus(404);
                 response.getWriter().write("<h3>404 Not Found</h3>");
@@ -345,44 +344,34 @@ rules
     ]|
     with  pkgname    := <BeanPackage>
         ; pkgname2   := <DomainPackage>
-        ; bstm*  := <map({\ 
-                           x -> bstm |[ pages.put(x_key, x_value); ]| 
+        ; bstm*  := <mapconcat({\ 
+                           x -> bstm* |[
+                           { 
+                             String[] s = { e* };
+                             Boolean[] b = { e1* };
+                             pages.put(x_key, new utils.PageDispatch(x_value, s, b, false));
+                           } 
+                           ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
-                        \})> 
-                        <bagof-AllPageNames;make-set>
-        ; bstm1* := <map({\ 
-                           x -> bstm* |[ {
-                                         String[] s = { e* };
-                                         pagearguments.put(x_key, s);
-                                         Boolean[] b = { e1* };
-                                         pageEntityArgs.put(x_key, b);
-                                         }
-                                      ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
                                ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
                                ; e* := <TemplateFormalArguments;map( \Arg(y,_)-> e|[ "~<get-original-name> y" ]|\ )> x  
                                //TemplateFormalArguments is defined in back-end after rename of templates and variables, for vars must give unrenamed versions so get-original-name is used
-                        \});concat> 
+                        \})> 
                         <bagof-AllPageNames;make-set>
-        ; bstm2*  := <map({\ 
-                           x -> bstm |[ pages.put(x_key, x_value); ]| 
+        ; bstm1*  := <mapconcat({\ 
+                           x -> bstm* |[
+                           { 
+                             String[] s = { e* };
+                             Boolean[] b = { e1* };
+                             pages.put(x_key, new utils.PageDispatch(x_value, s, b, true));
+                           } 
+                           ]| 
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
-                        \})> 
-                        <bagof-AllTopLevelTemplateNamesWithAjax; make-set>
-        ; bstm3* := <map({\ 
-                           x -> bstm* |[ {
-                                         String[] s = { e* };
-                                         pagearguments.put(x_key, s);
-                                         Boolean[] b = { e1* };
-                                         pageEntityArgs.put(x_key, b); 
-                                         }
-                                      ]| 
-                           with  x_key := <concat-strings> ["\"",x,"\""]
                                ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
                                ; e* := <TopLevelTemplateArgumentsJavaServlet;map( \Arg(y,_)-> e|[ "~<get-original-name> y" ]|\ )> x // must use unrenamed versions 
-                        \});concat> 
+                        \})> 
                         <bagof-AllTopLevelTemplateNamesWithAjax; make-set>
         
   true-when-entity-type-arg :
