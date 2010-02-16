@@ -221,13 +221,13 @@ function stopLoading(thisobject, loadingimage){
 
 function createData(action,jsonparams,thisform,thisobject)
 {
-  data = action+"=1&"
+  data = action+"=1&";
+  data += "__ajax_runtime_request__=1&";
   
   paramsdata = eval(jsonparams);
   if (paramsdata == undefined)
     if(show_webdsl_debug){ alert("invalid JSON page parameters in ajax action call: "+jsonparams); }
-  for(i = 0; i < paramsdata.length ; i++)
-  {
+  for(i = 0; i < paramsdata.length ; i++){
     data += paramsdata[i].name + "=" + encodePost(paramsdata[i].value) + "&";
   }
   //send a form if applicable
