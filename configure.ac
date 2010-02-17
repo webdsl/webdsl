@@ -35,6 +35,7 @@ AC_CHECK_PROG([bash], [bash], [`type -p bash`], [/bin/bash])
 WEBDSLC=$prefix/bin/webdslc
 
 XT_ENABLE_JAVA_BACKEND
+XT_ENABLE_WEB_CHECK
 XT_USE_STRC_JAVA
 
 AC_SUBST(WEBDSLC)

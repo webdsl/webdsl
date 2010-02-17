@@ -65,7 +65,8 @@ let
           ++ lib.optional stdenv.isLinux apacheAnt
           ++ lib.optional stdenv.isDarwin antDarwin
           ;
-        
+
+        configureFlags = "--enable-web-check=no";
         doCheck = if stdenv.isLinux || stdenv.isDarwin then true else false;
         phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };

@@ -1,3 +1,12 @@
+AC_DEFUN([XT_ENABLE_WEB_CHECK], [
+  AC_ARG_ENABLE([web-check],
+    [AS_HELP_STRING([--enable-web-check], [Enable web checks (test-web target) during build @<:@default=yes@:>@])],
+    [DO_WEB_CHECK="$enableval"])
+
+  m4_pattern_allow([^XT_ENABLE_WEB_CHECK(_TRUE|_FALSE)?$])
+  AM_CONDITIONAL([XT_ENABLE_WEB_CHECK], [test "$DO_WEB_CHECK" = "yes"])
+])
+
 AC_DEFUN([XT_ENABLE_JAVA_BACKEND], [
   AC_ARG_ENABLE([java-backend],
     [AS_HELP_STRING([--enable-java-backend], [Enable Java backend for WebDSL calls during build @<:@default=no@:>@])],

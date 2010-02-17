@@ -28,14 +28,20 @@ TBLANDCTREEUSEDINSTRATEGOTEST = \
   $(wildcard succeed/stratego/*.ctree)
 
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
-TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
+TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) 
 
 EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
+
+if XT_ENABLE_WEB_CHECK
+
+TESTS += $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
+
+$(TESTSSUCCEEDWEBALL:.app=.sh): run-test-succeed-web-all.sh
+	@$(LN_S) -f $$(pwd)/$< ./$@
+
+endif
 	
 $(TESTSSUCCEEDALL:.app=.sh): run-test-succeed-all.sh
-	@$(LN_S) -f $$(pwd)/$< ./$@
-	
-$(TESTSSUCCEEDWEBALL:.app=.sh): run-test-succeed-web-all.sh
 	@$(LN_S) -f $$(pwd)/$< ./$@
 
 $(TESTSFAIL:.app=.sh): run-test-fail.sh
