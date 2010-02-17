@@ -329,13 +329,13 @@ src-gen/org/webdsl/java_transformations/Main.java : java-transformations.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_transformations -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front
 
 src-gen/org/webdsl/write_files/Main.java : write-files.ctree
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake -la org.webdsl.java_transformations
 
 src-gen/org/webdsl/back_end_transformations/Main.java : back-end-transformations.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $< -o $@ -la org.webdsl.webdsl-front
 
 src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations
 
 src-gen/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
