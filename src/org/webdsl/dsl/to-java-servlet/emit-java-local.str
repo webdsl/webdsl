@@ -1,0 +1,71 @@
+module org/webdsl/dsl/to-java-servlet/emit-java-local
+
+imports
+  libstrategolib
+  libjava-transformations
+  libjava-front
+  libwrite-files
+
+imports
+	org/webdsl/dsl/to-java-servlet/to-java-servlet
+	libwebdsl-front			// for log-time
+	org/webdsl/dsl/to-java-servlet/emit-java
+
+rules
+		
+	// Emit complete classes for an AST node
+	scope-local-emit(s | def) =
+		{| JavaClassesToEmitLocal, LocalEmitDef :
+			rules(
+				InLocalEmit := True()
+				LocalEmitDef := def
+			)
+			; s
+			; log-time(
+		    	bagof-JavaClassesToEmitLocal
+				; get-java-artifacts-java-servlet
+		    ; where(map(print-javafile-name(|"Generating: ")))
+		    | "transform java local")
+		  ; log-time(
+		  		output-generated-files
+		  	| "output java local")
+		|}
+	
+	fail-with-stacktrace = with(fail)
+	
+	// Fail if in scope-local-emit
+	check-not-in-local-emit = where(try(LocalEmitDef; fail-with-stacktrace))
+	
+	// Set the owner of a class; only the owner can write to the class
+	set-emit-owner: classname -> classname
+			where(InLocalEmit)
+		; def := <LocalEmitDef>
+		; rules(LocalEmitOwner : classname -> def)
+	
+	// Emit a java class and prevent generation to this class from elsewhere
+	emit-java-code-local =
+			?cu@CompilationUnit(_,_,_)
+		; classname := <fully-qualified-name> cu
+		; thisdef := <LocalEmitDef>
+		;	if prevdef := <LocalEmitOwner> classname then
+				if <not(eq)> (thisdef, prevdef) then
+						msg := <concat-strings> ["Local emit for non-owned target: ", classname]
+					; !thisdef; debug(!"This definition: ")
+					; !prevdef; debug(!"Prev definition: ")
+					; <fail-with-stacktrace> msg
+				end
+			else
+				<set-emit-owner> classname
+			end
+		; rules(
+				JavaClassesToEmitLocal :+= cu
+			)
+
+rules	// debug
+
+	// Print fully qualified java filename if verbose=2 
+	print-javafile-name(|txt) = 
+		where(?JavaFile(prefix, cu))
+		; <fully-qualified-name> cu
+		; <verbose-msg> [txt, <id>] 
+		

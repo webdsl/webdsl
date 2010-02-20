@@ -15,6 +15,10 @@ imports
   org/webdsl/dsl/to-java-servlet/native/-
   libback-end-transformations
 
+imports		// local generation
+	libjava-transformations
+	libwrite-files
+
 strategies
 
   set-DomainPackage(|pkg) = rules( DomainPackage := pkg )
@@ -52,24 +56,27 @@ strategies
     ; !Application(qid, sections)
     ; log-time(get-all-top-level-template-names|"get-all-top-level-template-names") //TODO should be available in a dynamic rule somewhere
     ; log-time(annotate-with-unique-element-ids|"annotate-with-unique-element-ids")
-  
-   generate-code-java-servlet =
-     ?def@Define(mods, name, args, targs, elems) ;
-         {| ThisEmail, JavaThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
-         with(
-           if ThisTemplateName   then rules ( NestedTemplate := name ) end
-         ; if <fetch(Page)>  mods then rules ( JavaThisPage := name ) end
-         ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
-         ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := name ) end
-         ; rules ( 
-             ThisTemplateName := name
-             ThisTemplateClassName := <get-template-class-name> def
-             //TemplateFormalArguments := args
-           ) 
-         )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
-         ; all(generate-code-java-servlet)
-         |}
+
+	generate-code-java-servlet =
+		?def@Define(mods, name, args, targs, elems) ;
+			{| ThisEmail, JavaThisPage, NestedTemplate, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
+					with (
+							if ThisTemplateName   then rules ( NestedTemplate := name ) end
+						; if <fetch(Page)>  mods then rules ( JavaThisPage := name ) end
+						; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
+						; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := name ) end
+						; rules ( 
+							ThisTemplateName := name
+							ThisTemplateClassName := <get-template-class-name> def
+							//TemplateFormalArguments := args
+						)
+						; scope-local-emit(
+								log-time(not(GenerateCodeJavaServlet)|"generate code define")
+							; all(generate-code-java-servlet)
+							| def
+						)
+					)
+	     |}
    <+(?Action(_, _, _) <+ ?InitAction(_)) ;
          {| InAction, Variables:
            rules ( InAction := True() )
@@ -85,8 +92,11 @@ strategies
    <+(?Entity(ent_name,_,_)<+?SessionEntity(ent_name,_)<+?EntityNoSuper(ent_name,_)) ;
          {| JavaInEntity:
            rules ( JavaInEntity := <id> )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code entity")
-         ; all(generate-code-java-servlet)
+         ; scope-local-emit(
+         		log-time(not(GenerateCodeJavaServlet)|"generate code entity")
+         		; all(generate-code-java-servlet)
+         		| <id>
+         )
          |}
    <+{?el@elem|[ var x : srt := e ]|
          ; where(<elem> (el,<bagof-AllGlobalVars>))}
