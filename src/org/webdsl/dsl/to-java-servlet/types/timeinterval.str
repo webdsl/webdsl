@@ -42,6 +42,15 @@ rules // Int literal
   
 rules
 
+  generate-global-var-initializer :   
+    elem |[ var x : srt := e ]| -> bstm*|[ 
+      env.putVariable("~x", GlobalVariables.get#x(hibSession)); 
+      if(env.getVariable("~x") == null) {
+        hibSession.getTransaction().commit();
+        return;
+      }
+    ]| 
+
    invoke-every-to-init :
     InvokeEvery(e, ti) -> bstm*|[
       java.util.TimerTask x1 = new java.util.TimerTask() {
@@ -50,8 +59,9 @@ rules
               try {
                 hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
                 hibSession.beginTransaction();
-                java.io.PrintWriter out = new java.io.PrintWriter(System.out);
                 Environment env = new Environment(PageServlet.staticEnv);
+                ~*bstm*
+                java.io.PrintWriter out = new java.io.PrintWriter(System.out);
                 e1;
                 hibSession.getTransaction().commit();
               } catch (Exception ex) {
@@ -66,3 +76,4 @@ rules
     with x1 := <newname> "timer"
        ; e1 := <expression-to-java-servlet> e
        ; e2 := <expression-to-java-servlet> ti
+       ; bstm* :=  <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars> 
