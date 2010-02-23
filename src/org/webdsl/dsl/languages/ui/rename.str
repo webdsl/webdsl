@@ -13,7 +13,7 @@ rules
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; rules ( TemplateArg := farg1* ) //used in template-call.str
-          ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+          ; farg2* := <map(rename-argument)/*;declare-generic-template-args(|x)*/> farg1*
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
@@ -33,7 +33,7 @@ rules
           ; rules ( InTemplate := y )
           ; rules ( TemplateArg := farg1* )
           ; genargs := <get-generictype-args> farg1*
-          ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+          ; farg2* := <map(rename-argument)/*;declare-generic-template-args(|x)*/> farg1*
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
@@ -50,7 +50,7 @@ rules
          ; y := x{<newname> x}
          ; rules ( InTemplate := y )
          ; rules ( TemplateArg := farg1* )
-         ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+         ; farg2* := <map(rename-argument)/*;declare-generic-template-args(|x)*/> farg1*
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
          ; elem2* := <alltd(rename-actions(|y)); rename-all> elem1*
@@ -98,7 +98,7 @@ rules
   rename-ui :  // don't go into actions without proper scopes; actions are sometimes renamed without going through the whole template rename rule, in that case the action rule below is not used
   Action(nm1, args1, b1) -> Action(nm1, args2, b2)
   with {| Rename, VarInTemplateContext
-        : args2 := <map(rename)> args1
+        : args2 := <map(rename-argument)> args1
         ; b2 := <rename-all> b1
        |}
           
@@ -114,10 +114,10 @@ rules
   rename-actions(|direct-enclosing-define-name) :
     Action(nm1, args1, b1) -> Action(nm2, args2, b2)
     with {| Rename, VarInTemplateContext
-          : args2 := <map(rename)> args1
+          : args2 := <map(rename-argument)> args1
           ; b2 := <rename-all> b1
           |}
-       ; nm2 := nm1{<get-nested-name> nm1}
+       ; nm2 := nm1{<context-rename> nm1}
        ; rules ( RenameActionCall : //TODO remove this variant when all type of actions calls are converted
                   ThisCall(nm1, a1*){anno*} -> ThisCall(nm2, a2*){DirectEnclosingDefine(direct-enclosing-define-name),anno*}
                   with  a2* := <rename-all> a1* 
@@ -146,8 +146,14 @@ rules
           |}
           
 rules // naming
-          
-    get-nested-name: name -> newname
+
+	// return name prefixed with toplevel definition
+	toplevel-rename: name -> newname
+		with contextname := <generate-template-name> (<InTemplate <+ InPage>, <TemplateArg; map(?Arg(_,<id>))>)
+			 ; newname := <separate-by(|"_"); concat-strings; newname> [contextname, "_", name]
+	
+	// return name prefixed with all surrounding definitions	
+  context-rename: name -> newname
   	with arguments := <bigbagof-TemplateArg; map(map(?Arg(_,<id>)))>
   		 // if in page, the first definition of TemplateArg will be the page's arguments
   		 ; if InPage then
@@ -160,4 +166,9 @@ rules // naming
   		 ; templates := <zip> (<bigbagof-InTemplate>, templateargs)
   		 ; templatenames := <map(generate-template-name); reverse> templates
   		 ; newname := <concat; separate-by(|"_"); concat-strings> [pagenames, templatenames, [name]]
+	
+	rename-argument :
+    Arg(x, srt) -> Arg(y, srt2)
+    with srt2 := <rename-type> srt
+       ; y := <rename-bound(toplevel-rename|srt2)> x
 	
