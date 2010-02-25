@@ -8,8 +8,8 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/build.*) \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
-  $(wildcard template-java-servlet/src/*.properties) \
-  $(wildcard template-java-servlet/src/utils/*.java) \
+  $(wildcard template-java-servlet/src-template/*.properties) \
+  $(wildcard template-java-servlet/src-template/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
   $(wildcard template-java-servlet/tomcat/*) \
   $(wildcard template-java-servlet/javascript/*) \
@@ -45,8 +45,8 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/new_project
 	mkdir -p $(pkgdatadir)/template-java-servlet
 	mkdir -p $(pkgdatadir)/template-java-servlet/lib
-	mkdir -p $(pkgdatadir)/template-java-servlet/src
-	mkdir -p $(pkgdatadir)/template-java-servlet/src/utils
+	mkdir -p $(pkgdatadir)/template-java-servlet/src-template
+	mkdir -p $(pkgdatadir)/template-java-servlet/src-template/utils
 	mkdir -p $(pkgdatadir)/template-python
 
 bootclean:
