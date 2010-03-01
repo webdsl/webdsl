@@ -1,4 +1,4 @@
-//should be of collection type
+//must be of collection type
 application test
 
   entity SomeEntity {
