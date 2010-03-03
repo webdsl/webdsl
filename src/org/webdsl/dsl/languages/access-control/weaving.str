@@ -17,7 +17,7 @@ rules
 
 
   process-access-control-checks =
-    topdown(try(process-page-checks))
+  	topdown(try(process-page-checks))
                 //<+ process-action-checks//TODOcontext sensitive when inferring visibility may need to apply right away in templates and wait for pages
                /* <+ process-function-checks//TODO can be done earlier as well, doesn't need typechecker fix   */
  // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
@@ -39,7 +39,7 @@ rules
         ; elem0* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
                                             <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elemwithoutdefines*
         ; elem1* := [elem0*,localtemplatedefine*]
-        ; x_predname := <get-pred-id> ("genpagepredicatecombined_", x_ident)
+        ; x_predname := <concat-strings> ["genpagepredicatecombined_", x_ident]
         ; <emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
         ; e2* := <map(get-varname-from-formarg)> farg*
         ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
@@ -56,16 +56,18 @@ rules
   
   //separated from page and template accheck processing for clarity
   process-page-actions:
-    def|[ define page x_ident(farg*)  req* { elem*  } ]| ->
+    def@def|[ define page x_ident(farg*)  req* { elem*  } ]| ->
     def|[ define page x_ident(farg*)  req* { elem2* } ]|
-    with  elem1* := <alltd(process-action-checks(|farg*))> elem*
+    with  name := <get-toplevel-name> def
+    		; elem1* := <alltd(process-action-checks(|name,farg*))> elem*
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
-    def|[ define mod* x_ident(farg*)  req* { elem* }  ]| -> <declare> def|[ define mod* x_ident(farg*){ elem3* } ]|
+    def@def|[ define mod* x_ident(farg*)  req* { elem* }  ]| -> <declare> def|[ define mod* x_ident(farg*){ elem3* } ]|
     where not(<fetch(?Page())> mod*)
     with  {| IsInTemplate: rules(IsInTemplate := True())
-             ; elem1* := <alltd(process-action-checks(|farg*))> elem*
+    				 ; name := <get-toplevel-name> def
+             ; elem1* := <alltd(process-action-checks(|name,farg*))> elem*
              ; elem3* := < alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
             // ; elem3* := <alltd(AddTemplateArgToActionArg)> elem2*
           |}
@@ -95,13 +97,13 @@ rules
            |}
 
   
-  process-action-checks(|farg4*): //page farg
+  process-action-checks(|toplevel-name,farg4*): //page farg
   d@elem|[ action x_ident(farg*){ stat*  } ]| -> 
     elem|[ action x_ident(farg2*){ stat3* } ]|
     with  listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
         ; e1 := <combine-checks> listofchecks
         ; <warn-for-blocked-elements> (e1,"action",x_ident,farg*)
-        ; x_predname := <newname> "genactionpredicatecombined"//problem with nested checks;
+        ; x_predname := <concat-strings> ["genactionpredicatecombined_", toplevel-name, x_ident] //problem with nested checks;
         ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1)
         ; farg5* := [farg6*,farg*] //TODO Duplicate names in farg
         ; <emit-webdsl-code> def|[ predicate x_predname(farg5*) { e2 } ]|

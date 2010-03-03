@@ -8,7 +8,6 @@ module org/webdsl/dsl/typechecker/typechecker
 
 imports
   libstrategolib
-  Java-15 
   libjava-front
 
 imports
@@ -28,8 +27,43 @@ strategies
   ; not(after-tc-declare-hook
         ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure after-tc-declare-hook rules end with ';fail'")
         ) // setup dyn rules for checks
-  ; rename-all
+  ; rename-top
   ; if-typechecking(
     where(bottomup(try(constraint-error))), 
     id)
   |}
+
+rules
+
+	get-toplevel-name = get-anno(?TopLevelName(<id>))
+
+rules // with-toplevel-name
+	
+	create-toplevel-name = 
+			modname := <get-anno(?At(<id>, _, _); clean-module-name)>
+		; <concat-strings; newname> [modname, "_topdef"]
+	
+	// in desugaring, new elements do not have position information
+	create-toplevel-name = <concat-strings; newname> ["topdef"]
+		
+	clean-module-name = string-as-chars(filter(is-alpha))
+	
+	// Find toplevel name for element and do s	
+	with-toplevel-name(s) = {| TopLevelDefineName:
+			(		where(name := <get-toplevel-name>)
+				<+	where(name := <create-toplevel-name>)
+					; add-anno(|TopLevelName(name))
+			)
+		;	rules(TopLevelDefineName := name)
+  	; s
+  |}
+
+rules	// map-toplevel
+	
+	// Apply s on all toplevel definitions
+	map-toplevel(s) = alltd(
+		{
+			?Section(name, defs){anno*}; defs2 := <map(s)> defs; !Section(name, defs2){anno*}
+		<+?AccessControlDefinition(name, defs){anno*}; defs2 := <map(s)> defs; !AccessControlDefinition(name, defs2){anno*}
+			})
+			

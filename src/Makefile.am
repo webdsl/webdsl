@@ -311,6 +311,7 @@ strategoxt.jar: $(STRATEGOXT_JAR)
 	cp $(STRATEGOXT_JAR) strategoxt.jar
 
 class : $(JAVAS)
+	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
 
 webdsl.jar : class

@@ -13,7 +13,17 @@ imports
 imports
   libwebdsl-front
 
+signature constructors
+	
+	TopLevelName : Term -> Term
+
 rules 
+
+	rename-top = map-toplevel(rename-toplevel)
+	
+	rename-toplevel = with-toplevel-name(rename-all)
+
+rules
 
   rename-all = alltd(rename)
 
@@ -27,12 +37,9 @@ rules
   /**
    * rename-bound does the actual renaming. The other rules guide the application of rename-bound
    */
-  rename-bound(|srt) = rename-bound(newname|srt)
-   
-  // s is the renaming strategy
-  rename-bound(s|srt) :
+  rename-bound(|srt) :
     x -> y
-    with  y := x{<s> x}
+    with  y := x{<toplevel-rename> x}
         ; rename-bound-rules(|x,y,srt)
 
   rename-bound-rules(|x,y,srt) =
@@ -94,3 +101,33 @@ rules // backend annotations
 	add-backend-annotation =
 		  where(name := <OriginalNonUniqueName>)
 		; add-new-anno(|OriginalNameAnno(name))
+
+rules
+
+	// prefix with given prefix, if prefix not already present
+	prefix-rename(|prefix) =
+		try(
+				where(prefix' := <concat-strings> [prefix, "_"])
+			; where(not(string-starts-with(|prefix')))
+			; <concat-strings; newname> [prefix', <id>]
+	)
+	
+rules // toplevel-rename: return name prefixed with toplevel definition
+
+	toplevel-rename = prefix-rename(|<TopLevelDefineName>)
+	
+rules // return name prefixed with all surrounding definitions	
+
+	context-rename: name -> newname
+  	with arguments := <bigbagof-TemplateArg; map(map(?Arg(_,<id>)))>
+  		 // if in page, the first definition of TemplateArg will be the page's arguments
+  		 ; if InPage then
+  		  	pagenames := [<InPage>]
+			 ; (templateargs, pageargs) := <split-last> arguments
+		   else
+		   	  pagenames := []
+		   	; templateargs := arguments
+		   end
+  		 ; templates := <zip> (<bigbagof-InTemplate>, templateargs)
+  		 ; templatenames := <map(generate-template-name); reverse> templates
+  		 ; newname := <concat; separate-by(|"_"); concat-strings> [pagenames, templatenames, [name]]
