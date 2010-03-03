@@ -8,7 +8,8 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/module/*.app) \
   $(wildcard succeed/nativejava/*.app) \
   $(wildcard succeed/overloading/*.app) \
-  $(wildcard succeed/property-events/*.app)
+  $(wildcard succeed/property-events/*.app) \
+  $(wildcard succeed/manual/*.app)
 #  $(wildcard succeed/generics/*.app) 
 
 TESTSFAIL = \
