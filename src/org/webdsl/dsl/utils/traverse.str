@@ -1,0 +1,66 @@
+module org/webdsl/dsl/utils/traverse
+
+imports
+	libstratego-lib
+	
+rules // Traverse a directory given by the current term and call s for each filename, relative to the base path. 
+	
+	traverse-files(s) = traverse-base'(traverse-files'(s))
+	
+	// base directory
+	traverse-files'(s): "" -> <id>
+		with 	<readdir-filtered> "."
+				; map(traverse-files'(s))
+
+	// subdirectory
+	traverse-files'(s): dir -> <id>
+		where <filemode; isdir> dir
+		with <readdir-filtered> dir
+		   ; filter(<traverse-files'(s)> (<concat-strings> [dir, "/", <id>]))
+	
+	// file
+	traverse-files'(s) = s
+		
+rules		// Traverse directories
+
+	traverse-dirs(s) = traverse-base'(traverse-dirs'(s))
+		
+	// base dir
+	traverse-dirs'(s): "" -> <id>
+		with  <readdir-filtered> "."
+				; filter(traverse-dirs'(s))
+	
+	// subdirectory
+	traverse-dirs'(s): dir -> <id>
+		where <filemode; isdir> dir
+		with 	s
+				; <readdir-filtered> dir
+				; filter(<traverse-dirs'(s)> (<concat-strings> [dir, "/", <id>]))
+
+rules		// Traverse directories, innermost traversal
+
+	traverse-dirs-innermost(s) = traverse-base'(traverse-dirs-innermost'(s))
+		
+	// base dir
+	traverse-dirs-innermost'(s): "" -> <id>
+		with  <readdir-filtered> "."
+				; filter(traverse-dirs-innermost'(s))
+	
+	// subdirectory
+	traverse-dirs-innermost'(s): dir -> <id>
+		where <filemode; isdir> dir
+		with 	<readdir-filtered> dir
+				; filter(<traverse-dirs-innermost'(s)> (<concat-strings> [dir, "/", <id>]))
+				; <s> dir
+
+rules		// util
+
+	readdir-filtered = readdir; filter(not(?"." <+ ?".."))
+	
+	// Enter base dir and traverse with given strategy
+	traverse-base'(traversal): basedir -> basedir
+		with	olddir := <getcwd>
+				; <chdir> basedir
+				; <traversal> ""
+				; <chdir> olddir
+				

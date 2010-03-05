@@ -1,0 +1,78 @@
+module org/webdsl/dsl/back-end-transformations/caching/compare
+
+imports
+  libstratego-lib
+  libstratego-xtc
+
+imports
+  libwebdsl-front
+  libwrite-files
+  
+imports
+  org/webdsl/dsl/back-end-transformations/caching/-
+  
+strategies
+  
+  read-cached-file = 
+			get-cache-path
+  	; file-exists
+    ; ReadFromFile
+    			
+  // Succeed if term is equal to its cached version
+  check-cache-equality(compare | name): def -> def
+		where
+				rules ( TouchedCacheFiles :+= <get-cache-filename> name )
+			;	if cached := <read-cached-file> name then
+						<process-cache-file(compare | name)> (def, cached)
+				else
+						<verbose-msg> ["No cache for", name]
+					; fail
+				end
+		<+
+				// something failed, create new cache after generation
+				<add-def-to-cache(|name)> def
+			; fail
+		
+	// check cache date and contents
+	process-cache-file(compare | name): (def, cached) -> def
+		where
+				(version, files, cached-def) := cached
+				// webdsl version equality
+			;	<eq> (<get-webdsl-version>, version)
+				// check for generated files that are modified
+			; cache-timestamp := <get-cache-path; modification-time> name
+			; <map(check-generated-files(|cache-timestamp))> files
+				// check for equality
+			; <check-cache-contents(compare | name)> (def, cached-def)
+			; <map(touch-generated-file)> files
+				
+	check-cache-contents(compare | name): (def, cached-def) -> def
+		where
+			if <compare> (cached-def, def) then
+				//<verbose-msg> ["Got cache hit for: ", name]
+					id
+			else
+					<verbose-msg> ["Cache miss for", name]
+				;	if-verbose3(
+							<verbose-msg> ["Old term:", cached-def]
+						; <verbose-msg> ["New term:", def]
+					)
+				; fail
+			end
+			
+	check-cache-equality(|name) = check-cache-equality(eq|name)
+	
+	check-cache-equality(getname) =
+			with(name := <getname>) 
+		; check-cache-equality(|name)
+		
+rules // check generated file consistency
+
+	// See if generated file still exists and is older that its definition cache
+	check-generated-files(|cache-timestamp): filename -> filename
+		where <file-exists <+ <verbose-msg> ["Generated file was deleted: ",filename]; fail> filename
+				; <not(gt) <+ <verbose-msg> ["Generated file was modified: ",filename]; fail> (<modification-time> filename, cache-timestamp)	
+ 
+rules
+
+	add-def-to-cache(|name) = ?def; rules(DefinitionsToCache :+ def -> name)

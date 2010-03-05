@@ -333,7 +333,7 @@ src-gen/org/webdsl/write_files/Main.java : write-files.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake -la org.webdsl.java_transformations
 
 src-gen/org/webdsl/back_end_transformations/Main.java : back-end-transformations.ctree
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $< -o $@ -la org.webdsl.webdsl-front
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.write-files
 
 src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations -la org.webdsl.write_files
@@ -450,7 +450,7 @@ libback_end_transformations_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 
-libback-end-transformations.rtree libback-end-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES:.str=.rtree) libwebdsl-front.rtree
+libback-end-transformations.rtree libback-end-transformations.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES:.str=.rtree) libwebdsl-front.rtree libwrite-files.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o libback-end-transformations.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libback-end-transformations.str

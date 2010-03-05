@@ -5,6 +5,7 @@ imports
   libjava-transformations
   libjava-front
   libwrite-files
+  libback-end-transformations
 
 imports
 	org/webdsl/dsl/to-java-servlet/to-java-servlet
@@ -13,10 +14,15 @@ imports
 
 rules
 		
+	// Do not nest local emits for nested templates
+	scope-local-emit(s|name) =
+			where(InLocalEmit)
+		;	s
+		
 	// Emit complete classes for an AST node
-	scope-local-emit(s): def -> def
+	scope-local-emit(s|name): def -> def
 	with 
-		{| JavaClassesToEmitLocal, LocalEmitDef :
+		{| JavaClassesToEmitLocal, LocalEmitDef, InLocalEmit :
 			rules(
 				InLocalEmit := True()
 				LocalEmitDef := def
@@ -25,14 +31,13 @@ rules
 			; log-time(
 		    	bagof-JavaClassesToEmitLocal
 				; get-java-artifacts-java-servlet
-				; where(map(print-javafile-name(|"Generating: ")))
-		    | "transform java local")
+				| "transform java local")
 		  ; log-time(
 		  		filenames := <output-generated-files>
-			  	// remember which files are generated for the toplevel definition
-		  	; where(<verbose-msg> ["Filenames: ", filenames])
-		  	; toplevel-def := <bigbagof-LocalEmitDef; last>
-		  	; <map(\filename -> <rules(LocallyEmittedFiles :+ toplevel-def -> filename)> \)> filenames
+		  	; where(<verbose-msg> ["Writing: ", filenames])
+		  	; if CachingEnabled then
+		  			<write-cache-file(|filenames)> def
+		  		end
 		  	| "output java local")
 		|}
 	
@@ -40,6 +45,8 @@ rules
 	
 	// Fail if in scope-local-emit
 	check-not-in-local-emit = where(try(LocalEmitDef; fail-with-stacktrace))
+	// Fail if not in scope-local emit
+	check-in-local-emit = where(try(not(LocalEmitDef); fail-with-stacktrace))
 	
 	// Set the owner of a class; only the owner can write to the class
 	set-emit-owner: classname -> classname
@@ -65,12 +72,3 @@ rules
 		; rules(
 				JavaClassesToEmitLocal :+= cu
 			)
-
-rules	// debug
-
-	// Print fully qualified java filename if verbose=2 
-	print-javafile-name(|txt) = 
-		where(?JavaFile(prefix, cu))
-		; <fully-qualified-name> cu
-		; <verbose-msg> [txt, <id>] 
-		
