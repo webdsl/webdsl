@@ -527,7 +527,7 @@ libwrite_files_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 			      $(STRATEGO_LIBS)
 endif
 
-libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree Java-EBlock.rtg.af xml-doc.rtg.af
+libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree Java-EBlock.rtg.af xml-doc.rtg.af libjava-transformations.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o libwrite-files.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libwrite-files.str
