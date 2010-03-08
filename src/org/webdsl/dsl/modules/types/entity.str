@@ -60,31 +60,29 @@ rules
 rules
 
   desugar-types :
-    TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ 
-      dummy() {
-        if (e != null) {
-          navigate($viewY(e))[passign*]{text(e.name)} 
-        } 
-        if (e == null) {
-          text("null")
-        }
-      }
-    ]|
+    TemplateCall(x,arg*,passign*,elem*) -> result
     where <?"output"> x //"output" string not in lhs because the x with annotations is needed to check whether it is a call to built-in output
         ; <CallToBuiltInTemplate> x
         ; [e] := arg*
-        ; SimpleSort($Y) := <type-of> e
-        ; <IsEntity> $Y
-    with  $viewY := <decapitalize-string> $Y
+        ; SimpleSort(x_ent) := <type-of> e
+        ; <IsEntity> x_ent
+    with  x_view := <decapitalize-string> x_ent
+        // if there is a view page with lowercase entityname and 1 argument of that entitytype, 
+        // then show navigate, otherwise just show name
+        ; if <CheckPageSignature> (None(), <decapitalize-string> x_ent, [SimpleSort(x_ent)])
+          then result := <rename-all> elem|[ navigate(x_view(e))[passign*]{output(e.name)} ]|
+          else result := <rename-all> elem|[ output(e.name) ]|
+          end
 
   desugar-types :
-    TemplateCall(x,arg*,passign*,elem*) -> <rename-all> elem|[ list { for(x1 : $X in e){ listitem{ output(e2)[passign*] } } } ]|
+    TemplateCall(x,arg*,passign*,elem*) -> result
     where <?"output"> x
         ; <CallToBuiltInTemplate> x
         ; [e] := arg*
-        ; GenericSort(<?"List" <+ ?"Set">,[SimpleSort($X)]) := <type-of> e
+        ; GenericSort(<?"List" <+ ?"Set">,[SimpleSort(x_ent)]) := <type-of> e
     with  x1 := <toplevel-rename> "outputlist"
         ; e2 := Var(x1)
+        ; result := <rename-all> elem|[ list { for(x1 : x_ent in e){ listitem{ output(e2)[passign*] } } } ]|
   
   desugar-types :
     elem|[ input(e)[passign*]{elem*} ]| ->
