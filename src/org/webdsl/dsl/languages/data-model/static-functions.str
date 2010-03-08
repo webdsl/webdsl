@@ -1,0 +1,37 @@
+module org/webdsl/dsl/languages/data-model/static-functions
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules
+
+	// x_class 			classname of entity to declare function in
+	// x_funcname 	name of static function in entity
+	declare-static-function(|x_class, x_funcname) =
+		(	?Function(globalname,args,retsrt,body)
+		<+?FunctionNoReturn(globalname,args,body))
+			// Declare global version
+		; declare
+			// and store static version
+		; argtypes := <map(\Arg(_,srt) -> srt\)> args
+		; rules(StaticSignatures :+ globalname -> (x_class, x_funcname, argtypes))
+		
+rules
+
+	add-backend-annotation =
+			?ThisCall(name, args)
+		; has-no-anno(?StaticFunctionCallAnno(_,_))
+		; where(
+				argtypes := <map(type-of)> args 
+			; sigs := <bagof-StaticSignatures> name
+			; anno := <filter(signature-to-static-anno(|argtypes)); Hd> sigs
+		)
+		; add-anno(|anno)
+	
+	signature-to-static-anno(|args):
+		(entname, funcname, fargs) -> StaticFunctionCallAnno(entname, funcname)
+		where(<zip(type-compatible)> (fargs,args))
+		
