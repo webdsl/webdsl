@@ -21,85 +21,41 @@ strategies
 
    GenerateCodeJavaServlet = entity-to-java-servlet-entity-imports; fail
    
-   entity-to-java-servlet-entity-imports :
-     EntityNoSuper(x_Class, entbodydecs) ->
-     <emit-java-code-local> compilation-unit|[
-       package pkgname;
-     
-       import java.util.*;
-       import javax.persistence.*;
-       import pkgname.*;
-       import java.io.Serializable;
-       import utils.*;
-       import java.io.PrintWriter;
-       
-       import org.webdsl.lang.Environment;
-       
-       @Partial
-       public class x_Class
-       {
-
-       }
-     ]|
-     with  pkgname := <DomainPackage>
-      
-   entity-to-java-servlet-entity-imports :
-    SessionEntity(x_ident, entbodydecs) ->
-     <emit-java-code-local> compilation-unit|[
-       package pkgname;
-       
-       import java.util.*;
-       import javax.persistence.*;
-       import pkgname.*;
-       import java.io.Serializable;
-       import utils.*;
-       import java.io.PrintWriter;
-       
-       import org.webdsl.lang.Environment;
-       
-       @Partial
-       public class x_Class
-       {
-
-       }
-     ]|
-     with  x_Class := <capitalize-string> x_ident
-         ; pkgname := <DomainPackage>
-      
-        
-   entity-to-java-servlet-entity-imports :
-     Entity(x_Class, x_super, entbodydecs) ->
-     <emit-java-code-local> compilation-unit|[
-       package pkgname;
-       
-       import java.util.*;
-       import javax.persistence.*;
-       import pkgname.*;
-       import java.io.Serializable;
-       import utils.*;
-       import java.io.PrintWriter;
-       
-       import org.webdsl.lang.Environment;
-       
-       @Partial
-       public class x_Class
-       {
- 
-       }
-     ]|
-     with  pkgname := <DomainPackage>
-
-rules // utilities
-
-  get-functions = filter(?Function(_,_,_,_))
+   entity-to-java-servlet-entity-imports: ent -> ent
+   	where(get-entity-def)
+   	with x_Class := <entity-to-classname>
+			; pkgname := <DomainPackage>
+   		; <emit-java-code-local> compilation-unit|[
+	       package pkgname;
+	       
+	       import java.util.*;
+	       import javax.persistence.*;
+	       import pkgname.*;
+	       import java.io.Serializable;
+	       import utils.*;
+	       import java.io.PrintWriter;
+	       
+	       import org.webdsl.lang.Environment;
+	       
+	       @Partial
+	       public class x_Class
+	       {
+	 
+	       }
+	     ]|
      
 strategies
 
    GenerateCodeJavaServlet = entity-to-java-servlet-entity-functions; fail
    
-   entity-to-java-servlet-entity-functions :
-     EntityNoSuper(x_Class, entbodydecs) ->
-     <emit-java-code-local> compilation-unit|[
+   entity-to-java-servlet-entity-functions: ent -> ent
+   	where (_,entbodydecs) := <get-entity-def> ent
+   	with
+   		x_Class := <entity-to-classname> ent
+   	; pkgname := <DomainPackage>  
+    ; funcs := <filter(?Function(_,_,_,_))> entbodydecs
+    ; cbds* := <grab-uniquely-named-functions;map(webdsl-entity-function-to-java-servlet <+ debug(!"Could not generate for entity function: "))> funcs
+    ; <emit-java-code-local> compilation-unit|[
        package pkgname;
        
        @Partial
@@ -108,41 +64,16 @@ strategies
          ~*cbds*
        }
      ]|
-     with  pkgname := <DomainPackage>
-         ; funcs := <get-functions> entbodydecs
-         ; cbds* := <grab-uniquely-named-functions;map(webdsl-function-to-java-servlet-function <+ debug(!"Could not generate for entity function: "))> funcs
-      
-   entity-to-java-servlet-entity-functions :
-    SessionEntity(x_ident, entbodydecs) ->
-    <emit-java-code-local> compilation-unit|[
-       package pkgname;
-       
-       @Partial
-       public class x_Class
-       {
-         ~*cbds*
-       }
-     ]|
-     with  x_Class := <capitalize-string> x_ident
-         ; pkgname := <DomainPackage>
-         ; funcs := <get-functions> entbodydecs
-         ; cbds* := <grab-uniquely-named-functions;map(webdsl-function-to-java-servlet-function <+ debug(!"Could not generate for entity function: "))> funcs
-        
-   entity-to-java-servlet-entity-functions :
-     Entity(x_Class, x_super, entbodydecs) ->
-     <emit-java-code-local> compilation-unit|[
-       package pkgname;
-       
-       @Partial
-       public class x_Class
-       {
-         ~*cbds*
-       }
-     ]|
-     with  pkgname := <DomainPackage>
-         ; funcs := <get-functions> entbodydecs
-         ; cbds* := <grab-uniquely-named-functions;map(webdsl-function-to-java-servlet-function <+ debug(!"Could not generate for entity function: "))> funcs
-           
+
+	 webdsl-entity-function-to-java-servlet =
+   			where(
+   					get-anno(?StaticFunctionAnno())
+   				;	mod* := [ mod |[ static ]| ]
+   			)
+   		; webdsl-function-to-java-servlet-function(|mod*)
+   	<+
+   			webdsl-function-to-java-servlet-function
+   
   grab-uniquely-named-functions : // TODO shouldn't be necessary...
     funcs -> funcs2
     with  {| FuncNameUsed, ResultingFunctions:
@@ -151,9 +82,15 @@ strategies
           |}
      
   grab-uniquely-named-functions-helper :
-    fu@Function(name,_,_,_) -> fu
+    fu@Function(name,_,_,_){anno*} -> fu
     where not(<FuncNameUsed> name)
         ; rules ( FuncNameUsed : name
                   ResultingFunctions :+= fu )
     
-   
+rules // utilities
+
+  entity-to-classname =
+  	 	 ?EntityNoSuper(<id>, _)
+    <+ ?Entity(<id>, _, _)
+    <+ ?SessionEntity(<capitalize-string>, _)
+     

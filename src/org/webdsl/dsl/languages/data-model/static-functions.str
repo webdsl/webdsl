@@ -10,9 +10,11 @@ rules
 
 	// x_class 			classname of entity to declare function in
 	// x_funcname 	name of static function in entity
+	// This declares the given global function, but calls to it are desugared to x_class.x_funcname() 
 	declare-static-function(|x_class, x_funcname) =
 		(	?Function(globalname,args,retsrt,body)
-		<+?FunctionNoReturn(globalname,args,body))
+		<+?FunctionNoReturn(globalname,args,body)
+		)
 			// Declare global version
 		; declare
 			// and store static version
@@ -35,3 +37,17 @@ rules
 		(entname, funcname, fargs) -> StaticFunctionCallAnno(entname, funcname)
 		where(<zip(type-compatible)> (fargs,args))
 		
+rules
+
+	// Declare and emit the given function as a static function.
+	// Calls to it are desugared to x_class.x_funcname()
+	emit-static-function(|x_class, x_funcname): fun@Function(name,args,srt,body){anno*} -> fun
+		with 	<declare-static-function(|x_class, x_funcname)> fun
+				; anno2* := <concat> [anno*, [StaticFunctionAnno()]]
+				; fun2 := Function(x_funcname,args,srt,body){anno2*}
+				; <emit-webdsl-code> def|[
+						extend entity x_class {
+        			fun2
+        		}
+					]|
+					
