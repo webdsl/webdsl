@@ -17,9 +17,15 @@ rules
 		)
 			// Declare global version
 		; declare
-			// and store static version
+			// Store static version
 		; argtypes := <map(\Arg(_,srt) -> srt\)> args
-		; rules(StaticSignatures :+ globalname -> (x_class, x_funcname, argtypes))
+			// Rename the function to avoid collision with user-defined functions
+			// (there is no way to declare or reserve static functions yet)
+		; x_funcname2 := <concat-strings> ["_static_", x_funcname]
+		; rules(
+				StaticSignatures :+ globalname -> (x_class, x_funcname2, argtypes)
+				StaticRename :+ x_funcname -> x_funcname2
+			)
 		
 rules
 
@@ -39,12 +45,10 @@ rules
 		
 rules
 
-	// Declare and emit the given function as a static function.
-	// Calls to it are desugared to x_class.x_funcname()
-	emit-static-function(|x_class, x_funcname): fun@Function(name,args,srt,body){anno*} -> fun
-		with 	<declare-static-function(|x_class, x_funcname)> fun
-				; anno2* := <concat> [anno*, [StaticFunctionAnno()]]
-				; fun2 := Function(x_funcname,args,srt,body){anno2*}
+	// Emit a previously declared static function.
+	emit-static-function(|x_class): fun@Function(name,args,srt,body){anno*} -> fun2
+		with 	anno2* := <concat> [anno*, [StaticFunctionAnno()]]
+				; fun2 := Function(<StaticRename> name,args,srt,body){anno2*}
 				; <emit-webdsl-code> def|[
 						extend entity x_class {
         			fun2
