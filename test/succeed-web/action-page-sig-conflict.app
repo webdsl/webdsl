@@ -5,6 +5,7 @@ application test
     action root(){
       return root();
     }
+    submit action{ return root(); } {"2"}
   }
   
   test buttonclick {
@@ -14,11 +15,17 @@ application test
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 1, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
     elist[0].click();
     
     assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
     
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist.length == 2, "expected <input> elements did not match");
+    elist[1].click();
+
+    assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
+
     d.close();
   }
   
