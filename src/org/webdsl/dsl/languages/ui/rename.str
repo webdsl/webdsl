@@ -95,10 +95,13 @@ rules
              ; t3 := ThisCall(fname, e3*){newanno*}
           end
 
-  rename-ui :  // don't go into actions without proper scopes; actions are sometimes renamed without going through the whole template rename rule, in that case the action rule below is not used
-  Action(nm1, args1, b1) -> Action(nm1, args2, b2)
-  with {| Rename, VarInTemplateContext
-        : args2 := <map(rename)> args1
+  rename-ui :  
+  // don't go into actions without proper scopes; actions are sometimes renamed without going 
+  // through the whole template rename rule, in that case this rule is used and the action itself is not renamed
+  a@Action(nm1, args1, b1) -> Action(nm1, args2, b2)
+  with {| Rename, VarInTemplateContext, InActionContext
+        : rules( InActionContext := a)
+        ; args2 := <map(rename)> args1
         ; b2 := <rename-all> b1
        |}
           
@@ -112,9 +115,10 @@ rules
   rename-actions(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope
 
   rename-actions(|direct-enclosing-define-name) :
-    Action(nm1, args1, b1) -> Action(nm2, args2, b2)
-    with {| Rename, VarInTemplateContext
-          : args2 := <map(rename)> args1
+    a@Action(nm1, args1, b1) -> Action(nm2, args2, b2)
+    with {| Rename, VarInTemplateContext, InActionContext
+          : rules( InActionContext := a)
+          ; args2 := <map(rename)> args1
           ; b2 := <rename-all> b1
           |}
        ; nm2 := nm1{<toplevel-rename> nm1}
@@ -144,4 +148,14 @@ rules
     with {| Rename, VarInTemplateContext
           : bl2 := <rename-all> bl
           |}
+          
+  rename-ui :
+    Return(tc{annocall*}){anno*} -> Return(tc1{IsReturnInAction(),annocall*}){anno*}
+    where InActionContext
+    where not(<fetch(IsReturnInAction)> annocall*)
+    with  tc1 := <rename-all> tc
+    
+signature 
+  constructors
+    IsReturnInAction : Term
           
