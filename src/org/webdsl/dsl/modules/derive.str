@@ -25,6 +25,16 @@ strategies
   constraint-error = constraint-error-derive
 rules // typechecking derive statements
 
+	constraint-error-derive =
+		(		 ?elem|[ derive x_deriveType from e ]|
+			<+ ?elem|[ derive x_deriveType from e for (dprop*) ]| )
+		; constraint-error-derive(|x_deriveType, e)
+		
+	constraint-error-derive(|x_deriveType, e) =
+    	where(not(SimpleSort(_) := <type-of> e))
+    ; add-error(|["Cannot derive for non-entity types."])
+    ; fail
+  
   /**
    * checks whether the given entity e has a property with name prop
    * fails so that the other constraints with this left-hand side also fire
@@ -59,14 +69,10 @@ rules // typechecking derive statements
   /**
    * checks for unknown derive types
    */
-  constraint-error-derive =
-    ?elem|[ derive x_deriveType from e for (dprop*) ]|
-    <+ ?elem|[ derive x_deriveType from e ]|
-    ; where (
-        not(<is-derive-type> x_deriveType)
-        ; add-error(|[x_deriveType, " is an unknown derive type"])
-      )
-
+  constraint-error-derive(|x_deriveType, e) =
+    where (not(<is-derive-type> x_deriveType))
+    ; add-error(|[x_deriveType, " is an unknown derive type"])
+    ; fail
 
 rules // desugaring
 
@@ -224,9 +230,9 @@ rules // derives edit rows for specified properties
     DeriveMode("edit", y) -> elem|[ x_template(e) ]| 
     with str := <concat-strings> [<make-human-readable> y , ": "]
        ; x_class := <concat-strings> ["input", y]
-       ; x_template := <newname> x_class
+       ; srt@SimpleSort(type) := <type-of> e
+       ; x_template := <prefix-rename(|type)> x_class
        ; x := <toplevel-rename> "arg"
-       ; srt := <type-of> e
        ; <emit-webdsl-code> def|[
            define x_template(x : srt) {
              groupitem[] { label(str)[] { input(x.y)[class:=x_class]{} } }

@@ -7,7 +7,16 @@ imports
 
 imports
   libwebdsl-front
-  
+
+rules // generalize constraints for all function types
+
+  constraint-error-action =
+  	(
+  			?Function(f, args, _, body)
+  	<+	?FunctionNoReturn(f, args, body)
+  	)
+  	; constraint-error-function(|f,args,body)
+  	
 rules
   // checks for returns within a FunctionNoReturn
   constraint-error-action =
@@ -30,6 +39,7 @@ rules
     where not(SimpleSort("Void") := rt)
         ; [] := <collect(?Return(_))> body
         
+
 /* doesn't work yet... later
   // checks types of arguments
   constraint-error-action :
@@ -47,16 +57,19 @@ rules //reserved functions
     (name,argcount) -> (name,argcount)
     where rules ( ReservedFunctions :+= (name,argcount) )
     
-  constraint-error-action :
-    FunctionNoReturn(f, args, _) -> <error-message-generated-function(|f,argcount)>
-    where argcount := <length> args
-        ; <fetch(?(f,argcount))> <bagof-ReservedFunctions>
-    
-  constraint-error-action :
-    Function(f, args, _, _) -> <error-message-generated-function(|f,argcount)>
-    where argcount := <length> args
-        ; <fetch(?(f,argcount))> <bagof-ReservedFunctions>
+  constraint-error-function(|f,args,body) =
+    	where(argcount := <length> args)
+    ; where(<fetch(?(f,argcount))> <bagof-ReservedFunctions>)
+    ; error-message-generated-function(|f,argcount)
         
   error-message-generated-function(|f,argcount) = 
     add-error(|["Function with name '", f, "' and ", argcount," argument(s) collides with a generated function that you are not allowed to overwrite"])
-    
+  
+rules // forbidden elements
+
+	constraint-error-function(|f,args,body) =
+		<alltd(check-forbidden-in-function)> body
+	
+	check-forbidden-in-function =
+		?GoTo(_); add-error(|["Goto can only be used inside an action."])
+		
