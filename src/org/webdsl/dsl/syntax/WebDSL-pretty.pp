@@ -1223,5 +1223,7 @@
    Milliseconds                                           -- _1 KW["milliseconds"],
    TimeInterval                                           -- _1,
    TimeInterval.1:iter-star                               -- _1,
-   NotEmptyAnno -- KW["not empty"]
+   NotEmptyAnno -- KW["not empty"],
+   PropertySubmit -- _1 KW[":"] _2
+   
 ]

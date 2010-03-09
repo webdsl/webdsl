@@ -1,4 +1,4 @@
-// Cannot use action x() as an expression.
+//with signature x()
 application test
 
 define page root() {
