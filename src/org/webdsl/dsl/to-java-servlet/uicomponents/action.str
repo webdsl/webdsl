@@ -8,40 +8,45 @@ imports
   libwebdsl-front
     
 rules
+    
+  java-servlet-element-id :
+    tc@SubmitElem(_,_,_){anno*} -> tc{ActionNumber(newid),anno*} 
+    where  newid := <newname> "action"
+    
+  java-servlet-element-id :
+    tc@SubmitLinkElem(_,_,_){anno*} -> tc{ActionNumber(newid),anno*} 
+    where  newid := <newname> "action"    
+    
+rules
 
   elem-to-java-servlet :
-    tc@Submit(e2,call@ActionCall(name, args),passign*) ->
+    tc@SubmitElem(call@ActionCall(name, args),passign*,elem*) ->
     <wrap-action-render-java-code>
     bstm* |[
       ident = e_actionid;
       if(ThreadLocalPage.get().isServingAsAjaxResponse || ThreadLocalPage.get().isAjaxRuntimeRequest() || e_ajaxmodifier || ThreadLocalPage.get().getFormIdent().equals("")){
-	~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
-	  out.print("<input type=\"button\" value=\"");
-	  bstm_exptostring*
-	  out.print("\" "+e_attrs1+" ");
-	  out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'/>"); 
-	]|
+	    ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
+	      out.print("<input type=\"button\" value=\"");
+	      bstm*
+	      out.print("\" "+e_attrs1+" ");
+	      out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'/>"); 
+	    ]|
       }
       else{
         ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
-          /*if(ThreadLocalPage.get().getParammap().get(ident)!=null)
-          {
-            bstm_validation*
-          }*/
           out.print("<input type=\"submit\" name=\""+ident+"\" value=\"");
-          bstm_exptostring*
+          bstm*
           out.print("\" "+e_attrs1+" />"); 
         ]|
       }
     ]|
-    with  bstm_exptostring* := <to-page-string-java-servlet> e2
+    with  bstm* := <elems-to-java-servlet> elem*
         ; e_attrs1 := <to-html-attrs> [PropertyAssignment("class", "button") | passign*]
         ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
         ; if <fetch(TemplateCallPropertyAjax)> passign*
           then e_ajaxmodifier := java:expr |[ true ]|
           else e_ajaxmodifier := java:expr |[ false ]|
           end
-       // ; bstm_validation* := <render-validation-exceptions>  
   
   action-id-encoding : 
 //    (actionident,args) -> e|[ ident + "~actionident" + uniqueid + e ]|
@@ -51,8 +56,8 @@ rules
   id-encoding :
     inputident -> java:expr |[ ident+"~inputident"+uniqueid ]|
         
-  handle-actions-to-java-servlet: 
-    tc@Submit(e2,e1,passign*) -> result
+  handle-actions-to-java-servlet:
+    tc@SubmitElem(e1,passign*,elem*) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ActionCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
@@ -79,7 +84,7 @@ rules
    * this doesn't allow downloads, use special downloadlink (see types/file.str)
    */
   elem-to-java-servlet :
-    tc@SubmitLink(e2,call@ActionCall(name, args),passign*) ->
+    tc@SubmitLinkElem(call@ActionCall(name, args),passign*,elem*) ->
     <wrap-action-render-java-code> 
     bstm* |[ 
       ident = e4;
@@ -88,35 +93,30 @@ rules
           out.print("<a href=\"javascript:void(0)\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+
             ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()+   //TODO getActionTarget is currently used, but the default redirect will not reproduce the page arguments in this case
            "\",\""+ ident+"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)' >");
-          bstm_exptostring*
+          bstm*
           out.print("</a>");
         ]|
       }
       else{
         ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
-          /*if(ThreadLocalPage.get().getParammap().get(ident)!=null)
-          {
-            bstm_validation*
-          }*/
           out.print("<a "+e_attrs1+" href=\"javascript:void(0)\" ");
           out.print("onclick='javascript:serverInvoke(\""+utils.HTMLFilter.filter(ThreadLocalPage.get().getPageUrlWithParams())+
             "?__action__link__=1\",\""+ident+"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'>"); 
-          bstm_exptostring*
+          bstm*
           out.print("</a>");
         ]|
       }
     ]|
-    with  bstm_exptostring* := <to-page-string-java-servlet> e2
+    with  bstm* := <elems-to-java-servlet> elem*
         ; e4 := <action-id-encoding> (<get-actionnumber> tc,args) 
         ; e_attrs1 := <to-html-attrs> passign*  
         ; if <fetch(TemplateCallPropertyAjax)> passign*
           then e_ajaxmodifier := java:expr |[ true ]|
           else e_ajaxmodifier := java:expr |[ false ]|
           end
-        //; bstm_validation* := <render-validation-exceptions>     
         
   handle-actions-to-java-servlet: 
-    tc@SubmitLink(e2,e1,passign*) -> result
+    tc@SubmitLinkElem(e1,passign*,elem*) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ActionCall(name,args);!name> e1
         ; e* := <map(expression-to-java-servlet)> args
