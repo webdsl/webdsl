@@ -2,6 +2,7 @@
 , hydraConfig ? ../hydraconfig
 , webdslsSrc ? {outPath = ./.; rev = 1234;}
 , officialRelease ? false
+, strcJava
 }:
 
 let
@@ -79,8 +80,6 @@ let
       } ;      
 
     buildJava =
-      { strcJava }:
-
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
       releaseTools.nixBuild {
