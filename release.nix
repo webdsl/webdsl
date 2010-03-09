@@ -1,5 +1,7 @@
-{ nixpkgs ? ../../nixpkgs
-, hydraConfig ? ../../hydraconfig
+{ nixpkgs ? ../nixpkgs
+, hydraConfig ? ../hydraconfig
+, webdslsSrc ? {outPath = ./.; rev = 1234;}
+, officialRelease ? false
 }:
 
 let
@@ -14,35 +16,17 @@ let
 
   jobs = rec {
 
-
     tarball =
-      { webdslsSrc ? {outPath = pkgs.lib.cleanSource ./.; rev = 1234;}
-      , officialRelease ? false
-      }:
-
       with pkgs;
-
-      pkgs.releaseTools.makeSourceTarball {
+      releaseTools.makeSourceTarball {
         name = "webdsl-tarball";
         src = webdslsSrc;
         inherit officialRelease;
-        preConfigure = '' 
-          echo "----------------------------------------------------------------------"
-          echo "ulimit before:"
-          echo "----------------------------------------------------------------------"
-          ulimit -a
-          ulimit -s unlimited
-          echo "----------------------------------------------------------------------"
-          echo "ulimit after:"
-          echo "----------------------------------------------------------------------"
-          ulimit -a
-          echo "----------------------------------------------------------------------"
-        '';
         buildInputs = [
           pkgconfig 
-          libtool_1_5 
+          libtool_1_5
           subversion
-          automake110x 
+          automake
           autoconf
           ant 
         ] ++ strPkgs pkgs ;
@@ -50,9 +34,7 @@ let
 
 
     build =
-      { tarball ? jobs.tarball {}
-      , system ? "i686-linux"
-      }:
+      { system ? "i686-linux" }:
 
       let pkgs = import nixpkgs {inherit system;};
       in with pkgs;
@@ -72,7 +54,6 @@ let
       };
 
     buildJavaZip = 
-      { buildJava ? jobs.buildJava {} }:
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
         buildInputs = [pkgs.zip]; 
@@ -98,9 +79,7 @@ let
       } ;      
 
     buildJava =
-      { tarball ? jobs.tarball {}
-      , strcJava 
-      }:
+      { strcJava }:
 
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
