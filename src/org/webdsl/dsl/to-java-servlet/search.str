@@ -45,43 +45,45 @@ rules 		// get all properties of an entity, including supertypes (similar to fro
 			 
 strategies
 
-  generate-java-search-functions =
-    entities := <bagof-IndexedEntities; make-set>
-    ; !<map(entity-name-to-java-search-function);concat> entities
+	GenerateCodeJavaServlet = generate-java-search-functions; fail
 
-  entity-name-to-java-search-function :
-    x_class -> class-body-dec* |[
-      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, PrintWriter out)  {
-        return x#_(hibSession, env, searchQuery, 1000, 0, out);
-      }
-      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, int limit, PrintWriter out)  {
-        return x#_(hibSession, env, searchQuery, limit, 0, out);
-      }
-      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, int limit, int offset, PrintWriter out)  {
-        String[] searchFields = { e_sf* };
-        org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer());
-        try {
-          org.apache.lucene.search.Query luceneQuery = parser.parse(searchQuery);
-          org.hibernate.search.FullTextSession fts = org.hibernate.search.Search.getFullTextSession(hibSession);
-          org.hibernate.Query query = fts.createFullTextQuery(luceneQuery, x_Class.class).setMaxResults(limit).setFirstResult(offset);
-          
-          return query.list();
-        } catch (org.apache.lucene.queryParser.ParseException pe) {
-          return new java.util.ArrayList<x_Class>();
-        }
-      }
+  generate-java-search-functions:
+  	ent -> <emit-java-code-local> compilation-unit |[
+  
+  		package pkgname;
+  		
+  		@Partial
+  		public class x_class {
+  		
+	      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, PrintWriter out)  {
+	        return x#_(hibSession, env, searchQuery, 1000, 0, out);
+	      }
+	      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, int limit, PrintWriter out)  {
+	        return x#_(hibSession, env, searchQuery, limit, 0, out);
+	      }
+	      public static java.util.List<x_Class> x#_(org.hibernate.Session hibSession, Environment env, String searchQuery, int limit, int offset, PrintWriter out)  {
+	        String[] searchFields = { e_sf* };
+	        org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer());
+	        try {
+	          org.apache.lucene.search.Query luceneQuery = parser.parse(searchQuery);
+	          org.hibernate.search.FullTextSession fts = org.hibernate.search.Search.getFullTextSession(hibSession);
+	          org.hibernate.Query query = fts.createFullTextQuery(luceneQuery, x_Class.class).setMaxResults(limit).setFirstResult(offset);
+	          
+	          return query.list();
+	        } catch (org.apache.lucene.queryParser.ParseException pe) {
+	          return new java.util.ArrayList<x_Class>();
+	        }
+	    	}
+	    }
     ]|
-    with x := <concat-strings> ["search", x_class]
-       ; e_sf* := <EntityFromName; get-all-properties-in-entity; filter(searchable-property-to-name); make-set> x_class
+		where (
+    		(x_class, _) := <get-entity-def> ent
+    	; x_props := <get-anno(?IndexedAnno(<id>))> ent
+    )
+    with x := <concat-strings> ["_static_", "search", x_class]
+    	 ; e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props
+    	 ; pkgname := <DomainPackage>
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
-
-  searchable-property-to-name :
-    Property(name, _, _, anno*) -> expr|[ "~name" ]|
-    where not([] := <filter(?SimpleAnno("searchable"))> anno*)
-
-  searchable-property-to-name :
-    DerivedProperty(name, _, _, anno*, _) -> expr|[ "~name" ]|
-    where not([] := <filter(?SimpleAnno("searchable"))> anno*)
 
 strategies
 
