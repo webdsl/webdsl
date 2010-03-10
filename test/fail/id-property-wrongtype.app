@@ -4,7 +4,7 @@ application test
 
 entity Test {
 
-	nr :: Number(id)
+	nr :: Bool(id)
 	
 }
 
