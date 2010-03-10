@@ -23,11 +23,9 @@ section datamodel
       input(u.name)
       input(u.child)
       action("save",save())
-      action save()
-      {
-        u.save();
-      }
     }
-     
-    
+    action save()
+    {
+      u.save();
+    }   
   }

@@ -58,9 +58,9 @@ application entitynameprop
   	menu()
   	
   	var set : List<NameAnno> := from NameAnno;
+    var e : NameAnno
   	
   	form {
-  		var e : NameAnno
   		input(e)
   	}
   	
@@ -71,9 +71,9 @@ application entitynameprop
   	menu()
   	
   	var set : List<Implicit> := from Implicit;
+	var e : Implicit
   	
   	form {
-  		var e : Implicit
   		input(e)
   	}
   	

@@ -23,23 +23,21 @@ section datamodel
     main()
     action a() {}
     define body() {
+      action change() {
+        bob.save();
+      }
+      action cancelsave() {      }
+      action cancelreturn() {          
+        return root();
+      }
       section {
         form {
         
           input(bob.username)
           action("change", change())
-          action change() {
-            bob.save();
-          }
           action("cancel", cancelsave())
-          action cancelsave() {
-          }
           
           action("cancelreturn", cancelreturn())
-          action cancelreturn() {
-          
-            return root();
-          }
         }
         "User: "
         output(bob.username)

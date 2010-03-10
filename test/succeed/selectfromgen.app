@@ -35,17 +35,17 @@ section datamodel
  //   {
       "children: " output(u.children)
  //   } 
-    " "
-    output(u.val)
-    form{
-      input(u.name)
-      select(u.children from uset.users)
-      input(u.val)
-      action("save",save())
+      " "
+      output(u.val)
+      form{
+        input(u.name)
+        select(u.children from uset.users)
+        input(u.val)
+        action("save",save())
+      }
       action save()
       {
         u.save();
       }
-    }
     }
   }

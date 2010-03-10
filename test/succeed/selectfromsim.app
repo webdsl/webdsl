@@ -29,11 +29,10 @@ section datamodel
       input(u.name)
       select(u.child from uset.users)
       action("save",save())
-      action save()
-      {
-        u.save();
-      }
     }
-     
-    
+         
+    action save()
+    {
+      u.save();
+    }
   }

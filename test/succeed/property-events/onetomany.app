@@ -61,6 +61,25 @@ section datamodel
    
     define body()
     { 
+      action removeParent(user:User){
+        user.parent := null;
+        user.save();
+        return root();
+      }
+      action removeChild(parent:User,child:User){
+        parent.children.remove(child);
+        parent.save();
+        return root();
+      }
+      action addChild(parent:User,child:User){
+        parent.children.add(child);
+        parent.save();
+        return root();
+      }          
+      action save(user:User){
+        user.save();
+        return root();
+      }    
       table{row{
       for(user:User){
           column{"-----"}
@@ -72,11 +91,6 @@ section datamodel
               form{
                 action("remove parent",removeParent(user))
               }
-              action removeParent(user:User){
-                user.parent := null;
-                user.save();
-                return root();
-              }
             }
             column{
               " children: "output(user.children)
@@ -86,21 +100,11 @@ section datamodel
                   form {
                     action("remove child",removeChild(user,child))
                   }
-                  action removeChild(parent:User,child:User){
-                    parent.children.remove(child);
-                    parent.save();
-                    return root();
-                  }
                 }
                 if(!(child in user.children)){
                   form {
                     action("add child",addChild(user,child))
                   }
-                  action addChild(parent:User,child:User){
-                    parent.children.add(child);
-                    parent.save();
-                    return root();
-                  }                
                 }
               }
             }
@@ -116,10 +120,6 @@ section datamodel
           input(user.children)
           action("save",save(user))
         }
-        action save(user:User){
-          user.save();
-          return root();
-        } 
       }
     }
   }

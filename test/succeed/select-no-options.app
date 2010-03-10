@@ -17,11 +17,9 @@ section datamodel
       select(u.child from List<User>())
       input(u.name)
       action("save",save())
-      action save()
-      {
-        u.save();
-      }
     }
-     
-    
+    action save()
+    {
+      u.save();
+    }
   }

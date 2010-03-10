@@ -45,6 +45,11 @@ section datamodel
    
     define body()
     { 
+      action save(user:User){
+        user.save();
+        return root();
+      } 
+
       "  -  "
       for(user:User){
         output(user.name)" "
@@ -59,10 +64,6 @@ section datamodel
           //input(user.children)
           action("save",save(user))
         }
-        action save(user:User){
-          user.save();
-          return root();
-        } 
       }
     }
   }

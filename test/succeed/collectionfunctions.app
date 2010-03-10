@@ -137,6 +137,9 @@ section datamodel
   define page root(){
     main()
     define body() {
+      var i: Int := 0;
+      var j: Int := 0;
+     
       table{
       
         for(u:User){
@@ -170,6 +173,7 @@ section datamodel
           row{action("save",save(u1))}
         }
       }
+         
       row{column{
         form{
           action("list to set",l2s(u1))
@@ -177,7 +181,6 @@ section datamodel
           action("clear list",cl(u1))
           action("clear set",cs(u1))
           action("replace list",replaceList(u1))
-          var i: Int := 0;
           input(i)
           action("insert list",insertList(i,u1))
 
@@ -186,7 +189,7 @@ section datamodel
           //action("clear list",cl(u1))
           //action("clear set",cs(u1))
           action("replace list (entity function)",replaceListE(u1))
-          var j: Int := 0;
+
           input(j)
           action("insert list (entity function)",insertListE(j,u1))
         }   

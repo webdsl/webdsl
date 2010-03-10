@@ -37,6 +37,10 @@ application constructor
 
   
   define page root(){
+    action save(u:User){
+      u.save();
+      return root();
+    }
     for(u:User){
       group(u.name){
         showPage(u.page)
@@ -46,10 +50,6 @@ application constructor
           input(u.page.page)
           input(u.page.message)
           action("save",save(u))
-          action save(u:User){
-            u.save();
-            return root();
-          }
         }
       }
       

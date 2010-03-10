@@ -40,9 +40,9 @@ application test
         break
         action("save",save(p))
       }
-      action save(p:Publication){
-        p.save();
-      }
     } 
+    action save(p:Publication){
+      p.save();
+    }
   }
  

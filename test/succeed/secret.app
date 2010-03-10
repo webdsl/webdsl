@@ -17,10 +17,10 @@ section datamodel
       input(bob.username)
       input(bob.password)
       action("save",save())
-      action save()
-      {
-        bob.save();
-      }
+    }
+    action save()
+    {
+      bob.save();
     }
   }
 

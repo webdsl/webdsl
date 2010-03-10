@@ -30,25 +30,25 @@ section datamodel
         ilist.removeAt(5);
         ilist.remove(1);
       }
+      action remove(user:User){
+        ulist.users.remove(user);
+        ulist.save();
+      }
+      action removeAt(index:Int){
+        ulist.users.removeAt(index);
+        ulist.save();
+      }
       
       table{
         "users in list:"
         for(u:User in ulist.users){
           label("name: "){output(u.name)}
           form{action("remove",remove(u))}
-          action remove(user:User){
-            ulist.users.remove(user);
-            ulist.save();
-          }
           break
         }
         form{
           label("remove at"){input(i)}
           action("remove",removeAt(i))
-          action removeAt(index:Int){
-            ulist.users.removeAt(index);
-            ulist.save();
-          }
         }
       }
       for(i:Int in ilist){

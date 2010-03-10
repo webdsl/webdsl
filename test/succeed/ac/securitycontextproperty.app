@@ -45,14 +45,17 @@ section somesection
   define page root(){
     main()
     define body(){
+      action login(){
+        securityContext.principal := u1;
+      }
+      action logout(){
+        securityContext.principal := null;
+      }
       if(!loggedIn())
       {
         "not logged in"
         form{
           action("login as Bob",login())
-        }
-        action login(){
-          securityContext.principal := u1;
         }
         
       }
@@ -61,9 +64,6 @@ section somesection
         output(securityContext.principal.name)
         form{
           action("logout",logout())
-        }
-        action logout(){
-          securityContext.principal := null;
         }
       }
     }
