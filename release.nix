@@ -2,7 +2,7 @@
 , hydraConfig ? ../hydraconfig
 , webdslsSrc ? {outPath = ./.; rev = 1234;}
 , officialRelease ? false
-, strcJava
+, strcJava ? { outPath = ./. ;}
 }:
 
 let
@@ -44,6 +44,7 @@ let
         src = tarball;
         buildInputs = [
           pkgconfig 
+          firefox
         ] ++ strPkgs pkgs 
           ++ lib.optional stdenv.isLinux apacheAnt
           ++ lib.optional stdenv.isDarwin antDarwin
@@ -92,6 +93,25 @@ let
         doCheck = true;
         phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
       };
+
+    webcheck = 
+      let
+        services = pkgs.fetchsvn {
+          url = https://svn.nixos.org/repos/nix/services/trunk;
+          rev = 18826;
+          sha256 = "08dblnszh22l31cx88z7767wz0y18qnb93zl3g5naiv9ahahniz1";
+        };
+        nixos = pkgs.fetchsvn {
+          url = https://svn.nixos.org/repos/nix/nixos/trunk;
+          rev = 20561;
+          sha256 = "0kbqabspz6p03l4b42hb1i48vzppyhd20j3l3yljmr3grqp3xacw";
+        };
+      in
+        with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
+        runInMachineWithX {
+          drv = pkgs.lib.overrideDerivation (build {}) (oldAttrs: { configureFlags = ""; }) ;
+        };
+
   };
 
   
