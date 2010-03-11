@@ -10,6 +10,12 @@ imports
 
 strategies
 
+	/*
+		Care has to be taken to rename all cases: global function calls can be inside entity functions,
+			and entity function calls can be inside global functions.
+		Also, entity functions and global functions can have the same name, but not all may have to be renamed.
+	*/ 
+
   // @TODO: Rename this strategy
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
@@ -17,9 +23,11 @@ strategies
     ; overloadedentityfuncs := <collect(find-entity-functions);concat> sections
     ; rules ( RenamedEntityFunctions := overloadedentityfuncs )
     ; overloadedglobalfuncs := <map(\ Function(nm, _, _, _) -> nm \); find-doubles; make-set> globalfuncs
-      // two traversals: global functions calls can be inside entities
-    ; sections2 := <alltd(rename-overloaded-global-function(|overloadedglobalfuncs)); alltd(rename-overloaded-entity-function(|overloadedentityfuncs))> sections
+    ; sections2 := <rename-all-overloaded-functions(|overloadedglobalfuncs,overloadedentityfuncs)> sections
     ; !Application(qid, sections2)
+      
+  rename-all-overloaded-functions(|globalnames,entitynames) =
+  		alltd(rename-overloaded-global-function(|globalnames,entitynames) <+ rename-overloaded-entity-function(|globalnames,entitynames)) 
 
   find-entity-root =
     ?srt
@@ -42,60 +50,67 @@ strategies
     EntityNoSuper(ent, entbodydecs) -> result
     with result := <filter(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> entbodydecs
 
-  rename-overloaded-entity-function(|torename) :
+rules	// rename entity functions (keep looking for global calls inside the entity and its functions)
+
+  rename-overloaded-entity-function(|torename_global,torename_entity) :
     Entity(ent, s, entbodydecs) -> Entity(ent, s, [prop1*,fun2*])
     with  fun1*  := <filter(is-function-cons)> entbodydecs
         ; prop1* := <filter(is-property-cons)> entbodydecs
         ; {| ThisEntity
           : rules( ThisEntity := ent )
-          ; fun2* := <with-toplevel-name(alltd(rename-overloaded-entity-function(|torename)))> fun1*
+          ; fun2* := <with-toplevel-name(rename-all-overloaded-functions(|torename_global,torename_entity))> fun1*
           |}
 
-  rename-overloaded-entity-function(|torename) :
+  rename-overloaded-entity-function(|torename_global,torename_entity) :
     EntityNoSuper(ent, entbodydecs) -> EntityNoSuper(ent, [prop1*,fun2*])
     with  fun1*  := <filter(is-function-cons)> entbodydecs
         ; prop1* := <filter(is-property-cons)> entbodydecs
         ; {| ThisEntity
           : rules( ThisEntity := ent )
-          ; fun2* := <alltd(with-toplevel-name(rename-overloaded-entity-function(|torename)))> fun1*
+          ; fun2* := <with-toplevel-name(rename-all-overloaded-functions(|torename_global,torename_entity))> fun1*
           |}
-        
-  rename-overloaded-entity-function(|torename) :
-    Function(nm, farg*, rt, b) -> fun
-    where <elem> ((<ThisEntity; find-entity-root>, nm), torename)
+
+  rename-overloaded-entity-function(|torename_global,torename_entity) :
+    Function(nm, farg*, rt, b){anno*} -> fun
+    where <elem> ((<ThisEntity; find-entity-root>, nm), torename_entity)
     with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
-       ; b2 := <alltd(rename-overloaded-entity-function(|torename))> b
-       ; fun := Function(nm2, farg*, rt, b2)
+       ; b2 := <rename-all-overloaded-functions(|torename_global,torename_entity)> b
+       ; fun := Function(nm2, farg*, rt, b2){anno*}
        ; <declare-function(|<ThisEntity>)> fun
 
-  rename-overloaded-entity-function(|torename) :
-    Call(e, nm, arg*) -> Call(e, nm2, arg*)
+  rename-overloaded-entity-function(|torename_global,torename_entity) :
+    Call(e, nm, arg*){anno*} -> Call(e, nm2, arg*){anno*}
     where SimpleSort(ent) := <type-of> e
-        ; <elem> ((<find-entity-root> ent, nm), torename)
+        ; <elem> ((<find-entity-root> ent, nm), torename_entity)
     with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
 
-  rename-overloaded-entity-function(|torename) :
+  rename-overloaded-entity-function(|torename_global,torename_entity) :
     ThisCall(nm, arg*) -> result
     where ent := <ThisEntity>
         ; <CheckFunctionSignature> (SimpleSort(ent), nm, <map(type-of)> arg*) // is call to member function of this entity
-        ; <elem> ((<find-entity-root> ent, nm), torename)
+        ; <elem> ((<find-entity-root> ent, nm), torename_entity)
     with  nm2 := <new-function-name> (nm, <map(type-of)> arg*)
         ; {| Rename:
             <rename-bound(|SimpleSort(ent))> "this"
           ; result := Call(<rename-all> Var("this"),nm2,arg*)
           |}
 
-  rename-overloaded-global-function(|torename) :
-    Function(nm, farg*, rt, b) -> fun
-    where <elem> (nm, torename)
+rules // rename overloaded global functions
+
+  rename-overloaded-global-function(|torename_global,torename_entity) :
+    Function(nm, farg*, rt, b){anno*} -> fun
+    where <elem> (nm, torename_global)
+    		; not(ThisEntity)		// don't rename entity function, even when global variant is overloaded 
     with nm2 := <new-function-name> (nm, <map(\ Arg(_, srt) -> srt \)> farg*)
-       ; b2 := <alltd(rename-overloaded-global-function(|torename))> b
-       ; fun := Function(nm2, farg*, rt, b2)
+       ; b2 := <rename-all-overloaded-functions(|torename_global,torename_entity)> b
+       ; fun := Function(nm2, farg*, rt, b2){anno*}
        ; <declare-global-func> fun
 
-  rename-overloaded-global-function(|torename) :
-    ThisCall(nm, arg*) -> ThisCall(nm2, arg*)
-    where <elem> (nm, torename)
+  rename-overloaded-global-function(|torename_global,torename_entity) :
+    tc@ThisCall(nm, arg*){anno*} -> ThisCall(nm2, arg*){anno*}
+    where <elem> (nm, torename_global)
+    			// is not an entity function call
+    		; not(<CheckFunctionSignature> (SimpleSort(<ThisEntity>), nm, <map(type-of)> arg*))
     with t_arg* := <map(type-of)> arg*  
         ; if listof-t_arg* := <bagof-CheckGlobalFunctionSignatureArgumentTypes> (None(), nm, t_arg*)
           then t_argnew* := <find-most-specific-signature(|t_arg*,nm)> listof-t_arg*
