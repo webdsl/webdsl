@@ -135,7 +135,8 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str)
                  
 BACKEND_TRANS_FILES = \
-				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) 
+				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
+				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*/*.str) 
                     
 ### pre-parsing Stratego modules
 
