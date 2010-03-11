@@ -44,7 +44,6 @@ let
         src = tarball;
         buildInputs = [
           pkgconfig 
-          firefox
         ] ++ strPkgs pkgs 
           ++ lib.optional stdenv.isLinux apacheAnt
           ++ lib.optional stdenv.isDarwin antDarwin
@@ -109,7 +108,7 @@ let
       in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
         runInMachineWithX {
-          drv = pkgs.lib.overrideDerivation (build {}) (oldAttrs: { configureFlags = ""; }) ;
+          drv = pkgs.lib.overrideDerivation (build {}) (oldAttrs: { configureFlags = ""; buildInputs = oldAttrs.buildInputs ++ [firefox] ; }) ;
         };
 
   };
