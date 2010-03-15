@@ -1,0 +1,104 @@
+module org/webdsl/dsl/languages/action/object-creation-exp
+
+imports
+  libstrategolib
+  libjava-front
+  libwebdsl-front
+
+rules
+
+  constraint-error-action :
+    oc@ObjectCreation(s@GenericSort(_,_),[propassign*]) -> 
+    <add-error(|["Object creation syntax is not allowed for generic types, use Set<type>() or List<type>() instead."])>
+    
+rules
+
+  constraint-error-action :
+    oc@ObjectCreation(s@SimpleSort(x_class),[propassign*]) -> <add-error(|["Cannot instantiate built-in type '",x_class,"'"])>
+    where <is-builtin-type> s
+       
+rules
+
+  constraint-error-action :
+    oc@ObjectCreation(SimpleSort(x_class),[propassign*]) -> oc //<add-error(|["Error in object creation of class '",x_class,"'"])> 
+    where <fetch(check-object-creation-property-assignment-1(|x_class))> propassign*
+       <+ <fetch(check-object-creation-property-assignment-2(|x_class))> propassign*
+
+  check-object-creation-property-assignment-1(|x_class) :
+    ObjectPropertyAssignment(ident,exp) -> <add-error(|["Entity '",x_class,"' does not contain a property '",ident,"'"])> 
+    where not(<type-of-property> (x_class,ident))
+
+  check-object-creation-property-assignment-2(|x_class) :
+    ObjectPropertyAssignment(ident,exp) -> <add-error(|["Type of expression '",srt_exp,"' is incompatible with type of entity property '",srt_prop,"'"])> 
+    where srt_prop := <type-of-property> (x_class,ident)
+        ; srt_exp := <type-of> exp
+        ; not(<type-compatible> (srt_prop,srt_exp))
+
+rules        
+
+  eq-type-of-action :
+    ObjectPropertyAssignment(y, e) -> SimpleSort("Void") //<type-of> y
+    
+  eq-type-of-action :
+    ObjectCreation(s, assign*) -> s
+
+rules
+
+  constraint-error-action:
+    Stat(ObjectCreation(_,_)) -> <add-error(|["Not a valid statement."])> 
+
+rules
+  
+  rename-action : 
+    ObjectCreation(srt, assigns){anno*} 
+  ->ObjectCreation(srt, assigns1){anno1*} 
+  with  anno1* := <put-closure-in-anno> anno*
+      ; assigns1 := <rename-all> assigns
+
+signature
+  constructors
+    ObjectCreationSecretTypesNeedDigests : Term
+
+rules
+
+  desugar-action = desugar-object-cr-exp
+  
+  desugar-object-cr-exp :
+    ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> ThisCall(x_fun, arg*)
+    where <not(fetch(ObjectCreationSecretTypesNeedDigests))> anno*
+    with  x_fun := <toplevel-rename> "objCr"
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*, assigns)
+        ; stat_cons* := <desugar-object-cr-constructorcalls> x_class
+        ; stat* := <map(desugar-object-cr-prop-assign)> assigns
+        ; x_empty := $[createEmpty[<capitalize-string> x_class]]
+        ; <rename-this-var; emit-webdsl-code> 
+            Function(x_fun, farg*, srt,Block(
+              <conc>
+              ([VarDeclInit("obj",srt,ThisCall(x_empty,[]))]
+              //call constructor hook + supers
+            , stat_cons*
+            , stat*
+            , [Return(Var("obj"))])
+            ))
+
+  desugar-object-cr-prop-assign:
+    ObjectPropertyAssignment(x_field, e1) -> |[ obj.x_field := e1; ]|
+
+  desugar-object-cr-constructorcalls:
+    x -> result
+    with  ent* := <defined-superclasses> x
+        ; allent* := <reverse> [x|ent*]
+        ; result := <map(\y -> Stat(Call(Var("obj"),y,[]))\)> allent*
+
+rules
+//desugaring for secret type in global var property init, digest is called on these properties
+
+  desugar-action :
+    ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> ObjectCreation(srt, assigns1){anno1*}
+    where <fetch(ObjectCreationSecretTypesNeedDigests)> anno*
+    with  assigns1 := <map(try(desugar-object-cr-global-var-secret-prop(|x_class)))> assigns
+        ; anno1* := <remove-all(ObjectCreationSecretTypesNeedDigests)> anno*
+            
+  desugar-object-cr-global-var-secret-prop(|x_class):
+    ObjectPropertyAssignment(x_field, e1) -> ObjectPropertyAssignment(x_field, Call(e1,"digest",[]))
+    where SimpleSort("Secret") := <TypeOfProperty> (x_class,x_field)

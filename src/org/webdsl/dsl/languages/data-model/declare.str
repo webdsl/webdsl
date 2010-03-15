@@ -44,6 +44,24 @@ strategies // register all declared entities
             else props1 := props end
           ; result := <uniq> props1
           end
+          
+  /**
+   *  gives all the properties of the entity and its supers, as a list of tuples of (entitywiththeproperty,property)
+   */
+  all-entity-properties-tuples :
+    x_class -> result
+    with  props := <bagof-Properties; concat> x_class
+        ; if not(<Extends> x_class)
+          then result := []
+          else
+            props1 := <map(create-tuple-with-entity-prop(|x_class))> props
+          ; if not("Entity" := <Extends> x_class) 
+            then props2 := <concat> [props1, <Extends; all-entity-properties-tuples> x_class]
+            else props2 := props1 end
+          ; result := <uniq> props2
+          end
+
+  create-tuple-with-entity-prop(|x_class) : prop -> (x_class,prop)
 
   all-functions :
     x_class -> result
@@ -145,7 +163,7 @@ rules
   declare-property(|x_class) =
     ?prop@Property(x, k, s, annos)
     ; with( 
-    		y := x{<prefix-rename(|x_class)> x}
+        y := x{<prefix-rename(|x_class)> x}
       ; xsa := <strip-annos> x
       )
     ; rules( TypeOfProperty : (x_class, x) -> s 
@@ -158,7 +176,7 @@ rules
               *  Scoping is done by the 'where x_class := <InEntity>' condition
               */
              Rename :+ Var(x) -> Var(y) where <fetch(?x_class)> (<InEntity; get-class-hierarchy>)
-             PropertyNameToUniqueName : xsa -> y //this dynamic rule is renewed each time a new Rename is performed
+             PropertyNameToUniqueName : (x_class, xsa) -> y //this dynamic rule is renewed each time a new Rename is performed
              Rename :+ Qualified(x, z) -> Qualified(y, z) where x_class := <InEntity>
              TypeOf : y -> s
            )

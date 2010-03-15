@@ -49,6 +49,11 @@ EXTRA_DIST = \
 
 ### developer targets
 
+copy-rtrees-to-lib-dir-for-editor-support :
+	rm -r ../lib
+	mkdir ../lib
+	cp *.rtree ../lib
+
 only-backend-trans :
 	make libback-end-transformations.la
 	touch libto-java-servlet.rtree
@@ -216,7 +221,8 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(ALL_LIBS) 
 
 webdslc.c : webdslc.str \
-			$(ALL_LIBS)
+			$(ALL_LIBS) \
+			copy-rtrees-to-lib-dir-for-editor-support
 endif
 
 ### webdsl configuration utility c
@@ -315,7 +321,7 @@ class : $(JAVAS)
 	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
 
-webdsl.jar : class
+webdsl.jar : class copy-rtrees-to-lib-dir-for-editor-support
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
 
 src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs

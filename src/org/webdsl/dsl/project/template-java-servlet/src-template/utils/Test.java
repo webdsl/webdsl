@@ -2,7 +2,9 @@ package utils;
 
 import java.util.*;
 
-public class Test {
+public abstract class Test {
+	
+	public abstract boolean run();
     
 	public int assertsChecked = 0;
 	public int assertsSucceeded = 0;

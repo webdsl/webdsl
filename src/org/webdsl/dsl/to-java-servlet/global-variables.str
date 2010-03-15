@@ -41,19 +41,9 @@ rules
         private static Environment env; 
         
         private static java.io.PrintWriter out = null;
-
-          //private static HashMap<String, Long> ids = new HashMap<String, Long>();
-          
-          //cope with either primary key types as well? or keep consistent, always Long primary key
           
         ~*cbds*
         ~*cbds1*
-          /*public static void getGlobalVariable(org.hibernate.Session hibSession, String ident)
-          {
-              hibSession.load(ids.get(ident));
-          }*/
-      
-        //private static HashMap<String, Object> variables = new HashMap<String, Object>();
     
         static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
           for(ApplicationContextProperty a : res){
@@ -145,9 +135,9 @@ rules
         ; bstm_initobjects* := <map(vardeclinit-to-init-object-java)> vardeclinits
  
   vardeclinit-to-init-object-java :
-    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(sort_created@SimpleSort(x_classcreated),assigns)) -> 
+    vdi@VarDeclInit(x_ident,srt@SimpleSort(x_class), e) -> 
     bstm|[ x_ident = new x_t(); ]|
-    with  x_t := <java-type-name> sort_created
+    with  x_t := <java-type-name> srt
 
   vardeclinit-to-persist-statement-java-servlet:
     vdi@VarDeclInit(x_ident,SimpleSort(x_class),exps) -> resultwrapped
@@ -187,15 +177,13 @@ rules
     ]|
 
   vardeclinit-to-method-java-servlet:
-    vdi@VarDeclInit(x_ident,SimpleSort(x_class), ObjectCreation(sort_created@SimpleSort(x_classcreated),assigns)) ->
+    vdi@VarDeclInit(x_ident,srt@SimpleSort(x_class), e) ->
       class-body-dec* |[
         private static t x_ident = null;
 
         private static void globalDeclaration#x_ident() {
           try {
-            ~*bstmvardeclinit*
-            //call constructor for entity-events:
-            x_ident.x_classcreated#_(hibSession, env, out);
+            x_ident = e_vardeclinit;
           }
           catch(Exception iea) {
             throw new RuntimeException("Catched in globalDeclaration: ",iea);
@@ -218,28 +206,9 @@ rules
         }
   ]|
   with  x_acpident := <newname> "id"
-      ; t := <defined-java-type> sort_created
-      ; x_t := <java-type-name> sort_created
-      ; digests := <filter(secret-assigns-to-digest-java-servlet(|x_ident,x_classcreated))> assigns
-      ; bstmvardeclinit* := <conc>
-                         (<map(\ ObjectPropertyAssignment(x_prop, e) -> webdsl |[ x_ident.x_prop := e; ]| \)//Assign(Assignment(Qualified(x_ident, f), e)) \)
-                           ; /*desugar-any;*/ statements-to-java-servlet> assigns
-                         , digests)
-
-  secret-assigns-to-digest-java-servlet(|x_ident,class):
-    ObjectPropertyAssignment(x_prop,val@String(anystring)) ->
-     bstm|[
-       {
-         org.jasypt.util.password.StrongPasswordEncryptor x_var2 =
-           new org.jasypt.util.password.StrongPasswordEncryptor();
-         x_ident.x_set(x_var2.encryptPassword(x_anystring));
-       }
-     ]|
-     where SimpleSort("String") := <get-type-anno> val
-         ; SimpleSort("Secret") := <get-type-anno> x_prop
-     with  x_var2 := <newname> "_passwordEncryptor"
-         ; x_set := <property-setter> x_prop
-         ; x_anystring := <concat-strings> ["\"",anystring,"\""]
+      ; t := <defined-java-type> srt
+      ; x_t := <java-type-name> srt
+      ; e_vardeclinit := <expression-to-java-servlet> e
 
 strategies //handle global vars in page classes    
 
@@ -255,46 +224,3 @@ strategies //handle global vars in page classes
                        DispatchServlet.initGlobalVars(env, hibSession);
                      }
                    ]|
-
-/*
-  GenerateCodeJavaServlet = page-class-generation-test; generate-java-servlet-global-vars-page-part; fail
-  
-  generate-java-servlet-global-vars-page-part :
-    def |[ define mod* x(farg*)  req*  { elem* } ]| -> result
-    where x := <(JavaThisPage <+ ThisAjaxTemplateName)>
-    with result := <map(generate-java-servlet-global-vars-page-part-helper)> <bagof-AllGlobalVars> 
-    
-  generate-java-servlet-global-vars-page-part-helper :   
-    elem |[ var x : srt := e ]| -> 
-    <generate-java-servlet-partial>
-    class-body-dec|[
-       @Partial
-       protected void initialize()
-       {
-           t x = null;
-           x = GlobalVariables.get#x(hibSession);
-           env.putVariable("~x",x);
-       }
-     ]| 
-     with  t := <java-type> srt
-*/ 
-/*                     
-  GenerateCodeJavaServlet = generate-java-servlet-global-template-part; fail
-  
-  generate-java-servlet-global-template-part :
-    def |[ define mod* x(farg*)  req*  { elem* } ]| -> result
-    with result := <map(generate-java-servlet-global-vars-template-helper)> <bagof-AllGlobalVars> 
-    
-  generate-java-servlet-global-vars-template-helper :
-    elem |[ var x : srt := e ]| -> 
-    <generate-java-servlet-template-partial> 
-    class-body-dec*|[ 
-      private t x = null;
-      @Partial
-      protected void initialize() {
-        x = (x_class) env.getVariable("~x");
-      }
-    ]| 
-    with  t := <java-type> srt
-        ; x_class := <java-type-name> srt
-*/
