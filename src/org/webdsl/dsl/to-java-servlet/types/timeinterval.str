@@ -44,18 +44,28 @@ rules
   
   generate-global-var-initializer-method = 
     bstm* := <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars>
+    ; bstm2*  := <map(generate-session-var-initializer); concat> <bagof-SessionEntities<+![]>
+    ; t := type|[ boolean ]|
     ; !|[
-        public static void initGlobalVars(Environment env, org.hibernate.Session hibSession) {
+        public static t initGlobalVars(Environment env, org.hibernate.Session hibSession) {
+          bstm2*
           bstm*
+          return true;
         }
       ]|
 
-  generate-global-var-initializer :   
+  generate-session-var-initializer :
+    sent@def|[ session x_ident { ebd* } ]| -> bstm*|[ 
+      env.putVariable("~x_ident", new x_Ident());
+    ]| 
+    with x_Ident := <capitalize-string> x_ident
+
+  generate-global-var-initializer :
     elem |[ var x : srt := e ]| -> bstm*|[ 
       env.putVariable("~x", GlobalVariables.get#x(hibSession)); 
       if(env.getVariable("~x") == null) {
         hibSession.getTransaction().commit();
-        return;
+        return false;
       }
     ]| 
 
@@ -68,10 +78,11 @@ rules
                 hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
                 hibSession.beginTransaction();
                 Environment env = new Environment(PageServlet.staticEnv);
-                DispatchServlet.initGlobalVars(env, hibSession);
-                java.io.PrintWriter out = new java.io.PrintWriter(System.out);
-                e1;
-                hibSession.getTransaction().commit();
+                if(DispatchServlet.initGlobalVars(env, hibSession)) {
+                  java.io.PrintWriter out = new java.io.PrintWriter(System.out);
+                  e1;
+                  hibSession.getTransaction().commit();
+                }
               } catch (Exception ex) {
                 System.out.println("exception occured: "+ex.getMessage());	
                 ex.printStackTrace();
