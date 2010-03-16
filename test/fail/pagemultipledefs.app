@@ -1,4 +1,4 @@
-//is defined multiple times
+//Multiple definitions with name
 
 application test
 

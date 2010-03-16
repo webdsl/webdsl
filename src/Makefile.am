@@ -50,7 +50,7 @@ EXTRA_DIST = \
 ### developer targets
 
 copy-rtrees-to-lib-dir-for-editor-support :
-	rm -r ../lib
+	rm -rf ../lib
 	mkdir ../lib
 	cp *.rtree ../lib
 
