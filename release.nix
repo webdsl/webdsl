@@ -91,6 +91,12 @@ let
 
         doCheck = true;
         phases = "unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
+
+        finalPhase = ''
+          if test -f ${src}/nix-support/hydra-release-name ; then
+            cat ${src}/nix-support/hydra-release-name | sed 's|webdsl|webdsl-java|' > $out/nix-support/hydra-release-name
+          fi
+        '';
       };
 
     webcheck = 
