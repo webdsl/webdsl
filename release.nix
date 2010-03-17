@@ -82,7 +82,7 @@ let
     buildJava =
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
-      releaseTools.nixBuild {
+      releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
         buildInputs = [pkgconfig ecj apacheAnt strcJava which fastjar jdk] ++ strPkgs pkgs;
