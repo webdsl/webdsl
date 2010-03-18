@@ -1,8 +1,4 @@
 { nixpkgs ? ../nixpkgs
-, hydraConfig ? ../hydraconfig
-, webdslsSrc ? {outPath = ./.; rev = 1234;}
-, officialRelease ? false
-, strcJava ? { outPath = ./. ;}
 }:
 
 let
@@ -17,7 +13,10 @@ let
 
   jobs = rec {
 
-    tarball =
+    tarball = 
+      { webdslsSrc ? {outPath = ./.; rev = 1234;}
+      , officialRelease ? false
+      }:
       with pkgs;
       releaseTools.makeSourceTarball {
         name = "webdsl-tarball";
@@ -35,9 +34,19 @@ let
 
 
     build =
-      { system ? "i686-linux" }:
+      { system ? "i686-linux" 
+      , tarball ? jobs.tarball {}
+      }:
 
       let pkgs = import nixpkgs {inherit system;};
+          antDarwinNative = pkgs.stdenv.mkDerivation {
+            name = "ant-darwin-native";
+            buildCommand = ''
+              ensureDir $out/bin
+              ln -s /usr/share/ant/bin/ant $out/bin/ant
+            '';
+          };
+
       in with pkgs;
       releaseTools.nixBuild {
         name = "webdsl";
@@ -46,7 +55,7 @@ let
           pkgconfig 
         ] ++ strPkgs pkgs 
           ++ lib.optional stdenv.isLinux apacheAnt
-          ++ lib.optional stdenv.isDarwin antDarwin
+          ++ lib.optional stdenv.isDarwin antDarwinNative
           ;
 
         configureFlags = "--enable-web-check=no";
@@ -80,6 +89,9 @@ let
       } ;      
 
     buildJava =
+      { tarball ? jobs.tarball {}
+      , strcJava ? { outPath = ./. ;}
+      }:
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
       releaseTools.nixBuild rec {
@@ -100,6 +112,8 @@ let
       };
 
     webcheck = 
+      { tarball ? jobs.tarball {}
+      }:
       let
         services = pkgs.fetchsvn {
           url = https://svn.nixos.org/repos/nix/services/trunk;
@@ -114,7 +128,7 @@ let
       in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
         runInMachineWithX {
-          drv = pkgs.lib.overrideDerivation (build {}) (oldAttrs: { configureFlags = ""; buildInputs = oldAttrs.buildInputs ++ [pkgs.firefox] ; }) ;
+          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; buildInputs = oldAttrs.buildInputs ++ [pkgs.firefox] ; }) ;
         };
 
   };
