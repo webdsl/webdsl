@@ -131,7 +131,7 @@ let
       in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
         runInMachineWithX {
-          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [pkgs.firefox] ; }) ;
+          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; buildNativeInputs = oldAttrs.buildNativeInputs ++ [pkgs.firefox] ; }) ;
         };
 
   };
