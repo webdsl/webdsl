@@ -64,6 +64,9 @@ let
       };
 
     buildJavaZip = 
+      { tarball ? jobs.tarball {}
+      , strcJava ? { outPath = ./. ;}
+      }:
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
         buildInputs = [pkgs.zip]; 
@@ -72,7 +75,7 @@ let
           ensureDir $out/nix-support
 
           mkdir webdsl 
-          cp -R ${buildJava}/* webdsl/
+          cp -R ${buildJava { inherit strcJava tarball; } }/* webdsl/
           chmod -R 755 webdsl/
  
           # cleanup
@@ -128,7 +131,7 @@ let
       in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
         runInMachineWithX {
-          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; buildInputs = oldAttrs.buildInputs ++ [pkgs.firefox] ; }) ;
+          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [pkgs.firefox] ; }) ;
         };
 
   };
