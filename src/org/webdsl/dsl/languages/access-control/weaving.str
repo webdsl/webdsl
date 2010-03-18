@@ -25,42 +25,13 @@ rules
   ; alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferred(f) end)
   ; warn-for-unused-rules
   
-  process-page-checks://TODO substpagevars
-  d@def|[ define page x_ident(farg*)  req* { elem* }       ]| -> 
-    def|[ define page x_ident(farg*)  req* { elem elem1* } ]|
-    with // collect takes care of duplicates
-          listofchecks := <collect(\TemplateCall("acpagecheck",[Var(x),e],[],TemplateBody([])){r}-> (x,e,r) \)> elem*
-        ; e := <combine-checks> listofchecks
-        ; <warn-for-blocked-elements> (e,"page",x_ident,farg*)
-        // don't go into local template defines in the page definition
-        ; localtemplatedefine* := <collect-om(?Define(_,_,_,_,_))> elem*
-        ; elemwithoutdefines* := <topdown(try(remove-all(?Define(_,_,_,_,_))))> elem*
-        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elemwithoutdefines*
-        ; elem0* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
-                                            <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elemwithoutdefines*
-        ; elem1* := [elem0*,localtemplatedefine*]
-        ; x_predname := <concat-strings> ["genpagepredicatecombined_", x_ident]
-        ; <emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
-        ; e2* := <map(get-varname-from-formarg)> farg*
-        ; elem := elem |[ init { if ( x_predname(e2*) ) { stat* } else { goto accessDenied(); } } ]|
-        ; rules( WeaveAccessControlInferred :+
-               /*  elem|[                        navigate( x_ident(e*) )[passign*]{ elem2* }   ]| ->
-                   elem|[ if( x_predname(e*) ) { navigate( x_ident(e*) )[passign*]{ elem2* } } ]|*/
-                   TemplateCall("navigate", [ThisCall(x_ident,e*)], passign*, TemplateBody(elem2*)) ->
-                   IfTempl(ThisCall(x_predname,e*),[TemplateCall("navigate", [ThisCall(x_ident,e*)], passign*, TemplateBody(elem2*))],[])
-                         
-                          //todo match argument types although not really necessary since overloading is not possible for pages
-               ) 
-        //;    <debug> ["navlink created ",x_ident]
- 
-  
   //separated from page and template accheck processing for clarity
   process-page-actions:
     def@def|[ define page x_ident(farg*)  req* { elem*  } ]| ->
     def|[ define page x_ident(farg*)  req* { elem2* } ]|
     with  name := <get-toplevel-name> def
     		; elem1* := <alltd(process-action-checks(|name,farg*))> elem*
-        ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end)> elem1*
+        ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
     def@def|[ define mod* x_ident(farg*)  req* { elem* }  ]| -> <declare> def|[ define mod* x_ident(farg*){ elem3* } ]|
@@ -94,50 +65,114 @@ rules
                                      //subst-vars: Var(nm)->Var(varname)
                               ))}<+info(|["map failed",<id>]))> farg1*
            ; e2 := <alltd(subst-vars)> e1
-           |}
-
+            |}
   
-  process-action-checks(|toplevel-name,farg4*): //page farg
-  d@elem|[ action x_ident(farg*){ stat*  } ]| -> 
-    elem|[ action x_ident(farg2*){ stat3* } ]|
-    with  listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
-        ; e1 := <combine-checks> listofchecks
-        ; <warn-for-blocked-elements> (e1,"action",x_ident,farg*)
-        ; x_predname := <concat-strings> ["genactionpredicatecombined_", toplevel-name, x_ident] //problem with nested checks;
-        ; (farg6*,e2) := <substitute-parent-vars-2> (farg4*,e1)
-        ; farg5* := [farg6*,farg*] //TODO Duplicate names in farg
-        ; <emit-webdsl-code> def|[ predicate x_predname(farg5*) { e2 } ]|
-        ; e2* := <map(get-varname-from-formarg)> [farg4*,farg*]
-        //remove ac calls
-        ; stat1* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
-        //determine whether it returns to the same or a different page, to either redirect with goto or return
-        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> stat1*
-        ; if returnstat := [] 
-          then stat2* := [webdsl |[ goto(accessDenied()); ]|] 
-          else stat2* := [webdsl |[ return(accessDenied()); ]|] end
-        ; stat3* := [webdsl |[ if ( x_predname(e2*) ) { stat1* } else { stat2* } ]|]
-        ; e5* := <map(get-varname-from-formarg)> farg4*//map(try(\Var(x)->ExternalScopeVar(x)\))
-        ; rules( WeaveAccessControlInferredAction :+
-                 a@                                  SubmitElem(ActionCall(x_ident,e3*), passign*, submitelem*) ->
-                   IfTempl(ThisCall(x_predname,e4*),[SubmitElem(ActionCall(x_ident,e3*), passign*, submitelem*)],[])
-                   with e4* := [e5*,e3*]
-                 WeaveAccessControlInferredAction :+
-                 a@                                  SubmitLinkElem(ActionCall(x_ident,e3*), passign*, submitelem*) ->
-                   IfTempl(ThisCall(x_predname,e4*),[SubmitLinkElem(ActionCall(x_ident,e3*), passign*, submitelem*)],[])
-                   with e4* := [e5*,e3*]
+  dummy-pred-name = !"dummy"
+  is-dummy-pred = ?x; x := <dummy-pred-name>
+  is-true-check = ?(_,True(),_); debug
+  is-true-check = ?(_,ThisCall(<is-dummy-pred>,_),_)
+
+	// Given a list of checks, return the name and arguments of an optimized predicate
+	// Returns:
+	// - combined predicate (if needed)
+	// - existing predicate (if just one check)
+	// - dummy predicate (if unconditionally true)
+	combine-checks-smart(substitute-expr | farg_match*, farg_extra*, x_name, predtype):
+		listofchecks -> (x_predname, nargs)
+		with  
+			//register which rules are used, in order to produce warnings
+			<map(Third;{x:?x;rules(AccessControlRuleUsed :+= x)})> listofchecks 
+    ; nontrue_checks := <remove-all(is-true-check)> listofchecks
+    ; if not([] := listofchecks); [] := nontrue_checks then
+      		// There are checks, but they are all True: do not insert checks
+      			x_predname := <dummy-pred-name>
+      		; nargs := 0
+     	else
+     		if <eq> (<length> nontrue_checks, 1) then
+      			// Just one non-true predicate. Do not create a combined predicate, but call directly.
+      			ThisCall(x_predname, e_allargs_pred*) := <Hd; ?(_,<id>,_)> nontrue_checks
+        	; nargs := <length> e_allargs_pred*
+      	else
+      			// Multiple checks. Emit a combined predicate.
+      			e_check := <combine-checks> nontrue_checks
+      		; (farg_extra_renamed*, e_checkrenamed) := <substitute-expr> (farg_extra*,e_check)
+      		; x_predname := <concat-strings> ["gen",predtype,"combined_",x_name]
+      		; farg_combined* := [farg_extra_renamed*, farg_match*]
+      		; <emit-webdsl-code> def |[ predicate x_predname(farg_combined*) { e_checkrenamed } ]|
+       		 // Since no constant folding is done, this will only warn if no rules have been defined.
+      		; <warn-for-blocked-elements> (e_check,predtype,x_name,farg_match*)
+      		; nargs := <length> farg_combined*
+      	end
+      end
+
+	process-page-checks://TODO substpagevars
+  d@def|[ define page x_ident(farg*)  req* { elem* }       ]| -> 
+    def|[ define page x_ident(farg*)  req* { elem elem1* } ]|
+    with  // don't go into local template defines in the page definition
+        	localtemplatedefine* := <collect-om(?Define(_,_,_,_,_))> elem*
+        ; elemwithoutdefines* := <topdown(try(remove-all(?Define(_,_,_,_,_))))> elem*
+        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elemwithoutdefines*
+        ; elem0* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
+                                            <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elemwithoutdefines*
+        ; elem1* := [elem0*,localtemplatedefine*]
+        // collect takes care of duplicates
+        ; listofchecks := <collect(\TemplateCall("acpagecheck",[Var(x),e],[],TemplateBody([])){r}-> (x,e,r) \)> elem*
+        ; (x_predname, nargs) := <combine-checks-smart(id | farg*, [], x_ident, "page")> listofchecks
+        ; if <is-dummy-pred> x_predname then
+          		elem := [] // always allowed
+          else
+          		e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*)
+          	;	elem := elem |[ init { if ( x_predname(e_args*) ) { stat* } else { goto accessDenied(); } } ]|
+          	; rules( WeaveAccessControlInferred :+
+                   TemplateCall("navigate", [ThisCall(x_ident,e*)], passign*, TemplateBody(elem2*)) ->
+                   IfTempl(ThisCall(x_predname,e_predargs*),[TemplateCall("navigate", [ThisCall(x_ident,e*)], passign*, TemplateBody(elem2*))],[])
+                   with e_predargs* := <take(|nargs)> e* 
+     //todo match argument types although not really necessary since overloading is not possible for pages
                )
+         end 
+        
+         //problem with nested checks;
+  process-action-checks(|toplevel-name,farg_page*): //page farg
+  d@elem|[ action x_ident(farg*){ stat*  } ]| -> 
+    elem|[ action x_ident(farg*){ stat_check* } ]|
+    with	listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
+    		; e := <combine-checks> listofchecks
+    		//remove ac calls
+        ; stat_allow* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
+        //determine whether it returns to the same or a different page, to either redirect with goto or return
+        ; returnstat := <collect(?Return(_) <+ ?Cancel(_))> stat_allow*
+        ; if returnstat := [] 
+          then stat_denied* := [webdsl |[ goto(accessDenied()); ]|] 
+          else stat_denied* := [webdsl |[ return(accessDenied()); ]|] end
+        ; x_predbasename := x_ident // do not prefix with toplevel-name: the action is already renamed
+        ; (x_predname, nargs) := <combine-checks-smart(substitute-parent-vars-2 | farg*, farg_page*, x_predbasename, "action")> listofchecks
+        ; if <is-dummy-pred> x_predname then
+          		stat_check* := stat_allow*
+        	else
+        			e_allargs* := <map(get-varname-from-formarg); take(|nargs)> [farg_page*,farg*] 
+         		; pageargnames* := <map(get-varname-from-formarg)> farg_page*
+         		; stat_check* := [webdsl |[ if ( x_predname(e_allargs*) ) { stat_allow* } else { stat_denied* } ]|]
+         		; rules( WeaveAccessControlInferredAction :+
+                 a@                                  					SubmitElem(ActionCall(x_ident,actionargs*), passign*, submitelem*) ->
+                   IfTempl(ThisCall(x_predname,e_checkargs*),[SubmitElem(ActionCall(x_ident,actionargs*), passign*, submitelem*)],[])
+                   with e_checkargs* := <take(|nargs)> [pageargnames*,actionargs*]
+                 WeaveAccessControlInferredAction :+
+                 a@                                  					SubmitLinkElem(ActionCall(x_ident,actionargs*), passign*, submitelem*) ->
+                   IfTempl(ThisCall(x_predname,e_checkargs*),[SubmitLinkElem(ActionCall(x_ident,actionargs*), passign*, submitelem*)],[])
+                   with e_checkargs* := <take(|nargs)> [pageargnames*,actionargs*]
+		           )
+		       end
         // fix use of template arg in nested action check, template arg needs to be explicitly transferred otherwise action can't 
         // reach it, eg in the case of a for loop var in the page passed as argument to a template
         /*; if IsInTemplate then
-            farg2* := [farg4*,farg*]
-          ; e8* := <map(get-varname-from-formarg)> farg4*
+            farg2* := [farg_page*,farg*]
+          ; e8* := <map(get-varname-from-formarg)> farg_page*
           ; rules (AddTemplateArgToActionArg: 
                        elem|[  x ( e7, x_ident(e3*) )[passign*] { elem* }  ]| ->
                        elem|[  x ( e7, x_ident(e9*) )[passign*] { elem* }  ]|
                        with  e9* := [e8*,e3*] // can simply concat these, because rename phase made the identifiers unique
             )  
           else*/
-           ; farg2* := farg*
          // end
       
   process-template-checks:
@@ -146,16 +181,21 @@ rules
         ; not(<fetch(?Email())> mod*)
         ; not(<fetch(?IgnoreAccessControl())> mod*)
     with  listofchecks := <collect(\TemplateCall("actemplatecheck",[Var(x),e],[],TemplateBody([])){r} -> (x,e,r) \)> elem*
-        ; e := <combine-checks> listofchecks
+    		; type := <fetch(AjaxTemplate); !"ajaxtemplate" <+ !"template"> mod*
+        ; (x_predname, nargs) := <combine-checks-smart(id | farg*, [], x_ident, type)> listofchecks
         ; elem1* := <topdown(try(remove-all({x,e:?elem|[ actemplatecheck(x,e)[]{} ]|} )))> elem*
-        ; if <fetch(AjaxTemplate)> mod* then
-            <warn-for-blocked-elements> (e,"ajaxtemplate",x_ident,farg*)
-          ; elem2* := elem* |[ if ( e ) { elem1* } else { "Access denied to this ajax template call" }  ]|
+        ; if <is-dummy-pred> x_predname then
+          	elem2* := elem1*
           else
-            <warn-for-blocked-elements> (e,"template",x_ident,farg*)
-          ; elem2* := elem* |[ if ( e ) { elem1* } ]|
-          end
-  
+          		e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*)
+        		; e_check := ThisCall(x_predname, e_args*)
+        		; if <fetch(AjaxTemplate)> mod* then
+          			elem2* := elem* |[ if ( e_check ) { elem1* } else { "Access denied to this ajax template call" }  ]|
+          		else
+								elem2* := elem* |[ if ( e_check ) { elem1* } ]|
+    		      end
+  				end
+  				
  /* 
   process-function-checks://TODO add external scope vars and subst
     a@|[ acfunctioncheck(x_group,e) e1 ]| -> 
@@ -186,9 +226,8 @@ rules
   //strategy that takes list of (groupname,check) tuples and creates the combination
   combine-checks=
     ?checks
-  ; where(with(map(Third;{x:?x;rules(AccessControlRuleUsed :+= x)}))) //register which rules are used, in order to produce warnings
   ; with (final-check := <AC-Policy-Expression<+!Name("anonymous")>
-          ; groupnames := <collect(\Name(x)->x\)> final-check
+    			; groupnames := <collect(\Name(x)->x\)> final-check
           ; groupchecks := <map({x:?x;<filter(?(x,_,_));map(Snd)> checks;try(generate-conjunction-exp)})> groupnames)  //error here
   ; if <map(?[])> groupchecks
     then !False()

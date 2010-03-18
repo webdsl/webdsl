@@ -15,11 +15,14 @@ imports
   org/webdsl/dsl/languages/access-control/-
 
 rules
+
+	is-toplevel-elem = ?AccessControlPrincipal(_,_)
+
+rules
   process-access-control=
     if AccessControlEnabled then
-      try(add-access-denied-page)
-      ; desugar-top
-    
+      	try(add-access-denied-page)
+      
       ; alltd(new-generate-access-control-rules-checks)
 
       //topdown that does all the global checks, nested checks are handled when normal checks are applied
@@ -87,46 +90,69 @@ rules
                <left-match> (<explode-string> name,leftmatcher)
           end
     end    
-    
-    
-  create-page-rule(|x_rulegroup):
+  
+rules // create & emit predicate (optimization: return dummy predicate if condition is always true)
+	
+  create-pred-from-exp(|farg*, type, x_name):
+  	True() -> <dummy-pred-name>
+  
+	create-pred-from-exp(|farg*, type, x_name): e -> x_predname
+		with	x_predname := <get-pred-id> (<concat-strings> ["gen",type,"predicate_"], x_name)
+        	//null checks are added to predicates automatically
+        ; <emit-webdsl-code> def|[ predicate x_predname(farg*) { e } ]|
+        	
+rules // pages 
+	
+	create-page-rule(|x_rulegroup):
     r@acrule|[ rule page x_pagematchname(margs) { e acrule* } ]| -> r
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <get-pred-id> ("genpagepredicate_", x_pagematchname)
-        ; farg2* := <get-formarg-from-matcharg> margs
-        ; specifiedargcount := <length> farg2*
-        //null checks are added to predicates automatically
-        ; <emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
-        //bind for more efficient dr retrieval, doesn't seem to work like this
-        //; if <explode-string;not(elem('*'))> x_pagematchname then x_pagename:=x_pagematchname end
-        ; rules( WeaveAccessControlPage :+
-                   def|[ define page x_pagename(farg*)  req* { elem* } ]| -> 
-                   def|[ define page x_pagename(farg*)  req* { elem_acpagecheck
-                                                         elem1* } ]|
-                   where <match-names> (x_pagematchname,<strip-annos>x_pagename)
-                       ; <match-arguments> (margs,<map(strip-annos)>farg*)
-                   with  e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
-                       ; elem_acpagecheck := TemplateCall("acpagecheck",[Var(x_rulegroup),ThisCall(x_predname,e*)],[],TemplateBody([])){r}
-                       //nested actions
-                       ; {| WeaveAccessControlAction:
-                            <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
-                            // alltd is enough because global checks are handled already in
-                            // the normal traversal, and deeper nested checks are handled in
-                            // the parent checks again
-                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
-                          |}  
-               )
-          
-  create-action-rule(|x_rulegroup,farg7*,nestingvars):
-    r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
+        ; farg_match* := <get-formarg-from-matcharg> margs
+        ; x_predname := <create-pred-from-exp(|farg_match*, "page", x_pagematchname)> e
+        ; {| AccessControlWeavingName:
+          		rules(AccessControlWeavingName := x_pagematchname)
+          	; actionpred_name* := <map(create-action-predicate(|x_rulegroup, farg_match*))> acrule*
+          |}
+        ; actionpred* := <zip> (acrule*, actionpred_name*)
+       	; rules( WeaveAccessControlPage :+
+						def|[ define page x_pagename(farg*)  req* { elem* } ]| -> 
+						def|[ define page x_pagename(farg*)  req* { elem_acpagecheck elem1* } ]|
+		        	where <match-names> (x_pagematchname,<strip-annos>x_pagename)
+		        			; <match-arguments> (margs,<map(strip-annos)>farg*)
+		        	with  e* := <map(get-varname-from-formarg);take(|<length> farg_match*)> farg*
+		        			;	expr_check := ThisCall(x_predname, e*)
+		        			; elem_acpagecheck := TemplateCall("acpagecheck",[Var(x_rulegroup),expr_check],[],TemplateBody([])){r}
+		        			  //nested actions
+									; {| WeaveAccessControlAction:
+		             			nestingvars := <map(try(\Var(nm)->ExternalScopeVar(nm)\))> e*
+		                ; <map(\ (rule,actionpredname) -> <create-action-dr(|x_rulegroup,nestingvars,actionpredname)> rule\)> actionpred*
+		                // alltd is enough because global checks are handled already in
+		                // the normal traversal, and deeper nested checks are handled in
+		                // the parent checks again
+		                ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
+		              |}
+    				)
+
+rules // actions
+
+	create-action-rule(|x_rulegroup,farg*,nestingvars) =
+			where(x_predname := <create-action-predicate(|x_rulegroup,farg*)>)
+		; create-action-dr(|x_rulegroup,nestingvars,x_predname)
+  
+  create-action-predicate(|x_rulegroup,farg_page*):
+    r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> x_predname
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <get-pred-id> ("genactionpredicate", x_actionmatchname)
-        ; farg1* := <get-formarg-from-matcharg> margs
-        ; specifiedargcount := <length> farg1*
-        ; (farg8*,e1) := <substitute-parent-vars-1> (farg7*,e)
-        ; farg2* := [farg8*,farg1*] //special: * at end of name inlines contents in list
-        ; <emit-webdsl-code> def|[ predicate x_predname(farg2*) { e1 } ]|
-        ; rules(   
+    			// Use parent page/template name if available
+    		; x_name := <concat-strings> [<AccessControlWeavingName; ![<id>,"_"]; concat-strings <+ !"">, x_actionmatchname]
+    		; farg_actionrule* := <get-formarg-from-matcharg> margs
+        ; (farg_page_subst*,e1) := <substitute-parent-vars-1> (farg_page*,e)
+        ; farg_pred* := [farg_page_subst*,farg_actionrule*] //special: * at end of name inlines contents in list
+        ; x_predname := <create-pred-from-exp(|farg_pred*, "action", x_name)> e1 
+    		
+	create-action-dr(|x_rulegroup,nestingvars,x_predname):
+	  r@acrule|[ rule action x_actionmatchname(margs) { e acrule* } ]| -> r
+    	with 
+    		specifiedargcount := <get-formarg-from-matcharg; length> margs
+	    	;	rules(   
             WeaveAccessControlAction :+
               elem|[ action x_actionname(farg*) { stat* } ]| -> 
               elem|[ action x_actionname(farg*) { e_acactioncheck;
@@ -135,42 +161,50 @@ rules
                   ; <match-arguments> (margs,<map(strip-annos)>farg*)
                   //take length of specified arguments, these became the predicates formal arguments
               with  e* := <concat> [nestingvars,<map(get-varname-from-formarg);take(|specifiedargcount)> farg*]
-                  ; e_acactioncheck := ThisCall("acactioncheck",[Var(x_rulegroup),ThisCall(x_predname,e*)]){r}
+              		; e_check := ThisCall(x_predname,e*)
+              		; e_acactioncheck := ThisCall("acactioncheck",[Var(x_rulegroup),e_check]){r}
           )
-  
+
+rules // template
+
   create-template-rule(|x_rulegroup):
     //r@acrule|[ rule template x_templatematchname(margs) { e acrule* } ]| -> r
     r@AccessControlRule(ruletype, x_templatematchname, margs, e, acrule*) -> r
     where <?"template" <+ ?"ajaxtemplate";?isajaxtemplate> ruletype
     with  rules(AccessControlRuleDeclared :+= r)
-        ; x_predname := <get-pred-id> ("gentemplatepredicate_", x_templatematchname)
-        ; farg2* := <get-formarg-from-matcharg> margs
-        ; specifiedargcount := <length> farg2*
-        //null checks are added to predicates automatically
-        ; <emit-webdsl-code> def|[ predicate x_predname(farg2*) { e } ]|
+    		; farg_match* := <get-formarg-from-matcharg> margs
+    		; x_predname := <create-pred-from-exp(|farg_match*, "template", x_templatematchname)> e
+        ; {| AccessControlWeavingName:
+          		rules(AccessControlWeavingName := x_templatematchname)
+          	; actionpred_name* := <map(create-action-predicate(|x_rulegroup, farg_match*))> acrule*
+          |}
+        ; actionpred* := <zip> (acrule*, actionpred_name*)
         //bind for more efficient dr retrieval, doesn't seem to work like this
         //; if <explode-string;not(elem('*'))> x_templatematchname then x_templatename:=x_templatematchname end
         ; rules( WeaveAccessControlTemplate :+
-                   def|[ define mod* x_templatename(farg*)  req*  { elem*  } ]| -> 
-                   def|[ define mod* x_templatename(farg*)   req* { elem_actemplatecheck
+									def|[ define mod* x_templatename(farg*)  req*  { elem*  } ]| -> 
+									def|[ define mod* x_templatename(farg*)   req* { elem_actemplatecheck
                                                              elem1* } ]|
-                   where <match-names> (x_templatematchname,<strip-annos>x_templatename)
-                       ; <match-arguments> (margs,<map(strip-annos)>farg*)
-                       ; not(<fetch(?Page())> mod*)
-                       ; not(<fetch(?Email())> mod*)
-                       ; not(<fetch(?IgnoreAccessControl())> mod*)
-                       ; if <?"ajaxtemplate">ruletype then <fetch(AjaxTemplate)> mod* else not(<fetch(AjaxTemplate)> mod*) end
-                   with  e* := <map(get-varname-from-formarg);take(|specifiedargcount)> farg*
-                       ; elem_actemplatecheck := TemplateCall("actemplatecheck",[Var(x_rulegroup),ThisCall(x_predname,e*)],[],TemplateBody([])){r}
+									where <match-names> (x_templatematchname,<strip-annos>x_templatename)
+											; <match-arguments> (margs,<map(strip-annos)>farg*)
+											; not(<fetch(?Page())> mod*)
+                      ; not(<fetch(?Email())> mod*)
+                      ; not(<fetch(?IgnoreAccessControl())> mod*)
+                      ; if <?"ajaxtemplate">ruletype then <fetch(AjaxTemplate)> mod* else not(<fetch(AjaxTemplate)> mod*) end
+									with  e* := <map(get-varname-from-formarg);take(|<length> farg_match*)> farg*
+		        					; expr_check := ThisCall(x_predname, e*)
+		        			  	; elem_actemplatecheck := TemplateCall("actemplatecheck",[Var(x_rulegroup),expr_check],[],TemplateBody([])){r}
                        //nested actions
                        ; {| WeaveAccessControlAction:
-                            <map(create-action-rule(|x_rulegroup,farg2*,<map(try(\Var(nm)->ExternalScopeVar(nm)\))>e*))> acrule*
-                            // alltd is enough because global checks are handled already in
+                       				nestingvars := <map(try(\Var(nm)->ExternalScopeVar(nm)\))> e*
+                       			; <map(\ (rule,actionpredname) -> <create-action-dr(|x_rulegroup,nestingvars,actionpredname)> rule\)> actionpred*
+		                        // alltd is enough because global checks are handled already in
                             // the normal traversal, and deeper nested checks are handled in
                             // the parent checks again
-                            ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
+                           	; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
                           |}
                )
+
  /*
   create-function-rule(|x_rulegroup):
     r@acrule|[ rule function x_functionmatchname(margs) { e acrule* } ]| -> r
