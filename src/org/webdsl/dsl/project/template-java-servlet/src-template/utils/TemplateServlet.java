@@ -129,5 +129,18 @@ public abstract class TemplateServlet {
 	        skipThisTemplate = true;
 	      }
 	    } 
-    }   
+    } 
+    
+    abstract protected boolean isAjaxTemplate();
+    
+    protected boolean isAjaxSubmitRequired(){
+    	return isAjaxSubmitRequired(false);
+    }
+    protected boolean isAjaxSubmitRequired(boolean ajaxmod){
+      return ThreadLocalPage.get().isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
+        || ThreadLocalPage.get().isAjaxRuntimeRequest() //current request came from ajax runtime
+        || isAjaxTemplate() // template is defined with ajax modifier 'define ajax'
+        || ajaxmod //submit buttons is defined with ajax modifier '[ajax]'
+        || ThreadLocalPage.get().getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
+    }
 }

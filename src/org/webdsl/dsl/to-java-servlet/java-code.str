@@ -265,7 +265,9 @@ rules // return
     e_url -> bstm* |[
     try {
       ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-      if(!ThreadLocalPage.get().isActionLinkUsed()){ response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); }
+      if(!ThreadLocalPage.get().isActionLinkUsed()){ 
+      	response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); 
+      }
     } catch (IOException ioe) {
       System.out.println("redirect failed");
       ioe.printStackTrace();
@@ -285,18 +287,9 @@ rules // return
     ]|
 
   return-to-java-servlet :
-    Return(ThisCall(p,arg*){anno*}) -> bstm* |[ 
-      if(ThreadLocalPage.get().isAjaxRuntimeRequest()){
-        ~*<ajax-redirect-statements> e_url
-      }
-      else{
-        ~*<normal-redirect-statements> e_url
-      }
-      isRedirected = true; // declared in template-action.str
-      return;
-    ]|
+    Return(call@ThisCall(p,arg*)) -> bstm*
     where InAction
-    with  e_url := <page-thiscall-to-url-string-java-servlet> ThisCall(p,arg*){anno*}
+    with  bstm* := <redirect-this-call-to-java-statements> call
 
   return-to-java-servlet :
     ReturnEmpty() -> bstm* |[
@@ -319,14 +312,20 @@ rules // return
   cancel-to-java-servlet :
     Cancel(e1) -> bstm* |[ out.println("ugly cancel not implemented"); ]|
 
-  goto-to-java-servlet :  // similar to navigate link code in elements-to-java-servlet
-    GoTo(call@ThisCall(p, args)) -> bstm* |[ 
-      if(ThreadLocalPage.get().isAjaxRuntimeRequest()){
+  goto-to-java-servlet :
+    GoTo(call@ThisCall(p, args)) -> bstm*
+    with  bstm* := <redirect-this-call-to-java-statements> call
+    
+  redirect-this-call-to-java-statements :
+  	call@ThisCall(p,arg*) ->   
+    bstm* |[ 
+      if(ThreadLocalPage.get().isAjaxRuntimeRequest()){ //doesn't matter whether this is in an ajax template, only important thing for redirects is the current request type
         ~*<ajax-redirect-statements> e_url
       }
       else{
         ~*<normal-redirect-statements> e_url
       }
+      isRedirected = true;
       return;
     ]|
     with  e_url := <page-thiscall-to-url-string-java-servlet> call

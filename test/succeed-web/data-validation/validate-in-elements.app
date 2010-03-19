@@ -36,7 +36,7 @@ application registerexample
   }
 
   test datavalidation {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := FirefoxDriver();
     
     d.get(navigate(root()));
     assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
