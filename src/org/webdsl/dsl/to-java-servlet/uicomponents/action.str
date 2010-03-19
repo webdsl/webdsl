@@ -24,7 +24,7 @@ rules
     <wrap-action-render-java-code>
     bstm* |[
       ident = e_actionid;
-      if(ThreadLocalPage.get().isServingAsAjaxResponse || ThreadLocalPage.get().isAjaxRuntimeRequest() || e_ajaxmodifier || ThreadLocalPage.get().getFormIdent().equals("")){
+      if(isAjaxSubmitRequired(e_ajaxmodifier)){
 	    ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
 	      out.print("<input type=\"button\" value=\"");
 	      bstm*
@@ -43,10 +43,7 @@ rules
     with  bstm* := <elems-to-java-servlet> elem*
         ; e_attrs1 := <to-html-attrs> [PropertyAssignment("class", "button") | passign*]
         ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
-        ; if <fetch(TemplateCallPropertyAjax)> passign*
-          then e_ajaxmodifier := java:expr |[ true ]|
-          else e_ajaxmodifier := java:expr |[ false ]|
-          end
+        ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
   
   action-id-encoding : 
 //    (actionident,args) -> e|[ ident + "~actionident" + uniqueid + e ]|
@@ -63,17 +60,16 @@ rules
         ; e* := <map(expression-to-java-servlet)> args
         ; e4 := <action-id-encoding> (actionident,args)
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
-        ; if <fetch(TemplateCallPropertyAjax)> passign*
-          then bstm* := bstm*|[ ThreadLocalPage.get().enableAjaxActionExecuted(); ]|
-          else bstm* := []
-          end
+        ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; result :=
             <wrap-action-render-java-code> 
             bstm*|[
               ident = e4;
               if(ThreadLocalPage.get().getParammap().get(ident)!=null)
               {
-                bstm*
+                if(isAjaxSubmitRequired(e_ajaxmodifier)){
+                  ThreadLocalPage.get().enableAjaxActionExecuted(); 
+                }
                 x_action temp = (x_action)env.getAction("~x_action");
                 temp.x_action(e*,ident);
               }
@@ -88,7 +84,7 @@ rules
     <wrap-action-render-java-code> 
     bstm* |[ 
       ident = e4;
-      if(ThreadLocalPage.get().isServingAsAjaxResponse || ThreadLocalPage.get().isAjaxRuntimeRequest() || e_ajaxmodifier || ThreadLocalPage.get().getFormIdent().equals("")){
+      if(isAjaxSubmitRequired(e_ajaxmodifier)){
         ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
           out.print("<a href=\"javascript:void(0)\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+
             ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()+   //TODO getActionTarget is currently used, but the default redirect will not reproduce the page arguments in this case
@@ -109,11 +105,15 @@ rules
     ]|
     with  bstm* := <elems-to-java-servlet> elem*
         ; e4 := <action-id-encoding> (<get-actionnumber> tc,args) 
-        ; e_attrs1 := <to-html-attrs> passign*  
-        ; if <fetch(TemplateCallPropertyAjax)> passign*
-          then e_ajaxmodifier := java:expr |[ true ]|
-          else e_ajaxmodifier := java:expr |[ false ]|
-          end
+        ; e_attrs1 := <to-html-attrs> passign*
+        ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
+
+  fetch-ajax-property-as-java-boolean :
+  	passign* -> e_ajaxmodifier
+  	with if <fetch(TemplateCallPropertyAjax)> passign*
+         then e_ajaxmodifier := java:expr |[ true ]|
+         else e_ajaxmodifier := java:expr |[ false ]|
+         end
         
   handle-actions-to-java-servlet: 
     tc@SubmitLinkElem(e1,passign*,elem*) -> result
@@ -123,17 +123,16 @@ rules
         ; e4 := <action-id-encoding> (actionident,args)        
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
         ; x_temp := <newname> "temp"
-        ; if <fetch(TemplateCallPropertyAjax)> passign*
-          then bstm* := bstm*|[ ThreadLocalPage.get().enableAjaxActionExecuted(); ]|
-          else bstm* := []
-          end
+        ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; result :=
             <wrap-action-render-java-code> 
             bstm*|[
               ident = e4;
               if(ThreadLocalPage.get().getParammap().get(ident)!=null )
               {
-                bstm*
+                if(isAjaxSubmitRequired(e_ajaxmodifier)){
+                  ThreadLocalPage.get().enableAjaxActionExecuted(); 
+                }
                 x_action temp = (x_action)env.getAction("~x_action");
                 temp.x_action(e*,ident);
               }

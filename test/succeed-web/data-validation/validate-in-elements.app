@@ -13,6 +13,12 @@ application registerexample
    
       var u : User := User{};
       var p : Secret;
+      action register() {
+        validate(p==u.password,"passwords don't match action");
+        u.password := u.password.digest();
+        u.save();
+        message("You have successfully registered. Sign in now.");
+      }
 
       header { "Register" }
       form {
@@ -25,12 +31,6 @@ application registerexample
         validate(p==u.password,"passwords don't match formcheck")
         action("Register", register())
 
-        action register() {
-          validate(p==u.password,"passwords don't match action");
-          u.password := u.password.digest();
-          u.save();
-          message("You have successfully registered. Sign in now.");
-        }
       }
     }
   }
