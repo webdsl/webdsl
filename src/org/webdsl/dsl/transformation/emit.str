@@ -7,27 +7,33 @@ imports
 imports
   libwebdsl-front
   
-rules
+rules	// emit top-level definition
 
 	// @TODO: rename to emit-webdsl-def
-  emit-webdsl-code = with-toplevel-name(
-    	rename-all
-    ; ?def
-    ; rules(
-        AddWebDSLDef :+ Section(nm, defs) -> Section(nm, [def|defs])
-      )
-  )
-      
-  //used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
+	emit-webdsl-code = with-toplevel-name(
+			rename-all
+		; emit-webdsl-code-no-rename
+	)
+	
+	//used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
   // renaming is not needed for these one-to-one transformations that have the same semantics
-  emit-webdsl-code-no-rename =
-    ?def
-    ; rules(
-        AddWebDSLDef :+ Section(nm, defs) -> Section(nm, [def|defs])
-      )
-  
-  desugar = once-AddWebDSLDef
+	emit-webdsl-code-no-rename =
+			?def
+		; rules(AddWebDSLDefs :+= def)
+	
+	// emit a new section with all collected defs
+	emit-collected-defs =
+			?Application(qid,sections)
+		; defs := <bagof-AddWebDSLDefs>
+		; not([] := defs)
+		; rules(AddWebDSLDefs :- _) 	// hack to clear dr
+		; sec := Section("emitted_section", defs)
+		; !Application(qid,[sec|sections])
 
+	desugar = emit-collected-defs
+
+rules // emit section
+  
   emit-webdsl-section =
     	rename-top
     ; ?sec
@@ -36,4 +42,3 @@ rules
       )
   
   desugar = once-AddWebDSLSection
-

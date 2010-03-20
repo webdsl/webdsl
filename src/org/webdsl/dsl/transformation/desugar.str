@@ -10,40 +10,36 @@ imports
 
 strategies
 
-  innermost-rep(s) =
+	innermost-rep(s) =
     {| InnermostNormalForm, InnermostApplied
      : rules(InnermostApplied := False())
      ; innermost-rep-aux(s)
      ; where(InnermostApplied => True())
      |}
-
-  //rules used to determine whether any desugar was applied (might have only changed dynamic rule but not the AST)
-  innermost-rep-aux(s) =
-    InnermostNormalForm
-    <+ all(innermost-rep-aux(s))
-       ; try(s; rules( InnermostApplied := True() ); innermost-rep-aux(s))
-       ; {?q; rules( InnermostNormalForm : q )} //TODO doesn't this make it slower? each subterm ends up in a hashtable
-
-  desugar-top =
-  	repeat(
-  		sometd(
-  				desugar-section
-  			; repeat(desugar)
-  			<+
-  				// desugar-section failed, succeed if the section itself can be desugared
-  				desugar; repeat(desugar)
-  			))
-  
-  // Desugar at least one top level definition in the section
-  desugar-section: Section(name, defs){anno*} -> Section(name, defs2){anno*} 
- 		where defs2 := <some(desugar-toplevel-def)> defs
- 
- 	// Desugar toplevel definition, fail if no application		
- 	desugar-toplevel-def = with-toplevel-name(
- 					innermost-rep(desugar)			// fail if no application possible
- 				; repeat(innermost-rep(desugar))
- 	)
-   
+		
+	innermost-rep-aux(s) =
+		rec x(innermost-rep-aux(x, s))
+	
+	innermost-rep-aux-toplevel(s) = with-toplevel-name(innermost-rep-aux(s))
+	
+	innermost-rep-aux(downwards, s) = 
+				InnermostNormalForm
+		<+
+			(		?Section(name, defs){anno*}
+				; defs2 := <innermost-rep-aux(innermost-rep-aux-toplevel(s), s)> defs
+				; !Section(name, defs2){anno*}
+			<+
+					?AccessControlDefinition(name, defs){anno*}
+				; defs2 := <innermost-rep-aux(innermost-rep-aux-toplevel(s), s)> defs
+				; !AccessControlDefinition(name, defs2){anno*}
+			<+
+					all(downwards)
+			)
+			; try(s; rules(InnermostApplied := True() ); innermost-rep-aux(downwards, s))
+			; {?q; rules( InnermostNormalForm : q )} //TODO doesn't this make it slower? each subterm ends up in a hashtable
+		
+	desugar-top = repeat(innermost-rep(desugar)
+	
 rules //extend entity functions create dr
   
   rename-all-vars :
@@ -56,7 +52,7 @@ rules //extend entity functions create dr
 rules
 	
 	desugar = fetch(?RemoveMe()); remove-all(?RemoveMe())
-
+	
 rules
   /**
    *  Many desugar rules require a rename of the entire 'define' in order to "see" all the visible vars in Rename dynamic rules.
@@ -64,7 +60,7 @@ rules
    *  To reduce the number of full 'define' renamings, this rule provides a hook for other desugar rules working in the context of a 'define'.
    *  Maybe faster with innermost, though elems contained in this define are already desugared by normal 'desugar' rules.
    *  Should only be used for simple rewrites, since after one application the elems in the define are probably no longer all properly renamed.
-   *  Used in translation of outputFile and outputimage.
+   *  Used in translation of outputFile and outputImage.
    */   
   desugar : 
     def1@Define(mods, name, args, targs, elems1) -> result
