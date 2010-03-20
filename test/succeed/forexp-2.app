@@ -2,13 +2,13 @@
 application test
 
   define page root() {
-    var v := Test{ itemSet := ItemSet{ items := {i_1, Item{name:="2"}, Item{name:="3"}} } }
+    var v := TestEnt{ itemSet := ItemSet{ items := {i_1, Item{name:="2"}, Item{name:="3"}} } }
     output(test(v))
     output(v.show1())
     output(v.show2())
   }
 
-  entity Test{
+  entity TestEnt{
     itemSet -> ItemSet
     
     function show1():Set<Item>{
@@ -29,13 +29,13 @@ application test
   
   var i_1 := Item{ name := "i_1" }
 
-  function test(i:Test): Test{
+  function test(i:TestEnt): TestEnt{
     var it := i_1; 
     i.itemSet.items := [x | x : Item in i.itemSet.items where x != it];
     return i;
   }
   
-  define output (t:Test){
+  define output (t:TestEnt){
     "Test:" 
     for(i:Item in t.itemSet.items){
       output(i.name)

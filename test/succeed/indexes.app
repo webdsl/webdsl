@@ -33,10 +33,10 @@ extend entity ExtendIndex {
 define page root() {
 	
 	action test() {
-		searchx("x");
-		searchY("x");
-		searchZ("x");
-		searchExtendIndex("x");
+		var x1 := searchx("x");
+		var x2 := searchY("x");
+		var x3 := searchZ("x");
+		var x4 := searchExtendIndex("x");
 	}
 		
 }

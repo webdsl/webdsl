@@ -7,12 +7,24 @@ bash @prefix@/bin/webdsl cleanall > /dev/null 2> /dev/null
 bash @prefix@/bin/webdsl test $FILE 2>&1 | cat > $FILE.out
 grep "$(cat $FILE.app | head -n 1 | sed 's/^[/]*//')" $FILE.out > /dev/null
 
-result=$?
-if test 0 -ne $result; then
-  cat $FILE.out
-  rm -f $FILE.out
-  exit 1
-else
-  rm -f $FILE.out
-  exit 0
+exec 3<> $FILE_BASE.app
+while read line <&3
+do
+	if echo "$line" | grep -q "^//"; then
+		pattern=`echo "$line" | sed 's/^[/]*//'`
+		if ! grep -q "$pattern" $OUT_FILE; then
+			echo "Error not found: $pattern"
+			is_error=1
+		fi
+	else
+		break
+	fi
+done
+exec 3>&-
+
+if [[ $is_error ]]; then
+	cat $OUT_FILE
+	exit 1
 fi
+
+exit 0
