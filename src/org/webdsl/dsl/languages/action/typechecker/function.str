@@ -73,4 +73,52 @@ rules // forbidden elements
 	
 	check-forbidden-in-function =
 		?GoTo(_); add-error(|["Goto can only be used inside an action."])
-		
+
+rules // global functions
+
+  constraint-error-action :
+    Application(nm, sections) -> <fail>
+    where // get *top-level* functions
+    			funcs := <collect-om(?Section(_,<id>); filter(?Function(_,_,_,_) <+ ?FunctionNoReturn(_,_,_))); flatten-list> sections
+    		; efuncs := <collect-om(?Section(_,<id>); filter(?ExtendFunction(_))); flatten-list> sections
+        ; <try(constraint-error-global-funcs(|efuncs))> funcs
+    		; entities := <collect-om(?Section(_,<id>); filter(get-entity-def; ?(<id>,_))); flatten-list> sections
+    		; <try(constraint-error-global-funcs-entities(|entities))> funcs
+
+rules // redefined global functions
+    	
+  constraint-error-global-funcs(|efuncs): funcs -> <fail>
+  	with	doubledefinesigs := <map(extract-function-sig; sig-to-lower); find-doubles> funcs
+    		; <map(try(constraint-error-func-sigs(|doubledefinesigs)))> funcs
+    		  
+  constraint-error-func-sigs(|doublefuncsigs):
+  	func -> <add-error(|["Global function with signature ", prettysig, " is defined multiple times."])> 
+    where matchsig := <extract-function-sig; sig-to-lower> func
+        ; <fetch(?matchsig)> doublefuncsigs  
+        ; prettysig := <extract-function-sig; pp-func-sig> func
+
+rules // global functions overlapping with entities
+	
+	constraint-error-global-funcs-entities(|entitynames): funcs -> <fail>
+		with	funcnames := <map(extract-function-sig; ?(<id>, _))> funcs
+				; doubles := <flatten-list; find-doubles> [<make-set> funcnames, <make-set> entitynames]
+				; <map(try(constraint-error-global-func-entity(|doubles)))> funcs
+				  
+	constraint-error-global-func-entity(|doubles):
+		func -> <add-error(|["Global function '",name,"' has the same name as an entity."])>
+		where name := <extract-function-sig; ?(<id>,_)> func
+				; lower := <lower-case> name
+				; <fetch(?lower)> doubles
+
+rules // extend function which extends nothing
+  
+  constraint-error-global-funcs(|efuncs): funcs -> <fail>
+    with sigs := <map(extract-function-sig)> funcs
+       ; <filter(match-extend-function-to-function(|sigs))> efuncs
+  
+  match-extend-function-to-function(|sigs):
+    ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," extends a non-existing function."])>
+    where esig := <extract-function-sig> f
+        ; <not(fetch(\ fsig -> <eq> (esig, fsig) \))> sigs  
+        ; prettysig := <pp-func-sig> esig
+  

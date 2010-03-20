@@ -52,7 +52,7 @@ rules //common
   
   constraint-error-double-func-common(|functions, entitytype) :
     x -> <id>
-    with  functionsignatures := <remove-all(?ExtendFunction(_));map(extract-function-sig)> functions
+    with  functionsignatures := <remove-all(?ExtendFunction(_));map(extract-function-sig; sig-to-lower)> functions
         ; doublefuncsigs := <find-doubles> functionsignatures
         ; <map(try(constraint-error-double-func-helper(|doublefuncsigs, x, entitytype)))> functions
        
@@ -62,34 +62,43 @@ rules //common
   
   farg-to-type = ?Arg(_,<id>)
 
+  sig-to-lower: (name,args) -> (<lower-case> name, args)
+  
   constraint-error-double-func-helper(|doublefuncsigs, x, entitytype) :
     f -> <add-error(|["Function with signature ", prettysig," for ", entitytype," ", x, " is defined multiple times."])>
-    where sig := <extract-function-sig> f
+    where sig := <extract-function-sig; sig-to-lower> f
         ; <fetch(?sig)> doublefuncsigs  
-        ; prettysig := <pp-func-sig> sig
+        ; prettysig := <extract-function-sig; pp-func-sig> f
         
   pp-func-sig = ?(x,argtypes); <concat-strings> [x,"(",<map(pp-webdsl-to-string);separate-by(|", ");concat-strings> argtypes,")"]
   
 rules // generic check entity function traversal
 
-  constraint-error-data = check-all-entity-functions
+  constraint-error-data =
+      where(get-entity-def)
+    ; transform-entity-body(check-entity-functions)
   
-  check-all-entity-functions:
-    Application(_, sections) -> <fail>
-    // filter over sections, filter over definitions
-    where <filter(filter(transform-entity-body(check-entity-functions)))> sections
+rules // extend function
   
   check-entity-functions(|entityname):
     decls -> <fail>
-    // filter over body declarations
-    where filter(check-entity-function(|entityname))
-    
+    with <filter(check-entity-function(|entityname))> decls
+       ; sigs := <filter(is-function-cons; extract-function-sig)> decls
+       ; efuncs := <filter(?ExtendFunction(_))> decls
+       ; <filter(match-extend-function-to-entity-function(|entityname))> efuncs 
+         
+  match-extend-function-to-entity-function(|entityname):
+    ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," in ",entityname," extends a non-existing function."])>
+    where sig@(name,argtypes) := <extract-function-sig> f
+        ; <not(CheckFunctionSignature)> (SimpleSort(entityname),name,argtypes)
+        ; prettysig := <pp-func-sig> sig 
+     
 rules // built-in function signature check
   
   check-entity-function(|entityname):
     decl -> <fail>
     where is-function-cons
-	    ; sig := <extract-function-sig> decl
+      ; sig := <extract-function-sig> decl
 	    ; msg := <is-builtin-ent-func-signature(|entityname)> sig
 	    ; prettysig := <pp-func-sig> sig
 	    ; <add-error(|

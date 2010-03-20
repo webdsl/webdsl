@@ -11,44 +11,52 @@ rules
   constraint-error-data :
     Application(_, sections) -> <fail>
     where entities := <collect(?Entity(_, _, _) <+ ?EntityNoSuper(_, _))> sections
-        ; entitynames := <map(\Entity(nm, _, _) -> nm\ <+ \EntityNoSuper(nm, _) -> nm\)> entities
+        ; entitynames := <map(\Entity(nm, _, _) -> nm\ <+ \EntityNoSuper(nm, _) -> nm\; lower-case)> entities
         ; ent* := <find-doubles> entitynames
         ; not([] := ent*)
         ; <map(try(constraint-error-entity-name(|ent*)))> entities
         
   constraint-error-entity-name(|doublenames) :
-    Entity(x, _, _) -> <constraint-error-entity-name-helper(|doublenames,x)>
+    Entity(x, _, _) -> <fail>
+      where constraint-error-entity-name-helper(|doublenames,x)
     
   constraint-error-entity-name(|doublenames) :
-    EntityNoSuper(x, _) -> <constraint-error-entity-name-helper(|doublenames,x)>
+    EntityNoSuper(x, _) -> <fail>
+      where constraint-error-entity-name-helper(|doublenames,x)
     
   constraint-error-entity-name-helper(|doublenames,x) :
     _ -> <add-error(|["Entity ", x, " is defined multiple times."])>
-    where <fetch(?x)> doublenames
+    where x_lower := <lower-case> x
+    		; <fetch(?x_lower)> doublenames
 
   constraint-error-data :
     Application(_, sections) -> <fail>
     where sentities := <collect(?SessionEntity(_, _))> sections
-        ; sentitynames := <map(\SessionEntity(x, _) -> x\)> sentities
+        ; sentitynames := <map(\SessionEntity(x, _) -> <lower-case> x\)> sentities
         ; ent* := <find-doubles> sentitynames
         ; not([] := ent*)
         ; <map(try(constraint-error-session-entity(|ent*)))> sentities
     
   constraint-error-session-entity(|doublenames) :
     SessionEntity(x, _) -> <add-error(|["Session entity ", x, " is defined multiple times."])> 
-    where <fetch(?x)> doublenames   
+    where x_lower := <lower-case> x
+    		; <fetch(?x_lower)> doublenames   
+        
+	match-entity-lower-name(|name) =
+			(?Entity(x,_,_) <+ ?EntityNoSuper(x,_))
+		; where(name := <lower-case> x)
         
   constraint-error-data :
     Application(_, sections) -> <fail>
     where sentities := <collect(?SessionEntity(_, _))> sections
-        ; sentitytypenames := <map(\SessionEntity(x, _) -> <capitalize-string> x\)> sentities
-        ; ent* := <filter(\nm -> nm where not([] := <collect(?Entity(nm, _, _) <+ ?EntityNoSuper(nm, _))> sections) \)> sentitytypenames
+        ; sentitytypenames := <map(\SessionEntity(x, _) -> <lower-case> x\)> sentities
+        ; ent* := <filter(\nm -> nm where not([] := <collect(match-entity-lower-name(|nm))> sections) \)> sentitytypenames
         ; not([] := ent*)
         ; <map(try(constraint-error-session-entity-type(|ent*)))> sentities
         
   constraint-error-session-entity-type(|doublenames) :
-    SessionEntity(x, _) -> <add-error(|["Session entity type ", xc, " is also defined as normal entity."])>
-    where xc := <capitalize-string> x
+    SessionEntity(x, _) -> <add-error(|["Session entity type ", <capitalize-string> x, " is also defined as normal entity."])>
+    where xc := <lower-case> x
         ; <fetch(?xc)> doublenames           
   
   // check for double properties and functions within entities
@@ -129,6 +137,7 @@ rules
     ; where (
         <map(check-property-inverse-annos(|ent1))> entbodydecs
       )
+    ; fail
   
   // takes care of different constructor types of properties
   check-property-inverse-annos(|ent1) =
