@@ -40,11 +40,14 @@ rules
           ; rules (IsPredicate : (fname,t1*))
       )
     
-    
   declare-ac = declare-ac-principal
-    
+  rename-ac  = rename-ac-principal 
+  
+  rename-ac-principal : 
+    acp@AccessControlPrincipal(x_ident,props) -> <declare-ac> acp
+
   declare-ac-principal : 
-    acp@AccessControlPrincipal(x_ident,props) -> acp
+    acp@AccessControlPrincipal(x_ident,props){anno*} -> acp
     with <declare> def |[
             session securityContext {
               principal   -> x_ident
@@ -60,12 +63,13 @@ rules
           ]|
         ; <register-reserved-function> (x_loginfun,0)
         ; try(
-            not(<IsPage> "accessDenied") // don't overwrite the custom def
+            not(<IsPage> "accessDenied") // might be declared before custom definition in initial declare, but real one will overwrite this one
           ; <with(declare;once-AccessDeniedPageDefined)> 
               DefaultAccessDeniedPage()
           )
+        ; acpstripped := AccessControlPrincipal(x_ident,props){<remove-all(not(?At(_,_,_)))> anno*} // used for duplicates check, keep only location annotation
         ; rules (
-            AccessControlEnabled :+= True()
+            AccessControlEnabled :+= acpstripped
           )
         ; <declare-login> acp
   

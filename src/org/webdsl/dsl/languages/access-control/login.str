@@ -1,6 +1,20 @@
 module org/webdsl/dsl/languages/access-control/login
 
+signature
+constructors
+
+  GeneratedTemplate : Term
+
+overlays
+  
+  LoginTemplateForDeclare  = Define([GeneratedTemplate()],"login",[],[],[])
+  LogoutTemplateForDeclare = Define([GeneratedTemplate()],"logout",[],[],[])
+  AuthenticationTemplateForDeclare = Define([GeneratedTemplate()],"authentication",[],[],[])
+  
 rules
+  get-login-template  = !<IsPage; TemplateDefinition> "login" <+ <TemplateSignature> ("login",[])
+  get-logout-template = !<IsPage; TemplateDefinition> "logout" <+ <TemplateSignature> ("logout",[])
+  get-auth-template   = !<IsPage; TemplateDefinition> "authentication" <+ <TemplateSignature> ("authentication",[])
 
   declare-login : 
     acp@AccessControlPrincipal(x_ident,props) -> acp
@@ -12,21 +26,39 @@ rules
             function authenticate(farg_loginfun*):Bool{}
             function logout(){}
           ]|
-        ; <get-login-template <+ declare; rules(LoginTemplateGenerated  := True())> 
-            def|[ define login(){} ]|
-        ; <get-logout-template<+ declare; rules(LogoutTemplateGenerated := True())> 
-            def|[ define logout(){} ]|
+        ; (  get-login-template
+          <+ // in first declare step, it doesn't matter whether a login definition is in the app as well, nor which order they are handled,
+             // as long as there is a declare of the login template.
+             // if this one is declared first, the actual login page/template will override it, since that one is unconditional
+             // if the real one is declared first, this declare will not happen due to get-login-template check above
+             <declare> LoginTemplateForDeclare()
+          )
+        ; if not(InInitialDeclareStepBeforeRename) //there will be another declare step after rename
+           ; LoginTemplateForDeclare() := <get-login-template> //check whether the declared template is the generated one
+          then rules(LoginTemplateGenerated  := True()) end
+        ; (  get-logout-template
+          <+ <declare> LogoutTemplateForDeclare()
+          )
+        ; if not(InInitialDeclareStepBeforeRename) 
+           ; LogoutTemplateForDeclare() := <get-logout-template>
+          then rules(LogoutTemplateGenerated := True()) end
+        ; (  get-auth-template 
+          <+ <declare> AuthenticationTemplateForDeclare()
+          )
         // declaring a login page will remove the login template, only generate authentication when both login and logout are generated
-        ; <get-auth-template 
-           <+ not(LoginTemplateGenerated) 
-           <+ not(LogoutTemplateGenerated) 
-           <+ declare; rules(AuthenticationTemplateGenerated := True())> 
-            def|[ define authentication(){} ]|
+        ; if not(InInitialDeclareStepBeforeRename) 
+           ; AuthenticationTemplateForDeclare() := <get-auth-template>
+           ; LoginTemplateGenerated
+           ; LogoutTemplateGenerated 
+          then 
+            rules(AuthenticationTemplateGenerated := True())
+          end
+        
           
   create-farg-for-login-fun(|x_ident) :
-  x -> result
-  with  type := <entity-prop-to-type(|x_ident)> x
-      ; result := Arg(<credential-to-var-name> x, type) 
+    x -> result
+    with  type := <entity-prop-to-type(|x_ident)> x
+        ; result := Arg(<credential-to-var-name> x, type) 
       
   credential-to-var-name = <concat-strings> ["cred",<id>]     
           
@@ -47,8 +79,7 @@ rules
   create-login-template-if-not-defined(|x_ident,props) = 
     try(where(LoginTemplateGenerated); default-login-template(|x_ident,props))
   
-  get-login-template = !<TemplateDefinition> "login"
-
+  
   default-login-template(|x_ident,props) =
     with(
       e_loginfunarg* := <map(!Var(<credential-to-var-name>))> props
@@ -151,8 +182,6 @@ rules
     
   create-logout-template-if-not-defined(|x_ident,props) = 
     try(where(LogoutTemplateGenerated); default-logout-template(|x_ident,props))
-  
-  get-logout-template  = !<TemplateDefinition> "logout"
 
   default-logout-template(|x_ident,props) =
     with(
@@ -187,8 +216,6 @@ rules
   create-auth-template-if-not-defined(|x_ident,props) = 
     try(where(AuthenticationTemplateGenerated); default-auth-template(|x_ident,props))
   
-  get-auth-template = !<TemplateDefinition> "authentication"
-
   default-auth-template(|x_ident,props) =
     <emit-webdsl-code> def|[
       define authentication() {
