@@ -1,29 +1,34 @@
 application exampleapp
 
-//var p_1 := Person{}
+var pAlice := Person{username := "Alice"};
+init {
+  var p := Person{username := "Bob"};
+  p.save();
+  var p := Person{username := "Charlie"};
+  p.save();
+}
+
+entity Person {
+  fullname :: String
+  username    :: String (name)
+  parents     -> Set<Person>
+  children    -> Set<Person>
+}
+
 imports templates/templates
 
 define page root() {
   main()
   define body() {
     personedit(Person{})
-
   }
 }
-define page editPerson(p:Person) {
+
+define page edit(){
   main()
   define body() {
-    //derive viewRows from p_1
-    derive viewRows from p
-    personedit(p)
+    personedit(pAlice)
   }
-}
-define page edit(p:Person){
-  init{
-    var p1 := Person{ username := p.username fullname := p.fullname children := p.children parents := p.parents};
-    p1.save();
-    return editPerson(p1);
-  }	
 }
 
 define errorclass(){
@@ -56,8 +61,9 @@ function checkUsernameEmpty(p:Person):Bool{
   return false; 
   }
 }
-function checkUsername(p:Person):Bool{
-  if(!((from Person as p1 where p1.username = ~p.username).length>0)){ 
+function checkUsername(p:Person, realp:Person):Bool{
+  var matches := from Person as p1 where p1.username = ~p.username;
+  if(matches.length == 0 || (matches.length == 1 && matches[0] == realp)){ 
     replace(pusername, empty());
     return true;
   } 
@@ -103,10 +109,11 @@ function checkParents(p:Person) : Bool{
   }
 }
 
-define personedit(p:Person){
+define personedit(realp:Person){
+  var p := Person{ username := realp.username fullname := realp.fullname children := realp.children parents := realp.parents};
   form{
     par{
-      label("username: "){ input(p.username)[onkeyup := action{ checkUsername(p); checkUsernameEmpty(p); checkFullname(p); }] }
+      label("username: "){ input(p.username)[onkeyup := action{ checkUsername(p,realp); checkUsernameEmpty(p); checkFullname(p); }] }
       placeholder pusernameempty { }
       placeholder pusername { }
     }
@@ -127,30 +134,21 @@ define personedit(p:Person){
   action save(){ 
     // made an issue requesting & operator :)
     var checked := checkUsernameEmpty(p);
-    checked := checkUsername(p) && checked;
+    checked := checkUsername(p,realp) && checked;
     checked := checkFullname(p) && checked;
     checked := checkParents(p) && checked;
     checked :=  checkFullnameEmpty(p) && checked;
     if(checked){
-      p.save();
+      realp.username := p.username;
+      realp.fullname := p.fullname;
+      realp.parents := p.parents;
+      realp.children := p.children;
+      realp.save(); // does nothing in the case of an update
       return root();
     } 
   }
 }
-init {
-  var p := Person{username := "Alice"};
-  p.save();
-  var p := Person{username := "Bob"};
-  p.save();
-  var p := Person{username := "Charlie"};
-  p.save();
-}
-entity Person {
-  fullname :: String
-  username    :: String (name)
-  parents     -> Set<Person>
-  children    -> Set<Person>
-}
+
 
 
 test one {

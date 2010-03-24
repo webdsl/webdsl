@@ -29,8 +29,8 @@ define mainheader() {
 
 define applicationmenu() {
   <ul>
-    <li>navigate(root()){"Home"}</li>
-    //<li>navigate edit(p_1){"edit"}</li>
+    <li>navigate root() {"Home"}</li>
+    <li>navigate edit() {"edit"}</li>
   </ul>
 }
 
