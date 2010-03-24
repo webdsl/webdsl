@@ -1204,6 +1204,17 @@
    SubmitLink -- KW["submitlink"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    SubmitLink.3:iter-star-sep -- _1 KW[","],
    SubmitLink.3:iter-star           -- _1,
+   
+   SubmitElem -- KW["submit"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
+   SubmitElem.2:iter-star-sep -- _1 KW[","],
+   SubmitElem.2:iter-star           -- _1,
+   SubmitElem.3:iter-star-sep -- _1 KW[","],
+   SubmitElem.3:iter-star           -- _1,
+   SubmitLinkElem --  KW["submitlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
+   SubmitLinkElem.2:iter-star-sep -- _1 KW[","],
+   SubmitLinkElem.2:iter-star           -- _1,
+   SubmitLinkElem.3:iter-star-sep -- _1 KW[","],
+   SubmitLinkElem.3:iter-star           -- _1,
 
    ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
@@ -1224,6 +1235,7 @@
    TimeInterval                                           -- _1,
    TimeInterval.1:iter-star                               -- _1,
    NotEmptyAnno -- KW["not empty"],
-   PropertySubmit -- _1 KW[":"] _2
+   PropertySubmit -- _1 KW[":"] _2,
+   AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"]
    
 ]
