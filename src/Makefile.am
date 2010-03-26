@@ -49,6 +49,8 @@ EXTRA_DIST = \
 
 ### developer targets
 
+../lib/libwebdsl-front.rtree : copy-rtrees-to-lib-dir-for-editor-support
+
 copy-rtrees-to-lib-dir-for-editor-support :
 	rm -rf ../lib
 	mkdir ../lib
@@ -192,7 +194,9 @@ if XT_ENABLE_JAVA_BACKEND
   webdsl_jar_SOURCES = 
   strategoxt_jar_SOURCES = 
 else
-  bin_PROGRAMS = webdslc copy-rtrees-to-lib-dir-for-editor-support
+  bin_PROGRAMS = webdslc
+  nobase_dist_pkgdata_DATA = ../lib/libwebdsl-front.rtree
+  
 #webdsl-config
 
 webdslc_SOURCES = webdslc.c
