@@ -54,7 +54,7 @@ EXTRA_DIST = \
 copy-rtrees-to-lib-dir-for-editor-support :
 	rm -rf ../lib
 	mkdir ../lib
-	cp *.rtree ../lib
+	test -f libwebdsl-front.rtree && cp *.rtree ../lib
 
 only-backend-trans :
 	make libback-end-transformations.la
