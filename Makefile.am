@@ -24,6 +24,9 @@ jar :
 
 class : 
 	$(MAKE) -C src class
+	
+editorlibs :
+	$(MAKE) -C src copy-rtrees-to-lib-dir-for-editor-support
 
 #src/org/webdsl/dsl/generation
 

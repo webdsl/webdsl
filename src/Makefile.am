@@ -49,12 +49,10 @@ EXTRA_DIST = \
 
 ### developer targets
 
-../lib/libwebdsl-front.rtree : copy-rtrees-to-lib-dir-for-editor-support
-
 copy-rtrees-to-lib-dir-for-editor-support :
 	rm -rf ../lib
 	mkdir ../lib
-	test -f libwebdsl-front.rtree && cp *.rtree ../lib
+	cp *.rtree ../lib
 
 only-backend-trans :
 	make libback-end-transformations.la
@@ -195,7 +193,6 @@ if XT_ENABLE_JAVA_BACKEND
   strategoxt_jar_SOURCES = 
 else
   bin_PROGRAMS = webdslc
-  nobase_dist_pkgdata_DATA = ../lib/libwebdsl-front.rtree
   
 #webdsl-config
 
