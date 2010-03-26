@@ -187,11 +187,13 @@ Mix%.sdf : %.def
 SCFLAGS = --main $*-main	
 
 if XT_ENABLE_JAVA_BACKEND
-  bin_PROGRAMS = webdsl.jar strategoxt.jar webdsl-config.jar
+  bin_PROGRAMS = webdsl.jar strategoxt.jar 
+#webdsl-config.jar
   webdsl_jar_SOURCES = 
   strategoxt_jar_SOURCES = 
 else
-  bin_PROGRAMS = webdslc webdsl-config
+  bin_PROGRAMS = webdslc copy-rtrees-to-lib-dir-for-editor-support
+#webdsl-config
 
 webdslc_SOURCES = webdslc.c
 webdslc_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
@@ -221,52 +223,51 @@ webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(ALL_LIBS) 
 
 webdslc.c : webdslc.str \
-			$(ALL_LIBS) \
-			copy-rtrees-to-lib-dir-for-editor-support
+			$(ALL_LIBS)
 endif
 
-### webdsl configuration utility c
-
-webdsl_config_SOURCES = webdsl-config.c
-webdsl_config_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
-webdsl_config_LDFLAGS  = $(AM_LDFLAGS)
-webdsl_config_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
-                   $(STRATEGO_GPP_CFLAGS) \
-                   $(STRATEGO_SGLR_CFLAGS) \
-                   $(STRATEGO_TOOL_DOC_CFLAGS) \
-                   $(STRATEGO_CFLAGS) \
-                   $(JAVA_FRONT_CFLAGS) 
-webdsl_config_LDADD = $(LDADD) $(STRATEGO_XTC_LIBS) \
-                   $(STRATEGO_GPP_LIBS) \
-                   $(STRATEGO_SGLR_LIBS) \
-                   $(STRATEGO_TOOL_DOC_LIBS) \
-                   $(STRATEGO_LIBS) \
-                   $(JAVA_FRONT_LIBS)
-
-webdsl-config.c : webdsl-config.str
-
-### webdsl configuration utility java
-
-if XT_ENABLE_JAVA_BACKEND
-
-webdsl-config.jar : class-webdsl-config
-	$(JAR) cfm webdsl-config.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen/org/webdsl/webdsl_config -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
-
-class-webdsl-config : $(JAVA_FILES_WEBDSL_CONFIG)
-	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdsl_config/Main.java -d bin
-
-JAVA_FILES_WEBDSL_CONFIG= \
-  src-gen/org/webdsl/webdsl_config/Main.java
-	
-src-gen/org/webdsl/webdsl_config/Main.java : webdsl-config.str mkdirs-webdsl-config
-	$(STRJ) $(STRJFLAGS) -m webdsl-config-main -i $< -o $@ -p org.webdsl.webdsl_config
-
-mkdirs-webdsl-config :
-	mkdir -p src-gen/org/webdsl/webdsl_config
-
-endif
-
-###
+#### webdsl configuration utility c
+#
+#webdsl_config_SOURCES = webdsl-config.c
+#webdsl_config_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
+#webdsl_config_LDFLAGS  = $(AM_LDFLAGS)
+#webdsl_config_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+#                   $(STRATEGO_GPP_CFLAGS) \
+#                   $(STRATEGO_SGLR_CFLAGS) \
+#                   $(STRATEGO_TOOL_DOC_CFLAGS) \
+#                   $(STRATEGO_CFLAGS) \
+#                   $(JAVA_FRONT_CFLAGS) 
+#webdsl_config_LDADD = $(LDADD) $(STRATEGO_XTC_LIBS) \
+#                   $(STRATEGO_GPP_LIBS) \
+#                   $(STRATEGO_SGLR_LIBS) \
+#                   $(STRATEGO_TOOL_DOC_LIBS) \
+#                   $(STRATEGO_LIBS) \
+#                   $(JAVA_FRONT_LIBS)
+#
+#webdsl-config.c : webdsl-config.str
+#
+#### webdsl configuration utility java
+#
+#if XT_ENABLE_JAVA_BACKEND
+#
+#webdsl-config.jar : class-webdsl-config
+#	$(JAR) cfm webdsl-config.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen/org/webdsl/webdsl_config -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
+#
+#class-webdsl-config : $(JAVA_FILES_WEBDSL_CONFIG)
+#	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdsl_config/Main.java -d bin
+#
+#JAVA_FILES_WEBDSL_CONFIG= \
+#  src-gen/org/webdsl/webdsl_config/Main.java
+#	
+#src-gen/org/webdsl/webdsl_config/Main.java : webdsl-config.str mkdirs-webdsl-config
+#	$(STRJ) $(STRJFLAGS) -m webdsl-config-main -i $< -o $@ -p org.webdsl.webdsl_config
+#
+#mkdirs-webdsl-config :
+#	mkdir -p src-gen/org/webdsl/webdsl_config
+#
+#endif
+#
+####
 
 ctrees : webdsl-front.ctree webdsl-generator.ctree to-java-servlet.ctree write-files.ctree java-transformations.ctree back-end-transformations.ctree
 
@@ -321,7 +322,7 @@ class : $(JAVAS)
 	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
 
-webdsl.jar : class copy-rtrees-to-lib-dir-for-editor-support
+webdsl.jar :
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
 
 src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs

@@ -4,7 +4,7 @@ WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
   $(wildcard new_project/stylesheets/*.css) \
   $(wildcard new_project/images/*.*) \
-	template-java-servlet/webdsl-reindex \
+  template-java-servlet/webdsl-reindex \
   $(wildcard template-java-servlet/build.*) \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
@@ -24,16 +24,31 @@ EXTRA_DIST = \
   
 TESTS = testnewproject.sh
 
-nobase_dist_pkgdata_DATA = $(WEBDSL_TEMPLATES) \
-                           webdsl-build.xml \
-                           webdsl-build-command.xml \
-                           webdsl-build-deploy.xml \
-                           webdsl-build-new.xml \
-                           webdsl-build-help.xml \
-                           webdsl-build-check.xml \
-                           webdsl-build-clean.xml \
-                           webdsl-build-eclipse.xml \
-                           webdsl-build-index.xml
+nobase_dist_pkgdata_DATA = \
+  $(WEBDSL_TEMPLATES) \
+  template-java-servlet/lib/webdsl-support.jar \
+  webdsl-build.xml \
+  webdsl-build-command.xml \
+  webdsl-build-deploy.xml \
+  webdsl-build-new.xml \
+  webdsl-build-help.xml \
+  webdsl-build-check.xml \
+  webdsl-build-clean.xml \
+  webdsl-build-eclipse.xml \
+  webdsl-build-index.xml
+
+# probably enough depth
+JAVA_RUNTIME_DEPENDENCIES = \
+  $(wildcard $(top_srcdir)/java-runtime/src/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*.java) \
+  $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*/*.java)
+  
+template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPENDENCIES)
+	ant -f $(top_srcdir)/java-runtime/build.xml deploy
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/template/app
