@@ -187,14 +187,11 @@ Mix%.sdf : %.def
 SCFLAGS = --main $*-main	
 
 if XT_ENABLE_JAVA_BACKEND
-  bin_PROGRAMS = webdsl.jar strategoxt.jar 
-#webdsl-config.jar
-  webdsl_jar_SOURCES = 
+  bin_PROGRAMS = webdsl.jar strategoxt.jar
+  webdsl_jar_SOURCES =
   strategoxt_jar_SOURCES = 
 else
   bin_PROGRAMS = webdslc
-  
-#webdsl-config
 
 webdslc_SOURCES = webdslc.c
 webdslc_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
@@ -323,7 +320,7 @@ class : $(JAVAS)
 	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
 
-webdsl.jar :
+webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
 
 src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
