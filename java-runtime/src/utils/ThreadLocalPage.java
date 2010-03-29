@@ -4,11 +4,11 @@ public class ThreadLocalPage {
 
     private static ThreadLocal page = new ThreadLocal();
 
-    public static PageServlet get() {
-        return (PageServlet) page.get();
+    public static AbstractPageServlet get() {
+        return (AbstractPageServlet) page.get();
     }
     
-    public static void set(PageServlet d) {
+    public static void set(AbstractPageServlet d) {
         page.set(d);
     }    
 }

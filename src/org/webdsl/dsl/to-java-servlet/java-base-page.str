@@ -1,5 +1,3 @@
-
-
 module org/webdsl/dsl/to-java-servlet/java-base-page
 
 imports
@@ -37,67 +35,9 @@ rules
       
       import org.hibernate.Session;
       
-      public abstract class PageServlet {
+      public abstract class PageServlet extends AbstractPageServlet{
       
-          public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
-          public abstract void serveAsAjaxResponse(PageServlet ps, PrintWriter theoutStream, Object[] ajaxarguments, Environment env, TemplateCall templateArg);
-          public abstract void initializeBasics(PageServlet ps, Object[] args, Environment env);
-          
-          public boolean IsTemplate() { return false; }
-          public boolean isServingAsAjaxResponse = false; 
-          
-          public abstract String getPageName();
-          public abstract String getUniqueName();
-          
-          private MessageDigest messageDigest = null;
-          public  MessageDigest getMessageDigest(){ 
-            if(messageDigest == null){
-              try{
-                messageDigest = MessageDigest.getInstance("MD5");
-              }
-              catch(NoSuchAlgorithmException ae)
-              {
-                System.out.println("MD5 not available: "+ae.getMessage());
-                return null;
-              }
-            }
-            return messageDigest; 
-         }
-          
-          //TODO merge getActionTarget and getPageUrlWithParams
-          public String getActionTarget() {
-            if (isServingAsAjaxResponse){
-              return this.getUniqueName();
-            }
-            return getPageName();
-          }
-          //TODO merge getActionTarget and getPageUrlWithParams
-          public String getPageUrlWithParams(){ //used for action field in forms
-            if(isServingAsAjaxResponse){
-              return ThreadLocalServlet.getContextPath()+"/"+ThreadLocalPage.get().getActionTarget();
-            }
-            else{
-              //this doesn't work with ajax template render from action, since an ajax template needs to submit to a different page than the original request
-              return request.getRequestURL().toString();
-            }
-          }
-          
-          public abstract String getHiddenParams();
-          public abstract String getHiddenPostParams();
-          public abstract String getHiddenPostParamsJson();
-          
-          public javax.servlet.http.HttpSession session;
-          
-          public Environment envGlobalAndSession;
-          
-          public static void cleanupThreadLocals(){
-            ThreadLocalAction.set(null);
-            ThreadLocalEmailContext.set(null);
-            ThreadLocalPage.set(null);
-          }
-
           //templates scope
-          public static Environment staticEnv = new Environment();
           static {
             try{
               bstm_templates*
@@ -108,11 +48,7 @@ rules
               se.printStackTrace();
             }
           }
-          
-          public Environment env = new Environment(PageServlet.staticEnv);
          
-          //emails
-          private static HashMap<String, Class> emails = new HashMap<String, Class>();
           static {
             try{
               bstm_emails*
@@ -122,9 +58,17 @@ rules
               se.printStackTrace();
             }
           }
-          public static HashMap<String, Class> getEmails() { 
-            return emails;
+          
+          static {
+            try{
+              GlobalInit.load();
+            }
+            catch(Exception se){
+              System.out.println("Exception occured in application init block.");
+              se.printStackTrace();
+            }
           }
+          
           public String getAbsoluteLocation() {
             ~*<if-test> bstm*|[ return "http://localhost:" + utils.TestWeb.SERVLET_PORT + "/"; ]|
             ~*<if-not-test> bstm*|[ 
@@ -145,20 +89,6 @@ rules
             ]|
           }
           
-          private java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();
-          public String getTemplateContextString() { 
-            java.lang.StringBuilder sb = new java.lang.StringBuilder();
-            for(String s : templateContext){
-              sb.append(s);
-            }
-            return sb.toString();
-          }
-          public void enterTemplateContext(String s) { 
-            templateContext.push(s);
-          }
-          public void leaveTemplateContext() { 
-            templateContext.pop();
-          }
           //verifies that the correct context was popped      
           public void leaveTemplateContextChecked(String s) { 
             String s1 = templateContext.pop();
@@ -169,264 +99,7 @@ rules
                 }
             ]|)>
           } 
-          public void clearTemplateContext(){
-            templateContext.clear();
-          }
           
-          private List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
-          public List<utils.ValidationException> getValidationExceptions() { 
-            return validationExceptions;
-          }
-          public boolean hasExecutedAction = false;
-          
-          public java.util.List<String> ignoreset= new java.util.ArrayList<String>();
-          
-          public boolean hibernateCacheCleared = false;
-          
-          protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
-          protected java.util.List<String[]> stylesheets = new java.util.ArrayList<String[]>();
-          protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
-          protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
-          public boolean useDojo = false;
-          
-          public void addJavascriptInclude(String filename) {
-            if(!javascripts.contains(filename))
-              javascripts.add(filename);
-          }
-          
-          public void addStylesheetInclude(String filename) {
-            if(!stylesheets.contains(filename)){
-              String[] s = {filename,""};  
-              stylesheets.add(s);
-            }
-          }
-          public void addStylesheetInclude(String filename, String media) {
-            if(!stylesheets.contains(filename)){
-             String[] s = {filename,media};
-              stylesheets.add(s);
-            }
-          }
-          
-          public void addCustomHead(String header) {
-            customHeads.add(header);
-          }
-          
-          public void addCustomHead(String key, String header) {
-            customHeadNoDuplicates.put(key, header);
-          }
-          
-          protected abstract void initialize();
-          protected abstract void conversion();
-          protected abstract void loadArguments();
-          protected abstract void initVarsAndArgs();
-          
-          public void clearHibernateCache() { 
-            hibSession.clear();  
-            initVarsAndArgs();
-            hibernateCacheCleared = true;
-          }
-          
-          static {
-            try{
-              GlobalInit.load();
-            }
-            catch(Exception se){
-              System.out.println("Exception occured in application init block.");
-              se.printStackTrace();
-            }
-          }
-          // atm just used for captcha check
-          protected boolean validated=true;
-          protected Session hibSession;
-          protected HttpServletRequest request;
-          protected HttpServletResponse response;
-          protected Object[] args;  
-          
-          public Session getHibSession() {
-              return hibSession;
-          }
-
-          public HttpServletRequest getRequest() {
-              return request;
-          }
-      
-          public HttpServletResponse getResponse() {
-              return response;
-          }
-  
-          public boolean isValidated() {
-              return validated;
-          }
-     
-          public void setValidated(boolean validated) {
-              this.validated = validated;
-          }
-          
-          private boolean inSubmittedForm = false;
-          
-          public boolean inSubmittedForm() {
-              return inSubmittedForm;
-          }
-     
-          public void setInSubmittedForm(boolean b) {
-              this.inSubmittedForm = b;
-          }
-          
-          protected java.util.Map<String, String> parammap;
-          public java.util.Map<String, String> getParammap() {
-            return parammap;
-          }
-                
-          protected Map<String,utils.File> fileUploads;
-          public Map<String, utils.File> getFileUploads() {
-            return fileUploads;
-          }
-          
-          protected Map<String, List<String>> parammapvalues;
-          public Map<String, List<String>> getParammapvalues() {
-            return parammapvalues;
-          }
-          
-          protected String pageTitle = "";
-          public String getPageTitle() {
-            return pageTitle;
-          }
-          public void setPageTitle(String pageTitle) {
-              this.pageTitle = pageTitle;
-          }  
-
-          protected String formIdent = "";
-          public String getFormIdent() {
-            return formIdent;
-          }
-          public void setFormIdent(String fi) {
-              this.formIdent = fi;
-          } 
-          
-          protected boolean actionLinkUsed = false;
-          public boolean isActionLinkUsed() {
-            return actionLinkUsed;
-          }
-          public void setActionLinkUsed(boolean a) {
-              this.actionLinkUsed = a;
-          }  
-          
-          protected boolean ajaxRuntimeRequest = false;
-          public boolean isAjaxRuntimeRequest() {
-            return ajaxRuntimeRequest;
-          }
-          public void setAjaxRuntimeRequest(boolean a) {
-            ajaxRuntimeRequest = a;
-          }  
-          
-          protected String redirectUrl = "";
-          public String getRedirectUrl() {
-            return redirectUrl;
-          }
-          public void setRedirectUrl(String a) {
-              this.redirectUrl = a;
-          }  
-   
-          protected String mimetype = "text/html; charset=UTF-8";
-          protected boolean mimetypeChanged = false;
-          public String getMimetype() {
-            return mimetype;
-          }
-          public void setMimetype(String mimetype) {
-            this.mimetype = mimetype;
-            mimetypeChanged = true;
-            enableRawoutput();
-            disableTemplateSpans();
-          }
-          
-          protected boolean ajaxActionExecuted = false;
-          public boolean isAjaxActionExecuted() {
-            return ajaxActionExecuted;
-          }
-          public void enableAjaxActionExecuted() {
-            ajaxActionExecuted = true;
-          }
-          
-          protected boolean rawoutput = false;
-          public boolean isRawoutput() {
-            return rawoutput;
-          }
-          public void enableRawoutput() {
-            rawoutput = true;
-          }
-          public void disableRawoutput() {
-            rawoutput = false;
-          }
-
-          protected String[] pageArguments = null;
-          public void setPageArguments(String[] pa) {
-            pageArguments = pa;
-          }
-          public String[] getPageArguments() {
-            return pageArguments;
-          }
-
-          protected boolean templateSpans = true;
-          public boolean templateSpans() {
-            return templateSpans;
-          }
-          public void disableTemplateSpans() {
-            templateSpans = false;
-          }
-          
-          protected utils.File download = null;
-          public void setDownload(utils.File file){
-            this.download = file;
-          }
-          public boolean isDownloadSet(){
-            return this.download != null;
-          }
-          
-          protected void download()
-          { 
-            /*
-            Long id = download.getId();
-            org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().openSession();
-            hibSession.beginTransaction();
-            hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
-            utils.File download = (utils.File)hibSession.load(utils.File.class,id);
-            */
-            try
-            { 
-              javax.servlet.ServletOutputStream outstream;
-          
-              outstream = response.getOutputStream();
-              
-              java.sql.Blob blob = download.getContent();
-              java.io.InputStream in;
-          
-              in = blob.getBinaryStream();
-              response.setContentType(download.getContentType());
-              response.setHeader("Content-Disposition", "attachment; filename=" + download.getFileName());
-              java.io.BufferedOutputStream bufout = new java.io.BufferedOutputStream(outstream);
-              byte bytes[] = new byte[32768];
-              int index = in.read(bytes, 0, 32768);
-              while(index != -1)
-              { 
-                bufout.write(bytes, 0, index);
-                index = in.read(bytes, 0, 32768);
-              }
-              bufout.flush();
-            }
-            catch(java.sql.SQLException ex)
-            { 
-              System.out.println("exception in download serve");
-              ex.printStackTrace();
-            }
-            catch (IOException ex) {
-              System.out.println("exception in download serve");
-              ex.printStackTrace();
-            }
-            /*
-            hibSession.flush();
-            hibSession.getTransaction().commit();
-            */
-          }
         }
       ]|
     with pkgname    := <BeanPackage>

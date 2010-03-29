@@ -4,11 +4,11 @@ public class ThreadLocalServlet {
 
     private static ThreadLocal dispatchServlet = new ThreadLocal();
 
-    public static DispatchServletHelper get() {
-        return (DispatchServletHelper) dispatchServlet.get();
+    public static AbstractDispatchServletHelper get() {
+        return (AbstractDispatchServletHelper) dispatchServlet.get();
     }
     
-    public static void set(DispatchServletHelper d) {
+    public static void set(AbstractDispatchServletHelper d) {
         dispatchServlet.set(d);
     }
     
