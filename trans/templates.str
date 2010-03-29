@@ -1,64 +1,69 @@
 module templates
 
-imports parameters expressions actions template-calls
-
-signature
-  constructors
-    TemplateDef : List(Mod) * ID * List(Param) * List(Element) -> Definition // define mod* x(param*){elem*}
-    Page        : Mod // page
-    PageRef     : ID * List(Exp) -> PageRef // x(e*)
-    Navigate    : PageRef * List(Element) -> Element // navigate x(e*){elem*}
+imports include/nwl parameters expressions actions template-calls
 
 rules // projection
  
-is-page-def    = ?TemplateDef([Page()],_,_,_)
-param-types    : TemplateDef(mod*, x, param*, elem*) -> <param-types> param*
-signature-of   : TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
-declaration-of : TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
+  is-page-def = 
+    ?TemplateDef([Page()],_,_,_)
+    
+  param-types : 
+    TemplateDef(mod*, x, param*, elem*) -> <param-types> param*
+    
+  signature-of : 
+    TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
+    
+  declaration-of : 
+    TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
 
-declaration-of : Navigate(ref, elems) -> <declaration-of> ref
-declaration-of : PageRef(x, e*) -> <Template> x
-call-of        : PageRef(x, e*) -> (x, e*)
+  declaration-of : 
+    Navigate(ref, elems) -> <declaration-of> ref
+    
+  declaration-of : 
+    PageRef(x, e*) -> <Template> x
+    
+  call-of : 
+    PageRef(x, e*) -> (x, e*)
 
 rules // name resolution 
 
-declare-def :
-  def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
-  with sig := <signature-of> def;
-       rules(
-         Template : x -> def
-         Template : sig -> def
-       )
-rename : 
-  TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
-  with {| RenameId, RenameAction
-        : param2* := <rename-all> param1*
-        ; elem2*  := <alltd(rename-action)> elem1*
-        ; elem3*  := <rename-all> elem2*
-        |}
+  declare-def :
+    def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
+    with sig := <signature-of> def;
+         rules(
+           Template : x -> def
+           Template : sig -> def
+         )
+
+  rename : 
+    TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
+    with {| RenameId, RenameAction
+          : param2* := <rename-all> param1*
+          ; elem2*  := <alltd(rename-action)> elem1*
+          ; elem3*  := <rename-all> elem2*
+          |}
         
 rules // checking 
 
-check :
-  PageRef(x, e*) -> (x, $[Navigation to non-existing page])
-  where require(declaration-of)
+  check :
+    PageRef(x, e*) -> (x, $[Navigation to non-existing page])
+    where require(declaration-of)
  
-check :
-  PageRef(x, e*) -> [(x, $[Navigation to template '[x]' (not a page)])]
-  where def := <declaration-of>
-  where require(<is-page-def> def)
+  check :
+    PageRef(x, e*) -> [(x, $[Navigation to template '[x]' (not a page)])]
+    where def := <declaration-of>
+    where require(<is-page-def> def)
         
-check :
-  PageRef(x, e*) -> <check-args> 
+  check :
+    PageRef(x, e*) -> <check-args> 
   
-check :
-  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
-  where <is-page-def> def
-  where require(<Template> x => def)
+  check :
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
+    where <is-page-def> def
+    where require(<Template> x => def)
   
-check :
-  def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template with signature [sig]])
-  where not(is-page-def)
-  where require(<declaration-of> def => def)
-  where sig := <signature-of;pp-sig> def
-  
+  check :
+    def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for template with signature [sig]])
+    where not(is-page-def)
+    where require(<declaration-of> def => def)
+    where sig := <signature-of;pp-sig> def
