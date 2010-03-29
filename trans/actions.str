@@ -1,63 +1,70 @@
 module actions
 
-imports expressions parameters
-
-signature
-  constructors
-    Submit     : ID * List(Exp) * List(Element) -> Element
-    Action     : ID * List(Param) * List(Statement) -> Element
-    Assign     : Exp * Exp -> Statement
-    ReturnPage : PageRef -> Statement
-    ExpStat    : Exp -> Statement
+imports nwl expressions parameters 
  
-rules // actions
+rules // renaming
 
-rename-action :
-  act@Action(f, param1*, stat1*) -> <declare-action> Action(f{f'}, param2*, stat2*)
-  where {| RenameId 
+  rename-action :
+    act@Action(f, param1*, stat1*) -> <declare-action> Action(f{f'}, param2*, stat2*)
+    where {| RenameId
          : f' := <new-action-name> f
          ; param2* := <rename-all> param1*
          ; stat2* := <rename-all> stat1*
          |}
-         
-new-action-name =
-  RenameAction <+ {?f; f' := <newname> f; rules( RenameAction : f -> f' )}
+        
+  new-action-name =
+    RenameAction <+ {?f; f' := <newname> f; rules( RenameAction : f -> f' )}
 
-declare-action :
-  act@Action(g, param*, stat*) -> act
-  where rules( ActionDef : g -> act )
+  declare-action :
+    act@Action(g, param*, stat*) -> act
+    where rules( ActionDef : g -> act )
                   
-rename-action :
-  f -> f{<RenameAction>}
+  rename-action :
+    f -> f{<RenameAction>}
  
-rename :
-  Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
-  where g := <try(rename-action)> f; e2* := <rename-all> e1*; elem2* := <rename-all> elem1*
+  rename :
+    Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
+    where g := <try(rename-action)> f
+        ; e2* := <rename-all> e1*
+        ; elem2* := <rename-all> elem1*
     
 rules // projections
 
-declaration-of : Action(f, param*, stat*) -> <ActionDef> f
-param-types    : Action(f, param*, stat*) -> <param-types> param*
-signature-of   : Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
-call-of        : Submit(f, e*, elem*) -> (f, e*)
-declaration-of : Submit(f, e*, elem*) -> <ActionDef> f
-is-lvalue      = ?Var(_) <+ ?PropertyAccess(_, _)
+  declaration-of : 
+    Action(f, param*, stat*) -> <ActionDef> f
+  
+  param-types : 
+    Action(f, param*, stat*) -> <param-types> param*
+  
+  signature-of : 
+    Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
+  
+  call-of : 
+    Submit(f, e*, elem*) -> (f, e*)
+  
+  declaration-of : 
+    Submit(f, e*, elem*) -> <ActionDef> f
+  
+  is-lvalue = 
+    ?Var(_) <+ ?PropertyAccess(_, _)
 
 rules // checking 
 
-check :
-  Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
-  where require(declaration-of)
+  check :
+    Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+    where require(declaration-of)
   
-check :
-  Submit(f, e*, elem*) -> <check-args>
+  check :
+    Submit(f, e*, elem*) -> <check-args>
   
-check :
-  Assign(e1, e2) -> (e1, $[Left-hand side of assignment should be variable or property access])
-  where require(<is-lvalue> e1)
+  check :
+    Assign(e1, e2) -> (e1, $[Left-hand side of assignment should be variable or property access])
+    where require(<is-lvalue> e1)
 
-check :
-  Assign(lval, e) -> (<id>, $[Type of lhs ('[<pp>t1]') does not match type of rhs ('[<pp>t2]')])
-  where t1 := <type-of>lval
-  where t2 := <type-of> e
-  where require(<eq>(t1, t2))
+  check :
+    Assign(lval, e) -> (<id>, $[Type of lhs ('[<pp>t1]') does not match type of rhs ('[<pp>t2]')])
+    where t1 := <type-of>lval
+    where t2 := <type-of> e
+    where require(<eq>(t1, t2))
+    
+  // todo: multiple action definions
