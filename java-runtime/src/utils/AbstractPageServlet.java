@@ -198,6 +198,12 @@ public abstract class AbstractPageServlet{
         this.inSubmittedForm = b;
     }
 
+    public void clearParammaps(){
+        parammap.clear();
+        parammapvalues.clear();
+        fileUploads.clear();
+    }
+    
     protected java.util.Map<String, String> parammap;
     public java.util.Map<String, String> getParammap() {
         return parammap;
