@@ -73,7 +73,7 @@ public final class Utils {
         String res = "";
         for(Object obj: c) {
             WebDSLEntity e = (WebDSLEntity) obj;
-        	res+=e.getId()+",";
+            res+=e.getId()+",";
         }        
         return res.substring(0, Math.max(0,res.length()-1));
     }    
@@ -151,4 +151,7 @@ public final class Utils {
         org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
         return temp.checkPassword(s2,s1);
     }
+    
+    //@TODO: there are several issues with primitive types in the generated code, it would be better if they are always boxed
+    public static boolean isNullAutoBox(Object o){ return o == null; }
 }
