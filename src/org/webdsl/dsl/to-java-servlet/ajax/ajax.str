@@ -68,10 +68,7 @@ rules
        ; x_s   := <newname> "s"
        ; x_ps  := <newname> "ps"
        ; e* := <map({\e -> <expression-to-java-servlet> e\})> args
-       ; if <is-string> div
-         then e_thediv := Lit(String(<try(?"this"; ThisTemplateName; get-original-name)> div)) //placeholder Id {}
-         else e_thediv := <expression-to-java-servlet> div //placeholder Exp {}
-         end
+       ; e_thediv := <ajax-target-to-expression-this> div
 /*       ; if not(bodyelems := [])  then //TODO: params should be supported
            e_templatearg := expr |[ new TemplateCall("~templateargname", new Object[0]) ]|
            ;debug(!1)
@@ -82,10 +79,24 @@ rules
   ajax-to-java-servlet :
     AjaxVisibility(thediv, vis) -> bstm*|[ 
        ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
-       out.print("{ action: \"visibility\", id: \""+"~thediv"+"\", value: \""+"~visibility"+"\"},");
+       out.print("{ action: \"visibility\", id: \""+e_thediv+"\", value: \""+"~visibility"+"\"},");
     ]|
     with visibility := <translate-visibility> vis
+       ; e_thediv := <ajax-target-to-expression> thediv
     
+  ajax-target-to-expression:
+    thediv -> e_thediv    
+    with if <is-string> thediv
+         then e_thediv := Lit(String([Chars(thediv)])) //placeholder Id {}
+         else e_thediv := <expression-to-java-servlet> thediv //placeholder Exp {}
+         end
+  ajax-target-to-expression-this:
+    thediv -> e_thediv    
+    with if <is-string> thediv
+         then e_thediv := Lit(String([Chars(<try(?"this"; ThisTemplateName; get-original-name)> thediv)])) //placeholder Id {}
+         else e_thediv := <expression-to-java-servlet> thediv //placeholder Exp {}
+         end
+         
   translate-visibility :
    Show() -> "show"
   translate-visibility :
@@ -103,9 +114,10 @@ rules
   ajax-to-java-servlet :
     AjaxRestyle(thediv, expr) -> bstm*|[ 
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
-      out.print("{ action: \"restyle\", id: \""+"~thediv"+"\", value: \""+e+"\"},");
+      out.print("{ action: \"restyle\", id: \""+e_thediv+"\", value: \""+e+"\"},");
     ]|
     with e := <expression-to-java-servlet> expr
+       ; e_thediv := <ajax-target-to-expression-this> thediv
     
   ajax-to-java-servlet :
     AjaxRefresh() -> bstm* |[ 
@@ -116,8 +128,9 @@ rules
   ajax-to-java-servlet :
     AjaxClear(thediv) -> bstm*|[ 
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
-      out.print("{ action: \"clear\", id: \""+"~thediv"+"\"},");
+      out.print("{ action: \"clear\", id: \""+e_thediv+"\"},");
     ]|
+    with e_thediv := <ajax-target-to-expression-this> thediv
      
   ajax-to-java-servlet :
     AjaxRunScript(e) -> bstm*|[ 
