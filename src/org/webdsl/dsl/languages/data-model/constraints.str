@@ -6,66 +6,29 @@ imports
 imports
   libwebdsl-front
 
+signature constructors
+	
+	EntityOfProperty : Term -> Term
+
 rules
 
-  constraint-error-data :
-    Application(_, sections) -> <fail>
-    where entities := <collect(?Entity(_, _, _) <+ ?EntityNoSuper(_, _))> sections
-        ; entitynames := <map(\Entity(nm, _, _) -> nm\ <+ \EntityNoSuper(nm, _) -> nm\; lower-case)> entities
-        ; ent* := <find-doubles> entitynames
-        ; not([] := ent*)
-        ; <map(try(constraint-error-entity-name(|ent*)))> entities
-        
-  constraint-error-entity-name(|doublenames) :
-    Entity(x, _, _) -> <fail>
-      where constraint-error-entity-name-helper(|doublenames,x)
-    
-  constraint-error-entity-name(|doublenames) :
-    EntityNoSuper(x, _) -> <fail>
-      where constraint-error-entity-name-helper(|doublenames,x)
-    
-  constraint-error-entity-name-helper(|doublenames,x) :
-    _ -> <add-error(|["Entity ", x, " is defined multiple times."])>
-    where x_lower := <lower-case> x
-    		; <fetch(?x_lower)> doublenames
-
-  constraint-error-data :
-    Application(_, sections) -> <fail>
-    where sentities := <collect(?SessionEntity(_, _))> sections
-        ; sentitynames := <map(\SessionEntity(x, _) -> <lower-case> x\)> sentities
-        ; ent* := <find-doubles> sentitynames
-        ; not([] := ent*)
-        ; <map(try(constraint-error-session-entity(|ent*)))> sentities
-    
-  constraint-error-session-entity(|doublenames) :
-    SessionEntity(x, _) -> <add-error(|["Session entity ", x, " is defined multiple times."])> 
-    where x_lower := <lower-case> x
-    		; <fetch(?x_lower)> doublenames   
-        
-	match-entity-lower-name(|name) =
-			(?Entity(x,_,_) <+ ?EntityNoSuper(x,_))
-		; where(name := <lower-case> x)
-        
-  constraint-error-data :
-    Application(_, sections) -> <fail>
-    where sentities := <collect(?SessionEntity(_, _))> sections
-        ; sentitytypenames := <map(\SessionEntity(x, _) -> <lower-case> x\)> sentities
-        ; ent* := <filter(\nm -> nm where not([] := <collect(match-entity-lower-name(|nm))> sections) \)> sentitytypenames
-        ; not([] := ent*)
-        ; <map(try(constraint-error-session-entity-type(|ent*)))> sentities
-        
-  constraint-error-session-entity-type(|doublenames) :
-    SessionEntity(x, _) -> <add-error(|["Session entity type ", <capitalize-string> x, " is also defined as normal entity."])>
-    where xc := <lower-case> x
-        ; <fetch(?xc)> doublenames           
-  
-  // check for double properties and functions within entities
-  constraint-error-data =
-    (?Entity(x_id, _, entbodydecs) <+ ?EntityNoSuper(x_id, entbodydecs) <+ ?SessionEntity(x_id, entbodydecs))
-    ; names := <map(get-property-name)> entbodydecs
-    ; doubles := <find-doubles> names
-    ; not([] := doubles)
-    ; <add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles])> x_id
+  constraint-error-global =
+  		all-keys-EntDecl
+  	; map(bagof-EntDecl)
+  	; concat
+  	; try(constraint-double-decls(
+  			get-entity-def; Fst; lower-case
+  		, {
+  		      Snd; get-entity-def
+  		    ; Fst => name
+  		    ; rules(EntityDeclaredTwice :+ name -> name)
+  		    ; !["Entity '", name, "' is defined multiple times."]
+  		  }
+  	))
+  	// only check properties for entities which are not defined multiple times
+  	; all-keys-EntDecl; remove-all(EntityDeclaredTwice)
+    ; filter(constraint-error-global-nondouble-entities; fatal-err(|"INTERNAL ERROR: Rule should fail"))
+  	; fail
   
   constraint-error-data =
     (?ent@Entity(x_id, _, entbodydecs) <+ ?ent@EntityNoSuper(x_id, entbodydecs) <+ ?ent@SessionEntity(x_id, entbodydecs))

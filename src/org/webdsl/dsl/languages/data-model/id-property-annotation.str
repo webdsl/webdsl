@@ -70,11 +70,20 @@ rules
         ; <register-reserved-function> (x_funname4,2)
         ; <declare-static-function(|x_class, x_funname4_static)> fun |[ function x_funname4(name:srt,object:srt2):Bool {} ]|
         
-        // 'find' function which retrieves the object given the id property or returns null if it does not exist; see desugar rules below
+        // 'find' function which retrieves the object given the id property or returns null if it does not exist
         ; x_funname5_static := "find"
         ; x_funname5 := <concat-strings> [x_funname5_static,x_class]
         ; <register-reserved-function> (x_funname5,1)
-        ; <declare-static-function(|x_class, x_funname5_static)> fun |[ function x_funname5(name:srt):x_class {} ]|
+        ; <declare-emit-static-function(|x_class, x_funname5_static)> fun |[ 
+            function x_funname5(theid : srt) : x_class {
+              var list : List<x_class> := select g from x_class as g where g.x = ~theid;
+              if(list.length > 0) {
+                return list.get(0);
+              } else {
+                return null;
+              }
+            } 
+          ]|
         end
       )
       
@@ -87,36 +96,4 @@ rules
     x_class -> name 
     where name := <HasNaturalId;EntityIdType> x_class 
        <+ name := <natural-id-type-include-superclass> <Extends> x_class
-  /*
-  has-natural-id-subclasses :
-    x_class -> name 
-    where name := <HasNaturalId;EntityIdName> x_class <+ <has-natural-id-subclasses> <SubClass> x_class
-  */
-
-rules //emit functions for id properties, these are implemented entirely in WebDSL code
-
-  desugar-data :
-    EntityNoSuper(name, entbodydecs1) -> EntityNoSuper(name, entbodydecs2)
-    where entbodydecs2 := <oncetd(desugar-data-id-property(|name))> entbodydecs1
-
-signature
-  constructors
-    IdPropertyFunctionDesugarDone : Term
-   
-rules
-
-  desugar-data-id-property(|x_class) :
-    Property(x, k, srt, annos) -> Property(x, k, srt, [IdPropertyFunctionDesugarDone()|annos]) //only matches this type of property, others such as derivedproperty cannot have id anno
-    where <fetch(?SimpleAnno("id"))> annos
-        ; not(<fetch(?IdPropertyFunctionDesugarDone())> annos)
-    with  <emit-static-function(|x_class)> fun |[ 
-            function find(theid : srt) : x_class {
-              var list : List<x_class> := select g from x_class as g where g.x = ~theid;
-              if(list.length > 0) {
-                return list.get(0);
-              } else {
-                return null;
-              }
-            } 
-          ]|
-    
+ 

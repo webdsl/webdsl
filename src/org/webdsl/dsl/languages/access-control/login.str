@@ -1,59 +1,28 @@
 module org/webdsl/dsl/languages/access-control/login
 
-signature
-constructors
+imports
+	libwebdsl-front
 
-  GeneratedTemplate : Term
-
-overlays
-  
-  LoginTemplateForDeclare  = Define([GeneratedTemplate()],"login",[],[],[])
-  LogoutTemplateForDeclare = Define([GeneratedTemplate()],"logout",[],[],[])
-  AuthenticationTemplateForDeclare = Define([GeneratedTemplate()],"authentication",[],[],[])
-  
 rules
   get-login-template  = !<IsPage; TemplateDefinition> "login" <+ <TemplateSignature> ("login",[])
   get-logout-template = !<IsPage; TemplateDefinition> "logout" <+ <TemplateSignature> ("logout",[])
   get-auth-template   = !<IsPage; TemplateDefinition> "authentication" <+ <TemplateSignature> ("authentication",[])
 
+	declare-override-login :
+		acp@AccessControlPrincipal(x_ident,props) -> acp
+		      // generate auth template because it checks whether login- and logout templates exist
+		with  create-auth-template-if-not-defined(|x_ident,props)
+        ; create-login-template-if-not-defined(|x_ident,props)
+				; create-logout-template-if-not-defined(|x_ident,props)
+				  // declare function now the principal entity is declared
+				; declare-authenticate-function(|x_ident,props)
+				 
   declare-login : 
     acp@AccessControlPrincipal(x_ident,props) -> acp
-    with  farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
-        ; len := <length> props
+    with  len := <length> props
         ; <register-reserved-function> ("authenticate",len)
         ; <register-reserved-function> ("logout",0)
-        ; <map(declare)> def* |[
-            function authenticate(farg_loginfun*):Bool{}
-            function logout(){}
-          ]|
-        ; (  get-login-template
-          <+ // in first declare step, it doesn't matter whether a login definition is in the app as well, nor which order they are handled,
-             // as long as there is a declare of the login template.
-             // if this one is declared first, the actual login page/template will override it, since that one is unconditional
-             // if the real one is declared first, this declare will not happen due to get-login-template check above
-             <declare> LoginTemplateForDeclare()
-          )
-        ; if not(InInitialDeclareStepBeforeRename) //there will be another declare step after rename
-           ; LoginTemplateForDeclare() := <get-login-template> //check whether the declared template is the generated one
-          then rules(LoginTemplateGenerated  := True()) end
-        ; (  get-logout-template
-          <+ <declare> LogoutTemplateForDeclare()
-          )
-        ; if not(InInitialDeclareStepBeforeRename) 
-           ; LogoutTemplateForDeclare() := <get-logout-template>
-          then rules(LogoutTemplateGenerated := True()) end
-        ; (  get-auth-template 
-          <+ <declare> AuthenticationTemplateForDeclare()
-          )
-        // declaring a login page will remove the login template, only generate authentication when both login and logout are generated
-        ; if not(InInitialDeclareStepBeforeRename) 
-           ; AuthenticationTemplateForDeclare() := <get-auth-template>
-           ; LoginTemplateGenerated
-           ; LogoutTemplateGenerated 
-          then 
-            rules(AuthenticationTemplateGenerated := True())
-          end
-        
+        ; create-logout-function(|x_ident,props)
           
   create-farg-for-login-fun(|x_ident) :
     x -> result
@@ -68,16 +37,8 @@ rules
     //Undefined when the principal declaration was incorrect, e.g. principal type or credential property doesn't exist
     //doesn't overlap with an entity name Undefined, since that would be type SimpleSort("Undefined")
 
-  desugar-login : 
-    acp@AccessControlPrincipal(x_ident,props) -> acp
-    with  create-login-template-if-not-defined(|x_ident,props)
-        ; create-authenticate-function(|x_ident,props)
-        ; create-logout-template-if-not-defined(|x_ident,props)
-        ; create-logout-function(|x_ident,props)
-        ; create-auth-template-if-not-defined(|x_ident,props)
-    
   create-login-template-if-not-defined(|x_ident,props) = 
-    try(where(LoginTemplateGenerated); default-login-template(|x_ident,props))
+    try(where(not(get-login-template)); default-login-template(|x_ident,props))
   
   
   default-login-template(|x_ident,props) =
@@ -106,15 +67,26 @@ rules
         }
       }
       ]|
-    ; <emit-webdsl-section> webdsl |[ 
-      access control rules anonymous
+    ; <add-builtin-rule> acrule |[ 
         rule template login(){
           true
         }
       ]|
     )
-    
-  create-authenticate-function(|x_ident,props) =
+  
+  declare-authenticate-function(|x_ident,props) =
+    with(
+      farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
+      // we can't emit yet, need a renamed SecurityContext to infer checks
+    ; <declare> def |[ function authenticate(farg_loginfun*) : Bool {} ]|
+    )
+  
+  desugar-ac: acp@AccessControlPrincipal(x_ident,props) -> acp
+    where not(AuthenticateFunctionEmitted)
+    with  rules(AuthenticateFunctionEmitted := True())
+        ; emit-authenticate-function(|x_ident,props)
+  
+  emit-authenticate-function(|x_ident,props) =
     with(
       farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props 
     ; x_firstprop := <Hd> props
@@ -122,7 +94,7 @@ rules
     ; x_findfun := <concat-strings> ["find",x_ident,"By",<capitalize-string> x_firstprop]
     ; srt_ent := SimpleSort(x_ident)
     ; stat_auth* := <Tl; map(cred-prop-to-auth-stat(|x_ident))> props 
-    ; <emit-webdsl-code> def|[
+    ; <emit-webdsl-code-no-declare> def|[
       function authenticate(farg_loginfun*) : Bool {
         var tmpentitylist : List<srt_ent> := x_findfun(x_firstpropvarname);
         if(tmpentitylist.length > 0) {
@@ -181,7 +153,7 @@ rules
         ; result := elem |[ groupitem{ label(str){input(x1)} } ]|
     
   create-logout-template-if-not-defined(|x_ident,props) = 
-    try(where(LogoutTemplateGenerated); default-logout-template(|x_ident,props))
+    try(where(not(get-logout-template)); default-logout-template(|x_ident,props))
 
   default-logout-template(|x_ident,props) =
     with(
@@ -195,8 +167,7 @@ rules
           }
         }
       ]|
-    ; <emit-webdsl-section> webdsl |[ 
-        access control rules anonymous
+    ; <add-builtin-rule> acrule |[ 
           rule template logout(){
             true
           }
@@ -214,7 +185,11 @@ rules
     )
     
   create-auth-template-if-not-defined(|x_ident,props) = 
-    try(where(AuthenticationTemplateGenerated); default-auth-template(|x_ident,props))
+    try(where(
+        // Only generate if no custom auth/login/logout template
+        not(get-auth-template); not(get-login-template); not(get-logout-template)
+      ; default-auth-template(|x_ident,props))
+    )
   
   default-auth-template(|x_ident,props) =
     <emit-webdsl-code> def|[
@@ -227,11 +202,10 @@ rules
         }
       }
     ]|
-  ; <emit-webdsl-section> webdsl |[ 
-      access control rules anonymous
-        rule template authentication(){
-          true
-        }
+  ; <add-builtin-rule> acrule |[ 
+      rule template authentication(){
+        true
+      }
     ]|
   
     

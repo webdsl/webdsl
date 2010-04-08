@@ -10,21 +10,32 @@ grep "$(cat $FILE.app | head -n 1 | sed 's/^[/]*//')" $FILE.out > /dev/null
 exec 3<> $FILE_BASE.app
 while read line <&3
 do
-	if echo "$line" | grep -q "^//"; then
-		pattern=`echo "$line" | sed 's/^[/]*//'`
-		if ! grep -q "$pattern" $OUT_FILE; then
-			echo "Error not found: $pattern"
-			is_error=1
-		fi
-	else
-		break
-	fi
+  if echo "$line" | grep -q "^//"; then
+    pattern=`echo "$line" | sed 's/^[/]*//'`
+    echo $pattern | grep -q "^\^"
+    negate=$?
+    
+    if (( ! $negate )); then
+      if grep -q "${pattern:1}" $OUT_FILE; then
+        echo "Error should not be present: ${pattern:1}"
+        is_error=1
+      fi
+    else
+      if ! grep -q "$pattern" $OUT_FILE; then
+        echo "Error should be present: $pattern"
+        is_error=1
+      fi
+    fi
+    
+  else
+    break
+  fi
 done
 exec 3>&-
 
 if [[ $is_error ]]; then
-	cat $OUT_FILE
-	exit 1
+  cat $OUT_FILE
+  exit 1
 fi
 
 exit 0

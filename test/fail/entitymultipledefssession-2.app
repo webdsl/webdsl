@@ -1,4 +1,4 @@
-//is also defined as normal entity
+//Entity 'User' is defined multiple times
 
 application test
 

@@ -4,10 +4,10 @@
 //Multiple definitions with name 'aPage'
 //Multiple definitions with name 'aTemplate'
 //Multiple definitions with name 'aDefine'
-//anEntityNoSuper is defined multiple times
-//anEntity is defined multiple times
-//aSessionEntity is defined multiple times
-//ADoubleEntity is also defined as normal entity
+//'anEntityNoSuper' is defined multiple times
+//'anEntity' is defined multiple times
+//'ASessionEntity' is defined multiple times
+//'ADoubleEntity' is defined multiple times
 
 application test
 

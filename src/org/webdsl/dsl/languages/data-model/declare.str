@@ -25,8 +25,9 @@ strategies
 
 strategies
 
-	get-toplevel-name = get-entity-def; ?(<id>,_)
-	get-toplevel-name = get-extend-entity-def; ?(<id>,_)
+	// Prevent name clash of entity & functions for backend cache
+	get-toplevel-name = get-entity-def; ?(<concat-strings> ["ent_",<id>],_)
+	get-toplevel-name = get-extend-entity-def; ?(<concat-strings> ["ent_",<id>],_)
 
 strategies // register all declared entities
 
@@ -80,8 +81,8 @@ rules
   is-entity-type = where(?SimpleSort(<IsEntity>)) //without the where it would remove SimpleSort constructor due to term projection syntax
 
   declare-entity =
-    ?ent 
-    ; where ( try(inherit-object)
+    ?ent
+   	; where ( try(inherit-object)
         ; ?Entity(x_class, x_super, entbodydecs) 
         ; props := <filter(is-property-cons)> entbodydecs
         ; funcs := <filter(is-function-cons)> entbodydecs
@@ -89,6 +90,8 @@ rules
     ; with (
         rules(
         	Entities :+= x_class
+        	
+        	EntDecl :+ x_class -> ent
 
           IsEntity :+
             x_class -> x_class
@@ -108,7 +111,7 @@ rules
           SubClass :+
             x_super -> x_class
         )
-      ; <map(declare-property(|x_class))> [VersionProperty(), IdProperty(), NameProperty() | props]
+      ; <map(declare-property(|x_class))> [VersionProperty(), IdProperty() | props]
       ; <map(declare-function(|x_class))> funcs
       ; <handle-entity-id(|x_class)> props   
       ; <declare-function(|x_class)> fun |[ function getName() : String { } ]|   
@@ -130,7 +133,7 @@ rules
         ; not("Extends" := super)
 
   declare-entity =
-    ?SessionEntity(nm, entbodydecs)
+    ?sent@SessionEntity(nm, entbodydecs)
     ; with (id
       ; x_class := <capitalize-string> nm
       ; rules(
@@ -139,7 +142,7 @@ rules
           IsSessionEntityType : SimpleSort(x_class) 
           SessionVariable :+= nm
         )
-      ; <declare-entity> Entity(x_class, "Entity", entbodydecs)
+      ; <with-origin(declare-entity | sent)> Entity(x_class, "Entity", entbodydecs)
     )
     
   declare-extend-entity :
@@ -166,7 +169,8 @@ rules
         y := x{<prefix-rename(|x_class)> x}
       ; xsa := <strip-annos> x
       )
-    ; rules( TypeOfProperty : (x_class, x) -> s 
+    ; rules( PropertyDecl   :+(x_class, x) -> prop
+             TypeOfProperty : (x_class, x) -> s 
              PropertyAnnos  : (x_class, x) -> annos
              IsProperty     : (x_class, x)
              //renaming to allow direct references to properties in entity functions/derived properties
@@ -209,8 +213,8 @@ rules
       )
     
   declare-property(|x_class) =
-    ?DerivedProperty(x, k, srt, annos, e)
-    ; <declare-property(|x_class)> Property(x, k, srt, [])
+    ?prop@DerivedProperty(x, k, srt, annos, e)
+    ; <with-origin(declare-property(|x_class) | prop)> Property(x, k, srt, [])
     ; where (
     		try(
    					<fetch(?SimpleAnno("searchable"))> annos
@@ -222,12 +226,12 @@ rules
       )
 
   declare-property(|x_class) =
-    ?DerivedPropertyNoAnno(x, k, srt, e)
-    ; <declare-property(|x_class)> DerivedProperty(x, k, srt, [], e)
+    ?prop@DerivedPropertyNoAnno(x, k, srt, e)
+    ; <with-origin(declare-property(|x_class) | prop)> DerivedProperty(x, k, srt, [], e)
 
   declare-property(|x_class) =
-    ?PropertyNoAnno(x, k, srt)
-    ; <declare-property(|x_class)> Property(x, k, srt, [])
+    ?prop@PropertyNoAnno(x, k, srt)
+    ; <with-origin(declare-property(|x_class) | prop)> Property(x, k, srt, [])
 
 rules
 
@@ -281,4 +285,3 @@ rules // backend annotations
   add-backend-annotation =
 	  ?Entity(x_class,_,_)
   	; add-new-anno(|SuperClassesAnno(<defined-superclasses> x_class))
-  	

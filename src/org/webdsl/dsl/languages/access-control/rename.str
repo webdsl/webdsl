@@ -26,59 +26,12 @@ rules
                   SecurityContextProperty : Var(y) -> |[ securityContext.x ]|)
   
   rename-ac :
-    Predicate(x, args1, b1){anno*} -> <declare-global-pred> Predicate(x, args2, b3){anno*}
+    Predicate(x, args1, b1){anno*} -> Predicate(x, args2, b3){anno*}
     with  {| Rename
            : b2 := <alltd(rename-security-context-properties)> b1
            ; args2 := <map(rename)> args1
            ; b3 := <rename-all> b2
-           |}
-  declare-global-pred =
-    ?Predicate(f, args, b)
-    ; with(<declare> Function(f, args, SimpleSort("Bool"), b))
-    ; where(t1* := <map(?Arg(_,<id>))> args
-          ; fname := <strip-annos> f 
-          ; rules (IsPredicate : (fname,t1*))
-      )
-    
-  declare-ac = declare-ac-principal
-  rename-ac  = rename-ac-principal 
-  
-  rename-ac-principal : 
-    acp@AccessControlPrincipal(x_ident,props) -> <declare-ac> acp
-
-  declare-ac-principal : 
-    acp@AccessControlPrincipal(x_ident,props){anno*} -> acp
-    with <declare> def |[
-            session securityContext {
-              principal   -> x_ident
-              loggedIn    :: Bool //for backwards comp
-            }
-          ]|
-        ; x_loginfun := "loggedIn"
-        ; <declare-global-pred> def |[
-            predicate x_loginfun()
-            {
-              securityContext.principal != null
-            }
-          ]|
-        ; <register-reserved-function> (x_loginfun,0)
-        ; try(
-            not(<IsPage> "accessDenied") // might be declared before custom definition in initial declare, but real one will overwrite this one
-          ; <with(declare;once-AccessDeniedPageDefined)> 
-              DefaultAccessDeniedPage()
-          )
-        ; acpstripped := AccessControlPrincipal(x_ident,props){<remove-all(not(?At(_,_,_)))> anno*} // used for duplicates check, keep only location annotation
-        ; rules (
-            AccessControlEnabled :+= acpstripped
-          )
-        ; <declare-login> acp
-  
-  check-access-denied-page-redefinition =
-    try(
-      ?def@Define(mod*, "accessDenied", _, _, _)
-      ; where(<fetch(?Page())> mod*)
-      ; rules( AccessDeniedPageDefined :+= True() )
-    )
+           |} 
 
 overlays
 
@@ -91,9 +44,8 @@ overlays
         navigate(root()) { "return to home page" }
       }
     ]|
-  AccessDeniedPageRuleSection =
-    webdsl |[
-      access control rules
+  AccessDeniedPageRule =
+    acrule |[
       rule page accessDenied(){true}
     ]|
 

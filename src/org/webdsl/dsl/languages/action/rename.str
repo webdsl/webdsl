@@ -7,11 +7,12 @@ signature
 rules
 
   rename-action :
-    VarDecl(x, srt) -> VarDecl(y, srt2)
+    v@VarDecl(x, srt) -> VarDecl(y, srt2)
     where InDef
     with  srt2 := <rename-all> srt 
         ; y := <rename-bound(|srt2)> x
         ; <declare-vars-in-context> y
+        ; rules(VarDecl :+ y -> v)
 
   rename-action :
     v@VarDeclInit(x, srt, e) -> VarDeclInit(y, srt2, e')
@@ -20,6 +21,7 @@ rules
         ; e' := <rename-all> e
         ; y := <rename-bound(|srt2)> x
         ; <declare-vars-in-context> y
+        ; rules(VarDecl :+ y -> v)
         
   rename-action :
     v@VarDeclInitInferred(x, e) -> VarDeclInitInferred(y, e')
@@ -28,24 +30,20 @@ rules
         ; srt := <type-of <+ !"unknown"> e' // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
         ; y := <rename-bound(|srt)> x
         ; <declare-vars-in-context> y
+        ; rules(VarDecl :+ y -> v)
 
   rename-action :
     v@VarDeclInit(x, srt, e{anno*}) -> VarDeclInit(x, srt, e'{ObjectCreationSecretTypesNeedDigests(),anno*})
     where not(InDef)//needed for inital rename
         ; not(IsGlobal)//needed for rename from model-to-model innermost without context
-    with e' := <rename-all> e
-       ; rules ( TypeOf : x -> srt )
-       ; rules ( IsGlobal : x )
-       
+    with  e' := <rename-all> e
+        
   rename-action :
     v@VarDeclInitInferred(x, e{anno*}) -> VarDeclInitInferred(x, e'{ObjectCreationSecretTypesNeedDigests(),anno*})
     where not(InDef)//needed for inital rename
         ; not(IsGlobal)//needed for rename from model-to-model innermost without context
     with  e' := <rename-all> e
-        ; srt := <type-of <+ !"unknown"> e'  // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
-        ; rules ( TypeOf : x -> srt )
-        ; rules ( IsGlobal : x )
-  
+        
    rename-action :
      s@SimpleSort(_) -> s2
      with  s3 := <rename-type> s
@@ -66,7 +64,7 @@ rules
           |}
           
   rename-action :
-    Function(x, farg1*, srt, b1) -> <declare-global-func <+ debug> Function(x, farg2*, srt, b2)
+    Function(x, farg1*, srt, b1) -> Function(x, farg2*, srt, b2)
     where not(InEntity)
     with {| Rename, InDef, VarInTemplateContext
           : rules ( InDef := True() )
@@ -76,7 +74,7 @@ rules
           |}
 
   rename-action :
-    FunctionNoReturn(x, farg1*, b1) -> <declare-global-func <+ debug> FunctionNoReturn(x, farg2*, b2)
+    FunctionNoReturn(x, farg1*, b1) -> FunctionNoReturn(x, farg2*, b2)
     where not(InEntity)
     with {| Rename, InDef, VarInTemplateContext
           : rules ( InDef := True() )
@@ -106,6 +104,7 @@ rules
           |}
 
   rename-action :
-    Arg(x, srt) -> Arg(y, srt2)
+    a@Arg(x, srt) -> Arg(y, srt2)
     with srt2 := <rename-type> srt
        ; y := <rename-bound(|srt2)> x
+       ; rules(VarDecl :+ y -> a)

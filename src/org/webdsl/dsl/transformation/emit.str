@@ -1,20 +1,31 @@
 module org/webdsl/dsl/transformation/emit
 
 imports
-  libstrategolib
+  libstratego-lib
   libjava-front
 
 imports
   libwebdsl-front
   
+signature constructors
+  
+  IsGenerated : Term
+  
 rules	// emit top-level definition
 
 	// @TODO: rename to emit-webdsl-def
-	emit-webdsl-code = with-toplevel-name(
-			rename-all
-		; emit-webdsl-code-no-rename
-	)
-	
+	emit-webdsl-code = 
+      declare-all
+    ; emit-webdsl-code-no-declare
+    
+  // Used for separate declare / emit phase
+	emit-webdsl-code-no-declare =
+      where(InTypeCheckingPhase); emit-webdsl-code-no-rename
+  <+  with-toplevel-name(
+	        rename-all
+	      ; emit-webdsl-code-no-rename
+	    )
+	  
 	//used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
   // renaming is not needed for these one-to-one transformations that have the same semantics
 	emit-webdsl-code-no-rename =
@@ -35,10 +46,26 @@ rules	// emit top-level definition
 rules // emit section
   
   emit-webdsl-section =
-    	rename-top
+      declare-all
+    ; rename-top
     ; ?sec
     ; rules(
         AddWebDSLSection :+ Application(qid, sections) -> Application(qid, [sec|sections])
       )
   
   desugar = once-AddWebDSLSection
+
+rules // emit builtins (during declare)
+	
+	add-builtin-rule = ?rule; rules(AddWebDSLRules :+= rule)
+	
+	add-builtins-to-ast: Application(name, sec*) -> Application(name, [sec*, emitsec*])
+	   with get-builtin-sections => emitsec*
+	add-builtins-to-ast: Module(name,sec*) -> Module(name, [sec*, emitsec*])
+     with	get-builtin-sections => emitsec*
+     
+  get-builtin-sections: _ -> [defsec,rulesec]
+    with  defsec := Section("builtins", <bagof-AddWebDSLDefs; map(rename-toplevel)>)
+        ; rulesec := AccessControlDefinition(None(), <bagof-AddWebDSLRules; map(rename-toplevel)>)
+        ; rules(AddWebDSLDefs :- _)
+        ; rules(AddWebDSLRules :- _)

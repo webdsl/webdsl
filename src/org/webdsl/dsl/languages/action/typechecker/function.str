@@ -2,7 +2,6 @@ module org/webdsl/dsl/languages/action/typechecker/function
 
 imports
   libstrategolib
-  Java-15 
   libjava-front
 
 imports
@@ -76,49 +75,54 @@ rules // forbidden elements
 
 rules // global functions
 
-  constraint-error-action :
-    Application(nm, sections) -> <fail>
-    where // get *top-level* functions
-    			funcs := <collect-om(?Section(_,<id>); filter(?Function(_,_,_,_) <+ ?FunctionNoReturn(_,_,_))); flatten-list> sections
-    		; efuncs := <collect-om(?Section(_,<id>); filter(?ExtendFunction(_))); flatten-list> sections
-        ; <try(constraint-error-global-funcs(|efuncs))> funcs
-    		; entities := <collect-om(?Section(_,<id>); filter(get-entity-def; ?(<id>,_))); flatten-list> sections
-    		; <try(constraint-error-global-funcs-entities(|entities))> funcs
+  is-reserved-function =
+      extract-function-sig
+    ; ?(name, args)
+    ; t := (name, <length> args)
+    ; <fetch-elem(?t)> (<bagof-ReservedFunctions>)
+  
+  constraint-error-global =
+      all-keys-FunctionDecl
+    ; map(bagof-FunctionDecl); concat
+    ; remove-all(is-reserved-function)
+    ; constraint-double-decls(
+          extract-function-sig; sig-to-lower
+        ,{prettysig:  
+            Snd; extract-function-sig; pp-func-sig => prettysig
+          ; <concat-strings> ["Global function with signature ",prettysig," is defined multiple times."]
+         }
+      )
+    ; fail
 
-rules // redefined global functions
-    	
-  constraint-error-global-funcs(|efuncs): funcs -> <fail>
-  	with	doubledefinesigs := <map(extract-function-sig; sig-to-lower); find-doubles> funcs
-    		; <map(try(constraint-error-func-sigs(|doubledefinesigs)))> funcs
-    		  
-  constraint-error-func-sigs(|doublefuncsigs):
-  	func -> <add-error(|["Global function with signature ", prettysig, " is defined multiple times."])> 
-    where matchsig := <extract-function-sig; sig-to-lower> func
-        ; <fetch(?matchsig)> doublefuncsigs  
-        ; prettysig := <extract-function-sig; pp-func-sig> func
-
-rules // global functions overlapping with entities
-	
-	constraint-error-global-funcs-entities(|entitynames): funcs -> <fail>
-		with	funcnames := <map(extract-function-sig; ?(<id>, _))> funcs
-				; doubles := <flatten-list; find-doubles> [<make-set> funcnames, <make-set> entitynames]
-				; <map(try(constraint-error-global-func-entity(|doubles)))> funcs
-				  
-	constraint-error-global-func-entity(|doubles):
-		func -> <add-error(|["Global function '",name,"' has the same name as an entity."])>
-		where name := <extract-function-sig; ?(<id>,_)> func
-				; lower := <lower-case> name
-				; <fetch(?lower)> doubles
+/*
+  constraint-error-global =
+      funcs := <all-keys-FunctionDecl; map(FunctionDecl)>
+    ; ents := <all-keys-EntDecl; map(EntDecl)>
+    ; funcname* := <all-keys-FunctionDecl; map(Fst)>
+    ; entname* := <all-keys-EntDecl>
+    ; allnames := <concat; map(lower-case)> [<uniq> funcname*, <uniq> entname*]
+    ; !funcs
+    ; constraint-double-decls(
+             extract-function-sig; Fst; lower-case
+        , {  Snd; extract-function-sig; Fst => name
+          ; <concat-strings> ["Global function '",name,"' has the same name as an entity."]
+         }
+        | allnames
+      )
+    ; fail
+*/
 
 rules // extend function which extends nothing
   
-  constraint-error-global-funcs(|efuncs): funcs -> <fail>
-    with sigs := <map(extract-function-sig)> funcs
-       ; <filter(match-extend-function-to-function(|sigs))> efuncs
+  constraint-error-global =
+      bagof-ExtendGlobalFunctions
+    ; filter(constraint-extend-global-function)
+      // cleanup dr
+    ; dr-end-scope(|"ExtendGlobalFunctions")
+    ; fail
   
-  match-extend-function-to-function(|sigs):
-    ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," extends a non-existing function."])>
-    where esig := <extract-function-sig> f
-        ; <not(fetch(\ fsig -> <eq> (esig, fsig) \))> sigs  
+  constraint-extend-global-function: ef@ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," extends a non-existing function."])>
+    with  esig := <extract-function-sig> f
+        ; globalsigs := <all-keys-FunctionDecl; strip-annos> // remove {DR_DUMMY}
         ; prettysig := <pp-func-sig> esig
-  
+    where not(<fetch-elem(?esig)> globalsigs)

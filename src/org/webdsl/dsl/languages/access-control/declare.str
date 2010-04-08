@@ -1,0 +1,56 @@
+module org/webdsl/dsl/languages/access-control/declare
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/languages/access-control/-
+
+rules
+
+  pred-to-func: Predicate(f, args, b) -> Function(f, args, SimpleSort("Bool"), b)
+
+  declare: pred@Predicate(f, args, b) -> pred
+      with(<declare-with-origin(|pred)> Function(f, args, SimpleSort("Bool"), b))
+    ; where(t1* := <map(?Arg(_,<id>))> args
+          ; fname := <strip-annos> f 
+          ; rules (IsPredicate : (fname,t1*))
+      )
+    
+  declare-ac = declare-ac-principal
+  
+  //declaration of principal
+  // there can be only one of these
+  declare-ac-principal : 
+    acp@AccessControlPrincipal(x_ident,props){anno*} -> acp
+    with <emit-webdsl-code> def |[
+            session securityContext {
+              principal   -> x_ident
+              loggedIn    :: Bool //for backwards comp
+            }
+          ]|
+        ; x_loginfun := "loggedIn"
+        ; <emit-webdsl-code> def |[
+            predicate x_loginfun()
+            {
+              securityContext.principal != null
+            }
+          ]|
+        ; <register-reserved-function> (x_loginfun,0)
+        ; acpstripped := AccessControlPrincipal(x_ident,props){<remove-all(not(?At(_,_,_)))> anno*} // used for duplicates check, keep only location annotation
+        ; rules (
+            AccessControlEnabled :+= acpstripped
+          )
+        ; <declare-login> acp
+  
+  declare-override: acp@AccessControlPrincipal(x_ident,props) -> acp
+    with  <add-builtin-rule> AccessDeniedPageRule()   // add always
+        ; <declare-override-login> acp
+        ; try(add-ac-denied-page)
+  
+  // only if not custom defined  
+  add-ac-denied-page =
+      not(<IsPage> "accessDenied")
+    ; <emit-webdsl-code> DefaultAccessDeniedPage()
+    

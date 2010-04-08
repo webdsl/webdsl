@@ -1,4 +1,4 @@
-//Properties are defined multiple times - name
+//Property 'name' of entity 'XYZ' is defined multiple times
 application test
 
 imports module/entity-constraint-in-module

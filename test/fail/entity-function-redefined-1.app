@@ -1,4 +1,4 @@
-//Function with signature duplicate(Int, String) for Entity User is defined multiple times.
+//Function with signature duplicate(Int, String) of entity 'User' is defined multiple times.
 application test
 
   entity User{

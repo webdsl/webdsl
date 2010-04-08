@@ -7,7 +7,7 @@ imports
 rules
 
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-page-definition> Define(mod*, x, farg2*, req*, elem2*){anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, x, farg2*, req*, elem2*){anno*}
     where   <fetch(?Page())> mod*
     with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
@@ -22,7 +22,7 @@ rules
           |}
 
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-toplevel-template-definition> Define(mod*, y, farg2*, req*, elem2*){anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, y, farg2*, req*, elem2*){anno*}
     where not(InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         //; not(<elem> (Email(), mod*))
@@ -41,7 +41,7 @@ rules
           |}
         
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition> Define(mod*, y, farg2*, req*, elem2*){anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions> Define(mod*, y, farg2*, req*, elem2*){anno*}
     where (InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
@@ -55,6 +55,14 @@ rules
          ; <declare-require-sig> req*
          ; elem2* := <alltd(rename-actions(|y)); rename-all> elem1*
          |}
+
+  store-renamed-actions: def@Define(_, name, farg*, _, elem*) -> def
+    with  n := <strip-annos> name
+        ; t* := <map(farg-to-type)> farg*
+          // do not collect inside nested templates or template calls
+          // remove position annos for better cache hit ratio
+        ; actions := <collect(?Action(_,_,_)<+?Define(_,_,_,_,_)<+get-tc-elements);remove-all(not(?Action(_,_,_))); remove-position-annos> elem*
+        ; rules( TemplateActions : (n, t*) -> actions )
 
   get-requires :
   [] -> []

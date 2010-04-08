@@ -1,4 +1,4 @@
-//Property test for Entity User is defined multiple times.
+//Property 'test' for entity 'User' is defined multiple times.
 
 application test
 

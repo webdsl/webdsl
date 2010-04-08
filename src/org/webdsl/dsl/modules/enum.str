@@ -7,7 +7,6 @@ imports
 strategies
 
   declare = declare-enum
-  desugar = desugar-enum
 
 rules
 
@@ -15,28 +14,15 @@ rules
     EnumValue(y, str) -> |[ var y : srt := x { name := str }; ]|
     where srt := SimpleSort(x)
 
-  desugar-enum :
-    Enum(x, value*) -> <rename-all> def|[
-      entity x {
-        name :: String
-      }
-    ]|
-   	with	nameanno := TopLevelName(<concat-strings> ["enum_", x])
-   			; <emit-webdsl-code> GlobalsDefinition(<map(enum-generate-vardecl(|x))> value*){nameanno}
-
-  rename :
-    Enum(x, value*) -> Enum(x, value*)
-    with declare-enum
-
   declare-enum :
-    Enum(x, value*) -> <id>
-    with <declare> def|[
+    def@Enum(x, value*) -> <id>
+    with  entdef := def|[
             entity x {
               name :: String
             }
           ]|
-          ; <map(declare-enum-value(|SimpleSort(x)))> value*
-
-  declare-enum-value(|srt) :
-    EnumValue(y, str) -> <id>
-    with rules ( TypeOf : y -> srt )
+        ; rules(EnumDecl :+ x -> def)
+        ; valdef* := <map(enum-generate-vardecl(|x))> value*
+        ; nameanno := TopLevelName(<concat-strings> ["enum_", x])
+        ; <emit-webdsl-code> GlobalsDefinition([entdef, valdef*]){nameanno}
+        

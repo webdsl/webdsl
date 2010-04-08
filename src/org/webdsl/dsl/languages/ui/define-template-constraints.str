@@ -7,32 +7,43 @@ imports
   libwebdsl-front
 
 rules
-
-  //duplicate template signatures
-  constraint-error-ui :
-    Application(nm, sections) -> <fail>
-    where //get all top-level template defines (local defines are meant to be duplicate)
-          defines := <collect-om(?Define(_, _, _, _, _))> sections 
-          //remove 'define page' and 'define email'
-        ; templatedefines := <remove-all(?Define(<fetch(?Page())>, _, _, _, _) <+ ?Define(<fetch(?Email())>, _, _, _, _))> defines
-          // remove definitions without arguments: they are already catched with constraint-error-define-names
-        ; doubledefinesigs := <map(template-def-to-sig);remove-all(?(_,[]));find-doubles> templatedefines
-        ; not([] := doubledefinesigs)
-    with <map(try(constraint-error-template-sigs(|doubledefinesigs)))> templatedefines
-    
+  
+  constraint-error-global = with(
+      all-keys-TopLevelTemplateDecl
+    ; remove-all(?(_,[]))             // no-arg templates are catched by next constraint
+    ; map(bagof-TopLevelTemplateDecl); concat => decls
+    )
+    ; <constraint-double-decls(
+          template-def-to-sig; sig-to-lower
+        ,{  Snd; template-def-to-sig; pretty-print-template-signature => prettysig
+          ; <concat-strings> ["Template with signature ",prettysig," is defined multiple times."]
+         }
+      )> decls
+    ; fail
+   
+  // Pages are not overloaded, so pages without arguments can clash with no-arg templates.
+  constraint-error-global = with (
+      all-keys-TopLevelTemplateDecl
+    ; filter(?(_,[]))               // templates with args are renamed, catched by constraint above
+    ; map(bagof-TopLevelTemplateDecl); concat => template*
+    ; all-keys-PageDecl
+    ; map(bagof-PageDecl); concat => page*
+    )
+    ; <constraint-double-decls(
+          template-def-to-sig; sig-to-lower
+        ,{  Snd; template-def-to-sig; Fst => name
+          ; <concat-strings> ["Multiple definitions with name '", name, "'."]
+         }
+      )> [page*, template*]
+    ; fail
+  
   template-def-to-sig :
     Define(_, nm, arg, _, _) -> (<strip-annos> nm,<map(?Arg(_,<id>))> arg) 
-    
-  constraint-error-template-sigs(|doublesigs):
-    def -> <add-error(|["Template with signature ", pp, " is defined multiple times."])> 
-    where sig := <template-def-to-sig> def
-        ; <fetch(?sig)> doublesigs
-    with  pp := <pretty-print-template-signature> sig
-        
+
   pretty-print-template-signature :
     (ident,fargs) -> result 
     with result := <concat-strings> [ident,"(",<map(pp-webdsl-to-string);separate-by(|",");concat-strings> fargs,")"]
-    
+ 
 rules
 
   constraint-error-ui:

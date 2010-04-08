@@ -1,4 +1,4 @@
-//Function with signature test(Int, String) for Session Entity test is defined multiple times.
+//Function with signature test(Int, String) of entity 'Test' is defined multiple times.
 application test
 
   session test{

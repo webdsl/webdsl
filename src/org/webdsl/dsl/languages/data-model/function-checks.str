@@ -7,69 +7,28 @@ imports
   libwebdsl-front
   org/webdsl/dsl/languages/data-model/property-checks
 
-rules //session entity
+rules 
   
-  constraint-error-data :
-    Application(_, sections) -> 
-    <constraint-error-data-duplication-in-session-entity(constraint-error-double-func-session)>
-  
-  get-functions-of-session-entities-by-name(|entities):
-    x -> <collect(extract-session-entity-extend-functions-by-name(|x)); flatten-list> entities
-    
-  extract-session-entity-extend-functions-by-name(|x) =
-    (  ?SessionEntity(x, <id>)
-    <+ ?ExtendSessionEntity(x, <id>)
-    )
-  ; filter(is-function-cons)
-  
-  constraint-error-double-func-session(|entities) :
-    x -> <id>
-    with  functions := <get-functions-of-session-entities-by-name(|entities)> x
-        ; <constraint-error-double-func-common(|functions, "Session Entity")> x
-
-rules //entity
-
-  constraint-error-data :
-    Application(_, sections) -> 
-    <constraint-error-data-duplication-in-entity(constraint-error-double-func-entity)>
-        
-  constraint-error-double-func-entity(|entities) :
-    x -> <id>
-    with  functions := <get-functions-of-entities-by-name(|entities)> x
-        ; <constraint-error-double-func-common(|functions, "Entity")> x
-  
-  get-functions-of-entities-by-name(|entities):
-    x -> <collect(extract-entity-extend-functions-by-name(|x)); flatten-list> entities
-    
-  extract-entity-extend-functions-by-name(|x) =
-    (  ?Entity(x, _, <id>)
-    <+ ?EntityNoSuper(x, <id>)
-    <+ ?ExtendEntity(x, <id>)
-    )
-  ; filter(is-function-cons)
-
-rules //common  
-  
-  constraint-error-double-func-common(|functions, entitytype) :
-    x -> <id>
-    with  functionsignatures := <remove-all(?ExtendFunction(_));map(extract-function-sig; sig-to-lower)> functions
-        ; doublefuncsigs := <find-doubles> functionsignatures
-        ; <map(try(constraint-error-double-func-helper(|doublefuncsigs, x, entitytype)))> functions
-       
+ constraint-error-global-nondouble-entities =
+      ?x_class
+    ; bagof-Functions; concat
+    ; constraint-double-decls(
+          extract-function-sig; sig-to-lower
+        ,{prettysig:  
+            Snd; extract-function-sig; pp-func-sig => prettysig
+          ; <concat-strings> ["Function with signature ",prettysig," of entity '",x_class,"' is defined multiple times."]
+         }
+      )
+           
   extract-function-sig = 
      \Function(x,farg,_,_) -> (x, <map(farg-to-type)> farg)\
   <+ \FunctionNoReturn(x,farg,_) -> (x, <map(farg-to-type)> farg)\
+  <+ \NativeFunction(x,farg,_) -> (x, <map(farg-to-type)> farg)\
   
   farg-to-type = ?Arg(_,<id>)
 
   sig-to-lower: (name,args) -> (<lower-case> name, args)
-  
-  constraint-error-double-func-helper(|doublefuncsigs, x, entitytype) :
-    f -> <add-error(|["Function with signature ", prettysig," for ", entitytype," ", x, " is defined multiple times."])>
-    where sig := <extract-function-sig; sig-to-lower> f
-        ; <fetch(?sig)> doublefuncsigs  
-        ; prettysig := <extract-function-sig; pp-func-sig> f
-        
+   
   pp-func-sig = ?(x,argtypes); <concat-strings> [x,"(",<map(pp-webdsl-to-string);separate-by(|", ");concat-strings> argtypes,")"]
   
 rules // generic check entity function traversal

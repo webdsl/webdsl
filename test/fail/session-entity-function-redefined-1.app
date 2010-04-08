@@ -1,4 +1,4 @@
-//Function with signature dup(Int, String) for Session Entity user is defined multiple times.
+//Function with signature dup(Int, String) of entity 'User' is defined multiple times.
 
 application test
 

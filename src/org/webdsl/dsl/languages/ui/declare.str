@@ -12,11 +12,11 @@ strategies
 strategies // inital declare for globally visible pages/templates
 
   initial-declare-page-definition :
-    Define(mod*, x, farg1*, req*, elem1*){anno*} -> <with(<declare-page-definition> Define(mod*, x, farg1*, req*, elem1*){anno*} )>
+    def@Define(mod*, _, _, _, _) -> <with(<declare-page-definition> def)>
     where <fetch(?Page())> mod*
 
   initial-declare-template-definition :
-    Define(mod*, x, farg1*, req*, elem1*){anno*} -> <with(<declare-toplevel-template-definition> Define(mod*, x, farg1*, req*, elem1*){anno*} )>
+    def@Define(mod*, _, _, _, _) -> <with(<declare-toplevel-template-definition> def )>
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
 
@@ -36,7 +36,6 @@ rules
   declare-page-definition =
     ?def@Define(mod*, name, args, targs, body)
     ; where(<fetch(?Page())> mod*)
-    ; where(check-access-denied-page-redefinition)
     ; with(common-declare-template-rules)
     ; where(with (
       t1* := <map(?Arg(_,<id>))> args
@@ -44,27 +43,27 @@ rules
           IsPage : name
           PageNames :+= name
           CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
+          PageDecl :+ name -> def
         )
     ))
 
   declare-toplevel-template-definition =
-    ?Define(mod*, name, fargs, targs, body)
+    ?def@Define(mod*, name, fargs, targs, body)
     ; where(not(<fetch(?Page())> mod*))
     ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
     ; where(with(
         t* := <map(?Arg(_,<id>))> fargs
       ; n := <strip-annos> name
-      ; if not(<elem> ((n, t*), <bagof-TopLevelTemplateDefinitions> n)) then
-          y := <newname> n
-          ; rules (
-            TopLevelTemplateNames :+= n
-            TopLevelTemplateDefinitions :+ n -> (n, t*)
-            OverloadedTemplateSignature : (n, t*) -> y
-            CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
-            TopLevelTemplateArguments :+ n -> t* // used for overload resolution
-          )
-        end
+      ; y := <newname> n
+      ; rules (
+        TopLevelTemplateNames :+= n
+        TopLevelTemplateDefinitions :+ n -> (n, t*)
+        OverloadedTemplateSignature : (n, t*) -> y    // not used
+        TopLevelTemplateDecl :+ (n, t*) -> def
+        CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
+        TopLevelTemplateArguments :+ n -> t* // used for overload resolution
+       )
     ))
 
   declare-local-template-definition =
@@ -87,9 +86,9 @@ rules
     Arg(x, s) -> Arg(x, s)
     with template := <InTemplate>
         ; rules ( TemplateArguments :+ template -> Arg(x, s) ) 
-     
+  
   common-declare-template-rules :
-    def@Define(mods, name, fargs, targs, body){anno*} -> Define(mods, name, fargs, targs, body){anno*}
+    def@Define(mods, name, fargs, targs, body){anno*} -> def
     with  t* := <map(?Arg(_,<id>))> fargs
         ; n := <strip-annos> name
         ; genname := <generate-template-name> (n,t*)
@@ -100,12 +99,11 @@ rules
                  TemplateRequires   : (n, t*) -> targs
                  TemplateDefinitionFromAnnoName : genname -> def
                )
+        // use only the first declaration of each template
+        // there will be multiple definitions, and the last will no longer have origin info
+        ; try(not(<TemplateDecl> genname); rules(TemplateDecl : genname -> def))
         ; if <fetch(?AjaxTemplate())> mods
           then rules( IsDefinedAsAjaxTemplate : genname  ) end
-        	// do not collect inside nested templates or template calls
-        	// remove position annos for better cache hit ratio
-        ; actions := <collect(?Action(_,_,_)<+?Define(_,_,_,_,_)<+get-tc-elements);remove-all(not(?Action(_,_,_))); remove-position-annos> body
-        ; rules( TemplateActions : (n, t*) -> actions )
         ; if <oncetd( // check for each variant of elements for robustness
             ?TemplateCallNoBody("elements",_)
             <+?TemplateCallNoArgs("elements")            

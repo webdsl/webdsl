@@ -1,0 +1,41 @@
+module org/webdsl/dsl/typechecker/helpers
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/-
+  
+rules // double name check
+  
+  // Find doubly-defined declarations
+  // decl-to-name: get name of declaration, which specifies the uniqueness criterium
+  // make-error: get error message for a (name, declaration) tuple
+  constraint-double-decls(decl-to-name, make-error):
+      decls -> <constraint-double-decls(decl-to-name, make-error | names)> decls
+    with  names := <map(decl-to-name <+ debug(!"INTERAL: decl-to-name failed: ");fail)> decls
+        
+  constraint-double-decls(decl-to-name, make-error | names): decls -> <fail>
+    with  doubles := <find-doubles> names
+        ; <filter(constraint-double-decls-helper(decl-to-name, make-error | doubles))> decls
+        
+  constraint-double-decls-helper(decl-to-name, make-error | doublenames): decl -> <add-error(|msg)> decl
+    with  name := <decl-to-name> decl
+    where <fetch-elem(?name)> doublenames
+    with  msg := <make-error> (name, decl)
+  
+  // Find doubly-defined declarations, given a list of names
+  // Useful if the key of a dynamic rule specifies a unique name: all-keys-XXX; constraint-double-names(bagof-XXX, ..)
+  // get-decls: return a list of declarations for a given name
+  // make-error: get error message from a (name, declaration) tuple
+  constraint-double-names(get-decls, make-error) =
+    with(
+      map(\name -> (name, <get-decls>)\)
+    ; filter(where(not(Snd; length => 1)))
+    ; filter(constraint-double-names-helper(make-error))
+   )
+   ; fail
+   
+   constraint-double-names-helper(make-error): (name, decls) -> <fail>
+     with <filter(\decl -> <!(name, decl); make-error => msg; <add-error(|msg)> decl>\)> decls

@@ -2,7 +2,6 @@ module org/webdsl/dsl/languages/data-model/global-variables
 
 imports
   libstrategolib
-  Java-15
   libjava-front
 
 imports
@@ -15,32 +14,33 @@ rules
     GlobalsDefinition(defs) -> RemoveMe()
     where <map(emit-webdsl-code-no-rename<+debug(!"old globals syntax fix failed"))> defs
 
+rules //initial declare
+  
+  declare-action : v@VarDeclInit(x, srt, e) -> v
+    with rules ( TypeOf : x -> srt )
+       ; rules ( IsGlobal : x )
+       ; rules ( VarDecl :+ x -> v )
+         
+  declare-action : v@VarDeclInitInferred(x, e) -> v
+    with  srt := <type-of <+ !"unknown"> e  // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
+        ; rules ( TypeOf : x -> srt )
+        ; rules ( IsGlobal : x )
+        ; rules ( VarDecl :+ x -> v)
+
+  //global var without init
+  declare-action : v@VarDecl(name, _) -> <add-error(|["Global variable '", name, "' must be initialized."])> v
+  
 rules //constraints
 
   //duplicate global var names
-  constraint-error-data :
-    Application(nm, sections) -> <fail>
-    where globalvars := <collect(?VarDeclInit(_{}, _, _))> sections //global var names do not get an annotation during rename
-        ; doublevarnames := <map(?VarDeclInit(<id>, _, _));find-doubles> globalvars
-        ; not([] := doublevarnames)
-    with <map(try(constraint-error-global-var-names(|doublevarnames)))> globalvars
-    
-  constraint-error-global-var-names(|doublevarnames):
-    VarDeclInit(name,_,_) -> <add-error(|["Global variable with name '", namestripped, "' is defined multiple times."])> 
-    where namestripped := <strip-annos> name
-       ; <fetch(?namestripped)> doublevarnames
-       
-rules //constraints
+	constraint-error-global =
+			all-keys-VarDecl
+	  ; constraint-double-names(
+		    bagof-VarDecl
+		  , \(name,decl) -> ["Global variable with name '", name, "' is defined multiple times."]\
+		  )
+		; fail
 
-  //global var without init
-  constraint-error-data :
-    Application(nm, sections) -> <fail>
-    where globalvarsnoinit := <collect(?VarDecl(_{}, _))> sections //global var names do not get an annotation during rename, vardecl without init is not renamed at all
-    with <filter(constraint-error-global-var-no-init)> globalvarsnoinit
-    
-  constraint-error-global-var-no-init:
-    VarDecl(name,_) -> <add-error(|["Global variable '", name, "' must be initialized."])> 
-       
 rules 
 
   desugar-data:
