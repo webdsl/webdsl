@@ -154,4 +154,7 @@ public final class Utils {
     
     //@TODO: there are several issues with primitive types in the generated code, it would be better if they are always boxed
     public static boolean isNullAutoBox(Object o){ return o == null; }
+    
+    public static String escapeHtml(String s){ return org.apache.commons.lang.StringEscapeUtils.escapeHtml(s); }
+    public static String escapeHtml(Object o){ return org.apache.commons.lang.StringEscapeUtils.escapeHtml(o.toString()); } // covers primitive types due to autoboxing
 }
