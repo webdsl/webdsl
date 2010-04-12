@@ -300,7 +300,7 @@ function notify(string)
 }
 
 function replaceall(command) {
-    var theNode = window.document.documentElement;
+    var theNode = window.document.body;
     theNode.innerHTML = command.value;
     ajax_post_process(theNode);
 }
