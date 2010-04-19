@@ -125,8 +125,8 @@ let
         };
         nixos = pkgs.fetchsvn {
           url = https://svn.nixos.org/repos/nix/nixos/trunk;
-          rev = 21150;
-          sha256 = "1209pr2qcd9v4sx3jv8snwrhklwlmylyb9n1c60z3x1k0ryqf1lw";
+          rev = 21151;
+          sha256 = "1aiy73pilyx9bs1hj8pc8548g8yrsvd9xgbymdcnpsc5awpgdp39";
         };
       in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
