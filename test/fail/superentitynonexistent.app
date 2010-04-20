@@ -1,4 +1,4 @@
-// supertype Nonexistent is not a defined entity
+// Super entity Nonexistent for User does not exist
 
 application test
 
