@@ -31,9 +31,6 @@ strategies
 
 strategies // register all declared entities
 
-  inherit-object :
-    EntityNoSuper(x_class, entbodydecs) -> Entity(x_class, "Entity", entbodydecs)
-
   all-properties :
     x_class -> result
     with  props := <bagof-Properties; concat> x_class
@@ -78,23 +75,18 @@ strategies // register all declared entities
 
 rules
 
+	IsEntity = where(EntDecl)
   is-entity-type = where(?SimpleSort(<IsEntity>)) //without the where it would remove SimpleSort constructor due to term projection syntax
 
-  declare-entity =
-    ?ent
-   	; where ( try(inherit-object)
-        ; ?Entity(x_class, x_super, entbodydecs) 
-        ; props := <filter(is-property-cons)> entbodydecs
-        ; funcs := <filter(is-function-cons)> entbodydecs
-        )
-    ; with (
-        rules(
-        	Entities :+= x_class
-        	
-        	EntDecl :+ x_class -> ent
+  Extends = EntDecl; ?Entity(_,<id>,_)
 
-          IsEntity :+
-            x_class -> x_class
+  declare-entity =
+      ?ent@Entity(x_class, x_super, entbodydecs)
+    ; with(
+   	    props := <filter(is-property-cons)> entbodydecs
+      ; funcs := <filter(is-function-cons)> entbodydecs
+      ; rules(
+        	EntDecl :+ x_class -> ent
 
           Properties :+
             x_class -> props
@@ -102,14 +94,13 @@ rules
           Functions :+
             x_class -> funcs
 
-          Extends :
-            x_class -> x_super
-
+/*
           SubClasses :+
             l -> [(x_super, x_class)|l] where not(<elem> ((x_super, x_class), l))
 
           SubClass :+
             x_super -> x_class
+*/            
         )
       ; <map(declare-property(|x_class))> [VersionProperty(), IdProperty() | props]
       ; <map(declare-function(|x_class))> funcs
@@ -118,6 +109,10 @@ rules
       ; not(<extend-entity-declare> Entity(x_class, x_super, entbodydecs)) //for example used in typechecker/entity-events, ends in fail for extensibility
       ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
     )
+
+  declare-entity =
+      ?ent@EntityNoSuper(x_class, entbodydecs)
+    ; <with-origin(declare-entity | ent)> Entity(x_class, "Entity", entbodydecs)
 
 	get-class-hierarchy:
 		x -> [x | <defined-superclasses> x]
@@ -138,11 +133,9 @@ rules
       ; x_class := <capitalize-string> nm
       ; rules(
       		TypeOf : nm -> SimpleSort(x_class)
-          IsSessionVariable : nm
           IsSessionEntityType : SimpleSort(x_class) 
-          SessionVariable :+= nm
         )
-      ; <with-origin(declare-entity | sent)> Entity(x_class, "Entity", entbodydecs)
+      ; <with-origin(declare-entity | sent)> EntityNoSuper(x_class, entbodydecs)
     )
     
   declare-extend-entity :
