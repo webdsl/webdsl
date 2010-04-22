@@ -50,6 +50,32 @@ strategies
     EntityNoSuper(ent, entbodydecs) -> result
     with result := <filter(\ Function(nm, _, _, _) -> (ent, nm) \); find-doubles> entbodydecs
 
+rules // resolving
+  
+  resolve-function-call-to-decl: p@(None(), fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckGlobalFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <FunctionDecl> (fname, targ-resolved*)
+  
+  resolve-function-call-to-decl: p@(SimpleSort(x_class), fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <EntityFunctionDecl> (x_class, fname, targ-resolved*)
+  
+  resolve-function-call(get-all-fargs | t_target, fname): sig -> targ_result*
+    where listof-t_arg* := <get-all-fargs> sig
+        ; not(?[])  // fail if no results (could be built-in function)
+        ; n := <length> listof-t_arg*
+        ; if 1 := n then
+              // This also resolves the case in which the formal arg types and passed arg types are 'compatible' but not in the same type hierarchy;
+              // like String and WikiText
+              targ_result* := <Hd> listof-t_arg*
+          else
+              targ_result* := <find-most-specific-signature(|t_target, fname)> listof-t_arg*
+            <+
+              // multiple possible arg types which are related, but no particular one chosen by find-most-specific-signature
+              <error-in-overload-resolution-multiple> (fname,listof-t_arg*)
+            ; targ_result := <Hd> listof-t_arg*
+         end
+
 rules	// rename entity functions (keep looking for global calls inside the entity and its functions)
 
   rename-overloaded-entity-function(|torename_global,torename_entity) :
@@ -82,19 +108,26 @@ rules	// rename entity functions (keep looking for global calls inside the entit
     Call(e, nm, arg*){anno*} -> Call(e, nm2, arg*){anno*}
     where SimpleSort(ent) := <type-of> e
         ; <elem> ((<find-entity-root> ent, nm), torename_entity)
-    with nm2 := <new-function-name> (nm, <map(type-of)> arg*)
-
+    with  nm2 := <resolve-entity-call; function-decl-to-newname> (ent, nm, <map(type-of)> arg*)
+        
   rename-overloaded-entity-function(|torename_global,torename_entity) :
     ThisCall(nm, arg*) -> result
     where ent := <ThisEntity>
         ; <CheckFunctionSignature> (SimpleSort(ent), nm, <map(type-of)> arg*) // is call to member function of this entity
         ; <elem> ((<find-entity-root> ent, nm), torename_entity)
-    with  nm2 := <new-function-name> (nm, <map(type-of)> arg*)
+    with  nm2 := <resolve-entity-call; function-decl-to-newname> (ent, nm, <map(type-of)> arg*)
         ; {| Rename:
             <rename-bound(|SimpleSort(ent))> "this"
           ; result := Call(<rename-all> Var("this"),nm2,arg*)
           |}
 
+  function-decl-to-newname: Function(nm,farg*,_,_) -> <new-function-name> (nm, <map(farg-to-type)> farg*)
+
+  // Resolve entity function by traversing supertypes
+  resolve-entity-call: (ent, nm, targ*) -> f
+    with f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
+      <+ f := <resolve-entity-call> (<Extends> ent, nm, targ*)
+  
 rules // rename overloaded global functions
 
   rename-overloaded-global-function(|torename_global,torename_entity) :
@@ -111,13 +144,10 @@ rules // rename overloaded global functions
     where <elem> (nm, torename_global)
     			// is not an entity function call
     		; not(<CheckFunctionSignature> (SimpleSort(<ThisEntity>), nm, <map(type-of)> arg*))
-    with t_arg* := <map(type-of)> arg*  
-        ; if listof-t_arg* := <bagof-CheckGlobalFunctionSignatureArgumentTypes> (None(), nm, t_arg*)
-          then t_argnew* := <find-most-specific-signature(|t_arg*,nm)> listof-t_arg*
-          else t_argnew* := t_arg* // fall back to basic lookup for now when specific search fails, need to have a clear definition of compatible types vs inheritance
-          end
-        ; nm2 := <new-function-name> (nm, t_argnew*)
-       
+    with  nm2 := <resolve-function-call-to-decl; function-decl-to-newname> (None(), nm, <map(type-of)> arg*)
+
+rules // renaming
+
   new-function-name :
     (nm, argtypes) -> nm2
     with extra := <map(sort-to-string)> argtypes
