@@ -5,29 +5,24 @@ imports
 
 rules 
 
-  // TODO: declare as global for typechecker
-  declare-action = ?RequestScope(_)
+  declare-request-var =
+      ?(v, x, srt)
+    ; rules( 
+        IsRequestScopedVarDecl : x
+        TypeOf : x -> srt
+        VarDecl :+ x -> v
+      )
 
-  //request scoped var, always global
-  rename-action :
-    RequestScope(VarDecl(x, srt)) -> RequestScope(VarDecl(y, srt2))
-    with  srt2 := <rename-all> srt
-        ; y := <rename-bound(|srt2)> x
-        ; rules ( IsRequestScopedVarDecl : y)
-                
-  rename-action :
-    RequestScope(VarDeclInitInferred(x, e)) -> RequestScope(VarDeclInitInferred(y, e'))
-    with  e' := <rename-all> e
-        ; srt := <type-of <+ !"unknown"> e' // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
-        ; y := <rename-bound(|srt)> x
-        ; rules ( IsRequestScopedVarDecl : y)
-                
-  rename-action :
-    RequestScope(VarDeclInit(x, srt, e)) -> RequestScope(VarDeclInit(y, srt, e'))
-    with  e' := <rename-all> e
-        ; y := <rename-bound(|srt)> x
-        ; rules ( IsRequestScopedVarDecl : y)
-
+  declare-action =
+      ?RequestScope(var)
+    ; <?VarDecl(x, srt) <+ ?VarDeclInit(x,srt,_)> var
+    ; <declare-request-var> (var, x, srt)
+    
+  declare-action =
+      ?RequestScope(var@VarDeclInitInferred(x, e))
+    ; srt := <type-of <+ !"unknown"> e  // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
+    ; <declare-request-var> (var, x, srt) 
+      
 rules
   
   //assert
@@ -44,7 +39,9 @@ rules
   desugar-action :    
     Var(x) -> RequestVar(x)
     where <IsRequestScopedVarDecl> x
-        
+
+rules
+
   eq-type-of-action :
     RequestVar(x) -> <TypeOf> x
     

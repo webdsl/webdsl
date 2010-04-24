@@ -1,5 +1,6 @@
 //Global variable 'globalVarNoInit' must be initialized
 //Global variable with name 'globalVarDouble' is defined multiple times
+//Global variable with name 'globalVarRequest' is defined multiple times
 //Entity 'EntityDouble' is defined multiple times
 //Property 'prop' of entity 'EntityPropDouble' is defined multiple times
 //Property 'prop' of entity 'EntityPropDouble2' is defined multiple times
@@ -15,6 +16,8 @@
 //Template with signature templateDouble(Int) is defined multiple times
 //Multiple definitions with name 'templateDoubleNoArgs'
 //Multiple definitions with name 'templatePageClash'
+//Email 'emailNameClash' is defined multiple times
+//Email 'emailCannotBeOverloaded' is defined multiple times
 application test
 
 define page root () { }
@@ -25,6 +28,10 @@ var globalVarNoInit : User;
 
 var globalVarDouble : User := User {}
 var globalVarDouble : User := User {}
+
+var globalVarRequest : User := User {}
+request var globalVarRequest : User := User {}
+
 
 
 
@@ -104,7 +111,13 @@ define templateDouble(j : Int) {}
 define templateDoubleNoArgs() {}
 define templateDoubleNoArgs() {}
 
-define templatePageClash() {}
-define page templatePageClash() {
+define page templatePageClash() {}
+define page templatePageClash() { 
   navigate("x", pagenotfound())
 }
+
+define email emailNameClash() {from("") to("") subject("")}
+define email emailNameClash() {from("") to("") subject("")}
+
+define email emailCannotBeOverloaded(a: Int) {from("") to("") subject("")}
+define email emailCannotBeOverloaded(a: String) {from("") to("") subject("")}

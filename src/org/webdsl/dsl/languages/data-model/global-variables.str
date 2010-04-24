@@ -16,26 +16,27 @@ rules
 
 rules //initial declare
   
-  declare-action : v@VarDeclInit(x, srt, e) -> v
+  declare-global-var: (vardecl, x, srt) -> <id>
     with rules ( TypeOf : x -> srt )
        ; rules ( IsGlobal : x )
-       ; rules ( VarDecl :+ x -> v )
+       ; rules ( VarDecl :+ x -> vardecl )
+  
+  declare-action : v@VarDeclInit(x, srt, e) -> v
+    with <declare-global-var> (v, x, srt)
          
   declare-action : v@VarDeclInitInferred(x, e) -> v
     with  srt := <type-of <+ !"unknown"> e  // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
-        ; rules ( TypeOf : x -> srt )
-        ; rules ( IsGlobal : x )
-        ; rules ( VarDecl :+ x -> v)
+        ; <declare-global-var> (v, x, srt)
 
   //global var without init
-  declare-action : v@VarDecl(name, _) -> <add-error(|["Global variable '", name, "' must be initialized."])> v
+  declare-action : v@VarDecl(x, _) -> <add-error(|["Global variable '", x, "' must be initialized."])> v
   
 rules //constraints
 
   //duplicate global var names
 	constraint-error-global =
-			all-keys-VarDecl
-	  ; constraint-double-names(
+			<concat; uniq> [<all-keys-VarDecl>, <all-keys-IsRequestScopedVarDecl>]
+		; constraint-double-names(
 		    bagof-VarDecl
 		  , \(name,decl) -> ["Global variable with name '", name, "' is defined multiple times."]\
 		  )
