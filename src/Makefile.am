@@ -303,51 +303,47 @@ JAVAS= \
   src-gen/org/webdsl/to_java_servlet/Main.java \
   src-gen/org/webdsl/webdslc/Main.java
 
-mkdirs :
-	mkdir -p src-gen/org/webdsl/webdsl_front
-	mkdir -p src-gen/org/webdsl/webdsl_generator
-	mkdir -p src-gen/org/webdsl/java_transformations
-	mkdir -p src-gen/org/webdsl/java_pp_fake
-	mkdir -p src-gen/org/webdsl/write_files
-	mkdir -p src-gen/org/webdsl/back_end_transformations
-	mkdir -p src-gen/org/webdsl/to_java_servlet
-	mkdir -p src-gen/org/webdsl/webdslc
-
 strategoxt.jar: $(STRATEGOXT_JAR)
 	cp $(STRATEGOXT_JAR) strategoxt.jar
 
-class : $(JAVAS)
+webdsl.jar : $(JAVAS)
 	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
-
-webdsl.jar : class
 	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
 
-src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree mkdirs
+src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree
+	mkdir -p src-gen/org/webdsl/webdsl_front
 	@if ! which ecj >/dev/null; then \
 	  echo "WARNING: ecj is not installed; using the (much) slower javac compiler instead" >&2; \
 	fi
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_front -i $< -o $@ 
 
 src-gen/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
+	mkdir -p src-gen/org/webdsl/webdsl_generator
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_generator -i $< -o $@ -la org.webdsl.webdsl-front
 
 src-gen/org/webdsl/java_transformations/Main.java : java-transformations.ctree
+	mkdir -p src-gen/org/webdsl/java_transformations
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_transformations -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front
 
 src-gen/org/webdsl/write_files/Main.java : write-files.ctree
+	mkdir -p src-gen/org/webdsl/write_files
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i write-files.ctree -o $@ -la org.webdsl.webdsl-front -la org.webdsl.java_pp_fake -la org.webdsl.java_transformations
 
 src-gen/org/webdsl/back_end_transformations/Main.java : back-end-transformations.ctree
+	mkdir -p src-gen/org/webdsl/back_end_transformations
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.write-files
 
 src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
+	mkdir -p src-gen/org/webdsl/to_java_servlet
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations -la org.webdsl.write_files
 
 src-gen/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
+	mkdir -p src-gen/org/webdsl/java_pp_fake
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
 
 src-gen/org/webdsl/webdslc/Main.java : webdslc.str
+	mkdir -p src-gen/org/webdsl/webdslc
 	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations
 endif
 
