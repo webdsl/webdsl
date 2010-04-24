@@ -107,10 +107,10 @@ rules
       ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
     )
 
-  declare-entity =
-      ?ent@EntityNoSuper(x_class, entbodydecs)
-    ; where(<with-origin(declare-entity | ent)> Entity(x_class, "Entity", entbodydecs))
+  normalize-declare: EntityNoSuper(x_class, entbodydecs) -> Entity(x_class, "Entity", entbodydecs)
 
+  declare-entity = ?EntityNoSuper(_, _); declare-normalized
+  
 	get-class-hierarchy:
 		x -> [x | <defined-superclasses> x]
 
@@ -124,6 +124,8 @@ rules
     where super := <Extends> x
         ; not("Extends" := super)
 
+  normalize-declare: SessionEntity(nm, entbodydecs) -> EntityNoSuper(<capitalize-string> nm, entbodydecs)
+
   declare-entity =
     ?sent@SessionEntity(nm, entbodydecs)
     ; with (id
@@ -132,7 +134,7 @@ rules
       		TypeOf : nm -> SimpleSort(x_class)
           IsSessionEntityType : SimpleSort(x_class) 
         )
-      ; <with-origin(declare-entity | sent)> EntityNoSuper(x_class, entbodydecs)
+      ; <declare-normalized> sent
     )
     
   declare-extend-entity :
@@ -201,10 +203,13 @@ rules
     ; rules(
         PropertyIsRequired : (class, propname) -> True()
       )
-    
+      
+  normalize-declare: DerivedProperty(x, k, srt, annos, e) -> Property(x, k, srt, [])
+  normalize-declare: DerivedPropertyNoAnno(x, k, srt, e) -> DerivedProperty(x, k, srt, [], e)
+  normalize-declare: PropertyNoAnno(x, k, srt) -> Property(x, k, srt, [])
+  
   declare-property(|x_class) =
     ?prop@DerivedProperty(x, k, srt, annos, e)
-    ; <with-origin(declare-property(|x_class) | prop)> Property(x, k, srt, [])
     ; where (
     		try(
    					<fetch(?SimpleAnno("searchable"))> annos
@@ -214,15 +219,14 @@ rules
     ; rules(
         IsDerivedProperty : (x_class, x) //use in constraint to prevent assignment to derived prop
       )
+    ; with-origin(normalize-declare)
+    ; declare-property(|x_class)
 
   declare-property(|x_class) =
-    ?prop@DerivedPropertyNoAnno(x, k, srt, e)
-    ; <with-origin(declare-property(|x_class) | prop)> DerivedProperty(x, k, srt, [], e)
-
-  declare-property(|x_class) =
-    ?prop@PropertyNoAnno(x, k, srt)
-    ; <with-origin(declare-property(|x_class) | prop)> Property(x, k, srt, [])
-
+      (?DerivedPropertyNoAnno(_,_,_,_) <+ ?PropertyNoAnno(_,_,_))
+    ; with-origin(normalize-declare)
+    ; declare-property(|x_class)
+    
 rules
 
 declare-list-property(|x_class) =
