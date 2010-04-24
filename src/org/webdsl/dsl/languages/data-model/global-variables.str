@@ -23,14 +23,24 @@ rules //initial declare
   
   declare-action : v@VarDeclInit(x, srt, e) -> v
     with <declare-global-var> (v, x, srt)
-         
+  
   declare-action : v@VarDeclInitInferred(x, e) -> v
-    with  srt := <type-of <+ !"unknown"> e  // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
-        ; <declare-global-var> (v, x, srt)
-
+         // compute type on demand, when everything is declared
+    with rules ( TypeOf : x -> <get-inferred-type <+ !"unknown"> (x,e)) 
+       ; rules ( IsGlobal : x )
+       ; rules ( VarDecl :+ x -> v )
+  
+  get-inferred-type: (x,e) -> t
+    where not(<InferringExpressionType> e) <+ <add-error(|"Circular variable definition detected.")> e; fail  
+    with  {| InferringExpressionType: 
+              rules(InferringExpressionType : e)
+            ; t := <type-of> e
+            ; rules(TypeOf : x -> t)    // avoid re-computation
+          |}
+  
   //global var without init
   declare-action : v@VarDecl(x, _) -> <add-error(|["Global variable '", x, "' must be initialized."])> v
-  
+
 rules //constraints
 
   //duplicate global var names

@@ -26,3 +26,10 @@ section datamodel
       output(global.bob.username)
     }
    }
+
+
+
+// inferred:
+var globalVar1 := globalVar2;
+var globalVar2 := globalVar3;
+var globalVar3 := User{};
