@@ -26,6 +26,7 @@ TESTS = testnewproject.sh
 
 nobase_dist_pkgdata_DATA = \
   $(WEBDSL_TEMPLATES) \
+  template-java-servlet/lib/webdsl-support.jar \
   webdsl-build.xml \
   webdsl-build-command.xml \
   webdsl-build-deploy.xml \
