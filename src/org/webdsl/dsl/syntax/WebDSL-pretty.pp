@@ -1236,6 +1236,7 @@
    TimeInterval.1:iter-star                               -- _1,
    NotEmptyAnno -- KW["not empty"],
    PropertySubmit -- _1 KW[":"] _2,
-   AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"]
+   AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"],
+   RefSort -- H hs=0[ KW["Ref"] KW["<"] _1 KW[">"] ]
    
 ]

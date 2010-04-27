@@ -1,8 +1,8 @@
 module org/webdsl/dsl/languages/ui/declare
 
 imports
-	libwebdsl-front
-	org/webdsl/dsl/languages/-
+  libwebdsl-front
+  org/webdsl/dsl/languages/-
 
 strategies
 
@@ -33,34 +33,34 @@ strategies // inital declare for globally visible pages/templates
           
 rules
 
-	IsPage = where(PageDecl)
-	PageNames = all-keys-PageDecl
+  IsPage = where(PageDecl)
+  PageNames = all-keys-PageDecl
 
   declare-page-definition =
-    ?def@Define(mod*, name, args, targs, body)
+    ?def@Define(mod*, name, fargs, targs, body)
     ; where(<fetch(?Page())> mod*)
     ; with(common-declare-template-rules)
     ; where(with (
-      t1* := <map(?Arg(_,<id>))> args
+      t1* := <template-formal-arguments-to-types> fargs
       ; rules (
           CheckPageSignature : (None(), name, t1*) -> SimpleSort("Page")
           PageDecl :+ name -> def
         )
     ))
 
-	AllTopLevelTemplateNames =
+  AllTopLevelTemplateNames =
       all-keys-TopLevelTemplateDefinitions
-	AllTopLevelTemplateArguments =
+  AllTopLevelTemplateArguments =
       bagof-TopLevelTemplateDefinitions
-    ; map(TopLevelTemplateDecl; ?Define(_,_,<map(farg-to-type)>,_,_))
-		
+    ; map(TopLevelTemplateDecl; ?Define(_,_,<template-formal-arguments-to-types>,_,_))
+    
   declare-toplevel-template-definition =
     ?def@Define(mod*, name, fargs, targs, body)
     ; where(not(<fetch(?Page())> mod*))
     ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
     ; where(with(
-        t* := <map(?Arg(_,<id>))> fargs
+        t* := <template-formal-arguments-to-types> fargs
       ; n := <strip-annos> name
       ; y := <newname> n
       ; rules (
@@ -70,6 +70,9 @@ rules
         CheckPageSignature : (None(), n, t*) -> SimpleSort("Page") // for ajax
        )
     ))
+    
+  template-formal-arguments-to-types =
+    map(?Arg(_,<id>); try(?RefSort(<id>)))
 
   declare-local-template-definition =
     ?def@Define(mod*, name, fargs, targs, body)
@@ -78,7 +81,7 @@ rules
     ; with(common-declare-template-rules)
     ; where(with( 
         page := <InPage <+ InTemplate>
-        ; t1* := <map(?Arg(_,<id>))> fargs
+        ; t1* := <template-formal-arguments-to-types> fargs
         ; n := <strip-annos> name
         ; rules (
             LocalTemplateNames :+ page -> name
@@ -86,21 +89,16 @@ rules
             EnclosingDefinition : name -> page
           )
       ))
- 
-  declare-template-arg :
-    Arg(x, s) -> Arg(x, s)
-    with template := <InTemplate>
-        ; rules ( TemplateArguments :+ template -> Arg(x, s) ) 
   
   common-declare-template-rules :
     def@Define(mods, name, fargs, targs, body){anno*} -> def
-    with  t* := <map(?Arg(_,<id>))> fargs
+    with  t* := <template-formal-arguments-to-types> fargs
         ; n := <strip-annos> name
         ; genname := <generate-template-name> (n,t*)
         ; rules( TemplateSignature  : (n, t*) -> def
                  TemplateNewName : (n, t*) -> genname //used in overload resolution
-                 TemplateDefinition : n -> def // only for use in code gen when renaming is applied which makes the names unique
-                 TemplateArguments  : n -> fargs //''
+                 TemplateDefinition : n // mainly used to check whether generated templates are defined manually
+                 TemplateArguments  : genname -> fargs //used for determining which args in call are ref args
                  TemplateRequires   : (n, t*) -> targs
                )
         // use only the first declaration of each template
@@ -119,18 +117,10 @@ rules
         // generics    TODO: simplified lookup for generics
         ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end
 
-	IsDefinedAsAjaxTemplate =
-		where(TemplateDecl; ?Define(<id>, _, _, _, _); fetch(?AjaxTemplate()))
+  IsDefinedAsAjaxTemplate =
+    where(TemplateDecl; ?Define(<id>, _, _, _, _); fetch(?AjaxTemplate()))
 
-rules //utility rule to easily get the unique name generated for a define constructor
-
-  define-cons-to-genname : 
-    def@Define(mods, name, fargs, targs, body){anno*} -> result
-    with  t* := <map(?Arg(_,<id>))> fargs
-        ; n := <strip-annos> name
-        ; result := <TemplateNewName> (n, t*)
-        
-rules 
+rules //utility rules to get the unique name generated for a template
 
   generate-template-name :
     (n,t*) -> name
@@ -160,13 +150,13 @@ strategies
 
 rules
 
-	// TODO: needs refactoring: dynamic rule should match signature
-	add-backend-annotation =
-		  ?ActionCall(action, fargs)
-		; where(<OriginalNonUniqueName; ActionDefinition> action)
-		; add-new-anno(|ActionCallArgsAnno(fargs))
+  // TODO: needs refactoring: dynamic rule should match signature
+  add-backend-annotation =
+      ?ActionCall(action, fargs)
+    ; where(<OriginalNonUniqueName; ActionDefinition> action)
+    ; add-new-anno(|ActionCallArgsAnno(fargs))
 
 rules
 
-	get-toplevel-name = ?Define(_, <id>, _, _, _)
-	 
+  get-toplevel-name = ?Define(_, <id>, _, _, _)
+   

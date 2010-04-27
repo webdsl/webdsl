@@ -15,7 +15,7 @@ import org.webdsl.lang.Environment;
 
 public abstract class TemplateServlet {
     
-	protected boolean validated=true;
+    protected boolean validated=true;
     protected String uniqueid;
     protected Environment env;
     protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
@@ -32,28 +32,32 @@ public abstract class TemplateServlet {
     protected HttpSession session;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
-	
-    public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    protected abstract Object[] getRefArgumentValues();
+    
+    public Object[] storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           storeInputsInternal();
         }
+        return getRefArgumentValues();
       }  
-    public void validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    public Object[] validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           validateInputsInternal();
         }
+        return getRefArgumentValues();
       } 
-    public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs,  PrintWriter out) {          
+    public Object[] handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs,  PrintWriter out) {          
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           this.out = out;         
           handleActionsInternal();
         }
+        return getRefArgumentValues();
       }  
 
-    public void render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, PrintWriter out) { 
+    public Object[] render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, PrintWriter out) { 
       if(!skipThisTemplate){
         tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
      
@@ -67,6 +71,7 @@ public abstract class TemplateServlet {
         outtemp.write(s.toString());
         tryWriteSpanClose(outtemp);
       }
+      return getRefArgumentValues();
     }
     
     protected abstract void storeInputsInternal();
@@ -91,50 +96,50 @@ public abstract class TemplateServlet {
     public abstract String getTemplateContext();
     
     private void tryInitializeTemplate(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs){
-	    if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
-	    {
-	          //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
-	          initialized=true;
-	          
-	          this.env = env;
-	          putLocalDefinesInEnv();
-	          this.request = ThreadLocalPage.get().getRequest();
-	          this.response = ThreadLocalPage.get().getResponse();
-	          this.session = request.getSession(true);
-	          this.hibSession = ThreadLocalPage.get().getHibSession();
-	          this.templateArg = templateArg;
-	          this.withcallsmap = withcallsmap;
-	          this.attrs = attrs;
-	 
-	          try {
-	            storeArguments(args);
-	            this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getStateEncodingOfArgument(), getTemplateContext());
-	            initialize();
-	            initializeLocalVars();
-	            initializePassOn();
-	            initActions();
-	          }
-	          catch(utils.ValidationException ve){
-	            ThreadLocalPage.get().getValidationExceptions().add(ve.setName(ThreadLocalPage.get().getValidationContext()));
-	            ThreadLocalPage.get().setValidated(false);
-	            utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+ve.getErrorMessage());  
-	        skipThisTemplate = true;
-	      }
-	      catch(utils.MultipleValidationExceptions ve){
-	        for(utils.ValidationException vex : ve.getValidationExceptions()){
-	          ThreadLocalPage.get().getValidationExceptions().add(vex.setName(ThreadLocalPage.get().getValidationContext()));
-	          utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+vex.getErrorMessage());  
-	        }
-	        ThreadLocalPage.get().setValidated(false); 
-	        skipThisTemplate = true;
-	      }
-	    } 
+        if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
+        {
+              //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
+              initialized=true;
+              
+              this.env = env;
+              putLocalDefinesInEnv();
+              this.request = ThreadLocalPage.get().getRequest();
+              this.response = ThreadLocalPage.get().getResponse();
+              this.session = request.getSession(true);
+              this.hibSession = ThreadLocalPage.get().getHibSession();
+              this.templateArg = templateArg;
+              this.withcallsmap = withcallsmap;
+              this.attrs = attrs;
+     
+              try {
+                storeArguments(args);
+                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getStateEncodingOfArgument(), getTemplateContext());
+                initialize();
+                initializeLocalVars();
+                initializePassOn();
+                initActions();
+              }
+              catch(utils.ValidationException ve){
+                ThreadLocalPage.get().getValidationExceptions().add(ve.setName(ThreadLocalPage.get().getValidationContext()));
+                ThreadLocalPage.get().setValidated(false);
+                utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+ve.getErrorMessage());  
+            skipThisTemplate = true;
+          }
+          catch(utils.MultipleValidationExceptions ve){
+            for(utils.ValidationException vex : ve.getValidationExceptions()){
+              ThreadLocalPage.get().getValidationExceptions().add(vex.setName(ThreadLocalPage.get().getValidationContext()));
+              utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+vex.getErrorMessage());  
+            }
+            ThreadLocalPage.get().setValidated(false); 
+            skipThisTemplate = true;
+          }
+        } 
     } 
     
     abstract protected boolean isAjaxTemplate();
     
     protected boolean isAjaxSubmitRequired(){
-    	return isAjaxSubmitRequired(false);
+        return isAjaxSubmitRequired(false);
     }
     protected boolean isAjaxSubmitRequired(boolean ajaxmod){
       return ThreadLocalPage.get().isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())

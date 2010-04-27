@@ -14,13 +14,14 @@ imports
   libwebdsl-front
 
 signature constructors
-	
-	TopLevelName : Term -> Term
+  
+  TopLevelName : Term -> Term
+  IsRefSort : Term
 
 rules 
 
-	rename-top = map-toplevel(rename, rename-toplevel)
-	rename-toplevel = with-toplevel-name(rename-all)
+  rename-top = map-toplevel(rename, rename-toplevel)
+  rename-toplevel = with-toplevel-name(rename-all)
 
 rules
 
@@ -42,12 +43,16 @@ rules
         ; rename-bound-rules(|x,y,srt)
 
   rename-bound-rules(|x,y,srt) =
-    rules ( 
+    if <?RefSort(refsrt{anno*})> srt
+    then normsrt := refsrt{IsRefSort(),anno*}
+    else normsrt := srt
+    end
+  ; rules ( 
       Rename : Var(x) -> Var(y)
       RenameType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y])
       RenameType : SimpleSort(x) -> GenericSort("EntityTypeNamed",[y])
       Rename : Qualified(x, z) -> Qualified(y, z)
-      TypeOf : y -> srt
+      TypeOf : y -> normsrt
     )
   //; try(rename-bound-hook(|x,y))
     
@@ -97,27 +102,27 @@ rules
 
 rules // backend annotations
 
-	add-backend-annotation =
-		  where(name := <OriginalNonUniqueName>)
-		; add-new-anno(|OriginalNameAnno(name))
+  add-backend-annotation =
+      where(name := <OriginalNonUniqueName>)
+    ; add-new-anno(|OriginalNameAnno(name))
 
 rules
 
-	// case insensitive newname, to prevent generation of both files user_x and User_x which fails on Mac & Windows
-	newname-i: x -> y
-		with	lower := <lower-case; newname> x
-				; n := <explode-string; split-at(|<strlen> x); ?(_,<id>); implode-string> lower 
-				; y := <concat-strings> [x, n]
+  // case insensitive newname, to prevent generation of both files user_x and User_x which fails on Mac & Windows
+  newname-i: x -> y
+    with	lower := <lower-case; newname> x
+        ; n := <explode-string; split-at(|<strlen> x); ?(_,<id>); implode-string> lower 
+        ; y := <concat-strings> [x, n]
 
-	// prefix with given prefix, if prefix not already present
-	prefix-rename(|prefix) =
-		try(
-				where(prefix' := <concat-strings> [prefix, "_"])
-			; where(not(string-starts-with(|prefix')))
-			; <concat-strings; newname-i> [prefix', <id>]
-	)
-	
+  // prefix with given prefix, if prefix not already present
+  prefix-rename(|prefix) =
+    try(
+        where(prefix' := <concat-strings> [prefix, "_"])
+      ; where(not(string-starts-with(|prefix')))
+      ; <concat-strings; newname-i> [prefix', <id>]
+  )
+  
 rules // toplevel-rename: return name prefixed with toplevel definition
 
-	toplevel-rename = prefix-rename(|<TopLevelDefineName>)
-	
+  toplevel-rename = prefix-rename(|<TopLevelDefineName>)
+  

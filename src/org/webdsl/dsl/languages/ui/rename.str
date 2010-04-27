@@ -1,19 +1,26 @@
 module org/webdsl/dsl/languages/ui/rename
 
 imports
-	libwebdsl-front
-	org/webdsl/dsl/generation/webdsl-generator
+  libwebdsl-front
+  org/webdsl/dsl/generation/webdsl-generator
+
+signature
+  constructors
+    IsNonPageNonAjaxTemplateArg : Term
 
 rules
+  
+  add-is-template-arg-anno :
+    a{anno*} -> a{IsNonPageNonAjaxTemplateArg(),anno*}
 
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, x, farg2*, req*, elem2*){anno*}
-    where   <fetch(?Page())> mod*
+    where   <fetch(Page)> mod*
     with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; rules ( TemplateArg := farg1* ) //used in template-call.str
-          ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+          ; farg2* := <map(rename)> farg1*
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
@@ -24,16 +31,15 @@ rules
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, y, farg2*, req*, elem2*){anno*}
     where not(InPage <+ InTemplate)
-        ; not(<fetch(?Page())> mod*)
-        //; not(<elem> (Email(), mod*))
-        ; not(<fetch(?Email())> mod*)
+        ; not(<fetch(Page)> mod*)
+        ; not(<fetch(Email)> mod*)
     with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
           ; y := x{<newname> x}
           ; rules ( InTemplate := y )
           ; rules ( TemplateArg := farg1* )
           ; genargs := <get-generictype-args> farg1*
-          ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+          ; farg2* := <map(rename; if <not(fetch(AjaxTemplate))> mod* then add-is-template-arg-anno end)> farg1*
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
@@ -43,14 +49,14 @@ rules
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions> Define(mod*, y, farg2*, req*, elem2*){anno*}
     where (InPage <+ InTemplate)
-        ; not(<fetch(?Page())> mod*)
-        ; not(<fetch(?Email())> mod*)
+        ; not(<fetch(Page)> mod*)
+        ; not(<fetch(Email)> mod*)
     with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
          : rules ( InDef := True() )
          ; y := x{<toplevel-rename> x}
          ; rules ( InTemplate := y )
          ; rules ( TemplateArg := farg1* )
-         ; farg2* := <map(rename)/*;declare-generic-template-args(|x)*/> farg1*
+         ; farg2* := <map(rename; if not(fetch(AjaxTemplate)) then add-is-template-arg-anno end)> farg1*
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
          ; elem2* := <alltd(rename-actions(|y)); rename-all> elem1*
