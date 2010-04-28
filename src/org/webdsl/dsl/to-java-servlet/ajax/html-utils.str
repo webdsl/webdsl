@@ -14,7 +14,7 @@ rules
     passign* -> (<to-html-attrs> noclass, class)
     with  noclass := <remove-all(?PropertyAssignment("class", _))> passign*
         ; class-attr-list := <filter(    ?PropertyAssignment("class", _)
-                               ; convert-property-assignment
+                               ; (string-assignment-to-html-attr <+ expression-assignment-to-html-attr)
                                ; ?(_,<id>))> passign*
         ; class := <?[];!java:expr|[ "" ]| <+ ![java:expr|[" "]| |<id;separate-by(|java:expr|[" "]|)>]; generate-addition-exp> class-attr-list
 
@@ -23,21 +23,26 @@ rules
   //author: Michel
   to-html-attrs :
     attrs -> attrs3
-    with attrs1 := <remove-all(exclude-from-property-assignment);map(convert-property-assignment)> attrs
-        ;attrs2 := <filter(assignmentexp-to-html-attr)> attrs1
-        ;attrs3 := <generate-addition-exp > attrs2
+    with attrs1 := <generate-property-assignments> attrs
+        ;attrs3 := <generate-addition-exp > attrs1
 
-  convert-property-assignment =
-     assignment-to-html-attr 
+  generate-property-assignments=
+    remove-all(exclude-from-property-assignment)
+  ; map(convert-single-property-assignment-to-java-exp
+        <+ convert-attribute-selectors-to-java-exp
+        <+ fatal-err(|"Cannot convert propertyassignment: "))
+
+  convert-single-property-assignment-to-java-exp =
+  (  assignment-to-html-attr 
   <+ string-assignment-to-html-attr
   <+ expression-assignment-to-html-attr
-  <+ fatal-err(|"Cannot convert propertyassignment: ")
+  ); assignmentexp-to-html-attr
   
   exclude-from-property-assignment = TemplateCallPropertyAjax
     
   //final (private) conversion: converts a String assignment to html    
   assignmentexp-to-html-attr :
-    (x, e_y) -> e |[ "~x"+"=\"" + org.webdsl.tools.Utils.escapeHtml( e_y ) + "\" " ]|
+    (x, e_y) -> e |[ org.webdsl.tools.Utils.showAttributeEscapeHtml("~x",e_y) ]|
     
   //escape behaviour, when assignments cannot be converted with a useful strategy, test if its
   //a string and insert directly

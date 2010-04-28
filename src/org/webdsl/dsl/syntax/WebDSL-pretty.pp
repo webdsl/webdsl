@@ -1237,6 +1237,9 @@
    NotEmptyAnno -- KW["not empty"],
    PropertySubmit -- _1 KW[":"] _2,
    AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"],
-   RefSort -- H hs=0[ KW["Ref"] KW["<"] _1 KW[">"] ]
+   RefSort -- H hs=0[ KW["Ref"] KW["<"] _1 KW[">"] ],
+   AllAttributes -- KW["all attributes"],
+   AllAttributeExceptExp -- KW["all attributes except"] _1,
+   AttributesExp -- KW["attributes"] _1
    
 ]
