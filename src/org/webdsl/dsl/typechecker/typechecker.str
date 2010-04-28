@@ -16,48 +16,63 @@ imports
 strategies
 
   typecheck =
-      typecheck-init
-    ; typecheck-constraints
-
-  // This must be called *before* any declares as it sets up the built-in types
-  typecheck-init =
-    not(built-in-template-rule-setup
-      ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure built-in-template-setup rules end with ';fail'")
-    ) // setup dyn rules for checks
-
-  typecheck-constraints =
-  {| InTypeCheckingPhase : 
-    //call resolving/overloading is done during rename, typechecking errors are produced by constraint-error strategy
-    //when no longer in typechecking, but e.g. during desugaring a failed resolve should give an error
-    rules(InTypeCheckingPhase := True())
-  ; declare-all //declares globally visible webdsl elements
-  ; declare-all-override
-  ; not(after-tc-declare-hook
-        ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure after-tc-declare-hook rules end with ';fail'")
-        ) // setup dyn rules for checks
-  ; rename-top
-  ; if-typechecking(
-    where(
-          bottomup(try(constraint-error; where(stage-newline-once); debug(!"INTERNAL ERROR: constraint-error succeeded for: "))))
-        ; not(<constraint-error-global> "") // do not apply on Application, it would show the entire AST with the error at command line
-      , 
-        id)
-  |}
+    in-typechecking-phase(
+        typecheck-init
+      ; typecheck-declare
+      ; typechecker-after-declare
+      ; rename-top
+      ; if-typechecking(
+          where(
+              log-time-helper(constraint-error-all | "constraint-error" )
+            // do not apply on Application, it would show the entire AST with the error at command line
+            ; log-time-helper(not(<constraint-error-global> "") | "constraint-error-global"))
+        , 
+          id)
+    )
   
-   typecheck-editor =
-      set-default-config;
+  //call resolving/overloading is done during rename, typechecking errors are produced by constraint-error strategy
+  //when no longer in typechecking, but e.g. during desugaring a failed resolve should give an error
+  in-typechecking-phase(s) =
+    {| InTypeCheckingPhase:
+        rules(InTypeCheckingPhase := True())
+      ; s
+    |}
+    
+  // This must be called *before* any declares as it sets up the built-in types
+  typecheck-init = 
+    {| CurrentModule:
+        rules(CurrentModule := "___BUILTIN___")
+	    ; not(built-in-template-rule-setup
+	       ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure built-in-template-setup rules end with ';fail'")
+	     ) // setup dyn rules for checks
+	  |}
+  
+  typecheck-declare =
+    log-time-helper(declare-all | "declare-all") //declares globally visible webdsl elements
+    
+  typechecker-after-declare =
+      log-time-helper(declare-all-override | "declare-all-override")
+    ; log-time-helper(
+        not(
+            after-tc-declare-hook
+          ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure after-tc-declare-hook rules end with ';fail'")
+        ) // setup dyn rules for checks
+        | "after-tc-declare-hook")
+
+	constraint-error-all =
+		bottomup(try(constraint-error; where(stage-newline-once); debug(!"INTERNAL ERROR: constraint-error succeeded for: ")))
+  
+  catch-errors-editor(s) = 
     {| AllErrors, AllWarnings:
       rules(
         // Override the error reporting behavior to collect errors
         AddError(|msgs):   node -> node where rules(AllErrors   :+= (node, <error-to-string> msgs))
         AddWarning(|msgs): node -> node where rules(AllWarnings :+= (node, <error-to-string> msgs))
       )
-    ; with(
-       renamed_ast := <typecheck-constraints>
-      )
-    ; !(<bagof-AllErrors <+ ![]>, <bagof-AllWarnings <+ ![]>, renamed_ast)
+      ; s
+      ; !(<bagof-AllErrors <+ ![]>, <bagof-AllWarnings <+ ![]>)
     |}
-
+  
 rules
 
 	get-toplevel-name = get-anno(?TopLevelName(<id>))
