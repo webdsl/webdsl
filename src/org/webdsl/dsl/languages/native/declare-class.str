@@ -30,12 +30,16 @@ strategies
         ; <map(declare-native-class-func(|name))> funcs
         ; <map(declare-native-class-cons(|name,class))> cons
         
+  normalize-declare: NativeClassProperty(name,type) -> Property(name, Simple(), <native-type-to-webdsl-type> type, [])
+        
   declare-native-class-prop(|class):
     ncp@NativeClassProperty(name,type) -> ncp
     with  webdsltype := <native-type-to-webdsl-type> type
+        ; prop := <with-origin(normalize-declare)> ncp
         ; rules( //use same DRs as entity for now, might need specialized DRs 
             TypeOfProperty : (class,name) -> webdsltype
             IsProperty     : (class,name)
+            PropertyDecl   : (class,name) -> prop
           )
           
   native-type-to-webdsl-type :
@@ -43,30 +47,34 @@ strategies
   native-type-to-webdsl-type :
     NativeGenericType(a,b) -> GenericSort(a,<map(native-type-to-webdsl-type)> b)
   
+  normalize-declare: NativeClassFunction(static,name,args1,ret1) -> Function(name, args2, ret2, None())
+    with  args2 := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args1
+        ; ret2 := <?NativeClassFunctionReturn(<native-type-to-webdsl-type>) <+ !SimpleSort("Void")> ret1
+  
   declare-native-class-func(|class):
     ncf@NativeClassFunction(static,name,args,return) -> ncf
     with  t1* := <map(native-type-to-webdsl-type)> args
-        ; if rettype := <?NativeClassFunctionReturn(<id>)> return
-          then  ret := <native-type-to-webdsl-type> rettype
-          else  ret := SimpleSort("Void") 
-          end 
         ; if staticfunction := <?NativeClassFunctionStatic()> static
           then  callee := ClassSort(class)
           else  callee := SimpleSort(class) 
-          end 
-        ; rules( CheckFunctionSignature :+
-                    (callee, name, t2*) -> ret
-                        where <zip(type-compatible)> (t1*, t2*)
-                 
+          end
+        ; f := <with-origin(normalize-declare)> ncf
+        ; rules( 
+            CheckNativeFunctionSignatureArgumentTypes :+
+              (callee, name, t2*) -> t1* where <zip(type-compatible)> (t1*, t2*)
+            
+            NativeFunctionDecl : (callee, name, t1*) -> f
           )
-          
+
+  resolve-function-call-to-decl: p@(callee, fname, t*) -> f
+    where debug; targ-resolved* := <resolve-function-call(bagof-CheckNativeFunctionSignatureArgumentTypes; debug | t*, fname)> p
+        ; f := <NativeFunctionDecl> (callee, fname, targ-resolved*)
+
   declare-native-class-cons(|class,fullyqualified):
     ncf@NativeClassConstructor(args) -> ncf
-    with  t1* := <map(native-type-to-webdsl-type)> args
-        ; rules( CheckFunctionSignature :+
-                    (None(), class, t2*) -> SimpleSort(class)
-                        where <zip(type-compatible)> (t1*, t2*)
-          )
+    with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
+        ; f1 := <with-origin(!Function(class, farg*, SimpleSort(class), None()))> ncf
+        ; <declare-global-func> f1
 
   type-exists-native = IsNativeClass
   
