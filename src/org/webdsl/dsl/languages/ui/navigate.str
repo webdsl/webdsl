@@ -33,16 +33,27 @@ rules // typechecking page elements
     where <check-link> e
 */    
 
-  check-link :
-    tc@ThisCall("url", [e]) -> tc
-    where not(<type-of> e)
+  this-call-to-page-call: ThisCall(name, args){anno*} -> PageCall(name, args){anno*}
+
+  templatecall-replace-page-args(|tname):
+    [tc, txt] -> [<this-call-to-page-call> tc, txt]
+    where "navigatebutton" := tname
+
+  eq-type-of: PageCall(name, arg*) -> t
+    where t := <check-signature> (Page(), <strip-annos> name, arg*)
+  
+  // url() is declared as a template, but can be used as a page in a navigate call
+  eq-type-of-ui: PageCall("url", [args]) -> <type-of> ThisCall("url", [args])
 
   check-link :
-    tc@c#([p, args]) -> tc
-    where <?"ThisCall" <+ ?"PageCall"> c
-        ; pstripped := <strip-annos> p
+    tc@PageCall("url", [e]) -> tc
+    where <type-compatible> (<type-of> e, SimpleSort("String"))
+
+  check-link :
+    tc@PageCall(p, args) -> tc
+    where pstripped := <strip-annos> p
         ; not("url" := pstripped)
-        ; not(<IsPage> pstripped)
+        ; <IsPage> pstripped
 
 rules // desugar
 
@@ -55,19 +66,18 @@ rules //more specific NavigateCall
   constraint-error-ui = ?tc@NavigateCall(arg*,_,_); where(<constraint-error-navigate(|tc)> ("navigate",arg*))
 */    
   desugar-ui: 
-    NavigateCall(PageCall(x,arg*),passign*,elem*) -> 
-    <rename-all> TemplateCall("navigate", [ThisCall(x,arg*)], passign*, TemplateBody(elem*))
+    NavigateCall(pc@PageCall(x,arg*),passign*,elem*) -> 
+    <rename-all> TemplateCall("navigate", [pc], passign*, TemplateBody(elem*))
       
 rules
 
-  constraint-error-action :
-    tc@PageCall(p, e*) -> <constraint-page-call(|p,e*)> 
+  constraint-error-action: pc@PageCall(p, e*) -> <add-error(|err)>
+    where argtypes := <map(type-of)> e* // don't report when sub-expression was already wrong
+        ; <not(check-link)> pc
+        ; if "url" := p then
+             err := ["Invalid url call: expected one string argument."]
+          else
+              with(  sig := <pretty-print-call(|p,argtypes)> )  
+            ; err := ["There is no page with signature ", sig,"."]
+          end
     
-  constraint-page-call(|p,e*) :
-    x -> <add-error(|["There is no page with signature ", sig,"."])>
-    where pstripped := <strip-annos> p
-        ; not("url" := pstripped)
-        ; not(SimpleSort("Page") := <check-signature> (None(), pstripped, e*))
-        ; argtypes := <map(type-of)> e* // don't report when sub-expression was already wrong
-    with  sig := <pretty-print-call(|p,argtypes)>  
-   

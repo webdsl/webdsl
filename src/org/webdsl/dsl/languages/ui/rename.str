@@ -92,19 +92,20 @@ rules
   ; rules (ReqTemplateSig : xsa )
     
   /**
-   *  ThisCall constructor is overloaded for function calls, page calls (refactor to different constructors to simplify rules)
+   *  ThisCall constructor is overloaded for function calls
    */
   rename-ui :
-    t@ThisCall(fname,e2*){origanno*} -> t3
-    where not(fname := "email")
-    with  //try to find a parent, and put it in the annotations. fails if already defined above
-               if parent:= SimpleSort(<InEntity>)
-               then newanno* := [ThisCallParent(parent)|origanno*]
-               else newanno* := origanno*
-               end          
-             ; e3* := <rename-all> e2*       
-             ; t3 := ThisCall(fname, e3*){newanno*}
-         
+    t@ThisCall(fname,_) -> t3
+    where not("email" := fname)
+    with  // Replace ThisCall(pagename) arguments with PageCall for built-ins like navigatebutton
+          ThisCall(fname, e*){origanno*} := <try(thiscall-replace-page-arguments)> t
+          //try to find a parent, and put it in the annotations. fails if already defined above
+        ; if parent:= SimpleSort(<InEntity>)
+          then newanno* := [ThisCallParent(parent)|origanno*]
+          else newanno* := origanno*
+          end          
+        ; e3* := <rename-all> e*
+        ; t3 := ThisCall(fname, e3*){newanno*}
 
   rename-ui :  
   // don't go into actions without proper scopes; actions are sometimes renamed without going 
@@ -144,27 +145,25 @@ rules
 //  rename = RenameActionCall
 
   rename-ui :
-    InitAction(bl) -> InitAction(bl2)
+    a@InitAction(bl) -> InitAction(bl2)
     where not(InDef) //global init
-    with {| InDef, Rename, VarInTemplateContext
-          : rules (InDef := True())
+    with {| InDef, Rename, VarInTemplateContext, InActionContext:
+          rules (
+              InDef := True()
+              InActionContext := a
+          )
           ; bl2 := <rename-all> bl
           |}
           
   rename-ui :
-    InitAction(bl) -> InitAction(bl2)
+    a@InitAction(bl) -> InitAction(bl2)
     where InDef //in template
-    with {| Rename, VarInTemplateContext
-          : bl2 := <rename-all> bl
+    with {| Rename, VarInTemplateContext, InActionContext:
+          rules(InActionContext := a)
+          ; bl2 := <rename-all> bl
           |}
           
   rename-ui :
-    Return(tc{annocall*}){anno*} -> Return(tc1{IsReturnInAction(),annocall*}){anno*}
+    Return(tc){anno*} -> <rename-all> Return(<this-call-to-page-call> tc){anno*}
     where InActionContext
-    where not(<fetch(IsReturnInAction)> annocall*)
-    with  tc1 := <rename-all> tc
-    
-signature 
-  constructors
-    IsReturnInAction : Term
-          
+ 

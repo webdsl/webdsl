@@ -12,8 +12,15 @@ application test
   }
   
   define page root(){
+    
+    init {
+      // Global vars are immutable, request vars are mutable
+      u3 := "xxx";
+    }
+    
     output(u1.name)
     output(u2.name)
     output(u3)
     output(u4)
+    
   }
