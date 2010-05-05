@@ -162,7 +162,7 @@ public final class Utils {
         return org.apache.commons.lang.StringEscapeUtils.escapeHtml(o.toString()); 
     } 
     
-    public static String showAttributeEscapeHtml(String s1, String s2){ 
+    public static String showAttributeEscapeHtml(String s1, Object s2){ 
         return " " + escapeHtml(s1) + "=\"" + escapeHtml(s2) + "\"";
     }
 }
