@@ -268,22 +268,58 @@ rules //templatecall
             bstm_npe*, 
             withcallsmap, 
             attrsmap,
-            x_templargs,
-            bstm_refargassign*
+            x_templargs
             )
       
   create-assigns-for-ref-arg=
-    {| RefArgIndexCounter:
-      zip(create-assigns-for-ref-arg-helper <+ !RemoveMe());remove-all(RemoveMe)
-    |} 
+    zip(create-assigns-for-ref-arg-helper <+ ! bstm|[ System.out.println(""); ]|)
            
   create-assigns-for-ref-arg-helper :
-    (Arg(_,RefSort(_)), e_webdsl) -> bstm|[ e = (x_type) refargs[e_count]; ]| //TODO front-end should check that the expression used as actual argument to ref arg is a valid LHS
-    with  count := <RefArgIndexCounter <+ !"0">
-        ; e_count := Lit(Deci(count))
-        ; rules ( RefArgIndexCounter := <addS> (count,"1"))
+    (Arg(_,RefSort(_)), e_webdsl) -> bstm|[ System.out.println(""); ]|
+    where  <try(generate-ref-arg-storage-class)> e_webdsl
+  
+  create-webdsl-dummy-var : //construct the var with annotations so it can be translated by exp/stm-to-java
+    x -> Var(x{OriginalNameAnno(x{x})}){TypeAnno(SimpleSort("Object"))}
+  
+  wrap-exp-in-fieldaccess(|name):
+    Var(x){anno*} -> FieldAccess(<create-webdsl-dummy-var> name,x){anno*}
+  wrap-exp-in-fieldaccess(|name):
+    FieldAccess(exp,ident) -> FieldAccess(<wrap-exp-in-fieldaccess(|name)> exp, ident) 
+  wrap-exp-in-fieldaccess(|name):
+    CollectionIndex(exp1,exp2) -> CollectionIndex(<wrap-exp-in-fieldaccess(|name)> exp1, exp2) 
+
+  generate-ref-arg-storage-class :
+    e_webdsl -> e_webdsl
+    where key := (<ThisTemplateName>,e_webdsl)
+        ; not(<GeneratedRefArgStorageClass> key)
         ; x_type := <get-type-anno; java-type-name> e_webdsl 
-        ; e := <expression-to-java-servlet> e_webdsl
+        ; e_webdsl2 := <wrap-exp-in-fieldaccess(|"template")> e_webdsl
+        ; e_java := <expression-to-java-servlet> e_webdsl2
+        ; bstm := <statement-to-java-servlet> Stat(Assignment(e_webdsl2,<create-webdsl-dummy-var> "obj"))
+        ; pkgname2 := <DomainPackage>
+        ; pkgname3 := <BeanPackage>
+        ; x_ref := <!["RefArg_",<ThisTemplateName>];concat-strings;newname>
+        ; x_class := <ThisTemplateClassName>
+        ; <emit-java-code-local>
+            compilation-unit|[
+              package pkgname3;
+              import pkgname2.*;
+              public class x_ref{
+                public x_class template;
+                public x_ref(x_class templ){
+                  this.template = templ;
+                }
+                public void set(x_type obj){
+                  bstm;
+                }
+                public x_type get(){
+                  return e_java;
+                }
+              }
+            ]|
+        ; rules (GeneratedRefArgStorageClass : key)
+    
+    
   
   /**
    *  'TemplateCall' for element in with { } arguments (derived from ArgDef constructor), 
@@ -314,9 +350,19 @@ rules //templatecall
    with e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
    //      ; origname := <get-original-name>  templname
 //      ; x_array := <newname> "array"
-      
+   
+  /**
+   * e_name : unique template name for lookup in hashmaps - Java String
+   * e_tname : static template call number - Java String
+   * e : regular template arguments - Java Object[]
+   * e_templarg : elements template arguments - Java Object[]
+   * bstm_npe* : null pointer exception handling statements - Java bstm*
+   * bstm_withcallsmap* : 'with' arguments, references to lifted templates - Java bstm*
+   * bstm_attrs* : attributes, arguments between [] - Java bstm*
+   * x_templargs : name of 'elements' call arguments collection - Java ID
+   */    
   generate-template-call(|x_methodname):
-    (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs,bstm_refargassign*) ->
+    (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
@@ -330,8 +376,7 @@ rules //templatecall
         try {
           bstm_withcallsmap*
           bstm_attrs*
-          Object[] refargs = ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout, e1*);
-          bstm_refargassign*
+          Object[] refargs = ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout);
           ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
             if (ThreadLocalPage.get().hasExecutedAction)
               return;
@@ -357,10 +402,6 @@ rules //templatecall
       ThreadLocalPage.get().leaveTemplateContextChecked(e_tname);
     ]|
     with  x_args := <newname> "args"
-        ; (    !x_methodname; (?"render"<+?"handleActions")
-               ; e1* := [ e|[ out ]| ]
-            <+ e1* := []
-          )
       
 rules //elements
 
@@ -390,8 +431,7 @@ rules //elements
              bstm_npe*, 
              <control-flow-emit-with-calls-map-def>,
              <control-flow-emit-attrs-calls-map-def>,
-             x_templargs,
-             [])
+             x_templargs)
 
 
 /**
@@ -439,6 +479,5 @@ rules //with element calls
              bstm_npe*,
              <control-flow-emit-with-calls-map-def>,
              attrsmap,
-             x_templargs,
-             [])
+             x_templargs)
 

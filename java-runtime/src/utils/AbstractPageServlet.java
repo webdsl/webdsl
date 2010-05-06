@@ -17,7 +17,7 @@ import org.hibernate.Session;
 public abstract class AbstractPageServlet{
 
     public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
-    public abstract void serveAsAjaxResponse(AbstractPageServlet ps, PrintWriter theoutStream, Object[] ajaxarguments, Environment env, TemplateCall templateArg);
+    public abstract void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, Environment env, TemplateCall templateArg);
     public abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
 
     public boolean IsTemplate() { return false; }
@@ -397,7 +397,7 @@ public abstract class AbstractPageServlet{
       return outgoingSuccessMessages;
     }  
     
-    protected abstract void renderIncomingSuccessMessages(java.io.PrintWriter out);
+    protected abstract void renderIncomingSuccessMessages();
    
     protected void storeOutgoingMessagesInHttpSession(){
       if(outgoingSuccessMessages.size() > 0){

@@ -179,6 +179,7 @@ rules
 
               java.io.StringWriter s = new java.io.StringWriter();
               java.io.PrintWriter out = new java.io.PrintWriter(s);
+              ThreadLocalOut.push(out);
               
               if(ThreadLocalServlet.get().isPostRequest || parammap.get("~<action-call-with-get-param-name>") != null) {
                 
@@ -194,7 +195,7 @@ rules
                   ThreadLocalPage.get().clearTemplateContext();
                 }
                 if(validated){
-                  templateservlet.handleActions(args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null, out);
+                  templateservlet.handleActions(args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null);
                   ThreadLocalPage.get().clearTemplateContext();
                 }
                 else{
@@ -246,7 +247,8 @@ rules
               storeOutgoingMessagesInHttpSession();
               hibSession.flush();
               hibSession.getTransaction().commit();
-             
+              
+              ThreadLocalOut.popChecked(out);
             }	
             catch (Exception ex) {
               System.out.println("exception occured: "+ex.getMessage());	
@@ -283,15 +285,18 @@ rules
           throws ServletException, IOException {
             this.request=request;
             this.response=response;
+            ThreadLocalOut.push(sout);
         
             bstm_ajaxrequirespost*
         
             java.io.StringWriter s = new java.io.StringWriter();
             java.io.PrintWriter out = new java.io.PrintWriter(s); 
                 
+            ThreadLocalOut.push(out);
             //call special pagetemplate render
-            templateservlet.render(args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null, out);
-          
+            templateservlet.render(args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null);
+            ThreadLocalOut.popChecked(out);         
+            
             response.setContentType(getMimetype());
             
             bstm_ajax*
@@ -356,7 +361,7 @@ rules
               // Use tundra class to style Dojo elements.
               sout.print("<body id=\""+this.getPageName()+"\" class='tundra'>");
               
-              renderIncomingSuccessMessages(sout);
+              renderIncomingSuccessMessages();
               
               s.flush();
             }
@@ -365,16 +370,19 @@ rules
               sout.print("</body>");
               sout.println("</html>");
             }
+            ThreadLocalOut.popChecked(sout);  
           }
           
-          public void serveAsAjaxResponse(AbstractPageServlet ps, PrintWriter theoutStream, Object[] args, Environment env, TemplateCall templateArg)
+          public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, Environment env, TemplateCall templateArg)
           { //use passed PageServlet ps here, since this is the context for this type of response
             initializeBasics(ps, args, env);
             
             ThreadLocalPage.set(this);
             
+            //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
+            
             this.isServingAsAjaxResponse = true;              
-            templateservlet.render(args, new Environment(env), templateArg, TemplateCall.NoWithCalls, null, theoutStream);
+            templateservlet.render(args, new Environment(env), templateArg, TemplateCall.NoWithCalls, null);
             
             ThreadLocalPage.set(ps);
           }          

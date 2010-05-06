@@ -76,7 +76,7 @@ rules // assignment
         ; x2 := <remove-first-character-in-string> x
 
   assignment-to-java-servlet :
-    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> bstm |[ e2.setupForPropertyEvents(hibSession,out).set#x(e3); ]|
+    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> bstm |[ e2.set#x(e3); ]|
     where not(GenericSort(_,_) := <get-type-anno> q)
     with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1
@@ -85,7 +85,6 @@ rules // assignment
     Stat(Assignment(q@FieldAccess(qid, x), e1)) -> 
     bstm |[ 
       {
-        e2.setupForPropertyEvents(hibSession,out);
         e2.removeAllFrom#x();
         e2.addAllTo#x(e3);
       }
@@ -190,15 +189,8 @@ rules // for
       
   for-filter-by-code-order-by(|x, srt, t, x_list) :
     Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
-      ~*<where(<has-entity-anno> srt) <+ ![]> bstm*|[
-        for(t tmp : x_list){
-          // setup needed because derived properties might need context such as hibSession for queries
-          tmp.setupForPropertyEvents(hibSession, out); 
-        }
-      ]|
       java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
         public int compare(t o1, t o2) {
-          org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
           // cannot add 'final' keyword in front of 'out' argument since it is assigned to in 'form' elements
           java.io.PrintWriter out = new java.io.PrintWriter(new java.io.StringWriter());
           stm
@@ -266,7 +258,7 @@ rules // return
     try {
       ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
       if(!ThreadLocalPage.get().isActionLinkUsed()){ 
-      	response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); 
+        response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); 
       }
     } catch (IOException ioe) {
       System.out.println("redirect failed");
@@ -315,7 +307,7 @@ rules // return
     with  e2 := <expression-to-java-servlet> e1
 
   cancel-to-java-servlet :
-    Cancel(e1) -> bstm* |[ out.println("ugly cancel not implemented"); ]|
+    Cancel(e1) -> bstm* |[ out.println("cancel not implemented"); ]|
 
   goto-to-java-servlet :
     GoTo(call@PageCall(p, args)) -> bstm*
@@ -338,7 +330,7 @@ rules // return
 rules
 
    qid-to-java-servlet :
-     Qualified(qid, x) -> java|[ e.setupForPropertyEvents(hibSession,out).x_get() ]|
+     Qualified(qid, x) -> java|[ e.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e := <qid-to-java-servlet> qid
 
@@ -467,7 +459,7 @@ rules //vars
    <+ generic-field-access-to-java-servlet
    
    generic-field-access-to-java-servlet :
-     FieldAccess(e1, x) -> expr|[ e2.setupForPropertyEvents(hibSession,out).x_get() ]|
+     FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
          ; e2 := <expression-to-java-servlet> e1
    // todo: only setupFor if derived property
@@ -477,17 +469,17 @@ rules //vars
      <+ generic-call-to-java-servlet
 
    generic-call-to-java-servlet :
-     Call(e1, x, e2*) -> expr|[ e3.x#_(hibSession, env, e4*, out) ]|
+     Call(e1, x, e2*) -> expr|[ e3.x#_(e4*) ]|
      with  e3 := <expression-to-java-servlet> e1
          ; e4* := <map(expression-to-java-servlet)> e2*
 
-	// Static function call
-	generic-call-to-java-servlet:
-		tc@ThisCall(x, e1*) -> result
-		where (get-anno(?StaticFunctionCallAnno(x_class, x_funcname)))
+  // Static function call
+  generic-call-to-java-servlet:
+    tc@ThisCall(x, e1*) -> result
+    where (get-anno(?StaticFunctionCallAnno(x_class, x_funcname)))
     with  e2* := <map(expression-to-java-servlet)> e1*
-    			; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
-    			; result := expr|[ x_Class.x_funcname#_(hibSession, env, e2*, out) ]|
+          ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
+          ; result := expr|[ x_Class.x_funcname#_(e2*) ]|
 
   // Native function call
   generic-call-to-java-servlet :
@@ -502,11 +494,11 @@ rules //vars
     tc@ThisCall(x, e1*) -> result
     where (get-anno(?GlobalCallAnno())) 
     with  e2* := <map(expression-to-java-servlet)> e1*
-    		; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
-        ; result := expr|[ x_Class#_.x#_(hibSession, env, e2*, out) ]|
+        ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
+        ; result := expr|[ x_Class#_.x#_(e2*) ]|
   
   // Entity function call
   generic-call-to-java-servlet :
     tc@ThisCall(x, e1*) -> result
     with  e2* := <map(expression-to-java-servlet)> e1*
-        ; result := expr|[ this.x#_(hibSession, env, e2*, out) ]|
+        ; result := expr|[ this.x#_(e2*) ]|

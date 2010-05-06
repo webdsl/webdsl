@@ -12,14 +12,12 @@ import javax.servlet.http.HttpSession;
 
 import org.webdsl.lang.Environment;
 
-
 public abstract class TemplateServlet {
     
     protected boolean validated=true;
     protected String uniqueid;
     protected Environment env;
     protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
-    protected PrintWriter out;
     protected org.hibernate.Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
@@ -48,28 +46,30 @@ public abstract class TemplateServlet {
         }
         return getRefArgumentValues();
       } 
-    public Object[] handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs,  PrintWriter out) {          
+    public Object[] handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) {          
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
-          this.out = out;         
+          PrintWriter out = ThreadLocalOut.peek();         
           handleActionsInternal();
         }
         return getRefArgumentValues();
       }  
 
-    public Object[] render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, PrintWriter out) { 
+    public Object[] render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) { 
       if(!skipThisTemplate){
         tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
      
-        java.io.PrintWriter outtemp = out;
         java.io.StringWriter s = new java.io.StringWriter();
-        this.out = new java.io.PrintWriter(s); 
-        
+
+        PrintWriter out = new java.io.PrintWriter(s);
+        ThreadLocalOut.push(out);
         renderInternal();
+        ThreadLocalOut.popChecked(out);
+        out = ThreadLocalOut.peek();
         
-        tryWriteSpanOpen(outtemp);
-        outtemp.write(s.toString());
-        tryWriteSpanClose(outtemp);
+        tryWriteSpanOpen(out);
+        out.write(s.toString());
+        tryWriteSpanClose(out);
       }
       return getRefArgumentValues();
     }
