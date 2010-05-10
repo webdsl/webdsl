@@ -65,34 +65,31 @@ strategies
     ; where(
         <diff-times>(<times>,starttime)
       ; ?time
-      ; rules( LogTimes :+ msg -> time )
-      ; <concat-strings>[ //<align-left>(' ', msg, 27)
-                          <align-helper(|' ', 29)> msg
-                        , " : [user/system] = ["
-                        , <self-children-user-time; ticks-to-seconds; real-to-string(|2)>
-                        , "s/"
-                        , <self-children-sys-time; ticks-to-seconds; real-to-string(|2)>
-                        , "s]"
-                        ]
-      //; print-stage-time(|<concat-strings> [msg,<id>])
-      ; where(None() := enclosingsection;rules( LogTimesKey :+= msg ) <+ rules( LogTimesKeySection :+ enclosingsection -> msg ))
+      ; oldtime := <LogTime <+ !(0,0,0,0)> msg
+      ; newtime := <add-times> (time, oldtime)
+      ; rules( LogTime : msg -> newtime )
+        // Be careful not to create a new rule for each log-time call
+      ; where(
+          None() := enclosingsection; try(not(<LogTimesKey> msg); rules( LogTimesKey :+= msg ))
+        <+ !(enclosingsection, msg); try(not(LogTimesKeySection); ?pair; rules(LogTimesKeySection :+= pair)))
       )
     |}
       
   print-total-log-time =
-    where(<map(print-total-log-time-helper(|""))> <bagof-LogTimesKey;uniq;reverse>)
+    where(reverse-bagof-LogTimesKey(id); map(print-total-log-time-helper(|"")))
     ; rules(LogTimesKey :- _)
-    ; rules(LogTimes :- _)
+    ; rules(LogTime :- _)
+    ; rules(LogTimesKeySection :- _)    
     
   print-total-log-time-helper(|prefix) :
     x -> <concat-strings;debug;<print-total-log-time-subsections(|prefix)> x> [prefix,res]
-    with  times := <bagof-LogTimes> x
-        ; total := <foldr(!(0,0,0,0),add-times)> times
-        ; t1 := <self-children-user-time; ticks-to-seconds; real-to-string(|2)> total
+    where total := <LogTime> x    // where: after calling print-total-log-time, LogTime is undefined
+    with  t1 := <self-children-user-time; ticks-to-seconds; real-to-string(|2)> total
         ; t2 := <self-children-sys-time; ticks-to-seconds; real-to-string(|2)> total
         ; msg := <concat-strings> ["total time ",x]
         ; res := <concat-strings> [msg,<align-helper(|' ', 29)> msg,": [user/system] =  ","[",t1,"s/",t2,"s]"]
         
-  print-total-log-time-subsections(|prefix) =
-    <map(print-total-log-time-helper(|<concat-strings> ["  ",prefix]))> <bagof-LogTimesKeySection;uniq;reverse>
-  
+  print-total-log-time-subsections(|prefix): x -> x
+    with  reverse-bagof-LogTimesKeySection(id); filter(?(x,<id>))
+        ; map(print-total-log-time-helper(|<concat-strings> ["  ",prefix]))
+            
