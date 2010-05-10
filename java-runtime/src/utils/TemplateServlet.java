@@ -30,7 +30,6 @@ public abstract class TemplateServlet {
     protected HttpSession session;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
-    protected abstract Object[] getRefArgumentValues();
     
     public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
         if(!skipThisTemplate){

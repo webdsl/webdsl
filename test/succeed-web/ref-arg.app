@@ -37,13 +37,17 @@ application test
   define localtest(a: Ref<String>, b : String, c: Ref<String>){}
   
   define bla(a: Ref<String>, b : String, c: Ref<String>, d : Int, e: Ref<Int>, f : Ref<Str>, g: Ref<Bool>){ 
-    input(a)
+    passOn(a)
     input(b)
     input(c)
     input(d)
     input(e)
     input(f)
     input(g)
+  }
+  
+  define passOn(a: Ref<String>){
+    input(a)
   }
   
   test one {
