@@ -44,14 +44,21 @@ rules // assignment
 
   assignment-to-java-servlet-all =
      assignment-to-java-servlet-specific
+  <+ assignment-to-java-servlet-ref
   <+ assignment-to-java-servlet
 
-   assignment-to-java-servlet :
-     Stat(Assignment(Var(x), e1)) -> java|[ x = e2; ]|
-     where <is-string> x 
-         ; not(<get-property-of-entity> (<JavaInEntity>, <remove-first-character-in-string> x))
-         ; e2 := <expression-to-java-servlet> e1
-         
+  assignment-to-java-servlet-ref :
+    Stat(Assignment(v@Var(x), e1)) -> expr|[ x.set(e2) ]|
+    where has-ref-type
+    with  x_type := <get-type-anno;java-type-name> v
+        ; e2 := <expression-to-java-servlet> e1
+
+  assignment-to-java-servlet :
+    Stat(Assignment(Var(x), e1)) -> java|[ x = e2; ]|
+    where <is-string> x 
+        ; not(<get-property-of-entity> (<JavaInEntity>, <remove-first-character-in-string> x))
+        ; e2 := <expression-to-java-servlet> e1
+        
   remove-first-character-in-string = // _ is in front of property names at this point
     explode-string;?[_|<id>];implode-string
     
@@ -314,7 +321,7 @@ rules // return
     with  bstm* := <redirect-page-call-to-java-statements> call
     
   redirect-page-call-to-java-statements :
-  	call@PageCall(p,arg*) ->   
+    call@PageCall(p,arg*) ->   
     bstm* |[ 
       if(ThreadLocalPage.get().isAjaxRuntimeRequest()){ //doesn't matter whether this is in an ajax template, only important thing for redirects is the current request type
         ~*<ajax-redirect-statements> e_url
@@ -450,6 +457,12 @@ rules //vars
 
    var-to-java-servlet :
      Var(x) -> expr|[ x ]|
+     where not(has-ref-type)
+
+   var-to-java-servlet :
+     v@Var(x) -> expr|[ (x_type) x.get() ]|
+     where has-ref-type
+     with  x_type := <get-type-anno;java-type-name> v
      
    var-to-java-servlet :
      ExternalScopeVar(x) -> expr|[ this.x ]|

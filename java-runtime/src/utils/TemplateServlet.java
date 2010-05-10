@@ -32,30 +32,27 @@ public abstract class TemplateServlet {
     protected boolean skipThisTemplate = false;
     protected abstract Object[] getRefArgumentValues();
     
-    public Object[] storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           storeInputsInternal();
         }
-        return getRefArgumentValues();
       }  
-    public Object[] validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    public void validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           validateInputsInternal();
         }
-        return getRefArgumentValues();
       } 
-    public Object[] handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) {          
+    public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) {          
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
           PrintWriter out = ThreadLocalOut.peek();         
           handleActionsInternal();
         }
-        return getRefArgumentValues();
       }  
 
-    public Object[] render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) { 
+    public void render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) { 
       if(!skipThisTemplate){
         tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
      
@@ -71,7 +68,6 @@ public abstract class TemplateServlet {
         out.write(s.toString());
         tryWriteSpanClose(out);
       }
-      return getRefArgumentValues();
     }
     
     protected abstract void storeInputsInternal();

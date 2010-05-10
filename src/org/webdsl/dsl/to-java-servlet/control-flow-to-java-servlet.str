@@ -257,12 +257,13 @@ rules //templatecall
         ; attrsmap := <control-flow-emit-attrs-calls-map(|x_methodname)> passign* 
         // ref args
         ; calledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))>anno*
-        ; bstm_refargassign* := <create-assigns-for-ref-arg> (calledTemplateArgs, args)
+        ; javaexpr_refargassign* := <create-assigns-for-ref-arg> (calledTemplateArgs, args)
+        ; e_argswithref* := <zip(\(e,None()) -> e\ <+ \(e,e_new) -> e_new\)> (e*,javaexpr_refargassign*)
         // create template call
         ; bstm_result* := <generate-template-call(|x_methodname)> (
             expr|["~x_name"]|, 
             expr|["~x_tname"]|, 
-            var-init|[ { e* } ]|, 
+            var-init|[ { e_argswithref* } ]|, 
             e_templarg,
             var-init|[ { e_templ* } ]|, 
             bstm_npe*, 
@@ -270,13 +271,14 @@ rules //templatecall
             attrsmap,
             x_templargs
             )
-      
+     
   create-assigns-for-ref-arg=
-    zip(create-assigns-for-ref-arg-helper <+ ! bstm|[ System.out.println(""); ]|)
+    zip(create-assigns-for-ref-arg-helper <+ !None())
            
   create-assigns-for-ref-arg-helper :
-    (Arg(_,RefSort(_)), e_webdsl) -> bstm|[ System.out.println(""); ]|
-    where  <try(generate-ref-arg-storage-class)> e_webdsl
+    (Arg(_,RefSort(_)), e_webdsl) -> e|[ ((new x_refstorageclass(this)).set(e_java)) ]|
+    with x_refstorageclass := <generate-ref-arg-storage-class> e_webdsl
+       ; e_java := <expression-to-java-servlet> e_webdsl
   
   create-webdsl-dummy-var : //construct the var with annotations so it can be translated by exp/stm-to-java
     x -> Var(x{OriginalNameAnno(x{x})}){TypeAnno(SimpleSort("Object"))}
@@ -289,35 +291,42 @@ rules //templatecall
     CollectionIndex(exp1,exp2) -> CollectionIndex(<wrap-exp-in-fieldaccess(|name)> exp1, exp2) 
 
   generate-ref-arg-storage-class :
-    e_webdsl -> e_webdsl
+    e_webdsl -> x_refstorageclass
+    where key := (<ThisTemplateName>,e_webdsl)
+        ; x_refstorageclass := <GeneratedRefArgStorageClass> key
+          
+  generate-ref-arg-storage-class :
+    e_webdsl -> x_refstorageclass
     where key := (<ThisTemplateName>,e_webdsl)
         ; not(<GeneratedRefArgStorageClass> key)
-        ; x_type := <get-type-anno; java-type-name> e_webdsl 
+    with srt_webdsltype := <get-type-anno> e_webdsl
+        ; x_type := <java-type-name> srt_webdsltype 
         ; e_webdsl2 := <wrap-exp-in-fieldaccess(|"template")> e_webdsl
         ; e_java := <expression-to-java-servlet> e_webdsl2
-        ; bstm := <statement-to-java-servlet> Stat(Assignment(e_webdsl2,<create-webdsl-dummy-var> "obj"))
+        ; bstm := <statement-to-java-servlet> Stat(Assignment(e_webdsl2,Cast(<create-webdsl-dummy-var> "obj",srt_webdsltype)))
         ; pkgname2 := <DomainPackage>
         ; pkgname3 := <BeanPackage>
-        ; x_ref := <!["RefArg_",<ThisTemplateName>];concat-strings;newname>
         ; x_class := <ThisTemplateClassName>
+        ; x_refstorageclass := <!["RefArg_",<ThisTemplateName>];concat-strings;newname>
         ; <emit-java-code-local>
             compilation-unit|[
               package pkgname3;
               import pkgname2.*;
-              public class x_ref{
+              public class x_refstorageclass implements utils.RefArg{
                 public x_class template;
-                public x_ref(x_class templ){
+                public x_refstorageclass(x_class templ){
                   this.template = templ;
                 }
-                public void set(x_type obj){
-                  bstm;
+                public Object set(Object obj){
+                  bstm
+                  return this;
                 }
-                public x_type get(){
+                public Object get(){
                   return e_java;
                 }
               }
             ]|
-        ; rules (GeneratedRefArgStorageClass : key)
+        ; rules (GeneratedRefArgStorageClass : key -> x_refstorageclass)
     
     
   
@@ -376,7 +385,7 @@ rules //templatecall
         try {
           bstm_withcallsmap*
           bstm_attrs*
-          Object[] refargs = ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout);
+          ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout);
           ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
             if (ThreadLocalPage.get().hasExecutedAction)
               return;
