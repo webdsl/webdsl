@@ -10,10 +10,6 @@ signature
   constructors
     Op : String -> Annotation
  
-strategies
-
-  eq-type-of-action = <TypeOf> Var(<id>)
-
 rules // typechecking expressions
 
   constraint-error-action :
@@ -22,12 +18,8 @@ rules // typechecking expressions
 
   eq-type-of-action :
     Var(x) -> <TypeOf> x
-    
-  // Fix Spoofax/IMP bug (yellowgrass #65)
-  // At declaration "this" is a StrategoString, but while typechecking it is
-  // a WrappedAstNode, so dynamic rule lookup fails.
-  eq-type-of-action :
-    Var("this"{renamed}) -> <TypeOf; debug(!"Spoofax/65 still present: ")> "this"{renamed}
+  
+  eq-type-of-action = is-string; <TypeOf> Var(<id>)
   
   constraint-error-action : 
     Cast(e, s) -> <add-error(|["Cannot cast ", <pp-webdsl> e, " to type ", <pp-webdsl> s])>
@@ -112,11 +104,11 @@ rules // typechecking expressions
   check-operator-signature : (None(), Op("Or"), [SimpleSort("Bool"), SimpleSort("Bool")]) -> SimpleSort("Bool")
   
   constraint-error-action :
-    c#([e1, e2]) -> <add-error(|["Wrong operand types for operator ", c, ": ", <pp-webdsl> e1, " has type ",<type-of<+!"type unknown"> e1, ",", <pp-webdsl> e2, " has type ",<type-of<+!"type unknown"> e2])>
-    where not(type-of)
+    x@c#([e1, e2]) -> <add-error(|["Wrong operand types for operator ", c, ": ", <pp-webdsl> e1, " has type ",<type-of<+!"type unknown"> e1, ",", <pp-webdsl> e2, " has type ",<type-of<+!"type unknown"> e2])>
+    where <elem> (c, ["Add", "Sub", "Mul", "Div", "Mod", "Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual", "And", "Or"])
+        ; not(<type-of> x)
         ; <type-of> e1 ; <type-of> e2 // don't report cascaded errors, e1 and e2 should have valid types
-        ; <elem> (c, ["Add", "Sub", "Mul", "Div", "Mod", "Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual", "And", "Or"])
-
+        
   eq-type-of-action :
     c#([e1, e2]) -> t
     where not("IsA" := c)
