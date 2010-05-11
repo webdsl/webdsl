@@ -83,13 +83,14 @@ rules // assignment
         ; x2 := <remove-first-character-in-string> x
 
   assignment-to-java-servlet :
-    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> bstm |[ e2.set#x(e3); ]|
-    where not(GenericSort(_,_) := <get-type-anno> q)
+    Stat(Assignment(q@FieldAccess(qid, x), e1)){anno*} -> bstm |[ e2.set#x(e3); ]|
+    where not(GenericSort(_,_) := <get-type-anno> q) 
+       <+ GenericSort(_,_) := <get-type-anno> q;<fetch(DirectCollectionReplace)> anno*
     with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1
 
   assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(q@FieldAccess(qid, x), e1)) -> 
+    Stat(Assignment(q@FieldAccess(qid, x), e1)){anno*} -> 
     bstm |[ 
       {
         e2.removeAllFrom#x();
@@ -97,6 +98,7 @@ rules // assignment
       }
     ]|
     where GenericSort(_,_) := <get-type-anno> q
+        ; not(<fetch(DirectCollectionReplace)> anno*)
     with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1  
 
@@ -363,11 +365,17 @@ rules
          ; e := <java-type-default-value> s
 
 rules // expressions
+ 
    expression-to-java-servlet :
      Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]| 
-     //CastRef(t, java|[ e2 ]|)
+     where not(<?GenericSort(_,_)> s)
      with  e2 := <expression-to-java-servlet> e1
          ; t := <java-type> s
+         ; x := <java-type-name> s
+   expression-to-java-servlet :
+     Cast(e1, s) -> expr |[ ((x) e2) ]| 
+     where <?GenericSort(_,_)> s // no need for hibernate fix in case of collection
+     with  e2 := <expression-to-java-servlet> e1
          ; x := <java-type-name> s
 
    expression-to-java-servlet :
