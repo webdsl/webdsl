@@ -60,7 +60,7 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     elist[clickinput].click();  
     //log(d.getPageSource());
-    log(d.getPageSource());
+    //log(d.getPageSource());
     assert(d.getPageSource().contains("<li>2</li>"), "reference arguments not working as expected");
   }
   
