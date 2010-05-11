@@ -1,10 +1,11 @@
-// Template with this signature not defined
+//Template with signature
+//not defined
 application test 
 
 // Should also typecheck a shorthand name
 
 define page root() {
 
-	nav(3)
+  nav(3)
 
 }

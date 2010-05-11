@@ -1,4 +1,5 @@
-//Template with this signature not defined
+//Template with signature
+//not defined
 application test
 
   define login(){} //overrides default generated login and blocks generation of authentication template
