@@ -3,9 +3,12 @@ module org/webdsl/dsl/to-java-servlet/template-ref-arguments
 imports
   libstratego-lib
   libjava-front
-
-imports
   libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+  org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/java-code
+  org/webdsl/dsl/to-java-servlet/emit-java-local
 
 rules
 
@@ -18,8 +21,9 @@ rules
     where key := (<ThisTemplateName>,e_webdsl)
         ; x_refstorageclass := <GeneratedRefArgStorageClass> key
 
-  generate-ref-arg-class-name = !["RefArg_",<ThisTemplateName>];concat-strings;newname
-
+  generate-ref-arg-class-name : 
+    (templatename,e_webdsl) -> <!["RefArg_",templatename];concat-strings;newname>
+  
 rules // case of template var      
 
   //for passing on refarg don't use regular expression translation, since it will add a call to `get`    
@@ -44,7 +48,7 @@ rules // case of template var
         ; pkgname2 := <DomainPackage>
         ; pkgname3 := <BeanPackage>
         ; x_class := <ThisTemplateClassName>
-        ; x_refstorageclass := <generate-ref-arg-class-name>
+        ; x_refstorageclass := <generate-ref-arg-class-name> key
         ; <emit-java-code-local>
             compilation-unit|[
               package pkgname3;
@@ -61,6 +65,7 @@ rules // case of template var
                 public Object get(){
                   return e_java;
                 }
+                public void load(String uuid){}//not used for this case
               }
             ]|
         ; rules (GeneratedRefArgStorageClass : key -> x_refstorageclass)
@@ -71,9 +76,7 @@ rules // case of template var
   wrap-exp-in-fieldaccess(|name):
     Var(x){anno*} -> FieldAccess(<create-webdsl-dummy-var> name,x){anno*}
   wrap-exp-in-fieldaccess(|name):
-    FieldAccess(exp,ident) -> FieldAccess(<wrap-exp-in-fieldaccess(|name)> exp, ident) 
-  wrap-exp-in-fieldaccess(|name):
-    CollectionIndex(exp1,exp2) -> CollectionIndex(<wrap-exp-in-fieldaccess(|name)> exp1, exp2) 
+    FieldAccess(exp,ident) -> FieldAccess(<wrap-exp-in-fieldaccess(|name)> exp, ident)
 
 rules //case of object field access
     
@@ -82,25 +85,42 @@ rules //case of object field access
     with  x_refstorageclass := <generate-ref-arg-storage-class> e_webdsl
         ; e_java := <expression-to-java-servlet> e_webdsl
         ; e_javaobj := <expression-to-java-servlet> e_obj
+    
+  create-assigns-for-ref-arg-helper-page-ref-arg :
+    (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ e_javaobj.getId()+":"+"~classnamesecond" ]|
+    with  classnamefirst := <get-refargclassname-first> e_webdsl
+        ; classnamesecond := <get-refargclassname-second> e_webdsl
+        ; classname := <concat-strings> [classnamefirst, classnamesecond]
+        ; <generate-ref-arg-storage-class(|classname)> e_webdsl
+        ; e_javaobj := <expression-to-java-servlet> e_obj
          
   generate-ref-arg-storage-class :
-    e_webdsl@FieldAccess(e_object@Var(x_name),f) -> x_refstorageclass
+    e_webdsl@FieldAccess(e_object,f) -> x_refstorageclass
+    with  key := (<ThisTemplateName>,e_webdsl)
+        ; x_refstorageclass := <generate-ref-arg-class-name> key
+        ; <generate-ref-arg-storage-class(|x_refstorageclass)> e_webdsl
+    
+  generate-ref-arg-storage-class(|x_refstorageclass) :
+    e_webdsl@FieldAccess(e_object,f) -> x_refstorageclass
     where key := (<ThisTemplateName>,e_webdsl)
         ; not(<GeneratedRefArgStorageClass> key)
-    with srt_webdsltype := <get-type-anno> e_webdsl
+    with  srt_webdsltype := <get-type-anno> e_webdsl
         ; x_type := <java-type-name> srt_webdsltype 
         ; e_java := <expression-to-java-servlet> e_webdsl
-        ; bstm := <statement-to-java-servlet> Stat(Assignment(e_webdsl,Cast(<create-webdsl-dummy-var> "obj",srt_webdsltype))){DirectCollectionReplace()}
+        ; bstm := <statement-to-java-servlet> Stat(Assignment(e_webdsl,Cast(<create-webdsl-dummy-var> "obj",srt_webdsltype)))
         ; pkgname2 := <DomainPackage>
         ; pkgname3 := <BeanPackage>
         ; x_class := <get-type-anno; java-type-name> e_object
-        ; x_refstorageclass := <generate-ref-arg-class-name>
+        ; (<?Var(x_name)> e_object <+ x_name := <newname> "obj")
         ; <emit-java-code-local>
             compilation-unit|[
               package pkgname3;
               import pkgname2.*;
+              import utils.*;
               public class x_refstorageclass implements utils.RefArg{
                 public x_class x_name;
+                public x_refstorageclass(){//used for page and ajax args
+                }
                 public x_refstorageclass(Object x_name){
                   this.x_name = (x_class) x_name;
                 }
@@ -111,9 +131,16 @@ rules //case of object field access
                 public Object get(){
                   return (x_type) e_java;
                 }
+                public void load(String uuid){//used for page and ajax args
+                  try { 
+                    Class<?> cl = org.hibernate.util.ReflectHelper.classForName("~x_class");
+                    ~*<![]>
+                    x_name = (x_class) e_HibSession.load(cl, java.util.UUID.fromString(uuid));
+                  } 
+                  catch (ClassNotFoundException cnfe) { 
+                    throw new RuntimeException(cnfe); 
+                  }      
+                }
               }
             ]|
         ; rules (GeneratedRefArgStorageClass : key -> x_refstorageclass)
-          
-          
-    

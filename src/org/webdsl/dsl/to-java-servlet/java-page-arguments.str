@@ -3,13 +3,23 @@ module org/webdsl/dsl/to-java-servlet/java-page-arguments
 imports
   libstratego-lib
   libjava-front
-
-imports
   libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/java-page
+  org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+  org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/request-param-conversion
 
 rules // page arguments
-                                  //JavaThisPage
-  GenerateCodeJavaServlet = where((JavaThisPage<+ThisTemplateName);not(InAction)); page-class-generation-test; argument-to-java-servlet-property; fail
+
+  GenerateCodeJavaServlet = 
+    where(
+      (JavaThisPage<+ThisTemplateName)
+    ; not(InAction)
+    )
+  ; page-class-generation-test
+  ; argument-to-java-servlet-property
+  ; fail
    
   /**
    *  GenericSort -List and Set- page arguments 
@@ -110,6 +120,50 @@ rules // page arguments
         ; t := <java-type> SimpleSort("String")
         ; bstm* := <argument-to-java-servlet-initialization> arg
         ; bstm1* := <java-servlet-conversion-to-object> (t,x,x_id)
+          
+  /**
+   *  Ref arg
+   */  
+  argument-to-java-servlet-property :
+    arg@Arg(x,srt@RefSort(_)){anno*} ->
+    <generate-java-servlet-partial> java|[
+       @Partial
+       protected void conversion(){
+         if(parammap.get("~<get-original-name> x")!=null)
+         {
+           bstm1*
+         } 
+       }
+       @Partial
+       void loadArguments() {
+         bstm*
+       }
+
+       private t_string x_id;
+       
+       public void set#x_id(t_string v) {
+         this.x_id = v;
+       }
+       public t_string get#x_id() {
+         return this.x_id;
+       }
+
+       private t_refarg x;
+       
+       public void set#x(t_refarg x) {
+         this.x = x;
+       }
+       
+       public t_refarg get#x() {
+         return x;
+       }
+    ]|
+    with  x_id := <concat-strings>[x, "_id"]
+        ; t_refarg := ClassOrInterfaceType(TypeName(Id("utils.RefArg")),None())
+        ; t_string := ClassOrInterfaceType(TypeName(Id("String")),None())
+        ; <fetch(?ArgNumber(argnum))> anno*
+        ; bstm* := <argument-to-java-servlet-initialization-ref-arg(|argnum)> arg
+        ; bstm1* := <java-servlet-conversion-to-object> (t_string,x,x_id)
 
   /**
    *  Built-in type page arguments
@@ -184,6 +238,43 @@ rules //initialization
         ; x_uuid := <newname> "uuid"
         ; x_type := <newname> "type"
         ; x_ar := <newname> "array"
+        
+  //ref arg       
+  argument-to-java-servlet-initialization-ref-arg(|argnum) :
+    arg@Arg(x,srt@RefSort(_)) ->
+    bstm*|[
+      if (x_id != null) {   
+        String[] x_ar = x_id.split(":");
+        String x_uuid = x_ar[0];
+        String x_classnamesecondpart = x_ar[1];
+        try{
+          utils.RefArg x_rap = (utils.RefArg) ThreadLocalPage.get().getRefArgClasses().get("~x_classnamefirstpart"+x_classnamesecondpart).newInstance();
+          x_rap.load(x_uuid);
+          x = x_rap;
+        }
+        catch(IllegalAccessException ie)
+        { 
+          ie.printStackTrace();
+          throw new RuntimeException("IllegalAccessException during ref page arg load");
+        }
+        catch(InstantiationException ie)
+        { 
+          ie.printStackTrace();
+          throw new RuntimeException("InstantiationException during ref page arg load");
+        }
+        catch(NullPointerException ie)
+        { 
+          ie.printStackTrace();
+          throw new RuntimeException("NullPointerException during ref page arg load");
+        }
+      }
+    ]|
+    with  x_id := <concat-strings>[x, "_id"]
+        ; x_classnamefirstpart := <gen-page-ref-arg-class-name-first-part> (<ThisTemplateName>,argnum)
+        ; x_ar := <newname> "array"
+        ; x_rap := <newname> "rap"
+        ; x_uuid := <newname> "uuid"
+        ; x_classnamesecondpart := <newname> "callnum"
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->

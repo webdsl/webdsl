@@ -80,10 +80,16 @@ public abstract class AbstractPageServlet{
 
     //emails
     protected static HashMap<String, Class<?>> emails = new HashMap<String, Class<?>>();
-
     public static HashMap<String, Class<?>> getEmails() { 
         return emails;
     }
+
+    //ref arg
+    protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
+    public static HashMap<String, Class<?>> getRefArgClasses() { 
+        return refargclasses;
+    }
+    
     public abstract String getAbsoluteLocation();
 
     protected java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();

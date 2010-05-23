@@ -3,10 +3,15 @@ module org/webdsl/dsl/to-java-servlet/uicomponents/navigate
 imports
   libstratego-lib
   libjava-front
-  org/webdsl/dsl/to-java-servlet/-
-
-imports
   libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/page-utils
+  org/webdsl/dsl/to-java-servlet/template-render
+  org/webdsl/dsl/to-java-servlet/java-code
+  org/webdsl/dsl/to-java-servlet/template-ref-arguments
+  org/webdsl/dsl/to-java-servlet/uicomponents/util
+  org/webdsl/dsl/to-java-servlet/ajax/html-utils
 
 rules // links
 
@@ -82,28 +87,40 @@ rules // links
 rules      
        
   page-thiscall-to-url-string-java-servlet :
-    PageCall(p,args) -> e |[ utils.HTMLFilter.filter(e_url) ]|
+    pc@PageCall(p,args) -> e |[ utils.HTMLFilter.filter(e_url) ]|
     with  get-anno(?PageArgsAnno(farg*))
-    	; params := <zip(bind-param-java-servlet)> (farg*, args)
-        ; e_url := <page-call-to-url-java-servlet> (p, params, farg*)
-        
-  bind-param-java-servlet :
+        ; farg1* := <add-farg-numbers> farg*
+        ; params := <zip(bind-param-java-servlet)> (farg1*, args)
+        ; e_url := <page-call-to-url-java-servlet> (p, params, farg1*)
+  
+  bind-param-java-servlet =
+     bind-param-java-servlet-entity-id-anno 
+  <+ bind-param-java-servlet-entity-type
+  <+ bind-param-java-servlet-date-time
+  <+ bind-param-java-servlet-ref-arg
+  <+ bind-param-java-servlet-default      
+  
+  bind-param-java-servlet-entity-id-anno :
     (Arg(x, srt), e) -> (x, e|[ utils.URLFilter.filter(e1.getNaturalId()) ]|)
     where <get-type-anno;has-entity-anno> e
         ; not(SimpleSort("Entity") := srt)
     with  SimpleSort(x_class) := srt
         ; e1 := <expression-to-java-servlet> e
  
-  bind-param-java-servlet :
+  bind-param-java-servlet-entity-type :
     (Arg(x, srt), e) -> (x, e|[ utils.URLFilter.filter(e1.get_WebDslEntityType() + ":" + e1.getId()) ]|)
     where SimpleSort("Entity") := srt
     with  e1 := <expression-to-java-servlet> e
     
-  bind-param-java-servlet :
+  bind-param-java-servlet-date-time :
     (Arg(x, SimpleSort(<?"Date"<+?"DateTime"<+?"Time">)), e) -> (x, e|[ utils.URLFilter.filter(e1.getTime()) ]|)
     with  e1 := <expression-to-java-servlet> e
     
-  bind-param-java-servlet :
+  bind-param-java-servlet-ref-arg :
+    (Arg(x, RefSort(srt)), e) -> (x,res)
+    with  res := <create-assigns-for-ref-arg-helper-page-ref-arg>
+    
+  bind-param-java-servlet-default :
     (Arg(x, srt), e) -> (x, e|[ utils.URLFilter.filter(e1) ]|)
     with  e1 := <expression-to-java-servlet> e
 
