@@ -70,16 +70,19 @@ strategies
       ; rules( LogTime : msg -> newtime )
         // Be careful not to create a new rule for each log-time call
       ; where(
-          None() := enclosingsection; try(not(<LogTimesKey> msg); rules( LogTimesKey :+= msg ))
-        <+ !(enclosingsection, msg); try(not(LogTimesKeySection); ?pair; rules(LogTimesKeySection :+= pair)))
+          None() := enclosingsection; try(not(<LogTimesKey> msg); rules( LogTimesKey : msg ))
+        <+ !(enclosingsection, msg); try(not(LogTimesKeySection); ?pair; rules(LogTimesKeySection : pair)))
       )
     |}
       
+  // After clearing the rules with :-, all-keys-RuleName still returns the old keys (which then have no values).
+  // The filter prevents these unused keys from being printed.
   print-total-log-time =
-    where(reverse-bagof-LogTimesKey(id); map(print-total-log-time-helper(|"")))
-    ; rules(LogTimesKey :- _)
-    ; rules(LogTime :- _)
-    ; rules(LogTimesKeySection :- _)    
+    where(all-keys-LogTimesKey; filter(LogTimesKey); reverse; map(print-total-log-time-helper(|"")))
+      // clear times
+    ; all-keys-LogTimesKey; map(\key -> <rules(LogTimesKey :- key)>\)
+    ; all-keys-LogTimesKeySection; map(\key -> <rules(LogTimesKeySection :- key)>\)
+    ; all-keys-LogTime; map(\key -> <rules(LogTime :- key)>\) 
     
   print-total-log-time-helper(|prefix) :
     x -> <concat-strings;debug;<print-total-log-time-subsections(|prefix)> x> [prefix,res]
@@ -90,6 +93,6 @@ strategies
         ; res := <concat-strings> [msg,<align-helper(|' ', 29)> msg,": [user/system] =  ","[",t1,"s/",t2,"s]"]
         
   print-total-log-time-subsections(|prefix): x -> x
-    with  reverse-bagof-LogTimesKeySection(id); filter(?(x,<id>))
+    with  all-keys-LogTimesKeySection; filter(LogTimesKeySection); reverse; filter(?(x,<id>))
         ; map(print-total-log-time-helper(|<concat-strings> ["  ",prefix]))
             
