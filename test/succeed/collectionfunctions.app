@@ -113,9 +113,11 @@ section datamodel
   test listIndexOfNull{
     assert([User{},User{}].indexOf(null) == -1);
   }
+  /*
   test listGetOutOfBounds{
     assert([User{},User{}].get(34) == null);
   }
+  */
   test listSetOutOfBounds{
     var x := [User{},User{}];
     x.set(34,User{});
