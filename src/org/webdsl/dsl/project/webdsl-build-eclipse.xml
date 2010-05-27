@@ -1,108 +1,147 @@
 <project name="webdsl-build-eclipse" default="eclipse-build">
-  
+
 	<condition property="stratego-jar-cp" value="${eclipse.strategoxt.strategojar}">
-	  <isset property="eclipse.running"/>
+		<isset property="eclipse.running"/>
 	</condition>
-	
-  <target name="eclipse-build">
-    <antcall target="build-without-java-compile"/>
-    <property name="servletappdir" value="${currentdir}/.servletapp"/>
-    <property name="webcontentdir" value="${currentdir}/WebContent"/>
-      <copy preservelastmodified="true" todir="${webcontentdir}/WEB-INF/lib">
-        <fileset dir="${servletappdir}/bin/WEB-INF/lib">
-                <exclude name="javaee.jar" />
-        </fileset>
-      </copy>
-      <copy file="${servletappdir}/web.xml" preservelastmodified="true" todir="${webcontentdir}/WEB-INF"/>
-      <copy preservelastmodified="true" todir="${webcontentdir}">
-        <fileset dir="${servletappdir}/html"/>
-      </copy>
-      <copy preservelastmodified="true" todir="${webcontentdir}/images">
-        <fileset dir="${servletappdir}/images"/>
-      </copy>
-      <copy preservelastmodified="true" todir="${webcontentdir}/stylesheets">
-        <fileset dir="${servletappdir}/stylesheets"/>
-      </copy>
-      <copy preservelastmodified="true" todir="${webcontentdir}/javascript">
-        <fileset dir="${servletappdir}/javascript"/>
-      </copy>
-      <copy preservelastmodified="true" todir="${webcontentdir}">
-        <fileset dir="${servletappdir}">
-          <include name="webdsl-reindex"/>
-        <include name="build.reindex.xml"/>
-        <include name="build.properties"/>
-        <include name="html/index.jsp"/>
-        <include name="html/favicon.ico"/>
-        <include name="build.properties"/>
-        </fileset>
-      </copy>
-    
-      <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/.servletapp/build.xml" target="configure"/>
-    <copy overwrite="true" todir="${webcontentdir}/WEB-INF/classes">
-          <fileset dir="${servletappdir}/src-template">
-            <include name="hibernate.properties"/>
-         <include name="email.properties"/>
-         <include name="log4j.properties"/>
-      </fileset>
-    </copy>
-    
-    <antcall target="fix-classpath"/>
-    <antcall target="generate-ant-build-files"/>
-    <antcall target="run-eclipse-refresh-build"/>
-    
-  </target>
-  
-  
-  <target name="run-eclipse-refresh-build">  
-    <!-- invoke incremental build of java code in eclipse 
+
+	<target name="eclipse-build" depends="clean-if-editor-updated">
+
+		<antcall target="build-without-java-compile"/>
+
+		<property name="servletappdir" value="${currentdir}/.servletapp"/>
+		<property name="webcontentdir" value="${currentdir}/WebContent"/>
+
+		<copy preservelastmodified="true" todir="${webcontentdir}/WEB-INF/lib">
+			<fileset dir="${servletappdir}/bin/WEB-INF/lib">
+				<exclude name="javaee.jar" />
+			</fileset>
+		</copy>
+		<copy file="${servletappdir}/web.xml" preservelastmodified="true" todir="${webcontentdir}/WEB-INF"/>
+		<copy preservelastmodified="true" todir="${webcontentdir}">
+			<fileset dir="${servletappdir}/html"/>
+		</copy>
+		<copy preservelastmodified="true" todir="${webcontentdir}/images">
+			<fileset dir="${servletappdir}/images"/>
+		</copy>
+		<copy preservelastmodified="true" todir="${webcontentdir}/stylesheets">
+			<fileset dir="${servletappdir}/stylesheets"/>
+		</copy>
+		<copy preservelastmodified="true" todir="${webcontentdir}/javascript">
+			<fileset dir="${servletappdir}/javascript"/>
+		</copy>
+		<copy preservelastmodified="true" todir="${webcontentdir}">
+			<fileset dir="${servletappdir}">
+				<include name="webdsl-reindex"/>
+				<include name="build.reindex.xml"/>
+				<include name="build.properties"/>
+				<include name="html/index.jsp"/>
+				<include name="html/favicon.ico"/>
+				<include name="build.properties"/>
+			</fileset>
+		</copy>
+
+		<ant dir="${currentdir}/.servletapp" antfile="${currentdir}/.servletapp/build.xml" target="configure"/>
+		<copy overwrite="true" todir="${webcontentdir}/WEB-INF/classes">
+			<fileset dir="${servletappdir}/src-template">
+				<include name="hibernate.properties"/>
+				<include name="email.properties"/>
+				<include name="log4j.properties"/>
+			</fileset>
+		</copy>
+
+		<antcall target="fix-classpath"/>
+		<antcall target="generate-ant-build-files"/>
+		<antcall target="run-eclipse-refresh-build"/>
+
+
+	</target>
+
+	<target name="clean-if-editor-updated" unless="editor.update.build.performed">
+		<property name="path.build.version" value="${currentdir}/.servletapp/.last-build-version" />
+		<available file="${path.build.version}" property="build.is.completed" />
+		<loadfile srcFile="${path.build.version}" property="build.last.version" quiet="true" />
+
+		<if>
+			<not>
+				<and>
+					<isset property="build.is.completed" />
+					<equals arg1="${build.last.version}" arg2="${webdsl.plugin.version}" />
+				</and>
+			</not>
+			<then>
+				<echo>Editor updated to version ${webdsl.plugin.version}. Performing a clean build...</echo>
+				<antcall target="clean-all" />
+				<property name="editor.update.build.performed" value="1" />
+				<dirname property="dir.build.version" file="${path.build.version}" />
+				<mkdir dir="${dir.build.version}" />
+				<echo file="${path.build.version}">${webdsl.plugin.version}</echo>
+			</then>
+		</if>
+	</target>
+
+
+	<target name="run-eclipse-refresh-build">
+		<!-- invoke incremental build of java code in eclipse 
     <basename property="projectname" file="${basedir}"/>
     <eclipse.incrementalBuild project="${projectname}" kind="incremental" builder="org.eclipse.jdt.core.javabuilder"/>
     -->
-    
-    <!-- invoke eclipse java compiler -->
-    <condition property="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter">
-      <isset property="eclipse.running"/>
-    </condition>
-    <property name="ant.build.javac.target" value="1.5"/>
-    <property name="ant.build.javac.source" value="1.5"/>
-    <javac destdir="${webcontentdir}/WEB-INF/classes/"
+
+		<!-- invoke eclipse java compiler -->
+		<condition property="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter">
+			<isset property="eclipse.running"/>
+		</condition>
+		<property name="ant.build.javac.target" value="1.5"/>
+		<property name="ant.build.javac.source" value="1.5"/>
+		<javac destdir="${webcontentdir}/WEB-INF/classes/"
       failonerror="true" 
       classpathref="libraries"
       debug="on"
       fork="true"
       nowarn="true"
       memoryinitialsize="256m"
-      memorymaximumsize="1024m">          
-<!-- fork= and memory sizes fix problem with javac throwing outofmemory heap space exception caused by ant 64mb default limit -->
-<!--     verbose="yes">
-<compilerarg value="-Xlint"/> --> 
-      <src path="${servletappdir}/src-generated" />
-      <src path="${servletappdir}/src-native" />
-      <src path="${servletappdir}/src-template" />
-    </javac>
-    
-    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
-    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
-  </target>
-  <path id="libraries">
-    <fileset dir="${servletappdir}/bin/WEB-INF/lib/" includes="*.jar"/> 
-  </path>
-     
-  
-  <target name="eclipse-build-code-only">
-    <antcall target="build-without-java-compile-code-only"/>
-    
-    <!-- update web.xml, in case of new pages -->
-    <property name="webcontentdir" value="${currentdir}/WebContent"/>
-    <property name="servletappdir" value="${currentdir}/.servletapp"/>
-    <copy file="${servletappdir}/web.xml" preservelastmodified="true" todir="${webcontentdir}/WEB-INF"/>
-    
-    <antcall target="run-eclipse-refresh-build"/>
-  </target>	
-  
-  
-  <target name="fix-classpath">
-    <script language="javascript"> <![CDATA[
+      memorymaximumsize="1024m">
+			<!-- fork= and memory sizes fix problem with javac throwing outofmemory heap space exception caused by ant 64mb default limit -->
+			<!--     verbose="yes">
+<compilerarg value="-Xlint"/> -->
+			<src path="${servletappdir}/src-generated" />
+			<src path="${servletappdir}/src-native" />
+			<src path="${servletappdir}/src-template" />
+		</javac>
+
+		<eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
+		<eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
+	</target>
+
+
+	<path id="libraries">
+		<fileset dir="${servletappdir}/bin/WEB-INF/lib/" includes="*.jar"/>
+	</path>
+
+
+	<target name="eclipse-build-code-only" depends="clean-if-editor-updated">
+
+		<if>
+			<isset property="editor.update.build.performed" />
+			<then>
+				<antcall target="eclipse-build" />
+			</then>
+			<!-- TODO: Build will run again, need graceful abort... -->
+		</if>
+
+		<antcall target="build-without-java-compile-code-only"/>
+
+		<!-- update web.xml, in case of new pages -->
+		<property name="webcontentdir" value="${currentdir}/WebContent"/>
+		<property name="servletappdir" value="${currentdir}/.servletapp"/>
+		<copy file="${servletappdir}/web.xml" preservelastmodified="true" todir="${webcontentdir}/WEB-INF"/>
+
+		<antcall target="run-eclipse-refresh-build"/>
+	</target>
+
+
+	<target name="fix-classpath">
+		<script language="javascript">
+			<![CDATA[
         importClass(java.io.File);
         importClass(java.io.BufferedReader);
         importClass(java.io.FileReader);
@@ -146,12 +185,14 @@
             echo.setMessage(e);
             echo.perform();
           }	
-      ]]></script>
-      <echo>generated .classpath</echo>
-  </target>
-  
-  <target name="generate-ant-build-files">
-    <script language="javascript"> <![CDATA[
+      ]]>
+				</script>
+				<echo>generated .classpath</echo>
+			</target>
+
+			<target name="generate-ant-build-files">
+				<script language="javascript">
+					<![CDATA[
               importClass(java.io.File);
               importClass(java.io.BufferedReader);
               importClass(java.io.FileReader);
@@ -192,29 +233,30 @@
                 }
                ]]>
     </script>
-    <echo>generated clean-project.xml</echo>
-      <antcall target="generate-ant-build-file-launcher">
-      <param name="buildfilename" value="clean-project"/>
-    </antcall>
+			<echo>generated clean-project.xml</echo>
+			<antcall target="generate-ant-build-file-launcher">
+				<param name="buildfilename" value="clean-project"/>
+			</antcall>
 
-    <antcall target="generate-ant-build-file-for-invoking-webdsl">
-      <param name="taskname" value="eclipse-build"/>
-      <param name="buildfilename" value="full-build"/>
-    </antcall>
+			<antcall target="generate-ant-build-file-for-invoking-webdsl">
+				<param name="taskname" value="eclipse-build"/>
+				<param name="buildfilename" value="full-build"/>
+			</antcall>
 
-    <antcall target="generate-ant-build-file-for-invoking-webdsl">
-      <param name="taskname" value="eclipse-build-code-only"/>
-      <param name="buildfilename" value="build-code-only"/>
-    </antcall>
+			<antcall target="generate-ant-build-file-for-invoking-webdsl">
+				<param name="taskname" value="eclipse-build-code-only"/>
+				<param name="buildfilename" value="build-code-only"/>
+			</antcall>
 
-    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath" />
-    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite" />
-  </target>
+			<eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath" />
+			<eclipse.refreshLocal resource="${resourcePath}" depth="infinite" />
+		</target>
 
-  <target name="generate-ant-build-file-for-invoking-webdsl">
-    <fail unless="taskname" />
-    <fail unless="buildfilename" />
-    <script language="javascript"> <![CDATA[
+		<target name="generate-ant-build-file-for-invoking-webdsl">
+			<fail unless="taskname" />
+			<fail unless="buildfilename" />
+			<script language="javascript">
+				<![CDATA[
               importClass(java.io.File);
               importClass(java.io.BufferedReader);
               importClass(java.io.FileReader);
@@ -260,12 +302,13 @@
                 }
                ]]>
     </script>
-    <antcall target="generate-ant-build-file-launcher" />
-  </target>
-  
-  <target name="generate-ant-build-file-launcher">
-    <fail unless="buildfilename" />
-    <script language="javascript"> <![CDATA[
+		<antcall target="generate-ant-build-file-launcher" />
+	</target>
+
+	<target name="generate-ant-build-file-launcher">
+		<fail unless="buildfilename" />
+		<script language="javascript">
+			<![CDATA[
               importClass(java.io.File);
               importClass(java.io.BufferedReader);
               importClass(java.io.FileReader);
@@ -292,6 +335,7 @@
             buildfile.append("<stringAttribute key=\"org.eclipse.jdt.launching.CLASSPATH_PROVIDER\" value=\"org.eclipse.ant.ui.AntClasspathProvider\"/>\n");
             buildfile.append("<stringAttribute key=\"org.eclipse.jdt.launching.PROJECT_ATTR\" value=\""+projectname+"\"/>\n");
             buildfile.append("<stringAttribute key=\"org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER\" value=\"org.eclipse.ant.ui.AntClasspathProvider\"/>\n");
+		    buildfile.append("<stringAttribute key=\"org.eclipse.ui.externaltools.ATTR_LAUNCH_CONFIGURATION_BUILD_SCOPE\" value=\"${none}\"/>");
             buildfile.append("<stringAttribute key=\"org.eclipse.ui.externaltools.ATTR_LOCATION\" value=\"${workspace_loc:/"+projectname+"/"+buildfilename+".xml}\"/>\n");
             buildfile.append("<stringAttribute key=\"process_factory_id\" value=\"org.eclipse.ant.ui.remoteAntProcessFactory\"/>\n");
             buildfile.append("</launchConfiguration>\n");
@@ -314,6 +358,6 @@
                 }
             ]]>
     </script>
-  </target>
+	</target>
 
 </project>
