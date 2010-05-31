@@ -3,9 +3,15 @@ module org/webdsl/dsl/to-java-servlet/uicomponents/action
 imports
   libstratego-lib
   libjava-front
-
-imports
   libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/template-render
+  org/webdsl/dsl/to-java-servlet/template-action-inputs
+  org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+  org/webdsl/dsl/to-java-servlet/java-code
+  org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
+  org/webdsl/dsl/to-java-servlet/ajax/html-utils
     
 rules
     
@@ -25,12 +31,12 @@ rules
     bstm* |[
       ident = e_actionid;
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
-	    ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
-	      out.print("<input type=\"button\" value=\"");
-	      bstm*
-	      out.print("\" "+e_attrs1+" ");
-	      out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'/>"); 
-	    ]|
+      ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
+        out.print("<input type=\"button\" value=\"");
+        bstm*
+        out.print("\" "+e_attrs1+" ");
+        out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'/>"); 
+      ]|
       }
       else{
         ~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
@@ -52,12 +58,16 @@ rules
 
   id-encoding :
     inputident -> java:expr |[ ident+"~inputident"+uniqueid ]|
+  
+  //pass a refarg object as is, don't call get() which is the normal expression-to-java result
+  action-args-to-java-exp-list =
+    map(try(has-ref-type; remove-ref-type); expression-to-java-servlet)   
         
   handle-actions-to-java-servlet:
     tc@SubmitElem(e1,passign*,elem*) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ActionCall(name,args);!name> e1
-        ; e* := <map(expression-to-java-servlet)> args
+        ; e* := <action-args-to-java-exp-list> args
         ; e4 := <action-id-encoding> (actionident,args)
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
@@ -109,8 +119,8 @@ rules
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
 
   fetch-ajax-property-as-java-boolean :
-  	passign* -> e_ajaxmodifier
-  	with if <fetch(TemplateCallPropertyAjax)> passign*
+    passign* -> e_ajaxmodifier
+    with if <fetch(TemplateCallPropertyAjax)> passign*
          then e_ajaxmodifier := java:expr |[ true ]|
          else e_ajaxmodifier := java:expr |[ false ]|
          end
@@ -119,7 +129,7 @@ rules
     tc@SubmitLinkElem(e1,passign*,elem*) -> result
     with  actionident := <get-actionnumber> tc   
         ; x_action := <?ActionCall(name,args);!name> e1
-        ; e* := <map(expression-to-java-servlet)> args
+        ; e* := <action-args-to-java-exp-list> args
         ; e4 := <action-id-encoding> (actionident,args)        
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
         ; x_temp := <newname> "temp"

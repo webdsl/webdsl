@@ -246,9 +246,12 @@ rules //initialization
       if (x_id != null) {   
         String[] x_ar = x_id.split(":");
         String x_uuid = x_ar[0];
-        String x_classnamesecondpart = x_ar[1];
+        String x_classname = x_ar[1];
+        //String x_classnamesecondpart = x_ar[1];
         try{
-          utils.RefArg x_rap = (utils.RefArg) ThreadLocalPage.get().getRefArgClasses().get("~x_classnamefirstpart"+x_classnamesecondpart).newInstance();
+          utils.RefArg x_rap = 
+            (utils.RefArg) ThreadLocalPage.get().getRefArgClasses().get(x_classname).newInstance();
+          //utils.RefArg x_rap = (utils.RefArg) ThreadLocalPage.get().getRefArgClasses().get("~x_classnamefirstpart"+x_classnamesecondpart).newInstance();
           x_rap.load(x_uuid);
           x = x_rap;
         }
@@ -270,11 +273,12 @@ rules //initialization
       }
     ]|
     with  x_id := <concat-strings>[x, "_id"]
-        ; x_classnamefirstpart := <gen-page-ref-arg-class-name-first-part> (<ThisTemplateName>,argnum)
+        //; x_classnamefirstpart := <gen-page-ref-arg-class-name-first-part> (<ThisTemplateName>,argnum)
         ; x_ar := <newname> "array"
         ; x_rap := <newname> "rap"
         ; x_uuid := <newname> "uuid"
-        ; x_classnamesecondpart := <newname> "callnum"
+        //; x_classnamesecondpart := <newname> "callnum"
+        ; x_classname := <newname> "refargclass"
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -352,6 +356,11 @@ rules //initialization
     where <builtin-java-type> srt
         ; <?SimpleSort("String")> srt
 
+
+  /**
+   *  @TODO part below needs refactoring, only the value is different in each case
+   */
+   
   //hiddens for form
                                    //JavaThisPage
   GenerateCodeJavaServlet =  where((JavaThisPage<+ThisTemplateName);not(InAction)); page-class-generation-test; form-hidden-page-params-java-servlet ; fail
@@ -367,6 +376,7 @@ rules //initialization
     ]|
     where <builtin-java-type> s
         ; not( GenericSort(_,_) := s)
+        ; not(<?RefSort(_)> s)
 
   form-hidden-page-params-java-servlet :
     Arg(x, s) -> <generate-java-servlet-partial>
@@ -378,6 +388,7 @@ rules //initialization
       }
     ]|
     where <defined-java-type> s
+        ; not(<?RefSort(_)> s)
     
   form-hidden-page-params-java-servlet :
     Arg(x, srt) -> <generate-java-servlet-partial>
@@ -390,6 +401,17 @@ rules //initialization
     ]|
     where GenericSort(_,[s]) := srt
         ; <defined-java-type> s  
+          
+  form-hidden-page-params-java-servlet :
+    Arg(x, srt) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenParams(java.lang.StringBuffer combinedparams)
+      {       
+        combinedparams.append("<input type=\"hidden\" name=\""+"~<get-original-name> x"+"\" value=\""+utils.HTMLFilter.filter(x.getUrlString())+"\" />");    
+      }
+    ]|
+    where RefSort(_) := srt
        
   GenerateCodeJavaServlet =  where((JavaThisPage<+ThisTemplateName);not(InAction)); page-class-generation-test; form-post-page-params-java-servlet ; fail
        
@@ -409,6 +431,7 @@ rules //initialization
     ]|
     where <builtin-java-type> s
         ; not( GenericSort(_,_) := s)
+        ; not(<?RefSort(_)> s)
 
   form-post-page-params-java-servlet :
     Arg(x, s) -> <generate-java-servlet-partial>
@@ -425,6 +448,7 @@ rules //initialization
       }
     ]|
     where <defined-java-type> s
+        ; not(<?RefSort(_)> s)
 
   form-post-page-params-java-servlet  :
     arg@farg|[ x_ident : srt ]| -> <generate-java-servlet-partial>
@@ -442,4 +466,20 @@ rules //initialization
     ]|
     where <?GenericSort(_,[s])> srt
         ; <defined-java-type> s
+          
+  form-post-page-params-java-servlet  :
+    arg@farg|[ x_ident : srt ]| -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("~<get-original-name> x_ident"+"="+utils.HTMLFilter.filter(x_ident.getUrlString())+"&");
+      }
+      @Partial 
+      public void hiddenPostParamsJson(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("{name:\""+"~<get-original-name> x_ident"+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(x_ident.getUrlString()) + "\"},");
+      }
+    ]|
+    where <?RefSort(_)> srt
     

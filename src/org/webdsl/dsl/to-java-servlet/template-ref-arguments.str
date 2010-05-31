@@ -9,6 +9,7 @@ imports
   org/webdsl/dsl/to-java-servlet/type-utils
   org/webdsl/dsl/to-java-servlet/java-code
   org/webdsl/dsl/to-java-servlet/emit-java-local
+  org/webdsl/dsl/to-java-servlet/hibernate-util
 
 rules
 
@@ -16,31 +17,38 @@ rules
   create-assigns-for-ref-arg=
     zip(create-assigns-for-ref-arg-helper <+ !None())
        
-  generate-ref-arg-storage-class :
+  /*generate-ref-arg-storage-class :
     e_webdsl -> x_refstorageclass
     where key := (<ThisTemplateName>,e_webdsl)
         ; x_refstorageclass := <GeneratedRefArgStorageClass> key
-
+*/
   generate-ref-arg-class-name : 
     (templatename,e_webdsl) -> <!["RefArg_",templatename];concat-strings;newname>
   
 rules // case of template var      
 
   //for passing on refarg don't use regular expression translation, since it will add a call to `get`    
-  create-assigns-for-ref-arg-helper :
+  create-assigns-for-ref-arg-helper = pass-on-ref-arg
+    
+  pass-on-ref-arg :
     (Arg(_,RefSort(_)), e_webdsl@Var(x)) -> e|[ x ]|
     where <has-ref-type> e_webdsl
     
   create-assigns-for-ref-arg-helper :
     (Arg(_,RefSort(_)), e_webdsl@Var(_)) -> e|[ new x_refstorageclass(this) ]| //`this` is the template class
     where not(<has-ref-type> e_webdsl)
-    with  x_refstorageclass := <generate-ref-arg-storage-class> e_webdsl
+    with  x_refstorageclass := <generate-ref-arg-storage-class-template-var> e_webdsl
       
-  generate-ref-arg-storage-class :
+  generate-ref-arg-storage-class-template-var :
+    e_webdsl@Var(_) -> x_refstorageclass
+    where key := (<ThisTemplateName>,e_webdsl)
+        ; x_refstorageclass := <GeneratedRefArgStorageClass> key
+          
+  generate-ref-arg-storage-class-template-var :
     e_webdsl@Var(_) -> x_refstorageclass
     where key := (<ThisTemplateName>,e_webdsl)
         ; not(<GeneratedRefArgStorageClass> key)
-    with srt_webdsltype := <get-type-anno> e_webdsl
+    with  srt_webdsltype := <get-type-anno> e_webdsl
         ; x_type := <java-type-name> srt_webdsltype 
         ; e_webdsl2 := <wrap-exp-in-fieldaccess(|"template")> e_webdsl
         ; e_java := <expression-to-java-servlet> e_webdsl2
@@ -66,6 +74,7 @@ rules // case of template var
                   return e_java;
                 }
                 public void load(String uuid){}//not used for this case
+                public String getUrlString(){return "not supported for this type of reference argument (refers to template variable)";}//not used for this case
               }
             ]|
         ; rules (GeneratedRefArgStorageClass : key -> x_refstorageclass)
@@ -77,28 +86,47 @@ rules // case of template var
     Var(x){anno*} -> FieldAccess(<create-webdsl-dummy-var> name,x){anno*}
   wrap-exp-in-fieldaccess(|name):
     FieldAccess(exp,ident) -> FieldAccess(<wrap-exp-in-fieldaccess(|name)> exp, ident)
-
+/*
 rules //case of object field access
     
   create-assigns-for-ref-arg-helper :
     (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_refstorageclass(e_javaobj) ]|
+    where not(<has-ref-type> e_webdsl)
     with  x_refstorageclass := <generate-ref-arg-storage-class> e_webdsl
         ; e_java := <expression-to-java-servlet> e_webdsl
         ; e_javaobj := <expression-to-java-servlet> e_obj
-    
+  */
+rules //object field access, page specific rules 
+  
+  create-assigns-for-ref-arg-helper-page-ref-arg = pass-on-ref-arg
+
   create-assigns-for-ref-arg-helper-page-ref-arg :
-    (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ e_javaobj.getId()+":"+"~classnamesecond" ]|
+    (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ e_javaobj.getId()+":"+"~classname" ]|
+    where not(<has-ref-type> e_webdsl) 
     with  classnamefirst := <get-refargclassname-first> e_webdsl
         ; classnamesecond := <get-refargclassname-second> e_webdsl
         ; classname := <concat-strings> [classnamefirst, classnamesecond]
-        ; <generate-ref-arg-storage-class(|classname)> e_webdsl
+        ; <try(generate-ref-arg-storage-class(|classname))> e_webdsl
         ; e_javaobj := <expression-to-java-servlet> e_obj
+
+rules //case of object field access, regular and ajax template
          
+  create-assigns-for-ref-arg-helper :
+    (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_classname(e_javaobj) ]| 
+    where not(<has-ref-type> e_webdsl)
+    with  classnamefirst := <get-refargclassname-first> e_webdsl
+        ; classnamesecond := <get-refargclassname-second> e_webdsl
+        ; x_classname := <concat-strings> [classnamefirst, classnamesecond]
+        ; <try(generate-ref-arg-storage-class(|x_classname))> e_webdsl
+        ; e_javaobj := <expression-to-java-servlet> e_obj
+        /* 
   generate-ref-arg-storage-class :
     e_webdsl@FieldAccess(e_object,f) -> x_refstorageclass
     with  key := (<ThisTemplateName>,e_webdsl)
         ; x_refstorageclass := <generate-ref-arg-class-name> key
         ; <generate-ref-arg-storage-class(|x_refstorageclass)> e_webdsl
+    */
+rules //general rules for creating ref arg class 
     
   generate-ref-arg-storage-class(|x_refstorageclass) :
     e_webdsl@FieldAccess(e_object,f) -> x_refstorageclass
@@ -112,6 +140,7 @@ rules //case of object field access
         ; pkgname3 := <BeanPackage>
         ; x_class := <get-type-anno; java-type-name> e_object
         ; (<?Var(x_name)> e_object <+ x_name := <newname> "obj")
+        //;(classnamesecond := <get-refargclassname-second> e_webdsl <+ classnamesecond := "")
         ; <emit-java-code-local>
             compilation-unit|[
               package pkgname3;
@@ -140,6 +169,9 @@ rules //case of object field access
                   catch (ClassNotFoundException cnfe) { 
                     throw new RuntimeException(cnfe); 
                   }      
+                }
+                public String getUrlString(){
+                  return x_name.getId()+":"+"~x_refstorageclass";
                 }
               }
             ]|
