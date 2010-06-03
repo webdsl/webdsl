@@ -1,0 +1,58 @@
+module org/webdsl/dsl/languages/data-model/default-annotation
+
+/**
+ *  default=exp property annotation
+ */
+rules
+
+strategies
+
+  desugar-ui :
+    Entity(x_class,super, entbodydecs1) -> <rename> Entity(x_class,super, entbodydecs2) 
+    where <oncetd(not-translated-default-anno)> entbodydecs1
+    with  entbodydecs2 := <get-all-function-default-annotation(|x_class)> entbodydecs1
+    
+  desugar-ui : 
+    EntityNoSuper(x_class, entbodydecs1) -> <rename> EntityNoSuper(x_class, entbodydecs2) 
+    where <oncetd(not-translated-default-anno)> entbodydecs1
+    with  entbodydecs2 := <get-all-function-default-annotation(|x_class)> entbodydecs1
+    
+  desugar-ui :
+    SessionEntity(x_class, entbodydecs1) -> <rename> SessionEntity(x_class, entbodydecs2) 
+    where <oncetd(not-translated-default-anno)> entbodydecs1
+    with  entbodydecs2 := <get-all-function-default-annotation(|x_class)> entbodydecs1
+   
+signature
+  constructors 
+    DefaultAnnotationFunctionGenerated: Term //-> Term
+  
+rules 
+
+  not-translated-default-anno : 
+    prop@Property(x, k, srt, annos) -> prop
+    where <fetch(?DefaultAnno(e1))> annos
+        ; <not(fetch(DefaultAnnotationFunctionGenerated))> annos
+
+  get-all-function-default-annotation(|x_class):
+    entbodydecs1 -> entbodydecs2
+    with  tuples := <map(get-function-default-annotation(|x_class) <+ !(<id>,[]) )> entbodydecs1
+        ; (props2,funcs1) := <unzip> tuples
+        ; funcs2 := <flatten-list> funcs1
+        ; rest := <remove-all(?Property(_,_,_,_))> entbodydecs1
+        ; entbodydecs2 := <concat> [props2,funcs2,rest]
+
+  get-function-default-annotation(|x_class) :  
+    prop@Property(x, k, srt, annos) -> 
+    (Property(x, k, srt, [DefaultAnnotationFunctionGenerated()|annos])
+    ,result)
+    where not-translated-default-anno
+    with  <fetch(?DefaultAnno(e1))> annos
+        ; x_name := x_class //<default-collection-function-name> x
+        ; srt_typeof := <type-of> e1
+        ; result := 
+            fun |[ 
+              extend function x_name() { x := e1; } 
+            ]|
+     
+  //default-collection-function-name : x -> <concat-strings> ["defaultForProperty",<capitalize-string> x]   
+  
