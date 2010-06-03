@@ -1,30 +1,41 @@
 application exampleapp
 
 define page root() {
-  //for(i:Int from 0 to 9){
   form{
-    //input(p1.relation)
-    radio(p1.relation,from Person)[style="margin-left:20px;"]
+    for(p:Person){
+      radio(p.relation,from Person)[style="margin-left:20px;"]
+      radio(p.relbla,from Bla)[style="height:20px;widht:20px;"]
+    } separated-by{<br />}
     submit action{} {"save"}
   }
-  //}
   <br />
-  output(p1.relation)
+  for(p:Person){
+    output(p.relation)
+    output(p.relbla)
+  }separated-by{<br />}
 }
 
 entity Person {
   name    :: String
   relation -> Person
+  relbla -> Bla
 }
+
+entity Bla {
+  name :: String
+}
+
+var b1 := Bla{ name := "b1" }
+var b2 := Bla{ name := "b2" }
 
 var p1 := Person{ name := "1" }
 var p2 := Person{ name := "2" }
 var p3 := Person{ name := "3" }
 var p4 := Person{ name := "4" }
 
-define ignore-access-control radio(e1:Ref<Person>,e2:List<Person>){
-  var rname := getUniqueTemplateId() //needs to be reconstructable upon submit
-  for(p:Person in e2 order by p.name){
+define ignore-access-control radio1(e1:Ref<Entity>,e2:List<Entity>){
+  var rname := getUniqueTemplateId()
+  for(p:Entity in e2 order by p.name){
     if(e1==p){
       <input type="radio" checked="checked" name=rname value=p.id all attributes/>
     }
@@ -33,15 +44,10 @@ define ignore-access-control radio(e1:Ref<Person>,e2:List<Person>){
     }
     output(p.name)
   }
-  
   databind{
-    log(getUniqueTemplateId());
-    var tmp := getRequestParameter(rname);
+    var tmp : String:= getRequestParameter(rname);
     if(tmp != null){
-      log(tmp);
-//      var p := loadPerson(UUIDFromString(tmp));
-      var p := loadEntity("Person",UUIDFromString(tmp)) as Person;
-      log(""+p);
+      var p := loadEntity(e1.getTypeString(),UUIDFromString(tmp));
       if(p in e2){
         e1 := p;
       }

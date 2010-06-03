@@ -4,8 +4,8 @@ signature constructors
   IsGeneratedProperty : Term
 
 imports
-	libwebdsl-front
-	org/webdsl/dsl/generation/webdsl-generator
+  libwebdsl-front
+  org/webdsl/dsl/generation/webdsl-generator
 
 overlays
 
@@ -25,9 +25,9 @@ strategies
 
 strategies
 
-	// Prevent name clash of entity & functions for backend cache
-	get-toplevel-name = get-entity-def; ?(<concat-strings> ["ent_",<id>],_)
-	get-toplevel-name = get-extend-entity-def; ?(<concat-strings> ["ent_",<id>],_)
+  // Prevent name clash of entity & functions for backend cache
+  get-toplevel-name = get-entity-def; ?(<concat-strings> ["ent_",<id>],_)
+  get-toplevel-name = get-extend-entity-def; ?(<concat-strings> ["ent_",<id>],_)
 
 strategies // register all declared entities
 
@@ -73,18 +73,24 @@ strategies // register all declared entities
 
 rules
 
-	IsEntity = where(EntDecl)
+  IsEntity = where(EntDecl)
   is-entity-type = where(?SimpleSort(<IsEntity>)) //without the where it would remove SimpleSort constructor due to term projection syntax
 
-  Extends = EntDecl; ?Entity(_,<id>,_)
+  Extends :
+    x_class -> x_super
+    where x_super := <EntDecl; ?Entity(_,<id>,_)> x_class
+  
+  Extends :
+    GenericSort(c,[SimpleSort(x_class)]) -> GenericSort(c,[SimpleSort(x_super)]) 
+    where x_super := <EntDecl; ?Entity(_,<id>,_)> x_class
 
   declare-entity =
       ?ent@Entity(x_class, x_super, entbodydecs)
     ; with(
-   	    props := <filter(is-property-cons)> entbodydecs
+         props := <filter(is-property-cons)> entbodydecs
       ; funcs := <filter(is-function-cons)> entbodydecs
       ; rules(
-        	EntDecl :+ x_class -> ent
+          EntDecl :+ x_class -> ent
 
           Properties :+
             x_class -> props
@@ -112,8 +118,8 @@ rules
 
   declare-entity = ?EntityNoSuper(_, _); declare-normalized
   
-	get-class-hierarchy:
-		x -> [x | <defined-superclasses> x]
+  get-class-hierarchy:
+    x -> [x | <defined-superclasses> x]
 
   defined-superclasses :
     x -> []
@@ -132,8 +138,8 @@ rules
     ; with (id
       ; x_class := <capitalize-string> nm
       ; rules(
-      		TypeOf : nm -> SimpleSort(x_class)
-      		VarDecl :+ nm -> sent
+          TypeOf : nm -> SimpleSort(x_class)
+          VarDecl :+ nm -> sent
           IsSessionEntityType : SimpleSort(x_class) 
         )
       ; <declare-normalized> sent
@@ -168,11 +174,11 @@ rules
              //RenameProperty : (x_class,x) -> y
            )
     ; with (
-    		try(
-   					<fetch(?SimpleAnno("searchable"))> annos
-    			; rules( IndexedEntity : x_class )
-    		)
-    	)
+        try(
+             <fetch(?SimpleAnno("searchable"))> annos
+          ; rules( IndexedEntity : x_class )
+        )
+      )
     ; !prop
     ; try(declare-list-property(|x_class))
     ; try(<create-prop-required-rule(|x_class,x)> annos)
@@ -193,11 +199,11 @@ rules
   declare-property(|x_class) =
     ?prop@DerivedProperty(x, k, srt, annos, e)
     ; where (
-    		try(
-   					<fetch(?SimpleAnno("searchable"))> annos
-    			; rules( IndexedEntity : x_class )
-    		)
-    	)
+        try(
+             <fetch(?SimpleAnno("searchable"))> annos
+          ; rules( IndexedEntity : x_class )
+        )
+      )
     ; rules(
         IsDerivedProperty : (x_class, x) //use in constraint to prevent assignment to derived prop
       )
@@ -239,9 +245,6 @@ rules
     ?(x_class, x)
     ; (PropertyAnnos <+ <property-annos> (<Extends> x_class, x))
 
-  built-in-template-rule-setup =
-  		<map(declare-property(|"Entity"));fail> [VersionProperty(), IdProperty(), NameProperty()]
-    
   is-indexed-entity =
       IndexedEntity
     <+ 
@@ -259,5 +262,5 @@ rules // functions that cannot be overloaded
 rules // backend annotations
 
   add-backend-annotation =
-	  ?Entity(x_class,_,_)
-  	; add-new-anno(|SuperClassesAnno(<defined-superclasses> x_class))
+    ?Entity(x_class,_,_)
+    ; add-new-anno(|SuperClassesAnno(<defined-superclasses> x_class))
