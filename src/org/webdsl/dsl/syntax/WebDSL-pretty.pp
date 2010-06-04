@@ -1170,7 +1170,9 @@
    
    HqlStatement -- _1 KW[";"],
    NotNullAnno -- "not null",
-   SingleParamAnno -- _1 KW["="] _2,
+   DefaultAnno -- KW["default="] _1,
+   LengthAnno  -- KW["length="] _1,
+   FormatAnno  -- KW["format="] _1,
    
    NativeClass -- KW["native"] KW["class"] _1 _2 _3 KW["{"] _4 KW["}"],
    NativeClassAlias -- KW["as"] _1,
