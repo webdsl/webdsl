@@ -8,6 +8,7 @@ SUBDIRS = src src/org/webdsl/dsl/project test
 cleaner : fullclean # alias
 
 fullclean :
+	./cleanall.sh
 	$(MAKE) -C src cleaner
 
 syntax :
