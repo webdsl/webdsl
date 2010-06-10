@@ -40,3 +40,21 @@ application test
  
     
   }
+  
+  function replacenewline1(x : String) : String {
+    return /\n/.replaceAll("",x);
+  }
+  function replacenewline2(x : String) : String {
+    return /[\n]/.replaceAll("",x);
+  }
+  function replacenewline3(x : String) : String {
+    return /\r|\n|\r\n/.replaceAll("",x);
+  }
+
+  test regexnewline {
+    assert(replacenewline1("\n1\n2\n3\n4\n\n") == "1234");     
+    assert(replacenewline2("\n\n\n\n\n1234\n") == "1234");     
+    assert(replacenewline3("\r\n\r\n") == "");     
+    assert(replacenewline3("1\r2\n3\r\n4") == "1234");     
+    
+  }
