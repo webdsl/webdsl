@@ -25,7 +25,7 @@ EXTRA_DIST = \
 TESTS = testnewproject.sh
 
 nobase_dist_pkgdata_DATA = \
-  $(WEBDSL_TEMPLATES) \
+  $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \
   template-java-servlet/lib/webdsl-support.jar \
   webdsl-build.xml \
   webdsl-build-command.xml \
