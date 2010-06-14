@@ -2,7 +2,7 @@ module check
 
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
-imports type-analysis rename pretty-print
+imports type-analysis rename pretty-print primitives
 
 rules // static analysis
 
@@ -35,68 +35,56 @@ strategies
 rules // entity declarations
   
   check :
-    SimpleType(x) -> (x, $[Type '[x]' is not defined])
-    where require(is-simple-type)
+    t@SimpleType(x) -> (x, $[Type '[x]' is not defined])
+    where require(<is-simple-type> t)
 
 rules // expressions
 
   check :
-    Var(x) -> (<id>, $[Variable '[x]' not declared])
-    where require(type-of)
+    e@Var(x) -> (<id>, $[Variable '[x]' not declared])
+    where require(<type-of>e)
    
   check :
     e1@PropertyAccess(e2, f) -> (f, $[[<pp>t] has no property '[f]])
     where t := <type-of> e2
     where require(<type-of>e1)
-
-  check :
-    MethodCall(e, f, e*) -> (f, $[Method not defined])
-    where require(type-of)
-
+    
 rules // template references
   
   check :
-    TemplateRef(x, e*) -> (x, $[Template '[x]' is not defined])
+    TemplateRef(x, e*) -> (x, $[Reference to undefined template '[x]'])
     where not(<is-primitive-template> x)
     where require(<Template> x)
-
-  check :
-    ref@TemplateRef(x, e*) -> (x, $[No definition for template with signature '[x]([<map(type-of);pp> e*])'])
-    where not(<is-primitive-template> x)
-    where <Template> x
-    where require(<declaration-of>ref)
-  
-  check :
-    ref@TemplateRef(f, e*) -> errors 
-    where def := <declaration-of> ref
-    where errors := <zip; filter(check-arg); not(?[])> (e*, <param-types> def)
     
+  check :
+    ref@TemplateRef(x, e*) -> errors 
+    where not(<declaration-of>ref)
+    where def := <Template> x
+    where errors := <zip; filter(check-arg); not(?[])> (e*, <param-types> def)
+   
   check-arg :
     (e, t) -> (e, $[Argument of type '[<pp>t]' expected (not of type '[<pp>t2]')])
     where t2 := <type-of> e
     where require(<eq>(t, t2))
 
   check :
-    ref@TemplateRef(f, e*) -> [(f, $['[f]' expects [<int-to-string>l] arguments; [<int-to-string>k] provided])]
-    where def := <declaration-of> ref
+    ref@TemplateRef(x, e*) -> [(x, $['[x]' expects [<int-to-string>l] arguments; [<int-to-string>k] provided])]
+    where not(<declaration-of>ref)
+    where def := <Template> x
     with k := <length>e*
     with l := <param-types; length> def
     where require(<eq>(k, l))
         
 rules // page references and template calls 
-
-  check :
-    PageRef(TemplateRef(x, e*)) -> (x, $[Navigation to non-existing page])
-    where require(declaration-of)
   
   check :
-    r@PageRef(TemplateRef(x, e*)) -> [(x, $[Navigation to template '[x]' (not a page)])]
-    where def := <declaration-of> r
+    PageRef(ref@TemplateRef(x, e*)) -> [(x, $[Navigation to template '[x]' (not a page)])]
+    where def := <declaration-of> ref
     where require(<is-page-def> def)
 
   constraint-warning :
-    Call(TemplateRef(x, e*), elem*) -> [(x, $[Page definition is used as template])]
-    where def := <declaration-of>
+    Call(ref@TemplateRef(x, e*), elem*) -> [(x, $[Page definition is used as template])]
+    where def := <declaration-of> ref
     where require(not(<is-page-def> def))
       
   check :
@@ -133,3 +121,7 @@ rules
   check :
     IfElement(e, elem1*, elem2*) -> (e, $[])
     where require(<type-of> e)
+    
+  check :
+    MethodCall(e, f, e*) -> (f, $[Method not defined])
+    where require(type-of)

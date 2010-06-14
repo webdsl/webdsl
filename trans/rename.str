@@ -8,18 +8,15 @@ rules // resolution
 
   editor-resolve:
     (SimpleType(type), position, ast, path, fullpath) -> target
-    where 
-      Entity(target,_) := <EntityDeclaration> type
+    where Entity(target,_) := <EntityDeclaration> type
  
   editor-resolve:
     (ref@TemplateRef(x,e*), position, ast, path, fullpath) -> target
-    where
-      TemplateDef(_,target,_,_) := <declaration-of> ref
+    where TemplateDef(_,target,_,_) := <declaration-of> ref
 
   editor-resolve:
     (e@Var(x), position, ast, path, fullpath) -> target
-    where
-      target := <declaration-of> e
+    where target := <declaration-of> e
 
 rules
 
@@ -28,17 +25,16 @@ rules
     desugar-all;
     alltd(declare-def); 
     rename-all
-
-strategies
     
-  rename-all = alltd(rename)   
-
 rules // top-level declarations
   
   declare-def:
     ent@Entity(x, prop*) -> Entity(x, prop*)
     with rules( EntityDeclaration : x -> ent )
 
+  declaration-of : 
+    SimpleType(x) -> <EntityDeclaration> x
+  
   declare-def :
     def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
     with sig := <signature-of> def;
@@ -47,16 +43,32 @@ rules // top-level declarations
            Template : sig -> def
          )
 
+  signature-of : 
+    TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
+
+  param-types : 
+    TemplateDef(mod*, x, param*, elem*) -> <param-types> param*
+
+  signature-of :
+    TemplateRef(x, e*) -> (x, t*)
+    where t* := <map(type-of)> e*
+    
+  declaration-of : 
+    ref@TemplateRef(x, e*) -> def
+    where def := <signature-of; Template> ref
+    
+rules // renaming local identifiers
+    
+  rename-all = alltd(rename) 
+
   rename : 
     TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
-    with {| RenameId//, RenameAction 
+    with {| RenameId
           : param2* := <rename-all> param1*
           ; elem2*  := <alltd(rename)> elem1*
           ; elem3*  := <rename-all> elem2*
           |}
-
-rules // renaming local identifiers
-  
+           
   rename : 
     Param(x, t) -> Param(y, t)
     with y := <rename-var>(x, t)
@@ -70,8 +82,11 @@ rules // renaming local identifiers
           )
 
   rename : 
-    Var(x) -> Var(y) where y := <RenameId> x
-           
+    Var(x) -> Var(y) 
+    where y := <RenameId> x
+
+rules // name resolution
+             
   rename-res :  
     Param(x, t) -> <declare-var(|y)> Param(y, t)
     with y := <rename-var>(x, t)
@@ -79,3 +94,16 @@ rules // renaming local identifiers
   declare-var(|x) : 
     decl -> decl 
     with rules( VariableDeclaration : x -> decl )
+
+  declaration-of : 
+    Var(x) -> <VariableDeclaration> x
+  
+  declaration-of : 
+    TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
+
+  declaration-of : 
+    PageRef(r) -> <declaration-of> r
+    
+  declaration-of : 
+    Navigate(ref, elems) -> <declaration-of> ref
+        
