@@ -20,10 +20,16 @@ rules // projection
     Navigate(ref, elems) -> <declaration-of> ref
     
   declaration-of : 
-    PageRef(x, e*) -> <Template> x
+    TemplateRef(x, e*) -> <Template> x
+   
+  declaration-of :
+    PageRef(r) -> <declaration-of> r
     
   call-of : 
-    PageRef(x, e*) -> (x, e*)
+    TemplateRef(x, e*) -> (x, e*)
+    
+  call-of :
+    PageRef(r) -> <call-of> r
 
 rules // name resolution 
 
@@ -37,25 +43,33 @@ rules // name resolution
 
   rename : 
     TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
-    with {| RenameId, RenameAction
+    with {| RenameId//, RenameAction
           : param2* := <rename-all> param1*
-          ; elem2*  := <alltd(rename-action)> elem1*
+          ; elem2*  := <alltd(rename)> elem1*
           ; elem3*  := <rename-all> elem2*
           |}
         
 rules // checking 
+  
+  check :
+    IfElement(e, elem1, elem2) -> (e, $[])
+    where require(<type-of> e) 
 
   check :
-    PageRef(x, e*) -> (x, $[Navigation to non-existing page])
+    IfElement(e, elem1, elem2) -> (e, $[])
+    where require(<type-of> e) 
+
+  check :
+    PageRef(TemplateRef(x, e*)) -> (x, $[Navigation to non-existing page])
     where require(declaration-of)
  
   check :
-    PageRef(x, e*) -> [(x, $[Navigation to template '[x]' (not a page)])]
+    PageRef(TemplateRef(x, e*)) -> [(x, $[Navigation to template '[x]' (not a page)])]
     where def := <declaration-of>
     where require(<is-page-def> def)
         
   check :
-    PageRef(x, e*) -> <check-args> 
+    TemplateRef(x, e*) -> <check-args> 
   
   check :
     def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])
