@@ -2,7 +2,7 @@ module rename
 
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
-imports desugar type-analysis
+imports desugar type-analysis primitives 
 
 rules // resolution
 
@@ -16,10 +16,15 @@ rules // resolution
     where
       TemplateDef(_,target,_,_) := <declaration-of> ref
 
+  editor-resolve:
+    (e@Var(x), position, ast, path, fullpath) -> target
+    where
+      target := <declaration-of> e
+
 rules
 
   declare-all =
-    declare-primitive-types;
+    declare-primitives;
     desugar-all;
     alltd(declare-def); 
     rename-all
@@ -28,14 +33,29 @@ strategies
     
   rename-all = alltd(rename)   
 
-rules
+rules // top-level declarations
   
   declare-def:
     ent@Entity(x, prop*) -> Entity(x, prop*)
     with rules( EntityDeclaration : x -> ent )
 
+  declare-def :
+    def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
+    with sig := <signature-of> def;
+         rules(
+           Template : x -> def
+           Template : sig -> def
+         )
 
-rules
+  rename : 
+    TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
+    with {| RenameId//, RenameAction 
+          : param2* := <rename-all> param1*
+          ; elem2*  := <alltd(rename)> elem1*
+          ; elem3*  := <rename-all> elem2*
+          |}
+
+rules // renaming local identifiers
   
   rename : 
     Param(x, t) -> Param(y, t)
@@ -59,22 +79,3 @@ rules
   declare-var(|x) : 
     decl -> decl 
     with rules( VariableDeclaration : x -> decl )
-
-rules // name resolution 
-
-  declare-def :
-    def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
-    with sig := <signature-of> def;
-         rules(
-           Template : x -> def
-           Template : sig -> def
-         )
-
-  rename : 
-    TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
-    with {| RenameId//, RenameAction 
-          : param2* := <rename-all> param1*
-          ; elem2*  := <alltd(rename)> elem1*
-          ; elem3*  := <rename-all> elem2*
-          |}
-      
