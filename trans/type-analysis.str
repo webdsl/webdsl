@@ -1,0 +1,146 @@
+module type-analysis
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports pretty-print rename
+
+rules
+  
+  module-name :
+    Module(x, d*) -> x
+    
+rules // primitive types
+
+  declare-primitive-types =
+    where( primitive-types; map(declare-primitive-type) )
+  
+  primitive-types =
+    !["Bool", "String", "Int", "Text", "WikiText", "Secret"]
+  
+  declare-primitive-type =
+    ?x; rules( IsPrimitiveType : x -> x )
+  
+  is-primitive-type =
+     SimpleType(IsPrimitiveType)
+   
+  is-string-type =
+    ?SimpleType("String")
+
+rules // type-of
+ 
+  type-of : 
+    StringLit(x) -> SimpleType("String" )
+    
+rules // property access
+  
+  type-of : 
+    PropertyAccess(e, f) -> <type-of; lookup-property(|f); type-of> e
+    
+  type-of :
+     MethodCall(e, f, e*) -> <method-type> (<type-of>e, f, <map(type-of)> e*)
+      
+  method-type :
+    (t, "save", []) -> SimpleType("Void")
+    where <is-entity-type> t
+  
+  method-type :
+    (SimpleType("Int"), "inc", []) -> SimpleType("Int")
+   
+  method-type :
+    (SimpleType("Int"), "add", [SimpleType("Int")]) -> SimpleType("Int")  
+
+
+rules // types
+
+  declaration-of : 
+    SimpleType(x) -> <EntityDeclaration> x
+
+  is-entity-type = 
+    where(SimpleType(EntityDeclaration))
+
+  is-simple-type = 
+    is-primitive-type <+ is-entity-type
+    
+rules // looking up properties
+
+  lookup-property(|x) = 
+    lookup-property(?Property(x,_))
+  
+  lookup-property(s) : 
+    Entity(x, prop*) -> <fetch-elem(s)> prop*
+  
+  lookup-property(s) : 
+    SimpleType(x) -> <declaration-of; lookup-property(s)>
+  
+  type-of : 
+    Property(_, type) -> type
+    
+rules // declaring entities
+
+  name-of : 
+    Entity(x, prop*) -> x
+    
+  type-of : 
+    Entity(x, prop*) -> SimpleType(x)rules // name resolution
+
+rules // projections
+
+  param-types = 
+    is-list; map(?Param(_,<id>))
+  
+  type-of : 
+    Var(x) -> t where t := <TypeOf> x
+ 
+rules // reference to variable declaration for reference resolving (not relevant for checking)
+
+  declaration-of : 
+    Var(x) -> <VariableDeclaration> x
+    
+rules // projection
+ 
+  is-page-def = 
+    ?TemplateDef([Page()],_,_,_)
+    
+  param-types : 
+    TemplateDef(mod*, x, param*, elem*) -> <param-types> param*
+    
+  signature-of :  
+    TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
+    
+  declaration-of : 
+    TemplateDef(mod*, x, param*, elem*) -> <signature-of; Template>
+
+  declaration-of : 
+    Navigate(ref, elems) -> <declaration-of> ref
+    
+  declaration-of : 
+    TemplateRef(x, e*) -> <Template> x
+   
+  declaration-of :
+    PageRef(r) -> <declaration-of> r
+    
+  call-of : 
+    TemplateRef(x, e*) -> (x, e*)
+    
+  call-of :
+    PageRef(r) -> <call-of> r 
+
+rules // projection
+
+  // signature-of : 
+  	// Call(r, elem*) -> <signature-of> r
+  	
+  //signature-of : 
+    // TemplateRef(x, e*) -> (x, <map(type-of)> e*)
+
+  // call-of : 
+    // Call(TemplateRef(x, e*), elem*) -> (x, e*)
+
+  //declaration-of : 
+    // Call(TemplateRef(x, e*), elem*) -> <signature-of; Template>
+
+  is-primitive-template =  
+    ?"input" <+ ?"output" <+ ?"form"
+
+
+

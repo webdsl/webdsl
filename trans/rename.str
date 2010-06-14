@@ -1,0 +1,80 @@
+module rename
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports desugar type-analysis
+
+rules // resolution
+
+  editor-resolve:
+    (SimpleType(type), position, ast, path, fullpath) -> target
+    where 
+      Entity(target,_) := <EntityDeclaration> type
+ 
+  editor-resolve:
+    (ref@TemplateRef(x,e*), position, ast, path, fullpath) -> target
+    where
+      TemplateDef(_,target,_,_) := <declaration-of> ref
+
+rules
+
+  declare-all =
+    declare-primitive-types;
+    desugar-all;
+    alltd(declare-def); 
+    rename-all
+
+strategies
+    
+  rename-all = alltd(rename)   
+
+rules
+  
+  declare-def:
+    ent@Entity(x, prop*) -> Entity(x, prop*)
+    with rules( EntityDeclaration : x -> ent )
+
+
+rules
+  
+  rename : 
+    Param(x, t) -> Param(y, t)
+    with y := <rename-var>(x, t)
+  
+  rename-var : 
+     (x, t) -> y
+     with y := x{<new>};
+          rules(
+             RenameId : x -> y
+             TypeOf   : y -> t 
+          )
+
+  rename : 
+    Var(x) -> Var(y) where y := <RenameId> x
+           
+  rename-res :  
+    Param(x, t) -> <declare-var(|y)> Param(y, t)
+    with y := <rename-var>(x, t)
+ 
+  declare-var(|x) : 
+    decl -> decl 
+    with rules( VariableDeclaration : x -> decl )
+
+rules // name resolution 
+
+  declare-def :
+    def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
+    with sig := <signature-of> def;
+         rules(
+           Template : x -> def
+           Template : sig -> def
+         )
+
+  rename : 
+    TemplateDef(mod*, x, param1*, elem1*) -> <declare-def> TemplateDef(mod*, x, param2*, elem3*)
+    with {| RenameId//, RenameAction 
+          : param2* := <rename-all> param1*
+          ; elem2*  := <alltd(rename)> elem1*
+          ; elem3*  := <rename-all> elem2*
+          |}
+      
