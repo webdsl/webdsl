@@ -16,8 +16,30 @@ rules // desugaring
     Lt(e1, e2) -> BinOp(e1, "<", e2)
 
   desugar :
-    Plus(e1, e2) -> BinOp(e1, "+", e2) 
+    Plus(e1, e2) -> BinOp(e1, "+", e2)
+
+  desugar :
+    Minus(e1, e2) -> BinOp(e1, "+", e2)   
+  
+  desugar :
+    Times(e1, e2) -> BinOp(e1, "+", e2)
+
+  desugar :
+    Div(e1, e2) -> BinOp(e1, "/", e2)
+     
+  desugar :
+    UnaryMinus(e) -> BinOp(IntLit("0"), "-", e)
     
+rules
+  
+  eval : BinOp(IntLit(x), "+", IntLit(y)) -> IntLit(<addS>(x, y))
+  
+  eval : BinOp(IntLit(x), "-", IntLit(y)) -> IntLit(<subtS>(x, y))
+  
+  eval : BinOp(IntLit(x), "*", IntLit(y)) -> IntLit(<mulS>(x, y))
+  
+  eval : BinOp(IntLit(x), "/", IntLit(y)) -> IntLit(<divS>(x, y))
+     
 rules // type-of
  
   type-of : 
@@ -25,43 +47,82 @@ rules // type-of
     
   type-of : 
     IntLit(x) -> SimpleType("Int")
-    
+
   type-of : 
     Constructor(x) -> SimpleType(x) 
     where <EntityDeclaration> x
+
+  check :
+    Constructor(x) -> (x, $[Constructor for non-entity type '[x]'])
+    where require(type-of)
     
+rules // operator types
+  
+  check : 
+    e@BinOp(e1, op, e2) -> (e, $[operator [op] not defined on [<pp>t1] and [<pp>t2]])
+    where t1 := <type-of> e1
+    where t2 := <type-of> e2
+    where require(<type-of> e)
+    
+  type-of :
+    BinOp(e1, op, e2) -> t
+    where t := <function-type> (op, [<type-of> e1, <type-of> e2])
+    
+  function-type :
+    ("+", [SimpleType("String"), SimpleType("String")]) -> SimpleType("String")
+  
+  function-type :
+    ("+", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Int")
+
+  function-type :
+    ("-", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Int")
+
+  function-type :
+    ("*", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Int")
+        
+  function-type :
+    ("<", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Bool")
+
+rules // set literals
+  
+  type-of :
+    SetLit(e*) -> SetType(t)
+    where [t|t*] := <map(type-of)> e*
+    where <equal-types(|t)> t*
+    
+  equal-types(|t) :
+    [] -> []
+  
+  equal-types(|t) :
+    [t | t*] -> <equal-types(|t)> t*
+
+  check :
+    e@SetLit(e*) -> (e,$[all elements of set should have the same type])
+    where [t|t*] := <map(type-of)> e*
+    where require(<type-of>e)
+        
+rules // property access
+  
   type-of : 
     PropertyAccess(e, f) -> <type-of; lookup-property(|f); type-of> e
     
   type-of : 
     PropertyAccess(e, "name") -> <type-of; lookup-name-property; type-of> e
-    
-  type-of :
-     MethodCall(e, f, e*) -> <method-type> (<type-of>e, f, <map(type-of)> e*)
-
-  //method-type : (t1, x, t*) -> <type of method x applied to type t1 with arguments of type t*>
-  
-  type-of :
-    BinOp(e1, op, e2) -> t
-    where t := <function-type> (op, [<type-of> e1, <type-of> e2])
-
-rules // checks
 
   check :
     e1@PropertyAccess(e2, f) -> (f, $[[<pp>t] has no property '[f]])
     where t := <type-of> e2
     where require(<type-of>e1)
-
-  check :
-    Constructor(x) -> (x, $[Constructor for non-entity type '[x]'])
-    where require(type-of)
-
+    
+rules // method type
+  
   check :
     MethodCall(e, f, e*) -> (f, $[Method not defined])
     where require(type-of)
- 
-rules // method type
-  
+    
+  type-of :
+     MethodCall(e, f, e*) -> <method-type> (<type-of>e, f, <map(type-of)> e*)
+      
   method-type :
     (t, "save", []) -> SimpleType("Void")
     where <is-entity-type> t
@@ -74,19 +135,12 @@ rules // method type
   
   method-type :
     (SimpleType("Int"), "add", [SimpleType("Int")]) -> SimpleType("Int")
-    
-rules // function types
   
-  function-type :
-    ("+", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Int")
-    
-  function-type :
-    ("<", [SimpleType("Int"), SimpleType("Int")]) -> SimpleType("Bool")
-    
+  //method-type : (t1, x, t*) -> <type of method x applied to type t1 with arguments of type t*>
+  
+
 rules
 
   hover-help : 
     e -> <pp> t 
     where t := <type-of> e
-  
-  

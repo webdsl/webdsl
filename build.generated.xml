@@ -2,7 +2,7 @@
 
 <project name="build.generated">
     
-        <target name="spoofaximp.default" depends="utils-files,sdf2table,ppgen,stratego.aster,stratego.ctree,sdf2imp"/>
+        <target name="spoofaximp.default" depends="sdf2table,ppgen,pppack,stratego.aster,stratego.ctree,sdf2imp,refresh"/>
     
         <!-- Initialization -->
         <available file="${trans}/${strmodule}.str" property="build.stratego.enabled"/>
@@ -24,6 +24,7 @@
         <mkdir dir="${dist}"/>
         <mkdir dir="${include}"/>
         <mkdir dir="${lib}"/>
+        <mkdir dir="${syntax}"/>
 
         <target name="sdf2imp" depends="sdf2table,sdf2imp.eclipse,sdf2imp.standalone"/>
         
@@ -33,8 +34,25 @@
             </java>
         </target>
         
+        <target name="refresh" if="eclipse.running">
+            <eclipse.convertPath fileSystemPath="${basedir}" property="projectdir"/>
+            <eclipse.refreshLocal resource="${projectdir}/include" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/syntax/${sdfmodule}.pp.generated" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/lib/editor-common.generated.str" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/build.generated.xml" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-Builders.generated.esv" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-Colorer.generated.esv" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-Completions.generated.esv" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-Folding.generated.esv" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-References.generated.esv" depth="infinite"/>
+            <eclipse.refreshLocal resource="${projectdir}/editor/${sdfmodule}-Syntax.generated.esv" depth="infinite"/>
+            <eclipse.convertPath fileSystemPath="${src-gen}" property="eclipse.path.src-gen"/>
+            <eclipse.refreshLocal resource="${eclipse.path.src-gen}" depth="infinite"/>
+            <eclipse.convertPath fileSystemPath="${build}" property="eclipse.path.build"/>
+            <eclipse.refreshLocal resource="${eclipse.path.build}" depth="infinite"/>
+        </target>
+        
         <target name="sdf2imp.standalone" unless="eclipse.running" depends="sdf2rtg">
-            <echo message="Property eclipse.running is not set; assuming Eclipse is not running"/>
             <java classname="org.strategoxt.imp.generator.sdf2imp" failonerror="true">
                 <arg value="-i"/>
                 <arg value="${basedir}/editor/${esvmodule}.main.esv"/>
@@ -76,7 +94,7 @@
             </java>
         </target>
 
-        <target name="utils-files">
+        <target name="utils-files"> <!-- only useful for builds outside of Eclipse -->
             <mkdir dir="utils"/>
             <copy file="${eclipse.spoofaximp.jars}/make_permissive.jar" todir="utils" failonerror="false"/>
             <copy file="${eclipse.spoofaximp.jars}/sdf2imp.jar" todir="utils" failonerror="false"/>
@@ -96,7 +114,7 @@
         </target>
     
         <target name="pack-sdf.helper" unless="pack-sdf.available">
-            <java classname="start" failonerror="true">
+            <java classname="run" failonerror="true">
                 <arg value="org.strategoxt.tools.main-pack-sdf"/>
                 <arg value="-i"/>
                 <arg value="${syntax}/${sdfmodule}.sdf"/>
@@ -128,7 +146,7 @@
         </target>
     
         <target name="rtg2sig.helper" unless="rtg2sig.available">
-            <java classname="start" failonerror="true">
+            <java classname="run" failonerror="true">
                 <arg value="org.strategoxt.tools.main-rtg2sig"/>
                 <arg value="-i"/>
                 <arg value="${include}/${sdfmodule}.rtg"/>
@@ -149,7 +167,7 @@
         </target>
     
         <target name="sdf2rtg.helper" unless="sdf2rtg.available">
-            <java classname="start" failonerror="true">
+            <java classname="run" failonerror="true">
                 <arg value="org.strategoxt.tools.main-sdf2rtg"/>
                 <arg value="-i"/>
                 <arg value="${include}/${sdfmodule}.def"/>
@@ -166,35 +184,70 @@
         <target name="ppgen" if="build.stratego.enabled" depends="pack-sdf">
             <dependset>
                 <srcfileset file="${include}/${sdfmodule}.def"/>
-                <targetfileset file="${include}/${sdfmodule}.pp"/>
-                <targetfileset file="${include}/${sdfmodule}.pp.af"/>
+                <targetfileset file="${syntax}/${sdfmodule}.generated.pp"/>
+                <targetfileset file="${include}/${sdfmodule}.generated.pp.af"/>
             </dependset>
-            <available file="${include}/${sdfmodule}.pp" property="ppgen.available"/>
+            <available file="${include}/${sdfmodule}.generated.pp.af" property="ppgen.available"/>
             <antcall target="ppgen.helper"/>
+            <available file="${include}/${sdfmodule}.generated.pp.af" property="ppgen.available"/>
+            <antcall target="ppgen.helper.fallback"/>
         </target>
     
         <target name="ppgen.helper" unless="ppgen.available">
             <!-- Any failures here are ignored; they are only a problem when imported from Stratego -->
-            <java classname="start" failonerror="false">
+            <java classname="run" failonerror="false">
                 <arg value="org.strategoxt.tools.main-ppgen"/>
                 <arg value="-i"/>
                 <arg value="${include}/${sdfmodule}.def"/>
                 <arg value="-o"/>
-                <arg value="${include}/${sdfmodule}.pp.af"/>
+                <arg value="${include}/${sdfmodule}.generated.pp.af"/>
                 <arg value="-t"/>
             </java>
-            <java classname="start" failonerror="false">
-                <arg value="org.strategoxt.tools.pp-pp-table"/>
+            <java classname="run" failonerror="false">
+                <arg value="org.strategoxt.tools.main-pp-pp-table"/>
                 <arg value="-i"/>
-                <arg value="${include}/${sdfmodule}.pp.af"/>
+                <arg value="${include}/${sdfmodule}.generated.pp.af"/>
                 <arg value="-o"/>
-                <arg value="${include}/${sdfmodule}.pp"/>
+                <arg value="${syntax}/${sdfmodule}.generated.pp"/>
             </java>
+        </target>
+    
+        <target name="ppgen.helper.fallback" unless="ppgen.available">
+            <echo file="${include}/${sdfmodule}.generated.pp.af" message="PP-Table([])"/>
+        </target>
+        
+        <target name="pppack" if="build.stratego.enabled" depends="pack-sdf">
+            <dependset>
+                <srcfileset file="${syntax}/${sdfmodule}.pp"/>
+                <targetfileset file="${include}/${sdfmodule}.pp.af"/>
+            </dependset>
+            <available file="${syntax}/${sdfmodule}.pp" property="pppack.source-available"/>
+            <available file="${include}/${sdfmodule}.pp.af" property="pppack.available"/>
+            <antcall target="pppack.helper"/>
+            <available file="${include}/${sdfmodule}.pp.af" property="pppack.available"/>
+            <antcall target="pppack.helper.fallback"/>
+        </target>
+    
+        <target name="pppack.helper" unless="pppack.available" if="pppack.source-available">
+            <java classname="run" failonerror="true">
+                <arg value="org.strategoxt.tools.main-parse-pp-table"/>
+                <arg value="-i"/>
+                <arg value="${syntax}/${sdfmodule}.pp"/>
+                <arg value="-o"/>
+                <arg value="${include}/${sdfmodule}.pp.af"/>
+            </java>
+        </target>
+    
+        <target name="pppack.helper.fallback" unless="pppack.available">
+            <echo file="${include}/${sdfmodule}.pp.af" message="PP-Table([])"/>
         </target>
     
         <!-- Aster to Stratego -->
         <target name="stratego.aster">
             <available file="${trans}/${strmodule}.rtree" property="aster-output.available"/>
+            <pathconvert property="aster-input" setonempty="false" pathsep=" ">
+                <path><fileset dir="${basedir}" includes="*.astr"/></path>
+            </pathconvert>
             <dependset>
                 <srcfileset dir="${basedir}">
                     <include name="**/*.astr"/>
@@ -211,14 +264,13 @@
             <antcall target="stratego.aster.helper"/>
         </target>
     
-        <target name="stratego.aster.helper" unless="aster-output.uptodate">
-            <apply executable="java" failonerror="true">
-                <arg line="-Xss8m -Xmx768m -client -jar utils/aster.jar"/>
+        <target name="stratego.aster.helper" if="aster-input" unless="aster-output.uptodate">
+            <java classname="org.strategoxt.aster.Main" failonerror="true">
                 <arg value="-i"/>
                 <fileset dir="${basedir}">
                     <include name="**/*.astr"/>
                 </fileset>
-            </apply>
+            </java>
         </target>
     
         <!-- Stratego to Java interpreter -->
@@ -253,13 +305,26 @@
             </dependset>
             <available file="${src-gen}/trans/Main.java" property="strc-java.available"/>
             <antcall target="copy-jar"/>
+            <antcall target="stratego.jar.deletehelper"/>
             <antcall target="stratego.jvm.helper">
                 <param name="build.stratego.outputpath" value="${src-gen}/trans"/>
                 <param name="build.stratego.extraargs" value="-la java-front"/>
                 <param name="build.stratego.extension" value="java"/>
             </antcall>
             <javac classpath="utils/strategoxt.jar:${src-gen}${externaljarimport}" srcdir="${src-gen}" includes="trans/**" destdir="${build}" source="1.5" target="1.5" debug="on"/>
+            <!-- copy imported terms -->
+            <copy todir="${build}/trans">
+                <fileset dir="${src-gen}/trans" excludes="**/*.java"/>
+            </copy>
             <jar basedir="${build}" includes="trans/**" destfile="${include}/${strmodule}.jar"/>
+            <delete><fileset dir="${build}" includes="trans/**"/></delete>
+        </target>
+        
+        <target name="stratego.jar.deletehelper" unless="strc-java.available">
+            <delete>
+                <fileset dir="${src-gen}" includes="trans/**"/>
+                <fileset dir="${build}" includes="trans/**"/>
+            </delete>
         </target>
             
         <target name="stratego.jvm.helper" unless="strc-java.available" if="build.stratego.enabled">
