@@ -116,19 +116,9 @@ let
 
     webcheck = 
       { tarball ? jobs.tarball {}
+      , services ? { outPath = ../services; rev = 1234; }
+      , nixos ? { outPath = ../nixos; rev = 1234; }
       }:
-      let
-        services = pkgs.fetchsvn {
-          url = https://svn.nixos.org/repos/nix/services/trunk;
-          rev = 18826;
-          sha256 = "08dblnszh22l31cx88z7767wz0y18qnb93zl3g5naiv9ahahniz1";
-        };
-        nixos = pkgs.fetchsvn {
-          url = https://svn.nixos.org/repos/nix/nixos/trunk;
-          rev = 21151;
-          sha256 = "1aiy73pilyx9bs1hj8pc8548g8yrsvd9xgbymdcnpsc5awpgdp39";
-        };
-      in
         with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
         runInMachineWithX {
           drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; buildNativeInputs = oldAttrs.buildNativeInputs ++ [pkgs.firefox] ; }) ;
