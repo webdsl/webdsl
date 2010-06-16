@@ -23,6 +23,14 @@ strategies
        import org.webdsl.lang.*;
        import org.webdsl.tools.*;
        import org.hibernate.*;
+       import java.util.*;
+       import java.net.ServerSocket;
+       import java.io.*;
+
+       import org.codehaus.cargo.container.*;
+       import org.codehaus.cargo.container.deployable.*;
+       import org.codehaus.cargo.container.tomcat.*;
+       import org.codehaus.cargo.container.property.*; 
        
        public class TestAll
        {
@@ -54,7 +62,7 @@ strategies
             GlobalInit.forceLoad();
           }
           
-          public static void runTests(){
+          public void runTests(){
             boolean exitWithError = false;
             
             bstm*
@@ -65,7 +73,96 @@ strategies
           }
 
           public static void main(String[] args) {
+            new TestAll().runTests();
+          }
+          
+          
+          //web container test run for 'webdsl test-web' and 'webdsl run'
+          
+          public static final boolean isPost = false;
+          public static int SERVLET_PORT = 8080;
+          public static int RMI_PORT = 0;
+          public static int DEBUG_PORT = 8000;
+          public static String contextpath;
+          public static String warfilename;
+        
+          static
+          { 
+            try
+            { 
+              Properties properties = new Properties();
+              properties.load(new FileInputStream("build.properties"));
+              warfilename = properties.getProperty("webdsl.warfilename");
+              if(warfilename.equals("ROOT"))
+              { 
+                contextpath = "";
+              }
+              else{
+                contextpath = warfilename;
+              }
+            }
+            catch(IOException ioe)
+            { 
+              throw new RuntimeException(ioe);
+            }
+          }
+          
+          public void runInWebAppContainer(boolean findPorts, boolean enableDebugging){
+            
+            DispatchServletHelper d = new DispatchServletHelper(null, isPost, contextpath);
+            ThreadLocalServlet.set(d);
+          
+            String warfile = "./"+warfilename+".war";
+            System.out.println(warfile);
+            Deployable war = new WAR(warfile);
+
+            org.codehaus.cargo.container.configuration.LocalConfiguration configuration = new Tomcat6xStandaloneLocalConfiguration("tomcat6x");
+            
+            if(findPorts){
+              // find free ports
+              try {
+                ServerSocket ss1 = new ServerSocket(0);
+                ServerSocket ss2 = new ServerSocket(0);
+                ServerSocket ss3 = new ServerSocket(0);
+                SERVLET_PORT = ss1.getLocalPort();
+                RMI_PORT = ss2.getLocalPort();
+                DEBUG_PORT = ss3.getLocalPort();
+                ss1.close(); 
+                ss2.close();
+                ss3.close();
+              } catch (java.io.IOException ioex) {
+                System.out.println("Cannot find free port for test context.");
+                ioex.printStackTrace();
+                System.exit(1);
+              }
+              configuration.setProperty(GeneralPropertySet.RMI_PORT, new Integer(RMI_PORT).toString());
+            }
+            configuration.setProperty(ServletPropertySet.PORT, new Integer(SERVLET_PORT).toString());
+            if(enableDebugging){
+              //enable remote debugging
+              configuration.setProperty("cargo.jvmargs", "-agentlib:jdwp=transport=dt_socket,address="+DEBUG_PORT+",server=y,suspend=n");
+            }
+            configuration.addDeployable(war);
+      
+            InstalledLocalContainer container = new Tomcat6xInstalledLocalContainer(configuration);
+            String tomcathome = "./tomcat/apache-tomcat-6.0.20/";
+            System.out.println(tomcathome);
+            container.setHome(tomcathome);
+            container.setLogger(new org.codehaus.cargo.util.log.SimpleLogger(){     
+              protected void doLog(org.codehaus.cargo.util.log.LogLevel level, String message, String category)
+             {
+                //System.out.println("[" + level.getLevel() + "][" + category + "] " + message);
+                System.out.println(message);
+              } 
+            });
+            
+            container.start(); 
+             
             runTests();
+
+            container.stop();    
+            
+            ThreadLocalServlet.set(null);       
           }
        }
      ]|
