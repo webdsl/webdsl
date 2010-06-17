@@ -1,0 +1,143 @@
+module blog
+
+entity Pst { 
+  foo : String 
+} 
+
+entity User {
+  name : String (id)
+}
+
+entity Blog {
+  url    : String (id)
+  name   : String (name)
+  posts  : Set<Post>  
+  author : User 
+}
+
+entity Post { 
+  url    : String (id) 
+  title  : String (name) 
+  text   : WikiText
+  blog   : Blog (inverse:posts)
+  author : User 
+  blog   : Blog
+  tags    : Set<Tag>
+}
+
+entity Tag {
+  name : String
+}
+
+define page user(u : User) { 
+  header{ output(u.name) }
+}
+
+define page blog(b : Blog) {
+  header{output(b.name)}
+  list{ 
+    for(p : Post in b.posts) {  
+      listitem{ outputPost(p) }
+    }
+  }
+}
+define outputPost(pst : Post) { 
+  navigate post(pst) { output(pst.name) }
+}
+
+define blogindex(b : Blog) {
+  
+}
+
+define page blogfront(b : Blog) {
+  for(p : Post in b.posts) {  
+    postInline(p) { "Posted by " outputUser(p.author) }
+  }
+}
+define postInline(pst : Post) {
+  for(p : Tag in pst.tags) { output(p.name) elements }
+}
+
+define page post(p : Post) {
+  header{output(p.title)}     
+  output(p.text)
+  par{ "Posted by " outputUser(p.author) }   
+  navigate editpost(p) { "Edit" }
+}
+define outputUser(u : User) {
+  navigate user(u) { output(u.name) }
+}
+define list()     { <ul> elements </ul> }
+define listitem() { <li> elements </li> }
+define header()   { <h1> elements </h1> }
+define par()      { <p>  elements </p>  }
+
+define page createpost(b : Blog) {
+  var p : Post := Post{}
+  action create() { 
+    p.author := b.author; 
+    p.save();     
+    return post(p);
+  }
+  header{output(b.name)}    
+  form(p){
+    input(p.url) 
+    input(p.title)  
+    input(p.text) 
+    submit create() { "Create" }
+  }
+}
+
+define page root() {
+  list{ 
+    for(b : Blog) {
+      listitem{ 
+        navigate blog(b) { output(b.name) } 
+      }
+    }
+  }
+}
+
+rule page editpost(pst : Post) {
+  principal == pst.blog.author
+}
+
+define page editpost(p : Post) { 
+  action save() { 
+    return post(p);
+  }
+  header{output(p.title)}
+  form{ 
+    input(p.url) 
+    input(p.title)
+    input(p.text)
+    submit save() { "Sav!e" } 
+  }
+}
+
+define page editpostAC(p : Post) { 
+  init{
+    if(!(principal != p.blog.author)) { return accessdenied(); } else { }
+  }
+  action save() { 
+    return post(p);
+  }
+  header{output(p.title)}
+  form{ 
+    input(p.url) 
+    input(p.title)
+    input(p.text)
+    submit save() { "Save" } 
+  }
+}
+define footer() { 
+  navigate webdsl() { "WebDSL" }
+}
+define page blog(b : Blog) {
+  footer()
+}
+
+
+
+
+
