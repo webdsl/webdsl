@@ -1,0 +1,84 @@
+module template-inlining
+
+imports libstratego-lib
+imports include/nwl
+imports desugar
+
+strategies
+  
+  inline-all =
+    desugar-all;
+    alltd(declare-inline);
+    innermost(desugar <+ InlineTemplate)
+
+rules
+  
+  declare-inline :
+    TemplateDef(mod*,f,param*,elem1*) -> TemplateDef(mod*,f,param*,elem1*)
+    where rules(
+      InlineTemplate :
+        Call(f, e*, elem2*) -> Call("container", [], elem3*)
+        where {| Subst
+               : rules( Subst : Elements() -> Call("container", [], elem2*) )
+               ; elem3* := <substitute-args> (param*, e*, elem1*)
+               |}
+    )
+    
+  substitute-args :
+    (param*, e*, elem1*) -> elem2*
+    where {| Subst 
+           : <zip(bind-arg)> (param*, e*)
+           ; elem2* := <substitute> elem1*
+           |}
+          
+  substitute = 
+    alltd(Subst <+ rename-bound)
+    
+  rename-bound :
+    ForElem(x, t, e1, elem1*) -> ForElem(y, t, e2, elem2*)
+    where {| Subst
+           : y := <newname> x
+           ; e2 := <substitute> e1
+           ; rules( Subst : Var(x) -> Var(y) )
+           ; elem2* := <substitute> elem1*
+           |}
+                       
+  bind-arg :
+    (Param(x, t), e) -> (Param(x, t), e)
+    where rules( Subst : Var(x) -> e )
+    
+rules // remove containers
+  
+  desugar-container : 
+    [Call("container",[], elem1*) | elem2*] -> [elem1*, elem2*]
+    
+  desugar :
+    elem1* -> elem2*
+    where elem2* := <at-suffix(desugar-container)> elem1*
+    
+strategies
+	
+	weave-ac-rules =
+		alltd(declare-ac-rule);
+		bottomup(try(ProtectPage <+ ProtectNavigate))
+		
+  declare-ac-rule :
+  	r@Rule([Page()], f, param1*, e) -> r
+  	where rules(
+  	  ProtectPage :
+  	    TemplateDef([Page()], f, param2*, elem1*) -> 
+  	    TemplateDef([Page()], f, param2*, 
+  	      [Init([If(Not(e),Block([ReturnPage(PageRef("accessdenied", []))]),Block([]))]), 
+  	       elem1*])
+  	    where e2 := <substitute-args> (param1*, <map(param-to-exp)> param2*, e)
+  	  
+  	  ProtectNavigate :
+  	    elem@Navigate(PageRef(f, e*), elem*) -> If(e2,Block([elem]),Block([]))
+  	    where e2 := <substitute-args> (param1*, e*, e)
+  	)
+  	
+  param-to-exp :
+    Param(x, t) -> Var(x)
+
+  	  
+  	  

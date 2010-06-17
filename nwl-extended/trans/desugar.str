@@ -1,0 +1,120 @@
+module desugar
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+
+strategies
+  
+  desugar-all = innermost(desugar)
+  
+  sugar-all = innermost(sugar)
+  
+  normalize-all = innermost(desugar + normalize)
+  
+signature
+  constructors
+    BinOp : Exp * Op * Exp -> Exp
+    
+rules
+   
+  desugar :
+    Lt(e1, e2) -> BinOp(e1, "<", e2)
+
+  desugar :
+    Plus(e1, e2) -> BinOp(e1, "+", e2)
+
+  desugar :
+    Minus(e1, e2) -> BinOp(e1, "+", e2)   
+  
+  desugar :
+    Times(e1, e2) -> BinOp(e1, "+", e2)
+
+  desugar :
+    Div(e1, e2) -> BinOp(e1, "/", e2)
+     
+  desugar :
+    UnaryMinus(e) -> BinOp(IntLit("0"), "-", e)
+
+rules
+
+  desugar : 
+    CallArgs(x, e*) -> Call(x, e*, [])
+  
+  sugar :
+    Call(x, e*, []) -> CallArgs(x, e*)
+    
+  desugar :
+    CallElems(x, elem*) -> Call(x, [], elem*)
+    
+  sugar :
+    Call(x, [], elem*) -> CallElems(x, elem*)
+  
+  desugar : 
+    Call(x) -> Call(x, [], [])
+    
+  sugar :
+    Call(x, [], []) -> Call(x) 
+    
+  desugar : 
+    Property(x, t) -> Property(x, t, [])
+    
+  sugar :
+    Property(x, t, []) -> Property(x, t)
+
+rules // normalize
+  
+  normalize :
+    For(x, t, e, b) -> 
+    Block([
+      Stat(VarDeclInit(i, SimpleType("Int"), IntLit("0"))),
+      Stat(VarDeclInit(c, SimpleType("Dummy"), e)),
+      Stat(VarDeclInit(l, SimpleType("Int"), 
+                       BinOp(MethodCall(Var(c), "length", []), "-", IntLit("1")))),
+      While(BinOp(Var(i), "<", Var(l)), Block([
+        Stat(VarDeclInit(x, t, IndexAccess(Var(c), Var(i)))),
+        b,
+        Assign(Var(i), BinOp(Var(i), "+", IntLit("1")))
+      ]))
+    ])
+    where i := <newname> "i";
+          c := <newname> "c";
+          l := <newname> "l"
+          
+  normalize :
+    [Block(stat1*) | stat2*] -> <conc> (stat1*, stat2*)
+
+strategies // pretty-printing
+  
+  pp-nwl =
+    ast2abox(|[<import-term(include/nwl.pp.af)>, <import-term(syntax/nwl-pretty.pp.af)>]);
+    box2text-string(|120) 
+ 
+ rules // desugared builder
+    
+  show-desugared :
+    (selected, position, ast, path, project-path) -> (filename, result-string)
+    with
+      filename      := <guarantee-extension(|"aterm")> path;
+      result-string := <desugar-all; pp-aterm-box; box2text-string(|120)> selected
+
+  show-desugared-pp :
+    (selected, position, ast, path, project-path) -> (filename, result-string)
+    with
+      filename      := <guarantee-extension(|"d.nwl")> path;
+      result-string := <normalize-all; pp-nwl> selected
+
+rules // normalized builder
+    
+  show-normalized :
+    (selected, position, ast, path, project-path) -> (filename, result-string)
+    with
+      filename      := <guarantee-extension(|"aterm")> path;
+      result-string := <normalize-all; pp-aterm-box; box2text-string(|120)> selected
+  
+  show-normalized-pp :
+    (selected, position, ast, path, project-path) -> (filename, result-string)
+    with
+      filename      := <guarantee-extension(|"n.nwl")> path;
+      result-string := <normalize-all; pp-nwl> selected
+      
+      
