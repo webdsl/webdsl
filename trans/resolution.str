@@ -1,0 +1,58 @@
+module resolution
+
+imports include/nwl
+        entities
+
+rules // resolution
+
+  editor-resolve:
+    (SimpleType(type), position, ast, path, fullpath) -> target
+    where
+      Entity(target,_) := <EntityDeclaration> type
+ 
+  editor-resolve:
+    (ref@PageRef(x,e*), position, ast, path, fullpath) -> target
+    where
+      TemplateDef(_,target,_,_) := <declaration-of> ref
+
+  editor-resolve:
+    (ref@Submit(f,e*,elem*), position, ast, path, fullpath) -> target
+    where
+      Action(target,_,_) := <declaration-of> ref
+
+  // submit to action def
+  // variable use to declaration
+  // constructor to entity
+rules // resolution
+
+  editor-resolve:
+    (SimpleType(type), position, ast, path, fullpath) -> target
+    where Entity(target,_) := <EntityDeclaration> type
+
+  editor-resolve:
+    (ref@PropertyAccess(_,_), position, ast, path, fullpath) -> target
+    where target := <declaration-of> ref
+ 
+  editor-resolve:
+    (ref@TemplateRef(x,e*), position, ast, path, fullpath) -> target
+    where TemplateDef(_,target,_,_) := <declaration-of> ref
+
+  editor-resolve:
+    (e@Var(x), position, ast, path, fullpath) -> target
+    where target := <declaration-of> e
+    
+rules // completion
+  
+  editor-complete:
+    (_, position, ast, path, project-path) -> s*
+    with
+      debug(!"complete1:");
+      editor-init;
+      ast2 := <declare-all> ast;
+      s*   := <collect-one(complete-def)> ast2
+  
+  complete-def:
+    PropertyAccess(e, COMPLETION(_)) -> f*
+    where t := <type-of> e
+    where ent := <declaration-of> t
+    where f* := <collect-all(?Property(<id>,_))> ent

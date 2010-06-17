@@ -1,0 +1,60 @@
+module actions
+
+imports utils
+imports include/nwl 
+imports expressions 
+imports parameters 
+ 
+rules // renaming
+
+  rename-action :
+    act@Action(f, param1*, stat1*) -> <declare-action> Action(f{f'}, param2*, stat2*)
+    where {| RenameId
+           : f' := <new-action-name> f
+           ; param2* := <rename-all> param1*
+           ; stat2* := <rename-all> stat1* 
+           |}
+        
+  new-action-name =
+    RenameAction <+ {?f; f' := <newname> f; rules( RenameAction : f -> f' )}
+
+  declare-action :
+    act@Action(g, param*, stat*) -> act
+    where rules( ActionDef : g -> act )
+                  
+  rename-action :
+    f -> f{<RenameAction>}
+ 
+  rename :
+    Submit(f, e1*, elem1*) -> Submit(g, e2*, elem2*)
+    where g := <try(rename-action)> f
+        ; e2* := <rename-all> e1*
+        ; elem2* := <rename-all> elem1*
+    
+rules // projections
+
+  declaration-of : 
+    Action(f, param*, stat*) -> <ActionDef> f
+  
+  param-types : 
+    Action(f, param*, stat*) -> <param-types> param*
+  
+  signature-of : 
+    Submit(f, e*, elem*) -> (f, <map(type-of)> e*)
+  
+  call-of : 
+    Submit(f, e*, elem*) -> (f, e*)
+  
+  declaration-of : 
+    Submit(f, e*, elem*) -> <ActionDef> f
+
+rules // checking 
+
+  check :
+    Submit(f, e*, elem*) -> (f, $[Action '[f]' not defined])
+    where require(declaration-of)
+  
+  check :
+    Submit(f, e*, elem*) -> <check-args>
+ 
+  // todo: multiple action definions
