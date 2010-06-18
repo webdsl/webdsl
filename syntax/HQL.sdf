@@ -1,0 +1,202 @@
+module HQL
+
+hiddens
+  context-free start-symbols QueryRule Statement
+  
+exports
+  lexical syntax
+    [a-zA-Z\_][a-zA-Z0-9\_]* -> Identifier
+  lexical restrictions
+    Identifier -/- [a-zA-Z0-9\_]
+    
+  context-free syntax
+   
+    "from" | "select" | "by" | "order" -> Identifier {reject}
+
+exports
+
+  sorts Statement UpdateStatement DeleteStatement SelectStatement InsertStatement
+  
+  context-free syntax
+
+    "delete" FromClause WhereClause? -> DeleteStatement {cons("DeleteStatement")}
+    
+    SelectStatement -> Statement
+
+    QueryRule -> SelectStatement
+
+    QueryRule "union" QueryRule -> Union {cons("QueryUnion")}
+
+    SelectFrom WhereClause? GroupByClause? OrderByClause? -> QueryRule {cons("QueryRule")}
+    
+    SelectClause? FromClause -> SelectFrom {cons("SelectFrom")}
+    
+    "select" Distinct? Selection -> SelectClause {cons("Select")}
+
+    "distinct"                   -> Distinct {cons("Distinct")}
+    
+    SelectedPropertiesList -> Selection
+    NewExpression          -> Selection
+    SelectObject           -> Selection
+
+    QueryRule              -> Expression {avoid}
+    
+  "new" Path "(" SelectedPropertiesList ")" -> NewExpression {cons("NewExpression")}
+  
+  "object" "(" Identifier ")" -> SelectObject {cons("SelectObject")}
+  
+    "from" {FromRangeJoin ","}+ -> FromClause {cons("FromClause")}
+    
+    FromRange FromJoin? -> FromRangeJoin {cons("FromRangeJoin")}
+    
+    "left"          -> JoinType {cons("LeftJoin")}
+    "right"         -> JoinType {cons("RightJoin")}
+    "left"  "outer" -> JoinType {cons("LeftOuterJoin")}
+    "right" "outer" -> JoinType {cons("RightOuterJoin")}
+    "full"          -> JoinType {cons("FullJoin")}
+    "inner"         -> JoinType {cons("InnerJoin")}
+    
+    JoinType? "join" Fetch? Path AsAlias? PropertyFetch? WithClause? -> FromJoin {cons("FromJoin")}
+    
+    "fetch" -> Fetch {cons("Fetch")}
+        
+  "with" Expression -> WithClause {cons("WithClause")}
+  
+    FromClassOrOuterQueryPath       -> FromRange
+    InClassDeclaration              -> FromRange
+    InCollectionDeclaration         -> FromRange
+    InCollectionElementsDeclaration -> FromRange
+    
+    Path AsAlias? PropertyFetch? -> FromClassOrOuterQueryPath {cons("FromClass")}
+    
+    Alias "in" "class" Path -> InClassDeclaration {cons("InClassDeclaration")}
+    
+    "in" "(" Path ")" Alias -> InCollectionDeclaration {cons("InCollection")}
+    
+    Alias "in" "elements" "(" Path ")" -> InCollectionElementsDeclaration {cons("InCollectionElements")}
+
+    "as" Alias -> AsAlias {cons("AsAlias")}
+  
+    Identifier -> Alias {cons("Alias")}
+  
+  
+    "fetch" "all" "properties" -> PropertyFetch {cons("PropertyFetch")}
+    
+    "group" "by" {Expression ","}+ HavingClause? -> GroupByClause {cons("GroupBy")}
+    
+    "order" "by" {OrderElement ","}+ -> OrderByClause {cons("OrderByClause")}
+    
+    Expression AscendingOrDescending? -> OrderElement {cons("OrderElement")}
+    
+   "asc"       -> AscendingOrDescending {cons("Ascending")}
+   "ascending" -> AscendingOrDescending {cons("Ascending")}
+   
+   "desc"      -> AscendingOrDescending {cons("Descending")}
+   "descending" -> AscendingOrDescending {cons("Descending")}
+   
+    "having" Expression -> HavingClause {cons("HavingClause")}
+    
+    "where" Expression -> WhereClause {cons("WhereClause")}
+    
+    {AliasedExpression ","}+ -> SelectedPropertiesList
+    
+    Expression AsAlias? -> AliasedExpression {cons("AliasedExpression")}
+    
+   Expression "or" Expression -> Expression {cons("QueryOr")}
+   
+    Expression "and" Expression -> Expression {cons("QueryAnd")}
+    
+    "not" Expression -> Expression {cons("QueryNot")}
+    
+    Expression "=" Expression -> Expression {cons("EQ")}
+    Expression "is" Expression -> Expression {cons("IS")}
+    Expression "!=" Expression -> Expression {cons("NE")}
+    Expression "<>" Expression -> Expression {cons("SQLNE")}
+    Expression "like" Expression -> Expression {cons("LIKE")}
+    Expression "not" "like" Expression -> Expression {cons("NOTLIKE")}
+
+    Expression "<" Expression -> Expression {cons("LT")}
+    Expression ">" Expression -> Expression {cons("GT")}
+    
+    Expression "in" Expression -> Expression {cons("In")}
+    Expression "not" "in" Expression -> Expression {cons("NotIn")}
+    
+    Expression "member" "of" Expression -> Expression {cons("MemberOf")}
+    Expression "not" "member" "of" Expression -> Expression {cons("NotMemberOf")}
+  
+    Expression "||" Expression -> Expression {cons("Concat")}
+    
+    Expression "+" Expression -> Expression {cons("Plus")}
+    Expression "-" Expression -> Expression {cons("Minus")}
+
+    Expression "*" Expression -> Expression {cons("Multiply")}
+    Expression "/" Expression -> Expression {cons("Divide")}
+    
+    "-" Expression -> Expression {cons("UMinus")}
+    
+   lexical syntax 
+     ":" Identifier -> IdParameter 
+     "?" NumInt     -> NumParameter
+   context-free syntax
+     IdParameter -> Expression {cons("IdParam")}
+     NumParameter -> Expression {cons("NumParam")}
+   
+    "avg" "(" Expression ")" -> Expression {cons("Avg")}
+    "sum" "(" Expression ")" -> Expression {cons("Sum")}
+    "min" "(" Expression ")" -> Expression {cons("Min")}
+    "max" "(" Expression ")" -> Expression {cons("Max")}
+    "count" "(" "*" ")" -> Expression {cons("CountStar")}
+    "count" "(" Expression ")" -> Expression {cons("Count")}
+    
+     "elements" "(" Path ")" -> Expression {cons("Elements")}
+     "indices" "(" Path ")" -> Expression {cons("Indices")}
+                     
+     Path                      -> Expression
+     "(" {Expression ","}+ ")" -> Expression {cons("Paren")}
+     
+    Constant -> Expression
+    
+    "true" -> Constant {cons("True")}
+    "false" -> Constant {cons("False")}
+    "empty" -> Constant {cons("Empty")}
+    "null" -> Constant {cons("Null")}
+
+    "true" -> Identifier {reject}
+    "false" -> Identifier {reject}
+    "empty" -> Identifier {reject}
+    "null"  -> Identifier {reject}
+    
+    {Identifier "."}+ -> Path {cons("Path")} 
+    
+  context-free syntax
+    QuotedString -> Constant {cons("String")}
+    
+  lexical syntax
+    "'" (~[\'] | "\\'")* "'" -> QuotedString
+     
+  lexical syntax
+    [0-9]+ -> NumInt
+  context-free syntax
+    NumInt -> Constant
+  
+context-free priorities
+  {left:
+    Expression "*" Expression -> Expression
+    Expression "/" Expression -> Expression
+  }
+  > {left:
+    Expression "+" Expression -> Expression
+    Expression "-" Expression -> Expression
+  }
+  > {left:
+    Expression "<" Expression -> Expression
+    Expression ">" Expression -> Expression
+    Expression "=" Expression -> Expression
+    Expression "is" Expression -> Expression
+    Expression "!=" Expression -> Expression
+    Expression "<>" Expression -> Expression
+    Expression "like" Expression -> Expression 
+    Expression "not" "like" Expression -> Expression
+    }
+  > {left: Expression "or" Expression -> Expression }
+  > {left: Expression "and" Expression -> Expression}
