@@ -8,4 +8,5 @@ public interface RefArg
   public void load(String uuid);
   public String getUrlString();
   public String get_WebDslEntityType();
+  public org.webdsl.WebDSLEntity getEntity();
 }
