@@ -11,11 +11,16 @@ CLEANFILES = \
     $(wildcard lib*.c) \
     $(wildcard *.dep) \
     $(wildcard *.rtree) \
+    $(wildcard */*.rtree) \
+    $(wildcard */*/*.rtree) \
+    $(wildcard */*/*/*.rtree) \
+    $(wildcard */*/*/*/*.rtree) \
+    $(wildcard */*/*/*/*/*.rtree) \
+    $(wildcard */*/*/*/*/*/*.rtree) \
     $(wildcard *.ctree) \
     $(wildcard org/webdsl/dsl/*/*.c) \
     $(wildcard org/webdsl/dsl/*/*.o) \
-    $(wildcard org/webdsl/dsl/*/*.dep) \
-    $(STRFILES:.str=.rtree)
+    $(wildcard org/webdsl/dsl/*/*.dep)
 
 FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.def) \
