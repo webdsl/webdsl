@@ -8,8 +8,15 @@ imports
 
 rules
 
-  rename-identifiers =
-    alltd(rename-bound-variables)
+  rename-identifiers-top =
+    map-toplevel(
+      fail,
+      with-toplevel-name(
+        rename-identifiers
+      )
+    )
+    
+  rename-identifiers = alltd(rename-bound-variables)
 
   rename-bound-variables =
        exclude-from-var-renaming
@@ -22,66 +29,56 @@ rules
   exclude-from-var-renaming = ?"this"
   
   use-existing-renaming :
-    x{y} -> y
-    where is-string
-        ; <is-string> y
-    with rules ( TypeOf : y -> <TypeOf> x{y}
-                 OriginalNonUniqueName : y -> x{})
+    x{anno*} -> y{new-anno*}
+    where <is-string> x
+        ; y := <fetch-elem(is-string)> anno*
+        ; <remove-all(?y)> anno*
+        ; ![OriginalNameAnno(x{}) | <id>]
+        ; ?new-anno*
 
   rename-template-def-id :
-    Define(mod*, x, farg*, targs, elem*) ->
-    Define(mod*, x, <rename-identifiers> farg*, targs, <rename-identifiers> elem*)
+    Define(mod*, x, farg*, targs, elem*){anno*} ->
+    Define(mod*, x{orig}, <rename-identifiers> farg*, targs, <rename-identifiers> elem*){anno*}
     where <fetch(?Page())> mod*
        <+ <fetch(?Email())> mod* //no overloading for emails yet
-    with  rules( OriginalNonUniqueName : x -> x{})
+    with  orig := OriginalNameAnno(x{})
                  
   rename-template-def-id :
-    Define(mod*, x, farg*, targs, elem*) ->
-    Define(mod*, y, <rename-identifiers> farg*, targs, <rename-identifiers> elem*)
+    Define(mod*, x, farg*, targs, elem*){anno*} ->
+    Define(mod*, y{orig}, <rename-identifiers> farg*, targs, <rename-identifiers> elem*){new-anno*}
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
     with  xsa := <strip-annos> x
-        ; y := <TemplateNewName> (xsa,<template-formal-arguments-to-types> farg*)
-        ; rules( OriginalNonUniqueName : y -> x{})
+        ; y := <TemplateNewName> (xsa,<template-formal-arguments-to-types;strip-annos> farg*)
+        ; orig := OriginalNameAnno(x{})
+        ; !anno*
         ; if <fetch(?InputTemplate())> mod* then
-          rules (IsInputTemplate : y)
+            ![InputTemplateAnno() | anno*]
           end
+        ; ?new-anno*
     
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
-    -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){<rename-identifiers> anno*}
-    where y := <CallToDefinedTemplate> x  
-        ; rules( CallToDefinedTemplateAfterIdRename : y 
-                 OriginalNonUniqueName : y -> x{})
+    -> TemplateCall(y{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*}
+    where y := <CallToDefinedTemplate> x
+        ; orig := OriginalNameAnno(x{})
+        ; <rename-identifiers> anno*
+        ; ![CallToDefinedAnno() | <id>]
+        ; ![CalledTemplateArgs(<TemplateArguments> y) | <id>]
+        ; ?new-anno*
 
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} 
-    -> TemplateCall(x, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){<rename-identifiers> anno*} 
-    where <CallToRequiredTemplate> x  
-        ; rules( CallToRequiredTemplateAfterIdRename : x 
-                 OriginalNonUniqueName : x -> x{})
+    -> TemplateCall(x{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*} 
+    where <CallToRequiredTemplate> x
+        ; orig := OriginalNameAnno(x{})
+        ; <rename-identifiers> anno*
+        ; ![CallToRequiredAnno() | <id>]
+        ; ?new-anno*
 
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
     -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){<rename-identifiers> anno*}
     where <CallToBuiltInTemplate> x
         ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
-
-rules  // backend annotations
-
-  add-backend-annotation =
-    ?TemplateCall(y, _, _, _)
-    ; where(<CallToDefinedTemplateAfterIdRename> y)
-    ; add-new-anno(|CallToDefinedAnno())
-    ; add-new-anno(|CalledTemplateArgs(<TemplateArguments> y))
-   
-  add-backend-annotation =
-    ?TemplateCall(y, _, _, _)
-    ; where(<CallToRequiredTemplateAfterIdRename> y)
-    ; add-new-anno(|CallToRequiredAnno())
-   
-  add-backend-annotation =
-    ?TemplateCall(y, _, _, _)
-    ; where(<IsInputTemplate> y)
-    ; add-new-anno(|InputTemplateAnno())
     
