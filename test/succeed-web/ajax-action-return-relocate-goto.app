@@ -9,14 +9,14 @@ application test
   }
 
   define page testinit1(){
-  	init{
-  		goto red();
-  	}
+    init{
+      goto red();
+    }
   }
   define page testinit2(){
-  	init{
-  		return red();
-  	}
+    init{
+      return red();
+    }
   }
 
   define page root() {
@@ -32,7 +32,7 @@ application test
   }
   
   define page red(){
-  	"redirectedpage"
+    "redirectedpage"
   }
 
   define ajax reg(){
@@ -64,10 +64,12 @@ application test
       checkButton(d,i);    	
       checkButtonAfterReplace(d,i);    	
     }
+    
+    d.close();
   }
   
   function checkInit(d:WebDriver, number :Int){
-  	d.get(navigate(root()));
+    d.get(navigate(root()));
     assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     var alist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(alist.length == 2, "expected 2 <a> elements");

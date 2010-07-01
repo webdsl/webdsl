@@ -50,4 +50,6 @@ application registerexample
     elist[3].click();
  
     assert(d.getPageSource().contains("You have successfully entered '1'"), "expected message missing");
+    
+    d.close();
   }

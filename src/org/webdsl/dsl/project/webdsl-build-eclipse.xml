@@ -12,11 +12,24 @@
                 project.setProperty("build-id",id.toString());
         ]]>
     </script>
+    <echo>generated uuid: ${build-id}</echo>
+  </target>
+  
+  <target name="get-build-id">
+    <if>
+      <not><isset property="build-id" /></not>
+    <then>
+      <antcallback target="generate-uuid" return="build-id"/>
+    </then>
+    </if>
     <echo>build-id: ${build-id}</echo>
   </target>
 
-  <target name="eclipse-build" depends="clean-if-editor-updated, generate-uuid">
-
+  <target name="eclipse-build" depends="clean-if-editor-updated, get-build-id">
+    <!-- write build-id, so the java-based webdsl builder (that starts the server) can pick it up -->
+    <property name="path.build.id" value="${currentdir}/.servletapp/.last-build-id" />
+    <echo file="${path.build.id}">${build-id}</echo>
+    
     <antcall target="build-without-java-compile"/>
 
     <property name="servletappdir" value="${currentdir}/.servletapp"/>
@@ -62,10 +75,11 @@
 
     <antcall target="fix-classpath"/>
     <antcall target="generate-ant-build-files"/>
-    <antcall target="run-eclipse-refresh-build"/>
-    <antcall target="poll-deployed-app-for-new-build-id"/>
-
-    </target>
+    <antcall target="run-eclipse-build"/>
+    <!--<antcall target="poll-deployed-app-for-new-build-id"/>-->
+   
+    <antcall target="refresh"/>
+  </target>
   
   <target name="poll-deployed-app-for-new-build-id" depends="load-config">
     <script language="javascript"><![CDATA[
@@ -175,8 +189,12 @@
     </if>
   </target>
 
+  <target name="refresh">
+    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
+    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
+  </target>
 
-  <target name="run-eclipse-refresh-build">
+  <target name="run-eclipse-build">
     <!-- invoke incremental build of java code in eclipse 
     <basename property="projectname" file="${basedir}"/>
     <eclipse.incrementalBuild project="${projectname}" kind="incremental" builder="org.eclipse.jdt.core.javabuilder"/>
@@ -203,9 +221,6 @@
       <src path="${servletappdir}/src-native" />
       <src path="${servletappdir}/src-template" />
     </javac>
-
-    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
-    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
   </target>
 
 
@@ -344,8 +359,7 @@
         <param name="buildfilename" value="build-code-only"/>
       </antcall>
 
-      <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath" />
-      <eclipse.refreshLocal resource="${resourcePath}" depth="infinite" />
+      <antcall target="refresh"/>
     </target>
 
     <target name="generate-ant-build-file-for-invoking-webdsl">
