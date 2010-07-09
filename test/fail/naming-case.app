@@ -4,6 +4,7 @@
 //Multiple definitions with name 'aPage'
 //Multiple definitions with name 'aTemplate'
 //Multiple definitions with name 'aDefine'
+//Multiple definitions with name 'pageArgsAndTemplateNoArgs'
 //'anEntityNoSuper' is defined multiple times
 //'anEntity' is defined multiple times
 //'ASessionEntity' is defined multiple times
@@ -28,6 +29,10 @@ define template ATemplate() { }
 
 define page 		aDefine () { }
 define template	ADefine () { }
+
+define page     pageArgsAndTemplateNoArgs (x : String) { }
+define template pageArgsAndTemplateNoArgs () { }
+
 
 // entities
 
