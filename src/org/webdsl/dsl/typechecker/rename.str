@@ -15,10 +15,10 @@ imports
   libwebdsl-front
 
 signature constructors
-  
+
   TopLevelName : Term -> Term
 
-rules 
+rules
 
   rename-top = log-time(map-toplevel(rename, rename-toplevel) | "rename")
   rename-toplevel = with-toplevel-name(rename-all)
@@ -27,9 +27,17 @@ rules
 
   rename-all = with-origin(alltd(rename))
 
-  rename-closed = 
+  rename-closed =
     {| Rename:
-       rename-all 
+       rename-all
+     |}
+
+  built-in-template-rule-setup = prevent-strategy-removal;fail
+  prevent-strategy-removal = in-def-rename-scope(id)
+  in-def-rename-scope(s) =
+    {| Rename, InDef, VarInTemplateContext
+     : rules ( InDef := True() )
+     ; s
      |}
 
   rename = Rename
@@ -47,7 +55,7 @@ rules
     then normsrt := refsrt{IsRefSort(),anno*}
     else normsrt := srt
     end
-  ; rules ( 
+  ; rules (
       Rename : Var(x) -> Var(y)
       RenameType : GenericSort("EntityTypeNamed",[x]) -> GenericSort("EntityTypeNamed",[y])
       RenameType : SimpleSort(x) -> GenericSort("EntityTypeNamed",[y])
@@ -55,43 +63,43 @@ rules
       TypeOf : y -> normsrt
     )
   //; try(rename-bound-hook(|x,y))
-    
+
   rename-type = ?s; (RenameType <+ !s)
-  
+
 rules
 
   /**
    * Use this rule to get a stack trace upon failure in rename, in the rhs of a rewrite rule.
-   * Since 'with' is like 'where', in the sense that it restores the old term, 
+   * Since 'with' is like 'where', in the sense that it restores the old term,
    * <with(rename-all)> in front of the rhs will prevent the actual renaming.
-   * Usage: 
+   * Usage:
    *   desugar: a -> <with-rename-all> b
    */
   with-rename-all :
     a -> b
-    with b := <rename-all> a  
-  
-rules  
-  
+    with b := <rename-all> a
+
+rules
+
   /**
-   *  The difference with VarInTemplateContext rule and Rename is that 
+   *  The difference with VarInTemplateContext rule and Rename is that
    *  VarInTemplateContext is only defined when a whole definition is renamed.
    *  This makes it suitable for doing a bigbagof-VarInTemplateContext to determine closures.
-   *  The Rename dynamic rule does not contain the complete closure at all times, 
+   *  The Rename dynamic rule does not contain the complete closure at all times,
    *  e.g. when rename-all is called on only a part of a definition.
    *  TODO rename this dynamic rule
    */
   declare-vars-in-entity-context =
     try(
       ?name
-    ; rules( VarInTemplateContext :+= Var(name)) 
+    ; rules( VarInTemplateContext :+= Var(name))
     )
-    
+
   declare-vars-in-context =
     try(
       ?name
     ; where(context := <InDef>) //important, this makes sure that vars are only added when a complete definition is visible, otherwise the closure would be incomplete
-    ; rules( VarInTemplateContext :+= Var(name)) 
+    ; rules( VarInTemplateContext :+= Var(name))
     )
 
 //  empty-args-in-context =
@@ -104,8 +112,9 @@ rules
 
   // case insensitive newname, to prevent generation of both files user_x and User_x which fails on Mac & Windows
   newname-i: x -> y
-    with	lower := <lower-case; newname> x
-        ; n := <explode-string; split-at(|<strlen> x); ?(_,<id>); implode-string> lower 
+    with  lower := <lower-case; newname> x
+        ; rules( NewNameUsed := lower ) // make sure used newname stays in memory, newname semantics requires this
+        ; n := <explode-string; split-at(|<strlen> x); ?(_,<id>); implode-string> lower
         ; y := <concat-strings> [x, n]
 
   // prefix with given prefix, if prefix not already present
@@ -115,8 +124,7 @@ rules
       ; where(not(string-starts-with(|prefix')))
       ; <concat-strings; newname-i> [prefix', <id>]
   )
-  
+
 rules // toplevel-rename: return name prefixed with toplevel definition
 
   toplevel-rename = prefix-rename(|<TopLevelDefineName>)
-  
