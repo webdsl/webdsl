@@ -9,17 +9,17 @@ application registerexample
   }
 
   define page root() {
+    var u : User := User{};
+    var p : Secret;
+    action register() {
+      validate(p==u.password,"passwords don't match action");
+      u.password := u.password.digest();
+      u.save();
+      message("You have successfully registered. Sign in now.");
+    }
+
     main {
    
-      var u : User := User{};
-      var p : Secret;
-      action register() {
-        validate(p==u.password,"passwords don't match action");
-        u.password := u.password.digest();
-        u.save();
-        message("You have successfully registered. Sign in now.");
-      }
-
       header { "Register" }
       form {
         label("Password:") { input(u.password) }
