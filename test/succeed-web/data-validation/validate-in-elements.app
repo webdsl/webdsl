@@ -50,10 +50,9 @@ application registerexample
     elist[3].click();
     
     var pagesource := d.getPageSource();
+    var list := pagesource.split("<hr");
     
-    var list := pagesource.split("<hr/>");
-    
-    assert(list.length == 3, "expected two occurences of \"<hr/>\"");
+    assert(list.length == 3, "expected two occurences of \"<hr\"");
  
     assert(list[1].contains("inputcheck"), "cannot find inputcheck message");
     assert(list[2].contains("formcheck"), "cannot find formcheck message");
