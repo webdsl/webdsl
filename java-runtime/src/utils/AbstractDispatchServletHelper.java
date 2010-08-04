@@ -1,7 +1,10 @@
 package utils;
 
+import javax.servlet.http.HttpServletRequest;
+
 public abstract class AbstractDispatchServletHelper{
   public abstract String getContextPath();
   public abstract String getRequestedPage();
   public boolean isPostRequest;
+  public abstract HttpServletRequest getRequest();
 }

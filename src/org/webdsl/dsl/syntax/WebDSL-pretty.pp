@@ -1236,6 +1236,7 @@
    Milliseconds                                           -- _1 KW["milliseconds"],
    TimeInterval                                           -- _1,
    TimeInterval.1:iter-star                               -- _1,
+   InvokeEvery -- KW["invoke"] _1 KW["every"] _2,
    NotEmptyAnno -- KW["not empty"],
    PropertySubmit -- _1 KW[":"] _2,
    AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"],
