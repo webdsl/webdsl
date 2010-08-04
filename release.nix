@@ -114,16 +114,6 @@ let
         '';
       };
 
-    webcheck = 
-      { tarball ? jobs.tarball {}
-      , services ? { outPath = ../services; rev = 1234; }
-      , nixos ? { outPath = ../nixos; rev = 1234; }
-      }:
-        with import "${nixos}/lib/testing.nix" {inherit nixpkgs services; system = "i686-linux";} ;
-        runInMachineWithX {
-          drv = pkgs.lib.overrideDerivation (build { inherit tarball; }) (oldAttrs: { configureFlags = ""; buildNativeInputs = oldAttrs.buildNativeInputs ++ [pkgs.firefox] ; }) ;
-        };
-
   };
 
   
