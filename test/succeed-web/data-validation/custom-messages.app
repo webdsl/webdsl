@@ -64,5 +64,6 @@ application messages
     assert(list[1].contains("1: username: bobblabla"), "cannot find first message");
     assert(list[1].contains("2: username: bobblabla"), "cannot find second message");
     
+    d.close();
   }
   

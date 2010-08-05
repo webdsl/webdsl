@@ -50,6 +50,7 @@ application formcheckseparate
     elist[3].click();
     
     assert(d.getPageSource().contains("property2 must be smaller than property1"), "didn't find validation message in page output");
-
+   
+    d.close();
   }
   

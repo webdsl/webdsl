@@ -9,30 +9,30 @@ section principal
   principal is User with credentials name
   
   access control rules
-  	rule page cannotGoHere(*) { pred() }
+    rule page cannotGoHere(*) { pred() }
   
     predicate pred(){
       true
     }
     
-	access control rules extraRules
-	
-		rule page cannotGoHere(*) { pred2() }
-		
-		predicate pred2() {
-			"x" == "y"			
-		}
-		
-	access control policy anonymous AND extraRules
+  access control rules extraRules
+  
+    rule page cannotGoHere(*) { pred2() }
+    
+    predicate pred2() {
+      "x" == "y"			
+    }
+    
+  access control policy anonymous AND extraRules
     
 section somesection  
   
   define page cannotGoHere() {
-  	
+    
   }
   
   define page root(){
-  	navigate(cannotGoHere()) { "Cannot see this link" }  
+    navigate(cannotGoHere()) { "Cannot see this link" }  
   }
   
   test messages {
@@ -46,4 +46,6 @@ section somesection
     // Go to denied page
     d.get(navigate(cannotGoHere()));
     assert(d.getPageSource().contains("Access Denied"), "Access should be denied.");
+    
+    d.close();
   }

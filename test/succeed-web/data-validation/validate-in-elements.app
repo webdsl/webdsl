@@ -57,4 +57,5 @@ application registerexample
     assert(list[1].contains("inputcheck"), "cannot find inputcheck message");
     assert(list[2].contains("formcheck"), "cannot find formcheck message");
     
+    d.close();
   }

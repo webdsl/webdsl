@@ -35,5 +35,5 @@ application email
     var list := /required/.split(d.getPageSource());
     
     assert(list.length == 2, "expected one occurence of \"required\"");
-    
+    d.close();
   }

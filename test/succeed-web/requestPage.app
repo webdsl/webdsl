@@ -75,6 +75,7 @@ application test
       assert(text == d.getTitle());
     }
     
+    d.close();
   }
   
 

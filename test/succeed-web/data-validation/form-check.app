@@ -64,5 +64,6 @@ application formcheckseparate
     
     assert("successfully performed edit" == d.getTitle());
     
+    d.close();
   }
   

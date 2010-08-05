@@ -95,4 +95,5 @@ application input
    
     assert(d.getTitle() == "ttdsfsdfds", "action didn't complete correctly, redirect was not performed or name value is wrong");
    
+    d.close();
   }

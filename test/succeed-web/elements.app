@@ -26,7 +26,7 @@ application test
     assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     assert(d.getPageSource().contains("testtest"),"template call with elements failed");
-    
+    d.close();
   }
   
 

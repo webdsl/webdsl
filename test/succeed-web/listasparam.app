@@ -85,4 +85,6 @@ function searchHelper(s: String):  List<News> {
     var pieces2 := d.getPageSource().split("hallo");
     assert(pieces2.length==4, "expected \"hallo\" 3 times");
     */
+    
+    d.close();
   }
