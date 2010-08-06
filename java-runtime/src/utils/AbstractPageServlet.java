@@ -58,6 +58,16 @@ public abstract class AbstractPageServlet{
             return request.getRequestURL().toString();
         }
     }
+    
+    public boolean isPostRequest(){
+        return ThreadLocalServlet.get().isPostRequest;
+    }
+    public boolean isNotPostRequest(){
+        return !ThreadLocalServlet.get().isPostRequest;
+    }
+    public boolean isAjaxTemplateRequest(){
+        return ThreadLocalServlet.get().getPages().get(ThreadLocalServlet.get().getRequestedPage()).isAjaxTemplate();
+    }
 
     public abstract String getHiddenParams();
     public abstract String getHiddenPostParams();
@@ -118,6 +128,12 @@ public abstract class AbstractPageServlet{
         return validationExceptions;
     }
     public boolean hasExecutedAction = false;
+    public boolean hasExecutedAction(){ return hasExecutedAction; }
+    public boolean hasNotExecutedAction(){ return !hasExecutedAction; }
+    
+    protected boolean abortTransaction = false;
+    public boolean isTransactionAborted(){ return abortTransaction; }
+    public void abortTransaction(){ abortTransaction = true; }
 
     public java.util.List<String> ignoreset= new java.util.ArrayList<String>();
 
@@ -161,13 +177,29 @@ public abstract class AbstractPageServlet{
     protected abstract void initVarsAndArgs();
 
     public void clearHibernateCache() { 
-        hibSession.clear();  
+        // used to be only ' hibSession.clear(); ' but that doesn't revert already flushed changes.
+        // since flushing now happens automatically when querying, this could produce wrong results. 
+        // e.g. output in page with validation errors shows changes that were not persisted to the db.
+        // see regression test in test/succeed-web/validate-false-and-flush.app
+        hibSession.getTransaction().rollback();
+        
+        /* http://community.jboss.org/wiki/sessionsandtransactions
+         * Because Hibernate can't bind the "current session" to a transaction, as it does in a JTA environment,
+         * it binds it to the current Java thread. It is opened when getCurrentSession() is called for the first
+         * time, but in a "proxied" state that doesn't allow you to do anything except start a transaction. When 
+         * the transaction ends, either through commit or roll back, the "current" Session is closed automatically.
+         * The next call to getCurrentSession() starts a new proxied Session, and so on. In other words, 
+         * the session is bound to the thread behind the scenes, but scoped to a transaction, just like in a JTA environment. 
+         */
+        hibSession = openNewTransactionThroughGetCurrentSession(); 
+        
         initVarsAndArgs();
         hibernateCacheCleared = true;
     }
+    
+    // workaround to get to static member of generated HibernateUtilConfigured class
+    protected abstract org.hibernate.Session openNewTransactionThroughGetCurrentSession();
 
-
-    // atm just used for captcha check
     protected boolean validated=true;
     protected Session hibSession;
     protected HttpServletRequest request;
@@ -186,8 +218,17 @@ public abstract class AbstractPageServlet{
         return response;
     }
 
-    public boolean isValidated() {
+    /*
+     * when this is true, it can mean:
+     *  1 no validation has been performed yet
+     *  2 some validation has been performed without errors
+     *  3 all validation has been performed without errors
+     */
+    public boolean isValid() {
         return validated;
+    }
+    public boolean isNotValid() {
+        return !validated;
     }
 
     public void setValidated(boolean validated) {

@@ -197,56 +197,68 @@ rules
                   templateservlet.handleActions(args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null);
                   ThreadLocalPage.get().clearTemplateContext();
                 }
-                else{
-                  clearHibernateCache(); //note: already flushed changes are still saved
-                }
+              }
+              
+              if(isNotValid()){
+                clearHibernateCache();
+                abortTransaction();
               }
               
               if(download != null) {
                 download();
               }
               else {
-                if ( ( !this.hasExecutedAction || hibernateCacheCleared )) {
-                  if (!hibernateCacheCleared && ThreadLocalServlet.get().isPostRequest) {
-                    clearHibernateCache(); //note: already flushed changes are still saved
+                // regular render, or failed action render
+                if( hasNotExecutedAction() || isNotValid() ){
+                  // action called but no action found
+                  if( isValid() && isPostRequest() ){ 
                     System.out.println("Error: server received POST request but was unable to dispatch to a proper action"); 
                     response.getWriter().write("404 \n Error: server received POST request but was unable to a proper action");
                   }
-                  else { //validation fail
-                    if(DispatchServletHelper.pages.get(ThreadLocalServlet.get().getRequestedPage()).isAjaxTemplate() && ThreadLocalServlet.get().isPostRequest){
-                        java.io.StringWriter s1 = new java.io.StringWriter();
-                        java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
-                        render(request, response, out1,true);
-                        response.getWriter().write("[{action:\"replace\", id:\""+this.getActionTarget()+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) + "\"}]");
-                    }
-                    else{
-                      if(this.isActionLinkUsed() || this.isAjaxRuntimeRequest()){ //actionLink or ajax action used (request came through js runtime), and action failed
-                        java.io.StringWriter s1 = new java.io.StringWriter();
-                        java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
-                        render(request, response, out1,true);
-                        response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) +"\"}]");   
-                      }
-                      else{ //regular action submit, and action failed
-                        render(request, response, response.getWriter(),false);
-                      }
-                    }
+                  // action inside ajax template called and failed
+                  else if( isAjaxTemplateRequest() && isPostRequest() ){
+                    java.io.StringWriter s1 = new java.io.StringWriter();
+                    java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
+                    render(request, response, out1,true);
+                    response.getWriter().write("[{action:\"replace\", id:\""+this.getActionTarget()+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) + "\"}]");
+                  }
+                  //actionLink or ajax action used (request came through js runtime), and action failed
+                  else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){ 
+                    java.io.StringWriter s1 = new java.io.StringWriter();
+                    java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
+                    render(request, response, out1,true);
+                    response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) +"\"}]");   
+                  }
+                  // 1 regular render without any action being executed
+                  // 2 regular action submit, and action failed
+                  else{ 
+                    render(request, response, response.getWriter(),false);
                   }
                 }
-                else if (this.isAjaxRuntimeRequest() && this.hasExecutedAction) {
-                  response.getWriter().write("[" + s.toString()+ "{}]");
-                }
-                else if (this.hasExecutedAction && this.isActionLinkUsed()) {
-                  //action link also uses ajax when ajax is not enabled
-                  //, send only redirect location, so the client can simply set 
-                  // window.location = req.responseText;
-                  response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");               
+                // succesful action, always redirect, no render
+                else { //hasExecutedAction() && isValid()
+                  if( isAjaxRuntimeRequest() ){
+                    response.getWriter().write("[" + s.toString()+ "{}]");
+                  }
+                  else if( isActionLinkUsed() ){
+                    //action link also uses ajax when ajax is not enabled
+                    //, send only redirect location, so the client can simply set 
+                    // window.location = req.responseText;
+                    response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");               
+                  }
+                  //else: action successful + no validation error + regular submit 
+                  //        -> always results in a redirect, no further action necessary here
                 }
               }
-              storeSessionEntities();
               storeOutgoingMessagesInHttpSession();
-              hibSession.flush();
-              hibSession.getTransaction().commit();
-              
+              if( isTransactionAborted() ){
+                hibSession.getTransaction().rollback();
+              }
+              else{
+                storeSessionEntities();
+                hibSession.flush();
+                hibSession.getTransaction().commit();
+              }
               ThreadLocalOut.popChecked(out);
             }	
             catch (Exception ex) {
