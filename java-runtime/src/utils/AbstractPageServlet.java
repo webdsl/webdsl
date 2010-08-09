@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -234,6 +235,8 @@ public abstract class AbstractPageServlet{
     public void setValidated(boolean validated) {
         this.validated = validated;
     }
+    
+    public List<String> failedCaptchaResponses = new ArrayList<String>();
 
     protected boolean inSubmittedForm = false;
 
