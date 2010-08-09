@@ -44,13 +44,13 @@ rules //initial declare
 rules //constraints
 
   //duplicate global var names
-	constraint-error-global =
-			<concat; uniq> [<all-keys-VarDecl>, <all-keys-IsRequestScopedVarDecl>]
-		; constraint-double-names(
-		    bagof-VarDecl
-		  , \(name,decl) -> ["Global variable with name '", name, "' is defined multiple times."]\
-		  )
-		; fail
+  constraint-error-global =
+      <concat; uniq> [<all-keys-VarDecl>, <all-keys-IsRequestScopedVarDecl>]
+    ; constraint-double-names(
+        bagof-VarDecl
+      , \(name,decl) -> ["Global variable with name '", name, "' is defined multiple times."]\
+      )
+    ; fail
 
 rules 
 
@@ -82,7 +82,36 @@ rules
 
   constraint-error-data :
     Call(GlobalVar(x), "delete",_) -> <add-error(|<global-var-delete-message> x)>
+
+  /**
+   *  input(GlobalVar) is not allowed, see test/fail/globalvar-input.app
+   */
+  constraint-error-data =
+    find-template-with-name(|"input")
+  ; ?t
+  ; get-tc-args
+  ; ( ?[GlobalVar(x)] <+ ?[Var(<?x;IsGlobal>)] )
+  ; <add-error(|["Global variable ",x," is not allowed in inputs, only the properties of a global variable may be changed."])> t
        
-  //TODO check for cascade delete, can occur when there is a '<>' reference to a global. maybe as a dynamic check that throws an exception in the delete event of hibernate
+  //TODO constraint on using globals with other built-in input-like templates, perhaps not necessary after
+  // converting built-ins to library and using the check below.
+
+  /**
+   * constraint on Ref arg called with global variable
+   */
+  constraint-error-data =
+    ?t
+  ; is-defined-tc-get-called-def
+  ; ?Define(_,_,fargs,_,_)
+  ; args := <get-tc-args> t
+  ; <zip(try(constraint-error-ref-arg-global))> (fargs, args)  
+  ; fail //result doesn't matter here, errors are inserted in DR
+    
+  constraint-error-ref-arg-global:
+    (Arg(_,RefSort(_)),e) -> <add-error(|["Global variable ",x," is not allowed as Ref argument, only the properties of a global variable may be changed."])> e
+    where <?Var(<?x;IsGlobal>)> e <+ <?GlobalVar(x)> e
+    
+
+  //TODO check for cascade delete, can occur when there is a '<>' reference to a global. 
+  // maybe as a dynamic check that throws an exception in the delete event of hibernate
   
-  //TODO constraint on input(global)
