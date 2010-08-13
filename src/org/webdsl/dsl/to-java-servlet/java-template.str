@@ -192,21 +192,37 @@ rules
   local-defined-templates-to-hashmap :
     elem* -> result
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
-        ; result := <map({\ (x,xclass) -> bstm |[ env.putTemplate(x_key, x_value); ]| 
-                             where x_key := <concat-strings> ["\"",x,"\""]
-                                 ; x_value := <concat-strings> [xclass,".class"]
-                          \})> localtemplates
+        ; result := <map(add-template-binding); concat> localtemplates
                           
   local-defined-templates-to-hashmap-helper :
     def@webdsl|[ define mod* x(farg*)  req* { elem* } ]| -> (x,clsname)
     with  clsname := <get-template-class-name> def
     
+  add-template-binding:        
+    (x,xclass) -> bstm* |[ env.putTemplate(x_key, x_value); ]| 
+    with  x_key := <concat-strings> ["\"",x,"\""]
+        ; x_value := <concat-strings> [xclass,".class"]
+  
   //local template redef
   local-defined-templates-to-hashmap-helper :
-    def@webdsl|[ define mod* x(farg*) = y ]| -> (xWithOverloadRenaming,clsname)
-    with  clsname := <template-class-name-parents(|[],<generate-template-name-fargs> (y,farg*))>
-        ; xWithOverloadRenaming := <generate-template-name-fargs> (x,farg*)
- 
+    def@LocalRedefine(mod*,x,farg*,y,extraArg*) -> (xWithOverloadRenaming,clsname, argwithref*)
+    with  xWithOverloadRenaming := <generate-template-name-fargs> (x,farg*)
+        ; ( <get-anno(?ExtraLocalDefineArgs(extraFormalArg*))> def <+ extraFormalArg* := [] )
+        ; ( <?LocalRedefineArgs(eArg*)> extraArg* <+ eArg* := [] )
+        ; clsname := <template-class-name-parents(|[],<generate-template-name-fargs> (y,[farg*,extraFormalArg*]))>
+        ; argwithref* := <handle-ref-arg> (extraFormalArg*,eArg*)
+
+  add-template-binding:        
+    (x,xclass,e_argswithref*) -> 
+      bstm* |[ 
+        env.putTemplate(x_key, x_value);
+        Object[] x_array = { e_argswithref* };
+        env.putExtraLocalTemplateArguments(x_key, x_array); 
+      ]| 
+    with  x_key := <concat-strings> ["\"",x,"\""]
+        ; x_value := <concat-strings> [xclass,".class"]
+        ; x_array := <newname> "arg" //doesn't need to be globally unique, no issue for caching when using newname here
+
 rules 
  
   formal-arguments-to-store-statements :

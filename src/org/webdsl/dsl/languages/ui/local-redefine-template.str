@@ -9,6 +9,51 @@ imports
 rules
 
   constraint-error-ui :
-    LocalRedefine(mods,tname,fargs,tname2) -> <add-error(|["Local template redefinition requires a template with signature: ",ppcall])>
-    where not(<get-exact-definition-from-sig> (tname2, fargs))
-    with  ppcall := <pp-func-sig> (tname2,fargs)
+    LocalRedefine(mods,tname,fargs,tname2,extraArgs) -> <add-error(|["Local template redefinition requires a template with signature: ",ppcall])>
+    with type* := <local-redefine-arg-types(|fargs, extraArgs)> 
+    where not(get-exact-definition-from-sig(|tname2, type*))
+    with  ppcall := <pp-func-sig> (tname2,type*)
+    
+  /**
+   *  Tests whether the define has been declared globally and returns def, sig or both
+   */
+  get-def-from-local-redefine :
+    LocalRedefine(mods,tname,fargs,tname2,extraArgs) -> def
+    with  type* := <local-redefine-arg-types(|fargs, extraArgs)> 
+    where def := <get-exact-definition-from-sig(|tname2, type*)>
+    
+  local-redefine-arg-types(|fargs, extraArgs) :
+    _ -> type*
+    with  (LocalRedefineArgs(extraArgs2) := extraArgs <+ extraArgs2 := [])
+        ; t2* := <map(type-of)> extraArgs2
+        ; t1* := <template-formal-arguments-to-types> fargs
+        ; type* := [t1*,t2*]
+    
+  /**
+  *  Add formal arguments of the extra arguments, so the back-end knows whether to wrap objects passed as Ref or pass them normally.
+  *  The extra arguments are created when the define x() = y(*,extra,args) is handled and stored in the Environment class (java-template.str), 
+  *  to be retrieved when an actual call to the template occurs (control-flow-to-java-servlet.str).
+  */
+  add-backend-annotation =
+    ?LocalRedefine(mods,tname,fargs,tname2,LocalRedefineArgs(extraArgs)) //won't match if there are no extra arguments, in that case the annotation is not needed
+  ; with(
+      Define(mods1, name1,fargs1, reqs1, elems1) := <get-def-from-local-redefine>
+    ; extraArgsLength := <length> extraArgs
+    ; annoval := <reverse; take(|extraArgsLength); reverse> fargs1
+    )
+  ; add-new-anno(|ExtraLocalDefineArgs(annoval))
+  
+
+rules
+  
+  /**
+   *  Desugar inline local template redefinition to global template
+   */
+  /*desugar-ui : 
+    def@Define(mods1, name1{uniqname1},fargs1, reqs1, elems1){anno*} -> LocalRedefine(mods1,name1,combinedfargs,uniqname1)
+    where is-local-template-def;debug(!1)
+    with  debug(!2);(args2,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,elems1)
+        ; debug(!3);combinedfargs :=  <concat>[fargs1,fargs2]
+        ; debug(!4);<emit-webdsl-code> Define([NoSpan()], uniqname1, combinedfargs, reqs1, elems1);debug(!5)
+    */     
+     
