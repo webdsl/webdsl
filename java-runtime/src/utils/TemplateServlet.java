@@ -28,32 +28,33 @@ public abstract class TemplateServlet {
     protected Map<String, utils.TemplateCall> withcallsmapout = null;
     protected String[] pageArguments = null;
     protected HttpSession session;
+    protected utils.LocalTemplateArguments ltas;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
     
-    public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
+          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
           storeInputsInternal();
         }
       }  
-    public void validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs) {
+    public void validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
+          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
           validateInputsInternal();
         }
       } 
-    public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) {          
+    public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
+          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
           PrintWriter out = ThreadLocalOut.peek();         
           handleActionsInternal();
         }
       }  
 
-    public void render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs) { 
+    public void render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
       if(!skipThisTemplate){
-        tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs);
+        tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
      
         java.io.StringWriter s = new java.io.StringWriter();
 
@@ -80,8 +81,8 @@ public abstract class TemplateServlet {
     protected abstract void storeArguments(Object[] args);
     
     protected abstract void initialize();
+    protected abstract void initSubmitActions();
     protected abstract void initActions();
-    protected abstract void initializePassOn();
     protected abstract void initializeLocalVars();
     
     public abstract String getUniqueName();
@@ -90,7 +91,26 @@ public abstract class TemplateServlet {
     public abstract String getStateEncodingOfArgument();
     public abstract String getTemplateContext();
     
-    private void tryInitializeTemplate(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs){
+    private Map<String,Object> actions = null;
+    public Map<String,Object> getActions(){
+        return actions;
+    }
+    public Object getAction(String key) {
+        if (actions != null && actions.containsKey(key)){
+            return actions.get(key);
+        }
+        else{
+            throw new RuntimeException("Action with name "+key+" was not found in template "+getUniqueName());
+        }
+    }
+    public void putAction(String key, Object value) {
+        if(actions == null){
+            actions = new HashMap<String,Object>();
+        }
+        actions.put(key, value);
+    }
+    
+    private void tryInitializeTemplate(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
@@ -105,13 +125,13 @@ public abstract class TemplateServlet {
               this.templateArg = templateArg;
               this.withcallsmap = withcallsmap;
               this.attrs = attrs;
-     
+              this.ltas = ltas;
               try {
                 storeArguments(args);
                 this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getStateEncodingOfArgument(), getTemplateContext());
                 initialize();
                 initializeLocalVars();
-                initializePassOn();
+                initSubmitActions();
                 initActions();
               }
               catch(utils.ValidationException ve){

@@ -78,11 +78,11 @@ rules
           @Partial
           protected void initialize() {}
           
+          @Partial
+          protected void initSubmitActions(){}
+          
           @Partial 
           protected void initActions() {}
-
-          @Partial
-          protected void initializePassOn() {}
 
           @Partial
           protected void initializeLocalVars() {}
@@ -157,18 +157,26 @@ rules
        ; x_Page  := <ThisTemplateClassName>
        ; x_TemplateName := <get-original-name> x
        ; x_TemplateSig := <concat-strings> [x_TemplateName,"(",<map(\Arg(nm,srt)->Arg(<get-original-name> nm,srt)\;pp-webdsl-to-string);separate-by(|", ");concat-strings> farg*,")"]
-       ; if <fetch(?NoSpan())> mod* <+ JavaThisPage; not(NestedTemplate) then //no span for templates with no-span modifier, or pages
+       ; if <fetch(?NoSpan())> mod* <+ JavaThisPage then //no span for templates with no-span modifier, or pages
             bstm_so* := []
           ; bstm_sc* := []
           else
-            bstm_so* := bstm* |[ 
+            x_actualname := <newname> "name"
+          ; x_uniquename := <newname> "uniqname"
+          ; bstm_so* := bstm* |[ 
               if(ThreadLocalPage.get().templateSpans()){
-                outtemp.write("<span id=\""+"~x" + "\" class=\"scopediv "); //@TODO this could generate duplicate ids in resulting html
-                if("~x".equals("~x_TemplateName")){
-                   outtemp.write("~x");
+                String x_actualname = "~x_TemplateName";
+                String x_uniquename = "~x";
+                if(ltas != null){
+                  x_actualname = ltas.spanName;
+                  x_uniquename = ltas.spanNameUnique;
+                }
+                outtemp.write("<span id=\""+ x_uniquename + "\" class=\"scopediv "); //@TODO this could generate duplicate ids in resulting html
+                if(x_uniquename.equals(x_actualname)){
+                   outtemp.write(x_uniquename);
                 }
                 else{
-                   outtemp.write("~x"+" "+"~x_TemplateName");
+                   outtemp.write(x_uniquename +" "+ x_actualname);
                 }
                 outtemp.write("\">"); 
               }
@@ -205,19 +213,20 @@ rules
   
   //local template redef
   local-defined-templates-to-hashmap-helper :
-    def@LocalRedefine(mod*,x,farg*,y,extraArg*) -> (xWithOverloadRenaming,clsname, argwithref*)
+    def@LocalRedefine(mod*,x,farg*,y,extraArg*) -> (xWithOverloadRenaming,clsname, argwithref*, spanname1, spanname2)
     with  xWithOverloadRenaming := <generate-template-name-fargs> (x,farg*)
         ; ( <get-anno(?ExtraLocalDefineArgs(extraFormalArg*))> def <+ extraFormalArg* := [] )
         ; ( <?LocalRedefineArgs(eArg*)> extraArg* <+ eArg* := [] )
+        ; ( <get-anno(?SpanNames(spanname1,spanname2))> def <+ spanname1 := ""; spanname2 := "")
         ; clsname := <template-class-name-parents(|[],<generate-template-name-fargs> (y,[farg*,extraFormalArg*]))>
         ; argwithref* := <handle-ref-arg> (extraFormalArg*,eArg*)
 
   add-template-binding:        
-    (x,xclass,e_argswithref*) -> 
+    (x,xclass,e_argswithref*, spanname1, spanname2) -> 
       bstm* |[ 
         env.putTemplate(x_key, x_value);
         Object[] x_array = { e_argswithref* };
-        env.putExtraLocalTemplateArguments(x_key, x_array); 
+        env.putExtraLocalTemplateArguments(x_key, new utils.LocalTemplateArguments(x_array,"~spanname1","~spanname2")); 
       ]| 
     with  x_key := <concat-strings> ["\"",x,"\""]
         ; x_value := <concat-strings> [xclass,".class"]

@@ -3,6 +3,7 @@ package org.webdsl.lang;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import utils.LocalTemplateArguments;
 
 public class Environment {
 
@@ -70,13 +71,13 @@ public class Environment {
     /**
      * Used for storing implicit arguments to local template redefinitions
      */
-    private Map<String,Object[]> extraLocalTemplateArguments = null;
+    private Map<String,LocalTemplateArguments> extraLocalTemplateArguments = null;
     
-    public Map<String,Object[]> getExtraLocalTemplateArguments(){
+    public Map<String,LocalTemplateArguments> getExtraLocalTemplateArguments(){
         return extraLocalTemplateArguments;
     }
 
-    public Object[] getExtraLocalTemplateArguments(String key) {
+    public LocalTemplateArguments getExtraLocalTemplateArguments(String key) {
         if (extraLocalTemplateArguments != null && extraLocalTemplateArguments.containsKey(key)){
             return extraLocalTemplateArguments.get(key);
         }
@@ -88,35 +89,11 @@ public class Environment {
         }
     }
 
-    public void putExtraLocalTemplateArguments(String key, Object[] value) {
+    public void putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {
         if(extraLocalTemplateArguments == null){
-            extraLocalTemplateArguments = new HashMap<String,Object[]>();
+            extraLocalTemplateArguments = new HashMap<String,LocalTemplateArguments>();
         }
         extraLocalTemplateArguments.put(key, value);
     }    
-    
-    
-    
-    private Map<String,Object> actions = null;
-    
-    public Map<String,Object> getActions(){
-        return actions;
-    }
-
-    public Object getAction(String key) {
-        if (actions != null && actions.containsKey(key)){
-            return actions.get(key);
-        }
-        else{
-            return up.getAction(key);
-        }
-    }
-
-    public void putAction(String key, Object value) {
-        if(actions == null){
-            actions = new HashMap<String,Object>();
-        }
-        actions.put(key, value);
-    }
     
 }

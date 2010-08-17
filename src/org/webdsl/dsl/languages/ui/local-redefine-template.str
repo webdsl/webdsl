@@ -48,12 +48,23 @@ rules
   
   /**
    *  Desugar inline local template redefinition to global template
+   *  @TODO support 'requires' template args
    */
-  /*desugar-ui : 
-    def@Define(mods1, name1{uniqname1},fargs1, reqs1, elems1){anno*} -> LocalRedefine(mods1,name1,combinedfargs,uniqname1)
-    where is-local-template-def;debug(!1)
-    with  debug(!2);(args2,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,elems1)
-        ; debug(!3);combinedfargs :=  <concat>[fargs1,fargs2]
-        ; debug(!4);<emit-webdsl-code> Define([NoSpan()], uniqname1, combinedfargs, reqs1, elems1);debug(!5)
-    */     
-     
+  desugar-ui : 
+    def@Define(mods1, name1{uniqname1},fargs1, reqs1, elems1){anno*} 
+    -> LocalRedefine(mods1,name1{},fargs1,uniqname1, LocalRedefineArgs(extraArgs)){SpanNames(name1,nameWithTypes)} 
+    // note: no anno on name1, otherwise would get renamed
+    // SpanNames could be added in front-end and made part of LocalRedefine, put in annotation for now
+    where is-local-template-def
+    with  (extraArgs,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,elems1)
+        ; combinedfargs :=  <concat>[fargs1,<map(\ Arg(x,srt) -> Arg(x,RefSort(srt)) \)> fargs2]
+    with //copy actions for now, @TODO mechanism for passing actions as parameters
+         <fetch(?EnclosingDefine(templatekey))> anno*
+       ; actions := <TemplateActions <+ ![]> templatekey
+    with <emit-webdsl-code> Define([], uniqname1, combinedfargs, reqs1, <concat> [elems1,actions]) //note: empty mods, so no Local(), prevents triggering this desugar again
+    with //just for reconstructing the names used in spans:
+          t* := <template-formal-arguments-to-types> fargs1
+        ; n := <strip-annos> name1
+        ; nameWithTypes := <generate-template-name> (n,t*)
+          
+      
