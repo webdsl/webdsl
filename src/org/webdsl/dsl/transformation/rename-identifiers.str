@@ -5,15 +5,22 @@ imports
   
 imports 
   libwebdsl-front
+  org/webdsl/dsl/transformation/-
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/languages/data-model/-
+  org/webdsl/dsl/languages/ui/-
+  org/webdsl/dsl/utils/-
 
 rules
 
   rename-identifiers-top =
     map-toplevel(
       fail,
-      with-toplevel-name(
-        rename-identifiers
-      )
+      {| ExistingRenamings, GlobalToLocalMap:
+        with-toplevel-name(
+          rename-identifiers
+        )
+      |}
     )
     
   rename-identifiers = alltd(rename-bound-variables)
@@ -24,17 +31,38 @@ rules
     //<+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
     <+ rename-template-def-id
     <+ rename-template-call-id
-    <+ use-existing-renaming
+    <+ rename-action-def-id
+    <+ rename-test-id
+    <+ use-local-renaming
   
   exclude-from-var-renaming = ?"this"
   
-  use-existing-renaming :
-    x{anno*} -> y{new-anno*}
+  use-local-renaming :
+    x{anno*} -> z{new-anno*}
     where <is-string> x
         ; y := <fetch-elem(is-string)> anno*
         ; <remove-all(?y)> anno*
         ; ![OriginalNameAnno(x{}) | <id>]
         ; ?new-anno*
+        ; z := <global-to-local-name(|<strip-annos> x)> y
+        
+  // Make a locally unique name from a globally unique name
+  global-to-local-name(|x) = GlobalToLocalMap
+    
+  global-to-local-name(|x): y -> z
+    where TopLevelDefineName => toplevel
+        ; n := <ExistingRenamings; inc <+ !0> x
+    with  z := <concat-strings> [x, <int-to-string> n]
+        ; rules(
+            ExistingRenamings : x -> n
+            GlobalToLocalMap : y -> z
+          )
+          
+   use-global-renaming: x{anno*} -> y{anno2*, OriginalNameAnno(x)}
+    with  y := <fetch-elem(is-string)> anno*
+        ; anno2* := <remove-all(?y)> anno*
+    
+rules // templates
 
   rename-template-def-id :
     Define(mod*, x, farg*, targs, elem*){anno*} ->
@@ -82,3 +110,13 @@ rules
     where <CallToBuiltInTemplate> x
         ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
     
+  // Actions are lifted to toplevel elements, so their names should remain globally unique
+  rename-action-def-id: 
+      Action(nm1, args, b) ->
+      Action(<use-global-renaming> nm1, <rename-identifiers> args, <rename-identifiers> b)
+
+  rename-action-def-id:
+      ActionCall(name, args){anno*} -> ActionCall(<use-global-renaming> name, <rename-identifiers> args){anno*}
+       
+  rename-test-id:
+      Test(nm1, body) -> Test(<use-global-renaming> nm1, <rename-identifiers> body)
