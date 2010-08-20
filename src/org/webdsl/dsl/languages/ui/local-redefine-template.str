@@ -56,12 +56,15 @@ rules
     // note: no anno on name1, otherwise would get renamed
     // SpanNames could be added in front-end and made part of LocalRedefine, put in annotation for now
     where is-local-template-def
-    with  (extraArgs,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,elems1)
+    with  <fetch(?EnclosingDefine(templatekey, encltemplatename, encltemplateargs)) <+ debug(!"'EnclosingDefine' annotation missing on local template definition");fail> anno*
+    with  (extraArgs,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,[elems1,<map(get-varname-from-formarg)>encltemplateargs]) // imported ac rules might use these, have to include them as arguments
         ; combinedfargs :=  <concat>[fargs1,<map(\ Arg(x,srt) -> Arg(x,RefSort(srt)) \)> fargs2]
     with //copy actions for now, @TODO mechanism for passing actions as parameters
-          <fetch(?EnclosingDefine(templatekey)) <+ debug(!"'EnclosingDefine' annotation missing on local template definition");fail> anno*
-        ; actions := <TemplateActions <+ ![]> templatekey
-    with <emit-webdsl-code> Define([], uniqname1, combinedfargs, reqs1, <concat> [elems1,actions]) //note: empty mods, so no Local(), prevents triggering this desugar again
+          actions := <TemplateActions <+ ![]> templatekey
+    with <emit-webdsl-code> 
+         Define([], uniqname1, combinedfargs, reqs1, 
+         <concat> [[AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs)], //apply ac rules of enclosing template
+         elems1,actions]) //note: empty mods, so no Local(), prevents triggering this desugar again
     with //just for reconstructing the names used in spans:
           t* := <template-formal-arguments-to-types> fargs1
         ; n := <strip-annos> name1

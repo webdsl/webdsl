@@ -124,7 +124,11 @@ rules
         ; if <is-dummy-pred> x_predname then
               elem := elem |[ init { stat* } ]|
           else
-              e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*)
+              //take other page definition's args if checks were imported and only one check (no combined check generated)
+              // the ThisCall matched here contains either the imported args or the regular args (when only one check but no import of ac rules)
+              if [(_,ThisCall(_,importedargs),_)] := <remove-all(is-true-check)> listofchecks
+              then e_args* := importedargs
+              else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
             ;	elem := elem |[ init { if ( x_predname(e_args*) ) { stat* } else { goto accessDenied(); } } ]|
             ; rules( WeaveAccessControlInferred :+
                    TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*)) ->
@@ -157,14 +161,21 @@ rules
           else
               n_pageargs := <ActionRulePageArgs <+ <length> farg_page*> x_predname
             ; n_actionargs := <subt> (nargs, n_pageargs)
-            ; pageargs* := <take(|n_pageargs); map(get-varname-from-formarg)> farg_page*
-            ; actionargs* := <take(|n_actionargs); map(get-varname-from-formarg)> farg*
-            ; e_allargs* := [pageargs*, actionargs*]
+              //take other definition's args if checks were imported and only one check (no combined check generated)
+              // the ThisCall matched here contains either the imported args or the regular args (when only one check but no import of ac rules)
+            ; if [(_,ThisCall(_,importedargs){ExtraArgsForImportAC(pageargs*)},_)] := <remove-all(is-true-check)> listofchecks
+              then 
+                e_allargs* := importedargs
+              else 
+                pageargs* := <take(|n_pageargs); map(get-varname-from-formarg)> farg_page* 
+              ; actionargs* := <take(|n_actionargs); map(get-varname-from-formarg)> farg*
+              ; e_allargs* := [pageargs*, actionargs*]
+              end
              ; stat_check* := [webdsl |[ if ( x_predname(e_allargs*) ) { stat_allow* } else { stat_denied* } ]|]
              ; rules( WeaveAccessControlInferredAction :+
                  a@                                           SubmitElem(ActionCall(x_ident,callargs*), passign*, submitelem*) ->
                    IfTempl(ThisCall(x_predname,e_checkargs*),[SubmitElem(ActionCall(x_ident,callargs*), passign*, submitelem*)],[])
-                   with e_checkargs* := <take(|nargs)> [pageargs*,callargs*]
+                   with e_checkargs* := <take(|nargs)> [pageargs*,callargs*] //in a call the action args are specified, the page/template definition args need to be added to call the check
                  WeaveAccessControlInferredAction :+
                  a@                                           SubmitLinkElem(ActionCall(x_ident,callargs*), passign*, submitelem*) ->
                    IfTempl(ThisCall(x_predname,e_checkargs*),[SubmitLinkElem(ActionCall(x_ident,callargs*), passign*, submitelem*)],[])
@@ -196,7 +207,11 @@ rules
         ; if <is-dummy-pred> x_predname then
             elem2* := elem1*
           else
-              e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*)
+              //take other template definition's args if checks were imported and only one check (no combined check generated)
+              // the ThisCall matched here contains either the imported args or the regular args (when only one check but no import of ac rules)
+              if [(_,ThisCall(_,importedargs),_)] := <remove-all(is-true-check)> listofchecks
+              then e_args* := importedargs
+              else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
             ; e_check := ThisCall(x_predname, e_args*)
             ; if <fetch(AjaxTemplate)> mod* then
                 elem2* := elem* |[ if ( e_check ) { elem1* } else { "Access denied to this ajax template call" }  ]|

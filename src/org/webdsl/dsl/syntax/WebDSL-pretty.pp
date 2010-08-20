@@ -1250,6 +1250,11 @@
    
    LocalRedefineArgs -- KW["("] KW["*"] KW[","] _1 KW[")"],
    LocalRedefineArgs.1:iter-star-sep           -- H hs=0[_1 KW[","]],
-   LocalRedefineArgs.1:iter-star           -- _1
+   LocalRedefineArgs.1:iter-star           -- _1,
    
+   AccessControlImportRules -- KW["apply ac rules"] _1 KW["("] _2 KW[")"],
+   AccessControlImportRules.2:iter-star-sep       -- H hs=0[_1 KW[","]],
+   AccessControlImportRules.2:iter-star           -- _1,
+   
+   AccessControlImportRulesArg -- _1
 ]
