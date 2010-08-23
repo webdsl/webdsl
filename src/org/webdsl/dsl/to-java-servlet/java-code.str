@@ -523,32 +523,49 @@ rules //vars
     with  e2* := <map(expression-to-java-servlet)> e1*
         ; x_X := <capitalize-string> x
         ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
-    
+
+rules    
   // Global function call
   generic-call-to-java-servlet :
     tc@ThisCall(x, e1*) -> result
     where (get-anno(?GlobalCallAnno(globalFunctionSig)))
     with  if [] := globalFunctionSig
           then e2* := <map(pass-on-ref-arg-exp <+ expression-to-java-servlet)> e1*
-          else Function(_,functionArgs,_,_) := globalFunctionSig
-             ; e2* :=<zip(call-arg-ref-resolve-helper)> (functionArgs,e1*)
+          else functionArgTypes/*Function(_,functionArgs,_,_)*/ := globalFunctionSig
+             ; e2* :=<zip(call-arg-ref-resolve-helper)> (functionArgTypes,e1*)
           end
         ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
         ; result := expr|[ x_Class#_.x#_(e2*) ]|
-          
+
+rules          
   call-arg-ref-resolve-helper:
-    (Arg(_,RefSort(_)),arg) -> x
+    (srt,arg) -> x
+    where <is-ref-type> srt
     with  x := <pass-on-ref-arg-exp> arg
   call-arg-ref-resolve-helper:
-    (Arg(_,srt),arg) -> x
-    where not(<?RefSort(_)> srt)
+    (srt,arg) -> x
+    where not(<is-ref-type> srt)
     with  x := <expression-to-java-servlet> arg
-          
+     
+  //pass-on-ref-arg-exp:
   //used for access control global function internally, but could add ref args to functions at some point
+  //currently a global function with ref arg is always passed a ref arg, since the generated functions's farg is based on the arg exp type
+  //if ref args are enabled for functions also non has-ref-type args need to be supported here
   pass-on-ref-arg-exp : 
     Var(x) -> e|[ x ]|
     where has-ref-type
-  
+    
+  pass-on-ref-arg-exp : 
+    ExternalScopeVar(x) -> e|[ this.x ]|
+    where has-ref-type
+    where not(ThisTemplateClassName)
+    
+  pass-on-ref-arg-exp : 
+    v@ExternalScopeVar(x) -> e|[ x_tclass.this.x  ]|
+    where has-ref-type
+    where x_tclass := <ThisTemplateClassName>
+
+rules
   // Entity function call
   generic-call-to-java-servlet :
     tc@ThisCall(x, e1*) -> result
