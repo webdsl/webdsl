@@ -35,10 +35,10 @@ application test
     assert(d.getPageSource().contains("12345"), "regular arg not passed");
   
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements did not match");
-    elist[2].sendKeys("dfsdfg");
-    elist[3].sendKeys("234567");
-    elist[4].click();
+    assert(elist.length == 4, "expected 4 <input> elements did not match");
+    elist[1].sendKeys("dfsdfg");
+    elist[2].sendKeys("234567");
+    elist[3].click();
     
     assert(d.getPageSource().contains("dfsdfg3234567"), "resulting name incorrect");
 
