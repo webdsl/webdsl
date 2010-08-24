@@ -10,12 +10,12 @@ imports
 rules // generalize constraints for all function types
 
   constraint-error-action =
-  	(
-  			?Function(f, args, _, body)
-  	<+	?FunctionNoReturn(f, args, body)
-  	)
-  	; constraint-error-function(|f,args,body)
-  	
+    (
+        ?Function(f, args, _, body)
+    <+	?FunctionNoReturn(f, args, body)
+    )
+    ; constraint-error-function(|f,args,body)
+    
 rules
   // checks for returns within a FunctionNoReturn
   constraint-error-action =
@@ -57,7 +57,7 @@ rules //reserved functions
     where rules ( IsReservedFunction : (name,argcount) )
     
   constraint-error-function(|f,args,body) =
-    	where(argcount := <length> args)
+      where(argcount := <length> args)
     ; where(<IsReservedFunction> (f, argcount))
     ; error-message-generated-function(|f,argcount)
         
@@ -66,12 +66,12 @@ rules //reserved functions
   
 rules // forbidden elements
 
-	constraint-error-function(|f,args,body) =
-		<alltd(check-forbidden-in-function)> body
-		; fail
-	
-	check-forbidden-in-function =
-		?GoTo(_); add-error(|["Goto can only be used inside an action."])
+  constraint-error-function(|f,args,body) =
+    <alltd(check-forbidden-in-function)> body
+    ; fail
+  
+  check-forbidden-in-function =
+    ?GoTo(_); add-error(|["Goto can only be used inside an action."])
 
 rules // global functions
 
@@ -124,3 +124,23 @@ rules // extend function which extends nothing
         ; globalsigs := <all-keys-FunctionDecl; strip-annos> // remove {DR_DUMMY}
         ; prettysig := <pp-func-sig> esig
     where not(<fetch-elem(?esig)> globalsigs)
+
+rules
+  
+  //constraint-error-arg-list always fails, so no accidental rewrite
+  constraint-error-action = ?Define(_,_,<constraint-error-arg-list>,_,_) 
+  constraint-error-action = ?Function(_,<constraint-error-arg-list>,_,_)
+  constraint-error-action = ?FunctionNoReturn(_,<constraint-error-arg-list>,_)
+  constraint-error-action = ?Predicate(_,<constraint-error-arg-list>,_)
+  
+  constraint-error-arg-list :
+    list@[x|xs] -> <fail>
+    where <map(?Arg(_,_))> list
+    with  namesstripped := <map(?Arg(<strip-annos>,_))> list
+        ; doubles := <find-doubles> namesstripped
+        ; <map(try(constraint-error-arg-list(|doubles)))> list
+
+  constraint-error-arg-list(|doubles):
+    Arg(name,srt) -> <add-error(|["Duplicate name '",name1,"' in argument list."])>
+    where name1 := <strip-annos> name
+        ; <fetch(?name1)> doubles
