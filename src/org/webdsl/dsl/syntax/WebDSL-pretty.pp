@@ -1256,5 +1256,6 @@
    AccessControlImportRules.2:iter-star-sep       -- H hs=0[_1 KW[","]],
    AccessControlImportRules.2:iter-star           -- _1,
    
-   AccessControlImportRulesArg -- _1
+   AccessControlImportRulesArg -- _1,
+   InternalSort -- _1
 ]
