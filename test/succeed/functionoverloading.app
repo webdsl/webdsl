@@ -25,7 +25,7 @@ section datamodel
     return "none";
   }
   
-  function a(s:WikiText,s:WikiText) : String {
+  function a(s:WikiText,s1:WikiText) : String {
     return "none";
   }
   

@@ -1,10 +1,9 @@
-//Duplicate name 'i' in argument list.
-
-// @TODO should check for all 12 occurences, but no counting support in fail tests and position info is stripped from args currently
+//#14 Duplicate name 'i' in argument list.
 
 application test 
 
 define page root() {
+  action a(i: Int , i:String){}
 }
 
 define page foo1(i:Int, i:String){ output(i+i) }
