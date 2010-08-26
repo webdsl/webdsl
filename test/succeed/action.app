@@ -9,6 +9,7 @@ application test
   }
 
   define body(){}
+  define body2(){}
 
   define page root(){
     menu()
