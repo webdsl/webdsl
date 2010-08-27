@@ -17,7 +17,7 @@ import org.strategoxt.lang.terms.TermFactory;
  *
  * @author Lennart Kats <L.C.L.Kats add tudelft.nl>
  */
-final class Environment {	
+public final class Environment {	
 	private final static TermFactory factory = new TermFactory();
 	
 	private final static WrappedATermFactory wrappedFactory = new WrappedATermFactory();
