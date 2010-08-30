@@ -20,6 +20,7 @@ rules
       import java.util.Map;
       import java.util.List;
       import java.util.LinkedList;
+      import java.util.ArrayList;
   
       import javax.servlet.*;
       import javax.servlet.http.*;
@@ -27,6 +28,8 @@ rules
       import utils.*;
       import pkgname.*;
       import org.webdsl.lang.Environment;
+      import pkgtname2.RequestLogEntry;
+      import pkgtname2.RequestLogEntryParam;
   
       public class DispatchServletHelper extends AbstractDispatchServletHelper{
           
@@ -45,6 +48,7 @@ rules
           }
           HttpServletResponse response;
           List<String> messages;
+          RequestLogEntry requestLogEntry;
           
           public String contextPath;
           private String requested;
@@ -99,9 +103,34 @@ rules
             }
           }
             
+          /**
+           *  uses separate session/transaction to push log to database
+           */
+          public void storeRequestLogEntry(){
+            org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+            try
+            { 
+              hibSession.beginTransaction();
+              for(RequestLogEntryParam rlep : requestLogEntry.getParams()){
+                hibSession.saveOrUpdate(rlep);
+              }
+              hibSession.saveOrUpdate(requestLogEntry);
+              hibSession.getTransaction().commit();
+            }
+            catch(Exception se)
+            { 
+              System.out.println("Exception occured while storing request log entry.");
+              se.printStackTrace();
+              hibSession.getTransaction().rollback();
+            }
+          }    
+            
           public void doServe(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
           {
+            requestLogEntry = new RequestLogEntry();
+            requestLogEntry.setStartNoEventsOrValidation(new java.util.Date());
+            
             //HttpOnly cookie to prevent access to document.cookie in javascript
             if (response.containsHeader("SET-COOKIE"))
             {
@@ -262,12 +291,35 @@ rules
               
               utils.PageDispatch pd = pages.get(requested);
               if(pd == null) {
-                pc = pages.get("pagenotfound").getPageClass(); //pagenotfound is always generated
+                requested = "pagenotfound";
+                pd = pages.get(requested);
+                pc = pd.getPageClass(); //pagenotfound is always generated
               }
               else{
                 pc = pd.getPageClass();
               }
               
+              requestLogEntry.setRequestedURLNoEventsOrValidation(request.getRequestURL().toString());
+              requestLogEntry.setNameNoEventsOrValidation(requested);
+              for(String s : pd.args) 
+              {
+                RequestLogEntryParam rlep = new RequestLogEntryParam();
+                rlep.setNameNoEventsOrValidation(s);
+                rlep.setValueNoEventsOrValidation(parammap.get(s));
+                requestLogEntry.getParams().add(rlep);
+              }
+              requestLogEntry.setClientIPNoEventsOrValidation(request.getRemoteAddr());
+              requestLogEntry.setClientPortNoEventsOrValidation(request.getRemotePort());
+              if(this.isPostRequest){
+                requestLogEntry.setMethodNoEventsOrValidation("POST");
+              }
+              else{
+                requestLogEntry.setMethodNoEventsOrValidation("GET");
+              }
+              requestLogEntry.setUserAgentNoEventsOrValidation(request.getHeader("User-Agent"));
+              requestLogEntry.setRefererNoEventsOrValidation(request.getHeader("Referer"));
+              storeRequestLogEntry();
+
               showerrorpage = !handlePage();
             }
             catch(utils.TooFewArgumentsException ex){
@@ -316,6 +368,9 @@ rules
             }
             
             cleanupThreadLocals();
+            
+            requestLogEntry.setEndNoEventsOrValidation(new java.util.Date());
+            storeRequestLogEntry();
           }
           
           private static void cleanupThreadLocals(){
@@ -359,7 +414,7 @@ rules
        }
     ]|
     with  pkgname    := <BeanPackage>
-        ; pkgname2   := <DomainPackage>
+        ; pkgtname2   := <DomainPackage>
         ; bstm*  := <mapconcat({\ 
                            x -> bstm* |[
                            { 
