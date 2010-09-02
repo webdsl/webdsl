@@ -12,6 +12,9 @@ rules
   built-in-template-rule-setup = <declare-built-in-template-rules> ("inputString",[SimpleSort("String")]);fail
   built-in-template-rule-setup = <declare-built-in-template-rules> ("outputString",[SimpleSort("String")]);fail
   
+  //to allow static functions
+  built-in-template-rule-setup = declare-native-class-static-functions(|"String","java.lang.String");fail
+  
 rules
 
   type-default-value :
@@ -45,63 +48,28 @@ rules // Desugar
     elem|[ output(e)[passign*]{} ]| -> elem|[ text(e)[passign*]{} ]|
     where SimpleSort("String") := <type-of> e
 
-
 rules //native string operations
-
- check-builtin-signature :
-    (s1, "contains", [s2]) ->  SimpleSort("Bool")
-    where <type-compatible> (s1, SimpleSort("String"))
-        ; <type-compatible> (s2, SimpleSort("String"))
-
- check-builtin-signature :
-    (s1, "replace", [s2,s3]) ->  SimpleSort("String")
-    where <type-compatible> (s1, SimpleSort("String"))
-        ; <type-compatible> (s2, SimpleSort("String"))
-        ; <type-compatible> (s3, SimpleSort("String"))
-        
- check-builtin-signature :
-    (s1, "length", []) ->  SimpleSort("Int")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "parseInt", []) ->  SimpleSort("Int")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "parseUUID", []) ->  SimpleSort("UUID")
-    where <type-compatible> (s1, SimpleSort("String"))
-
- check-builtin-signature :
-    (s1, "toUpperCase", []) ->  SimpleSort("String")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "toLowerCase", []) ->  SimpleSort("String")
-    where <type-compatible> (s1, SimpleSort("String"))
-
- check-builtin-signature :
-    (s1, "containsDigit", []) ->  SimpleSort("Bool")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "containsLowerCase", []) ->  SimpleSort("Bool")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "containsUpperCase", []) ->  SimpleSort("Bool")
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature :
-    (s1, "isCleanUrl", []) ->  SimpleSort("Bool")
-    where <type-compatible> (s1, SimpleSort("String"))
-
- check-builtin-signature :
-    (s1, "split", []) ->  GenericSort("List",[SimpleSort("String")])
-    where <type-compatible> (s1, SimpleSort("String"))
-    
- check-builtin-signature : //TODO Regex as argument
-    (s1, "split", [SimpleSort("String")]) ->  GenericSort("List",[SimpleSort("String")])
-    where <type-compatible> (s1, SimpleSort("String"))
+  
+  after-tc-declare-hook = //depends on declare of String compatible types 
+    <declare-type-def> //only declare, native function imports in type def do not have to be in the AST 
+    def |[ 
+      type String {
+        length():Int
+        toLowerCase():String
+        toUpperCase():String
+        replace(String,String):String
+        utils.StringType.parseUUID                   as parseUUID():UUID
+        org.webdsl.tools.Utils.containsDigit         as containsDigit():Bool
+        org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
+        org.webdsl.tools.Utils.containsUpperCase     as containsUpperCase():Bool
+        org.webdsl.tools.Utils.isCleanUrl            as isCleanUrl():Bool
+        org.apache.commons.lang.StringUtils.contains as contains(String):Bool // this 'contains' function handles null, null as either arg will produce false 
+        utils.StringType.parseInt                    as parseInt():Int
+        utils.StringType.split                       as split():List<String>
+        utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
+      }
+    ]|
+  ; fail
 
  check-builtin-signature :
     (GenericSort("List",[SimpleSort("String")]), "concat", []) ->  SimpleSort("String")
@@ -121,6 +89,7 @@ rules // hook to specify string-compatible types, e.g. 'string-compatible = ?Sim
     typename := <id>
   ; rules( 
       StringCompatible : SimpleSort(typename)
+      StringCompatibleTypeNames :+= typename
     )
   
   built-in-template-rule-setup = <make-string-compatible> "String"; fail

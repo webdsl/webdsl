@@ -1257,5 +1257,7 @@
    AccessControlImportRules.2:iter-star           -- _1,
    
    AccessControlImportRulesArg -- _1,
-   InternalSort -- _1
+   InternalSort -- _1,
+   TypeDefAnno -- _1,
+   NativeClassFunctionFromStatic -- _1 KW["as"] _2
 ]

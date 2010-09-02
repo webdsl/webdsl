@@ -13,8 +13,43 @@ rules
 
   declare-type-def: td@TypeDef(ident,elems) -> td
    with		anno* := <filter(?TypeDefAnno(<id>))> elems
-       	; <map(declare-type-def-anno(|ident))> anno*
-     
+         ; <map(declare-type-def-anno(|ident))> anno*
+         ; nativefuncs := <filter(?NativeClassFunction(_,_,_,_) <+ ?NativeClassFunctionFromStatic(_,_))> elems
+         ; <map(declare-type-def-native-class-func(|ident, None()))> nativefuncs
+   
+  declare-type-def-native-class-func(|ident, ignored):
+    NativeClassFunctionFromStatic(staticfuncqid,ncf) -> <declare-type-def-native-class-func(|ident, staticfuncqid)> ncf
+    
+  declare-type-def-native-class-func(|ident, staticfuncname):
+    ncf@NativeClassFunction(static,name,args,return) -> ncf
+    with  if <?"String"> ident //String is a special case, string-compatible types are Java Strings at run-time as well, these also get the functions declared on String
+          then <map({strident: ?strident; <declare-type-def-native-class-func-helper(|strident, staticfuncname)> ncf })> <bagof-StringCompatibleTypeNames>
+          else <declare-type-def-native-class-func-helper(|ident, staticfuncname)> ncf
+          end  
+  
+  declare-type-def-native-class-func-helper(|ident, staticfuncname):
+    ncf@NativeClassFunction(static,name,args,return) -> ncf
+    with  <declare-native-class-func(|ident)> ncf //reuse declare of native function in native class import
+    with  if staticfunction := <?NativeClassFunctionStatic()> static
+          then  callee := ClassSort(ident)
+          else  callee := SimpleSort(ident) 
+          end     
+    with  t1* := <map(native-type-to-webdsl-type)> args
+        ; rules( 
+            TypeNativeFunctionDecl : (callee, name, t1*) -> staticfuncname
+          )   
+      
+  add-backend-annotation :
+    c1@Call(e,x,args) -> c2
+    where has-no-anno(?TypeNativeFunction(_))
+    with  callee := <type-of> e
+        ; t* := <map(type-of;strip-ref-sort)> args 
+    where staticfuncname := <TypeNativeFunctionDecl> (callee,x,t*)
+    with  c2 := <add-anno(|TypeNativeFunction(staticfuncname))> c1
+
+  /**
+   *  Register type annotations declared in type x{} block
+   */    
   declare-type-def-anno(|ident):
     anno -> anno
     with  annonumber := <toplevel-rename> "typeanno"
@@ -22,7 +57,10 @@ rules
             TypeAnnotation :+ ident -> (annonumber,<remove-position-annos> anno)  
             TypeHasBeenExtended : ident
           )
-     
+  
+/**
+ *  Apply type annotations declared in type x{} block
+ */   
 rules
 
   desugar-ui :
