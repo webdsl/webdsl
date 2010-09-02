@@ -22,13 +22,13 @@ public abstract class AbstractPageServlet{
     public abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
 
     public boolean IsTemplate() { return false; }
-    public boolean isServingAsAjaxResponse = false; 
+    public boolean isServingAsAjaxResponse = false;
 
     public abstract String getPageName();
     public abstract String getUniqueName();
 
     protected MessageDigest messageDigest = null;
-    public  MessageDigest getMessageDigest(){ 
+    public  MessageDigest getMessageDigest(){
         if(messageDigest == null){
             try{
                 messageDigest = MessageDigest.getInstance("MD5");
@@ -39,7 +39,7 @@ public abstract class AbstractPageServlet{
                 return null;
             }
         }
-        return messageDigest; 
+        return messageDigest;
     }
 
     //TODO merge getActionTarget and getPageUrlWithParams
@@ -59,7 +59,7 @@ public abstract class AbstractPageServlet{
             return request.getRequestURL().toString();
         }
     }
-    
+
     public boolean isPostRequest(){
         return ThreadLocalServlet.get().isPostRequest;
     }
@@ -91,33 +91,33 @@ public abstract class AbstractPageServlet{
 
     //emails
     protected static HashMap<String, Class<?>> emails = new HashMap<String, Class<?>>();
-    public static HashMap<String, Class<?>> getEmails() { 
+    public static HashMap<String, Class<?>> getEmails() {
         return emails;
     }
 
     //ref arg
     protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
-    public static HashMap<String, Class<?>> getRefArgClasses() { 
+    public static HashMap<String, Class<?>> getRefArgClasses() {
         return refargclasses;
     }
-    
+
     public abstract String getAbsoluteLocation();
 
     protected java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();
-    public String getTemplateContextString() { 
+    public String getTemplateContextString() {
         java.lang.StringBuilder sb = new java.lang.StringBuilder();
         for(String s : templateContext){
             sb.append(s);
         }
         return sb.toString();
     }
-    public void enterTemplateContext(String s) { 
+    public void enterTemplateContext(String s) {
         templateContext.push(s);
     }
-    public void leaveTemplateContext() { 
+    public void leaveTemplateContext() {
         templateContext.pop();
     }
-    //verifies that the correct context was popped      
+    //verifies that the correct context was popped
     public abstract void leaveTemplateContextChecked(String s);
 
     public void clearTemplateContext(){
@@ -125,13 +125,13 @@ public abstract class AbstractPageServlet{
     }
 
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
-    public List<utils.ValidationException> getValidationExceptions() { 
+    public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
     }
     public boolean hasExecutedAction = false;
     public boolean hasExecutedAction(){ return hasExecutedAction; }
     public boolean hasNotExecutedAction(){ return !hasExecutedAction; }
-    
+
     protected boolean abortTransaction = false;
     public boolean isTransactionAborted(){ return abortTransaction; }
     public void abortTransaction(){ abortTransaction = true; }
@@ -153,7 +153,7 @@ public abstract class AbstractPageServlet{
 
     public void addStylesheetInclude(String filename) {
         if(!stylesheets.contains(filename)){
-            String[] s = {filename,""};  
+            String[] s = {filename,""};
             stylesheets.add(s);
         }
     }
@@ -177,27 +177,27 @@ public abstract class AbstractPageServlet{
     protected abstract void loadArguments();
     protected abstract void initVarsAndArgs();
 
-    public void clearHibernateCache() { 
+    public void clearHibernateCache() {
         // used to be only ' hibSession.clear(); ' but that doesn't revert already flushed changes.
-        // since flushing now happens automatically when querying, this could produce wrong results. 
+        // since flushing now happens automatically when querying, this could produce wrong results.
         // e.g. output in page with validation errors shows changes that were not persisted to the db.
         // see regression test in test/succeed-web/validate-false-and-flush.app
         hibSession.getTransaction().rollback();
-        
+
         /* http://community.jboss.org/wiki/sessionsandtransactions
          * Because Hibernate can't bind the "current session" to a transaction, as it does in a JTA environment,
          * it binds it to the current Java thread. It is opened when getCurrentSession() is called for the first
-         * time, but in a "proxied" state that doesn't allow you to do anything except start a transaction. When 
+         * time, but in a "proxied" state that doesn't allow you to do anything except start a transaction. When
          * the transaction ends, either through commit or roll back, the "current" Session is closed automatically.
-         * The next call to getCurrentSession() starts a new proxied Session, and so on. In other words, 
-         * the session is bound to the thread behind the scenes, but scoped to a transaction, just like in a JTA environment. 
+         * The next call to getCurrentSession() starts a new proxied Session, and so on. In other words,
+         * the session is bound to the thread behind the scenes, but scoped to a transaction, just like in a JTA environment.
          */
-        hibSession = openNewTransactionThroughGetCurrentSession(); 
-        
+        hibSession = openNewTransactionThroughGetCurrentSession();
+
         initVarsAndArgs();
         hibernateCacheCleared = true;
     }
-    
+
     // workaround to get to static member of generated HibernateUtilConfigured class
     protected abstract org.hibernate.Session openNewTransactionThroughGetCurrentSession();
 
@@ -205,7 +205,7 @@ public abstract class AbstractPageServlet{
     protected Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
-    protected Object[] args;  
+    protected Object[] args;
 
     public Session getHibSession() {
         return hibSession;
@@ -235,7 +235,7 @@ public abstract class AbstractPageServlet{
     public void setValidated(boolean validated) {
         this.validated = validated;
     }
-    
+
     public List<String> failedCaptchaResponses = new ArrayList<String>();
 
     protected boolean inSubmittedForm = false;
@@ -253,7 +253,7 @@ public abstract class AbstractPageServlet{
         parammapvalues.clear();
         fileUploads.clear();
     }
-    
+
     protected java.util.Map<String, String> parammap;
     public java.util.Map<String, String> getParammap() {
         return parammap;
@@ -275,7 +275,7 @@ public abstract class AbstractPageServlet{
     }
     public void setPageTitle(String pageTitle) {
         this.pageTitle = pageTitle;
-    }  
+    }
 
     protected String formIdent = "";
     public String getFormIdent() {
@@ -283,7 +283,7 @@ public abstract class AbstractPageServlet{
     }
     public void setFormIdent(String fi) {
         this.formIdent = fi;
-    } 
+    }
 
     protected boolean actionLinkUsed = false;
     public boolean isActionLinkUsed() {
@@ -291,7 +291,7 @@ public abstract class AbstractPageServlet{
     }
     public void setActionLinkUsed(boolean a) {
         this.actionLinkUsed = a;
-    }  
+    }
 
     protected boolean ajaxRuntimeRequest = false;
     public boolean isAjaxRuntimeRequest() {
@@ -299,7 +299,7 @@ public abstract class AbstractPageServlet{
     }
     public void setAjaxRuntimeRequest(boolean a) {
         ajaxRuntimeRequest = a;
-    }  
+    }
 
     protected String redirectUrl = "";
     public String getRedirectUrl() {
@@ -307,7 +307,7 @@ public abstract class AbstractPageServlet{
     }
     public void setRedirectUrl(String a) {
         this.redirectUrl = a;
-    }  
+    }
 
     protected String mimetype = "text/html; charset=UTF-8";
     protected boolean mimetypeChanged = false;
@@ -348,6 +348,14 @@ public abstract class AbstractPageServlet{
         return pageArguments;
     }
 
+    protected String httpMethod = null;
+    public void setHttpMethod(String httpMethod) {
+        this.httpMethod = httpMethod;
+    }
+    public String getHttpMethod() {
+        return httpMethod;
+    }
+
     protected boolean templateSpans = true;
     public boolean templateSpans() {
         return templateSpans;
@@ -365,7 +373,7 @@ public abstract class AbstractPageServlet{
     }
 
     protected void download()
-    { 
+    {
         /*
   Long id = download.getId();
   org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().openSession();
@@ -374,7 +382,7 @@ public abstract class AbstractPageServlet{
   utils.File download = (utils.File)hibSession.load(utils.File.class,id);
          */
         try
-        { 
+        {
             javax.servlet.ServletOutputStream outstream;
 
             outstream = response.getOutputStream();
@@ -389,14 +397,14 @@ public abstract class AbstractPageServlet{
             byte bytes[] = new byte[32768];
             int index = in.read(bytes, 0, 32768);
             while(index != -1)
-            { 
+            {
                 bufout.write(bytes, 0, index);
                 index = in.read(bytes, 0, 32768);
             }
             bufout.flush();
         }
         catch(java.sql.SQLException ex)
-        { 
+        {
             System.out.println("exception in download serve");
             ex.printStackTrace();
         }
@@ -409,46 +417,46 @@ public abstract class AbstractPageServlet{
   hibSession.getTransaction().commit();
          */
     }
-    
+
     //data validation
-    
+
     public java.util.LinkedList<String> validationContext = new java.util.LinkedList<String>();
-    
-    public String getValidationContext() { 
+
+    public String getValidationContext() {
       //System.out.println("using" + validationContext.peek());
       return validationContext.peek();
     }
-  
-    public void enterValidationContext(String ident) { 
+
+    public void enterValidationContext(String ident) {
       validationContext.add(ident);
       //System.out.println("entering" + ident);
     }
-  
-    public void leaveValidationContext() { 
+
+    public void leaveValidationContext() {
       String s = validationContext.removeLast();
       //System.out.println("leaving" +s);
     }
-  
-    public boolean inValidationContext() { 
+
+    public boolean inValidationContext() {
       return validationContext.size() != 0;
     }
-    
+
     //messages
-    
+
     private List<String> incomingSuccessMessages = new java.util.LinkedList<String>();
 
-    public List<String> getIncomingSuccessMessages() { 
+    public List<String> getIncomingSuccessMessages() {
       return incomingSuccessMessages;
     }
 
     private List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
 
-    public List<String> getOutgoingSuccessMessages() { 
+    public List<String> getOutgoingSuccessMessages() {
       return outgoingSuccessMessages;
-    }  
-    
+    }
+
     protected abstract void renderIncomingSuccessMessages();
-   
+
     protected void storeOutgoingMessagesInHttpSession(){
       if(outgoingSuccessMessages.size() > 0){
         session.setAttribute("___messages___",outgoingSuccessMessages);
@@ -460,35 +468,35 @@ public abstract class AbstractPageServlet{
         incomingSuccessMessages = temp;
       }
     }
-    
+
     //form
-    
+
     public boolean formRequiresMultipartEnc = false;
-    
+
     //formGroup
-    
+
     public String formGroupLeftSize = "150";
-    
+
     //public java.util.Stack<utils.FormGroupContext> formGroupContexts = new java.util.Stack<utils.FormGroupContext>();
 
-    public utils.FormGroupContext getFormGroupContext() { 
+    public utils.FormGroupContext getFormGroupContext() {
       return (utils.FormGroupContext) tableContexts.peek();
     }
-  
-    public void enterFormGroupContext() { 
+
+    public void enterFormGroupContext() {
       tableContexts.push(new utils.FormGroupContext());
     }
-  
-    public void leaveFormGroupContext() { 
+
+    public void leaveFormGroupContext() {
       tableContexts.pop();
     }
-  
-    public boolean inFormGroupContext() { 
+
+    public boolean inFormGroupContext() {
       return !tableContexts.empty() && tableContexts.peek() instanceof utils.FormGroupContext;
     }
-    
+
     public java.util.Stack<String> formGroupContextClosingTags = new java.util.Stack<String>();
-   
+
     public void formGroupContextsCheckEnter(PrintWriter out) {
       if(inFormGroupContext()){
         utils.FormGroupContext temp = getFormGroupContext();
@@ -499,7 +507,7 @@ public abstract class AbstractPageServlet{
               out.print("<div style=\"clear:left; float:left; width: " + formGroupLeftSize + "px\">");
               formGroupContextClosingTags.push("left");
               temp.toRightContext();
-            }           
+            }
             else {
               out.print("<div style=\"float: left;\">");
               formGroupContextClosingTags.push("right");
@@ -531,7 +539,7 @@ public abstract class AbstractPageServlet{
         }
       }
     }
-    
+
     public void formGroupContextsDisplayLeftEnter(PrintWriter out) {
         if(inFormGroupContext()){
           utils.FormGroupContext temp = getFormGroupContext();
@@ -546,11 +554,11 @@ public abstract class AbstractPageServlet{
           }
         }
       }
-      
+
       public void formGroupContextsDisplayRightEnter(PrintWriter out) {
         if(inFormGroupContext()){
           utils.FormGroupContext temp = getFormGroupContext();
-          if(!temp.isInColumnContext()){ 
+          if(!temp.isInColumnContext()){
             temp.enterColumnContext();
             out.print("<div style=\"float: left;\">");
             formGroupContextClosingTags.push("right");
@@ -561,16 +569,16 @@ public abstract class AbstractPageServlet{
           }
         }
       }
-      
+
       //label
-      
+
       public java.util.Stack<String> labelStrings = new java.util.Stack<String>();
       public java.util.Set<String> usedPageElementIds = new java.util.HashSet<String>();
       public static java.util.Random rand = new java.util.Random();
-      //avoid duplcicate ids; if multiple inputs are in a label, only the first is connected to the label        
+      //avoid duplcicate ids; if multiple inputs are in a label, only the first is connected to the label
       public String getLabelString() {
         String s = labelStrings.peek();
-        if(usedPageElementIds.contains(s)){          
+        if(usedPageElementIds.contains(s)){
           do{
             s += rand.nextInt();
           }
@@ -579,61 +587,61 @@ public abstract class AbstractPageServlet{
         usedPageElementIds.add(s);
         return s;
       }
-    
-      public void enterLabelContext(String ident) { 
+
+      public void enterLabelContext(String ident) {
         labelStrings.push(ident);
       }
-    
-      public void leaveLabelContext() { 
+
+      public void leaveLabelContext() {
         labelStrings.pop();
       }
-    
-      public boolean inLabelContext() { 
+
+      public boolean inLabelContext() {
         return !labelStrings.empty();
       }
-      
+
       //section
-      
+
       public int sectionDepth = 0;
 
-      public int getSectionDepth() { 
+      public int getSectionDepth() {
         return sectionDepth;
       }
-    
-      public void enterSectionContext() { 
+
+      public void enterSectionContext() {
         sectionDepth++;
       }
-    
-      public void leaveSectionContext() { 
+
+      public void leaveSectionContext() {
         sectionDepth--;
       }
-    
-      public boolean inSectionContext() { 
+
+      public boolean inSectionContext() {
         return sectionDepth > 0;
       }
-      
+
       //table
-      
+
       public java.util.Stack<Object> tableContexts = new java.util.Stack<Object>();
 
-      public utils.TableContext getTableContext() { 
+      public utils.TableContext getTableContext() {
         return (utils.TableContext) tableContexts.peek();
       }
-    
-      public void enterTableContext() { 
+
+      public void enterTableContext() {
         tableContexts.push(new utils.TableContext());
       }
-    
-      public void leaveTableContext() { 
+
+      public void leaveTableContext() {
         tableContexts.pop();
       }
-    
-      public boolean inTableContext() { 
+
+      public boolean inTableContext() {
         return !tableContexts.empty() && tableContexts.peek() instanceof utils.TableContext;
       }
-      
+
       public java.util.Stack<String> tableContextClosingTags = new java.util.Stack<String>();
-      
+
       //separate row and column checks, used by label
       public void rowContextsCheckEnter(PrintWriter out) {
         if(inTableContext()){
@@ -644,7 +652,7 @@ public abstract class AbstractPageServlet{
             tableContextClosingTags.push("</tr>");
           }
           else{
-            tableContextClosingTags.push(""); 
+            tableContextClosingTags.push("");
           }
         }
       }
@@ -657,7 +665,7 @@ public abstract class AbstractPageServlet{
             out.print(tags);
           }
         }
-      }        
+      }
       public void columnContextsCheckEnter(PrintWriter out) {
         if(inTableContext()){
           utils.TableContext x_temp = getTableContext();
@@ -667,7 +675,7 @@ public abstract class AbstractPageServlet{
             tableContextClosingTags.push("</td>");
           }
           else{
-            tableContextClosingTags.push(""); 
+            tableContextClosingTags.push("");
           }
         }
       }
@@ -681,20 +689,20 @@ public abstract class AbstractPageServlet{
           }
         }
       }
-      
-      //request vars 
-      
-      public HashMap<String, Object> requestScopedVariables = new HashMap<String, Object>();  
-    
+
+      //request vars
+
+      public HashMap<String, Object> requestScopedVariables = new HashMap<String, Object>();
+
       public void initRequestVars(){
         initRequestVars(null);
       }
-      
+
       public abstract void initRequestVars(PrintWriter out);
-      
+
       //common context check
-      
+
       public abstract void commonContextsCheckEnter(PrintWriter out);
       public abstract void commonContextsCheckLeave(PrintWriter out);
-      
+
 }
