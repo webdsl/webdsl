@@ -1,0 +1,37 @@
+module org/webdsl/dsl/languages/json
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+
+  declare : 
+    ServiceFunction(name, fargs, body) -> <id>
+    with <declare> Define([Page()], name, fargs, [], body)
+
+  rename :
+    ServiceFunction(x, farg1*, b1) -> ServiceFunction(x, farg2*, b2)
+    with {| Rename, InDef, VarInTemplateContext
+          : rules ( InDef := True() )
+          ; farg2* := <map(rename)> farg1*
+          ; <declare-args-in-context> farg2*
+          ; b2 := <rename-all> b1
+          |}
+
+  desugar :
+    def|[ service x(farg*) { stat* } ]| -> 
+    <rename-all> def|[ define page x(farg*) {
+            var result : String
+
+            init {
+              stat2*
+            }
+
+            mimetype("text/plain")
+            output(result)
+          } ]|
+    where stat2* := <alltd(service-return-replace)> stat*
+
+  service-return-replace :
+    stat|[ return e; ]| -> stat|[ result := e.toString(); ]|
