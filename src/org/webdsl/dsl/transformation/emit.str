@@ -33,39 +33,38 @@ rules	// emit top-level definition
 		; rules(AddWebDSLDefs :+= def)
 	
 	// emit a new section with all collected defs
-	emit-collected-defs =
-			?Application(qid,sections)
-		; defs := <bagof-AddWebDSLDefs>
+	desugar-emit-all-defs =
+			defs := <bagof-AddWebDSLDefs>
 		; not([] := defs)
+		; map(store-module-def(|"emitted"))
 		; rules(AddWebDSLDefs :- _) 	// hack to clear dr
-		; sec := Section("emitted_section", defs)
-		; !Application(qid,[sec|sections])
-
-	desugar = emit-collected-defs
-
+		
 rules // emit section
   
   emit-webdsl-section =
       declare-all
-    ; rename-top
+    ; rename-section
     ; ?sec
     ; rules(
         AddWebDSLSection :+ Application(qid, sections) -> Application(qid, [sec|sections])
       )
   
-  desugar = once-AddWebDSLSection
-
 rules // emit builtins (during declare)
 	
 	add-builtin-rule = ?rule; rules(AddWebDSLRules :+= rule)
 	
-	add-builtins-to-ast: Application(name, sec*) -> Application(name, [sec*, emitsec*])
-	   with get-builtin-sections => emitsec*
-	add-builtins-to-ast: Module(name,sec*) -> Module(name, [sec*, emitsec*])
-     with	get-builtin-sections => emitsec*
-     
-  get-builtin-sections: _ -> [defsec,rulesec]
+	add-builtins-to-ast =
+			bagof-AddWebDSLDefs
+		; map(rename-top; store-module-def(|"emitted"))
+		; !AccessControlDefinition(None(), <bagof-AddWebDSLRules; map(rename-top)>)
+		; store-module-def(|"emitted-rules")
+		; rules(AddWebDSLDefs :- _)
+    ; rules(AddWebDSLRules :- _)
+	
+	/*
+	get-builtin-sections: _ -> [defsec,rulesec]
     with  defsec := Section("builtins", <bagof-AddWebDSLDefs; map(rename-toplevel)>)
         ; rulesec := AccessControlDefinition(None(), <bagof-AddWebDSLRules; map(rename-toplevel)>)
         ; rules(AddWebDSLDefs :- _)
         ; rules(AddWebDSLRules :- _)
+	*/

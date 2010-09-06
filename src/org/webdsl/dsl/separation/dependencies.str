@@ -1,0 +1,110 @@
+module org/webdsl/dsl/separation/dependencies
+
+imports
+  libwebdsl-front
+	org/webdsl/dsl/separation/-
+	org/webdsl/dsl/transformation/-
+    
+strategies
+  
+  store-current-rule(|defkey): (key, val) -> (key, val)
+    with  if <not(is-unmodified-def)> defkey then
+              rules(NewRule :+ key -> val)
+          end
+          
+  store-old-rule(|defkey) =
+      ?(key, val); rules(OldRule :+ key -> val) 
+  
+  find-changed-rules =
+      all-keys-DeclaredRules
+    ; length => 0
+    ; <verbose-msg> ["Clean compile detected: skipping change detection"]
+    ; with(
+          all-keys-DeclaredRules
+        ; filter(load-unmodified-def) // skip over already loaded
+      )
+      
+  find-changed-rules =
+      all-keys-PreviouslyDeclaredRules
+    ; length => 0
+    ; <verbose-msg> ["No modified files: skipping change detection"]   	
+  
+  find-changed-rules =
+    {| NewRule, OldRule:
+      // Newly declared rules
+      all-keys-DeclaredRules
+    ; map({key: ?key; DeclaredRules; rules-as-key-val-pairs(store-current-rule(|key))})
+      // Cached rules of modified/deleted defs
+    ; all-keys-PreviouslyDeclaredRules
+    ; map({key: ?key; PreviouslyDeclaredRules; rules-as-key-val-pairs(store-old-rule(|key))})
+      // Now compare the states
+    ; create-change-set => changeset
+   |}
+    /*
+        
+  find-changed-rules =
+      map-defs({key:
+        CurrentDefinitionKey => key
+      ; <create-change-set> (<DeclaredRules>, <PreviouslyDeclaredRules <+ !key; debug(!"NO PREV DECLARE RULES FOR: "); ![]>)
+       }
+      )
+    ; concat => changeset
+   */
+    ; where(pp-aterm; debug(!"Changeset: "))
+    //; try(not(?[]); <verbose-msg> ["Changeset is: ", <id>])
+    ; all-keys-DeclaredRules
+    ; filter( {key:
+          ?key
+        ; is-unmodified-def  // is in unmodified file 
+        ; with(
+		        RulesUsedBy
+		      ; <isect> (<id>, changeset)
+		      ; (?[] <+ where(debug(!"Isect is: ")); <debug(!"... loading def: "); try(load-unmodified-def)> key)
+		     )
+	     }
+      )
+
+  create-change-set: _ -> all-changes
+    with      // changed rules
+              // (enumerate over OldRule: first compilation, there will be none)
+              all-keys-OldRule; remove-dr-dummies
+            ; filter({key: ?key; where(<not(eq); !(key, <id>); debug(!"Diff: ")> (<bagof-NewRule>, <bagof-OldRule>)) })
+            ; ?changed
+            //; try(?[]; debug(!"Rules changed: "))
+              // new rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(not(OldRule)))
+            ; ?added
+            //; try(not(?[]); debug(!"Rules added: "))
+              // removed rules
+            ; all-keys-OldRule; remove-dr-dummies
+            ; filter(where(not(NewRule)))
+            ; ?removed
+            //; try(not(?[]); debug(!"Rules removed: "))
+            ; all-changes := <concat;uniq> [changed, added, removed]
+        //; debug(!"All changes: ")
+
+/*
+  create-change-set: (new, old) -> all-changes
+    with   {| NewRule, OldRule: 
+              <rules-as-key-val-pairs(\(key,val) -> <rules(NewRule :+ key -> val)>\)> new
+            ; <rules-as-key-val-pairs(\(key,val) -> <rules(OldRule :+ key -> val)>\)> old
+              // changed rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter({key: ?key; where(<not(eq); !(key, <id>); debug(!"Diff: ")> (<bagof-NewRule>, <bagof-OldRule>)) })
+            ; ?changed
+            //; try(?[]; debug(!"Rules changed: "))
+              // new rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(not(OldRule)))
+            ; ?added
+            //; try(not(?[]); debug(!"Rules added: "))
+              // removed rules
+            ; all-keys-OldRule; remove-dr-dummies
+            ; filter(where(not(NewRule)))
+            ; ?removed
+            //; try(not(?[]); debug(!"Rules removed: "))
+           |}
+        ; all-changes := <concat;uniq> [changed, added, removed]
+        //; debug(!"All changes: ")
+*/

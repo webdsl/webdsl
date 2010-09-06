@@ -1,0 +1,82 @@
+module org/webdsl/dsl/separation/typecheck
+
+imports 
+  libstrategolib 
+  libwebdsl-front
+
+imports
+  org/webdsl/dsl/separation/-
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/-
+  libwebdsl-front
+
+rules
+  
+  /*
+  all-used-drs = !<import-term(webdsl-typechecker-rules.aterm)>
+  is-used-dr = ?x; where(all-used-drs; fetch-elem(?x))
+  
+  is-used-dr = ?"EntityIdName"  // for backend annos
+  is-used-dr = ?"QualifiedAppName"
+  is-used-dr = ?"OriginalNonUniqueName" // these are generated in the rename phase too.. for some reason
+  */
+  
+  is-used-dr = id     // TODO: fix
+  
+  update-parse-cache = with(
+      all-keys-TopLevelDefinitions    // all toplevel definitions have that been checked
+    ; filter(where(RenameRules))      // builtins are not renamed, and don't need to be stored
+    ; map(def-key-to-file)
+    ; uniq
+    ; filter(save-parse-cache-file)
+      // save files without definitions
+    ; bagof-EmptyModules
+    ; map(save-parse-cache-file)
+  )
+  
+  // TODO: this may be more efficient when interleaved with the next step (loading parse cache for unmodified files)
+  save-parse-cache-file: path -> path
+    with  cachepath := <path-to-cache-path> path
+        ; def-names := <all-keys-TopLevelDefinitions; filter(where(def-key-to-file; ?path))>
+        ; new-content := <map(\key -> (key, <TopLevelDefinitions; remove-position-annos>, <RenameRules> key)\)> def-names
+        ; prev-names := <all-keys-UnmodifiedDef; filter(not(TopLevelDefinitions)); filter(where(def-key-to-file; ?path))>
+        ; old-content := <map(\key -> (key, <UnmodifiedDef>, <UnmodifiedDefRules>) \)> prev-names
+          // merge old and new contents
+        ; {| CacheContent :
+              <map(\p@(key, x, y) -> <rules(CacheContent : key -> p)>\)> old-content
+            ; <map(\p@(key, x, y) -> <rules(CacheContent : key -> p)>\)> new-content
+            ; all-keys-CacheContent
+            ; map(CacheContent)
+          |}
+        ; ?merged-content
+        ; <WriteToBinaryFile> (cachepath,(<get-webdsl-version>, merged-content))
+          
+  load-dependency-data =
+      log-time(<file-exists; ReadFromFile> (<dep-path>) | "read dep file") => (appname, data)
+    //; print-total-log-time
+    //; <exit> 1
+    ; <set-qualified-appname> appname
+    ; !data
+    ; filter({
+          ?(key, declared-rules, used-rules)
+        ; if <is-unmodified-def> key then
+            rules(
+              DeclaredRules : key -> declared-rules
+              RulesUsedBy : key -> used-rules
+            )
+          else
+            rules(
+              PreviouslyDeclaredRules : key -> declared-rules
+            )
+          end
+      })
+  
+  write-dependency-data =
+    with(
+	    // write dr dependencies
+        <concat; uniq> [<all-keys-RulesUsedBy>, <all-keys-DeclaredRules>]
+	    // fail if for any key one of the rules is undefined 
+	    ; map(\x -> (x, <DeclaredRules> x, <RulesUsedBy> x) \)
+	    ; data := (<QualifiedAppName>, <id>)
+	    ; <log-time(WriteToBinaryFile | "write dep file")> (<concat-strings> [<DirName>, "/.webdsl.compiler.deps"], data) 
+	  )

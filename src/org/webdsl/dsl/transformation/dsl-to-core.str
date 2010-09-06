@@ -16,23 +16,28 @@ strategies
 
   dsl-to-core =
       dsl-to-core-analysis
+      // TODO: first save parse cache (only for files without errors), then exit if errors found
     ; if FoundErrors then <exit> 1 end //exit if parsing error in modules, exit here instead of in dsl-to-core-analysis for compatibility with editor support
-    ; if-only-typechecking(<exit> 0)
-    ; dsl-to-core-generation
+    ; with( 
+          if-only-typechecking(<exit> 0)
+        ; add-builtins-to-ast
+        ; dsl-to-core-generation
+      )
+    ; get-all-toplevel-definitions
   
   dsl-to-core-analysis =
-    try(simplify-application-constructor)
-    ; stage((import-modules <+ add-error(|"Main .app file needs to start with \"application\""))|"importing modules")
-    ; try(where(DebugPrintSourceTree; pp-aterm(!"Source AST: "); debug))
-    ; if not(FoundErrors) //stop if parsing error in modules
+      if not(FoundErrors) //stop if parsing error in modules
       then
-        remove-string-position-annos
+          log-time(transform-defs(remove-string-position-annos) | "remove string pos annos")
         ; stage(typecheck|"typechecking")
       end
-    ; add-builtins-to-ast
-    
-  dsl-to-core-generation =
-      remove-position-annos
+      
+  // Need all defs here; rename + desugar is not incremental yet
+  dsl-to-core-generation = with(
+      // TODO: strip position annos first, then save
+      update-parse-cache
+    ; load-all-definitions
+    ; transform-defs(remove-position-annos)
     ; stage(desugar-top|"model-to-model")
     ; if-extra-typechecking(stage(typecheck|"extra typechecking"))
     ; stage(access-control-stage | "access control")
@@ -42,7 +47,31 @@ strategies
       //collect all the functions in a dynamic rule and handles overloading
       ; aggregate-and-combine-functions
       |"performing analysis")
+  )
     
+  // load-unmodified-def is used if rename+constraints must be performed again
+  // load-unmodified-def-with-rules is used if only needed for desugar
+    
+  load-unmodified-def: key -> key
+    where not(<TopLevelDefinitions> key)    // is not already loaded
+  	with	def := <UnmodifiedDef> key
+  	    ; <mark-renamings> def
+  	    ; rules(TopLevelDefinitions : key -> def)
+  			; rules(UnmodifiedDef :- key)
+        ; rules(UnmodifiedDefRules :- key)
+  
+  load-unmodified-def-with-rename: key -> key
+    where not(<TopLevelDefinitions> key)    // is not already loaded
+    with  <UnmodifiedDefRules; load-dynamic-rule-closure> key
+        ; <load-unmodified-def> key   // load ast
+      
+  load-all-definitions =
+      all-keys-DeclaredRules
+    ; filter(not(TopLevelDefinitions))
+      // definitions are loaded by file (multiple at a time) 
+    ; map(TopLevelDefinitions <+ load-unmodified-def-with-rename)
+       
+  
 strategies // IDE Plugin stuff
 
   webdsl-collect-all-errors =
@@ -60,32 +89,145 @@ strategies // IDE Plugin stuff
     
 strategies // module imports
 
-  import-modules :
-    Application(name, sec) -> Application(name, sec')
-    with
-      topdown(try(already-imported <+ import-module))
-    ; imported := <bagof-ImportedModules <+ ![]>
-    ; sec'     := <conc> (sec, imported)
-
   already-imported :
     Imports(name) -> Note([])
     where <Imported> <strip-annos> name
 
-  import-module :
-    Imports(name) -> Note([])
-    with mod := <xtc-parse-webdsl-module> FILE(<concat-strings>[<DirName>, "/", name, ".app"])
+  import-module: Imports(name) -> file
+    with xtcfile := FILE(<concat-strings>[<DirName>, "/", name, ".app"])
        ; name1 := <strip-annos> name
-       ; rules( Imported : name1 ) 
-       ; mod1 := <topdown(try(already-imported <+ import-module))> mod
-       ; rules( ImportedModules :+= mod1 )
-       <+
-         add-error(|"Unable to import this module")
+       ; rules( Imported : name1 )
+       ; {| ImportedBy:
+            rules(ImportedBy := name)
+          ; file := <read-webdsl-file> xtcfile
+         |}
+     
+  read-webdsl-application =
+    {| ModuleAst:
+      read-webdsl-file
+      // Find top-level elements
+    ; all-keys-ModuleAst
+    ; map(ModuleAst; module-ast-to-toplevel-elements)
+    |}
 
-strategies
+  read-webdsl-file = with(
+      // Read main app
+      ?xtcfile
+    ; where(path := <path-of-xtc-file>)
+    ; xtc-parse-webdsl
+    ; ?file
+    ; if <UnmodifiedFile> xtcfile then
+          // OPTIMIZATION: do not load unmodified definitions
+          // PROBLEM: need imports to traverse app files
+          <map({
+              ?(key, def, ruleset)
+            ; keyfile := <def-key-to-file> key
+            ; rules(UnmodifiedDef : key -> def)
+            ; rules(UnmodifiedDefRules : key -> ruleset)
+            ; rules(IsUnmodifiedFile : keyfile)
+          })> file
+      else
+      		rules(ModuleAst : path -> file)
+        ; if not(ImportedBy) then // main app file
+            ?Application(<id>,_); set-qualified-appname
+            <+
+            not(add-error(|"Main .app file needs to start with \"application\""))
+          end
+      end
+      // Read imports
+    ; <alltd(?Imports(_); (already-imported <+ import-module))> file
+  )
 
-  simplify-application-constructor :
-    ApplicationDefs(qid, defs, sections) -> Application(qid, [Section("definitions", defs)|sections])
+	set-qualified-appname = ?name; rules(QualifiedAppName := name)
 
+strategies // toplevel definitions
+  
+  // IMPORTANT: If a file is not read at all (no dynamic rules set), it is modified.
+  is-unmodified-def =
+    where(
+        with(def-key-to-file => file)
+      ; <IsUnmodifiedFile> file
+    )
+  
+  is-modified-def = not(is-unmodified-def)
+  
+  // dynamic rule oddity: removing with :- does not remove the key
+  // so all-keys-X; map(x) will fails for 'removed' keys
+  toplevel-definition-keys =    
+      all-keys-TopLevelDefinitions
+    ; filter(where(TopLevelDefinitions))
+  
+  // Perform s on all definitions, without changing the definitions
+  map-defs(s) =
+      toplevel-definition-keys 
+    ; map(with-definition-key(s))
+
+  // Get a list of all toplevel definitions
+  get-all-toplevel-definitions = 
+    map-defs(id)
+
+  // Filter all definitions for which s succeeds, without actually removing them from the list of definitions 
+  filter-defs(s) =
+      toplevel-definition-keys 
+    ; filter(with-definition-key(s))
+      
+  transform-defs(s) = 
+      toplevel-definition-keys 
+    ; map(
+        { key, newdef:
+            ?key
+          ; with-definition-key(s)
+          ; ?newdef
+          ; rules(TopLevelDefinitions : key -> newdef) } )
+  
+   // Remove all defs for which s succeeds
+  remove-defs(s) =
+      toplevel-definition-keys 
+    ; filter(\key -> <try(with-definition-key(s); rules(TopLevelDefinitions :- key))> key\)  
+  
+  with-definition-key(s) =
+      ?key
+    ; TopLevelDefinitions
+    ; {| CurrentDefinitionKey:
+        rules(CurrentDefinitionKey := key)
+      ; s
+      |}
+   
+  /*
+    TopLevelDefinitions : toplevel definition name -> definition
+  */ 
+    
+  module-ast-to-toplevel-elements: ast -> ast
+    with  (?Application(mod, <id>) <+ ?Module(mod, <id>))
+        ; try(where(?[]; <get-anno(?At(filename, _, _))> ast; rules(EmptyModules :+= filename)))
+        ; mapconcat(module-section-to-toplevel-elements(|mod))
+
+  module-section-to-toplevel-elements(|mod) =
+      (?Section(name, defs*) <+ ?AccessControlDefinition(name, _); defs* := [<id>])
+    ; {| SectionName :
+          rules(SectionName : name)
+            // add dummy toplevel def to have at least one def in each file
+            // otherwise a parse cache would not be created for empty files
+        ; <map(store-module-def(|mod))> defs*
+      |}
+  
+  get-def-key: def -> key
+    with  key := <get-anno(?At(_,_,_)) <+ !At(<newname> "builtin-def-", 0, 0)> def
+        
+  def-key-to-file = ?At(<id>,_,_)
+   
+  // NOTE: mod is a Qid(...) for the application file
+  store-module-def(|mod): def -> def
+    with  with-toplevel-name( //give each toplevel definition a name before storing
+		          defname := <get-def-key> def
+		        ; try(<TopLevelDefinitions> defname; !defname; debug(!"Two definitions with the same unique name: ")) 
+		        ; rules(TopLevelDefinitions : defname -> def)
+		        ; deffile := <def-key-to-file> defname
+		        ; <mark-renamings> def
+		      )
+
+strategies  // position info
+    
   remove-position-annos =
     topdown-l(try(keep-position-anno <+ remove-position-anno))
 

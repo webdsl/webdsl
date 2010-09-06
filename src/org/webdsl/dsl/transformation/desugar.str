@@ -7,39 +7,127 @@ imports
 imports
   libwebdsl-front
   org/webdsl/dsl/generation/webdsl-generator
+  org/webdsl/dsl/separation/-
 
 strategies
-
-  innermost-rep(s) =
-    {| InnermostNormalForm, InnermostApplied
-     : rules(InnermostApplied := False())
-     ; innermost-rep-aux(s)
-     ; where(InnermostApplied => True())
-     |}
     
-  innermost-rep-aux(s) =
-    rec x(innermost-rep-aux(x, s))
-  
-  innermost-rep-aux-toplevel(s) = with-toplevel-name(innermost-rep-aux(s))
-  
-  innermost-rep-aux(downwards, s) = 
+  innermost-rep-aux(s) = 
         InnermostNormalForm
     <+
-      (		?Section(name, defs){anno*}
-        ; defs2 := <innermost-rep-aux(innermost-rep-aux-toplevel(s), s)> defs
-        ; !Section(name, defs2){anno*}
-      <+
-          ?AccessControlDefinition(name, defs){anno*}
-        ; defs2 := <innermost-rep-aux(innermost-rep-aux-toplevel(s), s)> defs
-        ; !AccessControlDefinition(name, defs2){anno*}
-      <+
-          all(downwards)
-      )
-      ; try(s; rules(InnermostApplied := True() ); innermost-rep-aux(downwards, s))
-      ; {?q; rules( InnermostNormalForm : q )} //TODO doesn't this make it slower? each subterm ends up in a hashtable
+        all(innermost-rep-aux(s))
+      ; try({
+           s
+         ; rules(InnermostApplied := True() )
+         ; innermost-rep-aux(s) })
+      ; {?q; rules( InnermostNormalForm : q )}
     
-  desugar-top = repeat(innermost-rep(desugar))
-  
+  innermost-rep(s) =
+    {| InnermostNormalForm :
+        innermost-rep-aux(s)
+    |}
+      
+  desugar-top =
+    repeat(
+      {| InnermostApplied:
+         transform-defs(desugar-toplevel)
+       ; try(desugar-emit-all-defs)
+       ; where(InnermostApplied)
+      |}
+    )
+    ; if DebugDesugarRules then
+          save-desugar-rules
+      end
+      
+  save-desugar-rules =
+      where(
+        // save desugar rules
+          all-keys-DesugarRulesUsed
+          // Def to rules
+        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-DesugarRulesCreated; concat; uniq>))
+        ; <WriteToBinaryFile> (<concat-strings> [<newname> "testdr", ".aterm"], <id>)
+    ; try(
+         // Rules to def
+         all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            map({def:
+                 ?def
+               ; bagof-DesugarRulesUsed; concat
+               ; map({rulekey:
+                   ?rulekey;
+                     rules(RuleToDef :+ rulekey -> def )
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             ; where(not(length => 1))
+             ; !(rulekey, <id>)
+            })
+          ; ?used-rule-to-def
+          |}
+//        ; !""; debug(!"Got used-rule-to-def "
+        ; all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            filter({def:
+                 ?def
+               ; bagof-DesugarRulesCreated; concat
+               ; map({rulekey:
+                    ?rulekey;
+                     rules(RuleToDef :+ rulekey -> def )
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             ; where(not(length => 1))
+             ; !(rulekey, <id>)
+            })
+          ; ?created-rule-to-def
+          |}
+//        ; !""; debug(!"Got created-rule-to-def ")
+        ; <WriteToBinaryFile> (<concat-strings> [<newname> "testdr-rev", ".aterm"], (used-rule-to-def, created-rule-to-def))
+      )
+     )
+     
+  desugar-toplevel = 
+      not(DebugDesugarRules)
+    ; with-toplevel-name(innermost-rep(desugar)) => desugared
+     
+  // TODO: don't store InnermostApplied as a dynamic rule dependency
+  desugar-toplevel =
+      where(CurrentDefinitionKey => key)
+    
+    ; start-record-dynamic-rules
+    ; {| DynamicRulesUsed:
+        enable-dr-usage-tracking
+    
+      ; with-toplevel-name(innermost-rep(desugar)) => desugared
+    
+      ; disable-dr-usage-tracking
+      ; all-keys-DynamicRulesUsed
+      ; remove-dr-dummies
+      ; remove-all(?("InnermostNormalForm",_))
+      ; ?used-rules
+      |}
+    ; end-record-dynamic-rules
+    //; store-dynamic-rules-owner
+      // Get a list of (name, keys*) pairs
+    ; map(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \); concat
+    ; remove-all(?("InnermostApplied",_))
+    ; remove-all({x: ?(_, [DR_DUMMY()]); Fst; ?x; rules(EmptyLeftHand : x) })
+    ; ?created-rules
+    ; rules(DesugarRulesCreated :+ key -> created-rules)
+    ; !used-rules
+    //; remove-all(RuleOwner; ?key) // remove own rules
+    //; ?used-rules2
+    ; rules(DesugarRulesUsed :+ key -> used-rules)
+    ; !desugared
+    
+    
 rules //extend entity functions create dr
   
   rename-all-vars :

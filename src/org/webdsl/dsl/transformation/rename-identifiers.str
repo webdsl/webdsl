@@ -13,25 +13,29 @@ imports
 rules
 
   rename-identifiers-top =
-    map-toplevel(
-      fail,
+    transform-defs(
       {| ExistingRenamings, GlobalToLocalMap:
-        with-toplevel-name(
-          rename-identifiers
-        )
+          with-toplevel-name(rename-identifiers)
       |}
     )
     
-  rename-identifiers = alltd(rename-bound-variables)
+	rename-identifiers = alltd(
+      rename-bound-variables; try(rename-annotations)
+   <+ rename-annotations; try(some(rename-identifiers))
+  )
+   
+  rename-annotations = ?x{<not(?[]); ?anno*>}; !x{<rename-identifiers> anno*}
 
   rename-bound-variables =
        exclude-from-var-renaming
     <+ ExcludeFromVarRenaming  
     //<+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
-    <+ rename-template-def-id
-    <+ rename-template-call-id
-    <+ rename-action-def-id
-    <+ rename-test-id
+    <+ (
+          rename-template-def-id
+        <+ rename-template-call-id
+        <+ rename-action-def-id
+        <+ rename-test-id
+      ); try(some(rename-identifiers)) // traverse
     <+ use-local-renaming
   
   exclude-from-var-renaming = ?"this"
@@ -60,19 +64,19 @@ rules
    use-global-renaming: x{anno*} -> y{anno2*, OriginalNameAnno(x)}
     with  y := <fetch-elem(is-string)> anno*
         ; anno2* := <remove-all(?y)> anno*
-    
-rules // templates
+          
+rules
 
   rename-template-def-id :
     Define(mod*, x, farg*, targs, elem*){anno*} ->
-    Define(mod*, x{orig}, <rename-identifiers> farg*, targs, <rename-identifiers> elem*){anno*}
+    Define(mod*, x{orig}, farg*, targs, elem*){anno*}
     where <fetch(?Page())> mod*
        <+ <fetch(?Email())> mod* //no overloading for emails yet
     with  orig := OriginalNameAnno(x{})
                  
   rename-template-def-id :
     Define(mod*, x, farg*, targs, elem*){anno*} ->
-    Define(mod*, y{orig}, <rename-identifiers> farg*, targs, <rename-identifiers> elem*){new-anno*}
+    Define(mod*, y{orig}, farg*, targs, elem*){new-anno*}
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
     with  xsa := <strip-annos> x
@@ -86,36 +90,34 @@ rules // templates
     
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
-    -> TemplateCall(y{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*}
+    -> TemplateCall(y{orig}, arg*, passign*, TemplateBody(elem*)){new-anno*}
     where y := <CallToDefinedTemplate> x
         ; orig := OriginalNameAnno(x{})
-        ; <rename-identifiers> anno*
-        ; ![CallToDefinedAnno() | <id>]
+        ; ![CallToDefinedAnno() | anno*]
         ; ![CalledTemplateArgs(<TemplateArguments> y) | <id>]
         ; ?new-anno*
 
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} 
-    -> TemplateCall(x{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*} 
+    -> TemplateCall(x{orig}, arg*, passign*, TemplateBody(elem*)){new-anno*} 
     where <CallToRequiredTemplate> x
         ; orig := OriginalNameAnno(x{})
-        ; <rename-identifiers> anno*
-        ; ![CallToRequiredAnno() | <id>]
+        ; ![CallToRequiredAnno() | anno*]
         ; ?new-anno*
 
   rename-template-call-id :
-    tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
-    -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){<rename-identifiers> anno*}
+    tc@TemplateCall(x, arg*, passign*, body)
+    -> TemplateCall(y, arg*, passign*, body)
     where <CallToBuiltInTemplate> x
         ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
     
   // Actions are lifted to toplevel elements, so their names should remain globally unique
   rename-action-def-id: 
       Action(nm1, args, b) ->
-      Action(<use-global-renaming> nm1, <rename-identifiers> args, <rename-identifiers> b)
+      Action(<use-global-renaming> nm1, args, b)
 
   rename-action-def-id:
-      ActionCall(name, args){anno*} -> ActionCall(<use-global-renaming> name, <rename-identifiers> args){anno*}
+      ActionCall(name, args){anno*} -> ActionCall(<use-global-renaming> name, args){anno*}
        
   rename-test-id:
-      Test(nm1, body) -> Test(<use-global-renaming> nm1, <rename-identifiers> body)
+      Test(nm1, body) -> Test(<use-global-renaming> nm1, body)

@@ -33,19 +33,14 @@ strategies
         try(\t {Location(r, c, _, _)} -> t {At(path, r, c)}\)
       )
   
-  xtc-parse-webdsl-module = 
-    xtc-ensure-file;
-    where(id
-      ; path := <path-of-xtc-file>
-    )
-    ; xtc-parse-webdsl-unit(|path)
-    ; check-for-ambiguities(|path)
-    ; try(simplify-module-constructor)
+  path-to-cache-path =
+      ?path
+    ; <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,".parsecache"]
   
   xtc-parse-webdsl-unit(|path) =
-    with(
-        tbl := <get-webdsl-parse-table>
-      ; cachepath := <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,<get-webdsl-version>,".parsecache"]
+  	?file
+    ;with(
+        cachepath := <path-to-cache-path> path
       ; dirs := <dirname; string-tokenize(|['/'])> cachepath
       ; <create-dirs> dirs
       )
@@ -53,24 +48,35 @@ strategies
       then
         if not(<file-exists> cachepath) <+ <gt> (<modification-time> path, <modification-time> cachepath) 
         then
-          parse-and-write-cache(|path,tbl,cachepath) //current term relevant
+            parse-webdsl-file(|path,cachepath) //current term relevant
         else
            // if cache read fails for some reason, e.g. it contains an invalid term because 
            // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
-           <ReadFromFile> cachepath 
-        <+ parse-and-write-cache(|path,tbl,cachepath) //current term relevant
+           <ReadFromFile> cachepath
+          ; ?(version,contents)
+          ; <eq> (version, <get-webdsl-version>) // check out-of-date cache 
+          ; rules(UnmodifiedFile : file)
+          ; !contents
+        <+ parse-webdsl-file(|path,cachepath) //current term relevant
         end
       else
         <debug> "File does not exist: "
       ; <trim-initial-dots-slashes;debug> path
       ; <exit> 1
       end
-      
-  parse-and-write-cache(|path,tbl,cachepath) =
-   ( parse-xtc-file-pt(err(|["cannot open file ", <trim-initial-dots-slashes> path]), strsglr-report-parse-error | tbl, "Unit", path) 
+
+	parse-webdsl-file(|path,cachepath) =
+	   with(tbl := <get-webdsl-parse-table>)
+	 ; ( parse-xtc-file-pt(err(|["cannot open file ", <trim-initial-dots-slashes> path]), strsglr-report-parse-error | tbl, "Unit", path) 
      <+ not(is-verbose-2); <exit> 1 
    )
    ; implode-with-location-annos(|path)
+   ; try(simplify-application-constructor)
+   ; try(simplify-module-constructor)
+          
+   
+  parse-and-write-cache(|path,cachepath) =
+   	 parse-webdsl-file(|path,cachepath)
    ; where(
        <WriteToBinaryFile> (cachepath,<id>)
      )
@@ -80,6 +86,9 @@ strategies
 
   simplify-module-constructor :
     ModuleDefs(qid, defs, sections) -> Module(qid, [Section("definitions", defs)|sections])
+
+	simplify-application-constructor :
+    ApplicationDefs(qid, defs, sections) -> Application(qid, [Section("definitions", defs)|sections])
 
   /**
    * @type String -> ParseTree(sort)
