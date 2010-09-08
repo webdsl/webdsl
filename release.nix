@@ -7,6 +7,7 @@ let
     pkgs.strategoPackages018.sdf
     pkgs.strategoPackages018.strategoxt 
     pkgs.strategoPackages018.javafront 
+    pkgs.perl
   ];
 
   pkgs = import nixpkgs { system = "i686-linux"; };
