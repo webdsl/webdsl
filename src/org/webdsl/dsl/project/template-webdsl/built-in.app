@@ -15,3 +15,17 @@ module built-in
     utils.StringType.split                       as split():List<String>
     utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
   }
+  
+  type Secret {
+    org.webdsl.tools.Utils.secretDigest  as digest():Secret
+    org.webdsl.tools.Utils.secretCheck   as check(Secret):Bool
+  }
+  
+  type Patch {
+    name.fraser.neil.plaintext.patch_factory.patchApply  as applyPatch(String):String
+  }
+  type String {
+    name.fraser.neil.plaintext.patch_factory.patchMake   as makePatch(String):Patch
+    name.fraser.neil.plaintext.patch_factory.diff        as diff(String):List<String>
+  }
+  
