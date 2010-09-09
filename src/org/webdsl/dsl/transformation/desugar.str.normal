@@ -1,0 +1,90 @@
+module org/webdsl/dsl/transformation/desugar
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/generation/webdsl-generator
+  org/webdsl/dsl/separation/-
+
+strategies
+		
+	innermost-rep-aux(s) = 
+				InnermostNormalForm
+		<+
+        all(innermost-rep-aux(s))
+			; try({
+			     s
+			   ; rules(InnermostApplied := True() )
+			   ; innermost-rep-aux(s) })
+			; {?q; rules( InnermostNormalForm : q )} //TODO doesn't this make it slower? each subterm ends up in a hashtable
+		
+  innermost-rep(s) =
+		{| InnermostNormalForm :
+        innermost-rep-aux(s)
+    |}
+      
+	desugar-top =
+	  repeat(
+	    {| InnermostApplied:
+	       transform-defs(desugar-toplevel)
+	     ; try(desugar-emit-all-defs)
+	     ; where(InnermostApplied)
+	    |}
+	  )
+    	  
+  desugar-toplevel =
+    with-toplevel-name(innermost-rep(desugar)) => desugared
+    
+rules //extend entity functions create dr
+  
+  rename-all-vars :
+    (t, []) -> (t, [])
+
+  rename-all-vars :
+    (t, [(from, to)|rst]) -> <rename-all-vars> (t2, rst)
+    where t2 := <rename-var(|from, to)> t
+
+rules
+	
+	desugar = fetch(?RemoveMe()); remove-all(?RemoveMe())
+	
+rules
+  /**
+   *  Many desugar rules require a rename of the entire 'define' in order to "see" all the visible vars in Rename dynamic rules.
+   *  Also for constructing the closure used in definition/function lifting it is necessary to rename the whole define.
+   *  To reduce the number of full 'define' renamings, this rule provides a hook for other desugar rules working in the context of a 'define'.
+   *  Maybe faster with innermost, though elems contained in this define are already desugared by normal 'desugar' rules.
+   *  Should only be used for simple rewrites, since after one application the elems in the define are probably no longer all properly renamed.
+   *  Used in translation of outputFile and outputImage.
+   */   
+  desugar : 
+    def1@Define(mods, name, args, targs, elems1) -> result
+    where not(<EnclosingDefinition> name) //not for local (re)defines
+        ; result := <desugar-in-context-helper> def1
+  
+  desugar : 
+    def1@Entity(_, _, _) -> result
+    where result := <desugar-in-context-helper> def1
+  desugar : 
+    def1@EntityNoSuper(_, _) -> result
+    where result := <desugar-in-context-helper> def1
+  desugar : 
+    def1@SessionEntity(_, _) -> result
+    where result := <desugar-in-context-helper> def1
+    
+  // Only for global functions: entity functions must be desugared in entity context
+  desugar : 
+    def1@Function(name, fargs, ret, elems) -> result
+    where has-no-anno(EntityFunctionAnno())
+    	; result := <desugar-in-context-helper> def1
+           
+  desugar-in-context-helper : 
+    def1 -> result
+    where {| DesugarInDefineContextApplied :
+            def2 := <alltd(desugar-in-define-context; where(rules(DesugarInDefineContextApplied := True())))> def1
+          ; DesugarInDefineContextApplied
+          ; result := <rename> def2
+           |}

@@ -32,30 +32,45 @@ strategies
       , ![] // xtc dependencies
       , xtc-webdslc; <exit> 0
     )
-
+    
   xtc-webdslc = id
       ; if WebDSLShowVersion then get-webdsl-version; debug(!"WebDSL version: "); <exit> 0 end
       ; set-appname
-      ; stage(xtc-parse-webdsl|["parsing ",<AppName>,".app"])
+      ; stage(with(read-webdsl-application) | "reading modified files")
+        // TODO: print source tree
+      ; try(where(
+          DebugPrintSourceTree
+        ; get-all-toplevel-definitions
+        ; pp-aterm(!"Modified source AST: ")
+        ; debug)
+       )
       ; {| StylesheetsToEmit:
 	      	dsl-to-core
       		; where(get-css-artifacts; output-generated-files)
       	|}
-      ; add-backend-annotations
+      ; transform-defs-tracked(add-backend-annotations)
       ; stage(rename-identifiers-top|"renaming identifiers")
-      ; try(where(DebugPrintBackendTree; pp-aterm(!"Application AST:"); debug))
+        
+      ; if DebugDesugarRules then
+          save-desugar-rules
+        end
+        
+      ; try(where(
+            DebugPrintBackendTree
+          ; get-all-toplevel-definitions
+          ; pp-aterm(!"Application AST:")
+          ; debug))
         // BACKEND START
-      ; stage(back-end-transformations | "generation analysis")
       ; stage(
-            ?Application(qid, <id>)
-          ; collect-all(?Section(_, <id>))
-          ; concat
-            // term is a list of toplevel definitions
-          ; if JavaServletBackend then
-              core-to-java-servlet(|qid)
-	         else
+            get-all-toplevel-definitions
+          ; back-end-transformations
+          | "generation analysis")
+      ; stage(
+            if JavaServletBackend then
+              core-to-java-servlet(|<QualifiedAppName>)
+            else
               <fatal-error> ["\n", "No backend specified. Use --servlet for the Java servlet backend."]
-           end
+            end
         |"code generation")
       ; stage(
         		filenames := 

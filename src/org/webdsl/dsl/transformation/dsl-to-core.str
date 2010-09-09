@@ -11,6 +11,7 @@ imports
   org/webdsl/dsl/typechecker/-
   org/webdsl/dsl/modules/-
   org/webdsl/dsl/languages/composition
+  org/webdsl/dsl/separation/-
 
 strategies
 
@@ -89,6 +90,9 @@ strategies // IDE Plugin stuff
     
 strategies // module imports
 
+  emit-import :
+    x -> <rules( ExtraModulesToImport :+= x )>
+
   already-imported :
     Imports(name) -> Note([])
     where <Imported> <strip-annos> name
@@ -104,8 +108,15 @@ strategies // module imports
      
   read-webdsl-application =
     {| ModuleAst:
+    	// Read modified files, starting at the main app file
       read-webdsl-file
-      // Find top-level elements
+      // Import builtin files
+    ; {| ExtraModulesToImport:
+         try(import-extra-modules-hook; debug(!"INTERNAL ERROR: import-extra-modules-hook strategies must fail");<exit>1)
+       ; extramodules := <bagof-ExtraModulesToImport>
+      |}
+    ; <map(import-module)> extramodules
+      // Store top-level elements
     ; all-keys-ModuleAst
     ; map(ModuleAst; module-ast-to-toplevel-elements)
     |}
@@ -212,7 +223,7 @@ strategies // toplevel definitions
       |}
   
   get-def-key: def -> key
-    with  key := <get-anno(?At(_,_,_)) <+ !At(<newname> "builtin-def-", 0, 0)> def
+    with  key := <get-anno(?At(_,_,_)) <+ !At(<concat-strings; newname> ["(gen)",<TopLevelDefineName>], 0, 0)> def
         
   def-key-to-file = ?At(<id>,_,_)
    
