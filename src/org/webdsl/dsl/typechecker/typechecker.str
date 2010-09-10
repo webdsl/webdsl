@@ -42,10 +42,19 @@ strategies
     )
 
 	// TODO: move to rename.str
-	typecheck-rename = transform-defs(rename-and-store)
+	typecheck-rename = transform-defs-tracked(
+	  {key:
+	      where(CurrentDefinitionKey => key)
+	    ; rename-top
+	    ; rules(RenameRules : key -> [])
+	  }
+	)
 	
+	//typecheck-rename = transform-defs(rename-and-store)
+  
 	rename-and-store =
 			where(CurrentDefinitionKey => key)
+		; rename-top
 		; start-record-dynamic-rules
 		; rename-top => renamed
     ; end-record-dynamic-rules
@@ -119,7 +128,8 @@ strategies
     where <not(TopLevelDefinitions)> key
     with  file := <def-key-to-file> key
         ; module-ast-to-toplevel-elements
-        
+  
+  // Declare globally visible webdsl elements
   typecheck-declare =
   	  // Load dynamic rule sets for unmodified files
    	  all-keys-DeclaredRules
@@ -128,6 +138,14 @@ strategies
    	//; debug(!"Unmodified ones: ")
    	; map(with(DeclaredRules; load-dynamic-rule-closure))
       // Declare modified files
+    ; map-defs(
+        { key:
+            where(CurrentDefinitionKey => key)
+          ; track-rules(declare-all)
+          ; rules(DeclaredRules : key -> [])
+        }
+      )
+      /*
     ; map-defs(
       { def, key, ruleset:
           ?def
@@ -142,7 +160,7 @@ strategies
         ; ?ruleset
         ; rules( DeclaredRules : key -> ruleset )
       }
-    ) //declares globally visible webdsl elements
+      */
     
   typechecker-after-declare =
       log-time(declare-all-override | "declare-all-override")

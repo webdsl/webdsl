@@ -15,7 +15,8 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/javascript/*) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
-  $(wildcard template-java-servlet/stylesheets/*) 
+  $(wildcard template-java-servlet/stylesheets/*) \
+  $(wildcard template-webdsl/*) 
 
 EXTRA_DIST = \
   webdsl.bat \
@@ -62,6 +63,6 @@ install-data-local:
 	mkdir -p $(pkgdatadir)/template-java-servlet/lib
 	mkdir -p $(pkgdatadir)/template-java-servlet/src-template
 	mkdir -p $(pkgdatadir)/template-java-servlet/src-template/utils
-	mkdir -p $(pkgdatadir)/template-python
+	mkdir -p $(pkgdatadir)/template-webdsl
 
 bootclean:
