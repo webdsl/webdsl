@@ -84,7 +84,10 @@ application test
       form{ action("Add as reference", add(pub)) }
     }
   }
+
   
+  define body(){}
+
 
   //was not being inlined
   define page editinvitationtemplate() {

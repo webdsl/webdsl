@@ -59,10 +59,11 @@ section somesection
 
   }
   
-  
+
   //caused java compilation error
   entity Publication{}
   entity AbstractAuthor{}
+  define identifyPersonAction(first : String, initials : String, last : String, affil : String, home : URL) {}
   define addAuthorForPublication(pub : Publication, author : AbstractAuthor) {
     define identifyPersonAction(first : String, initials : String, last : String, affil : String, home : URL) {
       action addAuthor() {
