@@ -26,27 +26,27 @@ rules
     ncf@NativeClassFunction(static,name,args,return) -> ncf
     with  if <?"String"> ident //String is a special case, string-compatible types are Java Strings at run-time as well, these also get the functions declared on String
           then <map({strident: ?strident; <declare-type-def-native-class-func-helper(|strident, staticfuncname)> ncf })> <bagof-StringCompatibleTypeNames>
-          else <declare-type-def-native-class-func-helper(|ident, staticfuncname)> ncf
+          else if <?"DateTime"> ident //DateTime, Date, Time are all java.util.Date, use DateTime to declare for each at once
+               then <map({strident: ?strident; <declare-type-def-native-class-func-helper(|strident, staticfuncname)> ncf })> ["DateTime","Date","Time"]
+               else <declare-type-def-native-class-func-helper(|ident, staticfuncname)> ncf
+               end
           end  
+
+signature constructors StaticFunctionNameForNativeFunction : Term -> Term
+rules 
   
   declare-type-def-native-class-func-helper(|ident, staticfuncname):
-    ncf@NativeClassFunction(static,name,args,return) -> ncf
-    with  <declare-native-class-func(|ident)> ncf //reuse declare of native function in native class import
-    with  if staticfunction := <?NativeClassFunctionStatic()> static
-          then  callee := ClassSort(ident)
-          else  callee := SimpleSort(ident) 
-          end     
-    with  t1* := <map(native-type-to-webdsl-type)> args
-        ; rules( 
-            TypeNativeFunctionDecl : (callee, name, t1*) -> staticfuncname
-          )   
+    ncf@NativeClassFunction(static,name,args,return) -> ncf1
+    with  ncf1 := <add-anno(|StaticFunctionNameForNativeFunction(staticfuncname))> ncf
+    with  <declare-native-class-func(|ident)> ncf1 //reuse declare of native function in native class import
       
   add-backend-annotation :
     c1@Call(e,x,args) -> c2
     where has-no-anno(?TypeNativeFunction(_))
     with  callee := <type-of> e
         ; t* := <map(type-of;strip-ref-sort)> args 
-    where staticfuncname := <TypeNativeFunctionDecl> (callee,x,t*)
+    where ncf := <resolve-function-call-to-decl> ( <type-of>e,x,<map(type-of;strip-ref-sort)> args)
+    where <get-anno(?StaticFunctionNameForNativeFunction(staticfuncname))> ncf
     with  c2 := <add-anno(|TypeNativeFunction(staticfuncname))> c1
 
   /**

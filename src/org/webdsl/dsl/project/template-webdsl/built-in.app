@@ -1,6 +1,6 @@
 module built-in
 
-  type String {
+  type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
     length():Int
     toLowerCase():String
     toUpperCase():String
@@ -29,3 +29,11 @@ module built-in
     name.fraser.neil.plaintext.patch_factory.diff        as diff(String):List<String>
   }
   
+  type DateTime { // includes Date and Time types
+    utils.DateType.format as format(String):String
+    before(DateTime):Bool
+    after(DateTime):Bool
+    getTime():Long
+    setTime(Long)
+          
+  }
