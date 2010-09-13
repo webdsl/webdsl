@@ -13,13 +13,15 @@ rules // query translation
   expression-to-java-servlet :
     HqlQueryLimit(e1, limit) -> expr|[ e2.setMaxResults(e_max).list() ]|
     with {| AddQueryParmeter : e2 := <query-to-create-query <+ debug(!"Failed create query: "); fail> e1 |}
-       ; e_max := <expression-to-java-servlet> limit
+       ; e_max := <limit-exp-to-java-servlet> limit
 
   expression-to-java-servlet :
     HqlQueryLimitOffset(e1, offset, limit) -> expr|[ e2.setFirstResult(e_first).setMaxResults(e_max).list() ]|
     with {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
        ; e_first := <expression-to-java-servlet> offset
-       ; e_max := <expression-to-java-servlet> limit
+       ; e_max := <limit-exp-to-java-servlet> limit
+
+  limit-exp-to-java-servlet =  try(?DslExp(<id>)); expression-to-java-servlet //get Exp from DslExp if ~exp was used
     
   expression-to-java-servlet :
     HqlQuery(e1) -> expr|[ e2.list() ]|
@@ -28,18 +30,18 @@ rules // query translation
     with  {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
     
   expression-to-java-servlet :
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(CountStar(),_)])),_), _, _, _)) -> expr|[ ((Long) e2.uniqueResult()).intValue() ]|
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(CountStar(),_)]))),_), _, _, _)) -> expr|[ ((Long) e2.uniqueResult()).intValue() ]|
     with  {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
     
   expression-to-java-servlet :
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Count(_) ,_)])),_), _, _, _)) -> expr|[ ((Long) e2.uniqueResult()).intValue() ]|
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Count(_) ,_)]))),_), _, _, _)) -> expr|[ ((Long) e2.uniqueResult()).intValue() ]|
     with  {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
 
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Max(Path([entalias,prop])),_)])), FromClause(ranges)), _, _, _)) -> e2
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Max(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> e2
     with  e2 := <hql-exp-maxmin> (e1, prop,ranges)
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Min(Path([entalias,prop])),_)])), FromClause(ranges)), _, _, _)) -> e2
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Min(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> e2
     with  e2 := <hql-exp-maxmin> (e1, prop,ranges)
   hql-exp-maxmin :    
     (e1, prop, ranges) -> expr|[ ((x_type) e2.uniqueResult()) ]|
@@ -48,14 +50,14 @@ rules // query translation
 
   //TODO add Long and Double types in WebDSL so nothing gets lost
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Sum(Path([entalias,prop])),_)])), FromClause(ranges)), _, _, _)) -> expr|[ ((x_type) e2.uniqueResult()).x_convert() ]|
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Sum(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> expr|[ ((x_type) e2.uniqueResult()).x_convert() ]|
     with  t1 := <get-type-anno> e1
         ; if not(<?SimpleSort("Int") <+ ?SimpleSort("Float")> t1) then <debug> "sum() can only be applied to types Int and Float";fail end
         ; (x_type, x_convert) := <if <?SimpleSort("Int")> t1 then !("Long","intValue") else !("Double","floatValue") end>
         ; {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
         
   expression-to-java-servlet :
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),[AliasedExpression(Avg(_) ,_)])),_), _, _, _)) -> expr|[ ((Double) e2.uniqueResult()).floatValue() ]|
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Avg(_) ,_)]))),_), _, _, _)) -> expr|[ ((Double) e2.uniqueResult()).floatValue() ]|
     with  {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
 
 rules

@@ -1,6 +1,6 @@
 [
    HqlQuery -- _1,
-   DslExp -- _1,
+   DslExp --  H hs=0[ KW["~"] _1 ],
 
    Module                             -- V[H[KW["module"] _1] _2],
    Module.2:iter-star                 -- _1,
