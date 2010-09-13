@@ -24,8 +24,8 @@ fi
 
 #echo parse-pp-table -i ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -o __WebDSL-pretty.pp.af
 #     parse-pp-table -i ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -o __WebDSL-pretty.pp.af
-echo ast2text -p ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -i __test-$VAR -o __pretty-$VAR
-     ast2text -p ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -i __test-$VAR -o __pretty-$VAR
+echo ast2text -p ../../src/org/webdsl/dsl/syntax/HQL-pretty.pp -p ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -i __test-$VAR -o __pretty-$VAR
+     ast2text -p ../../src/org/webdsl/dsl/syntax/HQL-pretty.pp -p ../../src/org/webdsl/dsl/syntax/WebDSL-pretty.pp -i __test-$VAR -o __pretty-$VAR
 cat __pretty-$VAR
 
 done
