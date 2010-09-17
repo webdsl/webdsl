@@ -1,0 +1,46 @@
+module extend
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports type-analysis rename pretty-print primitives
+imports lib/editor-common.generated
+imports nwl
+
+rules // extend entity
+
+  desugar: e@ExtendEntity(x, body*) -> []
+    with  name := <newname> $[extend_[x]]
+        ; rules(
+              ExtendEntity : x -> (name, e)
+          )
+          
+  desugar: Entity(x, body*) -> Entity(x, body2*)
+    where <bagof-ExtendEntity> x;
+          filter(\(name, ent) -> <not(<ExtendEntityDone> name); rules(ExtendEntityDone : name)> ent \);
+          not(?[]);
+          ?extends
+    with  <map(?ExtendEntity(_, <id>))> extends;
+          concat;
+          body2* := [body* | <id>]
+
+  // Succeed if all extend entities have been applied
+  entity-is-extended: x -> x
+    with  extends := <bagof-ExtendEntity> x
+    where <map(\(name,_) -> <ExtendEntityDone> name\)> extends
+
+rules // extend function
+
+  desugar: Entity(x, body*) -> Entity(x, body2*)
+    where <entity-is-extended> x;        // no waiting extend entities
+          extends := <filter(?ExtendFunction(_,_,_)); not(?[])> body*
+    with  {| ExtendFunction:
+            <map(\ ExtendFunction(name, params, body) -> <rules(ExtendFunction : (name,params) -> body)> \)> extends;
+            <map(repeat(desugar-extend-function))> body*;
+            remove-all(?ExtendFunction(_,_,_))
+          |};
+          ?body2*
+          
+  desugar-extend-function: Function(name, params, block1) -> Function(name, params, res)
+    where block2 := <once-ExtendFunction> (name, params)
+    with  res := Block(<concat> [<?Block(<id>)> block1, <?Block(<id>)> block2])
+         

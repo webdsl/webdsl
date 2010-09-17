@@ -1,0 +1,82 @@
+module ac
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports type-analysis rename pretty-print primitives
+imports lib/editor-common.generated
+imports nwl
+imports emit
+
+rules
+  
+  // TODO: get concrete syntax
+  
+  // Emit predicates
+  desugar: AccessControlRule(type, name, margs, exp) -> []
+    with  fname := <newname> "ac_pred";
+          <emit> Function(fname, [], Block([exp]));
+          stype := <acrule-type-to-string> type;
+          rules(AccessControlRule :+ stype -> (name, margs, fname))
+            
+  acrule-type-to-string: Page() -> "page"
+  acrule-type-to-string: Action() -> "action"
+  acrule-type-to-string: Template() -> "template"
+            
+  desugar: AccessControlDefinition(defs) -> []    // Rules have been processed.
+  
+  desugar: TemplateDef(mod*, name, params, body) -> TemplateDef(mod*, name, params, body2)
+    where <mod-to-actype; bagof-AccessControlRule> mod*;
+          filter(match-ac(|name,params));
+          where(defid := name); // change if overloading must be supported
+          filter(\fname -> <not(<AcWeavingDone> (fname,defid)); rules(AcWeavingDone : (fname,defid))> fname \);
+          not(?[]);
+          ?extends
+    with  <map(fname-to-ac-check)> extends;
+          body2 := <flatten-list> [<id>, body]
+          
+  mod-to-actype = 
+      fetch(?Page()); !"page"
+   <+ !"template"
+  
+  match-ac(|name, params): p@(mname, margs, funcname) -> funcname
+    where debug;
+          <match-ac-name> (mname, name);
+          <match-ac-params> (margs, params)
+          
+  match-ac-name = debug;match-names;debug
+  match-ac-params = debug;match-arguments;debug
+          
+  fname-to-ac-check: fname -> accheck
+    with  accheck := Init([
+        ThisCall(fname, [])
+      ])
+  
+  extract-sorts:
+    (Param(ident1,thesort1),Param(ident2,thesort2)) -> (thesort1,thesort2)
+  
+  // From WebDSL
+  match-names:
+    tup@(matchstring,name) -> tup
+    where
+    if not(matchstring := "*")
+    then
+        leftmatcher := <explode-string;reverse;drop-until(?'*');drop-while(?'*');reverse> matchstring
+        ; if leftmatcher := [] 
+          then // no * in the name, explicit match
+               matchstring := name
+          else //left-match: Succeeds if the first list of terms starts with the second list of terms.
+               //            Returns the suffix of the first list that is not matched.
+               <left-match> (<explode-string> name,leftmatcher)
+          end
+    end    
+    
+  match-arguments=
+    ?(fargrule,farg*)
+    ; newfargs := <?MatchArgs(args,wc);!args> fargrule
+    ; getWC := <?MatchArgs(args,wc);!wc> fargrule
+    ; if getWC := None() 
+      then newfarg* := farg*
+      else newfarg* := <take(<length> newfargs)> farg* end
+    ; <zip(extract-sorts;eq)> (newfargs,newfarg*)
+    
+  
