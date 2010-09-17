@@ -124,6 +124,27 @@ public abstract class AbstractPageServlet{
         templateContext.clear();
     }
 
+    // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
+    ArrayList<WebDSLEntity> entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+    boolean allowAddingEntitiesForValidation = true;
+    public void addEntityToValidateAfterAction(WebDSLEntity w){
+        if(allowAddingEntitiesForValidation){ 
+          if(!entitiesValidatedAfterAction.contains(w)){
+            entitiesValidatedAfterAction.add(w);
+          }
+        }
+    }
+    public void validateEntitiesAfterAction(){
+        allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
+        for(WebDSLEntity w : entitiesValidatedAfterAction){
+            if(w.isChanged()){
+              //System.out.println("validating: "+w);
+              w.validateSave();
+              //System.out.println("done validating");
+            }
+        }
+    }
+    
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;

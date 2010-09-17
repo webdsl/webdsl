@@ -10,4 +10,6 @@ public interface WebDSLEntity extends Serializable {
     public java.lang.Integer getVersion(); 
     public void setVersion(java.lang.Integer i); 
     public String getName();
+    public void validateSave();
+    public boolean isChanged();
 }

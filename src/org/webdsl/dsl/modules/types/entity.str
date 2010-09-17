@@ -37,10 +37,10 @@ rules
         ; <not(IsSessionEntityType)> s
   
   desugar-data :
-    Entity(x_class, sup, entbodydecs1) -> <rename> Entity(x_class, sup, entbodydecs2)
+    Entity(x_class, sup, entbodydecs1){anno*} -> <rename> Entity(x_class, sup, entbodydecs2){anno*}
     where entbodydecs2 := <oncetd(desugar-save-delete-call);alltd(desugar-save-delete-call)> entbodydecs1
   desugar-data :
-    EntityNoSuper(x_class, entbodydecs1) -> <rename> EntityNoSuper(x_class, entbodydecs2)
+    EntityNoSuper(x_class, entbodydecs1){anno*} -> <rename> EntityNoSuper(x_class, entbodydecs2){anno*}
     where entbodydecs2 := <oncetd(desugar-save-delete-call);alltd(desugar-save-delete-call)> entbodydecs1
     
   desugar-save-delete-call : ThisCall("save",[])   -> Call(Var("this"),"save",[])  
@@ -91,21 +91,16 @@ rules
         ; result := <rename-all> elem|[ list { for(x1 : x_ent in e){ listitem{ output(e2)[passign*] } } } ]|
   
   desugar-types :
-    elem|[ input(e)[passign*]{elem*} ]| ->
-    <rename-all> elem|[
-      select( y1 : $Y, "Select", e)[passign*]{elem*}
-    ]|
-    where SimpleSort($Y) := <type-of> e
-        ; <IsEntity> $Y
-        ; y      := <decapitalize-string> $Y
-        ; y1     := <toplevel-rename> y
+    TemplateCall("input"{ianno*},[e],passign*,TemplateBody(elem*)){anno*} -> result
+    where srt@SimpleSort(x_ent) := <type-of> e
+        ; <IsEntity> x_ent
+    with  ent_var_name := <decapitalize-string> x_ent
+        ; ent_var_name2 := <toplevel-rename> ent_var_name
+        ; result := <rename-all> Select(ent_var_name2, srt, "Select", e, passign*, elem*){anno*}
 
   desugar-types :
-    elem|[ input(e)[passign*]{elem*} ]| ->
-    <rename-all> elem|[
-      select(x1 : $X, str, e)[passign*]{elem*}
-    ]|
-    where GenericSort(coll, [SimpleSort(X)]) := <type-of> e
-        ; $X  := X
-        ; x1  := <decapitalize-string; toplevel-rename> X
-        ; str := <concat-strings>["Add ", X]
+    TemplateCall("input"{ianno*},[e],passign*,TemplateBody(elem*)){anno*} -> result
+    where GenericSort(coll, [srt@SimpleSort(x_ent)]) := <type-of> e
+    with  ent_var_name  := <decapitalize-string; toplevel-rename> x_ent
+        ; str := <concat-strings>["Add ", x_ent]
+        ; result := <rename-all> Select(ent_var_name, srt, str, e, passign*, elem*){anno*}
