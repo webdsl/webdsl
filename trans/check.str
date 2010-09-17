@@ -4,17 +4,44 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
+imports nwl
 
 rules // static analysis
 
   editor-analyze:
     (ast, path, fullpath) -> (ast2, errors, warnings, [])
     with
+      rules(
+          Path := path          // Path to file, relative from project
+          FullPath := fullpath  // Absolute path to file
+      );
+      where(set-project-dir);
       editor-init;
-      ast2 := <declare-all> ast
+      ast2 := <load-imports; declare-all> ast
     with
       errors   := <collect-all(check, conc)> ast2;
       warnings := <collect-all(constraint-warning, conc)> ast2
+  
+  set-project-dir =
+    Path;
+    explode-string(|'/');
+    take(|<length;dec>);
+    implode-string(|'/');
+    ?project-dir;
+    rules(ProjectDir := project-dir)
+    
+  load-imports: Module(name, alldef*) -> Module(name, newdef*)
+    with  def* := <remove-all(?Import(_))> alldef*
+        ; def2* := <filter(?Import(_)); map(parse-import); concat> alldef*
+        ; newdef* := [def*, def2*]
+
+  parse-import: Import(mod) -> []
+    where <Imported> mod
+          
+  parse-import: Import(mod) -> def*
+    with  rules(Imported := mod);
+          filename := $[[<ProjectDir>]/[mod].nwl]; 
+          Module(name, def*) := <debug(!"Parsing: "); parse-file; load-imports> filename
   
 rules // type-of builder
 
@@ -42,7 +69,7 @@ rules // expressions
 
   check :
     e@Var(x) -> (<id>, $[Variable '[x]' not declared])
-    where require(<type-of>e)
+    where require(<debug;type-of;debug>e)
    
   check :
     e1@PropertyAccess(e2, f) -> (f, $[[<pp>t] has no property '[f]])

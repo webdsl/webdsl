@@ -4,6 +4,7 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports desugar type-analysis primitives check
 imports lib/editor-common.generated
+imports nwl
 
 rules // completion
   
@@ -45,16 +46,42 @@ rules
     declare-primitives;
     desugar-all;
     alltd(declare-def); 
-    rename-all
+    rename-all;
+    where(pp-aterm; debug)
     
 rules // top-level declarations
   
-  declare-def:
-    ent@Entity(x, prop*) -> Entity(x, prop*)
+  declare-def: ent@Entity(x, prop*) -> <declare-entity> Entity(x, prop*)
+  declare-def: ent@ExtendEntity(x, prop*) -> ent
+    with <declare-entity-body(|x)> prop*
+  
+  declare-entity: ent@Entity(x, prop*) -> ent
     with rules( EntityDeclaration : x -> ent )
+       ; <declare-entity-body(|x)> prop*
+         
+  declare-entity-body(|x): prop* -> prop*
+    with {| InEntity: 
+            rules(InEntity := x);
+            <map(declare-def)> prop*
+         |}
 
   declaration-of : 
     SimpleType(x) -> <EntityDeclaration> x
+
+  declare-def :
+    def@Property(name,type) -> def
+    with  sig := <signature-of> def;
+          InEntity => entity;
+          rules(
+            Property : (entity, name) -> def
+            Property : (entity, sig) -> def
+            Properties :+ entity -> def
+          )
+
+  signature-of :
+    Property(name,type) -> (name, type)
+
+// ------ templates
   
   declare-def :
     def@TemplateDef(mod*, x, param*, elem*) -> TemplateDef(mod*, x, param*, elem*)
@@ -63,7 +90,7 @@ rules // top-level declarations
            Template : x -> def
            Template : sig -> def
          )
-
+         
   signature-of : 
     TemplateDef(mod*, x, param*, elem*) -> (x, <param-types>param*)
 
@@ -77,6 +104,10 @@ rules // top-level declarations
   declaration-of : 
     ref@TemplateRef(x, e*) -> def
     where def := <signature-of; Template> ref
+    
+// ---- functions
+  declare-def : f@Function(x, param*, body) -> f
+  declare-def : f@ExtendFunction(x, param*, body) -> f
     
 rules // renaming local identifiers
     
@@ -93,6 +124,29 @@ rules // renaming local identifiers
   rename : 
     Param(x, t) -> <declare-var(|y)> Param(y, t)
     with y := <rename-var>(x, t)
+    
+  // entity property
+  rename = rename-property
+  
+  rename-property:
+    Property(x, t) -> <declare-var(|y)> Property(y, t)
+    with y := <rename-var>(x, t)
+    
+  rename: Entity(x, prop*) -> <declare-def> Entity(x, prop2*)
+    with prop2* := <rename-entity-body(|x)> prop*
+    
+  rename: ExtendEntity(x, prop*) -> <declare-def> ExtendEntity(x, prop2*)
+    with prop2* := <rename-entity-body(|x)> prop*
+    
+  rename-entity-body(|x): prop* -> prop2*
+    with {| InEntity, RenameId:
+            rules(InEntity := x)
+            // get all vars in scope
+          ; <bagof-Properties> x
+          ; map(rename-property)
+          ; all-keys-RenameId; debug
+          ; prop2* := <rename-all> prop*
+         |} 
   
   rename-var : 
      (x, t) -> y
@@ -105,7 +159,7 @@ rules // renaming local identifiers
   rename : 
     Var(x) -> Var(y) 
     where y := <RenameId> x
-
+    
 rules // name resolution
              
   rename-res :  
@@ -134,3 +188,5 @@ rules // name resolution
   	where
       t      := <type-of> e;
       e-decl := <declaration-of> t
+      
+  
