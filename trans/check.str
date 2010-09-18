@@ -5,6 +5,7 @@ imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
 imports nwl
+imports desugar
 
 rules // static analysis
 
@@ -19,10 +20,18 @@ rules // static analysis
       editor-init;
       <?Module(modname, _)> ast;
       rules(Imported : modname);
-      ast2 := <load-imports; declare-all> ast
+      <load-imports> ast;
+      ?Module(_, <id>);
+      map({key: \def -> <def-to-key; ?key; rules(Definition : key -> def)> def \});
+      declare-all;
+      transform-defs(id);
+      ?ast2
     with
       errors   := <collect-all(check, conc)> ast2;
       warnings := <collect-all(constraint-warning, conc)> ast2
+  
+  def-to-key: constructor#(_) -> x
+    with x := <newname> constructor
   
   set-project-dir =
     Path;
@@ -128,7 +137,7 @@ rules // multiple definitions
       
   check :
     ent@Entity(x, prop*) -> (x, $[Entity '[x]' defined more than once])
-    where require(<EntityDeclaration> x => ent)
+    where require(where(!ent; debug); <EntityDeclaration;debug> x => ent)
 
   check :
     def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])

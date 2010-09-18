@@ -3,6 +3,8 @@ module desugar
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports emit
+imports check
+imports separation/track
 
 rules // desugared builder
     
@@ -20,16 +22,38 @@ rules // desugared builder
       
 strategies
   
-  desugar-all = 
+  transform-defs(s) = 
+    all-keys-Definition;
+    filter(where(Definition)); // skip deleted
+    map({def: \key -> <Definition; s; ?def; rules(Definition : key -> def)> key \})
+  
+  is-used-dr = id
+  
+  desugar-all = {| DesugarRulesCreated, DesugarRulesUsed:
+  	desugar-all-1;
+  	all-keys-DesugarRulesCreated;
+  	map(\x -> (x, <DesugarRulesCreated> x)\);
+  	debug
+  |}
+  
+  desugar-all-1 = 
     repeat(
       {| DesugarApplied:
-        innermost(desugar; rules(DesugarApplied := True()))
+        transform-defs( {
+          where(def-to-key => key);
+          track-rules(
+            innermost(
+               desugar;
+               rules(DesugarApplied := True()))
+            | key
+          )})
       ; where(DesugarApplied)    // quit if nothing done
       ; add-emits
       |}
     )
-    ; ?Module(name, defs)
-    ; !Module(name, <remove-all(?[])> defs)
+    ; remove-all(?[])
+      
+  track-rules(s) = s
   
   normalize-all = desugar-all
   
