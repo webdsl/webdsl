@@ -25,27 +25,29 @@ strategies
   transform-defs(s) = 
     all-keys-Definition;
     filter(where(Definition)); // skip deleted
-    map({def: \key -> <Definition; s; ?def; rules(Definition : key -> def)> key \})
-  
+    map(//{| CurrentDefinitionKey: 
+      {def:
+        \key -> <rules(CurrentDefinitionKey := key); Definition; s; ?def; rules(Definition : key -> def)> key \}
+      /*|}*/)
+      
   is-used-dr = id
+  ignore-dr-tracking = ?"DesugarApplied"
   
   desugar-all = {| DesugarRulesCreated, DesugarRulesUsed:
   	desugar-all-1;
   	all-keys-DesugarRulesCreated;
-  	map(\x -> (x, <DesugarRulesCreated> x)\);
-  	debug
+  	save-desugar-rules
   |}
   
   desugar-all-1 = 
     repeat(
       {| DesugarApplied:
         transform-defs( {
-          where(def-to-key => key);
           track-rules(
             innermost(
                desugar;
                rules(DesugarApplied := True()))
-            | key
+            | <CurrentDefinitionKey>
           )})
       ; where(DesugarApplied)    // quit if nothing done
       ; add-emits
@@ -55,14 +57,16 @@ strategies
       
   track-rules(s) = s
   
-  normalize-all = desugar-all
+  normalize-all = alltd(normalize)  // todo: innermost
+  
+  desugar = fail
   
 rules
 
-  desugar : 
+  normalize : 
     Call(r) -> Call(r, [])
   
-  desugar :
+  normalize :
     TemplateRef(x) -> TemplateRef(x, [])
       
 strategies // pretty-printing

@@ -4,7 +4,8 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports desugar type-analysis primitives check
 imports lib/editor-common.generated
-imports nwl
+imports nwl read
+imports separation/track
 
 rules // completion
   
@@ -44,10 +45,25 @@ rules
 
   declare-all =
     declare-primitives;
-    desugar-all;
-    transform-defs(alltd(declare-def)); 
-    rename-top;
-    where(pp-aterm; debug)
+    normalize-all;
+    transform-defs(declare-top);
+    store-signatures; 
+    rename-top
+        
+  declare-top =
+    track-rules-with-creates(alltd(declare-def) | <CurrentDefinitionKey>);
+    ?newdef
+    
+  store-signatures =
+      all-keys-ModuleToDef;
+      map({
+          ?modname;
+          bagof-ModuleToDef;
+          map(\key -> (key, <Definition> key, <CreatedRules> key)\) => defrules;
+          content := (<ModuleImports> modname, defrules);
+          cachefile := <ModuleFullpath; import-cache-path> modname;
+          <WriteToBinaryFile> (cachefile, content)
+      })
     
 rules // top-level declarations
   

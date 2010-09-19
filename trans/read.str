@@ -1,0 +1,59 @@
+module read
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports type-analysis rename pretty-print primitives
+imports lib/editor-common.generated
+imports nwl check
+imports separation/dr
+
+rules 
+
+  store-module: mod@Module(name, body) -> mod
+    with  rules(ModuleToDefs : name -> body);
+          <map(where({key,def:
+              ?def;
+              def-to-key => key;
+              rules(
+                DefToModule : key -> name
+                ModuleToDef :+ name -> key
+                Definition : key -> def
+              )
+          }))> body
+  
+  def-to-key: constructor#(_) -> x
+    with x := <newname> constructor
+    
+  load-imports: mod@Module(name, body) -> Module(name, body2)
+    with  imports := <filter(?Import(_))> body;
+          <map(parse-import)> imports;
+          rules(ModuleImports : name -> imports);
+          body2 := <remove-all(?Import(_))> body
+
+  parse-import: Import(modname) -> []
+    where <Imported> modname
+          
+  parse-import: Import(modname) -> []
+    with  rules(Imported : modname);
+          filename := $[[<ProjectDir>]/[modname].nwl]; 
+          <parse-file-with-cache> filename;
+          if not(?"cached") then
+            load-imports;
+            store-module
+          end
+  
+  parse-file-with-cache: filename -> content
+    with  cache := <import-cache-path> filename;  
+      if <file-exists> cache; <is-newer> (cache, filename) then
+        // Read rule signature
+        (imports, defrules) := <ReadFromFile> cache;
+        <map(\(name,def,ruleset) -> <load-dynamic-rule-closure> ruleset \)> defrules;
+        <map(parse-import)> imports;
+        content := "cached"
+      else
+        <debug(!"Parsing: ")> filename; 
+        content := <parse-file> filename;
+        ?Module(modname, _);
+        rules(ModuleFullpath : modname -> filename)
+      end
+      

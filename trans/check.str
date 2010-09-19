@@ -4,8 +4,7 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
-imports nwl
-imports desugar
+imports nwl desugar read
 
 rules // static analysis
 
@@ -18,11 +17,7 @@ rules // static analysis
       );
       where(set-project-dir);
       editor-init;
-      <?Module(modname, _)> ast;
-      rules(Imported : modname);
-      <load-imports> ast;
-      ?Module(_, <id>);
-      map({key: \def -> <def-to-key; ?key; rules(Definition : key -> def)> def \});
+      <module-to-toplevel-defs> ast;
       declare-all;
       transform-defs(id);
       ?ast2
@@ -30,8 +25,21 @@ rules // static analysis
       errors   := <collect-all(check, conc)> ast2;
       warnings := <collect-all(constraint-warning, conc)> ast2
   
-  def-to-key: constructor#(_) -> x
-    with x := <newname> constructor
+  get-toplevel-defs = transform-defs(id)
+  
+  debug-toplevel-defs = where(get-toplevel-defs; pp-aterm; debug)
+  
+  module-to-toplevel-defs: mod@Module(name, body) -> defs
+    with  FullPath => fullpath;  
+          rules(
+            ModuleName := name
+            ModuleFullpath : name -> fullpath
+            Imported : name
+          );
+          <load-imports; store-module> mod;
+          get-all-definitions => defs
+          
+  get-all-definitions = transform-defs(id)
   
   set-project-dir =
     Path;
@@ -41,19 +49,6 @@ rules // static analysis
     ?project-dir;
     rules(ProjectDir := project-dir)
     
-  load-imports: Module(name, alldef*) -> Module(name, newdef*)
-    with  def* := <remove-all(?Import(_))> alldef*
-        ; def2* := <filter(?Import(_)); map(parse-import); concat> alldef*
-        ; newdef* := [def*, def2*]
-
-  parse-import: Import(mod) -> []
-    where <Imported> mod
-          
-  parse-import: Import(mod) -> def*
-    with  rules(Imported : mod);
-          filename := $[[<ProjectDir>]/[mod].nwl]; 
-          Module(name, def*) := <debug(!"Parsing: "); parse-file; load-imports> filename
-  
 rules // type-of builder
 
   type-of-try =
@@ -137,7 +132,7 @@ rules // multiple definitions
       
   check :
     ent@Entity(x, prop*) -> (x, $[Entity '[x]' defined more than once])
-    where require(where(!ent; debug); <EntityDeclaration;debug> x => ent)
+    where require(where(!ent); <EntityDeclaration> x => ent)
 
   check :
     def@TemplateDef(mod*, x, param*, elem*) -> (x, $[Multiple definitions for page '[x]'])

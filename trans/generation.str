@@ -3,6 +3,7 @@ module generation
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports desugar type-analysis
+imports check
 
 rules
   
@@ -23,23 +24,46 @@ rules // generation
 rules
 
   nwl-to-java =
-    desugar-all; 
-    bottomup(to-java-ignore <+ to-java <+ is-string <+ concat-strings <+ aterm-to-string)
-  
+    module-to-toplevel-defs;
+    desugar-all;
+    get-toplevel-defs;
+    debug;
+    bottomup(to-java-ignore <+ to-java <+ is-string <+ concat-strings <+ aterm-to-string);
+    !$[package [<ModuleName>];
+   
+[<id>]
+      ]
+      
   to-java-ignore =
     is-java-ignore; !""
     
-  is-java-ignore =
-       ?Import(_)
-    <+ ?AccessControlDefinition(_)
+  is-java-ignore = fail
   
   to-java:
-    Module(x, d*) ->
-    $[ package [x];
-     
-      [d*]
-     ]
-
+    Function(name,params*,body) -> 
+    $[ public void [name]([params*]) {
+          [body]
+       }
+    ]
+    
+  to-java:
+    Param(ident,sort) -> $[[sort] [ident]]
+    
+  to-java:
+    Block(x) -> $[{
+      [x]
+    }]
+    
+  to-java:
+    Assign(var, val) -> $[[var] = [val];
+    ]
+  
+  to-java: Var(x) -> x
+  to-java: StringLit(x) -> x
+  to-java: IntLit(x) -> x
+  
+  to-java: Plus(x,y) -> $[[x] + [y]] 
+  
   to-java:
     Entity(x, p*) ->
     $[ class [x] {
