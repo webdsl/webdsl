@@ -21,6 +21,11 @@ rules
         \key -> <rules(CurrentDefinitionKey := key); Definition; s; ?def; rules(Definition : key -> def)> key \}
       /*|}*/)
   
+  remove-defs(s) =
+    all-keys-Definition;
+    filter(where(Definition));
+    filter(\key -> <rules(CurrentDefinitionKey := key); Definition; s; rules(Definition :- key)> key\)
+  
   collect-in-defs(s) = {| Collected:
     transform-defs(
       { res:
@@ -52,13 +57,16 @@ rules
     with  rules(ModuleToDefs : name -> body);
           <map(where({key,def:
               ?def;
-              def-to-key => key;
+              store-def => key;
               rules(
                 DefToModule : key -> name
                 ModuleToDef :+ name -> key
-                Definition : key -> def
               )
           }))> body
+
+  store-def: def -> key
+    with  key := <def-to-key> def;
+          rules(Definition : key -> def)
   
   def-to-key: constructor#(_) -> x
     with x := <newname> constructor
@@ -91,6 +99,7 @@ rules
         <debug(!"using cache for: ")> filename;
         <load-dynamic-rule-closure> defrules;
         <map(parse-import)> imports;
+        rules(CachedFiles :+= filename);
         content := "cached"
       else
         <debug(!"Parsing: ")> filename; 
@@ -103,3 +112,13 @@ rules
     with  cachepath := <import-cache-path> fullpath
     where (imports, sig) := <file-exists; ReadFromFile> cachepath
      
+  load-cached-files =
+    bagof-CachedFiles;
+    debug(!"Loading: ");
+    map(
+      parse-file;
+      \Module(name,defs) -> Module(name, <remove-all(?Import(_))> defs)\;
+      store-module
+    );
+    rules(CachedFiles :- _)
+    

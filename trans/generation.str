@@ -23,14 +23,19 @@ rules // generation
 
 rules
 
+  sep = sep(|"\n")
+  sep(|x) = separate-by(|x); concat-strings
+
   nwl-to-java =
-    all-keys-Definition;debug;
+    load-cached-files;
+    debug-toplevel-defs;
     desugar-all;
     get-toplevel-defs;
-    bottomup(to-java-ignore <+ to-java <+ is-string <+ concat-strings <+ aterm-to-string);
+    where(pp-aterm; debug);
+    bottomup(to-java-ignore <+ to-java <+ is-string <+ is-list <+ aterm-to-string);
     !$[package [<ModuleName>];
    
-[<id>]
+[<sep>]
       ]
       
   to-java-ignore =
@@ -39,34 +44,37 @@ rules
   is-java-ignore = fail
   
   to-java:
-    Function(name,params*,body) -> 
-    $[ public void [name]([params*]) {
+    Function(name,params*,body) -> $[
+    public void [name]([<sep(|", ")> params*])
           [body]
-       }
     ]
     
   to-java:
     Param(ident,sort) -> $[[sort] [ident]]
     
   to-java:
-    Block(x) -> $[{
-      [x]
+    Block(x) -> $[
+    {
+      [<sep> x]
     }]
     
   to-java:
-    Assign(var, val) -> $[[var] = [val];
-    ]
+    Assign(var, val) -> $[[var] = [val];]
   
   to-java: Var(x) -> x
   to-java: StringLit(x) -> x
   to-java: IntLit(x) -> x
-  
+  to-java: And(x,y) -> $[([x] && [y])]
+  to-java: Or(x,y) -> $[([x] || [y])]
+  to-java: Gt(x,y) -> $[([x] > [y])]
   to-java: Plus(x,y) -> $[[x] + [y]] 
+  to-java: True() -> $[true]
+  to-java: False() -> $[false]
   
   to-java:
     Entity(x, p*) ->
     $[ class [x] {
-           [p*]
+           [<sep> p*]
        }
      ]
 
@@ -82,6 +90,26 @@ rules
         this.[x] = [x];    
       }
     ]
+  
+  to-java:
+    Init([x*]) -> $[
+      // Init action
+      {
+        [<sep>x*]
+      }
+    ]
+  
+  to-java:
+    TemplateDef(mod*, name, fparams*, body) -> $[
+  public class [name]([<sep(|", ")> fparams*]) {
+       
+    /* Modifiers: [<?[]; !"template" <+ sep(|", ")> mod*] */
+    public void render() {
+      [<sep> body]
+    }
+      
+  }
+]
 
   to-java:
     SimpleType(x) -> x
