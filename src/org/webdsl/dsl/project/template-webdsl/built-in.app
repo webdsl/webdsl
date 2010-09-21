@@ -1,5 +1,7 @@
 module built-in
 
+  section methods for built-in types
+
   type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
     length():Int
     toLowerCase():String
@@ -35,5 +37,87 @@ module built-in
     after(DateTime):Bool
     getTime():Long
     setTime(Long)
-          
   }
+
+  section JSON for services
+      
+  native class org.json.JSONObject as JSONObject {
+    constructor()
+    constructor(String)
+    get(String) : Object
+    getBoolean(String) : Bool
+    getDouble(String) : Double
+    getInt(String) : Int
+    getJSONArray(String) : JSONArray
+    getJSONObject(String) : JSONObject
+    getString(String) : String
+    has(String) : Bool
+    names() : JSONArray
+    put(String, Object)
+    toString() : String
+    toString(Int) : String
+  }
+  
+  native class org.json.JSONArray as JSONArray {
+    constructor()
+    constructor(String)
+    get(Int) : Object
+    getBoolean(Int) : Bool
+    getDouble(Int) : Double
+    getInt(Int) : Int
+    getJSONArray(Int) : JSONArray
+    getJSONObject(Int) : JSONObject
+    getString(Int) : String
+    length() : Int
+    join(String) : String
+    put(Object)
+    remove(Int)
+    toString() : String
+    toString(Int) : String
+  } 
+  
+  section WebDriver for testing
+  
+  native class org.openqa.selenium.WebDriver as WebDriver {
+    get(String)
+    getTitle():String
+    getPageSource():String
+    findElement(SelectBy):WebElement
+    findElements(SelectBy):List<WebElement>
+    close()
+  }
+  
+  native class org.openqa.selenium.By as SelectBy {
+    static id(String):SelectBy
+    static linkText(String):SelectBy
+    static name(String):SelectBy
+    static partialLinkText(String):SelectBy
+    static tagName(String):SelectBy
+    static xpath(String):SelectBy
+  } 
+  
+  native class org.openqa.selenium.WebElement as WebElement {
+    getText():String
+    getValue():String
+    getElementName():String
+    isEnabled():Bool
+    sendKeys(String)
+    submit()
+    clear()
+    click()
+    getAttribute(String):String
+    isEnabled():Bool
+    isSelected():Bool
+    //void 	sendKeys(java.lang.CharSequence... keysToSend)
+    setSelected()
+    toggle():Bool
+  }
+  
+  native class org.openqa.selenium.htmlunit.HtmlUnitDriver as HtmlUnitDriver : WebDriver {
+    constructor()
+  }
+  
+  native class org.openqa.selenium.firefox.FirefoxDriver as FirefoxDriver : WebDriver {
+    constructor()
+  }
+  

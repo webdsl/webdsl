@@ -550,6 +550,7 @@
    ValidateUpdateAnno                           -- KW["validateupdate"] KW["("] _1 KW[","] _2 KW[")"],
    ValidateCreateAnno                           -- KW["validatecreate"] KW["("] _1 KW[","] _2 KW[")"],
    IgnoreAccessControl                          -- KW["ignore-access-control"],
+   ValidatesRefArgs                             -- KW["validate"],
    EnumValue                                    -- _1 KW["("] _2 KW[")"],
    PagedForNoFilter.5:iter-star                 -- _1,
    PagedForNoFilter                             -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW["per"] _4 KW[")"] KW["{"] _5 KW["}"],

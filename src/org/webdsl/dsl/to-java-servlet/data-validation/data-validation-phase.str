@@ -16,7 +16,23 @@ rules
     ; where (    
       bstm1* := <  filter-elements-for-java-servlet-handling
                  ; collect-data-validation-to-java-servlet> elem*
-      ; not(bstm1* := []))
+      ; not(bstm1* := []; not(<fetch(ValidatesRefArgs)> mod*))) //don't generate if no validation elements and no validate modifier
+    ; // templates with the validate modifier execute validation for each ref arg passed as argument
+      if <fetch(ValidatesRefArgs)> mod* 
+      then 
+        with(
+          bstm_callvalmethod* := <filter(\ Arg(x_refargname,RefSort(_)) -> java:bstm|[ x_refargname.validate(this.getUniqueId(),exceptions); ]| \)> farg*
+        ; bstm_refargvalidation* := 
+          java:bstm*|[ 
+            java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
+            bstm_callvalmethod*
+            if(exceptions.size() > 0 && ThreadLocalPage.get().inSubmittedForm()){
+              ThreadLocalPage.get().getValidationExceptions().addAll(exceptions);
+              ThreadLocalPage.get().setValidated(false);  
+            }
+          ]|
+        )
+      else bstm_refargvalidation* := [] end
     ; with(
       <generate-java-servlet-template-partial> 
         java |[ 
@@ -24,6 +40,7 @@ rules
             protected void validateInputsInternal() {
               ~*<java-servlet-template-phase-inits>
               bstm1*    
+              bstm_refargvalidation*
             }
         ]|)
  
@@ -64,7 +81,6 @@ rules
       ident += "~inputident"+uniqueid;
       ~*<wrap-validation-context-code-store-inputs> bstm*|[    
         if(ThreadLocalPage.get().inSubmittedForm() && !e3){
-          //throw new utils.ValidationException(ident,e4);
           ThreadLocalPage.get().getValidationExceptions().add(new utils.ValidationException(ThreadLocalPage.get().getValidationContext(),e4));
           ThreadLocalPage.get().setValidated(false);  
         }
