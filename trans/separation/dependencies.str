@@ -1,0 +1,76 @@
+module separation/dependencies
+
+imports
+  check
+  separation/-
+
+strategies  
+  
+  dependencies-file = !$[[<ProjectDir>]/.dependencies.nwl]
+  
+  // TODO: when are module keys deleted from the dep file ?
+  
+  update-dependency-graph =
+      dependencies-file; (file-exists; ReadFromFile <+ ![])
+    ; if dependencies-unchanged then
+          <debug> "No dependencies changed."
+          // TODO: touch dep file (no stratego strategy for touching files?)
+      else
+		      filter(read-old-dependencies)   // stores old deps in DR's
+		    ; all-keys-RulesUsedBy
+		    ; map(\fullpath -> (fullpath, <RulesUsedBy> fullpath)\)
+		    ; <WriteToBinaryFile> (<dependencies-file>, <id>)
+		  end
+		  
+  dependencies-unchanged = {| PrevRules:
+      map(\ (fullpath, usedrules) -> <rules(PrevRules : fullpath -> usedrules)> \)
+    ; all-keys-RulesUsedBy
+    ; map(<eq> (<PrevRules>, <RulesUsedBy>))
+  |}
+      
+  read-old-dependencies: (fullpath, usedrules) -> (fullpath, usedrules)
+    where not(<RulesUsedBy> fullpath)   // not updated in this analyze run
+        ; rules(RulesUsedBy : fullpath -> usedrules)
+  
+	find-dependent-modules =
+      FullPath => current
+    ; changed := <create-change-set> (<RulesCreated>, <RulesCreatedPrev>)
+    ; all-keys-RulesUsedBy; remove-dr-dummies    // all modules
+    ; filter(not(?current); has-rule-use(|changed))
+    
+  has-rule-use(|ruleset): mod -> mod
+    with  uses := <RulesUsedBy> mod
+          // find common rule usage
+        ; common1* := <isect> (ruleset, uses)
+          // find all-keys- usage
+        ; common2* := <isect> (<map(Fst);uniq> ruleset, <filter(?(_,DR_DUMMY()); Fst);uniq> uses)
+        ; common* := [common1*,common2*]
+    where not([] := common*)
+    where not([] := common*)
+        ; !mod; debug(!".. have to re-analyze mod: ")
+        ; !common*; debug(!".. common rules: ")
+  
+  remove-dr-dummies = map(remove-dr-dummy)
+  
+  create-change-set: (new, old) -> all-changes
+    with   {| NewRule, OldRule: 
+              <rules-as-key-val-pairs(\(key,val) -> <rules(NewRule :+ key -> val)>\)> new
+            ; <rules-as-key-val-pairs(\(key,val) -> <rules(OldRule :+ key -> val)>\)> old
+              // changed rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(<not(eq)> (<bagof-NewRule>, <bagof-OldRule>)))
+            ; ?changed
+            //; try(?[]; debug(!"Rules changed: "))
+              // new rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(not(OldRule)))
+            ; ?added
+            //; try(not(?[]); debug(!"Rules added: "))
+              // removed rules
+            ; all-keys-OldRule; remove-dr-dummies
+            ; filter(where(not(NewRule)))
+            ; ?removed
+            //; try(not(?[]); debug(!"Rules removed: "))
+           |}
+        ; all-changes := <concat;uniq> [changed, added, removed]
+        //; debug(!"All changes: ")

@@ -4,8 +4,7 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
-imports nwl
-imports emit
+imports nwl emit check
 
 rules
   
@@ -24,9 +23,10 @@ rules
             
   desugar: AccessControlDefinition(defs) -> []    // Rules have been processed.
   
-  desugar: TemplateDef(mod*, name, params, body) -> TemplateDef(mod*, name, params, body2)
+  desugar: TemplateDef(mod*, name, fparams, body) -> TemplateDef(mod*, name, fparams, body2)
     where <mod-to-actype; bagof-AccessControlRule> mod*;
-          filter(match-ac(|name,params));
+          paramtypes := <param-types> fparams;
+          filter(match-ac(|name,paramtypes));
           where(defid := name); // change if overloading must be supported
           filter(\fname -> <not(<AcWeavingDone> (fname,defid)); rules(AcWeavingDone : (fname,defid))> fname \);
           not(?[]);
@@ -38,18 +38,15 @@ rules
       fetch(?Page()); !"page"
    <+ !"template"
   
-  match-ac(|name, params): p@(mname, margs, funcname) -> funcname
+  match-ac(|name, paramtypes): p@(mname, margs, funcname) -> funcname
     where <match-ac-name> (mname, name);
-          <match-ac-params> (margs, params)
+          <match-ac-params> (margs, paramtypes)
  
   fname-to-ac-check: fname -> accheck
     with  accheck := Init([
         ThisCall(fname, [])
       ])
-  
-  extract-sorts:
-    (Param(ident1,thesort1),Param(ident2,thesort2)) -> (thesort1,thesort2)
-  
+
   // From WebDSL
   match-ac-name:
     tup@(matchstring,name) -> tup
@@ -67,12 +64,19 @@ rules
     end    
     
   match-ac-params=
-    ?(fargrule,farg*)
-    ; newfargs := <?MatchArgs(args,wc);!args> fargrule
-    ; getWC := <?MatchArgs(args,wc);!wc> fargrule
+    ?(MatchArgs(newfargs1, getWC) ,farg*)
+    ; newfargs := <param-types> newfargs1 
     ; if None() := getWC 
       then newfarg* := farg*
       else newfarg* := <take(<length> newfargs)> farg* end
-    ; <zip(extract-sorts;eq)> (newfargs,newfarg*)
+    ; <zip(eq)> (newfargs,newfarg*)
     
+rules // checks
   
+  constraint-warning: rule@AccessControlRule(type, name, margs, exp) -> (name, $[Access control rule has no matches.])
+    where require(<rule-matches-anything> (type,name,margs))
+    
+  rule-matches-anything: p@(Template(), mname, margs) -> p
+    with  sigs := <all-keys-TemplateSignatures>
+    where <fetch(\(x,t*) -> <match-ac(|x, t*)> (mname, margs, "") \)> sigs
+    

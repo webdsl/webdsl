@@ -9,6 +9,45 @@ imports separation/dr
 
 rules 
 
+  get-toplevel-defs = transform-defs(id)
+  
+  debug-toplevel-defs = where(get-toplevel-defs; pp-aterm; debug)
+          
+  transform-defs(s) = 
+    all-keys-Definition;
+    filter(where(Definition)); // skip deleted
+    map(//{| CurrentDefinitionKey: 
+      {def:
+        \key -> <rules(CurrentDefinitionKey := key); Definition; s; ?def; rules(Definition : key -> def)> key \}
+      /*|}*/)
+  
+  collect-in-defs(s) = {| Collected:
+    transform-defs(
+      { res:
+        where(
+          try(
+            s => res;
+            rules(Collected :+= res)
+          )
+        )
+      }
+    );
+    bagof-Collected;
+    concat
+  |}
+
+rules
+  
+  module-to-toplevel-defs: mod@Module(name, body) -> defs
+    with  FullPath => fullpath;
+          rules(
+            ModuleName := name
+            ModuleFullpath : name -> fullpath
+            Imported : name
+          );
+          <load-imports; store-module> mod;
+          get-toplevel-defs => defs
+          
   store-module: mod@Module(name, body) -> mod
     with  rules(ModuleToDefs : name -> body);
           <map(where({key,def:
@@ -35,7 +74,10 @@ rules
           
   parse-import: Import(modname) -> []
     with  rules(Imported : modname);
-          filename := $[[<ProjectDir>]/[modname].nwl]; 
+          (
+              !$[[<ProjectDir>]/[modname].nwl]; file-exists
+            <+ !$[[<AlternativeProjectDir>]/[modname].nwl]
+          ) => filename;
           <parse-file-with-cache> filename;
           if not(?"cached") then
             load-imports;
@@ -44,10 +86,10 @@ rules
   
   parse-file-with-cache: filename -> content
     with  cache := <import-cache-path> filename;  
-      if <file-exists> cache; <is-newer> (cache, filename) then
+      if <file-exists> cache; <is-newer> (cache, filename); (imports, defrules) := <ReadFromFile> cache then
         // Read rule signature
-        (imports, defrules) := <ReadFromFile> cache;
-        <map(\(name,def,ruleset) -> <load-dynamic-rule-closure> ruleset \)> defrules;
+        <debug(!"using cache for: ")> filename;
+        <load-dynamic-rule-closure> defrules;
         <map(parse-import)> imports;
         content := "cached"
       else
@@ -57,3 +99,7 @@ rules
         rules(ModuleFullpath : modname -> filename)
       end
       
+  read-signature: fullpath -> sig
+    with  cachepath := <import-cache-path> fullpath
+    where (imports, sig) := <file-exists; ReadFromFile> cachepath
+     
