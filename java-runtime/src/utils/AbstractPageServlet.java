@@ -596,7 +596,7 @@ public abstract class AbstractPageServlet{
       public java.util.Stack<String> labelStrings = new java.util.Stack<String>();
       public java.util.Set<String> usedPageElementIds = new java.util.HashSet<String>();
       public static java.util.Random rand = new java.util.Random();
-      //avoid duplcicate ids; if multiple inputs are in a label, only the first is connected to the label
+      //avoid duplicate ids; if multiple inputs are in a label, only the first is connected to the label
       public String getLabelString() {
         String s = labelStrings.peek();
         if(usedPageElementIds.contains(s)){
@@ -608,7 +608,17 @@ public abstract class AbstractPageServlet{
         usedPageElementIds.add(s);
         return s;
       }
-
+      public java.util.Map<String,String> usedPageElementIdsTemplateContext = new java.util.HashMap<String,String>();
+      //subsequent calls from the same defined template (e.g. in different phases) should produce the same id
+      public String getLabelStringForTemplateContext(String context) {
+          String labelid = usedPageElementIdsTemplateContext.get(context);
+          if(labelid == null){
+            labelid = getLabelString();
+            usedPageElementIdsTemplateContext.put(context, labelid);
+          }
+          return labelid;
+      }
+      
       public void enterLabelContext(String ident) {
         labelStrings.push(ident);
       }

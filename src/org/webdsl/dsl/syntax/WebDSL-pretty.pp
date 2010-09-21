@@ -1260,5 +1260,8 @@
    AccessControlImportRulesArg -- _1,
    InternalSort -- _1,
    TypeDefAnno -- _1,
-   NativeClassFunctionFromStatic -- _1 KW["as"] _2
+   NativeClassFunctionFromStatic -- _1 KW["as"] _2,
+   
+   XMLAttributesIfElse -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
+   XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"]
 ]
