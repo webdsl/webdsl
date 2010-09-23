@@ -1,0 +1,59 @@
+module java-project
+
+imports libstratego-aterm libstratego-gpp
+imports include/nwl
+imports desugar read generation
+imports lib/editor-common.generated
+
+rules
+
+  generate-java-project =
+    ?(selected, position, ast, path, project-path);
+    desugar-all;
+    get-toplevel-defs;
+    filter(toplevel-to-java-file <+ debug(!"No translation for: ");fail);
+    map(write-file);
+    //<refresh-workspace-file> $[[<project-path>]/.generated];
+    project-path; refresh-workspace-file;
+    !None()
+    
+  write-file =
+    ?(name, str);
+    filename := <concat-strings> [".generated/", name, ".java"];
+    try(
+      <file-exists;read-text-file> filename;
+      ?str;
+      <debug(!"Write file equal: ")> filename
+    );
+    <dirname; create-dirs> filename;
+    <write-text-file(|filename)> str;
+    rules(FilesWritten : filename)
+    
+  write-text-file(|filename): content -> content    
+    where stream := <fopen> (filename, "w");
+          <fputs> (content, stream);
+          <fclose> stream
+    
+  toplevel-to-java-file:
+    f@Function(name,params*,body) -> (name, <top-to-java> f)
+        
+  toplevel-to-java-file:
+    t@TemplateDef(mod*, name, fparams*, body) -> (name, <top-to-java> t)
+    
+  toplevel-to-java-file:
+    e@Entity(name, body) -> (name, <top-to-java> e)
+
+rules // utils
+  
+  create-dirs = 
+    where(is-string);
+    string-tokenize(|['/']);
+    create-dirs
+  
+  create-dirs =
+    where(root := <getcwd>)
+  // create dirs and restore old cwd
+  ; where(map((file-exists <+ mkdir(|"w")) ; chdir); <chdir> root)
+  // return path to innermost created dir.
+  ; separate-by(|"/"); concat-strings
+  

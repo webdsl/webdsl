@@ -1,0 +1,99 @@
+module separation/desugar
+
+imports
+  check
+  separation/-
+  read
+
+strategies
+	
+  with-rule-resolving(s) = {| RuleResolvingEnabled:
+    rules(RuleResolvingEnabled := 1);
+    s
+  |}
+  
+  dynamic-rule-resolver: (rulename, key) -> (rulename, key)
+     where RuleResolvingEnabled
+        ; defs := <RuleProvider/* <+ debug(!"No rule providers for: "); fail*/> (rulename, key)
+     with   <debug(!"Got rule:" )> (rulename, key)
+          ; <debug(!"Providers: ")> defs
+          ; not-loaded := <filter(not(DefinitionLoaded))> defs
+          ; if [] := not-loaded then
+                <debug> "All defs loaded"
+            else
+                <debug(!"Loading defs: ")> not-loaded;
+                map(load-cached-def)
+            end
+  
+  ignore-dr-tracking =
+      ?"RuleResolvingEnabled"
+   <+ ?"RuleUser"
+   <+ ?"RuleProvider"
+   <+ ?"Definition"
+   <+ ?"DefinitionLoaded"
+   <+ ?"CurrentDefinitionKey"
+  
+  load-desugar-rules =
+    // Load desugar dependencies
+    if (used-rules,created-rules) := <file-exists; ReadFromFile> ".cache/testdr-rev.aterm" then
+        <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
+      ; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
+    else
+        debug(!"Cannot load dr rules!");
+        load-cached-files
+    end
+    
+  save-desugar-rules =
+      where(
+        // save desugar rules
+          all-keys-DesugarRulesUsed
+          // Def to rules
+        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-DesugarRulesCreated; concat; uniq>))
+        ; <WriteToBinaryFile> (<concat-strings> [<id/*newname*/> ".cache/testdr", ".aterm"], <id>)
+    //; try(
+         // Rules to def
+        ; all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            map({def:
+                 ?def
+               ; bagof-DesugarRulesUsed; concat
+               ; map({rulekey:
+                   ?rulekey;
+                     rules(RuleToDef :+ rulekey -> def )
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             //; where(not(length => 1))
+             ; !(rulekey, <id>)
+            })
+          ; ?used-rule-to-def
+          |}
+//        ; !""; debug(!"Got used-rule-to-def "
+        ; all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            filter({def:
+                 ?def
+               ; bagof-DesugarRulesCreated; concat
+               ; map({rulekey:
+                    ?rulekey;
+                     rules(RuleToDef :+ rulekey -> def )
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             //; where(not(length => 1))
+             ; !(rulekey, <id>)
+            })
+          ; ?created-rule-to-def
+          |}
+//        ; !""; debug(!"Got created-rule-to-def ")
+        ; <WriteToBinaryFile> (<concat-strings> [</*newname*/id> ".cache/testdr-rev", ".aterm"], (used-rule-to-def, created-rule-to-def))
+      )
+   //  )

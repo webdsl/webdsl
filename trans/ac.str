@@ -4,15 +4,15 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
-imports nwl emit check
+imports nwl emit check read
 
 rules
   
   // TODO: get concrete syntax
   
   // Emit predicates
-  desugar: AccessControlRule(type, name, margs, exp) -> []
-    with  fname := <newname> "ac_pred";
+  desugar: ac@AccessControlRule(type, name, margs, exp) -> []
+    with  fname := $[pred_[<CurrentDefinitionKey; key-to-string>]];
           <emit> Function(fname, [], Block([exp]));
           stype := <acrule-type-to-string> type;
           rules(AccessControlRule :+ stype -> (name, margs, fname))
@@ -24,10 +24,11 @@ rules
   desugar: AccessControlDefinition(defs) -> []    // Rules have been processed.
   
   desugar: TemplateDef(mod*, name, fparams, body) -> TemplateDef(mod*, name, fparams, body2)
-    where <mod-to-actype; bagof-AccessControlRule> mod*;
+    where acrules := <mod-to-actype; bagof-AccessControlRule> mod*;
           paramtypes := <param-types> fparams;
+          defid := name; // change if overloading must be supported
+          !acrules;
           filter(match-ac(|name,paramtypes));
-          where(defid := name); // change if overloading must be supported
           filter(\fname -> <not(<AcWeavingDone> (fname,defid)); rules(AcWeavingDone : (fname,defid))> fname \);
           not(?[]);
           ?extends
@@ -73,10 +74,24 @@ rules
     
 rules // checks
   
-  constraint-warning: rule@AccessControlRule(type, name, margs, exp) -> (name, $[Access control rule has no matches.])
+  constraint-warning: rule@AccessControlRule(type, name, margs, exp) -> (rule, $[Access control rule has no matches.])
     where require(<rule-matches-anything> (type,name,margs))
     
   rule-matches-anything: p@(Template(), mname, margs) -> p
-    with  sigs := <all-keys-TemplateSignatures>
+    with  sigs := <all-templates(not(fetch(?Page())))>
     where <fetch(\(x,t*) -> <match-ac(|x, t*)> (mname, margs, "") \)> sigs
     
+  rule-matches-anything: p@(Page(), mname, margs) -> p
+    with  sigs := <all-templates(fetch(?Page()))>
+    where <fetch(\(x,t*) -> <match-ac(|x, t*)> (mname, margs, "") \)> sigs
+    
+  all-templates(match) = 
+    all-keys-TemplateSignatures;
+    filter(
+      where( {mod*:
+        TemplateSignatures;
+        ?TemplateDef(mod*,_,_,_);
+        <match> mod*
+      })
+   )
+   

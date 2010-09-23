@@ -15,14 +15,16 @@ rules
   
   track-rules-internal(s | key) =
       start-record-dynamic-rules
-    ; {| DynamicRulesUsed:
-        enable-dr-usage-tracking
-      ; try(s => result)
-      ; disable-dr-usage-tracking
-      ; all-keys-DynamicRulesUsed
-      ; remove-dr-dummies
-      ; ?used-rules
-      |}
+    ; try(
+	     {| DynamicRulesUsed:
+	        enable-dr-usage-tracking
+	      ; s => result
+	      ; disable-dr-usage-tracking
+	      ; all-keys-DynamicRulesUsed
+	      ; remove-dr-dummies
+	      ; ?used-rules
+	     |}
+	    )
     ; end-record-dynamic-rules
     ; ?all-created-rules
       // Get a list of (name, keys*) pairs
@@ -36,59 +38,3 @@ rules
       // We fail here if the strategy s failed (result is not bound)
     ; !result
 
-rules // save file
-  
-  save-desugar-rules =
-      where(
-        // save desugar rules
-          all-keys-DesugarRulesUsed
-          // Def to rules
-        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-DesugarRulesCreated; concat; uniq>))
-        ; <WriteToBinaryFile> (<concat-strings> [<id/*newname*/> "testdr", ".aterm"], <id>)
-    ; try(
-         // Rules to def
-         all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            map({def:
-                 ?def
-               ; bagof-DesugarRulesUsed; concat
-               ; map({rulekey:
-                   ?rulekey;
-                     rules(RuleToDef :+ rulekey -> def )
-                 })
-            })
-          ; all-keys-RuleToDef
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; where(not(length => 1))
-             ; !(rulekey, <id>)
-            })
-          ; ?used-rule-to-def
-          |}
-//        ; !""; debug(!"Got used-rule-to-def "
-        ; all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            filter({def:
-                 ?def
-               ; bagof-DesugarRulesCreated; concat
-               ; map({rulekey:
-                    ?rulekey;
-                     rules(RuleToDef :+ rulekey -> def )
-                 })
-            })
-          ; all-keys-RuleToDef
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; where(not(length => 1))
-             ; !(rulekey, <id>)
-            })
-          ; ?created-rule-to-def
-          |}
-//        ; !""; debug(!"Got created-rule-to-def ")
-        ; <WriteToBinaryFile> (<concat-strings> [</*newname*/id> "testdr-rev", ".aterm"], (used-rule-to-def, created-rule-to-def))
-      )
-     )

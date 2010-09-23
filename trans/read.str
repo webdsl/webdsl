@@ -4,7 +4,7 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports lib/editor-common.generated
-imports nwl check
+imports nwl check emit
 imports separation/dr
 
 rules 
@@ -55,21 +55,35 @@ rules
           
   store-module: mod@Module(name, body) -> mod
     with  rules(ModuleToDefs : name -> body);
-          <map(where({key,def:
+          <map(where({def:
               ?def;
-              store-def => key;
-              rules(
-                DefToModule : key -> name
-                ModuleToDef :+ name -> key
-              )
+              store-def(|name)
           }))> body
 
-  store-def: def -> key
-    with  key := <def-to-key> def;
-          rules(Definition : key -> def)
+  store-def(|modname): def -> key
+    with  key := <def-to-key> (modname, def);
+          rules(
+            Definition : key -> def
+            DefinitionLoaded : key
+            DefToModule : key -> modname
+            ModuleToDef :+ modname -> key 
+          )
   
-  def-to-key: constructor#(_) -> x
-    with x := <newname> constructor
+ // def-to-key: (modname, constructor#(_)) -> x
+ //   with x := (modname, <concat-strings> (<origin-line;int-to-string> z)
+  
+  key-to-string: (modname, key) -> $[[modname]_[key]]
+  
+  def-to-key: (modname, cons#(_)) -> (modname, cons)
+    where <is-emit-mod> modname
+ 
+  def-to-key: (modname, x) -> key
+    with  <?constructor#(_)> x; 
+          posy := <(origin-line);int-to-string> x;
+          posx := <(origin-column);int-to-string> x;
+          key := (modname, <concat-strings> [constructor, "_", posx, "_", posy])
+     
+  defkey-to-mod: (modname, _) -> modname
     
   load-imports: mod@Module(name, body) -> Module(name, body2)
     with  imports := <filter(?Import(_))> body;
@@ -82,15 +96,18 @@ rules
           
   parse-import: Import(modname) -> []
     with  rules(Imported : modname);
-          (
-              !$[[<ProjectDir>]/[modname].nwl]; file-exists
-            <+ !$[[<AlternativeProjectDir>]/[modname].nwl]
-          ) => filename;
+          filename := <modname-to-filename> modname;
           <parse-file-with-cache> filename;
           if not(?"cached") then
             load-imports;
             store-module
           end
+  
+  modname-to-filename: modname -> filename
+    with  (
+              !$[[<ProjectDir>]/[modname].nwl]; file-exists
+            <+ !$[[<AlternativeProjectDir>]/[modname].nwl]
+          ) => filename  
   
   parse-file-with-cache: filename -> content
     with  cache := <import-cache-path> filename;  
@@ -115,10 +132,24 @@ rules
   load-cached-files =
     bagof-CachedFiles;
     debug(!"Loading: ");
-    map(
-      parse-file;
-      \Module(name,defs) -> Module(name, <remove-all(?Import(_))> defs)\;
-      store-module
-    );
-    rules(CachedFiles :- _)
+    map(load-cached-file)
+    
+  load-cached-file =
+    ?filename;
+    parse-file;
+    \Module(name,defs) -> Module(name, <remove-all(?Import(_))> defs)\;
+    store-module;
+    rules(CachedFiles :- filename)
+  
+  load-cached-def: defkey -> defkey
+    with  defkey-to-mod => modname;
+          modname-to-filename => filename;
+          content := <ParsedFile <+ debug(!"Parsing: "); parse-file> filename;
+          rules(ParsedFile : filename -> content);
+          ?Module(_,<id>);
+          filter(where(<def-to-key> (modname,<id>); ?defkey));
+          try(not(1 := <length>); !(defkey,<id>); debug(!"Multiple defs match key: "));
+          ?[thedef];
+          <store-def(|modname)> thedef    
+    
     
