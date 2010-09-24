@@ -1,9 +1,8 @@
 module separation/desugar
 
 imports
-  check
+  nwl read check
   separation/-
-  read
 
 strategies
 	
@@ -32,6 +31,7 @@ strategies
    <+ ?"Definition"
    <+ ?"DefinitionLoaded"
    <+ ?"CurrentDefinitionKey"
+   <+ ?"MemoOpenParseTable"     // whole parse table!
   
   load-desugar-rules =
     // Load desugar dependencies
@@ -49,8 +49,7 @@ strategies
           all-keys-DesugarRulesUsed
           // Def to rules
         ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-DesugarRulesCreated; concat; uniq>))
-        ; <WriteToBinaryFile> (<concat-strings> [<id/*newname*/> ".cache/testdr", ".aterm"], <id>)
-    //; try(
+        ; <WriteToBinaryFile> (".cache/testdr.aterm", <id>)
          // Rules to def
         ; all-keys-DesugarRulesUsed
         ; {| RuleToDef:
@@ -67,12 +66,10 @@ strategies
                ?rulekey
              ; bagof-RuleToDef
              ; uniq
-             //; where(not(length => 1))
              ; !(rulekey, <id>)
             })
           ; ?used-rule-to-def
           |}
-//        ; !""; debug(!"Got used-rule-to-def "
         ; all-keys-DesugarRulesUsed
         ; {| RuleToDef:
             filter({def:
@@ -88,12 +85,19 @@ strategies
                ?rulekey
              ; bagof-RuleToDef
              ; uniq
-             //; where(not(length => 1))
              ; !(rulekey, <id>)
             })
           ; ?created-rule-to-def
           |}
-//        ; !""; debug(!"Got created-rule-to-def ")
-        ; <WriteToBinaryFile> (<concat-strings> [</*newname*/id> ".cache/testdr-rev", ".aterm"], (used-rule-to-def, created-rule-to-def))
+        ; <WriteToBinaryFile> (".cache/testdr-rev.aterm", (used-rule-to-def, created-rule-to-def))
       )
-   //  )
+
+  desugar-check-dependencies = with(
+    all-keys-DesugarRulesCreated;
+    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
+    uniq;
+    // where(pp-aterm; debug(!"All created rules: "));
+    filter(\key -> (key, <RuleUser; filter(not(DefinitionLoaded))> key)\);
+    where(pp-aterm; debug(!"Dependent: "));
+    map(\(rulekey, defkey) -> <map(load-cached-def)> defkey \)
+  )

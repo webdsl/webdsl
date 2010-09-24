@@ -1,51 +1,69 @@
 module separation/dependencies
 
 imports
-  check
+  check read
   separation/-
 
 strategies  
   
-  dependencies-file = !$[[<ProjectDir>]/.cache/dependencies.nwl]
+  typecheck-dependencies-file = !$[[<ProjectDir>]/.cache/dependencies.nwl]
   
   // TODO: when are module keys deleted from the dep file ?
   
-  update-dependency-graph =
-      dependencies-file; (file-exists; ReadFromFile <+ ![])
-    ; if dependencies-unchanged then
+  update-typecheck-dependencies =
+    typecheck-dependencies-file;
+    update-dependency-graph(
+      RulesUsedBy | <all-keys-RulesUsedBy>
+    )
+      
+  update-dependency-graph(used-data | used-keys): filename -> deps
+    with
+    {| PreviouslyUsedRules:
+      old-data := <file-exists; ReadFromFile <+ ![]> filename
+    ; filter({
+        ?(fullpath, usedrules);
+        rules(PreviouslyUsedRules : fullpath -> usedrules)
+      })
+    ; if dependencies-unchanged(used-data | used-keys) then
           <debug> "No dependencies changed."
           // TODO: touch dep file (no stratego strategy for touching files?)
       else
-		      filter(read-old-dependencies)   // stores old deps in DR's
-		    ; all-keys-RulesUsedBy
-		    ; map(\fullpath -> (fullpath, <RulesUsedBy> fullpath)\)
-		    ; <WriteToBinaryFile> (<dependencies-file>, <id>)
+          // store changed data
+		      x1* := <map(\fullpath -> (fullpath, <used-data> fullpath)\)> used-keys;
+		      // store unchanged data
+          x2* := <all-keys-PreviouslyUsedRules; filter(\fullpath -> (fullpath, <PreviouslyUsedRules>) where not(<used-data> fullpath)\)>;
+          x* := [x1*,x2*];
+		      <WriteToBinaryFile> (filename, x*)
 		  end
-		  
-  dependencies-unchanged = {| PrevRules:
-      map(\ (fullpath, usedrules) -> <rules(PrevRules : fullpath -> usedrules)> \)
-    ; all-keys-RulesUsedBy
-    ; map(<eq> (<PrevRules>, <RulesUsedBy>))
+		; deps := <find-dependent-modules(used-data)>
   |}
-      
-  read-old-dependencies: (fullpath, usedrules) -> (fullpath, usedrules)
-    where not(<RulesUsedBy> fullpath)   // not updated in this analyze run
-        ; rules(RulesUsedBy : fullpath -> usedrules)
+		  
+  dependencies-unchanged(used-data|used-keys) = <map(<eq> (<PreviouslyUsedRules>, <used-data>))> used-keys
   
-	find-dependent-modules =
+  /*
+  read-old-dependencies(used-data): (fullpath, usedrules) -> (fullpath, usedrules)
+    where not(<used-data> fullpath)   // not updated in this analyze run
+        ; rules(UnchangedData : fullpath -> usedrules)
+  */
+  
+	find-dependent-modules(used-rules) =
       FullPath => current
     ; changed := <create-change-set> (<RulesCreated>, <RulesCreatedPrev>)
-    ; all-keys-RulesUsedBy; remove-dr-dummies    // all modules
-    ; filter(not(?current); has-rule-use(|changed))
+    ; bagof-ModulesIncluded
+    ; map(ModuleFullpath)
+    ; filter(not(?current); has-rule-use(used-rules | changed))
+  
+  // If we have no caching information, check the file
+  has-rule-use(rules-used | ruleset): mod -> mod
+    where not(rules-used <+ PreviouslyUsedRules)
     
-  has-rule-use(|ruleset): mod -> mod
-    with  uses := <RulesUsedBy> mod
+  has-rule-use(rules-used | ruleset): mod -> mod
+    with  uses := <rules-used <+ PreviouslyUsedRules> mod
           // find common rule usage
         ; common1* := <isect> (ruleset, uses)
           // find all-keys- usage
         ; common2* := <isect> (<map(Fst);uniq> ruleset, <filter(?(_,DR_DUMMY()); Fst);uniq> uses)
         ; common* := [common1*,common2*]
-    where not([] := common*)
     where not([] := common*)
         ; !mod; debug(!".. have to re-analyze mod: ")
         ; !common*; debug(!".. common rules: ")
