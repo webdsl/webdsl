@@ -39,7 +39,7 @@ module built-in
     setTime(Long)
   }
 
-  section JSON for services
+//  section JSON for services
       
   native class org.json.JSONObject as JSONObject {
     constructor()
@@ -76,7 +76,7 @@ module built-in
     toString(Int) : String
   } 
   
-  section WebDriver for testing
+//  section WebDriver for testing
   
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
