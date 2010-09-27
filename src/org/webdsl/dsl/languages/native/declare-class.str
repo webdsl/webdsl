@@ -28,8 +28,18 @@ strategies
         ; declare-native-class-static-functions(|name, class)
         ; <map(declare-native-class-prop(|name))> props
         ; <map(declare-native-class-func(|name))> funcs
-        ; <map(declare-native-class-cons(|name,class))> cons
-          
+        ; <map(normalize-native-constructor(|name); declare-global-func)> cons
+       
+  normalize-declare: NativeClass(class,as,super,elems) -> NativeClass(class,as,super,newelems)
+    with  elems1* := <remove-all(?NativeClassConstructor(_))> elems
+        ; realname := <try(?NativeClassAlias(<id>))> as
+        ; elems2* := <filter(?NativeClassConstructor(_); normalize-native-constructor(|realname))> elems
+        ; newelems := [elems1*, elems2*]
+    where not([] := elems2*)    // avoid infinite loop
+    
+  normalize-native-constructor(|class): ncf@NativeClassConstructor(args) -> Function(class, farg*, SimpleSort(class), None())
+    with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
+
   declare-native-class-static-functions(|name,class) =
     rules(
       TypeOf : name -> ClassSort(name){NativeClassAnno(name,class)}
@@ -76,12 +86,6 @@ strategies
     p@(callee, fname, t*) -> f
     where targ-resolved* := <resolve-function-call(bagof-CheckNativeFunctionSignatureArgumentTypes | t*, fname)> p
         ; f := <NativeFunctionDecl> (<strip-annos> callee, <strip-annos> fname, targ-resolved*)
-
-  declare-native-class-cons(|class,fullyqualified):
-    ncf@NativeClassConstructor(args) -> ncf
-    with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
-        ; f1 := <with-origin(!Function(class, farg*, SimpleSort(class), None()))> ncf
-        ; <declare-global-func> f1
 
   type-exists-native = IsNativeClass
   
