@@ -1,14 +1,18 @@
 <project name="webdsl-app" default="compile">
 
-  <loadproperties srcFile="build.properties"/>
+  <!-- basedir can be both WebContent or .servletapp, but some files are always in .servletapp -->
+  <property name="servletappdir" value="${basedir}"/>
+  
+  <loadproperties srcFile="${servletappdir}/build.properties"/>
+  <fail unless="generate-dir"/>
+
+  <property name="librarydir" value="../${generate-dir}/WEB-INF/lib"/> 
+  <property name="binjavadir" value="../${generate-dir}/WEB-INF/classes"/>
     
-  <property name="sourcedir" value="${basedir}/src-generated"/>
-  <property name="templatesourcedir" value="${basedir}/src-template"/>
-	<property name="nativesourcedir" value="${basedir}/src-native"/>
-	<property name="targetdir" value="${basedir}/bin/WEB-INF/classes"/>
-  <property name="bindir" value="${basedir}/bin"/>
-  <property name="librarydir" value="${basedir}/bin/WEB-INF/lib"/>
-  <property name="tomcatdir" value="${basedir}/tomcat"/>
+  <property name="sourcedir" value="${servletappdir}/src-generated"/>
+  <property name="templatesourcedir" value="${servletappdir}/src-template"/>
+  <property name="nativesourcedir" value="${servletappdir}/src-native"/>
+  <property name="tomcatdir" value="${servletappdir}/tomcat"/>
   <property name="templatetestlibdir" value="${webdsl.template}/lib-test"/>
 
   <taskdef resource="net/sf/antcontrib/antcontrib.properties">
@@ -43,12 +47,12 @@
     </path>
 
     <target name="clean">
-        <delete dir="${targetdir}"/>
-        <mkdir dir="${targetdir}"/>
+        <delete dir="${binjavadir}"/>
+        <mkdir dir="${binjavadir}"/>
     </target>
 
     <target name="compile" depends="copy-resources">
-      <javac destdir="${targetdir}"
+      <javac destdir="${binjavadir}"
              failonerror="true" 
              classpathref="libraries"
              debug="on"
@@ -58,23 +62,23 @@
 <!-- fork= and memory sizes fix problem with javac throwing outofmemory heap space exception caused by ant 64mb default limit -->
    <!--     verbose="yes">
   <compilerarg value="-Xlint"/> --> 
-  			<src path="${sourcedir}" />
-      	<src path="${templatesourcedir}" />
-      	<src path="${nativesourcedir}" />
- 	  	</javac>
-    	
-      <copy todir="${targetdir}">
-      	<fileset dir="${templatesourcedir}">
-      		<exclude name="*.java" />
-      	</fileset>
+        <src path="${sourcedir}" />
+        <src path="${templatesourcedir}" />
+        <src path="${nativesourcedir}" />
+       </javac>
+      
+      <copy todir="${binjavadir}">
+        <fileset dir="${templatesourcedir}">
+          <exclude name="*.java" />
+        </fileset>
       </copy>
-    	
+      
     </target>
   
     <target name="convertoldglobals" depends="compile">
        <java classname="utils.ConvertOldGlobals" maxmemory="2048m" failonerror="true" dir="${compiledir}" fork="true">
          <classpath>
-           <pathelement location="${targetdir}"/>
+           <pathelement location="${binjavadir}"/>
            <fileset dir="${librarydir}" includes="*.jar"/> 
          </classpath>
        </java>
@@ -83,8 +87,8 @@
     <target name="check" depends="compile">
        <java classname="utils.TestAll" failonerror="true" dir="${compiledir}" fork="true">
          <classpath>
-           <pathelement location="${targetdir}"/>
-         	 <pathelement location="${templatedir}"/>
+           <pathelement location="${binjavadir}"/>
+            <pathelement location="${templatedir}"/>
            <fileset dir="${librarydir}" includes="*.jar"/> 
          </classpath>
        </java>
@@ -97,16 +101,16 @@
     <target name="check-web" depends="untar-tomcat, war">
        <java classname="utils.TestWeb" failonerror="true" dir="${compiledir}" fork="true">
          <classpath>
-           <pathelement location="${targetdir}"/>
+           <pathelement location="${binjavadir}"/>
            <fileset dir="${librarydir}" includes="*.jar"/> 
          </classpath>
        </java>
     </target>
-	
+  
     <target name="run" depends="untar-tomcat, war">
        <java classname="utils.TestRun" failonerror="true" dir="${compiledir}" fork="true">
          <classpath>
-           <pathelement location="${targetdir}"/>
+           <pathelement location="${binjavadir}"/>
            <fileset dir="${librarydir}" includes="*.jar"/> 
          </classpath>
        </java>
@@ -115,52 +119,52 @@
     <target name="schema-export" depends="compile">
       <java classname="utils.SchemaExport" failonerror="true" dir="${compiledir}" fork="true">
         <classpath>
-          <pathelement location="${targetdir}"/>
+          <pathelement location="${binjavadir}"/>
           <fileset dir="${librarydir}" includes="*.jar"/> 
         </classpath>
       </java>
     </target>
   
   <target name="copy-resources" depends="configure">
-    <copy preservelastmodified="true" todir="${targetdir}">
+    <copy preservelastmodified="true" todir="${binjavadir}">
       <fileset dir="${sourcedir}">
         <exclude name="**/*.java"/>
       </fileset>
     </copy>
     <!--<copy preservelastmodified="true" todir="${bindir}/WEB-INF/lib">
       <fileset dir="${librarydir}">
-      	<exclude name="javaee.jar"/>
+        <exclude name="javaee.jar"/>
       </fileset>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}/html">
-      <fileset dir="${basedir}/html"/>
+      <fileset dir="${servletappdir}/html"/>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}/images">
-      <fileset dir="${basedir}/images"/>
+      <fileset dir="${servletappdir}/images"/>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}/stylesheets">
-      <fileset dir="${basedir}/stylesheets"/>
+      <fileset dir="${servletappdir}/stylesheets"/>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}/javascript">
-      <fileset dir="${basedir}/javascript"/>
+      <fileset dir="${servletappdir}/javascript"/>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}">
-      <fileset dir="${basedir}">
-    	<include name="webdsl-reindex"/>
-    	<include name="build.reindex.xml"/>
-    	<include name="build.properties"/>
-    	<include name="html/index.jsp"/>
-    	<include name="html/favicon.ico"/>
-    	<include name="build.properties"/>
+      <fileset dir="${servletappdir}">
+      <include name="webdsl-reindex"/>
+      <include name="build.reindex.xml"/>
+      <include name="build.properties"/>
+      <include name="html/index.jsp"/>
+      <include name="html/favicon.ico"/>
+      <include name="build.properties"/>
       </fileset>
     </copy>
     <copy preservelastmodified="true" todir="${bindir}/WEB-INF">
-      <fileset dir="${basedir}">
-    	<include name="web.xml"/>
+      <fileset dir="${servletappdir}">
+      <include name="web.xml"/>
       </fileset>
     </copy>
-  	<mkdir dir="${bindir}/META-INF"/>
-  	<echo append="false" file="${bindir}/META-INF/MANIFEST.MF">Manifest-Version: 1.0</echo>-->
+    <mkdir dir="${bindir}/META-INF"/>
+    <echo append="false" file="${bindir}/META-INF/MANIFEST.MF">Manifest-Version: 1.0</echo>-->
   </target>
 
   <target name="war" depends="compile">
@@ -168,16 +172,16 @@
       <lib dir="${librarydir}">  
         <exclude name="javaee.jar"/>
       </lib>
-      <classes dir="${targetdir}"/>
-      <fileset dir="${basedir}/html"/>
-      <fileset dir="${basedir}">
+      <classes dir="${binjavadir}"/>
+      <fileset dir="${servletappdir}/html"/>
+      <fileset dir="${servletappdir}">
         <include name="webdsl-reindex"/>
         <include name="build.reindex.xml"/>
         <include name="build.properties"/>
       </fileset>
-      <zipfileset dir="${basedir}/images" prefix="images"/>
-      <zipfileset dir="${basedir}/stylesheets" prefix="stylesheets"/>
-      <zipfileset dir="${basedir}/javascript" prefix="javascript"/>
+      <zipfileset dir="${servletappdir}/images" prefix="images"/>
+      <zipfileset dir="${servletappdir}/stylesheets" prefix="stylesheets"/>
+      <zipfileset dir="${servletappdir}/javascript" prefix="javascript"/>
     </war>
   </target>
 
@@ -196,7 +200,7 @@
       password="${webdsl.tomcat.password}"
       update="true"
       path="/${webdsl.warfilename}"
-      localWar="${basedir}/${webdsl.warfilename}.war" />
+      localWar="${servletappdir}/${webdsl.warfilename}.war" />
   </target>
   <target name="tomcatundeploy">    
     <tomcat_undeploy 
@@ -207,26 +211,26 @@
   </target>
 
   <target name="deployfiles" depends="compile">
-    <copy preservelastmodified="true" file="${basedir}/web.xml" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/WEB-INF"/>     
+    <copy preservelastmodified="true" file="${servletappdir}/web.xml" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/WEB-INF"/>     
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/WEB-INF/lib">
       <fileset dir="${librarydir}">  
         <exclude name="javaee.jar"/>
       </fileset>
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/WEB-INF/classes">
-      <fileset dir="${targetdir}"/>
+      <fileset dir="${binjavadir}"/>
     </copy>
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/html">
-      <fileset dir="${basedir}/html"/>
+      <fileset dir="${servletappdir}/html"/>
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/images">
-      <fileset dir="${basedir}/images"/>
+      <fileset dir="${servletappdir}/images"/>
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/stylesheets">
-      <fileset dir="${basedir}/stylesheets"/>
+      <fileset dir="${servletappdir}/stylesheets"/>
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/javascript">
-      <fileset dir="${basedir}/javascript"/>
+      <fileset dir="${servletappdir}/javascript"/>
     </copy>   
   </target> 
   
@@ -280,7 +284,7 @@
   <target name="reindex" depends="compile">
     <java classname="utils.ReIndex" maxmemory="2048m" failonerror="true" dir="${compiledir}" fork="true">
       <classpath>
-        <pathelement location="${targetdir}"/>
+        <pathelement location="${binjavadir}"/>
         <fileset dir="${librarydir}" includes="*.jar"/> 
       </classpath>
     </java>
