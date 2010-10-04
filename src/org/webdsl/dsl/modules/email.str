@@ -4,7 +4,7 @@ imports
   libstrategolib 
   libjava-front 
   libwebdsl-front
- 	org/webdsl/dsl/generation/webdsl-generator
+   org/webdsl/dsl/generation/webdsl-generator
  
 rules // should only be allowed in email, this makes them available as general template calls
   built-in-template-rule-setup = <declare-built-in-template-rules> ("to",[SimpleSort("String")]);fail
@@ -13,16 +13,6 @@ rules // should only be allowed in email, this makes them available as general t
   built-in-template-rule-setup = <declare-built-in-template-rules> ("replyTo",[SimpleSort("String")]);fail
   built-in-template-rule-setup = <declare-built-in-template-rules> ("from",[SimpleSort("String")]);fail
   built-in-template-rule-setup = <declare-built-in-template-rules> ("subject",[SimpleSort("String")]);fail 
- 
-signature
-  constructors
-    EmailCallAnno : Annotation
-
-rules
-    
-  is-email-call :
-    _{anno*} -> True()
-    where <collect(?EmailCallAnno(){});Hd> anno*  
   
 strategies
 
@@ -41,25 +31,6 @@ rules
           ; farg2* := <map(rename)> farg1*
           ; elem2* := <rename-all> elem1*
           |}
-          
-  rename-email : 
-    tc@ThisCall("email", [e@ThisCall(name, args)]) -> ThisCall("email", [e2])  
-    with  e1 := <rename-all> e
-        //add annotation once, used to differentiate between normal call and email call during constraint checking
-        ; if <is-email-call> e then e2 := e1 else e2 := <annotate-email-call> e1 end
-          
-  annotate-email-call = add-anno(|EmailCallAnno())
-    
-/*
-  create-email-argument-list:
-   Define(mods, name, args, targs, body1) -> Define(mods, name, args, targs, body1)
-   where try (if <oncetd(?ThisCall("email", [_]))> body1 then
-           if not(<GetEmailArgumentsList> name) then
-             x := <toplevel-rename> "email_arguments"
-             ; rules ( GetEmailArgumentsList : name -> x )
-           end
-         end )
-*/
 
 rules
 
@@ -72,30 +43,27 @@ rules
       ; rules (
           EmailDefinition :+ n -> def   // :+ for constraint on re-defined emails
           EmailArguments  : n -> fargs
-          CheckEmailSignature : (None(), n, t2*) -> SimpleSort("Void") where <zip(type-compatible)> (t1*, <map(type-of)> t2*)
+          CheckEmailSignature : (None(), n, t2*) -> InternalSort("Email") where <zip(type-compatible)> (t1*, <map(type-of)> t2*)
         )
      //; fetch(?elem|[ to(e){} ]|)
     )
     
-    
-//email calls    
-    
 rules //constraints
 
   constraint-error-email :
-    ThisCall("email", [e@ThisCall(name, args)]) -> <add-error(|["No email definition for ", <pp-webdsl> e, "."])>
+    e@EmailCall(name, args) -> <add-error(|["No email definition for ", <pp-webdsl> e, "."])>
     where not(type-of)
     
   constraint-error-email =
-  	?def@Define(mod*, name, fargs, targs, body)
-  	; where(<fetch(Email)> mod*)
-  	; <map(try(check-required-email-element(|def,body)))> (<required-email-elements>)
-  	; fail
-  	
- 	check-required-email-element(|def,body) :
- 		elem -> err
- 			where([] := <collect(?TemplateCallNoBody(<strip-annos;?elem>,_))> body)
- 		; err := <add-error(|["Element '",elem,"' is required for an email template."])> def
+    ?def@Define(mod*, name, fargs, targs, body)
+    ; where(<fetch(Email)> mod*)
+    ; <map(try(check-required-email-element(|def,body)))> (<required-email-elements>)
+    ; fail
+    
+   check-required-email-element(|def,body) :
+     elem -> err
+       where([] := <collect(?TemplateCallNoBody(<strip-annos;?elem>,_))> body)
+     ; err := <add-error(|["Element '",elem,"' is required for an email template."])> def
   
   required-email-elements = !["to", "from", "subject"]
 
@@ -109,10 +77,39 @@ rules //constraints
 
 rules //typechecker
 
-  eq-type-of :
-    ThisCall("email", [e@ThisCall(_, _)]) -> <type-of> e
+  eq-type-of : 
+    EmailCall(name, args) -> t
+    where t := <CheckEmailSignature> (None(), <strip-annos> name, args)
     
-  eq-type-of : ThisCall(name, args) -> t
-    where is-email-call
-        ; t := <CheckEmailSignature> (None(), <strip-annos> name, args)
+rules 
+  
+  desugar-in-define-context : // 'email bla() -> renderemail(bla()).save()' actual sending handled in built-in.app
+    EmailFunctionCall(emailcall) -> Call(RenderEmailFunctionCall(emailcall),"save",[])
+          
+rules //email functions
+
+  eq-type-of : 
+    RenderEmailFunctionCall(emailcall) -> SimpleSort("QueuedEmail")
+    
+  eq-type-of : 
+    EmailFunctionCall(emailcall) -> SimpleSort("Void")
+    
+  eq-type-of : 
+    SendEmailFunctionCall(emailcall) -> SimpleSort("Void")
+
+  built-in-template-rule-setup = 
+    x_funname := "renderemail"
+  ; <register-reserved-function> (x_funname,1)
+  ; fail
+
+  built-in-template-rule-setup = 
+    x_funname := "email"
+  ; <register-reserved-function> (x_funname,1)
+  ; fail
+
+  built-in-template-rule-setup = 
+    x_funname := "sendemail"
+  ; <register-reserved-function> (x_funname,1)
+  ; fail
+  
   

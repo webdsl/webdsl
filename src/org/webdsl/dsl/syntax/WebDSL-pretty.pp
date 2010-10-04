@@ -1263,5 +1263,13 @@
    NativeClassFunctionFromStatic -- _1 KW["as"] _2,
    
    XMLAttributesIfElse -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
-   XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"]
-]
+   XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
+   
+   %%RenderFunctionCall -- KW["render"] KW["("] _1 KW[")"],
+   RenderEmailFunctionCall -- KW["renderemail"] KW["("] _1 KW[")"],
+   EmailFunctionCall -- KW["email"] KW["("] _1 KW[")"],
+   SendEmailFunctionCall -- KW["sendemail"] KW["("] _1 KW[")"],
+   EmailCall -- _1 KW["("] _2 KW[")"],
+   EmailCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   EmailCall.2:iter-star           -- _1
+] 

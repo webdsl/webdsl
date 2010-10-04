@@ -6,40 +6,17 @@ imports
   libwebdsl-front
   org/webdsl/dsl/to-java-servlet/- 
  
-    
 rules
-/*
-  elem-to-java-servlet:
-     tc@ThisCall("email", e1*) -> bstm |[ "email call"; ]|
-     with  e2* := <map(expression-to-java-servlet)> e1*
-  */   
   
   call-to-java-servlet :
-    tc@ThisCall("email", [e@ThisCall(x_name, args)])->   //java |[ "email call" ]|
-    //tc@TemplateCall(x_name, args,passign*, _) ->
-    expr |[
-    {|
-      Object[] x_args = { e* };
-      EmailServlet x_temp = null;
-      try
-      { 
-        x_temp = ((EmailServlet)ThreadLocalPage.get().getEmails().get("~x_name").newInstance());
-      }
-      catch(IllegalAccessException iae)
-      { 
-        System.out.println("Problem in email template lookup: " + iae.getMessage());
-      }
-      catch(InstantiationException ie)
-      { 
-        System.out.println("Problem in email template lookup: " + ie.getMessage());
-      }
-    |
-      x_temp.render(x_args, new Environment(env))
-    |}
-    ]|
+    tc@SendEmailFunctionCall(EmailCall(x_name, args)) ->
+    expr |[ ThreadLocalPage.get().sendEmail("~x_name", new Object[]{ e* }, new Environment(env)) ]|
     with  e* := <map(expression-to-java-servlet)> args
-        ; x_args := <newname> "args"
-        ; x_temp := "emailservlet"
+    
+  call-to-java-servlet :
+    tc@RenderEmailFunctionCall(EmailCall(x_name, args)) ->
+    expr |[ ((utils.PageServlet)ThreadLocalPage.get()).renderEmailAndCreateQueuedEmail("~x_name", new Object[]{ e* }, new Environment(env)) ]|
+    with  e* := <map(expression-to-java-servlet)> args
 
   elem-to-java-servlet:
     elem |[ to(e)[passign*]{} ]| -> 

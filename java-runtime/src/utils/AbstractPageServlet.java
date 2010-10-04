@@ -94,6 +94,27 @@ public abstract class AbstractPageServlet{
     public static HashMap<String, Class<?>> getEmails() {
         return emails;
     }
+    public void sendEmail(String name, Object[] emailargs, Environment emailenv){
+        EmailServlet temp = renderEmail(name,emailargs,emailenv);
+        temp.send();
+    }
+    public EmailServlet renderEmail(String name, Object[] emailargs, Environment emailenv){
+        EmailServlet temp = null;
+        try
+        { 
+            temp = ((EmailServlet)getEmails().get(name).newInstance());
+        }
+        catch(IllegalAccessException iae)
+        { 
+            System.out.println("Problem in email template lookup: " + iae.getMessage());
+        }
+        catch(InstantiationException ie)
+        { 
+            System.out.println("Problem in email template lookup: " + ie.getMessage());
+        }
+        temp.render(emailargs, emailenv);
+        return temp;
+    }
 
     //ref arg
     protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();

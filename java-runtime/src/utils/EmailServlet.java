@@ -42,5 +42,48 @@ public abstract class EmailServlet {
             System.out.println("IOException while reading \"email.properties\"");   
         }
     }
+    
+    public String sender = "";
+    public String receivers = "";
+    public String cc = "";
+    public String bcc = "";
+    public String replyTo = "";
+    public String subject = "";
+    public java.io.StringWriter body = new java.io.StringWriter();
+    
+    public void send(){
+        javax.mail.Session session = EmailServlet.getSession();
+        
+        javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
+   
+        try{
+            
+            msg.setRecipients(javax.mail.Message.RecipientType.TO,
+                    javax.mail.internet.InternetAddress.parse(this.receivers, false));
+            msg.setRecipients(javax.mail.Message.RecipientType.CC,
+                    javax.mail.internet.InternetAddress.parse(this.cc, false));
+            msg.setRecipients(javax.mail.Message.RecipientType.BCC,
+                    javax.mail.internet.InternetAddress.parse(this.bcc, false));
+
+            msg.setSubject(this.subject);
+      
+            msg.setContent(body.toString(), "text/html");
+            
+            javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
+            msg.setSender(sender);
+            javax.mail.Address[] replyTo = javax.mail.internet.InternetAddress.parse(this.replyTo, false);
+            msg.setReplyTo(replyTo);
+
+            javax.mail.Transport transport = session.getTransport("smtps");
+            try {
+                transport.connect(host, username, password);
+                transport.sendMessage(msg, msg.getAllRecipients());
+            } finally {
+                transport.close();
+            }
+        }
+        catch(javax.mail.internet.AddressException ae){System.out.println(ae);}
+        catch(javax.mail.MessagingException me){System.out.println(me);}
+  }
 
 }

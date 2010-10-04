@@ -121,3 +121,42 @@ module built-in
     constructor()
   }
   
+//email
+
+  entity QueuedEmail {
+    body :: String (length=1000000) //Note: default length for string is currently 255
+    to :: String (length=1000000)
+    cc :: String (length=1000000)
+    bcc :: String (length=1000000)
+    replyTo :: String (length=1000000)
+    from :: String (length=1000000)
+    subject :: String (length=1000000)
+  }
+  
+  invoke internalHandleEmailQueue() every 30 seconds
+
+  function internalHandleEmailQueue(){
+    var queuedEmails := from QueuedEmail limit 5;
+    
+    for(queuedEmail:QueuedEmail in queuedEmails){
+      queuedEmail.delete();
+      flush();
+      sendemail(sendQueuedEmail(queuedEmail));
+      //normally you would use email(sendQueuedEmail(queuedEmail)) to send email, however, 
+      //that is desugared to renderemail(queuedEmail).save() to make it asynchronous.
+      //In this function the email is actually send, using the synchronous sendemail function.
+    }
+  }
+  
+  define email sendQueuedEmail(q:QueuedEmail){
+    to(q.to)
+    from(q.from)
+    subject(q.subject)
+    cc(q.cc)
+    bcc(q.bcc)
+    replyTo(q.replyTo)
+    rawoutput{ //don't escape the html from internal email rendering
+      output(q.body)
+    }
+  }
+  
