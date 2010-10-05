@@ -1,9 +1,11 @@
 <project name="webdsl-build-eclipse" default="eclipse-build">
 
+  
   <condition property="stratego-jar-cp" value="${eclipse.strategoxt.strategojar}">
     <isset property="eclipse.running"/>
   </condition>
 
+  
   <target name="generate-uuid" description="Generates a UUID">
     <script language="javascript">
       <![CDATA[
@@ -15,6 +17,7 @@
     <echo>generated uuid: ${build-id}</echo>
   </target>
 
+  
   <target name="get-build-id">
     <if>
       <not><isset property="build-id" /></not>
@@ -25,6 +28,7 @@
     <echo>build-id: ${build-id}</echo>
   </target>
 
+  
   <target name="eclipse-build" depends="clean-if-editor-updated, clean-if-project-converted, get-build-id">
     <!-- command-line builds use .servletapp, plugin uses WebContent -->
     <property name="generate-dir" value="WebContent"/>
@@ -103,12 +107,14 @@
     <antcall target="run-eclipse-build"/>
     <!--<antcall target="poll-deployed-app-for-new-build-id"/>-->
 
-    <antcall target="refresh"/>
-
     <!-- show that build has finished -->
     <echo file="${path.build.completed}">${build-id}</echo>
+    
+    <antcall target="refresh"/>
+    <antcall target="schedule-refresh"/>
   </target>
 
+  
   <target name="poll-deployed-app-for-new-build-id" depends="load-config">
     <script language="javascript"><![CDATA[
       importClass(java.net.URL);
@@ -174,49 +180,53 @@
     </if>
   </target>
 
-    <target name="open-app-in-browser">
+  
+  <target name="open-app-in-browser">
+    <script language="javascript"><![CDATA[
+      importClass(org.eclipse.ui.browser.IWorkbenchBrowserSupport);
+      importClass(org.eclipse.wst.server.ui.internal.ServerUIPlugin);
+      importClass(org.eclipse.ui.browser.IWebBrowser);
+      importClass(java.net.URL);
+      var projectname = project.getProperty("appname");
+      try {
+        var browserSupport = ServerUIPlugin().getWorkbench().getBrowserSupport();
+        var browser = browserSupport.createBrowser(IWorkbenchBrowserSupport.LOCATION_BAR | IWorkbenchBrowserSupport.NAVIGATION_BAR, null, null, null);
+        browser.openURL(new URL("http://localhost:8080/"+projectname));
+      } catch (e) {
+        echo = project.createTask("echo");
+        echo.setMessage(e);
+        echo.perform();
+      }
+    ]]></script>
+  </target>
 
-      <script language="javascript"><![CDATA[
-        importClass(org.eclipse.ui.browser.IWorkbenchBrowserSupport);
-        importClass(org.eclipse.wst.server.ui.internal.ServerUIPlugin);
-        importClass(org.eclipse.ui.browser.IWebBrowser);
-        importClass(java.net.URL);
-        var projectname = project.getProperty("appname");
-        try {
-          var browserSupport = ServerUIPlugin().getWorkbench().getBrowserSupport();
-          var browser = browserSupport.createBrowser(IWorkbenchBrowserSupport.LOCATION_BAR | IWorkbenchBrowserSupport.NAVIGATION_BAR, null, null, null);
-          browser.openURL(new URL("http://localhost:8080/"+projectname));
-        } catch (e) {
-          echo = project.createTask("echo");
-          echo.setMessage(e);
-          echo.perform();
-        }
-      ]]></script>
-    </target>
-
+  
   <target name="check-remove-command-file">
       <available file="${currentdir}/${generate-dir}/.clean-project-required" property="check-remove-command-file-present"/>
         <if><isset property="check-remove-command-file-present" /><then>
         <delete file="${currentdir}/${generate-dir}/.clean-project-required" />
         </then></if>
   </target>
-    <target name="clean-if-project-converted" depends="check-remove-command-file" if="check-remove-command-file-present">
-      <antcall target="clean-eclipse-project" />
-    </target>
+  
+  
+  <target name="clean-if-project-converted" depends="check-remove-command-file" if="check-remove-command-file-present">
+    <antcall target="clean-eclipse-project" />
+  </target>
 
-    <target name="clean-eclipse-project">
+  
+  <target name="clean-eclipse-project">
     <antcall target="clean-all" />
       <mkdir dir="${currentdir}/WebContent"/>
     <delete includeemptydirs="true">
       <fileset dir="${currentdir}/WebContent" includes="**/*"/>
     </delete>
-    </target>
+  </target>
 
+  
   <target name="clean-if-editor-updated" unless="editor.update.build.performed">
     <property name="path.build.version" value="${currentdir}/.servletapp/.last-build-version" />
     <available file="${path.build.version}" property="build.is.completed" />
     <loadfile srcFile="${path.build.version}" property="build.last.version" quiet="true" />
-
     <if>
       <not>
         <and>
@@ -234,11 +244,24 @@
       </then>
     </if>
   </target>
-
+  
   
   <target name="refresh">
     <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
     <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
+  </target>
+  
+  
+  <taskdef name="schedulerefresh" classname="webdsl.ScheduleRefreshTask">
+      <classpath>
+        <pathelement location="${plugindir}/bin/"/>
+      </classpath>
+  </taskdef>
+  
+
+  <target name="schedule-refresh">
+    <basename property="projectname" file="${basedir}"/>
+    <schedulerefresh projectname="${projectname}" />
   </target>
 
   
