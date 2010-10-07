@@ -1,0 +1,92 @@
+module compiler
+
+imports include/nwl read check rename desugar java-project
+imports libstrategolib libstratego-sglr libstratego-gpp libstratego-xtc
+imports lib/editor-common.generated lib/track separation/dependencies
+
+signature constructors
+  At : Term * Term * Term -> Term
+
+rules
+  
+  main-nwl-compiler = io-wrap(nwl-compile)
+  
+  my-parse-file: filename -> ast
+    with ast := <parse-xtc-file-pt(|<import-term(include/nwl.tbl)>); implode-with-location-annos(|filename)> FILE(filename)
+        
+  implode-with-location-annos(|path) =
+    asfix-anno-location
+  ; implode-asfix
+  ; topdown(
+        try(\t {Location(r, c, _, _)} -> t {At(path, r, c)}\)
+      )
+      
+  get-anno(s) = ?_{anno*}; !anno*; fetch-elem(s)
+      
+  def-to-key: (modname, elem) -> key
+    with  <get-anno(?At(m,x,y))> elem;
+          key := (modname, $[[modname]_[<int-to-string> y]_[<int-to-string> x]])
+      
+  nwl-compile = 
+    rules(Standalone := 1);
+    rules(AlternativeProjectDir : "x" -> "y" where fail);
+    filename := <get-config> "-i";
+    project-path := <dirname> filename;
+    fullpath := filename;
+    rules(
+          FullPath := fullpath        // Absolute path to file
+          ProjectDir := project-path  // Absolute path to project
+    );
+    ast := <my-parse-file> filename;
+    <module-to-toplevel-defs> ast;
+    transform-defs(topdown(remove-position-anno));
+    old-sig := <read-signature <+ ![]> fullpath;
+    declare-all;
+    rename-top;
+    get-toplevel-defs => ast2;
+    errors   := <collect-tracked(check)> ast2;
+    warnings := <collect-tracked(constraint-warning)> ast2;
+    store-typecheck-deps(|old-sig);
+    if not([] := errors) then
+      <exit> 1
+    end;
+    desugar-all;
+    nwl-to-java-project;
+    <exit> 0  // don't output current term
+    
+  store-typecheck-deps(|old-sig) =
+    all-keys-ModuleToDefs;
+    map( {
+        where(bagof-ModuleToDef => defkeys);
+        ModuleFullpath => fullpath;
+        <map(bagof-CreatedRules;concat);concat> defkeys;
+        ?ruleset;
+        //<debug(!"Rules created: ")> (fullpath, ruleset);
+        rules(RulesCreated : mod -> ruleset)
+      }
+    );
+    // Copy the rules we've used
+    all-keys-ModuleToDefs;
+    map( {
+        where(bagof-ModuleToDef => defkeys);
+        ModuleFullpath => fullpath;
+        <map(bagof-DesugarRulesUsed;concat);concat> defkeys;
+        ?ruleset;
+        rules(RulesUsedBy : fullpath -> ruleset)
+      }
+    );
+    update-typecheck-dependencies(|old-sig)
+    
+  path-to-cache-path: x -> y
+    with  cachedir := <file-exists <+ mkdir> $[[<ProjectDir>]/.nwl-cache];
+          fullpath' := <string-replace(|"/", "+"); string-replace(|"\\", "+"); string-replace(|":", "+")> x;
+          y := $[[cachedir]/[fullpath']]
+    
+  remove-position-anno :
+    s{anno*} -> result
+    where anno2* := <remove-all(?At(_, _, _))> anno*
+        ; if [] := anno2* then
+            result := s{}
+          else
+            result := s{anno2*}
+          end

@@ -3,9 +3,9 @@ module read
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
-imports lib/editor-common.generated
 imports nwl check emit
-imports separation/dr
+imports lib/dr
+imports lib/editor-common.generated
 
 rules 
 
@@ -13,12 +13,17 @@ rules
   
   debug-toplevel-defs = where(get-toplevel-defs; pp-aterm; debug)
           
-  transform-defs(s) = 
+  transform-defs(s) =
+    map-defs(
+      {s; ?newdef; where(CurrentDefinitionKey => key; rules(Definition : key -> newdef)) }
+    ) 
+     
+  map-defs(s) =
     all-keys-Definition;
     filter(where(Definition)); // skip deleted
     map(//{| CurrentDefinitionKey: 
       {def:
-        \key -> <rules(CurrentDefinitionKey := key); Definition; s; ?def; rules(Definition : key -> def)> key \}
+        \key -> <rules(CurrentDefinitionKey := key); Definition; s> key \}
       /*|}*/)
   
   remove-defs(s) =
@@ -45,20 +50,32 @@ rules
   
   module-to-toplevel-defs: mod@Module(name, body) -> defs
     with  FullPath => fullpath;
+          name' := <strip-annos> name;
           rules(
-            ModuleName := name
-            ModuleFullpath : name -> fullpath
-            Imported : name
+            ModuleName := name'
+            ModuleFullpath : name' -> fullpath
+            Imported : name'
           );
           <load-imports; store-module> mod;
           get-toplevel-defs => defs
           
   store-module: mod@Module(name, body) -> mod
-    with  rules(ModuleToDefs : name -> body);
+    with  body2 := <body-to-toplevel-defs> body;
+          name' := <strip-annos> name;
+          rules(ModuleToDefs : name' -> body2);
           <map(where({def:
               ?def;
-              store-def(|name)
-          }))> body
+              store-def(|name')
+          }))> body2
+
+  body-to-toplevel-defs =
+    lift-access-control-defs
+    
+  lift-access-control-defs : 
+    defs -> new-defs
+    with  defs1* := <remove-all(?AccessControlDefinition(_))> defs;
+          defs2* := <filter(?AccessControlDefinition(<id>)); concat> defs;
+          new-defs := [defs1*, defs2*]
 
   store-def(|modname): def -> key
     with  key := <def-to-key> (modname, def);
@@ -66,6 +83,7 @@ rules
             Definition : key -> def
             DefinitionLoaded : key
             DefToModule : key -> modname
+            // Note: ModuleToDef is undefined for empty modules!
             ModuleToDef :+ modname -> key 
           )
   
@@ -77,18 +95,13 @@ rules
   def-to-key: (modname, cons#(_)) -> (modname, cons)
     where <is-emit-mod> modname
  
-  def-to-key: (modname, x) -> key
-    with  <?constructor#(_)> x; 
-          posy := <(origin-line);int-to-string> x;
-          posx := <(origin-column);int-to-string> x;
-          key := (modname, <concat-strings> [constructor, "_", posx, "_", posy])
-     
   defkey-to-mod: (modname, _) -> modname
     
   load-imports: mod@Module(name, body) -> Module(name, body2)
-    with  imports := <filter(?Import(_))> body;
+    with  imports := <filter(?Import(_); strip-annos)> body;
           <map(parse-import)> imports;
-          rules(ModuleImports : name -> imports);
+          name' := <strip-annos> name;
+          rules(ModuleImports : name' -> imports);
           body2 := <remove-all(?Import(_))> body
 
   parse-import: Import(modname) -> []
@@ -114,7 +127,7 @@ rules
           ) => filename  
   
   parse-file-with-cache: filename -> content
-    with  cache := <import-cache-path> filename;  
+    with  cache := <path-to-cache-path> filename;  
       if <file-exists> cache; <is-newer> (cache, filename); (imports, defrules) := <ReadFromFile> cache then
         // Read rule signature
         <debug(!"using cache for: ")> filename;
@@ -124,12 +137,12 @@ rules
         content := "cached"
       else
         <debug(!"Parsing: ")> filename; 
-        content := <parse-file> filename;
+        content := <my-parse-file> filename;
         ?Module(modname, _)
       end
       
   read-signature: fullpath -> sig
-    with  cachepath := <import-cache-path> fullpath
+    with  cachepath := <path-to-cache-path> fullpath
     where (imports, sig) := <file-exists; ReadFromFile> cachepath
      
   load-cached-files =
@@ -147,9 +160,10 @@ rules
   load-cached-def: defkey -> defkey
     with  defkey-to-mod => modname;
           modname-to-filename => filename;
-          content := <ParsedFile <+ debug(!"Parsing: "); parse-file> filename;
+          content := <ParsedFile <+ debug(!"Parsing: "); my-parse-file> filename;
           rules(ParsedFile : filename -> content);
           ?Module(_,<id>);
+          body-to-toplevel-defs;
           filter(where(<def-to-key> (modname,<id>); ?defkey));
           try(not(1 := <length>); !(defkey,<id>); debug(!"Multiple defs match key: "));
           ?[thedef];

@@ -2,8 +2,8 @@ module desugar
 
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
-imports emit read check
-imports separation/track separation/desugar
+imports emit read check nwl
+imports lib/track separation/desugar
 
 rules // desugared builder
     
@@ -26,18 +26,15 @@ strategies
   
   DesugarSave = id
   
-  desugar-all = {| DesugarRulesCreated, DesugarRulesUsed:
-    if <not(file-exists)> ".cache/testdr.aterm" then
+  desugar-all = 
+    if <path-to-cache-path; not(file-exists)> "$testdr.aterm" then
       load-cached-files;
-      desugar-all-1;
-      save-desugar-rules
+      desugar-all-1
     else
       rules(IncrementalDesugaring := True());
       load-desugar-rules;
-      with-rule-resolving(desugar-all-1);
-      desugar-all-1
+      with-rule-resolving(desugar-all-1)
     end
-  |}
   
   desugar-all-1 = 
     repeat(
@@ -45,10 +42,15 @@ strategies
         transform-defs( {
           track-rules(
             innermost(
-               desugar;
-               rules(DesugarApplied := True()))
+              desugar;
+              rules(DesugarApplied := True())
+            )
             | <CurrentDefinitionKey>
           )})
+      ; repeat(
+              desugar-once;
+              rules(DesugarApplied := True())
+            )
       ; where(DesugarApplied)    // quit if nothing done
       ; try(where(IncrementalDesugaring); desugar-check-dependencies)
       ; add-emits
@@ -58,9 +60,10 @@ strategies
       
   track-rules(s) = s
   
-  normalize-all = alltd(normalize)  // todo: innermost
-  
+  normalize-all = innermost(normalize)
+   
   desugar = fail
+  desugar-once = fail
   
 rules
 
@@ -69,7 +72,7 @@ rules
   
   normalize :
     TemplateRef(x) -> TemplateRef(x, [])
-      
+  
 strategies // pretty-printing
   
   pp-nwl =

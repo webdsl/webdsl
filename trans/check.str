@@ -1,58 +1,11 @@
 module check
 
-imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
-imports lib/editor-common.generated
-imports nwl desugar read separation/- ac
+imports nwl desugar read separation/- ac lib/track
 
 rules // static analysis
 
-  editor-analyze:
-    (ast, path, project-path) -> (ast2, errors, warnings, [])
-    with
-      editor-init;
-      fullpath := <concat-strings> [project-path,"/",path];
-      rules(
-          Path := path                // Path to file, relative from project
-          FullPath := fullpath        // Absolute path to file
-          ProjectDir := project-path  // Absolute path to project
-      );
-      where(set-project-dir);
-      <module-to-toplevel-defs> ast;
-      old-sig := <read-signature <+ ![]> fullpath;
-      declare-all;
-      // Copy the rules we've created
-      all-keys-ModuleToDef;
-      map( {
-          where(bagof-ModuleToDef => defkeys);
-          ModuleFullpath => fullpath;
-          <map(bagof-CreatedRules;concat);concat> defkeys;
-          ?ruleset;
-          //<debug(!"Rules created: ")> (fullpath, ruleset);
-          rules(RulesCreated : mod -> ruleset)
-        }
-      );
-      rename-top;
-      get-toplevel-defs => ast2;
-      errors   := <collect-tracked(check)> ast2;
-      warnings := <collect-tracked(constraint-warning)> ast2;
-      // Copy the rules we've used
-      all-keys-ModuleToDef;
-      map( {
-          where(bagof-ModuleToDef => defkeys);
-          ModuleFullpath => fullpath;
-	        <map(bagof-DesugarRulesUsed;concat);concat> defkeys;
-	        ?ruleset;
-	        rules(RulesUsedBy : fullpath -> ruleset)
-        }
-      );
-      // Copy the rules we've used previously
-      rules(RulesCreatedPrev : fullpath -> old-sig);
-      update-typecheck-dependencies;
-      debug(!"Queue analysis: ");
-      queue-analysis
-      
   collect-tracked(s) =
     collect-in-defs(
       track-rules(
@@ -60,28 +13,12 @@ rules // static analysis
         | <CurrentDefinitionKey>
       )
     )
-  
-  // Guess project base dir based on the current file
-  set-project-dir =
-    FullPath;
-    explode-string(|'/');
-    take(|<length;dec>);
-    implode-string(|'/');
-    ?project-dir;
-    rules(AlternativeProjectDir := project-dir)
     
 rules // type-of builder
 
   type-of-try =
     type-of <+ !"no type"
     
-  show-type :
-    (selected, position, ast, path, project-path) -> (filename, result-string)
-    with ast2 := <editor-init; declare-all; rename-top> ast
-    with 
-      filename      := <guarantee-extension(|"aterm")> path;
-      result-string := <type-of-try; pp-aterm-box; box2text-string(|120)> selected
-      
 strategies
   
    require(s) = not(s)

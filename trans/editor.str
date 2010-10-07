@@ -1,0 +1,95 @@
+module editor
+
+imports nwl desugar java-project read check rename
+imports separation/-
+imports lib/editor-common.generated lib/track
+imports libstratego-aterm libstratego-gpp
+
+  // Spoofax specific rules
+rules
+  
+  generate-java-project =
+    ?(selected, position, ast, path, project-path);
+    desugar-all;
+    debug-toplevel-defs;
+    nwl-to-java-project;
+    //<refresh-workspace-file> $[[<project-path>]/.generated];
+    project-path; refresh-workspace-file;
+    !None()
+    
+  editor-analyze:
+    (ast, path, project-path) -> (ast2, errors, warnings, [])
+    with
+      editor-init;
+      rules(Standalone := 0);
+      fullpath := <concat-strings> [project-path,"/",path];
+      rules(
+          Path := path                // Path to file, relative from project
+          FullPath := fullpath        // Absolute path to file
+          ProjectDir := project-path  // Absolute path to project
+      );
+      where(set-project-dir);
+      <module-to-toplevel-defs> ast;
+      // TODO: we read only the old signature of this file
+      // It could be that other files are changed as well, so we should pass their previous and new signatures to update-typecheck-dependencies as well.
+      old-sig := <read-signature <+ ![]> fullpath;
+      declare-all;
+      // Copy the rules we've created
+      all-keys-ModuleToDefs;
+      where(debug);
+      map( {
+          where(bagof-ModuleToDef => defkeys);
+          ModuleFullpath => fullpath;
+          <map(bagof-CreatedRules;concat);concat> defkeys;
+          ?ruleset;
+          //<debug(!"Rules created: ")> (fullpath, ruleset);
+          rules(RulesCreated : mod -> ruleset)
+        }
+      );
+      rename-top;
+      get-toplevel-defs => ast2;
+      errors   := <collect-tracked(check)> ast2;
+      warnings := <collect-tracked(constraint-warning)> ast2;
+      // Copy the rules we've used
+      all-keys-ModuleToDefs;
+      where(debug);
+      map( {
+          where(bagof-ModuleToDef => defkeys);
+          ModuleFullpath => fullpath;
+          <map(bagof-DesugarRulesUsed;concat);concat> defkeys;
+          ?ruleset;
+          rules(RulesUsedBy : fullpath -> ruleset)
+        }
+      );
+      update-typecheck-dependencies(|old-sig);
+      debug(!"Queue analysis: ");
+      queue-analysis
+      
+  // Guess project base dir based on the current file
+  set-project-dir =
+    FullPath;
+    explode-string(|'/');
+    take(|<length;dec>);
+    implode-string(|'/');
+    ?project-dir;
+    rules(AlternativeProjectDir := project-dir)     
+    
+  show-type :
+    (selected, position, ast, path, project-path) -> (filename, result-string)
+    with ast2 := <editor-init; declare-all; rename-top> ast
+    with 
+      filename      := <guarantee-extension(|"aterm")> path;
+      result-string := <type-of-try; pp-aterm-box; box2text-string(|120)> selected
+  
+  path-to-cache-path = import-cache-path
+  
+  my-parse-file = parse-file
+  
+  def-to-key: (modname, x) -> key
+    where not(Standalone => 1)
+    with  <?constructor#(_)> x; 
+          posy := <(origin-line);int-to-string> x;
+          posx := <(origin-column);int-to-string> x;
+          key := (modname, <concat-strings> [constructor, "_", posx, "_", posy])
+     
+  
