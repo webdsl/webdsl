@@ -4,7 +4,7 @@ imports
   nwl read check emit java-project util
   include/nwl
   separation/-
-  lib/track
+  lib/track lib/dr
 
 strategies
 	
@@ -13,19 +13,37 @@ strategies
     s
   |}
   
+  load-desugar-rules =
+    // Load desugar dependencies
+    if (defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
+        <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
+      //; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
+      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ key -> def)>\)> defvals* \)> created-rules
+      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))>\)> defvals* \)> created-rules
+      ; <load-new-files> defs
+    else
+        <debug> "Cannot load dr rules!";
+        load-cached-files
+    end
+  
   dynamic-rule-resolver: (rulename, key) -> (rulename, key)
      where RuleResolvingEnabled
-        ; defs := <RuleProvider /*<+ debug(!"No rule providers for: "); fail*/> (rulename, key)
+        ; defs := <bagof-RuleProvider <+ debug(!"No rule providers for: "); fail> (rulename, key)
      with   
-          not-loaded := <filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod))> defs
+          not-loaded := <filter(where(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)))> defs
         ; if not([] := not-loaded) then
             <verbose-msg> ["Got rule: ", (rulename, key)];
             <verbose-msg> ["Providers: ", defs];
             <verbose-msg> ["Loading defs: ", not-loaded];
-            <map(load-cached-def)> not-loaded;
+            <map(load-rules-for-def)> not-loaded;
             rules(DesugarApplied := True()) // something changed, need new desugar phase
           end
   
+  load-rules-for-def: defkey -> defkey
+    with  ruleset := <bagof-RuleVals> defkey;
+          load-flat-dynamic-rule-closure;
+          rules(DefinitionLoaded : defkey) 
+            
   ignore-dr-tracking =
       ?"RuleResolvingEnabled"
    <+ ?"RuleUser"
@@ -34,17 +52,6 @@ strategies
    <+ ?"DefinitionLoaded"
    <+ ?"CurrentDefinitionKey"
    <+ ?"MemoOpenParseTable"     // whole parse table!
-  
-  load-desugar-rules =
-    // Load desugar dependencies
-    if (defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
-        <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
-      ; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
-      ; <load-new-files> defs
-    else
-        <debug> "Cannot load dr rules!";
-        load-cached-files
-    end
   
   // Load files for which we don't have a cache
   load-new-files: olddefs -> olddefs
@@ -60,7 +67,7 @@ strategies
         // save desugar rules
           all-keys-DesugarRulesUsed
           // Def to rules
-        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-DesugarRulesCreated; concat; uniq>, <bagof-GeneratedFiles>))
+        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-CreatedRules; concat; uniq>, <bagof-GeneratedFiles>))
         ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr.aterm", <id>)
          // Rules to def
         ; all-keys-DesugarRulesUsed
@@ -86,13 +93,18 @@ strategies
         ; {| RuleToDef:
             filter({def:
                  ?def
-               ; bagof-DesugarRulesCreated; concat
-               ; map({rulekey:
-                    ?rulekey;
-                     rules(RuleToDef :+ rulekey -> def )
+               ; bagof-CreatedRules; concat
+               ; map({name,keyvals:
+                 	?(name,keyvals);
+                 	!keyvals;
+                 	map({key,vals:
+                 		?(key,vals);
+                 		rules(RuleToDef :+ (name,key) -> (def, vals))
+                  })
                  })
             })
           ; all-keys-RuleToDef
+          ; remove-dr-dummies
           ; filter({rulekey:
                ?rulekey
              ; bagof-RuleToDef

@@ -48,7 +48,7 @@ strategies
             //where(!name; debug(!"New rule: ")); debug(!"... keyvals:" )
             rules(RecordDR_NewRuleSets :+= (name, keyvals))
           end
-            
+
   changeset-key-to-rules(|table, oldrules): key@(scopeid, rulekey) -> keyvals
     with  values := <hashtable-get(|key)> table
           // see if any values were in the hashtable before
@@ -80,9 +80,18 @@ strategies
   load-dynamic-rule-closure: rulelist -> <map(load-dynamic-rule)> rulelist
   
   load-dynamic-rule: (name, keyvals) -> <id>
-    with  [RuleScope(lbl, table) | xs] := <dr-get-rule-set(|name)>
-        ; <map(\(key, vals) -> <map(\val -> <hashtable-push(|key, val)> table\)> vals\)> keyvals
-
+    with  dr-get-rule-set(|name);
+          if ?[RuleScope(lbl, table) | xs] then
+            <map(\(key, vals) -> <map(\val -> <hashtable-push(|key, val)> table\)> vals\)> keyvals
+          else
+            ?[ChangeSet(lbls, rmset, table) | xs];
+            // find rule scope
+            <fetch-elem(?RuleScope(_, tbl@Hashtable(scopeid)))> xs;
+            <map(\(key, vals) -> <map(\val -> <hashtable-push(|(scopeid,key), val)> table\)> vals\)> keyvals
+          end
+          
+  load-flat-dynamic-rule-closure: rulelist -> <map(\((name,key), vals) -> <load-dynamic-rule> (name,[(key,vals)])\)> rulelist
+          
 rules // helpers for dynamic rule set traversal
   
   rules-as-key-val-pairs(s) =
