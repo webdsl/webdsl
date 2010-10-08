@@ -1,6 +1,6 @@
 [
    HqlQuery -- _1,
-   DslExp -- _1,
+   DslExp --  H hs=0[ KW["~"] _1 ],
 
    Module                             -- V[H[KW["module"] _1] _2],
    Module.2:iter-star                 -- _1,
@@ -550,6 +550,7 @@
    ValidateUpdateAnno                           -- KW["validateupdate"] KW["("] _1 KW[","] _2 KW[")"],
    ValidateCreateAnno                           -- KW["validatecreate"] KW["("] _1 KW[","] _2 KW[")"],
    IgnoreAccessControl                          -- KW["ignore-access-control"],
+   ValidatesRefArgs                             -- KW["validate"],
    EnumValue                                    -- _1 KW["("] _2 KW[")"],
    PagedForNoFilter.5:iter-star                 -- _1,
    PagedForNoFilter                             -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW["per"] _4 KW[")"] KW["{"] _5 KW["}"],
@@ -1259,5 +1260,16 @@
    AccessControlImportRulesArg -- _1,
    InternalSort -- _1,
    TypeDefAnno -- _1,
-   NativeClassFunctionFromStatic -- _1 KW["as"] _2
-]
+   NativeClassFunctionFromStatic -- _1 KW["as"] _2,
+   
+   XMLAttributesIfElse -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
+   XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
+   
+   %%RenderFunctionCall -- KW["render"] KW["("] _1 KW[")"],
+   RenderEmailFunctionCall -- KW["renderemail"] KW["("] _1 KW[")"],
+   EmailFunctionCall -- KW["email"] KW["("] _1 KW[")"],
+   SendEmailFunctionCall -- KW["sendemail"] KW["("] _1 KW[")"],
+   EmailCall -- _1 KW["("] _2 KW[")"],
+   EmailCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   EmailCall.2:iter-star           -- _1
+] 

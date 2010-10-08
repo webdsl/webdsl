@@ -40,31 +40,21 @@ strategies
         , 
           id)
     )
-
+    
 	// TODO: move to rename.str
-	typecheck-rename = transform-defs-tracked(
-	  {key:
-	      where(CurrentDefinitionKey => key)
-	    ; rename-top
-	    ; rules(RenameRules : key -> [])
-	  }
-	)
-	
-	//typecheck-rename = transform-defs(rename-and-store)
-  
-	rename-and-store =
-			where(CurrentDefinitionKey => key)
-		; rename-top
-		; start-record-dynamic-rules
-		; rename-top => renamed
-    ; end-record-dynamic-rules
-    //; store-dynamic-rules-owner
-//		; filter(where(Fst; is-used-dr))
-		//; map-dr-values-with-key(strip-dr-value)  
-		    // TODO: too much stripping; ie. VarDeclInit(..,..,expr) the expr is needed in backend to determine type (by anno)
-		; ?ruleset
-		; rules(RenameRules : key -> ruleset)
-		; !renamed
+	typecheck-rename =
+	 transform-defs(
+	   { key, ruleset:
+	     {| CreatedRules: 
+	         track-rules-with-creates(rename-top)
+	       ; where(
+	           CurrentDefinitionKey => key
+	         ; CreatedRules => ruleset
+	         ; rules(RenameRules : key -> ruleset)
+	        )
+	    |}
+	   }
+	 )
 		  
   // NB: Rules can be owner by any number of owners, using :+
 		  
@@ -139,28 +129,18 @@ strategies
    	; map(with(DeclaredRules; load-dynamic-rule-closure))
       // Declare modified files
     ; map-defs(
-        { key:
-            where(CurrentDefinitionKey => key)
-          ; track-rules(declare-all)
-          ; rules(DeclaredRules : key -> [])
+        {key, ruleset:
+          {| CreatedRules:
+            with(
+                track-rules-with-creates(declare-all)
+              ; if DebugDesugarRules then
+                    CurrentDefinitionKey => key; CreatedRules => ruleset
+                  ; rules(DeclaredRules : key -> ruleset)
+                end
+            )
+          |}
         }
-      )
-      /*
-    ; map-defs(
-      { def, key, ruleset:
-          ?def
-        ; CurrentDefinitionKey => key
-        ; !def
-        ; start-record-dynamic-rules
-        ; declare-all
-        ; end-record-dynamic-rules
-        //; store-dynamic-rules-owner
-        //; filter(where(Fst; is-used-dr))
-        //; map-dr-values-with-key(strip-dr-value)
-        ; ?ruleset
-        ; rules( DeclaredRules : key -> ruleset )
-      }
-      */
+     )
     
   typechecker-after-declare =
       log-time(declare-all-override | "declare-all-override")

@@ -9,4 +9,5 @@ public interface RefArg
   public String getUrlString();
   public String get_WebDslEntityType();
   public org.webdsl.WebDSLEntity getEntity();
+  public void validate(String location, java.util.List<utils.ValidationException> exceptions);
 }

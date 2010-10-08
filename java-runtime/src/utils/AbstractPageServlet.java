@@ -94,6 +94,27 @@ public abstract class AbstractPageServlet{
     public static HashMap<String, Class<?>> getEmails() {
         return emails;
     }
+    public void sendEmail(String name, Object[] emailargs, Environment emailenv){
+        EmailServlet temp = renderEmail(name,emailargs,emailenv);
+        temp.send();
+    }
+    public EmailServlet renderEmail(String name, Object[] emailargs, Environment emailenv){
+        EmailServlet temp = null;
+        try
+        { 
+            temp = ((EmailServlet)getEmails().get(name).newInstance());
+        }
+        catch(IllegalAccessException iae)
+        { 
+            System.out.println("Problem in email template lookup: " + iae.getMessage());
+        }
+        catch(InstantiationException ie)
+        { 
+            System.out.println("Problem in email template lookup: " + ie.getMessage());
+        }
+        temp.render(emailargs, emailenv);
+        return temp;
+    }
 
     //ref arg
     protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
@@ -124,6 +145,28 @@ public abstract class AbstractPageServlet{
         templateContext.clear();
     }
 
+    // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
+    ArrayList<WebDSLEntity> entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+    boolean allowAddingEntitiesForValidation = true;
+    public void addEntityToValidateAfterAction(WebDSLEntity w){
+        if(allowAddingEntitiesForValidation){ 
+          entitiesValidatedAfterAction.add(w);
+        }
+    }
+    public void validateEntitiesAfterAction(){
+        allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
+        
+        java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesValidatedAfterAction);
+        
+        for(WebDSLEntity w : set){
+            if(w.isChanged()){
+              //System.out.println("validating: "+w);
+              w.validateSave();
+              //System.out.println("done validating");
+            }
+        }
+    }
+    
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
@@ -575,7 +618,7 @@ public abstract class AbstractPageServlet{
       public java.util.Stack<String> labelStrings = new java.util.Stack<String>();
       public java.util.Set<String> usedPageElementIds = new java.util.HashSet<String>();
       public static java.util.Random rand = new java.util.Random();
-      //avoid duplcicate ids; if multiple inputs are in a label, only the first is connected to the label
+      //avoid duplicate ids; if multiple inputs are in a label, only the first is connected to the label
       public String getLabelString() {
         String s = labelStrings.peek();
         if(usedPageElementIds.contains(s)){
@@ -587,7 +630,17 @@ public abstract class AbstractPageServlet{
         usedPageElementIds.add(s);
         return s;
       }
-
+      public java.util.Map<String,String> usedPageElementIdsTemplateContext = new java.util.HashMap<String,String>();
+      //subsequent calls from the same defined template (e.g. in different phases) should produce the same id
+      public String getLabelStringForTemplateContext(String context) {
+          String labelid = usedPageElementIdsTemplateContext.get(context);
+          if(labelid == null){
+            labelid = getLabelString();
+            usedPageElementIdsTemplateContext.put(context, labelid);
+          }
+          return labelid;
+      }
+      
       public void enterLabelContext(String ident) {
         labelStrings.push(ident);
       }

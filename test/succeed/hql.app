@@ -61,3 +61,44 @@ section datamodel
       }
     }
   }
+  
+  
+ 
+  entity Tag{
+    name :: String 
+    project -> Project
+  }
+  entity Issue{
+    name :: String
+    tags -> Set<Tag>
+  }
+  function abc(tags:List<Issue>){
+    
+  }
+  entity Project {
+    name			:: String 
+    function getCommonIssues(nr : Int) : List<Issue>{
+      var issues :=
+        //select new Tag(t.name)
+        select i
+        from Issue as i left join i.tags as t;
+
+      abc(issues);
+      
+      return issues;
+    }
+  }
+  
+  var p := Project {name := "p1"}
+  var t := Tag{ name := "tag1" project := p }
+  var i := Issue { tags := {t} }
+    
+  test queries {
+    assert(p.getCommonIssues(1).length == 1);
+
+    var x : List<Tag> := (select t from Issue as i left join i.tags as t ) as List<Tag>;
+    assert(x.length == 1);
+
+    var i := 2;
+    assert((from User limit ~i).length == 2);
+  }

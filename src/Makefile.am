@@ -86,6 +86,9 @@ only-gen :
 	touch .libs/libfast-java-pp.la     
 	make webdslc
 	make install
+	
+javafiles : $(JAVAS)
+.PHONY : javafiles
 
 ### syntax definitions
 
@@ -142,7 +145,8 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
-                 $(wildcard ./org/webdsl/dsl/typechecker/*.str)
+                 $(wildcard ./org/webdsl/dsl/typechecker/*.str) \
+                 $(wildcard ./org/webdsl/dsl/separation/*.str)
                  
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
@@ -295,7 +299,7 @@ STRJFLAGS=-O 3 \
   -I org/webdsl/dsl/syntax/ \
   -D PACKAGE_VERSION_TERM=\"@PACKAGE_VERSION@\"
   
-JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn -g
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
 JAVAS= \
@@ -314,7 +318,7 @@ strategoxt.jar: $(STRATEGOXT_JAR)
 webdsl.jar : $(JAVAS)
 	mkdir -p bin
 	$(JAVAC) -cp $(STRATEGOXT_JAR):src-gen:. src-gen/org/webdsl/webdslc/Main.java -d bin
-	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af)' | sed 's!src-gen/!-C src-gen/ !'`
+	$(JAR) cfm webdsl.jar META-INF/MANIFEST.MF -C bin/ .  `find src-gen -type f | grep -E '(\.tbl|\.af|\.aterm)' | sed 's!src-gen/!-C src-gen/ !'`
 
 src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree
 	mkdir -p src-gen/org/webdsl/webdsl_front

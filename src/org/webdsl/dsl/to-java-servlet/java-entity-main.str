@@ -52,6 +52,7 @@ strategies
 
           ~*idcodes
           ~*<version-property>[]
+          ~*<is-changed-property>[]
           
           ~*[<entity-cbds-equals(|x_Class)>]
 
@@ -106,6 +107,7 @@ strategies
 
         ~*<hibernate-default-id-prop(|x_Class)>[]
         ~*<version-property>[]
+        ~*<is-changed-property>[]
 
         ~*[<entity-cbds-equals(|x_Class)>]
 
@@ -243,13 +245,21 @@ strategies
         }
       }
     ]|
+    
+  is-changed-property =
+    !class-body-dec* |[
+      @Transient
+      protected boolean isChanged = false;
+      public boolean isChanged(){return isChanged;}
+      public void setChanged(){isChanged=true;}
+    ]|
  
   table-mapping-annos :
     (ent, x_class) -> result
     where x_tablename := <concat-strings> ["_",x_class]
         ; if x_name := <get-type-anno;has-natural-id;get-entity-id-name> ent
           then //java-mix needs more fine-grained elements for annotations
-            x_propunique := <concat-strings> ["_",x_name]
+            x_propunique := <concat-strings> ["\\\"_",x_name,"\\\""]
           ; result := [anno |[
               @javax.persistence.Table(
                 name="~x_tablename", 
@@ -316,22 +326,23 @@ strategies
          public void set#x(t newitem) {
            if(!x#BeingSet) {
              x#BeingSet = true;
+             setChanged();
              ~*bas*
              bstm_setterextension*
-             //bstm_validationobjecttracking*
              t olditem = _#x;
              _#x = newitem;
              x#BeingSet = false;
-             bstm_validation*
            }
          }
          // used by eg. unique id functions
          public void set#x#NoEventsOrValidation(t newitem) {
+           setChanged();
            _#x = newitem;
          }
        ]|
        ~*<where(GenericSort(_,_) := s) <+ ![]> class-body-dec* |[ //assignment for collections is rewritten to clear();addall(x);
          public void set#x(t newitem) {
+           setChanged();
            _#x = newitem;
          }
        ]|      
@@ -363,9 +374,7 @@ strategies
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
-        ; bstm_validation* := <validation-annotations-setter> ("olditem","newitem",annos)
         ; mod5*  := <property-to-index-annos> prop
-        //; bstm_validationobjecttracking* := <validation-objects-before-setting> (<concat-strings> ["_",x],"newitem")
           
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
@@ -408,23 +417,36 @@ rules // special session entity props
 rules // annotations for properties
 
   property-to-persistence-annotations(|x_Class) :
-  Property(x_prop, k, s, annos) -> <concat> [association-annos, cascade-annos, length-annos]
+  Property(x_prop, k, s, annos) -> <concat> [association-annos, cascade-annos, column-annos]
   with  association-annos := <association-annotations(|x_Class, x_prop, annos)> s
       ; cascade-annos := <cascade-annotations> k
-      ; length-annos := <length-annotations> annos
+      ; column-annos := <column-annotations(|x_prop,s,annos)>
+     
+rules
 
-rules // length annotation
-
-  length-annotations :
-    annos -> [anno|[
-      @javax.persistence.Column(length = x_val)
-    ]|]
-    where fetch(?LengthAnno(x_val))
-
-  length-annotations :
-    annos -> []
-    where not(fetch(?LengthAnno(_)))
-
+  // add explicit column name annotation with quotes to work around hibernate issue with join queries:
+  // http://opensource.atlassian.com/projects/hibernate/browse/HHH-5086  
+  // http://opensource.atlassian.com/projects/hibernate/browse/HHH-4891
+  column-annotations(|x_prop,s,annos) :
+    _ -> result
+    where not(<fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos)
+    where not(<?GenericSort(_,_)> s)
+    where not(<has-entity-anno> s)
+    where not(<?SimpleSort("File") <+ ?SimpleSort("Image")> s)
+    with  x_anno := <concat-strings> ["\\\"_",x_prop,"\\\""]
+        ; if   <not(fetch(?LengthAnno(_)))> annos
+          then result := [anno|[ @javax.persistence.Column(name = "~x_anno") ]|]
+          else <fetch(?LengthAnno(x_length))> annos
+             ; result := [anno|[ @javax.persistence.Column(name = "~x_anno", length = x_length) ]|] 
+          end
+          
+  column-annotations(|x_prop,s,annos) :
+    _ -> []  // no column anno when there is an inverse, or the property is a collection, or the property is an entity reference
+    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
+       <+ <?GenericSort(_,_)> s
+       <+ <has-entity-anno> s
+       <+ <?SimpleSort("File") <+ ?SimpleSort("Image")> s
+         
 rules // Property with a value type
 
   association-annotations(|x_Class, x_prop, annos) :
@@ -637,6 +659,7 @@ rules // special methods
 
       public void set#x#List(t x_listvar) {
         //~*bas*
+        setChanged();
         set#x(e_newgen);
       }
 
@@ -726,13 +749,13 @@ rules //associations
       public void removeFrom#x_prop(t_y item) {
         if(item != null && !x_prop#BeingSet) {
           x_prop#BeingSet = true;
+          setChanged();
           
           get#x_prop().remove(item);
       
           if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
             bstm0*
             bstm_removeextension*
-            bstm_validation*
           }
 
           x_prop#BeingSet = false;
@@ -740,6 +763,7 @@ rules //associations
       }
       
       public void removeAllFrom#x_prop() { 
+        setChanged();
         //force retrieval
         org.hibernate.Hibernate.initialize(get#x_prop()); 
         while(!get#x_prop().isEmpty()) {
@@ -749,17 +773,18 @@ rules //associations
 
       public void addTo#x_prop(t_y item) {
         if(item != null && !x_prop#BeingSet) {
+          setChanged();
           x_prop#BeingSet = true;        
           t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
           get#x_prop().add(item);
           bstm1*
           bstm_addextension*
-          bstm_validation*
           x_prop#BeingSet = false;
         }        
       }
       
       public t_col addAllTo#x_prop(java.util.Collection<t_y> col) { 
+        setChanged();
         Iterator<t_y> it = col.iterator();
         while(it.hasNext()) {
           addTo#x_prop(it.next());
@@ -774,7 +799,6 @@ rules //associations
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
-        ; bstm_validation* := <validation-annotations-collection-operations> annos
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
@@ -782,6 +806,7 @@ rules //associations
       public void setIn#x_prop(int index, t_y newitem) {
         if(newitem != null && !x_prop#BeingSet && index >= 0 && index < get#x_prop().size() ) {
           x_prop#BeingSet = true;
+          setChanged();
           
           // hold old value
           t_y item = get#x_prop().get(index);
@@ -809,6 +834,7 @@ rules //associations
       public void insertIn#x_prop(int index, t_y item) {
         if(item != null && !x_prop#BeingSet && index >= 0 && index <= get#x_prop().size()) {
           x_prop#BeingSet = true;        
+          setChanged();
           
           if(!get#x_prop().contains(item)){ 
             bstm1*
@@ -823,13 +849,13 @@ rules //associations
       public void removeAt#x_prop(int index) {
         if(index >= 0 && index < get#x_prop().size()) {
           x_prop#BeingSet = true;
+          setChanged();
           
           t_y item = get#x_prop().remove(index);
       
           if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
             bstm0*
             bstm_removeextension*
-            bstm_validation*
           }
 
           x_prop#BeingSet = false;
@@ -842,7 +868,6 @@ rules //associations
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
-        ; bstm_validation* := <validation-annotations-collection-operations> annos
   
   get-inverse-anno:
     annos -> (inv, type)

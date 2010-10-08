@@ -97,6 +97,8 @@ rules
                 //annotationConfiguration.addProperties(prop);
                 //bstm1*
                 annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
+                    
+                annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
     
                 sessionFactory = annotationConfiguration.buildSessionFactory();
                 
@@ -134,7 +136,29 @@ rules
               }
             }
           }
-        }   
+        } 
+        
+        //register which objects need to be validated at the end of an action
+        private static class SetValidationEventListener extends DefaultFlushEntityEventListener
+        { 
+            public void onFlushEntity(FlushEntityEvent event) throws HibernateException
+            { 
+              validate(event.getEntity());
+              super.onFlushEntity(event);
+            }
+            
+            public void validate(Object o)
+            { 
+                if(o instanceof WebDSLEntity)
+                { 
+                    WebDSLEntity we = (WebDSLEntity)o;
+                    AbstractPageServlet aps = ThreadLocalPage.get();
+                    if(aps != null){
+                      aps.addEntityToValidateAfterAction(we); 
+                    }
+                }
+            }
+        }
     }
     ]|
     with pkgname := <DomainPackage>
