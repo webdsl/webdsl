@@ -23,6 +23,7 @@ TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/ac/*.app) \
   $(wildcard succeed-web/manual/*.app) \
   $(wildcard succeed-web/manual/ajax-form-validation/*.app)
+  $(wildcard succeed-web/manual/tutorial-splash/v1/*.app)
 
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)
