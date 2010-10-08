@@ -1,11 +1,10 @@
 module separation/desugar
 
 imports
-  nwl read check emit
+  nwl read check emit java-project util
   include/nwl
   separation/-
   lib/track
-  java-project
 
 strategies
 	
@@ -17,16 +16,15 @@ strategies
   dynamic-rule-resolver: (rulename, key) -> (rulename, key)
      where RuleResolvingEnabled
         ; defs := <RuleProvider /*<+ debug(!"No rule providers for: "); fail*/> (rulename, key)
-     with   <debug(!"Got rule:" )> (rulename, key)
-          ; <debug(!"Providers: ")> defs
-          ; not-loaded := <filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod))> defs
-          ; if [] := not-loaded then
-                <debug> "All defs loaded"
-            else
-                <debug(!"Loading defs: ")> not-loaded;
-                map(load-cached-def);
-                rules(DesugarApplied := True()) // something changed, need new desugar phase
-            end
+     with   
+          not-loaded := <filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod))> defs
+        ; if not([] := not-loaded) then
+            <verbose-msg> ["Got rule: ", (rulename, key)];
+            <verbose-msg> ["Providers: ", defs];
+            <verbose-msg> ["Loading defs: ", not-loaded];
+            <map(load-cached-def)> not-loaded;
+            rules(DesugarApplied := True()) // something changed, need new desugar phase
+          end
   
   ignore-dr-tracking =
       ?"RuleResolvingEnabled"
@@ -110,8 +108,9 @@ strategies
     all-keys-DesugarRulesCreated;
     mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
     uniq;
-    // where(pp-aterm; debug(!"All created rules: "));
-    filter(\key -> (key, <RuleUser; filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod))> key)\);
-    where(pp-aterm; debug(!"Dependent: "));
-    map(\(rulekey, defkey) -> <map(load-cached-def)> defkey \)
+    // term: list of dr-keys that were created
+    filter(\key -> (key, <RuleUser; filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)); not(?[])> key)\);
+    // term: list of (dr-key, list-of-users)
+    where(map({?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key]}));
+    map(\(rulekey, defkeys) -> <map(load-cached-def)> defkeys \)
   )
