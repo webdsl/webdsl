@@ -36,6 +36,10 @@ function checkFiles($title, $data, $files) {
 	}
 }
 
+// Fresh start
+exec("./clear");  
+compile("main");
+
 // Test 1: if entity Entry changed, its view page must also be recompiled
 $data = compile("data");
 checkFiles("Test:data", $data, array("Entry", "view_Entry", "login"));

@@ -9,4 +9,4 @@ nwljava/nwljava.class: $(ALL_STR)
 	ecj -1.5 -cp `which strategoxt.jar` nwljava/nwljava.java
 
 nwlj: nwljava/nwljava.class
-	touch nwl
+	touch nwlj
