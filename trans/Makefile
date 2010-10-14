@@ -5,7 +5,8 @@ nwl: $(ALL_STR)
 
 nwljava/nwljava.class: $(ALL_STR)
 	strj -i compiler.str -o nwljava -I .. -m main-nwl-compiler -la stratego-sglr -la stratego-gpp -la stratego-aterm
-	javac -cp `which strategoxt.jar` nwljava/nwljava.java
+	#javac -cp `which strategoxt.jar` nwljava/nwljava.java
+	ecj -1.5 -cp `which strategoxt.jar` nwljava/nwljava.java
 
 nwlj: nwljava/nwljava.class
 	touch nwl

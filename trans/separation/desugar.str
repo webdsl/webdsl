@@ -15,17 +15,17 @@ strategies
   
   load-desugar-rules =
     // Load desugar dependencies
-    if (defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
-        <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
-      //; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
-      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ key -> def)>\)> defvals* \)> created-rules
-      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))>\)> defvals* \)> created-rules
-      ; <load-new-files> defs
+    if (all-defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
+      <map(\(key, defs) -> <rules(RuleUsers : key -> defs)> defs\)> used-rules;
+      <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ key -> def)>\)> defvals* \)> created-rules;
+      <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))>\)> defvals* \)> created-rules;
+      <load-new-files> all-defs;
+      rules(PreviousAllDefs := all-defs)
     else
-        <debug> "Cannot load dr rules!";
-        load-cached-files
+      <debug> "Cannot load dr rules!";
+      load-cached-files
     end
-  
+    
   dynamic-rule-resolver: (rulename, key) -> (rulename, key)
      where RuleResolvingEnabled
         ; defs := <bagof-RuleProvider <+ debug(!"No rule providers for: "); fail> (rulename, key)
@@ -41,12 +41,14 @@ strategies
   
   load-rules-for-def: defkey -> defkey
     with  ruleset := <bagof-RuleVals> defkey;
+          disable-dr-usage-tracking;
           load-flat-dynamic-rule-closure;
+          enable-dr-usage-tracking;
           rules(DefinitionLoaded : defkey) 
             
   ignore-dr-tracking =
       ?"RuleResolvingEnabled"
-   <+ ?"RuleUser"
+   <+ ?"RuleUsers"
    <+ ?"RuleProvider"
    <+ ?"Definition"
    <+ ?"DefinitionLoaded"
@@ -63,66 +65,55 @@ strategies
     map(load-cached-file)
     
   save-desugar-rules =
-      where(
-        // save desugar rules
-          all-keys-DesugarRulesUsed
-          // Def to rules
-        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-CreatedRules; concat; uniq>, <bagof-GeneratedFiles>))
-        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr.aterm", <id>)
-         // Rules to def
-        ; all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            map({def:
-                 ?def
-               ; bagof-DesugarRulesUsed; concat
-               ; map({rulekey:
-                   ?rulekey;
-                     rules(RuleToDef :+ rulekey -> def )
-                 })
+      // Purge old rule-usage info
+        all-keys-RuleUsers
+      ; map({defs: \key -> <RuleUsers; filter(not(DefinitionLoaded); {?def; rules(TempRule :+ key -> def)})> \})
+      // Add new rule-usage info
+      ; all-keys-DesugarRulesUsed
+      ; map({def: 
+            ?def
+          ; bagof-DesugarRulesUsed    // list of list of dr keys
+          ; concat                    // list of dr keys
+          ; map({key:
+              ?key
+            ; rules(TempRule :+ key -> def)
             })
-          ; all-keys-RuleToDef
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; !(rulekey, <id>)
+        })
+      ; all-keys-TempRule
+      ; map({defs: \key -> <bagof-TempRule; ?defs; rules(RuleUsers : key -> defs)>\})
+      // Purge old rule-creation info
+      ; all-keys-RuleVals
+      ; filter(\def -> <rules(RuleVals :- def)> where DefinitionLoaded \)
+      // Add new rule-creation info
+      ; all-keys-CreatedRules
+      ; map({def:
+            ?def
+          ; bagof-CreatedRules
+          ; concat
+          ; map({rulename:
+                ?(rulename, <id>)
+              ; map({rulekey, vals, drkey:
+                	?(rulekey,vals)
+                ; drkey := (rulename, rulekey)    // workaround StrategoXT/843
+                ; rules(RuleVals :+ drkey -> (def, vals))
+                })
             })
-          ; ?used-rule-to-def
-          |}
-        ; all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            filter({def:
-                 ?def
-               ; bagof-CreatedRules; concat
-               ; map({name,keyvals:
-                 	?(name,keyvals);
-                 	!keyvals;
-                 	map({key,vals:
-                 		?(key,vals);
-                 		rules(RuleToDef :+ (name,key) -> (def, vals))
-                  })
-                 })
-            })
-          ; all-keys-RuleToDef
-          ; remove-dr-dummies
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; !(rulekey, <id>)
-            })
-          ; ?created-rule-to-def
-          |}
-        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (<all-keys-DesugarRulesUsed>, used-rule-to-def, created-rule-to-def))
-      )
+        })
+        // And save...
+        // TODO: filter deleted mods
+      ; all-defs := <concat; uniq> [<all-keys-DesugarRulesUsed>, <PreviousAllDefs <+ ![]>] // new and old
+      // Rule -> defs
+      ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
+      ; creates := <all-keys-RuleVals; map(\key -> (key, <bagof-RuleVals>) \)>
+      ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (all-defs, uses, creates))
 
   desugar-check-dependencies = with(
     all-keys-DesugarRulesCreated;
     mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
     uniq;
     // term: list of dr-keys that were created
-    filter(\key -> (key, <RuleUser; filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)); not(?[])> key)\);
+    filter(\key -> (key, <RuleUsers; filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)); not(?[]); uniq> key)\);
     // term: list of (dr-key, list-of-users)
-    where(map({?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key]}));
+    where(map({?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", <CurrentDefinitionKey>]}));
     map(\(rulekey, defkeys) -> <map(load-cached-def)> defkeys \)
   )

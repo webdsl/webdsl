@@ -6,12 +6,13 @@ imports
 strategies  
   
   is-ignored-rule = ?"DR_BREAK" <+ ?"DR_EXCEPTION"
-  record-dr-internals = !["RecordDR_ExistingRules","RecordDR_NewRuleSets"]
+  record-dr-internals = !["RecordDR_Enabled", "RecordDR_ExistingRules","RecordDR_NewRuleSets"]
   is-record-dr-internal = ?x; where(<fetch-elem(?x)> (<record-dr-internals>))
 
   start-record-dynamic-rules =
     where(
         <map(dr-begin-scope(|<id>))> (<record-dr-internals>)
+      ; rules(RecordDR_Enabled := 1)
       ; all-dynamic-rules; remove-all(is-record-dr-internal <+ is-ignored-rule)
       ; string-sort; ?rulenames   //sort for easy debugging (compare)
       ; rules(RecordDR_ExistingRules := rulenames)
@@ -29,6 +30,8 @@ strategies
       ; <map(dr-end-scope(|<id>))> (<record-dr-internals>)  // cleanup
     )
     ; !recorded
+      
+  is-record-dynamic-rules-enabled = RecordDR_Enabled => 1
  
   all-dynamic-rules = <hashtable-keys> Hashtable(<dr-rule-sets-hashtable>) 
   
@@ -80,12 +83,22 @@ strategies
   load-dynamic-rule-closure: rulelist -> <map(load-dynamic-rule)> rulelist
   
   load-dynamic-rule: (name, keyvals) -> <id>
-    with  dr-get-rule-set(|name);
+    with  dr-get-rule-set(|name) => ruleset;
+          if is-record-dynamic-rules-enabled then
+            // First scope has tracking enabled; put in second scope
+            if length => 1 then
+              // No scopes before recording. Have to create a new scope behind the current
+              dr-new-scope => newscope;
+              <concat> [ruleset, [newscope]];
+              dr-set-rule-set(|name)
+            end;
+            ?[_ | <id>]
+          end;
           if ?[RuleScope(lbl, table) | xs] then
             <map(\(key, vals) -> <map(\val -> <hashtable-push(|key, val)> table\)> vals\)> keyvals
           else
-            ?[ChangeSet(lbls, rmset, table) | xs];
             // find rule scope
+            ?[ChangeSet(lbls, rmset, table) | xs];
             <fetch-elem(?RuleScope(_, tbl@Hashtable(scopeid)))> xs;
             <map(\(key, vals) -> <map(\val -> <hashtable-push(|(scopeid,key), val)> table\)> vals\)> keyvals
           end
@@ -156,3 +169,24 @@ rules // Callback on dynamic rule lookup
   dynamic-rule-resolver = fail
   
   is-used-dr = fail
+  
+rules // Track rule creation
+  
+  /*
+  override dr-set-rule(|name, key, val) =
+    mark-rule-creation(|name, key, val);
+    proceed
+    
+  override dr-add-rule(|name, key, val) =
+    mark-rule-creation(|name, key, val);
+    proceed
+    
+  ignore-dr-tracking = ?"DynamicRulesCreated"
+    
+  mark-rule-creation(|name, key, val) =
+    where(try(
+          is-dr-usage-tracking-enabled
+        ; <is-used-dr; not(ignore-dr-tracking)> name
+        ; rules(DynamicRulesCreated :+ (name,key) -> val)
+      ))
+  */
