@@ -2,7 +2,7 @@ module compiler
 
 imports include/nwl read check rename desugar java-project
 imports libstrategolib libstratego-sglr libstratego-gpp libstratego-xtc
-imports lib/editor-common.generated lib/track separation/dependencies
+imports lib/editor-common.generated lib/track separation/dependencies lib/dependencies
 
 signature constructors
   At : Term * Term * Term -> Term
@@ -38,17 +38,21 @@ rules
           FullPath := fullpath        // Absolute path to file
           ProjectDir := project-path  // Absolute path to project
     );
-    ast := <my-parse-file> filename;
-    <module-to-toplevel-defs> ast;
+    <load-modified-modules> filename;
     transform-defs(topdown(remove-position-anno));
-    old-sig := <read-signature <+ ![]> fullpath;
     declare-all;
-    // TODO: typecheck dependent files
     rename-top;
+    
+    typecheck-dependencies-file;
+    load-dependency-data;
+    find-dependent-modules;
+    
+    // TODO: load and check deps
     get-toplevel-defs => ast2;
     errors   := <collect-tracked(check)> ast2;
     warnings := <collect-tracked(constraint-warning)> ast2;
-    store-typecheck-deps(|old-sig);
+    store-used-rules;
+    update-typecheck-dependencies;
     if not([] := errors) then
       <debug> "Errors found: ";
       <map(debug)> errors;
@@ -57,29 +61,18 @@ rules
     desugar-all;
     nwl-to-java-project;
     <exit> 0  // don't output current term
-    
-  store-typecheck-deps(|old-sig) =
-    all-keys-ModuleToDefs;
-    map( {
-        where(bagof-ModuleToDef => defkeys);
-        ModuleFullpath => fullpath;
-        <map(bagof-CreatedRules;concat);concat> defkeys;
-        ?ruleset;
-        //<debug(!"Rules created: ")> (fullpath, ruleset);
-        rules(RulesCreated : mod -> ruleset)
-      }
-    );
-    // Copy the rules we've used
-    all-keys-ModuleToDefs;
-    map( {
-        where(bagof-ModuleToDef => defkeys);
-        ModuleFullpath => fullpath;
-        <map(bagof-DesugarRulesUsed;concat);concat> defkeys;
+  
+  store-used-rules =
+    // Load previous rules
+    all-keys-ModuleLoaded;
+    filter( {fullpath,ruleset:
+        where(ModuleFullpath => fullpath);
+        bagof-ModuleToDef;
+        mapconcat(bagof-DesugarRulesUsed;concat);
         ?ruleset;
         rules(RulesUsedBy : fullpath -> ruleset)
       }
-    );
-    update-typecheck-dependencies(|old-sig)
+    )
     
   path-to-cache-path: x -> y
     with  cachedir := <file-exists <+ mkdir> $[[<ProjectDir>]/.nwl-cache];

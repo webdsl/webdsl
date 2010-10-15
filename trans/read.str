@@ -21,6 +21,7 @@ rules
   map-defs(s) =
     all-keys-Definition;
     filter(where(Definition)); // skip deleted
+    // TODO: fix scoping
     map(//{| CurrentDefinitionKey: 
       {def:
         \key -> <rules(CurrentDefinitionKey := key); Definition; s> key \}
@@ -48,17 +49,6 @@ rules
 
 rules
   
-  module-to-toplevel-defs: mod@Module(name, body) -> defs
-    with  FullPath => fullpath;
-          name' := <strip-annos> name;
-          rules(
-            ModuleName := name'
-            ModuleFullpath : name' -> fullpath
-            Imported : name'
-          );
-          <load-imports; store-module> mod;
-          get-toplevel-defs => defs
-          
   store-module: mod@Module(name, body) -> mod
     with  body2 := <body-to-toplevel-defs> body;
           name' := <strip-annos> name;
@@ -87,9 +77,6 @@ rules
             ModuleToDef :+ modname -> key 
           )
   
- // def-to-key: (modname, constructor#(_)) -> x
- //   with x := (modname, <concat-strings> (<origin-line;int-to-string> z)
-  
   key-to-string: (modname, key) -> $[[modname]_[key]]
   
   def-to-key: (modname, cons#(_)) -> (modname, cons)
@@ -110,15 +97,7 @@ rules
   parse-import: Import(modname) -> []
     with  rules(Imported : modname);
           filename := <modname-to-filename> modname;
-          <parse-file-with-cache> filename;
-          rules(
-            ModulesIncluded :+= modname
-            ModuleFullpath : modname -> filename
-          );
-          if not(?"cached") then
-            load-imports;
-            store-module
-          end
+          <parse-file-try-cache> filename
   
   modname-to-filename: modname -> filename
     with  (
@@ -130,24 +109,52 @@ rules
   trim-initial-dotslash =
     try(<split-after> (<id>, "./"); Snd)
   
-  parse-file-with-cache: filename -> content
-    with  cache := <path-to-cache-path> filename;  
-      if <file-exists> cache; <is-newer> (cache, filename); (imports, defrules) := <ReadFromFile> cache then
-        // Read rule signature
-        <debug(!"using cache for: ")> filename;
-        <load-dynamic-rule-closure> defrules;
-        <map(parse-import)> imports;
-        rules(CachedFiles :+= filename);
-        content := "cached"
-      else
-        <debug(!"Parsing: ")> filename; 
-        content := <my-parse-file> filename;
-        ?Module(modname, _)
-      end
-      
-  read-signature: fullpath -> sig
-    with  cachepath := <path-to-cache-path> fullpath
-    where (imports, sig) := <file-exists; ReadFromFile> cachepath
+  load-modified-modules: filename -> filename
+    with <parse-file-try-cache> filename  
+    
+  // Three cases:
+  // 1. Cache absent:   store [] as usage, return ast
+  // 2. Cache outdated; store cached as usage, return ast
+  // 3. Cache uptodate; don't store usage, return "cached" 
+  
+  parse-file-try-cache: filename -> content
+    with  cache := <path-to-cache-path> filename;
+          if (content, cached-content) := <parse-file-with-cache(|cache)> filename then
+            id
+          else 
+            content := <parse-file-without-cache(|cache)> filename;
+            rules(OldSignature : filename -> [])
+          end;
+          <?Module(<strip-annos; ?modname>, defs)> content;
+          rules(
+            ModulesIncluded :+= modname
+            ModuleFullpath : modname -> filename
+          );
+          <load-imports; store-module> content
+  
+    parse-file-with-cache(|cache): filename -> (content, cached-content)
+    where <file-exists> cache;
+          (modname, imports, defrules) := <ReadFromFile> cache
+    with  cached-content := defrules;
+          if <is-newer> (cache, filename)  then
+            // Read rule signature
+            <debug(!"Using cache: ")> filename;
+            <load-dynamic-rule-closure> defrules;
+            <map(parse-import)> imports;
+            rules(CachedFiles :+= filename);
+            rules(CachedModule : modname);
+            content := Module(modname, [])
+          else
+            // Outdated cache
+            content := <parse-file-without-cache(|cache)> filename;
+            rules(OldSignature : filename -> cached-content)
+          end
+            
+  parse-file-without-cache(|cache): filename -> content
+    with  <debug(!"Parsing: ")> filename; 
+          content := <my-parse-file> filename;
+          ?Module(<strip-annos; ?modname>, _);
+          rules(ModuleLoaded : modname)
      
   load-cached-files =
     bagof-CachedFiles;
