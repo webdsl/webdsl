@@ -1,5 +1,10 @@
 module ui
 
+  define no-span t(){
+    <table>
+      elements()
+    </table>
+  }
   define no-span r(){
     <tr>
       elements()
@@ -22,7 +27,9 @@ module ui
       }
       label("Slots:"){
         for(slot : Slot in e.slots) {
-          input(slot.time)
+          input(slot.time){
+            validate(slot.time.length() > 0, "time slot description required")
+          }
           <br />
         } //separated-by{ <br /> }
       }
@@ -49,13 +56,13 @@ module ui
       }
       <br />
       label("Slots:"){
-        <table>
-        for(slot : Slot in e.event.slots) {
-          r{
-            pickOption(up,slot)
+        t{
+          for(slot : Slot in e.event.slots) {
+            r{
+              pickOption(up,slot)
+            }
           }
         }
-        </table>
       }
       submit action{ e.event.userPrefs.add(up); return participants(e.event); } { "save preference" }
     }
@@ -81,7 +88,7 @@ module ui
     <br />
     output(e.description)
     <br />
-    <table>
+    t{
       r{
         c{}//empty column above user names
         for(s:Slot in e.slots){
@@ -98,7 +105,7 @@ module ui
           }
         }
       }
-    </table>
+    }
   }
 
   define page participants(e:Event){

@@ -11,9 +11,6 @@ module invite
     }
 
     action save(){
-      for(slot:Slot in e.slots){
-        validate(slot.time.length()>0,"you must specify a time description for each slot");
-      }
       e.aLink := ALink{};
       e.pLink := PLink{};
       //different from v2

@@ -4,6 +4,17 @@ application versiontwo
   imports lib
   imports ui
 
+  define showAllEvents(){
+    <br />
+    <br />
+    "All events: "
+    <br />
+    for(e:Event){
+      showEvent(e)
+      <br />
+    }
+  }
+
   define page root(){
     form{
       submitlink action{
@@ -12,12 +23,7 @@ application versiontwo
         return new(e);
       } { "Create new event" }
     }
-
-
-    for(e:Event){
-      showEvent(e)
-    } separated-by{ <br />  }
-
+    showAllEvents()
   }
 
   define page new(e:Event){
@@ -27,10 +33,6 @@ application versiontwo
     }
 
     action save(){
-      validate(e.name.length()>0,"name required");
-      for(slot:Slot in e.slots){
-        validate(slot.time.length()>0,"you must specify a time description for each slot");
-      }
       e.aLink := ALink{};
       e.pLink := PLink{};
       return completed(e);
