@@ -1,0 +1,144 @@
+module org/webdsl/dsl/transformation/separate-desugar
+
+imports 
+  libstrategolib 
+  libwebdsl-front
+  org/webdsl/dsl/separation/-
+  org/webdsl/dsl/transformation/-
+
+rules
+  
+  with-rule-resolving(s) = {| RuleResolvingEnabled:
+    rules(RuleResolvingEnabled := 1);
+    s
+  |}
+  
+  load-desugar-rules =
+    // Load desugar dependencies
+    if (defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
+        <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
+      //; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
+      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ key -> def)>\)> defvals* \)> created-rules
+      ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))>\)> defvals* \)> created-rules
+      //; <load-new-files> defs
+    else
+        <debug> "Cannot load dr rules!";
+        load-all-definitions
+    end
+  
+  is-emitted-def = ?At(<string-starts-with(|"(gen)")>, _, _)
+  
+  dynamic-rule-resolver: (rulename, key) -> (rulename, key)
+     where RuleResolvingEnabled
+        ; defs := <bagof-RuleProvider <+ debug(!"No rule providers for: "); fail> (rulename, key)
+     with   
+          not-loaded := <filter(where(not(DefinitionLoaded); not(is-emitted-def)))> defs
+        ; if not([] := not-loaded) then
+            <verbose-msg> ["Got rule: ", (rulename, key)];
+            <verbose-msg> ["Providers: ", defs];
+            <verbose-msg> ["Loading defs: ", not-loaded];
+            <map(load-rules-for-def)> not-loaded;
+            rules(InnermostApplied := True()) // something changed, need new desugar phase
+          end
+  
+  load-rules-for-def: defkey -> defkey
+    with  ruleset := <bagof-RuleVals> defkey;
+          load-flat-dynamic-rule-closure;
+          rules(DefinitionLoaded : defkey) 
+            
+  ignore-dr-tracking =
+      ?"RuleResolvingEnabled"
+   <+ ?"RuleUser"
+   <+ ?"RuleProvider"
+   <+ ?"Definition"
+   <+ ?"DefinitionLoaded"
+   <+ ?"CurrentDefinitionKey"
+   <+ ?"MemoOpenParseTable"     // whole parse table!
+   
+   ignore-dr-tracking = 
+       ?"TopLevelDefinitions"
+    <+ ?"ProcedureEntities"
+    <+ ?"DoneOnce"
+    <+ ?"InTypeCheckingPhase"
+    <+ ?"InPage"
+    <+ ?"InnermostNormalForm"
+    <+ ?"DesugarInDefineContextApplied"
+    <+ ?"InTemplate"
+    <+ ?"InnermostApplied"
+    <+ ?"AddWebDSLDefs"
+  
+  // Load files for which we don't have a cache
+  /*
+  load-new-files: olddefs -> olddefs
+  with
+    oldmods := <map(def-key-to-file)> olddefs;
+    all-keys-ModuleToDefs;
+    filter(\x -> x where not(<fetch(?x)> oldmods)\);
+    try(not(?[]); debug(!"No rule dependencies found for: "));
+    map(load-unmodified-def-with-rename)
+  */
+    
+  save-desugar-rules =
+      where(
+        // save desugar rules
+          all-keys-DesugarRulesUsed
+          // Def to rules
+        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-CreatedRules; concat; uniq>))
+        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr.aterm", <id>)
+         // Rules to def
+        ; all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            map({def:
+                 ?def
+               ; bagof-DesugarRulesUsed; concat
+               ; map({rulekey:
+                   ?rulekey;
+                     rules(RuleToDef :+ rulekey -> def )
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             ; !(rulekey, <id>)
+            })
+          ; ?used-rule-to-def
+          |}
+        ; all-keys-DesugarRulesUsed
+        ; {| RuleToDef:
+            filter({def:
+                 ?def
+               ; bagof-CreatedRules; concat
+               ; map({name,keyvals:
+                  ?(name,keyvals);
+                  !keyvals;
+                  map({key,vals:
+                    ?(key,vals);
+                    rules(RuleToDef :+ (name,key) -> (def, vals))
+                  })
+                 })
+            })
+          ; all-keys-RuleToDef
+          ; remove-dr-dummies
+          ; filter({rulekey:
+               ?rulekey
+             ; bagof-RuleToDef
+             ; uniq
+             ; !(rulekey, <id>)
+            })
+          ; ?created-rule-to-def
+          |}
+        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (<all-keys-DesugarRulesUsed>, used-rule-to-def, created-rule-to-def))
+      )
+
+  desugar-check-dependencies = with(
+    all-keys-DesugarRulesCreated;
+    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
+    uniq;
+    // term: list of dr-keys that were created
+    filter(\key -> (key, <RuleUser; filter(not(DefinitionLoaded)); not(?[])> key)\);
+    // term: list of (dr-key, list-of-users)
+    where(map({?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key]}))
+    //map(\(rulekey, defkeys) -> <map(load-cached-def)> defkeys \)
+  )

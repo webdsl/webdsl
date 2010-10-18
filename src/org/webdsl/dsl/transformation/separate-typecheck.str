@@ -1,16 +1,48 @@
-module org/webdsl/dsl/separation/typecheck
+module org/webdsl/dsl/transformation/separate-typecheck
 
 imports 
   libstrategolib 
   libwebdsl-front
-
-imports
   org/webdsl/dsl/separation/-
-  org/webdsl/dsl/typechecker/-
   org/webdsl/dsl/transformation/-
-  libwebdsl-front
 
 rules
+  
+  load-dependent-modules =
+      all-keys-UnmodifiedFile
+    ; length => 0
+    ; <verbose-msg> ["Clean compile detected: skipping change detection"]
+    ; with(
+          all-keys-UnmodifiedDef
+        ; filter(load-unmodified-def) // skip over already loaded
+      )
+      
+  load-dependent-modules =
+      all-keys-TopLevelDefinitions
+    ; length => 0
+    ; <verbose-msg> ["No modified files: skipping change detection"]    
+      
+  load-dependent-modules =
+  	    // all rules created by the loaded defs
+        all-keys-CreatedRules
+      ; debug(!"Keys of created: ")
+      ; mapconcat(bagof-CreatedRules;concat)
+      ; debug(!"All rules created: ")
+      ; ?created-rules
+      ; all-keys-CachedVersion
+      ; debug(!"Have cached versions of: ")
+      ; mapconcat(CachedVersion; mapconcat(\(key,def,ruleset) -> ruleset \))
+      ; debug(!"Cached ruleset: ")
+      ; ?prev-created-rules
+      ; find-dependent-modules(get-all-used-rules | created-rules, prev-created-rules, <all-keys-ModuleToDefs>)
+    
+  get-all-used-rules: mod -> ruleset
+    where defs := <ModuleToDefs> mod
+    with  ruleset := <mapconcat(bagof-DesugarRulesUsed; concat)> defs
+      
+  update-typecheck-deps =
+      <path-to-cache-path> "$typecheck-deps"
+    ; update-dependency-graph(get-all-used-rules | <all-keys-ModuleToDefs>)
   
   /*
   all-used-drs = !<import-term(webdsl-typechecker-rules.aterm)>
@@ -24,20 +56,22 @@ rules
   is-used-dr = id     // TODO: fix
   
   update-parse-cache = with(
-      all-keys-TopLevelDefinitions    // all toplevel definitions have that been checked
-    //; filter(where(RenameRules))      // builtins are not renamed, and don't need to be stored
-    ; map(def-key-to-file)
-    ; uniq
-    ; filter(save-parse-cache-file)
-      // save files without definitions
-    ; bagof-EmptyModules
+      all-keys-ModuleToDefs
     ; map(save-parse-cache-file)
   )
   
+  // Assume either all or no definitions of a file have been checked
+  save-parse-cache-file: path -> path
+    with  cachepath := <path-to-cache-path> path
+        ; <ModuleToDefs> path
+        ; map(\def -> (def, <TopLevelDefinitions> def, <CreatedRules> def)\)
+        ; <WriteToBinaryFile> (cachepath,(<get-webdsl-version>, <id>))
+        
+  /*
   // TODO: this may be more efficient when interleaved with the next step (loading parse cache for unmodified files)
   save-parse-cache-file: path -> path
     with  cachepath := <path-to-cache-path> path
-        ; def-names := <all-keys-TopLevelDefinitions; filter(where(def-key-to-file; ?path);where(TopLevelDefinitions) /*might be removed*/)>
+        ; def-names := <all-keys-TopLevelDefinitions; filter(where(def-key-to-file; ?path);where(TopLevelDefinitions) //might be removed)>
         ; new-content := <map(\key -> (key, <TopLevelDefinitions; remove-position-annos>, <RenameRules <+ ![]> key)\)> def-names
         ; prev-names := <all-keys-UnmodifiedDef; filter(not(TopLevelDefinitions)); filter(where(def-key-to-file; ?path))>
         ; old-content := <map(\key -> (key, <UnmodifiedDef>, <UnmodifiedDefRules>) \)> prev-names
@@ -50,7 +84,7 @@ rules
           |}
         ; ?merged-content
         ; <WriteToBinaryFile> (cachepath,(<get-webdsl-version>, merged-content))
-          
+
   load-dependency-data =
       log-time(<file-exists; ReadFromFile> (<dep-path>) | "read dep file") => (appname, data)
     //; print-total-log-time
@@ -60,6 +94,7 @@ rules
     ; filter({
           ?(key, declared-rules, used-rules)
         ; if <is-unmodified-def> key then
+            id
             rules(
               DeclaredRules : key -> declared-rules
               RulesUsedBy : key -> used-rules
@@ -80,3 +115,4 @@ rules
 	    ; data := (<QualifiedAppName>, <id>)
 	    ; <log-time(WriteToBinaryFile | "write dep file")> (<concat-strings> [<DirName>, "/.webdsl.compiler.deps"], data) 
 	  )
+	*/

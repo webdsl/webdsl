@@ -21,13 +21,11 @@ strategies
   dep-path = <concat-strings> [<DirName>, "/.webdsl.compiler.deps"]
 
   typecheck =
-  	 // Load cached data (file may not exist)
-  	  try(load-dependency-data)
   	// Typecheck modified data (updates dependency data)
-    ; in-typechecking-phase(
+    in-typechecking-phase(
         typecheck-init
       ; log-time(typecheck-declare | "declare")
-      ; log-time(find-changed-rules | "compare dependencies")
+      ; log-time(load-dependent-modules | "find and load dependent modules")
       ; typechecker-after-declare
       ; log-time(typecheck-rename | "rename")
       ; if-typechecking(
@@ -35,7 +33,7 @@ strategies
               log-time(typecheck-constraints | "constraint-error" )
             // do not apply on Application, it would show the entire AST with the error at command line
             ; log-time(not(<constraint-error-global> "") | "constraint-error-global")
-            ; write-dependency-data
+            ; update-typecheck-deps
           )
         , 
           id)
@@ -46,7 +44,7 @@ strategies
 	 transform-defs(
 	   { key, ruleset:
 	     {| CreatedRules: 
-	         track-rules-with-creates(rename-top)
+	         track-rules-with-creates(rename-top | <CurrentDefinitionKey>)
 	       ; where(
 	           CurrentDefinitionKey => key
 	         ; CreatedRules => ruleset
@@ -122,23 +120,17 @@ strategies
   // Declare globally visible webdsl elements
   typecheck-declare =
   	  // Load dynamic rule sets for unmodified files
-   	  all-keys-DeclaredRules
+   	  all-keys-UnmodifiedDef
    	//; debug(!"All keys in DeclaredRules: ")
    	; remove-all(is-modified-def)
    	//; debug(!"Unmodified ones: ")
-   	; map(with(DeclaredRules; load-dynamic-rule-closure))
+   	; map(with(UnmodifiedDefRules; load-dynamic-rule-closure))
       // Declare modified files
     ; map-defs(
         {key, ruleset:
-          {| CreatedRules:
             with(
-                track-rules-with-creates(declare-all)
-              ; if DebugDesugarRules then
-                    CurrentDefinitionKey => key; CreatedRules => ruleset
-                  ; rules(DeclaredRules : key -> ruleset)
-                end
+                track-rules-with-creates(declare-all | <CurrentDefinitionKey>)
             )
-          |}
         }
      )
     

@@ -46,24 +46,28 @@ strategies
       )
     ; if <file-exists> path
       then
-        if not(<file-exists> cachepath) <+ <gt> (<modification-time> path, <modification-time> cachepath) 
-        then
-            parse-webdsl-file(|path,cachepath) //current term relevant
-        else
-           // if cache read fails for some reason, e.g. it contains an invalid term because 
-           // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
-           <ReadFromFile> cachepath
-          ; ?(version,contents)
-          ; <eq> (version, <get-webdsl-version>) // check out-of-date cache 
-          ; rules(UnmodifiedFile : file)
-          ; !contents
-        <+ parse-webdsl-file(|path,cachepath) //current term relevant
-        end
+      	<read-with-cache <+ read-without-cache> (file, path, cachepath)
       else
         <debug> "File does not exist: "
       ; <trim-initial-dots-slashes;debug> path
       ; <exit> 1
       end
+
+  read-with-cache: (file, path, cachepath) -> (real-contents, cache-contents)
+    where <file-exists> cachepath
+          // if cache read fails for some reason, e.g. it contains an invalid term because 
+          // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
+        ; (version, cache-contents) := <ReadFromFile> cachepath
+        ; <eq> (version, <get-webdsl-version>)
+        ; if <gt> (<modification-time> path, <modification-time> cachepath) then
+              (real-contents, _) := <read-without-cache> (file, path, cachepath)
+          else
+              rules(UnmodifiedFile : file)
+          	; real-contents := []
+          end
+
+  read-without-cache: (file, path, cachepath) -> (contents, [])
+    with contents := <parse-webdsl-file(|path,cachepath)> file
 
 	parse-webdsl-file(|path,cachepath) =
 	   with(tbl := <get-webdsl-parse-table>)

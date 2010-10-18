@@ -299,7 +299,7 @@ STRJFLAGS=-O 3 \
   -I org/webdsl/dsl/syntax/ \
   -D PACKAGE_VERSION_TERM=\"@PACKAGE_VERSION@\"
   
-JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn -g
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn -time
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
 JAVAS= \

@@ -3,95 +3,67 @@ module org/webdsl/dsl/separation/dependencies
 imports
   libwebdsl-front
 	org/webdsl/dsl/separation/-
-	org/webdsl/dsl/transformation/-
     
-strategies
+strategies  
   
-  store-current-rule(|defkey): (key, val) -> (key, val)
-    with  if <not(is-unmodified-def)> defkey then
-              rules(NewRule :+ key -> val)
-          end
-          
-  store-old-rule(|defkey) =
-      ?(key, val); rules(OldRule :+ key -> val) 
-  
-  find-changed-rules =
-      all-keys-UnmodifiedFile
-    ; length => 0
-    ; <verbose-msg> ["Clean compile detected: skipping change detection"]
-    ; with(
-          all-keys-DeclaredRules
-        ; filter(load-unmodified-def) // skip over already loaded
-      )
+  // TODO: when are module keys deleted from the dep file ?
+
+rules     // externals
+
+  update-dependency-graph(used-data | used-keys): filename -> filename
+    with
+      old-data := <file-exists; ReadFromFile <+ ![]> filename
+    ; filter({
+        ?(fullpath, usedrules);
+        rules(PreviouslyUsedRules : fullpath -> usedrules)
+      })
+    ; if dependencies-unchanged(used-data | used-keys) then
+          <debug> "No dependencies changed."
+          // TODO: touch dep file (no stratego strategy for touching files?)
+      else
+          // store changed data
+          x1* := <map(\fullpath -> (fullpath, <used-data> fullpath)\)> used-keys;
+          // store unchanged data
+          x2* := <all-keys-PreviouslyUsedRules; filter(\fullpath -> (fullpath, <PreviouslyUsedRules>) where not(<used-data> fullpath)\)>;
+          x* := [x1*,x2*];
+          <WriteToBinaryFile> (filename, x*)
+      end
       
-  find-changed-rules =
-      all-keys-TopLevelDefinitions
-    ; length => 0
-    ; <verbose-msg> ["No modified files: skipping change detection"]   	
+  find-dependent-modules(used-rules | created-rules, prev-created-rules, all-mods) =
+      changed := <create-change-set> (created-rules, prev-created-rules)
+    ; <filter(has-rule-use(used-rules | changed))> all-mods
   
-  find-changed-rules =
-    {| NewRule, OldRule:
-      // Newly declared rules
-      all-keys-DeclaredRules
-    ; map({key: ?key; DeclaredRules; rules-as-key-val-pairs(store-current-rule(|key))})
-      // Cached rules of modified/deleted defs
-    ; all-keys-PreviouslyDeclaredRules
-    ; map({key: ?key; PreviouslyDeclaredRules; rules-as-key-val-pairs(store-old-rule(|key))})
-      // Now compare the states
-    ; create-change-set => changeset
-   |}
-    /*
-        
-  find-changed-rules =
-      map-defs({key:
-        CurrentDefinitionKey => key
-      ; <create-change-set> (<DeclaredRules>, <PreviouslyDeclaredRules <+ !key; debug(!"NO PREV DECLARE RULES FOR: "); ![]>)
-       }
-      )
-    ; concat => changeset
-   */
-    ; where(pp-aterm; debug(!"Changeset: "))
-    //; try(not(?[]); <verbose-msg> ["Changeset is: ", <id>])
-    ; all-keys-DeclaredRules
-    ; filter( {key:
-          ?key
-        ; is-unmodified-def  // is in unmodified file 
-        ; with(
-		        RulesUsedBy
-		      ; <isect> (<id>, changeset)
-		      ; (?[] <+ where(debug(!"Isect is: ")); <debug(!"... loading def: "); try(load-unmodified-def)> key)
-		     )
-	     }
-      )
-
-  create-change-set: _ -> all-changes
-    with      // changed rules
-              // (enumerate over OldRule: first compilation, there will be none)
-              all-keys-OldRule; remove-dr-dummies
-            ; filter({key: ?key; where(<not(eq); !(key, <id>); debug(!"Diff: ")> (<bagof-NewRule>, <bagof-OldRule>)) })
-            ; ?changed
-            //; try(?[]; debug(!"Rules changed: "))
-              // new rules
-            ; all-keys-NewRule; remove-dr-dummies
-            ; filter(where(not(OldRule)))
-            ; ?added
-            //; try(not(?[]); debug(!"Rules added: "))
-              // removed rules
-            ; all-keys-OldRule; remove-dr-dummies
-            ; filter(where(not(NewRule)))
-            ; ?removed
-            //; try(not(?[]); debug(!"Rules removed: "))
-            ; all-changes := <concat;uniq> [changed, added, removed]
-        //; debug(!"All changes: ")
-
-/*
+  cleanup-dependency-rules =
+    with(all-keys-PreviouslyUsedRules; map(\x -> <rules(PreviouslyUsedRules :- x)>\))
+      
+rules     // internals
+      
+  // Overwrite unchanged dependencies for now; we don't have a way to touch the timestamp of the dependencies file
+  dependencies-unchanged(used-data|used-keys) = fail
+  // dependencies-unchanged(used-data|used-keys) = <map(<eq> (<PreviouslyUsedRules>, <used-data>))> used-keys
+  
+ // If we have no caching information, check the file
+  has-rule-use(rules-used | ruleset): mod -> mod
+    where not(rules-used <+ PreviouslyUsedRules)
+    
+  has-rule-use(rules-used | ruleset): mod -> mod
+    with  uses := <rules-used <+ PreviouslyUsedRules> mod
+          // find common rule usage
+        ; common1* := <isect> (ruleset, uses)
+          // find all-keys- usage
+        ; common2* := <isect> (<map(Fst);uniq> ruleset, <filter(?(_,DR_DUMMY()); Fst);uniq> uses)
+        ; common* := [common1*,common2*]
+    where not([] := common*)
+        ; !mod; debug(!".. have to re-analyze mod: ")
+        ; !common*; debug(!".. common rules: ")
+  
   create-change-set: (new, old) -> all-changes
     with   {| NewRule, OldRule: 
               <rules-as-key-val-pairs(\(key,val) -> <rules(NewRule :+ key -> val)>\)> new
             ; <rules-as-key-val-pairs(\(key,val) -> <rules(OldRule :+ key -> val)>\)> old
               // changed rules
             ; all-keys-NewRule; remove-dr-dummies
-            ; filter({key: ?key; where(<not(eq); !(key, <id>); debug(!"Diff: ")> (<bagof-NewRule>, <bagof-OldRule>)) })
+            ; filter(where(<not(eq)> (<bagof-NewRule>, <bagof-OldRule>)))
             ; ?changed
             //; try(?[]; debug(!"Rules changed: "))
               // new rules
@@ -107,4 +79,3 @@ strategies
            |}
         ; all-changes := <concat;uniq> [changed, added, removed]
         //; debug(!"All changes: ")
-*/

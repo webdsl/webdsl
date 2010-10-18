@@ -1,0 +1,41 @@
+module org/webdsl/dsl/separation/track
+
+imports
+  org/webdsl/dsl/separation/dr
+
+rules
+  
+  track-rules(s | key) = 
+    {| CreatedRules:
+        track-rules-internal(s | key)
+    |}
+  
+  track-rules-with-creates(s | key) =
+      track-rules-internal(s | key)
+  
+  track-rules-internal(s | key) =
+      start-record-dynamic-rules
+    ; try(
+	     {| DynamicRulesUsed:
+	        enable-dr-usage-tracking
+	      ; s => result
+	      ; disable-dr-usage-tracking
+	      ; all-keys-DynamicRulesUsed
+	      ; remove-dr-dummies
+	      ; ?used-rules
+	     |}
+	    )
+    ; end-record-dynamic-rules
+    ; filter(not(?(<ignore-dr-tracking>,_)))
+    ; ?all-created-rules
+    ; rules(CreatedRules :+ key -> all-created-rules)
+    // Get a list of (name, keys*) pairs
+    ; map(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \); concat
+    //; remove-all({x: ?(_, [DR_DUMMY()]); Fst; ?x; rules(EmptyLeftHand : x) })
+    ; ?created-rules
+    ; rules(DesugarRulesCreated :+ key -> created-rules)
+    ; !used-rules
+    ; rules(DesugarRulesUsed :+ key -> used-rules)
+      // We fail here if the strategy s failed (result is not bound)
+    ; !result
+
