@@ -2,7 +2,7 @@ module editor
 
 imports nwl desugar java-project read check rename
 imports separation/-
-imports lib/editor-common.generated lib/track
+imports lib/editor-common.generated lib/track lib/dependencies
 imports libstratego-aterm libstratego-gpp
 
   // Spoofax specific rules
@@ -29,41 +29,29 @@ rules
           ProjectDir := project-path  // Absolute path to project
       );
       where(set-project-dir);
-      <module-to-toplevel-defs> ast;
-      // TODO: we read only the old signature of this file
-      // It could be that other files are changed as well, so we should pass their previous and new signatures to update-typecheck-dependencies as well.
+      <debug(!"Analyzing: ")> path;
+      
+      <store-module(|fullpath)> ast;
+      ?Module(modname, body);
+      rules(ModuleLoaded : modname);
+      
       old-sig := <read-signature <+ ![]> fullpath;
+      rules(OldSignature : fullpath -> old-sig );
+      
       declare-all;
-      // Copy the rules we've created
-      all-keys-ModuleToDefs;
-      where(debug);
-      map( {
-          where(bagof-ModuleToDef => defkeys);
-          ModuleFullpath => fullpath;
-          <map(bagof-CreatedRules;concat);concat> defkeys;
-          ?ruleset;
-          //<debug(!"Rules created: ")> (fullpath, ruleset);
-          rules(RulesCreated : mod -> ruleset)
-        }
-      );
+      typecheck-dependencies-file;
+      load-dependency-data;
+      find-dependent-modules;
+      queue-analysis;
+      
       rename-top;
+      
       get-toplevel-defs => ast2;
       errors   := <collect-tracked(check)> ast2;
       warnings := <collect-tracked(constraint-warning)> ast2;
-      // Copy the rules we've used
-      all-keys-ModuleToDefs;
-      where(debug);
-      map( {
-          where(bagof-ModuleToDef => defkeys);
-          ModuleFullpath => fullpath;
-          <map(bagof-DesugarRulesUsed;concat);concat> defkeys;
-          ?ruleset;
-          rules(RulesUsedBy : fullpath -> ruleset)
-        }
-      );
-      update-typecheck-dependencies(|old-sig);
-      debug(!"Queue analysis: ");
-      queue-analysis
+      store-used-rules;
+      update-typecheck-dependencies;
+      <debug> ""
       
   // Guess project base dir based on the current file
   set-project-dir =

@@ -27,10 +27,11 @@ rules
     with  <get-anno(?At(m,x,y))> elem;
           <?constructor#(_)> elem;
           key := (modname, $[[constructor]_[<int-to-string> y]_[<int-to-string> x]])
+    
+  AlternativeProjectDir = fail
       
   nwl-compile = 
     rules(Standalone := 1);
-    rules(AlternativeProjectDir : "x" -> "y" where fail);
     filename := <get-config> "-i";
     project-path := <dirname> filename;
     fullpath := filename;
@@ -39,41 +40,45 @@ rules
           ProjectDir := project-path  // Absolute path to project
     );
     <load-modified-modules> filename;
-    transform-defs(topdown(remove-position-anno));
-    declare-all;
-    rename-top;
+    transform-defs(topdown(try(remove-string-position-anno)));
     
+    declare-all;
     typecheck-dependencies-file;
     load-dependency-data;
     find-dependent-modules;
+    map(load-cached-file);
+    transform-defs(topdown(try(remove-string-position-anno)));
     
-    // TODO: load and check deps
+    rename-top;
+     
     get-toplevel-defs => ast2;
     errors   := <collect-tracked(check)> ast2;
     warnings := <collect-tracked(constraint-warning)> ast2;
+    problem-files := <concat; errors-to-filenames> [errors, warnings];
+    <map(path-to-cache-path; try(remove-file))> problem-files;
+      
+    transform-defs(topdown(try(remove-position-anno)));
+    
     store-used-rules;
     update-typecheck-dependencies;
     if not([] := errors) then
       <debug> "Errors found: ";
-      <map(debug)> errors;
+      <map(report-error)> errors;
       <exit> 1
     end;
     desugar-all;
     nwl-to-java-project;
     <exit> 0  // don't output current term
+      
+  report-error: (elem, msg) -> <debug> $[[<elem-to-location> elem]: [msg]]
   
-  store-used-rules =
-    // Load previous rules
-    all-keys-ModuleLoaded;
-    filter( {fullpath,ruleset:
-        where(ModuleFullpath => fullpath);
-        bagof-ModuleToDef;
-        mapconcat(bagof-DesugarRulesUsed;concat);
-        ?ruleset;
-        rules(RulesUsedBy : fullpath -> ruleset)
-      }
-    )
+  elem-to-location: x -> $[[filename]:[r]/[c]]
+    with <oncetd(get-annos; getfirst(?At(filename, r, c)))> x
     
+  errors-to-filenames: errors -> filenames
+    with  map({Fst; oncetd(get-annos; fetch-elem(?At(<id>,r,c)))});
+          uniq => filenames
+      
   path-to-cache-path: x -> y
     with  cachedir := <file-exists <+ mkdir> $[[<ProjectDir>]/.nwl-cache];
           fullpath' := <string-replace(|"/", "+"); string-replace(|"\\", "+"); string-replace(|":", "+")> x;
@@ -87,3 +92,6 @@ rules
           else
             result := s{anno2*}
           end
+
+  remove-string-position-anno =
+    is-string; strip-annos

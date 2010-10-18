@@ -3,8 +3,34 @@ module separation/dependencies
 imports
   check read nwl
   lib/dependencies
+  lib/track
 
 strategies  
+
+  store-used-rules =
+    // Load previous rules
+    all-keys-ModuleLoaded;
+    filter( {fullpath,ruleset:
+        where(ModuleFullpath => fullpath);
+        bagof-ModuleToDef;
+        mapconcat(bagof-DesugarRulesUsed;concat);
+        ?ruleset;
+        rules(RulesUsedBy : fullpath -> ruleset)
+      }
+    )
+    
+  store-signatures =
+    with(
+      all-keys-ModuleLoaded;
+      map({
+          ?modname;
+          bagof-ModuleToDef;
+          mapconcat(CreatedRules) => defrules;
+          content := (modname, <ModuleImports> modname, defrules);
+          cachefile := <ModuleFullpath; path-to-cache-path> modname;
+          <WriteToBinaryFile> (cachefile, content)
+      })
+    )
   
   typecheck-dependencies-file = <path-to-cache-path> "$dependencies.nwl"
   

@@ -49,14 +49,18 @@ rules
 
 rules
   
-  store-module: mod@Module(name, body) -> mod
-    with  body2 := <body-to-toplevel-defs> body;
-          name' := <strip-annos> name;
-          rules(ModuleToDefs : name' -> body2);
+  store-module(|filename): mod@Module(name, body) -> Module(name', body')
+    with  name' := <strip-annos> name;
+          rules(
+            Imported : name'
+            ModuleFullpath : name' -> filename
+          );
+          body' := <load-imports; body-to-toplevel-defs> mod;
+          rules(ModuleToDefs : name' -> body');
           <map(where({def:
               ?def;
               store-def(|name')
-          }))> body2
+          }))> body'
 
   body-to-toplevel-defs =
     lift-access-control-defs
@@ -84,9 +88,9 @@ rules
  
   defkey-to-mod: (modname, _) -> modname
     
-  load-imports: mod@Module(name, body) -> Module(name, body2)
+  load-imports: mod@Module(name, body) -> body2
     with  imports := <filter(?Import(_); strip-annos)> body;
-          <map(parse-import)> imports;
+          <filter(parse-import <+ /*TODO: add error*/ id)> imports;
           name' := <strip-annos> name;
           rules(ModuleImports : name' -> imports);
           body2 := <remove-all(?Import(_))> body
@@ -95,8 +99,7 @@ rules
     where <Imported> modname
           
   parse-import: Import(modname) -> []
-    with  rules(Imported : modname);
-          filename := <modname-to-filename> modname;
+    with  filename := <modname-to-filename> modname;
           <parse-file-try-cache> filename
   
   modname-to-filename: modname -> filename
@@ -107,7 +110,7 @@ rules
           trim-initial-dotslash => filename
   
   trim-initial-dotslash =
-    try(<split-after> (<id>, "./"); Snd)
+    try(where(string-starts-with(|"./")); <split-after> (<id>, "./"); Snd)
   
   load-modified-modules: filename -> filename
     with <parse-file-try-cache> filename  
@@ -117,7 +120,7 @@ rules
   // 2. Cache outdated; store cached as usage, return ast
   // 3. Cache uptodate; don't store usage, return "cached" 
   
-  parse-file-try-cache: filename -> content
+  parse-file-try-cache: filename -> content'
     with  cache := <path-to-cache-path> filename;
           if (content, cached-content) := <parse-file-with-cache(|cache)> filename then
             id
@@ -125,20 +128,16 @@ rules
             content := <parse-file-without-cache(|cache)> filename;
             rules(OldSignature : filename -> [])
           end;
-          <?Module(<strip-annos; ?modname>, defs)> content;
-          rules(
-            ModulesIncluded :+= modname
-            ModuleFullpath : modname -> filename
-          );
-          <load-imports; store-module> content
-  
-    parse-file-with-cache(|cache): filename -> (content, cached-content)
+          content' := <store-module(|filename)> content
+          
+  parse-file-with-cache(|cache): filename -> (content, cached-content)
     where <file-exists> cache;
           (modname, imports, defrules) := <ReadFromFile> cache
     with  cached-content := defrules;
           if <is-newer> (cache, filename)  then
             // Read rule signature
             <debug(!"Using cache: ")> filename;
+            rules(Imported : modname);
             <load-dynamic-rule-closure> defrules;
             <map(parse-import)> imports;
             rules(CachedFiles :+= filename);
@@ -149,6 +148,11 @@ rules
             content := <parse-file-without-cache(|cache)> filename;
             rules(OldSignature : filename -> cached-content)
           end
+          
+  read-signature: filename -> defrules
+    where cachefile := <path-to-cache-path> filename;
+          <file-exists> cachefile;
+          ReadFromFile => (modname, imports, defrules)
             
   parse-file-without-cache(|cache): filename -> content
     with  <debug(!"Parsing: ")> filename; 
@@ -163,9 +167,9 @@ rules
     
   load-cached-file =
     ?filename;
-    parse-file;
+    my-parse-file;
     \Module(name,defs) -> Module(name, <remove-all(?Import(_))> defs)\;
-    store-module;
+    store-module(|filename);
     rules(CachedFiles :- filename)
   
   load-cached-def: defkey -> defkey
