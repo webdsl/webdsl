@@ -8,14 +8,13 @@ imports
 strategies  
 
   store-used-rules =
-    // Load previous rules
-    all-keys-ModuleLoaded;
-    filter( {fullpath,ruleset:
-        where(ModuleFullpath => fullpath);
-        bagof-ModuleToDef;
-        mapconcat(bagof-DesugarRulesUsed;concat);
+    all-keys-Definition;
+    filter( {key, ruleset:
+        ?key;
+        bagof-DesugarRulesUsed;
+        concat;
         ?ruleset;
-        rules(RulesUsedBy : fullpath -> ruleset)
+        rules(RulesUsedBy : key -> ruleset)
       }
     )
     
@@ -25,8 +24,8 @@ strategies
       map({
           ?modname;
           bagof-ModuleToDef;
-          mapconcat(CreatedRules) => defrules;
-          content := (modname, <ModuleImports> modname, defrules);
+          mapconcat(bagof-CreatedRules;concat) => defrules;
+          content := (modname, <ModuleToDefs> modname, <ModuleImports> modname, defrules);
           cachefile := <ModuleFullpath; path-to-cache-path> modname;
           <WriteToBinaryFile> (cachefile, content)
       })
@@ -35,7 +34,6 @@ strategies
   typecheck-dependencies-file = <path-to-cache-path> "$dependencies.nwl"
   
   find-dependent-modules =
-    typecheck-dependencies-file;
     prev-created := <all-keys-OldSignature; map(OldSignature); concat>;
     all-keys-ModuleLoaded;
     mapconcat(
@@ -43,7 +41,7 @@ strategies
         mapconcat(bagof-CreatedRules;concat)
     ) => new-created;
     find-dependent-modules(
-      RulesUsedBy | new-created, prev-created, <bagof-CachedFiles>
+      RulesUsedBy | new-created, prev-created, <all-keys-CachedModule; map(ModuleToDefs); concat>
     );
     try(not(?[]); debug(!"Dependent files: "))
   

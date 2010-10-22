@@ -56,12 +56,9 @@ rules
             ModuleFullpath : name' -> filename
           );
           body' := <load-imports; body-to-toplevel-defs> mod;
-          rules(ModuleToDefs : name' -> body');
-          <map(where({def:
-              ?def;
-              store-def(|name')
-          }))> body'
-
+          defkeys := <map(store-def(|name'))> body';
+          try(not(<CachedModule> name); rules(ModuleToDefs : name' -> defkeys))
+          
   body-to-toplevel-defs =
     lift-access-control-defs
     
@@ -132,7 +129,7 @@ rules
           
   parse-file-with-cache(|cache): filename -> (content, cached-content)
     where <file-exists> cache;
-          (modname, imports, defrules) := <ReadFromFile> cache
+          (modname, defkeys, imports, defrules) := <ReadFromFile> cache
     with  cached-content := defrules;
           if <is-newer> (cache, filename)  then
             // Read rule signature
@@ -142,6 +139,7 @@ rules
             <map(parse-import)> imports;
             rules(CachedFiles :+= filename);
             rules(CachedModule : modname);
+            rules(ModuleToDefs : modname -> defkeys);
             content := Module(modname, [])
           else
             // Outdated cache
