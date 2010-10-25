@@ -10,6 +10,7 @@ import java.io.*;
 
 //dummy pageservlet instance for global init and global variables
 //some expressions require this to be available, eg. property setters with extension events
+@SuppressWarnings("unused")
 public class GlobalsPageServlet extends PageServlet  
 { 
     public GlobalsPageServlet(Environment env){

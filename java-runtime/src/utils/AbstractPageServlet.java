@@ -8,7 +8,6 @@ import java.util.List;
 import java.io.PrintWriter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.webdsl.WebDSLEntity;
@@ -82,6 +81,7 @@ public abstract class AbstractPageServlet{
         ThreadLocalAction.set(null);
         ThreadLocalEmailContext.set(null);
         ThreadLocalPage.set(null);
+        ThreadLocalTemplate.set(null);
     }
 
     //templates scope
@@ -476,7 +476,7 @@ public abstract class AbstractPageServlet{
     }
 
     public void leaveValidationContext() {
-      String s = validationContext.removeLast();
+      /*String s = */ validationContext.removeLast();
       //System.out.println("leaving" +s);
     }
 
@@ -505,6 +505,7 @@ public abstract class AbstractPageServlet{
         session.setAttribute("___messages___",outgoingSuccessMessages);
       }
     }
+    @SuppressWarnings("unchecked")
     protected void retrieveIncomingMessagesFromHttpSession(){
       List<String> temp = (List<String>) session.getAttribute("___messages___");
       if(temp != null){
