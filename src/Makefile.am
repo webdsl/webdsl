@@ -138,6 +138,7 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/generation/*.str) \
                  $(wildcard ./org/webdsl/dsl/languages/*.str) \
                  $(wildcard ./org/webdsl/dsl/languages/*/*.str) \
+                 $(wildcard ./org/webdsl/dsl/languages/*/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
