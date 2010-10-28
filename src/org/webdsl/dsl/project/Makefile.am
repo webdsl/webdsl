@@ -12,6 +12,7 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/src-template/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
   $(wildcard template-java-servlet/tomcat/*) \
+  $(wildcard template-java-servlet/tomcat/.keystore) \
   $(wildcard template-java-servlet/javascript/*) \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
