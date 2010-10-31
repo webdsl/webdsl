@@ -66,14 +66,14 @@ rules // links
         ; bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
         ; e_resulturlemail := expr|[ utils.HTMLFilter.filter(ThreadLocalPage.get().getAbsoluteLocation()) + e_url ]|  
-        ; e_resulturl := e_url
+        ; e_resulturl := <convert-rel-url-based-on-secure-modifier(|passign*)> e_url
 
   elem-to-java-servlet :
     tc@TemplateCall("navigatebutton",[call@PageCall(p,args), e],passign*,TemplateBody([])) ->
     <wrap-common-context-code>
     <hide-bstms-on-null-pointer-exception>
     bstm* |[
-      out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_url+"'\"");
+      out.print("<input type=\"button\" "+e_attrs1+" onclick=\"window.location = '"+e_resulturl+"'\"");
       out.print("value=\"");
       bstm_exptostring*
       out.print("\"");
@@ -83,6 +83,33 @@ rules // links
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
         ; bstm_exptostring* := <to-page-string-java-servlet> e
         ; e_attrs1 := <to-html-attrs> passign*
+        ; e_resulturl := <convert-rel-url-based-on-secure-modifier(|passign*)> e_url
+      
+rules
+
+  convert-rel-url-based-on-secure-modifier(|passign*) :
+    e_url -> e_resulturl 
+    with  if <fetch(TemplateCallPropertySecure <+ TemplateCallPropertyNotSecure)> passign*
+          then e_resulturl := <convert-abs-url-based-on-secure-modifier(|passign*)> java:expr|[ utils.HTMLFilter.filter(ThreadLocalPage.get().getAbsoluteLocation()) + e_url ]|
+          else e_resulturl := e_url //keep link relative when no conversion is needed, that way the browser stays in the current protocol (https/http)
+          end 
+  
+  convert-abs-url-based-on-secure-modifier(|passign*) :
+    e_url -> e_resulturl
+    with  if <fetch(TemplateCallPropertySecure)> passign*
+          then e_resulturl := <url-https-conversion-helper> e_url
+          else 
+            if <fetch(TemplateCallPropertyNotSecure)> passign*
+            then e_resulturl := <url-http-conversion-helper> e_url
+            else e_resulturl := e_url
+            end
+          end   
+          
+  url-http-conversion-helper :
+    e_url -> java|[ utils.UrlTransform.convertToHttpUrl(e_url) ]|
+     
+  url-https-conversion-helper :
+    e_url -> java|[ utils.UrlTransform.convertToHttpsUrl(e_url) ]|
       
 rules      
        

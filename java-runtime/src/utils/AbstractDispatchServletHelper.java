@@ -8,4 +8,6 @@ public abstract class AbstractDispatchServletHelper{
   public boolean isPostRequest;
   public abstract HttpServletRequest getRequest();
   public abstract java.util.HashMap<String, utils.PageDispatch> getPages();
+  public abstract int getHttpsPort();
+  public abstract int getHttpPort();
 }
