@@ -38,36 +38,49 @@ strategies
     ; <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,".parsecache"]
   
   xtc-parse-webdsl-unit(|path) =
-  	?file
-    ;with(
-        cachepath := <path-to-cache-path> path
-      ; dirs := <dirname; string-tokenize(|['/'])> cachepath
-      ; <create-dirs> dirs
-      )
+  	  ?file
     ; if <file-exists> path
       then
-      	<read-with-cache <+ read-without-cache> (file, path, cachepath)
+      	<parse-file-try-cache(|path)> file
       else
         <debug> "File does not exist: "
       ; <trim-initial-dots-slashes;debug> path
       ; <exit> 1
       end
-
-  read-with-cache: (file, path, cachepath) -> (real-contents, cache-contents)
-    where <file-exists> cachepath
-          // if cache read fails for some reason, e.g. it contains an invalid term because 
-          // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
-        ; (version, cache-contents) := <ReadFromFile> cachepath
-        ; <eq> (version, <get-webdsl-version>)
-        ; if <gt> (<modification-time> path, <modification-time> cachepath) then
-              (real-contents, _) := <read-without-cache> (file, path, cachepath)
-          else
-              rules(UnmodifiedFile : file)
-          	; real-contents := []
+      
+  // (from spoofax' lib/editor-common.generated)
+  is-newer:
+    (file1, file2) -> <id>
+    where
+      <gt> (<file-exists; modification-time> file1, <file-exists; modification-time> file2) 
+      
+  parse-file-try-cache(|filename): file -> content
+    with  cachepath := <path-to-cache-path> filename
+        ; dirs := <dirname; string-tokenize(|['/'])> cachepath
+        ; <create-dirs> dirs
+        ; if cached-content := <parse-file-with-cache(|filename,cachepath)> filename then
+            rules(CachedVersion : filename -> cached-content)
           end
-
-  read-without-cache: (file, path, cachepath) -> (contents, [])
-    with contents := <parse-webdsl-file(|path,cachepath)> file
+        ; if <CachedFile> filename then
+            content := cached-content
+          else
+            // no cache, or outdated
+            content := <parse-file-without-cache(|filename,cachepath)> file
+          end
+         
+  parse-file-with-cache(|filename,cache): file -> content
+    where <file-exists> cache;
+          (webdsl-version, cache-content) := <ReadFromFile> cache;
+          <eq> (webdsl-version, <get-webdsl-version>)
+    with  content := cache-content;
+          if <is-newer> (cache, filename) then
+            rules(CachedFile : filename)
+          end
+          
+  parse-file-without-cache(|filename,cache): file -> content
+    with  <debug(!"Parsing: ")> filename; 
+          content := <parse-webdsl-file(|filename,cache)> file;
+          rules(LoadedFile : filename)
 
 	parse-webdsl-file(|path,cachepath) =
 	   with(tbl := <get-webdsl-parse-table>)

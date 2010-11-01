@@ -13,6 +13,8 @@ define page root() {
     output(p.relation)
     output(p.relbla)
   }separated-by{<br />}
+  
+  navigate test2(){"test page"}
 }
 
 entity Person {
@@ -33,24 +35,22 @@ var p2 := Person{ name := "2" }
 var p3 := Person{ name := "3" }
 var p4 := Person{ name := "4" }
 
-define ignore-access-control radio1(e1:Ref<Entity>,e2:List<Entity>){
-  var rname := getUniqueTemplateId()
-  for(p:Entity in e2 order by p.name){
-    if(e1==p){
-      <input type="radio" checked="checked" name=rname value=p.id all attributes/>
-    }
-    else{
-      <input type="radio" name=rname value=p.id all attributes/>
-    }
-    output(p.name)
-  }
-  databind{
-    var tmp : String:= getRequestParameter(rname);
-    if(tmp != null){
-      var p := loadEntity(e1.getTypeString(),UUIDFromString(tmp));
-      if(p in e2){
-        e1 := p;
-      }
-    }
+entity User {
+  name :: String
+  person1 -> Person
+  person2 -> Person
+  validate(person1 == null || person1 != person2, "cannot choose same person")
+}
+
+var u1 := User{ name := "u1" }
+var u2 := User{ name := "u2" }
+
+define page test2(){
+  form{
+    for(u:User){
+      radio(u.person1,from Person)[style="margin-left:20px;"]
+      radio(u.person2,from Person)[style="margin-left:20px;"]
+    } separated-by{<br />}
+    submit action{} {"save"}
   }
 }

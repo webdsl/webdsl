@@ -1271,5 +1271,10 @@
    SendEmailFunctionCall -- KW["sendemail"] KW["("] _1 KW[")"],
    EmailCall -- _1 KW["("] _2 KW[")"],
    EmailCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
-   EmailCall.2:iter-star           -- _1
+   EmailCall.2:iter-star           -- _1,
+   
+   TempateModSecure -- KW["secure"],
+   TemplateModNotSecure -- KW["not-secure"],
+   TemplateCallPropertySecure -- KW["secure"],
+   TemplateCallPropertyNotSecure -- KW["not-secure"]
 ] 

@@ -31,6 +31,7 @@ rules
       import pkgtname2.RequestLogEntry;
       import pkgtname2.RequestLogEntryParam;
   
+      @SuppressWarnings({"unused","unchecked","rawtypes"})
       public class DispatchServletHelper extends AbstractDispatchServletHelper{
           
           public static HashMap<String, utils.PageDispatch> pages = new HashMap<String, utils.PageDispatch>();
@@ -57,6 +58,23 @@ rules
           private String requested;
           public String getRequestedPage(){
             return requested;
+          }
+          
+          protected static int httpsPort = 443;
+          public int getHttpsPort(){ return httpsPort; }
+          protected static int httpPort = 80;
+          public int getHttpPort(){ return httpPort; }
+          static
+          { 
+            try{
+              java.util.Properties props = new java.util.Properties();
+              props.load(DispatchServletHelper.class.getResourceAsStream("/tomcat.properties"));
+              httpsPort = Integer.parseInt(props.getProperty("webdsl.tomcat.https.port"));
+              httpPort = Integer.parseInt(props.getProperty("webdsl.tomcat.http.port"));
+            }
+            catch(IOException ex){
+              ex.printStackTrace();
+            }
           }
           
           DispatchServlet servlet;
@@ -134,12 +152,14 @@ rules
             requestLogEntry = new RequestLogEntry();
             requestLogEntry.setStartNoEventsOrValidation(new java.util.Date());
             
-            //HttpOnly cookie to prevent access to document.cookie in javascript
-            if (response.containsHeader("SET-COOKIE"))
+            if(request.getCookies()==null)
             {
               String sessionid = request.getSession().getId();
+              //HttpOnly cookie to prevent access to document.cookie in javascript
+              //Also the cookie shouldn't get 'secure' option, even if https was first accessed
               response.setHeader("SET-COOKIE", "JSESSIONID=" + sessionid + "; HttpOnly");
             }
+            
             this.request=request;
             this.response=response;
             response.setCharacterEncoding("UTF-8");
@@ -444,7 +464,7 @@ rules
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
                                ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
-                               ; e* := <TopLevelTemplateArgumentsJavaServlet;map( \Arg(y,_)-> e|[ "~<get-original-name> y" ]|\ )> x // must use unrenamed versions 
+                               ; e* := <TopLevelTemplateArgumentNames> x // must use unrenamed versions 
                         \})> 
                         <bagof-AllTopLevelTemplateNamesWithAjax; make-set; string-sort-annos>
          ; if build-id := <BuildIdOption> then

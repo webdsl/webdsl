@@ -1,11 +1,9 @@
 package utils;
 
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -24,6 +22,7 @@ public abstract class TemplateServlet {
     protected boolean initialized = false;
     protected utils.TemplateCall templateArg;
     protected Map<String, utils.TemplateCall> withcallsmap = null;
+    public Map<String, utils.TemplateCall> getWithcallsmap(){ return withcallsmap; }
     protected Map<String,String> attrs = null;
     protected Map<String, utils.TemplateCall> withcallsmapout = null;
     protected String[] pageArguments = null;
@@ -47,7 +46,6 @@ public abstract class TemplateServlet {
     public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
-          PrintWriter out = ThreadLocalOut.peek();         
           handleActionsInternal();
         }
       }  
@@ -111,6 +109,9 @@ public abstract class TemplateServlet {
     }
     
     private void tryInitializeTemplate(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
+        //always set ThreadLocalTemplate
+        ThreadLocalTemplate.set(this);
+        
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);

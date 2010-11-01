@@ -1,0 +1,80 @@
+module separation/dependencies
+
+imports
+  org/webdsl/dsl/separation/lib/dr
+
+strategies  
+  
+  // TODO: when are module keys deleted from the dep file ?
+
+rules     // externals
+
+  load-dependency-data: filename -> filename
+    with
+      <file-exists; ReadFromFile <+ ![]> filename
+    ; map(\(key, usedrules) -> <rules(PreviouslyUsedRules : key -> usedrules)> \)
+    
+  update-dependency-graph(used-data | used-keys): filename -> filename
+    with
+      if dependencies-unchanged(used-data | used-keys) then
+          <debug> "No dependencies changed."
+          // TODO: touch dep file (no stratego strategy for touching files?)
+      else
+          // store changed data
+          x1* := <map(\key -> (key, <used-data> key)\)> used-keys;
+          // store unchanged data
+          x2* := <all-keys-PreviouslyUsedRules; filter(\key -> (key, <PreviouslyUsedRules>) where not(<used-data> key)\)>;
+          x* := [x1*,x2*];
+          <WriteToBinaryFile> (filename, x*)
+      end
+      
+  find-dependent-modules(|created-rules, prev-created-rules, all-mods) =
+      changed := <create-change-set> (created-rules, prev-created-rules)
+    ; <filter(has-rule-use(|changed))> all-mods
+  
+  cleanup-dependency-rules =
+    with(all-keys-PreviouslyUsedRules; map(\x -> <rules(PreviouslyUsedRules :- x)>\))
+      
+rules     // internals
+      
+  // Overwrite unchanged dependencies for now; we don't have a way to touch the timestamp of the dependencies file
+  dependencies-unchanged(used-data|used-keys) = fail
+  // dependencies-unchanged(used-data|used-keys) = <map(<eq> (<PreviouslyUsedRules>, <used-data>))> used-keys
+  
+ // If we have no caching information, check the file
+  has-rule-use(|ruleset): mod -> mod
+    where not(PreviouslyUsedRules)
+        
+  has-rule-use(|ruleset): mod -> mod
+    with  uses := <PreviouslyUsedRules> mod
+          // find common rule usage
+        ; common1* := <isect> (ruleset, uses)
+          // find all-keys- usage
+        ; common2* := <isect> (<map(Fst);uniq> ruleset, <filter(?(_,DR_DUMMY()); Fst);uniq> uses)
+        ; common* := [common1*,common2*]
+    where not([] := common*)
+        ; !mod; debug(!".. have to re-analyze mod: ")
+        ; !common*; debug(!".. common rules: ")
+  
+  create-change-set: (new, old) -> all-changes
+    with   {| NewRule, OldRule: 
+              <rules-as-key-val-pairs(\(key,val) -> <rules(NewRule :+ key -> val)>\)> new
+            ; <rules-as-key-val-pairs(\(key,val) -> <rules(OldRule :+ key -> val)>\)> old
+              // changed rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(<not(eq)> (<bagof-NewRule>, <bagof-OldRule>)))
+            ; ?changed
+            //; try(?[]; debug(!"Rules changed: "))
+              // new rules
+            ; all-keys-NewRule; remove-dr-dummies
+            ; filter(where(not(OldRule)))
+            ; ?added
+            //; try(not(?[]); debug(!"Rules added: "))
+              // removed rules
+            ; all-keys-OldRule; remove-dr-dummies
+            ; filter(where(not(NewRule)))
+            ; ?removed
+            //; try(not(?[]); debug(!"Rules removed: "))
+           |}
+        ; all-changes := <concat;uniq> [changed, added, removed]
+        //; debug(!"All changes: ")

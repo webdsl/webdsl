@@ -1,0 +1,68 @@
+module separation/track
+
+imports
+  org/webdsl/dsl/separation/lib/dr
+
+rules
+  
+  track-rules(s | key) = 
+    {| CreatedRules:
+        track-rules-internal(s | key)
+    |}
+  
+  track-rules-with-creates(s | key) =
+      track-rules-internal(s | key)
+  
+  // This does not work: scoped dynamic rules also get recorded as being created
+  /*
+  track-rules-internal(s | key) =
+    {| DynamicRulesCreated:
+      {| DynamicRulesUsed:
+	      enable-dr-usage-tracking;
+	      try(s => result);
+	      disable-dr-usage-tracking;
+	        
+	      all-keys-DynamicRulesUsed;
+	      remove-dr-dummies;
+	      ?used-rules
+      |};
+      rules(DesugarRulesUsed :+ key -> used-rules);
+	    // copy DynamicRulesCreated to CreatedRules
+	    all-keys-DynamicRulesCreated;
+		  remove-all(?((<ignore-dr-tracking;debug(!"Ignoring: ")>, _),_));
+      // map to (rule, keyvals)
+      {| CreatedVals:
+	      map(\key@(rulename,rulekey) -> <rules(CreatedVals :+ rulename -> (rulekey, <bagof-DynamicRulesCreated> key))> \);
+	      all-keys-CreatedVals;
+	      map(\rulename -> (rulename, <bagof-CreatedVals> rulename)\);
+	      ?created-rules;
+        rules(CreatedRules :+ key -> created-rules)
+      |}
+    |};  
+    !result  //fail here if s failed (result is unbound)
+  */
+   
+  track-rules-internal(s | key) =
+      start-record-dynamic-rules;
+     {| DynamicRulesUsed:
+	        enable-dr-usage-tracking
+	      ; try(s => result)
+	      ; disable-dr-usage-tracking
+	      ; all-keys-DynamicRulesUsed
+	      ; remove-dr-dummies
+	      ; ?used-rules
+	     |}
+    ; end-record-dynamic-rules
+    ; filter(not(?(<ignore-dr-tracking>,_)))
+    ; ?all-created-rules
+    ; rules(CreatedRules :+ key -> all-created-rules)
+    // Get a list of (name, keys*) pairs
+    ; map(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \); concat
+    //; remove-all({x: ?(_, [DR_DUMMY()]); Fst; ?x; rules(EmptyLeftHand : x) })
+    ; ?created-rules
+    ; rules(DesugarRulesCreated :+ key -> created-rules)
+    ; !used-rules
+    ; rules(DesugarRulesUsed :+ key -> used-rules)
+      // We fail here if the strategy s failed (result is not bound)
+    ; !result
+

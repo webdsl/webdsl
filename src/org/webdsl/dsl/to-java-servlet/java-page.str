@@ -92,6 +92,7 @@ rules
         import pkgname_domain.*;
 
         @Partial
+        @SuppressWarnings("all")
         public class x_Page extends PageServlet
         {
           
@@ -163,6 +164,8 @@ rules
             this.fileUploads=fileUploads;
             session = request.getSession(true);
             
+            bstm_redirecthttps*
+            
             if(parammap.get("__ajax_runtime_request__") != null) {
               this.setAjaxRuntimeRequest(true);
             }
@@ -180,7 +183,7 @@ rules
               java.io.PrintWriter out = new java.io.PrintWriter(s);
               ThreadLocalOut.push(out);
               
-              if(ThreadLocalServlet.get().isPostRequest || parammap.get("~<action-call-with-get-param-name>") != null) {
+              if(isActionSubmit()) {
                 
                 if(parammap.get("__action__link__") != null) {
                   this.setActionLinkUsed(true);
@@ -431,6 +434,24 @@ rules
        ; e_istemplate := <JavaThisPage; !java|[ false ]| <+  !java|[ true ]|>
        ; bstm_ajaxrequirespost* := <JavaThisPage; ![] <+  !bstm*|[ if(!ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); } ]|>
        ; bstm_ajax* := bstm*|[ addJavascriptInclude("ajax.js"); ]|
+       ; if <fetch(TempateModSecure)> mod*
+         then bstm_redirecthttps* := 
+                java:bstm*|[ if(!isActionSubmit() && request.getRequestURL().toString().startsWith("http://")){
+                               try{ response.sendRedirect(utils.UrlTransform.convertToHttpsUrl(request.getRequestURL().toString())); }
+                               catch(IOException ioe){ ioe.printStackTrace(); }           
+                               return;
+                             } ]|
+         else 
+             if <fetch(TemplateModNotSecure)> mod*
+             then bstm_redirecthttps* := 
+                    java:bstm*|[ if(!isActionSubmit() && request.getRequestURL().toString().startsWith("https://")){
+                                   try{ response.sendRedirect(utils.UrlTransform.convertToHttpUrl(request.getRequestURL().toString())); }           
+                                   catch(IOException ioe){ ioe.printStackTrace(); }           
+                                   return;
+                                 } ]|
+             else bstm_redirecthttps* :=[]
+             end
+         end
 
   /**
    *  Used for output(Image) and output(File)

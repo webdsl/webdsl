@@ -13,12 +13,11 @@ imports
 imports
   libwebdsl-front
   org/webdsl/dsl/separation/-
+  org/webdsl/dsl/separation/lib/-
   org/webdsl/dsl/typechecker/-
   org/webdsl/dsl/transformation/-
 
 strategies
-
-  dep-path = <concat-strings> [<DirName>, "/.webdsl.compiler.deps"]
 
   typecheck =
   	// Typecheck modified data (updates dependency data)
@@ -42,54 +41,13 @@ strategies
 	// TODO: move to rename.str
 	typecheck-rename =
 	 transform-defs(
-	   { key, ruleset:
-	     {| CreatedRules: 
-	         track-rules-with-creates(rename-top | <CurrentDefinitionKey>)
-	       ; where(
-	           CurrentDefinitionKey => key
-	         ; CreatedRules => ruleset
-	         ; rules(RenameRules : key -> ruleset)
-	        )
-	    |}
-	   }
+	   track-rules-with-creates(rename-top | <CurrentDefinitionKey>)
 	 )
 		  
-  // NB: Rules can be owner by any number of owners, using :+
-		  
-		  /*
-  store-dynamic-rules-owner: ruleset -> ruleset
-    with  CurrentDefinitionKey => owner
-        ; !ruleset
-        ; map(\(name,keyvals) -> (name, <map(Fst)> keyvals )\)
-        //; where(filter({rulekey: ?rulekey; RuleOwner; not(?owner); !(owner, <id>, rulekey); debug(!"Overwriting rule owner: ")}))
-        ; map({rulekey: ?rulekey; rules(RuleOwner : rulekey -> owner)})
-      */
-    
-  no-dependent-modified = id
-    
   typecheck-constraints =
       map-defs(
-      { key, def, used-ruleset:
-          ?def
-        ; CurrentDefinitionKey => key
-        ; !key; debug(!"Typechecking: ")
-        ; <constraint-error-def> def
-      }
-   )
-
-  constraint-error-def =
-    {| DynamicRulesUsed:
-        // Check
-        enable-dr-usage-tracking
-      ; constraint-error-all
-      ; disable-dr-usage-tracking
-        
-        // Store
-      ; all-keys-DynamicRulesUsed
-      ; remove-dr-dummies => drs
-      ; CurrentDefinitionKey => key
-      ; rules(RulesUsedBy : key -> drs)
-    |}
+      	track-rules(constraint-error-def | <CurrentDefinitionKey>)
+      )
   
   //call resolving/overloading is done during rename, typechecking errors are produced by constraint-error strategy
   //when no longer in typechecking, but e.g. during desugaring a failed resolve should give an error
@@ -112,27 +70,16 @@ strategies
       where(<exclude-from-dr-stripping> name)
       <+ try(with-origin(alltd(strip-bodies)))
         
-	load-ast: key -> key
-    where <not(TopLevelDefinitions)> key
-    with  file := <def-key-to-file> key
-        ; module-ast-to-toplevel-elements
-  
-  // Declare globally visible webdsl elements
+	// Declare globally visible webdsl elements
   typecheck-declare =
-  	  // Load dynamic rule sets for unmodified files
-   	  all-keys-UnmodifiedDef
-   	//; debug(!"All keys in DeclaredRules: ")
-   	; remove-all(is-modified-def)
-   	//; debug(!"Unmodified ones: ")
-   	; map(with(UnmodifiedDefRules; load-dynamic-rule-closure))
-      // Declare modified files
-    ; map-defs(
-        {key, ruleset:
-            with(
-                track-rules-with-creates(declare-all | <CurrentDefinitionKey>)
-            )
-        }
+  	  // Declare modified files
+      map-defs(
+        with(
+          track-rules-with-creates(declare-all | <CurrentDefinitionKey>)
+        )
      )
+     // Store new signatures
+    ; store-signatures
     
   typechecker-after-declare =
       log-time(declare-all-override | "declare-all-override")
@@ -143,7 +90,7 @@ strategies
         ) // setup dyn rules for checks
         | "after-tc-declare-hook")
 
-	constraint-error-all =
+	constraint-error-def =
       bottomup(
 		    try(
 		      constraint-error; where(stage-newline-once); debug(!"INTERNAL ERROR: constraint-error succeeded for: ")))

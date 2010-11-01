@@ -1,0 +1,75 @@
+module org/webdsl/dsl/transformation/separate-typecheck
+
+imports 
+  libstrategolib 
+  libwebdsl-front
+  org/webdsl/dsl/separation/-
+  org/webdsl/dsl/separation/lib/-
+  org/webdsl/dsl/transformation/-
+
+rules
+  
+  dependency-file = <path-to-cache-path> "$typecheck-deps"
+
+  store-signatures =
+    with(
+      all-keys-LoadedFile;
+      //debug(!"Saving parse cache for: ");
+      map({
+          ?mod;
+          ModuleToDefs;
+          mapconcat(CreatedRules) => defrules;
+          content := (<get-webdsl-version>, (<ModuleToDefs> mod, <ModuleImports> mod, defrules));
+          cachefile := <path-to-cache-path> mod;
+          <WriteToBinaryFile> (cachefile, content)
+      })
+    )
+    
+  load-dependent-modules =
+    find-dependent-modules;
+    map(load-unmodified-def; store-module-def)
+  
+  find-dependent-modules =
+      all-keys-IsUnmodifiedFile
+    ; length => 0
+    ; <verbose-msg> ["Clean compile detected: skipping change detection"]
+    ; all-keys-CachedFile
+    ; mapconcat(ModuleToDefs)
+      
+  find-dependent-modules =
+      all-keys-TopLevelDefinitions
+    ; length => 0
+    ; <verbose-msg> ["No modified files: skipping change detection"]
+    ; ![]    
+
+  find-dependent-modules =
+    // filter, some files may have no cached version
+    prev-created := <all-keys-LoadedFile; filter(CachedVersion; ?(_, _, <id>)); concat>;
+    // load PreviouslyUsedRules
+    dependency-file; load-dependency-data;
+    // created rules
+    all-keys-LoadedFile;
+    mapconcat(
+        ModuleToDefs;
+        mapconcat(bagof-CreatedRules;concat)
+    ) => new-created;
+    // find dependent
+    find-dependent-modules(
+      |new-created, prev-created, <all-keys-CachedFile; map(ModuleToDefs); concat>
+    );
+    try(not(?[]); debug(!"Dependent definitions: "))      
+  
+  get-used-rules =
+    // http://yellowgrass.org/issue/StrategoXT/753: bagof- succeeds for all keys
+    where(TopLevelDefinitions);
+    bagof-DesugarRulesUsed;
+    concat
+  
+  update-typecheck-deps =
+    dependency-file;
+    update-dependency-graph(
+      get-used-rules | <all-keys-DesugarRulesUsed>
+    )
+  
+  is-used-dr = id     // TODO: fix
+  

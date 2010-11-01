@@ -7,6 +7,7 @@ imports
 imports
   libwebdsl-front
   org/webdsl/dsl/separation/-
+  org/webdsl/dsl/separation/lib/-
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/analysis/-
   org/webdsl/dsl/typechecker/-
@@ -20,9 +21,7 @@ signature constructors
 strategies
 
   dsl-to-core =
-      dsl-to-core-analysis
-      // TODO: first save parse cache (only for files without errors), then exit if errors found
-    ; if FoundErrors then <exit> 1 end //exit if parsing error in modules, exit here instead of in dsl-to-core-analysis for compatibility with editor support
+      if FoundErrors then <exit> 1 end //exit if parsing error in modules, exit here instead of in dsl-to-core-analysis for compatibility with editor support
     ; with( 
           if-only-typechecking(<exit> 0)
         ; add-builtins-to-ast
@@ -37,7 +36,6 @@ strategies
         ; stage(typecheck|"typechecking")
       end
     ; transform-defs(remove-position-annos)
-    ; update-parse-cache
       
   dsl-to-core-generation = with(
       log-timed(load-desugar-rules | "load-desugar-rules")
@@ -51,36 +49,39 @@ strategies
       ; aggregate-and-combine-functions
       |"performing analysis")
   )
-    
-  // load-unmodified-def is used if rename+constraints must be performed again
-  // load-unmodified-def-with-rules is used if only needed for desugar
-   
-  load-unmodified-def: key -> key
-    where not(<TopLevelDefinitions> key)    // is not already loaded
-  	with	def := <UnmodifiedDef> key
-  	    ; <mark-renamings> def
-  	    ; rules(TopLevelDefinitions : key -> def)
-  			; rules(UnmodifiedDef :- key)
-        ; rules(UnmodifiedDefRules :- key)
   
-  /*
-  load-unmodified-def-with-rename: key -> key
-    where not(<TopLevelDefinitions> key)    // is not already loaded
-    with  <UnmodifiedDefRules; load-dynamic-rule-closure> key
-        ; <load-unmodified-def> key   // load ast
-  */
+  load-all-definitions = with(
+      // Make sure all files are loaded
+      all-keys-CachedFile
+    ; map(
+          (ParsedFile <+ load-unmodified-file)
+        ; map(
+            get-def-key; TopLevelDefinitions
+          <+
+            rename-top;
+            store-module-def
+          )
+      )
+  )
   
-  load-unmodified-def-with-rename: key -> key
-    with  <load-unmodified-def> key
-        ; <TopLevelDefinitions; rename-top> key
-      
-  load-all-definitions =
-      all-keys-UnmodifiedDef
-    ; filter(not(TopLevelDefinitions))
-      // definitions are loaded by file (multiple at a time) 
-    ; map(TopLevelDefinitions <+ load-unmodified-def-with-rename)
+  load-unmodified-def: key -> def
+    with  path := <def-key-to-file> key
+        ; defs := <ParsedFile <+ load-unmodified-file> path
+        ; filter(where(get-def-key; ?key))
+        ; if length; not(?1) then
+             <debug(!"Multiple or no definitions found in file: ")> (<id>, key)
+            ; <exit> 1
+          end
+        ; def := <Hd>
+        
+  // Load ast for an unmodified (cached) file
+  load-unmodified-file: path -> defs
+    with  path-to-cache-path => cachepath
+        ; !FILE(path)
+        ; ast := <parse-file-without-cache(|path,cachepath)>
+        ; module-ast-to-toplevel-defs(|path) => defs
+        ; rules(ParsedFile : path -> defs)
        
-  
 strategies // IDE Plugin stuff
 
   webdsl-collect-all-errors =
@@ -101,23 +102,26 @@ strategies // module imports
   emit-import :
     x -> <rules( ExtraModulesToImport :+= x )>
 
-  already-imported :
-    Imports(name) -> Note([])
-    where <Imported> <strip-annos> name
-
   import-module: Imports(name) -> file
-    with xtcfile := FILE(<concat-strings>[<DirName>, "/", name, ".app"])
-       ; name1 := <strip-annos> name
-       ; rules( Imported : name1 )
-       ; {| ImportedBy:
-            rules(ImportedBy := name)
-          ; file := <read-webdsl-file> xtcfile
-         |}
-     
+    with  path := <concat-strings>[<DirName>, "/", name, ".app"]
+        ; file := <import-module(|path)> name
+          
+  import-module(|path): name -> Note([])
+    where <Imported> path
+    
+  import-module(|path): name -> file
+    with  xtcfile := FILE(path)
+        ; name1 := <strip-annos> name
+        ; {| ImportedBy:
+              rules(ImportedBy := name)
+            ; file := <read-webdsl-file> xtcfile
+          |}
+        
   read-webdsl-application =
     {| ModuleAst:
     	// Read modified files, starting at the main app file
-      read-webdsl-file
+    	where(?FILE(path); rules(Imported : path))
+    ; read-webdsl-file
       // Import builtin files
     ; {| ExtraModulesToImport:
          try(import-extra-modules-hook; debug(!"INTERNAL ERROR: import-extra-modules-hook strategies must fail");<exit>1)
@@ -126,37 +130,34 @@ strategies // module imports
     ; <map(import-module)> extramodules
       // Store top-level elements
     ; all-keys-ModuleAst
-    ; map(\path -> <ModuleAst; module-ast-to-toplevel-elements(|path)> \)
+    ; map(\path -> <ModuleAst; module-ast-to-toplevel-defs(|path); map(store-module-def)> \)
     |}
 
   read-webdsl-file = with(
       // Read main app
       ?xtcfile
-    ; where(path := <path-of-xtc-file>)
+    ; where(
+          path := <path-of-xtc-file>
+        ; rules(Imported : path)
+      )
     ; xtc-parse-webdsl
-    ; ?(real-file, cached-file)
-    ; if <UnmodifiedFile> xtcfile then
-          // OPTIMIZATION: do not load unmodified definitions
-          // PROBLEM: need imports to traverse app files
-          !cached-file
-        ; map({
-              ?(key, def, ruleset)
-            ; keyfile := <def-key-to-file> key
-            ; rules(UnmodifiedDef : key -> def)
-            ; rules(UnmodifiedDefRules : key -> ruleset)
-            ; rules(IsUnmodifiedFile : keyfile)
-          })
-        ; <alltd(?Imports(_); (already-imported <+ import-module))> cached-file
+    ; ?content
+    ; if <CachedFile> path then
+          ?(defkeys, imports, ruleset)
+        ; <load-dynamic-rule-closure> ruleset
+        ; rules(IsUnmodifiedFile : path)
+        ; <map(import-module)> imports
+        ; rules(ModuleToDefs : path -> defkeys)
       else
-          rules(ModuleAst : path -> real-file)
-        ; rules(CachedVersion : path -> cached-file)
-        ; !real-file
+          rules(ModuleAst : path -> content)
         ; if not(ImportedBy) then // main app file
             ?Application(<id>,_); set-qualified-appname 
             <+
             not(add-error(|"Main .app file needs to start with \"application\""))
           end
-        ; <alltd(?Imports(_); (already-imported <+ import-module))> real-file
+        ; imports := <collect-all(?Imports(_))> content
+        ; rules(ModuleImports : path -> imports)
+        ; <alltd(?Imports(_); import-module)> content
       end
   )
 
@@ -219,26 +220,26 @@ strategies // toplevel definitions
     TopLevelDefinitions : toplevel definition name -> definition
   */ 
     
-  module-ast-to-toplevel-elements(|path): ast -> ast
+  module-ast-to-toplevel-defs(|path): ast -> defs
     with  if ?Application(appname, appdefs) then
-            ![Section("", [ApplicationName(appname)]) | appdefs]
+            ![Section("", [ApplicationName(appname){At(path,0,0)}]) | appdefs]
           else
             ?Module(_, <id>)
           end
-        ; try(?[]; ![Section("", [])])     // at least on section so module gets stored
-        ; deflist := <mapconcat(module-section-to-toplevel-elements(|path))>
-        ; rules(ModuleToDefs : path -> deflist)
+        //; try(?[]; ![Section("", [])])     // at least on section so module gets stored
+        ; defs := <mapconcat(module-section-to-toplevel-defs)>
+        ; map(get-def-key)
+        ; ?defkeys
+        ; rules(ModuleToDefs : path -> defkeys)
     
-  module-section-to-toplevel-elements(|mod): sect -> deflist 
+  module-section-to-toplevel-defs: sect -> defs* 
     with  <(?Section(name, defs*) <+ ?AccessControlDefinition(name, _); defs* := [<id>])> sect
-        ; deflist := <map(store-module-def(|mod))> defs*
-  
+        
   declare =
       ?ApplicationName(name)
-    ; rules(QualifiedAppName := name)
+    ; <set-qualified-appname> name
       
-  // NOTE: mod is a Qid(...) for the application file
-  store-module-def(|mod): def -> defname
+  store-module-def: def -> defname
     with  with-toplevel-name( //give each toplevel definition a name before storing
 		          defname := <get-def-key> def
 		        ; try(<TopLevelDefinitions> defname; !defname; debug(!"Two definitions with the same unique name: ")) 
