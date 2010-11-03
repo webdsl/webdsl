@@ -45,6 +45,17 @@ application v2
   }
 
   //task 4
+  
+  extend entity UserPreference{
+    function getPrefForSlot(s:Slot):Preference{
+      for(pr:Preference in prefs){
+        if(pr.slot == s){
+          return pr;
+        }
+      }
+      return null;
+    }
+  }
 
   define showEvent(e:Event){
     output(e.name)

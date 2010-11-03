@@ -33,14 +33,6 @@ module data
     prefs -> List<Preference> (inverse = Preference.userPref)
     user :: String
     event -> Event (inverse = Event.userPrefs)
-    function getPrefForSlot(s:Slot):Preference{
-      for(pr:Preference in prefs){
-        if(pr.slot == s){
-          return pr;
-        }
-      }
-      return null;
-    }
   }
 
   entity PrefOption {

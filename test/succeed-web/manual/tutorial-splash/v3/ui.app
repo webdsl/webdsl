@@ -111,4 +111,16 @@ module ui
   define page participants(e:Event){
     showEvent(e)
   }
+  
+  define showAllEvents(){
+    <br />
+    <br />
+    "All events: "
+    <br />
+    for(e:Event){
+      showEvent(e)
+      <br />
+    }
+  }
+
 
