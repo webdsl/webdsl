@@ -1276,5 +1276,6 @@
    TempateModSecure -- KW["secure"],
    TemplateModNotSecure -- KW["not-secure"],
    TemplateCallPropertySecure -- KW["secure"],
-   TemplateCallPropertyNotSecure -- KW["not-secure"]
+   TemplateCallPropertyNotSecure -- KW["not-secure"],
+   TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"]
 ] 

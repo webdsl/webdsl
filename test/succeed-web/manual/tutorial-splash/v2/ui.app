@@ -34,7 +34,7 @@ module ui
         } //separated-by{ <br /> }
       }
 
-      submit action{ e.slots.add(Slot{}); } {"add slot"}
+      submit action{ e.slots.add(Slot{}); } [ignore-validation] {"add slot"}
   }
 
   define page event(e:PLink){

@@ -63,31 +63,7 @@ rules
    *  @TODO check action signature to see whether something needs to be passed as ref arg or not
    */ 
   action-args-to-java-exp-list(|args,fargcalled) =
-    <zip(call-arg-ref-resolve-helper)> (<map(?Arg(_,<id>))>fargcalled,args)
- 
-  handle-actions-to-java-servlet:
-    tc@SubmitElem(e1,passign*,elem*) -> result
-    with  actionident := <get-actionnumber> tc   
-        ; x_action := <?ActionCall(name,args);!name> e1
-        ; <get-anno(?ActionFargAnno(fargcalled))> e1
-        ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
-        ; e4 := <action-id-encoding> (actionident,args)
-        ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
-        ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
-        ; result :=
-            <wrap-action-render-java-code> 
-            bstm*|[
-              ident = e4;
-              if(ThreadLocalPage.get().getParammap().get(ident)!=null)
-              {
-                if(isAjaxSubmitRequired(e_ajaxmodifier)){
-                  ThreadLocalPage.get().enableAjaxActionExecuted(); 
-                }
-                x_action temp = (x_action)getAction("~x_action");
-                temp.run(e*,ident);
-              }
-              bstm_passign*
-            ]|    
+    <zip(call-arg-ref-resolve-helper)> (<map(?Arg(_,<id>))>fargcalled,args)  
     
   /*
    * this doesn't allow downloads, use special downloadlink (see types/file.str)
@@ -127,17 +103,24 @@ rules
          then e_ajaxmodifier := java:expr |[ true ]|
          else e_ajaxmodifier := java:expr |[ false ]|
          end
-        
+         
+  handle-actions-to-java-servlet:
+    tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
+    with actionident := <get-actionnumber> tc   
   handle-actions-to-java-servlet: 
-    tc@SubmitLinkElem(e1,passign*,elem*) -> result
-    with  actionident := <get-actionnumber> tc   
-        ; x_action := <?ActionCall(name,args);!name> e1
+    tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
+    with actionident := <get-actionnumber> tc   
+  handle-actions-to-java-servlet-submit(|actionident, e1, passign*, elem*): 
+    _ -> result
+    with  x_action := <?ActionCall(name,args);!name> e1
         ; <get-anno(?ActionFargAnno(fargcalled))> e1
         ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
         ; e4 := <action-id-encoding> (actionident,args)        
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
-        ; x_temp := <newname> "temp"
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
+        ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign* 
+          then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]| 
+          else bstm_disableval* := [] end
         ; result :=
             <wrap-action-render-java-code> 
             bstm*|[
@@ -148,8 +131,35 @@ rules
                   ThreadLocalPage.get().enableAjaxActionExecuted(); 
                 }
                 x_action temp = (x_action)getAction("~x_action");
+                bstm_disableval*
                 temp.run(e*,ident);
               }
               bstm_passign*
             ]|
-        
+  
+  //in first traversal, for input data binding, already register which action is executed, in order to know about ignore-validation
+  //we need handle-actions traversal as well to get the right arguments for the action, which may depend on input data binding
+  handle-actions-input-to-java-servlet:
+    tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
+    with actionident := <get-actionnumber> tc   
+  handle-actions-input-to-java-servlet: 
+    tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
+    with actionident := <get-actionnumber> tc  
+  handle-actions-input-to-java-servlet-submit(|actionident, e1, passign*): 
+    _ -> result
+    with  x_action := <?ActionCall(name,args);!name> e1
+        ; e4 := <action-id-encoding> (actionident,args)        
+        ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign* 
+          then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]| 
+          else bstm_disableval* := [] end
+        ; result :=
+            bstm*|[
+              ident = e4;
+              if(ThreadLocalPage.get().getParammap().get(ident)!=null )
+              {
+                x_action temp = (x_action)getAction("~x_action");
+                bstm_disableval*
+                ThreadLocalPage.get().setActionToBeExecuted(temp);
+              }
+            ]|
+            

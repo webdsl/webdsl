@@ -40,6 +40,14 @@ public abstract class AbstractPageServlet{
         }
         return messageDigest;
     }
+    
+    protected utils.ActionClass actionToBeExecuted = null;
+    public void setActionToBeExecuted(utils.ActionClass action){
+        this.actionToBeExecuted = action;  	
+    }
+    public utils.ActionClass getActionToBeExecuted(){
+        return actionToBeExecuted;
+    }
 
     //TODO merge getActionTarget and getPageUrlWithParams
     public String getActionTarget() {
