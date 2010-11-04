@@ -27,11 +27,10 @@ module ui
       }
       label("Slots:"){
         for(slot : Slot in e.slots) {
-          input(slot.time){
-            validate(slot.time.length() > 0, "time slot description required")
-          }
+          input(slot.time)
           <br />
-        } //separated-by{ <br /> }
+        }
+        validate( And[s.time.length()>0 | s:Slot in e.slots],"time slot description required for each slot")
       }
 
       submit action{ e.slots.add(Slot{}); } [ignore-validation] {"add slot"}

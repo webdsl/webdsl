@@ -27,14 +27,13 @@ module ui
       }
       label("Slots:"){
         for(slot : Slot in e.slots) {
-          input(slot.time){
-            validate(slot.time.length() > 0, "time slot description required")
-          }
+          input(slot.time)
           <br />
-        } //separated-by{ <br /> }
+        }
+        validate( And[s.time.length()>0 | s:Slot in e.slots],"time slot description required for each slot")
       }
 
-      submit action{ e.slots.add(Slot{}); } {"add slot"}
+      submit action{ e.slots.add(Slot{}); } [ignore-validation]{"add slot"}
   }
 
   define page admin(e:ALink){
@@ -76,7 +75,7 @@ module ui
       output(slot.time)
     }
     c{
-      radiobutton(p.option, [p_yes,p_no,p_maybe])
+      radio(p.option, [p_yes,p_no,p_maybe])
     }
     databind{
       up.prefs.add(Preference{slot := slot option := p.option});
