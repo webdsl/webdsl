@@ -8,38 +8,24 @@ imports nwl
 rules // extend entity
 
   desugar: e@ExtendEntity(x, body*) -> []
-    with  name := <newid> $[extend_[x]]
-        ; rules(
-              ExtendEntity : x -> (name, e)
-          )
+    with  rules(ExtendEntity : x -> body*)
           
-  desugar: Entity(x, body*) -> Entity(x, body2*)
-    where <bagof-ExtendEntity> x;
-          filter(\(name, ent) -> <not(<ExtendEntityDone> name); rules(ExtendEntityDone : name)> ent \);
-          not(?[]);
-          ?extends
-    with  <map(?ExtendEntity(_, <id>))> extends;
-          concat;
-          body2* := [body* | <id>]
-
-  // Succeed if all extend entities have been applied
-  entity-is-extended: x -> x
-    with  extends := <bagof-ExtendEntity> x
-    where <map(\(name,_) -> <ExtendEntityDone> name\)> extends
+  desugar: Entity(x, oldbody) -> Entity(x, newbody)
+    where extrabody := <once-ExtendEntity> x
+    with newbody := <concat> [oldbody, extrabody]
 
 rules // extend function
 
-  desugar: Entity(x, body*) -> Entity(x, body2*)
-    where <entity-is-extended> x;        // no waiting extend entities
-          extends := <filter(?ExtendFunction(_,_,_)); not(?[])> body*
-    with  {| ExtendFunction:
-            <map(\ ExtendFunction(name, params, body) -> <rules(ExtendFunction : (name,params) -> body)> \)> extends;
-            <map(repeat(desugar-extend-function))> body*;
-            remove-all(?ExtendFunction(_,_,_))
-          |};
-          ?body2*
-          
-  desugar-extend-function: Function(name, params, block1) -> Function(name, params, res)
+  desugar: Function(name, params, block1) -> Function(name, params, res)
     where block2 := <once-ExtendFunction> (name, params)
     with  res := Block(<concat> [<?Block(<id>)> block1, <?Block(<id>)> block2])
-         
+  
+  desugar: Entity(x, body*) -> Entity(x, body2*)
+    where <one(?ExtendFunction(_,_,_))> body*
+    with  body2* := <remove-all(desugar-extend-entity-function(|x))> body*
+    
+  desugar-extend-entity-function(|ent) =
+    ?ExtendFunction(name, params, body);
+    rules(ExtendFunction : (name, params) -> body)
+
+// TODO: extend function now matches all functions with the same name, no matter which entity
