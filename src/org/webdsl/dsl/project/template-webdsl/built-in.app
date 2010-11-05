@@ -1,4 +1,4 @@
-module built-in
+module .servletapp/src-webdsl-template/built-in
 
   section methods for built-in types
 
