@@ -7,6 +7,9 @@ module .servletapp/src-webdsl-template/built-in
     toLowerCase():String
     toUpperCase():String
     replace(String,String):String
+    startsWith(String):Bool
+    startsWith(String,Int):Bool
+    endsWith(String):Bool
     utils.StringType.parseUUID                   as parseUUID():UUID
     org.webdsl.tools.Utils.containsDigit         as containsDigit():Bool
     org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
