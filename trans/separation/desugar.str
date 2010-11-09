@@ -6,8 +6,6 @@ imports
   separation/-
   lib/track lib/dr
 
-// TODO: when no desugar dep file exists, compilation fails
-
 strategies
 	
   with-rule-resolving(s) = {| RuleResolvingEnabled:
@@ -77,20 +75,21 @@ strategies
   save-desugar-rules =
       // Purge old rule-usage info
         all-keys-RuleUsers
-      ; map({defs: \key -> <RuleUsers; filter(is-cacheable; {?def; rules(TempRule :+ key -> def)})> \})
+      ; map(\key -> <RuleUsers; filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> \)
       // Add new rule-usage info
       ; all-keys-DesugarRulesUsed
-      ; map({def: 
-            ?def
-          ; bagof-DesugarRulesUsed    // list of list of dr keys
-          ; concat                    // list of dr keys
-          ; map({key:
-              ?key
-            ; rules(TempRule :+ key -> def)
-            })
+      ; map(Snd)
+      ; uniq  // all rule keyss
+      ; map({key, defs2:
+            ?key
+          ; all-keys-DesugarRulesUsed
+          ; filter(where(Snd; ?key); Fst)     // list of defs
+          ; try(
+              <concat> [<id>, <RuleUsers> key]  // add old users
+            )
+          ; ?defs2
+          ; rules(RuleUsers : key -> defs2) 
         })
-      ; all-keys-TempRule
-      ; map({defs: \key -> <bagof-TempRule; uniq; ?defs; rules(RuleUsers : key -> defs)>\})
       // Purge old rule-creation info
       ; all-keys-RuleValsForKey
       ; map({key,defs2:
@@ -116,7 +115,7 @@ strategies
             })
         })
         // And save...
-      ; all-defs := <concat; uniq> [<all-keys-DesugarRulesUsed>, <PreviousAllDefs <+ ![]>] // new and old
+      ; all-defs := <concat; uniq> [<all-keys-DesugarRulesUsed; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
       // Rule -> defs
       ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
       ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>

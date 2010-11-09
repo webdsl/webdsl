@@ -1,8 +1,12 @@
 <?php
 
 function compile($file) {
-
-  $cmd = "/home/nathan/nwl/trans/nwlj --verbose 2 -i $file.nwl 2>&1 ";
+  
+  echo "Testing: $file\n";
+  $filename = $file . ".nwl";
+  touch($filename); // force compilation
+  sleep(1); // Too fast otherwise.. timestamps of cache == timestamp of file
+  $cmd = "/home/nathan/nwl/trans/nwlj --verbose 2 -i $filename 2>&1 ";
 	exec($cmd, $output, $ret);
 	if ($ret !== 0) {
 	 echo("Error executing: $cmd\n");
@@ -19,6 +23,8 @@ function compile($file) {
 			array_push($data['files'], $matches[2]);
 		}
 	}
+	//echo "---\n\n";
+	//echo implode("\n", $output);
 	return $data;
 
 }
@@ -37,7 +43,7 @@ function checkFiles($title, $data, $files) {
 }
 
 // Fresh start
-exec("./clear");  
+exec("./clean");
 compile("main");
 
 // Test 1: if entity Entry changed, its view page must also be recompiled
