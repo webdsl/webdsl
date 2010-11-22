@@ -1,4 +1,4 @@
-//#18 Assignment to derived property is not allowed.
+//#20 Assignment to derived property is not allowed.
 
 application test
 
@@ -13,6 +13,10 @@ application test
     } 
   }
   var user := User {}
+  var user2 := User {
+    name := "23342"
+    foo := "23342"
+  }
 
   define page root()
   {
