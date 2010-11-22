@@ -124,6 +124,28 @@ public abstract class AbstractPageServlet{
         return temp;
     }
 
+    //render template function
+    public String renderTemplate(String name, Object[] args, Environment env){
+        TemplateServlet temp = null;
+        try  { 
+            temp = ((TemplateServlet)env.getTemplate(name).newInstance());
+        }
+        catch(IllegalAccessException iae)
+        { 
+            System.out.println("Problem in template lookup: " + iae.getMessage());
+        }
+        catch(InstantiationException ie)
+        { 
+            System.out.println("Problem in template lookup: " + ie.getMessage());
+        }
+        java.io.StringWriter s = new java.io.StringWriter();
+        PrintWriter out = new java.io.PrintWriter(s);
+        ThreadLocalOut.push(out);
+        temp.render(args, env, utils.TemplateCall.None, null, null, null);
+        ThreadLocalOut.popChecked(out);
+        return s.toString();
+    }
+
     //ref arg
     protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
     public static HashMap<String, Class<?>> getRefArgClasses() {

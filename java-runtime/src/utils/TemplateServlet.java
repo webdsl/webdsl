@@ -121,7 +121,9 @@ public abstract class TemplateServlet {
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();
               this.response = ThreadLocalPage.get().getResponse();
-              this.session = request.getSession(true);
+              if(request != null){ //calling rendertemplate within background task
+                this.session = request.getSession(true);
+              }
               this.hibSession = ThreadLocalPage.get().getHibSession();
               this.templateArg = templateArg;
               this.withcallsmap = withcallsmap;
