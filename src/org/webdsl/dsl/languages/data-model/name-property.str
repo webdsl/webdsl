@@ -1,8 +1,8 @@
 module org/webdsl/dsl/languages/data-model/name-property
 
 imports
-	libwebdsl-front
-	org/webdsl/dsl/languages/data-model/-
+  libwebdsl-front
+  org/webdsl/dsl/languages/data-model/-
 
 strategies
 
@@ -12,7 +12,7 @@ rules
 
   declare-name-property(|x_class) :
     prop{anno*} -> <fail>
-    where not(<fetch(?IsGeneratedProperty())> anno*)
+    where not(<fetch(?IsGeneratedProperty())> anno*) // don't trigger on generated name property, see NameProperty() overlay
         ; x := <get-property-name> prop // cope with different property constructors
         ; if <?"name"> x then rules ( HasNameProperty : x_class ) end
         ; if <is-namefield> prop then rules ( NameAnnotationProp :+ x_class -> <get-property-name> prop ) end
@@ -21,8 +21,13 @@ rules
   
   declare-name-property-override: x_class -> x_class
     where not(<HasNameProperty> x_class) 
-		with	<declare-property(|x_class)> NameProperty()
-		
+    with <declare-property(|x_class)> NameProperty()
+    
+overlays
+
+  NameProperty =
+    DerivedProperty("name", Simple(), SimpleSort("String"), [], []){IsGeneratedProperty()}
+
 strategies
 
   /**
@@ -34,10 +39,10 @@ strategies
     
 strategies
 
-	// get name of property with name annotation, or return "id"
+  // get name of property with name annotation, or return "id"
   get-namefield = NameAnnotationProp <+ !"id"
 
-	// succeed if property has name annotation
+  // succeed if property has name annotation
   is-namefield = 
     ?Property(name, k, type, annos)
     ; where( <fetch(?SimpleAnno("name"))> annos)
@@ -50,25 +55,25 @@ rules // entity name property annotation for entities without a property 'name'
   
   // entity with super: generate custom getter if *this class* has a property with name anno, otherwise inherit from super
   add-backend-annotation =
-		  ?Entity(class,_,_)
-	   ; where(namefield := <NameAnnotationProp> class)
-	   ; add-new-anno(|NamePropertyAnno(namefield))
+      ?Entity(class,_,_)
+     ; where(namefield := <NameAnnotationProp> class)
+     ; add-new-anno(|NamePropertyAnno(namefield))
   
   // entity without super: generate custom getter if this class does not have a name property
-	add-backend-annotation: ent -> <add-new-anno(|NamePropertyAnno(namefield))>
-		   where (x_class := <?SessionEntity(<capitalize-string>,_) <+ ?EntityNoSuper(<id>,_)>)
-		 ; where (<not(HasNameProperty)> x_class)
-	   ; with (namefield := <get-namefield>)			// either a property with name anno, or "id"
-		 
+  add-backend-annotation: ent -> <add-new-anno(|NamePropertyAnno(namefield))>
+       where (x_class := <?SessionEntity(<capitalize-string>,_) <+ ?EntityNoSuper(<id>,_)>)
+     ; where (<not(HasNameProperty)> x_class)
+     ; with (namefield := <get-namefield>)			// either a property with name anno, or "id"
+     
 rules	// constraint: name property and property with name anno
 
-	constraint-error-data = 
-			(classname, body) := <get-entity-def>
-		; allprops := <bagof-Properties; flatten-list> classname		// includes extend entity, but no superclasses 
-		; nameprop := <fetch-elem(where(get-property-name; ?"name"))> allprops
-	  ; annoprop := <fetch-elem(where(is-namefield))> allprops
-	  ; not(<eq> (nameprop, annoprop))
-		; <map(
-				add-error(|["Entity ",classname," has both a name property and a property with name annotation."])
-			)> [nameprop, annoprop]
-		; fail
+  constraint-error-data = 
+      (classname, body) := <get-entity-def>
+    ; allprops := <bagof-Properties; flatten-list> classname		// includes extend entity, but no superclasses 
+    ; nameprop := <fetch-elem(where(get-property-name; ?"name"))> allprops
+    ; annoprop := <fetch-elem(where(is-namefield))> allprops
+    ; not(<eq> (nameprop, annoprop))
+    ; <map(
+        add-error(|["Entity ",classname," has both a name property and a property with name annotation."])
+      )> [nameprop, annoprop]
+    ; fail
