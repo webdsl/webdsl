@@ -31,14 +31,21 @@ strategies
 
 strategies // register all declared entities
 
-  all-properties :
+  all-properties = all-properties(|[])
+  
+  all-properties(|alreadychecked) :
+    x_class -> []
+    where <fetch(?x_class)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
+    
+  all-properties(|alreadychecked) :
     x_class -> result
+    where not(<fetch(?x_class)> alreadychecked)
     with  props := <bagof-Properties; concat> x_class
         ; if not(<Extends> x_class)
           then result := []
           else
             if not("Entity" := <Extends> x_class) 
-            then result := <concat> [props, <Extends; all-properties> x_class]
+            then result := <concat> [props, <Extends; all-properties(|[x_class|alreadychecked])> x_class]
             else result := props end
           end
 
@@ -46,28 +53,42 @@ strategies // register all declared entities
    *  gives all the properties of the entity and its supers, as a list of tuples of (entitywiththeproperty,property)
    *  includes built-in properties like id, version and name
    */
-  all-entity-properties-tuples :
+  all-entity-properties-tuples = all-entity-properties-tuples(|[])
+  
+  all-entity-properties-tuples(|alreadychecked) :
+    x_class -> []
+    where <fetch(?x_class)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
+    
+  all-entity-properties-tuples(|alreadychecked) :
     x_class -> result
+    where not(<fetch(?x_class)> alreadychecked)
     with  props := <bagof-AllProperties; map(\x -> <PropertyDecl> (x_class, x)\)> x_class
         ; if not(<Extends> x_class)
           then result := []
           else
             props1 := <map(create-tuple-with-entity-prop(|x_class))> props
           ; if not("Entity" := <Extends> x_class) 
-            then result := <concat> [props1, <Extends; all-entity-properties-tuples> x_class]
+            then result := <concat> [props1, <Extends; all-entity-properties-tuples(|[x_class|alreadychecked])> x_class]
             else result := props1 end
           end
           
   create-tuple-with-entity-prop(|x_class) : prop -> (x_class,prop)
   
-  all-functions :
+  all-functions = all-functions(|[])
+  
+  all-functions(|alreadychecked) :
+    x_class -> []
+    where <fetch(?x_class)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
+  
+  all-functions(|alreadychecked):
     x_class -> result
+    where not(<fetch(?x_class)> alreadychecked)
     with  funcs := <bagof-Functions; concat> x_class
         ; if not(<Extends> x_class)
           then result := []
           else
             if not("Entity" := <Extends> x_class)
-            then result := <concat> [funcs, <Extends; all-functions> x_class]
+            then result := <concat> [funcs, <Extends; all-functions(|[x_class|alreadychecked])> x_class]
             else result := funcs end
           end
 
@@ -121,13 +142,17 @@ rules
   get-class-hierarchy:
     x -> [x | <defined-superclasses> x]
 
-  defined-superclasses :
+  defined-superclasses = defined-superclasses(|[])
+  
+  defined-superclasses(|alreadychecked) :
     x -> []
     where "Entity" := <Extends> x
        <+ not(<Extends> x) //e.g. x is not a valid entity, then the Extends rule is not declared
+       <+ <fetch(?x)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
     
-  defined-superclasses :
-    x -> [super | <defined-superclasses> super]
+  defined-superclasses(|alreadychecked) :
+    x -> [super | <defined-superclasses(|[x|alreadychecked])> super]
+    where not(<fetch(?x)> alreadychecked)
     where super := <Extends> x
         ; not("Extends" := super)
 
