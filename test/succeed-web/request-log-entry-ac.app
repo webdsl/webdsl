@@ -7,6 +7,8 @@ application test
       table{
         derive viewRows from r
       }
+      "principal was "
+      output(r.principal.name)
     }
     navigate bla("1234567") { "go" }
   }

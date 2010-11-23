@@ -192,3 +192,27 @@ module .servletapp/src-webdsl-template/built-in
       }
     }
   }
+  
+  // logging       
+  
+  entity RequestLogEntry {
+    name :: String
+    params -> List<RequestLogEntryParam>
+    requestedURL :: String (length=1000000)
+    start :: DateTime
+    end :: DateTime
+    clientIP :: String
+    clientPort :: Int
+    method :: String
+    referer :: String  (length=1000000)
+    userAgent :: String
+    queryExecutionCount :: Int
+    queryExecutionMaxTime :: Int
+    queryExecutionMaxTimeQueryString :: String
+  }
+  
+  entity RequestLogEntryParam {
+    name :: String
+    value :: String
+  }
+  
