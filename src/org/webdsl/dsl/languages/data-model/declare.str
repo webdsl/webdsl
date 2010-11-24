@@ -48,14 +48,16 @@ strategies // register all declared entities
   all-entity-properties-tuples(|alreadychecked) :
     x_class -> []
     where <fetch(?x_class)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
-    
+  
   all-entity-properties-tuples(|alreadychecked) :
     x_class -> result
     where not(<fetch(?x_class)> alreadychecked)
     with  props := <bagof-AllProperties; map(\x -> <PropertyDecl> (x_class, x)\)> x_class
         ; props1 := <map(create-tuple-with-entity-prop(|x_class))> props
-        ; if not("Entity" := x_class) 
-          then result := <concat> [props1, <Extends; all-entity-properties-tuples(|[x_class|alreadychecked])> x_class]
+        ; if not("Entity" := x_class) //stop at Entity (but its properties are included)
+           ; super := <Extends> x_class //stop if invalid entity found (for each entity Extends should succeed, but need to cope with app errors)
+          then result := <concat> [<all-entity-properties-tuples(|[x_class|alreadychecked])> super, props1]
+               //order from least specific to most specific, that way when iterating over them and creating DR the more specific takes precedence
           else result := props1 end
 
   create-tuple-with-entity-prop(|x_class) : prop -> (x_class,prop)
