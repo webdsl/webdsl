@@ -121,6 +121,7 @@ test booltemplates {
   button3.click();
   
   assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for defined bool input");
+  assert(d.getPageSource().split("CLICK")[3].contains("force true was enabled, but value was false"), "didn't find a single validation error for defined bool input, behind the label");
   
   var input4 := d.findElements(SelectBy.className("builtininputelemb2"))[0];
   input4.toggle();

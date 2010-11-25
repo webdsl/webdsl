@@ -201,6 +201,15 @@ public abstract class AbstractPageServlet{
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
     }
+    public List<utils.ValidationException> getValidationExceptionsByName(String name) {
+        List<utils.ValidationException> list = new java.util.LinkedList<utils.ValidationException>();
+        for(utils.ValidationException v : validationExceptions){
+            if(v.getName().equals(name)){
+                list.add(v);
+            }
+        }
+        return list;
+    }
     public boolean hasExecutedAction = false;
     public boolean hasExecutedAction(){ return hasExecutedAction; }
     public boolean hasNotExecutedAction(){ return !hasExecutedAction; }
