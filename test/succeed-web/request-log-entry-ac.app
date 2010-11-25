@@ -49,6 +49,7 @@ application test
     var d : WebDriver := FirefoxDriver();
 
     d.get(navigate(root()));
+    d.get(navigate(root())); // access twice, so the previous request shows up
     assert(d.getPageSource().contains("Firefox"), "firefox user agent not shown");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
