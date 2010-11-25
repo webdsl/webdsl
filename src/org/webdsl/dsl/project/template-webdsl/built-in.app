@@ -91,6 +91,7 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   native class org.openqa.selenium.By as SelectBy {
+    static className(String):SelectBy
     static id(String):SelectBy
     static linkText(String):SelectBy
     static name(String):SelectBy
