@@ -50,7 +50,7 @@ application test
 
     d.get(navigate(root()));
     d.get(navigate(root())); // access twice, so the previous request shows up
-    assert(d.getPageSource().contains("Firefox"), "firefox user agent not shown");
+    assert(d.getPageSource().contains("GET"), "GET method not shown");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 4, "expected <input> elements did not match");

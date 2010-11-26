@@ -22,7 +22,7 @@ application test
 
     d.get(navigate(root()));
     d.get(navigate(root())); // access twice, so the previous request shows up
-    assert(d.getPageSource().contains("Firefox"), "firefox user agent not shown");
+    assert(d.getPageSource().contains("GET"), "GET method not shown");
     
     d.close(); 
   }
