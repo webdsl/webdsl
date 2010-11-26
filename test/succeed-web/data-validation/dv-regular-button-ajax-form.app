@@ -24,6 +24,10 @@ application test
     "redirected to success page"
   }
 
+  native class Thread{
+    static sleep(Int)
+  }
+
   
   test one {
     
@@ -37,14 +41,18 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 2, "expected <input> elements did not match");
     elist[1].click();
-    assert(d.getPageSource().contains("ajax form inserted"));
     
+    //cannot continue right away, otherwise ajax might not be loaded
+    Thread.sleep(2000);
+    
+    assert(d.getPageSource().contains("ajax form inserted"));
  
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 5, "expected <input> elements did not match");
 
     elist[1].sendKeys("45gdg"); // should case validation error, since this field is for Int
     elist[2].click();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("root page"), "root page should not be overridden by an ajax call validation error");
     assert(d.getPageSource().contains("Not a valid number"), "validation error did not show up");
@@ -52,6 +60,3 @@ application test
     
     d.close();
   }
-  
-
-  
