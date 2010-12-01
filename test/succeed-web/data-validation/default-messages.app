@@ -7,12 +7,6 @@ application messages
   var u1 : User := User{ name := "alice" };
   
   define page root(){
-    for(u:User) {
-      output(u.name)
-    }
-    
-    navigate(somepage()){"link"}
-    
     form {
       input(u.name)
       action("save",save())
@@ -21,33 +15,13 @@ application messages
       u.save();
       message("1: username: "+u.name);
       message("2: username: "+u.name);
-
       return somepage();
     }
   }
   
   define page somepage(){
     "somepagefragment"  
-    
-    messages()
   }
-  
-  define ignore-access-control templateSuccess(messages : List<String>){
-    a(messages)
-  }
-  
-  define a(m : List<String>){
-    b{
-      for(v: String in m){
-        output(v)   
-      } separated-by {", "}	
-    }
-  }
-  
-  define b(){
-    elements()
-  }
-
   
   test messages {
     var d : WebDriver := HtmlUnitDriver();
@@ -62,7 +36,7 @@ application messages
     
     elist[2].click();
     
-    //check that messages are produced below "somepage fragment"  
+    //check that messages are produced above "somepage fragment"  
     
     var pagesource := d.getPageSource();
 
@@ -70,8 +44,8 @@ application messages
     
     assert(list.length == 2, "expected one occurence of \"somepagefragment\"");
     
-    assert(list[1].contains("1: username: bobblabla"), "cannot find first message");
-    assert(list[1].contains("2: username: bobblabla"), "cannot find second message");
+    assert(list[0].contains("1: username: bobblabla"), "cannot find first message");
+    assert(list[0].contains("2: username: bobblabla"), "cannot find second message");
     
     d.close();
   }
