@@ -16,9 +16,11 @@ public abstract class EmailServlet {
 
     protected static java.util.Properties props = new java.util.Properties();
     protected static java.util.Properties sessionProps = new java.util.Properties();
-    protected static String host;
-    protected static String username;
-    protected static String password;
+    protected static String host = null;
+    protected static String username = null;
+    protected static String password = null;
+    protected static String protocol = "smtps";
+    protected static boolean authenticate = true;
 
     protected static javax.mail.Session getSession(){
         return javax.mail.Session.getInstance(sessionProps, null);
@@ -27,13 +29,24 @@ public abstract class EmailServlet {
     static {
         try {    
             props.load(EmailServlet.class.getResourceAsStream("/email.properties"));
-            host     = EmailServlet.props.getProperty("webdsl.email.host");
-            username = EmailServlet.props.getProperty("webdsl.email.user");
-            password = EmailServlet.props.getProperty("webdsl.email.pass");
-            sessionProps.put("mail.smtps.auth", "true");
+            host = EmailServlet.props.getProperty("webdsl.email.host");
+            String authprop = EmailServlet.props.getProperty("webdsl.email.authenticate"); 
+            if(   "true".equals(authprop)
+               ||"false".equals(authprop) ){
+              authenticate = Boolean.valueOf(authprop);
+            }
+            if(authenticate){
+              username = EmailServlet.props.getProperty("webdsl.email.user");
+              password = EmailServlet.props.getProperty("webdsl.email.pass");
+              sessionProps.put("mail.smtps.auth", "true");
+            }
+            String prot = EmailServlet.props.getProperty("webdsl.email.protocol");
+            if("smtp".equals(prot) || "smtps".equals(prot)){
+              protocol = prot;
+            }
+            sessionProps.put("mail.smtp.port", EmailServlet.props.getProperty("webdsl.email.port"));
             sessionProps.put("mail.smtps.port", EmailServlet.props.getProperty("webdsl.email.port"));
             javax.mail.Session session = javax.mail.Session.getInstance(sessionProps, null);
-            //TODO set SSL/TLS	
         }
         catch(java.io.FileNotFoundException fnf) {
             System.out.println("File \"email.properties\" not found");
@@ -74,7 +87,7 @@ public abstract class EmailServlet {
             javax.mail.Address[] replyTo = javax.mail.internet.InternetAddress.parse(this.replyTo, false);
             msg.setReplyTo(replyTo);
 
-            javax.mail.Transport transport = session.getTransport("smtps");
+            javax.mail.Transport transport = session.getTransport(protocol);
             try {
                 transport.connect(host, username, password);
                 transport.sendMessage(msg, msg.getAllRecipients());
