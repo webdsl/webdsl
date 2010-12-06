@@ -217,3 +217,97 @@ module .servletapp/src-webdsl-template/built-in
     value :: String
   }
   
+  //built-in templates
+  
+  define ignore-access-control break(){
+    <br all attributes/>
+  }
+  /*
+  define ignore-access-control block(){
+    <div class="block "+attribute("class") 
+         all attributes except "class">
+      elements()
+    </div>
+  }*/
+  
+  define ignore-access-control div(){
+    <div all attributes>
+      elements()
+    </div>
+  }
+  
+  define ignore-access-control container(){
+    <span class="container "+attribute("class") 
+         all attributes except "class">
+      elements()
+    </span>
+  }
+  
+  define ignore-access-control fieldset(s:String){
+    <fieldset all attributes>
+      <legend>
+        output(s)
+      </legend>
+      elements()
+    </fieldset>
+  }
+  /*
+  define ignore-access-control group(s:String){
+    <fieldset all attributes>
+      <legend>
+        output(s)
+      </legend>
+      <table>
+        elements()
+      </table>
+    </fieldset>
+  }
+  define ignore-access-control group(){
+    <fieldset class="fieldset_no_legend_ "+attribute("class") all attributes>
+      <table>
+        elements()
+      </table>
+    </fieldset>
+  }
+  define ignore-access-control groupitem(){
+    <tr all attributes>
+      <td>
+        elements()
+      </td>
+    </tr>
+  }
+  */
+  /*
+  define ignore-access-control dummy(){
+    elements()
+  }
+  */
+  /*
+  define ignore-access-control list(){
+    <ul all attributes>
+      elements()
+    </ul>
+  }
+  
+  define ignore-access-control listitem(){
+    <li all attributes>
+      elements()
+    </li>
+  }
+  */
+  define ignore-access-control par(){
+    <p all attributes>
+      elements()
+    </p>
+  }
+  
+  define ignore-access-control pre(){
+    <pre all attributes>
+      elements()
+    </pre>
+  }
+  
+  define ignore-access-control spacer(){
+    <hr all attributes/>
+  }
+  
