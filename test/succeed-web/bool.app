@@ -64,6 +64,9 @@ define page root(){
     "validated, must be true"
     <br />
     test(b2)
+    
+    <br />
+    navigate testnolabel(){ "no label test" }
 }
 
 define test(b:Bla){ 
@@ -132,5 +135,45 @@ test booltemplates {
   
   assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for builtin bool input");
   
+  testnolabel(d);
+  
   d.close();
+}
+
+
+var b4 := Bla{ name := "b4" bla := true forceTrue:=true}
+
+define page testnolabel(){ 
+  outputBool1(b4.bla)[class = "outputelem"]
+  form{
+    inputBool1(b4.bla)[class = "inputelem"]
+    submit action{} [class = "savebutton"] {"save"}
+  }	
+  outputBool(b4.bla)[class = "builtinoutput"]
+  form{
+    inputBool(b4.bla)[class = "builtininput"]
+    submit action{} [class = "builtinsavebutton"] {"save"}
+  }	
+}
+
+function testnolabel(d:WebDriver) {
+  d.get(navigate(testnolabel()));
+
+  var input := d.findElements(SelectBy.className("inputelem"))[0];
+  input.toggle();
+  assert(!input.isSelected());
+  
+  var button := d.findElements(SelectBy.className("savebutton"))[0];
+  button.click();
+  
+  assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for defined bool input");
+  
+  var input4 := d.findElements(SelectBy.className("builtininput"))[0];
+  input4.toggle();
+  assert(!input4.isSelected());
+  
+  var button4 := d.findElements(SelectBy.className("builtinsavebutton"))[0];
+  button4.click();
+  
+  assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for builtin bool input");
 }
