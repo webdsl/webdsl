@@ -15,14 +15,8 @@ section datamodel
     var us1:User;
     var us2:User;
     var us3:User;
-   
   
     var users:Set<User> := {us,us1,us2,us3};
-  
-  
-  
-  
-  
   
     var u:User := User{};
     var u1:User;
@@ -62,12 +56,12 @@ section datamodel
     input(b1)
     output(b1)
     
-    div("test")
+    div
     {
       input(b1)
     }
     
-    div("test")
+    div
     {
       input(b1)
       input(s)
