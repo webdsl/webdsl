@@ -8,27 +8,29 @@ imports
   
 rules 
   
-  java-servlet-element-id :
-    tc@TemplateCall("label", [arg],passign*, elem*)-> tc{InputNumber(newid),anno*} 
-    with  _{anno*} := tc
-          ; newid := <newname> "input"  
+  java-servlet-element-id : TemplateCall("label",_,_,_) -> <java-servlet-element-id-label-helper> 
+  java-servlet-element-id : TemplateCall("labelcolumns",_,_,_) -> <java-servlet-element-id-label-helper>
+  java-servlet-element-id-label-helper :
+    tc@TemplateCall(_,_,_,_){anno*} -> tc{InputNumber(newid),anno*} 
+    with  newid := <newname> "input"  
   
 rules // label
 
-  elem-to-java-servlet :
-    tc@TemplateCall("label", [arg],passign*, elem*) ->
+  elem-to-java-servlet : TemplateCall("label",_,_,_) -> <elem-to-java-servlet-label-helper>
+  elem-to-java-servlet : TemplateCall("labelcolumns",_,_,_) -> <elem-to-java-servlet-label-helper>
+  elem-to-java-servlet-label-helper :
+    tc@TemplateCall(tname, [arg],passign*, elem*) ->
     <for-loop-counter-wrap-code> 
-    <wrap-row-context-code>
     bstm* |[ 
       String x_labelname = e_id;
       ThreadLocalPage.get().enterLabelContext(x_labelname); // register name for input components inside label
       ~*<render-error-messages-with-error-template(|java:expr|[ x_labelname ]|,<ErrorTemplateInput>)> bstm*|[
-        ~*<wrap-column-context-code;wrap-formgroup-left-context-code> bstm*|[ //special handling for labels, contents in next column
+        ~*<add-columns-if("labelcolumns":=tname)> bstm*|[ //special handling for labelcolumns, contents in next column
           out.print("<label for=\""+x_labelname+"\" "+e_attrs1+">");
           bstm_exptostring*
           out.print("</label>");
         ]|
-        ~*<wrap-column-context-code;wrap-formgroup-right-context-code> bstm*|[ 
+        ~*<add-columns-if("labelcolumns":=tname)> bstm*|[ 
           bstm_elem*
         ]|
       ]|   
@@ -40,12 +42,24 @@ rules // label
        ; inputident := <get-inputnumber> tc
        ; e_id := <id-encoding> inputident
        ; bstm_elem* := <elems-to-java-servlet> elem*
-       
+         
+  add-columns-if(s):
+    bstm_content* -> result
+    with  if s
+          then result := bstm*|[ 
+                           out.print("<td>");
+                           bstm_content*
+                           out.print("</td>");
+                         ]|
+          else result := bstm_content* end
+   
   handle-actions-input-to-java-servlet = validation-context-wrapper-for-label(handle-actions-input-to-java-servlet) 
   data-validation-to-java-servlet      = validation-context-wrapper-for-label(data-validation-to-java-servlet)       
 
-  validation-context-wrapper-for-label(s) :
-    tc@TemplateCall("label", [arg],passign*, TemplateBody(elem*)) ->
+  validation-context-wrapper-for-label(s) : TemplateCall("label",_,_,_) -> <validation-context-wrapper-for-label-helper(s)>
+  validation-context-wrapper-for-label(s) : TemplateCall("labelcolumns",_,_,_) -> <validation-context-wrapper-for-label-helper(s)>
+  validation-context-wrapper-for-label-helper(s) :
+    tc@TemplateCall(_,[arg],passign*,TemplateBody(elem*)) ->
     <for-loop-counter-wrap-code> 
     bstm*|[
       ident = e_id;
