@@ -24,6 +24,10 @@ define ajax displayNote(){
   }
 }
 
+  native class Thread{
+    static sleep(Int)
+  }
+
 function show(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 1, "expected <input> elements did not match");
@@ -46,7 +50,9 @@ test one {
     d.get(navigate(root()));
     
     show(d);
+    Thread.sleep(2000);
     send(d);
+    Thread.sleep(2000);
     check(d);
 
     d.close();

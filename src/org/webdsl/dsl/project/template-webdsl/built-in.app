@@ -251,7 +251,7 @@ module .servletapp/src-webdsl-template/built-in
       elements()
     </fieldset>
   }
-  /*
+  
   define ignore-access-control group(s:String){
     <fieldset all attributes>
       <legend>
@@ -262,26 +262,31 @@ module .servletapp/src-webdsl-template/built-in
       </table>
     </fieldset>
   }
-  define ignore-access-control group(){
-    <fieldset class="fieldset_no_legend_ "+attribute("class") all attributes>
-      <table>
-        elements()
-      </table>
-    </fieldset>
-  }
+
   define ignore-access-control groupitem(){
     <tr all attributes>
-      <td>
-        elements()
-      </td>
+      elements()
     </tr>
   }
-  */
-  /*
-  define ignore-access-control dummy(){
-    elements()
+ 
+  define ignore-access-control table(){
+    <table all attributes>
+      elements()
+    </table>	
   }
-  */
+  
+  define ignore-access-control row(){
+    <tr all attributes>
+      elements()
+    </tr>	
+  }
+  
+  define ignore-access-control column(){
+    <td all attributes>
+      elements()
+    </td>	
+  }
+  
   /*
   define ignore-access-control list(){
     <ul all attributes>
@@ -295,6 +300,7 @@ module .servletapp/src-webdsl-template/built-in
     </li>
   }
   */
+  
   define ignore-access-control par(){
     <p all attributes>
       elements()

@@ -793,9 +793,4 @@ public abstract class AbstractPageServlet{
 
       public abstract void initRequestVars(PrintWriter out);
 
-      //common context check
-
-      public abstract void commonContextsCheckEnter(PrintWriter out);
-      public abstract void commonContextsCheckLeave(PrintWriter out);
-
 }
