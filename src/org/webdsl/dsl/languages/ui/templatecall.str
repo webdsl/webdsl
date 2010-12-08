@@ -7,6 +7,20 @@ module org/webdsl/dsl/languages/ui/templatecall
  *  This new name is applied in the rename-identifiers phase.
  */
 
+imports
+  
+  libwebdsl-front
+  libstrategolib
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/emit
+  org/webdsl/dsl/languages/ui/declare
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/navigate
+  org/webdsl/dsl/languages/ui/built-in-template
+  org/webdsl/dsl/languages/action/overloading
+  org/webdsl/dsl/languages/action/function-utils
+  org/webdsl/dsl/modules/email
+
 rules // declare
 
   declare-in-template =
@@ -85,6 +99,7 @@ rules //template call either refers to a defined template, or to a built-in temp
                      <+ <debug(!"error in templatecall found during model-to-model: ")> (x,arg*);fail> arg*) end //extra check in case model-to-model produces bad code
         ; !(x1,arg*)
         ; (  rename-template-call-name-required(|x)
+           <+rename-template-call-name-defined-unique
            <+rename-template-call-name-defined
            <+rename-template-call-name-builtin
            <+rename-template-call-name-error
@@ -113,15 +128,25 @@ rules //template call either refers to a defined template, or to a built-in temp
     where xsa := <strip-annos> x
         ; name := <resolve-overloaded-template> (xsa,arg*,x) 
     with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x 
+          
+  //used in translation of elements call to determine which ac rules to inherit 
+  store-enclosing-define-for-template-call :  
+    x -> x  
+    with  if InTemplate <+ InPage
+          then   enclosing-define := <get-enclosing-define-from-context> 
+               ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
+          end
     
   /**
    *  Some template names are generated uniquely so no need for overloading, see desugar of ArgDef below
    */ 
-  rename-template-call-name-defined : 
+  rename-template-call-name-defined-unique : 
     (x,arg*) -> x
     where xsa := <strip-annos> x
         ; name := <UniqueNameTemplateCall> xsa
     with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x 
 
   rename-template-call-name-required(|x_old) : 
     (x,arg*) -> x
@@ -218,7 +243,8 @@ rules // desugar 'elements' template argument for defined template calls
         ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
         ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
         ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> x
-        ; defelem* := [elem*, action*]
+        ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
+        ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, action*] ]
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
         ; elementscall:=<rename-all> TemplateCall(x_newtempl,vars,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
