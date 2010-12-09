@@ -81,23 +81,6 @@ define page root() {
     labels()
   }
   
-  
-  formgroup{
-    label("row 1 col 1") { "row 1 col 2" }
-    label("row 2 col 1") { "row 2 col 2" }
-  }
-  
-  formgroup("kdsfkajklf"){
-    label("row 1 col 1") { "row 1 col 2" }
-    labels()
-    "left"
-    "right"
-    labels()
-  }
-  
-  formgroup("bla")[labelWidth := "300"]{ // should width be in arguments, or keep style props separate
-    labels()
-  }
 }
 
 define rowtemp(){

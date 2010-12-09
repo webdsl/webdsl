@@ -317,3 +317,55 @@ module .servletapp/src-webdsl-template/built-in
     <hr all attributes/>
   }
   
+  //menu
+  /*
+    built-in-template-rule-setup = <declare-built-in-template-rules> ("menu",[]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuheader",[]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuitem",[]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuspacer",[]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("menubar",[SimpleSort("String")]);fail
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("menubar",[]);fail
+  */
+  define ignore-access-control menubar(s:String){
+    var elementid := "menu"+getUniqueTemplateId()
+    
+    if(s=="horizontal"){
+      <div class="menuwrapper" id=elementid all attributes>
+        <ul id="p7menubar" class="menubar">
+          elements()
+        </ul>
+      </div>
+    }
+    if(s=="vertical")
+    {
+      <div class="sdmenu" id=elementid all attributes>
+        <ul id="p7menubar" class="menubar">
+          elements()
+        </ul>
+      </div>
+      <script type="text/javascript">
+        sideMenu = new SDMenu("~elementid"); 
+        sideMenu.init();
+      </script>
+    } 
+  }
+  
+  define ignore-access-control menu(){
+    <li class="menu" all attributes>
+      <ul class="menuitems">
+        elements()
+      </ul>
+    </li>
+  }
+  
+  define ignore-access-control menuheader(){
+    <span class="menuheader" all attributes>
+      elements()
+    </span>
+  }
+  
+  define ignore-access-control menuitem(){
+    <li class="menuitem" all attributes>
+      elements()
+    </li>
+  }

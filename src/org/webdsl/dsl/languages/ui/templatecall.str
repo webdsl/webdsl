@@ -114,7 +114,8 @@ rules //template call either refers to a defined template, or to a built-in temp
         //collect actions for template closure
         ; ( //only for page and regular templates, not other template types like email
             //stores the key of the surrounding template
-            templatekey := (<InPage <+ InTemplate;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>)
+            //first check InTemplate, then InPage, because both InPage and InTemplate are defined when handling a local define inside a page
+            templatekey := (<InTemplate <+ InPage;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>)
           ; rules ( CallContextActionsKey : x1 -> templatekey )
           ; rules ( CallRequiresKey       : x1 -> templatekey )
           <+ 
@@ -241,10 +242,12 @@ rules // desugar 'elements' template argument for defined template calls
     with  x_newtempl := <toplevel-rename> "templateargument"
         ; vars := <CallContextVars> x
         ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
-        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
         ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> x
         ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
-        ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, action*] ]
+        ; action* := <TemplateActions <+ ![]> encltemplatename
+        ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
+        ; allaction* := [action*,additionalaction*]
+        ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
         ; elementscall:=<rename-all> TemplateCall(x_newtempl,vars,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
