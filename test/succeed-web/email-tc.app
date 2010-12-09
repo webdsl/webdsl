@@ -9,22 +9,24 @@ section datamodel
     
     par{ output(us) }
     par{
-     "2"
+     "showpar2"
     }
   }
 
   entity User {
     name :: String
     mail :: Email
+    emailstring :: String
   }
 
   define output(u:User){
-    "1"
+    "outputuser1"
   }
 
   var global_u : User := User {
     name := "bob"  
     mail := "webdslorg@gmail.com"
+    
   };
   
   define page root() {
@@ -32,11 +34,21 @@ section datamodel
     output(global_u.mail)
     
     form {
-      action("email",send())
+      action("email",send())[class="savebutton"]
     }
     action send() {
+      global_u.emailstring := renderemail(testemail(global_u)).body;
       email(testemail(global_u));
     }
-
+    output(global_u.emailstring)
   }
   
+test booltemplates {
+  var d : WebDriver := FirefoxDriver();
+  d.get(navigate(root()));
+  var button := d.findElements(SelectBy.className("savebutton"))[0];
+  button.click();
+  assert(d.getPageSource().contains("outputuser1"));
+  assert(d.getPageSource().contains("showpar2"));
+  d.close();
+}

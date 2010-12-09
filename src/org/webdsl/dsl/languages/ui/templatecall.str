@@ -135,8 +135,11 @@ rules //template call either refers to a defined template, or to a built-in temp
   store-enclosing-define-for-template-call :  
     x -> x  
     with  if InTemplate <+ InPage
-          then   enclosing-define := <get-enclosing-define-from-context> 
-               ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
+          then  enclosing-define := <get-enclosing-define-from-context> 
+              ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
+          else if InEmail
+               then rules ( DefinedTemplateGetEnclosingDefine : x -> Email() )
+               end
           end
     
   /**
@@ -243,11 +246,16 @@ rules // desugar 'elements' template argument for defined template calls
         ; vars := <CallContextVars> x
         ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
         ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> x
-        ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
-        ; action* := <TemplateActions <+ ![]> encltemplatename
-        ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
-        ; allaction* := [action*,additionalaction*]
-        ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
+        ; if EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
+          then
+            action* := <TemplateActions <+ ![]> encltemplatename
+          ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
+          ; allaction* := [action*,additionalaction*]
+          ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
+          else
+            Email() := <DefinedTemplateGetEnclosingDefine> x
+          ; defelem* := elem*
+          end
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
         ; elementscall:=<rename-all> TemplateCall(x_newtempl,vars,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
