@@ -262,6 +262,15 @@ module .servletapp/src-webdsl-template/built-in
       </table>
     </fieldset>
   }
+  
+  define ignore-access-control group(){
+    <fieldset class="fieldset_no_legend_ "+attribute("class") 
+      all attributes except "class">
+      <table>
+        elements()
+      </table>
+    </fieldset>
+  }
 
   define ignore-access-control groupitem(){
     <tr all attributes>
@@ -318,14 +327,8 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   //menu
+  
   /*
-    built-in-template-rule-setup = <declare-built-in-template-rules> ("menu",[]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuheader",[]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuitem",[]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("menuspacer",[]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("menubar",[SimpleSort("String")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("menubar",[]);fail
-  */
   define ignore-access-control menubar(s:String){
     var elementid := "menu"+getUniqueTemplateId()
     
@@ -350,6 +353,18 @@ module .servletapp/src-webdsl-template/built-in
     } 
   }
   
+  define ignore-access-control menubar(){
+    menubar("horizontal"){
+      elements()
+    }
+  }
+
+  define ignore-access-control menuspacer(){
+    <li all attributes>
+      elements()
+    </li>
+  }
+  
   define ignore-access-control menu(){
     <li class="menu" all attributes>
       <ul class="menuitems">
@@ -368,4 +383,4 @@ module .servletapp/src-webdsl-template/built-in
     <li class="menuitem" all attributes>
       elements()
     </li>
-  }
+  }*/

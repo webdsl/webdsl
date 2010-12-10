@@ -202,38 +202,30 @@ strategies
 
 rules // using page as template produces error; tested in fail/pageastemplate.app
 
+  constraint-error-templatecall(|p,arg*) = constraint-error-page-as-template(|p)
+   
   constraint-error-page-as-template(|p) :
     tc -> <add-error(|["Cannot use page as template: ",<pp-webdsl> p])>
     where <IncorrectTemplateCall> p //not a valid template call
     where <strip-annos;IsPage> p //but could be trying to invoke a page
-  
-  constraint-error-tc = ?tc@TemplateCallNoBody(p,_)       ;where(<constraint-error-page-as-template(|p)> tc)
-  constraint-error-ui = ?tc@TemplateCallNoArgs(p)         ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-tc = ?tc@TemplateCallPropsNoBody(p,_,_);where(<constraint-error-page-as-template(|p)> tc)
-  constraint-error-ui = ?tc@TemplateCallProps(p,_)        ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_);where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-ui = ?tc@TemplateCallBody(p,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-ui = ?tc@TemplateCall(p,_,_,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
  
 rules //template not defined
 
-  constraint-error-template-not-defined(|p,arg*) :
+  constraint-error-templatecall(|p,arg*) :
     x -> <add-error(|err*)>
-    where try(constraint-error-tc) // hook for extra checks on templates, such as navigate
-        ; <IncorrectTemplateCall> p
+    where <IncorrectTemplateCall> p
         ; if <ErrorDuringOverloadResolution> p
           then err* := <ErrorDuringOverloadResolution>
           else err* := ["Template with signature ",<pp-func-sig> (p,<map(type-of)>arg*)," not defined "] end
     
-  constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-templatecall(|p,arg*)> tc)
  
 
 rules // desugar 'elements' template argument for defined template calls
@@ -244,7 +236,7 @@ rules // desugar 'elements' template argument for defined template calls
         ; not(<fetch(?TemplateCall(_,_,_,_))> passign*)
     with  x_newtempl := <toplevel-rename> "templateargument"
         ; vars := <CallContextVars> x
-        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
+        ; farg* := <map(?Var(<!Arg(<id>, <type-of; if where({?_{anno_type*};<fetch(ImmutableVar)>anno_type*}) then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>))>))> vars //make all 'elements' arguments Ref args, unless the type has ImmutableVar annotation (e.g. because it belong to a for loop iterator)
         ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> x
         ; if EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
           then
