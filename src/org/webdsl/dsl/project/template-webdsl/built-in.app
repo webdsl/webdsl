@@ -328,35 +328,14 @@ module .servletapp/src-webdsl-template/built-in
   
   //menu
   
-  /*
-  define ignore-access-control menubar(s:String){
-    var elementid := "menu"+getUniqueTemplateId()
-    
-    if(s=="horizontal"){
-      <div class="menuwrapper" id=elementid all attributes>
-        <ul id="p7menubar" class="menubar">
-          elements()
-        </ul>
-      </div>
-    }
-    if(s=="vertical")
-    {
-      <div class="sdmenu" id=elementid all attributes>
-        <ul id="p7menubar" class="menubar">
-          elements()
-        </ul>
-      </div>
-      <script type="text/javascript">
-        sideMenu = new SDMenu("~elementid"); 
-        sideMenu.init();
-      </script>
-    } 
-  }
-  
   define ignore-access-control menubar(){
-    menubar("horizontal"){
-      elements()
-    }
+    var elementid := "menu"+getUniqueTemplateId()
+    includeCSS("dropdownmenu.css")
+    <div class="menuwrapper" id=elementid all attributes>
+      <ul id="p7menubar" class="menubar">
+        elements()
+      </ul>
+    </div>
   }
 
   define ignore-access-control menuspacer(){
@@ -367,9 +346,7 @@ module .servletapp/src-webdsl-template/built-in
   
   define ignore-access-control menu(){
     <li class="menu" all attributes>
-      <ul class="menuitems">
-        elements()
-      </ul>
+      elements()
     </li>
   }
   
@@ -379,8 +356,14 @@ module .servletapp/src-webdsl-template/built-in
     </span>
   }
   
+  define ignore-access-control menuitems(){
+    <ul class="menuitems">
+      elements()
+    </ul>
+  }
+  
   define ignore-access-control menuitem(){
     <li class="menuitem" all attributes>
       elements()
     </li>
-  }*/
+  }
