@@ -326,7 +326,18 @@ module .servletapp/src-webdsl-template/built-in
     <hr all attributes/>
   }
   
-  //menu
+  /*
+    menubar{
+      menu
+      {
+        menuheader{ ... }
+        menuitems{
+          menuitem{ ... }
+          menuitem{ ... }
+        }
+      }
+    }
+  */
   
   define ignore-access-control menubar(){
     var elementid := "menu"+getUniqueTemplateId()
