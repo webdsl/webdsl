@@ -8,16 +8,25 @@ define page root() {
   }
 }
     
-define template helloowner() requires hello() {
+define helloowner() requires hello() {
   "the 'hello' template should appear here"
   spacer
   break "> " hello() " <"
 } 
 
-define template ietsowner () requires iets() {
+define ietsowner () requires iets() {
   helloowner() with {
       hello() { 
         iets() 
       } 
   }
 }
+
+  test pagecontent{
+    var d := HtmlUnitDriver();
+    d.get(navigate(root()));
+    
+    assert(d.getPageSource().contains("&gt; hello &lt;"));
+    
+    d.close();
+  }

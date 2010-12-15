@@ -3,7 +3,7 @@ application withtest4
 define page root() {
    helloowner() with {
       hello() { 
-        "hello" 
+        "testhello" 
       } 
    }
 }
@@ -17,3 +17,12 @@ define template helloowner() requires hello() {
   spacer
   break inarrows { hello() } //required template passed to elements() 
 } 
+
+  test pagecontent{
+    var d := HtmlUnitDriver();
+    d.get(navigate(root()));
+    
+    assert(d.getPageSource().contains("testhello"));
+    
+    d.close();
+  }
