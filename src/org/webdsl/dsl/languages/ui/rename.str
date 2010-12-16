@@ -2,7 +2,14 @@ module org/webdsl/dsl/languages/ui/rename
 
 imports
   libwebdsl-front
-  org/webdsl/dsl/generation/webdsl-generator
+  libstratego-lib
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/-
+  org/webdsl/dsl/languages/ui/-
+  org/webdsl/dsl/languages/generic/-
+  org/webdsl/dsl/languages/action/-
+  org/webdsl/dsl/languages/action/typechecker/-
+  org/webdsl/dsl/languages/data-model/-
 
 signature
   constructors
@@ -12,9 +19,14 @@ rules
   
   add-is-template-arg-anno :
     a{anno*} -> a{IsTemplateArg(),anno*}
-
+    
+  //pass to rename-all so vardecl is handled first
+  is-var-decl-cons = ?VarDecl(_,_) <+ ?VarDeclInit(_,_,_) <+ ?VarDeclInitInferred(_,_)
+  //pass to rename-all so local defines are ignored
+  is-define-cons = ?Define(_, _, _, _, _)
+  
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, x, farg2*, req*, elem2*){anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions-reqs> Define(mod*, x, farg2*, req*, elem2*){anno*}
     where   <fetch(Page)> mod*
     with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
           : rules ( InDef := True() )
@@ -24,12 +36,12 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions(|x)); rename-all> elem1*
+          ; elem2* := <alltd(rename-actions(|x)); rename-all(is-var-decl-cons)> elem1*
           ; rules ( TypeOf : x -> "Component" )
           |}
 
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions> Define(mod*, y, farg2*, req*, elem2*){anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions-reqs> Define(mod*, y, farg2*, req*, elem2*){anno*}
     where not(InPage <+ InTemplate)
         ; not(<fetch(Page)> mod*)
         ; not(<fetch(Email)> mod*)
@@ -43,18 +55,23 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions(|y)); rename-all> elem1*
+          ; elem2* := <alltd(rename-actions(|y)); rename-all(is-var-decl-cons)> elem1*
           |}
+       
+  get-enclosing-define-from-context :     
+    _ -> EnclosingDefine(templatekey, page-or-template-name, template-arg)
+    with  page-or-template-name := <InTemplate <+ InPage>
+        ; template-arg := <TemplateArg>
+        ; templatekey := (page-or-template-name, <!template-arg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
         
   rename-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions> Define(mod2*, y, farg2*, req*, elem2*){newanno2*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions-reqs> Define(mod2*, y, farg2*, req*, elem2*){newanno2*}
     where (InPage <+ InTemplate)
         ; not(<fetch(Page)> mod*)
         ; not(<fetch(Email)> mod*)
     with  newanno* := <put-closure-in-anno> anno* //need closure for lifting the definition to top-level
         ; mod2* := <fetch(Local()) <+ ![Local() | <id>]> mod* // add if not present
-    with  templatekey := (<InPage <+ InTemplate;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
-        ; newanno2* := [EnclosingDefine(templatekey, <InPage <+ InTemplate>, <TemplateArg>)|newanno*]   
+    with  newanno2* := [ <get-enclosing-define-from-context> | newanno*]   
     with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
          : rules ( InDef := True() )
          ; y := x{<toplevel-rename> x}
@@ -63,16 +80,17 @@ rules
          ; rules ( TemplateArg := farg2* )
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
-         ; elem2* := <alltd(rename-actions(|y)); rename-all> elem1*
+         ; elem2* := <alltd(rename-actions(|y)); rename-all(is-var-decl-cons)> elem1*
          |}
 
-  store-renamed-actions: def@Define(_, name, farg*, _, elem*) -> def
-    with  n := <strip-annos> name
-        ; t* := <map(farg-to-type)> farg*
-          // do not collect inside nested templates or template calls
+  store-renamed-actions-reqs: def@Define(_, name, farg*, req*, elem*) -> def
+    with  // do not collect inside nested templates or template calls
           // remove position annos for better cache hit ratio
-        ; actions := <collect(?Action(_,_,_)<+?Define(_,_,_,_,_)<+get-tc-elements);remove-all(not(?Action(_,_,_))); remove-position-annos> elem*
-        ; rules( TemplateActions : (n, t*) -> actions )
+          actions := <collect(?Action(_,_,_)<+?Define(_,_,_,_,_)<+get-tc-elements);remove-all(not(?Action(_,_,_))); remove-position-annos> elem*
+          //store under name; unique because of annotations, even for local redefinitions which have the same signature as a top-level def
+        ; rules( TemplateActions : name -> actions )
+          //same for requires
+        ; rules( TemplateRequiresList : name -> req* )
 
   get-requires :
   [] -> []

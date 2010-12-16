@@ -35,6 +35,7 @@ rules
         <+ rename-template-call-id
         <+ rename-action-def-id
         <+ rename-test-id
+        <+ rename-global-var
       ); try(some(rename-identifiers)) // traverse
     <+ use-local-renaming
   
@@ -76,17 +77,12 @@ rules
                  
   rename-template-def-id :
     Define(mod*, x, farg*, targs, elem*){anno*} ->
-    Define(mod*, y{orig}, farg*, targs, elem*){new-anno*}
+    Define(mod*, y{orig}, farg*, targs, elem*){anno*}
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
     with  xsa := <strip-annos> x
         ; y := <TemplateNewName> (xsa,<template-formal-arguments-to-types;strip-annos> farg*)
         ; orig := OriginalNameAnno(x{})
-        ; !anno*
-        ; if <fetch(?InputTemplate())> mod* then
-            ![InputTemplateAnno() | anno*]
-          end
-        ; ?new-anno*
     
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
@@ -110,7 +106,16 @@ rules
     -> TemplateCall(y, arg*, passign*, body)
     where <CallToBuiltInTemplate> x
         ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
-    
+  
+  /** many desugarings, such as output(String) -> text(String) currently do not rename the resulting call, 
+   *  therefore this sanity check is disabled for now. 
+   *  @TODO call rename on all generated templatecalls and enable this rule, it will catch template lookup issues early
+  rename-template-call-id :
+    tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} -> tc
+    where not(<CallToBuiltInTemplate <+ CallToBuiltInTemplate <+ CallToRequiredTemplate> x)
+    with  debug(!"Internal error in transformation/rename-identifiers.str: templatecall could not be resolved as declared, built-in, or required: ");<exit> 1
+   */ 
+      
   // Actions are lifted to toplevel elements, so their names should remain globally unique
   rename-action-def-id: 
       Action(nm1, args, b) ->
@@ -121,3 +126,12 @@ rules
        
   rename-test-id:
       Test(nm1, body) -> Test(<use-global-renaming> nm1, body)
+
+  rename-global-var:
+      v@VarDeclInit(x,_,_) -> <fail>
+    where <IsGlobal> x
+    with  rules(GlobalVarInits :+= v)
+    
+  rename-global-var:
+      s@SessionEntity(_,_) -> <fail>
+    with  rules(SessionEntitiesBackend :+= s)

@@ -1265,7 +1265,6 @@
    XMLAttributesIfElse -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
    XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    
-   %%RenderFunctionCall -- KW["render"] KW["("] _1 KW[")"],
    RenderEmailFunctionCall -- KW["renderemail"] KW["("] _1 KW[")"],
    EmailFunctionCall -- KW["email"] KW["("] _1 KW[")"],
    SendEmailFunctionCall -- KW["sendemail"] KW["("] _1 KW[")"],
@@ -1273,8 +1272,14 @@
    EmailCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    EmailCall.2:iter-star           -- _1,
    
+   RenderTemplateFunctionCall -- KW["rendertemplate"] KW["("] _1 KW[")"],
+
    TempateModSecure -- KW["secure"],
    TemplateModNotSecure -- KW["not-secure"],
    TemplateCallPropertySecure -- KW["secure"],
-   TemplateCallPropertyNotSecure -- KW["not-secure"]
+   TemplateCallPropertyNotSecure -- KW["not-secure"],
+   TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
+   
+   TemplateModSpan -- KW["span"],
+   TemplateDeprecated -- KW["deprecated"]
 ] 

@@ -31,7 +31,7 @@ strategies
     ; transform-java-code
     
   transform-java-code =
-    where(  pkgname1 := <BeanPackage>
+    where(  pkgname1 := <TemplatePackage>
           ; pkgname2 := <DomainPackage>
           ; pkgname3 := <ActionPackage>
           ; pkgname4 := <TestPackage>)
@@ -49,10 +49,10 @@ strategies
   prepare-core-to-java-servlet(|qid) =
     where(
         rules(
-          Package       := <qid-to-package-name> qid        
-          BeanPackage   := <qid-to-package-name> Qualified(qid, "beans")
-          ActionPackage := <qid-to-package-name> Qualified(qid, "actions")
-          TestPackage := <qid-to-package-name> Qualified(qid, "test")
+          Package         := <qid-to-package-name> qid        
+          TemplatePackage := <qid-to-package-name> Qualified(qid, "templates")
+          ActionPackage   := <qid-to-package-name> Qualified(qid, "actions")
+          TestPackage     := <qid-to-package-name> Qualified(qid, "test")
           FunctionPackage := <qid-to-package-name> Qualified(qid, "functions")
         )
       ; set-DomainPackage(|<qid-to-package-name> Qualified(qid, "domain")) //strategy/rule shared with seam back-end
@@ -78,7 +78,7 @@ strategies
               //TemplateFormalArguments := args
             )
             // generate if: nested templates (no caching), or cache miss
-            ; if not(CachingEnabled) <+ not(check-cache-equality(|<TopLevelTemplateClassName> name)) then
+            ; if not(CachingEnabled) <+ not(check-cache-equality(|name)) then
                 scope-local-emit(
                   annotate-with-unique-element-ids
                 ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
@@ -233,8 +233,7 @@ rules
 
   java-servlet-element-id :
     tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumber(newid),anno*} 
-    where <not(is-input-template)> tc 
-        ; <get-anno(?CallToDefinedAnno() <+ ?CallToRequiredAnno())> tc
+    where <get-anno(?CallToDefinedAnno() <+ ?CallToRequiredAnno())> tc
         //; <TemplateSignature <+ LocalTemplateSignature <+ !<strip-annos> name;TemplateWithGenerics> (name,t*)
         ; newid := <newname> "tcall"
     
@@ -256,13 +255,7 @@ rules
     ?tmplt@webdsl|[ define mod* x(farg*)  req*  { elem* } ]|
     ; with(
         // TemplateFormalArguments used in dispatch-servlet.str
-        rules( TemplateFormalArguments : x -> farg* )
-      ; if <not(fetch(Page <+ Email))> mod*
-        then rules(TopLevelTemplateArgumentsJavaServlet : x -> farg* 
-                   )
-           ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
-        end
-        ; if <fetch(Email)> mod* then rules ( AllEmailNames :+= x ) end
+          if <fetch(Email)> mod* then rules ( AllEmailNames :+= x ) end
         ; if "errorTemplateInputListString"  := x then rules ( ErrorTemplateInput := tmplt ) end
         ; if "errorTemplateFormListString"   := x then rules ( ErrorTemplateForm := tmplt ) end
         ; if "errorTemplateActionListString" := x then rules ( ErrorTemplateAction := tmplt ) end
@@ -270,31 +263,16 @@ rules
       )
     ; !<register-template-name(|True())> tmplt
     
-  template-class-name-parents(|parentNames,x) :
-    _ -> all-parts
-    with  name-parts := <concat; separate-by(|"_")> [<reverse> parentNames, [x,"Template"]]
-        ; all-parts := <concat-strings> (name-parts)   
+  template-name-to-class-name: name -> $[[name]_Template]
+  email-name-to-class-name: name -> $[[name]_Email]
     
   register-template-name(|toplevel)  :
     tc@Define(mod*,x,farg*, targs, elem*) -> Define(mod*,x,farg*, targs, elem1*){TemplateClassName(newid),anno*} 
     with  _{anno*} := tc
-        ; parentNames := <bigbagof-CurrentHierarchicalName>
-        ; all-parts := <template-class-name-parents(|parentNames,x)>
         ; if <oncetd(?Email())> mod* then
-              newid := <concat-strings> [all-parts, "_Email"]
-            ; rules ( EmailClassName : x -> newid)
+            newid := <email-name-to-class-name> x
           else
-              newid := all-parts
+            newid := <template-name-to-class-name> x
           end
-        ; if <fetch(Page)> mod*
-          then rules( PageClassName : x -> newid) // used to create lookup hashmap in java-base-page.str 
-                    //  PageFargs : x -> farg*)  
-                                                  // TODO needs renaming, used for any type of template now
-          end
-        ; {| CurrentHierarchicalName :
-          rules(
-            CurrentHierarchicalName :+= x
-          )
-          ; elem1* := <alltd(register-template-name(|False()))> elem*
-          |}
+        ; elem1* := <alltd(register-template-name(|False()))> elem*
           

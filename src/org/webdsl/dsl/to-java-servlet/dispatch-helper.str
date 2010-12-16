@@ -127,15 +127,12 @@ rules
           /**
            *  uses separate session/transaction to push log to database
            */
-          public void storeRequestLogEntry(){
+          public void storeRequestLogEntryinSeparateSession(){
             org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
             try
             { 
               hibSession.beginTransaction();
-              for(RequestLogEntryParam rlep : requestLogEntry.getParams()){
-                hibSession.saveOrUpdate(rlep);
-              }
-              hibSession.saveOrUpdate(requestLogEntry);
+              storeRequestLogEntry(hibSession);
               hibSession.getTransaction().commit();
             }
             catch(Exception se)
@@ -144,7 +141,17 @@ rules
               se.printStackTrace();
               hibSession.getTransaction().rollback();
             }
-          }    
+          }
+          public void storeRequestLogEntry(org.hibernate.Session hibSession){
+            for(RequestLogEntryParam rlep : requestLogEntry.getParams()){
+              hibSession.saveOrUpdate(rlep);
+            }
+            hibSession.saveOrUpdate(requestLogEntry);
+          }  
+          public void setEndTimeAndStoreRequestLog(org.hibernate.Session hibSession){
+            requestLogEntry.setEndNoEventsOrValidation(new java.util.Date());
+            storeRequestLogEntry(hibSession);
+          }  
             
           public void doServe(HttpServletRequest request, HttpServletResponse response)
           throws IOException, ServletException
@@ -341,7 +348,6 @@ rules
               }
               requestLogEntry.setUserAgentNoEventsOrValidation(request.getHeader("User-Agent"));
               requestLogEntry.setRefererNoEventsOrValidation(request.getHeader("Referer"));
-              storeRequestLogEntry();
 
               showerrorpage = !handlePage();
             }
@@ -391,9 +397,6 @@ rules
             }
             
             cleanupThreadLocals();
-            
-            requestLogEntry.setEndNoEventsOrValidation(new java.util.Date());
-            storeRequestLogEntry();
           }
           
           private static void cleanupThreadLocals(){
@@ -436,7 +439,7 @@ rules
   
        }
     ]|
-    with  pkgname    := <BeanPackage>
+    with  pkgname    := <TemplatePackage>
         ; pkgtname2   := <DomainPackage>
         ; bstm*  := <mapconcat({\ 
                            x -> bstm* |[
@@ -449,10 +452,9 @@ rules
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
                                ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
-                               ; e* := <TemplateFormalArguments;map( \Arg(y,_)-> e|[ "~<get-original-name> y" ]|\ )> x  
-                               //TemplateFormalArguments is defined in back-end after rename of templates and variables, for vars must give unrenamed versions so get-original-name is used
+                               ; e* := <debug(!"1: "); TemplateFormalArguments; debug(!"2: "); map( \Arg(y,_)-> y\; debug(!"3: ") )> x  
                         \})> 
-                        <bagof-AllPageNames; make-set; string-sort-annos>
+                        <bagof-AllPageNamesJavaServlet; make-set; string-sort-annos>
         ; bstm1*  := <mapconcat({\ 
                            x -> bstm* |[
                            { 
@@ -464,7 +466,7 @@ rules
                            with  x_key := <concat-strings> ["\"",x,"\""]
                                ; x_value := <concat-strings> [<java-servlet-page-name> x,".class"]
                                ; e1*:= <TemplateFormalArguments;map(true-when-entity-type-arg)> x  
-                               ; e* := <TopLevelTemplateArgumentNames> x // must use unrenamed versions 
+                               ; e* := <TemplateFormalArguments;map(\Arg(n,t) -> n\)> x 
                         \})> 
                         <bagof-AllTopLevelTemplateNamesWithAjax; make-set; string-sort-annos>
          ; if build-id := <BuildIdOption> then

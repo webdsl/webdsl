@@ -1,53 +1,5 @@
 module data
 
-  entity Event {
-    name :: String
-    description :: String
-    slots -> List<Slot>
-    userPrefs -> List<UserPreference>
-    aLink -> ALink
-    pLink -> PLink
-  }
-
-  entity ALink {
-    event -> Event (inverse=Event.aLink)
-  }
-  entity PLink {
-    event -> Event (inverse=Event.pLink)
-  }
-
-  entity Slot {
-    time :: String
-    event -> Event (inverse = Event.slots)
-    prefs -> List<Preference>
-  }
-
-  entity Preference {
-    slot -> Slot (inverse = Slot.prefs)
-    option -> PrefOption
-    comment :: WikiText
-    userPref -> UserPreference
-  }
-
-  entity UserPreference {
-    prefs -> List<Preference> (inverse = Preference.userPref)
-    user :: String
-    event -> Event (inverse = Event.userPrefs)
-    validate(user.length()>0,"name required")
-    function getPrefForSlot(s:Slot):Preference{
-      for(pr:Preference in prefs){
-        if(pr.slot == s){
-          return pr;
-        }
-      }
-      return null;
-    }
-  }
-
-  entity PrefOption {
-    name :: String
-  }
-
   var p_yes := PrefOption{ name := "yes" }
   var p_no := PrefOption{ name := "no" }
   var p_maybe := PrefOption{ name := "maybe" }

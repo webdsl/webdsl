@@ -33,10 +33,19 @@ application messages
   }
   
   define ignore-access-control templateSuccess(messages : List<String>){
-    
-    for(ve: String in messages){
-      output(ve)   
-    } separated-by {", "}
+    a(messages)
+  }
+  
+  define a(m : List<String>){
+    b{
+      for(v: String in m){
+        output(v)   
+      } separated-by {", "}	
+    }
+  }
+  
+  define b(){
+    elements()
   }
 
   

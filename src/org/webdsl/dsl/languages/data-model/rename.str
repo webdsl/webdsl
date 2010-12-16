@@ -1,5 +1,11 @@
 module org/webdsl/dsl/languages/data-model/rename
 
+imports
+  libstratego-lib
+  libwebdsl-front
+  org/webdsl/dsl/languages/data-model/declare
+  org/webdsl/dsl/typechecker/-
+
 rules
 
   rename-data :
@@ -28,11 +34,11 @@ rules
     entbodydecs1 -> entbodydecs2
     with  {| Rename, InEntity, VarInTemplateContext, RenameType:
             rules ( InEntity := x_class ) 
-          ; y := <rename-bound(|SimpleSort(x_class))> "this"
+          ; y := <rename-bound-immutable(|SimpleSort(x_class))> "this"
           ; <declare-vars-in-entity-context> y
             // Get the rename rules for all properties in scope before renaming the entity functions, 
             // which can use the properties
-          ; <all-entity-properties-tuples
+          ; <all-entity-properties-tuples //assumes ordering from least specific to most specific entity, to correctly handle property override (currently only used for 'name')
              ; map(
                  (id,get-property-name)
                ; rename-property
@@ -49,10 +55,8 @@ rules
         ; xsa := <strip-annos> x
         ; rules(
             PropertyNameToUniqueName : (x_class, x) -> y
-            // TODO: the condition can probably be removed; we're in the definition as long as the
-            // rule is in scope.
-            Rename :+ Var(x) -> Var(y) where <fetch(?x_class)> (<InEntity; get-class-hierarchy>)
-            Rename :+ Qualified(x, z) -> Qualified(y, z) where <eq> (x_class, <InEntity>)
+            Rename : Var(x) -> Var(y)
+            Rename : Qualified(x, z) -> Qualified(y, z)
             TypeOf : y -> sort1
             IsEntPropGetEntName : y -> x_class
           )

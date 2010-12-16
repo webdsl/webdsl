@@ -5,19 +5,17 @@ strategies
   desugar-ui = DeriveInput
   desugar-ui = DeriveOutput
   
-rules //Desugar group, adding a table like this should not be necessary once we have template closure arguments to templates
+rules //desugar dummy templatecall
 
-  desugar-ui :
-    TemplateCall("group", args, passign*, TemplateBody(elems1)) -> TemplateCall("group", args, passign*, TemplateBody([TemplateCall("table",[],[],TemplateBody(elems1))]))
-    where not([TemplateCall("table",_,_,_)] := elems1) // this is needed to avoid non-termination
-       
-  desugar-groupitem :
-    TemplateCall("groupitem", args,passign*, elems) -> TemplateCall("row",args,passign*, elems)
-
-  desugar-ui = desugar-groupitem
-
-rules //Desugar rows and tables
-
-  desugar-ui: 
-    [TemplateCall("dummy",_,_,TemplateBody(elems))| xs] -> <concat>[elems, xs]
-
+  desugar-ui : 
+    Define(mods, name, args, targs, elems){anno*} -> result
+    where <oncetd(?TemplateCall("dummy",_,_,TemplateBody(_)))> elems
+    with  elems2 := <topdown(try(inline-dummy-contents))> elems
+        ; not(<oncetd(?TemplateCall("dummy",_,_,TemplateBody(_)))> elems2; debug(!"Internal error: dummy templates should have been removed."))
+        ; result := Define(mods, name, args, targs, elems2){anno*}
+         
+  inline-dummy-contents =
+    is-list
+  ; fetch(?TemplateCall("dummy",_,_,TemplateBody(_)))
+  ; map(try(?TemplateCall("dummy",_,_,TemplateBody(<id>))))
+  ; flatten-list

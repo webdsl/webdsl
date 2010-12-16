@@ -40,7 +40,7 @@ rules
   generate-java-servlet-partial =
     ? cbds
     ; page-class-generation-test
-    ; pkgname := <BeanPackage>
+    ; pkgname := <TemplatePackage>
     ; x_Page  := <get-page-class-name>
     //also allow a single class-body-declaration
     ; with (
@@ -192,7 +192,18 @@ rules
                 templateservlet.storeInputs      (args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null, null);
                 ThreadLocalPage.get().clearTemplateContext();
                 
-                if (validated){ //no conversion errors
+                //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
+                utils.ActionClass submitAction = ThreadLocalPage.get().getActionToBeExecuted();
+                boolean ignoreValidation = false;
+                if(submitAction != null){
+                  ignoreValidation = submitAction.isValidationDisabled();
+                }
+                else{
+                  //an action was executed but it cannot be found
+                  //@TODO handle properly for ajax and non-ajax cases
+                }
+                
+                if (validated && !ignoreValidation){ //no conversion errors
                   templateservlet.validateInputs (args, new Environment(env), TemplateCall.None, TemplateCall.NoWithCalls, null, null);
                   ThreadLocalPage.get().clearTemplateContext();
                 }
@@ -216,14 +227,14 @@ rules
                   // action called but no action found
                   if( isValid() && isPostRequest() ){ 
                     System.out.println("Error: server received POST request but was unable to dispatch to a proper action"); 
-                    response.getWriter().write("404 \n Error: server received POST request but was unable to a proper action");
+                    response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
                   }
                   // action inside ajax template called and failed
                   else if( isAjaxTemplateRequest() && isPostRequest() ){
                     java.io.StringWriter s1 = new java.io.StringWriter();
                     java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
                     render(request, response, out1,true);
-                    response.getWriter().write("[{action:\"replace\", id:\""+this.getActionTarget()+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) + "\"}]");
+                    response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(s1.toString()) + "\"}]");
                   }
                   //actionLink or ajax action used (request came through js runtime), and action failed
                   else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){ 
@@ -268,6 +279,7 @@ rules
               }
               else{
                 storeSessionEntities();
+                ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(hibSession);
                 hibSession.flush();
                 hibSession.getTransaction().commit();
               }
@@ -420,7 +432,7 @@ rules
       ]|
     where x_Page    := <get-page-class-name>
         ; page-class-generation-test
-    with pkgname    := <BeanPackage>
+    with pkgname    := <TemplatePackage>
        ; pkgname_domain   := <DomainPackage>
        ; pkgtname_domain  := pkgname_domain
        ; x_specialpagetemplate := <ThisTemplateClassName>

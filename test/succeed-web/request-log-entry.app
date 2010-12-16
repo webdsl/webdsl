@@ -4,6 +4,8 @@ application test
     for(r : RequestLogEntry){
       table{
         derive viewRows from r
+        row{ column{ output(r.start.format("yyyy.MM.dd G 'at' HH:mm:ss z")) } }
+        row{ column{ output(r.end.format("yyyy.MM.dd G 'at' HH:mm:ss z")) } }
       }
     }
     navigate bla("1234567") { "go" }
@@ -19,7 +21,8 @@ application test
     var d : WebDriver := FirefoxDriver();
 
     d.get(navigate(root()));
-    assert(d.getPageSource().contains("Firefox"), "firefox user agent not shown");
+    d.get(navigate(root())); // access twice, so the previous request shows up
+    assert(d.getPageSource().contains("GET"), "GET method not shown");
     
     d.close(); 
   }

@@ -32,7 +32,7 @@ define page edit(){
 }
 
 define errorclass(){
-  <div class="error"> elements() </div>
+  <div class="errorclass"> elements() </div>
 }
 define ajax empty(){ "" }
 define ajax mpusername(name: String){ errorclass{ "Username " output(name) " has been taken already" } }
@@ -57,8 +57,8 @@ function checkUsernameEmpty(p:Person):Bool{
     return true;
   } 
   else {
-  replace(pusernameempty, mpusernameempty());
-  return false; 
+    replace(pusernameempty, mpusernameempty());
+    return false; 
   }
 }
 function checkUsername(p:Person, realp:Person):Bool{
@@ -68,8 +68,8 @@ function checkUsername(p:Person, realp:Person):Bool{
     return true;
   } 
   else {
-  replace(pusername, mpusername(p.username));
-  return false; 
+    replace(pusername, mpusername(p.username));
+    return false; 
   }
 }
 
@@ -79,8 +79,8 @@ function checkFullnameEmpty(p:Person):Bool{
     return true;
   } 
   else {
-  replace(pfullnameempty, mpfullnameempty());
-  return false; 
+    replace(pfullnameempty, mpfullnameempty());
+    return false; 
   }
 }
 function checkFullname(p:Person) :Bool{

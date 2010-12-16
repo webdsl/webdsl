@@ -4,22 +4,49 @@ application versionthree
   imports lib
   imports ui
   imports invite
+  imports rootpage
 
-  define page root(){
-    form{
-      submitlink action{
-        var e := Event{ slots := [ Slot{ } ] };
-        e.save();
-        return new(e);
-      } { "Create new event" }
-    }
+  //task 1
 
-    for(e:Event){
-      showEvent(e)
-    } separated-by{ <br />  }
+  extend entity Event{
+    invitees -> List<User>
   }
+  
+  //task 2
 
   entity User{
     name :: String
     email :: Email
+  }
+
+  //task 3
+  
+    define page new(e:Event){
+    form{
+      eventEdit(e)
+      submit save() { "create event" }
+    }
+
+    action save(){
+      e.aLink := ALink{};
+      e.pLink := PLink{};
+      //different from v2
+      e.invitees := [User{}];
+      //
+      return completed(e);
+    }
+  }
+  
+  //task 4
+
+  define page completed(e:Event){
+    label("administration link"){
+      navigate admin(e.aLink) { output(navigate(admin(e.aLink))) }
+    }
+    label("participation link"){
+      navigate event(e.pLink) { output(navigate(event(e.pLink))) }
+    }
+    //different from v2
+    invitees(e)
+    //
   }

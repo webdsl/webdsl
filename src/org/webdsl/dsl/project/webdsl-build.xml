@@ -143,6 +143,8 @@
           <token key="SMTPPORT" value="${smtpport}"/>
           <token key="SMTPUSER" value="${smtpuser}"/>
           <token key="SMTPPASS" value="${smtppass}"/>
+          <token key="SMTPAUTHENTICATE" value="${smtpauthenticate}"/>
+          <token key="SMTPPROTOCOL" value="${smtpprotocol}"/>
           <token key="DB" value="${db}"/>
           <token key="DBFILEOPTION" value="${dbfileoption}"/>
           <token key="DEBUGHIBERNATE" value="${debughibernate}"/>
@@ -227,10 +229,10 @@
     <antcall target="invoke-webdslc-compile"/>
   </target>	
   
-    
+  
   <target name="invoke-webdslc-compile" unless="stop-because-load-config-failed">
     <echo level="info">Building application</echo>
-
+  
     <if><equals arg1="${passtestoption}" arg2="$${passtestoption}"/>
       <then><property name="passtestoption" value=""/></then>
     </if>
@@ -238,7 +240,7 @@
       <then><property name="build-id-option" value=""/></then>
       <else><property name="build-id-option" value="--build-id ${build-id}"/></else>
     </if>
-    
+  
     <fail unless="webdslexec"/>
     <fail unless="appname"/>
     <fail unless="sessiontimeoutoption"/>
@@ -250,12 +252,12 @@
     <fail unless="passtestoption"/>
     <fail unless="extratypecheckoption"/>
     <fail unless="build-id-option"/>
-    
-    <property name="webdslc-args" value="--servlet -i ../${appname}.app ${sessiontimeoutoption} ${statisticsoption} 
+  
+    <property name="webdslc-args" value="--servlet -i ../${appname}.app ${sessiontimeoutoption} ${statisticsoption}
       ${fastppoption} ${verboseoption} ${debugoption} ${passtestoption} ${extratypecheckoption} ${cachingoption}
-      ${build-id-option} ${debug-desugar-option}"/>
+      ${build-id-option} ${debug-desugar-option} --dir ${currentdir}/.servletapp"/>
     <echo level="info">webdslc arguments: ${webdslc-args}</echo>
-    
+  
     <!-- determine if java webdsl is being used -->
     <script language="javascript"> <![CDATA[
       execcommand = project.getProperty("webdslexec");
@@ -264,12 +266,11 @@
         //project.setProperty("webdsl-java-options",execcommand.substring(4,execcommand.length()));
       }
     ]]></script>
-    
+  
     <if>
       <equals arg1="${using-webdsl-java}" arg2="true"/>
       <then>
         <property name="webdsl-java-options" value="-Xss8m -Xmx1024m"/>
-        <echo level="info">Java options: ${webdsl-java-options}</echo>
         <if>
           <equals arg1="${webdsl-java-cp}" arg2="$${webdsl-java-cp}"/>
           <then>
@@ -282,16 +283,33 @@
             <property name="stratego-jar-cp" value="strategoxt.jar"/>
            </then>
         </if>
-        <echo level="info">Classpath: ${webdsl-java-cp}, ${stratego-jar-cp}</echo>
         <echo level="info">Directory: ${currentdir}/${generate-dir}</echo>
-        <java classname="org.webdsl.webdslc.Main" failonerror="true" dir="${currentdir}/.servletapp" fork="true">
-          <classpath>
-            <pathelement path="${webdsl-java-cp}"/>
-            <pathelement path="${stratego-jar-cp}"/>
-          </classpath>
-          <jvmarg line="${webdsl-java-options}"/>
-          <arg line="${webdslc-args}"/>
-        </java>
+  
+        <!--
+          When runnning from Eclipse in the plugin, the classpatch should not be set,
+          that way the already loaded stratego and webdsl jars will be used,
+          instead of loading an additional jar from the filesystem each build.
+        -->
+        <if>
+          <isset property="eclipse.running"/>
+          <then>
+            <java classname="org.webdsl.webdslc.Main" failonerror="true">
+              <arg line="${webdslc-args}"/>
+            </java>
+          </then>
+          <else>
+            <echo level="info">Java options: ${webdsl-java-options}</echo>
+            <echo level="info">Classpath: ${webdsl-java-cp}, ${stratego-jar-cp}</echo>
+            <java classname="org.webdsl.webdslc.Main" failonerror="true" dir="${currentdir}/.servletapp" fork="true">
+              <classpath>
+                <pathelement path="${webdsl-java-cp}"/>
+                <pathelement path="${stratego-jar-cp}"/>
+              </classpath>
+              <jvmarg line="${webdsl-java-options}"/>
+              <arg line="${webdslc-args}"/>
+            </java>
+          </else>
+        </if>
       </then>
       <else>
         <exec executable="${webdslexec}" dir="${currentdir}/.servletapp" failonerror="true">
@@ -300,7 +318,7 @@
       </else>
     </if>
   </target>
-  
+    
   
   <target name="suggest-to-create-application-ini">
     <input

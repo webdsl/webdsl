@@ -19,51 +19,17 @@ section datamodel
         menu
         {
           menuheader{ navigate(user(u)){output(u.username)} }
-          menuitem{ navigate(user(u)) { "item1" } }
-          menuspacer()
-          menuitem{ navigate(user(u)) { "item2" } }
-          
-        }
-      }
-    }
-  }
-  
-  define sitemenu2()
-  {
-    menubar("horizontal"){
-      for(u:User)
-      {
-        menu
-        {
-          menuheader{ navigate(user(u)){output(u.username)} }
-          menuitem{ navigate(user(u)) { "item1" } }
-          menuspacer()
-          menuitem{ navigate(user(u)) { "item2" } }
+          menuitems{
+            menuitem{ navigate(user(u)) { "item1" } }
+            menuitem{ navigate(user(u)) { "item2" } }
+          }
         }
       }
     }
   }
 
-  define sitemenu3()
-  {
-    menubar("vertical"){
-      for(u:User)
-      {
-        menu
-        {
-          menuheader{ navigate(user(u)){output(u.username)} }
-          menuitem{ navigate(user(u)) { "item1" } }
-          menuspacer()
-          menuitem{ navigate(user(u)) { "item2" } }
-        }
-      }
-    }
-  }
-  
   define page root(){
     sitemenu1()
-    sitemenu2()
-    sitemenu3()
     "root"
   }
 

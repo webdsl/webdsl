@@ -101,6 +101,20 @@ function newRequest()
 
 }
 
+function findEnclosingPlaceholder(thisobject){
+    current = thisobject;
+    result = null;
+    while(current != null && result == null) {
+      if (current.className && current.className.indexOf("webdsl-placeholder") != -1) {
+          result = current;
+      } 
+      else{
+          current = current.parentNode;
+      }
+    }  
+    return result;
+}
+
 function findElementById(thisobject, id)
 {
   //step one, find the right parent to search within
@@ -307,7 +321,13 @@ function replaceall(command) {
 
 function replace(command, thisobject)
 {
-    var theNode = findElementById(thisobject, command.id);
+    var theNode;
+    if(command.id.type == "enclosing-placeholder"){
+        theNode = findEnclosingPlaceholder(thisobject); 
+    }
+    else{
+        theNode = findElementById(thisobject, command.id);
+    }
     if (command.id != "this")
       theNode.innerHTML = command.value;
     else //this has other semantics

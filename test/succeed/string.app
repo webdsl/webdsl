@@ -43,8 +43,13 @@ application test
     assert("34gDE".split("4").concat("4") == "34gDE");
     assert("ery54h-tyjfu-kfyj-u".split("-").length == 4);
     assert("tfhfg6tyhj".split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
-
+    
+    infunction("12345");
     //debugging: log
+  }
+  
+  function infunction(a:String){
+    assert("12345".length() == a.length());
   }
   
   test defaultValue{

@@ -4,7 +4,7 @@ application test
     name :: String
   }
  
-  define menu(){
+  define menutemplate(){
     body()
   }
 
@@ -12,7 +12,7 @@ application test
   define body2(){}
 
   define page root(){
-    menu()
+    menutemplate()
     define body(){
       for(usr:User){
         form{

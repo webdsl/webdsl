@@ -10,4 +10,5 @@ public abstract class AbstractDispatchServletHelper{
   public abstract java.util.HashMap<String, utils.PageDispatch> getPages();
   public abstract int getHttpsPort();
   public abstract int getHttpPort();
+  public abstract void setEndTimeAndStoreRequestLog(org.hibernate.Session hibSession);
 }

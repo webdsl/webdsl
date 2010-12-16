@@ -7,6 +7,21 @@ module org/webdsl/dsl/languages/ui/templatecall
  *  This new name is applied in the rename-identifiers phase.
  */
 
+imports
+  
+  libwebdsl-front
+  libstrategolib
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/emit
+  org/webdsl/dsl/languages/ui/declare
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/navigate
+  org/webdsl/dsl/languages/ui/built-in-template
+  org/webdsl/dsl/languages/action/overloading
+  org/webdsl/dsl/languages/action/function-utils
+  org/webdsl/dsl/languages/data-model/utils
+  org/webdsl/dsl/modules/email
+
 rules // declare
 
   declare-in-template =
@@ -85,52 +100,46 @@ rules //template call either refers to a defined template, or to a built-in temp
                      <+ <debug(!"error in templatecall found during model-to-model: ")> (x,arg*);fail> arg*) end //extra check in case model-to-model produces bad code
         ; !(x1,arg*)
         ; (  rename-template-call-name-required(|x)
+           <+rename-template-call-name-defined-unique
            <+rename-template-call-name-defined
-           <+rename-template-call-name-defined-input //<- MW: seperate rule for input templates, since their calls refer 
-                                                     //to a definition with an extra String param (supplied by the compiler)
            <+rename-template-call-name-builtin
            <+rename-template-call-name-error
           )
         // collect variables for template closure
         ; oldvars := <CallContextVars <+ ![]> x
-        ; if InTemplate <+ InPage 
+        ; if InTemplate <+ InPage <+ InEmail
           then vars := <bigbagof-VarInTemplateContext> //whole def renamed, collect environment
           else vars := <rename-all> oldvars //only this part renamed, only apply rename
           end
         ; rules ( CallContextVars : x1 -> vars )
-        //collect actions for template closure
-        ; ( //only for page and regular templates, not other template types like email
-            //stores the key of the surrounding template
-            templatekey := (<InPage <+ InTemplate;strip-annos>, <TemplateArg;map(?Arg(_,<id>))>)
-          ; rules ( CallContextActionsKey : x1 -> templatekey )
-          ; rules ( CallRequiresKey       : x1 -> templatekey )
-          <+ 
-            rules ( CallContextActionsKey : x1 -> None() )
-          ; rules ( CallRequiresKey       : x1 -> None() )
-            
-          )
           
   rename-template-call-name-defined : 
     (x,arg*) -> x
     where xsa := <strip-annos> x
         ; name := <resolve-overloaded-template> (xsa,arg*,x) 
     with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x 
+          
+  //used in translation of elements call to determine which ac rules to inherit 
+  store-enclosing-define-for-template-call :  
+    x -> x  
+    with  if InTemplate <+ InPage
+          then  enclosing-define := <get-enclosing-define-from-context> 
+              ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
+          else if InEmail
+               then rules ( DefinedTemplateGetEnclosingDefine : x -> Email() )
+               end
+          end
     
   /**
    *  Some template names are generated uniquely so no need for overloading, see desugar of ArgDef below
    */ 
-  rename-template-call-name-defined : 
+  rename-template-call-name-defined-unique : 
     (x,arg*) -> x
     where xsa := <strip-annos> x
         ; name := <UniqueNameTemplateCall> xsa
     with  rules ( CallToDefinedTemplate : x -> name )
-
-  rename-template-call-name-defined-input : 
-    (x,arg) -> x
-    where xsa := <strip-annos> x
-        ; name := <resolve-overloaded-template> (xsa,<concat>[arg,[String("")]],x) 
-        //TODO: check template definition for inputtemplate modifier, otherwise any template with extra string param would match
-    with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x 
 
   rename-template-call-name-required(|x_old) : 
     (x,arg*) -> x
@@ -144,7 +153,7 @@ rules //template call either refers to a defined template, or to a built-in temp
 
   rename-template-call-name-builtin :
     (x,arg*) -> x
-    where t* := <map(type-of)> arg*
+    where t* := <map-type-of-strip-annos> arg*
         ; xsa := <strip-annos> x
         ; <CompatibleWithBuiltInTemplate> (xsa,t*)
     with  rules ( CallToBuiltInTemplate : x )
@@ -166,7 +175,7 @@ rules //template call either refers to a defined template, or to a built-in temp
   resolve-overloaded-template :
   (x,arg*,x1) -> name
   where templates := <AllTopLevelTemplateArguments> x
-      ; t_target := <map(type-of;strip-annos)> arg* 
+      ; t_target := <map-type-of-strip-annos> arg* 
       ; resolvedarg* := <find-most-specific-signature(|t_target,x1)> templates
       //each template is renamed for overloading, the arg types are appended to the name:
       ; name := <TemplateNewName>(x,resolvedarg*)     
@@ -182,123 +191,95 @@ strategies
 
 rules // using page as template produces error; tested in fail/pageastemplate.app
 
+  constraint-error-templatecall(|p,arg*) = constraint-error-page-as-template(|p)
+   
   constraint-error-page-as-template(|p) :
     tc -> <add-error(|["Cannot use page as template: ",<pp-webdsl> p])>
     where <IncorrectTemplateCall> p //not a valid template call
     where <strip-annos;IsPage> p //but could be trying to invoke a page
-  
-  constraint-error-tc = ?tc@TemplateCallNoBody(p,_)       ;where(<constraint-error-page-as-template(|p)> tc)
-  constraint-error-ui = ?tc@TemplateCallNoArgs(p)         ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,_,_)  ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-tc = ?tc@TemplateCallPropsNoBody(p,_,_);where(<constraint-error-page-as-template(|p)> tc)
-  constraint-error-ui = ?tc@TemplateCallProps(p,_)        ;where(<constraint-error-page-as-template(|p)> tc) //has no args
-  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_);where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-ui = ?tc@TemplateCallBody(p,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
-  constraint-error-ui = ?tc@TemplateCall(p,_,_,_)         ;where(<constraint-error-page-as-template(|p)> tc) //has a body
  
 rules //template not defined
 
-  constraint-error-template-not-defined(|p,arg*) :
+  constraint-error-templatecall(|p,arg*) :
     x -> <add-error(|err*)>
-    where try(constraint-error-tc) // hook for extra checks on templates, such as navigate
-        ; <IncorrectTemplateCall> p
+    where <IncorrectTemplateCall> p
         ; if <ErrorDuringOverloadResolution> p
           then err* := <ErrorDuringOverloadResolution>
           else err* := ["Template with signature ",<pp-func-sig> (p,<map(type-of)>arg*)," not defined "] end
     
-  constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-template-not-defined(|p,arg*)> tc)
-  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-template-not-defined(|p,[]  )> tc)
-  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-template-not-defined(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-templatecall(|p,arg*)> tc)
  
 
 rules // desugar 'elements' template argument for defined template calls
+  
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
 
   desugar-ui :
     tc@TemplateCall(x,arg*,passign*,TemplateBody(elem*)){anno*} -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])){anno*} 
     where <CallToDefinedTemplate;TemplateContainsElementsCall> x
         ; not(<fetch(?TemplateCall(_,_,_,_))> passign*)
     with  x_newtempl := <toplevel-rename> "templateargument"
-        ; vars := <CallContextVars> x
-        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
-        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
-        ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> x
-        ; defelem* := [elem*, action*]
+        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (x,elem*) 
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
-        ; elementscall:=<rename-all> TemplateCall(x_newtempl,vars,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+        ; elementscall:=<rename-all> TemplateCall(x_newtempl,var*,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
+  emit-top-level-template-contents-helper:
+    (x,elem*) -> (farg*, requires*, defelem*, var*)
+    with  var* := <CallContextVars> x
+        ; farg* := <map(?Var(<!Arg(<id>, <type-of; if where({?_{anno_type*};<fetch(ImmutableReference)>anno_type*}) then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>))>))> var* //make all 'elements' arguments Ref args, unless the type has ImmutableReference annotation (e.g. because it belong to a for loop iterator)
+        ; if EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
+          then
+            action* := <TemplateActions <+ ![]> encltemplatename
+          ; requires* := <TemplateRequiresList <+ ![]> encltemplatename
+          ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
+          ; allaction* := [action*,additionalaction*]
+          ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
+          else
+            Email() := <DefinedTemplateGetEnclosingDefine> x
+          ; defelem* := elem*
+          end
+          
+rules        
+
+  /* translation of 'with/requires' templatecall, 'with' part
+  
+    define x() {
+      var s: String := "abc"
+ ---> y() with {
+ --->   z() { output(s) }
+ ---> }
+    }
+    define y() requires z(){
+      z() "!"
+    }
+  */            
+  
   desugar-ui :
     tc@TemplateCall(x,arg*,passign,TemplateWith(argdef*)) -> TemplateCall(x,arg*,passign2,TemplateBody([])) 
     with elementscall := <map(desugar-argdef(|x))> argdef*
        ; passign2 := <conc>(elementscall, passign)
 
-rules        
-
-// version without dynscope 
-/*
   desugar-argdef(|templatename) :
-    ArgDefine(x,origfarg,elem*) -> TemplateCall(x_newtempl, [],[ResolvedRequireKey(x)],TemplateBody([]))
-    with x_newtempl := <conc-strings; newname> (x,"_argdef")
-        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
-        ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> templatename
-        ; defelem* := [elem*, action*]
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, origfarg, requires*, defelem*) 
-         //  a special templatecall that only needs resolving by name, since the name is uniquely generated
-         //  produces the name that should be used to look up the template in the hashmap
-        ; t* := <map(?Arg(_,<id>))> origfarg
-        ; rules (   
-            UniqueNameTemplateCall : x_newtempl -> <generate-template-name> (x_newtempl,t*)
-          )
-*/
-
-/* implementation which supports the usage of outlying variables in with definitions: e.g:
-  template x() {
-    var s: String := "abc"
-    y() with {
-      z() { output(s) }
-    }
-  }
-*/            
-  desugar-argdef(|templatename) :
-    ArgDefine(x,origfarg*,elem*) -> TemplateCall(x_newtempl, var*,[ResolvedRequireKey(x)],TemplateBody([]))
+    ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
     with x_newtempl := <conc-strings; toplevel-rename> (x,"_argdef")
-        ; var* := <CallContextVars> templatename
-        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> var*
-        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> templatename
-        ; requires* := <CallRequiresKey;(TemplateRequires <+ ![])> templatename
-        ; defelem* := [elem*, action*]
+        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (templatename,elem*) 
         ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
          // a special templatecall that only needs resolving by name, since the name is uniquely generated
          //  produces the name that should be used to look up the template in the hashmap
-        ; t* := <map(?Arg(_,<id>))> [origfarg*, farg*]
+        ; t* := <template-formal-arguments-to-types> [origfarg*, farg*]
         ; namewithargtypesappended :=  <generate-template-name> (x_newtempl,t*)
         ; rules (   
             UniqueNameTemplateCall : x_newtempl -> namewithargtypesappended
             IsArgDefineInWithTemplateCall : namewithargtypesappended 
           )
-  
-        /*; x_newtempldelegator := <conc-strings; newname> (x,"_argdef_delegate")
-        ; origvar* := <map(?Arg(<!Var(<id>)>,_))> origfarg*
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempldelegator, origfarg*, None(), TemplateBody([ TemplateCall(x_newtempl, [origvar*,var*],[],TemplateBody([])) ]) )
-        */
-/*  desugar-ui :
-    tc@TemplateCall(x,arg*,passign*,Template(elem*)) -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])) 
-    where <CallToRequiredTemplate> x
-        ; not(<fetch(?TemplateCall(_,_,_,_))> passign*)
-    with  x_newtempl := <newname> "templateargument"
-        ; vars := <CallContextVars> x
-        ; farg* := <map(?Var(<!Arg(<id>, <type-of> Var(<id>))>))> vars
-        ; action* := <CallContextActionsKey;(TemplateActions <+ ![])> x
-        ; defelem* := [elem*, action*]
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, None(), defelem*)
-        ; elementscall := TemplateCall(x_newtempl,vars,[],[]) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
-*/
-
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
+        ; renamedtopleveltemplatecall := <rename-all> TemplateCall(x_newtempl, var*,[ResolvedRequireKey(x)],TemplateBody([]))
 
 rules
 
@@ -307,7 +288,7 @@ rules
     ; not("url" := p)
     ; with(
         strippedpagename := <strip-annos> p
-      ; def |[ define mod* x(farg*) req* { elem* } ]| := <TemplateSignature> (strippedpagename, <map(type-of);strip-annos> args)
+      ; def |[ define mod* x(farg*) req* { elem* } ]| := <TemplateSignature> (strippedpagename, <map-type-of-strip-annos> args)
      )
     ; add-new-anno(|PageArgsAnno(farg*))
     

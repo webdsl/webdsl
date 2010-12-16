@@ -40,6 +40,14 @@ public abstract class AbstractPageServlet{
         }
         return messageDigest;
     }
+    
+    protected utils.ActionClass actionToBeExecuted = null;
+    public void setActionToBeExecuted(utils.ActionClass action){
+        this.actionToBeExecuted = action;  	
+    }
+    public utils.ActionClass getActionToBeExecuted(){
+        return actionToBeExecuted;
+    }
 
     //TODO merge getActionTarget and getPageUrlWithParams
     public String getActionTarget() {
@@ -116,6 +124,28 @@ public abstract class AbstractPageServlet{
         return temp;
     }
 
+    //render template function
+    public String renderTemplate(String name, Object[] args, Environment env){
+        TemplateServlet temp = null;
+        try  { 
+            temp = ((TemplateServlet)env.getTemplate(name).newInstance());
+        }
+        catch(IllegalAccessException iae)
+        { 
+            System.out.println("Problem in template lookup: " + iae.getMessage());
+        }
+        catch(InstantiationException ie)
+        { 
+            System.out.println("Problem in template lookup: " + ie.getMessage());
+        }
+        java.io.StringWriter s = new java.io.StringWriter();
+        PrintWriter out = new java.io.PrintWriter(s);
+        ThreadLocalOut.push(out);
+        temp.render(args, env, utils.TemplateCall.None, null, null, null);
+        ThreadLocalOut.popChecked(out);
+        return s.toString();
+    }
+
     //ref arg
     protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
     public static HashMap<String, Class<?>> getRefArgClasses() {
@@ -170,6 +200,15 @@ public abstract class AbstractPageServlet{
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
+    }
+    public List<utils.ValidationException> getValidationExceptionsByName(String name) {
+        List<utils.ValidationException> list = new java.util.LinkedList<utils.ValidationException>();
+        for(utils.ValidationException v : validationExceptions){
+            if(v.getName().equals(name)){
+                list.add(v);
+            }
+        }
+        return list;
     }
     public boolean hasExecutedAction = false;
     public boolean hasExecutedAction(){ return hasExecutedAction; }
@@ -753,10 +792,5 @@ public abstract class AbstractPageServlet{
       }
 
       public abstract void initRequestVars(PrintWriter out);
-
-      //common context check
-
-      public abstract void commonContextsCheckEnter(PrintWriter out);
-      public abstract void commonContextsCheckLeave(PrintWriter out);
 
 }

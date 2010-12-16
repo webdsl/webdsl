@@ -41,12 +41,12 @@ section datamodel
     output(b)
 
     
-    div("test")
+    div
     {
       input(b)
     }
     
-    div("test")
+    div
     {
       input(b)
       input(s)
@@ -59,13 +59,8 @@ section datamodel
     }
     
     
-    //spacer
-    horizontalspacer()
-    
     //title
     title{"dsdfssf"}
-    
-    
     
     
     //section header par container

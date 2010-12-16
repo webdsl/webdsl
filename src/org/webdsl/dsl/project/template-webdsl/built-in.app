@@ -7,6 +7,9 @@ module .servletapp/src-webdsl-template/built-in
     toLowerCase():String
     toUpperCase():String
     replace(String,String):String
+    startsWith(String):Bool
+    startsWith(String,Int):Bool
+    endsWith(String):Bool
     utils.StringType.parseUUID                   as parseUUID():UUID
     org.webdsl.tools.Utils.containsDigit         as containsDigit():Bool
     org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
@@ -88,6 +91,7 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   native class org.openqa.selenium.By as SelectBy {
+    static className(String):SelectBy
     static id(String):SelectBy
     static linkText(String):SelectBy
     static name(String):SelectBy
@@ -188,4 +192,189 @@ module .servletapp/src-webdsl-template/built-in
         ent1 := subme;
       }
     }
+  }
+  
+  // logging       
+  
+  entity RequestLogEntry {
+    name :: String
+    params -> List<RequestLogEntryParam>
+    requestedURL :: String (length=1000000)
+    start :: DateTime
+    end :: DateTime
+    clientIP :: String
+    clientPort :: Int
+    method :: String
+    referer :: String  (length=1000000)
+    userAgent :: String
+    queryExecutionCount :: Int
+    queryExecutionMaxTime :: Int
+    queryExecutionMaxTimeQueryString :: String
+  }
+  
+  entity RequestLogEntryParam {
+    name :: String
+    value :: String
+  }
+  
+  //built-in templates
+  
+  define ignore-access-control break(){
+    <br all attributes/>
+  }
+  /*
+  define ignore-access-control block(){
+    <div class="block "+attribute("class") 
+         all attributes except "class">
+      elements()
+    </div>
+  }*/
+  
+  define ignore-access-control div(){
+    <div all attributes>
+      elements()
+    </div>
+  }
+  
+  define ignore-access-control container(){
+    <span class="container "+attribute("class") 
+         all attributes except "class">
+      elements()
+    </span>
+  }
+  
+  define ignore-access-control fieldset(s:String){
+    <fieldset all attributes>
+      <legend>
+        output(s)
+      </legend>
+      elements()
+    </fieldset>
+  }
+  
+  define ignore-access-control group(s:String){
+    <fieldset all attributes>
+      <legend>
+        output(s)
+      </legend>
+      <table>
+        elements()
+      </table>
+    </fieldset>
+  }
+  
+  define ignore-access-control group(){
+    <fieldset class="fieldset_no_legend_ "+attribute("class") 
+      all attributes except "class">
+      <table>
+        elements()
+      </table>
+    </fieldset>
+  }
+
+  define ignore-access-control groupitem(){
+    <tr all attributes>
+      elements()
+    </tr>
+  }
+ 
+  define ignore-access-control table(){
+    <table all attributes>
+      elements()
+    </table>	
+  }
+  
+  define ignore-access-control row(){
+    <tr all attributes>
+      elements()
+    </tr>	
+  }
+  
+  define ignore-access-control column(){
+    <td all attributes>
+      elements()
+    </td>	
+  }
+  
+  /*
+  define ignore-access-control list(){
+    <ul all attributes>
+      elements()
+    </ul>
+  }
+  
+  define ignore-access-control listitem(){
+    <li all attributes>
+      elements()
+    </li>
+  }
+  */
+  
+  define ignore-access-control par(){
+    <p all attributes>
+      elements()
+    </p>
+  }
+  
+  define ignore-access-control pre(){
+    <pre all attributes>
+      elements()
+    </pre>
+  }
+  
+  define ignore-access-control spacer(){
+    <hr all attributes/>
+  }
+  
+  /*
+    menubar{
+      menu
+      {
+        menuheader{ ... }
+        menuitems{
+          menuitem{ ... }
+          menuitem{ ... }
+        }
+      }
+    }
+  */
+  
+  define ignore-access-control menubar(){
+    var elementid := "menu"+getUniqueTemplateId()
+    includeCSS("dropdownmenu.css")
+    <div class="menuwrapper" id=elementid all attributes>
+      <ul id="p7menubar" class="menubar">
+        elements()
+      </ul>
+    </div>
+  }
+
+  define ignore-access-control menuspacer(){
+    <li all attributes>
+      elements()
+    </li>
+  }
+  
+  define ignore-access-control menu(){
+    <li class="menu" all attributes>
+      elements()
+    </li>
+  }
+  
+  define ignore-access-control menuheader(){
+    <span class="menuheader" all attributes>
+      elements()
+    </span>
+  }
+  
+  define ignore-access-control menuitems(){
+    <ul class="menuitems">
+      elements()
+    </ul>
+  }
+  
+  define ignore-access-control menuitem(){
+    <li class="menuitem" all attributes>
+      elements()
+    </li>
   }

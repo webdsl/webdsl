@@ -16,17 +16,19 @@ rules
   
   load-desugar-rules =
     // Load desugar dependencies
-    if (defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
+    if (all-old-defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
         <map(\(key, defs) -> <rules(RuleUser : key -> defs)> defs\)> used-rules
       //; <map(\(key, defs) -> <rules(RuleProvider : key -> defs)> defs\)> created-rules
       ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ key -> def)>\)> defvals* \)> created-rules
           // all-keys
       ; <map(\((rulename,rulekey), defvals*) -> <map(\(def,vals) -> <rules(RuleProvider :+ (rulename,DR_DUMMY()) -> def)>\)> defvals* \)> created-rules
       ; <map(\(key, defvals*) -> <map(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))>\)> defvals* \)> created-rules
-      //; <load-new-files> defs
+      ; all-defs := <filter(is-cacheable)> all-old-defs
+      //; <load-new-files> all-defs
+      ; rules(PreviousAllDefs := all-defs)
     else
-        <debug> "Cannot load dr rules!";
-        load-all-definitions
+        <debug> "Cannot load dr rules!"
+      ; load-all-definitions
     end
   
   is-emitted-def = ?At(<string-starts-with(|"(gen)")>, _, _)
@@ -37,7 +39,8 @@ rules
         ; if DR_DUMMY() := key then
               defs := <bagof-RuleProvider> rulename
      */       
-        ; defs := <bagof-RuleProvider <+ debug(!"No rule providers for: "); fail> (rulename, key)
+        ; defs := <bagof-RuleProvider> (rulename, key)
+        ; not(?[])
      with   
           not-loaded := <filter(where(not(DefinitionLoaded); not(is-emitted-def)))> defs
         ; if not([] := not-loaded) then
@@ -72,7 +75,7 @@ rules
     <+ ?"DesugarInDefineContextApplied"
     <+ ?"InTemplate"
     <+ ?"InnermostApplied"
-    <+ ?"AddWebDSLDefs"
+    //<+ ?"AddWebDSLDefs"   need emits from <declare> phase!
   
   // Load files for which we don't have a cache
   /*
@@ -84,60 +87,62 @@ rules
     try(not(?[]); debug(!"No rule dependencies found for: "));
     map(load-unmodified-def-with-rename)
   */
-    
+  
+  // Succeed if the cached version of the definition is still valid
+  is-cacheable = where(
+      not(TopLevelDefinitions)        // definition is read from cache
+    ; def-key-to-file; ModuleToDefs   // file is still imported
+  )
+  
   save-desugar-rules =
-      where(
-        // save desugar rules
-          all-keys-DesugarRulesUsed
-          // Def to rules
-        ; map(!(<id>, <bagof-DesugarRulesUsed; concat; uniq>, <bagof-CreatedRules; concat; uniq>))
-        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr.aterm", <id>)
-         // Rules to def
-        ; all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            map({def:
-                 ?def
-               ; bagof-DesugarRulesUsed; concat
-               ; map({rulekey:
-                   ?rulekey;
-                     rules(RuleToDef :+ rulekey -> def )
-                 })
+      // Purge old rule-usage info
+        all-keys-RuleUsers
+      ; map({defs: \key -> <RuleUsers; filter(is-cacheable; {?def; rules(TempRule :+ key -> def)})> \})
+      // Add new rule-usage info
+      ; all-keys-DesugarRulesUsed
+      ; map({def: 
+            ?def
+          ; bagof-DesugarRulesUsed    // list of list of dr keys
+          ; concat                    // list of dr keys
+          ; map({key:
+              ?key
+            ; rules(TempRule :+ key -> def)
             })
-          ; all-keys-RuleToDef
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; !(rulekey, <id>)
+        })
+      ; all-keys-TempRule
+      ; where(length; debug(!"n-TempRule: "))
+        // uniq gives OutOfMemory at webdslorg + researchr
+      ; map({defs: \key -> <debug(!"Key: "); bagof-TempRule; where(length;debug(!"Count:")); uniq; ?defs; rules(RuleUsers : key -> defs)>\})
+      // Purge old rule-creation info
+      ; all-keys-RuleValsForKey
+      ; map({key,defs2:
+          ?key;
+          bagof-RuleValsForKey;
+          rules(RuleValsForKey :- key);
+          filter(where(Fst;is-cacheable));
+          map(\defvals -> <rules(RuleValsForKey :+ key -> defvals)> \)
+        })
+      // Add new rule-creation info
+      ; all-keys-CreatedRules
+      ; map({def:
+            ?def
+          ; bagof-CreatedRules
+          ; concat
+          ; map({rulename:
+                ?(rulename, <id>)
+              ; map({rulekey, vals, drkey:
+                  ?(rulekey,vals)
+                ; drkey := (rulename, rulekey)
+                ; rules(RuleValsForKey :+ drkey -> (def, vals))
+                })
             })
-          ; ?used-rule-to-def
-          |}
-        ; all-keys-DesugarRulesUsed
-        ; {| RuleToDef:
-            filter({def:
-                 ?def
-               ; bagof-CreatedRules; concat
-               ; map({name,keyvals:
-                  ?(name,keyvals);
-                  !keyvals;
-                  map({key,vals:
-                    ?(key,vals);
-                    rules(RuleToDef :+ (name,key) -> (def, vals))
-                  })
-                 })
-            })
-          ; all-keys-RuleToDef
-          ; remove-dr-dummies
-          ; filter({rulekey:
-               ?rulekey
-             ; bagof-RuleToDef
-             ; uniq
-             ; !(rulekey, <id>)
-            })
-          ; ?created-rule-to-def
-          |}
-        ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (<all-keys-DesugarRulesUsed>, used-rule-to-def, created-rule-to-def))
-      )
+        })
+        // And save...
+      ; all-defs := <concat; uniq> [<all-keys-DesugarRulesUsed>, <PreviousAllDefs <+ ![]>] // new and old
+      // Rule -> defs
+      ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
+      ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
+      ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (all-defs, uses, creates))
 
   desugar-check-dependencies = with(
     all-keys-DesugarRulesCreated;

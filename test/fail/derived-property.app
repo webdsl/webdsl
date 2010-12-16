@@ -1,6 +1,7 @@
-//#18 Assignment to derived property is not allowed.
+//#30 Assignment to derived property is not allowed.
 
 application test
+
 
   entity User{
     name :: String := "123" 
@@ -13,6 +14,10 @@ application test
     } 
   }
   var user := User {}
+  var user2 := User {
+    name := "23342"
+    foo := "23342"
+  }
 
   define page root()
   {
@@ -54,3 +59,37 @@ application test
     bar.name := "324234";
     bar.foo := "fdssfdsf";
   }
+  
+  
+  entity UserSub:User{}
+  
+  var usersub := UserSub {}
+  
+   define page root2()
+  {
+    init{
+      usersub.name := "23342";
+      usersub.foo := "23342";
+    }
+    action bla(){
+      usersub.name := "23342";
+      usersub.foo := "23342";
+    }
+    submit action{
+      usersub.name := "23342";
+      usersub.foo := "23342";
+    } {"do it"}
+  }
+
+  function a(){
+    usersub.name := "23342";
+    usersub.foo := "23342";
+  } 
+  
+  init{
+    usersub.name := "23342";
+    usersub.foo := "23342";
+  }
+  
+  
+  
