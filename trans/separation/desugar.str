@@ -8,14 +8,29 @@ imports
 
 strategies
 	
+	compiler-phase(s|phasename) =
+	  {| RuleUsers, RuleProvider, RuleVals, RuleValsForKey:
+	    rules(CompilerPhase := phasename);
+	    load-desugar-rules;
+      s
+    |}    
+	
+	start-compiler-phase: phase -> phase
+	 with rules(CompilerPhase := phase)
+	
   with-rule-resolving(s) = {| RuleResolvingEnabled:
     rules(RuleResolvingEnabled := 1);
     s
   |}
   
+  current-phase-depfile = <path-to-cache-path> $[$deps-[<CompilerPhase>].aterm]
+  
   load-desugar-rules =
     // Load desugar dependencies of unmodified file
-    if (all-old-defs,used-rules,created-rules) := <path-to-cache-path; file-exists; ReadFromFile> "$testdr-rev.aterm" then
+    file := <current-phase-depfile>;
+    ts := <file-exists; modification-time <+ !0> file;
+    rules(DependenciesTimestamp := ts);
+    if (all-old-defs,used-rules,created-rules) := <file-exists; ReadFromFile> file then
       <map(\(key, defs) -> <filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> defs\)> used-rules;
       <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleProvider :+ key -> def)> where <is-cacheable> def \)> defvals* \)> created-rules;
       <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))> where <is-cacheable> def \)> defvals* \)> created-rules;
@@ -119,7 +134,7 @@ strategies
       // Rule -> defs
       ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
       ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
-      ; <WriteToBinaryFile> (<path-to-cache-path> "$testdr-rev.aterm", (all-defs, uses, creates))
+      ; <WriteToBinaryFile> (<current-phase-depfile>, (all-defs, uses, creates))
 
   desugar-check-dependencies = with(
     all-keys-DesugarRulesCreated => created-in;
