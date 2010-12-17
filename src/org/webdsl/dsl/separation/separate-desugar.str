@@ -24,6 +24,8 @@ rules
     if (all-old-defs,used-rules,created-rules) := <file-exists; ReadFromFile> file then
       <map(\(key, defs) -> <filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> defs\)> used-rules;
       <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleProvider :+ key -> def)> where <is-cacheable> def \)> defvals* \)> created-rules;
+      // for all-keys
+      <map(\((rulename,rulekey), defvals*) -> <filter(\(def,vals) -> <rules(RuleProvider :+ (rulename,DR_DUMMY()) -> def)> where <is-cacheable> def \)> defvals* \)> created-rules;
       <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))> where <is-cacheable> def \)> defvals* \)> created-rules;
       // TODO: RuleValsToKey can be optimized out
       <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleValsForKey :+ key -> (def,vals))> where <is-cacheable> def \)> defvals* \)> created-rules;
@@ -124,11 +126,12 @@ rules
   save-desugar-rules =
      	// Add new rule-usage info
         {| RuleUsageIndex:
-        log-timed(create-rule-index | "Create usage index");
-        log-timed(flatten-and-combine-rule-index | "Flatten and combine usage")
+        log-time(create-rule-index | "Create usage index");
+        log-time(flatten-and-combine-rule-index | "Flatten and combine usage")
         |}
+      ; log-time(
       // Purge old rule-creation info
-      ; all-keys-RuleValsForKey
+        all-keys-RuleValsForKey
       ; map({key,defs2:
           ?key;
           bagof-RuleValsForKey;
@@ -151,20 +154,21 @@ rules
                 })
             })
         })
+        | "prepare creates")
         // And save...
       ; all-defs := <concat; hashed-uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
       // Rule -> defs
       ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
       ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
-      ; <WriteToBinaryFile> (<desugar-dependency-file>, (all-defs, uses, creates))
+      ; <log-time(WriteToBinaryFile | "write desugar deps")> (<desugar-dependency-file>, (all-defs, uses, creates))
 
   desugar-check-dependencies = with(
     all-keys-DesugarRulesCreated => created-in;
     mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
-    uniq;
+    hashed-uniq;
     // term: list of dr-keys that were created
-    filter(\key -> (key, <RuleUsers; filter(not(DefinitionLoaded)); not(?[]); uniq> key)\);
+    filter(\key -> (key, <RuleUsers; filter(not(DefinitionLoaded <+ TopLevelDefinitions)); not(?[]); uniq> key)\);
     // term: list of (dr-key, list-of-users)
     where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", created-in]}));
-    map(\(rulekey, defkeys) -> <map(debug(!"Loading: ");load-unmodified-def)> defkeys \)
+    map(\(rulekey, defkeys) -> <map(load-unmodified-def)> defkeys \)
   )
