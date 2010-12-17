@@ -39,7 +39,45 @@ public class Environment {
         }
         templates.put(key, value);
     }
+    
+    
+    /**
+     *  'with/requires' calls map
+        
+          define page root(){
+            var i := 7
+            test() with {
+              ---> content(s:String){ "123" output(s) output(i) } <---
+            }
+          }
+          define test() requires content(String){
+            "content: " content("456")
+          }
+          
+          content(s:String) is lifted, i becomes an argument, 
+          a partial templatecall is stored in the environment
+          which contains the name of the lifted template and the value of i 
+     */
+    protected Map<String, utils.TemplateCall> withcallsmap = null;
+    
+    public Map<String, utils.TemplateCall> getWithcallsmap(){ return withcallsmap; }
+    
+    public utils.TemplateCall getWithcall(String key) {
+        if (withcallsmap != null && withcallsmap.containsKey(key)){
+            return withcallsmap.get(key);
+        }
+        else{
+            return up.getWithcall(key);
+        }
+    }
 
+    public void putWithcall(String key, utils.TemplateCall value) {
+        if(withcallsmap == null){
+            withcallsmap = new HashMap<String,utils.TemplateCall>();
+        }
+        withcallsmap.put(key, value);
+    }
+    
     
     /**
      *  Was used for storing vars for passing them on to local template redefinitions, this is no longer the case.
@@ -70,6 +108,18 @@ public class Environment {
     
     /**
      * Used for storing implicit arguments to local template redefinitions
+     * 
+          define page root() {
+            var st := "1"
+            form{
+              b(12345)  	
+              submit action{ } {"save"}
+            } 
+            define b(i:Int) = a(*,--->st<---)
+          }
+          define a(i:Int, s:Ref<String>){}
+          define b(i:Int){}
+     * 
      */
     private Map<String,LocalTemplateArguments> extraLocalTemplateArguments = null;
     

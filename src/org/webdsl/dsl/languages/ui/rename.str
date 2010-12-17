@@ -28,7 +28,7 @@ rules
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions-reqs> Define(mod*, x, farg2*, req*, elem2*){anno*}
     where   <fetch(Page)> mod*
-    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
+    with {| Rename, InDef, InPage, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateFargTypes
           : rules ( InDef := True() )
           ; rules ( InPage := x )
           ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
@@ -45,7 +45,7 @@ rules
     where not(InPage <+ InTemplate)
         ; not(<fetch(Page)> mod*)
         ; not(<fetch(Email)> mod*)
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateFargTypes
           : rules ( InDef := True() )
           ; y := x{<newname> x}
           ; rules ( InTemplate := y )
@@ -60,9 +60,11 @@ rules
        
   get-enclosing-define-from-context :     
     _ -> EnclosingDefine(templatekey, page-or-template-name, template-arg)
-    with  page-or-template-name := <InTemplate <+ InPage>
+    where not(InsideArgDefine)
+        ; page-or-template-name := <InTemplate <+ InPage>
         ; template-arg := <TemplateArg>
-        ; templatekey := (page-or-template-name, <!template-arg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
+      <+ (page-or-template-name,template-arg) := <InsideArgDefine>
+    with templatekey := (page-or-template-name, <!template-arg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
         
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions-reqs> Define(mod2*, y, farg2*, req*, elem2*){newanno2*}
@@ -72,7 +74,7 @@ rules
     with  newanno* := <put-closure-in-anno> anno* //need closure for lifting the definition to top-level
         ; mod2* := <fetch(Local()) <+ ![Local() | <id>]> mod* // add if not present
     with  newanno2* := [ <get-enclosing-define-from-context> | newanno*]   
-    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateSig
+    with {| Rename, InDef, InTemplate, RenameActionCall, VarInTemplateContext, TemplateArg, ReqTemplateFargTypes
          : rules ( InDef := True() )
          ; y := x{<toplevel-rename> x}
          ; rules ( InTemplate := y )
@@ -109,9 +111,9 @@ rules
   ; map(declare-require-sig-internal)
     
   declare-require-sig-internal =
-    ?d@TemplateArg(name, _)
+    ?d@TemplateArg(name, fargtypes)
   ; xsa := <strip-annos> name
-  ; rules (ReqTemplateSig : xsa )
+  ; rules (ReqTemplateFargTypes : xsa -> fargtypes)
     
   /**
    *  ThisCall constructor is overloaded for function calls

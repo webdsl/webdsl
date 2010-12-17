@@ -15,8 +15,9 @@ define template helloowner() requires hello() {
 define template ietsowner () {
   helloowner() with {
       hello() { 
+        "1"
         elements()
-        //@TODO ietsowner.elements
+        ietsowner.elements()
       } 
   }
 }
@@ -25,7 +26,7 @@ define template ietsowner () {
     var d := HtmlUnitDriver();
     d.get(navigate(root()));
     
-    assert(d.getPageSource().contains("foobar"));
+    assert(d.getPageSource().contains("1foobarhello"));
     
     d.close();
   }

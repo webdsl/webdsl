@@ -21,38 +21,35 @@ public abstract class TemplateServlet {
     protected HttpServletResponse response;
     protected boolean initialized = false;
     protected utils.TemplateCall templateArg;
-    protected Map<String, utils.TemplateCall> withcallsmap = null;
-    public Map<String, utils.TemplateCall> getWithcallsmap(){ return withcallsmap; }
     protected Map<String,String> attrs = null;
-    protected Map<String, utils.TemplateCall> withcallsmapout = null;
     protected String[] pageArguments = null;
     protected HttpSession session;
     protected utils.LocalTemplateArguments ltas;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
     
-    public void storeInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void storeInputs(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
+          tryInitializeTemplate(args, env, attrs, ltas);
           storeInputsInternal();
         }
       }  
-    public void validateInputs(Object[] args, Environment env, utils.TemplateCall templateArg, Map<String, utils.TemplateCall> withcallsmap,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void validateInputs(Object[] args, Environment env,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
+          tryInitializeTemplate(args, env, attrs, ltas);
           validateInputsInternal();
         }
       } 
-    public void handleActions(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
+    public void handleActions(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
+          tryInitializeTemplate(args, env, attrs, ltas);
           handleActionsInternal();
         }
       }  
 
-    public void render(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
+    public void render(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
       if(!skipThisTemplate){
-        tryInitializeTemplate(args, env, templateArg, withcallsmap, attrs, ltas);
+        tryInitializeTemplate(args, env, attrs, ltas);
      
         java.io.StringWriter s = new java.io.StringWriter();
 
@@ -108,7 +105,7 @@ public abstract class TemplateServlet {
         actions.put(key, value);
     }
     
-    private void tryInitializeTemplate(Object[] args, Environment env, utils.TemplateCall templateArg , Map<String, utils.TemplateCall> withcallsmap, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
+    private void tryInitializeTemplate(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         
@@ -125,8 +122,6 @@ public abstract class TemplateServlet {
                 this.session = request.getSession(true);
               }
               this.hibSession = ThreadLocalPage.get().getHibSession();
-              this.templateArg = templateArg;
-              this.withcallsmap = withcallsmap;
               this.attrs = attrs;
               this.ltas = ltas;
               try {

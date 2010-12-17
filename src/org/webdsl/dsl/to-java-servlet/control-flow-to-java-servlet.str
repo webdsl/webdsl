@@ -236,8 +236,9 @@ rules //templatecall
     with  bstm* := <control-flow-tcall-defined-template(|x_methodname)> tc
     
   template-call-to-java-string: 
-    (x_name,args) -> java:expr|[ "~x_name"+"("+"~arg_dump"+")" ]|
-    with  arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
+    (name,args) -> java:expr|[ "~x_name"+"("+"~arg_dump"+")" ]|
+    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name
+        ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
     
   control-flow-tcall-defined-template(|x_methodname) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
@@ -256,19 +257,16 @@ rules //templatecall
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  x_tname := <get-templatecallnumber> tc
         ; bstm_npe* := <cflow-tcall-null-pointer-helper> (x_name,args)
-        ; (e_templarg,e_templ*,withcallsmap,x_templargs) := <cflow-tcall-elements-with-requires-helper> passign*
+        ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
         ; attrsmap := <control-flow-emit-attrs-calls-map(|x_methodname)> passign* 
         // create template call
         ; bstm_result* := <generate-template-call(|x_methodname)> (
             java_tname, 
             expr|["~x_tname"]|, 
-            java_args, 
-            e_templarg,
-            var-init|[ { e_templ* } ]|, 
+            java_args,
             bstm_npe*, 
             withcallsmap, 
-            attrsmap,
-            x_templargs
+            attrsmap
             )
             
   cflow-tcall-null-pointer-helper :
@@ -279,66 +277,39 @@ rules //templatecall
               System.out.println("WebDSL warning: null reference in template arguments: "+e_tc); // TODO proper location information; some way to disable these warnings
               npe.printStackTrace(); // display java exception for now so it can be traced back to the template
             ]|
-            
-  cflow-tcall-elements-with-requires-helper :
-      passign* -> (e_templarg,e_templ*,withcallsmap,x_templargs)     
-      with x_templargs := <newname> "args"
-         // implicit template argument
-         ; if <fetch(?TemplateCall(templname,vars,<not(fetch(?ResolvedRequireKey(_)))>,_){anno_elementscall*})> passign* //with template args also put into passign*, but contains ResolvedRequireKey
-           then //translate (ref) args of 'elements' call
-                elementscalledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno_elementscall*
-              ; e_templ* := <handle-ref-arg> (elementscalledTemplateArgs, vars)
-              ; e_templarg := expr|[new utils.TemplateCall("~templname", x_templargs) ]|
-           else //no 'elements' call, templatecall did not contain a block with template elements
-                e_templ* := []
-              ; e_templarg := expr|[ this.templateArg ]|
-           end
-         //templatecall with 'with' arguments, if with, the template argument is the templateArg of this template. With is desugared away, so test the number of statements
-         ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
    
   /**
-   *  'TemplateCall' for element in with { } arguments (derived from ArgDef constructor), 
+   *  'elements' call
+   *
+   *  'with/requires' templatecall for element in with { } arguments (derived from ArgDef constructor), 
    *  stored in TemplateCall with only part of the needed arguments, the closure at the call
+   *
    */
-  
-  control-flow-emit-with-calls-map : //optimization when withcallsmap is empty
-  passign* -> bstm_1* 
-  with
-      bstm* := <collect(control-flow-emit-with-calls);concat> passign*
-    ; if (0 := <length> bstm*) then
-      bstm_1* := <control-flow-emit-with-calls-map-def>
-      else 
-      bstm_1* := bstm* |[
-          withcallsmapout = new HashMap<String, utils.TemplateCall>();
-          withcallsmapout.putAll(withcallsmap);
-          bstm*
-      ]|
-      end
+  control-flow-emit-with-calls-map :
+    passign* -> bstm* 
+    with bstm* := <collect(control-flow-emit-with-calls-helper);concat> passign*
 
-  control-flow-emit-with-calls-map-def =
-    !bstm* |[ withcallsmapout = withcallsmap; ]|
-      
-  control-flow-emit-with-calls :
-//   TemplateCall(templname,vars,passigns,_) -> bstm* |[ Object[] x_array = { e_templ* }; withcallsmapout.put("~origname", new utils.TemplateCall("~templname", x_array)); ]|
-   TemplateCall(templname,vars,passigns,_) -> bstm* |[ withcallsmapout.put("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* } )); ]|
-   where <fetch(?ResolvedRequireKey(origname))> passigns //also matches on elements calls
-   with e_templ* := <map({\e -> <expression-to-java-servlet> e\})> vars
-   //      ; origname := <get-original-name>  templname
-//      ; x_array := <newname> "array"
-   
+  control-flow-emit-with-calls-helper :
+    TemplateCall(templname,vars,passigns,_){anno*} -> result
+    where <fetch(?ResolvedRequireKey(origname))> passigns
+    with templateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
+    with //could be that not all args are specified, only implicit args are available at this point
+         varslength := <length> vars
+       ; selectedTemplateArgs := <reverse;take(|varslength);reverse> templateArgs
+       ; e_templ* := <handle-ref-arg> (selectedTemplateArgs, vars)
+       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* } )); ]|
+
   /**
    * e_name : unique template name for lookup in hashmaps - Java String
    * e_tname : static template call number - Java String
-   * e : regular template arguments - Java Object[]
-   * e_templarg : if the templatecall has elements, this is a utils.TemplateCall object that points to the lifted template definition, if it has 'with' arguments it is 'this.templateArg' @TODO split elements and with arguments stuff
-   * e_templ : 'elements' template arguments - Java Object[]
+   * e : regular template arguments - Java Object[] 
    * bstm_npe* : null pointer exception handling statements - Java bstm*
-   * bstm_withcallsmap* : 'with' arguments, references to lifted templates - Java bstm*
+   * bstm_withcallsmap* : statements that add  'with' arguments and 'elements' template argument 
+   *   to withcallsmap in newenv - Java bstm*
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
-   * x_templargs : name of 'elements' call arguments collection - Java ID
    */    
   generate-template-call(|x_methodname):
-    (e_name, e_tname, e, e_templarg, e_templ, bstm_npe*, bstm_withcallsmap*, bstm_attrs*,x_templargs) ->
+    (e_name, e_tname, e, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
@@ -350,14 +321,14 @@ rules //templatecall
         if(x_argsextra != null){
           x_args = ArrayUtils.addAll(x_args,x_argsextra.extraArgs);
         }
-        Object[] x_templargs = e_templ;
         if(templatecalls.get(ident)==null){
           templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
         }
         try {
+          org.webdsl.lang.Environment newenv = new Environment(env);
           bstm_withcallsmap*
           bstm_attrs*
-          ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, new Environment(env), e_templarg, withcallsmapout, attrsmapout, x_argsextra);
+          ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, newenv, attrsmapout, x_argsextra);
           ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
             if (ThreadLocalPage.get().hasExecutedAction)
               return;
@@ -384,43 +355,13 @@ rules //templatecall
     ]|
     with  x_args := <newname> "args"
         ; x_argsextra := <newname> "args2"
-      
-rules //elements
-
-  handle-actions-input-to-java-servlet  =
-    control-flow-elemcall(|"storeInputs")
-
-  handle-actions-to-java-servlet =
-    control-flow-elemcall(|"handleActions")
-
-  elem-to-java-servlet =
-    control-flow-elemcall(|"render")
-    
-  data-validation-to-java-servlet =
-    control-flow-elemcall(|"validateInputs")
-
-  control-flow-elemcall(|x_methodname) :
-    tc@TemplateCall("elements", _, _, _) -> result 
-    with  bstm_npe* := bstm*|[ System.out.println("WebDSL warning: null reference in environment of 'elements' call"); ]|
-//        ; x_tname := <get-templatecallnumber> tc
-        ; x_templargs := <newname> "args"
-        ; result := <generate-template-call(|x_methodname)> 
-            (expr|[ templateArg.name ]|, 
-             expr|["elements"]|, 
-             expr|[ templateArg.args ]|, 
-             expr|[new utils.TemplateCall("none", x_templargs) ]|, 
-             var-init|[ {} ]|, 
-             bstm_npe*, 
-             <control-flow-emit-with-calls-map-def>,
-             <control-flow-emit-attrs-calls-map-def>,
-             x_templargs)
-
 
 /**
  *  Call to template passed as part of required templates
  *  Since the passed TemplateCall object only has the first part of the arguments, it is concatted with the 
  *  actual arguments of the required template definition
  *
+ *  'elements' call
  */
 rules
 
@@ -437,12 +378,25 @@ rules
     control-flow-tcall-required-template(|"validateInputs")
 
   control-flow-tcall-required-template(|x_methodname) :
-    tc@TemplateCall(x_name, args, passign*, _) -> result
+    tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     where <get-anno(?CallToRequiredAnno())> tc 
     with  originalname := <get-original-name> x_name
-        ; e_origargs* := <map(expression-to-java-servlet)> args
+        ; // translate (ref) args
+          calledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
+        ; e_argswithref* := <handle-ref-arg> (calledTemplateArgs, args)
         // call common templatecall translation
-        ; java_tname := expr|[ withcallsmap.get("~originalname").name ]|
-        ; java_args:=  expr|[ Utils.concatArrays(new Object[] { e_origargs* } ,withcallsmap.get("~originalname").args) ]|
+        ; java_tname := expr|[ env.getWithcall("~originalname").name ]|
+        ; java_args:=  expr|[ Utils.concatArrays(new Object[] { e_argswithref* }, env.getWithcall("~originalname").args) ]|
+        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args)> tc
+          
+  control-flow-tcall-required-template(|x_methodname) :
+    tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
+    where <?"elements"> x_name
+         ; e := java:expr|[ "elements#"+getElementsContext() ]|
+       <+ <?QualifiedElementsCall(context)> x_name
+        ; e := java:expr|[ "elements#"+"~context" ]|
+    with  // call common templatecall translation
+          java_tname := expr|[ env.getWithcall(e).name ]|
+        ; java_args:=  expr|[ env.getWithcall(e).args ]|
         ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args)> tc
  

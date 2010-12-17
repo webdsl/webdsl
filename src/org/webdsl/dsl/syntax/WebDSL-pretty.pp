@@ -1281,5 +1281,7 @@
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
    
    TemplateModSpan -- KW["span"],
-   TemplateDeprecated -- KW["deprecated"]
+   TemplateDeprecated -- KW["deprecated"],
+   
+   QualifiedElementsCall -- _1 KW[".elements"]
 ] 

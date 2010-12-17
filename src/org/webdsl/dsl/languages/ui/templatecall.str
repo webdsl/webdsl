@@ -146,11 +146,11 @@ rules //template call either refers to a defined template, or to a built-in temp
     (x,arg*) -> x
     where if (InTemplate <+ InPage) then
           xsa := <strip-annos> x
-        ; <ReqTemplateSig> xsa
+        ; types := <ReqTemplateFargTypes> xsa
         else 
-          <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
+          types := <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
         end        
-    with  rules ( CallToRequiredTemplate : x )
+    with  rules ( CallToRequiredTemplate : x -> types )
         ; <store-enclosing-define-for-template-call> x 
 
   rename-template-call-name-builtin :
@@ -222,7 +222,7 @@ rules //template not defined
 rules // desugar 'elements' template argument for defined template calls
   
   built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
-
+    
   desugar-ui :
     tc@TemplateCall(x,arg*,passign*,TemplateBody(elem*)){anno*} -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])){anno*} 
     where not(<ElementsCallInsideTemplateWith> x)
@@ -230,9 +230,11 @@ rules // desugar 'elements' template argument for defined template calls
     where not(<fetch(?TemplateCall(_,_,_,_))> passign*)
     where not(<?[]> elem*)
     with  x_newtempl := <toplevel-rename> "templateargument"
-        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (x,elem*) 
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
-        ; elementscall:=<rename-all> TemplateCall(x_newtempl,var*,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (x,elem*)
+        ; EnclosingDefine(_, context, _) := <DefinedTemplateGetEnclosingDefine> x 
+        ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(context)], x_newtempl, farg*, requires*, defelem*)
+        ; elementskey := <concat-strings> ["elements#",x]
+        ; elementscall:=<rename-all> TemplateCall(x_newtempl,var*,[ResolvedRequireKey(elementskey)],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
   emit-top-level-template-contents-helper:
     (x,elem*) -> (farg*, requires*, defelem*, var*)
@@ -252,6 +254,17 @@ rules // desugar 'elements' template argument for defined template calls
           end
           
 rules     
+  
+  /*
+    mark ArgDefine fargs as Ref allowed
+  */
+  rename-ui:
+    ArgDefine(x,farg1*,elem1*) -> ArgDefine(x,farg2*,elem2*)
+    with  {| Rename, VarInTemplateContext, InsideArgDefine :
+            farg2* := <map(rename; add-is-template-arg-anno)> farg1*
+          ; rules(InsideArgDefine := (x,farg2*))
+          ; elem2* := <rename-all> elem1*
+          |}
   
   /*
     wait with lifting 'elements' inside TemplateWith until the definition (foo in the example below) is lifted
@@ -303,7 +316,7 @@ rules
     ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
     with x_newtempl := <conc-strings; toplevel-rename> (x,"_argdef")
         ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (templatename,elem*) 
-        ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
+        ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(x)], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
          // a special templatecall that only needs resolving by name, since the name is uniquely generated
          //  produces the name that should be used to look up the template in the hashmap
         ; t* := <template-formal-arguments-to-types> [origfarg*, farg*]
