@@ -42,17 +42,19 @@ rules
     !result  //fail here if s failed (result is unbound)
   */
    
+	def-tracking-table = lookup-table(|"TRACK_DEF_USAGES")
+   
+  all-used-rules = def-tracking-table; hashtable-keys
+   
   track-rules-internal(s | key) =
-      start-record-dynamic-rules;
-     {| DynamicRulesUsed:
-	        enable-dr-usage-tracking
-	      ; try(s => result)
-	      ; disable-dr-usage-tracking
-	      ; all-keys-DynamicRulesUsed
-	      ; remove-dr-dummies
-	      ; ?used-rules
-	     |}
-    ; end-record-dynamic-rules
+    
+      start-record-dynamic-rules
+    ; enable-dr-usage-tracking
+	  ; try(s => result)
+	  ; disable-dr-usage-tracking
+	  ; end-record-dynamic-rules
+	  
+	  // Store creates  
     ; filter(not(?(<ignore-dr-tracking>,_)))
     ; ?all-created-rules
     ; rules(CreatedRules :+ key -> all-created-rules)
@@ -61,8 +63,20 @@ rules
     //; remove-all({x: ?(_, [DR_DUMMY()]); Fst; ?x; rules(EmptyLeftHand : x) })
     ; ?created-rules
     ; rules(DesugarRulesCreated :+ key -> created-rules)
-    ; !used-rules
-    ; rules(DesugarRulesUsed :+ key -> used-rules)
+    
+    // Store usages
+    ; def-tracking-table => usage-table
+    ; rule-tracking-table => rule-table
+    ; <hashtable-keys> rule-table
+    ; remove-dr-dummies
+    ; where(
+        !rule-table
+       ; hashtable-clear
+      )
+    ; map({rulekey,wholekey,val:
+          ?rulekey
+        ; wholekey := (key, rulekey)
+        ; <hashtable-put(|wholekey, 1)> usage-table
+      })
       // We fail here if the strategy s failed (result is not bound)
     ; !result
-
