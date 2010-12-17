@@ -86,25 +86,31 @@ strategies
     filter(\x -> x where not(<fetch(?x)> oldmods)\);
     try(not(?[]); debug(!"No rule dependencies found for: "));
     map(load-cached-file)
+  
+  create-rule-index =
+    all-used-rules;
+    map(\(x, y) -> <rules(RuleUsageIndex :+ y -> x)> \)
+  
+  flatten-and-combine-rule-index =
+    all-keys-RuleUsageIndex;
+    map({key,defs2: 
+      ?key;
+      bagof-RuleUsageIndex;
+      try(
+        <concat;uniq> [<id>, <RuleUsers; filter(is-cacheable)> key]  // add old users
+      );
+      ?defs2;
+      rules(RuleUsers : key -> defs2);
+      rules(RuleUsageIndex :- key)
+    })
     
   save-desugar-rules =
-      // Purge old rule-usage info
-        all-keys-RuleUsers
-      ; map(\key -> <RuleUsers; filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> \)
       // Add new rule-usage info
-      ; all-keys-DesugarRulesUsed
-      ; map(Snd)
-      ; uniq  // all rule keys
-      ; map({key, defs2:
-            ?key
-          ; all-keys-DesugarRulesUsed
-          ; filter(where(Snd; ?key); Fst)     // list of defs
-          ; try(
-              <concat;uniq> [<id>, <RuleUsers> key]  // add old users
-            )
-          ; ?defs2
-          ; rules(RuleUsers : key -> defs2) 
-        })
+        {| RuleUsageIndex:
+          create-rule-index
+        ; flatten-and-combine-rule-index
+        |}
+      ; all-keys-RuleUsers
       // Purge old rule-creation info
       ; all-keys-RuleValsForKey
       ; map({key,defs2:
@@ -130,7 +136,7 @@ strategies
             })
         })
         // And save...
-      ; all-defs := <concat; uniq> [<all-keys-DesugarRulesUsed; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
+      ; all-defs := <concat; uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
       // Rule -> defs
       ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
       ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
