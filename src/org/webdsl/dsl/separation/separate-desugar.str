@@ -6,6 +6,7 @@ imports
   org/webdsl/dsl/separation/-
   org/webdsl/dsl/separation/lib/-
   org/webdsl/dsl/transformation/-
+  org/webdsl/dsl/typechecker/-
   
 rules
   
@@ -54,7 +55,7 @@ rules
         ; defs := <bagof-RuleProvider> (rulename, key)
         ; not(?[])
      with   
-          not-loaded := <filter(where(not(DefinitionLoaded); not(is-emitted-def)))> defs
+          not-loaded := <filter(where(not(RulesForDefinitionLoaded); not(is-emitted-def)))> defs
         ; if not([] := not-loaded) then
             <verbose-msg> ["Got rule: ", (rulename, key)];
             <verbose-msg> ["Providers: ", defs];
@@ -66,14 +67,14 @@ rules
   load-rules-for-def: defkey -> defkey
     with  ruleset := <bagof-RuleVals> defkey;
           load-flat-dynamic-rule-closure;
-          rules(DefinitionLoaded : defkey) 
+          rules(RulesForDefinitionLoaded : defkey) 
             
   ignore-dr-tracking =
       ?"RuleResolvingEnabled"
    <+ ?"RuleUsers"
    <+ ?"RuleProvider"
    <+ ?"Definition"
-   <+ ?"DefinitionLoaded"
+   <+ ?"RulesForDefinitionLoaded"
    <+ ?"CurrentDefinitionKey"
    <+ ?"MemoOpenParseTable"     // whole parse table!
    
@@ -97,7 +98,7 @@ rules
     all-keys-ModuleToDefs;
     filter(\x -> x where not(<fetch(?x)> oldmods)\);
     try(not(?[]); debug(!"No rule dependencies found for: "));
-    map(load-unmodified-def-with-rename)
+    map(load-def-during-desugar)
   */
   
   hashed-uniq =
@@ -164,11 +165,23 @@ rules
 
   desugar-check-dependencies = with(
     all-keys-DesugarRulesCreated => created-in;
-    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
+    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);
     hashed-uniq;
     // term: list of dr-keys that were created
-    filter(\key -> (key, <RuleUsers; filter(not(DefinitionLoaded <+ TopLevelDefinitions)); not(?[]); uniq> key)\);
+    filter(\key -> (key, <RuleUsers; filter(not(TopLevelDefinitions)); not(?[]); uniq> key)\);
     // term: list of (dr-key, list-of-users)
     where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", created-in]}));
-    map(\(rulekey, defkeys) -> <map(load-unmodified-def)> defkeys \)
+    map(Snd);
+    concat;
+    remove-all(RulesForDefinitionLoaded; debug(!"WARNING: invalid cache used for definition: "));
+    // filter: don't load the same def twice
+    filter(where(not(TopLevelDefinitions)); with(load-def-during-desugar))
   )
+
+  load-def-during-desugar =
+    load-unmodified-def;    // get ast
+    where(get-def-key => key);
+    remove-string-position-annos;
+    rename-top;             // TODO: track rules
+    remove-position-annos;
+    store-module-def(|key)
