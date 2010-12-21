@@ -28,8 +28,9 @@ application test
     } separated-by{ <br /> }
     
     define localtest(a: Ref<String>, b : String, c: Ref<String>){
+      var b1 := b
       input(a)
-      input(b)
+      input(b1)
       input(c)
     }
   }
@@ -37,10 +38,12 @@ application test
   define localtest(a: Ref<String>, b : String, c: Ref<String>){}
   
   define bla(a: Ref<String>, b : String, c: Ref<String>, d : Int, e: Ref<Int>, f : Ref<Str>, g: Ref<Bool>){ 
+    var b1 := b
+    var d1 := d
     passOn(a)
-    input(b)
+    input(b1)
     input(c)
-    input(d)
+    input(d1)
     input(e)
     input(f)
     input(g)
