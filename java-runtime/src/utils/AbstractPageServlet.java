@@ -283,7 +283,6 @@ public abstract class AbstractPageServlet{
     // workaround to get to static member of generated HibernateUtilConfigured class
     protected abstract org.hibernate.Session openNewTransactionThroughGetCurrentSession();
 
-    protected boolean validated=true;
     protected Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
@@ -301,6 +300,7 @@ public abstract class AbstractPageServlet{
         return response;
     }
 
+    protected boolean validated=true;
     /*
      * when this is true, it can mean:
      *  1 no validation has been performed yet
@@ -313,9 +313,25 @@ public abstract class AbstractPageServlet{
     public boolean isNotValid() {
         return !validated;
     }
-
     public void setValidated(boolean validated) {
         this.validated = validated;
+    }
+    
+    /*
+     * complete action regularly but rollback hibernate session
+     * skips validation of entities at end of action, if validation messages are necessary
+     * use cancel() instead of rollback()
+     * can be used to replace templates with ajax without saving, e.g. for validation
+     */
+    protected boolean rollback = false;
+    public boolean isRollback() {
+        return rollback;
+    }
+    public void setRollback() {
+        //by setting validated true, the action will succeed
+        this.setValidated(true);
+        //the session will be rolled back, to cancel persisting any changes
+        this.rollback = true;
     }
 
     public List<String> failedCaptchaResponses = new ArrayList<String>();

@@ -1279,9 +1279,13 @@
    TemplateCallPropertySecure -- KW["secure"],
    TemplateCallPropertyNotSecure -- KW["not-secure"],
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
-   
+
    TemplateModSpan -- KW["span"],
+   TemplateModInline -- KW["inline"],
    TemplateDeprecated -- KW["deprecated"],
    
+   ValidateAction -- KW["validate"] _1,
+
    QualifiedElementsCall -- _1 KW[".elements"]
+   
 ] 
