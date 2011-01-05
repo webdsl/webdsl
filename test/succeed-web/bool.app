@@ -17,9 +17,36 @@ define ignore-access-control outputBool1(b : Bool){
     all attributes 
   />
 }
+
+  define inputBool1(b:Ref<Bool>){
+    var tname := getUniqueTemplateId() // regular var is reset when validation fails
+    request var errors : List<String> := null // need a var that keeps its value, even when validation fails
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputBoolInternal(b,tname)[all attributes]  // use same tname so the inputs are updated in both cases
+      }
+    }
+    else{
+      inputBoolInternal(b,tname)[all attributes]
+    }
+    validate{
+      errors := b.getValidationErrors();
+      if(errors != null && errors.length > 0){
+        if(inLabelContext()){ //this adds errors to labels instead
+          for(s:String in errors){
+            addLabelError(s);
+          }
+          errors := null;
+        }
+        cancel();
+      }
+    }
+  }
+
     // if(e) e1 else e2    //java e?e1:e2   //python e1 if e else e2   
-define ignore-access-control validate inputBool1(b : Ref<Bool>){
-  var rname := getUniqueTemplateId()
+define ignore-access-control inputBoolInternal(b : Ref<Bool>,rname:String){
+  //var rname := getUniqueTemplateId()
   var rnamehidden := rname + "_isinput"
      
   <input type="hidden" name=rname+"_isinput" />
@@ -76,7 +103,7 @@ define test(b:Bla){
   form{
     "defined input"
     label(" CLICK ")[class = "labelelem"+b.name]{
-      inputBool1(b.bla)[class = "inputelem"+b.name]
+      inputBool(b.bla)[class = "inputelem"+b.name] //@TODO change to inputBool1 when labels+validation is supported
     }
     submit action{} [class = "savebutton"+b.name] {"save"}
   }	

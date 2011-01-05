@@ -201,6 +201,9 @@ public abstract class AbstractPageServlet{
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
     }
+    public void addValidationException(String name, String message){
+        validationExceptions.add(new ValidationException(name,message));
+    }
     public List<utils.ValidationException> getValidationExceptionsByName(String name) {
         List<utils.ValidationException> list = new java.util.LinkedList<utils.ValidationException>();
         for(utils.ValidationException v : validationExceptions){
