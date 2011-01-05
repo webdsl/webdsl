@@ -28,9 +28,18 @@ public abstract class TemplateServlet {
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
     
+    protected boolean initializeLocalVarsOnceExecuted = false;
+    protected void tryInitializeVarsOnce(){
+      if(!initializeLocalVarsOnceExecuted){
+        initializeLocalVarsOnceExecuted = true;  
+        initializeLocalVarsOnce();
+      }
+    }
+    
     public void storeInputs(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
           tryInitializeTemplate(args, env, attrs, ltas);
+          tryInitializeVarsOnce(); //this phase could be skipped, so performed in render as well
           storeInputsInternal();
         }
       }  
@@ -50,6 +59,7 @@ public abstract class TemplateServlet {
     public void render(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
       if(!skipThisTemplate){
         tryInitializeTemplate(args, env, attrs, ltas);
+        tryInitializeVarsOnce();
      
         java.io.StringWriter s = new java.io.StringWriter();
 
@@ -79,6 +89,7 @@ public abstract class TemplateServlet {
     protected abstract void initSubmitActions();
     protected abstract void initActions();
     protected abstract void initializeLocalVars();
+    protected abstract void initializeLocalVarsOnce();
     
     public abstract String getUniqueName();
     public abstract String getTemplateClassName();
