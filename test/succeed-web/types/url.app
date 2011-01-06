@@ -1,43 +1,30 @@
 application exampleapp
 
 entity Ent {
-  i :: Float
-  validate(i > 10f, "must be greater than 10")
+  s::URL
+  validate(s.length() > 2, "length must be greater than 2")
 }
 
-define ignore-access-control outputFloat1(i : Float){
-  output(i.toString())
+define ignore-access-control outputURL1(s: URL){
+  navigate url(s) [all attributes] { url(s) }
 }
 
-  define ignore-access-control inputFloat1(i:Ref<Float>){
+  define ignore-access-control inputURL1(s:Ref<URL>){
     var tname := getUniqueTemplateId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
     
-    if(errors != null){
+    if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputFloatFloaternal(i,tname)[all attributes]
+        inputURLInternal(s,tname)[all attributes]
       }
     }
     else{
-      inputFloatFloaternal(i,tname)[all attributes]
+      inputURLInternal(s,tname)[all attributes]
     }
     validate{
-      if(req != null){
-        if(/-?\d\d*\.\d*E?\d*/.match(req) || /-?\d\d*E?\d*/.match(req) || /-?\.\d\d*E?\d*/.match(req)){
-          var f: Float := req.parseFloat(); 
-          if(f == null){
-            errors := ["Not a valid decimal number"];
-          }
-        }
-        else{
-          errors := ["Not a valid decimal number"];
-        }
-      }
-      if(errors == null){ // if no wellformedness errors, check datamodel validations
-        errors := i.getValidationErrors();
-      }
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
       if(errors != null && errors.length > 0){
         if(inLabelContext()){ //this adds errors to labels instead
           for(s:String in errors){
@@ -50,32 +37,32 @@ define ignore-access-control outputFloat1(i : Float){
     }
   }
 
-define ignore-access-control inputFloatFloaternal(i : Ref<Float>, tname : String){
-  //var rname := getUniqueTemplateId()
+define ignore-access-control inputURLInternal(s : Ref<URL>, tname : String){
   var req := getRequestParameter(tname)
   <input 
     if(inLabelContext()) { 
       id=getLabelString() 
     } 
     name=tname 
+    type="text"
     if(req != null){ 
       value = req 
     }
     else{
-      value = i 
+      value = s
     }
-    class="inputFloat "+attribute("class") 
+    class="inputURL "+attribute("class") 
     all attributes except "class"
   />
 
   databind{
     if(req != null){
-      i := req.parseFloat();
+      s := req;
     }
   }
 }
 
-var e1 := Ent{ i := 5f }
+var e1 := Ent{ s := "123" }
 
 define page root(){
     test(e1)
@@ -83,27 +70,27 @@ define page root(){
 
 define test(e:Ent){ 
   " defined output"  
-  outputFloat1(e.i)
+  outputURL1(e.s)
   form{
     "defined input"
     label(" CLICK ")[class = "label-elem"]{
-      inputFloat1(e.i)[class = "input-elem"]
+      inputURL1(e.s)[class = "input-elem"]
     }
     submit action{}[class = "button-elem"]{"save"}
   }	
   <br />
   "built-in output"
-  output(e.i)
+  output(e.s)
   form{
   "built-in input"
     label(" CLICK ")[class = "built-in-label-elem"]{
-      input(e.i)[class = "built-in-input-elem"]
+      input(e.s)[class = "built-in-input-elem"]
     }
     submit action{}[class = "built-in-button-elem"]{"save"}
   }
 }
 
-var e2 := Ent{ i := 5f }
+var e2 := Ent{ s := "123" }
 
 define page nolabel(){
   testnolabel(e2)
@@ -111,27 +98,27 @@ define page nolabel(){
 
 define testnolabel(e:Ent){ 
   " defined output"  
-  outputFloat1(e.i)
+  outputURL1(e.s)
   form{
     "defined input"
-    inputFloat1(e.i)[class = "input-elem"]
+    inputURL1(e.s)[class = "input-elem"]
     submit action{}[class = "button-elem"]{"save"}
   }	
   <br />
   "built-in output"
-  output(e.i)
+  output(e.s)
   form{
     "built-in input"
-    input(e.i)[class = "built-in-input-elem"]
+    input(e.s)[class = "built-in-input-elem"]
     submit action{}[class = "built-in-button-elem"]{"save"}
   }
 }
 
-test inttemplates {
+test templates {
   var d : WebDriver := FirefoxDriver();
   d.get(navigate(root()));
   
-  var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
+  var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
   var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
   var label        := d.findElements(SelectBy.className(         "label-elem"))[0];
   var builtinlabel := d.findElements(SelectBy.className("built-in-label-elem"))[0];
@@ -149,26 +136,26 @@ test inttemplates {
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
   var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
-  assert(       input.getValue()=="5.0");
-  assert(builtininput.getValue()=="5.0");
+  assert(       input.getValue()=="123");
+  assert(builtininput.getValue()=="123");
  
-  //add an 8 in the defined input to make 58
+  //correct values
   //defined input
-  inputDefinedCheck(d,"58","defined output58");
+  inputDefinedCheck(d,"1234","1234</a>");
   //built-in input
-  inputBuiltinCheck(d,"546","built-in output546");
+  inputBuiltinCheck(d,"1234","1234</a>");
   
-  //trigger validation error for invalid number
+  //trigger validation error for too long value
   //defined input
-  inputDefinedCheck(d,"ffd","valid decimal number");
+  inputDefinedCheck(d,"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234512345123451234512345123451234512345123451234512345X","exceeds maximum length");
   //built-in input
-  inputBuiltinCheck(d,"ffd","valid decimal number");
-
-  //trigger entity validation error 
+  inputBuiltinCheck(d,"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234512345123451234512345123451234512345123451234512345X","exceeds maximum length");
+  
+  //trigger validation error for property validation (length > 2)
   //defined input
-  inputDefinedCheck(d,"5","must be greater than 10");
+  inputDefinedCheck(d,"a","length must be greater than 2");
   //built-in input
-  inputBuiltinCheck(d,"4","must be greater than 10");
+  inputBuiltinCheck(d,"a","length must be greater than 2");
 
 }
 
@@ -184,5 +171,5 @@ function inputCheck(d:WebDriver, input:String, error:String, builtin:String){
   inputelem.sendKeys(input);
   var button := d.findElements(SelectBy.className(builtin+"button-elem"))[0];
   button.click();
-  assert(d.getPageSource().contains(error),"error: "+error+" not found in: "+d.getPageSource());
+  assert(d.getPageSource().contains(error));
 }

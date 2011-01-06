@@ -1,15 +1,15 @@
 application exampleapp
 
 entity Ent {
-  i :: Float
-  validate(i > 10f, "must be greater than 10")
+  i :: Long
+  validate(i > 10, "must be greater than 10")
 }
 
-define ignore-access-control outputFloat1(i : Float){
-  output(i.toString())
+define ignore-access-control outputLong1(i : Long){
+  text(i.toString())
 }
 
-  define ignore-access-control inputFloat1(i:Ref<Float>){
+  define ignore-access-control inputLong1(i:Ref<Long>){
     var tname := getUniqueTemplateId()
     var req := getRequestParameter(tname)
 
@@ -17,22 +17,21 @@ define ignore-access-control outputFloat1(i : Float){
     
     if(errors != null){
       errorTemplateInput(errors){
-        inputFloatFloaternal(i,tname)[all attributes]
+        inputLongLongernal(i,tname)[all attributes]
       }
     }
     else{
-      inputFloatFloaternal(i,tname)[all attributes]
+      inputLongLongernal(i,tname)[all attributes]
     }
     validate{
       if(req != null){
-        if(/-?\d\d*\.\d*E?\d*/.match(req) || /-?\d\d*E?\d*/.match(req) || /-?\.\d\d*E?\d*/.match(req)){
-          var f: Float := req.parseFloat(); 
-          if(f == null){
-            errors := ["Not a valid decimal number"];
+        if(/-?\d+/.match(req)){
+          if(req.parseLong() == null){
+            errors := ["Outside of possible number range"];
           }
         }
         else{
-          errors := ["Not a valid decimal number"];
+          errors := ["Not a valid number"];
         }
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
@@ -50,7 +49,7 @@ define ignore-access-control outputFloat1(i : Float){
     }
   }
 
-define ignore-access-control inputFloatFloaternal(i : Ref<Float>, tname : String){
+define ignore-access-control inputLongLongernal(i : Ref<Long>, tname : String){
   //var rname := getUniqueTemplateId()
   var req := getRequestParameter(tname)
   <input 
@@ -64,18 +63,18 @@ define ignore-access-control inputFloatFloaternal(i : Ref<Float>, tname : String
     else{
       value = i 
     }
-    class="inputFloat "+attribute("class") 
+    class="inputLong "+attribute("class") 
     all attributes except "class"
   />
 
   databind{
     if(req != null){
-      i := req.parseFloat();
+      i := req.parseLong();
     }
   }
 }
 
-var e1 := Ent{ i := 5f }
+var e1 := Ent{ i := 5L }
 
 define page root(){
     test(e1)
@@ -83,11 +82,11 @@ define page root(){
 
 define test(e:Ent){ 
   " defined output"  
-  outputFloat1(e.i)
+  outputLong1(e.i)
   form{
     "defined input"
     label(" CLICK ")[class = "label-elem"]{
-      inputFloat1(e.i)[class = "input-elem"]
+      inputLong1(e.i)[class = "input-elem"]
     }
     submit action{}[class = "button-elem"]{"save"}
   }	
@@ -103,7 +102,7 @@ define test(e:Ent){
   }
 }
 
-var e2 := Ent{ i := 5f }
+var e2 := Ent{ i := 5L }
 
 define page nolabel(){
   testnolabel(e2)
@@ -111,10 +110,10 @@ define page nolabel(){
 
 define testnolabel(e:Ent){ 
   " defined output"  
-  outputFloat1(e.i)
+  outputLong1(e.i)
   form{
     "defined input"
-    inputFloat1(e.i)[class = "input-elem"]
+    inputLong1(e.i)[class = "input-elem"]
     submit action{}[class = "button-elem"]{"save"}
   }	
   <br />
@@ -149,8 +148,8 @@ test inttemplates {
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
   var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
-  assert(       input.getValue()=="5.0");
-  assert(builtininput.getValue()=="5.0");
+  assert(       input.getValue()=="5");
+  assert(builtininput.getValue()=="5");
  
   //add an 8 in the defined input to make 58
   //defined input
@@ -160,10 +159,16 @@ function commonTest(d:WebDriver){
   
   //trigger validation error for invalid number
   //defined input
-  inputDefinedCheck(d,"ffd","valid decimal number");
+  inputDefinedCheck(d,"ffd","Not a valid number");
   //built-in input
-  inputBuiltinCheck(d,"ffd","valid decimal number");
-
+  inputBuiltinCheck(d,"ffd","Not a valid number");
+  
+  //trigger validation error for too large number
+  //defined input
+  inputDefinedCheck(d,"999999999999999999999999999999999999999999999999999999999","Outside of possible number range");
+  //built-in input
+  inputBuiltinCheck(d,"999999999999999999999999999999999999999999999999999999999","Outside of possible number range");
+  
   //trigger entity validation error 
   //defined input
   inputDefinedCheck(d,"5","must be greater than 10");
@@ -184,5 +189,5 @@ function inputCheck(d:WebDriver, input:String, error:String, builtin:String){
   inputelem.sendKeys(input);
   var button := d.findElements(SelectBy.className(builtin+"button-elem"))[0];
   button.click();
-  assert(d.getPageSource().contains(error),"error: "+error+" not found in: "+d.getPageSource());
+  assert(d.getPageSource().contains(error));
 }
