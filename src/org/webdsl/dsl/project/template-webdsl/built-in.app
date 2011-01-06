@@ -41,6 +41,10 @@ module .servletapp/src-webdsl-template/built-in
     getTime():Long
     setTime(Long)
   }
+  
+  type WikiText{
+    org.webdsl.tools.WikiFormatter.wikiFormat as format():String
+  }
 
 //  section JSON for services
       

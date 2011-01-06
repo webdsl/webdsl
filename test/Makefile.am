@@ -21,6 +21,7 @@ TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/data-validation/*.app) \
   $(wildcard succeed-web/data-validation/withstylesheet*.app) \
   $(wildcard succeed-web/ac/*.app) \
+  $(wildcard succeed-web/types/*.app) \
   $(wildcard succeed-web/manual/*.app) \
   $(wildcard succeed-web/manual/ajax-form-validation/*.app) \
   $(wildcard succeed-web/manual/tutorial-splash/*/main.app)

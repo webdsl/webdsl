@@ -7,6 +7,10 @@ public final class WikiFormatter {
     private static final Pattern links = Pattern.compile("\\[\\[(\\w+)(\\(([^\\)]*)\\))?(\\|([^\\]]+))?\\]\\]");
     private static final Pattern verbatim = Pattern.compile("<verbatim>(.+?)</verbatim>", Pattern.DOTALL | Pattern.MULTILINE);
 
+    public static String wikiFormat(String text) {
+        return org.jsoup.Jsoup.clean(wikiFormat(text,utils.ThreadLocalPage.get().getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath()),org.jsoup.safety.Whitelist.relaxed()); 
+    }
+    
     public static String wikiFormat(String text, String rootUrl) {
         MarkdownProcessor processor = new MarkdownProcessor();
         return processor.markdown(processWikiLinks(processVerbatim(text), rootUrl));
