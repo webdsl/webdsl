@@ -19,14 +19,12 @@ strategies
       ; rules(RecordDR_ExistingRules := rulenames)
       ; map(dr-start-change-set(|<id>))
    )
-   
+  
   end-record-dynamic-rules =
     where(
-        existing-rules := <RecordDR_ExistingRules>
-      ; <map(commit-and-store-changes)> existing-rules
-      ; <diff> (<all-dynamic-rules; remove-all(is-record-dr-internal <+ is-ignored-rule)>, existing-rules)
-      /*; string-sort*/; ?newrules    // sort for easy debugging (compare)
-      ; <map(commit-and-store-rules)> newrules
+        all-dynamic-rules
+      ; remove-all(is-record-dr-internal <+ is-ignored-rule)
+      ; map(\x -> <dr-get-rule-set(|x); commit-and-store-rules(|x)> \)
       ; recorded := <bagof-RecordDR_NewRuleSets>
       ; <map(dr-end-scope(|<id>))> (<record-dr-internals>)  // cleanup
     )
@@ -41,10 +39,9 @@ strategies
   remove-dr-dummy: x{anno*} -> x{anno2*}
     with  anno2* := <remove-all(?DR_DUMMY())> anno*
  
-  commit-and-store-rules: name -> name
-    with  dr-get-rule-set(|name); Hd
-        ; ?RuleScope(_, table)
-        ; <hashtable-keys> table
+  commit-and-store-rules(|name): rulesets -> rulesets
+    where Hd; ?RuleScope(_, table)
+    with  <hashtable-keys> table
           // reverse to keep the same ordering for bagof- when loaded  
         ; keyvals := <map(\x -> (x, <hashtable-get(|x); reverse> table)\)>
              // some rules like DR_BREAK are created but have no keys??
@@ -55,20 +52,20 @@ strategies
 
   changeset-key-to-rules(|table, oldrules): key@(scopeid, rulekey) -> keyvals
     with  values := <hashtable-get(|key)> table
-          // see if any values were in the hashtable before
-        ; try(
-            oldvals := <dr-lookup-rule(|rulekey)> oldrules
-          ; <diff> (values, oldvals)
-          )
-        ; keyvals := (rulekey, <reverse>)
+        ; if oldvals := <dr-lookup-rule(|rulekey)> oldrules then
+              n_newvals := <max> (0, <subti> (<length> values, <length> oldvals))
+            ; newvals := <take(|n_newvals)> values
+          else
+              newvals := values
+          end
+        ; keyvals := (rulekey, <reverse> newvals)
   
-  commit-and-store-changes: name -> (name, changeset)
-    with  dr-get-rule-set(|name) => ruleset@[changeset@ChangeSet(_, _, h@Hashtable(csid)) | rs]
-        
+  commit-and-store-rules(|name): rulesets@[changeset@ChangeSet(_, _, h@Hashtable(csid)) | rs] -> (name, changeset)
+    with
         // Store changeset as ruleset
         // [extended rules contain *all* values in the changeset, we only want
         //    the newly added]
-        ; <hashtable-keys> h
+          <hashtable-keys> h
         ; keyvals := <map(\x -> <changeset-key-to-rules(|h, rs)>\); remove-all(?(_, []))>
         ; if not([] := keyvals) then
             //where(!name; debug(!"Changeset for: "))
@@ -76,7 +73,7 @@ strategies
             rules(RecordDR_NewRuleSets :+= (name, keyvals))
           end
           // Commit change set
-        ; !ruleset
+        ; !rulesets
         ; dr-commit-change-set
         //; where(!(name, <id>); debug(!"Ruleset is now: "))
         ; dr-set-rule-set(|name)
@@ -175,24 +172,3 @@ rules // Callback on dynamic rule lookup
   dynamic-rule-resolver = fail
   
   is-used-dr = fail
-  
-rules // Track rule creation
-  
-  /*
-  override dr-set-rule(|name, key, val) =
-    mark-rule-creation(|name, key, val);
-    proceed
-    
-  override dr-add-rule(|name, key, val) =
-    mark-rule-creation(|name, key, val);
-    proceed
-    
-  ignore-dr-tracking = ?"DynamicRulesCreated"
-    
-  mark-rule-creation(|name, key, val) =
-    where(try(
-          is-dr-usage-tracking-enabled
-        ; <is-used-dr; not(ignore-dr-tracking)> name
-        ; rules(DynamicRulesCreated :+ (name,key) -> val)
-      ))
-  */

@@ -141,7 +141,7 @@ public abstract class AbstractPageServlet{
         java.io.StringWriter s = new java.io.StringWriter();
         PrintWriter out = new java.io.PrintWriter(s);
         ThreadLocalOut.push(out);
-        temp.render(args, env, utils.TemplateCall.None, null, null, null);
+        temp.render(args, env, null, null);
         ThreadLocalOut.popChecked(out);
         return s.toString();
     }

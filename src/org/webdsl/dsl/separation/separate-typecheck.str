@@ -37,26 +37,27 @@ rules
     ; mapconcat(ModuleToDefs)
       
   find-dependent-modules =
-      all-keys-TopLevelDefinitions
-    ; length => 0
-    ; <verbose-msg> ["No modified files: skipping change detection"]
-    ; ![]    
-
-  find-dependent-modules =
     // filter, some files may have no cached version
     prev-created := <all-keys-LoadedFile; filter(CachedVersion; ?(_, _, <id>)); concat>;
     // load PreviouslyUsedRules
     dependency-file; load-dependency-data;
-    // created rules
-    all-keys-LoadedFile;
-    mapconcat(
-        ModuleToDefs;
-        mapconcat(bagof-CreatedRules;concat)
-    ) => new-created;
-    // find dependent
-    find-dependent-modules(
-      |new-created, prev-created, <all-keys-CachedFile; map(ModuleToDefs); concat>
-    );
+    if 0 := <all-keys-TopLevelDefinitions; length> then
+      <verbose-msg> ["No modified files: skipping change detection"];
+      all-keys-CachedFile;
+      mapconcat(ModuleToDefs);
+      filter(not(PreviouslyUsedRules))  // re-check files for which we have no dependency info
+    else
+	    // created rules
+	    all-keys-LoadedFile;
+	    mapconcat(
+	        ModuleToDefs;
+	        mapconcat(bagof-CreatedRules;concat)
+	    ) => new-created;
+	    // find dependent
+	    find-dependent-modules(
+	      |new-created, prev-created, <all-keys-CachedFile; map(ModuleToDefs); concat>
+	    )
+	  end;
     try(not(?[]); debug(!"Dependent definitions: "))      
   
   /*
@@ -68,11 +69,13 @@ rules
   */
   
   update-typecheck-dependencies =
-    store-used-rules;
-    dependency-file;
-    update-dependency-graph(
-      RulesUsedBy | <all-keys-RulesUsedBy>
-    )
+    {| RulesUsedBy:
+      log-time(store-used-rules | "store used rules");
+	    dependency-file;
+	    log-time(update-dependency-graph(
+	      RulesUsedBy | <all-keys-RulesUsedBy>
+	    ) | "update-dependency-graph")
+	  |}
   
   store-used-rules =
     all-keys-TopLevelDefinitions;

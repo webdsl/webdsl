@@ -46,10 +46,10 @@ rules
 
       //topdown that does all the global checks, nested checks are handled when normal checks are applied
       
-      //doesn't apply to templates in page definitions
-      ; transform-defs-tracked(alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlPage(f) end)) 
-      //doesn't apply to templates in page definitions
-      ; transform-defs-tracked(alltd( is-page-define <+ let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlTemplate(f) end))       
+      // toplevel pages and templates (+ajax templates) 
+      ; transform-defs-tracked(try(apply-ac-rules))
+        
+      //doesn't apply to templates in page definitions       
       ; transform-defs-tracked(alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end))
 
         //hack to cope with multiple function rules matching same functioncall, otherwise only first will be applied because of transformation
@@ -148,11 +148,10 @@ rules // pages
             )
           
   create-page-rule-helper(|rule, x_pagematchname, margs, farg_length, x_predname, x_rulegroup, actionpred*) =
-          rules( WeaveAccessControlPage :+
-            def|[ define mod* x_pagename(farg*)  req* { elem* } ]| -> 
+          rulename := <newname> "acrule_page"
+        ; rules( WeaveAccessControlPage :
+            (rulename, def|[ define mod* x_pagename(farg*)  req* { elem* } ]|) -> 
             def|[ define mod* x_pagename(farg*)  req* { elem_acpagecheck elem1* } ]|
-              where <fetch(Page)> mod*
-                  ; not(<fetch(IgnoreAccessControl)> mod*)
               where match-ac-rule-sig(|x_pagematchname, margs, x_pagename, farg*)
                   ; with(e* := <map(get-varname-from-formarg); take(|farg_length)> farg*) //no include of rules, add the page arguments
                  <+ extraruleargs := <matching-import-ac-rules-def(|x_pagematchname, margs, elem*)>
@@ -168,7 +167,26 @@ rules // pages
                     // the parent checks again
                     ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
                   |}
-            )
+          )
+        ; <add-match-rules(|"page",rulename)> (x_pagematchname)
+            
+  apply-ac-rules:  def@def|[ define mod* x_pagename(farg*)  req* { elem* } ]| -> res
+    where <fetch(Page())> mod*
+        ; not(<fetch(IgnoreAccessControl)> mod*)
+        ; acnames := <get-access-control-rules> ("page", x_pagename, farg*)
+        ; res := <apply-ac-rules(WeaveAccessControlPage | acnames)> def
+  
+  apply-ac-rules(weave | names): x -> x
+    where [] := names
+    
+  apply-ac-rules(weave | names): def -> def2
+    with   [x|xs] := names
+         ; (<weave> (x,def) <+ !def)   // match fail because of wildcard mismatch or argument mismatch
+         ; def2 := <apply-ac-rules(weave | xs)>
+          
+  get-access-control-rules: (type, name, farg*) -> [acrule1*, acrule2*]
+    where acrule1* := <bagof-WeaveAccessControlRule <+ ![]> (type, name)   // exact match
+        ; acrule2* := <bagof-WeaveAccessControlRule <+ ![]> (type, "")   // wildcard match
             
   matching-import-ac-rules-def(|matchname, margs, elem*) :
     x -> extraruleargs
@@ -262,14 +280,11 @@ rules // template
     direct_match_allowed: only allow direct match if True(), for template importing page check a direct match is not allowed
   */
   create-template-rule-helper(|rule, ruletype, x_templatematchname, margs, farg_length, x_predname, x_rulegroup, actionpred*, direct_match_allowed) =
-        rules( WeaveAccessControlTemplate :+
-                  def|[ define mod* x_templatename(farg*)  req*  { elem*  } ]| -> 
+          rulename := <newname> "acrule_template"
+        ; rules( WeaveAccessControlTemplate :
+                  (rulename, def|[ define mod* x_templatename(farg*)  req*  { elem*  } ]|) -> 
                   def|[ define mod* x_templatename(farg*)   req* { elem_actemplatecheck
                                                                    elem1* } ]|
-                  where not(<fetch(?Page())> mod*)
-                      ; not(<fetch(?Email())> mod*)
-                      ; not(<fetch(?IgnoreAccessControl())> mod*)
-                      ; if <?"ajaxtemplate">ruletype then <fetch(AjaxTemplate)> mod* else not(<fetch(AjaxTemplate)> mod*) end
                   where match-ac-rule-sig(|x_templatematchname, margs, x_templatename, farg*)
                        ; e* := <map(get-varname-from-formarg); take(|farg_length)> farg* //no include of rules, add the page arguments
                        ; True() := direct_match_allowed
@@ -287,8 +302,21 @@ rules // template
                              ; elem1* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end)> elem*
                           |}
                )
-    
-
+      ; <add-match-rules(|ruletype,rulename)> (x_templatematchname)
+      
+  apply-ac-rules: def@def|[ define mod* x_name(farg*)  req* { elem* } ]| -> res
+    where not(<fetch(?Page())> mod*)
+        ; not(<fetch(?Email())> mod*)
+        ; not(<fetch(?IgnoreAccessControl())> mod*)
+        ; if <fetch(AjaxTemplate)> mod* then ruletype := "ajaxtemplate" else ruletype := "template" end
+        ; acnames := <get-access-control-rules> (ruletype, <strip-annos> x_name, farg*)
+        ; res := <apply-ac-rules(WeaveAccessControlTemplate | acnames)> def
+      
+  add-match-rules(|type,rulename): x_name -> x_name
+    with  rules( WeaveAccessControlRule :+ (type, x_name) -> rulename )
+        ; if <explode-string; fetch(?'*')> x_name then
+            rules( WeaveAccessControlRule :+ (type,"") -> rulename )
+          end
 
  /*
   create-function-rule(|x_rulegroup):

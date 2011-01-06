@@ -125,8 +125,9 @@ rules
     })
   
   save-desugar-rules =
-     	// Add new rule-usage info
-        {| RuleUsageIndex:
+     	  all-defs := <concat; hashed-uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
+      // Add new rule-usage info
+      ; {| RuleUsageIndex:
         log-time(create-rule-index | "Create usage index");
         log-time(flatten-and-combine-rule-index | "Flatten and combine usage")
         |}
@@ -157,31 +158,30 @@ rules
         })
         | "prepare creates")
         // And save...
-      ; all-defs := <concat; hashed-uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
       // Rule -> defs
       ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
       ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
       ; <log-time(WriteToBinaryFile | "write desugar deps")> (<desugar-dependency-file>, (all-defs, uses, creates))
 
-  desugar-check-dependencies = with(
-    all-keys-DesugarRulesCreated => created-in;
-    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);
-    hashed-uniq;
-    // term: list of dr-keys that were created
-    filter(\key -> (key, <RuleUsers; filter(not(TopLevelDefinitions)); not(?[]); uniq> key)\);
-    // term: list of (dr-key, list-of-users)
-    where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", created-in]}));
-    map(Snd);
-    concat;
-    remove-all(RulesForDefinitionLoaded; debug(!"WARNING: invalid cache used for definition: "));
-    // filter: don't load the same def twice
-    filter(where(not(TopLevelDefinitions)); with(load-def-during-desugar))
-  )
+  desugar-check-dependencies: def -> def
+    with(
+	    CreatedRules;
+	    // Get a list of (name, keys*) pairs
+	    map(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \);
+	    concat;
+	    //; remove-all({x: ?(_, [DR_DUMMY()]); Fst; ?x; rules(EmptyLeftHand : x) })
+	    hashed-uniq;
+	    // term: list of dr-keys that were created
+	    filter(\key -> (key, <RuleUsers; filter(not(TopLevelDefinitions)); not(?[]); uniq> key)\);
+	    // term: list of (dr-key, list-of-users)
+	    where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", def]}));
+	    map(Snd);
+	    concat;
+	    remove-all(RulesForDefinitionLoaded; debug(!"WARNING: invalid cache used for definition: "));
+	    // filter: don't load the same def twice
+	    filter(where(not(TopLevelDefinitions)); with(load-def-during-desugar))
+	  )
 
   load-def-during-desugar =
     load-unmodified-def;    // get ast
-    where(get-def-key => key);
-    remove-string-position-annos;
-    rename-top;             // TODO: track rules
-    remove-position-annos;
-    store-module-def(|key)
+    rename-and-store

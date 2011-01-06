@@ -26,12 +26,14 @@ application test
   }
   
   define ajax atemp(one : One, two: Two, foo:String, bar:Int){
+    var s : String := foo
+    var i : Int := bar
     "ajax template"
     form{
       input(one.prop)
       input(two.prop)
-      input(foo)
-      input(bar)
+      input(s)
+      input(i)
       submit("save",action{refresh();})[ajax]
     }
     submit("refresh",action{refresh();})[ajax]

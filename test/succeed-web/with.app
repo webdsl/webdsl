@@ -20,7 +20,7 @@ application test
 
   define test2() {
     validationContextTest with{
-      error(messages : List<String>) { errorMessageTest(messages){ /* @TODO output(messages.length) */ } }
+      error(messages : List<String>) { errorMessageTest(messages)/*{ "length:" output(messages.length) elements() } */}
       content() { "content" }
     }
   }
@@ -30,12 +30,12 @@ application test
       for(m: String in messages){
         output(m)
       }
-      elements()
+      //elements()
     </h1>
   }
    
   define validationContextTest() requires error(List<String>), content(){
-    error(["abc","def","ghi"])/* @TODO {
+    error(["abc","def","ghi"])/* @TODO]] {
       content()
     }*/
   }
@@ -43,7 +43,7 @@ application test
   test pagecontent{
     var d := HtmlUnitDriver();
     d.get(navigate(root()));
-    
+    log(d.getPageSource());
     assert(d.getPageSource().contains("content: 123456"));
     assert(d.getPageSource().contains("abcdefghi"));
     

@@ -9,14 +9,24 @@ define page root() {
 define template helloowner() requires hello() {
   "the 'hello' template should appear here"
   spacer
-  break "> " hello() " <"
+  break "> " hello(){ "foobar" } " <"
 } 
 
 define template ietsowner () {
   helloowner() with {
       hello() { 
-        elements() //elements of hello
-        ietsowner.elements/this.elements/outer.elements() // elements of ietsowner 
+        "1"
+        elements()
+        ietsowner.elements()
       } 
   }
 }
+
+  test pagecontent{
+    var d := HtmlUnitDriver();
+    d.get(navigate(root()));
+    
+    assert(d.getPageSource().contains("1foobarhello"));
+    
+    d.close();
+  }

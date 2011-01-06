@@ -112,6 +112,7 @@ rules //template call either refers to a defined template, or to a built-in temp
           else vars := <rename-all> oldvars //only this part renamed, only apply rename
           end
         ; rules ( CallContextVars : x1 -> vars )
+        ; not(<templatecall-rename-hook> x1; debug(!"Internal error: templatecall-rename-hook should always fail"); <exit> 1)
           
   rename-template-call-name-defined : 
     (x,arg*) -> x
@@ -123,12 +124,9 @@ rules //template call either refers to a defined template, or to a built-in temp
   //used in translation of elements call to determine which ac rules to inherit 
   store-enclosing-define-for-template-call :  
     x -> x  
-    with  if InTemplate <+ InPage
+    with  if InTemplate <+ InPage <+ InEmail
           then  enclosing-define := <get-enclosing-define-from-context> 
               ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
-          else if InEmail
-               then rules ( DefinedTemplateGetEnclosingDefine : x -> Email() )
-               end
           end
     
   /**
@@ -145,11 +143,12 @@ rules //template call either refers to a defined template, or to a built-in temp
     (x,arg*) -> x
     where if (InTemplate <+ InPage) then
           xsa := <strip-annos> x
-        ; <ReqTemplateSig> xsa
+        ; types := <ReqTemplateFargTypes> xsa
         else 
-          <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
+          types := <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
         end        
-    with  rules ( CallToRequiredTemplate : x )
+    with  rules ( CallToRequiredTemplate : x -> types )
+        ; <store-enclosing-define-for-template-call> x 
 
   rename-template-call-name-builtin :
     (x,arg*) -> x
@@ -220,34 +219,78 @@ rules //template not defined
 rules // desugar 'elements' template argument for defined template calls
   
   built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
-
+    
   desugar-ui :
     tc@TemplateCall(x,arg*,passign*,TemplateBody(elem*)){anno*} -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])){anno*} 
-    where <CallToDefinedTemplate;TemplateContainsElementsCall> x
-        ; not(<fetch(?TemplateCall(_,_,_,_))> passign*)
+    where not(<ElementsCallInsideTemplateWith> x)
+    where <CallToDefinedTemplate <+ CallToRequiredTemplate> x // defined or required template definition can contain an 'elements' call
+    where not(<fetch(?TemplateCall(_,_,_,_))> passign*)
+    where not(<?[]> elem*)
     with  x_newtempl := <toplevel-rename> "templateargument"
-        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (x,elem*) 
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, farg*, requires*, defelem*)
-        ; elementscall:=<rename-all> TemplateCall(x_newtempl,var*,[],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
+        ; EnclosingDefine(_, context, _, _) := <DefinedTemplateGetEnclosingDefine> x 
+        ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(context)|mod*], x_newtempl, farg*, requires*, defelem*)
+        ; elementskey := <concat-strings> ["elements#",x]
+        ; elementscall:=<rename-all> TemplateCall(x_newtempl,var*,[ResolvedRequireKey(elementskey)],TemplateBody([])) //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
 
   emit-top-level-template-contents-helper:
-    (x,elem*) -> (farg*, requires*, defelem*, var*)
+    (x,elem*) -> (farg*, requires*, defelem*, var*, mod*)
     with  var* := <CallContextVars> x
         ; farg* := <map(?Var(<!Arg(<id>, <type-of; if where({?_{anno_type*};<fetch(ImmutableReference)>anno_type*}) then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>))>))> var* //make all 'elements' arguments Ref args, unless the type has ImmutableReference annotation (e.g. because it belong to a for loop iterator)
-        ; if EnclosingDefine(templatekey, encltemplatename, encltemplateargs) := <DefinedTemplateGetEnclosingDefine> x
+        ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs, in-email) := <DefinedTemplateGetEnclosingDefine> x
+        ; if <False> in-email  
           then
             action* := <TemplateActions <+ ![]> encltemplatename
           ; requires* := <TemplateRequiresList <+ ![]> encltemplatename
           ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
           ; allaction* := [action*,additionalaction*]
           ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
+          ; mod* := []
           else
-            Email() := <DefinedTemplateGetEnclosingDefine> x
-          ; requires* := []
+            requires* := []
           ; defelem* := elem*
+          ; mod* := [IgnoreAccessControl()]
           end
           
-rules        
+rules     
+  
+  /*
+    mark ArgDefine fargs as Ref allowed
+  */
+  rename-ui:
+    ArgDefine(x,farg1*,elem1*) -> ArgDefine(x,farg2*,elem2*)
+    with  {| Rename, VarInTemplateContext, InsideArgDefine :
+            farg2* := <map(rename; add-is-template-arg-anno)> farg1*
+          ; rules(InsideArgDefine := (x,farg2*))
+          ; elem2* := <rename-all> elem1*
+          |}
+  
+  /*
+    wait with lifting 'elements' inside TemplateWith until the definition (foo in the example below) is lifted
+       baz() with{
+         foo(message : String) {
+           bar{ ---> output(message) <--- } 
+         }
+       }
+       ...
+       define baz() requires foo(String){ foo() }
+       define bar{ elements() }
+  */   
+
+  rename-ui :  
+    TemplateWith(argdef*) -> TemplateWith(argdef2*)
+    with {| InsideTemplateWith :
+              rules( InsideTemplateWith := True() )
+            ; argdef2* := <rename-all> argdef*
+         |}
+         
+  templatecall-rename-hook :
+    x -> <fail>
+    where InsideTemplateWith
+    where rules( ElementsCallInsideTemplateWith : x )
+  
+  enable-elements-lifting-in-with =
+    alltd({?TemplateCall(x,_,_,_); where(<once-ElementsCallInsideTemplateWith> x)})
 
   /* translation of 'with/requires' templatecall, 'with' part
   
@@ -260,8 +303,9 @@ rules
     define y() requires z(){
       z() "!"
     }
-  */            
+  */      
   
+    
   desugar-ui :
     tc@TemplateCall(x,arg*,passign,TemplateWith(argdef*)) -> TemplateCall(x,arg*,passign2,TemplateBody([])) 
     with elementscall := <map(desugar-argdef(|x))> argdef*
@@ -270,8 +314,8 @@ rules
   desugar-argdef(|templatename) :
     ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
     with x_newtempl := <conc-strings; toplevel-rename> (x,"_argdef")
-        ; (farg*, requires*, defelem*, var*) := <emit-top-level-template-contents-helper> (templatename,elem*) 
-        ; <emit-webdsl-code> Define([NoSpan()], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
+        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (templatename,elem*) 
+        ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(x)|mod*], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
          // a special templatecall that only needs resolving by name, since the name is uniquely generated
          //  produces the name that should be used to look up the template in the hashmap
         ; t* := <template-formal-arguments-to-types> [origfarg*, farg*]

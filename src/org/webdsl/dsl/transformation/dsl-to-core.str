@@ -32,8 +32,7 @@ strategies
   dsl-to-core-analysis =
       if not(FoundErrors) //stop if parsing error in modules
       then
-          log-time(transform-defs(remove-string-position-annos) | "remove string pos annos")
-        ; stage(typecheck|"typechecking")
+          stage(typecheck|"typechecking")
       end
     ; transform-defs(remove-position-annos)
       
@@ -50,7 +49,7 @@ strategies
       |"performing analysis")
   )
   
-  // TODO: strip annos when stored (see load-def-during-desugar)
+  // Used during desugar if the desugar dependency file is unavailable
   load-all-definitions = with(
       // Make sure all files are loaded
       all-keys-CachedFile
@@ -59,11 +58,17 @@ strategies
         ; map(
             get-def-key; TopLevelDefinitions
           <+
-            rename-top;
-            store-module-def
+            rename-and-store
           )
       )
   )
+  
+  rename-and-store: ast -> ast'
+    with  with-toplevel-name(get-def-key) => key
+        ; remove-string-position-annos
+        ; rename-top => ast'             // TODO: track rules
+        ; remove-position-annos
+        ; store-module-def(|key)
   
   load-unmodified-def: key -> def
     with  path := <def-key-to-file> key
@@ -248,6 +253,7 @@ strategies // toplevel definitions
   //give each toplevel definition a name before storing
   store-module-def = 
       where(with-toplevel-name(get-def-key => key))
+    ; remove-string-position-annos
     ; store-module-def(|key)
 
   get-def-key: def -> key

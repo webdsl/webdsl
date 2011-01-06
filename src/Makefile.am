@@ -147,7 +147,8 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str) \
-                 $(wildcard ./org/webdsl/dsl/separation/*.str)
+                 $(wildcard ./org/webdsl/dsl/separation/*.str) \
+                 $(wildcard ./org/webdsl/dsl/separation/*/*.str)
                  
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
