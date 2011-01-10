@@ -13,11 +13,12 @@ imports
   libwebdsl-front
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/languages/access-control/-
+  org/webdsl/dsl/typechecker/-
 rules
 
 
   process-access-control-checks =
-    topdown(try(process-page-checks))
+    map-toplevel(id, try(process-page-checks))
                 //<+ process-action-checks//TODOcontext sensitive when inferring visibility may need to apply right away in templates and wait for pages
                /* <+ process-function-checks//TODO can be done earlier as well, doesn't need typechecker fix   */
  // ; alltd( let f(s) = foldl(s <+ Snd) in fold-AccessControlFunctionToAction(f) end)
@@ -108,7 +109,7 @@ rules
 
   process-page-checks://TODO substpagevars
   d@def|[ define mod* x_ident(farg*)  req* { elem* }       ]| -> 
-    def|[ define mod* x_ident(farg*)  req* { elem elem1* } ]|
+    def|[ define mod* x_ident(farg*)  req* { elem0 elem1* } ]|
     where <fetch(Page)> mod*
         ; not(<fetch(IgnoreAccessControl)> mod*)
     with  // don't go into local template defines in the page definition
@@ -122,14 +123,14 @@ rules
         ; listofchecks := <collect(\TemplateCall("acpagecheck",[Var(x),e],[],TemplateBody([])){r}-> (x,e,r) \)> elem*
         ; (x_predname, nargs) := <combine-checks-smart(id | farg*, [], x_ident, "page")> listofchecks
         ; if <is-dummy-pred> x_predname then
-              elem := elem |[ init { stat* } ]|
+              elem0 := elem |[ init { stat* } ]|
           else
               //take other page definition's args if checks were imported and only one check (no combined check generated)
               // the ThisCall matched here contains either the imported args or the regular args (when only one check but no import of ac rules)
               if [(_,ThisCall(_,importedargs),_)] := <remove-all(is-true-check)> listofchecks
               then e_args* := importedargs
               else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
-            ;	elem := elem |[ init { if ( x_predname(e_args*) ) { stat* } else { goto accessDenied(); } } ]|
+            ;	elem0 := elem |[ init { if ( x_predname(e_args*) ) { stat* } else { goto accessDenied(); } } ]|
             ; rules( WeaveAccessControlInferred :+
                    TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*)) ->
                    IfTempl(ThisCall(x_predname,e_predargs*),[TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*))],[])
