@@ -1190,6 +1190,7 @@
    CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3,
    
    RequestScope -- KW["request"] _1,
+   RequestScopeTemplate -- KW["request"] _1,
    
    NavigateCall -- KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    NavigateCall.2:iter-star-sep -- _1 KW[","],
@@ -1279,9 +1280,13 @@
    TemplateCallPropertySecure -- KW["secure"],
    TemplateCallPropertyNotSecure -- KW["not-secure"],
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
-   
+
    TemplateModSpan -- KW["span"],
+   TemplateModInline -- KW["inline"],
    TemplateDeprecated -- KW["deprecated"],
    
+   ValidateAction -- KW["validate"] _1,
+
    QualifiedElementsCall -- _1 KW[".elements"]
+   
 ] 

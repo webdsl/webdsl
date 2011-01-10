@@ -8,14 +8,55 @@ entity Ent {
 define ignore-access-control outputInt1(i : Int){
   output(i.toString())
 }
-define ignore-access-control validate inputInt1(i : Ref<Int>){
-  var rname := getUniqueTemplateId()
-  var req := getRequestParameter(rname)
+
+  define ignore-access-control inputInt1(i:Ref<Int>){
+    var tname := getUniqueTemplateId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null){
+      errorTemplateInput(errors){
+        inputIntInternal(i,tname)[all attributes]
+      }
+    }
+    else{
+      inputIntInternal(i,tname)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(/-?\d+/.match(req)){
+          if(req.parseInt() == null){
+            errors := ["Outside of possible number range"];
+          }
+        }
+        else{
+          errors := ["Not a valid number"];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := i.getValidationErrors();
+      }
+      if(errors != null && errors.length > 0){
+        if(inLabelContext()){ //this adds errors to labels instead
+          for(s:String in errors){
+            addLabelError(s);
+          }
+          errors := null;
+        }
+        cancel();
+      }      
+    }
+  }
+
+define ignore-access-control inputIntInternal(i : Ref<Int>, tname : String){
+  //var rname := getUniqueTemplateId()
+  var req := getRequestParameter(tname)
   <input 
     if(inLabelContext()) { 
       id=getLabelString() 
     } 
-    name=rname 
+    name=tname 
     if(req != null){ 
       value = req 
     }
@@ -29,15 +70,6 @@ define ignore-access-control validate inputInt1(i : Ref<Int>){
   databind{
     if(req != null){
       i := req.parseInt();
-    }
-  }
-  
-  if(req != null){
-    if(/-?\d+/.match(req)){
-      validate(req.parseInt() != null,"Outside of possible number range")
-    }
-    else{
-      validate(false,"Not a valid number")
     }
   }
 }
@@ -70,17 +102,54 @@ define test(e:Ent){
   }
 }
 
+var e2 := Ent{ i := 5 }
+
+define page nolabel(){
+  testnolabel(e2)
+}
+
+define testnolabel(e:Ent){ 
+  " defined output"  
+  outputInt1(e.i)
+  form{
+    "defined input"
+    inputInt1(e.i)[class = "input-elem"]
+    submit action{}[class = "button-elem"]{"save"}
+  }	
+  <br />
+  "built-in output"
+  output(e.i)
+  form{
+    "built-in input"
+    input(e.i)[class = "built-in-input-elem"]
+    submit action{}[class = "built-in-button-elem"]{"save"}
+  }
+}
+
 test inttemplates {
   var d : WebDriver := FirefoxDriver();
   d.get(navigate(root()));
+  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
   var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
-  assert(       input.getValue()=="5");
-  assert(builtininput.getValue()=="5");
   var label        := d.findElements(SelectBy.className(         "label-elem"))[0];
   var builtinlabel := d.findElements(SelectBy.className("built-in-label-elem"))[0];
   assert(input.getAttribute("id")==label.getAttribute("for"));
   assert(builtininput.getAttribute("id")==builtinlabel.getAttribute("for"));
+  
+  commonTest(d);
+  
+  d.get(navigate(nolabel()));
+  commonTest(d);
+  
+  d.close();
+}
+  
+function commonTest(d:WebDriver){  
+  var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
+  var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
+  assert(       input.getValue()=="5");
+  assert(builtininput.getValue()=="5");
  
   //add an 8 in the defined input to make 58
   //defined input
@@ -105,8 +174,7 @@ test inttemplates {
   inputDefinedCheck(d,"5","must be greater than 10");
   //built-in input
   inputBuiltinCheck(d,"4","must be greater than 10");
- 
-  d.close();
+
 }
 
 function inputBuiltinCheck(d:WebDriver, input:String, error:String){

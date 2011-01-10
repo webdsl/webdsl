@@ -9,18 +9,7 @@ imports
   libwebdsl-front
   
 rules
-/*
-  elem-to-java-servlet :
-    tc@elem|[ validatedInputWrapper()[passign*]{elem*} ]| -> result
-    with  input_elements := <alltd(remove-all(validate-tempate-element))> elem* 
-        ; result := <render-error-messages-with-error-template> (elem*, input_elements, <ErrorTemplateInput>) //TemplateDefinition DR doesn't contain desugared template
-       
-  validate-tempate-element = ?elem|[ validate(e1,e2)[passign*]{} ]| 
-  validate-tempate-element = ?elem|[ validationErrorsForInput(e1)[passign*]{} ]| 
-  validate-tempate-element = ?elem|[ validationErrorsFor(e1)[passign*]{} ]| 
-  validate-tempate-element = ?ValidationErrors(_)
-  validate-tempate-element = ?ValidationErrors()
-  */  
+
   /**
    *  term arguments:
    *    e_id: Java expression: unique identifier of the template element being validated, used to connect messages for rendering
@@ -74,7 +63,7 @@ rules
 */
   /**
    *  x_list: Java variable: that will replace uses of messages argument
-   *  input_elements: Java statements: will replace uses of validatedInput template call
+   *  input_elements: Java statements: will replace uses of elements template call
    *  messagestemplate: WebDSL template definition: the (error) message 
    *  ->
    *  bstm_error*: Java statements: code that produces the input_elements normally or wrapped in error template
@@ -90,9 +79,9 @@ rules
     where "messages" := <get-original-name> x
 
   insert-input-fields-in-error-template(|input_elements) :
-    TemplateCall("validatedInput",a,b,c) -> TemplateCall("validatedInput",a,b,TemplateBody(input_elements))
+    TemplateCall("elements",a,b,c) -> TemplateCall("elements#validation#inlining",a,b,TemplateBody(input_elements))
   elem-to-java-servlet:
-    TemplateCall("validatedInput",_,_,TemplateBody(input_elements)) -> input_elements
+    TemplateCall("elements#validation#inlining",_,_,TemplateBody(input_elements)) -> input_elements
 
 rules
   
@@ -102,7 +91,7 @@ rules
 rules //TODO these are relevant for error messages not connected to inputs
   
   elem-to-java-servlet :
-    tc@elem|[ validate(e1,e2)[passign*]{} ]| -> 
+    tc@TemplateCall("validate",[e1,e2],passign*,_) -> 
     <wrap-input-render-java-code>
     bstm* |[ 
       String x_temp = ident+"~inputident"+uniqueid;
@@ -122,7 +111,7 @@ rules //TODO these are relevant for error messages not connected to inputs
 rules // add messages to list
 
   validation-message-production(|x_list) :
-    tc@elem|[ validate(e1,e2)[passign*]{} ]| -> 
+    tc@TemplateCall("validate",[e1,e2],passign*,_) -> 
     bstm* |[
       if(ThreadLocalPage.get().inSubmittedForm() && !e3){
         x_list.add(e4);

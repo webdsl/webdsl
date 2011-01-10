@@ -217,15 +217,20 @@ rules
                 clearHibernateCache();
                 abortTransaction();
               }
-              
+   
+              String outstream = s.toString();           
               if(download != null) {
                 download();
               }
               else {
                 // regular render, or failed action render
                 if( hasNotExecutedAction() || isNotValid() ){
+                  //ajax replace performed during validation, assuming that handles all validation
+                  if(isAjaxRuntimeRequest() && outstream.length() > 0){
+                    response.getWriter().write("[" + outstream + "{}]");
+                  }
                   // action called but no action found
-                  if( isValid() && isPostRequest() ){ 
+                  else if( isValid() && isPostRequest() ){ 
                     System.out.println("Error: server received POST request but was unable to dispatch to a proper action"); 
                     response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
                   }
@@ -252,7 +257,7 @@ rules
                 // succesful action, always redirect, no render
                 else { //hasExecutedAction() && isValid()
                   if( isAjaxRuntimeRequest() ){
-                    response.getWriter().write("[" + s.toString()+ "{}]");
+                    response.getWriter().write("[" + outstream + "{}]");
                   }
                   else if( isActionLinkUsed() ){
                     //action link also uses ajax when ajax is not enabled
@@ -274,7 +279,7 @@ rules
               rle.setQueryExecutionMaxTimeQueryStringNoEventsOrValidation(hibernateStatistics.getQueryExecutionMaxTimeQueryString());
               ~*<if ACPrincipalAvailable then ![ bstm*|[ rle.setPrincipalNoEventsOrValidation(((pkgtname_domain.SecurityContext)env.getVariable("securityContext")).getPrincipal()); ]| ] else ![] end>
 
-              if( isTransactionAborted() ){
+              if( isTransactionAborted() || ThreadLocalPage.get().isRollback() ){
                 hibSession.getTransaction().rollback();
               }
               else{

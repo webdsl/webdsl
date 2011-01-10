@@ -19,6 +19,8 @@ module .servletapp/src-webdsl-template/built-in
     utils.StringType.parseInt                    as parseInt():Int
     utils.StringType.split                       as split():List<String>
     utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
+    utils.StringType.parseLong                   as parseLong():Long
+    utils.StringType.parseFloat                  as parseFloat():Float
   }
   
   type Secret {
@@ -40,6 +42,14 @@ module .servletapp/src-webdsl-template/built-in
     after(DateTime):Bool
     getTime():Long
     setTime(Long)
+  }
+  
+  type WikiText{
+    org.webdsl.tools.WikiFormatter.wikiFormat as format():String
+  }
+  
+  type Email {
+    utils.EmailType.isValid as isValid():Bool
   }
 
 //  section JSON for services
