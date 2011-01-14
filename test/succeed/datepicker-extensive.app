@@ -257,7 +257,7 @@ define applicationmenu() {
 }
  
 define ignore-access-control errorTemplateInput(messages : List<String>){
-  validatedInput
+  elements()
   for(ve: String in messages){
     <tr style="color: #FF0000;border: 1px solid #FF0000;">
       <td></td>
