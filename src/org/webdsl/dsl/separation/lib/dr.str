@@ -6,50 +6,43 @@ imports
 strategies  
   
   is-ignored-rule = ?"DR_BREAK" <+ ?"DR_EXCEPTION"
-  
-  record-dr-internals = !["RecordDR_Enabled", "RecordDR_ExistingRules","RecordDR_NewRuleSets"]
-  is-record-dr-internal = ?x; where(<fetch-elem(?x)> (<record-dr-internals>))
+  is-ignored-rule = ?"LogTimeSection"
+
+  all-dynamic-rule-names =
+      <hashtable-keys> Hashtable(<dr-rule-sets-hashtable>) 
+    ; remove-all(is-ignored-rule)
 
   start-record-dynamic-rules =
-    where(
-        <map(dr-begin-scope(|<id>))> (<record-dr-internals>)
-      ; rules(RecordDR_Enabled := 1)
-      ; all-dynamic-rules; remove-all(is-record-dr-internal <+ is-ignored-rule)
-      /*; string-sort*/; ?rulenames   //sort for easy debugging (compare)
-      ; rules(RecordDR_ExistingRules := rulenames)
+    with(
+        rules(RecordDR_Enabled := 1)
+      ; all-dynamic-rule-names
       ; map(dr-start-change-set(|<id>))
    )
   
   end-record-dynamic-rules =
-    where(
-        all-dynamic-rules
-      ; remove-all(is-record-dr-internal <+ is-ignored-rule)
+    with(
+        all-dynamic-rule-names
       ; map(\x -> <dr-get-rule-set(|x); commit-and-store-rules(|x)> \)
-      ; recorded := <bagof-RecordDR_NewRuleSets>
-      ; <map(dr-end-scope(|<id>))> (<record-dr-internals>)  // cleanup
+        // some rules like DR_BREAK are created but have no keys??
+      ; remove-all(?(_,[])) => recorded
+      ; rules(RecordDR_Enabled :- _)
+      ; try(is-record-dynamic-rules-enabled; debug(!"ERROR: RECORD_DR NOT DISABLED"))
     )
     ; !recorded
       
   is-record-dynamic-rules-enabled = RecordDR_Enabled => 1
- 
-  all-dynamic-rules = <hashtable-keys> Hashtable(<dr-rule-sets-hashtable>) 
   
   remove-dr-dummies = map(remove-dr-dummy)
   
   remove-dr-dummy: x{anno*} -> x{anno2*}
     with  anno2* := <remove-all(?DR_DUMMY())> anno*
  
-  commit-and-store-rules(|name): rulesets -> rulesets
+  commit-and-store-rules(|name): rulesets -> (name, keyvals)
     where Hd; ?RuleScope(_, table)
     with  <hashtable-keys> table
           // reverse to keep the same ordering for bagof- when loaded  
         ; keyvals := <map(\x -> (x, <hashtable-get(|x); reverse> table)\)>
-             // some rules like DR_BREAK are created but have no keys??
-        ; if not([] := keyvals) then 
-            //where(!name; debug(!"New rule: ")); debug(!"... keyvals:" )
-            rules(RecordDR_NewRuleSets :+= (name, keyvals))
-          end
-
+       
   changeset-key-to-rules(|table, oldrules): key@(scopeid, rulekey) -> keyvals
     with  values := <hashtable-get(|key)> table
         ; if oldvals := <dr-lookup-rule(|rulekey)> oldrules then
@@ -60,21 +53,16 @@ strategies
           end
         ; keyvals := (rulekey, <reverse> newvals)
   
-  commit-and-store-rules(|name): rulesets@[changeset@ChangeSet(_, _, h@Hashtable(csid)) | rs] -> (name, changeset)
+  commit-and-store-rules(|name): rulesets@[changeset@ChangeSet(_, rmset, h@Hashtable(csid)) | rs] -> (name, keyvals)
     with
         // Store changeset as ruleset
         // [extended rules contain *all* values in the changeset, we only want
         //    the newly added]
           <hashtable-keys> h
         ; keyvals := <map(\x -> <changeset-key-to-rules(|h, rs)>\); remove-all(?(_, []))>
-        ; if not([] := keyvals) then
-            //where(!name; debug(!"Changeset for: "))
-          //; debug(!"... rules are: ")
-            rules(RecordDR_NewRuleSets :+= (name, keyvals))
-          end
           // Commit change set
         ; !rulesets
-        ; dr-commit-change-set
+        ; dr-commit-change-set  // TODO: this takes too long
         //; where(!(name, <id>); debug(!"Ruleset is now: "))
         ; dr-set-rule-set(|name)
         
