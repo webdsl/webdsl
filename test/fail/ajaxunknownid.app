@@ -1,9 +1,10 @@
-//action refers to unknown object
+//action refers to unknown
 
 application test
 
 section pages
 
 define page root() {
-  block[id:= hoi, onclick := action {clear(fout);}] { "hoi1"} 
+  placeholder foo{}
+  block[onclick := action { clear(fo); }] { "hoi1"} 
 }
