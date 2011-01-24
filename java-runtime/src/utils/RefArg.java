@@ -11,4 +11,5 @@ public interface RefArg
   public org.webdsl.WebDSLEntity getEntity();
   public void validate(String location, java.util.List<utils.ValidationException> exceptions);
   public java.util.List<String> getValidationErrors();
+  public org.webdsl.lang.ReflectionProperty getReflectionProperty();
 }

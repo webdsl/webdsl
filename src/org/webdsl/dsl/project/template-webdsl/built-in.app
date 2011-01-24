@@ -388,3 +388,18 @@ module .servletapp/src-webdsl-template/built-in
       elements()
     </li>
   }
+
+  //reflection of entities
+  
+  native class utils.ReflectionEntity as ReflectionEntity{
+    getName():String
+    getProperties():List<ReflectionProperty>
+    getPropertyByName(String):ReflectionProperty
+  }
+
+  native class utils.ReflectionProperty as ReflectionProperty{
+    getName() : String
+    hasNotNullAnnotation() : Bool	
+  }
+  
+  

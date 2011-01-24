@@ -1,0 +1,60 @@
+module org/webdsl/dsl/to-java-servlet/reflection
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+
+rules
+  
+  call-to-java-servlet :
+    call@exp|[ getReflectionEntities() ]| -> java |[ utils.ThreadLocalServlet.get().getReflectionEntities() ]|
+    
+  call-to-java-servlet :
+    call@exp|[ getReflectionEntityByName(e) ]| -> java |[ utils.ThreadLocalServlet.get().getReflectionEntityByName(e1) ]|
+    with e1 := <expression-to-java-servlet> e
+
+rules
+
+  generate-code-java-servlet-once:
+    defs ->  <emit-java-code; fail> compilation-unit|[
+      package utils;
+      
+      import org.webdsl.lang.*;
+      
+      public class DispatchServletHelper {
+          static{
+            ReflectionEntity ent;
+            bstm_reflectioninit*
+            System.out.println("number of entities: " + reflectionentities.size());
+          }
+      }
+    ]|
+    with  pkgname    := <TemplatePackage>
+        ; pkgname2   := <DomainPackage>
+        ; bstm_reflectioninit* := <collect(entity-to-init-reflect); concat> defs
+    
+  entity-to-init-reflect : Entity(x,_,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
+  entity-to-init-reflect : EntityNoSuper(x,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
+  entity-to-init-reflect : SessionEntity(x,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
+  
+  entity-to-init-reflect-aux : 
+    (x,ebds) -> bstm*|[ 
+      ent = new ReflectionEntity("~x");
+      reflectionentities.add(ent);
+      bstm* 
+    ]|
+    with bstm* := <filter(is-property-cons; property-to-init-reflect)> ebds
+    
+  property-to-init-reflect :
+    p -> bstm|[ 
+      ent.getProperties().add(new ReflectionProperty("~x", e_notnull));
+    ]|
+    with  x := <get-property-name> p
+        ; annos := <get-property-annos> p
+        ; if <fetch(?NotNullAnno())> annos
+          then e_notnull := java:expr|[ true ]|
+          else e_notnull := java:expr|[ false ]|
+          end

@@ -1280,7 +1280,8 @@
    TemplateCallPropertySecure -- KW["secure"],
    TemplateCallPropertyNotSecure -- KW["not-secure"],
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
-
+   TemplateCallPropertyNotNull -- KW["not null"],
+   
    TemplateModSpan -- KW["span"],
    TemplateModInline -- KW["inline"],
    TemplateDeprecated -- KW["deprecated"],
