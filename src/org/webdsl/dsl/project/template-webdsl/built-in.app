@@ -402,4 +402,16 @@ module .servletapp/src-webdsl-template/built-in
     hasNotNullAnnotation() : Bool	
   }
   
+  //validation wrapper for submit and submitlink
+  
+  define ignore-access-control wrapsubmit(tname:String) requires thesubmit(String){
+    if(getValidationErrorsByName(tname).length > 0){
+      errorTemplateAction(getValidationErrorsByName(tname)){
+        thesubmit(tname)
+      }
+    }
+    else{
+      thesubmit(tname)
+    }
+  }
   

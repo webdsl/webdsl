@@ -6,8 +6,10 @@ rules
     t@ActionCall(origname, e1*){annoorig*} -> result
     with if t2@ActionCall(renamedname, e2*){anno*} := <RenameActionCall> t
          then
-           parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
-         ; result := ActionCall(renamedname, e2*){ThisCallParent(parent),anno*}
+           //add a unique id to each call, which will be used as name attribute, see wrap desugaring below
+           nameattr := <toplevel-rename> renamedname
+         ; parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
+         ; result := ActionCall(renamedname, e2*){ThisCallParent(parent),ActionCallNameAttribute(nameattr),anno*}
          else //the action call is being renamed, but the outer definition is not.
               // in this case RenameActionCall fails, the action is not visible, and only the expression
               // arguments are renamed
@@ -35,6 +37,30 @@ rules //convert deprecated submit constructors to new style
   desugar-in-define-context :     
     SubmitLink(e,call,passign*) -> SubmitLinkElem(call, passign*, elem*)
     with elem* := [TemplateCall("output", [e], [], TemplateBody([]))]
+    
+rules //wrap submit/submitlink in template that handles validation output
+
+  signature constructors SubmitElementWrapped : Term 
+                         ActionCallNameAttribute : Term -> Term 
+  rules
+
+  desugar-in-define-context :     
+    SubmitElem(call, passign*, elem*){anno*} ->
+    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("thesubmit",[Arg("x",SimpleSort("String"))],[SubmitElem(call, passign2*, elem*){anno2*}])]))
+    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux> (call,passign*,anno*) 
+    
+  desugar-in-define-context :     
+    SubmitLinkElem(call, passign*, elem*){anno*} -> 
+    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("thesubmit",[Arg("x",SimpleSort("String"))],[SubmitLinkElem(call, passign2*, elem*){anno2*}])]))
+    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux> (call,passign*,anno*) 
+    
+  submit-elem-wrap-aux :
+    (call{anno_call*},passign*,anno*) -> (e_nameprop,passign2*,anno2*)
+    where not(<fetch(SubmitElementWrapped)> anno*)
+    with  <fetch(?ActionCallNameAttribute(uniqname))> anno_call*
+        ; e_nameprop := Add(String(uniqname),ThisCall("getUniqueTemplateId",[])) 
+        ; passign2* := [PropertyAssignment("name", Var("x"))|passign*]
+        ; anno2* := [SubmitElementWrapped()|anno*] 
     
 rules
       

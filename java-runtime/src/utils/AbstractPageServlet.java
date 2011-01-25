@@ -213,6 +213,15 @@ public abstract class AbstractPageServlet{
         }
         return list;
     }
+    public List<String> getValidationErrorsByName(String name) {
+        List<String> list = new java.util.ArrayList<String>();
+        for(utils.ValidationException v : validationExceptions){
+            if(v.getName().equals(name)){
+                list.add(v.getErrorMessage());
+            }
+        }
+        return list;
+    }
     public boolean hasExecutedAction = false;
     public boolean hasExecutedAction(){ return hasExecutedAction; }
     public boolean hasNotExecutedAction(){ return !hasExecutedAction; }
