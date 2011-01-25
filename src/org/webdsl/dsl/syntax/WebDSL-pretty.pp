@@ -1165,7 +1165,7 @@
    Min                                                    -- KW["min"] KW["("] _1 KW[")"],
    Avg                                                    -- KW["avg"] KW["("] _1 KW[")"],
    
-   DeriveCrud -- KW["derive"] KW["crud"] _1,
+   DeriveCrud -- KW["derive"] KW["CRUD"] _1,
    
    HqlStatement -- _1 KW[";"],
    NotNullAnno -- "not null",

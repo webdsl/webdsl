@@ -28,14 +28,14 @@ entity Person {
   favoriteColor -> Color
 }
 
-derive crud Person
+derive CRUD Person
 
 entity Color {
   name :: String (id, validate(isUniqueColor(this), "Color exists already")
                     , validate(name.length() > 0, "Color name may not be empty"))
 }
 
-derive crud Color
+derive CRUD Color
 
 init {
   var color : Color;
