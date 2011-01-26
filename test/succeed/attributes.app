@@ -10,8 +10,8 @@ define template attrtest() {
 
 define page root() {
   "expects:: hoitest3:"
-  attrtest[kop:= "hoi", kop2 := test]
-  attrtest2[onclick:=action{}, class:= "attrtest2class", style:="background-color:yellow;", kop:= "hoi", kop2 := test]
+  attrtest[kop= "hoi", kop2 = "test"]
+  attrtest2[onclick:=action{}, class= "attrtest2class", style ="background-color:yellow;", kop = "hoi", kop2 = "test"]
   
   
   //rndButton("click text above",true)[onclick := action { return bla(); }, style:="background-color:yellow;", class:="classtest", testattr := "testattrvalue"]
