@@ -415,3 +415,7 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
   
+  //reused when elements() are empty
+  
+  define ignore-access-control elementsempty(){}
+  
