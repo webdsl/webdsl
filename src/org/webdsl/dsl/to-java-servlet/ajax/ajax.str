@@ -40,15 +40,26 @@ rules
     
  //action java implementation
   do-ajax-to-java-servlet :
-    (method, div, TemplateCall(template,args,passign*,TemplateBody(bodyelems)){anno*})
+    (method, div, tc)
      -> bstm*|[ 
         ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
-        Object[] x_args = { e_argswithref* };
-  
         java.io.StringWriter x_s = new java.io.StringWriter();
         java.io.PrintWriter x_out = new java.io.PrintWriter(x_s); 
         ThreadLocalOut.push(x_out);
-        
+        bstm_thecall*
+        out.print("{ action: \""+"~method"+"\", id: \""+e_thediv+"\", value : \""+org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(x_s.toString())+"\"},");           
+        ThreadLocalOut.popChecked(x_out);
+     ]|
+    with x_out := <newname> "out"
+       ; x_s   := <newname> "s"
+       ; e_thediv := <ajax-target-to-expression> div
+       ; bstm_thecall* := <call-template-as-ajax-template-helper> tc
+
+  call-template-as-ajax-template-helper :
+    TemplateCall(template,args,passign*,TemplateBody(bodyelems)){anno*} ->
+    bstm*|[
+        Object[] x_args = { e_argswithref* };
+      
         //since we're going to render here, we need to flush the changes
         //@TODO there shouldn't be more changes after executing ajax operations that render templates, such as 'replace', compiler should verify this
         e_HibSession.flush();
@@ -67,32 +78,27 @@ rules
           //}
           ((PageServlet)DispatchServletHelper.pages.get(x_ps).getPageClass().newInstance()).serveAsAjaxResponse(ThreadLocalPage.get(), x_args, env, e_templatearg); 
           //the template arg of templates invoked by actions is the template arg of the owner of the action, todo: this might cause scoping problems of variables. 
-          out.print("{ action: \""+"~method"+"\", id: \""+e_thediv+"\", value : \""+org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(x_s.toString())+"\"},");           
         }
         catch(Exception iae)
         {
           System.out.println("Problem in template servlet template lookup for Ajax: "+iae.getMessage()+" template :" + "~template");
-        }
-        finally{
-          ThreadLocalOut.popChecked(x_out);
-        }
-     ]|
+        }      
+    ]|
     with x_args := <newname> "args"
-       ; x_out := <newname> "out"
-       ; x_s   := <newname> "s"
        ; x_ps  := <newname> "ps"
        // translate (ref) args
        ; calledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
        ; e_argswithref* := <handle-ref-arg> (calledTemplateArgs, args)
        //
-       ; e_thediv := <ajax-target-to-expression> div
-/*       ; if not(bodyelems := [])  then //TODO: params should be supported
+       ; e_templatearg := expr |[ utils.TemplateCall.None ]|
+/*     ; if not(bodyelems := [])  then //TODO: params should be supported
            e_templatearg := expr |[ new TemplateCall("~templateargname", new Object[0]) ]|
            ;debug(!1)
          else
-*/     ; e_templatearg := expr |[ utils.TemplateCall.None ]|
-//         end
- 
+           e_templatearg := expr |[ utils.TemplateCall.None ]|
+         end 
+*/ 
+
   ajax-to-java-servlet :
     AjaxVisibility(thediv, vis) -> bstm*|[ 
        ~*<warn-for-ajax-operation-without-ajax-enabled-submit>

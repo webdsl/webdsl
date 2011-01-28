@@ -22,6 +22,14 @@ public abstract class AbstractPageServlet{
 
     public boolean IsTemplate() { return false; }
     public boolean isServingAsAjaxResponse = false;
+    
+    private boolean passedThroughAjaxTemplate = false;
+    public boolean passedThroughAjaxTemplate(){
+      return passedThroughAjaxTemplate;
+    }
+    public void setPassedThroughAjaxTemplate(boolean b){
+        passedThroughAjaxTemplate = b;
+    }
 
     public abstract String getPageName();
     public abstract String getUniqueName();

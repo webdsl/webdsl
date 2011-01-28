@@ -65,7 +65,9 @@ public abstract class TemplateServlet {
 
         PrintWriter out = new java.io.PrintWriter(s);
         ThreadLocalOut.push(out);
+        beforeRender();
         renderInternal();
+        afterRender();
         ThreadLocalOut.popChecked(out);
         out = ThreadLocalOut.peek();
         
@@ -79,6 +81,22 @@ public abstract class TemplateServlet {
     protected abstract void validateInputsInternal();
     protected abstract void handleActionsInternal();
     protected abstract void renderInternal();
+    
+    protected abstract boolean isAjaxTemplate();
+    private boolean alreadyPassedThroughAjaxTemplate = false;
+    protected void beforeRender(){
+        if(ThreadLocalPage.get().passedThroughAjaxTemplate()){
+            alreadyPassedThroughAjaxTemplate = true;
+        }
+        else if(isAjaxTemplate()){
+            ThreadLocalPage.get().setPassedThroughAjaxTemplate(true);
+        }
+    }
+    protected void afterRender(){
+        if(!alreadyPassedThroughAjaxTemplate && isAjaxTemplate()){
+            ThreadLocalPage.get().setPassedThroughAjaxTemplate(false);
+        }    	
+    }
     
     protected abstract void tryWriteSpanOpen(PrintWriter outtemp);
     protected abstract void tryWriteSpanClose(PrintWriter outtemp);
@@ -160,15 +178,13 @@ public abstract class TemplateServlet {
         } 
     } 
     
-    abstract protected boolean isAjaxTemplate();
-    
     protected boolean isAjaxSubmitRequired(){
         return isAjaxSubmitRequired(false);
     }
     protected boolean isAjaxSubmitRequired(boolean ajaxmod){
       return ThreadLocalPage.get().isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
         || ThreadLocalPage.get().isAjaxRuntimeRequest() //current request came from ajax runtime
-        || isAjaxTemplate() // template is defined with ajax modifier 'define ajax'
+        || ThreadLocalPage.get().passedThroughAjaxTemplate() // passed through template defined with ajax modifier 'define ajax'
         || ajaxmod //submit buttons is defined with ajax modifier '[ajax]'
         || ThreadLocalPage.get().getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
     }

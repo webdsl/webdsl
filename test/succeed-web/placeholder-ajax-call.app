@@ -1,49 +1,49 @@
-//due to a bug in the handling of ajax actions, the entered value ("12") was shown after executing the action instead of the expected "1",
-// reason was that old request parameters were still visible when ajax render occurred, which caused the input to show that value instead of the real value.
-
 application customer
 
-session bla {
+entity Bla{
   s::String
+  validate(s.length()>2,"too short")
 }
 
 define page root(){
-  placeholder body{ displayNote() }
+  placeholder body displayNote()
 }
-
 define ajax displayNote(){
-  init{
-      bla.s := "1";	
-  }
-  
   form{
     input(bla.s)
     submit action{ replace(body,displayNote()); } { "save" } 
   }
-  output(bla.s)
-  "important"
 }
 
-
-  
-function send(d:WebDriver){
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-
-    elist[1].sendKeys("2"); 
-    elist[2].click();
-
+define page root1(){
+  placeholder "body" displayNote1()
 }
-function check(d:WebDriver){
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-
-    assert(elist[1].getValue() == "1");
+define ajax displayNote1(){
+  form{
+    input(bla1.s)
+    submit action{ replace("body",displayNote1()); } { "save" } 
+  }
 }
 
+var bla := Bla{}
+var bla1 := Bla{}
   
   native class Thread{
     static sleep(Int)
+  }
+  
+  function send(d:WebDriver){
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist.length == 3, "expected <input> elements did not match");
+    elist[1].sendKeys("2"); 
+    elist[2].click();
+  }
+  
+  function check(d:WebDriver){
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist[1].getValue() == "2");
+    assert(d.getPageSource().contains("too short"));
   }
   
 test one {
@@ -51,14 +51,13 @@ test one {
     var d : WebDriver := FirefoxDriver();
 
     d.get(navigate(root()));
+    send(d);
+    Thread.sleep(2000);
+    check(d);
     
+    d.get(navigate(root1()));
     send(d);
     Thread.sleep(2000);
-    send(d);
-    Thread.sleep(2000);
-    send(d);
-    Thread.sleep(2000);
-
     check(d);
 
     d.close();
