@@ -22,4 +22,4 @@ application test
     }
   }
 
-  define test(i:Int){output(i)}
+  define ajax test(i:Int){output(i)}
