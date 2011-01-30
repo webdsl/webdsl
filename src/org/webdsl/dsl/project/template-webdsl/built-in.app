@@ -404,14 +404,14 @@ module .servletapp/src-webdsl-template/built-in
   
   //validation wrapper for submit and submitlink
   
-  define ignore-access-control wrapsubmit(tname:String) requires thesubmit(String){
+  define ignore-access-control wrapsubmit(tname:String) requires s(String){
     if(getValidationErrorsByName(tname).length > 0){
       errorTemplateAction(getValidationErrorsByName(tname)){
-        thesubmit(tname)
+        s(tname)
       }
     }
     else{
-      thesubmit(tname)
+      s(tname)
     }
   }
   

@@ -38,7 +38,7 @@ define page root() {
      "click me to expand"
   }
   */
-  block[id:= target] {
+  placeholder target {
      form{action("click me to expand",action { dosearch(s, u);})}
   }
 }
