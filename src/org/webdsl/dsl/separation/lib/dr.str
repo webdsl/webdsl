@@ -6,7 +6,7 @@ imports
 strategies  
   
   is-ignored-rule = ?"DR_BREAK" <+ ?"DR_EXCEPTION"
-  is-ignored-rule = ?"LogTimeSection"
+  is-ignored-rule = ?"LogTimeSection" <+ ?"LogTime"
 
   all-dynamic-rule-names =
       <hashtable-keys> Hashtable(<dr-rule-sets-hashtable>) 
@@ -62,11 +62,14 @@ strategies
         ; keyvals := <map(\x -> <changeset-key-to-rules(|h, rs)>\); remove-all(?(_, []))>
           // Commit change set
         ; !rulesets
-        ; dr-commit-change-set  // TODO: this takes too long
+        ; my-dr-commit-change-set
         //; where(!(name, <id>); debug(!"Ruleset is now: "))
         ; dr-set-rule-set(|name)
         
   load-dynamic-rule-closure: rulelist -> <map(load-dynamic-rule)> rulelist
+  
+  fix-tail-dr-dummy: Cons(hd, []) -> Cons(hd, []{[DR_DUMMY()]})
+    where not(DR_DUMMY() := hd)
   
   load-dynamic-rule: (name, keyvals) -> <id>
     with  dr-get-rule-set(|name) => ruleset;
@@ -156,3 +159,18 @@ rules // Callback on dynamic rule lookup
   dynamic-rule-resolver = fail
   
   is-used-dr = fail
+
+rules // Faster override of dr-commit-change-set that does not support DR_BEAK or DR_EXCEPTION
+  
+  my-dr-commit-change-set :
+    [cs@ChangeSet(labelset, rmset, tbl@Hashtable(csid)) | rs] -> rs''
+    where <hashtable-keys> tbl
+        ; foldr(<dr-commit-labels(|labelset)> rs
+               , dr-apply-change(|tbl)) => rs'
+        ; <iset-elements> rmset
+        ; foldr(!rs', dr-apply-removal) => rs''
+        //; try(<dr-destroy-change-set> cs)
+        ; try(<my-dr-destroy-change-set> cs)
+          
+  my-dr-destroy-change-set =
+    ChangeSet(iset-destroy, iset-destroy, hashtable-destroy)
