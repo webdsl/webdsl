@@ -51,6 +51,10 @@ application test
     }
   }
   
+  native class Thread{
+    static sleep(Int)
+  }
+  
   test encodingstest {
     var d : WebDriver := FirefoxDriver();
     
@@ -66,6 +70,7 @@ application test
     
     elist[1].sendKeys(entered1);
     elist[2].click();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("view page"), "expected to be on view page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -85,6 +90,7 @@ application test
     
     elist[1].sendKeys(entered2);
     elist[3].click();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("view page"), "expected to be on view page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -106,6 +112,7 @@ application test
     elist[1].sendKeys(entered3);
     log(elist[1].getValue());
     elist[4].click();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("viewA ajax template"), "expected to see ajax template viewA");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));

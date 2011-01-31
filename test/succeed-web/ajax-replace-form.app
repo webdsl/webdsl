@@ -39,6 +39,10 @@ application test
     submit("refresh",action{refresh();})[ajax]
   }
   
+  native class Thread{
+    static sleep(Int)
+  }
+  
   test encodingstest {
     var d : WebDriver := FirefoxDriver();
     
@@ -51,12 +55,14 @@ application test
     assert(elist.length==2, "incorrect number of input elements found");
     
     elist[1].click();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==13, "incorrect number of input elements found");
     log(d.getPageSource());
     elist[11].click();
+    Thread.sleep(2000);
     
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
     
@@ -64,11 +70,13 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==2, "incorrect number of input elements found");
     elist[1].click();
+    Thread.sleep(2000);
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==13, "incorrect number of input elements found");
     log(d.getPageSource());
     elist[12].click();
+    Thread.sleep(2000);
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
     
     d.close();

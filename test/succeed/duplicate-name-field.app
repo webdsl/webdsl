@@ -57,7 +57,7 @@ application test
     define bla(){
       var authors : List<AbstractAuthor> := getUnidentifiedPublications()
       form{
-        list[class := publicationList] {
+        list[class = "publicationList"] {
           for(author : AbstractAuthor in authors) {
             listitem{ identifyPublication(author) }
           }

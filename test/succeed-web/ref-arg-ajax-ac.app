@@ -49,6 +49,11 @@ section pages
       submit action{ replace(editableText, showEditableText(text)); } { "Save" }
     }
   }
+  
+  native class Thread{
+    static sleep(Int)
+  }
+
 
   test one {
     
@@ -60,6 +65,7 @@ section pages
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(elist.length == 1, "expected <a> elements did not match");
     elist[0].click();  
+    Thread.sleep(2000);
     
     log(d.getPageSource());
 
@@ -69,6 +75,7 @@ section pages
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected <input> elements did not match");
     elist[2].click();
+    Thread.sleep(2000);
     
     log(d.getPageSource());
 

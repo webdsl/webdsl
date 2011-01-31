@@ -20,7 +20,7 @@ section datamodel
     form{
       group("image"){
         imginputtemplate()
-        action("save image",save())[classic:= true, id:= submit]
+        action("save image",save())
       }
     }
     placeholder status {}

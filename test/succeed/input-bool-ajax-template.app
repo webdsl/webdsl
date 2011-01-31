@@ -47,5 +47,5 @@ application test
    placeholder bla {
      "default " 
    }
-   container[onclick:=action{ replace(bla,editLecture(l1)); }]{"click here"}
+   container[onclick=action{ replace(bla,editLecture(l1)); }]{"click here"}
  }

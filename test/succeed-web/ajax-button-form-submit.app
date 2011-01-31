@@ -17,6 +17,10 @@ application test
   define page success(){
     "redirected to success page"
   }
+  
+  native class Thread{
+    static sleep(Int)
+  }
 
   test one {
     
@@ -27,6 +31,7 @@ application test
     var elist := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected <input> elements did not match");
     elist[1].submit();
+    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
     
