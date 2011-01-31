@@ -1,4 +1,4 @@
-bin_SCRIPTS = webdsl webdsl-plugins webdsl.bat
+bin_SCRIPTS = webdsl webdsl-plugins webdsl.bat webdsl-eclipseplugin webdsl-eclipseplugin.bat
 
 WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
@@ -21,6 +21,7 @@ WEBDSL_TEMPLATES= \
 
 EXTRA_DIST = \
   webdsl.bat \
+  webdsl-eclipseplugin.bat \
   $(WEBDSL_TEMPLATES) \
   testnewproject.sh
   
