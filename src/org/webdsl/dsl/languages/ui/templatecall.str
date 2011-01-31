@@ -22,19 +22,6 @@ imports
   org/webdsl/dsl/languages/data-model/utils
   org/webdsl/dsl/modules/email
 
-rules // declare
-
-  declare-in-template =
-    (
-        ?TemplateCallPropsNoBody(_,_,passign*)
-      <+?TemplateCallProps(_,passign*)
-      <+?TemplateCallPropsNoArgs(_,passign*,elem*)
-      <+?TemplateCall(_,_,passign*,elem*)
-    )
-    ; ?tc
-    ; <declare-template-html-id(|tc)> passign*
-    ; try(<alltd(declare-in-template)> elem*)
-
 rules //rename rule for each templatecall variant
    
   rename-ui :
@@ -179,15 +166,6 @@ rules //template call either refers to a defined template, or to a built-in temp
       //each template is renamed for overloading, the arg types are appended to the name:
       ; name := <TemplateNewName>(x,resolvedarg*)     
 
-strategies
-
-  //given a list of property assignmenst and a corresponding templatecall, it declares HtmlEntityId if a "id" property exists
-  declare-template-html-id(|tc) =
-     all({x, y : 
-         ?PropertyAssignment("id", x) ;rules( HtmlEntityId :+ x -> tc )
-         <+ !"something" //build something
-         })
-
 rules // using page as template produces error; tested in fail/pageastemplate.app
 
   constraint-error-templatecall(|p,arg*) = constraint-error-page-as-template(|p)
@@ -226,7 +204,7 @@ rules // desugar 'elements' template argument for defined template calls
     where <CallToDefinedTemplate <+ CallToRequiredTemplate> x // defined or required template definition can contain an 'elements' call
     where not(<fetch(?TemplateCall(_,_,_,_))> passign*)
     where not(<?[]> elem*)
-    with  x_newtempl := <toplevel-rename> "templateargument"
+    with  x_newtempl := <toplevel-rename> "ta"
         ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
         ; EnclosingDefine(_, context, _, _) := <DefinedTemplateGetEnclosingDefine> x 
         ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(context)|mod*], x_newtempl, farg*, requires*, defelem*)
@@ -242,10 +220,11 @@ rules // desugar 'elements' template argument for defined template calls
           then
             action* := <TemplateActions <+ ![]> encltemplatename
           ; requires* := <TemplateRequiresList <+ ![]> encltemplatename
+          ; acimports* := <TemplateACImports <+ ![]> encltemplatename
+          ; mod* := <TemplateMods <+ ![]> encltemplatename
           ; additionalaction* := <EnclosingDefinition; TemplateActions <+ ![]> encltemplatename //when the elements were lifted from a nested local redefinition, the enclosing actions need to be retrieved as well
           ; allaction* := [action*,additionalaction*]
-          ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [elem*, allaction*] ]
-          ; mod* := []
+          ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [acimports*, elem*, allaction*] ]
           else
             requires* := []
           ; defelem* := elem*
@@ -313,7 +292,7 @@ rules
 
   desugar-argdef(|templatename) :
     ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
-    with x_newtempl := <conc-strings; toplevel-rename> (x,"_argdef")
+    with x_newtempl := <conc-strings; toplevel-rename> (x,"_ad")
         ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (templatename,elem*) 
         ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(x)|mod*], x_newtempl, [origfarg*, farg*], requires*, defelem*) 
          // a special templatecall that only needs resolving by name, since the name is uniquely generated

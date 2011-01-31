@@ -61,12 +61,17 @@ function formToPost(formObj) {
         if (formObj.elements[i].checked == true)
           request = request + formObj.elements[i].name + "=1&";
       }
+      else if (formObj.elements[i].type=="radio")
+      {
+        if (formObj.elements[i].checked == true)
+          request = request + formObj.elements[i].name + "=" + formObj.elements[i].value + "&";
+      }
       else if (formObj.elements[i].nodeName.toLowerCase() == "textarea") {
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
       }
-      //exclude submit buttons
+      //exclude submit/button
       else if (formObj.elements[i].nodeName.toLowerCase() == "input" 
-               && formObj.elements[i].type=="submit"){}
+           && (formObj.elements[i].type=="submit" || formObj.elements[i].type=="button")){}
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
     }

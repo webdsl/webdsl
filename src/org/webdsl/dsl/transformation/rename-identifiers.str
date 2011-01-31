@@ -31,12 +31,13 @@ rules
     <+ ExcludeFromVarRenaming  
     //<+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
     <+ (
-          rename-template-def-id
-        <+ rename-template-call-id
-        <+ rename-action-def-id
-        <+ rename-test-id
-        <+ rename-global-var
-      ); try(some(rename-identifiers)) // traverse
+        check-for-templatebody-cons
+      <+ rename-template-def-id
+      <+ rename-template-call-id
+      <+ rename-action-def-id
+      <+ rename-test-id
+      <+ rename-global-var
+     ); try(some(rename-identifiers)) // traverse
     <+ use-local-renaming
   
   exclude-from-var-renaming = ?"this"
@@ -84,11 +85,15 @@ rules
         ; y := <TemplateNewName> (xsa,<template-formal-arguments-to-types;strip-annos> farg*)
         ; orig := OriginalNameAnno(x{})
     
+  check-for-templatebody-cons : // catches typical omission in desugaring rules: missing TemplateBody
+    TemplateCall(x, arg*, passign*, elem*) -> <debug(!"INTERNAL ERROR: found template that is missing TemplateBody constructor around its elements: "); <exit> 1> 
+    where not(<?TemplateBody(_)> elem*) 
+    
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
     -> TemplateCall(y{orig}, arg*, passign*, TemplateBody(elem*)){new-anno*}
     where y := <CallToDefinedTemplate> x
-        ; orig := OriginalNameAnno(x{})
+    with  orig := OriginalNameAnno(x{})
         ; ![CallToDefinedAnno() | anno*]
         ; ![CalledTemplateArgs(<TemplateArguments> y) | <id>]
         ; ?new-anno*
@@ -97,7 +102,7 @@ rules
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} 
     -> TemplateCall(x{orig}, arg*, passign*, TemplateBody(elem*)){new-anno*} 
     where types := <CallToRequiredTemplate> x
-        ; orig := OriginalNameAnno(x{})
+    with  orig := OriginalNameAnno(x{})
         ; ![CallToRequiredAnno() | anno*]
         ; ![CalledTemplateArgs(<map(!Arg("dummyname",<id>))> types) | <id>]
         ; ?new-anno*
@@ -106,7 +111,7 @@ rules
     tc@TemplateCall(x, arg*, passign*, body)
     -> TemplateCall(y, arg*, passign*, body)
     where <CallToBuiltInTemplate> x
-        ; y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
+    with  y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
   
   /** many desugarings, such as output(String) -> text(String) currently do not rename the resulting call, 
    *  therefore this sanity check is disabled for now. 

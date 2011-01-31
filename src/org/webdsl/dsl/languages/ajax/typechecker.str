@@ -16,30 +16,17 @@ strategies
 
 strategies
 
-  declare-in-template: p@Placeholder(name, elems) -> p
+  declare-placeholder-in-template: 
+    p@Placeholder(name, elems) -> p
+    where <is-string> name
+        ; rules( HtmlEntityId :+ name -> p )
+          
+  declare-placeholder-in-template: 
+    p@PlaceholderWithAjaxCall(name, elems) -> p
     where <is-string> name
         ; rules( HtmlEntityId :+ name -> p )
 
 rules // constraints
-
-/*    propertyassignment-check-id-is-single(|tc) :
-      p@PropertyAssignment("id", x) -> p
-      where [other|_] := <bagof-HtmlEntityId> x  
-          ; other2    := <strip-annos> other
-          ; tc2 := <strip-annos> tc
-          ; not(other2 := tc2)
-          ; !<add-error(|["Templatecall with id ", x, " is defined multiple times: ",tc2," and ",other2])>
-*/          
-    propertyassignment-check-id-is-string :
-      p@PropertyAssignment("id", x) -> p
-      where not(<is-string> x)
-          ; !<add-error(|["Templatecall id's can only be plain id's. "])>
-
-    constraint-error-check-propertyassignments(|tc) :
-      p@PropertyAssignment(name,val) -> p
-      where "id":= name
-          ; try(<propertyassignment-check-id-is-string> p)
-//          ; try(<propertyassignment-check-id-is-single(|tc)> p)
 
     constraint-error-ajax =
       (  ?a@AjaxReplace(thediv, _) 
@@ -53,21 +40,14 @@ rules // constraints
       ; !a
       
     check-id-existence(|theid) = 
-      where( //id attribute or placeholder exists?
+      where( //placeholder exists?
           divs := <bagof-HtmlEntityId> theid
         ; 0 := <length> divs
         ; not("this" := theid)
       )
-      ; add-error(|["Ajax action refers to unknown object with id, please create a template, placeholder or element with proper 'id' attribute: ", theid])
+      ; add-error(|["Ajax action refers to unknown placeholder id: ", theid])
 
-/*
-    constraint-error-ajax :
-      a@InlineAjaxAction(_, thediv, _) -> a
-      where divs := <bagof-HtmlEntityId> thediv
-          ; 0 := <length> divs
-          ; not("this" := thediv)
-          ; !<add-error(|["Ajax action refers to unknown object with id ", thediv])>
-*/
+rules
    
     constraint-error-ajax =
       (  ?tc@TemplateCall(_,_,passign*,_) 
@@ -80,7 +60,6 @@ rules // constraints
         ; doubles := <find-doubles> props
         ; if (not([] := doubles))
           then !<add-error(|["Properties are defined multiple times - ", <separate-by(|", "); concat-strings> doubles, " in ",tc])>
-          else <filter(constraint-error-check-propertyassignments(|tc))> passign*
           end
        )
      ; fail
@@ -92,5 +71,5 @@ rules
    <+ ?a@AjaxAppend(thediv,  tcall)
    )
   ; where(<is-defined-tc-get-called-tc; not(IsDefinedAsAjaxTemplate)> tcall)
-  ; add-error(|["An ajax-enabled template must be called here, adding the 'ajax' modifier to a template definition makes it ajax-enabled. Note that this template will then be directly accessible from a URL."])
+  ; add-error(|["An ajax-enabled template must be called here, adding the 'ajax' modifier to a template definition makes it ajax-enabled. Note that this template will then be directly accessible from a URL and may require additional access control rules."])
   

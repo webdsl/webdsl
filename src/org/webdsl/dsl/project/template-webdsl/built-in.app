@@ -388,3 +388,34 @@ module .servletapp/src-webdsl-template/built-in
       elements()
     </li>
   }
+
+  //reflection of entities
+  
+  native class utils.ReflectionEntity as ReflectionEntity{
+    getName():String
+    getProperties():List<ReflectionProperty>
+    getPropertyByName(String):ReflectionProperty
+  }
+
+  native class utils.ReflectionProperty as ReflectionProperty{
+    getName() : String
+    hasNotNullAnnotation() : Bool	
+  }
+  
+  //validation wrapper for submit and submitlink
+  
+  define ignore-access-control wrapsubmit(tname:String) requires s(String){
+    if(getValidationErrorsByName(tname).length > 0){
+      errorTemplateAction(getValidationErrorsByName(tname)){
+        s(tname)
+      }
+    }
+    else{
+      s(tname)
+    }
+  }
+  
+  //reused when elements() are empty
+  
+  define ignore-access-control elementsempty(){}
+  
