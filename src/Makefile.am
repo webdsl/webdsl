@@ -146,9 +146,9 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
-                 $(wildcard ./org/webdsl/dsl/typechecker/*.str) \
-                 $(wildcard ./org/webdsl/dsl/separation/*.str) \
-                 $(wildcard ./org/webdsl/dsl/separation/*/*.str)
+                 $(wildcard ./org/webdsl/dsl/typechecker/*.str)
+                 
+SEPSTRFILES =    $(wildcard ./org/webdsl/dsl/separation/*.str)
                  
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
@@ -221,7 +221,8 @@ ALL_LIBS = \
                    libwrite-files.la \
                    libjava-transformations.la \
                    libback-end-transformations.la \
-                   libfast-java-pp.la                    
+                   libfast-java-pp.la \                    
+		   libsepcomp.la
                    
 webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
                    $(STRATEGO_GPP_LIBS) \
@@ -312,7 +313,8 @@ JAVAS= \
   src-gen/org/webdsl/write_files/Main.java \
   src-gen/org/webdsl/back_end_transformations/Main.java \
   src-gen/org/webdsl/to_java_servlet/Main.java \
-  src-gen/org/webdsl/webdslc/Main.java
+  src-gen/org/webdsl/webdslc/Main.java \
+  src-gen/org/webdsl/sepcomp/Main.java
 
 strategoxt.jar: $(STRATEGOXT_JAR)
 	cp $(STRATEGOXT_JAR) strategoxt.jar
@@ -331,7 +333,7 @@ src-gen/org/webdsl/webdsl_front/Main.java : webdsl-front.ctree
 
 src-gen/org/webdsl/webdsl_generator/Main.java : webdsl-generator.ctree
 	mkdir -p src-gen/org/webdsl/webdsl_generator
-	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_generator -i $< -o $@ -la org.webdsl.webdsl-front
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_generator -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.sepcomp
 
 src-gen/org/webdsl/java_transformations/Main.java : java-transformations.ctree
 	mkdir -p src-gen/org/webdsl/java_transformations
@@ -349,13 +351,17 @@ src-gen/org/webdsl/to_java_servlet/Main.java : to-java-servlet.ctree
 	mkdir -p src-gen/org/webdsl/to_java_servlet
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.to_java_servlet -i $< -o $@ -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations -la org.webdsl.write_files
 
+src-gen/org/webdsl/sepcomp/Main.java : sepcomp.ctree
+	mkdir -p src-gen/org/webdsl/sepcomp
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.sepcomp -i $< -o $@ -la org.webdsl.webdsl-generator -la org.webdsl.webdsl_front
+
 src-gen/org/webdsl/java_pp_fake/Main.java : java-pp-fake.str
 	mkdir -p src-gen/org/webdsl/java_pp_fake
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_pp_fake -i $< -o $@
 
 src-gen/org/webdsl/webdslc/Main.java : webdslc.str
 	mkdir -p src-gen/org/webdsl/webdslc
-	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations
+	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations -la org.webdsl.sepcomp
 endif
 
 ### libraries
@@ -410,7 +416,7 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 
-libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.rtree
+libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.rtree libsepcomp.rtree
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libwebdsl-generator.str
@@ -547,5 +553,33 @@ libwrite-files.rtree libwrite-files.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS
 
 write-files.ctree : libwrite-files.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o write-files.ctree \
+		--verbose 1 $(STRCFLAGS) 
+
+### separate compilation
+
+nobase_data_DATA += libsepcomp.rtree 
+if !XT_ENABLE_JAVA_BACKEND
+  lib_LTLIBRARIES  += libsepcomp.la 
+
+libsepcomp_la_SOURCES = libsepcomp.c
+libsepcomp_la_CFLAGS   = $(AM_CFLAGS) -O0  $(STRATEGO_LIB_CFLAGS)
+libsepcomp_la_LDFLAGS  = $(AM_LDFLAGS)
+libsepcomp_la_CPPFLAGS = $(STRATEGO_XTC_CFLAGS) \
+                              $(STRATEGO_GPP_CFLAGS) \
+                              $(JAVA_FRONT_CFLAGS) \
+                              $(STRATEGO_CFLAGS)
+libsepcomp_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
+            $(STRATEGO_LIBS)
+endif
+
+libsepcomp.rtree libsepcomp.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/separation/lib.str -o libsepcomp.rtree \
+		-I $(srcdir)/org/webdsl/dsl \
+		--verbose 1 $(STRCFLAGS) 
+	rm -f libsepcomp.str
+
+sepcomp.ctree : libsepcomp.rtree
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/separation/lib.str -o sepcomp.ctree \
+		-I $(srcdir)/org/webdsl/dsl \
 		--verbose 1 $(STRCFLAGS) 
 

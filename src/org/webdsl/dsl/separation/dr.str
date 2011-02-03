@@ -1,16 +1,17 @@
 module separation/dr
 
 imports
-  org/webdsl/dsl/separation/-
+  separation/-
+  libstrategolib
 
 strategies  
   
-  is-ignored-rule = ?"DR_BREAK" <+ ?"DR_EXCEPTION"
-  is-ignored-rule = ?"LogTimeSection" <+ ?"LogTime"
+  dr-ignore-dr-tracking = ?"DR_BREAK" <+ ?"DR_EXCEPTION"
+  dr-ignore-dr-tracking = ignore-dr-tracking
 
   all-dynamic-rule-names =
       <hashtable-keys> Hashtable(<dr-rule-sets-hashtable>) 
-    ; remove-all(is-ignored-rule)
+    ; remove-all(dr-ignore-dr-tracking)
 
   start-record-dynamic-rules =
     with(
@@ -26,7 +27,6 @@ strategies
         // some rules like DR_BREAK are created but have no keys??
       ; remove-all(?(_,[])) => recorded
       ; rules(RecordDR_Enabled :- _)
-      ; try(is-record-dynamic-rules-enabled; debug(!"ERROR: RECORD_DR NOT DISABLED"))
     )
     ; !recorded
       
@@ -67,9 +67,6 @@ strategies
         ; dr-set-rule-set(|name)
         
   load-dynamic-rule-closure: rulelist -> <map(load-dynamic-rule)> rulelist
-  
-  fix-tail-dr-dummy: Cons(hd, []) -> Cons(hd, []{[DR_DUMMY()]})
-    where not(DR_DUMMY() := hd)
   
   load-dynamic-rule: (name, keyvals) -> <id>
     with  dr-get-rule-set(|name) => ruleset;
@@ -119,8 +116,6 @@ rules // Track usage of DR's and return position info
   is-dr-usage-tracking-enabled =
     where(table-hashtable; hashtable-get(|"__TRACK_RULE_USAGE__"))
   
-  ignore-dr-tracking = fail
-  
   override dr-lookup-rule(|name, key) =
       mark-rule-use(|name,key)
     ; proceed
@@ -146,13 +141,11 @@ rules // Track usage of DR's and return position info
   mark-rule-use(|name, key) =
    where(try(
           is-dr-usage-tracking-enabled
-        ; <is-used-dr; not(ignore-dr-tracking)> name
+        ; <is-used-dr; not(dr-ignore-dr-tracking)> name
         ; <try(dynamic-rule-resolver)> (name, key)
         ; rule-tracking-table
         ; hashtable-put(|(name,key), 1) 
       ))
- 
-  // TODO: fold-
   
 rules // Callback on dynamic rule lookup
   

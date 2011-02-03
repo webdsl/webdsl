@@ -1,0 +1,70 @@
+module org/webdsl/dsl/transformation/separation
+
+imports 
+  libstrategolib 
+  libwebdsl-front
+  libsepcomp
+  org/webdsl/dsl/transformation/-
+
+rules
+  
+  is-emitted-mod = string-starts-with(|"(gen)")
+  
+  get-toplevel-definition = TopLevelDefinitions
+  
+  is-imported = where(ModuleToDefs)
+  
+  all-modules = all-keys-ModuleToDefs
+  is-module-loaded = not(IsUnmodifiedFile)
+  
+  all-definitions = all-modules; mapconcat(module-to-definitions)
+  is-definition-loaded = where(get-toplevel-definition)
+  
+  notify-rules-loaded =
+    rules(InnermostApplied := True()) // something changed, need new desugar phase
+  
+  ignore-dr-tracking =
+      ?"CurrentDefinitionKey"
+   <+ ?"MemoOpenParseTable" <+ ?"WebDslPpTable"    // whole parse table!
+   <+ ?"TopLevelDefinitions"
+   <+ ?"ProcedureEntities"
+   <+ ?"DoneOnce"
+   <+ ?"InTypeCheckingPhase"
+   <+ ?"InPage"
+   <+ ?"InnermostNormalForm"
+   <+ ?"DesugarInDefineContextApplied"
+   <+ ?"InTemplate"
+   <+ ?"InnermostApplied"
+   <+ ?"LogTimeSection"
+   <+ ?"LogTime"
+   //<+ ?"AddWebDSLDefs"   need emits from <declare> phase!
+   
+  trigger-recompilation =
+    load-unmodified-def;    // get ast
+    rename-and-store
+    
+  module-to-definitions = ModuleToDefs
+  
+  all-loaded-files = all-keys-LoadedFile
+  
+  store-signatures =
+    with(
+      all-loaded-files;
+      map({
+          ?mod;
+          module-to-definitions;
+          mapconcat(bagof-CreatedRules; concat) => defrules;
+          content := (<get-webdsl-version>, (<module-to-definitions> mod, <ModuleImports> mod, defrules));
+          cachefile := <path-to-cache-path> mod;
+          <write-file(|cachefile)> content
+      })
+    )
+    
+  load-dependent-modules =
+    find-dependent-modules;
+    map(load-unmodified-def; store-module-def)
+  
+  get-module-signature = CachedVersion; ?(_,_,<id>)
+  
+  def-key-to-module = def-key-to-file
+  
