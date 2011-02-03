@@ -148,7 +148,7 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str)
                  
-SEPSTRFILES =    $(wildcard ./org/webdsl/dsl/separation/*.str)
+SEPSTRFILES =    $(wildcard ./separation/*.str)
                  
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
@@ -573,13 +573,11 @@ libsepcomp_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 libsepcomp.rtree libsepcomp.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/separation/lib.str -o libsepcomp.rtree \
-		-I $(srcdir)/org/webdsl/dsl \
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/separation/lib.str -o libsepcomp.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libsepcomp.str
 
 sepcomp.ctree : libsepcomp.rtree
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/separation/lib.str -o sepcomp.ctree \
-		-I $(srcdir)/org/webdsl/dsl \
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/separation/lib.str -o sepcomp.ctree \
 		--verbose 1 $(STRCFLAGS) 
 
