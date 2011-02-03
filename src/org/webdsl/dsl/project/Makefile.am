@@ -41,7 +41,7 @@ nobase_dist_pkgdata_DATA = \
   webdsl-build-index.xml
 
 # probably enough depth
-JAVA_RUNTIME_DEPENDENCIES = \
+JAVA_RUNTIME_DEPS = \
   $(wildcard $(top_srcdir)/java-runtime/src/*.java) \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*.java) \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*/*.java) \
@@ -50,7 +50,7 @@ JAVA_RUNTIME_DEPENDENCIES = \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*.java) \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*/*.java)
   
-template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPENDENCIES)
+template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS)
 	ant -f $(top_srcdir)/java-runtime/build.xml deploy
 
 install-data-local:

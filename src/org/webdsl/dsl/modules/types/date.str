@@ -15,13 +15,7 @@ rules
   extends-builtin : "Date" -> "Object"
   extends-builtin : "Time" -> "Object"
   extends-builtin : "DateTime" -> "Object"
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("inputDate",[SimpleSort("Date")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("outputDate",[SimpleSort("Date")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("inputTime",[SimpleSort("Time")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("outputTime",[SimpleSort("Time")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("inputDateTime",[SimpleSort("DateTime")]);fail
-  built-in-template-rule-setup = <declare-built-in-template-rules> ("outputDateTime",[SimpleSort("DateTime")]);fail
-  
+
 rules
   
   type-default-value :
@@ -33,32 +27,6 @@ rules
   type-default-value :
     SimpleSort("DateTime") -> exp|[ null ]|  
 
-rules // Desugaring
-
-  DeriveInput :
-    elem|[ input(e)[passign*]{elem*} ]| -> elem|[ inputDate(e)[passign*]{elem*} ]|
-    where SimpleSort("Date") := <type-of> e
-    
-  DeriveOutput :
-    elem|[ output(e)[passign*]{} ]| -> elem|[ outputDate(e)[passign*]{} ]|
-    where SimpleSort("Date") := <type-of> e
-
-  DeriveInput :
-    elem|[ input(e)[passign*]{elem*} ]| -> elem|[ inputTime(e)[passign*]{elem*} ]|
-    where SimpleSort("Time") := <type-of> e
-    
-  DeriveOutput :
-    elem|[ output(e)[passign*]{} ]| -> elem|[ outputTime(e)[passign*]{} ]|
-    where SimpleSort("Time") := <type-of> e
-
-  DeriveInput :
-    elem|[ input(e)[passign*]{elem*} ]| -> elem|[ inputDateTime(e)[passign*]{elem*} ]|
-    where SimpleSort("DateTime") := <type-of> e
-    
-  DeriveOutput :
-    elem|[ output(e)[passign*]{} ]| -> elem|[ outputDateTime(e)[passign*]{} ]|
-    where SimpleSort("DateTime") := <type-of> e
-    
 rules // Typechecking
 
   check-builtin-signature :
@@ -66,11 +34,7 @@ rules // Typechecking
 
   check-builtin-signature :
     (None(), "today", []) -> SimpleSort("Date")
-    /*
-  check-builtin-signature :
-    (SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), "format", [s]) -> SimpleSort("String")
-    where <type-compatible> (s,  SimpleSort("String"))
-*/
+
   check-builtin-signature :
     (None(), "Date", [SimpleSort("String"), SimpleSort("String")]) -> SimpleSort("Date")
 
@@ -91,66 +55,3 @@ rules // Typechecking
 
   type-compatible =
     ?(SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), SimpleSort(<?"Date"<+?"DateTime"<+?"Time">))
-/*
-  check-builtin-signature :
-    (SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), "before", [SimpleSort(<?"Date"<+?"DateTime"<+?"Time">)]) -> SimpleSort("Bool")
-
-  check-builtin-signature :
-    (SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), "after", [SimpleSort(<?"Date"<+?"DateTime"<+?"Time">)]) -> SimpleSort("Bool")
-
-  check-builtin-signature :
-    (SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), "getTime", []) -> SimpleSort("Long")
-   
-  check-builtin-signature :
-    (SimpleSort(<?"Date"<+?"DateTime"<+?"Time">), "setTime", [SimpleSort("Long")]) -> SimpleSort("void")
-    */
-/**
- *  'format=""' annotation
- */
- rules
- 
-  desugar-ui-match-elem-with-format = ?"inputDate" <+ ?"inputDateTime" <+ ?"outputDate" <+ ?"outputDateTime"
- 
-  desugar-ui :
-    TemplateCall(type@<desugar-ui-match-elem-with-format>,[FieldAccess(var,x_prop)],passign*,elem*){anno*} ->
-    TemplateCall(type,[FieldAccess(var,x_prop)],passign1*,elem*){anno*}
-    where passign1* := <desugar-format-anno(|passign*, var, x_prop)>
-       
-  desugar-format-anno(|passign*, var, x_prop) :
-    _ -> passign1*
-    where not(<fetch(?PropertyAssignment("format", _))> passign*)
-        ; SimpleSort(x_vartypename) := <type-of> var
-        ; propannos := <property-annos> (x_vartypename,x_prop) 
-        ; <fetch(?FormatAnno(formatstring))> propannos
-    with  passign1* := [PropertyAssignment("format", String(formatstring)) | passign*]
- 
-rules
-
-  constraint-error-ui :
-    FormatAnno(formatstring) -> <add-error(|error)>
-    where <un-double-quote; not(AllowedDateFormat)> formatstring
-    with  error := ["The format string ",formatstring, " is not allowed for Date types, allowed formats are: ",<bagof-AllAllowedDateFormats;separate-by(|", ");concat-strings>,"."]
-  
-  built-in-template-rule-setup = <declare-allowed-date-format> "dd-mm-yyyy"; fail
-  built-in-template-rule-setup = <declare-allowed-date-format> "dd/mm/yyyy"; fail
-  built-in-template-rule-setup = <declare-allowed-date-format> "dd.mm.yyyy"; fail
-  built-in-template-rule-setup = <declare-allowed-date-format> "mm-dd-yyyy"; fail
-  built-in-template-rule-setup = <declare-allowed-date-format> "mm/dd/yyyy"; fail
-  built-in-template-rule-setup = <declare-allowed-date-format> "mm.dd.yyyy"; fail
-  
-  declare-allowed-date-format =
-    ?format
-  ; rules( AllowedDateFormat : format 
-           AllAllowedDateFormats :+= format    
-    ) 
-    
-/**
- *  'not null' annotation
- */
-rules
- 
-  desugar-ui :
-    TemplateCall(name,[fa@FieldAccess(var,x_prop)],passign*,body){anno*} ->
-    TemplateCall(name,[fa],passign1*,body){anno*}
-    where <?"inputDate"<+?"inputTime"<+?"inputDateTime"> name
-        ; passign1* := <desugar-not-null-anno(|passign*, var, x_prop)>

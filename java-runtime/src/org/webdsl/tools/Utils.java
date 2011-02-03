@@ -20,14 +20,6 @@ public final class Utils {
             thelist.add(o);
         return thelist.toArray();		
     }
-    
-    public static Date parseDate(String date, String format) {
-        try {
-            return new SimpleDateFormat(format).parse(date);
-        } catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /*public static boolean equal(int a, int b) {
         return a == b;

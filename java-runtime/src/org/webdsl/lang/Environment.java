@@ -57,6 +57,8 @@ public class Environment {
           content(s:String) is lifted, i becomes an argument, 
           a partial templatecall is stored in the environment
           which contains the name of the lifted template and the value of i 
+          
+          returns null if templatecall is not found, used when 'elements' are empty
      */
     protected Map<String, utils.TemplateCall> withcallsmap = null;
     
@@ -67,7 +69,12 @@ public class Environment {
             return withcallsmap.get(key);
         }
         else{
-            return up.getWithcall(key);
+            if(up!=null){
+                return up.getWithcall(key);
+            }
+            else{
+                return null;
+            }
         }
     }
 

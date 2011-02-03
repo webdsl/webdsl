@@ -21,6 +21,9 @@ module .servletapp/src-webdsl-template/built-in
     utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
     utils.StringType.parseLong                   as parseLong():Long
     utils.StringType.parseFloat                  as parseFloat():Float
+    utils.DateType.parseDate as parseDate(String):Date
+    utils.DateType.parseDate as parseDateTime(String):DateTime
+    utils.DateType.parseDate as parseTime(String):Time
   }
   
   type Secret {
@@ -42,6 +45,12 @@ module .servletapp/src-webdsl-template/built-in
     after(DateTime):Bool
     getTime():Long
     setTime(Long)
+  }
+  
+  native class utils.DateType as DateType{ //@TODO static functions not yet supported in type import of DateTime above
+    static getDefaultDateFormat():String
+    static getDefaultTimeFormat():String
+    static getDefaultDateTimeFormat():String
   }
   
   type WikiText{
@@ -400,6 +409,7 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.ReflectionProperty as ReflectionProperty{
     getName() : String
     hasNotNullAnnotation() : Bool	
+    getFormatAnnotation() : String
   }
   
   //validation wrapper for submit and submitlink
@@ -418,4 +428,207 @@ module .servletapp/src-webdsl-template/built-in
   //reused when elements() are empty
   
   define ignore-access-control elementsempty(){}
+  
+  // Date/DateTime/Time input and output templates
+  
+  define ignore-access-control output(d:Ref<DateTime>){
+    var default := DateType.getDefaultDateTimeFormat();
+    dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+  }
+  
+  define ignore-access-control output(d:Ref<Time>){
+    var default := DateType.getDefaultTimeFormat();
+    dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+  }
+  
+  define ignore-access-control output(d:Ref<Date>){
+    var default := DateType.getDefaultDateFormat();
+    dateoutputgeneric(d,default)[all attributes]
+  }
+  
+  define ignore-access-control dateoutputgeneric(d:Ref<Date>, defaultformat : String){
+    var dateformat := defaultformat;
+    init{
+      //@TODO add support for ref arg in function, to avoid repeating this in both output and input
+      var attr := attribute("format");
+      if(attr!=null && attr != ""){
+        dateformat := attr;
+      }
+      else{
+        if(d.getReflectionProperty() != null){
+          var formatanno := d.getReflectionProperty().getFormatAnnotation();
+          if(formatanno!=null){
+            dateformat := formatanno;
+          }
+        }
+      }
+    }
+    output(d.format(dateformat))
+  }
+  
+  define ignore-access-control input(d:Ref<DateTime>){
+    var format := DateType.getDefaultDateTimeFormat()
+    var dateformatString := ""
+    var timeformatString := ""
+    init{
+      var attr := attribute("format");
+      if(attr!=null && attr != ""){
+        format := attr;
+      }
+      else{
+        if(d.getReflectionProperty() != null){
+          var formatanno := d.getReflectionProperty().getFormatAnnotation();
+          if(formatanno!=null){
+            format := formatanno;
+          }
+        }
+      }
+      var tmp := format.split(" "); //assumes date and time are separated by space and no other spaces in the format string
+      dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
+      timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(tmp[1])+"', ";
+    }
+    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]
+  }
+  
+  define ignore-access-control input(d:Ref<Time>){
+    var format := DateType.getDefaultTimeFormat()
+    var timeformatString := ""
+    init{
+      var attr := attribute("format");
+      if(attr!=null && attr != ""){
+        format := attr;
+      }
+      else{
+        if(d.getReflectionProperty() != null){
+          var formatanno := d.getReflectionProperty().getFormatAnnotation();
+          if(formatanno!=null){
+            format := formatanno;
+          }
+        }
+      }
+      timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(format)+"'";
+    }
+    dateinputgeneric(d as Ref<Date>, format, "timepicker", timeformatString)[all attributes]
+  }
+
+  function convertTimeFormatToJQuery(f:String):String{
+    return f.replace("H","h");
+  }
+  function convertDateFormatToJQuery(f:String):String{
+    return f.replace("yyyy","yy").replace("MM","mm");
+  }
+
+  define ignore-access-control input(d:Ref<Date>){
+    var format := DateType.getDefaultDateFormat()
+    var dateformatString := ""
+    init{
+      var attr := attribute("format");
+      if(attr!=null && attr != ""){
+        format := attr;
+      }
+      else{
+        if(d.getReflectionProperty() != null){
+          var formatanno := d.getReflectionProperty().getFormatAnnotation();
+          if(formatanno!=null){
+            format := formatanno;
+          }
+        }
+      }
+      dateformatString := "dateFormat: '"+convertDateFormatToJQuery(format)+"', ";
+    }
+    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]
+  }
+  
+  define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
+    var tname := getUniqueTemplateId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        datepickerinput(d,dateformat,tname,picker,options)[all attributes]
+      }
+    }
+    else{
+      datepickerinput(d,dateformat,tname,picker,options)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(req!="" && req.parseDate(dateformat)==null){
+          errors := ["Incorrect date format, expected format is "+dateformat];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := d.getValidationErrors();
+      }
+      if(errors != null && errors.length > 0){
+        if(inLabelContext()){
+          for(s:String in errors){
+            addLabelError(s);
+          }
+          errors := null;
+        }
+        cancel();
+      }      
+    }
+  }
+
+  define ignore-access-control datepickerinput(d:Ref<Date>, dateformat:String, tname:String, picker:String, options : String){
+    var s : String
+    init{ 
+      if(d==null){
+        s := "";
+      }
+      else{
+        s := d.format(dateformat);
+      }
+    }
+
+    //includeJS("https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js")
+    //includeJS("https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js")
+    //includeCSS("http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/themes/base/jquery-ui.css")
+    includeJS("jquery-1.5.min.js")
+    includeJS("jquery-ui-1.8.9.custom.min.js")
+    includeJS("jquery-ui-timepicker-addon.js")
+    includeCSS("jquery-ui-1.8.9.custom.css")
+    includeCSS("jquery-ui-timepicker-addon.css")
+    
+    var req := getRequestParameter(tname)
+    
+    <input 
+      if(inLabelContext()) { 
+        id=getLabelString() 
+      } 
+      name=tname
+      type="text"
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = s
+      }
+      class="inputDate "+attribute("class") 
+      all attributes except "class"
+    />
+
+    //uses setTimeout which seems to give better results when used in combination with webdsl ajax
+    <script>
+      setTimeout("$('input[name=~tname]').~picker({~options})",500); 
+    </script>
+ 
+    databind{
+      if(req != null){
+        if(req==""){
+          d := null;
+        }        
+        else{
+          var newdate := req.parseDate(dateformat);
+          if(newdate != null){
+            d := newdate;
+          }
+        }
+      }
+    }
+  }  
   
