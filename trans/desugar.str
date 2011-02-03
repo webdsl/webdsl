@@ -3,7 +3,7 @@ module desugar
 imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports emit read check nwl
-imports lib/track separation/desugar
+imports separation/-
 
 rules // desugared builder
     
@@ -24,27 +24,45 @@ strategies
   is-used-dr = id
   ignore-dr-tracking = ?"DesugarApplied"
   
+  desugar-top =
+    where(CurrentDefinitionKey; defkey-to-mod; is-emit-mod);
+    desugar-top-1
+  
+  desugar-top =
+    track-rules-with-creates(
+      desugar-top-1
+      | <CurrentDefinitionKey>)
+      
+  desugar-top-1 =
+    innermost(
+      desugar;
+      rules(DesugarApplied := True())
+    )
+  
   desugar-all = 
     repeat(
       {| DesugarApplied, DesugarRulesCreated:
-        transform-defs( {
-          track-rules-with-creates(
-            innermost(
-              desugar;
-              rules(DesugarApplied := True())
+        {defs:
+          all-keys-Definition => defs;
+	        transform-defs(desugar-top)
+	      ; repeat(
+            desugar-once;
+            rules(DesugarApplied := True())
+          )
+	      ; where(DesugarApplied)    // quit if nothing done
+	      ; try(
+            where(IncrementalDesugaring);
+	          !defs;
+	          filter(
+              where(CreatedRules);  // not for emitted defs
+              desugar-check-dependencies
             )
-            | <CurrentDefinitionKey>
-          )})
-      ; repeat(
-              desugar-once;
-              rules(DesugarApplied := True())
-            )
-      ; where(DesugarApplied)    // quit if nothing done
-      ; try(where(IncrementalDesugaring); desugar-check-dependencies)
-      ; add-emits
-      |}
-    )
-    ; remove-defs(?[])
+          )
+	      ; add-emits
+	      }
+	    |}
+	  )
+   ; remove-defs(?[])
       
   normalize-all = innermost(normalize)
    

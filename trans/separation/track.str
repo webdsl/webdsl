@@ -1,0 +1,53 @@
+module separation/track
+
+imports
+  separation/-
+
+rules
+  
+  track-rules(s | key) = 
+    {| CreatedRules:
+        track-rules-internal(s | key)
+    |}
+  
+  track-rules-with-creates(s | key) =
+      track-rules-internal(s | key)
+   
+  clean-rule-tracking =
+    where(<table-destroy> "TRACK_DEF_USAGES")
+   
+	def-tracking-table = lookup-table(|"TRACK_DEF_USAGES")
+   
+  all-used-rules = def-tracking-table; hashtable-keys
+   
+  track-rules-internal(s | key) =
+    
+      log-time(start-record-dynamic-rules | "tri-start-record")
+    ; enable-dr-usage-tracking
+	  ; try(s => result)
+	  ; disable-dr-usage-tracking
+	  ; log-time(end-record-dynamic-rules | "tri-end-record")
+	  
+	  // Store creates  
+    ; log-time(
+      filter(not(?(<dr-ignore-dr-tracking>,_)))
+    ; ?all-created-rules
+    ; rules(CreatedRules :+ key -> all-created-rules)
+    
+    // Store usages
+    ; def-tracking-table => usage-table
+    ; rule-tracking-table => rule-table
+    ; <hashtable-keys> rule-table
+    ; remove-dr-dummies
+    ; where(
+        !rule-table
+       ; hashtable-clear
+      )
+    ; map({rulekey,wholekey,val:
+          ?rulekey
+        ; wholekey := (key, rulekey)
+        ; <hashtable-put(|wholekey, 1)> usage-table
+      })
+      | "tri-store-rules")
+      // We fail here if the strategy s failed (result is not bound)
+    ; !result

@@ -1,91 +1,100 @@
-module separation/desugar
+module org/webdsl/dsl/separation/lib/desugar
 
-imports
-  nwl read check emit java-project util
-  include/nwl
+imports 
   separation/-
-  lib/track lib/dr
-
-strategies
-	
-	compiler-phase(s|phasename) =
-	  {| RuleUsers, RuleProvider, RuleVals, RuleValsForKey:
-	    rules(CompilerPhase := phasename);
-	    load-desugar-rules;
-      s
-    |}    
-	
-	start-compiler-phase: phase -> phase
-	 with rules(CompilerPhase := phase)
-	
+  
+rules
+  
+  desugar-dependency-file = <path-to-cache-path> "$deps-desugar.aterm"
+  
   with-rule-resolving(s) = {| RuleResolvingEnabled:
     rules(RuleResolvingEnabled := 1);
     s
   |}
   
-  current-phase-depfile = <path-to-cache-path> $[$deps-[<CompilerPhase>].aterm]
-  
   load-desugar-rules =
     // Load desugar dependencies of unmodified file
-    file := <current-phase-depfile>;
+    file := <desugar-dependency-file>;
     ts := <file-exists; modification-time <+ !0> file;
     rules(DependenciesTimestamp := ts);
-    if (all-old-defs,used-rules,created-rules) := <file-exists; ReadFromFile> file then
+    if (all-old-defs,used-rules,created-rules) := <file-exists; read-file> file then
+      // USERS
       <map(\(key, defs) -> <filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> defs\)> used-rules;
-      <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleProvider :+ key -> def)> where <is-cacheable> def \)> defvals* \)> created-rules;
-      <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleVals :+ def -> (key,vals))> where <is-cacheable> def \)> defvals* \)> created-rules;
-      // TODO: RuleValsToKey can be optimized out
-      <map(\(key, defvals*) -> <filter(\(def,vals) -> <rules(RuleValsForKey :+ key -> (def,vals))> where <is-cacheable> def \)> defvals* \)> created-rules;
+      // PROVIDERS
+      !created-rules;
+      filter(\(def, ruleset) ->
+        <with(map(\(rulename, keyvals) -> 
+          <map(\(rulekey, _) ->  
+              <rules(RuleProvider :+ (rulename, rulekey) -> def);
+               rules(RuleProvider :+ (rulename, DR_DUMMY()) -> def)>
+            \)> keyvals \))>
+            ruleset
+        where <is-cacheable> def\);
+      // VALUES
+      !created-rules;
+      filter(\(def, ruleset) ->
+        <rules(RuleVals : def -> ruleset)>
+        where <is-cacheable> def\);
+      // DEFINITIONS
       all-defs := <filter(is-cacheable)> all-old-defs;
-      <load-new-files> all-defs;
+      //<load-new-files> all-defs;
       rules(PreviousAllDefs := all-defs)
     else
       <debug> "Cannot load dr rules!";
-      load-cached-files
+      all-definitions; remove-all(is-definition-loaded);
+      map(trigger-recompilation)
     end
   
   // Succeed if the cached version of the definition is still valid
   is-cacheable = where(
-    defkey-to-mod;
-    where(Imported);      // still used, not removed
-    CachedModule          // not modified (using cache)
-  ) 
-    
+      not(get-toplevel-definition)        // definition is read from cache
+    ; ?def; all-modules; fetch(?x)        // module is still imported
+  )
+  
   dynamic-rule-resolver: (rulename, key) -> (rulename, key)
      where RuleResolvingEnabled
-        ; defs := <bagof-RuleProvider <+ debug(!"No rule providers for: "); fail> (rulename, key)
+        ; defs := <bagof-RuleProvider> (rulename, key)
+        ; not(?[])
      with   
-          not-loaded := <filter(where(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)))> defs
+          not-loaded := <filter(where(
+          	not(RulesForDefinitionLoaded);
+          	not(def-key-to-module; is-emitted-mod);   // TODO: remove
+          	not(get-toplevel-definition)))> defs
         ; if not([] := not-loaded) then
             <verbose-msg> ["Got rule: ", (rulename, key)];
             <verbose-msg> ["Providers: ", defs];
-            <verbose-msg> ["Loading defs: ", not-loaded];
+            <verbose-msg> ["Loading rules for: ", not-loaded];
             <map(load-rules-for-def)> not-loaded;
-            rules(DesugarApplied := True()) // something changed, need new desugar phase
+            <map(notify-rules-loaded)> not-loaded
           end
   
   load-rules-for-def: defkey -> defkey
-    with  ruleset := <bagof-RuleVals> defkey;
-          load-flat-dynamic-rule-closure;
-          rules(DefinitionLoaded : defkey) 
+    with  ruleset := <RuleVals> defkey;
+          load-dynamic-rule-closure;
+          rules(RulesForDefinitionLoaded : defkey) 
             
-  ignore-dr-tracking =
+  dr-ignore-dr-tracking =
       ?"RuleResolvingEnabled"
    <+ ?"RuleUsers"
    <+ ?"RuleProvider"
-   <+ ?"Definition"
-   <+ ?"DefinitionLoaded"
-   <+ ?"CurrentDefinitionKey"
-   <+ ?"MemoOpenParseTable"     // whole parse table!
-  
+   <+ ?"RulesForDefinitionLoaded"
+   
   // Load files for which we don't have a cache
+  /*
   load-new-files: olddefs -> olddefs
   with
-    oldmods := <filter(defkey-to-mod; not(is-emit-mod); modname-to-filename)> olddefs;
-    bagof-CachedFiles;
+    oldmods := <map(def-key-to-module)> olddefs;
+    all-keys-ModuleToDefs;
     filter(\x -> x where not(<fetch(?x)> oldmods)\);
     try(not(?[]); debug(!"No rule dependencies found for: "));
-    map(load-cached-file)
+    map(load-def-during-desugar)
+  */
+  
+  hashed-uniq =
+    where(lookup-table(|"hashed-uniq") => table);
+    map(\x -> <hashtable-put(|x,1)> table \);
+    <hashtable-keys> table;
+    where(<hashtable-clear> table)
   
   create-rule-index =
     all-used-rules;
@@ -97,58 +106,61 @@ strategies
       ?key;
       bagof-RuleUsageIndex;
       try(
-        <concat;uniq> [<id>, <RuleUsers; filter(is-cacheable)> key]  // add old users
+        <concat;hashed-uniq> [<id>, <RuleUsers> key]  // add old users
       );
       ?defs2;
       rules(RuleUsers : key -> defs2);
       rules(RuleUsageIndex :- key)
     })
-    
+  
   save-desugar-rules =
+     	  all-defs := <concat; hashed-uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
       // Add new rule-usage info
-        {| RuleUsageIndex:
-          create-rule-index
-        ; flatten-and-combine-rule-index
+      ; {| RuleUsageIndex:
+        log-time(create-rule-index | "Create usage index");
+        log-time(flatten-and-combine-rule-index | "Flatten and combine usage")
         |}
-      ; all-keys-RuleUsers
+      ; log-time(
       // Purge old rule-creation info
-      ; all-keys-RuleValsForKey
-      ; map({key,defs2:
-          ?key;
-          bagof-RuleValsForKey;
-          rules(RuleValsForKey :- key);
-          filter(where(Fst;is-cacheable));
-          map(\defvals -> <rules(RuleValsForKey :+ key -> defvals)> \)
-        })
+        all-keys-RuleVals
+      ; filter(
+          not(is-cacheable);
+          \def -> <rules(RuleVals :- def)> \
+        )
       // Add new rule-creation info
       ; all-keys-CreatedRules
-      ; map({def:
+      ; map({def,ruleset:
             ?def
           ; bagof-CreatedRules
           ; concat
-          ; map({rulename:
-                ?(rulename, <id>)
-              ; map({rulekey, vals, drkey:
-                	?(rulekey,vals)
-                ; drkey := (rulename, rulekey)
-                ; rules(RuleValsForKey :+ drkey -> (def, vals))
-                })
-            })
+          ; ?ruleset
+          ; rules(RuleVals : def -> ruleset) 
         })
-        // And save...
-      ; all-defs := <concat; uniq> [<all-used-rules; map(Fst)>, <PreviousAllDefs <+ ![]>] // new and old
-      // Rule -> defs
-      ; uses := <all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\)>
-      ; creates := <all-keys-RuleValsForKey; map(\key -> (key, <bagof-RuleValsForKey>) \)>
-      ; <WriteToBinaryFile> (<current-phase-depfile>, (all-defs, uses, creates))
+        | "prepare creates")
+      // And save...
+      ; all-keys-RuleUsers; map(\key -> (key, <RuleUsers>)\) => uses
+      ; all-keys-RuleVals; filter(\def -> (def, <RuleVals; not(?[])>) \) => creates
+      ; <log-time(write-file(|<desugar-dependency-file>) | "write desugar deps")> (all-defs, uses, creates)
 
-  desugar-check-dependencies = with(
-    all-keys-DesugarRulesCreated => created-in;
-    mapconcat(\key -> (<bagof-DesugarRulesCreated; concat>)\);   
-    uniq;
-    // term: list of dr-keys that were created
-    filter(\key -> (key, <RuleUsers; filter(not(DefinitionLoaded); not(defkey-to-mod; is-emit-mod)); not(?[]); uniq> key)\);
-    // term: list of (dr-key, list-of-users)
-    where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", created-in]}));
-    map(\(rulekey, defkeys) -> <map(load-cached-def)> defkeys \)
-  )
+  desugar-check-dependencies: def -> def
+    with(
+	    CreatedRules;
+	    // Get a list of (name, keys*) pairs
+	    mapconcat(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \);
+	    hashed-uniq;
+	    // term: list of dr-keys that were created
+	    filter(\key -> (key, <RuleUsers; filter(not(get-toplevel-definition)); not(?[]); uniq> key)\);
+	    // term: list of (dr-key, list-of-users)
+	    where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", def]}));
+	    map(Snd);
+	    concat;
+	    remove-all(RulesForDefinitionLoaded; debug(!"WARNING: invalid cache used for definition: "));
+	    // filter: don't load the same def twice
+	    filter(where(not(get-toplevel-definition)); with(load-def-during-desugar))
+	  )
+
+  load-def-during-desugar =
+    ?def;
+    rules(RuleVals :- def); // release memory
+    trigger-recompilation
+  

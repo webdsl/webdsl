@@ -52,7 +52,7 @@ checkFiles("Test:data", $data, array("Entry", "view_Entry", "login"));
 
 // Test 2: if access control has changed, recompile all templates + pages
 $data = compile("ac");
-checkFiles("Test:acl", $data, array("main", "main134", "root", "login", "pred_ac_AccessControlRule_3_8", "pred_ac_AccessControlRule_3_9", "pred_ac_AccessControlRule_3_10", "pred_ac_AccessControlRule_3_14"));
+checkFiles("Test:ac", $data, array("main", "main134", "root", "login", "pred_ac_AccessControlRule_3_8", "pred_ac_AccessControlRule_3_9", "pred_ac_AccessControlRule_3_10", "pred_ac_AccessControlRule_3_14"));
 
 // Test 3: if page access control has changed, recompile all pages
 $data = compile("pageac");

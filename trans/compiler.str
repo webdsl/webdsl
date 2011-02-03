@@ -1,8 +1,8 @@
 module compiler
 
-imports include/nwl read check rename desugar java-project
+imports include/nwl read check rename desugar java-project emit
 imports libstrategolib libstratego-sglr libstratego-gpp libstratego-xtc
-imports lib/editor-common.generated lib/track separation/dependencies lib/dependencies separation/desugar
+imports lib/editor-common.generated separation/-
 
 signature constructors
   At : Term * Term * Term -> Term
@@ -24,6 +24,7 @@ rules
   get-anno(s) = ?_{anno*}; !anno*; fetch-elem(s)
       
   def-to-key: (modname, elem) -> key
+    where <not(is-emit-mod)> modname
     with  <get-anno(?At(m,x,y))> elem;
           <?constructor#(_)> elem;
           key := (modname, $[[constructor]_[<int-to-string> y]_[<int-to-string> x]])
@@ -42,16 +43,12 @@ rules
     
     rules(IncrementalDesugaring := 1); //TODO
     
-    
   	<load-modified-modules> filename;
     transform-defs(topdown(try(remove-string-position-anno)));
   	
     declare-all;
     
-    // TODO: move to 1 strategy, as in webdsl (load-dependent-modules)
-    typecheck-dependencies-file;
-    load-dependency-data;
-  	find-dependent-modules;
+    find-dependent-modules;
     map(load-cached-def);
     transform-defs(topdown(try(remove-string-position-anno)));
     
@@ -79,11 +76,9 @@ rules
       <exit> 1
     end;
     
-    compiler-phase(
-      desugar-all;
-      save-desugar-rules
-      | "desugar"
-    );
+    load-desugar-rules;
+    desugar-all;
+    save-desugar-rules;
     
     nwl-to-java-project;
     

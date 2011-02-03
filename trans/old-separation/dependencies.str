@@ -1,0 +1,52 @@
+module separation/dependencies
+
+imports
+  check read nwl
+  lib/dependencies
+  lib/track
+
+strategies  
+
+  store-used-rules =
+    all-keys-Definition;
+    filter( {key, ruleset:
+        ?key;
+        all-used-rules;
+        filter(where(Fst; ?key); Snd);
+        ?ruleset;
+        rules(RulesUsedBy : key -> ruleset)
+      }
+    )
+    
+  store-signatures =
+    with(
+      all-keys-ModuleLoaded;
+      map({
+          ?modname;
+          bagof-ModuleToDef;
+          mapconcat(bagof-CreatedRules;concat) => defrules;
+          content := (modname, <ModuleToDefs> modname, <ModuleImports> modname, defrules);
+          cachefile := <ModuleFullpath; path-to-cache-path> modname;
+          <WriteToBinaryFile> (cachefile, content)
+      })
+    )
+  
+  typecheck-dependencies-file = <path-to-cache-path> "$deps-declare.aterm"
+  
+  find-dependent-modules =
+    prev-created := <all-keys-OldSignature; map(OldSignature); concat>;
+    all-keys-ModuleLoaded;
+    mapconcat(
+        bagof-ModuleToDef;
+        mapconcat(bagof-CreatedRules;concat)
+    ) => new-created;
+    find-dependent-modules(
+      RulesUsedBy | new-created, prev-created, <all-keys-CachedModule; map(ModuleToDefs); concat>
+    );
+    try(not(?[]); debug(!"Dependent files: "))
+  
+  update-typecheck-dependencies =
+    typecheck-dependencies-file;
+    update-dependency-graph(
+      RulesUsedBy | <all-keys-RulesUsedBy>
+    )
