@@ -632,3 +632,9 @@ module .servletapp/src-webdsl-template/built-in
     }
   }  
   
+  //default access control rule
+  
+  access control rules
+  
+    rule template *(*){true}
+    
