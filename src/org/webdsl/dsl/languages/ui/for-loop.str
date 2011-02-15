@@ -3,10 +3,10 @@ module org/webdsl/dsl/languages/ui/for-loop
 rules
 
   normalize-ui :
-    ForNoFilter(x, s, e, te*, sep) -> For(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep)
+    ForNoFilter(x, s, e, te*, sep){anno*} -> For(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep){anno*}
 
   normalize-ui :
-    ForAllNoFilter(x, s, te*, sep) -> ForAll(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep)
+    ForAllNoFilter(x, s, te*, sep){anno*} -> ForAll(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep){anno*}
 
 rules
 
@@ -36,7 +36,7 @@ rules
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
   rename-ui :
-    def@ForAll(x, srt, f1, elems1, elems3) -> ForAll(y, srt2, f2, elems2, elems4)
+    def@ForAll(x, srt, f1, elems1, elems3){anno*} -> ForAll(y, srt2, f2, elems2, elems4){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2   := <rename-all> srt
           ; y      := <rename-bound-immutable(|srt2)> x
@@ -46,9 +46,10 @@ rules
           ; elems2 := <rename-all> elems1
           |}
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
+        ; newanno* := [TemplateArgs(<TemplateArg>) | anno*]
 
   rename-ui :
-    def@ForAllNoFilter(x, srt, elems1, elems3) -> ForAllNoFilter(y, srt2, elems2, elems4)
+    def@ForAllNoFilter(x, srt, elems1, elems3){anno*} -> ForAllNoFilter(y, srt2, elems2, elems4){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2   := <rename-all> srt
           ; y      := <rename-bound-immutable(|srt2)> x
@@ -57,6 +58,7 @@ rules
           ; elems2 := <rename-all> elems1
           |}
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
+        ; newanno* := [TemplateArgs(<TemplateArg>) | anno*]
 
   rename-ui :
     def@ForCount(x, e1, e2, elems1, elems3) -> ForCount(y, e3, e4, elems2, elems4)
@@ -70,6 +72,20 @@ rules
           |}  
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
           
+rules
+
+  desugar-ui :
+    def@ForAll(x, srt, _, Filter(cond, _, _), _){anno*} -> def{QueryOptimizations(joincandidates, querycondition), anno*}
+    where not(<fetch-elem(?QueryOptimizations(_, _))> anno*)
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; (joincandidates, querycondition) := <get-query-optimizations>(def, x, srt, args, cond)
+
+  desugar-ui :
+    def@ForAllNoFilter(x, srt, _, _){anno*} -> def{QueryOptimizations(joincandidates, querycondition), anno*}
+    where not(<fetch-elem(?QueryOptimizations(_, _))> anno*)
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; (joincandidates, querycondition) := <get-query-optimizations>(def, x, srt, args, True())
+
 rules // ForAll only declared entity types
   
   constraint-error-ui: ForAll(_, srt, _, _, _) -> <forall-constraint-error(|srt)>

@@ -1,0 +1,352 @@
+module org/webdsl/dsl/languages/ui/query-utils
+
+rules
+
+  get-query-optimizations : (base, x, srt, args, cond) -> (joincandidates, querycondition)
+    with {| RootVar, ParentArgs, IteratedVar, IteratedSubList, QueryConditions, IsEffectful
+       : rules ( IteratedVar    : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
+       			 RootVar		: Var(x) -> srt // The actual variable we are interested in
+                 QueryConditions := True()      // Changes over time to represent the query conditions active on the term currently being analyzed
+                 IsEffectful     := False()		// True if the current statement is effectful (means: can affect non-local state), False otherwise
+               )
+       ; <filter({vars: 
+                     \ Arg(arg, srt) ->  <id>
+                       with rules( ParentArgs      : Var(arg) -> srt )
+                     \})> args
+       ; info(|["Looking for property use of variable ", x, " of type ", srt])
+       ; rules( QueryConditions := <extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
+       //; QueryConditions; debug(!"cond:     ")
+       ; fas := <collect-potential-joins> base
+       //; <map(info(|["FA from ", x, ": ", <id>]))> fas
+       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
+       ; info(|["These should be inlined: ", joincandidates])
+       ; querycondition := <filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()> fas // Combine query conditions of the effectful field accesses
+       ; info(|["Query condition:", querycondition])
+      |}
+
+/*create-aliasses :
+	(cur, []) -> [(cur, cur, <(string-tokenize(|['.']); last; str-tail) <+ str-tail> cur)]
+
+create-aliasses :
+	(cur, prev) -> [(newCur, cur, newAlias) | prev]
+	where <head; ?(prevElem, prevOriginal, prevAlias)> prev
+	; <string-starts-with(|prevOriginal)> cur
+	; newCur := <concat-strings>[prevAlias, <explode-string; reverse; take(|<subt>(<strlen> cur, <strlen> prevOriginal)); reverse; implode-string> cur]
+	; newAlias := <concat-strings>[prevAlias, <string-tokenize(|['.']); last> cur]
+
+create-aliasses :
+	(cur, prev) -> [(cur, cur, <(string-tokenize(|['.']); last; str-tail) <+ str-tail> cur) | prev]
+	where <head; ?(prevElem, prevOriginal, prevAlias)> prev
+	; <not(string-starts-with(|prevOriginal))> cur
+
+head : [x|xs] -> x
+tail : [x|xs] -> xs*/
+
+strategies
+
+  //str-tail = explode-string; tail; implode-string
+
+  collect-potential-joins =
+    collect(an-potential-joins)
+    ; flatten-list
+
+  collect-effectful-potential-joins =
+  	where(not(IsEffectful; ?True()))
+	; rules( IsEffectful := True())
+    ; collect(an-potential-joins)
+    ; flatten-list
+	; rules( IsEffectful := False() )
+
+  an-potential-joins =
+  	?Var(_)
+  	; repeat(oncetd(IteratedVarValue))
+  	; where(RootVar)
+  	; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+    where(
+      ?FieldAccess(l, _)
+      ; oncetd(where(IteratedVar); not(IteratedVarValue))
+    )
+    ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+    ?fa@FieldAccess(l, _)
+    ; repeat(oncetd(IteratedVarValue))
+    ; not(?fa)
+    ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+    ?fa@FieldAccess(l, _)
+    ; repeat(oncetd(IteratedSubList))
+    ; not(?fa)
+    ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+    ?Var(_)
+    ; repeat(oncetd(IteratedSubList))
+    ; not(?Var(_))
+    ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+  	(?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
+	; collect-effectful-potential-joins
+
+  // If statements possibly contribute if they have only an if or else block
+  an-potential-joins =
+    (?IfNoElseTempl(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []))
+    ; newCondExp := <repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp 
+    ; listC := <collect-potential-joins> condExp
+    ; OldQueryCond := <QueryConditions>
+    ; rules( QueryConditions := <append-condition>(newCondExp, OldQueryCond) )
+    ; listT := <collect-potential-joins> trueBlock
+    ; rules( QueryConditions := OldQueryCond )
+    ; !<concat>[listC, listT]
+
+  an-potential-joins =
+    ?IfTempl(condExp, [], falseBlock)
+    ; newCondExp := <try(?Not(True()); !True())>Not(<repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp)
+    ; listC := <collect-potential-joins> condExp
+    ; OldQueryCond := <QueryConditions>
+    ; rules( QueryConditions := <append-condition>(newCondExp, OldQueryCond) )
+    ; listF := <collect-potential-joins> falseBlock
+    ; rules( QueryConditions := OldQueryCond )
+    ; !<concat>[listC, listF]
+      
+  // Follow a template call
+  an-potential-joins =
+    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    ; not([] := <collect(\ Var(x) -> <IteratedVar <+ IteratedSubList> \)> args)
+    ; <generate-template-name-args; CurrentTemplateDecl> (name, args)
+    ; ?Define(_, _, fargs, _, body)
+    ; <an-potential-joins-with-args(|args, fargs)> body
+
+  an-potential-joins =
+    (?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, _))
+    ; collect-effectful-potential-joins
+
+  an-potential-joins =
+  	(?ForNoFilter(x, srt, e, te*, sep) <+ ?For(x, srt, e, _, te*, sep))
+  	; ?for
+  	; not([] := <collect(\ Var(v) -> <IteratedVar> \)> e)
+  	; not(<IteratedSubList> Var(x))
+	; {| IteratedSubList
+	   : rules( IteratedSubList : Var(x) -> e)
+	   ; <collect-potential-joins> for
+	   |}
+
+  //an-potential-joins = where(not(should-skip)); debug(!"NoMatch:  "); fail
+
+  // The following terms do not contain interesting info themselves, but their sub-terms possibly do, so they may be skipped
+  should-skip = ?[] <+ ?[_] <+ ?[_|_]
+  should-skip = ?SimpleSort(_)
+  should-skip = (is-query-condition-constant <+ ?None() <+ ?Null())
+  should-skip = (?Or(_, _) <+ ?And(_, _) <+ ?Eq(_, _) <+ ?NotEq(_, _) <+ ?LargerThan(_, _) <+ ?LargerThanOrEqual(_, _) <+ ?SmallerThan(_, _) <+ ?SmallerThanOrEqual(_, _) <+ ?Not(_))
+  should-skip = is-string
+  should-skip = (?Text(_) <+ ?XMLEmptyElement(_, _) <+ ?XMLElement(_, _, _, _) <+ ?InitAction(_) <+ ?Block(_) <+ ?Stat(_) <+ ?Page() <+ ?TemplateBody(_))
+  should-skip = (?Filter(_, _, _) <+ ?OrderNonSpecific(_) <+ ?OrderAscending(_) <+ ?OrderAscending(_) <+ ?Limit(_, _) <+ ?LimitNoOffset(_) <+ ?LimitNoLimit(_) <+ ?ForSeparator(_))
+  should-skip = ?IfTempl(_, trueBlock, falseBlock); where(not([] := trueBlock); not([] := falseBlock)) // If an if statement has both a true and false code block then the condition is irrelevant and thus should be skipped over
+
+  // Following terms need more attention
+  should-skip = ?AccessControlImportRules(_, _) <+ ?ResolvedRequireKey(_)
+
+  // The following matches call collect-effectful-potential-joins, so the second time they match IsEffectful should be true, and thus collect-effectful-potential-joins will fail.
+  // This will result in collecting all sub-term FieldAccesses and Vars containing some variable respresenting RootVar, with their Effectful property set to true.
+  should-skip = (?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, _) <+ ?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _)); where(IsEffectful; ?True())
+
+  // The following line prevents FieldAccesses and Vars not related to the var we are analyzing from showing up. An extra check could be added to make sure they are indeed not related
+  should-skip = (?FieldAccess(_, _) <+ ?Var(_))
+
+  // This strategy defines rules to keep track of template arguments
+  an-potential-joins-with-args(|args, fargs) =
+    ?body
+    ; {| IteratedVarValue, IteratedSubList
+       : with(id
+         ; <filter({vars: 
+                     \ (e, Arg(x, srt)) ->  <id>
+                       where not([] := <collect(is-var-accessible)>)
+                       with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
+                                   IteratedVar      : Var(x) -> srt
+                                 )
+                     \})> <zip> (args, fargs)
+         ; <filter({vars: 
+                     \ (e, Arg(x, srt)) ->  <id>
+                       where not([] := <collect(IteratedSubList)>)
+                       with rules( IteratedSubList  : Var(x) -> e )
+                     \})> <zip> (args, fargs)
+         ) 
+       ; <collect-potential-joins> body
+     |}
+
+
+strategies // checks for potential inlining
+
+  an-find-entity-property-pair =
+    ?fa@FieldAccess(l, fld)
+    ; if Var(x) := l then
+        !<concat-strings> ["_", fld]
+      else
+        !<concat-strings> [<an-find-entity-property-pair> l, "._", fld]
+      end
+
+  an-requires-joining =
+  	?fa@FieldAccess(_, _)
+  	; where(<type-of; is-generic-sort> fa)
+    ; <an-find-entity-property-pair> fa
+
+  an-requires-joining =
+    ?FieldAccess(fa@FieldAccess(_, _), _)
+    ; <an-find-entity-property-pair> fa
+
+  is-var-accessible = where(ParentArgs <+ IteratedVar <+ is-query-condition-constant)
+
+  get-accessible-expr = where(
+  	(ParentArgs <+ IteratedVar)
+  	; ?SimpleSort(x_class)
+  	; srt := <EntityIdType> x_class
+  	; <is-query-condition-type <+ ?SimpleSort("UUID")> srt
+  	; fieldName := <EntityIdName> x_class)
+  	; !FieldAccess(<id>, fieldName){srt} // I am still adding an annotation to store the type when that type could be a UUID, I used this to generate different code for those field, because this type caused a typecast exception  
+
+  get-accessible-expr = get-accessible-dbfield
+
+  get-accessible-expr = get-accessible-field
+
+  get-accessible-expr = where(is-query-condition-constant)
+
+  get-accessible-expr = where((ParentArgs <+ IteratedVar); is-query-condition-type)
+
+  get-accessible-dbfield = where(?FieldAccess(v, _); <?Var(_)> v; <RootVar> v)
+
+  get-accessible-dbfield = where(?FieldAccess(v, _); <get-accessible-dbfield> v)
+
+  get-accessible-field =
+  	where(
+  	  ?fa@FieldAccess(v, f)
+  	  ; x_class := <get-accessible-field-type> v
+      ; srt := <get-prop-type>(x_class, f)
+      ; <(is-query-condition-type <+ ?SimpleSort("UUID"))> srt
+    )
+    ; !fa{srt}
+
+  get-accessible-field =
+  	where(
+  	  ?fa@FieldAccess(v, f)
+  	  ; v_class := <get-accessible-field-type> v
+      ; x_class := <get-prop-type>(v_class, f)
+      ; srt := <EntityIdType> x_class
+      ; <(is-query-condition-type <+ ?SimpleSort("UUID"))> srt
+      ; fieldName := <EntityIdName> x_class
+    )
+    ; !FieldAccess(fa, fieldName){srt}
+
+  get-accessible-field-type = where(?v@Var(_); not(<RootVar> v))
+    ; <(ParentArgs <+ IteratedVar); ?SimpleSort(<id>)> v
+
+  get-accessible-field-type = where(?FieldAccess(v, f); not(<RootVar> v))
+    ; x_class := <(ParentArgs <+ IteratedVar); ?SimpleSort(<id>)> v
+    ; <get-prop-type>(x_class, f)
+
+  get-accessible-field-type = where(?FieldAccess(v, f); x_class := <get-accessible-field-type> v)
+    ; <get-prop-type>(x_class, f)
+
+  is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool")
+
+  is-query-condition-constant = ?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ True() <+ False()
+
+  extract-query-cond =
+    ?Not(expr1)
+    ; expr1new := <extract-query-cond> expr1
+    ; where(<not(?True())>expr1new)
+    ; !Not(expr1new)
+
+  extract-query-cond =
+    ?cond@Or(expr1, expr2)
+    ; expr1new := <extract-query-cond> expr1
+    ; expr2new := <extract-query-cond> expr2
+    ; where(<not(?True())>expr1new; <not(?True())>expr2new)
+    ; !Or(expr1new, expr2new)
+
+  extract-query-cond =
+    ?And(expr1, expr2)
+    ; expr1new := <extract-query-cond <+ !True()> expr1
+    ; expr2new := <extract-query-cond <+ !True()> expr2
+    ; !<append-condition>(expr1new, expr2new)
+
+  extract-query-cond =    
+    ?SmallerThanOrEqual(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !SmallerThanOrEqual(newExpr1, newExpr2)
+
+  extract-query-cond =
+    ?SmallerThan(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !SmallerThan(newExpr1, newExpr2)
+
+  extract-query-cond =
+    ?LargerThanOrEqual(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !LargerThanOrEqual(newExpr1, newExpr2)
+
+  extract-query-cond =
+    ?LargerThan(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !LargerThan(newExpr1, newExpr2)
+
+  extract-query-cond =
+    ?NotEq(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !NotEq(newExpr1, newExpr2)
+
+  extract-query-cond =
+    ?Eq(expr1, expr2)
+    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
+    ; !Eq(newExpr1, newExpr2)
+
+  extract-query-cond = !True()
+
+rules
+
+  generate-template-name-args :
+  	(n, args) -> genname
+  	with t* := <map(type-of; strip-annos)> args
+    ; name := <strip-annos> n
+    ; genname := <generate-template-name> (name,t*)
+
+  join-conditions:
+  	(cond, []) -> cond
+
+  join-conditions:
+  	(cond, True()) -> cond
+
+  join-conditions:
+  	(cond, prevCond) -> Or(prevCond, cond)
+	where <not(?True()); not(?[])> prevCond
+
+  append-condition:
+  	(newCond, oldCond) -> And(newCond, oldCond)
+  	where <not(?True())>newCond; <not(?True())>oldCond
+
+  append-condition:
+  	(newCond, True()) -> newCond
+
+  append-condition:
+  	(True(), oldCond) -> oldCond
+
+  anno-query-expr:
+  	(t, expr) -> expr
+  	where not(?SimpleSort("UUID")); <is-query-condition-type> t 
+
+  anno-query-expr:
+  	(SimpleSort("UUID"), expr) -> expr{SimpleSort("UUID")}
+
+  get-prop-type: (x_class, prop) -> <TypeOfProperty>
+
+  get-prop-type: (x_class, prop) -> <EntityIdType> x_class
+    where <EntityIdName; ?prop> x_class
+
+  is-one-dbprop: (expr1, expr2) -> <id>
+    where <get-accessible-dbfield <+ RootVar> expr1
+
+  is-one-dbprop: (expr1, expr2) -> <id>
+    where <get-accessible-dbfield <+ RootVar> expr2
