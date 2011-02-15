@@ -207,7 +207,7 @@ rules // page arguments
 rules //initialization
 
   argument-to-java-servlet-initialization :
-    arg@farg|[ x : srt ]| ->
+    arg@Arg(x, srt){anno*} ->
     bstm*|[
       if (x_id != null) {            
         x = (x_class) hibSession.load(x_class.class, java.util.UUID.fromString(x_id));
@@ -216,8 +216,37 @@ rules //initialization
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; not(<get-entity-id-name-with-super> srt)
+        ; <not(fetch-elem(?QueryOptimizations(_, _))) <+ fetch-elem(?QueryOptimizations([], True()))> anno*
     with  x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@Arg(x, srt){anno*} ->
+    bstm*|[
+      if (x_id != null) {            
+        List<t> results = e_criteria
+        .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_idprop", java.util.UUID.fromString(x_id)))
+        .list();
+        if(results.size() != 1){
+        	x = (x_class) hibSession.load(x_class.class, java.util.UUID.fromString(x_id));
+        }
+        else {
+          x = results.get(0);
+        }
+      }
+    ]|
+    where <has-entity-anno> srt
+        ; not(SimpleSort("Entity") := srt)
+        ; not(<get-entity-id-name-with-super> srt)
+        ; <not(fetch-elem(?QueryOptimizations([], True())))> anno*
+        ; <fetch-elem(?QueryOptimizations(joinproperties, querycondition))> anno*
+        ; x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
+        //; x_idprop := <?SimpleSort(<EntityIdName>)> srt
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; e_criteria := <foldr(!expr|[ hibSession.createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties
+
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->

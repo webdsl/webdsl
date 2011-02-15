@@ -15,13 +15,156 @@ overlays
 rules
 
   hibernate-forall-criteria :
-    (term{JoinProperties(joinproperties)}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
-    with  e_criteria := <foldr(!expr|[ e_HibSession.createCriteria(t.class).setCacheable(true) ]|,hibernate-forall-criteria-join)> joinproperties
+    (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
+    with <fetch-elem(?QueryOptimizations(joinproperties, querycondition))> anno*
+    ; e_criteria := <foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
     
-  hibernate-forall-criteria-join:
+  hibernate-criteria-join:
     (str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
+  	//((str, _, alias), e) -> expr|[ e.createAlias("~str", "~alias") ]|
+
+  hibernate-criteria-add-condition(|cond,x,srt):
+  	e_criteria -> <id>
+  	where <?True()> cond
+
+  hibernate-criteria-add-condition(|cond,x,srt):
+  	e_criteria -> expr|[ e_criteria.add(e_Cond) ]|
+  	where <not(?True())> cond
+  	with {| IsRootVar:
+    		rules( IsRootVar : Var(x) -> srt )
+        	; e_Cond := <hibernate-criteria-transform-condition> cond
+        	; info(|["e_Cond: ", <pp-java5-to-string> e_Cond])
+          |}
+
+  property-pair-to-string =
+    ?FieldAccess(l, fld)
+    ; if Var(x) := l then
+        !<concat-strings> ["_", fld]
+      else
+        !<concat-strings> [<property-pair-to-string> l, "._", fld]
+      end
+  
+  property-to-string:
+  	fa@FieldAccess(_, _) -> expr|[ "~str" ]|
+  	with str := <property-pair-to-string> fa
+
+  property-to-string:
+  	var@Var(_) -> expr|[ "id" ]|
+  	where <IsRootVar> var
+
+  hibernate-criteria-transform-condition:
+    Not(expr1) -> expr|[ org.hibernate.criterion.Restrictions.not(e_expr1new) ]|
+    with e_expr1new := <hibernate-criteria-transform-condition> expr1
+
+  hibernate-criteria-transform-condition:
+    Or(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.or(e_expr1new, e_expr2new) ]|
+    with e_expr1new := <hibernate-criteria-transform-condition> expr1
+    ; e_expr2new := <hibernate-criteria-transform-condition> expr2
+
+  hibernate-criteria-transform-condition:
+    And(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.and(e_expr1new, e_expr2new) ]|
+    with e_expr1new := <hibernate-criteria-transform-condition> expr1
+    ; e_expr2new := <hibernate-criteria-transform-condition> expr2
+
+  hibernate-criteria-transform-condition:
+    SmallerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.leProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2) // Both expressions are database fields
+
+  hibernate-criteria-transform-condition:
+    SmallerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.le(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2) // expr1 is a database field, expr2 is not
+
+  hibernate-criteria-transform-condition:
+    SmallerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.gt(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2) // expr2 is a database field, expr1 is not
+
+  hibernate-criteria-transform-condition:
+    SmallerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.ltProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    SmallerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.lt(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    SmallerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.ge(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.geProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.ge(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThanOrEqual(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.lt(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.gtProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.gt(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    LargerThan(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.le(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    NotEq(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.neProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    NotEq(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.ne(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    NotEq(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.ne(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    Eq(expr1, expr2) -> expr|[ org.hibernate.criterion.Restrictions.eqProperty(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-both-props>(expr1, expr2)
+
+  hibernate-criteria-transform-condition:
+    Eq(expr1{anno*}, expr2) -> expr|[ org.hibernate.criterion.Restrictions.eq(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2); <not(fetch-elem(?SimpleSort("UUID")))> anno*
+
+  hibernate-criteria-transform-condition:
+    Eq(expr1{anno*}, expr2) -> expr|[ org.hibernate.criterion.Restrictions.naturalId().set(e_expr1new, e_expr2new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param1-prop>(expr1, expr2); <fetch-elem(?SimpleSort("UUID"))> anno*
+
+  hibernate-criteria-transform-condition:
+    Eq(expr1, expr2{anno*}) -> expr|[ org.hibernate.criterion.Restrictions.eq(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2); <not(fetch-elem(?SimpleSort("UUID")))> anno*
+
+  hibernate-criteria-transform-condition:
+    Eq(expr1, expr2{anno*}) -> expr|[ org.hibernate.criterion.Restrictions.naturalId().set(e_expr2new, e_expr1new) ]|
+    where (e_expr1new, e_expr2new) := <transform-param2-prop>(expr1, expr2); <fetch-elem(?SimpleSort("UUID"))> anno*
+
+  transform-both-props:
+  	(expr1, expr2) -> (e_expr1new, e_expr2new)
+    where not([] := <collect(IsRootVar)>expr1); not([] := <collect(IsRootVar)>expr2) 
+    with e_expr1new := <property-to-string> expr1
+    ; e_expr2new := <property-to-string> expr2
+
+  transform-param1-prop:
+    (expr1, expr2) -> (e_expr1new, e_expr2new)
+    where not([] := <collect(IsRootVar)>expr1); [] := <collect(IsRootVar)>expr2
+    with e_expr1new := <property-to-string> expr1
+    ; e_expr2new := <expression-to-java-servlet> expr2
+
+  transform-param2-prop:
+    (expr1, expr2) -> (e_expr2new, e_expr1new)
+    where [] := <collect(IsRootVar)>expr1; not([] := <collect(IsRootVar)>expr2) 
+    with e_expr1new := <expression-to-java-servlet> expr1
+    ; e_expr2new := <property-to-string> expr2
 
   /**
    * Hibernate optimization below on hold, Zef is working on a replacement ORM
