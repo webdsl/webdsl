@@ -8,6 +8,6 @@ import org.hibernate.dialect.MySQL5InnoDBDialect;
 public class MySQL5InnoDBDialectUTF8 extends MySQL5InnoDBDialect {
 
     public String getTableTypeString() {
-        return " type=InnoDB DEFAULT CHARSET=utf8";
+        return " engine=InnoDB DEFAULT CHARSET=utf8";
     }
 }
