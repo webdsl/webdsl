@@ -12,8 +12,15 @@ import org.webdsl.lang.Environment;
 
 public abstract class TemplateServlet {
     
+    public static TemplateServlet getCurrentTemplate(){
+        return ThreadLocalTemplate.get();
+    }
+    
     protected boolean validated=true;
     protected String uniqueid;
+    public String getUniqueId(){
+      return this.uniqueid;
+    }
     protected Environment env;
     protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
     protected org.hibernate.Session hibSession;
@@ -113,7 +120,9 @@ public abstract class TemplateServlet {
     public abstract String getTemplateClassName();
     public abstract String getTemplateSignature();
     public abstract String getStateEncodingOfArgument();
-    public abstract String getTemplateContext();
+    public String getTemplateContext(){
+      return ThreadLocalPage.get().getTemplateContextString();
+    } 
     
     private Map<String,Object> actions = null;
     public Map<String,Object> getActions(){

@@ -10,7 +10,7 @@ define ignore-access-control outputSecret1(s: Secret){
 }
 
   define ignore-access-control inputSecret1(s:Ref<Secret>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -25,23 +25,15 @@ define ignore-access-control outputSecret1(s: Secret){
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){ //this adds errors to labels instead
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);  
     }
   }
 
 define ignore-access-control inputSecretInternal(s : Ref<Secret>, tname : String){
   var req := getRequestParameter(tname)
   <input 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     type="text"

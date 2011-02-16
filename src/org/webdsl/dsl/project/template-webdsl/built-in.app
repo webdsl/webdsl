@@ -60,6 +60,48 @@ module .servletapp/src-webdsl-template/built-in
   type Email {
     utils.EmailType.isValid as isValid():Bool
   }
+  
+// access to page context
+
+  native class AbstractPageServlet as PageServlet {
+    formRequiresMultipartEnc : Bool
+    getFileUpload(String) : File  
+    getLabelString() : String
+    inLabelContext() : Bool
+    addValidationException(String,String)
+    static getRequestedPage() : PageServlet
+  }
+  function getPage():PageServlet{
+    return PageServlet.getRequestedPage();
+  }  
+
+//access to template context
+  
+  native class TemplateServlet as TemplateServlet {
+    getUniqueId() : String
+    static getCurrentTemplate() : TemplateServlet
+  }
+  function getTemplate() : TemplateServlet{
+    return TemplateServlet.getCurrentTemplate();
+  }  
+  
+// utitity for templates that handle validation
+
+  function handleValidationErrors(errors : List<String>): List<String>{
+    var result :List<String> := null;
+    if(errors != null && errors.length > 0){
+      if(getPage().inLabelContext()){
+        for(s:String in errors){
+          getPage().addValidationException(getPage().getLabelString(),s);
+        }
+      }
+      else{
+        result := errors;
+      }
+      cancel();
+    }    
+    return result;
+  }
 
 //  section JSON for services
       
@@ -144,6 +186,22 @@ module .servletapp/src-webdsl-template/built-in
     constructor()
   }
   
+  native class org.openqa.selenium.support.ui.Select as Select {
+    deselectAll() // Clear all selected entries.
+    deselectByIndex(Int) // Deselect the option at the given index.
+    deselectByValue(String) // Deselect all options that have a value matching the argument.
+    deselectByVisibleText(String) // Deselect all options that display text matching the argument.
+    escapeQuotes(String):String
+    getAllSelectedOptions():List<WebElement>
+    getFirstSelectedOption():WebElement
+    getOptions():List<WebElement>
+    isMultiple():Bool
+    selectByIndex(Int) // Select the option at the given index.
+    selectByValue(String) // Select all options that have a value matching the argument.
+    selectByVisibleText(String) // Select all options that display text matching the argument.
+    constructor(WebElement)
+  }
+  
 //email
 
   entity QueuedEmail {
@@ -185,9 +243,28 @@ module .servletapp/src-webdsl-template/built-in
   
 // radio buttons input
 
-  define ignore-access-control validate radio(ent1:Ref<Entity>,ent2:List<Entity>){
-    var rname := getUniqueTemplateId()
-    var tmp : String:= getRequestParameter(rname);
+  define ignore-access-control radio(ent1:Ref<Entity>,ent2:List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        radioInternal(ent1, ent2, tname)[all attributes]
+      }
+    }
+    else{
+      radioInternal(ent1, ent2, tname)[all attributes]
+    }
+    validate{
+      errors := ent1.getValidationErrors();
+      errors := handleValidationErrors(errors);       
+    }
+  }
+
+  define ignore-access-control radioInternal(ent1:Ref<Entity>,ent2:List<Entity>, tname : String){
+    var tmp : String:= getRequestParameter(tname);
     var subme : Entity := null;
     init{
       if(tmp != null){
@@ -200,7 +277,7 @@ module .servletapp/src-webdsl-template/built-in
         if(tmp != null && subme == e || tmp == null && ent1 == e){
            checked="checked"
         }
-        name=rname
+        name=tname
         value=e.id
         all attributes
       />
@@ -359,7 +436,7 @@ module .servletapp/src-webdsl-template/built-in
   */
   
   define ignore-access-control menubar(){
-    var elementid := "menu"+getUniqueTemplateId()
+    var elementid := "menu"+getTemplate().getUniqueId()
     includeCSS("dropdownmenu.css")
     <div class="menuwrapper" id=elementid all attributes>
       <ul id="p7menubar" class="menubar">
@@ -540,7 +617,7 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -562,15 +639,7 @@ module .servletapp/src-webdsl-template/built-in
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := d.getValidationErrors();
       }
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);       
     }
   }
 
@@ -597,8 +666,8 @@ module .servletapp/src-webdsl-template/built-in
     var req := getRequestParameter(tname)
     
     <input 
-      if(inLabelContext()) { 
-        id=getLabelString() 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
       } 
       name=tname
       type="text"

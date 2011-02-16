@@ -10,7 +10,7 @@ define ignore-access-control outputEmail1(s: Email){
 }
 
   define ignore-access-control inputEmail1(s:Ref<Email>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -32,23 +32,15 @@ define ignore-access-control outputEmail1(s: Email){
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := s.getValidationErrors();
       }
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){ //this adds errors to labels instead
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);     
     }
   }
 
 define ignore-access-control inputEmailInternal(s : Ref<Email>, tname : String){
   var req := getRequestParameter(tname)
   <textarea 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     class="inputEmailarea inputEmail "+attribute("class") 

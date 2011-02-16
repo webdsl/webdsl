@@ -10,7 +10,7 @@ define ignore-access-control outputFloat1(i : Float){
 }
 
   define ignore-access-control inputFloat1(i:Ref<Float>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -38,24 +38,16 @@ define ignore-access-control outputFloat1(i : Float){
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
       }
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){ //this adds errors to labels instead
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);      
     }
   }
 
 define ignore-access-control inputFloatFloaternal(i : Ref<Float>, tname : String){
-  //var rname := getUniqueTemplateId()
+  //var rname := getTemplate().getUniqueId()
   var req := getRequestParameter(tname)
   <input 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     if(req != null){ 

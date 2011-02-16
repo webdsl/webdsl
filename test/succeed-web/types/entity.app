@@ -18,7 +18,7 @@ application exampleapp
   }
   */
   define inputEntity1(ent : Ref<Entity>, from : List<Entity>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
     
     if(errors != null && errors.length > 0){
@@ -31,15 +31,7 @@ application exampleapp
     }
     validate{
       errors := ent.getValidationErrors();
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }
+      errors := handleValidationErrors(errors);
     }
   }
 
@@ -50,8 +42,8 @@ define ignore-access-control inputEntityInternal(ent : Ref<Entity>, from : List<
   var notnull := hasNotNullAttribute() || ent.getReflectionProperty().hasNotNullAnnotation()
   <input type="hidden" name=tname+"_isinput" />
   <select 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     class="select "+attribute("class") 
@@ -157,22 +149,6 @@ define testnolabel(e:Ent){
     input(e.ent)[class = "built-in-input-elem"]
     submit action{}[class = "built-in-button-elem"]{"save"}
   }
-}
-
-native class org.openqa.selenium.support.ui.Select as Select {
-  deselectAll() // Clear all selected entries.
-  deselectByIndex(Int) // Deselect the option at the given index.
-  deselectByValue(String) // Deselect all options that have a value matching the argument.
-  deselectByVisibleText(String) // Deselect all options that display text matching the argument.
-  escapeQuotes(String):String
-  getAllSelectedOptions():List<WebElement>
-  getFirstSelectedOption():WebElement
-  getOptions():List<WebElement>
-  isMultiple():Bool
-  selectByIndex(Int) // Select the option at the given index.
-  selectByValue(String) // Select all options that have a value matching the argument.
-  selectByVisibleText(String) // Select all options that display text matching the argument.
-  constructor(WebElement)
 }
 
 test entityreftemplates {
