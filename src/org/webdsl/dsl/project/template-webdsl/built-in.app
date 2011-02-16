@@ -61,6 +61,13 @@ module .servletapp/src-webdsl-template/built-in
     utils.EmailType.isValid as isValid():Bool
   }
   
+  type File{
+    getContentAsString():String
+  }
+  type Image{
+    getContentAsString():String
+  }
+  
 // access to page context
 
   native class AbstractPageServlet as PageServlet {

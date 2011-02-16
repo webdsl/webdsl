@@ -59,6 +59,7 @@ define page root(){
     }
     " "
     output(e1.f)
+    output(e1.f.getContentAsString())
     
     <br/>
     <br/>
@@ -70,6 +71,10 @@ define page root(){
     }
     " "
     output(e1.i)
+    output(e1.i.getContentAsString())
+    
+    
+    
 }
 
 define ignore-access-control inputImage1(i : Ref<Image>){
