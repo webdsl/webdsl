@@ -164,7 +164,7 @@ public abstract class TemplateServlet {
               this.ltas = ltas;
               try {
                 storeArguments(args);
-                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getStateEncodingOfArgument(), getTemplateContext());
+                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext());
                 initialize();
                 initializeLocalVars();
                 initSubmitActions();
