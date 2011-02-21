@@ -101,7 +101,7 @@ public abstract class AbstractPageServlet{
         ThreadLocalAction.set(null);
         ThreadLocalEmailContext.set(null);
         ThreadLocalPage.set(null);
-        ThreadLocalTemplate.set(null);
+        ThreadLocalTemplate.setNull();
     }
 
     //templates scope
