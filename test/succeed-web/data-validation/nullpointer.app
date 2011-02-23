@@ -35,6 +35,15 @@ application registerexample
     }
   }
   
+  define page extra(){
+    var l : Set<StringContainer> := null //could cause nullpointer when doing a contains check with 'in'
+    form{
+      input(testUser.s)[class="input1"]
+      validate(testUser.s in l,"extra form validation error")
+      submit action{  }[class="button1"]{"save1"}
+    }
+  }
+  
   test validatenotnullchecks {
     var d : WebDriver := FirefoxDriver();
 
@@ -63,5 +72,10 @@ application registerexample
     b4.click();
     assert(d.getPageSource().contains("action validation error"));
     
+    
+    d.get(navigate(extra()));
+    var b1 := d.findElement(SelectBy.className("button1"));
+    b1.click();
+    assert(d.getPageSource().contains("extra form validation error"));
     d.close();
   }
