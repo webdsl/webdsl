@@ -24,7 +24,10 @@ TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/types/*.app) \
   $(wildcard succeed-web/manual/*.app) \
   $(wildcard succeed-web/manual/ajax-form-validation/*.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/*/main.app)
+  $(wildcard succeed-web/manual/tutorial-splash/v1/v1.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v2/v2.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v3/v3.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v4/v4.app)
 
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)

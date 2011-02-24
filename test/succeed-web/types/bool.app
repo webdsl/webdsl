@@ -19,7 +19,7 @@ define ignore-access-control outputBool1(b : Bool){
 }
 
   define inputBool1(b:Ref<Bool>){
-    var tname := getUniqueTemplateId() // regular var is reset when validation fails
+    var tname := getTemplate().getUniqueId() // regular var is reset when validation fails
     request var errors : List<String> := null // need a var that keeps its value, even when validation fails
     
     if(errors != null && errors.length > 0){
@@ -32,27 +32,19 @@ define ignore-access-control outputBool1(b : Bool){
     }
     validate{
       errors := b.getValidationErrors();
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){ //this adds errors to labels instead
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }
+      errors := handleValidationErrors(errors);
     }
   }
 
     // if(e) e1 else e2    //java e?e1:e2   //python e1 if e else e2   
 define ignore-access-control inputBoolInternal(b : Ref<Bool>,rname:String){
-  //var rname := getUniqueTemplateId()
+  //var rname := getTemplate().getUniqueId()
   var rnamehidden := rname + "_isinput"
      
   <input type="hidden" name=rname+"_isinput" />
     <input type="checkbox" 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=rname 
     //true when it was submitted as true or it was not submitted but the value was already true

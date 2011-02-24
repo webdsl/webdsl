@@ -74,10 +74,18 @@ rules
     a@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <add-error(|["nested rule type unknown: ",<pp-webdsl> a])>
     where <not(elem)> (checktype,ruletypes)
     
-  // correct element arguments received a type during rename
+  // correct element arguments received a type during rename, x{y} will match in that case
   constraint-error-ac : 
-    a@AccessControlPointcutElement(ident,matchident,faidents,wc) -> <add-error(|["pointcut element uses unknown identifier: ",<pp-webdsl> a])>
-    where not(<map({x:?_{x}})> faidents)
+    a@AccessControlPointcutElement(ident,matchident,faidents,wc) -> <fail>
+    where <filter({x,y:not(?_{y});?x;<add-error(|["pointcut element uses unknown identifier: ",<pp-webdsl> x])> a})> faidents
+
+  constraint-error-ac :
+    AccessControlPointcut(pname,fa,elems) -> <fail>
+    where argids := <map(\Arg(ident,thesort)->ident\)> fa
+        ; <filter(constraint-error-ac-pointcut-arg(|argids))> elems
+  constraint-error-ac-pointcut-arg(|argids) :
+    acpe@AccessControlPointcutElement(ident,matchident,faidents,wc) -> <fail>
+    where <filter({x:?x;<not(fetch(?x))>faidents;<add-error(|["pointcut element must use pointcut argument: ",x])>acpe})> argids
 
   constraint-error-ac :
     a@AccessControlRule("pointcut",matchident,args,checks,childrules) -> <add-error(|["pointcut ",matchident," does not exist: ",<pp-webdsl> a])>
@@ -86,8 +94,9 @@ rules
         ; not(<MatchesAccessControlPointcut> (matchident,t1*))
        
   constraint-error-ac :
-    a@AccessControlDefinition(_,_) -> <add-error(|["cannot have access control rules without a principal declaration: ",<pp-webdsl> a])>
+    a@AccessControlDefinition(_,acrules) -> <add-error(|["cannot have access control rules without a principal declaration: ",<pp-webdsl> a])>
     where not(AccessControlEnabled)
+    where not(<?[AccessControlRule("template","*",MatchArgs([],Some("*")),True(),[])]> acrules) // don't trigger on default rule declared in built-in.app
    
   constraint-error-ac =
       ?AccessControlPrincipal(_,_)

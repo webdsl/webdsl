@@ -8,6 +8,6 @@ import org.hibernate.dialect.MySQLMyISAMDialect;
 public class MySQLMyISAMDialectUTF8 extends MySQLMyISAMDialect {
 
     public String getTableTypeString() {
-        return " type=MyISAM DEFAULT CHARSET=utf8";
+        return " engine=MyISAM DEFAULT CHARSET=utf8";
     }
 }

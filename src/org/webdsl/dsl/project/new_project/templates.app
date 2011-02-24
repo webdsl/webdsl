@@ -2,18 +2,21 @@ module templates
 
 define main() {
   <div id="pagewrapper">
-     <div id="header">
-        mainheader()
-     </div>
-     <div id="navbar">
-       applicationmenu()
-     </div>
-     <div id="content">
-       body()
-     </div>
-     <div id="footer">
-       <p />"powered by " <a href="http://webdsl.org">"WebDSL"</a><p />
-     </div>
+    <div id="header">
+       mainheader()
+    </div>
+    <div id="navbar">
+      applicationmenu()
+    </div>
+    <div id="content">
+      body()
+    </div>
+    /* clear and push help to prevent footer from overlapping content when resizing */
+    <div id="clear"></div>
+    <div id="push"></div>
+  </div>
+  <div id="footer">
+    <span id="footercontent">"powered by " <a href="http://webdsl.org">"WebDSL"</a></span>
   </div>
 }
 
@@ -28,11 +31,17 @@ define mainheader() {
 }
 
 define applicationmenu() {
-  <ul>
-    <li>navigate(root()){"Home"}</li>
-    <li>navigate(managePerson()){ "Manage Person" }</li>
-  </ul>
+  navbaritem{ navigate(root()){"Home"} }
+  navbaritem{ navigate(managePerson()){ "Manage Person" } }
 }
+
+define navbaritem(){
+  <span class="navbaritem">
+    elements()
+  </span>
+}
+
+//validation template override
  
 define ignore-access-control errorTemplateInput(messages : List<String>){
   elements()

@@ -48,6 +48,7 @@ src/Makefile
 test/Makefile
 src/org/webdsl/dsl/project/testnewproject.sh
 src/org/webdsl/dsl/project/webdsl
+src/org/webdsl/dsl/project/webdsl-eclipseplugin
 src/org/webdsl/dsl/project/webdsl-plugins
 src/org/webdsl/dsl/project/Makefile
 webdsls.pc

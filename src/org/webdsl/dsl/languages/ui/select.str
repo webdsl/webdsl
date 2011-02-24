@@ -76,8 +76,13 @@ rules
  */
 rules
 
-  desugar-ui :
+  desugar-in-define-context :
     tc@Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*){anno*} ->
+    result
+    where result := <desugar-with-allowed-anno <+ desugar-without-allowed-anno> tc        
+  
+  desugar-with-allowed-anno:
+    tc@Select(x, srt, label, fa@FieldAccess(var,x_prop), passign*, elem*){anno*} ->
     result
     where SimpleSort(x_vartypename) := <type-of> var
         ; propannos := <property-annos> (x_vartypename,x_prop) 
@@ -85,8 +90,16 @@ rules
     with  t_typeofcol := <type-of> e1
         ; x_name := <allowed-collection-function-name> x_prop
         ; e_col := Call(var,x_name,[])
-        ; result := SelectFromList(FieldAccess(var,x_prop), e_col, passign*, elem*){anno*}
-
+        ; result := SelectFromList(fa, e_col, passign*, elem*){anno*}
+   
+  desugar-without-allowed-anno :
+    Select(x, srt, label, prop, passign*, elem*){anno*} -> SelectFromList(prop, hql, passign*, elem*){anno*}
+    with <?SimpleSort(typename) <+ ?GenericSort(_,[SimpleSort(typename)])> srt
+       ; hql := ForExp(Var("s"),"s",SimpleSort(typename),HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),None,None),None)])),None,None,None)),FilterNoWhereNoLimit(OrderNonSpecific(FieldAccess(Var("s"),"name"))))
+       //[s|s:SomeEntity in (from SomeEntity) order by s.name]
+       //; hql := HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),Some(AsAlias(Alias("ent"))),None),None)])),None,None,Some(OrderByClause([OrderElement(Path(["ent","name"]),None)]))))
+       //from ~typename as ent order by ent.name   //doesn't work because name might not be available in query, if it is not a real property but e.g. derived or the default name
+         
 // TODO constraint: 'allowed=' collection must be Set or List of property type
 // constraint: only 1 'allowed'
 // constraint: overlap with generated function below
@@ -122,10 +135,9 @@ rules
   get-all-function-allowed-annotation(|x_class):
     entbodydecs1 -> entbodydecs2
     with  tuples := <map(get-function-allowed-annotation(|x_class) <+ !(<id>,[]) )> entbodydecs1
-        ; (props2,funcs1) := <unzip> tuples
+        ; (olddefs,funcs1) := <unzip> tuples
         ; funcs2 := <flatten-list> funcs1
-        ; rest := <remove-all(?Property(_,_,_,_))> entbodydecs1
-        ; entbodydecs2 := <concat> [props2,funcs2,rest]
+        ; entbodydecs2 := <concat> [olddefs,funcs2]
 
   get-function-allowed-annotation(|x_class) :  
     prop@Property(x, k, srt, annos) -> 
@@ -142,27 +154,13 @@ rules
      
   allowed-collection-function-name : x -> <concat-strings> ["allowedCollectionForProperty",<capitalize-string> x]   
   
-
-/**
- *  'not null' annotation
- */
- rules
- 
-  desugar-ui :
-    Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*){anno*} ->
-    Select(x, srt, label, FieldAccess(var,x_prop), passign1*, elem*){anno*}
-    where passign1* := <desugar-not-null-anno(|passign*, var, x_prop)>
-    
-  desugar-ui :
-    SelectFromList(FieldAccess(var,x_prop), e, passign*, elem*){anno*} ->
-    SelectFromList(FieldAccess(var,x_prop), e, passign1*, elem*){anno*}
-    where passign1* := <desugar-not-null-anno(|passign*, var, x_prop)>
+  rules //translate select to input(Set/List)
+              
+    desugar-in-define-context :
+      SelectFromList(prop, e, passign*, elem*){anno*} -> TemplateCall("input",[prop,e],passign*,TemplateBody(elem*)){anno*} 
+      where GenericSort("List",_) := <type-of> e  
+      
+    desugar-in-define-context :
+      SelectFromList(prop, e, passign*, elem*){anno*} -> TemplateCall("input",[prop,Call(e,"list",[])],passign*,TemplateBody(elem*)){anno*} 
+      where GenericSort("Set",_) := <type-of> e  
        
-  desugar-not-null-anno(|passign*, var, x_prop) :
-    _ -> passign1*
-    where not(<fetch(TemplateCallPropertyNotNull)> passign*)
-        ; SimpleSort(x_vartypename) := <type-of> var
-        ; propannos := <property-annos> (x_vartypename,x_prop) 
-        ; <fetch(?NotNullAnno())> propannos
-    with  passign1* := [TemplateCallPropertyNotNull() | passign*]
-        

@@ -50,3 +50,22 @@ section datamodel
   define page user(u:User){
     derive viewPage from u
   }
+  /*
+  predicate isEducationDirector(p : Person, c : Course) {
+    p != null && Or [e in p.directs | e : Education in c.educations]
+  }
+*/
+  function bar(ilist:List<Int>):Bool{
+    return Or [i==3 | i:Int in ilist];
+  }
+  predicate foo(ilist:List<Int>){
+    Or [i==3 | i:Int in ilist]
+  }
+  test orlist{
+    var ilist := [1,2,3,4,5];  
+    assert(Or [i==3 | i:Int in ilist]);
+    assert(foo(ilist));
+    assert(bar(ilist));
+  }
+  
+  

@@ -10,6 +10,15 @@ public class ThreadLocalTemplate {
     
     public static void set(TemplateServlet d) {
         template.set(d);
-    }    
+    } 
+    
+    //convenient for code generation, template call translation does a `ThreadLocalTemplate.set(this)` where `this` could be EmailServlet instead of TemplateServlet
+    public static void set(EmailServlet d){
+        setNull();
+    } 
+    
+    public static void setNull(){
+        template.set(null);
+    }
 }
 

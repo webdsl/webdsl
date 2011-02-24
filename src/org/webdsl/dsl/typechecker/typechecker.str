@@ -60,9 +60,12 @@ strategies
     
   // This must be called *before* any declares as it sets up the built-in types
   typecheck-init = 
-      not(built-in-template-rule-setup
-	       ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure built-in-template-setup rules end with ';fail'")
-	    ) // setup dyn rules for checks
+    {| CurrentModule:
+        rules(CurrentModule := "___BUILTIN___")
+      ; not(built-in-template-rule-setup
+         ; fatal-err-msg(|"error in typechecker.str, failure should not occur here, make sure built-in-template-setup rules end with ';fail'")
+       ) // setup dyn rules for checks
+    |}
   
   // Declare globally visible webdsl elements
   typecheck-declare =
@@ -84,11 +87,9 @@ strategies
         ) // setup dyn rules for checks
         | "after-tc-declare-hook")
 
-	constraint-error-def =
-      bottomup(
-		    try(
-		      constraint-error; where(stage-newline-once); debug(!"INTERNAL ERROR: constraint-error succeeded for: ")))
-    
+  constraint-error-def =
+    bottomup(try(constraint-error; where(stage-newline-once); debug(!"INTERNAL ERROR: constraint-error succeeded for: ")))
+  
   catch-errors-editor(s) = 
     {| AllErrors, AllWarnings:
       rules(
@@ -102,30 +103,28 @@ strategies
   
 rules
 
-	get-toplevel-name = get-anno(?TopLevelName(<id>))
+  get-toplevel-name = get-anno(?TopLevelName(<id>))
 
 rules // with-toplevel-name
-	
-	create-toplevel-name = 
-			modname := <get-anno(?At(<id>, _, _); clean-module-name)>
-		; <concat-strings; newname> [modname, "_topdef"]
-	
-	// in desugaring, new elements do not have position information
-	create-toplevel-name = <concat-strings; newname> ["topdef"]
-		
-	clean-module-name = string-as-chars(filter(is-alpha))
-		
-	// Find toplevel name for element and do s
-	with-toplevel-name(s) =
-		(		where(name := <get-toplevel-name>)
-		<+	where(name := <create-toplevel-name>)
-			; add-anno(|TopLevelName(name))
-		)
-		; with-toplevel-name(s|name)
-		
-	with-toplevel-name(s|name) = {| TopLevelDefineName:
-			rules(TopLevelDefineName := name)
-  	; s
+  
+  create-toplevel-name = 
+      modname := <get-anno(?At(<id>, _, _); clean-module-name)>
+    ; <concat-strings; newname-webdsl> [modname, "_topdef"]
+  
+  // in desugaring, new elements do not have position information
+  create-toplevel-name = <concat-strings; newname> ["topdef"]
+    
+  clean-module-name = string-as-chars(filter(is-alpha))
+    
+  // Find toplevel name for element and do s
+  with-toplevel-name(s) =
+    (		where(name := <get-toplevel-name>)
+    <+	where(name := <create-toplevel-name>)
+      ; add-anno(|TopLevelName(name))
+    )
+    ; with-toplevel-name(s|name)
+    
+  with-toplevel-name(s|name) = {| TopLevelDefineName:
+      rules(TopLevelDefineName := name)
+    ; s
   |}
-
-      

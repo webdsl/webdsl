@@ -60,6 +60,56 @@ module .servletapp/src-webdsl-template/built-in
   type Email {
     utils.EmailType.isValid as isValid():Bool
   }
+  
+  type File{
+    getContentAsString():String
+  }
+  type Image{
+    getContentAsString():String
+  }
+  
+// access to page context
+
+  native class AbstractPageServlet as PageServlet {
+    inSubmittedForm() : Bool
+    formRequiresMultipartEnc : Bool
+    getFileUpload(String) : File  
+    getLabelString() : String
+    inLabelContext() : Bool
+    addValidationException(String,String)
+    static getRequestedPage() : PageServlet
+  }
+  function getPage():PageServlet{
+    return PageServlet.getRequestedPage();
+  }  
+
+//access to template context
+  
+  native class TemplateServlet as TemplateServlet {
+    getUniqueId() : String
+    static getCurrentTemplate() : TemplateServlet
+  }
+  function getTemplate() : TemplateServlet{
+    return TemplateServlet.getCurrentTemplate();
+  }  
+  
+// utitity for templates that handle validation
+
+  function handleValidationErrors(errors : List<String>): List<String>{
+    var result :List<String> := null;
+    if(errors != null && errors.length > 0){
+      if(getPage().inLabelContext()){
+        for(s:String in errors){
+          getPage().addValidationException(getPage().getLabelString(),s);
+        }
+      }
+      else{
+        result := errors;
+      }
+      cancel();
+    }    
+    return result;
+  }
 
 //  section JSON for services
       
@@ -144,6 +194,22 @@ module .servletapp/src-webdsl-template/built-in
     constructor()
   }
   
+  native class org.openqa.selenium.support.ui.Select as Select {
+    deselectAll() // Clear all selected entries.
+    deselectByIndex(Int) // Deselect the option at the given index.
+    deselectByValue(String) // Deselect all options that have a value matching the argument.
+    deselectByVisibleText(String) // Deselect all options that display text matching the argument.
+    escapeQuotes(String):String
+    getAllSelectedOptions():List<WebElement>
+    getFirstSelectedOption():WebElement
+    getOptions():List<WebElement>
+    isMultiple():Bool
+    selectByIndex(Int) // Select the option at the given index.
+    selectByValue(String) // Select all options that have a value matching the argument.
+    selectByVisibleText(String) // Select all options that display text matching the argument.
+    constructor(WebElement)
+  }
+  
 //email
 
   entity QueuedEmail {
@@ -185,9 +251,28 @@ module .servletapp/src-webdsl-template/built-in
   
 // radio buttons input
 
-  define ignore-access-control validate radio(ent1:Ref<Entity>,ent2:List<Entity>){
-    var rname := getUniqueTemplateId()
-    var tmp : String:= getRequestParameter(rname);
+  define ignore-access-control radio(ent1:Ref<Entity>,ent2:List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        radioInternal(ent1, ent2, tname)[all attributes]
+      }
+    }
+    else{
+      radioInternal(ent1, ent2, tname)[all attributes]
+    }
+    validate{
+      errors := ent1.getValidationErrors();
+      errors := handleValidationErrors(errors);       
+    }
+  }
+
+  define ignore-access-control radioInternal(ent1:Ref<Entity>,ent2:List<Entity>, tname : String){
+    var tmp : String:= getRequestParameter(tname);
     var subme : Entity := null;
     init{
       if(tmp != null){
@@ -200,7 +285,7 @@ module .servletapp/src-webdsl-template/built-in
         if(tmp != null && subme == e || tmp == null && ent1 == e){
            checked="checked"
         }
-        name=rname
+        name=tname
         value=e.id
         all attributes
       />
@@ -359,7 +444,7 @@ module .servletapp/src-webdsl-template/built-in
   */
   
   define ignore-access-control menubar(){
-    var elementid := "menu"+getUniqueTemplateId()
+    var elementid := "menu"+getTemplate().getUniqueId()
     includeCSS("dropdownmenu.css")
     <div class="menuwrapper" id=elementid all attributes>
       <ul id="p7menubar" class="menubar">
@@ -540,7 +625,7 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -562,15 +647,7 @@ module .servletapp/src-webdsl-template/built-in
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := d.getValidationErrors();
       }
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);       
     }
   }
 
@@ -591,14 +668,14 @@ module .servletapp/src-webdsl-template/built-in
     includeJS("jquery-1.5.min.js")
     includeJS("jquery-ui-1.8.9.custom.min.js")
     includeJS("jquery-ui-timepicker-addon.js")
-    includeCSS("jquery-ui-1.8.9.custom.css")
+    includeCSS("jquery-ui.css")
     includeCSS("jquery-ui-timepicker-addon.css")
     
     var req := getRequestParameter(tname)
     
     <input 
-      if(inLabelContext()) { 
-        id=getLabelString() 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
       } 
       name=tname
       type="text"
@@ -630,5 +707,264 @@ module .servletapp/src-webdsl-template/built-in
         }
       }
     }
+  } 
+  
+  //output(Set)
+  
+  define output(set : Set<Entity>){
+    <ul all attributes>
+      for(e:Entity in set order by e.name){
+        <li>
+          output(e.name)
+        </li>
+      }
+    </ul>
+  }
+  
+  //input(Set<Entity>) 
+  /*
+  define input(set:Ref<Set<Entity>>){
+    input(set, set.getEntity())
+  }*/
+  
+  define input(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputCheckboxSetInternal(set,from,tname)[all attributes]
+      }
+    }
+    else{
+      inputCheckboxSetInternal(set,from,tname)[all attributes]
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }
+
+  define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
+    var tnamehidden := tname + "_isinput"
+    var reqhidden := getRequestParameter(tnamehidden)
+    databind{
+      if(reqhidden != null){
+        set.clear(); //empty first, then add each selected element
+      }
+    }
+    <div class="checkbox-set "+attribute("class") all attributes except "class">
+      <input type="hidden" name=tnamehidden /> 
+      for(e:Entity in from){
+        inputCheckboxSetInternalHelper(set,e,tname+"-"+e.id)
+      }
+    </div>
+  }
+
+  define inputCheckboxSetInternalHelper(set: Ref<Set<Entity>>,e:Entity,tname:String){
+    var tmp := getRequestParameter(tname)
+    var tnamehidden := tname + "_isinput"
+    var tmphidden := getRequestParameter(tnamehidden)
+    <div class="checkbox-set-element">
+      <input type="hidden" name=tnamehidden />
+      <input type="checkbox" 
+        name=tname 
+        if(tmphidden!=null && tmp!=null || tmphidden==null && e in set){
+          checked="true"  
+        }
+        all attributes
+      />
+      output(e.name)
+    </div>
+    databind{
+      if(tmphidden != null && tmp != null){ set.add(e); }
+    }
+  }
+  
+  //input(e:Entity)
+  
+  define input(ent : Ref<Entity>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputEntityInternal(ent,from,tname)[all attributes]
+      }
+    }
+    else{
+      inputEntityInternal(ent,from,tname)[all attributes]
+    }
+    validate{
+      errors := ent.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }
+
+  define inputEntityInternal(ent : Ref<Entity>, from : List<Entity>, tname:String){
+    var rnamehidden := tname + "_isinput"
+    var reqhidden := getRequestParameter(rnamehidden)
+    var req : String := getRequestParameter(tname)
+    var notnull := hasNotNullAttribute() || ent.getReflectionProperty().hasNotNullAnnotation()
+    <input type="hidden" name=tname+"_isinput" />
+    <select 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="select "+attribute("class") 
+      all attributes except "class"
+    >
+      if(!notnull){
+        <option value="none"
+          if(reqhidden!=null && req==null || reqhidden==null && ent == null){ 
+            selected="selected"
+          }
+        ></option>
+      }
+      for(e:Entity in from){
+        <option 
+          value=e.id
+          if(reqhidden!=null && req!=null && e.id.toString() == req || reqhidden==null && e == ent){ 
+            selected="selected"
+          }
+        >
+          output(e.name)
+        </option>  
+      }
+    </select>
+  
+    databind{
+      if(reqhidden != null){
+        if(!notnull && req == "none"){
+          ent := null;
+        }
+        else{
+          var fromids := [ e | e:Entity in from where e.id.toString()==req ];
+          if(fromids.length > 0){
+            ent := fromids[0]; // check with 'from' list to make sure that it was an option, to protect against tampering
+          }
+        }
+      }
+    }
   }  
   
+  //output(List)
+  
+  define output(list : List<Entity>){
+    <ol all attributes>
+      for(e:Entity in list){
+        <li>
+          output(e.name)
+        </li>
+      }
+    </ol>
+  }
+  
+  // input(List)
+  
+  define input(list:Ref<List<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputListInternal(list,from,tname)[all attributes]
+      }
+    }
+    else{
+      inputListInternal(list,from,tname)[all attributes]
+    }
+    validate{
+      errors := list.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }  
+    
+  function updateListRequest(request:String, list:List<Entity>,selectfrom : List<Entity>): List<Entity>{
+    if(request == null){ // nothing submitted
+      return list;
+    }
+    var elementids := request.split(",");
+    var options := List<Entity>();
+    options.addAll(list);
+    options.addAll(selectfrom);
+    var newlist := List<Entity>();
+    for(s:String in elementids){
+      var ent := [e | e:Entity in options where e.id.toString() == s];
+      if(ent.length > 0){
+        var selected := ent[0];
+        newlist.add(selected);
+      }
+    }
+    return newlist;
+  }  
+    
+  define inputListInternal(list: Ref<List<Entity>>, selectfrom : List<Entity>, tname:String){
+    var hiddenid := "hidden"+tname
+    var sortableid := "sortable"+tname
+    var selectid := "select"+tname
+    var tmp := getRequestParameter(hiddenid);
+    var newlist := updateListRequest(tmp,list,selectfrom);
+    
+    databind {
+      list := newlist;
+    }
+    
+    includeCSS("jquery-ui.css")
+    includeJS("jquery-1.5.min.js")
+    includeJS("jquery-ui-1.8.9.custom.min.js")
+    
+    <script type="text/javascript">
+      $(function() {
+        $('#~sortableid').sortable();
+        $('#~sortableid').disableSelection();
+        $('#~sortableid').sortable({
+              stop: function(event, ui){ 
+                $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+              }
+          });
+          //initial values
+          $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+          //optional stuff
+          //constrain dragging to list
+          //$('#~sortableid').sortable( "option", "containment", 'parent' );
+      });
+    </script>
+    <input type="hidden" name=hiddenid id=hiddenid/>
+    <ul id=sortableid class="sortable">
+      for(e:Entity in newlist){
+        <li id=e.id class="ui-state-default">
+          <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
+          output(e.name)
+          <span class="ui-icon ui-icon-close" onclick="$(this).parent().remove(); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray'));"></span>
+        </li>	 
+      }
+    </ul>
+    
+    //@TODO should become possible to re-use render of template in client
+    var p1 := "<li id=\""
+    var p2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>" 
+    var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\"$(this).parent().remove()\"></span></li>"
+    
+    if(selectfrom.length > 0){
+      <select id=selectid>
+      for(e:Entity in selectfrom){
+        <option value=e.id>
+          output(e.name)
+        </option>
+      }
+      </select>
+      
+      <input type="button" value="add" 
+        onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); return false;" />
+    }
+  }   
+  
+  
+  //default access control rule
+  
+  access control rules
+  
+    rule template *(*){true}
+    

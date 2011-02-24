@@ -10,7 +10,7 @@ define ignore-access-control outputInt1(i : Int){
 }
 
   define ignore-access-control inputInt1(i:Ref<Int>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
     request var errors : List<String> := null
@@ -37,24 +37,16 @@ define ignore-access-control outputInt1(i : Int){
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
       }
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){ //this adds errors to labels instead
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }      
+      errors := handleValidationErrors(errors);     
     }
   }
 
 define ignore-access-control inputIntInternal(i : Ref<Int>, tname : String){
-  //var rname := getUniqueTemplateId()
+  //var rname := getTemplate().getUniqueId()
   var req := getRequestParameter(tname)
   <input 
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     if(req != null){ 

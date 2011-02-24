@@ -8,18 +8,8 @@ application exampleapp
     //validate(!(this in list), "cannot select self in list")
   }
 
-  define ignore-access-control outputSet1(set : Set<Entity>){
-    <ul>
-    for(e:Entity in set){
-      <li>
-        output(e.name)
-      </li>
-    }
-    </ul>
-  }
-  
   define inputSet1(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getUniqueTemplateId()
+    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
     
     if(errors != null && errors.length > 0){
@@ -32,15 +22,7 @@ application exampleapp
     }
     validate{
       errors := set.getValidationErrors();
-      if(errors != null && errors.length > 0){
-        if(inLabelContext()){
-          for(s:String in errors){
-            addLabelError(s);
-          }
-          errors := null;
-        }
-        cancel();
-      }
+      errors := handleValidationErrors(errors);
     }
   }
 
@@ -52,8 +34,8 @@ define ignore-access-control inputSetInternal(set : Ref<Set<Entity>>, from : Lis
   <input type="hidden" name=tname+"_isinput" />
   <select 
     multiple="multiple"
-    if(inLabelContext()) { 
-      id=getLabelString() 
+    if(getPage().inLabelContext()) { 
+      id=getPage().getLabelString() 
     } 
     name=tname 
     class="select "+attribute("class") 
@@ -113,7 +95,7 @@ define page root(){
 
 define test(e:Ent){ 
   " defined output"  
-  outputSet1(e.set)
+  output(e.set)
   form{
     "defined input"
     label(" CLICK ")[class = "label-elem"]{
@@ -121,16 +103,6 @@ define test(e:Ent){
     }
     submit action{}[class = "button-elem"]{"save"}
   }	
-  <br />
-  "built-in output"
-  output(e.set)
-  form{
-  "built-in input"
-    label(" CLICK ")[class = "built-in-label-elem"]{
-      input(e.set)[class = "built-in-input-elem"]
-    }
-    submit action{}[class = "built-in-button-elem"]{"save"}
-  }
 }
 
 
@@ -145,36 +117,12 @@ define testnolabel(e:Ent){
     }
   }
   " defined output"  
-  outputSet1(e.set)
+  output(e.set)
   form{
     "defined input"
     inputSet1(e.set, from Ent)[class = "input-elem"]
     submit action{}[class = "button-elem"]{"save"}
   }	
-  <br />
-  "built-in output"
-  output(e.set)
-  form{
-    "built-in input"
-    input(e.set)[class = "built-in-input-elem"]
-    submit action{}[class = "built-in-button-elem"]{"save"}
-  }
-}
-
-native class org.openqa.selenium.support.ui.Select as Select {
-  deselectAll() // Clear all selected entries.
-  deselectByIndex(Int) // Deselect the option at the given index.
-  deselectByValue(String) // Deselect all options that have a value matching the argument.
-  deselectByVisibleText(String) // Deselect all options that display text matching the argument.
-  escapeQuotes(String):String
-  getAllSelectedOptions():List<WebElement>
-  getFirstSelectedOption():WebElement
-  getOptions():List<WebElement>
-  isMultiple():Bool
-  selectByIndex(Int) // Select the option at the given index.
-  selectByValue(String) // Select all options that have a value matching the argument.
-  selectByVisibleText(String) // Select all options that display text matching the argument.
-  constructor(WebElement)
 }
 
 test inttemplates {
@@ -182,11 +130,8 @@ test inttemplates {
   d.get(navigate(root()));
   
   var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
-  var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
   var label        := d.findElements(SelectBy.className(         "label-elem"))[0];
-  var builtinlabel := d.findElements(SelectBy.className("built-in-label-elem"))[0];
   assert(input.getAttribute("id")==label.getAttribute("for"));
-  assert(builtininput.getAttribute("id")==builtinlabel.getAttribute("for"));
   
   commonTest(d);
   
@@ -198,20 +143,14 @@ test inttemplates {
   
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
-  var builtininput := d.findElements(SelectBy.className("built-in-input-elem"))[0];
   
   var sinput := Select(input);
-  var sbuiltininput := Select(builtininput);
   
   assert(sinput.isMultiple());
-  assert(sbuiltininput.isMultiple());
   
   assert(sinput.getAllSelectedOptions().length == 2);
-  assert(sbuiltininput.getAllSelectedOptions().length == 2);
   assert(sinput.getAllSelectedOptions()[0].getText() == e3.name);
-  assert(sbuiltininput.getAllSelectedOptions()[0].getText() == e3.name);
   assert(sinput.getAllSelectedOptions()[1].getText() == e2.name);
-  assert(sbuiltininput.getAllSelectedOptions()[1].getText() == e2.name);
   
   for(e:Ent in [e1,e2,e3,e4,e5]){
     log("test " +e.name+ ": "+e.id);
@@ -220,7 +159,6 @@ function commonTest(d:WebDriver){
   sinput.deselectAll();
   d.findElements(SelectBy.className("button-elem"))[0].click();  
   assert(Select(d.findElements(SelectBy.className("input-elem"))[0]).getAllSelectedOptions().length == 0);
-  assert(Select(d.findElements(SelectBy.className("built-in-input-elem"))[0]).getAllSelectedOptions().length == 0);
   
   Select(d.findElements(SelectBy.className("input-elem"))[0]).selectByIndex(4);
   d.findElements(SelectBy.className("button-elem"))[0].click();  
