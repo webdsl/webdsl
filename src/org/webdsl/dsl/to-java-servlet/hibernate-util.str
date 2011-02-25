@@ -16,20 +16,34 @@ rules
 
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
-    with <fetch-elem(?QueryOptimizations(joinproperties, querycondition))> anno*
+    with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition))> anno*
     ; e_criteria := <foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
+
+   hibernate-extra-criteria :
+   	(term{anno*}, x_class, x, srt) -> e_criterias*
+   	with e_criterias* := <hibernate-extra-criteria>(term{anno*}, x_class, x, srt, e_HibSession)
     
-  hibernate-criteria-join:
+   hibernate-extra-criteria :
+   	(term{anno*}, x_class, x, srt, e_Session) -> e_criterias*
+   	with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition))> anno*
+   	; e_base := expr|[ e_Session.createCriteria(x_class.class) ]|
+   	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition))> joinpropertiesgen
+
+  hibernate-extra-criteria-helper(|e_base, x, srt, querycondition) :
+  	joinproperties -> e_criteria
+  	with e_criteria := <foldr(!e_base, hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties 
+    
+  hibernate-criteria-join :
     (str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
   	//((str, _, alias), e) -> expr|[ e.createAlias("~str", "~alias") ]|
 
-  hibernate-criteria-add-condition(|cond,x,srt):
+  hibernate-criteria-add-condition(|cond,x,srt) :
   	e_criteria -> <id>
   	where <?True()> cond
 
-  hibernate-criteria-add-condition(|cond,x,srt):
+  hibernate-criteria-add-condition(|cond,x,srt) :
   	e_criteria -> expr|[ e_criteria.add(e_Cond) ]|
   	where <not(?True())> cond
   	with {| IsRootVar:

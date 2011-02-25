@@ -2,7 +2,7 @@ module org/webdsl/dsl/languages/ui/query-utils
 
 rules
 
-  get-query-optimizations : (base, x, srt, args, cond) -> (joincandidates, querycondition)
+  get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition)
     with {| RootVar, ParentArgs, IteratedVar, IteratedSubList, QueryConditions, IsEffectful
        : rules ( IteratedVar    : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
        			 RootVar		: Var(x) -> srt // The actual variable we are interested in
@@ -18,11 +18,30 @@ rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
        //; <map(info(|["FA from ", x, ": ", <id>]))> fas
-       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
+       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
+       ; joincandidatesnogen := <map(?(<id>, _, _)); filter(an-requires-joining-no-generic); make-set> fas
+       ; joincandidatesgen := <diff; string-sort-desc; foldr([], group-joins); map(?(_, <id>))> (joincandidates, joincandidatesnogen)
        ; info(|["These should be inlined: ", joincandidates])
+       ; info(|["These should be joined: ", joincandidatesnogen])
+       ; info(|["These should be queried: ", joincandidatesgen])
        ; querycondition := <filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()> fas // Combine query conditions of the effectful field accesses
        ; info(|["Query condition:", querycondition])
       |}
+
+group-joins :
+	(cur, []) -> [(cur, [cur])]
+
+group-joins :
+	(cur, prev) -> [(cur, [cur|prevGroup]) | prevTail]
+	where <?[prevHead|prevTail]> prev
+	; <?(prevJoin, prevGroup)> prevHead
+	; <string-starts-with(|prevJoin)> cur
+
+group-joins :
+	(cur, prev) -> [(cur, [cur]) | prev]
+	where <?[prevHead|prevTail]> prev
+	; <?(prevJoin, prevGroup)> prevHead
+	; <not(string-starts-with(|prevJoin))> cur
 
 /*create-aliasses :
 	(cur, []) -> [(cur, cur, <(string-tokenize(|['.']); last; str-tail) <+ str-tail> cur)]
@@ -184,9 +203,11 @@ strategies // checks for potential inlining
   an-find-entity-property-pair =
     ?fa@FieldAccess(l, fld)
     ; if Var(x) := l then
-        !<concat-strings> ["_", fld]
+        ![<concat-strings> ["_", fld]]
       else
-        !<concat-strings> [<an-find-entity-property-pair> l, "._", fld]
+      	paths := <an-find-entity-property-pair> l
+      	; ?[path | _]
+        ; ![<concat-strings> [path, "._", fld] | paths] 
       end
 
   an-requires-joining =
@@ -197,6 +218,22 @@ strategies // checks for potential inlining
   an-requires-joining =
     ?FieldAccess(fa@FieldAccess(_, _), _)
     ; <an-find-entity-property-pair> fa
+
+  an-find-entity-property-pair-no-generic =
+    ?fa@FieldAccess(l, fld)
+    ; where(not(<type-of; is-generic-sort> fa))
+    ; if Var(x) := l then
+        !<concat-strings> ["_", fld]
+      else
+      	paths := <an-find-entity-property-pair-no-generic> l
+      	; ?[path | _]
+        ; ![<concat-strings> [path, "._", fld] | paths]
+      end
+
+  an-requires-joining-no-generic =
+    ?FieldAccess(fa@FieldAccess(_, _), _)
+    ; where(not(<type-of; is-generic-sort> fa))
+    ; <an-find-entity-property-pair-no-generic> fa
 
   is-var-accessible = where(ParentArgs <+ IteratedVar <+ is-query-condition-constant)
 

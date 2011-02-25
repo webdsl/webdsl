@@ -8,6 +8,9 @@ import java.sql.SQLException ;
 import java.sql.Types ;
 import java.util.UUID ;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+
 import org.hibernate.type.SerializationException;
 
 import org.hibernate.HibernateException ;
@@ -18,6 +21,16 @@ public class UUIDUserType implements UserType
 {
 
 	private static final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
+
+	private static final boolean IS_VALUE_TRACING_ENABLED = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() ).isTraceEnabled();
+	private transient Logger log;
+
+	private Logger log() {
+		if ( log == null ) {
+			log = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() );
+		}
+		return log;
+	}
 
 	/*
 	 * (non-Javadoc)
@@ -131,10 +144,16 @@ public class UUIDUserType implements UserType
 
 		if (value == null)
 		{
+			if ( IS_VALUE_TRACING_ENABLED ) {
+				log().trace( "returning null as column: " + names[0] );
+			}
 			return null ;
 		}
 		else
 		{
+			if ( IS_VALUE_TRACING_ENABLED ) {
+				log().trace( "returning '" + retrieveUUID( value ) + "' as column: " + names[0] );
+			}
 			return retrieveUUID(value);
 		}
 	}
@@ -170,6 +189,10 @@ public class UUIDUserType implements UserType
 		// System.out.println("set start");
 		if (value == null)
 		{
+			if ( IS_VALUE_TRACING_ENABLED ) {
+				log().trace( "binding null to parameter: " + index );
+			}
+
 			st.setNull (index, theType) ;
 			//System.out.println("set success null");
 			return ;
@@ -181,6 +204,10 @@ public class UUIDUserType implements UserType
 			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
 		}
 		
+		if ( IS_VALUE_TRACING_ENABLED ) {
+			log().trace( "binding '" + persistUUIDString((UUID) value) + "' to parameter: " + index );
+		}
+
 		st.setString (index, persistUUIDString((UUID) value));
 		
 	}
