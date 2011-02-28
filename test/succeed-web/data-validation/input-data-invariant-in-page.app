@@ -3,10 +3,10 @@ application inputint
   entity Y {
     i :: Int
     y -> Y
-    ylist -> List<Y>
+    yset -> Set<Y>
     validate(i > 6, "number must be greater than 6")
     validate(y != this, "cannot choose self as y")
-    validate(!(this in ylist), "cannot choose self in list")
+    validate(!(this in yset), "cannot choose self in list")
   }
 
   var y  := Y{ i := 8}
@@ -20,7 +20,7 @@ application inputint
         //validategeni(y)
       }
       input(y.y)
-      input(y.ylist)
+      select(y.yset, from Y)
       submit action{} {"save"}
     }
  

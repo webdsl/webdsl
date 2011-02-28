@@ -962,6 +962,76 @@ module .servletapp/src-webdsl-template/built-in
   }   
   
   
+  //select multiple
+  
+  define select(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputSelectMultipleInternal(set,from,tname)[all attributes]
+      }
+    }
+    else{
+      inputSelectMultipleInternal(set,from,tname)[all attributes]
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }
+  
+  define inputSelectMultipleInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
+    var rnamehidden := tname + "_isinput"
+    var reqhidden := getRequestParameter(rnamehidden)
+    var req : List<String> := getRequestParameterList(tname)
+       
+    <input type="hidden" name=tname+"_isinput" />
+    <select 
+      multiple="multiple"
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="select "+attribute("class") 
+      all attributes except "class"
+    >
+      for(e:Entity in from){
+        <option 
+          value=e.id
+          if(reqhidden!=null && req!=null && e.id.toString() in req || reqhidden==null && set != null && e in set){ 
+            selected="selected"
+          }
+        >
+          output(e.name)
+        </option>  
+      }
+    </select>
+  
+    databind{
+      if(reqhidden != null){
+        if(req == null || req.length == 0){
+          set.clear();
+        }
+        else{
+          var setlist : List<Entity> := set.list();
+          var listofcurrentids : List<String> := [ e.id.toString() | e:Entity in setlist ];
+          for(s:String in listofcurrentids){
+            if(!(s in req) ){
+              set.remove([ e | e:Entity in setlist where e.id.toString()==s ][0]);
+            }
+          }
+          for(s:String in req){
+            if(!(s in listofcurrentids)){
+              set.add([ e | e:Entity in from where e.id.toString()==s ][0]); // check with 'from' list to make sure that it was an option, to protect against tampering
+            }
+          }
+        }
+      }
+    }
+  }
+    
   //default access control rule
   
   access control rules
