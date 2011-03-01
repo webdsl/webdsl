@@ -50,7 +50,8 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*/*.meta) \
-    $(wildcard separation/*) \
+    $(wildcard separation/*.str) \
+    $(wildcard separation/*.meta) \
     META-INF/MANIFEST.MF
 
 ### developer targets
