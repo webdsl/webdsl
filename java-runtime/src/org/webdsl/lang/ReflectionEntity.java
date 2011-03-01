@@ -5,9 +5,11 @@ import java.util.List;
 
 public class ReflectionEntity{
 
-    public ReflectionEntity(String name){
+    public ReflectionEntity(String name, boolean hasViewPage){
         this.name = name;
+        this.hasViewPage = hasViewPage;
     }
+    
     private String name;
     public String getName(){
       return name;      
@@ -26,5 +28,29 @@ public class ReflectionEntity{
         }
         System.out.println("reflection property not found: "+name);
         return null; 
+    }
+    
+    private boolean hasViewPage = false;
+    public boolean hasViewPage(){
+      return hasViewPage;      
+    }
+    
+    private static ArrayList<ReflectionEntity> entities = new ArrayList<ReflectionEntity>(); 
+    
+    public static void add(ReflectionEntity e){
+        entities.add(e);
+    }
+    
+    public List<ReflectionEntity> all(){
+        return entities;
+    }
+    
+    public static ReflectionEntity byName(String s){
+        for(ReflectionEntity e : entities){
+            if(e.getName().equals(s)){
+                return e;
+            }
+        }
+        return null;
     }
 }

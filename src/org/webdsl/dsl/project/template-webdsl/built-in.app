@@ -485,13 +485,16 @@ module .servletapp/src-webdsl-template/built-in
 
   //reflection of entities
   
-  native class utils.ReflectionEntity as ReflectionEntity{
+  native class org.webdsl.lang.ReflectionEntity as ReflectionEntity{
     getName():String
     getProperties():List<ReflectionProperty>
     getPropertyByName(String):ReflectionProperty
+    hasViewPage():Bool
+    static byName(String):ReflectionEntity
+    static all():List<ReflectionEntity>
   }
-
-  native class utils.ReflectionProperty as ReflectionProperty{
+  
+  native class org.webdsl.lang.ReflectionProperty as ReflectionProperty{
     getName() : String
     hasNotNullAnnotation() : Bool	
     getFormatAnnotation() : String
@@ -710,17 +713,17 @@ module .servletapp/src-webdsl-template/built-in
   } 
   
   //output(Set)
-  
+  /*
   define output(set : Set<Entity>){
     <ul all attributes>
       for(e:Entity in set order by e.name){
         <li>
-          output(e.name)
+          output(e)
         </li>
       }
     </ul>
   }
-  
+  */
   //input(Set<Entity>) 
   /*
   define input(set:Ref<Set<Entity>>){
@@ -849,18 +852,38 @@ module .servletapp/src-webdsl-template/built-in
     }
   }  
   
-  //output(List)
+  //output(Entity)
+  /*
+  define output(e:Entity){
+    var hasviewpage := false;
+    var viewpagename := "";
+    init{
+      var type := e.getTypeString();
+      hasviewpage := ReflectionEntity.byName(type).hasViewPage();
+      viewpagename := type.toLowerCase();
+    }
+    if(hasviewpage){
+      //not possible yet
+      navigate ~viewpagename((~type) e){ output(e.name) } 
+    }
+    else{
+      output(e.name)
+    }
+  }*/
   
+  
+  //output(List)
+  /*
   define output(list : List<Entity>){
     <ol all attributes>
       for(e:Entity in list){
         <li>
-          output(e.name)
+          output(e)
         </li>
       }
     </ol>
   }
-  
+  */
   // input(List)
   
   define input(list:Ref<List<Entity>>, from : List<Entity>){
