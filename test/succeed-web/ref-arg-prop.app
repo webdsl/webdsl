@@ -4,8 +4,8 @@ application test
     s::String
     i::Int
     f::Float
-    c->List<Str>
-    d->List<Str>
+    c->Set<Str>
+    d->Set<Str>
   }
   
   var globalstr := Str{s := "str1"}
@@ -24,8 +24,8 @@ application test
       output(str.s)
       output(str.i)
       output(str.f)
-      output(str.c[0].s)
-      output(str.d[0].s)
+      output(str.c.list()[0].s)
+      output(str.d.list()[0].s)
     } separated-by{ <br /> }
     define localtest(a: Ref<Float>){
       input(a)
@@ -41,10 +41,10 @@ application test
   define passOn(a: Ref<Int>){ 
     input(a)
   }
-  define bla(c: Ref<List<Str>>){ 
-    input(c)
+  define bla(c: Ref<Set<Str>>){ 
+    select(c, from Str)
   } 
-  define blapasson(c: Ref<List<Str>>){ 
+  define blapasson(c: Ref<Set<Str>>){ 
     bla(c)
   } 
   test one {

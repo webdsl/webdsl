@@ -808,7 +808,7 @@ module .servletapp/src-webdsl-template/built-in
     var rnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(rnamehidden)
     var req : String := getRequestParameter(tname)
-    var notnull := hasNotNullAttribute() || ent.getReflectionProperty().hasNotNullAnnotation()
+    var notnull := hasNotNullAttribute() || (ent.getReflectionProperty()!=null&&ent.getReflectionProperty().hasNotNullAnnotation())
     <input type="hidden" name=tname+"_isinput" />
     <select 
       if(getPage().inLabelContext()) { 
