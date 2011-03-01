@@ -15,22 +15,29 @@ strategies
 
   start-record-dynamic-rules =
     with(
-        rules(RecordDR_Enabled := 1)
+        where(table-hashtable; hashtable-put(|"__TRACK_RULE_CREATE__", 1))
       ; all-dynamic-rule-names
       ; map(dr-start-change-set(|<id>))
    )
-  
+   
+  override dr-new-rule-set =
+    if is-dr-usage-tracking-enabled; is-record-dynamic-rules-enabled then
+      ![<dr-new-change-set>, <dr-new-scope>]
+    else
+      proceed
+    end
+    
   end-record-dynamic-rules =
     with(
         all-dynamic-rule-names
       ; map(\x -> <dr-get-rule-set(|x); commit-and-store-rules(|x)> \)
         // some rules like DR_BREAK are created but have no keys??
       ; remove-all(?(_,[])) => recorded
-      ; rules(RecordDR_Enabled :- _)
+      ; where(table-hashtable; hashtable-remove(|"__TRACK_RULE_CREATE__"))
     )
     ; !recorded
       
-  is-record-dynamic-rules-enabled = RecordDR_Enabled => 1
+  is-record-dynamic-rules-enabled = where(table-hashtable; hashtable-get(|"__TRACK_RULE_CREATE__"))
   
   remove-dr-dummies = map(remove-dr-dummy)
   
@@ -71,11 +78,10 @@ strategies
   load-dynamic-rule: (name, keyvals) -> <id>
     with  dr-get-rule-set(|name) => ruleset;
           if is-record-dynamic-rules-enabled then
-            // First scope has tracking enabled; put in second scope
-            if length => 1 then
-              // No scopes before recording. Have to create a new scope behind the current
-              dr-new-scope => newscope;
-              <concat> [ruleset, [newscope]];
+            if ?[scope] then
+              // We just created the first scope by calling dr-get-rule-set. Put a changeset before it.
+              dr-new-change-set => changeset;
+              ![changeset, scope];
               dr-set-rule-set(|name)
             end;
             ?[_ | <id>]
