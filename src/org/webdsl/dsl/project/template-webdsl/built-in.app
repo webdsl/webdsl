@@ -485,13 +485,16 @@ module .servletapp/src-webdsl-template/built-in
 
   //reflection of entities
   
-  native class utils.ReflectionEntity as ReflectionEntity{
+  native class org.webdsl.lang.ReflectionEntity as ReflectionEntity{
     getName():String
     getProperties():List<ReflectionProperty>
     getPropertyByName(String):ReflectionProperty
+    hasViewPage():Bool
+    static byName(String):ReflectionEntity
+    static all():List<ReflectionEntity>
   }
-
-  native class utils.ReflectionProperty as ReflectionProperty{
+  
+  native class org.webdsl.lang.ReflectionProperty as ReflectionProperty{
     getName() : String
     hasNotNullAnnotation() : Bool	
     getFormatAnnotation() : String
@@ -710,17 +713,17 @@ module .servletapp/src-webdsl-template/built-in
   } 
   
   //output(Set)
-  
+  /*
   define output(set : Set<Entity>){
     <ul all attributes>
       for(e:Entity in set order by e.name){
         <li>
-          output(e.name)
+          output(e)
         </li>
       }
     </ul>
   }
-  
+  */
   //input(Set<Entity>) 
   /*
   define input(set:Ref<Set<Entity>>){
@@ -849,18 +852,38 @@ module .servletapp/src-webdsl-template/built-in
     }
   }  
   
-  //output(List)
+  //output(Entity)
+  /*
+  define output(e:Entity){
+    var hasviewpage := false;
+    var viewpagename := "";
+    init{
+      var type := e.getTypeString();
+      hasviewpage := ReflectionEntity.byName(type).hasViewPage();
+      viewpagename := type.toLowerCase();
+    }
+    if(hasviewpage){
+      //not possible yet
+      navigate ~viewpagename((~type) e){ output(e.name) } 
+    }
+    else{
+      output(e.name)
+    }
+  }*/
   
+  
+  //output(List)
+  /*
   define output(list : List<Entity>){
     <ol all attributes>
       for(e:Entity in list){
         <li>
-          output(e.name)
+          output(e)
         </li>
       }
     </ol>
   }
-  
+  */
   // input(List)
   
   define input(list:Ref<List<Entity>>, from : List<Entity>){
@@ -962,6 +985,76 @@ module .servletapp/src-webdsl-template/built-in
   }   
   
   
+  //select multiple
+  
+  define select(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputSelectMultipleInternal(set,from,tname)[all attributes]
+      }
+    }
+    else{
+      inputSelectMultipleInternal(set,from,tname)[all attributes]
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }
+  
+  define inputSelectMultipleInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
+    var rnamehidden := tname + "_isinput"
+    var reqhidden := getRequestParameter(rnamehidden)
+    var req : List<String> := getRequestParameterList(tname)
+       
+    <input type="hidden" name=tname+"_isinput" />
+    <select 
+      multiple="multiple"
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="select "+attribute("class") 
+      all attributes except "class"
+    >
+      for(e:Entity in from){
+        <option 
+          value=e.id
+          if(reqhidden!=null && req!=null && e.id.toString() in req || reqhidden==null && set != null && e in set){ 
+            selected="selected"
+          }
+        >
+          output(e.name)
+        </option>  
+      }
+    </select>
+  
+    databind{
+      if(reqhidden != null){
+        if(req == null || req.length == 0){
+          set.clear();
+        }
+        else{
+          var setlist : List<Entity> := set.list();
+          var listofcurrentids : List<String> := [ e.id.toString() | e:Entity in setlist ];
+          for(s:String in listofcurrentids){
+            if(!(s in req) ){
+              set.remove([ e | e:Entity in setlist where e.id.toString()==s ][0]);
+            }
+          }
+          for(s:String in req){
+            if(!(s in listofcurrentids)){
+              set.add([ e | e:Entity in from where e.id.toString()==s ][0]); // check with 'from' list to make sure that it was an option, to protect against tampering
+            }
+          }
+        }
+      }
+    }
+  }
+    
   //default access control rule
   
   access control rules

@@ -58,7 +58,9 @@ strategies
       ; set-DomainPackage(|<qid-to-package-name> Qualified(qid, "domain")) //strategy/rule shared with seam back-end
     )
     ; annotate-pagecalls
-    ; log-time(get-all-top-level-template-names|"get-all-top-level-template-names") //TODO should be available in a dynamic rule somewhere
+    ; log-time(
+        //TODO should be available in a dynamic rule somewhere
+        map(try(register-top-level-template-name)) | "get-all-top-level-template-names") 
     ; is-logging-of-ac-principle-possible
       
   is-logging-of-ac-principle-possible =
@@ -249,13 +251,20 @@ rules
     with  _{anno*} := tc
         ; newid := <newname> "input" 
     
-  get-all-top-level-template-names =
-    alltd(register-top-level-template-name)
   register-top-level-template-name = 
     ?tmplt@webdsl|[ define mod* x(farg*)  req*  { elem* } ]|
     ; with(
         // TemplateFormalArguments used in dispatch-servlet.str
-          if <fetch(Email)> mod* then rules ( AllEmailNames :+= x ) end
+        rules( TemplateFormalArguments : x -> farg* )
+      ; if <not(fetch(Page <+ Email))> mod*
+        then rules(AllTopLevelTemplateNamesJavaServlet :+= x  // used to create lookup hashmap in java-base-page.str
+                   IsTopLevelTemplateNameJavaServlet : x
+                   TopLevelTemplateArgumentsJavaServlet : x -> farg* 
+                   GetTopLevelTemplateJavaServlet : x -> tmplt
+                   )
+           ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
+        end
+        ; if <fetch(Email)> mod* then rules ( AllEmailNames :+= x ) end
         ; if "errorTemplateInputListString"  := x then rules ( ErrorTemplateInput := tmplt ) end
         ; if "errorTemplateFormListString"   := x then rules ( ErrorTemplateForm := tmplt ) end
         ; if "errorTemplateActionListString" := x then rules ( ErrorTemplateAction := tmplt ) end
@@ -274,5 +283,5 @@ rules
           else
             newid := <template-name-to-class-name> x
           end
+        ; if <fetch(Page)> mod* then rules( AllPageNames  :+= x ) end 
         ; elem1* := <alltd(register-template-name(|False()))> elem*
-          

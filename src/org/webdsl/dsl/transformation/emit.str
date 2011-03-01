@@ -30,13 +30,24 @@ rules	// emit top-level definition
   // renaming is not needed for these one-to-one transformations that have the same semantics
 	emit-webdsl-code-no-rename =
 			?def
-		; rules(AddWebDSLDefs :+= def)
-	
+    ; (CurrentDefinitionKey <+ !"") => key
+    ; rules(AddWebDSLDefs :+= (key, def))
+    
 	// emit a new section with all collected defs
 	desugar-emit-all-defs =
-			defs := <bagof-AddWebDSLDefs>
-		; not([] := defs)
-		; map(store-module-def)
+      bagof-AddWebDSLDefs
+    ; not(?[])
+    ; map({
+          ?(key,def)
+        ; if <?At(x,y,z)> key; <not(is-emitted-mod)> x then
+              // Emitted from an ast definition
+              key' := At(x,"emit",<newname>"emit"){key}
+            ; <store-module-def(|key')> def
+          else
+            // Emitted from another compiler emit
+            <store-module-def> def
+          end
+      })
 		; rules(AddWebDSLDefs :- _) 	// hack to clear dr
 		
 rules // emit section
@@ -55,6 +66,7 @@ rules // emit builtins (during declare)
 	
 	add-builtins-to-ast =
 			bagof-AddWebDSLDefs
+	  ; map(?(_,<id>)) // TODO: use definition key
 		; map(rename-and-store)
 		; !AccessControlDefinition(None(), <bagof-AddWebDSLRules>)
 		; rename-and-store

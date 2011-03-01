@@ -8,26 +8,13 @@ imports
 
 rules
   
-  store-global-info: _ -> globalinfo
-    with(
-        all-keys-TopLevelTemplateDecl; map(TemplateNewName) => templates
-      ; all-keys-PageDecl => pages      // using original name (no overloading)
-      ; track-rules-with-creates(
-		      !GlobalInfo([
-		        templates,
-		        <concat> [
-		          <map(\x -> (x, <TemplateArguments>)\)> templates,
-		          <map(\x -> (x, <PageArguments>)\)> pages
-		        ],
-		        pages,
-			      <all-keys-EmailDefinition>,
-			      <filter(IsDefinedAsAjaxTemplate)> templates,
-			      [],   // TODO: fix refargs
-		        <all-keys-EntDecl; remove-all(?"Exception")>, // TODO: Exception is not a real entity, but is declared
-			      <all-keys-SearchableProperties>,
-			     // TODO: AllTestNames
-			      <bagof-GlobalVarInits>,
-			      <bagof-SessionEntitiesBackend>
-			    ])
-			   | At("(gen)global",0,0)) => globalinfo
-  )
+  // TODO: strip ast, only need: entity (names, props, annos), template (names + args + annos)
+  
+  store-global-info: _ -> ast
+    with  // read all cached defs by using the dr cache
+          track-rules-with-creates(bagof-BackendAst | "global-ast") => cached*
+          // add all newly generated defs
+        ; transform-defs-tracked({x: ?x; rules(BackendAst :+= x) }) => new*
+          // combine
+        ; ast := [cached*, new*]
+    
