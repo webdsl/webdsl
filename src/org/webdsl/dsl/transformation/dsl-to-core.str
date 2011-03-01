@@ -172,15 +172,6 @@ strategies // module imports
 
 strategies // toplevel definitions
   
-  // IMPORTANT: If a file is not read at all (no dynamic rules set), it is modified.
-  is-unmodified-def =
-    where(
-        with(def-key-to-file => file)
-      ; <IsUnmodifiedFile> file
-    )
-  
-  is-modified-def = not(is-unmodified-def)
-  
   // dynamic rule oddity: removing with :- does not remove the key
   // so all-keys-X; map(x) will fails for 'removed' keys
   toplevel-definition-keys =    
@@ -211,9 +202,11 @@ strategies // toplevel definitions
           ; rules(TopLevelDefinitions : key -> newdef) } )
   
    // Remove all defs for which s succeeds
+   // NOTE: don't actually remove the definition using rules(ToplevelDefintiions :- key),
+   // because the dependency mechanism needs to know that this definition was once loaded.
   remove-defs(s) =
       toplevel-definition-keys 
-    ; filter(\key -> <try(with-definition-key(s); rules(TopLevelDefinitions :- key))> key\)  
+    ; filter(\key -> <try(with-definition-key(s); rules(TopLevelDefinitions : key -> RemoveMe()))> key\)  
   
   with-definition-key(s) =
       ?key
@@ -239,8 +232,8 @@ strategies // toplevel definitions
         ; ?defkeys
         ; rules(ModuleToDefs : path -> defkeys)
     
-  module-section-to-toplevel-defs: sect -> defs* 
-    with  <(?Section(name, defs*) <+ ?AccessControlDefinition(name, _); defs* := [<id>])> sect
+  module-section-to-toplevel-defs: Section(_, defs*) -> defs*
+  module-section-to-toplevel-defs: def@AccessControlDefinition(_, _) -> [def] 
         
   declare =
       ?ApplicationName(name)

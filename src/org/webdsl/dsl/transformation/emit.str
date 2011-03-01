@@ -36,22 +36,37 @@ rules	// emit top-level definition
 	// emit a new section with all collected defs
 	desugar-emit-all-defs =
       bagof-AddWebDSLDefs
-    ; not(?[])
-    ; map({
-          ?(key,def)
-        ; if <?At(x,y,z)> key; <not(is-emitted-mod)> x then
-              // Emitted from an ast definition
-              key' := At(x,"emit",<newname>"emit"){key}
-            ; <store-module-def(|key')> def
-          else
-            // Emitted from another compiler emit
-            <store-module-def> def
-          end
+    ; where(length => n1)
+    ; remove-all({
+          ?(owner,def)
+        ; <emit-with-owner(|owner)> def
       })
-		; rules(AddWebDSLDefs :- _) 	// hack to clear dr
+    ; ?remaining
+    ; length => n2
+    ; not(<eq> (n1, n2))                // nothing applied? fail
+		; rules(AddWebDSLDefs := remaining)
+		  
+  emit-with-owner(|owner): def -> def
+    where
+      if <?At(x,y,z)> owner; <not(is-emitted-mod)> x then
+        // Emitted from an ast definition
+        if <get-toplevel-definition> owner then
+            // Definition is recompiling, emit
+            <debug(!"Emitting for ")> owner
+          ; key := At(x,"emit",<newname>"emit"){owner}
+          ; <store-module-def(|key)> def
+        else
+            <debug(!"NOT emitting for: ")> owner
+          ; fail
+        end
+      else
+        // Emitted from another compiler emit
+        <store-module-def> def
+      end
 		
 rules // emit section
   
+  // TODO: dr is never actually applied
   emit-webdsl-section =
       declare-all
     ; rename-section
@@ -66,12 +81,17 @@ rules // emit builtins (during declare)
 	
 	add-builtins-to-ast =
 			bagof-AddWebDSLDefs
-	  ; map(?(_,<id>)) // TODO: use definition key
-		; map(rename-and-store)
+	  ; debug(!"All emits: ")
+	    // TODO: track rules during rename ?
+    ; map(\(owner, def) -> (owner, <rename-top> def) \)
+	  ; remove-all( \(owner,def) ->  <emit-with-owner(|owner)> def \)
+    ; ?remaining
+    ; debug(!"Remaining emits: ")
+		; rules(AddWebDSLDefs := remaining)
+		  // TODO: same as defs
 		; !AccessControlDefinition(None(), <bagof-AddWebDSLRules>)
 		; rename-and-store
-		; rules(AddWebDSLDefs :- _)
-    ; rules(AddWebDSLRules :- _)
+		; rules(AddWebDSLRules :- _)
 	
 	/*
 	get-builtin-sections: _ -> [defsec,rulesec]
