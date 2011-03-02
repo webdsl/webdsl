@@ -135,7 +135,7 @@ strategies
   // Follow a template call
   an-potential-joins =
     (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; not([] := <collect(\ Var(x) -> <IteratedVar <+ IteratedSubList> \)> args)
+    ; not([] := <filter(get-accessible-var; IteratedVar <+ IteratedSubList)> args)
     ; <generate-template-name-args; CurrentTemplateDecl> (name, args)
     ; ?Define(_, _, fargs, _, body)
     ; <an-potential-joins-with-args(|args, fargs)> body
@@ -147,7 +147,7 @@ strategies
   an-potential-joins =
   	(?ForNoFilter(x, srt, e, te*, sep) <+ ?For(x, srt, e, _, te*, sep))
   	; ?for
-  	; not([] := <collect(\ Var(v) -> <IteratedVar> \)> e)
+  	; not([] := <filter(get-accessible-var; IteratedVar)> e) 
   	; not(<IteratedSubList> Var(x))
 	; {| IteratedSubList
 	   : rules( IteratedSubList : Var(x) -> e)
@@ -183,7 +183,7 @@ strategies
        : with(id
          ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
-                       where not([] := <collect(is-var-accessible)>)
+                       where <is-var-accessible> e
                        with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
                                    IteratedVar      : Var(x) -> srt
                                  )
@@ -235,7 +235,7 @@ strategies // checks for potential inlining
     ; where(not(<type-of; is-generic-sort> fa))
     ; <an-find-entity-property-pair-no-generic> fa
 
-  is-var-accessible = where(ParentArgs <+ IteratedVar <+ is-query-condition-constant)
+  is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; ParentArgs <+ IteratedVar))
 
   get-accessible-expr = where(
   	(ParentArgs <+ IteratedVar)
@@ -387,3 +387,10 @@ rules
 
   is-one-dbprop: (expr1, expr2) -> <id>
     where <get-accessible-dbfield <+ RootVar> expr2
+
+  get-accessible-var :
+  	FieldAccess(fa, _) -> var
+  	where var := <get-accessible-var> fa
+
+  get-accessible-var :
+	Var(_) -> <id>
