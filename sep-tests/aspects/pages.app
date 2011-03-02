@@ -1,0 +1,11 @@
+module pages
+
+imports
+  main
+
+define page root() {
+  
+  "x" "y" "z"
+  "xyz2"
+  
+}
