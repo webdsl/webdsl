@@ -8,73 +8,6 @@ application exampleapp
     //validate(!(this in list), "cannot select self in list")
   }
 
-  define inputSet1(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    request var errors : List<String> := null
-    
-    if(errors != null && errors.length > 0){
-      errorTemplateInput(errors){
-        inputSetInternal(set,from,tname)[all attributes]
-      }
-    }
-    else{
-      inputSetInternal(set,from,tname)[all attributes]
-    }
-    validate{
-      errors := set.getValidationErrors();
-      errors := handleValidationErrors(errors);
-    }
-  }
-
-define ignore-access-control inputSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
-  var rnamehidden := tname + "_isinput"
-  var reqhidden := getRequestParameter(rnamehidden)
-  var req : List<String> := getRequestParameterList(tname)
-     
-  <input type="hidden" name=tname+"_isinput" />
-  <select 
-    multiple="multiple"
-    if(getPage().inLabelContext()) { 
-      id=getPage().getLabelString() 
-    } 
-    name=tname 
-    class="select "+attribute("class") 
-    all attributes except "class"
-  >
-    for(e:Entity in from){
-      <option 
-        value=e.id
-        if(reqhidden!=null && req!=null && e.id.toString() in req || reqhidden==null && set != null && e in set){ 
-          selected="selected"
-        }
-      >
-        output(e.name)
-      </option>  
-    }
-  </select>
-
-  databind{
-    if(reqhidden != null){
-      if(req == null || req.length == 0){
-        set.clear();
-      }
-      else{
-        var setlist : List<Entity> := set.list();
-        var listofcurrentids : List<String> := [ e.id.toString() | e:Entity in setlist ];
-        for(s:String in listofcurrentids){
-          if(!(s in req) ){
-            set.remove([ e | e:Entity in setlist where e.id.toString()==s ][0]);
-          }
-        }
-        for(s:String in req){
-          if(!(s in listofcurrentids)){
-            set.add([ e | e:Entity in from where e.id.toString()==s ][0]); // check with 'from' list to make sure that it was an option, to protect against tampering
-          }
-        }
-      }
-    }
-  }
-}
 
 var e1 := Ent{ name := "e1" }
 var e2 := Ent{ name := "e2" }
@@ -99,7 +32,7 @@ define test(e:Ent){
   form{
     "defined input"
     label(" CLICK ")[class = "label-elem"]{
-      inputSet1(e.set,from Ent)[class = "input-elem"]
+      select(e.set,from Ent)[class = "input-elem"]
     }
     submit action{}[class = "button-elem"]{"save"}
   }	
@@ -120,7 +53,7 @@ define testnolabel(e:Ent){
   output(e.set)
   form{
     "defined input"
-    inputSet1(e.set, from Ent)[class = "input-elem"]
+    select(e.set, from Ent)[class = "input-elem"]
     submit action{}[class = "button-elem"]{"save"}
   }	
 }

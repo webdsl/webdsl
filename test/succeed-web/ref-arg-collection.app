@@ -2,7 +2,7 @@ application test
 
   entity Str{
     name::String 
-    list->List<Str>
+    set->Set<Str>
   }
   
   var globalstr1 := Str{ name := "1" }
@@ -10,34 +10,34 @@ application test
 
   define page root(){
 
-    var a : List<Str> := List<Str>()
+    var a : Set<Str> := Set<Str>()
     form{
       bla(a)
-      submit action{ var n : Str := Str{ list := a }; n.save();} { "save" }
+      submit action{ var n : Str := Str{ set := a }; n.save();} { "save" }
     }
     for(str:Str){
-      output(str) ": " output(str.list)
+      output(str) ": " output(str.set)
     } separated-by{ <br /> }
     
   }
   
-  define bla(a:Ref<List<Str>>){ 
-    input(a)
+  define bla(a:Ref<Set<Str>>){ 
+    select(a,from Str)
   }
 
   define page root2(){
 
-    var a : List<Str> := List<Str>()
+    var a : Set<Str> := Set<Str>()
     form{
       test(a)
-      submit action{ var n : Str := Str{ list := a }; n.save();} { "save" }
+      submit action{ var n : Str := Str{ set := a }; n.save();} { "save" }
     }
     for(str:Str){
-      output(str) ": " output(str.list)
+      output(str) ": " output(str.set)
     } separated-by{ <br /> }
     
   }
-  define test(t:Ref<List<Str>>){ 
+  define test(t:Ref<Set<Str>>){ 
     bla(t)
   }
   
