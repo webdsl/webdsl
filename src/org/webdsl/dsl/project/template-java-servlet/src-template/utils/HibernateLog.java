@@ -29,15 +29,43 @@ public class HibernateLog {
 			java.util.List<utils.HibernateLogEntry> list = HibernateLog.parse(log);
 			int logindex = 0;
 			long logtime = 0;
+			java.util.List<utils.HibernateLogEntry> longestThree = new java.util.ArrayList<utils.HibernateLogEntry>();
 			for(utils.HibernateLogEntry entry : list)
 			{ 
 				logindex++;
 				logtime += entry.durationExclusive;
+				if(longestThree.size() == 0) {
+					longestThree.add(entry);
+				}
+				else if(longestThree.size() < 3) {
+					longestThree.add(entry);
+					for(int i = longestThree.size() - 2; i >= 0; i--) {
+						if(longestThree.get(i).durationExclusive < entry.durationExclusive) {
+							longestThree.set(i + 1, longestThree.get(i));
+							longestThree.set(i, entry);
+						}
+					}
+				}
+				else if(longestThree.get(longestThree.size() - 1).durationExclusive < entry.durationExclusive) {
+					longestThree.set(longestThree.size() - 1, entry);
+					for(int i = longestThree.size() - 2; i >= 0; i--) {
+						if(longestThree.get(i).durationExclusive < entry.durationExclusive) {
+							longestThree.set(i + 1, longestThree.get(i));
+							longestThree.set(i, entry);
+						}
+					}
+				}
 			}
-			sout.print("<p>SQLs: " + logindex + " time: " + logtime + " ms</p><table class=\"sqllog\">");
+			sout.print("<p>SQLs = " + logindex + ", Time = " + logtime + " ms</p><table class=\"sqllog\">");
+			logindex = 0;
 			for(utils.HibernateLogEntry entry : list)
 			{ 
 				sout.print("<tr class=\"sqllog\"><td class=\"sqllognr\">" + (++logindex) + "</td><td class=\"sqllogtime\">" + entry.durationExclusive + " ms</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+			}
+			sout.print("</table><p>The three queries that took the most time:</p><table class=\"sqllog\">");
+			for(utils.HibernateLogEntry entry : longestThree)
+			{ 
+				sout.print("<tr class=\"sqllog\"><td class=\"sqllogtime\">" + entry.durationExclusive + " ms</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
 			}
 			sout.print("</table>");
 		}
@@ -74,7 +102,7 @@ public class HibernateLog {
         	linenr++;
         	int sep1 = line.indexOf("|");
         	int sep2 = line.indexOf("|", sep1 + 1);
-        	if(sep1 < 0 || sep2 < 0) continue;
+        	if(sep1 < 0 || sep2 < 0) throw new ParseException("Incorrect layout pattern detected", linenr);
         	String cat = line.substring(0, sep1);
         	String time = line.substring(sep1 + 1, sep2);
         	String msg = line.substring(sep2 + 1);
