@@ -99,60 +99,33 @@ define test(b:Bla){
     }
     submit action{} [class = "savebutton"+b.name] {"save"}
   }	
-  <br />
-  "built-in output (for reference) "
-  output(b.bla)[class = "builtinoutputelem"+b.name]
-  form{
-  "built-in input"
-    label(" CLICK ")[class = "builtinlabelelem"+b.name]{
-      input(b.bla)[class = "builtininputelem"+b.name]
-    }
-    submit action{} [class = "builtinsavebutton"+b.name]  {"save"}
-  }
 }
 
 test booltemplates {
   var d : WebDriver := FirefoxDriver();
   d.get(navigate(root()));
-  var input        := d.findElements(SelectBy.className(       "inputelemb1"))[0];
-  var builtininput := d.findElements(SelectBy.className("builtininputelemb1"))[0];
-  assert(       !input.isSelected());
-  assert(!builtininput.isSelected());
-  var label        := d.findElements(SelectBy.className(       "labelelemb1"))[0];
-  var builtinlabel := d.findElements(SelectBy.className("builtinlabelelemb1"))[0];
+  var input := d.findElement(SelectBy.className("inputelemb1"));
+  assert(!input.isSelected());
+  var label := d.findElement(SelectBy.className("labelelemb1"));
   label.click();
-  builtinlabel.click();
   assert(input.isSelected());
-  assert(builtininput.isSelected());
-  var button := d.findElements(SelectBy.className("savebuttonb1"))[0];
+  var button := d.findElement(SelectBy.className("savebuttonb1"));
   button.click();
   
-  var input2        := d.findElements(SelectBy.className(       "inputelemb1"))[0];
-  var builtininput2 := d.findElements(SelectBy.className("builtininputelemb1"))[0];
-  assert(       input2.isSelected());
-  assert(builtininput2.isSelected());
+  var input2 := d.findElement(SelectBy.className("inputelemb1"));
+  assert(input2.isSelected());
   
   
   //tests with validation
   
-  var input3 := d.findElements(SelectBy.className("inputelemb2"))[0];
+  var input3 := d.findElement(SelectBy.className("inputelemb2"));
   input3.toggle();
   assert(!input3.isSelected());
   
-  var button3 := d.findElements(SelectBy.className("savebuttonb2"))[0];
+  var button3 := d.findElement(SelectBy.className("savebuttonb2"));
   button3.click();
   
   assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for defined bool input");
-  assert(d.getPageSource().split("CLICK")[3].contains("force true was enabled, but value was false"), "didn't find a single validation error for defined bool input, behind the label");
-  
-  var input4 := d.findElements(SelectBy.className("builtininputelemb2"))[0];
-  input4.toggle();
-  assert(!input4.isSelected());
-  
-  var button4 := d.findElements(SelectBy.className("builtinsavebuttonb2"))[0];
-  button4.click();
-  
-  assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for builtin bool input");
   
   testnolabel(d);
   
@@ -168,31 +141,18 @@ define page testnolabel(){
     inputBool1(b4.bla)[class = "inputelem"]
     submit action{} [class = "savebutton"] {"save"}
   }	
-  outputBool(b4.bla)[class = "builtinoutput"]
-  form{
-    inputBool(b4.bla)[class = "builtininput"]
-    submit action{} [class = "builtinsavebutton"] {"save"}
-  }	
 }
 
 function testnolabel(d:WebDriver) {
   d.get(navigate(testnolabel()));
 
-  var input := d.findElements(SelectBy.className("inputelem"))[0];
+  var input := d.findElement(SelectBy.className("inputelem"));
   input.toggle();
   assert(!input.isSelected());
   
-  var button := d.findElements(SelectBy.className("savebutton"))[0];
+  var button := d.findElement(SelectBy.className("savebutton"));
   button.click();
   
   assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for defined bool input");
   
-  var input4 := d.findElements(SelectBy.className("builtininput"))[0];
-  input4.toggle();
-  assert(!input4.isSelected());
-  
-  var button4 := d.findElements(SelectBy.className("builtinsavebutton"))[0];
-  button4.click();
-  
-  assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for builtin bool input");
 }

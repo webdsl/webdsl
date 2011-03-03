@@ -70,11 +70,11 @@ test entityreftemplates {
   
   //check not null anno from entity
   d.get(navigate(testnotnull()));
-  var l1 := Select(d.findElements(SelectBy.className("elem-test-1"))[0]).getOptions().length;
+  var l1 := Select(d.findElement(SelectBy.className("elem-test-1"))).getOptions().length;
   assert(l1 == 5);
-  var l2 := Select(d.findElements(SelectBy.className("elem-test-2"))[0]).getOptions().length;
+  var l2 := Select(d.findElement(SelectBy.className("elem-test-2"))).getOptions().length;
   assert(l2==5);
-  var l3 := Select(d.findElements(SelectBy.className("elem-test-3"))[0]).getOptions().length;
+  var l3 := Select(d.findElement(SelectBy.className("elem-test-3"))).getOptions().length;
   assert(l3==5);
   
   d.close();
@@ -95,7 +95,7 @@ test entityreftemplates {
   }
   
 function commonTest(d:WebDriver){  
-  var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
+  var input := d.findElement(SelectBy.className("input-elem"));
   
   var sinput := Select(input);
   
@@ -108,8 +108,8 @@ function commonTest(d:WebDriver){
     log("test " +e.name+ ": "+e.id);
   }
   
-  Select(d.findElements(SelectBy.className("input-elem"))[0]).selectByIndex(5);
-  d.findElements(SelectBy.className("button-elem"))[0].click();  
+  Select(d.findElement(SelectBy.className("input-elem"))).selectByIndex(1);
+  d.findElement(SelectBy.className("button-elem")).click();
   assert(d.getPageSource().contains("cannot select e1"));
 
 }
