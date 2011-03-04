@@ -60,7 +60,7 @@ public class HibernateLog {
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : list)
 			{ 
-				sout.print("<tr class=\"sqllog\"><td class=\"sqllognr\">" + (++logindex) + "</td><td class=\"sqllogtime\">" + entry.durationExclusive + " ms</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+				sout.print("<tr class=\"sqllog\"><td class=\"sqllognr\">" + (++logindex) + "</td><td class=\"sqllogtime\">" + entry.durationExclusive + " ms" + (entry.subEntries > 0 ? "(" + entry.durationInclusive + " ms with " + entry.subEntries + " queries)" : "") + "</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
 			}
 			sout.print("</table><p>The three queries that took the most time:</p><table class=\"sqllog\">");
 			for(utils.HibernateLogEntry entry : longestThree)
