@@ -26,7 +26,8 @@ strategies
   
   core-to-java-servlet(|qid) =
       prepare-core-to-java-servlet(|qid)
-    ; log-time(not(generate-code-java-servlet-once) |"generate-code-java-servlet-once")
+      // generate-code-java-servlet-once should not use the ast, back-end-transformations/analysis for ast analysis
+    ; log-time(not(<generate-code-java-servlet-once> None()) |"generate-code-java-servlet-once")
     ; log-time(generate-code-java-servlet      |"generate-code-java-servlet")
     ; transform-java-code
     
@@ -58,7 +59,7 @@ strategies
       ; set-DomainPackage(|<qid-to-package-name> Qualified(qid, "domain")) //strategy/rule shared with seam back-end
     )
     ; annotate-pagecalls
-    ; log-time(get-all-top-level-template-names|"get-all-top-level-template-names") //TODO should be available in a dynamic rule somewhere
+    ; map(try(register-template-name))
     ; is-logging-of-ac-principle-possible
       
   is-logging-of-ac-principle-possible =
@@ -91,12 +92,7 @@ strategies
          ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
          ; all(generate-code-java-servlet)
          |}
-   <+?Function(_,_,_,_) /*;  handled with dynamic rule that holds all functions
-         {| Variables://InFunction, Variables:
-           //rules ( InFunction := <id> )
-           not(GenerateCodeJavaServlet)
-         ; all(generate-code-java-servlet)
-         |}*/
+   <+where(not(JavaInEntity)); ?Function(_,_,_,_); generate-java-servlet-global-function
    <+where(get-entity-def => (ent_name, _)) ;
          {| JavaInEntity:
            rules ( JavaInEntity := <id> )
@@ -244,56 +240,17 @@ rules
     with  _{anno*} := tc
         ; newid := <newname> "input" 
     
-  get-all-top-level-template-names =
-    alltd(register-top-level-template-name)
-  register-top-level-template-name = 
-    ?tmplt@webdsl|[ define mod* x(farg*)  req*  { elem* } ]|
-    ; with(
-        // TemplateFormalArguments used in dispatch-servlet.str
-        rules( TemplateFormalArguments : x -> farg* )
-      ; if <not(fetch(Page <+ Email))> mod*
-        then rules(AllTopLevelTemplateNamesJavaServlet :+= x  // used to create lookup hashmap in java-base-page.str
-                   IsTopLevelTemplateNameJavaServlet : x
-                   TopLevelTemplateArgumentsJavaServlet : x -> farg* 
-                   GetTopLevelTemplateJavaServlet : x -> tmplt
-                   )
-           ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
-        end
-        ; if <fetch(Email)> mod* then rules ( AllEmailNames :+= x ) end
-        ; if "errorTemplateInputListString"  := x then rules ( ErrorTemplateInput := tmplt ) end
-        ; if "errorTemplateFormListString"   := x then rules ( ErrorTemplateForm := tmplt ) end
-        ; if "errorTemplateActionListString" := x then rules ( ErrorTemplateAction := tmplt ) end
-        ; if "templateSuccessListString"     := x then rules ( TemplateSuccess := tmplt ) end
-      )
-    ; !<register-template-name(|True())> tmplt
+  template-class-name-parents: (mod*, allnames) -> class
+    with  name := <reverse; separate-by(|"_"); concat-strings> allnames
+        ; class := <any-template-name-to-classname> (mod*, name)
     
-  template-class-name-parents(|parentNames,x) :
-    _ -> all-parts
-    with  name-parts := <concat; separate-by(|"_")> [<reverse> parentNames, [x,"Template"]]
-        ; all-parts := <concat-strings> (name-parts)   
-    
-  register-template-name(|toplevel)  :
-    tc@Define(mod*,x,farg*, targs, elem*) -> Define(mod*,x,farg*, targs, elem1*){TemplateClassName(newid),anno*} 
+  register-template-name :
+    tc@Define(mod*,x,farg*, targs, elem*) -> Define(mod*,x,farg*, targs, elem1*){TemplateClassName(className),anno*} 
     with  _{anno*} := tc
         ; parentNames := <bigbagof-CurrentHierarchicalName>
-        ; all-parts := <template-class-name-parents(|parentNames,x)>
-        ; if <oncetd(?Email())> mod* then
-              newid := <concat-strings> [all-parts, "_Email"]
-            ; rules ( EmailClassName : x -> newid)
-          else
-              newid := all-parts
-          end
-        ; if True() := toplevel then rules( TopLevelTemplateClassName : x -> newid ) end
-        ; if <fetch(Page)> mod*
-          then rules( AllPageNames  :+= x 
-                      PageClassName : x -> newid) // used to create lookup hashmap in java-base-page.str 
-                    //  PageFargs : x -> farg*)  
-                                                  // TODO needs renaming, used for any type of template now
-          end
+        ; className := <template-class-name-parents> (mod*, [x | parentNames])  
         ; {| CurrentHierarchicalName :
-          rules(
-            CurrentHierarchicalName :+= x
-          )
-          ; elem1* := <alltd(register-template-name(|False()))> elem*
+              rules( CurrentHierarchicalName :+= x )
+            ; elem1* := <alltd(register-template-name)> elem*
           |}
-          
+  
