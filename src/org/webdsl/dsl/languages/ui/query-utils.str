@@ -19,17 +19,21 @@ rules
        ; fas := <collect-potential-joins> base
        //; <map(info(|["FA from ", x, ": ", <id>]))> fas
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
-       ; joincandidatesnogen := <map(?(<id>, _, _)); filter(an-requires-joining-no-generic); make-set> fas
-       ; joincandidatesgen := <diff; string-sort-desc; foldr([], group-joins); map(?(_, <id>))> (joincandidates, joincandidatesnogen)
        ; info(|["These should be inlined: ", joincandidates])
-       ; info(|["These should be joined: ", joincandidatesnogen])
+       ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
+       ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
+       ; joincandidatesgen := <map(group-join-candidates(|queryjoins))> queryroots
        ; info(|["These should be queried: ", joincandidatesgen])
+       ; joincandidatesnogen := <diff> (joincandidates, <flatten-list; make-set>joincandidatesgen)  
+       ; info(|["These should be joined: ", joincandidatesnogen])
        ; querycondition := <filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()> fas // Combine query conditions of the effectful field accesses
        ; info(|["Query condition:", querycondition])
       |}
 
+/*
 group-joins :
-	(cur, []) -> [(cur, [cur])]
+	(cur, []) -> [(cur, newGroup)]
+	with newGroup := <string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)> cur
 
 group-joins :
 	(cur, prev) -> [(cur, [cur|prevGroup]) | prevTail]
@@ -38,10 +42,20 @@ group-joins :
 	; <string-starts-with(|prevJoin)> cur
 
 group-joins :
-	(cur, prev) -> [(cur, [cur]) | prev]
+	(cur, prev) -> [(cur, newGroup) | prev]
 	where <?[prevHead|prevTail]> prev
 	; <?(prevJoin, prevGroup)> prevHead
 	; <not(string-starts-with(|prevJoin))> cur
+	; newGroup := <string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)> cur
+*/
+
+group-join-candidates-build-paths :
+	(x, []) -> [x]
+
+group-join-candidates-build-paths :
+	(x, y) -> [x_new|y]
+	where <?[headElem|_]> y
+	; x_new := <concat-strings>[headElem, ".", x]
 
 /*create-aliasses :
 	(cur, []) -> [(cur, cur, <(string-tokenize(|['.']); last; str-tail) <+ str-tail> cur)]
@@ -63,7 +77,13 @@ tail : [x|xs] -> xs*/
 
 strategies
 
-  //str-tail = explode-string; tail; implode-string
+  group-join-candidates(|queryjoins) =
+  	?currentroot
+  	; <filter(?(currentroot, _); conc-strings)> queryjoins
+  	; map(string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths))
+  	; flatten-list
+  	; make-set
+  	; string-sort-desc
 
   collect-potential-joins =
     collect(an-potential-joins)
@@ -203,11 +223,9 @@ strategies // checks for potential inlining
   an-find-entity-property-pair =
     ?fa@FieldAccess(l, fld)
     ; if Var(x) := l then
-        ![<concat-strings> ["_", fld]]
+        !<concat-strings> ["_", fld]
       else
-      	paths := <an-find-entity-property-pair> l
-      	; ?[path | _]
-        ; ![<concat-strings> [path, "._", fld] | paths] 
+        !<concat-strings> [<an-find-entity-property-pair> l, "._", fld]
       end
 
   an-requires-joining =
@@ -219,21 +237,47 @@ strategies // checks for potential inlining
     ?FieldAccess(fa@FieldAccess(_, _), _)
     ; <an-find-entity-property-pair> fa
 
-  an-find-entity-property-pair-no-generic =
-    ?fa@FieldAccess(l, fld)
-    ; where(not(<type-of; is-generic-sort> fa))
-    ; if Var(x) := l then
-        !<concat-strings> ["_", fld]
-      else
-      	paths := <an-find-entity-property-pair-no-generic> l
-      	; ?[path | _]
-        ; ![<concat-strings> [path, "._", fld] | paths]
-      end
+  type-of-ignore-generics =
+    ?fa@FieldAccess(v, f)
+    ; where(not(<type-of> fa))
+    ; where(v_class := <type-of-ignore-generics; ?SimpleSort(<id>)> v)
+    ; <TypeOfProperty>(v_class, f)
 
-  an-requires-joining-no-generic =
-    ?FieldAccess(fa@FieldAccess(_, _), _)
-    ; where(not(<type-of; is-generic-sort> fa))
-    ; <an-find-entity-property-pair-no-generic> fa
+  type-of-ignore-generics =
+    ?fa@FieldAccess(v, f)
+    ; where(not(<type-of> fa))
+    ; where(v_class := <type-of-ignore-generics; ?GenericSort(_, [SimpleSort(<id>)])> v)
+    ; <TypeOfProperty>(v_class, f)
+
+  type-of-ignore-generics = type-of
+
+  an-find-entity-property-pair-generic =
+    ?fa@FieldAccess(l, fld)
+    ; where(<type-of-ignore-generics; is-generic-sort> fa)
+    ; !(<an-find-entity-property-pair> fa, "")
+
+  an-find-entity-property-pair-generic =
+    ?fa@FieldAccess(l, fld)
+    ; where(not(<type-of-ignore-generics; is-generic-sort> fa))
+    ; <an-find-entity-property-pair-generic> l
+    ; ?(genericField, associations)
+    ; !(genericField, <concat-strings>[associations, "._", fld])
+
+  an-requires-joining-generic =
+    ?fa@FieldAccess(_, _)
+    ; where(not(type-of-ignore-generics))
+    ; info(|["TypeOfFailed: ", <pp-webdsl>fa, ""])
+    ; fail
+
+  an-requires-joining-generic =
+    ?fa@FieldAccess(_, _)
+    ; where(<type-of-ignore-generics; is-generic-sort> fa)
+    ; !(<an-find-entity-property-pair> fa, "")
+
+  an-requires-joining-generic =
+    ?fa1@FieldAccess(fa2@FieldAccess(_, _), _)
+    ; where(<type-of-ignore-generics> fa1; not(is-generic-sort))
+    ; <an-find-entity-property-pair-generic> fa2
 
   is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; ParentArgs <+ IteratedVar))
 
