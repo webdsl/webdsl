@@ -24,15 +24,35 @@ rules
 					(x_class, body) := <get-entity-def> ent
 				; <has-no-anno(?IndexedAnno(_))> ent
 				;	props := <all-properties> x_class
-				; searchable := <filter(searchable-property-to-name); uniq> props
+				; searchable := <filter(searchable-property-to-name); flatten-list; uniq> props
 				; not([] := searchable)
 			)
 		; add-anno(|IndexedAnno(searchable))
 		
 	searchable-property-to-name :
-    Property(name, _, _, anno*) -> name
+    Property(name, propkind, _, anno*) -> name
     where not([] := <filter(?SimpleAnno("searchable"))> anno*)
+    ; not (<?Ref() > propkind)
+      
+    searchable-property-to-name :
+    Property(name, propkind, srt, anno*) -> embeddedNames
+    where not([] := <filter(?SimpleAnno("searchable"))> anno*)
+    ; <?Ref() > propkind
+    // 1 level of depth right now, so only simple types are supported
+    with embeddedSearchable :=  <srt-to-type; all-properties; filter(is-simple-prop);filter(searchable-property-to-name); uniq> srt
+    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 
   searchable-property-to-name :
     DerivedProperty(name, _, _, anno*, _) -> name
     where not([] := <filter(?SimpleAnno("searchable"))> anno*)
+    
+  is-simple-prop :
+  	p@Property(_, propkind, _, _) -> p
+  	where not (<?Ref()> propkind)
+  
+  srt-to-type:
+  	GenericSort(_,[SimpleSort(type)]) -> type
+  
+  embedded-name(|prefix) :
+  propname -> <concat-strings> [prefix, ".", propname] 
+  	

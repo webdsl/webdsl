@@ -12,8 +12,15 @@ imports
 strategies
 
   property-to-index-annos :
-    Property(x, _, s, anno*) -> [anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|]
+    Property(x, propkind, s, anno*) -> [anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|]
     where not([] := <filter(?SimpleAnno("searchable"))> anno*)
+    ; not (<?Ref()<+?Comp() > propkind)
+  
+  //Reference/Composite properties are embedded index fields, one level of depth right now
+  property-to-index-annos :
+    Property(x, propkind, s, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1) ]|]
+    where not([] := <filter(?SimpleAnno("searchable"))> anno*)    
+    ; <?Ref()<+?Comp() > propkind
 
   property-to-index-annos :
     Property(x, _, s, anno*) -> []
@@ -31,7 +38,7 @@ strategies
   property-to-index-annos :
     DerivedProperty(x, _, s, anno*, e) -> []
 
-rules 		// get all properties of an entity, including supertypes (similar to front-end rule: all-roperties)
+rules 		// get all properties of an entity, including supertypes (similar to front-end rule: all-properties)
 
   get-all-properties-in-entity:
     ent -> props
@@ -63,7 +70,7 @@ strategies
         }
         public static java.util.List<x_Class> x#_(String searchQuery, int limit, int offset)  {
           String[] searchFields = { e_sf* };
-          org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer());
+          org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(org.apache.lucene.util.Version.LUCENE_30, searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer(org.apache.lucene.util.Version.LUCENE_30));
           try {
             org.apache.lucene.search.Query luceneQuery = parser.parse(searchQuery);
             org.hibernate.search.FullTextSession fts = org.hibernate.search.Search.getFullTextSession(e_HibSession);
@@ -79,6 +86,7 @@ strategies
     where (
         (x_class, _) := <get-entity-def> ent
       ; x_props := <get-anno(?IndexedAnno(<id>))> ent
+      //; x_props_ref := <
     )
     with x := <concat-strings> ["_static_", "search", x_class]
        ; e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props

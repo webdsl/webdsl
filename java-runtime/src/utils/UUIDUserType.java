@@ -222,7 +222,7 @@ public class UUIDUserType implements UserType
 		return new int[] { theType } ;
 	}
 
-	public static final int theType = org.hibernate.Hibernate.STRING.sqlType(); // use db independent type of hibernate
+	public static final int theType =  org.hibernate.type.StringType.INSTANCE.sqlType(); // use db independent type of hibernate
 
 }
 
