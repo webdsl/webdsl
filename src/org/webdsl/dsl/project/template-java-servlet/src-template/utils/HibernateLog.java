@@ -56,7 +56,7 @@ public class HibernateLog {
 					}
 				}
 			}
-			sout.print("<p>SQLs = " + logindex + ", Time = " + logtime + " ms</p><table class=\"sqllog\">");
+			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + logindex + "</span>, Time = <span id=\"sqllogtime\">" + logtime + " ms</span></p><table class=\"sqllog\">");
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : list)
 			{ 

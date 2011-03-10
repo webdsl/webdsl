@@ -22,9 +22,9 @@ rules
        ; info(|["These should be inlined: ", joincandidates])
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
-       ; joincandidatesgen := <map(group-join-candidates(|queryjoins))> queryroots
+       ; <map(group-join-candidates(|queryjoins)); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
        ; info(|["These should be queried: ", joincandidatesgen])
-       ; joincandidatesnogen := <diff> (joincandidates, <flatten-list; make-set>joincandidatesgen)  
+       ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)); flatten-list> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
        ; info(|["These should be joined: ", joincandidatesnogen])
        ; querycondition := <filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()> fas // Combine query conditions of the effectful field accesses
        ; info(|["Query condition:", querycondition])
@@ -237,46 +237,26 @@ strategies // checks for potential inlining
     ?FieldAccess(fa@FieldAccess(_, _), _)
     ; <an-find-entity-property-pair> fa
 
-  type-of-ignore-generics =
-    ?fa@FieldAccess(v, f)
-    ; where(not(<type-of> fa))
-    ; where(v_class := <type-of-ignore-generics; ?SimpleSort(<id>)> v)
-    ; <TypeOfProperty>(v_class, f)
-
-  type-of-ignore-generics =
-    ?fa@FieldAccess(v, f)
-    ; where(not(<type-of> fa))
-    ; where(v_class := <type-of-ignore-generics; ?GenericSort(_, [SimpleSort(<id>)])> v)
-    ; <TypeOfProperty>(v_class, f)
-
-  type-of-ignore-generics = type-of
-
   an-find-entity-property-pair-generic =
     ?fa@FieldAccess(l, fld)
-    ; where(<type-of-ignore-generics; is-generic-sort> fa)
+    ; where(<type-of; is-generic-sort> fa)
     ; !(<an-find-entity-property-pair> fa, "")
 
   an-find-entity-property-pair-generic =
     ?fa@FieldAccess(l, fld)
-    ; where(not(<type-of-ignore-generics; is-generic-sort> fa))
+    ; where(not(<type-of; is-generic-sort> fa))
     ; <an-find-entity-property-pair-generic> l
     ; ?(genericField, associations)
     ; !(genericField, <concat-strings>[associations, "._", fld])
 
   an-requires-joining-generic =
     ?fa@FieldAccess(_, _)
-    ; where(not(type-of-ignore-generics))
-    ; info(|["TypeOfFailed: ", <pp-webdsl>fa, ""])
-    ; fail
-
-  an-requires-joining-generic =
-    ?fa@FieldAccess(_, _)
-    ; where(<type-of-ignore-generics; is-generic-sort> fa)
+    ; where(<type-of; is-generic-sort> fa)
     ; !(<an-find-entity-property-pair> fa, "")
 
   an-requires-joining-generic =
     ?fa1@FieldAccess(fa2@FieldAccess(_, _), _)
-    ; where(<type-of-ignore-generics> fa1; not(is-generic-sort))
+    ; where(not(<type-of; is-generic-sort> fa1))
     ; <an-find-entity-property-pair-generic> fa2
 
   is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; ParentArgs <+ IteratedVar))
