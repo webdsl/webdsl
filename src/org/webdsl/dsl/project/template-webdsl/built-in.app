@@ -77,11 +77,21 @@ module .servletapp/src-webdsl-template/built-in
     getLabelString() : String
     inLabelContext() : Bool
     addValidationException(String,String)
+    getValidationErrorsByName(String):List<String>
     static getRequestedPage() : PageServlet
+    enterLabelContext(String)
+    leaveLabelContext()
+    setTemplateContext(TemplateContext)
+    getTemplateContext():TemplateContext
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
   }  
+  
+  native class utils.TemplateContext as TemplateContext {
+    clone():TemplateContext
+    getTemplateContextString():String
+  }
 
 //access to template context
   
@@ -1052,6 +1062,699 @@ module .servletapp/src-webdsl-template/built-in
           }
         }
       }
+    }
+  }
+  
+  //label
+  
+  define labelcolumns(s:String){
+    label(s)[all attributes]{
+      elements()
+    }
+    //define labelInternal(s:String, tname :String, tc :TemplateContext) = labelcolumnsInternal
+    define labelInternal(s:String, tname :String, tc :TemplateContext){ 
+      <td>
+      <label for=tname all attributes>output(s)</label>
+      </td>
+      databind{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(tname); }
+      render{   getPage().enterLabelContext(tname); }
+      <td>
+      elements()
+      </td>
+      databind{ getPage().leaveLabelContext();}
+      validate{ getPage().leaveLabelContext();}
+      render{   getPage().leaveLabelContext();}
+    }
+  }
+  
+  define label(s:String) {
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    request var tc := getPage().getTemplateContext().clone()
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        labelInternal(s,tname,tc)[all attributes]{
+          elements()[templateContext=tc] //change templateContext to make sure the same name attributes are generated
+        }
+      }
+    }
+    else{
+        labelInternal(s,tname,tc)[all attributes]{
+          elements()[templateContext=tc]
+        }
+    }
+    validate{
+      errors := getPage().getValidationErrorsByName(tname);
+    }
+  }
+
+  define labelInternal(s:String, tname :String, tc :TemplateContext){ 
+    <label for=tname all attributes>output(s)</label>
+    
+    databind{ getPage().enterLabelContext(tname); }
+    validate{ getPage().enterLabelContext(tname); }
+    render{   getPage().enterLabelContext(tname); }
+    
+    elements()
+    
+    databind{ getPage().leaveLabelContext();}
+    validate{ getPage().leaveLabelContext();}
+    render{   getPage().leaveLabelContext();}
+  }
+  
+
+  // input/output(Int)
+  
+  define output(i : Int){
+    output(i.toString())
+  }
+  
+  define input(i:Ref<Int>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputIntInternal(i,tname)[all attributes]
+      }
+    }
+    else{
+      inputIntInternal(i,tname)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(/-?\d+/.match(req)){
+          if(req.parseInt() == null){
+            errors := ["Outside of possible number range"];
+          }
+        }
+        else{
+          errors := ["Not a valid number"];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := i.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);     
+    }
+  }
+
+  define inputIntInternal(i : Ref<Int>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = i 
+      }
+      class="inputInt "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        i := req.parseInt();
+      }
+    }
+  }
+
+  //input/output Float
+  
+  define ignore-access-control output(i : Float){
+    output(i.toString())
+  }
+
+  define input(i:Ref<Float>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null){
+      errorTemplateInput(errors){
+        inputFloatInternal(i,tname)[all attributes]
+      }
+    }
+    else{
+      inputFloatInternal(i,tname)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(/-?\d\d*\.\d*E?\d*/.match(req) || /-?\d\d*E?\d*/.match(req) || /-?\.\d\d*E?\d*/.match(req)){
+          var f: Float := req.parseFloat(); 
+          if(f == null){
+            errors := ["Not a valid decimal number"];
+          }
+        }
+        else{
+          errors := ["Not a valid decimal number"];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := i.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);      
+    }
+  }
+
+  define ignore-access-control inputFloatInternal(i : Ref<Float>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = i 
+      }
+      class="inputFloat "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        i := req.parseFloat();
+      }
+    }
+  }
+  
+  //input/output Long
+  
+  define output(i : Long){
+    text(i.toString())
+  }
+
+  define input(i:Ref<Long>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null){
+      errorTemplateInput(errors){
+        inputLongInternal(i,tname)[all attributes]
+      }
+    }
+    else{
+      inputLongInternal(i,tname)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(/-?\d+/.match(req)){
+          if(req.parseLong() == null){
+            errors := ["Outside of possible number range"];
+          }
+        }
+        else{
+          errors := ["Not a valid number"];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := i.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);    
+    }
+  }
+  
+  define inputLongInternal(i : Ref<Long>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = i 
+      }
+      class="inputLong "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        i := req.parseLong();
+      }
+    }
+  }
+  
+  //input/output Secret
+  
+  define output(s: Secret){
+    "********"
+  }
+
+  define input(s:Ref<Secret>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputSecretInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputSecretInternal(s,tname)[all attributes]
+    }
+    validate{
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors := handleValidationErrors(errors);  
+    }
+  }
+
+  define inputSecretInternal(s : Ref<Secret>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      type="text"
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = s
+      }
+      class="inputSecret "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+  
+  //input/output String
+  
+  define output(s: String){
+    text(s)
+  }
+
+  define input(s:Ref<String>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputStringInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputStringInternal(s,tname)[all attributes]
+    }
+    validate{
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors := handleValidationErrors(errors);     
+    }
+  }
+
+  define inputStringInternal(s : Ref<String>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      type="text"
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = s
+      }
+      class="inputString "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+
+  //input/output Text
+  
+  define output(s: Text){
+    text(s)
+  }
+
+  define input(s:Ref<Text>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputTextInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputTextInternal(s,tname)[all attributes]
+    }
+    validate{
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors := handleValidationErrors(errors);    
+    }
+  }
+
+  define inputTextInternal(s : Ref<Text>, tname : String){
+    var req := getRequestParameter(tname)
+    <textarea 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="inputTextarea inputText "+attribute("class") 
+      all attributes except "class"
+    >
+      if(req != null){ 
+        text(req) 
+      }
+      else{
+        text(s)
+      }  
+    </textarea>
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+
+
+  //input/output URL
+  
+  define output(s: URL){
+    navigate url(s) [all attributes] { url(s) }
+  }
+
+  define input(s:Ref<URL>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputURLInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputURLInternal(s,tname)[all attributes]
+    }
+    validate{
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors := handleValidationErrors(errors);    
+    }
+  }
+  
+  define inputURLInternal(s : Ref<URL>, tname : String){
+    var req := getRequestParameter(tname)
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      type="text"
+      if(req != null){ 
+        value = req 
+      }
+      else{
+        value = s
+      }
+      class="inputURL "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+
+  //input/output WikiText
+  
+  
+  define output(s: WikiText){
+    rawoutput(s.format())
+  }
+
+  define input(s:Ref<WikiText>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputWikiTextInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputWikiTextInternal(s,tname)[all attributes]
+    }
+    validate{
+      errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors := handleValidationErrors(errors);     
+    }
+  }
+
+  define inputWikiTextInternal(s : Ref<WikiText>, tname : String){
+    var req := getRequestParameter(tname)
+    <textarea 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="inputTextarea inputWikiText "+attribute("class") 
+      all attributes except "class"
+    >
+      if(req != null){ 
+        text(req) 
+      }
+      else{
+        text(s)
+      }  
+    </textarea>
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+
+  //input/output Email
+  
+  
+  define output(s: Email){
+    text(s)
+  }
+
+  define input(s:Ref<Email>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputEmailInternal(s,tname)[all attributes]
+      }
+    }
+    else{
+      inputEmailInternal(s,tname)[all attributes]
+    }
+    validate{
+      if(req != null){
+        if(!(req as Email).isValid()){
+          errors := ["Not a valid email address"];
+        }
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := s.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);     
+    }
+  }
+  
+  define inputEmailInternal(s : Ref<Email>, tname : String){
+    var req := getRequestParameter(tname)
+    <textarea 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="inputEmailarea inputEmail "+attribute("class") 
+      all attributes except "class"
+    >
+      if(req != null){ 
+        text(req) 
+      }
+      else{
+        text(s)
+      }  
+    </textarea>
+  
+    databind{
+      if(req != null){
+        s := req;
+      }
+    }
+  }
+  
+  //input/output Bool
+  
+  
+  define output(b : Bool){
+    <input 
+      type="checkbox"
+      if(b){
+       checked="true"
+      }
+      disabled="true" 
+      all attributes 
+    />
+  }
+
+  define input(b:Ref<Bool>){
+    var tname := getTemplate().getUniqueId() // regular var is reset when validation fails
+    request var errors : List<String> := null // need a var that keeps its value, even when validation fails
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputBoolInternal(b,tname)[all attributes]  // use same tname so the inputs are updated in both cases
+      }
+    }
+    else{
+      inputBoolInternal(b,tname)[all attributes]
+    }
+    validate{
+      errors := b.getValidationErrors();
+      errors := handleValidationErrors(errors);
+    }
+  }
+
+  define inputBoolInternal(b : Ref<Bool>,rname:String){
+    var rnamehidden := rname + "_isinput"
+       
+    <input type="hidden" name=rname+"_isinput" />
+      <input type="checkbox" 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=rname 
+      //true when it was submitted as true or it was not submitted but the value was already true
+      if(getRequestParameter(rnamehidden)!=null && getRequestParameter(rname)!=null || getRequestParameter(rnamehidden)==null && b){ 
+        checked="true"  
+      }
+      class="inputBool "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      var tmp : String := getRequestParameter(rname);
+      var tmphidden := getRequestParameter(rnamehidden);
+      if(tmphidden != null){
+        if(getRequestParameter(rname) != null){
+          b := true;     	
+        }
+        else{
+          b := false;
+        }
+      }
+    }
+  }
+  
+  //input File
+  
+  define input(f:Ref<File>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    if(errors != null){
+      errorTemplateInput(errors){
+        inputFileInternal(f,tname)[all attributes]
+      }
+    }
+    else{
+      inputFileInternal(f,tname)[all attributes]
+    }
+    validate{
+      errors := f.getValidationErrors();
+      errors := handleValidationErrors(errors);  
+    }
+  }
+
+  
+  define inputFileInternal(f : Ref<File>, tname : String){
+    init{
+      getPage().formRequiresMultipartEnc := true;
+    }
+    <input 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      type="file"
+      class="inputFile "+attribute("class") 
+      all attributes except "class"
+    />
+  
+    databind{
+      var fnew : File := getPage().getFileUpload(tname);
+      if(fnew != null && fnew.fileName() != ""){
+        f := fnew;
+      }
+    }
+  }
+  
+  
+  //input Image
+  
+    
+  define input(i : Ref<Image>){
+    input(i as Ref<File>)[all attributes]
+  }
+
+
+  //validate template
+  
+  define validate(check:Bool,message:String){
+    request var errors : List<String> := null
+    if(errors != null){
+      errorTemplateForm(errors)[all attributes]
+    }
+    validate{
+      if(!check){ 
+        errors := [message];
+      }
+      errors := handleValidationErrors(errors);
     }
   }
     

@@ -166,25 +166,28 @@ public abstract class AbstractPageServlet{
 
     public abstract String getAbsoluteLocation();
 
-    protected java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();
+    protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
-        java.lang.StringBuilder sb = new java.lang.StringBuilder();
-        for(String s : templateContext){
-            sb.append(s);
-        }
-        return sb.toString();
+        return templateContext.getTemplateContextString();
     }
     public void enterTemplateContext(String s) {
-        templateContext.push(s);
+        templateContext.enterTemplateContext(s);
     }
     public void leaveTemplateContext() {
-        templateContext.pop();
+        templateContext.leaveTemplateContext();
     }
     //verifies that the correct context was popped
-    public abstract void leaveTemplateContextChecked(String s);
-
+    public void leaveTemplateContextChecked(String s) { 
+        templateContext.leaveTemplateContextChecked(s);
+    }
     public void clearTemplateContext(){
-        templateContext.clear();
+        templateContext.clearTemplateContext();
+    }
+    public void setTemplateContext(TemplateContext tc){
+        templateContext = tc;
+    }
+    public TemplateContext getTemplateContext(){
+        return templateContext;
     }
 
     // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class

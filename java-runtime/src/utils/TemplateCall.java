@@ -4,12 +4,25 @@ import java.util.*;
 
 public class TemplateCall {
     
+   public TemplateCall(boolean valid, String name, Object[] args, Map<String,String> attrs){
+      this.valid = valid;
+      this.name = name;
+      this.args = args;
+      this.attrs = attrs;
+  }
+   
+   public TemplateCall(String name, Object[] args, Map<String,String> attrs){
+       this.valid = true;
+       this.name = name;
+       this.args = args;
+       this.attrs = attrs;
+   }
+    
   public TemplateCall(boolean valid, String name, Object[] args){
       this.valid = valid;
       this.name = name;
       this.args = args;
   }
-    
   
   public TemplateCall(String name, Object[] args){
       this.valid = true;
@@ -24,6 +37,7 @@ public class TemplateCall {
   public boolean valid;
   public String name;
   public Object[] args;
+  public Map<String,String> attrs;
   
   /*
    * just the value of the attribute, no escaping

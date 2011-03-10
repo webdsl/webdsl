@@ -1241,6 +1241,7 @@
    AllAttributeExceptExp -- KW["all attributes except"] _1,
    AttributesExp -- KW["attributes"] _1,
    DataBindAction -- KW["databind"] _1,
+   RenderAction -- KW["render"] _1,
    
    LocalRedefine -- KW["define"] _1 _2 KW["("] _3 KW[")"] KW["="] _4 _5,
    LocalRedefine.3:iter-star-sep           -- H hs=0[_1 KW[","]],
