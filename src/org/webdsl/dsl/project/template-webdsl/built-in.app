@@ -1605,22 +1605,21 @@ module .servletapp/src-webdsl-template/built-in
   
   define inputEmailInternal(s : Ref<Email>, tname : String){
     var req := getRequestParameter(tname)
-    <textarea 
+    <input 
       if(getPage().inLabelContext()) { 
         id=getPage().getLabelString() 
       } 
       name=tname 
-      class="inputEmailarea inputEmail "+attribute("class") 
-      all attributes except "class"
-    >
+      type="text"
       if(req != null){ 
-        text(req) 
+        value = req 
       }
       else{
-        text(s)
-      }  
-    </textarea>
-  
+        value = s
+      }
+      class="inputEmail "+attribute("class") 
+      all attributes except "class"
+    />
     databind{
       if(req != null){
         s := req;
