@@ -4,11 +4,9 @@ entity User {
 	name :: String
 }
 
+// -- START ONLY 2 --
+
 principal is User with credentials name
-
-
-
--- START ONLY 2 --
 
 access control rules 
 
@@ -21,6 +19,5 @@ access control rules
   // Partial wildcard match
   rule page roo*(*) { "abc"=="def"}
 
--- END ONLY 2 --
-
+// -- END ONLY 2 --
 
