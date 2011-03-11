@@ -150,24 +150,3 @@ define personedit(realp:Person){
 }
 
 
-
-test one {
-  
-    var d : WebDriver := FirefoxDriver();
-    
-    d.get(navigate(root()));
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 6, "expected 6 <input> elements");
-    /*
-    elist[1].sendKeys("TestPerson");
-    elist[2].sendKeys("TestPerson");
-    log(d.getPageSource());
-    assert(d.getPageSource().contains("should not be the same"), "error not shown");
-    */
-    /*elist[5].click();
-    
-    assert(d.getPageSource().contains("TestPerson"), "TestPerson was not saved}");
-    */
-    d.close();
-  
-}

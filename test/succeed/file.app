@@ -19,7 +19,7 @@ section datamodel
     form{
       for(u:User)
       {
-        outputString(u.name)
+        output(u.name)
         
         output(u.storedfile)
         
@@ -31,7 +31,7 @@ section datamodel
     "test page"
     var u : User := User{ name := "bob" };
     form{
-      inputString(u.name)
+      input(u.name)
       input(u.storedfile)
 
       action("save",save())
@@ -68,7 +68,7 @@ section datamodel
     var u : User2 := User2{ name := "alice" };
     form{
       group("image"){
-        row{column{inputString(u.name)}}
+        row{column{input(u.name)}}
         row{column{input(u.storedimage)}}
         row{column{action("save image",save())}}
       }

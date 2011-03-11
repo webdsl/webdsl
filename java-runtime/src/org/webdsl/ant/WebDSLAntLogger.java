@@ -18,9 +18,8 @@ import org.apache.tools.ant.util.FileUtils;
 public class WebDSLAntLogger extends NoBannerLogger {
    
     public void messageLogged(BuildEvent event) {
-    	
-    	
-    	//------- NoBannerLogger part, prints only a newline when a task with output is encountered
+        
+        //------- NoBannerLogger part, prints only a newline when a task with output is encountered
         if (event.getPriority() > msgOutputLevel
                 || null == event.getMessage()
                 || "".equals(event.getMessage().trim())) {
@@ -30,16 +29,16 @@ public class WebDSLAntLogger extends NoBannerLogger {
             synchronized (this) {
                 if (null != targetName) {
                     //out.println(StringUtils.LINE_SEP + targetName + ":");
-                	out.println("");
+                    out.println("");
                     targetName = null;
                 }
             }
         
-    	//-------
+        //-------
             
             
         //------- DefaultLogger part with left column removed
-    	
+        
         int priority = event.getPriority();
         // Filter out messages based on priority
         if (priority <= msgOutputLevel) {
@@ -108,7 +107,7 @@ public class WebDSLAntLogger extends NoBannerLogger {
     
     
     //disabled ant stacktrace
-    public void buildFinished(BuildEvent event) {
+    /*public void buildFinished(BuildEvent event) {
         Throwable error = event.getException();
         StringBuffer message = new StringBuffer();
         if (error == null) {
@@ -131,7 +130,7 @@ public class WebDSLAntLogger extends NoBannerLogger {
             printMessage(msg, err, Project.MSG_ERR);
         }
         log(msg);
-    }
+    }*/
     
     //starttime is private...
     private long startTime2 = System.currentTimeMillis();

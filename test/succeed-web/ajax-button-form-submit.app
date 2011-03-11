@@ -10,7 +10,7 @@ application test
     }    
     form{
       input(i)
-      submit("save",red())[ajax]
+      submit("save",red())[class="pushbutton",ajax]
     }
   }
   
@@ -28,9 +28,8 @@ application test
     
     d.get(navigate(root()));
     
-    var elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    elist[1].submit();
+    var button := d.findElement(SelectBy.className("pushbutton"));
+    button.click();
     Thread.sleep(2000);
     
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");

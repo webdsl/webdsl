@@ -34,19 +34,37 @@ rules
     ]|
     with  pkgname    := <TemplatePackage>
         ; pkgname2   := <DomainPackage>
-        ; bstm_reflectioninit* := <collect(entity-to-init-reflect); concat> defs
+        ; bstm_reflectioninit* := <all-entity-to-init-reflect> defs
+          
+  all-entity-to-init-reflect =
+      bagof-AllEntities
+    ; {| EntityDef:
+	      map({
+	          where(get-entity-def => (name,_))
+	        ; ?def
+	        ; rules(EntityDef : name -> def)
+	      })
+	    ; all-keys-EntityDef
+	    ; string-sort
+	    ; map(EntityDef; entity-to-init-reflect)
+	  |}
+	  ; concat
     
-  entity-to-init-reflect : Entity(x,_,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
-  entity-to-init-reflect : EntityNoSuper(x,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
-  entity-to-init-reflect : SessionEntity(x,ebds) -> <entity-to-init-reflect-aux> (x,ebds)
+  entity-to-init-reflect : Entity(x,_,ebds){anno*} -> <entity-to-init-reflect-aux> (x,ebds,anno*)
+  entity-to-init-reflect : EntityNoSuper(x,ebds){anno*} -> <entity-to-init-reflect-aux> (x,ebds,anno*)
+  entity-to-init-reflect : SessionEntity(x,ebds){anno*} -> <entity-to-init-reflect-aux> (x,ebds,anno*)
   
   entity-to-init-reflect-aux : 
-    (x,ebds) -> bstm*|[ 
-      ent = new ReflectionEntity("~x");
+    (x,ebds,anno*) -> bstm*|[ 
+      ent = new ReflectionEntity("~x",e_viewpage);
       reflectionentities.add(ent);
       bstm* 
+      ReflectionEntity.add(ent);
     ]|
     with bstm* := <filter(is-property-cons; property-to-init-reflect)> ebds
+        ; if <fetch(?HasViewPage())> anno*
+          then e_viewpage := java:expr|[ true ]|
+          else e_viewpage := java:expr|[ false ]| end
     
   property-to-init-reflect :
     p -> bstm|[ 

@@ -20,20 +20,20 @@ section datamodel
   define page root(){
     for(u:User)
     {
-      outputString(u.name)
-      outputBool(u.bool)
-      outputInt(u.rank)
-      outputText(u.text)
-      outputWikiText(u.wiki)
+      output(u.name)
+      output(u.bool)
+      output(u.rank)
+      output(u.text)
+      output(u.wiki)
     }
     "test page"
 
     form{
-      inputString(u.name)
-      inputInt(u.rank)
-      inputBool(u.bool)
-      inputText(u.text)
-      inputWikiText(u.wiki)
+      input(u.name)
+      input(u.rank)
+      input(u.bool)
+      input(u.text)
+      input(u.wiki)
       
       action("save",save())
     }

@@ -1,8 +1,13 @@
 package utils;
 
 import utils.*;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.Serializable;
 import javax.persistence.*;
+
+import java.sql.SQLException;
 import java.util.*;
 import org.hibernate.Session;
 
@@ -58,6 +63,15 @@ import org.hibernate.Session;
             throws java.io.IOException
   {
     setContent( org.hibernate.Hibernate.createBlob( sourceStream ) );
+  }
+  
+  public String getContentAsString(){
+    try {
+        return new String(content.getBytes(1, (int) content.length()));
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return "";
+    }
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected String fileName = "";

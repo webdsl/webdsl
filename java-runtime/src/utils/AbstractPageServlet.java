@@ -16,6 +16,10 @@ import org.hibernate.Session;
 
 public abstract class AbstractPageServlet{
 
+    public static AbstractPageServlet getRequestedPage(){
+        return ThreadLocalPage.get();
+    }
+    
     public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
     public abstract void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, Environment env, TemplateCall templateArg);
     public abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
@@ -97,7 +101,7 @@ public abstract class AbstractPageServlet{
         ThreadLocalAction.set(null);
         ThreadLocalEmailContext.set(null);
         ThreadLocalPage.set(null);
-        ThreadLocalTemplate.set(null);
+        ThreadLocalTemplate.setNull();
     }
 
     //templates scope
@@ -162,25 +166,28 @@ public abstract class AbstractPageServlet{
 
     public abstract String getAbsoluteLocation();
 
-    protected java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();
+    protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
-        java.lang.StringBuilder sb = new java.lang.StringBuilder();
-        for(String s : templateContext){
-            sb.append(s);
-        }
-        return sb.toString();
+        return templateContext.getTemplateContextString();
     }
     public void enterTemplateContext(String s) {
-        templateContext.push(s);
+        templateContext.enterTemplateContext(s);
     }
     public void leaveTemplateContext() {
-        templateContext.pop();
+        templateContext.leaveTemplateContext();
     }
     //verifies that the correct context was popped
-    public abstract void leaveTemplateContextChecked(String s);
-
+    public void leaveTemplateContextChecked(String s) { 
+        templateContext.leaveTemplateContextChecked(s);
+    }
     public void clearTemplateContext(){
-        templateContext.clear();
+        templateContext.clearTemplateContext();
+    }
+    public void setTemplateContext(TemplateContext tc){
+        templateContext = tc;
+    }
+    public TemplateContext getTemplateContext(){
+        return templateContext;
     }
 
     // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
@@ -380,6 +387,9 @@ public abstract class AbstractPageServlet{
     protected Map<String,utils.File> fileUploads;
     public Map<String, utils.File> getFileUploads() {
         return fileUploads;
+    }
+    public utils.File getFileUpload(String key) {
+        return fileUploads.get(key);
     }
 
     protected Map<String, List<String>> parammapvalues;
@@ -691,11 +701,14 @@ public abstract class AbstractPageServlet{
 
       //label
 
+      public String getLabelString() {
+          return getLabelStringForTemplateContext(ThreadLocalTemplate.get().getUniqueId());
+      }
       public java.util.Stack<String> labelStrings = new java.util.Stack<String>();
       public java.util.Set<String> usedPageElementIds = new java.util.HashSet<String>();
       public static java.util.Random rand = new java.util.Random();
       //avoid duplicate ids; if multiple inputs are in a label, only the first is connected to the label
-      public String getLabelString() {
+      public String getLabelStringOnce() {
         String s = labelStrings.peek();
         if(usedPageElementIds.contains(s)){
           do{
@@ -711,7 +724,7 @@ public abstract class AbstractPageServlet{
       public String getLabelStringForTemplateContext(String context) {
           String labelid = usedPageElementIdsTemplateContext.get(context);
           if(labelid == null){
-            labelid = getLabelString();
+            labelid = getLabelStringOnce();
             usedPageElementIdsTemplateContext.put(context, labelid);
           }
           return labelid;

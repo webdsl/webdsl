@@ -50,7 +50,7 @@ define page root(){
   
   form{
     table{
-      for(u:User2){
+      for(u: User2){
         output(u.username)
         input(u.teammate)
         input(u.group)
@@ -63,8 +63,8 @@ define page root(){
     table{
       for(u:User){
         output(u.username)
-        input(u.teammate)[notnull := true]
-        select(u.teammate from teammates)[notnull := true]
+        input(u.teammate)[not null]
+        select(u.teammate from teammates)[not null]
         
       }
     }
