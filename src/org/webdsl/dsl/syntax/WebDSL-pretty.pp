@@ -216,6 +216,7 @@
    Float                              -- _1,
    String                             -- H hs=0[ _1 ],
    Var                                -- _1,
+   RequestVar                         -- _1,
    ExternalScopeVar                   -- KW["externalscope"] KW["."] _1,
    FieldAccess                        -- H hs=0[_1 KW["."] _2],
    ObjectCreation                     -- H hs=0[_1 KW["{"] H[_2] KW["}"]],
