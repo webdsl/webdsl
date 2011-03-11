@@ -1,7 +1,7 @@
 application inputint
 
   entity Y {
-    i -> List<Y>
+    i -> Set<Y>
     
     validate(i.length >= 2, "select at least 2")
   }
@@ -13,7 +13,7 @@ application inputint
 
   define page root(){
     form{
-      select(y0.i from (from Y as qy where qy <> ~y0))
+      select(y0.i,(from Y as qy where qy <> ~y0))
       submit action{} {"save"}
     }
  

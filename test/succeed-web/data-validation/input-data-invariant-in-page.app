@@ -19,8 +19,8 @@ application inputint
         validate(y.i > 5, "number must be greater than 5")
         //validategeni(y)
       }
-      input(y.y)
-      select(y.yset, from Y)
+      input(y.y,[y,y0,y1])
+      select(y.yset, [y,y0,y1])
       submit action{} {"save"}
     }
  
@@ -52,8 +52,8 @@ application inputint
     var slist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
     assert(slist.length == 7, "expected 7 <option> elements"); //4 for input(y.y) which includes the empty selection 3 for input(y.ylist)
 
-    slist[3].setSelected();
-    slist[6].setSelected();
+    slist[1].setSelected();
+    slist[4].setSelected();
 
     elist[4].click();
     
