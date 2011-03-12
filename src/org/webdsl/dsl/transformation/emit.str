@@ -33,29 +33,37 @@ rules	// emit top-level definition
     ; (CurrentDefinitionKey <+ !"") => key
     ; rules(AddWebDSLDefs :+= (key, def))
     
-	// emit a new section with all collected defs
 	desugar-emit-all-defs =
       bagof-AddWebDSLDefs
     ; where(length => n1)
-    ; remove-all({
+    ; emit-for-loaded-defs
+    ; where(length => n2)
+    ; not(<eq> (n1, n2))                // nothing applied? fail
+  
+  // Emit for definitions that are selected for recompilation.
+  // Fails if nothing could be emitted. 
+  emit-for-loaded-defs: emits -> remaining
+    with 
+      remove-all({
           ?(owner,def)
         ; <emit-with-owner(|owner)> def
       })
     ; ?remaining
-    ; length => n2
-    ; not(<eq> (n1, n2))                // nothing applied? fail
-		; rules(AddWebDSLDefs := remaining)
-		  
+    ; rules(AddWebDSLDefs :- _)
+    ; map(\x -> <rules(AddWebDSLDefs :+= x)> \)
+      
   emit-with-owner(|owner): def -> def
     where
       if <?At(x,y,z)> owner; <not(is-emitted-mod)> x then
         // Emitted from an ast definition
-        if <get-toplevel-definition> owner then
+        if <is-definition-loaded> owner then
             // Definition is recompiling, emit
             <debug(!"Emitting for ")> owner
           ; key := At(x,"emit",<newname>"emit"){owner}
           ; <store-module-def(|key)> def
         else
+            // Some declare rules emit definitions for each entity/page, these emit should not be
+            // emitted until the originating definition is loaded. 
             <debug(!"NOT emitting for: ")> owner
           ; fail
         end
@@ -81,13 +89,9 @@ rules // emit builtins (during declare)
 	
 	add-builtins-to-ast =
 			bagof-AddWebDSLDefs
-	  ; debug(!"All emits: ")
 	    // TODO: track rules during rename ?
     ; map(\(owner, def) -> (owner, <rename-top> def) \)
-	  ; remove-all( \(owner,def) ->  <emit-with-owner(|owner)> def \)
-    ; ?remaining
-    ; debug(!"Remaining emits: ")
-		; rules(AddWebDSLDefs := remaining)
+	  ; try(emit-for-loaded-defs)
 		  // TODO: same as defs
 		; !AccessControlDefinition(None(), <bagof-AddWebDSLRules>)
 		; rename-and-store
