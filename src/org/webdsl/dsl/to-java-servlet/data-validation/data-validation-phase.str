@@ -16,23 +16,7 @@ rules
     ; where (    
       bstm1* := <  filter-elements-for-java-servlet-handling
                  ; collect-data-validation-to-java-servlet> elem*
-      ; not(bstm1* := []; not(<fetch(ValidatesRefArgs)> mod*))) //don't generate if no validation elements and no validate modifier
-    ; // templates with the validate modifier execute validation for each ref arg passed as argument
-      if <fetch(ValidatesRefArgs)> mod* 
-      then 
-        with(
-          bstm_callvalmethod* := <filter(\ Arg(x_refargname,RefSort(_)) -> java:bstm|[ x_refargname.validate(ThreadLocalPage.get().getValidationContext()!=null?ThreadLocalPage.get().getValidationContext():this.getUniqueId(),exceptions); ]| \)> farg*
-        ; bstm_refargvalidation* := 
-          java:bstm*|[ 
-            java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
-            bstm_callvalmethod*
-            if(exceptions.size() > 0 && ThreadLocalPage.get().inSubmittedForm()){
-              ThreadLocalPage.get().getValidationExceptions().addAll(exceptions);
-              ThreadLocalPage.get().setValidated(false);  
-            }
-          ]|
-        )
-      else bstm_refargvalidation* := [] end
+      ; not(bstm1* := [])) //don't generate if no validation elements
     ; with(
       <generate-java-servlet-template-partial> 
         java |[ 
@@ -40,10 +24,6 @@ rules
             protected void validateInputsInternal() {
               ~*<java-servlet-template-phase-inits>
               bstm1*  
-              //only do property validations if no other errors, such as wellformedness, have occurred
-              if(ThreadLocalPage.get().getValidationExceptionsByName(ThreadLocalPage.get().getValidationContext()).size() == 0){  
-                bstm_refargvalidation*
-              }
             }
         ]|)
  
@@ -69,26 +49,3 @@ rules
     ]|
     with  bstm* := <collect-data-validation-to-java-servlet> elems
         ; formident := <get-formnumber> tc
-
-rules
-
-  java-servlet-element-id :
-    tc@elem|[ validate(e1,e2)[passign*]{} ]|-> tc{InputNumber(newid),anno*} 
-    with  _{anno*} := tc
-          ; newid := <newname> "input"
-
-  data-validation-to-java-servlet : 
-    tc@elem|[ validate(e1,e2)[passign*]{} ]| ->
-    <wrap-input-java-code(|passign*)>
-    bstm* |[
-      ident += "~inputident"+uniqueid;
-      ~*<wrap-validation-context-code-store-inputs> bstm*|[    
-        if(ThreadLocalPage.get().inSubmittedForm() && !e3){
-          ThreadLocalPage.get().getValidationExceptions().add(new utils.ValidationException(ThreadLocalPage.get().getValidationContext(),e4));
-          ThreadLocalPage.get().setValidated(false);  
-        }
-      ]|
-    ]|
-    with  inputident := <get-inputnumber> tc
-        ; e3 := <expression-to-java-servlet> e1
-        ; e4 := <expression-to-java-servlet> e2

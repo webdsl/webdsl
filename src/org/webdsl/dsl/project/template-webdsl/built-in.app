@@ -1756,6 +1756,64 @@ module .servletapp/src-webdsl-template/built-in
       errors := handleValidationErrors(errors);
     }
   }
+  
+  // Stratego ATerm SDF
+  
+  native class org.webdsl.tools.strategoxt.SDF as SDF{
+    static get(String):SDF
+    isValid(String):Bool
+    getSGLRError(String):String
+    parse(String):ATerm
+  }      
+ 
+  define inputSDF(s:Ref<Text>,language: String){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputTextInternal(s,tname)[class="inputSDF", all attributes]
+      }
+    }
+    else{
+      inputTextInternal(s,tname)[class="inputSDF", all attributes]
+    }
+    validate{
+      if(req != null && !SDF.get(language).isValid(req)){
+        errors := [SDF.get(language).getSGLRError(req)];
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := s.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);     
+    }
+  }
+  
+  type String{
+    org.webdsl.tools.strategoxt.ATerm.toATerm as parseATerm():ATerm
+  }
+
+  native class org.spoofax.interpreter.terms.IStrategoTerm as ATerm{
+    org.webdsl.tools.strategoxt.ATerm.subterms as subterms():List<ATerm>
+    org.webdsl.tools.strategoxt.ATerm.constructor as constructor():String
+    org.webdsl.tools.strategoxt.ATerm.stringValue as stringValue():String
+    org.webdsl.tools.strategoxt.ATerm.get as get(Int):ATerm
+    org.webdsl.tools.strategoxt.ATerm.length as length():Int
+    org.webdsl.tools.strategoxt.ATerm.toString as toString():String
+    org.webdsl.tools.strategoxt.ATerm.toInt as toInt():Int
+  }
+  
+  define output(a:ATerm){
+    output(a.toString())
+  }
+  
+  native class org.webdsl.tools.strategoxt.StrategoProgram as Stratego{
+    static get(String):Stratego
+    invoke(String,ATerm):ATerm
+    invoke(String,String):ATerm
+  }
     
   //default access control rule
   
