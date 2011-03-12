@@ -7,6 +7,8 @@ rules
   
   dependency-file = <path-to-cache-path> "$deps-typecheck.aterm"
   
+  global-definition = !"__globals__"
+
   find-dependent-modules =
       all-definitions
     ; remove-all(is-definition-loaded)
@@ -14,11 +16,29 @@ rules
     ; <verbose-msg> ["Clean compile detected: skipping change detection"]
     ; ![]
       
+  add-to-list(|elem): lst -> [elem | lst]
+      
+  get-global-signature: global -> sig
+    where global-definition => global
+    with  sig := <global-definition; path-to-cache-path; read-file>  
+
+  store-global-signature =
+    global-definition => key;
+    sig := <bagof-CreatedRules; concat> key;
+    path := <path-to-cache-path> key;
+    <write-file(|path)> sig;
+    rules(CreatedRules :- key)
+      
   find-dependent-modules =
-    // filter(get-module-signature), some files may have no cached version
-    prev-created := <all-modules; filter(is-module-loaded); filter(get-module-signature <+ debug(!"No cache for: "); fail); concat>;
     // load PreviouslyUsedRules
     dependency-file; load-dependency-data;
+    // load module signatures
+    all-modules;
+    filter(is-module-loaded);
+    // some files may have no cached version
+    filter(get-module-signature <+ get-global-signature <+ debug(!"No cache for: "); fail);
+    concat;
+    ?prev-created;
     if 0 := <all-modules; filter(is-module-loaded); length> then
       <verbose-msg> ["No modified files: skipping change detection"];
       all-definitions;
@@ -27,6 +47,7 @@ rules
 	    // created rules
 	    all-definitions;
 	    filter(is-definition-loaded);
+	    add-to-list(|<global-definition>);
 	    //debug(!"Loaded defs: ");
 	    //where(all-keys-CreatedRules; debug(!"Keys: "));
 	    mapconcat(bagof-CreatedRules;concat);
@@ -49,7 +70,9 @@ rules
 	  |}
   
   store-used-rules =
-    all-definitions; filter(is-definition-loaded) => defs;
+    all-definitions; filter(is-definition-loaded);
+    add-to-list(|<global-definition>);
+    ?defs;
     {| UsedRulesTable:
 	    // Create tables
 	    log-time(
