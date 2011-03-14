@@ -52,7 +52,97 @@ rules 		// get all properties of an entity, including supertypes (similar to fro
        
 strategies
 
-  GenerateCodeJavaServlet = generate-java-search-functions; generate-java-searchqueries; fail
+  GenerateCodeJavaServlet = generate-java-search-functions; generate-java-searchquery-class ; fail
+
+
+  generate-java-searchquery-class :
+  	ent -> <emit-java-code-local> compilation-unit |[
+  	package pkgname;
+  	
+  	import utils.*;
+  	
+	public class x_class#SearchQuery {
+	
+		private final org.apache.lucene.util.Version luceneVersion = org.apache.lucene.util.Version.LUCENE_30;
+		private int limit = 100;
+		private int offset = 0;
+		private String searchTerms = "";
+		private String[] searchFields = { e_sf* };
+		private org.apache.lucene.search.Query luceneQuery = null;
+		private java.util.LinkedHashMap<String, String> constraints = new java.util.LinkedHashMap<String, String>();
+		private org.hibernate.search.FullTextQuery query = null;
+		private final org.hibernate.search.FullTextSession fulltextsession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
+		private boolean luceneQueryChanged = true;
+			
+		public void x_class#SearchQuery (){
+			
+		}
+		public x_class#SearchQuery setMaxResults (int limit){
+			this.limit = limit;
+			return this;
+		}
+		public x_class#SearchQuery setFirstResult (int offset){
+			this.offset = offset;
+			return this;
+		}	
+		public x_class#SearchQuery setSearchTerms (String terms){
+			searchTerms = terms;
+			luceneQueryChanged = true;
+			return this;
+		}	
+		public x_class#SearchQuery setSearchFields(String[] fields){
+			searchFields = fields;
+			luceneQueryChanged = true;
+			return this;
+		}	
+		public x_class#SearchQuery addFieldConstraint (String fieldname, String terms)	{
+			validateQuery();
+			enableFieldConstraintFilter(fieldname, terms);
+			constraints.put(fieldname, terms);
+			return this;		
+		}	
+		public int getResultSize(){
+			if (validateQuery())
+				return query.getResultSize();
+			else
+				return -1;
+		}	
+		private boolean validateQuery(){
+			if (luceneQueryChanged){
+				org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(luceneVersion, searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer(org.apache.lucene.util.Version.LUCENE_30));
+				try{luceneQuery = parser.parse(searchTerms);} catch (org.apache.lucene.queryParser.ParseException pe){return false;}
+				query = fulltextsession.createFullTextQuery(luceneQuery, x_Class.class);
+				applyFieldConstraints();
+				luceneQueryChanged = false;
+			}
+			query.setFirstResult(offset);
+			query.setMaxResults(limit);
+	
+			return true;
+		}	
+		private void applyFieldConstraints(){
+			for (String field : constraints.keySet())
+				enableFieldConstraintFilter(field,constraints.get(field));	
+		}	
+		private void enableFieldConstraintFilter(String field, String value){
+			query.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);	
+		}	
+		public java.util.List<x_Class> getResultList()	{ 
+			if (validateQuery())
+		    	return query.list();
+		    else
+		    	return new java.util.ArrayList<x_Class>();
+		}	
+	}  		
+  	]|
+    where (
+        (x_class, _) := <get-entity-def> ent
+      ; x_props := <get-anno(?IndexedAnno(<id>))> ent)
+    with e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props
+       ; pkgname := <DomainPackage>
+       ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
+    	
+  	
 
   generate-java-search-functions:
     ent -> <emit-java-code-local> compilation-unit |[
@@ -69,17 +159,8 @@ strategies
           return x#_(searchQuery, limit, 0);
         }
         public static java.util.List<x_Class> x#_(String searchQuery, int limit, int offset)  {
-          String[] searchFields = { e_sf* };
-          org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(org.apache.lucene.util.Version.LUCENE_30, searchFields, new org.apache.lucene.analysis.standard.StandardAnalyzer(org.apache.lucene.util.Version.LUCENE_30));
-          try {
-            org.apache.lucene.search.Query luceneQuery = parser.parse(searchQuery);
-            org.hibernate.search.FullTextSession fts = org.hibernate.search.Search.getFullTextSession(e_HibSession);
-            org.hibernate.Query query = fts.createFullTextQuery(luceneQuery, x_Class.class).setMaxResults(limit).setFirstResult(offset);
-            
-            return query.list();
-          } catch (org.apache.lucene.queryParser.ParseException pe) {
-            return new java.util.ArrayList<x_Class>();
-          }
+           x_Class#SearchQuery q = new x_Class#SearchQuery();
+           return q.setSearchTerms(searchQuery).setFirstResult(offset).setMaxResults(limit).getResultList();
         }
       }
     ]|
@@ -92,6 +173,7 @@ strategies
        ; e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props
        ; pkgname := <DomainPackage>
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
+       //; x_ClassQuery := <concat-strings> [x_Class, "SearchQuery"]
 
 strategies
 
