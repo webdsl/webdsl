@@ -216,6 +216,7 @@
    Float                              -- _1,
    String                             -- H hs=0[ _1 ],
    Var                                -- _1,
+   RequestVar                         -- _1,
    ExternalScopeVar                   -- KW["externalscope"] KW["."] _1,
    FieldAccess                        -- H hs=0[_1 KW["."] _2],
    ObjectCreation                     -- H hs=0[_1 KW["{"] H[_2] KW["}"]],
@@ -550,7 +551,6 @@
    ValidateUpdateAnno                           -- KW["validateupdate"] KW["("] _1 KW[","] _2 KW[")"],
    ValidateCreateAnno                           -- KW["validatecreate"] KW["("] _1 KW[","] _2 KW[")"],
    IgnoreAccessControl                          -- KW["ignore-access-control"],
-   ValidatesRefArgs                             -- KW["validate"],
    EnumValue                                    -- _1 KW["("] _2 KW[")"],
    PagedForNoFilter.5:iter-star                 -- _1,
    PagedForNoFilter                             -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW["per"] _4 KW[")"] KW["{"] _5 KW["}"],
@@ -1241,6 +1241,7 @@
    AllAttributeExceptExp -- KW["all attributes except"] _1,
    AttributesExp -- KW["attributes"] _1,
    DataBindAction -- KW["databind"] _1,
+   RenderAction -- KW["render"] _1,
    
    LocalRedefine -- KW["define"] _1 _2 KW["("] _3 KW[")"] KW["="] _4 _5,
    LocalRedefine.3:iter-star-sep           -- H hs=0[_1 KW[","]],

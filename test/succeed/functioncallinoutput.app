@@ -8,5 +8,5 @@ section bla
   
   define page root(){
     output(show())
-    outputText(show())
+    output(show() as Text)
   }

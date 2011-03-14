@@ -7,11 +7,7 @@ application test
   var t_1 := Test{};
 
   define page root(){
-    output(t_1.prop)
-    form{
-      input(t_1.prop)
-      action("save",action{})
-    }
+    output(t_1.prop as Text)
   }
 
   test patchFunctions {

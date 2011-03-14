@@ -92,7 +92,8 @@ rules // iteration
                                ~*<control-flow-for-separator(s|sep, x_separatorindex)> bstm*|[
                                  ThreadLocalPage.get().enterTemplateContext(forelementcounter);
                                  bstm*
-                                 ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter);
+                                 ~*<!bstm*|[ ThreadLocalPage.get().leaveTemplateContext(); ]|
+                                    ;if-debug(!bstm*|[ ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter); ]|)>
                                ]|
                                x += x_delta;
                              }
@@ -156,7 +157,8 @@ rules // iteration
           forelementcounter = Integer.toString(fallbackcounter);
         ThreadLocalPage.get().enterTemplateContext(forelementcounter);
         bstm*
-        ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter);
+        ~*<!bstm*|[ ThreadLocalPage.get().leaveTemplateContext(); ]|
+           ;if-debug(!bstm*|[ ThreadLocalPage.get().leaveTemplateContextChecked(forelementcounter); ]|)>
       ]|
       forLoopCounter--;
       if(forLoopCounter == 0){
@@ -248,21 +250,22 @@ rules //templatecall
           // call common templatecall translation
         ; java_tname := expr|["~x_name"]|
         ; java_args := var-init|[ { e_argswithref* } ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args)> tc
+        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,[])> tc
     
   /**
    *  Used for call to defined template and call to required template.
    */
-  control-flow-tcall-helper(|x_methodname,java_tname,java_args) :
+  control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrsmap) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
-    with  x_tname := <get-templatecallnumber> tc
+    with  //
+          tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
         ; bstm_npe* := <cflow-tcall-null-pointer-helper> (x_name,args)
         ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
-        ; attrsmap := <control-flow-emit-attrs-calls-map(|x_methodname)> passign* 
+        ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map(|x_methodname)> passign* else !java_attrsmap end>
         // create template call
         ; bstm_result* := <generate-template-call(|x_methodname)> (
             java_tname, 
-            expr|["~x_tname"]|, 
+            tname, 
             java_args,
             bstm_npe*, 
             withcallsmap, 
@@ -297,11 +300,11 @@ rules //templatecall
          varslength := <length> vars
        ; selectedTemplateArgs := <reverse;take(|varslength);reverse> templateArgs
        ; e_templ* := <handle-ref-arg> (selectedTemplateArgs, vars)
-       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* } )); ]|
+       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* }, attrs)); ]|
 
   /**
-   * e_name : unique template name for lookup in hashmaps - Java String
-   * e_tname : static template call number - Java String
+   * e_name : unique template name for lookup in hashmaps - Java expression with type String
+   * tname : template call number used in templateContext - Stratego string or WebDSL expression with type TemplateContext to change the templateContext for this call entirely
    * e : regular template arguments - Java Object[] 
    * bstm_npe* : null pointer exception handling statements - Java bstm*
    * bstm_withcallsmap* : statements that add  'with' arguments and 'elements' template argument 
@@ -309,11 +312,11 @@ rules //templatecall
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
   generate-template-call(|x_methodname):
-    (e_name, e_tname, e, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
+    (e_name, tname, e, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
-      ThreadLocalPage.get().enterTemplateContext(e_tname);
+      bstm_entertemplatecontext*
       try{
         Object[] x_args = e;
         //add extra arg for local redefinitions, if any
@@ -351,13 +354,33 @@ rules //templatecall
         npe.printStackTrace();
       }
       ident = "";
-      ThreadLocalPage.get().leaveTemplateContextChecked(e_tname);
+      bstm_leavetemplatecontext*
       //set ThreadLocalTemplate back to current template
       ThreadLocalTemplate.set(this);
     ]|
     with  x_args := <newname> "args"
         ; x_argsextra := <newname> "args2"
-
+        ; if is-template-context-passed := <not(<is-string> tname)>
+          then x_tmptc := <newname> "tempcontext"
+             ; e_templatecontext := <expression-to-java-servlet> tname
+             ; e_tname := expr|["customtc"]|
+             ; bstm_entertemplatecontext* := bstm*|[ 
+                  utils.TemplateContext x_tmptc = ThreadLocalPage.get().getTemplateContext();
+                  ThreadLocalPage.get().setTemplateContext(e_templatecontext); 
+               ]|
+             ; bstm_leavetemplatecontext* := bstm*|[ 
+                  ThreadLocalPage.get().setTemplateContext(x_tmptc);
+               ]|
+          else x_tname := tname
+             ; e_tname := expr|["~x_tname"]|
+             ; bstm_entertemplatecontext* := bstm*|[ 
+                  ThreadLocalPage.get().enterTemplateContext(e_tname);
+               ]|
+             ; bstm_leavetemplatecontext* := 
+                  <!bstm*|[ ThreadLocalPage.get().leaveTemplateContext(); ]|
+                  ;if-debug(!bstm*|[ ThreadLocalPage.get().leaveTemplateContextChecked(e_tname); ]|)>
+          end
+          
 /**
  *  Call to template passed as part of required templates
  *  Since the passed TemplateCall object only has the first part of the arguments, it is concatted with the 
@@ -389,7 +412,7 @@ rules
         // call common templatecall translation
         ; java_tname := expr|[ env.getWithcall("~originalname").name ]|
         ; java_args:=  expr|[ Utils.concatArrays(new Object[] { e_argswithref* }, env.getWithcall("~originalname").args) ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args)> tc
+        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,[])> tc
           
   control-flow-tcall-required-template(|x_methodname) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
@@ -400,5 +423,6 @@ rules
     with  // call common templatecall translation
           java_tname := expr|[ env.getWithcall(e)==null?"elementsempty":env.getWithcall(e).name ]| // call emptyelements, if no elements found
         ; java_args :=  expr|[ env.getWithcall(e)==null?new Object[0]:env.getWithcall(e).args ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args)> tc
+        ; java_attrbstm* :=  bstm*|[ Map<String,String> attrsmapout = env.getWithcall(e)==null?utils.TemplateCall.EmptyAttrs:env.getWithcall(e).attrs; ]|
+        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrbstm*)> tc
  

@@ -1,22 +1,22 @@
 application com.example.strategocalls
 
-function testSDF() : String {
-  // Declare a new variable associated with the WebDSL.tbl parse table, and assign a string to it
-  var input : SDFInput<WebDSL>  := "application parseme" as SDFInput<WebDSL>;
+function testSDF() : Text {
+  var input := "application parseme";
   
   // Parse input
-  var parsed : ATerm := input.parse();
+  var parsed : ATerm := SDF.get("WebDSL").parse(input);
+
   var appName : String := parsed.get(0).stringValue();
   
   return appName;
 }
 
-function testSTR() : String {
+function testSTR() : Text {
   // Set-up
-  var input : SDFInput<WebDSL>  := "application parseme imports foo" as SDFInput<WebDSL>;
-  var parsed : ATerm := input.parse();
+  var input := "application parseme imports foo";
+  var parsed : ATerm :=  SDF.get("WebDSL").parse(input);
   
-  var importReader : Stratego := Stratego("read-imports");
+  var importReader : Stratego := Stratego.get("read-imports");
   var importName : ATerm := importReader.invoke("read-import", parsed);
   
   return importName.stringValue();
@@ -36,12 +36,12 @@ define page root() {
 }
 
 entity exampleEntity {
-  property :: String
+  property :: Text
 }
 
 test bla {
-  var sdf : String := testSDF();
-  var str : String := testSTR();
+  var sdf : Text := testSDF();
+  var str : Text := testSTR();
 
   assert(sdf == "parseme");
   assert(str == "foo");
