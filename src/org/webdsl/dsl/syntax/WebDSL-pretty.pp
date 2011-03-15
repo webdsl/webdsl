@@ -1187,6 +1187,7 @@
    
    RequestScope -- KW["request"] _1,
    RequestScopeTemplate -- KW["request"] _1,
+   LocalScopeTemplate -- KW["local"] _1,
    
    NavigateCall -- KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    NavigateCall.2:iter-star-sep -- _1 KW[","],
