@@ -1,35 +1,34 @@
 module org/webdsl/dsl/languages/ui/inline-template
-/*
-rules
 
-  eq-type-of-ajax :
-    InlineTemplateCall(_) -> SimpleSort("Void")
-
-rules
-
-  rename-ui :
-    InlineTemplateCall(tbody){anno*} -> InlineTemplateCall(tbody1){anno1*}
-    with  anno1* := <put-closure-in-anno> anno*
-        ; tbody1 := <rename-all> tbody
-
-  desugar-ui : 
-    Define(mods, name, args, targs, elems){anno*} -> Define(mods, name, args, targs, <rename-all> elems1){anno*}
-    where <oncetd(?InlineTemplateCall(_))> elems
-    with {| InsertedTemplates
-          : elems1 := <alltd(desugar-inline-template-call)> elems
-         |}
-
-  desugar-inline-template-call :
-    InlineTemplateCall(tbody){anno*} -> TemplateCall(template, arg*, [], TemplateBody([
-      TemplateCallNoArgs("elements") //make elements() usable in inline templates
-    ])) 
-    with  template := <toplevel-rename> "inline_template" 
-        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,tbody)
-        ; <emit-webdsl-code> Define([], template, farg*, None(), tbody)
+  rules
     
-rules //TODO disable inline templates for now, needs more work, e.g. ac rules for page should be applied to lifted template  
-        
-  constraint-error-ui :
-    InlineTemplateCall(_) -> <add-error(|["Inline templates are disabled in this version of WebDSL."])>
-    
-    */
+  desugar-in-define-context: //does rename on complete template afterwards to fix references
+    TemplateCall(name,args,passigns,elems) 
+    -> TemplateCall("templateContext",[e_tname],[],TemplateBody([elem_extra*,elem1*])){}
+    where <CallToDefinedTemplate> name
+    with  genname := <generate-template-name-call-args>(name, args)
+    where <IsInlineTemplate> genname
+    with  Define(mod*, x, farg*, req*, elem*){anno*} := <CurrentTemplateDecl> genname
+        ; e_tname:= String(genname)
+        ; {| RenameForInlining:
+          elem_extra* := <zip(inline-template-var-helper); flatten-list> (args,farg*)
+        ; elem1* := <alltd(RenameForInlining)> elem*
+          |}
+   
+  inline-template-var-helper :
+    (e,Arg(nm{x},srt)) -> result
+    with if not(<is-ref-type> srt)
+         then
+           type := <type-of> e
+         ; nm1 := <newname-webdsl> x
+         ; rules ( RenameForInlining : Var(nm) -> Var(nm1) )
+         ; result := LocalScopeTemplateVarDeclInit(nm1,type,e) 
+         else
+           rules ( RenameForInlining : Var(nm) -> e )
+         ; result := []
+         end
+
+  generate-template-name-call-args :
+    (n,args) -> name
+    with t* := <map(type-of)> args
+       ; name := <generate-template-name> (n,t*) 
