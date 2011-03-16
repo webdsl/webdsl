@@ -740,10 +740,10 @@ module .servletapp/src-webdsl-template/built-in
     input(set, set.getEntity())
   }*/
   
-  define input(set:Ref<Set<Entity>>, from : List<Entity>){
+ define input(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
-    
+
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
         inputCheckboxSetInternal(set,from,tname)[all attributes]
@@ -761,20 +761,22 @@ module .servletapp/src-webdsl-template/built-in
   define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
     var tnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(tnamehidden)
-    databind{
-      if(reqhidden != null){
-        set.clear(); //empty first, then add each selected element
-      }
-    }
+    request var tmpset := Set<Entity>()
+    
     <div class="checkbox-set "+attribute("class") all attributes except "class">
       <input type="hidden" name=tnamehidden /> 
       for(e:Entity in from){
-        inputCheckboxSetInternalHelper(set,e,tname+"-"+e.id)
+        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)
       }
     </div>
+    databind{
+      if(reqhidden != null){
+        set := tmpset;
+      }
+    }
   }
 
-  define inputCheckboxSetInternalHelper(set: Ref<Set<Entity>>,e:Entity,tname:String){
+   define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
@@ -790,7 +792,7 @@ module .servletapp/src-webdsl-template/built-in
       output(e.name)
     </div>
     databind{
-      if(tmphidden != null && tmp != null){ set.add(e); }
+      if(tmphidden != null && tmp != null){ tmpset.add(e); }
     }
   }
   
