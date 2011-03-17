@@ -740,10 +740,10 @@ module .servletapp/src-webdsl-template/built-in
     input(set, set.getEntity())
   }*/
   
-  define input(set:Ref<Set<Entity>>, from : List<Entity>){
+ define input(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
-    
+
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
         inputCheckboxSetInternal(set,from,tname)[all attributes]
@@ -761,20 +761,22 @@ module .servletapp/src-webdsl-template/built-in
   define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
     var tnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(tnamehidden)
-    databind{
-      if(reqhidden != null){
-        set.clear(); //empty first, then add each selected element
-      }
-    }
+    request var tmpset := Set<Entity>()
+    
     <div class="checkbox-set "+attribute("class") all attributes except "class">
       <input type="hidden" name=tnamehidden /> 
       for(e:Entity in from){
-        inputCheckboxSetInternalHelper(set,e,tname+"-"+e.id)
+        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)
       }
     </div>
+    databind{
+      if(reqhidden != null){
+        set := tmpset;
+      }
+    }
   }
 
-  define inputCheckboxSetInternalHelper(set: Ref<Set<Entity>>,e:Entity,tname:String){
+   define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
@@ -790,7 +792,7 @@ module .servletapp/src-webdsl-template/built-in
       output(e.name)
     </div>
     databind{
-      if(tmphidden != null && tmp != null){ set.add(e); }
+      if(tmphidden != null && tmp != null){ tmpset.add(e); }
     }
   }
   
@@ -1755,6 +1757,64 @@ module .servletapp/src-webdsl-template/built-in
       }
       errors := handleValidationErrors(errors);
     }
+  }
+  
+  // Stratego ATerm SDF
+  
+  native class org.webdsl.tools.strategoxt.SDF as SDF{
+    static get(String):SDF
+    isValid(String):Bool
+    getSGLRError(String):String
+    parse(String):ATerm
+  }      
+ 
+  define inputSDF(s:Ref<Text>,language: String){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputTextInternal(s,tname)[class="inputSDF", all attributes]
+      }
+    }
+    else{
+      inputTextInternal(s,tname)[class="inputSDF", all attributes]
+    }
+    validate{
+      if(req != null && !SDF.get(language).isValid(req)){
+        errors := [SDF.get(language).getSGLRError(req)];
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := s.getValidationErrors();
+      }
+      errors := handleValidationErrors(errors);     
+    }
+  }
+  
+  type String{
+    org.webdsl.tools.strategoxt.ATerm.toATerm as parseATerm():ATerm
+  }
+
+  native class org.spoofax.interpreter.terms.IStrategoTerm as ATerm{
+    org.webdsl.tools.strategoxt.ATerm.subterms as subterms():List<ATerm>
+    org.webdsl.tools.strategoxt.ATerm.constructor as constructor():String
+    org.webdsl.tools.strategoxt.ATerm.stringValue as stringValue():String
+    org.webdsl.tools.strategoxt.ATerm.get as get(Int):ATerm
+    org.webdsl.tools.strategoxt.ATerm.length as length():Int
+    org.webdsl.tools.strategoxt.ATerm.toString as toString():String
+    org.webdsl.tools.strategoxt.ATerm.toInt as toInt():Int
+  }
+  
+  define output(a:ATerm){
+    output(a.toString())
+  }
+  
+  native class org.webdsl.tools.strategoxt.StrategoProgram as Stratego{
+    static get(String):Stratego
+    invoke(String,ATerm):ATerm
+    invoke(String,String):ATerm
   }
     
   //default access control rule

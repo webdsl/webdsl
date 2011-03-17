@@ -1,0 +1,34 @@
+module org/webdsl/dsl/to-java-servlet/uicomponents/template-context
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  libwebdsl-front
+    
+rules // used for template inlining, simulates template context change for generated names
+         
+  java-servlet-element-id :
+    tc@TemplateCall("templateContext", [e],passign*, elems){anno*} -> tc{TemplateCallNumber(newid),anno*} 
+    where  newid := <newname> "tc"
+
+  handle-actions-input-to-java-servlet = control-flow-template-context(collect-om(handle-actions-input-to-java-servlet)|)
+  handle-actions-to-java-servlet = control-flow-template-context(collect-om(handle-actions-to-java-servlet)|)
+  elem-to-java-servlet = control-flow-template-context(elems-to-java-servlet|)
+  data-validation-to-java-servlet = control-flow-template-context(collect-om(data-validation-to-java-servlet)|)
+
+  control-flow-template-context(s|) :
+    TemplateCall("templateContext", [e],passign*, TemplateBody(elems)) ->
+    bstm* |[ 
+    ThreadLocalPage.get().enterTemplateContext(e_tcallnum);
+    pushUniqueIdOverride(Encoders.encodeTemplateId(e_tname, getTemplateContext()));
+    bstm*
+    popUniqueIdOverride();
+    ThreadLocalPage.get().leaveTemplateContext();
+    ]|
+    with get-anno(?TemplateCallNumber(x_tcnum)) 
+       ; bstm* := <s;concat-with-sublists> elems
+       ; e_tcallnum := <expression-to-java-servlet> String(x_tcnum)
+       ; e_tname := <expression-to-java-servlet> e
+       

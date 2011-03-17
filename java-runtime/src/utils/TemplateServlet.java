@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,8 +20,20 @@ public abstract class TemplateServlet {
     protected boolean validated=true;
     protected String uniqueid;
     public String getUniqueId(){
-      return this.uniqueid;
+      if(uniqueIdOverride.isEmpty()){
+        return this.uniqueid;
+      }
+      else{
+        return uniqueIdOverride.peek();
+      }
     }
+    public void pushUniqueIdOverride(String s){
+        uniqueIdOverride.push(s);
+    }
+    public void popUniqueIdOverride(){
+        uniqueIdOverride.pop();
+    }
+    protected ArrayDeque<String> uniqueIdOverride = new ArrayDeque<String>(); 
     protected Environment env;
     protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
     protected org.hibernate.Session hibSession;
