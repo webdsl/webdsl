@@ -1743,6 +1743,14 @@ module .servletapp/src-webdsl-template/built-in
     input(i as Ref<File>)[all attributes]
   }
 
+  //validate entities
+  
+  entity ValidationException {
+    message :: String
+  }
+  entity ValidationExceptionMultiple{
+    exceptions -> List<ValidationException>
+  }
 
   //validate template
   
