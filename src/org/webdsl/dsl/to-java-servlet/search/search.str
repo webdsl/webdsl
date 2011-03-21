@@ -202,8 +202,10 @@ strategies
           java.io.PrintWriter out = new java.io.PrintWriter(System.out);
           ThreadLocalOut.push(out);
           // @TODO Globals are not loaded yet
-          
+          long time = System.currentTimeMillis();
           bstm*
+		  time = System.currentTimeMillis() - time;
+	      System.out.println("Indexing finished in " + time + "ms.");
           System.exit(0);
         }
 
@@ -212,25 +214,84 @@ strategies
     ]|
     with pkgname := <DomainPackage>
        ; x_class_set := <make-set> x_class*
-       ; bstm* := <map(\ x_name -> java|[ for(int p = 0; index#x_name(p); p++); ]|\)> x_class_set 
+       ; bstm* := <map(\ x_name -> java|[ index#x_name(); ]|\)> x_class_set 
        ; cbd* := <map(generate-java-servlet-indexer)> x_class_set
 
   generate-java-servlet-indexer :
     x_Class -> class-body-dec |[
-        private static boolean index#x_Class(int page) {
-          System.out.println("Indexing " + "~x_Class" + ": " + (page * 1000) + " - " + ((page + 1) * 1000));
-          org.hibernate.Session session = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-          session.beginTransaction();
-          List<x_Class> results = session.createQuery("from " + "~x_Class").setFirstResult(1000*page).setMaxResults(1000).list();
-          org.hibernate.search.FullTextSession ftem = org.hibernate.search.Search.getFullTextSession(session);
-          ftem.getTransaction().begin();
-          for(x_Class r : results) {
-            ftem.index(r);
+        private static boolean index#x_Class() {
+          org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+          org.hibernate.Transaction tx = session.beginTransaction();
+          session.setFlushMode(org.hibernate.FlushMode.MANUAL);
+          session.setCacheMode(org.hibernate.CacheMode.IGNORE);
+          org.hibernate.ScrollableResults results = session.createCriteria(x_Class.class).scroll(org.hibernate.ScrollMode.FORWARD_ONLY);
+
+          System.out.println("Indexing " + "~x_Class" + ": " + 0 + " - " + 1000);
+          int index = 0;
+          while (results.next() ) {
+            index++;
+            session.index( results.get(0) );
+            if (index % 1000 == 0) {
+            	System.out.println("Indexing " + "~x_Class" + ": " + (index) + " - " + (index + 1000));
+            	session.flushToIndexes();
+            	session.clear();
+            }
           }
-          int resultLength = results.size();
-          ftem.getSearchFactory().optimize( x_Class.class );
-          ftem.getTransaction().commit();
-          return resultLength == 1000;
+          session.getSearchFactory().optimize(x_Class.class);
+          tx.commit();
+          return true;
         }
       ]|
+      
+//   generate-java-servlet-reindexer :
+//     x_class* ->
+//     <emit-java-code-local> compilation-unit|[
+//       package utils;
+//   
+//       import java.util.List;
+//   
+//       import utils.*;
+//       import pkgname.*;
+//       
+//       import org.webdsl.lang.*;
+//   
+//       @SuppressWarnings("all")
+//       public class ReIndex {
+//         public static void main(String[] args) {
+//           java.io.PrintWriter out = new java.io.PrintWriter(System.out);
+//           ThreadLocalOut.push(out);
+//           // @TODO Globals are not loaded yet
+//           long time = System.currentTimeMillis();
+//           bstm*
+//           time = System.currentTimeMillis() - time;
+//           System.out.println("Indexing finished in " + time + "ms.");
+//           System.exit(0);
+//         }
+// 
+//         ~*cbd*
+//       }
+//     ]|
+//     with pkgname := <DomainPackage>
+//        ; x_class_set := <make-set> x_class*
+//        ; bstm* := <map(\ x_name -> java|[ for(int p = 0; index#x_name(p); p++); ]|\)> x_class_set 
+//        ; cbd* := <map(generate-java-servlet-indexer)> x_class_set
+// 
+//   generate-java-servlet-indexer :
+//     x_Class -> class-body-dec |[
+//         private static boolean index#x_Class(int page) {
+//           System.out.println("Indexing " + "~x_Class" + ": " + (page * 1000) + " - " + ((page + 1) * 1000));
+//           org.hibernate.Session session = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+//           session.beginTransaction();
+//           List<x_Class> results = session.createQuery("from " + "~x_Class").setFirstResult(1000*page).setMaxResults(1000).list();
+//           org.hibernate.search.FullTextSession ftem = org.hibernate.search.Search.getFullTextSession(session);
+//           ftem.getTransaction().begin();
+//           for(x_Class r : results) {
+//             ftem.index(r);
+//           }
+//           int resultLength = results.size();
+//           ftem.getSearchFactory().optimize( x_Class.class );
+//           ftem.getTransaction().commit();
+//           return resultLength == 1000;
+//         }
+//       ]|
 
