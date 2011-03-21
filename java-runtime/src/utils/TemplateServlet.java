@@ -159,7 +159,8 @@ public abstract class TemplateServlet {
     private void tryInitializeTemplate(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
-        
+        //always store arguments, value might change between phases
+        storeArguments(args);
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
@@ -176,7 +177,6 @@ public abstract class TemplateServlet {
               this.attrs = attrs;
               this.ltas = ltas;
               try {
-                storeArguments(args);
                 this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext());
                 initialize();
                 initializeLocalVars();

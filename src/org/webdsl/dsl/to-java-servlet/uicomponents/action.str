@@ -27,38 +27,31 @@ rules
 
   elem-to-java-servlet :
     tc@SubmitElem(call@ActionCall(name, args),passign*,elem*) ->
-    <wrap-action-render-java-code>
     bstm* |[
-      ident = e_actionid;
-      bstm_nameoverride*
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
-      //~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[ 
         out.print("<input type=\"submit\" value=\"");
         bstm*
         out.print("\" "+e_attrs1+" ");
-        out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true); return false;'/>"); 
-      //]|
+        out.print("onclick='javascript:serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()  +"\",\""+ e_ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true); return false;'/>"); 
       }
       else{
-        //~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
-          out.print("<input type=\"submit\" name=\""+ident+"\" value=\"");
-          bstm*
-          out.print("\" "+e_attrs1+" />"); 
-        //]|
+        out.print("<input type=\"submit\" name=\""+e_ident+"\" value=\"");
+        bstm*
+        out.print("\" "+e_attrs1+" />"); 
       }
     ]|
     with  bstm* := <elems-to-java-servlet> elem*
-        ; e_attrs1 := <to-html-attrs(|"button")> passign*
-        ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
+        ; e_attrs1 := <remove-all(?PropertyAssignment("name",_));to-html-attrs(|"button")> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
-        ; bstm_nameoverride* := <submit-name-override> passign*
+        ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
+        ; e_ident := <submit-name-override> (e_origident, passign*)
         
   submit-name-override :
-    passign* -> bstm_nameoverride*
+    (e_ident1, passign*) -> e_ident2
     with  if <fetch(?PropertyAssignment("name",thename))> passign*
           then  e_name := <expression-to-java-servlet> thename
-              ; bstm_nameoverride* := bstm* |[ ident = e_name; ]|
-          else  bstm_nameoverride* := [] end
+              ; e_ident2 := e_name
+          else  e_ident2 := e_ident1 end
        
   action-id-encoding : 
 //    (actionident,args) -> e|[ ident + "~actionident" + uniqueid + e ]|
@@ -79,34 +72,27 @@ rules
    */
   elem-to-java-servlet :
     tc@SubmitLinkElem(call@ActionCall(name, args),passign*,elem*) ->
-    <wrap-action-render-java-code> 
     bstm* |[ 
-      ident = e4;
-      bstm_nameoverride*
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
-        //~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
           out.print("<a href=\"javascript:void(0)\" "+e_attrs1+" onclick='javascript:serverInvoke(\""+
             ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget()+   //TODO getActionTarget is currently used, but the default redirect will not reproduce the page arguments in this case
-           "\",\""+ ident+"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)' >");
+           "\",\""+ e_ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)' >");
           bstm*
           out.print("</a>");
-        //]|
       }
       else{
-        //~*<render-error-messages-with-error-template(|java:expr|[ ident ]|,<ErrorTemplateAction>)> bstm*|[
           out.print("<a "+e_attrs1+" href=\"javascript:void(0)\" ");
           out.print("onclick='javascript:serverInvoke(\""+utils.HTMLFilter.filter(ThreadLocalPage.get().getPageUrlWithParams())+
-            "?__action__link__=1\",\""+ident+"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'>"); 
+            "?__action__link__=1\",\""+ e_ident +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson()+"],\""+ThreadLocalPage.get().getFormIdent()+"\", this, true)'>"); 
           bstm*
           out.print("</a>");
-        //]|
       }
     ]|
     with  bstm* := <elems-to-java-servlet> elem*
-        ; e4 := <action-id-encoding> (<get-actionnumber> tc,args) 
-        ; e_attrs1 := <to-html-attrs> passign*
+        ; e_attrs1 := <remove-all(?PropertyAssignment("name",_));to-html-attrs> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
-        ; bstm_nameoverride* := <submit-name-override> passign*
+        ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
+        ; e_ident := <submit-name-override> (e_origident, passign*)
 
   fetch-ajax-property-as-java-boolean :
     passign* -> e_ajaxmodifier
@@ -126,18 +112,16 @@ rules
     with  x_action := <?ActionCall(name,args);!name> e1
         ; <get-anno(?ActionFargAnno(fargcalled))> e1
         ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
-        ; e4 := <action-id-encoding> (actionident,args)        
+        ; e_origident := <action-id-encoding> (actionident, args)
+        ; e_ident := <submit-name-override> (e_origident, passign*)     
         ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign* 
           then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]| 
           else bstm_disableval* := [] end
-        ; bstm_nameoverride* := <submit-name-override> passign*
         ; result :=
-            <wrap-action-render-java-code> 
             bstm*|[
-              ident = e4;
-              bstm_nameoverride*
+              ident = e_ident;
               if(ThreadLocalPage.get().getParammap().get(ident)!=null )
               {
                 if(isAjaxSubmitRequired(e_ajaxmodifier)){
@@ -161,15 +145,14 @@ rules
   handle-actions-input-to-java-servlet-submit(|actionident, e1, passign*): 
     _ -> result
     with  x_action := <?ActionCall(name,args);!name> e1
-        ; e4 := <action-id-encoding> (actionident,args)        
+        ; e_origident := <action-id-encoding> (actionident, args)
+        ; e_ident := <submit-name-override> (e_origident, passign*)           
         ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign* 
           then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]| 
           else bstm_disableval* := [] end
-        ; bstm_nameoverride* := <submit-name-override> passign*
         ; result :=
             bstm*|[
-              ident = e4;
-              bstm_nameoverride* 
+              ident = e_ident;
               if(ThreadLocalPage.get().getParammap().get(ident)!=null )
               {
                 x_action temp = (x_action)getAction("~x_action");
