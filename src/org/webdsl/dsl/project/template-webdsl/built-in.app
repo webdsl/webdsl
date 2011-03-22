@@ -1417,7 +1417,7 @@ module .servletapp/src-webdsl-template/built-in
         id=getPage().getLabelString() 
       } 
       name=tname 
-      type="text"
+      type="password"
       if(req != null){ 
         value = req 
       }
