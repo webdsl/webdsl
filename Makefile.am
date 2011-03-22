@@ -33,7 +33,10 @@ editorlibs :
 
 BOOTCLEAN_SUBDIRS = $(SUBDIRS)
 DIST_SUBDIRS      = $(SUBDIRS)
-EXTRA_DIST        = Makefile.xt bootstrap autoxt.m4 java-front.m4 webdsls.pc
+EXTRA_DIST        = Makefile.xt bootstrap autoxt.m4 java-front.m4 webdsls.pc \
+  precompile-built-ins/application.ini \
+  precompile-built-ins/basic.app \
+  precompile-built-ins/build.xml
 CLEANFILES        = XTC
 
 ACLOCAL_AMFLAGS = -I.
