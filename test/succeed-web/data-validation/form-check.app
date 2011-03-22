@@ -3,7 +3,7 @@ application formcheckseparate
   entity User {
     name :: String
   }
-  
+
   define page root() {
     title { "editing user" }
    
@@ -13,12 +13,14 @@ application formcheckseparate
     
     var s :String := ""
     var s1 :String := ""
+    var s2 :String := ""
     var u := User { name := "bob" }
     form {
       validate(s == u.name,"Entered values differ.")
       label("Username") { input(u.name) }
       label("Repeat Username") { input(s) }
       label("Repeat Username") { input(s1) {validate(s1 == u.name,"Not the same name.")} }
+      "Repeat Username" input(s2) {validate(s1 == u.name,"Not the same name either.")}
       action("save",save())
     }
     action save(){
@@ -32,22 +34,21 @@ application formcheckseparate
   }
 
   test one {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := FirefoxDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    assert(elist.length == 6, "expected 6 <input> elements");
     //first is a hidden, second to fourth are the input fields, last is submit
     
-    elist[4].click();
+    elist[5].click();
     
     assert("editing user" == d.getTitle());
     
     assert(d.getPageSource().contains("Entered values differ"), "first validation message was not produced");
-    
     assert(d.getPageSource().contains("Not the same name"), "second validation message was not produced");
+    assert(d.getPageSource().contains("Not the same name either"), "third validation message was not produced");
     
     //now do it correctly
     
@@ -57,8 +58,9 @@ application formcheckseparate
     
     elist[2].sendKeys(nameinfirstfield);
     elist[3].sendKeys(nameinfirstfield);
+    elist[4].sendKeys(nameinfirstfield);
     
-    elist[4].click();
+    elist[5].click();
     
     assert("successfully performed edit" == d.getTitle());
     

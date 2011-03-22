@@ -66,8 +66,9 @@ strategies
     try(oncetd(\e@EntityNoSuper("RequestLogEntry",body) -> e where <oncetd(?Property("principal",_,_,_))> body; rules( ACPrincipalAvailable := True() ) \))
 
   generate-code-java-servlet =
-    ?def@Define(mods, name, args, targs, elems) ;
-      {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
+    ?def@Define(mods, name, args, targs, elems);
+      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
           with (
               if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
             ; if <fetch(Page)>  mods then rules ( JavaThisPage := name ) end
@@ -86,14 +87,19 @@ strategies
               )
           )
        |}
+     end
    <+(?Action(_, _, _) <+ ?InitAction(_) <+ ?DataBindAction(_) <+ ?ValidateAction(_) <+ ?RenderAction(_)) ;
          {| InAction, Variables:
            rules ( InAction := True() )
          ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
          ; all(generate-code-java-servlet)
          |}
-   <+where(not(JavaInEntity)); ?Function(_,_,_,_); generate-java-servlet-global-function
+   <+where(not(JavaInEntity)); ?Function(_,_,_,_); 
+      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+         generate-java-servlet-global-function
+      end
    <+where(get-entity-def => (ent_name, _)) ;
+       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
          {| JavaInEntity:
            rules ( JavaInEntity := <id> )
          ; cached-generate(
@@ -102,6 +108,7 @@ strategies
              | ent_name
            )
          |}
+       end
    <+ ?LocalRedefine(_,_,_,_,_); //avoid page code generation for Arg constructors in LocalRedefine
        {| InLocalRedefine:
            rules ( InLocalRedefine := True() )
@@ -168,7 +175,7 @@ strategies
 rules
 
   annotate-pagecall:
-    Define(a,name,b,c,elems) -> Define(a,name,b,c,elems1)
+    Define(a,name,b,c,elems){anno*} -> Define(a,name,b,c,elems1){anno*}
     with {| ThisTemplateName: 
            rules(ThisTemplateName := name)
          ; elems1 := <alltd(annotate-pagecall)> elems
@@ -224,7 +231,7 @@ rules
 
   java-servlet-element-id :
     tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumber(newid),anno*} 
-    where <get-anno(?CallToDefinedAnno() <+ ?CallToRequiredAnno())> tc 
+    where <get-anno(?CallToDefinedAnno() <+ ?CallToRequiredAnno())> tc
        <+ <?"elements" <+ ?QualifiedElementsCall(_)> name
     with   newid := <newname> "tcall"
     
@@ -245,9 +252,8 @@ rules
         ; class := <any-template-name-to-classname> (mod*, name)
     
   register-template-name :
-    tc@Define(mod*,x,farg*, targs, elem*) -> Define(mod*,x,farg*, targs, elem1*){TemplateClassName(className),anno*} 
-    with  _{anno*} := tc
-        ; parentNames := <bigbagof-CurrentHierarchicalName>
+    tc@Define(mod*,x,farg*, targs, elem*){anno*} -> Define(mod*,x,farg*, targs, elem1*){TemplateClassName(className),anno*} 
+    with  parentNames := <bigbagof-CurrentHierarchicalName>
         ; className := <template-class-name-parents> (mod*, [x | parentNames])  
         ; {| CurrentHierarchicalName :
               rules( CurrentHierarchicalName :+= x )

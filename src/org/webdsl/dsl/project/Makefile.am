@@ -27,8 +27,16 @@ EXTRA_DIST = \
   
 TESTS = testnewproject.sh
 
+COMPILE_JARS = template-java-servlet/lib/webdsl-support.jar template-java-servlet/lib/webdsl-built-ins.jar 
+
+# Note:
+#   $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \ 
+#	  template-java-servlet/lib/webdsl-support.jar \
+# is not the same as
+#   $(WEBDSL_TEMPLATES)
+# the latter does not trigger the template-java-servlet/lib/webdsl-support.jar target if it was not build before
 nobase_dist_pkgdata_DATA = \
-  $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \
+  $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \ 
   template-java-servlet/lib/webdsl-support.jar \
   webdsl-build.xml \
   webdsl-build-command.xml \
@@ -52,6 +60,15 @@ JAVA_RUNTIME_DEPS = \
   
 template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS)
 	ant -f $(top_srcdir)/java-runtime/build.xml deploy
+
+# precompile built-in.app, see precompile-built-ins
+install-data-hook:
+	echo 'precompiling built-in.app'
+	$(shell cd $(top_srcdir)/precompile-built-ins/; $(bindir)/webdsl cleanall build &> compile_output.txt)
+	cat $(top_srcdir)/precompile-built-ins/compile_output.txt
+	echo 'finished precompiling built-in.app'
+	ant -f $(top_srcdir)/precompile-built-ins/build.xml deploy
+	cp template-java-servlet/lib/webdsl-built-ins.jar $(pkgdatadir)/template-java-servlet/lib
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/template/app
