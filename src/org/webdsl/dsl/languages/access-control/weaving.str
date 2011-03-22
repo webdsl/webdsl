@@ -28,8 +28,8 @@ rules
   
   //separated from page and template accheck processing for clarity
   process-page-actions:
-    def@def|[ define mod* x_ident(farg*)  req* { elem*  } ]| ->
-        def|[ define mod* x_ident(farg*)  req* { elem2* } ]|
+    def@Define(mod*,x_ident,farg*,req*,elem*){anno*} ->
+        Define(mod*,x_ident,farg*,req*,elem2*){anno*}
     where <fetch(Page)> mod*
         ; not(<fetch(IgnoreAccessControl)> mod*)
     with  name := <get-toplevel-name> def
@@ -37,7 +37,8 @@ rules
         ; elem2* := <alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlInferredAction(f) end) > elem1*
   
   process-template-actions: // TODO cope with template var/ template action var name clash PageVar->externalscope
-    def@def|[ define mod* x_ident(farg*)  req* { elem* }  ]| -> def|[ define mod* x_ident(farg*) req* { elem3* } ]|
+    def@Define(mod*,x_ident,farg*,req*,elem*){anno*} ->
+        Define(mod*,x_ident,farg*,req*,elem3*){anno*} 
     where not(<fetch(?Page())> mod*)
     with  {| IsInTemplate: rules(IsInTemplate := True())
              ; name := <get-toplevel-name> def
@@ -108,8 +109,8 @@ rules
       end
 
   process-page-checks://TODO substpagevars
-  d@def|[ define mod* x_ident(farg*)  req* { elem* }       ]| -> 
-    def|[ define mod* x_ident(farg*)  req* { elem0 elem1* } ]|
+  d@Define(mod*,x_ident,farg*,req*,elem*){anno*} ->
+    Define(mod*,x_ident,farg*,req*,[elem0|elem1*]){anno*} 
     where <fetch(Page)> mod*
         ; not(<fetch(IgnoreAccessControl)> mod*)
     with  // don't go into local template defines in the page definition
@@ -141,9 +142,9 @@ rules
         
          //problem with nested checks;
   process-action-checks(|toplevel-name,farg_page*): //page farg
-  d@elem|[ action x_ident(farg*){ stat*  } ]| -> 
-    elem|[ action x_ident(farg*){ stat_check* } ]|
-    with	listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
+  d@Action(x_ident,farg*,Block(stat*)){anno*} ->
+    Action(x_ident,farg*,Block(stat_check*)){anno*}
+    with  listofchecks := <collect(\ThisCall("acactioncheck",[Var(x),e]){r} -> (x,e,r) \)> stat*
         ; e := <combine-checks> listofchecks
         //remove ac calls
         ; stat_allow* := <topdown(try(remove-all({x,e:?webdsl|[ acactioncheck(x,e); ]|} )))> stat*
@@ -197,8 +198,8 @@ rules
          // end
       
   process-template-checks:
-    d@def|[ define mod* x_ident(farg*) req* { elem* }  ]| -> 
-      def|[ define mod* x_ident(farg*) req* { elem2* } ]|
+    d@Define(mod*,x_ident,farg*,req*,elem*){anno*} ->  
+      Define(mod*,x_ident,farg*,req*,elem2*){anno*}
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
         ; not(<fetch(?IgnoreAccessControl())> mod*)
