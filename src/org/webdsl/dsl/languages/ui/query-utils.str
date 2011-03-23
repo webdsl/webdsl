@@ -2,38 +2,41 @@ module org/webdsl/dsl/languages/ui/query-utils
 
 rules
 
-  get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition)
+  get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
     with {| RootVar, ParentArgs, IteratedVar, IteratedSubList, QueryConditions, IsEffectful
-       : rules ( IteratedVar    : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
-       			 RootVar		: Var(x) -> srt // The actual variable we are interested in
-                 QueryConditions := True()      // Changes over time to represent the query conditions active on the term currently being analyzed
-                 IsEffectful     := False()		// True if the current statement is effectful (means: can affect non-local state), False otherwise
+       : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
+                  RootVar         : Var(x) -> srt // The actual variable we are interested in
+                  QueryConditions := True()       // Changes over time to represent the query conditions active on the term currently being analyzed
+                  IsEffectful     := False()      // True if the current statement is effectful (means: can affect non-local state), False otherwise
                )
        ; <filter({vars: 
                      \ Arg(arg, srt) ->  <id>
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
+       //; <debug(!"base:")> base
        ; info(|["Looking for property use of variable ", x, " of type ", srt])
        ; rules( QueryConditions := <extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <map(info(|["FA from ", x, ": ", <id>]))> fas
+       //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
+       ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
+       ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
        ; info(|["These should be inlined: ", joincandidates])
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
-       ; <map(group-join-candidates(|queryjoins)); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
+       ; <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
        ; info(|["These should be queried: ", joincandidatesgen])
-       ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)); flatten-list> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
+       ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
        ; info(|["These should be joined: ", joincandidatesnogen])
-       ; querycondition := <filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()> fas // Combine query conditions of the effectful field accesses
-       ; info(|["Query condition:", querycondition])
+       ; info(|["Query condition:", <pp-webdsl>querycondition])
+       ; info(|["Condition joins:", conditionjoins])
       |}
 
 /*
 group-joins :
 	(cur, []) -> [(cur, newGroup)]
-	with newGroup := <string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)> cur
+	with newGroup := <group-join-candidates-build-paths> cur
 
 group-joins :
 	(cur, prev) -> [(cur, [cur|prevGroup]) | prevTail]
@@ -46,13 +49,13 @@ group-joins :
 	where <?[prevHead|prevTail]> prev
 	; <?(prevJoin, prevGroup)> prevHead
 	; <not(string-starts-with(|prevJoin))> cur
-	; newGroup := <string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths)> cur
+	; newGroup := <group-join-candidates-build-paths> cur
 */
 
-group-join-candidates-build-paths :
+group-join-candidates-build-paths-helper :
 	(x, []) -> [x]
 
-group-join-candidates-build-paths :
+group-join-candidates-build-paths-helper :
 	(x, y) -> [x_new|y]
 	where <?[headElem|_]> y
 	; x_new := <concat-strings>[headElem, ".", x]
@@ -77,10 +80,15 @@ tail : [x|xs] -> xs*/
 
 strategies
 
+  group-join-candidates-build-paths =
+    string-tokenize(|['.'])
+    ; !(<id>, [])
+    ; foldl(group-join-candidates-build-paths-helper)
+
   group-join-candidates(|queryjoins) =
   	?currentroot
   	; <filter(?(currentroot, _); conc-strings)> queryjoins
-  	; map(string-tokenize(|['.']); !(<id>, []); foldl(group-join-candidates-build-paths))
+  	; map(group-join-candidates-build-paths)
   	; flatten-list
   	; make-set
   	; string-sort-desc
@@ -90,23 +98,21 @@ strategies
     ; flatten-list
 
   collect-effectful-potential-joins =
-  	where(not(IsEffectful; ?True()))
-	; rules( IsEffectful := True())
-    ; collect(an-potential-joins)
-    ; flatten-list
-	; rules( IsEffectful := False() )
+	where(not(IsEffectful; ?True()))
+		; rules( IsEffectful := True())
+		; collect(an-potential-joins)
+		; flatten-list
+		; rules( IsEffectful := False() )
 
   an-potential-joins =
   	?Var(_)
   	; repeat(oncetd(IteratedVarValue))
-  	; where(RootVar)
+  	; where(collect(?Var(_)); ?[<id>]; RootVar)
   	; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
-    where(
-      ?FieldAccess(l, _)
-      ; oncetd(where(IteratedVar); not(IteratedVarValue))
-    )
+    ?FieldAccess(l, _)
+    ; oncetd(where(IteratedVar); not(IteratedVarValue))
     ; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
@@ -161,8 +167,19 @@ strategies
     ; <an-potential-joins-with-args(|args, fargs)> body
 
   an-potential-joins =
+    ?TemplateCall(_, args*, passign*, TemplateBody([]))
+    ; where(<fetch(?tc@TemplateCall(_,_,_,_))> passign*)
+    ; effectful := <conc; remove-all(?tc); collect-effectful-potential-joins> (args*, passign*)
+    ; called := <collect-potential-joins> tc
+    ; <conc> (effectful, called)
+
+  an-potential-joins =
     (?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, _))
     ; collect-effectful-potential-joins
+
+  an-potential-joins =
+    ?Derive(deriveType, e, props*)
+    ; <map(\ DeriveDefault(f) -> FieldAccess(e, f) \); collect-effectful-potential-joins> props*
 
   an-potential-joins =
   	(?ForNoFilter(x, srt, e, te*, sep) <+ ?For(x, srt, e, _, te*, sep))
@@ -230,7 +247,7 @@ strategies // checks for potential inlining
 
   an-requires-joining =
   	?fa@FieldAccess(_, _)
-  	; where(<type-of; is-generic-sort> fa)
+  	; where(<type-of; (is-generic-sort <+ is-entity-type)> fa)
     ; <an-find-entity-property-pair> fa
 
   an-requires-joining =
@@ -259,7 +276,7 @@ strategies // checks for potential inlining
     ; where(not(<type-of; is-generic-sort> fa1))
     ; <an-find-entity-property-pair-generic> fa2
 
-  is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; ParentArgs <+ IteratedVar))
+  is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; (ParentArgs <+ IteratedVar)))
 
   get-accessible-expr = where(
   	(ParentArgs <+ IteratedVar)

@@ -3,10 +3,9 @@ application test
 section datamodel
 
   entity User{
-    name     :: String
+    name :: String
     ival :: Int
     fval :: Float
-    
   }
   
   var u_1 := User{
@@ -25,43 +24,32 @@ section datamodel
     fval:=1.0
   }
   
-  define page user(u:User){
-    output(u.name)
+  define page root(){
   }
 
-  define page root(){
-    for(u:User){
-      " name: " output(u.name)
-      " i: " output(u.ival)
-      " f: " output(u.fval)
-    }    
-    break
-    "count(*): " output(testInt(select count(*) from User as u))
-    break
-    "count(u): " output(testInt(select count(u) from User as u))
-    break
-    "max i: " output(testInt(select max(u.ival) from User as u))
-    break
-    "max f: " output(testFloat(select max(u.fval) from User as u))
-    break
-    "min i: " output(testInt(select min(u.ival) from User as u))
-    break
-    "min f: " output(testFloat(select min(u.fval) from User as u))
-    break
-    "avg i: " output(testFloat(select avg(u.ival) from User as u))
-    break
-    "avg f: " output(testFloat(select avg(u.fval) from User as u))
-    break
-    "sum i: " output(testInt(select sum(u.ival) from User as u))
-    break
-    "sum f: " output(testFloat(select sum(u.fval) from User as u))
+  test aggregatehql {
+    var intResult : Int := 3;
+    var floatResult : Float;
+    assert((select count(*) from User as u) == intResult); 
+    assert((select count(u) from User as u) == intResult);
+
+    intResult := 45;
+    floatResult := 54.67;
+    assert((select max(u.ival) from User as u) == intResult);
+    assert((select max(u.fval) from User as u) == floatResult);
+
+    intResult := 1;
+    floatResult := 1.0;
+    assert((select min(u.ival) from User as u) == intResult);
+    assert((select min(u.fval) from User as u) == floatResult);
+
+    floatResult := 16.0;
+    assert((select avg(u.ival) from User as u) == floatResult);
+    floatResult := (u_1.fval + u_2.fval + u_3.fval) / 3.0; // Cannot put 19.29 here, because then 19.289999 == 19.29 fails
+    assert((select avg(u.fval) from User as u) == floatResult);
+
+    intResult := 48;
+    floatResult := 57.87;
+    assert((select sum(u.ival) from User as u) == intResult);
+    assert((select sum(u.fval) from User as u) == floatResult);
   }
-  
-  function testInt(i:Int):Int{
-    return i;
-  }
-  
-  function testFloat(i:Float):Float{
-    return i;
-  }
-  

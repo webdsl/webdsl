@@ -16,8 +16,8 @@ rules
 
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
-    with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition))> anno*
-    ; e_criteria := <foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties
+    with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+    ; e_criteria := <conc; foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (joinproperties, conditionjoins)
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
 
@@ -27,8 +27,8 @@ rules
     
    hibernate-extra-criteria :
    	(term{anno*}, t, x, srt, e_Session) -> e_criterias*
-   	with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition))> anno*
-   	; e_base := expr|[ e_Session.createCriteria(t.class) ]|
+   	with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+   	; e_base := <foldr(!expr|[ e_Session.createCriteria(t.class) ]|,hibernate-criteria-join)> conditionjoins
    	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition))> joinpropertiesgen
 
   hibernate-extra-criteria-helper(|e_base, x, srt, querycondition) :
@@ -58,20 +58,24 @@ rules
           |}
 
   property-pair-to-string =
-    ?FieldAccess(l, fld)
+    ?FieldAccess(l, fld){anno*}
+    ; where(not(<fetch-elem(?HasAlias())> anno*))
     ; if Var(x) := l then
         !<concat-strings> ["_", fld]
       else
         !<concat-strings> [<property-pair-to-string> l, "._", fld]
       end
-  
+
+  property-pair-to-string =
+    ?fa@FieldAccess(l, fld){anno*}
+    ; where(<fetch-elem(?HasAlias())> anno*)
+    ; <property-pair-to-string> fa{}
+    ; string-replace(|".", "_")
+    ; !<concat-strings> ["_", <id>]
+
   property-to-string:
   	fa@FieldAccess(_, _) -> expr|[ "~str" ]|
   	with str := <property-pair-to-string> fa
-
-  property-to-string:
-  	var@Var(_) -> expr|[ "id" ]|
-  	where <IsRootVar> var
 
   hibernate-criteria-transform-condition:
     Not(expr1) -> expr|[ org.hibernate.criterion.Restrictions.not(e_expr1new) ]|
