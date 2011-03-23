@@ -2,8 +2,42 @@ module org/webdsl/dsl/languages/hql/desugar
 
 rules // clean up HQL queries
 
+// The comment block below does not always work, because you can specify a list of SimpleSort properties, which requires the elements method to be missing
+/*
+  desugar-action :
+    In(leftexpr,rightexpr@Path(_)) -> In(leftexpr,Elements(rightexpr)) 
+
+  desugar-action :
+    In(leftexpr,Paren([rightexpr@Path(_)])) -> In(leftexpr,Elements(rightexpr))
+*/
+
+  desugar-action : // Insert extra parentheses (only needed if DslExp is a GenericSort, but not harmful otherwise)
+    In(leftexpr,rightexpr@DslExp(_)) -> In(leftexpr,Paren([rightexpr])) 
+
   desugar-action :
     Path([p|p*]) -> Path([p|p2*])
     with p2* := <map(try(\ s -> <concat-strings> ["_", s] where not(string-starts-with(|"_")) \))> p*
     where not(p* := p2*)
-  
+
+  desugar-action :
+    QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, groupby, orderby){anno*} -> QueryRule(SelectFrom(selection2, FromClause(ranges)), whereclause2, groupby2, orderby2){RemoveMe(), anno*}
+    where not(<fetch-elem(?RemoveMe())> anno*)
+    with <collect(?Alias(_) <+ ?QueryRule(_, _, _, _))> ranges
+    ; {| IsQueryAlias
+       : filter({vars:
+                     \ Alias(name) ->  <id>
+                       with debug(!"Alias:"); rules( IsQueryAlias :+ name -> name )
+                     \})
+       ; selection2 := <alltd(desugar-unaliassed-prop)> selection
+       ; whereclause2 := <alltd(desugar-unaliassed-prop)> whereclause
+       ; groupby2 := <alltd(desugar-unaliassed-prop)> groupby
+       ; orderby2 := <alltd(desugar-unaliassed-prop)> orderby 
+       |}
+
+  desugar-unaliassed-prop : // This prevents this rule from changing paths in subqueries 
+    QueryRule(_, _, _, _) -> <id>
+
+  desugar-unaliassed-prop :
+    Path([x]) -> Path([x2])
+    where <not(IsQueryAlias)> x; <not(string-starts-with(|"_"))> x
+    ; x2 := <concat-strings> ["_", x]
