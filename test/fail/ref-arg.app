@@ -1,13 +1,6 @@
-//ref-arg.app:15/17
-//ref-arg.app:15/45
-//ref-arg.app:15/4
-//ref-arg.app:18/15
-//ref-arg.app:18/43
-//ref-arg.app:21/12
-//ref-arg.app:23/18
-//ref-arg.app:24/14
-//ref-arg.app:29/10
-
+//#3 only allowed in formal parameters 
+//Global variable s has illegal type
+//#4 No such type Ref<String>
 
 application test
 entity Bla{
