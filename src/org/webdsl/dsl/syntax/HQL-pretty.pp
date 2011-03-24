@@ -71,8 +71,6 @@
    NOTLIKE                  -- _1 KW["not"] KW["like"] _2,
    In                       -- _1 KW["in"] _2,
    NotIn                    -- _1 KW["not"] KW["in"] _2,
-   Between                  -- _1 KW["between"] _2 KW["and"] _3,
-   NotBetween               -- _1 KW["not"] KW["between"] _2 KW["and"] _3,
    MemberOf                 -- _1 KW["member"] KW["of"] _2,
    NotMemberOf              -- _1 KW["not"] KW["member"] KW["of"] _2,
    Concat                   -- _1 KW["||"] _2,
