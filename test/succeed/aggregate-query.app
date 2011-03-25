@@ -30,26 +30,26 @@ section datamodel
   test aggregatehql {
     var intResult : Int := 3;
     var floatResult : Float;
-    assert((select count(*) from User as u) == intResult); 
+    assert((select count(*) from User) == intResult); 
     assert((select count(u) from User as u) == intResult);
 
     intResult := 45;
     floatResult := 54.67;
-    assert((select max(u.ival) from User as u) == intResult);
+    assert((select max(ival) from User) == intResult);
     assert((select max(u.fval) from User as u) == floatResult);
 
     intResult := 1;
     floatResult := 1.0;
-    assert((select min(u.ival) from User as u) == intResult);
+    assert((select min(ival) from User) == intResult);
     assert((select min(u.fval) from User as u) == floatResult);
 
     floatResult := 16.0;
-    assert((select avg(u.ival) from User as u) == floatResult);
+    assert((select avg(ival) from User) == floatResult);
     floatResult := (u_1.fval + u_2.fval + u_3.fval) / 3.0; // Cannot put 19.29 here, because then 19.289999 == 19.29 fails
     assert((select avg(u.fval) from User as u) == floatResult);
 
     intResult := 48;
     floatResult := 57.87;
-    assert((select sum(u.ival) from User as u) == intResult);
+    assert((select sum(ival) from User) == intResult);
     assert((select sum(u.fval) from User as u) == floatResult);
   }

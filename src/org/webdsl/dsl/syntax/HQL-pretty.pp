@@ -96,7 +96,7 @@
    Null                     -- KW["null"],
    Path                     -- _1,
    Path.1:iter-sep          -- _1 KW["."],
-   String                   -- H hs=0[ "\"" _1 "\"" ],
+   String                   -- H hs=0[ _1 ],
    
    CountStar                                              -- KW["count"] KW["("] KW["*"] KW[")"],
    Count                                                  -- KW["count"] KW["("] _1 KW[")"],
