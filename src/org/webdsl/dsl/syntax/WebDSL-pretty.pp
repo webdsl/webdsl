@@ -1283,6 +1283,7 @@
    
    TemplateModSpan -- KW["span"],
    TemplateModInline -- KW["inline"],
+   TemplateModOverride -- KW["override"],
    TemplateDeprecated -- KW["deprecated"],
    
    ValidateAction -- KW["validate"] _1,

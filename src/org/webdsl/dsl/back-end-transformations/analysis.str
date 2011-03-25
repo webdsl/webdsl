@@ -1,44 +1,44 @@
 module org/webdsl/dsl/back-end-transformations/analysis
 
 imports
-	libwebdsl-front
-	org/webdsl/dsl/back-end-transformations/back-end-transformations
+  libwebdsl-front
+  org/webdsl/dsl/back-end-transformations/back-end-transformations
 
 rules      // analyze-elem
   
   // Optimization: currently only global definitions have to be searched, succeed if we're done
   // with the section to avoid complete traversal of the tree
-  	analyze-elem: sec -> sec
-  	where Section(_,defs) := sec
-  			; <map(try(analyze-elem-global))> defs
-  			
+    analyze-elem: sec -> sec
+    where Section(_,defs) := sec
+        ; <map(try(analyze-elem-global))> defs
+        
 rules	// analyze-elem for global elements
 
-	// entity
+  // entity
   analyze-elem-global: ent -> ent
     where class := <?Entity(<id>,_,body) <+ ?EntityNoSuper(<id>,body) <+ ?SessionEntity(<capitalize-string>,body)>
         ; rules (AllEntityNames :+= class)
         ; rules (EntityFromName : class -> ent)
         ; <try(get-anno(?IndexedAnno(_)); rules(IndexedEntities :+= class))> ent
         ; rules (AllEntities :+= ent)
-  			; fail
+        ; fail
   
   // test
   analyze-elem-global =
-    	?Test(name,body); rules (AllTestNames :+= name)
+      ?Test(name,body); rules (AllTestNames :+= name)
     ; fail
-	
-	// global var
-	analyze-elem-global =
-  		?VarDeclInit(_,_,_)
-		; rules(AllGlobalVars :+= <id>)
-		; fail
-	
-	// session entity
-	analyze-elem-global =
-			?SessionEntity(_, _)
-		; rules(SessionEntities :+= <id>)
-		; fail
+  
+  // global var
+  analyze-elem-global =
+      ?VarDeclInit(_,_,_)
+    ; rules(AllGlobalVars :+= <id>)
+    ; fail
+  
+  // session entity
+  analyze-elem-global =
+      ?SessionEntity(_, _)
+    ; rules(SessionEntities :+= <id>)
+    ; fail
  
   // invoke every
   analyze-elem-global =
@@ -49,7 +49,9 @@ rules	// analyze-elem for global elements
   // defines
   analyze-elem-global =
       ?def@Define(mod*,x,farg*,_,_)
-    ; classname := <any-template-name-to-classname> (mod*, x)
+    // handle override
+    ; not(<TopLevelTemplateClassNameOverride> x) //if there is an override, don't declare the regular implementation class here
+    ; if <fetch(TemplateModOverride)> mod* then rules( TopLevelTemplateClassNameOverride : x ) end
     // Pages
     ; if <fetch(Page)> mod* then
           rules( AllPageNames :+= x )
@@ -64,6 +66,7 @@ rules	// analyze-elem for global elements
           rules( AllTopLevelTemplateNamesJavaServlet :+= x ) 
         ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
       end
+    ; classname := <any-template-name-to-classname> (mod*, x)
     ; rules(
         TopLevelTemplateClassName : x -> classname
         // TemplateFormalArguments used in dispatch-servlet.str
@@ -73,9 +76,10 @@ rules	// analyze-elem for global elements
 
 rules     // utils
 
-  any-template-name-to-classname: (mod*, x) -> class
+  any-template-name-to-classname: (mod*, x) -> class1
     with  name := <try(<fetch(Email)> mod*; <concat-strings> [x, "_Email"])> x 
         ; class := <template-name-to-classname> name
+        ; class1 := <if <fetch(TemplateModOverride)> mod* then <concat-strings>["$Override$",<id>] end> class
   
   template-name-to-classname: x -> class
     with  class := $[[x]_Template]
