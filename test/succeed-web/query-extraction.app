@@ -77,43 +77,6 @@ init {
   b4.save();
 }
 
-/*
-var u1 := User{ name := "User 1" };
-var u2 := User{ name := "User 2" };
-
-var i1 := Item{ name := "Item 1" };
-var i2 := Item{ name := "Item 2" };
-var i3 := Item{ name := "Item 3" };
-var i4 := Item{ name := "Item 4" };
-
-var a1 := Auction{ item := i1 seller := u1 };
-var a2 := Auction{ item := i2 seller := u1 };
-var a3 := Auction{ item := i3 seller := u2 };
-var a4 := Auction{ item := i4 seller := u2 };
-
-var b1 := Bid{ offer := 1.0 auction := a1 buyer := u2 };
-var b2 := Bid{ offer := 2.0 auction := a1 buyer := u2 };
-var b3 := Bid{ offer := 1.0 auction := a3 buyer := u1 };
-var b4 := Bid{ offer := 1.0 auction := a4 buyer := u1 };
-*/  
-/*var b4 := Bid{ offer := 1.0 auction := a4 buyer := u1 };
-var b3 := Bid{ offer := 1.0 auction := a3 buyer := u1 };
-var b2 := Bid{ offer := 2.0 auction := a1 buyer := u2 };
-var b1 := Bid{ offer := 1.0 auction := a1 buyer := u2 };
-
-var a1 := Auction{ item := i1 seller := u1 };
-var a2 := Auction{ item := i2 seller := u1 };
-var a3 := Auction{ item := i3 seller := u2 };
-var a4 := Auction{ item := i4 seller := u2 };
-
-var i4 := Item{ name := "Item 4" };
-var i3 := Item{ name := "Item 3" };
-var i2 := Item{ name := "Item 2" };
-var i1 := Item{ name := "Item 1" };
-
-var u2 := User{ name := "User 2" };
-var u1 := User{ name := "User 1" };*/
-
 define page root(){
 	<div id="a1">output("" + (from Auction)[0].id)</div>
 	<div id="u1">output("" + (from User)[0].id)</div>
@@ -176,7 +139,40 @@ define page showProfile(u : User) {
   }
 }
 
-test queries {
+define page preloadCalledTemplate() {
+  var stats : Statistics := HibernateUtilConfigured.getSessionFactory().getStatistics();
+  init{
+  stats.setStatisticsEnabled(true);
+  }
+  var entFetch : Long := stats.getEntityFetchCount();
+  var entLoaded : Long := stats.getEntityLoadCount();
+  for(i : Item) {
+    shouldPreload1(i)
+    shouldPreload2(i)
+  } separated-by { <br /> }
+  <p id="entFetch">output(stats.getEntityFetchCount() - entFetch)</p>
+  <p id="entLoaded">output(stats.getEntityLoadCount() - entLoaded)</p>
+}
+
+define template shouldPreload1(myItem : Item) {
+  if(myItem.name == "Item 1") {
+    shouldPreload3(myItem)
+  }
+}
+
+define template shouldPreload2(myItem : Item) {
+  if(myItem.name == "Item 4") {
+    shouldPreload3(myItem)
+  }
+}
+
+define template shouldPreload3(printItem : Item) {
+  output(printItem.name)
+  " "
+  output(printItem.auction.seller.name)
+}
+
+test queriestest {
   var d : WebDriver := FirefoxDriver();
 
   d.get(navigate(root()));
@@ -210,6 +206,14 @@ test queries {
   d.get(navigate(showProfile(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
   assert(elem.getText().parseInt() == 2);
+
+  d.get(navigate(preloadCalledTemplate()) + "?logsql");
+  elem := d.findElement(SelectBy.id("sqllogcount"));
+  assert(elem.getText().parseInt() == 1);
+  elem := d.findElement(SelectBy.id("entFetch"));
+  assert(elem.getText().parseInt() == 0);
+  elem := d.findElement(SelectBy.id("entLoaded"));
+  assert(elem.getText().parseInt() == 6);
 
   d.close();
 }

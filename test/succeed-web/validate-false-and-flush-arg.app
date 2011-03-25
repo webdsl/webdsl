@@ -32,10 +32,8 @@ application canceltest
   test cancelfunc {
     var d : WebDriver := HtmlUnitDriver();
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     var alist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     alist[0].click();
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("testvalue"), "'testvalue' on initial page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     var size := elist.length;
