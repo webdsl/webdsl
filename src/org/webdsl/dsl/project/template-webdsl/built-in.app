@@ -515,6 +515,7 @@ module .servletapp/src-webdsl-template/built-in
     getName() : String
     hasNotNullAnnotation() : Bool	
     getFormatAnnotation() : String
+    hasSearchAnnotation() : Bool
   }
   
   //validation wrapper for submit and submitlink

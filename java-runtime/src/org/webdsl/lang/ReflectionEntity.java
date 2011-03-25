@@ -5,9 +5,11 @@ import java.util.List;
 
 public class ReflectionEntity{
 
-    public ReflectionEntity(String name, boolean hasViewPage){
+    public ReflectionEntity(String name, boolean hasViewPage, String[] searchablePropertyNames){
+	//public ReflectionEntity(String name, boolean hasViewPage){
         this.name = name;
         this.hasViewPage = hasViewPage;
+        this.searchablePropertyNames = searchablePropertyNames;
     }
     
     private String name;
@@ -28,6 +30,11 @@ public class ReflectionEntity{
         }
         System.out.println("reflection property not found: "+name);
         return null; 
+    }
+    
+    private String[] searchablePropertyNames = {};
+    public String[] getSearchablePropertyNames(){
+    	return searchablePropertyNames; 
     }
     
     private boolean hasViewPage = false;

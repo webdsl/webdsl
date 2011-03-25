@@ -3,6 +3,7 @@ module org/webdsl/dsl/to-java-servlet/reflection
 imports
   libstratego-lib
   libjava-front
+  org/webdsl/dsl/to-java-servlet/-
 
 imports
   libwebdsl-front
@@ -56,19 +57,23 @@ rules
   
   entity-to-init-reflect-aux : 
     (x,ebds,anno*) -> bstm*|[ 
-      ent = new ReflectionEntity("~x",e_viewpage);
+      ent = new ReflectionEntity("~x",e_viewpage, new String[]{ e_searchablePropertyNames* });
       reflectionentities.add(ent);
       bstm* 
       ReflectionEntity.add(ent);
     ]|
-    with bstm* := <filter(is-property-cons; property-to-init-reflect)> ebds
+    with ent := <EntityDef> x
+    	; props := <get-all-properties-in-entity> ent  
+    	; bstm* := <map(property-to-init-reflect)> props
         ; if <fetch(?HasViewPage())> anno*
           then e_viewpage := java:expr|[ true ]|
-          else e_viewpage := java:expr|[ false ]| end
+          else e_viewpage := java:expr|[ false ]| end    
+        ; indexed_props := <fetch-elem(?IndexedAnno(<id>)) <+ ![]> anno*
+        ; e_searchablePropertyNames* := <map(\name -> expr |[ "~name" ]| \)> indexed_props
     
   property-to-init-reflect :
     p -> bstm|[ 
-      ent.getProperties().add(new ReflectionProperty("~x", e_notnull, e_format));
+      ent.getProperties().add(new ReflectionProperty("~x", e_notnull, e_format, e_searchable));
     ]|
     with  x := <get-property-name> p
         ; annos := <get-property-annos> p
@@ -78,4 +83,7 @@ rules
         ; if <fetch(?FormatAnno(x_format))> annos
           then e_format := java:expr|[ x_format ]| //java:expr|[ "~x_format" ]|
           else e_format := java:expr|[ null ]| end
+        ; if <fetch(?SimpleAnno("searchable"))> annos
+          then e_searchable := java:expr|[ true ]|
+          else e_searchable := java:expr|[ false ]| end
           
