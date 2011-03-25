@@ -271,12 +271,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         radioInternal(ent1, ent2, tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       radioInternal(ent1, ent2, tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := ent1.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);       
     }
   }
@@ -585,7 +592,7 @@ module .servletapp/src-webdsl-template/built-in
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
       timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(tmp[1])+"', ";
     }
-    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]
+    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]{elements()}
   }
   
   define ignore-access-control input(d:Ref<Time>){
@@ -606,7 +613,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(format)+"'";
     }
-    dateinputgeneric(d as Ref<Date>, format, "timepicker", timeformatString)[all attributes]
+    dateinputgeneric(d as Ref<Date>, format, "timepicker", timeformatString)[all attributes]{elements()}
   }
 
   function convertTimeFormatToJQuery(f:String):String{
@@ -634,7 +641,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(format)+"', ";
     }
-    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]
+    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]{elements()}
   }
   
   define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
@@ -647,9 +654,15 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         datepickerinput(d,dateformat,tname,picker,options)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       datepickerinput(d,dateformat,tname,picker,options)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       if(req != null){
@@ -659,6 +672,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := d.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       }
       errors := handleValidationErrors(errors);       
     }
@@ -740,20 +754,27 @@ module .servletapp/src-webdsl-template/built-in
     input(set, set.getEntity())
   }*/
   
-  define input(set:Ref<Set<Entity>>, from : List<Entity>){
+ define input(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
-    
+
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
         inputCheckboxSetInternal(set,from,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputCheckboxSetInternal(set,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -761,20 +782,22 @@ module .servletapp/src-webdsl-template/built-in
   define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
     var tnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(tnamehidden)
-    databind{
-      if(reqhidden != null){
-        set.clear(); //empty first, then add each selected element
-      }
-    }
+    request var tmpset := Set<Entity>()
+    
     <div class="checkbox-set "+attribute("class") all attributes except "class">
       <input type="hidden" name=tnamehidden /> 
       for(e:Entity in from){
-        inputCheckboxSetInternalHelper(set,e,tname+"-"+e.id)
+        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)
       }
     </div>
+    databind{
+      if(reqhidden != null){
+        set := tmpset;
+      }
+    }
   }
 
-  define inputCheckboxSetInternalHelper(set: Ref<Set<Entity>>,e:Entity,tname:String){
+   define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
@@ -790,7 +813,7 @@ module .servletapp/src-webdsl-template/built-in
       output(e.name)
     </div>
     databind{
-      if(tmphidden != null && tmp != null){ set.add(e); }
+      if(tmphidden != null && tmp != null){ tmpset.add(e); }
     }
   }
   
@@ -804,12 +827,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputEntityInternal(ent,from,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputEntityInternal(ent,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := ent.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -904,12 +934,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputListInternal(list,from,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputListInternal(list,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := list.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }  
@@ -1005,12 +1042,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputSelectMultipleInternal(set,from,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputSelectMultipleInternal(set,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1141,9 +1185,15 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputIntInternal(i,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputIntInternal(i,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       if(req != null){
@@ -1158,6 +1208,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       }
       errors := handleValidationErrors(errors);     
     }
@@ -1203,9 +1254,15 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputFloatInternal(i,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputFloatInternal(i,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       if(req != null){
@@ -1221,6 +1278,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       }
       errors := handleValidationErrors(errors);      
     }
@@ -1266,9 +1324,15 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputLongInternal(i,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputLongInternal(i,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       if(req != null){
@@ -1283,6 +1347,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       }
       errors := handleValidationErrors(errors);    
     }
@@ -1328,12 +1393,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputSecretInternal(s,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputSecretInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);  
     }
   }
@@ -1345,7 +1417,7 @@ module .servletapp/src-webdsl-template/built-in
         id=getPage().getLabelString() 
       } 
       name=tname 
-      type="text"
+      type="password"
       if(req != null){ 
         value = req 
       }
@@ -1378,13 +1450,20 @@ module .servletapp/src-webdsl-template/built-in
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
         inputStringInternal(s,tname)[all attributes]
+        validate{ getPage().enterLabelContext(tname); } 
+        elements() 
+        validate{ getPage().leaveLabelContext();}
       }
     }
     else{
       inputStringInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);     
     }
   }
@@ -1430,12 +1509,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputTextInternal(s,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputTextInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);    
     }
   }
@@ -1482,12 +1568,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputURLInternal(s,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputURLInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);    
     }
   }
@@ -1534,12 +1627,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputWikiTextInternal(s,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputWikiTextInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);     
     }
   }
@@ -1586,9 +1686,15 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputEmailInternal(s,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputEmailInternal(s,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       if(req != null){
@@ -1598,6 +1704,7 @@ module .servletapp/src-webdsl-template/built-in
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       }
       errors := handleValidationErrors(errors);     
     }
@@ -1649,13 +1756,20 @@ module .servletapp/src-webdsl-template/built-in
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
         inputBoolInternal(b,tname)[all attributes]  // use same tname so the inputs are updated in both cases
+        validate{ getPage().enterLabelContext(tname); } 
+        elements() 
+        validate{ getPage().leaveLabelContext();}
       }
     }
     else{
       inputBoolInternal(b,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := b.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1701,12 +1815,19 @@ module .servletapp/src-webdsl-template/built-in
       errorTemplateInput(errors){
         inputFileInternal(f,tname)[all attributes]
       }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     else{
       inputFileInternal(f,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := f.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
       errors := handleValidationErrors(errors);  
     }
   }
@@ -1742,6 +1863,14 @@ module .servletapp/src-webdsl-template/built-in
     input(i as Ref<File>)[all attributes]
   }
 
+  //validate entities
+  
+  entity ValidationException {
+    message :: String
+  }
+  entity ValidationExceptionMultiple{
+    exceptions -> List<ValidationException>
+  }
 
   //validate template
   
@@ -1756,6 +1885,71 @@ module .servletapp/src-webdsl-template/built-in
       }
       errors := handleValidationErrors(errors);
     }
+  }
+  
+  // Stratego ATerm SDF
+  
+  native class org.webdsl.tools.strategoxt.SDF as SDF{
+    static get(String):SDF
+    isValid(String):Bool
+    getSGLRError(String):String
+    parse(String):ATerm
+  }      
+ 
+  define inputSDF(s:Ref<Text>,language: String){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputTextInternal(s,tname)[class="inputSDF", all attributes]
+      }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    else{
+      inputTextInternal(s,tname)[class="inputSDF", all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    validate{
+      if(req != null && !SDF.get(language).isValid(req)){
+        errors := [SDF.get(language).getSGLRError(req)];
+      }
+      if(errors == null){ // if no wellformedness errors, check datamodel validations
+        errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      }
+      errors := handleValidationErrors(errors);     
+    }
+  }
+  
+  type String{
+    org.webdsl.tools.strategoxt.ATerm.toATerm as parseATerm():ATerm
+  }
+
+  native class org.spoofax.interpreter.terms.IStrategoTerm as ATerm{
+    org.webdsl.tools.strategoxt.ATerm.subterms as subterms():List<ATerm>
+    org.webdsl.tools.strategoxt.ATerm.constructor as constructor():String
+    org.webdsl.tools.strategoxt.ATerm.stringValue as stringValue():String
+    org.webdsl.tools.strategoxt.ATerm.get as get(Int):ATerm
+    org.webdsl.tools.strategoxt.ATerm.length as length():Int
+    org.webdsl.tools.strategoxt.ATerm.toString as toString():String
+    org.webdsl.tools.strategoxt.ATerm.toInt as toInt():Int
+  }
+  
+  define output(a:ATerm){
+    output(a.toString())
+  }
+  
+  native class org.webdsl.tools.strategoxt.StrategoProgram as Stratego{
+    static get(String):Stratego
+    invoke(String,ATerm):ATerm
+    invoke(String,String):ATerm
   }
     
   //default access control rule

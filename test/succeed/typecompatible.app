@@ -5,7 +5,7 @@ section bla
   function show():String{
     
     var s1:String := "";
-    var s2:SDFInput<WebDSL> := "";
+    var s2:Secret := "";
     var s3:WikiText := "";
     var s4:Text := "";
     

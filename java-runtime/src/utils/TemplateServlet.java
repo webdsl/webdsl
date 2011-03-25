@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,8 +20,20 @@ public abstract class TemplateServlet {
     protected boolean validated=true;
     protected String uniqueid;
     public String getUniqueId(){
-      return this.uniqueid;
+      if(uniqueIdOverride.isEmpty()){
+        return this.uniqueid;
+      }
+      else{
+        return uniqueIdOverride.peek();
+      }
     }
+    public void pushUniqueIdOverride(String s){
+        uniqueIdOverride.push(s);
+    }
+    public void popUniqueIdOverride(){
+        uniqueIdOverride.pop();
+    }
+    protected ArrayDeque<String> uniqueIdOverride = new ArrayDeque<String>(); 
     protected Environment env;
     protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
     protected org.hibernate.Session hibSession;
@@ -146,7 +159,8 @@ public abstract class TemplateServlet {
     private void tryInitializeTemplate(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
-        
+        //always store arguments, value might change between phases
+        storeArguments(args);
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
@@ -163,7 +177,6 @@ public abstract class TemplateServlet {
               this.attrs = attrs;
               this.ltas = ltas;
               try {
-                storeArguments(args);
                 this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext());
                 initialize();
                 initializeLocalVars();

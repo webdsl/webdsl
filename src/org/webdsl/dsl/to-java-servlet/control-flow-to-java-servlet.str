@@ -243,11 +243,6 @@ rules //templatecall
     where <get-anno(?CallToDefinedAnno())> tc
     with  bstm* := <control-flow-tcall-defined-template(|x_methodname)> tc
     
-  template-call-to-java-string: 
-    (name,args) -> java:expr|[ "~x_name"+"("+"~arg_dump"+")" ]|
-    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name
-        ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
-    
   control-flow-tcall-defined-template(|x_methodname) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     with  // translate (ref) args
@@ -265,28 +260,18 @@ rules //templatecall
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  //
           tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
-        ; bstm_npe* := <cflow-tcall-null-pointer-helper> (x_name,args)
         ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
         ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map(|x_methodname)> passign* else !java_attrsmap end>
         // create template call
         ; bstm_result* := <generate-template-call(|x_methodname)> (
+            tc, 
             java_tname, 
             tname, 
             java_args,
-            bstm_npe*, 
             withcallsmap, 
             attrsmap
             )
             
-  cflow-tcall-null-pointer-helper :
-    (x_name,args) -> bstm_npe*
-    with  e_tc := <template-call-to-java-string> (x_name,args)
-        ; bstm_npe* :=
-            bstm*|[
-              System.out.println("WebDSL warning: null reference in template arguments: "+e_tc); // TODO proper location information; some way to disable these warnings
-              npe.printStackTrace(); // display java exception for now so it can be traced back to the template
-            ]|
-   
   /**
    *  'elements' call
    *
@@ -309,16 +294,15 @@ rules //templatecall
        ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* }, attrs)); ]|
 
   /**
+   * tc : the TemplateCall term
    * e_name : unique template name for lookup in hashmaps - Java expression with type String
    * tname : template call number used in templateContext - Stratego string or WebDSL expression with type TemplateContext to change the templateContext for this call entirely
    * e : regular template arguments - Java Object[] 
-   * bstm_npe* : null pointer exception handling statements - Java bstm*
-   * bstm_withcallsmap* : statements that add  'with' arguments and 'elements' template argument 
-   *   to withcallsmap in newenv - Java bstm*
+   * bstm_withcallsmap* : statements that add  'with' arguments and 'elements' template argument to withcallsmap in newenv - Java bstm*
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
   generate-template-call(|x_methodname):
-    (e_name, tname, e, bstm_npe*, bstm_withcallsmap*, bstm_attrs*) ->
+    (tc, e_name, tname, e, bstm_withcallsmap*, bstm_attrs*) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
@@ -333,31 +317,20 @@ rules //templatecall
         if(templatecalls.get(ident)==null){
           templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
         }
-        try {
-          org.webdsl.lang.Environment newenv = new Environment(env);
-          bstm_withcallsmap*
-          bstm_attrs*
-          ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, newenv, attrsmapout, x_argsextra);
-          ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
-            if (ThreadLocalPage.get().hasExecutedAction)
-              return;
-          ]|)>
-        }
-        catch(NullPointerException npe) {
-          bstm_npe*
-        }
+        org.webdsl.lang.Environment newenv = new Environment(env);
+        bstm_withcallsmap*
+        bstm_attrs*
+        ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, newenv, attrsmapout, x_argsextra);
+        ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
+          if (ThreadLocalPage.get().hasExecutedAction)
+            return;
+        ]|)>
       }
-      catch(IllegalAccessException iae)
+      catch(Exception ex) // if any exception occurs, ignore this template. e.g. nullpointer/indexoutofbounds in arguments 
       {
-        System.out.println("Problem in template servlet template lookup: "+iae.getMessage());
-      }
-      catch(InstantiationException ie)
-      {
-        System.out.println("Problem in template servlet template lookup: "+ie.getMessage());
-      }
-      catch(NullPointerException npe) {
-        System.out.println("Problem in template lookup for "+e_name+": "+npe.getMessage());
-        npe.printStackTrace();
+        System.out.println("Problem occurred in template call: "+e_tcerrormessage);
+        //System.out.println(ex.toString());
+        ex.printStackTrace(); // print stack trace to get location, remove when location is always available for webdsl code
       }
       ident = "";
       bstm_leavetemplatecontext*
@@ -366,6 +339,7 @@ rules //templatecall
     ]|
     with  x_args := <newname> "args"
         ; x_argsextra := <newname> "args2"
+        ; e_tcerrormessage := <template-call-to-java-string> tc
         ; if is-template-context-passed := <not(<is-string> tname)>
           then x_tmptc := <newname> "tempcontext"
              ; e_templatecontext := <expression-to-java-servlet> tname
@@ -386,6 +360,13 @@ rules //templatecall
                   <!bstm*|[ ThreadLocalPage.get().leaveTemplateContext(); ]|
                   ;if-debug(!bstm*|[ ThreadLocalPage.get().leaveTemplateContextChecked(e_tname); ]|)>
           end
+           
+  template-call-to-java-string: 
+    tc@TemplateCall(name,args, _, _) -> java:expr|[ "~x_result" ]|
+    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name
+        ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
+        ; <get-anno(?PositionAnno(position)) <+ position := ""> tc
+        ; x_result := <concat-strings> [x_name,"(",arg_dump,")",<if ?"" then id else <concat-strings>[" at ",position] end> position]
           
 /**
  *  Call to template passed as part of required templates

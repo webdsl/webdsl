@@ -8,7 +8,6 @@ application formcheckseparate
     var s4 : WikiText := null
     var s5 : Email := null
     var s6 : URL := null
-    var s7 : Patch := null
     
     form {
       input(s1)
@@ -17,7 +16,6 @@ application formcheckseparate
       input(s4)
       input(s5)
       input(s6)
-      input(s7)
       submit action{} { "save" }
     }
     

@@ -10,7 +10,7 @@ rules //validate template call
   built-in-template-rule-setup = <declare-built-in-template-rules> ("validate",[SimpleSort("Bool"),SimpleSort("String")]);fail
  
 rules //desugar entity validation
-
+     
   desugar : 
     EntityNoSuper(name,entbodydecs){anno*} -> EntityNoSuper(name,entbodydecs2){anno*}
     where entbodydecs2 := <desugar-entity-validation> entbodydecs
@@ -45,20 +45,6 @@ rules //desugar entity validation
     Property(name,kind,type,anno) -> //properties are normalized due to innermost
     Property(name,kind,type,[ValidateAnno(echeck,emessage)|anno])
     where <fetch(?name)> varnames
-   
-rules //create ValidationException and ValidationExceptionMultiple entities   
-  
-  after-tc-declare-hook = validation-entities; map(declare-built-in-entity; emit-webdsl-code); fail
-  
-  validation-entities = !
-    def*|[
-      entity ValidationException {
-        message :: String
-      }
-      entity ValidationExceptionMultiple{
-        exceptions -> List<ValidationException>
-      }
-    ]|
  
 rules //declare and generate validate property functions 
    
@@ -76,6 +62,20 @@ rules //declare and generate validate property functions
                   ]|
        ; <map(declare-function(|x_class))> funcs
    
+  rules //utility strategies for adding location information to generated webdsl code fragments
+    
+  //pass location info to generated functions
+  with-current-location(s) =
+    {| CurrentLocation: 
+      with((get-anno(?At(_,_,_))<+!At("?","?","?"))
+           ; ?loc
+           ; rules( CurrentLocation := loc ))
+    ; s
+    |}
+    
+  add-current-location =
+    topdown(try(keep-position-anno; {\x{anno*} -> x{<CurrentLocation>,anno*}\}))
+   
   rules 
   //generate validate functions
   //for each property generate a validate function
@@ -84,17 +84,17 @@ rules //declare and generate validate property functions
   desugar-ui :
     Entity(x_class,super, entbodydecs1){anno*} -> <rename> Entity(x_class,super, entbodydecs2){anno*}
     where <oncetd(not-translated-validate-anno <+ not-translated-prop-validate-anno)> entbodydecs1
-    with  entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1
+    with  with-current-location(entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1)
     
   desugar-ui : 
     EntityNoSuper(x_class, entbodydecs1){anno*} -> <rename> EntityNoSuper(x_class, entbodydecs2){anno*} 
     where <oncetd(not-translated-validate-anno <+ not-translated-prop-validate-anno)> entbodydecs1
-    with  entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1
+    with  with-current-location(entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1)
     
   desugar-ui :
     SessionEntity(x_class, entbodydecs1){anno*} -> <rename> SessionEntity(x_class, entbodydecs2){anno*} 
     where <oncetd(not-translated-validate-anno <+ not-translated-prop-validate-anno)> entbodydecs1
-    with  entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1
+    with  with-current-location(entbodydecs2 := <get-all-function-validate-annotation(|x_class)> entbodydecs1)
     
   signature
   constructors 
@@ -134,7 +134,7 @@ rules //declare and generate validate property functions
     where not-translated-prop-validate-anno
     with  x_name := <get-internal-validate-func-name(|x)>
         ; x_name1 := <get-internal-validate-func-name-int(|x)>
-        ; result := 
+        ; result := <add-current-location>
             fun* |[ 
               function x_name() : ValidationExceptionMultiple { 
                 var v := ValidationExceptionMultiple{};
@@ -158,7 +158,7 @@ rules //declare and generate validate property functions
     with  anno1* := [ValidateAnnotationFunctionGenerated()|anno*]
         ; x_name := <get-internal-validate-func-name-int(|x)>
         ; e_checknotnull := <add-not-null-checks> e_check
-        ; result := 
+        ; result := <add-current-location>
             fun |[ 
               extend function x_name(v:ValidationExceptionMultiple){
                 if(!e_checknotnull){
@@ -173,7 +173,7 @@ rules //declare and generate validate property functions
     where not-translated-validate-anno
     with  anno1* := [ValidateAnnotationFunctionGenerated()|anno*]
         ; x_name := <get-internal-validate-func-name-int(|x)>
-        ; result := 
+        ; result := <add-current-location>
             fun |[ 
               extend function x_name(v:ValidationExceptionMultiple){
                 if(this.x.length() > x_length){
@@ -188,7 +188,7 @@ rules //declare and generate validate property functions
     where not-translated-validate-anno
     with  anno1* := [ValidateAnnotationFunctionGenerated()|anno*]
         ; x_name := <get-internal-validate-func-name-int(|x)>
-        ; result := 
+        ; result := <add-current-location>
             fun |[ 
               extend function x_name(v:ValidationExceptionMultiple){
                 if(this.x.length() == 0){
@@ -232,20 +232,20 @@ rules //declare and generate one validateSave() function per entity, which check
   desugar-ui :
     Entity(x_class,super, entbodydecs1){anno*} -> result
     where not(validate-save-function-has-been-added)
-    with  entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
-        ; result := <rename> Entity(x_class,super, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*} 
+    with  with-current-location(entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
+        ; result := <rename> Entity(x_class,super, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*}) 
     
   desugar-ui : 
     EntityNoSuper(x_class, entbodydecs1){anno*} -> result
     where not(validate-save-function-has-been-added)
-    with  entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
-        ; result := <rename> EntityNoSuper(x_class, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*}
+    with  with-current-location(entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
+        ; result := <rename> EntityNoSuper(x_class, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*})
     
   desugar-ui :
     SessionEntity(x_class, entbodydecs1){anno*} -> result 
     where not(validate-save-function-has-been-added)
-    with  entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
-        ; result := <rename> SessionEntity(x_class, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*}
+    with  with-current-location(entbodydecs2 := <add-validate-save-function-to-entity(|x_class)> entbodydecs1
+        ; result := <rename> SessionEntity(x_class, entbodydecs2){EntityValidateSaveFunctionGenerated(),anno*})
     
   signature constructors 
     EntityValidateSaveFunctionGenerated: Term 
@@ -259,7 +259,7 @@ rules //declare and generate one validateSave() function per entity, which check
     entbodydecs1 -> entbodydecs2
     with  props := <all-properties> x_class
         ; stat* := <props-to-validate-save-funcs> props 
-        ; function := 
+        ; function := <add-current-location>
             webdsl|[ 
               function validateSave() : ValidationExceptionMultiple { 
                 var v := ValidationExceptionMultiple{};
@@ -283,63 +283,7 @@ rules //declare and generate one validateSave() function per entity, which check
        
     property-to-validate-save-function-stmt :
       None() -> None()
-  
-rules  //add checks in page for data invariants, currently only for built-in input-like templates but should become possible for defined templates with ref args as well
-  
-  desugar = desugar-data-invariant-to-input-check
-  
-  signature constructors EntityInvariantTemplateGenerated : Term
-  rules    
-       
-  desugar-data-invariant-to-input-check :
-    t@_{anno*} -> t2
-    where fa@FieldAccess(e_var,x_prop) := <is-input-template-get-arg> //can also be a Var, in that case there is no property validation
-    where not(<fetch(EntityInvariantTemplateGenerated)> anno*)
-    with  srt := <type-of> e_var
-       ;  x_validate := <get-internal-validate-func-name(|x_prop)>
-       ;  checkbodyelem := webdsl|[   
-           for(val: ValidationException in e_var.x_validate().exceptions){
-                validate(false,val.message)
-              } 
-          ]|
-       ;  t1 := <input-template-add-to-body(| [checkbodyelem] )> t
-       ;  t2 := <add-anno(|EntityInvariantTemplateGenerated())> t1
-
-  //current built-in input templates, @TODO move to library so this list is no longer necessary
-  is-input-template-name = "input"
-  is-input-template-name = "inputBool"
-  is-input-template-name = "inputEmail" 
-  is-input-template-name = "inputFile"
-  is-input-template-name = "inputFloat" 
-  is-input-template-name = "inputImage" 
-  is-input-template-name = "inputInt"
-  is-input-template-name = "inputLong" 
-  is-input-template-name = "inputPatch" 
-  is-input-template-name = "inputSecret" 
-  is-input-template-name = "inputString" 
-  is-input-template-name = "inputText"
-  is-input-template-name = "inputURL" 
-  is-input-template-name = "inputWikiText"
-  is-input-template-name = "radio"
-  
-  is-input-template-get-arg =
-    where(?TemplateCall(<is-input-template-name>,_,_,_)) //all template calls are desugared to this variant eventually, could use match-template-with-name(is-input-template-name) to desugar on any template call constructor
-  ; get-tc-args
-  ; Hd //most inputs have one arg, but in case of radio the first one matters
-    
-  is-input-template-get-arg :
-    Select(x, s, lab1, e1, props1, elems1) -> e1
-         
-  is-input-template-get-arg :
-    SelectFromList(a,b,[],c) -> a
-    
-  input-template-add-to-body(|elems) :  
-    TemplateCall(n,args,p,TemplateBody(b)){anno*} ->  TemplateCall(n,args,p,TemplateBody(<concat> [b,elems])){anno*}
-  input-template-add-to-body(|elems) :  
-    Select(x, s, lab1, e1, props1, elems1){anno*} -> Select(x, s, lab1, e1, props1, <concat> [elems1,elems]){anno*}
-  input-template-add-to-body(|elems) :  
-    SelectFromList(a,b,[],c){anno*} -> SelectFromList(a,b,[],<concat> [c,elems]){anno*}
-         
+     
 rules //error template
 
   after-tc-declare-hook = setup-message-templates ;fail //used internally to represent input with validations, declared as wrapper to reuse back-end code for each different input type
