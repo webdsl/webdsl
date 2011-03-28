@@ -1,7 +1,12 @@
 package org.webdsl.search;
 
-import java.util.ArrayList;
-
+import java.io.IOException;
+import java.io.StringReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.search.similar.MoreLikeThis;
+import org.hibernate.search.SearchFactory;
+import org.hibernate.search.reader.ReaderProvider;
+import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
 public abstract class SearchQuery{
@@ -62,6 +67,7 @@ public abstract class SearchQuery{
 
 		return true;
 	}	
+	
 	private void applyFieldConstraints(){
 		for (String field : constraints.keySet())
 			enableFieldConstraintFilter(field,constraints.get(field));	
@@ -70,14 +76,50 @@ public abstract class SearchQuery{
 		query.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);	
 	}
 	
+	private IndexReader getReader() {
+		
+		SearchFactory searchFactory = fulltextsession.getSearchFactory();
+		DirectoryProvider<?> provider = searchFactory.getDirectoryProviders(entityClass)[0];
+		ReaderProvider readerProvider = searchFactory.getReaderProvider();
+		return readerProvider.openReader(provider);
+		}
+
+	
+	public void do_moreLikeThis (String likeText){
+		MoreLikeThis mlt = new MoreLikeThis(getReader());
+		mlt.setFieldNames(searchFields);
+		mlt.setMaxQueryTerms(2);
+		mlt.setMinDocFreq(1);
+		//mlt.setAnalyzer(new StandardAnalyzer(luceneVersion));
+		mlt.setMaxWordLen(20);
+		mlt.setMinWordLen(5);
+		mlt.setMinTermFreq(1);
+		try {
+			org.apache.lucene.search.Query luceneQuery = mlt.like(new StringReader(likeText));
+			System.out.println("searching similar entities with text: " + likeText);
+			query = fulltextsession.createFullTextQuery(luceneQuery,entityClass);
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalArgumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		luceneQueryChanged = false;
+	}
+	
 	public String searchTimeAsString(){
 		
 		return searchTime + " ms.";
 	}
 		
 	public java.util.List<?> do_getResultList()	{
-		if (validateQuery())
+		if (validateQuery()) {
 	    	return query.list();
+		}
 	    else
 	    	return new java.util.ArrayList<WebDSLEntity>();
 	}	
