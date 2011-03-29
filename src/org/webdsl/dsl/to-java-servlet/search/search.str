@@ -57,39 +57,6 @@ strategies
 			searchFields = new String[]{ e_sf* };
 			fulltextsession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
 		}
-		// 
-		// public x_class#SearchQuery setMaxResults (int limit){
-		// 	do_setMaxResults(limit);
-		// 	return this;
-		// }
-		// public x_class#SearchQuery setFirstResult (int offset){
-		// 	do_setFirstResult(offset);
-		// 	return this;
-		// }	
-		// public x_class#SearchQuery setSearchTerms (String terms){
-		// 	do_setSearchTerms(terms);
-		// 	return this;
-		// }	
-		// public x_class#SearchQuery setSearchFields(java.util.List<String> fields){
-		// 	do_setSearchFields(fields);
-		// 	return this;
-		// }	
-		// public x_class#SearchQuery addFieldConstraint (String fieldname, String terms)	{
-		// 	do_addFieldConstraint(fieldname, terms);
-		// 	return this;		
-		// }
-		
-		// public x_class#SearchQuery moreLikeThis (String likeText){
-		// 	do_moreLikeThis(likeText);			
-		// 	return this;
-		// }
-		
-		// public java.util.List<x_Class> getResultList()	{
-		// 	searchTime = System.currentTimeMillis();
-		// 	java.util.List<?> toReturn = do_getResultList();
-		// 	searchTime = System.currentTimeMillis() - searchTime;
-		// 	return (java.util.List<x_Class>)toReturn;
-		// }	
 	}	
   	]|
     where ((x_class, _) := <get-entity-def> ent
@@ -131,11 +98,11 @@ strategies
   generate-code-java-servlet-once =
       bagof-IndexedEntities
     ; string-sort-annos
-    ; cached-generate(generate-java-servlet-reindexer | "internal_ReIndex")
+    ; cached-generate(generate-java-servlet-indexmanager | "internal_IndexManager")
     ; fail
 
 
-  generate-java-servlet-reindexer :
+  generate-java-servlet-indexmanager :
     x_class* ->
     <emit-java-code-local> compilation-unit|[
       package utils;
@@ -148,8 +115,13 @@ strategies
       import org.webdsl.lang.*;
   
       @SuppressWarnings("all")
-      public class ReIndex {
+      public class IndexManager {
         public static void main(String[] args) {
+        	reindex();
+        	System.exit(0);
+        }
+        
+        private static void reindex() {
           java.io.PrintWriter out = new java.io.PrintWriter(System.out);
           ThreadLocalOut.push(out);
           // @TODO Globals are not loaded yet
@@ -162,7 +134,6 @@ strategies
 			 			
 		  time = System.currentTimeMillis() - time;
 	      System.out.println("Reindexing finished in " + time + "ms total.");
-          System.exit(0);
         }
         
         private static boolean reindexEntityClass(Class c, org.hibernate.search.FullTextSession session){
@@ -183,69 +154,13 @@ strategies
  			System.out.println("done in " + time + "ms.");
  			return true;
         }
+        public static void optimizeIndex(){
+        	System.out.println(new java.util.Date() + ": Optimizing search index ...");
+        	org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession()).getSearchFactory().optimize();
+        	System.out.println(new java.util.Date() + ": Optimizing search index finished succesfully.");
+        }
       }
     ]|
     with pkgname := <DomainPackage>
     ; x_class_set := <make-set> x_class*
     ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session); ]|\)> x_class_set 
-
-
-//   generate-java-servlet-reindexer :
-//     x_class* ->
-//     <emit-java-code-local> compilation-unit|[
-//       package utils;
-//   
-//       import java.util.List;
-//   
-//       import utils.*;
-//       import pkgname.*;
-//       
-//       import org.webdsl.lang.*;
-//   
-//       @SuppressWarnings("all")
-//       public class ReIndex {
-//         public static void main(String[] args) {
-//           java.io.PrintWriter out = new java.io.PrintWriter(System.out);
-//           ThreadLocalOut.push(out);
-//           // @TODO Globals are not loaded yet
-//           long time = System.currentTimeMillis();
-//           bstm*
-// 		  time = System.currentTimeMillis() - time;
-// 	      System.out.println("Indexing finished in " + time + "ms.");
-//           System.exit(0);
-//         }
-// 
-//         ~*cbd*
-//       }
-//     ]|
-//     with pkgname := <DomainPackage>
-//        ; x_class_set := <make-set> x_class*
-//        ; bstm* := <map(\ x_name -> java|[ index#x_name(); ]|\)> x_class_set 
-//        ; cbd* := <map(generate-java-servlet-indexer)> x_class_set
-// 
-//   generate-java-servlet-indexer :
-//     x_Class -> class-body-dec |[
-//         private static boolean index#x_Class() {
-//           org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
-//           org.hibernate.Transaction tx = session.beginTransaction();
-//           session.setFlushMode(org.hibernate.FlushMode.MANUAL);
-//           session.setCacheMode(org.hibernate.CacheMode.IGNORE);
-//           org.hibernate.ScrollableResults results = session.createCriteria(x_Class.class).scroll(org.hibernate.ScrollMode.FORWARD_ONLY);
-// 
-//           System.out.println("Indexing " + "~x_Class" + ": " + 0 + " - " + 1000);
-//           int index = 0;
-//           while (results.next() ) {
-//             index++;
-//             session.index( results.get(0) );
-//             if (index % 1000 == 0) {
-//             	System.out.println("Indexing " + "~x_Class" + ": " + (index) + " - " + (index + 1000));
-//             	session.flushToIndexes();
-//             	session.clear();
-//             }
-//           }
-//           //session.getSearchFactory().optimize(x_Class.class);
-//           session.getSearchFactory().optimize();
-//           tx.commit();
-//           return true;
-//         }
-//       ]|

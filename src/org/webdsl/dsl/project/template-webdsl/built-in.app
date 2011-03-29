@@ -258,7 +258,18 @@ module .servletapp/src-webdsl-template/built-in
       output(q.body)
     }
   }
+
+//optimization of search index, twice a day
   
+  invoke optimizeSearchIndex() every 12 hours
+
+  function optimizeSearchIndex(){
+    IndexManager.optimizeIndex();
+  }
+  native class utils.IndexManager as IndexManager {
+    static optimizeIndex()    
+  }
+
 // radio buttons input
 
   define ignore-access-control radio(ent1:Ref<Entity>,ent2:List<Entity>){
@@ -1957,4 +1968,5 @@ module .servletapp/src-webdsl-template/built-in
   access control rules
   
     rule template *(*){true}
+
     

@@ -90,11 +90,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		MoreLikeThis mlt = new MoreLikeThis(getReader());
 		mlt.setFieldNames(fieldNames);
 		// mlt.setAnalyzer(new StandardAnalyzer(luceneVersion));
-		mlt.setMinWordLen(minWordLen); // 5
-		mlt.setMaxWordLen(maxWordLen); // 20
-		mlt.setMinDocFreq(minDocFreq); // 1
-		mlt.setMinTermFreq(minTermFreq); // 1
-		mlt.setMaxQueryTerms(maxQueryTerms); // 3
+		mlt.setMinWordLen(minWordLen);
+		mlt.setMaxWordLen(maxWordLen);
+		mlt.setMinDocFreq(minDocFreq);
+		mlt.setMinTermFreq(minTermFreq);
+		mlt.setMaxQueryTerms(maxQueryTerms);
 		try {
 			org.apache.lucene.search.Query luceneQuery = mlt
 					.like(new StringReader(likeText));
