@@ -5,12 +5,13 @@ section datamodel
   entity User{
     name :: String
     address :: String
+    val :: Int
   }
 
-  var t_u1 := User{ name := "test1" }
-  var t_u2 := User{ name := "test2" }
-  var t_u3 := User{ name := "test3" }
-  var t_u4 := User{ name := "test4" }
+  var t_u1 := User{ name := "test1" address := "1" val := 2 }
+  var t_u2 := User{ name := "test2" address := "1" val := 3 }
+  var t_u3 := User{ name := "test3" address := "2" val := 5 }
+  var t_u4 := User{ name := "test4" address := "2" val := 1 }
 
  
   define page root(){
@@ -76,7 +77,7 @@ section datamodel
     
   }
   entity Project {
-    name			:: String
+    name      :: String
     val       :: Int
     function getCommonIssues(nr : Int) : List<Issue>{
       var issues :=
@@ -127,4 +128,12 @@ section datamodel
 
     var p : List<Project> := from Project where not val <= -1 and val >= 1;
     assert(p.length == 1);
+
+    var t : List<Tag> := from Tag as t where t in (from Tag as t2 where project.name <> t.name);
+    assert(t.length == 1);
+
+    var u : List<User> := from User as u where u.val in (select max(val) from User as u2 where u2.address = u.address and val > 0 and not u is null);
+    assert(u.length == 2);
+    assert( (u[0] == t_u2 && u[1] == t_u3) || (u[0] == t_u3 && u[1] == t_u2) );
+
   }

@@ -2,15 +2,6 @@ module org/webdsl/dsl/languages/hql/desugar
 
 rules // clean up HQL queries
 
-// The comment block below does not always work, because you can specify a list of SimpleSort properties, which requires the elements method to be missing
-/*
-  desugar-action :
-    In(leftexpr,rightexpr@Path(_)) -> In(leftexpr,Elements(rightexpr)) 
-
-  desugar-action :
-    In(leftexpr,Paren([rightexpr@Path(_)])) -> In(leftexpr,Elements(rightexpr))
-*/
-
   desugar-action : // Insert extra parentheses
     In(leftexpr,rightexpr@DslExp(_)) -> In(leftexpr,Paren([rightexpr])) 
 
@@ -23,9 +14,23 @@ rules // clean up HQL queries
     where not(p* := p2*)
 
   desugar-action :
-    QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, groupby, orderby){anno*} -> QueryRule(SelectFrom(selection2, FromClause(ranges)), whereclause2, groupby2, orderby2){RemoveMe(), anno*}
-    where not(<fetch-elem(?RemoveMe())> anno*)
-    with <collect(?Alias(_) <+ ?QueryRule(_, _, _, _))> ranges
+    HqlQuery(qr){anno*} -> HqlQuery(qr2){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  desugar-action :
+    HqlQueryLimit(qr, limit){anno*} -> HqlQueryLimit(qr2, limit){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  desugar-action :
+    HqlQueryLimitOffset(qr, offset, limit){anno*} -> HqlQueryLimitOffset(qr2, offset, limit){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  common-desugar-unaliassed-prop-from-query :
+    QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, groupby, orderby){anno*} -> QueryRule(SelectFrom(selection2, FromClause(ranges)), whereclause2, groupby2, orderby2){UnaliassedPathsRenamed(), anno*}
+    with <collect(?Alias(_) <+ ?QueryRule(_, _, _, _))> ranges // Should not pick up aliasses from subqueries yet
     ; {| IsQueryAlias
        : filter({vars:
                      \ Alias(name) ->  <id>
@@ -37,10 +42,14 @@ rules // clean up HQL queries
        ; orderby2 := <alltd(desugar-unaliassed-prop)> orderby 
        |}
 
-  desugar-unaliassed-prop : // This prevents this rule from changing paths in subqueries 
-    QueryRule(_, _, _, _) -> <id>
+  desugar-unaliassed-prop :
+    qr@QueryRule(_, _, _, _) -> qr2
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
 
   desugar-unaliassed-prop :
-    Path([x]) -> Path([x2])
+    Path([x|xs]) -> Path([x2|xs])
     where <not(IsQueryAlias)> x; <not(string-starts-with(|"_"))> x
     ; x2 := <concat-strings> ["_", x]
+
+signature constructors
+  UnaliassedPathsRenamed : Term
