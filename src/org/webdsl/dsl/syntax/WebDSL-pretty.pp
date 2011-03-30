@@ -309,6 +309,7 @@
    AccessControlRule.5:iter-star                -- _1,
    AccessControlRule                            -- V[ V is=2[H[KW["rules"] _1 _2 KW["("] _3 KW[")"] KW["{"]] H[_4] H[_5]] KW["}"]],
    AccessControlRule.5:iter-star                -- _1,
+   SpecialAccessControlRule                     -- V[ V is=2[H[KW["rule"] _1 KW["{"]] H[_2]] KW["}"]],
    MatchArgs                                    -- H[_1 _2],
    MatchArgs.1:iter-star-sep                    -- _1 KW[","],
    MatchArgs.2:opt                              -- _1,

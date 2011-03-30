@@ -170,6 +170,11 @@ rules
               this.setAjaxRuntimeRequest(true);
             }
             
+            RequestLogEntry rle = ((utils.DispatchServletHelper) ThreadLocalServlet.get()).getRequestLogEntry();
+            org.apache.log4j.NDC.push(rle.getId().toString());
+            utils.NDCAppender ndcAppender = null;
+            if(request.getQueryString() != null && request.getQueryString().indexOf("logsql") != -1) ndcAppender = utils.NDCAppender.getNamed("hibernateLog");
+            if(ndcAppender != null) ndcAppender.addNDC(rle.getId().toString());
             hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
             hibSession.beginTransaction();
             try
@@ -273,7 +278,6 @@ rules
               
               org.hibernate.stat.Statistics hibernateStatistics = HibernateUtilConfigured.getSessionFactory().getStatistics();
               
-              RequestLogEntry rle = ((utils.DispatchServletHelper) ThreadLocalServlet.get()).getRequestLogEntry();
               rle.setQueryExecutionCountNoEventsOrValidation(new Long(hibernateStatistics.getQueryExecutionCount()).intValue());
               rle.setQueryExecutionMaxTimeNoEventsOrValidation(new Long(hibernateStatistics.getQueryExecutionMaxTime()).intValue());
               rle.setQueryExecutionMaxTimeQueryStringNoEventsOrValidation(hibernateStatistics.getQueryExecutionMaxTimeQueryString());
@@ -300,6 +304,8 @@ rules
             }
             finally{
               PageServlet.cleanupThreadLocals();
+              org.apache.log4j.NDC.remove();
+              if(ndcAppender != null) ndcAppender.removeNDC(rle.getId().toString());
             }
           }
           
@@ -409,6 +415,15 @@ rules
             }
             sout.write(s.toString());
             if(!mimetypeChanged && !onlyContent){
+              if(this.parammap.get("logsql") != null){
+                bstm_logsqlchecksetup*
+                if(e_logsqlaccesscontrolcheck){
+                  utils.HibernateLog.printHibernateLog(sout);
+                }
+                else{
+                  sout.print("<div>Access to SQL logs was denied.</div>");
+                }
+              }
               sout.print("</body>");
               sout.println("</html>");
             }
@@ -469,6 +484,10 @@ rules
              else bstm_redirecthttps* :=[]
              end
          end
+         //access control for ?logsql
+       ; logsqlcheck := <if logsqlchecktmp := <LogSqlAccessControlCheck> then !logsqlchecktmp else ACPrincipalAvailable;!False() <+ !True() end>
+       ; bstm_logsqlchecksetup* := <get-external-vars> logsqlcheck
+       ; e_logsqlaccesscontrolcheck := <expression-to-java-servlet> logsqlcheck
 
   /**
    *  Used for output(Image) and output(File)
