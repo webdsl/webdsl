@@ -6,9 +6,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.HashMap;
 import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Layout;
+import org.apache.log4j.helpers.PatternConverter;
+import org.apache.log4j.helpers.PatternParser;
 import org.apache.log4j.Logger;
 import org.apache.log4j.NDC;
+import org.apache.log4j.PatternLayout;
 import org.apache.log4j.WriterAppender;
 import org.apache.log4j.spi.LoggingEvent;
 
@@ -18,10 +20,7 @@ public class NDCAppender extends AppenderSkeleton {
     protected static Map<String, NDCAppender> namedMap = new HashMap<String, NDCAppender>();
 
     public NDCAppender() {
-    }
-
-    public NDCAppender(Layout layout) {
-        this.layout = layout;
+    	this.layout = new SingleLinePatternLayout("%c|%d{ABSOLUTE}|%m%n");
     }
 
     public void activateOptions() {
@@ -32,7 +31,7 @@ public class NDCAppender extends AppenderSkeleton {
     }
 
     public boolean requiresLayout() {
-        return true;
+        return false;
     }
 
 
@@ -125,5 +124,47 @@ public class NDCAppender extends AppenderSkeleton {
         }
         appenderMap.clear();
         writerMap.clear();
+    }
+    
+    class SingleLineMessagePatternConverter extends PatternConverter {
+    	public SingleLineMessagePatternConverter() {
+    	}
+
+		@Override
+		protected String convert(LoggingEvent loggingEvent) {
+			String msg = loggingEvent.getRenderedMessage();
+			if(msg == null) return "";
+    		return msg.replaceAll("\r", "\\r").replaceAll("\n", "\\n");
+		}
+    }
+
+    class SimpleLinePatternParser extends PatternParser {
+		public SimpleLinePatternParser(String pattern) {
+			super(pattern);
+		}
+
+		protected void finalizeConverter(char c) {
+			if(c == 'm') {
+				addConverter(new SingleLineMessagePatternConverter());
+			}
+			else {
+				super.finalizeConverter(c);
+			}
+
+		}
+    }
+
+    class SingleLinePatternLayout extends PatternLayout {
+    	public SingleLinePatternLayout() {
+    		super();
+    	}
+
+    	public SingleLinePatternLayout(String pattern) {
+    		super(pattern);
+    	}
+
+    	protected PatternParser createPatternParser(String pattern) {
+  		  return (PatternParser) new SimpleLinePatternParser(pattern);
+  	  	}
     }
 }
