@@ -41,37 +41,35 @@ rules
     where <fetch(Page)> mod*
   
   process-access-control=
-    if AccessControlEnabled then
-        transform-defs-tracked(try(new-generate-access-control-rules-checks))
-      // see if any new rules have been added
-      ; all-keys-TopLevelDefinitions
-      ; map(desugar-check-dependencies)
       
-      //topdown that does all the global checks, nested checks are handled when normal checks are applied
+      transform-defs-tracked(try(new-generate-access-control-rules-checks))
+    // if any new rules have been added, load the possibly matching defines
+    ; all-keys-TopLevelDefinitions
+    ; map(desugar-check-dependencies)
+    
+    // toplevel pages and templates (+ajax templates) 
+    ; transform-defs-tracked(try(apply-ac-rules))
       
-      // toplevel pages and templates (+ajax templates) 
-      ; transform-defs-tracked(try(apply-ac-rules))
-        
-      //doesn't apply to templates in page definitions       
-      ; transform-defs-tracked(alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end))
+    //doesn't apply to templates in page definitions       
+    ; transform-defs-tracked(alltd( let f(s) = foldl(s <+ Snd) in fold-WeaveAccessControlAction(f) end))
 
-        //hack to cope with multiple function rules matching same functioncall, otherwise only first will be applied because of transformation
-         /*;  alltd({| func-check-group, func-check-exp:
-            let f(s) = foldl(s <+ Snd)
-             in fold-WeaveAccessControlFunction(f) end
-                  ; repeat({x:?x;!ACFunctionCheck(<once-func-check-group>,<once-func-check-exp>,x)}) 
-                  |} )
-           */
-         
-      //should be done at least before template expansion
-      ; transform-defs-tracked(alltd(   is-page-define //ignore the defs inside pages
-              <+ process-template-checks))  //TODO embed proces actions in order to get inference
-              
-      //problem: template actions are handled earlier and this removes the acactioncheck, after template expansion the page actions are handled (which the template action has become) and since there is no longer an acactioncheck it becomes a false check around the earlier added template check
-      //solution: do the page actions before template expansion too
-      ; transform-defs-tracked(alltd(process-page-actions<+process-template-actions))
-    end
-  ; remove-defs(?AccessControlDefinition(_,_))
+      //hack to cope with multiple function rules matching same functioncall, otherwise only first will be applied because of transformation
+       /*;  alltd({| func-check-group, func-check-exp:
+          let f(s) = foldl(s <+ Snd)
+           in fold-WeaveAccessControlFunction(f) end
+                ; repeat({x:?x;!ACFunctionCheck(<once-func-check-group>,<once-func-check-exp>,x)}) 
+                |} )
+         */
+       
+    //should be done at least before template expansion
+    ; transform-defs-tracked(alltd(   is-page-define //ignore the defs inside pages
+            <+ process-template-checks))  //TODO embed proces actions in order to get inference
+            
+    //problem: template actions are handled earlier and this removes the acactioncheck, after template expansion the page actions are handled (which the template action has become) and since there is no longer an acactioncheck it becomes a false check around the earlier added template check
+    //solution: do the page actions before template expansion too
+    ; transform-defs-tracked(alltd(process-page-actions<+process-template-actions))
+ 
+    ; remove-defs(?AccessControlDefinition(_,_))
     
   new-generate-access-control-rules-checks=
     ?webdsl|[ access control rules x_groupname acdef* ]|
@@ -176,7 +174,8 @@ rules // pages
   apply-ac-rules:  def@def|[ define mod* x_pagename(farg*)  req* { elem* } ]| -> res
     where <fetch(Page())> mod*
         ; not(<fetch(IgnoreAccessControl)> mod*)
-        ; acnames := <get-access-control-rules> ("page", x_pagename, farg*)
+        ; acnames := <get-access-control-rules> ("page", x_pagename, farg*) // creates dependencies
+        ; AccessControlEnabled  // fail here if not enabled
         ; res := <apply-ac-rules(WeaveAccessControlPage | acnames)> def
   
   apply-ac-rules(weave | names): x -> x
