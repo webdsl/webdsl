@@ -40,13 +40,16 @@ rules
     ?def@Define(mod*, name, fargs, targs, body)
     ; where(<fetch(?Page())> mod*)
     ; with(common-declare-template-rules)
-    ; where(with (
+    ; with (
       t1* := <template-formal-arguments-to-types> fargs
       ; rules (
           CheckPageSignature : (Page(), name, t1*) -> InternalSort("Page")
-          PageDecl :+ name -> def
         )
-    ))
+      ; if <fetch(TemplateModOverride)> mod* 
+        then rules( PageDeclOverride :+ name -> name  )
+        else rules( PageDecl :+ name -> def ) //@TODO probably not necessary to produce def in this rule
+        end
+      )   
     
   AllTopLevelTemplateNames =
       all-keys-TopLevelTemplateDefinitions
@@ -59,29 +62,37 @@ rules
     ; where(not(<fetch(?Page())> mod*))
     ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
-    ; where(with(
+    ; with(
         t* := <template-formal-arguments-to-types> fargs
       ; n := <strip-annos> name
+      ; sig := (n,t*)
       ; y := <newname-webdsl> n
       ; rules (
-        TopLevelTemplateDefinitions :+ n -> (n, t*)
-        OverloadedTemplateSignature : (n, t*) -> y    // not used
-        TopLevelTemplateDecl :+ (n, t*) -> def
+        TopLevelTemplateDefinitions :+ n -> sig
+        OverloadedTemplateSignature : sig -> y    // not used
         CheckPageSignature : (Page(), n, t*) -> InternalSort("Template") // for ajax
        )
-    ))
+      ; if <fetch(TemplateModOverride)> mod* 
+        then rules( TopLevelTemplateDeclOverride :+ sig -> sig )
+        else rules( TopLevelTemplateDecl :+ sig -> def ) //@TODO probably not necessary to produce def in this rule
+        end
+      )
     
   //only finds exact match for types, no overloading
   get-exact-definition-from-sig(|name,argtypes) : 
     _ -> def
+    where def := <TemplateSignature> <get-define-sig(|name,argtypes)>
+  get-define-sig(|name,argtypes) : 
+    _ -> (n,type*)
     with  n := <strip-annos> name
     with  type* := <strip-all-annos> argtypes
-    where def := <TemplateSignature> (n,type*)
   get-exact-definition-from-sig-farg(|name,fargs) :
+    _ -> def
+    where def := <TemplateSignature> <get-define-sig-farg(|name,fargs)>
+  get-define-sig-farg(|name,fargs) : 
     _ -> result
     with  t* := <template-formal-arguments-to-types> fargs
-        ; result := <get-exact-definition-from-sig(|name,t*)>
-
+       ; result := <get-define-sig(|name,t*)>
 
   declare-local-template-definition =
     ?def@Define(mod*, name, fargs, targs, body)
@@ -148,12 +159,21 @@ signature constructors
   PageArgNumbersAdded : Term
   
 rules
-      
+
   add-backend-annotation :
     def@Define(mod*, name, fargs, targs, body){defanno*} -> Define(mod*, name, fargs1, targs, body){PageArgNumbersAdded(),defanno*}
     where <fetch(Page <+ AjaxTemplate)> mod*
         ; not(<fetch(PageArgNumbersAdded)> defanno*)
     with  fargs1 := <add-farg-numbers> fargs
+
+rules // mark templates in built-in.app as precompiled
+  
+  add-backend-annotation :
+    def@Define(mod*, name, fargs, targs, body){anno*} -> Define(mod*, name, fargs, targs, body){Precompiled(),anno*}
+    where not(<fetch(Precompiled)> anno*)
+    where <fetch(?PositionAnno(<string-starts-with(|"../.servletapp/src-webdsl-template/built-in.app")>))> anno*
+
+  keep-position-anno = ?Define(_,name,_,_,_){anno*}
 
 rules
 

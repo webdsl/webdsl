@@ -38,10 +38,12 @@ rules // query translation
     with  {| AddQueryParmeter : e2 := <query-to-create-query> e1 |}
 
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Max(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> e2
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Max(Path(path)),_)]))), FromClause(ranges)), _, _, _)) -> e2
+    where prop := <?[_,<id>] <+ ?[<id>]> path
     with  e2 := <hql-exp-maxmin> (e1, prop,ranges)
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Min(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> e2
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Min(Path(path)),_)]))), FromClause(ranges)), _, _, _)) -> e2
+    where prop := <?[_,<id>] <+ ?[<id>]> path
     with  e2 := <hql-exp-maxmin> (e1, prop,ranges)
   hql-exp-maxmin :    
     (e1, prop, ranges) -> expr|[ ((x_type) e2.uniqueResult()) ]|
@@ -50,7 +52,8 @@ rules // query translation
 
   //TODO add Long and Double types in WebDSL so nothing gets lost
   expression-to-java-servlet :    
-    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Sum(Path([entalias,prop])),_)]))), FromClause(ranges)), _, _, _)) -> expr|[ ((x_type) e2.uniqueResult()).x_convert() ]|
+    HqlQuery(e1@QueryRule(SelectFrom(Some(Select(None(),SelectedPropertiesList([AliasedExpression(Sum(Path(path)),_)]))), FromClause(ranges)), _, _, _)) -> expr|[ ((x_type) e2.uniqueResult()).x_convert() ]|
+    where prop := <?[_,<id>] <+ ?[<id>]> path
     with  t1 := <get-type-anno> e1
         ; if not(<?SimpleSort("Int") <+ ?SimpleSort("Float")> t1) then <debug> "sum() can only be applied to types Int and Float";fail end
         ; (x_type, x_convert) := <if <?SimpleSort("Int")> t1 then !("Long","intValue") else !("Double","floatValue") end>
@@ -68,9 +71,20 @@ rules
 
   replace-parameter-java-servlet :
     DslExp(e1) -> IdParam(x2)
-    where x1  := <newname> "param"
+    where not(GenericSort(_,_) := <get-type-anno> e1) 
+        ; x1  := <newname> "param"
         ; x2 := <concat-strings>[":", x1]
         ; e2 := <expression-to-java-servlet> e1
         ; rules(
             AddQueryParameter :+ e -> java|[ e.setParameter("~x1", e2) ]|
+          )
+
+  replace-parameter-java-servlet :
+    DslExp(e1) -> IdParam(x2)
+    where GenericSort(_,_) := <get-type-anno> e1
+        ; x1  := <newname> "param"
+        ; x2 := <concat-strings>[":", x1]
+        ; e2 := <expression-to-java-servlet> e1
+        ; rules(
+            AddQueryParameter :+ e -> java|[ e.setParameterList("~x1", e2) ]|
           )
