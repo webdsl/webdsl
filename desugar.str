@@ -17,7 +17,7 @@ rules
     file := <desugar-dependency-file>;
     ts := <file-exists; modification-time <+ !0> file;
     rules(DependenciesTimestamp := ts);
-    if (all-old-defs,used-rules,created-rules) := <file-exists; read-file> file then
+    if (all-old-defs,used-rules,created-rules) := <file-exists; log-time(read-file | "read desugar deps file")> file then
       // USERS
       <map(\(key, defs) -> <filter(is-cacheable); {defs2: ?defs2; rules(RuleUsers : key -> defs2)}> defs\)> used-rules;
       // PROVIDERS
@@ -38,7 +38,14 @@ rules
       // DEFINITIONS
       all-defs := <filter(is-cacheable)> all-old-defs;
       //<load-new-files> all-defs;
-      rules(PreviousAllDefs := all-defs)
+      rules(PreviousAllDefs := all-defs);
+      // load definitions that are dependent on changed typecheck rules
+      changed := <TypecheckChangeset>;
+      filter({key: ?key; 
+        RuleUsers; try(not(?[]); where(<debug(!"Loading defs that are dependent on changed typecheck rule: ")> key); debug);
+        map(load-def-during-desugar)
+      });
+      rules(TypecheckChangeset :- _)
     else
       <debug> "Cannot load dr rules!";
       all-definitions; remove-all(is-definition-loaded);
@@ -55,7 +62,7 @@ rules
   def-is-cached: key -> key
     where not(get-toplevel-definition)        // definition is read from cache
         ; if get-definition-owner => owner then
-          	 <def-is-cached> owner <+ (debug(!"Owner is not cached; not loading: "); fail)
+          	 <def-is-cached> owner
           end
   
   dynamic-rule-resolver: (rulename, key) -> (rulename, key)
@@ -154,7 +161,7 @@ rules
 
   desugar-check-dependencies: def -> def
     with(
-	    CreatedRules;
+      CreatedRules;
 	    // Get a list of (name, keys*) pairs
 	    mapconcat(\(name, keyvals) -> <map(\(key,vals) -> (name, key)\)> keyvals \);
 	    hashed-uniq;
@@ -164,16 +171,20 @@ rules
 	    where(map({key, defs: ?(key, defs); <verbose-msg> ["Dependent: ", defs, " on rule: ", key, " created in ", def]}));
 	    map(Snd);
 	    concat;
-	    map(repeat(get-definition-owner));
-	    remove-all(RulesForDefinitionLoaded; debug(!"WARNING: invalid cache used for definition: "));
-	    // filter: don't load the same def twice
-	    filter(where(def-is-cached); with(load-def-during-desugar))
+	    hashed-uniq;
+	    map(load-def-during-desugar)
 	  )
 
   load-def-during-desugar =
     ?def;
-    rules(RuleVals :- def); // release memory
-    trigger-recompilation
+    repeat(get-definition-owner);
+    if def-is-cached then
+      rules(RuleVals :- def); // release memory
+      if RulesForDefinitionLoaded then
+        debug(!"WARNING: invalid cache used for definition: ")
+      end;
+      trigger-recompilation
+    end
   
   cleanup-desugar-iteration: defs -> defs
     // Remove created rules for emitted definitions
