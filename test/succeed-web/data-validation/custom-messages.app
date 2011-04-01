@@ -32,7 +32,7 @@ application messages
     messages()
   }
   
-  define ignore-access-control templateSuccess(messages : List<String>){
+  define override templateSuccess(messages : List<String>){
     a(messages)
   }
   
