@@ -6,7 +6,6 @@ public class ReflectionProperty{
         this.name = name;
         this.hasNotNullAnnotation = notnull;
         this.formatAnnotation = format;
-        this.hasSearchableAnnotation = searchable;
     }
     
     private String name;
@@ -17,11 +16,6 @@ public class ReflectionProperty{
     private String formatAnnotation;
     public String getFormatAnnotation(){
         return formatAnnotation;
-    }
-    
-    private boolean hasSearchableAnnotation = false;
-    public boolean hasSearchableAnnotation(){
-    	return hasSearchableAnnotation;
     }
     
     private boolean hasNotNullAnnotation = false;
