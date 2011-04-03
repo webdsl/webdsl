@@ -576,6 +576,10 @@ public abstract class AbstractPageServlet{
     public List<String> getIncomingSuccessMessages() {
       return incomingSuccessMessages;
     }
+    
+    public void clearIncomingSuccessMessages() {
+      incomingSuccessMessages.clear();
+    }
 
     private List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
 

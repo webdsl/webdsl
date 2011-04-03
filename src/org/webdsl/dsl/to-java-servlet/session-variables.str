@@ -8,20 +8,20 @@ imports
   libwebdsl-front
 
 rules
- 
+
   GenerateCodeJavaServlet = generate-java-servlet-session-vars-template; fail
 
   generate-java-servlet-session-vars-template  :
-    def|[ define mod* x_page (farg*)  req*  { elem* } ]| ->
+    def@Define(_,_,_,_,_) ->
     <generate-java-servlet-template-partial> 
     class-body-dec* |[
       ~*cbds
     ]|
-    with  sents := <bagof-SessionEntities<+![]>
+    with  sents := <get-anno(?SessionEntities(<id>))> def
         ; cbds  := <map(generate-java-servlet-session-vars-template-helper);concat> sents
 
   generate-java-servlet-session-vars-template-helper :
-    sent@def|[ session x_ident { ebd* } ]| ->
+    x_ident ->
         class-body-dec*
         |[ 
            private t_ent x_ident = null;
@@ -33,25 +33,24 @@ rules
            }
    
         ]|
-    with  type := <get-type-anno> sent
-        ; t_ent := <java-type> type
-        ; x_ent := <java-type-name> type
+    with  t_ent := <capitalize-string; java-type-entity> x_ident
+        ; x_ent := <java-type-to-java-name> t_ent
     
   GenerateCodeJavaServlet = page-class-generation-test; generate-java-servlet-session-vars-page; fail
   
   //merge reference properties of session entities at page initialization
   generate-java-servlet-session-vars-page  :
-    def|[ define mod* x_page (farg*)  req*  { elem* } ]| ->
+    def@Define(mod*,_,_,_,_) ->
     <generate-java-servlet-partial> 
     class-body-dec* |[
       ~*cbds*
     ]|
     where <fetch(Page)> mod* <+ <fetch(AjaxTemplate)> mod*
-    with  sents := <bagof-SessionEntities<+![]>
+    with  sents := <get-anno(?SessionEntities(<id>))> def
         ; cbds*  := <map(generate-java-servlet-session-vars-page-helper-one);concat> sents 
   
   generate-java-servlet-session-vars-page-helper-one:
-    sent@def|[ session x_ident { ebd* } ]| -> 
+    x_ident -> 
     class-body-dec* |[    
            //when cancel occurs, session vars need to be reinitialized if they were just created, to remove all pointers to evicted hibernate objects
          //  boolean x_ident#JustCreated = false;
@@ -84,9 +83,9 @@ rules
              session.setAttribute("~x_ident",x_ident.getId().toString());
            }  
     ]|
-    with  type := <get-type-anno> sent
-        ; t_ent := <java-type> type
-        ; x_ent := <java-type-name> type
+    with  t_ent := <capitalize-string; java-type-entity> x_ident
+        ; x_ent := <java-type-to-java-name> t_ent
+    
     //    ; bstm* := <filter(generate-java-servlet-session-vars-page-helper-update(|x_ident))> prop*
   //      ; bstm1* := <filter(generate-java-servlet-session-vars-page-helper-store(|x_ident))> prop*
 /*

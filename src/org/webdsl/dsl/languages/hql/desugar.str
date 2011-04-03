@@ -2,8 +2,54 @@ module org/webdsl/dsl/languages/hql/desugar
 
 rules // clean up HQL queries
 
+  desugar-action : // Insert extra parentheses
+    In(leftexpr,rightexpr@DslExp(_)) -> In(leftexpr,Paren([rightexpr])) 
+
+  desugar-action : // Insert extra parentheses
+    NotIn(leftexpr,rightexpr@DslExp(_)) -> NotIn(leftexpr,Paren([rightexpr])) 
+
   desugar-action :
     Path([p|p*]) -> Path([p|p2*])
     with p2* := <map(try(\ s -> <concat-strings> ["_", s] where not(string-starts-with(|"_")) \))> p*
     where not(p* := p2*)
-  
+
+  desugar-action :
+    HqlQuery(qr){anno*} -> HqlQuery(qr2){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  desugar-action :
+    HqlQueryLimit(qr, limit){anno*} -> HqlQueryLimit(qr2, limit){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  desugar-action :
+    HqlQueryLimitOffset(qr, offset, limit){anno*} -> HqlQueryLimitOffset(qr2, offset, limit){UnaliassedPathsRenamed(), anno*}
+    where not(<fetch-elem(?UnaliassedPathsRenamed())> anno*)
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  common-desugar-unaliassed-prop-from-query :
+    QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, groupby, orderby){anno*} -> QueryRule(SelectFrom(selection2, FromClause(ranges)), whereclause2, groupby2, orderby2){UnaliassedPathsRenamed(), anno*}
+    with <collect(?Alias(_) <+ ?QueryRule(_, _, _, _))> ranges // Should not pick up aliasses from subqueries yet
+    ; {| IsQueryAlias
+       : filter({vars:
+                     \ Alias(name) ->  <id>
+                       with rules( IsQueryAlias :+ name -> name )
+                     \})
+       ; selection2 := <alltd(desugar-unaliassed-prop)> selection
+       ; whereclause2 := <alltd(desugar-unaliassed-prop)> whereclause
+       ; groupby2 := <alltd(desugar-unaliassed-prop)> groupby
+       ; orderby2 := <alltd(desugar-unaliassed-prop)> orderby 
+       |}
+
+  desugar-unaliassed-prop :
+    qr@QueryRule(_, _, _, _) -> qr2
+    with qr2 := <common-desugar-unaliassed-prop-from-query> qr
+
+  desugar-unaliassed-prop :
+    Path([x|xs]) -> Path([x2|xs])
+    where <not(IsQueryAlias)> x; <not(string-starts-with(|"_"))> x
+    ; x2 := <concat-strings> ["_", x]
+
+signature constructors
+  UnaliassedPathsRenamed : Term

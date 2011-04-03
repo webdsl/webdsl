@@ -83,6 +83,8 @@ module .servletapp/src-webdsl-template/built-in
     leaveLabelContext()
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
+    getIncomingSuccessMessages():List<String>
+    clearIncomingSuccessMessages()
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -1961,6 +1963,69 @@ module .servletapp/src-webdsl-template/built-in
     static get(String):Stratego
     invoke(String,ATerm):ATerm
     invoke(String,String):ATerm
+  }
+  
+  //validation message templates
+  
+  define errorTemplateInput(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      elements()
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+    }
+  } 
+
+  define errorTemplateForm(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+    }
+  }
+
+  define errorTemplateAction(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+      elements()
+    }
+  }
+    
+  define templateSuccess(messages : List<String>){
+    block()[style := "border: 1px solid #BB8800; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; color: #BB8800; margin-top: 5px;"]{
+          text(ve)   
+        }    
+      }
+    }
+  }
+    
+  define messages(){
+    request var list : List<String> := List<String>()
+    render{
+      list.addAll(getPage().getIncomingSuccessMessages());
+      getPage().clearIncomingSuccessMessages();
+    }
+    if(list.length > 0){
+      templateSuccess(list)
+    }
+  }
+      
+  //access denied page
+     
+  define page accessDenied(){
+    title{"Access Denied"}
+    text("Access Denied: ")
+    navigate(root()) { "return to home page" }
   }
     
   //default access control rule
