@@ -2,7 +2,7 @@ package org.webdsl.lang;
 
 public class ReflectionProperty{
 
-    public ReflectionProperty(String name, boolean notnull, String format, boolean searchable){
+    public ReflectionProperty(String name, boolean notnull, String format){
         this.name = name;
         this.hasNotNullAnnotation = notnull;
         this.formatAnnotation = format;

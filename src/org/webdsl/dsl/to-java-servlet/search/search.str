@@ -12,32 +12,86 @@ imports
 strategies
 
   property-to-index-annos :
-    Property(x, propkind, s, anno*) -> [anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|]
-    where not([] := <filter(?SimpleAnno("searchable"))> anno*)
-    ; not (<?Ref()<+?Comp() > propkind)
-  
+    Property(x, propkind, _, anno*) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x")]|, analyzeranno]
+    where not (<?Ref()<+?Comp() > propkind)
+    ; s := <fetch-elem(?SearchableAnno(_))> anno*
+   with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
+  	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
   property-to-index-annos :
-    p@Property(x, propkind, s, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
-    where not([] := <filter(?SimpleAnno("searchable"))> anno*)    
-    ; <?Ref()<+?Comp() > propkind
+    Property(x, propkind, _, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
+    where  <?Ref()<+?Comp() > propkind
+    ; <fetch(?SearchableAnno(_))> anno*     
 
   property-to-index-annos :
-    DerivedProperty(x, _, s, anno*, _) -> [anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|]
-    where not([] := <filter(?SimpleAnno("searchable"))> anno*)
+    DerivedProperty(x, _, _, anno*, _) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|, analyzeranno]
+    where s := <fetch-elem(?SearchableAnno(_))> anno*  
+    with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
 
   property-to-index-annos :
-    DerivedProperty(x, _, s, anno*, _) -> []
-    where [] := <filter(?SimpleAnno("searchable"))> anno*
-
-  property-to-index-annos :
-    DerivedProperty(x, _, s, anno*, e) -> []
+    DerivedProperty(x, _, _, anno*, _) -> []
+    where not(<fetch(?SearchableAnno(_))> anno*)
   
-  //other side (inverse) of embedded index field  
+  //Other side (inverse) of embedded index field  
   property-to-contained-in:
   	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
 	where <has-anno(InverseOfSearchable)> p
-       
+
+strategies //searchconfigs / analyzers
+	
+  analyzer-anno-from-searchableAnno:
+  	SearchableAnno(x) -> [anno|[ @org.hibernate.search.annotations.Analyzer(definition="~x") ]|, analyzerDefAnno]
+  	where not(<?""> x )
+  	; analyzerDefAnno := <do-once(SearchConfigFromName; search-config-to-analyzer-def|"define analyzer")<+ ![]> x
+  	  
+  search-config-to-analyzer-def:
+  	SearchConfig(name, body) -> <to-analyzer-def(|name)> body
+    
+  to-analyzer-def(|x_AnalyzerName):
+  	SearchConfigBody(charFilters*, tokenizer, tokenFilters*) -> result
+  	with mod_charFiltersDefs* := <map(to-char-filter-def)> charFilters*
+  	; mod_tokenizerDef := <to-tokenizer-def <+ ![]> tokenizer
+  	; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
+  	; name_arg := ElemValPair(Id("name"),Lit(String([Chars(x_AnalyzerName)])))
+  	; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
+  	; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
+  	; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(mod_tokenFilterDefs*))
+  	; if (<?None()>tokenizer) then result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenfilter_arg])
+  	  else result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg]) 
+  	  end
+
+  to-tokenizer-def:
+  	Tokenizer(tokenizername, args) -> result
+  	with   e_analyzerargs := <map(to-analyzer-arg)> args
+  		; tokenizername' := <to-fully-qlfd-name> tokenizername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.TokenizerDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(tokenizername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+  
+  to-token-filter-def:
+  	TokenFilter(filtername, args) -> result
+  	with  e_analyzerargs := <map(to-analyzer-arg)> args
+		; filtername' := <to-fully-qlfd-name> filtername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.TokenFilterDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(filtername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+  	
+  to-char-filter-def:
+  	CharFilter(filtername, args) -> result
+  	with  e_analyzerargs := <map(to-analyzer-arg)> args
+  		; filtername' := <to-fully-qlfd-name> filtername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.CharFilterDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(filtername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))                              ])
+
+  to-analyzer-arg:
+  	Argument(x_name, x_value) ->   anno|[ @org.hibernate.search.annotations.Parameter(name = "~x_name", value = x_value) ]|
+  
+  to-fully-qlfd-name:
+  	name -> name'
+  	with
+  		if (<string-starts-with(|String("org.apache.solr.analysis."))>name) then name' := name
+  		else name' := <conc-strings>("org.apache.solr.analysis.",name) end
+
 strategies
 
   GenerateCodeJavaServlet = generate-java-search-functions; fail
@@ -141,7 +195,7 @@ strategies
         	long time = System.currentTimeMillis();
         	try {
         		session.createIndexer(c)
- 				.batchSizeToLoadObjects( 100 )
+ 				.batchSizeToLoadObjects( 50 )
 				.threadsToLoadObjects( 3 )
  				.threadsForSubsequentFetching( 4 )
  				.startAndWait();
@@ -155,7 +209,7 @@ strategies
  			return true;
         }
         public static void optimizeIndex(){
-        	System.out.println(new java.util.Date() + ": Optimizing search index ...");
+        	System.out.println(new java.util.Date() + ": Optimizing search index started.");
         	org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession()).getSearchFactory().optimize();
         	System.out.println(new java.util.Date() + ": Optimizing search index finished succesfully.");
         }

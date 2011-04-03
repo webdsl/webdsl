@@ -77,9 +77,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return -1;
 	}
 
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(String likeText) {
-		int minWordLen = 5, maxWordLen = 20, minDocFreq = 1, minTermFreq = 1, maxQueryTerms = 3;
-		return moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq,
+		int minWordLen = 5, maxWordLen = 30, minDocFreq = 1, minTermFreq = 2, maxQueryTerms = 3;
+		return (F) moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq,
 				minTermFreq, maxQueryTerms, searchFields);
 	}
 
@@ -143,9 +144,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	private boolean validateQuery() {
 		if (luceneQueryChanged) {
 			org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(
-					luceneVersion, searchFields,
-					new org.apache.lucene.analysis.standard.StandardAnalyzer(
-							org.apache.lucene.util.Version.LUCENE_30));
+					luceneVersion, searchFields, fulltextsession.getSearchFactory().getAnalyzer( entityClass ));
 			try {
 				luceneQuery = parser.parse(searchTerms);
 			} catch (org.apache.lucene.queryParser.ParseException pe) {

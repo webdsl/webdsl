@@ -54,6 +54,8 @@
    SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
+   SearchableAnno					  -- KW["searchable"],
+   SearchableAnno					  -- KW["searchable"] KW["("] KW["analyzer"] KW["="] _1 KW[")"],
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
    Define.1:iter-star                 -- _1,
    Define.3:iter-star-sep             -- H hs=0[_1 KW[","]],
@@ -807,6 +809,22 @@
    XMLEmptyElement                              -- KW["<"] _1 _2 KW["/>"],
    XMLEmptyElement.2:iter-star                  -- _1,
 
+%% Search
+   SearchConfig				 -- V[V is=2[H[KW["searchconfig"] _1 KW["{"]] _2] KW["}"]],
+   SearchConfigBody			 -- V[_1 _2 _3],
+   SearchConfigBody.1:iter-star -- V[_1],
+   SearchConfigBody.2:opt 		-- V[_1],
+   SearchConfigBody.3:iter-star -- V[_1],
+   CharFilter				 -- H hs=1 [KW["charfilter"] KW["="] _1 KW["("] _2 KW[")"]],
+   CharFilter.3:iter-star	 -- _1,
+   CharFilterNoArgs			 -- H hs=1 [KW["charfilter"] KW["="]_1],
+   Tokenizer				 -- H hs=1 [KW["tokenizer"] KW["="] _1 KW["("] _2 KW[")"]],
+   Tokenizer.3:iter-star	 -- _1,
+   TokenizerNoArgs			 -- H hs=1 [KW["tokenizer"] KW["="] _1],
+   TokenFilter				 -- H hs=1 [KW["tokenfilter"] KW["="] _1 KW["("] _2 KW[")"]],
+   TokenFilter.3:iter-star	 -- _1,
+   TokenFilterNoArgs		 -- H hs=1 [KW["tokenfilter"] KW["="] _1],
+   Argument					 -- H hs=1 [_1 KW["="] _2],
 
 %% Webdsl-Regex
 
