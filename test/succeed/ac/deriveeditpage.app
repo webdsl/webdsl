@@ -2,7 +2,7 @@ application test
 
 section datamodel
 
-  define body() {
+  define override body() {
     "default body"
   }
   
@@ -12,7 +12,7 @@ section datamodel
     name :: String
   }
 
-  define main() 
+  define override main() 
   {
     "main"
     body()

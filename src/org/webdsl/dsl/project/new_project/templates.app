@@ -1,6 +1,6 @@
 module templates
 
-define main() {
+define override main() {
   <div id="pagewrapper">
     <div id="header">
        mainheader()
@@ -20,7 +20,7 @@ define main() {
   </div>
 }
 
-define body(){
+define override body(){
   "default body"
 }
 
