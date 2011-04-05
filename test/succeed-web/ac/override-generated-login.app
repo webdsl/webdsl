@@ -22,22 +22,32 @@ application test
     
   section pages
   
-  define page root(){
-    
-    "authentication() template: "
-    break
-    
-    authentication()
-    
-    break
-    "login() template: "
-    break
-    
-    login()
-    
-    break
-    "logout() template: "
-    break
-    
-    logout()
+  define override login(){
+    "1234"
   }
+  define override logout(){
+    "5678"
+  }
+  define override authentication(){
+    "91011"
+  }
+  
+  define page root(){
+    login()
+    logout()
+    authentication()
+  }
+  
+  test one {
+    
+    var d : WebDriver := FirefoxDriver();
+
+    d.get(navigate(root()));
+    
+    assert(d.getPageSource().contains("1234567891011"));
+    
+    d.close();
+  }
+  
+
+  

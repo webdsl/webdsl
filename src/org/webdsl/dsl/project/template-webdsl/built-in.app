@@ -2031,7 +2031,7 @@ module .servletapp/src-webdsl-template/built-in
   //default access control rule
   
   access control rules
-  
+    rule page accessDenied(){true}
     rule template *(*){true}
 
     
