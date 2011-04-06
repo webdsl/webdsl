@@ -41,6 +41,23 @@ entity User{
   name :: String
   bids -> List<Bid>
   auctions -> List<Auction> (inverse = Auction.seller)
+  function getHighestBid() : Bid {
+    var max : Bid := null;
+    for(b : Bid in bids) {
+      if(max == null || max.offer > b.offer) {
+        max := b;
+      }
+    }
+    return max;
+  }
+  function getAuctionByItemName(name : String) : Auction {
+    for(a : Auction in auctions) {
+      if(a.item.name == name) {
+        return a;
+      }
+    }
+    return null;
+  }
 }
 
 init {
@@ -172,6 +189,17 @@ define template shouldPreload3(printItem : Item) {
   output(printItem.auction.seller.name)
 }
 
+define page preloadEntityFunctions(u : User) {
+  var stats : Statistics := HibernateUtilConfigured.getSessionFactory().getStatistics();
+  init{
+  stats.setStatisticsEnabled(true);
+  }
+  var entFetch : Long := stats.getEntityFetchCount();
+  "MaxOffer: " output(u.getHighestBid().offer) <br />
+  "Auction2: " output(u.getAuctionByItemName("Item 2").item.name)
+  <p id="entFetch">output(stats.getEntityFetchCount() - entFetch)</p>
+}
+
 test queriestest {
   var d : WebDriver := FirefoxDriver();
 
@@ -214,6 +242,13 @@ test queriestest {
   assert(elem.getText().parseInt() == 0);
   elem := d.findElement(SelectBy.id("entLoaded"));
   assert(elem.getText().parseInt() == 6);
+
+  d.get(navigate(preloadEntityFunctions(u1)) + "?logsql");
+  elem := d.findElement(SelectBy.id("sqllogcount"));
+  assert(elem.getText().parseInt() == 2);
+  elem := d.findElement(SelectBy.id("entFetch"));
+  assert(elem.getText().parseInt() == 0);
+  // entLoaded is always zero here, because the extracted query is executed before init block where we measure the starting state
 
   d.close();
 }

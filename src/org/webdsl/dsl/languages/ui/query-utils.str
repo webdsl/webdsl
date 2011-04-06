@@ -22,15 +22,15 @@ rules
        ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
-       ; info(|["These should be inlined: ", joincandidates])
+       ; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
        ; <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
-       ; info(|["These should be queried: ", joincandidatesgen])
+       ; info(|["Inline by queries: ", joincandidatesgen])
        ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
-       ; info(|["These should be joined: ", joincandidatesnogen])
-       ; info(|["Query condition:", <pp-webdsl>querycondition])
-       ; info(|["Condition joins:", conditionjoins])
+       ; info(|["Inline by joining: ", joincandidatesnogen])
+       ; info(|["Query condition:   ", <pp-webdsl>querycondition])
+       ; info(|["Condition joins:   ", conditionjoins])
       |}
 
 /*
@@ -113,25 +113,43 @@ strategies
   an-potential-joins =
     ?FieldAccess(l, _)
     ; oncetd(where(IteratedVar); not(IteratedVarValue))
+    ; where(get-accessible-var)
     ; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
+    ; repeat(oncetd(IteratedSubList <+ IteratedVarValue))
+    ; not(?fa)
+    ; where(get-accessible-var)
+    ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  /*an-potential-joins =
+    ?fa@FieldAccess(l, _)
     ; repeat(oncetd(IteratedVarValue))
     ; not(?fa)
+    ; where(get-accessible-var)
     ; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
     ; repeat(oncetd(IteratedSubList))
     ; not(?fa)
-    ; !(<id>, <QueryConditions>, <IsEffectful>)
+    ; where(get-accessible-var)
+    ; !(<id>, <QueryConditions>, <IsEffectful>)*/
 
   an-potential-joins =
     ?Var(_)
     ; repeat(oncetd(IteratedSubList))
     ; not(?Var(_))
     ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  an-potential-joins =
+    ?Call(e, nm, arg*){anno*}
+    ; where(SimpleSort(ent) := <type-of; is-entity-type> e)
+    ; decl := <resolve-entity-call> (ent, nm, <map(type-of)> arg*)
+    ; ?Function(_, fargs, _, body)
+    ; (args, fargs2) := <bagof-AllProperties; filter({x,srt:\ x -> (FieldAccess(e, x), Arg(x, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x) \}); unzip> ent
+    ; <an-potential-joins-with-args(|<conc>(args, arg*), <conc>(fargs2, fargs))> body // We add the properties of the entity as leading arguments of the function, this prevents them to be mistaken for local variables, which currently are ignored completely
 
   an-potential-joins =
   	(?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
@@ -182,7 +200,7 @@ strategies
     ; <map(\ DeriveDefault(f) -> FieldAccess(e, f) \); collect-effectful-potential-joins> props*
 
   an-potential-joins =
-  	(?ForNoFilter(x, srt, e, te*, sep) <+ ?For(x, srt, e, _, te*, sep))
+  	(?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, _, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, _, _))
   	; ?for
   	; not([] := <filter(get-accessible-var; IteratedVar)> e) 
   	; not(<IteratedSubList> Var(x))

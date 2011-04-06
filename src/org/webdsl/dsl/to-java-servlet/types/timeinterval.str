@@ -43,7 +43,7 @@ rules // Int literal
 rules
   
   generate-global-var-initializer-method = 
-    bstm* := <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars>
+    bstm* := <map({\ elem |[ var x : srt := e ]| -> srt\}); make-set; map(generate-global-var-initializer); concat> <bagof-AllGlobalVars <+ ![]>
     ; bstm2*  := <map(generate-session-var-initializer); concat> <bagof-SessionEntities<+![]>
     ; t := type|[ boolean ]|
     ; !|[
@@ -61,13 +61,33 @@ rules
     with x_Ident := <capitalize-string> x_ident
 
   generate-global-var-initializer :
-    elem |[ var x : srt := e ]| -> bstm*|[ 
+    srt@SimpleSort(x_typename) -> bstm*|[ 
       env.putVariable("~x", GlobalVariables.get#x(hibSession)); 
       if(env.getVariable("~x") == null) {
         hibSession.getTransaction().commit();
         return false;
       }
     ]| 
+    with vardeclinits := <(bagof-AllGlobalVars <+ ![]); filter(where(?VarDeclInit(_, srt, _)))>
+    where [singlevar] := vardeclinits
+    ; <?elem |[ var x : srt := e ]|> singlevar
+
+  generate-global-var-initializer :
+    srt@SimpleSort(x_typename) -> bstm*|[ 
+      GlobalVariables.initGlobal#x_typename(env, hibSession); 
+      bstm*
+    ]| 
+    with vardeclinits := <(bagof-AllGlobalVars <+ ![]); filter(where(?VarDeclInit(_, srt, _)))>
+    where not([singlevar] := vardeclinits)
+    ; bstm* := <map({\
+                      elem |[ var x : srt := e ]| ->
+                      bstm |[ 
+									      if(env.getVariable("~x") == null) {
+									        hibSession.getTransaction().commit();
+									        return false;
+									      }
+                      ]|
+                      \})> vardeclinits
 
    invoke-every-to-init :
     ie@InvokeEvery(e, ti) -> bstm*|[

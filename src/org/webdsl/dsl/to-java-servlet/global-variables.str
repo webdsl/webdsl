@@ -42,6 +42,7 @@ rules
           
         ~*cbds*
         ~*cbds1*
+        ~*cbds2*
     
         static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
           for(ApplicationContextProperty a : res){
@@ -125,6 +126,7 @@ rules
                        \});concat> 
                        <bagof-AllGlobalVars <+ ![]>
         ; vardeclinits := <bagof-AllGlobalVars <+ ![]>
+        ; cbds2* := <map({\ elem |[ var x : srt := e ]| -> srt\}); make-set; map(vardeclinit-to-load-by-class-java-servlet)> vardeclinits
         // persist right away to get an id
         ; bstm3* := <map(vardeclinit-to-persist-statement-java-servlet <+ pp-aterm(!"vardeclinit-to-persist-statement-java-servlet: ");fail);concat-with-sublists> vardeclinits
         //update with assignments
@@ -210,3 +212,51 @@ rules
       ; t := <defined-java-type> srt
       ; x_t := <java-type-name> srt
       ; e_vardeclinit := <expression-to-java-servlet> e
+
+  vardeclinit-to-load-by-class-java-servlet :
+    srt@SimpleSort(x_typename) -> class-body-dec* |[
+        public static void initGlobal#x_typename(Environment env, org.hibernate.Session hibSession) {
+          java.util.List<UUID> ids = new java.util.ArrayList<UUID>();
+          bstm1*
+          if(ids.size() > 0) {
+            List<x_class> results;
+            if(ids.size() == 1) {
+	            results = new java.util.ArrayList<x_class>();
+	            results.add((x_class)hibSession.get(x_class.class, ids.get(0)));
+            }
+            else {
+              results = hibSession.createCriteria(x_class.class).add(org.hibernate.criterion.Restrictions.in("~x_idprop", ids)).list();
+	          }
+	          for(x_class a : results)
+	          {
+	            bstm2*
+	          }
+          }
+          bstm3*
+        }
+    ]|
+    with vardeclinits := <(bagof-AllGlobalVars <+ ![]); filter(where(?VarDeclInit(_, srt, _)))>
+    ; x_class := <java-type-name> srt
+    ; t := <java-type> srt
+    ; x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
+    ; x_getid := <concat-strings>["get", <get-entity-id-name; capitalize-string> srt]
+    ; bstm1* := <map({x_ident:\
+								      VarDeclInit(x_ident, srt, _) ->
+								      bstm* |[
+								        t x_ident = (x_class)hibSession.load(x_class.class, x_ident#id);
+								        if(!org.hibernate.Hibernate.isInitialized(x_ident)) {
+								          x_ident = null;
+								          ids.add(x_ident#id);
+								        }
+								      ]|
+								      \}); flatten-list> vardeclinits
+    ; bstm2* := <map({x_ident:\
+                      VarDeclInit(x_ident, srt, _) -> 
+                      bstm |[ 
+                        if(org.webdsl.tools.Utils.equal(x_ident#id, a.x_getid()))
+                        {
+                          x_ident = a;
+                        }
+                      ]|
+                      \})> vardeclinits
+    ; bstm3* := <map({\ VarDeclInit(x_ident, srt, _) -> bstm |[ env.putVariable("~x_ident", x_ident); ]| \})> vardeclinits
