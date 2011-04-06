@@ -18,7 +18,7 @@ rules
        ; rules( QueryConditions := <extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
+       ; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
        ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
@@ -146,7 +146,7 @@ strategies
   an-potential-joins =
     ?Call(e, nm, arg*){anno*}
     ; where(SimpleSort(ent) := <type-of; is-entity-type> e)
-    ; decl := <resolve-entity-call> (ent, nm, <map(type-of)> arg*)
+    ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
     ; ?Function(_, fargs, _, body)
     ; (args, fargs2) := <bagof-AllProperties; filter({x,srt:\ x -> (FieldAccess(e, x), Arg(x, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x) \}); unzip> ent
     ; <an-potential-joins-with-args(|<conc>(args, arg*), <conc>(fargs2, fargs))> body // We add the properties of the entity as leading arguments of the function, this prevents them to be mistaken for local variables, which currently are ignored completely
@@ -154,6 +154,11 @@ strategies
   an-potential-joins =
   	(?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
 	; collect-effectful-potential-joins
+
+  try-resolve-entity-call: (ent, nm, targ*) -> f
+    where not("Entity" := ent)
+    ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
+      <+ f := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
 
   // If statements possibly contribute if they have only an if or else block
   an-potential-joins =
