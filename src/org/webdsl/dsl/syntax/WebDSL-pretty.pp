@@ -438,10 +438,6 @@
    ViewPage                                     -- KW["viewPage"],
    ViewRows                                     -- KW["viewRows"],
 
-   %% string-select-entity
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
-   
    None																					-- ,
    Some																					-- _1,
 
@@ -478,8 +474,6 @@
    Select                                       -- KW["select"] _1 _2,
    Select.1:opt                                 -- _1,
    SelectObject                                 -- KW["object"] KW["("] _1 KW[")"],
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
    Selector                                     -- _1 _2,
    Selector.2:iter-star                         -- _1,
    Selector.2:iter-star.1:seq                   -- _1 _2 _3,
@@ -746,8 +740,6 @@
    Select                                       -- KW["select"] _1 _2,
    Select.1:opt                                 -- _1,
    SelectObject                                 -- KW["object"] KW["("] _1 KW[")"],
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
    Selector                                     -- _1 _2,
    Selector.2:iter-star                         -- _1,
    Selector.2:iter-star.1:seq                   -- _1 _2 _3,
