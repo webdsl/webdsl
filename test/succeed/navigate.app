@@ -114,6 +114,6 @@ section datamodel
     output(i)
   }
   
-  define page pagenotfound(){
+  define override page pagenotfound(){
    "PAGE NOT FOUND :/"
   }

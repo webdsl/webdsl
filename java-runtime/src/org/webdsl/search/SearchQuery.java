@@ -5,6 +5,7 @@ import java.io.StringReader;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.similar.MoreLikeThis;
+import org.hibernate.envers.tools.query.QueryBuilder;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;

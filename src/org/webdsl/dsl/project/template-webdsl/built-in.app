@@ -2020,6 +2020,12 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
       
+  //page not found page    
+     
+  define page pagenotfound(){
+    <h3>"404 Not Found"</h3>
+  }     
+      
   //access denied page
      
   define page accessDenied(){
@@ -2032,6 +2038,7 @@ module .servletapp/src-webdsl-template/built-in
   
   access control rules
     rule page accessDenied(){true}
+    rule page pagenotfound(){true}
     rule template *(*){true}
 
     

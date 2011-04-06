@@ -12,16 +12,20 @@ imports
 strategies
 
   property-to-index-annos :
-    Property(x, propkind, _, anno*) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x")]|, analyzeranno]
+    Property(x, propkind, _, anno*) -> index-annos
     where not (<?Ref()<+?Comp() > propkind)
-    ; s := <fetch-elem(?SearchableAnno(_))> anno*
-   with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
-  	  
+    	; searchable-annos := <filter(is-searchable-anno;try(add-field-name-arg(|x)))> anno*
+    	; not(?[])
+  	with rules(CurrentAnalyzerAnnoDef := []) 
+	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
+	    ; analyzer-def-annos := <CurrentAnalyzerAnnoDef<+![]>
+	    ; index-annos := [fields-anno, analyzer-def-annos]
+  	  	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
   property-to-index-annos :
     Property(x, propkind, _, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
     where  <?Ref()<+?Comp() > propkind
-    ; <fetch(?SearchableAnno(_))> anno*     
+    	; <fetch(?SearchableAnno(_))> anno*     
 
   property-to-index-annos :
     DerivedProperty(x, _, _, anno*, _) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|, analyzeranno]
@@ -37,12 +41,33 @@ strategies
   	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
 	where <has-anno(InverseOfSearchable)> p
 
-strategies //searchconfigs / analyzers
+strategies //field annotations
+	
+  searchable-to-field-anno :
+  	SearchableAnno(sa-args) -> field-anno
+  	with  field-args := <map(to-java-field-arg)> sa-args
+  		; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)  
+  
+  add-field-name-arg(|fieldname):
+  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", fieldname) | sa-args])
+  	where not (<fetch(?SA-Argument("name", _))> sa-args)  
+  
+  to-java-field-arg :
+  	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("analyzer"),anno|[ @org.hibernate.search.annotations.Analyzer(definition="~analyzer-name") ]|)
+  	with <do-once(create-and-record-analyzer-definition|"create-and-record-analyzer-definition")<+ ![]> analyzer-name
+
+  to-java-field-arg :
+  	SA-Argument("name", field-name) -> ElemValPair(Id("name"),Lit(String([Chars(field-name)])))
+
+strategies //searchconfigs, analyzers
+
+  create-and-record-analyzer-definition = 
+  	SearchConfigFromName; analyzer-def-anno := <search-config-to-analyzer-def>; rules(CurrentAnalyzerAnnoDef :+= analyzer-def-anno)
 	
   analyzer-anno-from-searchableAnno:
   	SearchableAnno(x) -> [anno|[ @org.hibernate.search.annotations.Analyzer(definition="~x") ]|, analyzerDefAnno]
   	where not(<?""> x )
-  	; analyzerDefAnno := <do-once(SearchConfigFromName; search-config-to-analyzer-def|"define analyzer")<+ ![]> x
+  		; analyzerDefAnno := <do-once(SearchConfigFromName; search-config-to-analyzer-def|"define analyzer")<+ ![]> x
   	  
   search-config-to-analyzer-def:
   	SearchConfig(name, body) -> <to-analyzer-def(|name)> body
@@ -50,15 +75,15 @@ strategies //searchconfigs / analyzers
   to-analyzer-def(|x_AnalyzerName):
   	SearchConfigBody(charFilters*, tokenizer, tokenFilters*) -> result
   	with mod_charFiltersDefs* := <map(to-char-filter-def)> charFilters*
-  	; mod_tokenizerDef := <to-tokenizer-def <+ ![]> tokenizer
-  	; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
-  	; name_arg := ElemValPair(Id("name"),Lit(String([Chars(x_AnalyzerName)])))
-  	; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
-  	; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
-  	; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(mod_tokenFilterDefs*))
-  	; if (<?None()>tokenizer) then result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenfilter_arg])
-  	  else result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg]) 
-  	  end
+  	   ; mod_tokenizerDef := <to-tokenizer-def <+ ![]> tokenizer
+  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
+  	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(x_AnalyzerName)])))
+  	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
+  	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
+  	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(mod_tokenFilterDefs*))
+  	   ; if (<?None()>tokenizer) then result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenfilter_arg])
+  	     else result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg]) 
+  	     end
 
   to-tokenizer-def:
   	Tokenizer(tokenizername, args) -> result
@@ -81,8 +106,9 @@ strategies //searchconfigs / analyzers
   	with  e_analyzerargs := <map(to-analyzer-arg)> args
   		; filtername' := <to-fully-qlfd-name> filtername
   		; result := Anno(TypeName(Id("org.hibernate.search.annotations.CharFilterDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(filtername')),None()))))
-                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))                              ])
-
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+                                
   to-analyzer-arg:
   	Argument(x_name, x_value) ->   anno|[ @org.hibernate.search.annotations.Parameter(name = "~x_name", value = x_value) ]|
   
@@ -216,5 +242,9 @@ strategies
       }
     ]|
     with pkgname := <DomainPackage>
-    ; x_class_set := <make-set> x_class*
-    ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session); ]|\)> x_class_set 
+	    ; x_class_set := <make-set> x_class*
+	    ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session); ]|\)> x_class_set 
+
+strategies
+
+is-searchable-anno = ?SearchableAnno(_)
