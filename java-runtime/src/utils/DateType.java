@@ -31,5 +31,41 @@ public class DateType {
       }
   }
   
+  public static Date addYears(Date d, int amount) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      c.add(Calendar.YEAR,amount);
+      return c.getTime();
+  }
+  public static Date addMonths(Date d, int amount) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      c.add(Calendar.MONTH,amount);
+      return c.getTime();
+  }
+  public static Date addDays(Date d, int amount) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      c.add(Calendar.DATE,amount);
+      return c.getTime();
+  }
+  public static Date addHours(Date d, int amount) {
+    Calendar c = Calendar.getInstance();
+    c.setTime(d);
+    c.add(Calendar.HOUR,amount);
+    return c.getTime();
+  }
+  public static Date addMinutes(Date d, int amount) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      c.add(Calendar.MINUTE,amount);
+      return c.getTime();
+  }
+  public static Date addSeconds(Date d, int amount) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      c.add(Calendar.SECOND,amount);
+      return c.getTime();
+  }
   
 }

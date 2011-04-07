@@ -45,6 +45,12 @@ module .servletapp/src-webdsl-template/built-in
     after(DateTime):Bool
     getTime():Long
     setTime(Long)
+    utils.DateType.addYears as addYears(Int):DateTime
+    utils.DateType.addMonths as addMonths(Int):DateTime
+    utils.DateType.addDays as addDays(Int):DateTime
+    utils.DateType.addHours as addHours(Int):DateTime
+    utils.DateType.addMinutes as addMinutes(Int):DateTime
+    utils.DateType.addSeconds as addSeconds(Int):DateTime
   }
   
   native class utils.DateType as DateType{ //@TODO static functions not yet supported in type import of DateTime above
@@ -232,17 +238,23 @@ module .servletapp/src-webdsl-template/built-in
     replyTo :: String (length=1000000)
     from :: String (length=1000000)
     subject :: String (length=1000000)
+    lastTry :: DateTime 
   }
   
   invoke internalHandleEmailQueue() every 30 seconds
 
   function internalHandleEmailQueue(){
-    var queuedEmails := from QueuedEmail limit 5;
+    var n : DateTime := now().addHours(-3); // retry after 3 hours to avoid spamming too much
+    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n limit 1;
     
     for(queuedEmail:QueuedEmail in queuedEmails){
-      queuedEmail.delete();
-      flush();
-      sendemail(sendQueuedEmail(queuedEmail));
+      if(sendemail(sendQueuedEmail(queuedEmail))){
+        queuedEmail.delete();    
+      }
+      else{
+        queuedEmail.lastTry := now();
+      }
+      
       //normally you would use email(sendQueuedEmail(queuedEmail)) to send email, however, 
       //that is desugared to renderemail(queuedEmail).save() to make it asynchronous.
       //In this function the email is actually send, using the synchronous sendemail function.

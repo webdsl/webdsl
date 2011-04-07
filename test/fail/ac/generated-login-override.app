@@ -1,12 +1,12 @@
-//Template with signature
-//not defined
+//#2 Multiple page/template definitions with name 
+
 application test
 
   entity User{
     username :: String
   }
   principal is User with credentials username
-  define page login(){} //overrides default generated login and blocks generation of authentication template
+  define page login(){} 
   
   access control rules
     rule page root() { true }
@@ -14,7 +14,6 @@ application test
   section pages
   
   define page root(){
-    authentication()
     logout()
   }
   
