@@ -5,8 +5,8 @@ import java.io.StringReader;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.similar.MoreLikeThis;
-import org.hibernate.envers.tools.query.QueryBuilder;
 import org.hibernate.search.SearchFactory;
+import org.hibernate.search.query.facet.*;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
@@ -23,7 +23,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	protected String searchTerms = "";
 	protected String[] searchFields = {};
-	protected org.hibernate.search.FullTextSession fulltextsession;
+	protected org.hibernate.search.FullTextSession fullTextSession;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
 
@@ -52,7 +52,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	private IndexReader getReader() {
 
-		SearchFactory searchFactory = fulltextsession.getSearchFactory();
+		SearchFactory searchFactory = fullTextSession.getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
 				.getDirectoryProviders(entityClass)[0];
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
@@ -100,7 +100,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		try {
 			org.apache.lucene.search.Query luceneQuery = mlt
 					.like(new StringReader(likeText));
-			query = fulltextsession.createFullTextQuery(luceneQuery,
+			query = fullTextSession.createFullTextQuery(luceneQuery,
 					entityClass);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -141,17 +141,40 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		luceneQueryChanged = true;
 		return (F) this;
 	}
+	
+	public java.util.List<Facet> getFacets(String field, int topN){
+		
+		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get();
+		FacetingRequest facetReq = builder.facet()
+		    .name( "facet" )
+		    .onField( field )
+		    .discrete()
+		    .orderedBy( FacetSortOrder.COUNT_DESC )
+		    .includeZeroCounts( false )
+		    .maxFacetCount( topN )
+		    .createFacetingRequest();
+		
+		validateQuery();		
+		
+		return query.getFacetManager().enableFaceting(facetReq).getFacets("facet");
+	}
 
 	private boolean validateQuery() {
 		if (luceneQueryChanged) {
-			org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(
-					luceneVersion, searchFields, fulltextsession.getSearchFactory().getAnalyzer( entityClass ));
-			try {
-				luceneQuery = parser.parse(searchTerms);
-			} catch (org.apache.lucene.queryParser.ParseException pe) {
-				return false;
+			if (!searchTerms.isEmpty()) {
+				org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(
+						luceneVersion, searchFields, fullTextSession.getSearchFactory().getAnalyzer( entityClass ));
+				try {
+					luceneQuery = parser.parse(searchTerms);
+				} catch (org.apache.lucene.queryParser.ParseException pe) {
+					return false;
+				}
 			}
-			query = fulltextsession.createFullTextQuery(luceneQuery,
+			//Match all documents if no search terms are given
+			else {
+				luceneQuery = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get().all().createQuery();
+			}
+			query = fullTextSession.createFullTextQuery(luceneQuery,
 					entityClass);
 			applyFieldConstraints();
 			luceneQueryChanged = false;
