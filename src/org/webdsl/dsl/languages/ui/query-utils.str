@@ -3,7 +3,7 @@ module org/webdsl/dsl/languages/ui/query-utils
 rules
 
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
-    with {| RootVar, ParentArgs, IteratedVar, IteratedSubList, QueryConditions, IsEffectful
+    with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful
        : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
                   RootVar         : Var(x) -> srt // The actual variable we are interested in
                   QueryConditions := True()       // Changes over time to represent the query conditions active on the term currently being analyzed
@@ -18,7 +18,7 @@ rules
        ; rules( QueryConditions := <extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       ; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
+       //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
        ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
@@ -98,11 +98,11 @@ strategies
     ; flatten-list
 
   collect-effectful-potential-joins =
-	where(not(IsEffectful; ?True()))
-		; rules( IsEffectful := True())
-		; collect(an-potential-joins)
-		; flatten-list
-		; rules( IsEffectful := False() )
+    where(not(IsEffectful; ?True()))
+    ; rules( IsEffectful := True())
+    ; collect(an-potential-joins)
+    ; flatten-list
+    ; rules( IsEffectful := False() )
 
   an-potential-joins =
   	?Var(_)
@@ -118,7 +118,7 @@ strategies
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
-    ; repeat(oncetd(IteratedSubList <+ IteratedVarValue))
+    ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?fa)
     ; where(get-accessible-var)
     ; !(<id>, <QueryConditions>, <IsEffectful>)
@@ -132,28 +132,39 @@ strategies
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
-    ; repeat(oncetd(IteratedSubList))
+    ; repeat(oncetd(IteratedSubListValue))
     ; not(?fa)
     ; where(get-accessible-var)
     ; !(<id>, <QueryConditions>, <IsEffectful>)*/
 
   an-potential-joins =
     ?Var(_)
-    ; repeat(oncetd(IteratedSubList))
+    ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?Var(_))
+    ; where(get-accessible-var)
     ; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?Call(e, nm, arg*){anno*}
-    ; where(SimpleSort(ent) := <type-of; is-entity-type> e)
+    ; where(<get-accessible-var; (IteratedVar <+ IteratedSubList)> e)
+    ; where(SimpleSort(ent) := <(IteratedVar <+ IteratedSubList); is-entity-type> e)
+    ; genname := <generate-template-name-args> (<concat-strings>[ent, nm], arg*)
+    ; where(not(<PassedFunction> genname))
     ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
     ; ?Function(_, fargs, _, body)
-    ; (args, fargs2) := <bagof-AllProperties; filter({x,srt:\ x -> (FieldAccess(e, x), Arg(x, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x) \}); unzip> ent
-    ; <an-potential-joins-with-args(|<conc>(args, arg*), <conc>(fargs2, fargs))> body // We add the properties of the entity as leading arguments of the function, this prevents them to be mistaken for local variables, which currently are ignored completely
+    ; (args, fargs2) := <bagof-AllProperties; filter({x,srt,str:\ x -> (FieldAccess(e, x), Arg(x{str}, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x); str := <concat-strings>[genname, "_", x] \}); unzip> ent
+    ; {| RenamePropInFunction
+        : <map({\ Arg(x{str}, _) -> <id> with x2 := <strip-annos> x; rules( RenamePropInFunction : Var(x2) -> Var(x2{str}) ) \})> fargs2
+        ; body2 := <alltd(RenamePropInFunction)> body
+      |}
+    ; {| PassedFunction
+       : rules( PassedFunction : genname -> genname )
+       ; <an-potential-joins-with-args(|<conc>(args, arg*), <conc>(fargs2, fargs))> body2 // We add the properties of the entity as leading arguments of the function, this prevents them to be mistaken for local variables, which currently are ignored completely
+       |}
 
   an-potential-joins =
-  	(?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
-	; collect-effectful-potential-joins
+    (?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
+    ; collect-effectful-potential-joins
 
   try-resolve-entity-call: (ent, nm, targ*) -> f
     where not("Entity" := ent)
@@ -162,7 +173,7 @@ strategies
 
   // If statements possibly contribute if they have only an if or else block
   an-potential-joins =
-    (?IfNoElseTempl(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []))
+    (?IfNoElseTempl(condExp, trueBlock) <+ ?IfNoElse(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []) <+ ?If(condExp, trueBlock, []))
     ; newCondExp := <repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp 
     ; listC := <collect-potential-joins> condExp
     ; OldQueryCond := <QueryConditions>
@@ -172,7 +183,7 @@ strategies
     ; !<concat>[listC, listT]
 
   an-potential-joins =
-    ?IfTempl(condExp, [], falseBlock)
+    (?IfTempl(condExp, [], falseBlock) <+ ?If(condExp, [], falseBlock))
     ; newCondExp := <try(?Not(True()); !True())>Not(<repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp)
     ; listC := <collect-potential-joins> condExp
     ; OldQueryCond := <QueryConditions>
@@ -184,10 +195,15 @@ strategies
   // Follow a template call
   an-potential-joins =
     (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; not([] := <filter(get-accessible-var; IteratedVar <+ IteratedSubList)> args)
-    ; <generate-template-name-args; CurrentTemplateDecl> (name, args)
+    ; not([] := <filter(get-accessible-var; (IteratedVar <+ IteratedSubList))> args)
+    ; genname := <generate-template-name-args> (name, args)
+    ; where(not(<PassedTemplate> genname))
+    ; <CurrentTemplateDecl> genname
     ; ?Define(_, _, fargs, _, body)
-    ; <an-potential-joins-with-args(|args, fargs)> body
+    ; {| PassedTemplate
+       : rules( PassedTemplate : genname -> genname )
+       ; <an-potential-joins-with-args(|args, fargs)> body
+       |}
 
   an-potential-joins =
     ?TemplateCall(_, args*, passign*, TemplateBody([]))
@@ -205,15 +221,18 @@ strategies
     ; <map(\ DeriveDefault(f) -> FieldAccess(e, f) \); collect-effectful-potential-joins> props*
 
   an-potential-joins =
-  	(?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, _, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, _, _))
-  	; ?for
-  	; not([] := <filter(get-accessible-var; IteratedVar)> e) 
-  	; not(<IteratedSubList> Var(x))
-	; {| IteratedSubList
-	   : rules( IteratedSubList : Var(x) -> e)
-	   ; <collect-potential-joins> for
-	   |}
+    (?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, _, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, _, _))
+    ; ?for
+    ; not([] := <filter(get-accessible-var; IteratedVar)> e) 
+    ; not(<IteratedSubList> Var(x))
+    ; {| IteratedSubList, IteratedSubListValue
+       : rules( IteratedSubListValue : Var(x) -> e
+                IteratedSubList      : Var(x) -> srt
+              )
+       ; <collect-potential-joins> for
+       |}
 
+  //an-potential-joins = debug(!"NoMatch:  "); fail
   //an-potential-joins = where(not(should-skip)); debug(!"NoMatch:  "); fail
 
   // The following terms do not contain interesting info themselves, but their sub-terms possibly do, so they may be skipped
@@ -239,19 +258,23 @@ strategies
   // This strategy defines rules to keep track of template arguments
   an-potential-joins-with-args(|args, fargs) =
     ?body
-    ; {| IteratedVarValue, IteratedSubList
+    ; {| IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
        : with(id
          ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
-                       where <is-var-accessible> e
+                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
+                       where not(<IteratedVarValue; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])> Var(x))
                        with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
                                    IteratedVar      : Var(x) -> srt
                                  )
                      \})> <zip> (args, fargs)
          ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
-                       where not([] := <collect(IteratedSubList)>)
-                       with rules( IteratedSubList  : Var(x) -> e )
+                       where not([] := <collect(IteratedSubList)> e)
+                       where not(<IteratedSubListValue; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])> Var(x))
+                       with rules( IteratedSubListValue  : Var(x) -> e
+                                   IteratedSubList       : Var(x) -> srt
+                                 )
                      \})> <zip> (args, fargs)
          ) 
        ; <collect-potential-joins> body
