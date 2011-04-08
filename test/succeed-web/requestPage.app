@@ -50,7 +50,7 @@ application test
     output(i)
   }
   
-  define page pagenotfound(){
+  define override page pagenotfound(){
    "custom page not found"
   }
   

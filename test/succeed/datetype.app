@@ -81,3 +81,16 @@ section datamodel
     assert(test.time == null);  
     assert(test.datetime == null);  
   }
+  
+  test dateAdd {
+    var test : DateTest := DateTest{};
+    test.date := Date("01/02/2020");  
+    assert(test.date.addDays(1).addMonths(1).addYears(1) == Date("02/03/2021")); 
+
+    test.time := Time("22:08"); 
+    assert(test.time.addHours(1).addMinutes(1).addSeconds(1) == Time("23:09").addSeconds(1));
+     
+    test.datetime := DateTime("22/06/1983 22:08");
+    assert(test.datetime.addDays(-1).addMonths(-1).addYears(-1).addHours(-1).addMinutes(-1).addSeconds(-1) == DateTime("21/05/1982 21:06").addSeconds(59));
+  }
+  

@@ -1,12 +1,8 @@
 application com.example.derive
 
-description {
-  This is an automatically generated description
-}
-
 section templates
 
-  define main() {
+  define override main() {
     block("top") {
       top() }
     block("body") {
@@ -22,7 +18,7 @@ section templates
   
   define sidebar() { }
 
-  define body() { }
+  define override body() { }
 
 section data model
 

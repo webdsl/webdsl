@@ -2,7 +2,7 @@ application test
 
 section datamodel
 
-  define body() {
+  define override body() {
     "default body"
   }
 
@@ -26,7 +26,7 @@ section datamodel
     }
   }
 
-  define main() 
+  define override main() 
   {
     body()
   }
