@@ -4,8 +4,8 @@ rules
 
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
     with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful
-       : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template call arguments)
-                  RootVar         : Var(x) -> srt // The actual variable we are interested in
+       : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
+                  RootVar         : Var(x) -> srt // The actual variable we are interested in (the persistent root of our analysis)
                   QueryConditions := True()       // Changes over time to represent the query conditions active on the term currently being analyzed
                   IsEffectful     := False()      // True if the current statement is effectful (means: can affect non-local state), False otherwise
                )
@@ -26,11 +26,11 @@ rules
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
        ; <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
-       ; info(|["Inline by queries: ", joincandidatesgen])
+       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
-       ; info(|["Inline by joining: ", joincandidatesnogen])
-       ; info(|["Query condition:   ", <pp-webdsl>querycondition])
-       ; info(|["Condition joins:   ", conditionjoins])
+       ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
+       ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
 
 /*
@@ -147,13 +147,15 @@ strategies
   an-potential-joins =
     ?Call(e, nm, arg*){anno*}
     ; where(<get-accessible-var; (IteratedVar <+ IteratedSubList)> e)
-    ; where(SimpleSort(ent) := <(IteratedVar <+ IteratedSubList); is-entity-type> e)
+    ; where(SimpleSort(ent) := <(IteratedVar <+ IteratedSubList); is-entity-type> e) // Only follow calls to entity functions
     ; genname := <generate-template-name-args> (<concat-strings>[ent, nm], arg*)
-    ; where(not(<PassedFunction> genname))
+    ; where(not(<PassedFunction> genname)) // This prevents an infinite loop when following a recursive function
     ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
     ; ?Function(_, fargs, _, body)
+    // Here we get the properties of the entity and insert them as extra parameters for the function call
+    // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionAr1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
     ; (args, fargs2) := <bagof-AllProperties; filter({x,srt,str:\ x -> (FieldAccess(e, x), Arg(x{str}, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x); str := <concat-strings>[genname, "_", x] \}); unzip> ent
-    ; {| RenamePropInFunction
+    ; {| RenamePropInFunction // Here we temporarily rename the Var()s in the function body for our analysis
         : <map({\ Arg(x{str}, _) -> <id> with x2 := <strip-annos> x; rules( RenamePropInFunction : Var(x2) -> Var(x2{str}) ) \})> fargs2
         ; body2 := <alltd(RenamePropInFunction)> body
       |}
@@ -166,7 +168,7 @@ strategies
     (?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
     ; collect-effectful-potential-joins
 
-  try-resolve-entity-call: (ent, nm, targ*) -> f
+  try-resolve-entity-call: (ent, nm, targ*) -> f // Same as resolve-entity-call, except here we allow failure
     where not("Entity" := ent)
     ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
       <+ f := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
@@ -197,7 +199,7 @@ strategies
     (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
     ; not([] := <filter(get-accessible-var; (IteratedVar <+ IteratedSubList))> args)
     ; genname := <generate-template-name-args> (name, args)
-    ; where(not(<PassedTemplate> genname))
+    ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
     ; <CurrentTemplateDecl> genname
     ; ?Define(_, _, fargs, _, body)
     ; {| PassedTemplate
@@ -225,7 +227,7 @@ strategies
     ; ?for
     ; not([] := <filter(get-accessible-var; IteratedVar)> e) 
     ; not(<IteratedSubList> Var(x))
-    ; {| IteratedSubList, IteratedSubListValue
+    ; {| IteratedSubList, IteratedSubListValue // Different from IteratedVar, because the path represents a collection and thus may not be used in query conditions, but can still be used to find additional joins
        : rules( IteratedSubListValue : Var(x) -> e
                 IteratedSubList      : Var(x) -> srt
               )
@@ -255,12 +257,13 @@ strategies
   // The following line prevents FieldAccesses and Vars not related to the var we are analyzing from showing up. An extra check could be added to make sure they are indeed not related
   should-skip = (?FieldAccess(_, _) <+ ?Var(_))
 
-  // This strategy defines rules to keep track of template arguments
+  // This strategy defines rules to keep track of template / function arguments
   an-potential-joins-with-args(|args, fargs) =
     ?body
     ; {| IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
        : with(id
-         ; <filter({vars: 
+         // Here we mark the arguments as interesting, because they are in some way related to the persisten root or are constants which we can use in query conditions
+         ; <filter({vars:
                      \ (e, Arg(x, srt)) ->  <id>
                        where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
                        where not(<IteratedVarValue; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])> Var(x))
