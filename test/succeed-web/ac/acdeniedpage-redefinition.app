@@ -20,7 +20,18 @@ section somesection
      "should not be able to see this"
    }
    
-   define page accessDenied(){
+   define override page accessDenied(){
      "custom access denied page"
    }   
    
+  test messages {
+    var d : WebDriver := FirefoxDriver();
+    
+    d.get(navigate(root()));
+    
+    assert(!d.getPageSource().contains("should not be able to see this"));
+    
+    assert(d.getPageSource().contains("custom access denied page"));
+    
+    d.close();
+  }

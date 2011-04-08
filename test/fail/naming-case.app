@@ -1,10 +1,13 @@
 //with signature anFunctionNoReturn() is defined multiple times
 //with signature anFunctionReturn() is defined multiple times
 //with signature anFunction() is defined multiple times
-//Multiple definitions with name 'aPage'
-//Multiple definitions with name 'aTemplate'
-//Multiple definitions with name 'aDefine'
-//Multiple definitions with name 'pageArgsAndTemplateNoArgs'
+//#1 Multiple page/template definitions with name 'aPage'
+//#1 Multiple page/template definitions with name 'APage'
+//#1 Multiple page/template definitions with name 'aTemplate'
+//#1 Multiple page/template definitions with name 'ATemplate'
+//#1 Multiple page/template definitions with name 'aDefine'
+//#1 Multiple page/template definitions with name 'ADefine'
+//#2 Multiple page/template definitions with name 'pageArgsAndTemplateNoArgs'
 //'anEntityNoSuper' is defined multiple times
 //'anEntity' is defined multiple times
 //'ASessionEntity' is defined multiple times
@@ -51,8 +54,8 @@ session 	ADoubleEntity { }
 // entity function
 
 entity X {
-	function anFunction() { }
-	function AnFunction() { }
+  function anFunction() { }
+  function AnFunction() { }
 }
 
 // entity and function

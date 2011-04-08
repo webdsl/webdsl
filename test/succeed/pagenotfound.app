@@ -12,6 +12,6 @@ application test
   
   }
   
-  define page pagenotfound(){
+  define override page pagenotfound(){
    "SfSDFS"
   }

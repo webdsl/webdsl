@@ -1,6 +1,6 @@
 module templates
 
-define main() {
+define override main() {
   <div id="pagewrapper">
     <div id="header">
        mainheader()
@@ -20,7 +20,7 @@ define main() {
   </div>
 }
 
-define body(){
+define override body(){
   "default body"
 }
 
@@ -43,7 +43,7 @@ define navbaritem(){
 
 //validation template override
  
-define ignore-access-control errorTemplateInput(messages : List<String>){
+define override errorTemplateInput(messages : List<String>){
   elements()
   for(ve: String in messages){
     <tr style = "color: #FF0000;border: 1px solid #FF0000;">

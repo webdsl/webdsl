@@ -3,6 +3,9 @@ module org/webdsl/dsl/languages/ui/declare
 imports
   libwebdsl-front
   org/webdsl/dsl/languages/-
+  org/webdsl/dsl/languages/ui/-
+  org/webdsl/dsl/languages/ajax/-
+  org/webdsl/dsl/languages/data-model/-
 
 strategies
 
@@ -40,13 +43,16 @@ rules
     ?def@Define(mod*, name, fargs, targs, body)
     ; where(<fetch(?Page())> mod*)
     ; with(common-declare-template-rules)
-    ; where(with (
+    ; with (
       t1* := <template-formal-arguments-to-types> fargs
-      ; rules (
-          CheckPageSignature : (Page(), name, t1*) -> InternalSort("Page")
-          PageDecl :+ name -> def
-        )
-    ))
+      ; if not(<CheckPageSignature>(Page(), name, t1*)) //don't override
+           <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
+        then rules( CheckPageSignature : (Page(), name, t1*) -> InternalSort("Page") ) end
+      ; if <fetch(TemplateModOverride)> mod* 
+        then rules( PageDeclOverride :+ name -> name  )
+        else rules( PageDecl :+ name -> def ) //@TODO probably not necessary to produce def in this rule
+        end
+      )   
     
   AllTopLevelTemplateNames =
       all-keys-TopLevelTemplateDefinitions
@@ -67,8 +73,10 @@ rules
       ; rules (
         TopLevelTemplateDefinitions :+ n -> sig
         OverloadedTemplateSignature : sig -> y    // not used
-        CheckPageSignature : (Page(), n, t*) -> InternalSort("Template") // for ajax
-       )
+        )
+      ; if not(<CheckPageSignature>(Page(), n, t*)) //don't override
+           <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
+        then rules( CheckPageSignature : (Page(), n, t*) -> InternalSort("Template") ) end// for ajax
       ; if <fetch(TemplateModOverride)> mod* 
         then rules( TopLevelTemplateDeclOverride :+ sig -> sig )
         else rules( TopLevelTemplateDecl :+ sig -> def ) //@TODO probably not necessary to produce def in this rule
@@ -163,13 +171,22 @@ rules
         ; not(<fetch(PageArgNumbersAdded)> defanno*)
     with  fargs1 := <add-farg-numbers> fargs
 
+  add-backend-annotation =
+      ?def@Define(_,_,_,_,_)
+    ; add-new-anno(|SessionEntities(<bagof-SessionEntityNames>))
+
 rules // mark templates in built-in.app as precompiled
   
   add-backend-annotation :
     def@Define(mod*, name, fargs, targs, body){anno*} -> Define(mod*, name, fargs, targs, body){Precompiled(),anno*}
     where not(<fetch(Precompiled)> anno*)
+    where defined-in-built-in-app-file
+    
+  defined-in-built-in-app-file :
+    t@_{anno*} -> t
     where <fetch(?PositionAnno(<string-starts-with(|"../.servletapp/src-webdsl-template/built-in.app")>))> anno*
-
+       <+ <fetch(?At(<string-starts-with(|"../.servletapp/src-webdsl-template/built-in.app")>,_,_))> anno*
+       
   keep-position-anno = ?Define(_,name,_,_,_){anno*}
 
 rules

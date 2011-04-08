@@ -45,6 +45,12 @@ module .servletapp/src-webdsl-template/built-in
     after(DateTime):Bool
     getTime():Long
     setTime(Long)
+    utils.DateType.addYears as addYears(Int):DateTime
+    utils.DateType.addMonths as addMonths(Int):DateTime
+    utils.DateType.addDays as addDays(Int):DateTime
+    utils.DateType.addHours as addHours(Int):DateTime
+    utils.DateType.addMinutes as addMinutes(Int):DateTime
+    utils.DateType.addSeconds as addSeconds(Int):DateTime
   }
   
   native class utils.DateType as DateType{ //@TODO static functions not yet supported in type import of DateTime above
@@ -83,6 +89,8 @@ module .servletapp/src-webdsl-template/built-in
     leaveLabelContext()
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
+    getIncomingSuccessMessages():List<String>
+    clearIncomingSuccessMessages()
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -230,17 +238,23 @@ module .servletapp/src-webdsl-template/built-in
     replyTo :: String (length=1000000)
     from :: String (length=1000000)
     subject :: String (length=1000000)
+    lastTry :: DateTime 
   }
   
   invoke internalHandleEmailQueue() every 30 seconds
 
   function internalHandleEmailQueue(){
-    var queuedEmails := from QueuedEmail limit 5;
+    var n : DateTime := now().addHours(-3); // retry after 3 hours to avoid spamming too much
+    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n limit 1;
     
     for(queuedEmail:QueuedEmail in queuedEmails){
-      queuedEmail.delete();
-      flush();
-      sendemail(sendQueuedEmail(queuedEmail));
+      if(sendemail(sendQueuedEmail(queuedEmail))){
+        queuedEmail.delete();    
+      }
+      else{
+        queuedEmail.lastTry := now();
+      }
+      
       //normally you would use email(sendQueuedEmail(queuedEmail)) to send email, however, 
       //that is desugared to renderemail(queuedEmail).save() to make it asynchronous.
       //In this function the email is actually send, using the synchronous sendemail function.
@@ -1950,10 +1964,81 @@ module .servletapp/src-webdsl-template/built-in
     invoke(String,ATerm):ATerm
     invoke(String,String):ATerm
   }
+  
+  //validation message templates
+  
+  define errorTemplateInput(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      elements()
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+    }
+  } 
+
+  define errorTemplateForm(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+    }
+  }
+
+  define errorTemplateAction(messages : List<String>){
+    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+          text(ve)
+        }     
+      }
+      elements()
+    }
+  }
+    
+  define templateSuccess(messages : List<String>){
+    block()[style := "border: 1px solid #BB8800; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+      for(ve: String in messages){
+        block()[style := "width:100%; color: #BB8800; margin-top: 5px;"]{
+          text(ve)   
+        }    
+      }
+    }
+  }
+    
+  define messages(){
+    request var list : List<String> := List<String>()
+    render{
+      list.addAll(getPage().getIncomingSuccessMessages());
+      getPage().clearIncomingSuccessMessages();
+    }
+    if(list.length > 0){
+      templateSuccess(list)
+    }
+  }
+      
+  //page not found page    
+     
+  define page pagenotfound(){
+    <h3>"404 Not Found"</h3>
+  }     
+      
+  //access denied page
+     
+  define page accessDenied(){
+    title{"Access Denied"}
+    text("Access Denied: ")
+    navigate(root()) { "return to home page" }
+  }
     
   //default access control rule
   
   access control rules
-  
+    rule page accessDenied(){true}
+    rule page pagenotfound(){true}
     rule template *(*){true}
+
     

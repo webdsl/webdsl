@@ -18,7 +18,7 @@ imports
   org/webdsl/dsl/typechecker/error
   org/webdsl/dsl/typechecker/utils
 
-rules
+rules //principal declaration
 
   constraint-error-ac : 
     a@AccessControlPrincipal(ident,props) -> <add-error(|["Entity '",ident,"' does not exist, and cannot be used as principal for access control."])>
@@ -46,11 +46,15 @@ rules
     where <type-compatible> (<type-of-property> (ent,propname), SimpleSort("String"))
         ; <?"name"> propname
         ; not(<has-name-property> ent)
+   
+rules //predicate   
         
   constraint-error-ac : 
     a@Predicate(ident,fargs,exp) -> <add-error(|["predicate should contain a Bool expression: ",<pp-webdsl> a])>
     where t := <type-of> exp
     where not(SimpleSort("Bool") := t)
+
+rules //ac rules
 
   constraint-error-ac : 
     a@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <add-error(|["rule should contain a Bool expression: ",<pp-webdsl> a])>
@@ -73,6 +77,20 @@ rules
   check-nested-rule-type(|ruletypes) :
     a@AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <add-error(|["nested rule type unknown: ",<pp-webdsl> a])>
     where <not(elem)> (checktype,ruletypes)
+
+rules //special ac rules
+
+  constraint-error-ac : 
+    a@SpecialAccessControlRule(checktype,check) -> <add-error(|["rule should contain a Bool expression: ",<pp-webdsl> a])>
+    where t := <type-of> check
+    where not(SimpleSort("Bool") := t)
+
+  constraint-error-ac : 
+    a@SpecialAccessControlRule(checktype,check) -> <add-error(|["rule type unknown: ",<pp-webdsl> a])>
+    where <not(elem)> (checktype,[ "logsql"                         
+                                 ])
+  
+rules //pointcuts  
     
   // correct element arguments received a type during rename, x{y} will match in that case
   constraint-error-ac : 
@@ -93,135 +111,29 @@ rules
         ; t1* := <map(?Arg(_,<id>))> fargs
         ; not(<MatchesAccessControlPointcut> (matchident,t1*))
        
+rules //general      
+       
   constraint-error-ac :
     a@AccessControlDefinition(_,acrules) -> <add-error(|["cannot have access control rules without a principal declaration: ",<pp-webdsl> a])>
     where not(AccessControlEnabled)
-    where not(<?[AccessControlRule("template","*",MatchArgs([],Some("*")),True(),[])]> acrules) // don't trigger on default rule declared in built-in.app
+    where not(defined-in-built-in-app-file)
    
   constraint-error-ac =
       ?AccessControlPrincipal(_,_)
     ; where(principals := <bagof-PrincipalDecl; uniq; length>)
     ; where(<gt> (principals, 1))
     ; add-error(|["Only one access control principal can be defined."])
-        
-/*    
-    rules (
-            Security-Check-Types := 
-            [
-             ["page"]
-            ,["action"]
-            ,["page" , "action"]
-            ,["template"]
-            //,["page","template"]
-            ,["template","action"]
-            //,["template","template"]
-            //,["function"]
-           // ,["pointcut"]
-            ]
-          )
-        ; 
-*/
-
-/* @REFACTOR
-  typecheck-section =
-    AccessControlDefinition(id,map(typecheck-ac-defs
-                                <+ ?x;info(|["map failed in ac declarations: ",x]);fail))
-    
-  typecheck-section =
-    ACPolicy(id) // could check referenced names here
-    
-  typecheck-ac-defs :
-    AccessControlPointcut(pname,fa,elems) -> AccessControlPointcut(pname,fa,elems)
-    where {| pointcut-formal-argument :
-             <filter(\ ar@Arg(ident,thesort)->ar where rules (pointcut-formal-argument : ident -> ar) \)> fa
-           ; <map(tc-pointcut-element(|pname))> elems
-          |}
-
-  tc-pointcut-element(|pname):
-    AccessControlPointcutElement(ident,matchident,faidents,wc) -> AccessControlPointcutElement(ident,matchident,faidents,wc)
-    where <map(pointcut-formal-argument<+?x;typecheck-error(|["argument ",x," not in pointcut ",pname]))> faidents
-
-  tc-pointcut-use:
-    AccessControlRule("pointcut",matchident,args,checks,childrules) -> AccessControlRule("pointcut",matchident,args,checks,childrules)
-    where MatchArgs(fargs,wc) := args
-        ; rulematchtuples := <is-access-control-pointcut<+typecheck-error(|["pointcut ",matchident," does not exist"])> (matchident,fargs)
-*/
-//if found, not desugared yet -> error
- // typecheck-ac-defs:
- //   AccessControlPrincipal(ident,props) -> AccessControlPrincipal(ident,props)
- //   where <IsEntity <+ typecheck-error(|[ident," is not a declared type"])> ident
- //      ; <derive;map(\ pident ->
- //          <TypeOfProperty <+ typecheck-error(|[pident," is not a property of ",ident])> (ident,pident)  \)> props
-
- // typecheck-definition :
-    //Predicate(ident,fargs,exp) -> Predicate(ident,fargs,newexp)
-    //where {|TypeOf, ReturnType
-     //     : <map(try(create-argument-typeof-rule))> fargs
-          //; rules( ReturnType := SimpleSort("Bool") )
-     //     ; newexp := <typecheck-expression <+ typecheck-error(|[exp ," failed typechecking"])> exp
-    //      ; ( _{Type(SimpleSort("Bool"))} := newexp  <+ typecheck-error(|[newexp ," is not a boolean expression"]) )
-    //      |}
-
-/* @REFACTOR
-  typecheck-ac-defs :
-    AccessControlRule(checktype,matchstring,fargs,check,acrules) -> <typecheck-create-rule-classes(|[],[])> AccessControlRule(checktype,matchstring,fargs,check,acrules)
-    
-
-  typecheck-create-rule-classes(|ct,oldargs):
-    AccessControlRule(checktype,matchstring,fargs,check,acrules) -> AccessControlRule(checktype,matchstring,fargs,newcheck,newrules)
-    where newtype := <concat>[ct , [checktype]]
-        ; newargs := <concat>[oldargs , [fargs]]
-        ; <elem <+ typecheck-error(|[newtype ," is not a valid security check type"])> (newtype,<Security-Check-Types>)
-        //; if check := [] then <typecheck-error(|["access control rule ",checktype," ",matchstring," has no checks specified"])> True() end
-        ; newfargs := <map( \ MatchArgs(args,wc) -> args \) ;concat> newargs
-        ; {| TypeOf :
-            <map(try(create-argument-typeof-rule))> newfargs    //try here because it can also be an expression from matching on templates
-          ; newcheck := <typecheck-security-checks(|newargs)> check
-          ; newrules := <map(typecheck-create-rule-classes(|newtype,newargs))> acrules
-          |}
-
-  typecheck-security-checks(|fargs):
-    expr -> newexp
-    where newexp := <typecheck-expression <+ typecheck-error(|[expr ," failed typechecking"])> expr
-        ; ( _{Type(SimpleSort("Bool"))} := newexp  <+ typecheck-error(|[newexp ," is not a boolean expression"]) )
-
-  create-argument-typeof-rule=
-    ?Arg(ident,thesort)
-    ; rules( TypeOf: ident -> thesort )
-    
-    
-    
-    
-    
-  typecheck-ac-check-elem :
-    TemplateCall("acpagecheck", [ident,e1], []) -> TemplateCall("acpagecheck", [ident,e1], [])
-  ///  where in-tc-context(id
-     //       ; e1' := <typecheck-expression> e1
-       ///   | ["acpagecheck", "/"])
-  
-  typecheck-ac-check-elem :
-    TemplateCall("actemplatecheck", [ident,e1], []) -> TemplateCall("actemplatecheck", [ident,e1'], [])
-    where in-tc-context(id
-            ; e1' := <typecheck-expression> e1
-          | ["actemplatecheck", "/"])
-          
-  typecheck-ac-check-stmt :
-    Stat(ThisCall("acactioncheck",[Var(x_rulegroup)|[e]])) -> 
-    Stat(ThisCall("acactioncheck",[Var(x_rulegroup)|[e]]))
-    
-
-*/
 
 rules
 
   get-toplevel-name = ?Predicate(<id>, _,_)
   
-rules
+rules //matching
   
   constraint-error: //error when exact page match, but no such page
     acr@AccessControlRule("page",x_pagematchname,margs@MatchArgs(farg1,_),e,acrule*) -> <add-error(|["Page rule refers to non-existing page: ",<pp-webdsl> acr])>
     where not(<string-as-chars(fetch('*'))> x_pagematchname) //don't trigger when wildcard is used
-    where not(<PageDecl> x_pagematchname)
+    where not(<PageDecl <+ PageDeclOverride> x_pagematchname)
           <+   not(<?MatchArgs(_,Some(_))> margs) //don't trigger when wildcard is used
              ; Define(_,_,farg2,_,_) := <PageDecl> x_pagematchname
              ; not(<zip({?(Arg(_,t1),Arg(_,t2));<?t1> t2})> (farg1,farg2)) //also arg types must match
@@ -233,6 +145,3 @@ rules
     where ("template" := x_kind <+ "ajaxtemplate" := x_kind)
         ; targ* := <?MatchArgs(<id>,_); strip-annos; template-formal-arguments-to-types> margs
         ; not(decl := <TemplateNewName; TemplateDecl> (x_templatename, targ*))
-          
-  fggdggtt4t4 = id //avoid segmentation fault http://yellowgrass.org/issue/StrategoXT/802
-  fgfdgdgdgdgdfg = id

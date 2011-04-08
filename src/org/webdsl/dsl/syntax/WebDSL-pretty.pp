@@ -309,6 +309,7 @@
    AccessControlRule.5:iter-star                -- _1,
    AccessControlRule                            -- V[ V is=2[H[KW["rules"] _1 _2 KW["("] _3 KW[")"] KW["{"]] H[_4] H[_5]] KW["}"]],
    AccessControlRule.5:iter-star                -- _1,
+   SpecialAccessControlRule                     -- V[ V is=2[H[KW["rule"] _1 KW["{"]] H[_2]] KW["}"]],
    MatchArgs                                    -- H[_1 _2],
    MatchArgs.1:iter-star-sep                    -- _1 KW[","],
    MatchArgs.2:opt                              -- _1,
@@ -437,10 +438,6 @@
    ViewPage                                     -- KW["viewPage"],
    ViewRows                                     -- KW["viewRows"],
 
-   %% string-select-entity
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
-   
    None																					-- ,
    Some																					-- _1,
 
@@ -477,8 +474,6 @@
    Select                                       -- KW["select"] _1 _2,
    Select.1:opt                                 -- _1,
    SelectObject                                 -- KW["object"] KW["("] _1 KW[")"],
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
    Selector                                     -- _1 _2,
    Selector.2:iter-star                         -- _1,
    Selector.2:iter-star.1:seq                   -- _1 _2 _3,
@@ -745,8 +740,6 @@
    Select                                       -- KW["select"] _1 _2,
    Select.1:opt                                 -- _1,
    SelectObject                                 -- KW["object"] KW["("] _1 KW[")"],
-   StringSelectEntity                           -- KW["string-select-entity"] _1 KW["{"] _2 KW["}"],
-   StringSelectEntity.2:iter-star-sep           -- _1 KW[","],
    Selector                                     -- _1 _2,
    Selector.2:iter-star                         -- _1,
    Selector.2:iter-star.1:seq                   -- _1 _2 _3,

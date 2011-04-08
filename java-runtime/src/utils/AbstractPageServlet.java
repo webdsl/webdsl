@@ -114,9 +114,16 @@ public abstract class AbstractPageServlet{
     public static HashMap<String, Class<?>> getEmails() {
         return emails;
     }
-    public void sendEmail(String name, Object[] emailargs, Environment emailenv){
-        EmailServlet temp = renderEmail(name,emailargs,emailenv);
-        temp.send();
+    public boolean sendEmail(String name, Object[] emailargs, Environment emailenv){
+        try{
+          EmailServlet temp = renderEmail(name,emailargs,emailenv);
+          temp.send();
+          return true;
+        }
+        catch(Exception e){
+          e.printStackTrace();
+          return false;	
+        }
     }
     public EmailServlet renderEmail(String name, Object[] emailargs, Environment emailenv){
         EmailServlet temp = null;
@@ -575,6 +582,10 @@ public abstract class AbstractPageServlet{
 
     public List<String> getIncomingSuccessMessages() {
       return incomingSuccessMessages;
+    }
+    
+    public void clearIncomingSuccessMessages() {
+      incomingSuccessMessages.clear();
     }
 
     private List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
