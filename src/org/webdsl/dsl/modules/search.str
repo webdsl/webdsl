@@ -22,29 +22,54 @@ rules
 			?ent
 		; where(
 		  	    (x_class, body) := <get-entity-def> ent
-				; <has-no-anno(?IndexedAnno(_))> ent
+				; <has-no-anno(?IndexedAnno(_,_))> ent
        			; ourprops := <filter(is-property-cons)> body
-				; searchable := <filter(searchable-property-to-name); flatten-list; uniq> ourprops
+				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> ourprops
 				; not([] := searchable)
+				; ngramfields := <concat; flatten-list; uniq>[<bagof-NGramFields>x_class,<bagof-NGramFieldsEmbedded>x_class]
 			)
-		; add-anno(|IndexedAnno(searchable))
+		; add-anno(|IndexedAnno(searchable,ngramfields))
 		
-	searchable-property-to-name :
-    Property(name, propkind, _, _) -> name
-    where(is-searchable-prop; not (<?Ref()<+?Comp() > propkind))
-      
-    searchable-property-to-name :
-    Property(name, propkind, srt, anno*) -> embeddedNames
-    where (is-searchable-prop; <?Ref()<+?Comp() > propkind)
-    // 1 level of depth right now, so only simple types are supported
-    // TODO: all-properties does not return desugared version of properties, what to use? 
-    with embeddedSearchable :=  <srt-to-type; all-properties; filter(is-simple-prop);filter(searchable-property-to-name); uniq> srt
-    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
+	searchable-property-to-name(|x_class) :
+	    Property(name, propkind, _, anno*) -> names
+	    where not (<?Ref()<+?Comp() > propkind)
+	    	; searchable-annos := <filter(?SearchableAnno(_);try(add-field-name-arg(|name)))> anno*
+	    	; not(?[])
+	    with names := <map(name-from-searchable-anno)> searchable-annos
+	    	; <map(try(record-NGram-fields(|x_class)))> searchable-annos
+	    	  
+    record-NGram-fields(|x_class):
+    	s@SearchableAnno(sa-args) -> s
+    	where <fetch(?SA-Argument("analyzer", analyzer-name))> sa-args
+    	; field-name := <name-from-searchable-anno> s
+    	; if (<UsesNGramFilter> analyzer-name) then rules (NGramFields : x_class -> field-name) end
+    
+    to-analyzer-name :
+		SA-Argument("analyzer", name) -> name
+    
+    searchable-property-to-name(|x_class) :
+	    Property(name, propkind, srt, anno*) -> embeddedNames
+	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
+	    // 1 level of depth right now, so only simple types are supported
+	    // TODO: all-properties does not return desugared version of properties, what to use? 
+	    with embeddedType := <srt-to-type> srt
+	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
+	    ;  embeddedNames := <map(embedded-name(|name))> embeddedSearchable
+	    ; embeddedNGramFields :=  <bagof-NGramFields; map(embedded-name(|name))> (<srt-to-type>srt)
+	    ; <map(embeddedName:= <id>;rules(NGramFieldsEmbedded : x_class -> embeddedName))> embeddedNGramFields
 
-  searchable-property-to-name :
+    name-from-searchable-anno :
+    	SearchableAnno(sa-args) -> field-name
+    	with <fetch(?SA-Argument("name", field-name))> sa-args 
+    	
+  searchable-property-to-name(|x_class) :
     DerivedProperty(name, _, _, anno*, _) -> name
     where (is-searchable-prop)
-    
+  
+  add-field-name-arg(|fieldname):
+  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", fieldname) | sa-args])
+  	where not (<fetch(?SA-Argument("name", _))> sa-args)  
+  
   is-simple-prop :
   	p@Property(_, propkind, _, _) -> p
   	where not (<?Ref()> propkind)

@@ -11,28 +11,40 @@ imports
 
 strategies
 
-  property-to-index-annos :
+  property-to-index-annos(|x_Class) :
     Property(x, propkind, _, anno*) -> index-annos
     where not (<?Ref()<+?Comp() > propkind)
-    	; searchable-annos := <filter(is-searchable-anno;try(add-field-name-arg(|x)))> anno*
+    	//; searchable-annos := <filter(is-searchable-anno;try(add-field-name-arg(|x)))> anno*
+    	; searchable-annos := <filter(is-searchable-anno)> anno*
     	; not(?[])
   	with rules(CurrentAnalyzerAnnoDef := []) 
-	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
+	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno(|x_Class));flatten-list> searchable-annos)])
 	    ; analyzer-def-annos := <CurrentAnalyzerAnnoDef<+![]>
 	    ; index-annos := [fields-anno, analyzer-def-annos]
   	  	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
-  property-to-index-annos :
-    Property(x, propkind, _, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
+  property-to-index-annos(|x_Class) :
+    Property(x, propkind, srt, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
     where  <?Ref()<+?Comp() > propkind
-    	; <fetch(?SearchableAnno(_))> anno*     
+    	; <fetch(?SearchableAnno(_))> anno*
 
-  property-to-index-annos :
+  srt-to-type:
+  	GenericSort(_,[SimpleSort(type)]) -> type
+  
+  srt-to-type:
+  	SimpleSort(type) -> type
+  	
+  is-simple-prop :
+  	p@Property(_, propkind, _, _) -> p
+  	where not (<?Ref()> propkind)
+
+
+  property-to-index-annos(|x_Class) :
     DerivedProperty(x, _, _, anno*, _) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|, analyzeranno]
     where s := <fetch-elem(?SearchableAnno(_))> anno*  
     with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
 
-  property-to-index-annos :
+  property-to-index-annos(|x_Class) :
     DerivedProperty(x, _, _, anno*, _) -> []
     where not(<fetch(?SearchableAnno(_))> anno*)
   
@@ -43,19 +55,18 @@ strategies
 
 strategies //field annotations
 	
-  searchable-to-field-anno :
+  searchable-to-field-anno(|x_Class) :
   	SearchableAnno(sa-args) -> field-anno
   	with  field-args := <map(to-java-field-arg)> sa-args
-  		; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)  
-  
-  add-field-name-arg(|fieldname):
-  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", fieldname) | sa-args])
-  	where not (<fetch(?SA-Argument("name", _))> sa-args)  
+  	    ; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)
+  		// ; <fetch(?SA-Argument("name", field-name))> sa-args
+  		// ; <fetch(?SA-Argument("analyzer", analyzer-name))<+ analyzer-name := "defaultWebDSLAnalyzer"> sa-args
+  		//; if (<AnalyzerWithNGram> analyzer-name) then rules(FieldsUsingNGramFromProperty : x_Class -> field-name) end
   
   to-java-field-arg :
   	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("analyzer"),anno|[ @org.hibernate.search.annotations.Analyzer(definition="~analyzer-name") ]|)
   	where not(<?"no" <+ ?"null"> analyzer-name)
-  	with <do-once(create-and-record-analyzer-definition|"create-and-record-analyzer-definition")<+ ![]> analyzer-name
+  	with <do-once(create-and-record-analyzer-definition|"create analyzer def")<+ ![]> analyzer-name
 
   to-java-field-arg :
 	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("index"),ExprName(AmbName(Id("org.hibernate.search.annotations.Index")), Id("UN_TOKENIZED")))
@@ -63,6 +74,7 @@ strategies //field annotations
 	
   to-java-field-arg :
   	SA-Argument("name", field-name) -> ElemValPair(Id("name"),Lit(String([Chars(field-name)])))
+  	
 
 strategies //searchconfigs, analyzers
 
@@ -77,18 +89,16 @@ strategies //searchconfigs, analyzers
   search-config-to-analyzer-def:
   	SearchConfig(name, body) -> <to-analyzer-def(|name)> body
     
-  to-analyzer-def(|x_AnalyzerName):
+  to-analyzer-def(|analyzerName):
   	SearchConfigBody(charFilters*, tokenizer, tokenFilters*) -> result
   	with mod_charFiltersDefs* := <map(to-char-filter-def)> charFilters*
-  	   ; mod_tokenizerDef := <to-tokenizer-def <+ ![]> tokenizer
-  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
-  	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(x_AnalyzerName)])))
+  	   ; mod_tokenizerDef := <to-tokenizer-def> tokenizer
+  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def(|analyzerName))> tokenFilters*
+  	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(analyzerName)])))
   	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
   	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
   	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(mod_tokenFilterDefs*))
-  	   ; if (<?None()>tokenizer) then result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenfilter_arg])
-  	     else result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg]) 
-  	     end
+  	   ; result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg])     
 
   to-tokenizer-def:
   	Tokenizer(tokenizername, args) -> result
@@ -98,7 +108,7 @@ strategies //searchconfigs, analyzers
                               , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
                               ])
   
-  to-token-filter-def:
+  to-token-filter-def(|analyzerName):
   	TokenFilter(filtername, args) -> result
   	with  e_analyzerargs := <map(to-analyzer-arg)> args
 		; filtername' := <to-fully-qlfd-name> filtername
@@ -140,15 +150,19 @@ strategies
 		public x_class#SearchQuery (){
 			entityClass = x_Class.class;
 			searchFields = new String[]{ e_sf* };
+			searchFieldsNGram = NGramFilterFields = new String[]{ e_ngff* };
 			fullTextSession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
 		}
 	}	
   	]|
     where ((x_class, _) := <get-entity-def> ent
-       ; x_props := <get-anno(?IndexedAnno(<id>))> ent)
-    with e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props
+       ; x_props := <get-anno(?IndexedAnno(<id>,_))> ent
+       ; x_propsNgram := <get-anno(?IndexedAnno(_,<id>))> ent)
+    with e_ngff* := <map(\name -> expr |[ "~name" ]| \)> x_propsNgram
+       ; e_sf* := <diff>(<map(\name -> expr |[ "~name" ]| \)> x_props,e_ngff*)
        ; pkgname := <DomainPackage>
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
+         
 
   generate-java-search-functions:
     ent -> <emit-java-code-local> compilation-unit |[
@@ -165,16 +179,15 @@ strategies
           return x#_(searchQuery, limit, 0);
         }
         public static java.util.List<x_Class> x#_(String searchQuery, int limit, int offset)  {
-           return new x_Class#SearchQuery().setSearchTerms(searchQuery).setFirstResult(offset).setMaxResults(limit).getResultList();
+           return new x_Class#SearchQuery().terms(searchQuery).firstResult(offset).maxResults(limit).list();
         }
       }
     ]|
     where (
         (x_class, _) := <get-entity-def> ent
-      ; x_props := <get-anno(?IndexedAnno(<id>))> ent
+      ; x_props := <get-anno(?IndexedAnno(<id>,_))> ent
     )
     with x := <concat-strings> ["_static_", "search", x_class]
-       ; e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_props
        ; pkgname := <DomainPackage>
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
 

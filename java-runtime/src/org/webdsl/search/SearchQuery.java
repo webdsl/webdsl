@@ -2,28 +2,46 @@ package org.webdsl.search;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+
+import javax.mail.search.SearchTerm;
 
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.similar.MoreLikeThis;
+import org.apache.lucene.util.Version;
+import org.hibernate.search.FullTextQuery;
+import org.hibernate.search.FullTextSession;
 import org.hibernate.search.SearchFactory;
+import org.hibernate.search.query.dsl.QueryBuilder;
+import org.hibernate.search.query.engine.spi.FacetManager;
 import org.hibernate.search.query.facet.*;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
+import org.hibernate.search.util.ScopedAnalyzer;
 import org.webdsl.WebDSLEntity;
+
 
 public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
-	protected final org.apache.lucene.util.Version luceneVersion = org.apache.lucene.util.Version.LUCENE_30;
+	protected final Version luceneVersion = Version.LUCENE_30;
 	protected int limit = 100;
 	protected int offset = 0;
 	protected boolean luceneQueryChanged = true;
-	protected org.apache.lucene.search.Query luceneQuery = null;
-	protected java.util.LinkedHashMap<String, String> constraints = new java.util.LinkedHashMap<String, String>();
-	protected org.hibernate.search.FullTextQuery query = null;
+	protected Query luceneQuery = null;
+	protected LinkedHashMap<String, String> constraints = new LinkedHashMap<String, String>();
+	protected FullTextQuery query = null;
+	protected FacetManager facetManager = null;
+	
+	//Needed to remove double quotes added when using multifieldqueryparser together with a n-gram filter
+	protected String[] NGramFilterFields = {};
+	protected String[] searchFieldsNGram = {};
 
 	protected String searchTerms = "";
 	protected String[] searchFields = {};
-	protected org.hibernate.search.FullTextSession fullTextSession;
+	protected FullTextSession fullTextSession;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
 
@@ -51,7 +69,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	private IndexReader getReader() {
-
 		SearchFactory searchFactory = fullTextSession.getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
 				.getDirectoryProviders(entityClass)[0];
@@ -60,7 +77,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	@SuppressWarnings("unchecked")
-	public java.util.List<EntityClass> getResultList() {
+	public java.util.List<EntityClass> list() {
 		searchTime = 0;
 		if (validateQuery()) {
 			searchTime = System.currentTimeMillis();
@@ -68,10 +85,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			searchTime = System.currentTimeMillis() - searchTime;
 			return toReturn;
 		} else
-			return new java.util.ArrayList<EntityClass>();
+			return new ArrayList<EntityClass>();
 	}
 
-	public int getResultSize() {
+	public int resultSize() {
 		if (validateQuery())
 			return query.getResultSize();
 		else
@@ -91,15 +108,14 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			int maxQueryTerms, String[] fieldNames) {
 		MoreLikeThis mlt = new MoreLikeThis(getReader());
 		mlt.setFieldNames(fieldNames);
-		// mlt.setAnalyzer(new StandardAnalyzer(luceneVersion));
+		mlt.setAnalyzer(fullTextSession.getSearchFactory().getAnalyzer(entityClass));
 		mlt.setMinWordLen(minWordLen);
 		mlt.setMaxWordLen(maxWordLen);
 		mlt.setMinDocFreq(minDocFreq);
 		mlt.setMinTermFreq(minTermFreq);
 		mlt.setMaxQueryTerms(maxQueryTerms);
 		try {
-			org.apache.lucene.search.Query luceneQuery = mlt
-					.like(new StringReader(likeText));
+			Query luceneQuery = mlt.like(new StringReader(likeText));
 			query = fullTextSession.createFullTextQuery(luceneQuery,
 					entityClass);
 		} catch (IOException e) {
@@ -115,50 +131,76 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return searchTime + " ms.";
 	}
 
+	public int searchTimeMillis() {
+
+		return (int) searchTime;
+	}
+
+	public float searchTimeSeconds() {
+		return (float) (searchTime / 1000);
+	}
+
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F setFirstResult(int offset) {
+	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
 		this.offset = offset;
 		return (F) this;
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F setMaxResults(int limit) {
+	public <F extends SearchQuery<EntityClass>> F maxResults(int limit) {
 		this.limit = limit;
 		return (F) this;
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F setSearchFields(
+	public <F extends SearchQuery<EntityClass>> F fields(
 			java.util.List<String> fields) {
+		java.util.List<String> selectedNGramFields = new ArrayList<String>();
+		
+		for(int i=0 ; i<NGramFilterFields.length; i++){
+			if(fields.remove(NGramFilterFields[i])){
+				selectedNGramFields.add(NGramFilterFields[i]);
+			}
+		}
+		searchFieldsNGram = selectedNGramFields.toArray(new String[selectedNGramFields.size()]);
 		searchFields = fields.toArray(new String[fields.size()]);
 		luceneQueryChanged = true;
 		return (F) this;
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F setSearchTerms(String terms) {
+	public <F extends SearchQuery<EntityClass>> F terms(String terms) {
 		searchTerms = terms;
 		luceneQueryChanged = true;
 		return (F) this;
 	}
-	
-	public java.util.List<Facet> getFacets(String field, int topN){
-		
-		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get();
-		FacetingRequest facetReq = builder.facet()
-		    .name( "facet" )
-		    .onField( field )
-		    .discrete()
-		    .orderedBy( FacetSortOrder.COUNT_DESC )
-		    .includeZeroCounts( false )
-		    .maxFacetCount( topN )
-		    .createFacetingRequest();
-		
-		validateQuery();		
-		
-		return query.getFacetManager().enableFaceting(facetReq).getFacets("facet");
+
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(Facet facet) {
+
+		String facetName = facet.getFieldName();
+		query.getFacetManager().getFacetGroup(facetName).selectFacets(facet);
+
+		return (F) this;
 	}
 
+	public java.util.List<Facet> facets(String field, int topN) {
+
+		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession
+				.getSearchFactory().buildQueryBuilder().forEntity(entityClass)
+				.get();
+		FacetingRequest facetReq = builder.facet().name(field).onField(field)
+				.discrete().orderedBy(FacetSortOrder.COUNT_DESC)
+				.includeZeroCounts(false).maxFacetCount(topN)
+				.createFacetingRequest();
+
+		if (validateQuery())
+			return query.getFacetManager().enableFaceting(facetReq)
+					.getFacets("facet");
+		else
+			return new ArrayList<Facet>();
+	}
+	
 	private boolean validateQuery() {
 		if (luceneQueryChanged) {
 			if (!searchTerms.isEmpty()) {
@@ -166,18 +208,24 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 						luceneVersion, searchFields, fullTextSession.getSearchFactory().getAnalyzer( entityClass ));
 				try {
 					luceneQuery = parser.parse(searchTerms);
+					if (searchFieldsNGram.length > 0)
+						fixQueryForNgramFilterFields();
 				} catch (org.apache.lucene.queryParser.ParseException pe) {
 					return false;
 				}
 			}
-			//Match all documents if no search terms are given
+			// Match all documents if no search terms are given
 			else {
-				luceneQuery = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get().all().createQuery();
+				luceneQuery = fullTextSession.getSearchFactory()
+						.buildQueryBuilder().forEntity(entityClass).get().all()
+						.createQuery();
 			}
 			query = fullTextSession.createFullTextQuery(luceneQuery,
 					entityClass);
 			applyFieldConstraints();
 			luceneQueryChanged = false;
+			
+			
 		}
 		query.setFirstResult(offset);
 		query.setMaxResults(limit);
@@ -185,4 +233,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return true;
 	}
 
+	private void fixQueryForNgramFilterFields() {
+		QueryBuilder qb = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get();
+		luceneQuery = luceneQuery.combine(new Query[]{luceneQuery, qb.keyword().onFields(NGramFilterFields).matching(searchTerms).createQuery()});
+	}
+		
 }
