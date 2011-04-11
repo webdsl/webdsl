@@ -147,8 +147,10 @@
  
    TemplateCallDeclaredType.4:iter-star -- _1,
    TemplateCallDeclaredType           -- _1 _2 _3 _4,
-   Action                             -- V[ H[KW["action"] _1 KW["("] _2 KW[")"]] _3 ],
+   Action                             -- V[ H[KW["action"] _1 _2 KW["("] _3 KW[")"]] _4 ],
    Action.2:iter-star-sep             -- H hs=0[_1 KW[","]],
+   Action.3:iter-star-sep             -- H hs=0[_1 KW[","]],
+   ActionModifierIgnoreValidation     -- KW["ignore-validation"],
    AjaxAction													-- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionIdParam								  -- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionNoParam									-- H[ _1 _2 KW["<<"] KW[";"]],
@@ -1265,6 +1267,7 @@
    EmailCall.2:iter-star           -- _1,
    
    RenderTemplateFunctionCall -- KW["rendertemplate"] KW["("] _1 KW[")"],
+   ValidateTemplateFunctionCall -- KW["validatetemplate"] KW["("] _1 KW[")"],
 
    TempateModSecure -- KW["secure"],
    TemplateModNotSecure -- KW["not-secure"],

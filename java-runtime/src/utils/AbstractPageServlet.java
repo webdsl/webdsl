@@ -142,25 +142,45 @@ public abstract class AbstractPageServlet{
         temp.render(emailargs, emailenv);
         return temp;
     }
-
-    //render template function
+    
+    
+    //rendertemplate function
     public String renderTemplate(String name, Object[] args, Environment env){
-        TemplateServlet temp = null;
-        try  { 
-            temp = ((TemplateServlet)env.getTemplate(name).newInstance());
-        }
-        catch(IllegalAccessException iae)
-        { 
-            System.out.println("Problem in template lookup: " + iae.getMessage());
-        }
-        catch(InstantiationException ie)
-        { 
-            System.out.println("Problem in template lookup: " + ie.getMessage());
-        }
+        return executeTemplatePhase(RENDER_PHASE, name, args, env);
+    }
+    //validatetemplate function
+    public String validateTemplate(String name, Object[] args, Environment env){
+        return executeTemplatePhase(VALIDATE_PHASE, name, args, env);
+    }
+    public static int DATABIND_PHASE = 1;
+    public static int VALIDATE_PHASE = 2;
+    public static int ACTION_PHASE = 3;
+    public static int RENDER_PHASE = 4;
+    public String executeTemplatePhase(int phase, String name, Object[] args, Environment env){
         java.io.StringWriter s = new java.io.StringWriter();
         PrintWriter out = new java.io.PrintWriter(s);
         ThreadLocalOut.push(out);
-        temp.render(args, env, null, null);
+        try{ 
+            TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
+            switch(phase){
+                case 2: temp.validateInputs(args, env, null, null); break;
+                case 4: temp.render(args, env, null, null); break;
+            }
+        }
+        catch(Exception oe){ 
+            try {
+                TemplateCall tcall = env.getWithcall(name); //'elements' or requires arg
+                TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
+                switch(phase){
+                    case 2: temp.validateInputs(tcall.args, env, null, null); break;
+                    case 4: temp.render(tcall.args, env, null, null); break;
+                }
+            }
+            catch(Exception ie){
+                oe.printStackTrace();
+                ie.printStackTrace();
+            }
+        }
         ThreadLocalOut.popChecked(out);
         return s.toString();
     }

@@ -29,7 +29,12 @@ public class Environment {
             return templates.get(key);
         }
         else{
-            return up.getTemplate(key);
+            if(up != null){
+                return up.getTemplate(key);
+            }
+            else{
+                throw new RuntimeException("template lookup failed for name: "+key);   
+            }
         }
     }
 
