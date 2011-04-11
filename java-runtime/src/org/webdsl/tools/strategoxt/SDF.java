@@ -8,15 +8,14 @@ import java.util.WeakHashMap;
 import org.spoofax.interpreter.core.InterpreterException;
 import org.spoofax.interpreter.terms.IStrategoTerm;
 import org.spoofax.interpreter.terms.TermConverter;
-import org.spoofax.jsglr.InvalidParseTableException;
-import org.spoofax.jsglr.ParseTable;
-import org.spoofax.jsglr.SGLR;
-import org.spoofax.jsglr.SGLRException;
+import org.spoofax.jsglr.client.InvalidParseTableException;
+import org.spoofax.jsglr.client.ParseTable;
+import org.spoofax.jsglr.client.SGLR;
+import org.spoofax.terms.TermFactory;
 import org.strategoxt.HybridInterpreter;
 import org.strategoxt.stratego_sglr.implode_asfix_0_0;
 import org.strategoxt.stratego_sglr.stratego_sglr;
 
-import aterm.ATerm;
 
 /**
  * @author Lennart Kats <lennart add lclnet.nl>
@@ -24,6 +23,7 @@ import aterm.ATerm;
 public class SDF {
     private static final HashMap<String, SDF> allSDF = new HashMap<String, SDF>();
     private static final HashMap<String, String> sglrErrors = new HashMap<String, String>();
+    private TermFactory factory = Environment.getTermFactory();
     
     public static HashMap<String, String> getSGLRErrors() {
         return sglrErrors;
@@ -63,7 +63,7 @@ public class SDF {
     }
     
     protected synchronized static SDF register(String language, InputStream parseTable) throws IOException, InvalidParseTableException, InterpreterException {
-        org.spoofax.jsglr.Tools.setOutput(java.io.File.createTempFile("jsglr", "log").getAbsolutePath());
+        //org.spoofax.jsglr.Tools.setOutput(java.io.File.createTempFile("jsglr", "log").getAbsolutePath());
         
         ParseTable table = Environment.loadParseTable(parseTable);
         SDF result = new SDF(table);
@@ -88,7 +88,7 @@ public class SDF {
             parseCache.put(input, parsed);
             return true;
         } catch (RuntimeException e) {
-            if(e.getCause() != null && !(e.getCause() instanceof SGLRException)){
+            if(e.getCause() != null /*&& !(e.getCause() instanceof SGLRException)*/){
                 e.printStackTrace();
             }
             return false;
@@ -96,26 +96,27 @@ public class SDF {
     }
     
     public synchronized IStrategoTerm parse(String input) {
-        try {
+        //try {
             IStrategoTerm result = parseCache.get(input);
             if (result != null) return result;
 
-            ATerm asfix = parser.parse(input, null); // TODO: start symbol?!
+            //ATerm asfix = parser.parse(input, null, null); // TODO: start symbol?!
+            return null;
 
-            result = implode(asfix);
-            parseCache.put(input, result);
-            return result;
-        } catch (IOException e) {
+            //result = implode(asfix);
+            //parseCache.put(input, result);
+            //return result;
+        /*} catch (IOException e) {
             throw new RuntimeException(e); // unexpected; fatal
         } catch (SGLRException e) {
             sglrErrors.put(input,e.getMessage()); //store error message
             throw new RuntimeException(e);
-        }
+        }*/
     }
 
-    private IStrategoTerm implode(ATerm asfix) {
-        IStrategoTerm wrappedTerm = Environment.getWrappedTermFactory().wrapTerm(asfix);
-        IStrategoTerm term = TermConverter.convert(Environment.getTermFactory(), wrappedTerm);
+    private IStrategoTerm implode(IStrategoTerm asfix) {
+        //IStrategoTerm term = factory.convert(asfix);
+    	IStrategoTerm term = asfix;
         stratego_sglr.init(imploder.getCompiledContext());
         return implode_asfix_0_0.instance.invoke(imploder.getCompiledContext(), term);
     }
