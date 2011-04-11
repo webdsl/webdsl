@@ -146,12 +146,22 @@ if [ $compile ]; then
 	curr="sep-2"
 	create 2		#only touches files that are changed
 	compile $seppath
+
+	# copy files from sep-2 to sep-3
+	cd $testdir
+	cp -r -p sep-2 sep-3
+	cd sep-3
+
+	curr="sep-3"
+	create 1
+	compile $seppath
 fi
 
 cd $testdir
 check_diff base-1 sep-1a
 check_diff sep-1a sep-1b
 check_diff base-2 sep-2
+check_diff base-1 sep-3
 
 if [ $fail ]; then
 	echo "ERROR: differences found."
