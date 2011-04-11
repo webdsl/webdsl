@@ -22,13 +22,14 @@ rules
 			?ent
 		; where(
 		  	    (x_class, body) := <get-entity-def> ent
-				; <has-no-anno(?IndexedAnno(_,_))> ent
+				; <has-no-anno(?IndexedAnno(_,_,_))> ent
        			; ourprops := <filter(is-property-cons)> body
 				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> ourprops
 				; not([] := searchable)
 				; ngramfields := <concat; flatten-list; uniq>[<bagof-NGramFields>x_class,<bagof-NGramFieldsEmbedded>x_class]
+				; untokenizedfields := <concat; flatten-list; uniq>[<bagof-UntokenizedFields>x_class,<bagof-UntokenizedFieldsEmbedded>x_class] 
 			)
-		; add-anno(|IndexedAnno(searchable,ngramfields))
+		; add-anno(|IndexedAnno(searchable,ngramfields,untokenizedfields))
 		
 	searchable-property-to-name(|x_class) :
 	    Property(name, propkind, _, anno*) -> names
@@ -36,13 +37,14 @@ rules
 	    	; searchable-annos := <filter(?SearchableAnno(_);try(add-field-name-arg(|name)))> anno*
 	    	; not(?[])
 	    with names := <map(name-from-searchable-anno)> searchable-annos
-	    	; <map(try(record-NGram-fields(|x_class)))> searchable-annos
+	    	; <map(try(record-special-fields(|x_class)))> searchable-annos
 	    	  
-    record-NGram-fields(|x_class):
+    record-special-fields(|x_class):
     	s@SearchableAnno(sa-args) -> s
     	where <fetch(?SA-Argument("analyzer", analyzer-name))> sa-args
     	; field-name := <name-from-searchable-anno> s
     	; if (<UsesNGramFilter> analyzer-name) then rules (NGramFields : x_class -> field-name) end
+    	; if (<?"no" <+ ?"null"> analyzer-name) then rules (UntokenizedFields : x_class -> field-name) end
     
     to-analyzer-name :
 		SA-Argument("analyzer", name) -> name
@@ -54,9 +56,11 @@ rules
 	    // TODO: all-properties does not return desugared version of properties, what to use? 
 	    with embeddedType := <srt-to-type> srt
 	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
-	    ;  embeddedNames := <map(embedded-name(|name))> embeddedSearchable
+	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedNGramFields :=  <bagof-NGramFields; map(embedded-name(|name))> (<srt-to-type>srt)
 	    ; <map(embeddedName:= <id>;rules(NGramFieldsEmbedded : x_class -> embeddedName))> embeddedNGramFields
+	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> (<srt-to-type>srt)	    
+		; <map(embeddedName:= <id>;rules(UntokenizedFieldsEmbedded : x_class -> embeddedName))> embeddedNGramFields
 
     name-from-searchable-anno :
     	SearchableAnno(sa-args) -> field-name

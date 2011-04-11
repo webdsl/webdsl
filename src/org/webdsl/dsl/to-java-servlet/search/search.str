@@ -11,19 +11,28 @@ imports
 
 strategies
 
-  property-to-index-annos(|x_Class) :
+  property-to-index-annos :
     Property(x, propkind, _, anno*) -> index-annos
     where not (<?Ref()<+?Comp() > propkind)
     	//; searchable-annos := <filter(is-searchable-anno;try(add-field-name-arg(|x)))> anno*
     	; searchable-annos := <filter(is-searchable-anno)> anno*
     	; not(?[])
   	with rules(CurrentAnalyzerAnnoDef := []) 
-	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno(|x_Class));flatten-list> searchable-annos)])
-	    ; analyzer-def-annos := <CurrentAnalyzerAnnoDef<+![]>
-	    ; index-annos := [fields-anno, analyzer-def-annos]
-  	  	  
+	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
+	    ; analyzer-def-annos := <(bagof-CurrentAnalyzerAnnoDef<+![]);wrap-in-analyzer-defs-anno>
+	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos]
+  	
+  	
+ wrap-in-analyzer-defs-anno:
+  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDefs")), [ElemValArrayInit(list)])
+  	where not (?[])
+ 
+  wrap-in-analyzer-defs-anno:
+  	list -> list
+  	where ?[]
+    	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
-  property-to-index-annos(|x_Class) :
+  property-to-index-annos :
     Property(x, propkind, srt, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
     where  <?Ref()<+?Comp() > propkind
     	; <fetch(?SearchableAnno(_))> anno*
@@ -39,12 +48,12 @@ strategies
   	where not (<?Ref()> propkind)
 
 
-  property-to-index-annos(|x_Class) :
+  property-to-index-annos :
     DerivedProperty(x, _, _, anno*, _) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|, analyzeranno]
     where s := <fetch-elem(?SearchableAnno(_))> anno*  
     with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
 
-  property-to-index-annos(|x_Class) :
+  property-to-index-annos :
     DerivedProperty(x, _, _, anno*, _) -> []
     where not(<fetch(?SearchableAnno(_))> anno*)
   
@@ -55,13 +64,10 @@ strategies
 
 strategies //field annotations
 	
-  searchable-to-field-anno(|x_Class) :
+  searchable-to-field-anno :
   	SearchableAnno(sa-args) -> field-anno
   	with  field-args := <map(to-java-field-arg)> sa-args
   	    ; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)
-  		// ; <fetch(?SA-Argument("name", field-name))> sa-args
-  		// ; <fetch(?SA-Argument("analyzer", analyzer-name))<+ analyzer-name := "defaultWebDSLAnalyzer"> sa-args
-  		//; if (<AnalyzerWithNGram> analyzer-name) then rules(FieldsUsingNGramFromProperty : x_Class -> field-name) end
   
   to-java-field-arg :
   	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("analyzer"),anno|[ @org.hibernate.search.annotations.Analyzer(definition="~analyzer-name") ]|)
@@ -93,7 +99,7 @@ strategies //searchconfigs, analyzers
   	SearchConfigBody(charFilters*, tokenizer, tokenFilters*) -> result
   	with mod_charFiltersDefs* := <map(to-char-filter-def)> charFilters*
   	   ; mod_tokenizerDef := <to-tokenizer-def> tokenizer
-  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def(|analyzerName))> tokenFilters*
+  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
   	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(analyzerName)])))
   	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
   	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
@@ -108,7 +114,7 @@ strategies //searchconfigs, analyzers
                               , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
                               ])
   
-  to-token-filter-def(|analyzerName):
+  to-token-filter-def:
   	TokenFilter(filtername, args) -> result
   	with  e_analyzerargs := <map(to-analyzer-arg)> args
 		; filtername' := <to-fully-qlfd-name> filtername
@@ -149,17 +155,22 @@ strategies
 		
 		public x_class#SearchQuery (){
 			entityClass = x_Class.class;
-			searchFields = new String[]{ e_sf* };
-			searchFieldsNGram = NGramFilterFields = new String[]{ e_ngff* };
+			nonNGramSearchFields = new String[]{ e_sf* };
+			nGramSearchFields = nGramFilterFields = new String[]{ e_ngff* };
+			untokenizedFields = new String[]{ e_utf* };
+			mltSearchFields = new String[]{ e_mltsf* };
 			fullTextSession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
 		}
 	}	
   	]|
     where ((x_class, _) := <get-entity-def> ent
-       ; x_props := <get-anno(?IndexedAnno(<id>,_))> ent
-       ; x_propsNgram := <get-anno(?IndexedAnno(_,<id>))> ent)
+       ; x_props := <get-anno(?IndexedAnno(<id>,_,_))> ent
+       ; x_propsNgram := <get-anno(?IndexedAnno(_,<id>,_))> ent
+       ; x_propsUntokenized := <get-anno(?IndexedAnno(_,_,<id>))> ent)
     with e_ngff* := <map(\name -> expr |[ "~name" ]| \)> x_propsNgram
        ; e_sf* := <diff>(<map(\name -> expr |[ "~name" ]| \)> x_props,e_ngff*)
+       ; e_utf* := <map(\name -> expr |[ "~name" ]| \)> x_propsUntokenized
+       ; e_mltsf* := <diff>(e_sf*,e_utf*)
        ; pkgname := <DomainPackage>
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
          
@@ -185,7 +196,7 @@ strategies
     ]|
     where (
         (x_class, _) := <get-entity-def> ent
-      ; x_props := <get-anno(?IndexedAnno(<id>,_))> ent
+      ; x_props := <get-anno(?IndexedAnno(<id>,_,_))> ent
     )
     with x := <concat-strings> ["_static_", "search", x_class]
        ; pkgname := <DomainPackage>

@@ -5,10 +5,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
-import javax.mail.search.SearchTerm;
-
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.similar.MoreLikeThis;
 import org.apache.lucene.util.Version;
@@ -17,12 +14,12 @@ import org.hibernate.search.FullTextSession;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.query.dsl.QueryBuilder;
 import org.hibernate.search.query.engine.spi.FacetManager;
-import org.hibernate.search.query.facet.*;
+import org.hibernate.search.query.facet.Facet;
+import org.hibernate.search.query.facet.FacetSortOrder;
+import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
-import org.hibernate.search.util.ScopedAnalyzer;
 import org.webdsl.WebDSLEntity;
-
 
 public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
@@ -34,13 +31,17 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected LinkedHashMap<String, String> constraints = new LinkedHashMap<String, String>();
 	protected FullTextQuery query = null;
 	protected FacetManager facetManager = null;
-	
-	//Needed to remove double quotes added when using multifieldqueryparser together with a n-gram filter
-	protected String[] NGramFilterFields = {};
-	protected String[] searchFieldsNGram = {};
-
 	protected String searchTerms = "";
-	protected String[] searchFields = {};
+
+	protected String[] nGramFilterFields;
+	protected String[] untokenizedFields;
+
+	// Needed to remove double quotes added when using MultiFieldQueryParser
+	// together with a n-gram filter
+	protected String[] nonNGramSearchFields;
+	protected String[] nGramSearchFields;
+	protected String[] mltSearchFields;
+
 	protected FullTextSession fullTextSession;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
@@ -99,23 +100,25 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(String likeText) {
 		int minWordLen = 5, maxWordLen = 30, minDocFreq = 1, minTermFreq = 2, maxQueryTerms = 3;
 		return (F) moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq,
-				minTermFreq, maxQueryTerms, searchFields);
+				minTermFreq, maxQueryTerms);
 	}
 
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(String likeText,
 			int minWordLen, int maxWordLen, int minDocFreq, int minTermFreq,
-			int maxQueryTerms, String[] fieldNames) {
+			int maxQueryTerms) {
+
 		MoreLikeThis mlt = new MoreLikeThis(getReader());
-		mlt.setFieldNames(fieldNames);
-		mlt.setAnalyzer(fullTextSession.getSearchFactory().getAnalyzer(entityClass));
+		mlt.setFieldNames(mltSearchFields);
+		mlt.setAnalyzer(fullTextSession.getSearchFactory().getAnalyzer(
+				entityClass));
 		mlt.setMinWordLen(minWordLen);
 		mlt.setMaxWordLen(maxWordLen);
 		mlt.setMinDocFreq(minDocFreq);
 		mlt.setMinTermFreq(minTermFreq);
 		mlt.setMaxQueryTerms(maxQueryTerms);
 		try {
-			Query luceneQuery = mlt.like(new StringReader(likeText));
+			luceneQuery = mlt.like(new StringReader(likeText));
 			query = fullTextSession.createFullTextQuery(luceneQuery,
 					entityClass);
 		} catch (IOException e) {
@@ -156,14 +159,22 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F fields(
 			java.util.List<String> fields) {
 		java.util.List<String> selectedNGramFields = new ArrayList<String>();
-		
-		for(int i=0 ; i<NGramFilterFields.length; i++){
-			if(fields.remove(NGramFilterFields[i])){
-				selectedNGramFields.add(NGramFilterFields[i]);
+		//compute nGramSearchFields
+		for (int i = 0; i < nGramFilterFields.length; i++) {
+			if (fields.remove(nGramFilterFields[i])) {
+				selectedNGramFields.add(nGramFilterFields[i]);
 			}
 		}
-		searchFieldsNGram = selectedNGramFields.toArray(new String[selectedNGramFields.size()]);
-		searchFields = fields.toArray(new String[fields.size()]);
+		nGramSearchFields = selectedNGramFields
+				.toArray(new String[selectedNGramFields.size()]);
+
+		nonNGramSearchFields = fields.toArray(new String[fields.size()]);
+
+		for (int i = 0; i < untokenizedFields.length; i++) {
+			fields.remove(untokenizedFields[i]);
+		}
+		mltSearchFields = fields.toArray(new String[fields.size()]);
+
 		luceneQueryChanged = true;
 		return (F) this;
 	}
@@ -200,15 +211,16 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		else
 			return new ArrayList<Facet>();
 	}
-	
+
 	private boolean validateQuery() {
 		if (luceneQueryChanged) {
 			if (!searchTerms.isEmpty()) {
 				org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(
-						luceneVersion, searchFields, fullTextSession.getSearchFactory().getAnalyzer( entityClass ));
+						luceneVersion, nonNGramSearchFields, fullTextSession
+								.getSearchFactory().getAnalyzer(entityClass));
 				try {
 					luceneQuery = parser.parse(searchTerms);
-					if (searchFieldsNGram.length > 0)
+					if (nGramSearchFields.length > 0)
 						fixQueryForNgramFilterFields();
 				} catch (org.apache.lucene.queryParser.ParseException pe) {
 					return false;
@@ -224,8 +236,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 					entityClass);
 			applyFieldConstraints();
 			luceneQueryChanged = false;
-			
-			
+
 		}
 		query.setFirstResult(offset);
 		query.setMaxResults(limit);
@@ -234,8 +245,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	private void fixQueryForNgramFilterFields() {
-		QueryBuilder qb = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get();
-		luceneQuery = luceneQuery.combine(new Query[]{luceneQuery, qb.keyword().onFields(NGramFilterFields).matching(searchTerms).createQuery()});
+		QueryBuilder qb = fullTextSession.getSearchFactory()
+				.buildQueryBuilder().forEntity(entityClass).get();
+		luceneQuery = luceneQuery.combine(new Query[] {
+				luceneQuery,
+				qb.keyword().onFields(nGramSearchFields).matching(searchTerms)
+						.createQuery() });
 	}
-		
+
 }
