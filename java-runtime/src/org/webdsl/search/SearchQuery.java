@@ -76,6 +76,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		return readerProvider.openReader(provider);
 	}
+	
+	public String terms(){
+			return this.searchTerms;
+	}
 
 	@SuppressWarnings("unchecked")
 	public java.util.List<EntityClass> list() {
@@ -196,7 +200,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	public java.util.List<Facet> facets(String field, int topN) {
-
+	
 		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession
 				.getSearchFactory().buildQueryBuilder().forEntity(entityClass)
 				.get();
@@ -207,9 +211,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 		if (validateQuery())
 			return query.getFacetManager().enableFaceting(facetReq)
-					.getFacets("facet");
-		else
+					.getFacets(field);
+		else{
 			return new ArrayList<Facet>();
+		}
 	}
 
 	private boolean validateQuery() {
