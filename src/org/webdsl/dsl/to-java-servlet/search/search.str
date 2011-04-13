@@ -12,58 +12,36 @@ imports
 strategies
 
   property-to-index-annos :
-    Property(x, propkind, _, anno*) -> index-annos
+    Property(x, propkind, _, anno*) -> <searchable-annos-to-index-annos> searchable-annos
     where not (<?Ref()<+?Comp() > propkind)
-    	//; searchable-annos := <filter(is-searchable-anno;try(add-field-name-arg(|x)))> anno*
     	; searchable-annos := <filter(is-searchable-anno)> anno*
     	; not(?[])
-  	with rules(CurrentAnalyzerAnnoDef := []) 
-	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
-	    ; analyzer-def-annos := <(bagof-CurrentAnalyzerAnnoDef<+![]);wrap-in-analyzer-defs-anno>
-	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos]
-  	
-  	
- wrap-in-analyzer-defs-anno:
-  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDefs")), [ElemValArrayInit(list)])
-  	where not (?[])
- 
-  wrap-in-analyzer-defs-anno:
-  	list -> list
-  	where ?[]
+  
+  property-to-index-annos :
+    DerivedProperty(x, _, _, anno*, _) -> <searchable-annos-to-index-annos> searchable-annos
+    where searchable-annos := <filter(is-searchable-anno)> anno*
+        ; not(?[])
     	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
   property-to-index-annos :
     Property(x, propkind, srt, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
     where  <?Ref()<+?Comp() > propkind
     	; <fetch(?SearchableAnno(_))> anno*
-
-  srt-to-type:
-  	GenericSort(_,[SimpleSort(type)]) -> type
   
-  srt-to-type:
-  	SimpleSort(type) -> type
-  	
-  is-simple-prop :
-  	p@Property(_, propkind, _, _) -> p
-  	where not (<?Ref()> propkind)
-
-
-  property-to-index-annos :
-    DerivedProperty(x, _, _, anno*, _) -> <flatten-list>[anno|[ @org.hibernate.search.annotations.Field(name="~x") ]|, analyzeranno]
-    where s := <fetch-elem(?SearchableAnno(_))> anno*  
-    with analyzeranno := <analyzer-anno-from-searchableAnno <+ ![]> s
-
-  property-to-index-annos :
-    DerivedProperty(x, _, _, anno*, _) -> []
-    where not(<fetch(?SearchableAnno(_))> anno*)
-  
-  //Other side (inverse) of embedded index field  
+  //Other side (inverse) of embedded index field needs containedin annotation 
   property-to-contained-in:
   	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
 	where <has-anno(InverseOfSearchable)> p
 
 strategies //field annotations
 	
+  searchable-annos-to-index-annos:
+  	searchable-annos -> index-annos
+  	with rules(CurrentAnalyzerAnnoDef := []) 
+	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
+	    ; analyzer-def-annos := <bagof-CurrentAnalyzerAnnoDef;flatten-list;wrap-in-analyzer-defs-anno>
+	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos]
+
   searchable-to-field-anno :
   	SearchableAnno(sa-args) -> field-anno
   	with  field-args := <map(to-java-field-arg)> sa-args
@@ -86,24 +64,19 @@ strategies //searchconfigs, analyzers
 
   create-and-record-analyzer-definition = 
   	SearchConfigFromName; analyzer-def-anno := <search-config-to-analyzer-def>; rules(CurrentAnalyzerAnnoDef :+= analyzer-def-anno)
-	
-  analyzer-anno-from-searchableAnno:
-  	SearchableAnno(x) -> [anno|[ @org.hibernate.search.annotations.Analyzer(definition="~x") ]|, analyzerDefAnno]
-  	where not(<?""> x )
-  		; analyzerDefAnno := <do-once(SearchConfigFromName; search-config-to-analyzer-def|"define analyzer")<+ ![]> x
-  	  
+  	
   search-config-to-analyzer-def:
-  	SearchConfig(name, body) -> <to-analyzer-def(|name)> body
-    
+  	SearchConfig(_,name, body) -> <to-analyzer-def(|name)> body
+
   to-analyzer-def(|analyzerName):
   	SearchConfigBody(charFilters*, tokenizer, tokenFilters*) -> result
-  	with mod_charFiltersDefs* := <map(to-char-filter-def)> charFilters*
-  	   ; mod_tokenizerDef := <to-tokenizer-def> tokenizer
-  	   ; mod_tokenFilterDefs* := <map(to-token-filter-def)> tokenFilters*
+  	with charFiltersDef* := <map(to-char-filter-def)> charFilters*
+  	   ; tokenizerDef := <to-tokenizer-def> tokenizer
+  	   ; tokenFilterDef* := <map(to-token-filter-def)> tokenFilters*
   	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(analyzerName)])))
-  	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(mod_charFiltersDefs*))
-  	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), mod_tokenizerDef)
-  	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(mod_tokenFilterDefs*))
+  	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(charFiltersDef*))
+  	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), tokenizerDef)
+  	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(tokenFilterDef*))
   	   ; result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg])     
 
   to-tokenizer-def:
@@ -138,6 +111,14 @@ strategies //searchconfigs, analyzers
   	with
   		if (<string-starts-with(|String("org.apache.solr.analysis."))>name) then name' := name
   		else name' := <conc-strings>("org.apache.solr.analysis.",name) end
+  		
+  wrap-in-analyzer-defs-anno:
+  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDefs")), [ElemValArrayInit(list)])
+  	where not (?[])
+ 
+  wrap-in-analyzer-defs-anno:
+  	list -> list
+  	where ?[]
 
 strategies
 

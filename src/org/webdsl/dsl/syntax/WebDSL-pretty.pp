@@ -153,8 +153,10 @@
  
    TemplateCallDeclaredType.4:iter-star -- _1,
    TemplateCallDeclaredType           -- _1 _2 _3 _4,
-   Action                             -- V[ H[KW["action"] _1 KW["("] _2 KW[")"]] _3 ],
+   Action                             -- V[ H[KW["action"] _1 _2 KW["("] _3 KW[")"]] _4 ],
    Action.2:iter-star-sep             -- H hs=0[_1 KW[","]],
+   Action.3:iter-star-sep             -- H hs=0[_1 KW[","]],
+   ActionModifierIgnoreValidation     -- KW["ignore-validation"],
    AjaxAction													-- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionIdParam								  -- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionNoParam									-- H[ _1 _2 KW["<<"] KW[";"]],
@@ -806,7 +808,7 @@
    XMLEmptyElement.2:iter-star                  -- _1,
 
 %% Search
-   SearchConfig				 -- V[V is=2[H[KW["searchconfig"] _1 KW["{"]] _2] KW["}"]],
+   SearchConfig				 -- V[V is=2[H[_1 KW["searchconfig"] _2 KW["{"]] _3] KW["}"]],
    SearchConfigBody			 -- V[_1 _2 _3],
    SearchConfigBody.1:iter-star -- V[_1],
    SearchConfigBody.2:opt 		-- V[_1],
@@ -820,7 +822,7 @@
    TokenFilter				 -- H hs=1 [KW["tokenfilter"] KW["="] _1 KW["("] _2 KW[")"]],
    TokenFilter.3:iter-star	 -- _1,
    TokenFilterNoArgs		 -- H hs=1 [KW["tokenfilter"] KW["="] _1],
-   Argument					 -- H hs=1 [_1 KW["="] _2],
+   SA-Argument				 -- H hs=1 [_1 KW["="] _2],
 
 %% Webdsl-Regex
 
@@ -1287,6 +1289,7 @@
    EmailCall.2:iter-star           -- _1,
    
    RenderTemplateFunctionCall -- KW["rendertemplate"] KW["("] _1 KW[")"],
+   ValidateTemplateFunctionCall -- KW["validatetemplate"] KW["("] _1 KW[")"],
 
    TempateModSecure -- KW["secure"],
    TemplateModNotSecure -- KW["not-secure"],

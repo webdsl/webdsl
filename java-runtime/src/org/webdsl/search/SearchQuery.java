@@ -69,16 +69,69 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				.setParameter("field", field).setParameter("value", value);
 	}
 
+	public java.util.List<Facet> facets(String field, int topN) {
+	
+		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession
+				.getSearchFactory().buildQueryBuilder().forEntity(entityClass)
+				.get();
+		FacetingRequest facetReq = builder.facet().name("facet_" + field).onField(field)
+				.discrete().orderedBy(FacetSortOrder.COUNT_DESC)
+				.includeZeroCounts(false).maxFacetCount(topN)
+				.createFacetingRequest();
+
+		if (validateQuery())
+			return query.getFacetManager().enableFaceting(facetReq)
+					.getFacets("facet_" + field);
+		else{
+			return new ArrayList<Facet>();
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F fields(
+			java.util.List<String> fields) {
+		java.util.List<String> selectedNGramFields = new ArrayList<String>();
+		//compute nGramSearchFields
+		for (int i = 0; i < nGramFilterFields.length; i++) {
+			if (fields.remove(nGramFilterFields[i])) {
+				selectedNGramFields.add(nGramFilterFields[i]);
+			}
+		}
+		nGramSearchFields = selectedNGramFields
+				.toArray(new String[selectedNGramFields.size()]);
+
+		nonNGramSearchFields = fields.toArray(new String[fields.size()]);
+
+		for (int i = 0; i < untokenizedFields.length; i++) {
+			fields.remove(untokenizedFields[i]);
+		}
+		mltSearchFields = fields.toArray(new String[fields.size()]);
+
+		luceneQueryChanged = true;
+		return (F) this;
+	}
+
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
+		this.offset = offset;
+		return (F) this;
+	}
+
+	private void fixQueryForNgramFilterFields() {
+		QueryBuilder qb = fullTextSession.getSearchFactory()
+				.buildQueryBuilder().forEntity(entityClass).get();
+		luceneQuery = luceneQuery.combine(new Query[] {
+				luceneQuery,
+				qb.keyword().onFields(nGramSearchFields).matching(searchTerms)
+						.createQuery() });
+	}
+
 	private IndexReader getReader() {
 		SearchFactory searchFactory = fullTextSession.getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
 				.getDirectoryProviders(entityClass)[0];
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		return readerProvider.openReader(provider);
-	}
-	
-	public String terms(){
-			return this.searchTerms;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -93,11 +146,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return new ArrayList<EntityClass>();
 	}
 
-	public int resultSize() {
-		if (validateQuery())
-			return query.getResultSize();
-		else
-			return -1;
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F maxResults(int limit) {
+		this.limit = limit;
+		return (F) this;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -133,6 +185,22 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(Facet facet) {
+
+		String facetName = facet.getFieldName();
+		query.getFacetManager().getFacetGroup(facetName).selectFacets(facet);
+
+		return (F) this;
+	}
+
+	public int resultSize() {
+		if (validateQuery())
+			return query.getResultSize();
+		else
+			return -1;
+	}
+
 	public String searchTimeAsString() {
 
 		return searchTime + " ms.";
@@ -147,40 +215,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (float) (searchTime / 1000);
 	}
 
-	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
-		this.offset = offset;
-		return (F) this;
-	}
-
-	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F maxResults(int limit) {
-		this.limit = limit;
-		return (F) this;
-	}
-
-	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F fields(
-			java.util.List<String> fields) {
-		java.util.List<String> selectedNGramFields = new ArrayList<String>();
-		//compute nGramSearchFields
-		for (int i = 0; i < nGramFilterFields.length; i++) {
-			if (fields.remove(nGramFilterFields[i])) {
-				selectedNGramFields.add(nGramFilterFields[i]);
-			}
-		}
-		nGramSearchFields = selectedNGramFields
-				.toArray(new String[selectedNGramFields.size()]);
-
-		nonNGramSearchFields = fields.toArray(new String[fields.size()]);
-
-		for (int i = 0; i < untokenizedFields.length; i++) {
-			fields.remove(untokenizedFields[i]);
-		}
-		mltSearchFields = fields.toArray(new String[fields.size()]);
-
-		luceneQueryChanged = true;
-		return (F) this;
+	public String terms(){
+			return this.searchTerms;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -188,33 +224,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		searchTerms = terms;
 		luceneQueryChanged = true;
 		return (F) this;
-	}
-
-	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(Facet facet) {
-
-		String facetName = facet.getFieldName();
-		query.getFacetManager().getFacetGroup(facetName).selectFacets(facet);
-
-		return (F) this;
-	}
-
-	public java.util.List<Facet> facets(String field, int topN) {
-	
-		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession
-				.getSearchFactory().buildQueryBuilder().forEntity(entityClass)
-				.get();
-		FacetingRequest facetReq = builder.facet().name(field).onField(field)
-				.discrete().orderedBy(FacetSortOrder.COUNT_DESC)
-				.includeZeroCounts(false).maxFacetCount(topN)
-				.createFacetingRequest();
-
-		if (validateQuery())
-			return query.getFacetManager().enableFaceting(facetReq)
-					.getFacets(field);
-		else{
-			return new ArrayList<Facet>();
-		}
 	}
 
 	private boolean validateQuery() {
@@ -247,15 +256,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		query.setMaxResults(limit);
 
 		return true;
-	}
-
-	private void fixQueryForNgramFilterFields() {
-		QueryBuilder qb = fullTextSession.getSearchFactory()
-				.buildQueryBuilder().forEntity(entityClass).get();
-		luceneQuery = luceneQuery.combine(new Query[] {
-				luceneQuery,
-				qb.keyword().onFields(nGramSearchFields).matching(searchTerms)
-						.createQuery() });
 	}
 
 }
