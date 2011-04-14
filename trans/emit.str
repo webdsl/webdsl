@@ -3,12 +3,18 @@ module emit
 imports libstratego-aterm libstratego-gpp
 imports include/nwl read rename
 
-rules // desugared builder
+signature constructors
+  
+  EmittedBy : Term -> Term  
+
+rules
     
   ignore-dr-tracking = ?"Emit"
     
   emit: def -> def
-    with rules(Emit :+= def)
+    with
+      key := <CurrentDefinitionKey <+ !"">;
+      rules(Emit :+= (key, def))
     
   retrieve-emits =
     bagof-Emit;
@@ -16,8 +22,18 @@ rules // desugared builder
   
   add-emits =
     with( retrieve-emits;
-          map(store-def(|<new-emit-mod-name>))
+          map({
+            ?(defkey,def);
+            if not("" := defkey) then
+              mod := <defkey-to-mod> defkey;
+              <store-def(|mod,defkey)> def
+            else
+              <store-def(|<new-emit-mod-name>)> def
+            end
+          })
         )
+        
+  add-anno(|anno): x{anno*} -> x{anno, anno*}
       
   emit-mod-name = !"___EMITTED___"
           
@@ -27,4 +43,3 @@ rules // desugared builder
     
   is-emit-mod = where(string-starts-with(|<emit-mod-name>))
   
-    

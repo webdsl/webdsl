@@ -21,11 +21,10 @@ rules
   map-defs(s) =
     all-keys-Definition;
     filter(where(Definition)); // skip deleted
-    // TODO: fix scoping
-    map(//{| CurrentDefinitionKey: 
+    map({| CurrentDefinitionKey: 
       {def:
         \key -> <rules(CurrentDefinitionKey := key); Definition; s> key \}
-      /*|}*/)
+      |})
   
   remove-defs(s) =
     all-keys-Definition;
@@ -68,15 +67,24 @@ rules
           defs2* := <filter(?AccessControlDefinition(<id>)); concat> defs;
           new-defs := [defs1*, defs2*]
 
-  store-def(|modname): def -> key
-    with  key := <def-to-key> (modname, def);
-          rules(
+  store-def-with-key(|modname,key): def -> def
+    with  rules(
             Definition : key -> def
             DefinitionLoaded : key
             DefToModule : key -> modname
             // TODO: ModuleToDef is undefined for empty modules!
             ModuleToDef :+ modname -> key 
           )
+  
+  store-def(|modname,origin-key): def -> key'
+    with  (origin-mod, origin-elem) := origin-key;
+          elem' := <concat-strings; newid> [origin-elem, "_emit"];
+          key' := (origin-mod, elem'){EmittedBy(origin-key)};
+          <store-def-with-key(|modname,key')> def
+
+  store-def(|modname): def -> key
+    with  key := <def-to-key> (modname, def);
+          <store-def-with-key(|modname,key)> def
   
   key-to-string: (modname, key) -> $[[modname]_[key]]
   
