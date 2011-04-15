@@ -8,6 +8,8 @@ import java.util.LinkedHashMap;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.similar.MoreLikeThis;
+import org.apache.lucene.search.spell.LuceneDictionary;
+import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.util.Version;
 import org.hibernate.search.FullTextQuery;
 import org.hibernate.search.FullTextSession;
@@ -21,9 +23,11 @@ import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
+import edu.emory.mathcs.backport.java.util.Arrays;
+
 public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
-	protected final Version luceneVersion = Version.LUCENE_30;
+	protected final Version luceneVersion = Version.LUCENE_31;
 	protected int limit = 100;
 	protected int offset = 0;
 	protected boolean luceneQueryChanged = true;
@@ -36,8 +40,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected String[] nGramFilterFields;
 	protected String[] untokenizedFields;
 
-	// Needed to remove double quotes added when using MultiFieldQueryParser
-	// together with a n-gram filter
+	// In case of a field with n-gram filter, the MultiFieldQueryParser adds double quotes around the search tokens (ngrams)
+	// These need to be removed to work properly.
 	protected String[] nonNGramSearchFields;
 	protected String[] nGramSearchFields;
 	protected String[] mltSearchFields;
@@ -68,7 +72,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		query.enableFullTextFilter("fieldConstraintFilter")
 				.setParameter("field", field).setParameter("value", value);
 	}
-
+	
+	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
 	public java.util.List<Facet> facets(String field, int topN) {
 	
 		org.hibernate.search.query.dsl.QueryBuilder builder = fullTextSession
@@ -82,9 +87,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if (validateQuery())
 			return query.getFacetManager().enableFaceting(facetReq)
 					.getFacets("facet_" + field);
-		else{
+		else
 			return new ArrayList<Facet>();
-		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -157,6 +161,21 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		int minWordLen = 5, maxWordLen = 30, minDocFreq = 1, minTermFreq = 2, maxQueryTerms = 3;
 		return (F) moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq,
 				minTermFreq, maxQueryTerms);
+	}
+	
+	public ArrayList<String> suggestTerms (String toSuggestOn, String field){
+		try {
+			searchTime = System.currentTimeMillis();
+			SpellChecker spell = new SpellChecker(fullTextSession.getSearchFactory().getDirectoryProviders(entityClass)[0].getDirectory());
+			spell.indexDictionary(new LuceneDictionary(getReader(), field));
+			ArrayList<String> suggestions = new ArrayList<String>(Arrays.asList(spell.suggestSimilar(toSuggestOn, 5)));
+			searchTime = System.currentTimeMillis() - searchTime;
+			return suggestions;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return new ArrayList<String>();
+		}
+		
 	}
 
 	@SuppressWarnings("unchecked")
