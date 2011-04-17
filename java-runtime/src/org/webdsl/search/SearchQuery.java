@@ -3,9 +3,11 @@ package org.webdsl.search;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.queryParser.MultiFieldQueryParser;
+import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.similar.MoreLikeThis;
 import org.apache.lucene.search.spell.LuceneDictionary;
@@ -31,11 +33,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected int limit = 100;
 	protected int offset = 0;
 	protected boolean luceneQueryChanged = true;
+	protected boolean isNGramFieldBoosted = false;
 	protected Query luceneQuery = null;
-	protected LinkedHashMap<String, String> constraints = new LinkedHashMap<String, String>();
+	protected HashMap<String, String> constraints = new HashMap<String, String>();
 	protected FullTextQuery query = null;
 	protected FacetManager facetManager = null;
 	protected String searchTerms = "";
+	protected HashMap<String,Float> boosts = new HashMap<String, Float>();
 
 	protected String[] nGramFilterFields;
 	protected String[] untokenizedFields;
@@ -68,6 +72,20 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			enableFieldConstraintFilter(field, constraints.get(field));
 	}
 
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F boost(String field, Float boost) {
+		if (boosts.containsKey(field)){
+			boosts.remove(field);
+		}
+		
+		for(int i=0; i<nGramSearchFields.length && !isNGramFieldBoosted; isNGramFieldBoosted = field.equals(nGramSearchFields[i++])){}
+
+		boosts.put(field, boost);
+		
+		luceneQueryChanged = true;
+		return (F) this;
+	}
+	
 	private void enableFieldConstraintFilter(String field, String value) {
 		query.enableFullTextFilter("fieldConstraintFilter")
 				.setParameter("field", field).setParameter("value", value);
@@ -123,11 +141,22 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	private void fixQueryForNgramFilterFields() {
 		QueryBuilder qb = fullTextSession.getSearchFactory()
-				.buildQueryBuilder().forEntity(entityClass).get();
-		luceneQuery = luceneQuery.combine(new Query[] {
-				luceneQuery,
-				qb.keyword().onFields(nGramSearchFields).matching(searchTerms)
-						.createQuery() });
+		.buildQueryBuilder().forEntity(entityClass).get();
+		
+		if(!isNGramFieldBoosted){
+			luceneQuery = luceneQuery.combine(new Query[] {
+					luceneQuery,
+					qb.keyword().onFields(nGramSearchFields).matching(searchTerms)
+							.createQuery() });
+		} else {
+			for(int i=0; i<nGramSearchFields.length; i++){
+				if(boosts.containsKey(nGramSearchFields[i]))
+					luceneQuery = luceneQuery.combine(new Query[] {luceneQuery,	qb.keyword().onField(nGramSearchFields[i]).boostedTo(boosts.get(nGramSearchFields[i])).matching(searchTerms).createQuery() });
+				else
+					luceneQuery = luceneQuery.combine(new Query[] {luceneQuery,	qb.keyword().onField(nGramSearchFields[i]).matching(searchTerms).createQuery() });
+			}
+		}
+		
 	}
 
 	private IndexReader getReader() {
@@ -163,21 +192,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				minTermFreq, maxQueryTerms);
 	}
 	
-	public ArrayList<String> suggestTerms (String toSuggestOn, String field){
-		try {
-			searchTime = System.currentTimeMillis();
-			SpellChecker spell = new SpellChecker(fullTextSession.getSearchFactory().getDirectoryProviders(entityClass)[0].getDirectory());
-			spell.indexDictionary(new LuceneDictionary(getReader(), field));
-			ArrayList<String> suggestions = new ArrayList<String>(Arrays.asList(spell.suggestSimilar(toSuggestOn, 5)));
-			searchTime = System.currentTimeMillis() - searchTime;
-			return suggestions;
-		} catch (IOException e) {
-			e.printStackTrace();
-			return new ArrayList<String>();
-		}
-		
-	}
-
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(String likeText,
 			int minWordLen, int maxWordLen, int minDocFreq, int minTermFreq,
@@ -234,6 +248,21 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (float) (searchTime / 1000);
 	}
 
+	public ArrayList<String> suggestTerms (String toSuggestOn, String field){
+		try {
+			searchTime = System.currentTimeMillis();
+			SpellChecker spell = new SpellChecker(fullTextSession.getSearchFactory().getDirectoryProviders(entityClass)[0].getDirectory());
+			spell.indexDictionary(new LuceneDictionary(getReader(), field));
+			ArrayList<String> suggestions = new ArrayList<String>(Arrays.asList(spell.suggestSimilar(toSuggestOn, 5)));
+			searchTime = System.currentTimeMillis() - searchTime;
+			return suggestions;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return new ArrayList<String>();
+		}
+		
+	}
+
 	public String terms(){
 			return this.searchTerms;
 	}
@@ -247,26 +276,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	private boolean validateQuery() {
 		if (luceneQueryChanged) {
-			if (!searchTerms.isEmpty()) {
-				org.apache.lucene.queryParser.QueryParser parser = new org.apache.lucene.queryParser.MultiFieldQueryParser(
-						luceneVersion, nonNGramSearchFields, fullTextSession
-								.getSearchFactory().getAnalyzer(entityClass));
-				try {
-					luceneQuery = parser.parse(searchTerms);
-					if (nGramSearchFields.length > 0)
-						fixQueryForNgramFilterFields();
-				} catch (org.apache.lucene.queryParser.ParseException pe) {
-					return false;
-				}
-			}
-			// Match all documents if no search terms are given
-			else {
-				luceneQuery = fullTextSession.getSearchFactory()
-						.buildQueryBuilder().forEntity(entityClass).get().all()
-						.createQuery();
-			}
-			query = fullTextSession.createFullTextQuery(luceneQuery,
-					entityClass);
+			if(!createMultiFieldQuery())
+				return false;
 			applyFieldConstraints();
 			luceneQueryChanged = false;
 
@@ -276,5 +287,34 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 		return true;
 	}
-
+	
+	private boolean createMultiFieldQuery(){
+		if (!searchTerms.isEmpty()) {
+			
+			QueryParser parser;
+			
+			if(boosts.isEmpty()) {
+				parser = new MultiFieldQueryParser(	luceneVersion, nonNGramSearchFields, fullTextSession.getSearchFactory().getAnalyzer(entityClass));
+			} else {
+				parser = new MultiFieldQueryParser(	luceneVersion, nonNGramSearchFields, fullTextSession.getSearchFactory().getAnalyzer(entityClass), boosts);
+			}
+			
+			try {
+				luceneQuery = parser.parse(searchTerms);
+				if (nGramSearchFields.length > 0)
+					fixQueryForNgramFilterFields();
+			} catch (org.apache.lucene.queryParser.ParseException pe) {
+				return false;
+			}
+		}
+		// Match all documents if no search terms are given
+		else {
+			luceneQuery = fullTextSession.getSearchFactory()
+					.buildQueryBuilder().forEntity(entityClass).get().all()
+					.createQuery();
+		}
+		query = fullTextSession.createFullTextQuery(luceneQuery,
+				entityClass);
+		return true;
+	}		
 }

@@ -54,11 +54,11 @@
    SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
-   SearchableAnno					  -- _1 KW["~"] _2,
+   SearchableAnno					  -- _1 KW["*"] _2,
    SearchableAnno					  -- KW["searchable"],
    SearchableAnno					  -- KW["searchable"] KW["("] _1 KW[")"],
    SearchableAnno.1:iter-star-sep     -- H hs=0[_1 KW[","]],
-   SearchableAnnoBoost				  -- _1 KW["~"] _2,
+   SearchableAnnoBoost				  -- _1 KW["*"] _2,
    SA-Argument						  -- H hs=0[_1 KW["="] _2],
    
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
