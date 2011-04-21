@@ -1,8 +1,15 @@
 package org.webdsl;
 
 import java.io.Serializable;
+import java.util.List;
 
-public interface WebDSLEntity extends Serializable {
+/*
+ * The T type argument is a workaround to allow return types of the implementation
+ * of functions like all_() to be more specific than List<WebDSLEntity>.
+ */
+
+@SuppressWarnings("rawtypes")
+public interface WebDSLEntity<T extends WebDSLEntity> extends Serializable {
     boolean isInstance(Class<?> c);
     public boolean instanceOf(String s);
     public Object getId();
@@ -12,4 +19,5 @@ public interface WebDSLEntity extends Serializable {
     public String getName();
     public void validateSave();
     public boolean isChanged();
+    public List<T> all_();
 }

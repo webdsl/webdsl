@@ -25,6 +25,8 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.parseDate as parseDateTime(String):DateTime
     utils.DateType.parseDate as parseTime(String):Time
     org.apache.commons.lang.StringEscapeUtils.escapeJavaScript as escapeJavaScript():String
+    substring(Int):String
+    substring(Int,Int):String
   }
   
   type Secret {
@@ -826,9 +828,12 @@ module .servletapp/src-webdsl-template/built-in
         if(tmphidden!=null && tmp!=null || tmphidden==null && e in set){
           checked="true"  
         }
+        id=tname+e.id
         all attributes
       />
-      output(e.name)
+      <label for=tname+e.id>
+        output(e.name)
+      </label>
     </div>
     databind{
       if(tmphidden != null && tmp != null){ tmpset.add(e); }
@@ -2293,7 +2298,16 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
  
+  define inputajax(set:Ref<Set<Entity>>){
+    checkboxselectajax(set,set.getAllowed())[all attributes]{elements()}
+  }
   define inputajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    checkboxselectajax(set,from)[all attributes]{elements()}
+  }
+  define checkboxselectajax(set:Ref<Set<Entity>>){
+    checkboxselectajax(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define checkboxselectajax(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
@@ -2329,7 +2343,54 @@ module .servletapp/src-webdsl-template/built-in
       rollback();
     }
   }  
+  define selectajax(ent : Ref<Set<Entity>>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define selectajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputSelectMultipleInternal(set,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := set.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
 
+  define inputajax(ent:Ref<Entity>){
+    selectajax(ent, ent.getAllowed())[all attributes]{elements()}
+  }
+  define inputajax(ent:Ref<Entity>, from : List<Entity>){
+    selectajax(ent,from)[all attributes]{elements()}
+  }
+  define selectajax(ent : Ref<Entity>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
   define selectajax(ent : Ref<Entity>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
@@ -2366,11 +2427,14 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
   
-  define selectajax(set:Ref<Set<Entity>>, from : List<Entity>){
+  define inputajax(ent : Ref<List<Entity>>){
+    inputajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }  
+  define inputajax(list:Ref<List<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputSelectMultipleInternal(set,from,tname)[onchange=validator(), all attributes]
+    inputListInternal(list,from,tname)[onchange=validator(), all attributes]
     validate{ getPage().enterLabelContext(tname); } 
     elements() 
     validate{ getPage().leaveLabelContext();}
@@ -2380,14 +2444,14 @@ module .servletapp/src-webdsl-template/built-in
       }
     }
     validate{
-      errors := set.getValidationErrors();
+      errors := list.getValidationErrors();
       errors.addAll(getPage().getValidationErrorsByName(tname));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
-      errors := set.getValidationErrors();
+      errors := list.getValidationErrors();
       getPage().enterLabelContext(tname); 
       validatetemplate(elements());
       getPage().leaveLabelContext();
@@ -2402,6 +2466,9 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
     
+  define radioajax(ent : Ref<Entity>){
+    radioajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }   
   define radioajax(ent1 : Ref<Entity>, ent2 : List<Entity>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)

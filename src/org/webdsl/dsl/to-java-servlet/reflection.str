@@ -39,16 +39,16 @@ rules
   all-entity-to-init-reflect =
       bagof-AllEntities
     ; {| EntityDef:
-	      map({
-	          where(get-entity-def => (name,_))
-	        ; ?def
-	        ; rules(EntityDef : name -> def)
-	      })
-	    ; all-keys-EntityDef
-	    ; string-sort
-	    ; map(EntityDef; entity-to-init-reflect)
-	  |}
-	  ; concat
+        map({
+            where(get-entity-def => (name,_))
+          ; ?def
+          ; rules(EntityDef : name -> def)
+        })
+      ; all-keys-EntityDef
+      ; string-sort
+      ; map(EntityDef; entity-to-init-reflect)
+    |}
+    ; concat
     
   entity-to-init-reflect : Entity(x,_,ebds){anno*} -> <entity-to-init-reflect-aux> (x,ebds,anno*)
   entity-to-init-reflect : EntityNoSuper(x,ebds){anno*} -> <entity-to-init-reflect-aux> (x,ebds,anno*)
@@ -61,21 +61,26 @@ rules
       bstm* 
       ReflectionEntity.add(ent);
     ]|
-    with bstm* := <filter(is-property-cons; property-to-init-reflect)> ebds
+    with  t_entjtype := <java-type-entity> x
+        ; bstm* := <filter(is-property-cons; property-to-init-reflect(|t_entjtype))> ebds
         ; if <fetch(?HasViewPage())> anno*
           then e_viewpage := java:expr|[ true ]|
           else e_viewpage := java:expr|[ false ]| end
     
-  property-to-init-reflect :
+  property-to-init-reflect(|t_entjtype) :
     p -> bstm|[ 
-      ent.getProperties().add(new ReflectionProperty("~x", e_notnull, e_format));
+      ent.getProperties().add(new ReflectionProperty<t_entjtype, t_type>("~x", e_notnull, e_format){ ~*cbd_allowed*  });
     ]|
     with  x := <get-property-name> p
         ; annos := <get-property-annos> p
+        ; t_type := <get-property-type; try-strip-generic-sort; java-type> p
         ; if <fetch(?NotNullAnno())> annos
           then e_notnull := java:expr|[ true ]|
           else e_notnull := java:expr|[ false ]| end
         ; if <fetch(?FormatAnno(x_format))> annos
           then e_format := java:expr|[ x_format ]| //java:expr|[ "~x_format" ]|
           else e_format := java:expr|[ null ]| end
+        ; if  Ref() := <get-property-kind> p
+          then cbd_allowed* := [java:class-body-dec|[ public List<t_type> getAllowed(t_entjtype arg){ return arg.allowed#x#_(); } ]| ]
+          else cbd_allowed* := [] end
           
