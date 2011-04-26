@@ -77,6 +77,29 @@ rules
  *  'allowed=exp' annotation
  */
 rules
+/*
+  extend-property-declare(|x_class) :
+    prop -> <fail> //each extend must fail so they all get evaluated
+    where get-property-annos; fetch(?AllowedAnno(e1))
+    with x_name := <get-property-name; allowed-collection-function-name> prop
+       ; srt := <get-property-type; try-strip-generic-sort> prop
+       ; <declare-function(|x_class)> 
+           fun |[ 
+             function x_name():List<srt> { } 
+           ]|
+*/
+
+  extend-property-declare(|x_class) :
+    prop -> <fail> //each extend must fail so they all get evaluated
+    where Ref() := <get-property-kind> prop
+    with x_name := <get-property-name; allowed-collection-function-name> prop
+       ; srt := <get-property-type; try-strip-generic-sort> prop
+       ; <declare-function(|x_class)> 
+           fun |[ 
+             function x_name():List<srt> { } 
+           ]|
+
+rules
 
   /*
    * if it was input(Var) instead of input(FieldAccess), then there cannot be an allowed annotation
@@ -145,8 +168,9 @@ rules
 
   not-translated-allowed-anno : 
     prop@Property(x, k, srt, annos) -> prop
-    where <fetch(?AllowedAnno(e1))> annos
-        ; <not(fetch(AllowedAnnotationFunctionGenerated))> annos
+    where /*<fetch(?AllowedAnno(e1))> annos
+        ; */<not(fetch(AllowedAnnotationFunctionGenerated))> annos
+        ; Ref() := k
 
   get-all-function-allowed-annotation(|x_class):
     entbodydecs1 -> entbodydecs2
@@ -160,15 +184,15 @@ rules
     (Property(x, k, srt, [AllowedAnnotationFunctionGenerated()|annos])
     ,result)
     where not-translated-allowed-anno
-    with  <fetch(?AllowedAnno(e1))> annos
+    with  srt1@SimpleSort(sortname) := <try-strip-generic-sort> srt
+        ; (<fetch(?AllowedAnno(e1))> annos <+ e1 := Call(Var(sortname),"all",[]))
         ; x_name := <allowed-collection-function-name> x
-        ; srt_typeofcol := <type-of> e1
         ; result := 
             fun |[ 
-              function x_name():srt_typeofcol { return e1; } 
+              function x_name():List<srt1> { return e1; } 
             ]|
      
-  allowed-collection-function-name : x -> <concat-strings> ["allowedCollectionForProperty",<capitalize-string> x]   
+  allowed-collection-function-name : x -> <concat-strings> ["allowed",<capitalize-string> x]   
   
   rules //translate select to input(Set/List/Entity)
               
