@@ -11,8 +11,13 @@ rules
 
   desugar-search:
 	p@Property(name,propkind,srt,anno*) -> Property(name,propkind,srt,anno')
-	where(<fetch(anno-needs-desugaring)> anno*
-	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno*)
+	where(<is-numeric> srt; debug(!"HIER KOMEN WE: "); <fetch(anno-needs-desugaring)> anno*)		
+	with anno' := <map(try(desugar-searchable-anno-num(|name)))> anno*
+	   
+  desugar-search:
+	p@Property(name,propkind,srt,anno*) -> Property(name,propkind,srt,anno')
+	where(not(<is-numeric> srt); <fetch(anno-needs-desugaring)> anno*
+	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno*)   
 
   desugar-search:
 	p@DerivedProperty(name, propkind, srt, anno*, e) -> DerivedProperty(name, propkind, srt, anno', e)
@@ -41,14 +46,14 @@ rules
   	where not (<string-ends-with(|"Factory")> name)
   		; name' := <concat-strings> [name,"Factory"]
   	
+  desugar-searchable-anno-num(|name)=
+  	num-default-untokenized(|name) <+ desugar-searchable-anno(|name)
+  	
   desugar-searchable-anno(|name):
-    SearchableAnno() -> SearchableAnno([SA-Argument("name", name),SA-Argument("analyzer", "default")])
+    SearchableAnno() -> SearchableAnno([SA-Argument("name", name)])
 
   desugar-searchable-anno(|name):
-    SearchableAnno -> SearchableAnno([SA-Argument("name", name),SA-Argument("analyzer", "default")])	
-
-  desugar-searchable-anno(|name):
-  	SearchableAnno() -> SearchableAnno([SA-Argument("name", name),SA-Argument("analyzer", "default")])
+    SearchableAnno -> SearchableAnno([SA-Argument("name", name)])	
 
   desugar-searchable-anno(|name):
   	SearchableAnnoBoost(SearchableAnno(sa-args),boost) -> SearchableAnno([SA-Argument("boost", boost) | sa-args])
@@ -63,7 +68,14 @@ rules
  desugar-searchable-anno(|name):
   	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "default") | sa-args])
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
+ 
+ num-default-untokenized(|name):
+ 	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no"), SA-Argument("numeric", "") | sa-args])
+  	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
   
   anno-needs-desugaring= ?SearchableAnno()
   anno-needs-desugaring= ?SearchableAnno(sa-args);not (<fetch(?SA-Argument("name", _))> sa-args;<fetch(?SA-Argument("analyzer", _))> sa-args)
   anno-needs-desugaring= ?SearchableAnnoBoost(_,_)
+  
+  is-numeric = ?SimpleSort("Int")
+  is-numeric = ?SimpleSort("Float")

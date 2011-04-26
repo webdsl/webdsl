@@ -12,13 +12,13 @@ imports
 strategies
 
   property-to-index-annos :
-    Property(x, propkind, _, anno*) -> <searchable-annos-to-index-annos> searchable-annos
+    Property(x, propkind, type, anno*) -> <searchable-annos-to-index-annos> searchable-annos
     where not (<?Ref()<+?Comp() > propkind)
     	; searchable-annos := <filter(is-searchable-anno)> anno*
     	; not(?[])
   
   property-to-index-annos :
-    DerivedProperty(x, _, _, anno*, _) -> <searchable-annos-to-index-annos> searchable-annos
+    DerivedProperty(x, _, type, anno*, _) -> <searchable-annos-to-index-annos> searchable-annos
     where searchable-annos := <filter(is-searchable-anno)> anno*
         ; not(?[])
     	  
@@ -40,11 +40,12 @@ strategies //field annotations
   	with rules(CurrentAnalyzerAnnoDef := []) 
 	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
 	    ; analyzer-def-annos := <bagof-CurrentAnalyzerAnnoDef;flatten-list;wrap-in-analyzer-defs-anno>
-	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos]
+	    ; numeric-field-annos := <filter(to-numeric-field-anno);wrap-in-numeric-fields-anno> searchable-annos
+	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos, numeric-field-annos]
 
   searchable-to-field-anno :
   	SearchableAnno(sa-args) -> field-anno
-  	with  field-args := <map(to-java-field-arg)> sa-args
+  	with  field-args := <filter(to-java-field-arg)> sa-args
   	    ; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)
   
   to-java-field-arg :
@@ -62,7 +63,19 @@ strategies //field annotations
   to-java-field-arg :
   	SA-Argument("boost", field-boost) -> ElemValPair(Id("boost"),anno|[ @org.hibernate.search.annotations.Boost(e_boost) ]|) 
   	with e_boost := expr |[ ~float:Float(<concat-strings> [field-boost,"f"]) ]| 	
+  
+  to-numeric-field-anno:
+  	SearchableAnno(sa-args) -> anno|[ @org.hibernate.search.annotations.NumericField(forField = "~field-name") ]|
+  	where <fetch(?SA-Argument("numeric",_))> sa-args
+  		; <fetch(?SA-Argument("name", field-name))> sa-args
 
+  wrap-in-numeric-fields-anno:
+  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.NumericFields")), [ElemValArrayInit(list)])
+  	where not (?[])
+ 
+  wrap-in-numeric-fields-anno:
+  	list -> list
+  	where ?[]
 strategies //searchconfigs, analyzers
 
   create-and-record-analyzer-definition = 
@@ -114,7 +127,7 @@ strategies //searchconfigs, analyzers
   	with
   		if (<string-starts-with(|String("org.apache.solr.analysis."))>name) then name' := name
   		else name' := <conc-strings>("org.apache.solr.analysis.",name) end
-  		
+  		  	
   wrap-in-analyzer-defs-anno:
   	list-> Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDefs")), [ElemValArrayInit(list)])
   	where not (?[])
@@ -298,7 +311,7 @@ strategies
 			        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
 			        sp.indexDictionary(dictionary);
 			    }
-		        System.out.println(new java.util.Date() + ": Created spell check index for field \"" + searchFields[c] + "\"");
+		        System.out.println(new java.util.Date() + ": Created spell check index for class:" + indexedClass.getName());
 		    } catch (IOException ex) {
 		        System.out.println("Failed to create spell check index");
 		        ex.printStackTrace();
