@@ -2,11 +2,11 @@ application test
 
   entity User {
     name    :: String
-    ref1 -> User (allowed = {u1,u2}) //, not null)    
-    ref2 -> User (allowed = {u2,u3}) //, not null)
+    ref1 -> User (allowed = [u1,u2]) //, not null)    
+    ref2 -> User (allowed = [u2,u3]) //, not null)
     ref3 -> User (allowed = [u1,u3])
-    ref4 -> Set<User> (allowed = {u1,u2})
-    ref5 -> List<User> (allowed = {u2,u3})
+    ref4 -> Set<User> (allowed = [u1,u2])
+    ref5 -> List<User> (allowed = [u2,u3])
     ref6 -> List<User> (allowed = ref5)
   }
   
