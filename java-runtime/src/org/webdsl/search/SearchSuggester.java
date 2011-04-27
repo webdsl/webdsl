@@ -20,28 +20,31 @@ public class SearchSuggester {
 
 	SearchFactory sf;
 
-	public List<String> findSuggestions(SearchFactory sf, SearchQuery<?> sq, int maxSuggestionsPerFieldCount, List<String> fields, String toSuggestOn) {
+	public List<String> findSuggestions(SearchFactory sf, SearchQuery<?> sq, int maxSuggestionsPerFieldCount, List<String> fields, boolean phrase,String toSuggestOn) {
 		
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();		
 		this.sf = sf;
 		
 		for (String suggestedField : fields) {
-			List<String> fieldSuggestions = findSuggestionsForField(sq,	toSuggestOn, maxSuggestionsPerFieldCount, suggestedField, true);
+			List<String> fieldSuggestions = findSuggestionsForField(sq, phrase,	toSuggestOn, maxSuggestionsPerFieldCount, suggestedField, true);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
 
 		return mergeSuggestions(maxSuggestionsPerFieldCount, fieldSuggestionsMap);
 	}
 
-	public List<String> findSuggestionsForField(SearchQuery<?> sq, String toSuggestOn, int maxSuggestionsCount, String suggestedField, boolean morePopular) {
+	public List<String> findSuggestionsForField(SearchQuery<?> sq, boolean phrase, String toSuggestOn, int maxSuggestionsCount, String suggestedField, boolean morePopular) {
 		
 		try {
-			Directory dir = sq.spellDirectoryForField(suggestedField);
 			final SpellChecker spellChecker = new SpellChecker(sq.spellDirectoryForField(suggestedField));
 
 			// get the suggested words
-			String[] words = toSuggestOn.split("\\s+");
-			
+			String[] words;
+			if (phrase)
+				words = new String[]{toSuggestOn};
+			else
+				words = toSuggestOn.split("\\s+");
+
 			for (String word : words) {
 				if (spellChecker.exist(word)) {
 					// no need to include suggestions for that word

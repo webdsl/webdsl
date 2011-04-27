@@ -260,16 +260,22 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (float) (this.searchTime / 1000);
 	}
 	
+	public ArrayList<String> suggestPhrase (String toSuggestOn, List<String> fields){
+		return suggest(toSuggestOn, fields, true);
+	}
+	
 	public ArrayList<String> suggestTerms (String toSuggestOn, List<String> fields){
-
+		return suggest(toSuggestOn, fields, false);
+	}
+	
+	private ArrayList<String> suggest(String toSuggestOn, List<String> fields, boolean phrase){
 		searchTime = System.currentTimeMillis();
 		SearchSuggester suggester = new SearchSuggester();
-		ArrayList<String> toReturn = (ArrayList<String>) suggester.findSuggestions(fullTextSession.getSearchFactory(), this, 3, fields, toSuggestOn);
+		ArrayList<String> toReturn = (ArrayList<String>) suggester.findSuggestions(fullTextSession.getSearchFactory(), this, 3, fields, phrase, toSuggestOn);
 		searchTime = System.currentTimeMillis() - searchTime;
 		
-		return toReturn;		
+		return toReturn;
 	}
-
 	public String terms(){
 			return this.searchTerms;
 	}
