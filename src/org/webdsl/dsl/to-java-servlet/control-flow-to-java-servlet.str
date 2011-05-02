@@ -250,7 +250,10 @@ rules //templatecall
   /**
    *  Used for call to defined template and call to required template.
    */
-  control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrsmap) :
+  control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrsmap) =
+  control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrsmap, java_tname) //last argument, parentname, is current template in this case       
+  
+  control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrsmap,parentname) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  //
           tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
@@ -263,7 +266,8 @@ rules //templatecall
             tname, 
             java_args,
             withcallsmap, 
-            attrsmap
+            attrsmap,
+            parentname
             )
             
   /**
@@ -285,7 +289,7 @@ rules //templatecall
          varslength := <length> vars
        ; selectedTemplateArgs := <reverse;take(|varslength);reverse> templateArgs
        ; e_templ* := <handle-ref-arg> (selectedTemplateArgs, vars)
-       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", new Object[] { e_templ* }, attrs)); ]|
+       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", getElementsContext(), new Object[] { e_templ* }, attrs)); ]|
 
   /**
    * tc : the TemplateCall term
@@ -296,7 +300,7 @@ rules //templatecall
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
   generate-template-call(|x_methodname):
-    (tc, e_name, tname, e, bstm_withcallsmap*, bstm_attrs*) ->
+    (tc, e_name, tname, e, bstm_withcallsmap*, bstm_attrs*, e_parentname) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
@@ -314,7 +318,7 @@ rules //templatecall
         org.webdsl.lang.Environment newenv = new Environment(env);
         bstm_withcallsmap*
         bstm_attrs*
-        ((TemplateServlet) templatecalls.get(ident)).x_methodname(x_args, newenv, attrsmapout, x_argsextra);
+        ((TemplateServlet) templatecalls.get(ident)).x_methodname(e_parentname, x_args, newenv, attrsmapout, x_argsextra); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
         ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
           if (ThreadLocalPage.get().hasExecutedAction)
             return;
@@ -402,7 +406,7 @@ rules
           java_tname := expr|[ env.getWithcall(e)==null?"elementsempty":env.getWithcall(e).name ]| // call emptyelements, if no elements found
         ; java_args :=  expr|[ env.getWithcall(e)==null?new Object[0]:env.getWithcall(e).args ]|
         ; java_attrbstm* :=  bstm*|[ Map<String,String> attrsmapout = env.getWithcall(e)==null?utils.TemplateCall.EmptyAttrs:env.getWithcall(e).attrs; ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrbstm*)> tc
+        ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,java_attrbstm*, java:expr|[env.getWithcall(e).parentName]|)> tc
  
   create-elements-call-name :
     x_name -> e
