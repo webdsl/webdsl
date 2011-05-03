@@ -2,39 +2,6 @@ module org/webdsl/dsl/languages/ui/select
 
 rules
 
-  rename-ui :
-    Select(x, s, lab1, e1, props1, elems1){anno*} -> Select(y, s, lab2, e2, props2, elems2){anno*} 
-    with  (y, s, lab2, e2, props2, elems2) := <rename-select> (x, s, lab1, e1, props1, elems1)
- 
-  rename-ui :
-    SelectNoProps(x, s, lab1, e1, elems1){anno*} -> SelectNoProps(y, s, lab2, e2,elems2){anno*}
-    with  (y, s, lab2, e2, [], elems2) := <rename-select> (x, s, lab1, e1, [], elems1)
-  rename-ui :
-    SelectNoPropsNoElems(x, s, lab1, e1){anno*} -> SelectNoPropsNoElems(y, s, lab2, e2){anno*} 
-    with  (y, s, lab2, e2, [], []) := <rename-select> (x, s, lab1, e1, [], [])
-  rename-ui :
-    SelectNoElems(x, s, lab1, e1, props1){anno*} -> SelectNoElems(y, s, lab2, e2, props2){anno*} 
-    with  (y, s, lab2, e2, props2, []) := <rename-select> (x, s, lab1, e1, props1, [])
-        
-  rename-select :
-    (x, s, lab1, e1, props1, elems1) -> (y, s, lab2, e2, props2, elems2) 
-    with {| Rename
-            : y := <rename-bound(|s)> x
-            ; e2 := <rename-all> e1
-            ; lab2 := <rename-all> lab1
-            ; props2 := <rename-all> props1
-            ; elems2 := <rename-all> elems1
-          |}
-         
-rules
-
-  normalize-ui : 
-    SelectNoProps(a,b,c,d,e){anno*} -> Select(a,b,c,d,[],e){anno*}
-  normalize-ui : 
-    SelectNoPropsNoElems(a,b,c,d){anno*} -> Select(a,b,c,d,[],[]){anno*}
-  normalize-ui : 
-    SelectNoElems(a,b,c,d,e){anno*} -> Select(a,b,c,d,e,[]){anno*}
- 
   normalize-ui : 
     SelectFromListNoProps(a,b,c){anno*} -> SelectFromList(a,b,[],c){anno*}
   normalize-ui : 
@@ -101,45 +68,9 @@ rules
 
 rules
 
-  /*
-   * if it was input(Var) instead of input(FieldAccess), then there cannot be an allowed annotation
-   * the translation to SelectFrom is still required, since that form is expected for further desugaring
-   */
-  desugar-in-define-context :
-    tc@Select(x, srt, label, Var(var), passign*, elem*){anno*} ->
-    result
-    where result := <desugar-without-allowed-anno> tc        
-  
-  desugar-in-define-context :
-    tc@Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*){anno*} ->
-    result
-    where result := <desugar-with-allowed-anno <+ desugar-without-allowed-anno> tc        
-  
-  desugar-with-allowed-anno:
-    tc@Select(x, srt, label, fa@FieldAccess(var,x_prop), passign*, elem*){anno*} ->
-    result
-    where SimpleSort(x_vartypename) := <type-of> var
-        ; propannos := <property-annos> (x_vartypename,x_prop) 
-        ; <fetch(?AllowedAnno(e1))> propannos
-    with  t_typeofcol := <type-of> e1
-        ; x_name := <allowed-collection-function-name> x_prop
-        ; e_col := Call(var,x_name,[])
-        ; result := SelectFromList(fa, e_col, passign*, elem*){anno*}
-   
-  desugar-without-allowed-anno :
-    Select(x, srt, label, prop, passign*, elem*){anno*} -> SelectFromList(prop, hql, passign*, elem*){anno*}
-    with with-current-location(
-         <?SimpleSort(typename) <+ ?GenericSort(_,[SimpleSort(typename)])> srt
-       ; hql := <add-current-location> ForExp(Var("s"),"s",SimpleSort(typename),HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),None,None),None)])),None,None,None)),FilterNoWhereNoLimit(OrderNonSpecific(FieldAccess(Var("s"),"name"))))
-         )
-       //[s|s:SomeEntity in (from SomeEntity) order by s.name]
-       //; hql := HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),Some(AsAlias(Alias("ent"))),None),None)])),None,None,Some(OrderByClause([OrderElement(Path(["ent","name"]),None)]))))
-       //from ~typename as ent order by ent.name   //doesn't work because name might not be available in query, if it is not a real property but e.g. derived or the default name
-         
-  keep-position-anno = ?Select(_,_,_,_,_,_)  
   keep-position-anno = ?SelectFromList(_,_,_,_)  
          
-// TODO constraint: 'allowed=' collection must be Set or List of property type
+// TODO constraint: 'allowed=' collection must be List property type
 // constraint: only 1 'allowed'
 // constraint: overlap with generated function below
 
