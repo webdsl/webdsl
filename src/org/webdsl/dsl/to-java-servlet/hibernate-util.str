@@ -266,6 +266,9 @@ rules
                 annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
                     
                 annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
+
+                annotationConfiguration.buildMappings();
+                bstm1*
     
                 sessionFactory = annotationConfiguration.buildSessionFactory();
                 
@@ -298,7 +301,6 @@ rules
             if(org.hibernate.Hibernate.isInitialized(o) && o instanceof WebDSLEntity)
             { 
               WebDSLEntity we = (WebDSLEntity)o;
-              System.out.println("id=" + we.getId().toString() + ", version=" + we.getVersion().toString() + ", type=" + o.getClass().getCanonicalName());
               if(we.getVersion() <= 0)
               { 
                 we.setVersion(1);
@@ -337,7 +339,22 @@ rules
                            x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]| 
                            where x_class := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x,".class"]
                        \})> all-entity-names
+       ; bstm1* := <bagof-AllEntities; filter(generate-java-servlet-hibernate-util-collection-helper1); flatten-list; filter({\ 
+		                           (x_class, x_coltype, x_prop) -> bstm |[ annotationConfiguration.getCollectionMapping("~strRole").setTypeName("~strType"); ]| 
+		                           with strRole := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x_class,"._",x_prop]
+		                           ; strType := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x_class,<capitalize-string>x_prop,x_coltype,"Type"]
+                            \})>
       /* ; if not([] := <bagof-AllGlobalVars>) 
          then bstm1* := [ bstm |[ annotationConfiguration.addAnnotatedClass(ApplicationContextProperty.class); ]| ]
          else bstm1* := [] end
  */
+ 
+  generate-java-servlet-hibernate-util-collection-helper2(|x_class) :
+    Property(x_prop, _, GenericSort(x_coltype, [SimpleSort(_)]), annos) -> (x_class, x_coltype, x_prop)
+    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
+
+strategies
+  generate-java-servlet-hibernate-util-collection-helper1 =
+    get-entity-def
+    ; ?(x_class, <id>)
+    ; filter(generate-java-servlet-hibernate-util-collection-helper2(|x_class))

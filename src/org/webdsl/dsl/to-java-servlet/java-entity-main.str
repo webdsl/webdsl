@@ -354,7 +354,7 @@ strategies
        
      ]|
     where t      := <java-type> s
-        ; e      := <java-type-default-value> s
+        ; e      := <inverse-collection-default-value-override-java(|x_Class,prop) <+ java-type-default-value> s
         ; if <!id_name;?x> x_Class     // if this is the id property
           then
               x_index := <newname> <concat-strings>[x,"index"]
@@ -674,7 +674,7 @@ rules // special methods
     where <?"Set" <+ ?"List"> coll
     with  t         := <java-type> GenericSort("List", [y_srt])
         ; x_listvar := <newname> "list"
-        ; e_newgen  := <transform-list-to-genericset(|x_listvar)> s
+        ; e_newgen  := <inverse-collection-transform-list-to-genericset(|x_Class,prop,x_listvar) <+ transform-list-to-genericset(|x_listvar)> s
         //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
         ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
         ; cbdslist  := <list-mutation-methods(|x_Class) <+ ![]> prop
@@ -801,6 +801,7 @@ rules //associations
         return get#x_prop(); //needed for desugaring of List.set() and Set.list()
       }
     ]|
+    where not(<fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos)
     with  t_y       := <java-type> y_srt
         ; x_y       := <java-type-name> y_srt
         ; t_col       := <java-type> s
@@ -808,6 +809,44 @@ rules //associations
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
+
+  collection-mutation-methods(|x_Class) :
+    prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public void removeFrom#x_prop(t_y item) {
+        get#x_prop().remove(item);
+      }
+      
+      public void replaceAllIn#x_prop(java.util.Collection<t_y> col){
+        removeAllFrom#x_prop();
+        addAllTo#x_prop(col);
+      }
+      
+      public void removeAllFrom#x_prop() { 
+        setChanged();
+        //force retrieval
+        org.hibernate.Hibernate.initialize(get#x_prop()); 
+        while(!get#x_prop().isEmpty()) {
+          removeFrom#x_prop(get#x_prop().iterator().next());
+        }
+      }
+
+      public void addTo#x_prop(t_y item) {
+        get#x_prop().add(item);
+      }
+      
+      public t_col addAllTo#x_prop(java.util.Collection<t_y> col) { 
+        Iterator<t_y> it = col.iterator();
+        while(it.hasNext()) {
+          addTo#x_prop(it.next());
+        }
+        return get#x_prop(); //needed for desugaring of List.set() and Set.list()
+      }
+    ]|
+    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
+    with  t_y       := <java-type> y_srt
+        ; x_y       := <java-type-name> y_srt
+        ; t_col       := <java-type> s
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
@@ -922,6 +961,24 @@ rules //associations
     with  x_P := <capitalize-string> x_p
         ; x_getInverse := <concat-strings>["get", x_P]
 
+  remove-bidirectional-reference(|x_target) :
+    inv@name#([x_c, x_p]) ->
+      bstm* |[
+        //if ( item.x_getInverse().contains(this) ) { //check not necessary
+          item.removeFrom#x_p(x_target);
+        //}
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <get-type-anno> inv
+        ; <?"Set" <+ ?"List"> coll
+    with  x_P := <capitalize-string> x_p
+        ; x_getInverse := <concat-strings>["get", x_P]
+
+  remove-bidirectional-reference(|x_target) :
+    inv@name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; SimpleSort(_) := <get-type-anno> inv
+
   remove-bidirectional-reference :
     inv@name#([x_c, x_p]) -> bstm* |[ item.set#x_p(null); ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
@@ -938,6 +995,17 @@ rules //associations
         ; GenericSort(coll,[_]) := <get-type-anno> inv
         ; <?"Set" <+ ?"List"> coll
 
+  add-bidirectional-reference(|x_target) :
+    inv@name#([x_c, x_p]) ->
+      bstm* |[
+        //if ( !item.get#x_p().contains(this) ) { //check disabled because it would cause incorrect behavior for lists which can contain duplicates
+          item.addTo#x_p(x_target);
+        //}
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; GenericSort(coll,[_]) := <get-type-anno> inv
+        ; <?"Set" <+ ?"List"> coll
+
   add-bidirectional-reference :
     inv@name#([x_c, x_p]) ->
       bstm* |[
@@ -948,3 +1016,12 @@ rules //associations
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
         ; SimpleSort(_) := <get-type-anno> inv
         
+  add-bidirectional-reference(|x_target) :
+    inv@name#([x_c, x_p]) ->
+      bstm* |[
+        //if (value.get#x_p() != this) {
+        item.set#x_p(x_target);
+        //}
+      ]|
+    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
+        ; SimpleSort(_) := <get-type-anno> inv
