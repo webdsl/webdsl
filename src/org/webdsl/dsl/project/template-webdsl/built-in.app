@@ -1015,7 +1015,9 @@ module .servletapp/src-webdsl-template/built-in
     var onchange := attribute("onchange");
     var deletejsfuncname := "delete"+tname;
     databind {
-      list := newlist;
+      if(tmp != null){
+        list := newlist;
+      }
     }
     
     includeCSS("jquery-ui.css")

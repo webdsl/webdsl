@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryParser.MultiFieldQueryParser;
 import org.apache.lucene.queryParser.QueryParser;
@@ -43,6 +44,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected String searchTerms = "";
 	protected HashMap<String,Float> boosts = new HashMap<String, Float>();
 	protected Operator op = Operator.OR; 
+	protected Analyzer analyzer;
 
 	protected String[] untokenizedFields;
 	protected String[] searchFields;
@@ -146,14 +148,23 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 
-	private IndexReader getReader() {
+	public IndexReader getReader() {
 		SearchFactory searchFactory = fullTextSession.getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
 				.getDirectoryProviders(entityClass)[0];
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		return readerProvider.openReader(provider);
 	}
+	
+	public void closeReader(IndexReader reader){
+		if(reader != null)
+		fullTextSession.getSearchFactory().getReaderProvider().closeReader(reader);
+	}
 
+	public String highlight(String field, String toHighLight){
+		return ResultHighlighter.highlight(this, field, toHighLight);
+	}
+	
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
 		searchTime = System.currentTimeMillis();
@@ -185,7 +196,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		IndexReader ir = getReader();
 		MoreLikeThis mlt = new MoreLikeThis(ir);
 		mlt.setFieldNames(mltSearchFields);
-		mlt.setAnalyzer(fullTextSession.getSearchFactory().getAnalyzer(entityClass));
+		mlt.setAnalyzer(analyzer);
 		mlt.setMinWordLen(minWordLen);
 		mlt.setMaxWordLen(maxWordLen);
 		mlt.setMaxDocFreqPct(maxDocFreqPct);
@@ -198,8 +209,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
-			if(ir != null)
-			fullTextSession.getSearchFactory().getReaderProvider().closeReader(ir);
+			closeReader(ir);
 		}
 		luceneQueryChange = false;
 		fullTextQueryChange = true;
@@ -295,9 +305,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			
 			QueryParser parser;
 			if(boosts.isEmpty()) {
-				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, fullTextSession.getSearchFactory().getAnalyzer(entityClass));
+				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer);
 			} else {
-				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, fullTextSession.getSearchFactory().getAnalyzer(entityClass), boosts);
+				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
 			}			
 			parser.setDefaultOperator(op);
 			try {

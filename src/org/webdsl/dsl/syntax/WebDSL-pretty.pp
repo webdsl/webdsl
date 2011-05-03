@@ -46,6 +46,7 @@
    GenericSort                        -- H hs=0[_1 KW["<"] _2 KW[">"]],
    GenericSort.2:iter-sep             -- H hs=0[_1 KW[","]],
    SearchSort						  -- H hs=0[KW["Search"] KW["<"] _1 KW[">"]],
+   EntitySort                         -- _1,
    SimpleAnno                         -- _1,
    InverseAnno			      -- KW["inverse"] KW["="] _1 KW["."] _2,
    InverseSlaveAnno		      -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
