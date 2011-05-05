@@ -965,7 +965,10 @@ module .servletapp/src-webdsl-template/built-in
   
   // radio buttons input
 
-  define ignore-access-control radio(ent1:Ref<Entity>,ent2:List<Entity>){
+  define radio(ent:Ref<Entity>){
+    radio(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define radio(ent1:Ref<Entity>,ent2:List<Entity>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
@@ -2232,16 +2235,16 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   define inputajax(s:Ref<Secret>){
-    inputajax(s as Ref<String>)[all attributes] 	
+    inputajax(s as Ref<String>)[all attributes]{elements()}
   }
   define inputajax(s:Ref<URL>){
-    inputajax(s as Ref<String>)[all attributes] 	
+    inputajax(s as Ref<String>)[all attributes]{elements()} 	
   }
   define inputajax(s:Ref<Text>){
-    inputajax(s as Ref<String>)[all attributes] 	
+    inputajax(s as Ref<String>)[all attributes]{elements()}
   }
   define inputajax(s:Ref<WikiText>){
-    inputajax(s as Ref<String>)[all attributes] 	
+    inputajax(s as Ref<String>)[all attributes]{elements()} 	
   }
   define inputajax(s:Ref<String>){
     var tname := getTemplate().getUniqueId()

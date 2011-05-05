@@ -171,9 +171,10 @@ public abstract class AbstractPageServlet{
             try {
                 TemplateCall tcall = env.getWithcall(name); //'elements' or requires arg
                 TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
+                String parent = env.getWithcall(name)==null?null:env.getWithcall(name).parentName;
                 switch(phase){
-                    case 2: temp.validateInputs(name, tcall.args, env, null, null); break;
-                    case 4: temp.render(name, tcall.args, env, null, null); break;
+                    case 2: temp.validateInputs(parent, tcall.args, env, null, null); break;
+                    case 4: temp.render(parent, tcall.args, env, null, null); break;
                 }
             }
             catch(Exception ie){
