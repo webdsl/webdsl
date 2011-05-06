@@ -34,8 +34,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected final Version luceneVersion = Version.LUCENE_31;
 	protected int limit = 100;
 	protected int offset = 0;
-	protected boolean luceneQueryChange = true;
-	protected boolean fullTextQueryChange = true;
+	protected boolean updateLuceneQuery = true;
+	protected boolean updateFullTextQuery = true;
 	protected boolean isNGramFieldBoosted = false;
 	protected Query luceneQuery = null;
 	protected HashMap<String, String> constraints = new HashMap<String, String>();
@@ -45,6 +45,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected HashMap<String,Float> boosts = new HashMap<String, Float>();
 	protected Operator op = Operator.OR; 
 	protected Analyzer analyzer;
+	protected String facetFields = "";
+	protected String facetTopNs = "";
+	protected String narrowFacets = "";
+	protected HashMap<String, Facet> facetMap = new HashMap<String, Facet>();
 
 	protected String[] untokenizedFields;
 	protected String[] searchFields;
@@ -78,7 +82,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			boosts.remove(field);
 		
 		boosts.put(field, boost);
-		luceneQueryChange = true;
+		updateLuceneQuery = true;
 		return (F) this;
 	}
 	
@@ -87,28 +91,68 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 	
 	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
-	public List<Facet> facets(String field, int topN) {	
-		QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
-		FacetingRequest facetReq = builder
-			.facet()
-			.name("facet_" + field)
-			.onField(field)
-			.discrete().orderedBy(FacetSortOrder.COUNT_DESC)
-			.includeZeroCounts(false).maxFacetCount(topN)
-			.createFacetingRequest();
-
+	public List<WebDSLFacet> facets(String field, int topN) {
+		String facetName = "facet_" + field;
+		ArrayList<WebDSLFacet> webDSLFacets;
+		List<Facet> facets;
 		if (validateQuery())
-			return query.getFacetManager().enableFaceting(facetReq).getFacets("facet_" + field);
+			//query.getFacetManager().disableFaceting(facetName);
+			facets = query.getFacetManager().getFacets(facetName);
 		else
-			return new ArrayList<Facet>();
+			facets = new ArrayList<Facet>();
+		
+		if(facets.isEmpty()) {
+			QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
+			FacetingRequest facetReq = builder
+				.facet()
+				.name(facetName)
+				.onField(field)
+				.discrete().orderedBy(FacetSortOrder.COUNT_DESC)
+				.includeZeroCounts(false).maxFacetCount(topN)
+				.createFacetingRequest();
+			
+			facets = query.getFacetManager().enableFaceting(facetReq).getFacets(facetName);
+			
+			if(!facets.isEmpty()){
+				this.facetFields += "," + field;
+				this.facetTopNs += "," + topN;
+				recordFacets(facets);
+			}
+		}
+
+		webDSLFacets = new ArrayList<WebDSLFacet>();
+		for (Facet f : facets)
+			webDSLFacets.add(new WebDSLFacet(f));
+		
+		return webDSLFacets;
+		
+	}
+	
+	private void recordFacets(List<Facet> facets){
+		String key;
+		for (Facet facet : facets) {
+			key = facet.getFieldName() + ":" + facet.getValue();
+			facetMap.put(key, facet);			
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(WebDSLFacet facet) {
+		narrowFacets += "," + facet.getFieldName() + ":" + facet.getValue();
+		Facet actualFacet = facetMap.get(facet.getFieldName() + ":" + facet.getValue());
+		
+		String facetName = actualFacet.getFacetingName();
+		query.getFacetManager().getFacetGroup(facetName).selectFacets(actualFacet);
+
+		return (F) this;
 	}
 	
 	@SuppressWarnings("unchecked")
 	private <F extends SearchQuery<EntityClass>> F setRangeQuery(Object from, Object to) {
 		QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
 		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).excludeLimit().createQuery();
-		luceneQueryChange = false;
-		fullTextQueryChange = true;
+		updateLuceneQuery = false;
+		updateFullTextQuery = true;
 		return (F) this;
 	}
 	
@@ -138,7 +182,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			fields.remove(untokenizedFields[i]);			
 		mltSearchFields = fields.toArray(new String[fields.size()]);
 
-		luceneQueryChange = true;
+		updateLuceneQuery = true;
 		return (F) this;
 	}
 
@@ -163,6 +207,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	public String highlight(String field, String toHighLight){
 		return ResultHighlighter.highlight(this, field, toHighLight);
+	}
+	
+	public String highlight(String field, String toHighLight, String preTag, String postTag){
+		return ResultHighlighter.highlight(this, field, toHighLight, preTag, postTag);
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -211,17 +259,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		} finally {
 			closeReader(ir);
 		}
-		luceneQueryChange = false;
-		fullTextQueryChange = true;
-
-		return (F) this;
-	}
-
-	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(Facet facet) {
-
-		String facetName = facet.getFieldName();
-		query.getFacetManager().getFacetGroup(facetName).selectFacets(facet);
+		updateLuceneQuery = false;
+		updateFullTextQuery = true;
 
 		return (F) this;
 	}
@@ -230,7 +269,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F defaultAnd() {
 		if (!op.equals(Operator.AND)){	
 			op = Operator.AND;
-			luceneQueryChange = true;
+			updateLuceneQuery = true;
 		}
 		return (F) this;
 	}
@@ -239,7 +278,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F defaultOr() {
 		if (!op.equals(Operator.OR)){	
 			op = Operator.OR;
-			luceneQueryChange = true;
+			updateLuceneQuery = true;
 		}		
 		return (F) this;
 	}
@@ -277,24 +316,24 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F terms(String terms) {
 		searchTerms = terms;
-		luceneQueryChange = true;
+		updateLuceneQuery = true;
 		return (F) this;
 	}
 
 	private boolean validateQuery() {
-		if (luceneQueryChange) {
+		if (updateLuceneQuery) {
 			if(!createMultiFieldQuery())
 				return false;
-			luceneQueryChange = false;
-			fullTextQueryChange = true;
+			updateLuceneQuery = false;
+			updateFullTextQuery = true;
 
 		}
-		if(fullTextQueryChange){
+		if(updateFullTextQuery){
 			query = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
 			applyFieldConstraints();
 			query.setFirstResult(offset);
 			query.setMaxResults(limit);
-			fullTextQueryChange = false;
+			updateFullTextQuery = false;
 		}
 
 		return true;
@@ -323,6 +362,102 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 					.createQuery();
 		}
 		return true;
+	}
+	
+	private String encode(String str){
+		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p");
+	}
+	
+	private String decode(String str){
+		return str.replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
+	}
+	
+	public String createBuildString(){
+		StringBuilder sb = new StringBuilder();
+		//0 search fields
+		for(int cnt = 0 ; cnt < searchFields.length-1; cnt++)
+			sb.append(searchFields[cnt] + ",");
+		sb.append(searchFields[searchFields.length-1]);
+		//1 search terms
+		sb.append("|" + encode(searchTerms));
+		//2 default operator
+		sb.append("|" + op);
+		//3 constraint fields
+		sb.append("|");
+		for (String field : constraints.keySet()) sb.append(field + ",");		
+		//4 constraint values
+		sb.append("|");
+		for (String value : constraints.values()) sb.append(value + ",");
+		//5 facet fields
+		sb.append("|");
+		sb.append(facetFields.replaceFirst(",", ""));		
+		//6 facet top n's
+		sb.append("|");
+		sb.append(facetTopNs.replaceFirst(",", ""));		
+		//7 limit
+		sb.append("|" + limit);
+		//8 offset
+		sb.append("|" + offset);
+		//9 boost fields
+		sb.append("|");
+		for (String field : boosts.keySet()) sb.append(field + ",");		
+		//10 boost values
+		sb.append("|");
+		for (Float value : boosts.values()) sb.append(value + ",");
+		//11 narrowed facets
+		sb.append("|");
+		sb.append(narrowFacets.replaceFirst(",", ""));
+		
+		return sb.toString();
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F buildFromString(String searchQueryAsString){
+		
+		String[] props = searchQueryAsString.split("\\|", -1);
+		String[] a1, a2;
+		// search fields
+		fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));		
+		//search terms
+		terms(decode(props[1]));
+		//default operator
+		if(props[2].equals("AND"))
+			defaultAnd();
+		//boost fields, values
+		if(!props[9].isEmpty()){
+			a1 = props[9].split(",");
+			a2 = props[10].split(",");
+			for(int i=0; i < a1.length; i++)
+				boost(a1[i], Float.parseFloat(a2[i]));
+		}
+		//constraint fields, values
+		if(!props[3].isEmpty()){
+			a1 = props[3].split(",");
+			a2 = props[4].split(",");
+			for(int i=0; i < a1.length; i++)
+				addFieldConstraint(a1[i], a2[i]);
+		}
+		//facet fields, top n's
+		if(!props[5].isEmpty()){
+			a1 = props[5].split(",");
+			a2 = props[6].split(",");
+			for(int i=0; i < a1.length; i++)
+				facets(a1[i], Integer.parseInt(a2[i]));
+		}
+		//narrowed facets
+		if(!props[11].isEmpty()){
+			a1 = props[11].split(",");
+			for(int i=0; i < a1.length; i++)
+				narrowOnFacet(new WebDSLFacet(a1[i]));			
+		}
+		//limit
+		maxResults(Integer.parseInt(props[7]));
+		//offset
+		firstResult(Integer.parseInt(props[8]));
+		
+		return (F) this;		
+		
 	}
 	
 	public abstract Directory spellDirectoryForField(String field);
