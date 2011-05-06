@@ -331,10 +331,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if(updateFullTextQuery){
 			query = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
 			applyFieldConstraints();
-			query.setFirstResult(offset);
-			query.setMaxResults(limit);
 			updateFullTextQuery = false;
 		}
+		query.setFirstResult(offset);
+		query.setMaxResults(limit);
 
 		return true;
 	}
