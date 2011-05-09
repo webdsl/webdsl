@@ -64,10 +64,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F addFieldConstraint(String fieldname, String terms) {
 		
-		if (validateQuery())
-			enableFieldConstraintFilter(fieldname, terms);
+		constraints.put(fieldname, terms);
+		updateFullTextQuery = true;
 		
-		constraints.put(fieldname, terms);		
 		return (F) this;
 	}
 
@@ -414,7 +413,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F buildFromString(String searchQueryAsString){
-		
+		System.out.println("+");
 		String[] props = searchQueryAsString.split("\\|", -1);
 		String[] a1, a2;
 		// search fields
