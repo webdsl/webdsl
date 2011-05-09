@@ -49,9 +49,10 @@ application exampleapp
       Thread.sleep(2000);
       assert(d.getPageSource().split("length must be greater than 2").length==2);
       assert(d.getPageSource().split("length must be greater than 3").length==2);
-      input.sendKeys("1234"); //@TODO need to disable background tasks, sqlite sometimes causes skip of request due to concurrency limitation
-      Thread.sleep(2000);
-      input.sendKeys("5678");
+      for(s:String in "234".split()){
+        input.sendKeys(s);
+        Thread.sleep(1000);
+      }
       Thread.sleep(2000);
     }
 
@@ -70,3 +71,4 @@ application exampleapp
 
     d.close();
   }
+
