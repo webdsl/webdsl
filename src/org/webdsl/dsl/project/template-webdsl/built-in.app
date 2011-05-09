@@ -2666,5 +2666,10 @@ module .servletapp/src-webdsl-template/built-in
     rule page accessDenied(){true}
     rule page pagenotfound(){true}
     rule template *(*){true}
-
     
+    //Because List<String> argument will already be part of the URL, 
+    //access control is not necessary for showMessages ajaxtemplate.
+    //Tampering with the URL will produce an html-escaped echo of the 'list' request parameter. 
+    rule ajaxtemplate showMessages(list:List<String>){true}
+    rule ajaxtemplate noMessages(){true}  
+   
