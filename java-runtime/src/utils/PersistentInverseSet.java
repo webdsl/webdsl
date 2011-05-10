@@ -5,45 +5,41 @@ import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
 
 @SuppressWarnings({ "unchecked", "serial" })
-public abstract class AbstractPersistentInverseSet extends PersistentSet {
+public class PersistentInverseSet extends PersistentSet {
 	protected boolean initializing = false;
 	protected utils.OwnedSet tempSet = null;
 
-	public AbstractPersistentInverseSet(SessionImplementor session) {
+	public PersistentInverseSet(SessionImplementor session) {
 		super(session);
 	}
 
-	public AbstractPersistentInverseSet(SessionImplementor session, java.util.Set set) {
+	public PersistentInverseSet(SessionImplementor session, java.util.Set set) {
 		super(session, set);
 	}
-
-	public abstract utils.OwnedSet newOwnedSetFromCollectionEntry(org.hibernate.engine.CollectionEntry entry);
-	// x_entclass owner = (x_entclass) utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession().load(x_entclass.class, entry.getLoadedKey());
-	// return new x_entclass#x_prop#Set(owner);
 
 	@Override
 	public void beforeInitialize(CollectionPersister persister, int anticipatedSize) {
 		super.beforeInitialize(persister, anticipatedSize);
-		//System.out.println("Set::beforeInitialize(" + (getOwner() == null ? "null" : "owner")  + ")");
+
+		// The super method just initialized the set, so we need to pass on the owner
 		if(set != null && set instanceof utils.OwnedSet) {
 			((utils.OwnedSet)set).setOwner(getOwner());
-			//System.out.println("Passed Onto Set");
 		}
 	}
 
 	@Override
 	public void beginRead() {
 		initializing = true;
-		((utils.OwnedSet)set).setUpdateInverse(false);
+		((utils.OwnedSet)set).setUpdateInverse(false); // This prevents inverse updates while initializing
 		super.beginRead();
 	}
 
 	@Override
 	public boolean endRead() {
 		initializing = false;
-		afterInitialize();
+		//afterInitialize(); // Needed for DelayedOperations
 		boolean result = super.endRead();
-		((utils.OwnedSet)set).setUpdateInverse(true);
+		((utils.OwnedSet)set).setUpdateInverse(true); // We should resume updating the inverse, because initialization is complete
 		return result;
 	}
 
@@ -53,9 +49,13 @@ public abstract class AbstractPersistentInverseSet extends PersistentSet {
 			return false;
 		}
 
+		// The code in this method is commented out, because it only works for Many-to-one inverse sets.
+		// It allows adding to the set without initializing
+		// You also need the SimpleAdd class below and the afterInitialize() call above
+		// The reason this does not work for Many-to-many sets and lists in general is because inserts on the join table are not performed
+
 		//dirty();
 		//if(wasInitialized() || initializing) {
-			
 			return super.add(value);
 		/*}
 		else {
@@ -82,10 +82,8 @@ public abstract class AbstractPersistentInverseSet extends PersistentSet {
 
 	@Override
 	public void setOwner(Object owner) {
-		//System.out.println("Set::setOwner(" + (owner == null ? "null" : "owner")  + ")");
 		if(set != null && set instanceof utils.OwnedSet) {
 			((utils.OwnedSet)set).setOwner(owner);
-			//System.out.println("Passed Onto Set");
 		}
 		super.setOwner(owner);
 	}

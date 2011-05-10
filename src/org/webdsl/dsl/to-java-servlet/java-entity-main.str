@@ -810,6 +810,7 @@ rules //associations
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
 
+  // In this case the custom collection takes care of the inverse updates and events, so we can just forward the calls
   collection-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
@@ -910,13 +911,33 @@ rules //associations
         }
       }
     ]|
+    where not(<fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos)
     with  t_y       := <java-type> srt_y
         ; x_y       := <java-type-name> srt_y
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
-  
+
+  // In this case the custom collection takes care of the inverse updates and events, so we can just forward the calls
+  list-mutation-methods(|x_Class) :
+    prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
+    class-body-dec* |[
+      public void setIn#x_prop(int index, t_y newitem) {
+        get#x_prop().set(index,newitem);
+      }
+      
+      public void insertIn#x_prop(int index, t_y item) {
+        get#x_prop().add(index, item);
+      }
+      
+      public void removeAt#x_prop(int index) {
+        get#x_prop().remove(index);
+      }
+    ]|
+    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
+    with  t_y       := <java-type> srt_y
+
   get-inverse-anno:
     annos -> (inv, type)
     with   inv := <fetch-elem(?InverseSlaveAnno(x_c, x_p) + ?InverseAnno(x_c, x_p))> annos

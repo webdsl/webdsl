@@ -32,8 +32,9 @@ public abstract class AbastractInverseSetType implements UserCollectionType {
 	// return new x_entclass#x_prop#Set(anticipatedSize < 1 ? 0 : anticipatedSize );
 
 	@Override
-	public abstract PersistentCollection instantiate(SessionImplementor session, CollectionPersister persister) throws HibernateException;
-	// return new x_entclass#x_prop#PersistentSet(session);
+	public PersistentCollection instantiate(SessionImplementor session, CollectionPersister persister) throws HibernateException {
+		return new utils.PersistentInverseSet(session);
+	}
 
 	@Override
 	public Object replaceElements(Object original, Object target,
@@ -46,11 +47,13 @@ public abstract class AbastractInverseSetType implements UserCollectionType {
 	}
 
 	@Override
-	public abstract PersistentCollection wrap(SessionImplementor session, Object collection);
-    /*	if ( session.getEntityMode() == org.hibernate.EntityMode.DOM4J ) {
-	      throw new IllegalStateException("dom4j not supported");
-	    }
-	    else {
-	      return new x_entclass#x_prop#PersistentSet( session, (java.util.Set) collection );
-	    }*/
+	public PersistentCollection wrap(SessionImplementor session, Object collection) {
+		if ( session.getEntityMode() == org.hibernate.EntityMode.DOM4J ) {
+			throw new IllegalStateException("dom4j not supported");
+		}
+		else {
+			return new utils.PersistentInverseSet( session, (java.util.Set) collection );
+		}
+	}
+
 }
