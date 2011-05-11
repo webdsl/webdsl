@@ -30,25 +30,41 @@ rules
        			  else ourprops := props end       			  
 				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> ourprops
 				; not([] := searchable)
-				; ngramfields := <concat; flatten-list; uniq>[<bagof-NGramFields>x_class,<bagof-NGramFieldsEmbedded>x_class]
-				; untokenizedfields := <concat; flatten-list; uniq>[<bagof-UntokenizedFields>x_class,<bagof-UntokenizedFieldsEmbedded>x_class] 
+				; untokenizedfields := <bagof-UntokenizedFields;uniq>x_class
+				; lucenesorttypes := <map(fieldname-to-lucene-sort-type(|x_class))> untokenizedfields
 			)
-		; add-anno(|IndexedAnno(searchable,ngramfields,untokenizedfields))
-		
-	searchable-property-to-name(|x_class) :
-	    Property(name, propkind, _, anno*) -> names
-	    where not (<?Ref()<+?Comp() > propkind)
-	    	; searchable-annos := <filter(?SearchableAnno(_))> anno*
-	    	; not(?[])
-	    with names := <map(name-from-searchable-anno)> searchable-annos
-	    	; <map(try(record-special-fields(|x_class)))> searchable-annos
+		; add-anno(|IndexedAnno(searchable,untokenizedfields,lucenesorttypes))
+
+	fieldname-to-lucene-sort-type(|x_class):
+		fieldname -> lst
+		with
+			lst := <fieldNameToType; to-lucene-sort-type <+ to-lucene-default-sort-type> (x_class, fieldname)
 	    	  
-    record-special-fields(|x_class):
-    	s@SearchableAnno(sa-args) -> s
+    record-untokenized-fields(|x_class):
+    	s@SearchableAnno(sa-args) -> field-name
     	where <fetch(?SA-Argument("analyzer", analyzer-name))> sa-args
+    	; <?"no" <+ ?"null"> analyzer-name
     	; field-name := <name-from-searchable-anno> s
-    	; if (<UsesNGramFilter> analyzer-name) then rules (NGramFields : x_class -> field-name) end
-    	; if (<?"no" <+ ?"null"> analyzer-name) then rules (UntokenizedFields : x_class -> field-name) end
+    	; <record-untokenized-field>(x_class, field-name)
+    
+    record-untokenized-field:
+    	a@(x_class, field-name) -> a 
+    	with rules(UntokenizedFields :+ x_class -> field-name)
+    	
+	record-field-name-to-type(|x_class, embedded_type):
+		q@(fieldName, embedded_fieldName) -> q
+		with type := <fieldNameToType> (embedded_type, fieldName)
+		; rules(fieldNameToType :+ (x_class, embedded_fieldName) -> type)
+    
+    searchable-property-to-name(|x_class) :
+	    Property(name, propkind, srt, anno*) -> names
+	    where not (<?Ref()<+?Comp() > propkind)
+	    ; searchable-annos := <filter(?SearchableAnno(_))> anno*
+	    ; not(?[])
+	    with names := <map(name-from-searchable-anno)> searchable-annos
+	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
+	    ; tp := <srt-to-type> srt
+	    ; <map(fieldname := <id>; rules(fieldNameToType :+ (x_class, fieldname) -> tp))> untokenizedFields 
     
     searchable-property-to-name(|x_class) :
 	    Property(name, propkind, srt, anno*) -> embeddedNames
@@ -58,19 +74,40 @@ rules
 	    with embeddedType := <srt-to-type> srt
 	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
-	    ; embeddedNGramFields :=  <bagof-NGramFields; map(embedded-name(|name))> (<srt-to-type>srt)
-	    ; <map(embeddedName:= <id>;rules(NGramFieldsEmbedded : x_class -> embeddedName))> embeddedNGramFields
-	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> (<srt-to-type>srt)	    
-		; <map(embeddedName:= <id>;rules(UntokenizedFieldsEmbedded : x_class -> embeddedName))> embeddedUntokenizedFields
+	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
+		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
+		; <zip(record-field-name-to-type(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
+		  
+  	searchable-property-to-name(|x_class) :
+    	DerivedProperty(name, propkind, srt, anno*, _) -> name
+    	where not (<?Ref()<+?Comp() > propkind)
+	    ; searchable-annos := <filter(?SearchableAnno(_))> anno*
+	    ; not(?[])
+	    with names := <map(name-from-searchable-anno)> searchable-annos
+	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
+	    ; tp := <srt-to-type> srt
+	    ; <map(fieldname := <id>; rules(fieldNameToType :+ (x_class, fieldname) -> tp))> untokenizedFields 
+
+  	searchable-property-to-name(|x_class) :
+	    DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
+	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
+	    // 1 level of depth right now, so only simple types are supported
+	    // TODO: all-properties does not return desugared version of properties, what to use? 
+	    with embeddedType := <srt-to-type> srt
+	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
+	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
+	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
+		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
+		; <zip(record-field-name-to-type(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
 
     name-from-searchable-anno :
     	SearchableAnno(sa-args) -> field-name
     	with <fetch(?SA-Argument("name", field-name))> sa-args 
-    	
-  searchable-property-to-name(|x_class) :
-    DerivedProperty(name, _, _, anno*, _) -> name
-    where (is-searchable-prop)
-  
+
+  to-lucene-sort-type: "Int" -> "INT"
+  to-lucene-sort-type: "Float" -> "FLOAT"
+  to-lucene-default-sort-type: _ -> "STRING"
+  	  
   is-simple-prop :
   	p@Property(_, propkind, _, _) -> p
   	where not (<?Ref()> propkind)

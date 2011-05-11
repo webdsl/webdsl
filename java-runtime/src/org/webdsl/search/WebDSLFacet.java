@@ -34,11 +34,11 @@ public class WebDSLFacet {
 		return this.value;
 	}
 	
-	public String createBuildString(){
+	public String encodeAsString(){
 		return fieldName + "|" + encode(value) + "|" + count;
 	}
 	
-	public WebDSLFacet buildFromString(String searchQueryAsString){
+	public WebDSLFacet decodeFromString(String searchQueryAsString){
 		String[] props = searchQueryAsString.split("\\|");
 		this.fieldName = props[0];
 		this.value = decode(props[1]);

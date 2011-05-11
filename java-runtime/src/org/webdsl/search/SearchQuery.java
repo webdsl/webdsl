@@ -14,6 +14,8 @@ import org.apache.lucene.queryParser.MultiFieldQueryParser;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.similar.MoreLikeThis;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Version;
@@ -32,31 +34,40 @@ import org.webdsl.WebDSLEntity;
 public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	protected final Version luceneVersion = Version.LUCENE_31;
-	protected int limit = 100;
+	
+	protected int limit = 50;
 	protected int offset = 0;
+	
 	protected boolean updateLuceneQuery = true;
 	protected boolean updateFullTextQuery = true;
-	protected boolean isNGramFieldBoosted = false;
-	protected Query luceneQuery = null;
+
 	protected HashMap<String, String> constraints = new HashMap<String, String>();
-	protected FullTextQuery query = null;
-	protected FacetManager facetManager = null;
-	protected String searchTerms = "";
 	protected HashMap<String,Float> boosts = new HashMap<String, Float>();
-	protected Operator op = Operator.OR; 
-	protected Analyzer analyzer;
-	protected String facetFields = "";
-	protected String facetTopNs = "";
-	protected String narrowFacets = "";
 	protected HashMap<String, Facet> facetMap = new HashMap<String, Facet>();
 
+	protected Query luceneQuery = null;
+	protected FullTextQuery query = null;
+	protected FullTextSession fullTextSession;
+	
+	protected FacetManager facetManager = null;
+	
 	protected String[] untokenizedFields;
 	protected String[] searchFields;
 	protected String[] mltSearchFields;
-
-	protected FullTextSession fullTextSession;
+	
+	protected String searchTerms = "";
+	protected String facetFields = "";
+	protected String facetTopNs = "";
+	protected String narrowFacets = "";
+	protected String sortFields = "";
+	protected String sortDirections = "";
+	
+	
+	protected Operator op = Operator.OR; 
+	protected Analyzer analyzer;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
+	protected Sort sortObj;
 
 	public SearchQuery() {
 	}
@@ -89,13 +100,52 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		query.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);
 	}
 	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F resetSorting() {
+		sortObj = null;
+		this.sortFields = "";
+		this.sortDirections = "";
+		updateFullTextQuery = true;
+		return (F)this;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F sortDesc(String field){
+		sort(field, false);
+		return (F)this;
+	}
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F sortAsc(String field){
+		sort(field, true);
+		return (F)this;
+	}
+	
+	private void sort(String field, boolean reverse){		
+		
+		if(sortObj == null){
+			this.sortFields = field;
+			this.sortDirections = String.valueOf(reverse);	
+			sortObj = new Sort();
+		}
+		else{
+			this.sortFields += "," + field;
+			this.sortDirections += "," + String.valueOf(reverse);
+		}
+		
+		SortField[] sfs = sortObj.getSort();
+		SortField[] newSfs = Arrays.copyOf(sfs, sfs.length+1);		
+		newSfs[sfs.length] = new SortField(field, sortType(field), reverse);		
+		sortObj.setSort(newSfs);
+		
+		updateFullTextQuery = true;
+	}
+	
 	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
 	public List<WebDSLFacet> facets(String field, int topN) {
 		String facetName = "facet_" + field;
 		ArrayList<WebDSLFacet> webDSLFacets;
 		List<Facet> facets;
 		if (validateQuery())
-			//query.getFacetManager().disableFaceting(facetName);
 			facets = query.getFacetManager().getFacets(facetName);
 		else
 			facets = new ArrayList<Facet>();
@@ -325,11 +375,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				return false;
 			updateLuceneQuery = false;
 			updateFullTextQuery = true;
-
 		}
-		if(updateFullTextQuery){
+		if (updateFullTextQuery) {
 			query = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
 			applyFieldConstraints();
+			if(sortFields.length() > 1)
+				query.setSort(sortObj);
 			updateFullTextQuery = false;
 		}
 		query.setFirstResult(offset);
@@ -371,7 +422,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return str.replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
 	}
 	
-	public String createBuildString(){
+	public String encodeAsString(){
 		StringBuilder sb = new StringBuilder();
 		//0 search fields
 		for(int cnt = 0 ; cnt < searchFields.length-1; cnt++)
@@ -406,13 +457,17 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		//11 narrowed facets
 		sb.append("|");
 		sb.append(narrowFacets.replaceFirst(",", ""));
+		//12 sort fields
+		sb.append("|" + sortFields);
+		//13 sort directions
+		sb.append("|" + sortDirections);
 		
 		return sb.toString();
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F buildFromString(String searchQueryAsString){
+	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
 		System.out.println("+");
 		String[] props = searchQueryAsString.split("\\|", -1);
 		String[] a1, a2;
@@ -454,10 +509,18 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		maxResults(Integer.parseInt(props[7]));
 		//offset
 		firstResult(Integer.parseInt(props[8]));
+		//sort fields, directions
+		if(!props[12].isEmpty()){
+			a1 = props[12].split(",");
+			a2 = props[13].split(",");
+			for(int i=0; i < a1.length; i++)
+				sort(a1[i], Boolean.getBoolean(a2[i]));
+		}
 		
 		return (F) this;		
 		
 	}
 	
 	public abstract Directory spellDirectoryForField(String field);
+	public abstract int sortType(String field);
 }
