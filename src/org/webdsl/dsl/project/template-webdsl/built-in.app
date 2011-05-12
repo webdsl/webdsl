@@ -191,6 +191,7 @@ module .servletapp/src-webdsl-template/built-in
     static name(String):SelectBy
     static partialLinkText(String):SelectBy
     static tagName(String):SelectBy
+    static cssSelector(String):SelectBy
     static xpath(String):SelectBy
   } 
   

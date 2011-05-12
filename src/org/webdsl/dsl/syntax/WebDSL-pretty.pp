@@ -99,6 +99,9 @@
    PagedFor.5:iter-star                      -- _1,
 
    Subtable                           -- V[ V is=2[ H[KW["subtable"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
+   
+   IfExp -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
+
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"] KW["else"] KW["{"] _3 KW["}"] ],
    IfTempl.2:iter-star                -- _1,
    IfTempl.3:iter-star                -- _1,
