@@ -3,6 +3,7 @@ module org/webdsl/dsl/modules/search
 imports
   libstrategolib
   libwebdsl-front
+  org/webdsl/dsl/languages/search/desugar
 
 strategies
 
@@ -23,22 +24,25 @@ rules
 		; where(
 		  	    (x_class, body) := <get-entity-def> ent
 				; <has-no-anno(?IndexedAnno(_,_,_))> ent
-       			; props := <filter(is-property-cons)> body
-       			  //Get super properties, redundant desugaring for now (all-properties returns untouched props)
-       			; if not("Entity" := <Extends> x_class)
-       			  then ourprops := <concat> [props, <Extends;all-properties; desugar-top> x_class]
-       			  else ourprops := props end       			  
-				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> ourprops
+       			; props := <get-searchable-props> x_class
+				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
 				; not([] := searchable)
-				; untokenizedfields := <bagof-UntokenizedFields;uniq>x_class
+				; untokenizedfields := <bagof-UntokenizedFields;uniq> x_class
 				; lucenesorttypes := <map(fieldname-to-lucene-sort-type(|x_class))> untokenizedfields
 			)
 		; add-anno(|IndexedAnno(searchable,untokenizedfields,lucenesorttypes))
 
+	get-searchable-props:
+	  entityName -> result
+	  where myProps := <bagof-EntityNameToSearchableProps; flatten-list> entityName
+	  ; if (not("Entity" := <Extends> entityName))
+	    then result := <concat> [<Extends; get-searchable-props> entityName, myProps]
+	    else result := myProps end
+	  	
+
 	fieldname-to-lucene-sort-type(|x_class):
 		fieldname -> lst
-		with
-			lst := <fieldNameToType; to-lucene-sort-type <+ to-lucene-default-sort-type> (x_class, fieldname)
+		with lst := <fieldNameToType; to-lucene-sort-type <+ to-lucene-default-sort-type> (x_class, fieldname)
 	    	  
     record-untokenized-fields(|x_class):
     	s@SearchableAnno(sa-args) -> field-name
@@ -70,16 +74,15 @@ rules
 	    Property(name, propkind, srt, anno*) -> embeddedNames
 	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
 	    // 1 level of depth right now, so only simple types are supported
-	    // TODO: all-properties does not return desugared version of properties, what to use? 
 	    with embeddedType := <srt-to-type> srt
-	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
+	    ; embeddedSearchable :=  <get-searchable-props; filter(is-simple-prop); filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
 		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
 		; <zip(record-field-name-to-type(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
 		  
   	searchable-property-to-name(|x_class) :
-    	DerivedProperty(name, propkind, srt, anno*, _) -> name
+    	DerivedProperty(name, propkind, srt, anno*, _) -> names
     	where not (<?Ref()<+?Comp() > propkind)
 	    ; searchable-annos := <filter(?SearchableAnno(_))> anno*
 	    ; not(?[])
@@ -92,9 +95,8 @@ rules
 	    DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
 	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
 	    // 1 level of depth right now, so only simple types are supported
-	    // TODO: all-properties does not return desugared version of properties, what to use? 
 	    with embeddedType := <srt-to-type> srt
-	    ; embeddedSearchable :=  <all-properties; desugar-top ; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
+	    ; embeddedSearchable :=  <get-searchable-props; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
 		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields

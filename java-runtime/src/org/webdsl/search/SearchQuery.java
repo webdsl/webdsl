@@ -45,8 +45,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected HashMap<String,Float> boosts;
 	protected HashMap<String, Facet> facetMap;
 
+	protected ArrayList<Facet> narrowFacetsList = new ArrayList<Facet>();
+	
 	protected Query luceneQuery = null;
-	protected FullTextQuery query = null;
+	protected FullTextQuery fullTextQuery = null;
 	protected FullTextSession fullTextSession;
 	
 	protected FacetManager facetManager = null;
@@ -101,7 +103,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 	
 	private void enableFieldConstraintFilter(String field, String value) {
-		query.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);
+		fullTextQuery.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -150,7 +152,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		ArrayList<WebDSLFacet> webDSLFacets;
 		List<Facet> facets;
 		if (validateQuery())
-			facets = query.getFacetManager().getFacets(facetName);
+			facets = fullTextQuery.getFacetManager().getFacets(facetName);
 		else
 			facets = new ArrayList<Facet>();
 		
@@ -164,7 +166,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				.includeZeroCounts(false).maxFacetCount(topN)
 				.createFacetingRequest();
 			
-			facets = query.getFacetManager().enableFaceting(facetReq).getFacets(facetName);
+			facets = fullTextQuery.getFacetManager().enableFaceting(facetReq).getFacets(facetName);
 			
 			if(!facets.isEmpty()){
 				this.facetFields += "," + field;
@@ -196,10 +198,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if(facetMap == null)
 			facetMap = new HashMap<String, Facet>();		
 		narrowFacets += "," + facet.getFieldName() + ":" + facet.getValue();
-		Facet actualFacet = facetMap.get(facet.getFieldName() + ":" + facet.getValue());
 		
-		String facetName = actualFacet.getFacetingName();
-		query.getFacetManager().getFacetGroup(facetName).selectFacets(actualFacet);
+		Facet actualFacet = facetMap.get(facet.getFieldName() + ":" + facet.getValue());
+		narrowFacetsList.add(actualFacet);
+		updateFullTextQuery = true;
 
 		return (F) this;
 	}
@@ -274,7 +276,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public List<EntityClass> list() {
 		searchTime = System.currentTimeMillis();
 		if (validateQuery()) {
-			List<EntityClass> toReturn = query.list();
+			List<EntityClass> toReturn = fullTextQuery.list();
 			searchTime = System.currentTimeMillis() - searchTime;
 			return toReturn;
 		} else
@@ -342,7 +344,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	public int resultSize() {
 		if (validateQuery())
-			return query.getResultSize();
+			return fullTextQuery.getResultSize();
 		else
 			return -1;
 	}
@@ -385,19 +387,28 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			updateFullTextQuery = true;
 		}
 		if (updateFullTextQuery) {
-			query = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
+			fullTextQuery = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
 			if(constraints != null)
 				applyFieldConstraints();
+			if(narrowFacets.length() > 1)
+				applyFacets();
 			if(sortFields.length() > 1)
-				query.setSort(sortObj);
+				fullTextQuery.setSort(sortObj);
 			updateFullTextQuery = false;
 		}
-		query.setFirstResult(offset);
-		query.setMaxResults(limit);
+		fullTextQuery.setFirstResult(offset);
+		fullTextQuery.setMaxResults(limit);
 
 		return true;
 	}
 	
+	private void applyFacets() {
+		for (Facet facet : narrowFacetsList) {
+			String facetName = facet.getFacetingName();
+			fullTextQuery.getFacetManager().getFacetGroup(facetName).selectFacets(facet);			
+		}
+	}
+
 	private boolean createMultiFieldQuery(){
 		if (!searchTerms.isEmpty()) {
 			
