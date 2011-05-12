@@ -41,9 +41,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected boolean updateLuceneQuery = true;
 	protected boolean updateFullTextQuery = true;
 
-	protected HashMap<String, String> constraints = new HashMap<String, String>();
-	protected HashMap<String,Float> boosts = new HashMap<String, Float>();
-	protected HashMap<String, Facet> facetMap = new HashMap<String, Facet>();
+	protected HashMap<String, String> constraints;
+	protected HashMap<String,Float> boosts;
+	protected HashMap<String, Facet> facetMap;
 
 	protected Query luceneQuery = null;
 	protected FullTextQuery query = null;
@@ -74,6 +74,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F addFieldConstraint(String fieldname, String terms) {
+		if(constraints == null)
+			constraints = new HashMap<String, String>();
 		
 		constraints.put(fieldname, terms);
 		updateFullTextQuery = true;
@@ -88,6 +90,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F boost(String field, Float boost) {
+		if(boosts == null)
+			boosts = new HashMap<String, Float>();
 		if (boosts.containsKey(field))
 			boosts.remove(field);
 		
@@ -179,6 +183,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	private void recordFacets(List<Facet> facets){
 		String key;
+		if(facetMap == null)
+			facetMap = new HashMap<String, Facet>();
 		for (Facet facet : facets) {
 			key = facet.getFieldName() + ":" + facet.getValue();
 			facetMap.put(key, facet);			
@@ -187,6 +193,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(WebDSLFacet facet) {
+		if(facetMap == null)
+			facetMap = new HashMap<String, Facet>();		
 		narrowFacets += "," + facet.getFieldName() + ":" + facet.getValue();
 		Facet actualFacet = facetMap.get(facet.getFieldName() + ":" + facet.getValue());
 		
@@ -378,7 +386,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		}
 		if (updateFullTextQuery) {
 			query = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
-			applyFieldConstraints();
+			if(constraints != null)
+				applyFieldConstraints();
 			if(sortFields.length() > 1)
 				query.setSort(sortObj);
 			updateFullTextQuery = false;
@@ -393,7 +402,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if (!searchTerms.isEmpty()) {
 			
 			QueryParser parser;
-			if(boosts.isEmpty()) {
+			if(boosts == null || boosts.isEmpty()) {
 				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer);
 			} else {
 				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
@@ -434,10 +443,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		sb.append("|" + op);
 		//3 constraint fields
 		sb.append("|");
-		for (String field : constraints.keySet()) sb.append(field + ",");		
+		if(constraints!=null)
+			for (String field : constraints.keySet()) sb.append(field + ",");		
 		//4 constraint values
 		sb.append("|");
-		for (String value : constraints.values()) sb.append(value + ",");
+		if(constraints!=null)
+			for (String value : constraints.values()) sb.append(value + ",");
 		//5 facet fields
 		sb.append("|");
 		sb.append(facetFields.replaceFirst(",", ""));		
@@ -450,10 +461,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		sb.append("|" + offset);
 		//9 boost fields
 		sb.append("|");
-		for (String field : boosts.keySet()) sb.append(field + ",");		
+		if(boosts!=null)
+			for (String field : boosts.keySet()) sb.append(field + ",");		
 		//10 boost values
 		sb.append("|");
-		for (Float value : boosts.values()) sb.append(value + ",");
+		if(boosts!=null)
+			for (Float value : boosts.values()) sb.append(value + ",");
 		//11 narrowed facets
 		sb.append("|");
 		sb.append(narrowFacets.replaceFirst(",", ""));
@@ -468,7 +481,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
-		System.out.println("+");
+		//System.out.println("+");
 		String[] props = searchQueryAsString.split("\\|", -1);
 		String[] a1, a2;
 		// search fields

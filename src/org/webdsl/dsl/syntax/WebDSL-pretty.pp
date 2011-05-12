@@ -62,6 +62,14 @@
    SearchableAnnoBoost				  -- _1 KW["*"] _2,
    SA-Argument						  -- H hs=0[_1 KW["="] _2],
    
+   SearchMappingEmbedded			  -- V[V is=2[H[KW["searchmapping"] KW["{"]] _1] KW["}"]],
+   SearchMappingEmbedded.1:iter-star  -- _1,
+   SearchFieldMapping				  -- H hs=1[_1 _2],
+   SearchFieldMapping.1:iter-star	  -- H hs=1[_1],
+   FieldName						  -- H hs=1[KW["as"] _1],
+   AnalyzerName						  -- H hs=1[KW["using"] _1],
+   Boost							  -- H hs=1[KW["*"] _1],
+   
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
    Define.1:iter-star                 -- _1,
    Define.3:iter-star-sep             -- H hs=0[_1 KW[","]],
@@ -780,7 +788,7 @@
    XMLEmptyElement.2:iter-star                  -- _1,
 
 %% Search
-   SearchConfig				 -- V[V is=2[H[_1 KW["searchconfig"] _2 KW["{"]] _3] KW["}"]],
+   SearchConfig				 -- V[V is=2[H[_1 KW["analyzer"] _2 KW["{"]] _3] KW["}"]],
    SearchConfigBody			 -- V[_1 _2 _3],
    SearchConfigBody.1:iter-star -- V[_1],
  %% SearchConfigBody.2:opt 		-- V[_1],
