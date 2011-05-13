@@ -3,17 +3,18 @@ module org/webdsl/dsl/languages/ui/query-utils
 rules
 
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
-    with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful
+    with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful, LocalRedefDef, LocalRedefName, LocalRedefArgs
        : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
                   RootVar         : Var(x) -> srt // The actual variable we are interested in (the persistent root of our analysis)
                   QueryConditions := True()       // Changes over time to represent the query conditions active on the term currently being analyzed
                   IsEffectful     := False()      // True if the current statement is effectful (means: can affect non-local state), False otherwise
                )
+       ; <alltd(define-local-redefine)> base
        ; <filter({vars: 
                      \ Arg(arg, srt) ->  <id>
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
-       //; <debug(!"base:")> base
+       //; info(|["base: ", <pp-aterm> base])
        ; info(|["Looking for property use of variable ", x, " of type ", srt])
        ; rules( QueryConditions := <extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
@@ -196,19 +197,80 @@ strategies
     ; listF := <collect-potential-joins> falseBlock
     ; rules( QueryConditions := OldQueryCond )
     ; !<concat>[listC, listF]
-      
+
+  define-local-redefine =
+    ?LocalRedefine(mods, tname, fargs, tname2, extraArgs)
+    ; fargsredef := <local-redefine-arg-types(|fargs,extraArgs)>
+    ; LocalRedefineArgs(argsredef) := extraArgs
+    ; gennameredef := <generate-template-name> (<strip-annos>tname2, fargsredef)
+    ; gennamecall := <generate-template-name-fargs> (tname, fargs)
+    ; rules (
+        LocalRedefName: gennamecall -> gennameredef
+        LocalRedefArgs: gennamecall -> argsredef
+      )
+
+  define-local-redefine =
+    ?def@Define(mods, tname{tname2}, fargs, _, elems1){anno*}
+    ; where(is-local-template-def)
+    ; where(<fetch(?EnclosingDefine(templatekey, encltemplatename, encltemplateargs, _))> anno*)
+    ; where((argsredef,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,[elems1,<map(get-varname-from-formarg)>encltemplateargs]))
+    ; fargsredef := <local-redefine-arg-types(|fargs,LocalRedefineArgs(argsredef))>
+    ; gennameredef := <generate-template-name> (<strip-annos>tname2, fargsredef)
+    ; gennamecall := <generate-template-name-fargs> (tname, fargs)
+    ; rules (
+        LocalRedefDef: gennameredef -> def // Desugar has not been called on local redefine, so CurrentTemplateDecl will fail, we define a local version here 
+        LocalRedefName: gennamecall -> gennameredef
+        LocalRedefArgs: gennamecall -> argsredef
+      )
+
   // Follow a template call
   an-potential-joins =
     (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
     ; not([] := <filter(get-accessible-var; (IteratedVar <+ IteratedSubList))> args)
-    ; genname := <generate-template-name-args> (name, args)
+    ; (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
     ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
-    ; <CurrentTemplateDecl> genname
-    ; ?Define(_, _, fargs, _, body)
+    ; <?Define(_, _, fargs, _, body)> def
     ; {| PassedTemplate
        : rules( PassedTemplate : genname -> genname )
-       ; <an-potential-joins-with-args(|args, fargs)> body
+       ; <an-potential-joins-with-args(|args2, fargs)> body
        |}
+
+  an-potential-joins =
+    (?call@TemplateCallNoBody(name, args) <+ ?call@TemplateCall(name, args, _, TemplateBody([])))
+    ; [] := <filter(get-accessible-var; (IteratedVar <+ IteratedSubList))> args // Contains no arguments that are of interest to us
+    ; <collect-from-local-redefines> call // Still we need to follow the call, just to see if a local redefine is called, which may have extra arguments which are of interest to us
+
+  collect-from-local-redefines =
+    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    ; (genname, _, def) := <generate-template-name-args; where(not(LocalRedefName)); get-local-template-redefine(|args)> (name, args) // Not a local redefine
+    ; where(not(<PassedTemplate> genname))
+    ; <?Define(_, _, _, _, body)> def
+    ; calls := <collect(?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, TemplateBody([])))> body
+    ; {| PassedTemplate, LocalRedefDef, LocalRedefName, LocalRedefArgs
+       : rules( PassedTemplate : genname -> genname )
+       ; <alltd(define-local-redefine)> body
+       ; <filter(collect-from-local-redefines)> calls // Just follow the calls
+       |}
+
+  collect-from-local-redefines =
+    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    ; (genname, args2, def) := <generate-template-name-args; where(LocalRedefName); get-local-template-redefine(|args)> (name, args) // This is call to a redefined template
+    ; where(not(<PassedTemplate> genname))
+    ; <?Define(_, _, fargs, _, body)> def
+    ; {| PassedTemplate
+       : rules( PassedTemplate : genname -> genname )
+       ; <an-potential-joins-with-args(|args2, fargs)> body // Analyze the call normally
+       |}
+
+  // Redirects attention to the local redefine and augments the arguments accordingly
+  get-local-template-redefine(|args) =
+    ?genname
+    ; localname := <LocalRedefName> genname
+    ; !(localname, <conc>(args, <LocalRedefArgs> genname), <CurrentTemplateDecl <+ LocalRedefDef> localname)
+
+  get-local-template-redefine(|args) =
+    where(not(LocalRedefName))
+    ; !(<id>, args, <CurrentTemplateDecl>)
 
   an-potential-joins =
     ?TemplateCall(_, args*, passign*, TemplateBody([]))
@@ -263,8 +325,9 @@ strategies
   // This strategy defines rules to keep track of template / function arguments
   an-potential-joins-with-args(|args, fargs) =
     ?body
-    ; {| IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
+    ; {| IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue, LocalRedefDef, LocalRedefName, LocalRedefArgs
        : with(id
+         ; <alltd(define-local-redefine)> body
          // Here we mark the arguments as interesting, because they are in some way related to the persisten root or are constants which we can use in query conditions
          ; <filter({vars:
                      \ (e, Arg(x, srt)) ->  <id>
