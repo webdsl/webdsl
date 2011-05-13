@@ -1256,6 +1256,8 @@
    
    ValidateAction -- KW["validate"] _1,
 
-   QualifiedElementsCall -- _1 KW[".elements"]
+   QualifiedElementsCall -- _1 KW[".elements"],
+   
+   COMPLETION -- _1 %% this constructor can be added anywhere by Spoofax
    
 ] 
