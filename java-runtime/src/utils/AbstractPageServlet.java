@@ -163,17 +163,18 @@ public abstract class AbstractPageServlet{
         try{ 
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
             switch(phase){
-                case 2: temp.validateInputs(args, env, null, null); break;
-                case 4: temp.render(args, env, null, null); break;
+                case 2: temp.validateInputs(name, args, env, null, null); break;
+                case 4: temp.render(name, args, env, null, null); break;
             }
         }
         catch(Exception oe){ 
             try {
                 TemplateCall tcall = env.getWithcall(name); //'elements' or requires arg
                 TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
+                String parent = env.getWithcall(name)==null?null:env.getWithcall(name).parentName;
                 switch(phase){
-                    case 2: temp.validateInputs(tcall.args, env, null, null); break;
-                    case 4: temp.render(tcall.args, env, null, null); break;
+                    case 2: temp.validateInputs(parent, tcall.args, env, null, null); break;
+                    case 4: temp.render(parent, tcall.args, env, null, null); break;
                 }
             }
             catch(Exception ie){

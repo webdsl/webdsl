@@ -56,29 +56,29 @@ public abstract class TemplateServlet {
       }
     }
     
-    public void storeInputs(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs, ltas);
           tryInitializeVarsOnce(); //this phase could be skipped, so performed in render as well
           storeInputsInternal();
         }
       }  
-    public void validateInputs(Object[] args, Environment env,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void validateInputs(String calledName, Object[] args, Environment env,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs, ltas);
           validateInputsInternal();
         }
       } 
-    public void handleActions(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
+    public void handleActions(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
         if(!skipThisTemplate){
-          tryInitializeTemplate(args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs, ltas);
           handleActionsInternal();
         }
       }  
 
-    public void render(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
+    public void render(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
       if(!skipThisTemplate){
-        tryInitializeTemplate(args, env, attrs, ltas);
+        tryInitializeTemplate(calledName, args, env, attrs, ltas);
         tryInitializeVarsOnce();
      
         java.io.StringWriter s = new java.io.StringWriter();
@@ -156,7 +156,11 @@ public abstract class TemplateServlet {
         actions.put(key, value);
     }
     
-    private void tryInitializeTemplate(Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
+    //template name used to call it might be different due to override/local redefine
+    //null means use the regular unique template name
+    protected String calledName;
+    
+    private void tryInitializeTemplate(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         //always store arguments, value might change between phases
@@ -166,6 +170,7 @@ public abstract class TemplateServlet {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
               initialized=true;
               
+              this.calledName = calledName;
               this.env = env;
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();

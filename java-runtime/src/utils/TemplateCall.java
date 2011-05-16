@@ -11,6 +11,14 @@ public class TemplateCall {
       this.attrs = attrs;
   }
    
+   public TemplateCall(String name, String parentName, Object[] args, Map<String,String> attrs){
+       this.valid = true;
+       this.name = name;
+       this.args = args;
+       this.attrs = attrs;
+       this.parentName = parentName;
+   }
+   
    public TemplateCall(String name, Object[] args, Map<String,String> attrs){
        this.valid = true;
        this.name = name;
@@ -38,6 +46,7 @@ public class TemplateCall {
   public String name;
   public Object[] args;
   public Map<String,String> attrs;
+  public String parentName; //name of template being called with this TemplateCall as argument
   
   /*
    * just the value of the attribute, no escaping
