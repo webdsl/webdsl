@@ -1,4 +1,4 @@
-// Inverse annotations cannot be declared on both sides.
+// #4 Inverse annotations cannot be declared on both sides.
 
 application test
 
@@ -15,3 +15,14 @@ section datamodel
     accepted       :: Bool
     final          :: Bool
   }
+  
+  entity Entry {
+    testA -> Entry (inverse = Entry.testB)
+	}
+	
+	extend entity Entry {
+	  testB -> Entry (inverse = Entry.testA)
+	}
+	
+	extend entity Entry {
+	}
