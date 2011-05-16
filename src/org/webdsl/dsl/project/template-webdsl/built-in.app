@@ -301,7 +301,7 @@ module .servletapp/src-webdsl-template/built-in
   
   entity RequestLogEntryParam {
     name :: String
-    value :: String
+    value :: String (length=1000000)
   }
   
   //built-in templates

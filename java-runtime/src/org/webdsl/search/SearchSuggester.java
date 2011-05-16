@@ -15,6 +15,8 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttributeImpl;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.spell.SpellChecker;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
@@ -42,9 +44,9 @@ public class SearchSuggester {
 
 	@SuppressWarnings("deprecation")
 	public static List<String> findSuggestionsForField(SearchQuery<?> sq, String toSuggestOn, int maxSuggestionsCount, String suggestedField, boolean morePopular) {
-		
 		try {
-			final SpellChecker spellChecker = new SpellChecker(sq.spellDirectoryForField(suggestedField));
+			Directory dir = FSDirectory.open(sq.spellDirectoryForField(suggestedField));
+			final SpellChecker spellChecker = new SpellChecker(dir);
 			Analyzer analyzer = sf.getAnalyzer(sq.entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream.addAttribute(CharTermAttribute.class); 
@@ -87,7 +89,8 @@ public class SearchSuggester {
 				}
 				toReturn.add(suggestion.trim());
 			}			
-			
+			dir.close();
+			spellChecker.close();
 			return toReturn;
 			
 		} catch (IOException e) {
@@ -107,7 +110,7 @@ public class SearchSuggester {
 			suggestions = spellChecker.suggestSimilar(word, maxSuggestionsCount, fieldIR, suggestedField, true);
 		} finally{
 			if(fieldIR != null)
-			sf.getReaderProvider().closeReader(fieldIR);
+				sf.getReaderProvider().closeReader(fieldIR);
 		}
 
 		return suggestions;
@@ -131,8 +134,6 @@ public class SearchSuggester {
 
 	private static IndexReader getIndexReader(Class<?> entityClass) {
 		ReaderProvider readerProvider = sf.getReaderProvider();
-
-		DirectoryProvider[] directoryProviders = sf.getDirectoryProviders(entityClass);
-		return readerProvider.openReader(directoryProviders);
+		return readerProvider.openReader(sf.getDirectoryProviders(entityClass));
 	}
 }

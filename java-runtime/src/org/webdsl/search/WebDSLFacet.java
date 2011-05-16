@@ -11,7 +11,7 @@ public class WebDSLFacet {
 	public WebDSLFacet(){};
 	
 	public WebDSLFacet(String fieldAndValue){
-		String[] ar = fieldAndValue.split(":", 2);
+		String[] ar = fieldAndValue.split("-", 2);
 		this.fieldName = ar[0];
 		this.value = ar[1];
 	}
