@@ -74,18 +74,26 @@ application test
     var d : WebDriver := FirefoxDriver();
     d.get(navigate(root()));
     d.findElement(SelectBy.className("b1")).click();
-    Thread.sleep(2000);
-    d.findElement(SelectBy.className("i1")).sendKeys("234");
-    Thread.sleep(2000);
-    d.findElement(SelectBy.className("f1")).sendKeys("646");
-    Thread.sleep(2000);
-    d.findElement(SelectBy.className("l1")).sendKeys("345");
-    Thread.sleep(2000);
-    d.findElement(SelectBy.className("s51")).sendKeys("abc");
-    Thread.sleep(2000);
+    Thread.sleep(1000);
+    for(s:String in "234".split()){
+      d.findElement(SelectBy.className("i1")).sendKeys(s);
+      Thread.sleep(1000);
+    }
+    for(s:String in "646".split()){
+      d.findElement(SelectBy.className("f1")).sendKeys(s);
+      Thread.sleep(1000);
+    }
+    for(s:String in "345".split()){
+      d.findElement(SelectBy.className("l1")).sendKeys(s);
+      Thread.sleep(1000);
+    }
+    for(s:String in "abc".split()){
+      d.findElement(SelectBy.className("s51")).sendKeys(s);
+      Thread.sleep(1000);
+    }
     d.findElement(SelectBy.className("button1")).click();
-    Thread.sleep(2000);
-    log(d.getPageSource());
+    Thread.sleep(1000);
+    //log(d.getPageSource());
     assert(d.getPageSource().contains("2340.0646345"));
     d.close();
   }
