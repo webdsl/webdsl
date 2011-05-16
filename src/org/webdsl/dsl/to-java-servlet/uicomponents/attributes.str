@@ -3,51 +3,50 @@ module org/webdsl/dsl/to-java-servlet/uicomponents/attributes
 imports
   libstratego-lib
   libjava-front
-
-imports
   libwebdsl-front
     
 rules
 
-  // CONTROL FLOW
-  
-  //attrsmap optimization, if there are no attrs, do not initialize a new one
   control-flow-emit-attrs-calls-map(|x_methodname) :
-  passign* -> bstm_1*
-  where not(fetch(AllAttributes))
-  with bstm* := <filter(control-flow-emit-attrs-calls);concat> passign*
-     ; if (0 := <length> bstm* ) then
-         bstm_1* := <control-flow-emit-attrs-calls-map-def>
-       else
-         //for not built in templates, actioncalls need to be handled at the place where they were put in the attributes map, 
-         //so the tcall number is set
-         //not that property assignments are already translated by handle-actions-to-java-servlet,  
-         //so they appear twice in the code. The first one however is needed to detect actioncalls to built in templates
-         if "handleActions" := x_methodname then
-           bstm_action* := <filter(attribute-handle-actions); concat> passign* 
+    passign* -> bstm_1*
+    where not(?[<id>]; ?AllAttributes())
+    with bstm* := <filter(control-flow-emit-attrs-calls);concat> passign*
+       ; if (0 := <length> bstm* ) then
+           bstm_1* := <control-flow-emit-attrs-calls-map-def>
          else
-           bstm_action* := []
+           if "storeInputs" := x_methodname then
+             bstm_action* := <filter(attribute-handle-actions-input); concat> passign* 
+           else
+             if "handleActions" := x_methodname then
+               bstm_action* := <filter(attribute-handle-actions); concat> passign* 
+             else
+               bstm_action* := []
+             end
+           end
+         ; bstm_1* := bstm* |[
+             bstm_action*
+             Map<String,String> attrsmapout = new HashMap<String, String>();
+             bstm*
+           ]|
          end
-       ; bstm_1* := bstm* |[
-           bstm_action*
-           Map<String,String> attrsmapout = new HashMap<String, String>();
-           bstm*
-         ]|
-       end
   
   control-flow-emit-attrs-calls-map-def =
     !bstm* |[ Map<String,String> attrsmapout = TemplateCall.EmptyAttrs; ]|
     
-  //if passign* contains 'all attributes' simply pass on the attributes passed to this template
+  //if passign* contains _only_ 'all attributes' simply pass on the attributes passed to this template
   control-flow-emit-attrs-calls-map(|x_methodname) :
     passign* -> bstm* |[ Map<String,String> attrsmapout = attrs; ]|
-    where fetch(AllAttributes)
+    where ?[<id>]; ?AllAttributes()
+    
+  control-flow-emit-attrs-calls-all-attributes :
+    AllAttributes() -> bstm* |[ attrsmapout.putAll(attrs); ]|
 
   control-flow-emit-attrs-calls =
      control-flow-emit-attrs-calls-exclude
   <+ control-flow-emit-attrs-calls-1 
   <+ control-flow-emit-attrs-calls-2
-  <+ control-flow-emit-attrs-calls-not-null 
+  <+ control-flow-emit-attrs-calls-not-null
+  <+ control-flow-emit-attrs-calls-all-attributes
     
   control-flow-emit-attrs-calls-exclude : PropertyAssignment("templateContext",_) -> []
     
@@ -86,10 +85,11 @@ rules
       "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget() +"\",\""+ e_actionid +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson() +/*+e_extraparams+*/ "],\""+ThreadLocalPage.get().getFormIdent()+"\", this, "+"~x_showloadingfeedback"+");" 
     ]| 
     with e_actionid := <action-id-encoding> (actionident, args)
-       ; if <?"onclick" <+ ?"onsubmit"> propname //other events are better off without loading indicator (or loading indicator in the target placeholder)
+       ; x_showloadingfeedback := "false"
+       /*; if <?"onclick" <+ ?"onsubmit"> propname //other events are better off without loading indicator (or loading indicator in the target placeholder)
          then x_showloadingfeedback := "true"
          else x_showloadingfeedback := "false"
-         end
+         end*/
 
    //PROVIDING ATTRIBUTES    
   //event call to java
@@ -97,10 +97,6 @@ rules
     tc@PropertySubmit(x, call@ActionCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
     where actionident := <get-actionnumber> tc
         ; e2 := <ajax-action-call-to-exp(| e|[ "" ]|, actionident, x)> call
-        
-        
-  handle-actions-to-java-servlet =
-    attribute-handle-actions
         
   //handle actions: Note that this code will be executed twice for not build in template calls: just before the template call (to support built ins),
   //and inside the template call, to make the tcall number match
@@ -125,7 +121,7 @@ rules
 
   //in first traversal, for input data binding, already register which action is executed, in order to know about ignore-validation
   //we need handle-actions traversal as well to get the right arguments for the action, which may depend on input data binding
-  handle-actions-input-to-java-servlet:
+  attribute-handle-actions-input:
     tc@PropertySubmit(x, call@ActionCall(x_action, args)) ->
     bstm*|[
         String x_actionid = e_actionid;

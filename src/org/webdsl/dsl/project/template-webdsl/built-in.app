@@ -24,6 +24,9 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.parseDate as parseDate(String):Date
     utils.DateType.parseDate as parseDateTime(String):DateTime
     utils.DateType.parseDate as parseTime(String):Time
+    org.apache.commons.lang.StringEscapeUtils.escapeJavaScript as escapeJavaScript():String
+    substring(Int):String
+    substring(Int,Int):String
   }
   
   type Secret {
@@ -318,9 +321,12 @@ module .servletapp/src-webdsl-template/built-in
         }
         name=tname
         value=e.id
+        id=tname+e.id
         all attributes
       />
-      output(e.name)
+      <label for=tname+e.id>
+        output(e.name)
+      </label>
     }
     databind{
       if(tmp != null && subme in ent2){
@@ -792,16 +798,16 @@ module .servletapp/src-webdsl-template/built-in
       errors := handleValidationErrors(errors);
     }
   }
-
+  
   define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
     var tnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(tnamehidden)
     request var tmpset := Set<Entity>()
     
-    <div class="checkbox-set "+attribute("class") all attributes except "class">
+    <div class="checkbox-set "+attribute("class") all attributes except ["class","onclick"]>
       <input type="hidden" name=tnamehidden /> 
       for(e:Entity in from){
-        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)
+        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)[onclick=""+attribute("onclick")]
       }
     </div>
     databind{
@@ -811,7 +817,7 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
 
-   define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
+  define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
@@ -822,14 +828,18 @@ module .servletapp/src-webdsl-template/built-in
         if(tmphidden!=null && tmp!=null || tmphidden==null && e in set){
           checked="true"  
         }
+        id=tname+e.id
         all attributes
       />
-      output(e.name)
+      <label for=tname+e.id>
+        output(e.name)
+      </label>
     </div>
     databind{
       if(tmphidden != null && tmp != null){ tmpset.add(e); }
     }
   }
+  
   
   //input(e:Entity)
   
@@ -990,7 +1000,8 @@ module .servletapp/src-webdsl-template/built-in
     var selectid := "select"+tname
     var tmp := getRequestParameter(hiddenid);
     var newlist := updateListRequest(tmp,list,selectfrom);
-    
+    var onchange := attribute("onchange");
+    var deletejsfuncname := "delete"+tname;
     databind {
       list := newlist;
     }
@@ -1006,6 +1017,7 @@ module .servletapp/src-webdsl-template/built-in
         $('#~sortableid').sortable({
               stop: function(event, ui){ 
                 $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+                ~onchange
               }
           });
           //initial values
@@ -1014,6 +1026,11 @@ module .servletapp/src-webdsl-template/built-in
           //constrain dragging to list
           //$('#~sortableid').sortable( "option", "containment", 'parent' );
       });
+      var ~deletejsfuncname = function(dollarthis){
+        dollarthis.parent().remove(); 
+        $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+        ~onchange      	
+      };
     </script>
     <input type="hidden" name=hiddenid id=hiddenid/>
     <ul id=sortableid class="sortable">
@@ -1021,7 +1038,7 @@ module .servletapp/src-webdsl-template/built-in
         <li id=e.id class="ui-state-default">
           <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
           output(e.name)
-          <span class="ui-icon ui-icon-close" onclick="$(this).parent().remove(); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray'));"></span>
+          <span class="ui-icon ui-icon-close" onclick=deletejsfuncname+"($(this));"></span>
         </li>	 
       }
     </ul>
@@ -1029,8 +1046,8 @@ module .servletapp/src-webdsl-template/built-in
     //@TODO should become possible to re-use render of template in client
     var p1 := "<li id=\""
     var p2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>" 
-    var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\"$(this).parent().remove()\"></span></li>"
-    
+    var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\""+deletejsfuncname+"($(this));\"></span></li>"
+
     if(selectfrom.length > 0){
       <select id=selectid>
       for(e:Entity in selectfrom){
@@ -1041,9 +1058,10 @@ module .servletapp/src-webdsl-template/built-in
       </select>
       
       <input type="button" value="add" 
-        onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); return false;" />
+        onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); "+onchange+"return false;" />
     }
   }   
+  
   
   
   //select multiple
@@ -1965,13 +1983,584 @@ module .servletapp/src-webdsl-template/built-in
     invoke(String,String):ATerm
   }
   
+  
+  // inputs with ajax validation
+  // @TODO address issues with template arguments to reduce code duplication 
+  
+  define ajax showMessages(list:List<String>){
+    errorTemplateInput(list)
+  }
+  
+  define ajax noMessages(){}  
+  
+  define inputajax(b:Ref<Bool>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputBoolInternal(b,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := b.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := b.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkFloatWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d\d*\.\d*E?\d*/.match(req) || /-?\d\d*E?\d*/.match(req) || /-?\.\d\d*E?\d*/.match(req)){
+        var f: Float := req.parseFloat(); 
+        if(f == null){
+          errors := ["Not a valid decimal number"];
+        }
+      }
+      else{
+        errors := ["Not a valid decimal number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(f:Ref<Float>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputFloatInternal(f,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkFloatWellformedness(req);
+      if(errors==null){
+        errors := f.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkFloatWellformedness(req);
+      if(errors==null){
+        errors := f.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkIntWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d+/.match(req)){
+        if(req.parseInt() == null){
+          errors := ["Outside of possible number range"];
+        }
+      }
+      else{
+        errors := ["Not a valid number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(i:Ref<Int>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputIntInternal(i,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkIntWellformedness(req);
+      if(errors==null){
+        errors := i.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkIntWellformedness(req);
+      if(errors==null){
+        errors := i.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkLongWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d+/.match(req)){
+        if(req.parseLong() == null){
+          errors := ["Outside of possible number range"];
+        }
+      }
+      else{
+        errors := ["Not a valid number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(l:Ref<Long>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputLongInternal(l,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkLongWellformedness(req);
+      if(errors==null){
+        errors := l.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkLongWellformedness(req);
+      if(errors==null){
+        errors := l.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+
+  define inputajax(s:Ref<Secret>){
+    inputajax(s as Ref<String>)[all attributes] 	
+  }
+  define inputajax(s:Ref<URL>){
+    inputajax(s as Ref<String>)[all attributes] 	
+  }
+  define inputajax(s:Ref<Text>){
+    inputajax(s as Ref<String>)[all attributes] 	
+  }
+  define inputajax(s:Ref<WikiText>){
+    inputajax(s as Ref<String>)[all attributes] 	
+  }
+  define inputajax(s:Ref<String>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputStringInternal(s,tname)[onkeyup=validator(), all attributes]
+    //handle validations passed in call to this template
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := s.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := s.getValidationErrors();
+      //ignore-validation prevents regular validation, manually execute validate phase for elements
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements()); 
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }  
+  function checkEmailWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+      if(req != null){
+        if(!(req as Email).isValid()){
+          errors := ["Not a valid email address"];
+        }
+      }
+    return errors;
+  }
+  define inputajax(s:Ref<Email>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputEmailInternal(s,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkEmailWellformedness(req);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkEmailWellformedness(req);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements());
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+ 
+  define inputajax(set:Ref<Set<Entity>>){
+    checkboxselectajax(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define inputajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    checkboxselectajax(set,from)[all attributes]{elements()}
+  }
+  define checkboxselectajax(set:Ref<Set<Entity>>){
+    checkboxselectajax(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define checkboxselectajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputCheckboxSetInternal(set,from,tname)[onclick=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := set.getValidationErrors();
+      //ignore-validation prevents regular validation, manually execute validate phase for elements
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements()); 
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }  
+  define selectajax(ent : Ref<Set<Entity>>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define selectajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputSelectMultipleInternal(set,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := set.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+
+  define inputajax(ent:Ref<Entity>){
+    selectajax(ent, ent.getAllowed())[all attributes]{elements()}
+  }
+  define inputajax(ent:Ref<Entity>, from : List<Entity>){
+    selectajax(ent,from)[all attributes]{elements()}
+  }
+  define selectajax(ent : Ref<Entity>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define selectajax(ent : Ref<Entity>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputEntityInternal(ent,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := ent.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := ent.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  define inputajax(ent : Ref<List<Entity>>){
+    inputajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }  
+  define inputajax(list:Ref<List<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputListInternal(list,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := list.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := list.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+    
+  define radioajax(ent : Ref<Entity>){
+    radioajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }   
+  define radioajax(ent1 : Ref<Entity>, ent2 : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    radioInternal(ent1,ent2,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := ent1.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := ent1.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkSDFWellformedness(req:String,language:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null && !SDF.get(language).isValid(req)){
+      errors := [SDF.get(language).getSGLRError(req)];
+    }
+    return errors;
+  }
+  define inputSDFajax(s:Ref<Text>,language: String){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputTextInternal(s,tname)[class="inputSDF", onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkSDFWellformedness(req,language);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkSDFWellformedness(req,language);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
   //validation message templates
   
   define errorTemplateInput(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       elements()
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000"]{
           text(ve)
         }     
       }
@@ -1979,9 +2568,9 @@ module .servletapp/src-webdsl-template/built-in
   } 
 
   define errorTemplateForm(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000;"]{
           text(ve)
         }     
       }
@@ -1989,9 +2578,9 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   define errorTemplateAction(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000;"]{
           text(ve)
         }     
       }
@@ -2000,9 +2589,9 @@ module .servletapp/src-webdsl-template/built-in
   }
     
   define templateSuccess(messages : List<String>){
-    block()[style := "border: 1px solid #BB8800; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; color: #BB8800; margin-top: 5px;"]{
+        block()[style := "color: #BB8800;"]{
           text(ve)   
         }    
       }

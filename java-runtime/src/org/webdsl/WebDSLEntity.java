@@ -1,6 +1,7 @@
 package org.webdsl;
 
 import java.io.Serializable;
+import java.util.List;
 
 public interface WebDSLEntity extends Serializable {
     boolean isInstance(Class<?> c);
@@ -12,4 +13,5 @@ public interface WebDSLEntity extends Serializable {
     public String getName();
     public void validateSave();
     public boolean isChanged();
+    public List<?> all_();
 }

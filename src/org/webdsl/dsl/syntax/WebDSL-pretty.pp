@@ -45,6 +45,7 @@
    SimpleSort                         -- _1,
    GenericSort                        -- H hs=0[_1 KW["<"] _2 KW[">"]],
    GenericSort.2:iter-sep             -- H hs=0[_1 KW[","]],
+   EntitySort                         -- _1,
    SimpleAnno                         -- _1,
    InverseAnno			      -- KW["inverse"] KW["="] _1 KW["."] _2,
    InverseSlaveAnno		      -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
@@ -147,8 +148,10 @@
  
    TemplateCallDeclaredType.4:iter-star -- _1,
    TemplateCallDeclaredType           -- _1 _2 _3 _4,
-   Action                             -- V[ H[KW["action"] _1 KW["("] _2 KW[")"]] _3 ],
+   Action                             -- V[ H[KW["action"] _1 _2 KW["("] _3 KW[")"]] _4 ],
    Action.2:iter-star-sep             -- H hs=0[_1 KW[","]],
+   Action.3:iter-star-sep             -- H hs=0[_1 KW[","]],
+   ActionModifierIgnoreValidation     -- KW["ignore-validation"],
    AjaxAction													-- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionIdParam								  -- H[ _1 _2 KW["<<"] _3 KW[";"]],
    AjaxActionNoParam									-- H[ _1 _2 KW["<<"] KW[";"]],
@@ -161,6 +164,8 @@
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
    FunctionNoReturn                   -- V[ H[KW["function"] _1 KW["("] _2 KW[")"]] _3 ],
    FunctionNoReturn.2:iter-star-sep   -- H hs=0[_1 KW[","]],
+   StaticEntityFunction               -- V[ H[KW["static"] KW["function"] _1 KW["("] _2 KW[")"] _3] _4 ],
+   ReturnType                         -- KW[":"] _1,
    NativeFunction                     -- H[KW["native"] KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3 KW[";"]],
    ExtendFunction                     -- KW["extend"] _1,
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
@@ -1265,6 +1270,7 @@
    EmailCall.2:iter-star           -- _1,
    
    RenderTemplateFunctionCall -- KW["rendertemplate"] KW["("] _1 KW[")"],
+   ValidateTemplateFunctionCall -- KW["validatetemplate"] KW["("] _1 KW[")"],
 
    TempateModSecure -- KW["secure"],
    TemplateModNotSecure -- KW["not-secure"],

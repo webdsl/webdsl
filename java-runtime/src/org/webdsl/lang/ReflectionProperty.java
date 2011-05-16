@@ -1,6 +1,8 @@
 package org.webdsl.lang;
 
-public class ReflectionProperty{
+import java.util.List;
+
+public class ReflectionProperty<E,P>{
 
     public ReflectionProperty(String name, boolean notnull, String format){
         this.name = name;
@@ -21,6 +23,10 @@ public class ReflectionProperty{
     private boolean hasNotNullAnnotation = false;
     public boolean hasNotNullAnnotation(){
       return hasNotNullAnnotation;
+    }
+    
+    public List<P> getAllowed(E arg){
+      return null;
     }
     
 }
