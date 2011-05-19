@@ -38,8 +38,8 @@ public class WebDSLFacet {
 		return fieldName + "|" + encode(value) + "|" + count;
 	}
 	
-	public WebDSLFacet decodeFromString(String searchQueryAsString){
-		String[] props = searchQueryAsString.split("\\|");
+	public WebDSLFacet decodeFromString(String webDSLFacetAsString){
+		String[] props = webDSLFacetAsString.split("\\|");
 		this.fieldName = props[0];
 		this.value = decode(props[1]);
 		this.count = Integer.parseInt(props[2]);
@@ -48,10 +48,10 @@ public class WebDSLFacet {
 	}	
 	
 	private String encode(String str){
-		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p");
+		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll(",", "\\\\c").replaceAll(":", "\\\\a");
 	}
 	
 	private String decode(String str){
-		return str.replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
+		return str.replaceAll("\\\\a", ":").replaceAll("\\\\c",",").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
 	}
 }

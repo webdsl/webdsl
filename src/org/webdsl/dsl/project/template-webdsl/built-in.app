@@ -1,5 +1,17 @@
 module .servletapp/src-webdsl-template/built-in
 
+  section search
+  //optimization of search index, twice a day
+  
+  invoke optimizeSearchIndex() every 12 hours
+
+  function optimizeSearchIndex(){
+    IndexManager.optimizeIndex();
+  }
+  native class utils.IndexManager as IndexManager {
+    static optimizeIndex()    
+  }
+  
   section methods for built-in types
 
   type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
@@ -2672,5 +2684,5 @@ module .servletapp/src-webdsl-template/built-in
     //access control is not necessary for showMessages ajaxtemplate.
     //Tampering with the URL will produce an html-escaped echo of the 'list' request parameter. 
     rule ajaxtemplate showMessages(list:List<String>){true}
-    rule ajaxtemplate noMessages(){true}  
+    rule ajaxtemplate noMessages(){true} 
    

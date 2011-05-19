@@ -28,7 +28,7 @@ rules
 				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
 				; not([] := searchable)
 				; untokenizedfields := <bagof-UntokenizedFields;uniq> x_class
-				; lucenesorttypes := <map(fieldname-to-lucene-sort-type(|x_class))> untokenizedfields
+				; lucenesorttypes := <map(fieldname-to-java-type-name(|x_class))> untokenizedfields
 			)
 		; add-anno(|IndexedAnno(searchable,untokenizedfields,lucenesorttypes))
 
@@ -40,9 +40,9 @@ rules
 	    else result := myProps end
 	  	
 
-	fieldname-to-lucene-sort-type(|x_class):
+	fieldname-to-java-type-name(|x_class):
 		fieldname -> lst
-		with lst := <fieldNameToType; to-lucene-sort-type <+ to-lucene-default-sort-type> (x_class, fieldname)
+		with lst := <fieldNameToType; to-java-type-name <+ to-default-java-type-name> (x_class, fieldname)
 	    	  
     record-untokenized-fields(|x_class):
     	s@SearchableAnno(sa-args) -> field-name
@@ -55,10 +55,10 @@ rules
     	a@(x_class, field-name) -> a 
     	with rules(UntokenizedFields :+ x_class -> field-name)
     	
-	record-field-name-to-type(|x_class, embedded_type):
+	record-field-name-to-type-embedded(|x_class, embedded_type):
 		q@(fieldName, embedded_fieldName) -> q
 		with type := <fieldNameToType> (embedded_type, fieldName)
-		; rules(fieldNameToType :+ (x_class, embedded_fieldName) -> type)
+		; <record-field-name-to-type(|x_class,type)> embedded_fieldName
     
     searchable-property-to-name(|x_class) :
 	    Property(name, propkind, srt, anno*) -> names
@@ -68,7 +68,11 @@ rules
 	    with names := <map(name-from-searchable-anno)> searchable-annos
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
 	    ; tp := <srt-to-type> srt
-	    ; <map(rules(fieldNameToType :+ (x_class, <id>) -> tp))> untokenizedFields 
+	    ; <map(record-field-name-to-type(|x_class, tp))> untokenizedFields 
+    
+    record-field-name-to-type(|x_class,type) :
+    	fieldName -> []
+    	with rules( fieldNameToType :+ (x_class, fieldName) -> type)
     
     searchable-property-to-name(|x_class) :
 	    Property(name, propkind, srt, anno*) -> embeddedNames
@@ -79,7 +83,7 @@ rules
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
 		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
-		; <zip(record-field-name-to-type(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
+		; <zip(record-field-name-to-type-embedded(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
 		  
   	searchable-property-to-name(|x_class) :
     	DerivedProperty(name, propkind, srt, anno*, _) -> names
@@ -89,7 +93,7 @@ rules
 	    with names := <map(name-from-searchable-anno)> searchable-annos
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
 	    ; tp := <srt-to-type> srt
-	    ; <map(rules(fieldNameToType :+ (x_class, <id>) -> tp))> untokenizedFields 
+	    ; <map(record-field-name-to-type(|x_class,tp))> untokenizedFields 
 
   	searchable-property-to-name(|x_class) :
 	    DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
@@ -100,15 +104,19 @@ rules
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
 		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
-		; <zip(record-field-name-to-type(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
+		; <zip(record-field-name-to-type-embedded(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
 
     name-from-searchable-anno :
     	SearchableAnno(sa-args) -> field-name
     	with <fetch(?SA-Argument("name", field-name))> sa-args 
 
-  to-lucene-sort-type: "Int" -> "INT"
-  to-lucene-sort-type: "Float" -> "FLOAT"
-  to-lucene-default-sort-type: _ -> "STRING"
+  to-java-type-name: "Int" -> "Integer"
+  to-java-type-name: "Float" -> "Float"
+  to-java-type-name: "WikiText" -> "String"
+  to-java-type-name: "Date" -> "Date"
+  to-java-type-name: "DateTime" -> "Date"
+  to-java-type-name: "Time" -> "Date"
+  to-default-java-type-name: _ -> "String"
   	  
   is-simple-prop :
   	p@Property(_, propkind, _, _) -> p
