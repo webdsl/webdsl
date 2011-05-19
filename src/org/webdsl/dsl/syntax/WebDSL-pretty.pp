@@ -61,7 +61,8 @@
    SearchableAnno.1:iter-star-sep     -- H hs=0[_1 KW[","]],
    SearchableAnnoBoost				  -- _1 KW["*"] _2,
    SA-Argument						  -- H hs=0[_1 KW["="] _2],
-   
+   SearchMapping                      -- V[V is=2[H[KW["searchmapping"] _1 KW["{"]] _2] KW["}"]],
+   SearchMapping.2:iter-star          -- _1,
    SearchMappingEmbedded			  -- V[V is=2[H[KW["searchmapping"] KW["{"]] _1] KW["}"]],
    SearchMappingEmbedded.1:iter-star  -- _1,
    SearchFieldMapping				  -- H hs=1[_1 _2],

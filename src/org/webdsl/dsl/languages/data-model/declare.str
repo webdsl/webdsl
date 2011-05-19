@@ -30,7 +30,7 @@ strategies // register all declared entities
   all-properties(|alreadychecked) :
     x_class -> result
     where not(<fetch(?x_class)> alreadychecked)
-    with  props := <bagof-Properties; concat> x_class
+    with  props := <bagof-Properties> x_class
         ; if not(<Extends> x_class)
           then result := []
           else
@@ -75,7 +75,7 @@ strategies // register all declared entities
   all-functions(|alreadychecked):
     x_class -> result
     where not(<fetch(?x_class)> alreadychecked)
-    with  funcs := <bagof-Functions; concat> x_class
+    with  funcs := <bagof-Functions> x_class
         ; if not(<Extends> x_class)
           then result := funcs
           else
@@ -100,31 +100,19 @@ rules
   declare-entity =
       ?ent@Entity(x_class, x_super, entbodydecs)
     ; with(
-         props := <filter(is-property-cons)> entbodydecs
-      ; funcs := <filter(is-function-cons)> entbodydecs
-      ; rules(
-          EntDecl :+ x_class -> ent
-
-          Properties :+
-            x_class -> props
-
-          Functions :+
-            x_class -> funcs
-
+        rules(EntDecl :+ x_class -> ent)
+      ; <declare-entity-body(|x_class)> entbodydecs
 /*
           SubClasses :+
             l -> [(x_super, x_class)|l] where not(<elem> ((x_super, x_class), l))
 
           SubClass :+
             x_super -> x_class
-*/            
-        )
-      ; <map(declare-property(|x_class))> props
-      ; <map(declare-function(|x_class))> funcs
+*/
+      ; props := <filter(is-property-cons)> entbodydecs
       ; <handle-entity-id(|x_class)> props   
       ; <declare-function(|x_class)> fun |[ function getName() : String { } ]|   
       ; not(<extend-entity-declare> Entity(x_class, x_super, entbodydecs); debug(!"INTERNAL ERROR: extend-entity-declare must always fail"); <exit> 1) //for example used in typechecker/entity-events, ends in fail for extensibility
-      ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
     )
 
   normalize-declare: EntityNoSuper(x_class, entbodydecs) -> Entity(x_class, "Entity", entbodydecs)
@@ -169,16 +157,13 @@ rules
     
   declare-extend-entity :
     ExtendEntity(x_class, entbodydecs) -> ExtendEntity(x_class, entbodydecs)
+    with  <declare-entity-body(|x_class)> entbodydecs
+    
+  declare-entity-body(|x_class): entbodydecs -> entbodydecs
     with  props := <filter(is-property-cons)> entbodydecs
         ; funcs := <filter(is-function-cons)> entbodydecs
-        ; rules( Properties :+
-                  x_class -> props
-
-                 Functions :+
-                   x_class -> funcs
-          )
-        ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
-        ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
+        ; <map(\prop -> <rules(Properties :+ x_class -> prop); declare-property(|x_class)> \)> props
+        ; <map(\func -> <rules(Functions :+ x_class -> func); declare-function(|x_class)> \)> funcs
         ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
        
   get-property :

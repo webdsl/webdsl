@@ -49,7 +49,7 @@ public class WebDSLFacetTool {
 		}
 		FacetingRequestImpl rfr = new RangeFacetRequest<T>( facetName(field), field, facetRangeList, documentBuilder );
 		rfr.setSort( FacetSortOrder.RANGE_DEFINITION_ODER );
-		rfr.setIncludeZeroCounts( true );
+		rfr.setIncludeZeroCounts( false );
 		rfr.setMaxNumberOfFacets( splitted.length );
 		
 		return rfr;
