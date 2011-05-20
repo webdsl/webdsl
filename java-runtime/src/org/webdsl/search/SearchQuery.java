@@ -83,7 +83,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		return (F) this;
 	}
-
+	
 	private void applyFacets() {
 		if(facetMap == null)
 			facetMap = new HashMap<String, Facet>();
@@ -113,7 +113,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		for (String field : constraints.keySet())
 			enableFieldConstraintFilter(field, constraints.get(field));
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F boost(String field, Float boost) {
 		if(boosts == null)
@@ -128,7 +128,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	public void closeReader(IndexReader reader){
 		if(reader != null)
-		fullTextSession.getSearchFactory().getReaderProvider().closeReader(reader);
+		getFullTextSession().getSearchFactory().getReaderProvider().closeReader(reader);
 	}
 	
 	private boolean createMultiFieldQuery(){
@@ -150,21 +150,23 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		}
 		// Match all documents if no search terms are given
 		else {
-			luceneQuery = fullTextSession.getSearchFactory()
+			luceneQuery = getFullTextSession().getSearchFactory()
 					.buildQueryBuilder().forEntity(entityClass).get().all()
 					.createQuery();
 		}
 		return true;
 	}
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
 
 		
-//		F bla = (F) NativeClassObjectCache.getInstance().getObject(searchQueryAsString);
-//		if(bla!=null){
-//			System.out.println("CACHE HIT");
-//			return bla;
-//		}
+		F bla = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
+		if(bla!=null){
+			System.out.println("CACHE HIT");
+			bla.fullTextSession = null; // needs to be reset
+			return bla;
+		}
 		
 		//System.out.println("+");
 		String[] props = searchQueryAsString.split("\\|", -1);
@@ -229,7 +231,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;		
 		
 	}
-	
 	private String decodeValue(String str){
 		return str.replaceAll("\\\\a", ":").replaceAll("\\\\c",",").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
 	}
@@ -312,7 +313,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		//System.out.println("encode-sq");
 		updateEncodeString = false;
 		encodedAsString = sb.toString().replaceAll(",\\|", "\\|");
-//		NativeClassObjectCache.getInstance().putObject(encodedAsString, this);
+		SearchQueryMRUCache.getInstance().putObject(encodedAsString, this);
 		return encodedAsString;
 		
 	}
@@ -320,6 +321,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	private String encodeValue(String str){
 		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll(",", "\\\\c").replaceAll(":", "\\\\a");
 	}
+	
 	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
 	public List<WebDSLFacet> facets(String field, int topN) {
 
@@ -331,7 +333,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return new ArrayList<WebDSLFacet>();
 		
 		if(facets.isEmpty()) {
-			QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
+			QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
 			FacetingRequest facetReq = builder
 				.facet()
 				.name(facetName)
@@ -354,43 +356,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return toWebDSLFacets(facets);
 		
 	}
-	
-	// example ranges: "(,100)(100,200)(200,)"   "(-200,-100)(-100,0)(0,)"
-	// Bug on numeric fields: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-770
-	// Therefore using custom Hibernate Search jar, but still includes entities with null values on the faceting field in counts :(
-	public List<WebDSLFacet> rangeFacets(String field, String rangesAsString) {
-
-		String facetName = WebDSLFacetTool.facetName(field);
-
-		List<Facet> facets;
-		if (validateQuery()){
-			FacetManager fm = fullTextQuery.getFacetManager();
-			facets = fm.getFacets(facetName);
-		}
-		else
-			return new ArrayList<WebDSLFacet>();
-		
-		if(facets.isEmpty()) {
-
-			FacetingRequest facetReq  = WebDSLFacetTool.toFacetingRequest(field, rangesAsString, entityClass, fieldType(field), fullTextSession);
-			
-			facets = fullTextQuery.getFacetManager().enableFaceting(facetReq).getFacets(facetName);
-			if(facetRequests == null)
-				facetRequests = new HashMap<String, String>();
-			
-			if(!facets.isEmpty() && !facetRequests.containsKey(field)){
-				facetRequests.put(field, rangesAsString);
-				updateEncodeString = true;
-			}
-		}
-	
-		return toWebDSLFacets(facets);
-		
-	}
-		
 	public <F extends SearchQuery<EntityClass>> F field(String field){
 		return fields(new ArrayList<String>(Arrays.asList(field) ));
 	}
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F fields(List<String> fields) {		
 		searchFields = fields.toArray(new String[fields.size()]);
@@ -403,9 +372,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		updateLuceneQuery = updateEncodeString = true;
 		return (F) this;
 	}
-	
+		
 	public abstract Class<?> fieldType(String field);
-	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
 		this.offset = offset;
@@ -413,14 +381,16 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 	
+	protected abstract FullTextSession getFullTextSession ();
+	
 	public IndexReader getReader() {
-		SearchFactory searchFactory = fullTextSession.getSearchFactory();
+		SearchFactory searchFactory = getFullTextSession().getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
 				.getDirectoryProviders(entityClass)[0];
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		return readerProvider.openReader(provider);
 	}
-
+	
 	public String highlight(String field, String toHighLight){
 		return ResultHighlighter.highlight(this, field, toHighLight);
 	}
@@ -428,7 +398,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public String highlight(String field, String toHighLight, String preTag, String postTag){
 		return ResultHighlighter.highlight(this, field, toHighLight, preTag, postTag);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
 		searchTime = System.currentTimeMillis();
@@ -440,14 +410,14 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			searchTime = 0;
 			return new ArrayList<EntityClass>();
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F maxResults(int limit) {
 		this.limit = limit;
 		updateEncodeString = true;
 		return (F) this;
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(String likeText) {
 		int minWordLen = 5, maxWordLen = 30, minDocFreq = 1, minTermFreq = 3, maxQueryTerms = 6, maxDocFreqPct = 100;
@@ -484,7 +454,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 		return (F) this;
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(WebDSLFacet facet) {
 		String key = facet.getFieldName() + "-" + facet.getValue();
@@ -500,7 +470,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F range(Date from, Date to) {
 		return setRangeQuery(from,to);
 	}
-	
+
 	public <F extends SearchQuery<EntityClass>> F range(Float from, Float to) {
 		return setRangeQuery(from,to);
 	}
@@ -512,21 +482,38 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F range(String from, String to) {
 		return setRangeQuery(from,to);
 	}
+	
+	// example ranges: "(,100)(100,200)(200,)"   "(-200,-100)(-100,0)(0,)"
+	// Bug on numeric fields: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-770
+	// Therefore using custom Hibernate Search jar, but still includes entities with null values on the faceting field in counts :(
+	public List<WebDSLFacet> rangeFacets(String field, String rangesAsString) {
 
-	private ArrayList<WebDSLFacet> toWebDSLFacets(List<Facet> facets){
-		String key;
-		ArrayList<WebDSLFacet> webdslFacets = new ArrayList<WebDSLFacet>();
-		
-		if(facetMap == null)
-			facetMap = new HashMap<String, Facet>();
-		
-		for (Facet facet : facets) {
-			key = facet.getFieldName() + "-" + facet.getValue();
-			if(!facetMap.containsKey(key))
-				facetMap.put(key, facet);
-			webdslFacets.add(new WebDSLFacet(facet));
+		String facetName = WebDSLFacetTool.facetName(field);
+
+		List<Facet> facets;
+		if (validateQuery()){
+			FacetManager fm = fullTextQuery.getFacetManager();
+			facets = fm.getFacets(facetName);
 		}
-		return webdslFacets;
+		else
+			return new ArrayList<WebDSLFacet>();
+		
+		if(facets.isEmpty()) {
+
+			FacetingRequest facetReq  = WebDSLFacetTool.toFacetingRequest(field, rangesAsString, entityClass, fieldType(field), getFullTextSession());
+			
+			facets = fullTextQuery.getFacetManager().enableFaceting(facetReq).getFacets(facetName);
+			if(facetRequests == null)
+				facetRequests = new HashMap<String, String>();
+			
+			if(!facets.isEmpty() && !facetRequests.containsKey(field)){
+				facetRequests.put(field, rangesAsString);
+				updateEncodeString = true;
+			}
+		}
+	
+		return toWebDSLFacets(facets);
+		
 	}
 
 	@SuppressWarnings("unchecked")
@@ -552,13 +539,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public int searchTimeMillis() {
 		return (int) this.searchTime;
 	}
+
 	public float searchTimeSeconds() {
 		return (float) (this.searchTime / 1000);
 	}
-
 	@SuppressWarnings("unchecked")
 	private <F extends SearchQuery<EntityClass>> F setRangeQuery(Object from, Object to) {
-		QueryBuilder builder = fullTextSession.getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
+		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
 		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).excludeLimit().createQuery();
 		updateLuceneQuery = false;
 		updateFullTextQuery = updateEncodeString = true;
@@ -584,19 +571,19 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		updateSorting = updateEncodeString = true;
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F sortAsc(String field){
 		sort(field, false);
 		return (F)this;
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F sortDesc(String field){
 		sort(field, true);
 		return (F)this;
 	}
-	
+
 	public int sortType(String field){
 		Class<?> tp = fieldType(field);
 		if(tp.isAssignableFrom(String.class))
@@ -610,7 +597,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 	
 	public abstract File spellDirectoryForField(String field);
-		
+	
 	public ArrayList<String> suggest(String toSuggestOn, List<String> fields){
 		searchTime = System.currentTimeMillis();
 		ArrayList<String> toReturn = (ArrayList<String>) SearchSuggester.findSuggestions(this, 3, fields, toSuggestOn);
@@ -618,7 +605,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		return toReturn;
 	}
-	
+		
 	public String terms(){
 			return this.searchTerms;
 	}
@@ -629,6 +616,22 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		updateLuceneQuery = updateEncodeString = true;
 		return (F) this;
 	}
+	
+	private ArrayList<WebDSLFacet> toWebDSLFacets(List<Facet> facets){
+		String key;
+		ArrayList<WebDSLFacet> webdslFacets = new ArrayList<WebDSLFacet>();
+		
+		if(facetMap == null)
+			facetMap = new HashMap<String, Facet>();
+		
+		for (Facet facet : facets) {
+			key = facet.getFieldName() + "-" + facet.getValue();
+			if(!facetMap.containsKey(key))
+				facetMap.put(key, facet);
+			webdslFacets.add(new WebDSLFacet(facet));
+		}
+		return webdslFacets;
+	}
 	private boolean validateQuery() {
 		if (updateLuceneQuery) {
 			if(!createMultiFieldQuery())
@@ -638,7 +641,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		}
 		if (updateFullTextQuery) {
 			updateFullTextQuery = false;
-			fullTextQuery = fullTextSession.createFullTextQuery(luceneQuery, entityClass);
+			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
 			updateFacets = updateFieldConstraints = updateSorting = true;
 		}
 		if(updateFieldConstraints && constraints != null){
