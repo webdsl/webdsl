@@ -250,10 +250,10 @@ rules //initialization
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
         ; e_criteria := <conc; foldr(!expr|[ hibSession.createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (joinproperties, conditionjoins)
-        ; bstm_criterias* := <hibernate-extra-criteria; map(argument-to-java-servlet-initialization-add-condition(|x_idprop, x_id))> (arg, expr|[x_class]|, x, srt, expr|[ hibSession ]|)
+        ; bstm_criterias* := <hibernate-extra-criteria; map(argument-to-java-servlet-initialization-add-condition(|x_idprop, expr|[java.util.UUID.fromString(x_id)]|))> (arg, expr|[x_class]|, x, srt, expr|[ hibSession ]|)
 
-  argument-to-java-servlet-initialization-add-condition(|x_idprop, x_id) :
-    e_extra -> bstm|[ e_extra.add( org.hibernate.criterion.Restrictions.naturalId().set("~x_idprop", java.util.UUID.fromString(x_id))).list(); ]|
+  argument-to-java-servlet-initialization-add-condition(|x_idprop, e_id) :
+    e_extra -> bstm|[ e_extra.add( org.hibernate.criterion.Restrictions.naturalId().set("~x_idprop", e_id)).list(); ]|
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -305,7 +305,7 @@ rules //initialization
         ; x_classname := <newname> "refargclass"
 
   argument-to-java-servlet-initialization :
-    arg@farg|[ x : srt ]| ->
+    arg@Arg(x, srt){anno*} ->
     bstm*|[
       if (x_id != null) {            
         //filtering must be done earlier, page arg could be hidden input in post as well //utils.URLFilter.unfilter(x_id.toString());
@@ -329,9 +329,54 @@ rules //initialization
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
+        ; <not(fetch-elem(?QueryOptimizations(_, _, _, _))) <+ fetch-elem(?QueryOptimizations([], [], True(), []))> anno*
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@Arg(x, srt){anno*} ->
+    bstm*|[
+      if (x_id != null) {            
+        //filtering must be done earlier, page arg could be hidden input in post as well //utils.URLFilter.unfilter(x_id.toString());
+        org.hibernate.FlushMode oldFlushMode = hibSession.getFlushMode();
+        hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
+        List<t> results = e_criteria
+        .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
+        .list();
+        if(results.size() != 1){
+          results = hibSession.createCriteria( x_class.class )
+          .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
+          .list();
+        }
+        else {
+          bstm_criterias*
+        }
+        hibSession.setFlushMode(oldFlushMode);
+        if(results.size() == 0){
+          System.out.println("No entity with this identity found: "+x_id);
+          throw new RuntimeException("No entity with this identity found: "+x_id);
+        }
+        else if(results.size() > 1){
+          System.out.println("Multiple entities with this identity found: "+x_id) ;
+          throw new RuntimeException("Multiple entities with this identity found: "+x_id);
+          //x = results.get(0);
+        }
+        else {
+          x = results.get(0);
+        }
+      }
+    ]|
+    where <has-entity-anno> srt
+        ; not(SimpleSort("Entity") := srt)
+        ; <not(fetch-elem(?QueryOptimizations([], [], True(), [])))> anno*
+        ; <fetch-elem(?QueryOptimizations(joinproperties, joincandidatesgen, querycondition, conditionjoins))> anno*
+        ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; e_criteria := <conc; foldr(!expr|[ hibSession.createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (joinproperties, conditionjoins)
+        ; bstm_criterias* := <hibernate-extra-criteria; map(argument-to-java-servlet-initialization-add-condition(|x_natidprop, expr|[x_id]|))> (arg, expr|[x_class]|, x, srt, expr|[ hibSession ]|)
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->

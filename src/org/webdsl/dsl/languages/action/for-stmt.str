@@ -40,7 +40,7 @@ rules
           |}
 
   rename-action :
-    fs@ForAllStmt(x, srt, f1, b1) -> ForAllStmt(y, srt2, f2, b2)
+    fs@ForAllStmt(x, srt, f1, b1){anno*} -> ForAllStmt(y, srt2, f2, b2){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
@@ -48,17 +48,26 @@ rules
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
+          ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
           |}
 
   rename-action :
-    fs@ForAllStmtNoFilter(x, srt, b1) -> ForAllStmtNoFilter(y, srt2, b2)
+    fs@ForAllStmtNoFilter(x, srt, b1){anno*} -> ForAllStmtNoFilter(y, srt2, b2){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
           ; rules(VarDecl : y -> fs)
           ; <declare-vars-in-entity-context> y
           ; b2 := <rename-all> b1
+          ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
           |}
+
+  forallstmt-annotations-for-query-optimization:
+    anno* -> newanno*
+    where plain-anno := <remove-all(?FunctionArgs(_) <+ ?QueryOptimizations(_, _, _, _))> anno*
+    ; qopt := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
+    ; args := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
+    ; newanno* := <concat> [ qopt, args, plain-anno ]
 
   rename-action :
     fs@ForCountStmt(x, e1, e2, b1) -> ForCountStmt(y, e3, e4, b2)
@@ -76,12 +85,14 @@ rules
   desugar-action :
     def@ForAllStmt(x, srt, Filter(cond, _, _), _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, [], cond)
+    with args := <fetch-elem(?FunctionArgs(<id>)) <+ []> anno* // Can fail for an action
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, cond)
 
   desugar-action :
     def@ForAllStmtNoFilter(x, srt, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, [], True())
+    with args := <fetch-elem(?FunctionArgs(<id>)) <+ []> anno* // Can fail for an action
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
 
 rules
 
