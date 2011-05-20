@@ -356,8 +356,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return toWebDSLFacets(facets);
 		
 	}
+	
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F field(String field){
-		return fields(new ArrayList<String>(Arrays.asList(field) ));
+		return (F) fields(new ArrayList<String>(Arrays.asList(field) ));
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -467,20 +469,24 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(Date from, Date to) {
-		return setRangeQuery(from,to);
+		return (F) setRangeQuery(from,to);
 	}
 
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(Float from, Float to) {
-		return setRangeQuery(from,to);
+		return (F) setRangeQuery(from,to);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(int from, int to) {
-		return setRangeQuery(from,to);
+		return (F) setRangeQuery(from,to);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(String from, String to) {
-		return setRangeQuery(from,to);
+		return (F) setRangeQuery(from,to);
 	}
 	
 	// example ranges: "(,100)(100,200)(200,)"   "(-200,-100)(-100,0)(0,)"
