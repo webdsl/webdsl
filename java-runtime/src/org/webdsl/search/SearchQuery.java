@@ -94,7 +94,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 			if(!facetMap.containsKey(key)){
 				//all range facets contain at least one '('
-
 				if(facetRequests.get(facet.getFieldName()).contains(","))
 					this.rangeFacets(facet.getFieldName(), facetRequests.get(facet.getFieldName()));
 				else
@@ -160,12 +159,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
 
-		
-		F bla = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
-		if(bla!=null){
+		F fromCache = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
+		if(fromCache!=null){
 			System.out.println("CACHE HIT");
-			bla.fullTextSession = null; // needs to be reset
-			return bla;
+			fromCache.fullTextSession = null; // needs to be reset
+			return fromCache;
 		}
 		
 		//System.out.println("+");
@@ -459,9 +457,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F narrowOnFacet(WebDSLFacet facet) {
-		String key = facet.getFieldName() + "-" + facet.getValue();
-
-		narrowFacets += "," + encodeValue(key);
+		String key = encodeValue(facet.getFieldName() + "-" + facet.getValue());
+		
+		//if already narrowed on this facet, don't add it again
+		if(narrowFacets.contains(key))
+			return (F) this;
+		
+		narrowFacets += "," + key;
 		narrowFacetsList.add(facet);
 	
 		updateFacets = updateEncodeString = true;
@@ -566,10 +568,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			sortObj = new Sort();
 		}
 		else{
+			//If sort field already exists, don't do anything
+			if(sortFields.matches("(^|.*,)" + field + "(,.*|$)")){
+				return;
+			}
 			this.sortFields += "," + field;
 			this.sortDirections += "," + String.valueOf(reverse);
 		}
-		
 		SortField[] sfs = sortObj.getSort();
 		SortField[] newSfs = Arrays.copyOf(sfs, sfs.length+1);		
 		newSfs[sfs.length] = new SortField(field, sortType(field), reverse);		

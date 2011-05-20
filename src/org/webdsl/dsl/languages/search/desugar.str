@@ -57,10 +57,10 @@ rules
   	
   desugar-entity-search(|entityName):
     entbodydecs -> entbodydecs2
-    where <oncetd(?SearchMappingEmbedded(_) <+ anno-needs-desugaring)> entbodydecs //must have search mappings left to desugar
+    where <oncetd(?SearchMappingEmbedded(_) <+ anno-needs-desugaring)> entbodydecs //must have search mappings or searchable annos left to desugar
     with  (props,functions,validations,mappings,rest) := <split-entity-body> entbodydecs
         ; props1 := <try(mapping-to-searchable-anno(|mappings))> props
-        ; props2 := <repeat(innermost-rep(desugar-search-prop))> props1
+        ; props2 := <map(repeat(desugar-search-prop))> props1
         ; searchableProps := <filter(is-searchable-prop)> props2
         ; rules(EntityNameToSearchableProps : entityName -> searchableProps )
         ; entbodydecs2 := <concat> [props2,functions,validations,rest] 
@@ -79,9 +79,15 @@ rules
       
   add-searchable-anno(|fieldmappings):
     DerivedProperty(name, propkind, type, annos, ex) -> DerivedProperty(name, propkind, type, annos1, ex)
-    where mappings := <filter(?SearchFieldMapping(name,_))>
+    where mappings := <filter(?SearchFieldMapping(name,_))> fieldmappings
     ; not(?[])
     ; annos1 := <concat> [annos, <map(to-searchable-anno)> mappings]
+      
+  add-searchable-anno(|fieldmappings):
+    DerivedPropertyNoAnno(name, propkind, type, ex)  -> DerivedProperty(name, propkind, type, annos, ex)
+    where mappings := <filter(?SearchFieldMapping(name,_))> fieldmappings
+    ; not(?[])
+    ; annos := <map(to-searchable-anno)> mappings
   
   to-searchable-anno:
     SearchFieldMapping(_,parts) -> SearchableAnno(sa-args)
@@ -92,39 +98,38 @@ rules
   to-sa-arg: Boost(x) -> SA-Argument("boost", x)
 
   desugar-search-prop:
-	p@Property(name,propkind,srt,anno*) -> Property(name,propkind,srt,anno')
-	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno*)		
+	p@Property(name,propkind,srt,anno) -> Property(name,propkind,srt,anno')
+	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)		
 	with if (<is-numeric-type> srt) 
-	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno*
-	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno* end
+	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
+	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end
 		
 	   
   desugar-search-prop:
-	p@Property(name,propkind,srt,anno*) -> Property(name,propkind,srt,anno')
-	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno*
-	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno*)   
+	p@Property(name,propkind,srt,anno) -> Property(name,propkind,srt,anno')
+	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
+	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)   
 
   desugar-search-prop:
-	p@DerivedProperty(name, propkind, srt, anno*, e) -> DerivedProperty(name, propkind, srt, anno', e)
-	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno*
-	 ; anno' := <map(try(desugar-searchable-anno-untokenized))> anno*)
+	p@DerivedProperty(name, propkind, srt, anno, ex) -> DerivedProperty(name, propkind, srt, anno', ex) 
+	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)
+	with if (<is-numeric-type> srt) 
+	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
+	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end
 
   desugar-search-prop:
-	p@DerivedProperty(name, propkind, srt, anno*, e) -> DerivedProperty(name, propkind, srt, anno', e)
-	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno*
-	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno*)
-  	  	
+	p@DerivedProperty(name, propkind, srt, anno, ex)  -> DerivedProperty(name, propkind, srt, anno', ex)
+	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
+	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)
+  
   desugar-searchable-anno(|name):
     SearchableAnno() -> SearchableAnno([SA-Argument("name", name)])
-
-  desugar-searchable-anno(|name):
-    SearchableAnno -> SearchableAnno([SA-Argument("name", name)])	
 
   desugar-searchable-anno(|name):
   	SearchableAnnoBoost(SearchableAnno(sa-args),boost) -> SearchableAnno([SA-Argument("boost", boost) | sa-args])
   
   desugar-searchable-anno(|name):
-  	SearchableAnnoBoost(SearchableAnno ,boost) -> SearchableAnno([SA-Argument("boost", boost)])  
+  	SearchableAnnoBoost(SearchableAnno() ,boost) -> SearchableAnno([SA-Argument("boost", boost)])  
   	
   desugar-searchable-anno(|name):
   	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", name) | sa-args])
