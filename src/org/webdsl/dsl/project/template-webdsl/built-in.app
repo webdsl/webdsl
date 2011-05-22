@@ -4,11 +4,17 @@ module .servletapp/src-webdsl-template/built-in
   //optimization of search index, twice a day
   
   invoke optimizeSearchIndex() every 12 hours
+  invoke updateSpellIndex() every 12 hours
 
   function optimizeSearchIndex(){
     IndexManager.optimizeIndex();
   }
+  function updateSpellIndex(){
+  	IndexManager.indexSuggestions();
+  }
+  
   native class utils.IndexManager as IndexManager {
+  	static indexSuggestions()
     static optimizeIndex()    
   }
   

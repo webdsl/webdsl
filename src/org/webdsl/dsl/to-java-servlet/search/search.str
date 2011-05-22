@@ -289,18 +289,20 @@ strategies
           org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		  
 		  bstm*
-		  bstm2*
+		  
+		  indexSuggestions();		  
 			 			
 		  time = System.currentTimeMillis() - time;
 	      System.out.println("Reindexing finished in " + time + "ms total.");
         }
         
         private static boolean reindexEntityClass(Class<?> c, org.hibernate.search.FullTextSession session){
-        	System.out.println("reindexing: " + c + "...");
+        	String entityName = c.getName().substring(c.getPackage().getName().length() + 1);
+        	System.out.println("reindexing: " + entityName + "...");
         	long time = System.currentTimeMillis();
         	try {
         		session.createIndexer(c)
-        		.progressMonitor(new org.webdsl.search.IndexProgressMonitor(2000, c.toString()))
+        		.progressMonitor(new org.webdsl.search.IndexProgressMonitor(2000, entityName))
  				.batchSizeToLoadObjects( 50 )
 				.threadsToLoadObjects( 3 )
  				.threadsForSubsequentFetching( 4 )
@@ -315,34 +317,53 @@ strategies
  			System.out.println("done in " + time + "ms.");
  			return true;
         }
+        public static void indexSuggestions(){
+        	bstm2*
+        }
         
-        public static void indexSuggestions(Class<?> indexedClass, String[] searchFields, org.hibernate.search.FullTextSession session){
-		    SearchFactory searchFactory = session.getSearchFactory();
-
+        private static void createOrUpdateSpellIndex(Class<?> indexedClass, String[] searchFields){
+		    
+		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+		    SearchFactory searchFactory = session.getSearchFactory();			
 		 
 		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);
 		 
 		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		    IndexReader reader = readerProvider.openReader(directoryProviders);
 		    
-		    try {
-        		String indexBase = indexDir();
-        		
+    		String indexBase = indexDir();
+    		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
+    		System.out.println(new java.util.Date() + ": Creating/updating spell check index for entity: " + entityName);
+    		try{
 		        for(int c=0;c<searchFields.length;c++){
-		        	FSDirectoryProvider dir = new FSDirectoryProvider();
-            		File path = new File( indexDirSpellCheck(indexedClass, searchFields[c]) );
-            		
-		        	final SpellChecker sp = new SpellChecker(dir.getDirectory().open(path));
-			        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
-			        sp.indexDictionary(dictionary);
+		        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
+		        	SpellChecker sp = null;
+		        	try {
+			        	FSDirectoryProvider dir = new FSDirectoryProvider();
+		        		File path = new File( indexDirSpellCheck(indexedClass, searchFields[c]) );	        		
+			        	sp = new SpellChecker(dir.getDirectory().open(path));		        	
+				        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
+				        sp.indexDictionary(dictionary);
+					} catch (IOException ex) {
+			        	ex.printStackTrace();
+			        	System.out.println("Failed to create spell check index for " + entityName + ", field: " + searchFields[c]);		        
+				    } finally {
+				    	if(sp!=null){
+				    		try {
+								sp.close();
+							} catch (IOException ex) {
+								ex.printStackTrace();
+							}
+				    	}			    	
+				    }
 			    }
-		        System.out.println(new java.util.Date() + ": Created spell check index for class:" + indexedClass.getName());
-		    } catch (IOException ex) {
-		        System.out.println("Failed to create spell check index");
-		        ex.printStackTrace();
-		    } finally {
-		        readerProvider.closeReader(reader);
+		    } finally{
+		    	if (reader != null)
+					searchFactory.getReaderProvider().closeReader(reader);
 		    }
+		    System.out.println(new java.util.Date() + ": Done with spellcheck index for (" + entityName + ")");
+	        
+		    
 		}
 
         public static void optimizeIndex(){
@@ -372,7 +393,7 @@ class-to-index-suggestions:
 	x_name -> result
 	with fields := <ClassToSearchableFields> x_name
 	    ; e_searchfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> fields
-	    ; result := java|[ indexSuggestions(x_name.class, new String[]{ e_searchfield* }, session);]|
+	    ; result := java|[ createOrUpdateSpellIndex(x_name.class, new String[]{ e_searchfield* });]|
 		
 strategies
 

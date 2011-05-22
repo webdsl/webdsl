@@ -257,9 +257,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	public String encodeAsString(){
 		if(!updateEncodeString)
-
 			return encodedAsString;
-		
 		
 		StringBuilder sb = new StringBuilder();
 		//0 search fields

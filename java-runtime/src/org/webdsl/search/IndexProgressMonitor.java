@@ -48,7 +48,7 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 
 	public void addToTotalCount(long count) {
 		totalCounter.addAndGet( count );
-		System.out.println( "Going to reindex " + count  + " entities" );
+		System.out.println( "Number of entities: " + count);
 	}
 
 	public void indexingCompleted() {
@@ -61,9 +61,8 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 
 	protected void printStatusMessage(long starttime, long totalTodoCount, long doneCount) {
 		long elapsedMs = System.currentTimeMillis() - starttime ;
-		System.out.println( entity + ": " + doneCount + " documents indexed in " + elapsedMs + "ms");
-		float estimateSpeed = doneCount * 1000f / elapsedMs;
-		float estimatePercentileComplete = doneCount * 100f / totalTodoCount;
-		System.out.println( estimateSpeed + " documents/second; progress: " + estimatePercentileComplete + "%" );
+		int estimateSpeed = (int) (doneCount * 1000 / elapsedMs);
+		int estimatePercentileComplete = (int) (doneCount * 100 / totalTodoCount);
+		System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedMs + "ms (" + estimateSpeed + " ent/sec)");
 	}
 }
