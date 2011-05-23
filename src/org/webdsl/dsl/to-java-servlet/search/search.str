@@ -182,6 +182,9 @@ strategies
 		public File spellDirectoryForField(String field){
 				return new File( utils.IndexManager.indexDirSpellCheck(entityClass, field));
 		}
+		public File autoCompleteDirectoryForField(String field){
+				return new File( utils.IndexManager.indexDirAutoComplete(entityClass, field));
+		}
 		public Class<?> fieldType(String field){			
 			bstm*
 			return String.class;
@@ -263,6 +266,7 @@ strategies
 	  import org.hibernate.search.reader.ReaderProvider;
 	  import org.hibernate.search.store.DirectoryProvider;
 	  import org.hibernate.search.store.FSDirectoryProvider;
+	  import org.webdsl.search.AutoCompleter;
   
       import utils.*;
       import pkgname.*;
@@ -346,7 +350,7 @@ strategies
 				        sp.indexDictionary(dictionary);
 					} catch (IOException ex) {
 			        	ex.printStackTrace();
-			        	System.out.println("Failed to create spell check index for " + entityName + ", field: " + searchFields[c]);		        
+			        	System.out.println("Failed to create spellcheck index for " + entityName + ", field: " + searchFields[c]);		        
 				    } finally {
 				    	if(sp!=null){
 				    		try {
@@ -362,9 +366,50 @@ strategies
 					searchFactory.getReaderProvider().closeReader(reader);
 		    }
 		    System.out.println(new java.util.Date() + ": Done with spellcheck index for (" + entityName + ")");
-	        
-		    
 		}
+        private static void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields){
+		    
+		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+		    SearchFactory searchFactory = session.getSearchFactory();			
+		 
+		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);
+		 
+		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
+		    IndexReader reader = readerProvider.openReader(directoryProviders);
+		    
+    		String indexBase = indexDir();
+    		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
+    		System.out.println(new java.util.Date() + ": Creating/updating autocomplete index for entity: " + entityName);
+    		try{
+		        for(int c=0;c<searchFields.length;c++){
+		        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
+		        	AutoCompleter ac = null;
+		        	try {
+			        	FSDirectoryProvider dir = new FSDirectoryProvider();
+		        		File path = new File( indexDirAutoComplete(indexedClass, searchFields[c]) );	        		
+			        	ac = new AutoCompleter(dir.getDirectory().open(path));		        	
+				        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
+				        ac.indexDictionary(dictionary);
+					} catch (IOException ex) {
+			        	ex.printStackTrace();
+			        	System.out.println("Failed to create autocomplete index for " + entityName + ", field: " + searchFields[c]);		        
+				    } finally {
+				    	if(ac!=null){
+				    		try {
+								ac.close();
+							} catch (IOException ex) {
+								ex.printStackTrace();
+							}
+				    	}			    	
+				    }
+			    }
+		    } finally{
+		    	if (reader != null)
+					searchFactory.getReaderProvider().closeReader(reader);
+		    }
+		    System.out.println(new java.util.Date() + ": Done with autocomplete index for (" + entityName + ")");
+		}
+		
 
         public static void optimizeIndex(){
         	System.out.println(new java.util.Date() + ": Optimizing search index started.");
@@ -379,21 +424,25 @@ strategies
         public static String indexDirSpellCheck(Class<?> entityClass, String field){
         	return indexDir() + "/SpellCheck/" + entityClass.getName() + "/" + field;
         }
+        public static String indexDirAutoComplete(Class<?> entityClass, String field){
+        	return indexDir() + "/AutoComplete/" + entityClass.getName() + "/" + field;
+        }
 
       }
     ]|
     with pkgname := <DomainPackage>
 	    ; x_class_set := <make-set> x_class*
 	    ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session);]|\)> x_class_set
-	    ; bstm2* := <map(class-to-index-suggestions)> x_class_set
+	    ; bstm2* := <map(class-to-index-suggestions); flatten-list> x_class_set
 	    ; indexdir := <concat-strings>[<IndexDir>,"/",<AppName>]
 	    ; e_indexdir := expr|[ "~indexdir" ]|
 
 class-to-index-suggestions:
-	x_name -> result
+	x_name -> [result1,result2]
 	with fields := <ClassToSearchableFields> x_name
 	    ; e_searchfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> fields
-	    ; result := java|[ createOrUpdateSpellIndex(x_name.class, new String[]{ e_searchfield* });]|
+	    ; result1 := java |[ createOrUpdateSpellIndex(x_name.class, new String[]{ e_searchfield* });]|
+	    ; result2 := java |[ createOrUpdateAutoCompleteIndex(x_name.class, new String[]{ e_searchfield* });]|
 		
 strategies
 

@@ -32,14 +32,14 @@ public class SearchSuggester {
 
 	public static List<String> findSuggestions(SearchQuery<?> sq,
 			int maxSuggestionsPerFieldCount, List<String> fields,
-			String toSuggestOn) {
+			String toSuggestOn, float accuracy) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
 			List<String> fieldSuggestions = findSuggestionsForField(sq,
-					toSuggestOn, maxSuggestionsPerFieldCount, suggestedField,
-					true);
+					toSuggestOn, maxSuggestionsPerFieldCount, suggestedField, 
+					accuracy, true);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
 
@@ -47,10 +47,10 @@ public class SearchSuggester {
 				fieldSuggestionsMap);
 	}
 
-	// @SuppressWarnings("deprecation")
+	@SuppressWarnings("deprecation")
 	public static List<String> findSuggestionsForField(SearchQuery<?> sq,
 			String toSuggestOn, int maxSuggestionCount, String suggestedField,
-			boolean morePopular) {
+			float accuracy, boolean morePopular) {
 
 		SpellChecker spellChecker = null;
 		IndexReader fieldIR = null;
@@ -62,6 +62,7 @@ public class SearchSuggester {
 			Directory dir = FSDirectory.open(sq
 					.spellDirectoryForField(suggestedField));
 			spellChecker = new SpellChecker(dir);
+			spellChecker.setAccuracy(accuracy);
 			Analyzer analyzer = sf.getAnalyzer(sq.entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField,
 					new StringReader(toSuggestOn));
