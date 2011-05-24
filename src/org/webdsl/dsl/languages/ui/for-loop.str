@@ -11,7 +11,7 @@ rules
 rules
 
   rename-ui :
-    def@For(x, srt, e1, f1, elems1, elems3) -> For(y, srt2, e2, f2, elems2, elems4)
+    def@For(x, srt, e1, f1, elems1, elems3){anno*} -> For(y, srt2, e2, f2, elems2, elems4){newanno*}
     with e2 := <rename-all> e1
        ; {| Rename, VarInTemplateContext
           : srt2   := <rename-all> srt
@@ -22,9 +22,10 @@ rules
           ; elems2 := <rename-all> elems1
           |}
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
+        ; newanno* := [TemplateArgs(<TemplateArg>) | anno*]
 
   rename-ui :
-    def@ForNoFilter(x, srt, e1, elems1, elems3) -> ForNoFilter(y, srt2, e2, elems2, elems4)
+    def@ForNoFilter(x, srt, e1, elems1, elems3){anno*} -> ForNoFilter(y, srt2, e2, elems2, elems4){newanno*}
     with e2 := <rename-all> e1
        ; {| Rename, VarInTemplateContext
           : srt2   := <rename-all> srt
@@ -34,6 +35,7 @@ rules
           ; elems2 := <rename-all> elems1
           |}
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
+        ; newanno* := [TemplateArgs(<TemplateArg>) | anno*]
 
   rename-ui :
     def@ForAll(x, srt, f1, elems1, elems3){anno*} -> ForAll(y, srt2, f2, elems2, elems4){newanno*}
@@ -86,6 +88,34 @@ rules
     with <fetch-elem(?TemplateArgs(args))> anno*
     ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
 
+  desugar-ui :
+    def@For(x, srt, call@ThisCall(fname, fargs){callanno*}, f1@Filter(cond, _, _), elems1, elems3){anno*} -> For(x, srt, ThisCall(fname, newargs){queryopt, callanno*}, f1, elems1, elems3){anno*}
+    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> callanno*)
+    ; newargsrt := <map(type-of); <concat>[<id>, [SimpleSort("Object"),SimpleSort("Object")]]> fargs
+    ; Function(_, _, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(None(), fname, newargsrt)
+    ; <fetch-elem(?QueryOptimizationVars(_, _))> fanno*
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, cond)
+    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins)
+    ; newargs := <concat>[fargs, [QueryJoinArg(joincandidates), QueryConditionArg(x, srt, querycondition)]]
+
+  desugar-ui :
+    def@ForNoFilter(x, srt, call@ThisCall(fname, fargs){callanno*}, elems1, elems3){anno*} -> ForNoFilter(x, srt, ThisCall(fname, newargs){queryopt, callanno*}, elems1, elems3){anno*}
+    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> callanno*)
+    ; newargsrt := <map(type-of); <concat>[<id>, [SimpleSort("Object"),SimpleSort("Object")]]> fargs
+    ; Function(_, _, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(None(), fname, newargsrt)
+    ; <fetch-elem(?QueryOptimizationVars(_, _))> fanno*
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
+    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins)
+    ; newargs := <concat>[fargs, [QueryJoinArg(conditionjoins), QueryConditionArg(x, srt, querycondition)]]
+
+  eq-type-of :
+    QueryJoinArg(_) -> SimpleSort("Object")
+
+  eq-type-of :
+    QueryConditionArg(_, _, _) -> SimpleSort("Object")
+
 rules // ForAll only declared entity types
   
   constraint-error-ui: ForAll(_, srt, _, _, _) -> <forall-constraint-error(|srt)>
@@ -108,4 +138,3 @@ rules
 
   constraint-error-ui : ForCount(x, e1, e2, elems1, sep) -> <expression-type-constraint(|SimpleSort("Int"))> e1
   constraint-error-ui : ForCount(x, e1, e2, elems1, sep) -> <expression-type-constraint(|SimpleSort("Int"))> e2
-    

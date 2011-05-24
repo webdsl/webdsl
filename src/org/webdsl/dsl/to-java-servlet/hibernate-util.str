@@ -17,7 +17,7 @@ rules
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
     with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-    ; e_criteria := <conc; foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (joinproperties, conditionjoins)
+    ; e_criteria := <conc; foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*))> (joinproperties, conditionjoins)
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
 
@@ -56,6 +56,28 @@ rules
   	      : rules( IsRootVar : Var(x) -> srt )
         	; e_Cond := <hibernate-criteria-transform-condition> cond
           |}
+
+  expression-to-java-servlet :
+    QueryJoinArg(joins) -> expr |[ "~str" ]|
+    with str := <foldr(!"", ?(new, old); !<concat-strings>[old, "|", new])> joins
+
+  expression-to-java-servlet :
+    QueryConditionArg(x, srt, cond) -> expr|[e_Cond]|
+    where <not(?True())> cond
+    with {| IsRootVar
+          : rules( IsRootVar : Var(x) -> srt )
+          ; e_Cond := <hibernate-criteria-transform-condition> cond
+          |}
+
+  expression-to-java-servlet :
+    QueryConditionArg(_, _, cond) -> expr|[null]|
+    where True() := cond
+
+  hibernate-criteria-add-extra(|anno*) :
+    e_criteria -> expr|[ utils.QueryOptimization.addQueryOptimization(e_criteria, e_Join, e_Cond) ]|
+    where <fetch-elem(?QueryOptimizationVars(joinvar, condvar))> anno*
+    ; e_Join := <expression-to-java-servlet> joinvar
+    ; e_Cond := <expression-to-java-servlet> condvar
 
   property-pair-to-string =
     ?FieldAccess(l, fld){anno*}

@@ -190,13 +190,28 @@ rules // mark functions in built-in.app as precompiled
 rules
   
     desugar-action :
-      f@Function(_,_,srt@GenericSort(_, [typ@SimpleSort(_)]),Block(body)){anno*} -> f{anno*,AddedOptimizableVersion()}
-      where not(<fetch-elem(?AddedOptimizableVersion())>anno*)
-      ; <last; ?Return(Var(_))> body
-      ; for := <collect(?ForAllStmt(_, typ, _, _) <+ ?ForAllStmtNoFilter(_, typ, _)); map(debug(!"for:"))> body
-      ; not([] := for)
-      ; info(|"function:")
-      ; <pp-aterm> f
+      f@Function(name,args,srt@GenericSort(_, [typ@SimpleSort(_)]),Block(body)){anno*} -> f2{PassedOnOptimizationVars(), anno*}
+      where varsanno := <fetch-elem(?QueryOptimizationVars(_, _))> anno*; not(<fetch-elem(?PassedOnOptimizationVars())> anno*)
+      //; <last; ?Return(Var(_))> body
+      ; not([] := <collect(?ForAllStmt(_, typ, _, _) <+ ?ForAllStmtNoFilter(_, typ, _))> body)
+      ; newbody := <alltd(add-forall-extra-arguments-annotation(|typ,varsanno))> body
+      ; f2 := Function(name,args,srt,Block(newbody))
+
+    add-forall-extra-arguments-annotation(|typ,varsanno) :
+      f@ForAllStmt(_, typ, _, _){anno*} -> f{varsanno, anno*}
+      where not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*) 
+
+    add-forall-extra-arguments-annotation(|typ,varsanno) :
+      f@ForAllStmtNoFilter(_, typ, _){anno*} -> f{varsanno, anno*}
+      where not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*) 
+
+    add-forall-extra-arguments-annotation(|typ,varsanno) :
+      f@ForAllStmt(_, typ, _, _){anno*} -> f{anno*}
+      where <fetch-elem(?QueryOptimizationVars(_, _))> anno*
+
+    add-forall-extra-arguments-annotation(|typ,varsanno) :
+      f@ForAllStmtNoFilter(_, typ, _){anno*} -> f{anno*}
+      where <fetch-elem(?QueryOptimizationVars(_, _))> anno*
 
 signature constructors
-  AddedOptimizableVersion : Term
+  PassedOnOptimizationVars : Annotation
