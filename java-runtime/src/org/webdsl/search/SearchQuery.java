@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryParser.MultiFieldQueryParser;
 import org.apache.lucene.queryParser.QueryParser;
@@ -19,8 +18,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.similar.MoreLikeThis;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 import org.hibernate.search.FullTextQuery;
 import org.hibernate.search.FullTextSession;
@@ -166,6 +163,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if(fromCache!=null){
 			System.out.println("CACHE HIT");
 			fromCache.fullTextSession = null; // needs to be reset
+			fromCache.getFullTextSession();
 			return fromCache;
 		}
 		
@@ -611,36 +609,30 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public abstract File spellDirectoryForField(String field);
 	public abstract File autoCompleteDirectoryForField(String field);
 	
-	public ArrayList<String> suggest(String toSuggestOn, List<String> fields, float accuracy){
+	public ArrayList<String> spellSuggest(String toSuggestOn, String field, float accuracy, int noSug){
 		searchTime = System.currentTimeMillis();
-		ArrayList<String> toReturn = (ArrayList<String>) SearchSuggester.findSuggestions(this, 3, fields, toSuggestOn, accuracy);
-		searchTime = System.currentTimeMillis() - searchTime;
-		
+		ArrayList<String> toReturn = SearchSuggester.findSpellSuggestionsForField(this, field, noSug, accuracy, true, toSuggestOn);
+		searchTime = System.currentTimeMillis() - searchTime;		
 		return toReturn;
 	}
 	
-	public ArrayList<String> autoComplete(String toAutoComplete, String field){
+	public ArrayList<String> spellSuggest(String toSuggestOn, List<String> fields, float accuracy, int noSug){
 		searchTime = System.currentTimeMillis();
-		AutoCompleter ac = null;
-		ArrayList<String> toReturn;
-				
-		try {
-			Directory dir = FSDirectory.open(autoCompleteDirectoryForField(field));
-			ac = new AutoCompleter(dir);
-			toReturn = new ArrayList<String>(Arrays.asList(ac.suggestSimilar(toAutoComplete, 5)));
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			toReturn = new ArrayList<String>();
-			e.printStackTrace();
-		} finally {
-			if (ac!=null)
-				try {
-					ac.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-		}
+		ArrayList<String> toReturn = SearchSuggester.findSpellSuggestions(this, fields, noSug, accuracy, toSuggestOn);
+		searchTime = System.currentTimeMillis() - searchTime;		
+		return toReturn;
+	}
+	
+	public ArrayList<String> autoCompleteSuggest(String toSuggestOn, String field, int noSug){
+		searchTime = System.currentTimeMillis();
+		ArrayList<String> toReturn = SearchSuggester.findAutoCompletionsForField(this, field, noSug, toSuggestOn);			
+		searchTime = System.currentTimeMillis() - searchTime;
+		return toReturn;
+	}
+	
+	public ArrayList<String> autoCompleteSuggest(String toSuggestOn, List<String> fields, int noSug){
+		searchTime = System.currentTimeMillis();
+		ArrayList<String> toReturn = SearchSuggester.findAutoCompletions(this, fields, noSug, toSuggestOn);			
 		searchTime = System.currentTimeMillis() - searchTime;
 		return toReturn;
 	}

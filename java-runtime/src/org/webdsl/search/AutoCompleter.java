@@ -17,9 +17,12 @@ import org.apache.lucene.index.LogMergePolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.FieldComparator.RelevanceComparator;
 import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LevensteinDistance;
 import org.apache.lucene.search.spell.StringDistance;
@@ -33,7 +36,7 @@ import org.apache.lucene.util.Version;
 /**
  * <p>
  *   Spell Checker class  (Main class) <br/>
- *  (initially inspired by the David Spencer code).
+ *  (Based on Lucene SpellChecker class).
  * </p>
  *
  * <p>Example Usage:
@@ -44,7 +47,7 @@ import org.apache.lucene.util.Version;
  *  autocompleter.indexDictionary(new LuceneDictionary(my_lucene_reader, a_field));
  *  // To index a file containing words:
  *  autocompleter.indexDictionary(new PlainTextDictionary(new File("myfile.txt")));
- *  String[] suggestions = autocompleter.suggestSimilar("misspelt", 5);
+ *  String[] suggestions = autocompleter.suggestSimilar("toComplete", 5);
  * </pre>
  * 
  *
@@ -52,10 +55,6 @@ import org.apache.lucene.util.Version;
  */
 public class AutoCompleter implements java.io.Closeable {
 
-  /**
-   * The default minimum score to use, if not specified by calling {@link #setAccuracy(float)} .
-   */
-  public static final float DEFAULT_ACCURACY = 0.5f;
 
   /**
    * Field name for each word in the ngram index.
@@ -99,7 +98,7 @@ public class AutoCompleter implements java.io.Closeable {
    * is created if it doesn't exist yet.
    * @param autocompleteIndex the autocomplete index directory
    * @param sd the {@link StringDistance} measurement to use 
-   * @throws IOException if Autocompleter can not open the directory
+   * @throws IOException if AutoCompleter can not open the directory
    */
   public AutoCompleter(Directory autocompleteIndex, StringDistance sd) throws IOException {
     this(autocompleteIndex, sd, SuggestWordQueue.DEFAULT_COMPARATOR);
@@ -207,7 +206,7 @@ public class AutoCompleter implements java.io.Closeable {
    * words are restricted to the words present in this field.
    * @throws IOException if the underlying index throws an {@link IOException}
    * @throws AlreadyClosedException if the Autocompleter is already closed
-   * @return String[] the sorted list of the suggest words with these 2 criteria:
+   * @return List<String> the sorted list of the suggest words with these 2 criteria:
    * first criteria: the edit distance, second criteria (only if restricted mode): the popularity
    * of the suggest words in the field of the user index
    */
@@ -224,35 +223,19 @@ public class AutoCompleter implements java.io.Closeable {
         add(query, key, grams[i]);
       }
 
-      int maxHits = 10 * numSug;
+      int maxHits = 2 * numSug;
 
       ScoreDoc[] hits = indexSearcher.search(query, null, maxHits).scoreDocs;
 
-      SuggestWordQueue sugQueue = new SuggestWordQueue(numSug, comparator);
-
-      // go thru more than 'maxr' matches in case the distance filter triggers
       int stop = Math.min(hits.length, maxHits);
-      SuggestWord sugWord = new SuggestWord();
+      String currentWord = "";
+      List<String> list = new ArrayList<String>();      
+      
       for (int i = 0; i < stop; i++) {
-
-        sugWord.string = indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
-
-        // don't suggest a word for itself, that would be silly
-        if (sugWord.string.equals(word)) {
-          continue;
-        }
-
-        sugQueue.insertWithOverflow(sugWord);
-        sugWord = new SuggestWord();
+    	currentWord = indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
+        list.add(currentWord);
       }
-
-      // convert to array string
-      String[] list = new String[sugQueue.size()];
-      for (int i = sugQueue.size() - 1; i >= 0; i--) {
-        list[i] = sugQueue.pop().string;
-      }
-
-      return list;
+      return list.toArray(new String[list.size()]);
     } finally {
       releaseSearcher(indexSearcher);
     }
@@ -351,9 +334,9 @@ public class AutoCompleter implements java.io.Closeable {
           String word = iter.next();
   
           int len = word.length();
-          if (len < 3) {
-            continue; // too short we bail but "too long" is fine...
-          }
+//          if (len < 3) {
+//            continue; // too short we bail but "too long" is fine...
+//          }
           
           if (!isEmpty) {
             // we have a non-empty index, check if the term exists
@@ -376,7 +359,7 @@ public class AutoCompleter implements java.io.Closeable {
       if (optimize)
         writer.optimize();
       writer.close();
-      // also re-open the autocomplete indexl index to see our own changes when the next suggestion
+      // also re-open the autocomplete index to see our own changes when the next suggestion
       // is fetched:
       swapSearcher(dir);
     }
@@ -401,16 +384,6 @@ public class AutoCompleter implements java.io.Closeable {
   public final void indexDictionary(Dictionary dict) throws IOException {
     indexDictionary(dict, 300, (int)IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
   }
-
-//  private static int getMin(int l) {
-//    if (l > 5) {
-//      return 3;
-//    }
-//    if (l == 5) {
-//      return 2;
-//    }
-//    return 1;
-//  }
 
   private static int getMax(int l) {
     if (l > MAX_PREFIX_LENGTH) {
