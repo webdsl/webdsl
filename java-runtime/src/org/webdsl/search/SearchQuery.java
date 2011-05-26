@@ -160,7 +160,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
 
 		F fromCache = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
-		if(fromCache!=null){
+		if(fromCache!=null && !fromCache.updateEncodeString && fromCache.encodedAsString.equals(searchQueryAsString)){
 			System.out.println("CACHE HIT");
 			fromCache.fullTextSession = null; // needs to be reset
 			fromCache.getFullTextSession();

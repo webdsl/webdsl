@@ -229,13 +229,13 @@ public class AutoCompleter implements java.io.Closeable {
 
       int stop = Math.min(hits.length, maxHits);
       String currentWord = "";
-      List<String> list = new ArrayList<String>();      
+      String[] toReturn = new String[stop];      
       
       for (int i = 0; i < stop; i++) {
     	currentWord = indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
-        list.add(currentWord);
+    	toReturn[i] = currentWord;
       }
-      return list.toArray(new String[list.size()]);
+      return toReturn;
     } finally {
       releaseSearcher(indexSearcher);
     }

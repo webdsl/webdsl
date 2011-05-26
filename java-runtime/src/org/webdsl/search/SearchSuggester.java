@@ -47,6 +47,9 @@ public class SearchSuggester {
 	public static ArrayList<String> findSpellSuggestionsForField(SearchQuery<?> sq,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
 			String toSuggestOn) {
+		
+		if (toSuggestOn == null || toSuggestOn.isEmpty())
+			return new ArrayList<String>();
 
 		SpellChecker spellChecker = null;
 		IndexReader fieldIR = null;
@@ -134,6 +137,9 @@ public class SearchSuggester {
 	public static ArrayList<String> findAutoCompletionsForField(SearchQuery<?> sq,
 			String suggestedField, int maxSuggestionCount, String toSuggestOn) {
 
+		if (toSuggestOn == null || toSuggestOn.isEmpty())
+			return new ArrayList<String>();
+		
 		AutoCompleter autoCompleter = null;
 
 		try {
@@ -145,7 +151,6 @@ public class SearchSuggester {
 					.addAttribute(CharTermAttribute.class);
 
 			boolean dontstop = tokenStream.incrementToken();
-			ArrayList<String> allSuggestions = new ArrayList<String>();
 			StringBuilder prefixSb = new StringBuilder();
 			String word = "";
 			
@@ -163,6 +168,7 @@ public class SearchSuggester {
 			if (suggestions == null || suggestions.length == 0)
 				suggestions = new String[] { word };
 			
+			ArrayList<String> allSuggestions = new ArrayList<String>();			
 			for(int i = 0; i < suggestions.length; i++){
 				allSuggestions.add(prefix + suggestions[i]);
 			}
@@ -185,14 +191,18 @@ public class SearchSuggester {
 	private static ArrayList<String> formSuggestions(int maxSuggestionCount,
 			ArrayList<String[]> allSuggestions) {
 		
-		int maxSuggestions = 1; 
+		ArrayList<String> toReturn = new ArrayList<String>();
+		
+		if (allSuggestions.isEmpty())
+			return toReturn;
+		
+		int maxSuggestions = 0; 
 		for (String[] strings : allSuggestions)
 			maxSuggestions = maxSuggestions * strings.length; 
 		maxSuggestionCount = Math.min(maxSuggestionCount, maxSuggestions);
 		
 		int pos;
 		String suggestion;
-		ArrayList<String> toReturn = new ArrayList<String>();
 
 		for (int i = 0; i < maxSuggestionCount; i++) {
 			suggestion = "";
