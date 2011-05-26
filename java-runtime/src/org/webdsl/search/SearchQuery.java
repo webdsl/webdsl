@@ -39,7 +39,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected int limit = 50;
 	protected int offset = 0;
 	
-	protected boolean updateLuceneQuery, updateFullTextQuery, updateEncodeString, updateSorting, updateFacets, updateFieldConstraints = true;
+	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
 
 	protected HashMap<String, String> constraints;
 	protected HashMap<String, Float> boosts;
@@ -101,6 +101,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			}
 		
 			Facet actualFacet = facetMap.get(key);
+			if(actualFacet == null)
+				return;
+			
 			facetName = actualFacet.getFacetingName();
 
 			fullTextQuery.getFacetManager().getFacetGroup(facetName).selectFacets(actualFacet);
@@ -159,73 +162,89 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
 
-		F fromCache = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
-		if(fromCache!=null && !fromCache.updateEncodeString && fromCache.encodedAsString.equals(searchQueryAsString)){
-			System.out.println("CACHE HIT");
-			fromCache.fullTextSession = null; // needs to be reset
-			fromCache.getFullTextSession();
-			return fromCache;
-		}
-		
-		//System.out.println("+");
-		String[] props = searchQueryAsString.split("\\|", -1);
-		String[] a1, a2;
-		// search fields
-		fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));		
-		//search terms
-		terms(decodeValue(props[1]));
-		//default operator
-		if(props[2].equals("AND"))
-			defaultAnd();
-		//boost fields, values
-		if(!props[9].isEmpty()){
-			a1 = props[9].split(",");
-			a2 = props[10].split(",");
-			for(int i=0; i < a1.length; i++)
-				boost(a1[i], Float.parseFloat(a2[i]));
-		}
-		//constraint fields, values
-		if(!props[3].isEmpty()){
-			a1 = props[3].split(",");
-			a2 = props[4].split(",");
-			for(int i=0; i < a1.length; i++)
-				addFieldConstraint(a1[i], a2[i]);
-		}
-		//facet fields, requests
-		if(!props[5].isEmpty()){
-			a1 = props[5].split(",");
-			a2 = props[6].split(",");
-			facetRequests = new HashMap<String, String>();
-			for(int i=0; i < a1.length; i++)
-
-				facetRequests.put(a1[i], decodeValue(a2[i]));
+//		F fromCache = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
+//		if(fromCache!=null && !fromCache.updateEncodeString && fromCache.encodedAsString.equals(searchQueryAsString)){
+//			System.out.println("CACHE HIT");
+//			fromCache.fullTextSession = null; // needs to be reset
+//			fromCache.getFullTextSession();
+//			return fromCache;
+//		}
+//		
+		try{
+			String[] props = searchQueryAsString.split("\\|", -1);
 			
+			if(props.length != 15){
+				System.out.println("MALFORMED SEARCHQUERY STRING!");
+				return (F) this;
+			}		
+			String[] a1, a2;
+			// search fields
+			fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));		
+			//search terms
+			terms(decodeValue(props[1]));
+			//default operator
+			if(props[2].equals("AND"))
+				defaultAnd();
+			//boost fields, values
+			if(!props[9].isEmpty()){
+				a1 = props[9].split(",");
+				a2 = props[10].split(",");
+				for(int i=0; i < a1.length; i++)
+					boost(a1[i], Float.parseFloat(a2[i]));
+			}
+			//constraint fields, values
+			if(!props[3].isEmpty()){
+				a1 = props[3].split(",");
+				a2 = props[4].split(",");
+				for(int i=0; i < a1.length; i++)
+					addFieldConstraint(a1[i], a2[i]);
+			}
+			//facet fields, requests
+			if(!props[5].isEmpty()){
+				a1 = props[5].split(",");
+				a2 = props[6].split(",");
+				facetRequests = new HashMap<String, String>();
+				for(int i=0; i < a1.length; i++)
+	
+					facetRequests.put(a1[i], decodeValue(a2[i]));
+				
+			}
+			//narrowed facets
+			if(!props[11].isEmpty()){
+				a1 = props[11].split(",");
+				for(int i=0; i < a1.length; i++)
+					narrowOnFacet(new WebDSLFacet(decodeValue(a1[i])));
+			}
+			//limit
+			maxResults(Integer.parseInt(props[7]));
+			//offset
+			firstResult(Integer.parseInt(props[8]));
+			//sort fields, directions
+			if(!props[12].isEmpty()){
+				a1 = props[12].split(",");
+				a2 = props[13].split(",");
+				for(int i=0; i < a1.length; i++)
+					sort(a1[i], Boolean.getBoolean(a2[i]));
+			}
+			//more like this
+			if(!props[14].isEmpty()){
+				a1 = props[14].split(",");
+				moreLikeThis(decodeValue(a1[0]), Integer.parseInt(a1[1]), Integer.parseInt(a1[2]), Integer.parseInt(a1[3]), Integer.parseInt(a1[4]), Integer.parseInt(a1[5]), Integer.parseInt(a1[6]));
+			}
+			
+			encodedAsString = searchQueryAsString;		
+			updateEncodeString = false;
+		} catch (Exception ex){
+			//exception, so return a new query
+			try {
+				System.out.println("MALFORMED SEARCHQUERY STRING!");
+				this.getClass().newInstance();
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			}
 		}
-		//narrowed facets
-		if(!props[11].isEmpty()){
-			a1 = props[11].split(",");
-			for(int i=0; i < a1.length; i++)
-				narrowOnFacet(new WebDSLFacet(decodeValue(a1[i])));
-		}
-		//limit
-		maxResults(Integer.parseInt(props[7]));
-		//offset
-		firstResult(Integer.parseInt(props[8]));
-		//sort fields, directions
-		if(!props[12].isEmpty()){
-			a1 = props[12].split(",");
-			a2 = props[13].split(",");
-			for(int i=0; i < a1.length; i++)
-				sort(a1[i], Boolean.getBoolean(a2[i]));
-		}
-		//more like this
-		if(!props[14].isEmpty()){
-			a1 = props[14].split(",");
-			moreLikeThis(decodeValue(a1[0]), Integer.parseInt(a1[1]), Integer.parseInt(a1[2]), Integer.parseInt(a1[3]), Integer.parseInt(a1[4]), Integer.parseInt(a1[5]), Integer.parseInt(a1[6]));
-		}
-		
-		encodedAsString = searchQueryAsString;		
-		updateEncodeString = false;
 
 		return (F) this;		
 		
@@ -310,7 +329,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		//System.out.println("encode-sq");
 		updateEncodeString = false;
 		encodedAsString = sb.toString().replaceAll(",\\|", "\\|");
-		SearchQueryMRUCache.getInstance().putObject(encodedAsString, this);
+		//SearchQueryMRUCache.getInstance().putObject(encodedAsString, this);
 		return encodedAsString;
 		
 	}
@@ -666,13 +685,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	private boolean validateQuery() {
 		if (updateLuceneQuery) {
 			if(!createMultiFieldQuery())
-				return false;	
+				return false;
 			updateLuceneQuery = false;
 			updateFullTextQuery = true;
 		}
 		if (updateFullTextQuery) {
-			updateFullTextQuery = false;
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
+			updateFullTextQuery = false;
 			updateFacets = updateFieldConstraints = updateSorting = true;
 		}
 		if(updateFieldConstraints && constraints != null){
@@ -687,10 +706,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			updateSorting = false;
 			fullTextQuery.setSort(sortObj);
 		}
-		
 		fullTextQuery.setFirstResult(offset);
 		fullTextQuery.setMaxResults(limit);
 
+		System.out.println("validateQuery Leave");
 		return true;
 	}
 }

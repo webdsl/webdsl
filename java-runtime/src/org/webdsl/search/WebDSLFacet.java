@@ -39,10 +39,14 @@ public class WebDSLFacet {
 	}
 	
 	public WebDSLFacet decodeFromString(String webDSLFacetAsString){
-		String[] props = webDSLFacetAsString.split("\\|");
-		this.fieldName = props[0];
-		this.value = decode(props[1]);
-		this.count = Integer.parseInt(props[2]);
+		try{
+			String[] props = webDSLFacetAsString.split("\\|");
+			this.fieldName = props[0];
+			this.value = decode(props[1]);
+			this.count = Integer.parseInt(props[2]);
+		} catch (Exception ex){
+			return new WebDSLFacet("Illegal facet-Illegal facet");
+		}
 		
 		return this;
 	}	
