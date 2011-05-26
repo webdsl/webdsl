@@ -46,9 +46,19 @@ strategies
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
-       public class x_Class implements org.webdsl.WebDSLEntity
+       public class x_Class implements org.webdsl.WebDSLEntity, org.hibernate.bytecode.javassist.FieldHandled
        {
           public x_Class () {}
+
+          private org.hibernate.bytecode.javassist.FieldHandler fieldHandler;
+
+          public org.hibernate.bytecode.javassist.FieldHandler getFieldHandler() {
+            return fieldHandler;
+          }
+
+          public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
+            this.fieldHandler = fieldHandler;
+          }
 
           ~*idcodes
           ~*<version-property>[]
@@ -319,6 +329,7 @@ strategies
        mod1* mod2* mod3* mod4* protected t _#x = e;
        
        mod5* public t get#x() {
+         bstm_lazygetter*
          return _#x;
        }
        
@@ -330,7 +341,7 @@ strategies
              ~*bas*
              bstm_setterextension*
              t olditem = _#x;
-             _#x = newitem;
+             bstm_lazysetter*
              x#BeingSet = false;
            }
          }
@@ -375,7 +386,25 @@ strategies
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
         ; mod5*  := <property-to-index-annos> prop
-          
+        ; (bstm_lazygetter*, bstm_lazysetter*) := <handle-lazy-one-to-one-inverse(|x, x_Class, annos) <+ !([], bstm*|[ _#x = newitem; ]|)> s
+
+   handle-lazy-one-to-one-inverse(|x, x_Class, annos) :
+     s@SimpleSort(y) -> ( bstm* |[ if (fieldHandler != null) {
+                                     return (x_Class) fieldHandler.readObject(this, "~str", _#x);
+                                   }
+                                ]|,
+                          bstm* |[ if (fieldHandler != null) {
+                                    _#x = (x_Class) fieldHandler.writeObject(this, "~str", _#x, newitem);
+                                   }
+                                   else {
+                                     _#x = newitem;
+                                   }
+                                ]|
+                        )
+     where inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
+         ; SimpleSort(yy) := <get-type-anno> inv
+         ; str := <concat-strings>["_", x]
+
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
 
