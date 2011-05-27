@@ -70,6 +70,8 @@
    FieldName						  -- H hs=1[KW["as"] _1],
    AnalyzerName						  -- H hs=1[KW["using"] _1],
    Boost							  -- H hs=1[KW["*"] _1],
+   SearchMappingAnno				  -- H hs=1[KW["("] _1 KW[")"]],
+   SearchMappingAnno.1:iter-star	  -- H hs=1[_1],
    
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
    Define.1:iter-star                 -- _1,
