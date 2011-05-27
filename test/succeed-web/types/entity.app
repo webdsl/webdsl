@@ -99,8 +99,6 @@ function commonTest(d:WebDriver){
   
   var sinput := Select(input);
   
-  assert(!sinput.isMultiple());
-  
   assert(sinput.getAllSelectedOptions().length == 1);
   assert(sinput.getAllSelectedOptions()[0].getText() == e2.name);
   
