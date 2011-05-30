@@ -115,7 +115,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		for (String field : constraints.keySet())
 			enableFieldConstraintFilter(field, constraints.get(field));
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F boost(String field, Float boost) {
 		if(boosts == null)
@@ -127,7 +127,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		updateLuceneQuery = updateEncodeString = true;
 		return (F) this;
 	}
-	
 	public void closeReader(IndexReader reader){
 		if(reader != null)
 		getFullTextSession().getSearchFactory().getReaderProvider().closeReader(reader);
@@ -170,6 +169,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 //			return fromCache;
 //		}
 //		
+		System.out.println("Decode in");
 		try{
 			String[] props = searchQueryAsString.split("\\|", -1);
 			
@@ -245,10 +245,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				e.printStackTrace();
 			}
 		}
-
+		System.out.println("Decode out");
 		return (F) this;		
 		
 	}
+	
 	private String decodeValue(String str){
 		return str.replaceAll("\\\\a", ":").replaceAll("\\\\c",",").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
 	}
@@ -337,7 +338,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	private String encodeValue(String str){
 		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll(",", "\\\\c").replaceAll(":", "\\\\a");
 	}
-	
+		
 	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
 	public List<WebDSLFacet> facets(String field, int topN) {
 
@@ -372,7 +373,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return toWebDSLFacets(facets);
 		
 	}
-	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F field(String field){
 		return (F) fields(new ArrayList<String>(Arrays.asList(field) ));
@@ -390,17 +390,18 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		updateLuceneQuery = updateEncodeString = true;
 		return (F) this;
 	}
-		
+	
 	public abstract Class<?> fieldType(String field);
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
 		this.offset = offset;
 		updateEncodeString = true;
 		return (F) this;
 	}
-	
+
 	protected abstract FullTextSession getFullTextSession ();
-	
+
 	public IndexReader getReader() {
 		SearchFactory searchFactory = getFullTextSession().getSearchFactory();
 		DirectoryProvider<?> provider = searchFactory
@@ -416,7 +417,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public String highlight(String field, String toHighLight, String preTag, String postTag){
 		return ResultHighlighter.highlight(this, field, toHighLight, preTag, postTag);
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
 		searchTime = System.currentTimeMillis();
@@ -442,7 +443,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq, maxDocFreqPct,
 				minTermFreq, maxQueryTerms);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F moreLikeThis(
 			String likeText, int minWordLen, int maxWordLen, int minDocFreq, int maxDocFreqPct, int minTermFreq, int maxQueryTerms) {
@@ -488,27 +489,27 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		return (F) this;
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(Date from, Date to) {
 		return (F) setRangeQuery(from,to);
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(Float from, Float to) {
 		return (F) setRangeQuery(from,to);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(int from, int to) {
 		return (F) setRangeQuery(from,to);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F range(String from, String to) {
 		return (F) setRangeQuery(from,to);
 	}
-	
+
 	// example ranges: "(,100)(100,200)(200,)"   "(-200,-100)(-100,0)(0,)"
 	// Bug on numeric fields: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-770
 	// Therefore using custom Hibernate Search jar, but still includes entities with null values on the faceting field in counts :(
@@ -557,7 +558,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		else
 			return -1;
 	}
-
 	public String searchTimeAsString() {
 		return searchTime + " ms.";
 	}
@@ -569,6 +569,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public float searchTimeSeconds() {
 		return (float) (this.searchTime / 1000);
 	}
+	
 	@SuppressWarnings("unchecked")
 	private <F extends SearchQuery<EntityClass>> F setRangeQuery(Object from, Object to) {
 		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
@@ -600,19 +601,18 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		updateSorting = updateEncodeString = true;
 	}
-
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F sortAsc(String field){
 		sort(field, false);
 		return (F)this;
 	}
-	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F sortDesc(String field){
 		sort(field, true);
 		return (F)this;
 	}
-
+	
 	public int sortType(String field){
 		Class<?> tp = fieldType(field);
 		if(tp.isAssignableFrom(String.class))
@@ -623,37 +623,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return SortField.FLOAT;
 		else
 			return SortField.STRING;
-	}
-	
-	public abstract File spellDirectoryForField(String field);
-	public abstract File autoCompleteDirectoryForField(String field);
-	
-	public ArrayList<String> spellSuggest(String toSuggestOn, String field, float accuracy, int noSug){
-		searchTime = System.currentTimeMillis();
-		ArrayList<String> toReturn = SearchSuggester.findSpellSuggestionsForField(this, field, noSug, accuracy, true, toSuggestOn);
-		searchTime = System.currentTimeMillis() - searchTime;		
-		return toReturn;
-	}
-	
-	public ArrayList<String> spellSuggest(String toSuggestOn, List<String> fields, float accuracy, int noSug){
-		searchTime = System.currentTimeMillis();
-		ArrayList<String> toReturn = SearchSuggester.findSpellSuggestions(this, fields, noSug, accuracy, toSuggestOn);
-		searchTime = System.currentTimeMillis() - searchTime;		
-		return toReturn;
-	}
-	
-	public ArrayList<String> autoCompleteSuggest(String toSuggestOn, String field, int noSug){
-		searchTime = System.currentTimeMillis();
-		ArrayList<String> toReturn = SearchSuggester.findAutoCompletionsForField(this, field, noSug, toSuggestOn);			
-		searchTime = System.currentTimeMillis() - searchTime;
-		return toReturn;
-	}
-	
-	public ArrayList<String> autoCompleteSuggest(String toSuggestOn, List<String> fields, int noSug){
-		searchTime = System.currentTimeMillis();
-		ArrayList<String> toReturn = SearchSuggester.findAutoCompletions(this, fields, noSug, toSuggestOn);			
-		searchTime = System.currentTimeMillis() - searchTime;
-		return toReturn;
 	}
 		
 	public String terms(){
@@ -709,7 +678,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		fullTextQuery.setFirstResult(offset);
 		fullTextQuery.setMaxResults(limit);
 
-		System.out.println("validateQuery Leave");
 		return true;
 	}
 }

@@ -18,56 +18,7 @@ module .servletapp/src-webdsl-template/built-in
   	static indexSuggestions()
     static optimizeIndex()    
   }
-  
-native class org.webdsl.search.SearchQuery as SearchQuery {
-    constructor()
-    
-    addFieldConstraint(String, String) : SearchQuery
-    
-    autoCompleteSuggest(String, String, Int) : List<String>
-    autoCompleteSuggest(String, List<String>, Int) : List<String>
-    
-    spellSuggest(String, List<String>, Float, Int) : List<String>
-    spellSuggest(String, String, Float, Int) : List<String>
-    
-    boost(String, Float) : SearchQuery 
-    
-    defaultAnd() : SearchQuery
-    defaultOr() : SearchQuery
-    
-    facets(String, Int) : List<Facet>
-    rangeFacets(String, String) : List<Facet>
-    narrowOnFacet(Facet) : SearchQuery
-    
-    field(String) : SearchQuery
-    fields(List<String>) : SearchQuery
-    
-    firstResult(Int) : SearchQuery
-    maxResults(Int) : SearchQuery
-    
-    highlight(String, String) : String
-    highlight(String, String, String, String) : String
-    
-    moreLikeThis(String) : SearchQuery
-    
-    terms() : String    
-    terms(String) : SearchQuery
-        
-    sortDesc(String) : SearchQuery
-    sortAsc(String) : SearchQuery
-    
-    range(Int,Int) : SearchQuery
-    range(Float,Float) : SearchQuery
-    range(Date, Date) : SearchQuery
-    
-    list() : List<Publication>
-    resultSize() : Int
-    
-    searchTimeAsString() : String
-    searchTimeMillis() : Int
-    searchTimeSeconds() : Float
-  }
-  
+   
   
   section methods for built-in types
 

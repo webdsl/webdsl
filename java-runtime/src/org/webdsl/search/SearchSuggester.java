@@ -1,11 +1,11 @@
 package org.webdsl.search;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,13 +29,13 @@ public class SearchSuggester {
 				.getSearchFactory();
 	}
 
-	public static ArrayList<String> findSpellSuggestions(SearchQuery<?> sq, List<String> fields,
+	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, List<String> fields,
 			int maxSuggestionsPerFieldCount, float accuracy, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
-			List<String> fieldSuggestions = findSpellSuggestionsForField(sq, suggestedField,
+			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, suggestedField,
 					maxSuggestionsPerFieldCount, accuracy, true, toSuggestOn);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
@@ -44,7 +44,7 @@ public class SearchSuggester {
 	}
 
 	@SuppressWarnings("deprecation")
-	public static ArrayList<String> findSpellSuggestionsForField(SearchQuery<?> sq,
+	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
 			String toSuggestOn) {
 		
@@ -56,12 +56,11 @@ public class SearchSuggester {
 		boolean hasSuggestions = false;
 
 		try {
-			spellChecker = new SpellChecker(FSDirectory.open(sq
-					.spellDirectoryForField(suggestedField)));
+			spellChecker = new SpellChecker(FSDirectory.open(new File(baseDir+suggestedField)));
 
 			spellChecker.setAccuracy(accuracy);
 
-			Analyzer analyzer = sq.analyzer;
+			Analyzer analyzer = sf.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -79,7 +78,7 @@ public class SearchSuggester {
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount);
 				} else {
 					if (fieldIR == null)
-						fieldIR = getIndexReader(sq.entityClass);
+						fieldIR = getIndexReader(entityClass);
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount, fieldIR,
 							suggestedField, true);
 				}
@@ -119,13 +118,13 @@ public class SearchSuggester {
 		return readerProvider.openReader(sf.getDirectoryProviders(entityClass));
 	}
 
-	public static ArrayList<String> findAutoCompletions(SearchQuery<?> sq, List<String> fields,
+	public static ArrayList<String> findAutoCompletions(Class<?> entityClass, String baseDir, List<String> fields,
 			int maxSuggestionsPerFieldCount, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
-			List<String> fieldSuggestions = findAutoCompletionsForField(sq, suggestedField,
+			List<String> fieldSuggestions = findAutoCompletionsForField(entityClass, baseDir, suggestedField,
 					maxSuggestionsPerFieldCount, toSuggestOn);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
@@ -134,7 +133,7 @@ public class SearchSuggester {
 	}
 
 	@SuppressWarnings("deprecation")
-	public static ArrayList<String> findAutoCompletionsForField(SearchQuery<?> sq,
+	public static ArrayList<String> findAutoCompletionsForField(Class<?> entityClass, String baseDir,
 			String suggestedField, int maxSuggestionCount, String toSuggestOn) {
 
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
@@ -143,8 +142,8 @@ public class SearchSuggester {
 		AutoCompleter autoCompleter = null;
 
 		try {
-			autoCompleter = new AutoCompleter(FSDirectory.open(sq.autoCompleteDirectoryForField(suggestedField)));
-			Analyzer analyzer = sq.analyzer;
+			autoCompleter = new AutoCompleter(FSDirectory.open(new File(baseDir+suggestedField)));
+			Analyzer analyzer = sf.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -165,10 +164,13 @@ public class SearchSuggester {
 			
 			String[] suggestions = autoCompleter.suggestSimilar(word, maxSuggestionCount);
 				
-			if (suggestions == null || suggestions.length == 0)
-				suggestions = new String[] { word };
 			
-			ArrayList<String> allSuggestions = new ArrayList<String>();			
+			ArrayList<String> allSuggestions = new ArrayList<String>();
+			
+			if (suggestions == null || suggestions.length == 0){
+					return allSuggestions;
+			}		
+						
 			for(int i = 0; i < suggestions.length; i++){
 				allSuggestions.add(prefix + suggestions[i]);
 			}
@@ -220,14 +222,23 @@ public class SearchSuggester {
 
 		LinkedHashSet<String> suggestionsSet = new LinkedHashSet<String>();
 
-		for (int suggestionPosition = 0; suggestionPosition <= suggestionNumber; suggestionPosition++) {
-			for (Map.Entry<String, List<String>> fieldSuggestionsEntry : fieldSuggestionsMap
-					.entrySet()) {
-				List<String> suggestedTerms = fieldSuggestionsEntry.getValue();
-				if (suggestedTerms.size() > suggestionPosition) {
-					String suggestion = suggestedTerms.get(suggestionPosition);
-					suggestionsSet.add(suggestion);
-				}
+//		for (int suggestionPosition = 0; suggestionPosition <= suggestionNumber; suggestionPosition++) {
+//			for (Map.Entry<String, List<String>> fieldSuggestionsEntry : fieldSuggestionsMap
+//					.entrySet()) {
+//				List<String> suggestedTerms = fieldSuggestionsEntry.getValue();
+//				if (suggestedTerms.size() > suggestionPosition) {
+//					String suggestion = suggestedTerms.get(suggestionPosition);
+//					suggestionsSet.add(suggestion);
+//				}
+//			}
+//		}
+//		
+		for(Map.Entry<String, List<String>> fieldSuggestionsEntry : fieldSuggestionsMap.entrySet()){
+			for (String suggestion : fieldSuggestionsEntry.getValue()) {
+				suggestionsSet.add(suggestion);
+				suggestionNumber--;
+				if(suggestionNumber < 1)
+					return new ArrayList<String>(suggestionsSet);
 			}
 		}
 		return new ArrayList<String>(suggestionsSet);
