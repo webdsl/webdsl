@@ -37,6 +37,10 @@ public class SearchSuggester {
 		for (String suggestedField : fields) {
 			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, suggestedField,
 					maxSuggestionsPerFieldCount, accuracy, true, toSuggestOn);
+			//If toSuggestOn is correctly spelled in one of the fields, don't return suggestions
+			if (fieldSuggestions.isEmpty()){
+				return new ArrayList<String>();				
+			}
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
 
@@ -198,7 +202,7 @@ public class SearchSuggester {
 		if (allSuggestions.isEmpty())
 			return toReturn;
 		
-		int maxSuggestions = 0; 
+		int maxSuggestions = 1;
 		for (String[] strings : allSuggestions)
 			maxSuggestions = maxSuggestions * strings.length; 
 		maxSuggestionCount = Math.min(maxSuggestionCount, maxSuggestions);

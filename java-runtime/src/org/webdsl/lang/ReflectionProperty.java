@@ -26,6 +26,7 @@ public class ReflectionProperty<E,P>{
     }
     
     public List<P> getAllowed(E arg){
+      System.out.println("Internal error: getAllowed method of ReflectionProperty for "+name+ " should have been overridden.");
       return null;
     }
     
