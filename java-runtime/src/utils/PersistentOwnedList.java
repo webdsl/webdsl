@@ -5,12 +5,12 @@ import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
 
 @SuppressWarnings({ "unchecked", "serial" })
-public class PersistentInverseList extends PersistentList {
-	public PersistentInverseList(SessionImplementor session) {
+public class PersistentOwnedList extends PersistentList {
+	public PersistentOwnedList(SessionImplementor session) {
 		super(session);
 	}
 
-	public PersistentInverseList(SessionImplementor session, java.util.List list) {
+	public PersistentOwnedList(SessionImplementor session, java.util.List list) {
 		super(session, list);
 	}
 
@@ -26,14 +26,14 @@ public class PersistentInverseList extends PersistentList {
 
 	@Override
 	public void beginRead() {
-		((utils.OwnedList)list).setUpdateInverse(false); // This prevents inverse updates while initializing
+		((utils.OwnedList)list).setDoEvents(false); // This prevents events, like inverse updates, while initializing
 		super.beginRead();
 	}
 
 	@Override
 	public boolean endRead() {
 		boolean result = super.endRead();
-		((utils.OwnedList)list).setUpdateInverse(true); // We should resume updating the inverse, because initialization is complete
+		((utils.OwnedList)list).setDoEvents(true); // We should resume updating the inverse, because initialization is complete
 		return result;
 	}
 

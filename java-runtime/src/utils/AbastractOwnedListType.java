@@ -10,16 +10,16 @@ import org.hibernate.persister.collection.CollectionPersister;
 import org.hibernate.usertype.UserCollectionType;
 
 @SuppressWarnings("unchecked")
-public abstract class AbastractInverseSetType implements UserCollectionType {
+public abstract class AbastractOwnedListType implements UserCollectionType {
 
 	@Override
 	public boolean contains(Object collection, Object entity) {
-		return ((java.util.Set) collection).contains(entity);
+		return ((java.util.List) collection).contains(entity);
 	}
 
 	@Override
 	public Iterator getElementsIterator(Object collection) {
-		return ((java.util.Set) collection).iterator();
+		return ((java.util.List) collection).iterator();
 	}
 
 	@Override
@@ -33,16 +33,16 @@ public abstract class AbastractInverseSetType implements UserCollectionType {
 
 	@Override
 	public PersistentCollection instantiate(SessionImplementor session, CollectionPersister persister) throws HibernateException {
-		return new utils.PersistentInverseSet(session);
+		return new utils.PersistentOwnedList(session);
 	}
 
 	@Override
 	public Object replaceElements(Object original, Object target,
 			CollectionPersister persister, Object owner, Map copyCache,
 			SessionImplementor session) throws HibernateException {
-		java.util.Set result = (java.util.Set) target;
+		java.util.List result = (java.util.List) target;
 		result.clear();
-		result.addAll((java.util.Set) original);
+		result.addAll((java.util.List) original);
 		return result;
 	}
 
@@ -52,7 +52,7 @@ public abstract class AbastractInverseSetType implements UserCollectionType {
 			throw new IllegalStateException("dom4j not supported");
 		}
 		else {
-			return new utils.PersistentInverseSet( session, (java.util.Set) collection );
+			return new utils.PersistentOwnedList( session, (java.util.List) collection );
 		}
 	}
 

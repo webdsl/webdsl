@@ -1,4 +1,4 @@
-module org/webdsl/dsl/to-java-servlet/java-entity-inverse
+module org/webdsl/dsl/to-java-servlet/java-entity-collection
 
 imports
   libstrategolib
@@ -9,14 +9,14 @@ imports
   org/webdsl/dsl/to-java-servlet/core-to-java-servlet
 
 strategies
-  entity-inverse-to-java-class = 
+  entity-collection-to-java-class = 
      where( get-entity-def; ?(x_class, entbodydecs) )
-     ; <filter(collection-inverse-type-to-java-class(|x_class))> entbodydecs
+     ; <filter(collection-type-to-java-class(|x_class))> entbodydecs
 
-  collection-inverse-type-to-java-class(|x_entclass) =
+  collection-type-to-java-class(|x_entclass) =
     where (
       ?prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos)
-      ; <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
+      ; <?"List" <+ ?"Set"> x_coltyp
     )
     ; with (
 	      pkgname := <DomainPackage>
@@ -37,7 +37,7 @@ rules
 			import org.hibernate.persister.collection.CollectionPersister;
 
 			@SuppressWarnings("unchecked")
-			public class x_entclass#x_prop#x_coltyp#Type extends utils.AbastractInverse#x_coltyp#Type {
+			public class x_entclass#x_prop#Owned#x_coltyp#Type extends utils.AbastractOwned#x_coltyp#Type {
 			
 			  @Override
 			  public Object instantiate(int anticipatedSize) {
@@ -62,13 +62,13 @@ rules
 
 			  @Override
 			  public boolean add(t_y item) {
-          if(!updateInverse) { // We are probably being initialized, so inverse updates should be skipped
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
             return super.add(item);
           }
 			    else if(this.owner == null) { // This should not happen
 			      return super.add(item);
 			    }
-			    else if(item != null && !beingSet && updateInverse)
+			    else if(item != null && !beingSet && doEvents)
 			    {
 			      x_entclass owner = (x_entclass)this.owner;
 			      owner.setChanged();
@@ -86,13 +86,13 @@ rules
         ~*<where("List":=x_coltyp)<+![]> class-body-dec* |[ 
         @Override
 	      public t_y set(int index, t_y newitem) {
-          if(!updateInverse) { // We are probably being initialized, so inverse updates should be skipped
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
             return super.set(index, newitem);
           }
 	        else if(this.owner == null) { // This should not happen
 	          return super.set(index, newitem);
 	        }
-	        else if(newitem != null && !beingSet && updateInverse && index >= 0 && index < size() ) {
+	        else if(newitem != null && !beingSet && doEvents && index >= 0 && index < size() ) {
 	          beingSet = true;
 	          x_entclass owner = (x_entclass)this.owner;
 	          owner.setChanged();
@@ -125,7 +125,7 @@ rules
       
         @Override
         public void add(int index, t_y item) {
-          if(!updateInverse) { // We are probably being initialized, so inverse updates should be skipped
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
             super.add(index, item);
           }
           else if(this.owner == null) { // This should not happen
@@ -146,13 +146,13 @@ rules
 
         @Override
 	      public t_y remove(int index) {
-          if(!updateInverse) { // We are probably being initialized, so inverse updates should be skipped
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
             return super.remove(index);
           }
 	        else if(this.owner == null) { // This should not happen
             return super.remove(index);
           }
-          else if(index >= 0 && index < size() && !beingSet && updateInverse) {
+          else if(index >= 0 && index < size() && !beingSet && doEvents) {
 	          beingSet = true;
 	          x_entclass owner = (x_entclass)this.owner;
 	          owner.setChanged();
@@ -173,13 +173,13 @@ rules
       
 			  @Override
 			  public boolean remove(Object obj) {
-          if(!updateInverse) { // We are probably being initialized, so inverse updates should be skipped
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
             return super.remove(obj);
           }
           else if(this.owner == null) { // This should not happen
             return super.remove(obj);
           }
-			    else if(obj != null && !beingSet && updateInverse && obj instanceof x_y)
+			    else if(obj != null && !beingSet && doEvents && obj instanceof x_y)
 			    {
             x_y item = (x_y)obj;
 			      x_entclass owner = (x_entclass)this.owner;
@@ -207,16 +207,15 @@ rules
         ; bstm_addextension*    := <entity-bstm-property-events> (x_entclass,x_prop,y_srt,"addTo","item","owner")
         ; bstm_removeextension* := <entity-bstm-property-events> (x_entclass,x_prop,y_srt,"removeFrom","item","owner")
 
-  inverse-collection-transform-list-to-genericset(|x_Class, prop, x_listvar) :
+  owned-collection-transform-list-to-genericset(|x_Class, prop, x_listvar) :
     GenericSort(_, [_]) -> |[ new x_ColType(this, x_listvar) ]|
-    where x_ColType := <inverse-collection-java-type(|x_Class)> prop
+    where x_ColType := <owned-collection-java-type(|x_Class)> prop
 
-  inverse-collection-default-value-override-java(|x_Class, prop) :
+  owned-collection-default-value-override-java(|x_Class, prop) :
     GenericSort(_, [_]) -> |[ new x_ColType(this) ]|
-    where x_ColType := <inverse-collection-java-type(|x_Class)> prop
+    where x_ColType := <owned-collection-java-type(|x_Class)> prop
 
-  inverse-collection-java-type(|x_Class) :
+  owned-collection-java-type(|x_Class) :
     Property(x_prop, _, GenericSort(coll, [_]), annos) -> x_ColType
     where <?"Set" <+ ?"List"> coll
-        ; <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
         ; x_ColType := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x_Class,<capitalize-string>x_prop,coll]

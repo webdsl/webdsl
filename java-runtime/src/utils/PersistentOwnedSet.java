@@ -5,15 +5,15 @@ import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
 
 @SuppressWarnings({ "unchecked", "serial" })
-public class PersistentInverseSet extends PersistentSet {
+public class PersistentOwnedSet extends PersistentSet {
 	protected boolean initializing = false;
 	protected utils.OwnedSet tempSet = null;
 
-	public PersistentInverseSet(SessionImplementor session) {
+	public PersistentOwnedSet(SessionImplementor session) {
 		super(session);
 	}
 
-	public PersistentInverseSet(SessionImplementor session, java.util.Set set) {
+	public PersistentOwnedSet(SessionImplementor session, java.util.Set set) {
 		super(session, set);
 	}
 
@@ -30,7 +30,7 @@ public class PersistentInverseSet extends PersistentSet {
 	@Override
 	public void beginRead() {
 		initializing = true;
-		((utils.OwnedSet)set).setUpdateInverse(false); // This prevents inverse updates while initializing
+		((utils.OwnedSet)set).setDoEvents(false); // This prevents events, like inverse updates, while initializing
 		super.beginRead();
 	}
 
@@ -39,7 +39,7 @@ public class PersistentInverseSet extends PersistentSet {
 		initializing = false;
 		//afterInitialize(); // Needed for DelayedOperations
 		boolean result = super.endRead();
-		((utils.OwnedSet)set).setUpdateInverse(true); // We should resume updating the inverse, because initialization is complete
+		((utils.OwnedSet)set).setDoEvents(true); // We should resume updating the inverse, because initialization is complete
 		return result;
 	}
 
@@ -95,9 +95,9 @@ public class PersistentInverseSet extends PersistentSet {
 			this.value = value;
 		}
 		public void operate() {
-			((utils.OwnedSet)set).setUpdateInverse(false);
+			((utils.OwnedSet)set).setDoEvents(false);
 			set.add(value);
-			((utils.OwnedSet)set).setUpdateInverse(true);
+			((utils.OwnedSet)set).setDoEvents(true);
 		}
 		public Object getAddedInstance() {
 			return value;

@@ -4,7 +4,7 @@ package utils;
 public class OwnedList<T> extends java.util.ArrayList<T> {
     protected Object owner = null;
     protected boolean beingSet = false;
-    protected boolean updateInverse = true;
+    protected boolean doEvents = true;
 
     public OwnedList() {
       super();
@@ -41,7 +41,11 @@ public class OwnedList<T> extends java.util.ArrayList<T> {
       this.owner = owner;
     }
 
-    public void setUpdateInverse(boolean updateInverse) {
-      this.updateInverse = updateInverse;
+    public boolean getDoEvents() {
+      return doEvents;
+    }
+
+    public void setDoEvents(boolean doEvents) {
+      this.doEvents = doEvents;
     }
 }

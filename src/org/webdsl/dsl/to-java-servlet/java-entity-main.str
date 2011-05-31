@@ -375,7 +375,7 @@ strategies
        
      ]|
     where t      := <java-type> s
-        ; e      := <inverse-collection-default-value-override-java(|x_Class,prop) <+ java-type-default-value> s
+        ; e      := <owned-collection-default-value-override-java(|x_Class,prop) <+ java-type-default-value> s
         ; if <!id_name;?x> x_Class     // if this is the id property
           then
               x_index := <newname> <concat-strings>[x,"index"]
@@ -713,7 +713,7 @@ rules // special methods
     where <?"Set" <+ ?"List"> coll
     with  t         := <java-type> GenericSort("List", [y_srt])
         ; x_listvar := <newname> "list"
-        ; e_newgen  := <inverse-collection-transform-list-to-genericset(|x_Class,prop,x_listvar) <+ transform-list-to-genericset(|x_listvar)> s
+        ; e_newgen  := <owned-collection-transform-list-to-genericset(|x_Class,prop,x_listvar) <+ transform-list-to-genericset(|x_listvar)> s
         //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
         ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
         ; cbdslist  := <list-mutation-methods(|x_Class) <+ ![]> prop
@@ -790,70 +790,6 @@ rules //associations
     prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public void removeFrom#x_prop(t_y item) {
-        if(item != null && !x_prop#BeingSet) {
-          x_prop#BeingSet = true;
-          setChanged();
-          
-          get#x_prop().remove(item);
-      
-          if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
-            bstm0*
-            bstm_removeextension*
-          }
-
-          x_prop#BeingSet = false;
-        }
-      }
-      
-      public void replaceAllIn#x_prop(java.util.Collection<t_y> col){
-        removeAllFrom#x_prop();
-        addAllTo#x_prop(col);
-      }
-      
-      public void removeAllFrom#x_prop() { 
-        setChanged();
-        //force retrieval
-        org.hibernate.Hibernate.initialize(get#x_prop()); 
-        while(!get#x_prop().isEmpty()) {
-          removeFrom#x_prop(get#x_prop().iterator().next());
-        }
-      }
-
-      public void addTo#x_prop(t_y item) {
-        if(item != null && !x_prop#BeingSet) {
-          setChanged();
-          x_prop#BeingSet = true;        
-          t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
-          get#x_prop().add(item);
-          bstm1*
-          bstm_addextension*
-          x_prop#BeingSet = false;
-        }        
-      }
-      
-      public t_col addAllTo#x_prop(java.util.Collection<t_y> col) { 
-        setChanged();
-        Iterator<t_y> it = col.iterator();
-        while(it.hasNext()) {
-          addTo#x_prop(it.next());
-        }
-        return get#x_prop(); //needed for desugaring of List.set() and Set.list()
-      }
-    ]|
-    where not(<fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos)
-    with  t_y       := <java-type> y_srt
-        ; x_y       := <java-type-name> y_srt
-        ; t_col       := <java-type> s
-        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
-        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
-        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
-        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
-
-  // In this case the custom collection takes care of the inverse updates and events, so we can just forward the calls
-  collection-mutation-methods(|x_Class) :
-    prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
-    class-body-dec* |[
-      public void removeFrom#x_prop(t_y item) {
         get#x_prop().remove(item);
       }
       
@@ -876,6 +812,7 @@ rules //associations
       }
       
       public t_col addAllTo#x_prop(java.util.Collection<t_y> col) { 
+        setChanged();
         Iterator<t_y> it = col.iterator();
         while(it.hasNext()) {
           addTo#x_prop(it.next());
@@ -883,82 +820,10 @@ rules //associations
         return get#x_prop(); //needed for desugaring of List.set() and Set.list()
       }
     ]|
-    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
     with  t_y       := <java-type> y_srt
         ; x_y       := <java-type-name> y_srt
         ; t_col       := <java-type> s
 
-  list-mutation-methods(|x_Class) :
-    prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
-    class-body-dec* |[
-      public void setIn#x_prop(int index, t_y newitem) {
-        if(newitem != null && !x_prop#BeingSet && index >= 0 && index < get#x_prop().size() ) {
-          x_prop#BeingSet = true;
-          setChanged();
-          
-          // hold old value
-          t_y item = get#x_prop().get(index);
-          
-          //update old value if necessary
-          if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies in this list
-            bstm0*
-            bstm_removeextension*
-          }
-          
-          // look at new value now
-          item = newitem;
-          
-          //add events
-          bstm1*
-          bstm_addextension*
-          
-          // the actual set
-          get#x_prop().set(index,item);
-
-          x_prop#BeingSet = false;
-        }
-      }
-      
-      public void insertIn#x_prop(int index, t_y item) {
-        if(item != null && !x_prop#BeingSet && index >= 0 && index <= get#x_prop().size()) {
-          x_prop#BeingSet = true;        
-          setChanged();
-          
-          if(!get#x_prop().contains(item)){ 
-            bstm1*
-            bstm_addextension*
-          }
-          
-          get#x_prop().add(index, item);
-          x_prop#BeingSet = false;
-        }        
-      }
-      
-      public void removeAt#x_prop(int index) {
-        if(index >= 0 && index < get#x_prop().size()) {
-          x_prop#BeingSet = true;
-          setChanged();
-          
-          t_y item = get#x_prop().remove(index);
-      
-          if(!get#x_prop().contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
-            bstm0*
-            bstm_removeextension*
-          }
-
-          x_prop#BeingSet = false;
-        }
-      }
-    ]|
-    where not(<fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos)
-    with  t_y       := <java-type> srt_y
-        ; x_y       := <java-type-name> srt_y
-        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
-        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
-        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"addTo","item")
-        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,SimpleSort(y),"removeFrom","item")
-
-  // In this case the custom collection takes care of the inverse updates and events, so we can just forward the calls
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
     class-body-dec* |[
@@ -974,7 +839,6 @@ rules //associations
         get#x_prop().remove(index);
       }
     ]|
-    where <fetch(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
     with  t_y       := <java-type> srt_y
 
   get-inverse-anno:

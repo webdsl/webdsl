@@ -4,7 +4,7 @@ package utils;
 public class OwnedSet<T> extends java.util.LinkedHashSet<T> {
     protected Object owner = null;
     protected boolean beingSet = false;
-    protected boolean updateInverse = true;
+    protected boolean doEvents = true;
 
     public OwnedSet() {
       super();
@@ -41,7 +41,11 @@ public class OwnedSet<T> extends java.util.LinkedHashSet<T> {
       this.owner = owner;
     }
 
-    public void setUpdateInverse(boolean updateInverse) {
-      this.updateInverse = updateInverse;
+    public boolean getDoEvents() {
+    	return doEvents;
+    }
+
+    public void setDoEvents(boolean doEvents) {
+    	this.doEvents = doEvents;
     }
 }
