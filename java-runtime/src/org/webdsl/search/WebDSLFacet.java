@@ -1,5 +1,7 @@
 package org.webdsl.search;
 
+import java.util.Date;
+
 import org.hibernate.search.query.facet.Facet;
 
 public class WebDSLFacet {
@@ -57,5 +59,24 @@ public class WebDSLFacet {
 	
 	private String decode(String str){
 		return str.replaceAll("\\\\a", ":").replaceAll("\\\\c",",").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
+	}
+	
+	// in case this is a facet on dates, get the value as date
+	public Date getValueAsDate(){
+		//Hibernate day resolution
+		if(value.length() == 8)
+			return utils.DateType.parseDate(value, "yyyyMMdd");
+		//Hibernate minute resolution
+		if(value.length() == 12)
+			return utils.DateType.parseDate(value, "yyyyMMddHHmm");
+		
+		//else -> not supported
+		return utils.DateType.parseDate("000000000000", "yyyyMMddHHmm");
+	}
+	public Float getValueAsFloat(){
+		return Float.parseFloat(value);
+	}
+	public Integer getValueAsInt(){
+		return Integer.parseInt(value);
 	}
 }

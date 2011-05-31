@@ -1,6 +1,5 @@
 package org.webdsl.search;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -40,6 +39,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected int offset = 0;
 	
 	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
+	protected boolean allowLuceneSyntax = true;
 
 	protected HashMap<String, String> constraints;
 	protected HashMap<String, Float> boosts;
@@ -83,6 +83,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		return (F) this;
 	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F allowLuceneSyntax(boolean b) {
+		this.allowLuceneSyntax = b;
+		return (F) this;
+	}
+	
 	
 	private void applyFacets() {
 		if(facetMap == null)
@@ -142,8 +149,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
 						
 			parser.setDefaultOperator(op);
+			
 			try {
-				luceneQuery = parser.parse(searchTerms);
+				if(allowLuceneSyntax)
+					luceneQuery = parser.parse(searchTerms);
+				else
+					luceneQuery = parser.parse(QueryParser.escape(searchTerms));
 			} catch (org.apache.lucene.queryParser.ParseException pe){ 
 				return false;
 			}
@@ -173,18 +184,21 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		try{
 			String[] props = searchQueryAsString.split("\\|", -1);
 			
-			if(props.length != 15){
+			if(props.length != 16){
 				System.out.println("MALFORMED SEARCHQUERY STRING!");
 				return (F) this;
 			}		
 			String[] a1, a2;
 			// search fields
-			fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));		
+			fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));
+			// allow Lucene syntax?
+			allowLuceneSyntax(Boolean.getBoolean(props[15]));
 			//search terms
 			terms(decodeValue(props[1]));
 			//default operator
 			if(props[2].equals("AND"))
 				defaultAnd();
+
 			//boost fields, values
 			if(!props[9].isEmpty()){
 				a1 = props[9].split(",");
@@ -326,6 +340,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		sb.append("|" + sortDirections);
 		//14 more like this
 		sb.append("|" + encodeValue(moreLikeThisParams));
+		//15 allow lucene syntax?
+		sb.append("|" + allowLuceneSyntax);
 		
 		//System.out.println("encode-sq");
 		updateEncodeString = false;
