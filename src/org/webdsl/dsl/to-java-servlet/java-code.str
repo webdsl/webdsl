@@ -517,15 +517,38 @@ rules //vars
 rules    
   // Global function call
   generic-call-to-java-servlet :
-    tc@ThisCall(x, e1*) -> result
+    tc@ThisCall(x, e1*){anno*} -> result
     where (get-anno(?GlobalCallAnno(globalFunctionSig)))
     with  if [] := globalFunctionSig
           then e2* := <map(pass-on-ref-arg-exp <+ expression-to-java-servlet)> e1*
           else functionArgTypes/*Function(_,functionArgs,_,_)*/ := globalFunctionSig
              ; e2* :=<zip(call-arg-ref-resolve-helper)> (functionArgTypes,e1*)
           end
+        ; e3* := <generic-call-get-extra-arguments <+ ![]> tc{anno*}
         ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
-        ; result := expr|[ x_Class#_.x#_(e2*) ]|
+        ; result := expr|[ x_Class#_.x#_(e2*,e3*) ]|
+
+  generic-call-get-extra-arguments :
+    ThisCall(_, _){anno*} -> [e_Join, e_Cond]
+    where <fetch-elem(?QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt))> anno*
+    ; e_Join := <generic-call-get-join-argument> joincandidates
+    ; e_Cond := <generic-call-get-condition-argument(|x,srt)> querycondition
+
+  generic-call-get-join-argument :
+    joins -> expr |[ "~str" ]|
+    with str := <foldr(!"", {?(new, old); !<concat-strings>[old, "|", new]})> joins
+
+  generic-call-get-condition-argument(|x,srt) :
+    cond -> expr|[e_Cond]|
+    where <not(?True())> cond
+    with {| IsRootVar
+          : rules( IsRootVar : Var(x) -> srt )
+          ; e_Cond := <hibernate-criteria-transform-condition> cond
+          |}
+
+  generic-call-get-condition-argument(|x,srt) :
+    cond -> expr|[ null ]|
+    where True() := cond
 
 rules          
   call-arg-ref-resolve-helper:

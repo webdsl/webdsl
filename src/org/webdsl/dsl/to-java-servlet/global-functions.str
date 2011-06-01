@@ -46,7 +46,7 @@ rules
         
   // This translation is reused for static entity functions.
   webdsl-function-to-java-servlet-function(|mod*):
-    function@Function(x, args, s, Block(stm*)) -> 
+    function@Function(x, args, s, Block(stm*)){anno*} -> 
     class-body-dec* |[
       public mod* t x#_(param*)  {
           PrintWriter out = ThreadLocalOut.peek();
@@ -55,12 +55,43 @@ rules
           bstm*
       }
     ]|
+    where not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*)
     with  {| InFunction:
               rules( InFunction := <id> )
             ; if SimpleSort("Void") := s
               then  t      := Void()
               else  t      := <java-type> s end
             ; param* := <map(arguments-to-java-servlet)> args
+            ; bstm*  := <statements-to-java-servlet> stm*
+            ; bstm1* := <get-external-vars> stm*
+            |}
+
+  webdsl-function-to-java-servlet-function(|mod*):
+    function@Function(x, args, s, Block(stm*)){anno*} -> 
+    class-body-dec* |[
+      public mod* t x#_(param*)  {
+          bstm_call
+      }
+      public mod* t x#_(param2*)  {
+          PrintWriter out = ThreadLocalOut.peek();
+          Environment env = ThreadLocalPage.get() != null? ThreadLocalPage.get().envGlobalAndSession : null;
+          bstm1*
+          bstm*
+      }
+    ]|
+    where <fetch-elem(?QueryOptimizationVars(x_joinvar, x_condvar))> anno*
+    with  {| InFunction:
+              rules( InFunction := <id> )
+            ; e_args* := <map(\ Arg(x_arg, _) -> <expression-to-java-servlet> Var(x_arg) \)> args
+            ; e_call := expr |[ x#_(e_args*, null, null) ]|
+            ; if SimpleSort("Void") := s
+              then  t      := Void()
+                    ; bstm_call := bstm |[ e_call; ]|
+              else  t      := <java-type> s
+                    ; bstm_call := bstm |[ return e_call; ]|
+              end
+            ; param* := <map(arguments-to-java-servlet)> args
+            ; param2* := [param*, param |[ String x_joinvar ]|, param |[ org.hibernate.criterion.Criterion x_condvar ]|]
             ; bstm*  := <statements-to-java-servlet> stm*
             ; bstm1* := <get-external-vars> stm*
             |}

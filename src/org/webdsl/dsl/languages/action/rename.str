@@ -74,8 +74,24 @@ rules
           ; rules ( FunctionArg := farg2* )
           ; <declare-args-in-context> farg2*
           ; b2 := <rename-all> b1
-          ; newanno* := <try-add-query-optimized-function> f
+          ; newanno* := <try(update-query-optimization-anno(|x, srt,farg1*))> anno*
           |}
+
+  update-query-optimization-anno(|x,srt,args):
+    anno* -> newanno*
+    where not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*)
+    ; GenericSort(_, [<is-entity-type>]) := srt
+    with joinvar := "joins"{<concat-strings; newname-webdsl>[x, "_joins"]}
+    ; condvar := "condition"{<concat-strings; newname-webdsl>[x, "_condition"]}
+    ; newanno* := <conc>([QueryOptimizationVars(joinvar, condvar)],[anno*])
+    ; t* := <map(?Arg(_,<id>); strip-annos)> args
+    ; rules(FunctionHasQueryOptimization: (x, t*) -> QueryOptimizationVars(joinvar, condvar))
+
+  update-query-optimization-anno(|x,srt,args):
+    anno* -> newanno*
+    where <fetch-elem(?QueryOptimizationVars(joinvar, condvar))> anno*
+    ; GenericSort(_, [<is-entity-type>]) := srt
+    with newanno* := <remove-all(?QueryOptimizationVars(_, _)); ![QueryOptimizationVars(<rename>joinvar, <rename>condvar)|<id>]> anno*
 
   rename-action :
     FunctionNoReturn(x, farg1*, b1){anno*} -> FunctionNoReturn(x, farg2*, b2){anno*}
@@ -129,32 +145,3 @@ rules
        ; y := <rename-bound-immutable(|srt2)> x
        ; newcond := <alltd(\ Var(x) -> Var(y) \)> cond
        ; rules(VarDecl : y -> a)
-
-  try-add-query-optimized-function :
-  	Function(x, fargs, srt, b1){anno*} -> newanno*
-  	where not(<fetch-elem(?HasQueryOptimizedVersion())> anno*)
-  	; not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*)
-  	; GenericSort(_, [simplesrt]) := srt
-  	; <is-entity-type> simplesrt
-  	with joinvar := "joins"{<concat-strings; newname-webdsl>[x, "_joins"]}
-    ; condvar := "condition"{<concat-strings; newname-webdsl>[x, "_condition"]}
-    ; newargs := <concat>[ fargs, [Arg(joinvar, SimpleSort("Object")), Arg(condvar, SimpleSort("Object"))] ]
-    ; <emit-webdsl-code;rename> Function(x,newargs,srt,b1){anno*,QueryOptimizationVars(Var(joinvar), Var(condvar))}
-    ; newanno* := [HasQueryOptimizedVersion()|anno*]
-
-  try-add-query-optimized-function : // This is the optimized version, but we need to rename the vars in the annotation again
-    Function(x, farg1*, srt, b1){anno*} -> newanno*
-    where <fetch-elem(?QueryOptimizationVars(joinvar, condvar))> anno*
-    with newanno* := <remove-all(?QueryOptimizationVars(_, _)); ![QueryOptimizationVars(<rename>joinvar, <rename>condvar)|<id>]> anno*
-
-  try-add-query-optimized-function : // We already added an optimized version
-    Function(x, farg1*, srt, b1){anno*} -> anno*
-    where <fetch-elem(?HasQueryOptimizedVersion())> anno*
-
-  try-add-query-optimized-function : // No optimized version needed
-    Function(x, farg1*, srt, b1){anno*} -> anno*
-    where not(GenericSort(_, [simplesrt]) := srt)
-
-  try-add-query-optimized-function : // No optimized version needed
-    Function(x, farg1*, srt, b1){anno*} -> anno*
-    where GenericSort(_, [simplesrt]) := srt; not(<is-entity-type> simplesrt)

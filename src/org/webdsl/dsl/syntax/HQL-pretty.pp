@@ -61,6 +61,7 @@
    QueryNot                 -- KW["not"] _1,
    EQ                       -- _1 KW["="] _2,
    IS                       -- _1 KW["is"] _2,
+   ISNOT                    -- _1 KW["is"] KW["not"] _2,
    NE                       -- _1 KW["!="] _2,
    SQLNE                    -- _1 KW["<>"] _2,
    LT                       -- _1 KW["<"] _2,
