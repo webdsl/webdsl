@@ -63,11 +63,11 @@ rules
           |}
 
   forallstmt-annotations-for-query-optimization:
-    anno* -> newanno*
-    where plain-anno := <remove-all(?FunctionArgs(_) <+ ?QueryOptimizations(_, _, _, _))> anno*
-    ; qopt := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
-    ; args := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
-    ; newanno* := <concat> [ qopt, args, plain-anno ]
+    anno* -> [ qopt*, args*, ent*, plain-anno* ]
+    where plain-anno* := <remove-all(?FunctionArgs(_) <+ ?QueryOptimizations(_, _, _, _))> anno*
+    ; qopt* := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
+    ; args* := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
+    ; ent* := <fetch-elem(?FunctionEntity(_)) < ![] + ![FunctionEntity(<InEntity <+ !None()>)]> anno*
 
   rename-action :
     fs@ForCountStmt(x, e1, e2, b1) -> ForCountStmt(y, e3, e4, b2)
@@ -83,16 +83,50 @@ rules
 rules
 
   desugar-action :
-    def@ForAllStmt(x, srt, Filter(cond, _, _), _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with args := <fetch-elem(?FunctionArgs(<id>)) <+ []> anno* // Can fail for an action
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, cond)
+    def@ForAllStmt(x, srt, Filter(cond, _, _), body){anno*} -> def{qoanno, anno*}
+    where qoanno := <common-query-optimization-forallstmt(|x, srt, cond, anno*)> body
 
   desugar-action :
-    def@ForAllStmtNoFilter(x, srt, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
+    def@ForAllStmtNoFilter(x, srt, body){anno*} -> def{qoanno, anno*}
+    where qoanno := <common-query-optimization-forallstmt(|x, srt, True(), anno*)> body
+
+  common-query-optimization-forallstmt(|x, srt, cond, anno*) :
+    body -> QueryOptimizations(joincandidates, joincandidatesgen, querycondition2, conditionjoins)
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with args := <fetch-elem(?FunctionArgs(<id>)) <+ []> anno* // Can fail for an action
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
+    with args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; ent := <fetch-elem(?FunctionEntity(<id>)) <+ !None()> anno*
+    ; props := <?None() < ![] + get-all-entity-properties-for-rename(|"queryoptimization_parentarg")> ent
+    ; propargs* := <map({\ (name, uniquename, safename, srt) -> Arg(safename, srt) \})> props
+    ; {| RenamePropInFunction, RenamePropInQueryOptimization // Here we temporarily rename the Var()s in the function body for our analysis
+        : <map({\
+                  (name, uniquename, safename, srt) -> <id>
+                  with rules (
+                                RenamePropInFunction : Var(uniquename) -> Var(safename)
+                                RenamePropInQueryOptimization : Var(safename) -> Var(uniquename)
+                             )
+                \})> props
+        ; body2 := <alltd(RenamePropInFunction)> body
+        ; cond2 := <alltd(RenamePropInFunction)> cond
+        ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body2, x, srt, [args*, propargs*], cond2)
+        ; querycondition2 := <alltd(RenamePropInQueryOptimization)> querycondition // Joins do not have to be renamed, because they do not contain vars
+      |}
+
+/*  all-entity-properties-name-sort-tuples = all-entity-properties-name-sort-tuples(|[],[])
+  
+  all-entity-properties-name-sort-tuples(|alreadychecked,props*) :
+    x_class -> []
+    where <fetch(?x_class)> alreadychecked //prevent loop on invalid input 'entity Xyz:Xyz'
+  
+  all-entity-properties-name-sort-tuples(|alreadychecked,props*) :
+    x_class -> result
+    where not(<fetch(?x_class)> alreadychecked)
+    with  newprops* := <bagof-AllProperties; !(<id>, props*); diff> x_class
+        ; tuples := <map(\x -> <PropertyDecl> (x_class, x)\; create-tuple-with-entity-prop(|x_class))> newprops*
+        ; if not("Entity" := x_class) //stop at Entity (but its properties are included)
+           ; super := <Extends> x_class //stop if invalid entity found (for each entity Extends should succeed, but need to cope with app errors)
+          then result := <concat> [<all-entity-properties-name-sort-tuples(|[x_class|alreadychecked],[props*,newprops*])> super, tuples]
+               //order from least specific to most specific, that way when iterating over them and creating DR the more specific takes precedence
+          else result := tuples end*/
 
 rules
 

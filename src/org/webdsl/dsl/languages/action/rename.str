@@ -74,24 +74,31 @@ rules
           ; rules ( FunctionArg := farg2* )
           ; <declare-args-in-context> farg2*
           ; b2 := <rename-all> b1
-          ; newanno* := <try(update-query-optimization-anno(|x, srt,farg1*))> anno*
+          ; newanno* := <try(update-query-optimization-anno(|"", x, srt, farg1*))> anno*
           |}
 
-  update-query-optimization-anno(|x,srt,args):
+  update-query-optimization-anno(|ent,x,srt,args):
     anno* -> newanno*
-    where not(<fetch-elem(?QueryOptimizationVars(_, _))> anno*)
+    where not(<fetch-elem(?QueryOptimizationVars(_, _, _, _))> anno*)
     ; GenericSort(_, [<is-entity-type>]) := srt
-    with joinvar := "joins"{<concat-strings; newname-webdsl>[x, "_joins"]}
-    ; condvar := "condition"{<concat-strings; newname-webdsl>[x, "_condition"]}
-    ; newanno* := <conc>([QueryOptimizationVars(joinvar, condvar)],[anno*])
+    with varprefix := <?"" < !x + !<concat-strings>["ent_", ent]> ent
+    ; joinvar := "joins"{<concat-strings; newname-webdsl>[varprefix, "_joins"]}
+    ; queriesvar := "queries"{<concat-strings; newname-webdsl>[varprefix, "_queries"]}
+    ; condvar := "condition"{<concat-strings; newname-webdsl>[varprefix, "_condition"]}
+    ; condjoinsvar := "conditionjoins"{<concat-strings; newname-webdsl>[varprefix, "_conditionjoins"]}
+    ; newanno* := <conc>([QueryOptimizationVars(joinvar, queriesvar, condvar, condjoinsvar)],[anno*])
     ; t* := <map(?Arg(_,<id>); strip-annos)> args
-    ; rules(FunctionHasQueryOptimization: (x, t*) -> QueryOptimizationVars(joinvar, condvar))
+    ; if "" := ent then
+      rules(FunctionHasQueryOptimization: (None(), x, t*) -> QueryOptimizationVars(joinvar, queriesvar, condvar, condjoinsvar))
+      else
+      rules(FunctionHasQueryOptimization: (ent, x, t*) -> QueryOptimizationVars(joinvar, queriesvar, condvar, condjoinsvar))
+      end
 
   update-query-optimization-anno(|x,srt,args):
     anno* -> newanno*
-    where <fetch-elem(?QueryOptimizationVars(joinvar, condvar))> anno*
+    where <fetch-elem(?QueryOptimizationVars(joinvar, queriesvar, condvar, condjoinsvar))> anno*
     ; GenericSort(_, [<is-entity-type>]) := srt
-    with newanno* := <remove-all(?QueryOptimizationVars(_, _)); ![QueryOptimizationVars(<rename>joinvar, <rename>condvar)|<id>]> anno*
+    with newanno* := <remove-all(?QueryOptimizationVars(_, _, _, _)); ![QueryOptimizationVars(<rename>joinvar, <rename>queriesvar, <rename>condvar, <rename>condjoinsvar)|<id>]> anno*
 
   rename-action :
     FunctionNoReturn(x, farg1*, b1){anno*} -> FunctionNoReturn(x, farg2*, b2){anno*}
@@ -105,14 +112,15 @@ rules
           |}
 
   rename-action :
-    Function(x, farg1*, srt, b1){anno*} -> <add-new-anno(|EntityFunctionAnno())> Function(x, farg2*, srt, b2){anno*}
-    where InEntity
+    Function(x, farg1*, srt, b1){anno*} -> <add-new-anno(|EntityFunctionAnno())> Function(x, farg2*, srt, b2){newanno*}
+    where InEntity; ?x_class
     with {| Rename, InDef, FunctionArg, VarInTemplateContext
           : rules ( InDef := True() )
           ; farg2* := <map(rename)> farg1*
           ; rules ( FunctionArg := farg2* )
           ; <declare-args-in-context> farg2*
           ; b2 := <rename-all> b1
+          ; newanno* := <try(update-query-optimization-anno(|x_class, x, srt, farg1*))> anno*
           |}
 
   rename-action :

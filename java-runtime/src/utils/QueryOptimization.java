@@ -1,31 +1,59 @@
 package utils;
 
+import java.util.Arrays;
+
 public class QueryOptimization {
-	public static org.hibernate.Criteria addQueryOptimization(org.hibernate.Criteria criteria, String joinstr, org.hibernate.criterion.Criterion criterion) {
-		//System.out.println("addQueryOptimization");
-		//System.out.println("joinstr: " + joinstr);
-		//System.out.println("criterion: " + criterion);
+	public static org.hibernate.Criteria addQueryOptimization(org.hibernate.Criteria criteria, String[] curjoins, String curgen, boolean ismain, String[] joins, String[][] queries, org.hibernate.criterion.Criterion criterion, String[] condjoins) {
 		org.hibernate.Criteria ret = criteria;
-		if(joinstr != null) {
-			String[] joins = joinstr.split("\\|");
-			//System.out.println("joins: " + joins.length);
-			for(int i = 1; i < joins.length; i++) {
-				//System.out.println("join: " + joins[i]);
-				String[] varList = joins[i].split("\\.");
-				if(varList.length < 1) continue;
-				String joinProp = varList[varList.length - 1];
-				String assaciation = joinProp;
-				if(varList.length > 1) { 
-					assaciation = "_" + joins[i].substring(0, joins[i].length() - joinProp.length() - 1).replace(".", "_") + "." + joinProp;
+		java.util.ArrayList<String> tojoin = new java.util.ArrayList<String>(); 
+
+		// Add joins needed for the conditions first
+		if(condjoins != null && condjoins.length > 0) {
+			tojoin.addAll(Arrays.asList(condjoins));
+		}
+
+		// If this is the first queries we need to add all non-generic joins
+		if(ismain && joins != null && joins.length > 0) {
+			tojoin.addAll(Arrays.asList(joins));
+		}
+
+		// Add joins starting with the generic property curgen
+		if(curgen != null && queries != null) {
+			for(int i = 0; i < queries.length; i++) {
+				if(queries[i].length > 0 && curgen.equals(queries[i][0])) {
+					tojoin.addAll(Arrays.asList(queries[i]));
+					break;
 				}
-				String alias = "_" + joins[i].replace(".", "_");
-				//System.out.println("assaciation: " + assaciation + ", alias: " + alias);
-				ret = ret.createAlias(assaciation, alias, org.hibernate.criterion.CriteriaSpecification.LEFT_JOIN);
 			}
 		}
-		if(criterion != null) {
-			//System.out.println("add criterion");
+
+		if(curjoins != null && tojoin.size() > 0) {
+			tojoin.removeAll(Arrays.asList(curjoins)); // Remove all joins that are already added to the criteria
+		}
+
+		if(tojoin.size() > 0) {
+			ret = QueryOptimization.addJoins(ret, tojoin); // Add the selected joins to the criteria
+		}
+
+		if(criterion != null) { // Add the condition aswell
 			ret = ret.add((org.hibernate.criterion.Criterion)criterion);
+		}
+		return ret;
+	}
+
+	public static org.hibernate.Criteria addJoins(org.hibernate.Criteria criteria, java.util.ArrayList<String> joins) {
+		org.hibernate.Criteria ret = criteria;
+		for(int i = 0; i < joins.size(); i++) {
+			String join = joins.get(i);
+			String[] varList = join.split("\\.");
+			if(varList.length < 1) continue;
+			String joinProp = varList[varList.length - 1];
+			String assaciation = joinProp;
+			if(varList.length > 1) {
+				assaciation = "_" + join.substring(0, join.length() - joinProp.length() - 1).replace(".", "_") + "." + joinProp;
+			}
+			String alias = "_" + join.replace(".", "_");
+			ret = ret.createAlias(assaciation, alias, org.hibernate.criterion.CriteriaSpecification.LEFT_JOIN);
 		}
 		return ret;
 	}

@@ -17,7 +17,8 @@ rules
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
     with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-    ; e_criteria := <conc; foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*))> (joinproperties, conditionjoins)
+    ; (gen, genjoins) := <?[head|_] < !(<?[<id>|_]> head, head) + !(None(), [])> joinpropertiesgen
+    ; e_criteria := <concat; ?joins; foldr(!expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*,joins,gen,True()))> [genjoins, joinproperties, conditionjoins]
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
 
@@ -27,13 +28,16 @@ rules
     
    hibernate-extra-criteria :
    	(term{anno*}, t, x, srt, e_Session) -> e_criterias*
-   	with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+    with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+   	; newjoins := <?[_|<id>] <+ ![]> joinpropertiesgen // Skip the first one, because that one has been added to the first query
    	; e_base := <foldr(!expr|[ e_Session.createCriteria(t.class) ]|,hibernate-criteria-join)> conditionjoins
-   	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition))> joinpropertiesgen
+   	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition, conditionjoins, anno*))> newjoins
 
-  hibernate-extra-criteria-helper(|e_base, x, srt, querycondition) :
+  hibernate-extra-criteria-helper(|e_base, x, srt, querycondition, conditionjoins, anno*) :
   	joinproperties -> e_criteria
-  	with e_criteria := <foldr(!e_base, hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> joinproperties 
+  	with <?[gen|_]> joinproperties
+  	; joins := <conc> (conditionjoins, joinproperties)
+  	; e_criteria := <foldr(!e_base, hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*,joins,gen,False()))> joinproperties 
     
   hibernate-criteria-join :
     //(str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
@@ -57,11 +61,16 @@ rules
         	; e_Cond := <hibernate-criteria-transform-condition> cond
           |}
 
-  hibernate-criteria-add-extra(|anno*) :
-    e_criteria -> expr|[ utils.QueryOptimization.addQueryOptimization(e_criteria, e_Join, e_Cond) ]|
-    where <fetch-elem(?QueryOptimizationVars(joinvar, condvar))> anno*
-    ; e_Join := <expression-to-java-servlet> Var(joinvar)
-    ; e_Cond := <expression-to-java-servlet> Var(condvar)
+  hibernate-criteria-add-extra(|anno*, joins, gen, ismain) :
+    e_criteria -> expr|[ utils.QueryOptimization.addQueryOptimization(e_criteria, e_CurJoins, e_CurGen, e_IsMain, e_Join, e_Queries, e_Cond, e_CondJoins) ]|
+    where <fetch-elem(?QueryOptimizationVars(joinvar, queriesvar, condvar, condjoinsvar))> anno*
+    ; e_CurJoins :=  <string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> joins
+    ; e_CurGen :=    <?None() < !expr |[ null ]| + !expr |[ "~gen" ]|> gen
+    ; e_IsMain :=    <expression-to-java-servlet> ismain
+    ; e_Join :=      <expression-to-java-servlet> Var(joinvar)
+    ; e_Queries :=   <expression-to-java-servlet> Var(queriesvar)
+    ; e_Cond :=      <expression-to-java-servlet> Var(condvar)
+    ; e_CondJoins := <expression-to-java-servlet> Var(condjoinsvar)
 
   property-pair-to-string =
     ?FieldAccess(l, fld){anno*}

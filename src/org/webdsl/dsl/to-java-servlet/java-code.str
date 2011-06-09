@@ -494,9 +494,10 @@ rules //vars
      <+ generic-call-to-java-servlet
 
    generic-call-to-java-servlet :
-     Call(e1, x, e2*) -> expr|[ e3.x#_(e4*) ]|
+     call@Call(e1, x, e2*){anno*} -> expr|[ e3.x#_(e4*,e5*) ]|
      with  e3 := <expression-to-java-servlet> e1
          ; e4* := <map(expression-to-java-servlet)> e2*
+         ; e5* := <generic-call-get-extra-arguments <+ ![]> call{anno*}
 
   // Static function call
   generic-call-to-java-servlet:
@@ -529,14 +530,22 @@ rules
         ; result := expr|[ x_Class#_.x#_(e2*,e3*) ]|
 
   generic-call-get-extra-arguments :
-    ThisCall(_, _){anno*} -> [e_Join, e_Cond]
-    where <fetch-elem(?QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt))> anno*
-    ; e_Join := <generic-call-get-join-argument> joincandidates
+    call{anno*} -> [e_Join, e_Queries, e_Cond, e_CondJoins]
+    where <?ThisCall(_, _) <+ ?Call(_, _, _)>call
+    ; <fetch-elem(?QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt))> anno*
+    ; e_Join := <string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> joincandidates
+    ; e_Queries := <two-dimensional-string-list-to-java-servlet; try(\ expr |[ new String[][] {} ]| -> expr |[ null ]| \)> joincandidatesgen
     ; e_Cond := <generic-call-get-condition-argument(|x,srt)> querycondition
+    ; e_CondJoins := <string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> conditionjoins
 
-  generic-call-get-join-argument :
-    joins -> expr |[ "~str" ]|
-    with str := <foldr(!"", {?(new, old); !<concat-strings>[old, "|", new]})> joins
+  string-list-to-java-servlet :
+    stringlist -> stringarray
+    with stringarray := <foldr(!expr |[ new String[] {} ]|, {?(str, expr |[ new String[] {e_array*} ]|); !expr |[ new String[] {e_array*,"~str"} ]|})> stringlist
+
+  two-dimensional-string-list-to-java-servlet :
+    stringlists -> stringarray
+    with individualarrays := <map(string-list-to-java-servlet)> stringlists
+    ; stringarray := <foldr(!expr |[ new String[][] {} ]|, {?(expr |[ new String[] {e_subarray*} ]|, expr |[ new String[][] {e_arrays*} ]|); !expr |[ new String[][] {e_arrays*,{e_subarray*}} ]|})> individualarrays
 
   generic-call-get-condition-argument(|x,srt) :
     cond -> expr|[e_Cond]|

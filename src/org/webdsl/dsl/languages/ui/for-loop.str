@@ -77,38 +77,47 @@ rules
 rules
 
   desugar-ui :
-    def@ForAll(x, srt, Filter(cond, _, _), _, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
+    def@ForAll(x, srt, Filter(cond, _, _), body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
     with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, cond)
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, cond)
 
   desugar-ui :
-    def@ForAllNoFilter(x, srt, _, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
+    def@ForAllNoFilter(x, srt, body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
     with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, True())
 
   desugar-ui :
-    def@For(x, srt, call@ThisCall(fname, fargs){callanno*}, f1@Filter(cond, _, _), elems1, elems3){anno*} -> For(x, srt, call{queryopt, callanno*}, f1, elems1, elems3){anno*}
+    def@For(x, srt, call{callanno*}, f1@Filter(cond, _, _), elems1, elems3){anno*} -> For(x, srt, call{queryopt, callanno*}, f1, elems1, elems3){anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _, _, _))> callanno*)
-    ; t* := <map(type-of)> fargs
-    ; Function(fname2, fargs2, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(None(), fname, t*)
-    ; t2* := <map(?Arg(_, <id>); strip-annos)> fargs2
-    ; <FunctionHasQueryOptimization> (fname2, t2*)
+    ; <is-function-call-with-query-optimization(|srt)> call
     with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, cond)
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, cond)
     ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
 
   desugar-ui :
-    def@ForNoFilter(x, srt, call@ThisCall(fname, fargs){callanno*}, elems1, elems3){anno*} -> ForNoFilter(x, srt, call{queryopt, callanno*}, elems1, elems3){anno*}
+    def@ForNoFilter(x, srt, call{callanno*}, elems1, elems3){anno*} -> ForNoFilter(x, srt, call{queryopt, callanno*}, elems1, elems3){anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _, _, _))> callanno*)
+    ; <is-function-call-with-query-optimization(|srt)> call
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, True())
+    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
+
+  is-function-call-with-query-optimization(|srt) =
+    ?ThisCall(fname, fargs)
     ; t* := <map(type-of)> fargs
     ; Function(fname2, fargs2, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(None(), fname, t*)
     ; t2* := <map(?Arg(_, <id>); strip-annos)> fargs2
-    ; <FunctionHasQueryOptimization> (fname2, t2*)
-    with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
-    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
+    ; <FunctionHasQueryOptimization> (None(), fname2, t2*)
+
+  is-function-call-with-query-optimization(|srt) =
+    ?Call(e, fname, fargs)
+    ; entsrt@SimpleSort(x_class) := <type-of; is-entity-type> e
+    ; t* := <map(type-of)> fargs
+    ; Function(fname2, fargs2, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(entsrt, fname, t*)
+    ; t2* := <map(?Arg(_, <id>); strip-annos)> fargs2
+    ; <FunctionHasQueryOptimization> (x_class, fname2, t2*)
 
 rules // ForAll only declared entity types
   

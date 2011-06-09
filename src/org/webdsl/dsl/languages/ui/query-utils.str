@@ -21,40 +21,23 @@ rules
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
        ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
-       ; jointooneinv := <?SimpleSort(ent); !ent; bagof-AllProperties; filter(inverse-one-to-one-join(|ent,Var(x)); an-requires-joining)> srt
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
        //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
        ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
-       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; <conc>(jointooneinv, <id>); make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
+       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
        ; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
-       ; <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); (?[headElem|tailList] < !(headElem, tailList) + !([], [])); ?(passOverJoin, joincandidatesgen)> queryroots
+       ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
        ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
-       ; joincandidatesnogen := <conc; make-set; string-sort-desc>(passOverJoin,  <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff> (joincandidates, <flatten-list; make-set>joincandidatesgen))  
+       ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
        ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
        ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
        ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
-
-inverse-one-to-one-join(|x_class,rootvar) :
-  x -> FieldAccess(rootvar, x_prop)
-  where Property(x_prop, k, s, annos) := <PropertyDecl> (x_class, x)
-  ; SimpleSort(y) := s
-  ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld)) <+ (all-keys-EntDecl; filter(find-owner(|InverseAnno(x_class, x))); ?[InverseSlaveAnno(ent, fld)])> annos
-  ; Property(_, _, srt, _) := <PropertyDecl> (ent, fld)
-  ; SimpleSort(yy) := srt
-
-find-owner(|inv) :
-  ent -> InverseSlaveAnno(ent, fld)
-  where [fld] := <bagof-AllProperties; filter(is-owning-prop(|ent,inv))> ent
-
-is-owning-prop(|ent,inv) :
-  x -> x
-  where <PropertyDecl; ?Property(x_prop, k, s, annos)> (ent, x); <fetch-elem(strip-annos; ?inv)> annos
 
 /*
 group-joins :
@@ -179,10 +162,12 @@ strategies
     ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
     ; ?Function(_, fargs, _, body)
     // Here we get the properties of the entity and insert them as extra parameters for the function call
-    // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionAr1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
-    ; (args, fargs2) := <bagof-AllProperties; filter({x,srt,str:\ x -> (FieldAccess(e, x), Arg(x{str}, srt)) where srt := <TypeOfProperty; (is-entity-type <+ is-generic-sort)> (ent, x); str := <concat-strings>[genname, "_", x] \}); unzip> ent
+    // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionArg1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
     ; {| RenamePropInFunction // Here we temporarily rename the Var()s in the function body for our analysis
-        : <map({\ Arg(x{str}, _) -> <id> with x2 := <strip-annos> x; rules( RenamePropInFunction : Var(x2) -> Var(x2{str}) ) \})> fargs2
+        : (args, fargs2) := <get-all-entity-properties-for-rename(|genname); map({name,uniquename,safename,srt:\
+                                (name, uniquename, safename, srt) -> (FieldAccess(e, name), Arg(safename, srt))
+                                where rules( RenamePropInFunction : Var(name) -> Var(safename) )
+                            \}); unzip> ent
         ; body2 := <alltd(RenamePropInFunction)> body
       |}
     ; {| PassedFunction
@@ -421,7 +406,7 @@ strategies // checks for potential inlining
   	(ParentArgs <+ IteratedVar)
   	; ?SimpleSort(x_class)
   	; srt := <EntityIdType> x_class
-  	; <is-query-condition-type <+ ?SimpleSort("UUID")> srt
+  	; <is-query-condition-type> srt
   	; fieldName := <EntityIdName> x_class)
   	; !FieldAccess(<id>, fieldName){srt} // I am still adding an annotation to store the type when that type could be a UUID, I used this to generate different code for those field, because this type caused a typecast exception  
 
@@ -442,7 +427,7 @@ strategies // checks for potential inlining
   	  ?fa@FieldAccess(v, f)
   	  ; x_class := <get-accessible-field-type> v
       ; srt := <get-prop-type>(x_class, f)
-      ; <(is-query-condition-type <+ ?SimpleSort("UUID"))> srt
+      ; <is-query-condition-type> srt
     )
     ; !fa{srt}
 
@@ -452,7 +437,7 @@ strategies // checks for potential inlining
   	  ; v_class := <get-accessible-field-type> v
       ; x_class := <get-prop-type>(v_class, f)
       ; srt := <EntityIdType> x_class
-      ; <(is-query-condition-type <+ ?SimpleSort("UUID"))> srt
+      ; <is-query-condition-type> srt
       ; fieldName := <EntityIdName> x_class
     )
     ; !FieldAccess(fa, fieldName){srt}
@@ -467,7 +452,7 @@ strategies // checks for potential inlining
   get-accessible-field-type = where(?FieldAccess(v, f); x_class := <get-accessible-field-type> v)
     ; <get-prop-type>(x_class, f)
 
-  is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool")
+  is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 
   is-query-condition-constant = ?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ True() <+ False()
 
@@ -522,6 +507,14 @@ strategies // checks for potential inlining
 
   extract-query-cond = !True()
 
+  get-all-entity-properties-for-rename(|prefix) =
+    all-entity-properties-tuples
+    ; {|OverridePropName
+       : map({\ (ent, prop) -> <id> with propname := <get-property-name> prop; rules(OverridePropName : propname -> (ent, prop)) \})
+       ; dr-all-keys(|"OverridePropName")
+       ; map(OverridePropName; {ent,prop,name,uniquename,safename,srt:\ (ent, prop) -> (name, uniquename, safename, srt) where name := <get-property-name> prop; uniquename := <PropertyNameToUniqueName> (ent, name); safename := name{<concat-strings>[prefix, "_", name]}; srt := <get-property-type> prop \})
+       |}
+      
 rules
 
   generate-template-name-args :
@@ -552,7 +545,7 @@ rules
 
   anno-query-expr:
   	(t, expr) -> expr
-  	where not(?SimpleSort("UUID")); <is-query-condition-type> t 
+  	where <where(is-query-condition-type);not(?SimpleSort("UUID"))> t 
 
   anno-query-expr:
   	(SimpleSort("UUID"), expr) -> expr{SimpleSort("UUID")}
