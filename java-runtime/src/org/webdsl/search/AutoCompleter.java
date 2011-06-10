@@ -17,12 +17,9 @@ import org.apache.lucene.index.LogMergePolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopScoreDocCollector;
-import org.apache.lucene.search.FieldComparator.RelevanceComparator;
 import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LevensteinDistance;
 import org.apache.lucene.search.spell.StringDistance;
@@ -61,7 +58,7 @@ public class AutoCompleter implements java.io.Closeable {
    */
   public static final String F_WORD = "word";
   
-  private static final int MAX_PREFIX_LENGTH = 20; 
+  private static final int MAX_PREFIX_LENGTH = 10; 
 
   private static final Term F_WORD_TERM = new Term(F_WORD);
 
@@ -126,7 +123,7 @@ public class AutoCompleter implements java.io.Closeable {
    * @throws IOException if there is a problem opening the index
    */
   public AutoCompleter(Directory autocompleteIndex, StringDistance sd, Comparator<SuggestWord> comparator) throws IOException {
-    setSpellIndex(autocompleteIndex);
+    setAutoCompleteIndex(autocompleteIndex);
     setStringDistance(sd);
     this.comparator = comparator;
   }
@@ -140,7 +137,7 @@ public class AutoCompleter implements java.io.Closeable {
    * @throws  IOException if autocompleter can not open the directory
    */
   // TODO: we should make this final as it is called in the constructor
-  public void setSpellIndex(Directory autocompleteIndexDir) throws IOException {
+  public void setAutoCompleteIndex(Directory autocompleteIndexDir) throws IOException {
     // this could be the same directory as the current autocompleteIndex
     // modifications to the directory should be synchronized 
     synchronized (modifyCurrentIndexLock) {
@@ -255,7 +252,7 @@ public class AutoCompleter implements java.io.Closeable {
    */
   private static String[] formGrams(String text) {
 	  int len = 3;
-	  int textLen = Math.min(text.length(), 20);		  
+	  int textLen = Math.min(text.length(), MAX_PREFIX_LENGTH);		  
       if (textLen < 3) {
     	len = textLen;
       }

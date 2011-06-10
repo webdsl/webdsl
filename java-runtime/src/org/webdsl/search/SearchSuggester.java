@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,6 +25,8 @@ import utils.ThreadLocalPage;
 public class SearchSuggester {
 
 	private static SearchFactory sf;
+	private static HashMap<String, AutoCompleter> autoCompleterMap = new HashMap<String, AutoCompleter>();
+	private static HashMap<String, SpellChecker> spellCheckMap = new HashMap<String, SpellChecker>();
 	static {
 		sf = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession())
 				.getSearchFactory();
@@ -59,8 +62,9 @@ public class SearchSuggester {
 		IndexReader fieldIR = null;
 		boolean hasSuggestions = false;
 
+		String indexPath = baseDir+suggestedField;
 		try {
-			spellChecker = new SpellChecker(FSDirectory.open(new File(baseDir+suggestedField)));
+			spellChecker = getSpellChecker(indexPath);
 
 			spellChecker.setAccuracy(accuracy);
 
@@ -101,17 +105,15 @@ public class SearchSuggester {
 			else
 				return formSuggestions(maxSuggestionCount, allSuggestions);
 
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
-		} finally {
-			if (fieldIR != null)
-				sf.getReaderProvider().closeReader(fieldIR);
-			if (spellChecker != null)
-				try {
-					spellChecker.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+			//if something goes wrong, close and remove current SpellChecker instance, so it gets renewed
+			try {
+				spellChecker.close();
+			} catch (IOException e2) {
+				e2.printStackTrace();
+			}
+			spellCheckMap.remove(indexPath);
 		}
 
 		return new ArrayList<String>();
@@ -144,9 +146,9 @@ public class SearchSuggester {
 			return new ArrayList<String>();
 		
 		AutoCompleter autoCompleter = null;
-
+		String indexPath = baseDir + suggestedField;
 		try {
-			autoCompleter = new AutoCompleter(FSDirectory.open(new File(baseDir+suggestedField)));
+			autoCompleter = getAutoCompleter(indexPath);
 			Analyzer analyzer = sf.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
@@ -180,15 +182,15 @@ public class SearchSuggester {
 			}
 			return allSuggestions;
 
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
-		} finally {
-			if (autoCompleter != null)
-				try {
-					autoCompleter.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+			//if something goes wrong, close and remove current AutoCompleter instance, so it gets renewed
+			try {
+				autoCompleter.close();
+			} catch (IOException e2) {
+				e2.printStackTrace();
+			}
+			autoCompleterMap.remove(indexPath);
 		}
 		return new ArrayList<String>();
 	}
@@ -246,6 +248,22 @@ public class SearchSuggester {
 			}
 		}
 		return new ArrayList<String>(suggestionsSet);
+	}
+	
+	private static synchronized AutoCompleter getAutoCompleter(String indexPath) throws IOException{
+
+		if (!autoCompleterMap.containsKey(indexPath)){
+			autoCompleterMap.put(indexPath, new AutoCompleter(FSDirectory.open(new File(indexPath))));
+		}
+	    return autoCompleterMap.get(indexPath);
+	}
+	
+	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{
+
+		if (!spellCheckMap.containsKey(indexPath)){
+			spellCheckMap.put(indexPath, new SpellChecker(FSDirectory.open(new File(indexPath))));
+		}
+	    return spellCheckMap.get(indexPath);
 	}
 
 }
