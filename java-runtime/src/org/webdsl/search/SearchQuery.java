@@ -10,8 +10,6 @@ import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.queryParser.MultiFieldQueryParser;
-import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
@@ -142,11 +140,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	private boolean createMultiFieldQuery(){
 		if (!searchTerms.isEmpty()) {
 			
-			QueryParser parser;
+			SpecialMultiFieldQueryParser parser;
 			if(boosts == null || boosts.isEmpty()) 
-				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer);
+				parser = new SpecialMultiFieldQueryParser(	luceneVersion, searchFields, analyzer);
 			 else 
-				parser = new MultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
+				parser = new SpecialMultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
 						
 			parser.setDefaultOperator(op);
 			
@@ -154,10 +152,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				if(allowLuceneSyntax)
 					luceneQuery = parser.parse(searchTerms);
 				else
-					luceneQuery = parser.parse(QueryParser.escape(searchTerms));
+					luceneQuery = parser.parse(SpecialMultiFieldQueryParser.escape(searchTerms));
 			} catch (org.apache.lucene.queryParser.ParseException pe){ 
 				return false;
 			}
+			//log("Terms: " + terms());
+			//log("Lucene query: " + luceneQuery.toString());
 			
 		}
 		// Match all documents if no search terms are given
@@ -174,18 +174,18 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 //		F fromCache = (F) SearchQueryMRUCache.getInstance().getObject(searchQueryAsString);
 //		if(fromCache!=null && !fromCache.updateEncodeString && fromCache.encodedAsString.equals(searchQueryAsString)){
-//			System.out.println("CACHE HIT");
+//			log("CACHE HIT");
 //			fromCache.fullTextSession = null; // needs to be reset
 //			fromCache.getFullTextSession();
 //			return fromCache;
 //		}
 //		
-		System.out.println("Decode in");
+		//log("Decode in");
 		try{
 			String[] props = searchQueryAsString.split("\\|", -1);
 			
 			if(props.length != 16){
-				System.out.println("MALFORMED SEARCHQUERY STRING!");
+				//log("MALFORMED SEARCHQUERY STRING!");
 				return (F) this;
 			}		
 			String[] a1, a2;
@@ -251,7 +251,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		} catch (Exception ex){
 			//exception, so return a new query
 			try {
-				System.out.println("MALFORMED SEARCHQUERY STRING!");
+				//log("MALFORMED SEARCHQUERY STRING!");
 				this.getClass().newInstance();
 			} catch (InstantiationException e) {
 				e.printStackTrace();
@@ -259,7 +259,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Decode out");
+		//log("Decode out");
 		return (F) this;		
 		
 	}
@@ -343,7 +343,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		//15 allow lucene syntax?
 		sb.append("|" + allowLuceneSyntax);
 		
-		//System.out.println("encode-sq");
+		//log("encode-sq");
 		updateEncodeString = false;
 		encodedAsString = sb.toString().replaceAll(",\\|", "\\|");
 		//SearchQueryMRUCache.getInstance().putObject(encodedAsString, this);
@@ -440,6 +440,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		if (validateQuery()) {
 			List<EntityClass> toReturn = fullTextQuery.list();
 			searchTime = System.currentTimeMillis() - searchTime;
+			//log("got result list in " + searchTime +"ms");
 			return toReturn;
 		} else
 			searchTime = 0;
@@ -569,8 +570,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	public int resultSize() {
-		if (validateQuery())
-			return fullTextQuery.getResultSize();
+		if (validateQuery()){
+			long tmp = System.currentTimeMillis();
+			int toreturn = fullTextQuery.getResultSize();
+			tmp = System.currentTimeMillis() - tmp;			
+			//log("result size in " + tmp +"ms");
+			return toreturn;
+		}
 		else
 			return -1;
 	}
@@ -667,7 +673,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		}
 		return webdslFacets;
 	}
+	private void log(String a){
+		System.out.println(a);
+	}
 	private boolean validateQuery() {
+		long tmp = System.currentTimeMillis();
 		if (updateLuceneQuery) {
 			if(!createMultiFieldQuery())
 				return false;
@@ -675,6 +685,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			updateFullTextQuery = true;
 		}
 		if (updateFullTextQuery) {
+			//log("new Full Text Query");
+
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
 			updateFullTextQuery = false;
 			updateFacets = updateFieldConstraints = updateSorting = true;
@@ -693,7 +705,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		}
 		fullTextQuery.setFirstResult(offset);
 		fullTextQuery.setMaxResults(limit);
-
+		tmp = System.currentTimeMillis() - tmp;
+		//log("Validate Query in " + tmp +"ms");
 		return true;
 	}
 }

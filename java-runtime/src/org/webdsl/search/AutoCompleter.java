@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.lucene.analysis.WhitespaceAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.NumericField;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -19,9 +20,12 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LevensteinDistance;
+import org.apache.lucene.search.spell.LuceneDictionary;
 import org.apache.lucene.search.spell.StringDistance;
 import org.apache.lucene.search.spell.SuggestWord;
 import org.apache.lucene.search.spell.SuggestWordQueue;
@@ -58,7 +62,9 @@ public class AutoCompleter implements java.io.Closeable {
    */
   public static final String F_WORD = "word";
   
-  private static final int MAX_PREFIX_LENGTH = 10; 
+  private static final int MAX_PREFIX_LENGTH = 10;
+  
+  private static final String F_FREQ = "frequency";
 
   private static final Term F_WORD_TERM = new Term(F_WORD);
 
@@ -221,16 +227,18 @@ public class AutoCompleter implements java.io.Closeable {
       }
 
       int maxHits = 2 * numSug;
-
-      ScoreDoc[] hits = indexSearcher.search(query, null, maxHits).scoreDocs;
+      
+      //First sort on similarity, then on popularity (based on frequency in the source index)
+      SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT,true)};
+      
+      ScoreDoc[] hits = indexSearcher.search(query, maxHits, new Sort(sortFields)).scoreDocs;
+      //indexSearcher.search(query, null, maxHits).scoreDocs;
 
       int stop = Math.min(hits.length, maxHits);
-      String currentWord = "";
       String[] toReturn = new String[stop];      
       
       for (int i = 0; i < stop; i++) {
-    	currentWord = indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
-    	toReturn[i] = currentWord;
+    	toReturn[i] =  indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
       }
       return toReturn;
     } finally {
@@ -302,17 +310,19 @@ public class AutoCompleter implements java.io.Closeable {
 
   /**
    * Indexes the data from the given {@link Dictionary}.
-   * @param dict Dictionary to index
-   * @param mergeFactor mergeFactor to use when indexing
-   * @param ramMB the max amount or memory in MB to use
-   * @param optimize whether or not the autocomplete index should be optimized
+ * @param reader Source index reader, from which autocomplete words are obtained for the defined field
+ * @param field the field of the source index reader to index for autocompletion
+ * @param mergeFactor mergeFactor to use when indexing
+ * @param ramMB the max amount or memory in MB to use
+ * @param optimize whether or not the autocomplete index should be optimized
    * @throws AlreadyClosedException if the Autocompleterer is already closed
    * @throws IOException
    */
-  public final void indexDictionary(Dictionary dict, int mergeFactor, int ramMB, boolean optimize) throws IOException {
+  public final void indexDictionary(IndexReader reader, String field, int mergeFactor, int ramMB, boolean optimize) throws IOException {
     synchronized (modifyCurrentIndexLock) {
       ensureOpen();
       final Directory dir = this.autoCompleteIndex;
+      final Dictionary dict = new LuceneDictionary(reader, field);
       final IndexWriter writer = new IndexWriter(dir, new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)).setRAMBufferSizeMB(ramMB));
       ((LogMergePolicy) writer.getConfig().getMergePolicy()).setMergeFactor(mergeFactor);
       IndexSearcher indexSearcher = obtainSearcher();
@@ -323,13 +333,12 @@ public class AutoCompleter implements java.io.Closeable {
       }
       
       boolean isEmpty = readers.isEmpty();
-
+      
       try { 
         Iterator<String> iter = dict.getWordsIterator();
         
         terms: while (iter.hasNext()) {
           String word = iter.next();
-  
           int len = word.length();
 //          if (len < 3) {
 //            continue; // too short we bail but "too long" is fine...
@@ -346,7 +355,7 @@ public class AutoCompleter implements java.io.Closeable {
           }
   
           // ok index the word
-          Document doc = createDocument(word, getMax(len));
+          Document doc = createDocument(word, getMax(len), reader.docFreq(new Term(field, word)));
           writer.addDocument(doc);
         }
       } finally {
@@ -364,22 +373,24 @@ public class AutoCompleter implements java.io.Closeable {
 
   /**
    * Indexes the data from the given {@link Dictionary}.
-   * @param dict the dictionary to index
-   * @param mergeFactor mergeFactor to use when indexing
-   * @param ramMB the max amount or memory in MB to use
+ * @param reader Source index reader, from which autocomplete words are obtained for the defined field
+ * @param field the field of the source index reader to index for autocompletion
+ * @param mergeFactor mergeFactor to use when indexing
+ * @param ramMB the max amount or memory in MB to use
    * @throws IOException
    */
-  public final void indexDictionary(Dictionary dict, int mergeFactor, int ramMB) throws IOException {
-    indexDictionary(dict, mergeFactor, ramMB, true);
+  public final void indexDictionary(IndexReader reader, String field, int mergeFactor, int ramMB) throws IOException {
+    indexDictionary(reader, field, mergeFactor, ramMB, true);
   }
   
   /**
    * Indexes the data from the given {@link Dictionary}.
-   * @param dict the dictionary to index
+ * @param reader Source index reader, from which autocomplete words are obtained for the defined field
+ * @param field the field of the source index reader to index for autocompletion
    * @throws IOException
    */
-  public final void indexDictionary(Dictionary dict) throws IOException {
-    indexDictionary(dict, 300, (int)IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
+  public final void indexDictionary(IndexReader reader, String field) throws IOException {
+    indexDictionary(reader, field, 300, (int)IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
   }
 
   private static int getMax(int l) {
@@ -389,7 +400,7 @@ public class AutoCompleter implements java.io.Closeable {
     return l;
   }
 
-  private static Document createDocument(String text, int ng1) {
+  private static Document createDocument(String text, int ng1, int freq) {
     Document doc = new Document();
     // the word field is never queried on... its indexed so it can be quickly
     // checked for rebuild (and stored for retrieval). Doesn't need norms or TF/pos
@@ -397,7 +408,8 @@ public class AutoCompleter implements java.io.Closeable {
     f.setOmitTermFreqAndPositions(true);
     f.setOmitNorms(true);
     doc.add(f); // orig term
-        
+    NumericField nf = new NumericField(F_FREQ).setIntValue(freq);
+    doc.add(nf);
     addGram(text, doc, ng1);
     return doc;
   }
