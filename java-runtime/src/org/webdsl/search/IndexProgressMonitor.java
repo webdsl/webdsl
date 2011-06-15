@@ -17,6 +17,7 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 	private volatile long startTime;
 	private final int loggingPeriod;
 	private final String entity;
+	private long lastElapsedMs = 0;
 
 	/**
 	 * Logs progress of indexing job every <code>loggingPeriod</code>
@@ -61,8 +62,10 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 
 	protected void printStatusMessage(long starttime, long totalTodoCount, long doneCount) {
 		long elapsedMs = System.currentTimeMillis() - starttime ;
-		int estimateSpeed = (int) (doneCount * 1000 / elapsedMs);
+		long lastElapsedMsCount = elapsedMs -lastElapsedMs;
+		int estimateSpeed = (int) (2000000 / lastElapsedMsCount);
 		int estimatePercentileComplete = (int) (doneCount * 100 / totalTodoCount);
 		System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedMs + "ms (" + estimateSpeed + " ent/sec)");
+		lastElapsedMs = elapsedMs;
 	}
 }

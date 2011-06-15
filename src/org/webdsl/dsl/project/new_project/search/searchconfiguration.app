@@ -22,7 +22,7 @@ analyzer trigram{
 	tokenfilter = NGramFilter(minGramSize = "3", maxGramSize = "3")
 }
 
-analyzer autocomplete-phrase{
+analyzer autocomplete_untokenized{
 	tokenizer = KeywordTokenizer
 	tokenfilter = LowerCaseFilter
 }
