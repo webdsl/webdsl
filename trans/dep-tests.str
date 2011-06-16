@@ -1,0 +1,29 @@
+module dep-tests
+
+imports include/nwl
+imports nwl emit check read
+
+rules // test transitive dependencies
+  
+  // Compile two times.
+  // At recompilation:
+  // 1. TestEnt now has 3 properties and TestEnt3 is modified.
+  // 2. TestEnt3 should not use the cached rule <RuleB> of TestEnt2, cause it depends on <RuleA>.
+  // 3. Because of TestEnt changes the value of RuleA, TestEnt2 is loaded.
+  // 4. TestEnt2 creates rule B, and TestEnt3 is transformed.
+  // 5. Check: if the second compilation writes TestEntSuccess3, pass. 
+  
+  desugar: ent@Entity(x@"TestEnt", body) -> ent
+    where not(<RuleA> "");
+          len := <length> body;
+          <debug> "Setting RuleA";
+          rules(RuleA : "" -> len) // TODO; try <length> as rhs
+          
+  desugar: ent@Entity(x@"TestEnt2", body) -> ent
+    where <RuleA> "" => len;
+          not(<RuleB> "");
+          <debug> "Setting RuleB";
+          rules(RuleB : "" -> len)
+  
+  desugar: ent@Entity(x@"TestEnt3", body) -> Entity($[TestEntSuccess[len]], body)
+    where len := <RuleB> ""

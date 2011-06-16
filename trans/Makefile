@@ -1,4 +1,4 @@
-ALL_STR = $(wildcard *.str **/*.str ../include/* ../lib/* ../separation/*)
+ALL_STR = $(wildcard *.str **/*.str ../include/* ../lib/* ../separation/* ../separation/**/* ../separation/**/**/*)
 
 nwl: $(ALL_STR)
 	strc -i compiler.str --main main-nwl-compiler -I .. -Cl stratego-lib -Cl stratego-sglr -Cl stratego-aterm -o $@

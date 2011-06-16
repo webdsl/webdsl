@@ -4,13 +4,16 @@ imports libstratego-aterm libstratego-gpp
 imports include/nwl
 imports type-analysis rename pretty-print primitives
 imports nwl check emit
-imports separation/dr
 imports lib/editor-common.generated
 
 // TODO: accept errors in <parse-import>: give errors for non-existing files instead of failing
 
-rules 
+signature constructors
+  
+  amb : Term -> Term
 
+rules
+  
   get-toplevel-defs = transform-defs(id)
   
   debug-toplevel-defs = where(get-toplevel-defs; pp-aterm; debug)
@@ -161,10 +164,19 @@ rules
     where cachefile := <path-to-cache-path> filename;
           <file-exists> cachefile;
           (ReadFromFile => (modname, defs, imports, defrules) <+ !filename; debug(!"Unreadable or corrupt chache file: "); fail)
+  
+  // from webdsl
+  check-for-ambiguities(|path) = 
+    if collect(?amb(_)) => [_ | _] => ambs then
+      !ambs
+    ; map(strip-annos; pp-aterm; debug(!$[Ambiguities found during parsing of [path]:
+        ]))
+    ; fatal-err-msg(|["Internal error - ambiguities found in module ", path])
+    end
             
   parse-file-without-cache(|cache): filename -> content
     with  <debug(!"Parsing: ")> filename; 
-          content := <my-parse-file> filename;
+          content := <my-parse-file; check-for-ambiguities(|filename)> filename;
           ?Module(<strip-annos; ?modname>, _);
           rules(ModuleLoaded : modname)
      
@@ -190,5 +202,10 @@ rules
           filter(where(<def-to-key> (modname,<id>); ?defkey));
           try(not(1 := <length>); !(defkey,<id>); debug(!"Multiple defs match key: "));
           ?[thedef];
-          <store-def(|modname)> thedef
-          
+          <store-def(|modname)> thedef;
+          ?key;
+          // TODO: Remove position annos in a clean way
+          Definition;
+          topdown(try(remove-string-position-anno));
+          ?newdef;
+          rules(Definition: key -> newdef)
