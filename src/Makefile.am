@@ -223,7 +223,7 @@ ALL_LIBS = \
                    libwrite-files.la \
                    libjava-transformations.la \
                    libback-end-transformations.la \
-                   libfast-java-pp.la \                    
+                   libfast-java-pp.la \
 		   libsepcomp.la
                    
 webdslc_LDADD   = $(LDADD) $(STRATEGO_XTC_LIBS) \
@@ -304,7 +304,7 @@ STRJFLAGS=-O 3 \
   -I org/webdsl/dsl/syntax/ \
   -D PACKAGE_VERSION_TERM=\"@PACKAGE_VERSION@\"
   
-JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn -time
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn -time -g
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
 JAVAS= \
@@ -416,7 +416,6 @@ libwebdsl_generator_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
                               $(JAVA_FRONT_LIBS) \
 			      $(STRATEGO_LIBS)
 endif
-
 
 libwebdsl-generator.rtree libwebdsl-generator.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(GENSTRFILES:.str=.rtree) libwebdsl-front.rtree libsepcomp.rtree
 	strc $(STRINCLUDES) -c --library -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o libwebdsl-generator.rtree \
@@ -575,11 +574,11 @@ libsepcomp_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
 endif
 
 libsepcomp.rtree libsepcomp.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/separation/lib.str -o libsepcomp.rtree \
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/separation/methods/array/validity-forwards.str -o libsepcomp.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libsepcomp.str
 
 sepcomp.ctree : libsepcomp.rtree
-	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/separation/lib.str -o sepcomp.ctree \
+	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/separation/methods/array/validity-forwards.str -o sepcomp.ctree \
 		--verbose 1 $(STRCFLAGS) 
 
