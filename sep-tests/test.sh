@@ -6,8 +6,6 @@ comppath=~/webdsl-svn-java
 options="--enable-caching 1 --verbose 3 --servlet"
 
 basedir=`pwd`
-prog=$1
-progdir=$(readlink -f $prog)
 
 # *absolute* path to this script
 framework_dir=`dirname $(readlink -f $0)`
@@ -15,15 +13,39 @@ framework_dir=`dirname $(readlink -f $0)`
 export JAVA_HOME=/usr/lib/jvm/java-6-openjdk
 JALOPY=~/jalopy/jalopy.sh 
 
-if [ "$1" == "" ]; then
-	echo "Usage: $0 testcase"
-	exit 1
+function usage {
+	echo "Usage: $0 testcase [-n]"
+}
+
+# Arguments
+prog=$1
+shift
+if [ "$prog" == "" ]; then
+	usage
+	exit
 fi
+
+recompile_base=1
+while getopts "nh" OPTION
+do
+	case $OPTION in
+		h)
+			usage
+             		exit 1
+			;;
+		n)
+			recompile_base=0
+			;;
+    	esac
+done
+
+progdir=$(readlink -f $prog)
 
 function compile {
 	echo "Compiling $curr version..."
 	cd .servletapp
-	time java -jar $1/src/webdsl.jar -i ../main.app $options &> ../compile.log
+	# use -Xss8m for now
+	time java -Xss8m -jar $1/src/webdsl.jar -i ../main.app $options &> ../compile.log
 	STATUS=$?
 	if [ $STATUS != 0 ]; then
 		echo "ERROR: Compilation $curr failed."
@@ -102,27 +124,33 @@ function prepare {
 
 compile=1
 
-if [ $compile ]; then
+if (( $compile )); then
 
 	# clean start
-	rm -rf $testdir
-	mkdir -p $testdir
+	if (( $recompile_base )); then
+		rm -rf $testdir
+		mkdir -p $testdir			
+	else
+		rm -rf $testdir/sep*
+	fi
+	
 	cd $testdir
 
 	# create app 1
-	curr="base-1"
-	create 1
-
-	clean
-	compile $comppath
-
-	# create app 2
-	curr="base-2"
-	create 2
-	prepare base-1
+	if (( $recompile_base )); then
+		curr="base-1"
+		create 1
+		clean
+		compile $comppath
 	
-	clean
-	compile $comppath
+		# create app 2
+		curr="base-2"
+		create 2
+		prepare base-1
+	
+		clean
+		compile $comppath
+	fi
 
 	curr="sep-1a"
 	create 1

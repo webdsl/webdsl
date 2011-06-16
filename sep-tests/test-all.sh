@@ -5,5 +5,7 @@ find . -name "main.app" | grep -v "test-run/" | while read i; do
 	test=`dirname $i`
 	echo "TESTING: $test"
 	./test.sh $test
+	echo ""
+	echo ""
 done
 
