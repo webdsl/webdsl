@@ -36,34 +36,27 @@ rules
 
   desugar-search:
     EntityNoSuper(name,entbodydecs){anno*} -> EntityNoSuper(name,entbodydecs2){anno*}
-    where entbodydecs1 := <try(add-external-search-mapping(|name))> entbodydecs
-    ; entbodydecs2 := <desugar-entity-search(|name)> entbodydecs1
+	where entbodydecs2 := <desugar-entity-search(|name)> entbodydecs
     
   desugar-search : 
     Entity(name,super,entbodydecs){anno*} -> Entity(name,super,entbodydecs2){anno*}
-    where entbodydecs1 := <try(add-external-search-mapping(|name))> entbodydecs
-    ; entbodydecs2 := <desugar-entity-search(|name)> entbodydecs1
-    
-  desugar-search :
-  	SearchMapping(entityName,mappings) -> SearchMappingEmbedded(mappings)
-  	with rules (SearchMappingForEnt :+ entityName -> SearchMappingEmbedded(mappings) )
+	where entbodydecs2 := <desugar-entity-search(|name)> entbodydecs
+
+  desugar-entity-search(|x_class) :
+  	entbodydecs -> entbodydecs2
+  	where <IndexedEntity> x_class //if it is an entity with searchmapping or searchable annos
+    	; <bagof-EntityNameToSearchableProps; flatten-list; ?[]> x_class //and searchable properties are not yet recorded
+    	; entbodydecs2 := <desugar-entbody-search(|x_class)> entbodydecs // record the searchable properties and try to desugar
   	
-  add-external-search-mapping(|entityName):
-  	entbodydecs -> entbodydecs1
-  	where mappings := <bagof-SearchMappingForEnt> entityName 
-  	; not(?[])
-  	; <repeat(where(once-SearchMappingForEnt))> entityName
-  	; entbodydecs1 := <concat>[entbodydecs, mappings]  		
-  	
-  desugar-entity-search(|entityName):
+  desugar-entbody-search(|entityName):
     entbodydecs -> entbodydecs2
-    where <oncetd(?SearchMappingEmbedded(_) <+ anno-needs-desugaring)> entbodydecs //must have search mappings or searchable annos left to desugar
-    with  (props,functions,validations,mappings,rest) := <split-entity-body> entbodydecs
+    with mappings := <bagof-SearchMappingForEnt> entityName
+    	; (props,functions,validations,_,rest) := <split-entity-body> entbodydecs
         ; props1 := <try(mapping-to-searchable-anno(|mappings))> props
-        ; props2 := <map(repeat(desugar-search-prop))> props1
+        ; props2 := <map(repeat(desugar-search-prop))> props1 //desugar the searchable properties 
         ; searchableProps := <filter(is-searchable-prop)> props2
-        ; rules(EntityNameToSearchableProps : entityName -> searchableProps )
-        ; entbodydecs2 := <concat> [props2,functions,validations,rest] 
+        ; rules(EntityNameToSearchableProps : entityName -> searchableProps ) //record the searchable properties
+        ; entbodydecs2 := <concat> [props2,functions,validations,rest]  
   	
   mapping-to-searchable-anno(|mappings):
     props -> props2
@@ -105,8 +98,7 @@ rules
 	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)		
 	with if (<is-numeric-type> srt) 
 	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
-	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end
-		
+	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end		
 	   
   desugar-search-prop:
 	p@Property(name,propkind,srt,anno) -> Property(name,propkind,srt,anno')
@@ -138,15 +130,15 @@ rules
   	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", name) | sa-args])
   	where not (<fetch(?SA-Argument("name", _))> sa-args)
   	
- desugar-searchable-anno(|name):
+  desugar-searchable-anno(|name):
   	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "default") | sa-args])
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
  
- desugar-searchable-anno-untokenized:
+  desugar-searchable-anno-untokenized:
  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no") | sa-args])
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
  
- desugar-searchable-anno-numeric:
+  desugar-searchable-anno-numeric:
  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no"), SA-Argument("numeric", "") | sa-args])
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
   

@@ -1037,21 +1037,15 @@ public class JSONObject {
      *  types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String,
      *  or the JSONObject.NULL object.
      * @return this.
-     * If the value is non-finite number
+     * @ If the value is non-finite number
      *  or if the key is null.
      */
     public JSONObject put(String key, Object value)  {
         if (key == null) {
-            new JSONException("Null key.").printStackTrace();
-            return null;
+            throw new JSONException("Null key.");
         }
         if (value != null) {
-        	try{
             testValidity(value);
-        	} catch (Exception e) {
-				e.printStackTrace();
-				return null;
-			}
             this.map.put(key, value);
         } else {
             remove(key);
