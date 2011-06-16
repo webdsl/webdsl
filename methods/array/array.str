@@ -1,0 +1,114 @@
+module separation/methods/array/array
+
+imports
+  libstrategolib
+  separation/-
+
+rules       // utils  
+  
+  dr-ignore-dr-tracking = ?"Create" <+ ?"CreateVals" <+ ?"Usage" <+ ?"AllRulesLoaded" <+ ?"LoadedRule"
+  
+  dependency-phase(s|name) =
+    {| DependencyPhase, CreatedRules: 
+        rules(DependencyPhase := name);
+        (RuleArrayLoaded <+ load-rules);
+        init-dependency-phase;
+        with-rule-resolving(s)
+    |}
+    
+  // Clear the whole rule tracking array  
+  clear-rule-tracking-array =
+    lookup-table(|"__ID_TABLE"); hashtable-clear;
+    <set-rule-tracking-array> [];
+    rules(RuleArrayMarker := 0);
+    lookup-table(|"__LAST_USE"); hashtable-clear;
+    lookup-table(|"__LAST_CREATE"); hashtable-clear
+  
+rules       // io
+  
+  desugar-dependency-file = <path-to-cache-path> "$deps.aterm"
+  
+  load-rules =
+    all-definitions;
+    filter(def-is-cached);
+    //where(<verbose-msg> ["Loading for: ", <id>]);
+    map(load-rule-array);
+    rules(RuleArrayLoaded := 1)
+    
+  load-rule-array: def -> def
+    with  <dep-array-file> def;
+          // TODO: test trigger-recompilation in this place
+          (file-exists; ReadFromFile <+ debug(!"Unreadable cache: "); <trigger-recompilation> def; ![]);
+          map(array-entry-not-interesting <+ load-rule-array-entry(|def))
+    
+  array-entry-not-interesting = fail
+    
+  load-rule-array-entry(|def): x@(n, t@"CREATE", key, val*, last-use) -> x
+    with  idx := (def, n);
+          rules(Create :+ key -> idx);
+          rules(CreateVals : idx -> val* );
+          rules(CreateKey : idx -> key)   // debug
+          
+  load-rule-array-entry(|def): x@(n, t@"USE", key, val*) -> x
+    with  rules(Usage : (def, n) -> (key, val*))
+  
+  make-path-safe = string-replace(|"/", "+"); string-replace(|"\\", "+"); string-replace(|":", "+")
+    
+  dep-array-file: def -> <path-to-cache-path> $[rules_[<def-key-to-string; make-path-safe> def]]
+  
+  write-rule-array =
+    all-definitions;
+    filter(is-definition-loaded);
+    //where(<verbose-msg> ["Writing arrays for: ", <id>]);
+    map(deps-write-def)
+    
+  deps-write-def: def -> def
+    with  get-rule-tracking-array;
+          filter(?(def, <id>));
+          reverse-nonrec => ruleset;
+          <WriteToBinaryFile> (<dep-array-file> def, ruleset) 
+  
+rules       // array functions
+  
+  get-rule-tracking-array = table-hashtable; (hashtable-get(|"RULE_TRACKING_ARRAY") <+ ![])
+  set-rule-tracking-array = ?val; table-hashtable; hashtable-put(|"RULE_TRACKING_ARRAY", val)
+  
+  append-to-tracking-array =
+    ?x;
+    get-rule-tracking-array;
+    ![x | <id>] => newval;
+    set-rule-tracking-array
+    
+rules       // rule loading
+    
+  get-cached-rules: key@(rulename, rulekey) -> key
+    where <not(AllRulesLoaded)> key;
+          idxs := <bagof-Create; reverse> key;
+          <not(?[])> idxs
+          // TODO: remove rules when a def is loaded
+    with  <remove-all(LoadedRule)> idxs;
+          if ?[] then
+          	rules(AllRulesLoaded : key)
+          else
+	          filter(load-rule-if-valid(|key));
+	          concat;
+	          <load-dynamic-rule> (key, <id>)
+	        end
+	        
+   load-rule-if-valid(|key): cidx@(cdef, cn) -> vals
+    where <def-is-cached> cdef;
+          <verbose-msg> ["Potential cached rule: ", (cidx, key), " for def ", <CurrentDef>]; 
+          <check-validity(|key)> cidx;
+          vals := <CreateVals> cidx;
+          <verbose-msg> ["Rule was valid, got vals: ", vals];
+          rules(LoadedRule : cidx)
+
+rules     // TODO
+
+  find-removed-rules = id
+
+rules     // overridables
+  
+  init-dependency-phase = fail
+  check-validity(|key) = fail
+  

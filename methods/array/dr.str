@@ -1,0 +1,135 @@
+module separation/methods/array/dr
+
+imports
+  libstrategolib
+  separation/-
+  separation/methods/array/array
+
+strategies  
+  
+  dr-ignore-dr-tracking = ?"DrTrackingScopedRules" <+ DrTrackingScopedRules
+  dr-ignore-dr-tracking = ?"RuleOwners"
+  
+  last-create-id = ?key; lookup-table(|"__LAST_CREATE"); hashtable-get(|key)
+  set-last-create-id(add) = ?(key, create-id); lookup-table(|"__LAST_CREATE"); add(|key, create-id)
+  
+  last-use-id = ?def; lookup-table(|"__LAST_USE"); hashtable-get(|def)
+  set-last-use-id = ?(def, use-id); lookup-table(|"__LAST_USE"); hashtable-put(|def, use-id)
+  
+  new-id: mod -> n
+    with  lookup-table(|"__ID_TABLE") => table;
+          (hashtable-get(|mod) <+ !0);
+          inc => n;
+          <hashtable-put(|mod,n)> table 
+  
+  override dr-scopes(s | names) =
+    // should have been translated to nested dr-scope applications? 
+    <fatal-err(|"dr-scopes used, not supported")> names
+  
+  override dr-add-rule(|name, key, value) =
+    proceed;
+    if is-record-dynamic-rules-enabled then
+      where(
+        <mark-rule-creation(|1)> (name, key)
+      )
+    end
+    
+  override dr-set-rule(|name, key, value) =
+    proceed;
+    if is-record-dynamic-rules-enabled then
+      where(
+        <mark-rule-creation(|0)> (name, key)
+      )
+    end
+  
+  /*
+  override dr-undefine-rule(|name, key) =
+    proceed;
+    if is-record-dynamic-rules-enabled then
+      mark-rule-creation(|name, key)
+    end
+  */
+  
+  // TODO: multiple creates for the same key are not combined
+  get-recorded-rules = 
+    (skipLenght := <RuleArrayMarker <+ !0>);
+    get-rule-tracking-array;
+    where(
+      length => totalLength; rules(RuleArrayMarker := totalLength);
+      cutOff := <subti> (totalLength, skipLenght)
+    );
+    split-at(|cutOff) => (<id>, _);
+    filter(\(def, (_,"CREATE",key, val, _)) -> (key, val) \)
+    
+  mark-rule-creation(|add): x@(name, key) -> x
+    where <not(is-used-dr) <+ dr-ignore-dr-tracking> name
+    
+  mark-rule-creation(|add): x@(name, key) -> newid
+    with 
+      CurrentDef; repeat(get-definition-owner) => def;
+      // use of own create?
+      if 1 := add then
+        rules(RuleOwners :+ x -> def)
+      else
+        rules(RuleOwners : x -> def)
+      end;
+      org-dr-lookup-rule(|name, key); Hd => val;  // NOTE: dr-lookup-rule returns *all* values for the key
+      last-use-id := <last-use-id <+ !(def,-1)> def;
+      <new-id> def => newid;
+      <append-to-tracking-array> (def, (newid, "CREATE", (name, key), [val], last-use-id))
+      //<set-last-create-id(add)> ((name, key), newid) 
+    
+  // TODO: copied definition
+  org-dr-lookup-rule(|name, key) =
+    dr-get-rule-set(|name)
+    ; dr-lookup-rule(|key)
+
+rules
+  
+  before-rule-use(|name,key): x -> x
+    with  <try(dynamic-rule-resolver)> (name, key);
+          if EnableTableRuleTracking then
+            rule-tracking-table;
+            hashtable-put(|(name,key), 1) 
+          end
+    
+  mark-rule-use(|name, key): val -> val
+   with // TODO: don't store uses without creates ??
+        // node: (newid, "USE", create-id)
+        CurrentDef; repeat(get-definition-owner) => def;
+        owners := <bagof-RuleOwners> (name, key);
+        if <?[def] <+ ?[]> owners then
+          //<debug(!"Skipping use: ")> (name, key)
+          id
+        else
+          <new-id> def => newid;
+          <set-last-use-id> (def, (def, newid));
+          <append-to-tracking-array> (def, (newid, "USE", (name, key), val))
+        end
+          
+  EnableTableRuleTracking = id
+  
+rules // Scoping
+  
+  override dr-scope(s | name) =
+    if "DrTrackingScopedRules" := name then
+      proceed
+    else
+      // Do not use dr scoping here, avoid stratego bug: cannot lift strategies in an override
+      where(
+        old-scopes := <(DrTrackingScopedRules <+ !0)> name;
+        scopes := <inc> old-scopes;
+        rules(DrTrackingScopedRules : name -> scopes)
+      );
+      // Cannot use try: would cause a strategy lift
+      (proceed; remove-dr-tracking-scope(|name, old-scopes) <+ remove-dr-tracking-scope(|name, old-scopes); fail)  
+    end
+    
+  remove-dr-tracking-scope(|name, old-scopes) =
+    if 0 := old-scopes then
+      rules(DrTrackingScopedRules :- name)
+    else
+      rules(DrTrackingScopedRules : name -> old-scopes)
+    end
+  
+    

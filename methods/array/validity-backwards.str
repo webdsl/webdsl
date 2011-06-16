@@ -1,0 +1,68 @@
+module separation/methods/array/validity-backwards
+
+imports
+  libstrategolib
+  separation/-
+  separation/methods/array/array
+  separation/methods/array/dr
+
+strategies  
+  
+  check-validity(|key) = Valid; <sdebug> "Cached: valid."
+  
+  check-validity(|key): (def, n) -> (def, n)
+    where (-1 := n);
+    <sdebug> "Dep chain done." // no deps? valid!
+  
+  // TODO: do we need to pass |key ?? or just or <CreateKey> ??
+  
+  check-validity(|key): idx@(def, n) -> idx
+    where <sdebug(!"check validity")> idx;
+          prev := (def, <dec> n);
+          // is this a use ?
+          if (usedr@(usename, usekey), useval*) := <Usage> prev then
+          	// TODO: check cacheable rules for useval*
+          	curval* := <org-dr-lookup-rule(|usename,usekey)>;
+          	<sdebug(!"Checking vals: ")> (useval*, curval*);
+          	<eq> (useval*, curval*)
+          	//<check-use-validity(|newkey)> cidx
+          else
+            id //sdebug(!"Got create dep, traversing further...")
+          end;
+          // traverse
+          <check-validity(|key)> prev;
+          rules(Valid : idx)
+          
+  check-use-validity(|key) =
+    ?idx@(cdef, cn);
+    if <def-is-cached> cdef then
+	    newkey := <CreateKey> idx;
+	    recurse(
+	    	<check-validity(|newkey)> idx
+	    );
+	    sdebug(!"Recurse succeeds")
+	  else 
+	    ?idx@(cdef, cn);
+	    (rulename, rulekey) := key;
+	    vals1 := <CreateVals> idx;
+	    <sdebug(!"lookup vals for: ")> (rulename, rulekey);
+	    vals2 := <dr-lookup-all-rules(|rulename, rulekey)>;
+	    <sdebug(!"Comparing: "); eq> (vals1, vals2)
+	  end
+  
+  //print-space = <debug; fputc; debug> (' ', stderr())
+  print-space = <fputs> (" ", <stdio-stream> stderr())
+  
+  sdebug = indent; debug 
+  sdebug(s) = indent; debug(s)
+  indent = with(repeat(print-space | <CheckDepth <+ !0>)) 
+  
+  recurse(s): term -> result 
+  	with  (CheckDepth <+ !0) => depth;
+          <inc> depth => depth';
+          rules(CheckDepth := depth');
+          try(s => result);
+          rules(CheckDepth := depth)
+          
+  load-dependent-defs-for-rules(|def) = id
+  

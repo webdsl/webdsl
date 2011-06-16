@@ -1,0 +1,105 @@
+module separation/methods/array/validity-forwards
+
+imports
+  libstrategolib
+  separation/-
+  separation/methods/array/array
+  separation/methods/array/dr
+
+strategies  
+  
+  // TODO: Valid = ?(def, n) where <lt> (n, <get-pointer> def)
+  
+  dr-ignore-dr-tracking = ?"Valid"
+  
+  check-validity(|key) = Valid
+  
+  init-dependency-phase = try(move-rule-pointers)
+  
+  map-cached-defs(s) =
+    with(
+      all-definitions;
+      filter(def-is-cached);
+      map({
+        ?def;
+        {CurrentDef:
+          rules(CurrentDef := def);
+          s
+        }
+      })
+    )
+  
+  move-rule-pointers =
+    {| AnythingMoved:
+	    repeat( 
+	      {| Moved:
+	        <verbose-msg> ["move rule pointer iter"];
+		      map-cached-defs(
+		        try(
+		          move-rule-pointer;
+		          rules(Moved := 1)
+		        )
+		      );
+		      Moved
+		    |};
+		    rules(AnythingMoved := 1)
+      );
+		  AnythingMoved    // fail if no progress
+    |}
+	  
+  get-pointer = Pointer <+ !1
+	  
+  debug-sep(s) = id
+	  
+  move-rule-pointer: def -> def
+    where get-pointer => pointer;
+          idx := (def, pointer);
+          if use := <Usage> idx then
+            <is-usage-valid> use;
+            <debug-sep(!"Usage valid, moving pointer: ")> use
+          else
+            <debug-sep(!"Marking valid: ")> (<CreateKey> idx, idx);
+            rules(Valid : idx);
+            rules(LoadedRule : idx);
+            // maybe defer? but is needed for <is-usage-valid>
+            <with(load-dynamic-rule)> (<CreateKey> idx, <CreateVals> idx)
+          end;
+          <increase-pointer> def;
+          <move-rule-pointer> def   //recurse
+          
+  increase-pointer: def -> def
+    with  pointer := <get-pointer> def;
+          pointer' := <inc> pointer;
+          rules(Pointer : def -> pointer')
+          
+  is-usage-valid =
+    ?(drkey@(name,key),xval*);
+    // TODO: hashed-uniq should not be needed
+    val* := <hashed-uniq> xval*;
+    curval* := <dr-lookup-all-rules(|name,key)>;
+    // TODO: use efficient version of subseteq (using hashtable)
+    if <subseteq> (<hashed-uniq> val*, curval*) then
+      id
+    else
+      <verbose-msg> ["Comparing vals for key (cur, expected): ", (drkey, (curval*, val*)), " for def: ", <CurrentDef <+ !"unknown">];
+      fail
+    end
+          
+  desugar-exhausted =
+    move-rule-pointers; notify-rules-loaded
+    <+
+    <debug> "Exhausted debug, trying to invalidate creates";
+    map-cached-defs(try(invalidate-rule-pointer))
+  
+  invalidate-rule-pointer =
+    !(<id>, <get-pointer>); CreateKey; fatal-err(|"Create encountered when invalidating")
+  
+  invalidate-rule-pointer: def -> def
+    where idx := (def, <get-pointer> def);
+          (key, val*) := <Usage> idx;  // if passed end of array, this will fail
+          // The current use is not valid; recompile the definition
+          <debug(!"Invalidate usage: ")> (idx, key); 
+          <debug(!"Recompiling: ")> def;
+          <trigger-recompilation> def // TODO; clear rules
+  
+  load-dependent-defs-for-rules(|def) = id
