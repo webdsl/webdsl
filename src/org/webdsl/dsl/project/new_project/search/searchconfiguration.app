@@ -2,17 +2,24 @@ module search/searchconfiguration
 
 section search analyzers
 
-default analyzer standard{
+default analyzer standard {
 	tokenizer = StandardTokenizer
 	tokenfilter = StandardFilter
 	tokenfilter = LowerCaseFilter
-	tokenfilter = StopFilter //(words="stopwords.txt")
+	tokenfilter = StopFilter
+}  
+
+analyzer standard_no_stop{
+	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
 }
 
-analyzer standardNoStopFilter{
+analyzer standard_custom_stop{
 	tokenizer = StandardTokenizer
 	tokenfilter = StandardFilter
 	tokenfilter = LowerCaseFilter
+	tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
 }
 
 analyzer trigram{

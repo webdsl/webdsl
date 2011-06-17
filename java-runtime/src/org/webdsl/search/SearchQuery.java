@@ -82,6 +82,14 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 	
+	public String fieldConstraint(String fieldname) {
+		if(constraints == null)
+			constraints = new HashMap<String, String>();
+		
+		return constraints.get(fieldname);
+	}
+	
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F allowLuceneSyntax(boolean b) {
 		this.allowLuceneSyntax = b;
@@ -287,7 +295,11 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 	
 	private void enableFieldConstraintFilter(String field, String value) {
-		fullTextQuery.enableFullTextFilter("fieldConstraintFilter").setParameter("field", field).setParameter("value", value);
+		fullTextQuery.enableFullTextFilter("fieldConstraintFilter")
+			.setParameter("field", field)
+			.setParameter("value", value)
+			.setParameter("analyzer", analyzer)
+			.setParameter("allowLuceneSyntax", allowLuceneSyntax);
 	}
 	
 	public String encodeAsString(){

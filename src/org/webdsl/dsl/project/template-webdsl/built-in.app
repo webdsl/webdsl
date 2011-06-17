@@ -2,8 +2,8 @@ module .servletapp/src-webdsl-template/built-in
 
   section search
   //optimization of search index, twice a day
-  
   invoke optimizeSearchIndex() every 12 hours
+  //Update the spell check and autocompletion indices twice a day
   invoke updateSuggestionIndex() every 12 hours
 
   function optimizeSearchIndex(){
@@ -18,7 +18,14 @@ module .servletapp/src-webdsl-template/built-in
   	static indexSuggestions()
     static optimizeIndex()    
   }
-   
+  
+  //The default analyzer, equal to the one used by default in hibernate search
+  default_builtin_analyzer analyzer hsearchstandardanalyzer {
+	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
+	tokenfilter = StopFilter
+}   
   
   section methods for built-in types
 
