@@ -94,50 +94,51 @@ rules // Track usage of DR's and return position info
 rules
   
   override dr-lookup-rule(|name, key) =
-    if <record-dr-use> name then
-      before-rule-use(|name,key);
-	    proceed;
-	    where(
-		      // Scoped?
-		      dr-get-rule-set(|name);
-		      ?[RuleScope(_,_) | [RuleScope(_,_) | _]];
-		      <verbose-msg> ["Ignoring scoped rule: ", (name, key)]
-        <+
-          mark-rule-use(|name,key)
-      )
-    else
-      proceed
-    end
-    
-  // once-, bigbag-
+    proceed => vals;
+    <on-rule-load> (name, key, vals)
+  
+  // once-
+  /*
   override dr-lookup-rule-pointer(|name, key) =
-    if <record-dr-use> name then
-	    before-rule-use(|name,key);
-	    proceed;
-	    where(Fst; mark-rule-use(|name,key))
-	  else
-      proceed
-	  end
+    proceed => vals;
+    <on-rule-load(Fst)> (name, key, vals)
+    // TODO: take care of removals using once-
+  */
    
   // all-keys-
   override dr-all-keys(|name) =
-    where(key := DR_DUMMY());
-    if <record-dr-use> name then
-      before-rule-use(|name,key);
-      proceed;
-      mark-rule-use(|name,key)
-    else
-      proceed
+    proceed => vals;
+    <on-rule-load> (name, DR_DUMMY(), vals)
+    
+  // TODO: dr-lookup-all-rules for bigbagof-
+    
+  on-rule-load: (name, key, vals) -> vals
+    where <not(is-used-dr) <+ dr-ignore-dr-tracking> name
+    
+  on-rule-load: (name, key, vals) -> newvals
+    with
+      if RuleResolvingEnabled then
+        cached := <lookup-cached-values> (name,key);
+        newvals := <concat> [cached, vals]
+      else
+        newvals := vals
+      end;
+      if <is-dr-usage-tracking-enabled> name then
+        // Scoped?
+	      dr-get-rule-set(|name);
+	      if ?[RuleScope(_,_) | [RuleScope(_,_) | _]] then
+          <verbose-msg> ["Ignoring scoped rule: ", (name, key)]
+	      else
+	        <mark-rule-use(|name,key)> newvals
+        end
     end
+    
+  
     
 rules
     
   rule-tracking-table = lookup-table(|"RULE_TRACKING_TABLE")
   
-  record-dr-use: name -> name
-    where is-dr-usage-tracking-enabled;
-          <is-used-dr; not(dr-ignore-dr-tracking)> name
-          
 rules // Callback on dynamic rule lookup
   
   is-used-dr = fail

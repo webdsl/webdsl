@@ -6,14 +6,16 @@ imports
 
 rules       // utils  
   
-  dr-ignore-dr-tracking = ?"Create" <+ ?"CreateVals" <+ ?"Usage" <+ ?"AllRulesLoaded" <+ ?"LoadedRule"
+  dr-ignore-dr-tracking = ?"Create" <+ ?"CreateVals" <+ ?"CreateKey" <+ ?"Usage" <+ ?"RuleUsers"
   
   dependency-phase(s|name) =
     {| DependencyPhase, CreatedRules: 
         rules(DependencyPhase := name);
         (RuleArrayLoaded <+ load-rules);
-        init-dependency-phase;
-        with-rule-resolving(s)
+        with-rule-resolving(
+          init-dependency-phase;
+          s
+        )
     |}
     
   // Clear the whole rule tracking array  
@@ -26,12 +28,9 @@ rules       // utils
   
 rules       // io
   
-  desugar-dependency-file = <path-to-cache-path> "$deps.aterm"
-  
   load-rules =
     all-definitions;
     filter(def-is-cached);
-    //where(<verbose-msg> ["Loading for: ", <id>]);
     map(load-rule-array);
     rules(RuleArrayLoaded := 1)
     
@@ -50,7 +49,10 @@ rules       // io
           rules(CreateKey : idx -> key)   // debug
           
   load-rule-array-entry(|def): x@(n, t@"USE", key, val*) -> x
-    with  rules(Usage : (def, n) -> (key, val*))
+    with  rules(
+            Usage : (def, n) -> (key, val*)
+            RuleUsers :+ key -> def
+          )
   
   make-path-safe = string-replace(|"/", "+"); string-replace(|"\\", "+"); string-replace(|":", "+")
     
@@ -59,7 +61,6 @@ rules       // io
   write-rule-array =
     all-definitions;
     filter(is-definition-loaded);
-    //where(<verbose-msg> ["Writing arrays for: ", <id>]);
     map(deps-write-def)
     
   deps-write-def: def -> def
@@ -81,28 +82,27 @@ rules       // array functions
     
 rules       // rule loading
     
-  get-cached-rules: key@(rulename, rulekey) -> key
-    where <not(AllRulesLoaded)> key;
-          idxs := <bagof-Create; reverse> key;
+  get-cached-rules: key@(rulename, rulekey) -> vals
+    where idxs := <bagof-Create; reverse> key;
           <not(?[])> idxs
-          // TODO: remove rules when a def is loaded
-    with  <remove-all(LoadedRule)> idxs;
-          if ?[] then
-          	rules(AllRulesLoaded : key)
-          else
-	          filter(load-rule-if-valid(|key));
-	          concat;
-	          <load-dynamic-rule> (key, <id>)
-	        end
-	        
-   load-rule-if-valid(|key): cidx@(cdef, cn) -> vals
+    with  <filter(is-rule-valid(|key))> idxs;
+          mapconcat(CreateVals) => vals
+ 
+  is-rule-valid(|key) =
+    where(
+      cached-valid;
+      ?(cdef, cn);
+      <def-is-cached> cdef
+    )
+
+   is-rule-valid(|key): cidx@(cdef, cn) -> cidx
     where <def-is-cached> cdef;
+          debug;
           <verbose-msg> ["Potential cached rule: ", (cidx, key), " for def ", <CurrentDef>]; 
           <check-validity(|key)> cidx;
           vals := <CreateVals> cidx;
-          <verbose-msg> ["Rule was valid, got vals: ", vals];
-          rules(LoadedRule : cidx)
-
+          <verbose-msg> ["Rule was valid, got vals: ", vals]
+          
 rules     // TODO
 
   find-removed-rules = id
@@ -111,4 +111,4 @@ rules     // overridables
   
   init-dependency-phase = fail
   check-validity(|key) = fail
-  
+  cached-valid = fail
