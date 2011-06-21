@@ -265,5 +265,29 @@ public class SearchSuggester {
 		}
 	    return spellCheckMap.get(indexPath);
 	}
+	
+	public static void forceSpellCheckerRenewal(String indexPath){
+		SpellChecker sp = spellCheckMap.get(indexPath);
+		if(sp!=null) {
+			try {
+				sp.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		spellCheckMap.remove(indexPath);
+	}
+	
+	public static void forceAutoCompleterRenewal(String indexPath){
+		AutoCompleter ac = autoCompleterMap.get(indexPath);
+		if(ac!=null) {
+			try {
+				ac.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		autoCompleterMap.remove(indexPath);
+	}
 
 }

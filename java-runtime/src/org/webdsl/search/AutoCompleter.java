@@ -93,19 +93,6 @@ public class AutoCompleter implements java.io.Closeable {
 
   private volatile boolean closed = false;
 
-  private StringDistance sd;
-  private Comparator<SuggestWord> comparator;
-
-  /**
-   * Use the given directory as an auto completer index. The directory
-   * is created if it doesn't exist yet.
-   * @param autocompleteIndex the autocomplete index directory
-   * @param sd the {@link StringDistance} measurement to use 
-   * @throws IOException if AutoCompleter can not open the directory
-   */
-  public AutoCompleter(Directory autocompleteIndex, StringDistance sd) throws IOException {
-    this(autocompleteIndex, sd, SuggestWordQueue.DEFAULT_COMPARATOR);
-  }
   /**
    * Use the given directory as an auto completer index with a
    * {@link LevensteinDistance} as the default {@link StringDistance}. The
@@ -117,22 +104,9 @@ public class AutoCompleter implements java.io.Closeable {
    *           if autocompleter can not open the directory
    */
   public AutoCompleter(Directory autocompleteIndex) throws IOException {
-    this(autocompleteIndex, new LevensteinDistance());
+	  setAutoCompleteIndex(autocompleteIndex);
   }
 
-  /**
-   * Use the given directory as an auto completer index with the given {@link org.apache.lucene.search.spell.StringDistance} measure
-   * and the given {@link java.util.Comparator} for sorting the results.
-   * @param autocompleteIndex The autocompleteing index
-   * @param sd The distance
-   * @param comparator The comparator
-   * @throws IOException if there is a problem opening the index
-   */
-  public AutoCompleter(Directory autocompleteIndex, StringDistance sd, Comparator<SuggestWord> comparator) throws IOException {
-    setAutoCompleteIndex(autocompleteIndex);
-    setStringDistance(sd);
-    this.comparator = comparator;
-  }
   
   /**
    * Use a different index as the auto completer index or re-open
@@ -158,38 +132,6 @@ public class AutoCompleter implements java.io.Closeable {
     }
   }
 
-  /**
-   * Sets the {@link java.util.Comparator} for the {@link SuggestWordQueue}.
-   * @param comparator the comparator
-   */
-  public void setComparator(Comparator<SuggestWord> comparator) {
-    this.comparator = comparator;
-  }
-
-  public Comparator<SuggestWord> getComparator() {
-    return comparator;
-  }
-
-  /**
-   * Sets the {@link StringDistance} implementation for this
-   * {@link AutoCompleter} instance.
-   * 
-   * @param sd the {@link StringDistance} implementation for this
-   * {@link AutoCompleter} instance
-   */
-  public void setStringDistance(StringDistance sd) {
-    this.sd = sd;
-  }
-  /**
-   * Returns the {@link StringDistance} instance used by this
-   * {@link AutoCompleter} instance.
-   * 
-   * @return the {@link StringDistance} instance used by this
-   *         {@link AutoCompleter} instance.
-   */
-  public StringDistance getStringDistance() {
-    return sd;
-  }
 
   /**
    * Suggest similar words (optionally restricted to a field of an index).
@@ -218,13 +160,15 @@ public class AutoCompleter implements java.io.Closeable {
     final IndexSearcher indexSearcher = obtainSearcher();
     try{
       BooleanQuery query = new BooleanQuery();
-      String[] grams = formGrams(word);
+      List<String[]> grams = formGrams(word);
       String key;
-
-      for (int i = 0; i < grams.length; i++) {
-        key = "start" + grams[i].length(); // form key        
-        add(query, key, grams[i]);
-      }
+      for (String[] gramArray : grams) {
+    	  for (int i = 0; i < gramArray.length; i++) {
+    	        key = "start" + gramArray[i].length(); // form key        
+    	        add(query, key, gramArray[i]);
+    	      }
+	  }
+      
 
       int maxHits = 2 * numSug;
       
@@ -254,23 +198,33 @@ public class AutoCompleter implements java.io.Closeable {
   }
 
   /**
-   * Returns at most 3 ngrams, so 2 typos can be made at the end of the current typed string.
+   * Returns at most 3 ngrams for each token (whitespace separated), so 2 typos can be made at the end of 
+   * each token from the currently typed string.
    * @param text the word to parse
-   * @return an array of all ngrams in the word and note that duplicates are not removed
+   * @return an list of arrays of all ngrams in the word and note that duplicates are not removed
    */
-  private static String[] formGrams(String text) {
-	  int len = 3;
-	  int textLen = Math.min(text.length(), MAX_PREFIX_LENGTH);		  
-      if (textLen < 3) {
-    	len = textLen;
-      }
-      
-      String[] res = new String[len];
-      for (int i = 0; i < len; i++) {
-        res[i] = text.substring(0, textLen-i);
-    }
-
-    return res;
+  private static List<String[]> formGrams(String text) {
+	//first split into tokens to match words in phrases
+	String[] tokens = text.split("\\s");
+	int len, tokenlen;
+	ArrayList<String[]> grams = new ArrayList<String[]>();
+	
+	for (String token : tokens) {
+		len = 3;
+		tokenlen = Math.min(token.length(), MAX_PREFIX_LENGTH);		  
+		if (tokenlen < 3) {
+		  len = tokenlen;
+		}
+		  
+		String[] res = new String[len];
+		for (int i = 0; i < len; i++) {
+		  res[i] = token.substring(0, tokenlen-i);
+		}
+		grams.add(res);
+	}
+	
+	
+	return grams;
   }
 
   /**
@@ -339,11 +293,6 @@ public class AutoCompleter implements java.io.Closeable {
         
         terms: while (iter.hasNext()) {
           String word = iter.next();
-          int len = word.length();
-//          if (len < 3) {
-//            continue; // too short we bail but "too long" is fine...
-//          }
-          
           if (!isEmpty) {
             // we have a non-empty index, check if the term exists
             Term term = F_WORD_TERM.createTerm(word);
@@ -355,7 +304,7 @@ public class AutoCompleter implements java.io.Closeable {
           }
   
           // ok index the word
-          Document doc = createDocument(word, getMax(len), reader.docFreq(new Term(field, word)));
+          Document doc = createDocument(word, reader.docFreq(new Term(field, word)));
           writer.addDocument(doc);
         }
       } finally {
@@ -400,7 +349,7 @@ public class AutoCompleter implements java.io.Closeable {
     return l;
   }
 
-  private static Document createDocument(String text, int ng1, int freq) {
+  private static Document createDocument(String text, int freq) {
     Document doc = new Document();
     // the word field is never queried on... its indexed so it can be quickly
     // checked for rebuild (and stored for retrieval). Doesn't need norms or TF/pos
@@ -410,16 +359,24 @@ public class AutoCompleter implements java.io.Closeable {
     doc.add(f); // orig term
     NumericField nf = new NumericField(F_FREQ).setIntValue(freq);
     doc.add(nf);
-    addGram(text, doc, ng1);
+    addGram(text, doc);
     return doc;
   }
 
-  private static void addGram(String text, Document doc, int ng1) {
-    for (int i = 1; i <= ng1; i++) {
-      String key = "start" + i;
-      String gram = text.substring(0, i);
-      doc.add(new Field(key, gram, Field.Store.NO, Field.Index.NOT_ANALYZED));
-    }
+  private static void addGram(String text, Document doc) {
+	//If phrases are indexed as completions, it is nice to suggest these phrase if a token is matched
+	//i.e. the phrase "Best practices in software architecture" is suggested on input "softw..."
+	String[] tokens = text.split("\\s");
+	String token, key, gram;
+	for (int t = 0; t < tokens.length; t++) {
+		token = tokens[t];
+		int len = getMax(token.length());
+	    for (int i = 1; i <= len; i++) {
+	      key = "start" + i;
+	      gram = token.substring(0, i);
+	      doc.add(new Field(key, gram, Field.Store.NO, Field.Index.NOT_ANALYZED));
+	    }
+	}
   }
   
   private IndexSearcher obtainSearcher() {
