@@ -3,6 +3,8 @@ bin_SCRIPTS = webdsl webdsl-plugins webdsl.bat webdsl-eclipseplugin webdsl-eclip
 WEBDSL_TEMPLATES= \
   $(wildcard new_project/*.app) \
   $(wildcard new_project/stylesheets/*.css) \
+  $(wildcard new_project/search/*.app) \
+  $(wildcard new_project/search/analyzerfiles/*.txt) \
   $(wildcard new_project/images/*.*) \
   template-java-servlet/webdsl-reindex \
   $(wildcard template-java-servlet/build.*) \

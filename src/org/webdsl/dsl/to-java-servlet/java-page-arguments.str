@@ -204,6 +204,38 @@ rules // page arguments
         ; bstm2* := <string-argument-to-java-servlet-initialization <+ ![]> arg // fix for passing strings decode (eg. %20 -> ' ')
         ; bstm1* := <java-servlet-conversion-to-object> (t_Class,x,x)
 
+  /**
+   *  Native class type page arguments
+   */ 
+  argument-to-java-servlet-property :
+    arg@farg|[ x : srt ]| ->
+    <generate-java-servlet-partial> java|[
+       @Partial
+       protected void conversion(){
+         if(parammap.get("~<get-original-name> x")!=null)
+         {
+           bstm1*
+         }
+       }
+       @Partial
+       void loadArguments() {
+         //bstm*
+         //bstm2*
+       }
+
+       private t_Class x;
+       
+       public void set#x(t_Class x) {
+         this.x = x;
+       }
+       public t_Class get#x() {
+         return x;
+       }
+    ]|
+    where t_Class := <native-class-java-type> srt
+    with  <?SimpleSort(_)> srt
+        ; bstm1* := <java-servlet-conversion-to-object-native> (t_Class,x,x)
+
 rules //initialization
 
   argument-to-java-servlet-initialization :
@@ -335,7 +367,7 @@ rules //initialization
     with  <?SimpleSort(x_Class)> srt
         ; e_init := <java-type-default-value> srt
        // ; rules( Parameter :+= x )
-
+       
   string-argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
     bstm*|[
@@ -402,7 +434,7 @@ rules //initialization
       }
     ]|
     where RefSort(_) := srt
-       
+    
   GenerateCodeJavaServlet = 
     page-arg-generation-test
   ; form-post-page-params-java-servlet
@@ -426,6 +458,22 @@ rules //initialization
         ; not( GenericSort(_,_) := s)
         ; not(<?RefSort(_)> s)
 
+  form-post-page-params-java-servlet :
+    Arg(x, s) -> <generate-java-servlet-partial>
+    java |[ 
+      @Partial 
+      public void hiddenPostParams(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("~<get-original-name> x"+"="+utils.HTMLFilter.filter(x.encodeAsString())+"&");    
+      }
+      @Partial 
+      public void hiddenPostParamsJson(java.lang.StringBuffer combinedparams)
+      {
+        combinedparams.append("{name:\""+"~<get-original-name> x"+"\", value:\"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(x.encodeAsString()) + "\"},");
+      }
+    ]|
+    where (<native-class-java-type> s)
+    
   form-post-page-params-java-servlet :
     Arg(x, s) -> <generate-java-servlet-partial>
     java |[ 
@@ -460,7 +508,7 @@ rules //initialization
     where <?GenericSort(_,[s])> srt
         ; <defined-java-type> s
           
-  form-post-page-params-java-servlet  :
+  form-post-page-params-java-servlet :
     arg@farg|[ x_ident : srt ]| -> <generate-java-servlet-partial>
     java |[ 
       @Partial 
@@ -475,4 +523,3 @@ rules //initialization
       }
     ]|
     where <?RefSort(_)> srt
-    

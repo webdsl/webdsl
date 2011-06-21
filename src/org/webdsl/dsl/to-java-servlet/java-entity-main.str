@@ -43,6 +43,7 @@ strategies
        @javax.persistence.Entity
        mod0*
        mod1*
+       //mod2*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
@@ -88,12 +89,14 @@ strategies
       ; cbds := <properties-to-code(|x_Class,ent)> props
       ; pkgname := <DomainPackage>
       ; mod0* := <table-mapping-annos> (ent, x_Class)
-      ; if <get-anno(?IndexedAnno(_))> ent then
+      ; if <get-anno(?IndexedAnno(_,_,_,_,_))> ent then
           mod1* := [anno|[ @org.hibernate.search.annotations.Indexed ]|]
+          //; mod2* := <do-once(define-fts-filters-anno | "define-fts-filters-anno")<+![]> []
         else
           mod1* := []
+          //; mod2* := []
         end
-      
+   
    entity-to-java-entity :
      sent@SessionEntity(x_ident, entbodydecs) ->
      <emit-java-code-local> compilation-unit|[
@@ -153,6 +156,7 @@ strategies
 
        @javax.persistence.Entity
        mod1*
+       mod2*
        public class x_Class extends x_super implements org.webdsl.WebDSLEntity
        {
          public x_Class () {
@@ -197,10 +201,12 @@ strategies
          ; pkgname := <DomainPackage>
          ; superclasses := <get-anno(?SuperClassesAnno(<id>))> ent
          ; bstm* := <map(\super -> bstm|[ instanceOfTypes#x_Class.add("~super"); ]| \)> superclasses
-         ; if <get-anno(?IndexedAnno(_))> ent then
+         ; if <get-anno(?IndexedAnno(_,_,_,_,_))> ent then
              mod1* := [anno|[ @org.hibernate.search.annotations.Indexed ]|]
+             ; mod2* := <do-once(define-fts-filters-anno | "define-fts-filters-anno")<+![]> []
            else
              mod1* := []
+             ; mod2* := []
            end
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
@@ -225,6 +231,8 @@ strategies
        }
      ]|
      where x_get := <concat-strings>["get", <capitalize-string> x_prop]
+ 
+ define-fts-filters-anno = ![anno|[ @org.hibernate.search.annotations.FullTextFilterDefs({@org.hibernate.search.annotations.FullTextFilterDef(name = "fieldConstraintFilter", impl = org.webdsl.search.FieldConstraintFilter.class)})]|]
  
   version-property =
     !class-body-dec* |[
@@ -316,9 +324,9 @@ strategies
    property-to-property-code(|x_Class,id_name) :
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
-       mod1* mod2* mod3* mod4* protected t _#x = e;
+       mod1* mod2* mod3* mod4* mod5* protected t _#x = e;
        
-       mod5* public t get#x() {
+       mod6* public t get#x() {
          return _#x;
        }
        
@@ -374,7 +382,8 @@ strategies
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
         ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
-        ; mod5*  := <property-to-index-annos> prop
+    	; mod5*   := <property-to-contained-in <+ ![]> prop
+        ; mod6*  := <property-to-index-annos <+ ![]> prop
           
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
@@ -392,7 +401,7 @@ strategies
      where t      := <java-type> s
          ; gettercode := <expression-to-java-servlet> e
          ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
-         ; mod*  := <property-to-index-annos> prop
+         ; mod*  := <property-to-index-annos <+ ![]> prop
          ; bstm* := <get-external-vars> e
          
 rules // special session entity props
