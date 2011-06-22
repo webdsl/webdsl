@@ -8,7 +8,7 @@ imports
   org/webdsl/dsl/languages/search/-
   org/webdsl/dsl/transformation/desugar
 
-rules
+rules //desugar analyzer defs
 	
   desugar-search:
   	TokenFilterNoArgs(t) -> TokenFilter(t, [])
@@ -34,86 +34,84 @@ rules
   	where not (<string-ends-with(|"Factory")> name)
   		; name' := <concat-strings> [name,"Factory"]
 
+rules //desugar entity properties  		  
+  desugar-search:
+  	ExtendEntity(name, entbodydecs){anno*} -> ExtendEntity(name, entbodydecs2){anno*}
+  	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
+
   desugar-search:
     EntityNoSuper(name,entbodydecs){anno*} -> EntityNoSuper(name,entbodydecs2){anno*}
-	where entbodydecs2 := <desugar-entity-search(|name)> entbodydecs
+	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
     
   desugar-search : 
     Entity(name,super,entbodydecs){anno*} -> Entity(name,super,entbodydecs2){anno*}
-	where entbodydecs2 := <desugar-entity-search(|name)> entbodydecs
+	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
 
-  desugar-entity-search(|x_class) :
-  	entbodydecs -> entbodydecs2
-  	where <IndexedEntity> x_class //if it is an entity with searchmapping or searchable annos
-    	; <bagof-EntityNameToSearchableProps; flatten-list; ?[]> x_class //and searchable properties are not yet recorded
-    	; entbodydecs2 := <desugar-entbody-search(|x_class)> entbodydecs // record the searchable properties and try to desugar
+  desugar-search-entbody(|x_class) :
+  	entbodydecs -> <concat> [props1,funcs,validations,rest]
+  	where <IndexedEntity> x_class
+  	; (props,funcs,validations,_,rest) := <split-entity-body> entbodydecs
+  	; <filter(has-no-anno(?DesugarSearchVisited())); not(?[])> props
+  	; props1 := <map(try(desugar-search-prop(|x_class)))> props //try to add searchable annos from search mappings and desugar searchable annos
   	
-  desugar-entbody-search(|entityName):
-    entbodydecs -> entbodydecs2
-    with mappings := <bagof-SearchMappingForEnt> entityName
-    	; (props,functions,validations,_,rest) := <split-entity-body> entbodydecs
-        ; props1 := <try(mapping-to-searchable-anno(|mappings))> props
-        ; props2 := <map(repeat(desugar-search-prop))> props1 //desugar the searchable properties 
-        ; searchableProps := <filter(is-searchable-prop)> props2
-        ; rules(EntityNameToSearchableProps : entityName -> searchableProps ) //record the searchable properties
-        ; entbodydecs2 := <concat> [props2,functions,validations,rest]  
-  	
-  mapping-to-searchable-anno(|mappings):
-    props -> props2
-    where <?[SearchMappingEmbedded(fieldmappings)|rest]> mappings
-    with props1 := <map(try(add-searchable-anno(|fieldmappings)))> props 
-    ; props2 := <try(mapping-to-searchable-anno(|rest))> props1
+  desugar-search-prop(|x_class):
+  	prop -> prop2
+  	where prop1 := <add-new-anno(|DesugarSearchVisited())> prop //only desugar each property once
+  	; propname := <get-property-name> prop1
+  	; mappings := <bagof-SearchMappingForProp> (x_class, propname)
+  	; prop2 := <add-searchable-anno(|mappings); repeat(desugar-search-prop-annos)> prop1
+  	; if (<is-searchable-prop> prop2) then rules(EntityNameToSearchableProps :+ x_class -> prop2) end
   
+  signature constructors
+  	DesugarSearchVisited : Term
+
+rules //desugar search mappings
+  	
   add-searchable-anno(|fieldmappings):
-    Property(name, propkind, type, annos) -> Property(name, propkind, type, annos1)
-    where mappings := <filter(?SearchFieldMapping(name,_))> fieldmappings
-    ; not(?[])
-    ; annos1 := <concat> [annos, <map(to-searchable-anno)> mappings]
+    Property(name, propkind, type, annos){anno*} -> Property(name, propkind, type, annos1){anno*}
+    where annos1 := <concat> [annos, <map(mapping-to-searchable-anno)> fieldmappings]
       
   add-searchable-anno(|fieldmappings):
-    DerivedProperty(name, propkind, type, annos, ex) -> DerivedProperty(name, propkind, type, annos1, ex)
-    where mappings := <filter(?SearchFieldMapping(name,_))> fieldmappings
-    ; not(?[])
-    ; annos1 := <concat> [annos, <map(to-searchable-anno)> mappings]
+    DerivedProperty(name, propkind, type, annos, ex){anno*} -> DerivedProperty(name, propkind, type, annos1, ex){anno*}
+    where annos1 := <concat> [annos, <map(mapping-to-searchable-anno)> fieldmappings]
       
   add-searchable-anno(|fieldmappings):
-    DerivedPropertyNoAnno(name, propkind, type, ex)  -> DerivedProperty(name, propkind, type, annos, ex)
-    where mappings := <filter(?SearchFieldMapping(name,_))> fieldmappings
-    ; not(?[])
-    ; annos := <map(to-searchable-anno)> mappings
+    DerivedPropertyNoAnno(name, propkind, type, ex){anno*}  -> DerivedProperty(name, propkind, type, annos, ex){anno*}
+    where annos := <map(mapping-to-searchable-anno)> fieldmappings
   
-  to-searchable-anno:
+  mapping-to-searchable-anno:
     SearchFieldMapping(_,parts) -> SearchableAnno(sa-args)
-	with sa-args := <map(to-sa-arg <+ to-sa-arg-list) ; flatten-list> parts
+	with sa-args := <map(mapping-part-to-sa-arg <+ mapping-part-to-sa-arg-list) ; flatten-list> parts
   
-  to-sa-arg: FieldName(x) -> SA-Argument("name", x)
-  to-sa-arg: AnalyzerName(x) -> SA-Argument("analyzer", x)
-  to-sa-arg: Boost(x) -> SA-Argument("boost", x)
-  to-sa-arg: "autocomplete" -> SA-Argument("autocomplete", "")
-  to-sa-arg: "spellcheck" -> SA-Argument("spellcheck", "")
-  to-sa-arg-list: SearchMappingAnno(kw*) -> <map(to-sa-arg)> kw*
+  mapping-part-to-sa-arg: FieldName(x) -> SA-Argument("name", x)
+  mapping-part-to-sa-arg: AnalyzerName(x) -> SA-Argument("analyzer", x)
+  mapping-part-to-sa-arg: Boost(x) -> SA-Argument("boost", x)
+  mapping-part-to-sa-arg: "autocomplete" -> SA-Argument("autocomplete", "")
+  mapping-part-to-sa-arg: "spellcheck" -> SA-Argument("spellcheck", "")
+  mapping-part-to-sa-arg-list: SearchMappingAnno(kw*) -> <map(mapping-part-to-sa-arg)> kw*
 
-  desugar-search-prop:
-	p@Property(name,propkind,srt,anno) -> Property(name,propkind,srt,anno')
+rules // desugar searchable annos
+  desugar-search-prop-annos:
+	p@Property(name,propkind,srt,anno){anno*} -> Property(name,propkind,srt,anno'){anno*}
 	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)		
 	with if (<is-numeric-type> srt) 
 	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
 	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end		
 	   
-  desugar-search-prop:
-	p@Property(name,propkind,srt,anno) -> Property(name,propkind,srt,anno')
+  desugar-search-prop-annos:
+	p@Property(name,propkind,srt,anno){anno*} -> Property(name,propkind,srt,anno'){anno*}
 	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
 	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)   
 
-  desugar-search-prop:
-	p@DerivedProperty(name, propkind, srt, anno, ex) -> DerivedProperty(name, propkind, srt, anno', ex) 
+  desugar-search-prop-annos:
+	p@DerivedProperty(name, propkind, srt, anno, ex){anno*} -> DerivedProperty(name, propkind, srt, anno', ex){anno*}
 	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)
 	with if (<is-numeric-type> srt) 
 	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
 	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end
 
-  desugar-search-prop:
-	p@DerivedProperty(name, propkind, srt, anno, ex)  -> DerivedProperty(name, propkind, srt, anno', ex)
+  desugar-search-prop-annos:
+	p@DerivedProperty(name, propkind, srt, anno, ex){anno*}  -> DerivedProperty(name, propkind, srt, anno', ex){anno*}
 	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
 	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)
   
