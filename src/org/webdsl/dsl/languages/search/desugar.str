@@ -1,0 +1,156 @@
+module org/webdsl/dsl/languages/search/desugar
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/languages/search/-
+  org/webdsl/dsl/transformation/desugar
+
+rules //desugar analyzer defs
+	
+  desugar-search:
+  	TokenFilterNoArgs(t) -> TokenFilter(t, [])
+  	
+  desugar-search:
+  	TokenizerNoArgs(t) -> Tokenizer(t, [])
+  	
+  desugar-search:
+  	CharFilterNoArgs(t) -> CharFilter(t, [])
+  
+  desugar-search:
+  	CharFilter(name,args) -> CharFilter(name',args)
+  	where not (<string-ends-with(|"Factory")> name)
+  		; name' := <concat-strings> [name,"Factory"]
+  		  
+  desugar-search:
+  	Tokenizer(name,args) -> Tokenizer(name',args)
+  	where not (<string-ends-with(|"Factory")> name)
+  		; name' := <concat-strings> [name,"Factory"]
+  		  
+  desugar-search:
+  	TokenFilter(name,args) -> TokenFilter(name',args)
+  	where not (<string-ends-with(|"Factory")> name)
+  		; name' := <concat-strings> [name,"Factory"]
+
+rules //desugar entity properties  		  
+  desugar-search:
+  	ExtendEntity(name, entbodydecs){anno*} -> ExtendEntity(name, entbodydecs2){anno*}
+  	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
+
+  desugar-search:
+    EntityNoSuper(name,entbodydecs){anno*} -> EntityNoSuper(name,entbodydecs2){anno*}
+	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
+    
+  desugar-search : 
+    Entity(name,super,entbodydecs){anno*} -> Entity(name,super,entbodydecs2){anno*}
+	where entbodydecs2 := <desugar-search-entbody(|name)> entbodydecs
+
+  desugar-search-entbody(|x_class) :
+  	entbodydecs -> <concat> [props1,funcs,validations,rest]
+  	where <IndexedEntity> x_class
+  	; (props,funcs,validations,_,rest) := <split-entity-body> entbodydecs
+  	; <filter(has-no-anno(?DesugarSearchVisited())); not(?[])> props
+  	; props1 := <map(try(desugar-search-prop(|x_class)))> props //try to add searchable annos from search mappings and desugar searchable annos
+  	
+  desugar-search-prop(|x_class):
+  	prop -> prop2
+  	where prop1 := <add-new-anno(|DesugarSearchVisited())> prop //only desugar each property once
+  	; propname := <get-property-name> prop1
+  	; mappings := <bagof-SearchMappingForProp> (x_class, propname)
+  	; prop2 := <add-searchable-anno(|mappings); repeat(desugar-search-prop-annos)> prop1
+  	; if (<is-searchable-prop> prop2) then rules(EntityNameToSearchableProps :+ x_class -> prop2) end
+  
+  signature constructors
+  	DesugarSearchVisited : Term
+
+rules //desugar search mappings
+  	
+  add-searchable-anno(|fieldmappings):
+    Property(name, propkind, type, annos){anno*} -> Property(name, propkind, type, annos1){anno*}
+    where annos1 := <concat> [annos, <map(mapping-to-searchable-anno)> fieldmappings]
+      
+  add-searchable-anno(|fieldmappings):
+    DerivedProperty(name, propkind, type, annos, ex){anno*} -> DerivedProperty(name, propkind, type, annos1, ex){anno*}
+    where annos1 := <concat> [annos, <map(mapping-to-searchable-anno)> fieldmappings]
+      
+  add-searchable-anno(|fieldmappings):
+    DerivedPropertyNoAnno(name, propkind, type, ex){anno*}  -> DerivedProperty(name, propkind, type, annos, ex){anno*}
+    where annos := <map(mapping-to-searchable-anno)> fieldmappings
+  
+  mapping-to-searchable-anno:
+    SearchFieldMapping(_,parts) -> SearchableAnno(sa-args)
+	with sa-args := <map(mapping-part-to-sa-arg <+ mapping-part-to-sa-arg-list) ; flatten-list> parts
+  
+  mapping-part-to-sa-arg: FieldName(x) -> SA-Argument("name", x)
+  mapping-part-to-sa-arg: AnalyzerName(x) -> SA-Argument("analyzer", x)
+  mapping-part-to-sa-arg: Boost(x) -> SA-Argument("boost", x)
+  mapping-part-to-sa-arg: "autocomplete" -> SA-Argument("autocomplete", "")
+  mapping-part-to-sa-arg: "spellcheck" -> SA-Argument("spellcheck", "")
+  mapping-part-to-sa-arg-list: SearchMappingAnno(kw*) -> <map(mapping-part-to-sa-arg)> kw*
+
+rules // desugar searchable annos
+  desugar-search-prop-annos:
+	p@Property(name,propkind,srt,anno){anno*} -> Property(name,propkind,srt,anno'){anno*}
+	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)		
+	with if (<is-numeric-type> srt) 
+	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
+	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end		
+	   
+  desugar-search-prop-annos:
+	p@Property(name,propkind,srt,anno){anno*} -> Property(name,propkind,srt,anno'){anno*}
+	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
+	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)   
+
+  desugar-search-prop-annos:
+	p@DerivedProperty(name, propkind, srt, anno, ex){anno*} -> DerivedProperty(name, propkind, srt, anno', ex){anno*}
+	where(<is-untokenized-default-type> srt; <fetch(anno-needs-desugaring)> anno)
+	with if (<is-numeric-type> srt) 
+	  then anno' := <map(try(desugar-searchable-anno-numeric <+ desugar-searchable-anno(|name)))> anno
+	  else anno' := <map(try(desugar-searchable-anno-untokenized <+ desugar-searchable-anno(|name)))> anno end
+
+  desugar-search-prop-annos:
+	p@DerivedProperty(name, propkind, srt, anno, ex){anno*}  -> DerivedProperty(name, propkind, srt, anno', ex){anno*}
+	where(not(<is-untokenized-default-type> srt); <fetch(anno-needs-desugaring)> anno
+	 ; anno' := <map(try(desugar-searchable-anno(|name)))> anno)
+  
+  desugar-searchable-anno(|name):
+    SearchableAnno() -> SearchableAnno([SA-Argument("name", name)])
+    
+  desugar-searchable-anno(|name):
+    SimpleAnno("searchable") -> SearchableAnno([SA-Argument("name", name), SA-Argument("analyzer", "default")])
+
+  desugar-searchable-anno(|name):
+  	SearchableAnnoBoost(SearchableAnno(sa-args),boost) -> SearchableAnno([SA-Argument("boost", boost) | sa-args])
+  
+  desugar-searchable-anno(|name):
+  	SearchableAnnoBoost(SearchableAnno() ,boost) -> SearchableAnno([SA-Argument("boost", boost)])  
+  	
+  desugar-searchable-anno(|name):
+  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("name", name) | sa-args])
+  	where not (<fetch(?SA-Argument("name", _))> sa-args)
+  	
+  desugar-searchable-anno(|name):
+  	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "default") | sa-args])
+  	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
+ 
+  desugar-searchable-anno-untokenized:
+ 	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no") | sa-args])
+  	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
+ 
+  desugar-searchable-anno-numeric:
+ 	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no"), SA-Argument("numeric", "") | sa-args])
+  	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
+  
+  anno-needs-desugaring= ?SearchableAnno()
+  anno-needs-desugaring= ?SearchableAnno(sa-args);not (<fetch(?SA-Argument("name", _))> sa-args;<fetch(?SA-Argument("analyzer", _))> sa-args)
+  anno-needs-desugaring= ?SearchableAnnoBoost(_,_)
+  anno-needs-desugaring= ?SimpleAnno("searchable")
+  
+  is-untokenized-default-type = is-numeric-type <+ is-date-type
+  is-numeric-type = ?SimpleSort("Int")
+  is-numeric-type = ?SimpleSort("Float")
+  is-date-type = ?SimpleSort("Date")
+  is-date-type = ?SimpleSort("DateTime")
+  is-date-type = ?SimpleSort("Time")

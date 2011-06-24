@@ -1,5 +1,32 @@
 module .servletapp/src-webdsl-template/built-in
 
+  section search
+  //optimization of search index, twice a day
+  invoke optimizeSearchIndex() every 12 hours
+  //Update the spell check and autocompletion indices twice a day
+  invoke updateSuggestionIndex() every 12 hours
+
+  function optimizeSearchIndex(){
+    IndexManager.optimizeIndex();
+  }
+  
+  function updateSuggestionIndex(){
+  	IndexManager.indexSuggestions();
+  }
+  
+  native class utils.IndexManager as IndexManager {
+  	static indexSuggestions()
+    static optimizeIndex()    
+  }
+  
+  //The default analyzer, equal to the one used by default in hibernate search
+  default_builtin_analyzer analyzer hsearchstandardanalyzer {
+	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
+	tokenfilter = StopFilter
+}   
+  
   section methods for built-in types
 
   type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
@@ -24,6 +51,9 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.parseDate as parseDate(String):Date
     utils.DateType.parseDate as parseDateTime(String):DateTime
     utils.DateType.parseDate as parseTime(String):Time
+    org.apache.commons.lang.StringEscapeUtils.escapeJavaScript as escapeJavaScript():String
+    substring(Int):String
+    substring(Int,Int):String
   }
   
   type Secret {
@@ -167,6 +197,10 @@ module .servletapp/src-webdsl-template/built-in
   } 
   
 //  section WebDriver for testing
+
+  native class Thread {
+    static sleep(Int)
+  }
   
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
@@ -184,6 +218,7 @@ module .servletapp/src-webdsl-template/built-in
     static name(String):SelectBy
     static partialLinkText(String):SelectBy
     static tagName(String):SelectBy
+    static cssSelector(String):SelectBy
     static xpath(String):SelectBy
   } 
   
@@ -272,62 +307,7 @@ module .servletapp/src-webdsl-template/built-in
       output(q.body)
     }
   }
-  
-// radio buttons input
 
-  define ignore-access-control radio(ent1:Ref<Entity>,ent2:List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
-
-    request var errors : List<String> := null
-    
-    if(errors != null && errors.length > 0){
-      errorTemplateInput(errors){
-        radioInternal(ent1, ent2, tname)[all attributes]
-      }
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    else{
-      radioInternal(ent1, ent2, tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    validate{
-      errors := ent1.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
-      errors := handleValidationErrors(errors);       
-    }
-  }
-
-  define ignore-access-control radioInternal(ent1:Ref<Entity>,ent2:List<Entity>, tname : String){
-    var tmp : String:= getRequestParameter(tname);
-    var subme : Entity := null;
-    init{
-      if(tmp != null){
-        subme := loadEntity(ent1.getTypeString(),UUIDFromString(tmp));
-      }
-    }
-    for(e:Entity in ent2){
-      <input type="radio"
-        //either it was submitted or it was not submitted but the value was already p
-        if(tmp != null && subme == e || tmp == null && ent1 == e){
-           checked="checked"
-        }
-        name=tname
-        value=e.id
-        all attributes
-      />
-      output(e.name)
-    }
-    databind{
-      if(tmp != null && subme in ent2){
-        ent1 := subme;
-      }
-    }
-  }
   
   // logging       
   
@@ -349,7 +329,7 @@ module .servletapp/src-webdsl-template/built-in
   
   entity RequestLogEntryParam {
     name :: String
-    value :: String
+    value :: String (length=1000000)
   }
   
   //built-in templates
@@ -762,13 +742,22 @@ module .servletapp/src-webdsl-template/built-in
     </ul>
   }
   */
-  //input(Set<Entity>) 
-  /*
+
+  //input(Set<Entity>)
+
   define input(set:Ref<Set<Entity>>){
-    input(set, set.getEntity())
-  }*/
+    selectcheckbox(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define input(set:Ref<Set<Entity>>, from : List<Entity>){
+    selectcheckbox(set,from)[all attributes]{elements()}
+  }
   
- define input(set:Ref<Set<Entity>>, from : List<Entity>){
+  //input(Set<Entity>) selectcheckbox
+  
+  define selectcheckbox(set:Ref<Set<Entity>>){
+    selectcheckbox(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define selectcheckbox(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
 
@@ -792,16 +781,16 @@ module .servletapp/src-webdsl-template/built-in
       errors := handleValidationErrors(errors);
     }
   }
-
+  
   define inputCheckboxSetInternal(set : Ref<Set<Entity>>, from : List<Entity>, tname:String){
     var tnamehidden := tname + "_isinput"
     var reqhidden := getRequestParameter(tnamehidden)
     request var tmpset := Set<Entity>()
     
-    <div class="checkbox-set "+attribute("class") all attributes except "class">
+    <div class="checkbox-set "+attribute("class") all attributes except ["class","onclick"]>
       <input type="hidden" name=tnamehidden /> 
       for(e:Entity in from){
-        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)
+        inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)[onclick=""+attribute("onclick")]
       }
     </div>
     databind{
@@ -811,7 +800,7 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
 
-   define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
+  define inputCheckboxSetInternalHelper(set:Ref<Set<Entity>>, tmpset:Set<Entity>,e:Entity,tname:String){
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
@@ -822,232 +811,23 @@ module .servletapp/src-webdsl-template/built-in
         if(tmphidden!=null && tmp!=null || tmphidden==null && e in set){
           checked="true"  
         }
+        id=tname+e.id
         all attributes
       />
-      output(e.name)
+      <label for=tname+e.id>
+        output(e.name)
+      </label>
     </div>
     databind{
       if(tmphidden != null && tmp != null){ tmpset.add(e); }
     }
   }
-  
-  //input(e:Entity)
-  
-  define input(ent : Ref<Entity>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    request var errors : List<String> := null
     
-    if(errors != null && errors.length > 0){
-      errorTemplateInput(errors){
-        inputEntityInternal(ent,from,tname)[all attributes]
-      }
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    else{
-      inputEntityInternal(ent,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    validate{
-      errors := ent.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
-      errors := handleValidationErrors(errors);
-    }
-  }
-
-  define inputEntityInternal(ent : Ref<Entity>, from : List<Entity>, tname:String){
-    var rnamehidden := tname + "_isinput"
-    var reqhidden := getRequestParameter(rnamehidden)
-    var req : String := getRequestParameter(tname)
-    var notnull := hasNotNullAttribute() || (ent.getReflectionProperty()!=null&&ent.getReflectionProperty().hasNotNullAnnotation())
-    <input type="hidden" name=tname+"_isinput" />
-    <select 
-      if(getPage().inLabelContext()) { 
-        id=getPage().getLabelString() 
-      } 
-      name=tname 
-      class="select "+attribute("class") 
-      all attributes except "class"
-    >
-      if(!notnull){
-        <option value="none"
-          if(reqhidden!=null && req==null || reqhidden==null && ent == null){ 
-            selected="selected"
-          }
-        ></option>
-      }
-      for(e:Entity in from){
-        <option 
-          value=e.id
-          if(reqhidden!=null && req!=null && e.id.toString() == req || reqhidden==null && e == ent){ 
-            selected="selected"
-          }
-        >
-          output(e.name)
-        </option>  
-      }
-    </select>
+  //input(Set<Entity>) select
   
-    databind{
-      if(reqhidden != null){
-        if(!notnull && req == "none"){
-          ent := null;
-        }
-        else{
-          var fromids := [ e | e:Entity in from where e.id.toString()==req ];
-          if(fromids.length > 0){
-            ent := fromids[0]; // check with 'from' list to make sure that it was an option, to protect against tampering
-          }
-        }
-      }
-    }
+  define select(set:Ref<Set<Entity>>){
+    select(set,set.getAllowed())[all attributes]{elements()}
   }  
-  
-  //output(Entity)
-  /*
-  define output(e:Entity){
-    var hasviewpage := false;
-    var viewpagename := "";
-    init{
-      var type := e.getTypeString();
-      hasviewpage := ReflectionEntity.byName(type).hasViewPage();
-      viewpagename := type.toLowerCase();
-    }
-    if(hasviewpage){
-      //not possible yet
-      navigate ~viewpagename((~type) e){ output(e.name) } 
-    }
-    else{
-      output(e.name)
-    }
-  }*/
-  
-  
-  //output(List)
-  /*
-  define output(list : List<Entity>){
-    <ol all attributes>
-      for(e:Entity in list){
-        <li>
-          output(e)
-        </li>
-      }
-    </ol>
-  }
-  */
-  // input(List)
-  
-  define input(list:Ref<List<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    request var errors : List<String> := null
-    
-    if(errors != null && errors.length > 0){
-      errorTemplateInput(errors){
-        inputListInternal(list,from,tname)[all attributes]
-      }
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    else{
-      inputListInternal(list,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); } 
-      elements() 
-      validate{ getPage().leaveLabelContext();}
-    }
-    validate{
-      errors := list.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
-      errors := handleValidationErrors(errors);
-    }
-  }  
-    
-  function updateListRequest(request:String, list:List<Entity>,selectfrom : List<Entity>): List<Entity>{
-    if(request == null){ // nothing submitted
-      return list;
-    }
-    var elementids := request.split(",");
-    var options := List<Entity>();
-    options.addAll(list);
-    options.addAll(selectfrom);
-    var newlist := List<Entity>();
-    for(s:String in elementids){
-      var ent := [e | e:Entity in options where e.id.toString() == s];
-      if(ent.length > 0){
-        var selected := ent[0];
-        newlist.add(selected);
-      }
-    }
-    return newlist;
-  }  
-    
-  define inputListInternal(list: Ref<List<Entity>>, selectfrom : List<Entity>, tname:String){
-    var hiddenid := "hidden"+tname
-    var sortableid := "sortable"+tname
-    var selectid := "select"+tname
-    var tmp := getRequestParameter(hiddenid);
-    var newlist := updateListRequest(tmp,list,selectfrom);
-    
-    databind {
-      list := newlist;
-    }
-    
-    includeCSS("jquery-ui.css")
-    includeJS("jquery-1.5.min.js")
-    includeJS("jquery-ui-1.8.9.custom.min.js")
-    
-    <script type="text/javascript">
-      $(function() {
-        $('#~sortableid').sortable();
-        $('#~sortableid').disableSelection();
-        $('#~sortableid').sortable({
-              stop: function(event, ui){ 
-                $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
-              }
-          });
-          //initial values
-          $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
-          //optional stuff
-          //constrain dragging to list
-          //$('#~sortableid').sortable( "option", "containment", 'parent' );
-      });
-    </script>
-    <input type="hidden" name=hiddenid id=hiddenid/>
-    <ul id=sortableid class="sortable">
-      for(e:Entity in newlist){
-        <li id=e.id class="ui-state-default">
-          <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
-          output(e.name)
-          <span class="ui-icon ui-icon-close" onclick="$(this).parent().remove(); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray'));"></span>
-        </li>	 
-      }
-    </ul>
-    
-    //@TODO should become possible to re-use render of template in client
-    var p1 := "<li id=\""
-    var p2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>" 
-    var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\"$(this).parent().remove()\"></span></li>"
-    
-    if(selectfrom.length > 0){
-      <select id=selectid>
-      for(e:Entity in selectfrom){
-        <option value=e.id>
-          output(e.name)
-        </option>
-      }
-      </select>
-      
-      <input type="button" value="add" 
-        onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); return false;" />
-    }
-  }   
-  
-  
-  //select multiple
-  
   define select(set:Ref<Set<Entity>>, from : List<Entity>){
     var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
@@ -1122,6 +902,308 @@ module .servletapp/src-webdsl-template/built-in
       }
     }
   }
+  
+  
+  //input(e:Entity)
+  
+  define input(ent:Ref<Entity>){
+    select(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define input(ent:Ref<Entity>, from : List<Entity>){
+    select(ent,from)[all attributes]{elements()}
+  }
+  
+  //input(e:Entity) select
+  
+  define select(ent:Ref<Entity>){
+    select(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define select(ent : Ref<Entity>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputEntityInternal(ent,from,tname)[all attributes]
+      }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    else{
+      inputEntityInternal(ent,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    validate{
+      errors := ent.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors := handleValidationErrors(errors);
+    }
+  }
+
+  define inputEntityInternal(ent : Ref<Entity>, from : List<Entity>, tname:String){
+    var rnamehidden := tname + "_isinput"
+    var reqhidden := getRequestParameter(rnamehidden)
+    var req : String := getRequestParameter(tname)
+    var notnull := hasNotNullAttribute() || (ent.getReflectionProperty()!=null&&ent.getReflectionProperty().hasNotNullAnnotation())
+    <input type="hidden" name=tname+"_isinput" />
+    <select 
+      if(getPage().inLabelContext()) { 
+        id=getPage().getLabelString() 
+      } 
+      name=tname 
+      class="select "+attribute("class") 
+      all attributes except "class"
+    >
+      if(!notnull){
+        <option value="none"
+          if(reqhidden!=null && req==null || reqhidden==null && ent == null){ 
+            selected="selected"
+          }
+        ></option>
+      }
+      for(e:Entity in from){
+        <option 
+          value=e.id
+          if(reqhidden!=null && req!=null && e.id.toString() == req || reqhidden==null && e == ent){ 
+            selected="selected"
+          }
+        >
+          output(e.name)
+        </option>  
+      }
+    </select>
+  
+    databind{
+      if(reqhidden != null){
+        if(!notnull && req == "none"){
+          ent := null;
+        }
+        else{
+          var fromids := [ e | e:Entity in from where e.id.toString()==req ];
+          if(fromids.length > 0){
+            ent := fromids[0]; // check with 'from' list to make sure that it was an option, to protect against tampering
+          }
+        }
+      }
+    }
+  }  
+  
+  // radio buttons input
+
+  define radio(ent:Ref<Entity>){
+    radio(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define radio(ent1:Ref<Entity>,ent2:List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        radioInternal(ent1, ent2, tname)[all attributes]
+      }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    else{
+      radioInternal(ent1, ent2, tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    validate{
+      errors := ent1.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors := handleValidationErrors(errors);       
+    }
+  }
+
+  define ignore-access-control radioInternal(ent1:Ref<Entity>,ent2:List<Entity>, tname : String){
+    var tmp : String:= getRequestParameter(tname);
+    var subme : Entity := null;
+    init{
+      if(tmp != null){
+        subme := loadEntity(ent1.getTypeString(),UUIDFromString(tmp));
+      }
+    }
+    for(e:Entity in ent2){
+      <input type="radio"
+        //either it was submitted or it was not submitted but the value was already p
+        if(tmp != null && subme == e || tmp == null && ent1 == e){
+           checked="checked"
+        }
+        name=tname
+        value=e.id
+        id=tname+e.id
+        all attributes
+      />
+      <label for=tname+e.id>
+        output(e.name)
+      </label>
+    }
+    databind{
+      if(tmp != null && subme in ent2){
+        ent1 := subme;
+      }
+    }
+  }  
+  
+  //output(Entity)
+  /*
+  define output(e:Entity){
+    var hasviewpage := false;
+    var viewpagename := "";
+    init{
+      var type := e.getTypeString();
+      hasviewpage := ReflectionEntity.byName(type).hasViewPage();
+      viewpagename := type.toLowerCase();
+    }
+    if(hasviewpage){
+      //not possible yet
+      navigate ~viewpagename((~type) e){ output(e.name) } 
+    }
+    else{
+      output(e.name)
+    }
+  }*/
+  
+  
+  //output(List)
+  /*
+  define output(list : List<Entity>){
+    <ol all attributes>
+      for(e:Entity in list){
+        <li>
+          output(e)
+        </li>
+      }
+    </ol>
+  }
+  */
+  // input(List)
+  
+  define input(list:Ref<List<Entity>>){
+    input(list,list.getAllowed())[all attributes]{elements()}
+  }
+  define input(list:Ref<List<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    request var errors : List<String> := null
+    
+    if(errors != null && errors.length > 0){
+      errorTemplateInput(errors){
+        inputListInternal(list,from,tname)[all attributes]
+      }
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    else{
+      inputListInternal(list,from,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); } 
+      elements() 
+      validate{ getPage().leaveLabelContext();}
+    }
+    validate{
+      errors := list.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors := handleValidationErrors(errors);
+    }
+  }  
+    
+  function updateListRequest(request:String, list:List<Entity>,selectfrom : List<Entity>): List<Entity>{
+    if(request == null){ // nothing submitted
+      return list;
+    }
+    var elementids := request.split(",");
+    var options := List<Entity>();
+    options.addAll(list);
+    options.addAll(selectfrom);
+    var newlist := List<Entity>();
+    for(s:String in elementids){
+      var ent := [e | e:Entity in options where e.id.toString() == s];
+      if(ent.length > 0){
+        var selected := ent[0];
+        newlist.add(selected);
+      }
+    }
+    return newlist;
+  }  
+    
+  define inputListInternal(list: Ref<List<Entity>>, selectfrom : List<Entity>, tname:String){
+    var hiddenid := "hidden"+tname
+    var sortableid := "sortable"+tname
+    var selectid := "select"+tname
+    var tmp := getRequestParameter(hiddenid);
+    var newlist := updateListRequest(tmp,list,selectfrom);
+    var onchange := attribute("onchange");
+    var deletejsfuncname := "delete"+tname;
+    databind {
+      if(tmp != null){
+        list := newlist;
+      }
+    }
+    
+    includeCSS("jquery-ui.css")
+    includeJS("jquery-1.5.min.js")
+    includeJS("jquery-ui-1.8.9.custom.min.js")
+    
+    <script type="text/javascript">
+      $(function() {
+        $('#~sortableid').sortable();
+        $('#~sortableid').disableSelection();
+        $('#~sortableid').sortable({
+              stop: function(event, ui){ 
+                $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+                ~onchange
+              }
+          });
+          //initial values
+          $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+          //optional stuff
+          //constrain dragging to list
+          //$('#~sortableid').sortable( "option", "containment", 'parent' );
+      });
+      var ~deletejsfuncname = function(dollarthis){
+        dollarthis.parent().remove(); 
+        $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+        ~onchange      	
+      };
+    </script>
+    <input type="hidden" name=hiddenid id=hiddenid/>
+    <ul id=sortableid class="sortable">
+      for(e:Entity in newlist){
+        <li id=e.id class="ui-state-default">
+          <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
+          output(e.name)
+          <span class="ui-icon ui-icon-close" onclick=deletejsfuncname+"($(this));"></span>
+        </li>	 
+      }
+    </ul>
+    
+    //@TODO should become possible to re-use render of template in client
+    var p1 := "<li id=\""
+    var p2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>" 
+    var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\""+deletejsfuncname+"($(this));\"></span></li>"
+
+    if(selectfrom.length > 0){
+      <select id=selectid>
+      for(e:Entity in selectfrom){
+        <option value=e.id>
+          output(e.name)
+        </option>
+      }
+      </select>
+      
+      <input type="button" value="add" 
+        onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); "+onchange+"return false;" />
+    }
+  }   
+
   
   //label
   
@@ -1965,13 +2047,585 @@ module .servletapp/src-webdsl-template/built-in
     invoke(String,String):ATerm
   }
   
+  
+  // inputs with ajax validation
+  // @TODO address issues with template arguments to reduce code duplication 
+  
+  define ajax showMessages(list:List<String>){
+    errorTemplateInput(list)
+  }
+  
+  define ajax noMessages(){}  
+  
+  define inputajax(b:Ref<Bool>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputBoolInternal(b,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := b.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := b.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkFloatWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d\d*\.\d*E?\d*/.match(req) || /-?\d\d*E?\d*/.match(req) || /-?\.\d\d*E?\d*/.match(req)){
+        var f: Float := req.parseFloat(); 
+        if(f == null){
+          errors := ["Not a valid decimal number"];
+        }
+      }
+      else{
+        errors := ["Not a valid decimal number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(f:Ref<Float>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputFloatInternal(f,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkFloatWellformedness(req);
+      if(errors==null){
+        errors := f.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkFloatWellformedness(req);
+      if(errors==null){
+        errors := f.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkIntWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d+/.match(req)){
+        if(req.parseInt() == null){
+          errors := ["Outside of possible number range"];
+        }
+      }
+      else{
+        errors := ["Not a valid number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(i:Ref<Int>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputIntInternal(i,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkIntWellformedness(req);
+      if(errors==null){
+        errors := i.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkIntWellformedness(req);
+      if(errors==null){
+        errors := i.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  function checkLongWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null){
+      if(/-?\d+/.match(req)){
+        if(req.parseLong() == null){
+          errors := ["Outside of possible number range"];
+        }
+      }
+      else{
+        errors := ["Not a valid number"];
+      }
+    }
+    return errors;
+  }
+  define inputajax(l:Ref<Long>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputLongInternal(l,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkLongWellformedness(req);
+      if(errors==null){
+        errors := l.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkLongWellformedness(req);
+      if(errors==null){
+        errors := l.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+
+  define inputajax(s:Ref<Secret>){
+    inputajax(s as Ref<String>)[all attributes]{elements()}
+  }
+  define inputajax(s:Ref<URL>){
+    inputajax(s as Ref<String>)[all attributes]{elements()} 	
+  }
+  define inputajax(s:Ref<Text>){
+    inputajax(s as Ref<String>)[all attributes]{elements()}
+  }
+  define inputajax(s:Ref<WikiText>){
+    inputajax(s as Ref<String>)[all attributes]{elements()} 	
+  }
+  define inputajax(s:Ref<String>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputStringInternal(s,tname)[onkeyup=validator(), all attributes]
+    //handle validations passed in call to this template
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := s.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := s.getValidationErrors();
+      //ignore-validation prevents regular validation, manually execute validate phase for elements
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements()); 
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }  
+  function checkEmailWellformedness(req:String):List<String>{
+    var errors :List<String>:= null; 
+      if(req != null){
+        if(!(req as Email).isValid()){
+          errors := ["Not a valid email address"];
+        }
+      }
+    return errors;
+  }
+  define inputajax(s:Ref<Email>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputEmailInternal(s,tname)[onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkEmailWellformedness(req);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkEmailWellformedness(req);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements());
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+ 
+  define inputajax(set:Ref<Set<Entity>>){
+    selectcheckboxajax(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define inputajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    selectcheckboxajax(set,from)[all attributes]{elements()}
+  }
+  define selectcheckboxajax(set:Ref<Set<Entity>>){
+    selectcheckboxajax(set,set.getAllowed())[all attributes]{elements()}
+  }
+  define selectcheckboxajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputCheckboxSetInternal(set,from,tname)[onclick=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := set.getValidationErrors();
+      //ignore-validation prevents regular validation, manually execute validate phase for elements
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements()); 
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }  
+  define selectajax(ent : Ref<Set<Entity>>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define selectajax(set:Ref<Set<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputSelectMultipleInternal(set,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := set.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := set.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+
+  define inputajax(ent:Ref<Entity>){
+    selectajax(ent, ent.getAllowed())[all attributes]{elements()}
+  }
+  define inputajax(ent:Ref<Entity>, from : List<Entity>){
+    selectajax(ent,from)[all attributes]{elements()}
+  }
+  define selectajax(ent : Ref<Entity>){
+    selectajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }
+  define selectajax(ent : Ref<Entity>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputEntityInternal(ent,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := ent.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := ent.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  define radioajax(ent : Ref<Entity>){
+    radioajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }   
+  define radioajax(ent1 : Ref<Entity>, ent2 : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    radioInternal(ent1,ent2,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := ent1.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := ent1.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
+  define inputajax(ent : Ref<List<Entity>>){
+    inputajax(ent,ent.getAllowed())[all attributes]{elements()}
+  }  
+  define inputajax(list:Ref<List<Entity>>, from : List<Entity>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputListInternal(list,from,tname)[onchange=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := list.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := list.getValidationErrors();
+      getPage().enterLabelContext(tname); 
+      validatetemplate(elements());
+      getPage().leaveLabelContext();
+      errors.addAll(getPage().getValidationErrorsByName(tname));
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+    
+  
+  function checkSDFWellformedness(req:String,language:String):List<String>{
+    var errors :List<String>:= null; 
+    if(req != null && !SDF.get(language).isValid(req)){
+      errors := [SDF.get(language).getSGLRError(req)];
+    }
+    return errors;
+  }
+  define inputSDFajax(s:Ref<Text>,language: String){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    inputTextInternal(s,tname)[class="inputSDF", onkeyup=validator(), all attributes]
+    validate{ getPage().enterLabelContext(tname); } 
+    elements() 
+    validate{ getPage().leaveLabelContext();}
+    placeholder "validate"+tname {
+      if(errors != null && errors.length > 0){
+        showMessages(errors)
+      }
+    }
+    validate{
+      errors := checkSDFWellformedness(req,language);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        cancel();
+      }
+    }
+    action ignore-validation validator(){
+      errors := checkSDFWellformedness(req,language);
+      if(errors==null){
+        errors := s.getValidationErrors();
+        getPage().enterLabelContext(tname); 
+        validatetemplate(elements()); 
+        getPage().leaveLabelContext();
+        errors.addAll(getPage().getValidationErrorsByName(tname));
+      }
+      if(errors.length > 0){
+        replace("validate"+tname,showMessages(errors));
+      }
+      else{
+        replace("validate"+tname,noMessages());
+      } 	
+      rollback();
+    }
+  }
+  
   //validation message templates
   
   define errorTemplateInput(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       elements()
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000"]{
           text(ve)
         }     
       }
@@ -1979,9 +2633,9 @@ module .servletapp/src-webdsl-template/built-in
   } 
 
   define errorTemplateForm(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000;"]{
           text(ve)
         }     
       }
@@ -1989,9 +2643,9 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   define errorTemplateAction(messages : List<String>){
-    block()[style := "clear:left; float:left; border: 1px solid #FF0000; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; clear:left; float:left; color: #FF0000; margin-top: 5px;"]{
+        block()[style := "color: #FF0000;"]{
           text(ve)
         }     
       }
@@ -2000,9 +2654,9 @@ module .servletapp/src-webdsl-template/built-in
   }
     
   define templateSuccess(messages : List<String>){
-    block()[style := "border: 1px solid #BB8800; margin-left: -5px; margin-top: 5px; margin-bottom: 5px; padding: 4px"]{
+    block(){
       for(ve: String in messages){
-        block()[style := "width:100%; color: #BB8800; margin-top: 5px;"]{
+        block()[style := "color: #BB8800;"]{
           text(ve)   
         }    
       }
@@ -2040,5 +2694,10 @@ module .servletapp/src-webdsl-template/built-in
     rule page accessDenied(){true}
     rule page pagenotfound(){true}
     rule template *(*){true}
-
     
+    //Because List<String> argument will already be part of the URL, 
+    //access control is not necessary for showMessages ajaxtemplate.
+    //Tampering with the URL will produce an html-escaped echo of the 'list' request parameter. 
+    rule ajaxtemplate showMessages(list:List<String>){true}
+    rule ajaxtemplate noMessages(){true} 
+   

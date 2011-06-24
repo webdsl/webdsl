@@ -5,6 +5,7 @@ description {
 }
 
 imports templates
+imports search/searchconfiguration
 section pages
 
 define page root() {

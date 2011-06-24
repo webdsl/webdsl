@@ -2,39 +2,6 @@ module org/webdsl/dsl/languages/ui/select
 
 rules
 
-  rename-ui :
-    Select(x, s, lab1, e1, props1, elems1){anno*} -> Select(y, s, lab2, e2, props2, elems2){anno*} 
-    with  (y, s, lab2, e2, props2, elems2) := <rename-select> (x, s, lab1, e1, props1, elems1)
- 
-  rename-ui :
-    SelectNoProps(x, s, lab1, e1, elems1){anno*} -> SelectNoProps(y, s, lab2, e2,elems2){anno*}
-    with  (y, s, lab2, e2, [], elems2) := <rename-select> (x, s, lab1, e1, [], elems1)
-  rename-ui :
-    SelectNoPropsNoElems(x, s, lab1, e1){anno*} -> SelectNoPropsNoElems(y, s, lab2, e2){anno*} 
-    with  (y, s, lab2, e2, [], []) := <rename-select> (x, s, lab1, e1, [], [])
-  rename-ui :
-    SelectNoElems(x, s, lab1, e1, props1){anno*} -> SelectNoElems(y, s, lab2, e2, props2){anno*} 
-    with  (y, s, lab2, e2, props2, []) := <rename-select> (x, s, lab1, e1, props1, [])
-        
-  rename-select :
-    (x, s, lab1, e1, props1, elems1) -> (y, s, lab2, e2, props2, elems2) 
-    with {| Rename
-            : y := <rename-bound(|s)> x
-            ; e2 := <rename-all> e1
-            ; lab2 := <rename-all> lab1
-            ; props2 := <rename-all> props1
-            ; elems2 := <rename-all> elems1
-          |}
-         
-rules
-
-  normalize-ui : 
-    SelectNoProps(a,b,c,d,e){anno*} -> Select(a,b,c,d,[],e){anno*}
-  normalize-ui : 
-    SelectNoPropsNoElems(a,b,c,d){anno*} -> Select(a,b,c,d,[],[]){anno*}
-  normalize-ui : 
-    SelectNoElems(a,b,c,d,e){anno*} -> Select(a,b,c,d,e,[]){anno*}
- 
   normalize-ui : 
     SelectFromListNoProps(a,b,c){anno*} -> SelectFromList(a,b,[],c){anno*}
   normalize-ui : 
@@ -56,67 +23,54 @@ rules
   constraint-error-ui-selectfrom :
     (e1,e2,sel)  -> <add-error(|[e2pp," must be of collection type 'Set<",e1typepp,">' or 'List<",e1typepp,">', but is of type '", e2typepp,"'"])> sel
     where e1type := <type-of> e1 // don't give error when type of e1 is invalid
-        ; e1typepp := <pp-webdsl-to-string> e1type
+        ; e1typepp := <pp-type> e1type
         ; e2type := <type-of> e2 // don't give error when type of e2 is invalid
-        ; e2typepp := <pp-webdsl-to-string> e2type
+        ; e2typepp := <pp-type> e2type
         ; e2pp := <pp-webdsl-to-string> e2
         ; not(GenericSort("List", _) := e2type <+ GenericSort("Set", _) := e2type)
 
   constraint-error-ui-selectfrom :
     (e1,e2,sel) -> <add-error(|msg)> sel
-    where not(
-            l-srt-col := <type-of> e1
-          ; <?GenericSort(_, [l-srt]) <+ ?l-srt> l-srt-col
-          ; r-srt-col := <type-of> e2
-          ; GenericSort(_, [r-srt]) := r-srt-col 
-          ; <type-compatible> (l-srt, r-srt)
+    where l-srt-col := <type-of> e1
+        ; r-srt-col := <type-of> e2
+        ; <?GenericSort(_, [l-srt]) <+ ?l-srt> l-srt-col
+        ; <?GenericSort(_, [r-srt]) <+ ?r-srt> r-srt-col 
+        ; not(
+            <type-compatible> (l-srt, r-srt)
           )
-    with  msg := ["type in (collection of) ",<pp-webdsl> e1, " (",<pp-webdsl> l-srt,") should be compatible with type in collection ",<pp-webdsl> e2," (",<pp-webdsl> r-srt,")"]
+    with  msg := ["type in (collection of) ",<pp-webdsl> e1, " (",<pp-type> l-srt,") should be compatible with type in collection ",<pp-webdsl> e2," (",<pp-type> r-srt,")"]
 
 /**
  *  'allowed=exp' annotation
  */
 rules
+/*
+  extend-property-declare(|x_class) :
+    prop -> <fail> //each extend must fail so they all get evaluated
+    where get-property-annos; fetch(?AllowedAnno(e1))
+    with x_name := <get-property-name; allowed-collection-function-name> prop
+       ; srt := <get-property-type; try-strip-generic-sort> prop
+       ; <declare-function(|x_class)> 
+           fun |[ 
+             function x_name():List<srt> { } 
+           ]|
+*/
 
-  /*
-   * if it was input(Var) instead of input(FieldAccess), then there cannot be an allowed annotation
-   * the translation to SelectFrom is still required, since that form is expected for further desugaring
-   */
-  desugar-in-define-context :
-    tc@Select(x, srt, label, Var(var), passign*, elem*){anno*} ->
-    result
-    where result := <desugar-without-allowed-anno> tc        
-  
-  desugar-in-define-context :
-    tc@Select(x, srt, label, FieldAccess(var,x_prop), passign*, elem*){anno*} ->
-    result
-    where result := <desugar-with-allowed-anno <+ desugar-without-allowed-anno> tc        
-  
-  desugar-with-allowed-anno:
-    tc@Select(x, srt, label, fa@FieldAccess(var,x_prop), passign*, elem*){anno*} ->
-    result
-    where SimpleSort(x_vartypename) := <type-of> var
-        ; propannos := <property-annos> (x_vartypename,x_prop) 
-        ; <fetch(?AllowedAnno(e1))> propannos
-    with  t_typeofcol := <type-of> e1
-        ; x_name := <allowed-collection-function-name> x_prop
-        ; e_col := Call(var,x_name,[])
-        ; result := SelectFromList(fa, e_col, passign*, elem*){anno*}
-   
-  desugar-without-allowed-anno :
-    Select(x, srt, label, prop, passign*, elem*){anno*} -> SelectFromList(prop, hql, passign*, elem*){anno*}
-    with with-current-location(
-         <?SimpleSort(typename) <+ ?GenericSort(_,[SimpleSort(typename)])> srt
-       ; hql := <add-current-location> ForExp(Var("s"),"s",SimpleSort(typename),HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),None,None),None)])),None,None,None)),FilterNoWhereNoLimit(OrderNonSpecific(FieldAccess(Var("s"),"name"))))
-         )
-       //[s|s:SomeEntity in (from SomeEntity) order by s.name]
-       //; hql := HqlQuery(QueryRule(SelectFrom(None,FromClause([FromRangeJoin(FromClass(Path([typename]),Some(AsAlias(Alias("ent"))),None),None)])),None,None,Some(OrderByClause([OrderElement(Path(["ent","name"]),None)]))))
-       //from ~typename as ent order by ent.name   //doesn't work because name might not be available in query, if it is not a real property but e.g. derived or the default name
-         
-  keep-position-anno = ?Select(_,_,_,_,_,_)  
+  extend-property-declare(|x_class) :
+    prop -> <fail> //each extend must fail so they all get evaluated
+    where <get-property-kind; (?Ref() <+ ?Comp())> prop
+    with x_name := <get-property-name; allowed-collection-function-name> prop
+       ; srt := <get-property-type; try-strip-generic-sort> prop
+       ; <declare-function(|x_class)> 
+           fun |[ 
+             function x_name():List<srt> { } 
+           ]|
+
+rules
+
   keep-position-anno = ?SelectFromList(_,_,_,_)  
          
-// TODO constraint: 'allowed=' collection must be Set or List of property type
+// TODO constraint: 'allowed=' collection must be List property type
 // constraint: only 1 'allowed'
 // constraint: overlap with generated function below
 
@@ -145,8 +99,9 @@ rules
 
   not-translated-allowed-anno : 
     prop@Property(x, k, srt, annos) -> prop
-    where <fetch(?AllowedAnno(e1))> annos
-        ; <not(fetch(AllowedAnnotationFunctionGenerated))> annos
+    where /*<fetch(?AllowedAnno(e1))> annos
+        ; */<not(fetch(AllowedAnnotationFunctionGenerated))> annos
+        ; <?Ref() <+ ?Comp()> k
 
   get-all-function-allowed-annotation(|x_class):
     entbodydecs1 -> entbodydecs2
@@ -160,15 +115,15 @@ rules
     (Property(x, k, srt, [AllowedAnnotationFunctionGenerated()|annos])
     ,result)
     where not-translated-allowed-anno
-    with  <fetch(?AllowedAnno(e1))> annos
+    with  srt1@SimpleSort(sortname) := <try-strip-generic-sort> srt
+        ; (<fetch(?AllowedAnno(e1))> annos <+ e1 := Call(Var(sortname),"all",[]))
         ; x_name := <allowed-collection-function-name> x
-        ; srt_typeofcol := <type-of> e1
         ; result := 
             fun |[ 
-              function x_name():srt_typeofcol { return e1; } 
+              function x_name():List<srt1> { return e1; } 
             ]|
      
-  allowed-collection-function-name : x -> <concat-strings> ["allowedCollectionForProperty",<capitalize-string> x]   
+  allowed-collection-function-name : x -> <concat-strings> ["allowed",<capitalize-string> x]   
   
   rules //translate select to input(Set/List/Entity)
               

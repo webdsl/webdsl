@@ -1,4 +1,4 @@
-//#2 Multiple template definitions with signature test(Int,String,WikiText,Float)
+//#2 Multiple template definitions with signature test(Int, String, WikiText, Float)
 
 application test
 

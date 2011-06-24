@@ -46,7 +46,7 @@ strategies
     where resolve-function-call-to-decl; ?Function(_,_, s, _)
         
   declare-global-func = where (
-    ?decl@Function(f, args, s, b)//;<debug(!"DECLARE")> (f,args,s)
+    ?decl@Function(f, args, s, b) //;<debug(!"DECLARE")> (f,args,s)
     //  ; t1* := <map(?Arg(<type-of>,_))> args // type-of of name will get converted type: RefSort(srt) -> srt{IsRefSort}   // @TODO doesn't work atm, some function args are not renamed yet    
     ; t1* := <map(?Arg(_,<id>))> args
     ; t1refsortstripped* := <map(strip-ref-sort)> t1* //ref arg not used in overload resolution
@@ -82,3 +82,33 @@ strategies
   declare-action = ?DataBindAction(_)
   declare-action = ?ValidateAction(_)
   declare-action = ?RenderAction(_)
+  
+/**
+ * static entity methods
+ */
+rules
+  
+  eq-type-of :
+    Var(e) -> EntitySort(e)
+    where <IsEntity> e
+  
+rules 
+  
+  normalize-declare: StaticEntityFunction(f, args, ReturnType(r), body) -> Function(f, args, r, body)
+  
+  declare-function(|x_class): f@StaticEntityFunction(_,_,_,_) -> f
+    with  f2 := <with-origin(normalize-declare)> f
+        ; <declare-function(|x_class)> f2
+        ; <declare-static-function(|x_class)> f2
+        
+  declare-static-function(|x_class) =
+    ?def@Function(f, args, sort, _)
+    ; with(id
+      ; t1* := <map(?Arg(_,<id>))> args
+      ; rules( CheckFunctionSignatureArgumentTypesStatic :+
+                    (EntitySort(x_class), f, t2*) -> t1*
+                       where <zip(type-compatible)> (t1*, t2*)
+               EntityFunctionDeclStatic :+ (x_class, f, t1*) -> def
+             )
+      ) 
+      

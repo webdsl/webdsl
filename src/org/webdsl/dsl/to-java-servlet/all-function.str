@@ -1,0 +1,47 @@
+module org/webdsl/dsl/to-java-servlet/all-function
+
+rules
+
+/*
+    'all' function call needs special translation because Java can't handle the following:
+
+        class Foo implements WebDSLEntity<Foo>{
+          public List<Foo> all(){return null;}
+        }
+        class Bar extends Foo implements WebDSLEntity<Bar>{
+          public List<Bar> all(){return null;}   //The return type is incompatible with ReturnType.Foo.all()
+        }
+        @SuppressWarnings("rawtypes")
+        interface WebDSLEntity<T extends WebDSLEntity>{
+          public List<T> all();
+        }
+      
+     solution is to use List<?> and casts instead
+     
+ */
+          
+  webdsl-entity-function-to-java-servlet-hook :
+    Function("all",farg*,GenericSort("List",[SimpleSort(_)]),b){anno*} ->
+    Function("all",farg*,GenericSort("List",[SimpleSort("Entity")]),b){anno*}
+
+  call-to-java-servlet : 
+    Call(we,"all",[]) -> java |[ ((java.util.List<t_type>)(java.util.List<?>) e.all_()) ]|
+    where type := <get-type-anno> we
+        ; <has-entity-anno> type //defined entity
+    with  t_type := <strip-ref-sort; try-strip-generic-sort; java-type> type
+        ; e := <expression-to-java-servlet> we
+        
+  /*
+   *  also not possible with static functions
+   */      
+        
+  webdsl-entity-function-to-java-servlet-hook :
+    Function("$static$all",farg*,GenericSort("List",[SimpleSort(_)]),b){anno*} ->
+    Function("$static$all",farg*,GenericSort("List",[SimpleSort("Entity")]),b){anno*}
+          
+  special-static-method-call-to-java-servlet :
+    tc@Call(v,"all",[]) -> result
+    where EntitySort(x_class) := <get-type-anno> v
+    with  t_javaclass := <java-type-entity> x_class
+        ; x_javaclass := <java-type-to-java-name> t_javaclass
+        ; result := expr|[ (java.util.List<t_javaclass>)(java.util.List<?>) x_javaclass.$static$all_() ]|

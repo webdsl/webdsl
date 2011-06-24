@@ -1,0 +1,59 @@
+module org/webdsl/dsl/modules/all-function
+
+imports 
+  libstrategolib 
+  libjava-front 
+  libwebdsl-front
+ 
+/**
+ * Foo.all() where Foo is an entity name
+ */
+/*
+rules
+  
+  extend-entity-declare :
+    Entity(x_class,_,_) -> <fail> //each extend must fail so they all get evaluated
+    with srt := SimpleSort(x_class)
+       ; <declare-function(|x_class)> 
+           fun |[ 
+             static function all():List<srt> {} 
+           ]|
+*/
+
+/**
+ * Foo.all() where Foo is an entity instance
+ */
+rules //declare
+   
+  extend-entity-declare :
+    Entity(x_class,_,_) -> <fail> //each extend must fail so they all get evaluated
+    with srt := SimpleSort(x_class)
+       ; return := GenericSort("List",[SimpleSort(x_class)])
+       ; <declare-function(|x_class)> Function("all",[],return,Block([]))
+       ; <declare-function(|x_class)> StaticEntityFunction("all",[],ReturnType(return),Block([]))
+          
+rules 
+     
+  signature constructors AllFunctionGenerated : Term
+  rules
+  desugar : 
+    EntityNoSuper(name,entbodydec*){anno*} -> EntityNoSuper(name,[allfunction*,entbodydec*]){AllFunctionGenerated(),anno*}
+    where not(<fetch(AllFunctionGenerated)> anno*)
+    where allfunction* := <gen-all-function> name
+  desugar : 
+    Entity(name,super,entbodydec*){anno*} -> Entity(name,super,[allfunction*,entbodydec*]){AllFunctionGenerated(),anno*}
+    where not(<fetch(AllFunctionGenerated)> anno*)
+    where allfunction* := <gen-all-function> name
+  desugar : 
+    SessionEntity(name, entbodydec*){anno*} -> SessionEntity(name, [allfunction*,entbodydec*]){AllFunctionGenerated(),anno*}
+    where not(<fetch(AllFunctionGenerated)> anno*)
+    where allfunction* := <gen-all-function> name
+
+  gen-all-function : 
+    x_class -> [fun1|[fun2]]
+    with return := GenericSort("List",[SimpleSort(x_class)])
+    with block := Block([Return(HqlQuery(QueryRule(SelectFrom(None(),FromClause([FromRangeJoin(FromClass(Path([x_class]),None(),None()),None())])),None(),None(),None())))])
+    with fun1 := <declare-function(|x_class)> Function("all",[],return,block)
+    with fun2 := <declare-function(|x_class)> StaticEntityFunction("all",[],ReturnType(return),block)
+
+   

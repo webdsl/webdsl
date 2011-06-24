@@ -30,7 +30,7 @@ strategies // register all declared entities
   all-properties(|alreadychecked) :
     x_class -> result
     where not(<fetch(?x_class)> alreadychecked)
-    with  props := <bagof-Properties; concat> x_class
+    with  props := <bagof-Properties> x_class
         ; if not(<Extends> x_class)
           then result := []
           else
@@ -75,9 +75,9 @@ strategies // register all declared entities
   all-functions(|alreadychecked):
     x_class -> result
     where not(<fetch(?x_class)> alreadychecked)
-    with  funcs := <bagof-Functions; concat> x_class
+    with  funcs := <bagof-Functions> x_class
         ; if not(<Extends> x_class)
-          then result := []
+          then result := funcs
           else
             if not("Entity" := <Extends> x_class)
             then result := <concat> [funcs, <Extends; all-functions(|[x_class|alreadychecked])> x_class]
@@ -100,31 +100,19 @@ rules
   declare-entity =
       ?ent@Entity(x_class, x_super, entbodydecs)
     ; with(
-         props := <filter(is-property-cons)> entbodydecs
-      ; funcs := <filter(is-function-cons)> entbodydecs
-      ; rules(
-          EntDecl :+ x_class -> ent
-
-          Properties :+
-            x_class -> props
-
-          Functions :+
-            x_class -> funcs
-
+        rules(EntDecl :+ x_class -> ent)
+      ; <declare-entity-body(|x_class)> entbodydecs
 /*
           SubClasses :+
             l -> [(x_super, x_class)|l] where not(<elem> ((x_super, x_class), l))
 
           SubClass :+
             x_super -> x_class
-*/            
-        )
-      ; <map(declare-property(|x_class))> props
-      ; <map(declare-function(|x_class))> funcs
+*/
+      ; props := <filter(is-property-cons)> entbodydecs
       ; <handle-entity-id(|x_class)> props   
       ; <declare-function(|x_class)> fun |[ function getName() : String { } ]|   
       ; not(<extend-entity-declare> Entity(x_class, x_super, entbodydecs); debug(!"INTERNAL ERROR: extend-entity-declare must always fail"); <exit> 1) //for example used in typechecker/entity-events, ends in fail for extensibility
-      ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
     )
 
   normalize-declare: EntityNoSuper(x_class, entbodydecs) -> Entity(x_class, "Entity", entbodydecs)
@@ -169,21 +157,26 @@ rules
     
   declare-extend-entity :
     ExtendEntity(x_class, entbodydecs) -> ExtendEntity(x_class, entbodydecs)
-    with  props := <filter(is-property-cons)> entbodydecs
-        ; funcs := <filter(is-function-cons)> entbodydecs
-        ; rules( Properties :+
-                  x_class -> props
-
-                 Functions :+
-                   x_class -> funcs
-          )
-        ; <map(declare-property(|x_class) <+ debug(!"declare extend entity property"))> props
-        ; <map(declare-function(|x_class) <+ debug(!"declare extend entity function"))> funcs
-        ; <filter(extend-entity-declare-body(|x_class))> entbodydecs
+    with  <declare-entity-body(|x_class)> entbodydecs
+    
+  declare-entity-body(|x_class): entbodydecs -> entbodydecs2
+    with  (props,funcs,validations,searchmappings,rest) := <split-entity-body> entbodydecs
+    	; if (<not(?[])>searchmappings)
+    	  then rules(IndexedEntity : x_class) ; <map(?SearchMappingEmbedded(<id>); map(record-search-mapping(|x_class)))> searchmappings
+    	  end
+        ; <map(\prop -> <rules(Properties :+ x_class -> prop); declare-property(|x_class)> \)> props
+        ; <map(\func -> <rules(Functions :+ x_class -> func); declare-function(|x_class)> \)> funcs
+        ; entbodydecs2 := <concat> [props,funcs,validations,rest]
+        ; <filter(extend-entity-declare-body(|x_class))> entbodydecs2
        
+  get-property :
+  	(x_class, x) -> prop
+  	where prop := <PropertyDecl <+ <get-property> (<Extends> x_class, x)>
+  
   IsProperty = where(PropertyDecl)
+   
   TypeOfProperty = PropertyDecl; get-property-type
-       
+         
   declare-property(|x_class) =
     ?prop@Property(x, k, s, annos)
     ; rules( PropertyDecl   :+ (x_class, x) -> prop
@@ -193,7 +186,7 @@ rules
            )
     ; with (
         try(
-             <fetch(?SimpleAnno("searchable"))> annos
+             <has-searchable-anno> annos
           ; rules( IndexedEntity : x_class )
         )
       )
@@ -218,7 +211,7 @@ rules
     ?prop@DerivedProperty(x, k, srt, annos, e)
     ; where (
         try(
-             <fetch(?SimpleAnno("searchable"))> annos
+             <has-searchable-anno> annos
           ; rules( IndexedEntity : x_class )
         )
       )
