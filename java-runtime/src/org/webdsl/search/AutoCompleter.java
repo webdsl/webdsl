@@ -2,7 +2,6 @@ package org.webdsl.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,8 +26,6 @@ import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LevensteinDistance;
 import org.apache.lucene.search.spell.LuceneDictionary;
 import org.apache.lucene.search.spell.StringDistance;
-import org.apache.lucene.search.spell.SuggestWord;
-import org.apache.lucene.search.spell.SuggestWordQueue;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.ReaderUtil;
@@ -131,8 +128,7 @@ public class AutoCompleter implements java.io.Closeable {
       swapSearcher(autocompleteIndexDir);
     }
   }
-
-
+  
   /**
    * Suggest similar words (optionally restricted to a field of an index).
    *

@@ -16,7 +16,9 @@ module .servletapp/src-webdsl-template/built-in
   
   native class utils.IndexManager as IndexManager {
   	static indexSuggestions()
-    static optimizeIndex()    
+    static optimizeIndex() 
+    static clearAutoCompleteIndex(String)
+    static clearSpellCheckIndex(String)
   }
   
   //The default analyzer, equal to the one used by default in hibernate search

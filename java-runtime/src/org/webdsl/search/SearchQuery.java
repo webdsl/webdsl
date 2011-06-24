@@ -607,7 +607,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	private <F extends SearchQuery<EntityClass>> F setRangeQuery(Object from, Object to) {
 		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
-		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).excludeLimit().createQuery();
+		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).createQuery();
 		updateLuceneQuery = false;
 		updateFullTextQuery = updateEncodeString = true;
 		return (F) this;
