@@ -217,15 +217,15 @@ strategies
       )
 
   define-local-redefine =
-    ?def@Define(mods, tname{tname2}, fargs, _, elems1){anno*}
+    ?def@Define(mods, tname{tname2}, fargs, targs, elems1){anno*}
     ; where(is-local-template-def)
     ; where(<fetch(?EnclosingDefine(templatekey, encltemplatename, encltemplateargs, _))> anno*)
     ; where((argsredef,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,[elems1,<map(get-varname-from-formarg)>encltemplateargs]))
-    ; fargsredef := <local-redefine-arg-types(|fargs,LocalRedefineArgs(argsredef))>
-    ; gennameredef := <generate-template-name> (<strip-annos>tname2, fargsredef)
+    ; fargsredef := <conc>(fargs, fargs2)
+    ; gennameredef := <generate-template-name> (<strip-annos>tname2, <template-formal-arguments-to-types>fargsredef)
     ; gennamecall := <generate-template-name-fargs> (tname, fargs)
     ; rules (
-        LocalRedefDef: gennameredef -> def // Desugar has not been called on local redefine, so CurrentTemplateDecl will fail, we define a local version here 
+        LocalRedefDef: gennameredef -> Define(mods, tname{tname2}, fargsredef, targs, elems1){anno*} // Desugar has not been called on local redefine, so CurrentTemplateDecl will fail, we define a local version here 
         LocalRedefName: gennamecall -> gennameredef
         LocalRedefArgs: gennamecall -> argsredef
       )
@@ -338,10 +338,11 @@ strategies
        : with(id
          ; <alltd(define-local-redefine)> body
          // Here we mark the arguments as interesting, because they are in some way related to the persisten root or are constants which we can use in query conditions
+         // Removed the warnings, because a loop could occur when following a local redefine, because then some variables inside the redefine can belong to the caller and thus have the same name. This warning can be safely ignored.
          ; <filter({vars:
                      \ (e, Arg(x, srt)) ->  <id>
                        where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
-                       where not(<IteratedVarValue; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])> Var(x))
+                       where not(<IteratedVarValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])*/> Var(x))
                        with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
                                    IteratedVar      : Var(x) -> srt
                                  )
@@ -349,7 +350,7 @@ strategies
          ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
                        where not([] := <collect(IteratedSubList)> e)
-                       where not(<IteratedSubListValue; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])> Var(x))
+                       where not(<IteratedSubListValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])*/> Var(x))
                        with rules( IteratedSubListValue  : Var(x) -> e
                                    IteratedSubList       : Var(x) -> srt
                                  )

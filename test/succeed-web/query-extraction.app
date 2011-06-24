@@ -96,7 +96,7 @@ init {
 
 define page root(){
 	<div id="a1">output("" + (from Auction)[0].id)</div>
-	<div id="u1">output("" + (from User)[0].id)</div>
+	<div id="u1">output("" + (from User as u order by u.name asc)[0].id)</div>
 }
 
 define page auctionOverview1() {
@@ -200,6 +200,36 @@ define page preloadEntityFunctions(u : User) {
   <p id="entFetch">output(stats.getEntityFetchCount() - entFetch)</p>
 }
 
+define page localRedefine(u : User) {
+  localRedefineTempl(u)
+}
+
+define localRedefineTempl(u : User) {
+  var users : List<User> := (from User);
+  var stats : Statistics := HibernateUtilConfigured.getSessionFactory().getStatistics();
+  init{
+  stats.setStatisticsEnabled(true);
+  }
+  var entFetch : Long := stats.getEntityFetchCount();
+  main()
+  define body(s : String) {
+    for(a : Auction in u.auctions) {
+      if(a.item.name == s) {
+        output(a.item.name)
+      }
+    }
+    output(users)
+    <p id="entFetch">output(stats.getEntityFetchCount() - entFetch)</p>
+  }
+}
+
+define main() {
+  body("Item 1")
+}
+
+define body(s : String) {
+}
+
 test queriestest {
   var d : WebDriver := FirefoxDriver();
 
@@ -249,6 +279,12 @@ test queriestest {
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
   // entLoaded is always zero here, because the extracted query is executed before init block where we measure the starting state
+
+  d.get(navigate(localRedefine(u1)) + "?logsql");
+  elem := d.findElement(SelectBy.id("sqllogcount"));
+  assert(elem.getText().parseInt() == 2);
+  elem := d.findElement(SelectBy.id("entFetch"));
+  assert(elem.getText().parseInt() == 0);
 
   d.close();
 }
