@@ -51,6 +51,11 @@ function checkFiles($title, $data, $files) {
 			echo "$title: File should be written to: $file\n";
 		}
 	}
+	foreach($data['written'] as $file => $w) {
+	  if ($w['type'] == 'new') {
+	    echo "$title: File has changed: $file\n";
+	  }
+	} 
 }
 
 // Fresh start
@@ -66,9 +71,9 @@ checkFiles("Test:data", $data, array("Entry", "view_Entry", "login"));
 $data = compile("ac");
 checkFiles("Test:ac", $data, array("main", "main134", "root", "login", "pred_ac_AccessControlRule_3_8", "pred_ac_AccessControlRule_3_9", "pred_ac_AccessControlRule_3_10", "pred_ac_AccessControlRule_3_14", "Entry", "view_Entry"));
 
-// Test 3: if page access control has changed, recompile all pages
+// Test 3: if page access control has changed, recompile all pages, including view page
 $data = compile("pageac");
-checkFiles("Test:pageacl", $data, array("root", "login", "pred_pageac_AccessControlRule_3_8"));
+checkFiles("Test:pageacl", $data, array("root", "login", "pred_pageac_AccessControlRule_3_8", "Entry", "view_Entry"));
 
 // Test 4: if logging has changed, recompile entity and its generated view page
 $data = compile("logging");
