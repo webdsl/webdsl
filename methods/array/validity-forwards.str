@@ -35,10 +35,7 @@ strategies
 	      {| Moved:
 	        <verbose-msg> ["move rule pointer iter"];
 		      map-cached-defs(
-		        try(
-		          move-rule-pointer;
-		          rules(Moved := 1)
-		        )
+		        not(move-rule-pointer)  // will fail at some point
 		      );
 		      Moved
 		    |};
@@ -49,8 +46,8 @@ strategies
 	  
   get-pointer = Pointer <+ !1
 	  
-  //debug-sep(s) = debug(s)
-  debug-sep(s) = id
+  debug-sep(s) = debug(s)
+  //debug-sep(s) = id
 	  
   move-rule-pointer: def -> def
     where get-pointer => pointer;
@@ -64,6 +61,7 @@ strategies
             rules(RuleOwners :+ key -> def)
           end;
           <increase-pointer> def;
+          rules(Moved := 1);
           <move-rule-pointer> def   //recurse
           
   increase-pointer: def -> def
@@ -75,23 +73,17 @@ strategies
     ?(drkey@(name,key),xval*);
     // TODO: hashed-uniq should not be needed
     val* := <hashed-uniq> xval*;
-    if is-dr-usage-tracking-enabled then
-      curval* := <dr-lookup-rule(|name,key) <+ ![]>
-    else
-      curval* := <concat> [<dr-lookup-rule(|name,key) <+ ![]>, <get-cached-rules> drkey]  
-    end;
+    curval* := <get-all-rule-values> drkey;
     // TODO: use efficient version of subseteq (using hashtable)
-    if <subseteq> (<hashed-uniq> val*, curval*) then
-      id
-    else
+    if not(<subseteq> (<hashed-uniq> val*, curval*)) then
       <verbose-msg> ["Comparing vals for key (cur, expected): ", (drkey, (curval*, val*)), " for def: ", <CurrentDef <+ !"unknown">];
       fail
     end
           
   desugar-exhausted =
-    move-rule-pointers; notify-rules-loaded
+    move-rule-pointers; with(notify-rules-loaded)
     <+
-    <debug> "Exhausted debug, trying to invalidate creates";
+    <debug> "Exhausted desugar, trying to invalidate usages";
     map-cached-defs(try(invalidate-rule-pointer))
   
   invalidate-rule-pointer =
@@ -99,9 +91,11 @@ strategies
   
   invalidate-rule-pointer: def -> def
     where idx := (def, <get-pointer> def);
-          (key, val*) := <Usage> idx;  // if passed end of array, this will fail
+          (key@(drname, drkey), val*) := <Usage> idx;  // if passed end of array, this will fail
           // The current use is not valid; recompile the definition
-          <debug(!"Invalidate usage: ")> (idx, key); 
+          <debug(!"Invalidate usage: ")> (idx, key);
+          <Usage; Snd> idx; debug(!"Vals old: ");
+          <get-all-rule-values> key; debug(!"Vals cur: "); 
           <debug(!"Recompiling: ")> def;
           <trigger-recompilation> def // TODO; clear rules
   
