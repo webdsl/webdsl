@@ -91,35 +91,59 @@ rules // Track usage of DR's and return position info
   is-dr-usage-tracking-enabled =
     where(table-hashtable; hashtable-get(|"__TRACK_RULE_USAGE__"))
 
+signature constructors
+  
+  OnceValues : Term * Term * Term * Term * Term -> Term
+
 rules
   
   override dr-lookup-rule(|name, key) =
-    proceed => vals;
-    <on-rule-load> (name, key, vals)
+    vals := <proceed <+ ![]>;
+    <on-rule-load(conc)> (name, key, vals)
   
   // once-
-  /*
+  
   override dr-lookup-rule-pointer(|name, key) =
-    proceed => vals;
-    <on-rule-load(Fst)> (name, key, vals)
-    // TODO: take care of removals using once-
-  */
-   
+    val := <proceed <+ !([], key, None())>;
+    <on-rule-load(combine-pointers)> (name, key, (name, val))
+  
+  combine-pointers: ((name, (closures, key, tbl)), cached-vals) -> (closures', key, tbl')
+    with  //<debug(!"Got once key:")> key;
+          //<debug(!"Got closures: ")> closures;
+          //<debug(!"Got cached: ")> cached-vals;
+          closures' := OnceValues(closures, cached-vals, name, key, tbl);
+          tbl' := <lookup-table(|"OnceValuesDummyTable")>;
+          <hashtable-clear> tbl'
+  
+  override split-fetch(s) =
+    if ?OnceValues(closures1, closures2, name, key, tbl) then
+      if remaining := <split-fetch(s; ?x); conc> closures1 then
+        // In current values. Remove from tbl
+        <hashtable-put(|key, remaining)> tbl
+      else
+      	remaining := <split-fetch({x: ?x; s; ?val; closure := x}); conc> closures2;
+        <rule-undefined> ((name, key), closure)
+      end;
+      !([],[])  // will be stored in the dummy table created in combine-pointers
+    else
+      proceed
+    end
+    
   // all-keys-
   override dr-all-keys(|name) =
-    proceed => vals;
-    <on-rule-load> (name, DR_DUMMY(), vals)
+    vals := <proceed <+ ![]>;
+    <on-rule-load(conc)> (name, DR_DUMMY(), vals)
     
   // TODO: dr-lookup-all-rules for bigbagof-
     
-  on-rule-load: (name, key, vals) -> vals
+  on-rule-load(combine): (name, key, vals) -> vals
     where <not(is-used-dr) <+ dr-ignore-dr-tracking> name
     
-  on-rule-load: (name, key, vals) -> newvals
+  on-rule-load(combine): (name, key, vals) -> newvals
     with
       if RuleResolvingEnabled then
         cached := <lookup-cached-values> (name,key);
-        newvals := <concat> [cached, vals]
+        newvals := <combine> (vals,cached)
       else
         newvals := vals
       end;
