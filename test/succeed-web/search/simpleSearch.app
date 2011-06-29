@@ -20,7 +20,7 @@ application test
   define page searchPage(){
     var q := PersonSearchQuery();
     output("Search page:")    
-    output(q.terms("pepe").list()[0].name) 
+    output(q.query("pepe").list()[0].name) 
   }
   
   test SimpleSearch {

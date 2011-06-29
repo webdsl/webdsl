@@ -54,7 +54,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected String[] searchFields;
 	protected String[] mltSearchFields;
 	
-	protected String searchTerms = "";
+	protected String queryText = "";
 	protected String narrowFacets = "";
 	protected String sortFields = "";
 	protected String sortDirections = "";
@@ -146,7 +146,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 	
 	private boolean createMultiFieldQuery(){
-		if (!searchTerms.isEmpty()) {
+		if (!queryText.isEmpty()) {
 			
 			SpecialMultiFieldQueryParser parser;
 			if(boosts == null || boosts.isEmpty()) 
@@ -158,9 +158,9 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			
 			try {
 				if(allowLuceneSyntax)
-					luceneQuery = parser.parse(searchTerms);
+					luceneQuery = parser.parse(queryText);
 				else
-					luceneQuery = parser.parse(SpecialMultiFieldQueryParser.escape(searchTerms));
+					luceneQuery = parser.parse(SpecialMultiFieldQueryParser.escape(queryText));
 			} catch (org.apache.lucene.queryParser.ParseException pe){ 
 				return false;
 			}
@@ -202,7 +202,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			// allow Lucene syntax?
 			allowLuceneSyntax(Boolean.getBoolean(props[15]));
 			//search terms
-			terms(decodeValue(props[1]));
+			query(decodeValue(props[1]));
 			//default operator
 			if(props[2].equals("AND"))
 				defaultAnd();
@@ -312,7 +312,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			sb.append(searchFields[cnt] + ",");
 		sb.append(searchFields[searchFields.length-1]);
 		//1 search terms
-		sb.append("|" + encodeValue(searchTerms));
+		sb.append("|" + encodeValue(queryText));
 		//2 default operator
 		sb.append("|" + op);
 		//3 constraint fields
@@ -593,7 +593,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return -1;
 	}
 	public String searchTimeAsString() {
-		return searchTime + " ms.";
+		return searchTime + " ms";
 	}
 
 	public int searchTimeMillis() {
@@ -659,13 +659,13 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			return SortField.STRING;
 	}
 		
-	public String terms(){
-			return this.searchTerms;
+	public String query(){
+			return this.queryText;
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends SearchQuery<EntityClass>> F terms(String terms) {
-		searchTerms = terms;
+	public <F extends SearchQuery<EntityClass>> F query(String query) {
+		queryText = query;
 		updateLuceneQuery = updateEncodeString = true;
 		return (F) this;
 	}

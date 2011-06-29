@@ -18,9 +18,9 @@ application test
   	owner 		-> Person (inverse=Person.items)
   	
   	searchmapping {
-  		name as nameField;
-  		name as nameFieldNoStop using standard_no_stop;
-  		//name as nameCustomStop using custom_stop;
+  		name as nameField
+  		name as nameFieldNoStop using standard_no_stop
+  		//name as nameCustomStop using custom_stop
   		name as nameCompletion using autocomplete_untokenized (autocomplete);
   		description;
   	}
@@ -79,11 +79,11 @@ application test
     output("Search page:")   
     
     
-    "simplesearch-1:" output(itemQuery.terms("bottle").list()[0].name) 
-    "embeddedsearch-1:" output(personQuery.terms("bottle").list()[0].name)
-    "embeddedsearch-2:" output(personQuery.field("items.nameField").terms("bottle").list()[0].name)
-    "nostopfilter-1:" if(itemQuery.field("nameFieldNoStop").terms("of").list().length == 1){output(itemQuery.list()[0].name)}
-    "stopfilter-1:" if(itemQuery.fields(["nameField"]).terms("of").list().length == 0){"OK"}
+    "simplesearch-1:" output(itemQuery.query("bottle").list()[0].name) 
+    "embeddedsearch-1:" output(personQuery.query("bottle").list()[0].name)
+    "embeddedsearch-2:" output(personQuery.field("items.nameField").query("bottle").list()[0].name)
+    "nostopfilter-1:" if(itemQuery.field("nameFieldNoStop").query("of").list().length == 1){output(itemQuery.list()[0].name)}
+    "stopfilter-1:" if(itemQuery.fields(["nameField"]).query("of").list().length == 0){"OK"}
     "morelikethis-1:" output(itemQuery.field("description").moreLikeThis(drPepperItems[0].description).maxResults(10).resultSize())
     "morelikethis-2-3:" output(itemQuery.list()[0].name) 
     "morelikethis-2-3:" output(itemQuery.list()[1].name)
@@ -95,7 +95,7 @@ application test
     "autocomplete-2:" output(ItemSearchQuery.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
     "autocomplete-3:" output(ItemSearchQuery.autoCompleteSuggest("pepf","nameCompletion",1)[0])
     "autocomplete-4:" output(ItemSearchQuery.autoCompleteSuggest("b","nameCompletion",1)[0])
-    //"customstopfilter-1:" output(itemQuery.field("nameCustomStop").terms("diet").resultSize())
+    //"customstopfilter-1:" output(itemQuery.field("nameCustomStop").query("diet").resultSize())
     
   }
   

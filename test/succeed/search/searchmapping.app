@@ -14,7 +14,7 @@ entity A : SuperA{
 }
 
 searchmapping SuperA{
-	b as searchfield;
+	b as searchfield
 }
 searchmapping A{
 	
@@ -45,7 +45,7 @@ entity D{
 	someAs -> Set<A>
 }
 searchmapping D{
-	someAs;
+	someAs
 }
 //E
 entity E{
@@ -53,7 +53,7 @@ entity E{
 }
 extend entity E{
 	searchmapping {
-		a as b;
+		a as b
 	}
 }
 //F
@@ -105,14 +105,14 @@ define page root() {
 		var y6 : List<F> := x6;
 		var y7 : List<G> := x7;
 		var y8 : List<H> := x8;
-		var z1 : List<A> := ASearchQuery().terms("webdsl").list();
-		var z2 : List<B> := BSearchQuery().terms("webdsl").list();
-		var z3 : List<C> := CSearchQuery().terms("webdsl").list();
-		var z4 : List<D> := DSearchQuery().terms("webdsl").list();
-		var z5 : List<E> := ESearchQuery().terms("webdsl").list();
-		var z6 : List<F> := FSearchQuery().terms("webdsl").list();
-		var z7 : List<G> := GSearchQuery().terms("webdsl").list();
-		var z8 : List<H> := HSearchQuery().terms("webdsl").list();
+		var z1 : List<A> := ASearchQuery().query("webdsl").list();
+		var z2 : List<B> := BSearchQuery().query("webdsl").list();
+		var z3 : List<C> := CSearchQuery().query("webdsl").list();
+		var z4 : List<D> := DSearchQuery().query("webdsl").list();
+		var z5 : List<E> := ESearchQuery().query("webdsl").list();
+		var z6 : List<F> := FSearchQuery().query("webdsl").list();
+		var z7 : List<G> := GSearchQuery().query("webdsl").list();
+		var z8 : List<H> := HSearchQuery().query("webdsl").list();
 	}
 		
 }
