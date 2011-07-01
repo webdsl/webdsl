@@ -25,7 +25,7 @@ rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
        //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
-       ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); foldr([], join-conditions) <+ !True()); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
+       ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
        ; info(|["Should be inlined: ", joincandidates])
@@ -232,7 +232,7 @@ strategies
 
   // Follow a template call
   an-potential-joins =
-    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    (?TemplateCall(_, _, [TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
     ; not([] := <filter(where(type-of; is-entity-type); get-accessible-var; (IteratedVar <+ IteratedSubList))> args)
     ; (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
     ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
@@ -280,13 +280,6 @@ strategies
   get-local-template-redefine(|args) =
     where(not(LocalRedefName))
     ; !(<id>, args, <CurrentTemplateDecl>)
-
-  an-potential-joins =
-    ?TemplateCall(_, args*, passign*, TemplateBody([]))
-    ; where(<fetch(?tc@TemplateCall(_,_,_,_))> passign*)
-    ; effectful := <conc; remove-all(?tc); collect-effectful-potential-joins> (args*, passign*)
-    ; called := <collect-potential-joins> tc
-    ; <conc> (effectful, called)
 
   an-potential-joins =
     (?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, _))
@@ -355,7 +348,7 @@ strategies
                                    IteratedSubList       : Var(x) -> srt
                                  )
                      \})> <zip> (args, fargs)
-         ) 
+         )
        ; <collect-potential-joins> body
      |}
 
