@@ -20,24 +20,40 @@ rules
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
-       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <make-set; map(info(|["FA from ", x, ": ", <id>]))> fas
+       //; <log-query-optimization-collect-table(|100,100,5)> fas
        ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
-       ; info(|["Should be inlined: ", joincandidates])
+       //; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
        ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
        ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
-       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
-       ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
-       ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
-       ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
+       //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       //; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
+       //; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
+
+log-query-optimization-collect-basic =
+  make-set
+  ; map(info(|["FA: ", <id>]))
+
+log-query-optimization-collect-table(|col1,col2,col3) =
+  info(|["+-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-+"])
+  ; info(|["| Path", <align-helper(|' ', col1)>"Path", " | Condition", <align-helper(|' ', col2)>"Condition", " | Need", <align-helper(|' ', col3)>"Need", " |"])
+  ; info(|["|-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-|"])
+  ; map(
+      <concat-strings>["| ", <Fst;pp-webdsl-to-string>, <Fst;pp-webdsl-to-string;align-helper(|' ', col1)>, " | ", <Snd;pp-webdsl-to-string>, <Snd;pp-webdsl-to-string; align-helper(|' ', col2)>, " | ", <Third;pp-webdsl-to-string>, <Third;pp-webdsl-to-string;align-helper(|' ', col3)>, " |"]
+    )
+  ; make-set
+  ; string-sort
+  ; map(info(|<id>))
+  ; info(|["+-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-+"])
 
 /*
 group-joins :
@@ -119,36 +135,44 @@ strategies
   an-potential-joins =
     ?FieldAccess(l, _)
     ; oncetd(where(IteratedVar); not(IteratedVarValue))
-    ; where(get-accessible-var)
+    ; is-not-a-derived-prop
     ; !(<id>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?fa)
-    ; where(get-accessible-var)
+    ; is-not-a-derived-prop
     ; !(<id>, <QueryConditions>, <IsEffectful>)
-
-  /*an-potential-joins =
-    ?fa@FieldAccess(l, _)
-    ; repeat(oncetd(IteratedVarValue))
-    ; not(?fa)
-    ; where(get-accessible-var)
-    ; !(<id>, <QueryConditions>, <IsEffectful>)
-
-  an-potential-joins =
-    ?fa@FieldAccess(l, _)
-    ; repeat(oncetd(IteratedSubListValue))
-    ; not(?fa)
-    ; where(get-accessible-var)
-    ; !(<id>, <QueryConditions>, <IsEffectful>)*/
 
   an-potential-joins =
     ?Var(_)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?Var(_))
-    ; where(get-accessible-var)
+    ; is-not-a-derived-prop
     ; !(<id>, <QueryConditions>, <IsEffectful>)
+
+  is-not-a-derived-prop =
+    is-not-a-derived-prop-helper
+    ; ?(<id>, _)
+
+  is-not-a-derived-prop-helper:
+    FieldAccess(v, f) -> (FieldAccess(p, f2), srt)
+    where (p, SimpleSort(x_class)) := <is-not-a-derived-prop-helper> v
+    ; not(<is-derived-property> (x_class, f))
+    ; fsrt := <get-prop-type> (x_class, f)
+    ; f2 := <try(get-real-col-prop-name(|x_class, fsrt))> f
+    ; srt := <try-strip-generic-sort; ?SimpleSort(_)> fsrt
+
+  is-not-a-derived-prop-helper:
+    v@Var(_) -> (v, srt)
+    where srt := <RootVar> v
+
+  get-real-col-prop-name(|x_class, srt) =
+    where(GenericSort("List", lsrt) := srt)
+    ; where(string-ends-with(|"List"))
+    ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
+    ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
 
   an-potential-joins =
     ?Call(e, nm, arg*){anno*}
@@ -412,9 +436,7 @@ strategies // checks for potential inlining
 
   get-accessible-expr = where((ParentArgs <+ IteratedVar); is-query-condition-type)
 
-  get-accessible-dbfield = where(?FieldAccess(v, _); <?Var(_)> v; <RootVar> v)
-
-  get-accessible-dbfield = where(?FieldAccess(v, _); <get-accessible-dbfield> v)
+  get-accessible-dbfield = ?FieldAccess(_, _); is-not-a-derived-prop
 
   get-accessible-field =
   	where(
