@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
@@ -475,6 +476,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				.getDirectoryProviders(entityClass)[0];
 		ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		return readerProvider.openReader(provider);
+	}
+	
+	public static String escapeQuery(String query){
+		return QueryParser.escape(query);
 	}
 	
 	public String highlight(String field, String toHighLight){
