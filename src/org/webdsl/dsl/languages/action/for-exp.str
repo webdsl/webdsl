@@ -1,10 +1,13 @@
 module org/webdsl/dsl/languages/action/for-exp
 
 imports
-  libstrategolib
-
-imports
   libwebdsl-front
+  org/webdsl/dsl/typechecker/rename
+  org/webdsl/dsl/typechecker/utils
+  org/webdsl/dsl/typechecker/error
+  org/webdsl/dsl/languages/composition
+  org/webdsl/dsl/transformation/emit
+  org/webdsl/dsl/languages/action/not-null-checks
 
 signature
   constructors
@@ -12,8 +15,8 @@ signature
 
 rules
 
-  normalize-action :
-    ForExpNoFilter(oe, x, s, ie){anno*} -> ForExp(oe, x, s, ie, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0")))){anno*}
+  normalize-constructor :
+    ForExpNoFilter(oe, x, s, ie){anno*} -> ForExp(oe, x, s, ie, None()){anno*}
 
 rules
 
@@ -29,17 +32,6 @@ rules
           |}
         ; ie2 := <rename-all> ie1
 
-  rename-action :
-    fe@ForExpNoFilter(oe1, x, srt, ie1){anno*} -> ForExpNoFilter(oe2, y, srt2, ie2){anno1*}
-    with  anno1* := <put-closure-in-anno> anno*
-        ; {| Rename
-          : srt2 := <rename-all> srt
-          ; y := <rename-bound(|srt2)> x
-          ; rules(VarDecl : y -> fe)
-          ; oe2 := <rename-all> oe1
-          |}
-        ; ie2 := <rename-all> ie1
-        
   rename-action :
     AndForExp(e1){anno*} -> AndForExp(e2){anno1*}
     with  anno1* := <put-closure-in-anno> anno*
@@ -98,6 +90,11 @@ rules
     where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
     
   eq-type-of-action :
+    ForExp(oe, x, s, ie, _) -> t
+    where toe := <type-of> oe //type added by rename rule above
+        ; t := GenericSort("List", [toe])
+/*    
+  eq-type-of-action :
     ForExp(oe, x, s, ie, Filter(we, obe, l)) -> t
     where tie := <type-of> ie
         ; toe := <type-of> oe
@@ -107,21 +104,18 @@ rules
         ; SimpleSort("Bool") := twe
 
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoOrderByNoLimit(we)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, OrderNonSpecific(Null()), Limit(Int("1000"), Int("0"))))
+    ForExp(oe, x, s, ie, FilterNoOrderByNoLimit(we)) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, None(), None()))
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoWhereNoLimit(obe))  -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), obe, Limit(Int("1000"), Int("0"))))
+    ForExp(oe, x, s, ie, FilterNoWhereNoLimit(obe))  -> <eq-type-of> ForExp(oe, x, s, ie, Filter(None(), obe, None()))
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoLimit(we,obe))      -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, obe, Limit(Int("1000"), Int("0"))))
+    ForExp(oe, x, s, ie, FilterNoLimit(we,obe))      -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, obe, None()))
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoOrderBy(we, l))     -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, OrderNonSpecific(Null()), l))
+    ForExp(oe, x, s, ie, FilterNoOrderBy(we, l))     -> <eq-type-of> ForExp(oe, x, s, ie, Filter(we, None(), l))
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoWhere(obe, l))      -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), obe, l))
+    ForExp(oe, x, s, ie, FilterNoWhere(obe, l))      -> <eq-type-of> ForExp(oe, x, s, ie, Filter(None(), obe, l))
   eq-type-of-action :
-    ForExp(oe, x, s, ie, FilterNoWhereNoOrderBy(l))  -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), OrderNonSpecific(Null()), l))
-    
-  eq-type-of-action :
-    ForExpNoFilter(oe, x, s, ie) -> <eq-type-of> ForExp(oe, x, s, ie, Filter(True(), OrderNonSpecific(Var(x)), Limit(1000, 0)))
-
+    ForExp(oe, x, s, ie, FilterNoWhereNoOrderBy(l))  -> <eq-type-of> ForExp(oe, x, s, ie, Filter(None(), None(), l))
+*/    
 rules
 
   constraint-error-action :
@@ -133,7 +127,6 @@ rules
     where not(SimpleSort("Bool") := <type-of>)
 
   constraint-error-action : ForExp(_, _, srt, col, _)      -> <forexp-constraint-error(|srt,col)>
-  constraint-error-action : ForExpNoFilter(_, _, srt, col) -> <forexp-constraint-error(|srt,col)>
 
   forexp-constraint-error(|srt,col) :
     fe -> <add-error(|["collection in for-expression does not contain declared type ",<pp-type> srt])>
@@ -172,7 +165,6 @@ rules
         ; <rename-this-var;emit-webdsl-code> def{anno*}
         
   keep-position-anno = ?ForExp(_,_,_,_,_)  
-  keep-position-anno = ?ForExpNoFilter(_,_,_,_)  
 
   desugar-action :
     AndForExp(e){anno*} -> ThisCall(x_fun, arg*)
