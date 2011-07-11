@@ -2,17 +2,72 @@ module org/webdsl/dsl/languages/action/typechecker/call
 
 imports
   libstrategolib
-  Java-15 
   libjava-front
-
-imports
   libwebdsl-front
-
-signature
-  constructors
-    ThisCallParent : String -> Annotation
   
+rules
+      
+  /**
+   *  ThisCall constructor is overloaded for function calls
+   */
+  rename-ui :
+    t1@ThisCall(fname, e1*){anno*} -> t2
+    where not("email" := fname)
+    where not("navigate" := fname) //see navigate-function.str
+    with  e2* := <rename-all> e1*
+          //try to find a parent, and put it in the annotations. fails if already defined above
+        ; if parent := SimpleSort(<InEntity>); <test-entity-function-call> (parent,fname,e2*) then //call to entity function, disambiguate by adding 'this.' 
+            t2 := Call(<rename-all>Var("this"), fname, e2*){anno*}
+          else //call to global function 
+            t2 := <try(Rename)> ThisCall(fname, e2*){anno*} //rename necessary for function-exp support  
+          end          
+  
+rules
+
+  test-entity-function-call = test-signature(check-function-signature) 
+  test-page-call = test-signature(CheckPageSignature) 
+  
+  test-signature(s) :
+    (tcallee, f, e*) -> t
+    where t* := <map(type-of);prepare-type-list-for-compare> e*
+        ; f1 := <strip-annos> f
+        ; t  := <s> (tcallee, f1, t*)
+                 
+  check-signature :
+    (tcallee, f, e*) -> t
+    where t* := <map(type-of);prepare-type-list-for-compare> e* //strip-annos needed (applied in prepare-type-list-for-compare), e.g. IsRefSort() anno could cause match to fail
+        ; f1 := <strip-annos> f
+        ; t  := <check-signature-aux
+                <+ 
+                not(InTypeCheckingPhase)
+                ;exit-with-stacktrace(|"invalid function call: ")> (tcallee, f1, t*)
+
+  exit-with-stacktrace(|msg) = with(debug(<concat-strings>["Error found during compilation: ",msg]); fail)
+ 
+  //gradually moving to more specific test strategies above to avoid accidental overlaps between signature types
+  check-signature-aux =
+       check-function-signature
+    <+ CheckPageSignature
+    <+ CheckGlobalFunctionSignature
+    <+ check-builtin-signature
+    <+ check-ref-argument-entity-access-sig
+
+  check-function-signature = check-function-signature(|[])
+  
+  check-function-signature(|alreadychecked) =
+     strip-annos; CheckFunctionSignature
+  <+ check-entity-function-signature(|alreadychecked)
+
+  check-entity-function-signature(|alreadychecked) :
+    (SimpleSort(s), f, args) -> <check-function-signature(|[s|alreadychecked])> (SimpleSort(<Extends> s), f, args)
+    where not(<fetch(?s)> alreadychecked) //prevent loop on invalid input 'entity Entity'
+
+
 rules //calls
+  
+  signature constructors ThisCallParent : String -> Annotation
+  rules
+    
   get-this-call-parent :
     _{anno*} -> p
     where <fetch(?ThisCallParent(p))> anno*
@@ -31,45 +86,39 @@ rules //calls
  
   // checks for wrong arguments when calling a function
   // TODO: Make more domain-specific (specific for actions, functions and pages)
-  constraint-error-action :
-    tc@ThisCall(f, e2*){anno*} -> <add-error(|["No function '", f, "' with signature ", sig])>
+  constraint-error-action = constraint-error-this-call
+  constraint-error-this-call :
+    tc@ThisCall(f, e2*){anno*} -> <add-error(|["No function '", f, "' with signature ", sig, ". Available global functions with that name: ", globalsigs])>
     where not(type-of)
         ; argtypes := <map(type-of)> e2* // don't report when sub-expression was already wrong
     with  sig := <pretty-print-call(|f,argtypes)>
+    with  globalsigs := <strip-annos; bagof-GlobalFunctionArgs; map(<pp-func-sig-farg> (f,<id>)); separate-by(!", "); concat-strings> f
 
   eq-type-of-action :
     Call(e1, f, e2*) -> t
     where te1 := <type-of> e1
         ; t := <check-signature> (te1, f, e2*)
 
-  eq-type-of-action =
-    eq-type-of-this-call-local <+ eq-type-of-this-call-global
-
-  eq-type-of-this-call-local ://TODO remove this variant when all type of actions calls are converted
-    c@ThisCall(f, e2*) -> t
-    where parents := <get-this-call-parent-multiple> 
-        ; t := <fetch-elem(<check-signature> (<id>, f, e2*))> parents //multiple parent templates, since it might be located in a nested template, any of the parents can contain the action
+  eq-type-of-action = eq-type-of-this-call-global
 
   eq-type-of-this-call-global :
     c@ThisCall(f, e2*) -> t
+    where not(FunctionSort(_,_) := <type-of> Var(f))
     where t := <check-signature> (None(), f, e2*) 
         
-/*  eq-type-of-action :
-    ThisCall(f, []) -> t
-    where procedure-names := <bagof-Procedures; make-set> SimpleSort(x_ent)
-        ; map(?)*/        
-
 rules  // back-end annotations
+  
+  map-type-of = with(map(with-type-of);?x);!x
+  with-type-of = with(type-of;?x);!x
 
-  add-backend-annotation =
-      ?ThisCall(x, e)
-    ; where(not(eq-type-of-this-call-local))   // is not a local call
+  add-backend-annotation = ?ThisCall(x, e)
     ; if <IsNativeFunction> x
       then
         add-new-anno(|NativeFunctionCallAnno())
       else
         //add sig to determine whether arg should be passed as ref arg or regularly, currently only passed as ref arg to access control checks
-        with( calledFunctionSig := <CheckGlobalFunctionSignatureArgumentTypes <+ ![]> (None(),x,<map(type-of)> e) )
+        where(calledFunctionSig := <(!(x,<CheckGlobalFunctionSignatureArgumentTypes> (None(),x,<map-type-of> e)); FunctionDecl; ?Function(_,<map(?Arg(_,<id>))>,_,_) <+![])>) /*CheckGlobalFunctionSignatureArgumentTypes fails for built-in global functions that don't exist in the AST*/
       ; add-new-anno(|GlobalCallAnno(calledFunctionSig))
       end
+    ; try(add-backend-annotation-function-var-call)
     

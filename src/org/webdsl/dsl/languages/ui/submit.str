@@ -18,6 +18,10 @@ rules
          end
 
 rules
+  
+  test-action-call = test-signature(CheckActionSignature) 
+
+rules
 
   constraint-error-ui :
     tc@ActionCall(f, e2*) -> <add-error(|["Cannot find action with signature ", sig, "."])>
@@ -26,7 +30,9 @@ rules
     with  sig := <pretty-print-call(|f,argtypes)>
 
   eq-type-of-ui :
-    ActionCall(f,e*){anno*} -> <eq-type-of-this-call-local> ThisCall(f,e*){anno*}
+    ActionCall(f,e*){anno*} -> t
+    where parents := <get-this-call-parent-multiple> 
+        ; t := <fetch-elem(<test-action-call> (<id>, f, e*))> parents //multiple parent templates, since it might be located in a nested template, any of the parents can contain the action
 
 rules //convert deprecated submit constructors to new style
 
@@ -65,8 +71,7 @@ rules //wrap submit/submitlink in template that handles validation output
 rules
       
   add-backend-annotation :
-    a@ActionCall(f, e2*){anno*} -> a{ActionFargAnno(called-action-fargs),anno*}
+    a@ActionCall(f, e*){anno*} -> a{ActionFargAnno(called-action-fargs),anno*}
     where has-no-anno(?ActionFargAnno(_))
     with  parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
-        ; t* := <map(type-of; strip-ref-sort)> e2*
-        ; called-action-fargs := <CheckActionSignature> (parent, f, t*)
+        ; called-action-fargs := <test-action-call> (parent, f, e*)

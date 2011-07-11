@@ -16,7 +16,7 @@ strategies
     Also, entity functions and global functions can have the same name, but not all may have to be renamed.
   */ 
 
-  // @TODO: Rename this strategy
+  // @TODO: handle overloading during rename phase instead, avoid having ambiguities at this point
   aggregate-and-combine-functions =
     ?app@Application(qid, sections)
     ; globalfuncs := <collect(\ Section(_,defs) -> <filter(?Function(_, _, _, _))> defs \) ;concat> sections
@@ -134,8 +134,6 @@ rules	// rename entity functions (keep looking for global calls inside the entit
           ; result := Call(<rename-all> Var("this"),nm2,arg*)
           |}
 
-  function-decl-to-newname: Function(nm,farg*,_,_) -> <new-function-name> (nm, <map(farg-to-type)> farg*)
-
   // Resolve entity function by traversing supertypes
   resolve-entity-call: (ent, nm, targ*) -> f
     with f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
@@ -155,26 +153,15 @@ rules // rename overloaded global functions
   rename-overloaded-global-function(|torename_global,torename_entity) :
     tc@ThisCall(nm, arg*){anno*} -> ThisCall(nm2, arg*){anno*}
     where <elem> (nm, torename_global)
+    with  typelist := <map(type-of);prepare-type-list-for-compare> arg*
+        ; cleanname := <strip-annos> nm
           // is not an entity function call
-        ; not(<CheckFunctionSignature> (SimpleSort(<ThisEntity>), nm, <map(type-of)> arg*))
-    with  nm2 := <resolve-function-call-to-decl; function-decl-to-newname> (None(), nm, <map(type-of)> arg*)
+    where not(<CheckFunctionSignature> (SimpleSort(<ThisEntity>), nm, typelist))
+    with  nm2 := <resolve-function-call-to-decl; function-decl-to-newname> (None(), cleanname, typelist)
 
 rules // renaming
 
-  new-function-name :
-    (nm, argtypes) -> nm2
-    with extra := <map(sort-to-string)> argtypes
-         ; nm2 := <concat-strings> [nm, <separate-by(|"_"); concat-strings> extra]
-
-  // also allow new-function-name on formal arguments
-  sort-to-string :
-    Arg(_, srt) -> <sort-to-string> srt
-
-  sort-to-string :
-    SimpleSort(x) -> x
-
-  sort-to-string :
-    GenericSort(t, [t2]) -> <concat-strings> [t, "_", <sort-to-string> t2]
+  function-decl-to-newname: Function(nm,farg*,_,_) -> <new-function-name> (nm, <map(farg-to-type)> farg*)
 
 rules
 
