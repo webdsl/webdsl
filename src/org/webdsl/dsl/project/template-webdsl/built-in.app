@@ -1,6 +1,7 @@
 module .servletapp/src-webdsl-template/built-in
 
   section search
+  
   //optimization of search index, twice a day
   invoke optimizeSearchIndex() every 12 hours
   //Update the spell check and autocompletion indices twice a day
@@ -19,6 +20,14 @@ module .servletapp/src-webdsl-template/built-in
     static optimizeIndex() 
     static clearAutoCompleteIndex(String)
     static clearSpellCheckIndex(String)
+  }
+  
+  //Used to declare Hibernate Search annotations only once (like the full text filter definitions)
+  entity dummy_webdsl_entity{
+  	text :: String
+  	searchmapping {
+  		text using no
+  	}
   }
   
   //The default analyzer, equal to the one used by default in hibernate search
