@@ -4,7 +4,6 @@ imports // imports only needed for pp-aterm-box and box2text-string
   libstratego-gpp
   libstratego-aterm
 
-
 rules
 
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
@@ -24,13 +23,13 @@ rules
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <log-query-optimization-collect-table(|100,100,5)> fas
-       ; querycondition := <(filter(?(_, _, True())); map(?(_, <id>, _)); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
+       //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
-       ; joincandidates := <map(?(<id>, _, _)); filter(an-requires-joining); flatten-list; make-set/*; string-sort-desc; foldr([], create-aliasses)*/> fas
+       ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
        //; info(|["Should be inlined: ", joincandidates])
-       ; queryjoins := <map(?(<id>, _, _)); filter(an-requires-joining-generic); make-set> fas
-       ; queryroots := <map(?(<id>, _)); make-set; string-sort> queryjoins
+       ; queryjoins := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-generic); make-set> fas // Cannot remove casts, because they are important for type-of
+       ; queryroots := <map(Fst); make-set; string-sort> queryjoins
        ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
        //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
@@ -38,6 +37,8 @@ rules
        //; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
        //; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
+
+  remove-casts = repeat(oncetd(?Cast(<id>, _)))
 
 log-query-optimization-collect-basic =
   make-set
@@ -47,8 +48,17 @@ log-query-optimization-collect-table(|col1,col2,col3) =
   info(|["+-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-+"])
   ; info(|["| Path", <align-helper(|' ', col1)>"Path", " | Condition", <align-helper(|' ', col2)>"Condition", " | Need", <align-helper(|' ', col3)>"Need", " |"])
   ; info(|["|-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-|"])
-  ; map(
-      <concat-strings>["| ", <Fst;pp-webdsl-to-string>, <Fst;pp-webdsl-to-string;align-helper(|' ', col1)>, " | ", <Snd;pp-webdsl-to-string>, <Snd;pp-webdsl-to-string; align-helper(|' ', col2)>, " | ", <Third;pp-webdsl-to-string>, <Third;pp-webdsl-to-string;align-helper(|' ', col3)>, " |"]
+  ; make-set
+  ; map({col1Val, col2Val, col3Val, str1, str2, str3, align1, align2, align3:?(col1Val, _, col2Val, col3Val)
+    ; str1 := <pp-webdsl-to-string> col1Val
+    ; str2 := <?True() < !"true" + (webdsl-to-abox; box2text-string(|col2))> col2Val
+    ; str3 := <?True() < !"true" + !"false"> col3Val
+    ; align1 := <align-helper(|' ', col1)> str1
+    ; align2 := <align-helper(|' ', col2)> str2
+    ; align3 := <align-helper(|' ', col3)> str3
+    ; <concat-strings>["| ", str1, align1, " | ", str2, align2, " | ", str3, align3, " |"]
+      }
+      //<concat-strings>["| ", <Fst;pp-webdsl-to-string>, <Fst;pp-webdsl-to-string;align-helper(|' ', col1)>, " | ", <Third;pp-webdsl-to-string>, <Third;pp-webdsl-to-string; align-helper(|' ', col2)>, " | ", <?(_, _, _, <id>);pp-webdsl-to-string>, <?(_, _, _, <id>);pp-webdsl-to-string;align-helper(|' ', col3)>, " |"]
     )
   ; make-set
   ; string-sort
@@ -129,51 +139,30 @@ strategies
   an-potential-joins =
     ?FieldAccess(l, _)
     ; oncetd(where(IteratedVar); not(IteratedVarValue))
-    ; is-not-a-derived-prop
-    ; !(<id>, <QueryConditions>, <IsEffectful>)
+    ; is-accessible-from(RootVar)
+    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?fa)
-    ; is-not-a-derived-prop
-    ; !(<id>, <QueryConditions>, <IsEffectful>)
+    ; is-accessible-from(RootVar)
+    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
 
   an-potential-joins =
     ?Var(_)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
-    ; is-not-a-derived-prop
-    ; !(<id>, <QueryConditions>, <IsEffectful>)
+    ; is-accessible-from(RootVar)
+    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
 
-  is-not-a-derived-prop =
-    is-not-a-derived-prop-helper
-    ; ?(<id>, _)
-
-  is-not-a-derived-prop-helper:
-    FieldAccess(v, f) -> (FieldAccess(p, f2), srt)
-    where (p, SimpleSort(x_class)) := <is-not-a-derived-prop-helper> v
-    ; not(<is-derived-property> (x_class, f))
-    ; fsrt := <get-prop-type> (x_class, f)
-    ; f2 := <try(get-real-col-prop-name(|x_class, fsrt))> f
-    ; srt := <try-strip-generic-sort; ?SimpleSort(_)> fsrt
-
-  is-not-a-derived-prop-helper:
-    v@Var(_) -> (v, srt)
-    where srt := <RootVar> v
-
-  get-real-col-prop-name(|x_class, srt) =
-    where(GenericSort("List", lsrt) := srt)
-    ; where(string-ends-with(|"List"))
-    ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
-    ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
+  /*an-potential-joins =
+    ?TemplateCase(_, _)
+    ; pp-aterm
+    ; fail*/
 
   an-potential-joins =
     ?Call(e, nm, arg*){anno*}
-    ; where(evar := <get-accessible-var> e; esrt := <(IteratedVar <+ IteratedSubList)> evar)
-    ; {| TypeOf
-      	: rules( TypeOf: evar -> esrt )
-    	; where(SimpleSort(ent) := <type-of; is-entity-type> e) // Only follow calls to entity functions
-      |}
+    ; where(<is-accessible-from(IteratedVar <+ IteratedSubList); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e)
     ; genname := <generate-template-name-args> (<concat-strings>[ent, nm], arg*)
     ; where(not(<PassedFunction> genname)) // This prevents an infinite loop when following a recursive function
     ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
@@ -182,8 +171,8 @@ strategies
     // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionArg1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
     ; {| RenamePropInFunction // Here we temporarily rename the Var()s in the function body for our analysis
         : (args, fargs2) := <get-all-entity-properties-for-rename(|genname); map({name,uniquename,safename,srt:\
-                                (name, uniquename, safename, srt) -> (FieldAccess(e, name), Arg(safename, srt))
-                                where rules( RenamePropInFunction : Var(name) -> Var(safename) )
+                                (name, uniquename, safename, srt) -> (FieldAccess(e2, name), Arg(safename, srt))
+                                where rules( RenamePropInFunction : Var(uniquename) -> Var(safename) )
                             \}); unzip> ent
         ; body2 := <alltd(RenamePropInFunction)> body
       |}
@@ -196,12 +185,19 @@ strategies
     (?Call(_, _, _) <+ ?VarDeclInit(_, _, _) <+ ?VarDeclInitInferred(_, _) <+ ?Assignment(_, _) <+ ?PropertyAssignment(_, _) <+ ?PageCall(_, _) <+ ?ThisCall(_, _))
     ; collect-effectful-potential-joins
 
+  an-potential-joins = // Skip actions (because they are only called after a postback) and local redefines (because they are already analyzed when called)
+    (?Action(_, _, _, _) <+ ?LocalRedefine(_, _, _, _, _) <+ ?Define(_, _, _, _, _))
+    ; ![]
+
   try-resolve-entity-call: (ent, nm, targ*) -> f // Same as resolve-entity-call, except here we allow failure
     where not("Entity" := ent)
-    ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
+    ; f := <resolve-function-call-to-current-decl> (SimpleSort(ent), nm, targ*)
       <+ f := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
 
-  // If statements possibly contribute if they have only an if or else block
+  resolve-function-call-to-current-decl: p@(SimpleSort(x_class), fname, t*) -> f // Same as resolve-function-call-to-decl, but uses CurrentEntityFunctionDecl
+    where targ-resolved* := <resolve-function-call(bagof-CheckFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <CurrentEntityFunctionDecl> (x_class, fname, targ-resolved*)  // If statements possibly contribute if they have only an if or else block
+
   an-potential-joins =
     (?IfNoElseTempl(condExp, trueBlock) <+ ?IfNoElse(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []) <+ ?If(condExp, trueBlock, []))
     ; newCondExp := <repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp 
@@ -250,21 +246,38 @@ strategies
   // Follow a template call
   an-potential-joins =
     (?TemplateCall(_, _, [TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; not([] := <filter(where(type-of; is-entity-type); get-accessible-var; (IteratedVar <+ IteratedSubList))> args)
+    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
     ; (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
-    ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
     ; <?Define(_, _, fargs, _, body)> def
+    ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
     ; {| PassedTemplate
        : rules( PassedTemplate : genname -> genname )
        ; <an-potential-joins-with-args(|args2, fargs)> body
        |}
 
+  an-potential-joins = // If the above rule fails to lookup the template then we try to collect effectful joins from the call
+    (?TemplateCall(_, _, [TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    ; ?tc
+    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
+    ; not(
+        (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
+        ; <?Define(_, _, fargs, _, body)> def
+      )
+    ; <collect-effectful-potential-joins> tc
+
   an-potential-joins =
     (?call@TemplateCallNoBody(name, args) <+ ?call@TemplateCall(name, args, _, TemplateBody([])))
-    ; [] := <filter(where(type-of; is-entity-type); get-accessible-var; (IteratedVar <+ IteratedSubList))> args // Contains no arguments that are of interest to us
+    ; [] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args // Contains no arguments that are of interest to us
     ; fromlocalredefs := <collect-from-local-redefines> call // Still we need to follow the call, just to see if a local redefine is called, which may have extra arguments which are of interest to us
     ; fromcallargs := <collect-effectful-potential-joins> args
     ; <conc> (fromlocalredefs, fromcallargs)
+
+  an-potential-joins =
+    (?TemplateCallNoAssigns(_,args,TemplateBody(body)) <+ ?TemplateCallPropsNoArgs(_,p,TemplateBody(body)) <+ ?TemplateCallBody(_,TemplateBody(body)) <+ ?TemplateCall(_,args,p,TemplateBody(body)))
+    ; fromargs := <collect-effectful-potential-joins <+ ![]> args
+    ; fromprops := <collect-effectful-potential-joins <+ ![]> p
+    ; frombody := <collect-potential-joins> body
+    ; <concat>[fromargs, fromprops, frombody]
 
   collect-from-local-redefines =
     (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
@@ -299,17 +312,13 @@ strategies
     ; !(<id>, args, <CurrentTemplateDecl>)
 
   an-potential-joins =
-    (?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, _))
-    ; collect-effectful-potential-joins
-
-  an-potential-joins =
     ?Derive(deriveType, e, props*)
     ; <map(\ DeriveDefault(f) -> FieldAccess(e, f) \); collect-effectful-potential-joins> props*
 
   an-potential-joins =
-    (?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, _, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, _, _))
+    (?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, f, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, f, _))
     ; ?for
-    ; not([] := <filter(get-accessible-var; IteratedVar)> e) 
+    ; not([] := <filter(is-accessible-from(IteratedVar))> e) 
     ; not(<IteratedSubList> Var(x))
     ; {| IteratedSubList, IteratedSubListValue // Different from IteratedVar, because the path represents a collection and thus may not be used in query conditions, but can still be used to find additional joins
        : rules( IteratedSubListValue : Var(x) -> e
@@ -381,18 +390,20 @@ strategies // checks for potential inlining
       end
 
   an-requires-joining =
-  	?fa@FieldAccess(_, _)
-  	; where(<type-of; (is-generic-sort <+ is-entity-type)> fa)
+  	?(fa@FieldAccess(_, _), srt)
+  	; where(<is-generic-sort <+ is-entity-type> srt)
     ; <an-find-entity-property-pair> fa
 
   an-requires-joining =
-    ?FieldAccess(fa@FieldAccess(_, _), _)
+    ?(FieldAccess(fa@FieldAccess(_, _), _), _)
     ; <an-find-entity-property-pair> fa
+
+  an-find-entity-property-pair-generic = ?Cast(<an-find-entity-property-pair-generic>, _)
 
   an-find-entity-property-pair-generic =
     ?fa@FieldAccess(l, fld)
     ; where(<type-of; is-generic-sort> fa)
-    ; !(<an-find-entity-property-pair> fa, "")
+    ; !(<remove-casts; an-find-entity-property-pair> fa, "")
 
   an-find-entity-property-pair-generic =
     ?fa@FieldAccess(l, fld)
@@ -401,17 +412,22 @@ strategies // checks for potential inlining
     ; ?(genericField, associations)
     ; !(genericField, <concat-strings>[associations, "._", fld])
 
-  an-requires-joining-generic =
-    ?fa@FieldAccess(_, _)
-    ; where(<type-of; is-generic-sort> fa)
-    ; !(<an-find-entity-property-pair> fa, "")
+  an-requires-joining-generic = // The last field acces should result in a join
+    ?(p, srt)
+    ; where(<is-generic-sort <+ is-entity-type> srt)
+    ; <an-find-entity-property-pair-generic> p
 
-  an-requires-joining-generic =
-    ?fa1@FieldAccess(fa2@FieldAccess(_, _), _)
-    ; where(not(<type-of; is-generic-sort> fa1))
-    ; <an-find-entity-property-pair-generic> fa2
+  an-requires-joining-generic = // The last field access should not result in a join
+    ?(FieldAccess(p, f), srt)
+    ; where(not(<is-generic-sort <+ is-entity-type> srt))
+    ; <an-find-entity-property-pair-generic> p
 
-  is-var-accessible = where(is-query-condition-constant <+ (get-accessible-var; (ParentArgs <+ IteratedVar)))
+  an-requires-joining-generic = // Removes the casts around the last field access, in order to apply the above strategy
+    ?(Cast(p, _), srt)
+    ; where(not(<is-generic-sort <+ is-entity-type> srt))
+    ; <an-requires-joining-generic> p
+
+  is-var-accessible = is-query-condition-constant <+ (is-accessible-from(ParentArgs <+ IteratedVar); ?(<id>, _))
 
   get-accessible-expr = where(
   	(ParentArgs <+ IteratedVar)
@@ -425,11 +441,11 @@ strategies // checks for potential inlining
 
   get-accessible-expr = get-accessible-field
 
-  get-accessible-expr = where(is-query-condition-constant)
+  get-accessible-expr = is-query-condition-constant
 
   get-accessible-expr = where((ParentArgs <+ IteratedVar); is-query-condition-type)
 
-  get-accessible-dbfield = ?FieldAccess(_, _); is-not-a-derived-prop
+  get-accessible-dbfield = ?FieldAccess(_, _); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt)
 
   get-accessible-field =
   	where(
@@ -463,7 +479,7 @@ strategies // checks for potential inlining
 
   is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 
-  is-query-condition-constant = ?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ True() <+ False()
+  is-query-condition-constant = (?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ ?True() <+ ?False() <+ ?Null()); try(normalize) 
 
   extract-query-cond =
     ?Not(expr1)
@@ -570,9 +586,38 @@ rules
   is-one-dbprop: (expr1, expr2) -> <id>
     where <get-accessible-dbfield <+ RootVar> expr2
 
-  get-accessible-var :
-  	FieldAccess(fa, _) -> var
-  	where var := <get-accessible-var> fa
+  // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
+  // For query conditions this is not allowed, so there id should be used to deal with generic sorts
+  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)
 
-  get-accessible-var :
-	Var(_) -> <id>
+  is-accessible-from(s,gen): // Case where the cast is needed
+    Cast(f, srt) -> (Cast(p, srt), srt)
+    where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+    ; not(<?srt> srt2) 
+    ; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
+
+  is-accessible-from(s,gen): // Case where the cast does nothing
+    Cast(f, srt) -> (p, srt)
+    where (p, srt) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+
+  remove-top-level-cast:
+    Cast(f, _) -> f
+
+  is-accessible-from(s,gen):
+    FieldAccess(v, f) -> (FieldAccess(p, f2), srt)
+    where (p, psrt) := <is-accessible-from(s,gen)> v
+    ; <gen; ?SimpleSort(x_class)> psrt
+    ; not(<is-derived-property> (x_class, f))
+    ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+    ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
+
+  is-accessible-from(s,gen):
+    v@Var(_) -> (v, srt)
+    where srt := <s; strip-ref-sort> v
+
+  get-real-col-prop-name(|x_class, srt) =
+    where(GenericSort("List", lsrt) := srt)
+    ; where(string-ends-with(|"List"))
+    ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
+    ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
+
