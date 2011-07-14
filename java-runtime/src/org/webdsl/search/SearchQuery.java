@@ -94,7 +94,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F allowLuceneSyntax(boolean b) {
-		this.allowLuceneSyntax = b;
+		if(this.allowLuceneSyntax != b) {
+			this.allowLuceneSyntax = b;
+			updateLuceneQuery = updateEncodeString = true;
+		}
 		return (F) this;
 	}
 	
@@ -191,7 +194,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			// search fields
 			fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));
 			// allow Lucene syntax?
-			allowLuceneSyntax(Boolean.getBoolean(props[15]));
+			allowLuceneSyntax(Boolean.parseBoolean(props[15]));
 			//search terms
 			query(decodeValue(props[1]));
 			//default operator
