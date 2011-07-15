@@ -33,7 +33,7 @@ import org.apache.lucene.util.Version;
 
 /**
  * <p>
- *   Spell Checker class  (Main class) <br/>
+ *   Auto completer class  (Main class) <br/>
  *  (Based on Lucene SpellChecker class).
  * </p>
  *
@@ -201,6 +201,7 @@ public class AutoCompleter implements java.io.Closeable {
    */
   private static List<String[]> formGrams(String text) {
 	//first split into tokens to match words in phrases
+	text = text.toLowerCase(); //search prefixes in lower case!
 	String[] tokens = text.split("\\s");
 	int len, tokenlen;
 	ArrayList<String[]> grams = new ArrayList<String[]>();
@@ -265,7 +266,7 @@ public class AutoCompleter implements java.io.Closeable {
  * @param mergeFactor mergeFactor to use when indexing
  * @param ramMB the max amount or memory in MB to use
  * @param optimize whether or not the autocomplete index should be optimized
-   * @throws AlreadyClosedException if the Autocompleterer is already closed
+   * @throws AlreadyClosedException if the Autocompleter is already closed
    * @throws IOException
    */
   public final void indexDictionary(IndexReader reader, String field, int mergeFactor, int ramMB, boolean optimize) throws IOException {
@@ -362,6 +363,7 @@ public class AutoCompleter implements java.io.Closeable {
   private static void addGram(String text, Document doc) {
 	//If phrases are indexed as completions, it is nice to suggest these phrase if a token is matched
 	//i.e. the phrase "Best practices in software architecture" is suggested on input "softw..."
+	text = text.toLowerCase(); //index prefixes as lower case!
 	String[] tokens = text.split("\\s");
 	String token, key, gram;
 	for (int t = 0; t < tokens.length; t++) {
