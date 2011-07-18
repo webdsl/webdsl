@@ -471,3 +471,12 @@ var Utf8 = {
     return string;
   }
 };
+
+//avoid too many request while typing in a field with onkeyup trigger
+var onkeyupdelay = function(){
+    var timer = 0; //scoped inside this function block, triggering onkeyup again before timeout resets the timer for that particular action
+    return function(callback){
+        clearTimeout(timer);
+        timer = setTimeout(callback, 250);
+    }  
+}();

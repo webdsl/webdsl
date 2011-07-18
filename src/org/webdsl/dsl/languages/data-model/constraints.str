@@ -56,82 +56,6 @@ rules
       ; not(<type-compatible> (te, s))
       ; add-error(|["The expression of the derived property ", x, " should have type ", <pp-webdsl> s])
 
-  constraint-error-data :
-    InverseAnno(ent, fld) -> <add-error(|["The entity ", ent, " does not exist"])>
-    where not(<IsEntity> ent)
-
-  constraint-error-data :
-    InverseAnno(ent, fld) -> <add-error(|["The field ", ent, ".", fld, " does not exist"])>
-    where not(<type-of-property> (ent, fld))
-
-  constraint-error-data :
-    InverseAnno(ent, fld) -> <add-error(|["Inverse annotations cannot be declared on both sides. Remove either the (inverse=", ent, ".", fld, ") or the (inverse=", i_ent, ".", i_fld, ") annotation"])>
-    where [inverse_prop] := <filter(?Property(fld, _, _, annos))> <Properties> ent
-        ; not([] := <filter(?InverseAnno(i_ent, i_fld))> annos)
-
-  constraint-error-data :
-    InverseAnno(ent, fld) -> <add-error(|["In a many-to-one bidirectional association the inverse annotation should be declared on the many side. (inverse=", i_ent, ".", i_fld, ")"])>
-    where <filter(?Property(fld, _, _, annos))> <Properties> ent
-        ; [InverseSlaveAnno(i_ent, i_fld)] := <filter(?InverseSlaveAnno(_, _))> annos
-        ; SimpleSort(_) := <type-of-property> (ent, fld)
-        ; GenericSort(_, _) := <type-of-property> (i_ent, i_fld)
-  
-/**
- * Check inverse annotations for
- * - type-compatibility between srt2 and e2
- * - type-compatibility between srt1 and e1
- *
- * Code example
- *   entity e1 {
- *     instance2 -> srt2 (inverse=e2.instance1)
- *   }
- *   entity e2 {
- *     instance1 -> srt1
- *   }
- */
-  // check all properties in the context of an entity. This is necessary for the inverse check on attribute type
-  constraint-error-data =
-    (  ?Entity(ent1, _, entbodydecs) 
-    <+ ?EntityNoSuper(ent1, entbodydecs) 
-    <+ ?ExtendEntity(ent1, entbodydecs)  )
-    ; where (
-        <filter(check-property-inverse-annos(|ent1))> entbodydecs
-      )
-    ; fail
-  
-  // takes care of different constructor types of properties
-  check-property-inverse-annos(|ent1) =
-    (?p@Property(_, proptype, srt2, annos) <+ ?p@DerivedProperty(_, proptype, srt2, annos, _))
-    ; (   <check-entity-type-inverse-annos(|ent1, srt2, annos, proptype)> p
-       <+ <check-property-inverse-annos(|ent1, srt2, annos)> p
-      )
-
-  // check that inverse is declared on entity type properties
-  check-entity-type-inverse-annos(|ent1, srt2, annos, proptype) :
-    p -> <add-error(|["Inverse is only allowed on reference type properties."])>
-    where <fetch(?InverseAnno(ent2, fld2))> annos
-        ; not(<?Ref()> proptype)  
-        
-  // check type-compatibility of inverse
-  check-property-inverse-annos(|ent1, srt2, annos) :
-    p -> <add-error(|["Inverse not allowed between types ", <pp-webdsl> srt2, " and ", <pp-webdsl> type_other_side, " (inverse property ",ent2, ".", fld2, ")."])>
-    where <fetch(?InverseAnno(ent2, fld2))> annos
-        ; type_other_side := <TypeOfProperty> (ent2,fld2)
-        ; not( <inverse-compatible> (SimpleSort(ent1), SimpleSort(ent2), srt2, type_other_side) )
-      
-  /**
-   *  (e1,e2,srt2,srt1)
-   */
-  
-  inverse-compatible = ?(srt1, srt2, srt2, srt1)
-  
-  inverse-compatible = ?(srt1, srt2, GenericSort("Set", [srt2]), srt1)
-  inverse-compatible = ?(srt1, srt2, srt2, GenericSort("Set", [srt1]))
-  inverse-compatible = ?(srt1, srt2, GenericSort("Set", [srt2]), GenericSort("Set", [srt1]))
-  
-  inverse-compatible = ?(srt1, srt2, GenericSort("List", [srt2]), srt1)
-  inverse-compatible = ?(srt1, srt2, srt2, GenericSort("List", [srt1]))
-  
   constraint-error-data =
     (  ?Property(x, propkind, srt, _)
     <+ ?PropertyNoAnno(x, propkind, srt)
@@ -162,19 +86,19 @@ rules
     where srt := SimpleSort("Void")
     
   check-simple-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: Simple type. Encountered: ", <pp-webdsl> srt])>
+    _ -> <add-error(|["Expected: Simple type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where not(<is-simple-sort> srt)
         ; Simple() := propkind
 
   check-complex-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-webdsl> srt])>
+    _ -> <add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where <?Ref() <+ ?Comp()> propkind
         ; <is-simple-sort> srt
     
   check-complex-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: collection of Entity types. Encountered: ", <pp-webdsl> srt])>
+    _ -> <add-error(|["Expected: collection of Entity types. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where <?GenericSort(_, [x])> srt
         ; <is-simple-sort> x
@@ -183,16 +107,10 @@ rules
     (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
 
   check-propkind-simple :
-    srt -> <add-error(|["Expecting simple type, encountered ", <pp-webdsl> srt])>
+    srt -> <add-error(|["Expecting simple type, encountered ", <pp-type> srt])>
     where not(<is-simple-type> srt)
 */    
 
-  constraint-error-data : 
-  p@Property(_, _, srt, annos) -> <add-error(|["Inverse between lists not allowed"])>
-  where GenericSort("List",_) := srt
-      ; <fetch(?InverseAnno(ent, fld))> annos
-      ; GenericSort("List", _) := <type-of-property> (ent, fld)
-      
 rules //check for illegal entity names; built-ins are reserved
 
   constraint-error-data =

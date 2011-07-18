@@ -1,5 +1,43 @@
 module .servletapp/src-webdsl-template/built-in
 
+  section search
+  
+  //optimization of search index, twice a day
+  invoke optimizeSearchIndex() every 12 hours
+  //Update the spell check and autocompletion indices twice a day
+  invoke updateSuggestionIndex() every 12 hours
+
+  function optimizeSearchIndex(){
+    IndexManager.optimizeIndex();
+  }
+  
+  function updateSuggestionIndex(){
+  	IndexManager.indexSuggestions();
+  }
+  
+  native class utils.IndexManager as IndexManager {
+  	static indexSuggestions()
+    static optimizeIndex() 
+    static clearAutoCompleteIndex(String)
+    static clearSpellCheckIndex(String)
+  }
+  
+  //Used to declare Hibernate Search annotations only once (like the full text filter definitions)
+  entity dummy_webdsl_entity{
+  	text :: String
+  	searchmapping {
+  		text using no
+  	}
+  }
+  
+  //The default analyzer, equal to the one used by default in hibernate search
+  default_builtin_analyzer analyzer hsearchstandardanalyzer {
+	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
+	tokenfilter = StopFilter
+}   
+  
   section methods for built-in types
 
   type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
@@ -302,7 +340,7 @@ module .servletapp/src-webdsl-template/built-in
   
   entity RequestLogEntryParam {
     name :: String
-    value :: String
+    value :: String (length=1000000)
   }
   
   //built-in templates
@@ -2672,5 +2710,5 @@ module .servletapp/src-webdsl-template/built-in
     //access control is not necessary for showMessages ajaxtemplate.
     //Tampering with the URL will produce an html-escaped echo of the 'list' request parameter. 
     rule ajaxtemplate showMessages(list:List<String>){true}
-    rule ajaxtemplate noMessages(){true}  
+    rule ajaxtemplate noMessages(){true} 
    

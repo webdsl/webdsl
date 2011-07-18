@@ -226,6 +226,7 @@
       <zipfileset dir="${servletappdir}/images" prefix="images"/>
       <zipfileset dir="${servletappdir}/stylesheets" prefix="stylesheets"/>
       <zipfileset dir="${servletappdir}/javascript" prefix="javascript"/>
+      <zipfileset erroronmissingdir="false" dir="${servletappdir}/analyzerfiles" prefix="WEB-INF/classes/analyzerfiles"/>
     </war>
   </target>
 
@@ -269,6 +270,9 @@
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/images">
       <fileset dir="${servletappdir}/images"/>
+    </copy>
+    <copy preservelastmodified="true" failonerror="false" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/WEB-INF/classes">
+      <fileset dir="${servletappdir}/search/analyzerfiles"><exclude name="*.app"/></fileset> 
     </copy>	
     <copy preservelastmodified="true" todir="${webdsl.tomcat.path}/webapps/${webdsl.warfilename}/stylesheets">
       <fileset dir="${servletappdir}/stylesheets"/>
@@ -312,14 +316,37 @@
           <token key="DBFILEOPTION" value="${webdsl.DBFILEOPTION}"/>
           <token key="DEBUGHIBERNATE" value="${webdsl.DEBUGHIBERNATE}"/>
           <token key="DBMODE" value="${webdsl.DBMODE}"/>
+          <token key="INDEXDIR" value="${webdsl.INDEXDIR}"/>
         </replacetokens></filterchain>
       </copy>
     </then>
+    <elseif>
+      <equals arg1="${webdsl.DB}" arg2="mysql-replication" />
+    <then>
+      <echo message="configuring for using Mysql database using replication"/>
+      <copy overwrite="true" file="${templatesourcedir}/tpl_hibernate.properties" tofile="${templatesourcedir}/hibernate.properties">
+        <filterchain><replacetokens>
+          <token key="DBSTORAGEOPTION" value="${webdsl.DBSTORAGEOPTION}"/>
+	  <token key="DBDRIVERCLASS" value="com.mysql.jdbc.ReplicationDriver"/>
+	  <token key="DBJDBCOPTIONS" value="&amp;autoReconnect=true&amp;roundRobinLoadBalance=true"/>
+          <token key="DEBUGHIBERNATE" value="${webdsl.DEBUGHIBERNATE}"/>
+          <token key="DBMODE" value="${webdsl.DBMODE}"/>
+          <token key="DBSERVER" value="${webdsl.DBSERVER}"/>
+          <token key="DBNAME" value="${webdsl.DBNAME}"/>
+          <token key="DBUSER" value="${webdsl.DBUSER}"/>
+          <token key="DBPASSWORD" value="${webdsl.DBPASSWORD}"/>
+          <token key="INDEXDIR" value="${webdsl.INDEXDIR}"/>
+        </replacetokens></filterchain>
+      </copy>
+    </then>
+    </elseif>
     <else>
       <echo message="configuring for using Mysql database"/>
       <copy overwrite="true" file="${templatesourcedir}/tpl_hibernate.properties" tofile="${templatesourcedir}/hibernate.properties">
         <filterchain><replacetokens>
           <token key="DBSTORAGEOPTION" value="${webdsl.DBSTORAGEOPTION}"/>
+	  <token key="DBDRIVERCLASS" value="com.mysql.jdbc.Driver"/>
+	  <token key="DBJDBCOPTIONS" value=""/>
           <token key="DEBUGHIBERNATE" value="${webdsl.DEBUGHIBERNATE}"/>
           <token key="DBMODE" value="${webdsl.DBMODE}"/>
           <token key="DBSERVER" value="${webdsl.DBSERVER}"/>
@@ -334,7 +361,7 @@
   </target>
 
   <target name="reindex" depends="compile">
-    <java classname="utils.ReIndex" maxmemory="2048m" failonerror="true" dir="${compiledir}" fork="true">
+    <java classname="utils.IndexManager" maxmemory="2048m" failonerror="true" dir="${compiledir}" fork="true">
       <classpath>
         <pathelement location="${binjavadir}"/>
         <fileset dir="${librarydir}" includes="*.jar"/> 

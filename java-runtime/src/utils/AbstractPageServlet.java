@@ -343,6 +343,10 @@ public abstract class AbstractPageServlet{
     protected HttpServletResponse response;
     protected Object[] args;
 
+    public void setHibSession(Session s) {
+        hibSession = s;
+    }
+    
     public Session getHibSession() {
         return hibSession;
     }

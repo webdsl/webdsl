@@ -24,12 +24,13 @@ strategies
         
   declare-function(|x_class) =
     ?def@Function(f, args, sort, _)
-    ; with(id
-      ; t1* := <map(?Arg(_,<id>))> args
+    ; with(
+        t1stripped* := <map(?Arg(_,<id>));prepare-type-list-for-compare> args
+      ; fnamestripped := <strip-annos> f
       ; rules( CheckFunctionSignatureArgumentTypes :+
-                    (SimpleSort(x_class), f, t2*) -> t1*
-                       where <zip(type-compatible)> (t1*, t2*)
-               EntityFunctionDecl :+ (x_class, f, t1*) -> def
+                    (SimpleSort(x_class), fnamestripped, t2*) -> t1stripped*
+                       where <zip(type-compatible)> (t1stripped*, t2*)
+               EntityFunctionDecl :+ (x_class, fnamestripped, t1stripped*) -> def
              )
       )
       
@@ -45,23 +46,21 @@ strategies
   CheckGlobalFunctionSignature: p@(None(), fname, t*) -> s
     where resolve-function-call-to-decl; ?Function(_,_, s, _)
         
-  declare-global-func = where (
-    ?decl@Function(f, args, s, b)//;<debug(!"DECLARE")> (f,args,s)
-    //  ; t1* := <map(?Arg(<type-of>,_))> args // type-of of name will get converted type: RefSort(srt) -> srt{IsRefSort}   // @TODO doesn't work atm, some function args are not renamed yet    
-    ; t1* := <map(?Arg(_,<id>))> args
-    ; t1refsortstripped* := <map(strip-ref-sort)> t1* //ref arg not used in overload resolution
-    ; rules(FunctionDecl :+ (f, t1*) -> decl) 
-    ; f2 := f
+  declare-global-func =
+    ?decl@Function(f, fargs, s, b)
+  ; with( 
+      sig@(n,t*) := <normalize-signature> (f,fargs)
+    ; rules(FunctionDecl :+ sig -> decl) 
     ; rules ( 
-              CheckGlobalFunctionSignatureArgumentTypes :+ (None(), f2, t2*) -> t1* // TODO: Mapping of FunctionCall() to Function using this info
-                       where <zip(type-compatible)> (t1refsortstripped*, t2*)
-              IsGlobalFunctionSignature : (f, t1*)
-              IsGlobalFunction : (f, args, s)
-              IsGlobalFunction : f
-              GlobalFunctionArgs : f -> args
+              CheckGlobalFunctionSignatureArgumentTypes :+ (None(), n, t2*) -> t* // TODO: Mapping of FunctionCall() to Function using this info
+                       where <zip(type-compatible)> (t*, t2*)
+              IsGlobalFunctionSignature : (n, t*)
+              IsGlobalFunction : (n, fargs, s)
+              IsGlobalFunction : n
+              GlobalFunctionArgs :+ n -> fargs //currently used to suggest correction when function name is known, but arguments types are not correct, see constraint-error-this-call 
       )
     ; if None() := b then
-        rules ( IsNativeFunction : f )
+        rules ( IsNativeFunction : n )
       end
     )
 
@@ -83,32 +82,3 @@ strategies
   declare-action = ?ValidateAction(_)
   declare-action = ?RenderAction(_)
   
-/**
- * static entity methods
- */
-rules
-  
-  eq-type-of :
-    Var(e) -> EntitySort(e)
-    where <IsEntity> e
-  
-rules 
-  
-  normalize-declare: StaticEntityFunction(f, args, ReturnType(r), body) -> Function(f, args, r, body)
-  
-  declare-function(|x_class): f@StaticEntityFunction(_,_,_,_) -> f
-    with  f2 := <with-origin(normalize-declare)> f
-        ; <declare-function(|x_class)> f2
-        ; <declare-static-function(|x_class)> f2
-        
-  declare-static-function(|x_class) =
-    ?def@Function(f, args, sort, _)
-    ; with(id
-      ; t1* := <map(?Arg(_,<id>))> args
-      ; rules( CheckFunctionSignatureArgumentTypesStatic :+
-                    (EntitySort(x_class), f, t2*) -> t1*
-                       where <zip(type-compatible)> (t1*, t2*)
-               EntityFunctionDeclStatic :+ (x_class, f, t1*) -> def
-             )
-      ) 
-      

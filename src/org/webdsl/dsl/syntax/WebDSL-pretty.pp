@@ -54,6 +54,24 @@
    SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
+   SearchableAnno					  -- _1 KW["*"] _2,
+   SearchableAnno					  -- KW["searchable"],
+   SearchableAnno					  -- KW["searchable"] KW["("] _1 KW[")"],
+   SearchableAnno.1:iter-star-sep     -- H hs=0[_1 KW[","]],
+   SearchableAnnoBoost				  -- _1 KW["*"] _2,
+   SA-Argument						  -- H hs=0[_1 KW["="] _2],
+   SearchMapping                      -- V[V is=2[H[KW["searchmapping"] _1 KW["{"]] _2] KW["}"]],
+   SearchMapping.2:iter-star          -- _1,
+   SearchMappingEmbedded			  -- V[V is=2[H[KW["searchmapping"] KW["{"]] _1] KW["}"]],
+   SearchMappingEmbedded.1:iter-star  -- _1,
+   SearchFieldMapping				  -- H hs=1[_1 _2],
+   SearchFieldMapping.1:iter-star	  -- H hs=1[_1],
+   FieldName						  -- H hs=1[KW["as"] _1],
+   AnalyzerName						  -- H hs=1[KW["using"] _1],
+   Boost							  -- H hs=1[KW["*"] _1],
+   SearchMappingAnno				  -- H hs=1[KW["("] _1 KW[")"]],
+   SearchMappingAnno.1:iter-star	  -- H hs=1[_1],
+   
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
    Define.1:iter-star                 -- _1,
    Define.3:iter-star-sep             -- H hs=0[_1 KW[","]],
@@ -774,6 +792,22 @@
    XMLEmptyElement                              -- KW["<"] _1 _2 KW["/>"],
    XMLEmptyElement.2:iter-star                  -- _1,
 
+%% Search
+   FullTextAnalyzer				 -- V[V is=2[H[_1 KW["analyzer"] _2 KW["{"]] _3] KW["}"]],
+   FullTextAnalyzerBody			 -- V[_1 _2 _3],
+   FullTextAnalyzerBody.1:iter-star -- V[_1],
+ %% FullTextAnalyzerBody.2:opt 		-- V[_1],
+   FullTextAnalyzerBody.3:iter-star -- V[_1],
+   CharFilter				 -- H hs=1 [KW["charfilter"] KW["="] _1 KW["("] _2 KW[")"]],
+   CharFilter.3:iter-star	 -- _1,
+   CharFilterNoArgs			 -- H hs=1 [KW["charfilter"] KW["="]_1],
+   Tokenizer				 -- H hs=1 [KW["tokenizer"] KW["="] _1 KW["("] _2 KW[")"]],
+   Tokenizer.3:iter-star	 -- _1,
+   TokenizerNoArgs			 -- H hs=1 [KW["tokenizer"] KW["="] _1],
+   TokenFilter				 -- H hs=1 [KW["tokenfilter"] KW["="] _1 KW["("] _2 KW[")"]],
+   TokenFilter.3:iter-star	 -- _1,
+   TokenFilterNoArgs		 -- H hs=1 [KW["tokenfilter"] KW["="] _1],
+   Argument					 -- H hs=1 [_1 KW["="] _2],
 
 %% Webdsl-Regex
 
@@ -932,11 +966,18 @@
    TemplateArgs                                           -- V  [H  [KW["requires"]] _1],
    TemplateArgs.1:iter-star-sep                           -- _1 KW[","],
    TemplateArg                                            -- _1 KW["("] _2 KW[")"],
-   Define.5:iter-star                                     -- _1,
    Define                                                 -- KW["define"] _1 _2 KW["("] _3 KW[")"] _4 KW["{"] _5 KW["}"],
    Define.1:iter-star                                     -- _1,
    Define.3:iter-star-sep                                 -- _1 KW[","],
    Define.5:iter-star                                     -- _1,
+   DefinePage                                             -- _1 KW["page"] _2 KW["("] _3 KW[")"] _4 KW["{"] _5 KW["}"],
+   DefinePage.1:iter-star                                 -- _1,
+   DefinePage.3:iter-star-sep                             -- _1 KW[","],
+   DefinePage.5:iter-star                                 -- _1,
+   DefineTemplate                                         -- _1 KW["template"] _2 KW["("] _3 KW[")"] _4 KW["{"] _5 KW["}"],
+   DefineTemplate.1:iter-star                             -- _1,
+   DefineTemplate.3:iter-star-sep                         -- _1 KW[","],
+   DefineTemplate.5:iter-star                             -- _1,
    ArgDefine                                              -- _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"],
    ArgDefine.2:iter-star-sep                              -- _1 KW[","],
    ArgDefine.3:iter-star                                  -- _1,
@@ -1258,6 +1299,21 @@
 
    QualifiedElementsCall -- _1 KW[".elements"],
    
-   COMPLETION -- _1 %% this constructor can be added anywhere by Spoofax
+   COMPLETION -- _1, %% this constructor can be added anywhere by Spoofax
    
-] 
+   FunctionSort -- KW["function"] KW["("] _1 KW[")"] KW[":"] _2,
+   FunctionSort.1:iter-star-sep -- H hs=0[_1 KW[","]],
+   UnnamedArg -- _1,
+   
+   FunctionExp -- KW["function"] KW["("] _1 KW[")"] KW[":"] _2 _3,
+   FunctionExp.1:iter-star-sep -- H hs=0[_1 KW[","]],
+   
+   FunctionRef -- KW["function."] _1 KW["("] _2 KW[")"] KW[":"] _3,
+   FunctionRef.2:iter-star-sep -- H hs=0[_1 KW[","]],
+   
+   FunctionRefCall -- H hs=0[_1 KW["("] H[_2] KW[")"]],
+   FunctionRefCall.2:iter-star-sep -- H hs=0[_1 KW[","]],
+   
+   FunctionRefCallPartial -- H hs=0[_1 KW["(*,"] H[_2] KW[")"]],
+   FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]]
+]

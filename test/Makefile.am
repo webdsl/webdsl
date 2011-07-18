@@ -9,7 +9,8 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/nativejava/*.app) \
   $(wildcard succeed/overloading/*.app) \
   $(wildcard succeed/property-events/*.app) \
-  $(wildcard succeed/manual/*.app)
+  $(wildcard succeed/manual/*.app) \
+  $(wildcard succeed/search/*.app)
 #  $(wildcard succeed/generics/*.app) 
 
 TESTSFAIL = \
@@ -27,7 +28,8 @@ TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/manual/tutorial-splash/v1/v1.app) \
   $(wildcard succeed-web/manual/tutorial-splash/v2/v2.app) \
   $(wildcard succeed-web/manual/tutorial-splash/v3/v3.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/v4/v4.app)
+  $(wildcard succeed-web/manual/tutorial-splash/v4/v4.app) \
+  $(wildcard succeed-web/search/*.app)
 
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)

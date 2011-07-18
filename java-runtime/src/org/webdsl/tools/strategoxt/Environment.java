@@ -38,7 +38,7 @@ public final class Environment {
 	public static ParseTable loadParseTable(InputStream parseTable)
 		throws IOException, InvalidParseTableException {
 
-		SGLR.setWorkAroundMultipleLookahead(true);
+		// SGLR.setWorkAroundMultipleLookahead(true);
 		return parseTableManager.loadFromStream(parseTable);
 	}
 }
