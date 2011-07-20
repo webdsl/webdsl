@@ -5,7 +5,14 @@ imports // imports only needed for pp-aterm-box and box2text-string
   libstratego-aterm
 
 rules
-
+  
+  rename-query-optimization-annos :
+    anno* -> newanno*
+    with toKeep* := <remove-all(?QueryOptimizations(_, _, _, _) <+ ?QueryOptimizationVars(_, _, _, _))> anno*
+      ; qo* := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
+      ; qovars* := <(fetch-elem(?QueryOptimizationVars(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
+      ; newanno* := [qo*, qovars*, toKeep*]
+  
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
     with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful, LocalRedefDef, LocalRedefName, LocalRedefArgs
        : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
@@ -24,7 +31,7 @@ rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
        //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
-       ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); where(type-of; is-entity-type); !<id>{HasAlias()})> fas // Combine query conditions of the effectful field accesses
+       ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
        //; info(|["Should be inlined: ", joincandidates])
@@ -186,7 +193,7 @@ strategies
     ; collect-effectful-potential-joins
 
   an-potential-joins = // Skip actions (because they are only called after a postback) and local redefines (because they are already analyzed when called)
-    (?Action(_, _, _, _) <+ ?LocalRedefine(_, _, _, _, _) <+ ?Define(_, _, _, _, _))
+    (?Action(_, _, _, _) <+ ?LocalRedefine(_, _, _, _, _) <+ ?Define(_, _, _, _, _) <+ ?TemplateCase(_, _))
     ; ![]
 
   try-resolve-entity-call: (ent, nm, targ*) -> f // Same as resolve-entity-call, except here we allow failure
@@ -481,54 +488,78 @@ strategies // checks for potential inlining
 
   is-query-condition-constant = (?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ ?True() <+ ?False() <+ ?Null()); try(normalize) 
 
-  extract-query-cond =
-    ?Not(expr1)
-    ; expr1new := <extract-query-cond> expr1
-    ; where(<not(?True())>expr1new)
-    ; !Not(expr1new)
+  extract-query-cond:
+    Not(expr1) -> Not(expr1new)
+    where expr1new := <extract-query-cond> expr1
+    ; not(True() := expr1new)
+    ; not(Eq(_, _) := expr1new)
 
-  extract-query-cond =
-    ?cond@Or(expr1, expr2)
-    ; expr1new := <extract-query-cond> expr1
+  extract-query-cond:
+    Not(expr1) -> NotEq(expr1new, expr2new)
+    where eq@Eq(expr1new, expr2new) := <extract-query-cond> expr1
+    ; not(<negate-simple-eq-cond> eq)
+
+  extract-query-cond:
+    Not(expr1) -> Eq(expr1new, expr2new)
+    where Eq(expr1new, expr2new) := <extract-query-cond; negate-simple-eq-cond> expr1
+
+  negate-simple-eq-cond: Eq(True(), expr) -> Eq(expr, False())
+  negate-simple-eq-cond: Eq(expr, True()) -> Eq(expr, False())
+  negate-simple-eq-cond: Eq(False(), expr) -> Eq(expr, True())
+  negate-simple-eq-cond: Eq(expr, False()) -> Eq(expr, True())
+
+  extract-query-cond:
+    Or(expr1, expr2) -> Or(expr1new, expr2new)
+    where expr1new := <extract-query-cond> expr1
     ; expr2new := <extract-query-cond> expr2
-    ; where(<not(?True())>expr1new; <not(?True())>expr2new)
-    ; !Or(expr1new, expr2new)
+    ; not(True() := expr1new)
+    ; not(True() := expr2new)
 
-  extract-query-cond =
-    ?And(expr1, expr2)
-    ; expr1new := <extract-query-cond <+ !True()> expr1
+  extract-query-cond:
+    And(expr1, expr2) -> cond
+    where expr1new := <extract-query-cond <+ !True()> expr1
     ; expr2new := <extract-query-cond <+ !True()> expr2
-    ; !<append-condition>(expr1new, expr2new)
+    ; cond := <append-condition>(expr1new, expr2new)
 
-  extract-query-cond =    
-    ?SmallerThanOrEqual(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !SmallerThanOrEqual(newExpr1, newExpr2)
+  extract-query-cond:    
+    SmallerThanOrEqual(expr1, expr2) -> SmallerThanOrEqual(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
 
-  extract-query-cond =
-    ?SmallerThan(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !SmallerThan(newExpr1, newExpr2)
+  extract-query-cond:
+    SmallerThan(expr1, expr2) -> SmallerThan(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
 
-  extract-query-cond =
-    ?LargerThanOrEqual(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !LargerThanOrEqual(newExpr1, newExpr2)
+  extract-query-cond:
+    LargerThanOrEqual(expr1, expr2) -> LargerThanOrEqual(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
 
-  extract-query-cond =
-    ?LargerThan(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !LargerThan(newExpr1, newExpr2)
+  extract-query-cond:
+    LargerThan(expr1, expr2) -> LargerThan(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
 
-  extract-query-cond =
-    ?NotEq(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !NotEq(newExpr1, newExpr2)
+  extract-query-cond:
+    NotEq(expr1, expr2) -> NotEq(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
 
-  extract-query-cond =
-    ?Eq(expr1, expr2)
-    ; where(newExpr1 := <get-accessible-expr> expr1; newExpr2 := <get-accessible-expr> expr2; <is-one-dbprop> (expr1, expr2))
-    ; !Eq(newExpr1, newExpr2)
+  extract-query-cond:
+    Eq(expr1, expr2) -> Eq(newExpr1, newExpr2)
+    where newExpr1 := <get-accessible-expr> expr1
+    ; newExpr2 := <get-accessible-expr> expr2
+    ; <is-one-dbprop> (expr1, expr2)
+
+  extract-query-cond:
+  	fa1@FieldAccess(_, _) -> Eq(fa2, True())
+  	where (fa2, SimpleSort("Bool")) := <repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id)> fa1
 
   extract-query-cond = !True()
 
@@ -555,8 +586,12 @@ rules
   	(cond, True()) -> cond
 
   join-conditions:
-  	(cond, prevCond) -> Or(prevCond, cond)
-	where <not(?True()); not(?[])> prevCond
+    (cond, prevCond) -> Or(prevCond, cond)
+    where <not(?True()); not(?[])> prevCond
+
+  add-required-alias:
+    FieldAccess(p, f) -> FieldAccess(p{HasAlias()}, f)
+    where <is-accessible-from(RootVar,id); Snd; is-entity-type> p 
 
   append-condition:
   	(newCond, oldCond) -> And(newCond, oldCond)

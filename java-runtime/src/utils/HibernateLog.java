@@ -122,6 +122,23 @@ public class HibernateLog {
         	}
         	else if(cat.indexOf("org.hibernate.type") == 0) {
         		if(current == null) continue;
+        		if(msg.indexOf("binding parameter [") == 0) {
+        			int idx = msg.indexOf("] as [");
+        			if(idx <= 19) continue;
+        			int index = Integer.parseInt(msg.substring(19,  idx));
+        			int idx2 = msg.indexOf("] - ", idx);
+        			String type = msg.substring(idx + 6, idx2);
+        			String value = msg.substring(idx2 + 4);
+        			if(type.equals("VARCHAR")) value = "'" + value + "'";
+        			while(current.parameterVals.size() - 1 < index - 1)
+        			{
+        				current.parameterVals.add("<null>");
+        				current.parameterTypes.add("null");            				
+        			}
+        			current.parameterVals.set(index - 1, value);
+        			current.parameterTypes.set(index - 1, type);
+        		}
+        		/*  // Parsing for Hibernate 3.5.4:
         		if(msg.indexOf("binding ") == 0) {
         			int idx = msg.indexOf(" to parameter: ", 8);
         			if(idx < 0) continue;
@@ -137,6 +154,7 @@ public class HibernateLog {
         			current.parameterVals.set(index - 1, value);
         			current.parameterTypes.set(index - 1, type);
         		}
+        		*/
         	}
         }
         if(!entries.empty()) throw new ParseException("Not all statements were closed", linenr);
@@ -192,6 +210,7 @@ public class HibernateLog {
 						for(Object ent : entityEntries.values()) {
 							if(ent instanceof org.hibernate.engine.EntityEntry) {
 								String name = ((org.hibernate.engine.EntityEntry)ent).getEntityName();
+								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
 								Integer count = entCounter.get(name);
 								if(count == null) count = new Integer(0);
 								entCounter.put(name, count + 1);
@@ -205,6 +224,7 @@ public class HibernateLog {
 								if(persister == null) persister = ((org.hibernate.engine.CollectionEntry)col).getCurrentPersister();
 								if(persister != null) {
 									String name = persister.getRole();
+									if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
 									Integer count = colCounter.get(name);
 									if(count == null) count = new Integer(0);
 									colCounter.put(name, count + 1);
@@ -212,41 +232,51 @@ public class HibernateLog {
 							}
 						}
 
-						sout.print("<table class=\"sqllogentitydetails\"><tr><th class=\"sqllogdetailsname\">Entity class</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
-						for(String key : entCounter.keySet()) {
-							sout.print("<tr class=\"sqllogdetails\"><td class=\"sqllogdetailsname\">");
-							sout.print(key);
-							sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + key.replace('.', '_') + "\">");
-							sout.print(entCounter.get(key));
-							sout.print("</td></tr>");
-				    	}
-						sout.print("</table><table class=\"sqllogcollectiondetails\"><tr><th class=\"sqllogdetailsname\">Collection role</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
-						for(String key : colCounter.keySet()) {
-							sout.print("<tr class=\"sqllogdetails\"><td class=\"sqllogdetailsname\">");
-							sout.print(key);
-							sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + key.replace('.', '_') + "\">");
-							sout.print(colCounter.get(key));
-							sout.print("</td></tr>");
-				    	}
-						sout.print("</table><table class=\"sqllog\">");
+						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
+						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
+						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();
+						String entKey = entKeys.hasNext() ? entKeys.next() : null;
+						String colKey = colKeys.hasNext() ? colKeys.next() : null;
+						while(entKey != null || colKey != null) {
+							if(colKey != null && (entKey == null || entKey.compareTo(colKey) > 0)) {
+								sout.print("<tr class=\"sqllogdetailscollection\"><td class=\"sqllogdetailsname\">");
+								sout.print(colKey);
+								sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
+								sout.print(colCounter.get(colKey));
+								sout.print("</td></tr>");
+								colKey = colKeys.hasNext() ? colKeys.next() : null;
+							} else {
+								sout.print("<tr class=\"sqllogdetailsentity\"><td class=\"sqllogdetailsname\">");
+								sout.print(entKey);
+								sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+								sout.print(entCounter.get(entKey));
+								sout.print("</td></tr>");
+								entKey = entKeys.hasNext() ? entKeys.next() : null;
+							}
+						}
+						sout.print("</table>");
 						printedSessionContext = true;
 					}
 				}
 			}
 			if(!printedSessionContext) {
-				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p><table class=\"sqllog\">");
+				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
 			}
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : _list)
-			{ 
-				sout.print("<tr class=\"sqllog\"><td class=\"sqllognr\">" + (++logindex) + "</td><td class=\"sqllogtime\">" + entry.durationExclusive + " ms" + (entry.subEntries > 0 ? "(" + entry.durationInclusive + " ms with " + entry.subEntries + " queries)" : "") + "</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+			{
+				sout.print("<div class=\"sqllog\">Query " + (++logindex) + " (" + entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
-			sout.print("</table><p>The three queries that took the most time:</p><table class=\"sqllog\">");
-			for(utils.HibernateLogEntry entry : longestThree)
-			{ 
-				sout.print("<tr class=\"sqllog\"><td class=\"sqllogtime\">" + entry.durationExclusive + " ms</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+			sout.print("<p><b>The three queries that took the most time:</b></p><table class=\"sqllog\">");
+			for(int i = 0; i < longestThree.size(); i++)
+			{
+				utils.HibernateLogEntry entry = longestThree.get(i);
+				sout.print("<div class=\"sqllog\">");
+				if(i == 0) sout.print("Longest query (");
+				if(i == 1) sout.print("Second longest query (");
+				if(i == 2) sout.print("Third longest query (");
+				sout.print(entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
-			sout.print("</table>");
 		}
 		catch(Exception ex) {
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");

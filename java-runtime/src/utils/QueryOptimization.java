@@ -57,4 +57,21 @@ public class QueryOptimization {
 		}
 		return ret;
 	}
+
+	public static org.hibernate.criterion.Criterion getNotEqCondition(String prop, Object val) {
+		if(val == null) {
+			return org.hibernate.criterion.Restrictions.isNotNull(prop);
+		}
+		return org.hibernate.criterion.Restrictions.ne(prop, val);
+	}
+
+	public static org.hibernate.criterion.Criterion getEqCondition(String prop, Object val, boolean naturalId) {
+		if(val == null) {
+			return org.hibernate.criterion.Restrictions.isNull(prop);
+		}
+		if(naturalId) {
+			return org.hibernate.criterion.Restrictions.naturalId().set(prop, val);
+		}
+		return org.hibernate.criterion.Restrictions.eq(prop, val);
+	}
 }

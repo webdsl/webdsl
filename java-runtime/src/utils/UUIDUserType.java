@@ -145,14 +145,14 @@ public class UUIDUserType implements UserType
 		if (value == null)
 		{
 			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "returning null as column: " + names[0] );
+				log().trace( "found [null] as column [{}]", names[0] );
 			}
 			return null ;
 		}
 		else
 		{
 			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "returning '" + retrieveUUID( value ) + "' as column: " + names[0] );
+				log().trace( "found [{}] as column [{}]", retrieveUUID( value ), names[0] );
 			}
 			return retrieveUUID(value);
 		}
@@ -190,7 +190,7 @@ public class UUIDUserType implements UserType
 		if (value == null)
 		{
 			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "binding null to parameter: " + index );
+				log().trace( String.format("binding parameter [%d] as [VARCHAR] - <null>", index) );
 			}
 
 			st.setNull (index, theType) ;
@@ -205,7 +205,7 @@ public class UUIDUserType implements UserType
 		}
 		
 		if ( IS_VALUE_TRACING_ENABLED ) {
-			log().trace( "binding '" + persistUUIDString((UUID) value) + "' to parameter: " + index );
+			log().trace( String.format("binding parameter [%d] as [VARCHAR] - %s", index, persistUUIDString((UUID) value)) );
 		}
 
 		st.setString (index, persistUUIDString((UUID) value));
