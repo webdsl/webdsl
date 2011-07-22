@@ -6,6 +6,8 @@ imports
 
 imports
   libwebdsl-front
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/-
   
 signature constructors
   
@@ -20,7 +22,8 @@ rules	// emit top-level definition
     
   // Used for separate declare / emit phase
 	emit-webdsl-code-no-declare =
-      where(InTypeCheckingPhase); emit-webdsl-code-no-rename
+      where(InTypeCheckingPhase);
+      emit-webdsl-code-no-rename
   <+  with-toplevel-name(
 	        rename-all
 	      ; emit-webdsl-code-no-rename
@@ -28,42 +31,33 @@ rules	// emit top-level definition
 	  
 	//used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
   // renaming is not needed for these one-to-one transformations that have the same semantics
-	emit-webdsl-code-no-rename =
-			?def
-    ; (CurrentDefinitionKey <+ !"") => key
-    ; rules(AddWebDSLDefs :+= (key, def))
-    
-	desugar-emit-all-defs =
+	emit-webdsl-code-no-rename: def -> def
+    with  (CurrentDefinitionKey <+ !"") => owner
+        ; if InTypeCheckingPhase then
+            rules(TypecheckEmits :+ owner -> def)
+          else
+            rules(AddWebDSLDefs :+= (owner, def))
+          end
+          
+	// Emit all defs, fail if no emits available
+	emit-all-defs =
       bagof-AddWebDSLDefs
-    ; where(length => n1)
-    ; emit-for-loaded-defs
-    ; where(length => n2)
-    ; not(<eq> (n1, n2))                // nothing applied? fail
-  
-  // Emit for definitions that are selected for recompilation.
-  // Fails if nothing could be emitted. 
-  emit-for-loaded-defs: emits -> remaining
-    with 
-      remove-all({
-          ?(owner,def)
-        ; <emit-with-owner(|owner)> def
-      })
-    ; ?remaining
+    ; not(?[])
+    ; map(\(owner, def) -> <emit-with-owner(|owner)> def\)
     ; rules(AddWebDSLDefs :- _)
-    ; map(\x -> <rules(AddWebDSLDefs :+= x)> \)
       
   emit-with-owner(|owner): def -> def
     where
-      if <?At(x,y,z)> owner; <not(is-emitted-mod)> x then
+      if <?At(mod,y,z)> owner; <not(is-emitted-mod)> mod then
         // Emitted from an ast definition
-        if <is-definition-loaded> owner then
+       	if <is-definition-loaded> owner then
             // Definition is recompiling, emit
-            key := At(x,"emit",<newname>"emit"){owner}
+            key := At(mod,"emit",<newname>"emit"){owner}
           ; <store-module-def(|key)> def
         else
             // Some declare rules emit definitions for each entity/page, these emit should not be
-            // emitted until the originating definition is loaded. 
-            fail
+            // emitted until the originating definition is loaded.
+            fatal-err(|"Emit from cached def in desugar")
         end
       else
         // Emitted from another compiler emit
@@ -85,12 +79,25 @@ rules // emit builtins (during declare)
 	
 	add-builtin-rule = ?rule; rules(AddWebDSLRules :+= rule)
 	
+	add-typecheck-emit(|owner): def -> def
+	 with  // TODO: track rules during rename ?
+	       def' := <rename-top> def
+	     ; <emit-with-owner(|owner)> def'
+	
+	// cached defs: don't emit, but store for when triggered for recompilation
+	add-typecheck-emits: owner -> owner
+	 where not(is-definition-loaded)
+	
+	// loaded def: emit and clear 
+	add-typecheck-emits: owner -> owner
+	 where <is-definition-loaded> owner
+	 with  <bagof-TypecheckEmits; map(add-typecheck-emit(|owner))> owner
+	     ; rules(TypecheckEmits :- owner)
+	       
 	add-builtins-to-ast =
-			bagof-AddWebDSLDefs
-	    // TODO: track rules during rename ?
-    ; map(\(owner, def) -> (owner, <rename-top> def) \)
-	  ; try(emit-for-loaded-defs)
-		  // TODO: same as defs
+			all-keys-TypecheckEmits
+	  ; map(add-typecheck-emits)
+      // TODO: same as defs
 		; !AccessControlDefinition(None(), <bagof-AddWebDSLRules>)
 		; rename-and-store
 		; rules(AddWebDSLRules :- _)
