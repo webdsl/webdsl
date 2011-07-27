@@ -74,8 +74,8 @@ application test
   	init{
   		IndexManager.indexSuggestions();
   	}
-    var personQuery := PersonSearchQuery();
-    var itemQuery := ItemSearchQuery();
+    var personQuery := PersonSearcher();
+    var itemQuery := ItemSearcher();
     var name := "Bottle of dr Pepper"
     var drPepperItems := from Item as i where i.name = ~name;
     output("Search page:")   
@@ -93,10 +93,10 @@ application test
     "rangesearch-2:" output(personQuery.field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).resultSize())
     "rangesearch-3:" output(personQuery.field("birthday").range(Date("03/05/1955"),Date("04/05/1955")).resultSize())
     "rangesearch-4:" output(personQuery.field("birthday").range(Date("01/01/2005"),Date("31/12/2013")).resultSize())
-    "autocomplete-1:" output(ItemSearchQuery.autoCompleteSuggest("coke","nameCompletion",5)[0])
-    "autocomplete-2:" output(ItemSearchQuery.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
-    "autocomplete-3:" output(ItemSearchQuery.autoCompleteSuggest("pepf","nameCompletion",1)[0])
-    "autocomplete-4:" output(ItemSearchQuery.autoCompleteSuggest("b","nameCompletion",1)[0])
+    "autocomplete-1:" output(ItemSearcher.autoCompleteSuggest("coke","nameCompletion",5)[0])
+    "autocomplete-2:" output(ItemSearcher.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
+    "autocomplete-3:" output(ItemSearcher.autoCompleteSuggest("pepf","nameCompletion",1)[0])
+    "autocomplete-4:" output(ItemSearcher.autoCompleteSuggest("b","nameCompletion",1)[0])
    // "customstopfilter-1:" output(itemQuery.field("nameCustomStop").query("diet").resultSize())
    // "customstopfilter-2:" output(itemQuery.field("nameCustomStop").query("bottle").resultSize())
     

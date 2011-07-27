@@ -79,7 +79,7 @@ define page root() {
 	action test() {
 		var x1 := searchA("x",0,10);
 		var x2 := searchA("x",10);
-		var x3 : List<A> := ASearchQuery().query("test").list();
+		var x3 : List<A> := ASearcher().query("test").list();
 	}
 		
 }
