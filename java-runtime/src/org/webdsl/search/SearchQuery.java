@@ -27,7 +27,6 @@ import org.hibernate.search.query.dsl.impl.WebDSLFacetTool;
 import org.hibernate.search.query.facet.Facet;
 import org.hibernate.search.query.facet.FacetSortOrder;
 import org.hibernate.search.query.facet.FacetingRequest;
-import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
@@ -38,7 +37,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected int limit = 50;
 	protected int offset = 0;
 	
-	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
+	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
 	protected boolean allowLuceneSyntax = true;
 
 	protected HashMap<String, String> fieldConstraints;
@@ -63,6 +62,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	protected String moreLikeThisParams = ""; 
 	protected String encodedAsString;
 	
+	protected String namespaceConstraint = "";
+	
 	
 	protected Operator op = Operator.OR; 
 	protected Analyzer analyzer;
@@ -80,7 +81,6 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		
 		fieldConstraints.put(fieldname, terms);
 		updateFieldConstraints = updateEncodeString = true;
-		
 		return (F) this;
 	}
 	
@@ -133,6 +133,12 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 			enableFieldConstraintFilter(field, fieldConstraints.get(field));
 	}
 	
+	private void applyNamespaceConstraint(){
+		fullTextQuery.enableFullTextFilter("namespaceFilter")
+		.setParameter("entityName", entityClass.getName())
+		.setParameter("namespaceID", namespaceConstraint);
+	}
+	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F boost(String field, Float boost) {
 		if(boosts == null)
@@ -183,11 +189,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F decodeFromString(String searchQueryAsString){
-
 		try{
 			String[] props = searchQueryAsString.split("\\|", -1);
-			if(props.length != 16){
-				//log("MALFORMED SEARCHQUERY STRING!");
+			if(props.length != 17){
+				log("MALFORMED SEARCHQUERY ENCODING!");
 				return (F) this;
 			}		
 			String[] a1, a2;
@@ -214,6 +219,10 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 				a2 = props[4].split(",");
 				for(int i=0; i < a1.length; i++)
 					filterByField(a1[i], a2[i]);
+			}
+			//namespace constraint
+			if(!props[16].isEmpty()){
+				setNamespace(decodeValue(props[16]));
 			}
 			//facet fields, requests
 			if(!props[5].isEmpty()){
@@ -260,7 +269,7 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		} catch (Exception ex){
 			//exception, so return a new query
 			try {
-				//log("MALFORMED SEARCHQUERY STRING!");
+				log("MALFORMED SEARCHQUERY ENCODING!");
 				this.getClass().newInstance();
 			} catch (InstantiationException e) {
 				e.printStackTrace();
@@ -354,6 +363,8 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 		sb.append("|" + encodeValue(moreLikeThisParams));
 		//15 allow lucene syntax?
 		sb.append("|" + allowLuceneSyntax);
+		//16 namespace constraint?
+		sb.append("|" + encodeValue(namespaceConstraint));
 		
 		//log("encode-sq");
 		updateEncodeString = false;
@@ -465,6 +476,33 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	public abstract Class<?> fieldType(String field);
 	
 	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F setNamespace(String namespace){
+		if (namespaceConstraint.isEmpty()) {
+			//do nothing special
+		}
+		else if(!namespaceConstraint.equals(namespace)){
+			//first remove old namespace filter
+			fullTextQuery.disableFullTextFilter("namespaceFilter");
+		}
+		else {
+			return (F) this;
+		}
+		namespaceConstraint = namespace;
+		updateNamespaceConstraint = updateEncodeString = true;
+		return (F) this;
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends SearchQuery<EntityClass>> F removeNamespace(){
+		fullTextQuery.disableFullTextFilter("namespaceFilter");
+		namespaceConstraint = "";
+		updateEncodeString = true;
+		return (F) this;
+		
+	}
+	
+	@SuppressWarnings("unchecked")
 	public <F extends SearchQuery<EntityClass>> F firstResult(int offset) {
 		this.offset = offset;
 		updateEncodeString = true;
@@ -472,13 +510,19 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 	}
 
 	protected abstract FullTextSession getFullTextSession ();
+	
+	protected abstract int directoryProviderIndexForNamespace ();
 
 	public IndexReader getReader() {
 		SearchFactory searchFactory = getFullTextSession().getSearchFactory();
-		DirectoryProvider<?> provider = searchFactory
-				.getDirectoryProviders(entityClass)[0];
-		ReaderProvider readerProvider = searchFactory.getReaderProvider();
-		return readerProvider.openReader(provider);
+		DirectoryProvider<?>[] providers = searchFactory
+				.getDirectoryProviders(entityClass);
+		if(namespaceConstraint.isEmpty()) {
+			return searchFactory.getReaderProvider().openReader(providers);
+		} else {
+			int index = directoryProviderIndexForNamespace();
+			return searchFactory.getReaderProvider().openReader(providers[index]);
+		}		
 	}
 	
 	public static String escapeQuery(String query){
@@ -719,17 +763,21 @@ public abstract class SearchQuery<EntityClass extends WebDSLEntity> {
 
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
 			updateFullTextQuery = false;
-			updateFacets = updateFieldConstraints = updateSorting = true;
+			updateNamespaceConstraint = updateFieldConstraints = updateFacets = updateSorting = true;
 		}
 		if(updateFieldConstraints && fieldConstraints != null){
 			updateFieldConstraints = false;
 			applyFieldConstraints();
 		}
-		if(updateFacets && filteredFacets.length() > 1){
+		if(updateNamespaceConstraint && !namespaceConstraint.isEmpty()){
+			updateNamespaceConstraint = false;
+			applyNamespaceConstraint();
+		}
+		if(updateFacets && !filteredFacets.isEmpty()){
 			updateFacets = false;
 			applyFacets();
 		}
-		if(updateSorting && sortFields.length() > 1){
+		if(updateSorting && !sortFields.isEmpty()){
 			updateSorting = false;
 			fullTextQuery.setSort(sortObj);
 		}

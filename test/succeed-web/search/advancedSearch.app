@@ -20,12 +20,12 @@ application test
   	searchmapping {
   		name as nameField
   		name as nameFieldNoStop using standard_no_stop
-  		//name as nameCustomStop using custom_stop
+  		name as nameCustomStop using custom_stop
   		name as nameCompletion using autocomplete_untokenized (autocomplete);
   		description;
   	}
   }
-  
+    
   analyzer autocomplete_untokenized {
 	tokenizer = KeywordTokenizer
 	tokenfilter = LowerCaseFilter
@@ -41,8 +41,10 @@ application test
   	tokenizer = StandardTokenizer
 	tokenfilter = StandardFilter
 	tokenfilter = LowerCaseFilter
-  	tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
+  	// tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
   }
+  
+  
 
   define page root(){
 	init{
@@ -57,7 +59,7 @@ application test
 			};
 	  	var i3 := Item{
 	  		name := "Car" 
-	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [ˌtʃiŋkweˈtʃɛnto]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500."
+	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500."
 			};
 		p.save();
 		i1.save();
@@ -95,7 +97,8 @@ application test
     "autocomplete-2:" output(ItemSearchQuery.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
     "autocomplete-3:" output(ItemSearchQuery.autoCompleteSuggest("pepf","nameCompletion",1)[0])
     "autocomplete-4:" output(ItemSearchQuery.autoCompleteSuggest("b","nameCompletion",1)[0])
-    //"customstopfilter-1:" output(itemQuery.field("nameCustomStop").query("diet").resultSize())
+   // "customstopfilter-1:" output(itemQuery.field("nameCustomStop").query("diet").resultSize())
+   // "customstopfilter-2:" output(itemQuery.field("nameCustomStop").query("bottle").resultSize())
     
   }
   
@@ -123,7 +126,8 @@ application test
     assert(pagesource.contains("autocomplete-2:car"), "Autocompletion should have returned 'car' on input 'ca'");
     assert(pagesource.contains("autocomplete-3:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'pepf'");
     assert(pagesource.contains("autocomplete-4:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'b'");
-    // assert(pagesource.contains("customstopfilter-1:0"), "Searching for a stopword defined in custom stopword list should result 0 results");
+   // assert(pagesource.contains("customstopfilter-1:0"), "Searching for a stopword defined in custom stopword list should give 0 results");
+   // assert(pagesource.contains("customstopfilter-2:1"), "Searching for 'bottle' defined in custom stopword list should give 1 results");
     d.close();
   }
   
