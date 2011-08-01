@@ -35,8 +35,6 @@ strategies
     repeat(
       {| NewDefinitionsLoaded:
         desugar-top-exhaustive;
-        find-removed-rules;
-        desugar-exhausted;
         where(NewDefinitionsLoaded)
       |}
     )
@@ -45,20 +43,25 @@ strategies
     rules(InnermostApplied :- _)    // make sure we start off clean
   ; repeat(
 	    {| InnermostApplied, NewDefinitionsLoaded: {defs:
-	       where(all-keys-TopLevelDefinitions => defs)
-	     ; transform-defs(with-toplevel-name(desugar-def))
-	     ; try(emit-all-defs; rules(InnermostApplied := True()))
-	     ; where(InnermostApplied <+ NewDefinitionsLoaded)
-	     ; where(log-time(<filter(where(CreatedRules); with(desugar-check-dependencies))> defs | "desugar-check-deps"))
-	     ; where(<cleanup-desugar-iteration> defs)
+	    	dependency-phase(
+		       where(all-keys-TopLevelDefinitions => defs)
+		     ; transform-defs(desugar-def)
+		     ; try(emit-all-defs; rules(InnermostApplied := True()))
+		     ; where(InnermostApplied <+ NewDefinitionsLoaded)
+				 | "desugar")
 	    } |}
     )
   
   desugar-def =
-    track-rules-with-creates(
-      innermost-rep(desugar) | <CurrentDefinitionKey>)
+  	with-toplevel-name(
+    	track-rules-with-creates(
+      	innermost-rep(desugar)
+      )
+    )
 		
-  transform-defs-tracked(s) = transform-defs(track-rules-with-creates(s | <CurrentDefinitionKey>))
+  track-rules-with-creates(s) = track-rules-with-creates(s | <CurrentDefinitionKey>)
+		
+  transform-defs-tracked(s) = transform-defs(track-rules-with-creates(s))
   
 rules //extend entity functions create dr
   
