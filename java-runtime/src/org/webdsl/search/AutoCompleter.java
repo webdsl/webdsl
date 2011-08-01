@@ -169,11 +169,10 @@ public class AutoCompleter implements java.io.Closeable {
       int maxHits = 2 * numSug;
       
       //First sort on similarity, then on popularity (based on frequency in the source index)
-      SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT,true)};
+      SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT, true)};
       
       ScoreDoc[] hits = indexSearcher.search(query, maxHits, new Sort(sortFields)).scoreDocs;
       //indexSearcher.search(query, null, maxHits).scoreDocs;
-
       int stop = Math.min(hits.length, maxHits);
       String[] toReturn = new String[stop];      
       
@@ -283,23 +282,15 @@ public class AutoCompleter implements java.io.Closeable {
         ReaderUtil.gatherSubReaders(readers, searcher.getIndexReader());
       }
       
-      boolean isEmpty = readers.isEmpty();
+      //clear the index
+      writer.deleteAll();
       
       try { 
         Iterator<String> iter = dict.getWordsIterator();
         
-        terms: while (iter.hasNext()) {
+      while (iter.hasNext()) {
           String word = iter.next();
-          if (!isEmpty) {
-            // we have a non-empty index, check if the term exists
-            Term term = F_WORD_TERM.createTerm(word);
-            for (IndexReader ir : readers) {
-              if (ir.docFreq(term) > 0) {
-                continue terms;
-              }
-            }
-          }
-  
+          
           // ok index the word
           Document doc = createDocument(word, reader.docFreq(new Term(field, word)));
           writer.addDocument(doc);

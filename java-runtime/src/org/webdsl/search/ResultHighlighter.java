@@ -15,7 +15,7 @@ import org.apache.lucene.search.highlight.TokenGroup;
 
 public class ResultHighlighter {
 	
-	public static String highlight(SearchQuery<?> sq, String field, String text, String preTag, String postTag){
+	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text, String preTag, String postTag){
 		
 		String result;
 		TokenStream tokenStream;
@@ -55,7 +55,7 @@ public class ResultHighlighter {
 		
 	}
 	
-	public static String highlight(SearchQuery<?> sq, String field, String text){				
+	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text){				
 		return highlight(sq, field, text, "<B>", "</B>");
 	}
 }
