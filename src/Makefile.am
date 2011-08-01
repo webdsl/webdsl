@@ -150,7 +150,9 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str)
                  
-SEPSTRFILES =    $(wildcard ./separation/*.str)
+SEPSTRFILES =    $(wildcard ./separation/*.str) \
+		 $(wildcard ./separation/*/*.str) \
+		 $(wildcard ./separation/*/*/*.str)
                  
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
@@ -573,7 +575,7 @@ libsepcomp_la_LIBADD   = $(STRATEGO_XTC_LIBS) \
             $(STRATEGO_LIBS)
 endif
 
-libsepcomp.rtree libsepcomp.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS)
+libsepcomp.rtree libsepcomp.c : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(SEPSTRFILES)
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -i $(srcdir)/separation/methods/array/validity-forwards.str -o libsepcomp.rtree \
 		--verbose 1 $(STRCFLAGS) 
 	rm -f libsepcomp.str
