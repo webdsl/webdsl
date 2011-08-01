@@ -14,7 +14,11 @@ rules       // utils
         (RuleArrayLoaded <+ load-rules);
         with-rule-resolving(
           init-dependency-phase;
-          s
+          s;
+          check-invalid-rule-pointers;
+          all-keys-CreatedRules;
+          map(desugar-check-dependencies);
+		     	find-removed-rules
         )
     |}
     
@@ -49,10 +53,15 @@ rules       // io
           rules(CreateKey : idx -> key)   // debug
           
   load-rule-array-entry(|def): x@(n, t@"USE", key, val*) -> x
-    with  rules(
-            Usage : (def, n) -> (key, val*)
-            RuleUsers :+ key -> def
-          )
+    with  if <def-is-cached> def; <TypecheckChangedRule> key then
+            <debug(!"Loading def that is dependent on changed typecheck rule: ")> (def, key); 
+            <trigger-recompilation> def
+          else
+	          rules(
+	            Usage : (def, n) -> (key, val*)
+	            RuleUsers :+ key -> def
+	          )
+          end
   
   make-path-safe = string-replace(|"/", "+"); string-replace(|"\\", "+"); string-replace(|":", "+")
     
@@ -110,8 +119,9 @@ rules       // rule loading
           <verbose-msg> ["Potential cached rule: ", (cidx, key), " for def ", <CurrentDef>]; 
           <check-validity(|key)> cidx;
           vals := <CreateVals> cidx;
-          <verbose-msg> ["Rule was valid, got vals: ", vals]
-          
+          <verbose-msg> ["Rule was valid, got vals: ", vals];
+          rules(RuleOwners :+ key -> cdef)
+
 rules     // TODO
 
   find-removed-rules = id
