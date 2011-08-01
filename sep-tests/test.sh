@@ -3,7 +3,7 @@
 seppath=~/webdsl-java
 comppath=~/webdsl-svn-java
 
-options="--enable-caching 1 --verbose 3 --servlet"
+options="--enable-caching 1 --verbose 3 --servlet --indexdir /var/indexes"
 
 basedir=`pwd`
 
@@ -86,7 +86,7 @@ function clean {
 }
 
 testdir=$basedir/test-run
-template_src_dir=$comppath/src/org/webdsl/dsl/project/template-webdsl
+template_src_dir=$seppath/src/org/webdsl/dsl/project/template-webdsl
 template_dst_dir=.servletapp/src-webdsl-template
 
 function create {
