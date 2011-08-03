@@ -26,23 +26,23 @@ rules
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
-       //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
        ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
-       //; info(|["Should be inlined: ", joincandidates])
+       ; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-generic); make-set> fas // Cannot remove casts, because they are important for type-of
        ; queryroots := <map(Fst); make-set; string-sort> queryjoins
        ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
-       //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
-       //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
-       //; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
-       //; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
+       ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
+       ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
 
   remove-casts = repeat(oncetd(?Cast(<id>, _)))
@@ -172,15 +172,16 @@ strategies
     ; where(<is-accessible-from(IteratedVar <+ IteratedSubList); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e)
     ; genname := <generate-template-name-args> (<concat-strings>[ent, nm], arg*)
     ; where(not(<PassedFunction> genname)) // This prevents an infinite loop when following a recursive function
-    ; decl := <try-resolve-entity-call> (ent, nm, <map(type-of)> arg*)
-    ; ?Function(_, fargs, _, body)
+    ; (fent, Function(_, fargs, _, body)) := <try-resolve-entity-call> (ent, nm, <map(query-optimization-type-of)> arg*)
     // Here we get the properties of the entity and insert them as extra parameters for the function call
     // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionArg1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
+    ; thissafe := "this"{<concat-strings>[genname, "_this"]}
     ; {| RenamePropInFunction // Here we temporarily rename the Var()s in the function body for our analysis
         : (args, fargs2) := <get-all-entity-properties-for-rename(|genname); map({name,uniquename,safename,srt:\
                                 (name, uniquename, safename, srt) -> (FieldAccess(e2, name), Arg(safename, srt))
                                 where rules( RenamePropInFunction : Var(uniquename) -> Var(safename) )
-                            \}); unzip> ent
+                            \}); ![(e2, Arg(thissafe, SimpleSort(fent)))|<id>]; unzip> ent
+        ; rules( RenamePropInFunction : Var("this") -> Var(thissafe) )
         ; body2 := <alltd(RenamePropInFunction)> body
       |}
     ; {| PassedFunction
@@ -196,15 +197,33 @@ strategies
     (?Action(_, _, _, _) <+ ?LocalRedefine(_, _, _, _, _) <+ ?Define(_, _, _, _, _) <+ ?TemplateCase(_, _))
     ; ![]
 
-  try-resolve-entity-call: (ent, nm, targ*) -> f // Same as resolve-entity-call, except here we allow failure
+  // Same as resolve-entity-call, except here we allow failure
+  // It also does not return functions that have an overridden version and it is unsure which version will be used
+  try-resolve-entity-call: (ent, nm, targ*) -> result
     where not("Entity" := ent)
-    ; f := <resolve-function-call-to-current-decl> (SimpleSort(ent), nm, targ*)
-      <+ f := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
+    ; (f, targ-resolved*) := <resolve-function-call-to-current-decl> (SimpleSort(ent), nm, targ*)
+      < (<subentities-do-no-override> (ent, nm, targ-resolved*); result := (ent, f))
+      + result := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
 
-  resolve-function-call-to-current-decl: p@(SimpleSort(x_class), fname, t*) -> f // Same as resolve-function-call-to-decl, but uses CurrentEntityFunctionDecl
+  subentities-do-no-override =
+    ?(ent, nm, targ-resolved*)
+    ; all-keys-EntDecl
+    ; filter({x_sub:
+                ?x_sub
+                ; where(
+                    <not(eq)>(x_sub, ent)
+		                ; <subtype-of>(SimpleSort(x_sub), SimpleSort(ent))
+		                ; <EntityFunctionDecl>(x_sub, nm, targ-resolved*)
+                )
+             })
+    //; (?[] <+ debug(!<concat-strings>[ent, "::", nm, " already defined for: "]))
+    ; ?[]
+
+  resolve-function-call-to-current-decl: p@(SimpleSort(x_class), fname, t*) -> (f, targ-resolved*)
     where targ-resolved* := <resolve-function-call(bagof-CheckFunctionSignatureArgumentTypes | t*, fname)> p
-        ; f := <CurrentEntityFunctionDecl> (x_class, fname, targ-resolved*)  // If statements possibly contribute if they have only an if or else block
-
+        ; f := <CurrentEntityFunctionDecl> (x_class, fname, targ-resolved*)
+          
+  // If statements possibly contribute if they have only an if or else block
   an-potential-joins =
     (?IfNoElseTempl(condExp, trueBlock) <+ ?IfNoElse(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []) <+ ?If(condExp, trueBlock, []))
     ; newCondExp := <repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp 
@@ -575,7 +594,7 @@ rules
 
   generate-template-name-args :
   	(n, args) -> genname
-  	with t* := <map(type-of; strip-annos)> args
+  	with t* := <map(query-optimization-type-of; strip-annos)> args
     ; name := <strip-annos> n
     ; genname := <generate-template-name> (name,t*)
 
@@ -620,6 +639,8 @@ rules
 
   is-one-dbprop: (expr1, expr2) -> <id>
     where <get-accessible-dbfield <+ RootVar> expr2
+
+  query-optimization-type-of = (is-accessible-from(IteratedVar <+ IteratedSubList); Snd) <+ type-of
 
   // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
   // For query conditions this is not allowed, so there id should be used to deal with generic sorts

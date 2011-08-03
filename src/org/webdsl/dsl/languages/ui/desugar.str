@@ -19,3 +19,39 @@ rules //desugar dummy templatecall
   ; fetch(?TemplateCall("dummy",_,_,TemplateBody(_)))
   ; map(try(?TemplateCall("dummy",_,_,TemplateBody(<id>))))
   ; flatten-list
+
+
+  desugar-ui :
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg2*, req*, elem1*){QueryOptimizations([], [], True(), []), anno*}
+    where not(InPage <+ InTemplate)
+        ; not(<fetch(Page)> mod*)
+        ; not(<fetch(Email)> mod*)
+        ; not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
+        ; not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
+        ; genname := <generate-template-name-fargs> (x, farg1*)
+        ; args := <filter(not(?Arg(_, <is-entity-type; not(?SimpleSort("Entity"))>)))> farg1*
+        ; farg2* := <map(/*try(where(?Arg(_, <is-entity-type; not(?SimpleSort("Entity"))>));info(|[x, "#", <id>])); id*/try(add-optimization-to-template-argument(|genname,elem1*,args)))> farg1*
+          
+  add-optimization-to-template-argument(|genname,def,args) :
+    arg@Arg(x, srt){anno*} -> arg{QueryOptimizations(joincandidates2, joincandidatesgen2, querycondition, conditionjoins), anno*}
+    where <is-entity-type; not(?SimpleSort("Entity")); ?SimpleSort(x_class)> srt//; info(|[genname, "#(", x, " as ", x_class, ")..."])
+    with {| PassedTemplate
+          : rules( PassedTemplate : genname -> genname )
+          ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(def, x, srt, args, True())
+          |}
+    where checkprop := <filter(string-tokenize(|['.']); ?[<ltrim-chars(?'_')>|_]; where(<PropertyDecl> (x_class, <id>))); ?[<id>|_]> joincandidates
+    ; checkelem := <concat-strings>["_", checkprop]
+    ; (checkprop, joincandidates2, joincandidatesgen2) := <get-check-prop-normal(|x_class) <+ get-check-prop-generic(|x_class)> (joincandidates, joincandidatesgen)
+    ; info(|[genname, "#(", x, " as ", x_class, ").", checkprop, "  =>  ", joincandidates2, "  =>  ", joincandidatesgen2])
+
+  get-check-prop-normal(|x_class) :
+    (joincandidates, joincandidatesgen) -> (checkprop, joincandidates2, joincandidatesgen) 
+    where checkprop := <filter(string-tokenize(|['.']); ?[<ltrim-chars(?'_')>|_]; where(<PropertyDecl> (x_class, <id>))); ?[<id>|_]> joincandidates
+    ; checkelem := <concat-strings>["_", checkprop]
+    ; joincandidates2 := <where(fetch-elem(?checkelem)); remove-all(?checkelem); ![checkelem|<id>]> joincandidates
+      
+  get-check-prop-generic(|x_class) :
+    ([], joincandidatesgen) -> (checkprop, [], joincandidatesgen2) 
+    where checkprop := <filter(string-tokenize(|['.']); ?[<ltrim-chars(?'_')>|_]; where(<PropertyDecl> (x_class, <id>))); ?[<id>|_]> joincandidatesgen
+    ; checkelem := <concat-strings>["_", checkprop]
+    ; joincandidatesgen2 := <where(fetch-elem(?checkelem)); remove-all(?checkelem); ![checkelem|<id>]> joincandidatesgen
