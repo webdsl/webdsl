@@ -1,7 +1,7 @@
 application test
 
   entity Test {
-    prop :: Date (format = "mm.dd.yyyy")
+    prop :: Date (format = "MM.dd.yyyy")
     prop1 :: Date
   }
   
@@ -24,7 +24,7 @@ application test
   }
 
   type Date { 
-    format = "dd-mm-yyyy"
+    format = "dd-MM-yyyy"
   }
   
 
