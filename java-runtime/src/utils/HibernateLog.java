@@ -12,23 +12,28 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.Stack;
 
 public class HibernateLog {
 	protected List<HibernateLogEntry> _list = null;
 	protected long _totalTime = 0;
+	protected Date _firstQueryStart = null;
+	protected Date _lastQueryEnd = null;
 	protected String _error = null;
 
-	public static void printHibernateLog(PrintWriter sout) {
+	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
 		NDCAppender ndcAppender = NDCAppender.getNamed("hibernateLog");
 		if(ndcAppender != null) { 
 			String log = ndcAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
 			if(hibLog.tryParse(log)) {
-				hibLog.print(sout);
+				hibLog.print(sout, session);
 			}
 			else {
-				hibLog.print(sout);
+				hibLog.print(sout, session);
 				sout.print("<pre>" + utils.HTMLFilter.filter(log) + "</pre>");
 			}
 		}
@@ -93,11 +98,15 @@ public class HibernateLog {
         			if(current != null) entries.push(current);
         			current = new HibernateLogEntry();
         			current.openTime = absoluteFormat.parse(time);
+        			if(_firstQueryStart == null) {
+        				_firstQueryStart = current.openTime; 
+        			}
         			_list.add(current);
         		}
         		else if(msg.indexOf("about to close PreparedStatement") == 0) {
         			if(current == null) throw new ParseException("No statement to close", linenr);
         			current.closeTime = absoluteFormat.parse(time);
+        			_lastQueryEnd = current.closeTime;  
         			current.durationInclusive = dateDiff(current.openTime, current.closeTime);
         			current.durationExclusive = current.durationInclusive;
         			_totalTime += current.durationInclusive;
@@ -119,6 +128,23 @@ public class HibernateLog {
         	}
         	else if(cat.indexOf("org.hibernate.type") == 0) {
         		if(current == null) continue;
+        		if(msg.indexOf("binding parameter [") == 0) {
+        			int idx = msg.indexOf("] as [");
+        			if(idx <= 19) continue;
+        			int index = Integer.parseInt(msg.substring(19,  idx));
+        			int idx2 = msg.indexOf("] - ", idx);
+        			String type = msg.substring(idx + 6, idx2);
+        			String value = msg.substring(idx2 + 4);
+        			if(type.equals("VARCHAR")) value = "'" + value + "'";
+        			while(current.parameterVals.size() - 1 < index - 1)
+        			{
+        				current.parameterVals.add("<null>");
+        				current.parameterTypes.add("null");            				
+        			}
+        			current.parameterVals.set(index - 1, value);
+        			current.parameterTypes.set(index - 1, type);
+        		}
+        		/*  // Parsing for Hibernate 3.5.4:
         		if(msg.indexOf("binding ") == 0) {
         			int idx = msg.indexOf(" to parameter: ", 8);
         			if(idx < 0) continue;
@@ -134,12 +160,13 @@ public class HibernateLog {
         			current.parameterVals.set(index - 1, value);
         			current.parameterTypes.set(index - 1, type);
         		}
+        		*/
         	}
         }
         if(!entries.empty()) throw new ParseException("Not all statements were closed", linenr);
     }
 
-	public void print(PrintWriter sout) {
+	public void print(PrintWriter sout, org.hibernate.Session session) {
 		sout.print("<hr />");
 		if(_error != null) {
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(_error) + "</pre>");
@@ -173,18 +200,102 @@ public class HibernateLog {
 					}
 				}
 			}
-			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + _totalTime + " ms</span></p><table class=\"sqllog\">");
+			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + getTotalTimespan() + " ms</span>");
+			boolean printedSessionContext = false;
+			if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {
+				org.hibernate.engine.PersistenceContext context = ((org.hibernate.engine.SessionImplementor)session).getPersistenceContext();
+				if(context != null) {
+					Map entityEntries = context.getEntityEntries();
+					Map collectionEntries = context.getCollectionEntries();
+					int entities = 0;
+					int collections = 0;
+					SortedMap<String, Integer> entCounter = new TreeMap<String, Integer>();
+					SortedMap<String, Integer> colCounter = new TreeMap<String, Integer>();
+					if(entityEntries != null && collectionEntries != null) {
+						// Count entities in the hibernate session by classname
+						for(Object ent : entityEntries.values()) {
+							if(ent instanceof org.hibernate.engine.EntityEntry) {
+								org.hibernate.engine.EntityEntry entEntry = (org.hibernate.engine.EntityEntry)ent;
+								String name = entEntry.getEntityName();
+								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
+								Integer count = entCounter.get(name);
+								if(count == null) count = new Integer(0);
+								if(org.hibernate.Hibernate.isInitialized(context.getProxy(entEntry.getEntityKey()))) {
+									count++;
+									entities++;
+								}
+								entCounter.put(name, count);
+							}
+						}
+
+						// Count collections in the hibernate session by their role
+						for(Object col : collectionEntries.values()) {
+							if(col instanceof org.hibernate.engine.CollectionEntry) {
+								org.hibernate.engine.CollectionEntry colEntry = (org.hibernate.engine.CollectionEntry)col;
+								org.hibernate.persister.collection.CollectionPersister persister = colEntry.getLoadedPersister();
+								if(persister != null) {
+									String name = persister.getRole();
+									if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
+									Integer count = colCounter.get(name);
+									if(count == null) count = new Integer(0);
+									org.hibernate.engine.CollectionKey collectionKey = new org.hibernate.engine.CollectionKey( persister, colEntry.getLoadedKey(), ((org.hibernate.engine.SessionImplementor)session).getEntityMode() );
+									if(context.getCollection(collectionKey).wasInitialized()) {
+										count++;
+										collections++;
+									}
+									colCounter.put(name, count);
+								}
+							}
+						}
+
+						sout.print(", Entities = <span id=\"sqllogentities\">" + entities+ "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
+						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
+						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
+						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();
+						String entKey = entKeys.hasNext() ? entKeys.next() : null;
+						String colKey = colKeys.hasNext() ? colKeys.next() : null;
+						while(entKey != null || colKey != null) {
+							if(colKey != null && (entKey == null || entKey.compareTo(colKey) > 0)) {
+								if(colCounter.get(colKey) > 0) {
+									sout.print("<tr class=\"sqllogdetailscollection\"><td class=\"sqllogdetailsname\">");
+									sout.print(colKey);
+									sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
+									sout.print(colCounter.get(colKey));
+									sout.print("</td></tr>");
+								}
+								colKey = colKeys.hasNext() ? colKeys.next() : null;
+							} else {
+								sout.print("<tr class=\"sqllogdetailsentity\"><td class=\"sqllogdetailsname\">");
+								sout.print(entKey);
+								sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+								sout.print(entCounter.get(entKey));
+								sout.print("</td></tr>");
+								entKey = entKeys.hasNext() ? entKeys.next() : null;
+							}
+						}
+						sout.print("</table>");
+						printedSessionContext = true;
+					}
+				}
+			}
+			if(!printedSessionContext) {
+				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
+			}
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : _list)
-			{ 
-				sout.print("<tr class=\"sqllog\"><td class=\"sqllognr\">" + (++logindex) + "</td><td class=\"sqllogtime\">" + entry.durationExclusive + " ms" + (entry.subEntries > 0 ? "(" + entry.durationInclusive + " ms with " + entry.subEntries + " queries)" : "") + "</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+			{
+				sout.print("<div class=\"sqllog\">Query " + (++logindex) + " (" + entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
-			sout.print("</table><p>The three queries that took the most time:</p><table class=\"sqllog\">");
-			for(utils.HibernateLogEntry entry : longestThree)
-			{ 
-				sout.print("<tr class=\"sqllog\"><td class=\"sqllogtime\">" + entry.durationExclusive + " ms</td><td class=\"sqllogstatement\"><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></td></tr>");
+			sout.print("<p><b>The three queries that took the most time:</b></p><table class=\"sqllog\">");
+			for(int i = 0; i < longestThree.size(); i++)
+			{
+				utils.HibernateLogEntry entry = longestThree.get(i);
+				sout.print("<div class=\"sqllog\">");
+				if(i == 0) sout.print("Longest query (");
+				if(i == 1) sout.print("Second longest query (");
+				if(i == 2) sout.print("Third longest query (");
+				sout.print(entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
-			sout.print("</table>");
 		}
 		catch(Exception ex) {
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");
@@ -196,8 +307,12 @@ public class HibernateLog {
 		return _list.size();
 	}
 
-	public long getTotalTime() {
+	public long getTotalTime() { // Inaccurate, because fast queries are counted as 0ms or 1ms, but nothing in between
 		return _totalTime;
+	}
+
+	public long getTotalTimespan() { // Is better than getTotalTime(), but this also counts time spend in between queries
+		return dateDiff(_firstQueryStart, _lastQueryEnd);
 	}
 	
     public static long dateDiff(Date start, Date end) {
