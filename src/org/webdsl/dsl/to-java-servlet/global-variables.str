@@ -42,7 +42,6 @@ rules
           
         ~*cbds*
         ~*cbds1*
-        ~*cbds2*
     
         static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
           for(ApplicationContextProperty a : res){
@@ -113,7 +112,7 @@ rules
                               
                              public static x_class get#x(org.hibernate.Session hibSession)
                              {
-                                 t x = (x_class) hibSession.get(x_class.class, x#id);
+                                 t x = (x_class) hibSession.load(x_class.class, x#id);
                                  return x;
                              }
                               
@@ -126,7 +125,6 @@ rules
                        \});concat> 
                        <bagof-AllGlobalVars <+ ![]>
         ; vardeclinits := <bagof-AllGlobalVars <+ ![]>
-        ; cbds2* := <map({\ elem |[ var x : srt := e ]| -> srt{entanno, defanno} with entanno := <get-anno(?EntityAnno(_, _, _))> srt; defanno := <get-anno(?DefValueAnno(_))> srt \}); make-set; map(vardeclinit-to-load-by-class-java-servlet)> vardeclinits
         // persist right away to get an id
         ; bstm3* := <map(vardeclinit-to-persist-statement-java-servlet <+ pp-aterm(!"vardeclinit-to-persist-statement-java-servlet: ");fail);concat-with-sublists> vardeclinits
         //update with assignments
@@ -212,51 +210,3 @@ rules
       ; t := <defined-java-type> srt
       ; x_t := <java-type-name> srt
       ; e_vardeclinit := <expression-to-java-servlet> e
-
-  vardeclinit-to-load-by-class-java-servlet :
-    srt@SimpleSort(x_typename) -> class-body-dec* |[
-        public static void initGlobal#x_typename(Environment env, org.hibernate.Session hibSession) {
-          java.util.List<UUID> ids = new java.util.ArrayList<UUID>();
-          bstm1*
-          if(ids.size() > 0) {
-            List<x_class> results;
-            if(ids.size() == 1) {
-	            results = new java.util.ArrayList<x_class>();
-	            results.add((x_class)hibSession.get(x_class.class, ids.get(0)));
-            }
-            else {
-              results = hibSession.createCriteria(x_class.class).add(org.hibernate.criterion.Restrictions.in("_id", ids)).list();
-	          }
-	          for(x_class a : results)
-	          {
-	            bstm2*
-	          }
-          }
-          bstm3*
-        }
-    ]|
-    with entanno := <get-anno(?EntityAnno(_, _, _))> srt
-    ; defanno := <get-anno(?DefValueAnno(_))> srt
-    ; vardeclinits := <(bagof-AllGlobalVars <+ ![]); filter(where(?VarDeclInit(_, <id>, _); has-anno(|entanno); has-anno(|defanno); strip-annos; ?SimpleSort(x_typename))); map({\ decl@VarDeclInit(ident, _, _) -> (decl, newident) with newident := <newname> ident \})>
-    ; x_class := <java-type-name> srt
-    ; t := <java-type> srt
-    ; bstm1* := <map({x_ident:\
-								      (VarDeclInit(x_ident, srt, _), x_newident) ->
-								      bstm* |[
-								        t x_newident = (x_class)hibSession.load(x_class.class, x_ident#id);
-								        if(!org.hibernate.Hibernate.isInitialized(x_newident)) {
-								          x_newident = null;
-								          ids.add(x_ident#id);
-								        }
-								      ]|
-								      \}); flatten-list> vardeclinits
-    ; bstm2* := <map({x_ident:\
-                      (VarDeclInit(x_ident, srt, _), x_newident) -> 
-                      bstm |[ 
-                        if(org.webdsl.tools.Utils.equal(x_ident#id, a.getId()))
-                        {
-                          x_newident = a;
-                        }
-                      ]|
-                      \})> vardeclinits
-    ; bstm3* := <map({\ (VarDeclInit(x_ident, srt, _), x_newident) -> bstm |[ env.putVariable("~x_ident", x_newident); ]| \})> vardeclinits

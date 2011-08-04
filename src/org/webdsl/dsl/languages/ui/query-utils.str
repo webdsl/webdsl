@@ -471,7 +471,7 @@ strategies // checks for potential inlining
 
   get-accessible-expr = where((ParentArgs <+ IteratedVar); is-query-condition-type)
 
-  get-accessible-dbfield = ?FieldAccess(_, _); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt)
+  get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt)
 
   get-accessible-field =
   	where(
@@ -579,6 +579,51 @@ strategies // checks for potential inlining
   extract-query-cond:
   	fa1@FieldAccess(_, _) -> Eq(fa2, True())
   	where (fa2, SimpleSort("Bool")) := <repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id)> fa1
+
+  extract-query-cond:
+    v1@Var(_) -> Eq(v2, True())
+    where (v2, SimpleSort("Bool")) := <repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id)> v1
+
+  extract-query-cond=
+    ?Call(e1, nm, arg*){anno*}
+    ; where(<is-accessible-from(IteratedVar <+ IteratedSubList); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e1)
+    ; genname := <generate-template-name-args> (<concat-strings>[ent, nm], arg*)
+    ; where(not(<PassedFunction> genname)) // This prevents an infinite loop when following a recursive function
+    ; (fent, Function(_, fargs, SimpleSort("Bool"), Block([Return(expr)]))) := <try-resolve-entity-call> (ent, nm, <map(query-optimization-type-of)> arg*)
+    // Here we get the properties of the entity and insert them as extra parameters for the function call
+    // We also have to rename the Var("prop") to Var("prop"{Entity_myfunctionArg1Arg2}) to prevent creating a loop in IteratedVar or IteratedSubList
+    ; thissafe := "this"{<concat-strings>[genname, "_this"]}
+    ; {| RenamePropInFunction // Here we temporarily rename the Var()s in the function body for our analysis
+        : argsbinding := <get-all-entity-properties-for-rename(|genname); map({name,uniquename,safename,srt:\
+                                (name, uniquename, safename, srt) -> (FieldAccess(e2, name), Arg(safename, srt))
+                                where rules( RenamePropInFunction : Var(uniquename) -> Var(safename) )
+                            \}); <concat>[[(e2, Arg(thissafe, SimpleSort(fent)))],<id>,<zip>(arg*, fargs)]> ent
+        ; rules( RenamePropInFunction : Var("this") -> Var(thissafe) )
+        ; expr2 := <alltd(RenamePropInFunction)> expr
+      |}
+    ; {| PassedFunction, IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
+       : rules( PassedFunction : genname -> genname )
+         // Here we mark the arguments as interesting, because they are in some way related to the persisten root or are constants which we can use in query conditions
+         // Removed the warnings, because a loop could occur when following a local redefine, because then some variables inside the redefine can belong to the caller and thus have the same name. This warning can be safely ignored.
+       ; <filter({vars:
+                     \ (e, Arg(x, srt)) ->  <id>
+                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
+                       where not(<IteratedVarValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])*/> Var(x))
+                       with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
+                                   IteratedVar      : Var(x) -> srt
+                                 )
+                     \})> argsbinding
+       ; <filter({vars: 
+                     \ (e, Arg(x, srt)) ->  <id>
+                       where not([] := <collect(IteratedSubList)> e)
+                       where not(<IteratedSubListValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])*/> Var(x))
+                       with rules( IteratedSubListValue  : Var(x) -> e
+                                   IteratedSubList       : Var(x) -> srt
+                                 )
+                     \})> argsbinding
+       ; <extract-query-cond> expr2
+       ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
+     |}
 
   extract-query-cond = !True()
 
