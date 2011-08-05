@@ -298,6 +298,7 @@ public class HibernateLog {
 			}
 		}
 		catch(Exception ex) {
+			ex.printStackTrace();
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");
 		}
 	}
@@ -312,6 +313,7 @@ public class HibernateLog {
 	}
 
 	public long getTotalTimespan() { // Is better than getTotalTime(), but this also counts time spend in between queries
+		if(_firstQueryStart == null || _lastQueryEnd == null) return 0;
 		return dateDiff(_firstQueryStart, _lastQueryEnd);
 	}
 	
