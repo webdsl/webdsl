@@ -27,7 +27,7 @@ strategies
     ; !Application(qid, sections2)
       
   rename-all-overloaded-functions(|globalnames,entitynames) =
-      alltd(rename-overloaded-global-function(|globalnames,entitynames) <+ rename-overloaded-entity-function(|globalnames,entitynames)) 
+      topdown(try(rename-overloaded-global-function(|globalnames,entitynames) <+ rename-overloaded-entity-function(|globalnames,entitynames))) 
 
   
   find-entity-root = find-entity-root(|[])
@@ -151,17 +151,21 @@ rules // rename overloaded global functions
        ; <declare-global-func> fun
 
   rename-overloaded-global-function(|torename_global,torename_entity) :
-    tc@ThisCall(nm, arg*){anno*} -> ThisCall(nm2, arg*){anno*}
+    ThisCall(nm, arg*){anno*} -> ThisCall(nm2, arg*){anno*}
+    where nm2 := <rename-overloaded-global-function-helper(|torename_global,nm,<map(type-of)> arg*)>
+
+  rename-overloaded-global-function(|torename_global,torename_entity) :
+    FunctionRef(nm,fargtypes,srt){anno*} -> FunctionRef(nm2,fargtypes,srt){anno*}
+    where nm2 := <rename-overloaded-global-function-helper(|torename_global,nm,fargtypes)>
+
+  rename-overloaded-global-function-helper(|torename_global, nm, fargtypes) :
+    _ -> nm2
     where <elem> (nm, torename_global)
-    with  typelist := <map(type-of);prepare-type-list-for-compare> arg*
+    with  typelist := <prepare-type-list-for-compare> fargtypes
         ; cleanname := <strip-annos> nm
-          // is not an entity function call
+          // is not an entity function call, ThisEntity only succeeds inside an entity
     where not(<CheckFunctionSignature> (SimpleSort(<ThisEntity>), nm, typelist))
     with  nm2 := <resolve-function-call-to-decl; function-decl-to-newname> (None(), cleanname, typelist)
-
-rules // renaming
-
-  function-decl-to-newname: Function(nm,farg*,_,_) -> <new-function-name> (nm, <map(farg-to-type)> farg*)
 
 rules
 
