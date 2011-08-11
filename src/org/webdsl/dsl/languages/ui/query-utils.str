@@ -26,23 +26,23 @@ rules
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
-       //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
        ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
-       //; info(|["Should be inlined: ", joincandidates])
+       ; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-generic); make-set> fas // Cannot remove casts, because they are important for type-of
        ; queryroots := <map(Fst); make-set; string-sort> queryjoins
        ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
-       //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
-       //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
-       //; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
-       //; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
+       ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
+       ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
 
   remove-casts = repeat(oncetd(?Cast(<id>, _)))
@@ -271,9 +271,9 @@ strategies
 
   // Follow a template call
   an-potential-joins =
-    (?TemplateCall(_, _, [TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
+    (?TemplateCall(_, _, [tc@TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
     ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
-    ; (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
+    ; (genname, args2, def, redefined) := <get-local-template-redefine(|args)> tc
     ; <?Define(_, _, fargs, _, body)> def
     ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
     ; {| PassedTemplate
@@ -282,11 +282,10 @@ strategies
        |}
 
   an-potential-joins = // If the above rule fails to lookup the template then we try to collect effectful joins from the call
-    (?TemplateCall(_, _, [TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; ?tc
+    (?TemplateCall(_, _, [tc@TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
     ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
     ; not(
-        (genname, args2, def) := <generate-template-name-args; get-local-template-redefine(|args)> (name, args)
+        (genname, args2, def, redefined) := <get-local-template-redefine(|args)> tc
         ; <?Define(_, _, fargs, _, body)> def
       )
     ; <collect-effectful-potential-joins> tc
@@ -306,8 +305,8 @@ strategies
     ; <concat>[fromargs, fromprops, frombody]
 
   collect-from-local-redefines =
-    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; (genname, _, def) := <generate-template-name-args; where(not(LocalRedefName)); get-local-template-redefine(|args)> (name, args) // Not a local redefine
+    (?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
+    ; (genname, _, def, False()) := <get-local-template-redefine(|args)> tc // Not a local redefine
     ; where(not(<PassedTemplate> genname))
     ; <?Define(_, _, _, _, body)> def
     ; calls := <collect(?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, TemplateBody([])))> body
@@ -318,8 +317,8 @@ strategies
        |}
 
   collect-from-local-redefines =
-    (?TemplateCallNoBody(name, args) <+ ?TemplateCall(name, args, _, TemplateBody([])))
-    ; (genname, args2, def) := <generate-template-name-args; where(LocalRedefName); get-local-template-redefine(|args)> (name, args) // This is a call to a redefined template
+    (?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
+    ; (genname, args2, def, True()) := <get-local-template-redefine(|args)> tc // This is a call to a redefined template
     ; where(not(<PassedTemplate> genname))
     ; <?Define(_, _, fargs, _, body)> def
     ; {| PassedTemplate
@@ -329,13 +328,15 @@ strategies
 
   // Redirects attention to the local redefine and augments the arguments accordingly
   get-local-template-redefine(|args) =
-    ?genname
+    is-defined-tc-get-called-tc
+    ; ?genname
     ; localname := <LocalRedefName> genname
-    ; !(localname, <conc>(args, <LocalRedefArgs> genname), <CurrentTemplateDecl <+ LocalRedefDef> localname)
+    ; !(localname, <conc>(args, <LocalRedefArgs> genname), <CurrentTemplateDecl <+ LocalRedefDef> localname, True())
 
   get-local-template-redefine(|args) =
-    where(not(LocalRedefName))
-    ; !(<id>, args, <CurrentTemplateDecl>)
+    is-defined-tc-get-called-tc
+    ; where(not(LocalRedefName))
+    ; !(<id>, args, <CurrentTemplateDecl>, False())
 
   an-potential-joins =
     ?Derive(deriveType, e, props*)
@@ -674,7 +675,7 @@ rules
   anno-query-expr:
   	(SimpleSort("UUID"), expr) -> expr{SimpleSort("UUID")}
 
-  get-prop-type: (x_class, prop) -> <TypeOfProperty>
+  get-prop-type: (x_class, prop) -> <type-of-property>
 
   get-prop-type: (x_class, prop) -> <EntityIdType> x_class
     where <EntityIdName; ?prop> x_class
