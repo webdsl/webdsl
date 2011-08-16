@@ -30,12 +30,20 @@ import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
+import edu.emory.mathcs.backport.java.util.TreeMap.Entry;
+
 public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
-	protected final Version luceneVersion = Version.LUCENE_31;
+	protected static final Version LUCENEVERSION 		= Version.LUCENE_31;
+	protected static final int LIMIT 					= 50;
+	protected static final int OFFSET 					= 0;
+	protected static final Operator OP  				= Operator.OR;
+	protected static final boolean ALLOWLUCENESYNTAX 	= true;
+	protected static String[] SEARCHFIELDS;
 	
-	protected int limit = 50;
-	protected int offset = 0;
+	protected int limit = LIMIT;
+	protected int offset = OFFSET;
+	protected Operator op = OP;
 	
 	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
 	protected boolean allowLuceneSyntax = true;
@@ -54,6 +62,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected String[] untokenizedFields;
 	protected String[] searchFields;
 	protected String[] mltSearchFields;
+	protected String indexName;
 	
 	protected String queryText = "";
 	protected String filteredFacets = "";
@@ -63,9 +72,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected String encodedAsString;
 	
 	protected String namespaceConstraint = "";
+
 	
 	
-	protected Operator op = Operator.OR; 
+	
 	protected Analyzer analyzer;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
@@ -135,7 +145,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	private void applyNamespaceConstraint(){
 		fullTextQuery.enableFullTextFilter("namespaceFilter")
-		.setParameter("entityName", entityClass.getName())
+		.setParameter("indexName", indexName)
 		.setParameter("namespaceID", namespaceConstraint);
 	}
 	
@@ -160,9 +170,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			
 			SpecialMultiFieldQueryParser parser;
 			if(boosts == null || boosts.isEmpty()) 
-				parser = new SpecialMultiFieldQueryParser(	luceneVersion, searchFields, analyzer);
+				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, searchFields, analyzer);
 			 else 
-				parser = new SpecialMultiFieldQueryParser(	luceneVersion, searchFields, analyzer, boosts);
+				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, searchFields, analyzer, boosts);
 						
 			parser.setDefaultOperator(op);
 			
@@ -174,7 +184,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			} catch (org.apache.lucene.queryParser.ParseException pe){ 
 				return false;
 			}
-			//log("Terms: " + terms());
+			//log("Terms: " + query());
 			//log("Lucene query: " + luceneQuery.toString());
 			
 		}
@@ -185,100 +195,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 					.createQuery();
 		}
 		return true;
-	}
-	
-	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F decodeFromString(String asString){
-		try{
-			String[] props = asString.split("\\|", -1);
-			if(props.length != 17){
-				log("MALFORMED SEARCHQUERY ENCODING!");
-				return (F) this;
-			}		
-			String[] a1, a2;
-			// search fields
-			fields(new ArrayList<String>(Arrays.asList(props[0].split(","))));
-			// allow Lucene syntax?
-			allowLuceneSyntax(Boolean.parseBoolean(props[15]));
-			//search terms
-			query(decodeValue(props[1]));
-			//default operator
-			if(props[2].equals("AND"))
-				defaultAnd();
-			
-			//boost fields, values
-			if(!props[9].isEmpty()){
-				a1 = props[9].split(",");
-				a2 = props[10].split(",");
-				for(int i=0; i < a1.length; i++)
-					boost(a1[i], Float.parseFloat(a2[i]));
-			}
-			//constraint fields, values
-			if(!props[3].isEmpty()){
-				a1 = props[3].split(",");
-				a2 = props[4].split(",");
-				for(int i=0; i < a1.length; i++)
-					filterByField(a1[i], a2[i]);
-			}
-			//namespace constraint
-			if(!props[16].isEmpty()){
-				setNamespace(decodeValue(props[16]));
-			}
-			//facet fields, requests
-			if(!props[5].isEmpty()){
-				a1 = props[5].split(",");
-				a2 = props[6].split(",");
-				String field;
-				String param;
-				facetRequests = new HashMap<String, String>();
-				for(int i=0; i < a1.length; i++){
-					field = a1[i];
-					param = decodeValue(a2[i]);
-					if(param.contains(","))
-						enableFaceting(field, param);
-					else
-						enableFaceting(field, Integer.parseInt(param));
-				}
-			}
-			
-			//narrowed facets
-			if(!props[11].isEmpty()){
-				a1 = props[11].split(",");
-				for(int i=0; i < a1.length; i++)
-					filterByFacet(new WebDSLFacet(decodeValue(a1[i])));
-			}
-			//limit
-			maxResults(Integer.parseInt(props[7]));
-			//offset
-			firstResult(Integer.parseInt(props[8]));
-			//sort fields, directions
-			if(!props[12].isEmpty()){
-				a1 = props[12].split(",");
-				a2 = props[13].split(",");
-				for(int i=0; i < a1.length; i++)
-					sort(a1[i], Boolean.getBoolean(a2[i]));
-			}
-			//more like this
-			if(!props[14].isEmpty()){
-				a1 = props[14].split(",");
-				moreLikeThis(decodeValue(a1[0]), Integer.parseInt(a1[1]), Integer.parseInt(a1[2]), Integer.parseInt(a1[3]), Integer.parseInt(a1[4]), Integer.parseInt(a1[5]), Integer.parseInt(a1[6]));
-			}
-			
-			encodedAsString = asString;		
-			updateEncodeString = false;
-		} catch (Exception ex){
-			//exception, so return a new query
-			try {
-				log("MALFORMED SEARCHQUERY ENCODING!");
-				this.getClass().newInstance();
-			} catch (InstantiationException e) {
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			}
-		}
-		return (F) this;		
-		
 	}
 	
 	private String decodeValue(String str){
@@ -310,69 +226,170 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			.setParameter("analyzer", analyzer)
 			.setParameter("allowLuceneSyntax", allowLuceneSyntax);
 	}
-	
-	public String encodeAsString(){
-		if(!updateEncodeString)
-			return encodedAsString;
 		
-		StringBuilder sb = new StringBuilder();
-		//0 search fields
+	public Map<String,String> toParamMap(){
+		Map<String,String> paramMap = new HashMap<String, String>();
+		StringBuilder sb;
+		if(SEARCHFIELDS.length > searchFields.length) {
+		sb = new StringBuilder();
 		for(int cnt = 0 ; cnt < searchFields.length-1; cnt++)
 			sb.append(searchFields[cnt] + ",");
 		sb.append(searchFields[searchFields.length-1]);
-		//1 search terms
-		sb.append("|" + encodeValue(queryText));
-		//2 default operator
-		sb.append("|" + op);
-		//3 constraint fields
-		sb.append("|");
-		if(fieldConstraints!=null)
-			for (String field : fieldConstraints.keySet()) sb.append(field + ",");		
-		//4 constraint values
-		sb.append("|");
-		if(fieldConstraints!=null)
-			for (String value : fieldConstraints.values()) sb.append(value + ",");
-		//5 facet fields
-		sb.append("|");
-		if(facetRequests !=null)
-			for(String field : facetRequests.keySet()) sb.append(field + ",");		
-		//6 facet params
-		sb.append("|");
-		if(facetRequests!=null)
-			for(String param : facetRequests.values()) sb.append(encodeValue(param) + ",");		
-		//7 limit
-		sb.append("|" + limit);
-		//8 offset
-		sb.append("|" + offset);
-		//9 boost fields
-		sb.append("|");
-		if(boosts!=null)
-			for (String field : boosts.keySet()) sb.append(field + ",");		
-		//10 boost values
-		sb.append("|");
-		if(boosts!=null)
-			for (Float value : boosts.values()) sb.append(value + ",");
-		//11 narrowed facets
-		sb.append("|");
-		sb.append(filteredFacets);
-		//12 sort fields
-		sb.append("|" + sortFields);
-		//13 sort directions
-		sb.append("|" + sortDirections);
-		//14 more like this
-		sb.append("|" + encodeValue(moreLikeThisParams));
-		//15 allow lucene syntax?
-		sb.append("|" + allowLuceneSyntax);
-		//16 namespace constraint?
-		sb.append("|" + encodeValue(namespaceConstraint));
+		paramMap.put("sf", sb.toString());
+		}
+		//search terms
+		paramMap.put("q", queryText);
 		
-		//log("encode-sq");
-		updateEncodeString = false;
-		encodedAsString = sb.toString().replaceAll(",\\|", "\\|");
+		//default operator
+		if(!OP.equals(op))
+			paramMap.put("op", op.toString());
+		
+		//constraint fields, values
+		if(fieldConstraints!=null && !fieldConstraints.isEmpty()){
+			sb = new StringBuilder();
+			for (String field : fieldConstraints.keySet()) sb.append(field + ",");
+			paramMap.put("cf", sb.toString());
+			
+			sb = new StringBuilder();
+			for (String value : fieldConstraints.values()) sb.append(value + ",");
+			paramMap.put("cv", sb.toString());
+		}		
+		
+		//facet fields, params
+		if(facetRequests !=null && !facetRequests.isEmpty()){
+			sb = new StringBuilder();
+			for(String field : facetRequests.keySet()) sb.append(field + ",");
+			paramMap.put("ff", sb.toString());
+			
+			sb = new StringBuilder();
+			for(String param : facetRequests.values()) sb.append(encodeValue(param) + ",");
+			paramMap.put("fp", sb.toString());
 
-		return encodedAsString;
+		}
+		//limit
+		if(LIMIT != limit)
+			paramMap.put("lim", String.valueOf(limit));
+		//offset
+		if(OFFSET != offset)
+			paramMap.put("offset", String.valueOf(offset));
+		
+		//boost fields, values		
+		if(boosts!=null && !boosts.isEmpty()) {
+			sb = new StringBuilder();
+			for (String field : boosts.keySet()) sb.append(field + ",");
+			paramMap.put("bf", sb.toString());
+			sb = new StringBuilder();
+			for (Float value : boosts.values()) sb.append(value + ",");
+			paramMap.put("bv", sb.toString());
+		}
+		
+		//narrowed facets
+		if(!filteredFacets.isEmpty())
+			paramMap.put("facetf", filteredFacets);
+		
+		//sort fields
+		if(!sortFields.isEmpty())
+			paramMap.put("sortby", sortFields);
+		
+		//sort directions
+		if(!sortDirections.isEmpty())
+			paramMap.put("dirs", sortDirections);
+
+		//more like this
+		if(!moreLikeThisParams.isEmpty())
+			paramMap.put("mlt", moreLikeThisParams);
+		
+		//allow lucene syntax?
+		if(ALLOWLUCENESYNTAX != allowLuceneSyntax)
+			paramMap.put("allowlcn", String.valueOf(allowLuceneSyntax));
+		
+		//namespace constraint?
+		if(!namespaceConstraint.isEmpty())
+			paramMap.put("ns", namespaceConstraint);
+
+		return paramMap;		
+	}	
+	
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F fromParamMap(Map<String,String> paramMap){
+		try{	
+			String key, value;
+			for (Map.Entry<String,String> e : paramMap.entrySet()) {
+				key = e.getKey();
+				value = e.getValue();
+				if ("sf".equals(key)) {
+					// search fields
+					fields(new ArrayList<String>(Arrays.asList(value.split(","))));
+				} else if ("q".equals(key)) {
+					//search query
+					query(value);
+				} else if ("op".equals(key) && value.equals("AND")) {
+					//change default operator to AND
+					defaultAnd();
+				} else if ("cf".equals(key)) {
+					//constraint fields, values
+					String[] a1 = value.split(",");
+					String[] a2 = value.split(",");
+					for(int i=0; i < a1.length; i++)
+						filterByField(a1[i], a2[i]);
+				} else if ("ff".equals(key)) {
+					//facet fields, params
+					String[] a1 = value.split(",");
+					String[] a2 = value.split(",");
+					String field;
+					String param;
+					facetRequests = new HashMap<String, String>();
+					for(int i=0; i < a1.length; i++){
+						field = a1[i];
+						param = decodeValue(a2[i]);
+						if(param.contains(","))
+							enableFaceting(field, param);
+						else
+							enableFaceting(field, Integer.parseInt(param));
+					}
+					
+				} else if ("lim".equals(key)) {
+					//limit
+					maxResults(Integer.parseInt(value));
+				} else if ("offset".equals(key)) {
+					//offset
+					firstResult(Integer.parseInt(value));
+				} else if ("bf".equals(key)) {
+					//boost fields, values
+					String[] a1 = value.split(",");
+					String[] a2 = value.split(",");
+					for(int i=0; i < a1.length; i++)
+						boost(a1[i], Float.parseFloat(a2[i]));
+				} else if ("facetf".equals(key)) {
+					String[] a1 = value.split(",");
+					for(int i=0; i < a1.length; i++)
+						filterByFacet(new WebDSLFacet(decodeValue(a1[i])));
+				} else if ("sortby".equals(key)) {
+					//sort fields, directions
+					String[] a1 = value.split(",");
+					String[] a2 = value.split(",");
+					for(int i=0; i < a1.length; i++)
+						sort(a1[i], Boolean.getBoolean(a2[i]));
+				} else if ("mlt".equals(key)) {
+					//more like this
+					String[] a1 = value.split(",");
+					moreLikeThis(a1[0], Integer.parseInt(a1[1]), Integer.parseInt(a1[2]), Integer.parseInt(a1[3]), Integer.parseInt(a1[4]), Integer.parseInt(a1[5]), Integer.parseInt(a1[6]));
+				} else if ("allowlcn".equals(key)) {
+					// allow Lucene syntax?
+					Boolean.parseBoolean(value);					
+				} else if ("ns".equals(key)) {
+					//namespace
+					setNamespace(value);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			log("Error during entity searcher decoding!");
+		}
+		return (F) this;		
 		
 	}
+	
 	
 	private String encodeValue(String str){
 		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll(",", "\\\\c").replaceAll(":", "\\\\a");
@@ -477,12 +494,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F setNamespace(String namespace){
-		if (namespaceConstraint.isEmpty()) {
-			//do nothing special
-		}
-		else if(!namespaceConstraint.equals(namespace)){
-			//first remove old namespace filter
-			fullTextQuery.disableFullTextFilter("namespaceFilter");
+		
+		if(!namespaceConstraint.equals(namespace)){
+			//first remove old namespace filter if set
+			if(!namespaceConstraint.isEmpty())
+				fullTextQuery.disableFullTextFilter("namespaceFilter");
 		}
 		else {
 			return (F) this;
@@ -539,15 +555,21 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
-		searchTime = System.currentTimeMillis();
-		if (validateQuery()) {
-			List<EntityClass> toReturn = fullTextQuery.list();
-			searchTime = System.currentTimeMillis() - searchTime;
-			//log("got result list in " + searchTime +"ms");
-			return toReturn;
-		} else
-			searchTime = 0;
-			return new ArrayList<EntityClass>();
+		try{
+			searchTime = System.currentTimeMillis();
+			if (validateQuery()) {			
+				List<EntityClass> toReturn = fullTextQuery.list();
+				searchTime = System.currentTimeMillis() - searchTime;
+				//log("got result list in " + searchTime +"ms");
+				return toReturn;
+			}
+		} catch(Exception ex) {
+			log("ERROR WHILE LISTING SEARCH RESULTS");
+			ex.printStackTrace();
+		}
+		//Something went wrong
+		searchTime = 0;
+		return new ArrayList<EntityClass>();
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -644,15 +666,15 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 
 	public int resultSize() {
-		if (validateQuery()){
-			long tmp = System.currentTimeMillis();
-			int toreturn = fullTextQuery.getResultSize();
-			tmp = System.currentTimeMillis() - tmp;			
-			//log("result size in " + tmp +"ms");
-			return toreturn;
+		try{
+			if (validateQuery()){
+				return fullTextQuery.getResultSize();
+			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
 		}
-		else
-			return -1;
+		//Something went wrong
+		return 0;
 	}
 	public String searchTimeAsString() {
 		return searchTime + " ms";

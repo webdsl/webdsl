@@ -74,31 +74,31 @@ application test
   	init{
   		IndexManager.indexSuggestions();
   	}
-    var personQuery := PersonSearcher();
-    var itemQuery := ItemSearcher();
+    var personSearcher := PersonSearcher();
+    var itemSearcher := ItemSearcher();
     var name := "Bottle of dr Pepper"
     var drPepperItems := from Item as i where i.name = ~name;
     output("Search page:")   
     
     
-    "simplesearch-1:" output(itemQuery.query("bottle").list()[0].name) 
-    "embeddedsearch-1:" output(personQuery.query("bottle").list()[0].name)
-    "embeddedsearch-2:" output(personQuery.field("items.nameField").query("bottle").list()[0].name)
-    "nostopfilter-1:" if(itemQuery.field("nameFieldNoStop").query("of").list().length == 1){output(itemQuery.list()[0].name)}
-    "stopfilter-1:" if(itemQuery.fields(["nameField"]).query("of").list().length == 0){"OK"}
-    "morelikethis-1:" output(itemQuery.field("description").moreLikeThis(drPepperItems[0].description).maxResults(10).resultSize())
-    "morelikethis-2-3:" output(itemQuery.list()[0].name) 
-    "morelikethis-2-3:" output(itemQuery.list()[1].name)
-    "rangesearch-1:" output(personQuery.field("birthday").range(Date("05/05/1955"),Date("05/05/1955")).resultSize())
-    "rangesearch-2:" output(personQuery.field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).resultSize())
-    "rangesearch-3:" output(personQuery.field("birthday").range(Date("03/05/1955"),Date("04/05/1955")).resultSize())
-    "rangesearch-4:" output(personQuery.field("birthday").range(Date("01/01/2005"),Date("31/12/2013")).resultSize())
+    "simplesearch-1:" output(itemSearcher.query("bottle").list()[0].name) 
+    "embeddedsearch-1:" output(personSearcher.query("bottle").list()[0].name)
+    "embeddedsearch-2:" output(personSearcher.field("items.nameField").query("bottle").list()[0].name)
+    "nostopfilter-1:" if(itemSearcher.field("nameFieldNoStop").query("of").list().length == 1){output(itemSearcher.list()[0].name)}
+    "stopfilter-1:" if(itemSearcher.fields(["nameField"]).query("of").list().length == 0){"OK"}
+    "morelikethis-1:" output(itemSearcher.field("description").moreLikeThis(drPepperItems[0].description).maxResults(10).resultSize())
+    "morelikethis-2-3:" output(itemSearcher.list()[0].name) 
+    "morelikethis-2-3:" output(itemSearcher.list()[1].name)
+    "rangesearch-1:" output(personSearcher.field("birthday").range(Date("05/05/1955"),Date("05/05/1955")).resultSize())
+    "rangesearch-2:" output(personSearcher.field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).resultSize())
+    "rangesearch-3:" output(personSearcher.field("birthday").range(Date("03/05/1955"),Date("04/05/1955")).resultSize())
+    "rangesearch-4:" output(personSearcher.field("birthday").range(Date("01/01/2005"),Date("31/12/2013")).resultSize())
     "autocomplete-1:" output(ItemSearcher.autoCompleteSuggest("coke","nameCompletion",5)[0])
     "autocomplete-2:" output(ItemSearcher.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
     "autocomplete-3:" output(ItemSearcher.autoCompleteSuggest("pepf","nameCompletion",1)[0])
     "autocomplete-4:" output(ItemSearcher.autoCompleteSuggest("b","nameCompletion",1)[0])
-   // "customstopfilter-1:" output(itemQuery.field("nameCustomStop").query("diet").resultSize())
-   // "customstopfilter-2:" output(itemQuery.field("nameCustomStop").query("bottle").resultSize())
+   // "customstopfilter-1:" output(itemSearcher.field("nameCustomStop").query("diet").resultSize())
+   // "customstopfilter-2:" output(itemSearcher.field("nameCustomStop").query("bottle").resultSize())
     
   }
   

@@ -8,8 +8,8 @@ import javax.persistence.Id;
 public class SearchNamespace {
 	
 	public SearchNamespace() {}
-	public SearchNamespace(String entityName, String namespaceAsString, Integer index) {
-		setEntityName(entityName);
+	public SearchNamespace(String indexName, String namespaceAsString, Integer index) {
+		setEntityName(indexName);
 		setNamespaceAsString(namespaceAsString);
 		setIndexNr(index);
 	}
@@ -23,13 +23,13 @@ public class SearchNamespace {
 	  this.id = id;
 	}
 
-	@javax.persistence.Column(name = "entityName", length = 255) @org.hibernate.annotations.AccessType(value = "field")
-	private String entityName = "";	
-	public void setEntityName(String entityName) {
-		this.entityName = entityName;
+	@javax.persistence.Column(name = "indexName", length = 255) @org.hibernate.annotations.AccessType(value = "field")
+	private String indexName = "";	
+	public void setEntityName(String indexName) {
+		this.indexName = indexName;
 	}
-	public String getEntityName() {
-		return entityName;
+	public String getIndexName() {
+		return indexName;
 	}
 	@javax.persistence.Column(name = "namespaceAsString", length = 255) @org.hibernate.annotations.AccessType(value = "field")
 	private String namespaceAsString = "";	

@@ -23,6 +23,7 @@ strategies
     <emit-java-code-local> compilation-unit|[
       package utils;
   
+  	  import java.util.ArrayList;
       import java.util.List;
       import java.io.File;
       import java.io.IOException;
@@ -104,14 +105,27 @@ strategies
         }
         
         private static synchronized void createOrUpdateSpellIndex(Class<?> indexedClass, String[] searchFields){
+        	createOrUpdateSpellIndex(indexedClass,searchFields, "");
+        }
+        
+        //If namespace is null or empty, the whole spellcheck index (union of and seperate namespaces) for the given entity (indexedClass) will be created/updated,
+		//otherwise the spellcheck index is only created/updated for the given namespace and union of all namespaces 
+        private static synchronized void createOrUpdateSpellIndex(Class<?> indexedClass, String[] searchFields, String namespace){
 		    
 		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		    SearchFactory searchFactory = session.getSearchFactory();			
 		 
 		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
 		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
-		   
-		    List<String> namespaces = SearchNamespaceHelper.allNamespaces(indexedClass.getName());
+		    
+		    String indexName = indexName(indexedClass);
+		    List<String> namespaces;
+		    if(namespace == null || namespace.isEmpty()){
+		    	namespaces = SearchNamespaceHelper.allNamespaces(indexName);
+		    } else {
+		    	namespaces = new ArrayList<String>();
+		    	namespaces.add(namespace);
+		    }
 		    IndexReader reader;
 		    
     		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
@@ -126,7 +140,7 @@ strategies
     			}
     			else {
     				currentNamespace = namespaces.get(n);
-    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexedClass.getName(), currentNamespace, false);
+    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
     				reader = readerProvider.openReader(directoryProviders[providerIndex]);
     			}
 	    		try{
@@ -161,7 +175,13 @@ strategies
 			}
 		    System.out.println(new java.util.Date() + ": Done with spellcheck index for (" + entityName + ")");
 		}
-        private static synchronized void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields){
+		private static synchronized void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields){
+			createOrUpdateAutoCompleteIndex(indexedClass, searchFields, "");
+		}
+		
+		//If namespace is null or empty, the whole autocompletion index (union of and seperate namespaces) for the given entity (indexedClass) will be recreated,
+		//otherwise the autocompletion index is only (re)created for the given namespace and union of all namespaces (because of changes in term frequencies)  
+        private static synchronized void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields, String namespace){
 		    		    
 		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		    SearchFactory searchFactory = session.getSearchFactory();	
@@ -169,7 +189,15 @@ strategies
 		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
 		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		    
-		    List<String> namespaces = SearchNamespaceHelper.allNamespaces(indexedClass.getName());		    
+		    String indexName = indexName(indexedClass);
+		    List<String> namespaces;
+		    if(namespace == null || namespace.isEmpty()){
+		    	namespaces = SearchNamespaceHelper.allNamespaces(indexName);
+		    } else {
+		    	namespaces = new ArrayList<String>();
+		    	namespaces.add(namespace);
+		    }
+		    	
 		    IndexReader reader;
 		    
     		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
@@ -184,7 +212,7 @@ strategies
     			}
     			else {
     				currentNamespace = namespaces.get(n);
-    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexedClass.getName(), currentNamespace, false);
+    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
     				reader = readerProvider.openReader(directoryProviders[providerIndex]);
     			}
 	    		try{
@@ -312,6 +340,11 @@ strategies
         		        		
 			return indexDir() + "/AutoComplete/" + entityClass.getName() + "." + namespace + "/" + field;
         }
+        
+        public static String indexName(Class<?> entityClass) {
+        	bstm7*
+        	return null;
+        }
 
       }
     ]|
@@ -323,6 +356,7 @@ strategies
 	    ; bstm4* := <map(class-to-clear-spellcheck-index)> x_class_set
 	    ; bstm5* := <map(class-to-get-class-from-name-ac)> x_class_set
 	    ; bstm6* := <map(class-to-get-class-from-name-sc)> x_class_set
+	    ; bstm7* := <map(class-to-index-name)> x_class_set
 	    ; indexdir := <concat-strings>[<IndexDir>,"/",<AppName>]
 	    ; e_indexdir := expr|[ "~indexdir" ]|
 
@@ -375,3 +409,29 @@ strategies
 		  else result := java |[ if (entity == "~x_name"){entityClass = x_name.class;} ]|
     	  end
 		
+  class-to-index-name:
+  	x_name -> result
+  	where
+  	 x_indexname := <get-index-name> x_name
+  	 ; result := java |[ if (x_name.class.equals(entityClass)){return "~x_indexname";} ]|
+  	   
+  get-index-name:
+  	x_name -> indexName
+  	where indexName := <is-string; EntityFromName; get-index-name> x_name
+  	
+  	 
+  get-index-name:
+  	Entity(name, super, _) -> indexName
+  	where
+  	indexed_entities := <bagof-IndexedEntities>
+  	; if (<fetch(?super)> indexed_entities)
+  	  then indexName := <EntityFromName; get-index-name> super
+  	  else indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]
+  	  end
+  
+  get-index-name:
+  	EntityNoSuper(name, _) -> indexName
+  	where
+  		indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]		
+  		
+  	

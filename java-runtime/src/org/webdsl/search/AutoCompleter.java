@@ -259,7 +259,7 @@ public class AutoCompleter implements java.io.Closeable {
   }
 
   /**
-   * Indexes the data from the given {@link Dictionary}.
+   * Indexes the data from the given reader.
  * @param reader Source index reader, from which autocomplete words are obtained for the defined field
  * @param field the field of the source index reader to index for autocompletion
  * @param mergeFactor mergeFactor to use when indexing

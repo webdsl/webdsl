@@ -11,14 +11,14 @@ imports
  
 strategies	
 
-    generate-code-java-servlet-once =
+  generate-code-java-servlet-once =
     ![]
     ; cached-generate(generate-namespace-sharding-strategy | "generate-namespace-sharding-strategy")
 	; cached-generate(generate-search-namespace-helper | "generate-search-namespace-helper")
 	; bagof-SearchNamespaceEntities ; generate-sharding-properties
     ; fail
-
-    generate-search-namespace-helper :
+	
+  generate-search-namespace-helper :
     [] ->
     <emit-java-code-local> compilation-unit |[
     package org.webdsl.search;
@@ -50,16 +50,16 @@ strategies
 		 * @return the offset in the directory provider array to get the directory
 		 *         provider for this namespace, null when not found
 		 */
-		public static Integer namespaceIDToIndex(String entityName, String namespaceID,
+		public static Integer namespaceIDToIndex(String indexName, String namespaceID,
 				boolean createWhenMissing) {
 			if (!mappingLoadedFromDB) {
 				loadMappingFromDB();
 			}
-			HashMap<String, Integer> map = namespaceIDmap.get(entityName);
+			HashMap<String, Integer> map = namespaceIDmap.get(indexName);
 			if(map == null) {
 				if (createWhenMissing){
 					map = new HashMap<String, Integer>();
-					namespaceIDmap.put(entityName, map);
+					namespaceIDmap.put(indexName, map);
 				}
 				else {
 					return null;
@@ -68,24 +68,35 @@ strategies
 			
 			Integer index = map.get(namespaceID);
 			if (index == null && createWhenMissing) {
-				index = createNewNamespace(entityName, namespaceID);
+				index = createNewNamespace(indexName, namespaceID);
 			}
 			return index;
 		}
+		
+		public static Integer nextFreeIndex(String indexName){
+			if (!mappingLoadedFromDB) {
+				loadMappingFromDB();
+			}
+			Integer index = nextFreeIndexMap.get(indexName);
+			if(index != null)
+				return index;
+			else
+				return 0;
+		}
 	
-		private static Integer createNewNamespace(String entityName, String namespaceID) {
+		private static Integer createNewNamespace(String indexName, String namespaceID) {
 			synchronized (namespaceIDmap) {
 				Integer index;
-				HashMap<String, Integer> map = namespaceIDmap.get(entityName);
+				HashMap<String, Integer> map = namespaceIDmap.get(indexName);
 				if(map.containsKey(namespaceID)){
 					return map.get(namespaceID);
 				}
-				if(!nextFreeIndexMap.containsKey(entityName)){
-					index = 0;
+				if(!nextFreeIndexMap.containsKey(indexName)){
+					index = 1;
 				} else {
-					index = nextFreeIndexMap.get(entityName);
+					index = nextFreeIndexMap.get(indexName);
 				}
-				SearchNamespace sns = new SearchNamespace(entityName, namespaceID,
+				SearchNamespace sns = new SearchNamespace(indexName, namespaceID,
 						index);
 				Session hibSession = null;
 				try {
@@ -103,7 +114,7 @@ strategies
 						hibSession.close();	
 					}						
 				}
-				nextFreeIndexMap.put(entityName, index+1);
+				nextFreeIndexMap.put(indexName, index+1);
 				return index;
 			}
 		}
@@ -120,22 +131,22 @@ strategies
 						@SuppressWarnings("unchecked")
 						List<SearchNamespace> mappings = q.list();
 						hibSession.getTransaction().commit();
-						String key, entityName;
+						String key, indexName;
 						Integer value;
 						
 						for (SearchNamespace searchNamespace : mappings) {
-							entityName = searchNamespace.getEntityName();
-							if(!nextFreeIndexMap.containsKey(entityName)) {
-								nextFreeIndexMap.put(entityName,-1);
-								namespaceIDmap.put(entityName, new HashMap<String,Integer>());
+							indexName = searchNamespace.getIndexName();
+							if(!nextFreeIndexMap.containsKey(indexName)) {
+								nextFreeIndexMap.put(indexName,-1);
+								namespaceIDmap.put(indexName, new HashMap<String,Integer>());
 							}
 							
 							key = searchNamespace.getNamespaceAsString();
 							value = searchNamespace.getIndexNr();
 							
-							namespaceIDmap.get(entityName).put(key,value);
-							if(value >= nextFreeIndexMap.get(searchNamespace.getEntityName())){
-								nextFreeIndexMap.put(searchNamespace.getEntityName(), value+1);
+							namespaceIDmap.get(indexName).put(key,value);
+							if(value >= nextFreeIndexMap.get(searchNamespace.getIndexName())){
+								nextFreeIndexMap.put(searchNamespace.getIndexName(), value+1);
 							}						
 							
 						}
@@ -172,26 +183,28 @@ strategies
 				mappingLoadedFromDB = true;
 			}
 		}
-		public static List<String> allNamespaces(String entityName){
+		public static List<String> allNamespaces(String indexName){
 			if (!mappingLoadedFromDB) {
 				loadMappingFromDB();
 			}
-			if(!namespaceIDmap.containsKey(entityName)){
+			if(!namespaceIDmap.containsKey(indexName)){
 				return new ArrayList<String>();
 			}
-			return new ArrayList<String>(namespaceIDmap.get(entityName).keySet());
+			return new ArrayList<String>(namespaceIDmap.get(indexName).keySet());
 		}
     }
     ]|
     
-generate-namespace-sharding-strategy :
+  generate-namespace-sharding-strategy :
     [] ->
     <emit-java-code-local> compilation-unit |[
     package org.webdsl.search;
 
 	import java.io.Serializable;
+	import java.util.Arrays;
 	import java.util.Properties;
 	
+	import org.apache.lucene.document.Field;
 	import org.apache.lucene.document.Document;
 	import org.hibernate.search.FullTextFilter;
 	import org.hibernate.search.filter.FullTextFilterImplementor;
@@ -199,6 +212,7 @@ generate-namespace-sharding-strategy :
 	import org.hibernate.search.store.IndexShardingStrategy;
 	
 	import org.webdsl.search.SearchNamespaceHelper;
+	import utils.IndexManager;
 	
 	public class NamespaceShardingStrategy implements IndexShardingStrategy {
 	
@@ -208,24 +222,40 @@ generate-namespace-sharding-strategy :
 	
 		public static final String NAMESPACE_FILTER = "namespaceFilter";
 		public static final String NAMESPACE_FIELD = "_WebDSLNamespaceID_";
+		private static String indexName = null;
 	
 		public void initialize(Properties properties,
 				DirectoryProvider<?>[] providers) {
 			this.providers = providers;
 		}
-	
+		
 		public DirectoryProvider<?>[] getDirectoryProvidersForAllShards() {
 			return providers;
+		}
+	
+		public DirectoryProvider<?>[] getDirectoryProvidersForOccupiedShards(Class<?> entity) {
+			return Arrays.copyOfRange(providers, 0, SearchNamespaceHelper.nextFreeIndex(entity.getName()));
 		}
 	
 		public DirectoryProvider<?> getDirectoryProviderForAddition(
 				Class<?> entity, Serializable id, String idInString,
 				Document document) {
-			// Get the index from the namespace - index mapping
-			Integer namespaceIndex = SearchNamespaceHelper.namespaceIDToIndex(entity.getName(), document
-					.getField(NAMESPACE_FIELD).stringValue(), true);
-			document.removeField(NAMESPACE_FIELD);
-			return providers[namespaceIndex];
+			// Get the index from the namespace - index mapping if this entity has a namespace property (super/subclasses share the same index name)
+			Field nsf = document.getField(NAMESPACE_FIELD);
+			if(nsf != null) {
+				Integer namespaceIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName(entity), nsf.stringValue(), true);
+				document.removeField(NAMESPACE_FIELD);
+				return providers[namespaceIndex];
+			} else {
+				return providers[0];	
+			}			
+		}
+		
+		private final String indexName(Class<?> entity){
+			if(indexName == null)
+			  indexName = IndexManager.indexName(entity);
+			
+			return indexName;		      
 		}
 	
 		public DirectoryProvider<?>[] getDirectoryProvidersForDeletion(
@@ -244,9 +274,15 @@ generate-namespace-sharding-strategy :
 			if (filter == null) {
 				return getDirectoryProvidersForAllShards();
 			} else {
-				return new DirectoryProvider[] { providers[SearchNamespaceHelper.namespaceIDToIndex(
-						filter.getParameter("entityName").toString(), filter
-								.getParameter("namespaceID").toString(), false)] };
+				Integer index = SearchNamespaceHelper.namespaceIDToIndex(filter
+						 		 .getParameter("indexName").toString(), filter
+								 .getParameter("namespaceID").toString(), false
+								 );
+				if(index != null){
+					return new DirectoryProvider[] { providers[index] };
+				} else {
+					return new DirectoryProvider[0];
+				}
 			}
 		}
 	
@@ -261,16 +297,16 @@ generate-namespace-sharding-strategy :
 	]|
 
 
-generate-sharding-properties :
+  generate-sharding-properties :
 		x_class* -> []
-		with strategyDefs := <map(to-strategy-def); concat-strings> x_class*
+		with strategyDefs := <map(get-index-name; to-strategy-def); concat-strings> x_class*
 			; propertyFileContent := <concat-strings> ["ls=${line.separator}", "\n", "indexshardingdef=", strategyDefs]
 			; rules(
 			ShardingStrategyToEmit :=  TextFile("sharding-strategy-to-insert.properties", propertyFileContent)
 			)
 			
-to-strategy-def:
-	x_class -> 
-	<concat-strings>["hibernate.search.webdsl.generated.domain.", x_class, ".sharding_strategy org.webdsl.search.NamespaceShardingStrategy",
-	"${ls}", "hibernate.search.webdsl.generated.domain.", x_class, ".sharding_strategy.nbr_of_shards 100", "${ls}"]
-			
+  to-strategy-def:
+	indexName -> 
+	<concat-strings>["hibernate.search.", indexName, ".sharding_strategy org.webdsl.search.NamespaceShardingStrategy",
+	"${ls}", "hibernate.search.", indexName, ".sharding_strategy.nbr_of_shards 100", "${ls}"]
+	
