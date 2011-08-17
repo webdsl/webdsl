@@ -25,7 +25,7 @@ public class HibernateLog {
 	protected String _error = null;
 
 	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
-		NDCAppender ndcAppender = NDCAppender.getNamed("hibernateLog");
+		RequestAppender ndcAppender = RequestAppender.getNamed("hibernateLog");
 		if(ndcAppender != null) { 
 			String log = ndcAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
@@ -89,15 +89,18 @@ public class HibernateLog {
         	linenr++;
         	int sep1 = line.indexOf("|");
         	int sep2 = line.indexOf("|", sep1 + 1);
-        	if(sep1 < 0 || sep2 < 0) throw new ParseException("Incorrect layout pattern detected", linenr);
+        	int sep3 = line.indexOf("|", sep2 + 1);
+        	if(sep1 < 0 || sep2 < 0 || sep3 < 0) throw new ParseException("Incorrect layout pattern detected", linenr);
         	String cat = line.substring(0, sep1);
         	String time = line.substring(sep1 + 1, sep2);
-        	String msg = line.substring(sep2 + 1);
+        	String template = line.substring(sep2 + 1, sep3);
+        	String msg = line.substring(sep3 + 1);
         	if(cat.indexOf("org.hibernate.jdbc") == 0) {
         		if(msg.indexOf("about to open PreparedStatement") == 0) {
         			if(current != null) entries.push(current);
         			current = new HibernateLogEntry();
         			current.openTime = absoluteFormat.parse(time);
+        			current.template = template;
         			if(_firstQueryStart == null) {
         				_firstQueryStart = current.openTime; 
         			}
@@ -284,17 +287,17 @@ public class HibernateLog {
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : _list)
 			{
-				sout.print("<div class=\"sqllog\">Query " + (++logindex) + " (" + entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
+				sout.print("<div class=\"sqllog\">Query " + (++logindex) + " in " + entry.durationExclusive + " ms by " + entry.template + ":<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
 			sout.print("<p><b>The three queries that took the most time:</b></p><table class=\"sqllog\">");
 			for(int i = 0; i < longestThree.size(); i++)
 			{
 				utils.HibernateLogEntry entry = longestThree.get(i);
 				sout.print("<div class=\"sqllog\">");
-				if(i == 0) sout.print("Longest query (");
-				if(i == 1) sout.print("Second longest query (");
-				if(i == 2) sout.print("Third longest query (");
-				sout.print(entry.durationExclusive + " ms):<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
+				if(i == 0) sout.print("Longest query ");
+				if(i == 1) sout.print("Second longest query ");
+				if(i == 2) sout.print("Third longest query ");
+				sout.print("in " + entry.durationExclusive + " ms by " + entry.template + ":<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
 		}
 		catch(Exception ex) {
@@ -332,6 +335,7 @@ class HibernateLogEntry {
 	public long durationExclusive = 0;
 	public int subEntries = 0;
 	public String sql = null;
+	public String template = null;
 	public List<String> parameterVals = new ArrayList<String>();
 	public List<String> parameterTypes = new ArrayList<String>();
 

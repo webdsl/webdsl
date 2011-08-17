@@ -14,19 +14,19 @@ import org.apache.log4j.PatternLayout;
 import org.apache.log4j.WriterAppender;
 import org.apache.log4j.spi.LoggingEvent;
 
-public class NDCAppender extends AppenderSkeleton {
+public class RequestAppender extends AppenderSkeleton {
     protected Map<String, WriterAppender> appenderMap = new HashMap<String, WriterAppender>();
     protected Map<String, StringWriter> writerMap = new HashMap<String, StringWriter>();
-    protected static Map<String, NDCAppender> namedMap = new HashMap<String, NDCAppender>();
+    protected static Map<String, RequestAppender> namedMap = new HashMap<String, RequestAppender>();
 
-    public NDCAppender() {
-    	this.layout = new SingleLinePatternLayout("%c|%d{ABSOLUTE}|%m%n");
+    public RequestAppender() {
+    	this.layout = new SingleLinePatternLayout("%c|%d{ABSOLUTE}|%X{template}|%m%n");
     }
 
     public void activateOptions() {
         if(this.name != null)
         {
-            NDCAppender.putNamed(this);
+            RequestAppender.putNamed(this);
         }
     }
 
@@ -35,20 +35,20 @@ public class NDCAppender extends AppenderSkeleton {
     }
 
 
-    public static NDCAppender getFromLogger(String name) {
+    public static RequestAppender getFromLogger(String name) {
         Logger logger = Logger.getLogger(name);
         if(logger == null) return null;
         Enumeration appenderEnum = logger.getAllAppenders();
         while(appenderEnum.hasMoreElements()) {
             Object appender = appenderEnum.nextElement();
-            if (appender instanceof NDCAppender) {
-                return (NDCAppender)appender;
+            if (appender instanceof RequestAppender) {
+                return (RequestAppender)appender;
             }
         }
         return null;
     }
 
-    protected synchronized static void putNamed(NDCAppender appender) {
+    protected synchronized static void putNamed(RequestAppender appender) {
         if(namedMap.containsKey(appender.name)) return;
         namedMap.put(appender.name, appender);
     }
@@ -57,29 +57,29 @@ public class NDCAppender extends AppenderSkeleton {
         namedMap.remove(name);
     }
 
-    public synchronized static NDCAppender getNamed(String name) {
+    public synchronized static RequestAppender getNamed(String name) {
         return namedMap.get(name);
     }
 
-    public synchronized boolean addNDC(String ndc) {
-        if(appenderMap.containsKey(ndc))
+    public synchronized boolean addRequest(String rle) {
+        if(appenderMap.containsKey(rle))
         {
             return false;
         }
         StringWriter newWriter = new StringWriter();
         WriterAppender newAppender = new WriterAppender(this.layout, newWriter);
-        appenderMap.put(ndc, newAppender);
-        writerMap.put(ndc, newWriter);
+        appenderMap.put(rle, newAppender);
+        writerMap.put(rle, newWriter);
         return true;
     }
 
     public synchronized String getLog() {
-        return getLog(NDC.get());
+        return getLog((String)org.apache.log4j.MDC.get("request"));
     }
-    public synchronized String getLog(String ndc) {
-        if(writerMap.containsKey(ndc))
+    public synchronized String getLog(String rle) {
+        if(writerMap.containsKey(rle))
         {
-            return writerMap.get(ndc).toString();
+            return writerMap.get(rle).toString();
         }
         return null;
     }
@@ -88,20 +88,20 @@ public class NDCAppender extends AppenderSkeleton {
         return appenderMap.keySet().iterator();
     }
 
-    public synchronized void removeNDC(String ndc) {
-        if(appenderMap.containsKey(ndc))
+    public synchronized void removeRequest(String rle) {
+        if(appenderMap.containsKey(rle))
         {
-            appenderMap.get(ndc).close();
-            appenderMap.remove(ndc);
-            writerMap.remove(ndc);
+            appenderMap.get(rle).close();
+            appenderMap.remove(rle);
+            writerMap.remove(rle);
         }
     }
 
     public void append(LoggingEvent event) {
-        String ndc = event.getNDC();
-        if(appenderMap.containsKey(ndc))
+        String rle = (String)event.getMDC("request");
+        if(appenderMap.containsKey(rle))
         {
-            appenderMap.get(ndc).append(event);
+            appenderMap.get(rle).append(event);
         }
     }
 
@@ -114,7 +114,7 @@ public class NDCAppender extends AppenderSkeleton {
 
         if(this.name != null)
         {
-            NDCAppender.removeNamed(this.name);
+            RequestAppender.removeNamed(this.name);
         }
 
         Iterator<String> i = appenderMap.keySet().iterator();

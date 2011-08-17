@@ -10,6 +10,7 @@ public class ThreadLocalTemplate {
     
     public static void set(TemplateServlet d) {
         template.set(d);
+    	org.apache.log4j.MDC.put("template", d == null ? "null" : d.getTemplateSignature());
     } 
     
     //convenient for code generation, template call translation does a `ThreadLocalTemplate.set(this)` where `this` could be EmailServlet instead of TemplateServlet
@@ -19,6 +20,7 @@ public class ThreadLocalTemplate {
     
     public static void setNull(){
         template.set(null);
+        org.apache.log4j.MDC.put("template", "null");
     }
 }
 

@@ -1,5 +1,7 @@
 package utils;
 
+import java.io.Serializable;
+
 import org.hibernate.collection.PersistentSet;
 import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
@@ -86,6 +88,22 @@ public class PersistentOwnedSet extends PersistentSet {
 			((utils.OwnedSet)set).setOwner(owner);
 		}
 		super.setOwner(owner);
+	}
+
+	@Override
+	public void initializeFromCache(CollectionPersister persister, Serializable disassembled, Object owner)
+	throws org.hibernate.HibernateException {
+		Serializable[] array = ( Serializable[] ) disassembled;
+		int size = array.length;
+		beforeInitialize( persister, size );
+		((utils.OwnedSet)set).setDoEvents(false);
+		for (int i = 0; i < size; i++ ) {
+			Object element = persister.getElementType().assemble( array[i], getSession(), owner );
+			if ( element != null ) {
+				set.add( element );
+			}
+		}
+		((utils.OwnedSet)set).setDoEvents(true);
 	}
 
 	/*final class SimpleAdd implements DelayedOperation {

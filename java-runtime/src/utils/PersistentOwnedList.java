@@ -1,5 +1,6 @@
 package utils;
 
+import java.io.Serializable;
 import org.hibernate.collection.PersistentList;
 import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.collection.CollectionPersister;
@@ -79,5 +80,18 @@ public class PersistentOwnedList extends PersistentList {
 			((utils.OwnedList)list).setOwner(owner);
 		}
 		super.setOwner(owner);
+	}
+
+	@Override
+	public void initializeFromCache(CollectionPersister persister, Serializable disassembled, Object owner)
+	throws org.hibernate.HibernateException {
+		Serializable[] array = ( Serializable[] ) disassembled;
+		int size = array.length;
+		beforeInitialize( persister, size );
+		((utils.OwnedList)list).setDoEvents(false);
+		for ( int i = 0; i < size; i++ ) {
+			list.add( persister.getElementType().assemble( array[i], getSession(), owner ) );
+		}
+		((utils.OwnedList)list).setDoEvents(true);
 	}
 }
