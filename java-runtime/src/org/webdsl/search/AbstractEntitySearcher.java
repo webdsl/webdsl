@@ -30,8 +30,6 @@ import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
-import edu.emory.mathcs.backport.java.util.TreeMap.Entry;
-
 public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 	protected static final Version LUCENEVERSION 		= Version.LUCENE_31;
@@ -39,19 +37,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected static final int OFFSET 					= 0;
 	protected static final Operator OP  				= Operator.OR;
 	protected static final boolean ALLOWLUCENESYNTAX 	= true;
-	protected static String[] SEARCHFIELDS;
 	
 	protected int limit = LIMIT;
 	protected int offset = OFFSET;
 	protected Operator op = OP;
 	
-	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateEncodeString = true;
-	protected boolean allowLuceneSyntax = true;
+	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true;
+	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false;
 
 	protected HashMap<String, String> fieldConstraints;
 	protected HashMap<String, Float> boosts;
 	protected HashMap<String, Facet> facetMap;
 	protected HashMap<String, String> facetRequests;
+	protected Map<String, String> paramMap;
 
 	protected LinkedList<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 	
@@ -68,13 +66,15 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected String filteredFacets = "";
 	protected String sortFields = "";
 	protected String sortDirections = "";
-	protected String moreLikeThisParams = ""; 
-	protected String encodedAsString;
+	protected String moreLikeThisParams = "";
+	
+	protected ArrayList<String> combinators = new ArrayList<String>();
+	protected ArrayList<String> queries = new ArrayList<String>();
+	protected ArrayList<String> types = new ArrayList<String>();
+	protected ArrayList<String[]> fields = new ArrayList<String[]>();
+	protected int currentQuery = 0;
 	
 	protected String namespaceConstraint = "";
-
-	
-	
 	
 	protected Analyzer analyzer;
 	protected Class<?> entityClass;
@@ -90,7 +90,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			fieldConstraints = new HashMap<String, String>();
 		
 		fieldConstraints.put(fieldname, terms);
-		updateFieldConstraints = updateEncodeString = true;
+		updateFieldConstraints = updateParamMap = true;
 		return (F) this;
 	}
 	
@@ -106,11 +106,28 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public <F extends AbstractEntitySearcher<EntityClass>> F allowLuceneSyntax(boolean b) {
 		if(this.allowLuceneSyntax != b) {
 			this.allowLuceneSyntax = b;
-			updateLuceneQuery = updateEncodeString = true;
+			updateLuceneQuery = updateParamMap = true;
 		}
 		return (F) this;
 	}
 	
+	// a AND (b OR c)
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F And() {
+		return (F) this;
+	}
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F AndNot() {
+		return (F) this;
+	}
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F Or() {
+		return (F) this;
+	}
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F OrNot() {
+		return (F) this;
+	}
 	
 	private void applyFacets() {
 		if(facetMap == null)
@@ -157,7 +174,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			boosts.remove(field);
 		
 		boosts.put(field, boost);
-		updateLuceneQuery = updateEncodeString = true;
+		updateLuceneQuery = updateParamMap = true;
 		return (F) this;
 	}
 	public void closeReader(IndexReader reader){
@@ -205,7 +222,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public <F extends AbstractEntitySearcher<EntityClass>> F defaultAnd() {
 		if (!op.equals(Operator.AND)){	
 			op = Operator.AND;
-			updateLuceneQuery = updateEncodeString = true;
+			updateLuceneQuery = updateParamMap = true;
 		}
 		return (F) this;
 	}
@@ -214,7 +231,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public <F extends AbstractEntitySearcher<EntityClass>> F defaultOr() {
 		if (!op.equals(Operator.OR)){	
 			op = Operator.OR;
-			updateLuceneQuery = updateEncodeString = true;
+			updateLuceneQuery = updateParamMap = true;
 		}		
 		return (F) this;
 	}
@@ -227,10 +244,15 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			.setParameter("allowLuceneSyntax", allowLuceneSyntax);
 	}
 		
-	public Map<String,String> toParamMap(){
-		Map<String,String> paramMap = new HashMap<String, String>();
+	public final Map<String,String> toParamMap(){
+		if(!updateParamMap) {
+			return paramMap;
+		}
+		
+		paramMap = new HashMap<String, String>();
 		StringBuilder sb;
-		if(SEARCHFIELDS.length > searchFields.length) {
+		
+		if(searchFieldsChanged) {
 		sb = new StringBuilder();
 		for(int cnt = 0 ; cnt < searchFields.length-1; cnt++)
 			sb.append(searchFields[cnt] + ",");
@@ -306,13 +328,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		//namespace constraint?
 		if(!namespaceConstraint.isEmpty())
 			paramMap.put("ns", namespaceConstraint);
-
+		
+		updateParamMap = false;
 		return paramMap;		
 	}	
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F fromParamMap(Map<String,String> paramMap){
-		try{	
+		try{
 			String key, value;
 			for (Map.Entry<String,String> e : paramMap.entrySet()) {
 				key = e.getKey();
@@ -329,13 +352,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				} else if ("cf".equals(key)) {
 					//constraint fields, values
 					String[] a1 = value.split(",");
-					String[] a2 = value.split(",");
+					String[] a2 = paramMap.get("cv").split(",");
 					for(int i=0; i < a1.length; i++)
 						filterByField(a1[i], a2[i]);
 				} else if ("ff".equals(key)) {
 					//facet fields, params
 					String[] a1 = value.split(",");
-					String[] a2 = value.split(",");
+					String[] a2 = paramMap.get("fp").split(",");
 					String field;
 					String param;
 					facetRequests = new HashMap<String, String>();
@@ -357,7 +380,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				} else if ("bf".equals(key)) {
 					//boost fields, values
 					String[] a1 = value.split(",");
-					String[] a2 = value.split(",");
+					String[] a2 = paramMap.get("bv").split(",");
 					for(int i=0; i < a1.length; i++)
 						boost(a1[i], Float.parseFloat(a2[i]));
 				} else if ("facetf".equals(key)) {
@@ -367,7 +390,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				} else if ("sortby".equals(key)) {
 					//sort fields, directions
 					String[] a1 = value.split(",");
-					String[] a2 = value.split(",");
+					String[] a2 = paramMap.get("dirs").split(",");
 					for(int i=0; i < a1.length; i++)
 						sort(a1[i], Boolean.getBoolean(a2[i]));
 				} else if ("mlt".equals(key)) {
@@ -386,6 +409,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			e.printStackTrace();
 			log("Error during entity searcher decoding!");
 		}
+		
+		this.paramMap = paramMap;
+		updateParamMap = false;
 		return (F) this;		
 		
 	}
@@ -401,7 +427,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			facetRequests = new HashMap<String, String>();
 		
 		facetRequests.put(field, String.valueOf(topN));
-		updateEncodeString = true;
+		updateParamMap = true;
 		
 		return (F) this;
 	}
@@ -415,7 +441,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			facetRequests = new HashMap<String, String>();
 
 		facetRequests.put(field, rangesAsString);
-		updateEncodeString = true;
+		updateParamMap = true;
 	
 		return (F) this;		
 	}
@@ -478,15 +504,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F fields(List<String> fields) {		
+	public <F extends AbstractEntitySearcher<EntityClass>> F fields(List<String> fields) {
 		searchFields = fields.toArray(new String[fields.size()]);
+		this.fields.add(currentQuery, searchFields);
 		
 		//Untokenized fields should be excluded from more like this queries
 		for (int i = 0; i < untokenizedFields.length; i++)
 			fields.remove(untokenizedFields[i]);			
 		mltSearchFields = fields.toArray(new String[fields.size()]);
 
-		updateLuceneQuery = updateEncodeString = true;
+		searchFieldsChanged = updateLuceneQuery = updateParamMap = true;
 		return (F) this;
 	}
 	
@@ -504,7 +531,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			return (F) this;
 		}
 		namespaceConstraint = namespace;
-		updateNamespaceConstraint = updateEncodeString = true;
+		updateNamespaceConstraint = updateParamMap = true;
 		return (F) this;
 		
 	}
@@ -513,7 +540,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public <F extends AbstractEntitySearcher<EntityClass>> F removeNamespace(){
 		fullTextQuery.disableFullTextFilter("namespaceFilter");
 		namespaceConstraint = "";
-		updateEncodeString = true;
+		updateParamMap = true;
 		return (F) this;
 		
 	}
@@ -521,7 +548,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F firstResult(int offset) {
 		this.offset = offset;
-		updateEncodeString = true;
+		updateParamMap = true;
 		return (F) this;
 	}
 
@@ -575,7 +602,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F maxResults(int limit) {
 		this.limit = limit;
-		updateEncodeString = true;
+		updateParamMap = true;
 		return (F) this;
 	}
 
@@ -605,13 +632,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		
 		try {
 			luceneQuery = mlt.like(new StringReader(likeText));
+			log(luceneQuery.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
 			closeReader(ir);
 		}
 		updateLuceneQuery = false;
-		updateFullTextQuery = updateEncodeString = true;
+		updateFullTextQuery = updateParamMap = true;
 
 		return (F) this;
 	}
@@ -631,7 +659,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 		filteredFacetsList.add(facet);
 	
-		updateFacets = updateEncodeString = true;
+		updateFacets = updateParamMap = true;
 		
 		return (F) this;
 	}
@@ -661,7 +689,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		sortObj = null;
 		this.sortFields = "";
 		this.sortDirections = "";
-		updateSorting = updateEncodeString = true;
+		updateSorting = updateParamMap = true;
 		return (F)this;
 	}
 
@@ -690,10 +718,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	private <F extends AbstractEntitySearcher<EntityClass>> F setRangeQuery(Object from, Object to) {
+		queries.add(currentQuery, from.toString() + "-" + to.toString());
+		types.add(currentQuery, "r");
+		
 		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
 		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).createQuery();
 		updateLuceneQuery = false;
-		updateFullTextQuery = updateEncodeString = true;
+		updateFullTextQuery = updateParamMap = true;
 		return (F) this;
 	}
 
@@ -717,7 +748,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		newSfs[sfs.length] = new SortField(field, sortType(field), reverse);		
 		sortObj.setSort(newSfs);
 		
-		updateSorting = updateEncodeString = true;
+		updateSorting = updateParamMap = true;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -749,8 +780,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F query(String query) {
+		queries.add(currentQuery, query);
+		types.add(currentQuery, "q");
+		
 		queryText = query;
-		updateLuceneQuery = updateEncodeString = true;
+		updateLuceneQuery = updateParamMap = true;
 		return (F) this;
 	}
 	

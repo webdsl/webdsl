@@ -4,6 +4,7 @@ imports
   libstrategolib
   libwebdsl-front
   org/webdsl/dsl/languages/search/desugar
+  org/webdsl/dsl/languages/search/declare
 
 strategies
 
@@ -25,16 +26,21 @@ rules
 			?ent
 		; where(
 		  	    (x_class, body) := <get-entity-def> ent
-				; <has-no-anno(?IndexedAnno(_,_,_,_,_))> ent
+				; <has-no-anno(?IndexedAnno(_,_,_,_,_,_))> ent
        			; props := <get-searchable-props> x_class
-				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
-				; not([] := searchable)
+				; searchfields := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
+				; not([] := searchfields)
 				; untokenizedfields := <bagof-UntokenizedFields;uniq> x_class
 				; spellcheckfields := <bagof-SpellCheckFields;uniq> x_class
 				; autocompletefields := <bagof-AutoCompleteFields;uniq> x_class
 				; lucenesorttypes := <map(fieldname-to-java-type-name(|x_class))> untokenizedfields
+				  //if no default search fields are defined, search on all search fields by default
+				; defaultsearchfields_bydef := <bagof-DefaultSearchFields; uniq> x_class
+				; if(<?[]>defaultsearchfields_bydef)
+				  then defaultsearchfields := searchfields
+				  else defaultsearchfields := defaultsearchfields_bydef end
 			)
-		; add-anno(|IndexedAnno(searchable,untokenizedfields,lucenesorttypes,spellcheckfields,autocompletefields))
+		; add-anno(|IndexedAnno(searchfields,untokenizedfields,lucenesorttypes,spellcheckfields,autocompletefields, defaultsearchfields))
 		; if (<SearchNamespaceForEnt> x_class) then
 		  	add-anno(|SearchNamespaceAnno(<SearchNamespaceForEnt> x_class)) end
 
@@ -60,10 +66,20 @@ rules
     record-untokenized-field:
     	a@(x_class, field-name) -> a 
     	with rules(UntokenizedFields :+ x_class -> field-name)
+    	
+    record-default-search-fields(|x_class):
+    	s@SearchableAnno(sa-args) -> s
+    	where <fetch(?DefaultSF-Argument())> sa-args
+    	; field-name := <name-from-searchable-anno> s
+    	; <record-default-search-field>(x_class, field-name)
+    	  
+    record-default-search-field:
+    	a@(x_class, field-name) -> a 
+    	with rules(DefaultSearchFields :+ x_class -> field-name)
     
     record-spellcheck-fields(|x_class):
     	s@SearchableAnno(sa-args) -> s
-    	where <fetch(?SA-Argument("spellcheck", _))> sa-args
+    	where <fetch(?Spellcheck-Argument())> sa-args
     	; field-name := <name-from-searchable-anno> s
     	; <record-spellcheck-field>(x_class, field-name)
     
@@ -73,7 +89,7 @@ rules
     
     record-autocomplete-fields(|x_class):
     	s@SearchableAnno(sa-args) -> s
-    	where <fetch(?SA-Argument("autocomplete", _))> sa-args
+    	where <fetch(?Autocomplete-Argument())> sa-args
     	; field-name := <name-from-searchable-anno> s
     	; <record-autocomplete-field>(x_class, field-name)
     
@@ -95,7 +111,11 @@ rules
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
 	    ; tp := <srt-to-type> srt
 	    ; <map(record-field-name-to-type(|x_class, tp))> untokenizedFields
-	    ; <map(try(record-spellcheck-fields(|x_class));try(record-autocomplete-fields(|x_class)))> searchable-annos
+	    ; <map(
+	      	try(record-spellcheck-fields(|x_class));
+	      	try(record-autocomplete-fields(|x_class));
+	      	try(record-default-search-fields(|x_class))  	
+	      )> searchable-annos
     
     record-field-name-to-type(|x_class,type) :
     	fieldName -> []
@@ -115,6 +135,11 @@ rules
 	    ; embeddedAutocompleteFields := <bagof-AutoCompleteFields; map(embedded-name(|name))> embeddedType
 	    ; <map(embeddedName3:= <id>; <record-autocomplete-field>(x_class, embeddedName3))> embeddedAutocompleteFields
 		; <zip(record-field-name-to-type-embedded(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
+		; searchable-annos := <filter(?SearchableAnno(_))> anno*
+		; if(<oncetd(?DefaultSF-Argument())> searchable-annos) then
+		  	embeddedDefaultSearchFields := <bagof-DefaultSearchFields; map(embedded-name(|name))> embeddedType
+		    ; <map(embeddedName4:= <id>; <record-default-search-field>(x_class, embeddedName4))> embeddedDefaultSearchFields 
+		  end
 		  
   	searchable-property-to-name(|x_class) :
     	DerivedProperty(name, propkind, srt, anno*, _) -> names
@@ -125,8 +150,13 @@ rules
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos	    
 	    ; tp := <srt-to-type> srt
 	    ; <map(record-field-name-to-type(|x_class,tp))> untokenizedFields
-	    ; <map(try(record-spellcheck-fields(|x_class));try(record-autocomplete-fields(|x_class)))> searchable-annos
-
+	    ; <map(
+	      	try(record-spellcheck-fields(|x_class));
+	      	try(record-autocomplete-fields(|x_class));
+	      	try(record-default-search-fields(|x_class))
+	      )> searchable-annos
+	      
+	      
   	searchable-property-to-name(|x_class) :
 	    DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
 	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)

@@ -14,7 +14,7 @@ application test
   
   entity Item{
   	name 		:: String
-  	description :: String
+  	description :: String (length = 1000)
   	owner 		-> Person (inverse=Person.items)
   	
   	searchmapping {

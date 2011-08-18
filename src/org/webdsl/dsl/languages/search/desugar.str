@@ -60,9 +60,15 @@ rules //desugar entity properties
   	; propname := <get-property-name> prop1
   	; mappings := <bagof-SearchMappingForProp> (x_class, propname)
   	; prop2 := <add-searchable-anno(|mappings); repeat(desugar-search-prop-annos)> prop1
-  	; if (<is-searchable-prop> prop2) then rules(EntityNameToSearchableProps :+ x_class -> prop2) end
+  	; <try(record-searchable-prop(|x_class))> prop2
   	; if (<SearchNamespaceForProp> (x_class, propname)) then prop3 := <add-search-namespace-anno> prop2
   	  else prop3 := prop2 end
+  
+  record-searchable-prop(|x_class):
+  	prop -> prop
+  	where <is-searchable-prop> prop
+  	with rules(EntityNameToSearchableProps :+ x_class -> prop)
+  		
   
   signature constructors
   	DesugarSearchVisited : Term
@@ -82,14 +88,19 @@ rules //desugar search mappings
     where annos := <map(mapping-to-searchable-anno)> fieldmappings
   
   mapping-to-searchable-anno:
-    SearchFieldMapping(_,parts) -> SearchableAnno(sa-args)
+    SearchFieldMapping(None(), _,parts) -> SearchableAnno(sa-args)
 	with sa-args := <map(mapping-part-to-sa-arg <+ mapping-part-to-sa-arg-list) ; flatten-list> parts
+	
+  mapping-to-searchable-anno:
+    SearchFieldMapping(Some(_), _,parts) -> SearchableAnno([DefaultSF-Argument() | sa-args])
+	with sa-args := <map(mapping-part-to-sa-arg <+ mapping-part-to-sa-arg-list) ; flatten-list> parts
+	
   
   mapping-part-to-sa-arg: FieldName(x) -> SA-Argument("name", x)
   mapping-part-to-sa-arg: AnalyzerName(x) -> SA-Argument("analyzer", x)
   mapping-part-to-sa-arg: Boost(x) -> SA-Argument("boost", x)
-  mapping-part-to-sa-arg: "autocomplete" -> SA-Argument("autocomplete", "")
-  mapping-part-to-sa-arg: "spellcheck" -> SA-Argument("spellcheck", "")
+  mapping-part-to-sa-arg: "autocomplete" -> Autocomplete-Argument()
+  mapping-part-to-sa-arg: "spellcheck" -> Spellcheck-Argument()
   mapping-part-to-sa-arg-list: SearchMappingAnno(kw*) -> <map(mapping-part-to-sa-arg)> kw*
 
 rules //search namespaces	
@@ -151,7 +162,7 @@ rules // desugar searchable annos
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
  
   desugar-searchable-anno-numeric:
- 	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no"), SA-Argument("numeric", "") | sa-args])
+ 	SearchableAnno(sa-args) -> SearchableAnno([SA-Argument("analyzer", "no"), Numeric-Argument() | sa-args])
   	where not (<fetch(?SA-Argument("analyzer", _))> sa-args)
   
   anno-needs-desugaring= ?SearchableAnno()

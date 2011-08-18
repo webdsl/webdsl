@@ -65,11 +65,11 @@ public final class URLFilter {
 	}	
 	public static Map<String,String> URLEncodingToParamMap(String paramMapAsStr){
 		Map<String, String> map = new HashMap<String, String>();
-		String[] urlParts = paramMapAsStr.split("\\|");
+		String[] urlParts = paramMapAsStr.split("&");
 		String[] kv;
 		for (String str : urlParts) {
-			kv = str.split("-", 2);
-			map.put(unescapeParamMapEntry(kv[0]),unescapeParamMapEntry(kv[1]));
+			kv = str.split("=", 2);
+			map.put(unfilter(kv[0]),unfilter(kv[1]));
 		}
 		return map;
 		
@@ -78,19 +78,19 @@ public final class URLFilter {
 	public static String paramMapToURLEncoding(Map<String,String> paramMap){
 		StringBuilder sb = new StringBuilder();
 		for (Entry<String,String> e : paramMap.entrySet()) {
-			sb.append(escapeParamMapEntry(e.getKey()));
-			sb.append("-");
-			sb.append(escapeParamMapEntry(e.getValue()));
-			sb.append("|");
+			sb.append(filter(e.getKey()));
+			sb.append("=");
+			sb.append(filter(e.getValue()));
+			sb.append("&");
 		}
 		return sb.toString();
 	}
 	
 	public static String escapeParamMapEntry(String pme){
-		return pme.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll("-", "\\\\h");
+		return pme.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\&", "\\\\a").replaceAll("=", "\\\\e");
 	}
 	public static String unescapeParamMapEntry(String pme){
-		return pme.replaceAll("\\\\h","-").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
+		return pme.replaceAll("\\\\e","=").replaceAll("\\\\a", "&").replaceAll("\\\\\\\\ ", "\\\\");
 	}
 
 	
