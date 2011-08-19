@@ -8,11 +8,11 @@ public class SearchQueryMRUCache {
 	
 	private static SearchQueryMRUCache ref;
 	private final int size = 1000;
-	private final CacheLinkedHashMap<String, SearchQuery<?>> cache;
+	private final CacheLinkedHashMap<String, AbstractEntitySearcher<?>> cache;
 
 	private SearchQueryMRUCache()
     {
-		cache = new CacheLinkedHashMap<String, SearchQuery<?>>( size );
+		cache = new CacheLinkedHashMap<String, AbstractEntitySearcher<?>>( size );
     }
 	
 	public Object getObject(String key){
@@ -23,7 +23,7 @@ public class SearchQueryMRUCache {
 		return value;
 	}
 	
-	public String putObject(String key, SearchQuery<?> value){
+	public String putObject(String key, AbstractEntitySearcher<?> value){
 		synchronized ( this ) {
 			cache.put(key, value);
 		}

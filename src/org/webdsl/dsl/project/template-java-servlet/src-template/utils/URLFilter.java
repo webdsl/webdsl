@@ -1,5 +1,12 @@
 package utils;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.regex.Pattern;
+
+import org.apache.lucene.search.regex.RegexCapabilities;
+
 /**
  *  
  * Custom encoding of problematic characters in URLs
@@ -55,7 +62,38 @@ public final class URLFilter {
 			e.printStackTrace();
 			return null;
 		}
+	}	
+	public static Map<String,String> URLEncodingToParamMap(String paramMapAsStr){
+		Map<String, String> map = new HashMap<String, String>();
+		String[] urlParts = paramMapAsStr.split("&");
+		String[] kv;
+		for (String str : urlParts) {
+			kv = str.split("=", 2);
+			map.put(unfilter(kv[0]),unfilter(kv[1]));
+		}
+		return map;
+		
+	}	
+	
+	public static String paramMapToURLEncoding(Map<String,String> paramMap){
+		StringBuilder sb = new StringBuilder();
+		for (Entry<String,String> e : paramMap.entrySet()) {
+			sb.append(filter(e.getKey()));
+			sb.append("=");
+			sb.append(filter(e.getValue()));
+			sb.append("&");
+		}
+		return sb.toString();
 	}
+	
+	public static String escapeParamMapEntry(String pme){
+		return pme.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\&", "\\\\a").replaceAll("=", "\\\\e");
+	}
+	public static String unescapeParamMapEntry(String pme){
+		return pme.replaceAll("\\\\e","=").replaceAll("\\\\a", "&").replaceAll("\\\\\\\\ ", "\\\\");
+	}
+
+	
 	public static String unfilter(String message) {
 
 		if (message == null)
@@ -72,7 +110,7 @@ public final class URLFilter {
 			.replaceAll("\\^s","/")
 			.replaceAll("\\^b",java.util.regex.Matcher.quoteReplacement("\\")) //special case for backslash, see javadocs for String.replaceAll
 			.replaceAll("\\^\\^","^"); //the escape character, picked ^ because it is probably not used a lot in URLs
-		}
+		} 
 		catch(java.io.UnsupportedEncodingException e){
 			e.printStackTrace();
 			return null;

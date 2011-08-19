@@ -204,7 +204,7 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
 function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
-  req.open("POST", template , true);
+  req.open("POST", template, true); //chosen for always async (true), even for testing, to have tested system as close to real thing as possible, the downside is that some tests need sleeps to wait for ajax result
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
   req.setRequestHeader("charset", "UTF-8");  
   //    http_request.setRequestHeader("Content-length", parameters.length);
@@ -471,3 +471,12 @@ var Utf8 = {
     return string;
   }
 };
+
+//avoid too many request while typing in a field with onkeyup trigger
+var onkeyupdelay = function(){
+    var timer = 0; //scoped inside this function block, triggering onkeyup again before timeout resets the timer for that particular action
+    return function(callback){
+        clearTimeout(timer);
+        timer = setTimeout(callback, 250);
+    }  
+}();

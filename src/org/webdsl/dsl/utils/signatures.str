@@ -1,0 +1,47 @@
+module org/webdsl/dsl/utils/signatures
+
+imports
+  libstrategolib
+    
+rules 
+  
+  // DR match fails when annotations are different, need to normalize any signature used as DR key
+  normalize-signature = (strip-annos,formal-arguments-to-types) 
+    
+  //type could contain annotation, e.g. SimpleSort("URL"){IsRefSort}, need strip-annos because these types are used in LHS of DR
+  formal-arguments-to-types = map(?Arg(_,<id>)); prepare-type-list-for-compare
+    
+  //ref arg not used in overload resolution; remove arg names from function sort
+  prepare-type-list-for-compare = map(strip-ref-sort;try(simplify-functionsort)); strip-all-annos    
+  
+  simplify-functionsort : FunctionSort(fargs,return) -> <strip-all-annos> FunctionSort(<map(try(?Arg(_,<id>);!UnnamedArg(<id>)))> fargs,return)
+    
+rules //utility rules to get the unique name generated for a template
+
+  generate-template-name-fargs :
+    (n,fargs) -> name
+    with t* := <formal-arguments-to-types> fargs
+       ; name := <generate-template-name> (n,t*) 
+
+  generate-template-name = new-function-name
+    
+rules //rename names that end up as Java class or method names
+  
+  function-decl-to-newname: Function(nm,farg*,_,_) -> <new-function-name> (nm, <map(farg-to-type)> farg*)  
+  
+  farg-to-name = ?Arg(<id>,_)
+  farg-to-type = ?Arg(_,<id>)
+  
+  new-function-name :
+    (nm, argtypes) -> nm2
+    with nm2 := <concat-strings; replace-special-chars-func-name> [nm, <pp-types> argtypes] //reuse pp-types
+
+  replace-special-chars-func-name = 
+     string-replace(|"<","_")
+   ; string-replace(|">","_")
+   ; string-replace(|"(","_")
+   ; string-replace(|")","_")
+   ; string-replace(|":","_")
+   ; string-replace(|",","_")
+   ; string-replace(|" ","_")
+     

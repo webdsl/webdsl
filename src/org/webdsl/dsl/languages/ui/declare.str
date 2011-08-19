@@ -44,13 +44,13 @@ rules
     ; where(<fetch(?Page())> mod*)
     ; with(common-declare-template-rules)
     ; with (
-      t1* := <template-formal-arguments-to-types> fargs
-      ; if not(<CheckPageSignature>(Page(), name, t1*)) //don't override
+        (n,t*) := <normalize-signature> (name,fargs)
+      ; if not(<CheckPageSignature>(Page(), n, t*)) //don't override
            <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
-        then rules( CheckPageSignature : (Page(), name, t1*) -> InternalSort("Page") ) end
+        then rules( CheckPageSignature : (Page(), n, t*) -> InternalSort("Page") ) end 
       ; if <fetch(TemplateModOverride)> mod* 
-        then rules( PageDeclOverride :+ name -> name  )
-        else rules( PageDecl :+ name -> def ) //@TODO probably not necessary to produce def in this rule
+        then rules( PageDeclOverride :+ n -> n  )
+        else rules( PageDecl :+ n -> def ) //@TODO probably not necessary to produce def in this rule
         end
       )   
     
@@ -58,7 +58,7 @@ rules
       all-keys-TopLevelTemplateDefinitions
   AllTopLevelTemplateArguments =
       bagof-TopLevelTemplateDefinitions
-    ; map(TopLevelTemplateDecl; ?Define(_,_,<template-formal-arguments-to-types>,_,_))
+    ; map(TopLevelTemplateDecl; ?Define(_,_,<formal-arguments-to-types>,_,_))
     
   declare-toplevel-template-definition =
     ?def@Define(mod*, name, fargs, targs, body)
@@ -66,13 +66,9 @@ rules
     ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
     ; with(
-        t* := <template-formal-arguments-to-types> fargs
-      ; n := <strip-annos> name
-      ; sig := (n,t*)
-      ; y := <newname-webdsl> n
+        sig@(n,t*) := <normalize-signature> (name,fargs)
       ; rules (
         TopLevelTemplateDefinitions :+ n -> sig
-        OverloadedTemplateSignature : sig -> y    // not used
         )
       ; if not(<CheckPageSignature>(Page(), n, t*)) //don't override
            <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
@@ -96,7 +92,7 @@ rules
     where def := <TemplateSignature> <get-define-sig-farg(|name,fargs)>
   get-define-sig-farg(|name,fargs) : 
     _ -> result
-    with  t* := <template-formal-arguments-to-types> fargs
+    with  t* := <formal-arguments-to-types> fargs
        ; result := <get-define-sig(|name,t*)>
 
   declare-local-template-definition =
@@ -106,11 +102,10 @@ rules
     ; with(common-declare-template-rules)
     ; where(with( 
         page := <InPage <+ InTemplate>
-        ; t1* := <template-formal-arguments-to-types> fargs
-        ; n := <strip-annos> name
+        ; sig@(n,t*) := <normalize-signature> (name,fargs)
         ; rules (
             LocalTemplateNames :+ page -> name
-            LocalTemplateSignature : (n, t1*) -> def
+            LocalTemplateSignature : (n, t*) -> def
             EnclosingDefinition : name -> page
           )
       ))
@@ -119,9 +114,8 @@ rules
   
   common-declare-template-rules :
     def@Define(mods, name, fargs, targs, body){anno*} -> def
-    with  t* := <template-formal-arguments-to-types> fargs
-        ; n := <strip-annos> name
-        ; genname := <generate-template-name> (n,t*)
+    with  sig@(n,t*) := <normalize-signature> (name,fargs)
+        ; genname := <generate-template-name> sig
         ; rules( TemplateSignature  : (n, t*) -> def
                  TemplateNewName : (n, t*) -> genname //used in overload resolution
                  TemplateDefinition : n // mainly used to check whether generated templates are defined manually
@@ -149,16 +143,14 @@ strategies
 
   declare-page-action(|direct-enclosing-define-name) =
     ?def@Action(amod*, name, fargs, body)
-    ; with( 
-        t1* := <map(?Arg(_,<strip-ref-sort>))> fargs //don't include ref sort when comparing types
-      )
+    ; with(sig@(n,t*) := <normalize-signature> (name,fargs))
     ; with(
         rules(
           ActionDefinition  : name -> def
           
           CheckActionSignature :
-            (direct-enclosing-define-name, name, t2*) -> fargs
-            where <zip(type-compatible)> (t1*, t2*)
+            (direct-enclosing-define-name, n, t2*) -> fargs
+            where <zip(type-compatible)> (t*, t2*)
         )
       )
 

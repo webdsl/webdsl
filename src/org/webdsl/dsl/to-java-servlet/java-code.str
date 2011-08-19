@@ -6,6 +6,7 @@ imports
   libwebdsl-front
   libback-end-transformations
   org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/for-filter
 
 rules // statements
 
@@ -137,7 +138,7 @@ rules // for
          ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
          
   for-to-java-servlet :
-    fa@ForAllStmt(x, srt, fltr@Filter(wherecl, orderby, limit), Block(stat*)) ->
+    fa@ForAllStmt(x, srt, fltr, Block(stat*)) ->
     bstm* |[
       java.util.List<t> x_list = e_criteria.list();
       bstm_for*
@@ -158,94 +159,6 @@ rules // for
     with  bstm*   := <statements-to-java-servlet> stat*
         ; bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
                   
-  for-filter-by-code(|x, srt, t, x_list) :
-    fltr -> bstm* |[
-      bstm_where* 
-      bstm_order* 
-      bstm_limit*
-    ]|
-    with  bstm_where* := <?Filter(True(),_,_);![] <+ for-filter-by-code-where(|x, t, x_list)> fltr
-        ; bstm_order* := <?Filter(_,OrderAscending(Null()),_);![] <+ for-filter-by-code-order-by(|x, srt, t, x_list)> fltr
-        ; bstm_limit* := <?Filter(_,_,Limit(Int("-1"), Int("0")));![] <+for-filter-by-code-limit(|x, t, x_list)> fltr
-         
-  for-filter-by-code-where(|x, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      int x_rm = 0;
-      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        if(!e2) {
-          x_list.remove(x_i - x_rm);
-          x_rm++;
-        }
-      ]|  
-    ]|
-    with  e2 := <expression-to-java-servlet> wherecl
-        ; x_i := <newname> "i"
-        ; x_rm := <newname> "removedcount"
-      
-  for-filter-by-code-order-by(|x, srt, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
-      java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
-        public int compare(t o1, t o2) {
-          // cannot add 'final' keyword in front of 'out' argument since it is assigned to in 'form' elements
-          java.io.PrintWriter out = new java.io.PrintWriter(new java.io.StringWriter());
-          stm
-        }
-      });
-    ]|
-    with  e1 := <alltd(\Var(x) -> Var("o1")\);expression-to-java-servlet> exp
-        ; e2 := <alltd(\Var(x) -> Var("o2")\);expression-to-java-servlet> exp
-        ; if <?"OrderDescending"> ordertype
-          then stm := java|[ return (e2).compareTo(e1); ]|
-          else stm := java|[ return (e1).compareTo(e2); ]| end
-        ; tmp := <newname> "tmp"
-
-  for-filter-by-code-limit(|x, t, x_list) :
-    f@Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      int x_lim = e1;
-      int x_off = e2;
-      int x_rm = 0;
-      ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        ~*<for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i)> f
-      ]|  
-    ]|
-    with  e1 := <expression-to-java-servlet> limit
-        ; e2 := <expression-to-java-servlet> offset
-        ; x_i := <newname> "i"
-        ; x_lim := <newname> "limit"
-        ; x_off := <newname> "offset"
-        ; x_rm := <newname> "removedcount"
-        
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      if(x_i >= x_off){ 
-        ~*<for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
-      }
-      else{
-        x_list.remove(x_i - x_rm);
-        x_rm++;
-      }
-    ]|
-    where not(<?Int("0")> offset)
- 
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> 
-    <for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
-    where <?Int("0")> offset
-        
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
-      if(x_lim <= 0) {
-        x_list.remove(x_i - x_rm);
-        x_rm++;
-      }
-      x_lim--;
-    ]|
-    where not(<?Int("-1")> limit)
-    
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> []
-    where <?Int("-1")> limit
-
 rules // return
 
   normal-redirect-statements :

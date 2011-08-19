@@ -31,6 +31,8 @@ application test
   }
 
 
+  native class Thread { static sleep(Int) }
+
   test one {
     
     var d : WebDriver := FirefoxDriver();
@@ -41,10 +43,13 @@ application test
     assert(elist.length == 2, "expected 2 <input> elements did not match");
     
     elist[1].click();
-    log(d.getPageSource());
+    
+    Thread.sleep(2000);
+    
     for(i:Int from 1 to 5){
       assert(d.getPageSource().contains("ajax replace executed: "+i));
     }
+    
     d.close();
   }
   
