@@ -208,7 +208,7 @@ strategies
 	import org.apache.lucene.document.Document;
 	import org.hibernate.search.FullTextFilter;
 	import org.hibernate.search.filter.FullTextFilterImplementor;
-	import org.hibernate.search.store.DirectoryProvider;
+	import org.hibernate.search.indexes.spi.IndexManager;
 	import org.hibernate.search.store.IndexShardingStrategy;
 	
 	import org.webdsl.search.SearchNamespaceHelper;
@@ -216,28 +216,28 @@ strategies
 	
 	public class NamespaceShardingStrategy implements IndexShardingStrategy {
 	
-		// stored DirectoryProviders in a array indexed by namespace (name
+		// stored IndexManagers in a array indexed by namespace (name
 		// space-index mapping in DB)
-		private DirectoryProvider<?>[] providers;
+		private IndexManager[] indexManagers;
 	
 		public static final String NAMESPACE_FILTER = "namespaceFilter";
 		public static final String NAMESPACE_FIELD = "_WebDSLNamespaceID_";
 		private static String indexName = null;
 	
 		public void initialize(Properties properties,
-				DirectoryProvider<?>[] providers) {
-			this.providers = providers;
+				IndexManager[] indexManagers) {
+			this.indexManagers = indexManagers;
 		}
 		
-		public DirectoryProvider<?>[] getDirectoryProvidersForAllShards() {
-			return providers;
+		public IndexManager[] getIndexManagersForAllShards() {
+			return indexManagers;
 		}
 	
-		public DirectoryProvider<?>[] getDirectoryProvidersForOccupiedShards(Class<?> entity) {
-			return Arrays.copyOfRange(providers, 0, SearchNamespaceHelper.nextFreeIndex(entity.getName()));
+		public IndexManager[] getIndexManagersForOccupiedShards(Class<?> entity) {
+			return Arrays.copyOfRange(indexManagers, 0, SearchNamespaceHelper.nextFreeIndex(entity.getName()));
 		}
 	
-		public DirectoryProvider<?> getDirectoryProviderForAddition(
+		public IndexManager getIndexManagerForAddition(
 				Class<?> entity, Serializable id, String idInString,
 				Document document) {
 			// Get the index from the namespace - index mapping if this entity has a namespace property (super/subclasses share the same index name)
@@ -245,9 +245,9 @@ strategies
 			if(nsf != null) {
 				Integer namespaceIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName(entity), nsf.stringValue(), true);
 				document.removeField(NAMESPACE_FIELD);
-				return providers[namespaceIndex];
+				return indexManagers[namespaceIndex];
 			} else {
-				return providers[0];	
+				return indexManagers[0];	
 			}			
 		}
 		
@@ -258,9 +258,9 @@ strategies
 			return indexName;		      
 		}
 	
-		public DirectoryProvider<?>[] getDirectoryProvidersForDeletion(
+		public IndexManager[] getIndexManagersForDeletion(
 				Class<?> entity, Serializable id, String idInString) {
-			return getDirectoryProvidersForAllShards();
+			return getIndexManagersForAllShards();
 		}
 	
 		/**
@@ -268,20 +268,20 @@ strategies
 		 * case, we can be certain that all the data for a particular namespace is
 		 * in a single shard; simply return that shard.
 		 */
-		public DirectoryProvider<?>[] getDirectoryProvidersForQuery(
+		public IndexManager[] getIndexManagersForQuery(
 				FullTextFilterImplementor[] filters) {
 			FullTextFilter filter = getNamespaceFilter(filters);
 			if (filter == null) {
-				return getDirectoryProvidersForAllShards();
+				return getIndexManagersForAllShards();
 			} else {
 				Integer index = SearchNamespaceHelper.namespaceIDToIndex(filter
 						 		 .getParameter("indexName").toString(), filter
 								 .getParameter("namespaceID").toString(), false
 								 );
 				if(index != null){
-					return new DirectoryProvider[] { providers[index] };
+					return new IndexManager[] { indexManagers[index] };
 				} else {
-					return new DirectoryProvider[0];
+					return new IndexManager[0];
 				}
 			}
 		}

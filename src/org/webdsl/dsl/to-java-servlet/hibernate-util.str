@@ -63,115 +63,128 @@ rules
     
   generate-java-servlet-hibernate-util :
     all-entity-names -> <emit-java-code-local> compilation-unit|[
-    package utils;
-    
-    import java.util.Properties;
-    
-    import org.hibernate.*;
-    import org.hibernate.cfg.*;
-    import org.webdsl.*;
-    import org.hibernate.event.*;
-    import org.hibernate.event.def.*;
-    import java.util.*;
-    
+	package utils;
+	
+	import java.util.Properties;
+	
+	import org.hibernate.*;
+	import org.hibernate.cfg.*;
+	import org.webdsl.*;
+	import org.hibernate.event.internal.DefaultFlushEntityEventListener;
+	import org.hibernate.event.internal.DefaultSaveOrUpdateEventListener;
+	import org.hibernate.event.service.spi.EventListenerRegistry;
+	import org.hibernate.event.spi.EventType;
+	import org.hibernate.event.spi.FlushEntityEvent;
+	import org.hibernate.event.spi.SaveOrUpdateEvent;
+	import org.hibernate.metamodel.Metadata;
+	import org.hibernate.metamodel.MetadataSources;
+	import org.hibernate.metamodel.source.internal.MetadataImpl;
+	import org.hibernate.service.BasicServiceRegistry;
+	import org.hibernate.service.ServiceRegistryBuilder;
+	import java.util.*;
+	
     import pkgname.*;
     @SuppressWarnings("unused") 
     public class HibernateUtilConfigured {
         private static final SessionFactory sessionFactory;
-        private static Configuration annotationConfiguration;
-        static
-        { 
-          try
-          { 
-                annotationConfiguration = new Configuration();
-    
-                //Properties prop = HibernateUtil.getProperties();
-
-                annotationConfiguration.addPackage("utils");
-                annotationConfiguration.addAnnotatedClass(utils.ApplicationContextProperty.class);
-                annotationConfiguration.addAnnotatedClass(utils.File.class);
-                
-                annotationConfiguration.addPackage("org.webdsl.search");
-                annotationConfiguration.addAnnotatedClass(org.webdsl.search.SearchNamespace.class);
-                
-
-                annotationConfiguration.addPackage("~domainpack");
-                //annotationConfiguration.addAnnotatedClass(User.class);
-                bstm*
-    
-                //annotationConfiguration.addProperties(prop);
-                //bstm1*
-                annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
-                    
-                annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
-    
-                sessionFactory = annotationConfiguration.buildSessionFactory();
-                
-            } catch (Throwable ex) {
-                throw new ExceptionInInitializerError(ex);
-            }
-        }
-    
-        public static SessionFactory getSessionFactory() {
-            return sessionFactory;
-        }
-        
-        public static Configuration getAnnotationConfiguration()
-        { 
-          return annotationConfiguration;
-        }
-        
-        // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
-        @SuppressWarnings("serial")
-        private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 
-        {
-          public void onSaveOrUpdate(SaveOrUpdateEvent event)  throws HibernateException
-          { 
-            setVersion(event.getObject());
-            super.onSaveOrUpdate(event);
-          }
-      
-          public void setVersion(Object o)
-          { 
-            if(org.hibernate.Hibernate.isInitialized(o) && o instanceof WebDSLEntity)
-            { 
-              WebDSLEntity we = (WebDSLEntity)o;
-              if(we.getVersion() <= 0)
-              { 
-                we.setVersion(1);
-              }
-            }
-          }
-        } 
-        
-        //register which objects need to be validated at the end of an action
-        @SuppressWarnings("serial")
-        private static class SetValidationEventListener extends DefaultFlushEntityEventListener
-        { 
-            public void onFlushEntity(FlushEntityEvent event) throws HibernateException
-            { 
-              validate(event.getEntity());
-              super.onFlushEntity(event);
-            }
-            
-            public void validate(Object o)
-            { 
-                if(o instanceof WebDSLEntity)
-                { 
-                    WebDSLEntity we = (WebDSLEntity)o;
-                    AbstractPageServlet aps = ThreadLocalPage.get();
-                    if(aps != null){
-                      aps.addEntityToValidateAfterAction(we); 
-                    }
-                }
-            }
-        }
-    }
+	    private static MetadataSources metadatasources;
+	    private static BasicServiceRegistry registry;
+	    static
+	    { 
+	      try
+	      { 
+	    	  	registry  = new ServiceRegistryBuilder().buildServiceRegistry();
+	
+	            //Properties prop = HibernateUtil.getProperties();
+	    	  	metadatasources = new MetadataSources( registry );
+	    	  	
+	    	  	metadatasources.addPackage("utils");
+	    	  	metadatasources.addAnnotatedClass(utils.ApplicationContextProperty.class);
+	    	  	metadatasources.addAnnotatedClass(utils.File.class);
+	            
+	    	  	metadatasources.addPackage("org.webdsl.search");
+	    	  	metadatasources.addAnnotatedClass(org.webdsl.search.SearchNamespace.class);
+	            
+	
+	    	  	metadatasources.addPackage("org.webdsl.generated");
+	            //annotationConfiguration.addAnnotatedClass(User.class);
+	            bstm*
+	
+	            //annotationConfiguration.addProperties(prop);
+	            //bstm1*
+	            registry.getService(EventListenerRegistry.class).getEventListenerGroup(EventType.SAVE_UPDATE)
+	            .appendListener(new SetVersionSaveOrUpdateEventListener());
+	                
+	            registry.getService(EventListenerRegistry.class).getEventListenerGroup(EventType.FLUSH_ENTITY)
+	            .appendListener(new SetValidationEventListener());
+	            
+	            sessionFactory = metadatasources.buildMetadata().buildSessionFactory();
+	            
+	        } catch (Throwable ex) {
+	            throw new ExceptionInInitializerError(ex);
+	        }
+	    }
+	
+	    public static SessionFactory getSessionFactory() {
+	        return sessionFactory;
+	    }
+	    
+	    public static MetadataSources getMetaDataSources()
+	    { 
+	      return metadatasources;
+	    }
+	    
+	    // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
+	    @SuppressWarnings("serial")
+	    private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 
+	    {
+	      public void onSaveOrUpdate(SaveOrUpdateEvent event)  throws HibernateException
+	      { 
+	        setVersion(event.getObject());
+	        super.onSaveOrUpdate(event);
+	      }
+	  
+	      public void setVersion(Object o)
+	      { 
+	        if(org.hibernate.Hibernate.isInitialized(o) && o instanceof WebDSLEntity)
+	        { 
+	          WebDSLEntity we = (WebDSLEntity)o;
+	          if(we.getVersion() <= 0)
+	          { 
+	            we.setVersion(1);
+	          }
+	        }
+	      }
+	    } 
+	    
+	    //register which objects need to be validated at the end of an action
+	    @SuppressWarnings("serial")
+	    private static class SetValidationEventListener extends DefaultFlushEntityEventListener
+	    { 
+	        public void onFlushEntity(FlushEntityEvent event) throws HibernateException
+	        { 
+	          validate(event.getEntity());
+	          super.onFlushEntity(event);
+	        }
+	        
+	        public void validate(Object o)
+	        { 
+	            if(o instanceof WebDSLEntity)
+	            { 
+	                WebDSLEntity we = (WebDSLEntity)o;
+	                AbstractPageServlet aps = ThreadLocalPage.get();
+	                if(aps != null){
+	                  aps.addEntityToValidateAfterAction(we); 
+	                }
+	            }
+	        }
+	    }
+	}
     ]|
     with pkgname := <DomainPackage>
        ; domainpack := <pp-java5-to-string> <DomainPackage>
        ; bstm* := <map({\ 
-                           x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]| 
+                           x -> bstm |[ metadatasources.addAnnotatedClass(x_class); ]| 
                            where x_class := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x,".class"]
                        \})> all-entity-names
       /* ; if not([] := <bagof-AllGlobalVars>) 

@@ -27,7 +27,6 @@ import org.hibernate.search.query.dsl.impl.WebDSLFacetTool;
 import org.hibernate.search.query.facet.Facet;
 import org.hibernate.search.query.facet.FacetSortOrder;
 import org.hibernate.search.query.facet.FacetingRequest;
-import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
 
 public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
@@ -149,9 +148,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			}
 			
 			facetName = actualFacet.getFacetingName();
+			//TODO: In hibernate search 4 alpha, our custom .must() / .should() methods are not in yet, customize again,
+			//or wait for next release including https://hibernate.onjira.com/browse/HSEARCH-812
+			fullTextQuery.getFacetManager().getFacetGroup(facetName).selectFacets(actualFacet);
+			//old code:
 			//This uses the custom .must() method, introduced to state that every facet MUST appear, instead of SHOULD.
 			//See https://forum.hibernate.org/viewtopic.php?f=9&t=1011661 for more info.
-			fullTextQuery.getFacetManager().getFacetGroup(facetName).must().selectFacets(actualFacet);
+			//fullTextQuery.getFacetManager().getFacetGroup(facetName).must().selectFacets(actualFacet);
 		}
 	}
 
@@ -179,7 +182,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	public void closeReader(IndexReader reader){
 		if(reader != null)
-		getFullTextSession().getSearchFactory().getReaderProvider().closeReader(reader);
+		getFullTextSession().getSearchFactory().closeIndexReader(reader);
 	}
 	
 	private boolean createMultiFieldQuery(){
@@ -558,13 +561,17 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 	public IndexReader getReader() {
 		SearchFactory searchFactory = getFullTextSession().getSearchFactory();
-		DirectoryProvider<?>[] providers = searchFactory
-				.getDirectoryProviders(entityClass);
+//		DirectoryProvider<?>[] providers = searchFactory
+//				.getDirectoryProviders(entityClass);
 		if(namespaceConstraint.isEmpty()) {
-			return searchFactory.getReaderProvider().openReader(providers);
+			return searchFactory.openIndexReader(entityClass);
 		} else {
-			int index = directoryProviderIndexForNamespace();
-			return searchFactory.getReaderProvider().openReader(providers[index]);
+			//TODO: how to get index reader with indices based on sharding strategy in 4.0.0alpha?
+			//https://forum.hibernate.org/viewtopic.php?f=9&t=1012315
+			
+//			int index = directoryProviderIndexForNamespace();
+//			return searchFactory.getReaderProvider().openReader(providers[index]);
+			return searchFactory.openIndexReader(entityClass);
 		}		
 	}
 	

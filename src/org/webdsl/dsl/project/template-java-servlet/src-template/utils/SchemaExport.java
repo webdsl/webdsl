@@ -6,6 +6,9 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 import org.hibernate.*;
+import org.hibernate.metamodel.source.internal.MetadataImpl;
+
+import utils.HibernateUtilConfigured;
 
 import java.util.*;
 
@@ -22,7 +25,7 @@ public class SchemaExport {
         
         try
         { 
-            org.hibernate.tool.hbm2ddl.SchemaExport export = new org.hibernate.tool.hbm2ddl.SchemaExport(HibernateUtilConfigured.getAnnotationConfiguration());//, hibSession.connection());
+            org.hibernate.tool.hbm2ddl.SchemaExport export = new org.hibernate.tool.hbm2ddl.SchemaExport(new MetadataImpl(HibernateUtilConfigured.getMetaDataSources(), null));;//, hibSession.connection());
             export.setOutputFile("schema-export.sql");
             export.create(true,false);
             
