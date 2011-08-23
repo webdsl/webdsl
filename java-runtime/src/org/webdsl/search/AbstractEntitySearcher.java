@@ -12,8 +12,11 @@ import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -40,7 +43,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	protected int limit = LIMIT;
 	protected int offset = OFFSET;
-	protected Operator op = OP;
+	protected Operator defaultOperator = OP;
 	
 	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true;
 	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false;
@@ -62,17 +65,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected String[] mltSearchFields;
 	protected String indexName;
 	
-	protected String queryText = "";
+	//protected String queryText = "";
 	protected String filteredFacets = "";
 	protected String sortFields = "";
 	protected String sortDirections = "";
 	protected String moreLikeThisParams = "";
 	
-	protected ArrayList<String> combinators = new ArrayList<String>();
-	protected ArrayList<String> queries = new ArrayList<String>();
-	protected ArrayList<String> types = new ArrayList<String>();
-	protected ArrayList<String[]> fields = new ArrayList<String[]>();
-	protected int currentQuery = 0;
+	protected QueryDef rootQD, currentQD, parentQD;
 	
 	protected String namespaceConstraint = "";
 	
@@ -81,7 +80,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected long searchTime = 0;
 	protected Sort sortObj;
 
-	public AbstractEntitySearcher() {
+	public AbstractEntitySearcher() {		
 	}
 
 	@SuppressWarnings("unchecked")
@@ -113,20 +112,32 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	// a AND (b OR c)
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F And() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F MUST() {
+		addSubQuery(Occur.MUST);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F AndNot() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F MUSTNOT() {
+		addSubQuery(Occur.MUST_NOT);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F Or() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F SHOULD() {
+		addSubQuery(Occur.SHOULD);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F OrNot() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F closeGroup() {
+		parentQD = parentQD.parent;
 		return (F) this;
+	}
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F openGroup() {
+		parentQD = currentQD;
+		return (F) this;
+	}
+	private final void addSubQuery(Occur oc) {		
+		currentQD = new QueryDef(oc, parentQD, searchFields);
 	}
 	
 	private void applyFacets() {
@@ -182,24 +193,27 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		getFullTextSession().getSearchFactory().getReaderProvider().closeReader(reader);
 	}
 	
-	private boolean createMultiFieldQuery(){
-		if (!queryText.isEmpty()) {
-			
+	private Query createMultiFieldQuery(QueryDef qd) throws ParseException{
+		if(qd.hasParsedQuery)
+			return luceneQueryFromString(qd.parsedQuery);
+		
+		if (!qd.query.isEmpty()) {			
 			SpecialMultiFieldQueryParser parser;
 			if(boosts == null || boosts.isEmpty()) 
-				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, searchFields, analyzer);
+				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer);
 			 else 
-				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, searchFields, analyzer, boosts);
+				parser = new SpecialMultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer, boosts);
 						
-			parser.setDefaultOperator(op);
+			parser.setDefaultOperator(defaultOperator);
 			
 			try {
 				if(allowLuceneSyntax)
-					luceneQuery = parser.parse(queryText);
+					return parser.parse(qd.query);
 				else
-					luceneQuery = parser.parse(SpecialMultiFieldQueryParser.escape(queryText));
-			} catch (org.apache.lucene.queryParser.ParseException pe){ 
-				return false;
+					return parser.parse(SpecialMultiFieldQueryParser.escape(qd.query));
+			} catch (org.apache.lucene.queryParser.ParseException pe){
+				pe.printStackTrace();
+				return null;
 			}
 			//log("Terms: " + query());
 			//log("Lucene query: " + luceneQuery.toString());
@@ -207,11 +221,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		}
 		// Match all documents if no search terms are given
 		else {
-			luceneQuery = getFullTextSession().getSearchFactory()
+			return getFullTextSession().getSearchFactory()
 					.buildQueryBuilder().forEntity(entityClass).get().all()
 					.createQuery();
 		}
-		return true;
 	}
 	
 	private String decodeValue(String str){
@@ -220,8 +233,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F defaultAnd() {
-		if (!op.equals(Operator.AND)){	
-			op = Operator.AND;
+		if (!defaultOperator.equals(Operator.AND)){	
+			defaultOperator = Operator.AND;
 			updateLuceneQuery = updateParamMap = true;
 		}
 		return (F) this;
@@ -229,8 +242,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F defaultOr() {
-		if (!op.equals(Operator.OR)){	
-			op = Operator.OR;
+		if (!defaultOperator.equals(Operator.OR)){	
+			defaultOperator = Operator.OR;
 			updateLuceneQuery = updateParamMap = true;
 		}		
 		return (F) this;
@@ -260,11 +273,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		paramMap.put("sf", sb.toString());
 		}
 		//search terms
-		paramMap.put("q", queryText);
+		if(rootQD.children.size() < 1)
+			paramMap.put("q", rootQD.query);
+		else
+			paramMap.put("lq", getLuceneQueryAsString());
 		
 		//default operator
-		if(!OP.equals(op))
-			paramMap.put("op", op.toString());
+		if(!OP.equals(defaultOperator))
+			paramMap.put("op", defaultOperator.toString());
 		
 		//constraint fields, values
 		if(fieldConstraints!=null && !fieldConstraints.isEmpty()){
@@ -346,6 +362,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				} else if ("q".equals(key)) {
 					//search query
 					query(value);
+				} else if ("lq".equals(key)) {
+					//search query, lucene string representation
+					currentQD.parsedQuery(value);
 				} else if ("op".equals(key) && value.equals("AND")) {
 					//change default operator to AND
 					defaultAnd();
@@ -506,7 +525,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F fields(List<String> fields) {
 		searchFields = fields.toArray(new String[fields.size()]);
-		this.fields.add(currentQuery, searchFields);
+		//no need to clone searchFields, because variable searchFields is only reassigned and never modified.
+		currentQD.fields = searchFields;
 		
 		//Untokenized fields should be excluded from more like this queries
 		for (int i = 0; i < untokenizedFields.length; i++)
@@ -632,7 +652,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		
 		try {
 			luceneQuery = mlt.like(new StringReader(likeText));
-			log(luceneQuery.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
@@ -718,13 +737,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	
 	@SuppressWarnings("unchecked")
 	private <F extends AbstractEntitySearcher<EntityClass>> F setRangeQuery(Object from, Object to) {
-		queries.add(currentQuery, from.toString() + "-" + to.toString());
-		types.add(currentQuery, "r");
+		currentQD.range(from, to);
 		
-		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
-		luceneQuery = builder.range().onField(searchFields[0]).from(from).to(to).createQuery();
-		updateLuceneQuery = false;
-		updateFullTextQuery = updateParamMap = true;
+		updateLuceneQuery = updateFullTextQuery = updateParamMap = true;
 		return (F) this;
 	}
 
@@ -775,15 +790,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 		
 	public String query(){
-			return this.queryText;
+		if(rootQD.children.size() < 1) {
+			return rootQD.query;
+		}
+		else {
+			validateQuery();
+			return luceneQuery.toString();
+		}
+			
 	}
 	
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F query(String query) {
-		queries.add(currentQuery, query);
-		types.add(currentQuery, "q");
-		
-		queryText = query;
+		currentQD.query(query);
 		updateLuceneQuery = updateParamMap = true;
 		return (F) this;
 	}
@@ -806,17 +825,42 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	private void log(String a){
 		System.out.println(a);
 	}
+	
+	private String getLuceneQueryAsString(){
+		if(updateLuceneQuery){
+			try {
+				luceneQuery = createLuceneQuery(rootQD);
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				return luceneQuery.toString("Error occured during query parsing");
+			}
+			updateLuceneQuery = false;
+			updateFullTextQuery = true;
+		}
+		return luceneQuery.toString();
+	}
+
+	private Query luceneQueryFromString(String str) throws ParseException{
+		return new QueryParser( LUCENEVERSION, "", this.analyzer).parse(str);
+		
+	}
+	
 	private boolean validateQuery() {
 		long tmp = System.currentTimeMillis();
 		if (updateLuceneQuery) {
-			if(!createMultiFieldQuery())
+			try {
+				luceneQuery = createLuceneQuery(rootQD);
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 				return false;
+			}
+			//log("LUCENE QUERY: " + luceneQuery.toString());
 			updateLuceneQuery = false;
 			updateFullTextQuery = true;
 		}
 		if (updateFullTextQuery) {
-			//log("new Full Text Query");
-
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
 			updateFullTextQuery = false;
 			updateNamespaceConstraint = updateFieldConstraints = updateFacets = updateSorting = true;
@@ -841,5 +885,24 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		fullTextQuery.setMaxResults(limit);
 		tmp = System.currentTimeMillis() - tmp;
 		return true;
+	}
+	
+	private Query createLuceneQuery(QueryDef qd) throws ParseException{
+		if(qd.children.size() < 1)
+			return (qd.isRangeQuery) ? createRangeQuery(qd) : createMultiFieldQuery(qd);
+			
+		BooleanQuery booleanQuery = new BooleanQuery();
+
+		for (QueryDef child : qd.children)
+			booleanQuery.add(createLuceneQuery(child), child.occur);
+		
+		return booleanQuery;
+	}
+
+	private Query createRangeQuery(QueryDef qd) throws ParseException {
+		if(qd.hasParsedQuery)
+			return luceneQueryFromString(qd.parsedQuery);
+		QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity(entityClass).get();
+		return builder.range().onField(qd.fields[0]).from(qd.from).to(qd.to).createQuery();
 	}
 }
