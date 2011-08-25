@@ -137,7 +137,7 @@ strategies
     ; flatten-list
 
   collect-effectful-potential-joins =
-    where(not(IsEffectful; ?True()))
+    where(IsEffectful; ?False())
     ; rules( IsEffectful := True())
     ; collect(an-potential-joins)
     ; flatten-list
@@ -272,7 +272,7 @@ strategies
   // Follow a template call
   an-potential-joins =
     (?TemplateCall(_, _, [tc@TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
-    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
+    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <try-strip-generic-sort; is-entity-type>))> args)
     ; (genname, args2, def, redefined) := <get-local-template-redefine(|args)> tc
     ; <?Define(_, _, fargs, _, body)> def
     ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
@@ -283,7 +283,7 @@ strategies
 
   an-potential-joins = // If the above rule fails to lookup the template then we try to collect effectful joins from the call
     (?TemplateCall(_, _, [tc@TemplateCall(name,args,_,TemplateBody([]))|_], TemplateBody([])) <+ ?tc@TemplateCallNoBody(name, args) <+ ?tc@TemplateCall(name, args, _, TemplateBody([])))
-    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args)
+    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <try-strip-generic-sort; is-entity-type>))> args)
     ; not(
         (genname, args2, def, redefined) := <get-local-template-redefine(|args)> tc
         ; <?Define(_, _, fargs, _, body)> def
@@ -292,7 +292,7 @@ strategies
 
   an-potential-joins =
     (?call@TemplateCallNoBody(name, args) <+ ?call@TemplateCall(name, args, _, TemplateBody([])))
-    ; [] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <is-entity-type>))> args // Contains no arguments that are of interest to us
+    ; [] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList); ?(_, <try-strip-generic-sort; is-entity-type>))> args // Contains no arguments that are of interest to us
     ; fromlocalredefs := <collect-from-local-redefines> call // Still we need to follow the call, just to see if a local redefine is called, which may have extra arguments which are of interest to us
     ; fromcallargs := <collect-effectful-potential-joins> args
     ; <conc> (fromlocalredefs, fromcallargs)
@@ -387,7 +387,7 @@ strategies
          // Removed the warnings, because a loop could occur when following a local redefine, because then some variables inside the redefine can belong to the caller and thus have the same name. This warning can be safely ignored.
          ; <filter({vars:
                      \ (e, Arg(x, srt)) ->  <id>
-                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
+                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e; not(<is-generic-sort> srt)
                        where not(<IteratedVarValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])*/> Var(x))
                        with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
                                    IteratedVar      : Var(x) -> srt
@@ -395,7 +395,7 @@ strategies
                      \})> <zip> (args, fargs)
          ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
-                       where not([] := <collect(IteratedSubList)> e)
+                       where not([] := <collect(IteratedSubList)> e) <+ (<is-generic-sort> srt; <is-var-accessible> e)
                        where not(<IteratedSubListValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])*/> Var(x))
                        with rules( IteratedSubListValue  : Var(x) -> e
                                    IteratedSubList       : Var(x) -> srt
@@ -604,11 +604,11 @@ strategies // checks for potential inlining
       |}
     ; {| PassedFunction, IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
        : rules( PassedFunction : genname -> genname )
-         // Here we mark the arguments as interesting, because they are in some way related to the persisten root or are constants which we can use in query conditions
+         // Here we mark the arguments as interesting, because they are in some way related to the persistent root or are constants which we can use in query conditions
          // Removed the warnings, because a loop could occur when following a local redefine, because then some variables inside the redefine can belong to the caller and thus have the same name. This warning can be safely ignored.
        ; <filter({vars:
                      \ (e, Arg(x, srt)) ->  <id>
-                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e
+                       where [] := <collect(IteratedSubList)> e; <is-var-accessible> e; not(<is-generic-sort> srt)
                        where not(<IteratedVarValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedVarValue"])*/> Var(x))
                        with rules( IteratedVarValue : Var(x) -> e     // Helps when expressing a Var into the Var or constant passed by the caller 
                                    IteratedVar      : Var(x) -> srt
@@ -616,7 +616,7 @@ strategies // checks for potential inlining
                      \})> argsbinding
        ; <filter({vars: 
                      \ (e, Arg(x, srt)) ->  <id>
-                       where not([] := <collect(IteratedSubList)> e)
+                       where not([] := <collect(IteratedSubList)> e) <+ (<is-generic-sort> srt; <is-var-accessible> e)
                        where not(<IteratedSubListValue/*; warn(|["Ignoring variable ", x, ", because it would create a loop in IteratedSubListValue"])*/> Var(x))
                        with rules( IteratedSubListValue  : Var(x) -> e
                                    IteratedSubList       : Var(x) -> srt

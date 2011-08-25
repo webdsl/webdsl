@@ -25,9 +25,9 @@ public class HibernateLog {
 	protected String _error = null;
 
 	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
-		RequestAppender ndcAppender = RequestAppender.getNamed("hibernateLog");
-		if(ndcAppender != null) { 
-			String log = ndcAppender.getLog();
+		RequestAppender requestAppender = RequestAppender.getNamed("hibernateLog");
+		if(requestAppender != null) { 
+			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
 			if(hibLog.tryParse(log)) {
 				hibLog.print(sout, session);
@@ -301,6 +301,7 @@ public class HibernateLog {
 			}
 		}
 		catch(Exception ex) {
+			ex.printStackTrace();
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");
 		}
 	}
@@ -315,6 +316,7 @@ public class HibernateLog {
 	}
 
 	public long getTotalTimespan() { // Is better than getTotalTime(), but this also counts time spend in between queries
+		if(_firstQueryStart == null || _lastQueryEnd == null) return 0;
 		return dateDiff(_firstQueryStart, _lastQueryEnd);
 	}
 	
