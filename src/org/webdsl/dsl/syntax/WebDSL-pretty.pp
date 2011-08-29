@@ -75,6 +75,7 @@
    FieldName						  -- H hs=1[KW["as"] _1],
    AnalyzerName						  -- H hs=1[KW["using"] _1],
    Boost							  -- H hs=1[KW["*"] _1],
+   TargetEntity						  -- H hs=1[KW["for subclass"] _1],
    SearchMappingAnno				  -- H hs=1[KW["("] _1 KW[")"]],
    SearchMappingAnno.1:iter-star	  -- H hs=1[_1],
    

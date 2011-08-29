@@ -39,14 +39,23 @@ strategies
     	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
   property-to-index-annos :
-    Property(x, propkind, srt, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
+    Property(x, propkind, srt, anno*) -> index-annos
     where  <?Ref()<+?Comp() > propkind
-    	; <fetch(?SearchableAnno(_))> anno*
-  
+    	; searchable-annos := <filter(?SearchableAnno(_))> anno*
+    	; not(<?[]>searchable-annos)
+    	; index-annos := <map(searchable-annos-to-index-embedded-annos)> searchable-annos
+    	  
+  searchable-annos-to-index-embedded-annos:
+  	SearchableAnno(sa-args) -> embedded-anno
+  	with  <fetch(?SA-Argument("name", prefix))> sa-args
+  	; if (<fetch(?SA-Argument("subclass", x_targetelem))> sa-args)
+  	then embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~prefix" + ".", targetElement = x_targetelem.class) ]|
+  	else embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~prefix" + ".") ]| end
+    
   //Other side (inverse) of embedded index field needs containedin annotation 
   property-to-contained-in:
   	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
-	where <has-anno(InverseOfSearchable)> p
+	where <has-anno(?InverseOfSearchable())> p
 
 strategies //field annotations
 	

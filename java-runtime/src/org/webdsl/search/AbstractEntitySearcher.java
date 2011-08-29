@@ -149,11 +149,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			
 			key = facet.getFieldName() + "-" + facet.getValue();
 			
-			if (!facetMap.containsKey(key)){
-				// Facets are not yet retrieved during this object's life cycle, probably this is a reconstructed search query
-				getFacets(facet.getFieldName());
-			}
 			Facet actualFacet = facetMap.get(key);
+			if (actualFacet == null){
+				// Facets are not yet retrieved during this object's life cycle, probably this is a search query reconstructed from param map.
+				getFacets(facet.getFieldName());
+				actualFacet = facetMap.get(key);
+			}
+			
 			if(actualFacet == null) {
 				log("Facet to narrow not found, should not happen!");
 				continue;
@@ -167,8 +169,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 
 	private void applyFieldConstraints() {
-		for (String field : fieldConstraints.keySet())
-			enableFieldConstraintFilter(field, fieldConstraints.get(field));
+		int cnt = 0;
+		for (String field : fieldConstraints.keySet()){
+			enableFieldConstraintFilter(field, fieldConstraints.get(field), cnt);
+			cnt++;
+		}
 	}
 	
 	private void applyNamespaceConstraint(){
@@ -249,12 +254,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 	
-	private void enableFieldConstraintFilter(String field, String value) {
-		fullTextQuery.enableFullTextFilter("fieldConstraintFilter")
+	private void enableFieldConstraintFilter(String field, String value, int cnt) {
+		if(cnt < 5) {
+		fullTextQuery.enableFullTextFilter("fieldConstraintFilter" + cnt)
 			.setParameter("field", field)
 			.setParameter("value", value)
 			.setParameter("analyzer", analyzer)
 			.setParameter("allowLuceneSyntax", allowLuceneSyntax);
+		} else {
+			log("At most 5 field filters can be enabled. Filter on field:'"+ field + "', value:'" + value + "' is ignored!.");
+		}
 	}
 		
 	public final Map<String,String> toParamMap(){

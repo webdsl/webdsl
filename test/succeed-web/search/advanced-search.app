@@ -2,7 +2,7 @@ application test
 
   entity Person{
     name	  :: String
-    birthday :: Date
+    birthday  :: Date
     items     -> Set<Item>
     
 	searchmapping {

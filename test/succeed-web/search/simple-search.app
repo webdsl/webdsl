@@ -3,7 +3,7 @@ application test
   entity Person{
     name::String
 	searchmapping {
-		name;     
+		name;
   	}
   }
 
