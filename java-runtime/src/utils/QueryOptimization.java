@@ -32,7 +32,8 @@ public class QueryOptimization {
 		}
 
 		if(tojoin.size() > 0) {
-			ret = QueryOptimization.addJoins(ret, tojoin); // Add the selected joins to the criteria
+			ret = QueryOptimization.addJoins(ret, tojoin).setCacheable(false); // Add the selected joins to the criteria
+			// We added joins, which are not executed if the query is cached, so that is why we disable caching here
 		}
 
 		if(criterion != null) { // Add the condition aswell

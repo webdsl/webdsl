@@ -258,26 +258,29 @@ rules
     farg* -> result
     where result2 := <filter({\ arg@Arg(x, srt){anno*} -> bstm* |[
                                   if(!org.hibernate.Hibernate.isInitialized(x.get#x_checkprop())) {
-																	  e_criteria.add( org.hibernate.criterion.Restrictions.naturalId().set("~x_idprop", x.x_get())).list();
+																	  bstm_criteria*
                                     bstm_criterias*
                                   }
                               ]|
                              where <has-entity-anno> srt
-                             ; <not(fetch-elem(?QueryOptimizations([], _, _, _)))> anno*
+                             ; <not(fetch-elem(?QueryOptimizations([], [], _, _)))> anno*
                              ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-                             ; <conc; length; not(?1)> (joinproperties, joinpropertiesgen) // If we only eagerly fetch one property then we might as well leave it to Hibernate to do it the lazy way
+                             ; <conc; flatten-list; length; not(?1)> (joinproperties, joinpropertiesgen) // If we only eagerly fetch one property then we might as well leave it to Hibernate to do it the lazy way
                              with
-                               if [] := joinproperties
-                               then x_checkprop := <?[<string-tokenize(|['.'])>|_]; ?[<ltrim-chars(?'_')>|_]> joinpropertiesgen
-                               else x_checkprop := <?[<string-tokenize(|['.'])>|_]; ?[<ltrim-chars(?'_')>|_]> joinproperties
-                               end
-                             ; x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
+                               x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
                              ; x_class := <java-type-name> srt
                              ; x_get := <concat-strings>["get", <get-entity-id-name; capitalize-string> srt]
-                             ; genjoins := <?[<id>|_] <+ ![]> joinpropertiesgen
-                             //; <debug(!"querycondition:")> querycondition
-                             ; e_criteria := <conc; foldr(!expr|[ ThreadLocalPage.get().getHibSession().createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (genjoins, joinproperties, conditionjoins)
-                             ; bstm_criterias* := <hibernate-extra-criteria; map(argument-to-java-servlet-initialization-add-condition(|x_idprop, expr|[x.x_get()]|))> (arg{QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins), anno*}, expr|[x_class]|, x, srt, expr|[ ThreadLocalPage.get().getHibSession() ]|)
+                             ; if [] := joinproperties
+                               then x_checkprop := <?[<id>|_]; ?[<string-tokenize(|['.'])>|_]; ?[<ltrim-chars(?'_')>|_]> joinpropertiesgen
+                                  ; bstm_criteria* := []
+                                  ; joinpropertiesgen2 := [[]|joinpropertiesgen] // because hibernate-extra-criteria skips the first
+                               else x_checkprop := <?[<string-tokenize(|['.'])>|_]; ?[<ltrim-chars(?'_')>|_]> joinproperties
+                                  ; genjoins := <?[<id>|_] <+ ![]> joinpropertiesgen
+                                  ; e_criteria := <conc; foldr(!expr|[ ThreadLocalPage.get().getHibSession().createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (genjoins, joinproperties, conditionjoins)
+                                  ; joinpropertiesgen2 := joinpropertiesgen
+                                  ; bstm_criteria* := bstm* |[e_criteria.add( org.hibernate.criterion.Restrictions.naturalId().set("~x_idprop", x.x_get())).list();]|
+                               end
+                             ; bstm_criterias* := <hibernate-extra-criteria; map(argument-to-java-servlet-initialization-add-condition(|x_idprop, expr|[x.x_get()]|))> (arg{QueryOptimizations(joinproperties, joinpropertiesgen2, querycondition, conditionjoins), anno*}, expr|[x_class]|, x, srt, expr|[ ThreadLocalPage.get().getHibSession() ]|)
                            \})> farg*
     ; result1 := <formal-arguments-to-store-statements> farg*
     ; result := <conc; flatten-list> (result1, result2)

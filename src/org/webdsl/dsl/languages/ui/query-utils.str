@@ -185,7 +185,7 @@ strategies
         ; body2 := <alltd(RenamePropInFunction)> body
       |}
     ; {| PassedFunction
-       : rules( PassedFunction : genname -> genname )
+       : rules( PassedFunction : genname )
        ; <an-potential-joins-with-args(|<conc>(args, arg*), <conc>(fargs2, fargs))> body2 // We add the properties of the entity as leading arguments of the function, this prevents them to be mistaken for local variables, which currently are ignored completely
        |}
 
@@ -277,7 +277,7 @@ strategies
     ; <?Define(_, _, fargs, _, body)> def
     ; where(not(<PassedTemplate> genname)) // Prevents an infinite loop when following a recursive template
     ; {| PassedTemplate
-       : rules( PassedTemplate : genname -> genname )
+       : rules( PassedTemplate : genname )
        ; <an-potential-joins-with-args(|args2, fargs)> body
        |}
 
@@ -311,7 +311,7 @@ strategies
     ; <?Define(_, _, _, _, body)> def
     ; calls := <collect(?TemplateCallNoBody(_, _) <+ ?TemplateCall(_, _, _, TemplateBody([])))> body
     ; {| PassedTemplate, LocalRedefDef, LocalRedefName, LocalRedefArgs
-       : rules( PassedTemplate : genname -> genname )
+       : rules( PassedTemplate : genname )
        ; <alltd(define-local-redefine)> body
        ; <filter(collect-from-local-redefines)> calls // Just follow the calls
        |}
@@ -322,7 +322,7 @@ strategies
     ; where(not(<PassedTemplate> genname))
     ; <?Define(_, _, fargs, _, body)> def
     ; {| PassedTemplate
-       : rules( PassedTemplate : genname -> genname )
+       : rules( PassedTemplate : genname )
        ; <an-potential-joins-with-args(|args2, fargs)> body // Analyze the call normally
        |}
 
@@ -456,53 +456,15 @@ strategies // checks for potential inlining
 
   is-var-accessible = is-query-condition-constant <+ (is-accessible-from(ParentArgs <+ IteratedVar); ?(<id>, _))
 
-  get-accessible-expr = where(
-  	(ParentArgs <+ IteratedVar)
-  	; ?SimpleSort(x_class)
-  	; srt := <EntityIdType> x_class
-  	; <is-query-condition-type> srt
-  	; fieldName := <EntityIdName> x_class)
-  	; !FieldAccess(<id>, fieldName){srt} // I am still adding an annotation to store the type when that type could be a UUID, I used this to generate different code for those field, because this type caused a typecast exception  
-
   get-accessible-expr = get-accessible-dbfield
 
   get-accessible-expr = get-accessible-field
 
   get-accessible-expr = is-query-condition-constant
 
-  get-accessible-expr = where((ParentArgs <+ IteratedVar); is-query-condition-type)
-
   get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt)
 
-  get-accessible-field =
-  	where(
-  	  ?fa@FieldAccess(v, f)
-  	  ; x_class := <get-accessible-field-type> v
-      ; srt := <get-prop-type>(x_class, f)
-      ; <is-query-condition-type> srt
-    )
-    ; !fa{srt}
-
-  get-accessible-field =
-  	where(
-  	  ?fa@FieldAccess(v, f)
-  	  ; v_class := <get-accessible-field-type> v
-      ; x_class := <get-prop-type>(v_class, f)
-      ; srt := <EntityIdType> x_class
-      ; <is-query-condition-type> srt
-      ; fieldName := <EntityIdName> x_class
-    )
-    ; !FieldAccess(fa, fieldName){srt}
-
-  get-accessible-field-type = where(?v@Var(_); not(<RootVar> v))
-    ; <(ParentArgs <+ IteratedVar); ?SimpleSort(<id>)> v
-
-  get-accessible-field-type = where(?FieldAccess(v, f); not(<RootVar> v))
-    ; x_class := <(ParentArgs <+ IteratedVar); ?SimpleSort(<id>)> v
-    ; <get-prop-type>(x_class, f)
-
-  get-accessible-field-type = where(?FieldAccess(v, f); x_class := <get-accessible-field-type> v)
-    ; <get-prop-type>(x_class, f)
+  get-accessible-field = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedVarValue)); ((is-accessible-from(ParentArgs,id); ?(<id>, srt)) <+ is-query-condition-constant) 
 
   is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 
@@ -603,7 +565,7 @@ strategies // checks for potential inlining
         ; expr2 := <alltd(RenamePropInFunction)> expr
       |}
     ; {| PassedFunction, IteratedVar, IteratedVarValue, IteratedSubList, IteratedSubListValue
-       : rules( PassedFunction : genname -> genname )
+       : rules( PassedFunction : genname )
          // Here we mark the arguments as interesting, because they are in some way related to the persistent root or are constants which we can use in query conditions
          // Removed the warnings, because a loop could occur when following a local redefine, because then some variables inside the redefine can belong to the caller and thus have the same name. This warning can be safely ignored.
        ; <filter({vars:
@@ -655,8 +617,8 @@ rules
     where <not(?True()); not(?[])> prevCond
 
   add-required-alias:
-    FieldAccess(p, f) -> FieldAccess(p{HasAlias()}, f)
-    where <is-accessible-from(RootVar,id); Snd; is-entity-type> p 
+    FieldAccess(p, f){anno*} -> FieldAccess(p{HasAlias()}, f){anno*}
+    where <is-accessible-from(RootVar,id); Snd; is-entity-type> p
 
   append-condition:
   	(newCond, oldCond) -> And(newCond, oldCond)
@@ -668,23 +630,16 @@ rules
   append-condition:
   	(True(), oldCond) -> oldCond
 
-  anno-query-expr:
-  	(t, expr) -> expr
-  	where <where(is-query-condition-type);not(?SimpleSort("UUID"))> t 
-
-  anno-query-expr:
-  	(SimpleSort("UUID"), expr) -> expr{SimpleSort("UUID")}
-
   get-prop-type: (x_class, prop) -> <type-of-property>
 
   get-prop-type: (x_class, prop) -> <EntityIdType> x_class
     where <EntityIdName; ?prop> x_class
 
   is-one-dbprop: (expr1, expr2) -> <id>
-    where <get-accessible-dbfield <+ RootVar> expr1
+    where <get-accessible-dbfield> expr1
 
   is-one-dbprop: (expr1, expr2) -> <id>
-    where <get-accessible-dbfield <+ RootVar> expr2
+    where <get-accessible-dbfield> expr2
 
   query-optimization-type-of = (is-accessible-from(IteratedVar <+ IteratedSubList); Snd) <+ type-of
 
@@ -706,12 +661,13 @@ rules
     Cast(f, _) -> f
 
   is-accessible-from(s,gen):
-    FieldAccess(v, f) -> (FieldAccess(p, f2), srt)
+    FieldAccess(v, f){anno*} -> (fa, srt)
     where (p, psrt) := <is-accessible-from(s,gen)> v
     ; <gen; ?SimpleSort(x_class)> psrt
     ; not(<is-derived-property> (x_class, f))
     ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
     ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
+    ; fa := <try(add-naturalid-anno(|x_class))> FieldAccess(p, f2){anno*}
 
   is-accessible-from(s,gen):
     v@Var(_) -> (v, srt)
@@ -723,3 +679,6 @@ rules
     ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
     ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
 
+  add-naturalid-anno(|x_class) :
+    fa@FieldAccess(_, f){anno*} -> fa{IsNaturalId(), anno*}
+    where f := <natural-id-name-include-superclass> x_class
