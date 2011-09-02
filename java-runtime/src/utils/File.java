@@ -3,7 +3,9 @@ package utils;
 import utils.*;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.Serializable;
 import javax.persistence.*;
 
@@ -67,8 +69,17 @@ import org.hibernate.Session;
   
   public String getContentAsString(){
     try {
-        return new String(content.getBytes(1, (int) content.length()));
+        InputStream inputStream = getContent().getBinaryStream();
+        int expected = inputStream.available();
+        byte[] contents = new byte[expected];
+        int length = inputStream.read(contents);
+        if(length != expected)
+            return "";
+        return new String(contents);
     } catch (SQLException e) {
+        e.printStackTrace();
+        return "";
+    } catch (IOException e) {
         e.printStackTrace();
         return "";
     }
