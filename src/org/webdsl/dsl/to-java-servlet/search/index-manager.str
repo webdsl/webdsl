@@ -37,10 +37,10 @@ strategies
 	  import org.apache.lucene.search.spell.LuceneDictionary;
 	  import org.apache.lucene.store.FSDirectory;
 	  import org.apache.lucene.util.Version;
+	  import org.hibernate.search.reader.impl.MultiReaderFactory;
   	  import org.hibernate.search.SearchFactory;
-	  // import org.hibernate.search.reader.ReaderProvider;
-	  import org.hibernate.search.store.DirectoryProvider;
-	  // import org.hibernate.search.store.FSDirectoryProvider;
+	  import org.hibernate.search.engine.spi.EntityIndexBinder;
+	  import org.hibernate.search.impl.ImmutableSearchFactory;
 	  import org.webdsl.search.AutoCompleter;
 	  import org.webdsl.search.SearchSuggester;
 	  import org.webdsl.search.SearchNamespaceHelper;
@@ -67,7 +67,7 @@ strategies
           System.out.println("Starting reindexing of all searchable data...");
           long time = System.currentTimeMillis();
           
-          //Clear search namespace mapping (namespace to index)
+          //Clear search namespace mapping (namespace to directory provider array index)
           SearchNamespaceHelper.clearNamespaceMapping();
           org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		  
@@ -114,10 +114,7 @@ strategies
 		    
 		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		    SearchFactory searchFactory = session.getSearchFactory();			
-		 
-		    //DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
-		    //ReaderProvider readerProvider = searchFactory.getReaderProvider();
-		    
+		 		    
 		    String indexName = indexName(indexedClass);
 		    List<String> namespaces;
 		    if(namespace == null || namespace.isEmpty()){
@@ -136,27 +133,27 @@ strategies
     		for(int n=-1; n<namespaces.size(); n++){
     			if(n == -1) {
     				currentNamespace = "";
-    				//reader = readerProvider.openReader(directoryProviders);
     				reader = searchFactory.openIndexReader(indexedClass);  				
     			}
     			else {
-    				// currentNamespace = namespaces.get(n);
-    				// int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
-    				// reader = readerProvider.openReader(directoryProviders[providerIndex]);
-    				reader = searchFactory.openIndexReader(indexedClass);
+    				currentNamespace = namespaces.get(n);
+    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
+    				ImmutableSearchFactory isf = (ImmutableSearchFactory) searchFactory;			
+					EntityIndexBinder<?> entityIndexBinding = isf.getIndexBindingForEntity( indexedClass );
+					org.hibernate.search.indexes.spi.IndexManager indexManager = entityIndexBinding.getSelectionStrategy().getIndexManagersForAllShards()[providerIndex];
+					reader = MultiReaderFactory.openReader( indexManager );
     			}
 	    		try{
 			        for(int c=0;c<searchFields.length;c++){
 			        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
 			        	SpellChecker sp = null;
 			        	try {
-				        	FSDirectoryProvider dir = new FSDirectoryProvider();
 				        	String path = indexDirSpellCheck(indexedClass, searchFields[c], currentNamespace);
 			        		File filePath = new File( path );	        		
-				        	sp = new SpellChecker(dir.getDirectory().open( filePath ));		        	
+				        	sp = new SpellChecker(FSDirectory.open( filePath ));		        	
 					        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
 					        sp.indexDictionary(dictionary);
-					        SearchSuggester.forceSpellCheckerRenewal( path);
+					        SearchSuggester.forceSpellCheckerRenewal( path );
 						} catch (IOException ex) {
 				        	ex.printStackTrace();
 				        	System.out.println("Failed to create spellcheck index for " + entityName + ", field: " + searchFields[c] + ", namespace: " + currentNamespace);		        
@@ -172,7 +169,7 @@ strategies
 				    }
 			    } finally{
 			    	if (reader != null)
-						searchFactory.getReaderProvider().closeReader(reader);
+						searchFactory.closeIndexReader(reader);
 			    }
 			}
 		    System.out.println(new java.util.Date() + ": Done with spellcheck index for (" + entityName + ")");
@@ -187,9 +184,6 @@ strategies
 		    		    
 		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
 		    SearchFactory searchFactory = session.getSearchFactory();	
-		 
-		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
-		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
 		    
 		    String indexName = indexName(indexedClass);
 		    List<String> namespaces;
@@ -210,22 +204,24 @@ strategies
     		for(int n=-1; n<namespaces.size(); n++){
     			if(n == -1) {
     				currentNamespace = "";
-    				reader = readerProvider.openReader(directoryProviders);    				
+    				reader = searchFactory.openIndexReader( indexedClass );    				
     			}
     			else {
     				currentNamespace = namespaces.get(n);
     				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
-    				reader = readerProvider.openReader(directoryProviders[providerIndex]);
+    				ImmutableSearchFactory isf = (ImmutableSearchFactory) searchFactory;			
+					EntityIndexBinder<?> entityIndexBinding = isf.getIndexBindingForEntity( indexedClass );
+					org.hibernate.search.indexes.spi.IndexManager indexManager = entityIndexBinding.getSelectionStrategy().getIndexManagersForAllShards()[providerIndex];
+					reader = MultiReaderFactory.openReader( indexManager );
     			}
 	    		try{
 			        for(int c=0;c<searchFields.length;c++){
 			        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
 			        	AutoCompleter ac = null;
 			        	try {
-				        	FSDirectoryProvider dir = new FSDirectoryProvider();
 				        	String path = indexDirAutoComplete(indexedClass, searchFields[c], currentNamespace);
 			        		File filePath = new File( path );	        		
-				        	ac = new AutoCompleter(dir.getDirectory().open( filePath ));
+				        	ac = new AutoCompleter(FSDirectory.open( filePath ));
 					        ac.indexDictionary(reader, searchFields[c]);
 					        SearchSuggester.forceAutoCompleterRenewal( path );
 						} catch (IOException ex) {
@@ -243,7 +239,7 @@ strategies
 				    }
 			    } finally{
 			    	if (reader != null)
-						searchFactory.getReaderProvider().closeReader(reader);
+						searchFactory.closeIndexReader(reader);
 			    }
 		    
 		    
@@ -256,8 +252,7 @@ strategies
 		  	  if(path == null || !path.exists())
 		  	  	return true; //if path doesnt exist, then there is nothing to clear
 		  	  	
-		  	  FSDirectory indexDir = new FSDirectoryProvider().getDirectory();
-			  IndexWriter writer = new IndexWriter(indexDir.open(path),
+			  IndexWriter writer = new IndexWriter(FSDirectory.open(path),
 			            new IndexWriterConfig(Version.LUCENE_CURRENT,
 			                new WhitespaceAnalyzer(Version.LUCENE_CURRENT)));		  
 			  writer.deleteAll();

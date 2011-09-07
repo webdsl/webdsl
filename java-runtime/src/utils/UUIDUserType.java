@@ -1,20 +1,16 @@
 package utils;
 
-import java.io.IOException;
-import java.io.Serializable ;
-import java.sql.PreparedStatement ;
-import java.sql.ResultSet ;
-import java.sql.SQLException ;
-import java.sql.Types ;
-import java.util.UUID ;
+import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.UUID;
 
-import org.slf4j.LoggerFactory;
+import org.hibernate.HibernateException;
+import org.hibernate.engine.spi.SessionImplementor;
+import org.hibernate.usertype.UserType;
 import org.slf4j.Logger;
-
-import org.hibernate.type.SerializationException;
-
-import org.hibernate.HibernateException ;
-import org.hibernate.usertype.UserType ;
+import org.slf4j.LoggerFactory;
 //http://www.bigsoft.co.uk/blog/index.php/2008/11/01/java-util-uuid-primary-keys-in-hibernate
 //changed to work with varchar(16) field in db
 public class UUIDUserType implements UserType
@@ -137,9 +133,9 @@ public class UUIDUserType implements UserType
 	 * @see org.hibernate.usertype.UserType#nullSafeGet(java.sql.ResultSet,
 	 * java.lang.String[], java.lang.Object)
 	 */
-	public Object nullSafeGet (ResultSet rs, String[] names, Object owner) throws HibernateException,
-	SQLException
-	{
+	public Object nullSafeGet(ResultSet rs, String[] names,
+			SessionImplementor arg2, Object owner) throws HibernateException,
+			SQLException {
 		String value = rs.getString (names[0]) ;
 
 		if (value == null)
@@ -183,9 +179,8 @@ public class UUIDUserType implements UserType
 	 * org.hibernate.usertype.UserType#nullSafeSet(java.sql.PreparedStatement,
 	 * java.lang.Object, int)
 	 */
-	public void nullSafeSet (PreparedStatement st, Object value, int index)
-	throws HibernateException, SQLException
-	{
+	public void nullSafeSet(PreparedStatement st, Object value, int index,
+			SessionImplementor arg3) throws HibernateException, SQLException {
 		// System.out.println("set start");
 		if (value == null)
 		{

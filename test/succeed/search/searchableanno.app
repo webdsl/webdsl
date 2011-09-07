@@ -41,7 +41,7 @@ entity E{
 	a :: String
 }
 extend entity E{
-	b :: Int (searchable(analyzer = no, name = number, boost = 0.001, autocomplete = somevalue, spellcheck = somevalue, numeric = somevalue))
+	b :: Int (searchable(analyzer = no, name = number, boost = 0.001, autocomplete, spellcheck, numeric))
 	//the arguments autocomplete,spellcheck and numeric are used as flags, their value are ignored.
 }
 //F

@@ -2,7 +2,7 @@ application test
 
   entity Person{
     name	  :: String
-    birthday :: Date
+    birthday  :: Date
     items     -> Set<Item>
     
 	searchmapping {
@@ -51,15 +51,15 @@ application test
 	  	var p := Person{name := "Pepe Roni" birthday := Date("05/05/1955")};
 	  	var i1 := Item{
 	  		name := "Bottle of dr Pepper" 
-	  		description := "ingredients for Dietetic Dr Pepper, circa 1963: Carbonated water, caramel color, citric acid, phosphoric acid, caffeine, sodium	cyclamate, sodium carboxymethylcellulose, sodium saccharin, monosodium phosphate, lactic acid, flavoring, spices, less than 1/20th of 1% benzoate of soda (preservative), .088% sodium cyclamate, .007% sodium saccharine, non-nutritive artificial sweeteners which should be used	only by persons who must restrict their intake of ordinary sweets. No fat or protein. .28% available carbohydrates. 1/3 calorie per fl. oz" 
+	  		description := "ingredients for Dietetic Dr Pepper, circa 1963: Carbonated water, caramel color, citric acid, phosphoric acid, caffeine, sodium	cyclamate, sodium carboxymethylcellulose, sodium saccharin, monosodium phosphate, lactic acid, flavoring, spices, less than 1/20th of 1% benzoate of soda (preservative), .088% sodium cyclamate, .007% sodium saccharine, non-nutritive artificial sweeteners which should be used	only by persons who must restrict their intake of ordinary sweets. No fat or protein. .28% available carbohydrates. 1/3 calorie per fl. oz. TheEnd." 
 			owner := p };
 	  	var i2 := Item{
 	  		name := "Diet Coke" 
-	  		description := "Amount (% RDA Ingredients) Calories 0 Fat 0g (0%) Sodium 40mg (2%) Carbohydrates 0g (0%) Sugar 0g Protein 0g (0%) Diet Coke™ - Ingredients Carbonated Water	High Fructose Corn Syrup Caramel Color Phosphoric Acid Natural Flavors Caffeine Aspartame (NutraSweet) Potassium Benzoate Citric acid" 
+	  		description := "Amount (% RDA Ingredients) Calories 0 Fat 0g (0%) Sodium 40mg (2%) Carbohydrates 0g (0%) Sugar 0g Protein 0g (0%) Diet Coke™ - Ingredients Carbonated Water	High Fructose Corn Syrup Caramel Color Phosphoric Acid Natural Flavors Caffeine Aspartame (NutraSweet) Potassium Benzoate Citric acid. TheEnd." 
 			};
 	  	var i3 := Item{
 	  		name := "Car" 
-	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500."
+	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500. TheEnd."
 			};
 		p.save();
 		i1.save();
@@ -75,13 +75,19 @@ application test
   		IndexManager.indexSuggestions();
   	}
     var personSearcher := PersonSearcher();
+    var personSearcher2 := PersonSearcher();
+    var personSearcher3 := PersonSearcher();
     var itemSearcher := ItemSearcher();
+    var itemSearcher1 := ItemSearcher();
+    var itemSearcher2 := ItemSearcher();
+    var itemSearcher3 := ItemSearcher();
+    var itemSearcher4 := ItemSearcher();
     var name := "Bottle of dr Pepper"
     var drPepperItems := from Item as i where i.name = ~name;
     output("Search page:")   
     
     
-    "simplesearch-1:" output(itemSearcher.query("bottle").list()[0].name) 
+    "simplesearch-1:" output(itemSearcher.query("bottle AND Dietetic").list()[0].name) 
     "embeddedsearch-1:" output(personSearcher.query("bottle").list()[0].name)
     "embeddedsearch-2:" output(personSearcher.field("items.nameField").query("bottle").list()[0].name)
     "nostopfilter-1:" if(itemSearcher.field("nameFieldNoStop").query("of").list().length == 1){output(itemSearcher.list()[0].name)}
@@ -97,9 +103,21 @@ application test
     "autocomplete-2:" output(ItemSearcher.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
     "autocomplete-3:" output(ItemSearcher.autoCompleteSuggest("pepf","nameCompletion",1)[0])
     "autocomplete-4:" output(ItemSearcher.autoCompleteSuggest("b","nameCompletion",1)[0])
+    "boolean-1:" output(itemSearcher1.MUSTNOT().field("description").query("Pepper").SHOULD().query("Color").resultSize())
+    "boolean-2:" output(itemSearcher1.list()[0].name)
+    "boolean-3:" output(itemSearcher2.SHOULD().openGroup().MUSTNOT().query("italian").field("description").MUST().query("TheEnd").closeGroup().resultSize())
+    "boolean-4:" output(itemSearcher3.SHOULD().openGroup().MUSTNOT().query("italian").field("description").MUST().query("TheEnd").closeGroup().SHOULD().query("italian").resultSize())
+    "boolean-5:" output(personSearcher2.MUSTNOT().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).SHOULD().query("Pepe").field("name").resultSize())
+    "boolean-6:" output(personSearcher3.SHOULD().openGroup().MUSTNOT().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).closeGroup().SHOULD().query("Pepe").field("name").resultSize())
+    
+    navigate BooleanResultPage(personSearcher3) {"click"}    
    // "customstopfilter-1:" output(itemSearcher.field("nameCustomStop").query("diet").resultSize())
    // "customstopfilter-2:" output(itemSearcher.field("nameCustomStop").query("bottle").resultSize())
     
+  }
+  
+  define page BooleanResultPage(ps : PersonSearcher){
+  	"searcherPageArg:" output(ps.resultSize())
   }
   
   test AdvancedSearch {
@@ -126,8 +144,20 @@ application test
     assert(pagesource.contains("autocomplete-2:car"), "Autocompletion should have returned 'car' on input 'ca'");
     assert(pagesource.contains("autocomplete-3:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'pepf'");
     assert(pagesource.contains("autocomplete-4:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'b'");
+    assert(pagesource.contains("boolean-1:1"), "Boolean query should return 1 result ( -(description:pepper) (description:color) )");
+    assert(pagesource.contains("boolean-2:Diet Coke"), "Boolean query should return Diet Coke ( -(description:pepper) (description:color) )");
+    assert(pagesource.contains("boolean-3:2"), "Boolean query should return 2 item results ( (-(description:italian) +(description:theend)) )");
+    assert(pagesource.contains("boolean-4:3"), "Boolean query should return 3 item results ( (-(description:italian) +(description:theend)) (description:italian) )");
+    assert(pagesource.contains("boolean-5:0"), "Boolean query on Persons should return 0 person results ( -birthday:[19540504 TO 19560504] (name:pepe) )");
+    assert(pagesource.contains("boolean-6:1"), "Boolean query on Persons should return 1 person result ( (-birthday:[19540504 TO 19560504]) (name:pepe) )");
    // assert(pagesource.contains("customstopfilter-1:0"), "Searching for a stopword defined in custom stopword list should give 0 results");
    // assert(pagesource.contains("customstopfilter-2:1"), "Searching for 'bottle' defined in custom stopword list should give 1 results");
+   
+    link := d.findElement(SelectBy.className("navigate"));
+    link.click();
+    pagesource := d.getPageSource();
+    assert(pagesource.contains("searcherPageArg:1"), "PersonSearcher with a boolean query should have been encoded and decoded from page argument in URL");
     d.close();
   }
+  
   

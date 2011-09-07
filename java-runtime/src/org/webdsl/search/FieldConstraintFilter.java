@@ -9,7 +9,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryWrapperFilter;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.Version;
-import org.hibernate.search.filter.CachingWrapperFilter;
+import org.hibernate.search.filter.impl.CachingWrapperFilter;
 import org.hibernate.search.filter.StandardFilterKey;
    
 	public class FieldConstraintFilter{

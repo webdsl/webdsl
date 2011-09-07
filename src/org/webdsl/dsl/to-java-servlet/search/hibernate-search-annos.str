@@ -39,22 +39,31 @@ strategies
     	  
   //Reference/Composite properties are embedded index fields, one level of depth right now
   property-to-index-annos :
-    Property(x, propkind, srt, anno*) -> [anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~x" + ".") ]|]
+    Property(x, propkind, srt, anno*) -> index-annos
     where  <?Ref()<+?Comp() > propkind
-    	; <fetch(?SearchableAnno(_))> anno*
-  
+    	; searchable-annos := <filter(?SearchableAnno(_))> anno*
+    	; not(<?[]>searchable-annos)
+    	; index-annos := <map(searchable-annos-to-index-embedded-annos)> searchable-annos
+    	  
+  searchable-annos-to-index-embedded-annos:
+  	SearchableAnno(sa-args) -> embedded-anno
+  	with  <fetch(?SA-Argument("name", prefix))> sa-args
+  	; if (<fetch(?SA-Argument("subclass", x_targetelem))> sa-args)
+  	then embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~prefix" + ".", targetElement = x_targetelem.class) ]|
+  	else embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=1, prefix="~prefix" + ".") ]| end
+    
   //Other side (inverse) of embedded index field needs containedin annotation 
   property-to-contained-in:
   	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
-	where <has-anno(InverseOfSearchable)> p
+	where <has-anno(?InverseOfSearchable())> p
 
 strategies //field annotations
 	
   searchable-annos-to-index-annos:
   	searchable-annos -> index-annos
-  	with rules(CurrentAnalyzerAnnoDef := []) 
+  	with rules(CurrentAnalyzerAnnoDefs := []) 
 	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
-	    ; analyzer-def-annos := <bagof-CurrentAnalyzerAnnoDef;flatten-list;wrap-in-analyzer-defs-anno>
+	    ; analyzer-def-annos := <bagof-CurrentAnalyzerAnnoDefs;flatten-list;wrap-in-analyzer-defs-anno>
 	    ; numeric-field-annos := <filter(to-numeric-field-anno);wrap-in-numeric-fields-anno> searchable-annos
 	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos, numeric-field-annos]
 
@@ -87,7 +96,7 @@ strategies //field annotations
   
   to-numeric-field-anno:
   	SearchableAnno(sa-args) -> anno|[ @org.hibernate.search.annotations.NumericField(forField = "~field-name") ]|
-  	where <fetch(?SA-Argument("numeric",_))> sa-args
+  	where <fetch(?Numeric-Argument())> sa-args
   		; <fetch(?SA-Argument("name", field-name))> sa-args
 
   wrap-in-numeric-fields-anno:
@@ -101,7 +110,7 @@ strategies //field annotations
 strategies //analyzers
 
   create-and-record-analyzer-definition = 
-  	FullTextAnalyzerFromName; analyzer-def-anno := <analyzer-to-analyzer-def-anno>; rules(CurrentAnalyzerAnnoDef :+= analyzer-def-anno)
+  	FullTextAnalyzerFromName; analyzer-def-anno := <analyzer-to-analyzer-def-anno>; rules(CurrentAnalyzerAnnoDefs :+= analyzer-def-anno)
   	
   create-and-record-analyzer-definition-builtin =
   	<create-and-record-analyzer-definition> "default_builtin_analyzer"
@@ -110,7 +119,7 @@ strategies //analyzers
   	FullTextAnalyzer(_,name, body) -> <to-analyzer-def(|name)> body
 
   to-analyzer-def(|analyzerName):
-  	FullTextAnalyzerBody(charFilters*, tokenizer, tokenFilters*) -> result
+  	FullTextAnalyzerBodyDef(charFilters*, tokenizer, tokenFilters*) -> result
   	with charFiltersDef* := <map(to-char-filter-def)> charFilters*
   	   ; tokenizerDef := <to-tokenizer-def> tokenizer
   	   ; tokenFilterDef* := <map(to-token-filter-def)> tokenFilters*
@@ -118,7 +127,21 @@ strategies //analyzers
   	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(charFiltersDef*))
   	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), tokenizerDef)
   	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(tokenFilterDef*))
-  	   ; result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg])     
+  	   ; result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg])
+  	     
+  to-analyzer-def(|analyzerName):
+  	DualFullTextAnalyzerBodyDef(iORq1, def1, iORq2, def2) -> [indexDef, queryDef]
+  	with if (<?"index">iORq1)
+  	then indexAnalyzer := def1
+  		;queryAnalyzer := def2 
+  	else indexAnalyzer := def2
+  		;queryAnalyzer := def1
+  	end
+  	; analyzerNameQuery := <concat-strings>[analyzerName, "_QUERY"]
+  	; indexDef := <to-analyzer-def(|analyzerName)> indexAnalyzer
+	; queryDef := <to-analyzer-def(|analyzerNameQuery)> queryAnalyzer
+  	 
+  	
 
   to-tokenizer-def:
   	Tokenizer(tokenizername, args) -> result

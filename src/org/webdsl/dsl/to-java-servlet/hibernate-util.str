@@ -73,6 +73,7 @@ rules
 	import org.hibernate.event.internal.DefaultFlushEntityEventListener;
 	import org.hibernate.event.internal.DefaultSaveOrUpdateEventListener;
 	import org.hibernate.event.service.spi.EventListenerRegistry;
+	import org.hibernate.event.service.internal.EventListenerRegistryImpl;
 	import org.hibernate.event.spi.EventType;
 	import org.hibernate.event.spi.FlushEntityEvent;
 	import org.hibernate.event.spi.SaveOrUpdateEvent;
@@ -81,6 +82,9 @@ rules
 	import org.hibernate.metamodel.source.internal.MetadataImpl;
 	import org.hibernate.service.BasicServiceRegistry;
 	import org.hibernate.service.ServiceRegistryBuilder;
+	import org.hibernate.engine.spi.SessionFactoryImplementor;
+	import org.hibernate.service.spi.SessionFactoryServiceRegistry;
+	import org.hibernate.service.spi.ServiceRegistryImplementor;
 	import java.util.*;
 	
     import pkgname.*;
@@ -88,37 +92,34 @@ rules
     public class HibernateUtilConfigured {
         private static final SessionFactory sessionFactory;
 	    private static MetadataSources metadatasources;
-	    private static BasicServiceRegistry registry;
+	    private static Configuration annotationConfiguration;
+	    private static ServiceRegistryImplementor registry;
+	   	private static SetVersionSaveOrUpdateEventListener setVersionEventlistener;
+		private static SetValidationEventListener setValidationListener;
 	    static
 	    { 
 	      try
 	      { 
-	    	  	registry  = new ServiceRegistryBuilder().buildServiceRegistry();
-	
-	            //Properties prop = HibernateUtil.getProperties();
-	    	  	metadatasources = new MetadataSources( registry );
-	    	  	
-	    	  	metadatasources.addPackage("utils");
-	    	  	metadatasources.addAnnotatedClass(utils.ApplicationContextProperty.class);
-	    	  	metadatasources.addAnnotatedClass(utils.File.class);
+	    	  	// registry  = new ServiceRegistryBuilder().addService(EventListenerRegistry.class, new EventListenerRegistryImpl()).buildServiceRegistry();
+	    	  	annotationConfiguration = new Configuration();
+				annotationConfiguration.addPackage("utils");
+				annotationConfiguration.addAnnotatedClass(utils.ApplicationContextProperty.class);
+				annotationConfiguration.addAnnotatedClass(utils.File.class);
+				annotationConfiguration.addPackage("org.webdsl.search");
+				annotationConfiguration.addAnnotatedClass(org.webdsl.search.SearchNamespace.class);
+				annotationConfiguration.addPackage("webdsl.generated.domain");
+				
+				bstm*
 	            
-	    	  	metadatasources.addPackage("org.webdsl.search");
-	    	  	metadatasources.addAnnotatedClass(org.webdsl.search.SearchNamespace.class);
+	            setVersionEventlistener = new SetVersionSaveOrUpdateEventListener();
+				setValidationListener = new SetValidationEventListener();
 	            
-	
-	    	  	metadatasources.addPackage("org.webdsl.generated");
-	            //annotationConfiguration.addAnnotatedClass(User.class);
-	            bstm*
-	
-	            //annotationConfiguration.addProperties(prop);
-	            //bstm1*
-	            registry.getService(EventListenerRegistry.class).getEventListenerGroup(EventType.SAVE_UPDATE)
-	            .appendListener(new SetVersionSaveOrUpdateEventListener());
-	                
-	            registry.getService(EventListenerRegistry.class).getEventListenerGroup(EventType.FLUSH_ENTITY)
-	            .appendListener(new SetValidationEventListener());
-	            
-	            sessionFactory = metadatasources.buildMetadata().buildSessionFactory();
+	            sessionFactory = annotationConfiguration.buildSessionFactory();
+	            registry = ( ( SessionFactoryImplementor ) sessionFactory).getServiceRegistry();
+	            EventListenerRegistry listenerRegistry = registry.getService( EventListenerRegistry.class );
+
+				listenerRegistry.getEventListenerGroup( EventType.SAVE_UPDATE ).appendListener( setVersionEventlistener );
+				listenerRegistry.getEventListenerGroup( EventType.FLUSH_ENTITY ).appendListener( setValidationListener );
 	            
 	        } catch (Throwable ex) {
 	            throw new ExceptionInInitializerError(ex);
@@ -134,7 +135,7 @@ rules
 	      return metadatasources;
 	    }
 	    
-	    // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
+        // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
 	    @SuppressWarnings("serial")
 	    private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 
 	    {
@@ -179,12 +180,13 @@ rules
 	            }
 	        }
 	    }
+	    
 	}
     ]|
     with pkgname := <DomainPackage>
        ; domainpack := <pp-java5-to-string> <DomainPackage>
        ; bstm* := <map({\ 
-                           x -> bstm |[ metadatasources.addAnnotatedClass(x_class); ]| 
+                           x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]| 
                            where x_class := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x,".class"]
                        \})> all-entity-names
       /* ; if not([] := <bagof-AllGlobalVars>) 

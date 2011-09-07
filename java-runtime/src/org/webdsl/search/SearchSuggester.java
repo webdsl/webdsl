@@ -18,7 +18,10 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.store.FSDirectory;
 import org.hibernate.search.SearchFactory;
-import org.hibernate.search.reader.ReaderProvider;
+import org.hibernate.search.engine.spi.EntityIndexBinder;
+import org.hibernate.search.impl.ImmutableSearchFactory;
+import org.hibernate.search.indexes.spi.IndexManager;
+import org.hibernate.search.reader.impl.MultiReaderFactory;
 
 import utils.ThreadLocalPage;
 
@@ -112,17 +115,21 @@ public class SearchSuggester {
 			spellCheckMap.remove(indexPath);
 		}
 		finally {
-			searchfactory.getReaderProvider().closeReader(fieldIR);
+			searchfactory.closeIndexReader(fieldIR);
 		}
 		return new ArrayList<String>();
 	}
 
 	private static IndexReader getIndexReader(Class<?> entityClass, Integer dirProviderIndex) {
-		ReaderProvider readerProvider = searchfactory.getReaderProvider();
-		if(dirProviderIndex != null)
-			return readerProvider.openReader(searchfactory.getDirectoryProviders(entityClass)[dirProviderIndex]);
+
+		if(dirProviderIndex != null) {
+			ImmutableSearchFactory isf = (ImmutableSearchFactory) searchfactory;			
+			EntityIndexBinder<?> entityIndexBinding = isf.getIndexBindingForEntity( entityClass );
+			IndexManager indexManager = entityIndexBinding.getSelectionStrategy().getIndexManagersForAllShards()[dirProviderIndex];
+			return MultiReaderFactory.openReader( indexManager );
+		}
 		//else
-		return readerProvider.openReader(searchfactory.getDirectoryProviders(entityClass));
+		return searchfactory.openIndexReader(entityClass);
 	}
 
 	public static ArrayList<String> findAutoCompletions(Class<?> entityClass, String baseDir, List<String> fields,
