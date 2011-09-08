@@ -12,8 +12,12 @@ rules
       ; qo* := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
       ; qovars* := <(fetch-elem(?QueryOptimizationVars(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
       ; newanno* := [qo*, qovars*, toKeep*]
+
+  get-query-optimizations : (_, _, _, _, _) -> ([], [], True(), [])
+  where QueryOptimizationDisabled
   
   get-query-optimizations : (base, x, srt, args, cond) -> (joincandidatesnogen, joincandidatesgen, querycondition, conditionjoins)
+    where not(QueryOptimizationDisabled)
     with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful, LocalRedefDef, LocalRedefName, LocalRedefArgs
        : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
                   RootVar         : Var(x) -> srt // The actual variable we are interested in (the persistent root of our analysis)
@@ -31,7 +35,7 @@ rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
        ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
-       ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr([], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
+       ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
        ; info(|["Should be inlined: ", joincandidates])
@@ -226,7 +230,7 @@ strategies
   // If statements possibly contribute if they have only an if or else block
   an-potential-joins =
     (?IfNoElseTempl(condExp, trueBlock) <+ ?IfNoElse(condExp, trueBlock) <+ ?IfTempl(condExp, trueBlock, []) <+ ?If(condExp, trueBlock, []))
-    ; newCondExp := <repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp 
+    ; newCondExp := <repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond; where(not(?True()))> condExp 
     ; listC := <collect-potential-joins> condExp
     ; OldQueryCond := <QueryConditions>
     ; rules( QueryConditions := <append-condition>(newCondExp, OldQueryCond) )
@@ -236,7 +240,7 @@ strategies
 
   an-potential-joins =
     (?IfTempl(condExp, [], falseBlock) <+ ?If(condExp, [], falseBlock))
-    ; newCondExp := <try(?Not(True()); !True())>Not(<repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond> condExp)
+    ; newCondExp := Not(<repeat(innermost-rep(desugar)); repeat(oncetd(IteratedVarValue)); extract-query-cond; where(not(?True()))> condExp)
     ; listC := <collect-potential-joins> condExp
     ; OldQueryCond := <QueryConditions>
     ; rules( QueryConditions := <append-condition>(newCondExp, OldQueryCond) )
@@ -651,7 +655,8 @@ rules
     Cast(f, srt) -> (Cast(p, srt), srt)
     where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
     ; not(<?srt> srt2) 
-    ; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
+    //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
+    ; <where(subtype-of)> (srt2, srt) // up-cast
 
   is-accessible-from(s,gen): // Case where the cast does nothing
     Cast(f, srt) -> (p, srt)
