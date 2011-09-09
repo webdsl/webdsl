@@ -7,13 +7,13 @@ import java.util.Date;
 import java.util.List;
 
 import org.hibernate.search.FullTextSession;
-import org.hibernate.search.engine.DocumentBuilderIndexedEntity;
+import org.hibernate.search.engine.spi.DocumentBuilderIndexedEntity;
+import org.hibernate.search.engine.spi.SearchFactoryImplementor;
 import org.hibernate.search.query.dsl.impl.FacetRange;
 import org.hibernate.search.query.dsl.impl.FacetingRequestImpl;
 import org.hibernate.search.query.dsl.impl.RangeFacetRequest;
 import org.hibernate.search.query.facet.FacetSortOrder;
 import org.hibernate.search.query.facet.FacetingRequest;
-import org.hibernate.search.util.ContextHelper;
 
 import utils.DateType;
 
@@ -22,8 +22,9 @@ public class WebDSLFacetTool {
 
 	public static <T> FacetingRequest toFacetingRequest(String field, String rangeAsString, Class<?> entityClass, Class<T> type, FullTextSession fts){
 		List<FacetRange<T>> facetRangeList = new ArrayList<FacetRange<T>>();
-
-		DocumentBuilderIndexedEntity<?> documentBuilder = ContextHelper.getSearchFactory(fts).getDocumentBuilderIndexedEntity(entityClass);
+		
+		SearchFactoryImplementor factory = (SearchFactoryImplementor) fts.getSearchFactory();
+		DocumentBuilderIndexedEntity<?> documentBuilder = factory.getIndexBindingForEntity( entityClass ).getDocumentBuilder();
 		
 		String[] splitted = rangeAsString.substring(1, rangeAsString.length()-1).split("\\)\\(");
 		FacetRange<T> range;
