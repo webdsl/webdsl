@@ -37,19 +37,41 @@ rules
        ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
        ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
+       ; fetchmode := <filter(collect(col-fetch-mode); ?[<id>|_]; remove-casts; an-find-entity-property-pair); make-set; map(to-fetch-mode-tuple)> fas
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
        ; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-generic); make-set> fas // Cannot remove casts, because they are important for type-of
        ; queryroots := <map(Fst); make-set; string-sort> queryjoins
-       ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff)> queryroots
+       ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); map(map(try(apply-fetch-mode(|fetchmode))))> queryroots
        ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
-       ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
+       ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc; map(try(apply-fetch-mode(|fetchmode)))> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
        ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
        ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
        ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
 
   remove-casts = repeat(oncetd(?Cast(<id>, _)))
+
+col-fetch-mode=
+  ?FieldAccess(p, _){anno*}
+  ; where(<fetch-elem(?UseFetchMode())> anno*; not(<oncetd(col-fetch-mode)>p))
+
+to-fetch-mode-tuple :
+  str -> (str, str)
+  where [_] := <string-tokenize(|['.'])> str
+
+to-fetch-mode-tuple :
+  str -> (str, joinstr)
+  where varList := <string-tokenize(|['.']); where(not(?[_]))> str
+  with alias := <reverse; ?[prop|<id>]; reverse; separate-by(!"_"); !["_"|<id>]; concat-strings> varList
+  ; joinstr := <concat-strings>[alias, ".", prop]
+
+apply-fetch-mode(|fetchmode) :
+  str -> newstr{UseFetchMode()}
+  where [(match, replacement)] := <filter({match: ?(match, _); where(<string-starts-with(|match)> str)})> fetchmode
+  ; extrastr := <split-after; Snd> (str, match)
+  ; newstr := <concat-strings> [replacement, extrastr]
+  
 
 log-query-optimization-collect-basic =
   make-set
@@ -466,7 +488,7 @@ strategies // checks for potential inlining
 
   get-accessible-expr = is-query-condition-constant
 
-  get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt)
+  get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedSubListValue <+ IteratedVarValue)); is-accessible-from(RootVar,id); ?(<id>, srt); where([] := <collect(?_{<fetch-elem(?UseFetchMode())>})>)
 
   get-accessible-field = (?Var(_) <+ ?FieldAccess(_, _)); repeat(oncetd(IteratedVarValue)); ((is-accessible-from(ParentArgs,id); ?(<id>, srt)) <+ is-query-condition-constant) 
 
@@ -652,11 +674,34 @@ rules
   is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)
 
   is-accessible-from(s,gen): // Case where the cast is needed
-    Cast(f, srt) -> (Cast(p, srt), srt)
+    Cast(f, srt){anno*} -> (Cast(p, srt){anno*}, srt)
     where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
     ; not(<?srt> srt2) 
     //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
-    ; <where(subtype-of)> (srt2, srt) // up-cast
+    ; <subtype-of> (srt2, srt) // up-cast
+
+  is-accessible-from(s,gen): // Case where the cast is needed
+    Cast(f, srt){anno*} -> (Cast(p, srt){srt2, anno*}, srt)
+    where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+    ; not(<?srt> srt2) 
+    ; <subtype-of> (srt, srt2) // down-cast
+
+  add-fetch-mode-anno: // srt is a sub entity of srt2
+    fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa{UseFetchMode(),anno*}  
+    where <fetch-elem(?srt2@SimpleSort(superent))> castanno*
+    ; not(<get-prop-type> (superent, f)) // If the property is already defined on the source/super entity then there is no property clash
+    //; info(|["Finding ", f, " from ", superent, " to ", srt])
+    ; all-keys-EntDecl
+    ; filter({x_sub: // We find out on which sub entities property f is defined
+                ?x_sub
+                ; where(
+                    <not(eq)>(x_sub, superent)
+                    ; <subtype-of>(SimpleSort(x_sub), srt2)
+                    ; <TypeOfProperty> (x_sub, f) // Deliberate use of TypeOfProperty instead of type-of-property
+                )
+             })
+    ; not(?[_]) // If not defined on exactly one sub entity
+    //; debug(!"Match:")
 
   is-accessible-from(s,gen): // Case where the cast does nothing
     Cast(f, srt) -> (p, srt)
@@ -672,7 +717,7 @@ rules
     ; not(<is-derived-property> (x_class, f))
     ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
     ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
-    ; fa := <try(add-naturalid-anno(|x_class))> FieldAccess(p, f2){anno*}
+    ; fa := <try(add-naturalid-anno(|x_class)); try(add-fetch-mode-anno)> FieldAccess(p, f2){anno*}
 
   is-accessible-from(s,gen):
     v@Var(_) -> (v, srt)
