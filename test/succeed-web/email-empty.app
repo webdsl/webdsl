@@ -22,7 +22,6 @@ application email
   test emailaddressrequired {
     var d : WebDriver := HtmlUnitDriver();
     d.get(navigate(root()));
-    assert(!/404/.find(d.getPageSource()), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     
