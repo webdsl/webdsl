@@ -148,8 +148,8 @@ application test
     assert(pagesource.contains("boolean-2:Diet Coke"), "Boolean query should return Diet Coke ( -(description:pepper) (description:color) )");
     assert(pagesource.contains("boolean-3:2"), "Boolean query should return 2 item results ( (-(description:italian) +(description:theend)) )");
     assert(pagesource.contains("boolean-4:3"), "Boolean query should return 3 item results ( (-(description:italian) +(description:theend)) (description:italian) )");
-    assert(pagesource.contains("boolean-5:0"), "Boolean query on Persons should return 0 person results ( -birthday:[19540504 TO 19560504] (name:pepe) )");
-    assert(pagesource.contains("boolean-6:1"), "Boolean query on Persons should return 1 person result ( (-birthday:[19540504 TO 19560504]) (name:pepe) )");
+    assert(pagesource.contains("boolean-5:0"), "Boolean query on Persons should return 0 person results ( -birthday:(19540504 TO 19560504) (name:pepe) )");
+    assert(pagesource.contains("boolean-6:1"), "Boolean query on Persons should return 1 person result ( (-birthday:(19540504 TO 19560504)) (name:pepe) )");
    // assert(pagesource.contains("customstopfilter-1:0"), "Searching for a stopword defined in custom stopword list should give 0 results");
    // assert(pagesource.contains("customstopfilter-2:1"), "Searching for 'bottle' defined in custom stopword list should give 1 results");
    

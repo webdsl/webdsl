@@ -50,7 +50,7 @@ public class SearchSuggester {
 	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir, Integer namespaceIndex,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
 			String toSuggestOn) {
-		
+
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
 
@@ -71,14 +71,12 @@ public class SearchSuggester {
 					.addAttribute(CharTermAttribute.class);
 
 			ArrayList<String[]> allSuggestions = new ArrayList<String[]>();
-
 			String word;
 			String[] suggestions;
 			while (tokenStream.incrementToken()) {
 				word = ta.term();
 				suggestions = null;
-				if (spellChecker.exist(word)) {/* do nothing */
-				} else if (!morePopular) {
+				if (!morePopular) {
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount);
 				} else {
 					if (fieldIR == null)

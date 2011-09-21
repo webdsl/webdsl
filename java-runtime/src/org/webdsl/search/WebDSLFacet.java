@@ -6,18 +6,26 @@ import java.util.Map;
 
 import org.hibernate.search.query.facet.Facet;
 
+import com.browseengine.bobo.api.BrowseFacet;
+
 public class WebDSLFacet {
 	
-	private int count;
-	private String fieldName;
-	private String value;
+	public int count;
+	public String fieldName;
+	public String value;
+	protected boolean isSelected;
 	
 	public WebDSLFacet(){};
 	
-	public WebDSLFacet(String fieldAndValue){
-		String[] ar = fieldAndValue.split("-", 2);
-		this.fieldName = ar[0];
-		this.value = ar[1];
+	public WebDSLFacet(String field, String value){
+		this.fieldName = field;
+		this.value = value;
+	}
+	
+	public WebDSLFacet(BrowseFacet bf, String field){
+		this.fieldName = field;
+		this.value = bf.getValue();
+		this.count = bf.getFacetValueHitCount();
 	}
 	
 	public WebDSLFacet(Facet f){
@@ -39,6 +47,7 @@ public class WebDSLFacet {
 	}
 		
 	public Map<String,String> toParamMap(){
+		
 		Map<String,String> paramMap = new HashMap<String, String>();
 		paramMap.put("fn", fieldName);
 		paramMap.put("v", value);
@@ -61,7 +70,7 @@ public class WebDSLFacet {
 				}
 			}
 		} catch (Exception ex){
-			return new WebDSLFacet("Illegal facet-Illegal facet");
+			return new WebDSLFacet("Illegal facet", "Illegal facet");
 		}
 		
 		return this;
@@ -84,5 +93,20 @@ public class WebDSLFacet {
 	}
 	public Integer getValueAsInt(){
 		return Integer.parseInt(value);
+	}
+	public boolean isSelected(){
+		return isSelected;
+	}
+	/*
+	 * Compares to other WebDSLFacet object based on facet field and value  
+	 *
+	 */
+	@Override 
+	public boolean equals(Object other){
+		return ( (other instanceof WebDSLFacet) 
+				&& this.fieldName.equals( ( (WebDSLFacet)other ).fieldName)
+				&& this.value.equals( ( (WebDSLFacet)other ).value)
+			   );
+		
 	}
 }

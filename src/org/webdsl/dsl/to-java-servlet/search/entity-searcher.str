@@ -24,102 +24,224 @@ strategies
   	import java.util.Date;
   	import java.util.ArrayList;
 	import java.util.List;
+	import java.io.IOException;
+	import java.util.HashMap;
+	import java.util.Map;
+	import java.util.Collection;
+	import org.apache.lucene.index.IndexReader;
 	import org.hibernate.search.FullTextSession;
+	import org.hibernate.search.SearchFactory;
+	import org.hibernate.search.store.DirectoryProvider;
   	import org.apache.lucene.search.BooleanClause.Occur;
   	import org.apache.lucene.store.Directory;
+  	import org.apache.lucene.index.MultiReader;
   	import org.apache.lucene.search.SortField;
   	import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
   	import org.apache.lucene.analysis.Analyzer;
   	import org.webdsl.search.SearchSuggester;
   	import org.webdsl.search.QueryDef;
   	import org.webdsl.search.SearchNamespaceHelper;
+  	import org.apache.lucene.store.Directory;
+	import org.apache.lucene.store.FSDirectory;
+	import com.browseengine.bobo.api.BoboIndexReader;
+	import com.browseengine.bobo.api.FacetSpec;
+	import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
+	import com.browseengine.bobo.facets.FacetHandler;
+	import com.browseengine.bobo.facets.impl.MultiValueFacetHandler;
+	
+	
   	
 	public class x_class#Searcher extends org.webdsl.search.AbstractEntitySearcher<x_class> {
 		
 		private static Analyzer singletonAnalyzer;
+		private static BoboIndexReader _boboReader;
 				
 		public x_class#Searcher (){
 			entityClass = x_Class.class;
 			indexName = "~x_indexName";
-			fullTextSession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
+			fullTextSession = org.hibernate.search.Search.getFullTextSession( e_HibSession );
 			analyzer = getAnalyzer();
 			
 			searchFields = new String[]{ e_dsf* };
 			untokenizedFields = new String[]{ e_utf* };
 			mltSearchFields = new String[]{ e_mltsf* };
-			rootQD = parentQD = currentQD = new QueryDef(Occur.MUST, new String[]{ e_dsf* });
+			rootQD = parentQD = currentQD = new QueryDef( Occur.MUST, new String[]{ e_dsf* } );
+		}
+		
+		private static Integer getNamespaceIndex( String namespace ){
+			return namespace.isEmpty() ? null : SearchNamespaceHelper.namespaceIDToIndex( "~x_indexName", namespace, false );
+		}
+		
+		protected int getNamespaceIndex(){
+			return SearchNamespaceHelper.namespaceIDToIndex( indexName, namespaceConstraint, false );
 		}
 
-		public static ArrayList<String> spellSuggest(String toSuggestOn, List<String> fields, float accuracy, int noSug){return spellSuggest(toSuggestOn, "", fields, accuracy, noSug);}
-		public static ArrayList<String> spellSuggest(String toSuggestOn, String field, float accuracy, int noSug){return spellSuggest(toSuggestOn, "", field, accuracy, noSug);}		
-		public static ArrayList<String> spellSuggest(String toSuggestOn, String namespace, List<String> fields, float accuracy, int noSug){
-			String baseDir = utils.IndexManager.indexDirSpellCheck(x_Class.class, "", namespace);
-			return SearchSuggester.findSpellSuggestions(x_Class.class, baseDir, getNamespaceIndex(namespace), fields, noSug, accuracy, true, toSuggestOn);
+		public static ArrayList<String> spellSuggest( String toSuggestOn, List<String> fields, float accuracy, int noSug ){return spellSuggest( toSuggestOn, "", fields, accuracy, noSug );}
+		public static ArrayList<String> spellSuggest( String toSuggestOn, String field, float accuracy, int noSug ){return spellSuggest( toSuggestOn, "", field, accuracy, noSug );}		
+		public static ArrayList<String> spellSuggest( String toSuggestOn, String namespace, List<String> fields, float accuracy, int noSug ){
+			String baseDir = utils.IndexManager.indexDirSpellCheck( x_Class.class, "", namespace );			
+			return SearchSuggester.findSpellSuggestions( x_Class.class, baseDir, getNamespaceIndex( namespace ), fields, noSug, accuracy, true, toSuggestOn );
 		}	
-		public static ArrayList<String> spellSuggest(String toSuggestOn, String namespace, String field, float accuracy, int noSug){
-			String baseDir = utils.IndexManager.indexDirSpellCheck(x_Class.class, "", namespace);
-			return SearchSuggester.findSpellSuggestionsForField(x_Class.class, baseDir, getNamespaceIndex(namespace), field, noSug, accuracy, true, toSuggestOn);
+		public static ArrayList<String> spellSuggest( String toSuggestOn, String namespace, String field, float accuracy, int noSug ){
+			String baseDir = utils.IndexManager.indexDirSpellCheck( x_Class.class, "", namespace );
+			return SearchSuggester.findSpellSuggestionsForField( x_Class.class, baseDir, getNamespaceIndex( namespace ), field, noSug, accuracy, true, toSuggestOn );
 		}
 		
-		private static Integer getNamespaceIndex(String namespace){
-			return namespace.isEmpty() ? null : SearchNamespaceHelper.namespaceIDToIndex(x_Class.class.toString(), namespace, false);
-		}
-		
-		public static ArrayList<String> autoCompleteSuggest(String toSuggestOn, List<String> fields, int noSug){return autoCompleteSuggest(toSuggestOn, "", fields, noSug);}
-		public static ArrayList<String> autoCompleteSuggest(String toSuggestOn, String field, int noSug){return autoCompleteSuggest(toSuggestOn, "", field, noSug);}
-		public static ArrayList<String> autoCompleteSuggest(String toSuggestOn, String namespace, List<String> fields, int noSug){
-			String baseDir = utils.IndexManager.indexDirAutoComplete(x_Class.class, "", namespace);
-			return SearchSuggester.findAutoCompletions(x_Class.class, baseDir, fields, noSug, toSuggestOn);
+		public static ArrayList<String> autoCompleteSuggest( String toSuggestOn, List<String> fields, int noSug ){return autoCompleteSuggest( toSuggestOn, "", fields, noSug );}
+		public static ArrayList<String> autoCompleteSuggest( String toSuggestOn, String field, int noSug ){return autoCompleteSuggest( toSuggestOn, "", field, noSug );}
+		public static ArrayList<String> autoCompleteSuggest( String toSuggestOn, String namespace, List<String> fields, int noSug ){
+			String baseDir = utils.IndexManager.indexDirAutoComplete( x_Class.class, "", namespace );
+			return SearchSuggester.findAutoCompletions( x_Class.class, baseDir, fields, noSug, toSuggestOn );
 		}		
-		public static ArrayList<String> autoCompleteSuggest(String toSuggestOn, String namespace, String field, int noSug){
-			String baseDir = utils.IndexManager.indexDirAutoComplete(x_Class.class, "", namespace);
-			return SearchSuggester.findAutoCompletionsForField(x_Class.class, baseDir, field, noSug, toSuggestOn);			
+		public static ArrayList<String> autoCompleteSuggest( String toSuggestOn, String namespace, String field, int noSug ){
+			String baseDir = utils.IndexManager.indexDirAutoComplete( x_Class.class, "", namespace );
+			return SearchSuggester.findAutoCompletionsForField( x_Class.class, baseDir, field, noSug, toSuggestOn );			
 		}
-				
-		protected int directoryProviderIndexForNamespace(){
-			return SearchNamespaceHelper.namespaceIDToIndex(indexName, namespaceConstraint, false);
-		}
-		
-		public Class<?> fieldType(String field){			
+						
+		public Class<?> fieldType( String field ){			
 			bstm*
 			return String.class;
 		}
 		
 		protected FullTextSession getFullTextSession() {
-			if(fullTextSession == null) {
-				fullTextSession = org.hibernate.search.Search.getFullTextSession(e_HibSession);
+			if( fullTextSession == null ) {
+				fullTextSession = org.hibernate.search.Search.getFullTextSession( e_HibSession );
 				updateFullTextQuery = true;
 			}
 			return fullTextSession;
 		}
 		
 		private synchronized static Analyzer getAnalyzer(){
-			if(singletonAnalyzer == null){
+			if( singletonAnalyzer == null ){
 				PerFieldAnalyzerWrapper fieldAnalyzer;
-				singletonAnalyzer = org.hibernate.search.Search.getFullTextSession(e_HibSession).getSearchFactory().getAnalyzer(x_Class.class);
+				singletonAnalyzer = org.hibernate.search.Search.getFullTextSession( e_HibSession ).getSearchFactory().getAnalyzer( x_Class.class );
 				
 				bstm2*
 			}
 			return singletonAnalyzer;
 		}
 		
-	}	
+		protected synchronized BoboIndexReader getBoboReader( String field, Collection<String> allFields ){
+			BoboIndexReader toReturn;
+			if( !namespaceConstraint.isEmpty() ) {
+				toReturn = _namespaceBoboReaderMap.get( namespaceConstraint );
+				if( toReturn == null || toReturn.getFacetHandler( field ) == null ) {
+					if( SearchNamespaceHelper.namespaceIDToIndex( "~x_indexName", namespaceConstraint, false ) != null ){
+						renewBoboReaders( allFields );
+						toReturn = _namespaceBoboReaderMap.get( namespaceConstraint );
+					}					
+				} 
+				
+				return toReturn;
+									
+			}
+			//no namespace constraint, thus return boboreader for entity ( or renew if needed )
+			if( _boboReader == null || _boboReader.getFacetHandler( field ) == null ){
+				renewBoboReaders( allFields );
+			}
+							
+			return _boboReader;
+		}
+		
+		public final synchronized static void renewBoboReaders(){
+			if (_boboReader != null){
+				//only renew if reader is already used once, that is, faceting is done
+				renewBoboReaders(new ArrayList<String>());
+			} 
+		}
+		
+		private final synchronized static void renewBoboReaders( Collection<String> allFields ){
+			
+			Map<String, BoboIndexReader> namespaceBoboReaderMap_OLD = _namespaceBoboReaderMap;
+			BoboIndexReader boboReader_OLD = _boboReader;
+			_namespaceBoboReaderMap = new HashMap<String, BoboIndexReader>();
+			
+			List<FacetHandler<?>> facetHandlerList = new ArrayList<FacetHandler<?>>();
+			if( _boboReader != null ){
+				facetHandlerList.addAll( _boboReader.getFacetHandlerMap().values() );
+			}
+			Map<String , FacetHandler<?>> facetHandlerMap = new HashMap<String, FacetHandler<?>>();
+			for ( FacetHandler<?> facetHandler : facetHandlerList ) {
+				facetHandlerMap.put( facetHandler.getName(), facetHandler );
+			}
+			for ( String fld : allFields ) {
+				if ( !facetHandlerMap.containsKey( fld ) )
+					facetHandlerList.add( getFacetHandlerForField( fld ) );
+			}
+			SearchFactory searchFactory = org.hibernate.search.Search.getFullTextSession( e_HibSession ).getSearchFactory();
+			DirectoryProvider<?>[] providers = searchFactory.getDirectoryProviders( x_Class.class );
+			IndexReader allReader;
+			try {
+				if( providers.length > 1 ) {
+					//multiple providers -> namespaces are enabled. iterate over all namespace indexes ( in case namespaces are enabled )
+					List<String> allNamespaces = SearchNamespaceHelper.allNamespaces( "~x_indexName" );
+					IndexReader[] indexReaders = new IndexReader[ allNamespaces.size() ];
+					int cnt = 0;
+					for( String namespace: allNamespaces ) {
+						Directory idx;
+						IndexReader reader = null;
+						int index = getNamespaceIndex( namespace );
+						try {
+							idx = providers[index].getDirectory();
+							reader = IndexReader.open( idx, true );
+							indexReaders[cnt] = reader;
+							_namespaceBoboReaderMap.put( namespace, BoboIndexReader.getInstance( reader, facetHandlerList ) );
+						} catch ( IOException ex ) {
+							// TODO Auto-generated catch block
+							ex.printStackTrace();
+						}
+						cnt++;	
+					}
+					allReader = new MultiReader( indexReaders, true ); 
+				} else {
+					//no namespaces
+					allReader = IndexReader.open( providers[0].getDirectory() );
+				}
+			
+			_boboReader = BoboIndexReader.getInstance( allReader, facetHandlerList );
+			} catch ( IOException ex ) {
+				// TODO Auto-generated catch block
+				ex.printStackTrace();
+			} finally {
+				if(boboReader_OLD != null){
+					try{
+						boboReader_OLD.close();
+					} catch ( IOException ex ) {
+						ex.printStackTrace();
+					}
+				}
+				if(namespaceBoboReaderMap_OLD != null){
+					for(BoboIndexReader rdr : namespaceBoboReaderMap_OLD.values() ){
+						if(rdr != null){
+							try{
+								rdr.close();
+							} catch ( IOException ex ) {
+								ex.printStackTrace();
+							}
+						}						
+					}
+				}
+			}
+		}
+
+		
+	}
   	]|
-    where (x_class, _) := <get-entity-def> ent
-       ; <get-anno(?IndexedAnno(x_searchFields, x_untokenizedSearchFields, x_javaTypeNames, _, _, x_defaultSearchFields, x_dualAnalyzerFields))> ent
-    with e_sf* := <map(\name -> expr |[ "~name" ]| \)> x_searchFields
-       ; e_utf* := <map(\name -> expr |[ "~name" ]| \)> x_untokenizedSearchFields
-       ; e_dsf* := <map(\name -> expr |[ "~name" ]| \)> x_defaultSearchFields
-       ; e_mltsf* := <diff>(e_dsf*,e_utf*)
+    where ( x_class, _ ) := <get-entity-def> ent
+       ; <get-anno( ?IndexedAnno( x_searchFields, x_untokenizedSearchFields, x_javaTypeNames, _, _, x_defaultSearchFields, x_dualAnalyzerFields ))> ent
+    with e_sf* := <map( \name -> expr |[ "~name" ]| \ )> x_searchFields
+       ; e_utf* := <map( \name -> expr |[ "~name" ]| \ )> x_untokenizedSearchFields
+       ; e_dsf* := <map( \name -> expr |[ "~name" ]| \ )> x_defaultSearchFields
+       ; e_mltsf* := <diff>( e_dsf*,e_utf* )
        ; pkgname := <DomainPackage>
-       ; bstm* := <zip(field-to-java-type-name-condition)> (x_untokenizedSearchFields, x_javaTypeNames)
-       ; bstm2* := <try(to-analyzer-modification)> x_dualAnalyzerFields
+       ; bstm* := <zip( field-to-java-type-name-condition )> ( x_untokenizedSearchFields, x_javaTypeNames )
+       ; bstm2* := <try( to-analyzer-modification )> x_dualAnalyzerFields
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
        ; x_indexName := <get-index-name> ent
          
   field-to-java-type-name-condition:
-  	(fieldName, sortType) -> java:stm |[ if(field.equals("~fieldName")) return e_tp;]|
-  	where e_tp := ExprName(AmbName(Id(sortType)), Id("class"))
+  	( fieldName, sortType ) -> java:stm |[ if( field.equals( "~fieldName" )) return e_tp;]|
+  	where e_tp := ExprName( AmbName( Id( sortType )), Id( "class" ))
 
   to-analyzer-modification:
   	x_dualAnalyzerFields -> bstm*  |[
@@ -128,13 +250,13 @@ strategies
   		bstm*
   		singletonAnalyzer = fieldAnalyzer;		
   	]|
-  	where <not(?[])> x_dualAnalyzerFields 
-  	with bstm* := <map(field-to-analyzer-modification); flatten-list> x_dualAnalyzerFields
+  	where <not( ?[] )> x_dualAnalyzerFields 
+  	with bstm* := <map( field-to-analyzer-modification ); flatten-list> x_dualAnalyzerFields
 
   field-to-analyzer-modification:
-  	(x_fieldName, analyzerName) -> bstm* |[
-  		toAdd = org.hibernate.search.Search.getFullTextSession(e_HibSession).getSearchFactory().getAnalyzer("~x_analyzerName");
-  		fieldAnalyzer.addAnalyzer("~x_fieldName", toAdd);  		
+  	( x_fieldName, analyzerName ) -> bstm* |[
+  		toAdd = org.hibernate.search.Search.getFullTextSession( e_HibSession ).getSearchFactory().getAnalyzer( "~x_analyzerName" );
+  		fieldAnalyzer.addAnalyzer( "~x_fieldName", toAdd );  		
   	]|
   	with x_analyzerName := <concat-strings>[analyzerName, "_QUERY"]
   	
@@ -147,20 +269,20 @@ strategies
       @Partial
       public class x_class {
       
-        public static java.util.List<x_Class> x#_(String searchQuery)  {
-          return x#_(searchQuery, 1000, 0);
+        public static java.util.List<x_Class> x#_( String searchQuery )  {
+          return x#_( searchQuery, 1000, 0 );
         }
-        public static java.util.List<x_Class> x#_(String searchQuery, int limit)  {
-          return x#_(searchQuery, limit, 0);
+        public static java.util.List<x_Class> x#_( String searchQuery, int limit )  {
+          return x#_( searchQuery, limit, 0 );
         }
-        public static java.util.List<x_Class> x#_(String searchQuery, int limit, int offset)  {
-           return new x_Class#Searcher().query(searchQuery).firstResult(offset).maxResults(limit).list();
+        public static java.util.List<x_Class> x#_( String searchQuery, int limit, int offset )  {
+           return new x_Class#Searcher().query( searchQuery ).firstResult( offset ).maxResults( limit ).list();
         }
       }
     ]|
     where (
-        (x_class, _) := <get-entity-def> ent
-      ; <get-anno(?IndexedAnno(<id>,_,_,_,_,_,_))> ent
+        ( x_class, _ ) := <get-entity-def> ent
+      ; <get-anno( ?IndexedAnno( <id>,_,_,_,_,_,_ ))> ent
     )
     with x := <concat-strings> ["_static_", "search", x_class]
        ; pkgname := <DomainPackage>

@@ -69,7 +69,7 @@ public final class URLFilter {
 		String[] kv;
 		for (String str : urlParts) {
 			kv = str.split("=", 2);
-			map.put(unfilter(kv[0]),unfilter(kv[1]));
+			map.put(unescapeParamMapEntry(kv[0]),unescapeParamMapEntry(kv[1]));
 		}
 		return map;
 		
@@ -78,9 +78,20 @@ public final class URLFilter {
 	public static String paramMapToURLEncoding(Map<String,String> paramMap){
 		StringBuilder sb = new StringBuilder();
 		for (Entry<String,String> e : paramMap.entrySet()) {
-			sb.append(filter(e.getKey()));
+			sb.append(filter(escapeParamMapEntry(e.getKey())));
 			sb.append("=");
-			sb.append(filter(e.getValue()));
+			sb.append(filter(escapeParamMapEntry(e.getValue())));
+			sb.append("&");
+		}
+		return sb.toString();
+	}
+	
+	public static String paramMapToPostParamsEncoding(Map<String,String> paramMap){
+		StringBuilder sb = new StringBuilder();
+		for (Entry<String,String> e : paramMap.entrySet()) {
+			sb.append(escapeParamMapEntry(e.getKey()));
+			sb.append("=");
+			sb.append(escapeParamMapEntry(e.getValue()));
 			sb.append("&");
 		}
 		return sb.toString();

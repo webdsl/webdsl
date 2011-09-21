@@ -6,6 +6,12 @@ module .servletapp/src-webdsl-template/built-in
   invoke optimizeSearchIndex() every 12 hours
   //Update the spell check and autocompletion indices twice a day
   invoke updateSuggestionIndex() every 12 hours
+  //renew facet index readers every 1 hour
+  invoke renewFacetIndexReaders() every 60 minutes
+
+  function renewFacetIndexReaders(){
+  	IndexManager.renewFacetIndexReaders();
+  }
 
   function optimizeSearchIndex(){
     IndexManager.optimizeIndex();
@@ -18,8 +24,21 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.IndexManager as IndexManager {
   	static indexSuggestions()
     static optimizeIndex() 
+    static renewFacetIndexReaders()
     static clearAutoCompleteIndex(String)
     static clearSpellCheckIndex(String)
+  }
+  
+  native class org.webdsl.search.WebDSLFacet as Facet {
+	constructor()
+	isSelected() : Bool
+	getCount() : Int
+	getValue() : String
+	encodeAsString() : String
+    decodeFromString(String) : Facet
+    getValueAsDate() : Date
+    getValueAsFloat() : Float
+    getValueAsInt() : Int
   }
   
   //Used to declare Hibernate Search annotations only once (like the full text filter definitions)
