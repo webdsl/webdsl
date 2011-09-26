@@ -1,6 +1,27 @@
 module .servletapp/src-webdsl-template/built-in
 
-  section search
+// section session management
+
+  invoke internalCleanupSessionManagerEntities() every 10 minutes
+ 
+  function internalUpdateSessionManagerTimeout(){
+    var n : DateTime := now().addMinutes(-30); // update lastUse after 30 minutes to avoid unnecessary db writes, also sets minimum timeout to 30 minutes
+    var man := getSessionManager();
+    if(man.lastUse == null || man.lastUse.before(n)){
+      man.lastUse := now();
+    }
+  }
+    
+  function internalCleanupSessionManagerEntities(){
+    var sessiontimeout := 10000; //minutes
+    var n : DateTime := now().addMinutes(-1*(sessiontimeout));
+    var ses := from SessionManager as sc where sc.lastUse is null or sc.lastUse < ~n limit 25; //use limit to avoid loading all obsolete entities in one transaction
+    for(s : SessionManager in ses){
+      s.delete();
+    }
+  }
+
+// section search
   
   //optimization of search index, twice a day
   invoke optimizeSearchIndex() every 12 hours
@@ -10,7 +31,7 @@ module .servletapp/src-webdsl-template/built-in
   invoke renewFacetIndexReaders() every 60 minutes
 
   function renewFacetIndexReaders(){
-  	IndexManager.renewFacetIndexReaders();
+    IndexManager.renewFacetIndexReaders();
   }
 
   function optimizeSearchIndex(){
@@ -18,11 +39,11 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   function updateSuggestionIndex(){
-  	IndexManager.indexSuggestions();
+    IndexManager.indexSuggestions();
   }
   
   native class utils.IndexManager as IndexManager {
-  	static indexSuggestions()
+    static indexSuggestions()
     static optimizeIndex() 
     static renewFacetIndexReaders()
     static clearAutoCompleteIndex(String)
@@ -30,11 +51,11 @@ module .servletapp/src-webdsl-template/built-in
   }
   
   native class org.webdsl.search.WebDSLFacet as Facet {
-	constructor()
-	isSelected() : Bool
-	getCount() : Int
-	getValue() : String
-	encodeAsString() : String
+    constructor()
+    isSelected() : Bool
+    getCount() : Int
+    getValue() : String
+    encodeAsString() : String
     decodeFromString(String) : Facet
     getValueAsDate() : Date
     getValueAsFloat() : Float
@@ -43,13 +64,13 @@ module .servletapp/src-webdsl-template/built-in
     
   //The default analyzer, equal to the one used by default in hibernate search
   default_builtin_analyzer analyzer hsearchstandardanalyzer {
-	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter
-	tokenfilter = StopFilter
-}   
+    tokenizer = StandardTokenizer
+    tokenfilter = StandardFilter
+    tokenfilter = LowerCaseFilter
+    tokenfilter = StopFilter
+  }   
   
-  section methods for built-in types
+// section methods for built-in types
 
   type String { //includes other String-based types such as Secret, Patch, Email, URL, etc.
     length():Int
@@ -125,7 +146,18 @@ module .servletapp/src-webdsl-template/built-in
   type Image{
     getContentAsString():String
   }
-  
+
+// access to servlet context
+
+  native class AbstractDispatchServletHelper as DispatchServlet {
+    getIncomingSuccessMessages():List<String>
+    clearIncomingSuccessMessages()
+    static get(): DispatchServlet
+  }
+  function getDispatchServlet():DispatchServlet{
+    return DispatchServlet.get();
+  } 
+     
 // access to page context
 
   native class AbstractPageServlet as PageServlet {
@@ -141,8 +173,6 @@ module .servletapp/src-webdsl-template/built-in
     leaveLabelContext()
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
-    getIncomingSuccessMessages():List<String>
-    clearIncomingSuccessMessages()
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -2688,8 +2718,8 @@ module .servletapp/src-webdsl-template/built-in
   define messages(){
     request var list : List<String> := List<String>()
     render{
-      list.addAll(getPage().getIncomingSuccessMessages());
-      getPage().clearIncomingSuccessMessages();
+      list.addAll(getDispatchServlet().getIncomingSuccessMessages());
+      getDispatchServlet().clearIncomingSuccessMessages();
     }
     if(list.length > 0){
       templateSuccess(list)

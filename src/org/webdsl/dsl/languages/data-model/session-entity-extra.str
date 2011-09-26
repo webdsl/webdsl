@@ -1,0 +1,31 @@
+module org/webdsl/dsl/languages/data-model/session-entity-extra-properties
+
+imports
+  libwebdsl-front
+
+rules
+  
+  after-tc-declare-hook = emit-and-declare-session-manager; fail //can use 'with' here, even though it prevents changing current term, only interested in DR creation from declare
+  
+  //a session manager entity to support multiple session entities under one sessionid
+  //also needed to store outgoing messages in one place
+  emit-and-declare-session-manager =
+    with(
+      props := <bagof-SessionEntityNames; map(\x -> Property(x,Comp(),SimpleSort(<capitalize-string> x),[])\)>
+    ; result := 
+        EntityNoSuper("SessionManager",
+          [Property("messages",Ref(),GenericSort("List",[SimpleSort("SessionMessage")]),[])
+          ,Property("lastUse", Simple(), SimpleSort("DateTime"),[])
+           | props])
+    ; <emit-webdsl-code> result
+    ; <emit-webdsl-code> webdsl|[ entity SessionMessage{ text :: Text } ]| //wrapper for String, because List<String> not supported in entity properties
+    )
+
+  extend-session-entity-declare(|x_class) = fail
+
+  built-in-template-rule-setup = 
+    x_funname := "getSessionManager"
+  ; <register-reserved-function> (x_funname,0)
+  ; <declare-action> fun |[ function x_funname():SessionManager{} ]|
+  ; fail
+    

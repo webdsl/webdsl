@@ -43,7 +43,7 @@ public abstract class TemplateServlet {
     protected utils.TemplateCall templateArg;
     protected Map<String,String> attrs = null;
     protected String[] pageArguments = null;
-    protected HttpSession session;
+    //protected HttpSession session;
     protected utils.LocalTemplateArguments ltas;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
@@ -175,9 +175,9 @@ public abstract class TemplateServlet {
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();
               this.response = ThreadLocalPage.get().getResponse();
-              if(request != null){ //calling rendertemplate within background task
-                this.session = request.getSession(true);
-              }
+              //if(request != null){ //calling rendertemplate within background task
+              //  this.session = request.getSession(true);
+              //}
               this.hibSession = ThreadLocalPage.get().getHibSession();
               this.attrs = attrs;
               this.ltas = ltas;

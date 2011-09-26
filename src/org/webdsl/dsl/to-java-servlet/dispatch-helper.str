@@ -28,8 +28,10 @@ rules
       import utils.*;
       import pkgname.*;
       import org.webdsl.lang.Environment;
+      import org.webdsl.WebDSLEntity;
       import pkgtname2.RequestLogEntry;
       import pkgtname2.RequestLogEntryParam;
+      import pkgtname2.SessionManager;
   
       @SuppressWarnings({"unused","unchecked","rawtypes"})
       public class DispatchServletHelper extends AbstractDispatchServletHelper{
@@ -48,7 +50,54 @@ rules
             return request;
           }
           HttpServletResponse response;
-          List<String> messages;
+          java.util.UUID sessionId = null;
+          public java.util.UUID getSessionId(){
+            return sessionId;
+          }
+          pkgtname2.SessionManager sessionManager = null;
+          public pkgtname2.SessionManager getSessionManager(){
+            return sessionManager;
+          }            
+          public void loadSessionManager(org.hibernate.Session hses){
+            try{
+              sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
+              if(sessionManager == null){
+                throw new RuntimeException();
+              }
+            }
+            catch(Exception ex){
+              ~*<![];if-debug(!bstm*|[  System.out.println("session entity could not be loaded, creating new");  ]|)>  
+              sessionManager = new SessionManager();
+              sessionManager.setId(sessionId);
+              sessionManager.setLastUseNoEventsOrValidation(new java.util.Date());
+              hses.save(sessionManager);
+            }
+            //internalUpdateSessionManagerTimeout is defined in WebDSL code (built-in.app)
+            webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+          }
+          public void storeOutgoingMessagesInHttpSession(){
+            if(sessionManager.getMessages().size() > 0){
+              sessionManager.removeAllFromMessages();
+            }
+            if(outgoingSuccessMessages.size() > 0){
+              //session.setAttribute("___messages___",outgoingSuccessMessages);
+              for(String s : outgoingSuccessMessages){
+                pkgtname2.SessionMessage m = new pkgtname2.SessionMessage();
+                m.setTextNoEventsOrValidation(s);
+                sessionManager.getMessages().add(m);
+              }
+            }
+          }
+          public void retrieveIncomingMessagesFromHttpSession(){
+            /*List<String> temp = null;//(List<String>) session.getAttribute("___messages___");
+            if(temp != null){
+              incomingSuccessMessages = temp;
+            }*/
+            for(pkgtname2.SessionMessage m : sessionManager.getMessages()){
+              incomingSuccessMessages.add(m.getText());
+            }
+          }
+          //List<String> messages;
           RequestLogEntry requestLogEntry;
           public RequestLogEntry getRequestLogEntry(){
             return requestLogEntry;
@@ -159,13 +208,25 @@ rules
             requestLogEntry = new RequestLogEntry();
             requestLogEntry.setStartNoEventsOrValidation(new java.util.Date());
             
-            if(request.getCookies()==null)
-            {
-              String sessionid = request.getSession().getId();
+            if(request.getCookies() != null) {
+              for(Cookie c : request.getCookies()){
+                if("WEBDSLSESSIONID".equals(c.getName())){
+                  try{
+                    sessionId = utils.UUIDUserType.retrieveUUID(c.getValue());
+                  }
+                  catch(Exception ex){
+                    System.out.println("Could not create UUID from String, new session will be created");
+                  }
+                }
+              }
+            }
+            if(sessionId == null) {
+              sessionId = java.util.UUID.randomUUID();
               //HttpOnly cookie to prevent access to document.cookie in javascript
               //Also the cookie shouldn't get 'secure' option, even if https was first accessed
-              response.setHeader("SET-COOKIE", "JSESSIONID=" + sessionid + "; HttpOnly; path=/");
-            }
+              response.setHeader("SET-COOKIE", "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/");
+            }            
+            //sessionmanager will be loaded in page, where hibernate transaction is started
             
             this.request=request;
             this.response=response;
@@ -233,7 +294,7 @@ rules
                 } 
               }
     
-              messages = new LinkedList<String>();
+              //messages = new LinkedList<String>();
               int count2 = 0;
               for(count2 = 0; count2<args.length;count2++)
               {
@@ -409,7 +470,7 @@ rules
               try
               { 
                 PageServlet pageservlet = (PageServlet)pc.newInstance();
-                pageservlet.getIncomingSuccessMessages().addAll(messages);
+                //pageservlet.getIncomingSuccessMessages().addAll(messages);
                 pageservlet.serve(request, response, parammap, parammapvalues, fileUploads);
                 bstm_buildid*
               }
