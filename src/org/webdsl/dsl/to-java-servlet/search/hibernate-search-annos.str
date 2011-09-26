@@ -37,7 +37,7 @@ strategies
   type-to-date-bridge-anno :
   	SimpleSort("Date") -> anno|[ @org.hibernate.search.annotations.DateBridge(resolution = org.hibernate.search.annotations.Resolution.DAY) ]|
     	  
-  //Reference/Composite properties are embedded index fields, one level of depth right now
+  //Reference/Composite properties are embedded index fields
   property-to-index-annos :
     Property(x, propkind, srt, anno*) -> index-annos
     where  <?Ref()<+?Comp() > propkind
@@ -62,11 +62,9 @@ strategies //field annotations
 	
   searchable-annos-to-index-annos:
   	searchable-annos -> index-annos
-  	with rules(CurrentAnalyzerAnnoDefs := []) 
-	    ; fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
-	    ; analyzer-def-annos := <bagof-CurrentAnalyzerAnnoDefs;flatten-list;wrap-in-analyzer-defs-anno>
+  	with  fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
 	    ; numeric-field-annos := <filter(to-numeric-field-anno);wrap-in-numeric-fields-anno> searchable-annos
-	    ; index-annos := <flatten-list>[fields-anno, analyzer-def-annos, numeric-field-annos]
+	    ; index-annos := <flatten-list>[fields-anno, numeric-field-annos]
 
   searchable-to-field-anno :
   	SearchableAnno(sa-args) -> field-anno
@@ -82,7 +80,6 @@ strategies //field annotations
   to-java-field-arg :
   	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("analyzer"),anno|[ @org.hibernate.search.annotations.Analyzer(definition="~analyzer-name") ]|)
   	where not(<?"no" <+ ?"null"> analyzer-name)
-  	with <do-once((create-and-record-analyzer-definition <+ create-and-record-analyzer-definition-builtin)|"create analyzer def")<+ ![]> analyzer-name
 
   to-java-field-arg :
 	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("index"),ExprName(AmbName(Id("org.hibernate.search.annotations.Index")), Id("UN_TOKENIZED")))
@@ -110,11 +107,14 @@ strategies //field annotations
 
 strategies //analyzers
 
-  create-and-record-analyzer-definition = 
-  	FullTextAnalyzerFromName; analyzer-def-anno := <analyzer-to-analyzer-def-anno>; rules(CurrentAnalyzerAnnoDefs :+= analyzer-def-anno)
+  define-fulltext-analyzer-anno =
+  	create-fulltext-analyzer-definition-anno <+ create-fulltext-analyzer-definition-anno-builtin <+ ![]
+
+  create-fulltext-analyzer-definition-anno = 
+  	FullTextAnalyzerFromName; analyzer-to-analyzer-def-anno
   	
-  create-and-record-analyzer-definition-builtin =
-  	<create-and-record-analyzer-definition> "default_builtin_analyzer"
+  create-fulltext-analyzer-definition-anno-builtin =
+  	<create-fulltext-analyzer-definition-anno> "default_builtin_analyzer"
   	
   analyzer-to-analyzer-def-anno:
   	FullTextAnalyzer(_,name, body) -> <to-analyzer-def(|name)> body
@@ -184,8 +184,3 @@ strategies //analyzers
   wrap-in-analyzer-defs-anno:
   	list -> list
   	where ?[]
-
-strategies
-
-is-searchable-anno = ?SearchableAnno(_)
-is-search-namespace-anno = ?SearchNamespaceAnno()

@@ -12,24 +12,47 @@ rules
 
 declare-search:
 	s@SearchMapping(x_class, mappings) -> []
-	with <map(record-search-mapping(|x_class))> mappings 
+	with <map(declare-search-mapping(|x_class))> mappings 
 	   ; rules( IndexedEntity : x_class )
 
 declare-search:
 	f@FullTextAnalyzer(_, analyzer-name, body) -> f
 	where <?DualFullTextAnalyzerBodyDef(_,_,_,_)> body
 	with rules( IsDualAnalyzer : analyzer-name)
+
+declare-analyzer:
+	s@SA-Argument("analyzer", analyzer-name) -> s
+	with if(<not(?"no" <+ ?"null")> analyzer-name)
+		 then rules (AnalyzerInUse :+= analyzer-name) end
 	
+declare-analyzer:
+	m@AnalyzerName(analyzer-name) -> m
+	with if(<not(?"no" <+ ?"null")> analyzer-name)
+		 then rules (AnalyzerInUse :+= analyzer-name) end
 
-record-search-mapping(|x_class):
-	s@SearchFieldMapping(_, propname, _) -> []
+declare-search-mapping(|x_class):
+	s@SearchFieldMapping(_, propname, parts) -> []
 	with rules ( SearchMappingForProp :+ (x_class, propname) -> s)
+	; <map(try(declare-analyzer))> parts
 
-record-search-mapping(|x_class):
+declare-search-mapping(|x_class):
 	s@SearchNamespaceMapping(propname) -> []
 	with rules ( SearchNamespaceForProp: (x_class, propname) -> s
 				 SearchNamespaceForEnt : x_class -> propname)
-	
+				 
+				 
+				 
+after-tc-declare-hook = emit-and-declare-dummy-entity; fail
+   
+   //The dummy_webdsl_entity is used to hold hibernate search annotations in the generated java code that
+   //need to be defined once, like full text filters and analyzers.
+   emit-and-declare-dummy-entity =
+     with(result := 
+       	EntityNoSuper("dummy_webdsl_entity",
+       	  [Property("text",Simple,SimpleSort("String"), [SearchableAnno()])]
+       	)
+     ; <emit-webdsl-code> result)
+
 declare-native-search-query-class:
 	x_class -> x_class
 	with query_class_name := <concat-strings> [x_class, "Searcher"] 

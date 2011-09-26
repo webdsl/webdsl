@@ -40,15 +40,7 @@ module .servletapp/src-webdsl-template/built-in
     getValueAsFloat() : Float
     getValueAsInt() : Int
   }
-  
-  //Used to declare Hibernate Search annotations only once (like the full text filter definitions)
-  entity dummy_webdsl_entity{
-  	text :: String
-  	searchmapping {
-  		text using no
-  	}
-  }
-  
+    
   //The default analyzer, equal to the one used by default in hibernate search
   default_builtin_analyzer analyzer hsearchstandardanalyzer {
 	tokenizer = StandardTokenizer
