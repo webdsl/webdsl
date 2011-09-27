@@ -61,7 +61,7 @@ public class PollServerAndRestart {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        /* necessary stuff to avoid 'too many open files' error */
+        // necessary stuff to avoid 'too many open files' error; unfortunately this doesn't fix the issue yet
         if(proc != null){
             try{
                 proc.waitFor();
