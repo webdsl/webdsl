@@ -201,6 +201,8 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
   );
 }
 
+var __requestcount = 0;
+
 function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
@@ -210,10 +212,11 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
   
-  req.onreadystatechange = callback;
+  req.onreadystatechange = function(){ __requestcount--; return callback; }();
   
   data = createData(action,jsonparams,thisform,thisobject);
   
+  __requestcount++;
   req.send(data);
 }
 

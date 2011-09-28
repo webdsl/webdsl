@@ -250,9 +250,17 @@ module .servletapp/src-webdsl-template/built-in
   
 //  section WebDriver for testing
 
-  native class Thread {
+  function sleep(i:Int){ UtilsTestClass.sleep(i); }
+  function getFirefoxDriver():FirefoxDriver{ return UtilsTestClass.getFirefoxDriver(); }
+  function getHtmlUnitDriver():HtmlUnitDriver{ return UtilsTestClass.getHtmlUnitDriver(); }
+  function getDriver():WebDriver{ return getFirefoxDriver(); }
+  
+  native class utils.Test as UtilsTestClass {
     static sleep(Int)
-  }
+    static getHtmlUnitDriver():HtmlUnitDriver
+    static getFirefoxDriver():FirefoxDriver
+    static closeDrivers()
+  } 
   
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
@@ -282,13 +290,13 @@ module .servletapp/src-webdsl-template/built-in
     sendKeys(String)
     submit()
     clear()
-    click()
     getAttribute(String):String
     isEnabled():Bool
     isSelected():Bool
     //void 	sendKeys(java.lang.CharSequence... keysToSend)
     setSelected()
     toggle():Bool
+    utils.Test.clickAndWait as click()
   }
   
   native class org.openqa.selenium.htmlunit.HtmlUnitDriver as HtmlUnitDriver : WebDriver {
