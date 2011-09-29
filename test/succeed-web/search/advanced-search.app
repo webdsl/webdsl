@@ -25,6 +25,19 @@ application test
   		description;
   	}
   }
+  
+  entity DateThingy{
+  	date 		:: Date (searchable())
+  	datetime 	:: DateTime (searchable())
+  	time 		:: Time (searchable)
+  }
+  
+analyzer year{
+  tokenizer = PatternTokenizer(pattern="^([0-9]{4})", group="1")
+}
+analyzer month{
+	tokenizer = PatternTokenizer(pattern="^[0-9]{4}([0-9]{2})", group="1")
+}
     
   analyzer autocomplete_untokenized {
 	tokenizer = KeywordTokenizer
@@ -47,7 +60,9 @@ application test
   
 
   define page root(){
+  	var d : DateThingy;
 	init{
+		d := DateThingy{date := Date("01/02/2003") datetime := now() time := Time("12:34")}; //DateTime("01/02/2003 12:34")
 	  	var p := Person{name := "Pepe Roni" birthday := Date("05/05/1955")};
 	  	var i1 := Item{
 	  		name := "Bottle of dr Pepper" 
@@ -61,12 +76,13 @@ application test
 	  		name := "Car" 
 	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500. TheEnd."
 			};
+		d.save();
 		p.save();
 		i1.save();
 		i2.save();
 		i3.save();
 	}
-  	output("TEST")
+  	output("TEST") output(d.date) " " output(d.datetime) " " output(d.time)
   	navigate searchPage() { "go to search" }
   }
   
