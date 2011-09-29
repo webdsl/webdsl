@@ -261,10 +261,7 @@ rules //initialization
         List<t> results = e_criteria
         .add( org.hibernate.criterion.Restrictions.idEq(java.util.UUID.fromString(x_id)) )
         .list();
-        if(results.size() != 1){
-        	x = (x_class) hibSession.load(x_class.class, java.util.UUID.fromString(x_id));
-        }
-        else {
+        if(results.size() != 0){
           x = results.get(0);
           bstm_criterias*
         }
@@ -275,15 +272,14 @@ rules //initialization
         ; not(SimpleSort("Entity") := srt)
         ; not(<get-entity-id-name-with-super> srt)
         ; <not(fetch-elem(?QueryOptimizations([], [], True(), [])))> anno*
-        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
         ; x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
         //; x_idprop := <?SimpleSort(<EntityIdName>)> srt
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
-        ; genjoins := <?[<id>|_] <+ ![]> joinpropertiesgen
-        ; e_criteria := <conc; foldr(!expr|[ hibSession.createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (genjoins, joinproperties, conditionjoins)
-        ; bstm_criterias* := <hibernate-extra-criteria(|expr|[ hibSession ]|)> (arg, expr|[x_class]|, expr|[ org.hibernate.criterion.Restrictions.idEq(java.util.UUID.fromString(x_id)) ]|)
+        ; e_criteria := <foldr(!expr|[ hibSession.createCriteria(x_class.class) ]|,hibernate-criteria-fetchmode)> joinproperties
+        ; bstm_criterias* := <filter(hibernate-extra-generic-criteria(|expr|[ hibSession ]|))> joinpropertiesgen
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -374,11 +370,6 @@ rules //initialization
         List<t> results = e_criteria
         .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
         .list();
-        if(results.size() != 1){
-          results = hibSession.createCriteria( x_class.class )
-          .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
-          .list();
-        }
         hibSession.setFlushMode(oldFlushMode);
         if(results.size() == 0){
           System.out.println("No entity with this identity found: "+x_id);
@@ -398,14 +389,13 @@ rules //initialization
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; <not(fetch-elem(?QueryOptimizations([], [], True(), [])))> anno*
-        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
+        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
         ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
-        ; genjoins := <?[<id>|_] <+ ![]> joinpropertiesgen
-        ; e_criteria := <conc; foldr(!expr|[ hibSession.createCriteria(x_class.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> (genjoins, joinproperties, conditionjoins)
-        ; bstm_criterias* := <hibernate-extra-criteria(|expr|[ hibSession ]|)> (arg, expr|[x_class]|, expr|[ org.hibernate.criterion.Restrictions.idEq(x.getId()) ]|)
+        ; e_criteria := <foldr(!expr|[ hibSession.createCriteria(x_class.class) ]|,hibernate-criteria-fetchmode)> joinproperties
+        ; bstm_criterias* := <filter(hibernate-extra-generic-criteria(|expr|[ hibSession ]|))> joinpropertiesgen
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->

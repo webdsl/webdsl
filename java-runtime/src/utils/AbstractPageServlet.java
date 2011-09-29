@@ -878,4 +878,13 @@ public abstract class AbstractPageServlet{
 
       public abstract void initRequestVars(PrintWriter out);
 
+      protected long startTime = 0L;
+
+      public long getStartTime() {
+    	  return startTime;
+      }
+
+      public long getElapsedTime() {
+    	  return System.currentTimeMillis() - startTime;
+      }
 }

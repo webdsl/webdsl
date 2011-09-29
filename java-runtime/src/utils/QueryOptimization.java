@@ -75,4 +75,41 @@ public class QueryOptimization {
 		}
 		return org.hibernate.criterion.Restrictions.eq(prop, val);
 	}
+
+	public static void prefetchProperties(org.hibernate.Criteria criteria, java.io.Serializable id, String[] props) {
+		prefetchProperties(criteria, id, java.util.Arrays.asList(props));
+	}
+
+	public static void prefetchProperties(org.hibernate.Criteria criteria, java.io.Serializable id, Iterable<String> props) {
+		for(String prop : props) {
+			criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
+		}
+		criteria.add(org.hibernate.criterion.Restrictions.idEq(id));
+	}
+
+	public static java.util.List loadByUUID(org.hibernate.Session hibSession, String entity, java.io.Serializable id, String[] props) {
+		return loadByUUID(hibSession, entity, id, java.util.Arrays.asList(props));
+	}
+
+	public static java.util.List loadByUUID(org.hibernate.Session hibSession, String entity, java.io.Serializable id, java.util.List<String> props) {
+		org.hibernate.Criteria criteria = hibSession.createCriteria(entity);
+		for(String prop : props) {
+			criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
+		}
+		criteria.add(org.hibernate.criterion.Restrictions.idEq(id));
+		return criteria.list();
+	}
+
+	public static java.util.List loadByNaturalId(org.hibernate.Session hibSession, String entity, String idProp, Object id, String[] props) {
+		return loadByNaturalId(hibSession, entity, idProp, id, java.util.Arrays.asList(props));
+	}
+
+	public static java.util.List loadByNaturalId(org.hibernate.Session hibSession, String entity, String idProp, Object id, java.util.List<String> props) {
+		org.hibernate.Criteria criteria = hibSession.createCriteria(entity);
+		for(String prop : props) {
+			criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
+		}
+		criteria.add(org.hibernate.criterion.Restrictions.naturalId().set(idProp, id));
+		return criteria.list();
+	}
 }

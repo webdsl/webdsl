@@ -30,27 +30,67 @@ rules
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
-       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; rules( QueryConditions := <repeat(innermost-rep(desugar)); extract-query-cond> cond ) // Cannot move this up, because extract-query-cond requires previously defined rules
        //; QueryConditions; debug(!"cond:     ")
        ; fas := <collect-potential-joins> base
-       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
        ; querycondition := <(filter(?(_, _, _, True())); map(Third); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())); alltd(?FieldAccess(_, _); try(add-required-alias))> fas // Combine query conditions of the effectful field accesses
        ; conditionjoins := <collect(?FieldAccess(_, _){HasAlias()}); map(an-find-entity-property-pair; group-join-candidates-build-paths); flatten-list; make-set; string-sort-desc> querycondition // These joins should be used everytime the queryconditon is used
        ; fetchmode := <filter(collect(col-fetch-mode); ?[<id>|_]; remove-casts; an-find-entity-property-pair); make-set; map(to-fetch-mode-tuple)> fas
        ; joincandidates := <map(!(<Fst; remove-casts>, <Snd>)); filter(an-requires-joining); flatten-list; make-set; string-sort/*; foldr([], create-aliasses)*/> fas
-       ; info(|["Should be inlined: ", joincandidates])
+       //; info(|["Should be inlined: ", joincandidates])
        ; queryjoins := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-generic); make-set> fas // Cannot remove casts, because they are important for type-of
        ; queryroots := <map(Fst); make-set; string-sort> queryjoins
        ; joincandidatesgen := <map(group-join-candidates(|queryjoins); !(<id>, conditionjoins); diff); map(map(try(apply-fetch-mode(|fetchmode))))> queryroots
-       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
        ; joincandidatesnogen := <diff; map(group-join-candidates-build-paths); flatten-list; !(<id>, conditionjoins); diff; make-set; string-sort-desc; map(try(apply-fetch-mode(|fetchmode)))> (joincandidates, <flatten-list; make-set>joincandidatesgen) 
+       //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       //; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
+       //; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
+      |}
+
+  get-query-optimizations : (_, _, _, _) -> ([], [])
+  where QueryOptimizationDisabled
+
+  // Query optimization without query condition (advantage is that conditionjoins are never excluded from the joincandidate lists)
+  get-query-optimizations : (base, x, srt, args) -> (joincandidatesnogen, joincandidatesgen)
+    where not(QueryOptimizationDisabled)
+    with {| RootVar, ParentArgs, IteratedVar, QueryConditions, IsEffectful, LocalRedefDef, LocalRedefName, LocalRedefArgs
+       : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
+                  RootVar         : Var(x) -> srt // The actual variable we are interested in (the persistent root of our analysis)
+                  IsEffectful     := False()      // True if the current statement is effectful (means: can affect non-local state), False otherwise
+               )
+       ; <alltd(define-local-redefine)> base
+       ; <filter({vars: 
+                     \ Arg(arg, srt) ->  <id>
+                       with rules( ParentArgs      : Var(arg) -> srt )
+                     \})> args
+       //; info(|["base: ", <pp-aterm> base])
+       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       ; fas := <collect-potential-joins> base
+       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set> fas
+       ; queryroots := <filter(get-first-generic-sort); make-set; group-similar-roots> joincandidates
+       ; joincandidatesgennocast := <map(map(group-join-candidates-fa(|joincandidates)))> queryroots
+       ; joincandidatesgen := <map(map(try(cast-query-root)))> joincandidatesgennocast
+       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       ; joincandidatesnogen := <diff> (joincandidates, <flatten-list; make-set>joincandidatesgennocast) 
        ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
-       ; info(|["Query condition:   ", <pp-webdsl>querycondition]) // A condition that can reduce the size of the result set
-       ; info(|["Condition joins:   ", conditionjoins]) // These joins should also be present on extra queries (from inline by queries), because they are required for evaluating the query condition
       |}
 
   remove-casts = repeat(oncetd(?Cast(<id>, _)))
+
+sub-paths :
+  fa@FieldAccess(p, _) -> [fa | subpaths]
+  with subpaths := <sub-paths> p
+
+sub-paths :
+  Cast(p, _) -> subpaths
+  with subpaths := <sub-paths> p
+
+sub-paths :
+  Var(_) -> []
 
 col-fetch-mode=
   ?FieldAccess(p, _){anno*}
@@ -158,6 +198,16 @@ strategies
   	; make-set
   	; string-sort-desc
 
+  group-join-candidates-fa(|joincandidates) :
+    currentroot -> [currentroot|elementjoins]
+    where elementjoins := <filter(where(not(?currentroot); collect(?currentroot); ?[currentroot]))> joincandidates
+
+  cast-query-root :
+    [root|elementjoins] -> [FieldAccess(Cast(p, srt), f){anno*}|elementjoins]
+    where FieldAccess(p, f){anno*} := root
+    ; not(Cast(_, _) := p)
+    ; srt := <type-of> p
+
   collect-potential-joins =
     collect(an-potential-joins)
     ; flatten-list
@@ -173,20 +223,20 @@ strategies
     ?FieldAccess(l, _)
     ; oncetd(where(IteratedVar); not(IteratedVarValue))
     ; is-accessible-from(RootVar)
-    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
+    ; !(<Fst>, <Snd>, <QueryConditions <+ !True()>, <IsEffectful>)
 
   an-potential-joins =
     ?fa@FieldAccess(l, _)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; not(?fa)
     ; is-accessible-from(RootVar)
-    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
+    ; !(<Fst>, <Snd>, <QueryConditions <+ !True()>, <IsEffectful>)
 
   an-potential-joins =
     ?Var(_)
     ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
     ; is-accessible-from(RootVar)
-    ; !(<Fst>, <Snd>, <QueryConditions>, <IsEffectful>)
+    ; !(<Fst>, <Snd>, <QueryConditions <+ !True()>, <IsEffectful>)
 
   /*an-potential-joins =
     ?TemplateCase(_, _)
@@ -442,14 +492,101 @@ strategies // checks for potential inlining
         !<concat-strings> [<an-find-entity-property-pair> l, "._", fld]
       end
 
+  // Returns a string with underscore prefixed properties, casts should be removed beforehand
   an-requires-joining =
   	?(fa@FieldAccess(_, _), srt)
   	; where(<is-generic-sort <+ is-entity-type> srt)
     ; <an-find-entity-property-pair> fa
 
   an-requires-joining =
-    ?(FieldAccess(fa@FieldAccess(_, _), _), _)
+    ?(FieldAccess(fa@FieldAccess(_, _), _), srt)
+    ; where(<not(is-generic-sort <+ is-entity-type)> srt)
     ; <an-find-entity-property-pair> fa
+
+  // Returns a FieldAcces instead of a string, also supports casts
+  an-requires-joining-fa :
+    (fa@FieldAccess(_, _), srt) -> cleanfa
+    where <is-generic-sort <+ is-entity-type> srt
+    ; cleanfa := <clean-joincandidate> fa
+
+  an-requires-joining-fa :
+    (FieldAccess(expr, _), srt) -> cleanexpr
+    where(<not(is-generic-sort <+ is-entity-type)> srt)
+    ; not([] := <collect(?FieldAccess(_, _))> expr) // The expression must contain at least another FieldAccess, otherwise it's just a Var
+    ; cleanexpr := <clean-joincandidate> expr
+
+  clean-joincandidate :
+    FieldAccess(p, f){anno*} -> FieldAccess(cleanp, f{}){newanno*}
+    where newanno* := <filter(?UseFetchMode()); make-set> anno*
+    ; cleanp := <clean-joincandidate> p
+
+  clean-joincandidate :
+    Cast(p, srt) -> Cast(cleanp, srt{}){}
+    where cleanp := <clean-joincandidate> p
+
+  clean-joincandidate :
+    v@Var(_) -> v{}
+
+  get-first-generic-sort =
+    ?FieldAccess(<get-first-generic-sort>, _)
+
+  get-first-generic-sort =
+    ?FieldAccess(p, _)
+    ; where(type-of; is-generic-sort; not(<get-first-generic-sort> p))
+
+  get-first-generic-sort = ?Cast(<get-first-generic-sort>, _)
+
+  group-similar-roots =
+    ?allroots
+    ; rootnames := <map(get-query-root-name)> allroots
+    ; namedroots := <zip>(rootnames, allroots)
+    ; groupedroots := <make-set; map(group-roots-by-name(|namedroots)); debug(!"grouped:")> rootnames
+    ; <map(sort-roots-most-specific-first)> groupedroots
+
+  get-query-root-name :
+    FieldAccess(p, f) -> name
+    with name := <concat-strings>[<get-query-root-name> p, ".", f]
+
+  get-query-root-name :
+    Cast(p, _) -> name
+    with name := <get-query-root-name> p
+
+  get-query-root-name :
+    Var(_) -> ""
+
+  group-roots-by-name(|namedroots) =
+    ?name
+    ; <filter(?(name, <id>))> namedroots
+
+  sort-roots-most-specific-first =
+    ?roots
+    ; downcasts := <map(sort-roots-most-specific-first-helper1; remove-double-casts; collect-all(?Cast(_, <id>)); reverse)>
+    ; <zip/*; ?rootswithcasts; map(add-less-specific-root(|rootswithcasts))*/; sort-list(LSort(root-more-specific)); reverse> (roots, downcasts)
+    ; map(Fst)
+
+  // Adds casts
+  sort-roots-most-specific-first-helper1 :
+    FieldAccess(p, f) -> Cast(FieldAccess(p2, f), None())
+    with p2 := <sort-roots-most-specific-first-helper1> p
+
+  sort-roots-most-specific-first-helper1 :
+    Cast(p, srt){anno*} -> Cast(p2, srt){anno*}
+    with p2 := <sort-roots-most-specific-first-helper1> p
+
+  sort-roots-most-specific-first-helper1 :
+    v@Var(_) -> Cast(v, None())
+
+  root-more-specific =
+    ?((_, downcasts1), (_, downcasts2))
+    ; (srt1, srt2) := <zip; fetch-elem(not(eq))> (downcasts1, downcasts2)
+    ; not(None() := srt1)
+    ; <?(_, None()) <+ subtype-of> (srt1, srt2)
+
+  remove-double-casts = repeat(oncetd(\ Cast(Cast(p, _), srt){anno*} -> Cast(p, srt){anno*} \))
+
+  /*add-less-specific-root(|rootswithcasts):
+    rootcastpair@(root, cast) -> _
+    where <filter(where(<root-more-specific>(rootcastpair, <id>)))> rootswithcasts*/
 
   an-find-entity-property-pair-generic = ?Cast(<an-find-entity-property-pair-generic>, _)
 
@@ -673,12 +810,11 @@ rules
   // For query conditions this is not allowed, so there id should be used to deal with generic sorts
   is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)
 
-  is-accessible-from(s,gen): // Case where the cast is needed
-    Cast(f, srt){anno*} -> (Cast(p, srt){anno*}, srt)
+  is-accessible-from(s,gen): // Case where the cast is not needed
+    Cast(f, srt){anno*} -> (p, srt)
     where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
-    ; not(<?srt> srt2) 
     //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
-    ; <subtype-of> (srt2, srt) // up-cast
+    ; <subtype-of> (srt2, srt) // up-cast or cast to same type
 
   is-accessible-from(s,gen): // Case where the cast is needed
     Cast(f, srt){anno*} -> (Cast(p, srt){srt2, anno*}, srt)
@@ -702,10 +838,6 @@ rules
              })
     ; not(?[_]) // If not defined on exactly one sub entity
     //; debug(!"Match:")
-
-  is-accessible-from(s,gen): // Case where the cast does nothing
-    Cast(f, srt) -> (p, srt)
-    where (p, srt) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
 
   remove-top-level-cast:
     Cast(f, _) -> f

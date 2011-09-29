@@ -17,8 +17,7 @@ rules
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, Filter(wh,ob,lim)) -> e_criteria
     with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-    ; (gen, genjoins) := <?[head|_] < !(<?[<id>|_]> head, head) + !(None(), [])> joinpropertiesgen
-    ; e_criteria := <concat; ?joins; foldr(!<try(hibernate-add-cacheable(|anno*))>expr|[ e_HibSession.createCriteria(t.class).setResultTransformer(org.hibernate.Criteria.DISTINCT_ROOT_ENTITY) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*,joins,gen,True()))> [genjoins, joinproperties, conditionjoins]
+    ; e_criteria := <concat; ?joins; foldr(!<try(hibernate-add-cacheable(|anno*))>expr|[ e_HibSession.createCriteria(t.class) ]|,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt); try(hibernate-criteria-add-extra(|anno*,joins,None(),True()))> [joinproperties, conditionjoins]
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
 
@@ -32,17 +31,15 @@ rules
    hibernate-extra-criteria(|e_Session) :
    	(term{anno*}, t, x, srt) -> e_criterias*
     with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-   	; newjoins := <(?[_|<id>] <+ ![]); filter(not(?[_]))> joinpropertiesgen // Skip the first one, because that one has been added to the first query and if just the collection is joined we better leave it lazy
    	; e_base := <foldr(!expr|[ e_Session.createCriteria(t.class) ]|,hibernate-criteria-join)> conditionjoins
-   	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition, conditionjoins, anno*))> newjoins
+   	; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, x, srt, querycondition, conditionjoins, anno*))> joinpropertiesgen
 
    // Uses the specified condition (does not add condition joins)
    hibernate-extra-criteria(|e_Session) :
     (term{anno*}, t, e_Cond) -> e_criterias*
     with <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, querycondition, conditionjoins))> anno*
-    ; newjoins := <(?[_|<id>] <+ ![]); filter(not(?[_]))> joinpropertiesgen // Skip the first one, because that one has been added to the first query and if just the collection is joined we better leave it lazy
     ; e_base := expr|[ e_Session.createCriteria(t.class) ]|
-    ; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, e_Cond, anno*))> newjoins
+    ; e_criterias* := <map(hibernate-extra-criteria-helper(|e_base, e_Cond, anno*))> joinpropertiesgen
 
   hibernate-extra-criteria-helper(|e_base, x, srt, querycondition, conditionjoins, anno*) :
     joinproperties -> e_criteria
@@ -54,6 +51,64 @@ rules
   	joinproperties -> e_criteria
   	with <?[gen|_]> joinproperties
   	; e_criteria := <foldr(!e_base, hibernate-criteria-join); \ e_Crit -> expr |[ e_Crit.add( e_Cond ) ]| \; try(hibernate-criteria-add-extra(|anno*,joinproperties,gen,False())); \ e_WithoutList -> bstm |[ e_WithoutList.list(); ]|\> joinproperties
+
+  hibernate-extra-generic-criteria(|e_Session) = hibernate-extra-generic-criteria(hibernate-extra-generic-criteria-default-cond|e_Session)
+
+  hibernate-extra-generic-criteria(make-condition|e_Session) =
+    filter(hibernate-extra-generic-criteria-helper(make-condition|e_Session))
+    ; rewrite-tuples-to-if-elseif
+
+	hibernate-extra-generic-criteria-helper(make-condition|e_Session):
+	  lst@[head|tail] -> (e_Cond, bstm |[ e_Criteria.add(org.hibernate.criterion.Restrictions.idEq(e_owner.getId())).list(); ]|)
+	  where <gt>(<length> lst, 1)
+	  with FieldAccess(Cast(p, SimpleSort(srt)), f){anno*} := head
+	  ; x_class := <java-type-entity-name> srt
+	  ; e_base := expr |[ e_Session.createCriteria(x_class.class) ]|
+	  ; owner := <repeat(oncetd(add-fake-entity-anno))> p
+	  ; e_owner := <expression-to-java-servlet> owner
+	  ; root := FieldAccess(p, f){anno*}
+	  ; e_Criteria := <alltd(?p; !Var("owner")); foldr(!e_base, hibernate-criteria-fetchmode)> [root|tail]
+	  ; e_Cond := <make-condition> (owner, e_owner, srt, head)
+
+  hibernate-extra-generic-criteria-default-cond:
+    (owner, e_owner, x_ownerclass, root) -> expr |[ e_Cond && e_owner.instanceOf("~x_ownerclass") ]|
+    with e_Cond := <hibernate-extra-generic-criteria-default-cond> owner
+
+  hibernate-extra-generic-criteria-default-cond:
+    fa@FieldAccess(p, _) -> expr |[ e_Cond && e_fa != null ]|
+    with e_fa := <expression-to-java-servlet> fa
+    ; e_Cond := <hibernate-extra-generic-criteria-default-cond> p
+
+  hibernate-extra-generic-criteria-default-cond:
+    Cast(p, SimpleSort(x_class)) -> expr |[ e_Cond && e_p.instanceOf("~x_class") ]|
+    with e_p := <expression-to-java-servlet> p
+    ; e_Cond := <hibernate-extra-generic-criteria-default-cond> p
+
+  hibernate-extra-generic-criteria-default-cond:
+    v@Var(_) -> expr |[ e_v != null ]|
+    with e_v := <expression-to-java-servlet> v
+
+  rewrite-tuples-to-if-elseif:
+    [(e_Cond, bstm_Block)|elseBlock] -> bstm |[ if(e_Cond) { bstm_Block } else { bstm_Else } ]|
+    where bstm_Else := <rewrite-tuples-to-if-elseif> elseBlock
+
+  rewrite-tuples-to-if-elseif:
+    [(e_Cond, bstm_Block)] -> bstm |[ if(e_Cond) { bstm_Block } ]|
+
+  hibernate-criteria-fetchmode :
+    (expr, e) -> expr |[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
+    with str := <fieldaccess-to-fetchmode> expr
+
+	fieldaccess-to-fetchmode:
+	  fa@FieldAccess(p, f) -> str
+	  with prev := <fieldaccess-to-fetchmode> p
+	  ; str := <concat-strings> [prev, <?"" < !"_" + !"._"> prev, f]
+	
+	fieldaccess-to-fetchmode:
+	  Cast(p, _) -> <fieldaccess-to-fetchmode> p
+	
+	fieldaccess-to-fetchmode:
+	  Var(_) -> ""
 
   hibernate-criteria-join :
   	(str{UseFetchMode()}, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
@@ -292,8 +347,9 @@ rules
                 //annotationConfiguration.addProperties(prop);
                 //bstm1*
                 annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
-                    
                 annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
+                annotationConfiguration.setListener("auto-flush", new FastAutoFlushEventListener());
+                annotationConfiguration.setInterceptor(new DirtyCheckInterceptor());
 
                 annotationConfiguration.buildMappings();
                 bstm1*
@@ -359,6 +415,27 @@ rules
                 }
             }
         }
+
+			  private static class FastAutoFlushEventListener implements org.hibernate.event.AutoFlushEventListener {
+			    public void onAutoFlush(org.hibernate.event.AutoFlushEvent event) throws HibernateException {
+			      if(!event.getSession().getFlushMode().lessThan(org.hibernate.FlushMode.AUTO)) {
+				      //System.out.println("onAutoFlush");
+				      event.getSession().flush();
+				      event.getSession().setFlushMode(org.hibernate.FlushMode.COMMIT);
+			      }
+			    }
+			  }
+
+			  public static class DirtyCheckInterceptor extends org.hibernate.EmptyInterceptor {
+			    @Override
+			    public int[] findDirty(Object entity, java.io.Serializable id, Object[] currentState, Object[] previousState, String[] propertyNames, org.hibernate.type.Type[] types) {
+			      if(entity instanceof WebDSLEntity && !((WebDSLEntity)entity).isChanged()) {
+			        return new int[0]; // Entity is not dirty
+			      }
+			      return null; // Use default dirty checking
+			    }
+			  }
+
     }
     ]|
     with pkgname := <DomainPackage>

@@ -19,21 +19,20 @@ import java.util.Stack;
 
 public class HibernateLog {
 	protected List<HibernateLogEntry> _list = null;
-	protected long _totalTime = 0;
 	protected Date _firstQueryStart = null;
-	protected Date _lastQueryEnd = null;
+	protected HibernateLogEntry _lastQuery = null;
 	protected String _error = null;
 
-	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
+	public static void printHibernateLog(PrintWriter sout, utils.AbstractPageServlet page) {
 		RequestAppender requestAppender = RequestAppender.getNamed("hibernateLog");
 		if(requestAppender != null) { 
 			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
 			if(hibLog.tryParse(log)) {
-				hibLog.print(sout, session);
+				hibLog.print(sout, page);
 			}
 			else {
-				hibLog.print(sout, session);
+				hibLog.print(sout, page);
 				sout.print("<pre>" + utils.HTMLFilter.filter(log) + "</pre>");
 			}
 		}
@@ -82,7 +81,6 @@ public class HibernateLog {
         String line;
         int linenr = 0;
         _list = new ArrayList<HibernateLogEntry>();
-        _totalTime = 0;
         Stack<HibernateLogEntry> entries = new Stack<HibernateLogEntry>();
         HibernateLogEntry current = null;
         while((line = rdr.readLine()) != null) {
@@ -109,20 +107,31 @@ public class HibernateLog {
         		else if(msg.indexOf("about to close PreparedStatement") == 0) {
         			if(current == null) throw new ParseException("No statement to close", linenr);
         			current.closeTime = absoluteFormat.parse(time);
-        			_lastQueryEnd = current.closeTime;  
-        			current.durationInclusive = dateDiff(current.openTime, current.closeTime);
-        			current.durationExclusive = current.durationInclusive;
-        			_totalTime += current.durationInclusive;
+        			_lastQuery = current;  
+        			current.duration = dateDiff(current.openTime, current.closeTime);
         			if(entries.empty()) {
         				current = null;
         			}
         			else {
         				HibernateLogEntry next = entries.pop();
         				current.subEntries = next.subEntries + 1;
-        				current.durationExclusive -= next.durationInclusive;
-        				_totalTime -= next.durationInclusive;
         				current = next;
         			}
+        		}
+        	}
+        	if(cat.indexOf("org.hibernate.stat") == 0 && msg.indexOf("HQL: ") == 0) {
+        		if(current == null && _lastQuery != null) {
+            		int timeidx = msg.lastIndexOf("time: ");
+            		int rowidx = msg.lastIndexOf("ms, rows: ");
+            		_lastQuery.duration = Integer.parseInt(msg.substring(timeidx + 6, rowidx));
+        			_lastQuery.closeTime = dateAdd(_lastQuery.openTime, _lastQuery.duration);
+        			_lastQuery.rows = Integer.parseInt(msg.substring(rowidx + 10));
+        		}
+        	}
+        	if(cat.indexOf("org.hibernate.loader") == 0) {
+        		int idx = msg.indexOf("total objects hydrated: ");
+        		if(current == null && _lastQuery != null && idx == 0) {
+        			_lastQuery.hydrated = Integer.parseInt(msg.substring(24));
         		}
         	}
         	else if(cat.indexOf("org.hibernate.SQL") == 0) {
@@ -169,7 +178,8 @@ public class HibernateLog {
         if(!entries.empty()) throw new ParseException("Not all statements were closed", linenr);
     }
 
-	public void print(PrintWriter sout, org.hibernate.Session session) {
+	public void print(PrintWriter sout, utils.AbstractPageServlet page) {
+		long time = page.getElapsedTime();
 		sout.print("<hr />");
 		if(_error != null) {
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(_error) + "</pre>");
@@ -187,24 +197,25 @@ public class HibernateLog {
 				else if(longestThree.size() < 3) {
 					longestThree.add(entry);
 					for(int i = longestThree.size() - 2; i >= 0; i--) {
-						if(longestThree.get(i).durationExclusive < entry.durationExclusive) {
+						if(longestThree.get(i).duration < entry.duration) {
 							longestThree.set(i + 1, longestThree.get(i));
 							longestThree.set(i, entry);
 						}
 					}
 				}
-				else if(longestThree.get(longestThree.size() - 1).durationExclusive < entry.durationExclusive) {
+				else if(longestThree.get(longestThree.size() - 1).duration < entry.duration) {
 					longestThree.set(longestThree.size() - 1, entry);
 					for(int i = longestThree.size() - 2; i >= 0; i--) {
-						if(longestThree.get(i).durationExclusive < entry.durationExclusive) {
+						if(longestThree.get(i).duration < entry.duration) {
 							longestThree.set(i + 1, longestThree.get(i));
 							longestThree.set(i, entry);
 						}
 					}
 				}
 			}
-			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + getTotalTimespan() + " ms</span>");
+			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
 			boolean printedSessionContext = false;
+			org.hibernate.Session session = page.getHibSession();
 			if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {
 				org.hibernate.engine.PersistenceContext context = ((org.hibernate.engine.SessionImplementor)session).getPersistenceContext();
 				if(context != null) {
@@ -287,17 +298,25 @@ public class HibernateLog {
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : _list)
 			{
-				sout.print("<div class=\"sqllog\">Query " + (++logindex) + " in " + entry.durationExclusive + " ms by " + entry.template + ":<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
+				sout.print("<div class=\"sqllog\">Query " + (++logindex) + ": time=" + entry.duration + "ms");
+				if(entry.rows > -1) sout.print(", rows=" + entry.rows);
+				if(entry.hydrated > -1) sout.print(", hydrated=" + entry.hydrated);
+				sout.print(", template=" + entry.template);
+				sout.print("<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
 			sout.print("<p><b>The three queries that took the most time:</b></p><table class=\"sqllog\">");
 			for(int i = 0; i < longestThree.size(); i++)
 			{
 				utils.HibernateLogEntry entry = longestThree.get(i);
 				sout.print("<div class=\"sqllog\">");
-				if(i == 0) sout.print("Longest query ");
-				if(i == 1) sout.print("Second longest query ");
-				if(i == 2) sout.print("Third longest query ");
-				sout.print("in " + entry.durationExclusive + " ms by " + entry.template + ":<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
+				if(i == 0) sout.print("Longest query: ");
+				if(i == 1) sout.print("Second longest query: ");
+				if(i == 2) sout.print("Third longest query: ");
+				sout.print("time=" + entry.duration + "ms");
+				if(entry.rows > -1) sout.print(", rows=" + entry.rows);
+				if(entry.hydrated > -1) sout.print(", hydrated=" + entry.hydrated);
+				sout.print(", template=" + entry.template);
+				sout.print("<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
 		}
 		catch(Exception ex) {
@@ -311,15 +330,19 @@ public class HibernateLog {
 		return _list.size();
 	}
 
-	public long getTotalTime() { // Inaccurate, because fast queries are counted as 0ms or 1ms, but nothing in between
-		return _totalTime;
-	}
-
-	public long getTotalTimespan() { // Is better than getTotalTime(), but this also counts time spend in between queries
-		if(_firstQueryStart == null || _lastQueryEnd == null) return 0;
-		return dateDiff(_firstQueryStart, _lastQueryEnd);
+	public long getTotalTimespan() {
+		if(_firstQueryStart == null || _lastQuery == null) return 0;
+		return dateDiff(_firstQueryStart, _lastQuery.closeTime);
 	}
 	
+    public static Date dateAdd(Date start, long ms) {
+    	Calendar calendar = Calendar.getInstance();
+    	calendar.setTime(start);
+    	long newTime = calendar.getTimeInMillis() + ms;
+    	calendar.setTimeInMillis(newTime);
+    	return calendar.getTime();
+    }
+
     public static long dateDiff(Date start, Date end) {
     	Calendar calendar = Calendar.getInstance();
     	calendar.setTime(start);
@@ -333,8 +356,9 @@ public class HibernateLog {
 class HibernateLogEntry {
 	public Date openTime = null;
 	public Date closeTime = null;
-	public long durationInclusive = 0;
-	public long durationExclusive = 0;
+	public long duration = -1;
+	public int rows = -1;
+	public int hydrated = -1;
 	public int subEntries = 0;
 	public String sql = null;
 	public String template = null;

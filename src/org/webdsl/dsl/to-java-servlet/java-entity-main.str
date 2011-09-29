@@ -275,6 +275,7 @@ strategies
         return _version;
       }
       public void setVersion(Integer v) {
+        setChanged();
         this._version = v;
       }
       @Transient boolean versionWasIncreased = false;
@@ -282,6 +283,7 @@ strategies
         if(!versionWasIncreased){
           _version++;
           versionWasIncreased = true;
+          setChanged();
         }
       }
     ]|
@@ -291,7 +293,11 @@ strategies
       @Transient
       protected boolean isChanged = false;
       public boolean isChanged(){return isChanged;}
-      public void setChanged(){isChanged=true;if(fieldHandler != null && fieldHandler instanceof org.hibernate.intercept.FieldInterceptor) ((org.hibernate.intercept.FieldInterceptor)fieldHandler).dirty();}
+      public void setChanged(){
+        isChanged=true;
+        if(fieldHandler != null) ((org.hibernate.intercept.FieldInterceptor)fieldHandler).dirty();
+        HibernateUtilConfigured.getSessionFactory().getCurrentSession().setFlushMode(org.hibernate.FlushMode.AUTO);
+      }
     ]|
  
   table-mapping-annos :
@@ -362,7 +368,11 @@ strategies
          bstm_lazygetter*
          return _#x;
        }
-       
+
+       public boolean is#x#Uninitialized() {
+         bstm_lazyinit*
+       }
+
        ~*<where(not(GenericSort(_,_) := s)) <+ ![]> class-body-dec* |[ //setter for non-collections
          public void set#x(t newitem) {
            if(!x#BeingSet) {
@@ -418,7 +428,7 @@ strategies
     	; mod5*   := <property-to-contained-in <+ ![]> prop
         ; mod6*  := <property-to-index-annos <+ ![]> prop
         ; mod7*  := <fetch-elem(\ SimpleAnno("cache") -> [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|] \) <+ ![]> annos
-        ; (bstm_lazygetter*, bstm_lazysetter*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ _#x = newitem; ]|)> s
+        ; (bstm_lazygetter*, bstm_lazysetter*, bstm_lazyinit*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ _#x = newitem; ]|, <property-to-isuninitialized> prop)> s
 
    handle-lazy-one-to-one-inverse(|x, annos) :
      s@SimpleSort(y) -> ( bstm* |[ if (fieldHandler != null) {
@@ -431,11 +441,23 @@ strategies
                                    else {
                                      _#x = newitem;
                                    }
-                                ]|
+                                ]|,
+                          bstm* |[ return fieldHandler != null && !((org.hibernate.intercept.FieldInterceptor)fieldHandler).isInitialized("~str"); ]|
                         )
      where inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
          ; SimpleSort(yy) := <get-type-anno> inv
          ; str := <concat-strings>["_", x]
+
+  property-to-isuninitialized:
+    Property(x, k, SimpleSort(_), _) -> bstm* |[ return _#x instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)_#x).getHibernateLazyInitializer().isUninitialized(); ]|
+    where <?Ref() <+ ?Comp()> k
+
+  property-to-isuninitialized:
+    Property(x, k, GenericSort(_,_), _) -> bstm* |[ return _#x instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)_#x).wasInitialized(); ]|
+    where <?Ref() <+ ?Comp()> k
+
+  property-to-isuninitialized:
+    Property(_, Simple(), _, _) -> bstm* |[ return false; ]|
 
    field-access-for-simple-sorts:
      prop@Property(x_prop, k, SimpleSort(y), annos) -> [anno|[ @org.hibernate.annotations.AccessType(value="field") ]|]
