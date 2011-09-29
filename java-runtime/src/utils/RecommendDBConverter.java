@@ -81,11 +81,6 @@ public abstract class RecommendDBConverter {
 	 * throw an exception
 	 */
 	private Class getUserItemClassInstance(RecFieldType fldType) throws ClassNotFoundException, NoSuchFieldException {
-		System.out.println("Class: " + getEntityClassInstance().toString());
-		for(java.lang.reflect.Field f : getEntityClassInstance().getDeclaredFields()){
-			System.out.println("Field found: " + f.toString());
-		}
-		
 		return getEntityClassInstance().getDeclaredField("_" + (fldType == RecFieldType.USER ? this.user : this.item)).getType();
 	}
 	
@@ -103,17 +98,10 @@ public abstract class RecommendDBConverter {
 		org.webdsl.WebDSLEntity ent = (org.webdsl.WebDSLEntity)x;
 		java.util.UUID u = (java.util.UUID)ent.getId();
 		retVal = executeStatement("SELECT " + (fldType == RecFieldType.USER ? "user" : "item") + "_id AS lid FROM __" + this.name + "_Taste WHERE " + (fldType == RecFieldType.USER ? "user" : "item") + "_uid = '" + UUIDUserType.persistUUIDString(u) + "' LIMIT 1", "lid");
-		if(retVal != null){
-			System.out.println("Value of retVal: '" + retVal + "'");
-		} else {
-			System.out.println("!!! Value of retVal is NULL");
-		}
 		return Long.parseLong(retVal);
 	}
 	
 	private java.util.UUID getUUIDFromString(String dbuid){
-		System.out.println("First 16 chars: " + dbuid.substring(0, 16) + " ==> " + Long.parseLong(dbuid.substring(0, 16), 16));
-		System.out.println("Last  16 chars: " + dbuid.substring(16)    + " ==> " + Long.parseLong(dbuid.substring(16), 16));
 		return new java.util.UUID(Long.parseLong(dbuid.substring(0, 16),16), Long.parseLong(dbuid.substring(16),16));
 	}
 	
@@ -133,8 +121,6 @@ public abstract class RecommendDBConverter {
 		Object x = null;
 		
 		String retVal = executeStatement("SELECT " + (fldType == RecFieldType.USER ? "user" : "item") + "_uid AS uidval FROM __" + this.name + "_Taste WHERE " + (fldType == RecFieldType.USER ? "user" : "item") + "_id = '" + id + "' LIMIT 1;", "uidval");
-		System.out.println("Got UUID Value: " + retVal);
-		System.out.println("Converted to: " + retVal.toString());
 		uid = UUIDUserType.retrieveUUID(retVal);
 		
 		// If we got the UID of the instance, load it...
@@ -155,7 +141,7 @@ public abstract class RecommendDBConverter {
 	 * create new instances or load instance from the database.
 	 * @return The Session instance of Hibernate.
 	 */
-	private Session getCurrentHibernateSession() throws Exception {
+	protected Session getCurrentHibernateSession() throws Exception {
 		try {
 			SessionFactory sf = (SessionFactory)Class.forName("utils.HibernateUtilConfigured").getMethod("getSessionFactory").invoke(null);
 			return sf.getCurrentSession();
@@ -177,6 +163,7 @@ public abstract class RecommendDBConverter {
 	 */
 	protected void convertUIDToBigIntInDB(){
 		try {
+            System.out.println("Constructing UID Dictionary tables");
 			// Drop the table of the old dictionary.
 			executeStatement("DROP TABLE IF EXISTS __" + this.name + "_Taste_BeingBuilt");
 			// Create the table to store the dictionary in.
@@ -300,7 +287,7 @@ public abstract class RecommendDBConverter {
 			} else {
 				q.executeUpdate();
 			}
-			System.out.println("Done in " + (System.currentTimeMillis() - startTime) + "ms");
+			//System.out.println("Done in " + (System.currentTimeMillis() - startTime) + "ms");
 			return retVal;
 		} catch(SQLException ex){
 			if(printStackTrace){
@@ -325,12 +312,9 @@ public abstract class RecommendDBConverter {
 	 */
 	protected boolean checkAvailabilityOfRecommendations(){
 		try {
-			System.out.println("Trying statement:");
-			executeStatement("SELECT 1 FROM __" + this.name + "_Taste WHERE 1 LIMIT 1;", "ignore", true);// TODO REPLACE BACK TO FALSE
-			System.out.println("Passed the test");
+			String s = executeStatement("SELECT 1 FROM __" + this.name + "_Taste WHERE 1 LIMIT 1;", "ignore", false);
 			return true;
 		} catch (SQLException e){
-			System.out.println("Failed the test");
 			return false;
 		}
 	}

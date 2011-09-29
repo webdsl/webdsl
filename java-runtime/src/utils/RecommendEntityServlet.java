@@ -1,8 +1,11 @@
 package utils;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.sql.Connection;
+import javax.sql.DataSource;
 
 import org.apache.mahout.cf.taste.common.Refreshable;
 import org.apache.mahout.cf.taste.common.TasteException;
@@ -30,6 +33,7 @@ import org.apache.mahout.cf.taste.recommender.RecommendedItem;
 import org.apache.mahout.cf.taste.recommender.Recommender;
 import org.apache.mahout.cf.taste.similarity.ItemSimilarity;
 import org.apache.mahout.cf.taste.similarity.UserSimilarity;
+import org.apache.mahout.cf.taste.common.NoSuchUserException;
 
 import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 
@@ -74,7 +78,7 @@ import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
  * @author Siem Kok
  * @see RecommendDBConverter
  */
-public class RecommendEntityServlet extends RecommendDBConverter {
+public class RecommendEntityServlet extends RecommendDBConverter implements DataSource {
 	
 	private static final String A_EUCLIDEAN 	= "euclidean";
 	private static final String A_PEARSON 		= "pearson";
@@ -91,6 +95,8 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 	private final String type;
     private Recommender userRecommenderCache;
     private Recommender itemRecommenderCache;
+    private int timeout;
+    private PrintWriter pw;
 	
     /**
      * Generate a new instance of the recommend entity servlet, this stores the
@@ -112,6 +118,8 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 		this.type = type.length() == 0 ? null : type;
 		this.userRecommenderCache = null;
 		this.itemRecommenderCache = null;
+        this.timeout = 30;
+        this.pw = new PrintWriter(System.out, true);
 	}
 	
 	/**
@@ -120,15 +128,103 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 	 * @return The Mahoud JDBC Data Model instance
 	 */
 	private MySQLJDBCDataModel getMahoutDatabaseModel(){
-		// Get the configuration from Hibernates internal Properties system:
-		Properties p = org.hibernate.cfg.Environment.getProperties();
-		
-		MysqlDataSource dataSource = new MysqlDataSource();
-		dataSource.setUrl((String)p.get(org.hibernate.cfg.Environment.URL));
-		dataSource.setUser((String)p.get(org.hibernate.cfg.Environment.USER));
-		dataSource.setPassword((String)p.get(org.hibernate.cfg.Environment.PASS));
-		return new MySQLJDBCDataModel(dataSource, "__"+this.name+"_Taste", "user_id", "item_id", "preference", null);
+        /*
+         * Give Mahout this instance as the data source, Mahout will be able
+         * to call the getConnection method to obtain the database jdbc connection
+         * with the database that Hibernate is connected to. This has been implemented
+         * like this so the H2 database could also be integrated. However, the function
+         * used to obtain the datasource (Session.connection() of Hibernate is set to
+         * deprecate in version 4. However, from what I read in their internal docs
+         * they are still not convinced to remove it completely, because a lot of 
+         * customers need this function for their products. 
+         * Look at rev: 4809 for the version that used the properties of Hibernat
+         * to set-up the database connection if you need to replace this later on.
+         * ~ Siem
+         */
+        return new MySQLJDBCDataModel(this, "__"+this.name+"_Taste", "user_id", "item_id", "preference", null);
 	}
+
+    /**
+     * The getConnection function makes sure that Mahout is able to access the
+     * same data source as Hibernate, without requiring the configuration to be read.
+     * @return The Connection instance for Mahout to connect to.
+     */
+    public Connection getConnection() {
+        try {
+            return getCurrentHibernateSession().connection();
+        } catch(Exception e){
+            return null;
+        }
+    }
+
+    /**
+     * The getConnection function makes sure that Mahout is able to access the
+     * same data source as Hibernate, without requiring the configuration to be read.
+     * @param username The username to connect to the database, is not used.
+     * @param password The password to connect to the database, is not used.
+     * @return The Connection instance for Mahout to connect to.
+     */
+    public Connection getConnection(String username, String password) {
+        try {
+            return getCurrentHibernateSession().connection();
+        } catch(Exception e){
+            return null;
+        }
+    }
+
+    /**
+     * Get the login time-out configuration that is set at this moment.
+     * @return The login time-out in seconds (default is 30).
+     */
+    public int getLoginTimeout(){
+        return this.timeout;
+    }
+
+    /**
+     * Get the log writer that is set for the connection to write its
+     * log output to.
+     * @return The PrintWriter instance.
+     */
+    public PrintWriter getLogWriter(){
+        return this.pw;
+    }
+
+    /**
+     * Set the login time-out value, default is 30 seconds.
+     * @param seconds The time-out value to set it to.
+     */
+    public void setLoginTimeout(int seconds){
+        this.timeout = seconds;
+    }
+
+    /**
+     * Set the log writer for the connection to output its
+     * log records to.
+     * @param out The new PrintWriter instance to use.
+     */
+    public void setLogWriter(PrintWriter out){
+        this.pw = out;
+    }
+
+    /**
+     * For the DataSource implementation it is required that
+     * you can refer to this function, the implementation forwards
+     * the wrapper request to the connection.
+     * @param iface The iface to check if we can wrap it or not
+     * @return true if we are a wrapper for this class.
+     */
+    public boolean isWrapperFor(Class<?> iface) throws java.sql.SQLException {
+        return this.getConnection().isWrapperFor(iface);
+    }
+
+    /**
+     * Unwrap the given class instance accordingly
+     * @param iface The iface to unwrap
+     * @return The unwrapped instance of this class.
+     */
+    public <T> T unwrap(Class<T> iface) throws java.sql.SQLException {
+        return this.getConnection().unwrap(iface);
+    }
 	
 	/**
 	 * Give the recommendations based on the supplied User instance.
@@ -158,8 +254,11 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			List<RecommendedItem> recommendations = aType == RecFieldType.USER ? this.userRecommenderCache.recommend(id, howMany) : this.itemRecommenderCache.recommend(id, howMany);
 			
 			this.lastExecutionTime = System.currentTimeMillis() - startTime;
-			System.out.println("Obtaining the list of recommendations took: " + this.lastExecutionTime);
+			//System.out.println("Obtaining the list of recommendations took: " + this.lastExecutionTime);
 			return getObjectsOfIDList(recommendations, RecFieldType.ITEM);
+        } catch(NoSuchUserException nse){
+            /* Recommendations cannot be given because the user is unknown */
+			return new ArrayList<Object>();
 		} catch (Exception e){
 			System.err.println("Error, catched an exception while obtaining the recommendations! " + e);
 			e.printStackTrace();
