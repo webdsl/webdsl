@@ -36,8 +36,8 @@ rules //desugar entity validation
         ; props3 := <try(desugar-entity-validation(|rest))> props2
           
   desugar-entity-validation-helper(|varnames,echeck,emessage):
-    Property(name,kind,type,anno) -> //properties are normalized due to innermost
-    Property(name,kind,type,[ValidateAnno(echeck,emessage)|anno])
+    Property(name,kind,type,anno){anno*} -> //properties are normalized due to innermost
+    Property(name,kind,type,[ValidateAnno(echeck,emessage)|anno]){anno*}
     where <fetch(?name)> varnames
  
 rules //declare and generate validate property functions 
@@ -122,8 +122,8 @@ rules //declare and generate validate property functions
 
   //for each property generate a validate function
   get-function-prop-validate-annotation(|x_class) :  
-    prop@Property(x, k, srt, annos) -> 
-    (Property(x, k, srt, [PropertyValidateFunctionGenerated()|annos])
+     Property(x, k, srt, annos){anno*} -> 
+    (Property(x, k, srt, [PropertyValidateFunctionGenerated()|annos]){anno*}
     ,result)
     where not-translated-prop-validate-anno
     with  x_name := <get-internal-validate-func-name(|x)>
@@ -132,7 +132,7 @@ rules //declare and generate validate property functions
             fun* |[ 
               function x_name() : ValidationExceptionMultiple { 
                 var v := ValidationExceptionMultiple{};
-                x_name1(v);
+                this.x_name1(v);
                 return v;
               } 
               function x_name1(v:ValidationExceptionMultiple){ } 
@@ -140,14 +140,15 @@ rules //declare and generate validate property functions
   
   //for each validation extend the property validate function       
   get-function-validate-annotation(|x_class) :  
-    (prop@Property(x, k, srt, annos1),funcs1) ->
-    (Property(x, k, srt, annos2),funcs3)
+    (Property(x, k, srt, annos1){anno*},funcs1) ->
+    (Property(x, k, srt, annos2){anno*},funcs3)
     with  tuples := <map(get-function-validate-annotation-helper(|x) <+ !(<id>,[]) )> annos1
         ; (annos2,funcs2) := <unzip> tuples
         ; funcs3 := <flatten-list> [funcs1,funcs2]
     
   get-function-validate-annotation-helper(|x) :
-    v@ValidateAnno(e_check,e_message){anno*} -> (ValidateAnno(e_check,e_message){anno1*},result)
+     ValidateAnno(e_check,e_message){anno*} -> 
+    (ValidateAnno(e_check,e_message){anno1*},result)
     where not-translated-validate-anno
     with  anno1* := [ValidateAnnotationFunctionGenerated()|anno*]
         ; x_name := <get-internal-validate-func-name-int(|x)>
@@ -271,7 +272,7 @@ rules //declare and generate one validateSave() function per entity, which check
     
   rules 
     property-to-validate-save-function-stmt :
-      x -> stat|[ x_name(v); ]|
+      x -> stat|[ this.x_name(v); ]|
       where not(<None> x)
       with x_name := <get-internal-validate-func-name-int(|x)> 
        

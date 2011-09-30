@@ -1,21 +1,31 @@
 package org.webdsl.search;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.hibernate.search.query.facet.Facet;
 
+import com.browseengine.bobo.api.BrowseFacet;
+
 public class WebDSLFacet {
 	
-	private int count;
-	private String fieldName;
-	private String value;
+	public int count;
+	public String fieldName;
+	public String value;
+	protected boolean isSelected;
 	
 	public WebDSLFacet(){};
 	
-	public WebDSLFacet(String fieldAndValue){
-		String[] ar = fieldAndValue.split("-", 2);
-		this.fieldName = ar[0];
-		this.value = ar[1];
+	public WebDSLFacet(String field, String value){
+		this.fieldName = field;
+		this.value = value;
+	}
+	
+	public WebDSLFacet(BrowseFacet bf, String field){
+		this.fieldName = field;
+		this.value = bf.getValue();
+		this.count = bf.getFacetValueHitCount();
 	}
 	
 	public WebDSLFacet(Facet f){
@@ -35,30 +45,35 @@ public class WebDSLFacet {
 	public String getValue() {
 		return this.value;
 	}
-	
-	public String encodeAsString(){
-		return fieldName + "|" + encode(value) + "|" + count;
+		
+	public Map<String,String> toParamMap(){
+		
+		Map<String,String> paramMap = new HashMap<String, String>();
+		paramMap.put("fn", fieldName);
+		paramMap.put("v", value);
+		paramMap.put("cnt", String.valueOf(count));
+		return paramMap;
 	}
 	
-	public WebDSLFacet decodeFromString(String webDSLFacetAsString){
+	public WebDSLFacet fromParamMap(Map<String,String> paramMap){
 		try{
-			String[] props = webDSLFacetAsString.split("\\|");
-			this.fieldName = props[0];
-			this.value = decode(props[1]);
-			this.count = Integer.parseInt(props[2]);
+			String key, value;
+			for (Map.Entry<String, String> e : paramMap.entrySet()) {
+				key = e.getKey();
+				value = e.getValue();
+				if ("fn".equals(key)) {
+					this.fieldName = value;
+				} else if ("v".equals(key)) {
+					this.value = value;
+				} else if ("cnt".equals(key)) {
+					this.count = Integer.parseInt(value);
+				}
+			}
 		} catch (Exception ex){
-			return new WebDSLFacet("Illegal facet-Illegal facet");
+			return new WebDSLFacet("Illegal facet", "Illegal facet");
 		}
 		
 		return this;
-	}	
-	
-	private String encode(String str){
-		return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\|", "\\\\p").replaceAll(",", "\\\\c").replaceAll(":", "\\\\a");
-	}
-	
-	private String decode(String str){
-		return str.replaceAll("\\\\a", ":").replaceAll("\\\\c",",").replaceAll("\\\\p", "|").replaceAll("\\\\\\\\ ", "\\\\");
 	}
 	
 	// in case this is a facet on dates, get the value as date
@@ -78,5 +93,20 @@ public class WebDSLFacet {
 	}
 	public Integer getValueAsInt(){
 		return Integer.parseInt(value);
+	}
+	public boolean isSelected(){
+		return isSelected;
+	}
+	/*
+	 * Compares to other WebDSLFacet object based on facet field and value  
+	 *
+	 */
+	@Override 
+	public boolean equals(Object other){
+		return ( (other instanceof WebDSLFacet) 
+				&& this.fieldName.equals( ( (WebDSLFacet)other ).fieldName)
+				&& this.value.equals( ( (WebDSLFacet)other ).value)
+			   );
+		
 	}
 }

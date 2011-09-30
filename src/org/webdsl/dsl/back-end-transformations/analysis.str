@@ -10,7 +10,11 @@ rules      // analyze-elem
   // with the section to avoid complete traversal of the tree
     analyze-elem: sec -> sec
     where Section(_,defs) := sec
-        ; <map(try(analyze-elem-global))> defs
+        ; <map(
+            try(
+                analyze-elem-global
+              ; fatal-err(|"ERROR: analyze-elem-global succeeded")
+          ))> defs
         
 rules	// analyze-elem for global elements
 
@@ -19,15 +23,17 @@ rules	// analyze-elem for global elements
     where class := <?Entity(<id>,_,body) <+ ?EntityNoSuper(<id>,body) <+ ?SessionEntity(<capitalize-string>,body)>
         ; rules (AllEntityNames :+= class)
         ; rules (EntityFromName : class -> ent)
-        ; <try(get-anno(?IndexedAnno(sf,_,_,spellcheckfields,autocompletefields))
+        ; <try(get-anno(?IndexedAnno(sf,_,_,spellcheckfields,autocompletefields,_,_))
            ; rules(IndexedEntities :+= class)
-           //; rules(ClassToSearchableFields : class -> sf)
            ; rules(ClassToSpellCheckFields : class -> spellcheckfields) 
            ; rules(ClassToAutoCompleteFields : class -> autocompletefields)
           )> ent
+        ; <try(get-anno(?SearchNamespaceAnno(_))
+          ; rules(SearchNamespaceEntities :+= class)          
+          )> ent
         ; rules (AllEntities :+= ent)
         ; fail
-  
+
   // test
   analyze-elem-global =
       ?Test(name,body); rules (AllTestNames :+= name)
@@ -53,11 +59,11 @@ rules	// analyze-elem for global elements
       
   // full text analyzers
   analyze-elem-global :
-  	s@FullTextAnalyzer(None(), name, body) -> s
+  	s@FullTextAnalyzer(None(), name, body) -> <fail>
   	with rules(FullTextAnalyzerFromName :+ name -> s)
 
   analyze-elem-global :
-  	s@FullTextAnalyzer(Some(kw), name, body) -> s
+  	s@FullTextAnalyzer(Some(kw), name, body) -> <fail>
   	with rules(FullTextAnalyzerFromName :+ kw -> FullTextAnalyzer(Some(kw), "default", body)
   			   FullTextAnalyzerFromName :+ name -> s)
 

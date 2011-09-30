@@ -24,22 +24,18 @@ import utils.ThreadLocalPage;
 
 public class SearchSuggester {
 
-	private static SearchFactory sf;
+	private static SearchFactory searchfactory;
 	private static HashMap<String, AutoCompleter> autoCompleterMap = new HashMap<String, AutoCompleter>();
 	private static HashMap<String, SpellChecker> spellCheckMap = new HashMap<String, SpellChecker>();
-	static {
-		sf = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession())
-				.getSearchFactory();
-	}
 
-	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, List<String> fields,
-			int maxSuggestionsPerFieldCount, float accuracy, String toSuggestOn) {
+	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, Integer namespaceIndex, List<String> fields,
+			int maxSuggestionsPerFieldCount, float accuracy, boolean morePopular, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
-			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, suggestedField,
-					maxSuggestionsPerFieldCount, accuracy, true, toSuggestOn);
+			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, namespaceIndex, suggestedField,
+					maxSuggestionsPerFieldCount, accuracy, morePopular, toSuggestOn);
 			//If toSuggestOn is correctly spelled in one of the fields, don't return suggestions
 			if (fieldSuggestions.isEmpty()){
 				return new ArrayList<String>();				
@@ -51,10 +47,10 @@ public class SearchSuggester {
 	}
 
 	@SuppressWarnings("deprecation")
-	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir,
+	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir, Integer namespaceIndex,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
 			String toSuggestOn) {
-		
+
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
 
@@ -68,25 +64,23 @@ public class SearchSuggester {
 
 			spellChecker.setAccuracy(accuracy);
 
-			Analyzer analyzer = sf.getAnalyzer(entityClass);
+			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
 					.addAttribute(CharTermAttribute.class);
 
 			ArrayList<String[]> allSuggestions = new ArrayList<String[]>();
-
 			String word;
 			String[] suggestions;
 			while (tokenStream.incrementToken()) {
 				word = ta.term();
 				suggestions = null;
-				if (spellChecker.exist(word)) {/* do nothing */
-				} else if (!morePopular) {
+				if (!morePopular) {
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount);
 				} else {
 					if (fieldIR == null)
-						fieldIR = getIndexReader(entityClass);
+						fieldIR = getIndexReader(entityClass, namespaceIndex);
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount, fieldIR,
 							suggestedField, true);
 				}
@@ -115,13 +109,18 @@ public class SearchSuggester {
 			}
 			spellCheckMap.remove(indexPath);
 		}
-
+		finally {
+			searchfactory.getReaderProvider().closeReader(fieldIR);
+		}
 		return new ArrayList<String>();
 	}
 
-	private static IndexReader getIndexReader(Class<?> entityClass) {
-		ReaderProvider readerProvider = sf.getReaderProvider();
-		return readerProvider.openReader(sf.getDirectoryProviders(entityClass));
+	private static IndexReader getIndexReader(Class<?> entityClass, Integer dirProviderIndex) {
+		ReaderProvider readerProvider = searchfactory.getReaderProvider();
+		if(dirProviderIndex != null)
+			return readerProvider.openReader(searchfactory.getDirectoryProviders(entityClass)[dirProviderIndex]);
+		//else
+		return readerProvider.openReader(searchfactory.getDirectoryProviders(entityClass));
 	}
 
 	public static ArrayList<String> findAutoCompletions(Class<?> entityClass, String baseDir, List<String> fields,
@@ -149,7 +148,7 @@ public class SearchSuggester {
 		String indexPath = baseDir + suggestedField;
 		try {
 			autoCompleter = getAutoCompleter(indexPath);
-			Analyzer analyzer = sf.getAnalyzer(entityClass);
+			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -250,15 +249,23 @@ public class SearchSuggester {
 		return new ArrayList<String>(suggestionsSet);
 	}
 	
+	//Get the reusable AutoCompleter instance for a specific index path, also initialized search factory if not present
 	private static synchronized AutoCompleter getAutoCompleter(String indexPath) throws IOException{
-
+		if(searchfactory == null) {
+			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+		}
+		
 		if (!autoCompleterMap.containsKey(indexPath)){
+			//autoCompleterMap.put(indexPath, new AutoCompleter(new RAMDirectory(FSDirectory.open(new File(indexPath)))));
 			autoCompleterMap.put(indexPath, new AutoCompleter(FSDirectory.open(new File(indexPath))));
 		}
 	    return autoCompleterMap.get(indexPath);
 	}
 	
-	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{
+	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{		
+		if(searchfactory == null){
+			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+		}
 
 		if (!spellCheckMap.containsKey(indexPath)){
 			spellCheckMap.put(indexPath, new SpellChecker(FSDirectory.open(new File(indexPath))));

@@ -201,19 +201,22 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
   );
 }
 
+var __requestcount = 0;
+
 function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
-  req.open("POST", template , true);
+  req.open("POST", template, true); //chosen for always asynchronous (true), even for testing, to have tested system as close to real thing as possible, also synchronous/false doesn't seem to work with WebDriver currently. The downside is that tests with ajax calls need sleeps to wait for the response. 
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
   req.setRequestHeader("charset", "UTF-8");  
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
   
-  req.onreadystatechange = callback;
+  req.onreadystatechange = function(){ __requestcount--; return callback; }();
   
   data = createData(action,jsonparams,thisform,thisobject);
   
+  __requestcount++;
   req.send(data);
 }
 
@@ -471,3 +474,12 @@ var Utf8 = {
     return string;
   }
 };
+
+//avoid too many request while typing in a field with onkeyup trigger
+var onkeyupdelay = function(){
+    var timer = 0; //scoped inside this function block, triggering onkeyup again before timeout resets the timer for that particular action
+    return function(callback){
+        clearTimeout(timer);
+        timer = setTimeout(callback, 250);
+    }  
+}();

@@ -1,0 +1,59 @@
+module org/webdsl/dsl/languages/action/function-exp
+
+rules
+
+  rename-action :
+    FunctionExp(farg1*, srt, block1){anno1*} -> FunctionExp(farg2*,srt, block2){anno2*}
+    with {| Rename, InDef, VarInTemplateContext
+          : rules ( InDef := True() )
+          ; anno2* := <put-closure-in-anno> anno1*
+          ; farg2* := <map(rename)> farg1*
+          ; <declare-args-in-context> farg2*
+          ; block2 := <rename-all> block1
+          |}
+    
+rules
+
+  desugar-action = desugar-function-exp
+  
+  desugar-function-exp :
+    FunctionExp(fargs1, srt, block){anno*} -> funref
+    with  $fun := <toplevel-rename> "functionExp"
+    with  (extraArgs,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,block) 
+        ; farg_combined* :=  <concat>[fargs1,/*<map(\ Arg(x,srt) -> Arg(x,RefSort(srt)) where not(<is-ref-type> srt) \)>*/ fargs2]  //closure vars are immutable currently (because non-ref args are immutable), ref arg is only supported for template vars and entity properties atm
+        ; def := def|[
+            function $fun (farg_combined*) : srt block
+          ]|
+        ; <rename-this-var; emit-webdsl-code> def{anno*}
+        ; funref := FunctionRefCallPartial(FunctionRef($fun,<map(?Arg(_,<id>))>farg_combined*,srt),extraArgs)
+          
+rules
+
+  eq-type-of-action :
+    ThisCall(f, e2*) -> srt
+    where FunctionSort(_,srt) := <type-of> Var(f)
+        //; t := <check-signature> (te1, f, e2*) @TODO check signatures   
+
+  eq-type-of-action :
+    FunctionExp(fargs, return_t, block) -> FunctionSort(fargs,return_t)
+  eq-type-of-action :
+    FunctionRef(name,args_t,return_t) -> FunctionSort(<map(!UnnamedArg(<id>))>args_t,return_t)
+  eq-type-of-action :
+    FunctionRefCall(FunctionRef(_,_,return_t),_) -> return_t
+  eq-type-of-action :
+    FunctionRefCallPartial(FunctionRef(_,fargtypes,return_t),elist) -> FunctionSort(<map(!UnnamedArg(<id>))>fargs2,return_t)
+  //FunctionRefCallPartial(FunctionRef("f",[SimpleSort("Int")],SimpleSort("String")),[Var("a"{"functionexp_a0"})])
+    with len := <length> elist
+       ; fargs2 := <reverse; drop(|len); reverse> fargtypes
+            
+rules
+  
+  add-backend-annotation-function-var-call =
+    ?ThisCall(f, e2*){anno*}
+  ; where( type@FunctionSort(_,_) := <type-of> Var(f) )
+  ; !ThisCall(<add-new-anno(|TypeAnno(type))>f, e2*){anno*}
+              
+//rules @todo add support for precompilation in built-in.app
+  
+  //keep-position-anno = ?FunctionExp(_,_,_) 
+  

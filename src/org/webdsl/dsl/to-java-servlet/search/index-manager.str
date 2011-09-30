@@ -1,0 +1,447 @@
+module org/webdsl/dsl/to-java-servlet/search/index-manager
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/-
+
+strategies
+
+  generate-code-java-servlet-once =
+      bagof-IndexedEntities
+    ; string-sort-annos
+    ; cached-generate(generate-java-servlet-indexmanager | "internal_IndexManager")
+    ; fail
+
+
+  generate-java-servlet-indexmanager :
+    x_class* ->
+    <emit-java-code-local> compilation-unit|[
+      package utils;
+  
+  	  import java.util.ArrayList;
+      import java.util.List;
+      import java.io.File;
+      import java.io.IOException;
+      import org.apache.lucene.analysis.WhitespaceAnalyzer;
+      import org.apache.lucene.index.IndexWriterConfig;
+	  import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+	  import org.apache.lucene.index.IndexReader;
+	  import org.apache.lucene.index.IndexWriter;
+	  import org.apache.lucene.search.spell.SpellChecker;
+	  import org.apache.lucene.search.spell.Dictionary;
+	  import org.apache.lucene.search.spell.LuceneDictionary;
+	  import org.apache.lucene.store.FSDirectory;
+	  import org.apache.lucene.util.Version;
+  	  import org.hibernate.search.SearchFactory;
+	  import org.hibernate.search.reader.ReaderProvider;
+	  import org.hibernate.search.store.DirectoryProvider;
+	  import org.hibernate.search.store.FSDirectoryProvider;
+	  import org.webdsl.search.AutoCompleter;
+	  import org.webdsl.search.SearchSuggester;
+	  import org.webdsl.search.SearchNamespaceHelper;
+  
+      import utils.*;
+      import pkgname.*;
+      
+      import org.webdsl.lang.*;
+  
+      @SuppressWarnings("all")
+      public class IndexManager {
+      	
+      	protected static java.util.Properties props = new java.util.Properties();
+      	
+        public static void main(String[] args) {
+        	reindex();
+        	System.exit(0);
+        }
+        
+        private static void reindex() {
+          java.io.PrintWriter out = new java.io.PrintWriter(System.out);
+          ThreadLocalOut.push(out);
+          // @TODO Globals are not loaded yet
+          System.out.println("Starting reindexing of all searchable data...");
+          long time = System.currentTimeMillis();
+          
+          //Clear search namespace mapping (namespace to directory provider array index)
+          SearchNamespaceHelper.clearNamespaceMapping();
+          org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+		  
+		  bstm*
+		  
+		  indexSuggestions();		  
+			 			
+		  time = System.currentTimeMillis() - time;
+	      System.out.println("Reindexing finished in " + time + "ms total.");
+        }
+        
+        public static void renewFacetIndexReaders(){
+          bstm1*
+        }
+        
+        private static boolean reindexEntityClass(Class<?> c, org.hibernate.search.FullTextSession session){
+        	String entityName = c.getName().substring(c.getPackage().getName().length() + 1);
+        	System.out.println("---Reindexing: " + entityName + "...---");
+        	long time = System.currentTimeMillis();
+        	try {
+        		session.createIndexer(c)
+        		.progressMonitor(new org.webdsl.search.IndexProgressMonitor(2000, entityName))
+ 				.batchSizeToLoadObjects( 50 )
+				.threadsToLoadObjects( 3 )
+ 				.threadsForSubsequentFetching( 4 )
+ 				.startAndWait();
+ 				
+ 			}
+ 			catch(java.lang.InterruptedException ex){
+ 				ex.printStackTrace();
+ 				return false;
+ 			}
+ 			time = System.currentTimeMillis() - time;
+ 			System.out.println("---Done in " + time + "ms.---");
+ 			return true;
+        }
+        public static void indexSuggestions(){
+        	bstm2*
+        }
+        
+        private static synchronized void createOrUpdateSpellIndex(Class<?> indexedClass, String[] searchFields){
+        	createOrUpdateSpellIndex(indexedClass,searchFields, "");
+        }
+        
+        //If namespace is null or empty, the whole spellcheck index (union of and seperate namespaces) for the given entity (indexedClass) will be created/updated,
+		//otherwise the spellcheck index is only created/updated for the given namespace and union of all namespaces 
+        private static synchronized void createOrUpdateSpellIndex(Class<?> indexedClass, String[] searchFields, String namespace){
+		    
+		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+		    SearchFactory searchFactory = session.getSearchFactory();			
+		 
+		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
+		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
+		    
+		    String indexName = indexName(indexedClass);
+		    List<String> namespaces;
+		    if(namespace == null || namespace.isEmpty()){
+		    	namespaces = SearchNamespaceHelper.allNamespaces(indexName);
+		    } else {
+		    	namespaces = new ArrayList<String>();
+		    	namespaces.add(namespace);
+		    }
+		    IndexReader reader;
+		    
+    		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
+    		System.out.println(new java.util.Date() + ": Creating/updating spell check index for entity: " + entityName + " (" + namespaces.size() + " namespaces)");
+
+    		String currentNamespace = "";
+    		//Iterate over all namespaces, or in case of no namespaces, do it once
+    		for(int n=-1; n<namespaces.size(); n++){
+    			if(n == -1) {
+    				currentNamespace = "";
+    				reader = readerProvider.openReader(directoryProviders);    				
+    			}
+    			else {
+    				currentNamespace = namespaces.get(n);
+    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
+    				reader = readerProvider.openReader(directoryProviders[providerIndex]);
+    			}
+	    		try{
+			        for(int c=0;c<searchFields.length;c++){
+			        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
+			        	SpellChecker sp = null;
+			        	try {
+				        	FSDirectoryProvider dir = new FSDirectoryProvider();
+				        	String path = indexDirSpellCheck(indexedClass, searchFields[c], currentNamespace);
+			        		File filePath = new File( path );	        		
+				        	sp = new SpellChecker(dir.getDirectory().open( filePath ));		        	
+					        Dictionary dictionary = new LuceneDictionary(reader, searchFields[c]);
+					        sp.indexDictionary(dictionary);
+					        SearchSuggester.forceSpellCheckerRenewal( path );
+						} catch (IOException ex) {
+				        	ex.printStackTrace();
+				        	System.out.println("Failed to create spellcheck index for " + entityName + ", field: " + searchFields[c] + ", namespace: " + currentNamespace);		        
+					    } finally {
+					    	if(sp!=null){
+					    		try {
+									sp.close();
+								} catch (IOException ex) {
+									ex.printStackTrace();
+								}
+					    	}			    	
+					    }
+				    }
+			    } finally{
+			    	if (reader != null)
+						searchFactory.getReaderProvider().closeReader(reader);
+			    }
+			}
+		    System.out.println(new java.util.Date() + ": Done with spellcheck index for (" + entityName + ")");
+		}
+		private static synchronized void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields){
+			createOrUpdateAutoCompleteIndex(indexedClass, searchFields, "");
+		}
+		
+		//If namespace is null or empty, the whole autocompletion index (union of and seperate namespaces) for the given entity (indexedClass) will be recreated,
+		//otherwise the autocompletion index is only (re)created for the given namespace and union of all namespaces (because of changes in term frequencies)  
+        private static synchronized void createOrUpdateAutoCompleteIndex(Class<?> indexedClass, String[] searchFields, String namespace){
+		    		    
+		    org.hibernate.search.FullTextSession session = org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+		    SearchFactory searchFactory = session.getSearchFactory();	
+		 
+		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders(indexedClass);		 
+		    ReaderProvider readerProvider = searchFactory.getReaderProvider();
+		    
+		    String indexName = indexName(indexedClass);
+		    List<String> namespaces;
+		    if(namespace == null || namespace.isEmpty()){
+		    	namespaces = SearchNamespaceHelper.allNamespaces(indexName);
+		    } else {
+		    	namespaces = new ArrayList<String>();
+		    	namespaces.add(namespace);
+		    }
+		    	
+		    IndexReader reader;
+		    
+    		String entityName = indexedClass.getName().substring(indexedClass.getPackage().getName().length() + 1);
+    		System.out.println(new java.util.Date() + ": Creating/updating autocomplete index for entity: " + entityName + " (" + namespaces.size() + " namespaces)");
+    		
+    		String currentNamespace = "";
+    		//Iterate over all namespaces, or in case of no namespaces, do it once
+    		for(int n=-1; n<namespaces.size(); n++){
+    			if(n == -1) {
+    				currentNamespace = "";
+    				reader = readerProvider.openReader(directoryProviders);    				
+    			}
+    			else {
+    				currentNamespace = namespaces.get(n);
+    				int providerIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName, currentNamespace, false);
+    				reader = readerProvider.openReader(directoryProviders[providerIndex]);
+    			}
+	    		try{
+			        for(int c=0;c<searchFields.length;c++){
+			        	//System.out.println(new java.util.Date() + ": Spellcheck update: " + entityName + "." + searchFields[c]);
+			        	AutoCompleter ac = null;
+			        	try {
+				        	FSDirectoryProvider dir = new FSDirectoryProvider();
+				        	String path = indexDirAutoComplete(indexedClass, searchFields[c], currentNamespace);
+			        		File filePath = new File( path );	        		
+				        	ac = new AutoCompleter(dir.getDirectory().open( filePath ));
+					        ac.indexDictionary(reader, searchFields[c]);
+					        SearchSuggester.forceAutoCompleterRenewal( path );
+						} catch (IOException ex) {
+				        	ex.printStackTrace();
+				        	System.out.println("Failed to create autocomplete index for " + entityName + ", field: " + searchFields[c] + ", namespace: " + currentNamespace);		        
+					    } finally {
+					    	if(ac!=null){
+					    		try {
+									ac.close();
+								} catch (IOException ex) {
+									ex.printStackTrace();
+								}
+					    	}			    	
+					    }
+				    }
+			    } finally{
+			    	if (reader != null)
+						searchFactory.getReaderProvider().closeReader(reader);
+			    }
+		    
+		    
+		    }
+		    System.out.println(new java.util.Date() + ": Done with autocomplete index for (" + entityName + ")");
+		}
+		
+		private static boolean clearIndex(File path){
+		  try {
+		  	  if(path == null || !path.exists())
+		  	  	return true; //if path doesnt exist, then there is nothing to clear
+		  	  	
+		  	  FSDirectory indexDir = new FSDirectoryProvider().getDirectory();
+			  IndexWriter writer = new IndexWriter(indexDir.open(path),
+			            new IndexWriterConfig(Version.LUCENE_CURRENT,
+			                new WhitespaceAnalyzer(Version.LUCENE_CURRENT)));		  
+			  writer.deleteAll();
+			  writer.close();
+			  return true;
+		  } catch (Exception ex) {
+			ex.printStackTrace();
+			return false;
+		  }		
+	  
+		}
+		
+		public static void clearAutoCompleteIndex(String entity){
+			bstm3*
+		}
+		
+		public static void clearSpellCheckIndex(String entity){
+			bstm4*
+		}		
+		
+		public static void clearAutoCompleteIndex(String entity, String[] fields){
+			Class<?> entityClass = null;
+			bstm5*
+			if(entityClass == null)
+				return;			
+			
+			for (int c = 0; c < fields.length; c++){
+				System.out.println(new java.util.Date() + ": Clearing autocomplete index for entity: " + entity + ", field: " + fields[c]);
+				File path = new File( indexDirAutoComplete(entityClass, fields[c]) );
+				if (clearIndex(path))
+					System.out.println(new java.util.Date() + ": Clearing autocomplete index successful");
+				else
+					System.out.println(new java.util.Date() + ": Clearing autocomplete index unsuccessful");
+			}
+		}
+		
+		public static void clearSpellCheckIndex(String entity, String[] fields){
+			Class<?> entityClass = null;
+			bstm6*
+			if(entityClass == null)
+				return;
+			
+			for (int c = 0; c < fields.length; c++){
+				System.out.println(new java.util.Date() + ": Clearing spellcheck index for entity: " + entity + ", field: " + fields[c]);
+				File path = new File( indexDirSpellCheck(entityClass, fields[c]) );
+				if (clearIndex(path))
+					System.out.println(new java.util.Date() + ": Clearing spellcheck index successful");
+				else
+					System.out.println(new java.util.Date() + ": Clearing spellcheck index unsuccessful");
+			}
+		}
+		
+
+        public static void optimizeIndex(){
+        	System.out.println(new java.util.Date() + ": Optimizing search index started.");
+        	org.hibernate.search.Search.getFullTextSession(HibernateUtilConfigured.getSessionFactory().getCurrentSession()).getSearchFactory().optimize();
+        	System.out.println(new java.util.Date() + ": Optimizing search index finished succesfully.");
+        }
+        
+        public static String indexDir(){
+        	return e_indexdir;
+        }
+        
+        public static String indexDirSpellCheck(Class<?> entityClass, String field){
+        	return indexDir() + "/SpellCheck/" + entityClass.getName() + "/" + field;
+        }
+        
+        public static String indexDirSpellCheck(Class<?> entityClass, String field, String namespace){
+        	if(namespace.isEmpty())
+        		return indexDirSpellCheck(entityClass, field);
+        	        		
+        	return indexDir() + "/SpellCheck/" + entityClass.getName() + "." + namespace + "/" + field;        	
+        }
+        
+        public static String indexDirAutoComplete(Class<?> entityClass, String field){
+        	return indexDir() + "/AutoComplete/" + entityClass.getName() + "/" + field;
+        }
+        
+        public static String indexDirAutoComplete(Class<?> entityClass, String field, String namespace){
+        	if(namespace.isEmpty())
+        		return indexDirAutoComplete(entityClass, field);
+        		        		
+			return indexDir() + "/AutoComplete/" + entityClass.getName() + "." + namespace + "/" + field;
+        }
+        
+        public static String indexName(Class<?> entityClass) {
+        	bstm7*
+        	return null;
+        }
+
+      }
+    ]|
+    with pkgname := <DomainPackage>
+	    ; x_class_set := <make-set> x_class*
+	    ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session);]|\)> x_class_set
+	    ; bstm1* := <map(class-to-renew-facet-readers)> x_class_set
+	    ; bstm2* := <map(class-to-index-suggestions); flatten-list> x_class_set
+	    ; bstm3* := <map(class-to-clear-autocomplete-index)> x_class_set
+	    ; bstm4* := <map(class-to-clear-spellcheck-index)> x_class_set
+	    ; bstm5* := <map(class-to-get-class-from-name-ac)> x_class_set
+	    ; bstm6* := <map(class-to-get-class-from-name-sc)> x_class_set
+	    ; bstm7* := <map(class-to-index-name)> x_class_set
+	    ; indexdir := <concat-strings>[<IndexDir>,"/",<AppName>]
+	    ; e_indexdir := expr|[ "~indexdir" ]|
+
+  class-to-renew-facet-readers:
+  	x_name -> java|[ x_searcher.renewBoboReaders();]|
+  	with
+  		x_searcher := <concat-strings>[x_name,"Searcher"]
+
+  class-to-index-suggestions:
+	x_name -> [result1,result2]
+	with scfields := <ClassToSpellCheckFields> x_name
+		; e_spellcheckfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> scfields
+		; if (<?[]>e_spellcheckfield*) 
+		  then result1 := []
+		  else result1 := java |[ createOrUpdateSpellIndex(x_name.class, new String[]{ e_spellcheckfield* });]|
+		  end
+		; acfields := <ClassToAutoCompleteFields> x_name	    
+	    ; e_autocompletefield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> acfields
+		; if (<?[]>e_autocompletefield*) 
+		  then result2 := []
+	      else result2 := java |[ createOrUpdateAutoCompleteIndex(x_name.class, new String[]{ e_autocompletefield* });]|
+	      end
+  
+  class-to-clear-autocomplete-index:
+    x_name -> result
+    with acfields := <ClassToAutoCompleteFields> x_name	    
+	    ; e_autocompletefield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> acfields
+    	; if (<?[]>e_autocompletefield*) 
+		  then result := []
+		  else result := java |[ if (entity == "~x_name"){clearAutoCompleteIndex(entity, new String[]{ e_autocompletefield* }); } ]|
+    	  end
+    	  
+  class-to-clear-spellcheck-index:
+    x_name -> result
+    with scfields := <ClassToSpellCheckFields> x_name	    
+	    ; e_spellcheckfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> scfields
+    	; if (<?[]>e_spellcheckfield*) 
+		  then result := []
+		  else result := java |[ if (entity == "~x_name"){clearSpellCheckIndex(entity, new String[]{ e_spellcheckfield* }); } ]|
+    	  end
+  
+  class-to-get-class-from-name-ac:
+  	x_name -> result
+  	with acfields := <ClassToAutoCompleteFields> x_name
+    	; if (<?[]> acfields) 
+		  then result := []
+		  else result := java |[ if (entity == "~x_name"){entityClass = x_name.class;} ]|
+    	  end
+    	  
+  class-to-get-class-from-name-sc:
+  	x_name -> result
+  	with scfields := <ClassToSpellCheckFields> x_name
+    	; if (<?[]> scfields) 
+		  then result := []
+		  else result := java |[ if (entity == "~x_name"){entityClass = x_name.class;} ]|
+    	  end
+		
+  class-to-index-name:
+  	x_name -> result
+  	where
+  	 x_indexname := <get-index-name> x_name
+  	 ; result := java |[ if (x_name.class.equals(entityClass)){return "~x_indexname";} ]|
+  	   
+  get-index-name:
+  	x_name -> indexName
+  	where indexName := <is-string; EntityFromName; get-index-name> x_name
+  	
+  	 
+  get-index-name:
+  	Entity(name, super, _) -> indexName
+  	where
+  	indexed_entities := <bagof-IndexedEntities>
+  	; if (<fetch(?super)> indexed_entities)
+  	  then indexName := <EntityFromName; get-index-name> super
+  	  else indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]
+  	  end
+  
+  get-index-name:
+  	EntityNoSuper(name, _) -> indexName
+  	where
+  		indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]		
+  		
+  	

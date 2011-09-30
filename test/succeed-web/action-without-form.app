@@ -25,7 +25,7 @@ application test
   
   test one {
     
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
@@ -39,8 +39,6 @@ application test
     
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
     assert(!d.getPageSource().contains("new stuff"), "input shouldnt have been included in action data binding");
-    
-    d.close();
   }
   
 

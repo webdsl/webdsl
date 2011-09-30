@@ -2,11 +2,11 @@ module org/webdsl/dsl/languages/ui/for-loop
 
 rules
 
-  normalize-ui :
-    ForNoFilter(x, s, e, te*, sep){anno*} -> For(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep){anno*}
+  normalize-constructor :
+    ForNoFilter(x, s, e, te*, sep){anno*} -> For(x, s, e, None(), te*, sep){anno*}
 
-  normalize-ui :
-    ForAllNoFilter(x, s, te*, sep){anno*} -> ForAll(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), te*, sep){anno*}
+  normalize-constructor :
+    ForAllNoFilter(x, s, te*, sep){anno*} -> ForAll(x, s, None(), te*, sep){anno*}
 
 rules
 
@@ -25,19 +25,6 @@ rules
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
   rename-ui :
-    def@ForNoFilter(x, srt, e1, elems1, elems3){anno*} -> ForNoFilter(y, srt2, e2, elems2, elems4){newanno*}
-    with e2 := <rename-all> e1
-       ; {| Rename, VarInTemplateContext
-          : srt2   := <rename-all> srt
-          ; y      := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> def)
-          ; <declare-vars-in-context> y
-          ; elems2 := <rename-all> elems1
-          ; newanno* := <update-template-args-anno; rename-query-optimization-annos> anno*
-          |}
-       ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
-
-  rename-ui :
     def@ForAll(x, srt, f1, elems1, elems3){anno*} -> ForAll(y, srt2, f2, elems2, elems4){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2   := <rename-all> srt
@@ -45,18 +32,6 @@ rules
           ; rules(VarDecl : y -> def)
           ; <declare-vars-in-context> y
           ; f2     := <rename-all> f1
-          ; elems2 := <rename-all> elems1
-          ; newanno* := <update-template-args-anno; rename-query-optimization-annos> anno*
-          |}
-        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
-
-  rename-ui :
-    def@ForAllNoFilter(x, srt, elems1, elems3){anno*} -> ForAllNoFilter(y, srt2, elems2, elems4){newanno*}
-    with {| Rename, VarInTemplateContext
-          : srt2   := <rename-all> srt
-          ; y      := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> def)
-          ; <declare-vars-in-context> y
           ; elems2 := <rename-all> elems1
           ; newanno* := <update-template-args-anno; rename-query-optimization-annos> anno*
           |}
@@ -87,37 +62,19 @@ rules
     ; <is-cached-entity> x_class
 
   desugar-ui :
-    def@ForAllNoFilter(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
-    where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <fetch-elem(?QueryOptimizations([], [], querycondition, []))> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
-    ; <is-cached-entity> x_class
-
-  desugar-ui :
-    def@ForAll(x, srt, Filter(cond, _, _), body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
+    def@ForAll(x, srt, f, body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with <fetch-elem(?TemplateArgs(args))> anno*
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; <fetch-elem(?TemplateArgs(args))> anno*
     ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, cond)
 
   desugar-ui :
-    def@ForAllNoFilter(x, srt, body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins), anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, True())
-
-  desugar-ui :
-    def@For(x, srt, call{callanno*}, f1@Filter(cond, _, _), elems1, elems3){anno*} -> For(x, srt, call{queryopt, callanno*}, f1, elems1, elems3){anno*}
+    def@For(x, srt, call{callanno*}, f, elems1, elems3){anno*} -> For(x, srt, call{queryopt, callanno*}, f, elems1, elems3){anno*}
     where not(<fetch-elem(?QueryOptimizations(_, _, _, _, _, _))> callanno*)
     ; <is-function-call-with-query-optimization(|srt)> call
-    with <fetch-elem(?TemplateArgs(args))> anno*
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; <fetch-elem(?TemplateArgs(args))> anno*
     ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, cond)
-    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
-
-  desugar-ui :
-    def@ForNoFilter(x, srt, call{callanno*}, elems1, elems3){anno*} -> ForNoFilter(x, srt, call{queryopt, callanno*}, elems1, elems3){anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _, _, _))> callanno*)
-    ; <is-function-call-with-query-optimization(|srt)> call
-    with <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, True())
     ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
 
   is-function-call-with-query-optimization(|srt) =
@@ -138,7 +95,6 @@ rules
 rules // ForAll only declared entity types
   
   constraint-error-ui: ForAll(_, srt, _, _, _) -> <forall-constraint-error(|srt)>
-  constraint-error-ui: ForAllNoFilter(_, srt, _, _) -> <forall-constraint-error(|srt)>
 
   forall-constraint-error(|srt) :
     x -> <add-error(|["'for' without 'in' can only iterate over a defined entity type, incorrect type used: ", <pp-type> srt])>
@@ -147,7 +103,6 @@ rules // ForAll only declared entity types
 rules
 
   constraint-error-ui : For(_, srt, e, _, _, _)            -> <for-constraint-error(|srt, e)>
-  constraint-error-ui : ForNoFilter(_, srt, e, _, _)       -> <for-constraint-error(|srt, e)>
      
   for-constraint-error(|srt, e) :
     x -> <add-error(|[<pp-webdsl> e, " should be a collection of type ", <pp-type> srt])>

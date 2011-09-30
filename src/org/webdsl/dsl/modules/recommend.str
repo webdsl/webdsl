@@ -1,0 +1,107 @@
+module org/webdsl/dsl/modules/recommend
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+strategies
+  declare = declare-recommend
+  constraint-error = constraint-error-recommend
+  
+  declare-recommend:
+  	RecommendConfig(x_class,props) -> r
+  	where r@RecommendConfigStaticOrder(x_class, x_user, x_item, value, alg, neig, nsize, type, schedule) := <normalize-recommend>
+  		; srt := SimpleSort(x_class) //rules (RecomEnt : ident) 
+	  	; x_usertype := <TypeOfProperty>(x_class, x_user)
+	  	; x_itemtype := <TypeOfProperty>(x_class, x_item)
+	    ; return := GenericSort("List",[x_itemtype])
+	    ; x_howmany := SimpleSort("Int")
+	    ; <declare-function(|x_class)> StaticEntityFunction("getExecutionTime",[],ReturnType(SimpleSort("Long")),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("evaluateIRStats",[],ReturnType(SimpleSort("String")),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("reconstructRecommendationCache",[],ReturnType(SimpleSort("Void")),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("getUserRecommendations",[Arg("user",x_usertype)],ReturnType(return),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("getUserRecommendations",[Arg("user",x_usertype), Arg("howMany", x_howmany)],ReturnType(return),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("getItemRecommendations",[Arg("item",x_itemtype)],ReturnType(return),Block([]))
+	    ; <declare-function(|x_class)> StaticEntityFunction("getItemRecommendations",[Arg("item",x_itemtype), Arg("howMany", x_howmany)],ReturnType(return),Block([]))
+      
+      
+          
+  normalize-recommend:
+	RecommendConfig(x_idname,props) -> RecommendConfigStaticOrder(x_idname, user, item, value, alg, neig, nsize, type, schedule)
+	with  user  := <fetch-elem(?RecommendArgument("user",<id>))> props
+        ; item  := <fetch-elem(?RecommendArgument("item",<id>))> props
+        ; value := <fetch-elem(?RecommendArgument("value",<id>)) <+ !None()> props
+        ; alg   := <fetch-elem(?RecommendArgument("algorithm",<id>)) <+ !None()> props
+        ; neig  := <fetch-elem(?RecommendArgument("neighborhoodalg",<id>)) <+ !None()> props
+        ; nsize := <fetch-elem(?RecommendArgument("neighborhoodsize",<id>)) <+ !None()> props
+        ; type  := <fetch-elem(?RecommendArgument("type",<id>)) <+ !None()> props
+        ; schedule  := <fetch-elem(?RecommendArgument("schedule",<id>)) <+ !None()> props
+          
+  add-backend-annotation:
+  	r@RecommendConfigStaticOrder(x_class, x_user{}, x_item{}, value, alg, neig, nsize, type, schedule)     ->
+  	RecommendConfigStaticOrder(x_class, x_user{TypeAnno(x_usertype)}, x_item{TypeAnno(x_itemtype)}, value, alg, neig, nsize, type, schedule)
+  	with  x_usertype := <TypeOfProperty; ?SimpleSort(<id>)>(x_class, x_user)
+  		; x_itemtype := <TypeOfProperty; ?SimpleSort(<id>)>(x_class, x_item)
+  
+  constraint-error-recommend =
+  	?r@RecommendConfigStaticOrder(_, _, _, _, _, _, _, _, _)
+  	; try(<validate-usage-of-algorithm()>(r))
+  	; try(<validate-usage-of-neighborhood()>(r))
+  	; try(<validate-usage-of-type()>(r))
+  	; fail
+  
+  validate-usage-of-algorithm():
+  	r@RecommendConfigStaticOrder(class, _, _, value, alg, _, _, _, _) -> err
+  	where <valid-value-algorithms> alg
+  		  <+ <has-no-value> value 
+  		  	< (<valid-boolean-algorithms> alg <+ err := <add-boolean-error-msg()>(r))
+  		  	+ err := <add-preference-error-msg()>(r)
+  		; fail
+  		  
+  validate-usage-of-neighborhood():
+  	r@RecommendConfigStaticOrder(class, _, _, _, _, neighbor, _, _, _) -> err
+  	where <valid-neighborhood-algorithms> neighbor <+ err := <add-neighborhood-error-msg()>(r)
+  		; fail
+  		  
+  validate-usage-of-type():
+  	r@RecommendConfigStaticOrder(class, _, _, _, _, neighbor, _, type, _) -> err
+  	where <valid-recommend-type> type <+ err := <add-type-error-msg()>(r)
+  		; <has-no-value> neighbor <+ (<valid-neighborhood-type-combination> type <+ err := <add-type-combi-error-msg()>(r))
+  		; fail
+  		  
+// The error messages:
+  		  
+  
+  add-boolean-error-msg():
+  	r@RecommendConfigStaticOrder(class, _, _, _, alg, _, _, _, _) -> 
+  		<add-error(|["Recommendation Block '",class,"' does not use a boolean algoritm, either set the preference value or use a boolean algorithm instead. Please specify a correct Boolean Algorithm, current value: '",alg,"'"])>
+	  	  
+  add-preference-error-msg():
+  	r@RecommendConfigStaticOrder(class, _, _, _, alg, _, _, _, _) -> 
+  		<add-error(|["Recommendation Block '",class,"' does not use a correct boolean or preference algoritm, please correct the typo, correct values are [Euclidean, Pearson, Loglikelihood, Tanimoto], current value: '",alg,"'"])>
+	  	  
+  add-neighborhood-error-msg():
+  	r@RecommendConfigStaticOrder(class, _, _, _, _, neighbor, _, _, _) -> 
+  		<add-error(|["Recommendation Block '",class,"' does not use a correct neighborhood algoritm, please correct the typo, correct values are [NUser, Threshold], current value: '",neighbor,"'"])>
+	  	  
+  add-type-error-msg():
+  	r@RecommendConfigStaticOrder(class, _, _, _, _, _, _, type, _) ->
+  		<add-error(|["Recommendation Block '",class,"' does not use a recommendation type, please correct the typo, correct values are [Item, User, Both], current value: '",type,"'"])>
+	  	  
+  add-type-combi-error-msg():
+  	r@RecommendConfigStaticOrder(class, _, _, _, _, neighbor, _, type, _) -> 
+  		<add-error(|["Recommendation Block '",class,"' does not use a correct neighborhood and type combination, either unset the neighborhood or switch the type to User. Current value of the type: '",type,"'"])>
+  
+// The checks:
+  has-no-value = ?None()
+  
+  valid-boolean-algorithms = ?"Loglikelihood"
+  
+  valid-value-algorithms = ?"Euclidean" <+ ?"Pearson" <+ ?"Loglikelihood" <+ ?"Tanimoto"
+  
+  valid-neighborhood-algorithms = ?"NUser" <+ ?"Threshold"
+  
+  valid-recommend-type = ?"User" <+ ?"Both" <+ ?"Item"
+  
+  valid-neighborhood-type-combination = ?"User" <+ ?"Both"
+  

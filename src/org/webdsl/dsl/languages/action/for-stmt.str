@@ -8,11 +8,11 @@ imports
 
 rules
 
-  normalize-action :
-    ForStmtNoFilter(x, s, e, block){anno*} -> ForStmt(x, s, e, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), block){anno*}
+  normalize-constructor :
+    ForStmtNoFilter(x, s, e, block){anno*} -> ForStmt(x, s, e, None(), block){anno*}
 
-  normalize-action :
-    ForAllStmtNoFilter(x, s, block){anno*} -> ForAllStmt(x, s, Filter(True(), OrderAscending(Null()), Limit(Int("1000"), Int("0"))), block){anno*}
+  normalize-constructor :
+    ForAllStmtNoFilter(x, s, block){anno*} -> ForAllStmt(x, s, None(), block){anno*}
 
 rules
 
@@ -29,17 +29,6 @@ rules
           |}
 
   rename-action :
-    fs@ForStmtNoFilter(x, srt, e1, b1) -> ForStmtNoFilter(y, srt2, e2, b2)
-    with e2 := <rename-all> e1
-       ; {| Rename, VarInTemplateContext
-          : srt2 := <rename-all> srt
-          ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
-          ; <declare-vars-in-entity-context> y
-          ; b2 := <rename-all> b1
-          |}
-
-  rename-action :
     fs@ForAllStmt(x, srt, f1, b1){anno*} -> ForAllStmt(y, srt2, f2, b2){newanno*}
     with {| Rename, VarInTemplateContext
           : srt2 := <rename-all> srt
@@ -47,17 +36,6 @@ rules
           ; rules(VarDecl : y -> fs)
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
-          ; b2 := <rename-all> b1
-          ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
-          |}
-
-  rename-action :
-    fs@ForAllStmtNoFilter(x, srt, b1){anno*} -> ForAllStmtNoFilter(y, srt2, b2){newanno*}
-    with {| Rename, VarInTemplateContext
-          : srt2 := <rename-all> srt
-          ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
-          ; <declare-vars-in-entity-context> y
           ; b2 := <rename-all> b1
           ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
           |}
@@ -80,8 +58,6 @@ rules
           ; b2 := <rename-all> b1
           |}
 
-rules
-
   desugar-action :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
@@ -89,18 +65,9 @@ rules
     ; <is-cached-entity> x_class
 
   desugar-action :
-    def@ForAllStmtNoFilter(_, SimpleSort(x_class), _){anno*} -> def{CachedEntity(), anno*}
-    where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <fetch-elem(?QueryOptimizations([], [], querycondition, []))> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
-    ; <is-cached-entity> x_class
-
-  desugar-action :
-    def@ForAllStmt(x, srt, Filter(cond, _, _), body){anno*} -> def{qoanno, anno*}
-    where qoanno := <common-query-optimization-forallstmt(|x, srt, cond, anno*)> body
-
-  desugar-action :
-    def@ForAllStmtNoFilter(x, srt, body){anno*} -> def{qoanno, anno*}
-    where qoanno := <common-query-optimization-forallstmt(|x, srt, True(), anno*)> body
+    def@ForAllStmt(x, srt, f, body){anno*} -> def{qoanno, anno*}
+    where cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; qoanno := <common-query-optimization-forallstmt(|x, srt, cond, anno*)> body
 
   common-query-optimization-forallstmt(|x, srt, cond, anno*) :
     body -> QueryOptimizations(joincandidates, joincandidatesgen, querycondition2, conditionjoins)
@@ -135,4 +102,3 @@ rules
     where not(<type-compatible> (type, <type-of> e))
 
   constraint-error-action : ForStmt(_, srt, e, _, _)      -> <for-constraint-error(|srt, e)>
-  constraint-error-action : ForStmtNoFilter(_, srt, e, _) -> <for-constraint-error(|srt, e)>

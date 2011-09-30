@@ -22,6 +22,22 @@ analyzer standard_custom_stop{
 	tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
 }
 
+analyzer synonym{
+	index{
+		tokenizer = StandardTokenizer
+		tokenfilter = StandardFilter
+		tokenfilter = SynonymFilter(ignoreCase="true", expand="true", synonyms="analyzerfiles/synonyms.txt")
+		tokenfilter = LowerCaseFilter
+		tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
+	}
+	query{
+		tokenizer = StandardTokenizer
+		tokenfilter = StandardFilter
+		tokenfilter = LowerCaseFilter
+		tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
+	}
+}
+
 analyzer trigram{
 	tokenizer = StandardTokenizer
 	tokenfilter = LowerCaseFilter

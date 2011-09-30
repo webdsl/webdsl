@@ -66,7 +66,7 @@ template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS)
 # precompile built-in.app, see precompile-built-ins
 install-data-hook:
 	echo 'precompiling built-in.app'
-	$(shell cd $(top_srcdir)/precompile-built-ins/; $(bindir)/webdsl cleanall build &> compile_output.txt)
+	$(shell cd $(top_srcdir)/precompile-built-ins/; $(bindir)/webdsl cleanall check &> compile_output.txt)
 	cat $(top_srcdir)/precompile-built-ins/compile_output.txt
 	echo 'finished precompiling built-in.app'
 	ant -f $(top_srcdir)/precompile-built-ins/build.xml deploy

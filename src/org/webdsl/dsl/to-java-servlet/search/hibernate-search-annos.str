@@ -1,0 +1,189 @@
+module org/webdsl/dsl/to-java-servlet/search/hibernate-search-annos
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/-
+
+strategies
+
+  property-to-index-annos :
+    Property(_, propkind, type, anno*) -> index-annos
+    where not (<?Ref()<+?Comp() > propkind)
+    	; searchable-annos := <filter(is-searchable-anno <+ is-search-namespace-anno)> anno*
+    	; not(?[])
+    	; date-bridge-anno := <type-to-date-bridge-anno <+ ![] >type
+    	; if (<?[]> date-bridge-anno)
+    	  then index-annos := <searchable-annos-to-index-annos> searchable-annos
+    	  else index-annos := [date-bridge-anno |<searchable-annos-to-index-annos> searchable-annos] end
+  
+  property-to-index-annos :
+    DerivedProperty(x, _, type, anno*, _) -> index-annos
+    where searchable-annos := <filter(is-searchable-anno <+ is-search-namespace-anno)> anno*
+    	; not(?[])
+    	; date-bridge-anno := <type-to-date-bridge-anno <+ ![] >type
+    	; if (<?[]> date-bridge-anno)
+    	  then index-annos := <searchable-annos-to-index-annos> searchable-annos
+    	  else index-annos := [date-bridge-anno |<searchable-annos-to-index-annos> searchable-annos] end
+          
+  type-to-date-bridge-anno :
+  	SimpleSort("Time") -> anno|[ @org.hibernate.search.annotations.FieldBridge(impl = org.webdsl.search.WebDSLDateBridge.class,
+             						params = @org.hibernate.search.annotations.Parameter(name = "resolution", value = "MINUTE") ) ]|
+  type-to-date-bridge-anno :
+  	SimpleSort("DateTime") -> anno|[ @org.hibernate.search.annotations.FieldBridge(impl = org.webdsl.search.WebDSLDateBridge.class,
+             						params = @org.hibernate.search.annotations.Parameter(name = "resolution", value = "MINUTE") ) ]|
+  type-to-date-bridge-anno :
+  	SimpleSort("Date") -> anno|[ @org.hibernate.search.annotations.FieldBridge(impl = org.webdsl.search.WebDSLDateBridge.class,
+             						params = @org.hibernate.search.annotations.Parameter(name = "resolution", value = "DAY") ) ]|
+    	  
+  //Reference/Composite properties are embedded index fields
+  property-to-index-annos :
+    Property(x, propkind, srt, anno*) -> index-annos
+    where  <?Ref()<+?Comp() > propkind
+    	; searchable-annos := <filter(?SearchableAnno(_))> anno*
+    	; not(<?[]>searchable-annos)
+    	; index-annos := <map(searchable-annos-to-index-embedded-annos)> searchable-annos
+    	  
+  searchable-annos-to-index-embedded-annos:
+  	SearchableAnno(sa-args) -> embedded-anno
+  	with  <fetch(?SA-Argument("name", prefix))> sa-args
+  	; <fetch(?SA-Argument("depth", i_depth))> sa-args
+  	; if (<fetch(?SA-Argument("subclass", x_targetelem))> sa-args)
+  	then embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=i_depth, prefix="~prefix" + ".", targetElement = x_targetelem.class) ]|
+  	else embedded-anno := anno|[ @org.hibernate.search.annotations.IndexedEmbedded(depth=i_depth, prefix="~prefix" + ".") ]| end
+    
+  //Other side (inverse) of embedded index field needs containedin annotation 
+  property-to-contained-in:
+  	p@Property(_, _, _, anno*) -> [anno|[ @org.hibernate.search.annotations.ContainedIn]|]
+	where <has-anno(?InverseOfSearchable())> p
+
+strategies //field annotations
+	
+  searchable-annos-to-index-annos:
+  	searchable-annos -> index-annos
+  	with  fields-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Fields")), [ElemValArrayInit(<map(searchable-to-field-anno);flatten-list> searchable-annos)])
+	    ; numeric-field-annos := <filter(to-numeric-field-anno);wrap-in-numeric-fields-anno> searchable-annos
+	    ; index-annos := <flatten-list>[fields-anno, numeric-field-annos]
+
+  searchable-to-field-anno :
+  	SearchableAnno(sa-args) -> field-anno
+  	with  field-args := <filter(to-java-field-arg)> sa-args
+  	    ; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),field-args)
+  	      
+  searchable-to-field-anno :
+  	SearchNamespaceAnno() -> field-anno
+  	with  index_arg := ElemValPair(Id("index"),ExprName(AmbName(Id("org.hibernate.search.annotations.Index")), Id("UN_TOKENIZED")))
+  		; name_arg := ElemValPair(Id("name"),Lit(String([Chars("_WebDSLNamespaceID_")])))
+  	    ; field-anno := Anno(TypeName(Id("org.hibernate.search.annotations.Field")),[index_arg, name_arg])
+  
+  to-java-field-arg :
+  	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("analyzer"),anno|[ @org.hibernate.search.annotations.Analyzer(definition="~analyzer-name") ]|)
+  	where not(<?"no" <+ ?"null"> analyzer-name)
+
+  to-java-field-arg :
+	SA-Argument("analyzer", analyzer-name) -> ElemValPair(Id("index"),ExprName(AmbName(Id("org.hibernate.search.annotations.Index")), Id("UN_TOKENIZED")))
+	where (<?"no" <+ ?"null"> analyzer-name)
+	
+  to-java-field-arg :
+  	SA-Argument("name", field-name) -> ElemValPair(Id("name"),Lit(String([Chars(field-name)])))
+  
+  to-java-field-arg :
+  	SA-Argument("boost", field-boost) -> ElemValPair(Id("boost"),anno|[ @org.hibernate.search.annotations.Boost(e_boost) ]|) 
+  	with e_boost := expr |[ ~float:Float(<concat-strings> [field-boost,"f"]) ]| 	
+  
+  to-numeric-field-anno:
+  	SearchableAnno(sa-args) -> anno|[ @org.hibernate.search.annotations.NumericField(forField = "~field-name") ]|
+  	where <fetch(?Numeric-Argument())> sa-args
+  		; <fetch(?SA-Argument("name", field-name))> sa-args
+
+  wrap-in-numeric-fields-anno:
+  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.NumericFields")), [ElemValArrayInit(list)])
+  	where not (?[])
+ 
+  wrap-in-numeric-fields-anno:
+  	list -> list
+  	where ?[]
+
+strategies //analyzers
+
+  define-fulltext-analyzer-anno =
+  	create-fulltext-analyzer-definition-anno <+ create-fulltext-analyzer-definition-anno-builtin <+ ![]
+
+  create-fulltext-analyzer-definition-anno = 
+  	FullTextAnalyzerFromName; analyzer-to-analyzer-def-anno
+  	
+  create-fulltext-analyzer-definition-anno-builtin =
+  	<create-fulltext-analyzer-definition-anno> "default_builtin_analyzer"
+  	
+  analyzer-to-analyzer-def-anno:
+  	FullTextAnalyzer(_,name, body) -> <to-analyzer-def(|name)> body
+
+  to-analyzer-def(|analyzerName):
+  	FullTextAnalyzerBodyDef(charFilters*, tokenizer, tokenFilters*) -> result
+  	with charFiltersDef* := <map(to-char-filter-def)> charFilters*
+  	   ; tokenizerDef := <to-tokenizer-def> tokenizer
+  	   ; tokenFilterDef* := <map(to-token-filter-def)> tokenFilters*
+  	   ; name_arg := ElemValPair(Id("name"),Lit(String([Chars(analyzerName)])))
+  	   ; charfilter_arg := ElemValPair(Id("charFilters"),ElemValArrayInit(charFiltersDef*))
+  	   ; tokenizer_arg := ElemValPair(Id("tokenizer"), tokenizerDef)
+  	   ; tokenfilter_arg := ElemValPair(Id("filters"),ElemValArrayInit(tokenFilterDef*))
+  	   ; result := Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDef")),[name_arg, charfilter_arg,tokenizer_arg,tokenfilter_arg])
+  	     
+  to-analyzer-def(|analyzerName):
+  	DualFullTextAnalyzerBodyDef(iORq1, def1, iORq2, def2) -> [indexDef, queryDef]
+  	with if (<?"index">iORq1)
+  	then indexAnalyzer := def1
+  		;queryAnalyzer := def2 
+  	else indexAnalyzer := def2
+  		;queryAnalyzer := def1
+  	end
+  	; analyzerNameQuery := <concat-strings>[analyzerName, "_QUERY"]
+  	; indexDef := <to-analyzer-def(|analyzerName)> indexAnalyzer
+	; queryDef := <to-analyzer-def(|analyzerNameQuery)> queryAnalyzer
+  	 
+  	
+
+  to-tokenizer-def:
+  	Tokenizer(tokenizername, args) -> result
+  	with   e_analyzerargs := <map(to-analyzer-arg)> args
+  		; tokenizername' := <to-fully-qlfd-name> tokenizername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.TokenizerDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(tokenizername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+  
+  to-token-filter-def:
+  	TokenFilter(filtername, args) -> result
+  	with  e_analyzerargs := <map(to-analyzer-arg)> args
+		; filtername' := <to-fully-qlfd-name> filtername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.TokenFilterDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(filtername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+  	
+  to-char-filter-def:
+  	CharFilter(filtername, args) -> result
+  	with  e_analyzerargs := <map(to-analyzer-arg)> args
+  		; filtername' := <to-fully-qlfd-name> filtername
+  		; result := Anno(TypeName(Id("org.hibernate.search.annotations.CharFilterDef")), [ ElemValPair(Id("factory"), Lit(Class(ClassOrInterfaceType(TypeName(Id(filtername')),None()))))
+                              , ElemValPair(Id("params"), ElemValArrayInit(e_analyzerargs))
+                              ])
+                                
+  to-analyzer-arg:
+  	Argument(x_name, x_value) ->   anno|[ @org.hibernate.search.annotations.Parameter(name = "~x_name", value = x_value) ]|
+  
+  to-fully-qlfd-name:
+  	name -> name'
+  	with
+  		if (<string-starts-with(|String("org.apache.solr.analysis."))>name) then name' := name
+  		else name' := <conc-strings>("org.apache.solr.analysis.",name) end
+  		  	
+  wrap-in-analyzer-defs-anno:
+  	list-> Anno(TypeName(Id("org.hibernate.search.annotations.AnalyzerDefs")), [ElemValArrayInit(list)])
+  	where not (?[])
+ 
+  wrap-in-analyzer-defs-anno:
+  	list -> list
+  	where ?[]

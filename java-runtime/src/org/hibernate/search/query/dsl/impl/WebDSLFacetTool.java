@@ -29,18 +29,18 @@ public class WebDSLFacetTool {
 		FacetRange<T> range;
 		T start, end;
 		for(int i=0; i<splitted.length; i++){
-			if(splitted[i].startsWith(",")){
+			if(splitted[i].startsWith(" TO ")){
 				start = null;
-				end = (T) stringToTypedObject(splitted[i].substring(1),type);				
+				end = (T) stringToTypedObject(splitted[i].substring(4),type);				
 				range = new FacetRange<T>( end.getClass(), start, end, true, true, field, documentBuilder);
 			}
-			else if(splitted[i].endsWith(",")){
-				start = (T) stringToTypedObject(splitted[i].substring(0, splitted[i].length()-1),type);
+			else if(splitted[i].endsWith(" TO ")){
+				start = (T) stringToTypedObject(splitted[i].substring(0, splitted[i].length()-4),type);
 				end = null;				
 				range = new FacetRange<T>(start.getClass(), start, end, true, true, field, documentBuilder);
 			}
 			else{
-				String[] fromNto = splitted[i].split(",");
+				String[] fromNto = splitted[i].split(" TO ");
 				start = (T) stringToTypedObject(fromNto[0],type);
 				end = (T) stringToTypedObject(fromNto[1],type);
 				range = new FacetRange<T>(start.getClass(), start, end, true, true, field, documentBuilder);
@@ -58,7 +58,6 @@ public class WebDSLFacetTool {
 
 	@SuppressWarnings("unchecked")
 	private static <T> T stringToTypedObject(String toConvert, Class<T> type) {
-		
 		if(type.isAssignableFrom(String.class))
 			return (T) toConvert;
 		if(type.isAssignableFrom(Integer.class))

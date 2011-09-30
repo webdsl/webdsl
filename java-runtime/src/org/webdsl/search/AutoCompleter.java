@@ -2,7 +2,6 @@ package org.webdsl.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,8 +26,6 @@ import org.apache.lucene.search.spell.Dictionary;
 import org.apache.lucene.search.spell.LevensteinDistance;
 import org.apache.lucene.search.spell.LuceneDictionary;
 import org.apache.lucene.search.spell.StringDistance;
-import org.apache.lucene.search.spell.SuggestWord;
-import org.apache.lucene.search.spell.SuggestWordQueue;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.ReaderUtil;
@@ -36,7 +33,7 @@ import org.apache.lucene.util.Version;
 
 /**
  * <p>
- *   Spell Checker class  (Main class) <br/>
+ *   Auto completer class  (Main class) <br/>
  *  (Based on Lucene SpellChecker class).
  * </p>
  *
@@ -131,8 +128,7 @@ public class AutoCompleter implements java.io.Closeable {
       swapSearcher(autocompleteIndexDir);
     }
   }
-
-
+  
   /**
    * Suggest similar words (optionally restricted to a field of an index).
    *
@@ -173,11 +169,10 @@ public class AutoCompleter implements java.io.Closeable {
       int maxHits = 2 * numSug;
       
       //First sort on similarity, then on popularity (based on frequency in the source index)
-      SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT,true)};
+      SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT, true)};
       
       ScoreDoc[] hits = indexSearcher.search(query, maxHits, new Sort(sortFields)).scoreDocs;
       //indexSearcher.search(query, null, maxHits).scoreDocs;
-
       int stop = Math.min(hits.length, maxHits);
       String[] toReturn = new String[stop];      
       
@@ -205,6 +200,7 @@ public class AutoCompleter implements java.io.Closeable {
    */
   private static List<String[]> formGrams(String text) {
 	//first split into tokens to match words in phrases
+	text = text.toLowerCase(); //search prefixes in lower case!
 	String[] tokens = text.split("\\s");
 	int len, tokenlen;
 	ArrayList<String[]> grams = new ArrayList<String[]>();
@@ -263,13 +259,13 @@ public class AutoCompleter implements java.io.Closeable {
   }
 
   /**
-   * Indexes the data from the given {@link Dictionary}.
+   * Indexes the data from the given reader.
  * @param reader Source index reader, from which autocomplete words are obtained for the defined field
  * @param field the field of the source index reader to index for autocompletion
  * @param mergeFactor mergeFactor to use when indexing
  * @param ramMB the max amount or memory in MB to use
  * @param optimize whether or not the autocomplete index should be optimized
-   * @throws AlreadyClosedException if the Autocompleterer is already closed
+   * @throws AlreadyClosedException if the Autocompleter is already closed
    * @throws IOException
    */
   public final void indexDictionary(IndexReader reader, String field, int mergeFactor, int ramMB, boolean optimize) throws IOException {
@@ -286,23 +282,15 @@ public class AutoCompleter implements java.io.Closeable {
         ReaderUtil.gatherSubReaders(readers, searcher.getIndexReader());
       }
       
-      boolean isEmpty = readers.isEmpty();
+      //clear the index
+      writer.deleteAll();
       
       try { 
         Iterator<String> iter = dict.getWordsIterator();
         
-        terms: while (iter.hasNext()) {
+      while (iter.hasNext()) {
           String word = iter.next();
-          if (!isEmpty) {
-            // we have a non-empty index, check if the term exists
-            Term term = F_WORD_TERM.createTerm(word);
-            for (IndexReader ir : readers) {
-              if (ir.docFreq(term) > 0) {
-                continue terms;
-              }
-            }
-          }
-  
+          
           // ok index the word
           Document doc = createDocument(word, reader.docFreq(new Term(field, word)));
           writer.addDocument(doc);
@@ -366,6 +354,7 @@ public class AutoCompleter implements java.io.Closeable {
   private static void addGram(String text, Document doc) {
 	//If phrases are indexed as completions, it is nice to suggest these phrase if a token is matched
 	//i.e. the phrase "Best practices in software architecture" is suggested on input "softw..."
+	text = text.toLowerCase(); //index prefixes as lower case!
 	String[] tokens = text.split("\\s");
 	String token, key, gram;
 	for (int t = 0; t < tokens.length; t++) {

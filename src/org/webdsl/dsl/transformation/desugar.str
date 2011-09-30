@@ -9,6 +9,8 @@ imports
   org/webdsl/dsl/generation/webdsl-generator
 
 strategies
+  
+  desugar-top = repeat(innermost-rep(desugar)) //why bother passing desugar, remove for readability?
 
   innermost-rep(s) =
     {| InnermostNormalForm, InnermostApplied
@@ -17,8 +19,9 @@ strategies
      ; where(InnermostApplied => True())
      |}
     
-  innermost-rep-aux(s) =
-    rec x(innermost-rep-aux(x, s))
+  innermost-rep-aux(desugar) =
+    //let again = innermost-rep-aux(again, desugar) in innermost-rep-aux(again, desugar) end
+    rec x(innermost-rep-aux(x, desugar))
   
   innermost-rep-aux-toplevel(s) = with-toplevel-name(innermost-rep-aux(s))
   
@@ -33,13 +36,11 @@ strategies
         ; defs2 := <innermost-rep-aux(innermost-rep-aux-toplevel(s), s)> defs
         ; !AccessControlDefinition(name, defs2){anno*}
       <+
-          all(downwards)
+          all(downwards)//downwards == innermost-rep-aux(desugar)
       )
-      ; try(s; rules(InnermostApplied := True() ); innermost-rep-aux(downwards, s))
+      ; try(if-verbose-2(?before); s; if-verbose-2(?after; where(<debug(|"\ndesugar rule succeeded\nbefore:\n")>before;<debug(|"\nafter:\n")>after)); rules(InnermostApplied := True() ); innermost-rep-aux(downwards, s))
       ; {?q; rules( InnermostNormalForm : q )} //TODO doesn't this make it slower? each subterm ends up in a hashtable
     
-  desugar-top = repeat(innermost-rep(desugar))
-  
 rules //extend entity functions create dr
   
   rename-all-vars :

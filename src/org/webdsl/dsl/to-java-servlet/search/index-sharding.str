@@ -1,0 +1,312 @@
+module org/webdsl/dsl/to-java-servlet/search/index-sharding
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+  libback-end-transformations
+  org/webdsl/dsl/to-java-servlet/-
+ 
+strategies	
+
+  generate-code-java-servlet-once =
+    ![]
+    ; cached-generate(generate-namespace-sharding-strategy | "generate-namespace-sharding-strategy")
+	; cached-generate(generate-search-namespace-helper | "generate-search-namespace-helper")
+	; bagof-SearchNamespaceEntities ; generate-sharding-properties
+    ; fail
+	
+  generate-search-namespace-helper :
+    [] ->
+    <emit-java-code-local> compilation-unit |[
+    package org.webdsl.search;
+
+	import java.util.HashMap;
+	import java.util.List;
+	import java.util.ArrayList;
+	
+	import org.hibernate.HibernateException;
+	import org.hibernate.Session;
+	import org.hibernate.Transaction;
+	import utils.HibernateUtilConfigured;
+    
+    public class SearchNamespaceHelper {
+		private static HashMap<String, HashMap<String, Integer>> namespaceIDmap = new HashMap<String, HashMap<String, Integer>>();
+		private static boolean mappingLoadedFromDB = false;
+		private static HashMap<String, Integer> nextFreeIndexMap = new HashMap<String, Integer>();  	
+    	
+   		/**
+		 * @param entityName
+		 *            name of entity in which namespaces are used (this strategy
+		 *            is shared among different entities)
+		 * @param namespaceID
+		 *            value of the namespace, i.e. the value of some entity
+		 *            property marked as namespace id
+		 * @param createWhenMissing
+		 *            should a new index be created if namespace is not found
+		 *            yet?
+		 * @return the offset in the directory provider array to get the directory
+		 *         provider for this namespace, null when not found
+		 */
+		public static Integer namespaceIDToIndex(String indexName, String namespaceID,
+				boolean createWhenMissing) {
+			if (!mappingLoadedFromDB) {
+				loadMappingFromDB();
+			}
+			HashMap<String, Integer> map = namespaceIDmap.get(indexName);
+			if(map == null) {
+				if (createWhenMissing){
+					map = new HashMap<String, Integer>();
+					namespaceIDmap.put(indexName, map);
+				}
+				else {
+					return null;
+				}
+			}
+			
+			Integer index = map.get(namespaceID);
+			if (index == null && createWhenMissing) {
+				index = createNewNamespace(indexName, namespaceID);
+			}
+			return index;
+		}
+		
+		public static Integer nextFreeIndex(String indexName){
+			if (!mappingLoadedFromDB) {
+				loadMappingFromDB();
+			}
+			Integer index = nextFreeIndexMap.get(indexName);
+			if(index != null)
+				return index;
+			else
+				return 0;
+		}
+	
+		private static Integer createNewNamespace(String indexName, String namespaceID) {
+			synchronized (namespaceIDmap) {
+				Integer index;
+				HashMap<String, Integer> map = namespaceIDmap.get(indexName);
+				if(map.containsKey(namespaceID)){
+					return map.get(namespaceID);
+				}
+				if(!nextFreeIndexMap.containsKey(indexName)){
+					index = 1;
+				} else {
+					index = nextFreeIndexMap.get(indexName);
+				}
+				SearchNamespace sns = new SearchNamespace(indexName, namespaceID,
+						index);
+				Session hibSession = null;
+				try {
+					hibSession =  HibernateUtilConfigured.getSessionFactory().openSession();
+					hibSession.beginTransaction();
+					hibSession.save(sns);
+					hibSession.getTransaction().commit();
+					
+					map.put(namespaceID,index);
+				} catch (Exception ex) {
+					ex.printStackTrace();
+					return null;
+				} finally {
+					if(hibSession != null) {
+						hibSession.close();	
+					}						
+				}
+				nextFreeIndexMap.put(indexName, index+1);
+				return index;
+			}
+		}
+	
+		private static void loadMappingFromDB() {
+			synchronized (namespaceIDmap) {
+				if (!mappingLoadedFromDB) {
+					Session hibSession = null;
+					try {
+						hibSession = HibernateUtilConfigured.getSessionFactory().openSession();			
+						hibSession.beginTransaction();
+						org.hibernate.Query q = hibSession.createQuery("FROM SearchNamespace");
+						
+						@SuppressWarnings("unchecked")
+						List<SearchNamespace> mappings = q.list();
+						hibSession.getTransaction().commit();
+						String key, indexName;
+						Integer value;
+						
+						for (SearchNamespace searchNamespace : mappings) {
+							indexName = searchNamespace.getIndexName();
+							if(!nextFreeIndexMap.containsKey(indexName)) {
+								nextFreeIndexMap.put(indexName,-1);
+								namespaceIDmap.put(indexName, new HashMap<String,Integer>());
+							}
+							
+							key = searchNamespace.getNamespaceAsString();
+							value = searchNamespace.getIndexNr();
+							
+							namespaceIDmap.get(indexName).put(key,value);
+							if(value >= nextFreeIndexMap.get(searchNamespace.getIndexName())){
+								nextFreeIndexMap.put(searchNamespace.getIndexName(), value+1);
+							}						
+							
+						}
+						mappingLoadedFromDB = true;
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					} finally {
+						if(hibSession != null) {
+							hibSession.close();	
+						}						
+					}
+				}
+			}
+	
+		}
+		
+		public static void clearNamespaceMapping(){
+			synchronized (namespaceIDmap) {
+				Session hibSession = null;
+				try {
+					hibSession = HibernateUtilConfigured.getSessionFactory().openSession();			
+					Transaction tx = hibSession.beginTransaction();
+					hibSession.createQuery("DELETE FROM SearchNamespace").executeUpdate();
+					tx.commit();
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				} finally {
+					if (hibSession != null){
+						hibSession.close();
+					}
+				}
+				namespaceIDmap.clear();
+				nextFreeIndexMap.clear();
+				mappingLoadedFromDB = true;
+			}
+		}
+		public static List<String> allNamespaces(String indexName){
+			if (!mappingLoadedFromDB) {
+				loadMappingFromDB();
+			}
+			if(!namespaceIDmap.containsKey(indexName)){
+				return new ArrayList<String>();
+			}
+			return new ArrayList<String>(namespaceIDmap.get(indexName).keySet());
+		}
+    }
+    ]|
+    
+  generate-namespace-sharding-strategy :
+    [] ->
+    <emit-java-code-local> compilation-unit |[
+    package org.webdsl.search;
+
+	import java.io.Serializable;
+	import java.util.Arrays;
+	import java.util.Properties;
+	
+	import org.apache.lucene.document.Field;
+	import org.apache.lucene.document.Document;
+	import org.hibernate.search.FullTextFilter;
+	import org.hibernate.search.filter.FullTextFilterImplementor;
+	import org.hibernate.search.store.DirectoryProvider;
+	import org.hibernate.search.store.IndexShardingStrategy;
+	
+	import org.webdsl.search.SearchNamespaceHelper;
+	import utils.IndexManager;
+	
+	public class NamespaceShardingStrategy implements IndexShardingStrategy {
+	
+		// stored DirectoryProviders in a array indexed by namespace (name
+		// space-index mapping in DB)
+		private DirectoryProvider<?>[] providers;
+	
+		public static final String NAMESPACE_FILTER = "namespaceFilter";
+		public static final String NAMESPACE_FIELD = "_WebDSLNamespaceID_";
+		private static String indexName = null;
+	
+		public void initialize(Properties properties,
+				DirectoryProvider<?>[] providers) {
+			this.providers = providers;
+		}
+		
+		public DirectoryProvider<?>[] getDirectoryProvidersForAllShards() {
+			return providers;
+		}
+	
+		public DirectoryProvider<?>[] getDirectoryProvidersForOccupiedShards(Class<?> entity) {
+			return Arrays.copyOfRange(providers, 0, SearchNamespaceHelper.nextFreeIndex(entity.getName()));
+		}
+	
+		public DirectoryProvider<?> getDirectoryProviderForAddition(
+				Class<?> entity, Serializable id, String idInString,
+				Document document) {
+			// Get the index from the namespace - index mapping if this entity has a namespace property (super/subclasses share the same index name)
+			Field nsf = document.getField(NAMESPACE_FIELD);
+			if(nsf != null) {
+				Integer namespaceIndex = SearchNamespaceHelper.namespaceIDToIndex(indexName(entity), nsf.stringValue(), true);
+				document.removeField(NAMESPACE_FIELD);
+				return providers[namespaceIndex];
+			} else {
+				return providers[0];	
+			}			
+		}
+		
+		private final String indexName(Class<?> entity){
+			if(indexName == null)
+			  indexName = IndexManager.indexName(entity);
+			
+			return indexName;		      
+		}
+	
+		public DirectoryProvider<?>[] getDirectoryProvidersForDeletion(
+				Class<?> entity, Serializable id, String idInString) {
+			return getDirectoryProvidersForAllShards();
+		}
+	
+		/**
+		 * Optimization; don't search ALL shards and union the results; in this
+		 * case, we can be certain that all the data for a particular namespace is
+		 * in a single shard; simply return that shard.
+		 */
+		public DirectoryProvider<?>[] getDirectoryProvidersForQuery(
+				FullTextFilterImplementor[] filters) {
+			FullTextFilter filter = getNamespaceFilter(filters);
+			if (filter == null) {
+				return getDirectoryProvidersForAllShards();
+			} else {
+				Integer index = SearchNamespaceHelper.namespaceIDToIndex(filter
+						 		 .getParameter("indexName").toString(), filter
+								 .getParameter("namespaceID").toString(), false
+								 );
+				if(index != null){
+					return new DirectoryProvider[] { providers[index] };
+				} else {
+					return new DirectoryProvider[0];
+				}
+			}
+		}
+	
+		private FullTextFilter getNamespaceFilter( FullTextFilterImplementor[] filters) {
+			for (FullTextFilterImplementor filter : filters) {
+				if (filter.getName().equals(NAMESPACE_FILTER))
+					return filter;
+			}
+			return null;
+		}
+	}
+	]|
+
+
+  generate-sharding-properties :
+		x_class* -> []
+		with strategyDefs := <map(get-index-name; to-strategy-def); concat-strings> x_class*
+			; propertyFileContent := <concat-strings> ["ls=${line.separator}", "\n", "indexshardingdef=", strategyDefs]
+			; rules(
+			ShardingStrategyToEmit :=  TextFile("sharding-strategy-to-insert.properties", propertyFileContent)
+			)
+			
+  to-strategy-def:
+	indexName -> 
+	<concat-strings>["hibernate.search.", indexName, ".sharding_strategy org.webdsl.search.NamespaceShardingStrategy",
+	"${ls}", "hibernate.search.", indexName, ".sharding_strategy.nbr_of_shards 100", "${ls}"]
+	

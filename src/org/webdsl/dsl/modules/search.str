@@ -4,6 +4,7 @@ imports
   libstrategolib
   libwebdsl-front
   org/webdsl/dsl/languages/search/desugar
+  org/webdsl/dsl/languages/search/declare
 
 strategies
 
@@ -17,25 +18,38 @@ strategies
         ; <declare-static-function(|x_class,x_fun)> fun |[ function x_fun(query : String, limit : Int) : List<x_class> {} ]|
         ; <declare-static-function(|x_class,x_fun)> fun |[ function x_fun(query : String, limit : Int, offset : Int) : List<x_class> {} ]|
         ; <declare-native-search-query-class> x_class
-
-  	
+ 	
 
 rules
-
+		
 	add-backend-annotation =
 			?ent
 		; where(
 		  	    (x_class, body) := <get-entity-def> ent
-				; <has-no-anno(?IndexedAnno(_,_,_,_,_))> ent
+				; <has-no-anno(?IndexedAnno(_,_,_,_,_,_,_))> ent
        			; props := <get-searchable-props> x_class
-				; searchable := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
-				; not([] := searchable)
+				; searchfields := <filter(searchable-property-to-name(|x_class)); flatten-list; uniq> props
+				; not([] := searchfields)
 				; untokenizedfields := <bagof-UntokenizedFields;uniq> x_class
 				; spellcheckfields := <bagof-SpellCheckFields;uniq> x_class
 				; autocompletefields := <bagof-AutoCompleteFields;uniq> x_class
 				; lucenesorttypes := <map(fieldname-to-java-type-name(|x_class))> untokenizedfields
+				  //if no default search fields are defined, search on all search fields by default
+				; defaultsearchfields_bydef := <bagof-DefaultSearchFields; uniq> x_class
+				; if(<?[]>defaultsearchfields_bydef)
+				  then defaultsearchfields := searchfields
+				  else defaultsearchfields := defaultsearchfields_bydef end
+				; dualanalyzerfields := <bagof-DualAnalyzerFields;uniq> x_class
 			)
-		; add-anno(|IndexedAnno(searchable,untokenizedfields,lucenesorttypes,spellcheckfields,autocompletefields))
+		; add-anno(|IndexedAnno(searchfields, untokenizedfields, lucenesorttypes, spellcheckfields, autocompletefields, defaultsearchfields, dualanalyzerfields))
+		; if (<SearchNamespaceForEnt> x_class) then
+		  	add-anno(|SearchNamespaceAnno(<SearchNamespaceForEnt> x_class)) end
+		; if (<?x_class> "dummy_webdsl_entity") then
+		  add-anno(|AnalyzersInUseAnno(
+		    	<uniq> ["default" | <bagof-AnalyzerInUse>[]]
+		    	)) 
+		  end
+		    
 
 	get-searchable-props:
 	  entityName -> result
@@ -59,10 +73,31 @@ rules
     record-untokenized-field:
     	a@(x_class, field-name) -> a 
     	with rules(UntokenizedFields :+ x_class -> field-name)
+    	
+	record-dual-analyzer-fields(|x_class):
+    	s@SearchableAnno(sa-args) -> s
+    	where <fetch(?SA-Argument("analyzer", analyzer-name))> sa-args
+    	; <IsDualAnalyzer> analyzer-name
+    	; field-name := <name-from-searchable-anno> s
+    	; <record-dual-analyzer-field>(x_class, (field-name, analyzer-name))
+    	 
+    record-dual-analyzer-field:
+    	a@(x_class, (field-name, analyzer-name)) -> a 
+    	with rules(DualAnalyzerFields :+ x_class -> (field-name, analyzer-name))
+    	  
+    record-default-search-fields(|x_class):
+    	s@SearchableAnno(sa-args) -> s
+    	where <fetch(?DefaultSF-Argument())> sa-args
+    	; field-name := <name-from-searchable-anno> s
+    	; <record-default-search-field>(x_class, field-name)
+    	  
+    record-default-search-field:
+    	a@(x_class, field-name) -> a 
+    	with rules(DefaultSearchFields :+ x_class -> field-name)
     
     record-spellcheck-fields(|x_class):
     	s@SearchableAnno(sa-args) -> s
-    	where <fetch(?SA-Argument("spellcheck", _))> sa-args
+    	where <fetch(?Spellcheck-Argument())> sa-args
     	; field-name := <name-from-searchable-anno> s
     	; <record-spellcheck-field>(x_class, field-name)
     
@@ -72,7 +107,7 @@ rules
     
     record-autocomplete-fields(|x_class):
     	s@SearchableAnno(sa-args) -> s
-    	where <fetch(?SA-Argument("autocomplete", _))> sa-args
+    	where <fetch(?Autocomplete-Argument())> sa-args
     	; field-name := <name-from-searchable-anno> s
     	; <record-autocomplete-field>(x_class, field-name)
     
@@ -94,27 +129,68 @@ rules
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos
 	    ; tp := <srt-to-type> srt
 	    ; <map(record-field-name-to-type(|x_class, tp))> untokenizedFields
-	    ; <map(try(record-spellcheck-fields(|x_class));try(record-autocomplete-fields(|x_class)))> searchable-annos
+	    ; <map(
+	      	try(record-spellcheck-fields(|x_class));
+	      	try(record-autocomplete-fields(|x_class));
+	      	try(record-default-search-fields(|x_class));
+	      	try(record-dual-analyzer-fields(|x_class))  	
+	      )> searchable-annos
     
     record-field-name-to-type(|x_class,type) :
     	fieldName -> []
     	with rules( fieldNameToType :+ (x_class, fieldName) -> type)
     
     searchable-property-to-name(|x_class) :
-	    Property(name, propkind, srt, anno*) -> embeddedNames
-	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
-	    // 1 level of depth right now, so only simple types are supported
-	    with embeddedType := <srt-to-type> srt
-	    ; embeddedSearchable :=  <get-searchable-props; filter(is-simple-prop); filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
+	    p@Property(_, propkind, srt, anno*) -> embeddedNames
+	    where (<?Ref()<+?Comp() > propkind
+	    ; searchable-annos := <property-to-searchable-annos> p
+	    ; not(?[]))
+	    with  embeddedNames := <searchable-embedded-property-to-name(|x_class); flatten-list> p
+	    
+	searchable-embedded-property-to-name(|x_class, level) :
+		prop -> embeddedNames
+		where searchable-annos := <property-to-searchable-annos> prop
+		; embeddedNames := <map(searchable-anno-to-embedded-names(|x_class, level))> searchable-annos
+		
+	searchable-embedded-property-to-name(|x_class) :
+		prop -> embeddedNames
+		where searchable-annos := <property-to-searchable-annos> prop
+		; embeddedNames := <map(?sa@SearchableAnno(args); level:= <embedded-depth> args; !sa; searchable-anno-to-embedded-names(|x_class, level) )> searchable-annos
+	
+	property-to-searchable-annos:	Property(_,_,_,anno*) -> <filter(?SearchableAnno(_))> anno*
+	property-to-searchable-annos:	DerivedProperty(_,_,_, anno*, _) -> <filter(?SearchableAnno(_))> anno*
+	embedded-depth = fetch(?SA-Argument("depth", depth));!depth; string-to-int
+	
+	searchable-anno-to-embedded-names(|x_class, lvl):
+		s@SearchableAnno(args) -> embeddedNames
+		with
+		  <fetch(?SA-Argument("subclass", embeddedType))> args
+		; <fetch(?SA-Argument("name", name))> args
+		; embeddedSearchableProps := <get-searchable-props> embeddedType
+	    ; embeddedSimple := <filter(is-simple-prop); filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedSearchableProps
+	    ; level := <dec> lvl
+	    ; if(<gt>(level, 0)) then
+	    	  embeddedMultiLevel := <filter(not(is-simple-prop); searchable-embedded-property-to-name(|embeddedType, level)); flatten-list; uniq> embeddedSearchableProps
+	    	; embeddedSearchable := <concat> [embeddedSimple, embeddedMultiLevel]
+	      else
+	      	embeddedSearchable := embeddedSimple
+	      end
 	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
 	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType
-	    ; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
+	    ; <map(<record-untokenized-field>(x_class, <id>))> embeddedUntokenizedFields
 	    ; embeddedSpellcheckFields := <bagof-SpellCheckFields; map(embedded-name(|name))> embeddedType
-	    ; <map(embeddedName2:= <id>; <record-spellcheck-field>(x_class, embeddedName2))> embeddedSpellcheckFields
+	    ; <map(<record-spellcheck-field>(x_class, <id>))> embeddedSpellcheckFields
 	    ; embeddedAutocompleteFields := <bagof-AutoCompleteFields; map(embedded-name(|name))> embeddedType
-	    ; <map(embeddedName2:= <id>; <record-autocomplete-field>(x_class, embeddedName2))> embeddedAutocompleteFields
+	    ; <map(<record-autocomplete-field>(x_class, <id>))> embeddedAutocompleteFields
+	    ; embeddedDualAnalyzerFields := <bagof-DualAnalyzerFields; map(embedded-name-dual-analyzer(|name))> embeddedType
+		; <map(<record-dual-analyzer-field>(x_class, <id>))> embeddedDualAnalyzerFields
 		; <zip(record-field-name-to-type-embedded(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
-		  
+		; if(<fetch(?DefaultSF-Argument())> args) then
+		   embeddedDefaultSearchFields := <bagof-DefaultSearchFields; uniq; map(embedded-name(|name))> embeddedType
+		    ; <map(<record-default-search-field>(x_class, <id>))> embeddedDefaultSearchFields
+		  end
+		
+
   	searchable-property-to-name(|x_class) :
     	DerivedProperty(name, propkind, srt, anno*, _) -> names
     	where not (<?Ref()<+?Comp() > propkind)
@@ -124,26 +200,23 @@ rules
 	    ; untokenizedFields := <filter(record-untokenized-fields(|x_class))> searchable-annos	    
 	    ; tp := <srt-to-type> srt
 	    ; <map(record-field-name-to-type(|x_class,tp))> untokenizedFields
-	    ; <map(try(record-spellcheck-fields(|x_class));try(record-autocomplete-fields(|x_class)))> searchable-annos
-
+	    ; <map(
+	      	try(record-spellcheck-fields(|x_class));
+	      	try(record-autocomplete-fields(|x_class));
+	      	try(record-default-search-fields(|x_class));
+	      	try(record-dual-analyzer-fields(|x_class))
+	      )> searchable-annos
+	      	      
   	searchable-property-to-name(|x_class) :
-	    DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
-	    where (<?Ref()<+?Comp() > propkind; <fetch(?SearchableAnno(_))> anno*)
-	    // 1 level of depth right now, so only simple types are supported
-	    with embeddedType := <srt-to-type> srt
-	    ; embeddedSearchable :=  <get-searchable-props; filter(is-simple-prop);filter(searchable-property-to-name(|embeddedType)); flatten-list; uniq> embeddedType
-	    ; embeddedNames := <map(embedded-name(|name))> embeddedSearchable
-	    ; embeddedUntokenizedFields := <bagof-UntokenizedFields; map(embedded-name(|name))> embeddedType   
-		; <map(embeddedName2:= <id>; <record-untokenized-field>(x_class, embeddedName2))> embeddedUntokenizedFields
-	    ; embeddedSpellcheckFields := <bagof-SpellCheckFields; map(embedded-name(|name))> embeddedType
-	    ; <map(embeddedName2:= <id>; <record-spellcheck-field>(x_class, embeddedName2))> embeddedSpellcheckFields
-	    ; embeddedAutocompleteFields := <bagof-AutoCompleteFields; map(embedded-name(|name))> embeddedType
-	    ; <map(embeddedName2:= <id>; <record-autocomplete-field>(x_class, embeddedName2))> embeddedAutocompleteFields
-		; <zip(record-field-name-to-type-embedded(|x_class,embeddedType))> ( <bagof-UntokenizedFields> embeddedType , embeddedUntokenizedFields )
+	    p@DerivedProperty(name, propkind, srt, anno*, _) -> embeddedNames
+	    where (<?Ref()<+?Comp() > propkind
+	    ; searchable-annos := <property-to-searchable-annos> p
+	    ; not(?[]))
+	    with  embeddedNames := <searchable-embedded-property-to-name(|x_class); flatten-list> p
 
     name-from-searchable-anno :
     	SearchableAnno(sa-args) -> field-name
-    	with <fetch(?SA-Argument("name", field-name))> sa-args 
+    	with <fetch(?SA-Argument("name", field-name))> sa-args
 
   to-java-type-name: "Int" -> "Integer"
   to-java-type-name: "Float" -> "Float"
@@ -162,6 +235,10 @@ rules
   
   srt-to-type:
   	SimpleSort(type) -> type
+    	
   
   embedded-name(|prefix) :
-  propname -> <concat-strings> [prefix, ".", propname]
+  fieldName -> <concat-strings> [prefix, ".", fieldName]
+
+  embedded-name-dual-analyzer(|prefix) :
+  (fieldName, analyzer-name) -> (<concat-strings> [prefix, ".", fieldName], analyzer-name)
