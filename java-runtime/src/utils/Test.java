@@ -75,8 +75,8 @@ public abstract class Test {
                   }
                 }
             }
-            catch(ClassCastException cce){
-              //not every WebDriver is JavascriptExecutor            	
+            catch(java.lang.UnsupportedOperationException u){
+              //not every WebDriver can execute Javascript          	
             } 
         }
     }
