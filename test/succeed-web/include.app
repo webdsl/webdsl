@@ -27,12 +27,9 @@ application test
   }
 
   test head {
-    var d : WebDriver := FirefoxDriver();
-    
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var pagecontent := d.getPageSource();
-    d.close(); 
-     
     assert(pagecontent.contains(js1()), "element missing: "+js1());
     assert(pagecontent.contains("\""+js2()), "element missing: "+js2());
     assert(pagecontent.contains(css1()), "element missing: "+css1());
@@ -41,5 +38,5 @@ application test
     assert(pagecontent.contains(head1()), "element missing: "+head1());
     assert(pagecontent.contains("\""+https()), "element missing: "+https());
     assert(pagecontent.contains("\""+httpsjs()), "element missing: "+httpsjs());
-
   }
+  

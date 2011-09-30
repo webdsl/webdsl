@@ -44,11 +44,9 @@ section somesection
     output(globaluser.name)
   }
 
-  test messages {
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     assert(d.getPageSource().contains("content is visible"));
     
@@ -57,6 +55,4 @@ section somesection
   
     assert(d.getPageSource().contains("content is visible"));
     assert(d.getPageSource().contains("text1"));
-    
-    d.close();
   }

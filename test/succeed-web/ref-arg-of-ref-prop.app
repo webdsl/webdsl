@@ -23,8 +23,7 @@ application test
   
   
   test propertyofrefarg {
-    
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     
@@ -34,7 +33,5 @@ application test
     button.click();  
 
     assert(d.getPageSource().contains("1234567"));
-    
-    d.close();
   }
   

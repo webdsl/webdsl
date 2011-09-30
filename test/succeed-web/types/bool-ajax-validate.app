@@ -17,11 +17,10 @@ application exampleapp
   }
   
   test booltemplate {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var input := d.findElement(SelectBy.className("inputBool"));
     input.click();
-    Thread.sleep(2000);
     assert(d.getPageSource().contains("b must be false"));
     assert(d.getPageSource().contains("b must still be false"));
     var button := d.findElement(SelectBy.className("button"));
@@ -29,5 +28,4 @@ application exampleapp
     assert(d.getPageSource().contains("b must be false"));
     assert(d.getPageSource().contains("b must still be false"));
     assert(d.getPageSource().contains("400px"));
-    d.close();
   }

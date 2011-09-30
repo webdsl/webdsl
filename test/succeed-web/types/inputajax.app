@@ -66,34 +66,26 @@ application test
     output(t.ent)  	
   }
 
-  native class Thread {
-    static sleep(Int)
-  }
-
   test inputajaxtests{
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     d.findElement(SelectBy.className("b1")).click();
-    Thread.sleep(1000);
     for(s:String in "234".split()){
       d.findElement(SelectBy.className("i1")).sendKeys(s);
-      Thread.sleep(1000);
+      sleep(1000); //currently only waits after clicks are automatic
     }
     for(s:String in "646".split()){
       d.findElement(SelectBy.className("f1")).sendKeys(s);
-      Thread.sleep(1000);
+      sleep(1000);
     }
     for(s:String in "345".split()){
       d.findElement(SelectBy.className("l1")).sendKeys(s);
-      Thread.sleep(1000);
+      sleep(1000);
     }
     for(s:String in "abc".split()){
       d.findElement(SelectBy.className("s51")).sendKeys(s);
-      Thread.sleep(1000);
+      sleep(1000);
     }
     d.findElement(SelectBy.className("button1")).click();
-    Thread.sleep(1000);
-    //log(d.getPageSource());
     assert(d.getPageSource().contains("2340.0646345"));
-    d.close();
   }

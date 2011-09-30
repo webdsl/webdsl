@@ -15,11 +15,10 @@ application test
     </h1>
   }
 
-  test one {
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("foobar"));
-    d.close();
   }
   
 

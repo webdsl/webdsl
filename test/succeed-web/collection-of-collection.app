@@ -45,13 +45,9 @@ application test
     return s;
   }
   
-  test buttonclick {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
-    assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
     assert(d.getPageSource().contains("1231212"), "incorrect output");
-    
-    d.close();
   }
   

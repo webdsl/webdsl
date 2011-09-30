@@ -33,9 +33,8 @@ application formcheckseparate
     title { "successfully performed edit" }
   }
 
-  test one {
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -63,7 +62,5 @@ application formcheckseparate
     elist[5].click();
     
     assert("successfully performed edit" == d.getTitle());
-    
-    d.close();
   }
   

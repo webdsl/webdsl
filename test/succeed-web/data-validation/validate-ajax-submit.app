@@ -32,7 +32,7 @@ application registerexample
   }
 
   test datavalidation {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
     
@@ -49,6 +49,4 @@ application registerexample
     elist[3].click();
  
     assert(d.getPageSource().contains("You have successfully entered '1'"), "expected message missing");
-    
-    d.close();
   }

@@ -50,13 +50,12 @@ section datamodel
     output(global_u.emailstring)
   }
   
-test booltemplates {
-  var d : WebDriver := FirefoxDriver();
+test {
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   var button := d.findElements(SelectBy.className("savebutton"))[0];
   button.click();
   assert(d.getPageSource().contains("outputuser1"));
   assert(d.getPageSource().contains("showpar2"));
   assert(d.getPageSource().contains("foobar"));
-  d.close();
 }

@@ -44,9 +44,8 @@ application test
  
  section tests
  
-   test one {
-    
-    var d : WebDriver := FirefoxDriver();
+   test {
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     d.get(navigate(root())); // access twice, so the previous request shows up
@@ -58,9 +57,6 @@ application test
     elist[2].sendKeys("1");
     elist[3].click();  
     assert(d.getPageSource().contains("Principal: "), "principal not shown in request log");
-    
-    
-    d.close(); 
   }
   
 

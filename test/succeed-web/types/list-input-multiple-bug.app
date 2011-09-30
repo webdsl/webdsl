@@ -23,9 +23,8 @@ define page root(){
 }
 
   test inputajaxtests{
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     d.findElement(SelectBy.className("button2")).click();
     assert(d.getPageSource().contains("length:2"));
-    d.close();
   }

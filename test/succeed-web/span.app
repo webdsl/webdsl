@@ -16,9 +16,8 @@ application test
     define span template2(a:String){output(a)}
   }
   
-  test one {
-    
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     //log(navigate(root()));
     d.get(navigate(root()));
     //log(d.getPageSource());
@@ -26,6 +25,5 @@ application test
     assert(!d.getPageSource().contains("<span id=\"template1String\""));
     d.get(navigate(foo()));
     assert(d.getPageSource().contains("<span id=\"template2String\" class=\"scopediv template2String template2\">"));
-    d.close();
   }
   

@@ -28,10 +28,8 @@ application test
   }
   
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var input1 := d.findElement(SelectBy.className("input1"));
@@ -46,9 +44,6 @@ application test
     button2.click();    
 
     assert(d.getPageSource().contains("20-04-2010"), "second input failed");
-
-
-    d.close();
   }
   
 

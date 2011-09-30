@@ -18,13 +18,11 @@ application exampleapp
   }
 
   test inputajaxtests{
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var options := d.findElements(SelectBy.cssSelector("input[type='checkbox']"));
     options[0].click();
-    Thread.sleep(2000);
     options[1].click();
-    Thread.sleep(2000);
     assert(d.getPageSource().contains("cannot select e1"));
     assert(d.getPageSource().contains("cannot select e2"));
     var button := d.findElement(SelectBy.className("button"));
@@ -34,11 +32,7 @@ application exampleapp
     
     options := d.findElements(SelectBy.cssSelector("input[type='checkbox']"));
     options[0].click();
-    Thread.sleep(2000);
     options[1].click();
-    Thread.sleep(2000);
     assert(!d.getPageSource().contains("cannot select e1"));
     assert(!d.getPageSource().contains("cannot select e2"));
-    
-    d.close();
   }

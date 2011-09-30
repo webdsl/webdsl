@@ -17,20 +17,20 @@ application exampleapp
   }
 
   test longtemplate {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var input := d.findElement(SelectBy.className("inputLong"));
     input.clear();
     input.sendKeys("1");
-    Thread.sleep(2000);
+    sleep(2000);
     assert(d.getPageSource().contains("must be greater than 10"));
     assert(d.getPageSource().contains("must be greater than 20"));
     input.sendKeys("5");
-    Thread.sleep(2000);
+    sleep(2000);
     assert(!d.getPageSource().contains("must be greater than 10"));
     assert(d.getPageSource().contains("must be greater than 20"));
     input.sendKeys("8");
-    Thread.sleep(2000);
+    sleep(2000);
     assert(!d.getPageSource().contains("must be greater than 10"));
     assert(!d.getPageSource().contains("must be greater than 20"));
 
@@ -42,5 +42,4 @@ application exampleapp
     assert(d.getPageSource().contains("must be greater than 20"));
 
     assert(d.getPageSource().contains("400px;"));
-    d.close();
   }

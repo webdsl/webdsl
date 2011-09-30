@@ -16,9 +16,8 @@ application test
     }
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root())+"?logsql");
     assert(d.getPageSource().contains("Access to SQL logs was denied."));
@@ -28,8 +27,6 @@ application test
     
     d.get(navigate(root())+"?logsql");
     assert(d.getPageSource().contains("Access to SQL logs was denied."));
-    
-    d.close();
   }
   
   principal is User with credentials name

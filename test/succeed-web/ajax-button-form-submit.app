@@ -2,7 +2,6 @@
 
 application test
 
-
   define page root(){
     var i := 1
     action red(){
@@ -18,23 +17,12 @@ application test
     "redirected to success page"
   }
   
-  native class Thread{
-    static sleep(Int)
-  }
-
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
     var button := d.findElement(SelectBy.className("pushbutton"));
     button.click();
-    Thread.sleep(2000);
-    
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
-    
-    d.close();
   }
   
 

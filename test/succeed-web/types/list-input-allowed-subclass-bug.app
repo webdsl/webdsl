@@ -38,7 +38,7 @@ define page root() {
 
 
 test listtemplates {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
   assert(d.findElements(SelectBy.tagName("option")).length == 6);
@@ -53,6 +53,4 @@ test listtemplates {
   
   assert(d.findElements(SelectBy.tagName("option")).length == 6);
   assert(d.findElements(SelectBy.tagName("li")).length == 2);
-  
-  d.close();
 }

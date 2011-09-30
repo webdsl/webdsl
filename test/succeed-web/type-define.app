@@ -21,10 +21,8 @@ application test
     validate(this.length() >= 10 , "input too short (minimum is 10 characters)") 
   }
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -38,8 +36,6 @@ application test
     elist[1].sendKeys("123");
     elist[2].click();    
     assert(d.getPageSource().contains("input too short (minimum is 10 characters)"), "should show error message for string input");
-    
-    d.close();
   }
   
 

@@ -22,10 +22,9 @@ application basic
     labelInternal("456"){ elements() }
   }
 
-  test var {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("redefBAR"));
-    d.close();
   }
   

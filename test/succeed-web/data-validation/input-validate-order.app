@@ -35,12 +35,10 @@ application formcheckseparate
     }
   }
 
-    
   test inputvalidate {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
 
     var elist := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 4, "expected 4 <input> elements");
@@ -50,7 +48,5 @@ application formcheckseparate
     elist[3].click();
     
     assert(d.getPageSource().contains("property2 must be smaller than property1"), "didn't find validation message in page output");
-   
-    d.close();
   }
   

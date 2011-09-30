@@ -1,4 +1,3 @@
-
 application test
 
   entity TestEntity{
@@ -19,11 +18,10 @@ application test
   define a(){"replacedsecond"}
   define b(){"failed"}
 
-  test var {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("replaced156"), "template a(2) contents not shown");
     assert(d.getPageSource().contains("replacedsecond"), "template a(0) contents not shown");
-    d.close();
   }
   

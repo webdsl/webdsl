@@ -12,15 +12,9 @@ application test
     one("0")
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
-    log(d.getPageSource());
     assert(d.getPageSource().contains("0123"));
-
-    d.close();
   }
   

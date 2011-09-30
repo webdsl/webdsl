@@ -37,9 +37,8 @@ application test
     }
   }
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
@@ -51,8 +50,6 @@ application test
     elist[2].click();
     
     assert(d.getPageSource().contains("2345"),"Ent not saved");
-    
-    d.close();
   }
   
 

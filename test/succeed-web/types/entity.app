@@ -57,7 +57,7 @@ define testnolabel(e:Ent){
 }
 
 test entityreftemplates {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
   var input := d.findElements(SelectBy.className("input-elem"))[0];
@@ -77,8 +77,6 @@ test entityreftemplates {
   assert(l2==5);
   var l3 := Select(d.findElement(SelectBy.className("elem-test-3"))).getOptions().length;
   assert(l3==5);
-  
-  d.close();
 }
 
   entity Ent2 {

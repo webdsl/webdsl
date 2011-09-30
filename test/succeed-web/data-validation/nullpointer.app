@@ -45,7 +45,7 @@ application registerexample
   }
   
   test validatenotnullchecks {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     var i1 := Select(d.findElement(SelectBy.className("input1")));
@@ -77,5 +77,4 @@ application registerexample
     var b1 := d.findElement(SelectBy.className("button1"));
     b1.click();
     assert(d.getPageSource().contains("extra form validation error"));
-    d.close();
   }

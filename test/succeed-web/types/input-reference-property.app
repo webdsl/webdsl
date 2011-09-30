@@ -156,8 +156,7 @@ application test
     assert(!(s_1 in test.allowedSet1()));
     assert(!(s_2 in test.allowedSet1()));
     
-    
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(setvariants()));
     assert(d.getPageSource().split("SomeEntity3").length==13);
@@ -170,9 +169,6 @@ application test
     d.get(navigate(listvariants()));
     assert(d.getPageSource().split("SomeEntity3").length==5);
     assert(d.getPageSource().split("SomeEntity2").length==1);
-
-    d.close();
-    
   }
 
  

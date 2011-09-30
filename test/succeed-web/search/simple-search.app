@@ -2,19 +2,19 @@ application test
 
   entity Person{
     name::String
-	searchmapping {
-		name;
-  	}
+  searchmapping {
+    name;
+    }
   }
 
   define page root(){
-	init{
-	  	var p := Person{};
-		p.name := "Pepe Roni";
-	  	p.save();
-	}
-  	output("TEST")
-  	navigate searchPage() { "go to search" }
+  init{
+      var p := Person{};
+    p.name := "Pepe Roni";
+      p.save();
+  }
+    output("TEST")
+    navigate searchPage() { "go to search" }
   }
   
   define page searchPage(){
@@ -24,12 +24,10 @@ application test
   }
   
   test SimpleSearch {
-    
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var link := d.findElement(SelectBy.className("navigate"));
     link.click();
     assert(d.getPageSource().contains("Pepe Roni"), "Person with name 'Pepe Roni' not found");
-    d.close();
   }

@@ -1,40 +1,40 @@
 application test
-
-define page root(){
   
-  navigate issue(5){"go"}
-  
-  for(i:Issue){
-    output(""+i.open+i.num)
-  }
-}
-entity Issue{
-  open :: Bool
-  num:: Int
-}
-define page issue( issueNumber : Int) {
-  body()
-  define body(){
-    var i := Issue{open := true}
+  define page root(){
     
-    output(issueNumber)
-    form{
-      submit close(i){"Save"}
-    }
-    action close(issue : Issue){
-      issue.num := issueNumber;
-      issue.save();
-      return root();
+    navigate issue(5){"go"}
+    
+    for(i:Issue){
+      output(""+i.open+i.num)
     }
   }
-}
-define body(){"default body"}
-entity User {
-  name :: String
-  password :: Secret
-}
-
-principal is User with credentials name, password
+  entity Issue{
+    open :: Bool
+    num:: Int
+  }
+  define page issue( issueNumber : Int) {
+    body()
+    define body(){
+      var i := Issue{open := true}
+      
+      output(issueNumber)
+      form{
+        submit close(i){"Save"}
+      }
+      action close(issue : Issue){
+        issue.num := issueNumber;
+        issue.save();
+        return root();
+      }
+    }
+  }
+  define body(){"default body"}
+  entity User {
+    name :: String
+    password :: Secret
+  }
+  
+  principal is User with credentials name, password
 
 access control rules
   rule page root(){
@@ -50,7 +50,7 @@ access control rules
   
 section bla  
   test ac {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
@@ -63,7 +63,5 @@ section bla
       
     d.get(navigate(root()));
     assert(d.getPageSource().contains("true5"), "entered data not found");
-    
-    d.close();
   }
   

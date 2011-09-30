@@ -38,10 +38,9 @@ application inputint
  */
   
   test datavalidation {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 5, "expected 5 <input> elements");
@@ -63,6 +62,4 @@ application inputint
     assert(pagesource.contains("cannot choose self as y"));
     assert(pagesource.contains("cannot choose self in list"));
     assert(pagesource.contains("number must be greater than 5"));
-    
-    d.close();
   }

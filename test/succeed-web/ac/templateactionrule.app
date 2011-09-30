@@ -57,9 +57,8 @@ section somesection
   
   var globalu := User{}
     
-  test acaction {
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     assert(!d.getPageSource().contains("foobar123"));
@@ -69,8 +68,6 @@ section somesection
     button.click();
         
     assert(d.getPageSource().contains("foobar123"));
-    
-    d.close();
   }
   
    

@@ -56,7 +56,7 @@ application exampleapp
   
   
   test entityreftemplates {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
   
     var elems := d.findElements(SelectBy.tagName("input"));
@@ -67,8 +67,6 @@ application exampleapp
     elems[4].click();
     
     assert(d.getPageSource().contains("112233"));
-    
-    d.close();
   }
 
   //inline
