@@ -142,9 +142,13 @@ module .servletapp/src-webdsl-template/built-in
   
   type File{
     getContentAsString():String
+    getContentType():String
+    setContentType(String)
   }
   type Image{
     getContentAsString():String
+    getContentType():String
+    setContentType(String)
   }
 
 // access to servlet context
