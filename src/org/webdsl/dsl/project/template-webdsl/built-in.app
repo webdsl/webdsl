@@ -255,6 +255,8 @@ module .servletapp/src-webdsl-template/built-in
 //  section WebDriver for testing
 
   function sleep(i:Int){ UtilsTestClass.sleep(i); }
+  function createTempFile(s:String):String{ return UtilsTestClass.createTempFile(s); }
+  
   function getFirefoxDriver():FirefoxDriver{ return UtilsTestClass.getFirefoxDriver(); }
   function getHtmlUnitDriver():HtmlUnitDriver{ return UtilsTestClass.getHtmlUnitDriver(); }
   function getDriver():WebDriver{ return getFirefoxDriver(); }
@@ -264,6 +266,7 @@ module .servletapp/src-webdsl-template/built-in
     static getHtmlUnitDriver():HtmlUnitDriver
     static getFirefoxDriver():FirefoxDriver
     static closeDrivers()
+    static createTempFile(String):String
   } 
   
   native class org.openqa.selenium.WebDriver as WebDriver {
