@@ -100,7 +100,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	static{
 		_namespaceBoboReaderMap = new HashMap<String, BoboIndexReader>();
 	}
-	
 
 	public AbstractEntitySearcher() {		
 	}
@@ -120,8 +119,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			fieldConstraints = new HashMap<String, String>();
 		return fieldConstraints.get(fieldname);
 	}
-	
-	
+		
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F allowLuceneSyntax(boolean b) {
 		if(this.allowLuceneSyntax != b) {
@@ -172,7 +170,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				booleanQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), Occur.MUST);
 			} else if(rangeFacetRequests.containsKey(facet.getFieldName())) {
 				key = facet.getFieldName() + "-" + facet.getValue();
-				
 				Facet actualFacet = facetMap.get(key);
 				if (actualFacet == null){
 					// Facets are not yet retrieved during this object's life cycle, probably this is a search query reconstructed from param map.
@@ -728,7 +725,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		filteredFacetsList.add(facet);
 	
 		updateFacets = updateParamMap = true;
-		
 		return (F) this;
 	}
 	
@@ -917,7 +913,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		if(updateFacets && !filteredFacetsList.isEmpty()){
 			updateFacets = false;
 			applyFacets();
-			updateFullTextQuery = true;
+			facetQuery = luceneQuery;
+			updateFullTextQuery = true;			
 		}
 		if (updateFullTextQuery) {
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
@@ -930,7 +927,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				applyFieldConstraints();
 				facetQuery = null; // facetQuery needs to be rebuild adding additional MUST clauses to luceneQuery for applied filters
 			}
-			
 		}
 		if(updateNamespaceConstraint && !namespaceConstraint.isEmpty()){
 			updateNamespaceConstraint = false;
@@ -978,16 +974,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		// creating a browse request
 		BrowseRequest br=new BrowseRequest();
 		br.setCount(cnt);
-		br.setOffset(0);
-		
-		if(fieldConstraints.isEmpty()) {		
-			br.setQuery(luceneQuery);
-		} else{
-			BooleanQuery q = new BooleanQuery();
-			q.add(luceneQuery, Occur.MUST);
-			
-		}
-		
+		br.setOffset(0);	
 		if(facetQuery == null){
 			//Apply field filters through query, when enabled
 			BooleanQuery bq = new BooleanQuery();

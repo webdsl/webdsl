@@ -5,91 +5,91 @@ application test
     birthday  :: Date
     items     -> Set<Item>
     
-  searchmapping {
-    name;
-    items;
-    birthday;
-    }
+	searchmapping {
+		name;
+		items;
+		birthday;
+  	}
   }
   
   entity Item{
-    name 		:: String
-    description :: String (length = 1000)
-    owner 		-> Person (inverse=Person.items)
-    
-    searchmapping {
-      name as nameField
-      name as nameFieldNoStop using standard_no_stop
-      name as nameCustomStop using custom_stop
-      name as nameCompletion using autocomplete_untokenized (autocomplete);
-      description;
-    }
+  	name 		:: String
+  	description :: String (length = 1000)
+  	owner 		-> Person (inverse=Person.items)
+  	
+  	searchmapping {
+  		name as nameField
+  		name as nameFieldNoStop using standard_no_stop
+  		name as nameCustomStop using custom_stop
+  		name as nameCompletion using autocomplete_untokenized (autocomplete);
+  		description;
+  	}
   }
   
   entity DateThingy{
-    date 		:: Date (searchable())
-    datetime 	:: DateTime (searchable())
-    time 		:: Time (searchable)
+  	date 		:: Date (searchable(analyzer=year))
+  	datetime 	:: DateTime (searchable(analyzer=year))
+  	time 		:: Time (searchable(analyzer=year))
   }
   
 analyzer year{
   tokenizer = PatternTokenizer(pattern="^([0-9]{4})", group="1")
 }
 analyzer month{
-  tokenizer = PatternTokenizer(pattern="^[0-9]{4}([0-9]{2})", group="1")
+	tokenizer = PatternTokenizer(pattern="^[0-9]{4}([0-9]{2})", group="1")
 }
     
   analyzer autocomplete_untokenized {
-  tokenizer = KeywordTokenizer
-  tokenfilter = LowerCaseFilter
+	tokenizer = KeywordTokenizer
+	tokenfilter = LowerCaseFilter
   }
   
   analyzer standard_no_stop{
-  tokenizer = StandardTokenizer
-  tokenfilter = StandardFilter
-  tokenfilter = LowerCaseFilter
+	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
   }
   
   analyzer custom_stop{
-    tokenizer = StandardTokenizer
-  tokenfilter = StandardFilter
-  tokenfilter = LowerCaseFilter
-    // tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
+  	tokenizer = StandardTokenizer
+	tokenfilter = StandardFilter
+	tokenfilter = LowerCaseFilter
+  	// tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
   }
   
   
 
   define page root(){
-    var d : DateThingy;
-  init{
-    d := DateThingy{date := Date("01/02/2003") datetime := now() time := Time("12:34")}; //DateTime("01/02/2003 12:34")
-      var p := Person{name := "Pepe Roni" birthday := Date("05/05/1955")};
-      var i1 := Item{
-        name := "Bottle of dr Pepper" 
-        description := "ingredients for Dietetic Dr Pepper, circa 1963: Carbonated water, caramel color, citric acid, phosphoric acid, caffeine, sodium	cyclamate, sodium carboxymethylcellulose, sodium saccharin, monosodium phosphate, lactic acid, flavoring, spices, less than 1/20th of 1% benzoate of soda (preservative), .088% sodium cyclamate, .007% sodium saccharine, non-nutritive artificial sweeteners which should be used	only by persons who must restrict their intake of ordinary sweets. No fat or protein. .28% available carbohydrates. 1/3 calorie per fl. oz. TheEnd." 
-      owner := p };
-      var i2 := Item{
-        name := "Diet Coke" 
-        description := "Amount (% RDA Ingredients) Calories 0 Fat 0g (0%) Sodium 40mg (2%) Carbohydrates 0g (0%) Sugar 0g Protein 0g (0%) Diet Coke™ - Ingredients Carbonated Water	High Fructose Corn Syrup Caramel Color Phosphoric Acid Natural Flavors Caffeine Aspartame (NutraSweet) Potassium Benzoate Citric acid. TheEnd." 
-      };
-      var i3 := Item{
-        name := "Car" 
-        description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500. TheEnd."
-      };
-    d.save();
-    p.save();
-    i1.save();
-    i2.save();
-    i3.save();
-  }
-    output("TEST") output(d.date) " " output(d.datetime) " " output(d.time)
-    navigate searchPage() { "go to search" }
+  	var d : DateThingy;
+	init{
+		d := DateThingy{date := Date("01/02/2003") datetime := now() time := Time("12:34")}; //DateTime("01/02/2003 12:34")
+	  	var p := Person{name := "Pepe Roni" birthday := Date("05/05/1955")};
+	  	var i1 := Item{
+	  		name := "Bottle of dr Pepper" 
+	  		description := "ingredients for Dietetic Dr Pepper, circa 1963: Carbonated water, caramel color, citric acid, phosphoric acid, caffeine, sodium	cyclamate, sodium carboxymethylcellulose, sodium saccharin, monosodium phosphate, lactic acid, flavoring, spices, less than 1/20th of 1% benzoate of soda (preservative), .088% sodium cyclamate, .007% sodium saccharine, non-nutritive artificial sweeteners which should be used	only by persons who must restrict their intake of ordinary sweets. No fat or protein. .28% available carbohydrates. 1/3 calorie per fl. oz. TheEnd." 
+			owner := p };
+	  	var i2 := Item{
+	  		name := "Diet Coke" 
+	  		description := "Amount (% RDA Ingredients) Calories 0 Fat 0g (0%) Sodium 40mg (2%) Carbohydrates 0g (0%) Sugar 0g Protein 0g (0%) Diet Coke™ - Ingredients Carbonated Water	High Fructose Corn Syrup Caramel Color Phosphoric Acid Natural Flavors Caffeine Aspartame (NutraSweet) Potassium Benzoate Citric acid. TheEnd." 
+			};
+	  	var i3 := Item{
+	  		name := "Car" 
+	  		description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat	Nuova 500. TheEnd."
+			};
+		d.save();
+		p.save();
+		i1.save();
+		i2.save();
+		i3.save();
+	}
+  	output("TEST") output(d.date) " " output(d.datetime) " " output(d.time)
+  	navigate searchPage() { "go to search" }
   }
   
   define page searchPage(){
-    init{
-      IndexManager.indexSuggestions();
-    }
+  	init{
+  		IndexManager.indexSuggestions();
+  	}
     var personSearcher := PersonSearcher();
     var personSearcher2 := PersonSearcher();
     var personSearcher3 := PersonSearcher();
@@ -133,12 +133,12 @@ analyzer month{
   }
   
   define page BooleanResultPage(ps : PersonSearcher){
-    "searcherPageArg:" output(ps.resultSize())
+  	"searcherPageArg:" output(ps.resultSize())
   }
   
   test AdvancedSearch {
     IndexManager.clearAutoCompleteIndex("Item");
-    var d : WebDriver := getFirefoxDriver();
+    var d : WebDriver := FirefoxDriver();
     d.get(navigate(root()));
     
     var link := d.findElement(SelectBy.className("navigate"));
@@ -173,6 +173,7 @@ analyzer month{
     link.click();
     pagesource := d.getPageSource();
     assert(pagesource.contains("searcherPageArg:1"), "PersonSearcher with a boolean query should have been encoded and decoded from page argument in URL");
+    d.close();
   }
   
   
