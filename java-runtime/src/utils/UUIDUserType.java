@@ -17,7 +17,7 @@ import org.hibernate.HibernateException ;
 import org.hibernate.usertype.UserType ;
 //http://www.bigsoft.co.uk/blog/index.php/2008/11/01/java-util-uuid-primary-keys-in-hibernate
 //changed to work with varchar(16) field in db
-public class UUIDUserType implements UserType
+public class UUIDUserType implements UserType, java.io.Serializable
 {
 
 	private static final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
@@ -40,12 +40,13 @@ public class UUIDUserType implements UserType
 	public Object assemble (Serializable cached, Object owner) throws HibernateException
 	{
 
+		if(cached == null) return null;
 		if (!String.class.isAssignableFrom (cached.getClass ()))
 		{
 			return null ;
 		}
 
-		return UUID.fromString ((String) cached) ;
+		return retrieveUUID((String) cached) ;
 	}
 
 	/*
@@ -75,8 +76,12 @@ public class UUIDUserType implements UserType
 	 */
 	public Serializable disassemble (Object value) throws HibernateException
 	{
-
-		return value.toString () ;
+		if(value == null) return null;
+		if (!UUID.class.isAssignableFrom (value.getClass ()))
+		{
+			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
+		}
+		return persistUUIDString((UUID)value);
 	}
 
 	/*

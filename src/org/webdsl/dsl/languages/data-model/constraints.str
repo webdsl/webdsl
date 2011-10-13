@@ -57,6 +57,36 @@ rules
       ; add-error(|["The expression of the derived property ", x, " should have type ", <pp-webdsl> s])
 
   constraint-error-data =
+    (?ent@Entity(x_id, _, entbodydecs) <+ ?ent@EntityNoSuper(x_id, entbodydecs) <+ ?ent@SessionEntity(x_id, entbodydecs) <+ ?ExtendEntity(x_id, entbodydecs) <+ ?ExtendSessionEntity(x_id, entbodydecs))
+    ; where(<not(check-is-cached-entity(|[]))> x_id)
+    ; <fetch-elem(check-is-cached-property)> entbodydecs
+    ; add-error(|["Only cached entities can have cached properties."])
+
+  check-is-cached-property =
+  	?Property(_, _, _, annos)
+  	; where(<fetch(?SimpleAnno("cache"))> annos)
+
+  constraint-error-data =
+    ?ent@Entity(x_id, x_super, _)
+    ; where(<IsCachedEntity> x_id)
+    ; where(<not(check-is-cached-entity(|[]))> x_super)
+    ; <add-error(|["A sub-entity is only cached if it inherits from a cached entity."])> x_id
+
+  check-is-cached-entity(|alreadychecked) = // Same as is-cached-entity, but can also be used on an entity that subclasses itselft
+    ?x_class
+    ; where(not(<fetch(?x_class)> alreadychecked))
+    ; (IsCachedEntity <+ <Extends; check-is-cached-entity(|[x_class|alreadychecked])> x_class)
+
+  constraint-error-data :
+    Property(x, propkind, srt, annos) -> <add-error(|["Only collection properties can have a cache annotation."])>
+    where <fetch(?SimpleAnno("cache"))> annos
+        ; not(<is-generic-sort> srt)
+
+  constraint-error-data :
+    DerivedProperty(x, propkind, srt, annos, _) -> <add-error(|["Derived properties cannot be cached."])>
+    where <fetch(?SimpleAnno("cache"))> annos
+
+  constraint-error-data =
     (  ?Property(x, propkind, srt, _)
     <+ ?PropertyNoAnno(x, propkind, srt)
     <+ ?DerivedProperty(x, propkind, srt, _, _)
