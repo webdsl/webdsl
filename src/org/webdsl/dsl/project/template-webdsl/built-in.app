@@ -380,23 +380,17 @@ module .servletapp/src-webdsl-template/built-in
   
   entity RequestLogEntry {
     name :: String
-    params -> List<RequestLogEntryParam>
-    requestedURL :: String (length=1000000)
+    requestedURL :: Text
     start :: DateTime
     end :: DateTime
     clientIP :: String
     clientPort :: Int
     method :: String
-    referer :: String  (length=1000000)
-    userAgent :: String
+    referer :: Text
+    userAgent :: Text
     queryExecutionCount :: Int
     queryExecutionMaxTime :: Int
     queryExecutionMaxTimeQueryString :: String
-  }
-  
-  entity RequestLogEntryParam {
-    name :: String
-    value :: String (length=1000000)
   }
   
   //built-in templates
