@@ -50,8 +50,11 @@ rules
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
   update-template-args-anno :
-    anno* -> [TemplateArgs(<TemplateArg <+ ![]>) | tokeep*]
-    where tokeep* := <remove-all(?TemplateArgs(_))> anno*
+    anno* -> [templName*, templArgs*, tokeep*]
+    where tokeep* := <remove-all(?TemplateArgs(_) <+ ?TemplateName(_))> anno*
+    ; templArgs* := [TemplateArgs(<TemplateArg <+ ![]>)]
+    ; templName* := <![TemplateName(<generate-template-name-fargs>(<InTemplate>, <TemplateArg>))] <+ ![]>
+
           
 rules
 
@@ -76,6 +79,17 @@ rules
     ; <fetch-elem(?TemplateArgs(args))> anno*
     ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, cond)
     ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
+
+  desugar-ui :
+    def@For(x, srt, e, f, elems1, elems3){anno*} -> For(x, srt, e, f, elems1, elems3){QueryOptimizations(joincandidates, joincandidatesgen, True(), []), anno*}
+    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
+    ; <is-entity-type> srt
+    ; <fetch-elem(?TemplateName(genname))> anno*
+    with <fetch-elem(?TemplateArgs(args))> anno*
+    ; {| PassedTemplate
+          : rules( PassedTemplate : genname )
+          ; (joincandidates, joincandidatesgen) := <get-query-optimizations>(elems1, x, srt, args)
+      |}
 
   is-function-call-with-query-optimization(|srt) =
     ?ThisCall(fname, fargs)

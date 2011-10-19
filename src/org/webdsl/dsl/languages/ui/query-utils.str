@@ -67,17 +67,49 @@ rules
                        with rules( ParentArgs      : Var(arg) -> srt )
                      \})> args
        //; info(|["base: ", <pp-aterm> base])
-       ; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
+       //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; fas := <collect-potential-joins> base
-       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
+       //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
        ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set> fas
-       ; queryroots := <filter(get-first-generic-sort); make-set; group-similar-roots> joincandidates
-       ; joincandidatesgennocast := <map(map(group-join-candidates-fa(|joincandidates)))> queryroots
-       ; joincandidatesgen := <map(map(try(cast-query-root)))> joincandidatesgennocast
-       ; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
-       ; joincandidatesnogen := <diff> (joincandidates, <flatten-list; make-set>joincandidatesgennocast) 
-       ; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
+       //; queryroots := <filter(get-first-generic-sort); make-set; group-similar-roots> joincandidates
+       //; joincandidatesgennocast := <map(map(group-join-candidates-fa(|joincandidates)))> queryroots
+       ; joincandidatesall := <map(add-sort-anno)>joincandidates//<debug(!"gen:");map(map(/*try(cast-query-root);*/map(debug(!"srt:");add-sort-anno;debug(!"so:"))))> joincandidatesgennocast
+       //; info(|["Inline by queries: ", joincandidatesgen]) // Each sublist creates an extra query to fetch subcollections
+       ; joincandidatesnogen := <filter(add-sort-nogen-anno)>joincandidates//<diff;debug(!"nogen:");map(debug(!"srt:");add-sort-anno;debug(!"so:"))> (joincandidates, <flatten-list; make-set>joincandidatesgennocast)
+       ;joincandidatesgen := <diff> (joincandidatesall, joincandidatesnogen) 
+       //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
       |}
+
+add-sort-anno:
+  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, anno*}
+  with p2{annop2*} := <add-sort-anno> p
+  ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
+  ; x_class := <class-of-property> (x_classp, f)
+  ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+    
+add-sort-anno:
+  Cast(p, srt){anno*} -> Cast(p2, srt){srt, anno*}
+  with p2 := <add-sort-anno> p
+
+add-sort-anno:
+  expr@Var(_){anno*} -> expr{srt, anno*}
+  with srt := <RootVar> expr
+
+add-sort-nogen-anno:
+  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, anno*}
+  where p2{annop2*} := <add-sort-nogen-anno> p
+  ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
+  ; x_class := <class-of-property> (x_classp, f)
+  ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+  ; not(<?GenericSort(_, _)> srt)
+
+add-sort-nogen-anno:
+  Cast(p, srt){anno*} -> Cast(p2, srt){srt, anno*}
+  where p2 := <add-sort-nogen-anno> p
+
+add-sort-nogen-anno:
+  expr@Var(_){anno*} -> expr{srt, anno*}
+  with srt := <RootVar> expr
 
   remove-casts = repeat(oncetd(?Cast(<id>, _)))
 
@@ -421,7 +453,7 @@ strategies
   an-potential-joins =
     (?ForNoFilter(x, srt, e, _, _) <+ ?For(x, srt, e, f, _, _) <+ ?ForStmtNoFilter(x, srt, e, _) <+ ?ForStmt(x, srt, e, f, _))
     ; ?for
-    ; not([] := <filter(is-accessible-from(IteratedVar))> e) 
+    ; not([] := <filter(is-accessible-from(IteratedVar <+ IteratedSubList))> e)
     ; not(<IteratedSubList> Var(x))
     ; {| IteratedSubList, IteratedSubListValue // Different from IteratedVar, because the path represents a collection and thus may not be used in query conditions, but can still be used to find additional joins
        : rules( IteratedSubListValue : Var(x) -> e
@@ -814,13 +846,13 @@ rules
     Cast(f, srt){anno*} -> (p, srt)
     where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
     //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
-    ; <subtype-of> (srt2, srt) // up-cast or cast to same type
+    ; <subtype-of> (<gen>srt2, srt) // up-cast or cast to same type
 
   is-accessible-from(s,gen): // Case where the cast is needed
     Cast(f, srt){anno*} -> (Cast(p, srt){srt2, anno*}, srt)
     where (p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
-    ; not(<?srt> srt2) 
-    ; <subtype-of> (srt, srt2) // down-cast
+    ; not(<gen;?srt> srt2) 
+    ; <subtype-of> (srt, <gen>srt2) // down-cast
 
   add-fetch-mode-anno: // srt is a sub entity of srt2
     fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa{UseFetchMode(),anno*}  

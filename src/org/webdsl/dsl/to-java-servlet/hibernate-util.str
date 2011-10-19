@@ -272,6 +272,148 @@ rules
     with e_expr1new := <expression-to-java-servlet> expr1
     ; e_expr2new := <property-to-string> expr2
 
+  get-batch-fetches(|x, srt, x_list):
+    qo@QueryOptimizations(joincandidates, joincandidatesgen, _, _) -> bstm* |[
+      bstm_batch*
+	    for(t x : x_list) {
+	      bstm_addbatch*
+	    }
+	    bstm_fetch*
+	    bstm_after2*
+	    bstm_subbatch*
+    ]|
+    where t := <java-type> srt
+    ; allprops := <conc> (joincandidates, joincandidatesgen)
+    ; not([] := allprops)
+    ; tmp := <build-direct-batches(|x, srt, t, x_list)> allprops
+    ; bstm_batch* :=    <map(?(_, _, _, <id>, _, _, _));flatten-list> tmp
+    ; bstm_addbatch* := <map(?(_, _, _, _, <id>, _, _))> tmp
+    ; bstm_fetch* :=    <map(?(_, _, _, _, _, <id>, _))> tmp
+    ; bstm_after* :=    <map(?(_, _, _, _, _, _, <id>))> tmp
+    ; bstm_subbatch* := <filter(build-sub-batches(|allprops,x_list)); flatten-list> tmp 
+    ; if <flatten-list; not(?[])> bstm_after*; not([] := bstm_subbatch*) then
+        bstm_after2* := [bstm |[
+          for(t x : x_list) {
+            if(x == null) continue;
+            bstm_after*
+          }
+        ]|]
+      else
+        bstm_after2* := []
+      end
+
+	build-direct-batches(|x, srt, t, x_list) =
+	  ?paths
+	  ; collect(?FieldAccess(Var(_), _) <+ ?FieldAccess(Cast(Var(_), _), _))
+	  ; make-set
+	  ; map(build-batch(|t, x_list))
+
+  build-sub-batches(|allprops, x_list) = 
+    ?(fa, x_batch, t, _, _, _, _)
+    ; x_batchelem := <concat-strings>[x_batch, "Elem"]
+    ; <collect(?FieldAccess(fa, _) <+ ?FieldAccess(Cast(fa, _), _))> allprops
+    ; not(?[])
+    ; make-set
+    ; tmp := <map(alltd(?fa; !Var(x_batchelem)); build-batch(|t, x_batch))>
+    ; bstm_batch* :=    <map(?(_, _, _, <id>, _, _, _));flatten-list> tmp
+    ; bstm_addbatch* := <map(?(_, _, _, _, <id>, _, _))> tmp
+    ; bstm_fetch* :=    <map(?(_, _, _, _, _, <id>, _))> tmp
+    ; bstm_after* :=    <map(?(_, _, _, _, _, _, <id>))> tmp
+    ; bstm_subbatch* := <filter(build-sub-batches(|allprops,x_list)); flatten-list> tmp 
+    ; if <flatten-list; not(?[])> bstm_after*; not([] := bstm_subbatch*) then
+        bstm_after2* := [bstm |[
+          for(t x_batchelem : x_batch) {
+            if(x_batchelem == null) continue;
+            bstm_after*
+          }
+        ]|]
+      else
+        bstm_after2* := []
+      end
+    ; !bstm* |[
+        bstm_batch*
+        for(t x_batchelem : x_batch) {
+          if(x_batchelem == null) continue;
+          bstm_addbatch*
+        }
+        bstm_fetch*
+        bstm_after2*
+        bstm_subbatch*
+      ]|
+    //; with(where(pp-java5-to-string; debug(!"bstm_subbatch:")))
+
+  build-batch(|it, x_list):
+    fa@FieldAccess(c, _){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, [])
+    where <fetch-elem(?SimpleSort(x_class))> anno*
+    ; t := <java-type-entity> x_class
+    ; str := <java-type-entity-name> x_class
+    ; x_batch := <fa-to-uniquename(|x_list)> fa
+    ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
+    ; e_expr := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> fa
+    ; if Cast(p, SimpleSort(x_class2)) := c then
+        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> p
+        ; bstm_addbatch := bstm |[ if (e_p.instanceOf("~x_class2")) x_batch.add(e_expr); ]|
+      else
+        bstm_addbatch := bstm |[ x_batch.add(e_expr); ]|
+      end
+    ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_batch); ]|
+
+  build-batch(|t_Owner, x_list):
+    fa@FieldAccess(c, f{annof*}){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, bstm_after)
+    where <fetch-elem(?GenericSort(_, [SimpleSort(x_class)]))> anno*
+    ; <fetch-elem(?DeclaringEntity(x_ent))> annof*
+    ; t := <java-type-entity> x_class
+    ; x_batch := <fa-to-uniquename(|x_list)> fa
+    ; x_owner := <concat-strings> [x_batch, "Owner"]
+    ; bstm_batch := bstm* |[ java.util.ArrayList<t_Owner> x_owner = new java.util.ArrayList<t_Owner>();
+                            java.util.HashSet<t> x_batch = new java.util.HashSet<t>();
+                          ]|
+    ; e_expr := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> fa
+    ; strRole := <concat-strings>[<java-type-entity-name> x_ent, "._", f]
+    ; if Cast(p, SimpleSort(x_class2)) := c then
+        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> p
+        ; bstm_addbatch := bstm |[ if (e_p.instanceOf("~x_class2") && e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized()) x_owner.add(e_p); ]|
+        ; bstm_after := bstm |[ if (e_p.instanceOf("~x_class2")) x_batch.addAll(e_expr); ]|
+      else
+        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> c
+        ; bstm_addbatch := bstm |[ if(e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized()) x_owner.add(e_p); ]|
+        ; bstm_after := bstm |[ x_batch.addAll(e_expr); ]|
+      end
+    ; bstm_fetch := bstm |[
+        utils.QueryOptimization.prefetchCollections(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~strRole", x_owner);
+      ]|
+/*     with
+     	<pp-java5-to-string; debug(!"bstm_batch:")> bstm_batch
+     	; <pp-java5-to-string; debug(!"bstm_addbatch:")> bstm_addbatch
+     	; <pp-java5-to-string; debug(!"bstm_fetch:")> bstm_fetch*/
+/*
+  buidl-batch(|x, srt, x_list):
+    fa@FieldAccess(_, _){anno*} -> bstm
+    where <fetch-elem(?GenericSort(_, [SimpleSort(x_class)]))> anno*
+    ; SimpleSort(x_class) := srt
+    ; t := <java-type-entity> x_class
+    ; x_batch := <fa-to-uniquename(|x_list)> fa
+    ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
+    ; bstm_addbatch := bstm |[ x_batch.add(x_lst); ]|
+    ; bstm_fetch := bstm |[ utils.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~t", x_batch); ]|
+*/
+  get-sub-paths(|paths) :
+    path -> (path, subpaths)
+    with subpaths := <filter(where(collect(?path); ?[_]))> paths
+
+  fa-to-uniquename(|x_list):
+    FieldAccess(p, f) -> str
+    with strp := <fa-to-uniquename(|x_list)> p
+    ; str := <concat-strings> [strp, "_", f]
+
+  fa-to-uniquename(|x_list):
+    Cast(p, SimpleSort(x_class)) -> str
+    with strp := <fa-to-uniquename(|x_list)> p
+    ; str := <concat-strings> [strp, "_as_", x_class, "_"]
+
+  fa-to-uniquename(|x_list):
+    Var(_) -> x_list
+
   /**
    * Hibernate optimization below on hold, Zef is working on a replacement ORM
    */
@@ -373,7 +515,7 @@ rules
         { 
           return annotationConfiguration;
         }
-        
+
         // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
         @SuppressWarnings("serial")
         private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 

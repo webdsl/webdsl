@@ -49,7 +49,7 @@ strategies
        mod3
        mod4*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
-       @javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
+       @org.hibernate.annotations.Persister(impl = utils.SingleTableEntityPersister.class)//@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
        public class x_Class implements org.webdsl.WebDSLEntity, org.hibernate.bytecode.javassist.FieldHandled
        {
@@ -183,11 +183,11 @@ strategies
         ; cbds1 := <filter(property-to-session-prop-ids(|x_Class));try(concat)> props
         ; pkgname := <DomainPackage>
         ; mod0* := <table-mapping-annos> (sent, x_Class)
-	      ; if <get-anno(?CachedEntity())> sent then
-	          mod1* := [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|]
-	        else
-	          mod1* := []
-	        end
+        ; if <get-anno(?CachedEntity())> sent then
+            mod1* := [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|]
+          else
+            mod1* := []
+          end
 
    entity-to-java-entity :
      ent@Entity(x_Class, x_super, entbodydecs) ->
@@ -436,9 +436,9 @@ strategies
         ; mod3*  := <field-access-for-simple-sorts <+ ![]> prop
         ; mod4*  := <type-specific-annotations <+ ![]> prop  // optional, can be used to specify annotations for specific file, eg see to-java-servlet/types/file.str
         ; cbd*   := <property-to-special-getters(|x_Class) <+ ![]> prop
-        ; bas*	 := <inverse-mutation-in-setter(|x) <+ ![]> prop
+        ; bas*   := <inverse-mutation-in-setter(|x) <+ ![]> prop
     with  bstm_setterextension* := <entity-bstm-property-events> (x_Class,x,s,"set","newitem")
-    	; mod5*   := <property-to-contained-in <+ ![]> prop
+      ; mod5*   := <property-to-contained-in <+ ![]> prop
         ; mod6*  := <property-to-index-annos <+ ![]> prop
         ; mod7*  := <fetch-elem(\ SimpleAnno("cache") -> [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|] \) <+ ![]> annos
         ; (bstm_lazygetter*, bstm_lazysetter*, bstm_lazyinit*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ _#x = newitem; ]|, <property-to-isuninitialized> prop)> s
@@ -568,6 +568,7 @@ rules // set or list of defined entity without inverse
     GenericSort(coll, [s@SimpleSort(ss)]) -> [
       anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|
     , anno|[ @JoinTable( name="~tableName" ) ]|
+    , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
     | anno-list*
     ]
     where <?"Set" <+ ?"List"> coll
@@ -623,6 +624,7 @@ rules // One-to-Many association with Set
     GenericSort("Set", [s]) -> [
       anno|[ @OneToMany(fetch=javax.persistence.FetchType.LAZY) ]| //mappedBy="~other_prop", targetEntity=x_ent, 
     , anno|[ @JoinColumn(name="~joinColumnName", insertable=false, updatable=false) ]|
+    , anno|[ @org.hibernate.annotations.Persister(impl = utils.OneToManyPersister.class) ]|
     ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -652,6 +654,7 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
                          joinColumns={@JoinColumn(name="~thisid")},
                          inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
     , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
+    , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
     ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -672,6 +675,7 @@ rules   // Many-to-Many associations Set-Set
         anno|[ @JoinTable( name="~tableName",
                            joinColumns={@JoinColumn(name="~thisid")},
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
+        , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
       ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos 
@@ -685,6 +689,7 @@ rules   // Many-to-Many associations Set-Set
      GenericSort("Set", [s@SimpleSort(ss)]) ->
        [
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
+         , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
        ]
      where t := <defined-java-type> s
          ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
@@ -703,6 +708,7 @@ rules   // Many-to-Many associations List-Set
                            joinColumns={@JoinColumn(name="~thisid")},
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
       , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
+      , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
       ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -717,6 +723,7 @@ rules   // Many-to-Many associations List-Set
      GenericSort("Set", [s@SimpleSort(ss)]) ->
        [
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
+         , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
        ]
      where t := <defined-java-type> s
          ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -771,7 +778,7 @@ rules // special methods
     with  t         := <java-type> GenericSort("List", [y_srt])
         ; x_listvar := <newname> "list"
         ; e_newgen  := <owned-collection-transform-list-to-genericset(|x_Class,prop,x_listvar) <+ transform-list-to-genericset(|x_listvar)> s
-        //; bas*	    := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
+        //; bas*      := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
         ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
         ; cbdslist  := <list-mutation-methods(|x_Class) <+ ![]> prop
 

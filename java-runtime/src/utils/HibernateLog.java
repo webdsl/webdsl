@@ -234,10 +234,11 @@ public class HibernateLog {
 								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
 								Integer count = entCounter.get(name);
 								if(count == null) count = new Integer(0);
-								if(org.hibernate.Hibernate.isInitialized(context.getProxy(entEntry.getEntityKey()))) {
+								//Entity entries are always about initialized entities, however the proxy may not be updated and therefore the test below may fail
+								//if(org.hibernate.Hibernate.isInitialized(context.getProxy(entEntry.getEntityKey()))) {
 									count++;
 									entities++;
-								}
+								//}
 								entCounter.put(name, count);
 							}
 						}
@@ -262,7 +263,7 @@ public class HibernateLog {
 							}
 						}
 
-						sout.print(", Entities = <span id=\"sqllogentities\">" + entities+ "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
+						sout.print(", Entities = <span id=\"sqllogentities\">" + entities + "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
 						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
 						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
 						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();

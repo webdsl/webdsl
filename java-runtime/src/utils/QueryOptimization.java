@@ -112,4 +112,68 @@ public class QueryOptimization {
 		criteria.add(org.hibernate.criterion.Restrictions.naturalId().set(idProp, id));
 		return criteria.list();
 	}
+
+    public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners) {
+//    	System.out.println("prefetchCollections_" + role + ": " + owners.size());
+    	if( hibSession instanceof org.hibernate.engine.SessionImplementor) {
+//    		System.out.println("SessionImplementor");
+    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
+    		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+			org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(role);
+			if(persister instanceof utils.BatchCollectionPersister) {
+//				System.out.println("BatchCollectionPersister");
+				java.io.Serializable[] ownerIds = new java.io.Serializable[owners.size()];
+				for(int i = 0; i < owners.size(); i++) {
+					ownerIds[i] = owners.get(i).getId();
+				}
+				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session);
+			}
+    	}
+    }
+
+	public static void prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs) {
+//		System.out.println("prefetchEntities_" + entityName + ": " + objs.size());
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+//			System.out.println("SessionImplementor");
+			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
+			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
+			if (persister instanceof utils.SingleTableEntityPersister) {
+//				System.out.println("SingleTableEntityPersister");
+				java.util.Set<java.io.Serializable> ids = new java.util.HashSet<java.io.Serializable>();
+				for (int i = 0; i < objs.size(); i++) {
+					final Object obj = objs.get(i);
+					if (obj instanceof org.hibernate.proxy.HibernateProxy) {
+						org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy) obj).getHibernateLazyInitializer();
+						if (init.isUninitialized()) {
+//							System.out.println("Uninitialized: " + init.getIdentifier());
+//							System.out.println("isInitialized?: " + org.hibernate.Hibernate.isInitialized(obj));
+							ids.add(init.getIdentifier());
+						}
+					}
+				}
+//				System.out.println("left: " + ids.size());
+				if (ids.size() > 1) {
+//					System.out.println("calling loadBatch");
+					try {
+						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session);
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+//					System.out.println("called loadBatch");
+				}
+			}
+		}
+		for (int i = 0; i < objs.size(); i++) {
+			final Object obj = objs.get(i);
+			if (obj instanceof org.hibernate.proxy.HibernateProxy) {
+				org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy) obj)
+						.getHibernateLazyInitializer();
+				if (init.isUninitialized()) {
+					init.initialize();
+				}
+			}
+		}
+//		System.out.println("exit prefetchEntities");
+	}
 }
