@@ -9,6 +9,188 @@ imports
   org/webdsl/dsl/transformation/desugar
   org/webdsl/dsl/modules/search
 
+rules //desugar searcher language to native class interface
+
+
+  desugar-search:
+  	Suggest(ent, AutoComplete(), prts) -> result
+  	with x_searcher := <concat-strings>[ent,"Searcher"]
+  		; e_searcher := exp |[ x_searcher  ]|
+  		; <fetch(?FieldsConstraint(fields))> prts
+  		; e_fields* := <map(\x -> <field-to-string> x\)> fields
+  		; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
+  		; e_toSuggest := <fetch(?SuggestTerm(t)) ; !t> prts
+  		; if (<fetch(?NamespaceConstraint(e_ns))> prts)
+  		  then result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, e_ns, [e_fields*], e_limit)]|
+  		  else result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, [e_fields*], e_limit)]|
+  		  end
+
+  desugar-search:
+  	Suggest(ent, SpellCheck(), prts) -> result
+  	with x_searcher := <concat-strings>[ent,"Searcher"]
+  		; e_searcher := exp |[ x_searcher  ]|
+  		; <fetch(?FieldsConstraint(fields))> prts
+  		; e_fields* := <map(\x -> <field-to-string> x\)> fields
+  		; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
+  		; e_similarity := <(fetch(?Similarity(sim));!sim) <+ !exp |[ 0.7 ]|> prts
+  		; e_toSuggest := <fetch(?SuggestTerm(t)); !t> prts
+  		; if (<fetch(?NamespaceConstraint(e_ns))> prts)
+  		  then result := |[ e_searcher.spellSuggest(e_toSuggest, e_ns, [e_fields*], e_similarity, e_limit)]|
+  		  else result := |[ e_searcher.spellSuggest(e_toSuggest, [e_fields*], e_similarity, e_limit)]|
+  		  end
+
+  desugar-search:
+  	HighlightTags(e_toHighlight, e_searcher, field, e_pretag, e_posttag) -> result
+  	with e_field := <field-to-string> field
+  	   ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight, e_pretag, e_posttag) ]|
+  
+  field-to-string = field-to-string-exp <+ ?SearchFieldRef(exp); !exp
+    	
+  field-to-string-exp: 	
+  	x -> String(x)
+  	where <not(?SearchFieldRef(_))> x
+  	
+  desugar-search:
+  	Highlight(e_toHighlight, e_searcher, field) -> result
+  	with e_field := <field-to-string> field
+  	   ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight) ]|  		
+  
+  desugar-search:
+    SearchResults(e_searcher) -> exp|[ e_searcher.list() ]|
+
+  desugar-search:
+    FacetResults(e_searcher, field) -> exp|[ e_searcher.getFacets(e_field) ]|
+    with e_field := <field-to-string> field
+  
+  desugar-search:
+  	SearchResultsSize(e_searcher) -> exp|[ e_searcher.resultSize() ]|
+  	
+  desugar-search:
+  	SearchTimeString(e_searcher) -> exp|[ e_searcher.searchTimeAsString() ]|
+  	
+  desugar-search:
+  	SearchTimeMS(e_searcher) -> exp|[ e_searcher.searchTimeMillis() ]|
+  	
+  desugar-search:
+  	SearchTimeSec(e_searcher) -> exp|[ e_searcher.searchTimeSeconds() ]|
+  	
+  desugar-search:
+  	SearcherInit(ent, parts) -> result
+  	where x_searcher := <concat-strings>[ent,"Searcher"]
+  		; nwsearcher := exp|[x_searcher()]|
+  		; result := <foldl(part-to-expr)> (parts, nwsearcher)
+  		
+  desugar-search:
+  	SearcherRefMod(e_ref, parts) -> result
+  	where result := <foldl(part-to-expr)> (parts, e_ref)
+  	
+  part-to-expr:
+  	(QueryDef(fieldsConstraint, queryConstraint), e_done) -> exp |[ e_query ]|
+  	with e_query := <queryConstraint-to-expr> (queryConstraint, e_done, fieldsConstraint)
+
+  fieldsConstraint-to-expr:
+  	(FieldsConstraint(fields), e_done) -> e_fields
+  	where e* := <map(\x -> <field-to-string> x\)> fields
+  		; e_fields := exp|[ e_done.fields([e*]) ]|
+
+  try-fieldsConstraint-to-expr:
+  	(Some(fc), e_done) -> result
+  	with result := <fieldsConstraint-to-expr> (fc, e_done)
+
+  try-fieldsConstraint-to-expr:
+  	(None(), e_done) -> e_done
+
+  part-to-expr:
+  	(Start(e_int), e_done) -> exp|[ e_done.firstResult(e_int) ]|
+  
+  part-to-expr:
+  	(MaxResults(e_int), e_done) -> exp|[ e_done.maxResults(e_int) ]|
+  
+  part-to-expr:
+  	(SortBy(sort_exp*), e_done) -> e_sortExps
+  	with e_sortExps := <foldl( sortExp-to-expr)> (sort_exp*, e_done)
+  		    
+  queryConstraint-to-expr:
+  	(QueryConstraint(query_exp*), e_done, fields_constraint) -> e_queryExps
+  	where //apply field constraint on first clause being defined 
+  		e_queryExps := <foldl( queryExp-to-expr )> (query_exp*, (e_done, fields_constraint))
+  
+  part-to-expr:
+  	(QueryConstraint(e_int), e_done) -> exp|[ e_done.firstResult(e_int) ]|
+  	
+  part-to-expr:
+  	(ConstraintFilter(filter_constraint*) , e_done) -> e_filters
+  	with e_filters := <foldl(filterConstraint-to-expr)> (filter_constraint*, e_done)
+  	
+  part-to-expr:
+  	(FacetDef(facet_exp*), e_done) -> e_facetSpecs
+  	with e_facetSpecs := <foldl(facetExp-to-expr)> (facet_exp*, e_done)
+  	
+  part-to-expr:
+  	(SearchAttributes(attr*), e_done) ->  e_attr
+  	with e_attr := <foldl(searchAttribute-to-expr)> (attr*, e_done)
+  	
+  part-to-expr:
+  	(NamespaceConstraint(e_namespace), e_done) -> exp|[e_done.setNamespace(e_namespace)]|
+  	
+  queryExp-to-expr:
+  	(def , e_done) -> <queryExp-to-expr> (def, (e_done, None()))
+  	where not(?(_,(_,_)))
+  	
+  queryExp-to-expr:
+  	(GroupDef(boolOp, query_exp*), (e_done, fields_constraint)) -> e_close
+  	with e_open := exp|[ e_done.openGroup() ]|
+  	   ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_open)
+  	   ; e_queryExps := <foldl( queryExp-to-expr )> (query_exp*, e_fields)
+  	   ; e_close := exp|[ e_queryExps.closeGroup() ]|
+
+  queryExp-to-expr:
+  	(TermDef(boolOp, e_termExp), (e_done, fields_constraint)) -> exp|[ e_fields.query(e_termExp) ]|
+  	with e_bool := <boolOp-to-expr> (boolOp, e_done)
+  	   ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+  	
+  queryExp-to-expr:
+  	(RangeDef(boolOp, e_from, e_to), (e_done, fields_constraint)) -> exp|[ e_fields.range(e_from, e_to) ]|
+  	with e_bool := <boolOp-to-expr> (boolOp, e_done)
+  	   ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+
+  sortExp-to-expr:
+  	(SortDef(field, direction), e_done) -> e_sort
+  	with e_field := <field-to-string> field
+  	   ; e_sort := <sort-to-expr> (direction, e_field, e_done)
+  	     
+  filterConstraint-to-expr:
+  	(FieldFilterConstraint(field, e_value), e_done) -> exp|[e_done.filterByField(e_field, e_value)]|
+  	with e_field := <field-to-string> field
+  	
+  filterConstraint-to-expr:
+  	(FacetFilterConstraint(e_facet), e_done) -> exp|[e_done.filterByFacet(e_facet)]|
+  	
+  facetExp-to-expr:
+  	(FacetDef(field, e_def), e_done) -> exp|[e_done.enableFaceting(e_field, e_def)]|
+  	where <type-of; ?SimpleSort(String)> e_def
+  	with e_field := <field-to-string> field
+
+  searchAttribute-to-expr:
+    (NoLucene(), e_done) -> exp|[ e_done.allowLuceneSyntax(false) ]|
+  
+  searchAttribute-to-expr:
+    (Lucene(), e_done) -> exp|[ e_done.allowLuceneSyntax(true) ]|
+    
+  searchAttribute-to-expr:
+    (DefaultAnd(), e_done) -> exp|[ e_done.defaultAnd() ]|
+  
+  searchAttribute-to-expr:
+    (DefaultOr(), e_done) -> exp|[ e_done.defaultOr() ]|
+  
+
+  boolOp-to-expr = ?(Some(MustNot()), e_done); !exp |[ e_done.mustnot() ]|
+  boolOp-to-expr = ?(Some(Must()), e_done); !exp |[ e_done.must() ]|
+  boolOp-to-expr = ?(None(), e_done); !exp |[ e_done.should() ]|
+  sort-to-expr = ?(Some(Ascending()), e_field, e_done); !exp |[ e_done.sortAsc(e_field) ]|
+  sort-to-expr = ?(Some(Descending()), e_field, e_done); !exp |[ e_done.sortDesc(e_field) ]|
+  sort-to-expr = ?(None(), e_field, e_done); !exp |[ e_done.sortAsc(e_field) ]|
+  
 rules //desugar analyzer defs
 	
   desugar-search:
