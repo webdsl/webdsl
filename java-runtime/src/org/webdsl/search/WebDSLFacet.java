@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.hibernate.search.query.facet.Facet;
 
 import com.browseengine.bobo.api.BrowseFacet;
@@ -13,19 +14,22 @@ public class WebDSLFacet {
 	public int count;
 	public String fieldName;
 	public String value;
+	protected Occur occur = Occur.MUST;
 	protected boolean isSelected;
+	
 	
 	public WebDSLFacet(){};
 	
-	public WebDSLFacet(String field, String value){
+	public WebDSLFacet(String field, String value, Occur oc){
 		this.fieldName = field;
 		this.value = value;
+		this.occur = oc;
 	}
 	
 	public WebDSLFacet(BrowseFacet bf, String field){
 		this.fieldName = field;
 		this.value = bf.getValue();
-		this.count = bf.getFacetValueHitCount();
+		this.count = bf.getFacetValueHitCount();		
 	}
 	
 	public WebDSLFacet(Facet f){
@@ -45,13 +49,29 @@ public class WebDSLFacet {
 	public String getValue() {
 		return this.value;
 	}
-		
+	
+	public WebDSLFacet must(){
+		occur = Occur.MUST;
+		return this;
+	}
+	
+	public WebDSLFacet mustnot(){
+		occur = Occur.MUST_NOT;
+		return this;
+	}
+	
+	public WebDSLFacet should(){
+		occur = Occur.SHOULD;
+		return this;
+	}
+			
 	public Map<String,String> toParamMap(){
 		
 		Map<String,String> paramMap = new HashMap<String, String>();
 		paramMap.put("fn", fieldName);
 		paramMap.put("v", value);
 		paramMap.put("cnt", String.valueOf(count));
+		paramMap.put("occ", occur.name());
 		return paramMap;
 	}
 	
@@ -67,10 +87,12 @@ public class WebDSLFacet {
 					this.value = value;
 				} else if ("cnt".equals(key)) {
 					this.count = Integer.parseInt(value);
+				} else if ("occ".equals(key)){
+					this.occur = Occur.valueOf(value);
 				}
 			}
 		} catch (Exception ex){
-			return new WebDSLFacet("Illegal facet", "Illegal facet");
+			return new WebDSLFacet("Illegal facet", "Illegal facet", Occur.SHOULD);
 		}
 		
 		return this;

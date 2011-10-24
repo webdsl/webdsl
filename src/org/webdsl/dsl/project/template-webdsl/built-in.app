@@ -60,6 +60,9 @@ module .servletapp/src-webdsl-template/built-in
     getValueAsDate() : Date
     getValueAsFloat() : Float
     getValueAsInt() : Int
+    must() : Facet
+    mustnot() : Facet
+    should() : Facet
   }
     
   //The default analyzer, equal to the one used by default in hibernate search

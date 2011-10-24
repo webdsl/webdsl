@@ -119,12 +119,12 @@ analyzer month{
     "autocomplete-2:" output(ItemSearcher.autoCompleteSuggest("ca",["nameCompletion"],5)[0])
     "autocomplete-3:" output(ItemSearcher.autoCompleteSuggest("pepf","nameCompletion",1)[0])
     "autocomplete-4:" output(ItemSearcher.autoCompleteSuggest("b","nameCompletion",1)[0])
-    "boolean-1:" output(itemSearcher1.MUSTNOT().field("description").query("Pepper").SHOULD().query("Color").resultSize())
+    "boolean-1:" output(itemSearcher1.mustnot().field("description").query("Pepper").should().query("Color").resultSize())
     "boolean-2:" output(itemSearcher1.list()[0].name)
-    "boolean-3:" output(itemSearcher2.SHOULD().openGroup().MUSTNOT().query("italian").field("description").MUST().query("TheEnd").closeGroup().resultSize())
-    "boolean-4:" output(itemSearcher3.SHOULD().openGroup().MUSTNOT().query("italian").field("description").MUST().query("TheEnd").closeGroup().SHOULD().query("italian").resultSize())
-    "boolean-5:" output(personSearcher2.MUSTNOT().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).SHOULD().query("Pepe").field("name").resultSize())
-    "boolean-6:" output(personSearcher3.SHOULD().openGroup().MUSTNOT().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).closeGroup().SHOULD().query("Pepe").field("name").resultSize())
+    "boolean-3:" output(itemSearcher2.should().openGroup().mustnot().query("italian").field("description").must().query("TheEnd").closeGroup().resultSize())
+    "boolean-4:" output(itemSearcher3.should().openGroup().mustnot().query("italian").field("description").must().query("TheEnd").closeGroup().should().query("italian").resultSize())
+    "boolean-5:" output(personSearcher2.mustnot().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).should().query("Pepe").field("name").resultSize())
+    "boolean-6:" output(personSearcher3.should().openGroup().mustnot().field("birthday").range(Date("05/05/1954"),Date("05/05/1956")).closeGroup().should().query("Pepe").field("name").resultSize())
     
     navigate BooleanResultPage(personSearcher3) {"click"}    
    // "customstopfilter-1:" output(itemSearcher.field("nameCustomStop").query("diet").resultSize())

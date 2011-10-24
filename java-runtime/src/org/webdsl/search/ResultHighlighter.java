@@ -5,13 +5,11 @@ import java.io.StringReader;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.highlight.Formatter;
 import org.apache.lucene.search.highlight.Highlighter;
 import org.apache.lucene.search.highlight.InvalidTokenOffsetsException;
 import org.apache.lucene.search.highlight.QueryScorer;
 import org.apache.lucene.search.highlight.SimpleFragmenter;
 import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
-import org.apache.lucene.search.highlight.TokenGroup;
 
 public class ResultHighlighter {
 	
@@ -24,7 +22,7 @@ public class ResultHighlighter {
 		IndexReader ir = sq.getReader();
 
 		try {
-			rewritten = sq.luceneQuery.rewrite(ir);
+			rewritten = sq.highlightQuery.rewrite(ir);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
