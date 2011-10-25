@@ -65,7 +65,7 @@ rules
           |}
           
   rename-action :
-    Function(x, farg1*, srt, b1){anno*} -> Function(x, farg2*, srt, b2){anno*}
+    Function(x, farg1*, srt, b1){anno*} -> newfun
     where not(InEntity)
     with {| Rename, InDef, VarInTemplateContext
           : rules ( InDef := True() )
@@ -73,36 +73,41 @@ rules
           ; <declare-args-in-context> farg2*
           ; b2 := <rename-all> b1
           |}
+        ; newfun := Function(x, farg2*, srt, b2){anno*}
+        ; store-global-function
 
   rename-action :
-    FunctionNoReturn(x, farg1*, b1){anno*} -> FunctionNoReturn(x, farg2*, b2){anno*}
-    where not(InEntity)
+    Function(x, farg1*, srt, b1){anno*} -> newfun
+    where x_class := <InEntity>
     with {| Rename, InDef, VarInTemplateContext
           : rules ( InDef := True() )
           ; farg2* := <map(rename)> farg1*
           ; <declare-args-in-context> farg2*
           ; b2 := <rename-all> b1
           |}
+        ; newfun := <add-anno(|EntityFunctionAnno())> Function(x, farg2*, srt, b2){anno*}
+        ; store-entity-function(|x_class)
 
-  rename-action :
-    Function(x, farg1*, srt, b1){anno*} -> <add-new-anno(|EntityFunctionAnno())> Function(x, farg2*, srt, b2){anno*}
-    where InEntity
-    with {| Rename, InDef, VarInTemplateContext
-          : rules ( InDef := True() )
-          ; farg2* := <map(rename)> farg1*
-          ; <declare-args-in-context> farg2*
-          ; b2 := <rename-all> b1
-          |}
+rules
+             
+  // store current function definition with renamed body       
+  store-entity-function(|x_class) =
+    ?def@Function(f, fargs, s, b)
+    ; with(
+        (n, t*) := <normalize-signature> (f, fargs)
+      ; x_class_no_anno := <strip-annos> x_class
+      ; rules( EntityFunctionDecl : (x_class_no_anno, n, t*) -> def )
+      )
+  
+  // store current function definition with renamed body    
+  store-global-function =
+    ?def@Function(f, fargs, s, b){anno*}
+    ; with( 
+        (n, t*) := <normalize-signature> (f, fargs)
+      ; rules( FunctionDecl : (n, t*) -> def) 
+      )
 
-  rename-action :
-    FunctionNoReturn(x, farg1*, b1){anno*} -> <add-new-anno(|EntityFunctionAnno())> FunctionNoReturn(x, farg2*, b2){anno*}
-    where InEntity
-    with {| Rename, InDef, VarInTemplateContext
-          : rules ( InDef := True() )
-          ; farg2* := <map(rename)> farg1*
-          ; <declare-args-in-context> farg2*
-          ; b2 := <rename-all> b1
-          |}
+rules
 
   /**
    *  Used for rename of many argument types, including templates, functions
