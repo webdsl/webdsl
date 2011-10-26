@@ -61,8 +61,11 @@ module .servletapp/src-webdsl-template/built-in
     getValueAsFloat() : Float
     getValueAsInt() : Int
     must() : Facet
-    mustnot() : Facet
+    mustNot() : Facet
     should() : Facet
+    isMust() : Bool
+    isMustNot() : Bool
+    isShould() : Bool
   }
     
   //The default analyzer, equal to the one used by default in hibernate search

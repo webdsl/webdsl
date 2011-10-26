@@ -22,7 +22,7 @@ public class ResultHighlighter {
 		IndexReader ir = sq.getReader();
 
 		try {
-			rewritten = sq.highlightQuery.rewrite(ir);
+			rewritten = sq.luceneQueryNoFacetFilters.rewrite(ir);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
