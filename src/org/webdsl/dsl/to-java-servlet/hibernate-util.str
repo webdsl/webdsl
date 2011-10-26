@@ -306,7 +306,7 @@ rules
 	  ?paths
 	  ; collect(?FieldAccess(Var(_), _) <+ ?FieldAccess(Cast(Var(_), _), _))
 	  ; make-set
-	  ; map(build-batch(|t, x_list))
+	  ; map(build-batch(|t, x_list, paths))
 
   build-sub-batches(|allprops, x_list) = 
     ?(fa, x_batch, t, _, _, _, _)
@@ -314,12 +314,14 @@ rules
     ; <collect(?FieldAccess(fa, _) <+ ?FieldAccess(Cast(fa, _), _))> allprops
     ; not(?[])
     ; make-set
-    ; tmp := <map(alltd(?fa; !Var(x_batchelem)); build-batch(|t, x_batch))>
+    ; ?nextsub
+    ; newallprops := <map(alltd(?fa; !Var(x_batchelem)))> allprops
+    ; tmp := <map(alltd(?fa; !Var(x_batchelem)); build-batch(|t, x_batch, newallprops))> nextsub
     ; bstm_batch* :=    <map(?(_, _, _, <id>, _, _, _));flatten-list> tmp
     ; bstm_addbatch* := <map(?(_, _, _, _, <id>, _, _))> tmp
     ; bstm_fetch* :=    <map(?(_, _, _, _, _, <id>, _))> tmp
     ; bstm_after* :=    <map(?(_, _, _, _, _, _, <id>))> tmp
-    ; bstm_subbatch* := <filter(build-sub-batches(|allprops,x_list)); flatten-list> tmp 
+    ; bstm_subbatch* := <filter(build-sub-batches(|newallprops,x_list)); flatten-list> tmp 
     ; if <flatten-list; not(?[])> bstm_after*; not([] := bstm_subbatch*) then
         bstm_after2* := [bstm |[
           for(t x_batchelem : x_batch) {
@@ -342,12 +344,13 @@ rules
       ]|
     //; with(where(pp-java5-to-string; debug(!"bstm_subbatch:")))
 
-  build-batch(|it, x_list):
+  build-batch(|it, x_list, allprops):
     fa@FieldAccess(c, _){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, [])
     where <fetch-elem(?SimpleSort(x_class))> anno*
     ; t := <java-type-entity> x_class
     ; str := <java-type-entity-name> x_class
     ; x_batch := <fa-to-uniquename(|x_list)> fa
+    ; e_joins := <filter(simple-joins-to-array(|fa)); map(Snd); flatten-list; make-set; string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> allprops
     ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
     ; e_expr := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> fa
     ; if Cast(p, SimpleSort(x_class2)) := c then
@@ -356,15 +359,16 @@ rules
       else
         bstm_addbatch := bstm |[ x_batch.add(e_expr); ]|
       end
-    ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_batch); ]|
+    ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_batch, e_joins); ]|
 
-  build-batch(|t_Owner, x_list):
+  build-batch(|t_Owner, x_list, allprops):
     fa@FieldAccess(c, f{annof*}){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, bstm_after)
     where <fetch-elem(?GenericSort(_, [SimpleSort(x_class)]))> anno*
     ; <fetch-elem(?DeclaringEntity(x_ent))> annof*
     ; t := <java-type-entity> x_class
     ; x_batch := <fa-to-uniquename(|x_list)> fa
     ; x_owner := <concat-strings> [x_batch, "Owner"]
+    ; e_joins := <filter(simple-joins-to-array(|fa)); map(Snd); flatten-list; make-set; string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> allprops
     ; bstm_batch := bstm* |[ java.util.ArrayList<t_Owner> x_owner = new java.util.ArrayList<t_Owner>();
                             java.util.HashSet<t> x_batch = new java.util.HashSet<t>();
                           ]|
@@ -380,7 +384,7 @@ rules
         ; bstm_after := bstm |[ x_batch.addAll(e_expr); ]|
       end
     ; bstm_fetch := bstm |[
-        utils.QueryOptimization.prefetchCollections(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~strRole", x_owner);
+        utils.QueryOptimization.prefetchCollections(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~strRole", x_owner, e_joins);
       ]|
 /*     with
      	<pp-java5-to-string; debug(!"bstm_batch:")> bstm_batch
@@ -413,6 +417,26 @@ rules
 
   fa-to-uniquename(|x_list):
     Var(_) -> x_list
+
+  simple-joins-to-array(|rootfa):
+    rootfa -> ("_", [])
+
+  simple-joins-to-array(|rootfa):
+    fa@FieldAccess(p, f){anno*} -> (newprefix, joins)
+    where not(rootfa := fa)
+    ; (prefix, otherjoins) := <simple-joins-to-array(|rootfa)> p
+    ; if not(None() := prefix); <fetch-elem(?SimpleSort(_))> anno* then
+	      newjoin := <concat-strings> [prefix, f]
+	      ; newprefix := <concat-strings> [newjoin, "._"]
+	      ; joins := [newjoin | otherjoins]
+      else
+        newprefix := None()
+        ; joins := otherjoins
+      end
+
+  simple-joins-to-array(|rootfa):
+    c@Cast(p, srt){anno*} -> result
+    where result := <simple-joins-to-array(|rootfa)> p
 
   /**
    * Hibernate optimization below on hold, Zef is working on a replacement ORM

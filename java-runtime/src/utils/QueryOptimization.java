@@ -113,7 +113,7 @@ public class QueryOptimization {
 		return criteria.list();
 	}
 
-    public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners) {
+    public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners, String[] joins) {
 //    	System.out.println("prefetchCollections_" + role + ": " + owners.size());
     	if( hibSession instanceof org.hibernate.engine.SessionImplementor) {
 //    		System.out.println("SessionImplementor");
@@ -126,12 +126,22 @@ public class QueryOptimization {
 				for(int i = 0; i < owners.size(); i++) {
 					ownerIds[i] = owners.get(i).getId();
 				}
-				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session);
+				/*if(persister instanceof utils.OneToManyPersister) {
+					System.out.println("roleOtM: " + role);
+					System.out.println("elements: " + ((utils.OneToManyPersister)persister).getElementPersister().getEntityName());
+				}
+				if(persister instanceof utils.BasicCollectionPersister) {
+					System.out.println("roleBasic: " + role);
+					System.out.println("elements: " + ((utils.BasicCollectionPersister)persister).getElementPersister().getEntityName());
+				}*/
+				java.util.List<String> joinslist = null;
+				if(joins != null) joinslist = java.util.Arrays.asList(joins);
+				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session, joinslist);
 			}
     	}
     }
 
-	public static void prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs) {
+	public static void prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins) {
 //		System.out.println("prefetchEntities_" + entityName + ": " + objs.size());
 		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
 //			System.out.println("SessionImplementor");
@@ -156,7 +166,9 @@ public class QueryOptimization {
 				if (ids.size() > 1) {
 //					System.out.println("calling loadBatch");
 					try {
-						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session);
+						java.util.List<String> joinslist = null;
+						if(joins != null) joinslist = java.util.Arrays.asList(joins);
+						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}

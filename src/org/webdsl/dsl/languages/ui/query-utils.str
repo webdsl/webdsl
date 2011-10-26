@@ -70,7 +70,7 @@ rules
        //; info(|["Looking for property use of variable ", <pp-aterm-box ; box2text-string(|80)>x, " of type ", srt])
        ; fas := <collect-potential-joins> base
        //; <remove-casts;log-query-optimization-collect-table(|45,155,5)> fas
-       ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set> fas
+       ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set; keep-least-specific-casts> fas
        //; queryroots := <filter(get-first-generic-sort); make-set; group-similar-roots> joincandidates
        //; joincandidatesgennocast := <map(map(group-join-candidates-fa(|joincandidates)))> queryroots
        ; joincandidatesall := <map(add-sort-anno)>joincandidates//<debug(!"gen:");map(map(/*try(cast-query-root);*/map(debug(!"srt:");add-sort-anno;debug(!"so:"))))> joincandidatesgennocast
@@ -79,6 +79,63 @@ rules
        ;joincandidatesgen := <diff> (joincandidatesall, joincandidatesnogen) 
        //; info(|["Inline by joining: ", joincandidatesnogen]) // Does not result in extra queries, but are joined on the unoptimized query itself
       |}
+/*
+keep-least-specific-casts =
+  where(
+  ?allcandidates
+  ; filter(find-less-more-specific-pairs(|allcandidates))
+  ; flatten-list
+  ; make-set
+  ; map(debug(!"repl:"))
+    )
+
+find-less-more-specific-pairs(|allcandidates):
+  candidate -> out
+  where casts := <collect-all(?FieldAccess(Cast(_, _), _))> candidate
+  ; out := <map(find-less-more-specific-pairs-helper(|allcandidates))> casts
+
+find-less-more-specific-pairs-helper(|allcandidates) =
+  ?fa1@FieldAccess(Cast(p, srt), f)
+  ; <collect(pair-if-less-specific-cast(|fa1, p, srt, f))> allcandidates
+
+pair-if-less-specific-cast(|fa1, p, srt, f) :
+  fa2@FieldAccess(Cast(p, srt2), f) -> (fa1, fa2)
+  where not(srt := srt2)
+  ; <subtype-of>(srt, srt2)
+
+pair-if-less-specific-cast(|fa1, p, srt, f) :
+  fa2@FieldAccess(p, f) -> (fa1, fa2)*/
+
+keep-least-specific-casts =
+  ?allcandidates
+  ; collect-all(?FieldAccess(Cast(_, _), _))
+  ; make-set
+  ; {| ToLessSpecificCast
+    : filter(declare_to-less-specific-cast-rules(|allcandidates))
+    ; <repeat(oncetd(ToLessSpecificCast))> allcandidates
+  |}
+  ; make-set
+
+declare_to-less-specific-cast-rules(|allcandidates) :
+  fa1@FieldAccess(Cast(p, srt), f) -> (fa1, lessSpecific)
+  where allLessSpecific := <collect(is-less-specific-cast(|p, srt, f)); make-set> allcandidates
+  ; lessSpecific := <foldr(!fa1, is-less-specific-cast); not(?fa1)> allLessSpecific
+  ; rules( ToLessSpecificCast : fa1 -> lessSpecific )
+
+is-less-specific-cast(|p, srt, f) :
+  fa2@FieldAccess(Cast(p, srt2), f) -> fa2
+  where not(srt := srt2); <subtype-of>(srt, srt2)
+
+is-less-specific-cast(|p, srt, f) :
+  fa2@FieldAccess(p, f) -> fa2
+
+is-less-specific-cast:
+  (fa1@FieldAccess(Cast(p, srt), f), fa2) -> fa2
+  where <is-less-specific-cast(|p, srt, f)> fa2
+
+is-less-specific-cast:
+  (fa1, fa2@FieldAccess(Cast(p, srt), f)) -> fa1
+  where <is-less-specific-cast(|p, srt, f)> fa1
 
 add-sort-anno:
   expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, anno*}
