@@ -19,7 +19,7 @@ import org.hibernate.usertype.UserType ;
 //changed to work with varchar(16) field in db
 public class UUIDUserType implements UserType, java.io.Serializable
 {
-	private static final long serialVersionUID = 1L;
+
 	private static final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
 
 	private static final boolean IS_VALUE_TRACING_ENABLED = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() ).isTraceEnabled();
@@ -46,7 +46,7 @@ public class UUIDUserType implements UserType, java.io.Serializable
 			return null ;
 		}
 
-		return retrieveUUID((String)cached);
+		return retrieveUUID((String) cached) ;
 	}
 
 	/*

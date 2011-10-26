@@ -38,15 +38,10 @@ application test
     authentication()
   }
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
     assert(d.getPageSource().contains("1234567891011"));
-    
-    d.close();
   }
   
 

@@ -190,12 +190,15 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
     function()
     {
-      if (this.readyState == 4 && this.status == 200) {
-         clientExecute(this.responseText, thisobject);
-         if(loadfeedback){ stopLoading(thisobject, loadingimage); }
-      }
-      else if(this.readyState == 4 && this.status != 200) {
-        notify('Invalid return of server: '+this.status); 
+      if (this.readyState == 4){
+        if (this.status == 200) {
+          clientExecute(this.responseText, thisobject);        
+        }
+        else if(this.status != 200) {
+          notify('Invalid return of server: '+this.status); 
+        }
+        if(loadfeedback){ stopLoading(thisobject, loadingimage); }
+        __requestcount--;
       }
     }
   );
@@ -212,7 +215,7 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
   
-  req.onreadystatechange = function(){ __requestcount--; return callback; }();
+  req.onreadystatechange = callback;
   
   data = createData(action,jsonparams,thisform,thisobject);
   
@@ -319,6 +322,7 @@ function clientExecute(jsoncode, thisobject)
 function notify(string)
 {
   if(show_webdsl_debug){ alert(string); }
+  console.log(string);
 }
 
 function replaceall(command) {

@@ -39,8 +39,8 @@ define testnolabel(e:Ent){
   }	
 }
 
-test templates {
-  var d : WebDriver := FirefoxDriver();
+test urltemplates {
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
   var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
@@ -51,8 +51,6 @@ test templates {
   
   d.get(navigate(nolabel()));
   commonTest(d);
-  
-  d.close();
 }
   
 function commonTest(d:WebDriver){  

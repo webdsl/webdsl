@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -72,7 +73,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 	protected LinkedList<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 	
-	protected Query luceneQuery = null;
+	protected Query highlightQuery, boboQuery, luceneQuery = null;
 	protected FullTextQuery fullTextQuery = null;
 	protected FullTextSession fullTextSession;
 	
@@ -88,8 +89,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected QueryDef rootQD, currentQD, parentQD;
 	
 	protected String namespaceConstraint = "";
-	
-	private Query facetQuery;
+
 	protected Analyzer analyzer;
 	protected Class<?> entityClass;
 	protected long searchTime = 0;
@@ -100,7 +100,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	static{
 		_namespaceBoboReaderMap = new HashMap<String, BoboIndexReader>();
 	}
-	
 
 	public AbstractEntitySearcher() {		
 	}
@@ -120,8 +119,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			fieldConstraints = new HashMap<String, String>();
 		return fieldConstraints.get(fieldname);
 	}
-	
-	
+		
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F allowLuceneSyntax(boolean b) {
 		if(this.allowLuceneSyntax != b) {
@@ -132,32 +130,34 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F MUST() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F must() {
 		addSubQuery(Occur.MUST);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F MUSTNOT() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F mustnot() {
 		addSubQuery(Occur.MUST_NOT);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F SHOULD() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F should() {
 		addSubQuery(Occur.SHOULD);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F closeGroup() {
-		parentQD = parentQD.parent;
+		parentQD = (parentQD == rootQD) ? parentQD : parentQD.parent;
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F openGroup() {
-		parentQD = currentQD;
+		parentQD = currentQD;	
 		return (F) this;
 	}
-	private final void addSubQuery(Occur oc) {		
-		currentQD = new QueryDef(oc, parentQD, searchFields);
+	
+	//only adds a new subquery if query (term, range or parsed query) is not set for current query
+	private final void addSubQuery(Occur oc) {
+		currentQD = new QueryDef(oc, parentQD, searchFields);		
 	}
 		
 	private void applyFacets() {
@@ -165,14 +165,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			facetMap = new HashMap<String, Facet>();
 		String key;
 		
-		BooleanQuery booleanQuery = new BooleanQuery();
-		booleanQuery.add(luceneQuery, Occur.MUST);
+		BooleanQuery facetFilterQuery = new BooleanQuery();		
 		for(WebDSLFacet facet : filteredFacetsList){
 			if(discreteFacetRequests.containsKey(facet.getFieldName())){
-				booleanQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), Occur.MUST);
+				facetFilterQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur);
 			} else if(rangeFacetRequests.containsKey(facet.getFieldName())) {
 				key = facet.getFieldName() + "-" + facet.getValue();
-				
 				Facet actualFacet = facetMap.get(key);
 				if (actualFacet == null){
 					// Facets are not yet retrieved during this object's life cycle, probably this is a search query reconstructed from param map.
@@ -184,10 +182,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 					log("Facet '" + key + "'to narrow not found, should not happen!");
 					continue;
 				}
-				booleanQuery.add(actualFacet.getFacetQuery(), Occur.MUST);
+				facetFilterQuery.add(actualFacet.getFacetQuery(), facet.occur);
 			}			
 		}
-		luceneQuery =  booleanQuery;
+//		log("luceneQuery before filtering facets: " + luceneQuery);
+//		BooleanQuery newQuery = new BooleanQuery();
+//		newQuery.add(luceneQuery, Occur.MUST);
+//		newQuery.add(facetFilterQuery, Occur.MUST);
+		//luceneQuery =  newQuery;
+		facetFilterQuery.add(luceneQuery, Occur.MUST);
+		luceneQuery = facetFilterQuery;
 	}
 	
 	private void applyFieldConstraints() {
@@ -304,11 +308,17 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		paramMap.put("sf", sb.toString());
 		}
 		//search terms
-		if(rootQD.children.size() < 1)
+		if(	rootQD.children.isEmpty() ) {
+			if (rootQD.isRangeQuery)
+				paramMap.put("lq", getLuceneQueryAsString());
 			paramMap.put("q", rootQD.query);
-		else
-			paramMap.put("lq", getLuceneQueryAsString());
-		
+		} else{	
+			QueryDef fstChild = rootQD.children.get(0);
+			if (rootQD.children.size() == 1 && fstChild.occur.equals(Occur.SHOULD) && !fstChild.isRangeQuery)
+				paramMap.put("q", fstChild.query);		
+			else
+				paramMap.put("lq", getLuceneQueryAsString());
+		}
 		//default operator
 		if(!OP.equals(defaultOperator))
 			paramMap.put("op", defaultOperator.toString());
@@ -367,12 +377,15 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		if(!filteredFacetsList.isEmpty()){
 			sb = new StringBuilder();
 			StringBuilder sb2 = new StringBuilder();
+			StringBuilder sb3 = new StringBuilder();
 			for(WebDSLFacet f : filteredFacetsList){
 				sb.append(f.fieldName + ",");
 				sb2.append(encodeValue(f.value) + ",");
+				sb3.append(f.occur.name() + ",");
 			}
 			paramMap.put("facetf", sb.toString());
 			paramMap.put("facetv", sb2.toString());
+			paramMap.put("faceto", sb3.toString());
 		}
 		
 		//sort fields
@@ -465,8 +478,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 				} else if ("facetf".equals(key)) {
 					String[] a1 = value.split(",");
 					String[] a2 = paramMap.get("facetv").split(",");
+					String[] a3 = paramMap.get("faceto").split(",");
 					for(int i=0; i < a1.length; i++){
-						filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] )));						
+						filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] ), Occur.valueOf( a3[i] )) );						
 					}
 				} else if ("sortby".equals(key)) {
 					//sort fields, directions
@@ -728,7 +742,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		filteredFacetsList.add(facet);
 	
 		updateFacets = updateParamMap = true;
-		
 		return (F) this;
 	}
 	
@@ -787,7 +800,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	private <F extends AbstractEntitySearcher<EntityClass>> F setRangeQuery(Object from, Object to) {
 		currentQD.range(from, to);
-		
+	
 		updateLuceneQuery = updateFullTextQuery = updateParamMap = true;
 		return (F) this;
 	}
@@ -904,20 +917,22 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		if (updateLuceneQuery) {
 			try {
 				luceneQuery = createLuceneQuery(rootQD);
-				facetQuery = luceneQuery;
+				boboQuery = luceneQuery;
+				highlightQuery = luceneQuery;
 			} catch (ParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 				return false;
 			}
-			//log("LUCENE QUERY: " + luceneQuery.toString());
+//			log("LUCENE QUERY: " + luceneQuery.toString());
 			updateLuceneQuery = false;
 			updateFullTextQuery = updateFacets = true;
 		}
 		if(updateFacets && !filteredFacetsList.isEmpty()){
 			updateFacets = false;
 			applyFacets();
-			updateFullTextQuery = true;
+			boboQuery = luceneQuery;
+			updateFullTextQuery = true;			
 		}
 		if (updateFullTextQuery) {
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
@@ -928,9 +943,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			updateFieldConstraints = false;
 			if(fieldConstraints != null) {
 				applyFieldConstraints();
-				facetQuery = null; // facetQuery needs to be rebuild adding additional MUST clauses to luceneQuery for applied filters
+				boboQuery = null; // facetQuery needs to be rebuild adding additional MUST clauses to luceneQuery for applied filters
 			}
-			
 		}
 		if(updateNamespaceConstraint && !namespaceConstraint.isEmpty()){
 			updateNamespaceConstraint = false;
@@ -950,9 +964,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	private Query createLuceneQuery(QueryDef qd) throws ParseException{
 		if(qd.children.size() < 1)
 			return (qd.isRangeQuery) ? createRangeQuery(qd) : createMultiFieldQuery(qd);
-			
+		
 		BooleanQuery booleanQuery = new BooleanQuery();
-
+		
 		for (QueryDef child : qd.children)
 			booleanQuery.add(createLuceneQuery(child), child.occur);
 		
@@ -978,17 +992,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		// creating a browse request
 		BrowseRequest br=new BrowseRequest();
 		br.setCount(cnt);
-		br.setOffset(0);
-		
-		if(fieldConstraints.isEmpty()) {		
-			br.setQuery(luceneQuery);
-		} else{
-			BooleanQuery q = new BooleanQuery();
-			q.add(luceneQuery, Occur.MUST);
-			
-		}
-		
-		if(facetQuery == null){
+		br.setOffset(0);	
+		if(boboQuery == null){
 			//Apply field filters through query, when enabled
 			BooleanQuery bq = new BooleanQuery();
 			bq.add(luceneQuery,Occur.MUST);
@@ -1003,9 +1008,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 					e.printStackTrace();
 				}
 			}			
-			facetQuery = bq;
+			boboQuery = bq;
 		}
-		br.setQuery(facetQuery);
+		br.setQuery(boboQuery);
 		 
 		// add the facet output specs
 		FacetSpec facetSpec = new FacetSpec();

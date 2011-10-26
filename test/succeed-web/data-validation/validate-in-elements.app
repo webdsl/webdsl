@@ -36,10 +36,9 @@ application registerexample
   }
 
   test datavalidation {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 4, "expected 4 <input> elements");
@@ -56,6 +55,4 @@ application registerexample
  
     assert(list[1].contains("inputcheck"), "cannot find inputcheck message");
     assert(list[2].contains("formcheck"), "cannot find formcheck message");
-    
-    d.close();
   }

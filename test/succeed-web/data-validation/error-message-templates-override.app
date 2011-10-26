@@ -24,9 +24,8 @@ application testoverrides
     errorTemplateAction(["baz"])
   }
   
-  test messages {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("foobarbaz"));
-    d.close();
   }

@@ -6,7 +6,6 @@ section datamodel
     to(us.mail)
     from("webdslorg@gmail.com")
     subject("Email confirmation")
-    
     par{ output(us) }
     par{
      "showpar2"
@@ -26,7 +25,6 @@ section datamodel
   var global_u : User := User {
     name := "bob"  
     mail := "webdslorg@gmail.com"
-    
   };
   
   define page root() {
@@ -43,12 +41,11 @@ section datamodel
     output(global_u.emailstring)
   }
   
-test booltemplates {
-  var d : WebDriver := FirefoxDriver();
-  d.get(navigate(root()));
-  var button := d.findElements(SelectBy.className("savebutton"))[0];
-  button.click();
-  assert(d.getPageSource().contains("outputuser1"));
-  assert(d.getPageSource().contains("showpar2"));
-  d.close();
-}
+  test {
+    var d : WebDriver := getFirefoxDriver();
+    d.get(navigate(root()));
+    var button := d.findElements(SelectBy.className("savebutton"))[0];
+    button.click();
+    assert(d.getPageSource().contains("outputuser1"));
+    assert(d.getPageSource().contains("showpar2"));
+  }

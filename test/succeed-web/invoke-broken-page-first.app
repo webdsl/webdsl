@@ -23,16 +23,11 @@ application test
     output(globalFoo.s)
   }
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(broken()));
     d.get(navigate(root()));
-    
     assert(d.getPageSource().contains(globalFoo.s),"global not properly initialized");
-    
-    d.close();
   }
   
 

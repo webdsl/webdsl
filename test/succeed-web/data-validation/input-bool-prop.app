@@ -1,31 +1,30 @@
 //regression test for incorrect translation of validation phase for form element
 
 application exampleapp
-
-entity Bla {
-  bla :: Bool
-  forceTrue :: Bool
   
-  validate(!forceTrue || bla, "force true was enabled, but value was false")
-}
-
-var bg := Bla{ bla := true forceTrue:=true}
-
-define page root(){
-  form{
-  }	
-  form{
-    input(bg.bla)
-    <hr />
-    submit action{} {"save"}
+  entity Bla {
+    bla :: Bool
+    forceTrue :: Bool
+    
+    validate(!forceTrue || bla, "force true was enabled, but value was false")
   }
-}
+  
+  var bg := Bla{ bla := true forceTrue:=true}
+  
+  define page root(){
+    form{
+    }	
+    form{
+      input(bg.bla)
+      <hr />
+      submit action{} {"save"}
+    }
+  }
 
   test datavalidation {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 5, "expected 5 <input> elements");
@@ -39,8 +38,6 @@ define page root(){
     assert(list.length == 2, "expected one occurences of \"<hr\"");
  
     assert(list[0].contains("force true was enabled, but value was false"), "error message not in correct location or not rendered at all");
-    
-    d.close();
   }
 
 

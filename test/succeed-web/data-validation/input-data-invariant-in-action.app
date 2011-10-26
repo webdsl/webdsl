@@ -22,13 +22,10 @@ application inputint
     } separated-by{ <br/> }
   }  
   
- 
-  
   test datavalidation {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
     assert(elist.length == 3, "expected 3 <option> elements");
@@ -43,6 +40,4 @@ application inputint
     var pagesource := d.getPageSource();
 
     assert(pagesource.contains("select at least 2"));
-    
-    d.close();
   }

@@ -60,6 +60,9 @@ module .servletapp/src-webdsl-template/built-in
     getValueAsDate() : Date
     getValueAsFloat() : Float
     getValueAsInt() : Int
+    must() : Facet
+    mustnot() : Facet
+    should() : Facet
   }
     
   //The default analyzer, equal to the one used by default in hibernate search
@@ -142,9 +145,13 @@ module .servletapp/src-webdsl-template/built-in
   
   type File{
     getContentAsString():String
+    getContentType():String
+    setContentType(String)
   }
   type Image{
     getContentAsString():String
+    getContentType():String
+    setContentType(String)
   }
 
 // access to servlet context
@@ -251,6 +258,8 @@ module .servletapp/src-webdsl-template/built-in
 //  section WebDriver for testing
 
   function sleep(i:Int){ UtilsTestClass.sleep(i); }
+  function createTempFile(s:String):String{ return UtilsTestClass.createTempFile(s); }
+  
   function getFirefoxDriver():FirefoxDriver{ return UtilsTestClass.getFirefoxDriver(); }
   function getHtmlUnitDriver():HtmlUnitDriver{ return UtilsTestClass.getHtmlUnitDriver(); }
   function getDriver():WebDriver{ return getFirefoxDriver(); }
@@ -260,6 +269,7 @@ module .servletapp/src-webdsl-template/built-in
     static getHtmlUnitDriver():HtmlUnitDriver
     static getFirefoxDriver():FirefoxDriver
     static closeDrivers()
+    static createTempFile(String):String
   } 
   
   native class org.openqa.selenium.WebDriver as WebDriver {
@@ -373,23 +383,17 @@ module .servletapp/src-webdsl-template/built-in
   
   entity RequestLogEntry {
     name :: String
-    params -> List<RequestLogEntryParam>
-    requestedURL :: String (length=1000000)
+    requestedURL :: Text
     start :: DateTime
     end :: DateTime
     clientIP :: String
     clientPort :: Int
     method :: String
-    referer :: String  (length=1000000)
-    userAgent :: String
+    referer :: Text
+    userAgent :: Text
     queryExecutionCount :: Int
     queryExecutionMaxTime :: Int
     queryExecutionMaxTimeQueryString :: String
-  }
-  
-  entity RequestLogEntryParam {
-    name :: String
-    value :: String (length=1000000)
   }
   
   //built-in templates

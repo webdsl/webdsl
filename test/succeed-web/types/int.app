@@ -41,7 +41,7 @@ define testnolabel(e:Ent){
 }
 
 test inttemplates {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
   var input     :WebElement   := d.findElement(SelectBy.className(         "input-elem"));
@@ -52,8 +52,6 @@ test inttemplates {
   
   d.get(navigate(nolabel()));
   commonTest(d);
-  
-  d.close();
 }
   
 function commonTest(d:WebDriver){  

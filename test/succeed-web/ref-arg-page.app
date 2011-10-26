@@ -30,18 +30,14 @@ application test
 
   define page bla(s:String){}
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
 
     testpage(d,0);
     assert(d.getPageSource().contains("1abcde2"), "reference arguments not working as expected");
     
     testpage(d,1);
     assert(d.getPageSource().contains("1abcde2abcde"), "reference arguments not working as expected");
-    
-    d.close(); 
-    
   }
   
   function testpage(d:WebDriver,i:Int){

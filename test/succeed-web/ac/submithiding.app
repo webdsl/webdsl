@@ -9,7 +9,7 @@ access control rules
   principal is Bla with credentials name
 
   rule page root(){
-  	true
+    true
     rule action *(*){false}	
   }
 
@@ -35,16 +35,12 @@ section test
     action red(){}
   }
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(!(d.getPageSource().contains("submitbuttoninpage")), "no button should be visible");
-    
-    d.close();
   }
   
 

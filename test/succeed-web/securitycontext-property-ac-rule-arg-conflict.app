@@ -8,9 +8,7 @@ application test
     content :: WikiText
   }
   
-  define page page(name:String){
-  
-  }
+  define page page(name:String){ }
 
   define page root(){
    list{
@@ -41,17 +39,14 @@ access control rules
   
 section testing
 
-    test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
     
     assert(d.getPageSource().contains("first page name!"), "first page not shown");
     assert(d.getPageSource().contains("second page name!"), "second page not shown");
-    
-    d.close();
   }
   
   

@@ -40,7 +40,7 @@ define test(b:Bla){
 }
 
 test booltemplates {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   var input := d.findElement(SelectBy.className("inputelemb1"));
   assert(!input.isSelected());
@@ -66,8 +66,6 @@ test booltemplates {
   assert(d.getPageSource().split("force true was enabled, but value was false").length == 2, "didn't find a single validation error for defined bool input");
   
   testnolabel(d);
-  
-  d.close();
 }
 
 

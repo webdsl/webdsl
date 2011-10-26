@@ -29,7 +29,7 @@ application login
 section testing
 
   test login{
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     //first navigate to deep link
     d.get(navigate(deep("123","456")));
     //login there
@@ -39,5 +39,4 @@ section testing
     button.click();
     //check whether root page sees login
     assert(d.getPageSource().contains("Logged in as: test"));
-    d.close();    
   }

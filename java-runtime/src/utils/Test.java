@@ -1,5 +1,11 @@
 package utils;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.util.*;
 
 import org.openqa.selenium.JavascriptExecutor;
@@ -75,8 +81,8 @@ public abstract class Test {
                   }
                 }
             }
-            catch(ClassCastException cce){
-              //not every WebDriver is JavascriptExecutor            	
+            catch(java.lang.UnsupportedOperationException u){
+              //not every WebDriver can execute Javascript          	
             } 
         }
     }
@@ -108,6 +114,36 @@ public abstract class Test {
         }
         if(htmlunitdriver!=null){
             htmlunitdriver.close();
+        }
+    }
+    
+    // file creation for testing upload
+    
+    public static String createTempFile(String s){
+        try{
+          File f = File.createTempFile("webdsl","tempfile");
+          writeStringToFile(s,f);
+          return f.getAbsolutePath();
+        }
+        catch(Exception e){
+          e.printStackTrace();
+          return "";
+        }
+    }
+      
+    public static void writeStringToFile(String s, File file) throws IOException{
+        FileOutputStream in = null;
+        try{
+            in = new FileOutputStream(file);
+            FileChannel fchan = in.getChannel();
+            BufferedWriter bf = new BufferedWriter(Channels.newWriter(fchan,"UTF-8"));
+            bf.write(s);
+            bf.close();
+        }
+        finally{
+            if(in != null){
+                in.close();
+            }
         }
     }
 }

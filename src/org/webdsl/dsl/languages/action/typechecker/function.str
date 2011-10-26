@@ -10,16 +10,13 @@ imports
 rules // generalize constraints for all function types
 
   constraint-error-action =
-    (
-        ?Function(f, args, _, body)
-    <+	?FunctionNoReturn(f, args, body)
-    )
+      ?Function(f, args, _, body)
     ; constraint-error-function(|f,args,body)
     
 rules
-  // checks for returns within a FunctionNoReturn
+  // checks for returns within a Function
   constraint-error-action =
-    ?FunctionNoReturn(f, _, body) 
+    ?Function(f, _, SimpleSort("Void"), body) 
     ; where (
         not([] := <collect(?Return(_))> body)
         ; add-error(|["function ", <pp-webdsl> f, " has no return type but tries to return a variable"])
@@ -37,18 +34,6 @@ rules
     Function(f, args, rt, body) -> <add-error(|["Return statement missing in function ", <pp-webdsl> f])>
     where not(SimpleSort("Void") := rt)
         ; [] := <collect(?Return(_))> body
-        
-
-/* doesn't work yet... later
-  // checks types of arguments
-  constraint-error-action :
-    Function(f, args, _, _) -> <add-error(|["Argument evaluates to non-existing entity in function ", <pp-webdsl> f])>
-    where not(<map(type-of; type-exists)> args)
-    
-  // checks types of arguments
-  constraint-error-action :
-    FunctionNoReturn(f, args, _, _) -> <add-error(|["Argument evaluates to non-existing entity in function ", <pp-webdsl> f])>
-    where not(<map(type-of; type-exists)> args)*/
 
 rules //reserved functions
 
@@ -80,8 +65,8 @@ rules // global functions
     ; <IsReservedFunction> (name, <length> args)
     
   constraint-error-global =
-      all-keys-FunctionDecl
-    ; map(bagof-FunctionDecl); concat
+      all-keys-FunctionSig
+    ; map(bagof-FunctionSig); concat
     ; remove-all(is-reserved-function)
     ; constraint-double-decls(
           extract-function-sig; sig-to-lower
@@ -94,9 +79,9 @@ rules // global functions
 
 /*
   constraint-error-global =
-      funcs := <all-keys-FunctionDecl; map(FunctionDecl)>
+      funcs := <all-keys-FunctionSig; map(FunctionSig)>
     ; ents := <all-keys-EntDecl; map(EntDecl)>
-    ; funcname* := <all-keys-FunctionDecl; map(Fst)>
+    ; funcname* := <all-keys-FunctionSig; map(Fst)>
     ; entname* := <all-keys-EntDecl>
     ; allnames := <concat; map(lower-case)> [<uniq> funcname*, <uniq> entname*]
     ; !funcs
@@ -121,7 +106,7 @@ rules // extend function which extends nothing
   
   constraint-extend-global-function: ef@ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," extends a non-existing function."])>
     with  esig := <extract-function-sig> f
-        ; globalsigs := <all-keys-FunctionDecl; strip-annos> // remove {DR_DUMMY}
+        ; globalsigs := <all-keys-FunctionSig; strip-annos> // remove {DR_DUMMY}
         ; prettysig := <pp-func-sig> esig
     where not(<fetch-elem(?esig)> globalsigs)
 
@@ -130,7 +115,6 @@ rules
   //constraint-error-arg-list always fails, so no accidental rewrite
   constraint-error-action = ?Define(_,_,<constraint-error-arg-list>,_,_) 
   constraint-error-action = ?Function(_,<constraint-error-arg-list>,_,_)
-  constraint-error-action = ?FunctionNoReturn(_,<constraint-error-arg-list>,_)
   constraint-error-action = ?Predicate(_,<constraint-error-arg-list>,_)
   constraint-error-action = ?Action(_,_,<constraint-error-arg-list>,_)
   

@@ -2,55 +2,55 @@ application test
 
 
   entity LivingThing{
-  	stringRepresentation 	:: String
-  	name	  				:: String
-  	
-  	searchmapping {
-  		name (autocomplete, spellcheck);
-  		stringRepresentation
-  	}
+    stringRepresentation 	:: String
+    name	  				:: String
+    
+    searchmapping {
+      name (autocomplete, spellcheck);
+      stringRepresentation
+    }
   }
   
   entity Person : LivingThing{
     gender	  :: String
         
-	searchmapping {
-		namespace by gender;
-  	}
+  searchmapping {
+    namespace by gender;
+    }
   }
   
   entity Child : Person {
-  	notes :: String  	
-  	searchmapping{
-  		notes
-  	}
+    notes :: String  	
+    searchmapping{
+      notes
+    }
   }
   
   define page root(){
-	init{
-		var l1 := LivingThing{stringRepresentation := "Unidentified organism"};
-	  	var p1 := Person{stringRepresentation := "Person" name := "John" gender := "male"};
-	  	var p2 := Person{stringRepresentation := "Person" name := "Ted" gender := "male"};
-	  	var p3 := Person{stringRepresentation := "Person" name := "Kim" gender := "female"};
-	  	var p4 := Person{stringRepresentation := "Person" name := "Jolanda" gender := "female"};
-	  	var c1 := Child{stringRepresentation := "Child" name := "Sandra" gender := "female" notes:="has medication"};
-	  	
-	  	l1.save();
-		p1.save();
-		p2.save();
-		p3.save();
-		p4.save();
-		c1.save();
-	}
-  	output("TEST")
-  	navigate searchPage() { "go to search" }
+  init{
+    var l1 := LivingThing{stringRepresentation := "Unidentified organism"};
+      var p1 := Person{stringRepresentation := "Person" name := "John" gender := "male"};
+      var p2 := Person{stringRepresentation := "Person" name := "Ted" gender := "male"};
+      var p3 := Person{stringRepresentation := "Person" name := "Kim" gender := "female"};
+      var p4 := Person{stringRepresentation := "Person" name := "Jolanda" gender := "female"};
+      var c1 := Child{stringRepresentation := "Child" name := "Sandra" gender := "female" notes:="has medication"};
+      
+      l1.save();
+    p1.save();
+    p2.save();
+    p3.save();
+    p4.save();
+    c1.save();
+  }
+    output("TEST")
+    navigate searchPage() { "go to search" }
   }
   
    
   define page searchPage(){
-  	init{
-  		IndexManager.indexSuggestions();
-  	}
+    init{
+      IndexManager.indexSuggestions();
+    }
     var personSearcher := PersonSearcher();
     var livingThingSearcher := LivingThingSearcher();
     
@@ -94,7 +94,7 @@ application test
   
   test searchNamespace {
     IndexManager.clearAutoCompleteIndex("Person");
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var link := d.findElement(SelectBy.className("navigate"));
@@ -129,11 +129,10 @@ application test
     assert(pagesource.contains("spellcheck-5:1"), "PersonSearcher.spellSuggest should return 1 correction (namespace:'')");
     assert(pagesource.contains("spellcheck-6:1"), "ChildSearcher.spellSuggestshould return 1 correction (namespace:'female')");
     assert(pagesource.contains("spellcheck-7:sandra"), "ChildSearcher.spellSuggest should return 'sandra' (namespace:'female')");
-	assert(pagesource.contains("spellcheck-8:0"), "ChildSearcher.spellSuggest should return 0 corrections (namespace:'male')");
+    assert(pagesource.contains("spellcheck-8:0"), "ChildSearcher.spellSuggest should return 0 corrections (namespace:'male')");
     assert(pagesource.contains("spellcheck-9:1"), "ChildSearcher.spellSuggest should return 1 correction (namespace:'')");
     assert(pagesource.contains("spellcheck-10:0"), "ChildSearcher.spellSuggest should return 0 corrections (namespace:'male'), because 'john' does not appear as name in Child, only in Person");
     assert(pagesource.contains("spellcheck-11:0"), "ChildSearcher.spellSuggest should return 0 corrections (namespace:''), because 'john' does not appear as name in Child, only in Person");
     assert(pagesource.contains("spellcheck-12:1"), "LivingThingSearcher.spellSuggest should return 1 correction");
     assert(pagesource.contains("spellcheck-13:john"), "LivingThingSearcher.spellSuggest should return 'john'");
-    d.close();
   }

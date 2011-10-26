@@ -37,38 +37,36 @@ application exampleapp
   }
   
   test stringtemplate {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var input :WebElement;
     for(i:Int from 1 to 6){
       input := d.findElement(SelectBy.className("in"+i));
       input.clear();
-      Thread.sleep(2000);
+      sleep(2000);
       input.sendKeys("1");
-      Thread.sleep(2000);
+      sleep(2000);
       assert(d.getPageSource().split("length must be greater than 2").length==2);
       assert(d.getPageSource().split("length must be greater than 3").length==2);
       for(s:String in "234".split()){
         input.sendKeys(s);
-        Thread.sleep(1000);
+        sleep(1000);
       }
-      Thread.sleep(2000);
+      sleep(2000);
     }
 
     for(i:Int from 1 to 6){
       input := d.findElement(SelectBy.className("in"+i));
       input.clear();
-      Thread.sleep(2000);
+      sleep(2000);
       input.sendKeys("1");
-      Thread.sleep(2000);
+      sleep(2000);
     }
     var button := d.findElement(SelectBy.className("button"));
     button.click();
     assert(d.getPageSource().split("length must be greater than 2").length==6);
     assert(d.getPageSource().split("length must be greater than 3").length==6);
     assert(d.getPageSource().split("400px;").length==6);
-
-    d.close();
   }
 

@@ -8,13 +8,9 @@ application test
   var gt4 := Test{name := "4"}
 
   define page root() {
-    
     for(t: Test){
-      placeholder "ph"+t.id {
-      
-      }
+      placeholder "ph"+t.id { }
     }
-    
     form{
       submit rep()[ajax] { "replace" }
     }
@@ -23,33 +19,23 @@ application test
         replace("ph"+t.id, bla(t));
       }
     }
-    
   }
 
   define ajax bla(t:Test){
     "ajax replace executed: " output(t.name)
   }
 
-
-  native class Thread { static sleep(Int) }
-
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
+
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 2, "expected 2 <input> elements did not match");
     
     elist[1].click();
     
-    Thread.sleep(2000);
-    
     for(i:Int from 1 to 5){
       assert(d.getPageSource().contains("ajax replace executed: "+i));
     }
-    
-    d.close();
   }
   

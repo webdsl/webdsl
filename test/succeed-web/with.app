@@ -40,12 +40,9 @@ application test
     }*/
   }
   
-  test pagecontent{
-    var d := HtmlUnitDriver();
+  test {
+    var d := getHtmlUnitDriver();
     d.get(navigate(root()));
-    log(d.getPageSource());
     assert(d.getPageSource().contains("content: 123456"));
     assert(d.getPageSource().contains("abcdefghi"));
-    
-    d.close();
   }

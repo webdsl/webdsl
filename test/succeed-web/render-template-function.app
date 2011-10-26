@@ -33,11 +33,8 @@ application test
   /*
   test buttonclick {
     
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
-    assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
-    log(d.getPageSource());
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 1, "expected <input> elements did not match");
@@ -45,7 +42,5 @@ application test
     
     assert(d.getPageSource().contains("<span class=\"user-output\"><b>user</b><i>address</i></span><span class=\"user-output\"><b>user</b><i>address</i></span>")
            , "output of cached template not found");
-
-    d.close();
   }
   */
