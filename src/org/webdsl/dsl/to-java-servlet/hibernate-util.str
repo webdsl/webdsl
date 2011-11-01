@@ -347,6 +347,7 @@ rules
   build-batch(|it, x_list, allprops):
     fa@FieldAccess(c, _){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, [])
     where <fetch-elem(?SimpleSort(x_class))> anno*
+    ; not(<fetch-elem(?IsLazyFetch())> anno*)
     ; t := <java-type-entity> x_class
     ; str := <java-type-entity-name> x_class
     ; x_batch := <fa-to-uniquename(|x_list)> fa
@@ -360,6 +361,34 @@ rules
         bstm_addbatch := bstm |[ x_batch.add(e_expr); ]|
       end
     ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_batch, e_joins); ]|
+
+  build-batch(|it, x_list, allprops):
+    fa@FieldAccess(c, f{annof*}){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, bstm_after)
+    where <fetch-elem(?SimpleSort(x_class))> anno*
+    ; <fetch-elem(?IsLazyFetch())> anno*
+    ; <fetch-elem(?DeclaringEntity(x_ent))> annof*
+    ; t := <java-type-entity> x_class
+    ; str := <java-type-entity-name> x_ent
+    ; field := <concat-strings>["_", f]
+    ; x_f := <capitalize-string> f
+    ; x_batch := <fa-to-uniquename(|x_list)> fa
+    ; x_ownerids := <concat-strings> [x_batch, "OwnerIds"]
+    ; e_joins := <filter(simple-joins-to-array(|fa)); map(Snd); flatten-list; make-set; string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> allprops
+    ; bstm_batch := bstm* |[
+          java.util.Set<java.io.Serializable> x_ownerids = new java.util.HashSet<java.io.Serializable>();
+          java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>();
+        ]|
+    ; e_expr := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> fa
+    ; if Cast(p, SimpleSort(x_class2)) := c then
+        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> p
+        ; bstm_addbatch := bstm |[ if (e_p.instanceOf("~x_class2") && e_p.is#x_f#Uninitialized()) x_ownerids.add(e_p.getId()); ]|
+        ; bstm_after := bstm |[ if (e_p.instanceOf("~x_class2")) x_batch.add(e_expr); ]|
+      else
+        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> c
+        ; bstm_addbatch := bstm |[ if (e_p.is#x_f#Uninitialized()) x_ownerids.add(e_p.getId()); ]|
+        ; bstm_after := bstm |[ x_batch.add(e_expr); ]|
+      end
+    ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchLazyProperties(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", "~field", x_ownerids, e_joins); ]|
 
   build-batch(|t_Owner, x_list, allprops):
     fa@FieldAccess(c, f{annof*}){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, bstm_after)

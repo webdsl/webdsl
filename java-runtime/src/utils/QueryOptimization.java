@@ -1,6 +1,9 @@
 package utils;
 
+import java.io.Serializable;
 import java.util.Arrays;
+
+import org.hibernate.engine.SessionImplementor;
 
 public class QueryOptimization {
 	public static org.hibernate.Criteria addQueryOptimization(org.hibernate.Criteria criteria, String[] curjoins, String curgen, boolean ismain, String[] joins, String[][] queries, org.hibernate.criterion.Criterion criterion, String[] condjoins) {
@@ -187,5 +190,23 @@ public class QueryOptimization {
 			}
 		}
 //		System.out.println("exit prefetchEntities");
+	}
+
+	public static void prefetchLazyProperties(org.hibernate.Session hibSession, String entityName, String fieldName, java.util.Set<java.io.Serializable> ids, String[] joins) {
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
+			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
+			if (persister instanceof utils.SingleTableEntityPersister) {
+				if (ids.size() > 1) {
+					try {
+						java.util.List<String> joinslist = null;
+						((utils.SingleTableEntityPersister) persister).loadLazyBatch(fieldName, ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+				}
+			}
+		}
 	}
 }

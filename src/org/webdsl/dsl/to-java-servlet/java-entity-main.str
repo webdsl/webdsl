@@ -55,7 +55,8 @@ strategies
        {
           public x_Class () {}
 
-          protected org.hibernate.bytecode.javassist.FieldHandler fieldHandler;
+          transient protected org.hibernate.bytecode.javassist.FieldHandler fieldHandler;
+          transient protected java.util.Set<String> uninitializedLazyProperties = null;
 
           public org.hibernate.bytecode.javassist.FieldHandler getFieldHandler() {
             return fieldHandler;
@@ -63,6 +64,10 @@ strategies
 
           public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
             this.fieldHandler = fieldHandler;
+            java.util.Set fieldHandlerUninit = ((org.hibernate.intercept.javassist.FieldInterceptorImpl)fieldHandler).getUninitializedFields();
+            if(fieldHandlerUninit != null) {
+              this.uninitializedLazyProperties = new java.util.HashSet<String>(fieldHandlerUninit); // We need a new instance, because the set is static
+            }
           }
 
           ~*idcodes
@@ -133,15 +138,20 @@ strategies
        {
         public x_Class () {}
 
-        protected org.hibernate.bytecode.javassist.FieldHandler fieldHandler;
+          transient protected org.hibernate.bytecode.javassist.FieldHandler fieldHandler;
+          transient protected java.util.Set<String> uninitializedLazyProperties = null;
 
-        public org.hibernate.bytecode.javassist.FieldHandler getFieldHandler() {
-          return fieldHandler;
-        }
+          public org.hibernate.bytecode.javassist.FieldHandler getFieldHandler() {
+            return fieldHandler;
+          }
 
-        public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
-          this.fieldHandler = fieldHandler;
-        }
+          public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
+            this.fieldHandler = fieldHandler;
+            java.util.Set fieldHandlerUninit = ((org.hibernate.intercept.javassist.FieldInterceptorImpl)fieldHandler).getUninitializedFields();
+            if(fieldHandlerUninit != null) {
+              this.uninitializedLazyProperties = new java.util.HashSet<String>(fieldHandlerUninit); // We need a new instance, because the set is static
+            }
+          }
 
         ~*<hibernate-default-id-prop(|x_Class)>[]
         ~*<version-property>[]
@@ -393,7 +403,6 @@ strategies
              setChanged();
              ~*bas*
              bstm_setterextension*
-             t olditem = _#x;
              bstm_lazysetter*
              x#BeingSet = false;
            }
@@ -441,23 +450,25 @@ strategies
         ; mod5*   := <property-to-contained-in <+ ![]> prop
         ; mod6*  := <property-to-index-annos <+ ![]> prop
         ; mod7*  := <fetch-elem(\ SimpleAnno("cache") -> [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|] \) <+ ![]> annos
-        ; (bstm_lazygetter*, bstm_lazysetter*, bstm_lazyinit*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ _#x = newitem; ]|, <property-to-isuninitialized> prop)> s
+        ; (bstm_lazygetter*, bstm_lazysetter*, bstm_lazyinit*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ t olditem = _#x; _#x = newitem; ]|, <property-to-isuninitialized> prop)> s
 
    handle-lazy-one-to-one-inverse(|x, annos) :
-     s@SimpleSort(y) -> ( bstm* |[ if (fieldHandler != null) {
-                                     return (y) fieldHandler.readObject(this, "~str", _#x);
+     s@SimpleSort(y) -> ( bstm* |[ if (fieldHandler != null && uninitializedLazyProperties != null && uninitializedLazyProperties.contains("~str")) {
+                                     uninitializedLazyProperties.remove("~str");
+                                     return (y) e_UTILS.readLazyProperty(this, fieldHandler, "~str", _#x);
                                    }
                                 ]|,
-                          bstm* |[ if (fieldHandler != null) {
-                                    _#x = (y) fieldHandler.writeObject(this, "~str", _#x, newitem);
+                          bstm* |[ t olditem = _#x;
+                                   if(fieldHandler != null) {
+                                     olditem = (y)fieldHandler.readObject(this, "~str", _#x); // Initializes all lazy properties
+                                     uninitializedLazyProperties = null;
                                    }
-                                   else {
-                                     _#x = newitem;
-                                   }
+                                   _#x = newitem; // We do not need a writeObject here, because we already did a readObject and we set the dirty flag in setChanged
                                 ]|,
-                          bstm* |[ return fieldHandler != null && !((org.hibernate.intercept.FieldInterceptor)fieldHandler).isInitialized("~str"); ]|
+                          bstm* |[ return fieldHandler != null && uninitializedLazyProperties != null && uninitializedLazyProperties.contains("~str"); ]|
                         )
-     where inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
+     where t := <java-type> s
+         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
          ; SimpleSort(yy) := <get-type-anno> inv
          ; str := <concat-strings>["_", x]
 

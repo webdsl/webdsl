@@ -138,11 +138,12 @@ is-less-specific-cast:
   where <is-less-specific-cast(|p, srt, f)> fa1
 
 add-sort-anno:
-  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, anno*}
+  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}
   with p2{annop2*} := <add-sort-anno> p
   ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
   ; x_class := <class-of-property> (x_classp, f)
   ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+  ; newanno* := <try(add-lazy-anno(|x_class, f, srt))> anno*
     
 add-sort-anno:
   Cast(p, srt){anno*} -> Cast(p2, srt){srt, anno*}
@@ -153,12 +154,13 @@ add-sort-anno:
   with srt := <RootVar> expr
 
 add-sort-nogen-anno:
-  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, anno*}
+  expr@FieldAccess(p, f{annof*}){anno*} -> FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}
   where p2{annop2*} := <add-sort-nogen-anno> p
   ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
   ; x_class := <class-of-property> (x_classp, f)
   ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
   ; not(<?GenericSort(_, _)> srt)
+  ; newanno* := <try(add-lazy-anno(|x_class, f, srt))> anno*
 
 add-sort-nogen-anno:
   Cast(p, srt){anno*} -> Cast(p2, srt){srt, anno*}
@@ -953,3 +955,42 @@ rules
   add-naturalid-anno(|x_class) :
     fa@FieldAccess(_, f){anno*} -> fa{IsNaturalId(), anno*}
     where f := <natural-id-name-include-superclass> x_class
+/*
+  add-backend-annotation =
+    (?Arg(_, _) <+ ?ForAll(_, _, _, _, _) <+ ?For(_, _, _, _, _, _) <+ ?ForAllStmt(_, _, _, _) <+ ?ForStmt(_, _, _, _, _))
+    ; add-backend-annotations-to-query-optimization
+
+  add-backend-annotations-to-query-optimization :
+    term@_{anno*} -> term{newanno*}
+    where qo := <fetch-elem(?QueryOptimizations(_, _, _, _))> anno*
+    ; newqo := <add-lazy-property-annos; add-backend-annotations> qo
+    ; not(qo := newqo)
+    ; toKeep := <remove-all(?QueryOptimizations(_, _, _, _))> anno*
+    ; newanno* := [newqo | toKeep]
+
+  add-lazy-property-annos:
+    QueryOptimizations(joins1, genjoins1, cond, condjoins){anno*} -> QueryOptimizations(joins2, genjoins2, cond, condjoins){anno*}
+    where joins2 := <map(add-lazy-property-annos-to-expr)> joins1
+    ; genjoins2 := <map(add-lazy-property-annos-to-expr)> genjoins1
+
+  add-lazy-property-annos-to-expr:
+	  expr@FieldAccess(p, f){anno*} -> FieldAccess(p2{annop2*}, f){newanno*}
+	  where not(<fetch-elem(?IsLazyFetch())> anno*)
+	  ; p2{annop2*} := <add-lazy-property-annos-to-expr> p 
+	  with SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
+	  ; x_class := <class-of-property> (x_classp, f)
+	  ; newanno* := <try(add-lazy-anno(|x_class, f))> anno*
+*/
+  add-lazy-anno(|ent,f, srt) :
+    anno* -> [IsLazyFetch() | anno*]
+    where SimpleSort(invEnt) := srt
+    ; invProp := <InverseProperty; PropertyDecl> (ent, f)
+    ; SimpleSort(ent) := <get-property-type> invProp
+    ; <get-property-annos; fetch-elem(?InverseAnno(ent, f))> invProp // Is the inverse side the owning side?
+/*
+	add-lazy-property-annos-to-expr:
+	  c@Cast(_, _) -> c
+
+	add-lazy-property-annos-to-expr:
+	  v@Var(_) -> v
+*/
