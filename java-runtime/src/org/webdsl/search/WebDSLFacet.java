@@ -55,7 +55,7 @@ public class WebDSLFacet {
 		return this;
 	}
 	
-	public WebDSLFacet mustnot(){
+	public WebDSLFacet mustNot(){
 		occur = Occur.MUST_NOT;
 		return this;
 	}
@@ -118,6 +118,15 @@ public class WebDSLFacet {
 	}
 	public boolean isSelected(){
 		return isSelected;
+	}
+	public boolean isMust(){
+		return occur.equals(Occur.MUST);
+	}
+	public boolean isShould(){
+		return occur.equals(Occur.SHOULD);
+	}
+	public boolean isMustNot(){
+		return occur.equals(Occur.MUST_NOT);
 	}
 	/*
 	 * Compares to other WebDSLFacet object based on facet field and value  

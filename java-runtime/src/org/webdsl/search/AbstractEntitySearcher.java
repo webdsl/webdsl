@@ -73,7 +73,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 	protected LinkedList<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 	
-	protected Query highlightQuery, boboQuery, luceneQuery = null;
+	protected Query luceneQueryNoFacetFilters, luceneQuery = null;
 	protected FullTextQuery fullTextQuery = null;
 	protected FullTextSession fullTextSession;
 	
@@ -135,7 +135,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F mustnot() {
+	public <F extends AbstractEntitySearcher<EntityClass>> F mustNot() {
 		addSubQuery(Occur.MUST_NOT);
 		return (F) this;
 	}
@@ -165,10 +165,22 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			facetMap = new HashMap<String, Facet>();
 		String key;
 		
-		BooleanQuery facetFilterQuery = new BooleanQuery();		
+		if(filteredFacetsList.isEmpty()){
+			luceneQuery = luceneQueryNoFacetFilters;
+			return;
+		}
+		
+		boolean addShouldFacets = false;
+		BooleanQuery shouldFacetQuery = new BooleanQuery();
+		BooleanQuery newQuery = new BooleanQuery();
 		for(WebDSLFacet facet : filteredFacetsList){
 			if(discreteFacetRequests.containsKey(facet.getFieldName())){
-				facetFilterQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur);
+				if(facet.occur.equals(Occur.SHOULD)){
+					addShouldFacets = true;
+					shouldFacetQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur);
+				} else {
+					newQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur);
+				}
 			} else if(rangeFacetRequests.containsKey(facet.getFieldName())) {
 				key = facet.getFieldName() + "-" + facet.getValue();
 				Facet actualFacet = facetMap.get(key);
@@ -182,16 +194,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 					log("Facet '" + key + "'to narrow not found, should not happen!");
 					continue;
 				}
-				facetFilterQuery.add(actualFacet.getFacetQuery(), facet.occur);
+				if(facet.occur.equals(Occur.SHOULD)){
+					addShouldFacets = true;
+					shouldFacetQuery.add(actualFacet.getFacetQuery(), facet.occur);
+				} else {
+					newQuery.add(actualFacet.getFacetQuery(), facet.occur);
+				}
 			}			
 		}
-//		log("luceneQuery before filtering facets: " + luceneQuery);
-//		BooleanQuery newQuery = new BooleanQuery();
-//		newQuery.add(luceneQuery, Occur.MUST);
-//		newQuery.add(facetFilterQuery, Occur.MUST);
-		//luceneQuery =  newQuery;
-		facetFilterQuery.add(luceneQuery, Occur.MUST);
-		luceneQuery = facetFilterQuery;
+
+		if(addShouldFacets)
+		newQuery.add(shouldFacetQuery, Occur.MUST);
+		newQuery.add(luceneQueryNoFacetFilters, Occur.MUST);
+		luceneQuery = newQuery;
 	}
 	
 	private void applyFieldConstraints() {
@@ -558,18 +573,18 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		fullTextQuery.getFacetManager().enableFaceting(facetReq);
 	}
 	
+	public List<WebDSLFacet> getFacets(String field){
+		return getFacets(field, false);
+	}
 	
-		
-	//Currently not working correctly on embedded collections see: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-726
-	public List<WebDSLFacet> getFacets(String field) {
+	public List<WebDSLFacet> getFacets(String field, boolean includeOldFacets) {
 
 		if(discreteFacetRequests.containsKey(field)){
-			return getBoboFacets(field);
+			return getBoboFacets(field, includeOldFacets);
 		} else if (rangeFacetRequests.containsKey(field)){
 			String facetName = WebDSLFacetTool.facetName(field);
 			List<Facet> facets;
-			if (validateQuery()){
-				
+			if (validateQuery()){				
 				facets = fullTextQuery.getFacetManager().getFacets(facetName);
 				//If no facets are returned, facets are probably not enabled yet
 				if(facets.isEmpty()){
@@ -582,10 +597,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			
 			return toWebDSLFacets(facets);
 		} else
-			return new ArrayList<WebDSLFacet>();
+			return new ArrayList<WebDSLFacet>();		
+	}
 	
+	public List<WebDSLFacet> getFilteredFacets(){
+		return filteredFacetsList;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <F extends AbstractEntitySearcher<EntityClass>> F removeFilteredFacet(WebDSLFacet f){
+		filteredFacetsList.remove(f);
 		
-		
+		updateFacets = updateParamMap = true;
+		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F field(String field){
@@ -736,9 +760,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	@SuppressWarnings("unchecked")
 	public <F extends AbstractEntitySearcher<EntityClass>> F filterByFacet(WebDSLFacet facet) {		
 		//if already narrowed on this facet, don't add it again
+		//A facet already appears in the list if field and value are equal
 		if(filteredFacetsList.contains(facet))
 			return (F) this;
-
+		
+		facet.isSelected = true;
 		filteredFacetsList.add(facet);
 	
 		updateFacets = updateParamMap = true;
@@ -917,8 +943,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		if (updateLuceneQuery) {
 			try {
 				luceneQuery = createLuceneQuery(rootQD);
-				boboQuery = luceneQuery;
-				highlightQuery = luceneQuery;
+				luceneQueryNoFacetFilters = luceneQuery;
 			} catch (ParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -928,10 +953,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			updateLuceneQuery = false;
 			updateFullTextQuery = updateFacets = true;
 		}
-		if(updateFacets && !filteredFacetsList.isEmpty()){
+		if(updateFacets){
 			updateFacets = false;
 			applyFacets();
-			boboQuery = luceneQuery;
 			updateFullTextQuery = true;			
 		}
 		if (updateFullTextQuery) {
@@ -943,7 +967,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			updateFieldConstraints = false;
 			if(fieldConstraints != null) {
 				applyFieldConstraints();
-				boboQuery = null; // facetQuery needs to be rebuild adding additional MUST clauses to luceneQuery for applied filters
 			}
 		}
 		if(updateNamespaceConstraint && !namespaceConstraint.isEmpty()){
@@ -986,17 +1009,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		return new MultiValueFacetHandler(field, field);
 	}
 
-	private List<WebDSLFacet> getBoboFacets(String field){
+	private List<WebDSLFacet> getBoboFacets(String field, boolean includeOldFacets){
 		validateQuery();
 		int cnt = discreteFacetRequests.get(field);
 		// creating a browse request
 		BrowseRequest br=new BrowseRequest();
 		br.setCount(cnt);
-		br.setOffset(0);	
-		if(boboQuery == null){
+		br.setOffset(0);
+		Query boboQuery;
+		if (includeOldFacets) boboQuery = luceneQueryNoFacetFilters; else boboQuery = luceneQuery;
+		if(fieldConstraints != null && !fieldConstraints.isEmpty()){
 			//Apply field filters through query, when enabled
 			BooleanQuery bq = new BooleanQuery();
-			bq.add(luceneQuery,Occur.MUST);
+			bq.add(boboQuery, Occur.MUST);
 			for (Entry<String, String> kv : fieldConstraints.entrySet()) {
 				QueryParser qp = new QueryParser(LUCENEVERSION, kv.getKey(), analyzer);
 				try {
@@ -1011,15 +1036,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			boboQuery = bq;
 		}
 		br.setQuery(boboQuery);
-		 
+		
 		// add the facet output specs
 		FacetSpec facetSpec = new FacetSpec();
 		facetSpec.setMaxCount(cnt);
 		facetSpec.setOrderBy(FacetSortSpec.OrderHitsDesc);
 
 		 
-		br.setFacetSpec(field,facetSpec);
-		 
+		br.setFacetSpec(field,facetSpec);		 
 		 
 		SortField srtfld = new SortField(field,sortType(field), true);
 		 
@@ -1045,10 +1069,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		List<BrowseFacet> facetVals = facets.getFacets();
 		List<WebDSLFacet> toReturn = new ArrayList<WebDSLFacet>();
 		WebDSLFacet facet;
+		int index;
 		for(BrowseFacet bf : facetVals)
 		{
 			facet = new WebDSLFacet(bf, field);
-			facet.isSelected = filteredFacetsList.contains(facet);
+			index = filteredFacetsList.indexOf(facet);
+			if (index > -1) {
+				cnt = facet.count;
+				facet = filteredFacetsList.get(index);
+				facet.count = cnt;
+			}
 			toReturn.add(facet);
 		}
 		// cleaning up
