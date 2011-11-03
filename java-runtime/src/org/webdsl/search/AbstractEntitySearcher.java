@@ -62,7 +62,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected Operator defaultOperator = OP;
 	
 	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true;
-	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false;
+	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false, updateBoboFacetResults = true;
 
 	protected HashMap<String, String> fieldConstraints;
 	protected HashMap<String, Float> boosts;
@@ -70,6 +70,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	protected HashMap<String, String> rangeFacetRequests;
 	protected HashMap<String, Integer> discreteFacetRequests;
 	protected Map<String, String> paramMap;
+	private BrowseResult boboBrowseResult;
 
 	protected LinkedList<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 	
@@ -687,13 +688,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	public String highlight(String field, String toHighLight){
+		validateQuery();
 		return ResultHighlighter.highlight(this, field, toHighLight);
 	}
 
 	public String highlight(String field, String toHighLight, String preTag, String postTag){
+		validateQuery();
 		return ResultHighlighter.highlight(this, field, toHighLight, preTag, postTag);
 	}
 	
+	public String highlight (String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator){
+		validateQuery();
+		return ResultHighlighter.highlight(this, field, toHighLight, preTag, postTag, fragments, fragmentLength, separator);
+	}
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
 		try{
@@ -939,7 +946,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	private boolean validateQuery() {
-		long tmp = System.currentTimeMillis();
+//		long tmp = System.currentTimeMillis();
 		if (updateLuceneQuery) {
 			try {
 				luceneQuery = createLuceneQuery(rootQD);
@@ -951,12 +958,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			}
 //			log("LUCENE QUERY: " + luceneQuery.toString());
 			updateLuceneQuery = false;
-			updateFullTextQuery = updateFacets = true;
+			updateBoboFacetResults = updateFullTextQuery = updateFacets = true;
 		}
 		if(updateFacets){
 			updateFacets = false;
 			applyFacets();
-			updateFullTextQuery = true;			
+			updateBoboFacetResults = updateFullTextQuery = true;			
 		}
 		if (updateFullTextQuery) {
 			fullTextQuery = getFullTextSession().createFullTextQuery(luceneQuery, entityClass);
@@ -966,11 +973,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		if(updateFieldConstraints){
 			updateFieldConstraints = false;
 			if(fieldConstraints != null) {
+				updateBoboFacetResults = true;
 				applyFieldConstraints();
 			}
 		}
 		if(updateNamespaceConstraint && !namespaceConstraint.isEmpty()){
 			updateNamespaceConstraint = false;
+			updateBoboFacetResults = true;
 			applyNamespaceConstraint();
 		}
 		if(updateSorting && !sortFields.isEmpty()){
@@ -979,7 +988,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 		}
 		fullTextQuery.setFirstResult(offset);
 		fullTextQuery.setMaxResults(limit);
-		tmp = System.currentTimeMillis() - tmp;
+//		tmp = System.currentTimeMillis() - tmp;
+//		log("ValidateQuery in "+ tmp + "ms");
 		return true;
 	}
 	
@@ -1011,65 +1021,72 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 
 	private List<WebDSLFacet> getBoboFacets(String field, boolean includeOldFacets){
 		validateQuery();
-		int cnt = discreteFacetRequests.get(field);
-		// creating a browse request
-		BrowseRequest br=new BrowseRequest();
-		br.setCount(cnt);
-		br.setOffset(0);
-		Query boboQuery;
-		if (includeOldFacets) boboQuery = luceneQueryNoFacetFilters; else boboQuery = luceneQuery;
-		if(fieldConstraints != null && !fieldConstraints.isEmpty()){
-			//Apply field filters through query, when enabled
-			BooleanQuery bq = new BooleanQuery();
-			bq.add(boboQuery, Occur.MUST);
-			for (Entry<String, String> kv : fieldConstraints.entrySet()) {
-				QueryParser qp = new QueryParser(LUCENEVERSION, kv.getKey(), analyzer);
-				try {
-					if(allowLuceneSyntax)					
-						bq.add(qp.parse(kv.getValue()), Occur.MUST);
-					else
-						bq.add(qp.parse(QueryParser.escape(kv.getValue())), Occur.MUST);
-				} catch (ParseException e) {
-					e.printStackTrace();
-				}
+//		long time =  System.currentTimeMillis();
+		if(updateBoboFacetResults) {
+			BrowseRequest br = new BrowseRequest();
+			FacetSpec facetSpec;
+			SortField srtfld;
+			int max = 0;
+			for (Entry<String, Integer> rq : discreteFacetRequests.entrySet()) {
+				max = Math.max(max, rq.getValue());
+				// add the facet output specs
+				facetSpec = new FacetSpec();
+				facetSpec.setMaxCount(rq.getValue());
+				facetSpec.setOrderBy(FacetSortSpec.OrderHitsDesc);
+				
+				srtfld = new SortField(rq.getKey(),sortType(rq.getKey()), true);
+				
+				//setFacetSpec ADDS a spec to its facet spec map
+				br.setFacetSpec(rq.getKey(),facetSpec);								 
+				br.addSortField(srtfld);
+				
 			}			
-			boboQuery = bq;
-		}
-		br.setQuery(boboQuery);
-		
-		// add the facet output specs
-		FacetSpec facetSpec = new FacetSpec();
-		facetSpec.setMaxCount(cnt);
-		facetSpec.setOrderBy(FacetSortSpec.OrderHitsDesc);
+			br.setCount(max);
+			br.setOffset(0);
+			Query boboQuery;
+			if (includeOldFacets) boboQuery = luceneQueryNoFacetFilters; else boboQuery = luceneQuery;
+			if(fieldConstraints != null && !fieldConstraints.isEmpty()){
+				//Apply field filters through query, when enabled
+				BooleanQuery bq = new BooleanQuery();
+				bq.add(boboQuery, Occur.MUST);
+				for (Entry<String, String> kv : fieldConstraints.entrySet()) {
+					QueryParser qp = new QueryParser(LUCENEVERSION, kv.getKey(), analyzer);
+					try {
+						if(allowLuceneSyntax)					
+							bq.add(qp.parse(kv.getValue()), Occur.MUST);
+						else
+							bq.add(qp.parse(QueryParser.escape(kv.getValue())), Occur.MUST);
+					} catch (ParseException e) {
+						e.printStackTrace();
+					}
+				}			
+				boboQuery = bq;
+			}
+			br.setQuery(boboQuery);		 
+			
+			BoboIndexReader boboReader = getBoboReader(field, discreteFacetRequests.keySet());
+			// perform browse
+			Browsable browser;
+			try {
+				browser = new BoboBrowser(boboReader);
+				boboBrowseResult = browser.browse(br);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (BrowseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	
+			updateBoboFacetResults = false;
 
-		 
-		br.setFacetSpec(field,facetSpec);		 
-		 
-		SortField srtfld = new SortField(field,sortType(field), true);
-		 
-		br.setSort(new SortField[]{srtfld});
-		BoboIndexReader boboReader = getBoboReader(field, discreteFacetRequests.keySet());
-		// perform browse
-		Browsable browser;
-		BrowseResult result = null;
-		try {
-			browser = new BoboBrowser(boboReader);
-			result = browser.browse(br);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (BrowseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		Map<String,FacetAccessible> facetMap = result.getFacetMap();
+	    }
 		// obtain facet result
-		FacetAccessible facets = facetMap.get(field);
+		FacetAccessible facets = boboBrowseResult.getFacetMap().get(field);
 		List<BrowseFacet> facetVals = facets.getFacets();
 		List<WebDSLFacet> toReturn = new ArrayList<WebDSLFacet>();
 		WebDSLFacet facet;
-		int index;
+		int index, cnt;
 		for(BrowseFacet bf : facetVals)
 		{
 			facet = new WebDSLFacet(bf, field);
@@ -1081,9 +1098,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 			}
 			toReturn.add(facet);
 		}
-		// cleaning up
-		result.close();
-		
+//		log("get bobo facets in " + (System.currentTimeMillis() - time ) + "ms");
 		return toReturn;		
 	}
 	
