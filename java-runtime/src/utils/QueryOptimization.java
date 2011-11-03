@@ -116,15 +116,29 @@ public class QueryOptimization {
 		return criteria.list();
 	}
 
+    public static java.util.Collection prefetchCollection(org.hibernate.Session hibSession, java.util.Collection col, String[] joins) {
+    	if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0) {
+    		org.hibernate.collection.PersistentCollection persistentCol = (org.hibernate.collection.PersistentCollection) col;
+    		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor) {
+	    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
+	    		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+				org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(persistentCol.getRole());
+				if(persister instanceof utils.BatchCollectionPersister) {
+					java.io.Serializable[] ownerId = { ((org.webdsl.WebDSLEntity)persistentCol.getOwner()).getId() };
+					((utils.BatchCollectionPersister)persister).initializeBatch(ownerId, session, java.util.Arrays.asList(joins));
+				}
+    			
+    		}
+    	}
+    	return col;
+    }
+
     public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners, String[] joins) {
-//    	System.out.println("prefetchCollections_" + role + ": " + owners.size());
     	if( hibSession instanceof org.hibernate.engine.SessionImplementor) {
-//    		System.out.println("SessionImplementor");
     		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
     		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(role);
 			if(persister instanceof utils.BatchCollectionPersister) {
-//				System.out.println("BatchCollectionPersister");
 				java.io.Serializable[] ownerIds = new java.io.Serializable[owners.size()];
 				for(int i = 0; i < owners.size(); i++) {
 					ownerIds[i] = owners.get(i).getId();
@@ -145,29 +159,22 @@ public class QueryOptimization {
     }
 
 	public static void prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins) {
-//		System.out.println("prefetchEntities_" + entityName + ": " + objs.size());
 		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
-//			System.out.println("SessionImplementor");
 			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
 			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
 			if (persister instanceof utils.SingleTableEntityPersister) {
-//				System.out.println("SingleTableEntityPersister");
 				java.util.Set<java.io.Serializable> ids = new java.util.HashSet<java.io.Serializable>();
 				for (int i = 0; i < objs.size(); i++) {
 					final Object obj = objs.get(i);
 					if (obj instanceof org.hibernate.proxy.HibernateProxy) {
 						org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy) obj).getHibernateLazyInitializer();
 						if (init.isUninitialized()) {
-//							System.out.println("Uninitialized: " + init.getIdentifier());
-//							System.out.println("isInitialized?: " + org.hibernate.Hibernate.isInitialized(obj));
 							ids.add(init.getIdentifier());
 						}
 					}
 				}
-//				System.out.println("left: " + ids.size());
 				if (ids.size() > 1) {
-//					System.out.println("calling loadBatch");
 					try {
 						java.util.List<String> joinslist = null;
 						if(joins != null) joinslist = java.util.Arrays.asList(joins);
@@ -175,7 +182,6 @@ public class QueryOptimization {
 					} catch (Exception ex) {
 						ex.printStackTrace();
 					}
-//					System.out.println("called loadBatch");
 				}
 			}
 		}
@@ -189,7 +195,6 @@ public class QueryOptimization {
 				}
 			}
 		}
-//		System.out.println("exit prefetchEntities");
 	}
 
 	public static void prefetchLazyProperties(org.hibernate.Session hibSession, String entityName, String fieldName, java.util.Set<java.io.Serializable> ids, String[] joins) {

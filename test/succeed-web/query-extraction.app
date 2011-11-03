@@ -231,7 +231,7 @@ define body(s : String) {
 }
 
 test queriestest {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
 
   d.get(navigate(root()));
   var elem : WebElement := d.findElement(SelectBy.id("a1"));
@@ -263,7 +263,7 @@ test queriestest {
   
   d.get(navigate(showProfile(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 5);
+  assert(elem.getText().parseInt() == 6);
 
   d.get(navigate(preloadCalledTemplate()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
@@ -285,6 +285,4 @@ test queriestest {
   assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
-
-  d.close();
 }

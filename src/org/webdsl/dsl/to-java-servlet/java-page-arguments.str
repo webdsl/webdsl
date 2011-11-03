@@ -256,30 +256,25 @@ rules //initialization
     arg@Arg(x, srt){anno*} ->
     bstm*|[
       if (x_id != null) {            
-        org.hibernate.FlushMode oldFlushMode = hibSession.getFlushMode();
-        hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
         List<t> results = e_criteria
         .add( org.hibernate.criterion.Restrictions.idEq(java.util.UUID.fromString(x_id)) )
         .list();
         if(results.size() != 0){
           x = results.get(0);
-          bstm_criterias*
+          bstm_fetch*
         }
-        hibSession.setFlushMode(oldFlushMode);
       }
     ]|
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; not(<get-entity-id-name-with-super> srt)
         ; <not(fetch-elem(?QueryOptimizations([], [], True(), [])))> anno*
-        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
-        ; x_idprop := <concat-strings>["_", <get-entity-id-name> srt]
-        //; x_idprop := <?SimpleSort(<EntityIdName>)> srt
+        ; <fetch-elem(?qo@QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
-        ; e_criteria := <foldr(!expr|[ hibSession.createCriteria(x_class.class) ]|,hibernate-criteria-fetchmode)> joinproperties
-        ; bstm_criterias* := <filter(hibernate-extra-generic-criteria(|expr|[ hibSession ]|))> joinpropertiesgen
+        ; e_criteria := <add-direct-fetches(|x, expr|[ hibSession.createCriteria(x_class.class) ]|)> qo
+        ; bstm_fetch* := <get-batch-fetches(|x, srt, "results")> qo
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -365,12 +360,9 @@ rules //initialization
     bstm*|[
       if (x_id != null) {            
         //filtering must be done earlier, page arg could be hidden input in post as well //utils.URLFilter.unfilter(x_id.toString());
-        org.hibernate.FlushMode oldFlushMode = hibSession.getFlushMode();
-        hibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
         List<t> results = e_criteria
         .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
         .list();
-        hibSession.setFlushMode(oldFlushMode);
         if(results.size() == 0){
           System.out.println("No entity with this identity found: "+x_id);
           throw new RuntimeException("No entity with this identity found: "+x_id);
@@ -382,20 +374,20 @@ rules //initialization
         }
         else {
           x = results.get(0);
-          bstm_criterias*
+          bstm_fetch*
         }
       }
     ]|
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; <not(fetch-elem(?QueryOptimizations([], [], True(), [])))> anno*
-        ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
+        ; <fetch-elem(?qo@QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
         ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
-        ; e_criteria := <foldr(!expr|[ hibSession.createCriteria(x_class.class) ]|,hibernate-criteria-fetchmode)> joinproperties
-        ; bstm_criterias* := <filter(hibernate-extra-generic-criteria(|expr|[ hibSession ]|))> joinpropertiesgen
+        ; e_criteria := <add-direct-fetches(|x, expr|[ hibSession.createCriteria(x_class.class) ]|)> qo
+        ; bstm_fetch* := <get-batch-fetches(|x, srt, "results")> qo
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
