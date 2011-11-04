@@ -31,7 +31,8 @@ public class PollServerAndRestart {
                 System.out.println(getDateTime()+" fail");
                 fails++;
             }
-            if(fails > 0){
+            if(fails > 3){
+                System.out.println("too many failed attempts, running restart script");
                 fails = 0;
                 runCommand(cmd);
                 wait(restartWaitTime);
