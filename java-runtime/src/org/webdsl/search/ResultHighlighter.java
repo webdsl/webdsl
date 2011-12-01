@@ -13,7 +13,7 @@ import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
 
 public class ResultHighlighter {
 	
-	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator){
+	public static String highlight(AbstractEntitySearcher<?,?> sq, String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator){
 //		long tmp = System.currentTimeMillis();
 		String result = "";
 		TokenStream tokenStream;
@@ -55,10 +55,10 @@ public class ResultHighlighter {
 		
 	}
 	
-	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text){				
+	public static String highlight(AbstractEntitySearcher<?, ?> sq, String field, String text){				
 		return highlight(sq, field, text, "<B>", "</B>", 3, 80, " ...");
 	}
-	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text, String preTag, String postTag){				
+	public static String highlight(AbstractEntitySearcher<?, ?> sq, String field, String text, String preTag, String postTag){				
 		return highlight(sq, field, text, preTag, postTag, 3, 80, " ...");
 	}
 }

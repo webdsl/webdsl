@@ -49,7 +49,7 @@ import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.impl.MultiValueFacetHandler;
 
-public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
+public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F> {
 
 	protected static final Version LUCENEVERSION 		= Version.LUCENE_31;
 	protected static final int LIMIT 					= 50;
@@ -106,7 +106,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F filterByField(String fieldname, String terms) {
+	public F filterByField(String fieldname, String terms) {
 		if(fieldConstraints == null)
 			fieldConstraints = new HashMap<String, String>();
 		
@@ -122,7 +122,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 		
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F allowLuceneSyntax(boolean b) {
+	public F allowLuceneSyntax(boolean b) {
 		if(this.allowLuceneSyntax != b) {
 			this.allowLuceneSyntax = b;
 			updateLuceneQuery = updateParamMap = true;
@@ -131,32 +131,31 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F must() {
+	public F must() {
 		addSubQuery(Occur.MUST);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F mustNot() {
+	public F mustNot() {
 		addSubQuery(Occur.MUST_NOT);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F should() {
+	public F should() {
 		addSubQuery(Occur.SHOULD);
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F closeGroup() {
+	public F closeGroup() {
 		parentQD = (parentQD == rootQD) ? parentQD : parentQD.parent;
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F openGroup() {
+	public F openGroup() {
 		parentQD = currentQD;	
 		return (F) this;
 	}
 	
-	//only adds a new subquery if query (term, range or parsed query) is not set for current query
 	private final void addSubQuery(Occur oc) {
 		currentQD = new QueryDef(oc, parentQD, searchFields);		
 	}
@@ -225,7 +224,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F boost(String field, Float boost) {
+	public F boost(String field, Float boost) {
 		if(boosts == null)
 			boosts = new HashMap<String, Float>();
 		if (boosts.containsKey(field))
@@ -279,7 +278,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F defaultAnd() {
+	public F defaultAnd() {
 		if (!defaultOperator.equals(Operator.AND)){	
 			defaultOperator = Operator.AND;
 			updateLuceneQuery = updateParamMap = true;
@@ -288,7 +287,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F defaultOr() {
+	public F defaultOr() {
 		if (!defaultOperator.equals(Operator.OR)){	
 			defaultOperator = Operator.OR;
 			updateLuceneQuery = updateParamMap = true;
@@ -429,7 +428,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}	
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F fromParamMap(Map<String,String> paramMap){
+	public F fromParamMap(Map<String,String> paramMap){
 		try{
 			String key, value;
 			for (Map.Entry<String,String> e : paramMap.entrySet()) {
@@ -533,7 +532,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F enableFaceting(String field, int topN){		
+	public F enableFaceting(String field, int topN){		
 		if(discreteFacetRequests == null)
 			discreteFacetRequests = new HashMap<String, Integer>();
 		
@@ -547,7 +546,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	// Bug on numeric fields: http://opensource.atlassian.com/projects/hibernate/browse/HSEARCH-770
 	// Therefore using custom Hibernate Search jar, but still includes entities with null values on the faceting field in counts :(
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F enableFaceting(String field, String rangesAsString) {
+	public F enableFaceting(String field, String rangesAsString) {
 		if(rangeFacetRequests == null)
 			rangeFacetRequests = new HashMap<String, String>();
 		
@@ -606,19 +605,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F removeFilteredFacet(WebDSLFacet f){
+	public F removeFilteredFacet(WebDSLFacet f){
 		filteredFacetsList.remove(f);
 		
 		updateFacets = updateParamMap = true;
 		return (F) this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F field(String field){
+	public F field(String field){
 		return (F) fields(new ArrayList<String>(Arrays.asList(field) ));
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F fields(List<String> fields) {
+	public F fields(List<String> fields) {
 		searchFields = fields.toArray(new String[fields.size()]);
 		//no need to clone searchFields, because variable searchFields is only reassigned and never modified.
 		currentQD.fields = searchFields;
@@ -635,7 +634,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public abstract Class<?> fieldType(String field);
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F setNamespace(String namespace){
+	public F setNamespace(String namespace){
 		
 		if(!namespaceConstraint.equals(namespace)){
 			//first remove old namespace filter if set
@@ -652,7 +651,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F removeNamespace(){
+	public F removeNamespace(){
 		fullTextQuery.disableFullTextFilter("namespaceFilter");
 		namespaceConstraint = "";
 		updateParamMap = true;
@@ -661,7 +660,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F firstResult(int offset) {
+	public F firstResult(int offset) {
 		this.offset = offset;
 		updateParamMap = true;
 		return (F) this;
@@ -721,21 +720,21 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F maxResults(int limit) {
+	public F maxResults(int limit) {
 		this.limit = limit;
 		updateParamMap = true;
 		return (F) this;
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F moreLikeThis(String likeText) {
+	public F moreLikeThis(String likeText) {
 		int minWordLen = 5, maxWordLen = 30, minDocFreq = 1, minTermFreq = 3, maxQueryTerms = 6, maxDocFreqPct = 100;
 		return (F) moreLikeThis(likeText, minWordLen, maxWordLen, minDocFreq, maxDocFreqPct,
 				minTermFreq, maxQueryTerms);
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F moreLikeThis(
+	public F moreLikeThis(
 			String likeText, int minWordLen, int maxWordLen, int minDocFreq, int maxDocFreqPct, int minTermFreq, int maxQueryTerms) {
 		
 		moreLikeThisParams = likeText + "," + minWordLen + "," + maxWordLen + "," + minDocFreq + "," + maxDocFreqPct + "," + minTermFreq + "," + maxQueryTerms; 
@@ -765,7 +764,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F filterByFacet(WebDSLFacet facet) {		
+	public F filterByFacet(WebDSLFacet facet) {		
 		//if already narrowed on this facet, don't add it again
 		//A facet already appears in the list if field and value are equal
 		if(filteredFacetsList.contains(facet))
@@ -779,27 +778,27 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F range(Date from, Date to) {
+	public F range(Date from, Date to) {
 		return (F) setRangeQuery(from,to);
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F range(Float from, Float to) {
+	public F range(Float from, Float to) {
 		return (F) setRangeQuery(from,to);
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F range(int from, int to) {
+	public F range(int from, int to) {
 		return (F) setRangeQuery(from,to);
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F range(String from, String to) {
+	public F range(String from, String to) {
 		return (F) setRangeQuery(from,to);
 	}
 
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F resetSorting() {
+	public F resetSorting() {
 		sortObj = null;
 		this.sortFields = "";
 		this.sortDirections = "";
@@ -831,7 +830,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private <F extends AbstractEntitySearcher<EntityClass>> F setRangeQuery(Object from, Object to) {
+	private F setRangeQuery(Object from, Object to) {
 		currentQD.range(from, to);
 	
 		updateLuceneQuery = updateFullTextQuery = updateParamMap = true;
@@ -863,12 +862,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F sortAsc(String field){
+	public F sortAsc(String field){
 		sort(field, false);
 		return (F)this;
 	}
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F sortDesc(String field){
+	public F sortDesc(String field){
 		sort(field, true);
 		return (F)this;
 	}
@@ -888,16 +887,21 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity> {
 	public String query(){
 		if(rootQD.children.size() < 1) {
 			return rootQD.query;
+		} else if (rootQD.children.size() == 1) {
+			if( ( rootQD.query == null || rootQD.query.isEmpty() ) && 
+				rootQD.children.get(0).children.size() < 1) {
+				
+				return rootQD.children.get(0).query;
+			}
 		}
-		else {
-			validateQuery();
-			return luceneQuery.toString();
-		}
+		
+		validateQuery();
+		return luceneQuery.toString();
 			
 	}
 	
 	@SuppressWarnings("unchecked")
-	public <F extends AbstractEntitySearcher<EntityClass>> F query(String query) {
+	public F query(String query) {
 		currentQD.query(query);
 		updateLuceneQuery = updateParamMap = true;
 		return (F) this;
