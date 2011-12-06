@@ -18,8 +18,8 @@ define page root() {
 entity Person {
   fullname    :: String (name)
   email       :: Email
-  username    :: String (id, validate(isUniquePerson(this), "Username is taken")
-                           , validate(username.length() > 0, "Username may not be empty"))
+  username    :: String (id, iderror="Username is taken"
+                           , idemptyerror="Username may not be empty")
   bio         :: WikiText
   dateOfBirth :: Date
   parents     -> Set<Person>
@@ -32,8 +32,8 @@ entity Person {
 derive CRUD Person
 
 entity Color {
-  name :: String (id, validate(isUniqueColor(this), "Color exists already")
-                    , validate(name.length() > 0, "Color name may not be empty"))
+  name :: String (id, iderror="Color exists already"
+                    , idemptyerror="Color name may not be empty")
 }
 
 derive CRUD Color
