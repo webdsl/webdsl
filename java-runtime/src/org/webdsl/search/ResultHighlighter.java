@@ -23,17 +23,13 @@ public class ResultHighlighter {
 		try {
 			ir = sq.getReader();
 			rewritten = sq.luceneQueryNoFacetFilters.rewrite(ir);
-		
-			
+
 			if(rewritten != null){
-				highlighter = new Highlighter(new SimpleHTMLFormatter(preTag, postTag), new QueryScorer( rewritten ) );
-				
+				highlighter = new Highlighter(new SimpleHTMLFormatter(preTag, postTag), new QueryScorer( rewritten, field ) );
 				highlighter.setTextFragmenter(new SimpleFragmenter(fragmentLength));
-				tokenStream = sq.analyzer.tokenStream(field, new StringReader( text ) );			
-				
+				tokenStream = sq.analyzer.tokenStream(field, new StringReader( text ) );
 				try {
 					result = highlighter.getBestFragments(tokenStream, text, fragments, separator);
-					
 				} catch (IOException e) {
 					result = "";
 					e.printStackTrace();
