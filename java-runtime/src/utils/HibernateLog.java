@@ -213,7 +213,7 @@ public class HibernateLog {
 					}
 				}
 			}
-			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
+			sout.print("<p><a name=\"logsql\"></a>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
 			boolean printedSessionContext = false;
 			org.hibernate.Session session = page.getHibSession();
 			if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {

@@ -1,0 +1,336 @@
+module org/webdsl/dsl/languages/query-helpers
+
+imports // imports only needed for pp-aterm-box and box2text-string
+  libstratego-gpp
+  libstratego-aterm
+
+strategies
+
+  rename-query-optimization-annos = rename-query-optimization-annos(rename-all)
+
+rules
+
+  rename-query-optimization-annos(rename-strategy) :
+    anno* -> newanno*
+    with toKeep* := <remove-all(is-query-optimization <+ is-query-analysis <+ ?QueryOptimizationVars(_, _, _, _))> anno*
+      ; qo* := <(fetch-elem(is-query-optimization); rename-strategy; ![<id>]) <+ ![]> anno*
+      ; qa* := <(fetch-elem(is-query-analysis); rename-strategy; ![<id>]) <+ ![]> anno*
+      ; qovars* := <(fetch-elem(?QueryOptimizationVars(_, _, _, _)); rename-strategy; ![<id>]) <+ ![]> anno*
+      ; newanno* := [qo*, qa*, qovars*, toKeep*]
+
+	keep-least-specific-casts =
+	  ?allcandidates
+	  ; collect-all(?FieldAccess(Cast(_, _), _))
+	  ; make-set
+	  ; {| ToLessSpecificCast
+	    : filter(declare-to-less-specific-cast-rules(|allcandidates))
+	    ; <repeat(oncetd(ToLessSpecificCast))> allcandidates
+	  |}
+	  ; make-set
+
+	declare-to-less-specific-cast-rules(|allcandidates) :
+	  fa1@FieldAccess(Cast(p, srt), f) -> (fa1, lessSpecific)
+	  where allLessSpecific := <collect(is-less-specific-cast(|p, srt, f)); make-set> allcandidates
+	  ; lessSpecific := <foldr(!fa1, is-less-specific-cast); not(?fa1)> allLessSpecific
+	  ; rules( ToLessSpecificCast : fa1 -> lessSpecific )
+
+	is-less-specific-cast(|p, srt, f) :
+	  fa2@FieldAccess(Cast(p, srt2), f) -> fa2
+	  where not(srt := srt2); <subtype-of>(srt, srt2)
+
+	is-less-specific-cast(|p, srt, f) :
+	  fa2@FieldAccess(p, f) -> fa2
+
+	is-less-specific-cast:
+	  (fa1@FieldAccess(Cast(p, srt), f), fa2) -> fa2
+	  where <is-less-specific-cast(|p, srt, f)> fa2
+
+	is-less-specific-cast:
+	  (fa1, fa2@FieldAccess(Cast(p, srt), f)) -> fa1
+	  where <is-less-specific-cast(|p, srt, f)> fa1
+
+	traversal-to-join(|x,xsrt,requiresalias):
+	  expr@FieldAccess(p, f{annof*}){anno*} -> (FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}, gen)
+	  with (p2{annop2*}, pgen) := <traversal-to-join(|x,xsrt,requiresalias)> p
+	  ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
+	  ; x_class := <class-of-property> (x_classp, f)
+	  ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+	  ; gen := <?GenericSort(_, _) < !True() + !pgen> srt
+	  ; newanno* := <try(add-lazy-anno(|x_class, f, srt)); try(add-alias-anno(|expr,requiresalias))> anno*
+	    
+	traversal-to-join(|x,xsrt,requiresalias):
+	  Cast(p, srt){anno*} -> (Cast(p2, srt){srt, anno*}, gen)
+	  with (p2, gen) := <traversal-to-join(|x,xsrt,requiresalias)> p
+	
+	traversal-to-join(|x,xsrt,requiresalias):
+	  expr@Var(x){anno*} -> (expr{xsrt, anno*}, False())
+
+	log-query-optimization-collect-basic =
+	  make-set
+	  ; map(info(|["Traversal: ", <id>]))
+
+	log-query-optimization-collect-table(|col1,col2,col3) =
+	  info(|["+-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-+"])
+	  ; info(|["| Path", <align-helper(|' ', col1)>"Path", " | Condition", <align-helper(|' ', col2)>"Condition", " | Need", <align-helper(|' ', col3)>"Need", " |"])
+	  ; info(|["|-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-|"])
+	  ; make-set
+	  ; map({col1Val, col2Val, col3Val, str1, str2, str3, align1, align2, align3:?(col1Val, _, col2Val, col3Val)
+	    ; str1 := <pp-webdsl-to-string> col1Val
+	    ; str2 := <?[] < !"" + (map(webdsl-to-abox; box2text-string(|col2)); separate-by(|" && "); concat-strings)> col2Val
+	    ; str3 := <?True() < !"true" + !"false"> col3Val
+	    ; align1 := <align-helper(|' ', col1)> str1
+	    ; align2 := <align-helper(|' ', col2)> str2
+	    ; align3 := <align-helper(|' ', col3)> str3
+	    ; <concat-strings>["| ", str1, align1, " | ", str2, align2, " | ", str3, align3, " |"]
+	      }
+	      //<concat-strings>["| ", <Fst;pp-webdsl-to-string>, <Fst;pp-webdsl-to-string;align-helper(|' ', col1)>, " | ", <Third;pp-webdsl-to-string>, <Third;pp-webdsl-to-string; align-helper(|' ', col2)>, " | ", <?(_, _, _, <id>);pp-webdsl-to-string>, <?(_, _, _, <id>);pp-webdsl-to-string;align-helper(|' ', col3)>, " |"]
+	    )
+	  ; make-set
+	  ; string-sort
+	  ; map(info(|<id>))
+	  ; info(|["+-", <align-helper(|'-', col1)>"", "-+-", <align-helper(|'-', col2)>"", "-+-", <align-helper(|'-', col3)>"", "-+"])
+
+	add-alias-anno(|expr,requiresalias) :
+	  anno* -> newanno*
+	  where alias := <property-to-alias> expr
+	  ; <fetch-elem(?alias)> requiresalias
+	  ; newanno* := [RequiresAlias()|anno*]
+
+	sub-paths :
+	  fa@FieldAccess(p, _) -> [fa | subpaths]
+	  with subpaths := <sub-paths> p
+
+	sub-paths :
+	  Cast(p, _) -> subpaths
+	  with subpaths := <sub-paths> p
+
+	sub-paths :
+	  Var(_) -> []
+
+  an-requires-joining-fa :
+    (fa@FieldAccess(_, _), srt) -> cleanfa
+    where <is-generic-sort <+ is-entity-type> srt
+    ; cleanfa := <clean-joincandidate> fa
+
+  an-requires-joining-fa :
+    (FieldAccess(expr, _), srt) -> cleanexpr
+    where(<not(is-generic-sort <+ is-entity-type)> srt)
+    ; not([] := <collect(?FieldAccess(_, _))> expr) // The expression must contain at least another FieldAccess, otherwise it's just a Var
+    ; cleanexpr := <clean-joincandidate> expr
+
+  clean-joincandidate :
+    FieldAccess(p, f){anno*} -> FieldAccess(cleanp, f{}){newanno*}
+    where newanno* := <filter(?MultipleDefinitionsInSubclasses()); make-set> anno*
+    ; cleanp := <clean-joincandidate> p
+
+  clean-joincandidate :
+    Cast(p, srt) -> Cast(cleanp, srt{}){}
+    where cleanp := <clean-joincandidate> p
+
+  clean-joincandidate :
+    v@Var(_) -> v{}
+
+  add-lazy-anno(|ent,f, srt) :
+    anno* -> [IsLazyFetch() | anno*]
+    where SimpleSort(invEnt) := srt
+    ; invProp := <InverseProperty; PropertyDecl> (ent, f)
+    ; SimpleSort(ent) := <get-property-type> invProp
+    ; <get-property-annos; fetch-elem(?InverseAnno(ent, f))> invProp // Is the inverse side the owning side?
+      
+  is-accessible-from-allow-calls(s) =
+    replace-calls-to-return-values(s)
+    //; debug(!"replace-calls-to-return-values:")
+    ; filter(is-accessible-from(s))
+    //; debug(!"is-accessible-from:")
+    ; not(?[])
+
+  replace-calls-to-return-values(s) :
+    FieldAccess(p, f){anno*} -> results
+    where subpaths := <replace-calls-to-return-values(s)> p
+    ; results := <map(!FieldAccess(<id>, f){anno*})> subpaths
+
+  replace-calls-to-return-values(s) :
+    Cast(p, srt){anno*} -> results
+    where subpaths := <replace-calls-to-return-values(s)> p
+    ; results := <map(!Cast(<id>, srt){anno*})> subpaths
+
+  replace-calls-to-return-values(s) :
+    v@Var(_) -> [v]
+
+  replace-calls-to-return-values(s) :
+    Call(e, nm, args) -> results
+    where subpaths := <replace-calls-to-return-values(s)> e
+    ; results := <filter(expand-call-to-return-values(s|nm, args)); flatten-list; make-set> subpaths
+
+  expand-call-to-return-values(s|nm, args) :
+    e -> results
+    where <is-accessible-from(s); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args)
+    with argmapping := <zip> (args, defargs)
+    ; <fetch-elem(?QueryAnalysis(_, returns, _, _))> defanno*
+    ; if [Var(xthis)] := <collect(?Var("this")); make-set> returns then
+        varmapping := [ (e, Arg(xthis, SimpleSort(ent))) | argmapping]
+      else
+        varmapping := argmapping
+      end
+    ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
+
+/*
+  is-accessible-from-allow-calls(s) :
+    Call(e, nm, args) -> _
+    where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args)
+    with argmapping := <zip> (args, defargs)
+      ; <fetch-elem(?QueryAnalysis(analysis, _))> defanno*
+      ; if [Var(xthis)] := <map(Fst); collect(?Var("this")); make-set> analysis then
+          varmapping := [ (e, Arg(xthis, SimpleSort(ent))) | argmapping]
+        else
+          varmapping := argmapping
+        end
+      ; <debug(!"Following entity function ")> (ent, nm)
+      ; newanalysis := <foldr(!analysis, rename-vars-in-analysis)> varmapping
+  is-accessible-from-allow-calls(s) :
+    v@Var(_) -> [(v,srt)]
+    where (v, srt) := <is-accessible-from(s)> v
+
+  is-accessible-from-allow-calls(s) :
+    fa@FieldAccess(p, f) -> 
+    where paths := <is-accessible-from-allow-calls(s)> p
+    ; filter(is-accessible-from(s))
+*/
+  // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
+  // For query conditions this is not allowed, so there id should be used to deal with generic sorts
+  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)
+
+  is-accessible-from(s,gen): // Case where the cast is not needed
+    Cast(f, srt){anno*} -> (p, srt)
+    where /*debug(!"is-accessible-from-cast-begin:");*/(p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+    //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
+    ; <subtype-of> (<gen>srt2, srt) // up-cast or cast to same type
+    //; <debug(!"is-accessible-from-cast-end:")> (p, srt)
+
+  is-accessible-from(s,gen): // Case where the cast is needed
+    Cast(f, srt){anno*} -> (Cast(p, srt){srt2, anno*}, srt)
+    where /*debug(!"is-accessible-from-cast-begin2:");*/(p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+    ; not(<gen;?srt> srt2) 
+    ; <subtype-of> (srt, <gen>srt2) // down-cast
+    //; <debug(!"is-accessible-from-cast-end2:")> (Cast(p, srt){srt2, anno*}, srt)
+
+  add-mutiple-definitions-anno: // srt is a sub entity of srt2
+    fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa{MultipleDefinitionsInSubclasses(),anno*}  
+    where <fetch-elem(?srt2@SimpleSort(superent))> castanno*
+    ; not(<get-prop-type> (superent, f)) // If the property is already defined on the source/super entity then there is no property clash
+    //; info(|["Finding ", f, " from ", superent, " to ", srt])
+    ; all-keys-EntDecl
+    ; filter({x_sub: // We find out on which sub entities property f is defined
+                ?x_sub
+                ; where(
+                    <not(eq)>(x_sub, superent)
+                    ; <subtype-of>(SimpleSort(x_sub), srt2)
+                    ; <TypeOfProperty> (x_sub, f) // Deliberate use of TypeOfProperty instead of type-of-property
+                )
+             })
+    ; not(?[_]) // If not defined on exactly one sub entity
+    //; debug(!"Match:")
+
+  remove-top-level-cast:
+    Cast(f, _) -> f
+
+  is-accessible-from(s,gen):
+    FieldAccess(v, f){anno*} -> (fa, srt)
+    where /*debug(!"is-accessible-from-fa-begin:");*/(p, psrt) := <is-accessible-from(s,gen)> v
+    ; <gen; ?SimpleSort(x_class)> psrt
+    ; not(<is-derived-property> (x_class, f))
+    ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
+    ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
+    ; fa := <try(add-naturalid-anno(|x_class)); try(add-mutiple-definitions-anno)> FieldAccess(p, f2){anno*}
+    //; <debug(!"is-accessible-from-fa-end:")> (fa, srt)
+
+  is-accessible-from(s,gen):
+    v@Var(_) -> (v, srt)
+    where /*debug(!"is-accessible-from-v-begin:");*/srt := <s; strip-ref-sort> v//; <debug(!"is-accessible-from-v-end:")> (v, srt)
+
+  get-real-col-prop-name(|x_class, srt) =
+    where(GenericSort("List", lsrt) := srt)
+    ; where(string-ends-with(|"List"))
+    ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
+    ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
+
+  add-naturalid-anno(|x_class) :
+    fa@FieldAccess(_, f){anno*} -> fa{IsNaturalId(), anno*}
+    where f := <natural-id-name-include-superclass> x_class
+
+  join-conditions:
+    (cond, []) -> cond
+
+  join-conditions:
+    (cond, True()) -> cond
+
+  join-conditions:
+    (cond, prevCond) -> Or(prevCond, cond)
+    where <not(?True()); not(?[])> prevCond
+
+  append-condition:
+    (newCond, oldCond) -> And(newCond, oldCond)
+    where <not(?True())>newCond; <not(?True())>oldCond
+
+  append-condition:
+    (newCond, True()) -> newCond
+
+  append-condition:
+    (True(), oldCond) -> oldCond
+
+  get-prop-type: (x_class, prop) -> <type-of-property>
+
+  get-prop-type: (x_class, prop) -> <EntityIdType> x_class
+    where <EntityIdName; ?prop> x_class
+
+  is-one-dbprop: (expr1, expr2) -> <id>
+    where <get-accessible-dbfield> expr1
+
+  is-one-dbprop: (expr1, expr2) -> <id>
+    where <get-accessible-dbfield> expr2
+
+  get-all-entity-properties-as-fargs =
+    get-all-entity-properties-as-mapping(|None())
+    ; map(Snd)
+
+  get-all-entity-properties-as-mapping(|e) =
+    all-entity-properties-tuples
+    ; map(entity-property-tuple-to-mapping(|e))
+
+  entity-property-tuple-to-mapping(|e) :
+    (ent, prop) -> ( FieldAccess(e, name), Arg(name{uniquename}, srt))
+    with name := <get-property-name> prop
+    ; uniquename := <PropertyNameToUniqueName> (ent, name)
+    ; srt := <get-property-type> prop
+
+  get-all-entity-properties-for-rename(|prefix) =
+    all-entity-properties-tuples
+    ; {|OverridePropName
+       : map({\ (ent, prop) -> <id> with propname := <get-property-name> prop; rules(OverridePropName : propname -> (ent, prop)) \})
+       ; dr-all-keys(|"OverridePropName")
+       ; map(OverridePropName; {ent,prop,name,uniquename,safename,srt:\ (ent, prop) -> (name, uniquename, safename, srt) where name := <get-property-name> prop; uniquename := <PropertyNameToUniqueName> (ent, name); safename := name{<concat-strings>[prefix, "_", name]}; srt := <get-property-type> prop \})
+       |}
+
+  // Same as resolve-entity-call, except here we allow failure
+  // It also does not return functions that have an overridden version and it is unsure which version will be used
+  try-resolve-entity-call: (ent, nm, targ*) -> result
+    where not("Entity" := ent)
+    ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
+      < (<subentities-do-no-override> (ent, nm, targ*); result := (ent, f))
+      + result := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
+
+  subentities-do-no-override =
+    ?(ent, nm, targ*)
+    ; all-keys-EntDecl
+    ; filter({x_sub:
+                ?x_sub
+                ; where(
+                    <not(eq)>(x_sub, ent)
+                    ; <subtype-of>(SimpleSort(x_sub), SimpleSort(ent))
+                    ; <resolve-function-call-to-decl>(SimpleSort(x_sub), nm, targ*)
+                )
+             })
+    //; (?[] <+ debug(!<concat-strings>[ent, "::", nm, " already defined for: "]))
+    ; ?[]

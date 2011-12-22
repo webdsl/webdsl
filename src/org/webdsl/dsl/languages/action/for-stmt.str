@@ -26,7 +26,7 @@ rules
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
-          ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
+          ; newanno* := <common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
 
   rename-action :
@@ -38,13 +38,12 @@ rules
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
-          ; newanno* := <forallstmt-annotations-for-query-optimization> anno*
+          ; newanno* := <common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
 
-  forallstmt-annotations-for-query-optimization:
-    anno* -> [ qopt*, args*, ent*, plain-anno* ]
-    where plain-anno* := <remove-all(?FunctionArgs(_) <+ ?QueryOptimizations(_, _, _, _))> anno*
-    ; qopt* := <(fetch-elem(?QueryOptimizations(_, _, _, _)); rename-all; ![<id>]) <+ ![]> anno*
+  common-for-stmt-update-annotations :
+    anno* -> [ args*, ent*, plain-anno* ]
+    where plain-anno* := <remove-all(?FunctionArgs(_) <+ is-query-optimization <+ is-query-analysis)> anno*
     ; args* := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
     ; ent* := <fetch-elem(?FunctionEntity(_)) < ![] + ![FunctionEntity(<InEntity <+ !None()>)]> anno*
 
@@ -59,27 +58,45 @@ rules
           ; b2 := <rename-all> b1
           |}
 
+  add-backend-annotation :
+    def@ForStmt(x, srt, _, _, _){anno*} -> def{newanno*}
+    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args
+    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> anno*
+
   desugar-action :
-    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b){QueryOptimizations(joincandidates, joincandidatesgen, True(), []), anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-    ; <is-entity-type> srt
-    with args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; (joincandidates, joincandidatesgen) := <get-query-optimizations>(b, x, srt, args*)
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
+    where <is-entity-type> srt
+    ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [Arg(x,srt)|args*],True())> (b, anno*)
 
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <fetch-elem(?QueryOptimizations([], [], querycondition, []))> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
+    ; <get-query-optimization-anno; ?QueryOptimizations([], [], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
     ; <is-cached-entity> x_class
 
-  desugar-action :
+/*  desugar-action :
     def@ForAllStmt(x, srt, f, body){anno*} -> def{qoanno, anno*}
     where cond := <?Filter(<id>, _, _) <+ !True()> f
     ; qoanno := <common-query-optimization-forallstmt(|x, srt, cond, anno*)> body
+*/
 
+  add-backend-annotation :
+    def@ForAllStmt(x, srt, _, _){anno*} -> def{newanno*}
+    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args
+    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> anno*
+
+  desugar-ui :
+    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    where cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
+/*
   common-query-optimization-forallstmt(|x, srt, cond, anno*) :
-    body -> QueryOptimizations(joincandidates, joincandidatesgen, querycondition2, conditionjoins)
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
+    body -> QueryOptimizations(joincandidates, joincandidatesgen, querycondition2)
+    where not(<fetch-elem(?QueryOptimizations(_, _, _))> anno*)
     with args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; ent := <fetch-elem(?FunctionEntity(<id>)) <+ !None()> anno*
     ; thisvar := <(collect(?Var("this")); make-set; ?[Var(thisunique)]; ![("this", thisunique, "this"{"queryoptimization_parentarg_this"}, SimpleSort(ent))]) <+ ![]> (body, cond)
@@ -98,7 +115,7 @@ rules
         ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body2, x, srt, [args*, propargs*], cond2)
         ; querycondition2 := <alltd(RenamePropInQueryOptimization)> querycondition // Joins do not have to be renamed, because they do not contain vars
       |}
-
+*/
 rules
 
   constraint-error-action : ForCountStmt(x, e1, e2, b) -> <expression-type-constraint(|SimpleSort("Int"))> e1

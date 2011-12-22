@@ -17,3 +17,46 @@ rules
   desugar-action :
     VarDeclInitInferred(x, e) -> VarDeclInit(x, t, e)
     with t := <type-of; strip-immutable-anno> e //strip ImmutableReference annotation, because x will be assignable even if e wasn't
+/*
+  // We perform query analysis for at least one argument
+  desugar-action :
+    f@Function(x, farg1*, srt, b1){anno*} -> def
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+        //; <where(ThisPropertyAccess) < (<debug(!"succeed:")>(<id>, <bagof-ThisPropertyAccess>)) + (<debug(!"failed:")>(<id>, <bagof-ThisPropertyAccess>))> x_class
+        //; [] := <collect(?Var(_); type-of; is-property-type)> b1 // We wait for desugar-property-access so we can follow all properties by following Var("this")
+        ; args := <filter(query-optimization-argument)> farg1*
+        //; entargs := <get-all-entity-properties-as-fargs> x_class
+        ; (b2, farg2*) := <add-optimizations-to-function-arguments(|args)> (b1, farg1*)
+        ; def := Function(x, farg2*, srt, b2){anno*}
+        ; <store-entity-function(|x_class)> def
+*/
+  // We perform query analysis on entity properties
+  desugar-action :
+    f@Function(x, farg*, srt, b1){anno*} -> def{newanno*}
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+        ; [] := <collect(?Var(_); type-of; is-property-type)> b1 // We wait for desugar-property-access so we can follow all properties by following Var("this")
+        //; args := <filter(query-optimization-argument)> farg*
+        ; if [Var(xthis)] := <collect(?Var("this")); make-set> b1 then
+            args := [Arg(xthis, SimpleSort(x_class))|farg*]
+          else
+            args := farg*
+          end
+        //; (b2, newanno*) := <perform-query-analysis(|xthis, SimpleSort(x_class), args, True())> (b1, anno*)
+        //; <debug(!"Analyzing function ")> (x_class, x)
+        ; (b2, newanno*) := <perform-query-analysis(|("entity function", x_class, x), args, True())> (b1, anno*)
+        ; def := Function(x, farg*, srt, b2){newanno*}
+        ; <store-entity-function(|x_class)> def
+/*
+  add-optimizations-to-function-arguments(|args) :
+    (body, fargs) -> (body2, fargs2)
+    where (body2, fargs2, True()) := <foldr(!(body, [], False()), add-optimization-to-function-argument(|args))> fargs
+
+  add-optimization-to-function-argument(|args) :
+    (arg@Arg(x, srt){anno*}, (body, prevargs, changed)) -> result 
+    with result := <add-optimization-to-function-argument-helper(|args) <+ !(body, [arg|prevargs], changed)>
+
+  add-optimization-to-function-argument-helper(|args) :
+    (arg@Arg(x, srt){anno*}, (body, prevargs, changed)) -> (body2, [arg{newanno*}|prevargs], True()) 
+    where <is-entity-type; not(?SimpleSort("Entity"))> srt
+    ; (body2, newanno*) := <perform-query-analysis(|x,srt,args,True())> (body, anno*)
+*/

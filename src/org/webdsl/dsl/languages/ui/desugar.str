@@ -20,20 +20,55 @@ rules //desugar dummy templatecall
   ; map(try(?TemplateCall("dummy",_,_,TemplateBody(<id>))))
   ; flatten-list
 
-
   desugar-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg2*, req*, elem1*){QueryOptimizations([], [], True(), []), anno*}
-    where not(InPage <+ InTemplate)
-        ; not(<fetch(Page)> mod*)
-        ; not(<fetch(Email)> mod*)
-        ; not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
-        ; not(<fetch-elem(?QueryOptimizations(_, _, _, _))> anno*)
-        ; genname := <generate-template-name-fargs> (x, farg1*)
-        ; args := <filter(not(?Arg(_, <is-entity-type; not(?SimpleSort("Entity"))>)))> farg1*
-        ; farg2* := <map(/*try(where(?Arg(_, <is-entity-type; not(?SimpleSort("Entity"))>));info(|[x, "#", <id>])); id*/try(add-optimization-to-template-argument(|genname,elem1*,args)))> farg1*
-          
-  add-optimization-to-template-argument(|genname,def,args) :
-    arg@Arg(x, srt){anno*} -> arg{QueryOptimizations([], [], True(), []), anno*}
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> def{newanno*}
+    where //<debug(!"define:")> Var(x)//;not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
+        //; args := <filter(query-optimization-argument)> farg1*
+        //; (elem2*, farg2*) := <add-optimizations-to-template-arguments(|args)> (elem1*, farg1*)
+         genname := </*debug(!"genname:");*/generate-template-name-fargs/*;debug(!"res:")*/>(x, farg1*)
+        //; <debug(!"Analyzing template ")> genname
+        ; [] := <collect(?Define(_, _, _, _, _))/*;debug(!"defs:")*/> elem1* // Local redefines should have been declared
+        ; (elem2*, newanno*) := </*debug(!"perform:");*/perform-query-analysis(|("Define", genname), farg1*,True())/*;debug(!"done:")*/> (elem1*, anno*)
+        ; def := Define(mod*, x, farg1*, req*, elem2*){newanno*}
+        ; rules ( CurrentTemplateDecl : genname -> def) // We need the argument annotations in other desugar rules, so do not wait for rename to update
+
+  add-backend-annotation :
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg2*, req*, elem1*){newanno*}
+    where not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
+      //; <debug(!"Optimizing template ")> x
+      ; analysis := </*debug(!"anno:");*/fetch-elem(is-query-analysis)/*;debug(!"qa:")*/> anno*
+      ; newanno* := <remove-all(is-query-analysis)> anno*
+      ; bindableargs := <filter(query-optimization-bindable-argument)/*;debug(!"bindable:")*/> farg1*
+      ; farg2* := </*debug(!"arginp:");*/map(try(add-query-optimization-to-argument(|analysis,bindableargs)))/*;debug(!"argout:")*/> farg1*
+
+  add-query-optimization-to-argument(|analysis,bindableargs) :
+    arg@Arg(x, srt){anno*} -> arg{newanno*} 
+    where [] := <filter(?arg)> bindableargs 
+    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> [analysis | anno*]
+
+/*
+  desugar-ui :
+    Define(mod*, x,farg1*, req*, elem1*){anno*} -> def
+    where not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
+        ; args := <filter(query-optimization-argument)> farg1*
+        ; (elem2*, farg2*) := <add-optimizations-to-template-arguments(|args)> (elem1*, farg1*)
+        ; genname := <generate-template-name-fargs>(x, farg1*)
+        ; def := Define(mod*, x, farg2*, req*, elem2*){anno*}
+        ; rules ( CurrentTemplateDecl : genname -> def) // We need the argument annotations in other desugar rules, so do not wait for rename to update
+
+  add-optimizations-to-template-arguments(|args) :
+    (body, fargs) -> (body2, fargs2)
+    where (body2, fargs2, True()) := <foldr(!(body, [], False()), add-optimization-to-template-argument(|args))> fargs
+
+  add-optimization-to-template-argument(|args) :
+    (arg@Arg(x, srt){anno*}, (body, prevargs, changed)) -> result 
+    with result := <add-optimization-to-template-argument-helper(|args) <+ !(body, [arg|prevargs], changed)>
+
+  add-optimization-to-template-argument-helper(|args) :
+    (arg@Arg(x, srt){anno*}, (body, prevargs, changed)) -> (body2, [arg{newanno*}|prevargs], True()) 
+    where <is-entity-type; not(?SimpleSort("Entity"))> srt
+    ; (body2, newanno*) := <perform-query-analysis(|x,srt,args,True())> (body, anno*)*/
+
 /*    arg@Arg(x, srt){anno*} -> arg{QueryOptimizations(joincandidates, joincandidatesgen, True(), []), anno*}
     where <is-entity-type; not(?SimpleSort("Entity")); ?SimpleSort(x_class)> srt//; info(|[genname, "#(", x, " as ", x_class, ")..."])
     with {| PassedTemplate
@@ -41,7 +76,7 @@ rules //desugar dummy templatecall
           ; (joincandidates, joincandidatesgen) := <get-query-optimizations>(def, x, srt, args)
           |}*/
     //; info(|[genname, "#(", x, " as ", x_class, ").", checkprop, "  =>  ", joincandidates2, "  =>  ", joincandidatesgen2])
-
+/*
 
   get-check-prop-normal(|x_class) :
     (joincandidates, joincandidatesgen) -> (checkprop, joincandidates2, joincandidatesgen) 
@@ -56,3 +91,4 @@ rules //desugar dummy templatecall
     ; [gen] := <filter(where(fetch-elem(?checkelem)))>joincandidatesgen
     ; newgen := <remove-all(?checkelem); ![checkelem|<id>]> gen 
     ; joincandidatesgen2 := <remove-all(?gen); ![newgen|<id>]> joincandidatesgen
+*/

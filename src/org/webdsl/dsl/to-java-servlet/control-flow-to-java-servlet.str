@@ -112,8 +112,9 @@ rules // iteration
         ; t := <java-type> srt
         ; x_list := <newname> "list"
         ; GenericSort(x_setorlist,[_]) := <get-type-anno> e1
-        ; e_joins := <(fetch-elem(?qo@QueryOptimizations(_, _, _, _));!qo; get-direct-fetches(|x)) <+ !expr|[null]|> anno*
-        ; bstm_batch* := <(fetch-elem(?qo@QueryOptimizations(_, _, _, _));!qo; get-batch-fetches(|x, srt, x_list)) <+ ![]> anno*
+        ; qo := <get-query-optimization-anno> anno*
+        ; e_joins := <get-direct-fetches(|x) <+ !expr|[null]|> qo
+        ; bstm_batch* := <get-batch-fetches(|x, srt, x_list) <+ ![]> qo
         ; if <?[]> bstm*
           then result :=  [] 
           else result :=  bstm* |[
@@ -124,22 +125,18 @@ rules // iteration
                           ]| end
               
   control-flow-for(s|) :
-    fa@ForAll(x, srt, fltr, elems, sep) -> result
+    fa@ForAll(x, srt, fltr, elems, sep){anno*} -> result
     with  bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
-        ; x_oldFlushMode := <newname> "oldFlushMode"
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
-        ; bstm_criterias* := <hibernate-extra-criteria> (fa, t, x, srt)
+        ; qo := <get-query-optimization-anno> anno*
+        ; bstm_batch* := <get-generic-batch-fetches(|x, srt, x_list) <+ ![]> qo
         ; if <?[]> bstm*
           then result :=  [] 
           else result :=  bstm* |[ 
                             java.util.List<t> x_list = e_criteria.list();
-                            org.hibernate.FlushMode x_oldFlushMode = e_HibSession.getFlushMode();
-                            e_HibSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
-                            bstm_criterias*
-                            e_HibSession.setFlushMode(x_oldFlushMode);
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, [])> bstm*|[
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm*|[
                               bstm*
                             ]|
                           ]| end
