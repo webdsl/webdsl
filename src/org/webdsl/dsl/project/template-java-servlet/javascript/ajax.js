@@ -1,16 +1,9 @@
-//function which will be invoked after execute replace or append
-var __ajax_postprocessor = null;
 
 function ajax_post_process(node) {
-  // node.scrollIntoView();
-  if(show_webdsl_debug){
-    if(typeof(console) != "undefined") {
-      console.debug("Applied ajax transformation");
-    }
-  }
-  if (__ajax_postprocessor != null) {
-    __ajax_postprocessor(node);
-  } 
+  //script tags, such as for datepicker init, are not evaluated when inserted with ajax, this is a workaround that explicitly runs the script contents
+  var reponse = $(node.innerHTML);
+  var reponseScript = reponse.filter("script");
+  $.each(reponseScript, function(idx, val) { eval(val.text); } );
 } 
 
 function formToJSON(formObj) {
