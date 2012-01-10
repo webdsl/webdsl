@@ -61,7 +61,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 	protected int offset = OFFSET;
 	protected Operator defaultOperator = OP;
 	
-	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true;
+	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true, updateHighlightQuery = true;
 	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false, updateBoboBrowseResult = true;
 
 	protected HashMap<String, String> fieldConstraints;
@@ -74,7 +74,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
 	protected LinkedList<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 	
-	protected Query luceneQueryNoFacetFilters, luceneQuery = null;
+	protected Query luceneQueryNoFacetFilters, highlightQuery, luceneQuery = null;
 	protected FullTextQuery fullTextQuery = null;
 	protected FullTextSession fullTextSession;
 	
@@ -626,6 +626,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 	
 	public abstract Class<?> fieldType( String field );
 	
+	public Analyzer getAnalyzer(){
+		return analyzer;
+	}
+	
 	@SuppressWarnings("unchecked")
 	public F setNamespace( String namespace ) {
 		
@@ -675,17 +679,17 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 	
 	public String highlight( String field, String toHighLight ) {
 		validateQuery();
-		return ResultHighlighter.highlight( this, field, toHighLight );
+		return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight );
 	}
 
 	public String highlight( String field, String toHighLight, String preTag, String postTag ) {
 		validateQuery();
-		return ResultHighlighter.highlight( this, field, toHighLight, preTag, postTag );
+		return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight, preTag, postTag );
 	}
 	
 	public String highlight ( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator ) {
 		validateQuery();
-		return ResultHighlighter.highlight( this, field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
+		return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
 	}
 	@SuppressWarnings("unchecked")
 	public List<EntityClass> list() {
@@ -928,7 +932,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
 	private Query luceneQueryFromString( String str ) throws ParseException {
 		return new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( str );
-		
 	}
 	
 	private boolean validateQuery() {
@@ -944,7 +947,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			}
 //			log("LUCENE QUERY: " + luceneQuery.toString() );
 			updateLuceneQuery = false;
-			updateBoboBrowseResult = updateFullTextQuery = updateFacets = true;
+			updateHighlightQuery = updateBoboBrowseResult = updateFullTextQuery = updateFacets = true;
 		}
 		if ( updateFacets ) {
 			updateFacets = false;
@@ -1003,6 +1006,22 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 	
 	protected static FacetHandler<?> getFacetHandlerForField( String field ) {
 		return new MultiValueFacetHandler( field, field );
+	}
+	
+	private Query getHighlightQuery() {
+		if ( updateHighlightQuery ) {
+			IndexReader ir = null;
+			try {
+				ir = getReader();
+				highlightQuery = luceneQueryNoFacetFilters.rewrite( ir );
+			} catch ( IOException e ) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} finally {
+				closeReader(ir);
+			}
+		}
+		return highlightQuery;
 	}
 
 	private List<WebDSLFacet> getBoboFacets( String field, boolean includeOldFacets ) {

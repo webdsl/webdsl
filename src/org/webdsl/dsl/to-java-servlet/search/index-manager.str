@@ -65,9 +65,7 @@ strategies
   
       @SuppressWarnings("all")
       public class IndexManager {
-      	
-      	protected static java.util.Properties props = new java.util.Properties();
-      	
+      	      	
         public static void main(String[] args) {
         	reindex();
         	System.exit(0);
@@ -76,8 +74,8 @@ strategies
         private static void reindex() {
           java.io.PrintWriter out = new java.io.PrintWriter(System.out);
           ThreadLocalOut.push(out);
-          // @TODO Globals are not loaded yet
-          System.out.println("Starting reindexing of all searchable data...");
+
+          log( "Starting reindexing of all searchable data..." );
           long time = System.currentTimeMillis();
           
           org.hibernate.search.FullTextSession session = getFullTextSession();
@@ -87,7 +85,7 @@ strategies
 		  indexSuggestions();		  
 			 			
 		  time = System.currentTimeMillis() - time;
-	      System.out.println("Reindexing finished in " + time + "ms total.");
+	      log( "Reindexing finished in " + time + "ms total." );
         }
         
         public static void renewFacetIndexReaders(){
@@ -96,7 +94,7 @@ strategies
         
         private static boolean reindexEntityClass(Class<?> c, org.hibernate.search.FullTextSession session){
         	String entityName = c.getName().substring(c.getPackage().getName().length() + 1);
-        	System.out.println("---Reindexing: " + entityName + "...---");
+        	log("---Reindexing: " + entityName + "...---");
         	long time = System.currentTimeMillis();
         	try {
         		session.createIndexer(c)
@@ -112,12 +110,16 @@ strategies
  				return false;
  			}
  			time = System.currentTimeMillis() - time;
- 			System.out.println("---Done in " + time + "ms.---");
+ 			log("---Done in " + time + "ms.---");
  			return true;
         }
         
         public static void indexSuggestions(){
-        	bstm2*
+        	indexSuggestions(null);
+        	
+        }
+        public static void indexSuggestions(List<String> namespaces){
+        	bstm2*        	
         }
 				
 		private static boolean clearIndex(File path){
@@ -154,12 +156,12 @@ strategies
 				return;			
 			
 			for (int c = 0; c < fields.length; c++){
-				System.out.println(new java.util.Date() + ": Clearing autocomplete index for entity: " + entity + ", field: " + fields[c]);
+				log("Clearing autocomplete index for entity: " + entity + ", field: " + fields[c]);
 				File path = new File( indexDirAutoComplete(entityClass, fields[c]) );
 				if (clearIndex(path))
-					System.out.println(new java.util.Date() + ": Clearing autocomplete index successful");
+					log("Clearing autocomplete index successful");
 				else
-					System.out.println(new java.util.Date() + ": Clearing autocomplete index unsuccessful");
+					log("Clearing autocomplete index unsuccessful");
 			}
 		}
 		
@@ -170,20 +172,20 @@ strategies
 				return;
 			
 			for (int c = 0; c < fields.length; c++){
-				System.out.println(new java.util.Date() + ": Clearing spellcheck index for entity: " + entity + ", field: " + fields[c]);
+				log( "Clearing spellcheck index for entity: " + entity + ", field: " + fields[c]);
 				File path = new File( indexDirSpellCheck(entityClass, fields[c]) );
 				if (clearIndex(path))
-					System.out.println(new java.util.Date() + ": Clearing spellcheck index successful");
+					log( "Clearing spellcheck index successful");
 				else
-					System.out.println(new java.util.Date() + ": Clearing spellcheck index unsuccessful");
+					log( "Clearing spellcheck index unsuccessful");
 			}
 		}
 		
 
         public static void optimizeIndex(){
-        	System.out.println(new java.util.Date() + ": Optimizing search index started.");
+        	log( "Optimizing search index started.");
         	getSearchFactory().optimize();
-        	System.out.println(new java.util.Date() + ": Optimizing search index finished succesfully.");
+        	log( "Optimizing search index finished succesfully.");
         }
         
         public static String indexDir(){
@@ -232,9 +234,9 @@ strategies
         
 	    //Reindex suggestions for a single entity. The spellcheck and autocompletion fields to be reindexed need to be specified.
 	    //A single namespace can be reindexed by specifying the namespace argument. If namespace is null or empty, all namespaces are reindexed
-	    //Reindexing a single namespace also triggers reindexing of suggestion index for the whole index     
+	    //Reindexing a single namespace also triggers reindexing of suggestion index for the whole (i.e. non namespace aware) index     
 	    @SuppressWarnings("deprecation")
-		public static void reindexSuggestions ( Class<?> entityClass, String[] completionFields, String[] spellcheckFields, String namespace ){
+		public static void reindexSuggestions ( Class<?> entityClass, String[] completionFields, String[] spellcheckFields, List<String> namespaces ){
 			
 			SearchFactory searchFactory = getSearchFactory();		 
 		    DirectoryProvider[] directoryProviders = searchFactory.getDirectoryProviders( entityClass );		 
@@ -249,16 +251,24 @@ strategies
 			IndexWriter nsIndexWriter = null;			    
 		    Query negatedNamespaceQuery;	    
 			Iterator<String> namespaceIt;
-			if(namespace == null || namespace.isEmpty()) {
+			long lastModified;
+			
+			try{
+			    lastModified = IndexReader.lastModified(sourceDir);
+			} catch (Exception ex) {
+			    ex.printStackTrace();
+			    lastModified = 0;
+			}
+			if(namespaces == null || namespaces.isEmpty()) {
 				namespaceIt = new LuceneDictionary(sourceReader, SearchHelper.NAMESPACEFIELD).getWordsIterator();
 			} else {
-				namespaceIt = Arrays.asList(new String[]{namespace}).iterator();
+				namespaceIt = namespaces.iterator();
 			}
 			
 			//Autocompletions for all namespaces and fields
-			reindexAutoCompletion(sourceReader, entityClass, completionFields, null);
+			reindexAutoCompletion(sourceReader, entityClass, completionFields, null, lastModified);
 			//Spellcheck for all namespaces and fields
-			reindexSpellCheck(sourceReader, entityClass, spellcheckFields, null);
+			reindexSpellCheck(sourceReader, entityClass, spellcheckFields, null, lastModified);
 			
 			try {
 				tmpDir = FSDirectory.open(new File( tmpIndexPath ));
@@ -277,7 +287,11 @@ strategies
 						nsIndexWriter.addIndexes(sourceDir);
 						//remove all documents from namespaces other than currentNamespace
 						nsIndexWriter.deleteDocuments(negatedNamespaceQuery);
-						nsIndexWriter.optimize();					
+						nsIndexWriter.optimize();
+						if( nsIndexWriter.numDocs() < 1){
+							log( "no suggestions to update for namespace '" + currentNamespace +  "'");
+							continue;
+						}				
 					} catch (Exception ex) {
 						System.out.println("Error during renewal of suggestion indexes");
 						ex.printStackTrace();
@@ -292,10 +306,10 @@ strategies
 					}
 					try{
 						nsIndexReader = IndexReader.open( tmpDir );
-						reindexAutoCompletion(nsIndexReader, entityClass, completionFields, currentNamespace);
-						reindexSpellCheck(nsIndexReader, entityClass, spellcheckFields, currentNamespace);
+						reindexAutoCompletion(nsIndexReader, entityClass, completionFields, currentNamespace, lastModified);
+						reindexSpellCheck(nsIndexReader, entityClass, spellcheckFields, currentNamespace, lastModified);
 					} catch (Exception ex) {
-						System.out.println("Error during renewal of suggestion indexes");
+						log("Error during renewal of suggestion indexes");
 						ex.printStackTrace();
 					} finally{
 						if( nsIndexReader != null ) {
@@ -320,16 +334,29 @@ strategies
 			}
 		}
 		
-		private static void reindexAutoCompletion(IndexReader rdr, Class<?> entityClass, String[] completionFields, String namespace) {
+		private static void log (String message){
+			System.out.println(new java.util.Date() + ": " + message);
+		}
+		
+		private static void reindexAutoCompletion(IndexReader rdr, Class<?> entityClass, String[] completionFields, String namespace, long lastModified) {
 			Directory acDir = null;
 			AutoCompleter ac = null;
 			String namespaceInfo = (namespace == null || namespace.isEmpty()) ? "" : ", namespace: " + namespace;
 			String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
 			for ( String field  : completionFields ){
-				System.out.println(new java.util.Date() + ": Creating/updating autocomplete index [entity: " + entityName + namespaceInfo + ", field: " + field  + "]");
+				log("Creating/updating autocomplete index [entity: " + entityName + namespaceInfo + ", field: " + field  + "]");
 				try{
 					String acPath = IndexManager.indexDirAutoComplete(entityClass, field, namespace);
-					acDir = FSDirectory.open( new File( acPath ) );
+					File f = new File ( acPath );
+					if( f.exists() ){
+						acDir = FSDirectory.open( f );
+						if ( IndexReader.lastModified(acDir) > lastModified ){
+							log( "no updates" );
+							continue;
+						}
+					} else {
+						acDir = FSDirectory.open( f );
+					}
 				  	ac = new AutoCompleter( acDir );		  	
 				  	ac.indexDictionary( rdr, field );
 				  	SearchSuggester.forceAutoCompleterRenewal( acPath );
@@ -351,21 +378,30 @@ strategies
 						}
 					}
 				}
-				System.out.println(new java.util.Date() + ": Done");		
+				log("Done");		
 		  	}
 		}
 		
-		private static void reindexSpellCheck(IndexReader rdr, Class<?> entityClass, String[] spellCheckFields, String namespace) {
+		private static void reindexSpellCheck(IndexReader rdr, Class<?> entityClass, String[] spellCheckFields, String namespace, long lastModified) {
 					
 			Directory scDir = null;
 			SpellChecker sc = null;
 			String namespaceInfo = (namespace == null || namespace.isEmpty()) ? ", namespace: " + namespace : "";
 			String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
 			for ( String field  : spellCheckFields ){
-				System.out.println(new java.util.Date() + ": Creating/updating spellcheck index [entity: " + entityName + namespaceInfo + ", field: " + field + "]");
+				log("Creating/updating spellcheck index [entity: " + entityName + namespaceInfo + ", field: " + field + "]");
 				try{
 					String scPath = IndexManager.indexDirSpellCheck(entityClass, field, namespace);
-					scDir = FSDirectory.open( new File( scPath ) );
+					File f = new File ( scPath );
+					if( f.exists() ){
+						scDir = FSDirectory.open( f );
+						if (IndexReader.lastModified( scDir ) > lastModified){
+							log( "no updates" );
+							continue;
+						}
+					} else {
+						scDir = FSDirectory.open( f );
+					}
 				  	sc = new SpellChecker( scDir );		  	
 				  	Dictionary dictionary = new LuceneDictionary(rdr, field);
 				  	sc.indexDictionary( dictionary );
@@ -388,7 +424,7 @@ strategies
 						}
 					}
 				}
-				System.out.println(new java.util.Date() + ": Done ");			
+				log( "Done " );			
 		  	}
 		}
 		
@@ -428,7 +464,7 @@ strategies
 	    ; e_autocompletefield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> acfields
 		; if ( and(<?[]>e_spellcheckfield*, <?[]>e_autocompletefield*) ) 
 		  then result := []
-		  else result := java |[ reindexSuggestions(x_name.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* });]|
+		  else result := java |[ reindexSuggestions(x_name.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* }, namespaces);]|
 		  end
   
   class-to-clear-autocomplete-index:

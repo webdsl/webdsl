@@ -44,6 +44,7 @@ module .servletapp/src-webdsl-template/built-in
   
   native class utils.IndexManager as IndexManager {
     static indexSuggestions()
+    static indexSuggestions(List<String>)
     static optimizeIndex() 
     static renewFacetIndexReaders()
     static clearAutoCompleteIndex(String)
