@@ -20,10 +20,11 @@ public class WebDSLFacet {
 	
 	public WebDSLFacet(){};
 	
-	public WebDSLFacet(String field, String value, Occur oc){
+	public WebDSLFacet(String field, String value, Occur oc, int cnt){
 		this.fieldName = field;
 		this.value = value;
 		this.occur = oc;
+		this.count = cnt;
 	}
 	
 	public WebDSLFacet(BrowseFacet bf, String field){
@@ -70,7 +71,7 @@ public class WebDSLFacet {
 		Map<String,String> paramMap = new HashMap<String, String>();
 		paramMap.put("fn", fieldName);
 		paramMap.put("v", value);
-		paramMap.put("cnt", String.valueOf(count));
+		paramMap.put("cnt", Integer.toString(count));
 		paramMap.put("occ", occur.name());
 		return paramMap;
 	}
@@ -92,7 +93,7 @@ public class WebDSLFacet {
 				}
 			}
 		} catch (Exception ex){
-			return new WebDSLFacet("Illegal facet", "Illegal facet", Occur.SHOULD);
+			return new WebDSLFacet("Illegal facet", "Illegal facet", Occur.SHOULD, 0);
 		}
 		
 		return this;

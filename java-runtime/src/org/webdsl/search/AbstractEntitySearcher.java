@@ -164,13 +164,19 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			return;
 		}
 		
-		boolean addShouldFacets = false;
 		BooleanQuery shouldFacetQuery = new BooleanQuery();
 		BooleanQuery newQuery = new BooleanQuery();
+		
+		HashMap<String, BooleanQuery> shouldFacetQueryMap = new HashMap<String, BooleanQuery>( 10 );
+		
 		for( WebDSLFacet facet : filteredFacetsList ) {
 			if ( discreteFacetRequests.containsKey( facet.getFieldName() )) {
 				if ( facet.occur.equals( Occur.SHOULD )) {
-					addShouldFacets = true;
+					shouldFacetQuery = shouldFacetQueryMap.get( facet.fieldName );
+					if ( shouldFacetQuery == null ) {
+						shouldFacetQuery = new BooleanQuery();
+						shouldFacetQueryMap.put( facet.fieldName, shouldFacetQuery);
+					}
 					shouldFacetQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur );
 				} else {
 					newQuery.add( new TermQuery( new Term( facet.getFieldName(), facet.getValue() ) ), facet.occur );
@@ -189,7 +195,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 					continue;
 				}
 				if ( facet.occur.equals( Occur.SHOULD )) {
-					addShouldFacets = true;
+					shouldFacetQuery = shouldFacetQueryMap.get( facet.fieldName );
+					if ( shouldFacetQuery == null ) {
+						shouldFacetQuery = new BooleanQuery();
+						shouldFacetQueryMap.put( facet.fieldName, shouldFacetQuery);
+					}
 					shouldFacetQuery.add( actualFacet.getFacetQuery(), facet.occur );
 				} else {
 					newQuery.add( actualFacet.getFacetQuery(), facet.occur );
@@ -197,9 +207,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			}			
 		}
 
-		if ( addShouldFacets )
-		newQuery.add( shouldFacetQuery, Occur.MUST );
+		for (BooleanQuery bq : shouldFacetQueryMap.values()) {
+			newQuery.add( bq, Occur.MUST );
+		}	
+		
 		newQuery.add( luceneQueryNoFacetFilters, Occur.MUST );
+		
 		luceneQuery = newQuery;
 	}
 	
@@ -386,14 +399,17 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			sb = new StringBuilder();
 			StringBuilder sb2 = new StringBuilder();
 			StringBuilder sb3 = new StringBuilder();
+			StringBuilder sb4 = new StringBuilder();
 			for( WebDSLFacet f : filteredFacetsList ) {
 				sb.append( f.fieldName + ",");
 				sb2.append( encodeValue( f.value ) + ",");
 				sb3.append( f.occur.name() + ",");
+				sb4.append( f.count + ",");
 			}
-			paramMap.put("facetf", sb.toString() );
-			paramMap.put("facetv", sb2.toString() );
-			paramMap.put("faceto", sb3.toString() );
+			paramMap.put("ffld", sb.toString() );
+			paramMap.put("fvl", sb2.toString() );
+			paramMap.put("focc", sb3.toString() );
+			paramMap.put("fcnt", sb4.toString() );
 		}
 		
 		//sort fields
@@ -483,12 +499,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 					String[] a2 = paramMap.get("bv").split(",");
 					for( int i=0; i < a1.length; i++)
 						boost( a1[i], Float.parseFloat( a2[i]) );
-				} else if ("facetf".equals( key )) {
+				} else if ("ffld".equals( key )) {
 					String[] a1 = value.split(",");
-					String[] a2 = paramMap.get("facetv").split(",");
-					String[] a3 = paramMap.get("faceto").split(",");
+					String[] a2 = paramMap.get("fvl").split(",");
+					String[] a3 = paramMap.get("focc").split(",");
+					String[] a4 = paramMap.get("fcnt").split(",");
 					for( int i=0; i < a1.length; i++) {
-						filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] ), Occur.valueOf( a3[i] ) ) );						
+						filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] ), Occur.valueOf( a3[i] ), Integer.parseInt( a4[i] ) ) );						
 					}
 				} else if ("sortby".equals( key )) {
 					//sort fields, directions

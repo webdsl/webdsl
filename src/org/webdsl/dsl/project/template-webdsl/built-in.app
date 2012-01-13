@@ -56,6 +56,7 @@ module .servletapp/src-webdsl-template/built-in
     isSelected() : Bool
     getCount() : Int
     getValue() : String
+    getFieldName() : String
     encodeAsString() : String
     decodeFromString(String) : Facet
     getValueAsDate() : Date
