@@ -38,45 +38,53 @@ rules // Entry points
       |}
 */
 
-  perform-query-analysis(|name,args,cond) :
-    (body, anno*) -> (body2, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls) | anno*])
+  perform-waiting-check-only(|args) :
+    (body, anno*) -> wait
     where not(QueryOptimizationDisabled)
-    //; <debug(!"anno*:");not(debug(!"fetching:");fetch-elem(debug(!"isqa:");?QueryAnalysis(_, _);debug(!"Opted:"));debug(!"fetched:"));> anno*
     ; not(<fetch-elem(is-query-analysis)> anno*)
     ; {| RootVar, QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall
        : <filter(\ Arg(arg, srt) -> <id> with rules( RootVar : Var(arg) -> srt ) \)> args
-       ; [] := <collect(query-optimization-waiting-for); flatten-list/*; try(where(not(?[]); <debug(!"Waiting: ")> (name, <id>)))/*;debug(!"wait:")*/> body
+       ; wait := <collect(query-optimization-waiting-for); flatten-list> body
+      |}
+
+  perform-query-analysis(|name,args,cond) :
+    (body, anno*) -> (body2, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls) | anno*])
+    where not(QueryOptimizationDisabled)
+    ; not(<fetch-elem(is-query-analysis)> anno*)
+    ; {| RootVar, QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall
+       : <filter(\ Arg(arg, srt) -> <id> with rules( RootVar : Var(arg) -> srt ) \)> args
+       //; <debug(!"Checking: ")> name
+       ; [] := <collect(query-optimization-waiting-for); flatten-list/*;debug(!"wait:")*/> (body, cond)
        ; with(
-	       rules (  QueryConditions := <extract-query-cond-as-list> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
-	                IsEffectful     := False()                            // True if the current statement is effectful (means: can affect non-local state), False otherwise
-	             )
-	       ; body2 := <analyze-for-query-optimization-continue> body
-	       ; ts := <bagof-DetectedTraveral>
-	       ; returns := <bagof-DetectedReturn>
-	       ; requiredcalls := <bagof-DetectedRequiredCall>
-	       ; unresolvedcalls := <bagof-DetectedUnresolvedCall>
-	       //; <debug(!"TS of ")> name
-	       //; <remove-casts;log-query-optimization-collect-table(|45,135,5)> ts
-	       ; calls := []//<bagof-DetectedCall>
+		       rules (  QueryConditions := <extract-query-cond-as-list> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
+		                IsEffectful     := False()                            // True if the current statement is effectful (means: can affect non-local state), False otherwise
+		             )
+		       //; <debug(!"Analyzing: ")> name
+		       ; body2 := <analyze-for-query-optimization-continue> body
+		       ; ts := <bagof-DetectedTraveral>
+		       ; returns := <bagof-DetectedReturn>
+		       ; requiredcalls := <bagof-DetectedRequiredCall>
+		       ; unresolvedcalls := <bagof-DetectedUnresolvedCall/*;debug(!"gotunres:")*/>
+		       //; <debug(!"TS of ")> name
+		       //; <remove-casts;log-query-optimization-collect-table(|45,135,5)> ts
+		       ; calls := []//<bagof-DetectedCall>
 	      )
-	      /*;<debug(!"qa:")>QueryAnalysis(ts, returns)*/
+	      //;<debug(!"qa:")>QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls)
       |}
 
   query-analysis-to-query-optimizition(|x,xsrt,bindableargs) :
-    anno* -> newanno*
-    where {|RootVar, BindableVar
+    qa -> qo
+    with {|RootVar, BindableVar
     : rules( RootVar : Var(x) -> xsrt )
-    //; <debug(!"Root:")> Var(x)
     ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with /*debug(!"Bindable:");*/rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
-    ; ts := </*debug(!"aanno:");*/fetch-elem(?QueryAnalysis(<id>, _, _, _));/*debug(!"analysis:");*/filter(where(Fst; is-accessible-from(RootVar)))/*;debug(!"ts:")*/> anno*
-    ; tokeep := <remove-all(is-query-analysis)> anno*
+    ; ts := <?QueryAnalysis(<id>, _, _, _); filter(where(Fst; is-accessible-from(RootVar)))> qa
     ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set; keep-least-specific-casts/*;debug(!"joins:")*/> ts
-    ; querycondition := <filter(?(_, _, <revalidate-query-condition;and-query-condition>, True())); make-set/*;debug(!"conds:")*/; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())/*;debug(!"final:")*/> ts // Combine query conditions of the effectful field accesses
-    ; requiresalias := <collect(condition-to-alias-string(|x))/*;debug(!"req:")*/> querycondition
-    ; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))/*;debug(!"all:")*/> joincandidates
+    ; querycondition := <filter(?(_, _, <revalidate-query-condition;and-query-condition>, True())); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())> ts // Combine query conditions of the effectful field accesses
+    ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
+    ; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
     ; joincandidatesnogen := <filter(?(<id>, False()))> alljoins
     ; joincandidatesgen := <filter(?(<id>, True()))> alljoins
-    ; newanno* := [/*<debug(!"qo:")>*/QueryOptimizations(joincandidatesnogen, joincandidatesgen, querycondition) | tokeep]
+    ; qo := QueryOptimizations(joincandidatesnogen, joincandidatesgen, querycondition)
       |}
 
 strategies
@@ -98,10 +106,10 @@ strategies
     ; rules( DetectedRequiredCall :+= (tc, condition, effectful) )
 
   register-detected-unresolved-call =
-    ?tc
+    ?(genname, args)
     ; condition := <QueryConditions <+ !True()>
     ; effectful := <IsEffectful>
-    ; rules( DetectedUnresolvedCall :+= (tc, condition, effectful) )
+    ; rules( DetectedUnresolvedCall :+= (genname, args, condition, effectful) )
 
   // Succeeds if the argument can be used in the query condition
   query-optimization-bindable-argument =
@@ -136,6 +144,18 @@ rules // Traversals
     ; e2 := <analyze-for-query-optimization> e1
 
   analyze-for-query-optimization :
+    Return(e1){anno*} -> Return(e2){anno*}
+    where <is-accessible-from-allow-calls(RootVar)> e1
+    ; map(register-detected-return-traversal)
+    ; e2 := <analyze-for-query-optimization> e1
+
+  analyze-for-query-optimization : // For functions returning SimpleSort("Bool")
+    Return(e1){anno*} -> Return(e2){anno*}
+    where traversal := <extract-query-cond; not(?True())> e1
+    ; rules( DetectedReturn :+= traversal )
+    ; e2 := <analyze-for-query-optimization> e1
+
+  analyze-for-query-optimization :
     Derive(deriveType, e, props*) -> Derive(deriveType, e, props*)
     where <map(\ DeriveDefault(f) -> FieldAccess(e, f) \); analyze-for-query-optimization-effectful> props*
 
@@ -144,8 +164,10 @@ strategies // Resolve
   analyze-for-query-optimization :
     c@Call(e, nm, args1){anno*} -> Call(e, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; <not(not-allowed-ent-fun-name)> nm
+    ; not("Entity" := ent)
     ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args1)
-    with argmapping := <zip> (args1, defargs)
+    with /*<debug(!"Combining call:")> (ent, nm, <map(type-of)> args1); */argmapping := <zip> (args1, defargs)
       ; args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
       ; <fetch-elem(?QueryAnalysis(analysis, _, _, _))> defanno*
       ; if [Var(xthis)] := <map(Fst); collect(?Var("this")); make-set> analysis then
@@ -172,60 +194,184 @@ strategies // Resolve
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
-    where values := <is-accessible-from-allow-calls(s); map(Fst)/*;debug(!"RenameTo:")*/> e
-    //; <debug(!"RenameFrom:")> e
-    //; <debug(!"analysis1:")> analysis
-    ; newanalysis := <map(replace-var-with-value(|analysis, x)); flatten-list; make-set> values
-    //; <debug(!"analysis2:")> newanalysis
+    where <is-list> e
+    ; values := <filter((is-accessible-from-allow-calls(s); map(Fst)) <+ is-query-condition-constant); flatten-list> e
+    ; newanalysis := <?[] < !analysis + (map(replace-var-with-value(|analysis, x)); flatten-list; make-set)> values
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
-    where <is-query-condition-constant/*;debug(!"Const:")*/> e
+    where values := <is-accessible-from-allow-calls(s); map(Fst)/*;debug(!"RenameTo:")*/> e
+    ; newanalysis := <map(replace-var-with-value(|analysis, x)); flatten-list; make-set> values
+
+  rename-vars-in-analysis(s) :
+    ((e, Arg(x, srt)), analysis) -> newanalysis
+    where <is-query-condition-constant> e
     ; newanalysis := <replace-var-with-value(|analysis, x)> e
-    //; <debug(!"analysis4:")> newanalysis
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> analysis
-    where <not(is-accessible-from-allow-calls(s) <+ is-query-condition-constant)/*;debug(!"Skip:")*/> e
-    //; <debug(!"analysis3:")> analysis
-    //with newanalysis := <map(replace-var-with-values(|x,values)); flatten-list> analysis
-    //with <debug(!"renaming:")> (e, Arg(x, srt)); newanalysis := <alltd(\Var(x) -> e\)> analysis
+    where <not(is-list <+ is-accessible-from-allow-calls(s) <+ is-query-condition-constant)> e
 
   replace-var-with-value(|analysis, x) :
     value -> newanalysis
     with newanalysis := <alltd(?Var(x); !value)> analysis
 
+  analyze-for-query-optimization =
+    where(match-template-with-name(|"elements")
+	    ; register-detected-required-call
+    )
+
+  analyze-for-query-optimization :
+    c@TemplateCall(name, args1, passign1, body){anno*} -> c{anno*}
+    where <CallToRequiredTemplate> name
+    ; <register-detected-required-call> c
+
   analyze-for-query-optimization :
     c@TemplateCall(name, args1, passign1, body){anno*} -> c
-	where <CallToRequiredTemplate> name
-    ; <register-detected-required-call> c
+    where genname := <is-defined-tc-get-called-tc; where(is-unresolved-local-redefine)> c
+    ; args := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
+    ; <register-detected-unresolved-call> (genname, args)
 
   analyze-for-query-optimization :
     c@TemplateCall(name, args1, passign1, body){anno*} -> TemplateCall(name, args2, passign2, body){anno*}
     where /*<debug(!"is-defined:")>Var(name); */genname := <is-defined-tc-get-called-tc/*;debug(!"yes-defined:")*/> c
     ; [] := <filter(?ResolvedRequireKey(_))> passign1 // Required calls are resolved on the call that requires them
     //; <debug(!"Call:")> c
-    with Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl/*;debug(!"resolved:")*/> genname
-        ; <fetch-elem(?QueryAnalysis(_, _, reqCalls, _))> defanno*
-        ; reqcallana := </*debug(!"reqCalls:");*/map(/*debug(!"call:");*/resolve-required-call-for-analysis(|passign1,deffargs));flatten-list/*;debug(!"reqcallres:")*/> reqCalls
+    with Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining template:");*/get-local-redefined-decl <+ CurrentTemplateDecl> genname // get-local-redefined-decl resolves a template call if it is redefined in the current template/page. That way it is handled as a regular resolvable template call.
+        ; <fetch-elem(?QueryAnalysis(analysis, _, reqCalls, redefCalls))> defanno*
+        ; reqcallana := <filter(resolve-required-call-for-analysis(|genname,passign1,deffargs));flatten-list/*;debug(!"reqcallres:")*/> reqCalls
+        //; <try(not(?[]); debug(!"redefs:"))> redefCalls
         ; argmapping := </*debug(!"zipping:");*/zip> (args1, deffargs)
+        ; resolvedcalls := <resolve-unresolved-calls/*;try(not(?[]);debug(!"tempres:"))*/> (argmapping, redefCalls)
         ; passign2 := <map(?TemplateCall(_, _, _, _) <+ analyze-for-query-optimization-effectful)> passign1
         ; args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
-	      ; <fetch-elem(?QueryAnalysis(analysis, _, _, _))> defanno*
 	      //; <debug(!"Following template ")> name
 	      //; <debug(!"analysis:")>analysis
-	      ; newanalysis := </*debug(!"mapping:");*/foldr(!<conc>(analysis,reqcallana), rename-vars-in-analysis(RootVar))> argmapping
+	      ; newanalysis := </*debug(!"mapping:");*/foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
 	      //; <debug(!"newanalysis:")>newanalysis
 	      ; <filter(combine-analysis)> newanalysis
 
-  resolve-required-call-for-analysis(|passign1,callerargs) :
+  is-unresolved-local-redefine =
+    ?genname
+    /*; debug(!"genname:")*/
+    ; where(
+        tname := <CurrentTemplateName/*;debug(!"is-tname:")*/> // This DR is set if we are analyzing a page/template
+        ; redefines := <bagof-TemplateRedefinitions/*;debug(!"is-bag:")*/> genname
+        ; not([] := redefines) // There are local redefinitions of genname somewhere
+        ; <not(fetch-elem(?tname))/*;debug(!"is-empty:")*/> redefines // The template is not redefined within the current template and remains unresolved.
+      )
+
+  // Will fail if the template is not redefined locally, extra arguments are already resolved
+  /*get-local-redefined-decl :
+    genname -> decl
+    where (decl, _) := <get-local-redefined-decl-with-extra-args> genname*/
+
+  get-local-redefined-decl : /*-with-extra-args*/
+    genname -> Define(defmod, defname, newfargs, newdeftargs, newdefbody){newdefanno*}
+    where tname := <CurrentTemplateName/*;debug(!"tname:")*/>
+    //; t* := <TemplateArguments; formal-arguments-to-types> genname
+    //; name := <bagof-TemplateRedefinitions/*;debug(!"bag:")*/; fetch-elem(?tname)/*;debug(!"gotit:")*//*; ?[(_, _{<id>}, t*)]*//*;debug(!"name:")*/> genname
+    //; localname := <concat-strings;debug(!"localname:")> [name,"$l$"]
+    ; localgenname := <LocalRedefineGenname/*;debug(!"redefgen:")*/> (tname, genname)//localname
+    ; extraArgs := <LocalRedefineArgs/*;debug(!"redefargs:")*/> localgenname
+    //; targs := <CurrentTemplateArgs>
+    //; tgenname := <generate-template-name-fargs; debug(!"tgenname:")> (tname, targs)
+    //; <debug(!"extraargs:")> extraargs
+    //; <CurrentTemplateDecl;debug(!"tdecl:");collect(?LocalRedefine(_,_,_,localname, LocalRedefineArgs(extraArgs)));debug(!"redefs:")> tgenname
+    //; t2* := <map(type-of)> extraArgs
+    //; localgenname := <generate-template-name;debug(!"localgenname:")>(localname,<conc>(t*,t2*))
+    ; def@Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl/*;debug(!"localdecl:")*/> localgenname
+    //; <debug(!"resolved:")> (tname, genname, localgenname)
+    // Now we replace the extra arguments and remove them from the fargs
+    ; (newfargs, extrafargs) := <split-at(|<subti>(<length>deffargs, <length>extraArgs))>deffargs
+    ; extraArgsMapping := <zip> (extraArgs, extrafargs)
+    ; newdefanno* := <foldr(!defanno*, replace-vars)> extraArgsMapping
+    ; newdeftargs := <foldr(!deftargs, replace-vars)> extraArgsMapping
+    ; newdefbody := <foldr(!defbody, replace-vars)> extraArgsMapping
+
+  check-resolvable-calls-ready = check-resolvable-calls-ready(check-resolvable-calls-ready(id))
+
+  check-resolvable-calls-ready(s) :
+    QueryAnalysis(_, _, _, redefCalls) -> unready
+    where tocheck := <filter(Fst; not(is-unresolved-local-redefine))> redefCalls
+    ; unready := <filter(where(not(get-local-redefined-decl; get-anno(is-query-analysis); s)))> tocheck
+
+  /*check-resolvable-calls-ready-helper :
+    QueryAnalysis(_, _, _, redefCalls) -> unready
+    where tocheck := <filter(Fst;debug(!"is-unresolved-local-redefine2:");not(is-unresolved-local-redefine));debug(!"tocheck2:")> redefCalls
+    ; unready := <filter(where(not(debug(!"genname2:");get-local-redefined-decl;debug(!"chkdecl2:");get-anno(is-query-analysis);debug(!"anno2:");debug(!"ready2:"))));debug(!"unready2:")> tocheck
+  */
+
+  replace-vars :
+    ((v, Arg(x, srt)), term) -> newterm
+    with newterm := <alltd(?Var(x); !v)> term
+
+  resolve-unresolved-calls :
+    (argmapping, redefCalls) -> resolvedcalls
+    with <filter(translate-unresolved(|argmapping))> redefCalls // Calls that we cannot resolve are registered as such
+    ; (qas, unresolvedcalls1) := <filter(resolve-unresolved-call(|argmapping)); unzip> redefCalls // We resolve calls, which may result in more unresolved calls
+    ; <flatten-list/*; debug(!"todo:")*/;filter(translate-unresolved(|argmapping))/*;debug(!"unsolvable:")*/> unresolvedcalls1 // We register new unsolvable calls
+    ; (qas2, unresolvedcalls2) := <flatten-list; filter(resolve-unresolved-call(|argmapping))/*;debug(!"out:")*/; unzip> unresolvedcalls1 // We solve the new resolvable calls
+    ; unresolved3 := <flatten-list; make-set; filter(translate-unresolved(|argmapping) <+ (analyze-for-query-optimization-effectful; fail))/*;debug(!"unsolvable3:")*/> unresolvedcalls2 // We do not try to solve new unresolved calls
+    ; resolvedcalls := <conc; flatten-list; make-set/*;debug(!"qas:")*/> (qas, qas2)
+
+  translate-unresolved(|argmapping) :
+    (genname, args, cond, eff) -> (genname, newargs, cond, eff) // TODO: cond and eff
+    where <is-unresolved-local-redefine> genname
+    ; newargs := <map(fix-argument(|argmapping))> args
+    ; <register-detected-unresolved-call> (genname, newargs) // We ignore cond and eff for now
+
+  resolve-unresolved-call(|argmapping) :
+    (genname, args, cond, eff) -> (newanalysis, newRedefCalls)
+    where Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <get-local-redefined-decl/*;debug(!"renameddecl:")*/> genname
+    ; <fetch-elem(?QueryAnalysis(analysis, _, _, redefCalls))/*;debug(!"ana:")*/> defanno*
+    /*; <debug(!"args:      ")> args
+    ; <debug(!"argmapping:")> argmapping
+    ; <debug(!"deffargs:  ")> deffargs*/
+    ; newargs := <map(fix-argument(|argmapping))> args
+    ; newmap := <zip/*;debug(!"newmap:    ")*/> (newargs, deffargs)
+    ; tmpana := <map(add-condition-to-traversal(|cond))/*;debug(!"oldana:")*/>analysis
+    ; newanalysis := <foldr(!tmpana, rename-vars-in-analysis(RootVar))/*;debug(!"newana:")*/> newmap
+    ; newRedefCalls := <foldr(!/*<debug(!"oldRedefCalls:")>*/redefCalls, rename-vars-in-analysis(RootVar))/*;debug(!"newRedefCalls:")*/> newmap
+
+  /*resolve-unresolved-call(|argmapping) :
+    (genname, args, cond, eff) -> (genname, [], cond, eff)
+    where
+    (Define(defmod, defname, deffargs, deftargs, defbody){defanno*}, extraArgs) := <get-local-redefined-decl-with-extra-args> genname
+    //; extraArgMapping := <zip; filter(?(Var(_), _))>(<conc>(args, extraArgs), deffargs)
+    ; <debug(!"defanno*:");fetch-elem(?QueryAnalysis(analysis, _, _, redefCalls));debug(!"ana:")> defanno*
+    ; <debug(!"args:      ")> args
+    ; <debug(!"argmapping:")> argmapping
+    ; <debug(!"deffargs:  ")> deffargs
+    ; <debug(!"extraArgs: ")> extraArgs
+    ; newargs := <map(fix-argument(|argmapping))> args
+    ; <debug(!"newargs:   ")> newargs
+    ; newargs2 := <conc;debug(!"newargs2:  ")> (newargs, extraArgs)
+    ; newmap := <zip;debug(!"newmap:    ")> (newargs2, deffargs)*/
+    //; argmapping := <zip> (newargs, deffargs)
+    //; tmpana := <map(add-condition-to-traversal(|cond))/*;debug(!"oldana:")*/>analysis
+    //; {| TempVar
+    //   : <map(\Arg(x, srt) -> <id> with rules(TempVar : Var(x) -> srt)\)> callerargs
+    //   ; newanalysis := <foldr(!tmpana, rename-vars-in-analysis(TempVar <+ RootVar))/*;debug(!"newana:")*/> argmapping
+    //   |}
+
+  fix-argument(|argmapping) :
+    arg -> newarg
+    where newarg := <foldr(!arg, rename-vars-in-analysis(RootVar)); try(?[<id>])> argmapping
+
+  resolve-required-call-for-analysis(|elemname,passign1,callerargs) :
     (req@TemplateCall(reqname, reqargs, reqpassign, TemplateBody([])), cond, eff) -> newanalysis
-    with reqkey := <strip-annos> reqname
+    where if <match-template-with-name(|"elements")> req then // elements call is not resolvable when no elements are present
+      reqkey := <concat-strings>["elements#",elemname]
+    else
+      reqkey := <strip-annos> reqname
+    end
+    //; reqkey := <where(try(generate-elements-tcallsmap-name; debug(!"test:")); try(CallToDefinedTemplate; debug(!"test2:")));strip-annos;debug(!"reqkey:")> reqname
     ; TemplateCall(resname, resargs, respassign, TemplateBody([])) := <fetch-elem(where(?TemplateCall(_, _, <fetch-elem(?ResolvedRequireKey(reqkey))>, _))/*;debug(!"restempl:")*/)> passign1
     ; newargs := <conc>(reqargs, resargs)
     ; newpassign := <conc>(reqpassign,respassign)
     ; genname := </*debug(!"newtempl:");*/is-defined-tc-get-called-tc> TemplateCall(resname, newargs, newpassign, TemplateBody([]))
-    ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl/*;debug(!"decl:")*/> genname
+    ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining req call:");*/CurrentTemplateDecl/*;debug(!"decl:")*/> genname
     ; <fetch-elem(?QueryAnalysis(analysis, _, _, _))> defanno*
     ; argmapping := <zip> (newargs, deffargs)
     ; tmpana := <map(add-condition-to-traversal(|cond))/*;debug(!"oldana:")*/>analysis
@@ -361,21 +507,46 @@ strategies // Resolve
     ?Call(e, nm, args)
     ; where(
 		    <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
-		    ; (fent, Function(_, defargs, _, _){anno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args)
-		    ; not(<fetch-elem(is-query-analysis)> anno*)
+		    ; <not(not-allowed-ent-fun-name)> nm
+		    ; not("Entity" := ent)
+		    ; targs* := <map(type-of)> args
+        ; (
+           (fent, Function(_, defargs, _, _){anno*}) := <try-resolve-entity-call-without-override-check> (ent, nm, targs*) // We should wait if this fails, because the function may still be a predicate function
+           <
+           (
+             <subentities-do-no-override> (fent, nm, targs*) // Only wait if subentities-do-no-override
+             ; <not(fetch-elem(is-query-analysis))> anno*
+           )
+           + id
+          )
+		    /*; not(
+		      (fent, Function(_, defargs, _, _){anno*}) := <try-resolve-entity-call-without-override-check> (ent, nm, targs*) // We should wait if this fails, because the function may still be a predicate function
+          ; info(|"Match")
+          ; <subentities-do-no-override> (fent, nm, targs*) // Only wait if subentities-do-no-override
+          ; info(|"no-override")
+		      ; <fetch-elem(is-query-analysis)> anno*
+		      ; info(|"Anno")
+		    )*/
         //; waitingonargs := <zip; filter(query-optimization-waiting-for-argument)>(args, defargs)
         //; (not([] := waitingonargs) <+ not(<fetch-elem(?QueryAnalysis(_))> anno*)) // not waiting for analysis of arguments or this keyword
       )
 
   query-optimization-waiting-for =
     ?TemplateCall(name, args, passign, body)
+    //;debug(!"check:")
     ; where(
-        genname := <is-defined-tc-get-called-tc>
+        //where(<debug(!"checking:")> ("templatecall",name))
+        /*;*/ genname := <is-defined-tc-get-called-tc>
         //; _{anno*} := <CurrentTemplateDecl> genname
         //; not(<fetch-elem(?QueryAnalysis(_))> anno*)
-        ; Define(defmod, defname, deffargs, deftargs, defbody){anno*} := </*debug(!"tc:");*/CurrentTemplateDecl> genname
+        //; Define(defmod, defname, deffargs, deftargs, defbody){anno*} := <get-local-redefined-decl <+ CurrentTemplateDecl> genname
         //; <zip; filter(query-optimization-waiting-for-argument); not(?[])>(args, deffargs)
-        ; not(<fetch-elem(is-query-analysis)> anno*)
+        //; (<fetch-elem(is-query-analysis)> anno* < (check-resolvable-calls-ready/*; debug(!"notready::")*/; not(?[])/*;debug(!"wait1:")*/) + id/*debug(!"wait2:")*/)
+        ; not(
+            Define(defmod, defname, deffargs, deftargs, defbody){anno*} := <get-local-redefined-decl <+ CurrentTemplateDecl> genname
+            ; <fetch-elem(is-query-analysis)> anno*
+            ; [] := <check-resolvable-calls-ready/*; debug(!"notready:")*/>
+          )
       )
 
   //query-optimization-waiting-for =
@@ -554,6 +725,24 @@ rules // Query conditions
   extract-query-cond:
     v1@Var(_) -> Eq(v2, True())
     where (v2, SimpleSort("Bool")) := <is-accessible-from(RootVar,id)> v1
+
+  extract-query-cond :
+    c@Call(e, nm, args1){anno*} -> cond
+    where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; <not(not-allowed-ent-fun-name)> nm
+    ; not("Entity" := ent)
+    ; (fent, Function(_, defargs, retsrt, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args1)
+    ; retsrt := SimpleSort("Bool")
+    with <fetch-elem(?QueryAnalysis(_, returns, _, _))> defanno*
+      ; argmapping := <zip> (args1, defargs)
+      ; if [Var(xthis)] := <collect(?Var("this")); make-set> returns then
+          varmapping := [ (e, Arg(xthis, SimpleSort(ent))) | argmapping]
+        else
+          varmapping := argmapping
+        end
+    ; newreturns := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
+    ; cond := <or-query-condition; extract-query-cond> newreturns
+    where not(True() := cond)
 
   /*extract-query-cond=
     ?Call(e1, nm, arg*){anno*}

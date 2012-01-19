@@ -15,7 +15,7 @@ import org.hibernate.loader.collection.BasicCollectionLoader;
 import org.hibernate.mapping.Collection;
 
 public class BasicCollectionPersister extends org.hibernate.persister.collection.BasicCollectionPersister implements BatchCollectionPersister {
-	//protected BatchingCollectionInitializer batchInitializer = null;
+	protected BatchingCollectionInitializer batchInitializer = null;
 
 	public BasicCollectionPersister(Collection collection,
 			CollectionRegionAccessStrategy cacheAccessStrategy,
@@ -23,15 +23,17 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 			throws MappingException, CacheException {
 		super(collection, cacheAccessStrategy, cfg, factory);
 	}
-/*
+
 	protected CollectionInitializer createCollectionInitializer(LoadQueryInfluencers loadQueryInfluencers) throws MappingException {
-		batchInitializer = BatchingCollectionInitializer.createBatchingCollectionInitializer( this, batchSize, getFactory(), loadQueryInfluencers );
-		return batchInitializer;
+		if(utils.QueryOptimization.optimizationMode == 3) {
+			batchInitializer = BatchingCollectionInitializer.createBatchingCollectionInitializer( this, batchSize, getFactory(), loadQueryInfluencers );
+			return batchInitializer;
+		}
+		return super.createCollectionInitializer(loadQueryInfluencers);
 	}
-*/
+
 	@Override
 	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins) {
-		//batchInitializer.initializeBatch(batch, session);
 		if(batch.length == 0) return;
 		if(java.lang.reflect.Proxy.isProxyClass( session.getClass() ) ) {
 			if(session instanceof org.hibernate.Session) {
@@ -101,17 +103,23 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 			}
 			
 		}
-		BasicJoinCollectionLoader loader = new BasicJoinCollectionLoader( this, batch.length, session.getFactory(), session.getLoadQueryInfluencers(), joins );
-		loader.loadCollectionBatch(session, batch, getKeyType());
-		//batchInitializer.initializeBatch(batch, session);
-		/*org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getOwnerEntityName()).setFetchMode(this.getNodeName(), FetchMode.JOIN);
-		if(joins != null) {
-			for(String str : joins) {
-				criteria.setFetchMode(this.getNodeName() + "." + str, FetchMode.JOIN);
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5) { // Normal or at arguments
+			BasicJoinCollectionLoader loader = new BasicJoinCollectionLoader( this, batch.length, session.getFactory(), session.getLoadQueryInfluencers(), joins );
+			loader.loadCollectionBatch(session, batch, getKeyType());
+		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch
+			batchInitializer.initializeBatch(batch, session);
+		} else if(utils.QueryOptimization.optimizationMode == 4) { // All joins
+			org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getOwnerEntityName()).setFetchMode(this.getNodeName(), FetchMode.JOIN);
+			if(joins != null) {
+				for(String str : joins) {
+					criteria.setFetchMode(this.getNodeName() + "." + str, FetchMode.JOIN);
+				}
 			}
+			criteria.add(org.hibernate.criterion.Restrictions.in("id", batch));
+			criteria.list();
+		} else {
+			throw new UnsupportedOperationException("initializeBatch undefined for optimizationmode " + utils.QueryOptimization.optimizationMode);
 		}
-		criteria.add(org.hibernate.criterion.Restrictions.in("id", batch));
-		criteria.list();*/
 	}
 
 }

@@ -6,6 +6,8 @@ import java.util.Arrays;
 import org.hibernate.engine.SessionImplementor;
 
 public class QueryOptimization {
+	public static int optimizationMode = -1; 
+
 	public static org.hibernate.Criteria addQueryOptimization(org.hibernate.Criteria criteria, String[] curjoins, String curgen, boolean ismain, String[] joins, String[][] queries, org.hibernate.criterion.Criterion criterion, String[] condjoins) {
 		org.hibernate.Criteria ret = criteria;
 		java.util.ArrayList<String> tojoin = new java.util.ArrayList<String>(); 

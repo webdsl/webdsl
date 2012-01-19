@@ -21,30 +21,32 @@ rules //desugar dummy templatecall
   ; flatten-list
 
   desugar-ui :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> def{newanno*}
-    where //<debug(!"define:")> Var(x)//;not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
-        //; args := <filter(query-optimization-argument)> farg1*
-        //; (elem2*, farg2*) := <add-optimizations-to-template-arguments(|args)> (elem1*, farg1*)
-         genname := </*debug(!"genname:");*/generate-template-name-fargs/*;debug(!"res:")*/>(x, farg1*)
+    inp@Define(mod*, x,farg1*, req*, elem1*){anno*} -> def{newanno*}
+    where not(<fetch-elem(is-query-analysis)> anno*)
+        ; genname := <generate-template-name-fargs>(x, farg1*)
+        ; not(<fetch(Local)> mod*) // We analyze local redefines after they have been lifted
         //; <debug(!"Analyzing template ")> genname
-        ; [] := <collect(?Define(_, _, _, _, _))/*;debug(!"defs:")*/> elem1* // Local redefines should have been declared
-        ; (elem2*, newanno*) := </*debug(!"perform:");*/perform-query-analysis(|("Define", genname), farg1*,True())/*;debug(!"done:")*/> (elem1*, anno*)
+        ; [] := <collect(?Define(_, _, _, _, _))> elem1* // Local redefines should have been lifted
+		    ; {| CurrentTemplateName
+		      : rules(CurrentTemplateName := genname )
+		      ; (elem2*, newanno*) := <perform-query-analysis(|("Define", genname), farg1*,True())> (elem1*, anno*)
+		    |}
         ; def := Define(mod*, x, farg1*, req*, elem2*){newanno*}
         ; rules ( CurrentTemplateDecl : genname -> def) // We need the argument annotations in other desugar rules, so do not wait for rename to update
 
   add-backend-annotation :
-    Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg2*, req*, elem1*){newanno*}
-    where not(<fetch-elem(?TemplateDefineNameBeforeLifting(_))> mod*)
-      //; <debug(!"Optimizing template ")> x
-      ; analysis := </*debug(!"anno:");*/fetch-elem(is-query-analysis)/*;debug(!"qa:")*/> anno*
-      ; newanno* := <remove-all(is-query-analysis)> anno*
+    def@Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg2*, req*, elem1*){qo,tokeep*}
+    where <not(fetch-elem(is-query-optimization))> anno*
+    with analysis := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("Define", <generate-template-name-fargs>(x, farg1*)); !QueryAnalysis([], [], [], []))> anno*
+      ; tokeep* := <remove-all(is-query-analysis)> anno*
+      ; qo := <get-empty-query-optimization>
       ; bindableargs := <filter(query-optimization-bindable-argument)/*;debug(!"bindable:")*/> farg1*
-      ; farg2* := </*debug(!"arginp:");*/map(try(add-query-optimization-to-argument(|analysis,bindableargs)))/*;debug(!"argout:")*/> farg1*
+      ; farg2* := <map(try(add-query-optimization-to-argument(|analysis,bindableargs)))/*;debug(!"argout:")*/> farg1*
 
   add-query-optimization-to-argument(|analysis,bindableargs) :
-    arg@Arg(x, srt){anno*} -> arg{newanno*} 
+    arg@Arg(x, srt){anno*} -> arg{qo,anno*} 
     where [] := <filter(?arg)> bindableargs 
-    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> [analysis | anno*]
+    ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> analysis
 
 /*
   desugar-ui :

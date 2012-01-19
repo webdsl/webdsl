@@ -2022,7 +2022,7 @@ module .servletapp/src-webdsl-template/built-in
   
     
   define input(i : Ref<Image>){
-    input(i as Ref<File>)[all attributes]
+    input(i as Ref<File>)[all attributes]{elements()}
   }
 
   //validate entities

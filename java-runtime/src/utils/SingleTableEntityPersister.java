@@ -17,7 +17,7 @@ import org.hibernate.mapping.PersistentClass;
 
 public class SingleTableEntityPersister extends org.hibernate.persister.entity.SingleTableEntityPersister {
 
-	//protected BatchingEntityLoader batchLoader = null;
+	protected BatchingEntityLoader batchLoader = null;
 
 	public SingleTableEntityPersister(PersistentClass persistentClass,
 			EntityRegionAccessStrategy cacheAccessStrategy,
@@ -25,20 +25,14 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 			Mapping mapping) throws HibernateException {
 		super(persistentClass, cacheAccessStrategy, factory, mapping);
 	}
-/*
 	@Override
 	protected void createLoaders() {
 		super.createLoaders();
-		batchLoader = BatchingEntityLoader.createBatchingEntityLoader(this, getFactory());
+		if(utils.QueryOptimization.optimizationMode == 3) {
+			batchLoader = BatchingEntityLoader.createBatchingEntityLoader(this, getFactory());
+		}
 	}
 
-	@Override
-	public Object load(Serializable id, Object optionalObject, org.hibernate.LockOptions lockOptions, SessionImplementor session)
-	throws HibernateException {
-
-	return super.load(id, optionalObject, lockOptions, session);
-	}
-*/
 	public void loadBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins) {
 		if(batch.length == 0) return;
 		if(java.lang.reflect.Proxy.isProxyClass( session.getClass() ) ) {
@@ -56,17 +50,23 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 			}
 		}
 
-		JoinEntityLoader loader = new JoinEntityLoader(this, batch.length, LockMode.NONE, session.getFactory(), session.getLoadQueryInfluencers(), joins);
-		loader.loadEntityBatch(session, batch, getIdentifierType(), null, getEntityName(), null, this, LockOptions.NONE);
-		//batchLoader.loadBatch(batch, session);
-		/*org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getEntityName());
-		if(joins != null) {
-			for(String str : joins) {
-				criteria.setFetchMode(str, FetchMode.JOIN);
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5) { // Normal or at arguments
+			JoinEntityLoader loader = new JoinEntityLoader(this, batch.length, LockMode.NONE, session.getFactory(), session.getLoadQueryInfluencers(), joins);
+			loader.loadEntityBatch(session, batch, getIdentifierType(), null, getEntityName(), null, this, LockOptions.NONE);
+		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch
+			batchLoader.loadBatch(batch, session);
+		} else if(utils.QueryOptimization.optimizationMode == 4) { // All joins
+			org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getEntityName());
+			if(joins != null) {
+				for(String str : joins) {
+					criteria.setFetchMode(str, FetchMode.JOIN);
+				}
 			}
+			criteria.add(org.hibernate.criterion.Restrictions.in("id", batch));
+			criteria.list();
+		} else {
+			throw new UnsupportedOperationException("loadBatch undefined for optimizationmode " + utils.QueryOptimization.optimizationMode);
 		}
-		criteria.add(org.hibernate.criterion.Restrictions.in("id", batch));
-		criteria.list();*/
 	}
 
 	public void loadLazyBatch(String propertyName, Serializable[] batch, SessionImplementor session, java.util.List<String> joins) {
@@ -96,19 +96,32 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 		utils.SingleTableEntityPersister associatedPersister = (utils.SingleTableEntityPersister)factory.getEntityPersister(associatedEntity);
 		String[] columns = associatedPersister.getPropertyColumnNames(uniqueKeyPropertyName);
         org.hibernate.type.Type ukType = associatedPersister.getPropertyType(uniqueKeyPropertyName);
-        JoinEntityLoader loader = new JoinEntityLoader(associatedPersister, columns, ukType, batch.length, LockMode.NONE, factory, session.getLoadQueryInfluencers(), joins);
-		java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
-		// We register the EntityUniqueKeys with the persistence context, so the we can look them up later
-		for(Object object : lst) {
-			org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
-					associatedEntity, 
-					uniqueKeyPropertyName, 
-					getIdentifier(associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode), session), // Returns the identifier that was used to fetch the object (from batch)
-					ukType,
-					entityMode, 
-					factory
-			);
-			context.addEntity( euk, object );
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 3 || utils.QueryOptimization.optimizationMode == 5) {
+	        JoinEntityLoader loader = new JoinEntityLoader(associatedPersister, columns, ukType, batch.length, LockMode.NONE, factory, session.getLoadQueryInfluencers(), utils.QueryOptimization.optimizationMode == 3 ? null : joins);
+			java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
+			// We register the EntityUniqueKeys with the persistence context, so the we can look them up later
+			for(Object object : lst) {
+				org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
+						associatedEntity, 
+						uniqueKeyPropertyName, 
+						getIdentifier(associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode), session), // Returns the identifier that was used to fetch the object (from batch)
+						ukType,
+						entityMode, 
+						factory
+				);
+				context.addEntity( euk, object );
+			}
+		} else if(utils.QueryOptimization.optimizationMode == 4) { // All joins
+			org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getEntityName());
+			if(joins != null) {
+				for(String str : joins) {
+					criteria.setFetchMode(str, FetchMode.JOIN);
+				}
+			}
+			criteria.add(org.hibernate.criterion.Restrictions.in("id", batch));
+			criteria.list();
+		} else {
+			throw new UnsupportedOperationException("loadLazyBatch undefined for optimizationmode " + utils.QueryOptimization.optimizationMode);
 		}
 	}
 

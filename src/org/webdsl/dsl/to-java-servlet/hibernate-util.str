@@ -278,7 +278,14 @@ rules
 
   get-direct-fetches(s|x) :
     qo@QueryOptimizations(joincandidates, joincandidatesgen, _) -> e_joins
+    where not(AllJoins() := <QueryOptimizationMode>)
     with allprops := <map(alltd(?Var(x); !Var(x)))> joincandidates
+    ; e_joins := <filter(simple-joins-to-array(|Var(x))); map(Snd); flatten-list; make-set; s> allprops
+
+  get-direct-fetches(s|x) :
+    qo@QueryOptimizations(joincandidates, joincandidatesgen, _) -> e_joins
+    where AllJoins() := <QueryOptimizationMode>
+    with allprops := <conc; map(alltd(?Var(x); !Var(x)))> (joincandidates, joincandidatesgen)
     ; e_joins := <filter(simple-joins-to-array(|Var(x))); map(Snd); flatten-list; make-set; s> allprops
       
   get-batch-fetches(|x, srt, x_list) =
@@ -287,44 +294,48 @@ rules
     ; !(Var(x), x_list, <java-type> srt, [], [], [], [])
     ; build-sub-batches(|allprops, x_list)
 
-  // TODO
-  get-generic-batch-fetches(|x, srt, x_list) = ![]
-/*
-  get-batch-fetches(|x, srt, x_list):
-    qo@QueryOptimizations(joincandidates, joincandidatesgen, _, _) -> bstm* |[
-      bstm_batch*
-	    for(t x : x_list) {
-	      bstm_addbatch*
-	    }
-	    bstm_fetch*
-	    bstm_after2*
-	    bstm_subbatch*
-    ]|
-    where t := <java-type> srt
-    ; allprops := <conc> (joincandidates, joincandidatesgen)
-    ; not([] := allprops)
-    ; tmp := <build-direct-batches(|x, srt, t, x_list)> allprops
+  get-batch-fetches-single(|x, srt) =
+    ?qo@QueryOptimizations(joincandidates, joincandidatesgen, _)
+    ; allprops := <conc; map(alltd(?Var(x); !Var(x)))>(joincandidates, joincandidatesgen)
+    ; fa := Var(x)
+    ; x_batch := x
+    ; x_batchelem := x
+    ; t := <java-type> srt
+    ; <collect(?FieldAccess(fa, _) <+ ?FieldAccess(Cast(fa, _), _))> allprops
+    ; not(?[])
+    ; make-set
+    ; ?nextsub
+    ; newallprops := <map(alltd(?fa; !Var(x_batchelem)))> allprops
+    ; tmp := <map(alltd(?fa; !Var(x_batchelem)); build-batch(|t, x_batch, newallprops))> nextsub
     ; bstm_batch* :=    <map(?(_, _, _, <id>, _, _, _));flatten-list> tmp
     ; bstm_addbatch* := <map(?(_, _, _, _, <id>, _, _))> tmp
     ; bstm_fetch* :=    <map(?(_, _, _, _, _, <id>, _))> tmp
     ; bstm_after* :=    <map(?(_, _, _, _, _, _, <id>))> tmp
-    ; bstm_subbatch* := <filter(build-sub-batches(|allprops,x_list)); flatten-list> tmp 
+    ; bstm_subbatch* := <filter(build-sub-batches(|newallprops,x)); flatten-list> tmp 
     ; if <flatten-list; not(?[])> bstm_after*; not([] := bstm_subbatch*) then
-        bstm_after2* := [bstm |[
-          for(t x : x_list) {
-            if(x == null) continue;
-            bstm_after*
-          }
-        ]|]
+        bstm_after2* := bstm_after*
       else
         bstm_after2* := []
       end
+    ; str := <java-type-to-java-name> t
+    ; x_dobatch := <concat-strings>[x, "Lst"]
+    ; e_joins := <filter(simple-joins-to-array(|fa)); map(Snd); flatten-list; make-set; string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> allprops
+    ; !bstm* |[
+        if(x_batchelem != null) {
+          java.util.ArrayList<t> x_dobatch = new java.util.ArrayList<t>();
+          x_dobatch.add(x);
+          utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_dobatch, e_joins);          
+          bstm_batch*
+          bstm_addbatch*
+          bstm_fetch*
+          bstm_after2*
+          bstm_subbatch*
+        }
+      ]|
 
-	build-direct-batches(|x, srt, t, x_list) =
-	  ?paths
-	  ; collect(?FieldAccess(Var(_), _) <+ ?FieldAccess(Cast(Var(_), _), _))
-	  ; make-set
-	  ; map(build-batch(|t, x_list, paths))*/
+  get-generic-batch-fetches(|x, srt, x_list) =
+    ?qo@QueryOptimizations(joincandidates, joincandidatesgen, cond)
+    ; <get-batch-fetches(|x, srt, x_list)> QueryOptimizations([], joincandidatesgen, cond)
 
   build-sub-batches(|allprops, x_list) = 
     ?(fa, x_batch, t, _, _, _, _)
@@ -466,13 +477,15 @@ rules
   fa-to-uniquename(|x_list):
     Var(_) -> x_list
 
-  simple-joins-to-array(|rootfa):
+  simple-joins-to-array(|rootfa) = where(AllJoins() := <QueryOptimizationMode>) < all-joins-to-array(|rootfa) + real-simple-joins-to-array(|rootfa)
+
+  real-simple-joins-to-array(|rootfa):
     rootfa -> ("_", [])
 
-  simple-joins-to-array(|rootfa):
+  real-simple-joins-to-array(|rootfa):
     fa@FieldAccess(p, f){anno*} -> (newprefix, joins)
     where not(rootfa := fa)
-    ; (prefix, otherjoins) := <simple-joins-to-array(|rootfa)> p
+    ; (prefix, otherjoins) := <real-simple-joins-to-array(|rootfa)> p
     ; if not(None() := prefix); <fetch-elem(?SimpleSort(_))> anno* then
 	      newjoin := <concat-strings> [prefix, f]
 	      ; newprefix := <concat-strings> [newjoin, "._"]
@@ -482,9 +495,24 @@ rules
         ; joins := otherjoins
       end
 
-  simple-joins-to-array(|rootfa):
+  real-simple-joins-to-array(|rootfa):
     c@Cast(p, srt){anno*} -> result
-    where result := <simple-joins-to-array(|rootfa)> p
+    where result := <real-simple-joins-to-array(|rootfa)> p
+
+  all-joins-to-array(|rootfa):
+    rootfa -> ("_", [])
+
+  all-joins-to-array(|rootfa):
+    fa@FieldAccess(p, f){anno*} -> (newprefix, joins)
+    where not(rootfa := fa)
+    ; (prefix, otherjoins) := <all-joins-to-array(|rootfa)> p
+	  ; newjoin := <concat-strings> [prefix, f]
+	  ; newprefix := <concat-strings> [newjoin, "._"]
+	  ; joins := [newjoin | otherjoins]
+
+  all-joins-to-array(|rootfa):
+    c@Cast(p, srt){anno*} -> result
+    where result := <all-joins-to-array(|rootfa)> p
 
   /**
    * Hibernate optimization below on hold, Zef is working on a replacement ORM
@@ -546,7 +574,9 @@ rules
         { 
           try
           { 
+                bstm_optimizationMode*
                 annotationConfiguration = new Configuration();
+                bstm_setprops*
     
                 //Properties prop = HibernateUtil.getProperties();
 
@@ -667,10 +697,19 @@ rules
 		                           with strRole := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",<capitalize-string>x_class,"._",x_prop]
 		                           ; strType := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",<capitalize-string>x_class,<capitalize-string>x_prop, "Owned",x_coltype,"Type"]
                             \})>
+       ; bstm_setprops* := <QueryOptimizationMode; (?HibernateBatch() < !bstm*|[annotationConfiguration.setProperty("hibernate.default_batch_fetch_size", "10");]| + ![])>
+       ; bstm_optimizationMode* := <QueryOptimizationMode; optimization-mode-to-java>
       /* ; if not([] := <bagof-AllGlobalVars>) 
          then bstm1* := [ bstm |[ annotationConfiguration.addAnnotatedClass(ApplicationContextProperty.class); ]| ]
          else bstm1* := [] end
  */
+
+  optimization-mode-to-java : NoQueryOptimization() -> bstm* |[utils.QueryOptimization.optimizationMode = 0; ]|
+  optimization-mode-to-java : QueryOptimization() -> bstm* |[utils.QueryOptimization.optimizationMode = 1; ]|
+  optimization-mode-to-java : HibernateBatch() -> bstm* |[utils.QueryOptimization.optimizationMode = 2; ]|
+  optimization-mode-to-java : GuidedBatch() -> bstm* |[utils.QueryOptimization.optimizationMode = 3; ]|
+  optimization-mode-to-java : AllJoins() -> bstm* |[utils.QueryOptimization.optimizationMode = 4; ]|
+  optimization-mode-to-java : AtArguments() -> bstm* |[utils.QueryOptimization.optimizationMode = 5; ]|
  
   generate-java-servlet-hibernate-util-collection-helper2(|x_class) :
     Property(x_prop, _, GenericSort(x_coltype, [SimpleSort(_)]), annos) -> (x_class, x_coltype, x_prop)

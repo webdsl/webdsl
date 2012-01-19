@@ -59,10 +59,14 @@ rules
           |}
 
   add-backend-annotation :
-    def@ForStmt(x, srt, _, _, _){anno*} -> def{newanno*}
-    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    def@ForStmt(x, srt, _, _, _){anno*} -> def{qo,tokeep*}
+    where <is-entity-type> srt
+    ; <not(fetch-elem(is-query-optimization))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForStmt", x, srt); !QueryAnalysis([], [], [], []))> anno* 
+    ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
     ; bindableargs := <filter(query-optimization-bindable-argument)> args
-    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> anno*
+    ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
 
   desugar-action :
     ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
@@ -83,15 +87,18 @@ rules
 */
 
   add-backend-annotation :
-    def@ForAllStmt(x, srt, _, _){anno*} -> def{newanno*}
-    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; bindableargs := <filter(query-optimization-bindable-argument)> args
-    ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> anno*
-
-  desugar-ui :
-    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
-    where cond := <?Filter(<id>, _, _) <+ !True()> f
+    def@ForAllStmt(x, srt, _, _){anno*} -> def{qo,tokeep*}
+    where <not(fetch-elem(is-query-optimization))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForAllStmt", x, srt); !QueryAnalysis([], [], [], []))> anno* 
     ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args
+    ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
+
+  desugar-action :
+    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
 /*
   common-query-optimization-forallstmt(|x, srt, cond, anno*) :

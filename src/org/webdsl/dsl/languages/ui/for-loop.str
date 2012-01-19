@@ -53,7 +53,7 @@ rules
     anno* -> [templName*, templArgs*, tokeep*]
     where tokeep* := <remove-all(?TemplateArgs(_) <+ ?TemplateName(_))> anno*
     ; templArgs* := [TemplateArgs(<TemplateArg <+ ![]>)]
-    ; templName* := <![TemplateName(<generate-template-name-fargs>(<InTemplate <+ InPage>, <TemplateArg>))] <+ ![]>
+    ; templName* := <![TemplateName(<InTemplate <+ InPage>)] <+ ![]>
 
   add-backend-annotation :
     def@ForAll(_, SimpleSort(x_class), _, _, _){anno*} -> def{CachedEntity(), anno*}
@@ -69,17 +69,26 @@ rules
     ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, cond)
 */
   add-backend-annotation :
-    def@ForAll(x, srt, _, _, _){anno*} -> def{newanno*}
+    def@ForAll(x, srt, _, _, _){anno*} -> def{qo,tokeep*}
     where <fetch-elem(?TemplateArgs(args))> anno*
+      ; <fetch-elem(?TemplateName(tname))> anno*
+      ; <not(fetch-elem(is-query-optimization))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForAll", x, srt); !QueryAnalysis([], [], [], []))> anno* 
       ; bindableargs := <filter(query-optimization-bindable-argument)> args
-      //; <debug(!"forall: ")> x
-      ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)/*;debug(!"newanno:")*/> anno*
+      ; tokeep* := <remove-all(is-query-analysis)> anno*
+      ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
 
   desugar-ui :
     def@ForAll(x, srt, f, body1, sep){anno*} -> ForAll(x, srt, f, body2, sep){newanno*}
     with /*<debug(!"forall1: ")> Var(x); */cond := <?Filter(<id>, _, _) <+ !True()> f
-    ; <fetch-elem(?TemplateArgs(args))> anno*
-    where /*info(|"desugar forall");*/(body2, newanno*) := <perform-query-analysis(|("ForAll", x ,srt), [Arg(x,srt)|args],cond)/* <+ (<debug(!"forall1.5: ")> Var(x); fail)*/> (body1, anno*)
+    where <fetch-elem(?TemplateArgs(args))> anno*
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; /*info(|"desugar forall");*/
+    {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (body2, newanno*) := <perform-query-analysis(|("ForAll", x ,srt), [Arg(x,srt)|args],cond)/* <+ (<debug(!"forall1.5: ")> Var(x); fail)*/> (body1, anno*)
+    |}
     /*;<debug(!"forall2: ")> Var(x)*/ 
 
 /*  desugar-ui :
@@ -93,16 +102,26 @@ rules
 */
 
   add-backend-annotation :
-    def@For(x, srt, _, _, _, _){anno*} -> def{newanno*}
-    where <fetch-elem(?TemplateArgs(args))> anno*
+    def@For(x, srt, _, _, _, _){anno*} -> def{qo,tokeep*}
+    where <is-entity-type> srt
+      ; <fetch-elem(?TemplateArgs(args))> anno*
+      ; <fetch-elem(?TemplateName(tname))> anno*
+      ; <not(fetch-elem(is-query-optimization))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("For", x, srt); !QueryAnalysis([], [], [], []))> anno* 
       ; bindableargs := <filter(query-optimization-bindable-argument)> args
-      ; newanno* := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> anno*
+      ; tokeep* := <remove-all(is-query-analysis)> anno*
+      ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
 
   desugar-ui :
     def@For(x, srt, e, f, elems1, elems3){anno*} -> For(x, srt, e, f, elems2, elems3){newanno*}
     where <is-entity-type> srt
     ; <fetch-elem(?TemplateArgs(args))> anno*
-    ; (elems2, newanno*) := <perform-query-analysis(|("For", x, srt), [Arg(x,srt)|args],True())> (elems1, anno*)
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (elems2, newanno*) := <perform-query-analysis(|("For", x, srt), [Arg(x,srt)|args],True())> (elems1, anno*)
+    |}
 
   is-function-call-with-query-optimization(|srt) =
     ?ThisCall(fname, fargs)

@@ -52,7 +52,7 @@ rules
 	traversal-to-join(|x,xsrt,requiresalias):
 	  expr@FieldAccess(p, f{annof*}){anno*} -> (FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}, gen)
 	  with (p2{annop2*}, pgen) := <traversal-to-join(|x,xsrt,requiresalias)> p
-	  ; SimpleSort(x_classp) := <fetch-elem(?SimpleSort(_) <+ ?GenericSort(_, [<id>]))> annop2*
+    ; SimpleSort(x_classp) := <fetch-elem(try(strip-ref-sort); (?SimpleSort(_) <+ ?GenericSort(_, [<id>])))> annop2*
 	  ; x_class := <class-of-property> (x_classp, f)
 	  ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
 	  ; gen := <?GenericSort(_, _) < !True() + !pgen> srt
@@ -315,11 +315,13 @@ rules
 
   // Same as resolve-entity-call, except here we allow failure
   // It also does not return functions that have an overridden version and it is unsure which version will be used
-  try-resolve-entity-call: (ent, nm, targ*) -> result
+  try-resolve-entity-call = ?(ent, nm, targ*); try-resolve-entity-call-without-override-check; ?(fent, f); where(<subentities-do-no-override> (fent, nm, targ*))
+
+  try-resolve-entity-call-without-override-check: (ent, nm, targ*) -> result
     where not("Entity" := ent)
     ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
-      < (<subentities-do-no-override> (ent, nm, targ*); result := (ent, f))
-      + result := <try-resolve-entity-call> (<Extends> ent, nm, targ*)
+      < result := (ent, f)
+      + result := <try-resolve-entity-call-without-override-check> (<Extends> ent, nm, targ*)
 
   subentities-do-no-override =
     ?(ent, nm, targ*)
