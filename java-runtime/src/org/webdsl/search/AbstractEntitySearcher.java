@@ -20,6 +20,7 @@ import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -259,9 +260,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			parser.setDefaultOperator( defaultOperator );
 			
 			try {
-				if ( allowLuceneSyntax )
+				if ( qd.isPhraseQuery ) 
+					return parser.parse( "\"" + SpecialMultiFieldQueryParser.escape( qd.query ) + "\"~" + qd.slop);
+				else if ( allowLuceneSyntax )
 					return parser.parse( qd.query );
-				else
+				else					
 					return parser.parse( SpecialMultiFieldQueryParser.escape( qd.query ));
 			} catch ( org.apache.lucene.queryParser.ParseException pe ) {
 				pe.printStackTrace();
@@ -323,22 +326,29 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 		
 		if ( searchFieldsChanged ) {
 		sb = new StringBuilder();
-		for( int cnt = 0 ; cnt < searchFields.length-1; cnt++)
-			sb.append( searchFields[cnt] + ",");
-		sb.append( searchFields[searchFields.length-1]);
-		paramMap.put("sf", sb.toString() );
+		for( int cnt = 0 ; cnt < searchFields.length-1; cnt++ )
+			sb.append( searchFields[cnt] + "," );
+		sb.append( searchFields[searchFields.length-1] );
+		paramMap.put( "sf", sb.toString() );
 		}
 		//search terms
-		if (	rootQD.children.isEmpty() ) {
+		if ( rootQD.children.isEmpty() ) {
 			if ( rootQD.isRangeQuery )
-				paramMap.put("lq", getLuceneQueryAsString() );
-			paramMap.put("q", rootQD.query );
+				paramMap.put( "lq", getLuceneQueryAsString() );
+			else
+				paramMap.put( "q", rootQD.query );
 		} else {	
 			QueryDef fstChild = rootQD.children.get( 0 );
-			if ( rootQD.children.size() == 1 && fstChild.occur.equals( Occur.SHOULD ) && !fstChild.isRangeQuery )
-				paramMap.put("q", fstChild.query );		
+			if ( rootQD.children.size() == 1 && fstChild.occur.equals( Occur.SHOULD ) && !fstChild.isRangeQuery ) {
+				if( fstChild.isPhraseQuery ) {
+				    paramMap.put( "pq", fstChild.query );
+				    paramMap.put( "sl", String.valueOf( fstChild.slop ) );
+				} else {
+				    paramMap.put( "q", fstChild.query );
+				}
+			}
 			else
-				paramMap.put("lq", getLuceneQueryAsString() );
+				paramMap.put( "lq", getLuceneQueryAsString() );
 		}
 		//default operator
 		if (!OP.equals( defaultOperator ))
@@ -447,11 +457,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 					// search fields
 					fields( new ArrayList<String>( Arrays.asList( value.split(",") )) );
 				} else if ("q".equals( key )) {
-					//search query
+					//ordinary query
 					query( value );
 				} else if ("lq".equals( key )) {
 					//search query, lucene string representation
 					currentQD.parsedQuery( value );
+				} else if ("pq".equals( key )) {
+					//phrase query
+					phraseQuery( value, Integer.parseInt( paramMap.get( "sl" ) ) );
 				} else if ("op".equals( key ) && value.equals("AND") ) {
 					//change default operator to AND
 					defaultAnd();
@@ -910,6 +923,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 		return ( F ) this;
 	}
 	
+	@SuppressWarnings("unchecked")
+	public F phraseQuery( String query, int slop ) {
+		currentQD.phraseQuery( query, slop );
+		updateLuceneQuery = updateParamMap = true;
+		return ( F ) this;
+	}
+	
 	private ArrayList<WebDSLFacet> toWebDSLFacets( List<Facet> facets ) {
 		String key;
 		ArrayList<WebDSLFacet> webdslFacets = new ArrayList<WebDSLFacet>();
@@ -1031,6 +1051,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 			try {
 				ir = getReader();
 				highlightQuery = luceneQueryNoFacetFilters.rewrite( ir );
+				updateHighlightQuery = false;
+//				log("HIGHLIGHT QUERY: " + highlightQuery.toString());
 			} catch ( IOException e ) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
