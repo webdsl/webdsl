@@ -13,47 +13,48 @@ import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
 
 public class ResultHighlighter {
 	
-	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text, String preTag, String postTag){
-		
-		String result;
+	public static String highlight(AbstractEntitySearcher<?,?> sq, String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator){
+//		long tmp = System.currentTimeMillis();
+		String result = "";
 		TokenStream tokenStream;
 		Highlighter highlighter;
+		IndexReader ir = null;
 		Query rewritten = null;
-		IndexReader ir = sq.getReader();
-
 		try {
+			ir = sq.getReader();
 			rewritten = sq.luceneQueryNoFacetFilters.rewrite(ir);
+
+			if(rewritten != null){
+				highlighter = new Highlighter(new SimpleHTMLFormatter(preTag, postTag), new QueryScorer( rewritten, field ) );
+				highlighter.setTextFragmenter(new SimpleFragmenter(fragmentLength));
+				tokenStream = sq.analyzer.tokenStream(field, new StringReader( text ) );
+				try {
+					result = highlighter.getBestFragments(tokenStream, text, fragments, separator);
+				} catch (IOException e) {
+					result = "";
+					e.printStackTrace();
+				} catch (InvalidTokenOffsetsException e) {
+					result = "";
+					e.printStackTrace();
+				}
+			}
+			else
+				result = "";
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} finally {
+			sq.closeReader(ir);
 		}
-		
-		if(rewritten != null){
-			highlighter = new Highlighter(new SimpleHTMLFormatter(preTag, postTag), new QueryScorer( rewritten ) );
-			
-			highlighter.setTextFragmenter(new SimpleFragmenter(80));
-			tokenStream = sq.analyzer.tokenStream(field, new StringReader( text ) );			
-			
-			try {
-				result = highlighter.getBestFragments(tokenStream, text, 3, " ...");
-			} catch (IOException e) {
-				result = "";
-				e.printStackTrace();
-			} catch (InvalidTokenOffsetsException e) {
-				result = "";
-				e.printStackTrace();
-			}
-		}
-		else
-			result = "";
-		
-		sq.closeReader(ir);
-		
+//		System.out.println("highlighting took:" + (System.currentTimeMillis() - tmp) + "ms");
 		return result;
 		
 	}
 	
-	public static String highlight(AbstractEntitySearcher<?> sq, String field, String text){				
-		return highlight(sq, field, text, "<B>", "</B>");
+	public static String highlight(AbstractEntitySearcher<?, ?> sq, String field, String text){				
+		return highlight(sq, field, text, "<B>", "</B>", 3, 80, " ...");
+	}
+	public static String highlight(AbstractEntitySearcher<?, ?> sq, String field, String text, String preTag, String postTag){				
+		return highlight(sq, field, text, preTag, postTag, 3, 80, " ...");
 	}
 }

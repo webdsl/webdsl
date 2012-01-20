@@ -104,18 +104,32 @@ public class HibernateLog {
         			}
         			_list.add(current);
         		}
+        		else if(msg.indexOf("reusing prepared statement") == 0) {
+        			if(current == null) throw new ParseException("No statement to reuse", linenr);
+        			current.closeTime = absoluteFormat.parse(time);
+        			current.duration = dateDiff(current.openTime, current.closeTime);
+        			_lastQuery = current;  
+        			if(!entries.empty()) {
+        				current = entries.peek();
+        				current.subEntries += _lastQuery.subEntries + 1;
+        			}
+        			current = new HibernateLogEntry();
+        			//current.sql = _lastQuery.sql;
+        			current.openTime = _lastQuery.closeTime;
+        			current.template = template;
+        			_list.add(current);
+        		}
         		else if(msg.indexOf("about to close PreparedStatement") == 0) {
         			if(current == null) throw new ParseException("No statement to close", linenr);
         			current.closeTime = absoluteFormat.parse(time);
-        			_lastQuery = current;  
         			current.duration = dateDiff(current.openTime, current.closeTime);
+        			_lastQuery = current;  
         			if(entries.empty()) {
         				current = null;
         			}
         			else {
-        				HibernateLogEntry next = entries.pop();
-        				current.subEntries = next.subEntries + 1;
-        				current = next;
+        				current = entries.pop();
+        				current.subEntries += _lastQuery.subEntries + 1;
         			}
         		}
         	}

@@ -40,7 +40,6 @@ strategies
   	import org.apache.lucene.analysis.Analyzer;
   	import org.webdsl.search.SearchSuggester;
   	import org.webdsl.search.QueryDef;
-  	import org.webdsl.search.SearchNamespaceHelper;
   	import org.apache.lucene.store.Directory;
 	import org.apache.lucene.store.FSDirectory;
 	import com.browseengine.bobo.api.BoboIndexReader;
@@ -51,7 +50,7 @@ strategies
 	
 	
   	
-	public class x_class#Searcher extends org.webdsl.search.AbstractEntitySearcher<x_Class> {
+	public class x_class#Searcher extends org.webdsl.search.AbstractEntitySearcher<x_Class, x_class#Searcher> {
 		
 		private static Analyzer singletonAnalyzer;
 		private static BoboIndexReader _boboReader;
@@ -68,23 +67,15 @@ strategies
 			rootQD = parentQD = currentQD = new QueryDef( Occur.SHOULD, new String[]{ e_dsf* } );
 		}
 				
-		private static Integer getNamespaceIndex( String namespace ){
-			return namespace.isEmpty() ? null : SearchNamespaceHelper.namespaceIDToIndex( "~x_indexName", namespace, false );
-		}
-		
-		protected int getNamespaceIndex(){
-			return SearchNamespaceHelper.namespaceIDToIndex( indexName, namespaceConstraint, false );
-		}
-
 		public static ArrayList<String> spellSuggest( String toSuggestOn, List<String> fields, float accuracy, int noSug ){return spellSuggest( toSuggestOn, "", fields, accuracy, noSug );}
 		public static ArrayList<String> spellSuggest( String toSuggestOn, String field, float accuracy, int noSug ){return spellSuggest( toSuggestOn, "", field, accuracy, noSug );}		
 		public static ArrayList<String> spellSuggest( String toSuggestOn, String namespace, List<String> fields, float accuracy, int noSug ){
 			String baseDir = utils.IndexManager.indexDirSpellCheck( x_Class.class, "", namespace );			
-			return SearchSuggester.findSpellSuggestions( x_Class.class, baseDir, getNamespaceIndex( namespace ), fields, noSug, accuracy, true, toSuggestOn );
+			return SearchSuggester.findSpellSuggestions( x_Class.class, baseDir, fields, noSug, accuracy, true, toSuggestOn );
 		}	
 		public static ArrayList<String> spellSuggest( String toSuggestOn, String namespace, String field, float accuracy, int noSug ){
 			String baseDir = utils.IndexManager.indexDirSpellCheck( x_Class.class, "", namespace );
-			return SearchSuggester.findSpellSuggestionsForField( x_Class.class, baseDir, getNamespaceIndex( namespace ), field, noSug, accuracy, true, toSuggestOn );
+			return SearchSuggester.findSpellSuggestionsForField( x_Class.class, baseDir, field, noSug, accuracy, true, toSuggestOn );
 		}
 		
 		public static ArrayList<String> autoCompleteSuggest( String toSuggestOn, List<String> fields, int noSug ){return autoCompleteSuggest( toSuggestOn, "", fields, noSug );}
@@ -122,20 +113,6 @@ strategies
 		}
 		
 		protected synchronized BoboIndexReader getBoboReader( String field, Collection<String> allFields ){
-			BoboIndexReader toReturn;
-			if( !namespaceConstraint.isEmpty() ) {
-				toReturn = _namespaceBoboReaderMap.get( namespaceConstraint );
-				if( toReturn == null || toReturn.getFacetHandler( field ) == null ) {
-					if( SearchNamespaceHelper.namespaceIDToIndex( "~x_indexName", namespaceConstraint, false ) != null ){
-						renewBoboReaders( allFields );
-						toReturn = _namespaceBoboReaderMap.get( namespaceConstraint );
-					}					
-				} 
-				
-				return toReturn;
-									
-			}
-			//no namespace constraint, thus return boboreader for entity ( or renew if needed )
 			if( _boboReader == null || _boboReader.getFacetHandler( field ) == null ){
 				renewBoboReaders( allFields );
 			}
@@ -151,10 +128,8 @@ strategies
 		}
 		
 		private final synchronized static void renewBoboReaders( Collection<String> allFields ){
-			
-			Map<String, BoboIndexReader> namespaceBoboReaderMap_OLD = _namespaceBoboReaderMap;
+			log("renewing bobo index reader");
 			BoboIndexReader boboReader_OLD = _boboReader;
-			_namespaceBoboReaderMap = new HashMap<String, BoboIndexReader>();
 			
 			List<FacetHandler<?>> facetHandlerList = new ArrayList<FacetHandler<?>>();
 			if( _boboReader != null ){
@@ -170,41 +145,10 @@ strategies
 			}
 			SearchFactory searchFactory = org.hibernate.search.Search.getFullTextSession( e_HibSession ).getSearchFactory();
 			DirectoryProvider<?>[] providers = searchFactory.getDirectoryProviders( x_Class.class );
-			IndexReader allReader;
 			try {
-				if( providers.length > 1 ) {
-					//multiple providers -> namespaces are enabled. iterate over all namespace indexes ( in case namespaces are enabled )
-					List<String> allNamespaces = SearchNamespaceHelper.allNamespaces( "~x_indexName" );
-					IndexReader[] indexReaders = new IndexReader[ allNamespaces.size() ];
-					int cnt = 0;
-					for( String namespace: allNamespaces ) {
-						Directory idx;
-						IndexReader reader = null;
-						int index = getNamespaceIndex( namespace );
-						try {
-							idx = providers[index].getDirectory();
-							reader = IndexReader.open( idx, true );
-							indexReaders[cnt] = reader;
-							_namespaceBoboReaderMap.put( namespace, BoboIndexReader.getInstance( reader, facetHandlerList ) );
-						} catch ( IOException ex ) {
-							// TODO Auto-generated catch block
-							ex.printStackTrace();
-						}
-						cnt++;	
-					}
-					//a multireader is not supported atm to be used for bobo faceting
-					//see: http://groups.google.com/group/bobo-browse/browse_thread/thread/1962b780e0f7e31c?pli=1
-					//Now using the first directory, which is empty in case of namespaces
-					//allReader = new MultiReader( indexReaders, true );
-					allReader = IndexReader.open( providers[0].getDirectory() );
-					
-				} else {
-					//no namespaces
-					allReader = IndexReader.open( providers[0].getDirectory() );
-				}
-				_boboReader = BoboIndexReader.getInstance( allReader, facetHandlerList );
-			
-			
+				Directory idx = providers[0].getDirectory();
+				IndexReader reader = IndexReader.open( idx, true );
+			    _boboReader = BoboIndexReader.getInstance( reader, facetHandlerList );
 			} catch ( IOException ex ) {
 				// TODO Auto-generated catch block
 				ex.printStackTrace();
@@ -215,18 +159,7 @@ strategies
 					} catch ( IOException ex ) {
 						ex.printStackTrace();
 					}
-				}
-				if(namespaceBoboReaderMap_OLD != null){
-					for(BoboIndexReader rdr : namespaceBoboReaderMap_OLD.values() ){
-						if(rdr != null){
-							try{
-								rdr.close();
-							} catch ( IOException ex ) {
-								ex.printStackTrace();
-							}
-						}						
-					}
-				}
+				}				
 			}
 		}
 

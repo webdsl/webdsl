@@ -130,6 +130,22 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.addHours as addHours(Int):DateTime
     utils.DateType.addMinutes as addMinutes(Int):DateTime
     utils.DateType.addSeconds as addSeconds(Int):DateTime
+    utils.DateType.getYear as getYear():Int
+    utils.DateType.getMonth as getMonth():Int
+    utils.DateType.getDay as getDay():Int
+    utils.DateType.getDayOfYear as getDayOfYear():Int
+    utils.DateType.getHour as getHour():Int
+    utils.DateType.getMinute as getMinute():Int
+    utils.DateType.getSecond as getSecond():Int
+  }
+  
+  function age(d:Date):Int{
+    var today : Date := today();
+    var age := today.getYear() - d.getYear();
+    if(today.getDayOfYear() < d.getDayOfYear()){
+      age := age - 1;
+    }
+    return age;
   }
   
   native class utils.DateType as DateType{ //@TODO static functions not yet supported in type import of DateTime above
