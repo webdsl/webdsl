@@ -87,6 +87,20 @@ public abstract class Test {
         }
     }
     
+    public static String runJavaScript(org.openqa.selenium.WebDriver d, String script){
+        String result = null;
+        if(d != null){  //null when webdriver is not initialized with get...Driver() functions below
+            try{
+                JavascriptExecutor js = (JavascriptExecutor) d;
+                result = (String)js.executeScript(script);
+            }
+            catch(java.lang.UnsupportedOperationException u){
+                //not every WebDriver can execute Javascript          	
+            } 
+        }
+        return result;
+    }
+    
     //manage webdrivers
     
     public static FirefoxDriver firefoxdriver = null;

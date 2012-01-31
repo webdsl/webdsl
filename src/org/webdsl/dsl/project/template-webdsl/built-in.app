@@ -300,6 +300,7 @@ module .servletapp/src-webdsl-template/built-in
     findElement(SelectBy):WebElement
     findElements(SelectBy):List<WebElement>
     close()
+    utils.Test.runJavaScript as runJavaScript(String):String
   }
   
   native class org.openqa.selenium.By as SelectBy {
