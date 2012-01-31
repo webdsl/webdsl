@@ -69,6 +69,24 @@ module .servletapp/src-webdsl-template/built-in
     isMustNot() : Bool
     isShould() : Bool
   }
+  
+  native class org.webdsl.search.SearchStatistics as SearchStatistics{
+    static clear() : Void
+    static getSearchQueryExecutionCount() : Long
+    static getSearchQueryTotalTime() : Long
+    static getSearchQueryExecutionMaxTime() : Long
+    static getSearchQueryExecutionAvgTime() : Long
+    static getSearchQueryExecutionMaxTimeQueryString() : String
+    static getObjectLoadingTotalTime() : Long
+    static getObjectLoadingExecutionMaxTime() : Long
+    static getObjectLoadingExecutionAvgTime() : Long
+    static getObjectsLoadedCount() : Long
+    static isStatisticsEnabled() : Bool
+    static setStatisticsEnabled(Bool) : Bool
+    static getSearchVersion() : String
+    static getIndexedClassNames() : List<String>
+    static indexedEntitiesCount() : List<String>
+  }
     
   //The default analyzer, equal to the one used by default in hibernate search
   default_builtin_analyzer analyzer hsearchstandardanalyzer {
@@ -77,6 +95,35 @@ module .servletapp/src-webdsl-template/built-in
     tokenfilter = LowerCaseFilter
     tokenfilter = StopFilter
   }   
+  
+  //Template showing the info available through Hibernate Search statistics
+  define showSearchStats(){
+  	var NStoMS : Long := 1000000L;
+    table{
+    	row { column { <b>"Search statistics"</b> } }
+	    row { column { "Statistics enabled?" } column { output(SearchStatistics.isStatisticsEnabled()) if( !SearchStatistics.isStatisticsEnabled() ){ "(Enabled through searchstats=true in application.ini)" } } }
+	    row { column { "Hibernate Search version" } column { output(SearchStatistics.getSearchVersion()) } }
+	    
+	    row { column { <b>"Query execution times"</b> } }
+	      
+	    row { column { "Search query execution count" } column { output(SearchStatistics.getSearchQueryExecutionCount()) } }
+	    row { column { "Total search time" } column { output(SearchStatistics.getSearchQueryTotalTime()/NStoMS ) "ms  (" output(SearchStatistics.getSearchQueryTotalTime())"ns)" } }
+	    row { column { "Average search query exec time" } column { output(SearchStatistics.getSearchQueryExecutionAvgTime()/NStoMS ) "ms  (" output(SearchStatistics.getSearchQueryExecutionAvgTime())"ns)" } }
+	    row { column { "Slowest search query exec time" } column { output(SearchStatistics.getSearchQueryExecutionMaxTime()/NStoMS ) "ms  (" output(SearchStatistics.getSearchQueryExecutionMaxTime())"ns)" } }
+	    row { column { "Slowest search query" } column { output(SearchStatistics.getSearchQueryExecutionMaxTimeQueryString()) } }
+	    
+	    row { column { <b>"Object load times"</b> } }
+	    
+	    row { column { "Objects loaded count" } column {output(SearchStatistics.getObjectsLoadedCount()) } }
+	    row { column { "Total object loading time" } column { output(SearchStatistics.getObjectLoadingTotalTime()/ NStoMS ) "ms  (" output(SearchStatistics.getObjectLoadingTotalTime())"ns)" } }
+	    row { column { "Average object loading time" } column { output(SearchStatistics.getObjectLoadingExecutionAvgTime()/NStoMS ) "ms  (" output(SearchStatistics.getObjectLoadingExecutionAvgTime())"ns)" } }
+	    row { column { "Slowest object loading time" } column { output(SearchStatistics.getObjectLoadingExecutionMaxTime()/NStoMS ) "ms  (" output(SearchStatistics.getObjectLoadingExecutionMaxTime())"ns)" } }
+	} table {
+	    row { column { <b>"Indexed entities (entity - nOfEntities)"</b> } }
+	    row { column { output(SearchStatistics.indexedEntitiesCount()) } }
+    }
+  }
+  
   
 // section methods for built-in types
 

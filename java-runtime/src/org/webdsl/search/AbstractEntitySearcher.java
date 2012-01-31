@@ -63,7 +63,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 	protected Operator defaultOperator = OP;
 	
 	protected boolean updateFullTextQuery, updateSorting, updateFacets, updateNamespaceConstraint, updateFieldConstraints, updateLuceneQuery = true, updateParamMap = true, updateHighlightQuery = true;
-	protected boolean allowLuceneSyntax = true, searchFieldsChanged = false, updateBoboBrowseResult = true;
+	protected boolean allowLuceneSyntax = ALLOWLUCENESYNTAX, searchFieldsChanged = false, updateBoboBrowseResult = true;
 
 	protected HashMap<String, String> fieldConstraints;
 	protected HashMap<String, Float> boosts;
@@ -532,7 +532,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 					moreLikeThis( a1[0], Integer.parseInt( a1[1]), Integer.parseInt( a1[2]), Integer.parseInt( a1[3]), Integer.parseInt( a1[4]), Integer.parseInt( a1[5]), Integer.parseInt( a1[6]) );
 				} else if ("allowlcn".equals( key )) {
 					// allow Lucene syntax?
-					Boolean.parseBoolean( value );					
+					allowLuceneSyntax( Boolean.parseBoolean( value ) );					
 				} else if ("ns".equals( key )) {
 					//namespace
 					setNamespace( value );
