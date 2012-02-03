@@ -77,14 +77,8 @@ rules
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <get-query-optimization-anno; ?QueryOptimizations([], [], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
+    ; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
     ; <is-cached-entity> x_class
-
-/*  desugar-action :
-    def@ForAllStmt(x, srt, f, body){anno*} -> def{qoanno, anno*}
-    where cond := <?Filter(<id>, _, _) <+ !True()> f
-    ; qoanno := <common-query-optimization-forallstmt(|x, srt, cond, anno*)> body
-*/
 
   add-backend-annotation :
     def@ForAllStmt(x, srt, _, _){anno*} -> def{qo,tokeep*}
@@ -100,29 +94,7 @@ rules
     with cond := <?Filter(<id>, _, _) <+ !True()> f
     where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
-/*
-  common-query-optimization-forallstmt(|x, srt, cond, anno*) :
-    body -> QueryOptimizations(joincandidates, joincandidatesgen, querycondition2)
-    where not(<fetch-elem(?QueryOptimizations(_, _, _))> anno*)
-    with args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; ent := <fetch-elem(?FunctionEntity(<id>)) <+ !None()> anno*
-    ; thisvar := <(collect(?Var("this")); make-set; ?[Var(thisunique)]; ![("this", thisunique, "this"{"queryoptimization_parentarg_this"}, SimpleSort(ent))]) <+ ![]> (body, cond)
-    ; props := <?None() < ![] + (get-all-entity-properties-for-rename(|"queryoptimization_parentarg"); <conc>(thisvar, <id>))> ent
-    ; propargs* := <map({\ (name, uniquename, safename, srt) -> Arg(safename, srt) \})> props
-    ; {| RenamePropInFunction, RenamePropInQueryOptimization // Here we temporarily rename the Var()s in the function body for our analysis
-        : <map({\
-                  (name, uniquename, safename, srt) -> <id>
-                  with rules (
-                                RenamePropInFunction : Var(uniquename) -> Var(safename)
-                                RenamePropInQueryOptimization : Var(safename) -> Var(uniquename)
-                             )
-                \})> props
-        ; body2 := <alltd(RenamePropInFunction)> body
-        ; cond2 := <alltd(RenamePropInFunction)> cond
-        ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body2, x, srt, [args*, propargs*], cond2)
-        ; querycondition2 := <alltd(RenamePropInQueryOptimization)> querycondition // Joins do not have to be renamed, because they do not contain vars
-      |}
-*/
+
 rules
 
   constraint-error-action : ForCountStmt(x, e1, e2, b) -> <expression-type-constraint(|SimpleSort("Int"))> e1

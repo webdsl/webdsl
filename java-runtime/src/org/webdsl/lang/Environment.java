@@ -44,7 +44,20 @@ public class Environment {
         }
         templates.put(key, value);
     }
-    
+
+    public boolean isRedefinedTemplate(String key) {
+        if (templates != null && templates.containsKey(key)){
+            return up != null;
+        }
+        else{
+            if(up != null){
+                return up.isRedefinedTemplate(key);
+            }
+            else{
+                throw new RuntimeException("template lookup failed for name: "+key);   
+            }
+        }
+    }
     
     /**
      *  'with/requires' calls map

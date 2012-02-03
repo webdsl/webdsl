@@ -8,7 +8,7 @@ signature constructors
   FunctionEntity : Term -> Annotation
   HasQueryOptimizedVersion : Annotation
   QueryOptimizationVars : Term * Term * Term * Term -> Annotation
-  QueryOptimizations : Term * Term * Term -> Annotation
+  QueryOptimizations : Term * Term -> Annotation
   QueryOptimizations : List(String) * Term * Term * Term * Term * Term -> Annotation
   IsNaturalId : Annotation
   MultipleDefinitionsInSubclasses : Annotation
@@ -17,6 +17,7 @@ signature constructors
   IsLazyFetch : Term
   QueryAnalysis : Term * Term * Term * Term -> Term
   WaitingFor : Term -> Annotation
+  IfDefaultTemplateImplementation : Term -> Annotation
 
   // Query optimization modes
   // Used just to easily update other test cases
@@ -29,11 +30,11 @@ signature constructors
 
 strategies
 
-  get-empty-query-optimization = !QueryOptimizations([], [], True())     
+  get-empty-query-optimization = !QueryOptimizations([], True())     
 
-  is-empty-query-optimization = ?QueryOptimizations([], [], True())
+  is-empty-query-optimization = ?QueryOptimizations([], True())
 
-  is-query-optimization = ?QueryOptimizations(_, _, _)
+  is-query-optimization = ?QueryOptimizations(_, _)
 
   // Succeeds only if an empty query optimization annotation is present
   no-query-optimizations-strict = where(fetch-elem(is-empty-query-optimization))
@@ -60,11 +61,29 @@ rules
     ?[x|xs]
     ; <foldr(!x, s)> xs
 
+  // True conditions are ignored, because they are irrelevant
   and-query-condition-helper :
     (cond, e) -> And(cond, e)
+    where not(True() := e)
+    ; not(True() := cond)
 
+  and-query-condition-helper :
+    (cond, True()) -> cond
+
+  and-query-condition-helper :
+    (True(), e) -> e
+
+  // As soon as one condition is True, the resulting condition will be true
   or-query-condition-helper :
     (cond, e) -> Or(cond, e)
+    where not(True() := e)
+    ; not(True() := cond)
+
+  or-query-condition-helper :
+    (_, True()) -> True()
+
+  or-query-condition-helper :
+    (True(), _) -> True()
 
   property-to-string :
     Var(_) -> ""
@@ -98,6 +117,22 @@ rules
     FieldAccess(p, f) -> str
     where <collect(?Var(x)); not(?[])> p
     with str := <property-to-alias> p
+
+  get-all-joins = filter(get-joins-helper(id|"_")); flatten-list
+
+  get-to-one-joins = where(AllJoins() := <QueryOptimizationMode>) < get-all-joins + real-get-to-one-joins
+
+  real-get-to-one-joins = filter(get-joins-helper(?(_, _, _, <id>, _); not(is-generic-sort)|"_")); flatten-list
+
+  get-joins-helper(s|prefix) :
+    (f, _, _, _, sub){anno*} -> [join{joinanno*} | subjoins]
+    where s
+    with join := <concat-strings> [prefix, f]//<concat-strings> [prefix, <("" := prefix) < !"_" + !"._">, f]
+    ; newprefix := <concat-strings> [join, "._"]
+    ; joinanno* := <filter(?RequiresAlias())> anno*
+    ; subjoins := <filter(get-joins-helper(s|newprefix))> sub
+
+  join-fetch-to-alias = <concat-strings> ["_", <string-replace(|".", "_")>]
 
 strategies
 

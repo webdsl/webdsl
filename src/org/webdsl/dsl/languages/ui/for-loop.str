@@ -58,16 +58,9 @@ rules
   add-backend-annotation :
     def@ForAll(_, SimpleSort(x_class), _, _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <get-query-optimization-anno; ?QueryOptimizations([], [], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
+    ; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
     ; <is-cached-entity> x_class
-/*
-  desugar-ui :
-    def@ForAll(x, srt, f, body, _){anno*} -> def{QueryOptimizations(joincandidates, joincandidatesgen, querycondition), anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _))> anno*)
-    with cond := <?Filter(<id>, _, _) <+ !True()> f
-    ; <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(body, x, srt, args, cond)
-*/
+
   add-backend-annotation :
     def@ForAll(x, srt, _, _, _){anno*} -> def{qo,tokeep*}
     where <fetch-elem(?TemplateArgs(args))> anno*
@@ -91,18 +84,8 @@ rules
     |}
     /*;<debug(!"forall2: ")> Var(x)*/ 
 
-/*  desugar-ui :
-    def@For(x, srt, call{callanno*}, f, elems1, elems3){anno*} -> For(x, srt, call{queryopt, callanno*}, f, elems1, elems3){anno*}
-    where not(<fetch-elem(?QueryOptimizations(_, _, _, _, _, _))> callanno*)
-    ; <is-function-call-with-query-optimization(|srt)> call
-    with cond := <?Filter(<id>, _, _) <+ !True()> f
-    ; <fetch-elem(?TemplateArgs(args))> anno*
-    ; (joincandidates, joincandidatesgen, querycondition, conditionjoins) := <get-query-optimizations>(elems1, x, srt, args, cond)
-    ; queryopt := QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt)
-*/
-
   add-backend-annotation :
-    def@For(x, srt, _, _, _, _){anno*} -> def{qo,tokeep*}
+    For(x, srt, call, f, elems1, elems3){anno*} -> For(x, srt, newcall, f, elems1, elems3){qo,tokeep*}
     where <is-entity-type> srt
       ; <fetch-elem(?TemplateArgs(args))> anno*
       ; <fetch-elem(?TemplateName(tname))> anno*
@@ -111,6 +94,7 @@ rules
       ; bindableargs := <filter(query-optimization-bindable-argument)> args
       ; tokeep* := <remove-all(is-query-analysis)> anno*
       ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
+      ; newcall := /*<try(pass-query-optimization-to-call(|qo))>*/ call
 
   desugar-ui :
     def@For(x, srt, e, f, elems1, elems3){anno*} -> For(x, srt, e, f, elems2, elems3){newanno*}
@@ -122,21 +106,6 @@ rules
       : rules( CurrentTemplateName := tgenname )
       ; (elems2, newanno*) := <perform-query-analysis(|("For", x, srt), [Arg(x,srt)|args],True())> (elems1, anno*)
     |}
-
-  is-function-call-with-query-optimization(|srt) =
-    ?ThisCall(fname, fargs)
-    ; t* := <map(type-of)> fargs
-    ; Function(fname2, fargs2, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(None(), fname, t*)
-    ; t2* := <map(?Arg(_, <id>); strip-annos)> fargs2
-    ; <FunctionHasQueryOptimization> (None(), fname2, t2*)
-
-  is-function-call-with-query-optimization(|srt) =
-    ?Call(e, fname, fargs)
-    ; entsrt@SimpleSort(x_class) := <type-of; is-entity-type> e
-    ; t* := <map(type-of)> fargs
-    ; Function(fname2, fargs2, GenericSort(_, [srt]), _){fanno*} := <resolve-function-call-to-decl>(entsrt, fname, t*)
-    ; t2* := <map(?Arg(_, <id>); strip-annos)> fargs2
-    ; <FunctionHasQueryOptimization> (x_class, fname2, t2*)
 
 rules // ForAll only declared entity types
   

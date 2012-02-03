@@ -8,36 +8,6 @@ rules // Entry points
     ; not(<fetch-elem(is-query-analysis)> anno*)
     //; info(|"QueryOptimization disabled")
 
-  // x is the root
-  // args contains variables that may appear in the query condition. They do not have to be bindable yet, because they may be bindable in the caller. 
-/*  perform-query-analysis(|x,srt,args,cond) :
-    (body, anno*) -> (body2, [QueryAnalysis(ts) | anno*])
-    where not(QueryOptimizationDisabled)
-    ; <not(fetch-elem(?QueryAnalysis(_)))> anno*
-    ; {| RootVar
-     : rules( RootVar : Var(x) -> srt)
-     ; <debug(!"x:")> Var(x)
-     ; [] := <collect(query-optimization-waiting-for);debug(!"wait:")> body
-    |}
-    with {| RootVar, QueryArg, IteratedVar, QueryConditions, IsEffectful, DetectedTraveral
-       : rules (  IteratedVar     : Var(x) -> srt // Contains all variables we are following (is RootVar and template/function call arguments)
-                  RootVar         : Var(x) -> srt // The actual variable we are interested in (the persistent root of our analysis)
-                  QueryConditions := []           // Changes over time to represent the query conditions active on the term currently being analyzed
-                  IsEffectful     := False()      // True if the current statement is effectful (means: can affect non-local state), False otherwise
-               )
-       ; <filter({vars: 
-                     \ Arg(arg, srt) ->  <id>
-                       with rules( QueryArg      : Var(arg) -> srt )
-                     \})> args
-       ; rules( QueryConditions := <extract-query-cond-as-list> cond)
-       ; body2 := <analyze-for-query-optimization-continue> body
-       ; ts := <bagof-DetectedTraveral>
-       ; <remove-casts;log-query-optimization-collect-table(|45,155,5)> ts
-       ; av := []
-       ; calls := []//<bagof-DetectedCall>
-      |}
-*/
-
   perform-waiting-check-only(|args) :
     (body, anno*) -> wait
     where not(QueryOptimizationDisabled)
@@ -73,19 +43,58 @@ rules // Entry points
       |}
 
   query-analysis-to-query-optimizition(|x,xsrt,bindableargs) :
-    qa -> qo
+    qa@QueryAnalysis(analysis, _, _, unresolved) -> qo
     with {|RootVar, BindableVar
     : rules( RootVar : Var(x) -> xsrt )
     ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with /*debug(!"Bindable:");*/rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
-    ; ts := <?QueryAnalysis(<id>, _, _, _); filter(where(Fst; is-accessible-from(RootVar)))> qa
-    ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); map(sub-paths); flatten-list; make-set; keep-least-specific-casts/*;debug(!"joins:")*/> ts
-    ; querycondition := <filter(?(_, _, <revalidate-query-condition;and-query-condition>, True())); make-set; try(?[]; ![True()]); (where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())> ts // Combine query conditions of the effectful field accesses
+    ; ts := <filter(where(Fst; is-accessible-from(RootVar)))> analysis
+    ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); /*map(sub-paths);*/ flatten-list; map(try(?Cast(<id>, _))); make-set /*; keep-least-specific-casts*/> ts
+    ; querycondition := <filter(?(_, _, <revalidate-query-condition;and-query-condition>, True())); make-set; try(?[]; ![True()]); or-query-condition/*(where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())*/> ts // Combine query conditions of the effectful field accesses
     ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
-    ; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
-    ; joincandidatesnogen := <filter(?(<id>, False()))> alljoins
-    ; joincandidatesgen := <filter(?(<id>, True()))> alljoins
-    ; qo := QueryOptimizations(joincandidatesnogen, joincandidatesgen, querycondition)
+    //; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
+    //; alljoins := <traversals-to-tree(|x,xsrt,requiresalias)> joincandidates
+    //; alljoins := <doall(|x,xsrt,requiresalias)> joincandidates
+    ; alljoins := <map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|[])); foldr(![], merge-optimization-branches)> joincandidates
+    ; alljoins2 := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!alljoins, merge-conditional-optimization-branches)> unresolved
+    /*; condjoins := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias))> unresolved 
+    ; <?[]
+      < alljoins2 := alljoins
+      + (
+        debug(!"condjoins:")
+        ; <debug(!"x:")> [x]
+        ; <debug(!"alljoins:")> alljoins
+        ; alljoins2 := <foldr(!alljoins, merge-conditional-optimization-branches)> condjoins
+        ; <debug(!"alljoins2:")> alljoins2
+        )
+      > condjoins*/
+    //; debug(!"all:")
+    //; <map(debug(!"i2:");traversal-to-join(|x,xsrt,requiresalias); joins-to-tree(|[]);debug(!"a2:"));debug(!"tmp2:"); foldr(![], merge-trees);debug(!"all2:")> joincandidates
+    //; extrajoins := <filter(get-extra-joins-from-unresolved(|x,xsrt,requiresalias,alljoins));flatten-list> unresolved
+    //; alljoins2 := <conc;keep-least-specific-casts> (alljoins, extrajoins)
+    /*; try(
+      	not([] := extrajoins)
+      	; "proc"{"conferenceProceedingsConference_proc0"} := x
+      	; <debug(!"x:")> [x]
+      	; <debug(!"alljoins:")> alljoins
+      	; <debug(!"extrajoins:")> extrajoins
+        ; <debug(!"alljoins2:")> alljoins2
+      )*/
       |}
+    //; joincandidatesnogen := <filter(?(<id>, False()))> alljoins2
+    //; joincandidatesgen := <filter(?(<id>, True()))> alljoins2
+    ; qo := QueryOptimizations(alljoins2, querycondition)
+      //;debug(!"qo:")
+
+  get-conditional-branches-from-unresolved(|x,xsrt,requiresalias) :
+    (genname, args, cond, eff) -> (IfDefaultTemplateImplementation(genname), branches)
+    where Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl> genname
+    ; <fetch-elem(?QueryAnalysis(analysis, _, _, _))> defanno*
+    ; newmap := <zip> (args, deffargs)
+    ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> newmap
+    ; ts := <filter(where(Fst; is-accessible-from(RootVar)))> newanalysis
+    ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); /*map(sub-paths); */flatten-list; map(try(?Cast(<id>, _))); make-set/*; keep-least-specific-casts*/> ts
+    ; branches := <map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|[]))> joincandidates
+    ; not([] := branches)
 
 strategies
 
@@ -680,7 +689,7 @@ rules // Query conditions
     And(expr1, expr2) -> cond
     where expr1new := <extract-query-cond <+ !True()> expr1
     ; expr2new := <extract-query-cond <+ !True()> expr2
-    ; cond := <append-condition>(expr1new, expr2new)
+    ; cond := <and-query-condition-helper>(expr1new, expr2new)
 
   extract-query-cond:    
     SmallerThanOrEqual(expr1, expr2) -> SmallerThanOrEqual(newExpr1, newExpr2)
