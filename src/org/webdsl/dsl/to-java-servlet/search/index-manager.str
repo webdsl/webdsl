@@ -440,7 +440,7 @@ strategies
     ]|
     with pkgname := <DomainPackage>
 	    ; x_class_set := <make-set> x_class*
-	    ; bstm* := <map(\ x_name -> java|[ reindexEntityClass(x_name.class, session);]|\)> x_class_set
+	    ; bstm*  := <map(class-to-reindex-entity-class)> x_class_set
 	    ; bstm1* := <map(class-to-renew-facet-readers)> x_class_set
 	    ; bstm2* := <map(class-to-index-suggestions); flatten-list> x_class_set
 	    ; bstm3* := <map(class-to-clear-autocomplete-index)> x_class_set
@@ -451,6 +451,10 @@ strategies
 	    ; indexdir := <concat-strings>[<IndexDir>,"/",<AppName>]
 	    ; e_indexdir := expr|[ "~indexdir" ]|
 
+  class-to-reindex-entity-class:
+  	x_name -> java|[ reindexEntityClass(x_Class.class, session);]|
+  	with x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+
   class-to-renew-facet-readers:
   	x_name -> java|[ x_searcher.renewBoboReaders();]|
   	with
@@ -458,13 +462,14 @@ strategies
 
   class-to-index-suggestions:
 	x_name -> result
-	with  scfields := <ClassToSpellCheckFields> x_name
+	with x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+	    ; scfields := <ClassToSpellCheckFields> x_name
 	    ; acfields := <ClassToAutoCompleteFields> x_name
 		; e_spellcheckfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> scfields
 	    ; e_autocompletefield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> acfields
 		; if ( and(<?[]>e_spellcheckfield*, <?[]>e_autocompletefield*) ) 
 		  then result := []
-		  else result := java |[ reindexSuggestions(x_name.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* }, namespaces);]|
+		  else result := java |[ reindexSuggestions(x_Class.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* }, namespaces);]|
 		  end
   
   class-to-clear-autocomplete-index:
@@ -488,24 +493,27 @@ strategies
   class-to-get-class-from-name-ac:
   	x_name -> result
   	with acfields := <ClassToAutoCompleteFields> x_name
+  	    ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
     	; if (<?[]> acfields) 
 		  then result := []
-		  else result := java |[ if (entity == "~x_name"){entityClass = x_name.class;} ]|
+		  else result := java |[ if (entity == "~x_name"){entityClass = x_Class.class;} ]|
     	  end
     	  
   class-to-get-class-from-name-sc:
   	x_name -> result
   	with scfields := <ClassToSpellCheckFields> x_name
+  	    ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
     	; if (<?[]> scfields) 
 		  then result := []
-		  else result := java |[ if (entity == "~x_name"){entityClass = x_name.class;} ]|
+		  else result := java |[ if (entity == "~x_name"){entityClass = x_Class.class;} ]|
     	  end
 		
   class-to-index-name:
   	x_name -> result
   	where
-  	 x_indexname := <get-index-name> x_name
-  	 ; result := java |[ if (x_name.class.equals(entityClass)){return "~x_indexname";} ]|
+  	   x_indexname := <get-index-name> x_name
+  	 ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+  	 ; result := java |[ if (x_Class.class.equals(entityClass)){return "~x_indexname";} ]|
   	   
   get-index-name:
   	x_name -> indexName
