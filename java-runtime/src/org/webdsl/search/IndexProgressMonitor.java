@@ -63,9 +63,10 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 	protected void printStatusMessage(long starttime, long totalTodoCount, long doneCount) {
 		long elapsedMs = System.currentTimeMillis() - starttime ;
 		long lastElapsedMsCount = elapsedMs -lastElapsedMs;
+		double elapsedSec = ( (int) ( elapsedMs / 100 ) ) / 10.0;
 		int estimateSpeed = (int) (2000000 / lastElapsedMsCount);
 		int estimatePercentileComplete = (int) (doneCount * 100 / totalTodoCount);
-		System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedMs + "ms (" + estimateSpeed + " ent/sec)");
+		System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedSec + "s (" + estimateSpeed + " ent/s)");
 		lastElapsedMs = elapsedMs;
 	}
 }

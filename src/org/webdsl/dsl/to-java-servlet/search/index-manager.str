@@ -57,6 +57,8 @@ strategies
 	  import org.webdsl.search.AutoCompleter;
 	  import org.webdsl.search.SearchSuggester;
 	  import org.webdsl.search.SearchHelper;
+	  import org.hibernate.Session;
+	  import org.hibernate.SessionFactory;
   
       import utils.*;
       import pkgname.*;
@@ -67,8 +69,8 @@ strategies
       public class IndexManager {
       	      	
         public static void main(String[] args) {
-        	reindex(Arrays.asList(args));
-        	System.exit(0);
+          reindex(Arrays.asList(args));
+          System.exit(0);
         }
         
         private static void reindex(){
@@ -76,15 +78,10 @@ strategies
         }
         
         private static void reindex(List<String> entities) {
-          java.io.PrintWriter out = new java.io.PrintWriter(System.out);
-          ThreadLocalOut.push(out);
-          
           
           log( "Starting reindexing of searchable data..." );
           long time = System.currentTimeMillis();
           
-          org.hibernate.search.FullTextSession session = getFullTextSession();
-		  
 		  bstm*
 		  
 		  indexSuggestions();		  
@@ -97,23 +94,38 @@ strategies
           bstm1*
         }
         
-        private static boolean reindexEntityClass(Class<?> c, org.hibernate.search.FullTextSession session){
+        private static boolean reindexEntityClass(Class<?> c){
         	String entityName = c.getName().substring(c.getPackage().getName().length() + 1);
-        	log("---Reindexing: " + entityName + "...---");
+        	log("---Reindexing: " + entityName + "---");
         	long time = System.currentTimeMillis();
+        	SessionFactory sessionf = HibernateUtilConfigured.getSessionFactory();
+        	Session session = sessionf.getCurrentSession();
+        	org.hibernate.search.FullTextSession ftSession = getFullTextSession();
         	try {
-        		session.createIndexer(c)
-        		.progressMonitor(new org.webdsl.search.IndexProgressMonitor(2000, entityName))
+        		ftSession.createIndexer( c )
+        		.progressMonitor( new org.webdsl.search.IndexProgressMonitor( 2000, entityName ) )
  				.batchSizeToLoadObjects( 50 )
 				.threadsToLoadObjects( 3 )
  				.threadsForSubsequentFetching( 4 )
+ 				.threadsForIndexWriter( 3 )
  				.purgeAllOnStart( true )
  				.startAndWait();
  				
  			}
- 			catch(java.lang.InterruptedException ex){
+ 			catch(Exception ex){
  				ex.printStackTrace();
  				return false;
+ 			} finally {
+ 				if (ftSession != null) {
+ 					ftSession.close();
+ 					ftSession = null;
+ 				}
+ 				if (session != null) {
+ 					session = null;
+ 				}
+ 				if (sessionf != null) {
+ 					sessionf = null;
+ 				}
  			}
  			time = System.currentTimeMillis() - time;
  			log("---Done in " + time + "ms.---");
@@ -458,7 +470,7 @@ strategies
 	    ; e_indexdir := expr|[ "~indexdir" ]|
 
   class-to-reindex-entity-class:
-  	x_name -> java|[if(entities == null || entities.isEmpty() || entities.contains("~x_name") || entities.contains("~x_Class")) { reindexEntityClass(x_Class.class, session); }]|
+  	x_name -> java|[if(entities == null || entities.isEmpty() || entities.contains("~x_name") || entities.contains("~x_Class")) { reindexEntityClass(x_Class.class); }]|
   	with x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
 
   class-to-renew-facet-readers:
