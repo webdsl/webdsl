@@ -62,7 +62,7 @@ rules
     def@ForStmt(x, srt, _, _, _){anno*} -> def{qo,tokeep*}
     where <is-entity-type> srt
     ; <not(fetch-elem(is-query-optimization))> anno*
-    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForStmt", x, srt); !QueryAnalysis([], [], [], []))> anno* 
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForStmt", x, srt); <debug(!"def:")>def; get-empty-query-analysis)> anno* 
     ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; tokeep* := <remove-all(is-query-analysis)> anno*
     ; bindableargs := <filter(query-optimization-bindable-argument)> args
@@ -72,7 +72,9 @@ rules
     ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
     where <is-entity-type> srt
     ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [Arg(x,srt)|args*],True())> (b, anno*)
+    ; thisargs := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
+    ; args := <conc> ([Arg(x,srt)|args*], thisargs)
+    ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), args,True())> (b, anno*)
 
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
@@ -83,13 +85,15 @@ rules
   add-backend-annotation :
     def@ForAllStmt(x, srt, _, _){anno*} -> def{qo,tokeep*}
     where <not(fetch-elem(is-query-optimization))> anno*
-    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForAllStmt", x, srt); !QueryAnalysis([], [], [], []))> anno* 
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForAllStmt", x, srt); get-empty-query-analysis)> anno* 
     ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; tokeep* := <remove-all(is-query-analysis)> anno*
     ; bindableargs := <filter(query-optimization-bindable-argument)> args
     ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
 
-  desugar-action :
+  desugar-action = desugar-optimization-forallstmt
+
+  desugar-optimization-forallstmt :
     def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
     with cond := <?Filter(<id>, _, _) <+ !True()> f
     where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*

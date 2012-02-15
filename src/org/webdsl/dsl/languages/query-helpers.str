@@ -8,6 +8,21 @@ strategies
 
   rename-query-optimization-annos = rename-query-optimization-annos(rename-all)
 
+  template-body-ready = // Local redefines, derives and output lists should have been lifted
+    where(
+      collect(?Define(_, _, _, _, _) <+ ?Derive(_, _, _) <+ ?TemplateCall("dummy",_,_,TemplateBody(_)) <+ is-call-to-output-generic-sort)
+      ; ?[]
+    )
+
+  action-body-ready =
+    where(
+      collect(is-property-access-without-this <+ ?ForExp(_, _, _, _, _))
+      ; ?[]
+    )
+
+  is-property-access-without-this = // We wait for desugar-property-access so we can follow all properties by following Var("this")
+    ?Var(_); type-of; is-property-type
+
 rules
 
   rename-query-optimization-annos(rename-strategy) :
@@ -212,7 +227,7 @@ rules
 	sub-paths :
 	  Var(_) -> []
 
-  keep-anno-in-query-optimization = ?MultipleDefinitionsInSubclasses()
+  keep-anno-in-query-optimization = fail//?MultipleDefinitionsInSubclasses()
 
   an-requires-joining-fa :
     (fa@FieldAccess(_, _), srt) -> cleanfa
@@ -272,57 +287,39 @@ rules
   expand-call-to-return-values(s|nm, args) :
     e -> results
     where <is-accessible-from(s); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
-    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args)
+    ; (n, targs) := <normalize-signature> (nm, args)
+    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, n, targs)
+    ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
     with argmapping := <zip> (args, defargs)
-    ; <fetch-elem(?QueryAnalysis(_, returns, _, _))> defanno*
-    ; if [Var(xthis)] := <collect(?Var("this")); make-set> returns then
-        varmapping := [ (e, Arg(xthis, SimpleSort(ent))) | argmapping]
-      else
-        varmapping := argmapping
-      end
+    ; varmapping := <add-this-vars-to-mapping(|returns, e, ent)> argmapping
     ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
 
-/*
-  is-accessible-from-allow-calls(s) :
-    Call(e, nm, args) -> _
-    where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
-    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, nm, <map(type-of)> args)
-    with argmapping := <zip> (args, defargs)
-      ; <fetch-elem(?QueryAnalysis(analysis, _))> defanno*
-      ; if [Var(xthis)] := <map(Fst); collect(?Var("this")); make-set> analysis then
-          varmapping := [ (e, Arg(xthis, SimpleSort(ent))) | argmapping]
-        else
-          varmapping := argmapping
-        end
-      ; <debug(!"Following entity function ")> (ent, nm)
-      ; newanalysis := <foldr(!analysis, rename-vars-in-analysis)> varmapping
-  is-accessible-from-allow-calls(s) :
-    v@Var(_) -> [(v,srt)]
-    where (v, srt) := <is-accessible-from(s)> v
-
-  is-accessible-from-allow-calls(s) :
-    fa@FieldAccess(p, f) -> 
-    where paths := <is-accessible-from-allow-calls(s)> p
-    ; filter(is-accessible-from(s))
-*/
   // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
   // For query conditions this is not allowed, so there id should be used to deal with generic sorts
-  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)
+  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort); try(where(collect(?Cast(Cast(_, _), _)); not(?[])); debug(!"dbl:"))
 
-  is-accessible-from(s,gen): // Case where the cast is not needed
+  /*is-accessible-from(s,gen): // Cast where the cast is not needed
     Cast(f, srt){anno*} -> (p, srt)
-    where /*debug(!"is-accessible-from-cast-begin:");*/(p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
-    //; (<subtype-of> (srt, srt2) <+ <subtype-of> (srt2, srt))
-    ; <subtype-of> (<gen>srt2, srt) // up-cast or cast to same type
-    //; <debug(!"is-accessible-from-cast-end:")> (p, srt)
+    where (p, srt2) := <is-accessible-from(s,gen)> f
+    ; <subtype-of> (<gen>srt2, srt) // up-cast or cast to same type*/
 
-  is-accessible-from(s,gen): // Case where the cast is needed
+  is-accessible-from(s,gen):
+    Cast(Cast(f, srt), srt2){anno*} -> (p, srt3)
+    where <not(eq); subtype-of> (<gen>srt2, <gen>srt) // srt2 is more specific (subtype of srt)
+    ; (p, srt3) := <is-accessible-from(s,gen)> Cast(f, srt2){anno*}
+
+  is-accessible-from(s,gen):
+    Cast(Cast(f, srt){anno*}, srt2) -> (p, srt3)
+    where <subtype-of> (<gen>srt, <gen>srt2) // srt is more specific (subtype of srt2 or eq)
+    ; (p, srt3) := <is-accessible-from(s,gen)> Cast(f, srt){anno*}
+
+  is-accessible-from(s,gen): // Cast where the cast is needed
     Cast(f, srt){anno*} -> (Cast(p, srt){srt2, keepanno*}, srt)
-    where /*debug(!"is-accessible-from-cast-begin2:");*/(p, srt2) := <repeat(remove-top-level-cast); is-accessible-from(s,gen)> f
+    where not(Cast(_, _) := f)
+    ; (p, srt2) := <is-accessible-from(s,gen)> f
     ; not(<gen;?srt> srt2) 
     ; <subtype-of> (srt, <gen>srt2) // down-cast
     ; keepanno* := <remove-all(?GenericSort(_, _) <+ ?SimpleSort(_))> anno*
-    //; <debug(!"is-accessible-from-cast-end2:")> (Cast(p, srt){srt2, anno*}, srt)
 
   add-mutiple-definitions-anno: // srt is a sub entity of srt2
     fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa2
@@ -391,6 +388,18 @@ rules
   append-condition:
     (True(), oldCond) -> oldCond
 */
+
+  add-this-vars-to-mapping(|from, e, ent) :
+    mapping -> newmapping
+    with thisargs := <get-this-args(|ent)> from
+    ; thismapping := <map(!(e, <id>))> thisargs
+    ; newmapping := <conc> (mapping, thismapping)
+    
+  get-this-args(|ent) :
+    from -> thisargs
+    with thisvars := <collect(?Var("this")); make-set> from
+    ; thisargs := <map(?Var(<id>); !Arg(<id>, SimpleSort(ent)))> thisvars
+
   get-prop-type: (x_class, prop) -> <type-of-property>
 
   get-prop-type: (x_class, prop) -> <EntityIdType> x_class

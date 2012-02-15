@@ -7,13 +7,74 @@ imports
 imports
   libwebdsl-front
 
+signature constructors
+  Recursive : Term -> Term
+
 strategies
   
-  analyze-all = {| Root:
+  analyze-all = handle-recursion;{| Root:
     analyze-definitions
   ; topdown(try(analyze))
   |}
- 
+
+  handle-recursion :
+    app@Application(_, _) -> out
+    with collect(is-not-analyzed)
+    ; get-analyze-order-for-recursive
+    ; reverse
+    ; ?[Recursive(<id>)|_]
+    ; map(Fst)
+    ; flatten-list
+    ; make-set
+    ; {| Recursive
+       : map(\ x -> x with rules( Recursive : x -> x ) \)
+       ; out := <desugar-top> app
+      |}
+    ; <collect(is-not-analyzed);debug(!"noopt:")> out
+
+  get-analyze-order-for-recursive :
+    allremaining -> rtn
+    where required := <map(Snd); flatten-list; make-set> allremaining
+    ; (allcandidates, unrequired) := <partition(is-required-by-other-calls(|required))> allremaining 
+    ; if [] := unrequired then
+        rtn := <get-recursions> allcandidates
+      else
+        next := <get-analyze-order-for-recursive> allcandidates
+        ; rtn := [unrequired | next]
+      end
+
+  get-recursions :
+    recursions -> [Recursive(fullrecursions)]
+    with fullrecursions := <map(repeat(build-recursion(|recursions)))> recursions
+
+  build-recursion(|recursions) :
+    (genname, required) -> (genname, allrequired)
+    where extrarequired := <filter(get-further-requirements(|required)); flatten-list> recursions
+    ; <diff; not(?[])> (extrarequired, required)
+    ; allrequired := <conc; make-set> (extrarequired, required)
+
+  get-further-requirements(|required) :
+    (genname, requires) -> requires
+    where <fetch-elem(?genname)> required
+
+  is-required-by-other-calls(|required) = where(?(decl, _); <fetch-elem(?decl)> required)
+
+  is-not-analyzed :
+    def@Define(mod*, x,farg1*, req*, elem1*){anno*} -> (genname, wait)
+    where genname := <generate-template-name-fargs>(x, farg1*)
+    ; {| CurrentTemplateName
+       : rules( CurrentTemplateName := genname )
+       ; wait := <perform-waiting-check-only(|farg1*)> (elem1*, anno*)
+       |}
+
+  is-not-analyzed :
+    f@Function(x, farg*, srt, b1){anno*} -> ((x_class, n, targ*), wait)
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+    ; thisargs := <get-this-args(|x_class)> b1
+    ; args := <conc> (farg*, thisargs)
+		; wait := <perform-waiting-check-only(|args)> (b1, anno*)
+		; (n, targ*) := <normalize-signature>(x, farg*)
+
   analyze = fail
 
   analyze-definitions =
