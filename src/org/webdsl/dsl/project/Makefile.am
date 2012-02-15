@@ -48,6 +48,7 @@ nobase_dist_pkgdata_DATA = \
   webdsl-build-check.xml \
   webdsl-build-clean.xml \
   webdsl-build-eclipse.xml \
+  webdsl-build-eclipse-plugin-entry.xml \
   webdsl-build-index.xml
 
 # probably enough depth
