@@ -1,8 +1,10 @@
 application test
 
 define page root(){
+	animate()
+	
 	placeholder q{
-		
+		"test"
 	}
 }
 
