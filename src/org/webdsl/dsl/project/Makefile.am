@@ -19,7 +19,8 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
   $(wildcard template-java-servlet/stylesheets/*) \
-  $(wildcard template-webdsl/*) 
+  $(wildcard template-webdsl/*) \
+  webdsl webdsl-plugins webdsl.bat webdsl-eclipseplugin webdsl-eclipseplugin.bat # put scripts in share dir as well, needed for automatic builds of plugin
 
 EXTRA_DIST = \
   webdsl.bat \
