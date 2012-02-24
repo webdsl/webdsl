@@ -54,6 +54,7 @@ let
         src = tarball;
         buildInputs = [
           pkgconfig 
+          cpio
         ] ++ strPkgs pkgs 
           ++ lib.optional stdenv.isLinux apacheAnt
           ++ lib.optional stdenv.isDarwin antDarwinNative
