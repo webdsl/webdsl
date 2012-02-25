@@ -34,7 +34,7 @@ rules // Entry points
        ; [] := <collect(query-optimization-waiting-for); flatten-list/*;debug(!"Wait:")*/> (body, cond)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
-		       rules (  QueryConditions := <extract-query-cond-as-list> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
+		       rules (  QueryConditions := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort))> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
 		                IsEffectful     := False()                            // True if the current statement is effectful (means: can affect non-local state), False otherwise
 		             )
 		       //; <debug(!"Analyzing: ")> name
@@ -55,46 +55,23 @@ rules // Entry points
     qa@QueryAnalysis(analysis, _, _, unresolved, recursive) -> qo
     with {|RootVar, BindableVar
     : rules( RootVar : Var(x) -> xsrt )
+    //; <debug(!"x:")> Var(x)
+    //; <debug(!"qa:")> qa
     ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with /*debug(!"Bindable:");*/rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
-    ; ts := <filter(where(Fst; is-accessible-from(RootVar)))> analysis
-    ; joincandidates := <map(!(<Fst; is-accessible-from(RootVar); Fst>, <Snd>)); filter(an-requires-joining-fa); /*map(sub-paths);*/ flatten-list; map(try(?Cast(<id>, _))); make-set /*; keep-least-specific-casts*/> ts
-    ; querycondition := <filter(?(_, _, <revalidate-query-condition;and-query-condition>, True())); make-set; try(?[]; ![True()]); or-query-condition/*(where(filter(?True()); ?[]) < foldr(![], join-conditions) + !True())*/> ts // Combine query conditions of the effectful field accesses
+    ; ts := <filter-traversal-summary> analysis
+    ; querycondition := <traversal-summary-to-query-condition> ts // Combine query conditions of the effectful field accesses
     ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
     //; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
     //; alljoins := <traversals-to-tree(|x,xsrt,requiresalias)> joincandidates
     //; alljoins := <doall(|x,xsrt,requiresalias)> joincandidates
-    ; alljoins := <map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|[])); foldr(![], merge-optimization-branches)> joincandidates
+    ; alljoins := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(![], merge-optimization-branches)> ts
     ; alljoins2 := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list; foldr(!alljoins, merge-optimization-branches)> recursive
     ; alljoins3 := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!alljoins2, merge-conditional-optimization-branches)> unresolved
-    /*; condjoins := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias))> unresolved 
-    ; <?[]
-      < alljoins2 := alljoins
-      + (
-        debug(!"condjoins:")
-        ; <debug(!"x:")> [x]
-        ; <debug(!"alljoins:")> alljoins
-        ; alljoins2 := <foldr(!alljoins, merge-conditional-optimization-branches)> condjoins
-        ; <debug(!"alljoins2:")> alljoins2
-        )
-      > condjoins*/
-    //; debug(!"all:")
-    //; <map(debug(!"i2:");traversal-to-join(|x,xsrt,requiresalias); joins-to-tree(|[]);debug(!"a2:"));debug(!"tmp2:"); foldr(![], merge-trees);debug(!"all2:")> joincandidates
-    //; extrajoins := <filter(get-extra-joins-from-unresolved(|x,xsrt,requiresalias,alljoins));flatten-list> unresolved
-    //; alljoins2 := <conc;keep-least-specific-casts> (alljoins, extrajoins)
-    /*; try(
-      	not([] := extrajoins)
-      	; "proc"{"conferenceProceedingsConference_proc0"} := x
-      	; <debug(!"x:")> [x]
-      	; <debug(!"alljoins:")> alljoins
-      	; <debug(!"extrajoins:")> extrajoins
-        ; <debug(!"alljoins2:")> alljoins2
-      )*/
+    ; alljoins4 := <map(revalidate-join-conditions(|[]))> alljoins3
       |}
-    //; joincandidatesnogen := <filter(?(<id>, False()))> alljoins2
-    //; joincandidatesgen := <filter(?(<id>, True()))> alljoins2
-    ; qo := QueryOptimizations(alljoins3, querycondition)
-      //;debug(!"qo:")
-
+    ; qo := QueryOptimizations(alljoins4, querycondition)
+    //; debug(!"qo:")
+      
   get-branches-from-recursive(|x,xsrt,requiresalias) :
     (callee, e, args) -> branches2
     where passed := <(PassedCallee <+ !0); where(<lt>(<id>, 3))> callee
@@ -106,7 +83,7 @@ rules // Entry points
     ; {| PassedCallee
       : times := <int-inc> passed
       ; rules( PassedCallee : callee -> times )
-      ; recursivebranches := <get-recursive-from-query-analysis; map(translate-recursive(|varmapping)); filter(get-branches-from-recursive(|x,xsrt,requiresalias))> qa
+      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
       |}
     ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping)> analysis
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
@@ -121,7 +98,7 @@ rules // Entry points
     ; {| PassedCallee
       : times := <int-inc> passed
       ; rules( PassedCallee : callee -> times )
-      ; recursivebranches := <get-recursive-from-query-analysis; map(translate-recursive(|varmapping)); filter(get-branches-from-recursive(|x,xsrt,requiresalias))> qa
+      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
       |}
     ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping)> analysis
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
@@ -129,9 +106,9 @@ rules // Entry points
   common-branches-from-recursive(|x,xsrt,requiresalias,varmapping) :
     analysis -> branches
     where newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> varmapping
-    ; ts := <filter(where(Fst; is-accessible-from(RootVar)))> newanalysis
-    ; joincandidates := <map(!(<Fst; is-accessible-from(RootVar); Fst>, <Snd>)); filter(an-requires-joining-fa); flatten-list; map(try(?Cast(<id>, _))); make-set> ts
-    ; branches := <map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|[]))> joincandidates
+    ; ts := <filter-traversal-summary> newanalysis
+    //; joincandidates := <map(!(<Fst; is-accessible-from(RootVar); Fst>, <Snd>)); filter(an-requires-joining-fa); flatten-list; map(try(?Cast(<id>, _))); make-set> ts
+    ; branches := <traversal-summary-to-branches(|x,xsrt,requiresalias)> ts
     ; foldr(![], merge-optimization-branches)
     ; not([] := branches)
 
@@ -141,9 +118,9 @@ rules // Entry points
     ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
     ; newmap := <zip> (args, deffargs)
     ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> newmap
-    ; ts := <filter(where(Fst; is-accessible-from(RootVar)))> newanalysis
-    ; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); /*map(sub-paths); */flatten-list; map(try(?Cast(<id>, _))); make-set/*; keep-least-specific-casts*/> ts
-    ; branches := <map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|[]))> joincandidates
+    ; ts := <filter-traversal-summary> newanalysis
+    //; joincandidates := <map(!(<Fst>, <Snd>)); filter(an-requires-joining-fa); /*map(sub-paths); */flatten-list; map(try(?Cast(<id>, _))); make-set/*; keep-least-specific-casts*/> ts
+    ; branches := <traversal-summary-to-branches(|x,xsrt,requiresalias)> ts
     ; not([] := branches)
 
 strategies
@@ -222,7 +199,7 @@ rules // Traversals
 
   analyze-for-query-optimization : // For functions returning SimpleSort("Bool")
     Return(e1){anno*} -> Return(e2){anno*}
-    where traversal := <extract-query-cond; not(?True())> e1
+    where traversal := <extract-query-cond(get-accessible-expr(id)); not(?True())> e1
     ; rules( DetectedReturn :+= traversal )
     ; e2 := <analyze-for-query-optimization> e1
 
@@ -262,7 +239,9 @@ strategies // Resolve
 		    else
           args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
           ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
+          ; recursivecalls := <fetch-elem(get-recursive-from-query-analysis)> defanno*
           ; varmapping := <add-this-vars-to-mapping(|analysis, e, ent)> argmapping
+          ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
           //; <debug(!"Following entity function ")> (ent, nm)
           ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> varmapping
           ; <filter(combine-analysis)> newanalysis
@@ -273,13 +252,13 @@ strategies // Resolve
     ?(e, srt, cond, effectful)
     ; where (
       (traversal, esrt) := <is-accessible-from(RootVar)> e
-      ; tmpcond := <revalidate-query-condition> cond
+      ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort))> cond
       ; newcond := <conc; make-set>(<QueryConditions>, tmpcond)
       ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
       ; rules( DetectedTraveral :+= (traversal, esrt, newcond, iseffectful) )
     )
 
-  revalidate-query-condition = filter(extract-query-cond; not(?True()))
+  revalidate-query-condition(check-expr) = filter(extract-query-cond(check-expr); not(?True()))
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
@@ -323,10 +302,9 @@ strategies // Resolve
 
   analyze-for-query-optimization :
     c@TemplateCall(name, args1, passign1, body){anno*} -> TemplateCall(name, args2, passign2, body){anno*}
-    where /*<debug(!"is-defined:")>Var(name); */genname := <is-defined-tc-get-called-tc/*;debug(!"yes-defined:")*/> c
+    where genname := <is-defined-tc-get-called-tc> c
     ; [] := <filter(?ResolvedRequireKey(_))> passign1 // Required calls are resolved on the call that requires them
-    //; <debug(!"Call:")> c
-    with Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining template:");*/get-local-redefined-decl <+ CurrentTemplateDecl> genname // get-local-redefined-decl resolves a template call if it is redefined in the current template/page. That way it is handled as a regular resolvable template call.
+    with Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <get-local-redefined-decl <+ CurrentTemplateDecl> genname // get-local-redefined-decl resolves a template call if it is redefined in the current template/page. That way it is handled as a regular resolvable template call.
         ; passign2 := <map(?TemplateCall(_, _, _, _) <+ analyze-for-query-optimization-effectful)> passign1
         ; if recname := <get-follow-genname; Recursive> genname then
             extraArgs := <LocalRedefineArgs <+ ![]> recname
@@ -335,10 +313,11 @@ strategies // Resolve
             ; args2 := <map(analyze-for-query-optimization-effectful)> args1
 		      else
             args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
-            ; <fetch-elem(?QueryAnalysis(analysis, _, reqCalls, redefCalls, _))> defanno*
+            ; <fetch-elem(?QueryAnalysis(analysis, _, reqCalls, redefCalls, recursivecalls))> defanno*
             ; reqcallana := <filter(resolve-required-call-for-analysis(|genname,passign1,deffargs));flatten-list/*;debug(!"reqcallres:")*/> reqCalls
             //; <try(not(?[]); debug(!"redefs:"))> redefCalls
-            ; argmapping := </*debug(!"zipping:");*/zip> (args1, deffargs)
+            ; argmapping := <zip> (args1, deffargs)
+            ; <filter(translate-recursive(|argmapping); register-detected-recursive-call)> recursivecalls
             ; resolvedcalls := <resolve-unresolved-calls/*;try(not(?[]);debug(!"tempres:"))*/> (argmapping, redefCalls)
             //; <debug(!"Following template ")> genname
             //; <debug(!"analysis:")>analysis
@@ -445,7 +424,7 @@ strategies // Resolve
 
   fix-expression(|argmapping) :
     arg -> newarg
-    where newarg := <foldr(!arg, \ ((e, Arg(x, srt)), analysis) -> newanalysis with newanalysis := <try(alltd(?Var(x); !e))> analysis \); where(is-accessible-from(RootVar))> argmapping
+    where newarg := <foldr(!arg, \ ((e, Arg(x, srt)), analysis) -> <try(alltd(?Var(x); !e))> analysis \); where(is-accessible-from(RootVar))> argmapping
 
   fix-argument(|argmapping) :
     arg -> newarg
@@ -478,12 +457,14 @@ strategies // Resolve
 
   analyze-for-query-optimization =
     //(?ForAll(x, srt, f, b, _){anno*} <+ ?For(x, srt, e, f, b, _){anno*} <+ ?ForAllStmt(x, srt, f, b){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*})
-    where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*})
+    where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type> srt)
+    ; with(<analyze-for-query-optimization-continue> e
+    ; <analyze-for-query-optimization-continue> f
     ; <fetch-elem(?QueryAnalysis(analysis, _, _, unresolvedcalls, recursivecalls))> anno*
     ; mapping := [(e, Arg(x, srt))] // We only need to rename the iterator to the collection, all other variables are the same
     ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> mapping
     ; <map(translate-unresolved(|mapping))> unresolvedcalls
-    ; <map(translate-recursive(|mapping); register-detected-recursive-call)> recursivecalls
+    ; <filter(translate-recursive(|mapping); register-detected-recursive-call)> recursivecalls
     ; <filter(combine-analysis)> newanalysis
       )
 
@@ -581,22 +562,23 @@ strategies // Resolve
 rules // Query conditions
 
   // Extracts the query condition as a list where elements should be combined with the and operator
-  extract-query-cond-as-list :
+  extract-query-cond-as-list(check-expr) :
     And(expr1, expr2) -> cond 
-    where lst1 := <extract-query-cond-as-list> expr1
-    ; lst2 := <extract-query-cond-as-list> expr2
+    where lst1 := <extract-query-cond-as-list(check-expr)> expr1
+    ; lst2 := <extract-query-cond-as-list(check-expr)> expr2
     ; cond := <conc> (lst1, lst2)
 
-  extract-query-cond-as-list :
+  extract-query-cond-as-list(check-expr) :
     expr -> cond
     where not(And(_, _) := expr)
-    ; cond := <extract-query-cond; (?True() < ![] + ![<id>])> expr
+    ; cond := <extract-query-cond(check-expr); (?True() < ![] + ![<id>])> expr
 
 strategies
 
-  negate-query-cond-lst =
+  negate-query-cond-lst = // De Morgan's law, from conjuction list to disjunction with negated elements
     map(negate-query-cond <+ !Not(<id>))
-    ; flatten-list
+    ; or-query-condition
+    ; ![<id>]
 
   negate-query-cond :
     SmallerThanOrEqual(expr1, expr2) -> LargerThan(expr1, expr2)
@@ -629,7 +611,7 @@ rules // Special cases
 
   analyze-for-query-optimization-if :
     (cond1, true1, false1) -> (cond2, true2, false2)
-    where condlst := <extract-query-cond-as-list> cond1
+    where condlst := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort))> cond1
     ; not([] := condlst)
     with cond2 := <analyze-for-query-optimization-continue> cond1
     ; oldcond := <QueryConditions> 
@@ -641,103 +623,101 @@ rules // Special cases
 
 rules // Query conditions
 
-  //is-var-accessible = is-query-condition-constant <+ (is-accessible-from(QueryArg <+ RootVar); ?(<id>, _))
-  is-var-accessible = is-query-condition-constant <+ (is-accessible-from(BindableVar <+ RootVar); ?(<id>, _))
+  is-accessible-field(s,gen) =
+    (?Var(_) <+ ?FieldAccess(_, _))
+    ; is-accessible-from(s,gen)
+    ; Fst
+    ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
 
-  get-accessible-expr = get-accessible-dbfield
+  is-accessible-field(s,gen,srtcheck) =
+    (?Var(_) <+ ?FieldAccess(_, _))
+    ; is-accessible-from(s,gen)
+    ; where(Snd; srtcheck)
+    ; Fst
+    ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
 
-  get-accessible-expr = get-accessible-field
+  get-accessible-expr(gen) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr1 := <is-accessible-field(RootVar,gen)> expr1 // This expression is accessible from the query root entity
+    ; newexpr2 := <is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
 
-  get-accessible-expr = is-query-condition-constant
-
-  //get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); is-accessible-from(QueryArg,id); ?(<id>, srt); where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
-  get-accessible-dbfield = (?Var(_) <+ ?FieldAccess(_, _)); is-accessible-from(RootVar,id); ?(<id>, srt); where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
-
-  get-accessible-field = (?Var(_) <+ ?FieldAccess(_, _)); is-accessible-from(BindableVar,id); ?(<id>, srt); where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
-  //get-accessible-field = (?Var(_) <+ ?FieldAccess(_, _)); ((is-accessible-from(ParentArgs,id); ?(<id>, srt)) <+ is-query-condition-constant) 
+  get-accessible-expr(gen) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr2 := <is-accessible-field(RootVar,gen)> expr2 // This expression is accessible from the query root entity
+    ; newexpr1 := <is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
 
   is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 
   is-query-condition-constant = (?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ ?True() <+ ?False() <+ ?Null()); try(normalize) 
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     Not(expr1) -> Not(expr1new)
-    where expr1new := <extract-query-cond> expr1
+    where expr1new := <extract-query-cond(check-expr)> expr1
     ; not(True() := expr1new)
     ; not(Eq(_, _) := expr1new)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     Not(expr1) -> NotEq(expr1new, expr2new)
-    where eq@Eq(expr1new, expr2new) := <extract-query-cond> expr1
+    where eq@Eq(expr1new, expr2new) := <extract-query-cond(check-expr)> expr1
     ; not(<negate-simple-eq-cond> eq)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     Not(expr1) -> Eq(expr1new, expr2new)
-    where Eq(expr1new, expr2new) := <extract-query-cond; negate-simple-eq-cond> expr1
+    where Eq(expr1new, expr2new) := <extract-query-cond(check-expr); negate-simple-eq-cond> expr1
 
   negate-simple-eq-cond: Eq(True(), expr) -> Eq(expr, False())
   negate-simple-eq-cond: Eq(expr, True()) -> Eq(expr, False())
   negate-simple-eq-cond: Eq(False(), expr) -> Eq(expr, True())
   negate-simple-eq-cond: Eq(expr, False()) -> Eq(expr, True())
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     Or(expr1, expr2) -> Or(expr1new, expr2new)
-    where expr1new := <extract-query-cond> expr1
-    ; expr2new := <extract-query-cond> expr2
+    where expr1new := <extract-query-cond(check-expr)> expr1
+    ; expr2new := <extract-query-cond(check-expr)> expr2
     ; not(True() := expr1new)
     ; not(True() := expr2new)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     And(expr1, expr2) -> cond
-    where expr1new := <extract-query-cond <+ !True()> expr1
-    ; expr2new := <extract-query-cond <+ !True()> expr2
+    where expr1new := <extract-query-cond(check-expr) <+ !True()> expr1
+    ; expr2new := <extract-query-cond(check-expr) <+ !True()> expr2
     ; cond := <and-query-condition-helper>(expr1new, expr2new)
 
-  extract-query-cond:    
+  extract-query-cond(check-expr):    
     SmallerThanOrEqual(expr1, expr2) -> SmallerThanOrEqual(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     SmallerThan(expr1, expr2) -> SmallerThan(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     LargerThanOrEqual(expr1, expr2) -> LargerThanOrEqual(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     LargerThan(expr1, expr2) -> LargerThan(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     NotEq(expr1, expr2) -> NotEq(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     Eq(expr1, expr2) -> Eq(newExpr1, newExpr2)
-    where newExpr1 := <get-accessible-expr> expr1
-    ; newExpr2 := <get-accessible-expr> expr2
-    ; <is-one-dbprop> (expr1, expr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     fa1@FieldAccess(_, _) -> Eq(fa2, True())
-    where (fa2, SimpleSort("Bool")) := <is-accessible-from(RootVar,id)> fa1
+    where (fa2, _) := <check-expr> (fa1, True())
+    ; <is-accessible-field(RootVar,try-strip-generic-sort,?SimpleSort("Bool"))> fa1 // An extra check to make sure that this property can be placed inside the query by itself and is a boolean, other checks are left to check-expr (like allowing FAs on generic-sorts)
 
-  extract-query-cond:
+  extract-query-cond(check-expr):
     v1@Var(_) -> Eq(v2, True())
-    where (v2, SimpleSort("Bool")) := <is-accessible-from(RootVar,id)> v1
+    where (v2, _) := <check-expr> (v1, True())
+    ; <is-accessible-field(RootVar,try-strip-generic-sort,?SimpleSort("Bool"))> v1 // An extra check to make sure that this var can be placed inside the query by itself and is a boolean, other checks are left to check-expr (like allowing FAs on generic-sorts or not)
 
-  extract-query-cond :
+  extract-query-cond(check-expr) :
     c@Call(e, nm, args1){anno*} -> cond
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
     ; <not(not-allowed-ent-fun-name)> nm
@@ -750,7 +730,7 @@ rules // Query conditions
     with argmapping := <zip> (args1, defargs)
     ; varmapping := <add-this-vars-to-mapping(|returns, e2, ent)> argmapping
     ; newreturns := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
-    ; cond := <or-query-condition; extract-query-cond> newreturns
+    ; cond := <or-query-condition; extract-query-cond(check-expr)> newreturns
     where not(True() := cond)
 
   /*extract-query-cond=
@@ -794,4 +774,4 @@ rules // Query conditions
        ; repeat(oncetd(IteratedSubListValue <+ IteratedVarValue))
      |}*/
 
-  extract-query-cond = !True()
+  extract-query-cond(check-expr) = !True()

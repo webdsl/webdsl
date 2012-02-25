@@ -42,10 +42,17 @@ rules
           |}
 
   common-for-stmt-update-annotations :
-    anno* -> [ args*, ent*, plain-anno* ]
-    where plain-anno* := <remove-all(?FunctionArgs(_) <+ is-query-optimization <+ is-query-analysis)> anno*
-    ; args* := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
-    ; ent* := <fetch-elem(?FunctionEntity(_)) < ![] + ![FunctionEntity(<InEntity <+ !None()>)]> anno*
+    anno* -> [ args*, ent*, templ*, plain-anno* ]
+    where plain-anno* := <remove-all(?FunctionArgs(_) <+ ?TemplateArgs(_) <+ ?TemplateName(_))> anno*
+    ; if templName := <InTemplate <+ InPage> then // For loop inside action, inside template/page
+        templ* := [TemplateName(templName),TemplateArgs(<TemplateArg <+ ![]>)]
+        ; args* := []
+        ; ent* := []
+      else
+        templ* := []
+        ; args* := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
+        ; ent* := <fetch-elem(?FunctionEntity(_)) < ![] + ![FunctionEntity(<InEntity <+ !None()>)]> anno*
+      end
 
   rename-action :
     fs@ForCountStmt(x, e1, e2, b1) -> ForCountStmt(y, e3, e4, b2)
@@ -62,7 +69,7 @@ rules
     def@ForStmt(x, srt, _, _, _){anno*} -> def{qo,tokeep*}
     where <is-entity-type> srt
     ; <not(fetch-elem(is-query-optimization))> anno*
-    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForStmt", x, srt); <debug(!"def:")>def; get-empty-query-analysis)> anno* 
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForStmt", x, srt); get-empty-query-analysis)> anno* 
     ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; tokeep* := <remove-all(is-query-analysis)> anno*
     ; bindableargs := <filter(query-optimization-bindable-argument)> args
@@ -71,10 +78,22 @@ rules
   desugar-action :
     ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
     where <is-entity-type> srt
+    ; <not(fetch-elem(?TemplateName(_)))> anno*
     ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; thisargs := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
     ; args := <conc> ([Arg(x,srt)|args*], thisargs)
     ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), args,True())> (b, anno*)
+
+  desugar-action :
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
+    where <is-entity-type> srt
+    ; <fetch-elem(?TemplateArgs(args))> anno*
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), args,True())> (b, anno*)
+    |}
 
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
@@ -91,13 +110,23 @@ rules
     ; bindableargs := <filter(query-optimization-bindable-argument)> args
     ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> qa
 
-  desugar-action = desugar-optimization-forallstmt
-
-  desugar-optimization-forallstmt :
+  desugar-action :
     def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    where not(<fetch-elem(?TemplateName(_))> anno*)
     with cond := <?Filter(<id>, _, _) <+ !True()> f
     where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
     ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
+
+  desugar-action :
+    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    where <fetch-elem(?TemplateArgs(args))> anno*
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
+    |}
 
 rules
 

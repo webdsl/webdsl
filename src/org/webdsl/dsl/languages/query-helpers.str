@@ -43,6 +43,8 @@ rules
 	  |}
 	  ; make-set
 
+  filter-traversal-summary = filter(where(Fst; is-accessible-from(RootVar)))
+
 	declare-to-less-specific-cast-rules(|allcandidates) :
 	  fa1@FieldAccess(Cast(p, srt), f) -> (fa1, lessSpecific)
 	  where allLessSpecific := <collect(is-less-specific-cast(|p, srt, f)); make-set> allcandidates
@@ -63,35 +65,87 @@ rules
 	is-less-specific-cast:
 	  (fa1, fa2@FieldAccess(Cast(p, srt), f)) -> fa1
 	  where <is-less-specific-cast(|p, srt, f)> fa1
-/*
-	traversal-to-join(|x,xsrt,requiresalias):
-	  expr@FieldAccess(p, f{annof*}){anno*} -> (FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}, gen)
-	  with (p2{annop2*}, pgen) := <traversal-to-join(|x,xsrt,requiresalias)> p
-    ; SimpleSort(x_classp) := <fetch-elem(try(strip-ref-sort); (?SimpleSort(_) <+ ?GenericSort(_, [<id>])))> annop2*
-	  ; x_class := <class-of-property> (x_classp, f)
-	  ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
-	  ; gen := <?GenericSort(_, _) < !True() + !pgen> srt
-	  ; newanno* := <try(add-lazy-anno(|x_class, f, srt)); try(add-alias-anno(|expr,requiresalias))> anno*
-	    
-	traversal-to-join(|x,xsrt,requiresalias):
-	  Cast(p, srt){anno*} -> (Cast(p2, srt){srt, anno*}, gen)
-	  with (p2, gen) := <traversal-to-join(|x,xsrt,requiresalias)> p
-	
-	traversal-to-join(|x,xsrt,requiresalias):
-	  expr@Var(x){anno*} -> (expr{xsrt, anno*}, False())*/
 
-  //test-strat(|x,xsrt,requiresalias) = traversal-to-join(|x,xsrt,requiresalias); joins-to-tree(|[])
-  //doall(|x,xsrt,requiresalias) = (map(debug(!"i:");traversal-to-join(|x,xsrt,requiresalias); joins-to-tree(|[]);debug(!"a:"));debug(!"tmp:"); foldr(![], merge-trees)) <+ debug(!"fail:")
+  traversal-summary-to-branches(|x,xsrt,requiresalias) =
+    //map(prepare-traversal)
+    //; filter(\ (fst, snd, trd, True()) ->  with <clean-joincandidate> fst \)
+    //; with(conditions := <filter(prepare-condition(|x,xsrt))>)
+    //; filter(!(<Fst>, <Snd>); an-requires-joining-fa; try(?Cast(<id>, _)))
+    filter(prepare-traversal)
+    ; ?conditions
+    ; map(Fst)
+    ; make-set
+    ; map(add-conditions(|conditions))
+    ; map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch)
 
-  /*traversals-to-tree(|x,xsrt,requiresalias) =
-    info(|"traversals-to-tree:")
-    ; map(debug(!"i:");traversal-to-join(|x,xsrt,requiresalias); joins-to-tree(|[]);debug(!"a:"))
-    ; debug(!"tmp:")
-    ; foldr(![], merge-trees)
-    ; debug(!"all:")*/
+  add-conditions(|conditions) :
+    traversal{anno*} -> traversal{JoinCondition(conds), anno*}
+    with conds := <filter(?(traversal, <id>, True())); make-set> conditions // The condition list always has an element. If that element is an empty list then that means that there was no condition.
+
+  prepare-traversal :
+    (traversal1, srt, cond1, eff) -> (traversal3, cond2, eff)
+    with traversal2 := <is-accessible-from(RootVar); Fst> traversal1 // This removes any unnecessary casts
+    ; cond2 := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort))> cond1
+    where traversal3 := <an-requires-joining-fa; try(?Cast(<id>, _))> (traversal2, srt)
+
+  traversal-summary-to-query-condition =
+    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id));and-query-condition>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
+    ; make-set
+    ; try(?[]; ![True()]) // No condition means true
+    ; or-query-condition
+
+  is-accessible-condition-expr(|p,castsrt) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr1 := <is-accessible-condition-expr-helper(|p,castsrt)> expr1
+    ; newexpr2 := <is-accessible-condition-expr-helper(|p,castsrt)> expr2
+
+  is-accessible-condition-expr-helper(|p,castsrt) :
+    expr -> RelativeFieldAccess(relcastsrt, f)
+    where (e, srt) := <is-accessible-from(RootVar)>
+    ; <try(strip-ref-sort); try-strip-generic-sort; not(is-entity-type)> srt // If it is an entity type, then the value is not prefetched yet.
+    ; FieldAccess(f_expr, f) := <try(?Cast(<id>, _))> e
+    ; <(?Cast(p_expr, condcastsrt); <subtype-of> (castsrt, condcastsrt); !condcastsrt; topdown(add-type-annotations); ?relcastsrt) <+ (?p_expr; relcastsrt := None())> f_expr
+    ; <expr-matches-path(|p)> p_expr
+
+  expr-matches-path(|p) :
+    FieldAccess(e, f) -> fsrt
+    where [(f, SimpleSort(dec_class))|nextp] := p
+    ; esrt := <expr-matches-path(|nextp)> e
+    ; SimpleSort(e_class) := <try(strip-ref-sort); try-strip-generic-sort> esrt
+    ; dec_class := <class-of-property> (e_class, f) // If dec_class is not the same as that on the path, then the expression does not match the path.
+    ; fsrt := <get-prop-type; strip-ref-sort; topdown(add-type-annotations)> (dec_class, f)
+
+  expr-matches-path(|p) :
+    Cast(e, srt) -> srt
+    where <expr-matches-path(|p)> e
+
+  expr-matches-path(|p) :
+    v@Var(_) -> srt
+    where [] := p
+    ; srt := <RootVar> v
+
+  is-accessible-condition-expr-helper(|p,castsrt) = where(is-query-condition-constant)
+  is-accessible-condition-expr-helper(|p,castsrt) = where(is-accessible-from(BindableVar))
+
+  revalidate-join-condition(|p,castsrt) =
+    map(filter(extract-query-cond(is-accessible-condition-expr(|p,castsrt))); and-query-condition)
+    ; or-query-condition
+    ; (?True() < ![] + ![JoinCondition(<id>)])
+
+  revalidate-join-conditions(|p) :
+    (f, decsrt, castsrt, fsrt, subtree1){anno1*} -> (f, decsrt, castsrt, fsrt, subtree2){anno2*}
+    with
+      if <fetch-elem(?JoinCondition(joins))> anno1* then
+        keep* := <remove-all(?JoinCondition(_))> anno1*
+        ; joins* := <revalidate-join-condition(|p,castsrt)> joins
+        ; anno2* := [joins*,keep*]
+      else
+        anno2* := anno1*
+      end
+      ; newp := [(f, decsrt)|p]
+      ; subtree2 := <map(revalidate-join-conditions(|newp))> subtree1
 
   traversal-to-joins(|x,xsrt,requiresalias):
-    //expr@FieldAccess(p, f{annof*}){anno*} -> (FieldAccess(p2{annop2*}, f{DeclaringEntity(x_class),annof*}){srt, newanno*}, gen)
     expr@FieldAccess(e, f{annof*}){anno*} -> [(f{}, decsrt, castsrt, fsrt){newanno*} | prev]
     with <?Cast(p, _) <+ ?p> e
     ; castsrt := <(?Cast(_, <id>); add-type-annotations) <+ !None()> e
@@ -100,13 +154,16 @@ rules
     ; dec_class := <class-of-property> (e_class, f)
     ; decsrt := <add-type-annotations> SimpleSort(dec_class)
     ; fsrt := <get-prop-type; strip-ref-sort; topdown(add-type-annotations)> (dec_class, f)
-    ; newanno* := <filter(keep-anno-in-query-optimization); try(add-lazy-anno(|dec_class, f, fsrt)); try(add-alias-anno(|expr,requiresalias))> anno*
+    ; newanno* := <filter(keep-anno-in-query-optimization <+ ?JoinCondition(_)); try(add-lazy-anno(|dec_class, f, fsrt)); try(add-alias-anno(|expr,requiresalias))> anno*
 
   traversal-to-joins(|x,xsrt,requiresalias):
     Var(x) -> [(None(), None(), None(), srt)]
     with srt := <strip-ref-sort> xsrt
 
-  joins-to-optimization-branch(|sub) :
+  // Does the same as below
+  joins-to-optimization-branch = reverse; ?[_|<id>]; foldr(![], \ ((f, decsrt, castsrt, fsrt){anno*}, sub) -> [(f, decsrt, castsrt, fsrt, sub){anno*}] \); ?[<id>]
+
+  /*joins-to-optimization-branch(|sub) :
     [(f, decsrt, castsrt, fsrt){anno*}|xs] -> res
     where not([] := xs)
     with newsub := (f, decsrt, castsrt, fsrt, sub){anno*}
@@ -114,7 +171,15 @@ rules
 
   joins-to-optimization-branch(|sub) :
     [_] -> tree
-    with [tree] := sub
+    with [tree] := sub*/
+
+  combine-branch-anno :
+    (anno1*, anno2*) -> (anno3*, anno4*)
+    where <fetch-elem(?JoinCondition(joins1))> anno1*
+    ; <fetch-elem(?JoinCondition(joins2))> anno2*
+    ; joins3 := <conc; make-set> (joins1, joins2)
+    ; anno3* := <remove-all(?JoinCondition(_)); ![JoinCondition(joins3)|<id>]> anno1*
+    ; anno4* := <remove-all(?JoinCondition(_))> anno2*
 
   merge-optimization-branches :
     (branch@(f, decsrt, _, _, _), tree) -> [subtree | keep]
@@ -122,15 +187,17 @@ rules
     ; subtree := <fetch-elem(?(f, decsrt, _, _, _)) < combine-optimization-branches(|branch) + !branch> tree
 
   combine-optimization-branches(|branch) :
-    (f, decsrt, castsrt1, fsrt, subtree1){anno*} -> (f, decsrt, newcastsrt, fsrt, newsubtree){anno*}
-    where (f, decsrt, castsrt2, fsrt, [subtree2]){anno*} := branch
-    with newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
+    (f, decsrt, castsrt1, fsrt, subtree1){anno1*} -> (f, decsrt, newcastsrt, fsrt, newsubtree){anno3*}
+    where (f, decsrt, castsrt2, fsrt, [subtree2]){anno2*} := branch
+    with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
+    ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
     ; newsubtree := <merge-optimization-branches> (subtree2, subtree1)
 
   combine-optimization-branches(|branch) :
-    (f, decsrt, castsrt1, fsrt, subtree){anno*} -> (f, decsrt, newcastsrt, fsrt, subtree){anno*}
-    where (f, decsrt, castsrt2, fsrt, []){anno*} := branch
-    with newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
+    (f, decsrt, castsrt1, fsrt, subtree){anno1*} -> (f, decsrt, newcastsrt, fsrt, subtree){anno3*}
+    where (f, decsrt, castsrt2, fsrt, []){anno2*} := branch
+    with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
+    ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
 
   combine-cast-sort(|decsrt) :
     (None(), _) -> None()
@@ -161,15 +228,15 @@ rules
     ; subtree := <fetch-elem(?(f, decsrt, _, _, _)) < combine-conditional-optimization-branches(|cond, branch) + <add-condition-to-branch(|cond)>branch> tree
 
   combine-conditional-optimization-branches(|cond, branch) :
-    (f, decsrt, castsrt, fsrt, subtree1){anno1*} -> (f, decsrt, castsrt, fsrt, newsubtree){anno2*}
-    where (f, decsrt, _, _, [subtree2]) := branch
+    (f, decsrt, castsrt, fsrt, subtree1){anno1*} -> (f, decsrt, castsrt, fsrt, newsubtree){anno3*}
+    where (f, decsrt, _, _, [subtree2]){anno2*} := branch
     with newsubtree := <merge-conditional-optimization-branch(|cond)> (subtree2, subtree1)
-    ; anno2* := <try(add-condition-to-branch-anno(|cond))> anno1*
+    ; anno3* := <repeat(combine-branch-anno); Fst; try(add-condition-to-branch-anno(|cond))> (anno1*, anno2*)
 
   combine-conditional-optimization-branches(|cond, branch) :
-    (f, decsrt, castsrt, fsrt, subtree){anno1*} -> (f, decsrt, castsrt, fsrt, subtree){anno2*}
-    where (f, decsrt, _, _, []) := branch
-    ; anno2* := <try(add-condition-to-branch-anno(|cond))> anno1*
+    (f, decsrt, castsrt, fsrt, subtree){anno1*} -> (f, decsrt, castsrt, fsrt, subtree){anno3*}
+    where (f, decsrt, _, _, []){anno2*} := branch
+    ; anno3* := <repeat(combine-branch-anno); Fst; try(add-condition-to-branch-anno(|cond))> (anno1*, anno2*)
 
   add-condition-to-branch(|cond) :
     (f, decsrt, castsrt, fsrt, [subtree]){anno*} -> (f, decsrt, castsrt, fsrt, newsubtree){cond, anno*}
@@ -296,7 +363,7 @@ rules
 
   // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
   // For query conditions this is not allowed, so there id should be used to deal with generic sorts
-  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort); try(where(collect(?Cast(Cast(_, _), _)); not(?[])); debug(!"dbl:"))
+  is-accessible-from(s) = is-accessible-from(s,try-strip-generic-sort)//; try(where(collect(?Cast(Cast(_, _), _)); not(?[])); debug(!"dbl:"))
 
   /*is-accessible-from(s,gen): // Cast where the cast is not needed
     Cast(f, srt){anno*} -> (p, srt)
@@ -404,12 +471,6 @@ rules
 
   get-prop-type: (x_class, prop) -> <EntityIdType> x_class
     where <EntityIdName; ?prop> x_class
-
-  is-one-dbprop: (expr1, expr2) -> <id>
-    where <get-accessible-dbfield> expr1
-
-  is-one-dbprop: (expr1, expr2) -> <id>
-    where <get-accessible-dbfield> expr2
 
   get-all-entity-properties-as-fargs =
     get-all-entity-properties-as-mapping(|None())

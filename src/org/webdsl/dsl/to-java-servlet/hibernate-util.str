@@ -270,10 +270,6 @@ rules
     e_Cond -> expr |[ e_CondTmpl && e_Cond ]|
     where e_CondTmpl := <get-default-template-condition-from-anno> anno*
 
-  add-template-condition-check(|anno*) :
-    stm_Expr -> bstm |[ if(e_CondTmpl) stm_Expr ]|
-    where e_CondTmpl := <get-default-template-condition-from-anno> anno*
-
   add-cast-condition(|x_elem, cast) :
     e_Cond -> e_Cond
     where None() := cast
@@ -281,6 +277,25 @@ rules
   add-cast-condition(|x_elem, cast) :
     e_Cond -> expr |[ e_Cond && x_elem.instanceOf("~x_class") ]|
     where SimpleSort(x_class) := cast
+
+  add-conditions-to-prefetch(|anno*, v) :
+    e_Cond -> e_NewCond
+    with e_NewCond := <try(add-template-condition(|anno*)); try(add-join-condition(|anno*, v))> e_Cond
+
+  add-condition-checks-to-prefetch(|anno*, v) :
+    stm_Expr -> bstm |[ if((e_TmplCond) && (e_JoinCond)) stm_Expr ]|
+    where e_TmplCond := <get-default-template-condition-from-anno> anno*
+    ; e_JoinCond := <get-join-condition(|v)> anno*
+
+  add-condition-checks-to-prefetch(|anno*, v) :
+    stm_Expr -> bstm |[ if(e_TmplCond) stm_Expr ]|
+    where e_TmplCond := <get-default-template-condition-from-anno> anno*
+    ; <not(get-join-condition(|v))> anno*
+
+  add-condition-checks-to-prefetch(|anno*, v) :
+    stm_Expr -> bstm |[ if(e_JoinCond) stm_Expr ]|
+    where <not(get-default-template-condition-from-anno)> anno*
+    ; e_JoinCond := <get-join-condition(|v)> anno*
 
   /*
   elemsrt : The sort of x_elem
@@ -299,28 +314,18 @@ rules
     ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
     ; e_joins := <get-to-one-joins; string-list-to-java-servlet-or-null> subtree
     //; x_get := <concat-strings>["get", <capitalize-string> f]
+    ; v := Var(x_elem){TypeAnno(elemsrt)}
     ; if SimpleSort(x_castclass) := castsrt then
-        e_expr := <expression-to-java-servlet> FieldAccess(Cast(Var(x_elem){TypeAnno(elemsrt)}, castsrt), f)
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ x_elem.instanceOf("~x_castclass") ]|
+        e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, castsrt), f)
+        ; e_Cond := <add-conditions-to-prefetch(|anno*, v)> expr |[ x_elem.instanceOf("~x_castclass") ]|
         ; bstm_addbatch := bstm |[ if (e_Cond) x_batch.add(e_expr); ]|
       else
-        e_expr := <expression-to-java-servlet> FieldAccess(Var(x_elem){TypeAnno(elemsrt)}, f)
-        ; bstm_addbatch := <try(add-template-condition-check(|anno*))> bstm |[ x_batch.add(e_expr); ]|
+        e_expr := <expression-to-java-servlet> FieldAccess(v, f)
+        ; bstm_addbatch := <try(add-condition-checks-to-prefetch(|anno*, v))> bstm |[ x_batch.add(e_expr); ]|
       end
     ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_batch, e_joins); ]|
     ; bstm_sub* := <build-sub-batches(|x_batch, fsrt)> subtree
-/*    ; x_batch := <fa-to-uniquename(|x_list)> fa
-    ; e_joins := <get-to-one-joins; string-list-to-java-servlet-or-null> subtree
-    ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
-    ; e_expr := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> fa
-    ; if Cast(p, SimpleSort(x_class2)) := c then
-        e_p := <topdown(try(add-fake-entity-anno));expression-to-java-servlet> p
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ e_p.instanceOf("~x_class2") ]|
-        ; bstm_addbatch := bstm |[ if (e_Cond) x_batch.add(e_expr); ]|
-      else
-        bstm_addbatch := <try(add-template-condition-check(|anno*))> bstm |[ x_batch.add(e_expr); ]|
-      end
-*/
+
   build-batch(|x_elem, elemsrt, x_list):
     (f, decsrt, castsrt, fsrt, subtree){anno*} -> (bstm_batch, bstm_addbatch, bstm_fetch, bstm_after, bstm_sub*)
     where <fetch-elem(?IsLazyFetch())> anno*
@@ -336,17 +341,18 @@ rules
           java.util.Set<java.io.Serializable> x_ownerids = new java.util.HashSet<java.io.Serializable>();
           java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>();
         ]|
+    ; v := Var(x_elem){TypeAnno(elemsrt)}
     ; if SimpleSort(x_castclass) := castsrt then
-        e_c := <expression-to-java-servlet> Cast(Var(x_elem){TypeAnno(elemsrt)}, castsrt)
-        ; e_expr := <expression-to-java-servlet> FieldAccess(Cast(Var(x_elem){TypeAnno(elemsrt)}, castsrt), f)
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ x_elem.instanceOf("~x_castclass") ]|
+        e_c := <expression-to-java-servlet> Cast(v, castsrt)
+        ; e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, castsrt), f)
+        ; e_Cond := <add-conditions-to-prefetch(|anno*, v)> expr |[ x_elem.instanceOf("~x_castclass") ]|
         ; bstm_addbatch := bstm |[ if ( e_Cond && e_c.is#x_f#Uninitialized() ) x_ownerids.add(x_elem.getId()); ]|
         ; bstm_after := bstm |[ if (e_Cond) x_batch.add(e_expr); ]|
       else
-        e_expr := <expression-to-java-servlet> FieldAccess(Var(x_elem){TypeAnno(elemsrt)}, f)
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ x_elem.is#x_f#Uninitialized() ]|
+        e_expr := <expression-to-java-servlet> FieldAccess(v, f)
+        ; e_Cond := <add-conditions-to-prefetch(|anno*, v)> expr |[ x_elem.is#x_f#Uninitialized() ]|
         ; bstm_addbatch := bstm |[ if (e_Cond) x_ownerids.add(x_elem.getId()); ]|
-        ; bstm_after := <try(add-template-condition-check(|anno*))> bstm |[ x_batch.add(e_expr); ]|
+        ; bstm_after := <try(add-condition-checks-to-prefetch(|anno*, v))> bstm |[ x_batch.add(e_expr); ]|
       end
     ; bstm_fetch := bstm |[ utils.QueryOptimization.prefetchLazyProperties(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", "~field", x_ownerids, e_joins); ]|
     ; bstm_sub* := <build-sub-batches(|x_batch, fsrt)> subtree
@@ -363,37 +369,40 @@ rules
                             java.util.HashSet<t> x_batch = new java.util.HashSet<t>();
                           ]|
     ; strRole := <concat-strings>[<java-type-name> decsrt, "._", f]
+    ; v := Var(x_elem){TypeAnno(elemsrt)}
     ; if SimpleSort(x_castclass) := castsrt then
-        e_c := <expression-to-java-servlet> Cast(Var(x_elem){TypeAnno(elemsrt)}, castsrt)
-        ; e_expr := <expression-to-java-servlet> FieldAccess(Cast(Var(x_elem){TypeAnno(elemsrt)}, castsrt), f)
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ x_elem.instanceOf("~x_castclass") ]|
+        e_c := <expression-to-java-servlet> Cast(v, castsrt)
+        ; e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, castsrt), f)
+        ; e_Cond := <add-conditions-to-prefetch(|anno*, v)> expr |[ x_elem.instanceOf("~x_castclass") ]|
         ; bstm_addbatch := bstm |[ if (e_Cond && e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized()) x_owner.add(e_c); ]|
         ; bstm_after := bstm |[ if (e_Cond) x_batch.addAll(e_expr); ]|
       else
-        e_expr := <expression-to-java-servlet> FieldAccess(Var(x_elem){TypeAnno(elemsrt)}, f)
-        ; e_Cond := <try(add-template-condition(|anno*))> expr |[ e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized() ]|
+        e_expr := <expression-to-java-servlet> FieldAccess(v, f)
+        ; e_Cond := <add-conditions-to-prefetch(|anno*, v)> expr |[ e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized() ]|
         ; bstm_addbatch := bstm |[ if(e_Cond) x_owner.add(x_elem); ]|
-        ; bstm_after := <try(add-template-condition-check(|anno*))> bstm |[ x_batch.addAll(e_expr); ]|
+        ; bstm_after := <try(add-condition-checks-to-prefetch(|anno*, v))> bstm |[ x_batch.addAll(e_expr); ]|
       end
     ; bstm_fetch := bstm |[
         utils.QueryOptimization.prefetchCollections(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~strRole", x_owner, e_joins);
       ]|
     ; bstm_sub* := <build-sub-batches(|x_batch, fsimplesrt)> subtree
-/*     with
-     	<pp-java5-to-string; debug(!"bstm_batch:")> bstm_batch
-     	; <pp-java5-to-string; debug(!"bstm_addbatch:")> bstm_addbatch
-     	; <pp-java5-to-string; debug(!"bstm_fetch:")> bstm_fetch*/
-/*
-  buidl-batch(|x, srt, x_list):
-    fa@FieldAccess(_, _){anno*} -> bstm
-    where <fetch-elem(?GenericSort(_, [SimpleSort(x_class)]))> anno*
-    ; SimpleSort(x_class) := srt
-    ; t := <java-type-entity> x_class
-    ; x_batch := <fa-to-uniquename(|x_list)> fa
-    ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
-    ; bstm_addbatch := bstm |[ x_batch.add(x_lst); ]|
-    ; bstm_fetch := bstm |[ utils.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~t", x_batch); ]|
-*/
+
+  get-join-condition(|v) :
+    anno* -> e_JoinCond
+    where <fetch-elem(?JoinCondition(joincond))> anno*
+    with e_JoinCond := <alltd(replace-relative-fa(|v)); expression-to-java-servlet> joincond
+
+  add-join-condition(|anno*, v) :
+    e_Cond -> expr |[ e_Cond && (e_JoinCond) ]|
+    where e_JoinCond := <get-join-condition(|v)> anno*
+
+  replace-relative-fa(|v) :
+    RelativeFieldAccess(castsrt, f) -> FieldAccess(Cast(v, castsrt), f)
+    where not(None() := castsrt)
+
+  replace-relative-fa(|v) :
+    RelativeFieldAccess(None(), f) -> FieldAccess(v, f)
+
   get-sub-paths(|paths) :
     path -> (path, subpaths)
     with subpaths := <filter(where(collect(?path); ?[_]))> paths
