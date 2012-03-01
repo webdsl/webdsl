@@ -29,12 +29,10 @@ rules // clean up HQL queries
     with qr2 := <common-desugar-unaliassed-prop-from-query> qr
 
   add-backend-annotation :
-    qr@QueryRule(SelectFrom(selection, FromClause([FromRangeJoin(FromClass(Path([x_Class]),_,None()), ranges)])), _, _, _){anno*} -> qr{CachedEntity(), anno*}
-    where (None() := ranges <+ [] := ranges)
-    ; not(<fetch-elem(?CachedEntity())> anno*)
-    ; not(<is-aggregate-function-selection> selection)
-    ; not(<is-new-expression-selection> selection)
-    ; <is-cached-entity> x_Class
+    qr@QueryRule(SelectFrom(selection, FromClause([FromRangeJoin(FromClass(Path([x_Class]),_,None()), ranges)])), _, _, _){anno*} -> <add-new-anno(|CachedEntity())>qr
+    where <type-of-query; try-strip-generic-sort; ?SimpleSort(<is-cached-entity>)> qr
+    ; [] := <collect(?Fetch() <+ ?PropertyFetch())> qr // Join fetch queries, prevent fetch queries later on and should not be cached, because this optimization is not carried out on cache hits
+	//; info(|["Cacheable HQL: ", <alltd(\DslExp(e) -> IdParam(<concat-strings>["~",<pp-webdsl-to-string>e])\); pp-hql-to-string; trim-chars('\n')> qr])
 
   common-desugar-unaliassed-prop-from-query :
     QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, groupby, orderby){anno*} -> QueryRule(SelectFrom(selection2, FromClause(ranges)), whereclause2, groupby2, orderby2){UnaliassedPathsRenamed(), anno*}

@@ -1,46 +1,46 @@
 module org/webdsl/dsl/languages/ui/local-redefine-template
 
-imports 
+imports
   libstrategolib
-  
-imports 
+
+imports
   libwebdsl-front
 
 rules //check that the global declaration being redefined exists
-  
+
   constraint-error-ui :
     def@Define(mod*, name, fargs, targs, body) -> <add-error(|["A template definition with signature '",ppcall,"' must be defined globally to allow local override"])>
     where is-local-template-def
     with  sig@(n,t*) := <normalize-signature> (name,fargs)
     where not(<TopLevelTemplateDecl> sig)
     with  ppcall := <pp-func-sig> sig
-  
+
 rules
 
   constraint-error-ui :
     LocalRedefine(mods,tname,fargs,tname2,extraArgs) -> <add-error(|["Local template redefinition requires a template with signature: ",ppcall])>
-    with type* := <local-redefine-arg-types(|fargs, extraArgs)> 
+    with type* := <local-redefine-arg-types(|fargs, extraArgs)>
     where not(get-exact-definition-from-sig(|tname2, type*))
     with  ppcall := <pp-func-sig> (tname2,type*)
-    
+
   /**
    *  Tests whether the define has been declared globally and returns def, sig or both
    */
   get-def-from-local-redefine :
     LocalRedefine(mods,tname,fargs,tname2,extraArgs) -> def
-    with  type* := <local-redefine-arg-types(|fargs, extraArgs)> 
+    with  type* := <local-redefine-arg-types(|fargs, extraArgs)>
     where def := <get-exact-definition-from-sig(|tname2, type*)>
-    
+
   local-redefine-arg-types(|fargs, extraArgs) :
     _ -> type*
     with  (LocalRedefineArgs(extraArgs2) := extraArgs <+ extraArgs2 := [])
         ; t2* := <map(type-of)> extraArgs2
         ; t1* := <formal-arguments-to-types> fargs
         ; type* := [t1*,t2*]
-    
+
   /**
   *  Add formal arguments of the extra arguments, so the back-end knows whether to wrap objects passed as Ref or pass them normally.
-  *  The extra arguments are created when the define x() = y(*,extra,args) is handled and stored in the Environment class (java-template.str), 
+  *  The extra arguments are created when the define x() = y(*,extra,args) is handled and stored in the Environment class (java-template.str),
   *  to be retrieved when an actual call to the template occurs (control-flow-to-java-servlet.str).
   */
   add-backend-annotation =
@@ -51,29 +51,30 @@ rules
     ; annoval := <reverse; take(|extraArgsLength); reverse> fargs1
     )
   ; add-new-anno(|ExtraLocalDefineArgs(annoval))
-  
+
 
 rules
-  
+
   /**
    *  Desugar inline local template redefinition to global template
    *  @TODO support 'requires' template args
    */
   desugar-ui :
-    def@Define(mods1, name1{uniqname1},fargs1, reqs1, elems1){anno*} 
-    -> LocalRedefine(mods1,name1{},fargs1,uniqname2, LocalRedefineArgs(extraArgs)){SpanNames(name1,nameWithTypes)} 
+    def@Define(mods1, name1{uniqname1},fargs1, reqs1, elems1){anno*}
+    -> LocalRedefine(mods1,name1{},fargs1,uniqname2, LocalRedefineArgs(extraArgs)){SpanNames(name1,nameWithTypes)}
     // note: no anno on name1, otherwise would get renamed
     // SpanNames could be added in front-end and made part of LocalRedefine, put in annotation for now
     where is-local-template-def
+    //force lifting of inline actions to happen first in order to avoid (non-deterministic) compiler error http://yellowgrass.org/issue/WebDSL/391
+    where <not(oncetd(?InlineAction(_)))> elems1
     with  <fetch(?EnclosingDefine(templatekey, encltemplatename, encltemplateargs, _)) <+ debug(!"'EnclosingDefine' annotation missing on local template definition");fail> anno*
     with  (extraArgs,fargs2) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,[elems1,<map(get-varname-from-formarg)>encltemplateargs]) // imported ac rules might use these, have to include them as arguments
-        ; combinedfargs :=  <concat>[fargs1,<map(\ Arg(x,srt) -> Arg(x,RefSort(srt)) where not(<is-ref-type> srt) \)> fargs2]
+        ; combinedfargs :=  <concat>[fargs1,<force-ref-arg-in-fargs> fargs2]
     with //copy actions for now, @TODO mechanism for passing actions as parameters
           actions := <TemplateActions <+ ![]> encltemplatename
     with with-current-location(
          mods_for_emitted_define := <filter(TemplateModSpan <+ IgnoreAccessControl)> mods1
        ; uniqname2 := <concat-strings> [uniqname1,"$l$"]//avoids name overlap, $ is not used in user-defined webdsl template names
-       //; t2* := <formal-arguments-to-types> fargs2
        ; pagegenname := <normalize-signature; generate-template-name>(encltemplatename, encltemplateargs)
        ; genname := <normalize-signature; generate-template-name> (name1, fargs1)
        ; redefgenname := <normalize-signature; generate-template-name> (uniqname2, combinedfargs)
@@ -81,16 +82,19 @@ rules
            LocalRedefineGenname : (pagegenname, genname) -> redefgenname
            LocalRedefineArgs : redefgenname -> extraArgs
          )
-       ; <add-current-location; emit-webdsl-code> 
-         Define([TemplateDefineNameBeforeLifting(name1)|mods_for_emitted_define], uniqname2, combinedfargs, reqs1, 
+       ; <add-current-location; emit-webdsl-code>
+         Define([TemplateDefineNameBeforeLifting(name1)|mods_for_emitted_define], uniqname2, combinedfargs, reqs1,
          <concat> [[AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs)], //apply ac rules of enclosing template
          elems1,actions]) //note: empty mods, so no Local(), prevents triggering this desugar again
          )
     with //just for reconstructing the names used in spans:
           sig@(n,t*) := <normalize-signature> (name1,fargs1)
         ; nameWithTypes := <generate-template-name> sig
-          
-      
+
+  force-ref-arg-in-fargs = map(try(replace-non-ref-with-ref-in-farg <+ make-ref-type-explicit-in-farg))
+  replace-non-ref-with-ref-in-farg : Arg(x,srt) -> Arg(x,RefSort(srt)) where not(<is-ref-type> srt)
+  make-ref-type-explicit-in-farg : Arg(x,srt) -> Arg(x,RefSort(srt)) where <is-ref-type> srt; <not(?RefSort(_))> srt
+
   rename-ui : // This rule just updates LocalRedefineArgs
     inp@LocalRedefine(mods,name1,fargs1,uniqname1,redefargs1){anno*} -> LocalRedefine(mods,name2,fargs2,uniqname2,redefargs2){anno*}
     with name2 := <rename-all> name1

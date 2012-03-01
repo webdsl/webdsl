@@ -5,6 +5,7 @@ import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.config.Configuration;
 import net.sf.ehcache.config.ConfigurationFactory;
 import net.sf.ehcache.config.CacheConfiguration;
+import net.sf.ehcache.config.DiskStoreConfiguration;
 import org.hibernate.cache.CacheException;
 import org.hibernate.cfg.Settings;
 import org.slf4j.Logger;
@@ -14,6 +15,8 @@ import java.net.URL;
 
 public class EhCacheRegionFactory extends net.sf.ehcache.hibernate.EhCacheRegionFactory {
     private static final Logger LOG = LoggerFactory.getLogger(EhCacheRegionFactory.class);
+
+    public static final String NET_SF_EHCACHE_DISKSTORE_PATH = "utils.ehcache.diskstore.path";
 
     public static final String NET_SF_EHCACHE_REGION_PREFIX = "utils.ehcache.region.";
 
@@ -56,6 +59,20 @@ public class EhCacheRegionFactory extends net.sf.ehcache.hibernate.EhCacheRegion
 
             // At this point the configuration has been parsed as usual
             // Now we override properties that are defined in hibernate.properties
+
+            configuration.getDefaultCacheConfiguration().setOverflowToDisk(false); // Disable overflow to disk by default
+            if(properties.getProperty(NET_SF_EHCACHE_DISKSTORE_PATH) != null) {
+	            DiskStoreConfiguration diskStore = configuration.getDiskStoreConfiguration();
+	            if(diskStore == null) {
+	            	diskStore = new DiskStoreConfiguration();
+	            	diskStore.setPath(properties.getProperty(NET_SF_EHCACHE_DISKSTORE_PATH));
+	            	configuration.diskStore(diskStore);
+	            }
+	            else {
+	            	diskStore.setPath(properties.getProperty(NET_SF_EHCACHE_DISKSTORE_PATH));
+	            }
+	            configuration.getDefaultCacheConfiguration().setOverflowToDisk(true); // A disk store path was specified in application.ini, so enable overflow to disk
+            }
 
             overrideCacheConfiguration(properties, configuration.getDefaultCacheConfiguration(), net.sf.ehcache.Cache.DEFAULT_CACHE_NAME);
 

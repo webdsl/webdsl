@@ -11,15 +11,13 @@ imports
 
 rules //desugar searcher language to native class interface
 
-
   desugar-search:
   	Suggest(ent, AutoComplete(), prts) -> result
   	with x_searcher := <concat-strings>[ent,"Searcher"]
   		; e_searcher := exp |[ x_searcher  ]|
-  		; <fetch(?FieldsConstraint(fields))> prts
+  		; <fetch(?SuggestTerm(FieldsConstraint(fields),e_toSuggest ))> prts
   		; e_fields* := <map(\x -> <field-to-string> x\)> fields
   		; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
-  		; e_toSuggest := <fetch(?SuggestTerm(t)) ; !t> prts
   		; if (<fetch(?NamespaceConstraint(e_ns))> prts)
   		  then result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, e_ns, [e_fields*], e_limit)]|
   		  else result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, [e_fields*], e_limit)]|
@@ -29,11 +27,10 @@ rules //desugar searcher language to native class interface
   	Suggest(ent, SpellCheck(), prts) -> result
   	with x_searcher := <concat-strings>[ent,"Searcher"]
   		; e_searcher := exp |[ x_searcher  ]|
-  		; <fetch(?FieldsConstraint(fields))> prts
+  		; <fetch(?SuggestTerm(FieldsConstraint(fields),e_toSuggest ))> prts
   		; e_fields* := <map(\x -> <field-to-string> x\)> fields
   		; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
   		; e_similarity := <(fetch(?Similarity(sim));!sim) <+ !exp |[ 0.7 ]|> prts
-  		; e_toSuggest := <fetch(?SuggestTerm(t)); !t> prts
   		; if (<fetch(?NamespaceConstraint(e_ns))> prts)
   		  then result := |[ e_searcher.spellSuggest(e_toSuggest, e_ns, [e_fields*], e_similarity, e_limit)]|
   		  else result := |[ e_searcher.spellSuggest(e_toSuggest, [e_fields*], e_similarity, e_limit)]|
@@ -149,7 +146,12 @@ rules //desugar searcher language to native class interface
   	   ; e_close := exp|[ e_queryExps.closeGroup() ]|
 
   queryExp-to-expr:
-  	(TermDef(boolOp, e_termExp), (e_done, fields_constraint)) -> exp|[ e_fields.query(e_termExp) ]|
+  	(TermDef(boolOp, e_termExp, None()), (e_done, fields_constraint)) -> exp|[ e_fields.query(e_termExp) ]|
+  	with e_bool := <boolOp-to-expr> (boolOp, e_done)
+  	   ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+  	     
+  queryExp-to-expr:
+  	(TermDef(boolOp, e_termExp, Some(Slop(e_slop))), (e_done, fields_constraint)) -> exp|[ e_fields.phraseQuery(e_termExp, e_slop) ]|
   	with e_bool := <boolOp-to-expr> (boolOp, e_done)
   	   ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
   	

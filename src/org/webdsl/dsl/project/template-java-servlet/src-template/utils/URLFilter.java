@@ -3,9 +3,6 @@ package utils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.regex.Pattern;
-
-import org.apache.lucene.search.regex.RegexCapabilities;
 
 /**
  *  

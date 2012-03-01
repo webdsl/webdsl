@@ -1,6 +1,6 @@
 package org.webdsl.search;
 	      
-	import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;

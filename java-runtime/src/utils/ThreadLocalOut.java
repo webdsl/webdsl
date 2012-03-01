@@ -1,5 +1,4 @@
 package utils;
-import javax.servlet.http.*;
 import java.io.*;
 import java.util.*;
 public class ThreadLocalOut {

@@ -373,13 +373,13 @@ public class AutoCompleter implements java.io.Closeable {
       ensureOpen();
       searcher.getIndexReader().incRef();
       return searcher;
-    }
+    }    
   }
   
   private void releaseSearcher(final IndexSearcher aSearcher) throws IOException{
       // don't check if open - always decRef 
       // don't decrement the private searcher - could have been swapped
-      aSearcher.getIndexReader().decRef();      
+      aSearcher.getIndexReader().decRef();
   }
   
   private void ensureOpen() {

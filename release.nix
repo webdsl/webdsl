@@ -54,6 +54,7 @@ let
         src = tarball;
         buildInputs = [
           pkgconfig 
+          cpio
         ] ++ strPkgs pkgs 
           ++ lib.optional stdenv.isLinux apacheAnt
           ++ lib.optional stdenv.isDarwin antDarwinNative
@@ -104,7 +105,7 @@ let
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig ecj apacheAnt strcJava which fastjar jdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj apacheAnt strcJava which fastjar jdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 

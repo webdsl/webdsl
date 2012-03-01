@@ -9,6 +9,7 @@ public class Warning {
     
     public static void printSmallStackTrace(Exception e){
         System.out.println(e.getClass().getCanonicalName());
+        System.out.println(e.getLocalizedMessage());
         StackTraceElement[] stack = e.getStackTrace();
         if(stack.length > 0){
             System.out.println("\tat "+stack[0].toString());

@@ -4,11 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+
+import javax.print.attribute.standard.DateTimeAtCompleted;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -28,14 +31,23 @@ public class SearchSuggester {
 	private static HashMap<String, AutoCompleter> autoCompleterMap = new HashMap<String, AutoCompleter>();
 	private static HashMap<String, SpellChecker> spellCheckMap = new HashMap<String, SpellChecker>();
 
+	static{
+		try{
+			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+		} catch (Exception ex) {
+			//ignore exception, because it is probably thrown when running reindex script (using new java vm instance). Hibernate session and thus search factory cannot be retrieved then.  
+			searchfactory = null;
+		}
+	}
+	
 	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, List<String> fields,
-			int maxSuggestionsPerFieldCount, float accuracy, boolean morePopular, String toSuggestOn) {
+			int maxSuggestionsPerFieldCount, float accuracy, boolean morePopular, Analyzer analyzer, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
 			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, suggestedField,
-					maxSuggestionsPerFieldCount, accuracy, morePopular, toSuggestOn);
+					maxSuggestionsPerFieldCount, accuracy, morePopular, analyzer, toSuggestOn);
 			//If toSuggestOn is correctly spelled in one of the fields, don't return suggestions
 			if (fieldSuggestions.isEmpty()){
 				return new ArrayList<String>();				
@@ -49,7 +61,7 @@ public class SearchSuggester {
 	@SuppressWarnings("deprecation")
 	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
-			String toSuggestOn) {
+			Analyzer analyzer, String toSuggestOn) {
 
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
@@ -64,7 +76,6 @@ public class SearchSuggester {
 
 			spellChecker.setAccuracy(accuracy);
 
-			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -121,13 +132,13 @@ public class SearchSuggester {
 	}
 
 	public static ArrayList<String> findAutoCompletions(Class<?> entityClass, String baseDir, List<String> fields,
-			int maxSuggestionsPerFieldCount, String toSuggestOn) {
+			int maxSuggestionsPerFieldCount, Analyzer analyzer, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
 			List<String> fieldSuggestions = findAutoCompletionsForField(entityClass, baseDir, suggestedField,
-					maxSuggestionsPerFieldCount, toSuggestOn);
+					maxSuggestionsPerFieldCount, analyzer, toSuggestOn);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
 
@@ -136,7 +147,7 @@ public class SearchSuggester {
 
 	@SuppressWarnings("deprecation")
 	public static ArrayList<String> findAutoCompletionsForField(Class<?> entityClass, String baseDir,
-			String suggestedField, int maxSuggestionCount, String toSuggestOn) {
+			String suggestedField, int maxSuggestionCount, Analyzer analyzer, String toSuggestOn) {
 
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
@@ -145,7 +156,7 @@ public class SearchSuggester {
 		String indexPath = baseDir + suggestedField;
 		try {
 			autoCompleter = getAutoCompleter(indexPath);
-			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
+			
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -248,25 +259,22 @@ public class SearchSuggester {
 	
 	//Get the reusable AutoCompleter instance for a specific index path, also initializes search factory if not present
 	private static synchronized AutoCompleter getAutoCompleter(String indexPath) throws IOException{
-		if(searchfactory == null) {
-			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
-		}
-		
-		if (!autoCompleterMap.containsKey(indexPath)){
+		AutoCompleter toReturn = autoCompleterMap.get(indexPath); 
+		if ( toReturn == null ){
+			toReturn = new AutoCompleter(FSDirectory.open(new File(indexPath)));
 			//autoCompleterMap.put(indexPath, new AutoCompleter(new RAMDirectory(FSDirectory.open(new File(indexPath)))));
-			autoCompleterMap.put(indexPath, new AutoCompleter(FSDirectory.open(new File(indexPath))));
+			autoCompleterMap.put(indexPath, toReturn );
 		}
-	    return autoCompleterMap.get(indexPath);
+	    return toReturn;
 	}
 	
-	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{		
-		if(searchfactory == null){
-			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{
+		SpellChecker toReturn = spellCheckMap.get(indexPath);
+		if ( toReturn == null ){
+			toReturn = new SpellChecker(FSDirectory.open(new File(indexPath)));
+			spellCheckMap.put(indexPath, toReturn);
 		}
-		if (!spellCheckMap.containsKey(indexPath)){
-			spellCheckMap.put(indexPath, new SpellChecker(FSDirectory.open(new File(indexPath))));
-		}
-	    return spellCheckMap.get(indexPath);
+	    return toReturn;
 	}
 	
 	public static void forceSpellCheckerRenewal(String indexPath){
