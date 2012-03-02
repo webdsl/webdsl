@@ -25,7 +25,7 @@ public class HibernateLog {
 	protected String _error = null;
 
 	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
-		NDCAppender ndcAppender = NDCAppender.getNamed("hibernateLog");
+		NDCAppender ndcAppender = NDCAppender.getInstance();
 		if(ndcAppender != null) { 
 			String log = ndcAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
