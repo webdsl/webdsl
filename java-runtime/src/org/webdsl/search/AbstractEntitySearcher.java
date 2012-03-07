@@ -20,7 +20,6 @@ import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -50,12 +49,12 @@ import com.browseengine.bobo.api.FacetSpec.FacetSortSpec;
 import com.browseengine.bobo.facets.FacetHandler;
 import com.browseengine.bobo.facets.impl.MultiValueFacetHandler;
 
-public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F> {
+public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F extends AbstractEntitySearcher<?,?>> {
 
     protected static final Version LUCENEVERSION         = Version.LUCENE_31;
     protected static final int LIMIT                     = 50;
-    protected static final int OFFSET                     = 0;
-    protected static final Operator OP                  = Operator.OR;
+    protected static final int OFFSET                    = 0;
+    protected static final Operator OP                   = Operator.OR;
     protected static final boolean ALLOWLUCENESYNTAX     = true;
 
     protected int limit = LIMIT;
@@ -82,7 +81,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected String[] untokenizedFields;
     protected String[] searchFields;
     protected String[] mltSearchFields;
-    protected String indexName;
 
     protected String sortFields = "";
     protected String sortDirections = "";
@@ -282,7 +280,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         }
     }
 
-    private String decodeValue( String str ) {
+    private static String decodeValue( String str ) {
         return str.replaceAll("\\\\c",",").replaceAll("\\\\\\\\ ", "\\\\");
     }
 
@@ -323,6 +321,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
         paramMap = new HashMap<String, String>();
         StringBuilder sb;
+
+        paramMap.put("type", entityClass.getSimpleName());
 
         if ( searchFieldsChanged ) {
         sb = new StringBuilder();
@@ -446,45 +446,48 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return paramMap;
     }
 
-    @SuppressWarnings("unchecked")
-    public F fromParamMap( Map<String,String> paramMap ) {
+    public static AbstractEntitySearcher<?,?> fromParamMap( Map<String,String> paramMap ) {
+        AbstractEntitySearcher<?, ?> searcher = null;
         try {
             String key, value;
+            searcher = (AbstractEntitySearcher<?, ?>) Class.forName("webdsl.generated.search."+ paramMap.get("type")+"Searcher").newInstance();
             for ( Map.Entry<String,String> e : paramMap.entrySet() ) {
                 key = e.getKey();
                 value = e.getValue();
-                if ("sf".equals( key )) {
+                if("type".equals( key )){
+                    continue;
+                } else if ("sf".equals( key )) {
                     // search fields
-                    fields( new ArrayList<String>( Arrays.asList( value.split(",") )) );
+                    searcher.fields( new ArrayList<String>( Arrays.asList( value.split(",") )) );
                 } else if ("q".equals( key )) {
                     //ordinary query
-                    query( value );
+                    searcher.query( value );
                 } else if ("lq".equals( key )) {
                     //search query, lucene string representation
-                    currentQD.parsedQuery( value );
+                    searcher.currentQD.parsedQuery( value );
                 } else if ("pq".equals( key )) {
                     //phrase query
-                    phraseQuery( value, Integer.parseInt( paramMap.get( "sl" ) ) );
+                    searcher.phraseQuery( value, Integer.parseInt( paramMap.get( "sl" ) ) );
                 } else if ("op".equals( key ) && value.equals("AND") ) {
                     //change default operator to AND
-                    defaultAnd();
+                    searcher.defaultAnd();
                 } else if ("cf".equals( key )) {
                     //constraint fields, values
                     String[] a1 = value.split(",");
                     String[] a2 = paramMap.get("cv").split(",");
                     for( int i=0; i < a1.length; i++)
-                        filterByField( a1[i], a2[i]);
+                        searcher.filterByField( a1[i], a2[i]);
                 } else if ("rff".equals( key )) {
                     //range facet fields, params
                     String[] a1 = value.split(",");
                     String[] a2 = paramMap.get("rfp").split(",");
                     String field;
                     String param;
-                    rangeFacetRequests = new HashMap<String, String>();
+                    searcher.rangeFacetRequests = new HashMap<String, String>();
                     for( int i=0; i < a1.length; i++) {
                         field = a1[i];
                         param = decodeValue( a2[i]);
-                        enableFaceting( field, param );
+                        searcher.enableFaceting( field, param );
                     }
 
                 } else if ("dff".equals( key )) {
@@ -493,49 +496,49 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     String[] a2 = paramMap.get("dfp").split(",");
                     String field;
                     int param;
-                    discreteFacetRequests = new HashMap<String, Integer>();
+                    searcher.discreteFacetRequests = new HashMap<String, Integer>();
                     for( int i=0; i < a1.length; i++) {
                         field = a1[i];
                         param = Integer.parseInt( a2[i]);
-                        enableFaceting( field, param );
+                        searcher.enableFaceting( field, param );
                     }
 
                 } else if ("lim".equals( key )) {
                     //limit
-                    maxResults( Integer.parseInt( value ));
+                    searcher.maxResults( Integer.parseInt( value ));
                 } else if ("offset".equals( key )) {
                     //offset
-                    firstResult( Integer.parseInt( value ));
+                    searcher.firstResult( Integer.parseInt( value ));
                 } else if ("bf".equals( key )) {
                     //boost fields, values
                     String[] a1 = value.split(",");
                     String[] a2 = paramMap.get("bv").split(",");
                     for( int i=0; i < a1.length; i++)
-                        boost( a1[i], Float.parseFloat( a2[i]) );
+                        searcher.boost( a1[i], Float.parseFloat( a2[i]) );
                 } else if ("ffld".equals( key )) {
                     String[] a1 = value.split(",");
                     String[] a2 = paramMap.get("fvl").split(",");
                     String[] a3 = paramMap.get("focc").split(",");
                     String[] a4 = paramMap.get("fcnt").split(",");
                     for( int i=0; i < a1.length; i++) {
-                        filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] ), Occur.valueOf( a3[i] ), Integer.parseInt( a4[i] ) ) );
+                        searcher.filterByFacet( new WebDSLFacet( a1[i], decodeValue( a2[i] ), Occur.valueOf( a3[i] ), Integer.parseInt( a4[i] ) ) );
                     }
                 } else if ("sortby".equals( key )) {
                     //sort fields, directions
                     String[] a1 = value.split(",");
                     String[] a2 = paramMap.get("dirs").split(",");
                     for( int i=0; i < a1.length; i++)
-                        sort( a1[i], Boolean.getBoolean( a2[i]) );
+                        searcher.sort( a1[i], Boolean.getBoolean( a2[i]) );
                 } else if ("mlt".equals( key )) {
                     //more like this
                     String[] a1 = value.split(",");
-                    moreLikeThis( a1[0], Integer.parseInt( a1[1]), Integer.parseInt( a1[2]), Integer.parseInt( a1[3]), Integer.parseInt( a1[4]), Integer.parseInt( a1[5]), Integer.parseInt( a1[6]) );
+                    searcher.moreLikeThis( a1[0], Integer.parseInt( a1[1]), Integer.parseInt( a1[2]), Integer.parseInt( a1[3]), Integer.parseInt( a1[4]), Integer.parseInt( a1[5]), Integer.parseInt( a1[6]) );
                 } else if ("allowlcn".equals( key )) {
                     // allow Lucene syntax?
-                    allowLuceneSyntax( Boolean.parseBoolean( value ) );
+                    searcher.allowLuceneSyntax( Boolean.parseBoolean( value ) );
                 } else if ("ns".equals( key )) {
                     //namespace
-                    setNamespace( value );
+                    searcher.setNamespace( value );
                 }
             }
         } catch ( Exception e ) {
@@ -543,12 +546,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             log("Error during entity searcher decoding!");
         }
 
-        this.paramMap = paramMap;
-        updateParamMap = false;
-        return ( F ) this;
+        searcher.paramMap = paramMap;
+        searcher.updateParamMap = false;
+        return searcher;
 
     }
-
 
     private String encodeValue( String str ) {
         return str.replaceAll("\\\\", "\\\\\\\\ ").replaceAll(",", "\\\\c");
@@ -560,7 +562,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             discreteFacetRequests = new HashMap<String, Integer>();
 
         discreteFacetRequests.put( field, topN );
-        updateParamMap = true;
+        updateParamMap = updateBoboBrowseResult = true;
 
         return ( F ) this;
     }
@@ -655,6 +657,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public abstract Class<?> fieldType( String field );
+
+    public abstract boolean instanceOf( String s );
 
     public Analyzer getAnalyzer(){
         return analyzer;
@@ -794,6 +798,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         filteredFacetsList.add( facet );
 
         updateFacets = updateParamMap = true;
+        return ( F ) this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public F filterByFacets( List<WebDSLFacet> facet ) {
+        for (WebDSLFacet f : facet) {
+            filterByFacet(f);
+        }
         return ( F ) this;
     }
 
@@ -969,6 +981,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     private Query luceneQueryFromString( String str ) throws ParseException {
         return new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( str );
+    }
+
+    public String luceneQuery() {
+        validateQuery();
+        return luceneQuery.toString();
     }
 
     private boolean validateQuery() {

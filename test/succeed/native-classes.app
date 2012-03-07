@@ -6,7 +6,7 @@ application nativeclass
     setProp(String)
     constructor()
   }
-  
+
   native class  nativejava.TestSuper as SuperClass  {
     getProp():String
     static getStatic(): String
@@ -14,23 +14,24 @@ application nativeclass
   }
 
   define page root() {
-  
+
     var d : SuperClass := SubClass()
-    
+
     output(d.getProp())
-    
-    
+
+
     var s : SubClass := SubClass()
     init{
       s.setProp("test");
     }
     output(s.prop)
-    
-    
+
+
     output(SuperClass.getStatic())
-    
+    output(SubClass.getStatic())
+
     for(a: SubClass in d.returnList()){
       output(a.prop)
     }
-    
+
   }

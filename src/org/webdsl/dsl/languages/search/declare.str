@@ -11,111 +11,98 @@ imports
 rules
 
 declare-search:
-	s@SearchMapping(x_class, mappings) -> []
-	with <map(declare-search-mapping(|x_class))> mappings 
-	   ; rules( IndexedEntity : x_class )
+    s@SearchMapping(x_class, mappings) -> []
+    with <map(declare-search-mapping(|x_class))> mappings
+       ; rules( IndexedEntity : x_class )
 
 declare-search:
-	f@FullTextAnalyzer(_, analyzer-name, body) -> f
-	where <?DualFullTextAnalyzerBodyDef(_,_,_,_)> body
-	with rules( IsDualAnalyzer : analyzer-name)
+    f@FullTextAnalyzer(_, analyzer-name, body) -> f
+    where <?DualFullTextAnalyzerBodyDef(_,_,_,_)> body
+    with rules( IsDualAnalyzer : analyzer-name)
 
 declare-analyzer:
-	s@SA-Argument("analyzer", analyzer-name) -> s
-	with if(<not(?"no" <+ ?"null")> analyzer-name)
-		 then rules (AnalyzerInUse :+= analyzer-name) end
-	
+    s@SA-Argument("analyzer", analyzer-name) -> s
+    with if(<not(?"no" <+ ?"null")> analyzer-name)
+         then rules (AnalyzerInUse :+= analyzer-name) end
+
 declare-analyzer:
-	m@AnalyzerName(analyzer-name) -> m
-	with if(<not(?"no" <+ ?"null")> analyzer-name)
-		 then rules (AnalyzerInUse :+= analyzer-name) end
+    m@AnalyzerName(analyzer-name) -> m
+    with if(<not(?"no" <+ ?"null")> analyzer-name)
+         then rules (AnalyzerInUse :+= analyzer-name) end
 
 declare-search-mapping(|x_class):
-	s@SearchFieldMapping(_, propname, parts) -> []
-	with rules ( SearchMappingForProp :+ (x_class, propname) -> s)
-	; <map(try(declare-analyzer))> parts
+    s@SearchFieldMapping(_, propname, parts) -> []
+    with rules ( SearchMappingForProp :+ (x_class, propname) -> s)
+    ; <map(try(declare-analyzer))> parts
 
 declare-search-mapping(|x_class):
-	s@SearchNamespaceMapping(propname) -> []
-	with rules ( SearchNamespaceForProp: (x_class, propname) -> s
-				 SearchNamespaceForEnt : x_class -> propname)
-				 
-				 
-				 
+    s@SearchNamespaceMapping(propname) -> []
+    with rules ( SearchNamespaceForProp: (x_class, propname) -> s
+                 SearchNamespaceForEnt : x_class -> propname)
+
+
+
 after-tc-declare-hook = emit-and-declare-dummy-entity; fail
-   
+
    //The dummy_webdsl_entity is used to hold hibernate search annotations in the generated java code that
    //need to be defined once, like full text filters and analyzers.
    emit-and-declare-dummy-entity =
-     with(result := 
-       	EntityNoSuper("dummy_webdsl_entity",
-       	  [Property("text",Simple(),SimpleSort("String"), [SearchableAnno()])]
-       	)
+     with(result :=
+           EntityNoSuper("dummy_webdsl_entity",
+             [Property("text",Simple(),SimpleSort("String"), [SearchableAnno()])]
+           )
      ; <emit-webdsl-code> result)
 
 declare-native-search-query-class:
-	x_class -> x_class
-	with query_class_name := <concat-strings> [x_class, "Searcher"]
-		; rules(SearcherTargetType : query_class_name -> SimpleSort(x_class)) 
-		; <declare>
-		NativeClass(
-			Qualified(Qualified(Qualified("webdsl","generated"),"domain"),query_class_name),
-			NativeClassAlias(query_class_name),
-			None(),
-			[
-				NativeClassConstructor([]),
-				NativeClassFunction(None(),"allowLuceneSyntax",[NativeSimpleType("Bool")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(NativeClassFunctionStatic(),"escapeQuery",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"filterByField",[NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"setNamespace",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"removeNamespace",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"getFieldFilterValue",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),				
-				NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
-				NativeClassFunction(None(),"boost",[NativeSimpleType("String"),NativeSimpleType("Float")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"defaultAnd",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"defaultOr",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"enableFaceting",[NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"enableFaceting",[NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"getFacets",[NativeSimpleType("String"),NativeSimpleType("Bool")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("Facet")]))),
-				NativeClassFunction(None(),"getFacets",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("Facet")]))),
-				NativeClassFunction(None(),"getFilteredFacets",[],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("Facet")]))),
-				NativeClassFunction(None(),"filterByFacet",[NativeSimpleType("Facet")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"removeFilteredFacet",[NativeSimpleType("Facet")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),				
-				NativeClassFunction(None(),"field",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"fields",[NativeGenericType("List",[NativeSimpleType("String")])],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"firstResult",[NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"maxResults",[NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"highlight",[NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"highlight",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Int"),NativeSimpleType("Int"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"highlight",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"moreLikeThis",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"must",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"mustNot",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"should",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"openGroup",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"closeGroup",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"query",[],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"query",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"phraseQuery",[NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"sortDesc",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"sortAsc",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"range",[NativeSimpleType("Int"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"range",[NativeSimpleType("Float"),NativeSimpleType("Float")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"range",[NativeSimpleType("Date"),NativeSimpleType("Date")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
-				NativeClassFunction(None(),"list",[],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType(x_class)]))),
-				NativeClassFunction(None(),"resultSize",[],NativeClassFunctionReturn(NativeSimpleType("Int"))),
-				NativeClassFunction(None(),"searchTimeAsString",[],NativeClassFunctionReturn(NativeSimpleType("String"))),
-				NativeClassFunction(None(),"searchTimeMillis",[],NativeClassFunctionReturn(NativeSimpleType("Int"))),
-				NativeClassFunction(None(),"searchTimeSeconds",[],NativeClassFunctionReturn(NativeSimpleType("Float")))
-				
-			]
-		)
+    x_class -> x_class
+    with query_class_name := <concat-strings> [x_class, "Searcher"]
+        ; rules(SearcherTargetType : query_class_name -> SimpleSort(x_class))
+        ; <declare>
+        NativeClass(
+            Qualified(Qualified(Qualified("webdsl","generated"),"search"),query_class_name),
+            NativeClassAlias(query_class_name),
+            NativeClassSuper("Searcher"),
+            [
+               NativeClassConstructor([]),
+               NativeClassFunction(NativeClassFunctionStatic(),"escapeQuery",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType("String"))),
+               NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"autoCompleteSuggest",[NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeGenericType("List",[NativeSimpleType("String")]),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(NativeClassFunctionStatic(),"spellSuggest",[NativeSimpleType("String"),NativeSimpleType("String"),NativeSimpleType("Float"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType("String")]))),
+               NativeClassFunction(None(),"allowLuceneSyntax",[NativeSimpleType("Bool")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"filterByField",[NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"setNamespace",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"removeNamespace",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"boost",[NativeSimpleType("String"),NativeSimpleType("Float")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"defaultAnd",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"defaultOr",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"enableFaceting",[NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"enableFaceting",[NativeSimpleType("String"),NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"filterByFacet",[NativeSimpleType("Facet")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"filterByFacets",[NativeGenericType("List",[NativeSimpleType("Facet")])],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"removeFilteredFacet",[NativeSimpleType("Facet")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"field",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"fields",[NativeGenericType("List",[NativeSimpleType("String")])],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"firstResult",[NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"maxResults",[NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"moreLikeThis",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"must",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"mustNot",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"should",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"openGroup",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"closeGroup",[],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"query",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"phraseQuery",[NativeSimpleType("String"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"sortDesc",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"sortAsc",[NativeSimpleType("String")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"range",[NativeSimpleType("Int"),NativeSimpleType("Int")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"range",[NativeSimpleType("Float"),NativeSimpleType("Float")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"range",[NativeSimpleType("Date"),NativeSimpleType("Date")],NativeClassFunctionReturn(NativeSimpleType(query_class_name))),
+               NativeClassFunction(None(),"list",[],NativeClassFunctionReturn(NativeGenericType("List",[NativeSimpleType(x_class)])))
+            ]
+        )
 
-		
