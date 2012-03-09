@@ -35,7 +35,16 @@ public abstract class TemplateServlet {
     }
     protected ArrayDeque<String> uniqueIdOverride = new ArrayDeque<String>(); 
     protected Environment env;
-    protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
+    private java.util.Map<String, Object> templatecalls = null;
+    protected java.util.Map<String, Object> getTemplatecalls(){
+      if(templatecalls == null){
+        templatecalls = new java.util.HashMap<String, Object>();
+      }
+      return templatecalls;
+    }
+    protected boolean onlyPerformingRenderPhase(){
+        return templatecalls == null;
+    }
     protected org.hibernate.Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
