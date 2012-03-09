@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -557,12 +556,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     @SuppressWarnings("unchecked")
-    public F enableFaceting( String field, int topN ) {
+    public F enableFaceting( String field, Integer topN ) {
         if ( discreteFacetRequests == null )
             discreteFacetRequests = new HashMap<String, Integer>();
 
-        discreteFacetRequests.put( field, topN );
-        updateParamMap = updateBoboBrowseResult = true;
+        if ( topN == 0 )
+            discreteFacetRequests.remove( field );
+        else if( topN != discreteFacetRequests.put( field, topN ) )
+            updateBoboBrowseResult = true;
+
+        updateParamMap = true;
 
         return ( F ) this;
     }
@@ -604,9 +607,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     public List<WebDSLFacet> getFacets( String field, boolean includeOldFacets ) {
 
-        if ( discreteFacetRequests.containsKey( field )) {
+        if (discreteFacetRequests != null && discreteFacetRequests.containsKey( field )) {
             return getBoboFacets( field, includeOldFacets );
-        } else if ( rangeFacetRequests.containsKey( field )) {
+        } else if (rangeFacetRequests != null && rangeFacetRequests.containsKey( field )) {
             String facetName = WebDSLFacetTool.facetName( field );
             List<Facet> facets;
             if ( validateQuery() ) {
@@ -980,7 +983,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     private Query luceneQueryFromString( String str ) throws ParseException {
-        return new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( str );
+        Query q = new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( str );
+        return q;
     }
 
     public String luceneQuery() {
@@ -1056,7 +1060,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return builder.range().onField( qd.fields[0]).from( qd.from ).to( qd.to ).createQuery();
     }
 
-    protected abstract BoboIndexReader getBoboReader( String field, Collection<String> allFields );
+    protected abstract BoboIndexReader getBoboReader( String field );
 
     protected static FacetHandler<?> getFacetHandlerForField( String field ) {
         return new MultiValueFacetHandler( field, field );
@@ -1083,11 +1087,16 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     private List<WebDSLFacet> getBoboFacets( String field, boolean includeOldFacets ) {
         validateQuery();
 //        long time =  System.currentTimeMillis();
-        if ( updateBoboBrowseResult ) {
+        if ( updateBoboBrowseResult) {
             updateBoboBrowseResult( field, includeOldFacets );
         }
         // obtain facet result
         FacetAccessible facets = boboBrowseResult.getFacetMap().get( field );
+        if (facets == null) {
+            updateBoboBrowseResult( field, includeOldFacets );
+            facets = boboBrowseResult.getFacetMap().get( field );
+        }
+
         List<BrowseFacet> facetVals = facets.getFacets();
         List<WebDSLFacet> toReturn = new ArrayList<WebDSLFacet>();
         WebDSLFacet facet;
@@ -1133,7 +1142,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         Query boboQuery = getBoboQuery( includeOldFacets );
         br.setQuery( boboQuery );
 
-        BoboIndexReader boboReader = getBoboReader( field, discreteFacetRequests.keySet() );
+        BoboIndexReader boboReader = getBoboReader( field );
 
         // perform browse
         Browsable browser;
