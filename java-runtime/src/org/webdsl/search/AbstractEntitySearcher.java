@@ -34,7 +34,6 @@ import org.hibernate.search.query.facet.Facet;
 import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
-
 import com.browseengine.bobo.api.BoboBrowser;
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.Browsable;
@@ -334,8 +333,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         if ( rootQD.children.isEmpty() ) {
             if ( rootQD.isRangeQuery )
                 paramMap.put( "lq", getLuceneQueryAsString() );
-            else
+            else if (rootQD.query != null ){
                 paramMap.put( "q", rootQD.query );
+            } else {
+                paramMap.put( "lq", getLuceneQueryAsString() );
+            }
         } else {
             QueryDef fstChild = rootQD.children.get( 0 );
             if ( rootQD.children.size() == 1 && fstChild.occur.equals( Occur.SHOULD ) && !fstChild.isRangeQuery ) {
@@ -794,8 +796,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     public F filterByFacet( WebDSLFacet facet ) {
         //if already narrowed on this facet, don't add it again
         //A facet already appears in the list if field and value are equal
-        if ( filteredFacetsList.contains( facet ))
+        if ( filteredFacetsList.contains( facet )){
             return ( F ) this;
+        }
 
         facet.isSelected = true;
         filteredFacetsList.add( facet );
@@ -971,13 +974,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         if ( updateLuceneQuery ) {
             try {
                 luceneQuery = createLuceneQuery( rootQD );
+                luceneQueryNoFacetFilters = luceneQuery;
             } catch ( ParseException e ) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
                 return luceneQuery.toString("Error occured during query parsing");
             }
             updateLuceneQuery = false;
-            updateFullTextQuery = true;
+            updateHighlightQuery = updateBoboBrowseResult = updateFullTextQuery = updateFacets = true;
         }
         return luceneQuery.toString();
     }
