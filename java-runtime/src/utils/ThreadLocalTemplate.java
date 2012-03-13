@@ -1,5 +1,7 @@
 package utils;
 
+import org.webdsl.lang.Environment;
+
 public class ThreadLocalTemplate {
 
     private static ThreadLocal<TemplateServlet> template = new ThreadLocal<TemplateServlet>();
@@ -19,6 +21,14 @@ public class ThreadLocalTemplate {
     
     public static void setNull(){
         template.set(null);
+    }
+    
+    public static Environment getEnv() {
+        TemplateServlet ts = get();
+        if(ts != null){
+          return ts.getEnv();
+        }
+        return null;
     }
 }
 

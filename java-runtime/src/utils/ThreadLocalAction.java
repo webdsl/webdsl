@@ -13,7 +13,7 @@ public class ThreadLocalAction {
     public static void set(ActionClass d) {
         actionClass.set(d);
     }   
-    
+    /*
     public static Environment getEnv() {
         ActionClass ac = get();
         if(ac != null){
@@ -21,4 +21,5 @@ public class ThreadLocalAction {
         }
         return null;
     }
+    */
 }

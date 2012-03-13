@@ -35,6 +35,9 @@ public abstract class TemplateServlet {
     }
     protected ArrayDeque<String> uniqueIdOverride = new ArrayDeque<String>(); 
     protected Environment env;
+    public Environment getEnv(){
+        return env;
+    }
     private java.util.Map<String, Object> templatecalls = null;
     protected java.util.Map<String, Object> getTemplatecalls(){
       if(templatecalls == null){
