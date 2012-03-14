@@ -12,9 +12,8 @@ imports
 strategies
 
   generate-code-java-servlet-once =
-      bagof-IndexedEntities
-    ; string-sort-annos
-    ; cached-generate(generate-java-servlet-indexmanager | "internal_IndexManager")
+      <flatten-list;string-sort-annos>[<bagof-IndexedEntities>,<all-keys-SpellCheckFields; map(bagof-SpellCheckFields)>,<all-keys-AutoCompleteFields; map(bagof-AutoCompleteFields)>,<bagof-IndexDir>]
+    ; cached-generate(bagof-IndexedEntities; generate-java-servlet-indexmanager | "internal_IndexManager")
     ; fail
 
 
@@ -103,14 +102,13 @@ strategies
             org.hibernate.search.FullTextSession ftSession = getFullTextSession();
             try {
                 ftSession.createIndexer( c )
-                .progressMonitor( new org.webdsl.search.IndexProgressMonitor( 2000, entityName ) )
-                 .batchSizeToLoadObjects( 20 )
-                .threadsToLoadObjects( 4 )
+                 .progressMonitor( new org.webdsl.search.IndexProgressMonitor( 2000, entityName ) )
+                 .batchSizeToLoadObjects( 10 )
+                 .threadsToLoadObjects( 4 )
                  .threadsForSubsequentFetching( 8 )
                  .threadsForIndexWriter( 3 )
                  .purgeAllOnStart( true )
                  .startAndWait();
-
              }
              catch(Exception ex){
                  ex.printStackTrace();
@@ -463,9 +461,11 @@ strategies
     ]|
     with pkgname := <DomainPackage>
         ; x_class_set := <make-set> x_class*
-        ; bstm*  := <map(class-to-reindex-entity-class)> x_class_set
+        ; <map(record-searchable-root-class; record-suggestion-fields)> x_class_set
+                    //the highest searchable class in the inheritance tree triggers reindexing of its subclasses
+        ; bstm*  := <map(class-to-reindex-entity-class <+ class-to-reindex-entity-only-explicit)> x_class_set
         ; bstm1* := <map(class-to-renew-facet-readers)> x_class_set
-        ; bstm2* := <map(class-to-index-suggestions); flatten-list> x_class_set
+        ; bstm2* := <filter(class-to-index-suggestions); flatten-list> x_class_set
         ; bstm3* := <map(class-to-clear-autocomplete-index)> x_class_set
         ; bstm4* := <map(class-to-clear-spellcheck-index)> x_class_set
         ; bstm5* := <map(class-to-get-class-from-name-ac)> x_class_set
@@ -475,25 +475,45 @@ strategies
         ; e_indexdir := expr|[ "~indexdir" ]|
 
   class-to-reindex-entity-class:
-      x_name -> java|[if(entities == null || entities.isEmpty() || entities.contains("~x_name") || entities.contains("~x_Class")) { reindexEntityClass(x_Class.class); }]|
+      x_name -> java|[if( entities == null || entities.isEmpty() ||  entities.contains("~x_name") || entities.contains("~x_Class")) { reindexEntityClass(x_Class.class); }]|
+      with  x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+          ; x_index := <get-searchable-root-class-fq> x_name
+      where <?x_index> x_Class
+
+  class-to-reindex-entity-only-explicit:
+      x_name -> java|[if(!(entities == null || entities.isEmpty()) && (entities.contains("~x_name") || entities.contains("~x_Class"))) { reindexEntityClass(x_Class.class); }]|
       with x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+
 
   class-to-renew-facet-readers:
       x_name -> java|[ x_searcher.renewBoboReaders();]|
       with
           x_searcher := <concat-strings>[x_name,"Searcher"]
 
-  class-to-index-suggestions:
-    x_name -> result
-    with x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+  record-searchable-root-class:
+      x_name -> x_name
+      with index_name := <get-searchable-root-class-fq> x_name
+         ; rules(SearchableRootClassFQ: x_name -> index_name)
+
+  record-suggestion-fields:
+    x_name -> x_name
+    with  x_index := <SearchableRootClassFQ> x_name //suggestions are put in the suggestion index of the highest searchable class in the inheritance tree
         ; scfields := <ClassToSpellCheckFields> x_name
         ; acfields := <ClassToAutoCompleteFields> x_name
+        ; <map( \fl -> fl with rules (SpellCheckFields:+    x_index -> fl)\)> scfields
+        ; <map( \fl -> fl with rules (AutoCompleteFields:+  x_index -> fl)\)> acfields
+
+  class-to-index-suggestions:
+      x_name -> result
+        where x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+        ; scfields := <bagof-SpellCheckFields;   uniq> x_Class
+        ; acfields := <bagof-AutoCompleteFields; uniq> x_Class
+        ; not (and(<?[]>acfields,<?[]>scfields))
         ; e_spellcheckfield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> scfields
         ; e_autocompletefield* := <map(\fieldname -> expr |[ "~fieldname" ]| \)> acfields
-        ; if ( and(<?[]>e_spellcheckfield*, <?[]>e_autocompletefield*) )
-          then result := []
-          else result := java |[ reindexSuggestions(x_Class.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* }, namespaces);]|
-          end
+        ; result := java |[ reindexSuggestions(x_Class.class, new String[]{ e_autocompletefield* }, new String[]{ e_spellcheckfield* }, namespaces);]|
+
+
 
   class-to-clear-autocomplete-index:
     x_name -> result
@@ -516,7 +536,7 @@ strategies
   class-to-get-class-from-name-ac:
       x_name -> result
       with acfields := <ClassToAutoCompleteFields> x_name
-          ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
+          ; x_Class := <SearchableRootClassFQ> x_name
         ; if (<?[]> acfields)
           then result := []
           else result := java |[ if (entity == "~x_name"){entityClass = x_Class.class;} ]|
@@ -534,27 +554,25 @@ strategies
   class-to-index-name:
       x_name -> result
       where
-         x_indexname := <get-index-name> x_name
+         x_indexname := <get-searchable-root-class-fq> x_name
        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_name]
        ; result := java |[ if (x_Class.class.equals(entityClass)){return "~x_indexname";} ]|
 
-  get-index-name:
+  get-searchable-root-class-fq:
       x_name -> indexName
-      where indexName := <is-string; EntityFromName; get-index-name> x_name
+      where indexName := <is-string; EntityFromName; get-searchable-root-class-fq> x_name
 
 
-  get-index-name:
+  get-searchable-root-class-fq:
       Entity(name, super, _) -> indexName
       where
       indexed_entities := <bagof-IndexedEntities>
       ; if (<fetch(?super)> indexed_entities)
-        then indexName := <EntityFromName; get-index-name> super
+        then indexName := <EntityFromName; get-searchable-root-class-fq> super
         else indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]
         end
 
-  get-index-name:
+  get-searchable-root-class-fq:
       EntityNoSuper(name, _) -> indexName
       where
           indexName := <concat-strings> [<DomainPackage; pp-java5-to-string>, ".", name]
-
-
