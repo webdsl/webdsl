@@ -19,26 +19,32 @@ rules
   rename-action :
     fs@ForStmt(x, srt, e1, f1, b1){anno*} -> ForStmt(y, srt2, e2, f2, b2){newanno*}
     with e2 := <rename-all> e1
-       ; {| Rename, VarInTemplateContext
+       ; {| Rename, VarInTemplateContext, IteratorContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
+          ; rules(
+              VarDecl : y -> fs
+              IteratorContext :+= Arg(y, srt2)
+            )
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
-          ; newanno* := <common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
+          ; newanno* := <update-iterator-context; common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
 
   rename-action :
     fs@ForAllStmt(x, srt, f1, b1){anno*} -> ForAllStmt(y, srt2, f2, b2){newanno*}
-    with {| Rename, VarInTemplateContext
+    with {| Rename, VarInTemplateContext, IteratorContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
+          ; rules(
+              VarDecl : y -> fs
+              IteratorContext :+= Arg(y, srt2)
+            )
           ; <declare-vars-in-entity-context> y
           ; f2 := <rename-all> f1
           ; b2 := <rename-all> b1
-          ; newanno* := <common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
+          ; newanno* := <update-iterator-context; common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
 
   common-for-stmt-update-annotations :
@@ -80,19 +86,20 @@ rules
     where <is-entity-type> srt
     ; <not(fetch-elem(?TemplateName(_)))> anno*
     ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; thisargs := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
-    ; args := <conc> ([Arg(x,srt)|args*], thisargs)
-    ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), args,True())> (b, anno*)
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; thisargs* := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
+    ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [args*,ic*,thisargs*],True())> (b, anno*)
 
   desugar-action :
     ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){newanno*}
     where <is-entity-type> srt
-    ; <fetch-elem(?TemplateArgs(args))> anno*
+    ; <fetch-elem(?TemplateArgs(args*))> anno*
     ; <fetch-elem(?TemplateName(tname))> anno*
-    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args*)
     ; {| CurrentTemplateName
       : rules( CurrentTemplateName := tgenname )
-      ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), args,True())> (b, anno*)
+      ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [args*,ic*],True())> (b, anno*)
     |}
 
   add-backend-annotation :
@@ -113,19 +120,21 @@ rules
   desugar-action :
     def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
     where not(<fetch-elem(?TemplateName(_))> anno*)
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
     with cond := <?Filter(<id>, _, _) <+ !True()> f
-    where args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
-    ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
+    where args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [args*,ic*],cond)> (body1, anno*)
 
   desugar-action :
     def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
     with cond := <?Filter(<id>, _, _) <+ !True()> f
-    where <fetch-elem(?TemplateArgs(args))> anno*
+    where <fetch-elem(?TemplateArgs(args*))> anno*
     ; <fetch-elem(?TemplateName(tname))> anno*
-    ; tgenname := <normalize-signature; generate-template-name> (tname, args)
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args*)
     ; {| CurrentTemplateName
       : rules( CurrentTemplateName := tgenname )
-      ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [Arg(x,srt)|args],cond)> (body1, anno*)
+      ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [args*,ic*],cond)> (body1, anno*)
     |}
 
 rules

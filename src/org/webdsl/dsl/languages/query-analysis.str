@@ -129,6 +129,10 @@ strategies
     ?(traversal, srt)
     ; condition := <QueryConditions <+ !True()>
     ; effectful := <IsEffectful>
+    ; <register-detected-traversal> (traversal, srt, condition, effectful)
+
+  register-detected-traversal =
+    ?(traversal, srt, condition, effectful)
     ; rules( DetectedTraveral :+= (traversal, srt, condition, effectful) )
 
   register-detected-return-traversal =
@@ -158,6 +162,15 @@ strategies
     ; <is-accessible-from(RootVar)> e
     ; args2 := <map(filter(where(is-accessible-from(RootVar))))> args
     ; rules( DetectedRecursiveCall :+= (callee, e, args2) )
+
+  register-all-effectful = 
+    condition := <QueryConditions <+ !True()>
+    ; dr-all-keys(|"RootVar")
+    ; map({key,value
+          : ?key
+          ; value := <RootVar> key
+          ; <register-detected-traversal> (key, value, condition, True())
+          })
 
   // Succeeds if the argument can be used in the query condition
   query-optimization-bindable-argument =
@@ -209,7 +222,7 @@ rules // Traversals
 */
 strategies // Resolve
 
-  analyze-for-query-optimization : // Collect effectful traversals for builtin calls
+  analyze-for-query-optimization-calls : // Collect effectful traversals for builtin calls
     c@Call(e, nm, args1){anno*} -> Call(e2, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
     ; targs := <map(type-of); prepare-type-list-for-compare> args1
@@ -221,7 +234,7 @@ strategies // Resolve
     ; e2 := <analyze-for-query-optimization-effectful> e
     ; args2 := <map(analyze-for-query-optimization-effectful)> args1
 
-  analyze-for-query-optimization :
+  analyze-for-query-optimization-calls :
     c@Call(e, nm, args1){anno*} -> Call(e, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
     ; targs := <map(type-of); prepare-type-list-for-compare> args1
@@ -230,7 +243,7 @@ strategies // Resolve
     ; not("Entity" := ent)
     ; (fent, Function(defname, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, n, targs)
     ; <not(check-builtin-signature)> (fent, n, targs)
-    with /*<debug(!"Combining call:")> (ent, nm, <map(type-of)> args1); */argmapping := <zip> (args1, defargs)
+    with /*<debug(!"Combining call:")> (ent, nm, <map(type-of)> args1); */argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, defargs)
       ; (defn, deftargs) := <normalize-signature> (defname, defargs)
       ; if <Recursive> (fent, defn, deftargs) then
           recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
@@ -247,6 +260,22 @@ strategies // Resolve
           ; <filter(combine-analysis)> newanalysis
           ; try(<is-accessible-from-allow-calls(RootVar); map(register-detected-traversal)> c)
 		    end
+
+  analyze-for-query-optimization =
+    ?Call(_, _, _)
+    ; (analyze-for-query-optimization-calls <+ with(register-all-effectful))
+
+  handle-escaped-ref-arg-in-mapping =
+    with(try(filter(is-escaped-ref-arg); not(?[]); register-all-effectful))
+
+  is-escaped-ref-arg : // Means that we do not track the ref arg, which is a problem, because changes made to the ref arg may be effectful
+    (e, Arg(x, srt)) -> e
+    where <is-ref-type> srt
+    ; <not(is-accessible-from-allow-calls(RootVar))> e
+
+  analyze-for-query-optimization =
+    (?Assignment(_, _) <+ ?PropertyAssignment(_, _))
+    ; with(register-all-effectful)
 
   combine-analysis =
     ?(e, srt, cond, effectful)
@@ -316,7 +345,7 @@ strategies // Resolve
             ; <fetch-elem(?QueryAnalysis(analysis, _, reqCalls, redefCalls, recursivecalls))> defanno*
             ; reqcallana := <filter(resolve-required-call-for-analysis(|genname,passign1,deffargs));flatten-list/*;debug(!"reqcallres:")*/> reqCalls
             //; <try(not(?[]); debug(!"redefs:"))> redefCalls
-            ; argmapping := <zip> (args1, deffargs)
+            ; argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, deffargs)
             ; <filter(translate-recursive(|argmapping); register-detected-recursive-call)> recursivecalls
             ; resolvedcalls := <resolve-unresolved-calls/*;try(not(?[]);debug(!"tempres:"))*/> (argmapping, redefCalls)
             //; <debug(!"Following template ")> genname
@@ -346,8 +375,10 @@ strategies // Resolve
     where tname := <CurrentTemplateName>
     ; followgenname := <LocalRedefineGenname <+ !genname> (tname, genname)
 
-  get-local-redefined-decl : /*-with-extra-args*/
-    genname -> Define(defmod, defname, newfargs, newdeftargs, newdefbody){newdefanno*}
+  get-local-redefined-decl = get-local-redefined-decl-with-mapping; Fst
+
+  get-local-redefined-decl-with-mapping:
+    genname -> (Define(defmod, defname, newfargs, newdeftargs, newdefbody){newdefanno*}, extraArgsMapping)
     where tname := <CurrentTemplateName/*;debug(!"tname:")*/>
     //; t* := <TemplateArguments; formal-arguments-to-types> genname
     //; name := <bagof-TemplateRedefinitions/*;debug(!"bag:")*/; fetch-elem(?tname)/*;debug(!"gotit:")*//*; ?[(_, _{<id>}, t*)]*//*;debug(!"name:")*/> genname
@@ -403,10 +434,11 @@ strategies // Resolve
 
   resolve-unresolved-call(|argmapping) :
     (genname, args, cond, eff) -> (newanalysis, newRedefCalls)
-    where Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <get-local-redefined-decl> genname
+    where (Define(defmod, defname, deffargs, deftargs, defbody){defanno*}, extraMapping) := <get-local-redefined-decl-with-mapping> genname
     ; <fetch-elem(?QueryAnalysis(analysis, _, _, redefCalls, _))> defanno*
     ; newargs := <map(fix-argument(|argmapping))> args
-    ; newmap := <zip> (newargs, deffargs)
+    ; <handle-escaped-ref-arg-in-mapping> extraMapping 
+    ; newmap := <zip; handle-escaped-ref-arg-in-mapping> (newargs, deffargs)
     ; tmpana := <map(add-condition-to-traversal(|cond))>analysis
     ; newanalysis := <foldr(!tmpana, rename-vars-in-analysis(RootVar))> newmap
     ; newRedefCalls := <foldr(!redefCalls, rename-vars-in-analysis(RootVar))> newmap
@@ -444,7 +476,7 @@ strategies // Resolve
     ; genname := </*debug(!"newtempl:");*/is-defined-tc-get-called-tc> TemplateCall(resname, newargs, newpassign, TemplateBody([]))
     ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining req call:");*/CurrentTemplateDecl/*;debug(!"decl:")*/> genname
     ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
-    ; argmapping := <zip> (newargs, deffargs)
+    ; argmapping := <zip; handle-escaped-ref-arg-in-mapping> (newargs, deffargs)
     ; tmpana := <map(add-condition-to-traversal(|cond))/*;debug(!"oldana:")*/>analysis
     ; {| TempVar
        : <map(\Arg(x, srt) -> <id> with rules(TempVar : Var(x) -> srt)\)> callerargs
