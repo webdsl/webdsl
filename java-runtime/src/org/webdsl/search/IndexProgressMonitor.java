@@ -17,6 +17,7 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
     private volatile long startTime;
     private final int loggingPeriod;
     private final String entity;
+    private int avgSpeed = 0;
     private long lastElapsedMs = 0;
 
     /**
@@ -38,7 +39,7 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
         if ( current == increment ) {
             startTime = System.currentTimeMillis();
         }
-        if ( current % getStatusMessagePeriod() == 0 ) {
+        if ( current % loggingPeriod == 0 ) {
             printStatusMessage( startTime, totalCounter.get(), current );
         }
     }
@@ -60,17 +61,19 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
         }
     }
 
-    protected int getStatusMessagePeriod() {
-        return loggingPeriod;
-    }
-
     protected void printStatusMessage(long starttime, long totalTodoCount, long doneCount) {
         long elapsedMs = System.currentTimeMillis() - starttime ;
         long lastElapsedMsCount = elapsedMs -lastElapsedMs;
-        double elapsedSec = ( (int) ( elapsedMs / 100 ) ) / 10.0;
-        int estimateSpeed = (int) (2000000 / lastElapsedMsCount);
+        int estimateSpeed = (int) (loggingPeriod * 1000 / lastElapsedMsCount);
         int estimatePercentileComplete = (int) (doneCount * 100 / totalTodoCount);
-        System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedSec + "s (" + estimateSpeed + " ent/s)");
+        int etaMin, etaSec;
+        double elapsedSec = ( (int) ( elapsedMs / 100 ) ) / 10.0;
+        avgSpeed = (avgSpeed==0) ? estimateSpeed : (avgSpeed*7+estimateSpeed)/8;
+        etaSec = (int) (totalTodoCount-doneCount)/(avgSpeed);
+        etaMin = (int) (etaSec/60);
+        etaSec = etaSec % 60;
+
+        System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedSec + "s (" + estimateSpeed + " ent/s ETA: "+etaMin+"m"+etaSec+"s)");
         lastElapsedMs = elapsedMs;
     }
 }

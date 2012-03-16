@@ -21,6 +21,7 @@ application nativeclass
 
 
     var s : SubClass := SubClass()
+    var q : Bool := (s is a SuperClass)
     init{
       s.setProp("test");
     }

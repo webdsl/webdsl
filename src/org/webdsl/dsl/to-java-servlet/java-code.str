@@ -52,22 +52,22 @@ rules // assignment
 
   assignment-to-java-servlet :
     Stat(Assignment(Var(x), e1)) -> java|[ x = e2; ]|
-    where <is-string> x 
+    where <is-string> x
         ; not(<get-property-of-entity> (<JavaInEntity>, <remove-first-character-in-string> x))
         ; e2 := <expression-to-java-servlet> e1
-        
+
   remove-first-character-in-string = // _ is in front of property names at this point
     explode-string;?[_|<id>];implode-string
-    
+
   assignment-to-java-servlet :
     Stat(Assignment(Var(x), e1)) -> java|[ x_set(e2); ]|
     where prop := <get-property-of-entity> (<JavaInEntity>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
         ; not(GenericSort(_,_) := <property-type> prop)
     with  e2 := <expression-to-java-servlet> e1
         ; x_set := <concat-strings>["set", <remove-first-character-in-string;capitalize-string> x]
-  
+
   assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(Var(x), e1)) -> 
+    Stat(Assignment(Var(x), e1)) ->
     bstm |[ this.replaceAllIn#x2(e2); ]|
     where prop := <get-property-of-entity> (<JavaInEntity>, <remove-first-character-in-string> x) //is inside an entity and is a property of that entity
         ; GenericSort(_,_) := <property-type> prop
@@ -76,18 +76,18 @@ rules // assignment
 
   assignment-to-java-servlet :
     Stat(Assignment(q@FieldAccess(qid, x), e1)){anno*} -> bstm |[ e2.set#x(e3); ]|
-    where not(GenericSort(_,_) := <get-type-anno> q) 
+    where not(GenericSort(_,_) := <get-type-anno> q)
        <+ GenericSort(_,_) := <get-type-anno> q;<fetch(DirectCollectionReplace)> anno*
     with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1
 
   assignment-to-java-servlet : //special handling of setter of collections, makes sure events fire and proxy isn't replaced
-    Stat(Assignment(q@FieldAccess(qid, x), e1)){anno*} -> 
+    Stat(Assignment(q@FieldAccess(qid, x), e1)){anno*} ->
     bstm |[ e2.replaceAllIn#x(e3); ]|
     where GenericSort(_,_) := <get-type-anno> q
         ; not(<fetch(DirectCollectionReplace)> anno*)
     with  e2 := <expression-to-java-servlet> qid
-        ; e3 := <expression-to-java-servlet> e1  
+        ; e3 := <expression-to-java-servlet> e1
 
 rules // if
 
@@ -100,17 +100,17 @@ rules // if
 rules // for
 
    while-to-java-servlet :
-     WhileStmt(e1, bstm1) -> 
-     stm|[ 
-       while(e2) { 
-         ~bstm2 
-       } 
+     WhileStmt(e1, bstm1) ->
+     stm|[
+       while(e2) {
+         ~bstm2
+       }
      ]|
      with e2    := <expression-to-java-servlet> e1
         ; bstm2 := <statement-to-java-servlet> bstm1
 
    for-to-java-servlet :
-     ForCountStmt(x, e1, e2, Block(stat*)) -> 
+     ForCountStmt(x, e1, e2, Block(stat*)) ->
      bstm*|[
        int x = e3; //x has been renamed already
        int x_bound = e4;
@@ -136,7 +136,7 @@ rules // for
          ; t      := <java-type> srt
          ; e2 := <expression-to-java-servlet> e1
          ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
-         
+
   for-to-java-servlet :
     fa@ForAllStmt(x, srt, fltr, Block(stat*)) ->
     bstm* |[
@@ -147,42 +147,42 @@ rules // for
         ; t      := <java-type> srt
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
         ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
-        
+
   for-translation-common(|x_list, stat*, srt, t, x, fltr) :
     _ ->
     bstm* |[
       bstm_order*
-      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)> bstm*|[ 
-        bstm* 
+      ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)> bstm*|[
+        bstm*
       ]|
     ]|
     with  bstm*   := <statements-to-java-servlet> stat*
         ; bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
-                  
+
 rules // return
 
   normal-redirect-statements :
     e_url -> bstm* |[
     try {
       ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-      if(!ThreadLocalPage.get().isActionLinkUsed()){ 
-        response.sendRedirect(ThreadLocalPage.get().getRedirectUrl()); 
+      if(!ThreadLocalPage.get().isActionLinkUsed()){
+        response.sendRedirect(ThreadLocalPage.get().getRedirectUrl());
       }
     } catch (IOException ioe) {
       System.out.println("redirect failed");
       ioe.printStackTrace();
     }
   ]|
-  
+
   ajax-redirect-statements :
     e_url -> bstm* |[
-      //redirect in init action can be triggered with get as well, 
+      //redirect in init action can be triggered with get as well,
       //should not use ajax response in this case since the page wasn't accessed through the ajax run-time
-      if(!ThreadLocalServlet.get().isPostRequest){ 
+      if(!ThreadLocalServlet.get().isPostRequest){
         ~*<normal-redirect-statements> e_url
       }
       else{
-        ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");   
+        ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
       }
     ]|
 
@@ -201,9 +201,9 @@ rules // return
       isRedirected = true;
     ]|
     where InAction
-    
+
   return-to-java-servlet :
-    ReturnEmpty() -> bstm* |[ 
+    ReturnEmpty() -> bstm* |[
       return;
     ]|
     where InFunction
@@ -216,10 +216,10 @@ rules // return
   goto-to-java-servlet :
     GoTo(call@PageCall(p, args)) -> bstm*
     with  bstm* := <redirect-page-call-to-java-statements> call
-    
+
   redirect-page-call-to-java-statements :
-    call@PageCall(p,arg*) ->   
-    bstm* |[ 
+    call@PageCall(p,arg*) ->
+    bstm* |[
       if(ThreadLocalPage.get().isAjaxRuntimeRequest()){ //doesn't matter whether this is in an ajax template, only important thing for redirects is the current request type
         ~*<ajax-redirect-statements> e_url
       }
@@ -260,15 +260,15 @@ rules
          ; e := <java-type-default-value> s
 
 rules // expressions
- 
+
    expression-to-java-servlet :
-     Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]| 
+     Cast(e1, s) -> expr |[ ((x) (org.webdsl.tools.Utils.cast(e2, t.class))) ]|
      where not(<?GenericSort(_,_)> s)
      with  e2 := <expression-to-java-servlet> e1
          ; t := <java-type> s
          ; x := <java-type-name> s
    expression-to-java-servlet :
-     Cast(e1, s) -> expr |[ ((x) e2) ]| 
+     Cast(e1, s) -> expr |[ ((x) e2) ]|
      where <?GenericSort(_,_)> s // no need for hibernate fix in case of collection
      with  e2 := <expression-to-java-servlet> e1
          ; x := <java-type-name> s
@@ -351,9 +351,17 @@ rules
 
   expression-to-java-servlet :
     IsA(x, s@SimpleSort(x_name)) -> expr |[ e.instanceOf("~x_name") ]|
+    where <not(is-native-class)> x
     with  e := <expression-to-java-servlet> x
-     
-rules //vars     
+
+
+  expression-to-java-servlet :
+    IsA(x, s@SimpleSort(x_name)) -> expr |[ e instanceof x_class ]|
+    where <is-native-class> x
+    with  e := <expression-to-java-servlet> x
+        ; x_class := <native-class-name-from-type; pp-qualified> s
+
+rules //vars
 
    expression-to-java-servlet =
       var-to-java-servlet
@@ -366,7 +374,7 @@ rules //vars
      v@Var(x) -> expr|[ (x_type) x.get() ]|
      where has-ref-type
      with  x_type := <get-type-anno;java-type-name> v
-     
+
    var-to-java-servlet :
      v@ExternalScopeVar(x) -> expr|[ (x_type) x_tclass.this.x.get() ]| // add classname before this, so it will also work in anonymous inner class used for actions
      where x_tclass := <ThisTemplateClassName>
@@ -389,7 +397,7 @@ rules //vars
    expression-to-java-servlet =
    field-access-to-java-servlet
    <+ generic-field-access-to-java-servlet
-   
+
    generic-field-access-to-java-servlet :
      FieldAccess(e1, x) -> expr|[ e2.x_get() ]|
      with  x_get := <concat-strings>["get", <capitalize-string> x]
@@ -412,12 +420,12 @@ rules //vars
     with  e2* := <map(expression-to-java-servlet)> e1*
           ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
           ; result := expr|[ x_Class.x_funcname#_(e2*) ]|
-            
+
   // Static entity method call
   call-to-java-servlet =
      special-static-method-call-to-java-servlet
   <+ static-method-call-to-java-servlet
-    
+
   static-method-call-to-java-servlet:
     tc@Call(v,x,e1*) -> result
     where EntitySort(x_class) := <get-type-anno> v
@@ -434,7 +442,7 @@ rules //vars
         ; x_X := <capitalize-string> x
         ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
 
-rules    
+rules
   // Global function call
   generic-call-to-java-servlet :
     tc@ThisCall(x, e1*) -> result
@@ -447,7 +455,7 @@ rules
         ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
         ; result := expr|[ x_Class#_.x#_(e2*) ]|
 
-rules          
+rules
   call-arg-ref-resolve-helper:
     (srt,arg) -> x
     where <is-ref-type> srt
@@ -456,21 +464,21 @@ rules
     (srt,arg) -> x
     where not(<is-ref-type> srt)
     with  x := <expression-to-java-servlet> arg
-     
+
   //pass-on-ref-arg-exp:
   //used for access control global function internally, but could add ref args to functions at some point
   //currently a global function with ref arg is always passed a ref arg, since the generated functions's farg is based on the arg exp type
   //if ref args are enabled for functions also non has-ref-type args need to be supported here
-  pass-on-ref-arg-exp : 
+  pass-on-ref-arg-exp :
     Var(x) -> e|[ x ]|
     where has-ref-type
-    
-  pass-on-ref-arg-exp : 
+
+  pass-on-ref-arg-exp :
     ExternalScopeVar(x) -> e|[ this.x ]|
     where has-ref-type
     where not(ThisTemplateClassName)
-    
-  pass-on-ref-arg-exp : 
+
+  pass-on-ref-arg-exp :
     v@ExternalScopeVar(x) -> e|[ x_tclass.this.x  ]|
     where has-ref-type
     where x_tclass := <ThisTemplateClassName>
