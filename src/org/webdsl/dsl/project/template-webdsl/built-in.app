@@ -100,6 +100,8 @@ module .servletapp/src-webdsl-template/built-in
     field(String) : Searcher
     fields(List<String>) : Searcher
     firstResult(Int) : Searcher
+    listScores() : List<Float>
+    listExplanations() : List<String>
     maxResults(Int) : Searcher
     moreLikeThis(String) : Searcher
     must() : Searcher

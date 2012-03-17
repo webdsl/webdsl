@@ -19,6 +19,7 @@ import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -244,7 +245,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     private Query createMultiFieldQuery( QueryDef qd ) throws ParseException {
         if ( qd.hasParsedQuery )
-            return luceneQueryFromString( qd.parsedQuery );
+            return getParsedQuery( qd );
 
         if (!qd.query.isEmpty() ) {
             SpecialMultiFieldQueryParser parser;
@@ -671,7 +672,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     @SuppressWarnings("unchecked")
     public F setNamespace( String namespace ) {
-
         if (!namespaceConstraint.equals( namespace )) {
             //first remove old namespace filter if set
             if (!namespaceConstraint.isEmpty() )
@@ -730,6 +730,32 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         validateQuery();
         return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
     }
+
+    public List<Float> listScores(){
+        List<Float> toReturn = new ArrayList<Float>();
+        validateQuery();
+        fullTextQuery.setProjection(FullTextQuery.SCORE);
+        for (Object obj : fullTextQuery.list()) {
+            toReturn.add( (Float) ((Object[]) obj)[0] );
+        };
+        fullTextQuery.setProjection(FullTextQuery.THIS);
+        return toReturn;
+
+    }
+
+    //Expensive, but useful for debugging search behaviour, returns Lucene explanations in html (use rawoutput to display them)
+    public List<String> listExplanations(){
+        List<String> toReturn = new ArrayList<String>();
+        validateQuery();
+        fullTextQuery.setProjection(FullTextQuery.EXPLANATION);
+        for (Object obj : fullTextQuery.list()) {
+            toReturn.add( ((Explanation) ((Object[]) obj)[0]).toHtml() );
+        };
+        fullTextQuery.setProjection(FullTextQuery.THIS);
+        return toReturn;
+
+    }
+
     @SuppressWarnings("unchecked")
     public List<EntityClass> list() {
         try {
@@ -780,15 +806,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         mlt.setMaxQueryTerms( maxQueryTerms );
 
         try {
-            luceneQuery = mlt.like( new StringReader( likeText ));
+            currentQD.parsedQuery( mlt.like( new StringReader( likeText ) ));
         } catch ( IOException e ) {
             e.printStackTrace();
         } finally {
             closeReader( ir );
         }
-        updateLuceneQuery = false;
-        updateFullTextQuery = updateParamMap = true;
-
+        updateLuceneQuery = true;
         return ( F ) this;
     }
 
@@ -986,9 +1010,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return luceneQuery.toString();
     }
 
-    private Query luceneQueryFromString( String str ) throws ParseException {
-        Query q = new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( str );
-        return q;
+    private Query getParsedQuery( QueryDef qd ) throws ParseException {
+        if(qd.parsedQuery != null){
+            return qd.parsedQuery;
+        } else{
+            return new QueryParser( LUCENEVERSION, "", this.analyzer ).parse( qd.parsedQueryStr );
+        }
     }
 
     public String luceneQuery() {
@@ -1059,7 +1086,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     private Query createRangeQuery( QueryDef qd ) throws ParseException {
         if ( qd.hasParsedQuery )
-            return luceneQueryFromString( qd.parsedQuery );
+            return getParsedQuery( qd );
         QueryBuilder builder = getFullTextSession().getSearchFactory().buildQueryBuilder().forEntity( entityClass ).get();
         return builder.range().onField( qd.fields[0]).from( qd.from ).to( qd.to ).createQuery();
     }
