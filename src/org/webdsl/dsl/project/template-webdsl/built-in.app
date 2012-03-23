@@ -50,6 +50,10 @@ module .servletapp/src-webdsl-template/built-in
     static clearAutoCompleteIndex(String)
     static clearSpellCheckIndex(String)
   }
+  native class org.webdsl.search.SearchHelper as SearchHelper {
+     static firstIndexLink(Int, Int, Int): Int
+     static lastIndexLink(Int, Int, Int): Int
+  }
 
   native class org.webdsl.search.WebDSLFacet as Facet {
     constructor()
