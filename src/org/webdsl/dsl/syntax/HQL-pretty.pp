@@ -80,6 +80,20 @@
    Divide                   -- _1 KW["/"] _2,
    Modulo                   -- _1 KW["%"] _2,
    UMinus                   -- KW["-"] _1,
+   
+   %% current_date(), current_time(), and current_timestamp()
+   HQLFunCurDate                                -- KW["current_date()"],
+   HQLFunCurTime                                -- KW["current_time()"],
+   HQLFunCurTimestamp                           -- KW["current_timestamp()"],
+
+   %% second(...), minute(...), hour(...), day(...), month(...), and year(...)
+   HQLFunSecond                                 -- KW["second"] KW["("] _1 KW[")"],
+   HQLFunMinute                                 -- KW["minute"] KW["("] _1 KW[")"],
+   HQLFunHour                                   -- KW["hour"] KW["("] _1 KW[")"],
+   HQLFunDay                                    -- KW["day"] KW["("] _1 KW[")"],
+   HQLFunMonth                                  -- KW["month"] KW["("] _1 KW[")"],
+   HQLFunYear                                   -- KW["year"] KW["("] _1 KW[")"],
+
    Case                     -- KW["case"] _1 _2 KW["end"],
    Case.1:iter              -- _1,
    Case.2:opt               -- _1,
