@@ -6,7 +6,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -14,14 +15,14 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 
 public abstract class Test {
-    
+
     public abstract boolean run();
-    
+
     public int assertsChecked = 0;
     public int assertsSucceeded = 0;
     public int assertsFailed = 0;
     public List<String> messages = new LinkedList<String>();
-    
+
     public void assertTrue(boolean b, String s, String loc){
       assertsChecked++;
       if(b){
@@ -37,27 +38,27 @@ public abstract class Test {
           }
       }
     }
-    
+
     public void assertTrue(boolean b, String loc){
         assertTrue(b,"", loc);
     }
-    
+
     public void assertEquals(Object o1, Object o2, String message, String loc){
        assertTrue(org.webdsl.tools.Utils.equal(o1,o2),message+"\nassert equals\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
     }
-    
+
     public void assertEquals(Object o1, Object o2, String loc){
         assertEquals(o1, o2,"",loc);
     }
-    
+
     public void assertNotSame(Object o1, Object o2, String message, String loc){
         assertTrue(!org.webdsl.tools.Utils.equal(o1,o2),message+"\nassert not same\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
     }
-    
+
     public void assertNotSame(Object o1, Object o2, String loc){
         assertNotSame(o1, o2,"",loc);
     }
-    
+
     public static void sleep(int i){
         try {
             Thread.sleep(i);
@@ -67,7 +68,7 @@ public abstract class Test {
     }
 
     public static void clickAndWait(org.openqa.selenium.WebElement e){
-        e.click();   
+        e.click();
         WebDriver d = ThreadLocalWebDriver.get();
         int tries = 0;
         if(d != null){  //null when webdriver is not initialized with get...Driver() functions below
@@ -82,11 +83,11 @@ public abstract class Test {
                 }
             }
             catch(java.lang.UnsupportedOperationException u){
-              //not every WebDriver can execute Javascript          	
-            } 
+              //not every WebDriver can execute Javascript
+            }
         }
     }
-    
+
     public static String runJavaScript(org.openqa.selenium.WebDriver d, String script){
         String result = null;
         if(d != null){  //null when webdriver is not initialized with get...Driver() functions below
@@ -95,14 +96,14 @@ public abstract class Test {
                 result = (String)js.executeScript(script);
             }
             catch(java.lang.UnsupportedOperationException u){
-                //not every WebDriver can execute Javascript          	
-            } 
+                //not every WebDriver can execute Javascript
+            }
         }
         return result;
     }
-    
+
     //manage webdrivers
-    
+
     public static FirefoxDriver firefoxdriver = null;
     public static FirefoxDriver getFirefoxDriver(){
         if(firefoxdriver==null){
@@ -111,16 +112,17 @@ public abstract class Test {
         }
         return firefoxdriver;
     }
-    
+
     public static HtmlUnitDriver htmlunitdriver = null;
     public static HtmlUnitDriver getHtmlUnitDriver(){
         if(htmlunitdriver==null){
-            htmlunitdriver = new HtmlUnitDriver();
+            htmlunitdriver = new HtmlUnitDriver(com.gargoylesoftware.htmlunit.BrowserVersion.FIREFOX_3_6);
+            //htmlunitdriver.setJavascriptEnabled(true);  // TODO: if enabled, clickAndWait() method fails, it cannot look up __requestcount for some reason.
             ThreadLocalWebDriver.set(htmlunitdriver);
         }
         return htmlunitdriver;
     }
-    
+
     public static void closeDrivers(){
         ThreadLocalWebDriver.set(null);
         if(firefoxdriver!=null){
@@ -130,9 +132,9 @@ public abstract class Test {
             htmlunitdriver.close();
         }
     }
-    
+
     // file creation for testing upload
-    
+
     public static String createTempFile(String s){
         try{
           File f = File.createTempFile("webdsl","tempfile");
@@ -144,7 +146,7 @@ public abstract class Test {
           return "";
         }
     }
-      
+
     public static void writeStringToFile(String s, File file) throws IOException{
         FileOutputStream in = null;
         try{
