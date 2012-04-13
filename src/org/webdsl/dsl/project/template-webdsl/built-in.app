@@ -415,7 +415,7 @@ module .servletapp/src-webdsl-template/built-in
 
   native class org.openqa.selenium.WebElement as WebElement {
     getText():String
-    //getValue():String //deprecated, replaced by getAttribute("value")
+    utils.Test.getValue as getValue() : String //WebElement.getValue() is deprecated
     getElementName():String
     getAttribute(String):String
     isEnabled():Bool
@@ -426,10 +426,8 @@ module .servletapp/src-webdsl-template/built-in
     isEnabled():Bool
     isSelected():Bool
     //void     sendKeys(java.lang.CharSequence... keysToSend)
-    //setSelected() //deprecated, replaced with click()
-    //toggle():Bool //deprecated, replaced with click()
-    click()
-
+    utils.Test.click as toggle()
+    utils.Test.click as setSelected()
     utils.Test.clickAndWait as click()
   }
 

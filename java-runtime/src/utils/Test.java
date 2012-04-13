@@ -88,6 +88,16 @@ public abstract class Test {
         }
     }
 
+    //setSelected and toggle are deprecated, now using click: http://code.google.com/p/selenium/issues/detail?id=2391
+    public static void click(org.openqa.selenium.WebElement e){
+        e.click();
+    }
+
+    //getValue is deprecated: http://code.google.com/p/selenium/issues/detail?id=2391
+    public static String getValue(org.openqa.selenium.WebElement e){
+        return e.getAttribute("value");
+    }
+
     public static String runJavaScript(org.openqa.selenium.WebDriver d, String script){
         String result = null;
         if(d != null){  //null when webdriver is not initialized with get...Driver() functions below

@@ -57,8 +57,8 @@ application test
       elist[i].sendKeys("123");
     }
     var olist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
-    olist[0].click();
-    olist[1].click();
+    olist[0].setSelected();
+    olist[1].setSelected();
     elist[6].click();  
 
     assert(d.getPageSource().contains("1231230.0123str1str1"), "reference arguments not working as expected");

@@ -38,7 +38,7 @@ application customer
   function check(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected <input> elements did not match");
-    assert(elist[1].getAttribute("value") == "2");
+    assert(elist[1].getValue() == "2");
     assert(d.getPageSource().contains("too short"));
   }
   

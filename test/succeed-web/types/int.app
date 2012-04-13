@@ -56,7 +56,7 @@ test inttemplates {
   
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElement(SelectBy.className("input-elem"));
-  assert(       input.getAttribute("value")=="5");
+  assert(       input.getValue()=="5");
  
   //add an 8 in the defined input to make 58
   //defined input

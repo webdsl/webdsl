@@ -55,7 +55,7 @@ test texttemplates {
   
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
-  assert(       input.getAttribute("value")=="123");
+  assert(       input.getValue()=="123");
  
   //correct values
   //defined input
