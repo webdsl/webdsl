@@ -30,7 +30,7 @@ application inputint
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
     assert(elist.length == 3, "expected 3 <option> elements");
     
-    elist[1].setSelected();
+    elist[1].click();
 
     var ilist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(ilist.length == 3, "expected 3 <input> elements");

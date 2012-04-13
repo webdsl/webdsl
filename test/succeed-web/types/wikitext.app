@@ -55,7 +55,7 @@ test wikitexttemplates {
   
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
-  assert(       input.getValue()=="*1*<b>2</b>");
+  assert(       input.getAttribute("value")=="*1*<b>2</b>");
  
   //correct values
   //defined input

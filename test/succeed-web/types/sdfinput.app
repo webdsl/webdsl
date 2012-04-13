@@ -62,7 +62,7 @@ test sdftemplates {
   
 function commonTest(d:WebDriver){  
   var input := d.findElement(SelectBy.className("input-elem"));
-  assert(input.getValue()=="abc");
+  assert(input.getAttribute("value")=="abc");
   //correct values
   //defined input
   inputCheck(d,"ab","Unexpected end of file");

@@ -4,7 +4,7 @@ application test
     var s := "12345"
     test(){ output(s) }
   }
-  
+
   define test(){
     var str := rendertemplate(elements())
     output(str)
@@ -20,13 +20,13 @@ application test
     }
     */
   }
-  
+
   //define test2(){}
-  
+
   //define test3(s:String){ output(s) }
-  
+
   define test4(){ output("12345") }
-  
+
   session bla {
     s :: String
   }
@@ -34,9 +34,9 @@ application test
   test buttonclick {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
+
     assert(d.getPageSource().contains("12345"));
-    
+
     var btn := d.findElement(SelectBy.className("testbtn"));
     btn.click();
     assert(d.getPageSource().split("12345").length==3);

@@ -52,7 +52,7 @@ application formcheckseparate
     //now do it correctly
     
     elist := d.findElements(SelectBy.tagName("input"));
-    var nameinfirstfield := elist[1].getValue();
+    var nameinfirstfield := elist[1].getAttribute("value");
     assert(nameinfirstfield == "bob");
     
     elist[2].sendKeys(nameinfirstfield);

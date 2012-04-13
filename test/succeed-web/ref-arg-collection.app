@@ -50,7 +50,7 @@ application test
   
   function checkpage(d:WebDriver, clickinput:Int){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
-    elist[0].setSelected();  
+    elist[0].click();  
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     elist[clickinput].click();  
     //log(d.getPageSource());

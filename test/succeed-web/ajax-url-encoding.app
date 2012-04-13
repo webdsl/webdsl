@@ -70,7 +70,7 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==6, "incorrect number of input elements found");
     
-    assert(elist[2].getValue() == "test"+entered1, "input not correctly displayed after submit");   
+    assert(elist[2].getAttribute("value") == "test"+entered1, "input not correctly displayed after submit");   
     
     //root second submit button 
     d.get(navigate(root()));
@@ -88,7 +88,7 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==6, "incorrect number of input elements found");
     
-    assert(elist[2].getValue() == "test"+entered1+entered2, "input not correctly displayed after submit");   
+    assert(elist[2].getAttribute("value") == "test"+entered1+entered2, "input not correctly displayed after submit");   
     
     
     //root third submit button
@@ -101,13 +101,13 @@ application test
     var entered3 := "+ + \\//";
     
     elist[1].sendKeys(entered3);
-    log(elist[1].getValue());
+    log(elist[1].getAttribute("value"));
     elist[4].click();
     
     assert(d.getPageSource().contains("viewA ajax template"), "expected to see ajax template viewA");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==11, "incorrect number of input elements found");
     
-    assert(elist[6].getValue() == "test"+entered1+entered2+entered3, "input not correctly displayed after submit");   
+    assert(elist[6].getAttribute("value") == "test"+entered1+entered2+entered3, "input not correctly displayed after submit");   
   }
    

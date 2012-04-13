@@ -11,8 +11,8 @@ define page root(){
     test(e1)
 }
 
-define test(e:Ent){ 
-  " defined output"  
+define test(e:Ent){
+  " defined output"
   output(e.s)
   form{
     "defined input"
@@ -20,7 +20,7 @@ define test(e:Ent){
       input(e.s)[class = "input-elem"]
     }
     submit action{}[class = "button-elem"]{"save"}
-  }	
+  }
 }
 
 var e2 := Ent{ s := "123" }
@@ -29,42 +29,42 @@ define page nolabel(){
   testnolabel(e2)
 }
 
-define testnolabel(e:Ent){ 
-  " defined output"  
+define testnolabel(e:Ent){
+  " defined output"
   output(e.s)
   form{
     "defined input"
     input(e.s)[class = "input-elem"]
     submit action{}[class = "button-elem"]{"save"}
-  }	
+  }
 }
 
 test urltemplates {
   var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
-  
+
   var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
   var label        := d.findElements(SelectBy.className(         "label-elem"))[0];
   assert(input.getAttribute("id")==label.getAttribute("for"));
-  
+
   commonTest(d);
-  
+
   d.get(navigate(nolabel()));
   commonTest(d);
 }
-  
-function commonTest(d:WebDriver){  
+
+function commonTest(d:WebDriver){
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
-  assert(       input.getValue()=="123");
- 
+  assert(       input.getAttribute("value")=="123");
+
   //correct values
   //defined input
   inputDefinedCheck(d,"1234","1234</a>");
-  
+
   //trigger validation error for too long value
   //defined input
   inputDefinedCheck(d,"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234512345123451234512345123451234512345123451234512345X","exceeds maximum length");
-  
+
   //trigger validation error for property validation (length > 2)
   //defined input
   inputDefinedCheck(d,"a","length must be greater than 2");
