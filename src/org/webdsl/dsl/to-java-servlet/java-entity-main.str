@@ -206,7 +206,7 @@ strategies
 
        @javax.persistence.Entity
        mod1*
-       public class x_Class extends x_super implements org.webdsl.WebDSLEntity
+       public class x_Class extends x_super implements org.webdsl.WebDSLEntity, org.hibernate.bytecode.javassist.FieldHandled
        {
          public x_Class () {
            instanceOfTypes#x_Class.add("~x_Class"); 
@@ -584,7 +584,7 @@ rules // set or list of defined entity without inverse
       anno|[ @ManyToMany(fetch=javax.persistence.FetchType.LAZY) ]|
     , anno|[ @JoinTable( name="~tableName" ) ]|
     , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
-    | anno-list*
+    | [subselect*, anno-list*]
     ]
     where <?"Set" <+ ?"List"> coll
         ; t := <defined-java-type> s
@@ -592,6 +592,7 @@ rules // set or list of defined entity without inverse
         ; indexname := <concat-strings> [x_class, x_prop,"index"]
         ; anno-list* := <?"List"; ![anno |[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|] <+ ![]> coll 
         ; tableName   := <concat-strings> [x_class, "_", x_prop, "_", ss]
+        ; subselect* := <get-subselect-anno>
               
 rules //one-to-one
 // In this case the owning side is determined by the annotation.
@@ -621,6 +622,8 @@ rules //one-to-one
          ; mappedby       := <concat-strings> ["_", fld]
 
 rules // One-to-Many association with Set
+
+  get-subselect-anno = (HibernateSubselect() := <QueryOptimizationMode>) < ![anno|[ @org.hibernate.annotations.Fetch(value = org.hibernate.annotations.FetchMode.SUBSELECT) ]|] + ![]
    
   // bidirectional many-to-one owning side Ref-Set
   association-annotations(|x_class, x_prop, annos) :
@@ -640,6 +643,7 @@ rules // One-to-Many association with Set
       anno|[ @OneToMany(fetch=javax.persistence.FetchType.LAZY) ]| //mappedBy="~other_prop", targetEntity=x_ent, 
     , anno|[ @JoinColumn(name="~joinColumnName", insertable=false, updatable=false) ]|
     , anno|[ @org.hibernate.annotations.Persister(impl = utils.OneToManyPersister.class) ]|
+    | subselect*
     ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -647,6 +651,7 @@ rules // One-to-Many association with Set
         //; other_prop := <concat-strings>["_", fld]
         //; x_ent := <concat-strings> [ent, ".class"]
         ; joinColumnName := <concat-strings> [ent, "_", fld]
+        ; subselect* := <get-subselect-anno>
 
 rules // One-to-Many association with List: not true inverse (duplication in db) due to hibernate limitations
 
@@ -670,6 +675,7 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
                          inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
     , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
     , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
+    | subselect*
     ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -678,6 +684,7 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
+        ; subselect* := <get-subselect-anno>
 
 rules   // Many-to-Many associations Set-Set
 // In this case the owning side is determined by the annotation.
@@ -691,6 +698,7 @@ rules   // Many-to-Many associations Set-Set
                            joinColumns={@JoinColumn(name="~thisid")},
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
         , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
+        | subselect*
       ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos 
@@ -698,6 +706,7 @@ rules   // Many-to-Many associations Set-Set
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
+        ; subselect* := <get-subselect-anno>
 
    // bidirectional many-to-many inverse side
    association-annotations(|x_class, x_prop, annos) :
@@ -705,12 +714,14 @@ rules   // Many-to-Many associations Set-Set
        [
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
          , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
+         | subselect*
        ]
      where t := <defined-java-type> s
          ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld))> annos
          ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
+        ; subselect* := <get-subselect-anno>
 
 rules   // Many-to-Many associations List-Set
 
@@ -724,6 +735,7 @@ rules   // Many-to-Many associations List-Set
                            inverseJoinColumns={@JoinColumn(name="~otherid")} ) ]|
       , anno|[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|
       , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
+      | subselect*
       ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -732,6 +744,7 @@ rules   // Many-to-Many associations List-Set
         ; thisid    := <concat-strings> [x_class, "_id_owner"]
         ; otherid   := <concat-strings> [ent, "_id_inverse"]
         ; indexname := <concat-strings> [x_class, x_prop,"index"]
+        ; subselect* := <get-subselect-anno>
 
    // bidirectional many-to-many inverse side
    association-annotations(|x_class, x_prop, annos) :
@@ -739,12 +752,14 @@ rules   // Many-to-Many associations List-Set
        [
          anno|[ @ManyToMany( mappedBy="~mappedby", targetEntity=x_ent ,fetch=javax.persistence.FetchType.LAZY) ]|
          , anno|[ @org.hibernate.annotations.Persister(impl = utils.BasicCollectionPersister.class) ]|
+         | subselect*
        ]
      where t := <defined-java-type> s
          ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
          ; GenericSort("List", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
+        ; subselect* := <get-subselect-anno>
 
 rules // cascading annotations
 

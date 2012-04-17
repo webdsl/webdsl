@@ -164,6 +164,7 @@ public abstract class TemplateServlet {
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         //always store arguments, value might change between phases
+        this.env = env; // Moved here, because prefetching in storeArguments() may use env.isRedefinedTemplate()
         storeArguments(args);
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
@@ -171,7 +172,6 @@ public abstract class TemplateServlet {
               initialized=true;
               
               this.calledName = calledName;
-              this.env = env;
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();
               this.response = ThreadLocalPage.get().getResponse();

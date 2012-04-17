@@ -103,7 +103,7 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 			}
 			
 		}
-		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5) { // Normal or at arguments
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 6 || utils.QueryOptimization.optimizationMode == 8) { // Normal or at arguments
 			BasicJoinCollectionLoader loader = new BasicJoinCollectionLoader( this, batch.length, session.getFactory(), session.getLoadQueryInfluencers(), joins );
 			loader.loadCollectionBatch(session, batch, getKeyType());
 		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch

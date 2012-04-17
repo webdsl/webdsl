@@ -119,7 +119,7 @@ public class QueryOptimization {
 	}
 
     public static java.util.Collection prefetchCollection(org.hibernate.Session hibSession, java.util.Collection col, String[] joins) {
-    	if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0) {
+    	if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0 && QueryOptimization.optimizationMode != 8) {
     		org.hibernate.collection.PersistentCollection persistentCol = (org.hibernate.collection.PersistentCollection) col;
     		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor) {
 	    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
@@ -154,11 +154,34 @@ public class QueryOptimization {
 					System.out.println("elements: " + ((utils.BasicCollectionPersister)persister).getElementPersister().getEntityName());
 				}*/
 				java.util.List<String> joinslist = null;
-				if(joins != null) joinslist = java.util.Arrays.asList(joins);
+				if(joins != null && QueryOptimization.optimizationMode != 8) joinslist = java.util.Arrays.asList(joins);
 				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session, joinslist);
 			}
     	}
     }
+
+	public static void prefetchEntity(org.hibernate.Session hibSession, String entityName, org.hibernate.proxy.HibernateProxy proxy, String[] joins) {
+		org.hibernate.proxy.LazyInitializer init = proxy.getHibernateLazyInitializer();
+		if (!init.isUninitialized()) {
+			return;
+		}
+		java.io.Serializable[] ids = { init.getIdentifier() };
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
+			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
+			if (persister instanceof utils.SingleTableEntityPersister) {
+				try {
+					java.util.List<String> joinslist = null;
+					if(joins != null) joinslist = java.util.Arrays.asList(joins); // Also for optimizationMode == 8, because we want to join fetch when fetching a single entity 
+					((utils.SingleTableEntityPersister) persister).loadBatch(ids, session, joinslist);
+					init.initialize();
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
+			}
+		}
+	}
 
 	public static void prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins) {
 		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
@@ -179,7 +202,7 @@ public class QueryOptimization {
 				if (ids.size() > 1) {
 					try {
 						java.util.List<String> joinslist = null;
-						if(joins != null) joinslist = java.util.Arrays.asList(joins);
+						if(joins != null && QueryOptimization.optimizationMode != 8) joinslist = java.util.Arrays.asList(joins);
 						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
 					} catch (Exception ex) {
 						ex.printStackTrace();

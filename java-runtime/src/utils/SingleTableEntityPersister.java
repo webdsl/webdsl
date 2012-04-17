@@ -50,7 +50,7 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 			}
 		}
 
-		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5) { // Normal or at arguments
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 6 || utils.QueryOptimization.optimizationMode == 8) { // Normal or at arguments
 			JoinEntityLoader loader = new JoinEntityLoader(this, batch.length, LockMode.NONE, session.getFactory(), session.getLoadQueryInfluencers(), joins);
 			loader.loadEntityBatch(session, batch, getIdentifierType(), null, getEntityName(), null, this, LockOptions.NONE);
 		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch
