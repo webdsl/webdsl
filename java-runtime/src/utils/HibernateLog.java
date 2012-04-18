@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.HashMap;
 import java.util.Stack;
 
 public class HibernateLog {
@@ -22,13 +23,16 @@ public class HibernateLog {
 	protected Date _firstQueryStart = null;
 	protected HibernateLogEntry _lastQuery = null;
 	protected String _error = null;
+	protected List<String> _fetched = null;
+	protected int _duplicates = 0;
+	protected Map<String, Integer> _duplicateCounter = null;
 
 	public static void printHibernateLog(PrintWriter sout, utils.AbstractPageServlet page) {
-		RequestAppender requestAppender = RequestAppender.getNamed("hibernateLog");
+		RequestAppender requestAppender = RequestAppender.getInstance();
 		if(requestAppender != null) { 
 			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
-			if(hibLog.tryParse(log)) {
+			if(hibLog.tryParse(log, page.getHibSession())) {
 				hibLog.print(sout, page);
 			}
 			else {
@@ -42,17 +46,17 @@ public class HibernateLog {
 		
 	}
 
-	public boolean tryParse(String str) {
-		return tryParse(new BufferedReader(new StringReader(str)));
+	public boolean tryParse(String str, org.hibernate.Session session) {
+		return tryParse(new BufferedReader(new StringReader(str)), session);
     }
 
-    public boolean tryParse(InputStream in) {
-    	return tryParse(new BufferedReader(new InputStreamReader(in)));
+    public boolean tryParse(InputStream in, org.hibernate.Session session) {
+    	return tryParse(new BufferedReader(new InputStreamReader(in)), session);
     }
 
-    public boolean tryParse(BufferedReader rdr) {
+    public boolean tryParse(BufferedReader rdr, org.hibernate.Session session) {
 		try {
-			parse(rdr);
+			parse(rdr, session);
 			return true;
 		}
 		catch(ParseException ex) {
@@ -67,15 +71,15 @@ public class HibernateLog {
 		return false;
 	}
 
-	public void parse(String str) throws IOException, ParseException {
-        parse(new BufferedReader(new StringReader(str)));
+	public void parse(String str, org.hibernate.Session session) throws IOException, ParseException {
+        parse(new BufferedReader(new StringReader(str)), session);
     }
 
-    public void parse(InputStream in) throws IOException, ParseException {
-        parse(new BufferedReader(new InputStreamReader(in)));
+    public void parse(InputStream in, org.hibernate.Session session) throws IOException, ParseException {
+        parse(new BufferedReader(new InputStreamReader(in)), session);
     }
 
-    public void parse(BufferedReader rdr) throws IOException, ParseException {
+    public void parse(BufferedReader rdr, org.hibernate.Session session) throws IOException, ParseException {
         SimpleDateFormat absoluteFormat = new SimpleDateFormat("HH:mm:ss,SSS");
         org.hibernate.jdbc.util.BasicFormatterImpl sqlFormat = new org.hibernate.jdbc.util.BasicFormatterImpl();
         String line;
@@ -83,6 +87,10 @@ public class HibernateLog {
         _list = new ArrayList<HibernateLogEntry>();
         Stack<HibernateLogEntry> entries = new Stack<HibernateLogEntry>();
         HibernateLogEntry current = null;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("([a-zA-Z0-9.]+)#([a-fA-F0-9-]+)");
+        _fetched = new ArrayList<String>();
+        _duplicates = 0;
+        _duplicateCounter = new HashMap<String, Integer>();
         while((line = rdr.readLine()) != null) {
         	linenr++;
         	int sep1 = line.indexOf("|");
@@ -123,7 +131,7 @@ public class HibernateLog {
         			if(current == null) throw new ParseException("No statement to close", linenr);
         			current.closeTime = absoluteFormat.parse(time);
         			current.duration = dateDiff(current.openTime, current.closeTime);
-        			_lastQuery = current;  
+        			_lastQuery = current;
         			if(entries.empty()) {
         				current = null;
         			}
@@ -143,10 +151,50 @@ public class HibernateLog {
         		}
         	}
         	if(cat.indexOf("org.hibernate.loader") == 0) {
-        		int idx = msg.indexOf("total objects hydrated: ");
-        		if(current == null && _lastQuery != null && idx == 0) {
+        		if(current == null && _lastQuery != null && msg.indexOf("total objects hydrated: ") == 0) {
         			_lastQuery.hydrated = Integer.parseInt(msg.substring(24));
         		}
+        		else if(msg.indexOf("result row:") == 0) {
+        			java.util.regex.Matcher matcher = pattern.matcher(msg);
+        			//String match;
+        			String ent;
+        			String entId;
+        			while (matcher.find()) {
+        				//match = matcher.group(0);
+    					ent = matcher.group(1);
+    					entId = matcher.group(2);
+    					Object obj = null;
+    					try{
+    						obj = session.load(ent, java.util.UUID.fromString(entId));
+    					} catch(Exception e) {
+    					}
+    					// If load returned an uninitialized proxy then we set it to null, so that we do not use it (to prevent initialization)
+    					// However, load should never return an uninitialized proxy, because we are looking at entities that should have been hydrated
+    					if(obj instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer().isUninitialized()) obj = null;
+    					if(obj instanceof org.webdsl.WebDSLEntity) {
+    						ent = ((org.webdsl.WebDSLEntity)obj).get_WebDslEntityType(); // This returns the correct sub-entity
+    					}
+    					else {
+    						// This only happens if entId is not a UUID, load threw an exception or returned an uninitialized proxy.
+    						// We record it with the type shown inside the EntityKey, but the real sub-type is unknown
+    						if(ent.indexOf("webdsl.generated.domain.") == 0) ent = ent.substring("webdsl.generated.domain.".length());
+    						ent = ent + " (subtype uknown)";
+    					}
+        				if(_fetched.contains(ent+"#"+entId)) {
+        					_duplicates++;
+        					if(current != null) current.duplicates++;
+        					if(_duplicateCounter.containsKey(ent)) {
+        						_duplicateCounter.put(ent, _duplicateCounter.get(ent) + 1);
+        					}
+        					else {
+        						_duplicateCounter.put(ent, 1);
+        					}
+        				}
+        				else {
+        					_fetched.add(ent+"#"+entId);
+        				}
+        			}
+    			}
         	}
         	else if(cat.indexOf("org.hibernate.SQL") == 0) {
         		if(current == null || current.sql != null) throw new ParseException("Statement was not expected", linenr);
@@ -277,8 +325,8 @@ public class HibernateLog {
 							}
 						}
 
-						sout.print(", Entities = <span id=\"sqllogentities\">" + entities + "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
-						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
+						sout.print(", Entities = <span id=\"sqllogentities\">" + entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
+						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
 						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
 						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();
 						String entKey = entKeys.hasNext() ? entKeys.next() : null;
@@ -290,6 +338,7 @@ public class HibernateLog {
 									sout.print(colKey);
 									sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
 									sout.print(colCounter.get(colKey));
+									sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
 									sout.print("</td></tr>");
 								}
 								colKey = colKeys.hasNext() ? colKeys.next() : null;
@@ -298,9 +347,21 @@ public class HibernateLog {
 								sout.print(entKey);
 								sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
 								sout.print(entCounter.get(entKey));
+								sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+								if(_duplicateCounter.containsKey(entKey)) {
+									sout.print(_duplicateCounter.get(entKey));
+									_duplicateCounter.remove(entKey);
+								}
 								sout.print("</td></tr>");
 								entKey = entKeys.hasNext() ? entKeys.next() : null;
 							}
+						}
+						for(String key : _duplicateCounter.keySet()) {
+							sout.print("<tr class=\"sqllogdetailsduplicate\"><td class=\"sqllogdetailsname\">");
+							sout.print(key);
+							sout.print("</td><td class=\"sqllogdetailsinstances\"></td><td class=\"sqllogdetailsduplicates\" id=\"sqllogduplicates_" + key.replace('.', '_') + "\">");
+							sout.print(_duplicateCounter.get(key));
+							sout.print("</td></tr>");
 						}
 						sout.print("</table>");
 						printedSessionContext = true;
@@ -316,6 +377,7 @@ public class HibernateLog {
 				sout.print("<div class=\"sqllog\">Query " + (++logindex) + ": time=" + entry.duration + "ms");
 				if(entry.rows > -1) sout.print(", rows=" + entry.rows);
 				if(entry.hydrated > -1) sout.print(", hydrated=" + entry.hydrated);
+				if(entry.duplicates > 0) sout.print(", duplicates=" + entry.duplicates);
 				sout.print(", template=" + entry.template);
 				sout.print("<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
@@ -330,6 +392,7 @@ public class HibernateLog {
 				sout.print("time=" + entry.duration + "ms");
 				if(entry.rows > -1) sout.print(", rows=" + entry.rows);
 				if(entry.hydrated > -1) sout.print(", hydrated=" + entry.hydrated);
+				if(entry.duplicates > 0) sout.print(", duplicates=" + entry.duplicates);
 				sout.print(", template=" + entry.template);
 				sout.print("<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
@@ -375,6 +438,7 @@ class HibernateLogEntry {
 	public int rows = -1;
 	public int hydrated = -1;
 	public int subEntries = 0;
+	public int duplicates = 0;
 	public String sql = null;
 	public String template = null;
 	public List<String> parameterVals = new ArrayList<String>();

@@ -34,7 +34,7 @@ rules // Entry points
        ; [] := <collect(query-optimization-waiting-for); flatten-list/*;debug(!"Wait:")*/> (body, cond)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
-		       rules (  QueryConditions := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort))> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
+		       rules (  QueryConditions := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
 		                IsEffectful     := False()                            // True if the current statement is effectful (means: can affect non-local state), False otherwise
 		             )
 		       //; <debug(!"Analyzing: ")> name
@@ -212,7 +212,7 @@ rules // Traversals
 
   analyze-for-query-optimization : // For functions returning SimpleSort("Bool")
     Return(e1){anno*} -> Return(e2){anno*}
-    where traversal := <extract-query-cond(get-accessible-expr(id)); not(?True())> e1
+    where traversal := <extract-query-cond(get-accessible-expr(id,id)); not(?True())> e1
     ; rules( DetectedReturn :+= traversal )
     ; e2 := <analyze-for-query-optimization> e1
 
@@ -281,7 +281,7 @@ strategies // Resolve
     ?(e, srt, cond, effectful)
     ; where (
       (traversal, esrt) := <is-accessible-from(RootVar)> e
-      ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort))> cond
+      ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,id))> cond
       ; newcond := <conc; make-set>(<QueryConditions>, tmpcond)
       ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
       ; rules( DetectedTraveral :+= (traversal, esrt, newcond, iseffectful) )
@@ -643,7 +643,7 @@ rules // Special cases
 
   analyze-for-query-optimization-if :
     (cond1, true1, false1) -> (cond2, true2, false2)
-    where condlst := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort))> cond1
+    where condlst := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond1
     ; not([] := condlst)
     with cond2 := <analyze-for-query-optimization-continue> cond1
     ; oldcond := <QueryConditions> 
@@ -668,15 +668,15 @@ rules // Query conditions
     ; Fst
     ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
 
-  get-accessible-expr(gen) :
+  get-accessible-expr(gen,check) :
     (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr1 := <is-accessible-field(RootVar,gen)> expr1 // This expression is accessible from the query root entity
-    ; newexpr2 := <is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
+    where newexpr1 := <is-accessible-field(RootVar,gen); check> expr1 // This expression is accessible from the query root entity
+    ; newexpr2 := <(is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)); check> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
 
-  get-accessible-expr(gen) :
+  get-accessible-expr(gen,check) :
     (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr2 := <is-accessible-field(RootVar,gen)> expr2 // This expression is accessible from the query root entity
-    ; newexpr1 := <is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
+    where newexpr2 := <is-accessible-field(RootVar,gen); check> expr2 // This expression is accessible from the query root entity
+    ; newexpr1 := <(is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
 
   is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 

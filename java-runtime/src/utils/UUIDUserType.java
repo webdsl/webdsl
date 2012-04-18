@@ -20,17 +20,10 @@ import org.hibernate.usertype.UserType ;
 public class UUIDUserType implements UserType, java.io.Serializable
 {
 
-	private static final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
+	private static transient final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
 
-	private static final boolean IS_VALUE_TRACING_ENABLED = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() ).isTraceEnabled();
-	private transient Logger log;
-
-	private Logger log() {
-		if ( log == null ) {
-			log = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() );
-		}
-		return log;
-	}
+	private static transient final Logger bindLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicBinder.class );
+	private static transient final Logger extractLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicExtractor.class );
 
 	/*
 	 * (non-Javadoc)
@@ -149,15 +142,15 @@ public class UUIDUserType implements UserType, java.io.Serializable
 
 		if (value == null)
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "found [null] as column [{}]", names[0] );
+			if ( extractLog.isTraceEnabled() ) {
+				extractLog.trace( "found [null] as column [{}]", names[0] );
 			}
 			return null ;
 		}
 		else
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "found [{}] as column [{}]", retrieveUUID( value ), names[0] );
+			if ( extractLog.isTraceEnabled() ) {
+				extractLog.trace( "found [{}] as column [{}]", retrieveUUID( value ), names[0] );
 			}
 			return retrieveUUID(value);
 		}
@@ -194,8 +187,8 @@ public class UUIDUserType implements UserType, java.io.Serializable
 		// System.out.println("set start");
 		if (value == null)
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( String.format("binding parameter [%d] as [VARCHAR] - <null>", index) );
+			if ( bindLog.isTraceEnabled() ) {
+				bindLog.trace( String.format("binding parameter [%d] as [VARCHAR] - <null>", index) );
 			}
 
 			st.setNull (index, theType) ;
@@ -209,8 +202,8 @@ public class UUIDUserType implements UserType, java.io.Serializable
 			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
 		}
 		
-		if ( IS_VALUE_TRACING_ENABLED ) {
-			log().trace( String.format("binding parameter [%d] as [VARCHAR] - %s", index, persistUUIDString((UUID) value)) );
+		if ( bindLog.isTraceEnabled() ) {
+			bindLog.trace( String.format("binding parameter [%d] as [VARCHAR] - %s", index, persistUUIDString((UUID) value)) );
 		}
 
 		st.setString (index, persistUUIDString((UUID) value));
