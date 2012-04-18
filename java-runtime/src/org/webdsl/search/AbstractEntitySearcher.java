@@ -35,6 +35,7 @@ import org.hibernate.search.query.facet.Facet;
 import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.store.DirectoryProvider;
 import org.webdsl.WebDSLEntity;
+
 import com.browseengine.bobo.api.BoboBrowser;
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.Browsable;
@@ -89,7 +90,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     protected String namespaceConstraint = "";
 
-    protected Analyzer analyzer;
+    protected Analyzer analyzer, highlightAnalyzer;
     protected Class<?> entityClass;
     protected long searchTime = 0;
     protected Sort sortObj;
@@ -208,7 +209,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         for (BooleanQuery bq : shouldFacetQueryMap.values()) {
             newQuery.add( bq, Occur.MUST );
         }
-
         newQuery.add( luceneQueryNoFacetFilters, Occur.MUST );
 
         luceneQuery = newQuery;
@@ -335,6 +335,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             if ( rootQD.isRangeQuery )
                 paramMap.put( "lq", getLuceneQueryAsString() );
             else if (rootQD.query != null ){
+                if (rootQD.isPhraseQuery) {
+                    paramMap.put( "pq", rootQD.query );
+                    paramMap.put( "sl", String.valueOf( rootQD.slop ) );
+                }
                 paramMap.put( "q", rootQD.query );
             } else {
                 paramMap.put( "lq", getLuceneQueryAsString() );
@@ -717,18 +721,22 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public String highlight( String field, String toHighLight ) {
-        validateQuery();
-        return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight );
+        return highlight(field, toHighLight, "<B>", "</B>", 3, 80, " ...");
     }
 
     public String highlight( String field, String toHighLight, String preTag, String postTag ) {
-        validateQuery();
-        return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight, preTag, postTag );
+        return highlight(field, toHighLight, preTag, postTag, 3, 80, " ...");
+
     }
 
     public String highlight ( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator ) {
         validateQuery();
-        return ResultHighlighter.highlight( analyzer, getHighlightQuery(), field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
+        IndexReader ir = getReader();
+        try{
+          return ResultHighlighter.highlight( ir, highlightAnalyzer, luceneQueryNoFacetFilters, field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
+        } finally{
+            closeReader(ir);
+        }
     }
 
     public List<Float> listScores(){
@@ -1095,24 +1103,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     protected static FacetHandler<?> getFacetHandlerForField( String field ) {
         return new MultiValueFacetHandler( field, field );
-    }
-
-    private Query getHighlightQuery() {
-        if ( updateHighlightQuery ) {
-            IndexReader ir = null;
-            try {
-                ir = getReader();
-                highlightQuery = luceneQueryNoFacetFilters.rewrite( ir );
-                updateHighlightQuery = false;
-//                log("HIGHLIGHT QUERY: " + highlightQuery.toString());
-            } catch ( IOException e ) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } finally {
-                closeReader(ir);
-            }
-        }
-        return highlightQuery;
     }
 
     private List<WebDSLFacet> getBoboFacets( String field, boolean includeOldFacets ) {
