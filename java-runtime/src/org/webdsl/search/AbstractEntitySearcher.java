@@ -1015,7 +1015,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             updateLuceneQuery = false;
             updateHighlightQuery = updateBoboBrowseResult = updateFullTextQuery = updateFacets = true;
         }
-        return luceneQuery.toString();
+        return luceneQueryNoFacetFilters.toString();
     }
 
     private Query getParsedQuery( QueryDef qd ) throws ParseException {

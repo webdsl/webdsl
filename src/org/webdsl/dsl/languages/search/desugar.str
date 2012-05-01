@@ -15,25 +15,27 @@ rules //desugar searcher language to native class interface
       Suggest(ent, AutoComplete(), prts) -> result
       with x_searcher := <concat-strings>[ent,"Searcher"]
           ; e_searcher := exp |[ x_searcher  ]|
-          ; <fetch(?SuggestTerm(FieldsConstraint(fields),e_toSuggest ))> prts
-          ; e_fields* := <map(\x -> <field-to-string> x\)> fields
+          ; <fetch(?SuggestTerm(FieldsConstraint(fields){anno*},e_toSuggest ))> prts
+          ; fields* := <map(\x -> <field-to-string> x\)> fields
+          ; e_fields := TypedListCreation(SimpleSort("String"), fields*){anno*}
           ; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
           ; if (<fetch(?NamespaceConstraint(e_ns))> prts)
-            then result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, e_ns, [e_fields*], e_limit)]|
-            else result := |[ e_searcher.autoCompleteSuggest(e_toSuggest, [e_fields*], e_limit)]|
+            then result := exp |[ e_searcher.autoCompleteSuggest(e_toSuggest, e_ns, e_fields, e_limit)]|
+            else result := exp |[ e_searcher.autoCompleteSuggest(e_toSuggest, e_fields, e_limit)]|
             end
 
   desugar-search:
       Suggest(ent, SpellCheck(), prts) -> result
       with x_searcher := <concat-strings>[ent,"Searcher"]
           ; e_searcher := exp |[ x_searcher  ]|
-          ; <fetch(?SuggestTerm(FieldsConstraint(fields),e_toSuggest ))> prts
-          ; e_fields* := <map(\x -> <field-to-string> x\)> fields
+          ; <fetch(?SuggestTerm(FieldsConstraint(fields){anno*},e_toSuggest ))> prts
+          ; fields* := <map(\x -> <field-to-string> x\)> fields
+          ; e_fields := TypedListCreation(SimpleSort("String"), fields*){anno*}
           ; e_limit := <(fetch(?MaxResults(lim)); !lim) <+ !exp |[ 10 ]|> prts
           ; e_similarity := <(fetch(?Similarity(sim));!sim) <+ !exp |[ 0.7 ]|> prts
           ; if (<fetch(?NamespaceConstraint(e_ns))> prts)
-            then result := |[ e_searcher.spellSuggest(e_toSuggest, e_ns, [e_fields*], e_similarity, e_limit)]|
-            else result := |[ e_searcher.spellSuggest(e_toSuggest, [e_fields*], e_similarity, e_limit)]|
+            then result := exp |[ e_searcher.spellSuggest(e_toSuggest, e_ns, e_fields, e_similarity, e_limit)]|
+            else result := exp |[ e_searcher.spellSuggest(e_toSuggest, e_fields, e_similarity, e_limit)]|
             end
 
   desugar-search:
@@ -90,9 +92,10 @@ rules //desugar searcher language to native class interface
       with e_query := <queryConstraint-to-expr> (queryConstraint, e_done, fieldsConstraint)
 
   fieldsConstraint-to-expr:
-      (FieldsConstraint(fields), e_done) -> e_fields
+      (FieldsConstraint(fields){anno*}, e_done) -> e_fields
       where e* := <map(\x -> <field-to-string> x\)> fields
-          ; e_fields := exp|[ e_done.fields([e*]) ]|
+          ; e := TypedListCreation(SimpleSort("String"), e*){anno*}
+          ; e_fields := exp|[ e_done.fields(e) ]|
 
   try-fieldsConstraint-to-expr:
       (Some(fc), e_done) -> result
