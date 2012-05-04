@@ -313,6 +313,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         }
     }
 
+    public final String asString(){
+        return utils.URLFilter.paramMapToPostParamsEncoding(this.toParamMap());
+    }
+    
+    public static AbstractEntitySearcher<?,?> fromString(String str){
+    	return fromParamMap(utils.URLFilter.URLEncodingToParamMap(str));
+    }
+
     public final Map<String,String> toParamMap() {
         if (!updateParamMap ) {
             return paramMap;

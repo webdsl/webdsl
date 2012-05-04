@@ -76,6 +76,8 @@ module .servletapp/src-webdsl-template/built-in
 
   native class org.webdsl.search.AbstractEntitySearcher as Searcher {
     static escapeQuery(String) : String
+    static fromString(String) : Searcher
+    asString() : String
     getFieldFilterValue(String) : String
     getFacets(String,Bool) : List<Facet>
     getFacets(String) : List<Facet>
