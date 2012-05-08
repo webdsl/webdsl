@@ -17,11 +17,13 @@ import org.apache.tools.ant.Task;
     ]]></script>
  */
 public class TaskJavaWebDSLUsed  extends Task {
+    
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
         String execcommand = project.getProperty("webdslexec");
         if(execcommand.startsWith("java")){
           project.setProperty("using-webdsl-java","true");
         }
     }
+    
 }

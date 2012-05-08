@@ -20,11 +20,13 @@ import org.apache.tools.ant.Task;
     </script>
  */
 public class TaskApplicationIniTimestamp  extends Task {
+
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
         String currentdir = project.getProperty("currentdir");
         File f = new File(currentdir+"/application.ini");
         Long datetime = f.lastModified();
         project.setProperty("current.application.ini.timestamp",datetime.toString());
     }
+    
 }

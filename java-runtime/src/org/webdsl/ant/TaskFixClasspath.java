@@ -67,8 +67,9 @@ import org.apache.tools.ant.taskdefs.Echo;
     </script>
  */
 public class TaskFixClasspath  extends Task {
+    
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
 
         String currentdir = project.getProperty("currentdir");
         String generatedir = project.getProperty("generate-dir");
@@ -111,4 +112,5 @@ public class TaskFixClasspath  extends Task {
             ec.perform();
         }
     }
+    
 }

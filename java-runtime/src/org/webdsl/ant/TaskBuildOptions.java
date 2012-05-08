@@ -30,8 +30,9 @@ import org.apache.tools.ant.taskdefs.Echo;
     ]]></script>
  */
 public class TaskBuildOptions  extends Task {
+    
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
         String buildoptions = project.getProperty("buildoptions");
         Pattern p = Pattern.compile("\\s");
         String[] commands = p.split(buildoptions);
@@ -43,4 +44,5 @@ public class TaskBuildOptions  extends Task {
         }
         project.setProperty("numberofcommands",""+commands.length);
     }
+    
 }

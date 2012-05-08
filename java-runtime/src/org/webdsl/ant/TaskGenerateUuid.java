@@ -18,9 +18,11 @@ import org.apache.tools.ant.Task;
     </script>
  */
 public class TaskGenerateUuid  extends Task {
+    
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
         UUID id = UUID.randomUUID();
         project.setProperty("build-id",id.toString());
     }
+    
 }

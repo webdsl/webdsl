@@ -70,8 +70,9 @@ import org.apache.tools.ant.taskdefs.Echo;
     ]]></script> 
  */
 public class TaskConvertApplicationIni  extends Task {
+    
     public void execute() {
-        Project project = Project.getProject(this);
+        Project project = getProject();
 
         String currentdir = project.getProperty("currentdir");
 
@@ -114,4 +115,5 @@ public class TaskConvertApplicationIni  extends Task {
           echo.perform();
         }
     }
+    
 }
