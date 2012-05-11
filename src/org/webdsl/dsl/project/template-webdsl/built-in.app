@@ -467,6 +467,7 @@ module .servletapp/src-webdsl-template/built-in
     replyTo :: String (length=1000000)
     from :: String (length=1000000)
     subject :: String (length=1000000)
+    scheduled :: DateTime (default=now())
     lastTry :: DateTime
   }
 
@@ -474,7 +475,7 @@ module .servletapp/src-webdsl-template/built-in
 
   function internalHandleEmailQueue(){
     var n : DateTime := now().addHours(-3); // retry after 3 hours to avoid spamming too much
-    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n limit 1;
+    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n order by q.scheduled asc limit 1;
 
     for(queuedEmail:QueuedEmail in queuedEmails){
       if(sendemail(sendQueuedEmail(queuedEmail))){
