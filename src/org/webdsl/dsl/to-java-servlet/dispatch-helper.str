@@ -97,7 +97,7 @@ rules
             }
           }
           //List<String> messages;
-          RequestLogEntry requestLogEntry;
+          RequestLogEntry requestLogEntry = null;
           public RequestLogEntry getRequestLogEntry(){
             return requestLogEntry;
           }
@@ -175,27 +175,31 @@ rules
           /**
            *  uses separate session/transaction to push log to database
            */
-          public void storeRequestLogEntryinSeparateSession(){
-            org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
-            try
-            { 
-              hibSession.beginTransaction();
-              storeRequestLogEntry(hibSession);
-              hibSession.getTransaction().commit();
+          /*public void storeRequestLogEntryinSeparateSession(){
+            if(utils.BuildProperties.isRequestLoggingEnabled()){
+              org.hibernate.Session hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
+              try
+              { 
+                hibSession.beginTransaction();
+                storeRequestLogEntry(hibSession);
+                hibSession.getTransaction().commit();
+              }
+              catch(Exception se)
+              { 
+                System.out.println("Exception occured while storing request log entry.");
+                se.printStackTrace();
+                hibSession.getTransaction().rollback();
+              }
             }
-            catch(Exception se)
-            { 
-              System.out.println("Exception occured while storing request log entry.");
-              se.printStackTrace();
-              hibSession.getTransaction().rollback();
-            }
-          }
+          }*/
           public void storeRequestLogEntry(org.hibernate.Session hibSession){
             hibSession.saveOrUpdate(requestLogEntry);
           }  
           public void setEndTimeAndStoreRequestLog(org.hibernate.Session hibSession){
-            requestLogEntry.setEndNoEventsOrValidation(new java.util.Date());
-            storeRequestLogEntry(hibSession);
+            if(utils.BuildProperties.isRequestLoggingEnabled()){
+              requestLogEntry.setEndNoEventsOrValidation(new java.util.Date());
+              storeRequestLogEntry(hibSession);
+            }
           }  
             
           public void doServe(HttpServletRequest request, HttpServletResponse response)
@@ -386,19 +390,20 @@ rules
                 pc = pd.getPageClass();
               }
               
-              requestLogEntry.setRequestedURLNoEventsOrValidation(request.getRequestURL().toString());
-              requestLogEntry.setNameNoEventsOrValidation(requested);
-              requestLogEntry.setClientIPNoEventsOrValidation(request.getRemoteAddr());
-              requestLogEntry.setClientPortNoEventsOrValidation(request.getRemotePort());
-              if(this.isPostRequest){
-                requestLogEntry.setMethodNoEventsOrValidation("POST");
+              if(utils.BuildProperties.isRequestLoggingEnabled()){
+                requestLogEntry.setRequestedURLNoEventsOrValidation(request.getRequestURL().toString());
+                requestLogEntry.setNameNoEventsOrValidation(requested);
+                requestLogEntry.setClientIPNoEventsOrValidation(request.getRemoteAddr());
+                requestLogEntry.setClientPortNoEventsOrValidation(request.getRemotePort());
+                if(this.isPostRequest){
+                  requestLogEntry.setMethodNoEventsOrValidation("POST");
+                }
+                else{
+                  requestLogEntry.setMethodNoEventsOrValidation("GET");
+                }
+                requestLogEntry.setUserAgentNoEventsOrValidation(request.getHeader("User-Agent"));
+                requestLogEntry.setRefererNoEventsOrValidation(request.getHeader("Referer"));
               }
-              else{
-                requestLogEntry.setMethodNoEventsOrValidation("GET");
-              }
-              requestLogEntry.setUserAgentNoEventsOrValidation(request.getHeader("User-Agent"));
-              requestLogEntry.setRefererNoEventsOrValidation(request.getHeader("Referer"));
-
               showerrorpage = !handlePage();
             }
             catch(utils.TooFewArgumentsException ex){
