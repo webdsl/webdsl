@@ -302,6 +302,7 @@ module .servletapp/src-webdsl-template/built-in
     leaveLabelContext()
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
+    setMimetype(String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -310,6 +311,15 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.TemplateContext as TemplateContext {
     clone():TemplateContext
     getTemplateContextString():String
+  }
+  
+  function mimetype(s:String){
+    getPage().setMimetype(s);
+  }
+  template mimetype(s:String){
+    init{
+      getPage().setMimetype(s);
+    }
   }
 
 //access to template context
