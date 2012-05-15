@@ -141,7 +141,7 @@ let
 		      sed s/@@webdsl@@/${buildJava}/ webdsl.editor/import.webdsl.from-install-dir.properties > webdsl.editor/import.webdsl.properties
 		    '';
     	};
-    }
+    };
 
   };
 
