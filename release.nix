@@ -1,4 +1,6 @@
 { nixpkgs ? ../nixpkgs
+  , webdslEditor ? { outPath = ../../webdsl-editor ; rev = 1234; }
+  , hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; } 
 }:
 
 let
@@ -11,7 +13,7 @@ let
   ];
 
   pkgs = import nixpkgs { system = "i686-linux"; };
-
+  eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
   jobs = rec {
 
     tarball = 
@@ -120,15 +122,7 @@ let
         '';
       };
       
-    editor = 
-    { webdslEditor ? { outPath = ../../webdsl-editor ; rev = 1234; }
-	, hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; }
-	}: 
-	let
-  	pkgs = import nixpkgs { system = "x86_64-linux"; };
-	eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
-	in with pkgs;
-	import "${hydraConfig}/spoofax-fun.nix" {
+    editor = import "${hydraConfig}/spoofax-fun.nix" {
       		inherit pkgs;
       		name = "webdsl";
       		version = "1.0.0";
