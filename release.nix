@@ -129,7 +129,7 @@ let
 	eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
 	in 
 	{
-		updatesite = import "${hydraConfig}/spoofax-fun.nix" {
+	 		import "${hydraConfig}/spoofax-fun.nix" {
       		inherit pkgs;
       		name = "webdsl";
       		version = "1.0.0";
