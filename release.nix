@@ -126,9 +126,9 @@ let
 	}: 
 	let
   	pkgs = import nixpkgs { system = "x86_64-linux"; };
-  	in with pkgs;
 	eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ;
-	updatesite = import "${hydraConfig}/spoofax-fun.nix" {
+	in
+	import "${hydraConfig}/spoofax-fun.nix" {
       inherit pkgs;
       name = "webdsl";
       version = "1.0.0";
