@@ -128,8 +128,7 @@ let
   	pkgs = import nixpkgs { system = "x86_64-linux"; };
 	eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
 	in 
-	{
-	 		import "${hydraConfig}/spoofax-fun.nix" {
+	import "${hydraConfig}/spoofax-fun.nix" {
       		inherit pkgs;
       		name = "webdsl";
       		version = "1.0.0";
@@ -141,7 +140,6 @@ let
 		      sed s/@@webdsl@@/${buildJava}/ webdsl.editor/import.webdsl.from-install-dir.properties > webdsl.editor/import.webdsl.properties
 		    '';
     	};
-    };
 
   };
 
