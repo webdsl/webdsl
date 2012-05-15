@@ -119,6 +119,26 @@ let
           fi
         '';
       };
+      
+    editor = 
+    { webdslEditor ? { outPath = ../../webdsl-editor ; rev = 1234; }
+	, hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; }
+	}: 
+	let
+  	pkgs = import nixpkgs { system = "x86_64-linux"; };
+	eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ;
+	import "${hydraConfig}/spoofax-fun.nix" {
+      inherit pkgs;
+      name = "webdsl";
+      version = "1.0.0";
+      src = webdslEditor;
+      buildInputs = [ pkgs.strategoPackages.sdf, jobs.buildJava];
+      updatesites = [ "http://www.lclnet.nl/update/unstable" "http://download.eclipse.org/releases/helios/"];
+      installIUs = ["org.strategoxt.imp.feature.group" "org.eclipse.jst.server_adapters.ext.feature.feature.group" "org.eclipse.jst.enterprise_ui.feature.feature.group"];
+      preConfigure = ''
+        sed s/@@webdsl@@/${buildJava}/ webdsl.editor/import.webdsl.from-install-dir.properties > webdsl.editor/import.webdsl.properties
+      '';
+    };
 
   };
 
