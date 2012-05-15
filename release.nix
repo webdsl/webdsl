@@ -132,7 +132,7 @@ let
       name = "webdsl";
       version = "1.0.0";
       src = webdslEditor;
-      buildInputs = [ pkgs.strategoPackages.sdf, jobs.buildJava];
+      buildInputs = [ pkgs.strategoPackages.sdf];
       updatesites = [ "http://www.lclnet.nl/update/unstable" "http://download.eclipse.org/releases/helios/"];
       installIUs = ["org.strategoxt.imp.feature.group" "org.eclipse.jst.server_adapters.ext.feature.feature.group" "org.eclipse.jst.enterprise_ui.feature.feature.group"];
       preConfigure = ''
