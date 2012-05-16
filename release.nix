@@ -123,9 +123,10 @@ let
 		    buildInputs = [ pkgs.strategoPackages.sdf];
 		    updatesites = [ "http://www.lclnet.nl/update/unstable" "http://download.eclipse.org/releases/helios/"];
 		    installIUs = ["org.strategoxt.imp.feature.group" "org.eclipse.jst.server_adapters.ext.feature.feature.group" "org.eclipse.jst.enterprise_ui.feature.feature.group"];
-	#	    preConfigure = ''
+		    preConfigure = ''
+		    ulimit -s unlimited
 	#	      sed s/@@webdsl@@/${buildJava}/ webdsl.editor/import.webdsl.from-install-dir.properties > webdsl.editor/import.webdsl.properties
-	#	    '';
+		    '';
     	};
 
   };
