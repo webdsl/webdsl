@@ -176,14 +176,22 @@ public abstract class TemplateServlet {
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         //always store arguments, value might change between phases
-        this.env = env; // Moved here, because prefetching in storeArguments() may use env.isRedefinedTemplate()
-        storeArguments(args);
+        // We ensure that there is an env, because prefetching in storeArguments() may use env.isRedefinedTemplate()
+        if(this.env == null) {
+        	this.env = env;
+            storeArguments(args);
+            this.env = null;
+        }
+        else {
+        	storeArguments(args);
+        }
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
               initialized=true;
               
               this.calledName = calledName;
+              this.env = env;
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();
               this.response = ThreadLocalPage.get().getResponse();

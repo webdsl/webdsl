@@ -15,8 +15,16 @@ rules // Entry points
     ; not(<fetch-elem(is-query-analysis)> anno*)
     ; {| RootVar, QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall
        : <filter(\ Arg(arg, srt) -> <id> with rules( RootVar : Var(arg) -> srt ) \)> args
-       ; wait := <collect(query-optimization-waiting-for-calls); flatten-list> body
+       ; wait := <collect(perform-waiting-check-only-loops <+ query-optimization-waiting-for-calls); flatten-list> body
       |}
+
+  perform-waiting-check-only-loops = // Required for calls on persistent iterators, otherwise these calls are not detected as recursive
+    ((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type> srt)
+    ; {| RootVar
+       : rules( RootVar : Var(x) -> srt )
+       ; wait := <collect(perform-waiting-check-only-loops <+ query-optimization-waiting-for-calls); flatten-list> b
+       |}
+    ; !wait
 
   perform-query-analysis(|name,args,cond) :
     (body, anno*) -> (body3, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls) | anno*])
@@ -89,8 +97,24 @@ rules // Entry points
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
   get-branches-from-recursive(|x,xsrt,requiresalias) :
-    (callee, args) -> branches2
+    (callee@(None(), n, targs), args) -> branches2
     where passed := <(PassedCallee <+ !0); where(<lt>(<id>, 3))> callee
+    ; Function(_, deffargs, _, defb){defanno*} := <resolve-function-call-to-decl> callee
+    ; qa := <fetch-elem(is-query-analysis)> defanno*
+    ; analysis := <get-ts-from-query-analysis> qa
+    ; argmapping := <zip> (args, deffargs)
+    ; {| PassedCallee
+      : times := <int-inc> passed
+      ; rules( PassedCallee : callee -> times )
+      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|argmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
+      |}
+    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,argmapping)> analysis
+    ; branches2 := <conc; flatten-list> (branches, recursivebranches)
+
+  get-branches-from-recursive(|x,xsrt,requiresalias) :
+    (callee, args) -> branches2
+    where not((None(), _, _) := callee)
+    ; passed := <(PassedCallee <+ !0); where(<lt>(<id>, 3))> callee
     ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl> callee
     ; qa := <fetch-elem(is-query-analysis)> defanno*
     ; analysis := <get-ts-from-query-analysis> qa
@@ -262,8 +286,34 @@ strategies // Resolve
 		    end
 
   analyze-for-query-optimization =
-    ?Call(_, _, _)
+    (?Call(_, _, _) <+ ?ThisCall(_, _))
     ; (analyze-for-query-optimization-calls <+ with(register-all-effectful))
+
+  analyze-for-query-optimization-calls :
+    c@ThisCall(nm, args1){anno*} -> ThisCall(nm, args2){anno*}
+    where not([] := <filter(is-accessible-from-allow-calls(RootVar))> args1)
+    ; targs := <map(type-of); prepare-type-list-for-compare> args1
+    ; n := <strip-annos> nm  
+    ; <not(check-builtin-signature)> (None(), n, targs)
+    //; <not(is-reserved-function)> (n, targs)
+    ; <not(IsReservedFunction)> (n, <length> targs)
+    ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
+    with argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, defargs)
+      ; (defn, deftargs) := <normalize-signature> (defname, defargs)
+      ; if <Recursive> (None(), defn, deftargs) then
+          recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
+          ; <register-detected-recursive-call> ((None(), defn, deftargs), recargs)
+          ; args2 := <map(analyze-for-query-optimization-effectful)> args1
+        else
+          args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
+          ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
+          ; recursivecalls := <fetch-elem(get-recursive-from-query-analysis)> defanno*
+          ; <filter(translate-recursive(|argmapping); register-detected-recursive-call)> recursivecalls
+          //; <debug(!"Following global function ")> (nm)
+          ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> argmapping
+          ; <filter(combine-analysis)> newanalysis
+          ; try(<is-accessible-from-allow-calls(RootVar); map(register-detected-traversal)> c)
+        end
 
   handle-escaped-ref-arg-in-mapping =
     with(try(filter(is-escaped-ref-arg); not(?[]); register-all-effectful))
@@ -273,9 +323,23 @@ strategies // Resolve
     where <is-ref-type> srt
     ; <not(is-accessible-from-allow-calls(RootVar))> e
 
-  analyze-for-query-optimization =
-    (?Assignment(_, _) <+ ?PropertyAssignment(_, _))
-    ; with(register-all-effectful)
+  analyze-for-query-optimization :
+    Assignment(v, e){anno*} -> Assignment(v, e2){anno*}
+    with register-all-effectful
+    ; e2 := <analyze-for-query-optimization-effectful> e
+
+  analyze-for-query-optimization :
+    PropertyAssignment(v, e){anno*} -> PropertyAssignment(v, e2){anno*}
+    with register-all-effectful
+    ; e2 := <analyze-for-query-optimization-effectful> e
+
+  analyze-for-query-optimization :
+    VarDeclInit(v, srt, e){anno*} -> VarDeclInit(v, srt, e2){anno*}
+    with e2 := <analyze-for-query-optimization-effectful> e
+    
+  analyze-for-query-optimization :
+    VarDeclInitInferred(v, e){anno*} -> VarDeclInitInferred(v, e2){anno*}
+    with e2 := <analyze-for-query-optimization-effectful> e
 
   combine-analysis =
     ?(e, srt, cond, effectful)
@@ -576,6 +640,19 @@ strategies // Resolve
            + (<not(check-builtin-signature)> (ent, n, targs*); !call)
           )
       //)
+
+  query-optimization-waiting-for-function-calls =
+    ?ThisCall(nm, args)
+    ; not([] := <filter(is-accessible-from-allow-calls(RootVar))> args)
+    ; targs* := <map(type-of); prepare-type-list-for-compare> args
+    ; n := <strip-annos> nm
+    ; <not(check-builtin-signature)> (None(), n, targs*)
+    //; <not(is-reserved-function)> (n, targs*)
+    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(where(Recursive))> (None(), n, targs*)
+    ; Function(defname, defargs, _, _){anno*} := <resolve-function-call-to-decl> (None(), n, targs*)
+    ; <not(fetch-elem(is-query-analysis))> anno*
+    ; !(None(), n, targs*)
 
   query-optimization-waiting-for-template-calls =
     ?TemplateCall(name, args, passign, body)

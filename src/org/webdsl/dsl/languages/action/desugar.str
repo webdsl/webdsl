@@ -38,3 +38,22 @@ rules
     ; bindableargs := <filter(query-optimization-bindable-argument)> farg1*
     ; farg2* := <map(try(add-query-optimization-to-argument(|qa,bindableargs)))> farg1*
     ; qo := <get-empty-query-optimization>
+
+  // We perform query analysis on global functions
+  desugar-action :
+    f@Function(x, farg*, srt, b1){anno*} -> def{newanno*}
+    where <not(fetch-elem(?FunctionEntity(_)))> anno*
+        ; <action-body-ready> b1
+        ; (b2, newanno*) := <perform-query-analysis(|("GlobalFunction", x), farg*, True())> (b1, anno*)
+        ; def := Function(x, farg*, srt, b2){newanno*}
+        ; <store-global-function> def{newanno*}
+
+  add-backend-annotation :
+    f@Function(x, farg1*, srt, b1){anno*} -> Function(x, farg2*, srt, b1){qo,tokeep*}
+    where <not(fetch-elem(?FunctionEntity(_)))> anno*
+    ; <not(fetch-elem(is-query-optimization))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("GlobalFunction", x); get-empty-query-analysis)> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> farg1*
+    ; farg2* := <map(try(add-query-optimization-to-argument(|qa,bindableargs)))> farg1*
+    ; qo := <get-empty-query-optimization>
