@@ -43,6 +43,7 @@
 
   <target name="copy-template-files">
 
+    <fail unless="requestlogoption"/>
     <fail unless="sessiontimeoutoption"/>
     <fail unless="fastppoption"/>
     <fail unless="statisticsoption"/>
@@ -180,7 +181,7 @@
           <token key="DBNAME" value="${dbname}"/>
           <token key="DBUSER" value="${dbuser}"/>
           <token key="DBPASSWORD" value="${dbpassword}"/>
-    <token key="DBJNDIPATH" value="${dbjndipath}"/>
+          <token key="DBJNDIPATH" value="${dbjndipath}"/>
           <token key="TOMCATMANAGER" value="${tomcatmanager}"/>
           <token key="TOMCATUSER" value="${tomcatuser}"/>
           <token key="TOMCATPASSWORD" value="${tomcatpassword}"/>
@@ -196,6 +197,7 @@
           <token key="EHCACHETIMEOUT" value="${ehcachetimeout}"/>
           <token key="EHCACHEDISKSTORE" value="${ehcachediskstore}"/>
           <token key="JAVACMEM" value="${javacmem}"/>
+          <token key="REQUESTLOG" value="${requestlogoption}"/>
         </replacetokens>
       </filterchain>
     </copy>
@@ -231,20 +233,28 @@
       </fileset>
     </copy>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/javascript">
-      <fileset dir="${currentdir}/javascript"/>
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/javascript" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/javascript/*"/>
+      </fileset>
     </copy>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/images">
-      <fileset dir="${currentdir}/images"/>
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/images" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/images/*"/>
+      </fileset>
     </copy>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/analyzerfiles">
-      <fileset dir="${currentdir}/search/analyzerfiles"/>
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/analyzerfiles" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/search/analyzerfiles/*"/>
+      </fileset>
     </copy>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/stylesheets">
-      <fileset dir="${currentdir}/stylesheets"/>
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/stylesheets" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/stylesheets/*"/>
+      </fileset>
     </copy>
 
     <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/">
@@ -267,6 +277,7 @@
     <antcall target="invoke-webdslc-compile"/>
   </target>
 
+  <taskdef name="taskjavawebdslused" classname="org.webdsl.ant.TaskJavaWebDSLUsed"/>
 
   <target name="invoke-webdslc-compile" unless="stop-because-load-config-failed">
     <echo level="info">Building application</echo>
@@ -301,14 +312,7 @@
       ${build-id-option} --dir &quot;${currentdir}/.servletapp&quot; ${compilebuiltins-option} --indexdir ${indexdir} ${queryoptimizationoption}"/>
     <echo level="info">webdslc arguments: ${webdslc-args}</echo>
 
-    <!-- determine if java webdsl is being used -->
-    <script language="javascript"> <![CDATA[
-      execcommand = project.getProperty("webdslexec");
-      if(execcommand.startsWith("java")){
-        project.setProperty("using-webdsl-java","true");
-        //project.setProperty("webdsl-java-options",execcommand.substring(4,execcommand.length()));
-      }
-    ]]></script>
+    <taskjavawebdslused/>
 
     <if>
       <equals arg1="${using-webdsl-java}" arg2="true"/>
@@ -389,6 +393,7 @@
     </if>
   </target>
 
+  <taskdef name="taskconvertapplicationini" classname="org.webdsl.ant.TaskConvertApplicationIni"/>
 
   <!-- to be used in the 'depends' property of a target, so you don't have to list all the vars -->
   <target name="load-config" unless="${config-loaded}">
@@ -402,59 +407,7 @@
           <then>
             <echo level="info">Updating application.ini to new syntax</echo>
 
-            <!-- convert old style application.ini to new style application.ini -->
-            <script language="javascript"> <![CDATA[
-              importClass(java.io.File);
-              importClass(java.io.BufferedReader);
-              importClass(java.io.FileReader);
-              importClass(java.io.BufferedWriter);
-              importClass(java.io.FileWriter);
-              importClass(java.lang.StringBuilder);
-              importClass(java.util.regex.Pattern);
-              importClass(java.util.regex.Matcher);
-
-              // Access to Ant-Properties by their names
-              currentdir = project.getProperty("currentdir");
-
-              newcontents = new StringBuilder();
-              p = Pattern.compile("export (.*)=(.*)");
-              ptrailingspaces = Pattern.compile("\\s+$");
-
-              try {
-                fr = new FileReader(currentdir+"/application.ini");
-                br = new BufferedReader(fr);
-                while (( line = br.readLine()) != null && line.startsWith("export")){
-                  echo = project.createTask("echo");
-                  echo.setMessage("- "+line);
-                  echo.perform();
-
-                  m = p.matcher(line);
-                  m.find();
-                  transformedline=m.group(1).toLowerCase()+"="+m.group(2);
-                  //remove trailing spaces
-                  mspaces = ptrailingspaces.matcher(transformedline);
-                  transformedline = mspaces.replaceAll("");
-                  newcontents.append(transformedline+"\n");
-
-                  echo = project.createTask("echo");
-                  echo.setMessage("+ "+transformedline);
-                  echo.perform();
-                }
-                br.close();
-                fr.close();
-
-                //write result
-                fw = new FileWriter(currentdir+"/application.ini");
-                bw = new BufferedWriter(fw);
-                bw.write(newcontents.toString());
-                bw.close();
-                fw.close();
-              } catch (e) {
-                echo = project.createTask("echo");
-                echo.setMessage(e);
-                echo.perform();
-              }
-            ]]></script>
+            <taskconvertapplicationini/>
 
             <echo level="info">Retry loading application settings (application.ini)</echo>
             <loadproperties srcFile="${currentdir}/application.ini"/>
@@ -477,6 +430,11 @@
     <available file="${currentdir}/${appname}.app" property="does-main-app-file-exist"/>
     <fail unless="does-main-app-file-exist" message="Build stopped because the main ${appname}.app file does not exist."/>
 
+        <if>
+          <equals arg1="${requestlog}" arg2="$${requestlog}" />
+          <then><property name="requestlogoption" value="false"/></then>
+          <else><property name="requestlogoption" value="${requestlog}"/></else>
+        </if>
         <if>
           <equals arg1="${sessiontimeout}" arg2="$${sessiontimeout}" />
           <then><property name="sessiontimeoutoption" value="--session-timeout 1440"/></then>

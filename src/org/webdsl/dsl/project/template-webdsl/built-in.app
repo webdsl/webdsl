@@ -27,8 +27,8 @@ module .servletapp/src-webdsl-template/built-in
   invoke optimizeSearchIndex() every 12 hours
   //Update the spell check and autocompletion indices twice a day
   invoke updateSuggestionIndex() every 12 hours
-  //renew facet index readers every 1 hour
-  invoke renewFacetIndexReaders() every 60 minutes
+  //renew facet index readers every 15 minutes
+  invoke renewFacetIndexReaders() every 15 minutes
 
   function renewFacetIndexReaders(){
     IndexManager.renewFacetIndexReaders();
@@ -76,6 +76,8 @@ module .servletapp/src-webdsl-template/built-in
 
   native class org.webdsl.search.AbstractEntitySearcher as Searcher {
     static escapeQuery(String) : String
+    static fromString(String) : Searcher
+    asString() : String
     getFieldFilterValue(String) : String
     getFacets(String,Bool) : List<Facet>
     getFacets(String) : List<Facet>
