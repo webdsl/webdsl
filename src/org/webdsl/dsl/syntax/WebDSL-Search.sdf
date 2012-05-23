@@ -18,14 +18,14 @@ exports
     INDEXORQUERY "{" FullTextAnalyzerBodyDef "}"                -> FullTextAnalyzerBody{cons("DualFullTextAnalyzerBodyDef")}
     CharFilter* Tokenizer TokenFilter*                          -> FullTextAnalyzerBodyDef{cons("FullTextAnalyzerBodyDef")}
 
-    "charfilter" "=" CHARFILTERNAME "(" {Argument ","}* ")"     -> CharFilter{cons("CharFilter")}
-    "charfilter" "=" CHARFILTERNAME                             -> CharFilter{cons("CharFilterNoArgs")}
+    "char filter" "=" CHARFILTERNAME "(" {Argument ","}* ")"     -> CharFilter{cons("CharFilter")}
+    "char filter" "=" CHARFILTERNAME                             -> CharFilter{cons("CharFilterNoArgs")}
 
     "tokenizer" "=" TOKENIZERNAME "(" {Argument ","}* ")"       -> Tokenizer{cons("Tokenizer")}
     "tokenizer" "=" TOKENIZERNAME                               -> Tokenizer{cons("TokenizerNoArgs")}
 
-    "tokenfilter" "=" TOKENFILTERNAME "(" {Argument ","}* ")"   -> TokenFilter{cons("TokenFilter")}
-    "tokenfilter" "=" TOKENFILTERNAME                           -> TokenFilter{cons("TokenFilterNoArgs")}
+    "token filter" "=" TOKENFILTERNAME "(" {Argument ","}* ")"   -> TokenFilter{cons("TokenFilter")}
+    "token filter" "=" TOKENFILTERNAME                           -> TokenFilter{cons("TokenFilterNoArgs")}
 
     Id "=" String                                               -> Argument{cons("Argument")}
 
@@ -39,8 +39,8 @@ exports
     %%because "searchable" won't get rejected as Id (sdf strangeness).
     "searchable"                               -> SearchableAnno         {cons("SearchableAnno"), prefer}
     "searchable" "(" {SA-Argument ","}* ")"    -> SearchableAnno         {cons("SearchableAnno")}
-    "searchnamespace"                          -> SearchNamespaceAnno    {cons("SearchNamespaceAnno"), prefer}
-    SearchableAnno    "*" Float                -> Annotation             {cons("SearchableAnnoBoost")}
+    "search" "namespace"                       -> SearchNamespaceAnno    {cons("SearchNamespaceAnno"), prefer}
+    SearchableAnno    "^" Float                -> Annotation             {cons("SearchableAnnoBoost")}
     SearchableAnno                             -> Annotation
     SearchNamespaceAnno                        -> Annotation
 
@@ -53,8 +53,8 @@ exports
   context-free syntax
     SearchMapping                                    -> Definition
     SearchMappingEmbedded                            -> EntityBodyDeclaration
-    "searchmapping" "{" SearchMappingContent* "}"    -> SearchMappingEmbedded     {cons("SearchMappingEmbedded")}
-    "searchmapping" Id "{" SearchMappingContent* "}" -> SearchMapping             {cons("SearchMapping")}
+    "search" "mapping" "{" SearchMappingContent* "}"    -> SearchMappingEmbedded     {cons("SearchMappingEmbedded")}
+    "search" "mapping" Id "{" SearchMappingContent* "}" -> SearchMapping             {cons("SearchMapping")}
 
     "namespace" "by" Id                              -> SearchMappingContent      {cons("SearchNamespaceMapping"), prefer}
     "namespace" "by" Id    ";"                       -> SearchMappingContent      {cons("SearchNamespaceMapping")}
@@ -68,7 +68,7 @@ exports
     "using" Id                                       -> MappingPart               {cons("AnalyzerName")}
     "boosted" "to" Float                             -> MappingPart               {cons("Boost")}
     "for" "subclass" Id                              -> MappingPart               {cons("TargetEntity")}
-    "*" Float                                        -> MappingPart               {cons("Boost")}
+    "^" Float                                        -> MappingPart               {cons("Boost")}
     "(" {SearchMappingAnnoKW ","}* ")"               -> MappingPart               {cons("SearchMappingAnno")}
     "depth" Int                                      -> MappingPart               {cons("EmbeddedDepth")}
     "with" "depth" Int                               -> MappingPart               {cons("EmbeddedDepth")} %% more natural language
@@ -102,44 +102,62 @@ exports
 
   context-free syntax
 
-      SearcherDef                                    -> Exp
+    SearcherDef                                      -> Exp
 
-      "search" ENTITY SearcherPart*                  -> SearcherDef         {cons("SearcherInit")}
-    "~"Exp SearcherPart+                             -> SearcherDef         {cons("SearcherRefMod")}
+    "search" ENTITY SearcherPart*                    -> SearcherDef         {cons("SearcherInit")}
+    "~" Exp SearcherPart+                            -> SearcherDef         {cons("SearcherRefMod")}
 
-    "matching" FieldsConstraint? QueryConstraint     -> QueryDef            {cons("QueryDef")}
-    "start"    Exp                                   -> Start               {cons("Start")}
+    ConstraintFilter    -> SearcherPart
+    QueryDef            -> SearcherPart
+    Offset              -> SearcherPart
+    MaxResults          -> SearcherPart
+    SortBy              -> SearcherPart
+    FacetDef            -> SearcherPart
+    SearchAttributes    -> SearcherPart
+    NamespaceConstraint -> SearcherPart
+
+    "matching" MatchGroup*                           -> QueryDef            {cons("QueryDef"),prefer}
+    "offset"    Exp                                  -> Offset              {cons("Start")}
     "limit"    Exp                                   -> MaxResults          {cons("MaxResults")}
-    "sort" "by" {(SortExp) ","}+                     -> SortBy              {cons("SortBy")}
-    "where" {(FilterConstraint) ","}+                -> ConstraintFilter    {cons("ConstraintFilter")}
+    "order" "by" {(SortExp) ","}+                    -> SortBy              {cons("SortBy")}
+    "with" "filter" {(FilterConstraint) ","}+        -> ConstraintFilter    {cons("ConstraintFilter")}
+    "with" "filters" {(FilterConstraint) ","}+       -> ConstraintFilter    {cons("ConstraintFilter")}
     "with" "facet" {FacetExp ","}+                   -> FacetDef            {cons("FacetDef")}
     "with" "facets" {FacetExp ","}+                  -> FacetDef            {cons("FacetDef")}
     "[" {SearchAttribute ","}* "]"                   -> SearchAttributes    {cons("SearchAttributes")}
     "in" "namespace" Exp                             -> NamespaceConstraint {cons("NamespaceConstraint")}
 
-    "nolucene"                                       -> SearchAttribute    {cons("NoLucene")}
+    "no" "lucene"                                    -> SearchAttribute    {cons("NoLucene")}
     "lucene"                                         -> SearchAttribute    {cons("Lucene")}
     "strict" "matching"                              -> SearchAttribute    {cons("DefaultAnd")}
     "loose" "matching"                               -> SearchAttribute    {cons("DefaultOr")}
 
+    "(" FIELD "," Exp ")"                            -> FacetExp           {cons("DiscreteFacetDef")}
+    "(" FIELD ":" {Range ","}* ")"                   -> FacetExp           {cons("RangeFacetDef")}
+
+    FIELD ":" Exp                                    -> FilterConstraint   {cons("FieldFilterConstraint")}
+    %% Exp                                              -> FilterConstraint   {cons("FacetFilterConstraint")}
+
     {FIELD "," }+ ":"                                -> FieldsConstraint   {cons("FieldsConstraint")}
-    {QueryExp ","}+                                  -> QueryConstraint    {cons("QueryConstraint")}
+    {QueryExp ","}+                                  -> QueryConstraint    {cons("QueryConstraint"), avoid}
 
-    "(" FIELD "," Exp ")"                            -> FacetExp           {cons("FacetDef")}
+    BoolOp? "(" MatchGroup+ ")"                      -> MatchGroup          {cons("Clause"),avoid}
+    FieldsConstraint? QueryConstraint                -> MatchGroup          {cons("Query"), avoid}
 
-    FIELD "=" Exp                                    -> FilterConstraint   {cons("FieldFilterConstraint")}
-    Exp                                              -> FilterConstraint   {cons("FacetFilterConstraint")}
+    BoolOp? "(" QueryExp+ ")"                        -> QueryExp           {cons("GroupDef"), prefer}
+    BoolOp? QueryTerm Slop?                          -> QueryExp           {cons("TermDef"), avoid}
+    BoolOp? Range                                    -> QueryExp           {cons("RangeDef")}
+    "~" Exp                                          -> Slop               {cons("Slop")}
+    RangeOpen Exp? "to" Exp? RangeClose              -> Range              {cons("Range")}
+    "{"                                              -> RangeOpen          {cons("ExcludingOpen")}
+    "}"                                              -> RangeClose         {cons("ExcludingClose")}
+    "["                                              -> RangeOpen          {cons("IncludingOpen")}
+    "]"                                              -> RangeClose         {cons("IncludingClose")}
 
-    BoolOp? "(" {QueryExp ","}+ ")"                  -> QueryExp           {cons("GroupDef")}
-    BoolOp? QueryTerm Slop?                          -> QueryExp           {cons("TermDef")}
-    BoolOp?  "(" Exp "to" Exp ")"                    -> QueryExp           {cons("RangeDef")}
-    BoolOp? Exp "to" Exp                             -> QueryExp           {cons("RangeDef")}
     "+"                                              -> BoolOp             {cons("Must")}
     "-"                                              -> BoolOp             {cons("MustNot")}
 
     Exp                                              -> QueryTerm
-
-    "~" Exp                                          -> Slop               {cons("Slop")}
 
     FIELD Direction?                                 -> SortExp            {cons("SortDef")}
     "asc"                                            -> Direction          {cons("Ascending")}
@@ -150,49 +168,68 @@ exports
     "highlight" Exp "for" Exp "on" FIELD
         "surround" "with" "(" Exp "," Exp ")"        -> Exp                {cons("HighlightTags")}
     "highlight" Exp "for" Exp "on" FIELD             -> Exp                {cons("Highlight")}
-    "get" "results" "(" Exp ")"                      -> Exp                {cons("SearchResults")}
-    "get" "facets" "(" Exp "," FIELD ")"             -> Exp                {cons("FacetResults")}
-    "get" "all" "facets" "(" Exp "," FIELD ")"       -> Exp                {cons("AllFacetResults")}
-    "get" "size" "(" Exp ")"                         -> Exp                {cons("SearchResultsSize")}
-    "get" "searchtime" "(" Exp ")"                   -> Exp                {cons("SearchTimeString")}
-    "get" "searchtimems" "(" Exp ")"                 -> Exp                {cons("SearchTimeMS")}
-    "get" "searchtimesec" "(" Exp ")"                -> Exp                {cons("SearchTimeSec")}
+    "results" "from"  Exp                            -> Exp                {cons("SearchResults")}
+    FIELD "facets" "from" Exp                        -> Exp                {cons("FacetResults")}
+    "all" FIELD "facets" "from" Exp                  -> Exp                {cons("AllFacetResults")}
+    "count" "from" Exp                               -> Exp                {cons("SearchResultsSize")}
+    "searchtime" "from" Exp                          -> Exp                {cons("SearchTimeString")}
     "~" Exp                                          -> FIELD              {cons("SearchFieldRef")}
     ENTITY SuggestType SuggestionPart+               -> Exp                {cons("Suggest")}
     "completions"                                    -> SuggestType        {cons("AutoComplete")}
     "corrections"                                    -> SuggestType        {cons("SpellCheck")}
-
-    ConstraintFilter    -> SearcherPart
-    QueryDef            -> SearcherPart
-    Start               -> SearcherPart
-    MaxResults          -> SearcherPart
-    SortBy              -> SearcherPart
-    FacetDef            -> SearcherPart
-    SearchAttributes    -> SearcherPart
-    NamespaceConstraint -> SearcherPart
 
     "similarity" Exp                 -> SuggestionPart {cons("Similarity")}
     "matching" FieldsConstraint Exp  -> SuggestionPart {cons("SuggestTerm")}
     NamespaceConstraint              -> SuggestionPart
     MaxResults                       -> SuggestionPart
 
+    %% disambiguate over Var("") terms allowed by QueryTerm and SearcherPart keywords, dont allow keywords to be used as varref
+    SearcherKW             -> QueryTerm {reject}
+    SearcherKW "(" Exp ")" -> QueryTerm {reject}
+    "[" {Exp ","}* "]"     -> QueryTerm {reject}
+
+  context-free restrictions
+    %% Don't treat -200 as 'must not match 200', but as int '-200' instead
+    BoolOp  -/- [0-9]
+    %% 'matching tags.name: +tag.replace(" ","\\ ")' , interpret as method call, not as field/prop access followed by a new clause
+    QueryTerm -/- [\(]
 
   context-free priorities
-    {
-        Exp "." Id "(" {Exp ","}* ")"  -> Exp
-        Exp "." Id                     -> Exp
-    }
+    %% search User matching credit: -(-200) //interpret as 'must not match -200'
+    Exp -> QueryTerm
+    >
+    "(" Exp ")"  -> Exp
+
+  context-free priorities
+    %% search Movie matching +"hello" -"goodbye" //Dont treat this as addition/subtraction of expressions
+    {QueryExp ","}+ -> QueryConstraint
     >
     {
-        SearcherDef -> Exp
+      Exp "+" Exp -> Exp
+      Exp "-" Exp -> Exp
     }
+    >
+    SearcherDef -> Exp
 
+  context-free priorities
+    %% search Movie matching +book.title  //Dont treat '.title' as method-call/property access for whole searcher exp, but restrict to inner exp 'book'.
+    {
+      Exp "." Id "(" {Exp ","}* ")"  -> Exp
+      Exp "." Id                     -> Exp
+    }
+    >  SearcherDef -> Exp
 
   lexical syntax
     Id             -> FIELD
     Id "." FIELD   -> FIELD
     Id             -> ENTITY
     Id             -> SEARCHERREF
+    "limit"            -> SearcherKW
+    "offset"           -> SearcherKW
+    "with"             -> SearcherKW
+    "order"            -> SearcherKW
+    "in"               -> SearcherKW
+    "matching"         -> SearcherKW
 
  context-free restrictions
     "as" "asc" "ascending" "analyzer" "autocomplete" "boost" "boosted" "by"           -/- [a-zA-Z0-9]
@@ -201,3 +238,14 @@ exports
     "matching" "name" "namespace" "nolucene" "on" "query"                             -/- [a-zA-Z0-9]
     "results" "search" "sort" "spellcheck" "start" "subclass"                         -/- [a-zA-Z0-9]
     "using" "with" "where"                                                            -/- [a-zA-Z0-9]
+
+
+%% DEPRECATED:
+  context-free syntax
+    "searchmapping" "{" SearchMappingContent* "}"               -> SearchMappingEmbedded{cons("SearchMappingEmbedded"), deprecated("keyword `searchmapping` is replaced with `search mapping`")}
+    "searchmapping" Id "{" SearchMappingContent* "}"            -> SearchMapping{cons("SearchMapping"), deprecated("keyword `searchmapping` is replaced with `search mapping`")}
+    "charfilter" "=" CHARFILTERNAME "(" {Argument ","}* ")"     -> CharFilter{cons("CharFilter"), deprecated("keyword `charfilter` is replaced with `char filter`")}
+    "charfilter" "=" CHARFILTERNAME                             -> CharFilter{cons("CharFilterNoArgs"), deprecated("keyword `charfilter` is replaced with `char filter`")}
+    "tokenfilter" "=" TOKENFILTERNAME "(" {Argument ","}* ")"   -> TokenFilter{cons("TokenFilter"), deprecated("keyword `tokenfilter` is replaced with `token filter`")}
+    "tokenfilter" "=" TOKENFILTERNAME                           -> TokenFilter{cons("TokenFilterNoArgs"), deprecated("keyword `tokenfilter` is replaced with `token filter`")}
+

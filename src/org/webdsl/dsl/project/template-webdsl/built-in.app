@@ -61,8 +61,6 @@ module .servletapp/src-webdsl-template/built-in
     getCount() : Int
     getValue() : String
     getFieldName() : String
-    encodeAsString() : String
-    decodeFromString(String) : Facet
     getValueAsDate() : Date
     getValueAsFloat() : Float
     getValueAsInt() : Int
@@ -78,50 +76,66 @@ module .servletapp/src-webdsl-template/built-in
     static escapeQuery(String) : String
     static fromString(String) : Searcher
     asString() : String
-    getFieldFilterValue(String) : String
-    getFacets(String,Bool) : List<Facet>
+    enableFaceting(String,Int) : Searcher
+    enableFaceting(String,String) : Searcher
+    getFacetsWithinSelection(String) : List<Facet>
     getFacets(String) : List<Facet>
-    getFilteredFacets() : List<Facet>
+    addFacetSelection(Facet) : Searcher
+    addFacetSelection(List<Facet>) : Searcher
+    getFacetSelection() : List<Facet>
+    getFacetSelection(String) : List<Facet>
+    removeFacetSelection(Facet) : Searcher
+    clearFacetSelection() : Searcher
+    clearFacetSelection(String) : Searcher
     highlight(String, String) :  String
     highlight(String,String,String,String,Int,Int,String) : String
     highlight(String,String,String,String) : String
-    query() : String
+    getQuery() : String
     luceneQuery() : String
-    resultSize() : Int
-    searchTimeAsString() : String
+    searchTime() : String
     searchTimeMillis() : Int
     searchTimeSeconds() : Float
     allowLuceneSyntax(Bool) : Searcher
-    filterByField(String,String) : Searcher
+    addFieldFilter(String,String) : Searcher
+    getFilteredFields() : List<String>
+    getFieldFilterValue(String) : String
+    removeFieldFilter(String) : Searcher
+    clearFieldFilters() : Searcher
+    startMustClause() : Searcher
+    startMustNotClause() : Searcher
+    startShouldClause() : Searcher
+    must() : Searcher
+    should() : Searcher
+    not() : Searcher
+    endClause() : Searcher
     setNamespace(String) : Searcher
+    getNamespace() : String
     removeNamespace() : Searcher
     boost(String,Float) : Searcher
     defaultAnd() : Searcher
     defaultOr() : Searcher
-    enableFaceting(String,Int) : Searcher
-    enableFaceting(String,String) : Searcher
-    filterByFacet(Facet) : Searcher
-    filterByFacets(List<Facet>) : Searcher
-    removeFilteredFacet(Facet) : Searcher
     field(String) : Searcher
     fields(List<String>) : Searcher
-    firstResult(Int) : Searcher
-    listScores() : List<Float>
-    listExplanations() : List<String>
-    maxResults(Int) : Searcher
+    defaultFields() : Searcher
+    getFields() : List<String>
+    setOffset(Int) : Searcher
+    getOffset() : Int
+    setLimit(Int) : Searcher
+    getLimit() : Int
+    scores() : List<Float>
+    explanations() : List<String>
+    count() : Int
     moreLikeThis(String) : Searcher
-    must() : Searcher
-    mustNot() : Searcher
-    should() : Searcher
-    openGroup() : Searcher
-    closeGroup() : Searcher
-    query(String) : Searcher
-    phraseQuery(String,Int) : Searcher
     sortDesc(String) : Searcher
     sortAsc(String) : Searcher
-    range(Int,Int) : Searcher
-    range(Float,Float) : Searcher
-    range(Date,Date) : Searcher
+    clearSorting() : Searcher
+    query(String) : Searcher
+    phraseQuery(String,Int) : Searcher
+    rangeQuery(Int,Int,Bool,Bool) : Searcher
+    rangeQuery(Float,Float,Bool,Bool) : Searcher
+    rangeQuery(Date,Date,Bool,Bool) : Searcher
+    rangeQuery(String,String,Bool,Bool) : Searcher
+    matchAllQuery() : Searcher
   }
 
   native class org.webdsl.search.SearchStatistics as SearchStatistics{
@@ -145,9 +159,9 @@ module .servletapp/src-webdsl-template/built-in
   //The default analyzer, equal to the one used by default in hibernate search
   default_builtin_analyzer analyzer hsearchstandardanalyzer {
     tokenizer = StandardTokenizer
-    tokenfilter = StandardFilter
-    tokenfilter = LowerCaseFilter
-    tokenfilter = StopFilter
+    token filter = StandardFilter
+    token filter = LowerCaseFilter
+    token filter = StopFilter
   }
 
   //Template showing the info available through Hibernate Search statistics
@@ -312,7 +326,7 @@ module .servletapp/src-webdsl-template/built-in
     clone():TemplateContext
     getTemplateContextString():String
   }
-  
+
   function mimetype(s:String){
     getPage().setMimetype(s);
   }

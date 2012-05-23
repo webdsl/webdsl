@@ -9,10 +9,14 @@ imports
   org/webdsl/dsl/transformation/desugar
   org/webdsl/dsl/modules/search
 
+signature constructors
+
+  DefaultSearchFields : Term
+
 rules //desugar searcher language to native class interface
 
   desugar-search:
-      Suggest(ent, AutoComplete(), prts) -> result
+    Suggest(ent, AutoComplete(), prts) -> result
       with x_searcher := <concat-strings>[ent,"Searcher"]
           ; e_searcher := exp |[ x_searcher  ]|
           ; <fetch(?SuggestTerm(FieldsConstraint(fields){anno*},e_toSuggest ))> prts
@@ -25,7 +29,7 @@ rules //desugar searcher language to native class interface
             end
 
   desugar-search:
-      Suggest(ent, SpellCheck(), prts) -> result
+    Suggest(ent, SpellCheck(), prts) -> result
       with x_searcher := <concat-strings>[ent,"Searcher"]
           ; e_searcher := exp |[ x_searcher  ]|
           ; <fetch(?SuggestTerm(FieldsConstraint(fields){anno*},e_toSuggest ))> prts
@@ -39,146 +43,193 @@ rules //desugar searcher language to native class interface
             end
 
   desugar-search:
-      HighlightTags(e_toHighlight, e_searcher, field, e_pretag, e_posttag) -> result
+    HighlightTags(e_toHighlight, e_searcher, field, e_pretag, e_posttag) -> result
       with e_field := <field-to-string> field
          ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight, e_pretag, e_posttag) ]|
 
   field-to-string = field-to-string-exp <+ ?SearchFieldRef(exp); !exp
 
   field-to-string-exp:
-      x -> String(x)
+    x -> String(x)
       where <not(?SearchFieldRef(_))> x
 
   desugar-search:
-      Highlight(e_toHighlight, e_searcher, field) -> result
+    Highlight(e_toHighlight, e_searcher, field) -> result
       with e_field := <field-to-string> field
          ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight) ]|
 
   desugar-search:
-    SearchResults(e_searcher) -> exp|[ e_searcher.list() ]|
+    SearchResults(e_searcher) -> exp|[ e_searcher.results() ]|
 
   desugar-search:
-    FacetResults(e_searcher, field) -> exp|[ e_searcher.getFacets(e_field, false) ]|
+    FacetResults(field, e_searcher) -> exp|[ e_searcher.getFacetsWithinSelection(e_field) ]|
     with e_field := <field-to-string> field
 
   desugar-search:
-    AllFacetResults(e_searcher, field) -> exp|[ e_searcher.getFacets(e_field, true) ]|
+    AllFacetResults(field, e_searcher) -> exp|[ e_searcher.getFacets(e_field) ]|
     with e_field := <field-to-string> field
 
   desugar-search:
-      SearchResultsSize(e_searcher) -> exp|[ e_searcher.resultSize() ]|
+    SearchResultsSize(e_searcher) -> exp|[ e_searcher.count() ]|
 
   desugar-search:
-      SearchTimeString(e_searcher) -> exp|[ e_searcher.searchTimeAsString() ]|
+    SearchTimeString(e_searcher) -> exp|[ e_searcher.searchTime() ]|
+
+//   desugar-search:
+//       SearchTimeMS(e_searcher) -> exp|[ e_searcher.searchTimeMillis() ]|
+//
+//   desugar-search:
+//       SearchTimeSec(e_searcher) -> exp|[ e_searcher.searchTimeSeconds() ]|
 
   desugar-search:
-      SearchTimeMS(e_searcher) -> exp|[ e_searcher.searchTimeMillis() ]|
-
-  desugar-search:
-      SearchTimeSec(e_searcher) -> exp|[ e_searcher.searchTimeSeconds() ]|
-
-  desugar-search:
-      SearcherInit(ent, parts) -> result
+    SearcherInit(ent, parts) -> result
       where x_searcher := <concat-strings>[ent,"Searcher"]
           ; nwsearcher := exp|[x_searcher()]|
           ; result := <foldl(part-to-expr)> (parts, nwsearcher)
 
   desugar-search:
-      SearcherRefMod(e_ref, parts) -> result
+    SearcherRefMod(e_ref, parts) -> result
       where result := <foldl(part-to-expr)> (parts, e_ref)
 
   part-to-expr:
-      (QueryDef(fieldsConstraint, queryConstraint), e_done) -> exp |[ e_query ]|
+      (QueryDef(matchGroups), e_done) -> exp |[ e_query ]|
+      with e_query := <foldl(matchGroup-to-expr)> (matchGroups, e_done)
+
+  matchGroup-to-expr:
+    (Query(fieldsConstraint, queryConstraint), e_done) -> exp |[ e_query ]|
       with e_query := <queryConstraint-to-expr> (queryConstraint, e_done, fieldsConstraint)
 
+  matchGroup-to-expr:
+    (Clause(boolOp, matchGroups), e_done) -> result
+      with e_started := <boolOp-to-clause-expr> (boolOp, e_done)
+         ; e_inner   := <foldl(matchGroup-to-expr)> (matchGroups, e_started)
+         ; result    := exp |[ e_inner.endClause() ]|
+
   fieldsConstraint-to-expr:
-      (FieldsConstraint(fields){anno*}, e_done) -> e_fields
+    (FieldsConstraint(fields){anno*}, e_done) -> e_fields
       where e* := <map(\x -> <field-to-string> x\)> fields
           ; e := TypedListCreation(SimpleSort("String"), e*){anno*}
           ; e_fields := exp|[ e_done.fields(e) ]|
 
+  fieldsConstraint-to-expr:
+    (DefaultSearchFields(), e_done) -> exp|[ e_done.defaultFields() ]|
+
   try-fieldsConstraint-to-expr:
-      (Some(fc), e_done) -> result
+    (Some(fc), e_done) -> result
       with result := <fieldsConstraint-to-expr> (fc, e_done)
 
   try-fieldsConstraint-to-expr:
-      (None(), e_done) -> e_done
+    (None(), e_done) -> e_done
 
   part-to-expr:
-      (Start(e_int), e_done) -> exp|[ e_done.firstResult(e_int) ]|
+    (Start(e_int), e_done) -> exp|[ e_done.setOffset(e_int) ]|
 
   part-to-expr:
-      (MaxResults(e_int), e_done) -> exp|[ e_done.maxResults(e_int) ]|
+    (MaxResults(e_int), e_done) -> exp|[ e_done.setLimit(e_int) ]|
 
   part-to-expr:
-      (SortBy(sort_exp*), e_done) -> e_sortExps
+    (SortBy(sort_exp*), e_done) -> e_sortExps
       with e_sortExps := <foldl( sortExp-to-expr)> (sort_exp*, e_done)
-
-  queryConstraint-to-expr:
-      (QueryConstraint(query_exp*), e_done, fields_constraint) -> e_queryExps
-      where //apply field constraint on first clause being defined
-          e_queryExps := <foldl( queryExp-to-expr )> (query_exp*, (e_done, fields_constraint))
-
-  part-to-expr:
-      (QueryConstraint(e_int), e_done) -> exp|[ e_done.firstResult(e_int) ]|
 
   part-to-expr:
       (ConstraintFilter(filter_constraint*) , e_done) -> e_filters
       with e_filters := <foldl(filterConstraint-to-expr)> (filter_constraint*, e_done)
 
   part-to-expr:
-      (FacetDef(facet_exp*), e_done) -> e_facetSpecs
+    (FacetDef(facet_exp*), e_done) -> e_facetSpecs
       with e_facetSpecs := <foldl(facetExp-to-expr)> (facet_exp*, e_done)
 
   part-to-expr:
-      (SearchAttributes(attr*), e_done) ->  e_attr
+    (SearchAttributes(attr*), e_done) ->  e_attr
       with e_attr := <foldl(searchAttribute-to-expr)> (attr*, e_done)
 
   part-to-expr:
-      (NamespaceConstraint(e_namespace), e_done) -> exp|[e_done.setNamespace(e_namespace)]|
+    (NamespaceConstraint(e_namespace), e_done) -> exp|[e_done.setNamespace(e_namespace)]|
+
+  queryConstraint-to-expr:
+    (QueryConstraint(query_exp*), e_done, fields_constraint) -> e_queryExps
+      where //field constraints are only applied on first query being defined. If no constraint found, use default search fields
+           fields_constraint' := <?Some(_) <+ !Some(DefaultSearchFields())> fields_constraint
+         ; e_queryExps := <foldl( queryExp-to-expr )> (query_exp*, (e_done, fields_constraint'))
 
   queryExp-to-expr:
-      (def , e_done) -> <queryExp-to-expr> (def, (e_done, None()))
+    (def , e_done) -> <queryExp-to-expr> (def, (e_done, None()))
       where not(?(_,(_,_)))
 
   queryExp-to-expr:
-      (GroupDef(boolOp, query_exp*), (e_done, fields_constraint)) -> e_close
-      with e_open := exp|[ e_done.openGroup() ]|
+    (GroupDef(boolOp, query_exp*), (e_done, fields_constraint)) -> e_close
+      with e_open := <boolOp-to-clause-expr> (boolOp, e_done)
          ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_open)
          ; e_queryExps := <foldl( queryExp-to-expr )> (query_exp*, e_fields)
-         ; e_close := exp|[ e_queryExps.closeGroup() ]|
+         ; e_close := exp|[ e_queryExps.endClause() ]|
 
-  queryExp-to-expr:
-      (TermDef(boolOp, e_termExp, None()), (e_done, fields_constraint)) -> exp|[ e_fields.query(e_termExp) ]|
+  queryExp-to-expr:  //term expression is not a facet and no slop present -> ordinary query
+    (TermDef(boolOp, e_termExp, None()), (e_done, fields_constraint)) -> exp|[ e_fields.query("" + e_termExp) ]|
+      with e_bool := <boolOp-to-expr> (boolOp, e_done)
+         ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+      where not( <type-of; or( ?SimpleSort("Facet"), ?NativeGenericType("List",[NativeSimpleType("Facet")]) )> e_termExp )
+
+  queryExp-to-expr:  //slop present -> phrase query
+    (TermDef(boolOp, e_termExp, Some(Slop(e_slop))), (e_done, fields_constraint)) -> exp|[ e_fields.phraseQuery("" + e_termExp, e_slop) ]|
       with e_bool := <boolOp-to-expr> (boolOp, e_done)
          ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
 
-  queryExp-to-expr:
-      (TermDef(boolOp, e_termExp, Some(Slop(e_slop))), (e_done, fields_constraint)) -> exp|[ e_fields.phraseQuery(e_termExp, e_slop) ]|
-      with e_bool := <boolOp-to-expr> (boolOp, e_done)
-         ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+  queryExp-to-expr: //expression is a facet
+    (TermDef(None(), e_facetExp, None()), (e_done, _)) -> exp|[ e_done.addFacetSelection(e_facetExp) ]|
+      where <type-of; ?SimpleSort("Facet")> e_facetExp
+
+  queryExp-to-expr: //expression is a list of facets
+    (TermDef(boolOp, e_facetListExp, None()), (e_done, _)) -> exp |[e_done.addFacetSelection(e_facetListExp)]|
+      where <type-of; ?NativeGenericType("List",[NativeSimpleType("Facet")])> e_facetListExp
 
   queryExp-to-expr:
-      (RangeDef(boolOp, e_from, e_to), (e_done, fields_constraint)) -> exp|[ e_fields.range(e_from, e_to) ]|
+    (RangeDef(boolOp, range), (e_done, fields_constraint)) -> result
       with e_bool := <boolOp-to-expr> (boolOp, e_done)
          ; e_fields := <try-fieldsConstraint-to-expr> (fields_constraint, e_bool)
+         ; result := <range-to-expr> (range, e_fields)
+
+  range-to-expr:
+    (Range(rangeOpen, from, to, rangeClose), e_done ) -> exp|[ e_done.range(e_from, e_to, e_inclMin, e_inclMax)]|
+      with e_inclMin := < (?IncludingOpen(); !exp|[true]|) <+ !exp|[false]| > rangeOpen
+         ; e_from := < (?Some(e1); !e1) <+ !exp|[null]|> from
+         ; e_to := < (?Some(e2); !e2) <+ !exp|[null]|> to
+         ; e_inclMax := < (?IncludingClose(); !exp|[true]|) <+ !exp|[false]| > rangeClose
 
   sortExp-to-expr:
-      (SortDef(field, direction), e_done) -> e_sort
+    (SortDef(field, direction), e_done) -> e_sort
       with e_field := <field-to-string> field
          ; e_sort := <sort-to-expr> (direction, e_field, e_done)
 
   filterConstraint-to-expr:
-      (FieldFilterConstraint(field, e_value), e_done) -> exp|[e_done.filterByField(e_field, e_value)]|
+    (FieldFilterConstraint(field, e_value), e_done) -> exp|[e_done.addFieldFilter(e_field, ""+e_value)]|
       with e_field := <field-to-string> field
 
-  filterConstraint-to-expr:
-      (FacetFilterConstraint(e_facet), e_done) -> exp|[e_done.filterByFacet(e_facet)]|
+  // filterConstraint-to-expr:
+  //   (FacetFilterConstraint(e_facet), e_done) -> exp|[e_done.addFacetSelection(e_facet)]|
 
   facetExp-to-expr:
-      (FacetDef(field, e_def), e_done) -> exp|[e_done.enableFaceting(e_field, e_def)]|
-      where <type-of; ?SimpleSort(String)> e_def
+    (DiscreteFacetDef(field, e_def), e_done) -> exp|[e_done.enableFaceting(e_field, e_def)]|
       with e_field := <field-to-string> field
+
+  facetExp-to-expr:
+    (RangeFacetDef(field, ranges*), e_done) -> exp|[e_done.enableFaceting(e_field, e_rangeAsString)]|
+      with e_field := <field-to-string> field
+         ; e_ranges := <map(range-to-string); separate-by(|exp|[ ", " ]|)> ranges*
+         ; e_rangeAsString := <foldl(concat-string-exps)> (e_ranges, [])
+
+  range-to-string:
+    Range(rangeOpen, from, to, rangeClose) -> exp|[e_open + e_from + " TO " + e_to + e_close]|
+      with e_open := <rangeOpen-to-string> rangeOpen
+         ; e_from := < (?Some(e1); !exp|[e1]|) <+ !exp|[""]|> from
+         ; e_to := < (?Some(e2); !exp|[e2]|) <+ !exp|[""]|> to
+         ; e_close := <rangeClose-to-string> rangeClose
+
+  rangeOpen-to-string = ?ExcludingOpen(); !exp|["{"]|
+  rangeOpen-to-string = ?IncludingOpen(); !exp|["["]|
+  rangeClose-to-string = ?ExcludingClose(); !exp|["}"]|
+  rangeClose-to-string = ?IncludingClose(); !exp|["]"]|
+
+  concat-string-exps = ?(e_string, e_done@<id>); ((?[]; !exp|[e_string]|) <+ !exp|[ e_done + e_string]|)
 
   searchAttribute-to-expr:
     (NoLucene(), e_done) -> exp|[ e_done.allowLuceneSyntax(false) ]|
@@ -196,6 +247,10 @@ rules //desugar searcher language to native class interface
   boolOp-to-expr = ?(Some(MustNot()), e_done); !exp |[ e_done.mustNot() ]|
   boolOp-to-expr = ?(Some(Must()), e_done); !exp |[ e_done.must() ]|
   boolOp-to-expr = ?(None(), e_done); !exp |[ e_done.should() ]|
+  boolOp-to-clause-expr = ?(Some(MustNot()), e_done); !exp |[ e_done.startMustNotClause() ]|
+  boolOp-to-clause-expr = ?(Some(Must()), e_done); !exp |[ e_done.startMustClause() ]|
+  boolOp-to-clause-expr = ?(None(), e_done); !exp |[ e_done.startShouldClause() ]|
+
   sort-to-expr = ?(Some(Ascending()), e_field, e_done); !exp |[ e_done.sortAsc(e_field) ]|
   sort-to-expr = ?(Some(Descending()), e_field, e_done); !exp |[ e_done.sortDesc(e_field) ]|
   sort-to-expr = ?(None(), e_field, e_done); !exp |[ e_done.sortAsc(e_field) ]|

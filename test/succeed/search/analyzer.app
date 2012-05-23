@@ -13,7 +13,7 @@ extend entity SuperA {
 entity A : SuperA{
 	d :: String (searchable)
 	
-	searchmapping{
+	search mapping{
 		a;
 		a using no as aUntokenized;
 		a using standard as aStandard;
@@ -30,48 +30,48 @@ entity A : SuperA{
 //Analyzer definitions
 default analyzer standard {
 	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter
-	tokenfilter = StopFilter
+	token filter = StandardFilter
+	token filter = LowerCaseFilter
+	token filter = StopFilter
 }  
 
 analyzer standard_no_stop{
 	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter
+	token filter = StandardFilter
+	token filter = LowerCaseFilter
 }
 
 analyzer standard_custom_stop{
 	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter
-	tokenfilter = StopFilter (words="analyzerfiles/stopwords.txt")
+	token filter = StandardFilter
+	token filter = LowerCaseFilter
+	token filter = StopFilter (words="analyzerfiles/stopwords.txt")
 }
 
 analyzer trigram{
 	tokenizer = StandardTokenizer
-	tokenfilter = LowerCaseFilter
-	tokenfilter = StopFilter()
-	tokenfilter = NGramFilter(minGramSize = "3", maxGramSize = "3")
+	token filter = LowerCaseFilter
+	token filter = StopFilter()
+	token filter = NGramFilter(minGramSize = "3", maxGramSize = "3")
 }
 
 analyzer autocomplete_untokenized{
 	tokenizer = KeywordTokenizer
-	tokenfilter = LowerCaseFilter
+	token filter = LowerCaseFilter
 }
 
 analyzer snowballporter{
 	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter	
-	tokenfilter = SnowballPorterFilter(language="English")
+	token filter = StandardFilter
+	token filter = LowerCaseFilter	
+	token filter = SnowballPorterFilter(language="English")
 }
 
 analyzer phonetic{
 	tokenizer = StandardTokenizer
-	tokenfilter = StandardFilter
-	tokenfilter = LowerCaseFilter
-	tokenfilter = PhoneticFilter(encoder = "RefinedSoundex")
+	token filter = StandardFilter
+	token filter = LowerCaseFilter
+	token filter = PhoneticFilter(encoder = "RefinedSoundex")
 }
 
 define page root() {

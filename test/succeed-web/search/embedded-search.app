@@ -1,56 +1,56 @@
 application test
 
   entity Publication{
-    title	  :: String
+    title      :: String
     authors   -> Set<Author>
-    tags 	  -> Set<Tag>
-    bibs	  -> Set<Bibliography>	
-    
-  searchmapping {
+    tags       -> Set<Tag>
+    bibs      -> Set<Bibliography>
+
+  search mapping {
     title;
     authors;
     tags;
     bibs;
     }
   }
-  
+
   entity Author{
-    name 		:: String
+    name         :: String
     publications-> Set<Publication> (inverse=Publication.authors)
 
-    
-    searchmapping {
+
+    search mapping {
       name
     }
   }
-  
+
   entity BaseTag{
     name :: String
-    searchmapping{
+    search mapping{
       name
     }
   }
-  
+
   entity Tag : BaseTag{
-    
+
     publications -> Set<Publication> (inverse=Publication.tags)
-    
-    searchmapping{
+
+    search mapping{
       publications with depth 2
     }
   }
-  
+
   entity Bibliography{
     title :: String
     publications -> Set<Publication> (inverse=Publication.bibs)
-    
-    searchmapping{
+
+    search mapping{
       title
       publications with depth 2
     }
   }
-  
-  
+
+
   define page root(){
   init{
       var pub1 := Publication{title := "pub1"};
@@ -76,36 +76,36 @@ application test
       pub1.save(); pub2.save(); pub3.save(); pub4.save(); pub5.save();
       author1.save(); author2.save(); author3.save(); author4.save(); author5.save();
       tag1.save(); tag2.save(); tag3.save(); tag4.save(); tag5.save();
-      bib1.save(); bib2.save(); bib3.save(); bib4.save(); bib5.save();  
+      bib1.save(); bib2.save(); bib3.save(); bib4.save(); bib5.save();
   }
     output("TEST")
     navigate searchPage() { "go to search" }
   }
-  
+
   define page searchPage(){
     var pubSearcher := PublicationSearcher();
     var authorSearcher := AuthorSearcher();
     var tagSearcher := TagSearcher();
     var bibSearcher := BibliographySearcher();
     output("Search page:")
-    
-    "pub1:" output(pubSearcher.field("authors.name").query("auth1").list()[0].title)
-    "pub2:" output(pubSearcher.field("authors.name").query("auth2").list()[0].title)
-    "tag1:" output(tagSearcher.field("publications.authors.name").query("auth1").list()[0].name)
-    "tag2:" output(tagSearcher.field("publications.title").query("pub2").list()[0].name)
-    "bib2:" output(bibSearcher.field("publications.bibs.title").query("bib5").resultSize())
-    "bib3:" output(bibSearcher.field("publications.bibs.title").query("bib3").list()[0].title)
-    "bib4:" output(bibSearcher.field("publications.authors.name").query("auth4").list()[0].title)
-    "bib5:" output(bibSearcher.field("publications.tags.name").query("tag5").list()[0].title)
-    
-    
+
+    "pub1:" output(pubSearcher.field("authors.name").query("auth1").results()[0].title)
+    "pub2:" output(pubSearcher.field("authors.name").query("auth2").results()[0].title)
+    "tag1:" output(tagSearcher.field("publications.authors.name").query("auth1").results()[0].name)
+    "tag2:" output(tagSearcher.field("publications.title").query("pub2").results()[0].name)
+    "bib2:" output(bibSearcher.field("publications.bibs.title").query("bib5").count())
+    "bib3:" output(bibSearcher.field("publications.bibs.title").query("bib3").results()[0].title)
+    "bib4:" output(bibSearcher.field("publications.authors.name").query("auth4").results()[0].title)
+    "bib5:" output(bibSearcher.field("publications.tags.name").query("tag5").results()[0].title)
+
+
   }
-  
+
   test EmbeddedSearch {
 
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
+
     var link := d.findElement(SelectBy.className("navigate"));
     link.click();
     var pagesource := d.getPageSource();

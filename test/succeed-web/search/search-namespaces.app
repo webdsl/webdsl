@@ -2,30 +2,30 @@ application test
 
 
   entity LivingThing{
-    stringRepresentation 	:: String
-    name	  				:: String
-    
-    searchmapping {
+    stringRepresentation     :: String
+    name                      :: String
+
+    search mapping {
       name (autocomplete, spellcheck);
       stringRepresentation
     }
   }
-  
+
   entity Person : LivingThing{
-    gender	  :: String
-        
-  searchmapping {
+    gender      :: String
+
+  search mapping {
     namespace by gender;
     }
   }
-  
+
   entity Child : Person {
-    notes :: String  	
-    searchmapping{
+    notes :: String
+    search mapping{
       notes
     }
   }
-  
+
   define page root(){
   init{
     var l1 := LivingThing{stringRepresentation := "Unidentified organism"};
@@ -34,7 +34,7 @@ application test
       var p3 := Person{stringRepresentation := "Person" name := "Kim" gender := "female"};
       var p4 := Person{stringRepresentation := "Person" name := "Jolanda" gender := "female"};
       var c1 := Child{stringRepresentation := "Child" name := "Sandra" gender := "female" notes:="has medication"};
-      
+
       l1.save();
     p1.save();
     p2.save();
@@ -45,29 +45,29 @@ application test
     output("TEST")
     navigate searchPage() { "go to search" }
   }
-  
-   
+
+
   define page searchPage(){
     init{
       IndexManager.indexSuggestions();
     }
     var personSearcher := PersonSearcher();
     var livingThingSearcher := LivingThingSearcher();
-    
-    "male-1:" output(personSearcher.query("John").setNamespace("male").resultSize())
-    "male-2:" output(personSearcher.list()[0].name)
-    "male-3:" output(personSearcher.query("Sandra").resultSize())
-    "female-1:" output(personSearcher.setNamespace("female").query("Kim").resultSize())
-    "female-2:" output(personSearcher.list()[0].name)
-    "female-3:" output(personSearcher.query("Sandra").resultSize())
-    "female-4:" output(personSearcher.list()[0].name)
-    "super-1:" output(livingThingSearcher.query("unidentified").resultSize())
-    "super-2:" output(livingThingSearcher.query("John").resultSize())
-    "super-3:" output(livingThingSearcher.query("Sandra").resultSize())
-    "super-4:" output(livingThingSearcher.query("Kim").resultSize())
-    "noResult-1:" output(personSearcher.setNamespace("male").query("Kim").resultSize())
-    "noResult-2:" output(personSearcher.setNamespace("nonexisting").query("John").resultSize())
-    "noResult-3:" output(personSearcher.setNamespace("female").query("Ted").resultSize())
+
+    "male-1:" output(personSearcher.query("John").setNamespace("male").count())
+    "male-2:" output(personSearcher.results()[0].name)
+    "male-3:" output(personSearcher.query("Sandra").count())
+    "female-1:" output(personSearcher.setNamespace("female").query("Kim").count())
+    "female-2:" output(personSearcher.results()[0].name)
+    "female-3:" output(personSearcher.query("Sandra").count())
+    "female-4:" output(personSearcher.results()[0].name)
+    "super-1:" output(livingThingSearcher.query("unidentified").count())
+    "super-2:" output(livingThingSearcher.query("John").count())
+    "super-3:" output(livingThingSearcher.query("Sandra").count())
+    "super-4:" output(livingThingSearcher.query("Kim").count())
+    "noResult-1:" output(personSearcher.setNamespace("male").query("Kim").count())
+    "noResult-2:" output(personSearcher.setNamespace("nonexisting").query("John").count())
+    "noResult-3:" output(personSearcher.setNamespace("female").query("Ted").count())
     "autocomplete-1:" output(PersonSearcher.autoCompleteSuggest("j", "male", "name",5).length)
     "autocomplete-2:" output(PersonSearcher.autoCompleteSuggest("j", "male", "name",5)[0])
     "autocomplete-3:" output(PersonSearcher.autoCompleteSuggest("j", "female", "name",5).length)
@@ -89,28 +89,28 @@ application test
     "spellcheck-11:" output(ChildSearcher.spellSuggest("jon", "name", 0.7, 5).length)
     "spellcheck-12:" output(LivingThingSearcher.spellSuggest("jon", "name", 0.7, 5).length)
     "spellcheck-13:" output(LivingThingSearcher.spellSuggest("jon", "name", 0.7, 5)[0])
-    
+
   }
-  
+
   test searchNamespace {
     IndexManager.clearAutoCompleteIndex("Person");
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
+
     var link := d.findElement(SelectBy.className("navigate"));
     link.click();
     var pagesource := d.getPageSource();
     assert(pagesource.contains("male-1:1"), "Querying 'John' in namespace 'male' should give 1 result");
     assert(pagesource.contains("male-2:John"), "Querying 'John' in namespace 'male' should return person with name 'John'");
     assert(pagesource.contains("male-3:0"), "Querying 'Sandra' in namespace 'male' should give 0 result");
-    assert(pagesource.contains("female-1:1"), "Querying 'Kim' in namespace 'female' should give 1 result");    
+    assert(pagesource.contains("female-1:1"), "Querying 'Kim' in namespace 'female' should give 1 result");
     assert(pagesource.contains("female-2:Kim"), "Querying 'Kim' in namespace 'female' should return person with name 'Kim'");
-    assert(pagesource.contains("female-3:1"), "Querying 'Sandra' in namespace 'female' should give 1 result");    
+    assert(pagesource.contains("female-3:1"), "Querying 'Sandra' in namespace 'female' should give 1 result");
     assert(pagesource.contains("female-4:Sandra"), "Querying 'Sandra' in namespace 'female' should return child with name 'Sandra'");
     assert(pagesource.contains("super-1:1"), "Querying 'unidentified' using searcher for Living Thing (a super entity of an entity with namespace def) should give 1 result");
     assert(pagesource.contains("super-2:1"), "Querying 'John' using searcher for Living Thing (a super entity of an entity with namespace def) should give 1 result");
     assert(pagesource.contains("super-3:1"), "Querying 'Sandra' using searcher for Living Thing (a super entity of an entity with namespace def) should give 1 result");
-    assert(pagesource.contains("super-4:1"), "Querying 'Kim' using searcher for Living Thing (a super entity of an entity with namespace def) should give 1 result");   
+    assert(pagesource.contains("super-4:1"), "Querying 'Kim' using searcher for Living Thing (a super entity of an entity with namespace def) should give 1 result");
     assert(pagesource.contains("noResult-1:0"), "There should be no match in namespace:'male', query:'Kim'");
     assert(pagesource.contains("noResult-1:0"), "There should be no match in namespace:'nonexisting', query:'John'");
     assert(pagesource.contains("noResult-1:0"), "There should be no match in namespace:'female', query:'Ted'");
