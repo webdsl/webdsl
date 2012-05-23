@@ -8,7 +8,7 @@ entity SuperA {
     myD -> D
 }
 extend entity SuperA {
-    b :: String (searchable(name = searchfield, analyzer = no)*4.0)
+    b :: String (searchable(name = searchfield, analyzer = no)^4.0)
 }
 entity A : SuperA{
     c :: String (searchable)
@@ -46,7 +46,7 @@ extend entity E{
 }
 //F
 entity F{
-    a :: String (searchable, searchable(name = aUntokenized, analyzer = no), searchable(name = aBoosted)*4.0)
+    a :: String (searchable, searchable(name = aUntokenized, analyzer = no), searchable(name = aBoosted)^4.0)
 }
 //G
 entity G {
