@@ -668,7 +668,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     public List<WebDSLFacet> getFacetSelection( String field ){
         List<WebDSLFacet> toReturn = new ArrayList<WebDSLFacet>();
         for (WebDSLFacet webDSLFacet : filteredFacetsList) {
-            if (webDSLFacet.fieldName == field)
+            if (webDSLFacet.fieldName.equals(field))
                 toReturn.add(webDSLFacet);
         }
         return toReturn;
@@ -714,7 +714,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     @SuppressWarnings("unchecked")
     public F clearFacetSelection( String field ) {
         for(WebDSLFacet f : filteredFacetsList){
-            if (f.fieldName == field)
+            if (f.fieldName.equals(field))
                 removeFacetSelection( f );
         }
         return ( F ) this;
