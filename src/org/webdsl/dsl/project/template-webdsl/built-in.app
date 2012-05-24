@@ -129,6 +129,7 @@ module .servletapp/src-webdsl-template/built-in
     sortDesc(String) : Searcher
     sortAsc(String) : Searcher
     clearSorting() : Searcher
+    reset() : Searcher
     query(String) : Searcher
     phraseQuery(String,Int) : Searcher
     rangeQuery(Int,Int,Bool,Bool) : Searcher

@@ -958,7 +958,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public F rangeQuery( Object min, Object max ) {
-        //min and max are includes by default
+        //min and max are included by default
         return rangeQuery(min, max, true, true);
     }
 
@@ -1027,6 +1027,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         else
             return SortField.STRING;
     }
+
+    public abstract F reset();
 
     public String getQuery() {
         if ( rootQD.children.size() < 1 ) {

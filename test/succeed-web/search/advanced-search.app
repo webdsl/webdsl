@@ -51,7 +51,7 @@ analyzer month{
   }
 
   analyzer custom_stop{
-      tokenizer = StandardTokenizer
+    tokenizer = StandardTokenizer
     token filter = StandardFilter
     token filter = LowerCaseFilter
       // token filter = StopFilter (words="analyzerfiles/stopwords.txt")
@@ -83,10 +83,10 @@ analyzer month{
         i3.save();
     }
       output("TEST") output(d.date) " " output(d.datetime) " " output(d.time)
-      navigate searchPage() { "go to search" }
+      navigate searchPageNativeJava() { "go to search" }
   }
 
-  define page searchPage(){
+  define page searchPageNativeJava(){
       init{
           IndexManager.indexSuggestions();
       }
@@ -136,7 +136,58 @@ analyzer month{
 
   define page BooleanResultPage(ps : PersonSearcher){
       "searcherPageArg:" output(ps.count())
+      navigate searchPageDSL() {"click"}
   }
+
+  define page searchPageDSL(){
+
+    var personSearcher := search Person;
+    var personSearcher2 := search Person;
+    var personSearcher3 := search Person;
+    var itemSearcher := search Item;
+    var itemSearcher1 := search Item;
+    var itemSearcher2 := search Item;
+    var itemSearcher3 := search Item;
+    var itemSearcher4 := search Item;
+    var name := "Bottle of dr Pepper"
+    var drPepperItems := from Item as i where i.name = ~name;
+    output("Search page:")
+
+
+    "simplesearch-1:" output( (~itemSearcher matching "bottle AND Dietetic").results()[0].name)
+    "embeddedsearch-1:" output( (~personSearcher matching "bottle").results()[0].name)
+    "embeddedsearch-2:" output( (~personSearcher.reset() matching items.nameField: "bottle").results()[0].name)
+    "nostopfilter-1:" if( (~itemSearcher.reset() matching nameFieldNoStop: "of").results().length == 1){output(itemSearcher.results()[0].name)}
+    "stopfilter-1:" if( (~itemSearcher.reset() matching nameField: "of").results().length == 0){"OK"}
+    //morelikethis is not yet supported in search dsl:
+    "morelikethis-1:" output( itemSearcher.field("description").moreLikeThis(drPepperItems[0].description).setLimit(10).count())
+    "morelikethis-2-3:" output(itemSearcher.results()[0].name)
+    "morelikethis-2-3:" output(itemSearcher.results()[1].name)
+
+    "rangesearch-1:" output( count from ~personSearcher.reset() matching birthday: [Date("05/05/1955") to Date("05/05/1955")] )
+    "rangesearch-2:" output( count from ~personSearcher.reset() matching birthday: [Date("05/05/1954") to Date("05/05/1956")] )
+    "rangesearch-3:" output( count from ~personSearcher.reset() matching birthday: [Date("03/05/1955") to Date("04/05/1955")] )
+    "rangesearch-4:" output( count from ~personSearcher.reset() matching birthday: [Date("01/01/2005") to Date("31/12/2013")] )
+    "autocomplete-1:" output((Item completions matching nameCompletion : "coke" limit 5)[0])
+    "autocomplete-2:" output((Item completions matching nameCompletion : "ca" limit 5)[0])
+    "autocomplete-3:" output((Item completions matching nameCompletion : "pepf" limit  1)[0])
+    "autocomplete-4:" output((Item completions matching nameCompletion : "b" limit 1)[0])
+
+    "boolean-1:" output(count from ~itemSearcher1 matching -(description: "Pepper") "Color")
+    "boolean-2:" output((results from itemSearcher1)[0].name)
+    "boolean-3:" output(count from ~itemSearcher2 matching (description: -"italian" +"TheEnd"))
+    "boolean-4:" output(count from ~itemSearcher3 matching (description: -"italian" +"TheEnd") "italian")
+    "boolean-5:" output(count from ~personSearcher2 matching birthday: -[Date("05/05/1954") to Date("05/05/1956")] name: "Pepe")
+    "boolean-6:" output(count from ~personSearcher3 matching (birthday: -[Date("05/05/1954") to Date("05/05/1956")]) name: "Pepe")
+    "phrase-1:" output(count from ~itemSearcher4 matching "fat protein"~2)
+    "phrase-2:" output((results from itemSearcher4)[0].name)
+
+    navigate BooleanResultPage(personSearcher3) {"click"}
+   // "customstopfilter-1:" output(count from ~itemSearcher.reset() matching nameCustomStop: "diet")
+   // "customstopfilter-2:" output(count from ~itemSearcher.reset() matching nameCustomStop: "bottle")
+
+  }
+
 
   test AdvancedSearch {
     IndexManager.clearAutoCompleteIndex("Item");
@@ -145,39 +196,55 @@ analyzer month{
 
     var link := d.findElement(SelectBy.className("navigate"));
     link.click();
-    var pagesource := d.getPageSource();
-    assert(pagesource.contains("simplesearch-1:Bottle of dr Pepper"), "Error in retrieving search results using default search fields");
-    assert(pagesource.contains("embeddedsearch-1:Pepe Roni"), "Error in retrieving search results, using embedded search field");
-    assert(pagesource.contains("embeddedsearch-2:Pepe Roni"), "Error in retrieving search results, using embedded search field");
-    assert(pagesource.contains("nostopfilter-1:Bottle of dr Pepper"), "Stopword 'of' should not be ignored for field 'nameFieldNoStop'");
-    assert(pagesource.contains("stopfilter-1:OK"), "Stopword 'of' should have been ignored for field 'nameField'");
-    assert(pagesource.contains("morelikethis-1:2"), "More like this should only match the Diet Coke and Dr Pepper items");
-    assert(pagesource.contains("morelikethis-2-3:Diet Coke"), "More like this did not match the Diet Coke item");
-    assert(pagesource.contains("morelikethis-2-3:Bottle of dr Pepper"), "More like this did not match the Dr Pepper item");
-    assert(pagesource.contains("rangesearch-1:1"), "Range query on exact birthday should return 1 result");
-    assert(pagesource.contains("rangesearch-2:1"), "Range query on range around birthday should return 1 result");
-    assert(pagesource.contains("rangesearch-3:0"), "Range query on range before birthday should return 0 results");
-    assert(pagesource.contains("rangesearch-4:0"), "Range query on range after birthday should return 0 results");
-    assert(pagesource.contains("autocomplete-1:diet coke"), "Autocompletion should have returned 'diet coke' on input 'diet'");
-    assert(pagesource.contains("autocomplete-2:car"), "Autocompletion should have returned 'car' on input 'ca'");
-    assert(pagesource.contains("autocomplete-3:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'pepf'");
-    assert(pagesource.contains("autocomplete-4:bottle of dr pepper"), "Autocompletion should have returned 'bottle of dr pepper' on input 'b'");
-    assert(pagesource.contains("boolean-1:1"), "Boolean query should return 1 result ( -(description:pepper) (description:color) )");
-    assert(pagesource.contains("boolean-2:Diet Coke"), "Boolean query should return Diet Coke ( -(description:pepper) (description:color) )");
-    assert(pagesource.contains("boolean-3:2"), "Boolean query should return 2 item results ( (-(description:italian) +(description:theend)) )");
-    assert(pagesource.contains("boolean-4:3"), "Boolean query should return 3 item results ( (-(description:italian) +(description:theend)) (description:italian) )");
-    assert(pagesource.contains("boolean-5:0"), "Boolean query on Persons should return 0 person results ( -birthday:(19540504 TO 19560504) (name:pepe) )");
-    assert(pagesource.contains("boolean-6:1"), "Boolean query on Persons should return 1 person result ( (-birthday:(19540504 TO 19560504)) (name:pepe) )");
-    assert(pagesource.contains("phrase-1:1"), "Phrase query (\"fat proteine\"~2) should only have matched 1 result");
-    assert(pagesource.contains("phrase-2:Bottle of dr Pepper"), "Phrase query (\"fat proteine\"~2) should only have matched item with name 'Bottle of dr Pepper'");
 
-    // assert(pagesource.contains("customstopfilter-1:0"), "Searching for a stopword defined in custom stopword list should give 0 results");
-    // assert(pagesource.contains("customstopfilter-2:1"), "Searching for 'bottle' defined in custom stopword list should give 1 results");
+    var runTwice := 0;
 
-    link := d.findElement(SelectBy.className("navigate"));
-    link.click();
-    pagesource := d.getPageSource();
-    assert(pagesource.contains("searcherPageArg:1"), "PersonSearcher with a boolean query should have been encoded and decoded from page argument in URL");
+    while (runTwice < 2){
+
+        var pagePreFix := if (runTwice < 1) "[SearchPageNativeJava]" else "[SearchPageDSL]";
+        var pagesource := d.getPageSource();
+        assert(pagesource.contains("simplesearch-1:Bottle of dr Pepper"), pagePreFix + "Error in retrieving search results using default search fields");
+        assert(pagesource.contains("embeddedsearch-1:Pepe Roni"), pagePreFix + "Error in retrieving search results, using embedded search field");
+        assert(pagesource.contains("embeddedsearch-2:Pepe Roni"), pagePreFix + "Error in retrieving search results, using embedded search field");
+        assert(pagesource.contains("nostopfilter-1:Bottle of dr Pepper"), pagePreFix + "Stopword 'of' should not be ignored for field 'nameFieldNoStop'");
+        assert(pagesource.contains("stopfilter-1:OK"), pagePreFix + "Stopword 'of' should have been ignored for field 'nameField'");
+        assert(pagesource.contains("morelikethis-1:2"), pagePreFix + "More like this should only match the Diet Coke and Dr Pepper items");
+        assert(pagesource.contains("morelikethis-2-3:Diet Coke"), pagePreFix + "More like this did not match the Diet Coke item");
+        assert(pagesource.contains("morelikethis-2-3:Bottle of dr Pepper"), pagePreFix + "More like this did not match the Dr Pepper item");
+        assert(pagesource.contains("rangesearch-1:1"), pagePreFix + "Range query on exact birthday should return 1 result");
+        assert(pagesource.contains("rangesearch-2:1"), pagePreFix + "Range query on range around birthday should return 1 result");
+        assert(pagesource.contains("rangesearch-3:0"), pagePreFix + "Range query on range before birthday should return 0 results");
+        assert(pagesource.contains("rangesearch-4:0"), pagePreFix + "Range query on range after birthday should return 0 results");
+        assert(pagesource.contains("autocomplete-1:diet coke"), pagePreFix + "Autocompletion should have returned 'diet coke' on input 'diet'");
+        assert(pagesource.contains("autocomplete-2:car"), pagePreFix + "Autocompletion should have returned 'car' on input 'ca'");
+        assert(pagesource.contains("autocomplete-3:bottle of dr pepper"), pagePreFix + "Autocompletion should have returned 'bottle of dr pepper' on input 'pepf'");
+        assert(pagesource.contains("autocomplete-4:bottle of dr pepper"), pagePreFix + "Autocompletion should have returned 'bottle of dr pepper' on input 'b'");
+        assert(pagesource.contains("boolean-1:1"), pagePreFix + "Boolean query should return 1 result ( -(description:pepper) (description:color) )");
+        assert(pagesource.contains("boolean-2:Diet Coke"), pagePreFix + "Boolean query should return Diet Coke ( -(description:pepper) (description:color) )");
+        assert(pagesource.contains("boolean-3:2"), pagePreFix + "Boolean query should return 2 item results ( (-(description:italian) +(description:theend)) )");
+        assert(pagesource.contains("boolean-4:3"), pagePreFix + "Boolean query should return 3 item results ( (-(description:italian) +(description:theend)) (description:italian) )");
+        assert(pagesource.contains("boolean-5:0"), pagePreFix + "Boolean query on Persons should return 0 person results ( -birthday:(19540504 TO 19560504) (name:pepe) )");
+        assert(pagesource.contains("boolean-6:1"), pagePreFix + "Boolean query on Persons should return 1 person result ( (-birthday:(19540504 TO 19560504)) (name:pepe) )");
+        assert(pagesource.contains("phrase-1:1"), pagePreFix + "Phrase query (\"fat proteine\"~2) should only have matched 1 result");
+        assert(pagesource.contains("phrase-2:Bottle of dr Pepper"), pagePreFix + "Phrase query (\"fat proteine\"~2) should only have matched item with name 'Bottle of dr Pepper'");
+
+        // assert(pagesource.contains("customstopfilter-1:0"), pagePreFix + "Searching for a stopword defined in custom stopword list should give 0 results");
+        // assert(pagesource.contains("customstopfilter-2:1"), pagePreFix + "Searching for 'bottle' defined in custom stopword list should give 1 results");
+
+        link := d.findElement(SelectBy.className("navigate"));
+        link.click();
+        pagesource := d.getPageSource();
+        assert(pagesource.contains("searcherPageArg:1"), pagePreFix + "PersonSearcher with a boolean query should have been encoded and decoded from page argument in URL");
+
+        //Now navigate to page with same search actions, now specified using search DSL instead of native java
+        if (runTwice < 1){
+          link := d.findElement(SelectBy.className("navigate"));
+          link.click();
+        }
+        runTwice := runTwice + 1;
+        }
+
+
     d.close();
   }
 

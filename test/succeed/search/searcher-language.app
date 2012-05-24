@@ -77,14 +77,14 @@ define page root() {
         var x7 := search Movie matching +(title: (-q +"island") description:-"human");
 
         var x8 := search Movie matching +item.name;
-        var x9 := search Movie
-                      matching genres.name: +item.name
-                      matching genres.desc: +item.desc.replace(" ","\\ ")
-                      limit 10000;
+
+        //x9 and x10 have the same constraints
+        var x9  := search Movie matching genres.name: +item.name matching genres.desc: +item.desc limit 10000;
+        var x10 := search Movie matching genres.name: +item.name genres.desc: +item.desc limit 10000;
 
         var index := 3;
 
-        var x10 := search   Movie
+        var x11 := search   Movie
                     matching name: +item.alias
                     offset (index*100) limit 100
                     order by year desc;
