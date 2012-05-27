@@ -44,6 +44,9 @@ entity Material{
         alias
         desc
     }
+    function getSearcher() : Searcher{
+        return search Material;
+    }
 }
 
 // Above mappings should result in each entity to be indexed and static search functions created.
@@ -86,8 +89,14 @@ define page root() {
 
         var x11 := search   Movie
                     matching name: +item.alias
+                    with facets (name, 3)
                     offset (index*100) limit 100
                     order by year desc;
+
+        var x12 := all name facets from x11;
+        var x13 := count from x1;
+        var x14 := all field facets from item.getSearcher();
+        var x15 := all field facets from search Movie matching +item.name -q;
 
 
     }

@@ -167,17 +167,18 @@ exports
     "descending"                                     -> Direction          {cons("Descending")}
 
     "highlight" Exp "for" Exp "on" FIELD
-        "surround" "with" "(" Exp "," Exp ")"        -> Exp                {cons("HighlightTags")}
-    "highlight" Exp "for" Exp "on" FIELD             -> Exp                {cons("Highlight")}
-    "results" "from"  Exp                            -> Exp                {cons("SearchResults")}
-    FIELD "facets" "from" Exp                        -> Exp                {cons("FacetResults")}
-    "all" FIELD "facets" "from" Exp                  -> Exp                {cons("AllFacetResults")}
-    "count" "from" Exp                               -> Exp                {cons("SearchResultsSize")}
-    "searchtime" "from" Exp                          -> Exp                {cons("SearchTimeString")}
+        "surround" "with" "(" Exp "," Exp ")"        -> RetrievalExp       {cons("HighlightTags")}
+    "highlight" Exp "for" Exp "on" FIELD             -> RetrievalExp       {cons("Highlight")}
+    "results" "from"  Exp                            -> RetrievalExp       {cons("SearchResults")}
+    FIELD "facets" "from" Exp                        -> RetrievalExp       {cons("FacetResults")}
+    "all" FIELD "facets" "from" Exp                  -> RetrievalExp       {cons("AllFacetResults")}
+    "count" "from" Exp                               -> RetrievalExp       {cons("SearchResultsSize")}
+    "searchtime" "from" Exp                          -> RetrievalExp       {cons("SearchTimeString")}
     "~" Exp                                          -> FIELD              {cons("SearchFieldRef")}
     ENTITY SuggestType SuggestionPart+               -> Exp                {cons("Suggest")}
     "completions"                                    -> SuggestType        {cons("AutoComplete")}
     "corrections"                                    -> SuggestType        {cons("SpellCheck")}
+    RetrievalExp                                     -> Exp
 
     "similarity" Exp                 -> SuggestionPart {cons("Similarity")}
     "matching" FieldsConstraint Exp  -> SuggestionPart {cons("SuggestTerm")}
@@ -202,23 +203,21 @@ exports
     "(" Exp ")"  -> Exp
 
   context-free priorities
-    %% search Movie matching +"hello" -"goodbye" //Dont treat this as addition/subtraction of expressions
+  %% search Movie matching +"hello" -"goodbye" //Dont treat this as sub
+  %% search Movie matching +book.title  //Dont treat '.title' as method-call/property access for whole searcher exp, but restrict to inner exp 'book'.
     {QueryExp ","}+ -> QueryConstraint
     >
     {
       Exp "+" Exp -> Exp
       Exp "-" Exp -> Exp
-    }
-    >
-    SearcherDef -> Exp
-
-  context-free priorities
-    %% search Movie matching +book.title  //Dont treat '.title' as method-call/property access for whole searcher exp, but restrict to inner exp 'book'.
-    {
       Exp "." Id "(" {Exp ","}* ")"  -> Exp
       Exp "." Id                     -> Exp
     }
-    >  SearcherDef -> Exp
+    >
+    {
+    RetrievalExp -> Exp
+    SearcherDef -> Exp
+    }
 
   lexical syntax
     Id             -> FIELD

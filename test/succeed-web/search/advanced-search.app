@@ -164,7 +164,7 @@ analyzer month{
     "morelikethis-2-3:" output(itemSearcher.results()[0].name)
     "morelikethis-2-3:" output(itemSearcher.results()[1].name)
 
-    "rangesearch-1:" output( count from ~personSearcher.reset() matching birthday: [Date("05/05/1955") to Date("05/05/1955")] )
+    "rangesearch-1:" output( count from search Person matching birthday: [Date("05/05/1955") to Date("05/05/1955")] )
     "rangesearch-2:" output( count from ~personSearcher.reset() matching birthday: [Date("05/05/1954") to Date("05/05/1956")] )
     "rangesearch-3:" output( count from ~personSearcher.reset() matching birthday: [Date("03/05/1955") to Date("04/05/1955")] )
     "rangesearch-4:" output( count from ~personSearcher.reset() matching birthday: [Date("01/01/2005") to Date("31/12/2013")] )
