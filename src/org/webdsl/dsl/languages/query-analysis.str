@@ -39,7 +39,7 @@ rules // Entry points
        //; (body := body2 < info(|"Same") + info(|"Diff"))
        //; <debug(!"LoopOk: ")> name
        //; dr-all-keys(|"RootVar"); debug(!"RootVars:")
-       ; [] := <collect(query-optimization-waiting-for); flatten-list/*;debug(!"Wait:")*/> (body, cond)
+       ; [] := <collect(query-optimization-waiting-for); flatten-list/*; try(where(not(?[]); <debug(!"Wait:")> (name, <id>)))*//*;debug(!"Wait:")*/> (body, cond)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
 		       rules (  QueryConditions := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond  // Changes over time to represent the query conditions active on the term currently being analyzed
@@ -246,6 +246,7 @@ rules // Traversals
 */
 strategies // Resolve
 
+  /*
   analyze-for-query-optimization-calls : // Collect effectful traversals for builtin calls
     c@Call(e, nm, args1){anno*} -> Call(e2, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
@@ -257,6 +258,7 @@ strategies // Resolve
     ; <check-builtin-signature> (fent, n, targs)
     ; e2 := <analyze-for-query-optimization-effectful> e
     ; args2 := <map(analyze-for-query-optimization-effectful)> args1
+  */
 
   analyze-for-query-optimization-calls :
     c@Call(e, nm, args1){anno*} -> Call(e, nm, args2){anno*}
@@ -286,13 +288,16 @@ strategies // Resolve
 		    end
 
   analyze-for-query-optimization =
-    (?Call(_, _, _) <+ ?ThisCall(_, _))
-    ; (analyze-for-query-optimization-calls <+ with(register-all-effectful))
+    (?Call(_, _, args) <+ ?ThisCall(_, args))
+    ; (analyze-for-query-optimization-calls <+ with(register-all-effectful; <map(analyze-for-query-optimization-effectful)> args))
 
   analyze-for-query-optimization-calls :
     c@ThisCall(nm, args1){anno*} -> ThisCall(nm, args2){anno*}
     where not([] := <filter(is-accessible-from-allow-calls(RootVar))> args1)
-    ; targs := <map(type-of); prepare-type-list-for-compare> args1
+    ; argtypes := <map(type-of)> args1
+    ; targs := <prepare-type-list-for-compare> argtypes
+    ; n := <strip-annos> nm
+    ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
     ; n := <strip-annos> nm  
     ; <not(check-builtin-signature)> (None(), n, targs)
     //; <not(is-reserved-function)> (n, targs)
@@ -435,9 +440,13 @@ strategies // Resolve
     where (decl, _) := <get-local-redefined-decl-with-extra-args> genname*/
 
   get-follow-genname :
+    genname -> genname
+    where not(CurrentTemplateName)
+
+  get-follow-genname :
     genname -> followgenname
     where tname := <CurrentTemplateName>
-    ; followgenname := <LocalRedefineGenname <+ !genname> (tname, genname)
+    with followgenname := <LocalRedefineGenname <+ !genname> (tname, genname)
 
   get-local-redefined-decl = get-local-redefined-decl-with-mapping; Fst
 
@@ -619,40 +628,89 @@ strategies // Resolve
         ; not(<fetch-elem(is-query-analysis)> anno*)
       )
 
+  // Entity function
   query-optimization-waiting-for-function-calls =
     ?call@Call(e, nm, args)
-    //; where(
-		    ; <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
-		    ; targs* := <map(type-of); prepare-type-list-for-compare> args
-        ; n := <strip-annos> nm
-		    ; <not(not-allowed-ent-fun-name)> n
-		    ; not("Entity" := ent)
-        ; (
-           (fent, Function(defnm, defargs, _, _){anno*}) := <try-resolve-entity-call-without-override-check> (ent, n, targs*) // We should wait if this fails, because the function may still be a predicate function
-           <
-           (
-             <subentities-do-no-override> (fent, n, targs*) // Only wait if subentities-do-no-override
-             ; <not(fetch-elem(is-query-analysis))> anno*
-             ; <not(check-builtin-signature)> (fent, n, targs*)
-             ; <not(Recursive)> (fent, n, targs*)
-             ; !(fent, n, targs*)
-           )
-           + (<not(check-builtin-signature)> (ent, n, targs*); !call)
-          )
-      //)
+    ; <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; targs* := <map(type-of); prepare-type-list-for-compare> args
+    ; n := <strip-annos> nm
+    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; query-optimization-waiting-for-entity-function-calls(|ent, n, targs*)
 
+  // Entity function
+  /*query-optimization-waiting-for-function-calls =
+    ?ThisCall(nm, args)
+    ; argtypes := <map(type-of)> args
+    ; targs* := <prepare-type-list-for-compare> argtypes
+    ; n := <strip-annos> nm
+    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; ent := <ThisEntity>
+    ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
+    ; <not(check-builtin-signature)> (None(), n, targs*) // Not a global function
+    ; <not(resolve-function-call-to-decl; ?Function(_, _, _, _))> (None(), n, targs*) // Not a global function
+    ; query-optimization-waiting-for-entity-function-calls(|ent, n, targs*)*/
+
+  query-optimization-waiting-for-entity-function-calls(|ent, n, targs*) =
+    <not(not-allowed-ent-fun-name)> n
+    ; not("Entity" := ent)
+    ; (
+       (fent, Function(defnm, defargs, _, _){anno*}) := <try-resolve-entity-call-without-override-check> (ent, n, targs*) // We should wait if this fails, because the function may still be a predicate function
+       <
+       (
+         <subentities-do-no-override> (fent, n, targs*) // Only wait if subentities-do-no-override
+         ; <not(fetch-elem(is-query-analysis))> anno*
+         ; <not(check-builtin-signature)> (fent, n, targs*)
+         ; <not(Recursive)> (fent, n, targs*)
+         ; !(fent, n, targs*)
+       )
+       + (<not(check-builtin-signature)> (ent, n, targs*); !(ent, n, targs*))
+      )
+
+  // Global function
   query-optimization-waiting-for-function-calls =
     ?ThisCall(nm, args)
     ; not([] := <filter(is-accessible-from-allow-calls(RootVar))> args)
-    ; targs* := <map(type-of); prepare-type-list-for-compare> args
+    ; argtypes := <map(type-of)> args
+    ; targs* := <prepare-type-list-for-compare> argtypes
     ; n := <strip-annos> nm
+    ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
     ; <not(check-builtin-signature)> (None(), n, targs*)
     //; <not(is-reserved-function)> (n, targs*)
     ; <not(IsReservedFunction)> (n, <length> targs*)
     ; <not(where(Recursive))> (None(), n, targs*)
     ; Function(defname, defargs, _, _){anno*} := <resolve-function-call-to-decl> (None(), n, targs*)
+    ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
     ; <not(fetch-elem(is-query-analysis))> anno*
     ; !(None(), n, targs*)
+
+  /* // No static function support yet
+  // Static function
+  query-optimization-waiting-for-function-calls =
+    ?call@Call(e, nm, args)
+    ; EntitySort(x_class) := <type-of> e
+    ; targs* := <map(type-of); prepare-type-list-for-compare> args
+    ; n := <strip-annos> nm
+    ; query-optimization-waiting-for-static-function-calls(|x_class, n, targs*)
+
+  // Static function
+  query-optimization-waiting-for-function-calls =
+    ?ThisCall(nm, args)
+    ; not([] := <filter(is-accessible-from-allow-calls(RootVar))> args)
+    ; argtypes := <map(type-of)> args
+    ; targs* := <prepare-type-list-for-compare> argtypes
+    ; StaticFunctionCallAnno(x_class, x_funcname) := <bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd> nm
+    ; n := <strip-annos> x_funcname
+    ; query-optimization-waiting-for-static-function-calls(|x_class, n, targs*)
+
+  query-optimization-waiting-for-static-function-calls(|x_class, n, targs*) =
+    <not(check-builtin-signature)> (EntitySort(x_class), n, targs*)
+    //; <not(is-reserved-function)> (n, targs*)
+    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(where(Recursive))> (EntitySort(x_class), n, targs*)
+    ; Function(defname, defargs, _, _){anno*} := <resolve-function-call-to-decl> (EntitySort(x_class), n, targs*)
+    ; <not(fetch-elem(is-query-analysis))> anno*
+    ; !(EntitySort(x_class), n, targs*)
+  */
 
   query-optimization-waiting-for-template-calls =
     ?TemplateCall(name, args, passign, body)
