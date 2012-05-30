@@ -84,7 +84,7 @@ public class ImageSizeUtils {
             } else {
                 ImageIO.write(img, "jpg", out);
             }
-            file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
+            file.setContentStream(session, new ByteArrayInputStream(out.toByteArray()));
             if(!file.getFileName().endsWith(".png")) {
                 file.setContentType("image/jpeg");
             }
@@ -105,7 +105,7 @@ public class ImageSizeUtils {
             } else {
                 ImageIO.write(img, "jpg", out);
             }
-            file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
+            file.setContentStream(session, new ByteArrayInputStream(out.toByteArray()));
             if(!file.getFileName().endsWith(".png")) {
                 file.setContentType("image/jpeg");
             }

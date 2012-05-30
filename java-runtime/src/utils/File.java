@@ -59,10 +59,10 @@ import org.hibernate.Session;
     return getContent().getBinaryStream();
   }
 
-  public void setContentStream( java.io.InputStream sourceStream )
+  public void setContentStream(Session session, java.io.InputStream sourceStream )
             throws java.io.IOException
   {
-    setContent( org.hibernate.Hibernate.createBlob( sourceStream ) );
+    setContent( org.hibernate.Hibernate.getLobCreator(session).createBlob( sourceStream, getSizeInBytes()) );
   }
   
   public String getContentAsString(){
