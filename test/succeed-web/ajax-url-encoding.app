@@ -51,16 +51,11 @@ application test
     }
   }
   
-  native class Thread{
-    static sleep(Int)
-  }
-  
   test encodingstest {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -70,7 +65,6 @@ application test
     
     elist[1].sendKeys(entered1);
     elist[2].click();
-    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("view page"), "expected to be on view page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -80,7 +74,6 @@ application test
     
     //root second submit button 
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -90,7 +83,6 @@ application test
     
     elist[1].sendKeys(entered2);
     elist[3].click();
-    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("view page"), "expected to be on view page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -101,7 +93,6 @@ application test
     
     //root third submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -112,15 +103,11 @@ application test
     elist[1].sendKeys(entered3);
     log(elist[1].getValue());
     elist[4].click();
-    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("viewA ajax template"), "expected to see ajax template viewA");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==11, "incorrect number of input elements found");
     
     assert(elist[6].getValue() == "test"+entered1+entered2+entered3, "input not correctly displayed after submit");   
-    //log(d.getPageSource());
-    
-    d.close();
   }
    

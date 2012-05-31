@@ -23,13 +23,11 @@ application test
   }
 
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -39,8 +37,6 @@ application test
     
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
     assert(d.getPageSource().contains("new stuff"), "input should have been included in action data binding");
-    
-    d.close();
   }
   
 

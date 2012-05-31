@@ -67,11 +67,10 @@ section somesection
     }
   }
   
-  test messages {
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
 
     var elist : List<WebElement> := d.findElements(SelectBy.className("foobutton"));
     assert(elist.length == 1, "expected 1 <input> elements did not match");
@@ -84,7 +83,4 @@ section somesection
     elist[0].click();
     
     assert(!d.getPageSource().contains("secondtestoutput8false"), "action 2 not completed");
-    
-    d.close();
-
   }

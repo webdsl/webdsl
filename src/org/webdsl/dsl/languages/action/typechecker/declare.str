@@ -12,25 +12,21 @@ strategies
   declare-function(|x_class) =
     ?ExtendFunction(_)
 
-  normalize-declare: FunctionNoReturn(f, args, body) -> Function(f, args, SimpleSort("Void"), body)
-  
-  declare-function(|x_class): f@FunctionNoReturn(_,_,_) -> f
-    with  f2 := <with-origin(normalize-declare)> f
-        ; <declare-function(|x_class)> f2
-
   // callee can be a SimpleSort(x_entity) or ClassSort(x_native_class) 
   CheckFunctionSignature: p@(callee, f, t*) -> s
     where resolve-function-call-to-decl; ?Function(_,_, s, _)
         
   declare-function(|x_class) =
-    ?def@Function(f, args, sort, _)
+    ?Function(f, fargs, sort, _)
     ; with(
-        t1stripped* := <map(?Arg(_,<id>));prepare-type-list-for-compare> args
-      ; fnamestripped := <strip-annos> f
+        sigonly := Function(f, fargs, sort,[])
+      ; (n,t*) := <normalize-signature> (f,fargs)
+      ; x_class_stripped := <strip-annos> x_class
       ; rules( CheckFunctionSignatureArgumentTypes :+
-                    (SimpleSort(x_class), fnamestripped, t2*) -> t1stripped*
-                       where <zip(type-compatible)> (t1stripped*, t2*)
-               EntityFunctionDecl :+ (x_class, fnamestripped, t1stripped*) -> def
+                    (SimpleSort(x_class_stripped), n, t2*) -> t*
+                       where <zip(type-compatible)> (t*, t2*)
+               EntityFunctionSig :+ (x_class_stripped, n, t*) -> sigonly
+               EntityFunctionDecl : (x_class_stripped, n, t*) -> sigonly //for built-in functions that are generated in the back-end
              )
       )
       
@@ -47,10 +43,13 @@ strategies
     where resolve-function-call-to-decl; ?Function(_,_, s, _)
         
   declare-global-func =
-    ?decl@Function(f, fargs, s, b)
+    ?Function(f, fargs, s, b)
   ; with( 
-      sig@(n,t*) := <normalize-signature> (f,fargs)
-    ; rules(FunctionDecl :+ sig -> decl) 
+      sigonly := Function(f, fargs, s,[])
+    ; sig@(n,t*) := <normalize-signature> (f,fargs)
+    ; rules(FunctionSig :+ sig -> sigonly
+            FunctionDecl : sig -> sigonly //for built-in functions that are generated in the back-end
+      ) 
     ; rules ( 
               CheckGlobalFunctionSignatureArgumentTypes :+ (None(), n, t2*) -> t* // TODO: Mapping of FunctionCall() to Function using this info
                        where <zip(type-compatible)> (t*, t2*)
@@ -58,6 +57,7 @@ strategies
               IsGlobalFunction : (n, fargs, s)
               IsGlobalFunction : n
               GlobalFunctionArgs :+ n -> fargs //currently used to suggest correction when function name is known, but arguments types are not correct, see constraint-error-this-call 
+      
       )
     ; if None() := b then
         rules ( IsNativeFunction : n )
@@ -70,9 +70,6 @@ strategies
 
   normalize-declare: NativeFunction(fname, args, s) -> Function(fname, args, s, None())
   
-  declare-global-func = 
-    ?FunctionNoReturn(_,_,_); declare-normalized
-
   declare-global-func =
     ?NativeFunction(_,_,_); declare-normalized
     

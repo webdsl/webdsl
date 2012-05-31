@@ -47,11 +47,9 @@ section somesection
     navigate four(11)[class="navpage1"]{ "go" }
   }
   
-  test messages {
-    var d : WebDriver := HtmlUnitDriver();
-    
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
 
     assert(d.getPageSource().contains("678910"));
 
@@ -59,7 +57,4 @@ section somesection
     nav.click();
     
     assert(d.getPageSource().contains("foobar11"));
-    
-    d.close();
-
   }

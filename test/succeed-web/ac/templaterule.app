@@ -57,14 +57,11 @@ section somesection
     "default rule opens this template"
   }
   
-  test messages {
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("tab template: 123"), "\"tab template: 123\" should be visible");
     assert(!d.getPageSource().contains("this should not be visible"), "\"this should not be visible\" is visible");
     assert(d.getPageSource().contains("default rule opens this template"));
-    
-    d.close();
   }

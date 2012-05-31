@@ -9,12 +9,8 @@ application test
   define page root(){
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root())+"?logsql");
     assert(d.getPageSource().contains("The three queries that took the most time:"));
-    
-    d.close();
   }

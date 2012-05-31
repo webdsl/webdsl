@@ -25,13 +25,12 @@ application test
   }
 
   
-  test one {
+  test {
     
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
    
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -49,8 +48,6 @@ application test
     assert(d.getPageSource().contains("root page"), "root page should not be overridden by an ajax call validation error");
     assert(d.getPageSource().contains("Not a valid number"), "validation error did not show up");
     assert(!d.getPageSource().contains("redirected to success page"), "validation error should have prevented action execution");
-    
-    d.close();
   }
   
 

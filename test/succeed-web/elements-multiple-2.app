@@ -35,8 +35,8 @@ application test
     }
   }
 
-  test pagecontent{
-    var d := HtmlUnitDriver();
+  test {
+    var d := getHtmlUnitDriver();
     d.get(navigate(root()));
 
     var input1 := d.findElements(SelectBy.className("input1"))[0];
@@ -44,8 +44,6 @@ application test
     var button := d.findElements(SelectBy.className("savebutton"))[0];
     button.click();
     assert(d.getPageSource().contains("numberone"));
-    
-    d.close();
   }
 
   

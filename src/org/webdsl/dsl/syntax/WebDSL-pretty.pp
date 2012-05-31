@@ -1,6 +1,6 @@
 [
    HqlQuery -- _1,
-   DslExp --  H hs=0[ KW["~"] _1 ],
+   DslExp   --  H hs=0[ KW["~"] _1 ],
 
    Module                             -- V[H[KW["module"] _1] _2],
    Module.2:iter-star                 -- _1,
@@ -47,14 +47,14 @@
    GenericSort.2:iter-sep             -- H hs=0[_1 KW[","]],
    EntitySort                         -- _1,
    SimpleAnno                         -- _1,
-   InverseAnno			      -- KW["inverse"] KW["="] _1 KW["."] _2,
-   InverseSlaveAnno		      -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
-   InlineAnno		              	      -- KW["inline"] KW["("] _1 KW[")"],
+   InverseAnno                        -- KW["inverse"] KW["="] _1 KW["."] _2,
+   InverseSlaveAnno                   -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
+   InlineAnno                         -- KW["inline"] KW["("] _1 KW[")"],
    InlineAnno.1:iter-stat-sep         -- _1 KW[","],
    SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
-   
+
    Define                             -- V[ V is=2[H[KW["define"] _1 _2 H hs=0[KW["("] H[_3] KW[")"]] KW["{"]] _4] KW["}"] ],
    Define.1:iter-star                 -- _1,
    Define.3:iter-star-sep             -- H hs=0[_1 KW[","]],
@@ -67,40 +67,40 @@
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[ "\"" _1 "\"" ],
 
-   ForSep                                          
-      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4KW[")"] 
+   ForSep
+      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4KW[")"]
                       KW["{"]]
                    _5 ]
             H[ KW["}"] KW[ "separated-by" ] KW["{"] _6  KW["}"] ]
           ],
-   ForSep.5:iter-star                              -- _1,
-   ForSep.6:iter-star                              -- _1,
+   ForSep.5:iter-star                 -- _1,
+   ForSep.6:iter-star                 -- _1,
 
-   ForSepNoFilter                                          
-      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] 
-                      KW["{"]] _4 ] 
+   ForSepNoFilter
+      -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"]
+                      KW["{"]] _4 ]
             H[ KW["}"] KW[ "separated-by" ] KW["{"] _5 KW["}"] ]
           ],
-   ForSepNoFilter.4:iter-star                              -- _1,
-   ForSepNoFilter.5:iter-star                              -- _1,
+   ForSepNoFilter.4:iter-star         -- _1,
+   ForSepNoFilter.5:iter-star         -- _1,
 
-   For                                          
-     -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] 
+   For
+     -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"]
                      KW["{"]] _5 ] KW["}"] ],
-   For.5:iter-star                              -- _1,
-   ForNoFilter                                  -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
-   ForNoFilter.4:iter-star                      -- _1,
-   ForAll                                       -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
-   ForAll.4:iter-star                           -- _1,
-   ForAllNoFilter                               -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"]] _3 ] KW["}"] ],
-   ForAllNoFilter.3:iter-star                   -- _1,
-   PagedForAll                                  -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["per"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
-   PagedForAll.4:iter-star                      -- _1,
-   PagedFor                                  -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW["per"] _4 KW[")"] KW["{"]] _5 ] KW["}"] ],
-   PagedFor.5:iter-star                      -- _1,
+   For.5:iter-star                    -- _1,
+   ForNoFilter                        -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
+   ForNoFilter.4:iter-star            -- _1,
+   ForAll                             -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
+   ForAll.4:iter-star                 -- _1,
+   ForAllNoFilter                     -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"]] _3 ] KW["}"] ],
+   ForAllNoFilter.3:iter-star         -- _1,
+   PagedForAll                        -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["per"] _3 KW[")"] KW["{"]] _4 ] KW["}"] ],
+   PagedForAll.4:iter-star            -- _1,
+   PagedFor                           -- V[ V is=2[ H[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW["per"] _4 KW[")"] KW["{"]] _5 ] KW["}"] ],
+   PagedFor.5:iter-star               -- _1,
 
    Subtable                           -- V[ V is=2[ H[KW["subtable"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] ] _4 ] KW["}"]],
-   
+
    IfExp -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
 
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"] KW["else"] KW["{"] _3 KW["}"] ],
@@ -111,16 +111,16 @@
    SelectFromList                     -- H[KW["select"] KW["("] _1 KW["from"] _2 KW[")"]] "[" _3 "]",
    SelectFromListNoProps              -- H[KW["select"] KW["("] _1 KW["from"] _2 KW[")"]],
    TemplateCallNoArgs                 -- _1,
-   True				                        -- KW["true"],
-   False			                        -- KW["false"],
+   True                               -- KW["true"],
+   False                              -- KW["false"],
    Null                               -- KW["null"],
    TemplateBody                       -- _1,
    TemplateCallNoBody                 -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    TemplateCallNoBody.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   TemplateCallNoBody.2:iter-star			-- _1,
+   TemplateCallNoBody.2:iter-star            -- _1,
    TemplateCallBody                   -- V[ V is=2[H[_1 KW["{"]] _2] KW["}"]],
    TemplateCallBody.2:iter-star       -- _1,
-   TemplateCallBody.2:iter-star-sep -- H hs=0[_1 KW[" "]],   
+   TemplateCallBody.2:iter-star-sep   -- H hs=0[_1 KW[" "]],
    TemplateCall                       -- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"] KW["{"]] _4] KW["}"]],
    TemplateCall.2:iter-star-sep       -- H hs=0[_1 KW[","]],
    TemplateCall.3:iter-star-sep       -- H hs=0[_1 KW[","]],
@@ -128,44 +128,42 @@
    TemplateCall.2:iter-star           -- _1,
    TemplateCall.3:iter-star           -- _1,
    TemplateCall.4:iter-star           -- _1,
-   TemplateCallPropsNoArgs.3:iter-star  -- _1,
+   TemplateCallPropsNoArgs.3:iter-star     -- _1,
    TemplateCallPropsNoArgs.3:iter-star-sep -- H hs=0[_1 KW[" "]],
-   TemplateCallPropsNoArgs.2:iter-star  -- _1,
+   TemplateCallPropsNoArgs.2:iter-star     -- _1,
    TemplateCallPropsNoArgs.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   TemplateCallPropsNoArgs						-- V[V is=2[ H hs=0 [ _1 KW["["] H[_2] KW["]"] KW["{"] H[_3] KW["}"]]]],
-   TemplateCallProps.2:iter-star-sep   -- H hs=0[_1 KW[","]],
-   TemplateCallProps.2:iter-star      -- _1,    
-   TemplateCallProps									-- V[ V is=2[ H hs=0[ _1 KW["["] H[_2] KW["]"]]]],
+   TemplateCallPropsNoArgs                 -- V[V is=2[ H hs=0 [ _1 KW["["] H[_2] KW["]"] KW["{"] H[_3] KW["}"]]]],
+   TemplateCallProps.2:iter-star-sep       -- H hs=0[_1 KW[","]],
+   TemplateCallProps.2:iter-star           -- _1,
+   TemplateCallProps                       -- V[ V is=2[ H hs=0[ _1 KW["["] H[_2] KW["]"]]]],
    TemplateCallPropsNoBody.3:iter-star-sep -- H hs=0[_1 KW[","]],
-   TemplateCallPropsNoBody.3:iter-star -- _1, 
+   TemplateCallPropsNoBody.3:iter-star     -- _1,
    TemplateCallPropsNoBody.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   TemplateCallPropsNoBody.2:iter-star -- _1,
-   TemplateCallPropsNoBody						-- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]]]],
-   TemplateCallNoAssigns.3:iter-star  -- _1,
-   TemplateCallNoAssigns.3:iter-star-sep -- H hs=0[_1 KW[" "]],
-   TemplateCallNoAssigns.2:iter-star  -- _1,
-   TemplateCallNoAssigns.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   TemplateCallNoAssigns							-- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["{"] H[_3] KW["}"]]]],
-   TemplateCallNoArgs									-- _1,
- 
-   TemplateCallDeclaredType.4:iter-star -- _1,
-   TemplateCallDeclaredType           -- _1 _2 _3 _4,
-   Action                             -- V[ H[KW["action"] _1 _2 KW["("] _3 KW[")"]] _4 ],
-   Action.2:iter-star-sep             -- H hs=0[_1 KW[","]],
-   Action.3:iter-star-sep             -- H hs=0[_1 KW[","]],
-   ActionModifierIgnoreValidation     -- KW["ignore-validation"],
-   AjaxAction													-- H[ _1 _2 KW["<<"] _3 KW[";"]],
-   AjaxActionIdParam								  -- H[ _1 _2 KW["<<"] _3 KW[";"]],
-   AjaxActionNoParam									-- H[ _1 _2 KW["<<"] KW[";"]],
-   AjaxActionNoTarget									-- H[ _1 KW["<<"] _2 KW[";"]],
-   InlineTemplateCall									-- H[ KW["template"] KW ["{"] _1 KW["}"]],
+   TemplateCallPropsNoBody.2:iter-star     -- _1,
+   TemplateCallPropsNoBody                 -- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]]]],
+   TemplateCallNoAssigns.3:iter-star       -- _1,
+   TemplateCallNoAssigns.3:iter-star-sep   -- H hs=0[_1 KW[" "]],
+   TemplateCallNoAssigns.2:iter-star       -- _1,
+   TemplateCallNoAssigns.2:iter-star-sep   -- H hs=0[_1 KW[","]],
+   TemplateCallNoAssigns                   -- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["{"] H[_3] KW["}"]]]],
+   TemplateCallNoArgs                      -- _1,
+
+   TemplateCallDeclaredType.4:iter-star    -- _1,
+   TemplateCallDeclaredType                -- _1 _2 _3 _4,
+   Action                                  -- V[ H[KW["action"] _1 _2 KW["("] _3 KW[")"]] _4 ],
+   Action.2:iter-star-sep                  -- H hs=0[_1 KW[","]],
+   Action.3:iter-star-sep                  -- H hs=0[_1 KW[","]],
+   ActionModifierIgnoreValidation          -- KW["ignore-validation"],
+   AjaxAction                              -- H[ _1 _2 KW["<<"] _3 KW[";"]],
+   AjaxActionIdParam                       -- H[ _1 _2 KW["<<"] _3 KW[";"]],
+   AjaxActionNoParam                       -- H[ _1 _2 KW["<<"] KW[";"]],
+   AjaxActionNoTarget                      -- H[ _1 KW["<<"] _2 KW[";"]],
+   InlineTemplateCall                      -- H[ KW["template"] KW ["{"] _1 KW["}"]],
    InlineTemplateCall.1:iter-star-sep -- H hs=0[_1 KW[","]],
    InlineTemplateCall.1:iter-star     -- _1,
    InitAction                         -- V[ H[KW["init"]] _1],
    Function                           -- V[ H[KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3] _4 ],
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
-   FunctionNoReturn                   -- V[ H[KW["function"] _1 KW["("] _2 KW[")"]] _3 ],
-   FunctionNoReturn.2:iter-star-sep   -- H hs=0[_1 KW[","]],
    StaticEntityFunction               -- V[ H[KW["static"] KW["function"] _1 KW["("] _2 KW[")"] _3] _4 ],
    ReturnType                         -- KW[":"] _1,
    NativeFunction                     -- H[KW["native"] KW["function"] _1 KW["("] _2 KW[")"] KW[":"] _3 KW[";"]],
@@ -175,11 +173,11 @@
    Assign                             -- H hs=0[H[_1] KW[";"]],
    Stat                               -- H hs=0[H[_1] KW[";"]],
    Return                             -- H[KW["return"] H hs=0[H[_1] KW[";"]]],
-   ReturnEmpty												-- H[KW["return"] KW[";"]],
+   ReturnEmpty                        -- H[KW["return"] KW[";"]],
    Cancel                             -- H[KW["cancel"] H hs=0[H[_1] KW[";"]]],
-   GoTo							              	  -- H[KW["goto"] H hs=0[H[_1] KW[";"]]],
-   Schedule	          							  -- KW["schedule"] _1 KW["for"] _2,
-   ScheduleNoFor       							  -- KW["schedule"] _1,
+   GoTo                               -- H[KW["goto"] H hs=0[H[_1] KW[";"]]],
+   Schedule                           -- KW["schedule"] _1 KW["for"] _2,
+   ScheduleNoFor                      -- KW["schedule"] _1,
    VarDeclInit                        -- H[KW["var"] _1 KW[":"] _2 KW[":="] _3 KW[";"]],
    VarDeclInitInferred                -- KW["var"] _1 KW[":="] _2 KW[";"],
    VarDecl                            -- H[KW["var"] _1 KW[":"] _2 KW[";"]],
@@ -190,11 +188,11 @@
    Case.2:iter-star                   -- _1,
    CaseAlt                            -- _1 _2,
    CaseDefault                        -- KW["default"] _1,
-  
+
 
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
    FilterNoOrderByNoLimit             -- KW["where"] _1,
-   FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1, 
+   FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1,
    FilterNoLimit                      -- KW["where"] _1 KW["order"] KW["by"] _2,
    FilterNoOrderBy                    -- KW["where"] _1 _2,
    Filter                             -- KW["order"] KW["by"] _1 _2,
@@ -229,12 +227,12 @@
    ObjectCreation                     -- H hs=0[_1 KW["{"] H[_2] KW["}"]],
    ObjectCreation.2:iter-star         -- _1,
    Assignment                         -- H[_1 KW[":="] _2],
-   PropertyAssignment								  -- H[_1 KW[":="] _2],
-   PropertyValue											-- _1,
-   PropertyValueList									-- H[KW["["] _1 KW["]"]],
-   PropertyValueList.1:iter-star			-- _1,
-   PropertyValueList.1:iter-star-sep				--    H hs=0[_1 KW[","]],
-   ObjectPropertyAssignment					  -- H[_1 KW[":="] _2],
+   PropertyAssignment                 -- H[_1 KW[":="] _2],
+   PropertyValue                      -- _1,
+   PropertyValueList                  -- H[KW["["] _1 KW["]"]],
+   PropertyValueList.1:iter-star      -- _1,
+   PropertyValueList.1:iter-star-sep  --    H hs=0[_1 KW[","]],
+   ObjectPropertyAssignment           -- H[_1 KW[":="] _2],
    MapCreation                        -- V  [V vs=2 [KW["["] _1] KW["]"]],
    MapCreation.1:iter-star            -- _1,
    Mapping                            -- _1 KW["->"] _2,
@@ -337,13 +335,13 @@
    PolicyAnd                                    -- _1 KW["AND"] _2,
    PolicyOr                                     -- _1 KW["OR"] _2,
    Name                                         -- _1,
-   
+
    %%input validation
    Validator                                    -- KW["validator"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"] KW[":"] _4,
    Validator.2:iter-star-sep                    -- _1 KW[","],
    Validator.3:iter-star                        -- _1,
    ValidateCall                                 -- KW["validate"] _1 KW["("] _2 KW[")"],
-   
+
    %%styling
    ThemeDefinition                              -- KW["theme"] _1 _2 KW["("] KW[")"] KW["{"] _3 KW["}"],
    ThemeDefinition.3:iter-star                  -- _1,
@@ -358,12 +356,12 @@
    SimpleSelector                               -- H hs=1[ _1 _2 ],
    IdSimpleSelector                             -- H hs=0[ KW["#"] _1 ],
    ElemSimpleSelector                           -- _1,
-   ElemSimpleAttrSelector												-- _1 _2,
-   ElemSimpleAttrSelector.2:iter-star					 	-- _1,
-   ElemClassAttrSelector												-- _1 _2 _3,
-   ElemClassAttrSelector.3:iter-star					 	-- _1,
+   ElemSimpleAttrSelector                       -- _1 _2,
+   ElemSimpleAttrSelector.2:iter-star           -- _1,
+   ElemClassAttrSelector                        -- _1 _2 _3,
+   ElemClassAttrSelector.3:iter-star            -- _1,
    ClassSimpleSelector                          -- H hs=0[ KW["."] _1 ],
-   UniversalSimpleSelector					    -- KW["*"],
+   UniversalSimpleSelector                      -- KW["*"],
    SimpleSelector                               -- _1,
    SelectorAttribute                            -- H hs=0[ KW[":"] _1 ],
    ChildCombinator                              -- KW[">"],
@@ -405,7 +403,7 @@
    LayoutExpression                             -- _1,
    LayoutExpression                             -- _1,
 
-   %% Procedures 
+   %% Procedures
    Procedures                                   -- V is=2 vs=1 [H[KW["procedures"] _1] _2],
    Procedure                                    -- V[V is=2[H[KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
    AutoProcedure                                -- V[V is=2[H[KW["auto"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
@@ -433,7 +431,7 @@
    ProcRepeatUntil                              -- KW["repeat"] KW["{"] _1 KW["}"] KW["until"] _2,
    RemoveMe                                     -- KW["RemoveMe"],
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
-   
+
    %% Derive
    Derive                                       -- H[KW["derive"] _1 KW["for"] _2 KW["("] _3 KW[")"]],
    Derive.3:iter-star-sep                       -- H[_1 KW[","]],
@@ -445,11 +443,11 @@
    ViewPage                                     -- KW["viewPage"],
    ViewRows                                     -- KW["viewRows"],
 
-   None																					-- ,
-   Some																					-- _1,
+   None                                                                                    -- ,
+   Some                                                                                    -- _1,
 
    %% needs sorting, generated by update-pp.sh
-   
+
    Note.1:iter-star                             -- _1,
    Description.1:iter-star                      -- _1,
    SelectFromListNoProps.3:iter-star            -- _1,
@@ -776,46 +774,140 @@
    XMLEmptyElement.2:iter-star                  -- _1,
 
 %% Search
-   SearchableAnno					  -- _1 KW["*"] _2,
-   SearchableAnno					  -- KW["searchable"],
-   SearchableAnno					  -- KW["searchable"] KW["("] _1 KW[")"],
-   SearchNamespaceAnno				  -- KW["searchnamespace"],
-   SearchableAnno.1:iter-star-sep     -- H hs=0[_1 KW[","]],
-   SearchableAnnoBoost				  -- _1 KW["*"] _2,
-   SA-Argument						  -- H hs=0[_1 KW["="] _2],
-   Autocomplete-Argument			  -- KW["autocomplete"],
-   Spellcheck-Argument			  	  -- KW["spellcheck"],
-   Numeric-Argument			  	  	  -- KW["numeric"],
-   DefaultSF-Argument			  	  -- KW["default"],
-   SearchMapping                      -- V[V is=2[H[KW["searchmapping"] _1 KW["{"]] _2] KW["}"]],
-   SearchMapping.2:iter-star          -- _1,
-   SearchMappingEmbedded			  -- V[V is=2[H[KW["searchmapping"] KW["{"]] _1] KW["}"]],
-   SearchMappingEmbedded.1:iter-star  -- _1,
-   SearchNamespaceMapping			  -- H hs=1[KW["namespace"] KW["by"] _1],
-   SearchFieldMapping				  -- H hs=1[_1 _2 _3],
-   SearchFieldMapping.1:iter-star	  -- H hs=1[_1],
-   FieldName						  -- H hs=1[KW["as"] _1],
-   AnalyzerName						  -- H hs=1[KW["using"] _1],
-   Boost							  -- H hs=1[KW["*"] _1],
-   TargetEntity						  -- H hs=1[KW["for subclass"] _1],
-   SearchMappingAnno				  -- H hs=1[KW["("] _1 KW[")"]],
-   SearchMappingAnno.1:iter-star	  -- H hs=1[_1],
-   FullTextAnalyzer				 	  -- V[V is=2[H[_1 KW["analyzer"] _2 KW["{"]] _3] KW["}"]],
-   DualFullTextAnalyzerBodyDef		  -- V[H[_1 KW["{"]] _2 KW["}"] H[_3 KW["{"]] _4 KW["}"]],
-   FullTextAnalyzerBodyDef			  -- V[_1 _2 _3],
-   FullTextAnalyzerBodyDef.1:iter-star -- V[_1],
- %% FullTextAnalyzerBody.2:opt 		-- V[_1],
-   FullTextAnalyzerBodyDef.3:iter-star -- V[_1],
-   CharFilter				 -- H hs=1 [KW["charfilter"] KW["="] _1 KW["("] _2 KW[")"]],
-   CharFilter.3:iter-star	 -- _1,
-   CharFilterNoArgs			 -- H hs=1 [KW["charfilter"] KW["="]_1],
-   Tokenizer				 -- H hs=1 [KW["tokenizer"] KW["="] _1 KW["("] _2 KW[")"]],
-   Tokenizer.3:iter-star	 -- _1,
-   TokenizerNoArgs			 -- H hs=1 [KW["tokenizer"] KW["="] _1],
-   TokenFilter				 -- H hs=1 [KW["tokenfilter"] KW["="] _1 KW["("] _2 KW[")"]],
-   TokenFilter.3:iter-star	 -- _1,
-   TokenFilterNoArgs		 -- H hs=1 [KW["tokenfilter"] KW["="] _1],
-   Argument					 -- H hs=1 [_1 KW["="] _2],
+   SearchableAnno                               -- _1 KW["*"] _2,
+   SearchableAnno                               -- KW["searchable"],
+   SearchableAnno                               -- KW["searchable"] KW["("] _1 KW[")"],
+   SearchNamespaceAnno                          -- KW["search namespace"],
+   SearchableAnno.1:iter-star-sep               -- H hs=0[_1 KW[","]],
+   SearchableAnnoBoost                          -- _1 KW["^"] _2,
+   SA-Argument                                  -- H hs=0[_1 KW["="] _2],
+   Autocomplete-Argument                        -- KW["autocomplete"],
+   Spellcheck-Argument                          -- KW["spellcheck"],
+   Numeric-Argument                             -- KW["numeric"],
+   DefaultSF-Argument                           -- KW["default"],
+   SearchMapping                                -- V[V is=2[H[KW["search mapping"] _1 KW["{"]] _2] KW["}"]],
+   SearchMapping.2:iter-star                    -- _1,
+   SearchMappingEmbedded                        -- V[V is=2[H[KW["search mapping"] KW["{"]] _1] KW["}"]],
+   SearchMappingEmbedded.1:iter-star            -- _1,
+   SearchNamespaceMapping                       -- H hs=1[KW["namespace"] KW["by"] _1],
+   SearchFieldMapping                           -- H hs=1[_1 _2 _3],
+   SearchFieldMapping.1:iter-star               -- H hs=1[_1],
+   FieldName                                    -- H hs=1[KW["as"] _1],
+   AnalyzerName                                 -- H hs=1[KW["using"] _1],
+   Boost                                        -- H hs=1[KW["^"] _1],
+   EmbeddedDepth                                -- H hs=1[KW["with depth"] _1],
+   TargetEntity                                 -- H hs=1[KW["for subclass"] _1],
+   SearchMappingAnno                            -- H hs=1[KW["("] _1 KW[")"]],
+   SearchMappingAnno.1:iter-star                -- H hs=1[_1],
+   FullTextAnalyzer                             -- V[V is=2[H[_1 KW["analyzer"] _2 KW["{"]] _3] KW["}"]],
+   DualFullTextAnalyzerBodyDef                  -- V[H[_1 KW["{"]] _2 KW["}"] H[_3 KW["{"]] _4 KW["}"]],
+   FullTextAnalyzerBodyDef                      -- V[_1 _2 _3],
+   FullTextAnalyzerBodyDef.1:iter-star          -- V[_1],
+   FullTextAnalyzerBodyDef.3:iter-star          -- V[_1],
+   CharFilter                                   -- H hs=1 [KW["char filter"] KW["="] _1 KW["("] _2 KW[")"]],
+   CharFilter.2:iter-star-sep                   -- _1 KW[","],
+   CharFilter.3:iter-star                       -- _1,
+   CharFilterNoArgs                             -- H hs=1 [KW["char filter"] KW["="]_1],
+   Tokenizer                                    -- H hs=1 [KW["tokenizer"] KW["="] _1 KW["("] _2 KW[")"]],
+   Tokenizer.2:iter-star-sep                    -- _1 KW[","],
+   Tokenizer.3:iter-star                        -- _1,
+   TokenizerNoArgs                              -- H hs=1 [KW["tokenizer"] KW["="] _1],
+   TokenFilter                                  -- H hs=1 [KW["token filter"] KW["="] _1 KW["("] _2 KW[")"]],
+   TokenFilter.3:iter-star                      -- _1,
+   TokenFilter.2:iter-star-sep                  -- _1 KW[","],
+   TokenFilterNoArgs                            -- H hs=1 [KW["token filter"] KW["="] _1],
+   Argument                                     -- H hs=1 [_1 KW["="] _2],
+
+   SearcherInit                       -- H hs=1 [KW["search"] _1 _2],
+   SearcherRefMod                     -- H hs=1 [KW["~"] _1 _2],
+   QueryDef                           -- H hs=1 [KW["matching"] _1],
+   Clause                             -- H hs=1 [_1 _2],
+   Query                              -- H hs=1 [_1 _2],
+   Start                              -- H hs=1 [KW["start"] _1],
+   MaxResults                         -- H hs=1 [KW["limit"] _1],
+   SortBy                             -- H hs=1 [KW["order"] KW["by"] _1],
+   SortBy.1:iter-star                 -- _1,
+   ConstraintFilter                   -- H hs=1 [KW["with"] KW["filters"] _1],
+   ConstraintFilter.1:iter-star       -- _1,
+   FacetDef                           -- H hs=1 [KW["with"] KW["facets"] _1],
+   FacetDef.1:iter-star               -- _1,
+   DiscreteFacetDef                   -- H hs=1 [KW["("] _1 KW[","] _2 KW[")"]],
+   RangeFacetDef                      -- H hs=1 [KW["("] _1 KW[":"] _2 KW[")"]],
+   RangeFacetDef.2:iter-star-sep      -- H hs=0 [_1 KW[","]],
+   SearchAttributes                   -- H hs=1 [KW["["] _1 KW["]"]],
+   SearchAttributes.1:iter-star-sep   -- H hs=0 [_1 KW[","]],
+   NamespaceConstraint                -- H hs=1 [KW["in"] KW["namespace"] _1],
+   NoLucene                           -- H hs=1 [KW["no lucene"]],
+   Lucene                             -- H hs=1 [KW["lucene"]],
+   DefaultAnd                         -- H hs=1 [KW["strict"] KW["matching"]],
+   DefaultOr                          -- H hs=1 [KW["loose"] KW["matching"]],
+   FieldFilterConstraint              -- H hs=1 [_1 KW[":"] _2],
+   FieldsConstraint                   -- H hs=1 [_1 KW[":"]],
+   FieldsConstraint.1:iter-star-sep   -- H hs=0 [_1 KW[","]],
+   QueryConstraint                    -- H hs=1 [_1],
+   QueryConstraint.1:iter-star-sep    -- H hs=0 [_1 KW[","]],
+   GroupDef                           -- H hs=0 [_1 KW["("] _2 KW[")"]],
+   %% GroupDef.2:iter-star-sep           -- H hs=0 [_1 KW[","]],
+   TermDef                            -- H hs=0 [_1 _2 _3],
+   RangeDef                           -- H hs=1 [_1 _2],
+   Slop                               -- H hs=1 [KW["~"]_1],
+   Range                              -- H hs=1 [_1 _2 KW["to"] _3 _4],
+   ExcludingOpen                      -- H hs=1 [KW["{"]],
+   ExcludingClose                     -- H hs=1 [KW["}"]],
+   IncludingOpen                      -- H hs=1 [KW["["]],
+   IncludingClose                     -- H hs=1 [KW["]"]],
+   Must                               -- H hs=1 [KW["+"]],
+   MustNot                            -- H hs=1 [KW["-"]],
+   SortDef                            -- H hs=1 [_1 _2],
+   Ascending                          -- H hs=1 [KW["ascending"]],
+   Descending                         -- H hs=1 [KW["descending"]],
+   SearchResults                      -- H hs=1 [KW["results"] KW["from"] _1],
+   FacetResults                       -- H hs=1 [_1 KW["facets"] KW["from"] _2],
+   SearchTimeString                   -- H hs=1 [KW["searchtime"] KW["from"] _1],
+   SearchResultsSize                  -- H hs=1 [KW["count"] KW["from"] _1],
+   AllFacetResults                    -- H hs=1 [KW["all"] _1 KW["facets"] KW["from"] _2],
+   HighlightTags                      -- H hs=1 [KW["highlight"] _1 KW["for"] _2 KW["on"] _3 KW["surround"] KW["with"] KW["("] _4 KW[","] _5 KW[")"] ],
+   Highlight                          -- H hs=1 [KW["highlight"] _1 KW["for"] _2 KW["on"] _3 ],
+   SearchFieldRef                     -- H hs=1 [KW["~"] _1 ],
+   Suggest                            -- H hs=1 [_1 _2 _3],
+   Suggest.3:iter                     -- _1,
+   AutoComplete                       -- H hs=1 [KW["completions"] ],
+   SpellCheck                         -- H hs=1 [KW["corrections"] ],
+   Similarity                         -- H hs=1 [KW["similarity"] _1],
+   SuggestTerm                        -- H hs=1 [KW["matching"] _1 _2],
+
+   SortDef.2:opt                                          -- _1,
+   Range.3:opt                                            -- _1,
+   RangeDef.1:opt                                         -- _1,
+   TermDef.3:opt                                          -- _1,
+   TermDef.1:opt                                          -- _1,
+   GroupDef.2:iter                                        -- _1,
+   GroupDef.1:opt                                         -- _1,
+   Query.1:opt                                            -- _1,
+   Clause.2:iter                                          -- _1,
+   Clause.1:opt                                           -- _1,
+   QueryDef.1:iter-star                                   -- _1,
+   SearcherRefMod.2:iter                                  -- _1,
+   SearcherInit.2:iter-star                               -- _1,
+   SearchFieldMapping.3:iter-star                         -- _1,
+   FullTextAnalyzer.1:opt                                 -- _1,
+
+%% Recommend
+   RecommendSchedule                                      -- _1,
+   RecommendType                                          -- _1,
+   RecommendNeighborSize                                  -- _1,
+   RecommendNeighborAlg                                   -- _1,
+   RecommendAlgorithm                                     -- _1,
+   RecommendValue                                         -- _1,
+   RecommendItem                                          -- _1,
+   RecommendUser                                          -- _1,
+   RecommendConfigStaticOrder                             -- KW["recommenderStaticOrder"] _1 KW["{"] _2 _3 _4 _5 _6 _7 _8 _9 KW["}"],
+   RecommendArgument                                      -- _1 KW["="] _2,
+   RecommendConfig.2:iter-star                            -- _1,
+   RecommendConfig                                        -- KW["recommend"] _1 KW["{"] _2 KW["}"],
+   RecommendConfig.2:iter-star                            -- _1,
+   RecommendConfigStaticOrder                             -- KW["recommenderStaticOrder"] _1 KW["{"] _2 _3 _4 _5 _6 _7 _8 _9 KW["}"],
+
 
 %% Webdsl-Regex
 
@@ -1008,9 +1100,9 @@
    JSString -- _1,
    JSExp -- KW["~"] _1,
    JSTilde -- KW["\\~"],
-  
+
    NativeFunction.2:iter-star-sep                         -- _1 KW[","],
-   
+
    TemplateCaseAlt.1:iter-star-sep                        -- _1 KW[","],
    TemplateCase.1:iter-star-sep                           -- _1 KW[","],
    ForSeparator.1:iter-star                               -- _1,
@@ -1124,7 +1216,7 @@
    DispatchNavigateCall                                   -- _1 KW["("] _2 KW[")"],
    DispatchNavigateCall.2:iter-star-sep                   -- _1 KW[","],
    DispatchNavigateCallNoArg                              -- _1,
-   
+
    ElseTempl.1:iter-star                                  -- _1,
    IfNoElseTempl                                          -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    IfNoElseTempl.2:iter-star                              -- _1,
@@ -1164,28 +1256,28 @@
    TypeValidate.2:iter-star                               -- _1,
    TypeValidate                                           -- KW["type"] _1 KW["{"] _2 KW["}"] KW["validate"] KW["("] _3 KW[","] _4 KW[")"],
    TypeValidate.2:iter-star                               -- _1,
-   
+
    TestStart -- _1,
-   
+
    TypeValidate                                           -- KW["validate"] KW["("] _1 KW[","] _2 KW[")"],
    TypeDef.2:iter-star                                    -- _1,
    TypeDef                                                -- KW["type"] _1 KW["{"] _2 KW["}"],
    TypeDef.2:iter-star                                    -- _1,
-   
+
    CountStar                                              -- KW["count"] KW["("] KW["*"] KW[")"],
    Count                                                  -- KW["count"] KW["("] _1 KW[")"],
    Max                                                    -- KW["max"] KW["("] _1 KW[")"],
    Min                                                    -- KW["min"] KW["("] _1 KW[")"],
    Avg                                                    -- KW["avg"] KW["("] _1 KW[")"],
-   
+
    DeriveCrud -- KW["derive"] KW["CRUD"] _1,
-   
+
    HqlStatement -- _1 KW[";"],
    NotNullAnno -- "not null",
    DefaultAnno -- KW["default="] _1,
    LengthAnno  -- KW["length="] _1,
    FormatAnno  -- KW["format="] _1,
-   
+
    NativeClass -- KW["native"] KW["class"] _1 _2 _3 KW["{"] _4 KW["}"],
    NativeClassAlias -- KW["as"] _1,
    NativeClassProperty -- _1 KW[":"] _2,
@@ -1196,31 +1288,31 @@
    NativeClassFunctionStatic -- KW["static"],
    NativeSimpleType -- _1,
    NativeGenericType -- _1 KW["<"] _2 KW[">"],
-   
+
    Test -- KW["test"] _1 _2,
-   
+
    CollectionIndex -- _1 KW["["] _2 KW["]"],
    CollectionIndexAssignment -- _1 KW["["] _2 KW["]"] KW[":="] _3,
-   
+
    RequestScope -- KW["request"] _1,
    RequestScopeTemplate -- KW["request"] _1,
    LocalScopeTemplate -- KW["local"] _1,
-   
+
    NavigateCall -- KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    NavigateCall.2:iter-star-sep -- _1 KW[","],
    NavigateCall.2:iter-star           -- _1,
-   
+
    PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    PageCall.2:iter-star           -- _1,
-   
+
    Submit -- KW["submit"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    Submit.3:iter-star-sep -- _1 KW[","],
    Submit.3:iter-star           -- _1,
    SubmitLink -- KW["submitlink"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    SubmitLink.3:iter-star-sep -- _1 KW[","],
    SubmitLink.3:iter-star           -- _1,
-   
+
    SubmitElem -- KW["submit"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    SubmitElem.2:iter-star-sep -- _1 KW[","],
    SubmitElem.2:iter-star           -- _1,
@@ -1235,11 +1327,11 @@
    ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    ActionCall.2:iter-star           -- _1,
-   
+
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
-   
+
    ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ],
-   
+
    TemplateCallPropertyAjax -- KW["ajax"],
    AjaxTemplate -- KW["ajax"],
    Weeks                                                  -- _1 KW["weeks"],
@@ -1260,34 +1352,34 @@
    AttributesExp -- KW["attributes"] _1,
    DataBindAction -- KW["databind"] _1,
    RenderAction -- KW["render"] _1,
-   
+
    LocalRedefine -- KW["define"] _1 _2 KW["("] _3 KW[")"] KW["="] _4 _5,
    LocalRedefine.3:iter-star-sep           -- H hs=0[_1 KW[","]],
    LocalRedefine.3:iter-star           -- _1,
-   
+
    LocalRedefineArgs -- KW["("] KW["*"] KW[","] _1 KW[")"],
    LocalRedefineArgs.1:iter-star-sep           -- H hs=0[_1 KW[","]],
    LocalRedefineArgs.1:iter-star           -- _1,
-   
+
    AccessControlImportRules -- KW["apply ac rules"] _1 KW["("] _2 KW[")"],
    AccessControlImportRules.2:iter-star-sep       -- H hs=0[_1 KW[","]],
    AccessControlImportRules.2:iter-star           -- _1,
-   
+
    AccessControlImportRulesArg -- _1,
    InternalSort -- _1,
    TypeDefAnno -- _1,
    NativeClassFunctionFromStatic -- _1 KW["as"] _2,
-   
+
    XMLAttributesIfElse -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] KW["else"] KW["{"] _3 KW["}"],
    XMLAttributesIf -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
-   
+
    RenderEmailFunctionCall -- KW["renderemail"] KW["("] _1 KW[")"],
    EmailFunctionCall -- KW["email"] KW["("] _1 KW[")"],
    SendEmailFunctionCall -- KW["sendemail"] KW["("] _1 KW[")"],
    EmailCall -- _1 KW["("] _2 KW[")"],
    EmailCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    EmailCall.2:iter-star           -- _1,
-   
+
    RenderTemplateFunctionCall -- KW["rendertemplate"] KW["("] _1 KW[")"],
    ValidateTemplateFunctionCall -- KW["validatetemplate"] KW["("] _1 KW[")"],
 
@@ -1297,31 +1389,151 @@
    TemplateCallPropertyNotSecure -- KW["not-secure"],
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
    TemplateCallPropertyNotNull -- KW["not null"],
-   
+
    TemplateModSpan -- KW["span"],
    TemplateModInline -- KW["inline"],
    TemplateModOverride -- KW["override"],
    TemplateDeprecated -- KW["deprecated"],
-   
+
    ValidateAction -- KW["validate"] _1,
 
    QualifiedElementsCall -- _1 KW[".elements"],
-   
+
    COMPLETION -- _1, %% this constructor can be added anywhere by Spoofax
-   
+
    FunctionSort -- KW["function"] KW["("] _1 KW[")"] KW[":"] _2,
    FunctionSort.1:iter-star-sep -- H hs=0[_1 KW[","]],
    UnnamedArg -- _1,
-   
+
    FunctionExp -- KW["function"] KW["("] _1 KW[")"] KW[":"] _2 _3,
    FunctionExp.1:iter-star-sep -- H hs=0[_1 KW[","]],
-   
+
    FunctionRef -- KW["function."] _1 KW["("] _2 KW[")"] KW[":"] _3,
    FunctionRef.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   
+
    FunctionRefCall -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    FunctionRefCall.2:iter-star-sep -- H hs=0[_1 KW[","]],
-   
+
    FunctionRefCallPartial -- H hs=0[_1 KW["(*,"] H[_2] KW[")"]],
-   FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]]
+   FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]],
+
+   Action.1:iter-star                                     -- _1,
+   OutputImage.3:iter-star                                -- _1,
+   OutputImage.2:iter-star                                -- _1,
+   OutputImage.2:iter-star-sep                            -- _1 KW[","],
+   OutputImage                                            -- KW["outputimage"] _1 _2 KW["{"] _3 KW["}"],
+   OutputImage.2:iter-star                                -- _1,
+   OutputImage.3:iter-star                                -- _1,
+   OutputImage                                            -- KW["outputimage"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
+   OutputImage.2:iter-star-sep                            -- _1 KW[","],
+   OutputImage.3:iter-star                                -- _1,
+   DownloadLink.3:iter-star                               -- _1,
+   DownloadLink.2:iter-star                               -- _1,
+   DownloadLink.2:iter-star-sep                           -- _1 KW[","],
+   DownloadLink                                           -- KW["downloadlink"] _1 _2 KW["{"] _3 KW["}"],
+   DownloadLink.2:iter-star                               -- _1,
+   DownloadLink.3:iter-star                               -- _1,
+   DownloadLink                                           -- KW["downloadlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
+   DownloadLink.2:iter-star-sep                           -- _1 KW[","],
+   DownloadLink.3:iter-star                               -- _1,
+   NavigateCall.3:iter-star                               -- _1,
+   LocalRedefine.1:iter-star                              -- _1,
+   AjaxRefresh                                            -- KW["refresh"] KW["("] KW[")"],
+   EventArg                                               -- _1 KW[":="] _2,
+   EventCallElement.2:iter-star-sep                       -- _1 KW[","],
+   EventCallElement                                       -- KW["event"] KW["("] _1 KW[","] KW["["] _2 KW["]"] KW[")"],
+   EventCallElement.2:iter-star-sep                       -- _1 KW[","],
+   EventCall.2:iter-star-sep                              -- _1 KW[","],
+   EventCall                                              -- KW["event"] KW["("] _1 KW[","] KW["["] _2 KW["]"] KW[")"],
+   EventCall.2:iter-star-sep                              -- _1 KW[","],
+   EventCallElement                                       -- KW["event"] KW["("] _1 KW[","] KW["["] _2 KW["]"] KW[")"],
+   EventCallElement.2:iter-star-sep                       -- _1 KW[","],
+   HqlStatement.1:parameterized-sort                      -- _1 _2,
+   IncompleteObjectPropertyAssignment                     -- _1,
+   StaticEntityFunction.2:iter-star-sep                   -- _1 KW[","],
+   HQLFunYear                                             -- KW["year"] KW["("] _1 KW[")"],
+   HQLFunMonth                                            -- KW["month"] KW["("] _1 KW[")"],
+   HQLFunDay                                              -- KW["day"] KW["("] _1 KW[")"],
+   HQLFunHour                                             -- KW["hour"] KW["("] _1 KW[")"],
+   HQLFunMinute                                           -- KW["minute"] KW["("] _1 KW[")"],
+   HQLFunSecond                                           -- KW["second"] KW["("] _1 KW[")"],
+   HQLFunCurTimestamp                                     -- KW["current_timestamp"] KW["("] KW[")"],
+   HQLFunCurTime                                          -- KW["current_time"] KW["("] KW[")"],
+   HQLFunCurTimestamp                                     -- KW["current_timestamp"] KW["("] KW[")"],
+   HQLFunCurDate                                          -- KW["current_date"] KW["("] KW[")"],
+   Modulo                                                 -- _1 KW["%"] _2,
+   GE                                                     -- _1 KW[">="] _2,
+   XMLEmptyElement                                        -- KW["<"] _1 _2 KW["/>"],
+   XMLEmptyElement.2:iter-star                            -- _1,
+   XMLElement                                             -- KW["<"] _1 _2 KW[">"] _3 KW["</"] _4 KW[">"],
+   XMLElement.2:iter-star                                 -- _1,
+   XMLElement.3:iter-star                                 -- _1,
+   LE                                                     -- _1 KW["<="] _2,
+   QuotedAliasedExpression.2:opt                          -- _1,
+   QuotedAliasedExpression                                -- KW["'"] _1 _2 KW["'"],
+   QuotedAliasedExpression.2:opt                          -- _1,
+   SelectedPropertiesList.1:iter-sep                      -- _1 KW[","],
+   SelectedPropertiesList                                 -- _1,
+   SelectedPropertiesList.1:iter-sep                      -- _1 KW[","],
+   Select.1:opt                                           -- _1,
+   Selector                                               -- _1 _2,
+   Selector.2:iter-star                                   -- _1,
+   Selector.2:iter-star.1:seq                             -- _1 _2 _3,
+   Selector.2:iter-star.1:seq.3:opt                       -- _1,
+   SimpleSelector                                         -- _1 _2,
+   IdSimpleSelector                                       -- KW["#"] _1,
+   ElemSimpleSelector                                     -- _1,
+   ElemSimpleAttrSelector                                 -- _1 _2,
+   ElemSimpleAttrSelector.2:iter                          -- _1,
+   ElemClassAttrSelector                                  -- _1 KW["."] _2 _3,
+   ElemClassAttrSelector.3:iter                           -- _1,
+   ClassSimpleSelector                                    -- KW["."] _1,
+   SimpleSelector                                         -- _1,
+   UniversalSimpleSelector                                -- KW["*"],
+   SelectorAttribute                                      -- KW[":"] _1,
+   SelectAnno                                             -- KW["select"] KW["="] _1,
+   SelectFrom                                             -- _1 _2,
+   SelectFrom.1:opt                                       -- _1,
+   Select                                                 -- KW["select"] _1 _2,
+   Select.1:opt                                           -- _1,
+   SelectObject                                           -- KW["object"] KW["("] _1 KW[")"],
+   SelectedPropertiesList                                 -- _1,
+   SelectedPropertiesList.1:iter-sep                      -- _1 KW[","],
+   SelectFromListNoPropsNoElems                           -- KW["select"] KW["("] _1 KW["from"] _2 KW[")"],
+   SelectFromListNoElems                                  -- KW["select"] KW["("] _1 KW["from"] _2 KW[")"] KW["["] _3 KW["]"],
+   SelectFromListNoElems.3:iter-star-sep                  -- _1 KW[","],
+   SelectFromList                                         -- KW["select"] KW["("] _1 KW["from"] _2 KW[")"] KW["["] _3 KW["]"] KW["{"] _4 KW["}"],
+   SelectFromList.3:iter-star-sep                         -- _1 KW[","],
+   SelectFromList.4:iter-star                             -- _1,
+   SelectFromListNoProps                                  -- KW["select"] KW["("] _1 KW["from"] _2 KW[")"] KW["{"] _3 KW["}"],
+   SelectFromListNoProps.3:iter-star                      -- _1,
+   DeleteStatement.2:opt                                  -- _1,
+   DeleteStatement                                        -- KW["delete"] _1 _2,
+   DeleteStatement.2:opt                                  -- _1,
+   IdEmptyErrorAnno                                       -- KW["idemptyerror"] KW["="] _1,
+   IdErrorAnno                                            -- KW["iderror"] KW["="] _1,
+   CollationAnno                                          -- KW["collation"] KW["("] _1 KW[")"],
+   IndexAnno                                              -- KW["index"] KW["("] KW[")"],
+   IndexAnno                                              -- KW["index"] KW["("] _1 KW[")"],
+   IndexAnno                                              -- KW["index"] KW["("] KW[")"],
+   IndexAnno                                              -- KW["index"] KW["("] _1 KW[")"],
+   AllowedAnno                                            -- KW["allowed"] KW["="] _1,
+   IncompleteInverseAnno                                  -- KW["inverse"] KW["="] _1,
+   CachedEntity                                           -- KW["cache"],
+   PredicateInEntity.2:iter-star-sep                      -- _1 KW[","],
+   PredicateInEntity                                      -- KW["predicate"] _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"],
+   PredicateInEntity.2:iter-star-sep                      -- _1 KW[","],
+   XMLAttributesIfElse.3:iter-star                        -- _1,
+   XMLAttributesIfElse.2:iter-star                        -- _1,
+   XMLAttributesIf.2:iter-star                            -- _1,
+   JSElement.2:iter-star                                  -- _1,
+   JSElement.1:iter-star                                  -- _1,
+   NativeGenericType.2:iter-star-sep                      -- _1 KW[","],
+   NativeClassConstructor.1:iter-star-sep                 -- _1 KW[","],
+   NativeClassFunction.3:iter-star-sep                    -- _1 KW[","],
+   NativeClass.4:iter-star                                -- _1,
+   ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
+   ServiceFunction                                        -- KW["service"] _1 KW["("] _2 KW[")"] _3,
+   ServiceFunction.2:iter-star-sep                        -- _1 KW[","]
+
 ]

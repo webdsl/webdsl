@@ -78,6 +78,8 @@ public abstract class AbstractPageServlet{
             return request.getRequestURL().toString();
         }
     }
+    
+    protected abstract void renderIncomingSuccessMessages();
 
     public boolean isPostRequest(){
         return ThreadLocalServlet.get().isPostRequest;
@@ -93,7 +95,7 @@ public abstract class AbstractPageServlet{
     public abstract String getHiddenPostParams();
     public abstract String getHiddenPostParamsJson();
 
-    public javax.servlet.http.HttpSession session;
+    //public javax.servlet.http.HttpSession session;
 
     public Environment envGlobalAndSession;
 
@@ -599,39 +601,6 @@ public abstract class AbstractPageServlet{
 
     public boolean inValidationContext() {
       return validationContext.size() != 0;
-    }
-
-    //messages
-
-    private List<String> incomingSuccessMessages = new java.util.LinkedList<String>();
-
-    public List<String> getIncomingSuccessMessages() {
-      return incomingSuccessMessages;
-    }
-    
-    public void clearIncomingSuccessMessages() {
-      incomingSuccessMessages.clear();
-    }
-
-    private List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
-
-    public List<String> getOutgoingSuccessMessages() {
-      return outgoingSuccessMessages;
-    }
-
-    protected abstract void renderIncomingSuccessMessages();
-
-    protected void storeOutgoingMessagesInHttpSession(){
-      if(outgoingSuccessMessages.size() > 0){
-        session.setAttribute("___messages___",outgoingSuccessMessages);
-      }
-    }
-    @SuppressWarnings("unchecked")
-    protected void retrieveIncomingMessagesFromHttpSession(){
-      List<String> temp = (List<String>) session.getAttribute("___messages___");
-      if(temp != null){
-        incomingSuccessMessages = temp;
-      }
     }
 
     //form

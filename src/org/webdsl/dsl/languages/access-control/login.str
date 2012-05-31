@@ -18,9 +18,9 @@ rules
         ; emit-and-declare-logout-template(|x_ident,props)
         ; emit-and-declare-authentication-template(|x_ident,props)
           )
- 
-rules //authenticate function 
-          
+
+rules //authenticate function
+
   declare-authenticate-function(|x_ident,props) =
     with(
       farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
@@ -31,36 +31,36 @@ rules //authenticate function
   create-farg-for-login-fun(|x_ident) :
     x -> result
     with  type := <entity-prop-to-type(|x_ident)> x
-        ; result := Arg(<credential-to-var-name> x, type) 
-      
-  credential-to-var-name = <concat-strings> ["cred",<id>]     
-          
+        ; result := Arg(<credential-to-var-name> x, type)
+
+  credential-to-var-name = <concat-strings> ["cred",<id>]
+
   entity-prop-to-type(|x_ident) :
     x -> result
-    with result := <type-of-property <+ !"Undefined"> (x_ident,x) 
+    with result := <type-of-property <+ !"Undefined"> (x_ident,x)
     //Undefined when the principal declaration was incorrect, e.g. principal type or credential property doesn't exist
     //doesn't overlap with an entity name Undefined, since that would be type SimpleSort("Undefined")
-  
+
   emit-ac-defs: AccessControlPrincipal(x_ident, props) -> <fail>
     with emit-authenticate-function(|x_ident,props)
-    
+
   emit-authenticate-function(|x_ident,props) =
     with(
-      farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props 
+      farg_loginfun* := <map(create-farg-for-login-fun(|x_ident))> props
     ; x_firstprop := <Hd> props
     ; x_firstpropvarname := <credential-to-var-name> x_firstprop
     ; x_findfun := <concat-strings> ["find",x_ident,"By",<capitalize-string> x_firstprop]
     ; srt_ent := SimpleSort(x_ident)
-    ; stat_auth* := <Tl; map(cred-prop-to-auth-stat(|x_ident))> props 
+    ; stat_auth* := <Tl; map(cred-prop-to-auth-stat(|x_ident))> props
     ; <emit-webdsl-code-no-declare> def|[
       function authenticate(farg_loginfun*) : Bool {
         var tmpentitylist : List<srt_ent> := x_findfun(x_firstpropvarname);
         if(tmpentitylist.length > 0) {
           for(tmpentity : srt_ent in tmpentitylist){
             var allow : Bool := true;
-            
+
             stat_auth*
-            
+
             if(allow){
               securityContext.principal := tmpentity;
               return true;
@@ -72,11 +72,11 @@ rules //authenticate function
       }
       ]|
     )
-    
+
   cred-prop-to-auth-stat(|x_ident) =
      cred-prop-to-auth-stat-secret(|x_ident)
   <+ cred-prop-to-auth-stat-stringcomp(|x_ident)
-  
+
   cred-prop-to-auth-stat-secret(|x_ident) :
     x -> stat*
     where SimpleSort("Secret") := <entity-prop-to-type(|x_ident)> x
@@ -86,7 +86,7 @@ rules //authenticate function
               allow := false;
             }
           ]|
-          
+
   cred-prop-to-auth-stat-stringcomp(|x_ident) :
     x -> stat*
     where <type-compatible> (<entity-prop-to-type(|x_ident)> x, SimpleSort("String"))
@@ -96,15 +96,15 @@ rules //authenticate function
               allow := false;
             }
           ]|
- 
+
 rules //logout function
- 
+
   declare-logout-function =
     <declare> def |[ function logout(){} ]|
-  
+
   emit-ac-defs : AccessControlPrincipal(x_ident, props) -> <fail>
     with create-logout-function(|x_ident,props)
- 
+
   create-logout-function(|x_ident,props) =
     with(
       <emit-webdsl-code> def|[
@@ -113,7 +113,7 @@ rules //logout function
         }
       ]|
     )
-    
+
 rules // login template
 
   emit-and-declare-login-template(|x_ident,props) =
@@ -123,10 +123,10 @@ rules // login template
     ; elem_logininput* := <map(create-inputs-for-login-tpl(|x_ident))> props
     ; <emit-webdsl-code> def|[
       define login() {
-      
+
         elem_loginvar*
-      
-        form { 
+
+        form {
           group("Login") {
             table {
               elem_logininput*
@@ -134,7 +134,7 @@ rules // login template
             action("Login", signinAction())
           }
         }
-        
+
         action signinAction() {
           validate(authenticate(e_loginfunarg*), "The login credentials are not valid.");
           message("You are now logged in.");
@@ -147,32 +147,32 @@ rules // login template
   create-vars-for-login-tpl(|x_ident) :
     x -> result
     with  type := <entity-prop-to-type(|x_ident)> x
-        ; result := VarDecl(<credential-to-var-name> x,type) 
- 
+        ; result := VarDecl(<credential-to-var-name> x,type)
+
   create-inputs-for-login-tpl(|x_ident) :
     x -> result
     with  x1 := <credential-to-var-name> x
         ; str := <concat-strings> [<make-human-readable> x , ": "]
         ; result := elem |[ groupitem{ labelcolumns(str){input(x1)} } ]|
- 
+
 rules // logout template
-   
-  emit-and-declare-logout-template(|x_ident,props) = 
+
+  emit-and-declare-logout-template(|x_ident,props) =
     with(
       <emit-webdsl-code> def|[
         define logout() {
           "Logged in as: " output(securityContext.principal.name)
-          form{ 
+          form{
             submitlink signoffAction() {"Logout"}
             action signoffAction() { logout(); }
           }
         }
       ]|
     )
-    
+
 rules // authentication template
-   
-  emit-and-declare-authentication-template(|x_ident,props) = 
+
+  emit-and-declare-authentication-template(|x_ident,props) =
     with(
       <emit-webdsl-code> def|[
         define authentication() {

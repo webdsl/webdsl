@@ -57,7 +57,7 @@ application test
   }
  
   test actionsubmits{
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
     var rootbutton := d.findElements(SelectBy.className("rootbutton"))[0];
@@ -78,6 +78,4 @@ application test
     var cancelbutton := d.findElements(SelectBy.className("cancelbutton"))[0];
     cancelbutton.click();
     assert(d.getPageSource().contains("cancelbutton pressed"));
-    
-    d.close();
   }

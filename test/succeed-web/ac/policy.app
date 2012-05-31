@@ -36,16 +36,13 @@ section somesection
   }
   
   test messages {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     // No navigate button
     assert(!d.getPageSource().contains("Cannot see this link"), "Navigate should be hidden.");
     
     // Go to denied page
     d.get(navigate(cannotGoHere()));
     assert(d.getPageSource().contains("Access Denied"), "Access should be denied.");
-    
-    d.close();
   }

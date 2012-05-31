@@ -23,10 +23,9 @@ application label
     i :: Int
   }
   
-  test ajaxappendwithlist {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
 
     assert(d.getPageSource().split("<td>").length==5);
     var input := d.findElements(SelectBy.className("inputfield"))[0];
@@ -37,6 +36,4 @@ application label
     var button := d.findElements(SelectBy.className("savebutton"))[0];
     button.click();
     assert(d.getPageSource().contains("output:123"));
-    
-    d.close();
   }

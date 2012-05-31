@@ -54,10 +54,9 @@ application test
    "custom page not found"
   }
   
-  test one {
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
-    assert(!/404/.find(d.getPageSource()), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     
@@ -74,8 +73,6 @@ application test
       log(d.getTitle());
       assert(text == d.getTitle());
     }
-    
-    d.close();
   }
   
 

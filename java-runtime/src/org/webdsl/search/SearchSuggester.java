@@ -18,10 +18,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.store.FSDirectory;
 import org.hibernate.search.SearchFactory;
-import org.hibernate.search.engine.spi.EntityIndexBinder;
-import org.hibernate.search.impl.ImmutableSearchFactory;
-import org.hibernate.search.indexes.spi.IndexManager;
-import org.hibernate.search.reader.impl.MultiReaderFactory;
 
 import utils.ThreadLocalPage;
 
@@ -31,17 +27,26 @@ public class SearchSuggester {
 	private static HashMap<String, AutoCompleter> autoCompleterMap = new HashMap<String, AutoCompleter>();
 	private static HashMap<String, SpellChecker> spellCheckMap = new HashMap<String, SpellChecker>();
 
-	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, Integer namespaceIndex, List<String> fields,
-			int maxSuggestionsPerFieldCount, float accuracy, boolean morePopular, String toSuggestOn) {
+	static{
+		try{
+			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+		} catch (Exception ex) {
+			//ignore exception, because it is probably thrown when running reindex script (using new java vm instance). Hibernate session and thus search factory cannot be retrieved then.
+			searchfactory = null;
+		}
+	}
+
+	public static ArrayList<String> findSpellSuggestions(Class<?> entityClass, String baseDir, List<String> fields,
+			int maxSuggestionsPerFieldCount, float accuracy, boolean morePopular, Analyzer analyzer, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
-			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, namespaceIndex, suggestedField,
-					maxSuggestionsPerFieldCount, accuracy, morePopular, toSuggestOn);
+			List<String> fieldSuggestions = findSpellSuggestionsForField(entityClass, baseDir, suggestedField,
+					maxSuggestionsPerFieldCount, accuracy, morePopular, analyzer, toSuggestOn);
 			//If toSuggestOn is correctly spelled in one of the fields, don't return suggestions
 			if (fieldSuggestions.isEmpty()){
-				return new ArrayList<String>();				
+				return new ArrayList<String>();
 			}
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
@@ -50,10 +55,10 @@ public class SearchSuggester {
 	}
 
 	@SuppressWarnings("deprecation")
-	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir, Integer namespaceIndex,
+	public static ArrayList<String> findSpellSuggestionsForField(Class<?> entityClass, String baseDir,
 			String suggestedField, int maxSuggestionCount, float accuracy, boolean morePopular,
-			String toSuggestOn) {
-		
+			Analyzer analyzer, String toSuggestOn) {
+
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
 
@@ -67,25 +72,22 @@ public class SearchSuggester {
 
 			spellChecker.setAccuracy(accuracy);
 
-			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
 					.addAttribute(CharTermAttribute.class);
 
 			ArrayList<String[]> allSuggestions = new ArrayList<String[]>();
-
 			String word;
 			String[] suggestions;
 			while (tokenStream.incrementToken()) {
 				word = ta.term();
 				suggestions = null;
-				if (spellChecker.exist(word)) {/* do nothing */
-				} else if (!morePopular) {
+				if (!morePopular) {
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount);
 				} else {
 					if (fieldIR == null)
-						fieldIR = getIndexReader(entityClass, namespaceIndex);
+						fieldIR = getIndexReader(entityClass);
 					suggestions = spellChecker.suggestSimilar(word, maxSuggestionCount, fieldIR,
 							suggestedField, true);
 				}
@@ -120,26 +122,18 @@ public class SearchSuggester {
 		return new ArrayList<String>();
 	}
 
-	private static IndexReader getIndexReader(Class<?> entityClass, Integer dirProviderIndex) {
-
-		if(dirProviderIndex != null) {
-			ImmutableSearchFactory isf = (ImmutableSearchFactory) searchfactory;			
-			EntityIndexBinder<?> entityIndexBinding = isf.getIndexBindingForEntity( entityClass );
-			IndexManager indexManager = entityIndexBinding.getSelectionStrategy().getIndexManagersForAllShards()[dirProviderIndex];
-			return MultiReaderFactory.openReader( indexManager );
-		}
-		//else
+	private static IndexReader getIndexReader(Class<?> entityClass) {
 		return searchfactory.openIndexReader(entityClass);
 	}
 
 	public static ArrayList<String> findAutoCompletions(Class<?> entityClass, String baseDir, List<String> fields,
-			int maxSuggestionsPerFieldCount, String toSuggestOn) {
+			int maxSuggestionsPerFieldCount, Analyzer analyzer, String toSuggestOn) {
 
 		Map<String, List<String>> fieldSuggestionsMap = new LinkedHashMap<String, List<String>>();
 
 		for (String suggestedField : fields) {
 			List<String> fieldSuggestions = findAutoCompletionsForField(entityClass, baseDir, suggestedField,
-					maxSuggestionsPerFieldCount, toSuggestOn);
+					maxSuggestionsPerFieldCount, analyzer, toSuggestOn);
 			fieldSuggestionsMap.put(suggestedField, fieldSuggestions);
 		}
 
@@ -148,16 +142,16 @@ public class SearchSuggester {
 
 	@SuppressWarnings("deprecation")
 	public static ArrayList<String> findAutoCompletionsForField(Class<?> entityClass, String baseDir,
-			String suggestedField, int maxSuggestionCount, String toSuggestOn) {
+			String suggestedField, int maxSuggestionCount, Analyzer analyzer, String toSuggestOn) {
 
 		if (toSuggestOn == null || toSuggestOn.isEmpty())
 			return new ArrayList<String>();
-		
+
 		AutoCompleter autoCompleter = null;
 		String indexPath = baseDir + suggestedField;
 		try {
 			autoCompleter = getAutoCompleter(indexPath);
-			Analyzer analyzer = searchfactory.getAnalyzer(entityClass);
+
 			TokenStream tokenStream = analyzer.tokenStream(suggestedField, new StringReader(
 					toSuggestOn));
 			CharTermAttributeImpl ta = (CharTermAttributeImpl) tokenStream
@@ -166,25 +160,25 @@ public class SearchSuggester {
 			boolean dontstop = tokenStream.incrementToken();
 			StringBuilder prefixSb = new StringBuilder();
 			String word = "";
-			
+
 			while (dontstop){ //eat up all tokens
 				word = ta.term();
 				dontstop = tokenStream.incrementToken();
 				if(dontstop)
 					prefixSb.append(word + " ");
 			}
-		
+
 			String prefix = prefixSb.toString();
-			
+
 			String[] suggestions = autoCompleter.suggestSimilar(word, maxSuggestionCount);
-				
-			
+
+
 			ArrayList<String> allSuggestions = new ArrayList<String>();
-			
+
 			if (suggestions == null || suggestions.length == 0){
 					return allSuggestions;
-			}		
-						
+			}
+
 			for(int i = 0; i < suggestions.length; i++){
 				allSuggestions.add(prefix + suggestions[i]);
 			}
@@ -206,17 +200,17 @@ public class SearchSuggester {
 	// fill in suggested words between correct/existing words
 	private static ArrayList<String> formSuggestions(int maxSuggestionCount,
 			ArrayList<String[]> allSuggestions) {
-		
+
 		ArrayList<String> toReturn = new ArrayList<String>();
-		
+
 		if (allSuggestions.isEmpty())
 			return toReturn;
-		
+
 		int maxSuggestions = 1;
 		for (String[] strings : allSuggestions)
-			maxSuggestions = maxSuggestions * strings.length; 
+			maxSuggestions = maxSuggestions * strings.length;
 		maxSuggestionCount = Math.min(maxSuggestionCount, maxSuggestions);
-		
+
 		int pos;
 		String suggestion;
 
@@ -246,7 +240,7 @@ public class SearchSuggester {
 //				}
 //			}
 //		}
-//		
+//
 		for(Map.Entry<String, List<String>> fieldSuggestionsEntry : fieldSuggestionsMap.entrySet()){
 			for (String suggestion : fieldSuggestionsEntry.getValue()) {
 				suggestionsSet.add(suggestion);
@@ -257,31 +251,27 @@ public class SearchSuggester {
 		}
 		return new ArrayList<String>(suggestionsSet);
 	}
-	
-	//Get the reusable AutoCompleter instance for a specific index path, also initialized search factory if not present
-	private static synchronized AutoCompleter getAutoCompleter(String indexPath) throws IOException{
-		if(searchfactory == null) {
-			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
-		}
-		
-		if (!autoCompleterMap.containsKey(indexPath)){
-			//autoCompleterMap.put(indexPath, new AutoCompleter(new RAMDirectory(FSDirectory.open(new File(indexPath)))));
-			autoCompleterMap.put(indexPath, new AutoCompleter(FSDirectory.open(new File(indexPath))));
-		}
-	    return autoCompleterMap.get(indexPath);
-	}
-	
-	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{		
-		if(searchfactory == null){
-			searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
-		}
 
-		if (!spellCheckMap.containsKey(indexPath)){
-			spellCheckMap.put(indexPath, new SpellChecker(FSDirectory.open(new File(indexPath))));
+	//Get the reusable AutoCompleter instance for a specific index path, also initializes search factory if not present
+	private static synchronized AutoCompleter getAutoCompleter(String indexPath) throws IOException{
+		AutoCompleter toReturn = autoCompleterMap.get(indexPath);
+		if ( toReturn == null ){
+			toReturn = new AutoCompleter(FSDirectory.open(new File(indexPath)));
+			//autoCompleterMap.put(indexPath, new AutoCompleter(new RAMDirectory(FSDirectory.open(new File(indexPath)))));
+			autoCompleterMap.put(indexPath, toReturn );
 		}
-	    return spellCheckMap.get(indexPath);
+	    return toReturn;
 	}
-	
+
+	private static synchronized SpellChecker getSpellChecker(String indexPath) throws IOException{
+		SpellChecker toReturn = spellCheckMap.get(indexPath);
+		if ( toReturn == null ){
+			toReturn = new SpellChecker(FSDirectory.open(new File(indexPath)));
+			spellCheckMap.put(indexPath, toReturn);
+		}
+	    return toReturn;
+	}
+
 	public static void forceSpellCheckerRenewal(String indexPath){
 		SpellChecker sp = spellCheckMap.get(indexPath);
 		if(sp!=null) {
@@ -293,7 +283,7 @@ public class SearchSuggester {
 		}
 		spellCheckMap.remove(indexPath);
 	}
-	
+
 	public static void forceAutoCompleterRenewal(String indexPath){
 		AutoCompleter ac = autoCompleterMap.get(indexPath);
 		if(ac!=null) {
@@ -305,5 +295,9 @@ public class SearchSuggester {
 		}
 		autoCompleterMap.remove(indexPath);
 	}
+
+
+
+
 
 }

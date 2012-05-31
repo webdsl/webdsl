@@ -35,7 +35,19 @@ public abstract class TemplateServlet {
     }
     protected ArrayDeque<String> uniqueIdOverride = new ArrayDeque<String>(); 
     protected Environment env;
-    protected java.util.Map<String, Object> templatecalls = new java.util.HashMap<String, Object>();
+    public Environment getEnv(){
+        return env;
+    }
+    private java.util.Map<String, Object> templatecalls = null;
+    protected java.util.Map<String, Object> getTemplatecalls(){
+      if(templatecalls == null){
+        templatecalls = new java.util.HashMap<String, Object>();
+      }
+      return templatecalls;
+    }
+    protected boolean onlyPerformingRenderPhase(){
+        return templatecalls == null;
+    }
     protected org.hibernate.Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
@@ -43,7 +55,7 @@ public abstract class TemplateServlet {
     protected utils.TemplateCall templateArg;
     protected Map<String,String> attrs = null;
     protected String[] pageArguments = null;
-    protected HttpSession session;
+    //protected HttpSession session;
     protected utils.LocalTemplateArguments ltas;
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
@@ -175,9 +187,9 @@ public abstract class TemplateServlet {
               putLocalDefinesInEnv();
               this.request = ThreadLocalPage.get().getRequest();
               this.response = ThreadLocalPage.get().getResponse();
-              if(request != null){ //calling rendertemplate within background task
-                this.session = request.getSession(true);
-              }
+              //if(request != null){ //calling rendertemplate within background task
+              //  this.session = request.getSession(true);
+              //}
               this.hibSession = ThreadLocalPage.get().getHibSession();
               this.attrs = attrs;
               this.ltas = ltas;

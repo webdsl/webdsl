@@ -49,11 +49,10 @@ application messages
   }
 
   
-  test messages {
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected 3 <input> element");
@@ -72,7 +71,5 @@ application messages
     
     assert(list[1].contains("1: username: bobblabla"), "cannot find first message");
     assert(list[1].contains("2: username: bobblabla"), "cannot find second message");
-    
-    d.close();
   }
   

@@ -12,10 +12,7 @@ application canceltest
   }
   
   define page edit(s:SomeEnt){
-    
-    
     output(s.t)
-    
     form {
       input(s.t){
         validate(flushFalse(),"")
@@ -30,7 +27,7 @@ application canceltest
   }
 
   test cancelfunc {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var alist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     alist[0].click();
@@ -42,6 +39,4 @@ application canceltest
     input.click();
     
     assert(d.getPageSource().contains("testvalue"), "'testvalue' not shown on next page, flush should have been reverted the output value due to validate fail");
-    
-    d.close();  
   }

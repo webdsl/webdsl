@@ -1,4 +1,3 @@
-
 application test
 
   define page root() {
@@ -11,21 +10,12 @@ application test
     </div>
   }
 
-
-
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected 3 <input> elements did not match");
-    
     elist[2].click();
-    
     assert(d.getPageSource().contains("style=\"display: block;\""), "expected hidden text to have become visible");
-    
-    d.close();
   }
   

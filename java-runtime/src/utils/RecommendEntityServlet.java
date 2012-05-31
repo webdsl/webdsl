@@ -1,31 +1,16 @@
 package utils;
 
-import java.io.BufferedWriter;
 import java.io.PrintWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.text.NumberFormat.Field;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Properties;
-//import javax.sql.DataSource;
+import java.util.List;
 
-import utils.RecommendDBConverter;
-import utils.RecommendDBConverter.RecFieldType;
+import javax.sql.DataSource;
 
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
-
+import org.apache.mahout.cf.taste.common.NoSuchUserException;
+import org.apache.mahout.cf.taste.common.Refreshable;
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.eval.DataModelBuilder;
 import org.apache.mahout.cf.taste.eval.IRStatistics;
@@ -33,32 +18,24 @@ import org.apache.mahout.cf.taste.eval.RecommenderBuilder;
 import org.apache.mahout.cf.taste.impl.common.FastByIDMap;
 import org.apache.mahout.cf.taste.impl.eval.GenericRecommenderIRStatsEvaluator;
 import org.apache.mahout.cf.taste.impl.model.GenericBooleanPrefDataModel;
-import org.apache.mahout.cf.taste.impl.model.file.FileDataModel;
-import org.apache.mahout.cf.taste.impl.model.jdbc.GenericJDBCDataModel;
 import org.apache.mahout.cf.taste.impl.model.jdbc.MySQLJDBCDataModel;
 import org.apache.mahout.cf.taste.impl.neighborhood.NearestNUserNeighborhood;
 import org.apache.mahout.cf.taste.impl.neighborhood.ThresholdUserNeighborhood;
-import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
+import org.apache.mahout.cf.taste.impl.recommender.CachingRecommender;
 import org.apache.mahout.cf.taste.impl.recommender.GenericBooleanPrefUserBasedRecommender;
+import org.apache.mahout.cf.taste.impl.recommender.GenericItemBasedRecommender;
 import org.apache.mahout.cf.taste.impl.recommender.GenericUserBasedRecommender;
+import org.apache.mahout.cf.taste.impl.similarity.EuclideanDistanceSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.LogLikelihoodSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
-import org.apache.mahout.cf.taste.impl.similarity.EuclideanDistanceSimilarity;
 import org.apache.mahout.cf.taste.impl.similarity.TanimotoCoefficientSimilarity;
 import org.apache.mahout.cf.taste.model.DataModel;
 import org.apache.mahout.cf.taste.model.PreferenceArray;
 import org.apache.mahout.cf.taste.neighborhood.UserNeighborhood;
-import org.apache.mahout.cf.taste.recommender.Recommender;
 import org.apache.mahout.cf.taste.recommender.RecommendedItem;
-import org.apache.mahout.cf.taste.common.Refreshable;
-import org.apache.mahout.cf.taste.impl.recommender.CachingRecommender;
-import org.apache.mahout.cf.taste.similarity.ItemSimilarity; 
+import org.apache.mahout.cf.taste.recommender.Recommender;
+import org.apache.mahout.cf.taste.similarity.ItemSimilarity;
 import org.apache.mahout.cf.taste.similarity.UserSimilarity;
-
-import org.hibernate.*;//			SessionFactory
-
-import org.webdsl.WebDSLEntity;
-import org.webdsl.lang.Environment;
 
 /**
  * This class interfaces to the WebDSL code using the Recommend syntax.
@@ -79,18 +56,18 @@ import org.webdsl.lang.Environment;
  * 	name :: String(id)
  *  books :: List<BoughtBook>
  * }
- * 
+ *
  * entity BoughtBook {
  * 	by -> User
  *  book -> Book
  *  rating :: Int
  * }
- * 
+ *
  * entity Book {
  * 	name :: String(id)
  *  author :: String
  * }
- * 
+ *
  * recommend BoughtBook {
  * 	user=by
  * 	item=book
@@ -101,8 +78,8 @@ import org.webdsl.lang.Environment;
  * @author Siem Kok
  * @see RecommendDBConverter
  */
-public class RecommendEntityServlet extends RecommendDBConverter {
-	
+public class RecommendEntityServlet extends RecommendDBConverter implements DataSource {
+
 	private static final String A_EUCLIDEAN 	= "euclidean";
 	private static final String A_PEARSON 		= "pearson";
 	private static final String A_LOGLIKELIHOOD = "loglikelihood";
@@ -118,7 +95,10 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 	private final String type;
     private Recommender userRecommenderCache;
     private Recommender itemRecommenderCache;
-	
+    private int timeout;
+    private PrintWriter pw;
+    private Method connectionMethod;
+
     /**
      * Generate a new instance of the recommend entity servlet, this stores the
      * field names and entity name in the objects private variables.
@@ -139,24 +119,128 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 		this.type = type.length() == 0 ? null : type;
 		this.userRecommenderCache = null;
 		this.itemRecommenderCache = null;
+        this.timeout = 30;
+        this.pw = new PrintWriter(System.out, true);
 	}
-	
+
 	/**
 	 * Builds a new Mahout Database model that connects to the MySQL
 	 * database using the credentials set-up in the WebDSL configuration.
 	 * @return The Mahoud JDBC Data Model instance
 	 */
 	private MySQLJDBCDataModel getMahoutDatabaseModel(){
-		// Get the configuration from Hibernates internal Properties system:
-		Properties p = org.hibernate.cfg.Environment.getProperties();
-		
-		MysqlDataSource dataSource = new MysqlDataSource();
-		dataSource.setUrl((String)p.get(org.hibernate.cfg.Environment.URL));
-		dataSource.setUser((String)p.get(org.hibernate.cfg.Environment.USER));
-		dataSource.setPassword((String)p.get(org.hibernate.cfg.Environment.PASS));
-		return new MySQLJDBCDataModel(dataSource, "__"+this.name+"_Taste", "user_id", "item_id", "preference", null);
+        /*
+         * Give Mahout this instance as the data source, Mahout will be able
+         * to call the getConnection method to obtain the database jdbc connection
+         * with the database that Hibernate is connected to. This has been implemented
+         * like this so the H2 database could also be integrated. However, the function
+         * used to obtain the datasource (Session.connection() of Hibernate is set to
+         * deprecate in version 4. However, from what I read in their internal docs
+         * they are still not convinced to remove it completely, because a lot of
+         * customers need this function for their products.
+         * Look at rev: 4809 for the version that used the properties of Hibernat
+         * to set-up the database connection if you need to replace this later on.
+         * ~ Siem
+         */
+        return new MySQLJDBCDataModel(this, "__"+this.name+"_Taste", "user_id", "item_id", "preference", null);
 	}
-	
+
+    /**
+     * The getConnection function makes sure that Mahout is able to access the
+     * same data source as Hibernate, without requiring the configuration to be read.
+     * @return The Connection instance for Mahout to connect to.
+     */
+    public Connection getConnection() {
+    	try {
+            if (connectionMethod == null) {
+                // reflective lookup to bridge between Hibernate 3.x and 4.x
+                connectionMethod = getCurrentHibernateSession().getClass().getMethod("connection");
+            }
+            return (Connection) connectionMethod.invoke(getCurrentHibernateSession());
+        }
+        catch (NoSuchMethodException ex) {
+            throw new IllegalStateException("Cannot find connection() method on Hibernate session", ex);
+        } catch (IllegalArgumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	return null;
+    }
+
+    /**
+     * The getConnection function makes sure that Mahout is able to access the
+     * same data source as Hibernate, without requiring the configuration to be read.
+     * @param username The username to connect to the database, is not used.
+     * @param password The password to connect to the database, is not used.
+     * @return The Connection instance for Mahout to connect to.
+     */
+    public Connection getConnection(String username, String password) {
+        return getConnection();
+    }
+
+    /**
+     * Get the login time-out configuration that is set at this moment.
+     * @return The login time-out in seconds (default is 30).
+     */
+    public int getLoginTimeout(){
+        return this.timeout;
+    }
+
+    /**
+     * Get the log writer that is set for the connection to write its
+     * log output to.
+     * @return The PrintWriter instance.
+     */
+    public PrintWriter getLogWriter(){
+        return this.pw;
+    }
+
+    /**
+     * Set the login time-out value, default is 30 seconds.
+     * @param seconds The time-out value to set it to.
+     */
+    public void setLoginTimeout(int seconds){
+        this.timeout = seconds;
+    }
+
+    /**
+     * Set the log writer for the connection to output its
+     * log records to.
+     * @param out The new PrintWriter instance to use.
+     */
+    public void setLogWriter(PrintWriter out){
+        this.pw = out;
+    }
+
+    /**
+     * For the DataSource implementation it is required that
+     * you can refer to this function, the implementation forwards
+     * the wrapper request to the connection.
+     * @param iface The iface to check if we can wrap it or not
+     * @return true if we are a wrapper for this class.
+     */
+    public boolean isWrapperFor(Class<?> iface) throws java.sql.SQLException {
+        return this.getConnection().isWrapperFor(iface);
+    }
+
+    /**
+     * Unwrap the given class instance accordingly
+     * @param iface The iface to unwrap
+     * @return The unwrapped instance of this class.
+     */
+    public <T> T unwrap(Class<T> iface) throws java.sql.SQLException {
+        return this.getConnection().unwrap(iface);
+    }
+
 	/**
 	 * Give the recommendations based on the supplied User instance.
 	 * This will make the calls to Mahout and ask it to give recommendations
@@ -167,7 +251,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 	 * try using another algorithm. See the documentation for more information.
 	 * @param x The user object to give recommendations of.
 	 * @param howMany The number of recommendations you would like to get.
-	 * @param aType The type of the recommendation, either USER (in case of User 
+	 * @param aType The type of the recommendation, either USER (in case of User
 	 * to Item recommendations) or ITEM (in case of Item to Item recommendations)
 	 * @return A list with recommended items that are recommended by Mahout
 	 * for this user.
@@ -181,25 +265,28 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 
 		try {
 			long id = getIDOfObject(x, aType);
-			
+
 			List<RecommendedItem> recommendations = aType == RecFieldType.USER ? this.userRecommenderCache.recommend(id, howMany) : this.itemRecommenderCache.recommend(id, howMany);
-			
+
 			this.lastExecutionTime = System.currentTimeMillis() - startTime;
-			System.out.println("Obtaining the list of recommendations took: " + this.lastExecutionTime);
+			//System.out.println("Obtaining the list of recommendations took: " + this.lastExecutionTime);
 			return getObjectsOfIDList(recommendations, RecFieldType.ITEM);
+        } catch(NoSuchUserException nse){
+            /* Recommendations cannot be given because the user is unknown */
+			return new ArrayList<Object>();
 		} catch (Exception e){
 			System.err.println("Error, catched an exception while obtaining the recommendations! " + e);
 			e.printStackTrace();
 			return new ArrayList<Object>();
 		}
 	}
-	
+
 	/**
 	 * This function will (re)construct all the recommendations using
-	 * Mahout. 
+	 * Mahout.
 	 * NOTE: Be aware that this is a very expensive function in terms of
-	 * processing time, therefore this function is called on a regular 
-	 * interval (say every x hours) to update the recommendation cache 
+	 * processing time, therefore this function is called on a regular
+	 * interval (say every x hours) to update the recommendation cache
 	 * according to the latest data available in the database.
 	 */
 	public void reconstructRecommendationCache(){
@@ -208,8 +295,8 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 		try {
 			/* Open the database and update the dictionary to Mahout style */
 			convertUIDToBigIntInDB();
-			
-			/* 
+
+			/*
 			 * Database is converted, generate the recommendations seperately
 			 * from the currently cached recommendations if there are any.
 			 */
@@ -226,8 +313,8 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			if(this.type == null || this.type.equalsIgnoreCase(T_ITEM) || this.type.equalsIgnoreCase(T_BOTH)){
 				itemRecommender = buildRecommenderInstance(model, RecFieldType.ITEM);
 			}
-			
-			/* 
+
+			/*
 			 * The recommendation process has finished, replace the cached
 			 * recommendations with the new updated version.
 			 */
@@ -245,7 +332,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			System.err.println("************ END OF ERROR ************\n\n");
 		}
 	}
-	
+
 	/**
 	 * Get the similarity instance that is used to check which users and items
 	 * are similar. There are several implementations for this, these are specified
@@ -270,7 +357,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			throw new TasteException("Unknown algorithm type: " + this.alg);
 		}
 	}
-	
+
 	/**
 	 * Get the user neighborhood instance, with the correct neighborhood size and algorithm
 	 * as specified during the construction of this RecommendEntityServlet.
@@ -288,7 +375,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			throw new TasteException("Unknown neighborhood algorithm type: " + this.neighborhoodAlg);
 		}
 	}
-	
+
 	/**
 	 * Build the recommender instance based on the configuration
 	 * that is specified for this RecommendEntityServlet instance.
@@ -302,7 +389,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			UserSimilarity similarity = (UserSimilarity)getSimularity(model);
 
 			UserNeighborhood neighborhood = getNeighborhood(similarity, model);
-			
+
 			if(this.value == null){ // == null, so there is no value set.
 				return new GenericBooleanPrefUserBasedRecommender(model, neighborhood, similarity);
 			} else {
@@ -310,7 +397,7 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 			}
 		} else { //type == RecFieldType.ITEM
 			ItemSimilarity similarity = (ItemSimilarity)getSimularity(model);
-			
+
 			return new GenericItemBasedRecommender(model, similarity);
 		}
 	}
@@ -333,44 +420,44 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 		// translation tables, this function call is outside the scope of the performance
 		// calculations.
 		//return "Hooray";
-		
+
 		// Only rebuild the recommendation cache if it is absolutely necessary.
 		// Hopefully this will already be done using the background periodical
 		// calls to the function. But in case the developer just launched this
 		// application we need to contruct it first, will take a long, long, long time.
 		if(this.userRecommenderCache == null && this.itemRecommenderCache == null) reconstructRecommendationCache();
-		
+
 		MySQLJDBCDataModel model = getMahoutDatabaseModel();
-		
+
 		long startTime = System.currentTimeMillis();
-		
+
 		try {
 			GenericRecommenderIRStatsEvaluator evaluator = new GenericRecommenderIRStatsEvaluator();
 			RecommenderBuilder recommenderBuilder = null;
 			if(this.type != null && this.type.equalsIgnoreCase(T_ITEM)){
 				recommenderBuilder = new RecommenderBuilder() {
-					public Recommender buildRecommender(DataModel model) throws TasteException { 
+					public Recommender buildRecommender(DataModel model) throws TasteException {
 						return buildRecommenderInstance(model, RecFieldType.ITEM);
 					}
 				};
 			} else { // this.type == null || this.type.equalsIgnoreCase(T_BOTH) || this.type.equalsIgnoreCase(T_USER)
 				recommenderBuilder = new RecommenderBuilder() {
-					public Recommender buildRecommender(DataModel model) throws TasteException { 
+					public Recommender buildRecommender(DataModel model) throws TasteException {
 						return buildRecommenderInstance(model, RecFieldType.USER);
 					}
 				};
 			}
-			
+
 			DataModelBuilder modelBuilder = new DataModelBuilder() {
 				//Override
 				public DataModel buildDataModel(FastByIDMap<PreferenceArray> trainingData) {
 					return new GenericBooleanPrefDataModel(GenericBooleanPrefDataModel.toDataMap(trainingData));
 				}
 			};
-			
+
 			IRStatistics stats = evaluator.evaluate(
 					recommenderBuilder, modelBuilder, model, null, 10, GenericRecommenderIRStatsEvaluator.CHOOSE_THRESHOLD, 1.0);
-			
+
 			this.lastExecutionTime = System.currentTimeMillis() - startTime;
 			return stats.getPrecision() + " :: " + stats.getRecall();
 		} catch(java.lang.IllegalArgumentException e){
@@ -382,12 +469,12 @@ public class RecommendEntityServlet extends RecommendDBConverter {
 		}  catch (Exception e) {
 			e.printStackTrace();
 		}
-		
+
 		this.lastExecutionTime = System.currentTimeMillis() - startTime;
 		return "FAILED";
-		
+
 	}
-	
+
 	/**
 	 * This function executes a query on the table where the recommendations
 	 * should be located. In case the query fails the exception is handled

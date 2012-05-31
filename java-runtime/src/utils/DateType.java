@@ -68,4 +68,40 @@ public class DateType {
       return c.getTime();
   }
   
+  public static int getYear(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.YEAR);
+  }
+  public static int getMonth(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.MONTH);
+  }
+  public static int getDay(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.DAY_OF_MONTH);
+  }
+  public static int getDayOfYear(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.DAY_OF_YEAR);
+  }
+  public static int getHour(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.HOUR);
+  }
+  public static int getMinute(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.MINUTE);
+  }
+  public static int getSecond(Date d) {
+      Calendar c = Calendar.getInstance();
+      c.setTime(d);
+      return c.get(Calendar.SECOND);
+  }
+  
 }

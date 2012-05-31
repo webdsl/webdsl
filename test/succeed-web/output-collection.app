@@ -7,7 +7,6 @@ application test
     
     list2 -> List<ColTest2>
     set2 -> Set<ColTest2>
-    
   }
   
   entity ColTest2{name :: String} // has viewpage
@@ -35,10 +34,8 @@ application test
     }
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("li"));
@@ -46,7 +43,5 @@ application test
 
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(elist.length == 7, "expected <a> elements did not match");
-    
-    d.close();
   }
   

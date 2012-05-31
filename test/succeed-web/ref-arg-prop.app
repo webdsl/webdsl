@@ -47,10 +47,8 @@ application test
   define blapasson(c: Ref<Set<Str>>){ 
     bla(c)
   } 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -62,8 +60,6 @@ application test
     olist[0].setSelected();
     olist[1].setSelected();
     elist[6].click();  
-    //log(d.getPageSource());
+
     assert(d.getPageSource().contains("1231230.0123str1str1"), "reference arguments not working as expected");
-    
-    d.close();
   }

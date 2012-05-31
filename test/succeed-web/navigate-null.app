@@ -7,20 +7,16 @@ application test
   define page root(){
     var n : Nav := null
     navigate nav(n) { "show" }
+    "rootpageisvisible"
   }
   
   define page nav(n:Nav){
     "viewpage"
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-
-    assert(!(d.getPageSource().contains("404")), "navigate with null argument may not produce a 404 error");
-
-    d.close();
+    assert(d.getPageSource().contains("rootpageisvisible"));
   }
   

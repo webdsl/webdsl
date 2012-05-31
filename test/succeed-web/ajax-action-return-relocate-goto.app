@@ -52,9 +52,8 @@ application test
       }
   }
   
-  
   test redirecting {
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     
     for(i:Int from 0 to 1){
       checkInit(d,i);
@@ -64,13 +63,10 @@ application test
       checkButton(d,i);    	
       checkButtonAfterReplace(d,i);    	
     }
-    
-    d.close();
   }
   
   function checkInit(d:WebDriver, number :Int){
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     var alist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(alist.length == 2, "expected 2 <a> elements");
     
@@ -81,7 +77,6 @@ application test
   
   function checkButton(d:WebDriver, number :Int){
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 5, "expected 5 <input> elements");
     
@@ -92,7 +87,6 @@ application test
   
   function checkButtonAfterReplace(d:WebDriver, number :Int){
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
         
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 5, "expected 5 <input> elements");

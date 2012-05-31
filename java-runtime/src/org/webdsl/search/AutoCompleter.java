@@ -38,7 +38,7 @@ import org.apache.lucene.util.Version;
  * </p>
  *
  * <p>Example Usage:
- * 
+ *
  * <pre>
  *  AutoCompleter autocompleter = new AutoCompleter(autocompleteIndexDirectory);
  *  // To index a field of a user index:
@@ -47,7 +47,7 @@ import org.apache.lucene.util.Version;
  *  autocompleter.indexDictionary(new PlainTextDictionary(new File("myfile.txt")));
  *  String[] suggestions = autocompleter.suggestSimilar("toComplete", 5);
  * </pre>
- * 
+ *
  *
  * @version 1.0
  */
@@ -58,9 +58,9 @@ public class AutoCompleter implements java.io.Closeable {
    * Field name for each word in the ngram index.
    */
   public static final String F_WORD = "word";
-  
+
   private static final int MAX_PREFIX_LENGTH = 10;
-  
+
   private static final String F_FREQ = "frequency";
 
   private static final Term F_WORD_TERM = new Term(F_WORD);
@@ -94,7 +94,7 @@ public class AutoCompleter implements java.io.Closeable {
    * Use the given directory as an auto completer index with a
    * {@link LevensteinDistance} as the default {@link StringDistance}. The
    * directory is created if it doesn't exist yet.
-   * 
+   *
    * @param autoCompleteIndex
    *          the autocomplete index directory
    * @throws IOException
@@ -104,7 +104,7 @@ public class AutoCompleter implements java.io.Closeable {
 	  setAutoCompleteIndex(autocompleteIndex);
   }
 
-  
+
   /**
    * Use a different index as the auto completer index or re-open
    * the existing index if <code>autocompleteIndex</code> is the same value
@@ -116,7 +116,7 @@ public class AutoCompleter implements java.io.Closeable {
   // TODO: we should make this final as it is called in the constructor
   public void setAutoCompleteIndex(Directory autocompleteIndexDir) throws IOException {
     // this could be the same directory as the current autocompleteIndex
-    // modifications to the directory should be synchronized 
+    // modifications to the directory should be synchronized
     synchronized (modifyCurrentIndexLock) {
       ensureOpen();
       if (!IndexReader.indexExists(autocompleteIndexDir)) {
@@ -128,7 +128,7 @@ public class AutoCompleter implements java.io.Closeable {
       swapSearcher(autocompleteIndexDir);
     }
   }
-  
+
   /**
    * Suggest similar words (optionally restricted to a field of an index).
    *
@@ -160,22 +160,22 @@ public class AutoCompleter implements java.io.Closeable {
       String key;
       for (String[] gramArray : grams) {
     	  for (int i = 0; i < gramArray.length; i++) {
-    	        key = "start" + gramArray[i].length(); // form key        
+    	        key = "start" + gramArray[i].length(); // form key
     	        add(query, key, gramArray[i]);
     	      }
 	  }
-      
+
 
       int maxHits = 2 * numSug;
-      
+
       //First sort on similarity, then on popularity (based on frequency in the source index)
       SortField[] sortFields = {SortField.FIELD_SCORE, new SortField(F_FREQ, SortField.INT, true)};
-      
+
       ScoreDoc[] hits = indexSearcher.search(query, maxHits, new Sort(sortFields)).scoreDocs;
       //indexSearcher.search(query, null, maxHits).scoreDocs;
       int stop = Math.min(hits.length, maxHits);
-      String[] toReturn = new String[stop];      
-      
+      String[] toReturn = new String[stop];
+
       for (int i = 0; i < stop; i++) {
     	toReturn[i] =  indexSearcher.doc(hits[i].doc).get(F_WORD); // get orig word
       }
@@ -193,7 +193,7 @@ public class AutoCompleter implements java.io.Closeable {
   }
 
   /**
-   * Returns at most 3 ngrams for each token (whitespace separated), so 2 typos can be made at the end of 
+   * Returns at most 3 ngrams for each token (whitespace separated), so 2 typos can be made at the end of
    * each token from the currently typed string.
    * @param text the word to parse
    * @return an list of arrays of all ngrams in the word and note that duplicates are not removed
@@ -204,22 +204,22 @@ public class AutoCompleter implements java.io.Closeable {
 	String[] tokens = text.split("\\s");
 	int len, tokenlen;
 	ArrayList<String[]> grams = new ArrayList<String[]>();
-	
+
 	for (String token : tokens) {
 		len = 3;
-		tokenlen = Math.min(token.length(), MAX_PREFIX_LENGTH);		  
+		tokenlen = Math.min(token.length(), MAX_PREFIX_LENGTH);
 		if (tokenlen < 3) {
 		  len = tokenlen;
 		}
-		  
+
 		String[] res = new String[len];
 		for (int i = 0; i < len; i++) {
 		  res[i] = token.substring(0, tokenlen-i);
 		}
 		grams.add(res);
 	}
-	
-	
+
+
 	return grams;
   }
 
@@ -274,23 +274,23 @@ public class AutoCompleter implements java.io.Closeable {
       final Directory dir = this.autoCompleteIndex;
       final Dictionary dict = new LuceneDictionary(reader, field);
       final IndexWriter writer = new IndexWriter(dir, new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)).setRAMBufferSizeMB(ramMB));
-      ((LogMergePolicy) writer.getConfig().getMergePolicy()).setMergeFactor(mergeFactor);
+//      ((LogMergePolicy) writer.getConfig().getMergePolicy()).setMergeFactor(mergeFactor);
       IndexSearcher indexSearcher = obtainSearcher();
       final List<IndexReader> readers = new ArrayList<IndexReader>();
 
       if (searcher.maxDoc() > 0) {
         ReaderUtil.gatherSubReaders(readers, searcher.getIndexReader());
       }
-      
+
       //clear the index
       writer.deleteAll();
-      
-      try { 
+
+      try {
         Iterator<String> iter = dict.getWordsIterator();
-        
+
       while (iter.hasNext()) {
           String word = iter.next();
-          
+
           // ok index the word
           Document doc = createDocument(word, reader.docFreq(new Term(field, word)));
           writer.addDocument(doc);
@@ -319,7 +319,7 @@ public class AutoCompleter implements java.io.Closeable {
   public final void indexDictionary(IndexReader reader, String field, int mergeFactor, int ramMB) throws IOException {
     indexDictionary(reader, field, mergeFactor, ramMB, true);
   }
-  
+
   /**
    * Indexes the data from the given {@link Dictionary}.
  * @param reader Source index reader, from which autocomplete words are obtained for the defined field
@@ -367,7 +367,7 @@ public class AutoCompleter implements java.io.Closeable {
 	    }
 	}
   }
-  
+
   private IndexSearcher obtainSearcher() {
     synchronized (searcherLock) {
       ensureOpen();
@@ -375,19 +375,19 @@ public class AutoCompleter implements java.io.Closeable {
       return searcher;
     }
   }
-  
+
   private void releaseSearcher(final IndexSearcher aSearcher) throws IOException{
-      // don't check if open - always decRef 
+      // don't check if open - always decRef
       // don't decrement the private searcher - could have been swapped
-      aSearcher.getIndexReader().decRef();      
+      aSearcher.getIndexReader().decRef();
   }
-  
+
   private void ensureOpen() {
     if (closed) {
       throw new AlreadyClosedException("Autocompleter has been closed");
     }
   }
-  
+
   /**
    * Close the IndexSearcher used by this AutoCompleter
    * @throws IOException if the close operation causes an {@link IOException}
@@ -403,7 +403,7 @@ public class AutoCompleter implements java.io.Closeable {
       searcher = null;
     }
   }
-  
+
   private void swapSearcher(final Directory dir) throws IOException {
     /*
      * opening a searcher is possibly very expensive.
@@ -424,9 +424,9 @@ public class AutoCompleter implements java.io.Closeable {
       this.autoCompleteIndex = dir;
     }
   }
-  
+
   /**
-   * Creates a new read-only IndexSearcher 
+   * Creates a new read-only IndexSearcher
    * @param dir the directory used to open the searcher
    * @return a new read-only IndexSearcher
    * @throws IOException f there is a low-level IO error
@@ -435,16 +435,16 @@ public class AutoCompleter implements java.io.Closeable {
   IndexSearcher createSearcher(final Directory dir) throws IOException{
     return new IndexSearcher(dir, true);
   }
-  
+
   /**
    * Returns <code>true</code> if and only if the {@link AutoCompleter} is
    * closed, otherwise <code>false</code>.
-   * 
+   *
    * @return <code>true</code> if and only if the {@link AutoCompleter} is
    *         closed, otherwise <code>false</code>.
    */
   boolean isClosed(){
     return closed;
   }
-  
+
 }

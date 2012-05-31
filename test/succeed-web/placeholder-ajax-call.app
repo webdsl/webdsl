@@ -1,36 +1,32 @@
 application customer
-
-entity Bla{
-  s::String
-  validate(s.length()>2,"too short")
-}
-
-define page root(){
-  placeholder body displayNote()
-}
-define ajax displayNote(){
-  form{
-    input(bla.s)
-    submit action{ replace(body,displayNote()); } { "save" } 
-  }
-}
-
-define page root1(){
-  placeholder "body" displayNote1()
-}
-define ajax displayNote1(){
-  form{
-    input(bla1.s)
-    submit action{ replace("body",displayNote1()); } { "save" } 
-  }
-}
-
-var bla := Bla{}
-var bla1 := Bla{}
   
-  native class Thread{
-    static sleep(Int)
+  entity Bla{
+    s::String
+    validate(s.length()>2,"too short")
   }
+  
+  define page root(){
+    placeholder body displayNote()
+  }
+  define ajax displayNote(){
+    form{
+      input(bla.s)
+      submit action{ replace(body,displayNote()); } { "save" } 
+    }
+  }
+  
+  define page root1(){
+    placeholder "body" displayNote1()
+  }
+  define ajax displayNote1(){
+    form{
+      input(bla1.s)
+      submit action{ replace("body",displayNote1()); } { "save" } 
+    }
+  }
+  
+  var bla := Bla{}
+  var bla1 := Bla{}
   
   function send(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -46,22 +42,15 @@ var bla1 := Bla{}
     assert(d.getPageSource().contains("too short"));
   }
   
-test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     send(d);
-    Thread.sleep(2000);
     check(d);
     
     d.get(navigate(root1()));
     send(d);
-    Thread.sleep(2000);
     check(d);
-
-    d.close();
-}
-  
-
+  }
   

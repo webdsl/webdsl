@@ -1,16 +1,9 @@
-//function which will be invoked after execute replace or append
-var __ajax_postprocessor = null;
 
 function ajax_post_process(node) {
-  // node.scrollIntoView();
-  if(show_webdsl_debug){
-    if(typeof(console) != "undefined") {
-      console.debug("Applied ajax transformation");
-    }
-  }
-  if (__ajax_postprocessor != null) {
-    __ajax_postprocessor(node);
-  } 
+  //script tags, such as for datepicker init, are not evaluated when inserted with ajax, this is a workaround that explicitly runs the script contents
+  var reponse = $(node.innerHTML);
+  var reponseScript = reponse.filter("script");
+  $.each(reponseScript, function(idx, val) { eval(val.text); } );
 } 
 
 function formToJSON(formObj) {
@@ -190,21 +183,26 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
     function()
     {
-      if (this.readyState == 4 && this.status == 200) {
-         clientExecute(this.responseText, thisobject);
-         if(loadfeedback){ stopLoading(thisobject, loadingimage); }
-      }
-      else if(this.readyState == 4 && this.status != 200) {
-        notify('Invalid return of server: '+this.status); 
+      if (this.readyState == 4){
+        if (this.status == 200) {
+          clientExecute(this.responseText, thisobject);        
+        }
+        else if(this.status != 200) {
+          notify('Invalid return of server: '+this.status); 
+        }
+        if(loadfeedback){ stopLoading(thisobject, loadingimage); }
+        __requestcount--;
       }
     }
   );
 }
 
+var __requestcount = 0;
+
 function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
-  req.open("POST", template, true); //chosen for always async (true), even for testing, to have tested system as close to real thing as possible, the downside is that some tests need sleeps to wait for ajax result
+  req.open("POST", template, true); //chosen for always asynchronous (true), even for testing, to have tested system as close to real thing as possible, also synchronous/false doesn't seem to work with WebDriver currently. The downside is that tests with ajax calls need sleeps to wait for the response. 
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
   req.setRequestHeader("charset", "UTF-8");  
   //    http_request.setRequestHeader("Content-length", parameters.length);
@@ -214,6 +212,7 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   
   data = createData(action,jsonparams,thisform,thisobject);
   
+  __requestcount++;
   req.send(data);
 }
 
@@ -316,6 +315,7 @@ function clientExecute(jsoncode, thisobject)
 function notify(string)
 {
   if(show_webdsl_debug){ alert(string); }
+  console.log(string);
 }
 
 function replaceall(command) {

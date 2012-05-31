@@ -23,33 +23,21 @@ application test
   section pages
   
   define page root(){
-    
     "authentication() template: "
     break
-    
     authentication()
-    
     break
     "login() template: "
     break
-    
     login()
-    
     break
     "logout() template: "
     break
-    
     logout()
   }
   
-  native class Thread {
-    static sleep(Int)
-  }
-  
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -63,8 +51,6 @@ application test
     assert(elist1.length == 2, "expected <a> elements did not match");
     elist1[0].click();
     
-    Thread.sleep(2000);
-    
     var elist2 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist2.length == 9, "expected <input> elements did not match");
     elist2[5].sendKeys("test");
@@ -76,12 +62,8 @@ application test
     assert(elist3.length == 2, "expected <a> elements did not match");
     elist3[1].click();
     
-    Thread.sleep(2000);
-    
     var elist4 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist4.length == 9, "expected <input> elements did not match");
-    
-    d.close();
   }
   
 

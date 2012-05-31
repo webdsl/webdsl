@@ -43,8 +43,8 @@ define page atermtest(){
   output(a)
 }
 
-test inttemplates {
-  var d : WebDriver := FirefoxDriver();
+test sdftemplates {
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
   var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
@@ -58,8 +58,6 @@ test inttemplates {
   
   d.get(navigate(atermtest()));
   assert(d.getPageSource().contains("Foo(Bar,[1,2,3])"));
-  
-  d.close();
 }
   
 function commonTest(d:WebDriver){  

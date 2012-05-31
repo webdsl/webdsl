@@ -544,3 +544,9 @@ write-files.ctree : libwrite-files.rtree
 	$(STRC)/bin/strc $(STRINCLUDES) -c --library -O 1 -F -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o write-files.ctree \
 		--verbose 1 $(STRCFLAGS) 
 
+
+# extra files needed to be able to build the Eclipse plugin directly from compiler build output (e.g. using http://hydra.nixos.org/job/webdsl/trunk/buildJavaZip)          
+install-data-hook:
+	mkdir -p $(pkgdatadir)/plugin-build-deps/webdsl-sources
+	find . -name "*.str" -o -name "*.meta" -o -name "*.tbl" -o -name "*.sdf" -o -name "*.pp" -o -name "*.rtree" -type f | cpio -pd $(pkgdatadir)/plugin-build-deps/webdsl-sources/
+	   

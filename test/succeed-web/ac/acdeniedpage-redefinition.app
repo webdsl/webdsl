@@ -24,14 +24,9 @@ section somesection
      "custom access denied page"
    }   
    
-  test messages {
-    var d : WebDriver := FirefoxDriver();
-    
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
     assert(!d.getPageSource().contains("should not be able to see this"));
-    
     assert(d.getPageSource().contains("custom access denied page"));
-    
-    d.close();
   }

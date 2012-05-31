@@ -18,7 +18,6 @@ application test
     for(str:Str){
       output(str) ": " output(str.set)
     } separated-by{ <br /> }
-    
   }
   
   define bla(a:Ref<Set<Str>>){ 
@@ -26,7 +25,6 @@ application test
   }
 
   define page root2(){
-
     var a : Set<Str> := Set<Str>()
     form{
       test(a)
@@ -35,23 +33,19 @@ application test
     for(str:Str){
       output(str) ": " output(str.set)
     } separated-by{ <br /> }
-    
   }
   define test(t:Ref<Set<Str>>){ 
     bla(t)
   }
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     checkpage(d,2);    
 
     d.get(navigate(root2()));
     checkpage(d,2);    
-     
-    d.close();
   }
   
   function checkpage(d:WebDriver, clickinput:Int){

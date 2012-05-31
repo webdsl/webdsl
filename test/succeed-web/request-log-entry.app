@@ -16,14 +16,11 @@ application test
     navigate root() { "go" }
   }
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
     d.get(navigate(root())); // access twice, so the previous request shows up
     assert(d.getPageSource().contains("GET"), "GET method not shown");
-    
-    d.close(); 
   }
   

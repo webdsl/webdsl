@@ -23,10 +23,9 @@ define page root(){
 }
 
 test builtintemplates {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   assert(d.getPageSource().split("wrapper-class-attribute").length == 14);
   assert(d.getPageSource().split("background-color").length == 14);
   assert(d.getPageSource().split("elements-inside").length == 8);
-  d.close();
 }

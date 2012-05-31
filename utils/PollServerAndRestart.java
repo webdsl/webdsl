@@ -31,7 +31,8 @@ public class PollServerAndRestart {
                 System.out.println(getDateTime()+" fail");
                 fails++;
             }
-            if(fails > 0){
+            if(fails > 3){
+                System.out.println("too many failed attempts, running restart script");
                 fails = 0;
                 runCommand(cmd);
                 wait(restartWaitTime);
@@ -61,7 +62,7 @@ public class PollServerAndRestart {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        /* necessary stuff to avoid 'too many open files' error */
+        // necessary stuff to avoid 'too many open files' error; unfortunately this doesn't fix the issue yet
         if(proc != null){
             try{
                 proc.waitFor();

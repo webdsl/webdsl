@@ -20,9 +20,8 @@ application email
   }
 
   test emailaddressrequired {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
-    assert(!/404/.find(d.getPageSource()), "root page may not produce a 404 error");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     
@@ -35,5 +34,4 @@ application email
     var list := /required/.split(d.getPageSource());
     
     assert(list.length == 2, "expected one occurence of \"required\"");
-    d.close();
   }

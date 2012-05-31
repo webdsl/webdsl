@@ -13,20 +13,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 //http://www.bigsoft.co.uk/blog/index.php/2008/11/01/java-util-uuid-primary-keys-in-hibernate
 //changed to work with varchar(16) field in db
-public class UUIDUserType implements UserType
+public class UUIDUserType implements UserType, java.io.Serializable
 {
 
-	private static final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
+	private static transient final String CAST_EXCEPTION_TEXT = " cannot be cast to a java.util.UUID." ;
 
-	private static final boolean IS_VALUE_TRACING_ENABLED = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() ).isTraceEnabled();
-	private transient Logger log;
-
-	private Logger log() {
-		if ( log == null ) {
-			log = LoggerFactory.getLogger( "org.hibernate.type." + UUIDUserType.class.getSimpleName() );
-		}
-		return log;
-	}
+	private static transient final Logger bindLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicBinder.class );
+	private static transient final Logger extractLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicExtractor.class );
 
 	/*
 	 * (non-Javadoc)
@@ -36,12 +29,13 @@ public class UUIDUserType implements UserType
 	public Object assemble (Serializable cached, Object owner) throws HibernateException
 	{
 
+		if(cached == null) return null;
 		if (!String.class.isAssignableFrom (cached.getClass ()))
 		{
 			return null ;
 		}
 
-		return UUID.fromString ((String) cached) ;
+		return retrieveUUID((String) cached) ;
 	}
 
 	/*
@@ -71,8 +65,12 @@ public class UUIDUserType implements UserType
 	 */
 	public Serializable disassemble (Object value) throws HibernateException
 	{
-
-		return value.toString () ;
+		if(value == null) return null;
+		if (!UUID.class.isAssignableFrom (value.getClass ()))
+		{
+			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
+		}
+		return persistUUIDString((UUID)value);
 	}
 
 	/*
@@ -140,15 +138,15 @@ public class UUIDUserType implements UserType
 
 		if (value == null)
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "found [null] as column [{}]", names[0] );
+			if ( extractLog.isTraceEnabled() ) {
+				extractLog.trace( "found [null] as column [{}]", names[0] );
 			}
 			return null ;
 		}
 		else
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( "found [{}] as column [{}]", retrieveUUID( value ), names[0] );
+			if ( extractLog.isTraceEnabled() ) {
+				extractLog.trace( "found [{}] as column [{}]", retrieveUUID( value ), names[0] );
 			}
 			return retrieveUUID(value);
 		}
@@ -184,8 +182,8 @@ public class UUIDUserType implements UserType
 		// System.out.println("set start");
 		if (value == null)
 		{
-			if ( IS_VALUE_TRACING_ENABLED ) {
-				log().trace( String.format("binding parameter [%d] as [VARCHAR] - <null>", index) );
+			if ( bindLog.isTraceEnabled() ) {
+				bindLog.trace( String.format("binding parameter [%d] as [VARCHAR] - <null>", index) );
 			}
 
 			st.setNull (index, theType) ;
@@ -199,8 +197,8 @@ public class UUIDUserType implements UserType
 			throw new HibernateException (value.getClass ().toString () + CAST_EXCEPTION_TEXT) ;
 		}
 		
-		if ( IS_VALUE_TRACING_ENABLED ) {
-			log().trace( String.format("binding parameter [%d] as [VARCHAR] - %s", index, persistUUIDString((UUID) value)) );
+		if ( bindLog.isTraceEnabled() ) {
+			bindLog.trace( String.format("binding parameter [%d] as [VARCHAR] - %s", index, persistUUIDString((UUID) value)) );
 		}
 
 		st.setString (index, persistUUIDString((UUID) value));

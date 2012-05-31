@@ -1,23 +1,21 @@
 <project name="webdsl-build-eclipse" default="eclipse-build">
 
+  <property name="path.build.id" value="${currentdir}/.servletapp/.last-build-id" />
+  <property name="path.build.completed" value="${currentdir}/.servletapp/.last-build-id-completed" />
+  <property name="path.builder.started" value="${currentdir}/.servletapp/.webdsl-project-builder-started" />
+  <property name="path.saved.but.not.built" value="${currentdir}/.saved-but-not-built" />
   
   <condition property="stratego-jar-cp" value="${eclipse.strategoxt.strategojar}">
     <isset property="eclipse.running"/>
   </condition>
 
-  
+  <taskdef name="taskgenerateuuid" classname="org.webdsl.ant.TaskGenerateUuid" />
+
   <target name="generate-uuid" description="Generates a UUID">
-    <script language="javascript">
-      <![CDATA[
-                importClass(java.util.UUID);
-                var id = UUID.randomUUID();
-                project.setProperty("build-id",id.toString());
-        ]]>
-    </script>
-    <echo>generated uuid: ${build-id}</echo>
+    <taskgenerateuuid/>
+    <!--echo>generated uuid: ${build-id}</echo-->
   </target>
 
-  
   <target name="get-build-id">
     <if>
       <not><isset property="build-id" /></not>
@@ -25,70 +23,73 @@
       <antcallback target="generate-uuid" return="build-id"/>
     </then>
     </if>
-    <echo>build-id: ${build-id}</echo>
+    <echo>generated build-id: ${build-id}</echo>
   </target>
 
-  
-  <property name="path.saved.but.not.built" value="${currentdir}/.saved-but-not-built" />
-
-  <target name="check-app-file-changed">
-     <available file="${path.saved.but.not.built}" property="is-saved-but-not-built"/>
-     <fail status="0" unless="is-saved-but-not-built" message="Build stopped because no .app file was changed."/>
-  </target>
-  
-  
-  <target name="eclipse-build" depends="clean-if-editor-updated, clean-if-project-converted, check-app-file-changed, get-build-id">
-    <!-- command-line builds use .servletapp, plugin uses WebContent -->
-    <property name="generate-dir" value="WebContent"/>
-
-    <!-- remove completed build id -->
-    <property name="path.build.completed" value="${currentdir}/.servletapp/.last-build-id-completed" />
-    <property name="path.builder.started" value="${currentdir}/.servletapp/.webdsl-project-builder-started" />
+  <target name="eclipse-build" depends="check-clean-project, get-build-id">
     <available file="${path.build.completed}" property="previous-build-was-completed"/>
-    <!--<echo>CURRENT BUILD ${previous-build-was-completed}</echo>-->
-    <delete file="${path.build.completed}" failonerror="false" />
-    <!-- now that ${path.build.completed} is removed the webdsl builder lock file ${path.builder.started} can be removed as well, that way the builder can execute once again -->
-    <delete file="${path.builder.started}" failonerror="false" />
-    
-    <!-- write build-id, so the java-based webdsl builder (that starts the server) can pick it up -->
-    <property name="path.build.id" value="${currentdir}/.servletapp/.last-build-id" />
-    <mkdir dir="${currentdir}/${generate-dir}/"/>
-    <echo file="${path.build.id}">${build-id}</echo>
-
+    <available file="${path.saved.but.not.built}" property="is-saved-but-not-built"/>
+    <loadfile srcFile="${path.build.id}" property="previous-build-id-for-quick-build" quiet="true" />
     <if>
-      <equals arg1="${previous-build-was-completed}" arg2="$${previous-build-was-completed}" />
+      <and>
+        <not><isset property="is-saved-but-not-built"/></not>
+        <isset property="previous-build-was-completed"/>
+        <isset property="previous-build-id-for-quick-build"/>
+      </and>
       <then>
-        <antcall target="build-without-java-compile"/>
+        <echo message="Skipping WebDSL compiler because no .app file was changed."/>
+        <property name="skip-webdsl-compile-because-no-app-file-changed" value="true"/>
+        <!-- in this case we are not recompiling the application and should use the previous build-id -->
       </then>
       <else>
-        <antcall target="build-without-java-compile-without-template-copy"/>
+        <!-- always try to create these dirs, they could have been removed by clean -->
+        <mkdir dir="${currentdir}/.servletapp/"/>
+        <mkdir dir="${webcontentdir}"/>
+    
+        <!--<echo>CURRENT BUILD ${previous-build-was-completed}</echo>-->
+        <delete file="${path.build.completed}" failonerror="false" />
+        <!-- now that ${path.build.completed} is removed the webdsl builder lock file ${path.builder.started} can be removed as well, that way the builder can execute once again -->
+        <delete file="${path.builder.started}" failonerror="false" />
+    
+        <!-- write build-id, so the java-based webdsl builder (that starts the server) can pick it up -->
+        <echo file="${path.build.id}">${build-id}</echo>
       </else>
     </if>
 
-    <property name="webcontentdir" value="${currentdir}/WebContent"/>
+    <if>
+      <isset property="previous-build-was-completed"/>
+      <then>
+        <antcall target="build-without-java-compile-without-template-copy"/>
+      </then>
+      <else>
+        <!-- the wst.common.components needs to be updated when the root app option is changed -->
+        <antcall target="update-dot-settings-dir"/>
+        <antcall target="build-without-java-compile"/>
+      </else>
+    </if>
 
-    <copy file=".servletapp/web.xml" preservelastmodified="true" todir="WebContent/WEB-INF"/>
+    <copy file=".servletapp/web.xml" preservelastmodified="true" todir="${webcontentdir}/WEB-INF"/>
 
     <!--
     <copy preservelastmodified="true" todir="${webcontentdir}/WEB-INF/lib">
-      <fileset dir="${generate-dir}/WEB-INF/lib">
+      <fileset dir="${webcontentdir}/WEB-INF/lib">
         <exclude name="javaee.jar" />
       </fileset>
     </copy>
     <copy preservelastmodified="true" todir="${webcontentdir}">
-      <fileset dir="${generate-dir}/html"/>
+      <fileset dir="${webcontentdir}/html"/>
     </copy>
     <copy preservelastmodified="true" todir="${webcontentdir}/images">
-      <fileset dir="${generate-dir}/images"/>
+      <fileset dir="${webcontentdir}/images"/>
     </copy>
     <copy preservelastmodified="true" todir="${webcontentdir}/stylesheets">
-      <fileset dir="${generate-dir}/stylesheets"/>
+      <fileset dir="${webcontentdir}/stylesheets"/>
     </copy>
     <copy preservelastmodified="true" todir="${webcontentdir}/javascript">
-      <fileset dir="${generate-dir}/javascript"/>
+      <fileset dir="${webcontentdir}/javascript"/>
     </copy>
     <copy preservelastmodified="true" todir="${webcontentdir}">
-      <fileset dir="${generate-dir}">
+      <fileset dir="${webcontentdir}">
         <include name="webdsl-reindex"/>
         <include name="build.reindex.xml"/>
         <include name="build.properties"/>
@@ -117,20 +118,222 @@
       </then>
     </if>
     -->
-    
+
     <!-- refresh before running the Eclipse Java compiler, otherwise not all java files will be compiled (occasionally) -->
     <antcall target="refresh"/>
     <antcall target="run-eclipse-build"/>
     <!--<antcall target="poll-deployed-app-for-new-build-id"/>  now handled in webdsl builder, which runs after this -->
 
     <!-- show that build has finished -->
-    <echo file="${path.build.completed}">${build-id}</echo>
+    <if>
+      <not><isset property="skip-webdsl-compile-because-no-app-file-changed"/></not>
+      <then>
+        <echo file="${path.build.completed}">${build-id}</echo>
+      </then>
+    </if>
     <delete file="${path.saved.but.not.built}" failonerror="false" />
-    
+    <antcall target="mark-build-version"/>
+    <antcall target="mark-application-ini-timestamp"/>
+
     <antcall target="schedule-refresh"/>
   </target>
 
-  <!--
+
+  <target name="check-clean-project">
+    <antcall target="check-if-editor-updated"/>
+    <antcall target="check-for-changes-in-application-ini"/>
+    <antcall target="clean-if-required"/>
+  </target>
+
+
+  <target name="mark-project-clean-necessary">
+    <mkdir dir="${currentdir}/.servletapp/"/>
+    <echo file="${currentdir}/.servletapp/.clean-project-required"></echo>
+  </target>
+
+  <target name="clean-if-required" depends="check-remove-command-file" if="check-remove-command-file-present">
+  <antcall target="clean-eclipse-project" />
+  </target>
+
+  <target name="check-remove-command-file">
+    <!-- force clean by creating a .clean-project-required file in .servletapp -->
+    <available file="${currentdir}/.servletapp/.clean-project-required" property="check-remove-command-file-present"/>
+    <if>
+      <isset property="check-remove-command-file-present" />
+      <then>
+        <delete file="${currentdir}/.servletapp/.clean-project-required" />
+      </then>
+    </if>
+  </target>
+
+
+  <target name="clean-eclipse-project">
+    <!-- <antcall target="remove-server-module"/> -->
+    <delete dir="${currentdir}/.webdsl-parsecache" />
+    <delete dir="${currentdir}/.cache" />
+    <delete dir="${currentdir}/.servletapp" />
+    <delete dir="${currentdir}/.webdsl-fragment-cache" />
+    <delete file="${currentdir}/.dependencies.webdsl" />
+    <delete includeemptydirs="true" quiet="true">
+      <fileset dir="${webcontentdir}" includes="**/*"/>
+    </delete>
+    <echo file=".saved-but-not-built"/>
+    <eclipse.convertPath fileSystemPath="${currentdir}" property="resourcePath" />
+    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite" />
+  </target>
+
+
+  <property name="path.application.ini.timestamp" value="${currentdir}/.servletapp/.application-ini-timestamp"/>
+
+  <target name="mark-application-ini-timestamp" depends="get-application-ini-timestamp">
+    <dirname property="tmpdir" file="${path.application.ini.timestamp}" />
+    <mkdir dir="${tmpdir}" />
+    <echo file="${path.application.ini.timestamp}">${current.application.ini.timestamp}</echo>
+  </target>
+
+  <taskdef name="taskapplicationinitimestamp" classname="org.webdsl.ant.TaskApplicationIniTimestamp"/>
+
+  <target name="get-application-ini-timestamp">
+    <taskapplicationinitimestamp/>
+  </target>
+
+  <target name="check-for-changes-in-application-ini" depends="get-application-ini-timestamp">
+    <!-- if application.ini was changed directly, also trigger clean -->
+    <available file="${path.application.ini.timestamp}" property="previous.timestamp.available" />
+    <if>
+      <isset property="previous.timestamp.available"/>
+      <then>
+        <loadfile srcFile="${path.application.ini.timestamp}" property="previous.application.ini.timestamp" quiet="true" />
+        <echo>previous: ${previous.application.ini.timestamp}</echo>
+        <echo>current: ${current.application.ini.timestamp}</echo>
+        <if>
+          <not><equals arg1="${current.application.ini.timestamp}" arg2="${previous.application.ini.timestamp}" /></not>
+          <then>
+            <echo>Detected changes in application.ini, performing clean build.</echo>
+            <antcall target="mark-project-clean-necessary"/>
+          </then>
+        </if>
+      </then>
+    </if>
+  </target>
+
+
+  <property name="path.build.version" value="${currentdir}/.servletapp/.last-build-version" />
+
+  <target name="mark-build-version">
+    <dirname property="dir.build.version" file="${path.build.version}" />
+    <mkdir dir="${dir.build.version}" />
+    <echo file="${path.build.version}">${webdsl.plugin.version}</echo>
+  </target>
+
+  <target name="check-if-editor-updated">
+    <available file="${path.build.version}" property="build.is.completed" />
+    <loadfile srcFile="${path.build.version}" property="build.last.version" quiet="true" />
+    <if>
+      <not>
+        <and>
+          <isset property="build.is.completed" />
+          <equals arg1="${build.last.version}" arg2="${webdsl.plugin.version}" />
+        </and>
+      </not>
+      <then>
+        <echo>Editor updated to version ${webdsl.plugin.version}. Performing a clean build...</echo>
+        <antcall target="mark-project-clean-necessary"/>
+      </then>
+    </if>
+  </target>
+
+
+  <target name="refresh">
+    <eclipse.convertPath fileSystemPath="${currentdir}" property="resourcePath"/>
+    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
+  </target>
+
+
+  <taskdef name="schedulerefresh" classname="webdsl.ScheduleRefreshTask">
+      <classpath>
+        <pathelement location="${plugindir}/bin/"/>
+      </classpath>
+  </taskdef>
+
+
+  <target name="schedule-refresh">
+    <basename property="projectname" file="${currentdir}"/>
+    <schedulerefresh projectname="${projectname}" />
+  </target>
+
+
+  <target name="run-eclipse-build">
+    <!-- invoke incremental build of java code in eclipse
+    <basename property="projectname" file="${currentdir}"/>
+    <eclipse.incrementalBuild project="${projectname}" kind="incremental" builder="org.eclipse.jdt.core.javabuilder"/>
+    -->
+
+    <mkdir dir="${webcontentdir}/WEB-INF/classes/"/>
+
+    <path id="libraries">
+      <fileset dir="${webcontentdir}/WEB-INF/lib/" includes="*.jar"/>
+    </path>
+
+    <!-- invoke eclipse java compiler -->
+    <condition property="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter">
+      <isset property="eclipse.running"/>
+    </condition>
+    <property name="ant.build.javac.target" value="1.5"/>
+    <property name="ant.build.javac.source" value="1.5"/>
+    <javac destdir="${webcontentdir}/WEB-INF/classes/"
+      failonerror="true"
+      classpathref="libraries"
+      debug="on"
+      fork="true"
+      nowarn="true"
+      memoryinitialsize="256m"
+      memorymaximumsize="1024m">
+      <!-- fork= and memory sizes fix problem with javac throwing outofmemory heap space exception caused by ant 64mb default limit -->
+      <!--     verbose="yes">
+<compilerarg value="-Xlint"/> -->
+      <src path=".servletapp/src-generated" />
+      <src path="nativejava" />
+      <src path=".servletapp/src-template" />
+    </javac>
+  </target>
+
+  <taskdef name="taskfixclasspath" classname="org.webdsl.ant.TaskFixClasspath"/>
+
+  <target name="fix-classpath">
+    <taskfixclasspath/>
+    <echo>generated .classpath</echo>
+  </target>
+
+
+  <taskdef name="updatedotsettingsdir" classname="webdsl.UpdateDotSettingsDirTask">
+      <classpath>
+        <pathelement location="${plugindir}/bin/"/>
+      </classpath>
+  </taskdef>
+
+  <target name="update-dot-settings-dir" depends="load-config">
+    <basename property="projectname" file="${currentdir}"/>
+    <updatedotsettingsdir projectname="${projectname}" rootapp="${rootapp}" />
+  </target>
+
+
+  <taskdef name="removeservermodule" classname="webdsl.RemoveServerModuleTask">
+      <classpath>
+        <pathelement location="${plugindir}/bin/"/>
+      </classpath>
+  </taskdef>
+
+  <target name="remove-server-module">
+    <basename property="projectname" file="${currentdir}"/>
+    <removeservermodule projectname="${projectname}" />
+  </target>
+
+
+</project>
+
+
+<!--
   <target name="poll-deployed-app-for-new-build-id" depends="load-config">
     <script language="javascript"><![CDATA[
       importClass(java.net.URL);
@@ -195,8 +398,9 @@
     </else>
     </if>
   </target>
-  -->
-  <!--
+-->
+
+<!--
   <target name="open-app-in-browser">
     <script language="javascript"><![CDATA[
       importClass(org.eclipse.ui.browser.IWorkbenchBrowserSupport);
@@ -215,75 +419,9 @@
       }
     ]]></script>
   </target>
-  -->
-  
-  <target name="check-remove-command-file">
-      <available file="${currentdir}/${generate-dir}/.clean-project-required" property="check-remove-command-file-present"/>
-        <if><isset property="check-remove-command-file-present" /><then>
-        <delete file="${currentdir}/${generate-dir}/.clean-project-required" />
-        </then></if>
-  </target>
-  
-  
-  <target name="clean-if-project-converted" depends="check-remove-command-file" if="check-remove-command-file-present">
-    <antcall target="clean-eclipse-project" />
-  </target>
-  
-  <target name="clean-eclipse-project">
-    <delete dir="${basedir}/.webdsl-parsecache" />
-    <delete dir="${basedir}/.cache" />
-    <delete dir="${basedir}/.servletapp" />
-    <delete dir="${basedir}/.webdsl-fragment-cache" />
-    <delete file="${basedir}/.dependencies.webdsl" />
-    <delete includeemptydirs="true" quiet="true">
-      <fileset dir="${basedir}/WebContent" includes="**/*"/>
-    </delete>
-    <echo file=".saved-but-not-built"/>
-    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath" />
-    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite" />
-  </target>
-  
-  <target name="clean-if-editor-updated" unless="editor.update.build.performed">
-    <property name="path.build.version" value="${currentdir}/.servletapp/.last-build-version" />
-    <available file="${path.build.version}" property="build.is.completed" />
-    <loadfile srcFile="${path.build.version}" property="build.last.version" quiet="true" />
-    <if>
-      <not>
-        <and>
-          <isset property="build.is.completed" />
-          <equals arg1="${build.last.version}" arg2="${webdsl.plugin.version}" />
-        </and>
-      </not>
-      <then>
-        <echo>Editor updated to version ${webdsl.plugin.version}. Performing a clean build...</echo>
-        <antcall target="clean-eclipse-project" />
-        <property name="editor.update.build.performed" value="1" />
-        <dirname property="dir.build.version" file="${path.build.version}" />
-        <mkdir dir="${dir.build.version}" />
-        <echo file="${path.build.version}">${webdsl.plugin.version}</echo>
-      </then>
-    </if>
-  </target>
-  
-  
-  <target name="refresh">
-    <eclipse.convertPath fileSystemPath="${basedir}" property="resourcePath"/>
-    <eclipse.refreshLocal resource="${resourcePath}" depth="infinite"/>
-  </target>
-  
-  
-  <taskdef name="schedulerefresh" classname="webdsl.ScheduleRefreshTask">
-      <classpath>
-        <pathelement location="${plugindir}/bin/"/>
-      </classpath>
-  </taskdef>
-  
-  <target name="schedule-refresh">
-    <basename property="projectname" file="${basedir}"/>
-    <schedulerefresh projectname="${projectname}" />
-  </target>
-  
-  <!--
+-->
+
+<!--
   <taskdef name="startserver" classname="webdsl.StartServerTask">
       <classpath>
         <pathelement location="${plugindir}/bin/"/>
@@ -291,11 +429,11 @@
   </taskdef>
 
   <target name="start-server">
-    <basename property="projectname" file="${basedir}"/>
+    <basename property="projectname" file="${currentdir}"/>
     <startserver projectname="${projectname}" />
   </target>
-  
-  
+
+
   <taskdef name="polldeployedapp" classname="webdsl.PollDeployedAppTask">
       <classpath>
         <pathelement location="${plugindir}/bin/"/>
@@ -303,119 +441,7 @@
   </taskdef>
 
   <target name="poll-deployed-app">
-    <basename property="projectname" file="${basedir}"/>
+    <basename property="projectname" file="${currentdir}"/>
     <polldeployedapp projectname="${projectname}" />
   </target>
 -->
-  
-  <target name="run-eclipse-build">
-    <!-- invoke incremental build of java code in eclipse
-    <basename property="projectname" file="${basedir}"/>
-    <eclipse.incrementalBuild project="${projectname}" kind="incremental" builder="org.eclipse.jdt.core.javabuilder"/>
-    -->
-    
-    <mkdir dir="${webcontentdir}/WEB-INF/classes/"/>
-        
-    <path id="libraries">
-      <fileset dir="${generate-dir}/WEB-INF/lib/" includes="*.jar"/>
-    </path>
-    
-    <!-- invoke eclipse java compiler -->
-    <condition property="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter">
-      <isset property="eclipse.running"/>
-    </condition>
-    <property name="ant.build.javac.target" value="1.5"/>
-    <property name="ant.build.javac.source" value="1.5"/>
-    <javac destdir="${webcontentdir}/WEB-INF/classes/"
-      failonerror="true"
-      classpathref="libraries"
-      debug="on"
-      fork="true"
-      nowarn="true"
-      memoryinitialsize="256m"
-      memorymaximumsize="1024m">
-      <!-- fork= and memory sizes fix problem with javac throwing outofmemory heap space exception caused by ant 64mb default limit -->
-      <!--     verbose="yes">
-<compilerarg value="-Xlint"/> -->
-      <src path=".servletapp/src-generated" />
-      <src path="nativejava" />
-      <src path=".servletapp/src-template" />
-    </javac>
-  </target>
-
-
-  <target name="eclipse-build-code-only" depends="clean-if-editor-updated">
-
-    <if>
-      <isset property="editor.update.build.performed" />
-      <then>
-        <antcall target="eclipse-build" />
-      </then>
-      <!-- TODO: Build will run again, need graceful abort... -->
-    </if>
-
-    <antcall target="build-without-java-compile-code-only"/>
-
-    <!-- update web.xml, in case of new pages -->
-    <copy file=".servletapp/web.xml" preservelastmodified="true" todir="WebContent/WEB-INF"/>
-
-    <antcall target="run-eclipse-build"/>
-  </target>
-
-
-  <target name="fix-classpath">
-    <script language="javascript">
-      <![CDATA[
-        importClass(java.io.File);
-        importClass(java.io.BufferedReader);
-        importClass(java.io.FileReader);
-        importClass(java.io.BufferedWriter);
-        importClass(java.io.FileWriter);
-        importClass(java.lang.StringBuffer);
-
-        // Access to Ant-Properties by their names
-        var currentdir = project.getProperty("currentdir");
-
-      classpathFile = new StringBuffer();
-      classpathFile.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-      classpathFile.append("<classpath>\n");
-      classpathFile.append("\t<classpathentry kind=\"src\" path=\".servletapp/src-template\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"src\" path=\".servletapp/src-generated\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"src\" path=\"nativejava\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.web.container\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.module.container\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"output\" path=\"WebContent/WEB-INF/classes\"/>\n");
-
-      var filedir = currentdir+"/WebContent/WEB-INF/lib";
-      var appdir = new File(filedir);
-      echo = project.createTask("echo");
-      echo.setMessage(filedir);
-      echo.perform();
-      var libfiles = appdir.listFiles();
-      for ( i = 0 ; i < libfiles.length ; i ++ ) {
-      if ( libfiles[i].isFile ( ) ){
-        classpathFile.append("\t<classpathentry kind=\"lib\" path=\"WebContent/WEB-INF/lib/"+libfiles[i].getName()+"\"/>\n");
-        }
-        }
-
-      classpathFile.append("</classpath>\n");
-
-      try {
-            //write result
-            fw = new FileWriter(currentdir+"/.classpath");
-            bw = new BufferedWriter(fw);
-            bw.write(classpathFile.toString());
-            bw.close();
-            fw.close();
-          } catch (e) {
-            echo = project.createTask("echo");
-            echo.setMessage(e);
-            echo.perform();
-          }
-      ]]>
-        </script>
-        <echo>generated .classpath</echo>
-      </target>
-
-</project>

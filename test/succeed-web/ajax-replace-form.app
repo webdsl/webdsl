@@ -39,30 +39,23 @@ application test
     submit("refresh",action{refresh();})[ajax]
   }
   
-  native class Thread{
-    static sleep(Int)
-  }
-  
-  test encodingstest {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     
     //root first submit button
     d.get(navigate(root()));
-    assert(!(d.getPageSource().contains("404")), "root page may not produce a 404 error");
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==2, "incorrect number of input elements found");
     
     elist[1].click();
-    Thread.sleep(2000);
     
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==13, "incorrect number of input elements found");
     log(d.getPageSource());
     elist[11].click();
-    Thread.sleep(2000);
     
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
     
@@ -70,15 +63,11 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==2, "incorrect number of input elements found");
     elist[1].click();
-    Thread.sleep(2000);
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==13, "incorrect number of input elements found");
     log(d.getPageSource());
     elist[12].click();
-    Thread.sleep(2000);
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
-    
-    d.close();
   }
    

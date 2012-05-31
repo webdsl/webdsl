@@ -1,5 +1,5 @@
 <project name="webdsl-build" default="help">
-  
+
   <import file="webdsl-build-command.xml"/>
   <import file="webdsl-build-deploy.xml"/>
   <import file="webdsl-build-new.xml"/>
@@ -7,43 +7,43 @@
   <import file="webdsl-build-check.xml"/>
   <import file="webdsl-build-clean.xml"/>
   <import file="webdsl-build-index.xml"/>
-  <import file="webdsl-build-eclipse.xml"/>
-  
+
   <property name="libdir" value="${templatedir}/template-java-servlet/lib"/>
   <property name="testlibdir" value="${templatedir}/template-java-servlet/lib-test"/>
   <property name="newprojectdir" value="${templatedir}/new_project"/>
   <property name="javatemplatedir" value="${templatedir}/template-java-servlet"/>
   <property name="webdslsrctemplatedir" value="${templatedir}/template-webdsl"/>
-  
-  
+
+
   <taskdef resource="net/sf/antcontrib/antcontrib.properties">
     <classpath>
       <pathelement location="${testlibdir}/ant-contrib-1.0b3.jar"/>
     </classpath>
   </taskdef>
-  
+
   <!--
   <target name="check-servletapp-dir-exists">
     <if>
       <available file="${currentdir}/${generate-dir}" type="dir"/>
       <then></then>
       <else>
-        <property name="servletapp-dir-not-exists" value="y"/>    	
+        <property name="servletapp-dir-not-exists" value="y"/>
       </else>
     </if>
   </target>
   -->
-  
-  
+
+
   <target name="setup-application-template" unless="stop-because-load-config-failed">
     <antcall target="copy-template-files"/>
     <antcall target="configure-build-properties"/>
     <antcall target="extract-archives"/>
   </target>
 
-  
+
   <target name="copy-template-files">
-     
+
+    <fail unless="requestlogoption"/>
     <fail unless="sessiontimeoutoption"/>
     <fail unless="fastppoption"/>
     <fail unless="statisticsoption"/>
@@ -59,9 +59,9 @@
     <fail unless="tomcatuser"/>
     <fail unless="tomcatpassword"/>
     <fail unless="appname"/>
-    
+
     <mkdir dir="${currentdir}/${generate-dir}"/>
-    
+
     <if>
       <equals arg1="${passtestoption}" arg2="--test" />
       <then>
@@ -77,9 +77,9 @@
         <mkdir dir="${currentdir}/${generate-dir}/lib-test"/>
       </else>
     </if>
-    
+
     <echo level="info">Copying template for webdsl application</echo>
-    
+
     <copy preservelastmodified="true" todir="${currentdir}/${generate-dir}/">
       <fileset dir="${javatemplatedir}/html"/>
     </copy>
@@ -112,9 +112,9 @@
     </copy>
 
   </target>
-    
+
   <target name="configure-build-properties">
-    
+
     <echo level="info">Configuring .servletapp/build.properties</echo>
     <propertyregex property="javatemplatedir"
               input="${javatemplatedir}"
@@ -139,7 +139,11 @@
         replace=""
         override="true" />
     <echo level="info">lucene index dir: ${indexdir}</echo>
-    
+    <if>
+      <not><equals arg1="${ehcachediskstorepath}" arg2="$${ehcachediskstorepath}" /></not>
+      <then><echo level="info">EhCache diskstore dir: ${ehcachediskstorepathwithappname}</echo></then>
+    </if>
+
     <copy overwrite="true" todir="${currentdir}/.servletapp">
       <fileset dir="${javatemplatedir}/">
         <include name="build.properties"/>
@@ -168,7 +172,7 @@
           <token key="DBNAME" value="${dbname}"/>
           <token key="DBUSER" value="${dbuser}"/>
           <token key="DBPASSWORD" value="${dbpassword}"/>
-	  <token key="DBJNDIPATH" value="${dbjndipath}"/>
+          <token key="DBJNDIPATH" value="${dbjndipath}"/>
           <token key="TOMCATMANAGER" value="${tomcatmanager}"/>
           <token key="TOMCATUSER" value="${tomcatuser}"/>
           <token key="TOMCATPASSWORD" value="${tomcatpassword}"/>
@@ -178,62 +182,74 @@
           <token key="WARFILENAME" value="${warfilename}"/>
           <token key="GENERATEDIR" value="${generate-dir}"/>
           <token key="INDEXDIR" value="${indexdir}"/>
+          <token key="SEARCHSTATS" value="${searchstats}"/>
+          <token key="EHCACHETIMEOUT" value="${ehcachetimeout}"/>
+          <token key="EHCACHEDISKSTORE" value="${ehcachediskstore}"/>
           <token key="JAVACMEM" value="${javacmem}"/>
+          <token key="REQUESTLOG" value="${requestlogoption}"/>
         </replacetokens>
       </filterchain>
     </copy>
-   
+
   </target>
-  
-  
+
+
   <target name="extract-archives">
     <antcall target="extract-archives-in-dir"><param name="dir-of-archives-to-extract" value="javascript"/></antcall>
     <antcall target="extract-archives-in-dir"><param name="dir-of-archives-to-extract" value="stylesheets"/></antcall>
   </target>
-  
-  
+
+
   <target name="extract-archives-in-dir">
     <fail unless="dir-of-archives-to-extract"/>
     <fail unless="generate-dir"/>
-    
+
     <untar overwrite="false" dest="${currentdir}/${generate-dir}/${dir-of-archives-to-extract}" compression="gzip">
       <fileset dir="${currentdir}/${generate-dir}/${dir-of-archives-to-extract}">
         <include name="**/*.tar.gz"/>
       </fileset>
     </untar>
   </target>
-  
-  
+
+
   <target name="copy-application-files-for-build">
     <echo level="info">Copying your application files</echo>
-    
+
     <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/WEB-INF/lib">
       <fileset dir="${currentdir}/lib">
         <include name="**/*.class" />
         <include name="**/*.jar" />
       </fileset>
     </copy>
-    
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/javascript">
-      <fileset dir="${currentdir}/javascript"/>
+
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/javascript" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/javascript/*"/>
+      </fileset>
     </copy>
-    
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/images">
-      <fileset dir="${currentdir}/images"/>
+
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/images" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/images/*"/>
+      </fileset>
     </copy>
-  	
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/analyzerfiles">
-      <fileset dir="${currentdir}/search/analyzerfiles"/>
+
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/analyzerfiles" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/search/analyzerfiles/*"/>
+      </fileset>
     </copy>
-    	
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/stylesheets">
-      <fileset dir="${currentdir}/stylesheets"/>
+
+    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/stylesheets" flatten="yes">
+      <fileset dir="${currentdir}/">
+        <include name="**/stylesheets/*"/>
+      </fileset>
     </copy>
-    
+
     <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/">
       <fileset dir="${currentdir}/html"/>
     </copy>
-    
+
     <copy failonerror="false" overwrite="true" todir="${currentdir}/.servletapp/src-template">
       <fileset dir="${currentdir}/">
         <include name="*.ctree"/>
@@ -244,16 +260,24 @@
     </copy>
   </target>
 
-  
+
   <target name="invoke-webdslc" unless="stop-because-load-config-failed">
     <antcall target="copy-application-files-for-build"/>
     <antcall target="invoke-webdslc-compile"/>
-  </target>	
+  </target>
+
+  <taskdef name="taskjavawebdslused" classname="org.webdsl.ant.TaskJavaWebDSLUsed"/>
+
+  <condition property="skip-webdsl-compile"> 
+    <or> 
+      <isset property="stop-because-load-config-failed"/>
+      <isset property="skip-webdsl-compile-because-no-app-file-changed"/>
+    </or>
+  </condition> 
   
-  
-  <target name="invoke-webdslc-compile" unless="stop-because-load-config-failed">
+  <target name="invoke-webdslc-compile" unless="skip-webdsl-compile">
     <echo level="info">Building application</echo>
-  
+
     <if><equals arg1="${passtestoption}" arg2="$${passtestoption}"/>
       <then><property name="passtestoption" value=""/></then>
     </if>
@@ -265,8 +289,8 @@
       <then><property name="compilebuiltins-option" value=""/></then>
       <else><property name="compilebuiltins-option" value="--compile-built-ins"/></else>
     </if>
-    
-  
+
+
     <fail unless="webdslexec"/>
     <fail unless="appname"/>
     <fail unless="sessiontimeoutoption"/>
@@ -278,21 +302,14 @@
     <fail unless="passtestoption"/>
     <fail unless="extratypecheckoption"/>
     <fail unless="build-id-option"/>
-  
+
     <property name="webdslc-args" value="--servlet -i ../${appname}.app ${sessiontimeoutoption} ${statisticsoption}
       ${fastppoption} ${verboseoption} ${debugoption} ${passtestoption} ${extratypecheckoption} ${cachingoption}
-      ${build-id-option} --dir ${currentdir}/.servletapp ${compilebuiltins-option} --indexdir ${indexdir}"/>
+      ${build-id-option} --dir &quot;${currentdir}/.servletapp&quot; ${compilebuiltins-option} --indexdir ${indexdir}"/>
     <echo level="info">webdslc arguments: ${webdslc-args}</echo>
-  
-    <!-- determine if java webdsl is being used -->
-    <script language="javascript"> <![CDATA[
-      execcommand = project.getProperty("webdslexec");
-      if(execcommand.startsWith("java")){
-        project.setProperty("using-webdsl-java","true");
-        //project.setProperty("webdsl-java-options",execcommand.substring(4,execcommand.length()));
-      }
-    ]]></script>
-  
+
+    <taskjavawebdslused/>
+
     <if>
       <equals arg1="${using-webdsl-java}" arg2="true"/>
       <then>
@@ -310,7 +327,7 @@
            </then>
         </if>
         <echo level="info">Directory: ${currentdir}/${generate-dir}</echo>
-  
+
         <!--
           When runnning from Eclipse in the plugin, the classpatch should not be set,
           that way the already loaded stratego and webdsl jars will be used,
@@ -344,8 +361,8 @@
       </else>
     </if>
   </target>
-    
-  
+
+
   <target name="suggest-to-create-application-ini">
     <input
       message="Cannot find application.ini. This file is necessary to build the application for you. Want to create an application.ini now? [y/n]:"
@@ -371,8 +388,9 @@
       </else>
     </if>
   </target>
-  
-  
+
+  <taskdef name="taskconvertapplicationini" classname="org.webdsl.ant.TaskConvertApplicationIni"/>
+
   <!-- to be used in the 'depends' property of a target, so you don't have to list all the vars -->
   <target name="load-config" unless="${config-loaded}">
     <if>
@@ -383,61 +401,9 @@
         <if>
           <equals arg1="${appname}" arg2="$${appname}"/>
           <then>
-            <echo level="info">Updating application.ini to new syntax</echo>  
+            <echo level="info">Updating application.ini to new syntax</echo>
 
-            <!-- convert old style application.ini to new style application.ini -->
-            <script language="javascript"> <![CDATA[
-              importClass(java.io.File);
-              importClass(java.io.BufferedReader);
-              importClass(java.io.FileReader);
-              importClass(java.io.BufferedWriter);
-              importClass(java.io.FileWriter);
-              importClass(java.lang.StringBuilder);
-              importClass(java.util.regex.Pattern);
-              importClass(java.util.regex.Matcher);
-
-              // Access to Ant-Properties by their names
-              currentdir = project.getProperty("currentdir");
-
-              newcontents = new StringBuilder();
-              p = Pattern.compile("export (.*)=(.*)");
-              ptrailingspaces = Pattern.compile("\\s+$");
-
-              try {
-                fr = new FileReader(currentdir+"/application.ini");
-                br = new BufferedReader(fr);
-                while (( line = br.readLine()) != null && line.startsWith("export")){
-                  echo = project.createTask("echo");
-                  echo.setMessage("- "+line);
-                  echo.perform();
-              
-                  m = p.matcher(line);
-                  m.find();
-                  transformedline=m.group(1).toLowerCase()+"="+m.group(2);
-                  //remove trailing spaces
-                  mspaces = ptrailingspaces.matcher(transformedline);
-                  transformedline = mspaces.replaceAll("");
-                  newcontents.append(transformedline+"\n");
-                
-                  echo = project.createTask("echo");
-                  echo.setMessage("+ "+transformedline);
-                  echo.perform();
-                }
-                br.close();
-                fr.close();
-              
-                //write result
-                fw = new FileWriter(currentdir+"/application.ini");
-                bw = new BufferedWriter(fw);
-                bw.write(newcontents.toString());
-                bw.close();
-                fw.close();
-              } catch (e) {
-                echo = project.createTask("echo");
-                echo.setMessage(e);
-                echo.perform();
-              }
-            ]]></script>
+            <taskconvertapplicationini/>
 
             <echo level="info">Retry loading application settings (application.ini)</echo>
             <loadproperties srcFile="${currentdir}/application.ini"/>
@@ -455,11 +421,16 @@
         </if>
       </else>
     </if>
-    
+
     <fail unless="appname" message="Build stopped because no 'appname' was specified in application.ini"/>
     <available file="${currentdir}/${appname}.app" property="does-main-app-file-exist"/>
     <fail unless="does-main-app-file-exist" message="Build stopped because the main ${appname}.app file does not exist."/>
-    
+
+        <if>
+          <equals arg1="${requestlog}" arg2="$${requestlog}" />
+          <then><property name="requestlogoption" value="false"/></then>
+          <else><property name="requestlogoption" value="${requestlog}"/></else>
+        </if>
         <if>
           <equals arg1="${sessiontimeout}" arg2="$${sessiontimeout}" />
           <then><property name="sessiontimeoutoption" value="--session-timeout 1440"/></then>
@@ -480,14 +451,14 @@
           <then>
             <property name="debugoption" value="--debug"/>
             <property name="debughibernate" value="hibernate.show_sql=true"/>
-            <property name="debuglog4j1" value="log4j.rootLogger=info, stdout"/>
-            <property name="debuglog4j2" value="log4j.logger.org.hibernate.type=trace"/>
+            <property name="debuglog4j1" value="log4j.rootLogger=debug, stdout"/>
+            <property name="debuglog4j2" value="log4j.appender.stdout.Threshold=debug"/>
           </then>
           <else>
             <property name="debugoption" value=""/>
             <property name="debughibernate" value=""/>
-            <property name="debuglog4j1" value=""/>
-            <property name="debuglog4j2" value=""/>
+            <property name="debuglog4j1" value="log4j.rootLogger=error, stdout"/>
+            <property name="debuglog4j2" value="log4j.appender.stdout.Threshold=error"/>
           </else>
         </if>
         <if>
@@ -551,43 +522,70 @@
           <then><property name="indexdir" value="/var/indexes"/></then>
         </if>
         <if>
+          <equals arg1="${searchstats}" arg2="$${searchstats}" />
+          <then><property name="searchstats" value="false"/></then>
+        </if>
+        <if>
+          <equals arg1="${ehcachetimeout}" arg2="$${ehcachetimeout}" />
+          <then><property name="ehcachetimeout" value="900"/></then>
+          <else><property name="ehcachetimeout" value="${ehcachetimeout}"/></else>
+        </if>
+        <if>
+          <equals arg1="${ehcachediskstorepath}" arg2="$${ehcachediskstorepath}" />
+          <then><property name="ehcachediskstore" value=""/></then>
+          <else>
+            <propertyregex property="ehcachediskstorepath"
+                      input="${ehcachediskstorepath}"
+                      regexp="\\"
+                      replace="/"
+                      override="true" />
+            <propertyregex property="ehcachediskstorepath"
+                      input="${ehcachediskstorepath}"
+                      regexp="/$"
+                      replace=""
+                      override="true" />
+            <property name="ehcachediskstorepathwithappname" value="${ehcachediskstorepath}/${appname}"/>
+            <property name="ehcachediskstore" value="utils.ehcache.diskstore.path=${ehcachediskstorepathwithappname}"/>
+          </else>
+        </if>
+        <if>
           <equals arg1="${javacmem}" arg2="$${javacmem}" />
           <then><property name="javacmem" value="1550m"/></then>
         </if>
-    
+
         <property name="config-loaded" value="1" />
         <echo level="info">${appname}</echo>
-    
+
   </target>
-  
+
     <target name="make-app-code-without-template-copy">
       <fail unless="config-loaded"/>
       <echo level="info">appname: ${appname}</echo>
       <antcall target="configure-build-properties"/>
       <antcall target="invoke-webdslc" />
-    </target>	  
+    </target>
 
   <target name="make-app-code">
     <fail unless="config-loaded"/>
     <echo level="info">appname: ${appname}</echo>
     <antcall target="setup-application-template"/>
     <antcall target="invoke-webdslc" />
-  </target>	
-  
-  
+  </target>
+
+
   <target name="make-app">
     <antcallback target="make-app-code" return="appname"/>
     <echo level="info">Now compiling generated Java code</echo>
     <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/${generate-dir}/build.xml" target="compile"/>
   </target>
-  
+
 
   <target name="build" depends="load-config, clean-if-needed">
     <antcall target="make-app"/>
     <echo level="info">Build done. Run 'webdsl deploy' or 'webdsl tomcatdeploy' to deploy (also creates a war file).</echo>
   </target>
 
-  
+
   <target name="clean-if-needed" depends="load-config">
     <if>
       <not><equals arg1="${caching}" arg2="1" /></not>
@@ -596,33 +594,33 @@
       </then>
     </if>
   </target>
-  
-  
+
+
   <target name="rebuild" depends="load-config, clean-if-needed">
     <antcall target="invoke-webdslc-compile" />
     <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/${generate-dir}/build.xml" target="compile"/>
   </target>
-  
-  
+
+
   <target name="rebuilddeploy" depends="load-config, clean-if-needed">
     <antcall target="invoke-webdslc-compile" />
     <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/${generate-dir}/build.xml" target="compile"/>
     <ant dir="${currentdir}/.servletapp" antfile="${currentdir}/${generate-dir}/build.xml" target="tomcatdeploy"/>
   </target>
-  
-  
+
+
   <target name="build-without-java-compile" depends="load-config, clean-if-needed">
     <antcall target="make-app-code"/>
   </target>
- 
+
   <target name="build-without-java-compile-without-template-copy" depends="load-config, clean-if-needed">
     <antcall target="make-app-code-without-template-copy"/>
   </target>
-  
+
   <target name="build-without-java-compile-code-only" depends="load-config, clean-if-needed">
     <echo level="info">appname: ${appname}</echo>
     <antcall target="invoke-webdslc-compile" />
   </target>
-  
-  
+
+
 </project>

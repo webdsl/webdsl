@@ -21,10 +21,9 @@ section somesection
     "custom logout page"
   }
   
-  test one {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(logout()));
     assert(d.getPageSource().contains("custom logout page"));
-    d.close();
   }
   

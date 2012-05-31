@@ -6,26 +6,23 @@ application test
       return root();
     }
     submit action{ return root(); } {"2"}
+    "foobarrootpage"
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 2, "expected <input> elements did not match");
     elist[0].click();
     
-    assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
+    assert(d.getPageSource().contains("foobarrootpage"));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 2, "expected <input> elements did not match");
     elist[1].click();
 
-    assert(!(d.getPageSource().contains("404")), "redirect may not produce a 404 error");
-
-    d.close();
+    assert(d.getPageSource().contains("foobarrootpage"));
   }
   

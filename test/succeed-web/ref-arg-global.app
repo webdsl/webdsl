@@ -17,21 +17,13 @@ application test
     input(s)
   }
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
     elist[0].sendKeys("23456");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     elist[0].click();  
-    
-    log(d.getPageSource());
-    
     assert(d.getPageSource().contains("123456"), "reference arguments not working as expected");
-    
-    d.close();
   }
   

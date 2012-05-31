@@ -19,7 +19,7 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/images/*.gif) \
   $(wildcard template-java-servlet/images/*.png) \
   $(wildcard template-java-servlet/stylesheets/*) \
-  $(wildcard template-webdsl/*) 
+  $(wildcard template-webdsl/*)
 
 EXTRA_DIST = \
   webdsl.bat \
@@ -48,6 +48,7 @@ nobase_dist_pkgdata_DATA = \
   webdsl-build-check.xml \
   webdsl-build-clean.xml \
   webdsl-build-eclipse.xml \
+  webdsl-build-eclipse-plugin-entry.xml \
   webdsl-build-index.xml
 
 # probably enough depth
@@ -66,19 +67,20 @@ template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS)
 # precompile built-in.app, see precompile-built-ins
 install-data-hook:
 	echo 'precompiling built-in.app'
-	$(shell cd $(top_srcdir)/precompile-built-ins/; $(bindir)/webdsl cleanall build &> compile_output.txt)
+	$(shell cd $(top_srcdir)/precompile-built-ins/; $(bindir)/webdsl cleanall check &> compile_output.txt)
 	cat $(top_srcdir)/precompile-built-ins/compile_output.txt
 	echo 'finished precompiling built-in.app'
 	ant -f $(top_srcdir)/precompile-built-ins/build.xml deploy
-	cp template-java-servlet/lib/webdsl-built-ins.jar $(pkgdatadir)/template-java-servlet/lib
+	cp template-java-servlet/lib/webdsl-built-ins.jar $(pkgdatadir)/template-java-servlet/lib 
+#
+# extra files needed to be able to build the Eclipse plugin directly from compiler build output (e.g. using http://hydra.nixos.org/job/webdsl/trunk/buildJavaZip)
+#
+	cp webdsl webdsl-plugins webdsl.bat webdsl-eclipseplugin webdsl-eclipseplugin.bat $(pkgdatadir)/
+	mkdir -p $(pkgdatadir)/plugin-build-deps
+	cp -R $(JAVA_FRONT)/share/java-front/ $(pkgdatadir)/plugin-build-deps/java-front/
+	chmod -R +w $(pkgdatadir)/plugin-build-deps/java-front/ #copied from nix store, marked as read-only, breaks subsequent make install
 
 install-data-local:
-	mkdir -p $(pkgdatadir)/template/app
-	mkdir -p $(pkgdatadir)/template/dist
-	mkdir -p $(pkgdatadir)/template/exploded-archives
-	mkdir -p $(pkgdatadir)/template/server/default/log
-	mkdir -p $(pkgdatadir)/template/src
-	mkdir -p $(pkgdatadir)/template/test
 	mkdir -p $(pkgdatadir)/new_project
 	mkdir -p $(pkgdatadir)/template-java-servlet
 	mkdir -p $(pkgdatadir)/template-java-servlet/lib

@@ -15,34 +15,39 @@ overlays
 rules
 
   hibernate-forall-criteria :
-    (term{JoinProperties(joinproperties)}, t, x, srt, fltr) -> e_criteria
-    with  e_criteria := <foldr(!expr|[ e_HibSession.createCriteria(t.class).setCacheable(true) ]|,hibernate-forall-criteria-join)> joinproperties
+    (term{anno*}, t, x, srt, fltr) -> e_criteria
+    with <fetch-elem(?JoinProperties(joinproperties))> anno*
+      ; e_criteria := <foldr(!<try(hibernate-add-cacheable(|anno*))>expr|[ e_HibSession.createCriteria(t.class) ]|,hibernate-forall-criteria-join)> joinproperties
         //try on next line since not all ordering can be translated to query
         /** ; e_criteria := <foldr(!e0,hibernate-forall-criteria-filter(|x,srt));where(rules(OrderAndLimitApplied:=True())) <+ !e0> [lim,ob]  */
-    
+
+  hibernate-add-cacheable(|anno*) :
+    e -> expr |[ e.setCacheable(true) ]|
+    where <fetch-elem(?CachedEntity())> anno*
+
   hibernate-forall-criteria-join:
     (str, e) -> expr|[ e.setFetchMode("~str", org.hibernate.FetchMode.JOIN) ]|
 
   /**
    * Hibernate optimization below on hold, Zef is working on a replacement ORM
    */
-  /* 
+  /*
   hibernate-forall-criteria-filter(|x,srt) = hibernate-forall-criteria-filter
-  
-  hibernate-forall-criteria-filter: 
+
+  hibernate-forall-criteria-filter:
     (Limit(limit,first), e) -> expr|[ e.setFirstResult(e_first).setMaxResults(e_limit) ]|
     with  e_limit := <expression-to-java-servlet> limit
         ; e_first := <expression-to-java-servlet> first
 
   hibernate-forall-criteria-filter(|x,srt) =
-    // if the order clause is simply a property, then the query can do the ordering   
+    // if the order clause is simply a property, then the query can do the ordering
     hibernate-forall-criteria-order-is-prop(|x,srt)
   <+\(OrderDescending(Null()), e) -> e\
   <+\(OrderAscending(Null()), e) -> e\
-  
+
   hibernate-forall-criteria-order-is-prop(|x,srt) :
     (OrderDescending(orderexp), e) -> <hibernate-forall-criteria-order-is-prop-helper(|x,srt,"desc")> (orderexp, e)
-     
+
   hibernate-forall-criteria-order-is-prop(|x,srt) :
     (OrderAscending(orderexp), e) -> <hibernate-forall-criteria-order-is-prop-helper(|x,srt,"asc")> (orderexp, e)
 
@@ -56,17 +61,17 @@ rules
 
 rules
 
-  generate-code-java-servlet-once = 
+  generate-code-java-servlet-once =
       bagof-AllEntityNames; string-sort-annos
     ; cached-generate(generate-java-servlet-hibernate-util | "internal_HibernateUtil")
     ; fail
-    
+
   generate-java-servlet-hibernate-util :
     all-entity-names -> <emit-java-code-local> compilation-unit|[
 	package utils;
-	
+
 	import java.util.Properties;
-	
+
 	import org.hibernate.*;
 	import org.hibernate.cfg.*;
 	import org.webdsl.*;
@@ -86,9 +91,9 @@ rules
 	import org.hibernate.service.spi.SessionFactoryServiceRegistry;
 	import org.hibernate.service.spi.ServiceRegistryImplementor;
 	import java.util.*;
-	
+
     import pkgname.*;
-    @SuppressWarnings("unused") 
+    @SuppressWarnings("unused")
     public class HibernateUtilConfigured {
         private static final SessionFactory sessionFactory;
 	    private static MetadataSources metadatasources;
@@ -97,97 +102,96 @@ rules
 	   	private static SetVersionSaveOrUpdateEventListener setVersionEventlistener;
 		private static SetValidationEventListener setValidationListener;
 	    static
-	    { 
+	    {
 	      try
-	      { 
+	      {
 	    	  	// registry  = new ServiceRegistryBuilder().addService(EventListenerRegistry.class, new EventListenerRegistryImpl()).buildServiceRegistry();
 	    	  	annotationConfiguration = new Configuration();
 				annotationConfiguration.addPackage("utils");
 				annotationConfiguration.addAnnotatedClass(utils.ApplicationContextProperty.class);
 				annotationConfiguration.addAnnotatedClass(utils.File.class);
 				annotationConfiguration.addPackage("org.webdsl.search");
-				annotationConfiguration.addAnnotatedClass(org.webdsl.search.SearchNamespace.class);
 				annotationConfiguration.addPackage("webdsl.generated.domain");
-				
+
 				bstm*
-	            
+
 	            setVersionEventlistener = new SetVersionSaveOrUpdateEventListener();
 				setValidationListener = new SetValidationEventListener();
-	            
+
 	            sessionFactory = annotationConfiguration.buildSessionFactory();
 	            registry = ( ( SessionFactoryImplementor ) sessionFactory).getServiceRegistry();
 	            EventListenerRegistry listenerRegistry = registry.getService( EventListenerRegistry.class );
 
 				listenerRegistry.getEventListenerGroup( EventType.SAVE_UPDATE ).appendListener( setVersionEventlistener );
 				listenerRegistry.getEventListenerGroup( EventType.FLUSH_ENTITY ).appendListener( setValidationListener );
-	            
+
 	        } catch (Throwable ex) {
 	            throw new ExceptionInInitializerError(ex);
 	        }
 	    }
-	
+
 	    public static SessionFactory getSessionFactory() {
 	        return sessionFactory;
 	    }
-	    
+
 	    public static MetadataSources getMetaDataSources()
-	    { 
+	    {
 	      return metadatasources;
 	    }
-	    
-        // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
+
+        // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity
 	    @SuppressWarnings("serial")
-	    private static class SetVersionSaveOrUpdateEventListener implements SaveOrUpdateEventListener 
+	    private static class SetVersionSaveOrUpdateEventListener implements SaveOrUpdateEventListener
 	    {
 	      public void onSaveOrUpdate(SaveOrUpdateEvent event)  throws HibernateException
-	      { 
+	      {
 	        setVersion(event.getObject());
 	      }
-	  
+
 	      public void setVersion(Object o)
-	      { 
+	      {
 	        if(org.hibernate.Hibernate.isInitialized(o) && o instanceof WebDSLEntity)
-	        { 
+	        {
 	          WebDSLEntity we = (WebDSLEntity)o;
 	          if(we.getVersion() <= 0)
-	          { 
+	          {
 	            we.setVersion(1);
 	          }
 	        }
 	      }
-	    } 
-	    
+	    }
+
 	    //register which objects need to be validated at the end of an action
 	    @SuppressWarnings("serial")
 	    private static class SetValidationEventListener implements FlushEntityEventListener
-	    { 
+	    {
 	        public void onFlushEntity(FlushEntityEvent event) throws HibernateException
-	        { 
+	        {
 	          validate(event.getEntity());
 	        }
-	        
+
 	        public void validate(Object o)
-	        { 
+	        {
 	            if(o instanceof WebDSLEntity)
-	            { 
+	            {
 	                WebDSLEntity we = (WebDSLEntity)o;
 	                AbstractPageServlet aps = ThreadLocalPage.get();
 	                if(aps != null){
-	                  aps.addEntityToValidateAfterAction(we); 
+	                  aps.addEntityToValidateAfterAction(we);
 	                }
 	            }
 	        }
 	    }
-	    
+
 	}
     ]|
     with pkgname := <DomainPackage>
        ; domainpack := <pp-java5-to-string> <DomainPackage>
-       ; bstm* := <map({\ 
-                           x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]| 
+       ; bstm* := <map({\
+                           x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]|
                            where x_class := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x,".class"]
                        \})> all-entity-names
-      /* ; if not([] := <bagof-AllGlobalVars>) 
+      /* ; if not([] := <bagof-AllGlobalVars>)
          then bstm1* := [ bstm |[ annotationConfiguration.addAnnotatedClass(ApplicationContextProperty.class); ]| ]
          else bstm1* := [] end
  */

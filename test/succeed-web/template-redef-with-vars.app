@@ -29,8 +29,8 @@ application test
     "error"
   }
 
-  test var {
-    var d : WebDriver := FirefoxDriver();
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("12345"), "regular arg not passed");
   
@@ -41,7 +41,5 @@ application test
     elist[3].click();
     
     assert(d.getPageSource().contains("dfsdfg3234567"), "resulting name incorrect");
-
-    d.close();
   }
   

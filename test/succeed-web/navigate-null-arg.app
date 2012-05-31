@@ -14,13 +14,10 @@ application test
   
   define page test(t:String){}
 
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("123456789"), "page not shown");
     assert(!d.getPageSource().contains("test-link-navigate-null"), "navigate should be hidden");
-    d.close(); 
   }
   

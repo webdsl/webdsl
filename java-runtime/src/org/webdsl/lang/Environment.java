@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import utils.LocalTemplateArguments;
+import utils.ThreadLocalAction;
+import utils.ThreadLocalPage;
+import utils.ThreadLocalTemplate;
 
 public class Environment {
 
@@ -156,6 +159,19 @@ public class Environment {
             extraLocalTemplateArguments = new HashMap<String,LocalTemplateArguments>();
         }
         extraLocalTemplateArguments.put(key, value);
-    }    
+    }  
+    
+    /**
+     * Utility for expression translation, to retrieve either a new env from the action/template context (if available, 
+     * which is the case when the expression is used inside an action/template), or from the global env (expression used inside a function).
+     * @return {@link Environment}
+     */
+    public static Environment getLocalOrGlobalEnv(){
+        Environment result = ThreadLocalTemplate.getEnv();
+        if(result == null){
+            result = ThreadLocalPage.getEnv();
+        }
+        return new Environment(result);
+    }
     
 }

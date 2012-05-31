@@ -55,10 +55,9 @@ application input
   }
   
   test inputvalidate {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
-    assert(!d.getPageSource().contains("404"), "root page may not produce a 404 error");
 
     var elist := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 8, "expected 8 <input> elements");
@@ -94,6 +93,4 @@ application input
     elist[7].click();
    
     assert(d.getTitle() == "ttdsfsdfds", "action didn't complete correctly, redirect was not performed or name value is wrong");
-   
-    d.close();
   }

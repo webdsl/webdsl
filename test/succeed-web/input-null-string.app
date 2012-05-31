@@ -28,14 +28,12 @@ application formcheckseparate
 
 
   test one {
-    var d : WebDriver := HtmlUnitDriver();
+    var d : WebDriver := getHtmlUnitDriver();
     
     d.get(navigate(root()));
     assert(!d.getPageSource().contains("\"null\""), "null value should not be shown");
     
     d.get(navigate(root2()));
     assert(d.getPageSource().contains("null"), "null string should be shown");
-
-    d.close();
   }
   

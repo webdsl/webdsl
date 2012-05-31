@@ -313,13 +313,13 @@ rules //templatecall
         if(x_argsextra != null){
           x_args = ArrayUtils.addAll(x_args,x_argsextra.extraArgs);
         }
-        if(templatecalls.get(ident)==null){
-          templatecalls.put(ident,(TemplateServlet)env.getTemplate(e_name).newInstance());
+        if(e_shouldcreatetemplateinstance){
+          getTemplatecalls().put(ident,e_newtemplateinstance);
         }
         org.webdsl.lang.Environment newenv = new Environment(env);
         bstm_withcallsmap*
         bstm_attrs*
-        ((TemplateServlet) templatecalls.get(ident)).x_methodname(e_parentname, x_args, newenv, attrsmapout, x_argsextra); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
+        (onlyPerformingRenderPhase()?e_newtemplateinstance:e_retrievetemplateinstance).x_methodname(e_parentname, x_args, newenv, attrsmapout, x_argsextra); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
         ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
           if (ThreadLocalPage.get().hasExecutedAction)
             return;
@@ -329,7 +329,7 @@ rules //templatecall
       {
         System.out.println("Problem occurred in template call: "+e_tcerrormessage);
         //System.out.println(ex.toString());
-        ex.printStackTrace(); // print stack trace to get location, remove when location is always available for webdsl code
+        utils.Warning.printSmallStackTrace(ex); // print first line of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
       }
       ident = "";
       bstm_leavetemplatecontext*
@@ -338,6 +338,11 @@ rules //templatecall
     ]|
     with  x_args := <newname> "args"
         ; x_argsextra := <newname> "args2"
+        ; e_newtemplateinstance := java:expr|[ (TemplateServlet) env.getTemplate(e_name).newInstance() ]|
+        ; e_retrievetemplateinstance := java:expr|[ ((TemplateServlet) getTemplatecalls().get(ident)) ]|
+        ; if not(<?"render"> x_methodname)
+          then e_shouldcreatetemplateinstance := java:expr|[ getTemplatecalls().get(ident)==null ]|
+          else e_shouldcreatetemplateinstance := java:expr|[ !onlyPerformingRenderPhase() && getTemplatecalls().get(ident)==null ]| end
         ; e_tcerrormessage := <template-call-to-java-string> tc
         ; if is-template-context-passed := <not(<is-string> tname)>
           then x_tmptc := <newname> "tempcontext"

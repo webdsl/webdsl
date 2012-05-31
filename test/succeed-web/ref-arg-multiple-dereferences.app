@@ -34,15 +34,12 @@ application test
     messageHeader2(globalmbox)
   }
   
-  test one {
-    
-    var d : WebDriver := HtmlUnitDriver();
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
 
     d.get(navigate(root()));
     
     assert(d.getPageSource().contains("01/01/2011 11:50"));
     assert(d.getPageSource().contains("12/12/2012 12:12"));
-    
-    d.close();
   }
   

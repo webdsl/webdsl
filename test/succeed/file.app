@@ -22,6 +22,9 @@ section datamodel
         output(u.name)
         
         output(u.storedfile)
+        <br/>
+        "content as string: "
+        output(u.storedfile.getContentAsString())
         
         //action("custom download button",download(u))
      //   output(u.storedfile)
@@ -36,6 +39,11 @@ section datamodel
 
       action("save",save())
       actionLink("save",save())
+      action("save and log contentasstring",saveandlog())
+    }
+    action saveandlog() {
+      log(u.storedfile.getContentAsString());
+      u.save();
     }
 
     action save() {

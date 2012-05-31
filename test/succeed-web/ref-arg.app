@@ -53,10 +53,8 @@ application test
     input(a)
   }
   
-  test one {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
@@ -68,9 +66,7 @@ application test
       elist[i].sendKeys("0");
     }
     elist[12].click();  
-    //log(d.getPageSource());
+
     assert(d.getPageSource().contains("10 2 30 1 20 1 true 10 1 10"), "reference arguments not working as expected");
-    
-    d.close();
   }
   

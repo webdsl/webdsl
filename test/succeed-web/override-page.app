@@ -8,15 +8,9 @@ application test
     "default root"
   }
   
-  test buttonclick {
-    
-    var d : WebDriver := FirefoxDriver();
-
+  test {
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    
-    log(d.getPageSource());
     assert(d.getPageSource().contains("123456789"));
-
-    d.close();
   }
   

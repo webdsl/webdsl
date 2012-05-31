@@ -25,8 +25,8 @@ public class HibernateLog {
 	protected String _error = null;
 
 	public static void printHibernateLog(PrintWriter sout, org.hibernate.Session session) {
-		NDCAppender ndcAppender = NDCAppender.getNamed("hibernateLog");
-		if(ndcAppender != null) { 
+		NDCAppender ndcAppender = NDCAppender.getInstance();
+		if(ndcAppender != null) {
 			String log = ndcAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
 			if(hibLog.tryParse(log)) {
@@ -40,7 +40,7 @@ public class HibernateLog {
 	}
 
 	public HibernateLog() {
-		
+
 	}
 
 	public boolean tryParse(String str) {
@@ -78,7 +78,7 @@ public class HibernateLog {
 
     public void parse(BufferedReader rdr) throws IOException, ParseException {
         SimpleDateFormat absoluteFormat = new SimpleDateFormat("HH:mm:ss,SSS");
-        org.hibernate.jdbc.util.BasicFormatterImpl sqlFormat = new org.hibernate.jdbc.util.BasicFormatterImpl();
+        org.hibernate.engine.jdbc.internal.BasicFormatterImpl sqlFormat = new org.hibernate.engine.jdbc.internal.BasicFormatterImpl();
         String line;
         int linenr = 0;
         _list = new ArrayList<HibernateLogEntry>();
@@ -99,14 +99,14 @@ public class HibernateLog {
         			current = new HibernateLogEntry();
         			current.openTime = absoluteFormat.parse(time);
         			if(_firstQueryStart == null) {
-        				_firstQueryStart = current.openTime; 
+        				_firstQueryStart = current.openTime;
         			}
         			_list.add(current);
         		}
         		else if(msg.indexOf("about to close PreparedStatement") == 0) {
         			if(current == null) throw new ParseException("No statement to close", linenr);
         			current.closeTime = absoluteFormat.parse(time);
-        			_lastQueryEnd = current.closeTime;  
+        			_lastQueryEnd = current.closeTime;
         			current.durationInclusive = dateDiff(current.openTime, current.closeTime);
         			current.durationExclusive = current.durationInclusive;
         			_totalTime += current.durationInclusive;
@@ -139,7 +139,7 @@ public class HibernateLog {
         			while(current.parameterVals.size() - 1 < index - 1)
         			{
         				current.parameterVals.add("<null>");
-        				current.parameterTypes.add("null");            				
+        				current.parameterTypes.add("null");
         			}
         			current.parameterVals.set(index - 1, value);
         			current.parameterTypes.set(index - 1, type);
@@ -155,7 +155,7 @@ public class HibernateLog {
         			while(current.parameterVals.size() - 1 < index - 1)
         			{
         				current.parameterVals.add("null");
-        				current.parameterTypes.add("null");            				
+        				current.parameterTypes.add("null");
         			}
         			current.parameterVals.set(index - 1, value);
         			current.parameterTypes.set(index - 1, type);
@@ -176,7 +176,7 @@ public class HibernateLog {
 			int logindex = 0;
 			java.util.List<utils.HibernateLogEntry> longestThree = new java.util.ArrayList<utils.HibernateLogEntry>();
 			for(utils.HibernateLogEntry entry : _list)
-			{ 
+			{
 				logindex++;
 				if(longestThree.size() == 0) {
 					longestThree.add(entry);
@@ -202,11 +202,11 @@ public class HibernateLog {
 			}
 			sout.print("<p>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + getTotalTimespan() + " ms</span>");
 			boolean printedSessionContext = false;
-			if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {
-				org.hibernate.engine.PersistenceContext context = ((org.hibernate.engine.SessionImplementor)session).getPersistenceContext();
+			if(session != null && session instanceof org.hibernate.engine.spi.SessionImplementor) {
+				org.hibernate.engine.spi.PersistenceContext context = ((org.hibernate.engine.spi.SessionImplementor)session).getPersistenceContext();
 				if(context != null) {
-					Map entityEntries = context.getEntityEntries();
-					Map collectionEntries = context.getCollectionEntries();
+					Map<?,?> entityEntries = context.getEntityEntries();
+					Map<?,?> collectionEntries = context.getCollectionEntries();
 					int entities = 0;
 					int collections = 0;
 					SortedMap<String, Integer> entCounter = new TreeMap<String, Integer>();
@@ -214,8 +214,8 @@ public class HibernateLog {
 					if(entityEntries != null && collectionEntries != null) {
 						// Count entities in the hibernate session by classname
 						for(Object ent : entityEntries.values()) {
-							if(ent instanceof org.hibernate.engine.EntityEntry) {
-								org.hibernate.engine.EntityEntry entEntry = (org.hibernate.engine.EntityEntry)ent;
+							if(ent instanceof org.hibernate.engine.spi.EntityEntry) {
+								org.hibernate.engine.spi.EntityEntry entEntry = (org.hibernate.engine.spi.EntityEntry)ent;
 								String name = entEntry.getEntityName();
 								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
 								Integer count = entCounter.get(name);
@@ -230,15 +230,15 @@ public class HibernateLog {
 
 						// Count collections in the hibernate session by their role
 						for(Object col : collectionEntries.values()) {
-							if(col instanceof org.hibernate.engine.CollectionEntry) {
-								org.hibernate.engine.CollectionEntry colEntry = (org.hibernate.engine.CollectionEntry)col;
+							if(col instanceof org.hibernate.engine.spi.CollectionEntry) {
+								org.hibernate.engine.spi.CollectionEntry colEntry = (org.hibernate.engine.spi.CollectionEntry)col;
 								org.hibernate.persister.collection.CollectionPersister persister = colEntry.getLoadedPersister();
 								if(persister != null) {
 									String name = persister.getRole();
 									if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
 									Integer count = colCounter.get(name);
 									if(count == null) count = new Integer(0);
-									org.hibernate.engine.CollectionKey collectionKey = new org.hibernate.engine.CollectionKey( persister, colEntry.getLoadedKey(), ((org.hibernate.engine.SessionImplementor)session).getEntityMode() );
+									org.hibernate.engine.spi.CollectionKey collectionKey = new org.hibernate.engine.spi.CollectionKey( persister, colEntry.getLoadedKey() );
 									if(context.getCollection(collectionKey).wasInitialized()) {
 										count++;
 										collections++;
@@ -250,7 +250,7 @@ public class HibernateLog {
 
 						sout.print(", Entities = <span id=\"sqllogentities\">" + entities+ "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
 						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th></tr>");
-						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
+						java.util.Iterator<String> entKeys = entCounter.keySet().iterator();
 						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();
 						String entKey = entKeys.hasNext() ? entKeys.next() : null;
 						String colKey = colKeys.hasNext() ? colKeys.next() : null;
@@ -316,7 +316,7 @@ public class HibernateLog {
 		if(_firstQueryStart == null || _lastQueryEnd == null) return 0;
 		return dateDiff(_firstQueryStart, _lastQueryEnd);
 	}
-	
+
     public static long dateDiff(Date start, Date end) {
     	Calendar calendar = Calendar.getInstance();
     	calendar.setTime(start);
