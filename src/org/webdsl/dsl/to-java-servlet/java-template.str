@@ -64,8 +64,17 @@ rules
         @SuppressWarnings("all")
         public class x_Page extends TemplateServlet
         {
+          public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv, Map<String, Class<?>> refargclasses){
+            loadTemplateMap(null,staticEnv,refargclasses);
+          }
+          public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv, Map<String, Class<?>> refargclasses){
+            staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
+            bstm_lifted*
+            bstm_refargclasses*
+          }
+          
           protected void storeArguments(Object[] args) {
-            bstm1*
+            bstm_arguments*
           } 
         
           @Partial
@@ -138,7 +147,7 @@ rules
           }
 
           protected void putLocalDefinesInEnv(){
-            bstm*
+            bstm_localtplredefs*
           }
           
           protected boolean isAjaxTemplate(){
@@ -194,13 +203,26 @@ rules
             bstm_so* := []
           ; bstm_sc* := []
           end
-       ; bstm* := <local-defined-templates-to-hashmap> elem*
-       ; bstm1* := <formal-arguments-to-store-statements> farg*
+       ; bstm_localtplredefs* := <local-defined-templates-to-hashmap> elem*
+       ; bstm_arguments* := <formal-arguments-to-store-statements> farg*
        ; e_argrepr := <formal-action-args-to-state-enc> farg*
        ; if <fetch(AjaxTemplate)> mod* 
          then e_isajaxtemplate := java:expr |[ true ]|
          else e_isajaxtemplate := java:expr |[ false ]|
          end
+       ; liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
+       ; bstm_lifted* := <map({\ 
+                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv,refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
+                           with  z_value := <any-template-name-to-classname> ([], z) 
+                       \})> 
+                       liftedtemplates
+       ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments  
+       ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments  
+       ; bstm_refargclasses* := <map({\ 
+                           z -> bstm |[ refargclasses.put("~z", z_value); ]| 
+                           with  z_value := <concat-strings> [z,".class"]
+                         \})> 
+                         [pagecallrefargclass*,ajaxcallrefargclass*]
        
 rules
   
@@ -208,16 +230,7 @@ rules
     elem* -> result
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
         ; result := <map(add-template-binding); concat> localtemplates
-                          
-  local-defined-templates-to-hashmap-helper :
-    def@webdsl|[ define mod* x(farg*)  req* { elem* } ]| -> (x,clsname)
-    with  clsname := <get-template-class-name> def
     
-  add-template-binding:        
-    (x,xclass) -> bstm* |[ env.putTemplate(x_key, x_value); ]| 
-    with  x_key := <concat-strings> ["\"",x,"\""]
-        ; x_value := <concat-strings> [xclass,".class"]
-  
   //local template redef
   local-defined-templates-to-hashmap-helper :
     def@LocalRedefine(mod*,x,farg*,y,extraArg*) -> (xWithOverloadRenaming,clsname, argwithref*, spanname1, spanname2)
@@ -231,12 +244,12 @@ rules
   add-template-binding:        
     (x,xclass,e_argswithref*, spanname1, spanname2) -> 
       bstm* |[ 
-        env.putTemplate(x_key, x_value);
+        x_value.loadTemplateMap(x_key,env,null);
         Object[] x_array = { e_argswithref* };
         env.putExtraLocalTemplateArguments(x_key, new utils.LocalTemplateArguments(x_array,"~spanname1","~spanname2")); 
       ]| 
     with  x_key := <concat-strings> ["\"",x,"\""]
-        ; x_value := <concat-strings> [xclass,".class"]
+        ; x_value := xclass
         ; x_array := <newname> "arg" //doesn't need to be globally unique, no issue for caching when using newname here
 
 rules 

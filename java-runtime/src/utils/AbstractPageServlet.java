@@ -189,8 +189,8 @@ public abstract class AbstractPageServlet{
     }
 
     //ref arg
-    protected static HashMap<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
-    public static HashMap<String, Class<?>> getRefArgClasses() {
+    protected static Map<String, Class<?>> refargclasses = new HashMap<String, Class<?>>();
+    public static Map<String, Class<?>> getRefArgClasses() {
         return refargclasses;
     }
 

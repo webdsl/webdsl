@@ -1,0 +1,142 @@
+module org/webdsl/dsl/utils/custom-compile-units
+
+imports
+  libstrategolib
+
+strategies
+  
+  get-custom-compile-settings-file = <concat-strings> [<DirName>, "/custom-compile-units.ini"]
+  get-custom-compile-cache-file = <concat-strings> [<DirName>, "/.custom-compile-units-cache"]
+  
+  get-custom-compile-unit-default-name = !"$default_compile_unit$"
+
+strategies // the interface
+  
+  get-custom-compile-units = get-changed-custom-compile-units
+  store-custom-compile-units-timestamps = store-compile-unit-timestamps
+
+strategies
+  
+  get-changed-custom-compile-units =
+    {| CustomCompileUnitPrefix:
+      //load custom compile units
+      allunits := <read-custom-compile-settings-file>
+    ; <map( {\ x -> <rules( CustomCompileUnitPrefix :+ y -> x where <string-starts-with(|x)> y)> \} )> allunits 
+    ; <map(CustomCompileUnitPrefix <+ get-custom-compile-unit-default-name)> <get-changed-files>
+    ; uniq
+    ; ?changedunits
+    ; where(<debug-stage> ["Custom compile units changed units:",changedunits])
+    ; !(changedunits,allunits)
+    |}
+
+  get-changed-files =
+    oldtimestamps := <read-custom-compile-cache-file>
+  ; newtimestamps := <read-compile-unit-timestamps>
+  // detect newly added file or removed file by comparing the keys/filepaths of old and new; detect changed files by comparing the values/timestamps; sym-diff does both
+  ; <sym-diff> (newtimestamps,oldtimestamps)
+  // now just get the unique filepaths in order to determine what compilation units were changed
+  ; map(Fst)
+  ; uniq
+  ; where(<debug-stage> ["Custom compile units changed files:",<id>])
+
+strategies
+
+  read-custom-compile-settings-file = 
+    get-custom-compile-settings-file
+  ; (file-exists <+ debug(!"missing custom-compile-units.ini, this file is required for custom compile units");fail)
+  ; ReadFromFile
+
+  read-custom-compile-cache-file = 
+    get-custom-compile-cache-file
+  ; (file-exists <+ debug(!"missing .custom-compile-units-cache, there has been no initial build yet, compiling the whole application");fail)
+  ; ReadFromFile
+
+  read-compile-unit-timestamps =
+    DirName
+  ; {| FileNameTimeStamp:
+      traverse-files(try(record-compile-unit-timestamp))
+    ; bagof-FileNameTimeStamp
+    |}
+  
+  store-compile-unit-timestamps =
+    read-compile-unit-timestamps
+  ; ?content 
+  ; <WriteToBinaryFile> (<get-custom-compile-cache-file>, content)
+
+  record-compile-unit-timestamp: 
+    path -> path
+    where string-ends-with(|".app") 
+      ; rules(FileNameTimeStamp :+= (path,<modification-time> path))
+
+rules // prune AST after declare, before typecheck
+  
+  prune-unchanged-folders-contents = 
+    if (changedunits,allunits) := <get-custom-compile-units> 
+    then alltd(prune-unchanged-section(|changedunits,allunits) <+ prune-unchanged-acdef(|changedunits,allunits)) // get-custom-compile-units fails if there is no cache yet
+       ; where(<verbose-msg-newline> ["AST after custom compile unit pruning: ",<id>])  
+    end 
+    
+  prune-unchanged-section(|changedunits,allunits) : Section(name, defs){anno*} -> Section(name, defs2){anno*} where defs2 := <filter(prune-unchanged-folder-helper(|changedunits,allunits))> defs
+  prune-unchanged-acdef(|changedunits,allunits) : AccessControlDefinition(name, defs){anno*} -> AccessControlDefinition(name, defs2){anno*} where defs2 := <filter(prune-unchanged-folder-helper(|changedunits,allunits))> defs
+    
+  // if failure, then the definition will be stripped
+  prune-unchanged-folder-helper(|changedunits,allunits) : 
+    tmp@a{anno*} -> tmp
+    where not(
+       ?Entity(_,_,_) 
+    <+ ?EntityNoSuper(_,_) 
+    <+ ?SessionEntity(_,_) //needs backend refactoring in order to be supported, reflection class depends on all properties of all entities
+    <+ ?ExtendEntity(_,_)
+    <+ ?ExtendSessionEntity(_,_)
+    <+ ?Enum(_,_)
+    <+ ?VarDecl(_,_)
+    <+ ?VarDeclInit(_,_,_)
+    <+ ?VarDeclInitInferred(_,_)
+    <+ ?GlobalsDefinition(_)
+    <+ ?RequestScope(_)
+    <+ ?InitAction(_)
+       )
+    where always-recompile; where(<verbose-msg-newline> ["always recompiling",<id>])
+       <+ <fetch(?At(<starts-with-changed-compile-unit(|changedunits,allunits)>,_,_)) <+ <verbose-msg-newline> ["not compiling",<?c#(_);!c>tmp,"{",anno*,"}"]; fail> anno*
+
+/*
+  prune-unchanged-folder-helper-fallback :  
+    Define(mod*,b,c,d,_){anno*} -> Define(mod*,b,c,d,elem*){ToBeRemovedDummyCustomCompileUnit(),anno*} //to,from,subject required for email
+    where <verbose-msg-newline> ["strip template body",Define(mod*,b,c,d,[]){anno*}] //not recompiled, leave signature/top constructor to correctly generate web.xml/dispatchservlet(helper)/pageservlet
+        ; if <fetch(Email)> mod*
+          then elem* := [TemplateCallNoBody("to",[String("")]),TemplateCallNoBody("from",[String("")]),TemplateCallNoBody("subject",[String("")])]
+          else elem* := [] end
+       //@TODO could be handled better by making input for web.xml/dispatchservlethelper/pageservlet part of AST, that way they would also be cached.
+       // this requires refactoring back-end-transformartions/analye-elem to gather its data based on front-end DR instead of the AST, and 
+       // clearing front-end DRs after that step instead of before in the main webdslc.str
+  */  
+  starts-with-changed-compile-unit(|changedunits,allunits) :
+    deflocation -> deflocation
+    where unit := <fetch-elem(starts-with-changed-compile-unit-helper(|deflocation,<id>))> changedunits
+          ; <verbose-msg-newline> [deflocation,"will be compiled because it is in custom compile unit",unit]
+       <+ defaultname := <get-custom-compile-unit-default-name>
+          ; <fetch(?defaultname)> changedunits // default unit was changed
+          ; not(<fetch-elem(<string-starts-with(|<concat-strings>["../",<id>])> deflocation)> allunits) // and this was not part of a specified custom compile unit
+          ; <verbose-msg-newline> [deflocation,"will be compiled because it is in the default custom compile unit"]
+   
+  starts-with-changed-compile-unit-helper(|deflocation,changedunit) = 
+    <string-starts-with(|<concat-strings>["../",changedunit])> deflocation; !changedunit        
+            
+  //signature constructors ToBeRemovedDummyCustomCompileUnit : Term            
+
+  always-recompile = 
+    ?AccessControlPrincipal(_,_)
+    
+    /*
+  always-recompile : 
+    e@EntityNoSuper(name, body){anno*} -> e
+    where <?"RequestLogEntry"> name
+
+  always-recompile = ?FullTextAnalyzer(_,_,_)
+  */
+  
+//rules
+  
+  //cleanup-custom-compile-units-dummy-defines =
+   // topdown(try(remove-all({?Define(_,_,_,_,_){anno*};<fetch(?ToBeRemovedDummyCustomCompileUnit)> anno*})))
+    
