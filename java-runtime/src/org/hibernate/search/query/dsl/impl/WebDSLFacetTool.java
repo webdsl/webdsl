@@ -19,7 +19,7 @@ import utils.DateType;
 @SuppressWarnings("deprecation")
 public class WebDSLFacetTool {
 
-    private static final Pattern p = Pattern.compile("(\\[|\\{)([^\\]\\}])*\\sTO\\s([^\\]\\}])*(\\]|\\})", Pattern.CASE_INSENSITIVE);
+    private static final Pattern p = Pattern.compile("(\\[|\\{)([^\\]\\}\\s]*)\\s+TO\\s+([^\\]\\}\\s]*)(\\]|\\})", Pattern.CASE_INSENSITIVE);
 
     public static <T> FacetingRequest toFacetingRequest(String field, String rangeAsString, Class<?> entityClass, Class<T> type, FullTextSession fts){
 
@@ -28,6 +28,7 @@ public class WebDSLFacetTool {
         Matcher matcher = p.matcher( rangeAsString );
         FacetRange<T> range;
         T min, max;
+        Class<?> targetClass;
 
         boolean includeMin, includeMax;
         while(matcher.find()){
@@ -35,8 +36,9 @@ public class WebDSLFacetTool {
             min = ( matcher.group( 2 ).isEmpty() ) ? null : (T) stringToTypedObject( matcher.group( 2 ).trim(), type );
             max = ( matcher.group( 3 ).isEmpty() ) ? null : (T) stringToTypedObject( matcher.group( 3 ).trim(), type );
             includeMax = matcher.group(4).equals("]");
+            targetClass = (min != null) ? min.getClass() : max.getClass();
 
-            range = new FacetRange<T>( max.getClass(), min, max, includeMin, includeMax, field, documentBuilder );
+            range = new FacetRange<T>( targetClass, min, max, includeMin, includeMax, field, documentBuilder );
             facetRangeList.add(range);
         }
         FacetingRequestImpl rfr = new RangeFacetRequest<T>( facetName(field), field, facetRangeList, documentBuilder );

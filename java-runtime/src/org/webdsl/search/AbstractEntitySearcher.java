@@ -917,22 +917,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return ( F ) this;
     }
 
-//    public F rangeQuery( Date from, Date to, boolean includeMin, boolean includeMax) {
-//        return ( F ) range( from, to, includeMin, includeMax );
-//    }
-//
-//    public F rangeQuery( Float from, Float to, boolean includeMin, boolean includeMax ) {
-//        return ( F ) range( from, to, includeMin, includeMax );
-//    }
-//
-//    public F rangeQuery( int from, int to, boolean includeMin, boolean includeMax ) {
-//        return ( F ) range( from, to, includeMin, includeMax );
-//    }
-//
-//    public F rangeQuery( String from, String to, boolean includeMin, boolean includeMax ) {
-//        return ( F ) range( from, to, includeMin, includeMax );
-//    }
-
     public int count() {
         try {
             if ( validateQuery() ) {
