@@ -64,13 +64,20 @@ rules
         @SuppressWarnings("all")
         public class x_Page extends TemplateServlet
         {
-          public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv, Map<String, Class<?>> refargclasses){
-            loadTemplateMap(null,staticEnv,refargclasses);
+          public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv){
+            loadTemplateMap(null,staticEnv);
           }
-          public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv, Map<String, Class<?>> refargclasses){
+          public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
             staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
             bstm_lifted*
+          }
+          public static void loadRefArgClasses(Map<String, Class<?>> refargclasses){
             bstm_refargclasses*
+            bstm_liftedrefarg*
+            // in the ref arg class lookup map, a unique name is always used as key, 
+            // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
+            // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
+            bstm_refarginlocaldef*
           }
           
           protected void storeArguments(Object[] args) {
@@ -203,7 +210,7 @@ rules
             bstm_so* := []
           ; bstm_sc* := []
           end
-       ; bstm_localtplredefs* := <local-defined-templates-to-hashmap> elem*
+       ; (bstm_localtplredefs*,bstm_refarginlocaldef*) := <local-defined-templates-to-hashmap> elem*
        ; bstm_arguments* := <formal-arguments-to-store-statements> farg*
        ; e_argrepr := <formal-action-args-to-state-enc> farg*
        ; if <fetch(AjaxTemplate)> mod* 
@@ -212,7 +219,12 @@ rules
          end
        ; liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
        ; bstm_lifted* := <map({\ 
-                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv,refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
+                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
+                           with  z_value := <TopLevelTemplateClassName> z
+                       \})> 
+                       liftedtemplates
+       ; bstm_liftedrefarg* := <map({\ 
+                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses 
                            with  z_value := <TopLevelTemplateClassName> z
                        \})> 
                        liftedtemplates
@@ -227,9 +239,10 @@ rules
 rules
   
   local-defined-templates-to-hashmap :
-    elem* -> result
+    elem* -> (tplmap,refargmap)
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
-        ; result := <map(add-template-binding); concat> localtemplates
+        ; tplmap := <mapconcat(add-template-binding)> localtemplates
+        ; refargmap := <map(add-template-ref-arg-binding)> localtemplates
     
   //local template redef
   local-defined-templates-to-hashmap-helper :
@@ -244,13 +257,20 @@ rules
   add-template-binding:        
     (x,xclass,e_argswithref*, spanname1, spanname2) -> 
       bstm* |[ 
-        x_value.loadTemplateMap(x_key,env,null);
+        x_value.loadTemplateMap(x_key, env); 
         Object[] x_array = { e_argswithref* };
         env.putExtraLocalTemplateArguments(x_key, new utils.LocalTemplateArguments(x_array,"~spanname1","~spanname2")); 
       ]| 
     with  x_key := <concat-strings> ["\"",x,"\""]
         ; x_value := xclass
         ; x_array := <newname> "arg" //doesn't need to be globally unique, no issue for caching when using newname here
+          
+  add-template-ref-arg-binding:        
+    (x,xclass,e_argswithref*, spanname1, spanname2) -> 
+      bstm |[ 
+        x_value.loadRefArgClasses(refargclasses); 
+      ]| 
+    with  x_value := xclass
 
 rules 
  
