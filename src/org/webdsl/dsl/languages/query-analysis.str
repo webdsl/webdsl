@@ -59,10 +59,12 @@ rules // Entry points
 	      |}
       |}
 
-  query-analysis-to-query-optimizition(|x,xsrt,bindableargs) :
-    qa@QueryAnalysis(analysis, _, _, unresolved, recursive) -> qo
+  query-analysis-to-query-optimizition(|qa,x,xsrt,bindableargs) :
+    b1 -> (QueryCondition(querycondition), b2)
     with {|RootVar, BindableVar
     : rules( RootVar : Var(x) -> xsrt )
+    ; oldprefetch := <get-prefetch-for(|x); (?PrefetchFor(Var(x), PrefetchChildren(<id>)) <+ ![])> b1
+    ; QueryAnalysis(analysis, _, _, unresolved, recursive) := qa
     //; <debug(!"x:")> Var(x)
     //; <debug(!"qa:")> qa
     ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with /*debug(!"Bindable:");*/rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
@@ -72,14 +74,18 @@ rules // Entry points
     //; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
     //; alljoins := <traversals-to-tree(|x,xsrt,requiresalias)> joincandidates
     //; alljoins := <doall(|x,xsrt,requiresalias)> joincandidates
-    ; alljoins := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(![], merge-optimization-branches)> ts
-    ; alljoins2 := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list; foldr(!alljoins, merge-optimization-branches)> recursive
-    ; alljoins3 := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!alljoins2, merge-conditional-optimization-branches)> unresolved
-    ; alljoins4 := <map(revalidate-join-conditions(|[]))> alljoins3
+    ; prefetch := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(!oldprefetch, merge-optimization-branches)> ts
+    ; prefetch2 := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list; foldr(!prefetch, merge-optimization-branches)> recursive
+    ; prefetch3 := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!prefetch2, merge-conditional-optimization-branches)> unresolved
+    ; prefetch4 := <map(revalidate-join-conditions(|[]))> prefetch3
       |}
-    ; qo := QueryOptimizations(alljoins4, querycondition)
+    //; try(not([] := prefetch4); <pp-webdsl-to-string; debug(!"opt:")> PrefetchFor(Var(x), PrefetchChildren(prefetch4)))
+    ; b2 := <try(not(?[]); replace-prefetch-for(|x, prefetch4))> b1
     //; debug(!"qo:")
-      
+
+  extract-body-wrapper = ?Block(<id>)
+  extract-body-wrapper = ?Block(<id>)
+
   get-branches-from-recursive(|x,xsrt,requiresalias) :
     (callee, e, args) -> branches2
     where passed := <(PassedCallee <+ !0); where(<lt>(<id>, 3))> callee
@@ -137,8 +143,9 @@ rules // Entry points
     ; not([] := branches)
 
   get-conditional-branches-from-unresolved(|x,xsrt,requiresalias) :
-    (genname, args, cond, eff) -> (IfDefaultTemplateImplementation(genname), branches)
+    (genname, args, cond, eff) -> (templ, branches)
     where Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl> genname
+    ; templ := <normalize-signature; !TemplateArg(<Fst>,<Snd>)> (defname, deffargs)
     ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
     ; newmap := <zip> (args, deffargs)
     ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> newmap
@@ -302,7 +309,7 @@ strategies // Resolve
     ; n := <strip-annos> nm  
     ; <not(check-builtin-signature)> (None(), n, targs)
     //; <not(is-reserved-function)> (n, targs)
-    ; <not(IsReservedFunction)> (n, <length> targs)
+    ; <not(IsReservedFunction)> (nm, <length> targs)
     ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
     with argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, defargs)
       ; (defn, deftargs) := <normalize-signature> (defname, defargs)
@@ -420,7 +427,7 @@ strategies // Resolve
             ; resolvedcalls := <resolve-unresolved-calls/*;try(not(?[]);debug(!"tempres:"))*/> (argmapping, redefCalls)
             //; <debug(!"Following template ")> genname
             //; <debug(!"analysis:")>analysis
-            ; newanalysis := </*debug(!"mapping:");*/foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
+            ; newanalysis := <foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
             //; <debug(!"newanalysis:")>newanalysis
             ; <filter(combine-analysis)> newanalysis
 		      end
@@ -635,7 +642,7 @@ strategies // Resolve
     ; <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
     ; targs* := <map(type-of); prepare-type-list-for-compare> args
     ; n := <strip-annos> nm
-    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(IsReservedFunction)> (nm, <length> targs*)
     ; query-optimization-waiting-for-entity-function-calls(|ent, n, targs*)
 
   // Entity function
@@ -644,7 +651,7 @@ strategies // Resolve
     ; argtypes := <map(type-of)> args
     ; targs* := <prepare-type-list-for-compare> argtypes
     ; n := <strip-annos> nm
-    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(IsReservedFunction)> (nm, <length> targs*)
     ; ent := <ThisEntity>
     ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
     ; <not(check-builtin-signature)> (None(), n, targs*) // Not a global function
@@ -678,7 +685,7 @@ strategies // Resolve
     ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
     ; <not(check-builtin-signature)> (None(), n, targs*)
     //; <not(is-reserved-function)> (n, targs*)
-    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(IsReservedFunction)> (nm, <length> targs*)
     ; <not(where(Recursive))> (None(), n, targs*)
     ; Function(defname, defargs, _, _){anno*} := <resolve-function-call-to-decl> (None(), n, targs*)
     ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
@@ -707,7 +714,7 @@ strategies // Resolve
   query-optimization-waiting-for-static-function-calls(|x_class, n, targs*) =
     <not(check-builtin-signature)> (EntitySort(x_class), n, targs*)
     //; <not(is-reserved-function)> (n, targs*)
-    ; <not(IsReservedFunction)> (n, <length> targs*)
+    ; <not(IsReservedFunction)> (nm, <length> targs*)
     ; <not(where(Recursive))> (EntitySort(x_class), n, targs*)
     ; Function(defname, defargs, _, _){anno*} := <resolve-function-call-to-decl> (EntitySort(x_class), n, targs*)
     ; <not(fetch-elem(is-query-analysis))> anno*

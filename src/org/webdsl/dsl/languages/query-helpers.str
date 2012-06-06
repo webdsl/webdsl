@@ -5,13 +5,150 @@ imports // imports only needed for pp-aterm-box and box2text-string
   libstratego-aterm
 
 strategies
+  
+  add-backend-annotation :
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt2,fsrt2)}, templ, cond, children){anno*}
+    where decsrt2 := <add-type-annotations> decsrt
+    ; fsrt2 := <topdown(add-type-annotations)> fsrt
+    ; not(decsrt := decsrt2; fsrt := fsrt2)
+
+  rename :
+    PrefetchFor(x, tree1){anno*} -> PrefetchFor(y, tree2){anno*}
+    with y := <rename-all> x
+    ; srt := <type-of; strip-immutable-anno> y
+    ; tree2 := <rename-prefetch(|srt)> tree1
+    //; <debug(!"out:")> PrefetchFor(y, tree2){anno*}
+
+  rename-prefetch(|srt):
+    PrefetchChildren(children){anno*} -> PrefetchChildren(children2){anno*}
+    with children2 := <map(try(rename-prefetch(|srt)))> children
+
+  rename-prefetch(|srt): None(){anno*} -> None(){anno*}
+
+  rename-prefetch(|srt):
+    PrefetchNode(castsrt, name, templ, cond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond2, children2){newanno*}
+    where SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; n := <strip-annos> name
+    ; dec_class := <class-of-property> (x_class, n)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type; strip-ref-sort> (dec_class, n)
+    ; cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+    ; children2 := <rename-prefetch(|fsrt)> children
+    ; newanno* := <try(where(not(fetch-elem(?IsLazyFetch()))); add-lazy-anno(|dec_class,n, fsrt))> anno*
+
+  add-type-anno-to-relative-fa(|srt) :
+    fa@RelativeFieldAccess(castsrt, f){anno*} -> fa{fasrt,anno*}
+    where <not(fetch-elem(is-webdsl-type))> anno*
+    ; SimpleSort(x_class) := <(?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; fn := <strip-annos> f
+    ; fasrt := <get-prop-type> (x_class, fn)
+
+  type-of :
+    RelativeFieldAccess(_, _){anno*} -> srt
+    where srt := <fetch-elem(is-webdsl-type)> anno*
+
+  constraint-error-data =
+    ?PrefetchChildren(children)
+    ; keys := <map(\ PrefetchNode(_, name, _, _, _) -> name \)> children
+    ; key{PrefetchPropAnno(decsrt,fsrt)} := <make-set; fetch-elem(has-duplicates(|keys))> keys
+    ; <filter(?PrefetchNode(_, key, _, _, _))> children
+    ; add-error(|["Multiple prefetches defined for ", <pp-type>decsrt, ".", key, " of type ", <pp-type> fsrt])
+
+  constraint-error-data =
+    ?PrefetchFor(x, _)
+    ; where(<not(?Var(_)) <+ (?Var(_); not(type-of))> x)
+    ; add-error(|["Prefetching can only be defined for variables of an entity type"])
+
+  constraint-error-data =
+    ?PrefetchFor(x, tree)
+    ; where(
+        Var(_) := x
+        ; srt := <type-of; try(strip-ref-sort); strip-immutable-anno; try-strip-generic-sort; is-entity-type> x
+      )
+    ; <constrain-prefetch-helper(|srt)> tree
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchChildren(children){anno*}
+    ; <fetch-elem(constrain-prefetch-helper(|srt))> children
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ; where(<?Some(castsrt2); !(castsrt2, srt); not(subtype-of)> castsrt)
+    ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt2])
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ; where(
+        SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
+        ; <subtype-of> (SimpleSort(x_class), srt)
+        ; n := <strip-annos> name
+      )
+    ; if where(dec_class := <class-of-property> (x_class, n)) then
+        fsrt := <get-prop-type> (dec_class, n)
+        ; elemsrt := <try-strip-generic-sort> fsrt
+        ; res := <constrain-prefetch-helper(|elemsrt);debug(!"children:")> children
+      else
+        add-error(|["No property ", n, " defined for ",<pp-type> SimpleSort(x_class)])
+      end
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ; where(
+        SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
+        ; <subtype-of> (SimpleSort(x_class), srt)
+      )
+    ; <?PrefetchCondition(<id>)> cond
+    ; constrain-prefetch-condition-cast(|srt)
+
+  constrain-prefetch-condition-cast(|srt) =
+    collect(?RelativeFieldAccess(_, _))
+    ; fetch-elem(constrain-prefetch-relative-fa-cast(|srt))
+
+  constrain-prefetch-condition(|srt) =
+    ?PrefetchCondition(e)
+    ; where(
+        not(SimpleSort("Bool") := <type-of> e)
+        ; <type-of> e // don't report when sub-expression was already wrong
+      )
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
+
+  constrain-prefetch-relative-fa-cast(|srt) =
+    ?RelativeFieldAccess(castsrt, _)
+    ; where(
+        not(None() := castsrt)
+        ; <not(subtype-of)> (castsrt, srt)
+      )
+    ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt])
+
+  /*constraint-error-data =
+    ?PrefetchFor(x, _)
+    ?PrefetchNode(_, name{}, _, _, _)
+    ; debug(!"unknown?")
+    ; add-error(|["Cannot define prefetch for unknown property"])*/
+
+  
+
+  has-duplicates(|list) :
+    key -> key
+    where <filter(?key); not(length => 1)> list
 
   rename-query-optimization-annos = rename-query-optimization-annos(rename-all)
 
+  rename-query-condition-anno :
+    term@_{anno*} -> term{qc2,keep*}
+    where qc1 := <fetch-elem(?QueryCondition(_))> anno*
+    ; qc2 := <rename-all> qc1
+    ; keep* := <remove-all(?QueryCondition(_))> anno*
+
   add-query-optimization-to-argument(|analysis,bindableargs) :
-    arg@Arg(x, srt){anno*} -> arg{qo,anno*} 
+    (arg@Arg(x, srt),b) -> b 
+    where <not(filter(?arg); ?[])> bindableargs 
+
+  add-query-optimization-to-argument(|qa,bindableargs) :
+    (arg@Arg(x, srt),b1) -> b2 
     where [] := <filter(?arg)> bindableargs 
-    ; qo := <query-analysis-to-query-optimizition(|x,srt,bindableargs)> analysis
+    ; (qc, b2) := <query-analysis-to-query-optimizition(|qa,x,srt,bindableargs)> b1
 
   template-body-ready = // Local redefines, derives and output lists should have been lifted
     where(
@@ -92,7 +229,7 @@ rules
     ; map(Fst)
     ; make-set
     ; map(add-conditions(|conditions))
-    ; map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch)
+    ; map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|x))
 
   add-conditions(|conditions) :
     traversal{anno*} -> traversal{JoinCondition(conds), anno*}
@@ -110,18 +247,20 @@ rules
     ; try(?[]; ![True()]) // No condition means true
     ; or-query-condition
 
-  is-accessible-condition-expr(|p,castsrt) :
+  is-accessible-condition-expr(|p) :
     (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr1 := <is-accessible-condition-expr-helper(|p,castsrt)> expr1
-    ; newexpr2 := <is-accessible-condition-expr-helper(|p,castsrt)> expr2
+    where newexpr1 := <is-accessible-condition-expr-helper(|p)> expr1
+    ; newexpr2 := <is-accessible-condition-expr-helper(|p)> expr2
 
-  is-accessible-condition-expr-helper(|p,castsrt) :
-    expr -> RelativeFieldAccess(relcastsrt, f)
+  is-accessible-condition-expr-helper(|p) :
+    expr -> RelativeFieldAccess(condcastsrt, f)
     where (e, srt) := <is-accessible-from(RootVar)>
-    ; <try(strip-ref-sort); try-strip-generic-sort; not(is-entity-type)> srt // If it is an entity type, then the value is not prefetched yet.
+    ; <try(strip-ref-sort); try-strip-generic-sort; not(is-entity-type)> srt // If the property has an entity type, then the value is not prefetched yet, so avoid using it in the prefetch specification.
     ; FieldAccess(f_expr, f) := <try(?Cast(<id>, _))> e
-    ; <(?Cast(p_expr, condcastsrt); <subtype-of> (castsrt, condcastsrt); !condcastsrt; topdown(add-type-annotations); ?relcastsrt) <+ (?p_expr; relcastsrt := None())> f_expr
-    ; <expr-matches-path(|p)> p_expr
+    //; <(?Cast(p_expr, condcastsrt); debug(!"cast:"); <debug(!"issub:");subtype-of;info(|"yes")> (<strip-annos>castsrt, <strip-annos>condcastsrt); !condcastsrt; topdown(add-type-annotations); ?relcastsrt) <+ (?p_expr; info(|"nocast");relcastsrt := None())> f_expr
+    ; (p_expr, condcastsrt) := <(\ Cast(castexpr, castsrt) -> (castexpr, newsrt) with newsrt := <topdown(add-type-annotations)> castsrt \) <+ !(<id>, None())> f_expr
+    ; psrt := <expr-matches-path(|p)> p_expr
+    with <?(None(), _) <+ subtype-of> (<strip-annos> condcastsrt, <try(strip-ref-sort); try-strip-generic-sort; strip-annos> psrt) // The cast should always be valid
 
   expr-matches-path(|p) :
     FieldAccess(e, f) -> fsrt
@@ -140,54 +279,51 @@ rules
     where [] := p
     ; srt := <RootVar> v
 
-  is-accessible-condition-expr-helper(|p,castsrt) = where(is-query-condition-constant)
-  is-accessible-condition-expr-helper(|p,castsrt) = where(is-accessible-from(BindableVar))
+  is-accessible-condition-expr-helper(|p) = where(is-query-condition-constant)
+  is-accessible-condition-expr-helper(|p) = where(is-accessible-from(BindableVar))
 
-  revalidate-join-condition(|p,castsrt) =
-    map(filter(extract-query-cond(is-accessible-condition-expr(|p,castsrt))); and-query-condition)
+  revalidate-join-condition(|p) =
+    map(filter(extract-query-cond(is-accessible-condition-expr(|p))); and-query-condition)
     ; or-query-condition
-    ; (?True() < ![] + ![JoinCondition(<id>)])
+    ; (?True() < !None() + !PrefetchCondition(<id>))
 
   revalidate-join-conditions(|p) :
-    (f, decsrt, castsrt, fsrt, subtree1){anno1*} -> (f, decsrt, castsrt, fsrt, subtree2){anno2*}
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, newcond, newchildren){anno2*}
     with
-      if <fetch-elem(?JoinCondition(joins))> anno1* then
-        keep* := <remove-all(?JoinCondition(_))> anno1*
-        ; joins* := <revalidate-join-condition(|p,castsrt)> joins
-        ; anno2* := [joins*,keep*]
-      else
-        anno2* := anno1*
-      end
-      ; newp := [(f, decsrt)|p]
-      ; subtree2 := <map(revalidate-join-conditions(|newp))> subtree1
+      anno2* := <remove-all(?JoinCondition(_))> anno1*
+      ; cond2 := <(fetch-elem(?JoinCondition(<revalidate-join-condition(|p)>))) <+ !None()> anno1*
+      ; newcond := <combine-prefetch-conditions> (cond, cond2)
+      ; newp := [(f{}, decsrt)|p]
+      ; newchildren := <get-prefetch-children; map(revalidate-join-conditions(|newp)); wrap-prefetch-children> children
 
   traversal-to-joins(|x,xsrt,requiresalias):
-    expr@FieldAccess(e, f{annof*}){anno*} -> [(f{}, decsrt, castsrt, fsrt){newanno*} | prev]
+    expr@FieldAccess(e, f{annof*}){anno*} -> [PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, None(), None(), None()){newanno*} | prev]
     with <?Cast(p, _) <+ ?p> e
-    ; castsrt := <(?Cast(_, <id>); add-type-annotations) <+ !None()> e
-    ; prev@[(_, _, _, p_fsrt)|_] := <traversal-to-joins(|x,xsrt,requiresalias)> p
-    ; SimpleSort(e_class) := <(?SimpleSort(_) <+ !p_fsrt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; castsrt := <(?Cast(_, <id>); add-type-annotations; !Some(<id>)) <+ !None()> e
+    ; prev@[PrefetchNode(_, _{PrefetchPropAnno(_,p_fsrt)}, _, _, _)|_] := <traversal-to-joins(|x,xsrt,requiresalias)> p
+    ; SimpleSort(e_class) := <(?Some(<id>) <+ !p_fsrt); try(strip-ref-sort); try-strip-generic-sort> castsrt
     ; dec_class := <class-of-property> (e_class, f)
     ; decsrt := <add-type-annotations> SimpleSort(dec_class)
     ; fsrt := <get-prop-type; strip-ref-sort; topdown(add-type-annotations)> (dec_class, f)
     ; newanno* := <filter(keep-anno-in-query-optimization <+ ?JoinCondition(_)); try(add-lazy-anno(|dec_class, f, fsrt)); try(add-alias-anno(|expr,requiresalias))> anno*
 
   traversal-to-joins(|x,xsrt,requiresalias):
-    Var(x) -> [(None(), None(), None(), srt)]
+    Var(x) -> [PrefetchNode(None(), None(){PrefetchPropAnno(None(),srt)}, None(), None(), None())]
     with srt := <strip-ref-sort> xsrt
 
   // Does the same as below
-  joins-to-optimization-branch = reverse; ?[_|<id>]; foldr(![], \ ((f, decsrt, castsrt, fsrt){anno*}, sub) -> [(f, decsrt, castsrt, fsrt, sub){anno*}] \); ?[<id>]
+  joins-to-optimization-branch(|x) =
+    reverse
+    ; ?[_|<id>]
+    ; foldr(!None(), joins-to-optimization-branch-helper)
+    ; ?PrefetchChildren([<id>])
 
-  /*joins-to-optimization-branch(|sub) :
-    [(f, decsrt, castsrt, fsrt){anno*}|xs] -> res
-    where not([] := xs)
-    with newsub := (f, decsrt, castsrt, fsrt, sub){anno*}
-    ; res := <joins-to-optimization-branch(|[newsub])> xs
-
-  joins-to-optimization-branch(|sub) :
-    [_] -> tree
-    with [tree] := sub*/
+  joins-to-optimization-branch-helper :
+    (PrefetchNode(castsrt, name, templ, cond, None()){anno*}, children)
+    ->
+    PrefetchChildren([PrefetchNode(castsrt, name, templ, cond, children){anno*}])
+    
 
   combine-branch-anno :
     (anno1*, anno2*) -> (anno3*, anno4*)
@@ -198,22 +334,44 @@ rules
     ; anno4* := <remove-all(?JoinCondition(_))> anno2*
 
   merge-optimization-branches :
-    (branch@(f, decsrt, _, _, _), tree) -> [subtree | keep]
-    with keep := <remove-all(?(f, decsrt, _, _, _))> tree
-    ; subtree := <fetch-elem(?(f, decsrt, _, _, _)) < combine-optimization-branches(|branch) + !branch> tree
+    (branch@PrefetchNode(_, name, _, _, _), tree) -> [subtree | keep]
+    with keep := <remove-all(?PrefetchNode(_, name, _, _, _))> tree
+    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _)) < combine-optimization-branches(|branch) + !branch> tree
 
   combine-optimization-branches(|branch) :
-    (f, decsrt, castsrt1, fsrt, subtree1){anno1*} -> (f, decsrt, newcastsrt, fsrt, newsubtree){anno3*}
-    where (f, decsrt, castsrt2, fsrt, [subtree2]){anno2*} := branch
+    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, children1){anno1*}
+    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, newchildren){anno3*}
+    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, PrefetchChildren([subtree2])){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
-    ; newsubtree := <merge-optimization-branches> (subtree2, subtree1)
+    ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
+    ; newcond := <combine-prefetch-conditions> (cond1, cond2)
+    ; subtree1 := <get-prefetch-children> children1
+    ; newchildren := <merge-optimization-branches; wrap-prefetch-children> (subtree2, subtree1)
 
   combine-optimization-branches(|branch) :
-    (f, decsrt, castsrt1, fsrt, subtree){anno1*} -> (f, decsrt, newcastsrt, fsrt, subtree){anno3*}
-    where (f, decsrt, castsrt2, fsrt, []){anno2*} := branch
+    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, children){anno1*}
+    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, children){anno3*}
+    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, None()){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
+    ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
+    ; newcond := <combine-prefetch-conditions> (cond1, cond2)
+
+  combine-prefetch-if-default : (None(), templ) -> templ
+  combine-prefetch-if-default : (templ, None()) -> templ
+  combine-prefetch-if-default :
+    (PrefetchIfDefault(templ1), PrefetchIfDefault(templ2)) -> PrefetchIfDefault(templ)
+    with templ := <conc; make-set> (templ1, templ2)
+
+  combine-prefetch-conditions : (None(), cond) -> cond
+  combine-prefetch-conditions : (cond, None()) -> cond
+  combine-prefetch-conditions :
+    (PrefetchCondition(cond1), PrefetchCondition(cond2)) -> cond
+    with cond := <or-query-condition-helper; (?True() < !None() + !PrefetchCondition(<id>))> (cond1, cond2)
+
+  wrap-prefetch-children : [] -> None()
+  wrap-prefetch-children : lst -> PrefetchChildren(lst) where <is-list> lst; not([] := lst)
 
   combine-cast-sort(|decsrt) :
     (None(), _) -> None()
@@ -222,15 +380,15 @@ rules
     (_, None()) -> None()
 
   combine-cast-sort(|decsrt) :
-    (srt1, srt2) -> srt2
+    (Some(srt1), Some(srt2)) -> Some(srt2)
     where <subtype-of> (srt1, srt2)
 
   combine-cast-sort(|decsrt) :
-    (srt1, srt2) -> srt1
+    (Some(srt1), Some(srt2)) -> Some(srt1)
     where <subtype-of> (srt2, srt1)
 
   combine-cast-sort(|decsrt) :
-    (srt1, srt2) -> decsrt
+    (Some(srt1), Some(srt2)) -> Some(decsrt)
     where <not(subtype-of)> (srt1, srt2)
     ; <not(subtype-of)> (srt2, srt1)
 
@@ -239,34 +397,40 @@ rules
     with newtree := <foldr(!tree, merge-conditional-optimization-branch(|cond))> branches
 
   merge-conditional-optimization-branch(|cond) :
-    (branch@(f, decsrt, _, _, _), tree) -> [subtree | keep]
-    with keep := <remove-all(?(f, decsrt, _, _, _))> tree
-    ; subtree := <fetch-elem(?(f, decsrt, _, _, _)) < combine-conditional-optimization-branches(|cond, branch) + <add-condition-to-branch(|cond)>branch> tree
+    (branch@PrefetchNode(_, name, _, _, _), tree) -> [subtree | keep]
+    with keep := <remove-all(?PrefetchNode(_, name, _, _, _))> tree
+    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _)) < combine-conditional-optimization-branches(|cond, branch) + <add-condition-to-branch(|cond)>branch> tree
 
-  combine-conditional-optimization-branches(|cond, branch) :
-    (f, decsrt, castsrt, fsrt, subtree1){anno1*} -> (f, decsrt, castsrt, fsrt, newsubtree){anno3*}
-    where (f, decsrt, _, _, [subtree2]){anno2*} := branch
-    with newsubtree := <merge-conditional-optimization-branch(|cond)> (subtree2, subtree1)
-    ; anno3* := <repeat(combine-branch-anno); Fst; try(add-condition-to-branch-anno(|cond))> (anno1*, anno2*)
+  combine-conditional-optimization-branches(|templcond, branch) :
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children1){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, newchildren){anno3*}
+    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, PrefetchChildren([subtree2])){anno2*} := branch
+    with subtree1 := <get-prefetch-children> children1
+    ; newchildren := <merge-conditional-optimization-branch(|templcond); wrap-prefetch-children> (subtree2, subtree1)
+    ; anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
+    ; newtempl := <try(add-template-condition-to-branch-if-not-first(|templcond))> templ
 
-  combine-conditional-optimization-branches(|cond, branch) :
-    (f, decsrt, castsrt, fsrt, subtree){anno1*} -> (f, decsrt, castsrt, fsrt, subtree){anno3*}
-    where (f, decsrt, _, _, []){anno2*} := branch
-    ; anno3* := <repeat(combine-branch-anno); Fst; try(add-condition-to-branch-anno(|cond))> (anno1*, anno2*)
+  combine-conditional-optimization-branches(|templcond, branch) :
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, children){anno3*}
+    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, None()){anno2*} := branch
+    with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
+    ; newtempl := <try(add-template-condition-to-branch-if-not-first(|templcond))> templ
 
-  add-condition-to-branch(|cond) :
-    (f, decsrt, castsrt, fsrt, [subtree]){anno*} -> (f, decsrt, castsrt, fsrt, newsubtree){cond, anno*}
-    with newsubtree := <add-condition-to-branch(|cond)> subtree
+  add-condition-to-branch(|templcond) :
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchChildren([subtree])){anno*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, PrefetchChildren([newsubtree])){anno*}
+    with newsubtree := <add-condition-to-branch(|templcond)> subtree
+    ; newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
 
-  add-condition-to-branch(|cond) :
-    (f, decsrt, castsrt, fsrt, []){anno*} -> (f, decsrt, castsrt, fsrt, []){cond, anno*}
+  add-condition-to-branch(|templcond) :
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, None()){anno*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, None()){anno*}
+    with newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
 
-  add-condition-to-branch-anno(|cond) :
-    anno1* -> [new*, keep*]
-    where oldconds := <filter(?IfDefaultTemplateImplementation(_))> anno1*
-    ; not([] := oldconds) // Do not place conditions on unconditional joins
-    ; keep* := <remove-all(?IfDefaultTemplateImplementation(_))> anno1*
-    ; new* := <make-set> [cond | oldconds]
+  add-template-condition-to-branch-if-not-first(|cond) :
+    PrefetchIfDefault(oldcond) -> PrefetchIfDefault(newcond) 
+    with newcond := <make-set>[cond|oldcond]
 
 	log-query-optimization-collect-basic =
 	  make-set

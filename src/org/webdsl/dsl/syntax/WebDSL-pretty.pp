@@ -1374,5 +1374,15 @@
    FunctionRefCall.2:iter-star-sep -- H hs=0[_1 KW[","]],
    
    FunctionRefCallPartial -- H hs=0[_1 KW["(*,"] H[_2] KW[")"]],
-   FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]]
+   FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]],
+
+   PrefetchFor                  -- H[KW["prefetch-for"] _1] _2,
+   PrefetchChildren             -- V  [V is=2 [KW["{"] _1] KW["}"]],
+   PrefetchChildren.1:iter-star -- _1,
+   PrefetchNode                 -- H[ H hs=0 [_1 _2] _3 _4] _5,
+   PrefetchNode.1:opt           -- _1 KW["."],
+   PrefetchIfDefault            -- H [KW["default"] KW["["] ] H hs=0 [_1] KW["]"],
+   PrefetchIfDefault.1:iter-sep -- _1 KW[","],
+   PrefetchCondition            -- H[ KW["if"] KW["("] _1 KW[")"]],
+   RelativeFieldAccess          -- H hs=0 [_1 KW["."] _2]
 ]

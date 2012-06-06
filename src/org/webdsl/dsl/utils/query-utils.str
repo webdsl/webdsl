@@ -17,15 +17,17 @@ signature constructors
   IsLazyFetch : Term
   QueryAnalysis : Term * Term * Term * Term * Term -> Term
   WaitingFor : Term -> Annotation
-  IfDefaultTemplateImplementation : Term -> Annotation
   JoinCondition : Term -> Annotation
   RelativeFieldAccess : Term * Term -> Term
   IteratorContext : Term -> Annotation
+  PrefetchPropAnno : Term * Term -> Annotation
+  IsOptimized : Annotation
 
   // Query optimization modes
   // Used just to easily update other test cases
   NoQueryOptimization : Term
   QueryOptimization : Term
+  QueryCondition : Term -> Annotation
   HibernateBatch : Term
   GuidedBatch : Term
   AllJoins : Term
@@ -49,8 +51,11 @@ strategies
   // Succeed if no query optimization is available
   no-query-optimizations = where(get-query-optimization-anno; is-empty-query-optimization)
 
-  // Always returns a query optimization, but it returns an empty one if it fails to locate one
   get-query-optimization-anno = fetch-elem(is-query-optimization) <+ get-empty-query-optimization
+  get-prefetch-for(|x) = is-list; (fetch-elem(?PrefetchFor(Var(x), _)) <+ !None())
+  get-prefetch-for(|x) = ?Block(<get-prefetch-for(|x)>)
+  replace-prefetch-for(|x,prefetch) = is-list; remove-all(?PrefetchFor(Var(x), _)); ![PrefetchFor(Var(x),PrefetchChildren(prefetch))|<id>]
+  replace-prefetch-for(|x,prefetch) = ?Block(<id>){anno*}; replace-prefetch-for(|x,prefetch); !Block(<id>){anno*}
 
   is-query-analysis = ?QueryAnalysis(_, _, _, _, _)
 
@@ -135,16 +140,37 @@ rules
 
   get-all-joins = filter(get-joins-helper(id|"_")); flatten-list
 
-  get-to-one-joins = where(AllJoins() := <QueryOptimizationMode>) < get-all-joins + real-get-to-one-joins
+  get-to-one-joins = ?PrefetchFor(_, <get-prefetch-children>); get-to-one-joins
+  get-to-one-joins = ?None(); ![]
 
-  real-get-to-one-joins = filter(get-joins-helper(?(_, _, _, <id>, _); not(is-generic-sort)|"_")); flatten-list
+  get-to-one-joins = is-list; where(AllJoins() := <QueryOptimizationMode>) < get-all-joins + real-get-to-one-joins
+
+  real-get-to-one-joins = filter(get-joins-helper(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _); not(is-generic-sort)|"_")); flatten-list
 
   get-joins-helper(s|prefix) :
-    (f, _, _, _, sub){anno*} -> [join{joinanno*} | subjoins]
+    PrefetchNode(_, f, _, _, children){anno*} -> [join{joinanno*} | subjoins]
     where s
     with join := <concat-strings> [prefix, f]//<concat-strings> [prefix, <("" := prefix) < !"_" + !"._">, f]
     ; newprefix := <concat-strings> [join, "._"]
-    ; joinanno* := <filter(?RequiresAlias())> anno*
-    ; subjoins := <filter(get-joins-helper(s|newprefix))> sub
+    ; subjoins := <get-prefetch-children; filter(get-joins-helper(s|newprefix)); flatten-list> children
+    ; joinanno* := <get-requires-alias-anno> (anno*, subjoins)
+
+  get-requires-alias-anno :
+    (anno*, subjoins) -> []
+    where <not(fetch-elem(?RequiresAlias()))> anno*
+    ; <not(fetch-elem(?_{RequiresAlias()}))> subjoins
+
+  get-requires-alias-anno :
+    (anno*, subjoins) -> [RequiresAlias()]
+    where <fetch-elem(?RequiresAlias())> anno*
+
+  get-requires-alias-anno :
+    (anno*, subjoins) -> [RequiresAlias()]
+    where <fetch-elem(?_{RequiresAlias()})> subjoins
+
+  get-prefetch-children = ?PrefetchChildren(<id>)
+  get-prefetch-children = ?None(); ![]
+
+  get-alias-joins = get-to-one-joins; filter(?_{RequiresAlias()})
 
   join-fetch-to-alias = <concat-strings> ["_", <string-replace(|".", "_")>]

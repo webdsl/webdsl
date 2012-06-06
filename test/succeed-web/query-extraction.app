@@ -243,11 +243,11 @@ test queriestest {
 
   d.get(navigate(auctionOverview1()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 4);
 
   d.get(navigate(auctionOverview2()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 4);
 
   d.get(navigate(showAuction(a1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
@@ -255,19 +255,19 @@ test queriestest {
 
   d.get(navigate(conditionExtraction()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 4);
   elem := d.findElement(SelectBy.id("entFetch"));
-  assert(elem.getText().parseInt() == 0);
+  assert(elem.getText().parseInt() == 1); // Lazy fetch occurs, because only one seller needs to be prefetched, but batches of size one are not executed and are left for lazy initialization
   elem := d.findElement(SelectBy.id("entLoaded"));
   assert(elem.getText().parseInt() == 6);
   
   d.get(navigate(showProfile(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 6);
+  assert(elem.getText().parseInt() == 10);
 
   d.get(navigate(preloadCalledTemplate()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
   elem := d.findElement(SelectBy.id("entLoaded"));
@@ -275,14 +275,14 @@ test queriestest {
 
   d.get(navigate(preloadEntityFunctions(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 5);
+  assert(elem.getText().parseInt() == 6);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
   // entLoaded is always zero here, because the extracted query is executed before init block where we measure the starting state
 
   d.get(navigate(localRedefine(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 5);
+  assert(elem.getText().parseInt() == 6);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
 }

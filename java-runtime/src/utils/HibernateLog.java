@@ -24,8 +24,12 @@ public class HibernateLog {
 	protected HibernateLogEntry _lastQuery = null;
 	protected String _error = null;
 	protected List<String> _fetched = null;
+	protected int _entities = 0;
 	protected int _duplicates = 0;
+	protected int _collections = 0;
+	protected SortedMap<String, Integer> _entityCounter = null;
 	protected Map<String, Integer> _duplicateCounter = null;
+	protected SortedMap<String, Integer> _collectionCounter = null;
 
 	public static void printHibernateLog(PrintWriter sout, utils.AbstractPageServlet page) {
 		RequestAppender requestAppender = RequestAppender.getInstance();
@@ -91,6 +95,10 @@ public class HibernateLog {
         _fetched = new ArrayList<String>();
         _duplicates = 0;
         _duplicateCounter = new HashMap<String, Integer>();
+        _entities = 0;
+        _entityCounter = null;
+        _collections = 0;
+        _collectionCounter = null;
         while((line = rdr.readLine()) != null) {
         	linenr++;
         	int sep1 = line.indexOf("|");
@@ -238,6 +246,7 @@ public class HibernateLog {
         	}
         }
         if(!entries.empty()) throw new ParseException("Not all statements were closed", linenr);
+        parseSessionCache(session);
     }
 
 	public void print(PrintWriter sout, utils.AbstractPageServlet page) {
@@ -276,99 +285,48 @@ public class HibernateLog {
 				}
 			}
 			sout.print("<p><a name=\"logsql\"></a>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
-			boolean printedSessionContext = false;
-			org.hibernate.Session session = page.getHibSession();
-			if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {
-				org.hibernate.engine.PersistenceContext context = ((org.hibernate.engine.SessionImplementor)session).getPersistenceContext();
-				if(context != null) {
-					Map entityEntries = context.getEntityEntries();
-					Map collectionEntries = context.getCollectionEntries();
-					int entities = 0;
-					int collections = 0;
-					SortedMap<String, Integer> entCounter = new TreeMap<String, Integer>();
-					SortedMap<String, Integer> colCounter = new TreeMap<String, Integer>();
-					if(entityEntries != null && collectionEntries != null) {
-						// Count entities in the hibernate session by classname
-						for(Object ent : entityEntries.values()) {
-							if(ent instanceof org.hibernate.engine.EntityEntry) {
-								org.hibernate.engine.EntityEntry entEntry = (org.hibernate.engine.EntityEntry)ent;
-								String name = entEntry.getEntityName();
-								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
-								Integer count = entCounter.get(name);
-								if(count == null) count = new Integer(0);
-								//Entity entries are always about initialized entities, however the proxy may not be updated and therefore the test below may fail
-								//if(org.hibernate.Hibernate.isInitialized(context.getProxy(entEntry.getEntityKey()))) {
-									count++;
-									entities++;
-								//}
-								entCounter.put(name, count);
-							}
-						}
-
-						// Count collections in the hibernate session by their role
-						for(Object col : collectionEntries.values()) {
-							if(col instanceof org.hibernate.engine.CollectionEntry) {
-								org.hibernate.engine.CollectionEntry colEntry = (org.hibernate.engine.CollectionEntry)col;
-								org.hibernate.persister.collection.CollectionPersister persister = colEntry.getLoadedPersister();
-								if(persister != null) {
-									String name = persister.getRole();
-									if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
-									Integer count = colCounter.get(name);
-									if(count == null) count = new Integer(0);
-									org.hibernate.engine.CollectionKey collectionKey = new org.hibernate.engine.CollectionKey( persister, colEntry.getLoadedKey(), ((org.hibernate.engine.SessionImplementor)session).getEntityMode() );
-									if(context.getCollection(collectionKey).wasInitialized()) {
-										count++;
-										collections++;
-									}
-									colCounter.put(name, count);
-								}
-							}
-						}
-
-						sout.print(", Entities = <span id=\"sqllogentities\">" + entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + collections + "</span></p>");
-						sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
-						java.util.Iterator<String> entKeys = entCounter.keySet().iterator(); 
-						java.util.Iterator<String> colKeys = colCounter.keySet().iterator();
-						String entKey = entKeys.hasNext() ? entKeys.next() : null;
-						String colKey = colKeys.hasNext() ? colKeys.next() : null;
-						while(entKey != null || colKey != null) {
-							if(colKey != null && (entKey == null || entKey.compareTo(colKey) > 0)) {
-								if(colCounter.get(colKey) > 0) {
-									sout.print("<tr class=\"sqllogdetailscollection\"><td class=\"sqllogdetailsname\">");
-									sout.print(colKey);
-									sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
-									sout.print(colCounter.get(colKey));
-									sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
-									sout.print("</td></tr>");
-								}
-								colKey = colKeys.hasNext() ? colKeys.next() : null;
-							} else {
-								sout.print("<tr class=\"sqllogdetailsentity\"><td class=\"sqllogdetailsname\">");
-								sout.print(entKey);
-								sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
-								sout.print(entCounter.get(entKey));
-								sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
-								if(_duplicateCounter.containsKey(entKey)) {
-									sout.print(_duplicateCounter.get(entKey));
-									_duplicateCounter.remove(entKey);
-								}
-								sout.print("</td></tr>");
-								entKey = entKeys.hasNext() ? entKeys.next() : null;
-							}
-						}
-						for(String key : _duplicateCounter.keySet()) {
-							sout.print("<tr class=\"sqllogdetailsduplicate\"><td class=\"sqllogdetailsname\">");
-							sout.print(key);
-							sout.print("</td><td class=\"sqllogdetailsinstances\"></td><td class=\"sqllogdetailsduplicates\" id=\"sqllogduplicates_" + key.replace('.', '_') + "\">");
-							sout.print(_duplicateCounter.get(key));
+			if(_entityCounter != null && _collectionCounter != null) {
+				sout.print(", Entities = <span id=\"sqllogentities\">" + _entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + _collections + "</span></p>");
+				sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
+				java.util.Iterator<String> entKeys = _entityCounter.keySet().iterator(); 
+				java.util.Iterator<String> colKeys = _collectionCounter.keySet().iterator();
+				String entKey = entKeys.hasNext() ? entKeys.next() : null;
+				String colKey = colKeys.hasNext() ? colKeys.next() : null;
+				while(entKey != null || colKey != null) {
+					if(colKey != null && (entKey == null || entKey.compareTo(colKey) > 0)) {
+						if(_collectionCounter.get(colKey) > 0) {
+							sout.print("<tr class=\"sqllogdetailscollection\"><td class=\"sqllogdetailsname\">");
+							sout.print(colKey);
+							sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
+							sout.print(_collectionCounter.get(colKey));
+							sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
 							sout.print("</td></tr>");
 						}
-						sout.print("</table>");
-						printedSessionContext = true;
+						colKey = colKeys.hasNext() ? colKeys.next() : null;
+					} else {
+						sout.print("<tr class=\"sqllogdetailsentity\"><td class=\"sqllogdetailsname\">");
+						sout.print(entKey);
+						sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+						sout.print(_entityCounter.get(entKey));
+						sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+						if(_duplicateCounter.containsKey(entKey)) {
+							sout.print(_duplicateCounter.get(entKey));
+							_duplicateCounter.remove(entKey);
+						}
+						sout.print("</td></tr>");
+						entKey = entKeys.hasNext() ? entKeys.next() : null;
 					}
 				}
+				for(String key : _duplicateCounter.keySet()) {
+					sout.print("<tr class=\"sqllogdetailsduplicate\"><td class=\"sqllogdetailsname\">");
+					sout.print(key);
+					sout.print("</td><td class=\"sqllogdetailsinstances\"></td><td class=\"sqllogdetailsduplicates\" id=\"sqllogduplicates_" + key.replace('.', '_') + "\">");
+					sout.print(_duplicateCounter.get(key));
+					sout.print("</td></tr>");
+				}
+				sout.print("</table>");
 			}
-			if(!printedSessionContext) {
+			else {
 				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
 			}
 			logindex = 0;
@@ -403,9 +361,92 @@ public class HibernateLog {
 		}
 	}
 
+	public void parseSessionCache(org.hibernate.Session session) {
+		if(session != null && session instanceof org.hibernate.engine.SessionImplementor) {
+			org.hibernate.engine.PersistenceContext context = ((org.hibernate.engine.SessionImplementor)session).getPersistenceContext();
+			if(context != null) {
+				Map entityEntries = context.getEntityEntries();
+				Map collectionEntries = context.getCollectionEntries();
+				_entities = 0;
+				_collections = 0;
+				_entityCounter = new TreeMap<String, Integer>();
+				_collectionCounter = new TreeMap<String, Integer>();
+				if(entityEntries != null && collectionEntries != null) {
+					// Count entities in the hibernate session by classname
+					for(Object ent : entityEntries.values()) {
+						if(ent instanceof org.hibernate.engine.EntityEntry) {
+							org.hibernate.engine.EntityEntry entEntry = (org.hibernate.engine.EntityEntry)ent;
+							String name = entEntry.getEntityName();
+							if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
+							Integer count = _entityCounter.get(name);
+							if(count == null) count = new Integer(0);
+							count++;
+							_entities++;
+							_entityCounter.put(name, count);
+						}
+					}
+	
+					// Count collections in the hibernate session by their role
+					for(Object col : collectionEntries.values()) {
+						if(col instanceof org.hibernate.engine.CollectionEntry) {
+							org.hibernate.engine.CollectionEntry colEntry = (org.hibernate.engine.CollectionEntry)col;
+							org.hibernate.persister.collection.CollectionPersister persister = colEntry.getLoadedPersister();
+							if(persister != null) {
+								String name = persister.getRole();
+								if(name.indexOf("webdsl.generated.domain.") == 0) name = name.substring("webdsl.generated.domain.".length());
+								Integer count = _collectionCounter.get(name);
+								if(count == null) count = new Integer(0);
+								org.hibernate.engine.CollectionKey collectionKey = new org.hibernate.engine.CollectionKey( persister, colEntry.getLoadedKey(), ((org.hibernate.engine.SessionImplementor)session).getEntityMode() );
+								if(context.getCollection(collectionKey).wasInitialized()) {
+									count++;
+									_collections++;
+								}
+								_collectionCounter.put(name, count);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public String getError() {
+		return _error;
+	}
+
 	public int getSQLCount() {
 		if(_list == null) return 0;
 		return _list.size();
+	}
+
+	public int getEntityCount() {
+		return _entities;
+	}
+
+	public int getDuplicateCount() {
+		return _duplicates;
+	}
+
+	public int getCollectionCount() {
+		return _collections;
+	}
+
+	public int getEntityCount(String entity) {
+		if(_entityCounter == null) return -1;
+		if(!_entityCounter.containsKey(entity)) return 0;
+		return _entityCounter.get(entity);
+	}
+
+	public int getDuplicateCount(String entity) {
+		if(_duplicateCounter == null) return -1;
+		if(!_duplicateCounter.containsKey(entity)) return 0;
+		return _duplicateCounter.get(entity);
+	}
+
+	public int getCollectionCount(String role) {
+		if(_collectionCounter == null) return -1;
+		if(!_collectionCounter.containsKey(role)) return 0;
+		return _collectionCounter.get(role);
 	}
 
 	public long getTotalTimespan() {

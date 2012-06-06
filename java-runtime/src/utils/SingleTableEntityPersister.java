@@ -96,7 +96,7 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 		utils.SingleTableEntityPersister associatedPersister = (utils.SingleTableEntityPersister)factory.getEntityPersister(associatedEntity);
 		String[] columns = associatedPersister.getPropertyColumnNames(uniqueKeyPropertyName);
         org.hibernate.type.Type ukType = associatedPersister.getPropertyType(uniqueKeyPropertyName);
-		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 3 || utils.QueryOptimization.optimizationMode == 5) {
+		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 3 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 8) {
 	        JoinEntityLoader loader = new JoinEntityLoader(associatedPersister, columns, ukType, batch.length, LockMode.NONE, factory, session.getLoadQueryInfluencers(), utils.QueryOptimization.optimizationMode == 3 ? null : joins);
 			java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
 			// We register the EntityUniqueKeys with the persistence context, so the we can look them up later

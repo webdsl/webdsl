@@ -1,0 +1,62 @@
+module WebDSL-Prefetch
+
+imports
+  WebDSL
+  WebDSL-Lexical
+  WebDSL-Action
+  WebDSL-UI
+
+exports
+
+  sorts TemplateElement Statement PrefetchFor PrefetchChildren PrefetchNode PrefetchIfDefault PrefetchCondition PrefetchCondVal PrefetchCond
+
+  context-free syntax
+
+    "prefetch-for" Exp PrefetchChildren                           -> PrefetchFor       {cons("PrefetchFor")}
+                                                                  -> PrefetchChildren  {cons("None")}
+    "{" PrefetchNode* "}"                                         -> PrefetchChildren  {cons("PrefetchChildren")}
+    PrefetchFor                                                   -> TemplateElement
+    PrefetchFor                                                   -> Statement
+
+    PrefetchOwnerCast?  %% The SimpleSort to cast to before accessing the property
+    Id                  %% The name of the property
+    PrefetchIfDefault   %% A list of templates that should have its default implementation (not dynamically redefined)
+    PrefetchCondition   %% A condition under which the property is accessed (can only contain simple conditions)
+    PrefetchChildren    %% A list of child nodes
+                                                                  -> PrefetchNode      {cons("PrefetchNode")}
+                                                                  -> PrefetchIfDefault {cons("None")}
+    "default" "[" {TemplateArg "," }+ "]"                         -> PrefetchIfDefault {cons("PrefetchIfDefault")}
+                                                                  -> PrefetchCondition {cons("None")}
+    "if" "(" PrefetchCond ")"                                     -> PrefetchCondition {cons("PrefetchCondition")}
+
+                                                                  -> NoneCons          {cons("None")}
+    SimpleSort "."                                                -> PrefetchOwnerCast {ast("<1>")}
+
+    %% Intentionally matches Exp
+    "true"                                                        -> PrefetchCondVal {prefer,cons("True")}
+    "false"                                                       -> PrefetchCondVal {prefer,cons("False")}
+    "null"                                                        -> PrefetchCondVal {prefer,cons("Null")}
+    ConstValue                                                    -> PrefetchCondVal {prefer}
+    Id                                                            -> PrefetchCondVal {cons("Val")}
+    NoneCons "." Id                                               -> PrefetchCondVal {cons("RelativeFieldAccess")}
+    SimpleSort "." Id                                             -> PrefetchCondVal {cons("RelativeFieldAccess")}
+
+    PrefetchCondVal                                               -> PrefetchCond
+    PrefetchCondVal "==" PrefetchCondVal                          -> PrefetchCond {cons("Eq")}
+    PrefetchCondVal "!=" PrefetchCondVal                          -> PrefetchCond {cons("NotEq")}
+    PrefetchCondVal ">"  PrefetchCondVal                          -> PrefetchCond {cons("LargerThan")}
+    PrefetchCondVal ">=" PrefetchCondVal                          -> PrefetchCond {cons("LargerThanOrEqual")}
+    PrefetchCondVal "<"  PrefetchCondVal                          -> PrefetchCond {cons("SmallerThan")}
+    PrefetchCondVal "<=" PrefetchCondVal                          -> PrefetchCond {cons("SmallerThanOrEqual")}
+
+    PrefetchCond "&&" PrefetchCond                                -> PrefetchCond {cons("And"), assoc}
+    PrefetchCond "||" PrefetchCond                                -> PrefetchCond {cons("Or"), assoc}
+    "!" PrefetchCond                                              -> PrefetchCond {cons("Not")}
+    "(" PrefetchCond ")"                                          -> PrefetchCond {bracket}
+
+context-free priorities
+  "!" PrefetchCond -> PrefetchCond
+  > {left:
+       PrefetchCond "&&" PrefetchCond -> PrefetchCond }
+  > {left:
+       PrefetchCond "||" PrefetchCond -> PrefetchCond }
