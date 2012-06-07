@@ -10,7 +10,8 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/overloading/*.app) \
   $(wildcard succeed/property-events/*.app) \
   $(wildcard succeed/manual/*.app) \
-  $(wildcard succeed/search/*.app)
+  $(wildcard succeed/search/*.app) \
+  $(wildcard succeed/prefetch/*.app)
 #  $(wildcard succeed/generics/*.app) 
 
 TESTSFAIL = \

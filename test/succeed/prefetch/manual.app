@@ -1,6 +1,6 @@
 application test
 
-imports logutils
+imports module/logutils
 
 entity RootBase {
   intProp :: Int
