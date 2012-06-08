@@ -45,7 +45,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
         try {
         	findDirectoryAndCopy(new File(Basedir));
         } catch (Exception e) {
-        	printSmallStackTrace(e);
+        	Warning.printSmallStackTrace(e);
 		}
         System.out.println("copied " + numberOfFiles + " from: " + Basedir + " to: " + To + " with dirname: " + Name );
     }
