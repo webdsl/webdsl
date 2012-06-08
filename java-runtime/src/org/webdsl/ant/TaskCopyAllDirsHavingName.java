@@ -6,7 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
+import utils.Warning;
 import org.apache.tools.ant.Task;
 
 /**
@@ -19,6 +19,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
     private String To;
     private String nameWindows;
     private String nameUNIX;
+    private int numberOfFiles;
     
     public void setBasedir(String basedir) {
 		Basedir = basedir;
@@ -39,12 +40,14 @@ public class TaskCopyAllDirsHavingName  extends Task {
 	}
 
     public void execute() {
+    	numberOfFiles = 0;
         System.out.println(this.toString());
         try {
         	findDirectoryAndCopy(new File(Basedir));
         } catch (Exception e) {
-			e.printStackTrace();
+        	printSmallStackTrace(e);
 		}
+        System.out.println("copied " + numberOfFiles + " from: " + Basedir + " to: " + To + " with dirname: " + Name );
     }
 
 	@Override
@@ -90,7 +93,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
            while ((length = filefrom.read(buffer)) > 0){
         	   fileto.write(buffer, 0, length);
            }
-     
+           numberOfFiles ++;
            filefrom.close();
            fileto.close();
            System.out.println("copied file from: " + src.getAbsolutePath() + " to: " + dest.getAbsolutePath());
