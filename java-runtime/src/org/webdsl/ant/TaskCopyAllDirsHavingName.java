@@ -96,8 +96,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
            numberOfFiles ++;
            filefrom.close();
            fileto.close();
-           System.out.println("copied file from: " + src.getAbsolutePath() + " to: " + dest.getAbsolutePath());
-        }
+       }
     }
     
 }
