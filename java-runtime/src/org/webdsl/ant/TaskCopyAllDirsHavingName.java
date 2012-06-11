@@ -6,8 +6,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+
 import utils.Warning;
 import org.apache.tools.ant.Task;
+
+import com.ibm.icu.impl.CalendarAstronomer.Ecliptic;
 
 /**
  *  copies all sub folders(recursively) of Basedir that equals to parameter name and are not in the folder of Exclude
@@ -15,7 +20,7 @@ import org.apache.tools.ant.Task;
 public class TaskCopyAllDirsHavingName  extends Task {
 	private String Basedir;
     private String Name;
-    private String Exclude;
+    private ArrayList<String> Exclude;
     private String To;
     private String nameWindows;
     private String nameUNIX;
@@ -32,7 +37,11 @@ public class TaskCopyAllDirsHavingName  extends Task {
 	}
 
 	public void setExclude(String exclude) {
-		Exclude = exclude;
+		String[] elements = exclude.split(",");
+		Exclude = new ArrayList<String>();
+		for (String elem : elements){
+			Exclude.add(elem.trim());
+		}
 	}
 
 	public void setTo(String to) {
@@ -60,8 +69,8 @@ public class TaskCopyAllDirsHavingName  extends Task {
 		if(basedir.isDirectory()) {
 			for(String file : basedir.list()) {
 				File newFile = new File(basedir, file);
-				if(newFile.compareTo(new File(Exclude)) == 0) {
-					return;
+				if(Exclude.contains(file)) {
+					continue;
 				} 
 				else if(newFile.getAbsolutePath().endsWith(nameUNIX) || newFile.getAbsolutePath().endsWith(nameWindows)) {
 					copyDirectory(newFile, new File (To));
@@ -84,19 +93,33 @@ public class TaskCopyAllDirsHavingName  extends Task {
         		copyDirectory(from, to);
         	}
         } else {
-           InputStream filefrom = new FileInputStream(src);
-           OutputStream fileto = new FileOutputStream(dest); 
-           
-           byte[] buffer = new byte[2048];
-           int length;
-        	        
-           while ((length = filefrom.read(buffer)) > 0){
-        	   fileto.write(buffer, 0, length);
-           }
-           numberOfFiles ++;
-           filefrom.close();
-           fileto.close();
+        	copyFile(src, dest);
+        	numberOfFiles ++;
        }
     }
+	
+    private static void copyFile(File source, File dest) throws IOException {
+        if(!dest.exists()) {
+            dest.createNewFile();
+        }
+        FileChannel in = null;
+        FileChannel out = null;
+        try {
+            in = new FileInputStream(source).getChannel();
+            out = new FileOutputStream(dest).getChannel();
+            out.transferFrom(in, 0, in.size());
+        }
+        finally {
+            if(in != null) {
+                in.close();
+            }
+            if(out != null) {
+                out.close();
+            }
+        }
+    }
+
     
 }
+
+
