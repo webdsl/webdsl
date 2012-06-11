@@ -264,7 +264,7 @@
    Or                                 -- _1 KW["||"] _2,
    Not                                -- KW["!"] _1,
    IsA                                -- _1 KW["is"] KW["a"] _2,
-   Cast                               -- H[_1 KW["as"] _2],
+   Cast                               -- H[ KW["("] _1 KW["as"] _2 KW[")"] ],
 
     %%access control syntax
    ValidationAnnoLength                         -- KW["length"] KW["("] _1 KW[","] _2 KW[")"],
