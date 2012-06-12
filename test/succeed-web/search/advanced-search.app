@@ -205,9 +205,9 @@ analyzer month{
         var pagePreFix := if (runTwice < 1) "[SearchPageNativeJava]" else "[SearchPageDSL]";
         pagesource := d.getPageSource();
 
-        //Hydra debugging
-        log("***********PAGE SOURCE FOR " + pagePreFix + "***********");
-        log(pagesource);
+        // //Hydra debugging
+        // log("***********PAGE SOURCE FOR " + pagePreFix + "***********");
+        // log(pagesource);
         assert(pagesource.contains("simplesearch-1:Bottle of dr Pepper"), pagePreFix + "Error in retrieving search results using default search fields");
         assert(pagesource.contains("embeddedsearch-1:Pepe Roni"), pagePreFix + "Error in retrieving search results, using embedded search field");
         assert(pagesource.contains("embeddedsearch-2:Pepe Roni"), pagePreFix + "Error in retrieving search results, using embedded search field");
@@ -240,9 +240,9 @@ analyzer month{
         link.click();
         pagesource := d.getPageSource();
 
-        //Hydra debugging
-        log("***********PAGE SOURCE FOR BooleanResultPage during" + pagePreFix + "-test***********");
-        log(pagesource);
+        // //Hydra debugging
+        // log("***********PAGE SOURCE FOR BooleanResultPage during" + pagePreFix + "-test***********");
+        // log(pagesource);
         assert(pagesource.contains("searcherPageArg:1"), pagePreFix + "PersonSearcher with a boolean query should have been encoded and decoded from page argument in URL");
 
         //Now navigate to page with same search actions, now specified using search DSL instead of native java
@@ -251,7 +251,7 @@ analyzer month{
           link.click();
         }
         runTwice := runTwice + 1;
-        }
+    }
 
 
     d.close();

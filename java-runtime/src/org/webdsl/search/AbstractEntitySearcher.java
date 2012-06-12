@@ -5,6 +5,8 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,7 +74,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected Map<String, String> paramMap;
     private BrowseResult boboBrowseResult;
 
-    protected List<WebDSLFacet> filteredFacetsList = new ArrayList<WebDSLFacet>();
+    protected List<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>();
 
     protected Query luceneQueryNoFacetFilters, highlightQuery, luceneQuery = null;
     protected FullTextQuery fullTextQuery = null;
@@ -713,9 +715,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     @SuppressWarnings("unchecked")
     public F clearFacetSelection( String field ) {
-        for(WebDSLFacet f : filteredFacetsList){
-            if (f.fieldName.equals(field))
-                removeFacetSelection( f );
+        Iterator<WebDSLFacet> it = filteredFacetsList.iterator();
+        while (it.hasNext()){
+            if (it.next().fieldName.equals(field))
+                it.remove();
         }
         return ( F ) this;
     }
