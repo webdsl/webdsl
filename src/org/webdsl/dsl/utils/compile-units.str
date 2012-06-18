@@ -1,0 +1,103 @@
+module org/webdsl/dsl/utils/compile-units
+
+imports
+  libstrategolib
+
+strategies
+  
+  disable-code-generation-if-cache-exists =
+    where(
+      if is-custom-compile-units-enabled then not(read-custom-compile-cache-file) end // only if clean compile when custom compile units is enabled, entities ignored there for now
+    ; if is-compile-units-cache-enabled then is-compile-units-cache-stale end // recompile only when entities were changed
+    )
+
+// compile units cache for front-end
+
+strategies
+  
+  get-compile-units-cache-file = <concat-strings> [<DirName>, "/.compile-units-cache"]
+  get-compile-units-tmp-cache-file = <concat-strings> [<DirName>, "/.compile-units-cache-tmp"]
+
+strategies
+
+  try-get-changed-compile-units-and-prune = try(get-changed-compile-units-and-prune)
+
+  get-changed-compile-units-and-prune :
+    Application(n,ast) -> Application(n,ast')
+    with  (zipped,(newcachekeys,asts)) := <read-compile-units> ast //always write tmp cache file
+    where oldcachekeys := <read-compile-units-cache-file <+ disable-compile-units-cache;fail> //fail here, don't prune anything, if there was no cache file yet
+    with  // detect newly added,removed,changed toplevel definition asts
+          <sym-diff> (newcachekeys,oldcachekeys)
+        ; uniq
+        ; ?changed
+        ; where(<debug-stage> ["Compile units changed:",changed])
+        ; if <fetch(changed-def-requires-full-recompile)> changed
+          then ast' := ast
+             ; where(<debug-stage> ["Full recompile required."])
+             ; disable-compile-units-cache
+          else changednormalized := <filter(normalize-cache-item);uniq> changed //filter here, because the normal matches are handled with 'changed' set
+             ; defs := <filter(prune-compile-units-cache-helper(|changed,changednormalized))> zipped
+             ; acdefs := <filter(?AccessControlRule(_,_,_,_,_))> defs
+             ; nonacdefs := <filter(not(?AccessControlRule(_,_,_,_,_)))> defs
+             ; ast' := [Section("definitions",nonacdefs),AccessControlDefinition(None(),acdefs)]
+          end
+
+  // this list can be made smaller by improving the dependency analysis for caches
+  changed-def-requires-full-recompile = 
+       ?AccessControlPrincipal(_,_)
+    <+ ?Entity(_,_,_) 
+    <+ ?EntityNoSuper(_,_) 
+    <+ ?SessionEntity(_,_)
+    <+ ?ExtendEntity(_,_)
+    <+ ?ExtendSessionEntity(_,_)
+    <+ ?Enum(_,_)
+    <+ ?VarDecl(_,_)
+    <+ ?VarDeclInit(_,_,_)
+    <+ ?VarDeclInitInferred(_,_)
+    <+ ?GlobalsDefinition(_)
+    <+ ?RequestScope(_)
+    <+ ?InitAction(_)
+
+  prune-compile-units-cache-helper(|changed,changednormalized) :
+    (a,b) -> b
+    where <fetch(?a)> changed
+       <+   anorm := <normalize-cache-item> a
+          ; <fetch(?anorm)> changednormalized
+       <+ <?AccessControlRule(_,"*",_,_,_)> a //always handle wildcard rules
+  
+  // change in template or ac rule should invalidate cache for both  
+  normalize-cache-item : Define(_,x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("page",x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("template",x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("ajaxtemplate",x,_,_,_) -> Define([],x,[],[],[])
+
+strategies
+
+  read-compile-units-cache-file = 
+    get-compile-units-cache-file
+  ; (file-exists <+ debug(!"missing .compile-units-cache, there has been no initial build yet, compiling the whole application");fail)
+  ; ReadFromFile
+
+  read-compile-units = 
+      result := <collect(compile-units-section <+ compile-units-acdef);concat>
+    ; (cachekeys,asts) := <unzip> result
+    ; where(<store-compile-units-tmp> cachekeys)
+    ; !(result,(cachekeys,asts))
+    
+  compile-units-section : Section(name, defs){anno*} -> <filter(compile-units-helper)> defs
+  compile-units-acdef : AccessControlDefinition(name, defs){anno*} -> <filter(compile-units-helper)> defs
+ 
+  // default is to leave it in the AST, that way new constructs will not cause confusing errors by being removed
+  compile-units-helper : 
+    x -> (cachekey,x)
+    where not(?Imports(_))
+        ; cachekey := <remove-position-annos(fail)> x
+    
+  store-compile-units-tmp =
+    ?content 
+  ; <WriteToBinaryFile> (<get-compile-units-tmp-cache-file>, content)
+
+  // wait with writing the actual cache file until the last phase of the compiler, that way interruping the compilation early should work
+  store-compile-units-cache =
+    <copy-file> (<get-compile-units-tmp-cache-file>, <get-compile-units-cache-file>)
+    

@@ -4,7 +4,7 @@ application test
   imports pages/pages
 
   define page root(){
-    "123"
+    "12345"
     output(Foo{}.id)  
     output(Bar{}.id)  
   }
