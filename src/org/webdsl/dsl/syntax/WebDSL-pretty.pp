@@ -145,7 +145,7 @@
    TemplateCallNoAssigns.3:iter-star-sep   -- H hs=0[_1 KW[" "]],
    TemplateCallNoAssigns.2:iter-star       -- _1,
    TemplateCallNoAssigns.2:iter-star-sep   -- H hs=0[_1 KW[","]],
-   TemplateCallNoAssigns                   -- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] KW["{"] H[_3] KW["}"]]]],
+   TemplateCallNoAssigns                   -- V[ V is=2[ H hs=0[ _1 KW["("] H[_2] KW[")"] H[_3] ]]],
    TemplateCallNoArgs                      -- _1,
 
    TemplateCallDeclaredType.4:iter-star    -- _1,
