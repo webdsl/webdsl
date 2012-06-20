@@ -56,4 +56,8 @@ public abstract class AbastractOwnedSetType implements UserCollectionType {
 		}
 	}
 
+	public abstract boolean isAffectedBy(String filter);
+
+	public abstract boolean isFilterCompatible(org.hibernate.impl.FilterImpl oldFilter, org.hibernate.impl.FilterImpl newFilter);
+
 }

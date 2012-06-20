@@ -38,7 +38,7 @@ strategies
     ]|
 
    entity-to-java-entity :
-     ent@EntityNoSuper(x_Class, entbodydecs) ->
+     ent@EntityNoSuper(x_Class, entbodydecs){anno*} ->
      <emit-java-code-local> compilation-unit|[
        package pkgname;
 
@@ -48,6 +48,7 @@ strategies
        mod2*
        mod3
        mod4*
+       mod5*
        //@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.JOINED)
        @org.hibernate.annotations.Persister(impl = utils.SingleTableEntityPersister.class)//@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType.SINGLE_TABLE)
        @javax.persistence.DiscriminatorColumn(name = "DISCRIMINATOR", discriminatorType = javax.persistence.DiscriminatorType.STRING, length = 255)
@@ -125,6 +126,7 @@ strategies
         else
           mod4* := []
         end
+      ; mod5* := <query-condition-filterdef-annotations <+ ![]> anno*
 
    entity-to-java-entity :
      sent@SessionEntity(x_ident, entbodydecs) ->
@@ -200,12 +202,13 @@ strategies
           end
 
    entity-to-java-entity :
-     ent@Entity(x_Class, x_super, entbodydecs) ->
+     ent@Entity(x_Class, x_super, entbodydecs){anno*} ->
      <emit-java-code-local> compilation-unit|[
        package pkgname;
 
        @javax.persistence.Entity
        mod1*
+       mod2*
        public class x_Class extends x_super implements org.webdsl.WebDSLEntity, org.hibernate.bytecode.javassist.FieldHandled
        {
          public x_Class () {
@@ -255,6 +258,7 @@ strategies
            else
              mod1* := []
            end
+         ; mod2* := <query-condition-filterdef-annotations <+ ![]> anno*
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
 
@@ -528,10 +532,48 @@ rules // special session entity props
 rules // annotations for properties
 
   property-to-persistence-annotations(|x_Class) :
-  Property(x_prop, k, s, annos) -> <concat> [association-annos, cascade-annos, column-annos]
+  Property(x_prop, k, s, annos){anno*} -> <concat> [association-annos, cascade-annos, column-annos, filter-annos]
   with  association-annos := <association-annotations(|x_Class, x_prop, annos)> s
       ; cascade-annos := <cascade-annotations> k
       ; column-annos := <column-annotations(|x_prop,s,annos)>
+      ; filter-annos := <query-condition-filter-annotations <+ ![]> anno*
+
+  query-condition-filter-annotations :
+    anno* -> [anno]
+    where <fetch-elem(?QueryConditionFilterDefs(fltrs))> anno*
+    ; [fltr] := fltrs // Only one filter
+    ; anno := <query-condition-filter-annotation> fltr
+
+  query-condition-filter-annotations :
+    anno* -> [anno |[ @org.hibernate.annotations.Filters({~annos*}) ]|]
+    where <fetch-elem(?QueryConditionFilterDefs(fltrs))> anno*
+    ; not([] := fltrs; [_] := fltrs) // At least two filters
+    ; annos* := <map(query-condition-filter-annotation)> fltrs
+
+  query-condition-filter-annotation :
+    QueryConditionFilterDef(name, types, cond, _) -> anno |[ @org.hibernate.annotations.Filter(name="~name") ]|
+
+  query-condition-filterdef-annotations :
+    anno* -> [anno]
+    where <fetch-elem(?QueryConditionFilterDefs(fltrs))> anno*
+    ; [fltr] := fltrs // Only one filter
+    ; anno := <query-condition-filterdef-annotation> fltr
+
+  query-condition-filterdef-annotations :
+    anno* -> [anno |[ @org.hibernate.annotations.FilterDefs({~annos*}) ]|]
+    where <fetch-elem(?QueryConditionFilterDefs(fltrs))> anno*
+    ; not([] := fltrs; [_] := fltrs) // At least two filters
+    ; annos* := <map(query-condition-filterdef-annotation)> fltrs
+
+  query-condition-filterdef-annotation :
+    QueryConditionFilterDef(name, types, strCond, _) -> anno |[ @org.hibernate.annotations.FilterDef(name="~name", defaultCondition="~strCond", parameters = {~params*}) ]|
+    with params* := <zip; map(filter-param-to-anno)> (<length; range> types, types)
+
+  filter-param-to-anno :
+    (i, srt) -> anno |[ @org.hibernate.annotations.ParamDef( name="~name", type="~type" ) ]|
+    with name := <concat-strings> [ "param", <int-to-string> i ]
+    ; type := <simple-sort-to-hibernate-type-string> srt
+
 
 rules
 

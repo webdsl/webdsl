@@ -33,7 +33,7 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 	}
 
 	@Override
-	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins) {
+	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins, org.hibernate.engine.LoadQueryInfluencers lqi) {
 		if(batch.length == 0) return;
 		if(java.lang.reflect.Proxy.isProxyClass( session.getClass() ) ) {
 			if(session instanceof org.hibernate.Session) {
@@ -104,7 +104,7 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 			
 		}
 		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 6 || utils.QueryOptimization.optimizationMode == 8) { // Normal or at arguments
-			BasicJoinCollectionLoader loader = new BasicJoinCollectionLoader( this, batch.length, session.getFactory(), session.getLoadQueryInfluencers(), joins );
+			BasicJoinCollectionLoader loader = new BasicJoinCollectionLoader( this, batch.length, session.getFactory(), lqi == null ? session.getLoadQueryInfluencers() : lqi, joins );
 			loader.loadCollectionBatch(session, batch, getKeyType());
 		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch
 			batchInitializer.initializeBatch(batch, session);

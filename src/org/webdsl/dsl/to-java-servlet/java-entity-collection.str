@@ -27,7 +27,7 @@ strategies
 rules
 
   generate-collection-type(|pkgname, x_entclass) :
-    prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos) ->
+    prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos){anno*} ->
     <emit-java-code-local> compilation-unit|[
 			package pkgname;
 			
@@ -35,17 +35,116 @@ rules
 			import org.hibernate.collection.PersistentCollection;
 			import org.hibernate.engine.SessionImplementor;
 			import org.hibernate.persister.collection.CollectionPersister;
+			import java.util.Map;
 
 			@SuppressWarnings("unchecked")
 			public class x_javaclass extends utils.AbastractOwned#x_coltyp#Type {
+			  private static final String[] _filters = e_filter;
 			
 			  @Override
 			  public Object instantiate(int anticipatedSize) {
 			    return new x_entclass#x_prop#x_coltyp(anticipatedSize < 1 ? 0 : anticipatedSize );
 			  }
+
+        public boolean isAffectedBy(final String filter) {
+          if(_filters == null) return false;
+          for(String s : _filters) {
+            if(s.equals(filter)) return true;
+          }
+          return false;
+        }
+
+        public boolean isFilterCompatible(final org.hibernate.impl.FilterImpl oldFilter, final org.hibernate.impl.FilterImpl newFilter) {
+          if(oldFilter == null) return true; // No filtering is compatible with every filter
+          if(newFilter == null) return false; // No filtering is requested, but and old filter exists, so never compatible
+          if(utils.QueryOptimization.equalFilters(oldFilter, newFilter)) return true;
+          String oldName = oldFilter.getName();
+          String newName = newFilter.getName();
+          Map oldParams = oldFilter.getParameters();
+          Map newParams = newFilter.getParameters();
+          bstm_fltrcompat*
+          return false;
+        }
+
+        public boolean oldFilterContains(final String oldName, final Map oldParams, final String fltrName, final Map fltrParams, final int fltrStart, final int len) {
+          if(oldName == null || fltrName == null) return false; // Filter names should never be null here
+          if(oldName.equals(fltrName)) return utils.QueryOptimization.equalFilterParams(oldParams, 0, fltrParams, fltrStart, len);
+          bstm_oldcontains*
+          return false;
+        }
 			}
     ]|
     with x_javaclass := <concat-strings>[<capitalize-string>x_entclass, <capitalize-string>x_prop, "Owned", <capitalize-string>x_coltyp, "Type"]
+    ; filternames := <(fetch-elem(?QueryConditionFilterDefs(<id>)); map(\ QueryConditionFilterDef(name, _, _, _) -> name \)) <+ ![]> anno*
+    ; e_filter := <string-list-to-java-servlet-or-null> filternames
+    //; bstm_fltrcompat* := <(fetch-elem(?QueryConditionFilterDefs(<id>)); filter(combined-filter-compat-check); flatten-list) <+ ![]> anno*
+    ; fltrcompatlst := <(fetch-elem(?QueryConditionFilterDefs(<id>)); map(filters-with-compatible-filters)) <+ ![]> anno*
+    ; bstm_fltrcompat* := <map(for-all-compatible-filter); flatten-list> fltrcompatlst
+    ; bstm_oldcontains* := <filter(old-contains-compatible-filter); flatten-list> fltrcompatlst
+
+    for-all-compatible-filter :
+      (name, len, compat) -> bstm* |[
+        if("~name".equals(newName)) {
+          bstm_checks*
+          return true;
+        }
+      ]|
+      with strlen := <int-to-string> len
+      //; bstm_precheck* := <?[] <+ !bstm*|[if(oldFilterContains(oldName, oldParams, "~name", newParams, 0, ~i:strlen)) return true;]|> compat
+      ; bstm_checks* := <map(old-filter-contains-check)> compat
+
+    old-filter-contains-check :
+	    (name, newstart, len) -> stm |[ if(!oldFilterContains(oldName, oldParams, "~name", newParams, ~i:strnewstart, ~i:strlen)) return false; ]|
+	    with strnewstart := <int-to-string> newstart
+	    ; strlen := <int-to-string> len
+
+    old-contains-compatible-filter :
+      (name, len, compat) -> bstm* |[
+        if("~name".equals(oldName)) {
+          bstm_checks*
+          return false;
+        }
+      ]|
+      where not([] := compat)
+      with bstm_checks* := <map(contains-compatible-filter-check)> compat
+
+    contains-compatible-filter-check :
+      (name, oldstart, _) -> stm |[ if(fltrName.equals("~name") && utils.QueryOptimization.equalFilterParams(oldParams, ~i:stroldstart, fltrParams, fltrStart, len)) return true; ]|
+      with stroldstart := <int-to-string> oldstart
+
+    filters-with-compatible-filters :
+      QueryConditionFilterDef(name, types, cond, subfilters) -> (name, len, compat)
+      with len := <length> types
+      ; (_, compat) := <reverse; foldr(!(0, []), compatible-filters-from-subfilters)> subfilters
+
+    compatible-filters-from-subfilters :
+	    (QueryConditionFilterDef(name, types, cond, subfilters), (start, oldcompat*)) -> (newstart, [oldcompat*,thiscompat*,newcompat*])
+	    with len := <length> types
+	    ; newstart := <addi> (start, len)
+	    ; (_, newcompat*) := <reverse; foldr(!(start, []), compatible-filters-from-subfilters)> subfilters
+	    ; thiscompat* := [(name, start, len)]
+
+/*    combined-filter-compat-check :
+      QueryConditionFilterDef(name, types, cond, subfilters) -> bstm* |[
+        if(oldName.equals("~name")) {
+          bstm_subchecks*
+          return false;
+        }
+      ]|
+      where not([] := subfilters)
+      with (_, bstm_subchecks*) := <reverse; foldr(!(0, []), prepare-subfilter-elem)> subfilters
+
+  prepare-subfilter-elem :
+    (QueryConditionFilterDef(name, types, cond, subfilters), (start, bstm_checks*)) -> (newstart, bstm_newchecks*)
+    with newstart := <addi> (start, <length> types)
+    ; (_, bstm_subchecks*) := <reverse; foldr(!(start, []), prepare-subfilter-elem)> subfilters
+    ; istart := <int-to-string> start 
+    ; iend := <int-to-string> newstart
+    ; bstm_check* := bstm* |[
+        if(newName.equals("~name") && utils.QueryOptimization.equalFilterParams(oldParams, newParams, ~i:istart, ~i:iend)) return true;
+        bstm_subchecks*
+      ]|
+    ; bstm_newchecks* := <conc> (bstm_checks*, bstm_check*)*/
 
   generate-owned-collection(|pkgname, x_entclass) :
     prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos) ->

@@ -106,24 +106,37 @@ rules // iteration
                            ]| end
 
   control-flow-for(s|) :
-    For(x, srt, e1, fltr, elems, sep){anno*} -> result
+    for@For(x, srt, e1, fltr, elems, sep){anno*} -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; e2 := <expression-to-java-servlet> e1
         ; t := <java-type> srt
+        ; reft := t
         ; x_list := <newname> "list"
+        ; x_expr := <newname> "expr"
         ; GenericSort(x_setorlist,[_]) := <get-type-anno> e1
         ; prefetch := <get-prefetch-for(|x)> elems
         ; e_joins := <get-direct-fetches> prefetch
-        ; e_expr := <(AtArguments() := <QueryOptimizationMode>) < !e2 + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, e2, e_joins) ]|>
+        //; (e_fltr, bstm_fltr*) := <debug(!"foranno:");(fetch-elem(debug(!"elem:");get-query-condition-filter) < debug(!"out:") + !(expr |[ null ]|, []))> anno*
+        ; (bstm_enable*, bstm_disable*) := <try-get-query-condition-filter> for
+        ; e_expr := <(AtArguments() := <QueryOptimizationMode>) < !expr|[x_expr]| + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins, null) ]|>
         ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(where(AtArguments() := <QueryOptimizationMode>); ![]) + ![]> prefetch
         ; if <?[]> bstm*
-          then result :=  [] 
+          then result :=  []
           else result :=  bstm* |[
+                            java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection 
+                            bstm_enable*
                             java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
+                            bstm_disable*
                             ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm* |[    
                               bstm*
                             ]|
                           ]| end
+
+  add-filter-param :
+    ((i, (v, srt)), e) -> expr |[ e.setParameter("~name", new x(e_val)) ]|
+    with name := <concat-strings> ["param", <int-to-string> i]
+    ; x := <java-type-name> srt
+    ; e_val := <expression-to-java-servlet> v
               
   control-flow-for(s|) :
     fa@ForAll(x, srt, fltr, elems, sep){anno*} -> result

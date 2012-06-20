@@ -30,8 +30,9 @@ rules // Entry points
     (body, anno*) -> (body3, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls) | anno*])
     where not(QueryOptimizationDisabled)
     ; not(<fetch-elem(is-query-analysis)> anno*)
-    ; {| RootVar
-       : <filter(\ Arg(arg, srt) -> <id> with rules( RootVar : Var(arg) -> srt ) \)> args
+    ; {| RootVar, BindableVar
+       : <filter(\ Arg(v, srt) -> <id> with rules( RootVar : Var(v) -> srt ) \)> args
+       ; <filter(\ arg@Arg(v, srt) -> <id> where <query-optimization-bindable-argument> arg; rules( BindableVar : Var(v) -> srt ) \)> args
        //; <debug(!"Perform: ")> name
        //; [] := <collect(query-optimization-waiting-for-calls); flatten-list> body
        //; <debug(!"Ready: ")> name
@@ -77,11 +78,21 @@ rules // Entry points
     ; prefetch := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(!oldprefetch, merge-optimization-branches)> ts
     ; prefetch2 := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list; foldr(!prefetch, merge-optimization-branches)> recursive
     ; prefetch3 := <filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!prefetch2, merge-conditional-optimization-branches)> unresolved
-    ; prefetch4 := <map(revalidate-join-conditions(|[]))> prefetch3
+    ; prefetch4 := <map(revalidate-join-conditions(|[]); alltd(revalidate-query-condition-filters))> prefetch3
       |}
-    //; try(not([] := prefetch4); <debug(!"opt:")>Var(x); <pp-webdsl-to-string; debug(!"")> PrefetchFor(Var(x), PrefetchChildren(prefetch4)))
+    //; try(not([] := prefetch4); <debug(!"opt:")>Var(x); <debug(!"prefetch4:")> prefetch4; <pp-webdsl-to-string; debug(!"")> PrefetchFor(Var(x), PrefetchChildren(prefetch4)))
     ; b2 := <try(not(?[]); replace-prefetch-for(|x, prefetch4))> b1
     //; debug(!"qo:")
+
+  get-query-condition(|x,xsrt,bindableargs) :
+    anno* -> QueryCondition(querycondition)
+    with {|RootVar, BindableVar
+			    : rules( RootVar : Var(x) -> xsrt )
+			    ; <fetch-elem(?QueryAnalysis(analysis, _, _, _, _))> anno*
+			    ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
+			    ; ts := <filter-traversal-summary> analysis
+			    ; querycondition := <traversal-summary-to-query-condition> ts // Combine query conditions of the effectful field accesses
+          |}
 
   extract-body-wrapper = ?Block(<id>)
   extract-body-wrapper = ?Block(<id>)
@@ -359,22 +370,28 @@ strategies // Resolve
     ; where (
       (traversal, esrt) := <is-accessible-from(RootVar)> e
       ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,id))> cond
-      ; newcond := <conc; make-set>(<QueryConditions>, tmpcond)
+      ; fltrs := <filter(?PrefetchWhere(_)); (map(where(revalidate-prefetch-where)) <+ !PrefetchWhere(True()))> cond
+      ; newcond := <concat; make-set>[<QueryConditions>, tmpcond, fltrs]
       ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
       ; rules( DetectedTraveral :+= (traversal, esrt, newcond, iseffectful) )
     )
 
-  revalidate-query-condition(check-expr) = filter(extract-query-cond(check-expr); not(?True()))
+  revalidate-prefetch-where =
+    ?PrefetchWhere(cond)
+    ; collect(?Var(_))
+    ; map(is-accessible-from(BindableVar))
+
+  revalidate-query-condition(check-expr) = filter(not(?PrefetchWhere(_));extract-query-cond(check-expr); not(?True()))
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
     where <is-list> e
     ; values := <filter((is-accessible-from-allow-calls(s); map(Fst)) <+ is-query-condition-constant); flatten-list> e
-    ; newanalysis := <?[] < !analysis + (map(replace-var-with-value(|analysis, x)); flatten-list; make-set)> values
+    ; newanalysis := <(?[] < !analysis + (map(replace-var-with-value(|analysis, x)); flatten-list; make-set))> values
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
-    where values := <is-accessible-from-allow-calls(s); map(Fst)/*;debug(!"RenameTo:")*/> e
+    where values := <is-accessible-from-allow-calls(s); map(Fst)> e
     ; newanalysis := <map(replace-var-with-value(|analysis, x)); flatten-list; make-set> values
 
   rename-vars-in-analysis(s) :
@@ -429,6 +446,7 @@ strategies // Resolve
             //; <debug(!"analysis:")>analysis
             ; newanalysis := <foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
             //; <debug(!"newanalysis:")>newanalysis
+            //; <debug(!"combine:")> (name, newanalysis)
             ; <filter(combine-analysis)> newanalysis
 		      end
 
@@ -575,7 +593,8 @@ strategies // Resolve
     ; <analyze-for-query-optimization-continue> f
     ; <fetch-elem(?QueryAnalysis(analysis, _, _, unresolvedcalls, recursivecalls))> anno*
     ; mapping := [(e, Arg(x, srt))] // We only need to rename the iterator to the collection, all other variables are the same
-    ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> mapping
+    //; <debug(!"usefor:")> (x, anno*)
+    ; newanalysis := <foldr(<try(add-filter-to-analysis(|x,anno*))> analysis, rename-vars-in-analysis(RootVar))> mapping
     ; <map(translate-unresolved(|mapping))> unresolvedcalls
     ; <filter(translate-recursive(|mapping); register-detected-recursive-call)> recursivecalls
     ; <filter(combine-analysis)> newanalysis
@@ -812,15 +831,24 @@ rules // Query conditions
     ; Fst
     ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
 
-  get-accessible-expr(gen,check) :
-    (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr1 := <is-accessible-field(RootVar,gen); check> expr1 // This expression is accessible from the query root entity
-    ; newexpr2 := <(is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)); check> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
+  get-accessible-expr(gen,check) = get-accessible-expr(gen,check,is-query-condition-type)
 
-  get-accessible-expr(gen,check) :
+  get-accessible-expr(gen,check,srtcheck) :
     (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr2 := <is-accessible-field(RootVar,gen); check> expr2 // This expression is accessible from the query root entity
-    ; newexpr1 := <(is-query-condition-constant <+ is-accessible-field(RootVar <+ BindableVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
+    where newexpr1 := <is-accessible-field(RootVar,gen,srtcheck); check> expr1 // This expression is accessible from the query root entity
+    ; newexpr2 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
+
+  get-accessible-expr(gen,check,srtcheck) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr2 := <is-accessible-field(RootVar,gen,srtcheck); check> expr2 // This expression is accessible from the query root entity
+    ; newexpr1 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
+
+  is-bindable-expr(gen) = is-query-condition-constant
+  is-bindable-expr(gen) = is-accessible-field(BindableVar,gen,is-query-condition-type)
+  is-bindable-expr(gen) = 
+    (?Mul(expr1, expr2) <+ ?Div(expr1, expr2) <+ ?Mod(expr1, expr2) <+ ?Add(expr1, expr2) <+ ?Sub(expr1, expr2))
+    ; <is-bindable-expr(gen)> expr1
+    ; <is-bindable-expr(gen)> expr2
 
   is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
 

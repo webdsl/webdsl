@@ -2,6 +2,7 @@ package utils;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Map;
 
 import org.hibernate.engine.SessionImplementor;
 
@@ -118,8 +119,8 @@ public class QueryOptimization {
 		return criteria.list();
 	}
 
-    public static java.util.Collection prefetchCollection(org.hibernate.Session hibSession, java.util.Collection col, String[] joins) {
-    	if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0 && QueryOptimization.optimizationMode != 8) {
+    public static java.util.Collection prefetchCollection(org.hibernate.Session hibSession, java.util.Collection col, String[] joins, org.hibernate.engine.LoadQueryInfluencers lqi) {
+    	if(lqi != null) {
     		org.hibernate.collection.PersistentCollection persistentCol = (org.hibernate.collection.PersistentCollection) col;
     		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor) {
 	    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
@@ -127,7 +128,20 @@ public class QueryOptimization {
 				org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(persistentCol.getRole());
 				if(persister instanceof utils.BatchCollectionPersister) {
 					java.io.Serializable[] ownerId = { ((org.webdsl.WebDSLEntity)persistentCol.getOwner()).getId() };
-					((utils.BatchCollectionPersister)persister).initializeBatch(ownerId, session, java.util.Arrays.asList(joins));
+					((utils.BatchCollectionPersister)persister).initializeBatch(ownerId, session, null, lqi);
+				}
+    			
+    		}
+    	}
+    	else if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0 && QueryOptimization.optimizationMode != 8) {
+    		org.hibernate.collection.PersistentCollection persistentCol = (org.hibernate.collection.PersistentCollection) col;
+    		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor) {
+	    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
+	    		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+				org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(persistentCol.getRole());
+				if(persister instanceof utils.BatchCollectionPersister) {
+					java.io.Serializable[] ownerId = { ((org.webdsl.WebDSLEntity)persistentCol.getOwner()).getId() };
+					((utils.BatchCollectionPersister)persister).initializeBatch(ownerId, session, java.util.Arrays.asList(joins), null);
 				}
     			
     		}
@@ -135,7 +149,7 @@ public class QueryOptimization {
     	return col;
     }
 
-    public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners, String[] joins) {
+    public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.List<? extends org.webdsl.WebDSLEntity> owners, String[] joins, org.hibernate.engine.LoadQueryInfluencers lqi) {
     	if( hibSession instanceof org.hibernate.engine.SessionImplementor) {
     		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
     		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
@@ -154,8 +168,8 @@ public class QueryOptimization {
 					System.out.println("elements: " + ((utils.BasicCollectionPersister)persister).getElementPersister().getEntityName());
 				}*/
 				java.util.List<String> joinslist = null;
-				if(joins != null && QueryOptimization.optimizationMode != 8) joinslist = java.util.Arrays.asList(joins);
-				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session, joinslist);
+				if(joins != null && QueryOptimization.optimizationMode != 8 && lqi == null) joinslist = java.util.Arrays.asList(joins);
+				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds, session, joinslist, lqi);
 			}
     	}
     }
@@ -238,5 +252,61 @@ public class QueryOptimization {
 				}
 			}
 		}
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static boolean equalFilters(org.hibernate.impl.FilterImpl oldFilter, org.hibernate.impl.FilterImpl newFilter) {
+		if(oldFilter == null && newFilter == null) return true;
+		if(oldFilter == null || newFilter == null) return false;
+		if(!oldFilter.getName().equals(newFilter.getName())) return false;
+		java.util.Set params = new java.util.HashSet();
+		Map oldParams = oldFilter.getParameters();
+		Map newParams = newFilter.getParameters();
+		params.addAll(oldParams.keySet());
+		params.addAll(newParams.keySet());
+		for(Object param : params) {
+			Object oldParam = oldParams.get(param);
+			Object newParam = newParams.get(param);
+			if(oldParam == null || newParam == null || !oldParam.equals(newParam)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/*public static boolean equalFilterParams(final java.util.Map oldParams, final java.util.Map newParams, final int start, final int end) {
+		for(int i = start; i < end; i++) {
+			final Object oldParam = oldParams.get("param" + i);
+			final Object newParam = newParams.get("param" + (i - start));
+			if(oldParam == null || newParam == null || !oldParam.equals(newParam)) {
+				return false;
+			}
+		}
+		return true;
+	}*/
+	@SuppressWarnings("rawtypes")
+	public static boolean equalFilterParams(Map oldParams, int oldStart, Map newParams, int newStart, int len) {
+		for(int i = 0; i < len; i++) {
+			final Object oldParam = oldParams.get("param" + (oldStart + i));
+			final Object newParam = newParams.get("param" + (newStart + i));
+			if(oldParam == null || newParam == null || !oldParam.equals(newParam)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static String filterToString(org.hibernate.impl.FilterImpl fltr) {
+		if(fltr == null) return null;
+		StringBuilder sb = new StringBuilder();
+		sb.append(fltr.getName());
+		sb.append("(");
+		java.util.Map params = fltr.getParameters();
+		for(int i = 0; i < params.size(); i++) {
+			if(i > 1) sb.append(',');
+			sb.append(params.get("param" + i));
+		}
+		sb.append(")");
+		return sb.toString();
 	}
 }

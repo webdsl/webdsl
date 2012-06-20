@@ -132,17 +132,23 @@ rules // for
         ; bstm* := <statements-to-java-servlet> stat*
 
    for-to-java-servlet : // No where clause, with order by clause
-     ForStmt(x, srt, e1, fltr, Block(stat*)){anno*} ->
+     for@ForStmt(x, srt, e1, fltr, Block(stat*)){anno*} ->
      bstm*|[
+        java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection
+        bstm_enable*
         java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
+        bstm_disable*
         bstm_for*
      ]|
      with  x_list := <newname> "lst"
+         ; x_expr := <newname> "exp"
          ; t      := <java-type> srt
+         ; reft := t
          ; e2 := <expression-to-java-servlet> e1
          ; prefetch := <get-prefetch-for(|x)> stat*
+         ; (bstm_enable*, bstm_disable*) := <try-get-query-condition-filter> for
          ; e_joins := <get-direct-fetches> prefetch
-         ; e_expr := <(AtArguments() := <QueryOptimizationMode>) < !e2 + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, e2, e_joins) ]|>
+         ; e_expr := <(AtArguments() := <QueryOptimizationMode>) < !expr|[x_expr]| + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins, null) ]|>
          ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(where(AtArguments() := <QueryOptimizationMode>); ![]) + ![]> prefetch
          ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr, bstm_batch*)>
 

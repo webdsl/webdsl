@@ -22,15 +22,21 @@ exports
     Id                  %% The name of the property
     PrefetchIfDefault   %% A list of templates that should have its default implementation (not dynamically redefined)
     PrefetchCondition   %% A condition under which the property is accessed (can only contain simple conditions)
+    PrefetchWhere       %% A condition for the elements of a collection
     PrefetchChildren    %% A list of child nodes
                                                                   -> PrefetchNode      {cons("PrefetchNode")}
                                                                   -> PrefetchIfDefault {cons("None")}
     "default" "[" {TemplateArg "," }+ "]"                         -> PrefetchIfDefault {cons("PrefetchIfDefault")}
                                                                   -> PrefetchCondition {cons("None")}
-    "if" "(" PrefetchCond ")"                                     -> PrefetchCondition {cons("PrefetchCondition")}
+    "if" "(" PrefetchCondOrTrue ")"                               -> PrefetchCondition {cons("PrefetchCondition")}
+                                                                  -> PrefetchWhere     {cons("None")}
+    "where"  PrefetchCondOrTrue                                   -> PrefetchWhere     {cons("PrefetchWhere")}
 
                                                                   -> NoneCons          {cons("None")}
     SimpleSort "."                                                -> PrefetchOwnerCast {ast("<1>")}
+
+    PrefetchCond                                                  -> PrefetchCondOrTrue
+    "true"                                                        -> PrefetchCondVal {cons("True")}
 
     %% Intentionally matches Exp
     "true"                                                        -> PrefetchCondVal {prefer,cons("True")}
@@ -40,6 +46,12 @@ exports
     Id                                                            -> PrefetchCondVal {cons("Var")}
     NoneCons "." Id                                               -> PrefetchCondVal {cons("RelativeFieldAccess")}
     SimpleSort "." Id                                             -> PrefetchCondVal {cons("RelativeFieldAccess")}
+    PrefetchCondVal "*" PrefetchCondVal                           -> PrefetchCondVal {cons("Mul"),assoc}
+    PrefetchCondVal "/" PrefetchCondVal                           -> PrefetchCondVal {cons("Div"),assoc}
+    PrefetchCondVal "%" PrefetchCondVal                           -> PrefetchCondVal {cons("Mod"),assoc}
+    PrefetchCondVal "+" PrefetchCondVal                           -> PrefetchCondVal {cons("Add"),assoc}
+    PrefetchCondVal "-" PrefetchCondVal                           -> PrefetchCondVal {cons("Sub"),assoc}
+
 
     PrefetchCondVal                                               -> PrefetchCond
     PrefetchCondVal "==" PrefetchCondVal                          -> PrefetchCond {cons("Eq")}
@@ -53,6 +65,15 @@ exports
     PrefetchCond "||" PrefetchCond                                -> PrefetchCond {cons("Or"), assoc}
     "!" PrefetchCond                                              -> PrefetchCond {cons("Not")}
     "(" PrefetchCond ")"                                          -> PrefetchCond {bracket}
+
+context-free priorities
+  {left:
+       PrefetchCondVal "*" PrefetchCondVal -> PrefetchCondVal
+       PrefetchCondVal "%" PrefetchCondVal -> PrefetchCondVal
+       PrefetchCondVal "/" PrefetchCondVal -> PrefetchCondVal }
+  > {left:
+       PrefetchCondVal "+" PrefetchCondVal -> PrefetchCondVal
+       PrefetchCondVal "-" PrefetchCondVal -> PrefetchCondVal }
 
 context-free priorities
   "!" PrefetchCond -> PrefetchCond

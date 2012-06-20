@@ -5,6 +5,6 @@ import org.hibernate.engine.SessionImplementor;
 
 public interface BatchCollectionPersister {
 
-	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins);
+	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins, org.hibernate.engine.LoadQueryInfluencers lqi);
 
 }

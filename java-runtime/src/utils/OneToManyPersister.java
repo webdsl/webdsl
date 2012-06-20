@@ -33,7 +33,7 @@ public class OneToManyPersister extends org.hibernate.persister.collection.OneTo
 	}
 
 	@Override
-	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins) {
+	public void initializeBatch(Serializable[] batch, SessionImplementor session, java.util.List<String> joins, org.hibernate.engine.LoadQueryInfluencers lqi) {
 		//batchInitializer.initializeBatch(batch, session);
 		if(batch.length == 0) return;
 		if(java.lang.reflect.Proxy.isProxyClass( session.getClass() ) ) {
@@ -105,7 +105,7 @@ public class OneToManyPersister extends org.hibernate.persister.collection.OneTo
 			
 		}
 		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 6 || utils.QueryOptimization.optimizationMode == 8) { // Normal or at arguments
-			OneToManyJoinCollectionLoader loader = new OneToManyJoinCollectionLoader( this, batch.length, session.getFactory(), session.getLoadQueryInfluencers(), joins );
+			OneToManyJoinCollectionLoader loader = new OneToManyJoinCollectionLoader( this, batch.length, session.getFactory(), lqi == null ? session.getLoadQueryInfluencers() : lqi, joins );
 			loader.loadCollectionBatch(session, batch, getKeyType());
 		} else if(utils.QueryOptimization.optimizationMode == 3) { // Guided batch
 			batchInitializer.initializeBatch(batch, session);

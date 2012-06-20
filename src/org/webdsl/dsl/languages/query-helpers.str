@@ -7,11 +7,20 @@ imports // imports only needed for pp-aterm-box and box2text-string
 strategies
   
   add-backend-annotation :
-    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno*} ->
-    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt2,fsrt2)}, templ, cond, children){anno*}
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt2,fsrt2)}, templ, cond, elemcond, children){anno*}
     where decsrt2 := <add-type-annotations> decsrt
     ; fsrt2 := <topdown(add-type-annotations)> fsrt
     ; not(decsrt := decsrt2; fsrt := fsrt2)
+
+  add-query-condition-filter-annotation :
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchWhere(elemcond){pwanno*}, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchWhere(elemcond){fltr,pwanno*}, children){anno*}
+    where not(<fetch-elem(?QueryConditionFilter(_, _, _))> pwanno*)
+    ; not(True() := elemcond)
+    ; GenericSort(_, [elemsrt@SimpleSort(_)]) := fsrt
+    with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|elemsrt))> elemcond
+    ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
 
   rename :
     PrefetchFor(x, tree1){anno*} -> PrefetchFor(y, tree2){anno*}
@@ -27,13 +36,14 @@ strategies
   rename-prefetch(|srt): None(){anno*} -> None(){anno*}
 
   rename-prefetch(|srt):
-    PrefetchNode(castsrt, name, templ, cond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond2, children2){newanno*}
+    PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond2, elemcond2, children2){newanno*}
     where SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
     ; n := <strip-annos> name
     ; dec_class := <class-of-property> (x_class, n)
     ; decsrt := SimpleSort(dec_class)
     ; fsrt := <get-prop-type; strip-ref-sort> (dec_class, n)
     ; cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+    ; elemcond2 := <alltd(add-type-anno-to-relative-fa(|srt))> elemcond
     ; children2 := <rename-prefetch(|fsrt)> children
     ; newanno* := <try(where(not(fetch-elem(?IsLazyFetch()))); add-lazy-anno(|dec_class,n, fsrt))> anno*
 
@@ -50,14 +60,14 @@ strategies
 
   constraint-error-data =
     ?PrefetchChildren(children)
-    ; keys := <map(\ PrefetchNode(_, name, _, _, _) -> name \)> children
+    ; keys := <map(\ PrefetchNode(_, name, _, _, _, _) -> name \)> children
     ; key{PrefetchPropAnno(decsrt,fsrt)} := <make-set; fetch-elem(has-duplicates(|keys))> keys
-    ; <filter(?PrefetchNode(_, key, _, _, _))> children
+    ; <filter(?PrefetchNode(_, key, _, _, _, _))> children
     ; add-error(|["Multiple prefetches defined for ", <pp-type>decsrt, ".", key, " of type ", <pp-type> fsrt])
 
   constraint-error-data =
     ?PrefetchFor(x, _)
-    ; where(<not(?Var(_)) <+ (?Var(_); not(type-of))> x)
+    ; where(<not(?Var(_)) <+ (?Var(_); not(type-of; is-entity-type))> x)
     ; add-error(|["Prefetching can only be defined for variables of an entity type"])
 
   constraint-error-data =
@@ -73,12 +83,12 @@ strategies
     ; <fetch-elem(constrain-prefetch-helper(|srt))> children
 
   constrain-prefetch-helper(|srt) =
-    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ?PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*}
     ; where(<?Some(castsrt2); !(castsrt2, srt); not(subtype-of)> castsrt)
     ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt2])
 
   constrain-prefetch-helper(|srt) =
-    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ?PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*}
     ; where(
         SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
         ; <subtype-of> (SimpleSort(x_class), srt)
@@ -93,7 +103,7 @@ strategies
       end
 
   constrain-prefetch-helper(|srt) =
-    ?PrefetchNode(castsrt, name, templ, cond, children){anno*}
+    ?PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*}
     ; where(
         SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
         ; <subtype-of> (SimpleSort(x_class), srt)
@@ -127,7 +137,274 @@ strategies
     ; debug(!"unknown?")
     ; add-error(|["Cannot define prefetch for unknown property"])*/
 
-  
+      
+  /*define-filter-for-query-condition(|x,e) :
+    QueryCondition(cond) -> fltr
+    where not(True() := cond)
+    ; FieldAccess(v, f) := e
+    ; SimpleSort(v_class) := <type-of> v
+    ; f_class := <class-of-property> (v_class, f)
+    //; SimpleSort(elem_class) := <get-prop-type; try-strip-generic-sort> (f_class, f)
+    ; not(<is-derived-property> (f_class, f))
+    with fltrs := <or-to-list; map(get-filters-for-conditions(|x, f_class, f))> cond
+    ; fltr := <combine-query-condition-filters> fltrs*/
+
+  define-filter-for-query-condition(|x,srt) :
+    qc@QueryCondition(cond) -> fltr
+    where not(True() := cond)
+    ; PrefetchWhere(cond2) := <query-condition-to-prefetch-where(|x)> qc
+    ; not(True() := cond2)
+    with fltrs := <or-to-list; map(get-filters-for-conditions(|srt))> cond2
+    ; fltr := <combine-query-condition-filters> fltrs
+
+  get-filters-for-conditions(|srt) :
+    cond -> fltr
+    with (strcond, parammap) := <condition-expr-to-filter-condition(get-relative-prop-string)> (cond, [])
+    ; fltr := <common-get-filters(|srt)> (strcond, parammap)
+
+  /*get-filters-for-conditions(|x, srt) :
+    cond -> fltr
+    with (strcond, parammap) := <condition-expr-to-filter-condition(get-relative-prop-string(|x))> (cond, [])
+    ; fltr := <common-get-filters(|srt)> (strcond, parammap)*/
+
+  common-get-filters(|srt) =
+    ?(strcond, parammap)
+    ; SimpleSort(class) := srt
+    ; ordered_parammap := <reverse> parammap // Because new parameter mappings are added to the front of the list, a reverse gives an ascending parammap
+    ; vars := <map(Fst)> ordered_parammap
+    ; types := <map(Third)> ordered_parammap
+    ; name := <get-filter-name-for-condition> (class, strcond, types)
+    //; vars := <collect(?Var(_)); make-set; filter(not(?Var(x)))> cond
+    //; types := <map(type-of)> vars
+    //; parammap := <add-indices> vars
+    //; newcond := <alltd(replace-vars-with-param(|parammap))> cond
+    ; fltr := QueryConditionFilter(name, vars, types)
+    //; fltrdef := QueryConditionFilterDef(name, types, strcond, [])
+    //; <declare-query-condition-filter> (f_class, f, fltrdef)
+
+  get-relative-prop-string(|x) =
+    where(collect(?Var(x)); not(?[]))
+    ; property-to-string
+
+  get-relative-prop-string :
+    RelativeFieldAccess(_, e) -> str
+    with str := <concat-strings>["_",e]
+
+  get-filter-name-for-condition :
+    (class, cond, types) -> name
+    where name := <FilterFromCondition> (class, cond, types)
+
+  get-filter-name-for-condition :
+    (class, cond, types) -> name
+    where <not(FilterFromCondition)> (class, cond, types)
+    ; name := <concat-strings; newname> [class, "_fltr"]
+    ; fltrdef := QueryConditionFilterDef(name, types, cond, [])
+    ; <declare-query-condition-filter> (class, fltrdef)
+    ; rules( FilterFromCondition : (class, cond, types) -> name )
+
+  declare-query-condition-filter =
+    ?(class, fltrdef@QueryConditionFilterDef(name, _, _, _))
+    //; <debug(!"regfltr:")> (class, name)
+    ; rules(  EntityFilters :+ class -> fltrdef
+              CollectionFilterDef : name -> (class, fltrdef)
+           )
+
+  get-condition-filter-param : // Reuse existing parameter mapping
+    (e, srt, parammap) -> (strparam, parammap)
+    where (_, param, _) := <fetch-elem(?(e, _, srt))> parammap
+    ; strparam := <concat-strings> [":param", <int-to-string> param] 
+
+  get-condition-filter-param : // Create new parameter mapping
+    (e, srt, parammap) -> (strparam, [newmap | parammap])
+    where <not(fetch-elem(?(e, _, srt)))> parammap
+    ; param := <length> parammap
+    ; strparam := <concat-strings> [":param", <int-to-string> param] 
+    ; newmap := (e, param, srt)
+
+  condition-to-filter-string(dbprop-to-string) :
+    (e, parammap) -> (str, parammap)
+    where str := <dbprop-to-string> e
+
+  condition-to-filter-string(dbprop-to-string) :
+    (e, parammap) -> (paramstr, parammap2)
+    where not(Null() := e)
+    ; not(<dbprop-to-string> e)
+    with srt := <type-of> e
+    ; (paramstr, parammap2) := <get-condition-filter-param> (e, srt, parammap)
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (Not(expr1), parammap) -> (str, parammap2)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [ "not (", str1, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (Or(expr1, expr2), parammap) -> (str, parammap3)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
+    ; str := <concat-strings> [ "(", str1, " or ", str2, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (And(expr1, expr2), parammap) -> (str, parammap3)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
+    ; str := <concat-strings> [ "(", str1, " and ", str2, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (SmallerThanOrEqual(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " <= ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (SmallerThan(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " < ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (LargerThanOrEqual(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " >= ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (LargerThan(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " > ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string) = ?(NotEq(expr1, expr2), parammap); !(expr1, expr2, parammap); condition-expr-to-filter-condition(dbprop-to-string|" <> ", " is not ")
+
+  condition-expr-to-filter-condition(dbprop-to-string) = ?(Eq(expr1, expr2), parammap); !(expr1, expr2, parammap); condition-expr-to-filter-condition(dbprop-to-string|" = ", " is ")
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (expr1, Null(), parammap) -> (str, parammap2)
+    where not(Null() := expr1)
+    ; (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [str1, nullop, "null"]
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (Null(), expr1, parammap) -> (str, parammap2)
+    where not(Null() := expr1)
+    ; (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [str1, nullop, "null"]
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (expr1, expr2, parammap) -> (str, parammap2)
+    where not(Null() := expr1); not(Null() := expr2)
+    ; (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, op, str2 ]
+
+  transform-both-props-for-filter(dbprop-to-string):
+    (expr1, expr2, parammap) -> (str1, str2, parammap3)
+    where (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-to-filter-string(dbprop-to-string)> (expr2, parammap2)
+
+  revalidate-query-condition-filters :
+    PrefetchNode(castsrt, f, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, f, templ, cond, elemcond2, children){keep*}
+    with cond1 := <fetch-elem(?PrefetchWhere(<or-to-list>)) <+ ![]> anno*
+    ; cond2 := <?PrefetchWhere(<or-to-list>) <+ ![]> elemcond
+    ; if <fetch-elem(?True())> cond1; not([] := cond2) then // Do not add an automatic True() condition, when a manual condition was provided
+        elemcond2 := elemcond
+      else
+        elemcond2 := <conc; make-set; or-query-condition; !PrefetchWhere(<id>)> (cond1, cond2)
+      end
+    ; keep* := <remove-all(?PrefetchWhere(_))> anno*
+    //; fltrs := <or-to-list; map(get-filters-for-conditions)> cond
+    //; fltr* := <combine-query-condition-filters < (debug(!"comb:");![<id>]) + ![]> fltrs
+
+  combine-query-condition-filters :
+    [fltr] -> fltr
+
+  combine-query-condition-filters :
+    fltrs -> fltr
+    where <is-list; not(?[] <+ ?[_])> fltrs // A list with at least two filters
+    with names := <map(get-query-condition-filter-name); make-set; string-sort> fltrs
+    ; ordered := <map(combine-query-condition-filters-helper(|fltrs));flatten-list> names
+    ; newargs := <map(get-query-condition-filter-args); concat> ordered
+    ; QueryConditionFilterDef(name, types, _, _) := <get-def-for-filters> ordered
+    ; <eq> (<length> newargs, <length> types)
+    ; fltr := QueryConditionFilter(name, newargs, types)
+
+  get-def-for-filters :
+    ordered -> def
+    where combinedname := <map(get-query-condition-filter-name); separate-by(!"_"); concat-strings> ordered
+    ; fltrname := <CombinedFilterName> combinedname
+    with (_, def) := <CollectionFilterDef> fltrname
+
+  get-def-for-filters :
+    ordered -> fltrdef
+    where names := <map(get-query-condition-filter-name)> ordered
+    ; combinedname := <separate-by(!"_"); concat-strings> names
+    ; <not(CombinedFilterName)> combinedname
+    with defs := <map(get-query-condition-filter-name; CollectionFilterDef; ?(class, <id>))> ordered // All filters should belong to the same property
+    ; fltrname := <concat-strings; newname> [class, "_combined"]
+    ; types := <map(get-query-condition-filter-def-types)> defs
+    ; cond := <combine-conditions-of-filter-defs(|0)> defs
+    //; subfltrs := <zip> (names, <map(length)> types)
+    ; fltrdef := QueryConditionFilterDef(fltrname, <concat>types, cond, defs)
+    ; rules(
+        CombinedFilterName : combinedname -> fltrname
+     )
+    ; <declare-query-condition-filter> (class, fltrdef)
+
+  combine-conditions-of-filter-defs(|prevtypes) :
+    [QueryConditionFilterDef(_, types, cond, _)|other] -> newcond
+    //with tmpcond := <alltd(add-to-query-condition-filter-param(|prevtypes));debug(!"this:")> cond
+    with tmpcond := <length; range; foldr(!cond, add-to-query-condition-filter-param(|prevtypes))> types
+    ; if [] := other then
+        newcond := tmpcond
+      else
+        newtypes := <addi> (prevtypes, <length> types)
+        ; othercond := <combine-conditions-of-filter-defs(|newtypes)> other
+        //; newcond := Or(tmpcond, othercond)
+        ; newcond := <concat-strings> ["(", tmpcond, " or ", othercond, ")"]
+      end
+
+  add-to-query-condition-filter-param(|prevtypes) :
+    (i, cond) -> cond
+    where <eq> (prevtypes, 0)
+
+  add-to-query-condition-filter-param(|prevtypes) :
+    (i, cond) -> newcond
+    where <not(eq)> (prevtypes, 0)
+    ; old := <concat-strings> [":param", <int-to-string> i]
+    ; new := <concat-strings> [":param", <addi; int-to-string> (i, prevtypes)]
+    ; newcond := <string-replace(|old, new)> cond
+
+  /*add-to-query-condition-filter-param(|toadd) :
+    QueryConditionFilterParam(i){anno*} -> QueryConditionFilterParam(newi){anno*}
+    with newi := <addi> (i, toadd)*/
+
+  combine-query-condition-filters-helper(|fltrs) :
+    name -> fltrswithname
+    with fltrswithname := <filter(where(get-query-condition-filter-name; ?name))> fltrs
+
+  replace-vars-with-param(|parammap) :
+    v@Var(_) -> QueryConditionFilterParam(i)
+    where (i, v) := <fetch-elem(?(_, v))> parammap  
+
+  add-filter-to-analysis(|x,anno*) =
+    where(pw := <fetch-elem(?QueryCondition(_)) < query-condition-to-prefetch-where(|x) + !PrefetchWhere(True())> anno*)
+    ; try(ensure-effectful-traversal-for-var(|x))
+    ; map(try(add-filter-to-analysis-helper(|x, pw)))
+
+  ensure-effectful-traversal-for-var(|x) =
+    where(filter(?(Var(x), _, _, True())); ?[])
+    ; ![(Var(x), <type-of> Var(x), <QueryConditions>, True()) | <id>]
+
+  add-filter-to-analysis-helper(|x,pw) :
+    (traversal, srt, condition, effectful){anno*} -> (traversal, srt, [pw|condition], effectful){anno*}
+    where Var(x) := traversal
+
+  query-condition-to-prefetch-where(|x) :
+    QueryCondition(cond) -> PrefetchWhere(cond3)
+    with cond2 := <or-to-list; make-set; or-query-condition; alltd(make-field-access-relative(|x))> cond
+    ; cond3 := <where(collect(?FieldAccess(RelativeFieldAccess(_, _), _)); ?[]) <+ !True()> cond2 // If a joins would be needed, then change condition to true (do no use filter), because joins are not supported for filters
+
+  make-field-access-relative(|x) :
+    e@FieldAccess(Var(x), f) -> RelativeFieldAccess(None(), f){srt}
+    where srt := <type-of; try-strip-generic-sort> e 
+
+  make-field-access-relative(|x) :
+    e@FieldAccess(Cast(Var(x), castsrt), f) -> RelativeFieldAccess(castsrt, f){srt}
+    where srt := <type-of; try-strip-generic-sort> e
 
   has-duplicates(|list) :
     key -> key
@@ -140,14 +417,20 @@ strategies
     where qc1 := <fetch-elem(?QueryCondition(_))> anno*
     ; qc2 := <rename-all> qc1
     ; keep* := <remove-all(?QueryCondition(_))> anno*
+      
+  rename-query-condition-anno :
+    term@_{anno*} -> term{qcf2,keep*}
+    where qcf1 := <fetch-elem(?QueryConditionFilter(_, _, _))> anno*
+    ; qcf2 := <rename-all> qcf1
+    ; keep* := <remove-all(?QueryConditionFilter(_, _, _))> anno*
 
   add-query-optimization-to-argument(|analysis,bindableargs) :
     (arg@Arg(x, srt),b) -> b 
     where <not(filter(?arg); ?[])> bindableargs 
 
   add-query-optimization-to-argument(|qa,bindableargs) :
-    (arg@Arg(x, srt),b1) -> b2 
-    where [] := <filter(?arg)> bindableargs 
+    (arg@Arg(x, srt),b1) -> b2
+    where [] := <filter(?arg)> bindableargs
     ; (qc, b2) := <query-analysis-to-query-optimizition(|qa,x,srt,bindableargs)> b1
 
   template-body-ready = // Local redefines, derives and output lists should have been lifted
@@ -232,20 +515,47 @@ rules
     ; map(traversal-to-joins(|x,xsrt,requiresalias); joins-to-optimization-branch(|x))
 
   add-conditions(|conditions) :
-    traversal{anno*} -> traversal{JoinCondition(conds), anno*}
-    with conds := <filter(?(traversal, <id>, True())); make-set> conditions // The condition list always has an element. If that element is an empty list then that means that there was no condition.
+    traversal{anno*} -> traversal{JoinCondition(conds), PrefetchWhere(filter), anno*}
+    with conds := <filter(?(traversal, <id>, _, True())); make-set> conditions // The condition list always has an element. If that element is an empty list then that means that there was no condition.
+    ; filter := <filter(?(traversal, _, <id>, True())); flatten-list; map(?PrefetchWhere(<id>)); or-query-condition> conditions // If a list with an [] element is returned, it means that there is an effectful use of the collection that should not be filtered
+    //; <map(?PrefetchWhere(<id>)); or-query-condition> filters
+    //; qcfs* := <get-filters-for-traversal < debug(!"suc:") + ![QueryConditionFilters([])]> filters
+
+  get-filters-for-traversal =
+    fetch-elem(?None()); ![]
+
+  get-filters-for-traversal =
+    where(not(fetch-elem(?[] <+ ?None())))
+    ; flatten-list
+    ; make-set
+    ; where(map(has-valid-filter-arguments))
+    ; ![QueryConditionFilters(<id>)]
+
+  has-valid-filter-arguments :
+    qcf@QueryConditionFilter(name, args, cond) -> qcf
+    where <map(is-bindable-expr(id))> args
 
   prepare-traversal :
-    (traversal1, srt, cond1, eff) -> (traversal3, cond2, eff)
+    (traversal1, srt, cond1, eff) -> (traversal3, cond2, filters, eff)
     with traversal2 := <is-accessible-from(RootVar); Fst> traversal1 // This removes any unnecessary casts
     ; cond2 := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,not(RootVar)))> cond1
+    ; filters := <where(<is-generic-sort> srt) < (filter(?PrefetchWhere(_)); try(\[] -> [PrefetchWhere(True())]\)) + ![]> cond1
     where traversal3 := <an-requires-joining-fa; try(?Cast(<id>, _))> (traversal2, srt)
+    //; <debug(!"preped:")> (traversal3, filters)
 
   traversal-summary-to-query-condition =
-    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id,not(RootVar)));and-query-condition>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
+    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id,not(RootVar)))>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
     ; make-set
     ; try(?[]; ![True()]) // No condition means true
+    ; ?set
+    ; filter(has-no-strict-subset(|set); and-query-condition)
     ; or-query-condition
+
+  has-no-strict-subset(|set) =
+    ?elem
+    ; where(not(<fetch-elem(is-strict-subset-of(|elem))> set))
+
+  is-strict-subset-of(|set) = <subset> (<id>, set)
 
   is-accessible-condition-expr(|p) :
     (expr1, expr2) -> (newexpr1, newexpr2)
@@ -288,28 +598,66 @@ rules
     ; (?True() < !None() + !PrefetchCondition(<id>))
 
   revalidate-join-conditions(|p) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno1*}
-    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, newcond, newchildren){anno2*}
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, children){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, newcond, elemcond, newchildren){anno2*}
     with
       anno2* := <remove-all(?JoinCondition(_))> anno1*
-      ; cond2 := <(fetch-elem(?JoinCondition(<revalidate-join-condition(|p)>))) <+ !None()> anno1*
+      ; cond2 := <(fetch-elem(?JoinCondition(<revalidate-join-condition(|p); try(simplify-condition)>))) <+ !None()> anno1*
       ; newcond := <combine-prefetch-conditions> (cond, cond2)
       ; newp := [(f{}, decsrt)|p]
       ; newchildren := <get-prefetch-children; map(revalidate-join-conditions(|newp)); wrap-prefetch-children> children
 
+  simplify-condition = repeat(oncetd(simplify-or <+ simplify-and))
+
+  /*simplify-condition =
+    or-to-list
+    ; map(and-to-list; make-set; and-query-condition)
+    ; make-set
+    ; or-query-condition*/
+
+  simplify-or :
+    old@Or(_, _) -> new
+    with lst := <or-to-list> old
+    ; newlst := <make-set> lst
+    where <not(eq)> (<length> lst, <length> newlst)
+    with new := <or-query-condition> newlst
+
+  simplify-and :
+    old@And(_, _) -> new
+    with lst := <and-to-list> old
+    ; newlst := <make-set> lst
+    where <not(eq)> (<length> lst, <length> newlst)
+    with new := <and-query-condition> newlst
+
+  or-to-list :
+    expr -> [expr]
+    where not(Or(_, _) := expr)
+
+  or-to-list :
+    Or(expr1, expr2) -> lst
+    with lst1 := <or-to-list <+ ![<id>]> expr1
+    ; lst2 := <or-to-list <+ ![<id>]> expr2
+    ; lst := <conc> (lst1, lst2)
+
+  and-to-list :
+    And(expr1, expr2) -> lst
+    with lst1 := <and-to-list <+ ![<id>]> expr1
+    ; lst2 := <and-to-list <+ ![<id>]> expr2
+    ; lst := <conc> (lst1, lst2)
+
   traversal-to-joins(|x,xsrt,requiresalias):
-    expr@FieldAccess(e, f{annof*}){anno*} -> [PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, None(), None(), None()){newanno*} | prev]
+    expr@FieldAccess(e, f{annof*}){anno*} -> [PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, None(), None(), None(), None()){newanno*} | prev]
     with <?Cast(p, _) <+ ?p> e
     ; castsrt := <(?Cast(_, <id>); add-type-annotations; !Some(<id>)) <+ !None()> e
-    ; prev@[PrefetchNode(_, _{PrefetchPropAnno(_,p_fsrt)}, _, _, _)|_] := <traversal-to-joins(|x,xsrt,requiresalias)> p
+    ; prev@[PrefetchNode(_, _{PrefetchPropAnno(_,p_fsrt)}, _, _, _, _)|_] := <traversal-to-joins(|x,xsrt,requiresalias)> p
     ; SimpleSort(e_class) := <(?Some(<id>) <+ !p_fsrt); try(strip-ref-sort); try-strip-generic-sort> castsrt
     ; dec_class := <class-of-property> (e_class, f)
     ; decsrt := SimpleSort(dec_class)
     ; fsrt := <get-prop-type; strip-ref-sort> (dec_class, f)
-    ; newanno* := <filter(keep-anno-in-query-optimization <+ ?JoinCondition(_)); try(add-lazy-anno(|dec_class, f, fsrt)); try(add-alias-anno(|expr,requiresalias))> anno*
+    ; newanno* := <filter(keep-anno-in-query-optimization <+ ?JoinCondition(_) <+ ?PrefetchWhere(_)); try(add-lazy-anno(|dec_class, f, fsrt)); try(add-alias-anno(|expr,requiresalias))> anno*
 
   traversal-to-joins(|x,xsrt,requiresalias):
-    Var(x) -> [PrefetchNode(None(), None(){PrefetchPropAnno(None(),srt)}, None(), None(), None())]
+    Var(x) -> [PrefetchNode(None(), None(){PrefetchPropAnno(None(),srt)}, None(), None(), None(), None())]
     with srt := <strip-ref-sort> xsrt
 
   // Does the same as below
@@ -320,10 +668,25 @@ rules
     ; ?PrefetchChildren([<id>])
 
   joins-to-optimization-branch-helper :
-    (PrefetchNode(castsrt, name, templ, cond, None()){anno*}, children)
+    (PrefetchNode(castsrt, name, templ, cond, elemcond, None()){anno*}, children)
     ->
-    PrefetchChildren([PrefetchNode(castsrt, name, templ, cond, children){anno*}])
+    PrefetchChildren([PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*}])
     
+  /*combine-branch-anno :
+    (anno1*, anno2*) -> (anno3*, anno4*)
+    where <fetch-elem(?QueryConditionFilters(fltrs1))> anno1*
+    ; <fetch-elem(?QueryConditionFilters(fltrs2))> anno2*
+    ; fltrs3 := <(?([], _) <+ ?(_, [])) < ![] + (conc; make-set)> (fltrs1, fltrs2)
+    ; anno3* := <remove-all(?QueryConditionFilters(_)); ![QueryConditionFilters(fltrs3)|<id>]> anno1*
+    ; anno4* := <remove-all(?QueryConditionFilters(_))> anno2**/
+
+  combine-branch-anno :
+    (anno1*, anno2*) -> (anno3*, anno4*)
+    where <fetch-elem(?PrefetchWhere(fltrs1))> anno1*
+    ; <fetch-elem(?PrefetchWhere(fltrs2))> anno2*
+    ; fltrs3 := <conc; make-set; or-query-condition> (<or-to-list>fltrs1, <or-to-list>fltrs2)
+    ; anno3* := <remove-all(?PrefetchWhere(_)); ![PrefetchWhere(fltrs3)|<id>]> anno1*
+    ; anno4* := <remove-all(?PrefetchWhere(_))> anno2*
 
   combine-branch-anno :
     (anno1*, anno2*) -> (anno3*, anno4*)
@@ -334,29 +697,31 @@ rules
     ; anno4* := <remove-all(?JoinCondition(_))> anno2*
 
   merge-optimization-branches :
-    (branch@PrefetchNode(_, name, _, _, _), tree) -> [subtree | keep]
-    with keep := <remove-all(?PrefetchNode(_, name, _, _, _))> tree
-    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _)) < combine-optimization-branches(|branch) + !branch> tree
+    (branch@PrefetchNode(_, name, _, _, _, _), tree) -> [subtree | keep]
+    with keep := <remove-all(?PrefetchNode(_, name, _, _, _, _))> tree
+    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _, _)) < combine-optimization-branches(|branch) + !branch> tree
 
   combine-optimization-branches(|branch) :
-    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, children1){anno1*}
-    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, newchildren){anno3*}
-    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, PrefetchChildren([subtree2])){anno2*} := branch
+    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, elemcond1, children1){anno1*}
+    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, newelemcond, newchildren){anno3*}
+    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, elemcond2, PrefetchChildren([subtree2])){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
     ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
     ; newcond := <combine-prefetch-conditions> (cond1, cond2)
+    ; newelemcond := <combine-prefetch-where> (elemcond1, elemcond2)
     ; subtree1 := <get-prefetch-children> children1
     ; newchildren := <merge-optimization-branches; wrap-prefetch-children> (subtree2, subtree1)
 
   combine-optimization-branches(|branch) :
-    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, children){anno1*}
-    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, children){anno3*}
-    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, None()){anno2*} := branch
+    PrefetchNode(castsrt1, f{PrefetchPropAnno(decsrt,fsrt)}, templ1, cond1, elemcond1, children){anno1*}
+    -> PrefetchNode(newcastsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, newcond, newelemcond, children){anno3*}
+    where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, elemcond2, None()){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
     ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
     ; newcond := <combine-prefetch-conditions> (cond1, cond2)
+    ; newelemcond := <combine-prefetch-where> (elemcond1, elemcond2)
 
   combine-prefetch-if-default : (None(), templ) -> templ
   combine-prefetch-if-default : (templ, None()) -> templ
@@ -367,8 +732,14 @@ rules
   combine-prefetch-conditions : (None(), cond) -> cond
   combine-prefetch-conditions : (cond, None()) -> cond
   combine-prefetch-conditions :
-    (PrefetchCondition(cond1), PrefetchCondition(cond2)) -> cond
-    with cond := <or-query-condition-helper; (?True() < !None() + !PrefetchCondition(<id>))> (cond1, cond2)
+    (PrefetchCondition(cond1), PrefetchCondition(cond2)) -> PrefetchCondition(cond)
+    with cond := <or-query-condition-helper> (cond1, cond2) // (?True() < !None() + !PrefetchCondition(<id>)
+
+  combine-prefetch-where : (None(), cond) -> cond
+  combine-prefetch-where : (cond, None()) -> cond
+  combine-prefetch-where :
+    (PrefetchWhere(cond1), PrefetchWhere(cond2)) -> PrefetchWhere(cond)
+    with cond := <or-query-condition-helper> (cond1, cond2)
 
   wrap-prefetch-children : [] -> None()
   wrap-prefetch-children : lst -> PrefetchChildren(lst) where <is-list> lst; not([] := lst)
@@ -397,35 +768,35 @@ rules
     with newtree := <foldr(!tree, merge-conditional-optimization-branch(|cond))> branches
 
   merge-conditional-optimization-branch(|cond) :
-    (branch@PrefetchNode(_, name, _, _, _), tree) -> [subtree | keep]
-    with keep := <remove-all(?PrefetchNode(_, name, _, _, _))> tree
-    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _)) < combine-conditional-optimization-branches(|cond, branch) + <add-condition-to-branch(|cond)>branch> tree
+    (branch@PrefetchNode(_, name, _, _, _, _), tree) -> [subtree | keep]
+    with keep := <remove-all(?PrefetchNode(_, name, _, _, _, _))> tree
+    ; subtree := <fetch-elem(?PrefetchNode(_, name, _, _, _, _)) < combine-conditional-optimization-branches(|cond, branch) + <add-condition-to-branch(|cond)>branch> tree
 
   combine-conditional-optimization-branches(|templcond, branch) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children1){anno1*}
-    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, newchildren){anno3*}
-    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, PrefetchChildren([subtree2])){anno2*} := branch
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, children1){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, newchildren){anno3*}
+    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, _, PrefetchChildren([subtree2])){anno2*} := branch
     with subtree1 := <get-prefetch-children> children1
     ; newchildren := <merge-conditional-optimization-branch(|templcond); wrap-prefetch-children> (subtree2, subtree1)
     ; anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newtempl := <try(add-template-condition-to-branch-if-not-first(|templcond))> templ
 
   combine-conditional-optimization-branches(|templcond, branch) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, children){anno1*}
-    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, children){anno3*}
-    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, None()){anno2*} := branch
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, children){anno1*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, children){anno3*}
+    where PrefetchNode(_, f{PrefetchPropAnno(decsrt,fsrt)}, _, _, _, None()){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newtempl := <try(add-template-condition-to-branch-if-not-first(|templcond))> templ
 
   add-condition-to-branch(|templcond) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchChildren([subtree])){anno*}
-    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, PrefetchChildren([newsubtree])){anno*}
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, PrefetchChildren([subtree])){anno*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, PrefetchChildren([newsubtree])){anno*}
     with newsubtree := <add-condition-to-branch(|templcond)> subtree
     ; newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
 
   add-condition-to-branch(|templcond) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, None()){anno*}
-    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, None()){anno*}
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, None()){anno*}
+    -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, None()){anno*}
     with newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
 
   add-template-condition-to-branch-if-not-first(|cond) :
