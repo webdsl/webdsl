@@ -541,9 +541,6 @@ module .servletapp/src-webdsl-template/built-in
     method :: String
     referer :: Text
     userAgent :: Text
-    queryExecutionCount :: Int
-    queryExecutionMaxTime :: Int
-    queryExecutionMaxTimeQueryString :: String
   }
 
   //built-in templates
