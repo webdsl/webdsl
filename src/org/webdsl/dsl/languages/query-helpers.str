@@ -48,15 +48,17 @@ strategies
     ; newanno* := <try(where(not(fetch-elem(?IsLazyFetch()))); add-lazy-anno(|dec_class,n, fsrt))> anno*
 
   add-type-anno-to-relative-fa(|srt) :
-    fa@RelativeFieldAccess(castsrt, f){anno*} -> fa{fasrt,anno*}
-    where <not(fetch-elem(is-webdsl-type))> anno*
+    fa@RelativeFieldAccess(castsrt, f){anno*} -> fa{PrefetchPropAnno(decsrt,fsrt),anno*}
+    where <not(fetch-elem(?PrefetchPropAnno(_, _)))> anno*
     ; SimpleSort(x_class) := <(?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
     ; fn := <strip-annos> f
-    ; fasrt := <get-prop-type> (x_class, fn)
+    ; dec_class := <class-of-property> (x_class, fn)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type> (x_class, fn)
 
   type-of :
     RelativeFieldAccess(_, _){anno*} -> srt
-    where srt := <fetch-elem(is-webdsl-type)> anno*
+    where <fetch-elem(?PrefetchPropAnno(_, srt))> anno*
 
   constraint-error-data =
     ?PrefetchChildren(children)
@@ -188,7 +190,15 @@ strategies
 
   get-relative-prop-string :
     RelativeFieldAccess(_, e) -> str
-    with str := <concat-strings>["_",e]
+    where not(type-of; is-entity-type)
+    with str := <concat-strings>["`_",e,"`"]
+
+  get-relative-prop-string :
+    RelativeFieldAccess(_, e){anno*} -> str
+    where <fetch-elem(?PrefetchPropAnno(decsrt,fsrt))> anno*
+    ; SimpleSort(x_class) := decsrt
+    ; <is-entity-type> fsrt
+    with str := <concat-strings>["`", x_class, "_",e,"`"]
 
   get-filter-name-for-condition :
     (class, cond, types) -> name
@@ -399,12 +409,21 @@ strategies
     ; cond3 := <where(collect(?FieldAccess(RelativeFieldAccess(_, _), _)); ?[]) <+ !True()> cond2 // If a joins would be needed, then change condition to true (do no use filter), because joins are not supported for filters
 
   make-field-access-relative(|x) :
-    e@FieldAccess(Var(x), f) -> RelativeFieldAccess(None(), f){srt}
-    where srt := <type-of; try-strip-generic-sort> e 
+    e@FieldAccess(Var(x), f) -> RelativeFieldAccess(None(), f){PrefetchPropAnno(decsrt,fsrt)}
+    where SimpleSort(x_class) := <type-of; try(strip-ref-sort); try-strip-generic-sort> Var(x)
+    ; fn := <strip-annos> f
+    ; dec_class := <class-of-property> (x_class, fn)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type> (x_class, fn)
 
   make-field-access-relative(|x) :
-    e@FieldAccess(Cast(Var(x), castsrt), f) -> RelativeFieldAccess(castsrt, f){srt}
-    where srt := <type-of; try-strip-generic-sort> e
+    e@FieldAccess(Cast(Var(x), castsrt), f) -> RelativeFieldAccess(castsrt, f){PrefetchPropAnno(decsrt,fsrt)}
+    where srt := <type-of> Var(x)
+    ; SimpleSort(x_class) := <(?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; fn := <strip-annos> f
+    ; dec_class := <class-of-property> (x_class, fn)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type> (x_class, fn)
 
   has-duplicates(|list) :
     key -> key
@@ -544,12 +563,21 @@ rules
     //; <debug(!"preped:")> (traversal3, filters)
 
   traversal-summary-to-query-condition =
-    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id,not(RootVar)))>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
+    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id,not(RootVar)), field-with-column)>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
     ; make-set
     ; try(?[]; ![True()]) // No condition means true
     ; ?set
     ; filter(has-no-strict-subset(|set); and-query-condition)
     ; or-query-condition
+
+  field-with-column = 
+    where(
+      ?FieldAccess(v@Var(x), f)
+      ; type-of; is-entity-type
+      ; SimpleSort(x_class) := <RootVar> v
+	    ; dec_class := <class-of-property> (x_class, f)
+      ; <not(InverseSlaveOf)> (dec_class, f)
+    )
 
   has-no-strict-subset(|set) =
     ?elem
@@ -593,7 +621,7 @@ rules
   is-accessible-condition-expr-helper(|p) = where(is-accessible-from(BindableVar))
 
   revalidate-join-condition(|p) =
-    map(filter(extract-query-cond(is-accessible-condition-expr(|p))); and-query-condition)
+    map(filter(extract-query-cond(is-accessible-condition-expr(|p), field-with-column)); and-query-condition)
     ; or-query-condition
     ; (?True() < !None() + !PrefetchCondition(<id>))
 
