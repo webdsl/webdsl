@@ -370,6 +370,7 @@ module .servletapp/src-webdsl-template/built-in
   native class org.json.JSONObject as JSONObject {
     constructor()
     constructor(String)
+    NULL : Object
     get(String) : Object
     getBoolean(String) : Bool
     getDouble(String) : Double
