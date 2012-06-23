@@ -11,7 +11,8 @@ strategies
     with <declare> Define([Page()], name, fargs, [], body)
 
   rename :
-    ServiceFunction(x, farg1*, b1) -> ServiceFunction(x, farg2*, b2)
+    ServiceFunction(x, farg1*, b1){anno*} -> 
+    ServiceFunction(x, farg2*, b2){anno*}
     with {| Rename, InDef, VarInTemplateContext
           : rules ( InDef := True() )
           ; farg2* := <map(rename)> farg1*
@@ -20,19 +21,23 @@ strategies
           |}
 
   desugar :
-    def|[ service x(farg*) { stat* } ]| -> 
-    <rename-all> def|[ define page x(farg*) {
-            var x_result : String
-
-            init {
-              mimetype("application/json");
-              stat2*
-            }
-
-            output(x_result)
-          } ]|
+    ServiceFunction(x, farg*, Block(stat*)){anno*} -> result 
     where x_result := <newname-webdsl> "result"
         ; stat2* := <alltd(service-return-replace(|x_result))> stat*
+        ; result := 
+            <rename-toplevel> def|[ 
+              define page x(farg*) {
+                var x_result : String
+                init {
+                  mimetype("application/json");
+                  stat2*
+                }
+                output(x_result)
+              } 
+            ]|{anno*}
+            
+  keep-position-anno = ?ServiceFunction(_,_,_)
 
   service-return-replace(|x_result) :
-    stat|[ return e; ]| -> stat|[ x_result := e.toString(); ]|
+    stat|[ return e; ]| -> 
+    stat|[ x_result := e.toString(); ]|

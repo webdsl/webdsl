@@ -32,6 +32,7 @@ rules
     <+ rename-template-def-id
     <+ rename-template-call-id
     <+ rename-action-def-id
+    <+ rename-function-def-call-id
     <+ rename-test-id
     <+ use-local-renaming
   
@@ -49,7 +50,8 @@ rules
   // Make a locally unique name from a globally unique name
   global-to-local-name(|x) = GlobalToLocalMap
     
-  global-to-local-name(|x): y -> z
+  global-to-local-name(|x): 
+    y -> z
     where TopLevelDefineName => toplevel
         ; n := <ExistingRenamings; inc <+ !0> x
     with  z := <concat-strings> [x, <int-to-string> n]
@@ -58,7 +60,8 @@ rules
             GlobalToLocalMap : y -> z
           )
           
-   use-global-renaming: x{anno*} -> y{anno2*, OriginalNameAnno(x)}
+  use-global-renaming: 
+    x{anno*} -> y{anno2*, OriginalNameAnno(x)}
     with  y := <fetch-elem(is-string)> anno*
         ; anno2* := <remove-all(?y)> anno*
     
@@ -130,3 +133,81 @@ rules // templates
        
   rename-test-id:
       Test(nm1, body) -> Test(<use-global-renaming> nm1, <rename-identifiers> body)
+
+rules
+  
+  rename-function-def-call-id :
+    Function(x1, farg*, srt, b){anno*} ->
+    Function(x2, <rename-identifiers> farg*, srt, <rename-identifiers> b){anno*}
+    where has-no-anno(?NoRenameOnFunctionName())
+    with x2 := <function-decl-to-newname>
+
+
+  rename-function-def-call-id :
+    tc1@ThisCall(_,_) -> tc2
+    with ThisCall(x,arg*){anno*} := <rename-function-def-call-id-thiscall-defined <+ rename-function-def-call-id-thiscall-built-in <+ rename-function-def-call-id-thiscall-error <+ debug(|"internal error: not renamed fragment: ")>
+       ; tc2 := ThisCall(x,<rename-identifiers> arg*){anno*}
+       
+  // back-end code generation rules for built-in and generated (which fall under defined) functions match original function name, 
+  // for those cases inserting a new name would break compilation
+  // that's why the new name is put in the annotation instead of doing an actual rename
+  // the generic-call-to-java-servlet can retrieve the new name required for normal functions
+  rename-function-def-call-id-thiscall-defined :
+    ThisCall(x1{anno1*}, arg*){anno*} -> 
+    ThisCall(x1{new,anno1*}, arg*){anno*}
+    where x2 := <CallToFunctionGetDecl; function-decl-to-newname> x1
+        ; new := NewFunctionNameAnno(x2{})
+          
+  // Note: back-end code generation rules for built-in functions match original function name, 
+  // rename would break those rules
+  rename-function-def-call-id-thiscall-built-in :
+    tc@ThisCall(x,_) -> tc
+    where <CallToBuiltInFunctionGetType> x
+  
+  rename-function-def-call-id-thiscall-error :
+    tc@ThisCall(x,_) -> tc
+    where <IncorrectFunctionCall> x
+    where debug(!"Warning: function call was not correctly resolved: ")
+  
+  
+  rename-function-def-call-id :
+    tc1@FunctionRef(_,_,_) -> tc2
+    with FunctionRef(x,arg*,srt){anno*} := <rename-function-def-call-id-funref-defined <+ rename-function-def-call-id-funref-built-in <+ rename-function-def-call-id-funref-error <+ debug(|"internal error: not renamed fragment: ")>
+       ; tc2 := FunctionRef(x,<rename-identifiers> arg*,srt){anno*}
+         
+  rename-function-def-call-id-funref-defined :  
+    FunctionRef(x1{anno1*},fargtypes,srt){anno*} -> 
+    FunctionRef(x1{new,anno1*},fargtypes,srt){anno*}
+    where x2 := <CallToFunctionGetDecl; function-decl-to-newname> x1
+        ; new := NewFunctionNameAnno(x2{})
+          
+  rename-function-def-call-id-funref-built-in :  
+    tc@FunctionRef(x,_,_) -> tc
+    where <CallToBuiltInFunctionGetType> x
+          
+  rename-function-def-call-id-funref-error :  
+    tc@FunctionRef(x,_,_) -> tc
+    where <IncorrectFunctionCall> x
+    where debug(!"Warning: function call was not correctly resolved: ")
+
+
+  rename-function-def-call-id :
+    tc1@Call(_, _, _) -> tc2
+    with Call(e,x,arg*){anno*} := <rename-function-def-call-id-entcall-defined <+ rename-function-def-call-id-entcall-built-in <+ rename-function-def-call-id-entcall-error <+ debug(|"internal error: not renamed fragment: ")>
+       ; tc2 := Call(<rename-identifiers> e,x,<rename-identifiers> arg*){anno*}
+
+  rename-function-def-call-id-entcall-defined :
+    Call(e, x1{anno1*}, arg*){anno*} ->
+    Call(e, x1{new,anno1*}, arg*){anno*}
+    where x2 := <CallToEntityFunctionGetDecl; function-decl-to-newname> x1
+        ; new := NewFunctionNameAnno(x2{})
+          
+  rename-function-def-call-id-entcall-built-in :
+    tc@Call(_, x, _) -> tc
+    where <CallToBuiltInEntityFunctionGetType> x
+
+  rename-function-def-call-id-entcall-error :
+    tc@Call(_, x, _) -> tc
+    where <IncorrectEntityFunctionCall> x
+    where debug(!"Warning: function call was not correctly resolved: ")
+          

@@ -1,4 +1,4 @@
-//Cannot use Reference type as type in property
+//Reference type is not allowed as type
 
 
 application test

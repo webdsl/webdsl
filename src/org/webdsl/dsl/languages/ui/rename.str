@@ -36,7 +36,7 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions(|x1)); rename-all(is-var-decl-cons)> elem1*
+          ; elem2* := <alltd(rename-actions-find-action(|x1)); rename-all(is-var-decl-cons); alltd(rename-actions(|x1))> elem1*
           ; rules ( TypeOf : x1 -> "Component" )
           ; genname := <generate-template-name-fargs>(x1, farg2*)
           ; def := Define(mod*, x1, farg2*, req*, elem2*){anno*}
@@ -57,7 +57,7 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions(|y)); rename-all(is-var-decl-cons)> elem1*
+          ; elem2* := <alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
           ; genname := <generate-template-name-fargs>(y, farg2*)
           ; def := Define(mod*, y, farg2*, req*, elem2*){anno*}
           ; rules ( CurrentTemplateDecl : genname -> def)
@@ -88,7 +88,7 @@ rules
          ; rules ( TemplateArg := farg2* )
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
-         ; elem2* := <mark-too-deeply-nested-defines; alltd(rename-actions(|y)); rename-all(is-var-decl-cons)> elem1*
+         ; elem2* := <mark-too-deeply-nested-defines; alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
          ; genname := <generate-template-name-fargs>(y, farg2*)
          ; def := Define(mod2*, y, farg2*, req*, elem2*){newanno2*}
          ; rules ( CurrentTemplateDecl : genname -> def)
@@ -152,21 +152,26 @@ signature
  
 rules
 
-  rename-actions(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope
+  rename-actions-find-action(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope, don't enter nested defines
+
+  rename-actions-find-action(|direct-enclosing-define-name) :
+    a@Action(amod*, nm1, args1, b1) -> Action(amod*, nm2, args1, b1)
+    with nm2 := nm1{<toplevel-rename> nm1{}}
+       ; rules ( RenameActionCall :
+                  ActionCall(nm1, a1*){anno*} -> ActionCall(nm2, a2*){DirectEnclosingDefine(direct-enclosing-define-name),anno*}
+                  with  a2* := <rename-all> a1*
+               )
+
+  rename-actions(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope, don't enter nested defines
 
   rename-actions(|direct-enclosing-define-name) :
-    a@Action(amod*, nm1, args1, b1) -> Action(amod*, nm2, args2, b2)
+    a@Action(amod*, nm2, args1, b1) -> Action(amod*, nm2, args2, b2)
     with {| Rename, VarInTemplateContext, InActionContext
           : rules( InActionContext := a)
           ; args2 := <map(rename)> args1
           ; <declare-args-in-context> args2
           ; b2 := <rename-all> b1
           |}
-       ; nm2 := nm1{<toplevel-rename> nm1{}}
-       ; rules ( RenameActionCall :
-                  ActionCall(nm1, a1*){anno*} -> ActionCall(nm2, a2*){DirectEnclosingDefine(direct-enclosing-define-name),anno*}
-                  with  a2* := <rename-all> a1*
-               )
        ; <with-origin(declare-page-action(|direct-enclosing-define-name) | a)> Action(amod*, nm2, args2, b1)
 
 //  rename = RenameActionCall
