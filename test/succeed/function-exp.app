@@ -25,8 +25,8 @@ application test
     assert( function.iamnotoverloaded(String):String("cd") == "abcd"); //reference to not-overloaded global function with call
     assert( function.bar(String):String("cd") == "abcd"); //reference to overloaded global function with call
     assert( bar(function.bar(Int,Bool):String) == "5qwetrue"); //reference to global function passed as argument
-    var f := function.bar(Int,Bool):String(*,false); //partial function application
-    assert( f(5) == "5qwefalse");
+    var thefun := function.bar(Int,Bool):String(*,false); //partial function application
+    assert( thefun(5) == "5qwefalse");
     // @TODO assert( (function(b:Int,c:Bool):String{ return "2"+b+c; })(*,true)(5) == "25true"); //partial function application of inline function
   }
   

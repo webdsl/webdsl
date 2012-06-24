@@ -25,8 +25,13 @@ rules
           //try to find a parent, and put it in the annotations. fails if already defined above
         ; if parent := SimpleSort(<InEntity>); <test-entity-function-call> (parent,fname,e2*) then //call to entity function, disambiguate by adding 'this.' 
             t2 := <rename-entity-function-call> Call(<rename-all>Var("this"), fname, e2*){anno*}
-          else //call to global function 
-            t2 := <Rename <+ rename-global-function-call> ThisCall(fname, e2*){anno*} //'Rename' necessary for function-exp support  
+          else //call to global function
+              fnamestripped := <strip-annos> fname // remove annotation so 'Rename' doesn't fail because of annotation mismatch. can happen when repeating 'rename' (in that case the annotation will be replaced anyway)
+            ; fnamenew := <Rename> ThisCallFunctionExpName(fnamestripped) //'Rename' necessary for function-exp support
+            ; t2 := ThisCall(fnamenew, e2*){anno*}
+          <+  FunctionSort(_,_) := <type-of> Var(fname) // has been resolved to a local function var in a previous rename, a second rename might happen without having all variables declared in DR, in that case the rename should simply do nothing
+            ; t2 := t1
+          <+t2 := <rename-global-function-call> ThisCall(fname, e2*){anno*} // regular global function  
           end          
 
   // 'function foo()' reference to global function, mostly for translating a function expression to, after lifting
@@ -43,7 +48,7 @@ rules
                 <+ <debug(!"error in global function call found during model-to-model: ")> (x,arg*);fail
                > arg* 
           end //extra check in case model-to-model produces bad code
-    with x2 := <resolve-global-function-call-name> (x,<map(type-of <+ debug(!"cannot determine type of argument (type-of rule fails): ");fail)> arg*)
+    with x2 := <resolve-global-function-call-name> (x,<map(type-of <+ verbose-2(!"cannot determine type of argument (type-of rule fails): ");!"unknown")> arg*)
 
   resolve-global-function-call-name :
     (x,argtype*) -> x1
@@ -91,7 +96,7 @@ rules
                 <+ <debug(!"error in entity function call found during model-to-model: ")> (e,x1,arg*);fail
                > arg* 
           end //extra check in case model-to-model produces bad code
-    with  ent := <type-of> e
+    with  ent := <type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");!"unknown"> e
         ; argtype* := <map(type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");!"unknown")> arg*
         ; x2 := <resolve-entity-function-call-name> (ent, x1, argtype*)
 
@@ -128,11 +133,13 @@ resolve-entity-function-call-name :
           end
 
   // Resolve entity function by traversing supertypes
-  resolve-entity-call: 
+  resolve-entity-call = resolve-entity-call(|[]) 
+  resolve-entity-call(|alreadychecked) :
     (ent, nm, targ*) -> f
+    where not(<fetch(?ent)> alreadychecked) //prevent loop on invalid input 'entity Xyz:Xyz'
     where f := <resolve-function-call-to-decl> (ent, nm, targ*)
-       <+   SimpleSort(entname) := ent
-          ; f := <resolve-entity-call> (SimpleSort(<Extends> entname), nm, targ*)  
+       <+   super := <?SimpleSort(<!SimpleSort(<Extends>)>) <+ ?ClassSort(<!ClassSort(<Extends>)>)> ent
+          ; f := <resolve-entity-call(|[ent|alreadychecked])> (super, nm, targ*)  
   
 rules // resolving
   
