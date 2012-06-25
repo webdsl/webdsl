@@ -38,7 +38,7 @@
    DerivedProperty.4:iter-star-sep    -- H hs=0[_1 KW[","]],
    DerivedPropertyNoAnno              -- H[_1 _2 _3 KW[":="] _4],
    Enum                               -- H[ KW["enum"] _1 KW["{"] _2 KW["}"] ],
-   Enum.2:iter-star-sep               -- H hs=0[_1 "(" _2 ")" KW[","]],
+   Enum.2:iter-star-sep               -- H hs=0[_1 KW[","]],
    Simple                             -- KW["::"],
    Ref                                -- KW["->"],
    Comp                               -- KW["<>"],
