@@ -204,6 +204,7 @@ module .servletapp/src-webdsl-template/built-in
     startsWith(String):Bool
     startsWith(String,Int):Bool
     endsWith(String):Bool
+    trim():String
     utils.StringType.parseUUID                   as parseUUID():UUID
     org.webdsl.tools.Utils.containsDigit         as containsDigit():Bool
     org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
