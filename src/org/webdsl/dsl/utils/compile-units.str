@@ -10,7 +10,11 @@ strategies
       if is-custom-compile-units-enabled then not(read-custom-compile-cache-file) end // only if clean compile when custom compile units is enabled, entities ignored there for now
     ; if is-compile-units-cache-enabled then is-compile-units-cache-stale end // recompile only when entities were changed
     )
-
+    
+  disable-if-not-first-build = 
+    where(
+      if is-compile-units-cache-enabled then CompileUnitsCacheFirstBuild end // compile only if first build
+    )
 // compile units cache for front-end
 
 strategies
@@ -70,12 +74,14 @@ strategies
   normalize-cache-item : AccessControlRule("page",x,_,_,_) -> Define([],x,[],[],[])
   normalize-cache-item : AccessControlRule("template",x,_,_,_) -> Define([],x,[],[],[])
   normalize-cache-item : AccessControlRule("ajaxtemplate",x,_,_,_) -> Define([],x,[],[],[])
+  // 'invoke x every y' these are collected in generation of DispatchServlet (to-java-servlet/dispatch-servlet.str), if one changes re-evaluate all of them
+  normalize-cache-item : InvokeEvery(_,_) -> InvokeEvery([],[])
 
 strategies
 
   read-compile-units-cache-file = 
     get-compile-units-cache-file
-  ; (file-exists <+ debug(!"missing .compile-units-cache, there has been no initial build yet, compiling the whole application");fail)
+  ; (file-exists <+ debug(!"missing .compile-units-cache, there has been no initial build yet, compiling the whole application");rules(CompileUnitsCacheFirstBuild := True());fail)
   ; ReadFromFile
 
   read-compile-units = 
