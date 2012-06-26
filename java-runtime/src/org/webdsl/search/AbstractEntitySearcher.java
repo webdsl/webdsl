@@ -812,20 +812,30 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return QueryParser.escape( query );
     }
 
+    public String highlightLargeText( String field, String toHighLight ) {
+        return highlight( field, toHighLight, "<B>", "</B>", 3, 80, " ...", true );
+    }
+    public String highlightLargeText( String field, String toHighLight, String preTag, String postTag ) {
+        return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", true );
+    }
+    public String highlightLargeText( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator ) {
+        return highlight( field, toHighLight, preTag, postTag, fragments, fragmentLength, separator, true );
+    }
     public String highlight( String field, String toHighLight ) {
-        return highlight(field, toHighLight, "<B>", "</B>", 3, 80, " ...");
+        return highlight( field, toHighLight, "<B>", "</B>", 3, 80, " ...", false );
     }
-
     public String highlight( String field, String toHighLight, String preTag, String postTag ) {
-        return highlight(field, toHighLight, preTag, postTag, 3, 80, " ...");
-
+        return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", false );
+    }
+    public String highlight( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator ) {
+        return highlight( field, toHighLight, preTag, postTag, fragments, fragmentLength, separator, false );
     }
 
-    public String highlight ( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator ) {
+    private String highlight ( String field, String toHighLight, String preTag, String postTag, int fragments, int fragmentLength, String separator, boolean noMaxCharsToAnalyze ) {
         validateQuery();
         IndexReader ir = getReader();
         try{
-          return ResultHighlighter.highlight( ir, highlightAnalyzer, luceneQueryNoFacetFilters, field, toHighLight, preTag, postTag, fragments, fragmentLength, separator );
+          return ResultHighlighter.highlight( ir, highlightAnalyzer, luceneQueryNoFacetFilters, field, toHighLight, preTag, postTag, fragments, fragmentLength, separator, noMaxCharsToAnalyze);
         } finally{
             closeReader(ir);
         }

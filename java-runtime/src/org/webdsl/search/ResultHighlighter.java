@@ -14,7 +14,7 @@ import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
 
 public class ResultHighlighter {
 
-    public static String highlight( IndexReader ir, Analyzer an, Query query,  String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator){
+    public static String highlight( IndexReader ir, Analyzer an, Query query,  String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator, boolean analyzeWholeDoc){
 //        long tmp = System.currentTimeMillis();
         String result = "";
         TokenStream tokenStream;
@@ -25,6 +25,7 @@ public class ResultHighlighter {
             qs.setExpandMultiTermQuery(true);
             highlighter = new Highlighter(new SimpleHTMLFormatter(preTag, postTag), qs );
             highlighter.setTextFragmenter(new SimpleFragmenter(fragmentLength));
+            if (analyzeWholeDoc) { highlighter.setMaxDocCharsToAnalyze(text.length()); }
             tokenStream = an.tokenStream(field, new StringReader( text ) );
             try {
                 result = highlighter.getBestFragments(tokenStream, text, fragments, separator);

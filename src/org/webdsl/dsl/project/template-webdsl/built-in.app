@@ -90,6 +90,9 @@ module .servletapp/src-webdsl-template/built-in
     highlight(String, String) :  String
     highlight(String,String,String,String,Int,Int,String) : String
     highlight(String,String,String,String) : String
+    highlightLargeText(String, String) :  String
+    highlightLargeText(String,String,String,String,Int,Int,String) : String
+    highlightLargeText(String,String,String,String) : String
     getQuery() : String
     luceneQuery() : String
     searchTime() : String
