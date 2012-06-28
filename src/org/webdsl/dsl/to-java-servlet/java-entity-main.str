@@ -63,6 +63,10 @@ strategies
             return fieldHandler;
           }
 
+          public boolean removeUninitializedLazyProperty(String name) {
+            return uninitializedLazyProperties != null && uninitializedLazyProperties.remove(name);
+          }
+
           public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
             this.fieldHandler = fieldHandler;
             java.util.Set fieldHandlerUninit = ((org.hibernate.intercept.javassist.FieldInterceptorImpl)fieldHandler).getUninitializedFields();
@@ -145,6 +149,10 @@ strategies
 
           public org.hibernate.bytecode.javassist.FieldHandler getFieldHandler() {
             return fieldHandler;
+          }
+
+          public boolean removeUninitializedLazyProperty(String name) {
+            return uninitializedLazyProperties != null && uninitializedLazyProperties.remove(name);
           }
 
           public void setFieldHandler(org.hibernate.bytecode.javassist.FieldHandler fieldHandler) {
@@ -617,7 +625,7 @@ rules // Property with a reference or composite association type
     where [] := <collect(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
         ; t          := <defined-java-type> s
     with  x_Prop     := <capitalize-string> x_prop
-        ; columnname := <concat-strings>[x_class, "_", x_prop]
+        ; columnname := <concat-strings>["\\\"", x_class, "_", x_prop, "\\\""]
 
 rules // set or list of defined entity without inverse
 
@@ -631,7 +639,7 @@ rules // set or list of defined entity without inverse
     where <?"Set" <+ ?"List"> coll
         ; t := <defined-java-type> s
         ; [] := <collect(?InverseSlaveAnno(_, _) <+ ?InverseAnno(_, _))> annos
-        ; indexname := <concat-strings> [x_class, x_prop,"index"]
+        ; indexname := <concat-strings> ["\\\"", x_class, x_prop,"index\\\""]
         ; anno-list* := <?"List"; ![anno |[ @org.hibernate.annotations.IndexColumn(name = "~indexname", base=0) ]|] <+ ![]> coll
         ; tableName   := <concat-strings> [x_class, "_", x_prop, "_", ss]
         ; subselect* := <get-subselect-anno>
@@ -649,7 +657,7 @@ rules //one-to-one
      where t := <defined-java-type> s
          ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos
          ; SimpleSort(yy)                := <get-type-anno> inv
-         ; x_fk                          := <concat-strings> [x_class, "_", x_prop]
+         ; x_fk                          := <concat-strings> ["\\\"", x_class, "_", x_prop, "\\\""]
 
    // bidirectional one-to-one inverse side
    association-annotations(|x_class, x_prop, annos) :
@@ -677,7 +685,7 @@ rules // One-to-Many association with Set
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
         ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
-        ; joinColumnName := <concat-strings> [x_class, "_", x_prop]
+        ; joinColumnName := <concat-strings> ["\\\"", x_class, "_", x_prop, "\\\""]
 
   // bidirectional one-to-many inverse side Set-Ref
   association-annotations(|x_class, x_prop, annos) :
@@ -692,7 +700,7 @@ rules // One-to-Many association with Set
         ; SimpleSort(ident) := <get-type-anno> inv
         //; other_prop := <concat-strings>["_", fld]
         //; x_ent := <concat-strings> [ent, ".class"]
-        ; joinColumnName := <concat-strings> [ent, "_", fld]
+        ; joinColumnName := <concat-strings> ["\\\"", ent, "_", fld, "\\\""]
         ; subselect* := <get-subselect-anno>
 
 rules // One-to-Many association with List: not true inverse (duplication in db) due to hibernate limitations
@@ -706,7 +714,7 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
         ; GenericSort("List", [SimpleSort(yy)]) := <get-type-anno> inv
-        ; joinColumnNameOneSide := <concat-strings> [x_class, "_", x_prop] //[ent, "_", fld, "_one_side"]
+        ; joinColumnNameOneSide := <concat-strings> ["\\\"", x_class, "_", x_prop, "\\\""] //[ent, "_", fld, "_one_side"]
 
   // bidirectional one-to-many owning side List-Ref
   association-annotations(|x_class, x_prop, annos) :
@@ -722,10 +730,10 @@ rules // One-to-Many association with List: not true inverse (duplication in db)
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
         ; SimpleSort(ident) := <get-type-anno> inv
-        ; indexname := <concat-strings> [x_class, x_prop,"index"]
+        ; indexname := <concat-strings> ["\\\"", x_class, x_prop,"index\\\""]
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
-        ; thisid    := <concat-strings> [x_class, "_id_owner"]
-        ; otherid   := <concat-strings> [ent, "_id_inverse"]
+        ; thisid    := <concat-strings> ["\\\"", x_class, "_id_owner", "\\\""]
+        ; otherid   := <concat-strings> ["\\\"", ent, "_id_inverse", "\\\""]
         ; subselect* := <get-subselect-anno>
 
 rules   // Many-to-Many associations Set-Set
@@ -746,8 +754,8 @@ rules   // Many-to-Many associations Set-Set
         ; inv := <fetch-elem(?InverseAnno(ent, fld))> annos
         ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
-        ; thisid    := <concat-strings> [x_class, "_id_owner"]
-        ; otherid   := <concat-strings> [ent, "_id_inverse"]
+        ; thisid    := <concat-strings> ["\\\"", x_class, "_id_owner\\\""]
+        ; otherid   := <concat-strings> ["\\\"", ent, "_id_inverse\\\""]
         ; subselect* := <get-subselect-anno>
 
    // bidirectional many-to-many inverse side
@@ -783,9 +791,9 @@ rules   // Many-to-Many associations List-Set
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
         ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
         ; tableName := <concat-strings> [x_class, "_", x_prop, "_", ss]
-        ; thisid    := <concat-strings> [x_class, "_id_owner"]
-        ; otherid   := <concat-strings> [ent, "_id_inverse"]
-        ; indexname := <concat-strings> [x_class, x_prop,"index"]
+        ; thisid    := <concat-strings> ["\\\"", x_class, "_id_owner\\\""]
+        ; otherid   := <concat-strings> ["\\\"", ent, "_id_inverse\\\""]
+        ; indexname := <concat-strings> ["\\\"", x_class, x_prop,"index\\\""]
         ; subselect* := <get-subselect-anno>
 
    // bidirectional many-to-many inverse side

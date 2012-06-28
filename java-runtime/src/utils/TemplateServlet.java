@@ -67,6 +67,8 @@ public abstract class TemplateServlet {
         initializeLocalVarsOnce();
       }
     }
+
+    public abstract void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems);
     
     public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){

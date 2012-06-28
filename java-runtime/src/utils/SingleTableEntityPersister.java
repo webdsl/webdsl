@@ -97,19 +97,41 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 		String[] columns = associatedPersister.getPropertyColumnNames(uniqueKeyPropertyName);
         org.hibernate.type.Type ukType = associatedPersister.getPropertyType(uniqueKeyPropertyName);
 		if(utils.QueryOptimization.optimizationMode == 1 || utils.QueryOptimization.optimizationMode == 3 || utils.QueryOptimization.optimizationMode == 5 || utils.QueryOptimization.optimizationMode == 8) {
+			java.util.Set<Serializable> all = new java.util.HashSet<Serializable>(java.util.Arrays.asList(batch));
 	        JoinEntityLoader loader = new JoinEntityLoader(associatedPersister, columns, ukType, batch.length, LockMode.NONE, factory, session.getLoadQueryInfluencers(), utils.QueryOptimization.optimizationMode == 3 ? null : joins);
 			java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
 			// We register the EntityUniqueKeys with the persistence context, so the we can look them up later
 			for(Object object : lst) {
+				Serializable id = getIdentifier(associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode), session); // Returns the identifier that was used to fetch the object (from batch)
 				org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
 						associatedEntity, 
-						uniqueKeyPropertyName, 
-						getIdentifier(associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode), session), // Returns the identifier that was used to fetch the object (from batch)
+						uniqueKeyPropertyName,
+						id,
 						ukType,
 						entityMode, 
 						factory
 				);
 				context.addEntity( euk, object );
+				all.remove(id);
+			}
+			// All remaining identifiers have a null value for the lazy property.
+			// We need to initialize them directly, because we cannot register a euk for a null value.
+			// The PersistenceContext uses a Map to store objects by euk, and the get() method returning null means the context has no object with that euk
+			int propertyIndex = getEntityMetamodel().getPropertyIndex(propertyName);
+			for(Serializable id : all) {
+				org.hibernate.engine.EntityKey key = new org.hibernate.engine.EntityKey( id, this, entityMode );
+				Object entity = context.getEntity(key);
+				if(entity == null || !(entity instanceof org.webdsl.WebDSLEntity)) continue;
+				if(((org.webdsl.WebDSLEntity)entity).removeUninitializedLazyProperty(propertyName)) {
+					org.hibernate.engine.EntityEntry entry = context.getEntry(entity);
+					if(entry == null) continue;
+					final Object[] snapshot = entry.getLoadedState();
+					if(snapshot == null) continue;
+					setPropertyValue(entity, propertyIndex, null, session.getEntityMode());
+					if(snapshot != null) {
+						snapshot[ propertyIndex ] = type.deepCopy( null, session.getEntityMode(), factory );
+					}
+				}
 			}
 		} else if(utils.QueryOptimization.optimizationMode == 4) { // All joins
 			org.hibernate.Criteria criteria = ((org.hibernate.Session)session).createCriteria(this.getEntityName());

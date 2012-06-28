@@ -15,4 +15,5 @@ public interface WebDSLEntity extends Serializable {
     public void validateSave();
     public boolean isChanged();
     public List<?> all_();
+    public boolean removeUninitializedLazyProperty(String name);
 }

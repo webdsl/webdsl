@@ -21,6 +21,7 @@ signature constructors
   RelativeFieldAccess : Term * Term -> Term
   IteratorContext : Term -> Annotation
   PrefetchPropAnno : Term * Term -> Annotation
+  PrefetchAnno : Term -> Annotation
   IsOptimized : Annotation
   QueryConditionFilter : Term * Term * Term -> Annotation
   QueryConditionFilters : Term -> Annotation
@@ -57,10 +58,10 @@ strategies
   no-query-optimizations = where(get-query-optimization-anno; is-empty-query-optimization)
 
   get-query-optimization-anno = fetch-elem(is-query-optimization) <+ get-empty-query-optimization
-  get-prefetch-for(|x) = is-list; (fetch-elem(?PrefetchFor(Var(x), _)) <+ !None())
+  get-prefetch-for(|x) = is-list; (fetch-elem(?PrefetchFor(Var(x), _, _, _)) <+ !None())
   get-prefetch-for(|x) = ?Block(<get-prefetch-for(|x)>)
-  replace-prefetch-for(|x,prefetch) = is-list; remove-all(?PrefetchFor(Var(x), _)); ![PrefetchFor(Var(x),PrefetchChildren(prefetch))|<id>]
-  replace-prefetch-for(|x,prefetch) = ?Block(<id>){anno*}; replace-prefetch-for(|x,prefetch); !Block(<id>){anno*}
+  replace-prefetch-for(|x,prefetchfor) = is-list; remove-all(?PrefetchFor(Var(x), _, _, _)); ![prefetchfor|<id>]
+  replace-prefetch-for(|x,prefetchfor) = ?Block(<id>){anno*}; replace-prefetch-for(|x, prefetchfor); !Block(<id>){anno*}
 
   is-query-analysis = ?QueryAnalysis(_, _, _, _, _)
 
@@ -145,7 +146,7 @@ rules
 
   get-all-joins = filter(get-joins-helper(id|"_")); flatten-list
 
-  get-to-one-joins = ?PrefetchFor(_, <get-prefetch-children>); get-to-one-joins
+  get-to-one-joins = ?PrefetchFor(_, _, _, <get-prefetch-children>); get-to-one-joins
   get-to-one-joins = ?None(); ![]
 
   get-to-one-joins = is-list; where(AllJoins() := <QueryOptimizationMode>) < get-all-joins + real-get-to-one-joins
@@ -174,7 +175,12 @@ rules
     where <fetch-elem(?_{RequiresAlias()})> subjoins
 
   get-prefetch-children = ?PrefetchChildren(<id>)
-  get-prefetch-children = ?None(); ![]
+  get-prefetch-children : None() -> []
+
+  get-prefetch-template-args = ?PrefetchTemplateArgs(<id>)
+  get-prefetch-template-args : None() -> []
+  to-prefetch-template-args : [] -> None()
+  to-prefetch-template-args : lst -> PrefetchTemplateArgs(lst) where not([] := lst)
 
   get-alias-joins = get-to-one-joins; filter(?_{RequiresAlias()})
 

@@ -13,6 +13,17 @@ strategies
     ; fsrt2 := <topdown(add-type-annotations)> fsrt
     ; not(decsrt := decsrt2; fsrt := fsrt2)
 
+  add-backend-annotation :
+    TemplateArgOrThis(n, args){anno*} -> TemplateArgOrThis(n, args){TemplateName(genname),anno*}
+    where <not(fetch-elem(?TemplateName(_)))> anno*
+    with targs := <map(try(get-prefetch-this-type)/*where(collect(?PrefetchThis()); ?[]) <+ type-of*/); prepare-type-list-for-compare> args
+    ; genname := <generate-template-name> (n, targs)
+
+  get-prefetch-this-type : Cast(PrefetchThis(), srt) -> srt
+  get-prefetch-this-type : PrefetchThis(){anno*} -> srt
+    where <fetch-elem(?PrefetchAnno(srt))> anno*
+
+
   add-query-condition-filter-annotation :
     PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchWhere(elemcond){pwanno*}, children){anno*} ->
     PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, PrefetchWhere(elemcond){fltr,pwanno*}, children){anno*}
@@ -23,11 +34,13 @@ strategies
     ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
 
   rename :
-    PrefetchFor(x, tree1){anno*} -> PrefetchFor(y, tree2){anno*}
+    PrefetchFor(x, templ1, fltr1, tree1){anno*} -> PrefetchFor(y, templ2, fltr2, tree2){anno*}
     with y := <rename-all> x
     ; srt := <type-of; strip-immutable-anno> y
+    ; templ2 := <rename-all; rename-prefetch(|srt)> templ1
+    ; fltr2 := <rename-all; rename-prefetch(|srt)> fltr1
     ; tree2 := <rename-all; rename-prefetch(|srt)> tree1
-    //; <debug(!"out:")> PrefetchFor(y, tree2){anno*}
+    //; <debug(!"out:")> PrefetchFor(y, templ2, fltr2, tree2){anno*}
 
   rename-prefetch(|srt):
     PrefetchChildren(children){anno*} -> PrefetchChildren(children2){anno*}
@@ -36,16 +49,40 @@ strategies
   rename-prefetch(|srt): None(){anno*} -> None(){anno*}
 
   rename-prefetch(|srt):
-    PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ, cond2, elemcond2, children2){newanno*}
+    PrefetchNode(castsrt, name, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, elemcond2, children2){newanno*}
     where SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
     ; n := <strip-annos> name
     ; dec_class := <class-of-property> (x_class, n)
     ; decsrt := SimpleSort(dec_class)
     ; fsrt := <get-prop-type; strip-ref-sort> (dec_class, n)
-    ; cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
-    ; elemcond2 := <alltd(add-type-anno-to-relative-fa(|srt))> elemcond
+    ; ssrt := <try-strip-generic-sort> srt
+    ; sfsrt := <try-strip-generic-sort> fsrt
+    ; templ2 := <rename-prefetch(|fsrt)> templ
+    ; cond2 := <rename-prefetch(|ssrt)> cond
+    ; elemcond2 := <rename-prefetch(|sfsrt)> elemcond
     ; children2 := <rename-prefetch(|fsrt)> children
     ; newanno* := <try(where(not(fetch-elem(?IsLazyFetch()))); add-lazy-anno(|dec_class,n, fsrt))> anno*
+
+  rename-prefetch(|srt):
+    PrefetchCondition(cond){anno*} -> PrefetchCondition(cond2){anno*}
+    where cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+
+  rename-prefetch(|srt):
+    PrefetchWhere(cond){anno*} -> PrefetchWhere(cond2){anno*}
+    where cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+
+  rename-prefetch(|srt):
+    PrefetchTemplateArgs(templ1){anno*} -> PrefetchTemplateArgs(templ2){anno*}
+    where templ2 := <alltd(add-type-anno-to-prefetch-this(|srt))> templ1
+
+  /*add-type-anno-to-prefetch-this(|srt) :
+    Cast(PrefetchThis(){anno*}, castsrt){canno*} -> Cast(PrefetchThis(){PrefetchAnno(srt),anno*}, castsrt){canno*}
+    where not(<fetch-elem(?PrefetchAnno(_))> anno*)*/
+
+  add-type-anno-to-prefetch-this(|srt) :
+    PrefetchThis(){anno*} -> PrefetchThis(){PrefetchAnno(ssrt),anno*}
+    where not(<fetch-elem(?PrefetchAnno(_))> anno*)
+    ; ssrt := <try-strip-generic-sort> srt
 
   add-type-anno-to-relative-fa(|srt) :
     fa@RelativeFieldAccess(castsrt, f){anno*} -> fa{PrefetchPropAnno(decsrt,fsrt),anno*}
@@ -55,6 +92,10 @@ strategies
     ; dec_class := <class-of-property> (x_class, fn)
     ; decsrt := SimpleSort(dec_class)
     ; fsrt := <get-prop-type> (x_class, fn)
+
+  type-of :
+    PrefetchThis(){anno*} -> srt
+    where <fetch-elem(?PrefetchAnno(srt))> anno*
 
   type-of :
     RelativeFieldAccess(_, _){anno*} -> srt
@@ -68,12 +109,12 @@ strategies
     ; add-error(|["Multiple prefetches defined for ", <pp-type>decsrt, ".", key, " of type ", <pp-type> fsrt])
 
   constraint-error-data =
-    ?PrefetchFor(x, _)
+    ?PrefetchFor(x, _, _, _)
     ; where(<not(?Var(_)) <+ (?Var(_); not(type-of; is-entity-type))> x)
     ; add-error(|["Prefetching can only be defined for variables of an entity type"])
 
   constraint-error-data =
-    ?PrefetchFor(x, tree)
+    ?PrefetchFor(x, _, _, tree)
     ; where(
         Var(_) := x
         ; srt := <type-of; try(strip-ref-sort); strip-immutable-anno; try-strip-generic-sort; is-entity-type> x
@@ -99,7 +140,7 @@ strategies
     ; if where(dec_class := <class-of-property> (x_class, n)) then
         fsrt := <get-prop-type> (dec_class, n)
         ; elemsrt := <try-strip-generic-sort> fsrt
-        ; res := <constrain-prefetch-helper(|elemsrt);debug(!"children:")> children
+        ; res := <constrain-prefetch-helper(|elemsrt)> children
       else
         add-error(|["No property ", n, " defined for ",<pp-type> SimpleSort(x_class)])
       end
@@ -134,7 +175,7 @@ strategies
     ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt])
 
   /*constraint-error-data =
-    ?PrefetchFor(x, _)
+    ?PrefetchFor(x, _, _, _)
     ?PrefetchNode(_, name{}, _, _, _)
     ; debug(!"unknown?")
     ; add-error(|["Cannot define prefetch for unknown property"])*/
@@ -573,7 +614,7 @@ rules
   field-with-column = 
     where(
       ?FieldAccess(v@Var(x), f)
-      ; type-of; is-entity-type
+      //; type-of; is-entity-type
       ; SimpleSort(x_class) := <RootVar> v
 	    ; dec_class := <class-of-property> (x_class, f)
       ; <not(InverseSlaveOf)> (dec_class, f)
@@ -591,14 +632,15 @@ rules
     ; newexpr2 := <is-accessible-condition-expr-helper(|p)> expr2
 
   is-accessible-condition-expr-helper(|p) :
-    expr -> RelativeFieldAccess(condcastsrt, f)
+    expr -> rfa
     where (e, srt) := <is-accessible-from(RootVar)>
     ; <try(strip-ref-sort); try-strip-generic-sort; not(is-entity-type)> srt // If the property has an entity type, then the value is not prefetched yet, so avoid using it in the prefetch specification.
     ; FieldAccess(f_expr, f) := <try(?Cast(<id>, _))> e
     //; <(?Cast(p_expr, condcastsrt); debug(!"cast:"); <debug(!"issub:");subtype-of;info(|"yes")> (<strip-annos>castsrt, <strip-annos>condcastsrt); !condcastsrt; topdown(add-type-annotations); ?relcastsrt) <+ (?p_expr; info(|"nocast");relcastsrt := None())> f_expr
     ; (p_expr, condcastsrt) := <(\ Cast(castexpr, castsrt) -> (castexpr, newsrt) with newsrt := <topdown(add-type-annotations)> castsrt \) <+ !(<id>, None())> f_expr
     ; psrt := <expr-matches-path(|p)> p_expr
-    with <?(None(), _) <+ subtype-of> (<strip-annos> condcastsrt, <try(strip-ref-sort); try-strip-generic-sort; strip-annos> psrt) // The cast should always be valid
+    with rfa := <add-type-anno-to-relative-fa(|<try-strip-generic-sort>psrt)> RelativeFieldAccess(condcastsrt, f)
+    ; <?(None(), _) <+ subtype-of> (<strip-annos> condcastsrt, <try(strip-ref-sort); try-strip-generic-sort; strip-annos> psrt) // The cast should always be valid
 
   expr-matches-path(|p) :
     FieldAccess(e, f) -> fsrt
@@ -620,8 +662,21 @@ rules
   is-accessible-condition-expr-helper(|p) = where(is-query-condition-constant)
   is-accessible-condition-expr-helper(|p) = where(is-accessible-from(BindableVar))
 
+  field-with-column(|p) :
+    expr -> rfa
+    where (e, srt) := <is-accessible-from(RootVar)>
+    ; FieldAccess(f_expr, f) := <try(?Cast(<id>, _))> e
+    ; (p_expr, condcastsrt) := <(\ Cast(castexpr, castsrt) -> (castexpr, newsrt) with newsrt := <topdown(add-type-annotations)> castsrt \) <+ !(<id>, None())> f_expr
+    ; psrt := <expr-matches-path(|p)> p_expr
+    ; SimpleSort(x_class) := <?SimpleSort(_) <+ (!psrt; try-strip-generic-sort)> condcastsrt
+    ; dec_class := <class-of-property> (x_class, f)
+    ; decsrt := SimpleSort(dec_class)
+    ; <not(InverseSlaveOf)> (dec_class, f)
+    ; fsrt := <get-prop-type; try(strip-ref-sort)> (dec_class, f)
+    ; rfa := RelativeFieldAccess(condcastsrt, f){PrefetchPropAnno(decsrt,fsrt)}
+
   revalidate-join-condition(|p) =
-    map(filter(extract-query-cond(is-accessible-condition-expr(|p), field-with-column)); and-query-condition)
+    map(filter(extract-query-cond(is-accessible-condition-expr(|p), field-with-column(|p))); and-query-condition)
     ; or-query-condition
     ; (?True() < !None() + !PrefetchCondition(<id>))
 
@@ -735,7 +790,7 @@ rules
     where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, elemcond2, PrefetchChildren([subtree2])){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
-    ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
+    ; newtempl := <combine-prefetch-template-args> (templ1, templ2)
     ; newcond := <combine-prefetch-conditions> (cond1, cond2)
     ; newelemcond := <combine-prefetch-where> (elemcond1, elemcond2)
     ; subtree1 := <get-prefetch-children> children1
@@ -747,14 +802,14 @@ rules
     where PrefetchNode(castsrt2, f{PrefetchPropAnno(decsrt,fsrt)}, templ2, cond2, elemcond2, None()){anno2*} := branch
     with anno3* := <repeat(combine-branch-anno); Fst> (anno1*, anno2*)
     ; newcastsrt := <combine-cast-sort(|decsrt)> (castsrt1, castsrt2)
-    ; newtempl := <combine-prefetch-if-default> (templ1, templ2)
+    ; newtempl := <combine-prefetch-template-args> (templ1, templ2)
     ; newcond := <combine-prefetch-conditions> (cond1, cond2)
     ; newelemcond := <combine-prefetch-where> (elemcond1, elemcond2)
 
-  combine-prefetch-if-default : (None(), templ) -> templ
-  combine-prefetch-if-default : (templ, None()) -> templ
-  combine-prefetch-if-default :
-    (PrefetchIfDefault(templ1), PrefetchIfDefault(templ2)) -> PrefetchIfDefault(templ)
+  combine-prefetch-template-args : (None(), templ) -> templ
+  combine-prefetch-template-args : (templ, None()) -> templ
+  combine-prefetch-template-args :
+    (PrefetchTemplateArgs(templ1), PrefetchTemplateArgs(templ2)) -> PrefetchTemplateArgs(templ)
     with templ := <conc; make-set> (templ1, templ2)
 
   combine-prefetch-conditions : (None(), cond) -> cond
@@ -790,7 +845,7 @@ rules
     (Some(srt1), Some(srt2)) -> Some(decsrt)
     where <not(subtype-of)> (srt1, srt2)
     ; <not(subtype-of)> (srt2, srt1)
-
+/*
   merge-conditional-optimization-branches :
     ((cond, branches), tree) -> newtree
     with newtree := <foldr(!tree, merge-conditional-optimization-branch(|cond))> branches
@@ -820,17 +875,17 @@ rules
     PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, PrefetchChildren([subtree])){anno*}
     -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, PrefetchChildren([newsubtree])){anno*}
     with newsubtree := <add-condition-to-branch(|templcond)> subtree
-    ; newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
+    ; newtempl := <combine-prefetch-template-args> (templ, PrefetchIfDefault([templcond]))
 
   add-condition-to-branch(|templcond) :
     PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, templ, cond, elemcond, None()){anno*}
     -> PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, newtempl, cond, elemcond, None()){anno*}
-    with newtempl := <combine-prefetch-if-default> (templ, PrefetchIfDefault([templcond]))
+    with newtempl := <combine-prefetch-template-args> (templ, PrefetchIfDefault([templcond]))
 
   add-template-condition-to-branch-if-not-first(|cond) :
     PrefetchIfDefault(oldcond) -> PrefetchIfDefault(newcond) 
     with newcond := <make-set>[cond|oldcond]
-
+*/
 	log-query-optimization-collect-basic =
 	  make-set
 	  ; map(info(|["Traversal: ", <id>]))
