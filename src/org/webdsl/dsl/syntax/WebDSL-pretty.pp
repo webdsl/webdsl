@@ -1535,6 +1535,7 @@
    ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
    ServiceFunction                                        -- KW["service"] _1 KW["("] _2 KW[")"] _3,
    ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
+   DeriveWebServices                                      -- KW["derive"] KW["webservices"] KW["for"] _1,
    NativeClassConstructorCall                             -- KW["/*"] _1 KW["*/"] _2 KW["("] _3 KW[")"], %% hack: putting _1 in comments, omitting it will cause the rule to match constructor with arity 2 instead of 3. this is an internal constructor used for desugaring
    NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","]
 ]

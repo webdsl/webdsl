@@ -56,17 +56,26 @@ define page root() {
         var q  := "horror";
         var item := Material{name:="a" alias:="b" desc:="a b c"};
 
-        //Find Movie entities that match "hello" in title or abstract, but doesnt match "goodbye" in any of the default search fields
+        //Find Movie entities that match "hello" in title or abstract,
+        //but doesnt match "goodbye" in any of the default search fields
         var x1 := search Movie matching title,abstract: +"hello" -"goodbye";
 
-        //Find Movie entities that match "hello" in title or abstract, but doesnt match "goodbye" in title or abstract
+        //Find Movie entities that match "hello" in title or abstract,
+        //but doesnt match "goodbye" in title or abstract
         var x2 := search Movie matching title,abstract: (+"hello" -"goodbye");
 
-        //Find Movie entities that match "hello" but doesnt match "goodbye" in any of the default search fields
+        //Find Movie entities that match "hello", but doesnt match "goodbye" in
+        //any of the default search fields
         var x3 := search Movie matching +"hello" -"goodbye";
 
-        //Find materials with (name "metal peroxide") OR ('some material that has "metal" in desc AND "peroxide" in title AND OPTIONALLY (a name or alias with "mp" but NOT "magnesium"))
-        var x4 := search Material matching (desc:+"metal" title:+"peroxide" name,alias:("mp" -"magnesium") ) name:"metal peroxide";
+        //Find materials with (name "metal peroxide") OR
+        //( 'some material that has "metal" in desc AND
+        //  "peroxide" in title AND OPTIONALLY
+        //  (a name or alias with "mp" but NOT "magnesium") )
+        var x4 := search Material
+                  matching ( desc:+"metal" title:+"peroxide"
+                             name,alias:("mp" -"magnesium")
+                           ) name:"metal peroxide";
 
         var x5 := search User matching credit: (-200);
 
