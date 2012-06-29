@@ -107,6 +107,9 @@ define page root() {
         var x14 := all field facets from item.getSearcher();
         var x15 := all field facets from search Movie matching +item.name -q;
 
+        var x16 := all field facets from x9 == [Facet{}];
+        var x17 := Movie completions similarity 5 / 11 != null;
+
 
     }
 }

@@ -846,7 +846,7 @@
    FieldsConstraint.1:iter-star-sep   -- H hs=0 [_1 KW[","]],
    QueryConstraint                    -- H hs=1 [_1],
    QueryConstraint.1:iter-star-sep    -- H hs=0 [_1 KW[","]],
-   GroupDef                           -- H hs=0 [_1 KW["("] _2 KW[")"]],
+   GroupDef                           -- H hs=0 [_1 KW["("] _2 KW[")"] _3],
    %% GroupDef.2:iter-star-sep           -- H hs=0 [_1 KW[","]],
    TermDef                            -- H hs=0 [_1 _2 _3],
    RangeDef                           -- H hs=1 [_1 _2],
