@@ -823,7 +823,7 @@
    QueryDef                           -- H hs=1 [KW["matching"] _1],
    Clause                             -- H hs=1 [_1 _2],
    Query                              -- H hs=1 [_1 _2],
-   Start                              -- H hs=1 [KW["start"] _1],
+   Start                              -- H hs=1 [KW["offset"] _1],
    MaxResults                         -- H hs=1 [KW["limit"] _1],
    SortBy                             -- H hs=1 [KW["order"] KW["by"] _1],
    SortBy.1:iter-star                 -- _1,
