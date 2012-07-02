@@ -50,7 +50,7 @@
    InverseAnno                        -- KW["inverse"] KW["="] _1 KW["."] _2,
    InverseSlaveAnno                   -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
    InlineAnno                         -- KW["inline"] KW["("] _1 KW[")"],
-   InlineAnno.1:iter-stat-sep         -- _1 KW[","],
+   InlineAnno.1:iter-star-sep         -- _1 KW[","],
    SelectAnno                         -- KW["select"] KW["="] _1,
    ParamAnno                          -- _1 KW["("] _2 KW[")"],
    ParamAnno.2:iter-star-sep          -- _1 KW[","],
