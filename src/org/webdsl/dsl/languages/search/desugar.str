@@ -47,11 +47,15 @@ rules //desugar searcher language to native class interface
       with e_field := <field-to-string> field
          ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight, e_pretag, e_posttag) ]|
 
-  field-to-string = field-to-string-exp <+ ?SearchFieldRef(exp); !exp
+  field-to-string= if (<not(?QuerySearchField(_, _))> <id>) then !QuerySearchField(<id>, None()) end; field-to-string-exp
 
   field-to-string-exp:
-    x -> String(x)
+    QuerySearchField(x, _) -> String(x)
       where <not(?SearchFieldRef(_))> x
+
+  field-to-string-exp:
+      QuerySearchField(x, _) -> exp
+      where <(?SearchFieldRef(exp))> x
 
   desugar-search:
     Highlight(e_toHighlight, e_searcher, field) -> <rename> result
@@ -110,6 +114,11 @@ rules //desugar searcher language to native class interface
       where e* := <map(\x -> <field-to-string> x\)> fields
           ; e := TypedListCreation(SimpleSort("String"), e*){anno*}
           ; e_fields := exp|[ e_done.fields(e) ]|
+          ; e_boosted:= <foldl( try(field-to-boost) )> (fields, e_fields)
+
+  field-to-boost:
+    ( QuerySearchField(fld, Some(e_boost)), e_done ) -> exp|[e_done.boost(e_fld, e_boost)]|
+    with e_fld := <field-to-string> fld
 
   fieldsConstraint-to-expr:
     (DefaultSearchFields(), e_done) -> exp|[ e_done.defaultFields() ]|

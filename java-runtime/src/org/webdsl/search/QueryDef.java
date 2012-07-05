@@ -3,6 +3,7 @@ package org.webdsl.search;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.Query;
@@ -10,19 +11,20 @@ import org.apache.lucene.search.Query;
 public class QueryDef {
 
     public enum QueryType {
-        TEXT, PHRASE, RANGE, NOQUERY, PARSED_LUCENE, PARSED_STRING, MATCH_ALL
+        TEXT, PHRASE, RANGE, NOQUERY, PARSED_LUCENE, PARSED_STRING, MATCH_ALL, FUZZY
     }
 
     public QueryType queryType = QueryType.NOQUERY;
     public Object min, max;
     public int slop;
+    public float similarity;
     public String query, parsedQueryStr;
     public Occur occur;
     public String[] fields;
     public QueryDef parent;
     public Query parsedQuery = null;
     public List<QueryDef> children = new ArrayList<QueryDef>();
-    public HashMap<String, Float> boosts;
+    public Map<String, Float> boosts;
     public boolean includeMin, includeMax;
 
     public QueryDef(Occur oc, String[] fields){
@@ -55,6 +57,11 @@ public class QueryDef {
         this.queryType = QueryType.PHRASE;
         this.query = query;
         this.slop = slop;
+    }
+    public void fuzzyQuery(String query, float similarity){
+        this.queryType = QueryType.FUZZY;
+        this.query = query;
+        this.similarity = similarity;
     }
     public void parsedQuery(String parsedQuery){
         this.queryType = QueryType.PARSED_STRING;

@@ -262,7 +262,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     @SuppressWarnings("unchecked")
     public F boost( String field, Float boost ) {
-
+        currentQD.boost(field, boost);
         updateLuceneQuery = updateParamMap = true;
         return ( F ) this;
     }
@@ -1056,6 +1056,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return ( F ) this;
     }
 
+//    @SuppressWarnings("unchecked")
+//    public F fuzzyQuery( String query, float fuzzyness ) {
+//        currentQD.phraseQuery( query, slop );
+//        updateLuceneQuery = updateParamMap = true;
+//        return ( F ) this;
+//    }
+
     @SuppressWarnings("unchecked")
     public F matchAllQuery() {
         currentQD.matchAllQuery();
@@ -1168,6 +1175,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             case PARSED_STRING : toReturn = getParsedQuery(qd); break;
             case RANGE         : toReturn = createRangeQuery(qd); break;
             case PHRASE        : toReturn = createMultiFieldPhraseQuery(qd); break;
+//            case FUZZY         : toReturn = createMultiFieldcQuery(qd); break;
             case TEXT          : toReturn = createMultiFieldQuery(qd); break;
             case MATCH_ALL     : toReturn = createMatchAllQuery(); break;
             default            : toReturn = null; break;

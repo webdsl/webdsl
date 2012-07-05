@@ -58,7 +58,7 @@ define page root() {
 
         //Find Movie entities that match "hello" in title or abstract,
         //but doesnt match "goodbye" in any of the default search fields
-        var x1 := search Movie matching title,abstract: +"hello" -"goodbye";
+        var x1 := search Movie matching title^10.0,abstract^100.0: +"hello" -"goodbye";
 
         //Find Movie entities that match "hello" in title or abstract,
         //but doesnt match "goodbye" in title or abstract
@@ -91,8 +91,8 @@ define page root() {
         var x8 := search Movie matching +item.name;
 
         //x9 and x10 have the same constraints
-        var x9  := search Movie matching genres.name: +item.name matching genres.desc: +item.desc limit 10000;
-        var x10 := search Movie matching genres.name: +item.name genres.desc: +item.desc limit 10000;
+        var x9  := search Movie matching genres.name^2.0: +item.name matching genres.desc: +item.desc limit 10000;
+        var x10 := search Movie matching genres.name^2.0: +item.name genres.desc: +item.desc limit 10000;
 
         var index := 3;
 
