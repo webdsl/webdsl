@@ -19,7 +19,9 @@ import utils.DateType;
 @SuppressWarnings("deprecation")
 public class WebDSLFacetTool {
 
-    private static final Pattern p = Pattern.compile("(\\[|\\{)([^\\]\\}\\s]*)\\s+TO\\s+([^\\]\\}\\s]*)(\\]|\\})", Pattern.CASE_INSENSITIVE);
+    //some examples: {1 TO 2} [1 to 2}  [1 TO 2] {* TO a] [b to *] [ TO 3] {1 TO ]
+    //same meaning: {1 to *}  {1 to } {1 TO } {1 TO *}
+    private static final Pattern p = Pattern.compile("(\\[|\\{)([^\\s\\*]*)\\*?\\s+TO\\s+([^\\s\\*]*)\\*?(\\]|\\})", Pattern.CASE_INSENSITIVE);
 
     public static <T> FacetingRequest toFacetingRequest(String field, String rangeAsString, Class<?> entityClass, Class<T> type, FullTextSession fts){
 

@@ -875,6 +875,7 @@
    SpellCheck                         -- H hs=1 [KW["corrections"] ],
    Similarity                         -- H hs=1 [KW["similarity"] _1],
    SuggestTerm                        -- H hs=1 [KW["matching"] _1 _2],
+   WildCard                           -- H hs=1 [KW["*"]],
 
    SortDef.2:opt                                          -- _1,
    Range.3:opt                                            -- _1,
