@@ -14,6 +14,7 @@ import java.util.Map.Entry;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queryParser.MultiFieldQueryParser;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
@@ -274,9 +275,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     private final QueryParser getQueryParser(QueryDef qd){
         QueryParser toReturn;
         if ( qd.boosts == null || qd.boosts.isEmpty() )
-            toReturn = new SpecialMultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer );
+            toReturn = new MultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer );
         else
-            toReturn = new SpecialMultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer, qd.boosts );
+            toReturn = new MultiFieldQueryParser( LUCENEVERSION, qd.fields, analyzer, qd.boosts );
         toReturn.setDefaultOperator( defaultOperator );
 
         return toReturn;
@@ -289,14 +290,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     private Query createMultiFieldPhraseQuery ( QueryDef qd) throws ParseException {
-        return getQueryParser(qd).parse( "\"" + SpecialMultiFieldQueryParser.escape( qd.query ) + "\"~" + qd.slop);
+        return getQueryParser(qd).parse( "\"" + MultiFieldQueryParser.escape( qd.query ) + "\"~" + qd.slop);
     }
 
     private Query createMultiFieldQuery( QueryDef qd ) throws ParseException {
         if ( allowLuceneSyntax )
             return getQueryParser(qd).parse( qd.query );
         else
-            return getQueryParser(qd).parse( SpecialMultiFieldQueryParser.escape( qd.query ));
+            return getQueryParser(qd).parse( MultiFieldQueryParser.escape( qd.query ));
     }
 
     private static String decodeValue( String str ) {
