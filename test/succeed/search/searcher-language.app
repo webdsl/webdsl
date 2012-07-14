@@ -85,7 +85,7 @@ define page root() {
 
         var x6 := search Movie order by year asc, title desc
                  with filters year:2000, genre.name:q
-                 with facets (genre.name,20), (title: [ to "A"},["A" to "L"],["M" to "Q"],["Q" to "Z"],{"Z" to ]);
+                 with facets (genre.name,20), (title: [* to "A"},["A" to "L"],["M" to "Q"],["Q" to "Z"],{"Z" to *]);
         var x7 := search Movie matching +(title: (-q +"island") description:-"human");
 
         var x8 := search Movie matching +item.name;
