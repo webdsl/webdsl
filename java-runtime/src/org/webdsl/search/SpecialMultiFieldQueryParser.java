@@ -15,7 +15,8 @@ import org.apache.lucene.util.Version;
 /**
  * @author Elmer van Chastelet
  *
- * 13 July 2012: This parser will add more harm for cases where tokens are removed by some analyzer.
+ * ---------------
+ * 13 July 2012: This parser might do harm for cases where tokens are removed by some analyzer.
  * Example: If some field 'year' uses an analyzer which only filters year tokens (for simplicity say: [0-9]{4}),
  * and combined with other fields using a standard analyzer, queries like 'eelco 2007' get transformed to
  *
@@ -23,8 +24,9 @@ import org.apache.lucene.util.Version;
  * (+(tags.name:eelco venue:eelco title:eelco authors.nameTag:eelco abstract:eelco) +(tags.name:2007 venue:2007 title:2007 authors.nameTag:2007 year:2007 abstract:2007))
  *
  * -> thus will match all publications with year 2007, no matter what other terms are used!
- *
- *
+ * Workaround is to use an analyzer at query time that respects keeps the other tokens in place, or don't query the
+ * problematic field ('year' in the example) with the other fields, but in a separate clause instead. *
+ * ---------------
  *
  * Special implementation of the MultiFieldQueryParser (based on Lucene 3.1.0 version of this class).
  * It treats a special case, namely when terms are filtered out for some(!) of the fields (when using
