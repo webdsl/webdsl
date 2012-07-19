@@ -213,7 +213,7 @@ module .servletapp/src-webdsl-template/built-in
     org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
     org.webdsl.tools.Utils.containsUpperCase     as containsUpperCase():Bool
     org.webdsl.tools.Utils.isCleanUrl            as isCleanUrl():Bool
-    org.apache.commons.lang.StringUtils.contains as contains(String):Bool // this 'contains' function handles null, null as either arg will produce false
+    org.apache.commons.lang3.StringUtils.contains as contains(String):Bool // this 'contains' function handles null, null as either arg will produce false
     utils.StringType.parseInt                    as parseInt():Int
     utils.StringType.split                       as split():List<String>
     utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
@@ -222,7 +222,7 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.parseDate as parseDate(String):Date
     utils.DateType.parseDate as parseDateTime(String):DateTime
     utils.DateType.parseDate as parseTime(String):Time
-    org.apache.commons.lang.StringEscapeUtils.escapeJavaScript as escapeJavaScript():String
+    org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript as escapeJavaScript():String
     substring(Int):String
     substring(Int,Int):String
   }

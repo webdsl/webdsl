@@ -14,11 +14,11 @@ import org.webdsl.WebDSLEntity;
 public final class Utils {
     public static Object[] concatArrays(Object[] ar1, Object[] ar2) {
         List<Object> thelist = new ArrayList<Object>();
-        for(Object o : ar1) 
+        for(Object o : ar1)
             thelist.add(o);
-        for(Object o : ar2) 
+        for(Object o : ar2)
             thelist.add(o);
-        return thelist.toArray();		
+        return thelist.toArray();
     }
 
     /*public static boolean equal(int a, int b) {
@@ -45,10 +45,10 @@ public final class Utils {
         }
         return a.equals(b);
     }
-    
+
     public static Object cast(Object e2 , Class<?> t) {
-        return (e2 instanceof org.hibernate.proxy.HibernateProxy)? 
-            t.cast( ((org.hibernate.proxy.HibernateProxy) e2).getHibernateLazyInitializer().getImplementation()) 
+        return (e2 instanceof org.hibernate.proxy.HibernateProxy)?
+            t.cast( ((org.hibernate.proxy.HibernateProxy) e2).getHibernateLazyInitializer().getImplementation())
           : t.cast(e2);
     }
 
@@ -60,19 +60,19 @@ public final class Utils {
             return c.isInstance(o);
         }
     }
-    
+
     public static String encodeIdList(Collection<?> c){
         String res = "";
         for(Object obj: c) {
             WebDSLEntity e = (WebDSLEntity) obj;
             res+=e.getId()+",";
-        }        
+        }
         return res.substring(0, Math.max(0,res.length()-1));
-    }    
-    
+    }
+
     /**
      * http://forum.hibernate.org/viewtopic.php?p=2387828
-     * 
+     *
      * Utility method that tries to properly initialize the Hibernate CGLIB
      * proxy.
      *
@@ -106,7 +106,7 @@ public final class Utils {
             facesContext.responseComplete();
         }
     }
-    
+
     public static boolean containsDigit(String s){
         for(char c : s.toCharArray()){
             if(Character.isDigit(c)){
@@ -131,7 +131,7 @@ public final class Utils {
         }
         return false;
     }
-    private static java.util.regex.Pattern cleanUrlPattern = java.util.regex.Pattern.compile("[a-zA-Z0-9-]*");  
+    private static java.util.regex.Pattern cleanUrlPattern = java.util.regex.Pattern.compile("[a-zA-Z0-9-]*");
     public static boolean isCleanUrl(String s){
         return cleanUrlPattern.matcher(s).matches();
     }
@@ -143,18 +143,18 @@ public final class Utils {
         org.jasypt.util.password.StrongPasswordEncryptor temp = new org.jasypt.util.password.StrongPasswordEncryptor();
         return temp.checkPassword(s2,s1);
     }
-    
+
     //@TODO: there are several issues with primitive types in the generated code, it would be better if they are always boxed
     public static boolean isNullAutoBox(Object o){ return o == null; }
-    
-    public static String escapeHtml(String s){ 
-        return org.apache.commons.lang.StringEscapeUtils.escapeHtml(s); 
+
+    public static String escapeHtml(String s){
+        return org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(s);
     }
     public static String escapeHtml(Object o){ // covers primitive types due to autoboxing
-        return org.apache.commons.lang.StringEscapeUtils.escapeHtml(o.toString()); 
-    } 
-    
-    public static String showAttributeEscapeHtml(String s1, Object s2){ 
+        return org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(o.toString());
+    }
+
+    public static String showAttributeEscapeHtml(String s1, Object s2){
         return " " + escapeHtml(s1) + "=\"" + escapeHtml(s2) + "\"";
     }
 }

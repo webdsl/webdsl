@@ -3,7 +3,7 @@ package utils;
 import java.util.*;
 
 public class StringType {
-    
+
     public static Integer parseInt(String s){
       try{
           return Integer.parseInt(s);
@@ -36,7 +36,7 @@ public class StringType {
             return null;
         }
     }
-    
+
     public static String concatWithSeparator(List<String> s, String sep){
         StringBuffer ret = new StringBuffer();
         for(String str : s){
@@ -50,7 +50,7 @@ public class StringType {
         }
         return ret.toString();
     }
-    
+
     public static String concat(List<String> s){
         StringBuffer ret = new StringBuffer();
         for(String str : s){
@@ -58,22 +58,22 @@ public class StringType {
         }
         return ret.toString();
     }
-    
+
     public static List<String> splitWithSeparator(String s, String sep){
         List<String> list = new LinkedList<String>();
-        String[] tokens = org.apache.commons.lang.StringUtils.splitByWholeSeparator(s,sep);
+        String[] tokens = org.apache.commons.lang3.StringUtils.splitByWholeSeparator(s,sep);
         for(String c : tokens){
-            list.add(c);  
+            list.add(c);
         }
         return list;
     }
-    
+
     public static List<String> split(String s){
         List<String> list = new LinkedList<String>();
         for(char c : s.toCharArray()){
-            list.add(new Character(c).toString());  
+            list.add(new Character(c).toString());
         }
         return list;
     }
-   
+
 }

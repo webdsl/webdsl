@@ -21,16 +21,16 @@ import java.util.Map.Entry;
 public final class URLFilter {
     public static final String encoding = "UTF-8";
 
-    public static String filter(boolean message) {
+    public final static String filter(boolean message) {
         return filter(String.valueOf(message));
     }
-    public static String filter(int message) {
+    public final static String filter(int message) {
         return filter(String.valueOf(message));
     }
-    public static String filter(float message) {
+    public final static String filter(float message) {
         return filter(String.valueOf(message));
     }
-    public static String filter(String message) {
+    public final static String filter(String message) {
         if (message == null)
             return (null);
         try{
@@ -59,7 +59,7 @@ public final class URLFilter {
             return null;
         }
     }
-    public static Map<String,String> URLEncodingToParamMap(String paramMapAsStr){
+    public final static Map<String,String> URLEncodingToParamMap(String paramMapAsStr){
         Map<String, String> map = new HashMap<String, String>();
         String[] urlParts = paramMapAsStr.split("&");
         String[] kv;
@@ -71,7 +71,7 @@ public final class URLFilter {
 
     }
 
-    public static String paramMapToURLEncoding(Map<String,String> paramMap){
+    public final static String paramMapToURLEncoding(Map<String,String> paramMap){
         StringBuilder sb = new StringBuilder();
         for (Entry<String,String> e : paramMap.entrySet()) {
             sb.append(e.getKey());
@@ -82,26 +82,26 @@ public final class URLFilter {
         return sb.toString();
     }
 
-    public static String paramMapToPostParamsEncoding(Map<String,String> paramMap){
+    public final static String paramMapToPostParamsEncoding(Map<String,String> paramMap){
         StringBuilder sb = new StringBuilder();
         for (Entry<String,String> e : paramMap.entrySet()) {
             sb.append(e.getKey());
             sb.append("=");
-            sb.append(escapeParamMapEntry(e.getValue()));
+            sb.append(utils.HTMLFilter.filter(escapeParamMapEntry(e.getValue())));
             sb.append("&");
         }
         return sb.toString();
     }
 
-    public static String escapeParamMapEntry(String pme){
+    public final static String escapeParamMapEntry(String pme){
         return pme.replaceAll("\\\\", "\\\\\\\\ ").replaceAll("\\&", "\\\\a").replaceAll("=", "\\\\e");
     }
-    public static String unescapeParamMapEntry(String pme){
+    public final static String unescapeParamMapEntry(String pme){
         return pme.replaceAll("\\\\e","=").replaceAll("\\\\a", "&").replaceAll("\\\\\\\\ ", "\\\\");
     }
 
 
-    public static String unfilter(String message) {
+    public final static String unfilter(String message) {
 
         if (message == null)
             return (null);
