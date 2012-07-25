@@ -174,7 +174,10 @@ rules
             org.apache.log4j.MDC.put("request", rle.getId().toString());
             org.apache.log4j.MDC.put("template", "/" + getPageName());
             utils.RequestAppender reqAppender = null;
-            if(request.getQueryString() != null && request.getQueryString().indexOf("logsql") != -1) reqAppender = utils.RequestAppender.getInstance();
+            if(parammap.get("logsql") != null) {
+              this.isLogSqlEnabled = true;
+              reqAppender = utils.RequestAppender.getInstance();
+            }
             if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
             hibSession = HibernateUtilConfigured.getSessionFactory().getCurrentSession();
             hibSession.beginTransaction();
@@ -235,7 +238,19 @@ rules
                 if( hasNotExecutedAction() || isNotValid() ){
                   //ajax replace performed during validation, assuming that handles all validation
                   if(isAjaxRuntimeRequest() && outstream.length() > 0){
-                    response.getWriter().write("[" + outstream + "{}]");
+                    response.getWriter().write("[");
+                    response.getWriter().write(outstream);
+                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+                      bstm_logsqlchecksetup*
+                      if(e_logsqlaccesscontrolcheck){
+                        response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                      }
+                      else{
+                        response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+                      }
+                      response.getWriter().write(",");
+                    }
+                    response.getWriter().write("{}]");
                   }
                   // action called but no action found
                   else if( isValid() && isPostRequest() ){ 
@@ -265,13 +280,42 @@ rules
                 // succesful action, always redirect, no render
                 else { //hasExecutedAction() && isValid()
                   if( isAjaxRuntimeRequest() ){
-                    response.getWriter().write("[" + outstream + "{}]");
+                    response.getWriter().write("[");
+                    response.getWriter().write(outstream);
+                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+		                  bstm_logsqlchecksetup*
+		                  if(e_logsqlaccesscontrolcheck){
+		                    response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+		                  }
+		                  else{
+		                    response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+		                  }
+		                  /*if(e_logsqlaccesscontrolcheck){
+                        utils.HibernateLog.printHibernateLogJson(response.getWriter(), this);
+		                  }
+		                  else{
+		                    response.getWriter().write("{action: \"logsqljson\", error: \"Access to SQL logs was denied.\"}");
+		                  }*/
+                      response.getWriter().write(",");
+                    }
+                    response.getWriter().write("{}]");
                   }
                   else if( isActionLinkUsed() ){
                     //action link also uses ajax when ajax is not enabled
                     //, send only redirect location, so the client can simply set 
                     // window.location = req.responseText;
                     response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");               
+                  }
+                  if(!isAjaxRuntimeRequest()) {
+                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+                      bstm_logsqlchecksetup*
+                      if(e_logsqlaccesscontrolcheck){
+                        ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation(utils.HibernateLog.printHibernateLog(this, "action"));
+                      }
+                      else{
+                        ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation("Access to SQL logs was denied.");
+                      }
+                    }
                   }
                   //else: action successful + no validation error + regular submit 
                   //        -> always results in a redirect, no further action necessary here
@@ -422,19 +466,22 @@ rules
 
                 sout.print("<body id=\""+this.getPageName()+"\">");
                 
+                renderLogSqlMessage();
                 renderIncomingSuccessMessages();
                 
                 s.flush();
               }
               sout.write(s.toString());
               if(!mimetypeChanged && !onlyContent){
-                if(this.parammap.get("logsql") != null){
+                if(this.isLogSqlEnabled()){
                   bstm_logsqlchecksetup*
                   if(e_logsqlaccesscontrolcheck){
-                    utils.HibernateLog.printHibernateLog(sout, this);
+                    sout.print("<hr/><div class=\"logsql\">");
+                    utils.HibernateLog.printHibernateLog(sout, this, null);
+                    sout.print("</div>");
                   }
                   else{
-                    sout.print("<div>Access to SQL logs was denied.</div>");
+                    sout.print("<hr/><div class=\"logsql\">Access to SQL logs was denied.</div>");
                   }
                 }
                 sout.print("</body>");

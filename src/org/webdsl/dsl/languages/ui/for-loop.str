@@ -64,7 +64,8 @@ rules
   add-backend-annotation :
     def@ForAll(_, SimpleSort(x_class), _, _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
+    // When prefetching is performed without joins, then the query can always be marked cacheable
+    //; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
     ; <is-cached-entity> x_class
 
   add-query-optimization :
@@ -105,7 +106,7 @@ rules
       //; newcall := /*<try(pass-query-optimization-to-call(|qo))>*/ call
 
   desugar-ui :
-    def@For(x, srt, e, f, elems1, elems3){anno*} -> For(x, srt, e, f, elems2, elems3){qc,newanno2*}
+    def@For(x, srt, e, f, elems1, elems3){anno*} -> For(x, srt, e, f, elems2, elems3){qc,newanno*}
     where <is-entity-type> srt
     ; <fetch-elem(?TemplateArgs(args*))> anno*
     ; <fetch-elem(?TemplateName(tname))> anno*
@@ -117,9 +118,11 @@ rules
       : rules( CurrentTemplateName := tgenname )
       ; (elems2, newanno*) := <perform-query-analysis(|("For", x, srt), [args*,ic*],cond,x)> (elems1, anno*)
     |}
+    // Query condition anno is placed directly, because they are used to determine the filter that is used
     ; bindableargs := <filter(query-optimization-bindable-argument)> args*
-    ; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
-    ; newanno2* := <conc> (fltr*, newanno*)
+    ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
+    //; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
+    //; newanno2* := <conc> (fltr*, newanno*)
 
 
 rules // ForAll only declared entity types

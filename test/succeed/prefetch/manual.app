@@ -7,6 +7,9 @@ entity RootBase {
   strProp :: String
   boolProp :: Bool
   entProp -> Base
+  intLst -> List<Elem>
+  
+  function doNothing() {}
 }
 
 entity RootSub : RootBase {
@@ -23,6 +26,10 @@ entity Base {
 entity Sub : Base {
 }
 
+entity Elem {
+  intProp :: Int
+}
+
 init{
   for(i : Int from 0 to 16) {
     var r : RootBase;
@@ -35,6 +42,12 @@ init{
     } else { if(i % 4 == 3) { // 3 7 11 15
       r := RootSub { entProp := Sub{ sub := Sub{} } subProp := Base{} subInt := i subStr := ("" + i) subBool := (i % 2 == 0) };
     } } } }
+    r.intLst.add(Elem{intProp := 1});
+    r.intLst.add(Elem{intProp := 2});
+    r.intLst.add(Elem{intProp := 3});
+    r.intLst.add(Elem{intProp := 4});
+    r.intLst.add(Elem{intProp := 5});
+    r.intLst.add(Elem{intProp := 6});
     r.intProp := i;
     r.strProp := ("" + i);
     r.boolProp := (i % 2 == 0);
@@ -55,7 +68,7 @@ function testIntCond() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testIntCond()", 2, 0, 0, 0, 8, 8, 4, 4);
+  assertLogWithEntities(hibLog, "testIntCond()", 2, 0, 0, 0, 8, 8, 4, 4, 0);
   closeLog();
 }
 
@@ -69,7 +82,7 @@ function testIntCondCast() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testIntCondCast()", 2, 0, 0, 0, 8, 8, 2, 2);
+  assertLogWithEntities(hibLog, "testIntCondCast()", 2, 0, 0, 0, 8, 8, 2, 2, 0);
   closeLog();
 }
 
@@ -83,7 +96,7 @@ function testStrCond() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testStrCond()", 2, 0, 0, 0, 8, 8, 4, 4);
+  assertLogWithEntities(hibLog, "testStrCond()", 2, 0, 0, 0, 8, 8, 4, 4, 0);
   closeLog();
 }
 
@@ -97,7 +110,7 @@ function testStrCondCast() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testStrCondCast()", 2, 0, 0, 0, 8, 8, 2, 2);
+  assertLogWithEntities(hibLog, "testStrCondCast()", 2, 0, 0, 0, 8, 8, 2, 2, 0);
   closeLog();
 }
 
@@ -111,7 +124,7 @@ function testBoolCond() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testBoolCond()", 2, 0, 0, 0, 8, 8, 8, 0);
+  assertLogWithEntities(hibLog, "testBoolCond()", 2, 0, 0, 0, 8, 8, 8, 0, 0);
   closeLog();
 }
 
@@ -125,7 +138,7 @@ function testBoolCondCast() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testBoolCondCast()", 2, 0, 0, 0, 8, 8, 0, 4);
+  assertLogWithEntities(hibLog, "testBoolCondCast()", 2, 0, 0, 0, 8, 8, 0, 4, 0);
   closeLog();
 }
 
@@ -151,7 +164,7 @@ function testNoRedef() {
 
   var tmp : String := rendertemplate(templ());
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testNoRedef()", 2, 0, 0, 0, 8, 8, 8, 8);
+  assertLogWithEntities(hibLog, "testNoRedef()", 2, 0, 0, 0, 8, 8, 8, 8, 0);
   closeLog();
 }
 
@@ -161,7 +174,7 @@ function testWithRedef() {
 
   var tmp : String := rendertemplate(templWithRedef());
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testWithRedef()", 2, 0, 0, 0, 8, 8, 8, 8);
+  assertLogWithEntities(hibLog, "testWithRedef()", 2, 0, 0, 0, 8, 8, 8, 8, 0);
   closeLog();
 }
 
@@ -177,20 +190,71 @@ function testPrefetchChildren() {
     }
   }
   var hibLog : HibernateLog := getLog();
-  assertLogWithEntities(hibLog, "testPrefetchChildren()", 3, 0, 0, 0, 8, 8, 8, 24);
+  assertLogWithEntities(hibLog, "testPrefetchChildren()", 3, 0, 0, 0, 8, 8, 8, 24, 0);
   closeLog();
 }
 
-function assertLogWithEntities(hibLog : HibernateLog, name : String, sql : Int, ent : Int, dup : Int, col : Int, rootBase : Int, rootSub : Int, base : Int, sub : Int) {
-  assertLog(hibLog, name, sql, ent + rootBase + rootSub + base + sub, dup, col);
-  assertEntities(hibLog, name, rootBase, rootSub, base, sub);
+function testTwoManualFilters() {
+  clearSession();
+  initLog();
+
+  for(r : RootBase) {
+    var sum1 : Int := 0;
+    var sum2 : Int := 0;
+    prefetch-for r {
+      intLst where(.intProp <= 2 || .intProp > 4)
+    }
+    for(e1 : Elem in r.intLst) {
+      prefetch-for e1 where(.intProp <= 2)
+      sum1 := sum1 + e1.intProp;
+    }
+    for(e2 : Elem in r.intLst) {
+      prefetch-for e2 where(.intProp > 4)
+      sum2 := sum2 + e2.intProp;
+    }
+    // All fetched elements are summed up, because there is no where clause on the for-loops
+    // The elements 3 and 4 are excluded, but 1, 2, 5 and 6 (the sum is 14) are included 
+    assert(sum1==14);
+    assert(sum2==14);
+  }
+  var hibLog : HibernateLog := getLog();
+  assertLogWithEntities(hibLog, "testTwoManualFilters()", 2, 0, 0, 16, 8, 8, 0, 0, 64);
+  closeLog();
 }
 
-function assertEntities(hibLog : HibernateLog, name : String, rootBase : Int, rootSub : Int, base : Int, sub : Int) {
+function testNoEmptyBatch() {
+  clearSession();
+  initLog();
+
+  var roots : List<RootBase> := from RootBase;
+  for(r1 : RootBase in roots) {
+    prefetch-for r1 { entProp }
+    r1.doNothing();
+  }
+  for(r2 : RootBase in roots) {
+    prefetch-for r2 {
+      entProp no-empty-batch {
+        sub
+      }
+    }
+    r2.doNothing();
+  }
+  var hibLog : HibernateLog := getLog();
+  assertLogWithEntities(hibLog, "testNoEmptyBatch()", 2, 0, 0, 0, 8, 8, 8, 8, 0);
+  closeLog();
+}
+
+function assertLogWithEntities(hibLog : HibernateLog, name : String, sql : Int, ent : Int, dup : Int, col : Int, rootBase : Int, rootSub : Int, base : Int, sub : Int, elem : Int) {
+  assertLog(hibLog, name, sql, ent + rootBase + rootSub + base + sub + elem, dup, col);
+  assertEntities(hibLog, name, rootBase, rootSub, base, sub, elem);
+}
+
+function assertEntities(hibLog : HibernateLog, name : String, rootBase : Int, rootSub : Int, base : Int, sub : Int, elem : Int) {
   assert(hibLog.getEntityCount("RootBase")==rootBase, name + " RootBase: " + hibLog.getEntityCount("RootBase") + "!=" + rootBase);
   assert(hibLog.getEntityCount("RootSub")==rootSub, name + " RootSub: " + hibLog.getEntityCount("RootSub") + "!=" + rootSub);
   assert(hibLog.getEntityCount("Base")==base, name + " Base: " + hibLog.getEntityCount("Base") + "!=" + base);
   assert(hibLog.getEntityCount("Sub")==sub, name + " Sub: " + hibLog.getEntityCount("Sub") + "!=" + sub);
+  assert(hibLog.getEntityCount("Elem")==elem, name + " Elem: " + hibLog.getEntityCount("Elem") + "!=" + elem);
 }
 
 test {
@@ -203,4 +267,6 @@ test {
   testNoRedef();
   testWithRedef();
   testPrefetchChildren();
+  testTwoManualFilters();
+  testNoEmptyBatch();
 }

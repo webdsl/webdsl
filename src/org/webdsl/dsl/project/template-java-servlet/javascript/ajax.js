@@ -305,6 +305,12 @@ function clientExecute(jsoncode, thisobject)
     else if (command.action == "runscript") {
       eval(command.value);
     }
+    else if (command.action == "logsqljson") {
+      appendLogSqlJson(command);
+    }
+    else if (command.action == "logsql") {
+      appendLogSql(command);
+    }
     //other actions 
     
     else if (command.action != undefined) //last command might equal {}
@@ -480,3 +486,158 @@ var onkeyupdelay = function(){
         timer = setTimeout(callback, 250);
     }  
 }();
+
+function appendLogSql(command) {
+  var doc = document;
+  var hr = doc.createElement('hr');
+  doc.body.appendChild(hr);
+  var body = document.createElement('div');
+  body.className = 'logsql';
+
+  if(command.error != undefined) {
+    var pre = doc.createElement('pre');
+    pre.className = 'sqllogexception';
+    pre.appendChild(doc.createTextNode(command.error));
+    body.appendChild(pre);
+    return;
+  }
+
+  var p = doc.createElement('p');
+  if(command.source != undefined) {
+    p.appendChild(doc.createTextNode('(' + command.source + ') '));
+  }
+  p.appendChild(doc.createTextNode('SQLs = '));
+  var span = doc.createElement('span');
+  span.className = 'sqllogcount';
+  span.appendChild(doc.createTextNode('' + command.sqls));
+  p.appendChild(span);
+  p.appendChild(doc.createTextNode(', Time = '));
+  span = doc.createElement('span');
+  span.className = 'sqllogtime';
+  span.appendChild(doc.createTextNode('' + command.time + ' ms'));
+  p.appendChild(span);
+
+  p.appendChild(doc.createTextNode(', Entities = '));
+  span = doc.createElement('span');
+  span.className = 'sqllogentities';
+  span.appendChild(doc.createTextNode(command.entities == undefined ? '?' : ('' + command.entities)));
+  p.appendChild(span);
+  p.appendChild(doc.createTextNode(', Duplicates = '));
+  span = doc.createElement('span');
+  span.className = 'sqllogduplicates';
+  span.appendChild(doc.createTextNode(command.duplicates == undefined ? '?' : ('' + command.duplicates)));
+  p.appendChild(span);
+  p.appendChild(doc.createTextNode(', Collections = '));
+  span = doc.createElement('span');
+  span.className = 'sqllogcollections';
+  span.appendChild(doc.createTextNode(command.collections == undefined ? '?' : ('' + command.collections)));
+  p.appendChild(span);
+  body.appendChild(p);
+
+  if(command.details != undefined) {
+    var table = doc.createElement('table');
+    table.className = 'sqllogdetails';
+
+    var tr = doc.createElement('tr');
+    var th = doc.createElement('th');
+    th.className = 'sqllogdetailsname';
+    th.appendChild(doc.createTextNode('Entity/Collection'));
+    tr.appendChild(th);
+    th = doc.createElement('th');
+    th.className = 'sqllogdetailsinstances';
+    th.appendChild(doc.createTextNode('Instances'));
+    tr.appendChild(th);
+    th = doc.createElement('th');
+    th.className = 'sqllogdetailsduplicates';
+    th.appendChild(doc.createTextNode('Duplicates'));
+    tr.appendChild(th);
+    table.appendChild(tr);
+
+    for(var i = 0; i < command.details.length; i++) {
+      var detail = command.details[i];
+      tr = doc.createElement('tr');
+      var tdname = doc.createElement('td');
+      tdname.className = 'sqllogdetailsname';
+      tdname.appendChild(doc.createTextNode(detail.name));
+      tr.appendChild(tdname);
+      var tdinstances = doc.createElement('td');
+      tdinstances.className = 'sqllogdetailsinstances';
+      if(detail.count != undefined) tdinstances.appendChild(doc.createTextNode('' + detail.count));
+      tr.appendChild(tdinstances);
+      var tdduplicates = doc.createElement('td');
+      tdduplicates.className = 'sqllogdetailsduplicates';
+      tdduplicates.id = 'sqllogduplicates_' + detail.name.replace(/\./g, '_');
+      if(detail.duplicates != undefined) tdduplicates.appendChild(doc.createTextNode('' + detail.duplicates));
+      tr.appendChild(tdduplicates);
+      if(detail.type == 0) {
+        tr.className = 'sqllogdetailscollection';
+        tdinstances.id = 'sqllogcollection_' + detail.name.replace(/\./g, '_');
+      } else if(detail.type == 1) {
+        tr.className = 'sqllogdetailsentity';
+        tdinstances.id = 'sqllogentity_' + detail.name.replace(/\./g, '_');
+      } else if(detail.type == 2) {
+      }
+      table.appendChild(tr);
+    }
+    body.appendChild(table);
+  }
+
+  if(command.entries != undefined) {
+    for(var i = 0; i < command.entries.length; i++) {
+      var entry = command.entries[i];
+      var div = doc.createElement('div');
+      div.className = 'logsql';
+      var text = 'Query ' + (i + 1) + ': time=' + entry.duration + 'ms';
+			if(entry.rows != undefined) text += ', rows=' + entry.rows;
+			if(entry.hydrated != undefined) text += ', hydrated=' + entry.hydrated;
+			if(entry.duplicates != undefined) text += ', duplicates=' + entry.duplicates;
+		  text += ', template=' + entry.template;
+      div.appendChild(doc.createTextNode(text));
+      div.appendChild(doc.createElement('br'));
+      var pre = doc.createElement('pre');
+      pre.appendChild(doc.createTextNode(entry.sql));
+      div.appendChild(pre);
+      body.appendChild(div);
+    }
+  }
+
+  if(command.longest != undefined) {
+    p = doc.createElement('p');
+    var b = doc.createElement('b');
+    b.appendChild(doc.createTextNode('The three queries that took the most time:'));
+    p.appendChild(b);
+    body.appendChild(p);
+    
+    for(var i = 0; i < command.longest.length; i++) {
+      var entry = command.longest[i];
+      var div = doc.createElement('div');
+      div.className = 'logsql';
+      var text = '';
+			if(i == 0) text = 'Longest query: ';
+			if(i == 1) text = 'Second longest query: ';
+			if(i == 2) text = 'Third longest query: ';
+      text += 'time=' + entry.duration + 'ms';
+			if(entry.rows != undefined) text += ', rows=' + entry.rows;
+			if(entry.hydrated != undefined) text += ', hydrated=' + entry.hydrated;
+			if(entry.duplicates != undefined) text += ', duplicates=' + entry.duplicates;
+		  text += ', template=' + entry.template;
+      div.appendChild(doc.createTextNode(text));
+      div.appendChild(doc.createElement('br'));
+      var pre = doc.createElement('pre');
+      pre.appendChild(doc.createTextNode(entry.sql));
+      div.appendChild(pre);
+      body.appendChild(div);
+    }
+  }
+  doc.body.appendChild(body);
+}
+
+function appendLogSql(command) {
+  var hr = document.createElement('hr');
+  document.body.appendChild(hr);
+
+  var div = document.createElement('div');
+  div.className = 'logsql';
+  div.innerHTML = command.value;
+  document.body.appendChild(div);
+}

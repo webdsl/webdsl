@@ -23,6 +23,7 @@ signature constructors
   PrefetchPropAnno : Term * Term -> Annotation
   PrefetchAnno : Term -> Annotation
   IsOptimized : Annotation
+  IsRecursive : Term -> Annotation
   QueryConditionFilter : Term * Term * Term -> Annotation
   QueryConditionFilters : Term -> Annotation
   QueryConditionFilterDef : Term * Term * Term * Term -> Annotation
@@ -62,6 +63,11 @@ strategies
   get-prefetch-for(|x) = ?Block(<get-prefetch-for(|x)>)
   replace-prefetch-for(|x,prefetchfor) = is-list; remove-all(?PrefetchFor(Var(x), _, _, _)); ![prefetchfor|<id>]
   replace-prefetch-for(|x,prefetchfor) = ?Block(<id>){anno*}; replace-prefetch-for(|x, prefetchfor); !Block(<id>){anno*}
+  try-get-prefetch-where = ?PrefetchFor(_, _, <id>, _) <+ !None()
+
+  /*no-condition-in-prefetch-for(|x) =
+    get-prefetch-for(|x)
+    ; (?None() <+ ?PrefetchFor(Var(x), _, None(), _) <+ ?PrefetchFor(Var(x), _, PrefetchWhere(True()), _))*/
 
   is-query-analysis = ?QueryAnalysis(_, _, _, _, _)
 
@@ -151,10 +157,10 @@ rules
 
   get-to-one-joins = is-list; where(AllJoins() := <QueryOptimizationMode>) < get-all-joins + real-get-to-one-joins
 
-  real-get-to-one-joins = filter(get-joins-helper(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _); not(is-generic-sort)|"_")); flatten-list
+  real-get-to-one-joins = filter(get-joins-helper(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); not(is-generic-sort)|"_")); flatten-list
 
   get-joins-helper(s|prefix) :
-    PrefetchNode(_, f, _, _, _, children){anno*} -> [join{joinanno*} | subjoins]
+    PrefetchNode(_, f, _, _, _, _, children){anno*} -> [join{joinanno*} | subjoins]
     where s
     with join := <concat-strings> [prefix, f]//<concat-strings> [prefix, <("" := prefix) < !"_" + !"._">, f]
     ; newprefix := <concat-strings> [join, "._"]

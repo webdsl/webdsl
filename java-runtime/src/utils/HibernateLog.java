@@ -31,19 +31,43 @@ public class HibernateLog {
 	protected Map<String, Integer> _duplicateCounter = null;
 	protected SortedMap<String, Integer> _collectionCounter = null;
 
-	public static void printHibernateLog(PrintWriter sout, utils.AbstractPageServlet page) {
+	public static void printHibernateLog(PrintWriter sout, utils.AbstractPageServlet page, String source) {
 		RequestAppender requestAppender = RequestAppender.getInstance();
 		if(requestAppender != null) { 
 			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
 			if(hibLog.tryParse(log, page.getHibSession())) {
-				hibLog.print(sout, page);
+				hibLog.print(sout, page, source);
 			}
 			else {
-				hibLog.print(sout, page);
+				hibLog.print(sout, page, source);
 				sout.print("<pre>" + utils.HTMLFilter.filter(log) + "</pre>");
 			}
 		}
+	}
+
+	public static String printHibernateLog(utils.AbstractPageServlet page, String source) {
+	    java.io.StringWriter s = new java.io.StringWriter();
+	    java.io.PrintWriter out = new java.io.PrintWriter(s);
+	    printHibernateLog(out, page, source);
+	    return s.toString();
+	}
+
+	public static void printHibernateLogJson(PrintWriter sout, utils.AbstractPageServlet page, String source) {
+		RequestAppender requestAppender = RequestAppender.getInstance();
+		if(requestAppender != null) { 
+			String log = requestAppender.getLog();
+			HibernateLog hibLog = new HibernateLog();
+			hibLog.tryParse(log, page.getHibSession());
+			hibLog.printJson(sout, page, source);
+		}
+	}
+
+	public static String printHibernateLogJson(utils.AbstractPageServlet page, String source) {
+	    java.io.StringWriter s = new java.io.StringWriter();
+	    java.io.PrintWriter out = new java.io.PrintWriter(s);
+	    printHibernateLogJson(out, page, source);
+	    return s.toString();
 	}
 
 	public HibernateLog() {
@@ -206,7 +230,7 @@ public class HibernateLog {
         	}
         	else if(cat.indexOf("org.hibernate.SQL") == 0) {
         		if(current == null || current.sql != null) throw new ParseException("Statement was not expected", linenr);
-       			current.sql = sqlFormat.format(msg);
+       			current.sql = sqlFormat.format(msg).replaceAll("^\n", "");
         	}
         	else if(cat.indexOf("org.hibernate.type") == 0) {
         		if(current == null) continue;
@@ -249,9 +273,8 @@ public class HibernateLog {
         parseSessionCache(session);
     }
 
-	public void print(PrintWriter sout, utils.AbstractPageServlet page) {
+	public void print(PrintWriter sout, utils.AbstractPageServlet page, String source) {
 		long time = page.getElapsedTime();
-		sout.print("<hr />");
 		if(_error != null) {
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(_error) + "</pre>");
 			return;
@@ -284,7 +307,13 @@ public class HibernateLog {
 					}
 				}
 			}
-			sout.print("<p><a name=\"logsql\"></a>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
+			sout.print("<p>");
+			if(!(source == null || source.isEmpty())) {
+				sout.print("(");
+				sout.print(source);
+				sout.print(") ");
+			}
+			sout.print("<a name=\"logsql\"></a>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
 			if(_entityCounter != null && _collectionCounter != null) {
 				sout.print(", Entities = <span id=\"sqllogentities\">" + _entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + _collections + "</span></p>");
 				sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
@@ -299,7 +328,7 @@ public class HibernateLog {
 							sout.print(colKey);
 							sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
 							sout.print(_collectionCounter.get(colKey));
-							sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogcollection_" + colKey.replace('.', '_') + "\">");
+							sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogduplicates_" + colKey.replace('.', '_') + "\">");
 							sout.print("</td></tr>");
 						}
 						colKey = colKeys.hasNext() ? colKeys.next() : null;
@@ -308,7 +337,7 @@ public class HibernateLog {
 						sout.print(entKey);
 						sout.print("</td><td class=\"sqllogdetailsinstances\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
 						sout.print(_entityCounter.get(entKey));
-						sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogentity_" + entKey.replace('.', '_') + "\">");
+						sout.print("</td><td class=\"sqllogdetailsduplicates\" id=\"sqllogduplicates_" + entKey.replace('.', '_') + "\">");
 						if(_duplicateCounter.containsKey(entKey)) {
 							sout.print(_duplicateCounter.get(entKey));
 							_duplicateCounter.remove(entKey);
@@ -327,7 +356,7 @@ public class HibernateLog {
 				sout.print("</table>");
 			}
 			else {
-				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
+				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Duplicates = <span id=\"sqllogduplicates\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
 			}
 			logindex = 0;
 			for(utils.HibernateLogEntry entry : _list)
@@ -339,7 +368,7 @@ public class HibernateLog {
 				sout.print(", template=" + entry.template);
 				sout.print("<br /><pre>" + utils.HTMLFilter.filter(entry.getSQL()) + "</pre></div>");
 			}
-			sout.print("<p><b>The three queries that took the most time:</b></p><table class=\"sqllog\">");
+			sout.print("<p><b>The three queries that took the most time:</b></p>");
 			for(int i = 0; i < longestThree.size(); i++)
 			{
 				utils.HibernateLogEntry entry = longestThree.get(i);
@@ -359,6 +388,154 @@ public class HibernateLog {
 			ex.printStackTrace();
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");
 		}
+	}
+
+	public void printJson(PrintWriter sout, utils.AbstractPageServlet page, String source) {
+		sout.print("{ action: \"logsqljson\"");
+		if(!(source == null || source.isEmpty())) {
+			sout.print(", source: \"");
+			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(source));
+			sout.print("\"");
+		}
+		if(_error != null) {
+			sout.print(", error: \"");
+			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(_error));
+			sout.print("\"}");
+			return;
+		}
+		try {
+			int logindex = 0;
+			long time = page.getElapsedTime();
+			java.util.List<utils.HibernateLogEntry> longestThree = new java.util.ArrayList<utils.HibernateLogEntry>();
+			for(utils.HibernateLogEntry entry : _list)
+			{ 
+				logindex++;
+				if(longestThree.size() == 0) {
+					longestThree.add(entry);
+				}
+				else if(longestThree.size() < 3) {
+					longestThree.add(entry);
+					for(int i = longestThree.size() - 2; i >= 0; i--) {
+						if(longestThree.get(i).duration < entry.duration) {
+							longestThree.set(i + 1, longestThree.get(i));
+							longestThree.set(i, entry);
+						}
+					}
+				}
+				else if(longestThree.get(longestThree.size() - 1).duration < entry.duration) {
+					longestThree.set(longestThree.size() - 1, entry);
+					for(int i = longestThree.size() - 2; i >= 0; i--) {
+						if(longestThree.get(i).duration < entry.duration) {
+							longestThree.set(i + 1, longestThree.get(i));
+							longestThree.set(i, entry);
+						}
+					}
+				}
+			}
+			sout.print(",sqls: ");
+			sout.print(_list.size());
+			sout.print(",time: ");
+			sout.print(time);
+			if(_entityCounter != null && _collectionCounter != null) {
+				sout.print(",entities: ");
+				sout.print(_entities);
+				sout.print(",duplicates: ");
+				sout.print(_duplicates);
+				sout.print(",collections: ");
+				sout.print(_collections);
+				sout.print(",details: [");
+				java.util.Iterator<String> entKeys = _entityCounter.keySet().iterator(); 
+				java.util.Iterator<String> colKeys = _collectionCounter.keySet().iterator();
+				String entKey = entKeys.hasNext() ? entKeys.next() : null;
+				String colKey = colKeys.hasNext() ? colKeys.next() : null;
+				boolean first = true;
+				while(entKey != null || colKey != null) {
+					if(colKey != null && (entKey == null || entKey.compareTo(colKey) > 0)) {
+						if(_collectionCounter.get(colKey) > 0) {
+							if(!first) sout.print(",");
+							if(first) first = false;
+							sout.print("{type: 0,name:\"");
+							sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(colKey));
+							sout.print("\",count: ");
+							sout.print(_collectionCounter.get(colKey));
+							sout.print("}");
+						}
+						colKey = colKeys.hasNext() ? colKeys.next() : null;
+					} else {
+						if(!first) sout.print(",");
+						if(first) first = false;
+						sout.print("{type: 1,name:\"");
+						sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entKey));
+						sout.print("\",count: ");
+						sout.print(_entityCounter.get(entKey));
+						if(_duplicateCounter.containsKey(entKey)) {
+							sout.print(",duplicates: ");
+							sout.print(_duplicateCounter.get(entKey));
+							_duplicateCounter.remove(entKey);
+						}
+						sout.print("}");
+						entKey = entKeys.hasNext() ? entKeys.next() : null;
+					}
+				}
+				for(String key : _duplicateCounter.keySet()) {
+					if(!first) sout.print(",");
+					if(first) first = false;
+					sout.print("{type: 2,name:\"");
+					sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(key));
+					sout.print("\",duplicates: ");
+					sout.print(_duplicateCounter.get(key));
+					sout.print("}");
+				}
+				sout.print("]");
+			}
+			sout.print(",entries: [");
+			logindex = 0;
+			boolean first = true;
+			for(utils.HibernateLogEntry entry : _list)
+			{
+				if(!first) sout.print(",");
+				if(first) first = false;
+				printEntryJson(sout, entry);
+			}
+			sout.print("], longest: [");
+			for(int i = 0; i < longestThree.size(); i++)
+			{
+				if(i > 0) sout.print(",");
+				utils.HibernateLogEntry entry = longestThree.get(i);
+				printEntryJson(sout, entry);
+			}
+			sout.print("]");
+		}
+		catch(Exception ex) {
+			ex.printStackTrace();
+			sout.print(", error: \"");
+			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(ex.toString()));
+		}
+		finally {
+			sout.print("}");
+		}
+	}
+
+	protected void printEntryJson(PrintWriter sout, utils.HibernateLogEntry entry) {
+		sout.print("{duration: ");
+		sout.print(entry.duration);
+		if(entry.rows > -1) {
+			sout.print(", rows: ");
+			sout.print(entry.rows);
+		}
+		if(entry.hydrated > -1) {
+			sout.print(", hydrated: ");
+			sout.print(entry.hydrated);
+		}
+		if(entry.duplicates > 0) {
+			sout.print(", duplicates: ");
+			sout.print(entry.duplicates);
+		}
+		sout.print(", template: \"");
+		sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entry.template));
+		sout.print("\", sql: \"");
+		sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entry.getSQL()));
+		sout.print("\"}");
 	}
 
 	public void parseSessionCache(org.hibernate.Session session) {

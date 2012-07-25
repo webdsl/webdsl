@@ -86,7 +86,7 @@ rules
     ; (qc, b2) := <query-analysis-to-query-optimizition(|qa,x,srt,bindableargs)> b
 
   desugar-action :
-    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno2*}
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno*}
     where <is-entity-type> srt
     ; <not(fetch-elem(?TemplateName(_)))> anno*
     ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
@@ -94,12 +94,14 @@ rules
     ; cond := <?Filter(<id>, _, _) <+ !True()> f
     ; thisargs* := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
     ; (b2, newanno*) := <with-thisentity(perform-query-analysis(|("ForStmt", x, srt), [args*,ic*,thisargs*],cond,x)|anno*)> (b, anno*)
+    // Query condition anno is placed directly, because they are used to determine the filter that is used
     ; bindableargs := <filter(query-optimization-bindable-argument)> args*
-    ; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
-    ; newanno2* := <conc> (fltr*, newanno*)
+    ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
+    //; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
+    //; newanno2* := <conc> (fltr*, newanno*)
 
   desugar-action :
-    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno2*}
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno*}
     where <is-entity-type> srt
     ; <fetch-elem(?TemplateArgs(args*))> anno*
     ; <fetch-elem(?TemplateName(tname))> anno*
@@ -110,18 +112,21 @@ rules
       : rules( CurrentTemplateName := tgenname )
       ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [args*,ic*],cond,x)> (b, anno*)
     |}
+    // Query condition anno is placed directly, because they are used to determine the filter that is used
     ; bindableargs := <filter(query-optimization-bindable-argument)> args*
-    ; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
-    ; newanno2* := <conc> (fltr*, newanno*)
+    ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
+    //; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
+    //; newanno2* := <conc> (fltr*, newanno*)
 
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
-    ; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
+    // When prefetching is performed without joins, then the query can always be marked cacheable
+    //; <get-query-optimization-anno; ?QueryOptimizations([], querycondition)> anno* // Only make cacheable if query optimization did not add joins, because they are ignored when the query is cached
     ; <is-cached-entity> x_class
 
   add-query-optimization :
-    def@ForAllStmt(x, srt, f, b){anno*} -> ForAllStmt(x, srt, f, b){IsOptimized(),qc,tokeep*}
+    def@ForAllStmt(x, srt, f, b){anno*} -> ForAllStmt(x, srt, f, b2){IsOptimized(),qc,tokeep*}
     where <not(fetch-elem(?IsOptimized()))> anno*
     with qa := <fetch-elem(is-query-analysis) <+ (<debug(!"NotOptimized:")> ("ForAllStmt", x, srt); get-empty-query-analysis)> anno* 
     ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*

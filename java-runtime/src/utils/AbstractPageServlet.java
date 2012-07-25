@@ -35,6 +35,9 @@ public abstract class AbstractPageServlet{
         passedThroughAjaxTemplate = b;
     }
 
+    protected boolean isLogSqlEnabled = false;
+    public boolean isLogSqlEnabled() { return isLogSqlEnabled; }
+
     public abstract String getPageName();
     public abstract String getUniqueName();
 
@@ -80,6 +83,7 @@ public abstract class AbstractPageServlet{
     }
     
     protected abstract void renderIncomingSuccessMessages();
+    protected abstract void renderLogSqlMessage();
 
     public boolean isPostRequest(){
         return ThreadLocalServlet.get().isPostRequest;

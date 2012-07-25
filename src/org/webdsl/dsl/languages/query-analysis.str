@@ -68,8 +68,9 @@ rules // Entry points
     ; srt := <RootVar> Var(x)
 
   query-analysis-to-query-optimizition(|qa,x,xsrt,bindableargs) :
-    b1 -> (QueryCondition(querycondition), b2)
-    with PrefetchFor(_, templ, fltr, PrefetchChildren(oldprefetch)) := <get-prefetch-for(|x); (?PrefetchFor(Var(x), _, _, PrefetchChildren(_)) <+ !PrefetchFor(Var(x), None(), None(), PrefetchChildren([])))> b1
+    b1 -> (qc, b2)
+    with PrefetchFor(_, templ, wherecond, children) := <get-prefetch-for(|x); (?PrefetchFor(Var(x), _, _, _) <+ !PrefetchFor(Var(x), None(), None(), PrefetchChildren([])))> b1
+    ; oldprefetch := <?PrefetchChildren(<id>) <+ ![]> children
     ; {|RootVar, BindableVar
     : rules( RootVar : Var(x) -> xsrt )
     ; QueryAnalysis(analysis, _, _, unresolved, recursive) := qa
@@ -78,26 +79,24 @@ rules // Entry points
     //; <debug(!"qa:")> qa
     ; <filter(\ Arg(arg, srt) -> <id> where not(<RootVar>Var(arg)) with /*debug(!"Bindable:");*/rules( BindableVar : Var(arg) -> srt ) \)> bindableargs
     ; ts := <filter-traversal-summary> analysis
-    ; querycondition := <traversal-summary-to-query-condition> ts // Combine query conditions of the effectful field accesses
+    ; querycondition := <traversal-summary-to-query-condition/*;debug(!"qc:")*/> ts // Combine query conditions of the effectful field accesses
+    ; qc := QueryCondition(querycondition)
+    ; newwherecond := <add-query-condition-to-prefetch-where(|x); try(add-filter-anno-to-prefetch-where(|xsrt))> (qc, wherecond)
     ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
-    //; alljoins := <map(traversal-to-join(|x,xsrt,requiresalias))> joincandidates
-    //; alljoins := <traversals-to-tree(|x,xsrt,requiresalias)> joincandidates
-    //; alljoins := <doall(|x,xsrt,requiresalias)> joincandidates
     ; prefetch := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(!oldprefetch, merge-optimization-branches)> ts
     ; recbranches := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list> recursive
     ; prefetch2 := <filter(not(is-root-prefetch-node)); foldr(!prefetch, merge-optimization-branches)> recbranches
-    //; prefetch3 := <try(not(?[]);debug(!"unres:");where(filter(get-templte-branches(|x,xsrt,requiresalias)); flatten-list;debug(!"test:"); pp-webdsl-to-string; debug(!"")));filter(get-conditional-branches-from-unresolved(|x,xsrt,requiresalias)); foldr(!prefetch2, merge-conditional-optimization-branches)> unresolved
     ; templbranches := <filter(get-template-branches(|x,xsrt,requiresalias)); flatten-list> unresolved
     ; prefetch3 := <filter(not(is-root-prefetch-node)); foldr(!prefetch2, merge-optimization-branches)> templbranches
     ; prefetch4 := <map(revalidate-join-conditions(|[]); alltd(revalidate-query-condition-filters))> prefetch3
       |}
-    ; templ2 := <conc; make-set; to-prefetch-template-args> (<get-prefetch-template-args>templ, <conc; filter(?PrefetchNode(_, None(), PrefetchTemplateArgs(<id>), _, _, _)); flatten-list> (templbranches, recbranches))
-    ; prefetchfor := /*<debug(!"new:")>*/PrefetchFor(Var(x), templ2, fltr, PrefetchChildren(prefetch4))
+    ; templ2 := <conc; make-set; to-prefetch-template-args> (<get-prefetch-template-args>templ, <conc; filter(?PrefetchNode(_, None(), _, PrefetchTemplateArgs(<id>), _, _, _)); flatten-list> (templbranches, recbranches))
+    ; prefetchfor := PrefetchFor(Var(x), templ2, newwherecond, PrefetchChildren(prefetch4))
     //; try(not(PrefetchFor(_, None(), None(), PrefetchChildren([])) := prefetchfor); <debug(!"opt:")>Var(x); /*<debug(!"prefetch4:")> prefetch4; */<pp-webdsl-to-string; debug(!"")> prefetchfor)
     ; b2 := <replace-prefetch-for(|x, prefetchfor)> b1
     //; debug(!"qo:")
 
-  is-root-prefetch-node = ?PrefetchNode(_, None(), _, _, _, _)
+  is-root-prefetch-node = ?PrefetchNode(_, None(), _, _, _, _, _)
 
   get-query-condition(|x,xsrt,bindableargs) :
     anno* -> QueryCondition(querycondition)
@@ -125,7 +124,7 @@ rules // Entry points
       ; rules( PassedCallee : callee -> times )
       ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
       |}
-    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping)> qa
+    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,passed)> qa
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
   get-branches-from-recursive(|x,xsrt,requiresalias) :
@@ -140,7 +139,7 @@ rules // Entry points
       ; rules( PassedCallee : callee -> times )
       ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|argmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
       |}
-    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,argmapping)> qa
+    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,argmapping,passed)> qa
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
   get-branches-from-recursive(|x,xsrt,requiresalias) :
@@ -156,10 +155,10 @@ rules // Entry points
       ; rules( PassedCallee : callee -> times )
       ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
       |}
-    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping)> qa
+    ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,passed)> qa
     ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
-  common-branches-from-recursive(|x,xsrt,requiresalias,varmapping) :
+  common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,depth) :
     qa -> branches
     where QueryAnalysis(analysis, _, _, unresolved, _) := qa
     ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> varmapping
@@ -167,9 +166,13 @@ rules // Entry points
     //; joincandidates := <map(!(<Fst; is-accessible-from(RootVar); Fst>, <Snd>)); filter(an-requires-joining-fa); flatten-list; map(try(?Cast(<id>, _))); make-set> ts
     ; recbranches* := <traversal-summary-to-branches(|x,xsrt,requiresalias)> ts
     ; templbranches* := <foldr(!unresolved, rename-vars-in-analysis(RootVar));filter(get-template-branches(|x,xsrt,requiresalias)); flatten-list> varmapping
-    ; branches := [recbranches*,templbranches*]
-    ; foldr(![], merge-optimization-branches)
+    ; branches := <topdown(try(add-recursive-depth-anno(|depth)))> [recbranches*,templbranches*]
+    //; foldr(![], merge-optimization-branches)
     ; not([] := branches)
+    //; <debug(!"rec:")> branches
+
+  add-recursive-depth-anno(|depth) :
+    PrefetchNode(cast, f, _, templ, cond, elemcond, children){anno*} -> PrefetchNode(cast, f, Some(NoEmptyBatch()), templ, cond, elemcond, children){anno*}
 
   //get-conditional-branches-from-unresolved(|x,xsrt,requiresalias) :
   //  (genname, args, cond, eff) -> (templ, branches)
@@ -194,8 +197,8 @@ rules // Entry points
 
   template-prefetch-to-branch(|x,xsrt,requiresalias) :
     (e, tc) -> branch
-    with [PrefetchNode(castsrt, f, None(), None(), None(), None()){anno*}|joins] := <traversal-to-joins(|x,xsrt,requiresalias)> e
-    ; node := PrefetchNode(castsrt, f, PrefetchTemplateArgs([tc]), None(), None(), None()){anno*}
+    with [PrefetchNode(castsrt, f, None(), None(), None(), None(), None()){anno*}|joins] := <traversal-to-joins(|x,xsrt,requiresalias)> e
+    ; node := PrefetchNode(castsrt, f, None(), PrefetchTemplateArgs([tc]), None(), None(), None()){anno*}
     ; if None() := f then
         branch := node
       else
