@@ -1,4 +1,9 @@
 { nixpkgs ? ../nixpkgs
+, webdslEditor ? { outPath = ../../webdsl-editor ; rev = 1234; }
+, hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; } 
+, webdslsSrc ? {outPath = ./.; rev = 1234;}
+, officialRelease ? false
+, strcJava ? { outPath = ./. ;}
 }:
 
 let
@@ -11,13 +16,10 @@ let
   ];
 
   pkgs = import nixpkgs { system = "i686-linux"; };
-
+  eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
   jobs = rec {
 
     tarball = 
-      { webdslsSrc ? {outPath = ./.; rev = 1234;}
-      , officialRelease ? false
-      }:
       with pkgs;
       releaseTools.makeSourceTarball {
         name = "webdsl-tarball";
@@ -36,7 +38,6 @@ let
 
     build =
       { system ? "i686-linux" 
-      , tarball ? jobs.tarball {}
       }:
 
       let pkgs = import nixpkgs {inherit system;};
@@ -69,9 +70,6 @@ let
       };
 
     buildJavaZip = 
-      { tarball ? jobs.tarball {}
-      , strcJava ? { outPath = ./. ;}
-      }:
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
         buildInputs = [pkgs.zip]; 
@@ -80,7 +78,7 @@ let
           ensureDir $out/nix-support
 
           mkdir webdsl 
-          cp -R ${buildJava { inherit strcJava tarball; } }/* webdsl/
+          cp -R ${buildJava}/* webdsl/
           chmod -R 755 webdsl/
  
           # cleanup
@@ -97,9 +95,6 @@ let
       } ;      
 
     buildJava =
-      { tarball ? jobs.tarball {}
-      , strcJava ? { outPath = ./. ;}
-      }:
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
       releaseTools.nixBuild rec {
@@ -119,8 +114,6 @@ let
           fi
         '';
       };
-
   };
 
-  
 in jobs

@@ -20,6 +20,8 @@
       <pathelement location="${testlibdir}/ant-contrib-1.0b3.jar"/>
     </classpath>
   </taskdef>
+  
+  <taskdef name="TaskCopyAllDirsHavingName" classname="org.webdsl.ant.TaskCopyAllDirsHavingName"/>
 
   <!--
   <target name="check-servletapp-dir-exists">
@@ -232,34 +234,17 @@
         <include name="**/*.jar" />
       </fileset>
     </copy>
+    
+    <TaskCopyAllDirsHavingName basedir="${currentdir}" name="javascript" to="${currentdir}/${generate-dir}/javascript/" exclude="WebContent, .servletapp, images, stylesheets, search, html"/>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/javascript" flatten="yes">
-      <fileset dir="${currentdir}/">
-        <include name="**/javascript/*"/>
-      </fileset>
-    </copy>
+    <TaskCopyAllDirsHavingName basedir="${currentdir}" name="images" to="${currentdir}/${generate-dir}/images/" exclude="WebContent, .servletapp, javascript, stylesheets, search, html"/>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/images" flatten="yes">
-      <fileset dir="${currentdir}/">
-        <include name="**/images/*"/>
-      </fileset>
-    </copy>
+    <TaskCopyAllDirsHavingName basedir="${currentdir}" name="search/analyzerfiles" to="${currentdir}/${generate-dir}/analyzerfiles/" exclude="WebContent, .servletapp, javascript, images, stylesheets, html"/>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/analyzerfiles" flatten="yes">
-      <fileset dir="${currentdir}/">
-        <include name="**/search/analyzerfiles/*"/>
-      </fileset>
-    </copy>
+    <TaskCopyAllDirsHavingName basedir="${currentdir}" name="stylesheets" to="${currentdir}/${generate-dir}/stylesheets/" exclude="WebContent, .servletapp, javascript, images, search, html"/>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/stylesheets" flatten="yes">
-      <fileset dir="${currentdir}/">
-        <include name="**/stylesheets/*"/>
-      </fileset>
-    </copy>
+    <TaskCopyAllDirsHavingName basedir="${currentdir}" name="html" to="${currentdir}/${generate-dir}/" exclude="WebContent, .servletapp, javascript, images, stylesheets, search"/>
 
-    <copy failonerror="false" overwrite="true" todir="${currentdir}/${generate-dir}/">
-      <fileset dir="${currentdir}/html"/>
-    </copy>
 
     <copy failonerror="false" overwrite="true" todir="${currentdir}/.servletapp/src-template">
       <fileset dir="${currentdir}/">
@@ -279,7 +264,14 @@
 
   <taskdef name="taskjavawebdslused" classname="org.webdsl.ant.TaskJavaWebDSLUsed"/>
 
-  <target name="invoke-webdslc-compile" unless="stop-because-load-config-failed">
+  <condition property="skip-webdsl-compile"> 
+    <or> 
+      <isset property="stop-because-load-config-failed"/>
+      <isset property="skip-webdsl-compile-because-no-app-file-changed"/>
+    </or>
+  </condition> 
+  
+  <target name="invoke-webdslc-compile" unless="skip-webdsl-compile">
     <echo level="info">Building application</echo>
 
     <if><equals arg1="${passtestoption}" arg2="$${passtestoption}"/>
@@ -306,10 +298,14 @@
     <fail unless="passtestoption"/>
     <fail unless="extratypecheckoption"/>
     <fail unless="build-id-option"/>
+    <fail unless="custom-compile-units-option"/>
+    <fail unless="compile-units-cache-option"/>
+    <fail unless="jrebel-option"/>
 
     <property name="webdslc-args" value="--servlet -i ../${appname}.app ${sessiontimeoutoption} ${statisticsoption}
       ${fastppoption} ${verboseoption} ${debugoption} ${passtestoption} ${extratypecheckoption} ${cachingoption}
-      ${build-id-option} --dir &quot;${currentdir}/.servletapp&quot; ${compilebuiltins-option} --indexdir ${indexdir} ${queryoptimizationoption}"/>
+      ${build-id-option} --dir &quot;${currentdir}/.servletapp&quot; ${compilebuiltins-option} --indexdir ${indexdir}
+      ${custom-compile-units-option} ${compile-units-cache-option} ${jrebel-option} ${queryoptimizationoption}"/>
     <echo level="info">webdslc arguments: ${webdslc-args}</echo>
 
     <taskjavawebdslused/>
@@ -560,6 +556,21 @@
         <if>
           <equals arg1="${javacmem}" arg2="$${javacmem}" />
           <then><property name="javacmem" value="1550m"/></then>
+        </if>
+        <if>
+          <equals arg1="${custom-compile-units}" arg2="true" />
+          <then><property name="custom-compile-units-option" value="--custom-compile-units"/></then>
+          <else><property name="custom-compile-units-option" value=""/></else>
+        </if>
+        <if>
+          <equals arg1="${compile-units-cache}" arg2="true" />
+          <then><property name="compile-units-cache-option" value="--compile-units-cache"/></then>
+          <else><property name="compile-units-cache-option" value=""/></else>
+        </if>
+        <if>
+          <equals arg1="${jrebel}" arg2="true" />
+          <then><property name="jrebel-option" value="--jrebel"/></then>
+          <else><property name="jrebel-option" value=""/></else>
         </if>
 
         <property name="config-loaded" value="1" />

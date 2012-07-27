@@ -6,7 +6,6 @@ imports
   org/webdsl/dsl/languages/action/typechecker/declare
   org/webdsl/dsl/typechecker/declare
   org/webdsl/dsl/languages/data-model/type-define
-  org/webdsl/dsl/languages/action/function
   org/webdsl/dsl/typechecker/utils
 
 strategies
@@ -20,28 +19,38 @@ strategies
   Extends = NativeClassDecl; ?NativeClass(_,_,None(),_); !"Object"
 
   declare-native-class :
-    def@NativeClass(class,as,super,elems) -> def
+    def@NativeClass(javaclassqname,as,super,elems) -> def
     with  props := <filter(?NativeClassProperty(_,_))> elems
         ; funcs := <filter(?NativeClassFunction(_,_,_,_)<+?NativeClassFunctionFromStatic(_,_))> elems
         ; cons  := <filter(?NativeClassConstructor(_))> elems
         ; if alias := <?NativeClassAlias(<id>)> as
-          then name := alias
-          else name := class end 
-        ; rules( NativeClassDecl : name -> def )
-        ; declare-native-class-static-functions(|name, class)
-        ; <map(\prop -> <rules(Properties :+ name -> prop); declare-native-class-prop(|name)> \)> props
-        ; <map(\func -> <rules(Functions :+ name -> func); declare-native-class-func(|name)> \)> funcs
-        ; <map(normalize-native-constructor(|name); declare-global-func)> cons
+          then webdslname := alias
+          else webdslname := javaclassqname end 
+        ; rules( NativeClassDecl : webdslname -> def )
+        ; declare-native-class-static-functions(|webdslname, javaclassqname)
+        ; <map(\prop -> <rules(Properties :+ webdslname -> prop); declare-native-class-prop(|webdslname)> \)> props
+        ; <map(\func -> <rules(Functions :+ webdslname -> func); declare-native-class-func(|webdslname)> \)> funcs
+        ; <map(normalize-native-constructor(|javaclassqname,webdslname); declare-global-func)> cons
        
-  normalize-declare: NativeClass(class,as,super,elems) -> NativeClass(class,as,super,newelems)
+  normalize-declare: 
+    NativeClass(javaclassqname,as,super,elems) -> NativeClass(javaclassqname,as,super,newelems)
     with  elems1* := <remove-all(?NativeClassConstructor(_))> elems
-        ; realname := <try(?NativeClassAlias(<id>))> as
-        ; elems2* := <filter(?NativeClassConstructor(_); normalize-native-constructor(|realname))> elems
+        ; webdslname := <try(?NativeClassAlias(<id>))> as
+        ; elems2* := <filter(?NativeClassConstructor(_); normalize-native-constructor(|javaclassqname,webdslname))> elems
         ; newelems := [elems1*, elems2*]
     where not([] := elems2*)    // avoid infinite loop
     
-  normalize-native-constructor(|class): ncf@NativeClassConstructor(args) -> Function(class, farg*, SimpleSort(class), None())
+  normalize-native-constructor(|javaclassqname,webdslname): 
+    ncf@NativeClassConstructor(args) -> Function(webdslname, farg*, SimpleSort(webdslname), None()){NativeClassConstructorAnnotation(javaclassqname,webdslname)}
     with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
+
+  desugar-data : 
+    ThisCall(x1{anno1*}, arg*){anno*} -> 
+    NativeClassConstructorCall(javaclassqname,webdslname,arg*){anno*}
+    where <CallToFunctionGetDecl; has-anno(?NativeClassConstructorAnnotation(javaclassqname, webdslname))> x1
+
+  eq-type-of : 
+    NativeClassConstructorCall(javaclassqname, webdslname, arg*){anno*} -> SimpleSort(webdslname)
 
   declare-native-class-static-functions(|name,class) =
     rules(
@@ -49,7 +58,8 @@ strategies
       TypeOf : Var(name) -> ClassSort(name){NativeClassAnno(name,class)}
     )
 
-  normalize-declare: NativeClassProperty(name,type) -> Property(name, Simple(), <native-type-to-webdsl-type> type, [])
+  normalize-declare: 
+    NativeClassProperty(name,type) -> Property(name, Simple(), <native-type-to-webdsl-type> type, [])
         
   declare-native-class-prop(|class):
     ncp@NativeClassProperty(name,type) -> ncp
@@ -66,7 +76,8 @@ strategies
   native-type-to-webdsl-type :
     NativeGenericType(a,b) -> GenericSort(a,<map(native-type-to-webdsl-type)> b)
   
-  normalize-declare: NativeClassFunction(static,name,args1,ret1){anno*} -> Function(name, args2, ret2, None()){anno*}
+  normalize-declare: 
+    NativeClassFunction(static,name,args1,ret1){anno*} -> Function(name, args2, ret2, None()){anno*}
     with  args2 := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args1
         ; ret2 := <?NativeClassFunctionReturn(<native-type-to-webdsl-type>) <+ !SimpleSort("Void")> ret1
   
@@ -87,11 +98,6 @@ strategies
             
             NativeFunctionDecl : (callee, name, t1*) -> f
           )
-
-  resolve-function-call-to-decl: 
-    p@(callee, fname, t*) -> f
-    where targ-resolved* := <resolve-function-call(bagof-CheckNativeFunctionSignatureArgumentTypes | t*, fname)> p
-        ; f := <NativeFunctionDecl> (<strip-annos> callee, <strip-annos> fname, targ-resolved*)
 
   type-exists-native = IsNativeClass
   

@@ -122,7 +122,12 @@ public class Environment {
             return variables.get(key);
         }
         else{
-            return up.getVariable(key);
+            if(up != null){
+                return up.getVariable(key);
+            }
+            else{
+                throw new RuntimeException("global/session variable lookup failed for name: "+key);   
+            }
         }
     }
 

@@ -24,10 +24,163 @@ rules
     with  e2* := <rename-all> e1*
           //try to find a parent, and put it in the annotations. fails if already defined above
         ; if parent := SimpleSort(<InEntity>); <test-entity-function-call> (parent,fname,e2*) then //call to entity function, disambiguate by adding 'this.' 
-            t2 := Call(<rename-all>Var("this"), fname, e2*){anno*}
-          else //call to global function 
-            t2 := <try(Rename)> ThisCall(fname, e2*){anno*} //rename necessary for function-exp support  
+            t2 := <rename-entity-function-call> Call(<rename-all>Var("this"), fname, e2*){anno*}
+          else //call to global function
+              fnamestripped := <strip-annos> fname // remove annotation so 'Rename' doesn't fail because of annotation mismatch. can happen when repeating 'rename' (in that case the annotation will be replaced anyway)
+            ; fnamenew := <Rename> ThisCallFunctionExpName(fnamestripped) //'Rename' necessary for function-exp support
+            ; t2 := ThisCall(fnamenew, e2*){anno*}
+          <+  FunctionSort(_,_) := <type-of> Var(fname) // has been resolved to a local function var in a previous rename, a second rename might happen without having all variables declared in DR, in that case the rename should simply do nothing
+            ; t2 := t1
+          <+t2 := <rename-global-function-call> ThisCall(fname, e2*){anno*} // regular global function  
           end          
+
+  // 'function foo()' reference to global function, mostly for translating a function expression to, after lifting
+  rename-ui :
+    FunctionRef(nm1,fargtypes1,srt1){anno*} -> FunctionRef(nm2,fargtypes2,srt2){anno*}
+    with  fargtypes2 := <rename-all> fargtypes1
+        ; srt2 := <rename-all> srt1
+        ; nm2 := <resolve-global-function-call-name> (nm1,fargtypes2)
+  
+  rename-global-function-call :
+    ThisCall(x, arg*){anno*} -> ThisCall(x2, arg*){anno*}
+    with  if not(InTypeCheckingPhase) 
+          then <map(type-of <+ debug(!"cannot determine type of argument (type-of rule fails): ");fail) 
+                <+ <debug(!"error in global function call found during model-to-model: ")> (x,arg*);fail
+               > arg* 
+          end //extra check in case model-to-model produces bad code
+    with x2 := <resolve-global-function-call-name> (x,<map(type-of <+ verbose-2(!"cannot determine type of argument (type-of rule fails): ");!"unknown")> arg*)
+
+  resolve-global-function-call-name :
+    (x,argtype*) -> x1
+    with  x1 := x{<toplevel-rename> x}
+        ; typelist := <prepare-type-list-for-compare> argtype*
+        ; cleanname := <strip-annos> x
+        ; !(None(), cleanname, typelist)
+        ; (  rename-call-to-defined-global-function(|x1) 
+          <+ rename-call-to-built-in-global-function(|x1)
+          <+ <rename-global-function-call-name-error> (x,argtype*) 
+          )
+          
+  rename-call-to-defined-global-function(|x1) =
+    decl := <resolve-function-call-to-decl>  
+  ; rules(
+      CallToFunctionGetDecl : x1 -> decl          	
+    )
+          
+  rename-call-to-built-in-global-function(|x1) =
+    t := <check-builtin-signature>  // e.g. would match (None(), "now", [])  
+  ; rules(
+      CallToBuiltInFunctionGetType : x1 -> t          	
+    )
+    
+  rename-global-function-call-name-error : 
+    tup@(x,argtype*) -> x
+    with  rules ( IncorrectFunctionCall : x )
+        ; if not(InTypeCheckingPhase) then //if no longer typechecking this is an error in the compiler
+            sig := <try(call-tuple-to-signature; pp-func-sig)> tup 
+          ; <fatal-err(|["Error found during compilation: function call with signature ",sig," is not valid"])> (x,argtype*)
+          end
+
+rules  
+   
+  rename-ui :
+    Call(e1, x1, arg1*){anno*} -> result
+    with  e2 := <rename-all> e1
+        ; arg2* := <rename-all> arg1*
+        ; result := <rename-entity-function-call> Call(e2, x1, arg2*){anno*}
+
+  rename-entity-function-call :
+    Call(e, x1, arg*){anno*} -> Call(e, x2, arg*){anno*}
+    with  if not(InTypeCheckingPhase) 
+          then <map(type-of <+ debug(!"cannot determine type of argument (type-of rule fails): ");fail) 
+                <+ <debug(!"error in entity function call found during model-to-model: ")> (e,x1,arg*);fail
+               > arg* 
+          end //extra check in case model-to-model produces bad code
+    with  ent := <type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");!"unknown"> e
+        ; argtype* := <map(type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");!"unknown")> arg*
+        ; x2 := <resolve-entity-function-call-name> (ent, x1, argtype*)
+
+resolve-entity-function-call-name :
+    tup@(ent, x, argtype*) -> x1
+    with  x1 := x{<toplevel-rename> x}
+        // don't strip IsRefSort annotation of ent, check-ref-argument-entity-access-sig relies on it
+        ; cleanfunname := <strip-annos> x
+        ; typelist := <prepare-type-list-for-compare> argtype*
+        ; !(ent, cleanfunname, typelist)
+        ; (  rename-call-to-defined-entity-function(|x1) 
+          <+ rename-call-to-built-in-entity-function(|x1)
+          <+ <rename-entity-function-call-name-error> (ent,x,argtype*) 
+          ) 
+          
+  rename-call-to-defined-entity-function(|x1) =
+    decl := <resolve-entity-call> 
+  ; rules(
+      CallToEntityFunctionGetDecl : x1 -> decl          	
+    )
+    
+  rename-call-to-built-in-entity-function(|x1) =
+    t := <check-builtin-signature <+ check-ref-argument-entity-access-sig> 
+  ; rules(
+      CallToBuiltInEntityFunctionGetType : x1 -> t          	
+    )
+  
+  rename-entity-function-call-name-error : 
+    tup@(ent,x,argtype*) -> x
+    with  rules ( IncorrectEntityFunctionCall : x )
+        ; if not(InTypeCheckingPhase) then //if no longer typechecking this is an error in the compiler
+            sig := <try(call-tuple-to-signature; pp-func-sig)> (x,argtype*) 
+          ; <fatal-err(|["Error found during compilation: entity function call with signature ",ent,".",sig," is not valid"])> tup
+          end
+
+  // Resolve entity function by traversing supertypes
+  resolve-entity-call = resolve-entity-call(|[]) 
+  resolve-entity-call(|alreadychecked) :
+    (ent, nm, targ*) -> f
+    where not(<fetch(?ent)> alreadychecked) //prevent loop on invalid input 'entity Xyz:Xyz'
+    where f := <resolve-function-call-to-decl> (ent, nm, targ*)
+       <+   super := <?SimpleSort(<!SimpleSort(<Extends>)>) <+ ?ClassSort(<!ClassSort(<Extends>)>)> ent
+          ; f := <resolve-entity-call(|[ent|alreadychecked])> (super, nm, targ*)  
+  
+rules // resolving
+  
+  resolve-function-call-to-decl: 
+    p@(None(), fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckGlobalFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <FunctionDecl> (fname, targ-resolved*)
+  
+  resolve-function-call-to-decl: 
+    p@(EntitySort(x_class), fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckFunctionSignatureArgumentTypesStatic | t*, fname)> p
+        ; f := <EntityFunctionDeclStatic> (x_class, fname, targ-resolved*)
+
+  resolve-function-call-to-decl: 
+    p@(SimpleSort(x_class), fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <EntityFunctionDecl> (x_class, fname, targ-resolved*)
+  
+  resolve-function-call-to-decl: 
+    p@(callee, fname, t*) -> f
+    where targ-resolved* := <resolve-function-call(bagof-CheckNativeFunctionSignatureArgumentTypes | t*, fname)> p
+        ; f := <NativeFunctionDecl> (<strip-annos> callee, <strip-annos> fname, targ-resolved*)  
+
+  resolve-function-call(get-all-fargs | t_target, fnameannos): 
+    sigannos@(_,_,_) -> targ_result*
+    where fname := <strip-annos> fnameannos
+        ; sig := <strip-all-annos> sigannos
+        ; listof-t_arg* := <get-all-fargs> sig
+        ; not(?[])  // fail if no results (could be built-in function)
+        ; n := <length> listof-t_arg*
+        ; if 1 := n then
+              // This also resolves the case in which the formal arg types and passed arg types are 'compatible' but not in the same type hierarchy;
+              // like String and WikiText
+              targ_result* := <Hd> listof-t_arg*
+          else
+              targ_result* := <find-most-specific-signature(|t_target, fname)> listof-t_arg*
+            <+
+              // multiple possible arg types which are related, but no particular one chosen by find-most-specific-signature
+              <error-in-overload-resolution-multiple> (fname,listof-t_arg*)
+            ; targ_result := <Hd> listof-t_arg*
+         end  
   
 rules
 
@@ -107,28 +260,27 @@ rules //calls
   eq-type-of-action :
     Call(e1, f, e2*) -> t
     where te1 := <type-of> e1
-        ; t := <check-signature> (te1, f, e2*)
+        ; (Function(_,_,t,_) := <CallToEntityFunctionGetDecl> f <+ t := <CallToBuiltInEntityFunctionGetType> f)
+        //; t := <check-signature> (te1, f, e2*)
 
   eq-type-of-action = eq-type-of-this-call-global
 
   eq-type-of-this-call-global :
     c@ThisCall(f, e2*) -> t
     where not(FunctionSort(_,_) := <type-of> Var(f))
-    where t := <check-signature> (None(), f, e2*) 
+    where (Function(_,_,t,_) := <CallToFunctionGetDecl> f <+ t := <CallToBuiltInFunctionGetType> f)
+    //where t := <check-signature> (None(), f, e2*) 
         
 rules  // back-end annotations
   
   map-type-of = with(map(with-type-of);?x);!x
   with-type-of = with(type-of;?x);!x
 
-  add-backend-annotation = ?ThisCall(x, e)
-    ; if <IsNativeFunction> x
-      then
-        add-new-anno(|NativeFunctionCallAnno())
-      else
-        //add sig to determine whether arg should be passed as ref arg or regularly, currently only passed as ref arg to access control checks
-        where(calledFunctionSig := <(!(x,<CheckGlobalFunctionSignatureArgumentTypes> (None(),x,<map-type-of> e)); FunctionSig; ?Function(_,<map(?Arg(_,<id>))>,_,_) <+![])>) /*CheckGlobalFunctionSignatureArgumentTypes fails for built-in global functions that don't exist in the AST*/
-      ; add-new-anno(|GlobalCallAnno(calledFunctionSig))
-      end
+  add-backend-annotation = 
+      ?ThisCall(x_annos, e)
+    ; where(x := <strip-annos> x_annos)
+      //add sig to determine whether arg should be passed as ref arg or regularly, currently only passed as ref arg to access control checks
+    ; where(calledFunctionSig := <(!(x,<CheckGlobalFunctionSignatureArgumentTypes> (None(),x,<map-type-of> e)); FunctionSig; ?Function(_,<map(?Arg(_,<id>))>,_,_) <+![])>) /*CheckGlobalFunctionSignatureArgumentTypes fails for built-in global functions that don't exist in the AST*/
+    ; add-new-anno(|GlobalCallAnno(calledFunctionSig))
     ; try(add-backend-annotation-function-var-call)
     

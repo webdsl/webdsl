@@ -540,11 +540,15 @@ rules // special session entity props
 rules // annotations for properties
 
   property-to-persistence-annotations(|x_Class) :
-  Property(x_prop, k, s, annos){anno*} -> <concat> [association-annos, cascade-annos, column-annos, filter-annos]
-  with  association-annos := <association-annotations(|x_Class, x_prop, annos)> s
-      ; cascade-annos := <cascade-annotations> k
-      ; column-annos := <column-annotations(|x_prop,s,annos)>
-      ; filter-annos := <query-condition-filter-annotations <+ ![]> anno*
+  Property(x_prop, k, s, annos){anno*} -> result
+  with  if <fetch(?SimpleAnno("transient"))> annos 
+        then result := [ anno|[ @javax.persistence.Transient ]| ] // marks a property as transient, will not be persisted to the database 
+        else association-annos := <association-annotations(|x_Class, x_prop, annos)> s
+           ; cascade-annos := <cascade-annotations> k
+           ; column-annos := <column-annotations(|x_prop,s,annos)>
+           ; filter-annos := <query-condition-filter-annotations <+ ![]> anno*
+           ; result := <concat> [association-annos, cascade-annos, column-annos, filter-annos]
+        end
 
   query-condition-filter-annotations :
     anno* -> [anno]
@@ -674,7 +678,7 @@ rules //one-to-one
 rules // One-to-Many association with Set
 
   get-subselect-anno = (QueryOptimizationMode; (?HibernateSubselect() <+ ?HibernateSubselectWithBatching())) < ![anno|[ @org.hibernate.annotations.Fetch(value = org.hibernate.annotations.FetchMode.SUBSELECT) ]|] + ![]
-   
+
   // bidirectional many-to-one owning side Ref-Set
   association-annotations(|x_class, x_prop, annos) :
     s@SimpleSort(y) ->
@@ -771,7 +775,7 @@ rules   // Many-to-Many associations Set-Set
          ; GenericSort("Set", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
-        ; subselect* := <get-subselect-anno>
+         ; subselect* := <get-subselect-anno>
 
 rules   // Many-to-Many associations List-Set
 
@@ -809,7 +813,7 @@ rules   // Many-to-Many associations List-Set
          ; GenericSort("List", [SimpleSort(yy)]) := <get-type-anno> inv
          ; x_ent                            := <concat-strings> [ent, ".class"]
          ; mappedby                         := <concat-strings> ["_", fld]
-        ; subselect* := <get-subselect-anno>
+         ; subselect* := <get-subselect-anno>
 
 rules // cascading annotations
 
@@ -967,6 +971,10 @@ rules //associations
     with  t_y       := <java-type> y_srt
         ; x_y       := <java-type-name> y_srt
         ; t_col       := <java-type> s
+        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
+        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
+        ; bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item")
+        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item")
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->

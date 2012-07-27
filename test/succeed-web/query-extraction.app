@@ -58,6 +58,7 @@ entity User{
     }
     return null;
   }
+  function touch() {}
 }
 
 init {
@@ -95,8 +96,20 @@ init {
 }
 
 define page root(){
-	<div id="a1">output("" + (from Auction)[0].id)</div>
-	<div id="u1">output("" + (from User as u order by u.name asc)[0].id)</div>
+  var a1 : Auction := (from Auction)[0];
+  var u1 : User := (from User as u order by u.name asc)[0];
+
+	<div> "a1: " <span id="a1">output("" + a1.id)</span></div>
+	<div> "u1: " <span id="u1">output("" + u1.id)</span></div>
+	<hr />
+  <div>navigate auctionOverview1()          { "auctionOverview1()" }</div>
+  <div>navigate auctionOverview2()          { "auctionOverview2()" }</div>
+  <div>navigate showAuction(a1)             { "showAuction(a1)" }</div>
+  <div>navigate conditionExtraction()       { "conditionExtraction()" }</div>
+  <div>navigate showProfile(u1)             { "showProfile(u1)" }</div>
+  <div>navigate preloadCalledTemplate()     { "preloadCalledTemplate()" }</div>
+  <div>navigate preloadEntityFunctions(u1)  { "preloadEntityFunctions(u1)" }</div>
+  <div>navigate localRedefine(u1)           { "localRedefine(u1)" }</div>
 }
 
 define page auctionOverview1() {
@@ -191,10 +204,12 @@ define template shouldPreload3(printItem : Item) {
 
 define page preloadEntityFunctions(u : User) {
   var stats : Statistics := HibernateUtilConfigured.getSessionFactory().getStatistics();
+  var entFetch : Long;
   init{
   stats.setStatisticsEnabled(true);
+  u.touch(); // make sure the user is fetched before getEntityFetchCount
+  entFetch := stats.getEntityFetchCount();
   }
-  var entFetch : Long := stats.getEntityFetchCount();
   "MaxOffer: " output(u.getHighestBid().offer) <br />
   "Auction2: " output(u.getAuctionByItemName("Item 2").item.name)
   <p id="entFetch">output(stats.getEntityFetchCount() - entFetch)</p>
@@ -278,11 +293,10 @@ test queriestest {
   assert(elem.getText().parseInt() == 6);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
-  // entLoaded is always zero here, because the extracted query is executed before init block where we measure the starting state
 
   d.get(navigate(localRedefine(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 6);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
 }

@@ -1,0 +1,116 @@
+module org/webdsl/dsl/utils/compile-units
+
+imports
+  libstrategolib
+
+strategies
+  
+  disable-code-generation-if-cache-exists =
+    where(
+      if is-custom-compile-units-enabled then not(read-custom-compile-cache-file) end // only if clean compile when custom compile units is enabled, entities ignored there for now
+    ; if is-compile-units-cache-enabled then is-compile-units-cache-stale end // recompile only when entities were changed
+    )
+    
+  disable-if-not-first-build = 
+    where(
+      if is-compile-units-cache-enabled then CompileUnitsCacheFirstBuild end // compile only if first build
+    )
+// compile units cache for front-end
+
+strategies
+  
+  get-compile-units-cache-file = <concat-strings> [<DirName>, "/.servletapp/.compile-units-cache"]
+  get-compile-units-tmp-cache-file = <concat-strings> [<DirName>, "/.servletapp/.compile-units-cache-tmp"]
+
+strategies
+
+  try-get-changed-compile-units-and-prune = try(get-changed-compile-units-and-prune)
+
+  get-changed-compile-units-and-prune :
+    Application(n,ast) -> Application(n,ast')
+    with  (zipped,(newcachekeys,asts)) := <read-compile-units> ast //always write tmp cache file
+    where oldcachekeys := <read-compile-units-cache-file <+ disable-compile-units-cache;fail> //fail here, don't prune anything, if there was no cache file yet
+    with  // detect newly added,removed,changed toplevel definition asts
+          <sym-diff> (newcachekeys,oldcachekeys)
+        ; uniq
+        ; ?changed
+        ; where(<debug-stage> ["Compile units changed:",changed])
+        ; if <fetch(changed-def-requires-full-recompile)> changed
+          then ast' := ast
+             ; where(<debug-stage> ["Full recompile required."])
+             ; disable-compile-units-cache
+          else changednormalized := <filter(normalize-cache-item);uniq> changed //filter here, because the normal matches are handled with 'changed' set
+             ; defs := <filter(prune-compile-units-cache-helper(|changed,changednormalized) <+ always-keep-specific-ast-nodes)> zipped
+             ; acdefs := <filter(?AccessControlRule(_,_,_,_,_))> defs
+             ; nonacdefs := <filter(not(?AccessControlRule(_,_,_,_,_)))> defs
+             ; ast' := [Section("definitions",nonacdefs),AccessControlDefinition(None(),acdefs)]
+          end
+
+  // this list can be made smaller by improving the dependency analysis for caches
+  changed-def-requires-full-recompile = 
+       ?AccessControlPrincipal(_,_)
+    <+ ?Entity(_,_,_) 
+    <+ ?EntityNoSuper(_,_) 
+    <+ ?SessionEntity(_,_)
+    <+ ?ExtendEntity(_,_)
+    <+ ?ExtendSessionEntity(_,_)
+    <+ ?Enum(_,_)
+    <+ ?VarDecl(_,_)
+    <+ ?VarDeclInit(_,_,_)
+    <+ ?VarDeclInitInferred(_,_)
+    <+ ?GlobalsDefinition(_)
+    <+ ?RequestScope(_)
+    <+ ?InitAction(_)
+
+  prune-compile-units-cache-helper(|changed,changednormalized) :
+    (a,b) -> b
+    where <fetch(?a)> changed
+       <+   anorm := <normalize-cache-item> a
+          ; <fetch(?anorm)> changednormalized
+       <+ is-access-control-enabled; <?AccessControlRule(_,"*",_,_,_)> a //always handle wildcard rules, only if access control is enabled
+  
+  always-keep-specific-ast-nodes : (AccessControlPrincipal(_,_),b) -> b
+  
+  // change in template or ac rule should invalidate cache for both  
+  normalize-cache-item : Define(_,x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("page",x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("template",x,_,_,_) -> Define([],x,[],[],[])
+  normalize-cache-item : AccessControlRule("ajaxtemplate",x,_,_,_) -> Define([],x,[],[],[])
+  // 'invoke x every y' these are collected in generation of DispatchServlet (to-java-servlet/dispatch-servlet.str), if one changes re-evaluate all of them
+  normalize-cache-item : InvokeEvery(_,_) -> InvokeEvery([],[])
+  // search mapping changes can affect multiple entities, but will not change their signature -> for now regenerate all entities but not all definitions
+  normalize-cache-item : SearchMapping(x,_) -> Entity([],[],[]) // all entities because entity name x is not used
+  normalize-cache-item : Entity(x,_,_) -> Entity([],[],[])
+  normalize-cache-item : EntityNoSuper(x,_) -> Entity([],[],[])
+  normalize-cache-item : ExtendEntity(x,_) -> Entity([],[],[])
+
+strategies
+
+  read-compile-units-cache-file = 
+    get-compile-units-cache-file
+  ; (file-exists <+ debug(!"missing .compile-units-cache, there has been no initial build yet, compiling the whole application");rules(CompileUnitsCacheFirstBuild := True());fail)
+  ; ReadFromFile
+
+  read-compile-units = 
+      result := <collect(compile-units-section <+ compile-units-acdef);concat>
+    ; (cachekeys,asts) := <unzip> result
+    ; where(<store-compile-units-tmp> cachekeys)
+    ; !(result,(cachekeys,asts))
+    
+  compile-units-section : Section(name, defs){anno*} -> <filter(compile-units-helper)> defs
+  compile-units-acdef : AccessControlDefinition(name, defs){anno*} -> <filter(compile-units-helper)> defs
+ 
+  // default is to leave it in the AST, that way new constructs will not cause confusing errors by being removed
+  compile-units-helper : 
+    x -> (cachekey,x)
+    where not(?Imports(_))
+        ; cachekey := <remove-position-annos(fail)> x
+    
+  store-compile-units-tmp =
+    ?content 
+  ; <WriteToBinaryFile> (<get-compile-units-tmp-cache-file>, content)
+
+  // wait with writing the actual cache file until the last phase of the compiler, that way interruping the compilation early should work
+  store-compile-units-cache =
+    <copy-file> (<get-compile-units-tmp-cache-file>, <get-compile-units-cache-file>)
+    

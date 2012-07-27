@@ -426,19 +426,20 @@ rules //vars
      call-to-java-servlet
      <+ generic-call-to-java-servlet
 
+   // Entity function call, entity call inside entity is already desugared to always include 'this.'
    generic-call-to-java-servlet :
-     call@Call(e1, x, e2*){anno*} -> expr|[ e3.x#_(e4*,e5*) ]|
+     Call(e1, x1, e2*) -> expr|[ e3.x2#_(e4*) ]|
+     with  if <get-anno(?NewFunctionNameAnno(newx))> x1 then x2 := newx else x2 := x1 end
      with  e3 := <expression-to-java-servlet> e1
          ; e4* := <map(expression-to-java-servlet)> e2*
-         ; e5* := <generic-call-get-extra-arguments <+ ![]> call{anno*}
 
   // Static function call
   generic-call-to-java-servlet:
-    tc@ThisCall(x, e1*) -> result
+    tc@ThisCall(x1, e1*) -> result
     where (get-anno(?StaticFunctionCallAnno(x_class, x_funcname)))
     with  e2* := <map(expression-to-java-servlet)> e1*
-          ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
-          ; result := expr|[ x_Class.x_funcname#_(e2*) ]|
+        ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
+        ; result := expr|[ x_Class.x_funcname#_(e2*) ]|
 
   // Static entity method call
   call-to-java-servlet =
@@ -446,43 +447,27 @@ rules //vars
   <+ static-method-call-to-java-servlet
 
   static-method-call-to-java-servlet:
-    tc@Call(v,x,e1*) -> result
+    tc@Call(v,x1,e1*) -> result
     where EntitySort(x_class) := <get-type-anno> v
+    with  if <get-anno(?NewFunctionNameAnno(newx))> x1 then x2 := newx else x2 := x1 end
     with  e2* := <map(expression-to-java-servlet)> e1*
           ; x_Class := <concat-strings> [<pp-java5-to-string> <DomainPackage>, ".", x_class]
-          ; x_funname := <concat-strings> ["$static$",x,"_"]
+          ; x_funname := <concat-strings> ["$static$",x2,"_"]
           ; result := expr|[ x_Class.x_funname(e2*) ]|
-
-  // Native function call
-  generic-call-to-java-servlet :
-    tc@ThisCall(x, e1*) -> result
-    where (get-anno(?NativeFunctionCallAnno()))
-    with  e2* := <map(expression-to-java-servlet)> e1*
-        ; x_X := <capitalize-string> x
-        ; result := expr|[ nativejava.x_X.x(ThreadLocalPage.get(), e2*) ]|
 
 rules
   // Global function call
   generic-call-to-java-servlet :
-    tc@ThisCall(x, e1*){anno*} -> result
+    tc@ThisCall(x1, e1*) -> result
     where (get-anno(?GlobalCallAnno(globalFunctionSig)))
+    with  if <get-anno(?NewFunctionNameAnno(newx))> x1 then x2 := newx else x2 := x1 end
     with  if [] := globalFunctionSig
           then e2* := <map(pass-on-ref-arg-exp <+ expression-to-java-servlet)> e1*
           else functionArgTypes/*Function(_,functionArgs,_,_)*/ := globalFunctionSig
              ; e2* :=<zip(call-arg-ref-resolve-helper)> (functionArgTypes,e1*)
           end
-        ; e3* := <generic-call-get-extra-arguments <+ ![]> tc{anno*}
-        ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x]
-        ; result := expr|[ x_Class#_.x#_(e2*,e3*) ]|
-
-  generic-call-get-extra-arguments :
-    call{anno*} -> [e_Join, e_Queries, e_Cond, e_CondJoins]
-    where <?ThisCall(_, _) <+ ?Call(_, _, _)>call
-    ; <fetch-elem(?QueryOptimizations(joincandidates, joincandidatesgen, querycondition, conditionjoins, x, srt))> anno*
-    ; e_Join := <string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> joincandidates
-    ; e_Queries := <two-dimensional-string-list-to-java-servlet; try(\ expr |[ new String[][] {} ]| -> expr |[ null ]| \)> joincandidatesgen
-    ; e_Cond := <generic-call-get-condition-argument(|x,srt)> querycondition
-    ; e_CondJoins := <string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)> conditionjoins
+        ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x2]
+        ; result := expr|[ x_Class#_.x2#_(e2*) ]|
 
   string-list-to-java-servlet :
     stringlist -> stringarray
@@ -494,15 +479,6 @@ rules
     stringlists -> stringarray
     with individualarrays := <map(string-list-to-java-servlet)> stringlists
     ; stringarray := <foldr(!expr |[ new String[][] {} ]|, {?(expr |[ new String[] {e_subarray*} ]|, expr |[ new String[][] {e_arrays*} ]|); !expr |[ new String[][] {e_arrays*,{e_subarray*}} ]|})> individualarrays
-
-  generic-call-get-condition-argument(|x,srt) :
-    cond -> expr|[e_Cond]|
-    where <not(?True())> cond
-    with e_Cond := <hibernate-criteria-transform-condition(|x,srt)> cond
-
-  generic-call-get-condition-argument(|x,srt) :
-    cond -> expr|[ null ]|
-    where True() := cond
 
 rules
   call-arg-ref-resolve-helper:
@@ -531,10 +507,3 @@ rules
     v@ExternalScopeVar(x) -> e|[ x_tclass.this.x  ]|
     where has-ref-type
     where x_tclass := <ThisTemplateClassName>
-
-rules
-  // Entity function call
-  generic-call-to-java-servlet :
-    tc@ThisCall(x, e1*) -> result
-    with  e2* := <map(expression-to-java-servlet)> e1*
-        ; result := expr|[ this.x#_(e2*) ]|

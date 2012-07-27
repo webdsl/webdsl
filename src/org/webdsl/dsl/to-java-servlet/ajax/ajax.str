@@ -1,7 +1,7 @@
 module org/webdsl/dsl/to-java-servlet/ajax/ajax
-   
+
 imports
-  libstrategolib  
+  libstrategolib
   libjava-front
   libwebdsl-front
   libback-end-transformations
@@ -13,42 +13,42 @@ imports
 
 rules
 
-  warn-for-ajax-operation-without-ajax-enabled-submit = 
-    !bstm*|[  
+  warn-for-ajax-operation-without-ajax-enabled-submit =
+    !bstm*|[
       if(!ThreadLocalPage.get().isAjaxActionExecuted()){
         utils.Warning.warn("Ajax operation does not work in a regular submit, add [ajax] to the submit link.");
-      }  
+      }
     ]|
 
   statement-to-java-servlet :
-    AjaxStatement(stat) -> 
-    bstm* |[ 
-      bstm* 
+    AjaxStatement(stat) ->
+    bstm* |[
+      bstm*
       if(ThreadLocalAction.get() != null){ //could be invoked during validation phase as well
         ThreadLocalAction.get().setIsRedirected(true);
-      } 
-    ]|		
+      }
+    ]|
     with bstm* := <ajax-to-java-servlet> stat
 
   ajax-to-java-servlet :
-    AjaxAppend(thediv, tc@TemplateCall(template, args,_,_)) -> 
+    AjaxAppend(thediv, tc@TemplateCall(template, args,_,_)) ->
     <do-ajax-to-java-servlet>("append", thediv, tc)
 
   ajax-to-java-servlet :
-    AjaxReplace(thediv, tc@TemplateCall(template, args,_,_)) -> 
+    AjaxReplace(thediv, tc@TemplateCall(template, args,_,_)) ->
     <do-ajax-to-java-servlet>("replace", thediv, tc)
-    
+
  //action java implementation
   do-ajax-to-java-servlet :
     (method, div, tc)
-     -> bstm*|[ 
+     -> bstm*|[
         ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
         java.io.StringWriter x_s = new java.io.StringWriter();
-        java.io.PrintWriter x_out = new java.io.PrintWriter(x_s); 
+        java.io.PrintWriter x_out = new java.io.PrintWriter(x_s);
         ThreadLocalOut.push(x_out);
         bstm_thecall*
         ThreadLocalOut.popChecked(x_out);
-        ThreadLocalOut.peek().print("{ action: \""+"~method"+"\", id: \""+e_thediv+"\", value : \""+org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(x_s.toString())+"\"},");           
+        ThreadLocalOut.peek().print("{ action: \""+"~method"+"\", id: \""+e_thediv+"\", value : \""+org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(x_s.toString())+"\"},");
      ]|
     with x_out := <newname> "out"
        ; x_s   := <newname> "s"
@@ -59,30 +59,30 @@ rules
     TemplateCall(template,args,passign*,TemplateBody(bodyelems)){anno*} ->
     bstm*|[
         Object[] x_args = { e_argswithref* };
-      
+
         //since we're going to render here, we need to flush the changes
         //@TODO there shouldn't be more changes after executing ajax operations that render templates, such as 'replace', compiler should verify this
         e_HibSession.flush();
         //there also shouldn't be any more validations after this, so we can clear the request parameters (would otherwise be used for validation output)
         //@TODO compiler should verify that there are no more validations after ajax actions that render templates
         ThreadLocalPage.get().clearParammaps();
-        
+
         //check if this action has been executed
         //ps.clearHibernateCache(variables);
         try {
-          String x_ps = "~template"; 
+          String x_ps = "~template";
           //check the withcallsmap for templatenames first, and append possible arguments
           //if (env.getWithcall(x_ps)) {
-          //  x_args = org.apache.commons.lang.ArrayUtils.addAll(x_args, env.getWithcall(x_ps).args);
+          //  x_args = org.apache.commons.lang3.ArrayUtils.addAll(x_args, env.getWithcall(x_ps).args);
           //  x_ps = env.getWithcall(x_ps).name;
           //}
-          ((PageServlet)DispatchServletHelper.pages.get(x_ps).getPageClass().newInstance()).serveAsAjaxResponse(ThreadLocalPage.get(), x_args, ThreadLocalPage.getEnv(), e_templatearg); 
-          //the template arg of templates invoked by actions is the template arg of the owner of the action, todo: this might cause scoping problems of variables. 
+          ((PageServlet)DispatchServletHelper.pages.get(x_ps).getPageClass().newInstance()).serveAsAjaxResponse(ThreadLocalPage.get(), x_args, ThreadLocalPage.getEnv(), e_templatearg);
+          //the template arg of templates invoked by actions is the template arg of the owner of the action, todo: this might cause scoping problems of variables.
         }
         catch(Exception iae)
         {
           System.out.println("Problem in template servlet template lookup for Ajax: "+iae.getMessage()+" template :" + "~template");
-        }      
+        }
     ]|
     with x_args := <newname> "args"
        ; x_ps  := <newname> "ps"
@@ -96,24 +96,25 @@ rules
            ;debug(!1)
          else
            e_templatearg := expr |[ utils.TemplateCall.None ]|
-         end 
-*/ 
+         end
+*/
 
   ajax-to-java-servlet :
-    AjaxVisibility(thediv, vis) -> bstm*|[ 
+    AjaxVisibility(thediv, vis) -> bstm*|[
        ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
        ThreadLocalOut.peek().print("{ action: \"visibility\", id: \""+e_thediv+"\", value: \""+"~visibility"+"\"},");
     ]|
     with visibility := <translate-visibility> vis
        ; e_thediv := <ajax-target-to-expression> thediv
-    
+
   ajax-target-to-expression:
-    thediv -> e_thediv    
+    thediv -> e_thediv
     with if <is-string> thediv
          then e_thediv := Lit(String([Chars(<try(?"this"; ThisTemplateName; get-original-name)> thediv)])) //placeholder Id {}
-         else e_thediv := <expression-to-java-servlet> thediv //placeholder Exp {}
+         else e_unfiltereddiv := <expression-to-java-servlet> thediv //placeholder Exp {} , exp might contain illegal chars for div id attribute
+            ; e_thediv := expr |[ utils.URLFilter.filter(e_unfiltereddiv) ]|
          end
-         
+
   translate-visibility :
    Show() -> "show"
   translate-visibility :
@@ -122,37 +123,36 @@ rules
    Toggle() -> "toggle"
 
   ajax-to-java-servlet :
-    AjaxRelocate(call@PageCall(_,_)) -> bstm*|[ 
+    AjaxRelocate(call@PageCall(_,_)) -> bstm*|[
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
       ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+e_url+"\" },\n");
     ]|
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
 
   ajax-to-java-servlet :
-    AjaxRestyle(thediv, expr) -> bstm*|[ 
+    AjaxRestyle(thediv, expr) -> bstm*|[
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
       ThreadLocalOut.peek().print("{ action: \"restyle\", id: \""+e_thediv+"\", value: \""+e+"\"},");
     ]|
     with e := <expression-to-java-servlet> expr
        ; e_thediv := <ajax-target-to-expression> thediv
-    
+
   ajax-to-java-servlet :
-    AjaxRefresh() -> bstm* |[ 
+    AjaxRefresh() -> bstm* |[
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
       ThreadLocalOut.peek().print("{ action: \"refresh\" },");
-    ]|   
-    
+    ]|
+
   ajax-to-java-servlet :
-    AjaxClear(thediv) -> bstm*|[ 
+    AjaxClear(thediv) -> bstm*|[
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
       ThreadLocalOut.peek().print("{ action: \"clear\", id: \""+e_thediv+"\"},");
     ]|
     with e_thediv := <ajax-target-to-expression> thediv
-     
+
   ajax-to-java-servlet :
-    AjaxRunScript(e) -> bstm*|[ 
+    AjaxRunScript(e) -> bstm*|[
       ~*<warn-for-ajax-operation-without-ajax-enabled-submit>
       ThreadLocalOut.peek().print("{ action: \"runscript\", value: \""+e_java+"\" },\n");
     ]|
     with  e_java := <expression-to-java-servlet> e
-    

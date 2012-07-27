@@ -13,36 +13,51 @@ signature constructors
   
 rules	// emit top-level definition
 
-	// @TODO: rename to emit-webdsl-def
-	emit-webdsl-code = 
+  // @TODO: rename to emit-webdsl-def
+  emit-webdsl-code = 
       declare-all
     ; emit-webdsl-code-no-declare
     
   // Used for separate declare / emit phase
-	emit-webdsl-code-no-declare =
+  emit-webdsl-code-no-declare =
       where(InTypeCheckingPhase); emit-webdsl-code-no-rename
   <+  with-toplevel-name(
-	        rename-all
-	      ; emit-webdsl-code-no-rename
-	    )
-	  
-	//used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
+          rename-all
+        ; emit-webdsl-code-no-rename
+      )
+    
+  //used to support syntax variations and backwards compatibility, rename strategy will need to cope with the variations, desugar can normalize to one
   // renaming is not needed for these one-to-one transformations that have the same semantics
-	emit-webdsl-code-no-rename =
-			?def
-		; rules(AddWebDSLDefs :+= def)
-	
-	// emit a new section with all collected defs
-	emit-collected-defs =
-			?Application(qid,sections)
-		; defs := <bagof-AddWebDSLDefs>
-		; not([] := defs)
-		; rules(AddWebDSLDefs :- _) 	// hack to clear dr
-		; sec := Section("emitted_section", defs)
-		; !Application(qid,[sec|sections])
+  emit-webdsl-code-no-rename =
+      ?def
+    ; rules(AddWebDSLDefs :+= def)
+  
+  // emit a new section with all collected defs
+  emit-collected-defs =
+      ?Application(qid,sections)
+    ; defs := <bagof-AddWebDSLDefs; map(rename-toplevel)> // rename emitted defs, some fragments will be emitted during declare step, these haven't been through the rename phase yet (because that requires all declarations to be visible)
+    ; not([] := defs)
+    ; rules(AddWebDSLDefs :- _)	// clear dr
+    ; sec := Section("emitted_section", defs)
+    ; !Application(qid,[sec|sections])
 
-	desugar = emit-collected-defs
+  desugar = emit-collected-defs
+  
+rules //emit for access control rules
 
+  emit-webdsl-code-ac-rule = ?rule; rules(AddWebDSLRules :+= rule)
+
+  // emit a new ac section with all collected ac defs
+  emit-collected-ac-rule-defs =
+      ?Application(qid,sections)
+    ; acrules := <bagof-AddWebDSLRules; map(rename-toplevel)>
+    ; not([] := acrules)
+    ; rules(AddWebDSLRules :- _) // clear dr
+    ; sec := AccessControlDefinition(None(), acrules)
+    ; !Application(qid,[sec|sections])
+
+  desugar = emit-collected-ac-rule-defs
+  
 rules // emit section
   
   emit-webdsl-section =
@@ -54,18 +69,3 @@ rules // emit section
       )
   
   desugar = once-AddWebDSLSection
-
-rules // emit builtins (during declare)
-	
-	add-builtin-rule = ?rule; rules(AddWebDSLRules :+= rule)
-	
-	add-builtins-to-ast: Application(name, sec*) -> Application(name, [sec*, emitsec*])
-	   with get-builtin-sections => emitsec*
-	add-builtins-to-ast: Module(name,sec*) -> Module(name, [sec*, emitsec*])
-     with	get-builtin-sections => emitsec*
-     
-  get-builtin-sections: _ -> [defsec,rulesec]
-    with  defsec := Section("builtins", <bagof-AddWebDSLDefs; map(rename-toplevel)>)
-        ; rulesec := AccessControlDefinition(None(), <bagof-AddWebDSLRules; map(rename-toplevel)>)
-        ; rules(AddWebDSLDefs :- _)
-        ; rules(AddWebDSLRules :- _)

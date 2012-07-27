@@ -28,9 +28,6 @@ rules	// analyze-elem for global elements
            ; rules(ClassToSpellCheckFields : class -> spellcheckfields) 
            ; rules(ClassToAutoCompleteFields : class -> autocompletefields)
           )> ent
-        ; <try(get-anno(?SearchNamespaceAnno(_))
-          ; rules(SearchNamespaceEntities :+= class)          
-          )> ent
         ; rules (AllEntities :+= ent)
         ; fail
 
@@ -59,49 +56,50 @@ rules	// analyze-elem for global elements
       
   // full text analyzers
   analyze-elem-global :
-  	s@FullTextAnalyzer(None(), name, body) -> <fail>
-  	with rules(FullTextAnalyzerFromName :+ name -> s)
+    s@FullTextAnalyzer(None(), name, body) -> <fail>
+    with rules(FullTextAnalyzerFromName :+ name -> s)
 
   analyze-elem-global :
-  	s@FullTextAnalyzer(Some(kw), name, body) -> <fail>
-  	with rules(FullTextAnalyzerFromName :+ kw -> FullTextAnalyzer(Some(kw), "default", body)
-  			   FullTextAnalyzerFromName :+ name -> s)
-
+    s@FullTextAnalyzer(Some(kw), name, body) -> <fail>
+    with rules(FullTextAnalyzerFromName :+ kw -> FullTextAnalyzer(Some(kw), "default", body)
+           FullTextAnalyzerFromName :+ name -> s)
+  
   get-prefetch-for-arg(|elem*) :
     Arg(x, _) -> prefetch
     where prefetch := <get-prefetch-for(|x); ?PrefetchFor(_, _, _, PrefetchChildren(_))> elem*
 
   // defines
-  analyze-elem-global =
+  //analyze-elem-global-define =
+  analyze-elem-global-define =
       ?def@Define(mod*,x,farg*,_,elem*)
     // handle override
     ; x1 := <strip-annos> x
-    ; not(<TopLevelTemplateClassNameOverride> x1) //if there is an override, don't declare the regular implementation class here. if the regular implementation was already processed (can't predict order), the override will overwrite the DR for e.g. TopLevelTemplateClassName
-    ; if <fetch(TemplateModOverride)> mod* then rules( TopLevelTemplateClassNameOverride : x1 ) end
-    // Pages
-    ; if <fetch(Page)> mod* then
-          rules( AllPageNames :+= x )
+    ; if not(<TopLevelTemplateClassNameOverride> x1) then //if there is an override, don't declare the regular implementation class here. if the regular implementation was already processed (can't predict order), the override will overwrite the DR for e.g. TopLevelTemplateClassName
+        if <fetch(TemplateModOverride)> mod* then rules( TopLevelTemplateClassNameOverride : x1 ) end
+      // Pages
+      ; if <fetch(Page)> mod* then
+            rules( AllPageNames :+= x )
+        end
+      // Emails
+      ; if <fetch(Email)> mod* then
+            rules ( AllEmailNames :+= x )
+        end
+      // Toplevel templates
+      ; if <not(fetch(Page <+ Email))> mod* then
+            // used to create lookup hashmap in java-base-page.str
+            rules( AllTopLevelTemplateNamesJavaServlet :+= x ) 
+          ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
+        end
+      ; classname := <any-template-name-to-classname> (mod*, x)
+      ; rules(
+          TopLevelTemplateClassName : x -> classname
+          // TemplateFormalArguments used in dispatch-servlet.str
+          TemplateFormalArguments : x -> farg*
+        )
           ; prefetches := <filter(get-prefetch-for-arg(|elem*))> farg*
           ; rules( PageArgumentPrefetches : x -> prefetches )
       end
-    // Emails
-    ; if <fetch(Email)> mod* then
-          rules ( AllEmailNames :+= x )
-      end
-    // Toplevel templates
-    ; if <not(fetch(Page <+ Email))> mod* then
-          // used to create lookup hashmap in java-base-page.str
-          rules( AllTopLevelTemplateNamesJavaServlet :+= x ) 
-        ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
-      end
-    ; classname := <any-template-name-to-classname> (mod*, x)
-    ; rules(
-        TopLevelTemplateClassName : x -> classname
-        // TemplateFormalArguments used in dispatch-servlet.str
-        TemplateFormalArguments : x -> farg*
-      )
-    ; fail
-
+    
 rules     // utils
 
   any-template-name-to-classname: (mod*, x) -> class1

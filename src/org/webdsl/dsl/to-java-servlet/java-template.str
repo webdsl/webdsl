@@ -50,7 +50,7 @@ rules
         import javax.servlet.http.HttpSession;
         
         import org.hibernate.Session;
-        import org.apache.commons.lang.ArrayUtils;
+        import org.apache.commons.lang3.ArrayUtils;
         
         import utils.*;
         import org.webdsl.tools.Utils;
@@ -68,11 +68,27 @@ rules
           	bstm_prefetch*
           }
 
-          protected void storeArguments(Object[] args) {
-            bstm1*
-            bstm2*
+          public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv){
+            loadTemplateMap(null,staticEnv);
           }
-
+          public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
+            staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
+            bstm_lifted*
+          }
+          public static void loadRefArgClasses(Map<String, Class<?>> refargclasses){
+            bstm_refargclasses*
+            bstm_liftedrefarg*
+            // in the ref arg class lookup map, a unique name is always used as key, 
+            // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
+            // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
+            bstm_refarginlocaldef*
+          }
+          
+          protected void storeArguments(Object[] args) {
+            bstm_arguments*
+            bstm_prefetchargs*
+          } 
+        
           @Partial
           protected void storeInputsInternal() {
           }
@@ -143,7 +159,7 @@ rules
           }
 
           protected void putLocalDefinesInEnv(){
-            bstm*
+            bstm_localtplredefs*
           }
           
           protected boolean isAjaxTemplate(){
@@ -199,32 +215,42 @@ rules
             bstm_so* := []
           ; bstm_sc* := []
           end
-       ; bstm* := <local-defined-templates-to-hashmap> elem*
-       ; bstm1* := <formal-arguments-to-store-statements> farg*
-       ; bstm2* := <filter(formal-arguments-to-query-optimizations(|elem*)); flatten-list> farg*
+       ; (bstm_localtplredefs*,bstm_refarginlocaldef*) := <local-defined-templates-to-hashmap> elem*
+       ; bstm_arguments* := <formal-arguments-to-store-statements> farg*
+       ; bstm_prefetchargs* := <filter(formal-arguments-to-query-optimizations(|elem*)); flatten-list> farg*
        ; bstm_prefetch* := <add-indices; filter(prefetch-function-for-formal-argument(|elem*)); flatten-list> farg*
        ; e_argrepr := <formal-action-args-to-state-enc> farg*
        ; if <fetch(AjaxTemplate)> mod* 
          then e_isajaxtemplate := java:expr |[ true ]|
          else e_isajaxtemplate := java:expr |[ false ]|
          end
+       ; liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
+       ; bstm_lifted* := <map({\ 
+                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
+                           with  z_value := <TopLevelTemplateClassName> z
+                       \})> 
+                       liftedtemplates
+       ; bstm_liftedrefarg* := <map({\ 
+                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses 
+                           with  z_value := <TopLevelTemplateClassName> z
+                       \})> 
+                       liftedtemplates
+       ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments  
+       ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments  
+       ; bstm_refargclasses* := <map({\ 
+                           z -> bstm |[ refargclasses.put("~z", z_value); ]| 
+                           with  z_value := <concat-strings> [z,".class"]
+                         \})> 
+                         [pagecallrefargclass*,ajaxcallrefargclass*]
        
 rules
   
   local-defined-templates-to-hashmap :
-    elem* -> result
+    elem* -> (tplmap,refargmap)
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
-        ; result := <map(add-template-binding); concat> localtemplates
-                          
-  local-defined-templates-to-hashmap-helper :
-    def@webdsl|[ define mod* x(farg*)  req* { elem* } ]| -> (x,clsname)
-    with  clsname := <get-template-class-name> def
+        ; tplmap := <mapconcat(add-template-binding)> localtemplates
+        ; refargmap := <map(add-template-ref-arg-binding)> localtemplates
     
-  add-template-binding:        
-    (x,xclass) -> bstm* |[ env.putTemplate(x_key, x_value); ]| 
-    with  x_key := <concat-strings> ["\"",x,"\""]
-        ; x_value := <concat-strings> [xclass,".class"]
-  
   //local template redef
   local-defined-templates-to-hashmap-helper :
     def@LocalRedefine(mod*,x,farg*,y,extraArg*) -> (xWithOverloadRenaming,clsname, argwithref*, spanname1, spanname2)
@@ -238,13 +264,20 @@ rules
   add-template-binding:        
     (x,xclass,e_argswithref*, spanname1, spanname2) -> 
       bstm* |[ 
-        env.putTemplate(x_key, x_value);
+        x_value.loadTemplateMap(x_key, env); 
         Object[] x_array = { e_argswithref* };
         env.putExtraLocalTemplateArguments(x_key, new utils.LocalTemplateArguments(x_array,"~spanname1","~spanname2")); 
       ]| 
     with  x_key := <concat-strings> ["\"",x,"\""]
-        ; x_value := <concat-strings> [xclass,".class"]
+        ; x_value := xclass
         ; x_array := <newname> "arg" //doesn't need to be globally unique, no issue for caching when using newname here
+          
+  add-template-ref-arg-binding:        
+    (x,xclass,e_argswithref*, spanname1, spanname2) -> 
+      bstm |[ 
+        x_value.loadRefArgClasses(refargclasses); 
+      ]| 
+    with  x_value := xclass
 
 rules 
  
@@ -296,153 +329,3 @@ rules
     ; x_elems := <newname> "elems"
     ; prefetch := <get-prefetch-for(|x)> b
     ; bstm_prefetch* := <get-batch-fetches(|x_elems, srt)> prefetch
-
-/*  formal-arguments-to-store-statements-with-optimization :
-    farg* -> result
-    where result2 := <filter({\ arg@Arg(x, srt){anno*} -> bstm* |[
-																  bstm_criteria*
-                                  bstm_criterias*
-                              ]|
-                             where <has-entity-anno> srt
-                             ; <not(fetch-elem(?QueryOptimizations([], [], _, _)))> anno*
-                             ; <fetch-elem(?QueryOptimizations(joinproperties, joinpropertiesgen, _, _))> anno*
-                             ; <conc; flatten-list; length; not(?1)> (joinproperties, joinpropertiesgen) // If we only eagerly fetch one property then we might as well leave it to Hibernate to do it the lazy way
-                             with
-                             x_class := <java-type-name> srt
-                             ; if <gt> (<length>joinproperties, 1)
-                               then
-                                e_allprops := <map(fieldaccess-to-fetchmode); string-list-to-java-servlet> joinproperties
-                                ; x_set := <concat-strings; newname> [x, "Props"]
-                                //; bstm_build* := <map(!(<repeat(oncetd(add-fake-entity-anno)); fieldaccess-to-condition>, <fieldaccess-to-fetchmode>); query-build-step(|x_set))> joinproperties
-                                ; bstm_build* := <map(repeat(oncetd(add-fake-entity-anno))); build-query-next(|x_set,Var(x))> joinproperties
-                                ; bstm_criteria* := bstm* |[
-                                      if(x instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)x).getHibernateLazyInitializer().isUninitialized()) {
-                                        utils.QueryOptimization.prefetchProperties(
-                                            ThreadLocalPage.get().getHibSession().createCriteria(x_class.class),
-                                            ((org.hibernate.proxy.HibernateProxy)x).getHibernateLazyInitializer().getIdentifier(),
-                                            e_allprops
-                                          );
-                                      }
-                                      else if(x != null) {
-                                        java.util.Set<String> x_set = new java.util.HashSet<String>();
-                                        bstm_build*
-                                        if(x_set.size() > 1) {
-	                                        utils.QueryOptimization.prefetchProperties(
-	                                            ThreadLocalPage.get().getHibSession().createCriteria(x_class.class),
-	                                            x.getId(),
-	                                            x_set
-	                                          );
-                                        }
-                                      }
-                                  ]|
-                               else
-                                 bstm_criteria* := []//<transform-opt-generic(|x, x_class) <+ ![]> (joinproperties, joinpropertiesgen)
-                               end
-                             ; bstm_criterias* := <filter(hibernate-extra-generic-criteria(hibernate-extra-generic-criteria-template-cond|expr|[ ThreadLocalPage.get().getHibSession() ]|))> joinpropertiesgen
-                           \})> farg*
-    ; result1 := <formal-arguments-to-store-statements> farg*
-    ; result := <conc; flatten-list> (result1, result2)
-*/    
-/*transform-opt-special(|x, x_class):
-  ([subjoin], [[genjoin]]) -> bstm |[ if(e_Cond) utils.QueryOptimization.prefetchProperties(ThreadLocalPage.get().getHibSession().createCriteria(x_class.class), x.getId(), e_props); ]|
-  where subjoin := <collect(?subjoin)> genjoin
-  with e_get := <repeat(oncetd(add-fake-entity-anno)); expression-to-java-servlet> subjoin
-  ; e_props := <map(fieldaccess-to-query); string-list-to-java-servlet> [subjoin, genjoin]
-*/
-/*transform-opt-generic:
-  lst@[head|tail] -> bstm |[ if(!org.hibernate.Hibernate.isInitialized(e_Col)) utils.QueryOptimization.prefetchProperties(ThreadLocalPage.get().getHibSession().createCriteria(x_class.class), e_owner.getId(), e_props); ]|
-  where <gt>(<length> lst, 1)
-  with FieldAccess(Cast(p, SimpleSort(srt)), f){anno*} := head
-  ; x_class := <java-type-entity-name> srt 
-  ; e_owner := <repeat(oncetd(add-fake-entity-anno)); expression-to-java-servlet> p
-  ; root := FieldAccess(p, f){anno*}
-  ; e_Col := <repeat(oncetd(add-fake-entity-anno)); expression-to-java-servlet> root
-  ; e_props := <alltd(?p; !Var("owner")); map(fieldaccess-to-fetchmode); string-list-to-java-servlet> [root|tail]*/
-/*
-  hibernate-extra-generic-criteria-template-cond:
-    (owner, e_owner, x_ownerclass, root) -> expr |[ e_Cond && !org.hibernate.Hibernate.isInitialized(e_Col) ]|
-    where e_Cond := <hibernate-extra-generic-criteria-default-cond>
-    ; e_Col := <repeat(oncetd(add-fake-entity-anno)); expression-to-java-servlet> root
-      */
-/*
-fieldaccess-to-condition =
-  ?fa@FieldAccess(p, f)
-  ; e_fa := <expression-to-java-servlet> fa
-  ; <fieldaccess-to-condition(|expr|[ !org.hibernate.Hibernate.isInitialized(e_fa)]|)> p
-
-fieldaccess-to-condition(|e_prev) =
-  ?fa@FieldAccess(p, f)
-  ; e_fa := <expression-to-java-servlet> fa
-  ; <fieldaccess-to-condition(|expr|[ !org.hibernate.Hibernate.isInitialized(e_fa) || e_prev ]|)> p
-
-fieldaccess-to-condition(|e_prev) =
-  ?Cast(p, SimpleSort(x_class))
-  ; e_p := <expression-to-java-servlet> p
-  ; <fieldaccess-to-condition(|expr|[ (e_p.instanceOf("~x_class") && (e_prev)) ]|)> p
-
-fieldaccess-to-condition(|e_prev):
-  Var(_) -> e_prev
-
-query-build-step(|x_set) :
-  (e_cond, prop) -> bstm  |[ if(e_cond) x_set.add("~prop"); ]|
-*/
-add-fake-entity-anno :
-  type@SimpleSort(_) -> x
-  where <has-no-anno(?EntityAnno(_,_,_))> type
-  with x := <add-anno(|EntityAnno("", "", ""))> type
-/*
-build-query(|x_set) :
-  (path@FieldAccess(p, x), subpaths) -> stm_out
-  with e_Path := <expression-to-java-servlet> p
-  ; stm_addall* := <map(fieldaccess-to-fetchmode; \ str -> stm |[ x_set.add("~str"); ]|\)> subpaths
-  ; stm_buildsub* := <build-query-next(|x_set,path)> subpaths
-  ; stm_out := <if-else-java-servlet> (expr |[ e_Path.is#x#Uninitialized() ]|, stm_addall*, stm_buildsub*)
-
-if-else-java-servlet:
-  (e_Cond, bstm_true*, bstm_false*) -> stm |[ if(e_Cond) stm_true else stm_false ]|
-  where stm_true := <java-statement-from-list> bstm_true*
-  ; stm_false := <java-statement-from-list> bstm_false*
-
-if-else-java-servlet:
-  (e_Cond, bstm_true*, []) -> stm |[ if(e_Cond) stm_true ]|
-  where stm_true := <java-statement-from-list> bstm_true*
-
-if-else-java-servlet:
-  (e_Cond, [], bstm_false*) -> stm |[ if(!(e_Cond)) stm_false ]|
-  where stm_false := <java-statement-from-list> bstm_false*
-
-java-statement-from-list:
-  bstm_block* -> stm |[ { bstm_block* } ]|
-  where <gt>(<length>bstm_block*, 1)
-  
-java-statement-from-list:
-  bstm_block* -> stm_single
-  where [stm_single] := bstm_block*
-
-build-query(|x_set) :
-  (path@Cast(p, SimpleSort(x_class)), subpaths) -> stm |[ if(e_Path.instanceOf("~x_class")) stm_buildsub ]|
-  with e_Path := <expression-to-java-servlet> p
-  ; bstm_buildsub* := <build-query-next(|x_set,path)> subpaths
-  where stm_buildsub := <java-statement-from-list> bstm_buildsub*
-*//*
-build-query-next(get-next|x_set) =
-  ?paths
-  ; collect(get-next)
-  ; make-set
-  ; map(get-sub-paths(|paths))
-
-build-query-next(|x_set) = build-query-next(?FieldAccess(Var(_), _) <+ ?Cast(Var(_), _)|x_set)
-
-build-query-next(|x_set,current) = build-query-next(?FieldAccess(current, _) <+ ?Cast(current, _)|x_set)
-*/
-/*
-build-query-next(|x_set,current) =
-  ?paths
-  ; collect(?FieldAccess(current, _) <+ ?Cast(current, _))
-  ; make-set
-  ; map(get-sub-paths(|paths); build-query(|x_set))
-
-get-sub-paths(|paths) :
-  path -> (path, subpaths)
-  with subpaths := <filter(where(collect(?path); ?[_]))> paths
-*/

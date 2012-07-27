@@ -1,0 +1,48 @@
+module org/webdsl/dsl/utils/jrebel
+
+imports 
+  libstrategolib
+    
+strategies
+    
+  jrebel-option =
+    Option("--jrebel"
+    , rules ( OptionsForceJRebelInitialize := True() )
+    , !HelpString("--jrebel", "add static variable with random name to each generated class to trigger reinitialize in JRebel, also trigger server restart in plugin only when entities have changed")
+    )  
+    
+  is-force-jrebel-initialize-enabled = where(OptionsForceJRebelInitialize)    
+
+rules
+  
+  post-process-class-for-jrebel-if-enabled =
+    if is-force-jrebel-initialize-enabled then add-random-static-var-to-trigger-reinitialization-in-jrebel end
+    
+  add-random-static-var-to-trigger-reinitialization-in-jrebel =
+    CompilationUnit(id, id, [ClassDec(ClassDecHead(id, id, id, id, id), ClassBody(add-random-static-var))])  
+    
+  add-random-static-var :
+    xs -> [svar | xs]
+    with  svar :=
+            FieldDec(
+              [Private(), Static()]
+            , ClassOrInterfaceType(TypeName(Id("String")), None())
+            , [VarDec(Id($[jrebel_force_reload[<new>]]), Lit(String([Chars("ignore this")])))] // in command-line use 'new' might generate the same name in subsequent builds, but in Spoofax/Eclipse it will keep incrementing (JRebel option is mainly for use in Eclipse)
+            )
+            
+rules
+  
+  get-entities-marker-file = 
+    <concat-strings> [<DirName>, "/.servletapp/.entities-have-changed"]
+  
+  update-entities-changed-marker-file = 
+    if is-force-jrebel-initialize-enabled then
+      if is-compile-units-cache-stale then write-entities-changed-marker-file else remove-entities-changed-marker-file end
+    end
+    
+  write-entities-changed-marker-file =
+    <WriteToBinaryFile> (<get-entities-marker-file>, "this file is read by the plugin builder to see that a restart is required to trigger a Hibernate update")
+    
+  remove-entities-changed-marker-file = 
+    try(<remove-file> <get-entities-marker-file>)
+     

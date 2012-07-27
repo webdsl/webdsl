@@ -1,0 +1,53 @@
+module org/webdsl/dsl/transformation/import-modules
+
+imports
+  libstrategolib
+  libstratego-xtc
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/error
+
+strategies // module imports
+
+  import-modules = 
+    try(simplify-application-constructor)
+  ; import-modules-from-application
+    
+  simplify-application-constructor :
+    ApplicationDefs(qid, defs, sections) -> Application(qid, [Section("definitions", defs)|sections])
+
+  import-modules-from-application :
+    Application(name, sec) -> Application(name, sec')
+    with {| ExtraModulesToImport:
+           try(import-extra-modules-hook; debug(!"INTERNAL ERROR: import-extra-modules-hook strategies must fail");<exit>1)
+         ; extramodules := <bagof-ExtraModulesToImport>
+         |}
+       ; name1 := <strip-annos> name
+       ; rules(Imported : name1)
+       ; name2 := <AppName>
+       ; rules(Imported : name2)    // when application name and filename don't match
+       ; !Application(name, [Section("builtin-modules",extramodules) | sec])
+       ; topdown(try(already-imported <+ import-module))
+       ; imported := <bagof-ImportedModules <+ ![]>
+       ; sec'     := <conc> (sec, imported)
+
+  import-extra-modules-hook = fail
+
+  emit-import :
+    x -> <rules( ExtraModulesToImport :+= x )>
+
+  already-imported :
+    Imports(name) -> Note([])
+    where <Imported> <strip-annos> name
+
+  import-module :
+    Imports(name) -> Note([])
+    with mod := <xtc-parse-webdsl-module> FILE(<concat-strings>[<DirName>, "/", name, ".app"])
+       ; if <not(?Module(_,_))> mod then
+            <fatal-err(|"Trying to import a file that is not a module: ")> name
+         end
+       ; name1 := <strip-annos> name
+       ; rules( Imported : name1 ) 
+       ; mod1 := <topdown(try(already-imported <+ import-module))> mod
+       ; rules( ImportedModules :+= mod1 )
+       <+
+         add-error(|"Unable to import this module")

@@ -15,8 +15,13 @@ rules //global var use
 
 rules
 
-  generate-code-java-servlet-once: _ ->
-    <emit-java-code; fail> compilation-unit|[
+  generate-code-java-servlet-once =
+    disable-code-generation-if-cache-exists
+  ; generate-global-variables-init-class
+  ; fail
+       
+  generate-global-variables-init-class: 
+    _ -> <emit-java-code> compilation-unit|[
       package utils;
   
       import java.io.*;
@@ -99,6 +104,8 @@ rules
               globalvarsChecked = true;
           }
         }
+                            
+        ~*[initvars]
       }
     ]|
     //where not([] := <bagof-AllGlobalVars>) // fails if there are no global vars, wont generate anything then
@@ -134,6 +141,7 @@ rules
         ; bstm4* := <map(vardeclinit-to-id-load <+ pp-aterm(!"vardeclinit-to-id-load: ");fail)> vardeclinits
         ; cbds1* := <map(vardeclinit-to-method-java-servlet <+ pp-aterm(!"vardeclinit-to-method-java-servlet: ");fail); concat-with-sublists> vardeclinits
         ; bstm_initobjects* := <map(vardeclinit-to-init-object-java)> vardeclinits
+        ; initvars := <generate-global-var-initializer-method>
  
   vardeclinit-to-init-object-java :
     vdi@VarDeclInit(x_ident,srt@SimpleSort(x_class), e) -> 
@@ -210,3 +218,32 @@ rules
       ; t := <defined-java-type> srt
       ; x_t := <java-type-name> srt
       ; e_vardeclinit := <expression-to-java-servlet> e
+        
+rules
+  
+  generate-global-var-initializer-method = 
+    bstm* := <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars>
+    ; bstm2*  := <map(generate-session-var-initializer); concat> <bagof-SessionEntities<+![]>
+    ; t := type|[ boolean ]|
+    ; !|[
+        public static t initGlobalVars(Environment env, org.hibernate.Session hibSession) {
+          bstm2*
+          bstm*
+          return true;
+        }
+      ]|
+
+  generate-session-var-initializer :
+    sent@def|[ session x_ident { ebd* } ]| -> bstm*|[ 
+      env.putVariable("~x_ident", new x_Ident());
+    ]| 
+    with x_Ident := <capitalize-string> x_ident
+
+  generate-global-var-initializer :
+    elem |[ var x : srt := e ]| -> bstm*|[ 
+      env.putVariable("~x", GlobalVariables.get#x(hibSession)); 
+      if(env.getVariable("~x") == null) {
+        hibSession.getTransaction().commit();
+        return false;
+      }
+    ]| 

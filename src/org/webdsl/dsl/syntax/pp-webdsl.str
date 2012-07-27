@@ -7,15 +7,15 @@ strategies
 
   webdsl-to-textfile(|file) =
     !TextFile(file, <pp-webdsl-to-string>)
-    
+
   output-webdsl =
     if-pretty-printing(
       output-webdsl-to-file,
       output(id)
     )
     ; <exit> 0
-    
-  output-webdsl-to-file = 
+
+  output-webdsl-to-file =
     let open-file   = <open-stream> (<id>, "w") <+ perror; <exit> 1
      in where( fout := <get-config; open-file <+ stdout-stream> "-o" )
         ; finally( pp-webdsl-to-stream(|fout), <fclose> fout )
@@ -23,12 +23,21 @@ strategies
 
   /**
    * Pretty-prints the WebDSL AST to a string.
-   *
+   * Starts new line after 80 chars
    * @type WebDSL -> String
    */
   pp-webdsl-to-string =
     webdsl-to-abox
     ; box2text-string(|80)
+
+  /**
+   * Pretty-prints the WebDSL AST to a string.
+   * Starts new line after given number of chars
+   * @type WebDSL -> String
+   */
+  pp-webdsl-to-string(|lineLength) =
+    webdsl-to-abox
+    ; box2text-string(|lineLength)
 
   /**
    * Pretty-prints the WebDSL AST to a Stream.
@@ -45,18 +54,18 @@ strategies
    *
    * @type WebDSL -> Box
    */
-    
+
   webdsl-to-abox =
     ast2box(|[<webdsl-pp-table>,<hql-pp-table>])
-    
+
   webdsl-pp-table =
     WebDslPpTable
     <+ tbl := <import-term(WebDSL-pretty.pp.af)>
        ; rules( WebDslPpTable := tbl )
        ; !tbl
-       
+
 rules // stratego rules for selective pretty-printing without pretty-print table (faster)
-  
+
   pp-func-sig-arg-names = ?(x,argnames); <concat-strings> [x,"(",<separate-by(|", ");concat-strings> argnames,")"]
   pp-func-sig = ?(x,argtypes); <concat-strings> [x,"(",<pp-types> argtypes,")"]
   pp-func-sig = ?(x,argtypes,returntype); <concat-strings> [x,"(",<pp-types> argtypes,")",<!$[:[<pp-type>]]> returntype]
@@ -68,12 +77,13 @@ rules // stratego rules for selective pretty-printing without pretty-print table
   pp-type-aux : SimpleSort(x) -> x where not(<?"Void"> x)
   pp-type-aux : SimpleSort("Void") -> ""
   pp-type-aux : InternalSort(x) -> x
-  pp-type-aux : ClassSort(c) -> c   
-  pp-type-aux : EntitySort(c) -> c   
+  pp-type-aux : ClassSort(c) -> c
+  pp-type-aux : EntitySort(c) -> c
   pp-type-aux : GenericSort(x,[y]) -> <concat-strings> [x,"<",<pp-type> y,">"]
   pp-type-aux : RefSort(t) -> <concat-strings> ["Ref<",<pp-type> t,">"]
   pp-type-aux : FunctionSort(farg*,t_return) -> <concat-strings> ["function(",<pp-args> farg*,"):",<pp-type>t_return]
-   
+  pp-type-aux : "unknown" -> "error: unknown type"
+
   pp-args = map(pp-arg);separate-by(|", ");concat-strings
   pp-arg : a -> b with b := <pp-arg-aux> a //assert that pp-arg succeeds, otherwise a rule must be missing
   pp-arg-aux  : Arg(x,t) -> <concat-strings> [x," : ",<pp-type> t]

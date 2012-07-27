@@ -61,8 +61,6 @@ module .servletapp/src-webdsl-template/built-in
     getCount() : Int
     getValue() : String
     getFieldName() : String
-    encodeAsString() : String
-    decodeFromString(String) : Facet
     getValueAsDate() : Date
     getValueAsFloat() : Float
     getValueAsInt() : Int
@@ -78,50 +76,70 @@ module .servletapp/src-webdsl-template/built-in
     static escapeQuery(String) : String
     static fromString(String) : Searcher
     asString() : String
-    getFieldFilterValue(String) : String
-    getFacets(String,Bool) : List<Facet>
+    enableFaceting(String,Int) : Searcher
+    enableFaceting(String,String) : Searcher
+    getFacetsWithinSelection(String) : List<Facet>
     getFacets(String) : List<Facet>
-    getFilteredFacets() : List<Facet>
+    addFacetSelection(Facet) : Searcher
+    addFacetSelection(List<Facet>) : Searcher
+    getFacetSelection() : List<Facet>
+    getFacetSelection(String) : List<Facet>
+    removeFacetSelection(Facet) : Searcher
+    clearFacetSelection() : Searcher
+    clearFacetSelection(String) : Searcher
     highlight(String, String) :  String
     highlight(String,String,String,String,Int,Int,String) : String
     highlight(String,String,String,String) : String
-    query() : String
+    highlightLargeText(String, String) :  String
+    highlightLargeText(String,String,String,String,Int,Int,String) : String
+    highlightLargeText(String,String,String,String) : String
+    getQuery() : String
     luceneQuery() : String
-    resultSize() : Int
-    searchTimeAsString() : String
+    searchTime() : String
     searchTimeMillis() : Int
     searchTimeSeconds() : Float
     allowLuceneSyntax(Bool) : Searcher
-    filterByField(String,String) : Searcher
+    addFieldFilter(String,String) : Searcher
+    getFilteredFields() : List<String>
+    getFieldFilterValue(String) : String
+    removeFieldFilter(String) : Searcher
+    clearFieldFilters() : Searcher
+    startMustClause() : Searcher
+    startMustNotClause() : Searcher
+    startShouldClause() : Searcher
+    must() : Searcher
+    should() : Searcher
+    not() : Searcher
+    endClause() : Searcher
     setNamespace(String) : Searcher
+    getNamespace() : String
     removeNamespace() : Searcher
     boost(String,Float) : Searcher
     defaultAnd() : Searcher
     defaultOr() : Searcher
-    enableFaceting(String,Int) : Searcher
-    enableFaceting(String,String) : Searcher
-    filterByFacet(Facet) : Searcher
-    filterByFacets(List<Facet>) : Searcher
-    removeFilteredFacet(Facet) : Searcher
     field(String) : Searcher
     fields(List<String>) : Searcher
-    firstResult(Int) : Searcher
-    listScores() : List<Float>
-    listExplanations() : List<String>
-    maxResults(Int) : Searcher
+    defaultFields() : Searcher
+    getFields() : List<String>
+    setOffset(Int) : Searcher
+    getOffset() : Int
+    setLimit(Int) : Searcher
+    getLimit() : Int
+    scores() : List<Float>
+    explanations() : List<String>
+    count() : Int
     moreLikeThis(String) : Searcher
-    must() : Searcher
-    mustNot() : Searcher
-    should() : Searcher
-    openGroup() : Searcher
-    closeGroup() : Searcher
-    query(String) : Searcher
-    phraseQuery(String,Int) : Searcher
     sortDesc(String) : Searcher
     sortAsc(String) : Searcher
-    range(Int,Int) : Searcher
-    range(Float,Float) : Searcher
-    range(Date,Date) : Searcher
+    clearSorting() : Searcher
+    reset() : Searcher
+    query(String) : Searcher
+    phraseQuery(String,Int) : Searcher
+    rangeQuery(Int,Int,Bool,Bool) : Searcher
+    rangeQuery(Float,Float,Bool,Bool) : Searcher
+    rangeQuery(Date,Date,Bool,Bool) : Searcher
+    rangeQuery(String,String,Bool,Bool) : Searcher
+    matchAllQuery() : Searcher
   }
 
   native class org.webdsl.search.SearchStatistics as SearchStatistics{
@@ -145,9 +163,9 @@ module .servletapp/src-webdsl-template/built-in
   //The default analyzer, equal to the one used by default in hibernate search
   default_builtin_analyzer analyzer hsearchstandardanalyzer {
     tokenizer = StandardTokenizer
-    tokenfilter = StandardFilter
-    tokenfilter = LowerCaseFilter
-    tokenfilter = StopFilter
+    token filter = StandardFilter
+    token filter = LowerCaseFilter
+    token filter = StopFilter
   }
 
   //Template showing the info available through Hibernate Search statistics
@@ -189,12 +207,13 @@ module .servletapp/src-webdsl-template/built-in
     startsWith(String):Bool
     startsWith(String,Int):Bool
     endsWith(String):Bool
+    trim():String
     utils.StringType.parseUUID                   as parseUUID():UUID
     org.webdsl.tools.Utils.containsDigit         as containsDigit():Bool
     org.webdsl.tools.Utils.containsLowerCase     as containsLowerCase():Bool
     org.webdsl.tools.Utils.containsUpperCase     as containsUpperCase():Bool
     org.webdsl.tools.Utils.isCleanUrl            as isCleanUrl():Bool
-    org.apache.commons.lang.StringUtils.contains as contains(String):Bool // this 'contains' function handles null, null as either arg will produce false
+    org.apache.commons.lang3.StringUtils.contains as contains(String):Bool // this 'contains' function handles null, null as either arg will produce false
     utils.StringType.parseInt                    as parseInt():Int
     utils.StringType.split                       as split():List<String>
     utils.StringType.splitWithSeparator          as split(String):List<String> //TODO Regex as argument
@@ -203,7 +222,7 @@ module .servletapp/src-webdsl-template/built-in
     utils.DateType.parseDate as parseDate(String):Date
     utils.DateType.parseDate as parseDateTime(String):DateTime
     utils.DateType.parseDate as parseTime(String):Time
-    org.apache.commons.lang.StringEscapeUtils.escapeJavaScript as escapeJavaScript():String
+    org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript as escapeJavaScript():String
     substring(Int):String
     substring(Int,Int):String
   }
@@ -302,6 +321,7 @@ module .servletapp/src-webdsl-template/built-in
     leaveLabelContext()
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
+    setMimetype(String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -310,6 +330,15 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.TemplateContext as TemplateContext {
     clone():TemplateContext
     getTemplateContextString():String
+  }
+
+  function mimetype(s:String){
+    getPage().setMimetype(s);
+  }
+  template mimetype(s:String){
+    init{
+      getPage().setMimetype(s);
+    }
   }
 
 //access to template context
@@ -345,6 +374,7 @@ module .servletapp/src-webdsl-template/built-in
   native class org.json.JSONObject as JSONObject {
     constructor()
     constructor(String)
+    NULL : Object
     get(String) : Object
     getBoolean(String) : Bool
     getDouble(String) : Double
@@ -467,6 +497,7 @@ module .servletapp/src-webdsl-template/built-in
     replyTo :: String (length=1000000)
     from :: String (length=1000000)
     subject :: String (length=1000000)
+    scheduled :: DateTime (default=now())
     lastTry :: DateTime
   }
 
@@ -474,7 +505,7 @@ module .servletapp/src-webdsl-template/built-in
 
   function internalHandleEmailQueue(){
     var n : DateTime := now().addHours(-3); // retry after 3 hours to avoid spamming too much
-    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n limit 1;
+    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n order by q.scheduled asc limit 1;
 
     for(queuedEmail:QueuedEmail in queuedEmails){
       if(sendemail(sendQueuedEmail(queuedEmail))){
@@ -515,9 +546,6 @@ module .servletapp/src-webdsl-template/built-in
     method :: String
     referer :: Text
     userAgent :: Text
-    queryExecutionCount :: Int
-    queryExecutionMaxTime :: Int
-    queryExecutionMaxTimeQueryString :: String
   }
 
   //built-in templates

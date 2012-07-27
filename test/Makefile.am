@@ -64,3 +64,8 @@ clean:
 	-@rm -f $(TESTS);
 	@echo "Removing all .out-files";
 	-@rm -f fail/*.out fail/*/*.out succeed/*.out succeed/*/*.out
+
+
+#stratego code tests
+
+TESTS += run-stratego-tests.sh
