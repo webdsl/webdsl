@@ -117,6 +117,7 @@ public class PersistentOwnedList extends PersistentList {
 
 	@Override
 	protected int getCachedSize() {
+		if(cachedSize == -1) return super.getCachedSize();
 		return cachedSize;
 	}
 
@@ -359,7 +360,9 @@ public class PersistentOwnedList extends PersistentList {
 				return true;
 			}
 			else {
-				throwLazyInitializationExceptionIfNotConnected();
+				return super.readSize();
+				// Can be worse for: if(list.length > 0) { "list:" output(list) }
+				/*throwLazyInitializationExceptionIfNotConnected();
 				SessionImplementor session = getSession();
 				org.hibernate.engine.CollectionEntry entry = session.getPersistenceContext().getCollectionEntry(this);
 				CollectionPersister persister = entry.getLoadedPersister();
@@ -368,7 +371,7 @@ public class PersistentOwnedList extends PersistentList {
 					session.flush();
 				}
 				cachedSize = persister.getSize( entry.getLoadedKey(), session );
-				return true;
+				return true;*/
 				//}
 			}
 		}

@@ -105,7 +105,7 @@ test {
   // We check that the root object can be loaded with some, but not all no-proxy properties
   d.get(navigate(onlyone()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 4);
   elem := d.findElement(SelectBy.id("sqllogentities"));
   assert(elem.getText().parseInt() == 7); // 1 SessionManager, 3 Root, 3 NoProxyA
   elem := d.findElement(SelectBy.id("sqllogcollections"));
@@ -114,7 +114,7 @@ test {
   // We check that the root object can be loaded with all no-proxy properties
   d.get(navigate(both()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("sqllogentities"));
   assert(elem.getText().parseInt() == 10); // 1 SessionManager, 3 Root, 3 NoProxyA, 3 NoProxyB
   elem := d.findElement(SelectBy.id("sqllogcollections"));
@@ -129,7 +129,7 @@ test {
   assert(d.getPageSource().contains("Null_OldNoProxyA1"), "OldNoProxyA1 not found");
   d.get(navigate(both()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("sqllogentities"));
   assert(elem.getText().parseInt() == 10); // 1 SessionManager, 3 Root, 3 NoProxyA, 3 NoProxyB
   elem := d.findElement(SelectBy.id("sqllogcollections"));
@@ -146,7 +146,7 @@ test {
   assert(d.getPageSource().contains("Root1T_NewNoProxyA1"), "NewNoProxyA1 not found");
   d.get(navigate(both()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 3);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("sqllogentities"));
   assert(elem.getText().parseInt() == 10); // 1 SessionManager, 3 Root, 3 NoProxyA, 3 NoProxyB
   elem := d.findElement(SelectBy.id("sqllogcollections"));

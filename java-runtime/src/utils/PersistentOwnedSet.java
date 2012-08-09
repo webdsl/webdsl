@@ -115,6 +115,7 @@ public class PersistentOwnedSet extends PersistentSet {
 
 	@Override
 	protected int getCachedSize() {
+		if(cachedSize == -1) return super.getCachedSize();
 		return cachedSize;
 	}
 
@@ -334,7 +335,8 @@ public class PersistentOwnedSet extends PersistentSet {
 				return true;
 			}
 			else {
-				throwLazyInitializationExceptionIfNotConnected();
+				// Can be worse for: if(set.length > 0) { "set:" output(set) }
+				/*throwLazyInitializationExceptionIfNotConnected();
 				SessionImplementor session = getSession();
 				org.hibernate.engine.CollectionEntry entry = session.getPersistenceContext().getCollectionEntry(this);
 				CollectionPersister persister = entry.getLoadedPersister();
@@ -343,7 +345,7 @@ public class PersistentOwnedSet extends PersistentSet {
 					session.flush();
 				}
 				cachedSize = persister.getSize( entry.getLoadedKey(), session );
-				return true;
+				return true;*/
 				//}
 			}
 		}

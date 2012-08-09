@@ -1543,7 +1543,7 @@
    PrefetchFor                        -- H[KW["prefetch-for"] _1 _2 _3] _4,
    PrefetchChildren                   -- V  [V is=2 [KW["{"] _1] KW["}"]],
    PrefetchChildren.1:iter-star       -- _1,
-   PrefetchNode                       -- H[ H hs=0 [_1 _2 _3] _4 _5 _6] _7,
+   PrefetchNode                       -- H[ H hs=0 [_1 _2] _3 _4 _5 _6] _7,
    PrefetchNode.1:opt                 -- _1 KW["."],
    NoEmptyBatch                       -- KW["no-empty-batch"],
    PrefetchIfDefault                  -- H [KW["default"] KW["["] ] H hs=0 [_1] KW["]"],
