@@ -78,7 +78,6 @@ module .servletapp/src-webdsl-template/built-in
     asString() : String
     enableFaceting(String,Int) : Searcher
     enableFaceting(String,String) : Searcher
-    getFacetsWithinSelection(String) : List<Facet>
     getFacets(String) : List<Facet>
     addFacetSelection(Facet) : Searcher
     addFacetSelection(List<Facet>) : Searcher
@@ -93,6 +92,12 @@ module .servletapp/src-webdsl-template/built-in
     highlightLargeText(String, String) :  String
     highlightLargeText(String,String,String,String,Int,Int,String) : String
     highlightLargeText(String,String,String,String) : String
+    highlightHTML(String, String) :  String
+    highlightHTML(String,String,String,String,Int,Int,String) : String
+    highlightHTML(String,String,String,String) : String
+    highlightLargeHTML(String, String) :  String
+    highlightLargeHTML(String,String,String,String,Int,Int,String) : String
+    highlightLargeHTML(String,String,String,String) : String
     getQuery() : String
     luceneQuery() : String
     searchTime() : String
@@ -194,6 +199,18 @@ module .servletapp/src-webdsl-template/built-in
         row { column { <b>"Indexed entities (entity - nOfEntities)"</b> } }
         row { column { output(SearchStatistics.indexedEntitiesCount()) } }
     }
+  }
+
+  //tries to highlight the elements inside, not touching the html tags inside (highlighter invoked to ignore html tags)
+  //If nothing is highlighted, it just renders elements
+  define highlight(s : Searcher, fld : String){
+      var rendered   := rendertemplate( elements );
+      var renderedHL := if(s != null) s.highlightLargeHTML(fld, rendered, "<span class=\"highlightContent\">", "</span>", 1, 10000000, "") else "";
+      if(renderedHL != null && renderedHL.length() > 0) {
+        rawoutput( renderedHL )
+      } else {
+        rawoutput( rendered ) //don't render twice
+      }
   }
 
 

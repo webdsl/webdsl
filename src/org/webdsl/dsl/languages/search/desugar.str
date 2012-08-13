@@ -14,7 +14,7 @@ signature constructors
   DefaultSearchFields : Term
 
 rules // cleanup definitions that only needed 'declare'
-  
+
   desugar-search: SearchMapping(_, _) -> RemoveMe()
   desugar-search: SearchFieldMapping(_, _, _) -> RemoveMe()
   desugar-search: SearchNamespaceMapping(_) -> RemoveMe()
@@ -49,9 +49,20 @@ rules //desugar searcher language to native class interface
             end
 
   desugar-search:
-    HighlightTags(e_toHighlight, e_searcher, field, e_pretag, e_posttag) -> <rename> result
+    Highlight(type, e_toHighlight, e_searcher, field) -> <rename> result
       with e_field := <field-to-string> field
-         ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight, e_pretag, e_posttag) ]|
+         ; if (<?NormalHighlight()> type)
+           then result := exp|[ e_searcher.highlight(e_field, e_toHighlight) ]|
+           else result := exp|[ e_searcher.highlightHTML(e_field, e_toHighlight) ]|
+           end
+
+  desugar-search:
+    HighlightTags(type, e_toHighlight, e_searcher, field, e_pretag, e_posttag) -> <rename> result
+      with e_field := <field-to-string> field
+         ; if (<?NormalHighlight()> type)
+           then result := exp|[ e_searcher.highlight(e_field, e_toHighlight, e_pretag, e_posttag) ]|
+           else result := exp|[ e_searcher.highlightHTML(e_field, e_toHighlight, e_pretag, e_posttag) ]|
+           end
 
   field-to-string= if (<not(?QuerySearchField(_, _))> <id>) then !QuerySearchField(<id>, None()) end; field-to-string-exp
 
@@ -64,19 +75,10 @@ rules //desugar searcher language to native class interface
       where <(?SearchFieldRef(exp))> x
 
   desugar-search:
-    Highlight(e_toHighlight, e_searcher, field) -> <rename> result
-      with e_field := <field-to-string> field
-         ; result := exp|[ e_searcher.highlight(e_field, e_toHighlight) ]|
-
-  desugar-search:
     SearchResults(e_searcher) -> <rename> exp|[ e_searcher.results() ]|
 
   desugar-search:
-    FacetResults(field, e_searcher) -> <rename> exp|[ e_searcher.getFacetsWithinSelection(e_field) ]|
-    with e_field := <field-to-string> field
-
-  desugar-search:
-    AllFacetResults(field, e_searcher) -> <rename> exp|[ e_searcher.getFacets(e_field) ]|
+    FacetResults(field, e_searcher) -> <rename> exp|[ e_searcher.getFacets(e_field) ]|
     with e_field := <field-to-string> field
 
   desugar-search:
