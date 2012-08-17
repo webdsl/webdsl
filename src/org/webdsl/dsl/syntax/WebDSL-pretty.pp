@@ -65,7 +65,7 @@
    Local                              -- KW["local"],
    Feed                               -- KW["feed"],
    Arg                                -- H[_1 KW[":"] _2],
-   Text                               -- _1, 
+   Text                               -- _1,
 
    IfExp -- KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3,
 
@@ -141,7 +141,7 @@
    FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1,
    FilterNoLimit                      -- KW["where"] _1 KW["order"] KW["by"] _2,
    FilterNoOrderBy                    -- KW["where"] _1 _2,
-   
+
    OrderNonSpecific                   -- _1,
    OrderAscending                     -- _1 KW["asc"],
    OrderDescending                    -- _1 KW["desc"],
@@ -439,8 +439,8 @@
    HqlQuery.1:parameterized-sort                -- _1 _2,
    HqlQueryLimit                                -- _1 KW["limit"] _2,
    HqlQueryLimitOffset                          -- _1 KW["limit"] _2 KW[","] _3,
-   
-   
+
+
    Function.2:iter-star-sep                     -- _1 KW[","],
    ExtendSessionEntity.3:iter-star              -- _1,
    ExtendSessionEntity.2:iter-star              -- _1,
@@ -467,7 +467,7 @@
    ValidateCreateAnno                           -- KW["validatecreate"] KW["("] _1 KW[","] _2 KW[")"],
    IgnoreAccessControl                          -- KW["ignore-access-control"],
    EnumValue                                    -- _1 KW["("] _2 KW[")"],
-   
+
    DeriveBodyElement.2:iter-star                -- _1,
    DeriveBodyElement                            -- _1 KW["{"] _2 KW["}"],
    DeriveBodyElement.2:iter-star                -- _1,
@@ -549,7 +549,7 @@
    VarDeclInitInferred                          -- KW["var"] _1 KW[":="] _2 KW[";"],
    VarDeclInit                                  -- KW["var"] _1 KW[":"] _2 KW[":="] _3,
    VarDeclInitInferred                          -- KW["var"] _1 KW[":="] _2,
-   
+
    Int                                          -- _1,
    InColl                                       -- _1 KW["in"] _2,
    InlineAction                                 -- KW["action"] _1,
@@ -779,6 +779,7 @@
    Descending                         -- H hs=1 [KW["descending"]],
    SearchResults                      -- H hs=1 [KW["results"] KW["from"] _1],
    FacetResults                       -- H hs=1 [_1 KW["facets"] KW["from"] _2],
+   AllFacetResults                    -- H hs=1 [KW["all"] _1 KW["facets"] KW["from"] _2],
    SearchTimeString                   -- H hs=1 [KW["searchtime"] KW["from"] _1],
    SearchResultsSize                  -- H hs=1 [KW["count"] KW["from"] _1],
    HighlightTags                      -- H hs=1 [_1 _2 KW["for"] _3 KW["on"] _4 KW["surround"] KW["with"] KW["("] _5 KW[","] _6 KW[")"] ],
@@ -960,16 +961,16 @@
    TemplateBody.1:iter-star                               -- _1,
    TemplateBody                                           -- V  [V vs=2 [KW["{"] _1] KW["}"]],
    TemplateBody.1:iter-star                               -- _1,
-   
+
    TemplateCase                                           -- KW["case"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
-   TemplateCase.1:iter-star-sep							  -- _1 KW[","],
+   TemplateCase.1:iter-star-sep                              -- _1 KW[","],
    TemplateCase.2:iter-star                               -- _1,
    TemplateCaseAlt                                        -- _1 KW["{"] _2 KW["}"],
-   TemplateCaseAlt.1:iter-star-sep						  -- _1 KW[","],
+   TemplateCaseAlt.1:iter-star-sep                          -- _1 KW[","],
    TemplateCaseAlt.2:iter-star                            -- _1,
    TemplateCaseAltDefault                                 -- KW["default"] KW["{"] _1 KW["}"],
    TemplateCaseAltDefault.1:iter-star                     -- _1,
-   
+
    NoSpan                                                 -- KW["no-span"],
    TemplateArg.2:iter-star-sep                            -- _1 KW[","],
    TemplateArgs                                           -- V  [H  [KW["requires"]] _1],
@@ -1009,8 +1010,8 @@
    JSString -- _1,
    JSExp -- KW["~"] _1,
    JSTilde -- KW["\\~"],
-   
-   
+
+
    PagedForAll                                            -- KW["for"] KW["("] _1 KW[":"] _2 _3 KW["per"] _4 KW[")"] KW["{"] _5 KW["}"],
    PagedForAll.5:iter-star                                -- _1,
    PagedForAllNoFilter                                    -- KW["for"] KW["("] _1 KW[":"] _2 KW["per"] _3 KW[")"] KW["{"] _4 KW["}"],
@@ -1026,7 +1027,7 @@
    ForAllStmt                                             -- KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] _4,
    ForAllStmtNoFilter                                     -- KW["for"] KW["("] _1 KW[":"] _2 KW[")"] _3,
    ForCountStmt                                           -- KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"] _4,
-   WhileStmt                                   			  -- KW["while"] KW["("] _1 KW[")"] _2,
+   WhileStmt                                                 -- KW["while"] KW["("] _1 KW[")"] _2,
    ForExp                                                 -- KW["["] _1 KW["for"] KW["("] _2 KW[":"] _3 KW["in"] _4 _5 KW[")"] KW["]"],
    ForExpNoFilter                                         -- KW["["] _1 KW["for"] KW["("] _2 KW[":"] _3 KW["in"] _4 KW[")"] KW["]"],
    ForExp                                                 -- KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"],
@@ -1045,7 +1046,7 @@
    ForCount.4:iter-star                                   -- _1,
    ForSeparator                                           -- KW["separated-by"] KW["{"] _1 KW["}"],
    ForSeparator.1:iter-star                               -- _1,
-   
+
    Dispatch                                               -- KW["dispatch"] KW["{"] _1 _2 KW["}"],
    Dispatch.1:iter-star                                   -- _1,
    DispatchEntry                                          -- _1 KW["("] _2 KW[")"] KW["{"] _3 KW["}"],
@@ -1066,19 +1067,19 @@
    DispatchNavigateCall.2:iter-star-sep                   -- _1 KW[","],
    DispatchNavigateCallNoArg                              -- _1,
 
-   
+
    IfNoElseTempl                                          -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    IfNoElseTempl.2:iter-star                              -- _1,
    ElseTempl                                              -- KW["else"] KW["{"] _1 KW["}"],
    ElseTempl.1:iter-star                                  -- _1,
-   
+
    IfElseIfTempl                                          -- KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"] _3 _4,
    IfElseIfTempl.2:iter-star                              -- _1,
    IfElseIfTempl.3:iter                                   -- _1,
    IfElseIfTempl.4:opt                                    -- _1,
    ElseIfTempl                                            -- KW["else"] KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    ElseIfTempl.2:iter-star                                -- _1,
- 
+
    ValidationContext.1:iter-star                          -- _1,
    ValidationContext                                      -- KW["validationContext"] KW["{"] _1 KW["}"],
    ValidationContext.1:iter-star                          -- _1,

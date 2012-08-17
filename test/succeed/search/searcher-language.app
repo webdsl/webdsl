@@ -102,12 +102,12 @@ define page root() {
                     offset (index*100) limit 100
                     order by year desc;
 
-        var x12 := all name facets from x11;
+        var x12 := name facets from x11;
         var x13 := count from x1;
-        var x14 := all field facets from item.getSearcher();
-        var x15 := all field facets from search Movie matching +item.name -q;
+        var x14 := field facets from item.getSearcher();
+        var x15 := field facets from search Movie matching +item.name -q;
 
-        var x16 := all field facets from x9 == [Facet()];
+        var x16 := field facets from x9 == [Facet()];
         var x17 := Movie completions matching title:"Tra" similarity 5 / 11 != null;
 
     }
