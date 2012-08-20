@@ -30,6 +30,10 @@ strategies
       import java.util.Iterator;
       import java.io.File;
       import java.io.IOException;
+      import java.util.regex.Matcher;
+      import java.util.regex.Pattern;
+      import java.io.FileFilter;
+      import java.io.FileNotFoundException;
       import org.apache.lucene.analysis.WhitespaceAnalyzer;
       import org.apache.lucene.document.Document;
       import org.apache.lucene.index.IndexWriterConfig;
@@ -306,6 +310,7 @@ strategies
             IndexReader nsIndexReader = null;
             IndexWriter nsIndexWriter = null;
             Query negatedNamespaceQuery;
+            LuceneDictionary dict = null;
             Iterator<String> namespaceIt;
             long lastModified;
 
@@ -315,8 +320,10 @@ strategies
                 ex.printStackTrace();
                 lastModified = 0;
             }
+
             if(namespaces == null || namespaces.isEmpty()) {
-                namespaceIt = new LuceneDictionary(sourceReader, SearchHelper.NAMESPACEFIELD).getWordsIterator();
+                dict = new LuceneDictionary(sourceReader, SearchHelper.NAMESPACEFIELD);
+                namespaceIt = dict.getWordsIterator();
             } else {
                 namespaceIt = namespaces.iterator();
             }
@@ -387,6 +394,8 @@ strategies
                     }
                 }
             }
+
+            cleanupUnusedSuggestIndices(entityClass, dict.getWordsIterator());
         }
 
         private static void log (String message){
@@ -494,6 +503,75 @@ strategies
             q.add(new MatchAllDocsQuery() , Occur.SHOULD); //needed to perform a must not query
             q.add(new TermQuery(new Term(SearchHelper.NAMESPACEFIELD, namespace)), Occur.MUST_NOT);
             return q;
+        }
+
+        private static void cleanupUnusedSuggestIndices(Class<?> entityClass, Iterator<String> namespacesIt){
+            String className = entityClass.getName();
+            final ArrayList<String> namespacesEncoded = new ArrayList<String>();
+            // {indexdir}/{SpellCheck|AutoComplete}/{class.name.here}.{namespace}/field
+            final Pattern pattern = Pattern.compile(className.replaceAll("\\.","\\\\.") + "\\.(.+)");
+
+            String ns, nsEncoded;
+            while(namespacesIt.hasNext()){
+                ns = namespacesIt.next();
+                try{
+                    nsEncoded = java.net.URLEncoder.encode(ns,"UTF-8");
+                } catch(java.io.UnsupportedEncodingException ex){
+                    nsEncoded = ns;
+                }
+                if(!ns.isEmpty()){
+                    namespacesEncoded.add(nsEncoded);
+                }
+            }
+
+            FileFilter activeNamespaceDirFilter = new FileFilter() {
+                public boolean accept(File file) {
+                    Matcher m = pattern.matcher( file.getAbsolutePath() );
+                    m.find();
+                    try{
+                        return (file.isDirectory() && !namespacesEncoded.contains(m.group(1)));
+                    } catch (java.lang.IllegalStateException exception) {
+                        exception.printStackTrace();
+                        return false;
+                    }
+                }
+            };
+            File dir;
+
+            dir = new File(indexDir() + "/SpellCheck");
+            if ( dir.exists() ){
+                File[] files = dir.listFiles( activeNamespaceDirFilter );
+                for (File file : files) {
+                    String pathKey = file.getAbsolutePath().substring( file.getAbsolutePath().indexOf(indexDir()) );
+                    SearchSuggester.forceSpellCheckerRenewal( pathKey );
+                    log("Removing unused suggestion index: " + file.getAbsolutePath());
+                    delete(file);
+                }
+            }
+
+            dir = new File(indexDir() + "/AutoComplete");
+            if ( dir.exists() ){
+                File[] files = dir.listFiles( activeNamespaceDirFilter );
+                for (File file : files) {
+                    String pathKey = file.getAbsolutePath().substring( file.getAbsolutePath().indexOf(indexDir()) );
+                    SearchSuggester.forceAutoCompleterRenewal( pathKey );
+                    log("Removing unused suggestion index: " + file.getAbsolutePath());
+                    delete(file);
+                }
+            }
+
+        }
+
+        private static void delete(File f) {
+            if(f == null)
+                return;
+            if (f.isDirectory()) {
+              for (File c : f.listFiles())
+                delete(c);
+            }
+            if (!f.delete())
+              new FileNotFoundException("Failed to delete file: " + f).printStackTrace();
+
         }
 
  }
