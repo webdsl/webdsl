@@ -72,6 +72,9 @@ strategies
       public class IndexManager {
 
         private static long lastFacetReaderRenewal;
+        private static String currentNamespace = null;
+        private static IndexReader currentSourceReader = null;
+        private static IndexReader currentNamespaceReader = null;
 
         public static void main(String[] args) {
           reindex(Arrays.asList(args));
@@ -111,8 +114,6 @@ strategies
             String entityName = c.getName().substring(c.getPackage().getName().length() + 1);
             log("---Reindexing: " + entityName + "---");
             long time = System.currentTimeMillis();
-            SessionFactory sessionf = HibernateUtilConfigured.getSessionFactory();
-            Session session = sessionf.getCurrentSession();
             org.hibernate.search.FullTextSession ftSession = getFullTextSession();
             try {
                 ftSession.createIndexer( c )
@@ -131,12 +132,6 @@ strategies
                  if (ftSession != null) {
                      ftSession.close();
                      ftSession = null;
-                 }
-                 if (session != null) {
-                     session = null;
-                 }
-                 if (sessionf != null) {
-                     sessionf = null;
                  }
              }
              time = System.currentTimeMillis() - time;
@@ -304,109 +299,121 @@ strategies
             IndexReader sourceReader = readerProvider.openReader( directoryProviders );
             Directory sourceDir = (Directory)directoryProviders[0].getDirectory();
 
-            String tmpIndexPath = IndexManager.indexDir() + "/tmp";
-
-            Directory tmpDir = null;
-            IndexReader nsIndexReader = null;
-            IndexWriter nsIndexWriter = null;
-            Query negatedNamespaceQuery;
-            LuceneDictionary dict = null;
-            Iterator<String> namespaceIt;
-            long lastModified;
-
-            try{
-                lastModified = IndexReader.lastModified(sourceDir);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                lastModified = 0;
-            }
-
-            if(namespaces == null || namespaces.isEmpty()) {
-                dict = new LuceneDictionary(sourceReader, SearchHelper.NAMESPACEFIELD);
-                namespaceIt = dict.getWordsIterator();
-            } else {
-                namespaceIt = namespaces.iterator();
-            }
-
-            //Autocompletions for all namespaces and fields
-            reindexAutoCompletion(sourceReader, entityClass, completionFields, null, lastModified);
-            //Spellcheck for all namespaces and fields
-            reindexSpellCheck(sourceReader, entityClass, spellcheckFields, null, lastModified);
-
             try {
+                LuceneDictionary dict = null;
+                Iterator<String> namespaceIt;
+                long lastModified;
+
+                try{
+                    lastModified = IndexReader.lastModified(sourceDir);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    lastModified = 0;
+                }
+
+                if(namespaces == null || namespaces.isEmpty()) {
+                    dict = new LuceneDictionary(sourceReader, SearchHelper.NAMESPACEFIELD);
+                    namespaceIt = dict.getWordsIterator();
+                } else {
+                    namespaceIt = namespaces.iterator();
+                }
+
+                //Autocompletions for all namespaces and fields
+                reindexAutoCompletion(sourceReader, entityClass, completionFields, null, lastModified);
+                //Spellcheck for all namespaces and fields
+                reindexSpellCheck(sourceReader, entityClass, spellcheckFields, null, lastModified);
+
+                try {
+                    String currentNamespace= "";
+                    while( namespaceIt.hasNext() ){
+                        currentNamespace = namespaceIt.next();
+                        try{
+                            reindexAutoCompletion(sourceReader, entityClass, completionFields, currentNamespace, lastModified);
+                            reindexSpellCheck(sourceReader, entityClass, spellcheckFields, currentNamespace, lastModified);
+                        } catch (Exception ex) {
+                            log("Error during renewal of suggestion indexes");
+                            ex.printStackTrace();
+                        } finally{
+                            if(currentNamespaceReader != null){
+                                try{
+                                    currentNamespaceReader.close();
+                                } catch (Exception ex){
+                                    ex.printStackTrace();
+                                }
+                                currentNamespaceReader = null;
+                            }
+                        }
+                    }
+                } catch(Exception ex){
+                    ex.printStackTrace();
+                }
+
+                if(dict != null){
+                  cleanupUnusedSuggestIndices(entityClass, dict.getWordsIterator());
+                }
+            } finally {
+                readerProvider.closeReader( sourceReader );
+            }
+        }
+
+        private static synchronized IndexReader getNamespaceFilteredReader(IndexReader sourceReader, String namespace){
+            if(namespace == null || namespace.isEmpty()){
+                return sourceReader;
+            }
+
+            if( currentSourceReader == sourceReader && currentNamespace == namespace && currentNamespaceReader != null){
+                return currentNamespaceReader;
+            }
+
+            //create namespace reader
+            currentSourceReader = sourceReader;
+            currentNamespace = namespace;
+            Query negatedNamespaceQuery = mustNotNamespaceQuery(currentNamespace);
+            String tmpIndexPath = IndexManager.indexDir() + "/tmp";
+            Directory tmpDir = null;
+            IndexWriter nsIndexWriter = null;
+            try{
                 tmpDir = FSDirectory.open(new File( tmpIndexPath ));
-                String currentNamespace= "";
-                while( namespaceIt.hasNext() ){
-                    currentNamespace = namespaceIt.next();
-                    negatedNamespaceQuery = mustNotNamespaceQuery(currentNamespace);
-
+                //first close previous instance
+                if(currentNamespaceReader != null){
                     try{
-                        //writer in create mode, old docs are removed
-                        IndexWriterConfig writerCfg = new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)).setRAMBufferSizeMB((int)IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
-                        writerCfg.setOpenMode( OpenMode.CREATE );
-                        nsIndexWriter = new IndexWriter(tmpDir, writerCfg);
-                        //copy source dir
-                        nsIndexWriter.addIndexes(sourceDir);
-                        //remove all documents from namespaces other than currentNamespace
-                        nsIndexWriter.deleteDocuments(negatedNamespaceQuery);
-                        nsIndexWriter.optimize();
-                        if( nsIndexWriter.numDocs() < 1){
-                            log( "no suggestions to update for namespace '" + currentNamespace +  "'");
-                            continue;
-                        }
-                    } catch (Exception ex) {
-                        System.out.println("Error during renewal of suggestion indexes");
+                        currentNamespaceReader.close();
+                    } catch (Exception ex){
                         ex.printStackTrace();
-                    } finally{
-                        if( nsIndexWriter != null){
-                            try{
-                                nsIndexWriter.close();
-                            } catch (Exception ex2){
-                                ex2.printStackTrace();
-                            }
-                        }
                     }
-                    try{
-                        nsIndexReader = IndexReader.open( tmpDir );
-                        reindexAutoCompletion(nsIndexReader, entityClass, completionFields, currentNamespace, lastModified);
-                        reindexSpellCheck(nsIndexReader, entityClass, spellcheckFields, currentNamespace, lastModified);
-                    } catch (Exception ex) {
-                        log("Error during renewal of suggestion indexes");
-                        ex.printStackTrace();
-                    } finally{
-                        if( nsIndexReader != null ) {
-                            try {
-                                nsIndexReader.close();
-                            } catch (IOException ex) {
-                                ex.printStackTrace();
-                            }
-                        }
-                    }
+                    currentNamespaceReader = null;
                 }
-            } catch(Exception ex){
+                tmpDir = FSDirectory.open(new File( tmpIndexPath ));
+                //writer in create mode, old docs are removed
+                IndexWriterConfig writerCfg = new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)).setRAMBufferSizeMB((int)IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
+                writerCfg.setOpenMode( OpenMode.CREATE );
+                nsIndexWriter = new IndexWriter( tmpDir, writerCfg );
+                //copy source dir
+                nsIndexWriter.addIndexes( sourceReader );
+                //remove all documents from namespaces other than currentNamespace
+                nsIndexWriter.deleteDocuments(negatedNamespaceQuery);
+                nsIndexWriter.optimize();
+            } catch (Exception ex) {
+                System.out.println("Error during renewal of suggestion indexes");
                 ex.printStackTrace();
-            }finally {
-                if (tmpDir != null) {
-                    try {
-                        tmpDir.close();
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
+            } finally{
+                if( nsIndexWriter != null){
+                    try{ nsIndexWriter.close(); } catch (Exception ex2) { ex2.printStackTrace(); }
                 }
             }
-
-            if(dict != null){
-              cleanupUnusedSuggestIndices(entityClass, dict.getWordsIterator());
-            }
+            try{ currentNamespaceReader = IndexReader.open( tmpDir ); } catch (Exception ex) { ex.printStackTrace(); }
+            try { tmpDir.close(); } catch (IOException ex) { ex.printStackTrace(); }
+            return currentNamespaceReader;
         }
 
         private static void log (String message){
             System.out.println(new java.util.Date() + ": " + message);
         }
 
-        private static void reindexAutoCompletion(IndexReader rdr, Class<?> entityClass, String[] completionFields, String namespace, long lastModified) {
+        private static void reindexAutoCompletion(IndexReader sourceReader, Class<?> entityClass, String[] completionFields, String namespace, long lastModified) {
             Directory acDir = null;
             AutoCompleter ac = null;
+            IndexReader rdr = null;
             String namespaceInfo = (namespace == null || namespace.isEmpty()) ? "" : ", namespace: " + namespace;
             String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
             for ( String field  : completionFields ){
@@ -423,9 +430,14 @@ strategies
                     } else {
                         acDir = FSDirectory.open( f );
                     }
-                      ac = new AutoCompleter( acDir );
-                      ac.indexDictionary( rdr, field );
-                      SearchSuggester.forceAutoCompleterRenewal( acPath );
+                    rdr = getNamespaceFilteredReader(sourceReader, namespace);
+                    if( rdr.numDocs() < 1){
+                        log( "no updates");
+                        continue;
+                    }
+                    ac = new AutoCompleter( acDir );
+                    ac.indexDictionary( rdr, field );
+                    SearchSuggester.forceAutoCompleterRenewal( acPath );
                 } catch( Exception ex ){
                     ex.printStackTrace();
                 } finally {
@@ -451,10 +463,11 @@ strategies
               }
         }
 
-        private static void reindexSpellCheck(IndexReader rdr, Class<?> entityClass, String[] spellCheckFields, String namespace, long lastModified) {
+        private static void reindexSpellCheck(IndexReader sourceReader, Class<?> entityClass, String[] spellCheckFields, String namespace, long lastModified) {
 
             Directory scDir = null;
             SpellChecker sc = null;
+            IndexReader rdr = null;
             String namespaceInfo = (namespace == null || namespace.isEmpty()) ? ", namespace: " + namespace : "";
             String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
             for ( String field  : spellCheckFields ){
@@ -471,10 +484,15 @@ strategies
                     } else {
                         scDir = FSDirectory.open( f );
                     }
-                      sc = new SpellChecker( scDir );
-                      Dictionary dictionary = new LuceneDictionary(rdr, field);
-                      sc.indexDictionary( dictionary, new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)), true ) ;
-                      SearchSuggester.forceSpellCheckerRenewal( scPath );
+                    rdr = getNamespaceFilteredReader(sourceReader, namespace);
+                    if( rdr.numDocs() < 1){
+                        log( "no updates");
+                        continue;
+                    }
+                    sc = new SpellChecker( scDir );
+                    Dictionary dictionary = new LuceneDictionary(rdr, field);
+                    sc.indexDictionary( dictionary, new IndexWriterConfig(Version.LUCENE_CURRENT, new WhitespaceAnalyzer(Version.LUCENE_CURRENT)), true ) ;
+                    SearchSuggester.forceSpellCheckerRenewal( scPath );
                 } catch( Exception ex ){
                     ex.printStackTrace();
                 } finally {
