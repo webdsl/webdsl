@@ -342,6 +342,9 @@ public class HibernateLog {
 							sout.print(_duplicateCounter.get(entKey));
 							_duplicateCounter.remove(entKey);
 						}
+						else {
+							sout.print("0");
+						}
 						sout.print("</td></tr>");
 						entKey = entKeys.hasNext() ? entKeys.next() : null;
 					}

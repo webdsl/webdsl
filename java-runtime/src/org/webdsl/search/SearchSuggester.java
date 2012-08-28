@@ -4,14 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-
-import javax.print.attribute.standard.DateTimeAtCompleted;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -277,7 +274,7 @@ public class SearchSuggester {
         return toReturn;
     }
 
-    public static void forceSpellCheckerRenewal(String indexPath){
+    public static synchronized void forceSpellCheckerRenewal(String indexPath){
         SpellChecker sp = spellCheckMap.get(indexPath);
         if(sp!=null) {
             try {
@@ -289,7 +286,7 @@ public class SearchSuggester {
         spellCheckMap.remove(indexPath);
     }
 
-    public static void forceAutoCompleterRenewal(String indexPath){
+    public static synchronized void forceAutoCompleterRenewal(String indexPath){
         AutoCompleter ac = autoCompleterMap.get(indexPath);
         if(ac!=null) {
             try {
@@ -300,9 +297,5 @@ public class SearchSuggester {
         }
         autoCompleterMap.remove(indexPath);
     }
-
-
-
-
 
 }

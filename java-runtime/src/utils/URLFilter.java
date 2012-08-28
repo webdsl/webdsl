@@ -87,7 +87,7 @@ public final class URLFilter {
         for (Entry<String,String> e : paramMap.entrySet()) {
             sb.append(e.getKey());
             sb.append("=");
-            sb.append(utils.HTMLFilter.filter(escapeParamMapEntry(e.getValue())));
+            sb.append(utils.HTMLFilter.filterEcmaWithinHTML(escapeParamMapEntry(e.getValue())));
             sb.append("&");
         }
         return sb.toString();

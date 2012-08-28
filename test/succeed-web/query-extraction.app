@@ -296,7 +296,7 @@ test queriestest {
 
   d.get(navigate(localRedefine(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 5);
+  assert(elem.getText().parseInt() == 6);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
 }
