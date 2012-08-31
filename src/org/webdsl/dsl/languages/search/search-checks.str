@@ -6,6 +6,7 @@ imports
 imports
   libwebdsl-front
   org/webdsl/dsl/languages/data-model/declare
+  org/webdsl/dsl/languages/search/declare
   org/webdsl/dsl/typechecker/error
 
 rules
@@ -15,21 +16,63 @@ rules
 
   constraint-error-search:
     SearchMapping(x_ent, content) -> <id>
-    where if ( <IsEntity> x_ent ) then
-            errors := <filter( constraint-error-searchmapping-content(|x_ent) )> content
-          ; not(<?[]> errors)
-          else
-            add-error(|["Unkown entity : ", x_ent])
+    where if ( <IsEntity> x_ent )
+          then errors := <filter( constraint-error-searchmapping-content(|x_ent) )> content
+             ; not(<?[]> errors)
+          else add-error(|["unkown entity : ", x_ent])
           end
 
   constraint-error-searchmapping-content(|x_ent) =
-    ?SearchNamespaceMapping(propname); not(<TypeOfProperty; ?SimpleSort(_)> (x_ent, propname)); add-error(|["Only simple properties owned by ", x_ent , " can be used as namespace identifier"])
+    ?SearchNamespaceMapping(propname); not(<TypeOfProperty; ?SimpleSort(_)> (x_ent, propname)); add-error(|["only simple properties owned by ", x_ent , " can be used as namespace identifier"])
+
+  constraint-error-searchmapping-content(|x_ent):
+    s@SearchFieldMapping(_, propname, mappingparts) -> s
+    where prop := <PropertyDecl <+ ![]> (x_ent, propname)
+        ; if (<?[]> prop)
+          then <add-error(|[propname, " is no property owned by ", x_ent])> propname
+          else <filter(constraint-error-mapping-part(|prop)); not(?[])> mappingparts
+          end
+
 
   constraint-error-searchmapping-content(|x_ent) =
-    ?SearchFieldMapping(_, propname, mappingpart); not(<TypeOfProperty> (x_ent, propname) ); add-error(|[propname, " is no property owned by ", x_ent])
+    ?SearchFieldMapping(_, propname, mappingparts); not(<TypeOfProperty> (x_ent, propname) ); add-error(|[propname, " is no property owned by ", x_ent])
+
+  constraint-error-mapping-part(|prop):
+      t@AnalyzerName(name) -> t
+      where if (<is-ref-or-comp-prop> prop)
+            then <add-error(|["an analyzer can only be specified in a mapping for simple properties. For reference/composite properties, the analyzers should be specified in the search mapping of the embedded type"])> t
+            else not (<AnalyzerDefFromName> name)
+               ; <add-error(|["no analyzer defined with name: ", name])> name
+            end
+
+  constraint-error-mapping-part(|prop):
+      t@EmbeddedDepth(_) -> t
+      where <not (is-ref-or-comp-prop)> prop
+          ; <add-error(|["depth of embedding can only be specified on a reference (->) or composite (<>) type property"])> t
+
+  constraint-error-mapping-part(|prop):
+      t@Boost(_) -> t
+      where <is-ref-or-comp-prop> prop
+          ; <add-error(|["a boost value can only be specified in a mapping for simple properties. For reference/composite properties, boost values should be specified in the search mapping of the embedded type"])> t
+
+  constraint-error-mapping-part(|prop):
+      t@TargetEntity(name) -> t
+      where type := <get-property-type; try-strip-generic-sort> prop
+          ; if (not (<is-ref-or-comp-prop> prop))
+            then <add-error(|["a subclass can only be targeted on a reference (->) or composite (<>) type property"])> t
+            else targetentity := <EntDecl <+ ![]> name
+               ; if (<?[]> targetentity)
+                 then <add-error(|["unknown entity: ", name])> name
+                 else if (not ( <type-compatible> ( type, SimpleSort(name) ) ))
+                      then <?SimpleSort(propertyClass)> type
+                         ; <add-error(|[name, " is not a subclass of ", propertyClass])> name
+                      else fail
+                      end
+                 end
+            end
 
   constraint-error-search:
-    SearcherRefMod(x_searcher, _) -> <add-error(|["Expression '", <pp-webdsl> x_searcher, "' should be a searcher type, while type is ", t])>
+    SearcherRefMod(x_searcher, _) -> <add-error(|["expression '", <pp-webdsl> x_searcher, "' should be a searcher type, while type is ", t])>
     where t := <type-of> x_searcher
         ; not(<?SimpleSort(<id>); or(?"Searcher", SearcherTargetType)> t)
 

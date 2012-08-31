@@ -482,7 +482,7 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
         return super.checkAvailabilityOfRecommendations();
     }
 
-    //Methods needs to be overridden in java 7, just return null for now.
+    //This method needs to be overridden in java 7, just return null for now.
     public java.util.logging.Logger getParentLogger(){
         return null;
     }
