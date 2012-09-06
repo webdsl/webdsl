@@ -86,6 +86,8 @@ public abstract class Test {
               //not every WebDriver can execute Javascript
             }
         }
+        //allow some time to load page by webdriver (driver.getPageSource() sometimes returned outdated source)
+        sleep(500);
     }
 
     //setSelected and toggle are deprecated, now using click: http://code.google.com/p/selenium/issues/detail?id=2391

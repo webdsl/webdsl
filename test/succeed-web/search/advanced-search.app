@@ -132,8 +132,20 @@ analyzer month{
   }
 
   define page BooleanResultPage(ps : PersonSearcher){
+      var count := ps.count();
+      var p := if (count > 0) ps.results()[0] else null;
       "searcherPageArg:" output(ps.count())
       navigate searchPageDSL() {"click"}
+      submit action{
+          if (count > 0){
+              IndexManager.removeFromIndex(p);
+              IndexManager.reindex(p);
+              return ReindexedPage(ps);
+          }
+      } {"reindex"}
+  }
+  define page ReindexedPage(ps : PersonSearcher){
+       if (ps.count() > 0) { "reindexed" }
   }
 
   define page searchPageDSL(){
@@ -248,6 +260,13 @@ analyzer month{
         if (runTwice < 1){
           link := d.findElement(SelectBy.className("navigate"));
           link.click();
+        }
+        if (runTwice == 1){
+          link := d.findElement(SelectBy.className("button"));
+          link.click();
+          // sleep(500);
+          pagesource := d.getPageSource();
+          assert(pagesource.contains("reindexed"), "Call to IndexManager.removeFromIndex or IndexManager.reindex seem to have failed");
         }
         runTwice := runTwice + 1;
     }
