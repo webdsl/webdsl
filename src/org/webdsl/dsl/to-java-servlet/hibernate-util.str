@@ -74,11 +74,13 @@ rules
     import java.util.Properties;
     
     import org.hibernate.*;
+    import org.hibernate.type.*;
     import org.hibernate.cfg.*;
     import org.webdsl.*;
     import org.hibernate.event.*;
     import org.hibernate.event.def.*;
     import java.util.*;
+    import java.io.*; 
     
     import pkgname.*;
     @SuppressWarnings("unused") 
@@ -103,10 +105,10 @@ rules
     
                 //annotationConfiguration.addProperties(prop);
                 //bstm1*
-                annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());
-                    
+                annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());    
                 annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
-    
+    			
+    			annotationConfiguration.setInterceptor( new TimestampInterceptor());
                 sessionFactory = annotationConfiguration.buildSessionFactory();
                 
             } catch (Throwable ex) {
@@ -135,6 +137,7 @@ rules
       
           public void setVersion(Object o)
           { 
+          	
             if(org.hibernate.Hibernate.isInitialized(o) && o instanceof WebDSLEntity)
             { 
               WebDSLEntity we = (WebDSLEntity)o;
@@ -144,8 +147,9 @@ rules
               }
             }
           }
+          
         } 
-        
+
         //register which objects need to be validated at the end of an action
         @SuppressWarnings("serial")
         private static class SetValidationEventListener extends DefaultFlushEntityEventListener
@@ -168,7 +172,37 @@ rules
                 }
             }
         }
-    }
+        
+        private static class TimestampInterceptor extends EmptyInterceptor {
+          public boolean onFlushDirty(Object entity, Serializable id, Object[] currentState, Object[] previousState, String[] propertyNames, Type[] types) 
+          {
+          	if(org.hibernate.Hibernate.isInitialized(entity) && entity instanceof WebDSLEntity)
+          	{
+              setValue(currentState, propertyNames, "_modified", new java.util.Date());
+          	} 
+            return true;
+          }
+
+          public boolean onSave(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) 
+          {
+          	if(org.hibernate.Hibernate.isInitialized(entity) && entity instanceof WebDSLEntity)
+          	{
+              setValue(state, propertyNames, "_created", new java.util.Date());
+              setValue(state, propertyNames, "_modified", new java.util.Date());
+            }
+            return true;
+          }
+
+          private void setValue(Object[] state, String[] propertyNames, String propertyToSet, Object value) 
+          {
+            int index = Arrays.asList(propertyNames).indexOf(propertyToSet);
+            if (index >= 0) 
+            {
+              state[index] = value;
+            }
+          }
+       }  
+     }
     ]|
     with pkgname := <DomainPackage>
        ; domainpack := <pp-java5-to-string> <DomainPackage>
