@@ -341,6 +341,9 @@ module .servletapp/src-webdsl-template/built-in
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
     setMimetype(String)
+    isRedirected():Bool
+    getRedirectUrl():String
+    setRedirectUrl(String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();

@@ -464,6 +464,9 @@ public abstract class AbstractPageServlet{
     }
 
     protected String redirectUrl = "";
+    public boolean isRedirected(){
+      return !"".equals(redirectUrl);   
+    }
     public String getRedirectUrl() {
         return redirectUrl;
     }
