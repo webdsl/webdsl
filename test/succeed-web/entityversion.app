@@ -200,3 +200,48 @@ test inverseModify {
     assert(d.getPageSource().contains("createdchangeds: false"), "created should not be changed when entity is changed");
 	assert(d.getPageSource().contains("modifiedchangeds: true"), "modified should  be changed when entity is changed");
 }
+
+entity D{
+list -> List<E>
+}
+
+entity E{
+name :: String
+}
+
+var listent :=	 D{ list := List<E>()}
+
+define page listTest() {
+	output("version: " + listent.version)
+	output("created: " + listent.created)
+	output("modified: " + listent.modified)
+	form {
+	 submit modify()[class="modifyb"]{"modify"}
+	}
+	
+	 action modify () {
+	 	listent.list.add( E{ name := "test2" });
+	 	return datetestList (listent.created.toString(), listent.modified.toString());
+	 }
+}
+
+page datetestList( created : String, modified : String){
+	output("version: " + listent.version)
+	output("createdchanged: " + (created != listent.created.toString()))
+	output("modifiedchanged: " + (modified != listent.modified.toString()))
+}
+
+test listModify {
+	var d : WebDriver := getHtmlUnitDriver();
+	d.get(navigate(listTest()));	
+	assert(d.getPageSource().contains("version: 1"), "version should be one of start global");
+	assert(!d.getPageSource().contains("created: null"), "global is saved so created should not be null");
+	assert(!d.getPageSource().contains("modified: null"), "global is saved so modified should not be null");
+	
+	var button := d.findElements(SelectBy.className("modifyb"))[0];
+    button.click();
+
+	assert(d.getPageSource().contains("version: 2"), "version should be changed after object change");
+    assert(d.getPageSource().contains("createdchanged: false"), "created should not be changed when entity is changed");
+	assert(d.getPageSource().contains("modifiedchanged: true"), "modified should  be changed when entity is changed");
+}
