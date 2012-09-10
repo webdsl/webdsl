@@ -100,7 +100,7 @@ let
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar openjdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar oraclejdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
