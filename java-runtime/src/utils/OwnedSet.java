@@ -5,7 +5,6 @@ public class OwnedSet<T> extends java.util.LinkedHashSet<T> {
     protected Object owner = null;
     protected boolean beingSet = false;
     protected boolean doEvents = true;
-    protected org.hibernate.impl.FilterImpl filter = null;
 
     public OwnedSet() {
       super();
@@ -50,11 +49,4 @@ public class OwnedSet<T> extends java.util.LinkedHashSet<T> {
     	this.doEvents = doEvents;
     }
 
-    public org.hibernate.impl.FilterImpl getFilter() {
-    	return this.filter;
-    }
-
-    public void setFilter(org.hibernate.impl.FilterImpl filter) {
-    	this.filter = filter;
-    }
 }

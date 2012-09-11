@@ -1384,9 +1384,10 @@
    PrefetchFor                        -- H[KW["prefetch-for"] _1 _2 _3] _4,
    PrefetchChildren                   -- V  [V is=2 [KW["{"] _1] KW["}"]],
    PrefetchChildren.1:iter-star       -- _1,
-   PrefetchNode                       -- H[ H hs=0 [_1 _2] _3 _4 _5 _6] _7,
+   PrefetchNode                       -- H[ H hs=0 [_1 _2] H hs=1 [_3] _4 _5 _6] _7,
    PrefetchNode.1:opt                 -- _1 KW["."],
    NoEmptyBatch                       -- KW["no-empty-batch"],
+   FetchEarly                         -- KW["fetch-early"],
    PrefetchIfDefault                  -- H [KW["default"] KW["["] ] H hs=0 [_1] KW["]"],
    PrefetchIfDefault.1:iter-sep       -- _1 KW[","],
    PrefetchTemplateArgs               -- H [KW["templates"] KW["["] ] H hs=0 [_1] KW["]"],
@@ -1395,6 +1396,7 @@
    TemplateArgOrThis                  -- _1 KW["("] _2 KW[")"],
    TemplateArgOrThis.2:iter-star-sep  -- _1 KW[","],
    PrefetchCondition                  -- H[ KW["if"] KW["("] _1 KW[")"]],
-   PrefetchWhere                      -- H[ KW["where"] _1 ],
+   PrefetchWhere                      -- H[ KW["where"] H hs=1 [_1] KW["("] _2 KW[")"] ],
+   Hint                               -- KW["hint"],
    RelativeFieldAccess                -- H hs=0 [_1 KW["."] _2]
 ]

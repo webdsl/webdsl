@@ -307,4 +307,18 @@ public class QueryOptimization {
 		sb.append(")");
 		return sb.toString();
 	}
+
+	public static org.hibernate.Filter restoreFilter(org.hibernate.engine.LoadQueryInfluencers lqi, org.hibernate.impl.FilterImpl filter) { 
+		org.hibernate.Filter newFilter = lqi.enableFilter(filter.getName());
+		if(filter.getParameters() != null) {
+			for(Object entry : filter.getParameters().entrySet()) {
+				if(!(entry instanceof java.util.Map.Entry)) continue;
+				Object key = ((java.util.Map.Entry)entry).getKey();
+				Object value = ((java.util.Map.Entry)entry).getValue();
+				newFilter.setParameter(key.toString(), value);
+			}
+		}
+		return newFilter;
+	}
+
 }

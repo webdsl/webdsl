@@ -19,8 +19,12 @@ import edu.emory.mathcs.backport.java.util.Arrays;
 import utils.PersistentOwnedSet.IteratorProxy;
 
 @SuppressWarnings({ "unchecked", "serial" })
-public class PersistentOwnedList extends PersistentList {
+public class PersistentOwnedList extends PersistentList implements utils.PersistentOwnedCollection {
 	protected int cachedSize = -1;
+    protected org.hibernate.impl.FilterImpl filter = null;
+    protected org.hibernate.impl.FilterImpl filterHint = null;
+    protected utils.AbastractOwnedListType cachedType = null;
+    protected org.hibernate.impl.FilterImpl restoreFilter = null;
 
 	public PersistentOwnedList(SessionImplementor session) {
 		super(session);
@@ -42,8 +46,7 @@ public class PersistentOwnedList extends PersistentList {
 
 	@Override
 	public void beginRead() {
-		FilterImpl filter = getAffectingFilter();
-		((utils.OwnedList)list).setFilter(filter);
+		setFilter(getAffectingFilter());
 		((utils.OwnedList)list).setDoEvents(false); // This prevents events, like inverse updates, while initializing
 		super.beginRead();
 	}
@@ -52,6 +55,17 @@ public class PersistentOwnedList extends PersistentList {
 	public boolean endRead() {
 		boolean result = super.endRead();
 		((utils.OwnedList)list).setDoEvents(true); // We should resume updating the inverse, because initialization is complete
+
+		if(this.restoreFilter != null) {
+			// Restore the filter that was enabled before enabling the filter hint
+			SessionImplementor session = getSession();
+			org.hibernate.engine.LoadQueryInfluencers lqi = session.getLoadQueryInfluencers();
+			org.hibernate.impl.FilterImpl oldFilter = this.getAffectingFilter();
+			if(oldFilter != null) lqi.disableFilter(oldFilter.getName());
+			utils.QueryOptimization.restoreFilter(lqi, this.restoreFilter);
+			this.restoreFilter = null;
+		}
+
 		return result;
 	}
 
@@ -158,15 +172,29 @@ public class PersistentOwnedList extends PersistentList {
 	public void correctFilter(boolean writing) {
 		if(writing) {
 			unfiltered(writing);
-		} else if(wasInitialized() && ((utils.OwnedList)list).getFilter() != null) { // Only need to check the  filter if the collection was initialized using a filter
+		} else if(!wasInitialized() && getFilterHint() != null) { // implies getFilter() == null, because !wasInitialized()
+			// Use the filter hint if it is less restrictive than the requested filter
+			// In that case the filter hint warns about the future use of a different filter that requires re-fetching
 			utils.AbastractOwnedListType type = getOwnedListType();
-			FilterImpl filter = getAffectingFilter(type);
-			if(!type.isFilterCompatible(((utils.OwnedList)list).getFilter(), filter)) unfiltered(writing);
+			FilterImpl newFilter = getAffectingFilter(type);
+			FilterImpl hintFilter = getFilterHint();
+			if(newFilter != null && !utils.QueryOptimization.equalFilters(hintFilter, newFilter) && type.isFilterCompatible(hintFilter, newFilter)) {
+				this.restoreFilter = newFilter;
+				SessionImplementor session = getSession();
+				org.hibernate.engine.LoadQueryInfluencers lqi = session.getLoadQueryInfluencers();
+				lqi.disableFilter(newFilter.getName());
+				utils.QueryOptimization.restoreFilter(lqi, hintFilter);
+			}
+		} else if(wasInitialized() && getFilter() != null) { // Only need to check the filter if the collection was initialized using a filter
+			utils.AbastractOwnedListType type = getOwnedListType();
+			FilterImpl oldFilter = getFilter();
+			FilterImpl newFilter = getAffectingFilter(type);
+			if(!type.isFilterCompatible(oldFilter, newFilter)) unfiltered(writing);
 		}
 	}
 
 	public void unfiltered(boolean writing) {
-		if(wasInitialized() && ((utils.OwnedList)list).getFilter() == null) return; // The collection was already initialized without filters
+		if(wasInitialized() && getFilter() == null) return; // The collection was already initialized without filters
 		if(wasInitialized()) { // Cleaning the filtered collection
 			try{
 				Field f = org.hibernate.collection.AbstractPersistentCollection.class.getDeclaredField("initialized");
@@ -180,9 +208,9 @@ public class PersistentOwnedList extends PersistentList {
 		SessionImplementor session = getSession();
 
 		// Disable the affecting filter
-		FilterImpl filter = getAffectingFilter();
-		if(filter != null) {
-			session.getLoadQueryInfluencers().disableFilter(filter.getName());
+		FilterImpl oldFilter = getAffectingFilter();
+		if(oldFilter != null) {
+			session.getLoadQueryInfluencers().disableFilter(oldFilter.getName());
 		}
 
 		// Initialize the collection
@@ -190,27 +218,42 @@ public class PersistentOwnedList extends PersistentList {
 		session.initializeCollection(this, writing);
 
 		// Enable the affecting filter again
-		if(filter != null) {
-			org.hibernate.Filter newFilter = session.getLoadQueryInfluencers().enableFilter(filter.getName());
-			if(filter.getParameters() != null) {
-				for(Object entry : filter.getParameters().entrySet()) {
-					if(!(entry instanceof java.util.Map.Entry)) continue;
-					Object key = ((java.util.Map.Entry)entry).getKey();
-					Object value = ((java.util.Map.Entry)entry).getValue();
-					newFilter.setParameter(key.toString(), value);
-				}
-			}
+		if(oldFilter != null) {
+			utils.QueryOptimization.restoreFilter(session.getLoadQueryInfluencers(), oldFilter);
 		}
 		if(writing) dirty();
 	}
 
+    public org.hibernate.impl.FilterImpl getFilter() {
+    	return this.filter;
+    }
+
+    public void setFilter(org.hibernate.impl.FilterImpl filter) {
+    	this.filter = filter;
+    	this.filterHint = null; // 
+    }
+
+    public org.hibernate.impl.FilterImpl getFilterHint() {
+    	return this.filterHint;
+    }
+
+    public void setFilterHint(org.hibernate.impl.FilterImpl filterHint) {
+    	this.filterHint = filterHint;
+    }
+
 	public utils.AbastractOwnedListType getOwnedListType() {
-		SessionImplementor session = getSession();
-		CollectionPersister persister = session.getPersistenceContext().getCollectionEntry(this).getLoadedPersister();
-		if(persister.getCollectionType() instanceof CustomCollectionType && ((CustomCollectionType)persister.getCollectionType()).getUserType() instanceof utils.AbastractOwnedListType) {
-			return (utils.AbastractOwnedListType)((CustomCollectionType)persister.getCollectionType()).getUserType();
+		if(cachedType != null) {
+			return cachedType;
 		}
-		return null;
+		else {
+			SessionImplementor session = getSession();
+			CollectionPersister persister = session.getPersistenceContext().getCollectionEntry(this).getLoadedPersister();
+			if(persister.getCollectionType() instanceof CustomCollectionType && ((CustomCollectionType)persister.getCollectionType()).getUserType() instanceof utils.AbastractOwnedListType) {
+				cachedType = (utils.AbastractOwnedListType)((CustomCollectionType)persister.getCollectionType()).getUserType();
+				return cachedType;
+			}
+			return null;
+		}
 	}
 
 	protected FilterImpl getAffectingFilter() {
@@ -250,7 +293,7 @@ public class PersistentOwnedList extends PersistentList {
 	public Object[] toArray() {
 		correctFilter(false);
 		Object[] array = super.toArray();
-		if(array != null && ((utils.OwnedList)list).getFilter() != null) {
+		if(array != null && getFilter() != null) {
 			// Remove null elements, because the for-loop does not expect null elements
 			int nonnull = 0;
 			for(int i = 0; i < array.length; i++) {

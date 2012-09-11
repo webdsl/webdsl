@@ -172,7 +172,8 @@ rules // Entry points
     //; <debug(!"rec:")> branches
 
   add-recursive-depth-anno(|depth) :
-    PrefetchNode(cast, f, _, templ, cond, elemcond, children){anno*} -> PrefetchNode(cast, f, Some(NoEmptyBatch()), templ, cond, elemcond, children){anno*}
+    PrefetchNode(cast, f, mod1*, templ, cond, elemcond, children){anno*} -> PrefetchNode(cast, f, mod2*, templ, cond, elemcond, children){anno*}
+    with mod2* := <make-set>[NoEmptyBatch()|mod1*]
 
   //get-conditional-branches-from-unresolved(|x,xsrt,requiresalias) :
   //  (genname, args, cond, eff) -> (templ, branches)
@@ -197,8 +198,8 @@ rules // Entry points
 
   template-prefetch-to-branch(|x,xsrt,requiresalias) :
     (e, tc) -> branch
-    with [PrefetchNode(castsrt, f, None(), None(), None(), None(), None()){anno*}|joins] := <traversal-to-joins(|x,xsrt,requiresalias)> e
-    ; node := PrefetchNode(castsrt, f, None(), PrefetchTemplateArgs([tc]), None(), None(), None()){anno*}
+    with [PrefetchNode(castsrt, f, [], None(), None(), None(), None()){anno*}|joins] := <traversal-to-joins(|x,xsrt,requiresalias)> e
+    ; node := PrefetchNode(castsrt, f, [], PrefetchTemplateArgs([tc]), None(), None(), None()){anno*}
     ; if None() := f then
         branch := node
       else
@@ -286,6 +287,10 @@ strategies
   query-optimization-bindable-argument =
     ?Arg(_, srt)
     ; where(<is-simple-sort; not(is-entity-type)> srt)
+
+  query-optimization-bindable-argument-for =
+    ?Arg(_, srt)
+    ; where(<is-simple-sort <+ is-entity-type> srt)
 
   // Skip
   analyze-for-query-optimization = query-optimization-skip
@@ -439,20 +444,20 @@ strategies // Resolve
     ; where (
       (traversal, esrt) := <is-accessible-from(RootVar)> e
       ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,id))> cond
-      ; fltrs := <filter(?PrefetchWhere(_)); (map(where(revalidate-prefetch-where)) <+ !PrefetchWhere(True()))> cond
+      ; fltrs := <filter(?PrefetchWhere(_, _)); (map(where(revalidate-prefetch-where)) <+ !PrefetchWhere([], True()))> cond
       ; newcond := <concat; make-set>[<QueryConditions>, tmpcond, fltrs]
       ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
       ; rules( DetectedTraveral :+= (traversal, esrt, newcond, iseffectful) )
     )
 
   revalidate-prefetch-where =
-    ?PrefetchWhere(cond)
+    ?PrefetchWhere(mod*,cond)
     ; collect(?Var(_))
     ; map(is-accessible-from(BindableVar))
 
   revalidate-query-condition(check-expr) = revalidate-query-condition(check-expr,valid-null-check-field)
 
-  revalidate-query-condition(check-expr, check-null) = filter(not(?PrefetchWhere(_));extract-query-cond(check-expr, check-null); not(?True()))
+  revalidate-query-condition(check-expr, check-null) = filter(not(?PrefetchWhere(_, _));extract-query-cond(check-expr, check-null); not(?True()))
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
@@ -660,7 +665,12 @@ strategies // Resolve
   analyze-for-query-optimization =
     //(?ForAll(x, srt, f, b, _){anno*} <+ ?For(x, srt, e, f, b, _){anno*} <+ ?ForAllStmt(x, srt, f, b){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*})
     where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type> srt)
-    ; with(<analyze-for-query-optimization-continue> e
+    ; with(
+      if toreg := <?FieldAccess(_, _); is-accessible-from-allow-calls(RootVar)> e then
+        with-prefetch-where(<map(register-detected-traversal)> toreg|x,anno*) // This ensures that we properly attach a filter to traversals detected on the collection expression
+      else
+        <analyze-for-query-optimization-continue> e // Can happen if the expression is not accessible from a persistent root variable. If it is a HQL query for example.
+      end
     ; <topdown(try(?Var(x); !e)); analyze-for-query-optimization-continue> f // Var(x) is not a RootVar, so rename Var(x) to e before analyzing the filter
     ; <fetch-elem(?QueryAnalysis(analysis, _, _, unresolvedcalls, recursivecalls))> anno*
     ; mapping := [(e, Arg(x, srt))] // We only need to rename the iterator to the collection, all other variables are the same
@@ -881,7 +891,7 @@ rules // Special cases
     where condlst := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond1
     ; not([] := condlst)
     with cond2 := <analyze-for-query-optimization-continue> cond1
-    ; oldcond := <QueryConditions> 
+    ; oldcond := <QueryConditions>
     ; rules( QueryConditions := <conc; make-set>(oldcond, condlst) )
     ; true2 := <analyze-for-query-optimization-continue> true1
     ; rules( QueryConditions := <conc; make-set>(oldcond, <negate-query-cond-lst>condlst) )
