@@ -1023,9 +1023,7 @@
 
    ScheduleNoFor                                          -- KW["schedule"] _1 KW[";"],
    ForStmt                                                -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] _5,
-   ForStmtNoFilter                                        -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] _4,
    ForAllStmt                                             -- KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] _4,
-   ForAllStmtNoFilter                                     -- KW["for"] KW["("] _1 KW[":"] _2 KW[")"] _3,
    ForCountStmt                                           -- KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"] _4,
    WhileStmt                                                 -- KW["while"] KW["("] _1 KW[")"] _2,
    ForExp                                                 -- KW["["] _1 KW["for"] KW["("] _2 KW[":"] _3 KW["in"] _4 _5 KW[")"] KW["]"],
@@ -1036,12 +1034,8 @@
    OrForExp                                               -- KW["Or"] _1,
    For                                                    -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] KW["{"] _5 KW["}"] _6,
    For.5:iter-star                                        -- _1,
-   ForNoFilter                                            -- KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 KW[")"] KW["{"] _4 KW["}"] _5,
-   ForNoFilter.4:iter-star                                -- _1,
    ForAll                                                 -- KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"] KW["{"] _4 KW["}"] _5,
    ForAll.4:iter-star                                     -- _1,
-   ForAllNoFilter                                         -- KW["for"] KW["("] _1 KW[":"] _2 KW[")"] KW["{"] _3 KW["}"] _4,
-   ForAllNoFilter.3:iter-star                             -- _1,
    ForCount                                               -- KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"] KW["{"] _4 KW["}"] _5,
    ForCount.4:iter-star                                   -- _1,
    ForSeparator                                           -- KW["separated-by"] KW["{"] _1 KW["}"],
@@ -1379,5 +1373,10 @@
    ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
    DeriveWebServices                                      -- KW["derive"] KW["webservices"] KW["for"] _1 KW[","] KW["with"] KW["nameproperty"] _2,
    NativeClassConstructorCall                             -- KW["/*"] _1 KW["*/"] _2 KW["("] _3 KW[")"], %% hack: putting _1 in comments, omitting it will cause the rule to match constructor with arity 2 instead of 3. this is an internal constructor used for desugaring
-   NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","]
+   NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","],
+   
+   ForInferred.4:iter-star                                -- _1,
+   ForInferred                                            -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"] _5,
+   ForStmtInferred                                        -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] _4
+
 ]
