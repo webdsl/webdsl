@@ -321,4 +321,29 @@ public class QueryOptimization {
 		return newFilter;
 	}
 
+	// Checks if an EntityUniqueKey exists within the PersistenceContext for a lazy no-proxy property, without initializing the property
+	public static boolean uniqueKeyInContext(org.webdsl.WebDSLEntity entity, org.hibernate.bytecode.javassist.FieldHandler fieldHandler, String fieldName) {
+    	if(!(fieldHandler instanceof org.hibernate.intercept.javassist.FieldInterceptorImpl)) return false;
+    	org.hibernate.intercept.javassist.FieldInterceptorImpl fieldInterceptor = (org.hibernate.intercept.javassist.FieldInterceptorImpl)fieldHandler;
+		org.hibernate.engine.SessionImplementor session = fieldInterceptor.getSession();
+		org.hibernate.engine.SessionFactoryImplementor factory = session.getFactory();
+    	org.hibernate.persister.entity.EntityPersister persister = factory.getEntityPersister(fieldInterceptor.getEntityName());
+    	org.hibernate.type.EntityType type = (org.hibernate.type.EntityType)persister.getPropertyType(fieldName);
+    	String associatedEntityName = type.getAssociatedEntityName();
+    	String uniqueKeyPropertyName = type.getRHSUniqueKeyPropertyName();
+
+    	org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
+				associatedEntityName, 
+				uniqueKeyPropertyName, 
+				entity.getId(), 
+				type.getIdentifierOrUniqueKeyType( factory ),
+				session.getEntityMode(), 
+				session.getFactory()
+		);
+
+		org.hibernate.engine.PersistenceContext persistenceContext = session.getPersistenceContext();
+		Object result = persistenceContext.getEntity( euk );
+		return result != null;
+	}
+
 }
