@@ -22,6 +22,9 @@ application test
 
 access control rules
   
+  rule page root(){
+    true
+  }
   rule template showCourseEvaluation(course : Course) {
     Or [eval.bla()| eval : Evaluation in course.evaluations]
   }
