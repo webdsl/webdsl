@@ -2,7 +2,7 @@ module org/webdsl/dsl/languages/query-analysis
 
 rules // Entry points
 
-  perform-query-analysis(|name,args,cond,x) :
+  perform-query-analysis(|name,args,cond,x,early) :
     (body, anno*) -> (body, [qa | anno*])
     where QueryOptimizationDisabled
     ; not(<fetch-elem(is-query-analysis)> anno*)
@@ -26,7 +26,7 @@ rules // Entry points
        |}
     ; !wait
 
-  perform-query-analysis(|name,args,cond,x) :
+  perform-query-analysis(|name,args,cond,x,early) :
     (body, anno*) -> (body3, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls) | anno*])
     where not(QueryOptimizationDisabled)
     ; not(<fetch-elem(is-query-analysis)> anno*)
@@ -40,7 +40,7 @@ rules // Entry points
        //; (body := body2 < info(|"Same") + info(|"Diff"))
        //; <debug(!"LoopOk: ")> name
        //; dr-all-keys(|"RootVar"); debug(!"RootVars:")
-       ; [] := <collect(query-optimization-waiting-for); flatten-list/*; try(where(not(?[]); <debug(!"Wait:")> (name, <id>)))*//*;debug(!"Wait:")*/> (body, cond)
+       ; [] := <collect(query-optimization-waiting-for); flatten-list/*; try(where(not(?[]); <debug(!"Wait:")> (name, <id>)))*//*;debug(!"Wait:")*/> (body, cond, early)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
            basecond := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond
@@ -48,6 +48,7 @@ rules // Entry points
 		                  IsEffectful     := False()  // True if the current statement is effectful (means: can affect non-local state), False otherwise
 		               )
 		       //; <debug(!"Analyzing: ")> name
+		       ; <analyze-for-query-optimization-early> early
 		       ; body3 := <analyze-for-query-optimization-continue> body
 		       ; ts := <bagof-DetectedTraveral; try(ensure-condition(|x, basecond))>
 		       ; returns := <bagof-DetectedReturn>
@@ -60,6 +61,12 @@ rules // Entry points
 	      //;<debug(!"qa:")>(name, QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls))
 	      |}
       |}
+
+  analyze-for-query-optimization-early =
+   {| RequiredEarly
+    : rules ( RequiredEarly := True() )
+    ; analyze-for-query-optimization-continue
+   |}
 
   ensure-condition(|x, basecond) :
     ts -> [(Var(x), srt, basecond,True())|ts]
@@ -243,8 +250,12 @@ strategies
     ; <register-detected-traversal> (traversal, srt, condition, effectful)
 
   register-detected-traversal =
-    ?(traversal, srt, condition, effectful)
-    ; rules( DetectedTraveral :+= (traversal, srt, condition, effectful) )
+    ?(traversal{anno*}, srt, condition, effectful)
+    ; if RequiredEarly then
+        rules( DetectedTraveral :+= (traversal{FetchEarly(),anno*}, srt, condition, False()) )
+      else
+        rules( DetectedTraveral :+= (traversal, srt, condition, effectful) )
+      end
 
   register-detected-return-traversal =
     ?(traversal, srt)
@@ -442,12 +453,17 @@ strategies // Resolve
   combine-analysis =
     ?(e, srt, cond, effectful)
     ; where (
-      (traversal, esrt) := <is-accessible-from(RootVar)> e
+      (traversal{anno*}, esrt) := <is-accessible-from(RootVar)> e
       ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,id))> cond
       ; fltrs := <filter(?PrefetchWhere(_, _)); (map(where(revalidate-prefetch-where)) <+ !PrefetchWhere([], True()))> cond
       ; newcond := <concat; make-set>[<QueryConditions>, tmpcond, fltrs]
       ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
-      ; rules( DetectedTraveral :+= (traversal, esrt, newcond, iseffectful) )
+      ; keepanno* := <remove-all(?FetchEarly())> anno* // fetch-early does not carry over to parent or called analysis blocks
+      ; if RequiredEarly then
+          rules( DetectedTraveral :+= (traversal{FetchEarly(),keepanno*}, esrt, newcond, False()) )
+        else
+          rules( DetectedTraveral :+= (traversal{keepanno*}, esrt, newcond, iseffectful) )
+        end
     )
 
   revalidate-prefetch-where =

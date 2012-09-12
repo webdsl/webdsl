@@ -630,11 +630,12 @@ rules
     where <map(is-bindable-expr(id))> args
 
   prepare-traversal :
-    (traversal1, srt, cond1, eff) -> (traversal3, cond2, filters, eff)
+    (traversal1{anno*}, srt, cond1, eff) -> (traversal3{anno3*,keepanno*}, cond2, filters, eff)
     with traversal2 := <is-accessible-from(RootVar); Fst> traversal1 // This removes any unnecessary casts
     ; cond2 := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,not(RootVar)))> cond1
     ; filters := <where(<is-generic-sort> srt) < (filter(?PrefetchWhere(_,_)); try(\[] -> [PrefetchWhere([],True())]\)) + ![]> cond1
-    where traversal3 := <an-requires-joining-fa; try(?Cast(<id>, _))> (traversal2, srt)
+    ; keepanno* := <filter(?FetchEarly())> anno*
+    where traversal3{anno3*} := <an-requires-joining-fa; try(?Cast(<id>, _))> (traversal2, srt)
     //; <debug(!"preped:")> (traversal3, filters)
 
   traversal-summary-to-query-condition =
@@ -763,8 +764,9 @@ rules
     ; lst := <conc> (lst1, lst2)
 
   traversal-to-joins(|x,xsrt,requiresalias):
-    expr@FieldAccess(e, f{annof*}){anno*} -> [PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, [], None(), None(), None(), None()){newanno*} | prev]
+    expr@FieldAccess(e, f{annof*}){anno*} -> [PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, mod*, None(), None(), None(), None()){newanno*} | prev]
     with <?Cast(p, _) <+ ?p> e
+    ; mod* := <filter(?FetchEarly()); make-set> anno*
     ; castsrt := <(?Cast(_, <id>); add-type-annotations; !Some(<id>)) <+ !None()> e
     ; prev@[PrefetchNode(_, _{PrefetchPropAnno(_,p_fsrt)}, _, _, _, _, _)|_] := <traversal-to-joins(|x,xsrt,requiresalias)> p
     ; SimpleSort(e_class) := <(?Some(<id>) <+ !p_fsrt); try(strip-ref-sort); try-strip-generic-sort> castsrt
@@ -888,9 +890,6 @@ rules
     (PrefetchWhere(pwmod1*,cond1), PrefetchWhere(pwmod2*,cond2)) -> PrefetchWhere(pwmod3*,cond)
     with cond := <or-query-condition-helper> (cond1, cond2)
     ; pwmod3* := <make-set>[pwmod1*,pwmod2*]
-
-  wrap-prefetch-children : [] -> None()
-  wrap-prefetch-children : lst -> PrefetchChildren(lst) where <is-list> lst; not([] := lst)
 
   combine-cast-sort(|decsrt) :
     (None(), _) -> None()
