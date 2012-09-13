@@ -114,6 +114,54 @@ let
           fi
         '';
       };
+      
+        buildJavaNoCheck =
+      let pkgs = import nixpkgs { system = "i686-linux"; };
+      in with pkgs;
+      releaseTools.nixBuild rec {
+        name = "webdsl-java";
+        src = tarball;
+        buildInputs = [pkgconfig cpio ecj apacheAntOracleJDK strcJava which fastjar oraclejdk] ++ strPkgs pkgs;
+
+        configureFlags = ["--enable-java-backend"] ;
+
+        doCheck = true;
+        phases = "initPhase unpackPhase patchPhase configurePhase buildPhase installPhase fixupPhase distPhase finalPhase";
+
+        finalPhase = ''
+          mkdir -p $out/nix-support
+          if test -f ${src}/nix-support/hydra-release-name ; then
+            cat ${src}/nix-support/hydra-release-name | sed 's|webdsl|webdsl-java|' > $out/nix-support/hydra-release-name
+          fi
+        '';
+      };
+      
+       buildJavaZipNoCheck = 
+      pkgs.stdenv.mkDerivation {
+        name = "webdsl-java-no-check.zip"; 
+        buildInputs = [pkgs.zip]; 
+        buildCommand = ''
+          ensureDir $out 
+          ensureDir $out/nix-support
+
+          mkdir webdsl 
+          cp -R ${buildJavaNoCheck}/* webdsl/
+          chmod -R 755 webdsl/
+ 
+          # cleanup
+          rm -rf webdsl/nix-support
+          rm -rf webdsl/lib/pkgconfig
+
+          # remove nix store deps
+          sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl
+          sed "s|${pkgs.bash}||" -i webdsl/bin/webdsl-plugins
+
+          zip -r $out/webdsl-java-no-check.zip webdsl
+          echo "file zip $out/webdsl-java-no-check.zip" > $out/nix-support/hydra-build-products
+        ''; 
+      } ;      
+      
+      
   };
 
 in jobs
