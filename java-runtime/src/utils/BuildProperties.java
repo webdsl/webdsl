@@ -11,13 +11,19 @@ public class BuildProperties {
         return isRequestLoggingEnabled;
     }
     
+    protected static String dbmode;
+    public static String getDbMode(){
+        return dbmode;
+    }
+    
     static {
         try {    
             props.load(BuildProperties.class.getResourceAsStream("/build.properties"));
-            String requestlogprop = BuildProperties.props.getProperty("webdsl.requestlog"); 
+            String requestlogprop = props.getProperty("webdsl.requestlog"); 
             if("true".equals(requestlogprop)){
                 isRequestLoggingEnabled = true;
             }
+            dbmode = props.getProperty("webdsl.DBMODE"); 
         }
         catch(java.io.FileNotFoundException fnf) {
             System.out.println("File \"build.properties\" not found");
