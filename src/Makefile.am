@@ -97,7 +97,7 @@ mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 mixmoblsyntax 	= org/webdsl/dsl/syntax/mobl/Stratego-MoBL
-mixmobljssyntax = org/webdsl/dsl/syntax/mobl/js/Stratego-Javascript.sdf
+mixmobljssyntax = org/webdsl/dsl/syntax/mobl/js/Stratego-Javascript
 
 SYNTAXDEFS = $(syntax).def					  \
 	     $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
