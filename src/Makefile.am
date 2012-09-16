@@ -96,12 +96,15 @@ css 		= org/webdsl/dsl/syntax/CSS
 mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
+mixmoblsyntax 	= org/webdsl/dsl/syntax/mobl/Stratego-MoBL
+mixmobljssyntax = org/webdsl/dsl/syntax/mobl/js/Stratego-Javascript.sdf
 
 SYNTAXDEFS = $(syntax).def					  \
 	     $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
-	     $(hql).def $(css).def  # used for mixing		  
+	     $(hql).def $(css).def \
+	     ${mixmoblsyntax}.def ${mixmobljssyntax}.def # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl ${mixmoblsyntax}.tbl ${mixmobljssyntax}.tbl
 
 SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str
 

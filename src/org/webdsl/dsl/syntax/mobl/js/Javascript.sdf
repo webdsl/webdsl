@@ -1,0 +1,212 @@
+module js/Javascript
+
+imports
+  js/Common
+  MoBL-Regex
+
+exports
+
+  context-free syntax %% JSStatements
+    JSStat*                       -> JSModule {cons("JSModule")}
+    "var" {JSID ","}* ";"         -> JSStat {cons("JSVarDeclNoInit")}
+    "var" JSID "=" JSExp ";" -> JSStat {cons("JSVarDecl")}
+
+    "for" "(" JSStat JSExp ";" JSExp ")" JSStat   -> JSStat {cons("JSFor")}
+    "for" "(" "var" JSID "in" JSExp ")" JSStat  -> JSStat {cons("JSForIn")}
+    "if" "(" JSExp ")" JSStat "else" JSStat     -> JSStat {cons("JSIf")}
+    "if" "(" JSExp ")" JSStat                 -> JSStat {cons("JSIfNoElse")}
+    "while" "(" JSExp ")" JSStat              -> JSStat {cons("JSWhile")}
+
+    "try" "{" JSStat* "}" "catch" "(" JSID ")" "{" JSStat* "}" -> JSStat {cons("JSTryCatch")}
+
+    "switch" "(" JSExp ")" "{" Case* "}"    -> JSStat {cons("JSSwitch")}
+
+    "case" JSExp ":" JSStat*                  -> Case {cons("JSCase")}
+    "default" ":" JSStat*                   -> Case {cons("JSDefaultCase")}
+
+    "break" ";"                           -> JSStat {cons("JSBreak")}
+
+    "throw" JSExp ";"                       -> JSStat {cons("JSThrow")}
+    "return" JSExp ";" -> JSStat {cons("JSReturn")}
+    "return" ";" -> JSStat {cons("JSReturn")}
+
+    "delete" JSExp ";" -> JSStat {cons("JSDelete")}
+
+    JSExp ";"                -> JSStat {cons("JSExpStat")}
+
+    "{" JSStat* "}" -> JSStat {cons("JSBlock")}
+
+    "function" JSID "(" {JSID ","}* ")" "{" JSStat* "}" -> JSStat {cons("JSFunctionDecl")}
+    "function" JSID "~(" {JSID ","}* ")" "{" JSStat* "}" -> JSStat {cons("JSAsyncFunctionDecl")}
+
+    JSExp "." JSID                            -> JSLVal {cons("JSLFieldAccess")}
+    JSID                                    -> JSLVal {cons("JSLVar")}
+    JSExp "[" JSExp "]"                       -> JSLVal {cons("JSLPropAccess")}
+
+
+  context-free syntax %% JSExpressions
+
+    "/" Pattern "/" JSID? -> JSExp {cons("JSRegex")}
+
+    JSSTRING                 -> JSExp {cons("JSStringLit")}
+    JSDecimalLiteral                  -> JSExp {cons("JSIntLit")}
+    JSHexIntegerLiteral               -> JSExp {cons("JSIntLit")}
+    JSID                     -> VarJSExp {cons("JSVar")}
+    "true"                 -> JSExp {cons("JSTrue")}
+    "false"                -> JSExp {cons("JSFalse")}
+    "this"                 -> JSExp {cons("JSThis")}
+    "null"                 -> JSExp {cons("JSNull")}
+    VarJSExp                 -> JSExp
+
+    JSLVal JSAssignOp JSExp    -> JSExp {cons("JSAssign")}
+
+    "[" {JSExp ","}* "]"     -> JSExp {cons("JSArrayCons")}
+    "new" JSExp "(" {JSExp ","}* ")" -> JSExp {cons("JSNew")}
+    "{" {JSPropVal ","}* "}" -> JSExp {cons("JSObj")}
+
+    JSID ":" JSExp             -> JSPropVal {cons("JSPropVal"), prefer}
+    JSExp ":" JSExp             -> JSPropVal {cons("JSPropVal"), prefer, left}
+
+    JSExp "++"            -> JSExp {cons("JSInc")}
+    JSExp "--"            -> JSExp {cons("JSDec")}
+    "!" JSExp                -> JSExp {cons("JSNot")}
+    "typeof" JSExp           -> JSExp {cons("JSTypeOf")}
+
+    JSExp "in" JSExp           -> JSExp {cons("JSIn")}
+
+    JSExp "?" JSExp ":" JSExp    -> JSExp {cons("JSChoice")}
+
+    "(" JSExp ")"            -> JSExp {cons("JSBracket")}
+
+    JSExp JSBoolMethodId JSExp         -> JSExp {cons("JSOp"), left}
+    JSExp JSCompareMethodId JSExp      -> JSExp {cons("JSOp"), left}
+    JSExp JSTermOperatorMethodId JSExp -> JSExp {cons("JSOp"), left}
+    JSExp JSOperatorMethodId JSExp     -> JSExp {cons("JSOp"), left}
+
+    JSExp "." JSID              -> JSExp {cons("JSFieldAccess")}
+    JSExp "(" {JSExp ","}* ")"  -> JSExp {cons("JSCall")}
+    JSExp "~(" {JSExp ","}* ")" -> JSExp {cons("JSAsyncCall")}
+    JSExp JSIndexerSubscript    -> JSExp {cons("JSPropAccess")}
+
+    "[" JSExp "]"            -> JSIndexerSubscript {cons("JSIndex")}
+
+    "function" "(" {JSID ","}* ")" "{" JSStat* "}" -> JSExp {cons("JSFunctionExp")}
+    "function" "~(" {JSID ","}* ")" "{" JSStat* "}" -> JSExp {cons("JSAsyncFunctionExp")}
+
+   context-free priorities
+    {
+      JSExp "." JSID -> JSExp
+      JSExp "(" {JSExp ","}* ")"   -> JSExp
+      JSExp "~(" {JSExp ","}* ")"   -> JSExp
+      JSExp JSIndexerSubscript     -> JSExp
+    }
+  > "!" JSExp         -> JSExp
+  > "typeof" JSExp         -> JSExp
+  > "new" JSExp "(" {JSExp ","}* ")" -> JSExp
+  > {
+      JSExp "++"            -> JSExp
+      JSExp "--"            -> JSExp
+    }
+  > JSExp JSTermOperatorMethodId JSExp -> JSExp
+  > JSExp JSOperatorMethodId JSExp -> JSExp
+  > JSExp JSCompareMethodId JSExp -> JSExp
+  > JSExp JSBoolMethodId JSExp -> JSExp
+
+  > JSExp "?" JSExp ":" JSExp     -> JSExp
+  > JSExp "in" JSExp            -> JSExp
+  > JSLVal JSAssignOp JSExp     -> JSExp
+
+  lexical syntax
+
+    "||"                     -> JSBoolMethodId
+    "&&"                     -> JSBoolMethodId
+    "==="                     -> JSCompareMethodId
+    "!=="                     -> JSCompareMethodId
+    "<"                      -> JSCompareMethodId
+    "<="                     -> JSCompareMethodId
+    ">"                      -> JSCompareMethodId
+    ">="                     -> JSCompareMethodId
+    "*"                      -> JSTermOperatorMethodId
+    "/"                      -> JSTermOperatorMethodId
+    "<<"                     -> JSTermOperatorMethodId
+    ">>"                     -> JSTermOperatorMethodId
+    "&"                      -> JSTermOperatorMethodId
+    "|"                      -> JSTermOperatorMethodId
+    "%"                      -> JSTermOperatorMethodId
+    "+"                      -> JSOperatorMethodId
+    "-"                      -> JSOperatorMethodId
+
+    "="                      -> JSAssignOp
+    "+="                     -> JSAssignOp
+    "-="                     -> JSAssignOp
+    "*="                     -> JSAssignOp
+    "%="                     -> JSAssignOp
+
+  lexical syntax
+
+    %% Javascript keywords (source: http://www.perlscriptsjavascripts.com/tutorials/javascript/keywords_1.html)
+    "abstract" -> KEYWORD
+    "boolean" -> KEYWORD
+    "break" -> KEYWORD
+    "byte" -> KEYWORD
+    "case" -> KEYWORD
+    "catch" -> KEYWORD
+    "char" -> KEYWORD
+    "class" -> KEYWORD
+    "const" -> KEYWORD
+    "continue" -> KEYWORD
+    "debugger" -> KEYWORD
+    "default" -> KEYWORD
+    "delete" -> KEYWORD
+    "do" -> KEYWORD
+    "double" -> KEYWORD
+    "else" -> KEYWORD
+    "enum" -> KEYWORD
+    "export" -> KEYWORD
+    "extends" -> KEYWORD
+    "false" -> KEYWORD
+    "final" -> KEYWORD
+    "finally" -> KEYWORD
+    "float" -> KEYWORD
+    "for" -> KEYWORD
+    "function" -> KEYWORD
+    "goto" -> KEYWORD
+    "if" -> KEYWORD
+    "implements" -> KEYWORD
+    "import" -> KEYWORD
+    "in" -> KEYWORD
+    "instanceof" -> KEYWORD
+    "int" -> KEYWORD
+    "interface" -> KEYWORD
+    "long" -> KEYWORD
+    "native" -> KEYWORD
+    "new" -> KEYWORD
+    "null" -> KEYWORD
+    "package" -> KEYWORD
+    "private" -> KEYWORD
+    "protected" -> KEYWORD
+    "public" -> KEYWORD
+    "return" -> KEYWORD
+    "short" -> KEYWORD
+    "static" -> KEYWORD
+    "super" -> KEYWORD
+    "switch" -> KEYWORD
+    "synchronized" -> KEYWORD
+    "this" -> KEYWORD
+    "throw" -> KEYWORD
+    "throws" -> KEYWORD
+    "transient" -> KEYWORD
+    "true" -> KEYWORD
+    "try" -> KEYWORD
+    "typeof" -> KEYWORD
+    "var" -> KEYWORD
+    "volatile" -> KEYWORD
+    "while" -> KEYWORD
+    "with" -> KEYWORD
+
+    KEYWORD -> JSID {reject}
+
+  lexical restrictions
+
+    "abstract" "boolean" "break" "byte" "case" "catch" "char" "class" "const" "continue" "debugger" "default" "delete" "do" "double" "else" "enum" "export" "extends" "false" "final" "finally" "float" "for" "function" "goto" "if" "implements" "import" "in" "instanceof" "int" "interface" "long" "native" "new" "null" "package" "private" "protected" "public" "return" "short" "static" "super" "switch" "synchronized" "this" "throw" "throws" "transient" "true" "try" "typeof" "var" "volatile" "while" "with"
+ -/- [a-zA-Z0-9\_]

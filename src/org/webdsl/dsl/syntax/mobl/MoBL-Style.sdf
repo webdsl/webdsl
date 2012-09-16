@@ -1,0 +1,81 @@
+module MoBL-Style
+
+imports
+  Common
+  MoBL
+
+exports
+
+  context-free syntax
+
+    MetaAnno* "style" StyleSelector+ "{" StyleElem* "}"    -> Definition {cons("Style")}
+    MetaAnno* "style" "mixin" QId "(" {StyleFArg ","}* ")" "{" StyleElem* "}"    -> Definition {cons("StyleMixin")}
+
+    "$" STYLEID -> StyleFArg {cons("StyleFArg")}
+
+    "style" StyleVar "=" StyleExp -> Definition {cons("StyleVarDecl")}
+
+    "$" STYLEID -> StyleVar {cons("StyleVar")}
+
+    MetaAnno* "external" "style" StyleSelector+ -> Definition {cons("ExternalStyle")}
+
+    STYLEPROPID ":" StyleExpsTL ";"  -> StyleElem {cons("StyleProperty")}
+    QId "(" {StyleExps ","}* ")" ";" -> StyleElem {cons("StyleMixinCall")}
+    QId ";" -> StyleElem {cons("StyleElemRecover"), avoid}
+
+    QId                                       -> StyleSelector {cons("StyleSelector")}
+    QId ":" STYLEPROPID                       -> StyleSelector {cons("StyleSelectorWithPseudo")}
+    QId ":" STYLEPROPID "(" STYLEPROPID ")"   -> StyleSelector {cons("StyleSelectorWithPseudoArg")}
+
+    COLOR                   -> StyleExp {cons("Color")}
+    STYLEID                 -> StyleExp {cons("StyleId")}
+    STRING                  -> StyleExp {cons("String")}
+    NUMBER                  -> StyleExp {cons("Num")}
+    NUMBER Unit             -> StyleExp {cons("NumUnit")}
+    STYLEID "=" StyleExp    -> StyleExp {cons("StylePropVal")}
+    StyleVar                -> StyleExp
+    StyleExp "+" StyleExp   -> StyleExp {cons("StyleAdd"), left}
+    StyleExp "~" StyleExp   -> StyleExp {cons("StyleSub"), left}
+    StyleExp "*" StyleExp   -> StyleExp {cons("StyleMul"), left}
+    StyleVar "." ID         -> StyleExp {cons("StyleFieldAccess")}
+    "$data" "(" Path ")"    -> StyleExp {cons("ImportData")}
+
+
+    %%"(" StyleExp ")"        -> StyleExp {bracket}
+
+
+    FILENAME "/" {FILENAME "/"}+         -> StyleExp {cons("StylePath"), avoid}
+    STYLEPROPID "(" {StyleExps ","}* ")" -> StyleExp {cons("StyleCall")}
+
+    StyleExp+               -> StyleExps {cons("StyleExps"), prefer}
+    {StyleExp ","}+         -> StyleExpsTL {cons("StyleExpsCS"), prefer}
+    StyleExps               -> StyleExpsTL
+
+    "px" -> Unit {cons("PxUnit")}
+    "em" -> Unit {cons("EmUnit")}
+    "pt" -> Unit {cons("PtUnit")}
+    "s"  -> Unit {cons("SUnit")}
+    "%"  -> Unit {cons("PercentageUnit")}
+
+  context-free priorities
+      StyleExp "*" StyleExp -> StyleExp
+    > {
+      StyleExp "+" StyleExp -> StyleExp
+      StyleExp "~" StyleExp -> StyleExp
+    }
+
+  lexical syntax
+    [\#][0-9a-fA-F]* -> COLOR
+    [a-zA-Z\_\-][a-zA-Z0-9\_\-]+ -> STYLEPROPID
+    [a-zA-Z\_][a-zA-Z0-9\_\-]+ -> STYLEID
+
+    "px" -> STYLEID {reject}
+    "em" -> STYLEID {reject}
+    "pt" -> STYLEID {reject}
+    "mixin" -> ID {reject}
+
+  lexical restrictions
+
+    STYLEID          -/- [a-zA-Z0-9\_]
+    STYLEPROPID      -/- [a-zA-Z0-9\_]
+    COLOR            -/- [a-zA-Z0-9\_\#]

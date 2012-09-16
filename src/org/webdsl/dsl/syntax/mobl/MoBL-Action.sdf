@@ -1,0 +1,203 @@
+module MoBL-Action
+
+imports
+  Common
+  MoBL
+  MoBL-UI
+  MoBL-String
+
+exports
+
+  context-free syntax %% Logic
+
+    MetaAnno* "function" QId "(" {FArg ","}* ")" ":" Type "{" Statement* "}" -> FunctionDef {cons("Function")}
+    MetaAnno* "function" QId "(" {FArg ","}* ")" "{" Statement* "}" -> FunctionDef {cons("FunctionNoReturnType")}
+    MetaAnno* "sync" "function" QId "(" {FArg ","}* ")" ":" Type "{" Statement* "}" -> FunctionDef {cons("SyncFunction")}
+    MetaAnno* "sync" "function" QId "(" {FArg ","}* ")" "{" Statement* "}" -> FunctionDef {cons("SyncFunctionNoReturnType")}
+
+    MetaAnno* "static" "function" QId "(" {FArg ","}* ")" ":" Type "{" Statement* "}" -> FunctionDef {cons("StaticFunction")}
+    MetaAnno* "static" "function" QId "(" {FArg ","}* ")" "{" Statement* "}" -> FunctionDef {cons("StaticFunctionNoReturnType")}
+    MetaAnno* "static" "sync" "function" QId "(" {FArg ","}* ")" ":" Type "{" Statement* "}" -> FunctionDef {cons("StaticSyncFunction")}
+    MetaAnno* "static" "sync" "function" QId "(" {FArg ","}* ")" "{" Statement* "}" -> FunctionDef {cons("StaticSyncFunctionNoReturnType")}
+
+    %%FunctionDef -> Definition
+
+    %%"var" ID ":" Type "=" Exp ";"              -> Definition {cons("VarDecl")}
+    %%"var" ID "=" Exp ";"                       -> Definition {cons("VarDeclInferred")}
+    Statement                                  -> Definition
+
+
+  context-free syntax %% Statements
+    "var" ID ":" Type "=" Exp ";"              -> Statement {cons("VarDecl")}
+    "var" ID "=" Exp ";"                       -> Statement {cons("VarDeclInferred")}
+
+    LValue "=" Exp ";"                          -> Statement {cons("Assignment")}
+    QId                                         -> LValue
+    Exp "." ID                                  -> LValue {cons("LFieldAccess")}
+    "(" LValue "," {LValue ","}* ")"            -> LValue {cons("LTuple")}
+    Exp "[" Exp "]"                             -> LValue {cons("LIndexer"), left}
+
+    Exp ";"                                     -> Statement {cons("ExpStat")}
+    %%Exp                                         -> Statement {cons("ExpStat"), recover}
+
+    "if" "(" Exp ")" Statement "else" Statement -> Statement {cons("If")}
+    "if" "(" Exp ")" Statement                            -> Statement {cons("IfNoElse")}
+    "foreach" "(" LValue ":" Type "in" Exp ")" "{" Statement* "}"         -> Statement {cons("For")}
+    "foreach" "(" LValue "in" Exp ")" "{" Statement* "}"                  -> Statement {cons("ForInferred")}
+    "while" "(" Exp ")" "{" Statement* "}"                           -> Statement {cons("While")}
+    "{" Statement* "}"                          -> Statement {cons("Block")}
+
+    "for" "(" LValue ":" Type "in" Exp ")" "{" Statement* "}"         -> Statement {cons("For"), deprecated("To avoid confusing Javascript programmers, for(... in ...) is now foreach(... in ...)")}
+    "for" "(" LValue "in" Exp ")" "{" Statement* "}"                  -> Statement {cons("ForInferred"), deprecated("To avoid confusing Javascript programmers, for(... in ...) is now foreach(... in ...)")}
+
+    "return" Exp ";"                            -> Statement {cons("Return")}
+    "screen" "return" Exp ";"                   -> Statement {cons("ScreenReturn")}
+    "return" ";"                                -> Statement {cons("Return")}
+    "screen" "return" ";"                       -> Statement {cons("ScreenReturn")}
+    "async" "{" Statement* "}"                  -> Statement {cons("Async")}
+
+    FunctionDef                                 -> Statement
+
+  context-free syntax %% Expressions
+    %%StringQuotation               -> LimitedSetExp {cons("String")}
+    STRING                        -> LimitedSetExp {cons("String")}
+    NUMBER                        -> LimitedSetExp {cons("Num")}
+    "true"                        -> LimitedSetExp {cons("True")}
+    "false"                       -> LimitedSetExp {cons("False")}
+    "null"                        -> LimitedSetExp {cons("Null")}
+    "this"                        -> LimitedSetExp {cons("This")}
+    "!" Exp                       -> Exp {cons("Not")}
+
+    LimitedSetExp                 -> Exp
+
+    QId "(" {NamedExp ","}* ")"   -> LimitedExp {cons("Call")}
+    QId                           -> LimitedExp {cons("Var")}
+    "(" Exp ")"                   -> LimitedExp {cons("Brackets")}
+
+    Exp "." ID "(" {NamedExp ","}* ")" -> LimitedExp {cons("MethodCall")}
+    Exp "." ID                    -> LimitedExp {cons("FieldAccess")}
+    Exp "[" Exp "]"               -> LimitedExp {left, cons("Indexer")}
+
+    %%LimitedExp                    -> Exp
+    LimitedExp                    -> LimitedSetExp
+
+    Exp                           -> NamedExp
+    ID "=" Exp                    -> NamedExp {cons("NamedExp")}
+
+    Exp BoolMethodId Exp         -> Exp {cons("BinMethodCall"), left}
+    Exp CompareMethodId Exp      -> Exp {cons("BinMethodCall"), left}
+    Exp TermOperatorMethodId Exp -> Exp {cons("BinMethodCall"), left}
+    Exp OperatorMethodId Exp     -> Exp {cons("BinMethodCall"), left}
+
+    Exp "?" Exp ":" Exp          -> Exp {left, cons("Choice")}
+    QId "<" {Type ","}* ">" "(" {Exp ","}* ")"      -> Exp {cons("CollectionCons"), prefer}
+    Type "{" {PropVal ","}* "}"  -> Exp {cons("EntityCons"), deprecated("Please use the SomeEntity(name=...) syntax instead")}
+
+    "[" {Exp ","}* "]"           -> Exp {cons("List")}
+
+    "(" Exp "," {Exp ","}* ")"   -> Exp {cons("Tuple")}
+
+    "async" "(" {Exp ","}* ")"   -> Exp {cons("AsyncCall"), prefer}
+
+    "{" Statement* "}"             -> Exp {cons("Callback")}
+    "control" "(" {FArg ","}* ")" "{" ScreenElem* "}" -> Exp {cons("AnonymousControl")}
+    "function" "(" {FArg ","}* ")" "{" Statement* "}" -> Exp {cons("AnonymousFunctionNoReturnType")}
+    "function" "(" {FArg ","}* ")" ":" Type "{" Statement* "}" -> Exp {cons("AnonymousFunction")}
+
+    ID "=" Exp                  -> PropVal {cons("PropVal")}
+
+    "$data" "(" Path ")"           -> Exp {cons("ImportData")}
+
+  context-free syntax %% Filters
+    %%Exp                                      -> NonSetExp
+    %%SetCompExp                               -> NonSetExp {reject}
+
+    %%NonSetExp Filter                         -> SetCompExp {cons("SetComp")}
+    %%SetCompExp                               -> Exp
+    LimitedExp Filter+                        -> Exp {cons("SetComp")}
+
+    "where" SetExp                           -> Filter {cons("WhereFilter")}
+    "order" "by" OrderExp                    -> Filter {cons("OrderByFilter")}
+    "prefetch" {ID ","}+                     -> Filter {cons("PrefetchFilter")}
+    "limit" Exp                              -> Filter {cons("LimitFilter")}
+    "offset" Exp                             -> Filter {cons("OffsetFilter")}
+
+    ID                                       -> OrderExp {cons("OrderNonSpecific")}
+    ID "asc"                                 -> OrderExp {cons("OrderAscending")}
+    ID "desc"                                -> OrderExp {cons("OrderDescending")}
+
+    %%"where" SetExp                           -> Filter {cons("FilterNoOrderByNoLimit")}
+    %%"order" "by" OrderExp                    -> Filter {cons("FilterNoWhereNoLimit")}
+    %%"where" SetExp "order" "by" OrderExp     -> Filter {cons("FilterNoLimit")}
+    %%"where" SetExp Limit                     -> Filter {cons("FilterNoOrderBy")}
+    %%"order" "by" OrderExp Limit              -> Filter {cons("FilterNoWhere")}
+    %%Limit                                    -> Filter {cons("FilterNoWhereNoOrderBy")}
+    %%"where" Exp "order" "by" OrderExp Limit  -> Filter {cons("Filter")}
+    %%ID                                       -> OrderExp {cons("OrderNonSpecific")}
+    %%ID "asc"                                 -> OrderExp {cons("OrderAscending")}
+    %%ID "desc"                                -> OrderExp {cons("OrderDescending")}
+    %%"limit" Exp "offset" Exp     -> Limit {cons("Limit")}
+    %%"limit" Exp                        -> Limit {cons("LimitNoOffset")}
+    %%"offset" Exp                       -> Limit {cons("LimitNoLimit")}
+
+    ID "==" LimitedSetExp                        -> SetExp {cons("SetEq")}
+    ID "!=" LimitedSetExp                        -> SetExp {cons("SetNotEq")}
+    ID "<" LimitedSetExp                         -> SetExp {cons("SetLt")}
+    ID "<=" LimitedSetExp                        -> SetExp {cons("SetLeq")}
+    ID ">" LimitedSetExp                         -> SetExp {cons("SetGt")}
+    ID ">=" LimitedSetExp                        -> SetExp {cons("SetGeq")}
+    ID "in" LimitedSetExp                        -> SetExp {cons("SetIn")}
+    ID "not" "in" LimitedSetExp                  -> SetExp {cons("SetNotIn")}
+
+    SetExp "&&" SetExp                       -> SetExp {left, cons("SetAnd"), prefer}
+
+
+  context-free priorities
+    Exp "." ID -> LimitedExp
+  > Exp "." ID "(" {NamedExp ","}* ")" -> LimitedExp
+  > Exp TermOperatorMethodId Exp -> Exp
+  > Exp OperatorMethodId Exp -> Exp
+  > Exp CompareMethodId Exp -> Exp
+  > Exp BoolMethodId Exp -> Exp
+  > "!" Exp -> Exp
+  > Exp "?" Exp ":" Exp -> Exp
+  > LimitedExp Filter+ -> Exp
+
+
+  context-free priorities
+  {
+    ID "==" LimitedSetExp                        -> SetExp
+    ID "!=" LimitedSetExp                        -> SetExp
+    ID "<" LimitedSetExp                         -> SetExp
+    ID "<=" LimitedSetExp                        -> SetExp
+    ID ">" LimitedSetExp                         -> SetExp
+    ID ">=" LimitedSetExp                        -> SetExp
+  }
+  > SetExp "&&" SetExp                 -> SetExp
+
+
+  lexical syntax
+    "||"                     -> BoolMethodId
+    "&&"                     -> BoolMethodId
+    "=="                     -> CompareMethodId
+    "!="                     -> CompareMethodId
+    "<"                      -> CompareMethodId
+    "<="                     -> CompareMethodId
+    ">"                      -> CompareMethodId
+    ">="                     -> CompareMethodId
+    "*"                      -> TermOperatorMethodId
+    "/"                      -> TermOperatorMethodId
+    "<<"                     -> TermOperatorMethodId
+    ">>"                     -> TermOperatorMethodId
+    "&"                      -> TermOperatorMethodId
+    "|"                      -> TermOperatorMethodId
+    "%"                      -> TermOperatorMethodId
+    "+"                      -> OperatorMethodId
+    "-"                      -> OperatorMethodId
+    "++"                     -> PostFixId
+    "--"                     -> PostFixId
+    BoolMethodId             -> MethodId
+    CompareMethodId          -> MethodId
+    TermOperatorMethodId     -> MethodId
+    OperatorMethodId         -> MethodId
+    PostFixId                -> MethodId
