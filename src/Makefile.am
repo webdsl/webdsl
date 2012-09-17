@@ -24,9 +24,11 @@ CLEANFILES = \
 
 FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.def) \
+    $(wildcard org/webdsl/dsl/*/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
-	$(wildcard org/webdsl/dsl/*/*.tbl)
+	$(wildcard org/webdsl/dsl/*/*.tbl)\ 
+	$(wildcard org/webdsl/dsl/*/*/*.tbl)
 
 # "make clean" leaves syntax intact; use fullclean/distclean
 
@@ -45,11 +47,14 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
+    $(wildcard org/webdsl/dsl/*/*/*.sdf) \
+    $(wildcard org/webdsl/dsl/*/*/*/*.sdf) \
     $(wildcard org/webdsl/dsl/*/*.pp) \
     $(wildcard org/webdsl/dsl/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*/*.meta) \
+    
     META-INF/MANIFEST.MF
 
 ### developer targets
