@@ -101,6 +101,7 @@ mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
 mixmoblsyntax 	= org/webdsl/dsl/syntax/mobl/Stratego-MoBL
+moblsyntax 		= org/webdsl/dsl/syntax/mobl/MoBL
 mixmobljssyntax = org/webdsl/dsl/syntax/mobl/Stratego-Javascript
 
 SYNTAXDEFS = $(syntax).def					  \
@@ -110,7 +111,7 @@ SYNTAXDEFS = $(syntax).def					  \
 
 TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl ${mixmoblsyntax}.tbl ${mixmobljssyntax}.tbl
 
-SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str
+SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str $(moblsyntax).rtg $(moblsyntax).str 
 
 PPTBLS = $(hql)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
 
