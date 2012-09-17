@@ -126,7 +126,9 @@ PPTABLES = \
 webdslversionterm.trm :
 	echo \"@PACKAGE_VERSION@\" > webdslversionterm.trm 
 
-org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \
+org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \ 
+								  $(wildcard org/webdsl/dsl/syntax/mobl/*.sdf)\
+								  $(wildcard org/webdsl/dsl/syntax/mobl/js/*.sdf)\
                                   org/webdsl/dsl/syntax/MixHQL.sdf
 
 # .str dependencies
