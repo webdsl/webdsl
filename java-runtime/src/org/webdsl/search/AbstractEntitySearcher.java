@@ -1290,6 +1290,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             sel = new BrowseSelection( facet.fieldName );
 
         if( facet.isMust( ) ){
+            getBoboBrowseRequest( ).getFacetSpec( facet.fieldName ).setExpandSelection( false );
             sel.setSelectionOperation( ValueOperation.ValueOperationAnd );
             sel.addValue( facet.value );
         } else if( facet.isShould( ) ){
