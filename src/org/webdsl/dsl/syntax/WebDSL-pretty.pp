@@ -1378,6 +1378,9 @@
    
    ForInferred.4:iter-star                                -- _1,
    ForInferred                                            -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"] _5,
-   ForStmtInferred                                        -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] _4
-
+   ForStmtInferred                                        -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] _4,
+   
+   GlobalVarDecl                                          -- KW["var"] _1 KW[":"] _2,
+   GlobalVarDeclInitInferred                              -- KW["var"] _1 KW[":="] _2,
+   GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3
 ]
