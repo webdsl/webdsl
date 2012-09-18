@@ -203,7 +203,6 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         BooleanQuery newQuery = new BooleanQuery( );
 
         HashMap<String, BooleanQuery> shouldFacetQueryMap = new HashMap<String, BooleanQuery>( 10 );
-
         for( WebDSLFacet facet : filteredFacetsList ) {
             if ( rangeFacetRequests != null && rangeFacetRequests.containsKey( facet.getFieldName( ) ) ) {
                 key = facet.getFieldName( ) + "-" + facet.getValue( );
@@ -1316,37 +1315,28 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     private void updateBoboBrowseRequest(){
         FacetSpec facetSpec;
-        SortField srtfld;
-
-        int max = 0;
 
         if( discreteFacetRequests == null ) {
             discreteFacetRequests = new HashMap<String, Integer>( );
         }
 
         for ( Entry<String, Integer> rq : discreteFacetRequests.entrySet( ) ) {
-            //skip if already declared, TODO: this doesn't check for changes in max count and ordering (not implemented yet)
-            if ( boboBrowseRequest.getFacetSpec( rq.getKey( ) ) != null )
-                continue;
-            max = Math.max( max, rq.getValue( ) );
-            // add the facet output specs
-            facetSpec = new FacetSpec( );
+            facetSpec = boboBrowseRequest.getFacetSpec( rq.getKey( ) );
+            if ( facetSpec == null ) {
+                facetSpec = new FacetSpec( );
+                facetSpec.setOrderBy( FacetSortSpec.OrderHitsDesc );
+                facetSpec.setExpandSelection( true );
+                boboBrowseRequest.setFacetSpec( rq.getKey( ),facetSpec );
+            }
+            // If facetSpec already exists, the maxCount may be changed
             facetSpec.setMaxCount( rq.getValue( ) );
-            facetSpec.setOrderBy( FacetSortSpec.OrderHitsDesc );
-            facetSpec.setExpandSelection( true );
-
-            srtfld = new SortField( rq.getKey( ),sortType( rq.getKey( ) ), true );
-
-            //setFacetSpec ADDS a spec to its facet spec map
-            boboBrowseRequest.setFacetSpec( rq.getKey( ),facetSpec );
-            boboBrowseRequest.addSortField( srtfld );
         }
 
 
-        boboBrowseRequest.setCount( max );
         boboBrowseRequest.setOffset( 0 );
-
+        boboBrowseRequest.setCount( 0 );
         boboBrowseRequest.setQuery( getBoboQuery() );
+
         updateBoboBrowseRequest = false;
     }
 
