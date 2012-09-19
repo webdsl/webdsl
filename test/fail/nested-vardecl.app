@@ -1,4 +1,4 @@
-//This element is not allowed to be nested in other template elements
+//#3 This element is not allowed to be nested in other template elements
 
 application test
 
@@ -10,7 +10,9 @@ application test
   {
     for(t:Task){
       form {
-        var u : Task
+        var u0 : Task
+        var u1 : Task := Task{}
+        var u2 := Task{}
       }
     }
   }
