@@ -49,6 +49,8 @@ module .servletapp/src-webdsl-template/built-in
     static renewFacetIndexReaders()
     static clearAutoCompleteIndex(String)
     static clearSpellCheckIndex(String)
+    static reindex(Entity)
+    static removeFromIndex(Entity)
   }
   native class org.webdsl.search.SearchHelper as SearchHelper {
      static firstIndexLink(Int, Int, Int): Int
@@ -339,6 +341,9 @@ module .servletapp/src-webdsl-template/built-in
     setTemplateContext(TemplateContext)
     getTemplateContext():TemplateContext
     setMimetype(String)
+    isRedirected():Bool
+    getRedirectUrl():String
+    setRedirectUrl(String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();

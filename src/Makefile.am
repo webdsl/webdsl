@@ -24,9 +24,11 @@ CLEANFILES = \
 
 FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*.def) \
+    $(wildcard org/webdsl/dsl/*/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
-	$(wildcard org/webdsl/dsl/*/*.tbl)
+	$(wildcard org/webdsl/dsl/*/*.tbl)\ 
+	$(wildcard org/webdsl/dsl/*/*/*.tbl)
 
 # "make clean" leaves syntax intact; use fullclean/distclean
 
@@ -45,6 +47,8 @@ EXTRA_DIST = \
     $(wildcard org/webdsl/dsl/*/*.meta) \
     $(wildcard org/webdsl/dsl/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*.sdf) \
+    $(wildcard org/webdsl/dsl/*/*/*.sdf) \
+    $(wildcard org/webdsl/dsl/*/*/*/*.sdf) \
     $(wildcard org/webdsl/dsl/*/*.pp) \
     $(wildcard org/webdsl/dsl/*/*/*.str) \
     $(wildcard org/webdsl/dsl/*/*/*.meta) \
@@ -96,14 +100,18 @@ css 		= org/webdsl/dsl/syntax/CSS
 mixcss 		= org/webdsl/dsl/syntax/StrategoCSS
 metasyntax 	= org/webdsl/dsl/syntax/StrategoWebDSL
 mixmetasyntax 	= org/webdsl/dsl/syntax/Stratego-WebDSL-Java-XML
+mixmoblsyntax 	= org/webdsl/dsl/syntax/mobl/Stratego-MoBL
+moblsyntax 		= org/webdsl/dsl/syntax/mobl/MoBL
+mixmobljssyntax = org/webdsl/dsl/syntax/mobl/Stratego-Javascript
 
 SYNTAXDEFS = $(syntax).def					  \
 	     $(mixcss).def $(metasyntax).def $(mixmetasyntax).def \
-	     $(hql).def $(css).def  # used for mixing		  
+	     $(hql).def $(css).def \
+	     ${mixmoblsyntax}.def ${mixmobljssyntax}.def # used for mixing		  
 
-TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl 
+TBLS   = $(syntax).tbl $(metasyntax).tbl $(mixmetasyntax).tbl $(mixcss).tbl ${mixmoblsyntax}.tbl ${mixmobljssyntax}.tbl
 
-SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str
+SIGS   = $(hql).rtg $(hql).str $(css).rtg $(css).str $(syntax).rtg $(syntax).str $(moblsyntax).rtg $(moblsyntax).str 
 
 PPTBLS = $(hql)-pretty.pp.af $(css)-pretty.pp.af $(syntax)-pretty.pp.af
 
@@ -123,7 +131,9 @@ PPTABLES = \
 webdslversionterm.trm :
 	echo \"@PACKAGE_VERSION@\" > webdslversionterm.trm 
 
-org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \
+org/webdsl/dsl/syntax/WebDSL.def: $(wildcard org/webdsl/dsl/syntax/*.sdf) \ 
+								  $(wildcard org/webdsl/dsl/syntax/mobl/*.sdf)\
+								  $(wildcard org/webdsl/dsl/syntax/mobl/js/*.sdf)\
                                   org/webdsl/dsl/syntax/MixHQL.sdf
 
 # .str dependencies

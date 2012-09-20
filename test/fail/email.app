@@ -19,21 +19,21 @@ section datamodel
     name :: String
     mail :: Email
   }
-  
+
   define page root(){
     for(u:User)
     {
-      outputString(u.name)
+      output(u.name)
     }
     "test page"
     var u : User := User{
-      name := "bob"  
+      name := "bob"
       mail := "webdsl@gmail.com"
     };
     form{
       input(u.name)
       input(u.mail)
-      
+
       action("email",send())
     }
     action send()
@@ -46,6 +46,6 @@ section datamodel
 
 
   define page confirmEmail(u:User){
-  
+
     output(u.name) " confirmed"
   }

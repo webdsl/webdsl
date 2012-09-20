@@ -2,18 +2,10 @@ module org/webdsl/dsl/languages/ui/for-loop
 
 rules
 
-  normalize-constructor :
-    ForNoFilter(x, s, e, te*, sep){anno*} -> For(x, s, e, None(), te*, sep){anno*}
-
-  normalize-constructor :
-    ForAllNoFilter(x, s, te*, sep){anno*} -> ForAll(x, s, None(), te*, sep){anno*}
-
-rules
-
   rename-ui :
     def@For(x, srt, e1, f1, elems1, elems3){anno*} -> For(y, srt2, e2, f2, elems2, elems4){newanno*}
     with e2 := <rename-all> e1
-       ; {| Rename, VarInTemplateContext, IteratorContext
+       ; {| Rename, VarInContext, IteratorContext
           : srt2   := <rename-all> srt
           ; y      := <rename-bound-immutable(|srt2)> x
           ; rules(
@@ -28,8 +20,27 @@ rules
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
   rename-ui :
+    def@ForInferred(x, e1, f1, elems1, elems3){anno*} -> ForInferred(y, e2, f2, elems2, elems4){anno*}
+    with e2 := <rename-all> e1
+       ; {| Rename, VarInContext
+          : ((GenericSort(_,[srt]) := <type-of;add-immutable-anno> e2) <+ srt := "unknown") 
+            // type-of can fail if the expression cannot be typed, in that case the for loop var will not be declared and constraint error triggers
+            // add ImmutableReference annotation, because x will not be assignable even if e was
+          ; y      := <rename-bound-immutable(|srt)> x
+          ; rules(VarDecl : y -> def)
+          ; <declare-vars-in-context> y
+          ; f2     := <rename-all> f1
+          ; elems2 := <rename-all> elems1
+          |}
+       ; elems4 := <rename-all> elems3 // separator cannot refer to loop index         
+
+  desugar-action :
+    ForInferred(x, e, f, elems1, elems2){anno*} -> For(x, srt, e, f, elems1, elems2){anno*}
+    with GenericSort(_,[srt]) := <type-of; add-immutable-anno> e //add ImmutableReference annotation, because x will not be assignable even if e was
+
+  rename-ui :
     def@ForAll(x, srt, f1, elems1, elems3){anno*} -> ForAll(y, srt2, f2, elems2, elems4){newanno*}
-    with {| Rename, VarInTemplateContext, IteratorContext
+    with {| Rename, VarInContext, IteratorContext
           : srt2   := <rename-all> srt
           ; y      := <rename-bound-immutable(|srt2)> x
           ; rules(
@@ -44,10 +55,10 @@ rules
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
   rename-ui :
-    def@ForCount(x, e1, e2, elems1, elems3) -> ForCount(y, e3, e4, elems2, elems4)
+    def@ForCount(x, e1, e2, elems1, elems3){anno*} -> ForCount(y, e3, e4, elems2, elems4){anno*}
     with  e3 := <rename-all> e1
         ; e4 := <rename-all> e2 
-        ; {| Rename, VarInTemplateContext
+        ; {| Rename, VarInContext
           : y := <rename-bound-immutable(|SimpleSort("Int"))> x
           ; rules(VarDecl : y -> def)
           ; <declare-vars-in-context> y
@@ -123,8 +134,7 @@ rules
     ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
     //; fltr* := <get-query-condition(|x,srt,bindableargs); ?qc; (define-filter-for-query-condition(|x,srt) < ![<id>] + ![])> newanno*
     //; newanno2* := <conc> (fltr*, newanno*)
-
-
+          
 rules // ForAll only declared entity types
   
   constraint-error-ui: ForAll(_, srt, _, _, _) -> <forall-constraint-error(|srt)>

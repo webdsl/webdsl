@@ -1,0 +1,108 @@
+module MoBL
+
+imports
+  Common
+  MoBL-UI
+  MoBL-Data
+  MoBL-Action
+  MoBL-Service
+  MoBL-Type
+  MoBL-Regex
+  MoBL-External
+  MoBL-Style
+  MoBL-Config
+  MoBL-Server
+  js/Javascript
+
+exports
+
+  context-free start-symbols
+    Start
+
+  context-free syntax %% Main
+
+    ID                               -> QId
+    QId "::" ID                      -> QId {cons("QId")}
+    "module" QId Definition*         -> Start {cons("Module")}
+    "application" ID Definition* -> Start {cons("Application")}
+
+    "dynamic" "import" QId         -> Definition {cons("DynamicImport")}
+    "import" QId                   -> Definition {cons("Import")}
+    "load" Path                    -> Definition {cons("Load")}
+    "resource" Path                -> Definition {cons("Resource")}
+
+    "mixin" QId                    -> Definition {cons("Mixin")}
+
+    ID ":" Type                    -> FArg {cons("FArg")}
+    ID ":" Type "=" Exp            -> FArg {cons("FArgOptional")}
+
+    QId                            -> NFType {cons("SimpleType")}
+    QId "<" {Type ","}* ">"        -> NFType {cons("GenericType")}
+    "(" {Type ","}* ")"            -> NFType {cons("TupleType")}
+    "[" Type "]"                   -> NFType {cons("ArrayType")}
+    "?"                            -> NFType {cons("DynamicType")}
+
+    NFType                         -> Type
+    {NFType "*"}+ "->" NFType      -> Type {cons("FunctionType"), avoid}
+
+    "@doc" STRING                  -> MetaAnno {cons("DocAnno")}
+    "@when" Exp                    -> MetaAnno {cons("WhenAnno")}
+    "@persistable"                 -> MetaAnno {cons("PersistableAnno")}
+
+    "@" Exp                        -> MetaAnno {cons("DecoratorAnno"), avoid}
+
+  context-free syntax %% Paths
+    {FILENAME "/"}+                  -> Path {cons("Path")}
+    "/" {FILENAME "/"}+              -> Path {cons("AbsolutePath")}
+    STRING                           -> Path {cons("QuotedPath")}
+
+  %%syntax
+        %%"<javascript>" <JSString-LEX> "</javascript>"  -> <Definition-CF> {cons("Javascript")}
+
+  context-free syntax %% native javascript
+
+    "<javascript>" JSModule "</javascript>"     -> Definition {cons("Javascript")}
+    QId "@<javascript>" JSModule "</javascript>"     -> Definition {cons("ModuleJavascript")}
+    "<javascript" "for" "=" QId ">" JSModule "</javascript>"     -> Definition {cons("JavascriptFor")}
+    QId "@<javascript" "for" "=" QId ">" JSModule "</javascript>"     -> Definition {cons("ModuleJavascriptFor")}
+
+  %%lexical syntax
+  %%  JSChar*       -> JSString
+  %%  ~[\<]         -> JSChar
+  %%  SmallerThan   -> JSChar
+  %%  [\<]          -> SmallerThan
+  %%  ""            -> JSString {reject}
+
+  %%lexical restrictions
+  %%  SmallerThan   -/- [\/]
+  %%  JSString -/- [\ \t\n\r]
+  %%  JSString -/- ~[\<]
+
+  context-free syntax %% Paths
+    "/" {UriPart "/"}*                  -> UriPath {cons("UriPath")}
+
+    FILENAME  -> UriPart {cons("UriPart")}
+    ":" ID    -> UriPart {cons("UriVar")}
+
+  lexical syntax
+    "control" -> ID {reject}
+    "var" -> ID {reject}
+    "script" -> ID {reject}
+    "screen" -> ID {reject}
+    "entity" -> ID {reject}
+    "function" -> ID {reject}
+    "callback" -> ID {reject}
+    %%"sync" -> ID {reject}
+    "null" -> ID {reject}
+    "return" -> ID {reject}
+    "true" -> ID {reject}
+    "false" -> ID {reject}
+    "if" -> ID {reject}
+    "else" -> ID {reject}
+    "databind" -> HTMLID {reject}
+    "cond" -> ID {reject}
+    "when" -> ID {reject}
+    "this" -> ID {reject}
+    "javascript" -> ID {reject}
+    "$data" -> ID {reject}
+

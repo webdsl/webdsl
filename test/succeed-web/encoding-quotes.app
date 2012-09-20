@@ -38,6 +38,6 @@ function checkit(d : WebDriver){
 }
 
 function getString() : String{
-    return "\\\"|\\'\\'>\\\\\\<><>?/,,./\"\"\"´./ '\"'\"```~ ~~~`&quot;&amp;";
+    return "\\\"|\\'\\'>\\\\\\<><>?/,,./\"\"\"'./ '\"'\"```~ ~~~`&quot;&amp;";
 }
 

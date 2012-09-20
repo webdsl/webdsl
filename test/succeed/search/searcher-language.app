@@ -110,5 +110,7 @@ define page root() {
         var x16 := field facets from x9 == [Facet()];
         var x17 := Movie completions matching title:"Tra" similarity 5 / 11 != null;
 
+        var x18 := search Movie matching q~100 with filter year:2001 with facets (year,40) [strict matching];
+
     }
 }

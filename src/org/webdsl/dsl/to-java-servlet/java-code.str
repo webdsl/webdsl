@@ -149,9 +149,9 @@ rules // for
          ; prefetch := <get-prefetch-for(|x)> stat*
          ; (bstm_enable*, bstm_disable*) := <try-get-prefetch-where; try-get-query-condition-filter; (if-optimization-enabled,if-optimization-enabled)> prefetch
          ; e_joins := <get-direct-fetches> prefetch
-         ; e_expr := <(AtArguments() := <QueryOptimizationMode>) < !expr|[x_expr]| + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins, null) ]|>
+         ; e_expr := <is-at-arguments < !expr|[x_expr]| + !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins, null) ]|>
          ; bstm_early* := <is-guided-batching < (get-early-batch-fetches(|x_list, srt) <+ ![]) + ![]> prefetch
-         ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(where(AtArguments() := <QueryOptimizationMode>); ![]) + ![]> prefetch
+         ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
          ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr, bstm_batch*)>
 
   for-to-java-servlet :
@@ -180,31 +180,6 @@ rules // for
         ; bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
 
 rules // return
-
-  normal-redirect-statements :
-    e_url -> bstm* |[
-    try {
-      ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
-      if(!ThreadLocalPage.get().isActionLinkUsed()){
-        response.sendRedirect(ThreadLocalPage.get().getRedirectUrl());
-      }
-    } catch (IOException ioe) {
-      System.out.println("redirect failed");
-      ioe.printStackTrace();
-    }
-  ]|
-
-  ajax-redirect-statements :
-    e_url -> bstm* |[
-      //redirect in init action can be triggered with get as well,
-      //should not use ajax response in this case since the page wasn't accessed through the ajax run-time
-      if(!ThreadLocalServlet.get().isPostRequest){
-        ~*<normal-redirect-statements> e_url
-      }
-      else{
-        ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+utils.HTMLFilter.unfilter(e_url)+"\" },\n");
-      }
-    ]|
 
   return-to-java-servlet :
     Return(call@PageCall(p,arg*)) -> bstm*
@@ -240,13 +215,7 @@ rules // return
   redirect-page-call-to-java-statements :
     call@PageCall(p,arg*) ->
     bstm* |[
-      if(ThreadLocalPage.get().isAjaxRuntimeRequest()){ //doesn't matter whether this is in an ajax template, only important thing for redirects is the current request type
-        ~*<ajax-redirect-statements> e_url
-      }
-      else{
-        ~*<normal-redirect-statements> e_url
-      }
-      isRedirected = true;
+      ThreadLocalPage.get().setRedirectUrl(utils.HTMLFilter.unfilter(e_url));
     ]|
     with  InAction //should only occur inside actions
     with  e_url := <page-thiscall-to-url-string-java-servlet> call

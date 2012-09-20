@@ -10,7 +10,11 @@ public interface WebDSLEntity extends Serializable {
     public void setId(UUID o);
     public String get_WebDslEntityType();
     public java.lang.Integer getVersion(); 
-    public void setVersion(java.lang.Integer i); 
+    public void setVersion(java.lang.Integer i);
+    public java.util.Date getCreated();
+    public void setCreated(java.util.Date d);
+    public java.util.Date getModified();
+    public void setModified(java.util.Date d);
     public String getName();
     public void validateSave();
     public boolean isChanged();
