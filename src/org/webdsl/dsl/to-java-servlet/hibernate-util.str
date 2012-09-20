@@ -210,13 +210,16 @@ rules
     //; where(<debug(!"build:")>(x_list, srt))
     ; bstm_sub* := <build-sub-batches(|x_list, srt)>
     ; bstm_templ* := <get-prefetch-for-template(|x_list) <+ ![]> templ
-    ; !bstm* |[ bstm_templ* bstm_sub* ]|
+    ; <if-optimization-enabled> bstm* |[ bstm_templ* bstm_sub* ]|
     //; where(not(?[]; info(|"skip")))
     //; debug(!"builddone:")
 
+  if-optimization-enabled : [] -> []
+  if-optimization-enabled : bstm* -> bstm* |[ if(utils.ThreadLocalPage.get().isOptimizationEnabled()){ bstm* } ]| where not([] := bstm*)
+
   get-batch-fetches-single(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm* |[
-														        if(x != null) {
+														        if(x != null && utils.ThreadLocalPage.get().isOptimizationEnabled()) {
 														          java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
 														          x_list.add(x);
 														          utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_list, e_joins);          
@@ -238,7 +241,7 @@ rules
 
   get-batch-fetches-filter-hints(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm*
-    where bstm* := <get-first-generic-fetches-with-hints; map(build-prefetch-hint(|x,srt))> tree
+    where bstm* := <get-first-generic-fetches-with-hints; map(build-prefetch-hint(|x,srt)); if-optimization-enabled> tree
 
   get-first-generic-fetches-with-hints =
       get-prefetch-children
@@ -260,6 +263,7 @@ rules
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; filter(get-fetch-early-subtree)
     ; build-sub-batches(|x_list, srt)
+    ; if-optimization-enabled
 
   // This node is a prefetch-early node, so include
   get-fetch-early-subtree :
@@ -376,6 +380,7 @@ rules
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; (is-guided-batching-no-joins <+ filter(has-generic-batch-fetch))
     ; build-sub-batches(|x_list, srt)
+    ; if-optimization-enabled
     /*
     ?qo@QueryOptimizations(joincandidates, joincandidatesgen, cond)
     ; <get-batch-fetches(|x, srt, x_list)> QueryOptimizations([], joincandidatesgen, cond)*/
@@ -394,43 +399,73 @@ rules
 
   truncate-keep-right(|len) = where(!(<strlen>, len); not(gt))
 
-  truncate-keep-right(|len) = where(!(<strlen>, len); gt); explode-string; reverse; take(|95); reverse; implode-string
+  truncate-keep-right(|len) = where(!(<strlen>, len); gt); explode-string; reverse; take(|85); reverse; implode-string; <concat-strings> ["truncated_", <id>] // add truncated prefix, to ensure identifiers still start with a letter
 
   truncate-keep-left(|len) = where(!(<strlen>, len); not(gt))
 
   truncate-keep-left(|len) = where(!(<strlen>, len); gt); explode-string; take(|95); implode-string
 
+  get-inner-most-batch-sort = ?SimpleSort(_)
+  get-inner-most-batch-sort = ?GenericSort(_, [<get-inner-most-batch-sort>])
+
+  loops-for-generic-batches(|x_batchelem, bstm_op*) :
+    (x_list, srt@SimpleSort(_)) -> bstm* |[
+        for(t x_batchelem : x_list) {
+          if(x_batchelem == null) continue;
+          bstm_op*
+        }
+    ]|
+    where t := <java-type> srt
+
+  loops-for-generic-batches(|x_batchelem, bstm_op*) :
+    (x_list, srt@GenericSort(_, [simplersort])) -> bstm* |[
+        for(t x_elem : x_list) {
+          if(x_elem == null) continue;
+          bstm_innerloop*
+        }
+    ]|
+    where t := <java-type> srt
+    ; x_elem := <newname>"innerlst"
+    ; bstm_innerloop* := <loops-for-generic-batches(|x_batchelem, bstm_op*)> (x_elem, simplersort)
+
   build-sub-batches(|x_list, srt) :
     children -> bstm* |[
         bstm_batch*
-        for(t x_batchelem : x_list) {
-          if(x_batchelem == null) continue;
-          bstm_addbatch*
-        }
+        bstm_addloops*
         bstm_fetch*
         bstm_after2*
         bstm_final*
         bstm_subbatch*
       ]|
-    with t := <java-type> srt
+    with elemsrt := <get-inner-most-batch-sort> srt
     ; x_batchelem := <concat-strings; truncate-keep-right(|95); newname>[x_list, "Elem"]
-    ; tmp := <map(build-batch(|x_batchelem, srt, x_list))> children
+    //; (bstm_batch*, bstm_addbatch*, bstm_fetch*, bstm_after*, bstm_final*, bstm_subbatch*) := <map-build-batch(|x_batchelem, elemsrt, x_list); (flatten-list, id, flatten-list, flatten-list, flatten-list, flatten-list)> children
+    //; (bstm_batch*, bstm_addbatch*, bstm_fetch*, bstm_after*, bstm_final*, bstm_subbatch*) := <unzip-six-tuple(build-batch(|x_batchelem, elemsrt, x_list)); (flatten-list, id, flatten-list, flatten-list, flatten-list, flatten-list)> children
+    ; tmp := <map(build-batch(|x_batchelem, elemsrt, x_list))> children
     ; bstm_batch* :=    <map(?(<id>, _, _, _, _, _)); flatten-list> tmp
     ; bstm_addbatch* := <map(?(_, <id>, _, _, _, _))> tmp
     ; bstm_fetch* :=    <map(?(_, _, <id>, _, _, _)); flatten-list> tmp
     ; bstm_after* :=    <map(?(_, _, _, <id>, _, _)); flatten-list> tmp
     ; bstm_final* :=    <map(?(_, _, _, _, <id>, _)); flatten-list> tmp 
     ; bstm_subbatch* := <map(?(_, _, _, _, _, <id>)); flatten-list> tmp 
+    ; bstm_addloops* := <loops-for-generic-batches(|x_batchelem, bstm_addbatch*)> (x_list, srt)
     ; if not([] := bstm_after*); not([] := bstm_subbatch*) then 
-        bstm_after2* := [bstm |[
-          for(t x_batchelem : x_list) {
-            if(x_batchelem == null) continue;
-            bstm_after*
-          }
-        ]|]
+        bstm_after2* := <loops-for-generic-batches(|x_batchelem, bstm_after*)> (x_list, srt)
       else
         bstm_after2* := []
       end
+
+  /*map-build-batch(|x_batchelem, elemsrt, x_list) :
+    [] -> ([], [], [], [], [], [])
+
+  map-build-batch(|x_batchelem, elemsrt, x_list) :
+    [x|xs] -> ([y1|ys1], [y2|ys2], [y3|ys3], [y4|ys4], [y5|ys5], [y6|ys6])
+    with (y1, y2, y3, y4, y5, y6) := <build-batch(|x_batchelem, elemsrt, x_list)> x
+    ; (ys1, ys2, ys3, ys4, ys5, ys6) := <map-build-batch(|x_batchelem, elemsrt, x_list)> xs*/
+  /*unzip-six-tuple(s) = genzip(unzip-six-tuple-unzip1, unzip-six-tuple-unzip3, unzip-six-tuple-unzip2, s)
+  unzip-six-tuple-unzip1 : [] -> ([], [])
+  unzip-six-tuple-unzip2 : ((x1, x2, x3, x4, x5, x6), (xs1, xs2, xs3, xs4, xs5, xs6)) -> ([x1|xs1], [x2|xs2], [x3|xs3], [x4|xs4], [x5|xs5], [x6|xs6])
+  unzip-six-tuple-unzip3 : [x |  xs] -> (x, xs)*/
     //; with(where(pp-java5-to-string; debug(!"bstm_subbatch:")))
 /*
   get-default-template-condition :

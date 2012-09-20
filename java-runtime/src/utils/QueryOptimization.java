@@ -172,7 +172,7 @@ public class QueryOptimization {
 
 	public static void prefetchEntity(org.hibernate.Session hibSession, String entityName, org.hibernate.proxy.HibernateProxy proxy, String[] joins) {
 		org.hibernate.proxy.LazyInitializer init = proxy.getHibernateLazyInitializer();
-		if (!init.isUninitialized()) {
+		if (!init.isUninitialized() || joins == null || !ThreadLocalPage.get().isOptimizationEnabled()) {
 			return;
 		}
 		java.io.Serializable[] ids = { init.getIdentifier() };
@@ -183,7 +183,7 @@ public class QueryOptimization {
 			if (persister instanceof utils.SingleTableEntityPersister) {
 				try {
 					java.util.List<String> joinslist = null;
-					if(joins != null) joinslist = java.util.Arrays.asList(joins); // Also for optimizationMode == 8, because we want to join fetch when fetching a single entity 
+					joinslist = java.util.Arrays.asList(joins); // Also for optimizationMode == 8, because we want to join fetch when fetching a single entity 
 					((utils.SingleTableEntityPersister) persister).loadBatch(ids, session, joinslist);
 					init.initialize();
 				} catch (Exception ex) {
@@ -346,4 +346,12 @@ public class QueryOptimization {
 		return result != null;
 	}
 
+	public static org.hibernate.Criteria addJoinsIfOptimizationEnabled(org.hibernate.Criteria criteria, String[] props) {
+		if(criteria != null && props != null && ThreadLocalPage.get().isOptimizationEnabled()) {
+			for(String prop : props) {
+				criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
+			}
+		}
+		return criteria;
+	}
 }

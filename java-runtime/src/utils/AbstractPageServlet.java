@@ -38,6 +38,20 @@ public abstract class AbstractPageServlet{
     protected boolean isLogSqlEnabled = false;
     public boolean isLogSqlEnabled() { return isLogSqlEnabled; }
 
+    protected boolean isOptimizationEnabled = true;
+    public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
+
+    public String getExtraQueryAruments(String firstChar) { // firstChar is expeced to be ? or &, depending on wether there are more query aruments
+    	String res = "";
+    	if(!isOptimizationEnabled || isLogSqlEnabled) {
+    		res = firstChar;
+    		if(isLogSqlEnabled) res += "logsql";
+    		if(isLogSqlEnabled && !isOptimizationEnabled) res += "&";
+    		if(!isOptimizationEnabled) res += "disableopt";
+    	}
+    	return res;
+    }
+
     public abstract String getPageName();
     public abstract String getUniqueName();
 

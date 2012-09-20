@@ -1049,6 +1049,11 @@ rules
     where subpaths := <replace-calls-to-return-values(s)> e
     ; results := <filter(expand-call-to-return-values(s|nm, args)); flatten-list; make-set> subpaths
 
+  // To handle desugared set() or list() calls on collections
+  replace-calls-to-return-values(s) :
+    c@Call(_, _, _) -> [p]
+    where (p, psrt) := <is-accessible-from(s)> c
+
   expand-call-to-return-values(s|nm, args) :
     e -> results
     where <is-accessible-from(s); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
@@ -1058,6 +1063,19 @@ rules
     with argmapping := <zip> (args, defargs)
     ; varmapping := <add-this-vars-to-mapping(|returns, e, ent)> argmapping
     ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
+
+  expand-call-to-return-values(s|nm, args) :
+    e -> e
+    where targs* := <map(type-of); prepare-type-list-for-compare> args
+    ; (p, psrt) := <is-accessible-from(s)> e
+    ; <ignoreable-generic-sort-built-in-function> (psrt, nm, targs*)
+
+  ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "set", [])
+  ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "get", [SimpleSort("Int")])
+  ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "subList", [SimpleSort("Int"),SimpleSort("Int")])
+  ignoreable-generic-sort-built-in-function = ?(GenericSort("Set", [_]), "list", [])
+
+  is-entity-type-strip-generics = where(repeat(\GenericSort(_, [simplesrt]) -> simplesrt\); is-entity-type)
 
   // The default generic sort handler is try-strip-generic-sort, to allow fieldaccesses on collections
   // For query conditions this is not allowed, so there id should be used to deal with generic sorts
@@ -1077,6 +1095,23 @@ rules
     Cast(Cast(f, srt){anno*}, srt2) -> (p, srt3)
     where <subtype-of> (<gen>srt, <gen>srt2) // srt is more specific (subtype of srt2 or eq)
     ; (p, srt3) := <is-accessible-from(s,gen)> Cast(f, srt){anno*}
+
+  // Allow get(<index>), list(), set() and subList(<from>,<to>) to be ignored, so FieldAccesses can be detected on the result
+  // However, any detected FieldAccess will be prefetched for all elements, not just for the element at <index> or between <from> and <to>
+  is-accessible-from(s,gen):
+    c@Call(e, nm, args){anno*} -> (p, psrt)
+    where targs* := <map(type-of); prepare-type-list-for-compare> args
+    ;(p, psrt) := <is-accessible-from(s,gen)> e
+    ; <ignoreable-generic-sort-built-in-function> (psrt, nm, targs*)
+
+  // list() and set() calls on collections are desugared, this handles the desugared form
+  is-accessible-from(s,gen):
+    c@Call(e, nm, args){anno*} -> (p, colsrt)
+    where colsrt := <(?TypedSetCreation(simplesrt, []) <+ ?TypedListCreation(simplesrt, [])); type-of> e 
+    ; "addAll" := nm
+    ; targs* := <?[<id>]; is-accessible-from(s,gen); ?(p, psrt)> args
+    ; simplesrt := <is-generic-sort; try-strip-generic-sort> psrt
+    //; <debug(!"dcol:")> (c, p, colsrt)
 
   is-accessible-from(s,gen): // Cast where the cast is needed
     Cast(f, srt){anno*} -> (Cast(p, srt){srt2, keepanno*}, srt)

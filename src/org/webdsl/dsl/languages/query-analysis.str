@@ -19,7 +19,7 @@ rules // Entry points
       |}
 
   perform-waiting-check-only-loops = // Required for calls on persistent iterators, otherwise these calls are not detected as recursive
-    ((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type> srt)
+    ((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type-strip-generics> srt)
     ; {| RootVar
        : rules( RootVar : Var(x) -> srt )
        ; wait := <collect(perform-waiting-check-only-loops <+ query-optimization-waiting-for-calls); flatten-list> b
@@ -362,8 +362,26 @@ strategies // Resolve
     ; args2 := <map(analyze-for-query-optimization-effectful)> args1
   */
 
+  /*analyze-for-query-optimization-calls :
+    c@Call(e@Call(_, _, _), nm, args1){anno*} -> Call(e, nm, args2){anno*}
+    where <analyze-first-calls-first> c//<not(is-accessible-from(RootVar)); is-accessible-from-allow-calls(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+
+  analyze-first-calls-first-first-calls-first =
+    ?c@Call(c2@Call(e, _, _), nm, args1){anno*}
+    ; not(Call(_, _, _) := e)
+    ; calls := <is-accessible-from-allow-calls(RootVar); map(Fst; replace-expression-in-call(|c))> c2
+    ; <filter(analyze-for-query-optimization-calls)> calls
+
+  replace-expression-in-call(|c) :
+    e -> Call(e, nm, args){anno*}
+    where Call(_, nm, args){anno*}
+
+  analyze-first-calls-first =
+    ?c@Call(c2@Call(c3@Call(_, _, _)_, _, _), nm, args1){anno*}
+    ; <analyze-first-calls-first> c2*/ 
+
   analyze-for-query-optimization-calls :
-    c@Call(e, nm, args1){anno*} -> Call(e, nm, args2){anno*}
+    c@Call(e, nm, args1){anno*} -> c //Call(e, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
     ; targs := <map(type-of); prepare-type-list-for-compare> args1
     ; n := <strip-annos> nm  
@@ -680,7 +698,7 @@ strategies // Resolve
 
   analyze-for-query-optimization =
     //(?ForAll(x, srt, f, b, _){anno*} <+ ?For(x, srt, e, f, b, _){anno*} <+ ?ForAllStmt(x, srt, f, b){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*})
-    where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type> srt)
+    where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type-strip-generics> srt)
     ; with(
       if toreg := <?FieldAccess(_, _); is-accessible-from-allow-calls(RootVar)> e then
         with-prefetch-where(<map(register-detected-traversal)> toreg|x,anno*) // This ensures that we properly attach a filter to traversals detected on the collection expression
@@ -739,7 +757,7 @@ strategies // Resolve
   query-optimization-waiting-for-loops =
     ?ForStmt(x, srt, e, filter, body){anno*}
     ; where(
-        <is-entity-type> srt // Important, because we do not analyze for loops of primitive types
+        <is-entity-type-strip-generics> srt // Important, because we do not analyze for loops of primitive types
         //; (expr, exprsrt) := <debug(!"e:");is-accessible-from(RootVar);debug(!"acc:")> e
         ; not(<fetch-elem(is-query-analysis)> anno*)
       )
@@ -747,7 +765,7 @@ strategies // Resolve
   query-optimization-waiting-for-loops =
     ?For(x, srt, e, filter, body, sep){anno*}
     ; where(
-        <is-entity-type> srt // Important, because we do not analyze for loops of primitive types
+        <is-entity-type-strip-generics> srt // Important, because we do not analyze for loops of primitive types
         //; (expr, exprsrt) := <is-accessible-from(RootVar)> e
         ; not(<fetch-elem(is-query-analysis)> anno*)
       )
