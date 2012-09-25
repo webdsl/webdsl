@@ -1,4 +1,4 @@
-//#15 Assignment to this variable is not allowed.
+//#16 Assignment to this variable is not allowed.
 //#5 This variable is not allowed in 'input'
 //#1 Derived property is not allowed in 'input'
 //#1 Global variable b1 is not allowed in inputs
@@ -11,6 +11,7 @@ application test
         
     function test(a:Int, b:Bar){
       this := null;
+      super := null;
       a := 7;
       b := null;
       for(i:Int from 0 to 9){

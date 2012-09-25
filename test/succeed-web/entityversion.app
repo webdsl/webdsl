@@ -242,6 +242,6 @@ test listModify {
     button.click();
 
 	assert(d.getPageSource().contains("version: 2"), "version should be changed after object change");
-    assert(d.getPageSource().contains("createdchanged: false"), "created should not be changed when entity is changed");
+    		assert(d.getPageSource().contains("createdchanged: false"), "created should not be changed when entity is changed");
 	assert(d.getPageSource().contains("modifiedchanged: true"), "modified should  be changed when entity is changed");
 }
