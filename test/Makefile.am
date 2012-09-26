@@ -10,7 +10,8 @@ TESTSSUCCEEDALL = \
   $(wildcard succeed/overloading/*.app) \
   $(wildcard succeed/property-events/*.app) \
   $(wildcard succeed/manual/*.app) \
-  $(wildcard succeed/search/*.app)
+  $(wildcard succeed/search/*.app) \
+  $(wildcard succeed/prefetch/*.app)
 #  $(wildcard succeed/generics/*.app) 
 
 TESTSFAIL = \
@@ -41,7 +42,7 @@ TBLANDCTREEUSEDINSTRATEGOTEST = \
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) 
 
-EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
+EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app succeed/prefetch/module/logutils.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
 
 if XT_ENABLE_WEB_CHECK
 

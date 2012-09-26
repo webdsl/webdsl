@@ -19,3 +19,24 @@ rules //desugar dummy templatecall
   ; fetch(?TemplateCall("dummy",_,_,TemplateBody(_)))
   ; map(try(?TemplateCall("dummy",_,_,TemplateBody(<id>))))
   ; flatten-list
+
+  desugar-ui :
+    inp@Define(mod*, x,farg1*, req*, elem1*){anno*} -> def{newanno*}
+    where not(<fetch-elem(is-query-analysis)> anno*)
+        ; genname := <generate-template-name-fargs>(x, farg1*)
+        ; not(<fetch(Local)> mod*) // We analyze local redefines after they have been lifted
+        ; <template-body-ready> elem1*
+		    ; {| CurrentTemplateName
+		      : rules(CurrentTemplateName := genname )
+		      ; (elem2*, newanno*) := <perform-query-analysis(|("Define", genname), farg1*,True(), None(), None())> (elem1*, anno*)
+		    |}
+        ; def := Define(mod*, x, farg1*, req*, elem2*){newanno*}
+        ; rules ( CurrentTemplateDecl : genname -> def) // We need the argument annotations in other desugar rules, so do not wait for rename to update
+
+  add-query-optimization :
+    def@Define(mod*, x,farg1*, req*, elem1*){anno*} -> Define(mod*, x,farg1*, req*, elem2*){IsOptimized(),tokeep*}
+    where <not(fetch-elem(IsOptimized()))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (/*<debug(!"NotOptimized:")> ("Define", <generate-template-name-fargs>(x, farg1*), <is-not-analyzed; Snd> def); */get-empty-query-analysis)> anno*
+      ; tokeep* := <remove-all(is-query-analysis)> anno*
+      ; bindableargs := <filter(query-optimization-bindable-argument)> farg1*
+      ; elem2* := <foldr(!elem1*,add-query-optimization-to-argument(|qa,bindableargs))> farg1*

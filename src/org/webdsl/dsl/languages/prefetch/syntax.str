@@ -1,0 +1,177 @@
+module org/webdsl/dsl/languages/prefetch/syntax
+
+rules
+
+  rename :
+    PrefetchFor(x, templ1, fltr1, tree1){anno*} -> PrefetchFor(y, templ2, fltr2, tree2){anno*}
+    with y := <rename-all> x
+    ; srt := <type-of; strip-immutable-anno> y
+    ; templ2 := <rename-all; rename-prefetch(|srt)> templ1
+    ; fltr2 := <rename-all; rename-prefetch(|srt)> fltr1
+    ; tree2 := <rename-all; rename-prefetch(|srt)> tree1
+    //; <debug(!"out:")> PrefetchFor(y, templ2, fltr2, tree2){anno*}
+
+  rename-prefetch(|srt) :
+    PrefetchChildren(children){anno*} -> PrefetchChildren(children2){anno*}
+    with children2 := <map(try(rename-prefetch(|srt)))> children
+
+  rename-prefetch(|srt) : None(){anno*} -> None(){anno*}
+
+  rename-prefetch(|srt) :
+    PrefetchNode(castsrt, name, mod*, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ2, cond2, elemcond2, children2){newanno*}
+    where SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; n := <strip-annos> name
+    ; dec_class := <class-of-property> (x_class, n)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type; strip-ref-sort> (dec_class, n)
+    ; ssrt := <try-strip-generic-sort> srt
+    ; sfsrt := <try-strip-generic-sort> fsrt
+    ; templ2 := <rename-prefetch(|fsrt)> templ
+    ; cond2 := <rename-prefetch(|ssrt)> cond
+    ; elemcond2 := <rename-prefetch(|sfsrt)> elemcond
+    ; children2 := <rename-prefetch(|fsrt)> children
+    ; newanno* := <try(where(not(fetch-elem(?IsLazyFetch()))); add-lazy-anno(|dec_class,n, fsrt))> anno*
+
+  add-lazy-anno(|ent,f, srt) :
+    anno* -> [IsLazyFetch() | anno*]
+    where SimpleSort(invEnt) := srt
+    ; invProp := <InverseProperty; PropertyDecl> (ent, f)
+    ; SimpleSort(ent) := <get-property-type> invProp
+    ; <get-property-annos; fetch-elem(?InverseAnno(ent, f))> invProp // Is the inverse side the owning side?
+
+  rename-prefetch(|srt) :
+    PrefetchCondition(cond){anno*} -> PrefetchCondition(cond2){anno*}
+    where cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+
+  rename-prefetch(|srt) :
+    PrefetchWhere(pwmod*,cond){anno*} -> PrefetchWhere(pwmod*,cond2){anno*}
+    where cond2 := <alltd(add-type-anno-to-relative-fa(|srt))> cond
+
+  rename-prefetch(|srt) :
+    PrefetchTemplateArgs(templ1){anno*} -> PrefetchTemplateArgs(templ2){anno*}
+    where templ2 := <alltd(add-type-anno-to-prefetch-this(|srt))> templ1
+
+  add-type-anno-to-relative-fa(|srt) :
+    fa@RelativeFieldAccess(castsrt, f){anno*} -> fa{PrefetchPropAnno(decsrt,fsrt),anno*}
+    where <not(fetch-elem(?PrefetchPropAnno(_, _)))> anno*
+    ; SimpleSort(x_class) := <(?SimpleSort(_) <+ !srt); try(strip-ref-sort); try-strip-generic-sort> castsrt
+    ; fn := <strip-annos> f
+    ; dec_class := <class-of-property> (x_class, fn)
+    ; decsrt := SimpleSort(dec_class)
+    ; fsrt := <get-prop-type> (x_class, fn)
+
+  add-type-anno-to-prefetch-this(|srt) :
+    PrefetchThis(){anno*} -> PrefetchThis(){PrefetchAnno(ssrt),anno*}
+    where not(<fetch-elem(?PrefetchAnno(_))> anno*)
+    ; ssrt := <try-strip-generic-sort> srt
+
+  type-of :
+    PrefetchThis(){anno*} -> srt
+    where <fetch-elem(?PrefetchAnno(srt))> anno*
+
+  type-of :
+    RelativeFieldAccess(_, _){anno*} -> srt
+    where <fetch-elem(?PrefetchPropAnno(_, srt))> anno*
+
+  add-filter-anno-to-prefetch-where(|srt) :
+    pw@PrefetchWhere(pwmod*,cond){anno*} -> pw{fltr,anno*} 
+    where SimpleSort(_) := srt
+    ; not(<fetch-elem(?QueryConditionFilter(_, _, _))> anno*)
+    ; not(True() := cond)
+    with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|srt))> cond
+    ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
+
+  add-backend-annotation :
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, elemcond, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt2,fsrt2)}, mod*, templ, cond, elemcond, children){anno*}
+    where decsrt2 := <add-type-annotations> decsrt
+    ; fsrt2 := <topdown(add-type-annotations)> fsrt
+    ; not(decsrt := decsrt2; fsrt := fsrt2)
+
+  add-backend-annotation :
+    TemplateArgOrThis(n, args){anno*} -> TemplateArgOrThis(n, args){TemplateName(genname),anno*}
+    where <not(fetch-elem(?TemplateName(_)))> anno*
+    with targs := <map(try(get-prefetch-this-type)); prepare-type-list-for-compare> args
+    ; genname := <generate-template-name> (n, targs)
+
+  get-prefetch-this-type : Cast(PrefetchThis(), srt) -> srt
+
+  get-prefetch-this-type : PrefetchThis(){anno*} -> srt
+    where <fetch-elem(?PrefetchAnno(srt))> anno*
+
+  constraint-error-data =
+    ?PrefetchChildren(children)
+    ; keys := <map(\ PrefetchNode(_, name, _, _, _, _, _) -> name \)> children
+    ; key{PrefetchPropAnno(decsrt,fsrt)} := <make-set; fetch-elem(has-duplicates(|keys))> keys
+    ; <filter(?PrefetchNode(_, key, _, _, _, _, _))> children
+    ; add-error(|["Multiple prefetches defined for ", <pp-type>decsrt, ".", key, " of type ", <pp-type> fsrt])
+
+  has-duplicates(|list) :
+    key -> key
+    where <filter(?key); not(length => 1)> list
+
+  constraint-error-data =
+    ?PrefetchFor(x, _, _, _)
+    ; where(<not(?Var(_)) <+ (?Var(_); not(type-of; is-entity-type))> x)
+    ; add-error(|["Prefetching can only be defined for variables of an entity type"])
+
+  constraint-error-data =
+    ?PrefetchFor(x, _, _, tree)
+    ; where(
+        Var(_) := x
+        ; srt := <type-of; try(strip-ref-sort); strip-immutable-anno; try-strip-generic-sort; is-entity-type> x
+      )
+    ; <constrain-prefetch-helper(|srt)> tree
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchChildren(children){anno*}
+    ; <fetch-elem(constrain-prefetch-helper(|srt))> children
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, mod*, templ, cond, elemcond, children){anno*}
+    ; where(<?Some(castsrt2); !(castsrt2, srt); not(subtype-of)> castsrt)
+    ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt2])
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, mod*, templ, cond, elemcond, children){anno*}
+    ; where(
+        SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
+        ; <subtype-of> (SimpleSort(x_class), srt)
+        ; n := <strip-annos> name
+      )
+    ; if where(dec_class := <class-of-property> (x_class, n)) then
+        fsrt := <get-prop-type> (dec_class, n)
+        ; elemsrt := <try-strip-generic-sort> fsrt
+        ; res := <constrain-prefetch-helper(|elemsrt)> children
+      else
+        add-error(|["No property ", n, " defined for ",<pp-type> SimpleSort(x_class)])
+      end
+
+  constrain-prefetch-helper(|srt) =
+    ?PrefetchNode(castsrt, name, mod*, templ, cond, elemcond, children){anno*}
+    ; where(
+        SimpleSort(x_class) := <try(?Some(<id>)); (?SimpleSort(_) <+ !srt)> castsrt
+        ; <subtype-of> (SimpleSort(x_class), srt)
+      )
+    ; <?PrefetchCondition(<id>)> cond
+    ; constrain-prefetch-condition-cast(|srt)
+
+  constrain-prefetch-condition-cast(|srt) =
+    collect(?RelativeFieldAccess(_, _))
+    ; fetch-elem(constrain-prefetch-relative-fa-cast(|srt))
+
+  constrain-prefetch-condition(|srt) =
+    ?PrefetchCondition(e)
+    ; where(
+        not(SimpleSort("Bool") := <type-of> e)
+        ; <type-of> e // don't report when sub-expression was already wrong
+      )
+    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
+
+  constrain-prefetch-relative-fa-cast(|srt) =
+    ?RelativeFieldAccess(castsrt, _)
+    ; where(
+        not(None() := castsrt)
+        ; <not(subtype-of)> (castsrt, srt)
+      )
+    ; add-error(|["Cannot cast from type ", <pp-type> srt, " to type ", <pp-type> castsrt])

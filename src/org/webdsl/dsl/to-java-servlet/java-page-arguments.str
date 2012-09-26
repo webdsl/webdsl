@@ -20,6 +20,9 @@ rules // page arguments
     )
     ; page-class-generation-test
 
+  get-prefetch-for-page-argument = 
+    ?x; JavaThisPagePrefetches; get-prefetch-for(|x); ?PrefetchFor(_, _, _, PrefetchChildren(_))
+
   GenerateCodeJavaServlet =
     page-arg-generation-test
   ; argument-to-java-servlet-property
@@ -248,8 +251,31 @@ rules //initialization
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; not(<get-entity-id-name-with-super> srt)
+        ; not(<get-prefetch-for-page-argument> x)
     with  x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_id != null) {            
+        List<t> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(e_criteria, e_joins)
+        .add( org.hibernate.criterion.Restrictions.idEq(java.util.UUID.fromString(x_id)) )
+        .list();
+        if(results.size() != 0){
+          x = results.get(0);
+        }
+      }
+    ]|
+    where <has-entity-anno> srt
+        ; not(SimpleSort("Entity") := srt)
+        ; not(<get-entity-id-name-with-super> srt)
+        ; prefetch := <get-prefetch-for-page-argument> x
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; e_criteria := expr|[ hibSession.createCriteria(x_class.class) ]|
+        ; e_joins := <get-direct-fetches> prefetch
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->
@@ -325,9 +351,42 @@ rules //initialization
     where <has-entity-anno> srt
         ; not(SimpleSort("Entity") := srt)
         ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
+        ; not(<get-prefetch-for-page-argument> x)
     with  t := <java-type> srt
         ; x_class := <java-type-name> srt
         ; x_id := <concat-strings>[x, "_id"]
+
+  argument-to-java-servlet-initialization :
+    arg@farg|[ x : srt ]| ->
+    bstm*|[
+      if (x_id != null) {            
+        //filtering must be done earlier, page arg could be hidden input in post as well //utils.URLFilter.unfilter(x_id.toString());
+        List<t> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(e_criteria, e_joins)
+        .add( org.hibernate.criterion.Restrictions.naturalId().set("~x_natidprop", x_id))
+        .list();
+        if(results.size() == 0){
+          System.out.println("No entity with this identity found: "+x_id);
+          throw new RuntimeException("No entity with this identity found: "+x_id);
+        }
+        else if(results.size() > 1){
+          System.out.println("Multiple entities with this identity found: "+x_id) ;
+          throw new RuntimeException("Multiple entities with this identity found: "+x_id);
+          //x = results.get(0);
+        }
+        else {
+          x = results.get(0);
+        }
+      }
+    ]|
+    where <has-entity-anno> srt
+        ; not(SimpleSort("Entity") := srt)
+        ; prefetch := <get-prefetch-for-page-argument> x
+        ; x_natidprop := <concat-strings>["_",<get-entity-id-name-with-super> srt]
+    with  t := <java-type> srt
+        ; x_class := <java-type-name> srt
+        ; x_id := <concat-strings>[x, "_id"]
+        ; e_criteria := expr|[ hibSession.createCriteria(x_class.class) ]|
+        ; e_joins := <get-direct-fetches> prefetch
 
   argument-to-java-servlet-initialization :
     arg@farg|[ x : srt ]| ->

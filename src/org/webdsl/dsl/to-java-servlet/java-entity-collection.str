@@ -1,0 +1,345 @@
+module org/webdsl/dsl/to-java-servlet/java-entity-collection
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+
+strategies
+  entity-collection-to-java-class = 
+     where( get-entity-def; ?(x_class, entbodydecs) )
+     ; <filter(collection-type-to-java-class(|<capitalize-string>x_class))> entbodydecs
+
+  collection-type-to-java-class(|x_entclass) =
+    where (
+      ?prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos)
+      ; <?"List" <+ ?"Set"> x_coltyp
+    )
+    ; with (
+	      pkgname := <DomainPackage>
+	      ; <generate-collection-type(|pkgname, x_entclass)> prop
+	      ; <generate-owned-collection(|pkgname, x_entclass)> prop
+    )
+
+rules
+
+  generate-collection-type(|pkgname, x_entclass) :
+    prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos){anno*} ->
+    <emit-java-code-local> compilation-unit|[
+			package pkgname;
+			
+			import org.hibernate.HibernateException;
+			import org.hibernate.collection.PersistentCollection;
+			import org.hibernate.engine.SessionImplementor;
+			import org.hibernate.persister.collection.CollectionPersister;
+			import java.util.Map;
+
+			@SuppressWarnings("unchecked")
+			public class x_javaclass extends utils.AbastractOwned#x_coltyp#Type {
+			  private static final String[] _filters = e_filter;
+			
+			  @Override
+			  public Object instantiate(int anticipatedSize) {
+			    return new x_entclass#x_prop#x_coltyp(anticipatedSize < 1 ? 0 : anticipatedSize );
+			  }
+
+        public boolean isAffectedBy(final String filter) {
+          if(_filters == null) return false;
+          for(String s : _filters) {
+            if(s.equals(filter)) return true;
+          }
+          return false;
+        }
+
+        public boolean isFilterCompatible(final org.hibernate.impl.FilterImpl oldFilter, final org.hibernate.impl.FilterImpl newFilter) {
+          if(oldFilter == null) return true; // No filtering is compatible with every filter
+          if(newFilter == null) return false; // No filtering is requested, but and old filter exists, so never compatible
+          if(utils.QueryOptimization.equalFilters(oldFilter, newFilter)) return true;
+          String oldName = oldFilter.getName();
+          String newName = newFilter.getName();
+          Map oldParams = oldFilter.getParameters();
+          Map newParams = newFilter.getParameters();
+          bstm_fltrcompat*
+          return false;
+        }
+
+        public boolean oldFilterContains(final String oldName, final Map oldParams, final String fltrName, final Map fltrParams, final int fltrStart, final int len) {
+          if(oldName == null || fltrName == null) return false; // Filter names should never be null here
+          if(oldName.equals(fltrName)) return utils.QueryOptimization.equalFilterParams(oldParams, 0, fltrParams, fltrStart, len);
+          bstm_oldcontains*
+          return false;
+        }
+			}
+    ]|
+    with x_javaclass := <concat-strings>[<capitalize-string>x_entclass, <capitalize-string>x_prop, "Owned", <capitalize-string>x_coltyp, "Type"]
+    ; filternames := <(fetch-elem(?QueryConditionFilterDefs(<id>)); map(\ QueryConditionFilterDef(name, _, _, _) -> name \)) <+ ![]> anno*
+    ; e_filter := <string-list-to-java-servlet-or-null> filternames
+    ; fltrcompatlst := <(fetch-elem(?QueryConditionFilterDefs(<id>)); map(filters-with-compatible-filters)) <+ ![]> anno*
+    ; bstm_fltrcompat* := <map(for-all-compatible-filter); flatten-list> fltrcompatlst
+    ; bstm_oldcontains* := <filter(old-contains-compatible-filter); flatten-list> fltrcompatlst
+
+    // For a combined filter, all sub filters must be present in the old filter, for the old filter to be compatible
+    // Return false for the first sub filter that is not present in the old filter
+    // Return true when all sub filters have been checked
+    for-all-compatible-filter :
+      (name, len, compat) -> bstm* |[
+        if("~name".equals(newName)) {
+          bstm_checks*
+          return true;
+        }
+      ]|
+      where not([] := compat)
+      with bstm_checks* := <map(old-filter-contains-check)> compat
+
+    // For a single filter we just need to check if the old filter contains the requested filter
+    for-all-compatible-filter :
+      (name, len, compat) -> bstm* |[
+        if("~name".equals(newName)) {
+          return oldFilterContains(oldName, oldParams, "~name", newParams, 0, ~i:strlen);
+        }
+      ]|
+      where [] := compat
+      with strlen := <int-to-string> len
+
+    old-filter-contains-check :
+	    (name, newstart, len) -> stm |[ if(!oldFilterContains(oldName, oldParams, "~name", newParams, ~i:strnewstart, ~i:strlen)) return false; ]|
+	    with strnewstart := <int-to-string> newstart
+	    ; strlen := <int-to-string> len
+
+    old-contains-compatible-filter :
+      (name, len, compat) -> bstm* |[
+        if("~name".equals(oldName)) {
+          bstm_checks*
+          return false;
+        }
+      ]|
+      where not([] := compat)
+      with bstm_checks* := <map(contains-compatible-filter-check)> compat
+
+    contains-compatible-filter-check :
+      (name, oldstart, _) -> stm |[ if(fltrName.equals("~name") && utils.QueryOptimization.equalFilterParams(oldParams, ~i:stroldstart, fltrParams, fltrStart, len)) return true; ]|
+      with stroldstart := <int-to-string> oldstart
+
+    filters-with-compatible-filters :
+      QueryConditionFilterDef(name, types, cond, subfilters) -> (name, len, compat)
+      with len := <length> types
+      ; (_, compat) := <reverse; foldr(!(0, []), compatible-filters-from-subfilters)> subfilters
+
+    compatible-filters-from-subfilters :
+	    (QueryConditionFilterDef(name, types, cond, subfilters), (start, oldcompat*)) -> (newstart, [oldcompat*,thiscompat*,newcompat*])
+	    with len := <length> types
+	    ; newstart := <addi> (start, len)
+	    ; (_, newcompat*) := <reverse; foldr(!(start, []), compatible-filters-from-subfilters)> subfilters
+	    ; thiscompat* := [(name, start, len)]
+
+  generate-owned-collection(|pkgname, x_entclass) :
+    prop@Property(x_prop, k, s@GenericSort(x_coltyp, [y_srt@SimpleSort(y)]), annos) ->
+    <emit-java-code-local> compilation-unit|[
+      package pkgname;
+      
+      @SuppressWarnings("unchecked")
+      public class x_entclass#x_prop#x_coltyp extends utils.Owned#x_coltyp<t_y> {
+			  public x_entclass#x_prop#x_coltyp() { super(); }
+			  public x_entclass#x_prop#x_coltyp(int anticipatedSize) { super(anticipatedSize); }
+			  public x_entclass#x_prop#x_coltyp(java.util.List<t_y> list) { super(list); }
+			  public x_entclass#x_prop#x_coltyp(Object owner) { super(owner); }
+			  public x_entclass#x_prop#x_coltyp(Object owner, int anticipatedSize) { super(owner, anticipatedSize); }
+			  public x_entclass#x_prop#x_coltyp(Object owner, java.util.List<t_y> list) { super(owner, list); }
+
+        @Override
+        public boolean addAll(java.util.Collection<? extends x_y> col) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            return super.addAll(col);
+          }
+          else if(this.owner == null) { // This should not happen
+            return super.addAll(col);
+          }
+          else if(!beingSet && doEvents)
+          {
+		        java.util.Iterator<? extends x_y> it = col.iterator();
+		        while(it.hasNext()) {
+		          add(it.next());
+		        }
+		        return true;
+          }
+          return super.addAll(col);
+        }
+
+        @Override
+        public void clear() {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            super.clear();
+          }
+          else if(this.owner == null) { // This should not happen
+            super.clear();
+          }
+          else if(!beingSet && doEvents)
+          {
+		        while(!isEmpty()) {
+		          remove(iterator().next());
+		        }
+          }
+        }
+
+			  @Override
+			  public boolean add(t_y item) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            return super.add(item);
+          }
+			    else if(this.owner == null) { // This should not happen
+			      return super.add(item);
+			    }
+			    else if(item != null && !beingSet && doEvents)
+			    {
+			      x_entclass owner = (x_entclass)this.owner;
+			      owner.setChanged();
+			      beingSet = true;
+            t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
+			      boolean result = super.add(item);
+            bstm1*
+            bstm_addextension*
+			      beingSet = false;
+			      return result;
+			    }
+			    return false;
+			  }
+			
+        ~*<where("List":=x_coltyp)<+![]> class-body-dec* |[ 
+        @Override
+	      public t_y set(int index, t_y newitem) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            return super.set(index, newitem);
+          }
+	        else if(this.owner == null) { // This should not happen
+	          return super.set(index, newitem);
+	        }
+	        else if(newitem != null && !beingSet && doEvents && index >= 0 && index < size() ) {
+	          beingSet = true;
+	          x_entclass owner = (x_entclass)this.owner;
+	          owner.setChanged();
+	          
+	          // hold old value
+	          t_y olditem = get(index); 
+	          
+	          // the actual set
+	          super.set(index,newitem);
+
+            // look at old value now
+            t_y item = olditem;
+            
+            //update old value if necessary
+            if(!contains(item)){ // only remove if there are no longer any copies in this list
+              bstm0*
+              bstm_removeextension*
+            }
+
+            //add events
+            item = newitem;
+            bstm1*
+            bstm_addextension*
+            
+	          beingSet = false;
+	          return olditem;
+	        }
+	        return null;
+	      }
+      
+        @Override
+        public void add(int index, t_y item) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            super.add(index, item);
+          }
+          else if(this.owner == null) { // This should not happen
+            super.add(index, item);
+          }
+          else if(item != null && !beingSet)
+          {
+            x_entclass owner = (x_entclass)this.owner;
+            owner.setChanged();
+            beingSet = true;
+            t_y oldthing = new x_y(); // just for compatibility with generated code in bstm1*
+            super.add(index, item);
+            bstm1*
+            bstm_addextension*
+            beingSet = false;
+          }
+        }
+
+        @Override
+	      public t_y remove(int index) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            return super.remove(index);
+          }
+	        else if(this.owner == null) { // This should not happen
+            return super.remove(index);
+          }
+          else if(index >= 0 && index < size() && !beingSet && doEvents) {
+	          beingSet = true;
+	          x_entclass owner = (x_entclass)this.owner;
+	          owner.setChanged();
+	          
+	          t_y item = super.remove(index);
+	      
+	          if(!contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
+	            bstm0*
+	            bstm_removeextension*
+	          }
+	
+	          beingSet = false;
+	          return item;
+          }
+          return null;
+	      }
+        ]|
+      
+			  @Override
+			  public boolean remove(Object obj) {
+          if(!doEvents) { // We are probably being initialized, so inverse updates should be skipped
+            return super.remove(obj);
+          }
+          else if(this.owner == null) { // This should not happen
+            return super.remove(obj);
+          }
+			    else if(obj != null && !beingSet && doEvents && obj instanceof x_y)
+			    {
+            x_y item = (x_y)obj;
+			      x_entclass owner = (x_entclass)this.owner;
+			      beingSet = true;
+			      owner.setChanged();
+
+			      boolean result = super.remove(item);
+
+	          if(!contains(item)){ // only remove if there are no longer any copies (in case the collection allows duplicates, eg List)
+	            bstm0*
+	            bstm_removeextension*
+	          }
+
+			      beingSet = false;
+			      return result;
+			    }
+			    return false;
+			  }
+      }
+    ]|
+    with t_y   := <java-type> y_srt
+        ; x_y   := <java-type-name> y_srt
+        ; bstm0* := <association-update-statements(remove-bidirectional-reference(|"owner"))> annos
+        ; bstm1* := <association-update-statements(add-bidirectional-reference(|"owner"))> annos
+        ; bstm_addextension*    := <entity-bstm-property-events> (x_entclass,x_prop,y_srt,"addTo","item","owner")
+        ; bstm_removeextension* := <entity-bstm-property-events> (x_entclass,x_prop,y_srt,"removeFrom","item","owner")
+
+  owned-collection-transform-list-to-genericset(|x_Class, prop, x_listvar) :
+    GenericSort(_, [_]) -> |[ new x_ColType(this, x_listvar) ]|
+    where x_ColType := <owned-collection-java-type(|x_Class)> prop
+
+  owned-collection-default-value-override-java(|x_Class, prop) :
+    GenericSort(_, [_]) -> |[ new x_ColType(this) ]|
+    where x_ColType := <owned-collection-java-type(|x_Class)> prop
+
+  owned-collection-java-type(|x_Class) :
+    Property(x_prop, _, GenericSort(coll, [_]), annos) -> x_ColType
+    where <?"Set" <+ ?"List"> coll
+        ; x_ColType := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x_Class,<capitalize-string>x_prop,coll]

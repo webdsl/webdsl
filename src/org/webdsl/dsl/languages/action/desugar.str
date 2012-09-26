@@ -23,4 +23,48 @@ rules
   desugar-vardeclinitinferred-helper : 
     e -> t
     with t := <type-of; strip-immutable-anno> e //strip ImmutableReference annotation, because x will be assignable even if e wasn't
-    
+
+  // We perform query analysis on entity functions
+  desugar-action :
+    f@Function(x, farg*, srt, b1){anno*} -> def{newanno*}
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+        ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+        ; <action-body-ready> b1
+        ; thisargs := <get-this-args(|x_class)> b1
+        ; args := <conc> (farg*, thisargs)
+        ; {| ThisEntity
+           : rules( ThisEntity := x_class )
+           ; (b2, newanno*) := <perform-query-analysis(|("EntityFunction", x_class, x), args, True(), None(), None())> (b1, anno*)
+          |}
+        ; def := Function(x, farg*, srt, b2){newanno*}
+        ; <store-entity-function(|x_class)> def
+
+  add-query-optimization :
+    f@Function(x, farg1*, srt, b1){anno*} -> Function(x, farg1*, srt, b2){IsOptimized(),tokeep*}
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+    ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+    ; <not(fetch-elem(?IsOptimized()))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (/*<debug(!"NotOptimized:")> ("EntityFunction", x_class, x, <is-not-analyzed; Snd> f); */get-empty-query-analysis)> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> farg1*
+    ; b2 := <foldr(!b1,add-query-optimization-to-argument(|qa,bindableargs))> farg1*
+
+  // We perform query analysis on global functions
+  desugar-action :
+    f@Function(x, farg*, srt, b1){anno*} -> def{newanno*}
+    where <not(fetch-elem(?FunctionEntity(_)))> anno*
+        ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+        ; <action-body-ready> b1
+        ; (b2, newanno*) := <perform-query-analysis(|("GlobalFunction", x), farg*, True(), None(), None())> (b1, anno*)
+        ; def := Function(x, farg*, srt, b2){newanno*}
+        ; <store-global-function> def{newanno*}
+
+  add-query-optimization :
+    f@Function(x, farg1*, srt, b1){anno*} -> Function(x, farg1*, srt, b2){IsOptimized(),tokeep*}
+    where <not(fetch-elem(?FunctionEntity(_)))> anno*
+    ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+    ; <not(fetch-elem(?IsOptimized()))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (/*<debug(!"NotOptimized:")> ("GlobalFunction", x, <is-not-analyzed; Snd> f); */get-empty-query-analysis)> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> farg1*
+    ; b2 := <foldr(!b1,add-query-optimization-to-argument(|qa,bindableargs))> farg1*

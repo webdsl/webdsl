@@ -1,0 +1,263 @@
+module org/webdsl/dsl/languages/prefetch/condition
+
+strategies
+
+  extract-query-cond-as-list(check-expr) = extract-query-cond-as-list(check-expr,valid-null-check-field)
+
+rules
+
+  // Extracts the query condition as a list where elements should be combined with the and-operator
+  extract-query-cond-as-list(check-expr,check-null) :
+    And(expr1, expr2) -> cond 
+    where lst1 := <extract-query-cond-as-list(check-expr,check-null)> expr1
+    ; lst2 := <extract-query-cond-as-list(check-expr,check-null)> expr2
+    ; cond := <conc> (lst1, lst2)
+
+  extract-query-cond-as-list(check-expr,check-null) :
+    expr -> cond
+    where not(And(_, _) := expr)
+    ; cond := <extract-query-cond(check-expr,check-null); (?True() < ![] + ![<id>])> expr
+
+  extract-query-cond(check-expr,check-null):
+    Not(expr1) -> Not(expr1new)
+    where expr1new := <extract-query-cond(check-expr,check-null)> expr1
+    ; not(True() := expr1new)
+    ; not(Eq(_, _) := expr1new)
+
+  extract-query-cond(check-expr,check-null):
+    Not(expr1) -> NotEq(expr1new, expr2new)
+    where eq@Eq(expr1new, expr2new) := <extract-query-cond(check-expr,check-null)> expr1
+    ; not(<negate-simple-eq-cond> eq)
+
+  extract-query-cond(check-expr,check-null):
+    Not(expr1) -> Eq(expr1new, expr2new)
+    where Eq(expr1new, expr2new) := <extract-query-cond(check-expr,check-null); negate-simple-eq-cond> expr1
+
+  extract-query-cond(check-expr,check-null):
+    Or(expr1, expr2) -> Or(expr1new, expr2new)
+    where expr1new := <extract-query-cond(check-expr,check-null)> expr1
+    ; expr2new := <extract-query-cond(check-expr,check-null)> expr2
+    ; not(True() := expr1new)
+    ; not(True() := expr2new)
+
+  extract-query-cond(check-expr,check-null):
+    And(expr1, expr2) -> cond
+    where expr1new := <extract-query-cond(check-expr,check-null) <+ !True()> expr1
+    ; expr2new := <extract-query-cond(check-expr,check-null) <+ !True()> expr2
+    ; cond := <and-query-condition-helper>(expr1new, expr2new)
+
+  extract-query-cond(check-expr,check-null):    
+    SmallerThanOrEqual(expr1, expr2) -> SmallerThanOrEqual(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    SmallerThan(expr1, expr2) -> SmallerThan(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    LargerThanOrEqual(expr1, expr2) -> LargerThanOrEqual(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    LargerThan(expr1, expr2) -> LargerThan(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    NotEq(expr1, expr2) -> NotEq(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <extract-query-cond-null-check(check-null) <+ check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    Eq(expr1, expr2) -> Eq(newExpr1, newExpr2)
+    where (newExpr1, newExpr2) := <extract-query-cond-null-check(check-null) <+ check-expr> (expr1, expr2)
+
+  extract-query-cond(check-expr,check-null):
+    fa1@FieldAccess(_, _) -> Eq(fa2, True())
+    where (fa2, _) := <check-expr> (fa1, True())
+    ; <is-accessible-field(RootVar,try-strip-generic-sort,?SimpleSort("Bool"))> fa1 // An extra check to make sure that this property can be placed inside the query by itself and is a boolean, other checks are left to check-expr (like allowing FAs on generic-sorts)
+
+  extract-query-cond(check-expr,check-null):
+    v1@Var(_) -> Eq(v2, True())
+    where (v2, _) := <check-expr> (v1, True())
+    ; <is-accessible-field(RootVar,try-strip-generic-sort,?SimpleSort("Bool"))> v1 // An extra check to make sure that this var can be placed inside the query by itself and is a boolean, other checks are left to check-expr (like allowing FAs on generic-sorts or not)
+
+  extract-query-cond-null-check(check-null) :
+    (Null(), expr1) -> (expr2, Null())
+    where expr2 := <check-null> expr1
+
+  extract-query-cond-null-check(check-null) :
+    (expr1, Null()) -> (expr2, Null())
+    where expr2 := <check-null> expr1
+
+  extract-query-cond(check-expr,check-null) :
+    c@Call(e, nm, args1){anno*} -> cond
+    where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    ; <not(not-allowed-ent-fun-name)> nm
+    ; not("Entity" := ent)
+    ; targs := <map(type-of); prepare-type-list-for-compare> args1
+    ; n := <strip-annos> nm  
+    ; (fent, Function(_, defargs, retsrt, _){defanno*}) := <try-resolve-entity-call> (ent, n, targs)
+    ; retsrt := SimpleSort("Bool")
+    ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
+    with argmapping := <zip> (args1, defargs)
+    ; varmapping := <add-this-vars-to-mapping(|returns, e2, ent)> argmapping
+    ; newreturns := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
+    ; cond := <or-query-condition; extract-query-cond(check-expr,check-null)> newreturns
+    where not(True() := cond)
+
+strategies
+
+  extract-query-cond(check-expr,check-null) = !True()
+
+  negate-query-cond-lst = // De Morgan's law, from conjuction list to disjunction with negated elements
+    map(negate-query-cond <+ !Not(<id>))
+    ; or-query-condition
+    ; ![<id>]
+
+  negate-query-cond =
+    ?Eq(expr1, expr2)
+    ; (negate-simple-eq-cond <+ !NotEq(expr1, expr2)) // We first try to keep this an equals comparison
+
+rules
+
+  negate-simple-eq-cond : Eq(True(), expr) -> Eq(expr, False())
+  negate-simple-eq-cond : Eq(expr, True()) -> Eq(expr, False())
+  negate-simple-eq-cond : Eq(False(), expr) -> Eq(expr, True())
+  negate-simple-eq-cond : Eq(expr, False()) -> Eq(expr, True())
+
+  negate-query-cond :
+    SmallerThanOrEqual(expr1, expr2) -> LargerThan(expr1, expr2)
+
+  negate-query-cond :
+    LargerThan(expr1, expr2) -> SmallerThanOrEqual(expr1, expr2)
+
+  negate-query-cond :
+    SmallerThan(expr1, expr2) -> LargerThanOrEqual(expr1, expr2)
+
+  negate-query-cond :
+    LargerThanOrEqual(expr1, expr2) -> SmallerThan(expr1, expr2)
+
+  negate-query-cond :
+    NotEq(expr1, expr2) -> Eq(expr1, expr2)
+
+strategies
+
+  simplify-condition = repeat(oncetd(simplify-or <+ simplify-and))
+
+rules
+
+  simplify-or :
+    old@Or(_, _) -> new
+    with lst := <or-to-list> old
+    ; newlst := <make-set> lst
+    where <not(eq)> (<length> lst, <length> newlst)
+    with new := <or-query-condition> newlst
+
+  simplify-and :
+    old@And(_, _) -> new
+    with lst := <and-to-list> old
+    ; newlst := <make-set> lst
+    where <not(eq)> (<length> lst, <length> newlst)
+    with new := <and-query-condition> newlst
+
+  or-to-list :
+    expr -> [expr]
+    where not(Or(_, _) := expr)
+
+  or-to-list :
+    Or(expr1, expr2) -> lst
+    with lst1 := <or-to-list <+ ![<id>]> expr1
+    ; lst2 := <or-to-list <+ ![<id>]> expr2
+    ; lst := <conc> (lst1, lst2)
+
+  and-to-list :
+    And(expr1, expr2) -> lst
+    with lst1 := <and-to-list <+ ![<id>]> expr1
+    ; lst2 := <and-to-list <+ ![<id>]> expr2
+    ; lst := <conc> (lst1, lst2)
+
+strategies
+
+  and-query-condition = fold-query-condition(and-query-condition-helper)
+  or-query-condition = fold-query-condition(or-query-condition-helper)
+
+  fold-query-condition(s) =
+    ?[x|xs]
+    ; <foldr(!x, s)> xs
+
+rules
+
+  fold-query-condition(s) :
+    [] -> True()
+
+  // True conditions are ignored, because they are irrelevant
+  and-query-condition-helper :
+    (cond, e) -> And(cond, e)
+    where not(True() := e)
+    ; not(True() := cond)
+
+  and-query-condition-helper :
+    (cond, True()) -> cond
+
+  and-query-condition-helper :
+    (True(), e) -> e
+
+  // As soon as one condition is True, the resulting condition will be true
+  or-query-condition-helper :
+    (cond, e) -> Or(cond, e)
+    where not(True() := e)
+    ; not(True() := cond)
+
+  or-query-condition-helper :
+    (_, True()) -> True()
+
+  or-query-condition-helper :
+    (True(), _) -> True()
+
+strategies
+
+  is-accessible-field(s,gen) =
+    (?Var(_) <+ ?FieldAccess(_, _))
+    ; is-accessible-from(s,gen)
+    ; Fst
+    ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
+
+  is-accessible-field(s,gen,srtcheck) =
+    (?Var(_) <+ ?FieldAccess(_, _))
+    ; is-accessible-from(s,gen)
+    ; where(Snd; srtcheck)
+    ; Fst
+    ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
+
+  get-accessible-expr(gen,check) = get-accessible-expr(gen,check,is-query-condition-type)
+
+rules
+
+  get-accessible-expr(gen,check,srtcheck) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr1 := <is-accessible-field(RootVar,gen,srtcheck); check> expr1 // This expression is accessible from the query root entity
+    ; newexpr2 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
+
+  get-accessible-expr(gen,check,srtcheck) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr2 := <is-accessible-field(RootVar,gen,srtcheck); check> expr2 // This expression is accessible from the query root entity
+    ; newexpr1 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
+
+strategies
+
+  is-bindable-expr(gen) = is-query-condition-constant
+  is-bindable-expr(gen) = is-accessible-field(BindableVar,gen,is-query-condition-type)
+  is-bindable-expr(gen) = 
+    (?Mul(expr1, expr2) <+ ?Div(expr1, expr2) <+ ?Mod(expr1, expr2) <+ ?Add(expr1, expr2) <+ ?Sub(expr1, expr2))
+    ; <is-bindable-expr(gen)> expr1
+    ; <is-bindable-expr(gen)> expr2
+
+  is-query-condition-type = ?SimpleSort("Int") <+ ?SimpleSort("Long") <+ ?SimpleSort("Float") <+ ?SimpleSort("String") <+ ?SimpleSort("Bool") <+ ?SimpleSort("UUID")
+
+  is-query-condition-constant = (?Int(_) <+ ?Long(_) <+ ?Float(_) <+ ?String(_) <+ ?True() <+ ?False() <+ ?Null()); try(normalize) 
+
+  valid-null-check-field = is-accessible-field(RootVar,try-strip-generic-sort,is-entity-type <+ is-query-condition-type)
+
+  revalidate-query-condition(check-expr) = revalidate-query-condition(check-expr,valid-null-check-field)
+
+  revalidate-query-condition(check-expr, check-null) = filter(not(?PrefetchWhere(_, _));extract-query-cond(check-expr, check-null); not(?True()))
+

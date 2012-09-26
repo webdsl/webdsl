@@ -7,13 +7,95 @@ imports
 imports
   libwebdsl-front
 
+signature constructors
+  Recursive : Term -> Term
+
 strategies
   
-  analyze-all = {| Root:
+  analyze-all = handle-recursion;{| Root:
     analyze-definitions
   ; topdown(try(analyze))
   |}
  
+  handle-recursion :
+    app@Application(_, _) -> out
+    with collect(is-not-analyzed)
+    ; get-analyze-order-for-recursive
+    ; reverse
+    ; ?[Recursive(<id>)|_]
+    ; map(Fst)
+    ; flatten-list
+    ; make-set
+    ; {| Recursive
+       : map(\ x -> x with rules( Recursive : x -> x ) \)
+       ; tmp := <desugar-top> app
+      |}
+    ; out := <topdown(try(add-query-optimization); try(add-query-condition-filter-annotation))> tmp
+    //; <collect(is-not-analyzed);debug(!"noopt:")> out
+
+  get-analyze-order-for-recursive :
+    allremaining -> rtn
+    where required := <map(Snd); flatten-list; make-set> allremaining
+    ; (allcandidates, unrequired) := <partition(is-required-by-other-calls(|required))> allremaining 
+    ; if [] := unrequired then
+        rtn := <get-recursions> allcandidates
+      else
+        next := <get-analyze-order-for-recursive> allcandidates
+        ; rtn := [unrequired | next]
+      end
+
+  get-recursions :
+    recursions -> [Recursive(fullrecursions)]
+    with fullrecursions := <map(repeat(build-recursion(|recursions)))> recursions
+
+  build-recursion(|recursions) :
+    (genname, required) -> (genname, allrequired)
+    where extrarequired := <filter(get-further-requirements(|required)); flatten-list> recursions
+    ; <diff; not(?[])> (extrarequired, required)
+    ; allrequired := <conc; make-set> (extrarequired, required)
+
+  get-further-requirements(|required) :
+    (genname, requires) -> requires
+    where <fetch-elem(?genname)> required
+
+  is-required-by-other-calls(|required) = where(?(decl, _); <fetch-elem(?decl)> required)
+
+  is-not-analyzed :
+    def@Define(mod*, x,farg1*, req*, elem1*){anno*} -> (genname, wait)
+    where genname := <generate-template-name-fargs>(x, farg1*)
+    ; {| CurrentTemplateName
+       : rules( CurrentTemplateName := genname )
+       ; wait := <perform-waiting-check-only(|farg1*)> (elem1*, anno*)
+       |}
+
+  is-not-analyzed :
+    f@Function(x, farg*, srt, b1){anno*} -> ((x_class, n, targ*), wait)
+    where <fetch-elem(?FunctionEntity(x_class))> anno*
+    ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+    ; thisargs := <get-this-args(|x_class)> b1
+    ; args := <conc> (farg*, thisargs)
+    ; {| ThisEntity
+       : rules( ThisEntity := x_class )
+       ; wait := <perform-waiting-check-only(|args)> (b1, anno*)
+       |}
+		; (n, targ*) := <normalize-signature>(x, farg*)
+
+  is-not-analyzed :
+    f@Function(x, farg*, srt, b1){anno*} -> ((None(), n, targ*), wait)
+    where <not(fetch-elem(?FunctionEntity(_)))> anno*
+    ; <not(fetch-elem(?StaticFunctionAnno()))> anno*
+    ; wait := <perform-waiting-check-only(|farg*)> (b1, anno*)
+    ; (n, targ*) := <normalize-signature>(x, farg*)
+
+  add-query-condition-filter-annotation :
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, PrefetchWhere(pwmod*,elemcond){pwanno*}, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, PrefetchWhere(pwmod*,elemcond){fltr,pwanno*}, children){anno*}
+    where not(<fetch-elem(?QueryConditionFilter(_, _, _))> pwanno*)
+    ; not(True() := elemcond)
+    ; GenericSort(_, [elemsrt@SimpleSort(_)]) := fsrt
+    with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|elemsrt))> elemcond
+    ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
+
   analyze = fail
 
   analyze-definitions =

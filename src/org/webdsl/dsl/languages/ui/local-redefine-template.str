@@ -75,6 +75,13 @@ rules
     with with-current-location(
          mods_for_emitted_define := <filter(TemplateModSpan <+ IgnoreAccessControl)> mods1
        ; uniqname2 := <concat-strings> [uniqname1,"$l$"]//avoids name overlap, $ is not used in user-defined webdsl template names
+       ; pagegenname := <normalize-signature; generate-template-name>(encltemplatename, encltemplateargs)
+       ; genname := <normalize-signature; generate-template-name> (name1, fargs1)
+       ; redefgenname := <normalize-signature; generate-template-name> (uniqname2, combinedfargs)
+       ; rules( 
+           LocalRedefineGenname : (pagegenname, genname) -> redefgenname
+           LocalRedefineArgs : redefgenname -> extraArgs
+         )
        ; <add-current-location; emit-webdsl-code>
          Define([TemplateDefineNameBeforeLifting(name1)|mods_for_emitted_define], uniqname2, combinedfargs, reqs1,
          <concat> [[AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs)], //apply ac rules of enclosing template
@@ -87,3 +94,13 @@ rules
   force-ref-arg-in-fargs = map(try(replace-non-ref-with-ref-in-farg <+ make-ref-type-explicit-in-farg))
   replace-non-ref-with-ref-in-farg : Arg(x,srt) -> Arg(x,RefSort(srt)) where not(<is-ref-type> srt)
   make-ref-type-explicit-in-farg : Arg(x,srt) -> Arg(x,RefSort(srt)) where <is-ref-type> srt; <not(?RefSort(_))> srt
+
+  rename-ui : // This rule just updates LocalRedefineArgs
+    inp@LocalRedefine(mods,name1,fargs1,uniqname1,redefargs1){anno*} -> LocalRedefine(mods,name2,fargs2,uniqname2,redefargs2){anno*}
+    with name2 := <rename-all> name1
+      ; fargs2 := <rename-all> fargs1
+      ; uniqname2 := <rename-all> uniqname1
+      ; redefargs2 := <rename-all> redefargs1
+      ; extraArgs := <?LocalRedefineArgs(<id>) <+ ![]> redefargs2
+      ; redefgenname := <normalize-signature; generate-template-name> (uniqname2, fargs2)
+      ; rules( LocalRedefineArgs : redefgenname -> extraArgs )

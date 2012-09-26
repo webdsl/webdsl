@@ -71,13 +71,23 @@ strategies
   is-logging-of-ac-principle-possible =
     try(oncetd(\e@EntityNoSuper("RequestLogEntry",body) -> e where <oncetd(?Property("principal",_,_,_))> body; rules( ACPrincipalAvailable := True() ) \))
 
+  get-prefetch-for-arg(|elem*) :
+    Arg(x, _) -> prefetch
+    where prefetch := <get-prefetch-for(|x); ?PrefetchFor(_, _, _, PrefetchChildren(_))> elem*
+
   generate-code-java-servlet =
     ?def@Define(mods, name, args, targs, elems);
       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
+        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, TemplateFormalArguments, JavaThisPagePrefetches, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
           with (
               if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
-            ; if <fetch(Page)>  mods then rules ( JavaThisPage := name ) end
+            ; if <fetch(Page)>  mods then
+                where(prefetches := <filter(get-prefetch-for-arg(|elems))> args)
+                ; rules (
+                    JavaThisPage := name
+                    JavaThisPagePrefetches := prefetches
+                  )
+              end
             ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
             ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := name ) end
             ; rules ( 

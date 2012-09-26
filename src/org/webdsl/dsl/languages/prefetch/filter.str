@@ -1,0 +1,209 @@
+module org/webdsl/dsl/languages/prefetch/filter
+
+rules
+
+  get-filters-for-conditions(|srt) :
+    cond -> fltr
+    with (strcond, parammap) := <condition-expr-to-filter-condition(get-relative-prop-string)> (cond, [])
+    ; fltr := <common-get-filters(|srt)> (strcond, parammap)
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (Not(expr1), parammap) -> (str, parammap2)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [ "not (", str1, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (Or(expr1, expr2), parammap) -> (str, parammap3)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
+    ; str := <concat-strings> [ "(", str1, " or ", str2, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (And(expr1, expr2), parammap) -> (str, parammap3)
+    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
+    ; str := <concat-strings> [ "(", str1, " and ", str2, ")" ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (SmallerThanOrEqual(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " <= ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (SmallerThan(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " < ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (LargerThanOrEqual(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " >= ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string):
+    (LargerThan(expr1, expr2), parammap) -> (str, parammap2)
+    where (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, " > ", str2 ]
+
+  condition-expr-to-filter-condition(dbprop-to-string) = ?(NotEq(expr1, expr2), parammap); !(expr1, expr2, parammap); condition-expr-to-filter-condition(dbprop-to-string|" <> ", " is not ")
+
+  condition-expr-to-filter-condition(dbprop-to-string) = ?(Eq(expr1, expr2), parammap); !(expr1, expr2, parammap); condition-expr-to-filter-condition(dbprop-to-string|" = ", " is ")
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (expr1, Null(), parammap) -> (str, parammap2)
+    where not(Null() := expr1)
+    ; (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [str1, nullop, "null"]
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (Null(), expr1, parammap) -> (str, parammap2)
+    where not(Null() := expr1)
+    ; (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; str := <concat-strings> [str1, nullop, "null"]
+
+  condition-expr-to-filter-condition(dbprop-to-string|op,nullop):
+    (expr1, expr2, parammap) -> (str, parammap2)
+    where not(Null() := expr1); not(Null() := expr2)
+    ; (str1, str2, parammap2) := <transform-both-props-for-filter(dbprop-to-string)>(expr1, expr2, parammap)
+    ; str := <concat-strings> [ str1, op, str2 ]
+
+  condition-to-filter-string(dbprop-to-string) :
+    (e, parammap) -> (str, parammap)
+    where str := <dbprop-to-string> e
+
+  condition-to-filter-string(dbprop-to-string) :
+    (e, parammap) -> (paramstr, parammap2)
+    where not(Null() := e)
+    ; not(<dbprop-to-string> e)
+    with srt := <type-of> e
+    ; (paramstr, parammap2) := <get-condition-filter-param> (e, srt, parammap)
+
+  get-condition-filter-param : // Reuse existing parameter mapping
+    (e, srt, parammap) -> (strparam, parammap)
+    where (_, param, _) := <fetch-elem(?(e, _, srt))> parammap
+    ; strparam := <concat-strings> [":param", <int-to-string> param] 
+
+  get-condition-filter-param : // Create new parameter mapping
+    (e, srt, parammap) -> (strparam, [newmap | parammap])
+    where <not(fetch-elem(?(e, _, srt)))> parammap
+    ; param := <length> parammap
+    ; strparam := <concat-strings> [":param", <int-to-string> param] 
+    ; newmap := (e, param, srt)
+
+  transform-both-props-for-filter(dbprop-to-string):
+    (expr1, expr2, parammap) -> (str1, str2, parammap3)
+    where (str1, parammap2) := <condition-to-filter-string(dbprop-to-string)> (expr1, parammap)
+    ; (str2, parammap3) := <condition-to-filter-string(dbprop-to-string)> (expr2, parammap2)
+
+strategies
+
+  common-get-filters(|srt) =
+    ?(strcond, parammap)
+    ; SimpleSort(class) := srt
+    ; ordered_parammap := <reverse> parammap // Because new parameter mappings are added to the front of the list, a reverse gives an ascending parammap
+    ; vars := <map(Fst)> ordered_parammap
+    ; types := <map(Third)> ordered_parammap
+    ; name := <get-filter-name-for-condition> (class, strcond, types)
+    ; fltr := QueryConditionFilter(name, vars, types)
+
+  get-relative-prop-string(|x) =
+    where(collect(?Var(x)); not(?[]))
+    ; property-to-string
+
+rules
+
+  get-relative-prop-string :
+    RelativeFieldAccess(_, e) -> str
+    where not(type-of; is-entity-type)
+    with str := <concat-strings>["`_",e,"`"]
+
+  get-relative-prop-string :
+    RelativeFieldAccess(_, e){anno*} -> str
+    where <fetch-elem(?PrefetchPropAnno(decsrt,fsrt))> anno*
+    ; SimpleSort(x_class) := decsrt
+    ; <is-entity-type> fsrt
+    with str := <concat-strings>["`", x_class, "_",e,"`"]
+
+  get-filter-name-for-condition :
+    (class, cond, types) -> name
+    where name := <FilterFromCondition> (class, cond, types)
+
+  get-filter-name-for-condition :
+    (class, cond, types) -> name
+    where <not(FilterFromCondition)> (class, cond, types)
+    ; name := <concat-strings; newname> [class, "_fltr"]
+    ; fltrdef := QueryConditionFilterDef(name, types, cond, [])
+    ; <declare-query-condition-filter> (class, fltrdef)
+    ; rules( FilterFromCondition : (class, cond, types) -> name )
+
+strategies
+
+  declare-query-condition-filter =
+    ?(class, fltrdef@QueryConditionFilterDef(name, _, _, _))
+    ; rules(  EntityFilters :+ class -> fltrdef
+              CollectionFilterDef : name -> (class, fltrdef)
+           )
+
+rules
+
+  combine-query-condition-filters :
+    [fltr] -> fltr
+
+  combine-query-condition-filters :
+    fltrs -> fltr
+    where <is-list; not(?[] <+ ?[_])> fltrs // A list with at least two filters
+    with names := <map(get-query-condition-filter-name); make-set; string-sort> fltrs
+    ; ordered := <map(combine-query-condition-filters-helper(|fltrs));flatten-list> names
+    ; newargs := <map(get-query-condition-filter-args); concat> ordered
+    ; QueryConditionFilterDef(name, types, _, _) := <get-def-for-filters> ordered
+    ; <eq> (<length> newargs, <length> types)
+    ; fltr := QueryConditionFilter(name, newargs, types)
+
+  combine-query-condition-filters-helper(|fltrs) :
+    name -> fltrswithname
+    with fltrswithname := <filter(where(get-query-condition-filter-name; ?name))> fltrs
+
+  get-def-for-filters :
+    ordered -> def
+    where combinedname := <map(get-query-condition-filter-name); separate-by(!"_"); concat-strings> ordered
+    ; fltrname := <CombinedFilterName> combinedname
+    with (_, def) := <CollectionFilterDef> fltrname
+
+  get-def-for-filters :
+    ordered -> fltrdef
+    where names := <map(get-query-condition-filter-name)> ordered
+    ; combinedname := <separate-by(!"_"); concat-strings> names
+    ; <not(CombinedFilterName)> combinedname
+    with defs := <map(get-query-condition-filter-name; CollectionFilterDef; ?(class, <id>))> ordered // All filters should belong to the same property
+    ; fltrname := <concat-strings; newname> [class, "_combined"]
+    ; types := <map(get-query-condition-filter-def-types)> defs
+    ; cond := <combine-conditions-of-filter-defs(|0)> defs
+    //; subfltrs := <zip> (names, <map(length)> types)
+    ; fltrdef := QueryConditionFilterDef(fltrname, <concat>types, cond, defs)
+    ; rules(
+        CombinedFilterName : combinedname -> fltrname
+     )
+    ; <declare-query-condition-filter> (class, fltrdef)
+
+  combine-conditions-of-filter-defs(|prevtypes) :
+    [QueryConditionFilterDef(_, types, cond, _)|other] -> newcond
+    //with tmpcond := <alltd(add-to-query-condition-filter-param(|prevtypes));debug(!"this:")> cond
+    with tmpcond := <length; range; foldr(!cond, add-to-query-condition-filter-param(|prevtypes))> types
+    ; if [] := other then
+        newcond := tmpcond
+      else
+        newtypes := <addi> (prevtypes, <length> types)
+        ; othercond := <combine-conditions-of-filter-defs(|newtypes)> other
+        //; newcond := Or(tmpcond, othercond)
+        ; newcond := <concat-strings> ["(", tmpcond, " or ", othercond, ")"]
+      end
+
+  add-to-query-condition-filter-param(|prevtypes) :
+    (i, cond) -> cond
+    where <eq> (prevtypes, 0)
+
+  add-to-query-condition-filter-param(|prevtypes) :
+    (i, cond) -> newcond
+    where <not(eq)> (prevtypes, 0)
+    ; old := <concat-strings> [":param", <int-to-string> i]
+    ; new := <concat-strings> [":param", <addi; int-to-string> (i, prevtypes)]
+    ; newcond := <string-replace(|old, new)> cond

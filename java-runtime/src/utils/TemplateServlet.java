@@ -68,6 +68,8 @@ public abstract class TemplateServlet {
       }
     }
     
+    public abstract void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems);
+    
     public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
         if(!skipThisTemplate){
           tryInitializeTemplate(calledName, args, env, attrs, ltas);
@@ -176,7 +178,15 @@ public abstract class TemplateServlet {
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         //always store arguments, value might change between phases
-        storeArguments(args);
+        // We ensure that there is an env, because prefetching in storeArguments() may use env.getTemplate()
+        if(this.env == null) {
+        	this.env = env;
+            storeArguments(args);
+            this.env = null;
+        }
+        else {
+        	storeArguments(args);
+        }
         if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);

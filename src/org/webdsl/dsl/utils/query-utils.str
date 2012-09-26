@@ -1,0 +1,123 @@
+module org/webdsl/dsl/utils/query-utils
+
+signature constructors
+
+  TemplateArgs : List(Annotation) -> Annotation
+  TemplateName : Term -> Annotation
+  FunctionArgs : List(Annotation) -> Annotation
+  FunctionEntity : Term -> Annotation
+  IsNaturalId : Annotation
+  MultipleDefinitionsInSubclasses : Annotation
+  RequiresAlias : Annotation
+  IsLazyFetch : Term
+  QueryAnalysis : Term * Term * Term * Term * Term -> Term
+  JoinCondition : Term -> Annotation
+  IteratorContext : Term -> Annotation
+  PrefetchPropAnno : Term * Term -> Annotation
+  PrefetchAnno : Term -> Annotation
+  IsOptimized : Annotation
+  QueryCondition : Term -> Annotation
+  QueryConditionFilter : Term * Term * Term -> Annotation
+  QueryConditionFilters : Term -> Annotation
+  QueryConditionFilterDef : Term * Term * Term * Term -> Annotation
+  QueryConditionFilterDefs : Term -> Annotation
+  QueryConditionFilterParam : Term -> Term
+
+  // Query optimization modes
+  NoQueryOptimization : Term
+  GuidedBatchingNoJoins : Term
+  GuidedBatchingJoins : Term
+  GuidedBatchingFixedSize : Term
+  HibernateBatching : Term
+  HibernateSubselect : Term
+  HibernateSubselectWithBatching : Term
+  AtArguments : Term
+
+strategies
+
+  get-prefetch-for(|x) = is-list; (fetch-elem(?PrefetchFor(Var(x), _, _, _)) <+ !None())
+  get-prefetch-for(|x) = ?Block(<get-prefetch-for(|x)>)
+  replace-prefetch-for(|x,prefetchfor) = is-list; remove-all(?PrefetchFor(Var(x), _, _, _)); ![prefetchfor|<id>]
+  replace-prefetch-for(|x,prefetchfor) = ?Block(<id>){anno*}; replace-prefetch-for(|x, prefetchfor); !Block(<id>){anno*}
+  try-get-prefetch-where = ?PrefetchFor(_, _, <id>, _) <+ !None()
+
+  is-query-analysis = ?QueryAnalysis(_, _, _, _, _)
+
+  get-empty-query-analysis = !QueryAnalysis([], [], [], [], [])
+
+  get-ts-from-query-analysis = ?QueryAnalysis(<id>, _, _, _, _)
+
+  get-returns-from-query-analysis = ?QueryAnalysis(_, <id>, _, _, _)
+
+  get-recursive-from-query-analysis = ?QueryAnalysis(_, _, _, _, <id>)
+
+rules
+
+  property-to-string :
+    Var(_) -> ""
+
+  property-to-string :
+    FieldAccess(p, f) -> str
+    with prefix := <property-to-string> p
+    ; if "" := prefix then
+        str := <concat-strings> ["_", f]
+      else
+        str := <concat-strings> [prefix, "._", f]
+      end
+
+  property-to-string :
+    Cast(p, _) -> str
+    with str := <property-to-string> p
+
+  property-to-alias :
+    Var(_) -> ""
+
+  property-to-alias :
+    FieldAccess(p, f) -> str
+    with prefix := <property-to-alias> p
+    ; str := <concat-strings> [prefix, "__", f]
+
+  property-to-alias :
+    Cast(p, _) -> str
+    with str := <property-to-alias> p
+
+  condition-to-alias-string(|x) :
+    FieldAccess(p, f) -> str
+    where <collect(?Var(x)); not(?[])> p
+    with str := <property-to-alias> p
+
+  join-fetch-to-alias = <concat-strings> ["_", <string-replace(|".", "_")>]
+
+  is-no-empty-batch = where(fetch-elem(?NoEmptyBatch()))
+  is-fetch-early = where(fetch-elem(?FetchEarly()))
+
+  get-prefetch-children = ?PrefetchChildren(<id>)
+  get-prefetch-children : None() -> []
+  wrap-prefetch-children : [] -> None()
+  wrap-prefetch-children : lst -> PrefetchChildren(lst) where <is-list> lst; not([] := lst)
+
+  get-prefetch-template-args = ?PrefetchTemplateArgs(<id>)
+  get-prefetch-template-args : None() -> []
+  to-prefetch-template-args : [] -> None()
+  to-prefetch-template-args : lst -> PrefetchTemplateArgs(lst) where not([] := lst)
+
+  get-query-condition-filter-name : QueryConditionFilter(name, _, _) -> name
+  get-query-condition-filter-args : QueryConditionFilter(_, args, _) -> args
+  get-query-condition-filter-def-types : QueryConditionFilterDef(_, types, _, _) -> types
+  get-query-condition-filter-def-condition : QueryConditionFilterDef(_, _, cond, _) -> cond
+
+  is-guided-batching = where(QueryOptimizationMode; (?GuidedBatchingFixedSize() <+ ?GuidedBatchingJoins() <+ ?GuidedBatchingNoJoins()))
+  is-guided-batching-no-joins = where(QueryOptimizationMode; (?GuidedBatchingNoJoins() <+ ?GuidedBatchingFixedSize()))
+  is-guided-batching-joins = where(QueryOptimizationMode; ?GuidedBatchingJoins())
+  is-hibernate-batching = where(QueryOptimizationMode; (?HibernateBatching() <+ ?HibernateSubselectWithBatching()))
+  is-hibernate-subselect = where(QueryOptimizationMode; (?HibernateSubselect() <+ ?HibernateSubselectWithBatching()))
+  is-at-arguments = where(QueryOptimizationMode; ?AtArguments())
+
+  optimization-mode-to-string : NoQueryOptimization() -> "0" // 0
+  optimization-mode-to-string : GuidedBatchingNoJoins() ->  "1" // 8
+  optimization-mode-to-string : GuidedBatchingJoins() ->  "2" // 1
+  optimization-mode-to-string : GuidedBatchingFixedSize() ->  "3" // 3
+  optimization-mode-to-string : HibernateBatching() ->  "4" // 2
+  optimization-mode-to-string : HibernateSubselect() -> "5" // 7
+  optimization-mode-to-string : HibernateSubselectWithBatching() ->  "6" // 9
+  optimization-mode-to-string : AtArguments() ->  "7" // 5

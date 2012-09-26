@@ -35,6 +35,23 @@ public abstract class AbstractPageServlet{
         passedThroughAjaxTemplate = b;
     }
 
+    protected boolean isLogSqlEnabled = false;
+    public boolean isLogSqlEnabled() { return isLogSqlEnabled; }
+
+    protected boolean isOptimizationEnabled = true;
+    public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
+
+    public String getExtraQueryAruments(String firstChar) { // firstChar is expeced to be ? or &, depending on wether there are more query aruments
+    	String res = "";
+    	if(!isOptimizationEnabled || isLogSqlEnabled) {
+    		res = firstChar;
+    		if(isLogSqlEnabled) res += "logsql";
+    		if(isLogSqlEnabled && !isOptimizationEnabled) res += "&";
+    		if(!isOptimizationEnabled) res += "disableopt";
+    	}
+    	return res;
+    }
+
     public abstract String getPageName();
     public abstract String getUniqueName();
 
@@ -80,6 +97,7 @@ public abstract class AbstractPageServlet{
     }
     
     protected abstract void renderIncomingSuccessMessages();
+    protected abstract void renderLogSqlMessage();
 
     public boolean isPostRequest(){
         return ThreadLocalServlet.get().isPostRequest;
@@ -850,4 +868,13 @@ public abstract class AbstractPageServlet{
 
       public abstract void initRequestVars(PrintWriter out);
 
+      protected long startTime = 0L;
+
+      public long getStartTime() {
+    	  return startTime;
+      }
+
+      public long getElapsedTime() {
+    	  return System.currentTimeMillis() - startTime;
+      }
 }

@@ -11,6 +11,18 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.webdsl.WebDSLEntity;
 
+import org.hibernate.*;
+import org.hibernate.type.*;
+import org.hibernate.cfg.*;
+import org.webdsl.*;
+import org.hibernate.event.*;
+import org.hibernate.event.def.*;
+import java.io.*; 
+import org.hibernate.tool.hbm2ddl.DatabaseMetadata;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.hibernate.tool.hbm2ddl.SchemaUpdate;
+import org.hibernate.dialect.Dialect;
+
 public final class Utils {
     public static Object[] concatArrays(Object[] ar1, Object[] ar2) {
         List<Object> thelist = new ArrayList<Object>();
@@ -156,5 +168,124 @@ public final class Utils {
 
     public static String showAttributeEscapeHtml(String s1, Object s2){
         return " " + escapeHtml(s1) + "=\"" + escapeHtml(s2) + "\"";
+    }
+
+    // An alternative implementation of FieldInterceptorImpl.readObject / AbstractFieldInterceptor.intercept that supports initializing a single lazy property
+    public static Object readLazyProperty(org.webdsl.WebDSLEntity entity, org.hibernate.bytecode.javassist.FieldHandler fieldHandler, String fieldName, Object value) {
+    	if(fieldHandler == null) return value;
+
+    	org.hibernate.intercept.javassist.FieldInterceptorImpl fieldInterceptor = (org.hibernate.intercept.javassist.FieldInterceptorImpl)fieldHandler;
+    	
+    	org.hibernate.engine.SessionImplementor session = fieldInterceptor.getSession();
+		if ( session == null ) {
+			throw new org.hibernate.LazyInitializationException( "entity with lazy properties is not associated with a session" );
+		}
+		else if ( !session.isOpen() || !session.isConnected() ) {
+			throw new org.hibernate.LazyInitializationException( "session is not connected" );
+		}
+
+		final org.hibernate.engine.EntityEntry entry = session.getPersistenceContext().getEntry( entity );
+		if ( entry == null ) {
+			throw new org.hibernate.HibernateException( "entity is not associated with the session: " + entity.getId() );
+		}
+		final Object[] snapshot = entry.getLoadedState();
+    	org.hibernate.engine.SessionFactoryImplementor factory = session.getFactory();
+    	org.hibernate.persister.entity.EntityPersister persister = factory.getEntityPersister(fieldInterceptor.getEntityName());
+    	org.hibernate.type.Type type = persister.getPropertyType(fieldName);
+		int propertyIndex = persister.getEntityMetamodel().getPropertyIndex(fieldName);
+
+		// Here we initialize the value from the persistence context or from the database
+		Object propValue = null;
+		try{
+			propValue = type.nullSafeGet(null, (String)null, session, entity);
+		}
+		catch(java.sql.SQLException sqle) {
+			throw org.hibernate.exception.JDBCExceptionHelper.convert(
+					factory.getSQLExceptionConverter(),
+					sqle,
+					"could not initialize lazy property: " +
+					org.hibernate.pretty.MessageHelper.infoString( persister, entity.getId(), factory ),
+					null
+				);
+		}
+
+		// Here we do the same as AbstractEntityPersister.initializeLazyProperty(String,Object,SessionImplementor,Object[],int,Object)
+		persister.setPropertyValue(entity, propertyIndex, propValue, session.getEntityMode());
+		if(snapshot != null) {
+			snapshot[ propertyIndex ] = type.deepCopy( propValue, session.getEntityMode(), factory );
+		}
+
+		return propValue;
+
+		// An earlier implementation
+        	/*org.hibernate.type.EntityType type = (org.hibernate.type.EntityType)persister.getPropertyType(fieldName);
+    		org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
+    				type.getAssociatedEntityName(), 
+    				type.getRHSUniqueKeyPropertyName(), 
+    				entity.getId(),
+    				persister.getIdentifierType(),
+    				session.getEntityMode(), 
+    				factory);
+    		Object result = session.getPersistenceContext().getEntity(euk);
+    		if(result == null) {
+    			persister.getPropertyType(fieldName).nullSafeGet(null, null, session, entity);
+    		}
+    		else {
+    			// here we do the same as AbstractEntityPersister.initializeLazyProperty(String,Object,SessionImplementor,Object[],int,Object)
+    			persister.setPropertyValue(entity, ((org.hibernate.persister.entity.AbstractEntityPersister)persister).getPropertyIndex(fieldName), result, session.getEntityMode());
+
+    			fieldInterceptor.getUninitializedFields().remove(fieldName);
+    			return result;
+    		}*/
+    	//return fieldHandler.readObject(entity, fieldName, value);
+    }
+
+    public static void handleSchemaCreateUpdate(SessionFactory sessionFactory, Configuration annotationConfiguration) throws java.sql.SQLException {
+	    //database schema create/update
+	    String dbmode = utils.BuildProperties.getDbMode();
+	    if("update".equals(dbmode) || "create-drop".equals(dbmode)){
+	      Dialect dialect = Dialect.getDialect(annotationConfiguration.getProperties());
+	      Session session = sessionFactory.openSession();
+	      DatabaseMetadata meta = new DatabaseMetadata(session.connection(), dialect);
+	      if("create-drop".equals(dbmode)){
+	        String[] dropscript = annotationConfiguration.generateDropSchemaScript(dialect);
+	        if(dropscript.length>0){ System.out.println("\n=== dbmode=create-drop - Logging drop table SQL statements ===\n"); }
+	        else{ System.out.println("\n=== dbmode=create-drop - No drop table SQL statements were generated. ===\n"); }
+	        for(String s : Arrays.asList(dropscript)){
+	            System.out.println(s);
+	        }
+	        System.out.println();
+	        String[] createscript = annotationConfiguration.generateSchemaCreationScript(dialect);
+	        if(createscript.length>0){ System.out.println("=== dbmode=create-drop - Logging create table SQL statements ===\n"); }
+	        else{ System.out.println("\n=== dbmode=create-drop - No create table SQL statements were generated. ===\n"); }
+	        for(String s : Arrays.asList(createscript)){
+	            System.out.println(s);
+	        }
+	        System.out.println("\n=== dbmode=create-drop - Running database schema drop and create ===\n");
+	        boolean script = true;
+	        boolean doUpdate = true;
+	        new SchemaExport( annotationConfiguration ).create( script, doUpdate );
+	        System.out.println("\n=== dbmode=create-drop - Finished database schema drop and create  ===\n");
+	      }
+	      else if("update".equals(dbmode)){
+	        String[] updatescript = annotationConfiguration.generateSchemaUpdateScript(dialect, meta);
+	        if(updatescript.length>0){ 
+	          System.out.println("\n=== dbmode=update - Logging update table SQL statements ===\n"); 
+	          for(String s : Arrays.asList(updatescript)){
+	            System.out.println(s);
+	          }
+	          System.out.println("\n=== dbmode=update - Running database schema update ===\n");
+	          boolean script = true;
+	          boolean doUpdate = true;
+	          new SchemaUpdate( annotationConfiguration ).execute( script, doUpdate );
+	          System.out.println("\n=== dbmode=update - Finished database schema update ===\n");
+	        }
+	        else{ System.out.println("\n=== dbmode=update - No update table SQL statements were generated. Schema update will be skipped. ===\n"); }
+	      }
+	      session.close();
+	    }
+	    else{
+	      System.out.println("\n=== application.ini contains setting 'dbmode="+dbmode+"', only 'update' or 'create-drop' will trigger database schema updates ===\n");
+	    }
     }
 }

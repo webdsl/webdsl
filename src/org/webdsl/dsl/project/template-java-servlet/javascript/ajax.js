@@ -305,6 +305,9 @@ function clientExecute(jsoncode, thisobject)
     else if (command.action == "runscript") {
       eval(command.value);
     }
+    else if (command.action == "logsql") {
+      appendLogSql(command);
+    }
     //other actions 
     
     else if (command.action != undefined) //last command might equal {}
@@ -480,3 +483,13 @@ var onkeyupdelay = function(){
         timer = setTimeout(callback, 250);
     }  
 }();
+
+function appendLogSql(command) {
+  var hr = document.createElement('hr');
+  document.body.appendChild(hr);
+
+  var div = document.createElement('div');
+  div.className = 'logsql';
+  div.innerHTML = command.value;
+  document.body.appendChild(div);
+}

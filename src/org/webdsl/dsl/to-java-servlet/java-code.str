@@ -27,7 +27,12 @@ rules // statements
      <+ goto-to-java-servlet
      <+ ajax-to-java-servlet
      <+ validate-to-java-servlet(data-validation-to-java-servlet-throw)
+     <+ prefetch-for-to-java-servlet
      <+ info(|["cannot translate statement:", <id>]); fail
+
+   // Code generation for prefetch is done at page/template/function arguments or for-loop
+   prefetch-for-to-java-servlet :
+     PrefetchFor(_, _, _, _) -> []
 
    block-to-java-servlet :
      //Block(stm*) ->
@@ -129,29 +134,46 @@ rules // for
    for-to-java-servlet : // No where clause, with order by clause
      ForStmt(x, srt, e1, fltr, Block(stat*)) ->
      bstm*|[
-        java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e2);
+        java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection
+        bstm_enable*
+        java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
+        bstm_disable*
+        bstm_early*
         bstm_for*
      ]|
      with  x_list := <newname> "lst"
+         ; x_expr := <newname> "exp"
          ; t      := <java-type> srt
+         ; reft := t
          ; e2 := <expression-to-java-servlet> e1
-         ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
+         ; prefetch := <get-prefetch-for(|x)> stat*
+         ; (bstm_enable*, bstm_disable*) := <try-get-prefetch-where; try-get-query-condition-filter; (if-optimization-enabled,if-optimization-enabled)> prefetch
+         ; e_joins := <get-direct-fetches> prefetch
+         ; e_expr := <is-guided-batching-joins < !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins) ]| + !expr|[x_expr]|>
+         ; bstm_early* := <is-guided-batching < (get-early-batch-fetches(|x_list, srt) <+ ![]) + ![]> prefetch
+         ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
+         ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr, bstm_batch*)>
 
   for-to-java-servlet :
     fa@ForAllStmt(x, srt, fltr, Block(stat*)) ->
     bstm* |[
       java.util.List<t> x_list = e_criteria.list();
+      bstm_early*
       bstm_for*
     ]|
     with  x_list := <newname> "list"
         ; t      := <java-type> srt
-        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr)
-        ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr)>
+        ; prefetch := <get-prefetch-for(|x)> stat*
+        ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr, prefetch)
+        ; bstm_early* := <is-guided-batching < (get-early-batch-fetches(|x_list, srt) <+ ![]) + ![]> prefetch
+        ; bstm_batch* := <(is-guided-batching-no-joins < get-batch-fetches(|x_list, srt) + get-generic-batch-fetches(|x_list, srt)) <+ ![]> prefetch
+        ; bstm_for* := <for-translation-common(|x_list, stat*, srt, t, x, fltr, bstm_batch*)>
 
-  for-translation-common(|x_list, stat*, srt, t, x, fltr) :
+  for-translation-common(|x_list, stat*, srt, t, x, fltr, bstm_batch*) :
     _ ->
     bstm* |[
       bstm_order*
+      bstm_batch*
       ~*<wrap-in-for-loop(|x,t,expr|[ x_list ]|)> bstm*|[
         bstm*
       ]|
@@ -419,6 +441,12 @@ rules
           end
         ; x_Class := <concat-strings> [<pp-java5-to-string> <FunctionPackage>, ".", x2]
         ; result := expr|[ x_Class#_.x2#_(e2*) ]|
+
+  string-list-to-java-servlet :
+    stringlist -> stringarray
+    with stringarray := <foldr(!expr |[ new String[] {} ]|, {?(str, expr |[ new String[] {e_array*} ]|); !expr |[ new String[] {e_array*,"~str"} ]|})> stringlist
+
+  string-list-to-java-servlet-or-null = string-list-to-java-servlet; try(\ expr |[ new String[] {} ]| -> expr |[ null ]| \)
 
 rules
   call-arg-ref-resolve-helper:

@@ -9,15 +9,19 @@ imports
 rules
 
   rename-action :
-    fs@ForStmt(x, srt, e1, f1, b1){anno*} -> ForStmt(y, srt2, e2, f2, b2){anno*}
+    fs@ForStmt(x, srt, e1, f1, b1){anno*} -> ForStmt(y, srt2, e2, f2, b2){newanno*}
     with e2 := <rename-all> e1
-       ; {| Rename, VarInContext
+       ; {| Rename, VarInContext, IteratorContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
+          ; rules(
+              VarDecl : y -> fs
+              IteratorContext :+= Arg(y, srt2)
+            )
           ; <declare-vars-in-entity-context> y
-          ; f2 := <rename-all> f1
+          ; f2 := <rename-all; try(rename-query-condition-anno)> f1
           ; b2 := <rename-all> b1
+          ; newanno* := <update-iterator-context; common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
           
   rename-action :
@@ -39,15 +43,36 @@ rules
     with GenericSort(_,[srt]) := <type-of; add-immutable-anno> e //add ImmutableReference annotation, because x will not be assignable even if e was
 
   rename-action :
-    fs@ForAllStmt(x, srt, f1, b1){anno*} -> ForAllStmt(y, srt2, f2, b2){anno*}
-    with {| Rename, VarInContext
+    fs@ForAllStmt(x, srt, f1, b1){anno*} -> ForAllStmt(y, srt2, f2, b2){newanno*}
+    with {| Rename, VarInContext, IteratorContext
           : srt2 := <rename-all> srt
           ; y := <rename-bound-immutable(|srt2)> x
-          ; rules(VarDecl : y -> fs)
+          ; rules(
+              VarDecl : y -> fs
+              IteratorContext :+= Arg(y, srt2)
+            )
           ; <declare-vars-in-entity-context> y
-          ; f2 := <rename-all> f1
+          ; f2 := <rename-all; try(rename-query-condition-anno)> f1
           ; b2 := <rename-all> b1
+          ; newanno* := <update-iterator-context; common-for-stmt-update-annotations; rename-query-optimization-annos> anno*
           |}
+
+  common-for-stmt-update-annotations :
+    anno* -> [ args*, ent*, templ*, plain-anno* ]
+    where plain-anno* := <remove-all(?FunctionArgs(_) <+ ?TemplateArgs(_) <+ ?TemplateName(_))> anno*
+    ; if templName := <InTemplate <+ InPage> then // For loop inside action, inside template/page
+        templ* := [TemplateName(templName),TemplateArgs(<TemplateArg <+ ![]>)]
+        ; args* := []
+        ; ent* := []
+      else
+        templ* := []
+        ; args* := <(FunctionArg; ![FunctionArgs(<id>)]) <+ ![]>
+        ; if x_class := <InEntity> then
+            ent* := <fetch-elem(?FunctionEntity(_)) < ![] + ![FunctionEntity(x_class)]> anno*
+          else
+            ent* := []
+          end
+      end
 
   rename-action :
     fs@ForCountStmt(x, e1, e2, b1){anno*} -> ForCountStmt(y, e3, e4, b2){anno*}
@@ -60,10 +85,79 @@ rules
           ; b2 := <rename-all> b1
           |}
 
+  add-query-optimization :
+    def@ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){IsOptimized(),qc,tokeep*}
+    where <is-entity-type-strip-generics> srt
+    ; <not(fetch-elem(?IsOptimized()))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (/*<debug(!"NotOptimized:")> ("ForStmt", x, srt); */get-empty-query-analysis)> anno* 
+    ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args
+    ; (qc, b2) := <query-analysis-to-query-optimizition(|qa,x,srt,bindableargs)> b
+
+  desugar-action :
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno*}
+    where <is-entity-type-strip-generics> srt
+    ; <not(fetch-elem(?TemplateName(_)))> anno*
+    ; args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; thisargs* := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> b) <+ ![]> anno*
+    ; (b2, newanno*) := <with-thisentity(perform-query-analysis(|("ForStmt", x, srt), [args*,ic*,thisargs*],cond,x,f)|anno*)> (b, anno*)
+    // Query condition anno is placed directly, because they are used to determine the filter that is used, during the analysis of parent blocks
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args*
+    ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
+
+  desugar-action :
+    ForStmt(x, srt, e, f, b){anno*} -> ForStmt(x, srt, e, f, b2){qc,newanno*}
+    where <is-entity-type-strip-generics> srt
+    ; <fetch-elem(?TemplateArgs(args*))> anno*
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; cond := <?Filter(<id>, _, _) <+ !True()> f
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args*)
+    ; {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (b2, newanno*) := <perform-query-analysis(|("ForStmt", x, srt), [args*,ic*],cond,x,f)> (b, anno*)
+    |}
+    // Query condition anno is placed directly, because they are used to determine the filter that is used, during the analysis of parent blocks
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args*
+    ; qc := <get-query-condition(|x,srt,bindableargs)> newanno*
+
   add-backend-annotation :
     def@ForAllStmt(_, SimpleSort(x_class), _, _){anno*} -> def{CachedEntity(), anno*}
     where not(<fetch-elem(?CachedEntity())> anno*)
     ; <is-cached-entity> x_class
+
+  add-query-optimization :
+    def@ForAllStmt(x, srt, f, b){anno*} -> ForAllStmt(x, srt, f, b2){IsOptimized(),qc,tokeep*}
+    where <not(fetch-elem(?IsOptimized()))> anno*
+    with qa := <fetch-elem(is-query-analysis) <+ (/*<debug(!"NotOptimized:")> ("ForAllStmt", x, srt); */get-empty-query-analysis)> anno* 
+    ; args := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; tokeep* := <remove-all(is-query-analysis)> anno*
+    ; bindableargs := <filter(query-optimization-bindable-argument)> args
+    ; (qc, b2) := <query-analysis-to-query-optimizition(|qa,x,srt,bindableargs)> b
+
+  desugar-action :
+    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    where not(<fetch-elem(?TemplateName(_))> anno*)
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    where args* := <fetch-elem(?FunctionArgs(<id>)) <+ ![]> anno*
+    ; thisargs* := <(fetch-elem(?FunctionEntity(x_class)); <get-this-args(|x_class)> body1) <+ ![]> anno*
+    ; (body2, newanno*) := <with-thisentity(perform-query-analysis(|("ForAllStmt", x , srt), [args*,ic*,thisargs*],cond,x,f)|anno*)> (body1, anno*)
+
+  desugar-action :
+    def@ForAllStmt(x, srt, f, body1){anno*} -> ForAllStmt(x, srt, f, body2){newanno*}
+    with cond := <?Filter(<id>, _, _) <+ !True()> f
+    where <fetch-elem(?TemplateArgs(args*))> anno*
+    ; <fetch-elem(?TemplateName(tname))> anno*
+    ; <fetch-elem(?IteratorContext(ic*))> anno*
+    ; tgenname := <normalize-signature; generate-template-name> (tname, args*)
+    ; {| CurrentTemplateName
+      : rules( CurrentTemplateName := tgenname )
+      ; (body2, newanno*) := <perform-query-analysis(|("ForAllStmt", x , srt), [args*,ic*],cond,x,f)> (body1, anno*)
+    |}
 
 rules
 
