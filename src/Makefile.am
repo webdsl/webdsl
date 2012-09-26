@@ -560,6 +560,6 @@ install-data-hook:
 	mkdir -p $(pkgdatadir)/plugin-build-deps/webdsl-sources
 	find . -name "*.str" -o -name "*.meta" -o -name "*.tbl" -o -name "*.sdf" -o -name "*.pp" -o -name "*.rtree" -type f | cpio -pd $(pkgdatadir)/plugin-build-deps/webdsl-sources/
 	
-	mkdir -p $(pkgdatadir)/webdsl-check/test/
-	cp -r ../test/succeed-web $(pkgdatadir)/webdsl-check-build-deps/test/succeed-web
+	mkdir -p $(pkgdatadir)/webdsl-check/test/succeed-web
+	cp -r ../test/succeed-web $(pkgdatadir)/webdsl-check/test/succeed-web
 	   
