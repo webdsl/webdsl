@@ -18,22 +18,22 @@ var subclass2 := SubClassTwo{name := "sub2"};
 var subclass3 := SubClassThree{name := "sub3"};
 
 define page root(){
-  var super := SuperClass{name := "super"};
+  var super3 := SuperClass{name := "super"};
   var sub1 := SubClassOne{name := "sub1"};
   var sub2 := SubClassTwo{name := "sub2"};
 
   temp(4)
   temp("bla")
-  temp(super)
+  temp(super3)
   temp(sub1)
   temp(sub2)
   
-  template(super)
+  template(super3)
   template(sub1)
   template(sub2)
   
-  temp(super,sub2)
-  temp(sub1,super)
+  temp(super3,sub2)
+  temp(sub1,super3)
   temp(sub1,sub2)
   
   " super: " output(super1)
@@ -44,7 +44,7 @@ define page root(){
   break
   "genericsorts"
   break
-  templist([super])
+  templist([super3])
   //should be allowed?: pass collection of subtypes
   //templist([sub1])
 
