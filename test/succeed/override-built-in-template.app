@@ -38,7 +38,10 @@ application test
   }
   
   test {
-    assert(rendertemplate(run())=="123456789");
+  	var r := rendertemplate(run());
+  	log("r ="+r+".");
+  	log(r);
+    assert(r=="123456789");
   }
   
   derive CRUD Foo

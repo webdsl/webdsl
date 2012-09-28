@@ -64,7 +64,7 @@
    Local                              -- KW["local"],
    Feed                               -- KW["feed"],
    Arg                                -- H[_1 KW[":"] _2],
-   Text                             -- H hs=0[KW["\""] _1 KW["\""]],
+   Text                               -- H hs=0[KW["\""] _1 KW["\""]],
    IfExp -- H[KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3], 
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"] KW["else"] KW["{"] _3 KW["}"] ],
    IfTempl.2:iter-star                -- _1,
