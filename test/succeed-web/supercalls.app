@@ -23,10 +23,6 @@ entity B  {
 	function test3 (): String {
 		return "bar";
 	}
-	static function test4 (): String {
-		name := ""; 
-	}
-	
 	
 }
 
