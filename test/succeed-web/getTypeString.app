@@ -15,6 +15,6 @@ test getTypeString {
 	assert(newUser().getTypeString() == "User", "getTypeString should also be applicable on something else then var");
 }
 
-function newUser(){
+function newUser() : User{
 	return User{};
 }
