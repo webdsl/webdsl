@@ -37,7 +37,9 @@ NATIVEJAVAFILESUSEDINTESTS = \
   
 TBLANDCTREEUSEDINSTRATEGOTEST = \
   $(wildcard succeed/stratego/*.tbl) \
-  $(wildcard succeed/stratego/*.ctree)
+  $(wildcard succeed/stratego/*.ctree) \
+  $(wildcard succeed-web/types/*.tbl) \
+  $(wildcard succeed-web/types/*.sdf)
 
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
 TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) 
