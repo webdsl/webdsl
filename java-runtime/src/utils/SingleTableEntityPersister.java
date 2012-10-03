@@ -18,12 +18,18 @@ import org.hibernate.mapping.PersistentClass;
 public class SingleTableEntityPersister extends org.hibernate.persister.entity.SingleTableEntityPersister {
 
 	protected BatchingEntityLoader batchLoader = null;
+	protected boolean hasSubselectLoadableCollections = false;
 
 	public SingleTableEntityPersister(PersistentClass persistentClass,
 			EntityRegionAccessStrategy cacheAccessStrategy,
 			SessionFactoryImplementor factory,
 			Mapping mapping) throws HibernateException {
 		super(persistentClass, cacheAccessStrategy, factory, mapping);
+		this.hasSubselectLoadableCollections = persistentClass.hasSubselectLoadableCollections();
+		java.util.Iterator i = persistentClass.getSubclassIterator();
+		while(!this.hasSubselectLoadableCollections && i.hasNext()) {
+			this.hasSubselectLoadableCollections = ((org.hibernate.mapping.PersistentClass) i.next()).hasSubselectLoadableCollections();
+		}
 	}
 	@Override
 	protected void createLoaders() {
@@ -122,6 +128,11 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 				}
 			}
 		}
+	}
+
+	@Override
+	public boolean hasSubselectLoadableCollections() {
+		return hasSubselectLoadableCollections;
 	}
 
 	class JoinEntityLoader extends org.hibernate.loader.entity.AbstractEntityLoader {

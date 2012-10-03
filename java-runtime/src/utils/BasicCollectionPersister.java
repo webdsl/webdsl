@@ -25,7 +25,7 @@ public class BasicCollectionPersister extends org.hibernate.persister.collection
 	}
 
 	protected CollectionInitializer createCollectionInitializer(LoadQueryInfluencers loadQueryInfluencers) throws MappingException {
-		if(utils.QueryOptimization.optimizationMode == 3) {
+		if(utils.QueryOptimization.optimizationMode == 3 || utils.QueryOptimization.optimizationMode == 4 || utils.QueryOptimization.optimizationMode == 6) {
 			batchInitializer = BatchingCollectionInitializer.createBatchingCollectionInitializer( this, batchSize, getFactory(), loadQueryInfluencers );
 			return batchInitializer;
 		}
