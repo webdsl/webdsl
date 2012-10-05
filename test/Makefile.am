@@ -21,16 +21,24 @@ TESTSFAIL = \
 TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/*.app) \
   $(wildcard succeed-web/data-validation/*.app) \
-  $(wildcard succeed-web/data-validation/withstylesheet*.app) \
+  $(wildcard succeed-web/data-validation/withstylesheet/*.app) \
+  $(wildcard succeed-web/data-validation/withstylesheet/stylesheets/*.css) \
   $(wildcard succeed-web/ac/*.app) \
   $(wildcard succeed-web/types/*.app) \
   $(wildcard succeed-web/manual/*.app) \
   $(wildcard succeed-web/manual/ajax-form-validation/*.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/v1/v1.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/v2/v2.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/v3/v3.app) \
-  $(wildcard succeed-web/manual/tutorial-splash/v4/v4.app) \
-  $(wildcard succeed-web/search/*.app)
+  $(wildcard succeed-web/manual/ajax-form-validation/templates/*.app) \
+  $(wildcard succeed-web/manual/ajax-form-validation/images/*.png) \
+  $(wildcard succeed-web/manual/ajax-form-validation/shtylesheets/*.css) \
+  $(wildcard succeed-web/manual/tutorial-splash/v1/*.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v2/*.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v2/shtylesheets/*.css) \
+  $(wildcard succeed-web/manual/tutorial-splash/v3/*.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v3/shtylesheets/*.css) \
+  $(wildcard succeed-web/manual/tutorial-splash/v4/*.app) \
+  $(wildcard succeed-web/manual/tutorial-splash/v4/shtylesheets/*.css) \
+  $(wildcard succeed-web/search/*.app)\
+  $(wildcard succeed-web/search/search/analyzerfiles/*.txt)
 
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)
