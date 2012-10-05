@@ -401,6 +401,7 @@ module .servletapp/src-webdsl-template/built-in
     getBoolean(String) : Bool
     getDouble(String) : Double
     getInt(String) : Int
+    getLong(String) : Long
     getJSONArray(String) : JSONArray
     getJSONObject(String) : JSONObject
     getString(String) : String
