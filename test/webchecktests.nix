@@ -14,7 +14,7 @@ let
           buildCommand = ''
             ensureDir $out
             cp -R ${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
-
+	
             cd succeed-web
             TOPDIR=`pwd`
             FAILED=""
@@ -216,8 +216,8 @@ let
 			"withtest1.app"
 			"withtest2.app"
 			"withtest3.app"
-			"withtest4.app"];
-  
-  jobs = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (build f)) list);
-
-in jobs
+				"withtest4.app"];
+	  
+	  jobs = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (build f)) list);
+	
+	in jobs

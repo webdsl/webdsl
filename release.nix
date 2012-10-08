@@ -108,6 +108,8 @@ let
         phases = "initPhase unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
 
         finalPhase = ''
+          cd test/succeed-web
+          ./generatenix.sh
           mkdir -p $out/nix-support
           if test -f ${src}/nix-support/hydra-release-name ; then
             cat ${src}/nix-support/hydra-release-name | sed 's|webdsl|webdsl-java|' > $out/nix-support/hydra-release-name
@@ -129,6 +131,8 @@ let
         phases = "initPhase unpackPhase patchPhase configurePhase buildPhase installPhase fixupPhase distPhase finalPhase";
 
         finalPhase = ''
+          cd test/succeed-web
+          ./generatenix.sh
           mkdir -p $out/nix-support
           if test -f ${src}/nix-support/hydra-release-name ; then
             cat ${src}/nix-support/hydra-release-name | sed 's|webdsl|webdsl-java|' > $out/nix-support/hydra-release-name
