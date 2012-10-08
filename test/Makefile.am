@@ -38,8 +38,10 @@ TESTSSUCCEEDWEBALL = \
   $(wildcard succeed-web/manual/tutorial-splash/v4/*.app) \
   $(wildcard succeed-web/manual/tutorial-splash/v4/shtylesheets/*.css) \
   $(wildcard succeed-web/search/*.app)\
-  $(wildcard succeed-web/search/search/analyzerfiles/*.txt)
-
+  $(wildcard succeed-web/search/search/analyzerfiles/*.txt)\
+  $(wildcard succeed-web/*.sh)\
+  $(wildcard succeed-web/*.nix)
+  
 NATIVEJAVAFILESUSEDINTESTS = \
   $(wildcard succeed/nativejava/*.java)
   
