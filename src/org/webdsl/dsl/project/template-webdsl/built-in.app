@@ -480,6 +480,7 @@ module .servletapp/src-webdsl-template/built-in
     getAttribute(String):String
     isEnabled():Bool
     isSelected():Bool
+    findElements(SelectBy):List<WebElement>
     //void     sendKeys(java.lang.CharSequence... keysToSend)
     utils.Test.click as toggle()
     utils.Test.click as setSelected()
