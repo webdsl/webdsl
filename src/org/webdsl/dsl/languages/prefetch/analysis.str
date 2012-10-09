@@ -12,9 +12,8 @@ rules
     (body, anno*) -> (body3, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls) | anno*])
     where not(QueryOptimizationDisabled)
     ; not(<fetch-elem(is-query-analysis)> anno*)
-    ; {| RootVar, BindableVar
-       : <filter(\ Arg(v, srt) -> <id> with rules( RootVar : Var(v) -> srt ) \)> args
-       ; <filter(\ arg@Arg(v, srt) -> <id> where <query-optimization-bindable-argument> arg; rules( BindableVar : Var(v) -> srt ) \)> args
+    ; {| RootVar, BindableVar, SynonymVar
+       : (roots, bindable, synonyms) := <categorize-and-define-argument-bindings> args
        ; [] := <collect(query-optimization-waiting-for); flatten-list> (body, cond, early)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
@@ -36,6 +35,23 @@ rules
         //;<debug(!"qa:")>(name, QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls))
         |}
       |}
+
+  categorize-and-define-argument-bindings :
+  	args -> (roots, bindable, synonyms) 
+    with (thisargs, argstmp) := <partition(?Arg("this", _))> args
+    ; bindable :=  <filter(where(query-optimization-bindable-argument))> args
+    ; (roots, synonyms) := <create-synonyms-for-extra-this> (argstmp, thisargs)
+    ; <map({v,srt: ?Arg(v, srt); rules( RootVar : Var(v) -> srt ) })> roots
+    ; <map({v,srt: ?Arg(v, srt); rules( BindableVar : Var(v) -> srt ) })> bindable
+    ; <map({v,e: ?(v, e); rules( SynonymVar : v -> e ) })> synonyms
+
+
+  create-synonyms-for-extra-this :
+  	(roots, []) -> (roots, []) // There are not this keywords, so there are no synonyms
+
+  create-synonyms-for-extra-this :
+  	(roots, [firstthis@Arg(this1,_)|otherthis]) -> ([firstthis|roots], synonyms)
+  	with synonyms := <map({this2: ?Arg(this2,_); !(Var(this2), Var(this1))})> otherthis
 
 strategies
 
@@ -381,9 +397,9 @@ strategies // Function calls
           ; args2 := <map(analyze-for-query-optimization-effectful)> args1
         else
           args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
-          ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
+          ; analysistmp := <fetch-elem(get-ts-from-query-analysis)> defanno*
           ; recursivecalls := <fetch-elem(get-recursive-from-query-analysis)> defanno*
-          ; varmapping := <add-this-vars-to-mapping(|analysis, e, ent)> argmapping
+          ; (analysis, varmapping) := <try(add-this-var-to-mapping(|e, ent))> (analysistmp, argmapping)
           ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
           ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> varmapping
           ; <filter(combine-analysis)> newanalysis

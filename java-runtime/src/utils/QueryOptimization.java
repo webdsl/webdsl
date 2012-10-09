@@ -122,7 +122,7 @@ public class QueryOptimization {
     public static java.util.Collection prefetchCollection(org.hibernate.Session hibSession, java.util.Collection col, String[] joins) {
     	if(col instanceof org.hibernate.collection.PersistentCollection && joins != null && joins.length > 0 && QueryOptimization.optimizationMode == 2) {
     		org.hibernate.collection.PersistentCollection persistentCol = (org.hibernate.collection.PersistentCollection) col;
-    		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor) {
+    		if(!persistentCol.wasInitialized() && persistentCol.getOwner() instanceof org.webdsl.WebDSLEntity && hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
 	    		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
 	    		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 				org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(persistentCol.getRole());
@@ -137,13 +137,13 @@ public class QueryOptimization {
     }
 
     public static void prefetchCollections(org.hibernate.Session hibSession, String role, java.util.Collection<java.io.Serializable> ownerIds, String[] joins) {
-    	if( ownerIds != null && ownerIds.size() > 0 && hibSession instanceof org.hibernate.engine.SessionImplementor) {
+    	if( ownerIds != null && ownerIds.size() > 0 && hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
     		org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor)hibSession;
     		org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.collection.CollectionPersister persister = sessionFactory.getCollectionPersister(role);
 			if(persister instanceof utils.BatchCollectionPersister) {
 				java.util.List<String> joinslist = null;
-				if(joins != null && QueryOptimization.optimizationMode == 2) joinslist = java.util.Arrays.asList(joins);
+				if(joins != null) joinslist = java.util.Arrays.asList(joins);
 				((utils.BatchCollectionPersister)persister).initializeBatch(ownerIds.toArray(new Serializable[ownerIds.size()]), session, joinslist);
 			}
     	}
@@ -151,11 +151,11 @@ public class QueryOptimization {
 
 	public static void prefetchEntity(org.hibernate.Session hibSession, String entityName, org.hibernate.proxy.HibernateProxy proxy, String[] joins) {
 		org.hibernate.proxy.LazyInitializer init = proxy.getHibernateLazyInitializer();
-		if (!init.isUninitialized() || joins == null || !ThreadLocalPage.get().isOptimizationEnabled()) {
+		if (!init.isUninitialized() || joins == null || !QueryOptimization.isOptimizationEnabled()) {
 			return;
 		}
 		java.io.Serializable[] ids = { init.getIdentifier() };
-		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
 			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
 			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
@@ -173,7 +173,7 @@ public class QueryOptimization {
 	}
 
 	public static int prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins) {
-		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
 			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
 			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
@@ -191,7 +191,7 @@ public class QueryOptimization {
 				if (ids.size() > 1) {
 					try {
 						java.util.List<String> joinslist = null;
-						if(joins != null && QueryOptimization.optimizationMode == 2) joinslist = java.util.Arrays.asList(joins);
+						if(joins != null) joinslist = java.util.Arrays.asList(joins);
 						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
 						for (int i = 0; i < objs.size(); i++) {
 							final Object obj = objs.get(i);
@@ -214,7 +214,7 @@ public class QueryOptimization {
 	}
 
 	public static void prefetchLazyProperties(org.hibernate.Session hibSession, String entityName, String fieldName, java.util.Set<java.io.Serializable> ids, String[] joins) {
-		if (hibSession instanceof org.hibernate.engine.SessionImplementor) {
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
 			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
 			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
 			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
@@ -317,7 +317,7 @@ public class QueryOptimization {
 				entity.getId(), 
 				type.getIdentifierOrUniqueKeyType( factory ),
 				session.getEntityMode(), 
-				session.getFactory()
+				factory
 		);
 
 		org.hibernate.engine.PersistenceContext persistenceContext = session.getPersistenceContext();
@@ -326,11 +326,16 @@ public class QueryOptimization {
 	}
 
 	public static org.hibernate.Criteria addJoinsIfOptimizationEnabled(org.hibernate.Criteria criteria, String[] props) {
-		if(criteria != null && props != null && ThreadLocalPage.get().isOptimizationEnabled()) {
+		if(criteria != null && props != null && QueryOptimization.isOptimizationEnabled()) {
 			for(String prop : props) {
 				criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
 			}
 		}
 		return criteria;
+	}
+
+	public static boolean isOptimizationEnabled() {
+		AbstractPageServlet page = ThreadLocalPage.get();
+		return page == null || page.isOptimizationEnabled();
 	}
 }

@@ -84,12 +84,36 @@ rules
     ; newe := <fix-expression(|argmapping)> e
 
   fix-expression(|argmapping) :
-    arg -> newarg
-    where newarg := <foldr(!arg, \ ((e, Arg(x, srt)), analysis) -> <try(alltd(?Var(x); !e))> analysis \); where(is-accessible-from(RootVar))> argmapping
+    exp -> newexp
+    where
+    	{| ApplyMapping
+    	 : <map({e,x: ?(e, Arg(x, _)); rules( ApplyMapping : Var(x) -> e )})> argmapping
+    	 ; newexp := <alltd(ApplyMapping)> exp
+    	 |}
 
   fix-argument(|argmapping) :
     arg -> newarg
     where newarg := <foldr(!arg, rename-vars-in-analysis(RootVar))> argmapping
+
+  /*get-accessible-mappings(s) = filter(get-accessible-mapping(s))
+
+  get-accessible-mapping(s) :
+    (e, Arg(x, srt)) -> (x, values)
+    where <is-list> e
+    ; values := <filter((is-accessible-from-allow-calls(s); map(Fst)) <+ is-query-condition-constant); flatten-list> e
+
+  get-accessible-mapping(s) :
+    (e, Arg(x, srt)) -> (x, values)
+    where values := <is-accessible-from-allow-calls(s); map(Fst)> e
+
+  get-accessible-mapping(s) :
+    (e, Arg(x, srt)) -> (x, [e])
+    where <is-query-condition-constant> e
+
+  rename-vars-in-analysis(s) :
+  	(mapping, analysis) -> 
+  	where newmap := <get-accessible-mappings(s)> mapping
+  	; map()*/
 
   rename-vars-in-analysis(s) :
     ((e, Arg(x, srt)), analysis) -> newanalysis
@@ -266,19 +290,34 @@ rules
 
   add-mutiple-definitions-anno: // srt is a sub entity of srt2
     fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa2
-    where fa2 := <add-new-anno(|MultipleDefinitionsInSubclasses())> fa
-    ; <fetch-elem(?srt2@SimpleSort(superent))> castanno*
+    where <fetch-elem(?srt2@SimpleSort(superent))> castanno*
     ; not(<get-prop-type> (superent, f)) // If the property is already defined on the source/super entity then there is no property clash
-    ; all-keys-EntDecl
+    ; <defined-on-sub-entities> (superent, f)
+    ; not(?[_]) // If not defined on exactly one sub entity
+    ; fa2 := <add-new-anno(|MultipleDefinitionsInSubclasses())> fa
+
+  defined-on-sub-entities :
+    (superent, f) -> subents
+    where subents := <DefinedOnSubEntities> (superent, f)
+
+  defined-on-sub-entities :
+  	(superent, f) -> subents
+  	where <not(DefinedOnSubEntities)> (superent, f)
+    with all-keys-EntDecl
     ; filter({x_sub: // We find out on which sub entities property f is defined
                 ?x_sub
                 ; where(
                     <not(eq)>(x_sub, superent)
-                    ; <subtype-of>(SimpleSort(x_sub), srt2)
+                    ; <subtype-of>(SimpleSort(x_sub), SimpleSort(superent))
                     ; <TypeOfProperty> (x_sub, f) // Deliberate use of TypeOfProperty instead of type-of-property
                 )
              })
-    ; not(?[_]) // If not defined on exactly one sub entity
+    ; ?subents
+    ; rules( DefinedOnSubEntities : (superent, f) -> subents )
+
+  is-accessible-from(s,gen):
+    v@Var(_) -> (p, psrt)
+    where (p, psrt) := <SynonymVar; is-accessible-from(s,gen)> v
 
   is-accessible-from(s,gen):
     v@Var(_) -> (v, srt)
@@ -319,8 +358,8 @@ rules
     ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, n, targs)
     ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
     with argmapping := <zip> (args, defargs)
-    ; varmapping := <add-this-vars-to-mapping(|returns, e, ent)> argmapping
-    ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> varmapping
+    ; (returns2, varmapping) := <try(add-this-var-to-mapping(|e, ent))> (returns, argmapping)
+    ; results := <foldr(!returns2, rename-vars-in-analysis(RootVar))> varmapping
 
   expand-call-to-return-values(s|nm, args) :
     e -> e
@@ -333,15 +372,18 @@ rules
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "subList", [SimpleSort("Int"),SimpleSort("Int")])
   ignoreable-generic-sort-built-in-function = ?(GenericSort("Set", [_]), "list", [])
 
-  add-this-vars-to-mapping(|from, e, ent) :
-    mapping -> newmapping
-    with thisargs := <get-this-args(|ent)> from
-    ; thismapping := <map(!(e, <id>))> thisargs
-    ; newmapping := <conc> (mapping, thismapping)
+  add-this-var-to-mapping(|e, ent) :
+    (from, mapping) -> (newfrom, newmapping)
+    where [thisarg@Arg(this1,_)|otherthisargs] := <get-this-args(|ent)> from
+    with newmapping := [(e, thisarg)|mapping]
+    ; {| ApplyMapping
+       : <map({this2: ?Arg(this2, _); rules( ApplyMapping : Var(this2) -> Var(this1) )})> otherthisargs
+       ; newfrom := <alltd(ApplyMapping)> from
+       |}
     
   get-this-args(|ent) :
     from -> thisargs
-    with thisvars := <collect(?Var("this")); make-set> from
+    with thisvars := <collect(?Var("this"); \t->t{}\); make-set> from // We strip the annotations on the Var term, because they are unimportant and may cause the same var to be mapped twice. This is a real problem for recursive calls, where applying the same mapping more than once keeps giving new results.
     ; thisargs := <map(?Var(<id>); !Arg(<id>, SimpleSort(ent)))> thisvars
 
   get-prop-type: (x_class, prop) -> <type-of-property>
