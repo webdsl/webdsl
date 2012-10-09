@@ -6,34 +6,34 @@ echo "{ nixpkgs ? ../../nixpkgs
 let
   pkgs = import nixpkgs { system = \"i686-linux\"; };
   build = appname :
-   with import \"${nixos}/lib/testing.nix\" {system = \"i686-linux\";} ;
+   with import \"\${nixos}/lib/testing.nix\" {system = \"i686-linux\";} ;
       runInMachineWithX {
         require = [ ./machine.nix ];
         drv = pkgs.stdenv.mkDerivation {
           name = \"webdsl-check\";
           buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox15Pkgs.firefox webdsl];
-          buildCommand = \'\'
-            ensureDir $out
-            cp -R ${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
+          buildCommand = ''
+            ensureDir \$out
+            cp -R \${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
 			
             cd succeed-web
-            TOPDIR=`${"pwd"}`
+            TOPDIR=\`pwd\`
             FAILED=\"\"
             export DISPLAY=:0.0
-            header \"Running ${appname}\"
+            header \"Running \${appname}\"
             result=\"\"
-            cd \$TOPDIR/`dirname ./${appname}`
-            FILE=`basename ./${appname} .app`
+            cd \$TOPDIR/\`dirname ./\${appname}\`
+            FILE=\`basename ./\${appname} .app\`
 
-            echo \"Executing 'webdsl test-web $FILE\"
-            webdsl test-web $FILE 2>&1 || export FAILED=\"1\"
+            echo \"Executing 'webdsl test-web \$FILE\"
+            webdsl test-web \$FILE 2>&1 || export FAILED=\"1\"
             stopNest
-            if test -z \"$FAILED\"; then
+            if test -z \"\$FAILED\"; then
               exit 0
             else
               exit 1
             fi
-          \'\';
+          '';
         };
       };
   
