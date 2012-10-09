@@ -81,3 +81,11 @@ clean:
 #stratego code tests
 
 TESTS += run-stratego-tests.sh
+
+install-data-hook:
+	ls -a
+	pwd
+	./succeed-web/generatenix.sh
+	mv webtests.nix succeed-web/
+	mkdir -p $(pkgdatadir)/webdsl-check/test/succeed-web
+	cp -r ../test/succeed-web $(pkgdatadir)/webdsl-check/test/

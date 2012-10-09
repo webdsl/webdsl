@@ -15,18 +15,18 @@ let
           buildCommand = \'\'
             ensureDir $out
             cp -R ${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
-	
+			
             cd succeed-web
-            TOPDIR=`pwd`
+            TOPDIR=`${"pwd"}`
             FAILED=\"\"
             export DISPLAY=:0.0
             header \"Running ${appname}\"
             result=\"\"
-            cd $TOPDIR/`dirname ./${appname}`
+            cd \$TOPDIR/`dirname ./${appname}`
             FILE=`basename ./${appname} .app`
 
             echo \"Executing 'webdsl test-web $FILE\"
-            webdsl test-web $FILE 2>&1 || export FAILED="1"
+            webdsl test-web $FILE 2>&1 || export FAILED=\"1\"
             stopNest
             if test -z \"$FAILED\"; then
               exit 0
