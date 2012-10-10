@@ -83,6 +83,6 @@ clean:
 TESTS += run-stratego-tests.sh
 
 install-data-hook:
-	./succeed-web/generatenix.sh
+	./generatenix.sh
 	mkdir -p $(pkgdatadir)/webdsl-check/test/succeed-web
 	cp -r ../test/succeed-web $(pkgdatadir)/webdsl-check/test/
