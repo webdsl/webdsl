@@ -15,3 +15,6 @@ define page root(){
 }
 
 
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}

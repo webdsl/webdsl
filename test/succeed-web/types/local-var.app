@@ -7,4 +7,6 @@ application exampleapp
     }
   }
   
-    
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}

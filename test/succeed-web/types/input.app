@@ -53,3 +53,8 @@ application test
     //output(from SomeEntity as ent order by ent.name)
     //output([s|s:SomeEntity in (from SomeEntity) order by s.name])
   }
+
+
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}

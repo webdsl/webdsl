@@ -54,3 +54,7 @@ define page test2(){
     submit action{} {"save"}
   }
 }
+
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}

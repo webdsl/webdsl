@@ -10,4 +10,6 @@ application test
       submit action{} {"save"}
     }
   }
- 
+ test {
+	assert(false,  "NO TESTS AVAILABLE");
+}

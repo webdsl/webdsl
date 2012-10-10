@@ -29,4 +29,9 @@ application exampleapp
     else{
       elements()
     }
+    
   }*/
+  
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}  

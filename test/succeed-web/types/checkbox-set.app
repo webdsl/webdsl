@@ -34,3 +34,6 @@ define test(e:Ent){
 
 }
 
+test {
+	assert(false,  "NO TESTS AVAILABLE");
+}
