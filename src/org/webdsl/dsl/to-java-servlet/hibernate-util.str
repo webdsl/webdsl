@@ -681,6 +681,7 @@ rules
 
             //annotationConfiguration.addProperties(prop);
             //bstm1*
+            annotationConfiguration.setListener("load", new NarrowProxyByReusingImplementationLoadEventListener());
             annotationConfiguration.setListener("save-update", new SetVersionSaveOrUpdateEventListener());    
             annotationConfiguration.setListener("flush-entity", new SetValidationEventListener());
             annotationConfiguration.setListener("auto-flush", new FastAutoFlushEventListener());
@@ -705,7 +706,37 @@ rules
         { 
           return annotationConfiguration;
         }
-        
+
+        private static class NarrowProxyByReusingImplementationLoadEventListener extends DefaultLoadEventListener {
+          @Override
+          protected Object proxyOrLoad(
+              final LoadEvent event,
+              final org.hibernate.persister.entity.EntityPersister persister,
+              final org.hibernate.engine.EntityKey keyToLoad,
+              final LoadEventListener.LoadType options) {
+            if ( persister.hasProxy() ) {
+              final org.hibernate.engine.PersistenceContext persistenceContext = event.getSession().getPersistenceContext();
+              Object proxy = persistenceContext.getProxy(keyToLoad);
+              if ( proxy instanceof org.hibernate.proxy.HibernateProxy && !((org.hibernate.proxy.HibernateProxy)proxy).getHibernateLazyInitializer().isUninitialized() ) {
+                // Here we know that PersistenceContext.narrowProxy is going to be called
+                Class concreteProxyClass = persister.getConcreteProxyClass( event.getSession().getEntityMode() );
+                boolean alreadyNarrow = concreteProxyClass.isAssignableFrom( proxy.getClass() );
+                if(alreadyNarrow) return proxy; // If the existing proxy is already narrow then we do not need to create a new proxy
+                Object implementation = ((org.hibernate.proxy.HibernateProxy)proxy).getHibernateLazyInitializer().getImplementation();
+                boolean implementationAlreadyNarrow = concreteProxyClass.isAssignableFrom( implementation.getClass() );
+                if(implementationAlreadyNarrow) { // The implementation is narrow, but the proxy was not, so create a new one, but reuse the existing implementation
+                  Object newProxy = persister.createProxy( keyToLoad.getIdentifier(), event.getSession() );
+                  if(newProxy instanceof org.hibernate.proxy.HibernateProxy) {
+                    ((org.hibernate.proxy.HibernateProxy)newProxy).getHibernateLazyInitializer().setImplementation(implementation);
+                    persistenceContext.addProxy(keyToLoad, newProxy); //overwrite old proxy
+                    return newProxy;
+                  }
+                }
+              }
+            }
+            return super.proxyOrLoad(event, persister, keyToLoad, options);
+          }
+        }
         // references that will be implicitly stored in the db need version set to at least 1 as well to indicate a persisted entity     
         @SuppressWarnings("serial")
         private static class SetVersionSaveOrUpdateEventListener extends DefaultSaveOrUpdateEventListener 
