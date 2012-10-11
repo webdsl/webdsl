@@ -961,7 +961,7 @@ module .servletapp/src-webdsl-template/built-in
           d := null;
         }
         else{
-          var newdate := req.parseDate(dateformat);
+          var newdate := req.parseDateTime(dateformat);
           if(newdate != null){
             d := newdate;
           }
@@ -1034,7 +1034,7 @@ module .servletapp/src-webdsl-template/built-in
       }
     </div>
     databind{
-      if(reqhidden != null){
+      if(reqhidden != null && tmpset != set){
         set := tmpset;
       }
     }
@@ -1122,7 +1122,7 @@ module .servletapp/src-webdsl-template/built-in
 
     databind{
       if(reqhidden != null){
-        if(req == null || req.length == 0){
+        if(req == null || req.length == 0 && set.length != 0){
           set.clear();
         }
         else{
@@ -1223,7 +1223,7 @@ module .servletapp/src-webdsl-template/built-in
         }
         else{
           var fromids := [ e | e:Entity in from where e.id.toString()==req ];
-          if(fromids.length > 0){
+          if(fromids.length > 0 && ent != fromids[0]){
             ent := fromids[0]; // check with 'from' list to make sure that it was an option, to protect against tampering
           }
         }
@@ -1287,7 +1287,7 @@ module .servletapp/src-webdsl-template/built-in
       </label>
     }
     databind{
-      if(tmp != null && subme in ent2){
+      if(tmp != null && subme in ent2 && ent1 != subme){
         ent1 := subme;
       }
     }
@@ -1383,7 +1383,7 @@ module .servletapp/src-webdsl-template/built-in
     var onchange := attribute("onchange");
     var deletejsfuncname := "delete"+tname;
     databind {
-      if(tmp != null){
+      if(tmp != null && list != newlist){
         list := newlist;
       }
     }
