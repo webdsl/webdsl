@@ -55,6 +55,12 @@ public final class Utils {
         } else if( (a == null && b != null) || (a != null && b == null) ) {
             return false;
         }
+        if(a instanceof Long && b instanceof Integer) {
+        	return ((Long) a).longValue() == ((Integer) b).intValue();
+        }
+        if(a instanceof Integer && b instanceof Long) {
+        	return ((Long) b).longValue() == ((Integer) a).intValue();
+        }
         return a.equals(b);
     }
 
