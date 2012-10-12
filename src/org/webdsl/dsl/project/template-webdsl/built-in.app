@@ -142,6 +142,7 @@ module .servletapp/src-webdsl-template/built-in
     reset() : Searcher
     query(String) : Searcher
     phraseQuery(String,Int) : Searcher
+    regexQuery(String) : Searcher
     rangeQuery(Int,Int,Bool,Bool) : Searcher
     rangeQuery(Float,Float,Bool,Bool) : Searcher
     rangeQuery(Date,Date,Bool,Bool) : Searcher
