@@ -7,7 +7,7 @@ echo "{ nixpkgs ? ../../nixpkgs
 let
   pkgs = import nixpkgs { system = \"i686-linux\"; };
   build = appname :
-	drv = pkgs.stdenv.mkDerivation {
+	pkgs.stdenv.mkDerivation {
     	name = \"webdsl-check\";
         buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox15Pkgs.firefox webdsl pkgs.xvfb_run];
         buildCommand = ''
@@ -32,7 +32,6 @@ let
             exit 1
         fi
         '';
-        };
       };
   
   list = [" > webtests.nix;
