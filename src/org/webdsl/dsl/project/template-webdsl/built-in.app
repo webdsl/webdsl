@@ -400,7 +400,7 @@ module .servletapp/src-webdsl-template/built-in
     NULL : Object
     get(String) : Object
     getBoolean(String) : Bool
-    getDouble(String) : Float
+    getDouble(String) : Double
     getInt(String) : Int
     getLong(String) : Long
     getJSONArray(String) : JSONArray
@@ -418,7 +418,7 @@ module .servletapp/src-webdsl-template/built-in
     constructor(String)
     get(Int) : Object
     getBoolean(Int) : Bool
-    getDouble(Int) : Float
+    getDouble(Int) : Double
     getInt(Int) : Int
     getJSONArray(Int) : JSONArray
     getJSONObject(Int) : JSONObject
@@ -431,6 +431,10 @@ module .servletapp/src-webdsl-template/built-in
     toString(Int) : String
   }
 
+native class java.lang.Double as Double {
+	floatValue() : Float
+	
+}
 //  section WebDriver for testing
 
   function sleep(i:Int){ UtilsTestClass.sleep(i); }
