@@ -400,7 +400,7 @@ module .servletapp/src-webdsl-template/built-in
     NULL : Object
     get(String) : Object
     getBoolean(String) : Bool
-    getDouble(String) : Double
+    getDouble(String) : Float
     getInt(String) : Int
     getLong(String) : Long
     getJSONArray(String) : JSONArray
@@ -418,7 +418,7 @@ module .servletapp/src-webdsl-template/built-in
     constructor(String)
     get(Int) : Object
     getBoolean(Int) : Bool
-    getDouble(Int) : Double
+    getDouble(Int) : Float
     getInt(Int) : Int
     getJSONArray(Int) : JSONArray
     getJSONObject(Int) : JSONObject
