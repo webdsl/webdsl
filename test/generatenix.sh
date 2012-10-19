@@ -13,7 +13,7 @@ let
         buildCommand = ''
         ensureDir \$out
         cp -R \${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
-			
+		chmod u+w -R succeed-web	
         cd succeed-web
         TOPDIR=\`pwd\`
         FAILED=\"\"
@@ -22,7 +22,7 @@ let
         result=\"\"
         cd \$TOPDIR/\`dirname ./\${appname}\`
         FILE=\`basename ./\${appname} .app\`
-
+		
         echo \"Executing 'webdsl test-web \$FILE\"
         xvfb-run webdsl test-web \$FILE 2>&1 || export FAILED=\"1\"
         stopNest
