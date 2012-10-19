@@ -432,6 +432,8 @@ module .servletapp/src-webdsl-template/built-in
   }
 
 native class java.lang.Double as Double {
+	constructor(Double)
+	constructor(String)
 	floatValue() : Float
 	
 }
