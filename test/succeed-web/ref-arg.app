@@ -54,7 +54,7 @@ application test
   }
   
   test {
-    var d : WebDriver := getHtmlUnitDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));

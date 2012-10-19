@@ -9,7 +9,7 @@ let
   build = appname :
 	pkgs.stdenv.mkDerivation {
     	name = \"webdsl-check\";
-        buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox15Pkgs.firefox webdsl pkgs.xvfb_run];
+        buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox16Pkgs.firefox webdsl pkgs.xvfb_run];
         buildCommand = ''
         ensureDir \$out
         cp -R \${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
@@ -17,6 +17,7 @@ let
         cd succeed-web
         TOPDIR=\`pwd\`
         FAILED=\"\"
+        export HOME=\$PWD
         export DISPLAY=:0.0
         header \"Running \${appname}\"
         result=\"\"
@@ -58,7 +59,7 @@ excludes=( 	"./manual/ajax-form-validation/templates/templates.app"
 		"./manual/tutorial-splash/v4/rootpage.app"
 		"./manual/tutorial-splash/v4/ui.app")
 
- for app in ["./ref-arg.app"]
+ for app in ("./ref-arg.app")
 do 
   if (!(containsElement "$app" ${excludes[@]})); then
     echo "	\"${app#\.\/}\"" >> webtests.nix;
