@@ -58,7 +58,7 @@ excludes=( 	"./manual/ajax-form-validation/templates/templates.app"
 		"./manual/tutorial-splash/v4/rootpage.app"
 		"./manual/tutorial-splash/v4/ui.app")
 
- for app in $(find -name "*.app") 
+ for app in ["./ref-arg.app"]
 do 
   if (!(containsElement "$app" ${excludes[@]})); then
     echo "	\"${app#\.\/}\"" >> webtests.nix;
