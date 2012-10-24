@@ -220,6 +220,18 @@ rules
   if-optimization-enabled : [] -> []
   if-optimization-enabled : bstm* -> bstm* |[ if(utils.QueryOptimization.isOptimizationEnabled()){ bstm* } ]| where not([] := bstm*)
 
+  get-batch-fetches-single-simple-this =
+    ?PrefetchFor(v, _, _, <get-prefetch-children>)
+    ; filter(get-batch-fetches-single-simple-this-helper(|v))
+
+  // No castsrt is allowed, because properties of sub-classes are only accessible through the getter, but this may initialize NO_PROXY properties
+  // Collections properties are also not prefetched, because that is left for a later for-loop
+  get-batch-fetches-single-simple-this-helper(|v) :
+    PrefetchNode(None(), f{PrefetchPropAnno(decsrt, fsrt@SimpleSort(_))}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[ if(x instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)x).getHibernateLazyInitializer().isUninitialized()) utils.QueryOptimization.prefetchEntity(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins); ]|
+    where x := <concat-strings>["_", f]
+    ; str := <java-type-name> fsrt
+    ; e_joins := <get-prefetch-children; get-direct-fetches; not(?expr |[ null ]|)> children
+
   get-batch-fetches-single-this =
   	?PrefetchFor(v, _, _, <get-prefetch-children>)
   	; map(get-batch-fetches-single-this-helper(|v))
@@ -268,7 +280,7 @@ rules
 
   get-batch-fetches-single(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm* |[
-									        if(x != null && utils.QueryOptimization.isOptimizationEnabled()) {
+									        if(x != null) {
 									          java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
 									          x_list.add(x);
 									          utils.QueryOptimization.prefetchEntities(utils.HibernateUtilConfigured.getSessionFactory().getCurrentSession(), "~str", x_list, e_joins);          

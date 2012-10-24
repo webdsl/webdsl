@@ -84,17 +84,22 @@ public class OneToManyPersister extends org.hibernate.persister.collection.OneTo
 							boolean nullable,
 							int currentDepth,
 							org.hibernate.engine.CascadeStyle cascadeStyle) throws MappingException {
-						if  ( !isJoinedFetchEnabled( associationType, config, cascadeStyle ) && (joinpaths == null || !joinpaths.contains(path.getFullPath())) ) {
-							return -1;
-						}
 						if ( isTooDeep(currentDepth) || ( associationType.isCollectionType() && isTooManyCollections() ) ) {
 							return -1;
 						}
-						if ( isDuplicateAssociation( lhsTable, lhsColumns, associationType ) ) {
-							return -1;
+						if (joinpaths == null || !joinpaths.contains(path.getFullPath())) {
+				        	// Only perform these Hibernate checks if this join in not already enabled by a prefetch specification
+							if  ( !isJoinedFetchEnabled( associationType, config, cascadeStyle ) ) {
+								return -1; // Do not include this join, because join fetching is not enabled by the Hibernate mapping or a fetching profile
+								// This check can be ignored if the join is already present inside a prefetch specification
+							}
+							if ( isDuplicateAssociation( lhsTable, lhsColumns, associationType ) ) {
+								return -1; // Do not include this join if already present inside the query
+								// This is necessary for termination when a cycles are possible
+								// For joins inside a prefetch specification this is not necessary, because they always have a finite number of joins
+							}
 						}
-						int rtn = getJoinType( nullable, currentDepth );
-						return rtn;
+						return getJoinType( nullable, currentDepth );
 					}
 				};				
 				initFromWalker( walker );

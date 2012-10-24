@@ -195,14 +195,19 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 							|| ( associationType.isCollectionType() && isTooManyCollections() ) ) {
 						return -1;
 					}
-					if ( !isJoinedFetchEnabledInMapping( metadataFetchMode, associationType )
-							&& !isJoinFetchEnabledByProfile( persister, path, propertyNumber )
-							&& (joinpaths == null || !joinpaths.contains(path.getFullPath()))) {
-						return -1;
-					}
-					if ( isDuplicateAssociation( lhsTable, lhsColumns, associationType ) ) {
-						return -1;
-					}
+			        if(joinpaths == null || !joinpaths.contains(path.getFullPath())) {
+			        	// Only perform these Hibernate checks if this join in not already enabled by a prefetch specification
+						if ( !isJoinedFetchEnabledInMapping( metadataFetchMode, associationType )
+								&& !isJoinFetchEnabledByProfile( persister, path, propertyNumber ) ) {
+							return -1; // Do not include this join, because join fetching is not enabled by the Hibernate mapping or a fetching profile
+							// This check can be ignored if the join is already present inside a prefetch specification
+						}
+						if ( isDuplicateAssociation( lhsTable, lhsColumns, associationType ) ) {
+							return -1; // Do not include this join if already present inside the query
+							// This is necessary for termination when a cycles are possible
+							// For joins inside a prefetch specification this is not necessary, because they always have a finite number of joins
+						}
+			        }
 					return getJoinType( nullable, currentDepth );
 				}
 			};
