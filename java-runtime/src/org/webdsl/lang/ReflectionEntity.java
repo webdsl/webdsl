@@ -51,7 +51,7 @@ public class ReflectionEntity{
         if(getSuper() != null && (tmp = getSuper().getPropertyByName(name)) != null){
             return tmp;
         }
-        System.out.println("reflection property not found: "+name);
+        org.webdsl.logging.Logger.error("reflection property not found: "+name);
         return null; 
     }
     

@@ -50,14 +50,14 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
 
     public void addToTotalCount(long count) {
         totalCounter.addAndGet( count );
-        System.out.println( "Number of entities: " + count);
+        org.webdsl.logging.Logger.info( "Number of entities: " + count);
     }
 
     public void indexingCompleted() {
         long failed = totalCounter.get() - documentsDoneCounter.get();
-        System.out.println( "Reindexed " + documentsDoneCounter.get() + " entities, failed: " + failed);
+        org.webdsl.logging.Logger.info( "Reindexed " + documentsDoneCounter.get() + " entities, failed: " + failed);
         if (failed > 0){
-            System.out.println( "If no error messages were shown during indexing you might need to add 'debug=true' to your application.ini and recompile + reindex again");
+            org.webdsl.logging.Logger.info( "If no error messages were shown during indexing you might need to add 'debug=true' to your application.ini and recompile + reindex again");
         }
     }
 
@@ -73,7 +73,7 @@ public class IndexProgressMonitor implements MassIndexerProgressMonitor {
         etaMin = (int) (etaSec/60);
         etaSec = etaSec % 60;
 
-        System.out.println( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedSec + "s (" + estimateSpeed + " ent/s ETA: "+etaMin+"m"+etaSec+"s)");
+        org.webdsl.logging.Logger.info( entity + " (" + doneCount + "/" + totalTodoCount+ " = " + estimatePercentileComplete + "%) indexed in " + elapsedSec + "s (" + estimateSpeed + " ent/s ETA: "+etaMin+"m"+etaSec+"s)");
         lastElapsedMs = elapsedMs;
     }
 }

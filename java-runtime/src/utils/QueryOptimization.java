@@ -166,7 +166,7 @@ public class QueryOptimization {
 					((utils.SingleTableEntityPersister) persister).loadBatch(ids, session, joinslist);
 					init.initialize();
 				} catch (Exception ex) {
-					ex.printStackTrace();
+					org.webdsl.logging.Logger.error("EXCEPTION",ex);
 				}
 			}
 		}
@@ -204,7 +204,7 @@ public class QueryOptimization {
 							}
 						}
 					} catch (Exception ex) {
-						ex.printStackTrace();
+						org.webdsl.logging.Logger.error("EXCEPTION",ex);
 					}
 				}
 				return ids.size();
@@ -224,7 +224,7 @@ public class QueryOptimization {
 						java.util.List<String> joinslist = null;
 						((utils.SingleTableEntityPersister) persister).loadLazyBatch(fieldName, ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
 					} catch (Exception ex) {
-						ex.printStackTrace();
+						org.webdsl.logging.Logger.error("EXCEPTION",ex);
 					}
 				}
 			}

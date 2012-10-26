@@ -755,7 +755,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
         length_changes2 += thisDiff.text.length();
         if (lastequality != null && (lastequality.length() <= length_changes1)
             && (lastequality.length() <= length_changes2)) {
-          //System.out.println("Splitting: '" + lastequality + "'");
+          //org.webdsl.logging.Logger.info("Splitting: '" + lastequality + "'");
           // Walk back to offending equality.
           while (thisDiff != equalities.lastElement()) {
             thisDiff = pointer.previous();
@@ -948,7 +948,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
                 || ((lastequality.length() < Diff_EditCost / 2)
                     && ((pre_ins ? 1 : 0) + (pre_del ? 1 : 0)
                         + (post_ins ? 1 : 0) + (post_del ? 1 : 0)) == 3))) {
-          //System.out.println("Splitting: '" + lastequality + "'");
+          //org.webdsl.logging.Logger.info("Splitting: '" + lastequality + "'");
           // Walk back to offending equality.
           while (thisDiff != equalities.lastElement()) {
             thisDiff = pointer.previous();
@@ -1014,7 +1014,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
     Diff prevEqual = null;
     int commonlength;
     while (thisDiff != null) {
-      // System.out.println(diff);
+      // org.webdsl.logging.Logger.info(diff);
       if (thisDiff.operation == Operation.INSERT) {
         count_insert++;
         text_insert += thisDiff.text;
@@ -1091,7 +1091,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
       }
       thisDiff = pointer.hasNext() ? pointer.next() : null;
     }
-    // System.out.println(diff);
+    // org.webdsl.logging.Logger.info(diff);
     if (diffs.getLast().text.length() == 0) {
       diffs.removeLast();  // Remove the dummy entry at the end.
     }
@@ -1285,7 +1285,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
                                        .replace('+', ' ') + "\t");
           } catch (UnsupportedEncodingException e) {
             // This is a system which does not support UTF-8.  (Not likely)
-            System.out.println("Error in diff_toDelta: " + e);
+            org.webdsl.logging.Logger.error("Error in diff_toDelta: " + e);
             return "";
           }
           break;
@@ -1323,7 +1323,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
           try {
             n = Integer.parseInt(param);
           } catch (NumberFormatException e) {
-            System.out.println("Error in diff_fromDelta: " + e);
+            org.webdsl.logging.Logger.error("Error in diff_fromDelta: " + e);
             return null;
           }
           assert n >= 0 : "Invalid number in diff_fromDelta()";
@@ -1343,7 +1343,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
             param = URLDecoder.decode(param, "UTF-8");
           } catch (UnsupportedEncodingException e) {
             // This is a system which does not support UTF-8.  (Not likely)
-            System.out.println("Error in diff_fromDelta: " + e);
+            org.webdsl.logging.Logger.error("Error in diff_fromDelta: " + e);
             return null;
           }
           diffs.add(new Diff(Operation.INSERT, param));
@@ -1927,7 +1927,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
           line = URLDecoder.decode(line, "UTF-8");
         } catch (UnsupportedEncodingException e) {
           // This is a system which does not support UTF-8.  (Not likely)
-          System.out.println("Error in Patch.toString: " + e);
+          org.webdsl.logging.Logger.error("Error in Patch.toString: " + e);
           line = "";
         }
         if (sign == '-') {
@@ -2069,7 +2069,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
           txt.append(URLEncoder.encode(aDiff.text, "UTF-8").replace('+', ' ') + "\n");
         } catch (UnsupportedEncodingException e) {
           // This is a system which does not support UTF-8.  (Not likely)
-          System.out.println("Error in Patch.toString: " + e);
+          org.webdsl.logging.Logger.error("Error in Patch.toString: " + e);
           return "";
         }
       }

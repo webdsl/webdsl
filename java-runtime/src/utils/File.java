@@ -77,10 +77,10 @@ import org.hibernate.Session;
             return "";
         return new String(contents);
     } catch (SQLException e) {
-        e.printStackTrace();
+        org.webdsl.logging.Logger.error("EXCEPTION",e);
         return "";
     } catch (IOException e) {
-        e.printStackTrace();
+        org.webdsl.logging.Logger.error("EXCEPTION",e);
         return "";
     }
   }

@@ -202,7 +202,7 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
 				f.setBoolean(this, Boolean.FALSE);
 				list = null;
 			}catch(Exception e) {
-				e.printStackTrace();
+				org.webdsl.logging.Logger.error("EXCEPTION",e);
 			}
 		}
 		SessionImplementor session = getSession();

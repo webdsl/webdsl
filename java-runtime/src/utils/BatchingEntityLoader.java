@@ -42,7 +42,7 @@ public class BatchingEntityLoader {
 				loadersToCreate[i] = new EntityLoader(persister, batchSizesToCreate[i], LockMode.NONE, factory, LoadQueryInfluencers.NONE);
 //        System.out.print(", " + batchSizesToCreate[i]);
 			}
-//      System.out.println();
+//      org.webdsl.logging.Logger.info();
 			return new BatchingEntityLoader(persister, batchSizesToCreate, loadersToCreate);
 	}
 /*
@@ -64,16 +64,16 @@ public class BatchingEntityLoader {
 
 	public Object load(Serializable id, Object optionalObject, SessionImplementor session) {
 		// this form is deprecated!
-		System.out.println("loadfrom deprecated " + persister.getEntityName());
+		org.webdsl.logging.Logger.info("loadfrom deprecated " + persister.getEntityName());
 		return load( id, optionalObject, session, LockOptions.NONE );
 	}
 
 	public Object load(Serializable id, Object optionalObject, SessionImplementor session, LockOptions lockOptions) {
-		System.out.println("loadfrom " + persister.getEntityName());
+		org.webdsl.logging.Logger.info("loadfrom " + persister.getEntityName());
 		if(nextBatch == null || nextBatch.length <= 1) {
 			return ( (UniqueEntityLoader) loaders[batchSizes.length-1] ).load(id, optionalObject, session, lockOptions);
 		}
-    System.out.println("batch has id?");
+    org.webdsl.logging.Logger.info("batch has id?");
 		for(int i = 0; i < nextBatch.length; i++) {
 			if(nextBatch[i].equals(id)) break;
 			if(i == nextBatch.length - 1) return ( (UniqueEntityLoader) loaders[batchSizes.length-1] ).load(id, optionalObject, session, lockOptions); 
@@ -85,7 +85,7 @@ public class BatchingEntityLoader {
 			final int smallBatchSize = batchSizes[i];
 			Serializable[] smallBatch = new Serializable[smallBatchSize];
 			while ( remaining >= smallBatchSize ) { // While the current batch query can be filled with remaining collection
-				System.out.println("batch " + smallBatchSize + " / " + remaining);
+				org.webdsl.logging.Logger.info("batch " + smallBatchSize + " / " + remaining);
 				System.arraycopy(nextBatch, loaded, smallBatch, 0, smallBatchSize);
 				final java.util.List results = loaders[i].loadEntityBatch(
 						session, 
@@ -97,14 +97,14 @@ public class BatchingEntityLoader {
 						persister,
 						lockOptions
 				);
-				System.out.println("LockOption: " + lockOptions.getLockMode());
+				org.webdsl.logging.Logger.info("LockOption: " + lockOptions.getLockMode());
 				if(rtn == null) rtn = getObjectFromList(results, id, session);
 			}
 		}
 
 		// The last collections must be fetched one by one, because the smallest batch query requires more collections
 		while(remaining > 0) {
-			System.out.println("batch 1 / " + remaining);
+			org.webdsl.logging.Logger.info("batch 1 / " + remaining);
 			Object res = ( (UniqueEntityLoader) loaders[batchSizes.length-1] ).load(nextBatch[loaded], null, session, LockOptions.NONE);
 			if(nextBatch[loaded].equals(id)) rtn = res;
 			loaded++;
@@ -161,7 +161,7 @@ public class BatchingEntityLoader {
 						persister,
 						LockOptions.NONE
 				);
-        }catch(Exception ex){ex.printStackTrace();}
+        }catch(Exception ex){org.webdsl.logging.Logger.error("EXCEPTION",ex);}
 //finally{System.out.println("batch complete");}
 				loaded += smallBatchSize;
 				remaining -= smallBatchSize;

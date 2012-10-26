@@ -108,12 +108,12 @@ public class SearchSuggester {
                 return formSuggestions(maxSuggestionCount, allSuggestions);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             //if something goes wrong, close and remove current SpellChecker instance, so it gets renewed
             try {
                 spellChecker.close();
             } catch (IOException e2) {
-                e2.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e2);
             }
             spellCheckMap.remove(indexPath);
         }
@@ -187,12 +187,12 @@ public class SearchSuggester {
             return allSuggestions;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             //if something goes wrong, close and remove current AutoCompleter instance, so it gets renewed
             try {
                 autoCompleter.close();
             } catch (IOException e2) {
-                e2.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e2);
             }
             autoCompleterMap.remove(indexPath);
         }
@@ -280,7 +280,7 @@ public class SearchSuggester {
             try {
                 sp.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e);
             }
         }
         spellCheckMap.remove(indexPath);
@@ -292,7 +292,7 @@ public class SearchSuggester {
             try {
                 ac.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e);
             }
         }
         autoCompleterMap.remove(indexPath);

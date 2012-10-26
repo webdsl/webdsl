@@ -63,7 +63,7 @@ public abstract class AbstractPageServlet{
             }
             catch(NoSuchAlgorithmException ae)
             {
-                System.out.println("MD5 not available: "+ae.getMessage());
+                org.webdsl.logging.Logger.error("MD5 not available: "+ae.getMessage());
                 return null;
             }
         }
@@ -141,7 +141,7 @@ public abstract class AbstractPageServlet{
           return true;
         }
         catch(Exception e){
-          e.printStackTrace();
+          org.webdsl.logging.Logger.error("EXCEPTION",e);
           return false;	
         }
     }
@@ -153,11 +153,11 @@ public abstract class AbstractPageServlet{
         }
         catch(IllegalAccessException iae)
         { 
-            System.out.println("Problem in email template lookup: " + iae.getMessage());
+            org.webdsl.logging.Logger.error("Problem in email template lookup: " + iae.getMessage());
         }
         catch(InstantiationException ie)
         { 
-            System.out.println("Problem in email template lookup: " + ie.getMessage());
+            org.webdsl.logging.Logger.error("Problem in email template lookup: " + ie.getMessage());
         }
         temp.render(emailargs, emailenv);
         return temp;
@@ -198,8 +198,8 @@ public abstract class AbstractPageServlet{
                 }
             }
             catch(Exception ie){
-                oe.printStackTrace();
-                ie.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",oe);
+                org.webdsl.logging.Logger.error("EXCEPTION",ie);
             }
         }
         ThreadLocalOut.popChecked(out);
@@ -588,12 +588,12 @@ public abstract class AbstractPageServlet{
         }
         catch(java.sql.SQLException ex)
         {
-            System.out.println("exception in download serve");
-            ex.printStackTrace();
+            org.webdsl.logging.Logger.error("exception in download serve");
+            org.webdsl.logging.Logger.error("EXCEPTION",ex);
         }
         catch (IOException ex) {
-            System.out.println("exception in download serve");
-            ex.printStackTrace();
+            org.webdsl.logging.Logger.error("exception in download serve");
+            org.webdsl.logging.Logger.error("EXCEPTION",ex);
         }
         /*
   hibSession.flush();

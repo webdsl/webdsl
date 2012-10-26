@@ -7,7 +7,7 @@ public class PageParamLoad {
       return (org.webdsl.WebDSLEntity) hibSession.load(org.hibernate.util.ReflectHelper.classForName(c),s);
     }
     catch(Exception e){
-      e.printStackTrace();
+      org.webdsl.logging.Logger.error("EXCEPTION",e);
       return null;
     }
   }

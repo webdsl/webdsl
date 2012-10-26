@@ -388,7 +388,7 @@ public class HibernateLog {
 			}
 		}
 		catch(Exception ex) {
-			ex.printStackTrace();
+			org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			sout.print("<pre class=\"sqllogexception\">" + utils.HTMLFilter.filter(ex.toString()) + "</pre>");
 		}
 	}
@@ -510,7 +510,7 @@ public class HibernateLog {
 			sout.print("]");
 		}
 		catch(Exception ex) {
-			ex.printStackTrace();
+			org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			sout.print(", error: \"");
 			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(ex.toString()));
 		}

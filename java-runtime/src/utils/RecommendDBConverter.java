@@ -146,8 +146,8 @@ public abstract class RecommendDBConverter {
 			SessionFactory sf = (SessionFactory)Class.forName("utils.HibernateUtilConfigured").getMethod("getSessionFactory").invoke(null);
 			return sf.getCurrentSession();
 		} catch(Exception e){
-			System.err.println("Failed to get the current session of Hibernate!!!");
-			e.printStackTrace();
+			org.webdsl.logging.Logger.error("Failed to get the current session of Hibernate!!!");
+			org.webdsl.logging.Logger.error("EXCEPTION",e);
 			throw e;
 		}
 	}
@@ -163,7 +163,7 @@ public abstract class RecommendDBConverter {
 	 */
 	protected void convertUIDToBigIntInDB(){
 		try {
-            System.out.println("Constructing UID Dictionary tables");
+            org.webdsl.logging.Logger.info("Constructing UID Dictionary tables");
 			// Drop the table of the old dictionary.
 			executeStatement("DROP TABLE IF EXISTS __" + this.name + "_Taste_BeingBuilt");
 			// Create the table to store the dictionary in.
@@ -189,9 +189,9 @@ public abstract class RecommendDBConverter {
 			
 			try {
 				executeStatement("DROP INDEX rec_ind ON _" + this.name + ";", false);
-				System.out.println("Note: The index did exist, will be recreated");
+				org.webdsl.logging.Logger.info("Note: The index did exist, will be recreated");
 			} catch (Exception e){
-				System.out.println("Note: The index did not exist yet, no need to drop it");
+				org.webdsl.logging.Logger.info("Note: The index did not exist yet, no need to drop it");
 			}
 				
 			// Add another index to the original table for faster lookup
@@ -205,11 +205,11 @@ public abstract class RecommendDBConverter {
 			// Rename the newly created one to the accessible Dictionary table name.
 			executeStatement("RENAME TABLE __" + this.name + "_Taste_BeingBuilt TO __" + this.name + "_Taste;");
 			
-			System.out.println ("Dictionary table has been generated!");
+			org.webdsl.logging.Logger.info ("Dictionary table has been generated!");
 			
 		} catch(SQLException ex){
-			System.err.println("SQL Exception!! " + ex);
-			ex.printStackTrace();
+			org.webdsl.logging.Logger.error("SQL Exception!! " + ex);
+			org.webdsl.logging.Logger.error("EXCEPTION",ex);
 		}
 	}
 	
@@ -287,18 +287,18 @@ public abstract class RecommendDBConverter {
 			} else {
 				q.executeUpdate();
 			}
-			//System.out.println("Done in " + (System.currentTimeMillis() - startTime) + "ms");
+			//org.webdsl.logging.Logger.info("Done in " + (System.currentTimeMillis() - startTime) + "ms");
 			return retVal;
 		} catch(SQLException ex){
 			if(printStackTrace){
-				System.err.println("!!! SQL Exception in Query:\n\t\"" + stmt + "\"\n\t" + ex);
-				ex.printStackTrace();
+				org.webdsl.logging.Logger.error("!!! SQL Exception in Query:\n\t\"" + stmt + "\"\n\t" + ex);
+				org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			}
 			throw ex;
 		} catch(Exception ex){
 			if(printStackTrace){
-				System.err.println("!!! Exception in Query:\n\t\"" + stmt + "\"\n\t" + ex);
-				ex.printStackTrace();
+				org.webdsl.logging.Logger.error("!!! Exception in Query:\n\t\"" + stmt + "\"\n\t" + ex);
+				org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			}
 			throw new SQLException("!!! Exception in Query:\n\t\"" + stmt + "\"\n\t" + ex);
 		}

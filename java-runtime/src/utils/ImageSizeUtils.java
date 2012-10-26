@@ -90,7 +90,7 @@ public class ImageSizeUtils {
             }
             session.flush();
         } catch(Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
         }
     }
     
@@ -111,7 +111,7 @@ public class ImageSizeUtils {
             }
             session.flush();
         } catch(Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
         }
     }
     
@@ -122,7 +122,7 @@ public class ImageSizeUtils {
             BufferedImage img = ImageIO.read(file.getContentStream());
             return img.getWidth();
         } catch(Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             return 0;
         }
     }
@@ -133,7 +133,7 @@ public class ImageSizeUtils {
             BufferedImage img = ImageIO.read(file.getContentStream());
             return img.getHeight();
         } catch(Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             return 0;
         }
     }

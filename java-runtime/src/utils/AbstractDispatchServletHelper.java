@@ -26,7 +26,7 @@ public abstract class AbstractDispatchServletHelper{
               return e;
           }
       }
-      System.out.println("reflection entity not found: "+name);
+      org.webdsl.logging.Logger.error("reflection entity not found: "+name);
       return null; 
   }
 

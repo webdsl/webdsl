@@ -70,7 +70,7 @@ public class WebDSLFacetTool {
                     return (T) new SimpleDateFormat(DateType.getDefaultDateTimeFormat()).parse(toConvert);
             } catch (ParseException e) {
                 // TODO Auto-generated catch block
-                e.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e);
                 return (T) new Date();
             }
 

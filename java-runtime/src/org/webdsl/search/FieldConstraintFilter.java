@@ -27,8 +27,8 @@ import org.hibernate.search.filter.StandardFilterKey;
 				else
 					q = qp.parse(QueryParser.escape(value));
 			} catch (ParseException e) {
-				System.out.println("Error while parsing query in field filter: ");
-				e.printStackTrace();
+				org.webdsl.logging.Logger.error("Error while parsing query in field filter: ");
+				org.webdsl.logging.Logger.error("EXCEPTION",e);
 				q = new TermQuery(new Term(field, value));
 			}
 			Filter filter = new QueryWrapperFilter(q);

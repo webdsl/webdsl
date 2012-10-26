@@ -69,8 +69,8 @@ public class WebDSLDateBridge implements TwoWayStringBridge, ParameterizedBridge
               default: throw new SearchException( "Unable to convert date: '" + date.toString() + "' to String" );
             }
         } catch (Exception ex) {
-            System.out.println( "Unable to convert date: '" + date.toString() + "' to String. Field value not added to index" );
-            ex.printStackTrace();
+            org.webdsl.logging.Logger.error( "Unable to convert date: '" + date.toString() + "' to String. Field value not added to index" );
+            org.webdsl.logging.Logger.error("EXCEPTION",ex);
             return null;
 
         }

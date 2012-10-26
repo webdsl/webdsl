@@ -89,7 +89,7 @@ public class SDF {
             return true;
         } catch (RuntimeException e) {
             if(e.getCause() != null && !(e.getCause() instanceof SGLRException)){
-                e.printStackTrace();
+                org.webdsl.logging.Logger.error("EXCEPTION",e);
             }
             return false;
         }

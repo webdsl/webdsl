@@ -224,7 +224,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 }
 
                 if ( actualFacet == null ) {
-                    log( "Facet '" + key + "'to narrow not found, should not happen!" );
+                    org.webdsl.logging.Logger.warn( "Facet '" + key + "'to narrow not found, should not happen!" );
                     continue;
                 }
                 if ( facet.occur.equals( Occur.SHOULD ) ) {
@@ -342,7 +342,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             .setParameter( "analyzer", analyzer )
             .setParameter( "allowLuceneSyntax", allowLuceneSyntax );
         } else {
-            log( "At most 5 field filters can be enabled. Filter on field:'"+ field + "', value:'" + value + "' is ignored!." );
+            org.webdsl.logging.Logger.error( "At most 5 field filters can be enabled. Filter on field:'"+ field + "', value:'" + value + "' is ignored!." );
         }
     }
 
@@ -594,8 +594,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 }
             }
         } catch ( Exception e ) {
-            e.printStackTrace( );
-            log( "Error during entity searcher decoding!" );
+            org.webdsl.logging.Logger.error( "Error during entity searcher decoding!", e);
         }
 
         searcher.paramMap = paramMap;
@@ -811,7 +810,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     }
 
-    public String getNameSpace( ) {
+    public String getNamespace( ) {
         return namespaceConstraint;
     }
 
@@ -927,8 +926,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 return toReturn;
             }
         } catch( Exception ex ) {
-            log( "ERROR WHILE LISTING SEARCH RESULTS" );
-            ex.printStackTrace( );
+            org.webdsl.logging.Logger.error( "ERROR WHILE LISTING SEARCH RESULTS", ex );
         }
         //Something went wrong
         searchTime = 0;
@@ -1141,7 +1139,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return webdslFacets;
     }
     protected static void log( String a ) {
-        System.out.println( a );
+        org.webdsl.logging.Logger.error( a );
     }
 
     private String getLuceneQueryAsString( ) {

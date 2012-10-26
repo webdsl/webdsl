@@ -26,10 +26,10 @@ public class BuildProperties {
             dbmode = props.getProperty("webdsl.DBMODE"); 
         }
         catch(java.io.FileNotFoundException fnf) {
-            System.out.println("File \"build.properties\" not found");
+            org.webdsl.logging.Logger.error("File \"build.properties\" not found");
         }
         catch(IOException io) {
-            System.out.println("IOException while reading \"build.properties\"");   
+            org.webdsl.logging.Logger.error("IOException while reading \"build.properties\"");   
         }
     }
     

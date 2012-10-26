@@ -27,10 +27,10 @@ public abstract class EmailServlet {
     }
 
     static {
-        try {    
+        try {
             props.load(EmailServlet.class.getResourceAsStream("/email.properties"));
             host = EmailServlet.props.getProperty("webdsl.email.host");
-            String authprop = EmailServlet.props.getProperty("webdsl.email.authenticate"); 
+            String authprop = EmailServlet.props.getProperty("webdsl.email.authenticate");
             if(   "true".equals(authprop)
                ||"false".equals(authprop) ){
               authenticate = Boolean.valueOf(authprop);
@@ -49,13 +49,13 @@ public abstract class EmailServlet {
             javax.mail.Session session = javax.mail.Session.getInstance(sessionProps, null);
         }
         catch(java.io.FileNotFoundException fnf) {
-            System.out.println("File \"email.properties\" not found");
+            org.webdsl.logging.Logger.error("File \"email.properties\" not found");
         }
         catch(IOException io) {
-            System.out.println("IOException while reading \"email.properties\"");   
+            org.webdsl.logging.Logger.error("IOException while reading \"email.properties\"");
         }
     }
-    
+
     public String sender = "";
     public String receivers = "";
     public String cc = "";
@@ -63,14 +63,14 @@ public abstract class EmailServlet {
     public String replyTo = "";
     public String subject = "";
     public java.io.StringWriter body = new java.io.StringWriter();
-    
+
     public void send(){
         javax.mail.Session session = EmailServlet.getSession();
-        
+
         javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
-   
+
         try{
-            
+
             msg.setRecipients(javax.mail.Message.RecipientType.TO,
                     javax.mail.internet.InternetAddress.parse(this.receivers, false));
             msg.setRecipients(javax.mail.Message.RecipientType.CC,
@@ -79,9 +79,9 @@ public abstract class EmailServlet {
                     javax.mail.internet.InternetAddress.parse(this.bcc, false));
 
             msg.setSubject(this.subject);
-      
+
             msg.setContent(body.toString(), "text/html");
-            
+
             javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
             msg.setSender(sender);
             javax.mail.Address[] replyTo = javax.mail.internet.InternetAddress.parse(this.replyTo, false);
@@ -95,8 +95,8 @@ public abstract class EmailServlet {
                 transport.close();
             }
         }
-        catch(javax.mail.internet.AddressException ae){System.out.println(ae);}
-        catch(javax.mail.MessagingException me){System.out.println(me);}
+        catch(javax.mail.internet.AddressException ae){org.webdsl.logging.Logger.error(ae);}
+        catch(javax.mail.MessagingException me){org.webdsl.logging.Logger.error(me);}
   }
 
 }

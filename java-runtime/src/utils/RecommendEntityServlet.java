@@ -245,7 +245,7 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
      */
     public List<?> getRecommendations(Object x, int howMany, RecFieldType aType) {
         if(checkAvailabilityOfRecommendations(aType) == false){
-            System.err.println("Warning, you request to get recommendations while the recommendations taste table has not yet been filled by Mahout.\nEither wait for it to finish its background task, or call the reconstructRecommendCache function (last option should be used with care, on non-production systems only.)");
+            org.webdsl.logging.Logger.warn("Warning, you request to get recommendations while the recommendations taste table has not yet been filled by Mahout.\nEither wait for it to finish its background task, or call the reconstructRecommendCache function (last option should be used with care, on non-production systems only.)");
             return new ArrayList<Object>();
         }
         long startTime = System.currentTimeMillis();
@@ -256,14 +256,14 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
             List<RecommendedItem> recommendations = aType == RecFieldType.USER ? this.userRecommenderCache.recommend(id, howMany) : this.itemRecommenderCache.recommend(id, howMany);
 
             this.lastExecutionTime = System.currentTimeMillis() - startTime;
-            //System.out.println("Obtaining the list of recommendations took: " + this.lastExecutionTime);
+            //org.webdsl.logging.Logger.info("Obtaining the list of recommendations took: " + this.lastExecutionTime);
             return getObjectsOfIDList(recommendations, RecFieldType.ITEM);
         } catch(NoSuchUserException nse){
             /* Recommendations cannot be given because the user is unknown */
             return new ArrayList<Object>();
         } catch (Exception e){
-            System.err.println("Error, catched an exception while obtaining the recommendations! " + e);
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("Error, catched an exception while obtaining the recommendations! " + e);
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             return new ArrayList<Object>();
         }
     }
@@ -312,11 +312,11 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
                 this.itemRecommenderCache = new CachingRecommender(itemRecommender);
             }
             this.lastExecutionTime = System.currentTimeMillis() - startTime;
-            System.out.println("Building the Mahout Index took: " + this.lastExecutionTime);
+            org.webdsl.logging.Logger.info("Building the Mahout Index took: " + this.lastExecutionTime);
         } catch (Exception e){
-            System.err.println("\n\n************ SEVERE ERROR ************\nThere was an exception while reconstructing the recommendations!\n" + e);
-            e.printStackTrace();
-            System.err.println("************ END OF ERROR ************\n\n");
+            org.webdsl.logging.Logger.error("\n\n************ SEVERE ERROR ************\nThere was an exception while reconstructing the recommendations!\n" + e);
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
+            org.webdsl.logging.Logger.error("************ END OF ERROR ************\n\n");
         }
     }
 
@@ -452,9 +452,9 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
             // enough to calculate the precision and recall values.
             return "Failed, the given data set is not large enough to calculate precision and recall. Please provide more samples to proceed.";
         } catch (TasteException e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
         }  catch (Exception e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
         }
 
         this.lastExecutionTime = System.currentTimeMillis() - startTime;
@@ -471,11 +471,11 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
      */
     protected boolean checkAvailabilityOfRecommendations(RecFieldType aType){
         if(aType == RecFieldType.USER && this.type.equalsIgnoreCase(T_ITEM)){
-            System.err.println("\n\n************************************************************\nSEVERE ERROR:\tYou have specified to use only the item-to-item recommendations, while you ask it for user recommendations now!\n************************************************************\n\n");
+            org.webdsl.logging.Logger.error("\n\n************************************************************\nSEVERE ERROR:\tYou have specified to use only the item-to-item recommendations, while you ask it for user recommendations now!\n************************************************************\n\n");
             return false;
         }
         if(aType == RecFieldType.ITEM && this.type.equalsIgnoreCase(T_USER)){
-            System.err.println("\n\n************************************************************\nSEVERE ERROR:\tYou have specified to use only the user-to-item recommendations, while you ask it for item recommendations now!\n************************************************************\n\n");
+            org.webdsl.logging.Logger.error("\n\n************************************************************\nSEVERE ERROR:\tYou have specified to use only the user-to-item recommendations, while you ask it for item recommendations now!\n************************************************************\n\n");
             return false;
         }
         if((aType == RecFieldType.USER && this.userRecommenderCache == null) || (aType == RecFieldType.ITEM && this.itemRecommenderCache == null)) return false;

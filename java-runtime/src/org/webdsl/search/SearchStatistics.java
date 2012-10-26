@@ -15,8 +15,8 @@ public class SearchStatistics {
 		try{
 			stats = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory().getStatistics();
 		} catch (Exception ex) {
-			System.out.println("!!!!!!!!  Search factory failed to load, unable to get statistics !!!!!!!");
-			ex.printStackTrace();
+			org.webdsl.logging.Logger.error("!!!!!!!!  Search factory failed to load, unable to get statistics !!!!!!!");
+			org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			//ignore exception, because it is probably thrown when running reindex script (using new java vm instance). Hibernate session and thus search factory cannot be retrieved then.  
 			stats = null;
 		}

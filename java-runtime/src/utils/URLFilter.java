@@ -55,7 +55,7 @@ public final class URLFilter {
             return java.net.URLEncoder.encode(result.toString(),encoding);
         }
         catch(java.io.UnsupportedEncodingException e){
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             return null;
         }
     }
@@ -119,7 +119,7 @@ public final class URLFilter {
             .replaceAll("\\^\\^","^"); //the escape character, picked ^ because it is probably not used a lot in URLs
         }
         catch(java.io.UnsupportedEncodingException e){
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
             return null;
         }
     }

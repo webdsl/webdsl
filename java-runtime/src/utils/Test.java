@@ -63,7 +63,7 @@ public abstract class Test {
         try {
             Thread.sleep(i);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            org.webdsl.logging.Logger.error("EXCEPTION",e);
         }
     }
 
@@ -75,7 +75,7 @@ public abstract class Test {
             try{
                 JavascriptExecutor js = (JavascriptExecutor) d;
                 while((Long)js.executeScript("return __requestcount;") > 0l){
-                  System.out.println(js.executeScript("return __requestcount;"));
+                  org.webdsl.logging.Logger.info(js.executeScript("return __requestcount;"));
                   sleep(100);
                   if(tries++ > 50){ //don't try forever
                     return;
@@ -154,7 +154,7 @@ public abstract class Test {
           return f.getAbsolutePath();
         }
         catch(Exception e){
-          e.printStackTrace();
+          org.webdsl.logging.Logger.error("EXCEPTION",e);
           return "";
         }
     }

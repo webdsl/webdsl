@@ -37,9 +37,9 @@ public class PersistentOwnedSet extends PersistentSet implements utils.Persisten
 				if(!"".equals(params)) params += ",";
 				params += p;
 			}
-			try{System.out.println("enabled: " + f.getKey() + "(" + params + ")");}catch(Exception e2){e2.printStackTrace();}
+			try{org.webdsl.logging.Logger.info("enabled: " + f.getKey() + "(" + params + ")");}catch(Exception e2){org.webdsl.logging.Logger.error("EXCEPTION",e2);}
 		}
-		try{throw new Exception("beforeInitialize");}catch(Exception e){e.printStackTrace();}*/
+		try{throw new Exception("beforeInitialize");}catch(Exception e){org.webdsl.logging.Logger.error("EXCEPTION",e);}*/
 		// The super method just initialized the set, so we need to pass on the owner
 		if(set != null && set instanceof utils.OwnedSet) {
 			((utils.OwnedSet)set).setOwner(getOwner());
@@ -57,9 +57,9 @@ public class PersistentOwnedSet extends PersistentSet implements utils.Persisten
 				if(!"".equals(params)) params += ",";
 				params += p;
 			}
-			try{System.out.println("enabled: " + f.getKey() + "(" + params + ")");}catch(Exception e2){e2.printStackTrace();}
+			try{org.webdsl.logging.Logger.info("enabled: " + f.getKey() + "(" + params + ")");}catch(Exception e2){org.webdsl.logging.Logger.error("EXCEPTION",e2);}
 		}
-		try{throw new Exception("beginRead");}catch(Exception e){e.printStackTrace();}*/
+		try{throw new Exception("beginRead");}catch(Exception e){org.webdsl.logging.Logger.error("EXCEPTION",e);}*/
 		((utils.OwnedSet)set).setDoEvents(false); // This prevents events, like inverse updates, while initializing
 		super.beginRead();
 	}
@@ -199,7 +199,7 @@ public class PersistentOwnedSet extends PersistentSet implements utils.Persisten
 				f.setBoolean(this, Boolean.FALSE);
 				set = null;
 			}catch(Exception e) {
-				e.printStackTrace();
+				org.webdsl.logging.Logger.error("EXCEPTION",e);
 			}
 		}
 		SessionImplementor session = getSession();
