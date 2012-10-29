@@ -9,7 +9,7 @@ public class Logger {
     }
 
     public static final void warn(Object message){
-        logger.warn("Warning: " + message);
+        logger.warn("WARN  " + message);
     }
 
     public static final void debug(Object message){
@@ -17,11 +17,11 @@ public class Logger {
     }
 
     public static final void error(Object message, Throwable t){
-        logger.error(message, t);
+        logger.error("ERROR " + message, t);
     }
 
     public static final void error(Object message){
-        logger.error(message);
+        logger.error("ERROR " + message);
     }
 
     public static final void trace(Object message){

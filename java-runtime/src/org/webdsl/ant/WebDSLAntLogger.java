@@ -2,23 +2,18 @@ package org.webdsl.ant;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.StringReader;
-import java.util.Date;
-import java.text.DateFormat;
 
 import org.apache.tools.ant.BuildEvent;
-import org.apache.tools.ant.DefaultLogger;
 import org.apache.tools.ant.NoBannerLogger;
 import org.apache.tools.ant.Project;
-import org.apache.tools.ant.util.DateUtils;
-import org.apache.tools.ant.util.StringUtils;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.StringUtils;
 
 public class WebDSLAntLogger extends NoBannerLogger {
-   
+
     public void messageLogged(BuildEvent event) {
-        
+
         //------- NoBannerLogger part, prints only a newline when a task with output is encountered
         if (event.getPriority() > msgOutputLevel
                 || null == event.getMessage()
@@ -33,12 +28,12 @@ public class WebDSLAntLogger extends NoBannerLogger {
                     targetName = null;
                 }
             }
-        
+
         //-------
-            
-            
+
+
         //------- DefaultLogger part with left column removed
-        
+
         int priority = event.getPriority();
         // Filter out messages based on priority
         if (priority <= msgOutputLevel) {
@@ -104,8 +99,8 @@ public class WebDSLAntLogger extends NoBannerLogger {
             log(msg);
         }
     }
-    
-    
+
+
     //disabled ant stacktrace
     /*public void buildFinished(BuildEvent event) {
         Throwable error = event.getException();
@@ -131,7 +126,7 @@ public class WebDSLAntLogger extends NoBannerLogger {
         }
         log(msg);
     }*/
-    
+
     //starttime is private...
     private long startTime2 = System.currentTimeMillis();
     public void buildStarted(BuildEvent event) {
