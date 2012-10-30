@@ -47,6 +47,8 @@ import org.hibernate.search.util.PassThroughAnalyzer;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.search.QueryDef.QueryType;
 
+import utils.HibernateUtil;
+
 import com.browseengine.bobo.api.BoboBrowser;
 import com.browseengine.bobo.api.BoboIndexReader;
 import com.browseengine.bobo.api.Browsable;
@@ -825,7 +827,13 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return this.offset;
     }
 
-    protected abstract FullTextSession getFullTextSession ( );
+    protected FullTextSession getFullTextSession() {
+        if( fullTextSession == null ) {
+            fullTextSession = org.hibernate.search.Search.getFullTextSession( HibernateUtil.getCurrentSession() );
+            updateFullTextQuery = true;
+        }
+        return fullTextSession;
+    }
 
     public IndexReader getReader( ) {
         SearchFactory searchFactory = getFullTextSession( ).getSearchFactory( );

@@ -153,7 +153,7 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
      */
     public Connection getConnection() {
         try {
-            return getCurrentHibernateSession().connection();
+            return HibernateUtil.getCurrentSession().connection();
         } catch(Exception e){
             return null;
         }
@@ -168,7 +168,7 @@ public class RecommendEntityServlet extends RecommendDBConverter implements Data
      */
     public Connection getConnection(String username, String password) {
         try {
-            return getCurrentHibernateSession().connection();
+            return HibernateUtil.getCurrentSession().connection();
         } catch(Exception e){
             return null;
         }
