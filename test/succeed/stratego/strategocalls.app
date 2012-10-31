@@ -35,7 +35,7 @@ define page root() {
   output(str)
 }
 
-entity exampleEntity {
+entity ExampleEntity {
   property :: Text
 }
 

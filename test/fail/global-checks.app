@@ -96,8 +96,8 @@ entity EntityWithFunctionExtendNothing {
 
 
 // Should be no problem.
-function globalFunctionAndEntity(a : Int) { }
-entity globalFunctionAndEntity { }
+function GlobalFunctionAndEntity(a : Int) { }
+entity GlobalFunctionAndEntity { }
 
 
 

@@ -8,8 +8,8 @@
 //#1 Multiple page/template definitions with name 'aDefine'
 //#1 Multiple page/template definitions with name 'ADefine'
 //#2 Multiple page/template definitions with name 'pageArgsAndTemplateNoArgs'
-//'anEntityNoSuper' is defined multiple times
-//'anEntity' is defined multiple times
+//'AnentityNoSuper' is defined multiple times
+//'Anentity' is defined multiple times
 //'ASessionEntity' is defined multiple times
 //'ADoubleEntity' is defined multiple times
 
@@ -39,16 +39,16 @@ define template pageArgsAndTemplateNoArgs () { }
 
 // entities
 
-entity anEntityNoSuper { }
+entity AnentityNoSuper { }
 entity AnEntityNoSuper { }
 
-entity anEntity { }
+entity Anentity { }
 entity AnEntity { }
 
-session aSessionEntity { }
+session ASessionentity { }
 session ASessionEntity { }
 
-entity		aDoubleEntity { }
+entity		ADoubleentity { }
 session 	ADoubleEntity { }
 
 // entity function

@@ -2,7 +2,7 @@ application attributes
 
 section model
 
-entity x {
+entity X {
 	a1 :: String (searchable)
 }
 entity Y : x{
@@ -11,7 +11,7 @@ entity Y : x{
 entity Z : Y{
 	a3 :: String (searchable)
 }
-extend entity x {
+extend entity X {
 	b1 :: String (searchable)
 }
 extend entity Y {
@@ -33,7 +33,7 @@ extend entity ExtendIndex {
 define page root() {
 	
 	action test() {
-		var x1 := searchx("x");
+		var x1 := searchX("x");
 		var x2 := searchY("x");
 		var x3 := searchZ("x");
 		var x4 := searchExtendIndex("x");
