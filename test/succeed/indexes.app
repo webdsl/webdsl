@@ -5,7 +5,7 @@ section model
 entity X {
 	a1 :: String (searchable)
 }
-entity Y : x{
+entity Y : X{
 	a2 :: String (searchable)
 }
 entity Z : Y{
