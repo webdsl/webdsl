@@ -551,7 +551,14 @@ native class java.lang.Double as Double {
       //In this function the email is actually send, using the synchronous sendemail function.
     }
   }
-
+  
+  native class utils.ThreadLocalEmailContext as ThreadLocalEmailContext {
+  	static inEmailContext() : Bool
+  }
+  
+  function inEmailContext() : Bool {
+  	return ThreadLocalEmailContext.inEmailContext();
+  }
   define email sendQueuedEmail(q:QueuedEmail){
     to(q.to)
     from(q.from)
