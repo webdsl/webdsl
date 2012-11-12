@@ -241,6 +241,12 @@ public abstract class AbstractPageServlet{
     // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
     ArrayList<WebDSLEntity> entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
     boolean allowAddingEntitiesForValidation = true;
+    
+    public void cleareEntitiesValidatedAfterAction(){
+    	entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+    	allowAddingEntitiesForValidation = true;
+    }
+    
     public void addEntityToValidateAfterAction(WebDSLEntity w){
         if(allowAddingEntitiesForValidation){ 
           entitiesValidatedAfterAction.add(w);
@@ -253,11 +259,12 @@ public abstract class AbstractPageServlet{
         
         for(WebDSLEntity w : set){
             if(w.isChanged()){
-              //System.out.println("validating: "+w);
+//              System.out.println("validating: "+w.getName());
               w.validateSave();
               //System.out.println("done validating");
             }
         }
+        
     }
     
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
@@ -339,7 +346,7 @@ public abstract class AbstractPageServlet{
         // since flushing now happens automatically when querying, this could produce wrong results.
         // e.g. output in page with validation errors shows changes that were not persisted to the db.
         // see regression test in test/succeed-web/validate-false-and-flush.app
-        hibSession.getTransaction().rollback();
+    	utils.HibernateUtil.getCurrentSession().getTransaction().rollback();
 
         /* http://community.jboss.org/wiki/sessionsandtransactions
          * Because Hibernate can't bind the "current session" to a transaction, as it does in a JTA environment,
@@ -349,7 +356,7 @@ public abstract class AbstractPageServlet{
          * The next call to getCurrentSession() starts a new proxied Session, and so on. In other words,
          * the session is bound to the thread behind the scenes, but scoped to a transaction, just like in a JTA environment.
          */
-        hibSession = openNewTransactionThroughGetCurrentSession();
+        openNewTransactionThroughGetCurrentSession();
 
         initVarsAndArgs();
         hibernateCacheCleared = true;
@@ -357,19 +364,19 @@ public abstract class AbstractPageServlet{
 
     // workaround to get to static member of generated HibernateUtilConfigured class
     protected abstract org.hibernate.Session openNewTransactionThroughGetCurrentSession();
-
-    protected Session hibSession;
+ // to get hibsession use:   utils.HibernateUtil.getCurrentSession()
+//    protected Session hibSession;
     protected HttpServletRequest request;
     protected HttpServletResponse response;
     protected Object[] args;
 
-    public void setHibSession(Session s) {
-        hibSession = s;
-    }
-    
-    public Session getHibSession() {
-        return hibSession;
-    }
+//    public void setHibSession(Session s) {
+//        hibSession = s;
+//    }
+//    
+//    public Session getHibSession() {
+//        return hibSession;
+//    }
 
     public HttpServletRequest getRequest() {
         return request;

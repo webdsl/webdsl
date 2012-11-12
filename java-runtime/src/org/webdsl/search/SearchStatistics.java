@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.hibernate.search.stat.Statistics;
 
+import utils.HibernateUtil;
 import utils.ThreadLocalPage;
 
 public class SearchStatistics {
@@ -13,7 +14,7 @@ public class SearchStatistics {
 	
 	static{
 		try{
-			stats = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory().getStatistics();
+			stats = org.hibernate.search.Search.getFullTextSession(HibernateUtil.getCurrentSession()).getSearchFactory().getStatistics();
 		} catch (Exception ex) {
 			org.webdsl.logging.Logger.error("!!!!!!!!  Search factory failed to load, unable to get statistics !!!!!!!");
 			org.webdsl.logging.Logger.error("EXCEPTION",ex);

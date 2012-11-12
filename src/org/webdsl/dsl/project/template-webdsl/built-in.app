@@ -1,5 +1,18 @@
 module .servletapp/src-webdsl-template/built-in
+// hibbernate transaction management
 
+  native class utils.ValidationException as NativeValidationException {
+  	getName() : String
+  	getErrorMessage() : String
+  }
+
+  native class utils.HibernateTransactionHelper as HibernateTransactionHelper { 
+    static commitAndStartNewTranasction() : List<NativeValidationException>
+  }
+  
+  function commitAndStartNewTranasction() : List<NativeValidationException> {
+  	return HibernateTransactionHelper.commitAndStartNewTranasction();
+  }
 // section session management
 
   invoke internalCleanupSessionManagerEntities() every 10 minutes

@@ -200,7 +200,7 @@ public abstract class TemplateServlet {
               //if(request != null){ //calling rendertemplate within background task
               //  this.session = request.getSession(true);
               //}
-              this.hibSession = ThreadLocalPage.get().getHibSession();
+              this.hibSession = utils.HibernateUtil.getCurrentSession();
               this.attrs = attrs;
               this.ltas = ltas;
               try {

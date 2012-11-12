@@ -30,7 +30,7 @@ public class SearchSuggester {
 
     static{
         try{
-            searchfactory = org.hibernate.search.Search.getFullTextSession(ThreadLocalPage.get().getHibSession()).getSearchFactory();
+            searchfactory = org.hibernate.search.Search.getFullTextSession(utils.HibernateUtil.getCurrentSession()).getSearchFactory();
         } catch (Exception ex) {
             //ignore exception, because it is probably thrown when running reindex script (using new java vm instance). Hibernate session and thus search factory cannot be retrieved then.
             searchfactory = null;

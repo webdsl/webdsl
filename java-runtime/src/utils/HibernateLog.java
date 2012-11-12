@@ -36,7 +36,7 @@ public class HibernateLog {
 		if(requestAppender != null) { 
 			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
-			if(hibLog.tryParse(log, page.getHibSession())) {
+			if(hibLog.tryParse(log, HibernateUtil.getCurrentSession())) {
 				hibLog.print(sout, page, source);
 			}
 			else {
@@ -58,7 +58,7 @@ public class HibernateLog {
 		if(requestAppender != null) { 
 			String log = requestAppender.getLog();
 			HibernateLog hibLog = new HibernateLog();
-			hibLog.tryParse(log, page.getHibSession());
+			hibLog.tryParse(log, HibernateUtil.getCurrentSession());
 			hibLog.printJson(sout, page, source);
 		}
 	}

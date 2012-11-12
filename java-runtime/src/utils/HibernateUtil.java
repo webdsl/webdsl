@@ -112,6 +112,7 @@ public class HibernateUtil {
                   WebDSLEntity we = (WebDSLEntity)o;
                   AbstractPageServlet aps = ThreadLocalPage.get();
                   if(aps != null){
+//                    System.out.println("addToValidate: "+we.getName());
                     aps.addEntityToValidateAfterAction(we);
                   }
               }
