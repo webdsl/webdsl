@@ -22,16 +22,16 @@ page root() {
 	form{
 		submit action{
 			one.test := "abcde";
-			var errors := getStringMessage(commitAndStartNewTranasction());
+			var errors := getStringMessage(commitAndStartNewTransaction());
 			error.message := error.message + errors;
 			two.test := "xyz";
-			var errors := getStringMessage(commitAndStartNewTranasction());
+			var errors := getStringMessage(commitAndStartNewTransaction());
 			error.message := error.message + errors;
 			three.test := "jjjj";
-			var errors := getStringMessage(commitAndStartNewTranasction());
+			var errors := getStringMessage(commitAndStartNewTransaction());
 			error.message := error.message + errors;
 			four.test := two.test + " makeItLonger" ;
-			var errors := getStringMessage(commitAndStartNewTranasction());
+			var errors := getStringMessage(commitAndStartNewTransaction());
 			error.message := error.message + errors;
 		}[class := "actionb"] { "do Action" }
 
