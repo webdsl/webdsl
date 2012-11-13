@@ -9,7 +9,7 @@ import org.hibernate.Transaction;
 
 public class HibernateTransactionHelper {
 	
-	public static List<ValidationException> commitAndStartNewTranasction() {
+	public static List<ValidationException> commitAndStartNewTransaction() {
 	    List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();		
 	    Session hibSession = HibernateUtil.getCurrentSession();
 		Transaction existingTransaction = hibSession.getTransaction();

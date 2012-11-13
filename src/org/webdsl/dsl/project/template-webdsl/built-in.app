@@ -7,11 +7,11 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   native class utils.HibernateTransactionHelper as HibernateTransactionHelper { 
-    static commitAndStartNewTranasction() : List<NativeValidationException>
+    static commitAndStartNewTransaction() : List<NativeValidationException>
   }
   
-  function commitAndStartNewTranasction() : List<NativeValidationException> {
-  	return HibernateTransactionHelper.commitAndStartNewTranasction();
+  function commitAndStartNewTransaction() : List<NativeValidationException> {
+  	return HibernateTransactionHelper.commitAndStartNewTransaction();
   }
 // section session management
 
