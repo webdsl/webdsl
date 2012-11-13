@@ -4,6 +4,7 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.ValidationException as NativeValidationException {
   	getName() : String
   	getErrorMessage() : String
+  	isRelevantObject(Object) : Bool
   }
 
   native class utils.HibernateTransactionHelper as HibernateTransactionHelper { 
