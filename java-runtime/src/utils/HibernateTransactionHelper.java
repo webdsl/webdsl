@@ -31,10 +31,10 @@ public class HibernateTransactionHelper {
 		try{
 			if (!isValid) {
 				existingTransaction.rollback();
-//				System.out.println("rollback");
+				System.out.println("rollback");
 			} else {
 				existingTransaction.commit();
-//				System.out.println("commit");
+				System.out.println("commit");
 			}
 		} catch (Exception ex) {
 			System.out.println("exception occured: " + ex.getMessage());
@@ -43,7 +43,7 @@ public class HibernateTransactionHelper {
 		} finally {
 			HibernateUtil.getCurrentSession().close();
 			Session newSession = ThreadLocalPage.get().openNewTransactionThroughGetCurrentSession();
-			newSession.setFlushMode(FlushMode.AUTO);
+			newSession.setFlushMode(FlushMode.COMMIT);
 			ThreadLocalPage.get().cleareEntitiesValidatedAfterAction();
 			ThreadLocalPage.get().initVarsAndArgs();
 		}
