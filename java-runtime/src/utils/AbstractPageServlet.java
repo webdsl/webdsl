@@ -259,7 +259,7 @@ public abstract class AbstractPageServlet{
         
         for(WebDSLEntity w : set){
             if(w.isChanged()){
-              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
+//              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
               w.validateSave();
               //System.out.println("done validating");
             }
