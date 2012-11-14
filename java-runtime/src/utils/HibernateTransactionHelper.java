@@ -49,5 +49,21 @@ public class HibernateTransactionHelper {
 		return exceptions;
 	}
 	
+	public static void rollbackAndStartNewTransaction() {
+	    Session hibSession = HibernateUtil.getCurrentSession();
+		Transaction existingTransaction = hibSession.getTransaction();
+		try{
+			existingTransaction.rollback();
+		} catch (Exception ex) {
+			System.out.println("exception occured: " + ex.getMessage());
+	        ex.printStackTrace();
+	        existingTransaction.rollback();
+		} finally {
+			Session newSession = ThreadLocalPage.get().openNewTransactionThroughGetCurrentSession();
+			newSession.setFlushMode(FlushMode.COMMIT);
+			ThreadLocalPage.get().cleareEntitiesValidatedAfterAction();
+			ThreadLocalPage.get().initVarsAndArgs();
+		}
+	}
 	
 }

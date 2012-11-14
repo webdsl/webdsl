@@ -9,10 +9,15 @@ module .servletapp/src-webdsl-template/built-in
 
   native class utils.HibernateTransactionHelper as HibernateTransactionHelper { 
     static commitAndStartNewTransaction() : List<NativeValidationException>
+    static rollbackAndStartNewTransaction()
   }
   
   function commitAndStartNewTransaction() : List<NativeValidationException> {
   	return HibernateTransactionHelper.commitAndStartNewTransaction();
+  }
+  
+  function rollbackAndStartNewTransaction() {
+  	HibernateTransactionHelper.rollbackAndStartNewTransaction();
   }
 // section session management
 
