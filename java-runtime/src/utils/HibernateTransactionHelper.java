@@ -13,7 +13,7 @@ public class HibernateTransactionHelper {
 	    List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();		
 	    Session hibSession = HibernateUtil.getCurrentSession();
 		Transaction existingTransaction = hibSession.getTransaction();
-//		hibSession.flush();
+		hibSession.flush();
 		boolean isValid = true;
 		try{
 			ThreadLocalPage.get().validateEntitiesAfterAction();
@@ -41,7 +41,7 @@ public class HibernateTransactionHelper {
 	        ex.printStackTrace();
 	        existingTransaction.rollback();
 		} finally {
-			HibernateUtil.getCurrentSession().close();
+//			HibernateUtil.getCurrentSession().close();
 			Session newSession = ThreadLocalPage.get().openNewTransactionThroughGetCurrentSession();
 			newSession.setFlushMode(FlushMode.COMMIT);
 			ThreadLocalPage.get().cleareEntitiesValidatedAfterAction();
