@@ -256,13 +256,25 @@ public abstract class AbstractPageServlet{
         allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
         
         java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesValidatedAfterAction);
-        
+        java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
         for(WebDSLEntity w : set){
+        	
             if(w.isChanged()){
-//              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
-              w.validateSave();
-              //System.out.println("done validating");
+            	try {
+	//              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
+	            	w.validateSave();
+	              //System.out.println("done validating");
+            	} catch(utils.ValidationException ve){
+    				exceptions.add(ve);
+    	        } catch(utils.MultipleValidationExceptions ve) {
+    	            for(utils.ValidationException vex : ve.getValidationExceptions()){
+    	            	exceptions.add(vex);
+    	            }
+    	        }
             }
+        }
+        if(exceptions.size() > 0){
+            throw new utils.MultipleValidationExceptions(exceptions);
         }
         
     }
