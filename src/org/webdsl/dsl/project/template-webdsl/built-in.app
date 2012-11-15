@@ -958,11 +958,11 @@ native class java.lang.Double as Double {
 
     //includeJS("https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js")
     //includeJS("https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js")
-    //includeCSS("http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/themes/base/jquery-ui.css")
-    includeJS("jquery-1.5.min.js")
-    includeJS("jquery-ui-1.8.9.custom.min.js")
+    //includeCSS("http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/themes/base/jquery-ui-1.9.1.custom.min.css")
+    includeJS("jquery-1.8.2.min.js")
+    includeJS("jquery-ui-1.9.1.custom.min.js")
     includeJS("jquery-ui-timepicker-addon.js")
-    includeCSS("jquery-ui.css")
+    includeCSS("jquery-ui-1.9.1.custom.min.css")
     includeCSS("jquery-ui-timepicker-addon.css")
 
     var req := getRequestParameter(tname)
@@ -1421,9 +1421,9 @@ native class java.lang.Double as Double {
       }
     }
 
-    includeCSS("jquery-ui.css")
-    includeJS("jquery-1.5.min.js")
-    includeJS("jquery-ui-1.8.9.custom.min.js")
+    includeCSS("jquery-ui-1.9.1.custom.min.css")
+    includeJS("jquery-1.8.2.min.js")
+    includeJS("jquery-ui-1.9.1.custom.min.js")
 
     <script type="text/javascript">
       $(function() {

@@ -16,6 +16,8 @@ import org.apache.lucene.search.highlight.SimpleFragmenter;
 import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
 import org.apache.solr.analysis.HTMLStripCharFilter;
 
+import org.webdsl.logging.Logger;
+
 public class ResultHighlighter {
 
     public static String highlight( IndexReader ir, Analyzer an, Query query,  String field, String text, String preTag, String postTag, int fragments, int fragmentLength, String separator, boolean analyzeWholeDoc, boolean stripHTML ){
@@ -37,10 +39,10 @@ public class ResultHighlighter {
                 result = highlighter.getBestFragments( tokenStream, text, fragments, separator );
             } catch ( IOException e ) {
                 result = "";
-                e.printStackTrace( );
+                Logger.error(e);
             } catch ( InvalidTokenOffsetsException e ) {
                 result = "";
-                e.printStackTrace( );
+                Logger.error(e);
             }
         }
 //        System.out.println( "highlighting took:" + ( System.currentTimeMillis( ) - tmp ) + "ms" );

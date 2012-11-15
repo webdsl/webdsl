@@ -9,9 +9,9 @@ define page root(){
 }
 
 define animate (){
-  includeJS("jquery-1.5.min.js")
-  includeJS("jquery-ui-1.8.9.custom.min.js")
-  includeCSS("jquery-ui.css")
+  includeJS("jquery-1.8.2.min.js")
+  includeJS("jquery-ui-1.9.1.custom.min.js")
+  includeCSS("jquery-ui-1.9.1.custom.min.css")
   submit action{animate();}{"animate"}
 }
 

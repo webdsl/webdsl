@@ -45,6 +45,7 @@ import org.hibernate.search.query.facet.FacetingRequest;
 import org.hibernate.search.store.DirectoryProvider;
 import org.hibernate.search.util.PassThroughAnalyzer;
 import org.webdsl.WebDSLEntity;
+import org.webdsl.logging.Logger;
 import org.webdsl.search.QueryDef.QueryType;
 
 import utils.HibernateUtil;
@@ -978,7 +979,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         try {
             currentQD.parsedQuery( mlt.like( new StringReader( likeText ) ) );
         } catch ( IOException e ) {
-            e.printStackTrace( );
+            Logger.error(e);
         } finally {
             closeReader( ir );
         }
@@ -992,7 +993,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 return fullTextQuery.getResultSize( );
             }
         } catch( Exception ex ) {
-            ex.printStackTrace( );
+            Logger.error(ex);
         }
         //Something went wrong
         return 0;
@@ -1157,7 +1158,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 luceneQueryNoFacetFilters = luceneQuery;
             } catch ( ParseException e ) {
                 // TODO Auto-generated catch block
-                e.printStackTrace( );
+                Logger.error(e);
                 return luceneQuery.toString( "Error occured during query parsing" );
             }
             updateLuceneQuery = false;
@@ -1183,7 +1184,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                 luceneQueryNoFacetFilters = luceneQuery;
             } catch ( ParseException e ) {
                 // TODO Auto-generated catch block
-                e.printStackTrace( );
+                Logger.error(e);
                 return false;
             }
 //            log( "LUCENE QUERY: " + luceneQuery.toString( ) );
@@ -1420,9 +1421,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             browser = new BoboBrowser( boboReader );
             boboBrowseResult = browser.browse( getBoboBrowseRequest() );
         } catch ( IOException e ) {
-            e.printStackTrace( );
+            Logger.error(e);
         } catch ( BrowseException e ) {
-            e.printStackTrace( );
+            Logger.error(e);
         } finally{
             updateBoboBrowseResult = false;
         }
@@ -1446,7 +1447,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                         else
                             bq.add( qp.parse( QueryParser.escape( kv.getValue( ) ) ), Occur.MUST );
                     } catch ( ParseException e ) {
-                        e.printStackTrace( );
+                        Logger.error(e);
                     }
                 }
             }
