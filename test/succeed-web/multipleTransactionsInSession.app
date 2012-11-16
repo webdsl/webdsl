@@ -59,7 +59,7 @@ test MultipleTransactions {
 	var d : WebDriver := getFirefoxDriver();
 	d.get(navigate(root()));	
 	assert(d.getPageSource().contains("1: abcd"), "initvalue");
-	assert(d.getPageSource().contains("2: wxyz"), "initvalue");
+	assert(d.getPageSource().contains("2: xyzw"), "initvalue");
 	assert(d.getPageSource().contains("3: nnnn"), "initvalue");
 	assert(d.getPageSource().contains("4: "), "initvalue");
 	assert(d.getPageSource().contains("error: "), "initvalue");
@@ -68,10 +68,10 @@ test MultipleTransactions {
     button.click();
 	
 	assert(d.getPageSource().contains("1: abcde"), "changed");
-	assert(d.getPageSource().contains("2: wxyz"), "rollback");
+	assert(d.getPageSource().contains("2: xyzw"), "rollback");
 	assert(d.getPageSource().contains("3: jjjj"), "changed");
-	assert(d.getPageSource().contains("4: wxyz makeItLonger"), "old value not still in memmory");
-	assert(d.getPageSource().contains("error: property should be atleast 4 chars long"), "errors");
+	assert(d.getPageSource().contains("4: xyzw makeItLonger"), "old value not still in memmory");
+	assert(d.getPageSource().contains("error:  property should be atleast 4 chars long"), "errors");
 	
 }
 
