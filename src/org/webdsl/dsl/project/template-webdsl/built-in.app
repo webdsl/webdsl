@@ -322,6 +322,10 @@ module .servletapp/src-webdsl-template/built-in
   type Email {
     utils.EmailType.isValid as isValid():Bool
   }
+  
+  type URL {
+    utils.URLType.isValid as isValid():Bool
+  }
 
   type File{
     getContentAsString():String
