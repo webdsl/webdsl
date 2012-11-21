@@ -2,22 +2,22 @@ module .servletapp/src-webdsl-template/built-in
 // hibbernate transaction management
 
   native class utils.ValidationException as NativeValidationException {
-  	getName() : String
-  	getErrorMessage() : String
-  	isRelevantObject(Object) : Bool
+      getName() : String
+      getErrorMessage() : String
+      isRelevantObject(Object) : Bool
   }
 
-  native class utils.HibernateTransactionHelper as HibernateTransactionHelper { 
+  native class utils.HibernateTransactionHelper as HibernateTransactionHelper {
     static commitAndStartNewTransaction() : List<NativeValidationException>
     static rollbackAndStartNewTransaction()
   }
-  
+
   function commitAndStartNewTransaction() : List<NativeValidationException> {
-  	return HibernateTransactionHelper.commitAndStartNewTransaction();
+      return HibernateTransactionHelper.commitAndStartNewTransaction();
   }
-  
+
   function rollbackAndStartNewTransaction() {
-  	HibernateTransactionHelper.rollbackAndStartNewTransaction();
+      HibernateTransactionHelper.rollbackAndStartNewTransaction();
   }
 // section session management
 
@@ -70,6 +70,7 @@ module .servletapp/src-webdsl-template/built-in
     static clearSpellCheckIndex(String)
     static reindex(Entity)
     static removeFromIndex(Entity)
+    static reindex()
   }
   native class org.webdsl.search.SearchHelper as SearchHelper {
      static firstIndexLink(Int, Int, Int): Int
@@ -322,7 +323,7 @@ module .servletapp/src-webdsl-template/built-in
   type Email {
     utils.EmailType.isValid as isValid():Bool
   }
-  
+
   type URL {
     utils.URLType.isValid as isValid():Bool
   }
@@ -455,10 +456,10 @@ module .servletapp/src-webdsl-template/built-in
   }
 
 native class java.lang.Double as Double {
-	constructor(Double)
-	constructor(String)
-	floatValue() : Float
-	
+    constructor(Double)
+    constructor(String)
+    floatValue() : Float
+
 }
 //  section WebDriver for testing
 
@@ -574,13 +575,13 @@ native class java.lang.Double as Double {
       //In this function the email is actually send, using the synchronous sendemail function.
     }
   }
-  
+
   native class utils.ThreadLocalEmailContext as ThreadLocalEmailContext {
-  	static inEmailContext() : Bool
+      static inEmailContext() : Bool
   }
-  
+
   function inEmailContext() : Bool {
-  	return ThreadLocalEmailContext.inEmailContext();
+      return ThreadLocalEmailContext.inEmailContext();
   }
   define email sendQueuedEmail(q:QueuedEmail){
     to(q.to)
