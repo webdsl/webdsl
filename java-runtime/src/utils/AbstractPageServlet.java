@@ -522,8 +522,19 @@ public abstract class AbstractPageServlet{
         enableRawoutput();
         disableTemplateSpans();
     }
+    
+    protected boolean downloadInline = false;
 
-    protected boolean ajaxActionExecuted = false;
+
+    public boolean getDownloadInline() {
+		return downloadInline;
+	}
+
+	public void enableDownloadInline() {
+		this.downloadInline = true;
+	}
+	
+	protected boolean ajaxActionExecuted = false;
     public boolean isAjaxActionExecuted() {
         return ajaxActionExecuted;
     }
@@ -594,7 +605,9 @@ public abstract class AbstractPageServlet{
 
             in = blob.getBinaryStream();
             response.setContentType(download.getContentType());
-            response.setHeader("Content-Disposition", "attachment; filename=" + download.getFileName());
+            if(!downloadInline) {
+                response.setHeader("Content-Disposition", "attachment; filename=" + download.getFileName());
+            }
             java.io.BufferedOutputStream bufout = new java.io.BufferedOutputStream(outstream);
             byte bytes[] = new byte[32768];
             int index = in.read(bytes, 0, 32768);
@@ -828,7 +841,6 @@ public abstract class AbstractPageServlet{
       }
 
       public java.util.Stack<String> tableContextClosingTags = new java.util.Stack<String>();
-
       //separate row and column checks, used by label
       public void rowContextsCheckEnter(PrintWriter out) {
         if(inTableContext()){

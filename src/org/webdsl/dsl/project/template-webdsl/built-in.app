@@ -369,6 +369,7 @@ module .servletapp/src-webdsl-template/built-in
     isRedirected():Bool
     getRedirectUrl():String
     setRedirectUrl(String)
+    enableDownloadInline()
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -385,6 +386,15 @@ module .servletapp/src-webdsl-template/built-in
   template mimetype(s:String){
     init{
       getPage().setMimetype(s);
+    }
+  }
+  
+  function downloadInline(){
+    getPage().enableDownloadInline();
+  }
+  template downloadInline(){
+    init{
+      downloadInline();
     }
   }
 
