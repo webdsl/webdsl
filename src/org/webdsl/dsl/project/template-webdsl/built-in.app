@@ -2951,6 +2951,12 @@ native class java.lang.Double as Double {
       templateSuccess(list)
     }
   }
+  
+  //page description
+  
+  define description() {
+    includeHead("<meta name='description' content='" + /'/.replaceAll( "&#39;" ,rendertemplate(elements) ) +"'>")
+  }
 
   //page not found page
 
