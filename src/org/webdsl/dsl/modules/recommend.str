@@ -28,8 +28,8 @@ strategies
           
   normalize-recommend:
 	RecommendConfig(x_idname,props) -> RecommendConfigStaticOrder(x_idname, user, item, value, alg, neig, nsize, type, schedule)
-	with  user  := <fetch-elem(?RecommendArgument("user",<id>))> props
-        ; item  := <fetch-elem(?RecommendArgument("item",<id>))> props
+	with  user  := <fetch-elem(?RecommendArgument("user",<id>))<+ !None()>  props
+        ; item  := <fetch-elem(?RecommendArgument("item",<id>)) <+ !None()> props
         ; value := <fetch-elem(?RecommendArgument("value",<id>)) <+ !None()> props
         ; alg   := <fetch-elem(?RecommendArgument("algorithm",<id>)) <+ !None()> props
         ; neig  := <fetch-elem(?RecommendArgument("neighborhoodalg",<id>)) <+ !None()> props
@@ -45,6 +45,9 @@ strategies
   
   constraint-error-recommend =
   	?r@RecommendConfigStaticOrder(_, _, _, _, _, _, _, _, _)
+  	; try(<validate-usage-of-user()>(r))
+  	; try(<validate-usage-of-item()>(r))
+  	; try(<validate-usage-of-value()>(r))
   	; try(<validate-usage-of-algorithm()>(r))
   	; try(<validate-usage-of-neighborhood()>(r))
   	; try(<validate-usage-of-type()>(r))
@@ -69,8 +72,16 @@ strategies
   		; <has-no-value> neighbor <+ (<valid-neighborhood-type-combination> type <+ err := <add-type-combi-error-msg()>(r))
   		; fail
   		  
+  validate-usage-of-user():
+    r@RecommendConfigStaticOrder(_, user, _, _, _, _, _, _, _) -> err
+    where (<has-no-value> user ; err := <add-user-error-msg()>(r)) <+ fail
+        
+  validate-usage-of-item():
+    r@RecommendConfigStaticOrder(_, _, item, _, _, _, _, _, _) -> err
+    where (<has-no-value> item ; err := <add-item-error-msg()>(r)) <+ fail
+        
+
 // The error messages:
-  		  
   
   add-boolean-error-msg():
   	r@RecommendConfigStaticOrder(class, _, _, _, alg, _, _, _, _) -> 
@@ -91,7 +102,16 @@ strategies
   add-type-combi-error-msg():
   	r@RecommendConfigStaticOrder(class, _, _, _, _, neighbor, _, type, _) -> 
   		<add-error(|["Recommendation Block '",class,"' does not use a correct neighborhood and type combination, either unset the neighborhood or switch the type to User. Current value of the type: '",type,"'"])>
-  
+  		
+  add-user-error-msg():
+    r@RecommendConfigStaticOrder(class, _, _, _, _, _, _, _, _) -> 
+      <add-error(|["Recommendation Block '",class,"' is missing a user declaration"])>
+      
+  add-item-error-msg():
+    r@RecommendConfigStaticOrder(class, _, _, _, _, _, _, _, _) -> 
+      <add-error(|["Recommendation Block '",class,"' is missing an item declaration"])>
+
+ 
 // The checks:
   has-no-value = ?None()
   
