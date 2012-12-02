@@ -1,12 +1,6 @@
 package utils;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.HashMap;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import org.webdsl.lang.Environment;
 
@@ -46,7 +40,7 @@ public abstract class EmailServlet {
             }
             sessionProps.put("mail.smtp.port", EmailServlet.props.getProperty("webdsl.email.port"));
             sessionProps.put("mail.smtps.port", EmailServlet.props.getProperty("webdsl.email.port"));
-            javax.mail.Session session = javax.mail.Session.getInstance(sessionProps, null);
+//            javax.mail.Session session = javax.mail.Session.getInstance(sessionProps, null);
         }
         catch(java.io.FileNotFoundException fnf) {
             org.webdsl.logging.Logger.error("File \"email.properties\" not found");
