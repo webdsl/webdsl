@@ -1,22 +1,18 @@
 package utils;
 
 import java.io.Serializable;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
-import java.util.List;
+
 import org.hibernate.collection.PersistentList;
 import org.hibernate.engine.LoadQueryInfluencers;
 import org.hibernate.engine.SessionImplementor;
 import org.hibernate.impl.FilterImpl;
 import org.hibernate.persister.collection.CollectionPersister;
 import org.hibernate.type.CustomCollectionType;
-
-import edu.emory.mathcs.backport.java.util.Arrays;
-
-import utils.PersistentOwnedSet.IteratorProxy;
 
 @SuppressWarnings({ "unchecked", "serial" })
 public class PersistentOwnedList extends PersistentList implements utils.PersistentOwnedCollection {

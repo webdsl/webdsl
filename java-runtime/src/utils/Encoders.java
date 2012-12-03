@@ -1,9 +1,7 @@
 package utils;
 
-import java.math.BigInteger;
 import java.security.MessageDigest;
-import java.util.HashMap;
-import javax.faces.convert.ConverterException;
+
 import org.apache.commons.codec.binary.Hex;
 
 public final class Encoders {
