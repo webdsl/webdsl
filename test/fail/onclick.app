@@ -8,7 +8,7 @@ application test
     placeholder bla{}
     
     action fill(){
-      replace(bla,template{ "bla" });
+      replace(bla,templ{ "bla" });
     }
   }
 

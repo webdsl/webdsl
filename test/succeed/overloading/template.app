@@ -28,9 +28,9 @@ define page root(){
   temp(sub1)
   temp(sub2)
   
-  template(super3)
-  template(sub1)
-  template(sub2)
+  templ(super3)
+  templ(sub1)
+  templ(sub2)
   
   temp(super3,sub2)
   temp(sub1,super3)
@@ -62,8 +62,8 @@ define temp(s:SuperClass){ " 3 "}
 define temp(s:SubClassOne){ " 4 "}
 define temp(s:SubClassTwo){ " 5 "}
 
-define template(s:SuperClass){" 6/8 "}
-define template(s:SubClassOne){" 7 "}
+define templ(s:SuperClass){" 6/8 "}
+define templ(s:SubClassOne){" 7 "}
 
 define temp(s:SuperClass,s1:SuperClass){ " 9 "}
 define temp(s:SubClassOne,s1:SuperClass){ " 10 "}
