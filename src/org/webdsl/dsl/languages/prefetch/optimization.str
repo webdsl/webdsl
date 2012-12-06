@@ -18,7 +18,7 @@ rules
     ; newwherecond := <add-query-condition-to-prefetch-where(|x); try(add-filter-anno-to-prefetch-where(|xsrt))> (qc, wherecond)
     ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
     ; prefetch := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(!oldprefetch, merge-optimization-branches)> ts
-    ; recbranches := <filter(get-branches-from-recursive(|x,xsrt,requiresalias)); flatten-list> recursive
+    ; recbranches := <get-branches-from-all-recursive(|x,xsrt,requiresalias)> recursive
     ; prefetch2 := <filter(not(is-root-prefetch-node)); foldr(!prefetch, merge-optimization-branches)> recbranches
     ; templbranches := <filter(get-template-branches(|x,xsrt,requiresalias)); flatten-list> unresolved
     ; prefetch3 := <filter(not(is-root-prefetch-node)); foldr(!prefetch2, merge-optimization-branches)> templbranches
@@ -133,51 +133,94 @@ rules
     ; decsrt := SimpleSort(dec_class)
     ; fsrt := <get-prop-type> (x_class, fn)
 
-  get-branches-from-recursive(|x,xsrt,requiresalias) :
-    (callee, e, args) -> branches2
-    where passed := <(PassedCallee <+ !0); where(<lt>(<id>, 4))> callee
+  // Unwind recursive function calls, up to a max depth and a max number of calls
+  get-branches-from-all-recursive(|x,xsrt,requiresalias) :
+    recursive -> branches2*
+    with remaining* := <map(!([], [<id>]))>recursive // initialize the passed calls to []
+    ; (unwound, branches*) := <get-branches-from-all-recursive-helper(|x,xsrt,requiresalias)> (0, [], remaining*)
+    //; try(not(?(0, _)); !(<Fst>, x, xsrt); debug(!"unwound:"))
+    ; branches2* := <flatten-list> branches*
+
+  // remaining* is empty, so there is nothing left to do
+  get-branches-from-all-recursive-helper(|x,xsrt,requiresalias) :
+    (unwound1, branches*, []) -> (unwound1, branches*)
+
+  // Keep unwinding remainging*, which is a list of two-tuples of (passed, recursive) for get-branches-from-all-recursive-helper2
+  // remaining* is essentially a todo stack
+  get-branches-from-all-recursive-helper(|x,xsrt,requiresalias) :
+    (unwound1, branches*, remaining*) -> (unwound2, branches2*)
+    where not([] := remaining*)
+    with tmp := <foldr(!(unwound1, branches*, []), get-branches-from-all-recursive-helper2(|x,xsrt,requiresalias))> remaining*
+    ; (unwound2, branches2*) := <get-branches-from-all-recursive-helper(|x,xsrt,requiresalias)> tmp // Continue, but now remaining* has been replaced with the next level of recursive calls
+
+  // Reached the maximum number of calls, so do nothing and set remaining* to []
+  get-branches-from-all-recursive-helper2(|x,xsrt,requiresalias) :
+    ((passed, recursive), (unwound, branches, remaining*)) -> (unwound, branches, [])
+    where <not(is-below-maximum-unwound-calls)> unwound
+
+  // <passed>    = a list that counts the successive unwinding of calls
+  // <recursive> = a list of unresolved recursive calls, that results from unwinding the calls described in <passed>  
+  get-branches-from-all-recursive-helper2(|x,xsrt,requiresalias) :
+    ((passed, recursive), (unwound1, branches1*, remaining1*)) -> (unwound2, [branches1*,branches2*], [remaining1*,remaining2*])
+    where <is-below-maximum-unwound-calls> unwound1
+    with tmp := <filter(get-branches-from-recursive(|x,xsrt,requiresalias,passed))> recursive
+    ; unwoundtmp := <addi> (unwound1, <length> tmp)
+    ; if <is-above-maximum-unwound-calls> unwoundtmp then
+        unwound2 := <maximum-unwound-calls>
+        ; tmp2 := <take(|<subti>(unwound2, unwound1))> tmp 
+      else
+        unwound2 := unwoundtmp
+        ; tmp2 := tmp
+      end  
+    ; (branches2*, remainingtmp) := <unzip> tmp2
+    ; remaining2* := <remove-all(?(_, []))> remainingtmp 
+
+strategies
+
+  maximum-unwound-calls = !50 //!0
+  is-above-maximum-unwound-calls = <gt> (<id>, <maximum-unwound-calls>) //fail
+  is-below-maximum-unwound-calls = <lt> (<id>, <maximum-unwound-calls>) //id
+  is-below-recursive-unwinding-depth = <lt> (<id>, 4)
+
+rules
+
+  get-branches-from-recursive(|x,xsrt,requiresalias,passed) :
+    (callee, e, args) -> (branches, (newpassed, recursive))
+    where passedfreq := <fetch-elem(?(callee, <id>)) <+ !0> passed
+    ; <is-below-recursive-unwinding-depth> passedfreq
     ; (fent, Function(_, deffargs, _, defb){defanno*}) := <try-resolve-entity-call> callee
     ; qatmp := <fetch-elem(is-query-analysis)> defanno*
     ; argmapping := <zip> (args, deffargs)
     ; (qa, varmapping) := <try(add-this-var-to-mapping(|e, fent))> (qatmp, argmapping)
-    ; {| PassedCallee
-      : times := <int-inc> passed
-      ; rules( PassedCallee : callee -> times )
-      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
-      |}
+    ; newfreq := <int-inc> passedfreq
+    ; newpassed := <remove-all(?(callee, _)); ![(callee, newfreq)|<id>]> passed
+    ; recursive := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping)); make-set> qa
     ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,passed)> qa
-    ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
-  get-branches-from-recursive(|x,xsrt,requiresalias) :
-    (callee@(None(), n, targs), args) -> branches2
-    where passed := <(PassedCallee <+ !0); where(<lt>(<id>, 4))> callee
+  get-branches-from-recursive(|x,xsrt,requiresalias,passed) :
+    (callee@(None(), n, targs), args) -> (branches, (newpassed, recursive))
+    where passedfreq := <fetch-elem(?(callee, <id>)) <+ !0> passed
+    ; <is-below-recursive-unwinding-depth> passedfreq
     ; Function(_, deffargs, _, defb){defanno*} := <resolve-function-call-to-decl> callee
     ; qa := <fetch-elem(is-query-analysis)> defanno*
-    //; analysis := <get-ts-from-query-analysis> qa
     ; argmapping := <zip> (args, deffargs)
-    ; {| PassedCallee
-      : times := <int-inc> passed
-      ; rules( PassedCallee : callee -> times )
-      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|argmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
-      |}
+    ; newfreq := <int-inc> passedfreq
+    ; newpassed := <remove-all(?(callee, _)); ![(callee, newfreq)|<id>]> passed
+    ; recursive := <get-recursive-from-query-analysis; filter(translate-recursive(|argmapping)); make-set> qa
     ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,argmapping,passed)> qa
-    ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
-  get-branches-from-recursive(|x,xsrt,requiresalias) :
-    (callee, args) -> branches2
+  get-branches-from-recursive(|x,xsrt,requiresalias,passed) :
+    (callee, args) -> (branches, (newpassed, recursive))
     where not((None(), _, _) := callee)
-    ; passed := <(PassedCallee <+ !0); where(<lt>(<id>, 4))> callee
+    ; passedfreq := <fetch-elem(?(callee, <id>)) <+ !0> passed
+    ; <is-below-recursive-unwinding-depth> passedfreq
     ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := <CurrentTemplateDecl> callee
     ; qa := <fetch-elem(is-query-analysis)> defanno*
-    //; analysis := <get-ts-from-query-analysis> qa
     ; varmapping := <zip> (args, deffargs)
-    ; {| PassedCallee
-      : times := <int-inc> passed
-      ; rules( PassedCallee : callee -> times )
-      ; recursivebranches := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping); get-branches-from-recursive(|x,xsrt,requiresalias))> qa
-      |}
+    ; newfreq := <int-inc> passedfreq
+    ; newpassed := <remove-all(?(callee, _)); ![(callee, newfreq)|<id>]> passed
+    ; recursive := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping)); make-set> qa
     ; branches := <common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,passed)> qa
-    ; branches2 := <conc; flatten-list> (branches, recursivebranches)
 
   common-branches-from-recursive(|x,xsrt,requiresalias,varmapping,depth) :
     qa -> branches

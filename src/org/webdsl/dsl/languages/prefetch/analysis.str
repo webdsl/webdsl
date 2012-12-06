@@ -374,6 +374,24 @@ rules
     ; newanalysis := <foldr(!tmpana, rename-vars-in-analysis(RootVar))> newmap
     ; newRedefCalls := <foldr(!redefCalls, rename-vars-in-analysis(RootVar))> newmap
 
+rules
+
+  analyze-for-query-optimization :
+    pf@PrefetchFor(v, templ, wherecond, children) -> pf
+    where <RootVar> v
+    with old_effectful := <IsEffectful> 
+    ; rules(IsEffectful := False())
+    ; nodes := <get-prefetch-children> children
+    ; <map(analyze-for-query-optimization-prefetch-node(|v))> nodes
+    ; rules(IsEffectful := old_effectful)
+
+  analyze-for-query-optimization-prefetch-node(|v) :
+    pfn@PrefetchNode(castsrt, f, mod*, templ, cond, elemcond, children){anno*} -> pfn
+    with p := <?Some(cast) < !FieldAccess(Cast(v, cast), f{}) + !FieldAccess(v, f{})> castsrt
+    ; <is-accessible-from(RootVar); register-detected-traversal> p
+    ; nodes := <get-prefetch-children> children
+    ; <map(analyze-for-query-optimization-prefetch-node(|p))> nodes
+
 strategies // Function calls
 
   analyze-for-query-optimization =
