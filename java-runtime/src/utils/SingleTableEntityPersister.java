@@ -97,7 +97,11 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 		java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
 		// We register the EntityUniqueKeys with the persistence context, so the we can look them up later
 		for(Object object : lst) {
-			Serializable id = getIdentifier(associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode), session); // Returns the identifier that was used to fetch the object (from batch)
+			Object obj = associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode);
+			if(obj instanceof org.hibernate.proxy.HibernateProxy) { // We have to get the actual implementation, because getIdentifier does not work on proxies 
+				obj = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer().getImplementation();
+			}
+			Serializable id = getIdentifier(obj, session); // Returns the identifier that was used to fetch the object (from batch)
 			org.hibernate.engine.EntityUniqueKey euk = new org.hibernate.engine.EntityUniqueKey(
 					associatedEntity, 
 					uniqueKeyPropertyName,

@@ -85,6 +85,12 @@ define page allNoProxyA() {
   }
 }
 
+define page inverse() {
+  for(a : NoProxyA) {
+    output(a.root.noProxyA)
+  } separated-by { <br /> }
+}
+
 test {
   var d : WebDriver := getFirefoxDriver();
 
@@ -117,6 +123,20 @@ test {
   assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("sqllogentities"));
   assert(elem.getText().parseInt() == 10); // 1 SessionManager, 3 Root, 3 NoProxyA, 3 NoProxyB
+  elem := d.findElement(SelectBy.id("sqllogcollections"));
+  assert(elem.getText().parseInt() == 1); // 1 SessionManager._messages
+
+  // Test the inverse property (http://yellowgrass.org/issue/WebDSL/645)
+  d.get(navigate(inverse()) + "?logsql");
+  assert(d.getPageSource().contains("NoProxyA1"));
+  assert(d.getPageSource().contains("NoProxyA2"));
+  assert(d.getPageSource().contains("NoProxyA3"));
+  elem := d.findElement(SelectBy.id("sqllogcount"));
+  assert(elem.getText().parseInt() == 5);
+  elem := d.findElement(SelectBy.id("sqllogentities"));
+  assert(elem.getText().parseInt() == 7); // 1 SessionManager, 3 Root, 3 NoProxyA
+  elem := d.findElement(SelectBy.id("sqllogduplicates"));
+  assert(elem.getText().parseInt() == 3); // 3 NoProxyA
   elem := d.findElement(SelectBy.id("sqllogcollections"));
   assert(elem.getText().parseInt() == 1); // 1 SessionManager._messages
 
