@@ -644,13 +644,17 @@ rules
 rules
 
   generate-code-java-servlet-once =
-      bagof-AllEntityNames; string-sort-annos
+      all-entity-names := <bagof-AllEntityNames; string-sort-annos>
+    ; entity-collection-properties := <bagof-AllEntities; filter(generate-java-servlet-hibernate-util-collection-helper1); flatten-list>
+    ; query-optimization-mode := <QueryOptimizationMode>
+    ; !(all-entity-names, entity-collection-properties, query-optimization-mode) 
+      // for the cache to work correctly, code generation should not depend on other information than this current term
     ; disable-code-generation-if-cache-exists
     ; cached-generate(generate-java-servlet-hibernate-util | "internal_HibernateUtil")
     ; fail
 
   generate-java-servlet-hibernate-util :
-    all-entity-names -> <emit-java-code-local> compilation-unit|[
+    (all-entity-names, entity-collection-properties, query-optimization-mode) -> <emit-java-code-local> compilation-unit|[
     package utils;
 
     import java.util.Properties;
@@ -726,13 +730,13 @@ rules
                            x -> bstm |[ annotationConfiguration.addAnnotatedClass(x_class); ]|
                            where x_class := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",x,".class"]
                        \})> all-entity-names
-       ; bstm1* := <bagof-AllEntities; filter(generate-java-servlet-hibernate-util-collection-helper1); flatten-list; filter({\
+       ; bstm1* := <filter({\
                                    (x_class, x_coltype, x_prop) -> bstm |[ annotationConfiguration.getCollectionMapping("~strRole").setTypeName("~strType"); ]|
                                    with strRole := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",<capitalize-string>x_class,"._",x_prop]
                                    ; strType := <concat-strings> [<DomainPackage;pp-java5-to-string>,".",<capitalize-string>x_class,<capitalize-string>x_prop, "Owned",x_coltype,"Type"]
-                            \})>
-       ; bstm_setprops* := <is-hibernate-batching < !bstm*|[annotationConfiguration.setProperty("hibernate.default_batch_fetch_size", "10");]| + ![]>
-       ; strOptimizationMode := <QueryOptimizationMode; optimization-mode-to-string>
+                           \})> entity-collection-properties
+       ; bstm_setprops* := <is-hibernate-batching(|query-optimization-mode) < !bstm*|[annotationConfiguration.setProperty("hibernate.default_batch_fetch_size", "10");]| + ![]>
+       ; strOptimizationMode := <!query-optimization-mode; optimization-mode-to-string>
       /* ; if not([] := <bagof-AllGlobalVars>)
          then bstm1* := [ bstm |[ annotationConfiguration.addAnnotatedClass(ApplicationContextProperty.class); ]| ]
          else bstm1* := [] end
