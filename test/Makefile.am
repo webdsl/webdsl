@@ -86,4 +86,4 @@ install-data-hook:
 	./generatenix.sh
 	mkdir -p $(pkgdatadir)/webdsl-check/test/succeed-web
 #copy all succeed-web test files including app, css, txt and sh files. Skip hidden dirs like .servletapp 
-	find ../test/succeed-web/ -not \( -regex '.*/\..*' \) \( -name '*.app' -o -name '*.css' -o -name '*.txt' -o -name '*.sh' \) | cpio -pdm $(pkgdatadir)/webdsl-check/test/
+	find ../test/succeed-web/ -not \( -regex '.*/\..*' \) \( -name '*.app' -o -name '*.css' -o -name '*.txt' -o -name '*.sh' -o -name '*.nix' -o -name '*.ini' -o -name '*.tbl' -o -name '*.sdf' -o -name '*.png'\) | cpio -pdm $(pkgdatadir)/webdsl-check/test/
