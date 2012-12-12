@@ -9,7 +9,7 @@ let
   build = appname :
 	pkgs.stdenv.mkDerivation {
     	name = \"webdsl-check\";
-        buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox16Pkgs.firefox webdsl pkgs.xvfb_run];
+        buildInputs = [pkgs.apacheAntOpenJDK pkgs.oraclejdk pkgs.firefox17Pkgs.firefox webdsl pkgs.xvfb_run];
         buildCommand = ''
         ensureDir \$out
         cp -R \${webdsl}/share/webdsl/webdsl-check/test/succeed-web/ succeed-web/
