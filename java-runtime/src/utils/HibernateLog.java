@@ -611,6 +611,14 @@ public class HibernateLog {
 		return _collections;
 	}
 
+	public java.util.Set<String> getEntities() {
+		java.util.Set<String> rtn = new java.util.HashSet<String>();
+		if(_entityCounter != null) {
+			rtn.addAll(_entityCounter.keySet());
+		}
+		return rtn;
+	}
+
 	public int getEntityCount(String entity) {
 		if(_entityCounter == null) return -1;
 		if(!_entityCounter.containsKey(entity)) return 0;

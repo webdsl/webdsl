@@ -26,6 +26,7 @@ native class utils.HibernateLog as HibernateLog {
   tryParse(String, Session) : Bool
   getError() : String
   getSQLCount() : Int
+  getEntities() : Set<String>
   getEntityCount() : Int
   getDuplicateCount() : Int
   getCollectionCount() : Int
