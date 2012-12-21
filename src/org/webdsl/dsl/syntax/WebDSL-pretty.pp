@@ -789,7 +789,7 @@
    Highlight                          -- H hs=1 [_1 _2 KW["for"] _3 KW["on"] _4 ],
    NormalHighlight                    -- H hs=1 [KW["highlight"]],
    HTMLHighlight                      -- H hs=1 [KW["highlightHTML"]],
-   SearchFieldRef                     -- H hs=1 [KW["~"] _1 ],
+   SearchFieldExp                     -- KW["~"] _1,
    Suggest                            -- H hs=1 [_1 _2 _3],
    Suggest.3:iter                     -- _1,
    AutoComplete                       -- H hs=1 [KW["completions"] ],
@@ -797,6 +797,8 @@
    Similarity                         -- H hs=1 [KW["similarity"] _1],
    SuggestTerm                        -- H hs=1 [KW["matching"] _1 _2],
    WildCard                           -- H hs=1 [KW["*"]],
+   SearchFieldPlain                   -- H hs=1 [_1],
+   SearchFieldPlain                   -- H hs=1 [_1 KW["."] _2 ],
 
    SortDef.2:opt                                          -- _1,
    Range.3:opt                                            -- _1,

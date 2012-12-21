@@ -10,9 +10,6 @@ imports
   org/webdsl/dsl/typechecker/error
 
 rules
-  constraint-error-search:
-      SearcherInit(x_ent, _) -> <add-error(|["Entity : ", x_ent , " is not searchable"])>
-      where not(<IndexedEntity> x_ent)
 
   constraint-error-search:
     SearchMapping(x_ent, content) -> <id>
@@ -23,11 +20,11 @@ rules
           end
 
   constraint-error-searchmapping-content(|x_ent) =
-    ?SearchNamespaceMapping(propname); not(<TypeOfProperty; ?SimpleSort(_)> (x_ent, propname)); add-error(|["only simple properties owned by ", x_ent , " can be used as namespace identifier"])
+      ?SearchNamespaceMapping(propname); not(<TypeOfProperty; ?SimpleSort(_)> (x_ent, propname)); add-error(|["only simple properties owned by ", x_ent , " can be used as namespace identifier"])
 
   constraint-error-searchmapping-content(|x_ent):
-    s@SearchFieldMapping(_, propname, mappingparts) -> s
-    where prop := <PropertyDecl <+ ![]> (x_ent, propname)
+      s@SearchFieldMapping(_, propname, mappingparts) -> s
+      where prop := <PropertyDecl <+ ![]> (x_ent, propname)
         ; if (<?[]> prop)
           then <add-error(|[propname, " is no property owned by ", x_ent])> propname
           else <filter(constraint-error-mapping-part(|prop)); not(?[])> mappingparts
@@ -35,7 +32,7 @@ rules
 
 
   constraint-error-searchmapping-content(|x_ent) =
-    ?SearchFieldMapping(_, propname, mappingparts); not(<TypeOfProperty> (x_ent, propname) ); add-error(|[propname, " is no property owned by ", x_ent])
+      ?SearchFieldMapping(_, propname, mappingparts); not(<TypeOfProperty> (x_ent, propname) ); add-error(|[propname, " is no property owned by ", x_ent])
 
   constraint-error-mapping-part(|prop):
       t@AnalyzerName(name) -> t
@@ -71,9 +68,80 @@ rules
                  end
             end
 
+//Search language
+
   constraint-error-search:
-    SearcherRefMod(x_searcher, _) -> <add-error(|["expression '", <pp-webdsl> x_searcher, "' should be a searcher type, while type is ", t])>
-    where t := <type-of> x_searcher
-        ; not(<?SimpleSort(<id>); or(?"Searcher", SearcherTargetType)> t)
+      s@SearcherInit(x_ent, searcherparts) -> s
+      where if not(<IndexedEntity> x_ent)
+            then <add-error(|["Entity : ", x_ent , " is not searchable"])> x_ent
+            else <alltd(constraint-error-searcher-part(|x_ent)); not(?[])> searcherparts
+            end
+           ; fail
+
+  constraint-error-search:
+      s@SearcherRefMod(x_searcher, searcherparts) -> s
+      where t := <type-of; ?SimpleSort(<id>)> x_searcher
+          ; targetentityname := < (SearcherTargetType; ?SimpleSort(ent); !ent ) <+ (?"Searcher"; !"Searcher") <+ ![]> t
+          ; if (<?[]> targetentityname)
+            then <add-error(|["expression '", <pp-webdsl> x_searcher, "' should be a searcher type, while type is ", t])> x_searcher
+            else <alltd(constraint-error-searcher-part(|targetentityname)); flatten-list; not(?[])> searcherparts
+            end
+          ; fail
+
+  constraint-error-searcher-part(|targetEnt):
+      FieldFilterConstraint(field, _) -> []
+      where <constraint-error-search-field> (targetEnt, field)
+
+  constraint-error-searcher-part(|targetEnt):
+      q@QuerySearchField(field, _) -> []
+      where <constraint-error-search-field> (targetEnt, field)
+          
+            
+  constraint-error-search-field:
+      (targetEnt, fld@SearchFieldPlain( x )) -> []
+      where <not(has-search-field(|targetEnt))> fld
+          ; <add-error(|["'", x , "' is not a search field for ", targetEnt])> fld
+          ; fail
+            
+  constraint-error-search-field = ?(targetEnt, SearchFieldPlain( x, _ )); constraint-error-search-field(| <embedded-depth-for-search-field> (targetEnt, x))
+      
+      
+  constraint-error-search-field(|level) = ?(targetEnt, SearchFieldPlain( x )); constraint-error-search-field
+      
+  constraint-error-search-field(|level):
+      (targetEnt, fld@SearchFieldPlain( name, rest )) -> []
+	    where propname := <propname-from-search-field(|targetEnt)> (targetEnt, name)
+	        ; prop := <get-property> (targetEnt, propname)
+	        ; if ( <is-simple-prop> prop ) then
+              <add-error(|["'", name , "' has no nested fields, since it refers to a simple type property '", propname, "' in entity '", targetEnt, "' or its super types"  ])> name
+            else
+              if( <gt> (level, 0) ) then
+                targetType := <SearchFieldOverriddenType <+ (!prop; get-property-type; srt-to-type)> (targetEnt, name)
+              ; <constraint-error-search-field(| <dec>level)> (targetType, rest)
+              else
+                <add-error(|[ "search field '",  name, "' cannot be resolved as embedded search field, you might want to increase the depth of embedding in the search mapping of (e.g. '", name , " with depth 2')", targetEnt ])> name            
+            end        
+        end
+    
+  propname-from-search-field(|origEnt) :
+    t@(targetEnt, fieldname) -> result
+    where if (propname := <SearchFieldToPropName> t) then
+            result := propname
+          else 
+            super := <Extends> targetEnt
+          ; if( not( <?"Entity"> super ) ) then
+              result:= <propname-from-search-field(|origEnt)> (super, fieldname)
+            else
+              <add-error(|["'", fieldname , "' cannot be resolved as search field in entity '", origEnt, "' or its super types" ])> fieldname
+            ; fail
+            end
+          end
+          
+  embedded-depth-for-search-field= SearchFieldOverriddenEmbeddedDepth <+ !1
+      
+     
+  
+    
+
 
 

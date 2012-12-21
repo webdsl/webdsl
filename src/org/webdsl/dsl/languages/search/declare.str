@@ -7,6 +7,8 @@ imports
   libwebdsl-front
   libjava-front
   org/webdsl/dsl/languages/search/-
+  org/webdsl/dsl/modules/search
+  org/webdsl/dsl/languages/data-model/declare
 
 rules //rename FieldsConstraint for list creations
   rename-search:
@@ -31,27 +33,58 @@ declare-search:
          then rules ( AnalyzerDefFromName :+ kw -> f )
          end
 
-declare-analyzer:
-    s@SA-Argument("analyzer", analyzer-name) -> s
-    with if(<not(?"no" <+ ?"null"<+ ?"none")> analyzer-name)
-         then rules (AnalyzerInUse :+= analyzer-name) end
-
-declare-analyzer:
-    m@AnalyzerName(analyzer-name) -> m
-    with if(<not(?"no" <+ ?"null"<+ ?"none")> analyzer-name)
-         then rules (AnalyzerInUse :+= analyzer-name) end
-
 declare-search-mapping(|x_class):
     s@SearchFieldMapping(_, propname, parts) -> s
     with rules ( SearchMappingForProp :+ (x_class, propname) -> s)
-    ; <map(try(declare-analyzer))> parts
+       ; <declare-search-field(|x_class)> s
+       
 
 declare-search-mapping(|x_class):
     s@SearchNamespaceMapping(propname) -> s
     with rules ( SearchNamespaceForProp: (x_class, propname) -> s
                  SearchNamespaceForEnt : x_class -> propname)
+                 
+declare-search-field(|x_class):
+    s@SearchFieldMapping(_, propname, parts) -> s
+    with fieldname := < (fetch(?FieldName(n)); !n)  <+ !propname> parts
+       ; rules( SearchFieldToPropName : (x_class, fieldname) -> propname )
+       ; <map(try(declare-search-mapping-part(|x_class, fieldname)))> parts
+         
+declare-search-mapping-part(|x_class, fieldname):
+    m@AnalyzerName(analyzer-name) -> m
+    with if(<not(?"no" <+ ?"null"<+ ?"none")> analyzer-name)
+         then rules (AnalyzerInUse :+= analyzer-name) end
+    
+declare-search-mapping-part(|x_class, fieldname):
+    s@EmbeddedDepth(depth) -> s
+    with rules (SearchFieldOverriddenEmbeddedDepth : (x_class, fieldname) -> <string-to-int> depth )
 
+declare-search-mapping-part(|x_class, fieldname):
+    s@TargetEntity(subType) -> s
+    with rules (SearchFieldOverriddenType : (x_class, fieldname) -> subType )
 
+         
+declare-searchable-anno(|x_class, propname) = (?SearchableAnno() <+ ?SimpleAnno("searchable") ); rules( SearchFieldToPropName : (x_class, propname) -> propname)
+
+declare-searchable-anno(|x_class, propname) = 
+  (?SearchableAnno(args) <+ ?SearchableAnnoBoost(args, _))
+  ; fieldname := <fetch(?SA-Argument("name", <id>)) <+ !propname> args
+  ; rules( SearchFieldToPropName : (x_class, fieldname) -> propname)
+  ; <map(try(declare-searchable-anno-arg(|x_class, fieldname)))> args
+
+declare-searchable-anno-arg(|x_class, fieldname):
+    s@SA-Argument("analyzer", analyzer-name) -> s
+    with if(<not(?"no" <+ ?"null"<+ ?"none")> analyzer-name)
+         then rules (AnalyzerInUse :+= analyzer-name) end
+    
+declare-searchable-anno-arg(|x_class, fieldname):
+    s@SA-Argument("depth", depth) -> s
+    with rules( SearchFieldOverriddenEmbeddedDepth : (x_class, fieldname) -> <string-to-int>depth)
+    
+declare-searchable-anno-arg(|x_class, fieldname):
+    s@SA-Argument("subclass", subType) -> s
+    with rules( SearchFieldOverriddenType : (x_class, fieldname) -> subType )
+         
 
 after-tc-declare-hook = emit-and-declare-dummy-entity; fail
 
@@ -136,3 +169,45 @@ declare-native-search-query-class:
             ]
         )
 
+
+rules 
+  
+  // get-simple-search-fields = bagof-SearchFields; flatten-list
+  // get-ref-search-fields = bagof-SearchFieldsRef; flatten-list; map(get-ref-search-fields-recursive)
+  // 
+  // get-ref-search-fields-recursive:
+  //   (targetType, 0, prefix ) -> []   
+  //   
+  // get-ref-search-fields-recursive:
+  //   (targetType, depth, prefix ) -> result
+  //   where <gt>(depth, 0)
+  //   ; fields := <get-simple-search-fields; map(embedded-name(|prefix))> targetType
+  //   ; if ( <gt>(depth, 1) )
+  //     then embeddedFields := <bagof-SearchFieldsRef; flatten-list; map( upgrade-prefix(|prefix); get-ref-search-fields-recursive ); flatten-list> targetType
+  //     end
+  //   ; result := <concat>[ fields, embeddedFields]
+  //     
+  // upgrade-prefix(|headPrefix) = ?(t, d, prefix); !(t,d, <concat>[headPrefix, ".",prefix])
+  
+  
+  
+  has-search-field(|x_class) = ?SearchFieldPlain(_); ( has-search-field-no-super(|x_class) <+ has-search-field-super(|x_class) )
+  	
+  has-search-field-super(|x_class):
+    s@SearchFieldPlain(_) -> s
+    where super := <Extends; not( ?"Entity" )> x_class
+        ; <has-search-field(|super)> s
+    
+  has-search-field-no-super(|x_class):
+    s@SearchFieldPlain( fld ) -> s
+  	where propname:= <SearchFieldToPropName <+ !fld > (x_class, fld)
+  	    ; <is-simple-prop <+ ?(_, "_id") > (x_class, propname)
+          
+  is-simple-prop= ?(x_class, propname); PropertyDecl; is-simple-prop
+      
+    
+    
+    
+  
+  
+  

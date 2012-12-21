@@ -73,7 +73,7 @@ define page root() {
         //  "peroxide" in title AND OPTIONALLY
         //  (a name or alias with "mp" but NOT "magnesium") )
         var x4 := search Material
-                  matching ( desc:+"metal" title:+"peroxide"
+                  matching ( desc:+"metal" name:+"peroxide"
                              name,alias:("mp" -"magnesium")
                            ) name:"metal peroxide";
 
@@ -84,9 +84,9 @@ define page root() {
         ~x1 matching year:-(2001);
 
         var x6 := search Movie order by year asc, title desc
-                 with filters year:2000, genre.name:q
+                 with filters year:2000, genres.name:q
                  with facets (genre.name,20), (title: [* to "A"},["A" to "L"],["M" to "Q"],["Q" to "Z"],{"Z" to *]);
-        var x7 := search Movie matching +(title: (-q +"island") description:-"human");
+        var x7 := search Movie matching +(title: (-q +"island") abstract:-"human");
 
         var x8 := search Movie matching +item.name;
 
@@ -97,7 +97,7 @@ define page root() {
         var index := 3;
 
         var x11 := search   Movie
-                    matching name: +item.alias
+                    matching title: +item.alias
                     with facets (name, 3)
                     offset (index*100) limit 100
                     order by year desc;
