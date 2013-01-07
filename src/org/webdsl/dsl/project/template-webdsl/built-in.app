@@ -76,6 +76,10 @@ module .servletapp/src-webdsl-template/built-in
      static firstIndexLink(Int, Int, Int): Int
      static lastIndexLink(Int, Int, Int): Int
   }
+  
+  native class org.webdsl.search.DynamicSearchField as DynamicSearchField {
+     constructor(String, String)
+  }  
 
   native class org.webdsl.search.WebDSLFacet as Facet {
     constructor()
@@ -235,7 +239,6 @@ module .servletapp/src-webdsl-template/built-in
         rawoutput( rendered ) //don't render twice
       }
   }
-
 
 // section methods for built-in types
 
