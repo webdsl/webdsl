@@ -1140,33 +1140,25 @@
 
    NavigateCall --H [KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"]],
    NavigateCall.2:iter-star-sep -- _1 KW[","], 
-   NavigateCall.2:iter-star           -- _1,
+   NavigateCall.3:iter-star     -- _1,
 
    PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
-   PageCall.2:iter-star           -- _1,
 
    Submit -- KW["submit"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    Submit.3:iter-star-sep -- _1 KW[","],
-   Submit.3:iter-star           -- _1,
    SubmitLink -- KW["submitlink"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    SubmitLink.3:iter-star-sep -- _1 KW[","],
-   SubmitLink.3:iter-star           -- _1,
 
    SubmitElem -- KW["submit"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    SubmitElem.2:iter-star-sep -- _1 KW[","],
-   SubmitElem.2:iter-star           -- _1,
-   SubmitElem.3:iter-star-sep -- _1 KW[","],
    SubmitElem.3:iter-star           -- _1,
    SubmitLinkElem --  KW["submitlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    SubmitLinkElem.2:iter-star-sep -- _1 KW[","],
-   SubmitLinkElem.2:iter-star           -- _1,
-   SubmitLinkElem.3:iter-star-sep -- _1 KW[","],
    SubmitLinkElem.3:iter-star           -- _1,
 
    ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
-   ActionCall.2:iter-star           -- _1,
 
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
 
@@ -1257,25 +1249,14 @@
    FunctionRefCallPartial -- H hs=0[_1 KW["(*,"] H[_2] KW[")"]],
    FunctionRefCallPartial.2:iter-star-sep -- H hs=0[_1 KW[","]],
 
-   OutputImage.3:iter-star                                -- _1,
-   OutputImage.2:iter-star                                -- _1,
-   OutputImage.2:iter-star-sep                            -- _1 KW[","],
-   OutputImage                                            -- KW["outputimage"] _1 _2 KW["{"] _3 KW["}"],
-   OutputImage.2:iter-star                                -- _1,
-   OutputImage.3:iter-star                                -- _1,
    OutputImage                                            -- KW["outputimage"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    OutputImage.2:iter-star-sep                            -- _1 KW[","],
    OutputImage.3:iter-star                                -- _1,
-   DownloadLink.3:iter-star                               -- _1,
-   DownloadLink.2:iter-star                               -- _1,
-   DownloadLink.2:iter-star-sep                           -- _1 KW[","],
-   DownloadLink                                           -- KW["downloadlink"] _1 _2 KW["{"] _3 KW["}"],
-   DownloadLink.2:iter-star                               -- _1,
-   DownloadLink.3:iter-star                               -- _1,
+   
    DownloadLink                                           -- KW["downloadlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    DownloadLink.2:iter-star-sep                           -- _1 KW[","],
    DownloadLink.3:iter-star                               -- _1,
-   NavigateCall.3:iter-star                               -- _1,
+   
    LocalRedefine.1:iter-star                              -- _1,
    AjaxRefresh                                            -- KW["refresh"] KW["("] KW[")"],
    EventArg                                               -- _1 KW[":="] _2,
