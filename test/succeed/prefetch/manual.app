@@ -205,11 +205,11 @@ function testTwoManualFilters() {
       intLst where(.intProp <= 2 || .intProp > 4)
     }
     for(e1 : Elem in r.intLst) {
-      prefetch-for e1 where(.intProp <= 2)
+      prefetch-for e1 where(.intProp <= 2) {}
       sum1 := sum1 + e1.intProp;
     }
     for(e2 : Elem in r.intLst) {
-      prefetch-for e2 where(.intProp > 4)
+      prefetch-for e2 where(.intProp > 4) {}
       sum2 := sum2 + e2.intProp;
     }
     // All fetched elements are summed up, because there is no where clause on the for-loops
