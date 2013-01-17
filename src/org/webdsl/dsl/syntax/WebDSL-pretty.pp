@@ -1077,9 +1077,6 @@
    ElseIfTempl                                            -- KW["else"] KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    ElseIfTempl.2:iter-star                                -- _1,
 
-   ValidationContext.1:iter-star                          -- _1,
-   ValidationContext                                      -- KW["validationContext"] KW["{"] _1 KW["}"],
-   ValidationContext.1:iter-star                          -- _1,
    Catch                                                  -- KW["catch"] KW["("] _1 KW[":"] _2 KW[")"] _3,
    TryTemplate.2:iter                                     -- _1,
    TryTemplate                                            -- KW["try"] _1 _2,
