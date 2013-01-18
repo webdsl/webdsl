@@ -41,6 +41,7 @@
    Simple                             -- KW["::"],
    Ref                                -- KW["->"],
    Comp                               -- KW["<>"],
+   AnyProp                            -- KW[":"],
    SimpleSort                         -- _1,
    GenericSort                        -- H hs=0[_1 KW["<"] _2 KW[">"]],
    GenericSort.2:iter-sep             -- H hs=0[_1 KW[","]],
@@ -65,7 +66,7 @@
    Feed                               -- KW["feed"],
    Arg                                -- H[_1 KW[":"] _2],
    Text                               -- H hs=0[KW["\""] _1 KW["\""]],
-   IfExp -- H[KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3], 
+   IfExp -- H[KW["if"] KW["("] _1 KW[")"] _2 KW["else"] _3],
    IfTempl                            -- V[ V is=2[ H[KW["if"] KW["("] _1 KW[")"] KW["{"] ] _2 ] KW["}"] KW["else"] KW["{"] _3 KW["}"] ],
    IfTempl.2:iter-star                -- _1,
    IfTempl.3:iter-star                -- _1,
@@ -92,7 +93,7 @@
    TemplateCallPropsNoBody.3:iter-star-sep -- H [_1 KW[","]],
    TemplateCallPropsNoBody.2:iter-star-sep -- H [_1 KW[","]],
    TemplateCallPropsNoBody                 -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]]]],
-   
+
    TemplateCallNoAssigns                   -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] _3]]],
    TemplateCallNoAssigns.2:iter-star-sep   -- H [_1 KW[","]],
    TemplateCallNoArgs                      -- _1,
@@ -438,7 +439,7 @@
    SelectFromListNoProps.3:iter-star            -- _1,
    LimitNoLimit                                 -- KW["offset"] _1,
    LimitNoOffset                                -- KW["limit"] _1,
-   
+
    HqlQuery.1:parameterized-sort                -- _1 _2,
    HqlQueryLimit                                -- _1 KW["limit"] _2,
    HqlQueryLimitOffset                          -- _1 KW["limit"] _2 KW[","] _3,
@@ -975,7 +976,7 @@
    TemplateArgs.1:iter-star-sep                           -- _1 KW[","],
    TemplateArg                                            -- _1 KW["("] _2 KW[")"],
    TemplateArg.2:iter-star-sep                            -- _1 KW[","],
-   
+
    Define                                                 -- KW["define"] _1 _2 KW["("] _3 KW[")"] _4 KW["{"] _5 KW["}"],
    Define.1:iter-star                                     -- _1,
    Define.3:iter-star-sep                                 -- _1 KW[","],
@@ -1136,7 +1137,7 @@
    LocalScopeTemplate -- KW["local"] _1,
 
    NavigateCall --H [KW["navigate"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"]],
-   NavigateCall.2:iter-star-sep -- _1 KW[","], 
+   NavigateCall.2:iter-star-sep -- _1 KW[","],
    NavigateCall.3:iter-star     -- _1,
 
    PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
@@ -1249,11 +1250,11 @@
    OutputImage                                            -- KW["outputimage"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    OutputImage.2:iter-star-sep                            -- _1 KW[","],
    OutputImage.3:iter-star                                -- _1,
-   
+
    DownloadLink                                           -- KW["downloadlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    DownloadLink.2:iter-star-sep                           -- _1 KW[","],
    DownloadLink.3:iter-star                               -- _1,
-   
+
    LocalRedefine.1:iter-star                              -- _1,
    AjaxRefresh                                            -- KW["refresh"] KW["("] KW[")"],
    EventArg                                               -- _1 KW[":="] _2,
@@ -1355,7 +1356,7 @@
    DeriveWebServices                                      -- KW["derive"] KW["webservices"] KW["for"] _1 KW[","] KW["with"] KW["nameproperty"] _2,
    NativeClassConstructorCall                             -- KW["/*"] _1 KW["*/"] _2 KW["("] _3 KW[")"], %% hack: putting _1 in comments, omitting it will cause the rule to match constructor with arity 2 instead of 3. this is an internal constructor used for desugaring
    NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","],
-   
+
    PrefetchFor                                            -- H[KW["prefetch-for"] _1 _2 _3] _4,
    PrefetchChildren                                       -- V  [V is=2 [KW["{"] _1] KW["}"]],
    PrefetchChildren.1:iter-star                           -- _1,
@@ -1374,11 +1375,11 @@
    PrefetchWhere                                          -- H[ KW["where"] H hs=1 [_1] KW["("] _2 KW[")"] ],
    Hint                                                   -- KW["hint"],
    RelativeFieldAccess                                    -- H hs=0 [_1 KW["."] _2],
-   
+
    ForInferred.4:iter-star                                -- _1,
    ForInferred                                            -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"] _5,
    ForStmtInferred                                        -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] _4,
-   
+
    GlobalVarDecl                                          -- KW["var"] _1 KW[":"] _2,
    GlobalVarDeclInitInferred                              -- KW["var"] _1 KW[":="] _2,
    GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3
