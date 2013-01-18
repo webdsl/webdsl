@@ -18,6 +18,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
 import org.apache.lucene.queryParser.QueryParser.Operator;
+import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Explanation;
@@ -82,7 +83,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected boolean allowLuceneSyntax = ALLOWLUCENESYNTAX, nonDefaultSearchFields = false, updateBoboBrowseResult = true;
 
     protected HashMap<String, String> fieldConstraints;
-    protected HashMap<String, Facet> facetMap;
+    protected HashMap<String, Facet> rangeFacetMap;
     protected HashMap<String, String> rangeFacetRequests;
     protected HashMap<String, Integer> discreteFacetRequests;
     protected Map<String, String> paramMap;
@@ -92,6 +93,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected List<WebDSLFacet> filteredFacetsList = new LinkedList<WebDSLFacet>( );
 
     protected Query luceneQueryNoFacetFilters, highlightQuery, luceneQuery = null;
+    protected BooleanQuery rangeFacetQuery;
     protected FullTextQuery fullTextQuery = null;
     protected FullTextSession fullTextSession;
 
@@ -203,27 +205,29 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     private void addFacetClausesToQuery( ) {
-        if ( facetMap == null )
-            facetMap = new HashMap<String, Facet>( );
-        String key;
+        if ( rangeFacetMap == null )
+            rangeFacetMap = new HashMap<String, Facet>( );
 
         if ( filteredFacetsList.isEmpty( ) ) {
             luceneQuery = luceneQueryNoFacetFilters;
             return;
         }
+        
+        rangeFacetQuery = new BooleanQuery();
 
         BooleanQuery shouldFacetQuery = new BooleanQuery( );
         BooleanQuery newQuery = new BooleanQuery( );
 
         HashMap<String, BooleanQuery> shouldFacetQueryMap = new HashMap<String, BooleanQuery>( 10 );
+        String key;
         for( WebDSLFacet facet : filteredFacetsList ) {
             if ( rangeFacetRequests != null && rangeFacetRequests.containsKey( facet.getFieldName( ) ) ) {
                 key = facet.getFieldName( ) + "-" + facet.getValue( );
-                Facet actualFacet = facetMap.get( key );
+                Facet actualFacet = rangeFacetMap.get( key );
                 if ( actualFacet == null ) {
                     // Facets are not yet retrieved during this object's life cycle, probably this is a search query reconstructed from param map.
                     getFacets( facet.getFieldName( ) );
-                    actualFacet = facetMap.get( key );
+                    actualFacet = rangeFacetMap.get( key );
                 }
 
                 if ( actualFacet == null ) {
@@ -235,10 +239,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     if ( shouldFacetQuery == null ) {
                         shouldFacetQuery = new BooleanQuery( );
                         shouldFacetQueryMap.put( facet.fieldName, shouldFacetQuery );
+
+                        rangeFacetQuery.add( shouldFacetQuery, Occur.MUST);
                     }
                     shouldFacetQuery.add( actualFacet.getFacetQuery( ), facet.occur );
                 } else {
-                    newQuery.add( actualFacet.getFacetQuery( ), facet.occur );
+                	Query rangeQuery = actualFacet.getFacetQuery( );
+                    newQuery.add( rangeQuery, facet.occur );
+                    rangeFacetQuery.add( rangeQuery, facet.occur );
                 }
             } else {
                 if ( facet.occur.equals( Occur.SHOULD ) ) {
@@ -702,10 +710,12 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         } else {
             return ( F ) this;
         }
-
-        addBoboFacetSelection( facet );
+        
+        if(rangeFacetRequests == null || !rangeFacetRequests.containsKey(facet.fieldName)){
+        	addBoboFacetSelection( facet );
+        }
+        
         facet.isSelected = true;
-
 
         updateLuceneQueryWithFacetSelection = updateParamMap = true;
         return ( F ) this;
@@ -1133,14 +1143,14 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         String key;
         ArrayList<WebDSLFacet> webdslFacets = new ArrayList<WebDSLFacet>( );
 
-        if ( facetMap == null )
-            facetMap = new HashMap<String, Facet>( );
+        if ( rangeFacetMap == null )
+            rangeFacetMap = new HashMap<String, Facet>( );
 
         WebDSLFacet toAdd;
         for ( Facet facet : facets ) {
             key = facet.getFieldName( ) + "-" + facet.getValue( );
-            if ( !facetMap.containsKey( key ) )
-                facetMap.put( key, facet );
+            if ( !rangeFacetMap.containsKey( key ) )
+                rangeFacetMap.put( key, facet );
             toAdd = new WebDSLFacet( facet );
             toAdd.isSelected = filteredFacetsList.contains( toAdd );
             webdslFacets.add( toAdd );
@@ -1433,7 +1443,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         Query boboQuery = luceneQueryNoFacetFilters;
         boolean hasNamespaceConstraint = ( namespaceConstraint != null && !namespaceConstraint.isEmpty( ) );
         boolean hasFieldConstraint = ( fieldConstraints != null && !fieldConstraints.isEmpty( ) );
-        if ( hasNamespaceConstraint || hasFieldConstraint ) {
+        boolean hasRangeFacetSelection = (rangeFacetQuery != null && !rangeFacetQuery.clauses().isEmpty() );
+        
+        if ( hasNamespaceConstraint || hasFieldConstraint || hasRangeFacetSelection ) {
             //Apply field constraints and namespace constraints through query, when enabled
             BooleanQuery bq = new BooleanQuery( );
             bq.add( luceneQueryNoFacetFilters, Occur.MUST );
@@ -1454,6 +1466,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
             if ( hasNamespaceConstraint ) {
                 bq.add( new TermQuery( new Term( SearchHelper.NAMESPACEFIELD, namespaceConstraint ) ), Occur.MUST );
+            }
+            if ( hasRangeFacetSelection ) {
+                for( BooleanClause clause : rangeFacetQuery){
+                	bq.add( clause );
+                }
             }
             boboQuery = bq;
         }

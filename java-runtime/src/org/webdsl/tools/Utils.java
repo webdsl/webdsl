@@ -255,8 +255,7 @@ public final class Utils {
           else if("update".equals(dbmode)){
             String[] updatescript = annotationConfiguration.generateSchemaUpdateScript(dialect, meta);
             if(updatescript.length>0){
-              org.webdsl.logging.Logger.info("=== dbmode=update - Logging update table SQL statements ===");
-              sb = new StringBuffer("\n");
+              sb = new StringBuffer("=== dbmode=update - Logging update table SQL statements ===\n\n");
               for(String s : Arrays.asList(updatescript)){
                 sb.append(s);
                 sb.append("\n");

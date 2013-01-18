@@ -53,6 +53,7 @@ application test
 
   define page root(){
   init{
+    var q := search Publication matching bibs.lists.AAS : query;
       var pub1 := Publication{title := "pub1"};
       var pub2 := Publication{title := "pub2"};
       var pub3 := Publication{title := "pub3"};
