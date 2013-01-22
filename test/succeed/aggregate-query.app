@@ -30,12 +30,9 @@ section datamodel
   test aggregatehql {
     var intResult : Int := 3;
     var floatResult : Float;
-    var myDate : DateTime := now();
-    
-    var q := select count(u) from User as u where u.created > myDate;
+
     assert((select count(*) from User) == intResult); 
-    assert((select count(u) from User as u) == intResult);
-    
+    assert((select count(u) from User as u) == intResult);    
     
 
     intResult := 45;

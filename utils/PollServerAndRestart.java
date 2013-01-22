@@ -42,7 +42,7 @@ public class PollServerAndRestart {
     }
     
     public static void wait(int seconds){
-        try { Thread.sleep(seconds * 1000); } catch (Exception e) { org.webdsl.logging.Logger.error("EXCEPTION",e);	}
+        try { Thread.sleep(seconds * 1000); } catch (Exception e) { e.printStackTrace();	}
     }
     
     public static String readArgOrElse(String[] args, int argnum, String def){
@@ -60,7 +60,7 @@ public class PollServerAndRestart {
         try {
             proc = run.exec(cmd);
         } catch (Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
+            e.printStackTrace();
         }
         // necessary stuff to avoid 'too many open files' error; unfortunately this doesn't fix the issue yet
         if(proc != null){
@@ -68,7 +68,7 @@ public class PollServerAndRestart {
                 proc.waitFor();
             }
             catch(InterruptedException e){
-                org.webdsl.logging.Logger.error("EXCEPTION",e);
+                e.printStackTrace();
             }
             close(proc.getInputStream());
             close(proc.getErrorStream());
@@ -82,7 +82,7 @@ public class PollServerAndRestart {
             try {
               c.close();
             } catch (IOException e) {
-              org.webdsl.logging.Logger.error("EXCEPTION",e);
+              e.printStackTrace();
             }
         }
     }
@@ -107,7 +107,7 @@ public class PollServerAndRestart {
             huc.disconnect();
         }
         catch (Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
+            e.printStackTrace();
         }
         return false;		
     }
