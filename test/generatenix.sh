@@ -1,4 +1,4 @@
-#!/bin/bash
+#!//bin/bash
 cd succeed-web/
 echo "{ nixpkgs ? ../../nixpkgs
 , webdsl ? {outPath = builtins.storePath /nix/store/fy8d3qkfhk3k1y10jpdx09q4w43bnh0a-webdsl-9.7pre4063;}
@@ -23,7 +23,6 @@ let
         result=\"\"
         cd \$TOPDIR/\`dirname ./\${appname}\`
         FILE=\`basename ./\${appname} .app\`
-		
         echo \"Executing 'webdsl test-web \$FILE\"
         xvfb-run webdsl test-web \$FILE 2>&1 || export FAILED=\"1\"
         stopNest
