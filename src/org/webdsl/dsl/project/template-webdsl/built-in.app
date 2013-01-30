@@ -76,10 +76,10 @@ module .servletapp/src-webdsl-template/built-in
      static firstIndexLink(Int, Int, Int): Int
      static lastIndexLink(Int, Int, Int): Int
   }
-  
+
   native class org.webdsl.search.DynamicSearchField as DynamicSearchField {
      constructor(String, String)
-  }  
+  }
 
   native class org.webdsl.search.WebDSLFacet as Facet {
     constructor()
@@ -391,7 +391,7 @@ module .servletapp/src-webdsl-template/built-in
       getPage().setMimetype(s);
     }
   }
-  
+
   function downloadInline(){
     getPage().enableDownloadInline();
   }
@@ -1319,21 +1319,23 @@ native class java.lang.Double as Double {
     var subme : Entity := null;
     init{
       if(tmp != null){
-        subme := loadEntity(ent1.getTypeString(),UUIDFromString(tmp));
+        var matching := [ e | e:Entity in ent2 where e.id.toString()==tmp ];
+        if(matching.length > 0 && ent1 != matching[0]){
+          subme := matching[0];
+        }
       }
     }
     for(e:Entity in ent2){
-      <input type="radio"
-        //either it was submitted or it was not submitted but the value was already p
-        if(tmp != null && subme == e || tmp == null && ent1 == e){
-           checked="checked"
-        }
-        name=tname
-        value=e.id
-        id=tname+e.id
-        all attributes
-      />
-      <label for=tname+e.id>
+      <label class="radio">
+        <input type="radio"
+          //either it was submitted or it was not submitted but the value was already p
+          if(tmp != null && subme == e || tmp == null && ent1 == e){
+            checked="checked"
+          }
+          name=tname
+          value=e.id
+          all attributes
+        />
         output(e.name)
       </label>
     }
@@ -1343,6 +1345,8 @@ native class java.lang.Double as Double {
       }
     }
   }
+
+
 
   //output(Entity)
   /*
@@ -2964,9 +2968,9 @@ native class java.lang.Double as Double {
       templateSuccess(list)
     }
   }
-  
+
   //page description
-  
+
   define description() {
     includeHead("<meta name='description' content='" + /'/.replaceAll( "&#39;" ,rendertemplate(elements) ) +"'>")
   }
