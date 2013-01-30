@@ -10,23 +10,342 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.hibernate.Session;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
-import org.hibernate.Session;
 
 public abstract class AbstractPageServlet{
+
+    protected abstract void renderDebugJsVar(java.io.PrintWriter sout);
+    protected abstract boolean logSqlCheckAccess();
+    protected abstract void initTemplateClass();
+    protected abstract void redirectHttpHttps();
+    protected abstract boolean isActionSubmit();
+    protected abstract void storeSessionEntities();
+    protected TemplateServlet templateservlet = null;
+    protected abstract org.webdsl.WebDSLEntity getRequestLogEntry();
+    protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
+    protected abstract void addLogSqlToSessionMessages();
+
+    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
+    {
+      initTemplateClass();
+
+      this.startTime = System.currentTimeMillis();
+      ThreadLocalPage.set(this);
+      this.request=request;
+      this.response=response;
+      this.parammap = parammap;
+      this.parammapvalues = parammapvalues;
+      this.fileUploads=fileUploads;
+
+      redirectHttpHttps();
+
+      if(parammap.get("__ajax_runtime_request__") != null) {
+        this.setAjaxRuntimeRequest(true);
+      }
+
+      org.webdsl.WebDSLEntity rle = getRequestLogEntry();
+      org.apache.log4j.MDC.put("request", rle.getId().toString());
+      org.apache.log4j.MDC.put("template", "/" + getPageName());
+      utils.RequestAppender reqAppender = null;
+      if(parammap.get("disableopt") != null) this.isOptimizationEnabled = false;
+      if(parammap.get("logsql") != null) {
+        this.isLogSqlEnabled = true;
+        reqAppender = utils.RequestAppender.getInstance();
+      }
+      if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
+      Session hibSession = utils.HibernateUtil.getCurrentSession();
+      hibSession.beginTransaction();
+      hibSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
+      try
+      {
+        java.io.StringWriter s = new java.io.StringWriter();
+        java.io.PrintWriter out = new java.io.PrintWriter(s);
+        ThreadLocalOut.push(out);
+
+        ThreadLocalServlet.get().loadSessionManager(hibSession);
+        ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
+
+        initVarsAndArgs();
+        initRequestVars();
+
+        if(isActionSubmit()) {
+
+          if(parammap.get("__action__link__") != null) {
+            this.setActionLinkUsed(true);
+          }
+
+          templateservlet.storeInputs(null, args, new Environment(env), null, null);
+          ThreadLocalPage.get().clearTemplateContext();
+
+          //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
+          utils.ActionClass submitAction = ThreadLocalPage.get().getActionToBeExecuted();
+          boolean ignoreValidation = false;
+          if(submitAction != null){
+            ignoreValidation = submitAction.isValidationDisabled();
+          }
+          else{
+            //an action was executed but it cannot be found
+            //@TODO handle properly for ajax and non-ajax cases
+          }
+
+          if (!ignoreValidation){
+            templateservlet.validateInputs (null, args, new Environment(env), null, null);
+            ThreadLocalPage.get().clearTemplateContext();
+          }
+          if(validated){
+            templateservlet.handleActions(null, args, new Environment(env), null, null);
+            ThreadLocalPage.get().clearTemplateContext();
+          }
+        }
+
+        if(isNotValid()){
+          clearHibernateCache();
+          abortTransaction();
+        }
+
+        String outstream = s.toString();
+        if(download != null) { //File.download() excecuted in action
+          download();
+        }
+        else {
+          // regular render, or failed action render
+          if( hasNotExecutedAction() || isNotValid() ){
+            //ajax replace performed during validation, assuming that handles all validation
+            if(isAjaxRuntimeRequest() && outstream.length() > 0){
+              response.getWriter().write("[");
+              response.getWriter().write(outstream);
+              if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+                if(logSqlCheckAccess()){
+                  response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                }
+                else{
+                  response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+                }
+                response.getWriter().write(",");
+              }
+              response.getWriter().write("{}]");
+            }
+            // action called but no action found
+            else if( isValid() && isPostRequest() ){
+              org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action");
+              response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
+            }
+            // action inside ajax template called and failed
+            else if( isAjaxTemplateRequest() && isPostRequest() ){
+              java.io.StringWriter s1 = renderContentOnly();
+              response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
+            }
+            //actionLink or ajax action used (request came through js runtime), and action failed
+            else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
+              java.io.StringWriter s1 = renderContentOnly();
+              response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) +"\"}]");
+            }
+            // 1 regular render without any action being executed
+            // 2 regular action submit, and action failed
+            // 3 redirect in page init
+            // 4 download in page init
+            else{
+              renderOrInitAction();
+            }
+          }
+          // succesful action, always redirect, no render
+          else { //hasExecutedAction() && isValid()
+            if( isAjaxRuntimeRequest() ){
+              response.getWriter().write("[");
+              response.getWriter().write(outstream);
+              if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+                    if(logSqlCheckAccess()){
+                      response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                    }
+                    else{
+                      response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+                    }
+                response.getWriter().write(",");
+              }
+              response.getWriter().write("{}]");
+            }
+            else if( isActionLinkUsed() ){
+              //action link also uses ajax when ajax is not enabled
+              //, send only redirect location, so the client can simply set
+              // window.location = req.responseText;
+              response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");
+            }
+            if(!isAjaxRuntimeRequest()) {
+              addLogSqlToSessionMessages();
+            }
+            //else: action successful + no validation error + regular submit
+            //        -> always results in a redirect, no further action necessary here
+          }
+        }
+        ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
+
+        if( isTransactionAborted() || ThreadLocalPage.get().isRollback() ){
+          hibSession.getTransaction().rollback();
+        }
+        else {
+          addPrincipalToRequestLog(rle);
+
+          storeSessionEntities();
+          if(!this.isAjaxRuntimeRequest()){
+            ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(hibSession);
+          }
+          hibSession.flush();
+          hibSession.getTransaction().commit();
+        }
+        ThreadLocalOut.popChecked(out);
+      }
+      catch (Exception ex) {
+        String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
+        org.webdsl.logging.Logger.error("exception occured while handling request URL: "+url);
+        org.webdsl.logging.Logger.error("exception message: "+ex.getMessage(), ex);
+        hibSession.getTransaction().rollback();
+        throw new RuntimeException("serve page request failed, requested URL: "+url);
+      }
+      finally{
+        cleanupThreadLocals();
+        org.apache.log4j.MDC.remove("request");
+        org.apache.log4j.MDC.remove("template");
+        if(reqAppender != null) reqAppender.removeRequest(rle.getId().toString());
+      }
+    }
+
+    public void renderOrInitAction() throws IOException{
+        java.io.StringWriter s = renderPageOrTemplateContents();
+
+        // redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
+        if( !isPostRequest() && isRedirected() ){
+            redirect();
+        }
+        else{
+            if(download != null) { //File.download() executed in page/template init block
+                download();
+            }
+            else {
+                response.setContentType(getMimetype());
+                java.io.PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
+                if(!mimetypeChanged){
+                    renderResponse(sout, s);
+                }
+                else{
+                    sout.write(s.toString());
+                }
+            }
+        }
+    }
+
+    public java.io.StringWriter renderContentOnly(){
+        return renderPageOrTemplateContents();
+    }
+
+    public java.io.StringWriter renderPageOrTemplateContents(){
+        if(isTemplate() && !ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); }
+        java.io.StringWriter s = new java.io.StringWriter();
+        java.io.PrintWriter out = new java.io.PrintWriter(s);
+        ThreadLocalOut.push(out);
+        templateservlet.render(null, args, new Environment(env), null, null);
+        ThreadLocalOut.popChecked(out);
+        return s;
+    }
+
+    public void renderResponse(java.io.PrintWriter sout, java.io.StringWriter s) throws IOException {
+        ThreadLocalOut.push(sout);
+
+        addJavascriptInclude("jquery-1.8.2.min.js");
+        addJavascriptInclude("ajax.js");
+
+        sout.println("<!DOCTYPE html>");
+        sout.println("<html>");
+        sout.println("<head>");
+        sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+        sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
+
+        sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
+        sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/common_.css\" rel=\"stylesheet\" type=\"text/css\" />");
+
+        renderDebugJsVar(sout);
+        sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalServlet.getContextPath()+"\";</script>");
+
+        for(String script : this.javascripts) {
+            if(script.startsWith("http://") || script.startsWith("https://")){
+                sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
+            }
+            else{
+                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalServlet.getContextPath()+"/javascript/"+script+"\"></script>");
+            }
+        }
+        for(String[] sheet : this.stylesheets) {
+            if(sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
+                sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
+            }
+            else{
+                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/"+sheet[0]+"\" type=\"text/css\" ");
+            }
+            if(sheet[1].equals("")){
+                sout.println("/>");
+            }
+            else{
+                sout.println("media=\""+sheet[1]+"\" />");
+            }
+        }
+        for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
+            sout.println("<!-- " + headEntry.getKey() + " -->");
+            sout.println(headEntry.getValue());
+        }
+        for(String headEntry : customHeads) {
+            sout.println(headEntry);
+        }
+        sout.println("</head>");
+
+        sout.print("<body id=\""+this.getPageName()+"\">");
+
+        renderLogSqlMessage();
+        renderIncomingSuccessMessages();
+
+        s.flush();
+
+        sout.write(s.toString());
+
+        if(this.isLogSqlEnabled()){
+            if(logSqlCheckAccess()){
+                sout.print("<hr/><div class=\"logsql\">");
+                utils.HibernateLog.printHibernateLog(sout, this, null);
+                sout.print("</div>");
+            }
+            else{
+                sout.print("<hr/><div class=\"logsql\">Access to SQL logs was denied.</div>");
+            }
+        }
+        sout.print("</body>");
+        sout.println("</html>");
+
+        ThreadLocalOut.popChecked(sout);
+    }
+
+    //ajax/js runtime request related
+    protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
+    public boolean isServingAsAjaxResponse = false;
+    public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, Environment env, TemplateCall templateArg)
+    { //use passed PageServlet ps here, since this is the context for this type of response
+      initializeBasics(ps, args, env);
+
+      ThreadLocalPage.set(this);
+      //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
+
+      this.isServingAsAjaxResponse = true;
+      templateservlet.render(null, args, new Environment(env), null, null);
+
+      ThreadLocalPage.set(ps);
+    }
+
+    protected boolean isTemplate() { return false; }
 
     public static AbstractPageServlet getRequestedPage(){
         return ThreadLocalPage.get();
     }
-    
-    public abstract void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads);
-    public abstract void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, Environment env, TemplateCall templateArg);
-    public abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
 
-    public boolean IsTemplate() { return false; }
-    public boolean isServingAsAjaxResponse = false;
-    
     private boolean passedThroughAjaxTemplate = false;
     public boolean passedThroughAjaxTemplate(){
       return passedThroughAjaxTemplate;
@@ -42,14 +361,14 @@ public abstract class AbstractPageServlet{
     public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
 
     public String getExtraQueryAruments(String firstChar) { // firstChar is expeced to be ? or &, depending on wether there are more query aruments
-    	String res = "";
-    	if(!isOptimizationEnabled || isLogSqlEnabled) {
-    		res = firstChar;
-    		if(isLogSqlEnabled) res += "logsql";
-    		if(isLogSqlEnabled && !isOptimizationEnabled) res += "&";
-    		if(!isOptimizationEnabled) res += "disableopt";
-    	}
-    	return res;
+        String res = "";
+        if(!isOptimizationEnabled || isLogSqlEnabled) {
+            res = firstChar;
+            if(isLogSqlEnabled) res += "logsql";
+            if(isLogSqlEnabled && !isOptimizationEnabled) res += "&";
+            if(!isOptimizationEnabled) res += "disableopt";
+        }
+        return res;
     }
 
     public abstract String getPageName();
@@ -69,10 +388,10 @@ public abstract class AbstractPageServlet{
         }
         return messageDigest;
     }
-    
+
     protected utils.ActionClass actionToBeExecuted = null;
     public void setActionToBeExecuted(utils.ActionClass action){
-        this.actionToBeExecuted = action;  	
+        this.actionToBeExecuted = action;
     }
     public utils.ActionClass getActionToBeExecuted(){
         return actionToBeExecuted;
@@ -95,7 +414,7 @@ public abstract class AbstractPageServlet{
             return request.getRequestURL().toString();
         }
     }
-    
+
     protected abstract void renderIncomingSuccessMessages();
     protected abstract void renderLogSqlMessage();
 
@@ -142,28 +461,28 @@ public abstract class AbstractPageServlet{
         }
         catch(Exception e){
           org.webdsl.logging.Logger.error("EXCEPTION",e);
-          return false;	
+          return false;
         }
     }
     public EmailServlet renderEmail(String name, Object[] emailargs, Environment emailenv){
         EmailServlet temp = null;
         try
-        { 
+        {
             temp = ((EmailServlet)getEmails().get(name).newInstance());
         }
         catch(IllegalAccessException iae)
-        { 
+        {
             org.webdsl.logging.Logger.error("Problem in email template lookup: " + iae.getMessage());
         }
         catch(InstantiationException ie)
-        { 
+        {
             org.webdsl.logging.Logger.error("Problem in email template lookup: " + ie.getMessage());
         }
         temp.render(emailargs, emailenv);
         return temp;
     }
-    
-    
+
+
     //rendertemplate function
     public String renderTemplate(String name, Object[] args, Environment env){
         return executeTemplatePhase(RENDER_PHASE, name, args, env);
@@ -180,14 +499,14 @@ public abstract class AbstractPageServlet{
         java.io.StringWriter s = new java.io.StringWriter();
         PrintWriter out = new java.io.PrintWriter(s);
         ThreadLocalOut.push(out);
-        try{ 
+        try{
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
             switch(phase){
                 case 2: temp.validateInputs(name, args, env, null, null); break;
                 case 4: temp.render(name, args, env, null, null); break;
             }
         }
-        catch(Exception oe){ 
+        catch(Exception oe){
             try {
                 TemplateCall tcall = env.getWithcall(name); //'elements' or requires arg
                 TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
@@ -225,7 +544,7 @@ public abstract class AbstractPageServlet{
         templateContext.leaveTemplateContext();
     }
     //verifies that the correct context was popped
-    public void leaveTemplateContextChecked(String s) { 
+    public void leaveTemplateContextChecked(String s) {
         templateContext.leaveTemplateContextChecked(s);
     }
     public void clearTemplateContext(){
@@ -241,44 +560,44 @@ public abstract class AbstractPageServlet{
     // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
     ArrayList<WebDSLEntity> entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
     boolean allowAddingEntitiesForValidation = true;
-    
+
     public void cleareEntitiesValidatedAfterAction(){
-    	entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
-    	allowAddingEntitiesForValidation = true;
+        entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+        allowAddingEntitiesForValidation = true;
     }
-    
+
     public void addEntityToValidateAfterAction(WebDSLEntity w){
-        if(allowAddingEntitiesForValidation){ 
+        if(allowAddingEntitiesForValidation){
           entitiesValidatedAfterAction.add(w);
         }
     }
     public void validateEntitiesAfterAction(){
         allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
-        
+
         java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesValidatedAfterAction);
         java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
         for(WebDSLEntity w : set){
-        	
+
             if(w.isChanged()){
-            	try {
-	//              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
-	            	w.validateSave();
-	              //System.out.println("done validating");
-            	} catch(utils.ValidationException ve){
-    				exceptions.add(ve);
-    	        } catch(utils.MultipleValidationExceptions ve) {
-    	            for(utils.ValidationException vex : ve.getValidationExceptions()){
-    	            	exceptions.add(vex);
-    	            }
-    	        }
+                try {
+    //              System.out.println("validating: "+ w.get_WebDslEntityType() + ":" + w.getName());
+                    w.validateSave();
+                  //System.out.println("done validating");
+                } catch(utils.ValidationException ve){
+                    exceptions.add(ve);
+                } catch(utils.MultipleValidationExceptions ve) {
+                    for(utils.ValidationException vex : ve.getValidationExceptions()){
+                        exceptions.add(vex);
+                    }
+                }
             }
         }
         if(exceptions.size() > 0){
             throw new utils.MultipleValidationExceptions(exceptions);
         }
-        
+
     }
-    
+
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
     public List<utils.ValidationException> getValidationExceptions() {
         return validationExceptions;
@@ -320,7 +639,6 @@ public abstract class AbstractPageServlet{
     protected java.util.List<String[]> stylesheets = new java.util.ArrayList<String[]>();
     protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
-    public boolean useDojo = false;
 
     public void addJavascriptInclude(String filename) {
         if(!javascripts.contains(filename))
@@ -358,7 +676,7 @@ public abstract class AbstractPageServlet{
         // since flushing now happens automatically when querying, this could produce wrong results.
         // e.g. output in page with validation errors shows changes that were not persisted to the db.
         // see regression test in test/succeed-web/validate-false-and-flush.app
-    	utils.HibernateUtil.getCurrentSession().getTransaction().rollback();
+        utils.HibernateUtil.getCurrentSession().getTransaction().rollback();
 
         /* http://community.jboss.org/wiki/sessionsandtransactions
          * Because Hibernate can't bind the "current session" to a transaction, as it does in a JTA environment,
@@ -385,7 +703,7 @@ public abstract class AbstractPageServlet{
 //    public void setHibSession(Session s) {
 //        hibSession = s;
 //    }
-//    
+//
 //    public Session getHibSession() {
 //        return hibSession;
 //    }
@@ -414,7 +732,7 @@ public abstract class AbstractPageServlet{
     public void setValidated(boolean validated) {
         this.validated = validated;
     }
-    
+
     /*
      * complete action regularly but rollback hibernate session
      * skips validation of entities at end of action, if validation messages are necessary
@@ -502,7 +820,7 @@ public abstract class AbstractPageServlet{
 
     protected String redirectUrl = "";
     public boolean isRedirected(){
-      return !"".equals(redirectUrl);   
+      return !"".equals(redirectUrl);
     }
     public String getRedirectUrl() {
         return redirectUrl;
@@ -510,6 +828,12 @@ public abstract class AbstractPageServlet{
     public void setRedirectUrl(String a) {
         this.redirectUrl = a;
     }
+    // perform the actual redirect
+    public void redirect(){
+      try { response.sendRedirect(this.getRedirectUrl()); }
+      catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
+    }
+
 
     protected String mimetype = "text/html; charset=UTF-8";
     protected boolean mimetypeChanged = false;
@@ -522,19 +846,19 @@ public abstract class AbstractPageServlet{
         enableRawoutput();
         disableTemplateSpans();
     }
-    
+
     protected boolean downloadInline = false;
 
 
     public boolean getDownloadInline() {
-		return downloadInline;
-	}
+        return downloadInline;
+    }
 
-	public void enableDownloadInline() {
-		this.downloadInline = true;
-	}
-	
-	protected boolean ajaxActionExecuted = false;
+    public void enableDownloadInline() {
+        this.downloadInline = true;
+    }
+
+    protected boolean ajaxActionExecuted = false;
     public boolean isAjaxActionExecuted() {
         return ajaxActionExecuted;
     }
@@ -787,7 +1111,7 @@ public abstract class AbstractPageServlet{
           }
           return labelid;
       }
-      
+
       public void enterLabelContext(String ident) {
         labelStrings.push(ident);
       }
@@ -902,10 +1226,10 @@ public abstract class AbstractPageServlet{
       protected long startTime = 0L;
 
       public long getStartTime() {
-    	  return startTime;
+          return startTime;
       }
 
       public long getElapsedTime() {
-    	  return System.currentTimeMillis() - startTime;
+          return System.currentTimeMillis() - startTime;
       }
 }

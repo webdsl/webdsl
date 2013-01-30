@@ -141,8 +141,6 @@ rules
             return hiddens.toString();
           }
 
-          x_specialpagetemplate templateservlet = new x_specialpagetemplate();
-
           protected void initVarsAndArgs(){
             GlobalVariables.initGlobalVars(env, e_HibSession);
             initialize();
@@ -154,208 +152,36 @@ rules
             this.args = args;
           }
 
-          public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
-          {
-            this.startTime = System.currentTimeMillis();
-            ThreadLocalPage.set(this);
-            this.request=request;
-            this.response=response;
-            this.parammap = parammap;
-            this.parammapvalues = parammapvalues;
-            this.fileUploads=fileUploads;
+          protected void initTemplateClass(){
+            templateservlet = new x_specialpagetemplate();
+          }
 
+          protected void redirectHttpHttps(){
             bstm_redirecthttps*
+          }
 
-            if(parammap.get("__ajax_runtime_request__") != null) {
-              this.setAjaxRuntimeRequest(true);
-            }
+          protected void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle){
+            ~*<if ACPrincipalAvailable then ![ bstm*|[ ((pkgtname_domain.RequestLogEntry)rle).setPrincipalNoEventsOrValidation(((pkgtname_domain.SecurityContext)env.getVariable("securityContext")).getPrincipal()); ]| ] else ![] end>[]
+          }
 
-            RequestLogEntry rle = ((utils.DispatchServletHelper) ThreadLocalServlet.get()).getRequestLogEntry();
-            org.apache.log4j.MDC.put("request", rle.getId().toString());
-            org.apache.log4j.MDC.put("template", "/" + getPageName());
-            utils.RequestAppender reqAppender = null;
-            if(parammap.get("disableopt") != null) this.isOptimizationEnabled = false;
-            if(parammap.get("logsql") != null) {
-              this.isLogSqlEnabled = true;
-              reqAppender = utils.RequestAppender.getInstance();
-            }
-            if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
-           	Session hibSession = e_HibSession;
-            hibSession.beginTransaction();
-            hibSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
-            try
-            {
-              java.io.StringWriter s = new java.io.StringWriter();
-              java.io.PrintWriter out = new java.io.PrintWriter(s);
-              ThreadLocalOut.push(out);
+          protected org.webdsl.WebDSLEntity getRequestLogEntry(){
+              return ((utils.DispatchServletHelper) ThreadLocalServlet.get()).getRequestLogEntry();
+          }
 
-              ThreadLocalServlet.get().loadSessionManager(e_HibSession);
-              ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
-
-              initVarsAndArgs();
-              initRequestVars();
-
-              if(isActionSubmit()) {
-
-                if(parammap.get("__action__link__") != null) {
-                  this.setActionLinkUsed(true);
-                }
-
-                templateservlet.storeInputs(null, args, new Environment(env), null, null);
-                ThreadLocalPage.get().clearTemplateContext();
-
-                //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
-                utils.ActionClass submitAction = ThreadLocalPage.get().getActionToBeExecuted();
-                boolean ignoreValidation = false;
-                if(submitAction != null){
-                  ignoreValidation = submitAction.isValidationDisabled();
-                }
-                else{
-                  //an action was executed but it cannot be found
-                  //@TODO handle properly for ajax and non-ajax cases
-                }
-
-                if (!ignoreValidation){
-                  templateservlet.validateInputs (null, args, new Environment(env), null, null);
-                  ThreadLocalPage.get().clearTemplateContext();
-                }
-                if(validated){
-                  templateservlet.handleActions(null, args, new Environment(env), null, null);
-                  ThreadLocalPage.get().clearTemplateContext();
-                }
+          protected void addLogSqlToSessionMessages(){
+            if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
+              if(logSqlCheckAccess()){
+                ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation(utils.HibernateLog.printHibernateLog(this, "action"));
               }
-
-              if(isNotValid()){
-                clearHibernateCache();
-                abortTransaction();
+              else{
+                ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation("Access to SQL logs was denied.");
               }
-
-              String outstream = s.toString();
-              if(download != null) { //File.download() excecuted in action
-                download();
-              }
-              else {
-                // regular render, or failed action render
-                if( hasNotExecutedAction() || isNotValid() ){
-                  //ajax replace performed during validation, assuming that handles all validation
-                  if(isAjaxRuntimeRequest() && outstream.length() > 0){
-                    response.getWriter().write("[");
-                    response.getWriter().write(outstream);
-                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
-                      bstm_logsqlchecksetup*
-                      if(e_logsqlaccesscontrolcheck){
-                        response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
-                      }
-                      else{
-                        response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
-                      }
-                      response.getWriter().write(",");
-                    }
-                    response.getWriter().write("{}]");
-                  }
-                  // action called but no action found
-                  else if( isValid() && isPostRequest() ){
-                    org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action");
-                    response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
-                  }
-                  // action inside ajax template called and failed
-                  else if( isAjaxTemplateRequest() && isPostRequest() ){
-                    java.io.StringWriter s1 = new java.io.StringWriter();
-                    java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
-                    render(request, response, out1,true);
-                    response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
-                  }
-                  //actionLink or ajax action used (request came through js runtime), and action failed
-                  else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
-                    java.io.StringWriter s1 = new java.io.StringWriter();
-                    java.io.PrintWriter out1 = new java.io.PrintWriter(s1);
-                    render(request, response, out1,true);
-                    response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) +"\"}]");
-                  }
-                  // 1 regular render without any action being executed
-                  // 2 regular action submit, and action failed
-                  // 3 redirect in page init
-                  else{
-                    render(request, response, null, false);
-                    // redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
-                    if( !isPostRequest() && isRedirected() ){
-                      try { response.sendRedirect(this.getRedirectUrl()); }
-                      catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
-                    }
-                  }
-                }
-                // succesful action, always redirect, no render
-                else { //hasExecutedAction() && isValid()
-                  if( isAjaxRuntimeRequest() ){
-                    response.getWriter().write("[");
-                    response.getWriter().write(outstream);
-                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
-                          bstm_logsqlchecksetup*
-                          if(e_logsqlaccesscontrolcheck){
-                            response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
-                          }
-                          else{
-                            response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
-                          }
-                      response.getWriter().write(",");
-                    }
-                    response.getWriter().write("{}]");
-                  }
-                  else if( isActionLinkUsed() ){
-                    //action link also uses ajax when ajax is not enabled
-                    //, send only redirect location, so the client can simply set
-                    // window.location = req.responseText;
-                    response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");
-                  }
-                  if(!isAjaxRuntimeRequest()) {
-                    if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
-                      bstm_logsqlchecksetup*
-                      if(e_logsqlaccesscontrolcheck){
-                        ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation(utils.HibernateLog.printHibernateLog(this, "action"));
-                      }
-                      else{
-                        ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setLogsqlMessageNoEventsOrValidation("Access to SQL logs was denied.");
-                      }
-                    }
-                  }
-                  //else: action successful + no validation error + regular submit
-                  //        -> always results in a redirect, no further action necessary here
-                }
-              }
-              ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
-
-              if( isTransactionAborted() || ThreadLocalPage.get().isRollback() ){
-                e_HibSession.getTransaction().rollback();
-              }
-              else {
-
-                ~*<if ACPrincipalAvailable then ![ bstm*|[ rle.setPrincipalNoEventsOrValidation(((pkgtname_domain.SecurityContext)env.getVariable("securityContext")).getPrincipal()); ]| ] else ![] end>[]
-
-                storeSessionEntities();
-                if(!this.isAjaxRuntimeRequest()){
-                  ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(e_HibSession);
-                }
-                e_HibSession.flush();
-                e_HibSession.getTransaction().commit();
-              }
-              ThreadLocalOut.popChecked(out);
-            }
-            catch (Exception ex) {
-              String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
-              org.webdsl.logging.Logger.error("exception occured while handling request URL: "+url);
-              org.webdsl.logging.Logger.error("exception message: "+ex.getMessage(), ex);
-              e_HibSession.getTransaction().rollback();
-              throw new RuntimeException("serve page request failed, requested URL: "+url);
-            }
-            finally{
-              PageServlet.cleanupThreadLocals();
-              org.apache.log4j.MDC.remove("request");
-              org.apache.log4j.MDC.remove("template");
-              if(reqAppender != null) reqAppender.removeRequest(rle.getId().toString());
             }
           }
 
-          public void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env) {
+          protected void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env) {
+            initTemplateClass();
+
             this.envGlobalAndSession = ps.envGlobalAndSession;
             this.request=ps.getRequest();
             this.env = env;
@@ -373,138 +199,28 @@ rules
           }
 
           @Partial
-          private void storeSessionEntities(){}
+          protected void storeSessionEntities(){}
 
-          public void render(HttpServletRequest request, HttpServletResponse response, java.io.PrintWriter sout, boolean onlyContent)
-          throws ServletException, IOException {
-            this.request=request;
-            this.response=response;
-
-            bstm_ajaxrequirespost*
-
-            java.io.StringWriter s = new java.io.StringWriter();
-            java.io.PrintWriter out = new java.io.PrintWriter(s);
-
-            ThreadLocalOut.push(out);
-            //call special pagetemplate render
-            templateservlet.render(null, args, new Environment(env), null, null);
-            ThreadLocalOut.popChecked(out);
-
-            response.setContentType(getMimetype());
-
-            if(download != null) { //File.download() executed in page/template init block
-              download();
-            }
-            else {
-              if(sout == null){
-                sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
-              }
-              ThreadLocalOut.push(sout);
-
-              bstm_ajax*
-
-              //java.io.PrintWriter sout = response.getWriter();
-              if(!mimetypeChanged && !onlyContent){
-                sout.println("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">");
-                sout.println("<html>");
-                sout.println("<head>");
-                sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-                sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
-
-                sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
-                sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/common_.css\" rel=\"stylesheet\" type=\"text/css\" />");
-
-                if (this.useDojo) {
-                  sout.println("<script type='text/javascript' src='"+ThreadLocalServlet.getContextPath()+"/javascript/dojo/dojo.js' djConfig=\"parseOnLoad: true\"></script>");
-                  sout.println("<link rel='stylesheet' href='"+ThreadLocalServlet.getContextPath()+"/stylesheets/dijit/themes/tundra/tundra.css' type='text/css' />");
-                }
-                ~*<!bstm*|[
-                      sout.println("<script type=\"text/javascript\">var show_webdsl_debug=false;</script>");
-                    ]|
-                  ; if-debug(!bstm*|[
-                      sout.println("<script type=\"text/javascript\">var show_webdsl_debug=true;</script>");
-                    ]|)>
-                sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalServlet.getContextPath()+"\";</script>");
-
-  //            sout.println("<script src=\""+"~<AppRoot>"+"/javascript/dropdownmenu.js\" type=\"text/javascript\"></script>");
-  //            sout.println("<script src=\""+"~<AppRoot>"+"/javascript/ajax.js\" type=\"text/javascript\"></script>");
-
-                for(String script : this.javascripts) {
-                  if(script.startsWith("http://") || script.startsWith("https://")){
-                  sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
-                  }
-                  else{
-                    sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalServlet.getContextPath()+"/javascript/"+script+"\"></script>");
-                  }
-                }
-                for(String[] sheet : this.stylesheets) {
-                  if(sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
-                    sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
-                  }
-                  else{
-                    sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/"+sheet[0]+"\" type=\"text/css\" ");
-                  }
-                  if(sheet[1].equals("")){
-                    sout.println("/>");
-                  }
-                  else{
-                    sout.println("media=\""+sheet[1]+"\" />");
-                  }
-                }
-                for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
-                  sout.println("<!-- " + headEntry.getKey() + " -->");
-                  sout.println(headEntry.getValue());
-                }
-                for(String headEntry : customHeads) {
-                  sout.println(headEntry);
-                }
-                sout.println("</head>");
-
-                sout.print("<body id=\""+this.getPageName()+"\">");
-
-                renderLogSqlMessage();
-                renderIncomingSuccessMessages();
-
-                s.flush();
-              }
-              sout.write(s.toString());
-              if(!mimetypeChanged && !onlyContent){
-                if(this.isLogSqlEnabled()){
-                  bstm_logsqlchecksetup*
-                  if(e_logsqlaccesscontrolcheck){
-                    sout.print("<hr/><div class=\"logsql\">");
-                    utils.HibernateLog.printHibernateLog(sout, this, null);
-                    sout.print("</div>");
-                  }
-                  else{
-                    sout.print("<hr/><div class=\"logsql\">Access to SQL logs was denied.</div>");
-                  }
-                }
-                sout.print("</body>");
-                sout.println("</html>");
-              }
-              ThreadLocalOut.popChecked(sout);
-            }
+          protected void renderDebugJsVar(java.io.PrintWriter sout){
+            ~*<!bstm*|[
+                sout.println("<script type=\"text/javascript\">var show_webdsl_debug=false;</script>");
+              ]|
+            ; if-debug(!bstm*|[
+                sout.println("<script type=\"text/javascript\">var show_webdsl_debug=true;</script>");
+              ]|)>
           }
 
-          public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, Environment env, TemplateCall templateArg)
-          { //use passed PageServlet ps here, since this is the context for this type of response
-            initializeBasics(ps, args, env);
-
-            ThreadLocalPage.set(this);
-            //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
-
-            this.isServingAsAjaxResponse = true;
-            templateservlet.render(null, args, new Environment(env), null, null);
-
-            ThreadLocalPage.set(ps);
+          protected boolean logSqlCheckAccess(){
+            bstm_logsqlchecksetup*
+            return e_logsqlaccesscontrolcheck;
           }
 
-          public boolean IsTemplate() { return e_istemplate; }
+          protected boolean isTemplate() { return e_istemplate; }
 
           public String getUniqueName() {
             return "~x_page";
           }
+
         }
       ]|
     where x_Page    := <get-page-class-name>
@@ -521,8 +237,6 @@ rules
                                                else x_arg := <argument-java-servlet-type> arg end
                                       \})> farg* //variables are generated in java-template-vars
        ; e_istemplate := <JavaThisPage; !java|[ false ]| <+  !java|[ true ]|>
-       ; bstm_ajaxrequirespost* := <JavaThisPage; ![] <+  !bstm*|[ if(!ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); } ]|>
-       ; bstm_ajax* := bstm*|[ addJavascriptInclude("jquery-1.8.2.min.js"); addJavascriptInclude("ajax.js"); ]|
        ; if <fetch(TempateModSecure)> mod*
          then bstm_redirecthttps* :=
                 java:bstm*|[ if(!isActionSubmit() && request.getRequestURL().toString().startsWith("http://")){
