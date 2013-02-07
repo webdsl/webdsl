@@ -172,7 +172,7 @@ public class QueryOptimization {
 		}
 	}
 
-	public static int prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins) {
+	public static int prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity> objs, String[] joins, boolean clearOnEmptyBatch) {
 		if (hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
 			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
 			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
@@ -182,7 +182,7 @@ public class QueryOptimization {
 				for (int i = 0; i < objs.size(); i++) {
 					final Object obj = objs.get(i);
 					if (obj instanceof org.hibernate.proxy.HibernateProxy) {
-						org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy) obj).getHibernateLazyInitializer();
+						org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer();
 						if (init.isUninitialized()) {
 							ids.add(init.getIdentifier());
 						}
@@ -193,11 +193,9 @@ public class QueryOptimization {
 						java.util.List<String> joinslist = null;
 						if(joins != null) joinslist = java.util.Arrays.asList(joins);
 						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session, joinslist);
-						for (int i = 0; i < objs.size(); i++) {
-							final Object obj = objs.get(i);
+						for (final Object obj : objs) {
 							if (obj instanceof org.hibernate.proxy.HibernateProxy) {
-								org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy) obj)
-										.getHibernateLazyInitializer();
+								org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer();
 								if (init.isUninitialized()) {
 									init.initialize();
 								}
@@ -206,8 +204,63 @@ public class QueryOptimization {
 					} catch (Exception ex) {
 						org.webdsl.logging.Logger.error("EXCEPTION",ex);
 					}
+				} else if(clearOnEmptyBatch && ids.size() == 0) {
+					objs.clear();
 				}
 				return ids.size();
+			}
+		} else {
+			objs.clear(); // Might as well clear the batch if the session is not active
+		}
+		return 0;
+	}
+
+	public static int prefetchEntities(org.hibernate.Session hibSession, String entityName, java.util.List<? extends org.webdsl.WebDSLEntity>[] batches, boolean[] clearOnEmptyBatch) {
+		if (hibSession instanceof org.hibernate.engine.SessionImplementor && hibSession.getTransaction().isActive()) { // A transaction needs to be active or getFactory() will throw an HibernateException
+			org.hibernate.engine.SessionImplementor session = (org.hibernate.engine.SessionImplementor) hibSession;
+			org.hibernate.engine.SessionFactoryImplementor sessionFactory = session.getFactory();
+			org.hibernate.persister.entity.EntityPersister persister = sessionFactory.getEntityPersister(entityName);
+			if (persister instanceof utils.SingleTableEntityPersister) {
+				java.util.Set<java.io.Serializable> ids = new java.util.HashSet<java.io.Serializable>();
+				for(int b = 0; b < batches.length; b++) {
+					java.util.List<? extends org.webdsl.WebDSLEntity> objs = batches[b];
+					boolean emptyBatch = true;
+					for (int i = 0; i < objs.size(); i++) {
+						final Object obj = objs.get(i);
+						if (obj instanceof org.hibernate.proxy.HibernateProxy) {
+							org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer();
+							if (init.isUninitialized()) {
+								emptyBatch = false;
+								ids.add(init.getIdentifier());
+							}
+						}
+					}
+					if(emptyBatch && clearOnEmptyBatch[b]) {
+						objs.clear();
+					}
+				}
+				if (ids.size() > 1) {
+					try {
+						((utils.SingleTableEntityPersister) persister).loadBatch(ids.toArray(new java.io.Serializable[ids.size()]), session, null);
+						for(java.util.List<? extends org.webdsl.WebDSLEntity> objs : batches) {
+							for(Object obj : objs) {
+								if (obj instanceof org.hibernate.proxy.HibernateProxy) {
+									org.hibernate.proxy.LazyInitializer init = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer();
+									if (init.isUninitialized()) {
+										init.initialize();
+									}
+								}
+							}
+						}
+					} catch (Exception ex) {
+						org.webdsl.logging.Logger.error("EXCEPTION",ex);
+					}
+				}
+				return ids.size();
+			}
+		} else { // Might as well clear the batches if the session is not active
+			for(java.util.List<? extends org.webdsl.WebDSLEntity> objs : batches) {
+				objs.clear();
 			}
 		}
 		return 0;

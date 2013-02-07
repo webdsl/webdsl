@@ -118,8 +118,7 @@ rules // iteration
         ; e_joins := <get-direct-fetches> prefetch
         ; (bstm_enable*, bstm_disable*) := <try-get-prefetch-where; try-get-query-condition-filter; (if-optimization-enabled,if-optimization-enabled)> prefetch
         ; e_expr := <is-guided-batching-joins < !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins) ]| + !expr|[x_expr]|>
-        ; bstm_early* := <is-guided-batching < (get-early-batch-fetches(|x_list, srt) <+ ![]) + ![]> prefetch
-        ; bstm_batch* := <get-batch-fetches(|x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
+        ; (bstm_early*, bstm_batch*) := <get-for-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
           then result :=  [] 
           else result :=  bstm* |[
@@ -132,7 +131,29 @@ rules // iteration
                               bstm*
                             ]|
                           ]| end
-              
+
+  get-for-loop-prefetch(|e_LocalHibSession, x_list, srt) :
+    prefetch{anno*} -> (bstm_early*, bstm_batch*)
+    where
+      if <fetch-elem(?PrefetchForName(x_name))> anno* then
+        bstm_early* := bstm* |[ x_name(x_list, true); ]|
+        ; bstm_batch* := bstm* |[ x_name(x_list, false); ]|
+      else
+		    bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
+		    ; bstm_batch* := <get-batch-fetches(|e_LocalHibSession, x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
+      end
+
+  get-for-all-loop-prefetch(|e_LocalHibSession, x_list, srt) :
+    prefetch{anno*} -> (bstm_early*, bstm_batch*)
+    where 
+      if <fetch-elem(?PrefetchForName(x_name))> anno* then
+        bstm_early* := bstm* |[ x_name(x_list, true); ]|
+        ; bstm_batch* := bstm* |[ x_name(x_list, false); ]|
+      else
+		    bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
+		    ; bstm_batch* := <(is-guided-batching-no-joins < get-batch-fetches(|e_LocalHibSession, x_list, srt) + get-generic-batch-fetches(|e_LocalHibSession, x_list, srt)) <+ ![]> prefetch
+      end
+
   control-flow-for(s|) :
     fa@ForAll(x, srt, fltr, elems, sep) -> result
     with  bstm*   := <s;concat-with-sublists> elems
@@ -140,8 +161,7 @@ rules // iteration
         ; x_list := <newname> "list"
         ; prefetch := <get-prefetch-for(|x)> elems
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr, prefetch)
-        ; bstm_early* := <is-guided-batching < (get-early-batch-fetches(|x_list, srt) <+ ![]) + ![]> prefetch
-        ; bstm_batch* := <(is-guided-batching-no-joins < get-batch-fetches(|x_list, srt) + get-generic-batch-fetches(|x_list, srt)) <+ ![]> prefetch
+        ; (bstm_early*, bstm_batch*) := <get-for-all-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
           then result :=  [] 
           else result :=  bstm* |[ 

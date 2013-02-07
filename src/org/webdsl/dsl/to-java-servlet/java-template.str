@@ -67,6 +67,8 @@ rules
           public void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems) {
           	bstm_prefetch*
           }
+          
+          ~*cbds_prefetch*
 
           public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv){
             loadTemplateMap(null,staticEnv);
@@ -216,6 +218,7 @@ rules
           ; bstm_sc* := []
           end
        ; (bstm_localtplredefs*,bstm_refarginlocaldef*) := <local-defined-templates-to-hashmap> elem*
+       ; cbds_prefetch* := <collect(prefetch-for-to-function); flatten-list> elem*
        ; bstm_arguments* := <formal-arguments-to-store-statements> farg*
        ; bstm_prefetchargs* := <filter(formal-arguments-to-query-optimizations(|elem*)); flatten-list; if-optimization-enabled> farg*
        ; bstm_prefetch* := <add-indices; filter(prefetch-function-for-formal-argument(|elem*)); flatten-list; if-optimization-enabled> farg*
@@ -242,9 +245,34 @@ rules
                            with  z_value := <concat-strings> [z,".class"]
                          \})> 
                          [pagecallrefargclass*,ajaxcallrefargclass*]
-       
+
+  prefetch-for-to-function =
+    ?For(x, srt, _, _, b, _)
+    ; <prefetch-for-to-function-common(get-for-loop-prefetch|x, srt)> b
+
+  prefetch-for-to-function =
+    ?ForAll(x, srt, _, b, _)
+    ; <prefetch-for-to-function-common(get-for-all-loop-prefetch|x, srt)> b
+
 rules
-  
+
+  prefetch-for-to-function-common(s|x, srt):
+    b -> [class-body-dec |[
+         public void x_fname(java.util.List<t> list, boolean early) {
+           if(early) {
+             bstm_early*
+           } else {
+             bstm_batch*
+           }
+         }
+       ]| | inner]
+    where pf@PrefetchFor(Var(x), _, _, _){anno*} := <get-prefetch-for(|x)> b
+    ; <fetch-elem(?PrefetchForName(x_fname))> anno*
+    with tmpanno* := <remove-all(?PrefetchForName(_))> anno*
+    ; (bstm_early*, bstm_batch*) := <s(|expr |[ hibSession ]|, "list", srt)> pf{tmpanno*}
+    ; t := <java-type> srt
+    ; inner := <collect(prefetch-for-to-function)> b
+
   local-defined-templates-to-hashmap :
     elem* -> (tplmap,refargmap)
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
@@ -327,4 +355,4 @@ rules
     ; x_ename := <java-type-name> esrt
     ; x_elems := <newname> "elems"
     ; prefetch := <get-prefetch-for(|x)> b
-    ; bstm_prefetch* := <get-batch-fetches(|x_elems, srt)> prefetch
+    ; bstm_prefetch* := <get-batch-fetches(|e_HibSession, x_elems, srt)> prefetch

@@ -97,6 +97,16 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 		java.util.List lst = loader.loadEntityBatch(session, batch, getIdentifierType(), null, associatedEntity, null, associatedPersister, LockOptions.NONE);
 		// We register the EntityUniqueKeys with the persistence context, so the we can look them up later
 		for(Object object : lst) {
+			if(!(object instanceof org.hibernate.proxy.HibernateProxy)) {
+				// Force proxy initialization
+				Serializable objectId = associatedPersister.getIdentifier(object, session);
+				org.hibernate.engine.EntityKey objectKey = new org.hibernate.engine.EntityKey( objectId, associatedPersister, entityMode );
+				Object objectProxy = context.getProxy(objectKey);
+				if(objectProxy instanceof org.hibernate.proxy.HibernateProxy) {
+					((org.hibernate.proxy.HibernateProxy)objectProxy).getHibernateLazyInitializer().getImplementation();
+				}
+			}
+
 			Object obj = associatedPersister.getPropertyValue(object, uniqueKeyPropertyName, entityMode);
 			if(obj instanceof org.hibernate.proxy.HibernateProxy) { // We have to get the actual implementation, because getIdentifier does not work on proxies 
 				obj = ((org.hibernate.proxy.HibernateProxy)obj).getHibernateLazyInitializer().getImplementation();
@@ -114,7 +124,7 @@ public class SingleTableEntityPersister extends org.hibernate.persister.entity.S
 			all.remove(id);
 		}
 		// All remaining identifiers have a null value for the lazy property.
-		// We need to initialize them directly, because we cannot register a euk for a null value.
+		// We need to initialize them directly, because we cannot register an euk for a null value.
 		// The PersistenceContext uses a Map to store objects by euk, and the get() method returning null means the context has no object with that euk
 		int propertyIndex = getEntityMetamodel().getPropertyIndex(propertyName);
 		for(Serializable id : all) {

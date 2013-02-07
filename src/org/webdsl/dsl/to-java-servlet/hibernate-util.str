@@ -211,9 +211,9 @@ rules
 
   get-direct-fetches-if-join-fetching = use-join-fetching < get-direct-fetches + !expr|[null]|
 
-  get-batch-fetches(|x_list, srt) =
+  get-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, templ, _, <get-prefetch-children>)
-    ; bstm_sub* := <build-sub-batches(|x_list, srt)>
+    ; bstm_sub* := <build-sub-batches(|e_LocalHibSession, x_list, srt)>
     ; bstm_templ* := <get-prefetch-for-template-at-root(|x_list, srt) <+ ![]> templ
     ; <if-optimization-enabled> bstm* |[ bstm_templ* bstm_sub* ]|
 
@@ -227,8 +227,8 @@ rules
     ; GenericSort(_, _) := srt
     ; elemsrt := <get-inner-most-batch-sort> srt
     ; t := <java-type> elemsrt
-    ; x_batchelem := <concat-strings; truncate-keep-right(|95); newname>[x_list, "Elem"] 
-    ; x_batch := <concat-strings; truncate-keep-right(|95); newname>[x_list, "ElemLst"]
+    ; x_batchelem := <newname> "elem" 
+    ; x_batch := <newname> "batch"
     ; bstm_decl := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
     ; bstm_add* := <loops-for-generic-batches(|x_batchelem, bstm* |[ x_batch.add(x_batchelem); ]|)> (x_list, srt)
     ; bstm_templ* := <get-prefetch-for-template(|x_batch)> templ
@@ -258,7 +258,7 @@ rules
                                             if(e_Cond && utils.QueryOptimization.isOptimizationEnabled()) {
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(e_expr);
-                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins);
+                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
                                               bstm_sub*
                                             }
                                           ]|
@@ -267,7 +267,7 @@ rules
     ; str := <java-type-name> fsrt
     ; x_list := <concat-strings; newname>[x, "Lst"]
     ; e_joins := <get-prefetch-children; get-direct-fetches> children
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_list, fsrt)> children
+    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, fsrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -286,7 +286,7 @@ rules
     where x := f
     ; t := <java-type> fsimplesrt
     ; x_list := <concat-strings; newname>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_list, fsimplesrt)> children
+    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, fsimplesrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -300,7 +300,7 @@ rules
                                             if(x != null) {
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(x);
-                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins);
+                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
                                               bstm_sub*
                                             }
                                           ]|
@@ -308,7 +308,7 @@ rules
     ; str := <java-type-name> srt
     ; e_joins := <get-prefetch-children; get-direct-fetches> tree
     ; x_list := <concat-strings; newname>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_list, srt)> tree
+    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, srt)> tree
 
   get-batch-fetches-single-simple(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm* |[
@@ -337,10 +337,10 @@ rules
     ; <fetch-elem(?Hint())> pwmod*
     ; <fetch-elem(?QueryConditionFilter(_, _, _))> pwanno*
 
-  get-early-batch-fetches(|x_list, srt) =
+  get-early-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; filter(get-fetch-early-subtree)
-    ; build-sub-batches(|x_list, srt)
+    ; build-sub-batches(|e_LocalHibSession, x_list, srt)
     ; if-optimization-enabled
 
   // This node is a prefetch-early node, so include
@@ -360,7 +360,7 @@ rules
     PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> bstm_addhints*
     where SimpleSort(x_class) := fsrt
     with v := Var(x_elem){TypeAnno(elemsrt)}
-    ; x_nextelem := <concat-strings; truncate-keep-right(|95); newname>[x_elem, "_", f]
+    ; x_nextelem := <newname> "elem"
     ; bstm* := <get-prefetch-children; map(build-prefetch-hint(|x_nextelem,fsrt))> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
@@ -404,10 +404,10 @@ rules
     ; x_fltr := <newname> "fltr"
     ; e_setparams := <foldr(!expr |[ x_fltr ]|, add-filter-param)> params
 
-  get-generic-batch-fetches(|x_list, srt) =
+  get-generic-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; (is-guided-batching-no-joins <+ filter(has-generic-batch-fetch))
-    ; build-sub-batches(|x_list, srt)
+    ; build-sub-batches(|e_LocalHibSession, x_list, srt)
     ; if-optimization-enabled
 
   has-generic-batch-fetch = where(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); is-generic-sort)
@@ -418,9 +418,6 @@ rules
     where not(<is-generic-sort> fsrt)
     ; newchildren := <get-prefetch-children; filter(has-generic-batch-fetch)> children
     ; not([] := newchildren)
-
-  build-sub-batches(|x_list, srt) :
-    [] -> []
 
   truncate-keep-right(|len) = where(!(<strlen>, len); not(gt))
 
@@ -448,21 +445,26 @@ rules
     ; x_elem := <newname>"innerlst"
     ; bstm_innerloop* := <loops-for-generic-batches(|x_batchelem, bstm_op*)> (x_elem, simplersort)
 
-  build-sub-batches(|x_list, srt) :
-    children -> bstm* |[
+  build-sub-batches(|e_LocalHibSession, x_list, srt) = build-sub-batches(|e_LocalHibSession, x_list, srt, []); Fst
+
+  build-sub-batches(|e_LocalHibSession, x_list, srt, allvars) :
+    [] -> ([], allvars, [])
+
+  build-sub-batches(|e_LocalHibSession, x_list, srt, allvars) :
+    children -> (bstm* |[
         bstm_batch*
         bstm_addloops*
         bstm_fetch*
         bstm_after2*
         bstm_final*
         bstm_subbatch*
-      ]|
+      ]|, newvars, bound)
     with elemsrt := <get-inner-most-batch-sort> srt
-    ; x_batchelem := <concat-strings; truncate-keep-right(|95); newname>[x_list, "Elem"]
-    ; tmp := <map(build-batch(|x_batchelem, elemsrt, x_list))> children
+    ; x_batchelem := <newname> "elem"
+    ; (tmp, newvars, bound) := <foldr(!([], allvars, [x_list]), build-batches-from-children(|e_LocalHibSession, x_batchelem, elemsrt, x_list)); (reverse, id, id)> children
     ; bstm_batch* :=    <map(?(<id>, _, _, _, _, _)); flatten-list> tmp
     ; bstm_addbatch* := <map(?(_, <id>, _, _, _, _))> tmp
-    ; bstm_fetch* :=    <map(?(_, _, <id>, _, _, _)); flatten-list> tmp
+    ; bstm_fetch* :=    <map(?(_, _, <id>, _, _, _)); flatten-list; combine-fetch-entities-of-same-entity-type> tmp
     ; bstm_after* :=    <map(?(_, _, _, <id>, _, _)); flatten-list> tmp
     ; bstm_final* :=    <map(?(_, _, _, _, <id>, _)); flatten-list> tmp
     ; bstm_subbatch* := <map(?(_, _, _, _, _, <id>)); flatten-list> tmp
@@ -492,6 +494,58 @@ rules
     stm_Expr -> bstm |[ if(e_JoinCond) stm_Expr ]|
     where e_JoinCond := <get-join-condition(|v)> cond
 
+  build-batches-from-children(|e_LocalHibSession, x_batchelem, elemsrt, x_list) :
+    (node, (tmp, allvars, bound)) -> ([res|tmp], newvars, newbound)
+    with (res, newvars, newbound) := <build-batch(|e_LocalHibSession, x_batchelem, elemsrt, x_list, allvars, bound)> node
+
+  get-variable-for-batch:
+    (t, prefix, allvars, boundvars) -> (bstm |[ t x_name = new x(); ]|, x_name, newallvars)
+    with x := <java-type-to-java-name> t
+    ; compatvars := <fetch-elem(?(t, prefix, <id>)) <+ ![]> allvars
+    where [] := <diff> (compatvars, boundvars) // all compatible variables are bound
+    ; x_name := <newname> prefix
+    ; newallvars := <remove-all(?(t, prefix, _)); ![(t, prefix, [x_name|compatvars])|<id>]> allvars
+
+  get-variable-for-batch:
+    (t, prefix, allvars, boundvars) -> (bstm |[ x_name.clear(); ]|, x_name, allvars)
+    with compatvars := <fetch-elem(?(t, prefix, <id>)) <+ ![]> allvars
+    where [x_name|_] := <diff> (compatvars, boundvars) // There is at least one compatible variable that is free
+
+  combine-fetch-entities-of-same-entity-type :
+    bstm_fetch* -> [other*, combinedcalls*] // combinedcalls* is deliberately placed after other*, because other* has lazy and collection batches, while combinedcalls* has regular ToOne batches. Batches in other* have already been checked for initialization, but batches in combinedcalls* are not. So entities fetched/initialized by other* will be automatically excluded from batches in combinedcalls* if combinedcalls* is executed after other*. So it further reduces duplicate fetching.
+    with partition(\stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch); ]| -> (e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch)\)
+    ; ?(fetchcalls*, other*)
+    ; combinedcalls* := <try-combine-fetch-entities-calls> fetchcalls*
+
+  try-combine-fetch-entities-calls :
+    [] -> []
+
+  try-combine-fetch-entities-calls :
+    [(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch) | rest] -> [stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch); ]| | newrest]
+    where not(expr|[null]| := e_joins)
+    with newrest := <try-combine-fetch-entities-calls> rest 
+
+  try-combine-fetch-entities-calls :
+    lst@[(e_LocalHibSession, e_str, _, expr|[null]|, _) | _] -> [stm_fetch|rest]
+    with (tocombine*, next) := <partition(try-combine-fetch-entities-calls-helper(|e_LocalHibSession, e_str))> lst
+    ; if [(e_batch, e_clearEmptyBatch)] := tocombine* then // if there is only once matching batch
+        stm_fetch := stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, null, e_clearEmptyBatch); ]|
+      else // else there are at least two batches to combine
+        (batches*, clearEmptyBatches*) := <unzip> tocombine*
+        ; e_batches := <expression-list-to-java-servlet(|type|[java.util.List]|)> batches*
+        ; e_clearEmptyBatches := <expression-list-to-java-servlet(|type|[boolean]|)> clearEmptyBatches*
+        ; stm_fetch := stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, (java.util.List<? extends org.webdsl.WebDSLEntity>[])e_batches, e_clearEmptyBatches); ]|
+      end
+      ; rest := <try-combine-fetch-entities-calls> next
+
+  expression-list-to-java-servlet(|t) :
+    lst -> e_arr
+    with x_type := <java-type-to-java-name> t
+    ; e_arr := <foldr(!expr |[ new x_type[] {} ]|, {?(e, expr |[ new x_type[] {e_array*} ]|); !expr |[ new x_type[] {e_array*,e} ]|})> lst
+
+  try-combine-fetch-entities-calls-helper(|e_LocalHibSession, e_str) :
+    (e_LocalHibSession, e_str, x_batch, expr|[null]|, e_clearEmptyBatch) -> (x_batch, e_clearEmptyBatch)
+
   /*
   elemsrt : The sort of x_elem
   decsrt : The subsort of elemsrt that declares f
@@ -499,14 +553,13 @@ rules
   fsrt : The sort of f, which can be a generic-sort
   */
     //fa@FieldAccess(c, _){anno*} -> (fa{anno*}, x_batch, t, bstm_batch, bstm_addbatch, bstm_fetch, [])
-  build-batch(|x_elem, elemsrt, x_list):
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> (bstm_batch, bstm_addbatch, bstm_fetch*, [], bstm_final*, bstm_sub*)
+  build-batch(|e_LocalHibSession, x_elem, elemsrt, x_list, allvars, bound*):
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> ((bstm_batch, bstm_addbatch, bstm_fetch*, [], bstm_final*, bstm_sub*), newvars2, [x_batch|[newbound*,bound*]])
     where not(<fetch-elem(?IsLazyFetch())> anno*)
     ; SimpleSort(x_class) := fsrt
     with t := <java-type> fsrt
     ; str := <java-type-name> fsrt
-    ; x_batch := <concat-strings; truncate-keep-right(|95); newname>[x_list, "_", f]
-    ; bstm_batch := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
+    ; (bstm_batch, x_batch, newvars) := <get-variable-for-batch> (type |[ java.util.ArrayList<t> ]|, "batch", allvars, bound*) // Not using a HashSet, because executing hashCode or equals could lazy fetch entities, ideally duplicates should be removed, but they are not
     ; e_joins := <get-prefetch-children; get-direct-fetches-if-join-fetching> children
     //; x_get := <concat-strings>["get", <capitalize-string> f]
     ; v := Var(x_elem){TypeAnno(elemsrt)}
@@ -518,24 +571,26 @@ rules
         e_expr := <expression-to-java-servlet> FieldAccess(v, f)
         ; bstm_addbatch := <try(add-condition-checks-to-prefetch(|cond, v))> bstm |[ x_batch.add(e_expr); ]|
       end
-    ; bstm_fetch* := <try(clear-list-for-empty-batch(|mod*, x_batch))> stm |[ utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_batch, e_joins); ]|
+    ; e_clearEmptyBatch := <is-no-empty-batch < !expr|[true]| + !expr|[false]|> mod*
+    ; bstm_fetch* := stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, "~str", x_batch, e_joins, e_clearEmptyBatch); ]|
     ; bstm_final* := <get-prefetch-for-template(|x_batch) <+ ![]> templ
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_batch, fsrt)> children
+    ; (bstm_sub*, newvars2, newbound*) := <get-prefetch-children; build-sub-batches(|e_LocalHibSession, x_batch, fsrt, newvars)> children
 
-  build-batch(|x_elem, elemsrt, x_list):
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> (bstm_batch, bstm_addbatch, bstm_fetch*, bstm_after*, bstm_final*, bstm_sub*)
+  build-batch(|e_LocalHibSession, x_elem, elemsrt, x_list, allvars, bound*):
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> ((bstm_batch, bstm_addbatch, bstm_fetch*, bstm_after*, bstm_final*, bstm_sub*), newvars3, [x_ownerids|[newbound*,newbound2*]])
     where <fetch-elem(?IsLazyFetch())> anno*
     ; SimpleSort(x_class) := fsrt
     with t := <java-type> fsrt
     ; str := <java-type-name> decsrt
     ; field := <concat-strings>["_", f]
     ; x_f := <capitalize-string> f
-    ; x_batch := <concat-strings; truncate-keep-right(|95); newname>[x_list, "_", f]
-    ; x_ownerids := <concat-strings; truncate-keep-right(|95); newname> [x_list, "_", f, "OwnerIds"]
+    ; (bstm_batch1, x_batch, newvars) := <get-variable-for-batch> (type |[ java.util.HashSet<t> ]|, "batch", allvars, bound*) // Using an HashSet instead of an ArrayList, because elements that are added are already fetched, so hashCode and equals can be executed without lazy fetching, removing duplicates which are not interesting for batch generation
+    ; newbound* := [x_batch|bound*]
+    ; (bstm_batch2, x_ownerids, newvars2) := <get-variable-for-batch> (type |[ java.util.HashSet<java.io.Serializable> ]|, "ownerIds", newvars, newbound*)
     ; e_joins := <get-prefetch-children; get-direct-fetches-if-join-fetching> children
     ; bstm_batch := bstm* |[
-          java.util.Set<java.io.Serializable> x_ownerids = new java.util.HashSet<java.io.Serializable>();
-          java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>();
+          bstm_batch1
+          bstm_batch2
         ]|
     ; v := Var(x_elem){TypeAnno(elemsrt)}
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
@@ -550,20 +605,21 @@ rules
         ; bstm_addbatch := bstm |[ if (e_Cond) x_ownerids.add(x_elem.getId()); ]|
         ; bstm_after* := <try(add-condition-checks-to-prefetch(|cond, v));try(add-no-empty-batch-check-list(|mod*, x_ownerids))> bstm* |[ x_batch.add(e_expr); ]|
       end
-    ; bstm_fetch* := bstm* |[ utils.QueryOptimization.prefetchLazyProperties(e_HibSession, "~str", "~field", x_ownerids, e_joins); ]|
+    ; bstm_fetch* := bstm* |[ utils.QueryOptimization.prefetchLazyProperties(e_LocalHibSession, "~str", "~field", x_ownerids, e_joins); ]|
     ; bstm_final* := <get-prefetch-for-template(|x_batch) <+ ![]> templ
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_batch, fsrt)> children
+    ; (bstm_sub*, newvars3, newbound2*) := <get-prefetch-children; build-sub-batches(|e_LocalHibSession, x_batch, fsrt, newvars2)> children
 
-  build-batch(|x_elem, elemsrt, x_list):
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> (bstm_batch, bstm_addbatch, bstm_fetch*, bstm_after*, bstm_disable*, bstm_sub*)
+  build-batch(|e_LocalHibSession, x_elem, elemsrt, x_list, allvars, bound*):
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> ((bstm_batch, bstm_addbatch, bstm_fetch*, bstm_after*, bstm_disable*, bstm_sub*), newvars3, [x_ownerids|[newbound*,newbound2*]])
     where GenericSort(_, [fsimplesrt]) := fsrt
     with t_Owner := <java-type> decsrt
     ; t := <java-type> fsimplesrt
-    ; x_batch := <concat-strings; truncate-keep-right(|95); newname>[x_list, "_", f]
-    ; x_owner := <concat-strings; truncate-keep-right(|95); newname>[x_list, "_", f, "Owner"]
+    ; (bstm_batch1, x_batch, newvars) := <get-variable-for-batch> (type |[ java.util.HashSet<t> ]|, "batch", allvars, bound*) // Using an HashSet instead of an ArrayList, because elements that are added are already fetched, so hashCode and equals can be executed without lazy fetching, removing duplicates which are not interesting for batch generation
+    ; newbound* := [x_batch|bound*]
+    ; (bstm_batch2, x_ownerids, newvars2) := <get-variable-for-batch> (type |[ java.util.HashSet<java.io.Serializable> ]|, "ownerIds", newvars, newbound*)
     ; e_joins := <get-prefetch-children; get-direct-fetches-if-join-fetching> children
-    ; bstm_batch := bstm* |[ java.util.HashSet<java.io.Serializable> x_owner = new java.util.HashSet<java.io.Serializable>();
-                            java.util.HashSet<t> x_batch = new java.util.HashSet<t>();
+    ; bstm_batch := bstm* |[ bstm_batch1
+                             bstm_batch2
                           ]|
     ; strRole := <concat-strings>[<java-type-name> decsrt, "._", f]
     ; v := Var(x_elem){TypeAnno(elemsrt)}
@@ -572,24 +628,24 @@ rules
         e_c := <expression-to-java-servlet> Cast(v, simplecastsrt)
         ; e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ x_elem.instanceOf("~x_castclass") ]|
-        ; bstm_addbatch := bstm |[ if (e_Cond && e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized()) x_owner.add(e_c.getId()); ]|
-        ; bstm_after* := <try(add-no-empty-batch-check-list(|mod*, x_owner))> bstm* |[ if (e_Cond) x_batch.addAll(e_expr); ]|
+        ; bstm_addbatch := bstm |[ if (e_Cond && e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized()) x_ownerids.add(e_c.getId()); ]|
+        ; bstm_after* := <try(add-no-empty-batch-check-list(|mod*, x_ownerids))> bstm* |[ if (e_Cond) x_batch.addAll(e_expr); ]|
       else
         e_expr := <expression-to-java-servlet> FieldAccess(v, f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ e_expr instanceof org.hibernate.collection.PersistentCollection && !((org.hibernate.collection.PersistentCollection)e_expr).wasInitialized() ]|
-        ; bstm_addbatch := bstm |[ if(e_Cond) x_owner.add(x_elem.getId()); ]|
-        //; e_Cond2 := <add-conditions-to-prefetch(|cond, v)> expr |[ x_owner.size() > 0 ]|
+        ; bstm_addbatch := bstm |[ if(e_Cond) x_ownerids.add(x_elem.getId()); ]|
+        //; e_Cond2 := <add-conditions-to-prefetch(|cond, v)> expr |[ x_ownerids.size() > 0 ]|
         //; bstm_after* := bstm* |[ if(e_Cond2) x_batch.addAll(e_expr); ]|
-        ; bstm_after* := <try(add-condition-checks-to-prefetch(|cond, v)); try(add-no-empty-batch-check-list(|mod*, x_owner))> stm |[ x_batch.addAll(e_expr); ]|
+        ; bstm_after* := <try(add-condition-checks-to-prefetch(|cond, v)); try(add-no-empty-batch-check-list(|mod*, x_ownerids))> stm |[ x_batch.addAll(e_expr); ]|
       end
-    ; bstm_fetchtmp := bstm |[ utils.QueryOptimization.prefetchCollections(e_HibSession, "~strRole", x_owner, e_joins); ]|
+    ; bstm_fetchtmp := bstm |[ utils.QueryOptimization.prefetchCollections(e_LocalHibSession, "~strRole", x_ownerids, e_joins); ]|
     ; bstm_fetch* := bstm* |[
         bstm_enable*
         bstm_fetchtmp
       ]|
     ; bstm_templ* := <get-prefetch-for-template(|x_batch) <+ ![]> templ
     ; bstm_final* := [bstm_disable*,bstm_templ*]
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|x_batch, fsimplesrt)> children
+    ; (bstm_sub*, newvars3, newbound2*) := <get-prefetch-children; build-sub-batches(|e_LocalHibSession, x_batch, fsimplesrt, newvars2)> children
 
   add-no-empty-batch-check-list(|mod*, x_list) :
     bstm* |[ if(e_Cond) stm_Expr ]| -> bstm* |[ if(e_Cond && x_list.size() > 0) stm_Expr ]|
@@ -597,11 +653,6 @@ rules
 
   add-no-empty-batch-check-list(|mod*, x_list) :
     stm@stm |[ e_Expr; ]| -> bstm* |[ if(x_list.size() > 0) e_Expr; ]|
-    where not(stm |[ if(e_Cond) e_SomeExpr; ]| := stm)
-    ; <is-no-empty-batch> mod*
-
-  clear-list-for-empty-batch(|mod*, x_list) :
-    stm@stm |[ e_Expr; ]| -> bstm* |[ if(e_Expr == 0) x_list.clear(); ]|
     where not(stm |[ if(e_Cond) e_SomeExpr; ]| := stm)
     ; <is-no-empty-batch> mod*
 
