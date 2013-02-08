@@ -7,7 +7,7 @@ imports
   libwebdsl-front
 
 signature constructors
-  
+
   EntityOfProperty : Term -> Term
 
 rules
@@ -29,17 +29,7 @@ rules
     ; all-keys-EntDecl; remove-all(EntityDeclaredTwice)
     ; filter(constraint-error-global-nondouble-entities; fatal-err(|"INTERNAL ERROR: Rule should fail"))
     ; fail
-  
-  constraint-error-data =
-    (?ent@Entity(x_id, _, entbodydecs) <+ ?ent@EntityNoSuper(x_id, entbodydecs) <+ ?ent@SessionEntity(x_id, entbodydecs))
-    ; names := <map(get-property-name)> entbodydecs
-    ; <filter(try(check-with-procedures(|ent)))> names
-    ; fail
 
-  check-with-procedures(|ent) : 
-    name -> <add-error(|["Property name and procedure name coincide: ", name])> ent
-    where <IsProcedure> name
-    
   constraint-error-data :
     Entity(x_class, s, _) -> <add-error(|["Super entity ", <pp-webdsl> s, " for ", x_class, " does not exist."])>
     where not(<typecheck-supertype> s)
@@ -63,11 +53,11 @@ rules
     ; <add-error(|["A sub-entity is only cached if it inherits from a cached entity."])> x_id
 
   constraint-error-data =
-	?Property(name, k, srt, annos)
-	; where(
-	  	<fetch(?SimpleAnno("cache"))> annos
-	  	; <not(?GenericSort(_, [SimpleSort(<check-is-cached-entity(|[])>)]))> srt
-	  )
+    ?Property(name, k, srt, annos)
+    ; where(
+        <fetch(?SimpleAnno("cache"))> annos
+        ; <not(?GenericSort(_, [SimpleSort(<check-is-cached-entity(|[])>)]))> srt
+      )
     ; add-error(|["The cache annotation is only allowed on collection properties with elements of a cached entity."])
 
   constraint-error-data :
@@ -86,7 +76,7 @@ rules
     <+ ?DerivedPropertyNoAnno(x, propkind, srt, _) )
     ; where(
            check-no-null-attribute(|x, srt)          // check for wrong attribute types
-        <+ check-no-void-attribute(|x, srt) 
+        <+ check-no-void-attribute(|x, srt)
         <+ check-no-ref-type(|x, srt)
         <+ check-simple-propkind(|propkind, srt)    // check for incompatible propkinds, such as :: Set<User> (which should be -> Set<User>)
         <+ check-complex-propkind(|propkind, srt)
@@ -94,17 +84,17 @@ rules
         <+ check-forbidden-property(|x)
       )
     ; fail
-      
+
   check-builtin-property(|x): prop -> <add-error(|["Cannot override the builtin property '",x,"'"])>
     where <?"id" <+ ?"version" <+ ?"created" <+ ?"modified"> x
-    
+
   check-forbidden-property(|x): prop -> <add-error(|["Cannot use the reserved property name '",x,"'"])>
     where <?"class"> x
-  
+
   check-no-null-attribute(|x, srt) :
     _ -> <add-error(|["Attribute type Null is not allowed in attribute ", <pp-webdsl> x])>
     where srt := SimpleSort("Null")
-    
+
    check-no-ref-type(|x, srt) :
     _ -> <add-error(|["Reference type is not allowed as type in attribute ", <pp-webdsl> x])>
     where <?RefSort(_)>srt
@@ -112,7 +102,7 @@ rules
   check-no-void-attribute(|x, srt) :
     _ -> <add-error(|["Attribute type Void is not allowed in attribute ", <pp-webdsl> x])>
     where srt := SimpleSort("Void")
-    
+
   check-simple-propkind(|propkind, srt) :
     _ -> <add-error(|["Expected: Simple type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
@@ -124,27 +114,27 @@ rules
     where <is-webdsl-type> srt
     where <?Ref() <+ ?Comp()> propkind
         ; <is-simple-sort> srt
-    
+
   check-complex-propkind(|propkind, srt) :
     _ -> <add-error(|["Expected: collection of Entity types. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where <?GenericSort(_, [x])> srt
         ; <is-simple-sort> x
-      
+
 /*  constraint-error-data =
     (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
 
   check-propkind-simple :
     srt -> <add-error(|["Expecting simple type, encountered ", <pp-type> srt])>
     where not(<is-simple-type> srt)
-*/    
+*/
 
 rules //check for illegal entity names; built-ins are reserved
 
   constraint-error-data =
-    (  ?Entity(x, _, _) 
-    <+ ?EntityNoSuper(x, _) 
-    <+ ?SessionEntity(<capitalize-string;?x>, _)  
+    (  ?Entity(x, _, _)
+    <+ ?EntityNoSuper(x, _)
+    <+ ?SessionEntity(<capitalize-string;?x>, _)
     )
     ; where (reserved-type-constraint-error(|x))
 
@@ -154,9 +144,9 @@ rules //check for illegal entity names; built-ins are reserved
        <+ <reserved-entity-name> entname
 
 rules // check if entityname starts with a capital
-	
-	constraint-error-data =
-    (  ?Entity(x, _, _) 
+
+  constraint-error-data =
+    (  ?Entity(x, _, _)
     <+ ?EntityNoSuper(x, _)
     )
     ; where (entity-start-with-lowercase-error(|x))
@@ -166,45 +156,44 @@ rules // check if entityname starts with a capital
     where <explode-string; Hd; is-lower> entname
 
 rules //assignment to derived property is not allowed
-  
+
   constraint-error:
     Assignment(FieldAccess(e1,prop),e2) -> <add-error(|["Assignment to derived property is not allowed."])>
     where  SimpleSort(x) := <type-of> e1
         ;  <is-derived-property> (x,<strip-annos> prop)
-  
+
   constraint-error:
     Assignment(Var(prop), e2) -> <add-error(|["Assignment to derived property is not allowed."])>
     where x := <IsEntPropGetEntName> prop
         ; <is-derived-property> (x,<strip-annos> prop)
-  
+
   constraint-error-templatecall(|p,arg*) :
     _ -> <add-error(|["Derived property is not allowed in 'input'."])>
     where "input" := p
         ; FieldAccess(e1,prop) := <Hd> arg*
         ; SimpleSort(x) := <type-of> e1
         ; <is-derived-property> (x,<strip-annos> prop)
-  
+
   constraint-error:
     ObjectCreation(SimpleSort(x_class), objectpropassign*) -> <fail>
-    where <map(try(constraint-error-object-prop-derived(|x_class)))> objectpropassign* 
-    
+    where <map(try(constraint-error-object-prop-derived(|x_class)))> objectpropassign*
+
   constraint-error-object-prop-derived(|x_class):
     ObjectPropertyAssignment(prop,_) -> <add-error(|["Assignment to derived property is not allowed."])>
     where <is-derived-property> (x_class,<strip-annos> prop)
 
 rules //subclassing the entity itself
-  
+
   constraint-error =
     get-entity-class-name
   ; ?x_class
   ; <check-entity-extends-itself(|x_class)> <Extends> x_class
-    
-  check-entity-extends-itself(|x_class):  
+
+  check-entity-extends-itself(|x_class):
     x -> <add-error(|["Entity may not inherit from itself."])> x_class
     where <?x> x_class
-    
-  check-entity-extends-itself(|x_class):  
+
+  check-entity-extends-itself(|x_class):
     x -> <check-entity-extends-itself(|x_class)> <Extends> x
     where not(<?x> x_class)
     where not(<?x> "Entity") // in case the application contains an incorrect 'entity Entity' (catched by another check, but shouldn't cause this to loop)
-            
