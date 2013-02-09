@@ -180,15 +180,21 @@ public abstract class AbstractPageServlet{
             //        -> always results in a redirect, no further action necessary here
           }
         }
-        ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
 
-        if( isTransactionAborted() || ThreadLocalPage.get().isRollback() ){
-          hibSession.getTransaction().rollback();
+        if( isTransactionAborted() || isRollback() ){
+          try{
+            hibSession.getTransaction().rollback();
+          }
+          catch (org.hibernate.SessionException e){
+            if(!e.getMessage().equals("Session is closed!")){ // closed session is not an issue when rolling back
+              throw e;
+            }
+          }
         }
         else {
-          addPrincipalToRequestLog(rle);
-
+          ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
           storeSessionEntities();
+          addPrincipalToRequestLog(rle);
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(hibSession);
           }
@@ -197,10 +203,10 @@ public abstract class AbstractPageServlet{
         }
         ThreadLocalOut.popChecked(out);
       }
-      catch (Exception ex) {
+      catch (Exception e) {
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
         org.webdsl.logging.Logger.error("exception occured while handling request URL: "+url);
-        org.webdsl.logging.Logger.error("exception message: "+ex.getMessage(), ex);
+        org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
         hibSession.getTransaction().rollback();
         throw new RuntimeException("serve page request failed, requested URL: "+url);
       }

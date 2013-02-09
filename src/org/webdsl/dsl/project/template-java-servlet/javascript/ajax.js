@@ -2,7 +2,7 @@
 function ajax_post_process(node) {
   //script tags, such as for datepicker init, are not evaluated when inserted with ajax, this is a workaround that explicitly runs the script contents
   var inner = node.innerHTML;
-  if(typeof inner !== 'string'){ // innerHTML can be just a string instead of DOM element, which would break $(inner)
+  if(inner.indexOf("<script") >= 0){ // innerHTML can be just a string instead of DOM element, which would break $(inner)
     var reponse = $(inner);
     var reponseScript = reponse.filter("script");
     $.each(reponseScript, function(idx, val) { eval(val.text); } );
