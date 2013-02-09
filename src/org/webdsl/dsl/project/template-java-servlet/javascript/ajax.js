@@ -1,14 +1,17 @@
 
 function ajax_post_process(node) {
   //script tags, such as for datepicker init, are not evaluated when inserted with ajax, this is a workaround that explicitly runs the script contents
-  var reponse = $(node.innerHTML);
-  var reponseScript = reponse.filter("script");
-  $.each(reponseScript, function(idx, val) { eval(val.text); } );
-} 
+  var inner = node.innerHTML;
+  if(typeof inner !== 'string'){ // innerHTML can be just a string instead of DOM element, which would break $(inner)
+    var reponse = $(inner);
+    var reponseScript = reponse.filter("script");
+    $.each(reponseScript, function(idx, val) { eval(val.text); } );
+  }
+}
 
 function formToJSON(formObj) {
   var request = "{";
-  for (var i = 0; i < formObj.length; i++) 
+  for (var i = 0; i < formObj.length; i++)
     if (formObj.elements[i].name != "")
     {
       if (formObj.elements[i].type=="select-multiple")
@@ -31,16 +34,16 @@ function formToJSON(formObj) {
 
 function encodePost(string)
 {
-    if (string == undefined) 
+    if (string == undefined)
       return "";
     return escape(Utf8.encode(string)).replace(/\+/g,"%2B"); // + is not being encoded, but will be incorrectly interpreted as a space
- // return escape(encodeURI(string).replace(/%20/g,"+"));  //stupid replace because of difference between urlencode, en post encoding (see http://www.devpro.it/examples/php_js_escaping.php), 
+ // return escape(encodeURI(string).replace(/%20/g,"+"));  //stupid replace because of difference between urlencode, en post encoding (see http://www.devpro.it/examples/php_js_escaping.php),
                                                         //using regexp to replaceAll
 }
 
 function formToPost(formObj) {
   var request = "";
-  for (var i = 0; i < formObj.length; i++) 
+  for (var i = 0; i < formObj.length; i++)
     if (formObj.elements != undefined && formObj.elements[i] != undefined && formObj.elements[i].name != "")
     {
       if (formObj.elements[i].type=="select-multiple")
@@ -63,7 +66,7 @@ function formToPost(formObj) {
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
       }
       //exclude submit/button
-      else if (formObj.elements[i].nodeName.toLowerCase() == "input" 
+      else if (formObj.elements[i].nodeName.toLowerCase() == "input"
            && (formObj.elements[i].type=="submit" || formObj.elements[i].type=="button")){}
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
@@ -78,11 +81,11 @@ function clickFirstButton(formObj) {
     {
       if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="submit"){
         return true; //just let the normal form submit proceed
-      } 
+      }
       if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type=="button"){
         formObj.elements[i].click();
         return false;
-      } 
+      }
     }
   }
   return false;
@@ -105,11 +108,11 @@ function findEnclosingPlaceholder(thisobject){
     while(current != null && result == null) {
       if (current.className && current.className.indexOf("webdsl-placeholder") != -1) {
           result = current;
-      } 
+      }
       else{
           current = current.parentNode;
       }
-    }  
+    }
     return result;
 }
 
@@ -123,21 +126,21 @@ function findElementById(thisobject, id)
   result = null;
   foundscope = false;
   while(current != null && !foundscope && result == null) {
-    //while going up in the tree, found the id. 
-    if (current.id != undefined && current.id == id) { 
+    //while going up in the tree, found the id.
+    if (current.id != undefined && current.id == id) {
       result = current;
     }
     //found the scope boundary of this template, search inward
     else if (current.className && current.className.indexOf("scopediv") != -1) {
       foundscope = true;
-      if (id == "this") 
+      if (id == "this")
         result = current;
       else
         result = findTopDown(current, id);
-    } 
+    }
     current = current.parentNode;
-  }  	
-  
+  }
+
   //nothing found, search upwards, to the closest enclosing node with the proper id
   //useful in recursion
   if (result == null) {
@@ -148,14 +151,14 @@ function findElementById(thisobject, id)
         return current;
     }
    }
-  
+
   //nothing found, search in the whole document
-  if (result == null) 
+  if (result == null)
     result = document.getElementById(id);
- 
+
   if (result == null)
     if(show_webdsl_debug){ alert("Object with id '"+id+"' does not exist in the document!"); }
-      
+
   return result;
 }
 
@@ -180,15 +183,15 @@ function findTopDown(element, id)
 function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback)
 {
   if(loadfeedback){ loadingimage = startLoading(thisobject); }
-  serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
+  serverInvokeCommon(template, action, jsonparams, thisform, thisobject,
     function()
     {
       if (this.readyState == 4){
         if (this.status == 200) {
-          clientExecute(this.responseText, thisobject);        
+          clientExecute(this.responseText, thisobject);
         }
         else if(this.status != 200) {
-          notify('Invalid return of server: '+this.status); 
+          notify('Invalid return of server: '+this.status);
         }
         if(loadfeedback){ stopLoading(thisobject, loadingimage); }
         __requestcount--;
@@ -202,16 +205,16 @@ var __requestcount = 0;
 function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback)
 {
   req = newRequest();
-  req.open("POST", template, true); //chosen for always asynchronous (true), even for testing, to have tested system as close to real thing as possible, also synchronous/false doesn't seem to work with WebDriver currently. The downside is that tests with ajax calls need sleeps to wait for the response. 
+  req.open("POST", template, true); //chosen for always asynchronous (true), even for testing, to have tested system as close to real thing as possible, also synchronous/false doesn't seem to work with WebDriver currently. The downside is that tests with ajax calls need sleeps to wait for the response.
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-  req.setRequestHeader("charset", "UTF-8");  
+  req.setRequestHeader("charset", "UTF-8");
   //    http_request.setRequestHeader("Content-length", parameters.length);
   req.setRequestHeader("Connection", "close");
-  
+
   req.onreadystatechange = callback;
-  
+
   data = createData(action,jsonparams,thisform,thisobject);
-  
+
   __requestcount++;
   req.send(data);
 }
@@ -240,7 +243,7 @@ function createData(action,jsonparams,thisform,thisobject)
 {
   data = action+"=1&";
   data += "__ajax_runtime_request__=1&";
-  
+
   paramsdata = eval(jsonparams);
   if (paramsdata == undefined)
     if(show_webdsl_debug){ alert("invalid JSON page parameters in ajax action call: "+jsonparams); }
@@ -263,16 +266,16 @@ function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, 
 
   // This makes the IFRAME invisible to the user.
   iframe.style.display = "none";
- 
+
   //encode form data
   data = createData(action,jsonparams,thisform,thisobject);
- 
+
   // Point the IFRAME to the action invoke
-  iframe.src = template+"?action-call-with-get-request-type=1&"+data; 
-  
+  iframe.src = template+"?action-call-with-get-request-type=1&"+data;
+
   // Add the IFRAME to the page. This will trigger a request to the action now.
-  document.body.appendChild(iframe); 
-  
+  document.body.appendChild(iframe);
+
 }
 
 function clientExecute(jsoncode, thisobject)
@@ -291,12 +294,12 @@ function clientExecute(jsoncode, thisobject)
     else if (command.action == "clear")
       clear(command, thisobject);
     else if (command.action == "visibility")
-      changevisibility(command, thisobject);        
+      changevisibility(command, thisobject);
     else if (command.action == "relocate")
       relocate(command);
     else if (command.action == "restyle")
       restyle(command, thisobject);
-    else if (command.action == "refresh") 
+    else if (command.action == "refresh")
       location.reload(true);
     //used for displaying validation messages
     else if (command.action == "replaceall") {
@@ -308,8 +311,8 @@ function clientExecute(jsoncode, thisobject)
     else if (command.action == "logsql") {
       appendLogSql(command);
     }
-    //other actions 
-    
+    //other actions
+
     else if (command.action != undefined) //last command might equal {}
       if(show_webdsl_debug){ alert("unknown client command: "+command.action); }
   }
@@ -331,7 +334,7 @@ function replace(command, thisobject)
 {
     var theNode;
     if(command.id.type == "enclosing-placeholder"){
-        theNode = findEnclosingPlaceholder(thisobject); 
+        theNode = findEnclosingPlaceholder(thisobject);
     }
     else{
         theNode = findElementById(thisobject, command.id);
@@ -340,13 +343,13 @@ function replace(command, thisobject)
       theNode.innerHTML = command.value;
     else //this has other semantics
     {
-      var newElem = document.createElement("tmp"); 
+      var newElem = document.createElement("tmp");
       newElem.innerHTML = command.value;
       theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    
+
     ajax_post_process(theNode);
 }
 
@@ -357,13 +360,13 @@ function append(command, thisobject)
       theNode.innerHTML += command.value;
     else //this has other semantics
     {
-      var newElem = document.createElement("tmp"); 
+      var newElem = document.createElement("tmp");
       newElem.innerHTML = command.value;
       theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
       //note that this might break with no template based replacements
       theNode = newElem.childNodes[0];
     }
-    
+
     ajax_post_process(theNode);
 }
 
@@ -373,7 +376,7 @@ function clear(command, thisobject)
   while (theNode.hasChildNodes())
   {
     theNode.removeChild(theNode.firstChild);
-  }  
+  }
 }
 
 var cachedDisplays = new Object(  ); //stores the default display stiles
@@ -381,15 +384,15 @@ var cachedDisplays = new Object(  ); //stores the default display stiles
 function changevisibility(command, thisobject)
 {
     var theNode = findElementById(thisobject, command.id);
-    
+
     if (command.value == "toggle")
     {
       if (theNode.style.display == "none")
         command.value = "show";
       else
         command.value = "hide";
-    }       
-    
+    }
+
     if (command.value == "hide" && theNode.style.display != "none")
     {
       cachedDisplays[command.id] = theNode.style.display; //cache the style visibility
@@ -401,7 +404,7 @@ function changevisibility(command, thisobject)
         theNode.style.display = cachedDisplays[command.id];
       else
         theNode.style.display = "block"; //default if cache not found (e.g. the object started as being invisible)
-    } 
+    }
 }
 
 function restyle(command, thisobject)
@@ -420,14 +423,14 @@ function loadCSS(url) {
     e.setAttribute("rel", "stylesheet")
     e.setAttribute("type", "text/css")
     e.setAttribute("href", url)
-    document.getElementsByTagName("head")[0].appendChild(e);  	
+    document.getElementsByTagName("head")[0].appendChild(e);
 }
 
 //UTF encoding: http://www.webtoolkit.info/javascript-utf8.html
 var Utf8 = {
   // public method for url encoding
   encode : function (string) {
-    if (string == null) 
+    if (string == null)
       return "";
     string = string.replace(/\r\n/g,"\n");
     var utftext = "";
@@ -481,7 +484,7 @@ var onkeyupdelay = function(){
     return function(callback){
         clearTimeout(timer);
         timer = setTimeout(callback, 250);
-    }  
+    }
 }();
 
 function appendLogSql(command) {
