@@ -37,8 +37,7 @@ public class HibernateTransactionHelper {
 //					System.out.println("commit");
 				}
 		} catch (Exception ex) {
-			System.out.println("exception occured: " + ex.getMessage());
-	        ex.printStackTrace();
+			org.webdsl.logging.Logger.error(ex);
 	        existingTransaction.rollback();
 		} finally {
 			Session newSession = ThreadLocalPage.get().openNewTransactionThroughGetCurrentSession();
@@ -55,7 +54,7 @@ public class HibernateTransactionHelper {
 		try{
 			existingTransaction.rollback();
 		} catch (Exception ex) {
-			System.out.println("exception occured: " + ex.getMessage());
+			org.webdsl.logging.Logger.error(ex);
 	        ex.printStackTrace();
 	        existingTransaction.rollback();
 		} finally {
