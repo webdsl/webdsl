@@ -1,16 +1,16 @@
 module ui
 
-  define no-span t(){
+  define t(){
     <table>
       elements()
     </table>
   }
-  define no-span r(){
+  define r(){
     <tr>
       elements()
     </tr>
   }
-  define no-span c(){
+  define c(){
     <td>
       elements()
     </td>
