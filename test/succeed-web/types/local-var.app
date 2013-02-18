@@ -3,10 +3,16 @@ application exampleapp
   define page root(){
     for(i:Int from 0 to 9){
       local var x := i
-      output(x)
+      output(x) " "
     }
   }
   
 test {
-	assert(false,  "NO TESTS AVAILABLE");
+  var d : WebDriver := FirefoxDriver();
+  d.get(navigate(root()));
+  var pagesource := d.getPageSource();
+  
+  for(i:Int from 0 to 9){
+    assert(pagesource.contains(""+i), "local variable is not rerendered with newly assigned values");
+  }
 }
