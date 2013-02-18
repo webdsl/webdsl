@@ -1,3 +1,6 @@
+//THIS TEST IS EXCLUDED FROM WEB-TEST HYDRA JOB, BECAUSE IT CONTAINS NO TEST
+//SEE generatenix.sh.in
+
 application v2
 
   imports data
