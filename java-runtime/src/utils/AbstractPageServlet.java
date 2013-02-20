@@ -180,10 +180,10 @@ public abstract class AbstractPageServlet{
             //        -> always results in a redirect, no further action necessary here
           }
         }
-
+        hibSession = utils.HibernateUtil.getCurrentSession();
         if( isTransactionAborted() || isRollback() ){
           try{
-            hibSession.getTransaction().rollback();
+        	  hibSession.getTransaction().rollback();
           }
           catch (org.hibernate.SessionException e){
             if(!e.getMessage().equals("Session is closed!")){ // closed session is not an issue when rolling back
@@ -196,7 +196,7 @@ public abstract class AbstractPageServlet{
           storeSessionEntities();
           addPrincipalToRequestLog(rle);
           if(!this.isAjaxRuntimeRequest()){
-            ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(hibSession);
+            ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
           hibSession.flush();
           hibSession.getTransaction().commit();
