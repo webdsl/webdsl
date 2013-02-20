@@ -397,12 +397,12 @@ public class HibernateLog {
 		sout.print("{ action: \"logsqljson\"");
 		if(!(source == null || source.isEmpty())) {
 			sout.print(", source: \"");
-			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(source));
+			sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(source));
 			sout.print("\"");
 		}
 		if(_error != null) {
 			sout.print(", error: \"");
-			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(_error));
+			sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(_error));
 			sout.print("\"}");
 			return;
 		}
@@ -458,7 +458,7 @@ public class HibernateLog {
 							if(!first) sout.print(",");
 							if(first) first = false;
 							sout.print("{type: 0,name:\"");
-							sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(colKey));
+							sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(colKey));
 							sout.print("\",count: ");
 							sout.print(_collectionCounter.get(colKey));
 							sout.print("}");
@@ -468,7 +468,7 @@ public class HibernateLog {
 						if(!first) sout.print(",");
 						if(first) first = false;
 						sout.print("{type: 1,name:\"");
-						sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entKey));
+						sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(entKey));
 						sout.print("\",count: ");
 						sout.print(_entityCounter.get(entKey));
 						if(_duplicateCounter.containsKey(entKey)) {
@@ -484,7 +484,7 @@ public class HibernateLog {
 					if(!first) sout.print(",");
 					if(first) first = false;
 					sout.print("{type: 2,name:\"");
-					sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(key));
+					sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(key));
 					sout.print("\",duplicates: ");
 					sout.print(_duplicateCounter.get(key));
 					sout.print("}");
@@ -512,7 +512,7 @@ public class HibernateLog {
 		catch(Exception ex) {
 			org.webdsl.logging.Logger.error("EXCEPTION",ex);
 			sout.print(", error: \"");
-			sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(ex.toString()));
+			sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(ex.toString()));
 		}
 		finally {
 			sout.print("}");
@@ -535,9 +535,9 @@ public class HibernateLog {
 			sout.print(entry.duplicates);
 		}
 		sout.print(", template: \"");
-		sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entry.template));
+		sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(entry.template));
 		sout.print("\", sql: \"");
-		sout.print(org.apache.commons.lang.StringEscapeUtils.escapeJavaScript(entry.getSQL()));
+		sout.print(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(entry.getSQL()));
 		sout.print("\"}");
 	}
 
