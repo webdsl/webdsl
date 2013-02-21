@@ -17,13 +17,14 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.HashMap;
 import java.util.Stack;
+import java.util.HashSet;
 
 public class HibernateLog {
 	protected List<HibernateLogEntry> _list = null;
 	protected Date _firstQueryStart = null;
 	protected HibernateLogEntry _lastQuery = null;
 	protected String _error = null;
-	protected List<String> _fetched = null;
+	protected HashSet<String> _fetched = null;
 	protected int _entities = 0;
 	protected int _duplicates = 0;
 	protected int _collections = 0;
@@ -116,7 +117,7 @@ public class HibernateLog {
         Stack<HibernateLogEntry> entries = new Stack<HibernateLogEntry>();
         HibernateLogEntry current = null;
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("([a-zA-Z0-9.]+)#([a-fA-F0-9-]+)");
-        _fetched = new ArrayList<String>();
+        _fetched = new HashSet<String>();
         _duplicates = 0;
         _duplicateCounter = new HashMap<String, Integer>();
         _entities = 0;

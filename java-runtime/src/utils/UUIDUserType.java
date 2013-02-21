@@ -24,6 +24,7 @@ public class UUIDUserType implements UserType, java.io.Serializable
 
 	private static transient final Logger bindLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicBinder.class );
 	private static transient final Logger extractLog = LoggerFactory.getLogger( org.hibernate.type.descriptor.sql.BasicExtractor.class );
+    private static transient final char[] digits = { '0' , '1' , '2' , '3' , '4' , '5' , '6' , '7' , '8' , '9' , 'a' , 'b' , 'c' , 'd' , 'e' , 'f' };
 
 	/*
 	 * (non-Javadoc)
@@ -157,22 +158,29 @@ public class UUIDUserType implements UserType, java.io.Serializable
 	}
 	
 	public static String persistUUIDString(UUID uuid){
-		StringBuffer sb = new StringBuffer(uuid.toString());
-		//remove hyphens
-		sb.deleteCharAt(23);
-		sb.deleteCharAt(18);
-		sb.deleteCharAt(13);
-		sb.deleteCharAt(8);
-		return sb.toString();
+		long msb = uuid.getMostSignificantBits();
+		long lsb = uuid.getLeastSignificantBits();
+		char[] s = new char[32];
+		for(int i = 15; i >= 0; i--) {
+			s[i] = UUIDUserType.digits[(int)(msb & 0xF)];
+			s[i + 16] = UUIDUserType.digits[(int)(lsb & 0xF)];
+			msb >>>= 4;
+			lsb >>>= 4;
+		}
+		return new String(s);
 	}
 	public static UUID retrieveUUID(String value){
-		StringBuffer sb = new StringBuffer(value);
-		//add hyphens
-		sb.insert(8, '-');
-		sb.insert(13, '-');
-		sb.insert(18, '-');
-		sb.insert(23, '-');
-		return UUID.fromString(sb.toString());
+		int i, shift;
+		long msb = 0, lsb = 0, digit;
+		for(i = 0, shift = 60; i < 16; i++, shift -= 4) {
+			digit = Character.digit(value.charAt(i), 16);
+			if(digit < 0) throw new NumberFormatException("For input string: \"" + value + "\"");
+			msb |= digit << shift;
+			digit = Character.digit(value.charAt(i + 16), 16);
+			if(digit < 0) throw new NumberFormatException("For input string: \"" + value + "\"");
+			lsb |= digit << shift;
+		}
+		return new UUID(msb, lsb);
 	}
 	
 	/*
