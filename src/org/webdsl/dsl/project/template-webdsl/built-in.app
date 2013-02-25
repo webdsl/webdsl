@@ -130,6 +130,7 @@ module .servletapp/src-webdsl-template/built-in
     searchTimeMillis() : Int
     searchTimeSeconds() : Float
     allowLuceneSyntax(Bool) : Searcher
+    addFieldFilter(String,Object) : Searcher
     addFieldFilter(String,String) : Searcher
     getFilteredFields() : List<String>
     getFieldFilterValue(String) : String
@@ -143,6 +144,7 @@ module .servletapp/src-webdsl-template/built-in
     not() : Searcher
     endClause() : Searcher
     setNamespace(String) : Searcher
+    setNamespace(Object) : Searcher
     getNamespace() : String
     removeNamespace() : Searcher
     boost(String,Float) : Searcher
@@ -164,13 +166,19 @@ module .servletapp/src-webdsl-template/built-in
     sortAsc(String) : Searcher
     clearSorting() : Searcher
     reset() : Searcher
+    query(Object) : Searcher
     query(String) : Searcher
     phraseQuery(String,Int) : Searcher
+    phraseQuery(Object,Int) : Searcher
     regexQuery(String) : Searcher
     rangeQuery(Int,Int,Bool,Bool) : Searcher
     rangeQuery(Float,Float,Bool,Bool) : Searcher
     rangeQuery(Date,Date,Bool,Bool) : Searcher
     rangeQuery(String,String,Bool,Bool) : Searcher
+    rangeQuery(Int,Int) : Searcher
+    rangeQuery(Float,Float) : Searcher
+    rangeQuery(Date,Date) : Searcher
+    rangeQuery(String,String) : Searcher
     matchAllQuery() : Searcher
   }
 

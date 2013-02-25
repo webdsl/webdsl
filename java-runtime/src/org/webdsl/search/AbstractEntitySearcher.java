@@ -124,6 +124,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         updateFieldConstraints = updateParamMap = true;
         return ( F ) this;
     }
+    
+    public F addFieldFilter( String fieldname, Object terms ) {
+        return addFieldFilter( fieldname, String.valueOf( terms ) );
+    }
 
     public List<String> getFilteredFields( ){
         List<String> toReturn = new ArrayList<String>( );
@@ -139,7 +143,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
     @SuppressWarnings( "unchecked" )
     public F removeFieldFilter( String fieldname ){
-        if( fieldConstraints != null && !fieldConstraints.remove( fieldname ).isEmpty( ) )
+        if( fieldConstraints != null && fieldConstraints.remove( fieldname ) != null )
            updateFieldConstraints = updateParamMap = true;
         return ( F ) this;
     }
@@ -813,6 +817,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         return ( F ) this;
 
     }
+    public F setNamespace( Object namespace ) {
+        return setNamespace( String.valueOf( namespace) );
+    }
 
     @SuppressWarnings( "unchecked" )
     public F removeNamespace( ) {
@@ -1106,6 +1113,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         updateLuceneQuery = updateParamMap = true;
         return ( F ) this;
     }
+    
+    public F query( Object query ) {
+        return query( String.valueOf( query ) );
+    }
 
     @SuppressWarnings( "unchecked" )
     public F phraseQuery( String query, int slop ) {
@@ -1114,6 +1125,10 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         currentQD.phraseQuery( query, slop );
         updateLuceneQuery = updateParamMap = true;
         return ( F ) this;
+    }
+    
+    public F phraseQuery( Object query, int slop ) {
+        return phraseQuery( String.valueOf( query ), slop);
     }
 
     @SuppressWarnings( "unchecked" )
