@@ -875,7 +875,7 @@ native class java.lang.Double as Double {
       }
       var tmp := format.split(" "); //assumes date and time are separated by space and no other spaces in the format string
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
-      timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(tmp[1])+"', ";
+      timeformatString := "timeFormat: '"+tmp[1]+"', ";
     }
     dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]{elements()}
   }
@@ -896,14 +896,15 @@ native class java.lang.Double as Double {
           }
         }
       }
-      timeformatString := "timeFormat: '"+convertTimeFormatToJQuery(format)+"'";
+      timeformatString := "timeFormat: '"+format+"'";
     }
     dateinputgeneric(d as Ref<Date>, format, "timepicker", timeformatString)[all attributes]{elements()}
   }
-
+  /*
   function convertTimeFormatToJQuery(f:String):String{
     return f.replace("H","h");
   }
+  */
   function convertDateFormatToJQuery(f:String):String{
     return f.replace("yyyy","yy").replace("MM","mm");
   }
