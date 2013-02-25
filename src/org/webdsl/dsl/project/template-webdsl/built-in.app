@@ -857,6 +857,9 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control input(d:Ref<DateTime>){
+    input(d,1900,now().getYear())
+  }
+  define ignore-access-control input(d:Ref<DateTime>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateTimeFormat()
     var dateformatString := ""
     var timeformatString := ""
@@ -877,7 +880,7 @@ native class java.lang.Double as Double {
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
       timeformatString := "timeFormat: '"+tmp[1]+"', ";
     }
-    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]{elements()}
+    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '"+minYear+":"+maxYear+"'")[all attributes]{elements()}
   }
 
   define ignore-access-control input(d:Ref<Time>){
@@ -910,6 +913,9 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control input(d:Ref<Date>){
+    input(d,1900,now().getYear())
+  }
+  define ignore-access-control input(d:Ref<Date>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateFormat()
     var dateformatString := ""
     init{
@@ -927,7 +933,7 @@ native class java.lang.Double as Double {
       }
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(format)+"', ";
     }
-    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '1900:new Date().getFullYear()'")[all attributes]{elements()}
+    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '"+minYear+":"+maxYear+"'")[all attributes]{elements()}
   }
 
   define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
