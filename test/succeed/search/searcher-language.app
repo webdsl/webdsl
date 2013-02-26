@@ -55,6 +55,8 @@ define page root() {
     action test() {
         var q  := "horror";
         var item := Material{name:="a" alias:="b" desc:="a b c"};
+        
+        var x0 := search Movie matching +(title,abstract: "hello") -(title:"goodbye");
 
         //Find Movie entities that match "hello" in title or abstract,
         //but doesnt match "goodbye" in any of the default search fields
@@ -85,7 +87,7 @@ define page root() {
 
         var x6 := search Movie order by year asc, title desc
                  with filters year:2000, genres.name:q
-                 with facets (genre.name,20), (title: [* to "A"},["A" to "L"],["M" to "Q"],["Q" to "Z"],{"Z" to *]);
+                 with facets genre.name(20), title([* to "A"},["A" to "L"],["M" to "Q"],["Q" to "Z"],{"Z" to *]);
         var x7 := search Movie matching +(title: (-q +"island") abstract:-"human");
 
         var x8 := search Movie matching +item.name;
@@ -98,7 +100,7 @@ define page root() {
 
         var x11 := search   Movie
                     matching title: +item.alias
-                    with facets (name, 3)
+                    with facets name(3)
                     offset (index*100) limit 100
                     order by year desc;
 
@@ -110,7 +112,8 @@ define page root() {
         var x16 := field facets from x9 == [Facet()];
         var x17 := Movie completions matching title:"Tra" similarity 5 / 11 != null;
 
-        var x18 := search Movie matching q~100 with filter year:2001 with facets (year,40) [strict matching];
+        var x18 := search Movie matching q~100 with filter year:2001 with facets year(40) [strict matching];
+        var x18 := search Movie matching q~100 with filter year:2001 with facets year([1990 to 2000],[2001 to 2010],[2010 to *]) [strict matching];
 
     }
 }
