@@ -21,6 +21,7 @@ import org.apache.lucene.queryParser.QueryParser.Operator;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
@@ -68,7 +69,7 @@ import com.browseengine.bobo.facets.impl.MultiValueFacetHandler;
 
 public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F extends AbstractEntitySearcher<?,?>> {
 
-    protected static final Version LUCENEVERSION         = Version.LUCENE_31;
+    protected static final Version LUCENEVERSION         = Version.LUCENE_35;
     protected static final int LIMIT                     = 50;
     protected static final int OFFSET                    = 0;
     protected static final Operator OP                   = Operator.OR;
@@ -249,7 +250,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     shouldFacetQuery.add( actualFacet.getFacetQuery( ), facet.occur );
                 } else {
                 	Query rangeQuery = actualFacet.getFacetQuery( );
-                    newQuery.add( rangeQuery, facet.occur );
+                    newQuery.add( ignoreScoreQuery( rangeQuery ), facet.occur );
                     rangeFacetQuery.add( rangeQuery, facet.occur );
                 }
             } else {
@@ -261,17 +262,23 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     }
                     shouldFacetQuery.add( new TermQuery( new Term( facet.getFieldName( ), facet.getValue( ) ) ), facet.occur );
                 } else {
-                    newQuery.add( new TermQuery( new Term( facet.getFieldName( ), facet.getValue( ) ) ), facet.occur );
+                    newQuery.add( ignoreScoreQuery( new TermQuery( new Term( facet.getFieldName( ), facet.getValue( ) ) ) ), facet.occur );
                 }
             }
         }
 
         for ( BooleanQuery bq : shouldFacetQueryMap.values( ) ) {
-            newQuery.add( bq, Occur.MUST );
+            newQuery.add( ignoreScoreQuery( bq ), Occur.MUST );
         }
         newQuery.add( luceneQueryNoFacetFilters, Occur.MUST );
 
         luceneQuery = newQuery;
+    }
+    
+    private static final Query ignoreScoreQuery(Query q){
+    	ConstantScoreQuery csq = new ConstantScoreQuery( q );
+    	csq.setBoost(0);
+    	return csq;
     }
 
     private void applyFieldConstraints( ) {
