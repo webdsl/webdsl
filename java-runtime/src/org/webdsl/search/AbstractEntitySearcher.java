@@ -339,18 +339,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     @SuppressWarnings( "unchecked" )
-    public F defaultAnd( ) {
-        if ( !defaultOperator.equals( Operator.AND ) ) {
-            defaultOperator = Operator.AND;
-            updateLuceneQuery = updateParamMap = true;
-        }
-        return ( F ) this;
-    }
-
-    @SuppressWarnings( "unchecked" )
-    public F defaultOr( ) {
-        if ( !defaultOperator.equals( Operator.OR ) ) {
-            defaultOperator = Operator.OR;
+    public F strictMatching( boolean strict) {
+    	Operator newOperator = strict ? Operator.AND: Operator.OR;
+    	
+        if ( !defaultOperator.equals( newOperator ) ) {
+            defaultOperator = newOperator;
             updateLuceneQuery = updateParamMap = true;
         }
         return ( F ) this;
@@ -542,7 +535,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     searcher.phraseQuery( value, Integer.parseInt( paramMap.get( "sl" ) ) );
                 } else if ( "op".equals( key ) && value.equals("AND" ) ) {
                     //change default operator to AND
-                    searcher.defaultAnd( );
+                    searcher.strictMatching( true );
                 } else if ( "mq".equals( key ) ) {
                     searcher.mainQuery = value;
                 } else if ( "cf".equals( key ) ) {

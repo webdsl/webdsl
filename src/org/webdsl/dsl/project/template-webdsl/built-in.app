@@ -148,8 +148,7 @@ module .servletapp/src-webdsl-template/built-in
     getNamespace() : String
     removeNamespace() : Searcher
     boost(String,Float) : Searcher
-    defaultAnd() : Searcher
-    defaultOr() : Searcher
+    strictMatching(Bool) : Searcher
     field(String) : Searcher
     fields(List<String>) : Searcher
     defaultFields() : Searcher
