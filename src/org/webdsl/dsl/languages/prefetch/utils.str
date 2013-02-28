@@ -152,34 +152,32 @@ rules
     where tname := <CurrentTemplateName>
     with followgenname := <LocalRedefineGenname <+ !genname> (tname, genname)
 
-  // Same as resolve-entity-call, except here we allow failure
-  // It also does not return functions that have an overridden version and it is unsure which version will be used
-  try-resolve-entity-call : 
-  	(ent, nm, targ*) -> (fent, f)
-  	where (fent, f) := <try-resolve-entity-call-without-override-check> (ent, nm, targ*)
-  	; <subentities-do-no-override> (fent, nm, targ*)
+  resolve-current-entity-function : 
+    (srt, nm, targ*) -> (fent, n, t*, decl)
+    where (fent, n, t*, decl) := <resolve-current-entity-function-without-override-check> (srt, nm, targ*)
+    ; <subentities-do-no-override> (fent, n, t*)
 
-  try-resolve-entity-call-without-override-check :
-  	(ent, nm, targ*) -> result
-    where not("Entity" := ent)
-      ; f := <resolve-function-call-to-decl> (SimpleSort(ent), nm, targ*)
-      < result := (ent, f)
-      + result := <try-resolve-entity-call-without-override-check> (<Extends> ent, nm, targ*)
+  resolve-current-entity-function-without-override-check :
+    (srt@SimpleSort(_), nm, targ*) -> (SimpleSort(x_class), n, t*, decl)
+    where if Function(resolvedName, resolvedArgs, _, _){resolvedAnno*} := <CallToEntityFunctionGetDecl> nm then
+		        (n, t*) := <normalize-signature> (resolvedName, resolvedArgs)
+		        ; x_class := <fetch-elem(?FunctionEntity(<strip-annos>))> resolvedAnno*
+		        ; decl := <EntityFunctionDecl> (x_class, n, t*)
+		      else
+		        n := <strip-annos> nm
+            ; decl@Function(_, fargs, _, _){anno*} := <resolve-entity-call> (srt, n, targ*)
+            ; (_, t*) := <normalize-signature> (n, fargs)
+            ; x_class := <fetch-elem(?FunctionEntity(<strip-annos>))> anno*
+		      end
 
 strategies
 
   subentities-do-no-override =
-    ?(ent, nm, targ*)
-    ; all-keys-EntDecl
-    ; filter({x_sub:
-                ?x_sub
-                ; where(
-                    <not(eq)>(x_sub, ent)
-                    ; <subtype-of>(SimpleSort(x_sub), SimpleSort(ent))
-                    ; <resolve-function-call-to-decl>(SimpleSort(x_sub), nm, targ*)
-                )
-             })
-    ; ?[]
+    ?(SimpleSort(x_class), nm, targ*)
+    ; where(
+        <get-sub-entities> x_class
+        ; not(fetch-elem(<CheckFunctionSignatureArgumentTypes>(SimpleSort(<id>), nm, targ*))) // using CheckFunctionSignatureArgumentTypes instead of resolved-function-call-to-decl, because EntityFunctionDecl may be defined for function extensions that extend a function of a super entity
+      )
 
   is-unresolved-local-redefine =
     ?genname
@@ -281,18 +279,14 @@ rules
     ; not(<is-derived-property> (x_class, f))
     ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
     ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
-    ; fa := <try(add-naturalid-anno(|x_class)); try(add-mutiple-definitions-anno)> FieldAccess(p, f2){anno*}
+    ; fa := <try(add-mutiple-definitions-anno)> FieldAccess(p, f2){anno*}
 
-  get-real-col-prop-name(|x_class, srt) =
-    where(GenericSort("List", lsrt) := srt)
-    ; where(string-ends-with(|"List"))
-    ; string-as-chars(take(!(<length>, 4); subt)) // Get the real property name
-    ; where(<get-prop-type> (x_class, <id>); ?GenericSort(_, lsrt)) // Check if the simple sort of the collections match
-
-  add-naturalid-anno(|x_class) :
-    fa@FieldAccess(_, f){anno*} -> fa2
-    where f := <natural-id-name-include-superclass> x_class
-    ; fa2 := <add-new-anno(|IsNaturalId())> fa 
+  get-real-col-prop-name(|x_class, srt) :
+    f -> f2
+    where GenericSort("List", lsrt) := srt
+    ; <string-ends-with(|"List")> f
+    ; f2 := <string-as-chars(take(!(<length>, 4); subt))> f // Get the real property name
+    ; GenericSort(_, lsrt) := <get-prop-type> (x_class, f2) // Check if the simple sort of the collections match
 
   add-mutiple-definitions-anno: // srt is a sub entity of srt2
     fa@FieldAccess(Cast(p, srt){castanno*}, f){anno*} -> fa2
@@ -303,23 +297,35 @@ rules
     ; fa2 := <add-new-anno(|MultipleDefinitionsInSubclasses())> fa
 
   defined-on-sub-entities :
-    (superent, f) -> subents
-    where subents := <DefinedOnSubEntities> (superent, f)
-
-  defined-on-sub-entities :
   	(superent, f) -> subents
-  	where <not(DefinedOnSubEntities)> (superent, f)
-    with all-keys-EntDecl
+    with <get-sub-entities> superent
     ; filter({x_sub: // We find out on which sub entities property f is defined
+                ?x_sub
+                ; where(
+                    <TypeOfProperty> (x_sub, f) // Deliberate use of TypeOfProperty instead of type-of-property
+                )
+             })
+    ; ?subents
+
+strategies
+
+  get-sub-entities = SubEntities
+
+rules
+
+  get-sub-entities :
+    superent -> subents
+    where not(SubEntities)
+    with all-keys-EntDecl
+    ; filter({x_sub:
                 ?x_sub
                 ; where(
                     <not(eq)>(x_sub, superent)
                     ; <subtype-of>(SimpleSort(x_sub), SimpleSort(superent))
-                    ; <TypeOfProperty> (x_sub, f) // Deliberate use of TypeOfProperty instead of type-of-property
                 )
              })
     ; ?subents
-    ; rules( DefinedOnSubEntities : (superent, f) -> subents )
+    ; rules( SubEntities : superent -> subents )
 
   is-accessible-from(s,gen):
     v@Var(_) -> (p, psrt)
@@ -359,12 +365,12 @@ rules
 
   expand-call-to-return-values(s|nm, args) :
     e -> results
-    where <is-accessible-from(s); ?(e2, <is-entity-type; ?SimpleSort(ent)>)> e
+    where <is-accessible-from(s); ?(e2, <is-entity-type; ?srt@SimpleSort(_)>)> e
     ; (n, targs) := <normalize-signature> (nm, args)
-    ; (fent, Function(_, defargs, _, _){defanno*}) := <try-resolve-entity-call> (ent, n, targs)
+    ; (fent@SimpleSort(x_class), _, _, Function(_, defargs, _, _){defanno*}) := <resolve-current-entity-function> (srt, nm, targs)
     ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
     with argmapping := <zip> (args, defargs)
-    ; (returns2, varmapping) := <try(add-this-var-to-mapping(|e, ent))> (returns, argmapping)
+    ; (returns2, varmapping) := <try(add-this-var-to-mapping(|e, x_class))> (returns, argmapping)
     ; results := <foldr(!returns2, rename-vars-in-analysis(RootVar))> varmapping
 
   expand-call-to-return-values(s|nm, args) :

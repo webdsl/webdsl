@@ -67,6 +67,7 @@ strategies
     ; ?set
     ; filter(has-no-strict-subset(|set); and-query-condition) // Here we remove some obvious redundant conditions and make a conjunction of the lists
     ; or-query-condition // The conditions of different traversals are combined using the or-operator
+    ; alltd(add-naturalid-anno)
 
   has-no-strict-subset(|set) =
     ?elem
@@ -84,6 +85,12 @@ strategies
     )
 
 rules
+
+  add-naturalid-anno :
+    fa@FieldAccess(v, f){anno*} -> fa2
+    where SimpleSort(x_class) := <type-of> v
+    ; f := <natural-id-name-include-superclass> x_class
+    ; fa2 := <add-new-anno(|IsNaturalId())> fa 
 
   field-with-column(|p) :
     expr -> rfa
@@ -188,10 +195,11 @@ rules
     (callee, e, args) -> (branches, (newpassed, recursive))
     where passedfreq := <fetch-elem(?(callee, <id>)) <+ !0> passed
     ; <is-below-recursive-unwinding-depth> passedfreq
-    ; (fent, Function(_, deffargs, _, defb){defanno*}) := <try-resolve-entity-call> callee
+    ; Function(_, deffargs, _, defb){defanno*} := <resolved-function-call-to-decl> callee
+    ; x_class := <fetch-elem(?FunctionEntity(<strip-annos>))> defanno*
     ; qatmp := <fetch-elem(is-query-analysis)> defanno*
     ; argmapping := <zip> (args, deffargs)
-    ; (qa, varmapping) := <try(add-this-var-to-mapping(|e, fent))> (qatmp, argmapping)
+    ; (qa, varmapping) := <try(add-this-var-to-mapping(|e, x_class))> (qatmp, argmapping)
     ; newfreq := <int-inc> passedfreq
     ; newpassed := <remove-all(?(callee, _)); ![(callee, newfreq)|<id>]> passed
     ; recursive := <get-recursive-from-query-analysis; filter(translate-recursive(|varmapping)); make-set> qa
@@ -201,7 +209,7 @@ rules
     (callee@(None(), n, targs), args) -> (branches, (newpassed, recursive))
     where passedfreq := <fetch-elem(?(callee, <id>)) <+ !0> passed
     ; <is-below-recursive-unwinding-depth> passedfreq
-    ; Function(_, deffargs, _, defb){defanno*} := <resolve-function-call-to-decl> callee
+    ; Function(_, deffargs, _, defb){defanno*} := <resolved-function-call-to-decl> callee
     ; qa := <fetch-elem(is-query-analysis)> defanno*
     ; argmapping := <zip> (args, deffargs)
     ; newfreq := <int-inc> passedfreq

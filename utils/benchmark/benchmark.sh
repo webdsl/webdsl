@@ -146,9 +146,11 @@ run_benchmark() {
   local sqlname=$(basename $sql .sql.gz)
   local sanitized_page=`echo "$page" | sed 's/[:\/<>|"?]/_/g'`
   local warname=$(basename $war .war)
+  local remain=`cat "$CONTINUE_PATH" | awk 'FNR>1' | wc -l`
+  local currentcase=$(($remaining-$remain+1))
 
   logln ""
-  logln "Testing: database=$sqlname app=$warname url=$page"
+  logln "Testing: database=$sqlname app=$warname url=$page ($currentcase of $remaining)"
   removefile="$WEBAPP_PATH/$warname.war" 
   removedir="$WEBAPP_PATH/$warname"
   cp "$war" "$removefile" 
@@ -412,6 +414,7 @@ if [ -f $CONTINUE_PATH ]; then
   logln "Continuing $remaining cases, results are written to $benchname"
 else
   init_benchmark
+  remaining=`cat $CONTINUE_PATH | awk 'FNR>1' | wc -l`
 fi
 continue_benchmark
 finalize_benchmark
