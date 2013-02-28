@@ -1880,7 +1880,9 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      type="text"
+      if (attribute("type") == "") {
+        type="text"
+      }
       if(req != null){
         value = req
       }
@@ -1896,6 +1898,10 @@ native class java.lang.Double as Double {
         s := req;
       }
     }
+  }
+  
+  define inputSearch(s:Ref<String>){
+    input(s)[type="search", all attributes]
   }
 
   //input/output Text
