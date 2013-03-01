@@ -114,6 +114,9 @@ define page root() {
 
         var x18 := search Movie matching q~100 with filter year:2001 with facets year(40) [strict matching];
         var x18 := search Movie matching q~100 with filter year:2001 with facets year([1990 to 2000],[2001 to 2010],[2010 to *]) [strict matching];
+        
+        var highlighted := highlight title: "some text" from x1;
+        var highlighted := highlight desc: item.desc from x4 with tags ("<span class=\"HL\">","</span>");
 
     }
 }
