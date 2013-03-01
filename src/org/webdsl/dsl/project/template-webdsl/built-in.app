@@ -239,7 +239,7 @@ module .servletapp/src-webdsl-template/built-in
   //If nothing is highlighted, it just renders elements
   define highlight(s : Searcher, fld : String){
       var rendered   := rendertemplate( elements );
-      var renderedHL := if(s != null) s.highlightLargeHTML(fld, rendered, "<span class=\"highlightContent\">", "</span>", 1, 10000000, "") else "";
+      var renderedHL := if(s != null) s.highlightLargeHTML(fld, rendered, "<span class=\"highlightcontent\">", "</span>", 1, 10000000, "") else "";
       if(renderedHL != null && renderedHL.length() > 0) {
         rawoutput( renderedHL )
       } else {

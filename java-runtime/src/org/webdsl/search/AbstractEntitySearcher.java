@@ -74,6 +74,9 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected static final int OFFSET                    = 0;
     protected static final Operator OP                   = Operator.OR;
     protected static final boolean ALLOWLUCENESYNTAX     = true;
+    protected static final String HIGHLIGHTOPENTAG       = "<span class=\"highlightcontent\">";
+    protected static final String HIGHLIGHTCLOSETAG      = "</span>";
+    protected static final String HIGHLIGHTSEP           = "... ";
     protected static final Analyzer passThroughAnalyzer  = new PassThroughAnalyzer();
 
     protected int limit = LIMIT;
@@ -867,7 +870,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
 
     public String highlight( String field, String toHighLight ) {
-        return highlight( field, toHighLight, "<B>", "</B>", 3, 80, " ...", false, false );
+        return highlight( field, toHighLight, HIGHLIGHTOPENTAG, HIGHLIGHTCLOSETAG, 3, 80, HIGHLIGHTSEP, false, false );
     }
     public String highlight( String field, String toHighLight, String preTag, String postTag ) {
         return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", false, false  );
@@ -877,7 +880,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public String highlightLargeText( String field, String toHighLight ) {
-        return highlight( field, toHighLight, "<span class=\"highlightContent\">", "</span>", 3, 80, " ...", true, false );
+        return highlight( field, toHighLight, HIGHLIGHTOPENTAG, HIGHLIGHTCLOSETAG, 3, 80, HIGHLIGHTSEP, true, false );
     }
     public String highlightLargeText( String field, String toHighLight, String preTag, String postTag ) {
         return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", true, false );
@@ -887,7 +890,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public String highlightHTML( String field, String toHighLight ) {
-        return highlight( field, toHighLight, "<span class=\"highlightContent\">", "</span>", 3, 80, " ...", false, true );
+        return highlight( field, toHighLight, HIGHLIGHTOPENTAG, HIGHLIGHTCLOSETAG, 3, 80, HIGHLIGHTSEP, false, true );
     }
     public String highlightHTML( String field, String toHighLight, String preTag, String postTag ) {
         return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", false, true );
@@ -897,7 +900,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     }
 
     public String highlightLargeHTML( String field, String toHighLight ) {
-        return highlight( field, toHighLight, "<span class=\"highlightContent\">", "</span>", 3, 80, " ...", true, true );
+        return highlight( field, toHighLight, HIGHLIGHTOPENTAG, HIGHLIGHTCLOSETAG, 3, 80, HIGHLIGHTSEP, true, true );
     }
     public String highlightLargeHTML( String field, String toHighLight, String preTag, String postTag ) {
         return highlight( field, toHighLight, preTag, postTag, 3, 80, " ...", true, true );
