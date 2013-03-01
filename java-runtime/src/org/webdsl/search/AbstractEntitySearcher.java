@@ -76,7 +76,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected static final boolean ALLOWLUCENESYNTAX     = true;
     protected static final String HIGHLIGHTOPENTAG       = "<span class=\"highlightcontent\">";
     protected static final String HIGHLIGHTCLOSETAG      = "</span>";
-    protected static final String HIGHLIGHTSEP           = "... ";
+    protected static final String HIGHLIGHTSEP           = " ...";
     protected static final Analyzer passThroughAnalyzer  = new PassThroughAnalyzer();
 
     protected int limit = LIMIT;
