@@ -252,7 +252,6 @@ module .servletapp/src-webdsl-template/built-in
   //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
   define highlightedSummary(s : Searcher, fld : String, txt : String) {
-    init{ log("string"); }
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
     var prerendered  := rendertemplate( output(decorated) )
     var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
@@ -264,7 +263,6 @@ module .servletapp/src-webdsl-template/built-in
   //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
   define highlightedSummary(s : Searcher, fld : String, txt : WikiText) {
-    init{ log("wikitext"); }
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
     var prerendered  := rendertemplate( output( (decorated as WikiText)  ) )
     var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
