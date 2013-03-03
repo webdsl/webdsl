@@ -235,17 +235,44 @@ module .servletapp/src-webdsl-template/built-in
     }
   }
 
-  //tries to highlight the elements inside, not touching the html tags inside (highlighter invoked to ignore html tags)
+  //Tries to highlight the elements inside, not touching the html tags inside (highlighter invoked to ignore html tags)
   //If nothing is highlighted, it just renders elements
+  //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
   define highlight(s : Searcher, fld : String){
       var rendered   := rendertemplate( elements );
       var renderedHL := if(s != null) s.highlightLargeHTML(fld, rendered, "<span class=\"highlightcontent\">", "</span>", 1, 10000000, "") else "";
       if(renderedHL != null && renderedHL.length() > 0) {
-        rawoutput( renderedHL )
+        rawoutput( renderedHL ) [all attributes]
       } else {
-        rawoutput( rendered ) //don't render twice
+        rawoutput( rendered ) [all attributes] //don't render twice
       }
   }
+  
+  //Outputs a summary surrogate for the given text 'txt' based on constraints in searcher 's' for search field 'fld'
+  //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
+  //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
+  define highlightedSummary(s : Searcher, fld : String, txt : String) {
+    init{ log("string"); }
+    var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
+    var prerendered  := rendertemplate( output(decorated) )
+    var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
+    
+    rawoutput( tagsfixed ) [all attributes]    
+  }
+  
+  //Outputs a summary surrogate for the given text 'txt' based on constraints in searcher 's' for search field 'fld'
+  //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
+  //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
+  define highlightedSummary(s : Searcher, fld : String, txt : WikiText) {
+    init{ log("wikitext"); }
+    var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
+    var prerendered  := rendertemplate( output( (decorated as WikiText)  ) )
+    var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
+    
+    rawoutput( tagsfixed ) [all attributes]
+    
+  }
+
 
 // section methods for built-in types
 
