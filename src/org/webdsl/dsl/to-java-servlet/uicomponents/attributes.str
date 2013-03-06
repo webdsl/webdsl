@@ -4,7 +4,7 @@ imports
   libstratego-lib
   libjava-front
   libwebdsl-front
-    
+
 rules
 
   control-flow-emit-attrs-calls-map(|x_methodname) :
@@ -15,10 +15,10 @@ rules
            bstm_1* := <control-flow-emit-attrs-calls-map-def>
          else
            if "storeInputs" := x_methodname then
-             bstm_action* := <filter(attribute-handle-actions-input); concat> passign* 
+             bstm_action* := <filter(attribute-handle-actions-input); concat> passign*
            else
              if "handleActions" := x_methodname then
-               bstm_action* := <filter(attribute-handle-actions); concat> passign* 
+               bstm_action* := <filter(attribute-handle-actions); concat> passign*
              else
                bstm_action* := []
              end
@@ -29,62 +29,70 @@ rules
              bstm*
            ]|
          end
-  
+
   control-flow-emit-attrs-calls-map-def =
     !bstm* |[ Map<String,String> attrsmapout = TemplateCall.EmptyAttrs; ]|
-    
+
   //if passign* contains _only_ 'all attributes' simply pass on the attributes passed to this template
   control-flow-emit-attrs-calls-map(|x_methodname) :
     passign* -> bstm* |[ Map<String,String> attrsmapout = attrs; ]|
     where ?[<id>]; ?AllAttributes()
-    
-  control-flow-emit-attrs-calls-all-attributes :
-    AllAttributes() -> bstm* |[ attrsmapout.putAll(attrs); ]|
 
   control-flow-emit-attrs-calls =
      control-flow-emit-attrs-calls-exclude
-  <+ control-flow-emit-attrs-calls-1 
+  <+ control-flow-emit-attrs-calls-1
   <+ control-flow-emit-attrs-calls-2
   <+ control-flow-emit-attrs-calls-not-null
-  <+ control-flow-emit-attrs-calls-all-attributes
-    
+  <+ control-flow-emit-attrs-calls-attributes
+
   control-flow-emit-attrs-calls-exclude : PropertyAssignment("templateContext",_) -> []
-    
+
   control-flow-emit-attrs-calls-1 :
     tc@PropertySubmit(name, call@ActionCall(_,_)) -> bstm* |[
       attrsmapout.put("~name",e_val);
     ]|
     where actionident := <get-actionnumber> tc
         ; e_val := <ajax-action-call-to-exp(| e|[ "{_args_}" ]|, actionident, name)> call
-    
+
   control-flow-emit-attrs-calls-2 :
     PropertyAssignment(name, val) -> bstm* |[
       attrsmapout.put("~name",e_val);
     ]|
-    with e_val := <  control-flow-emit-attrs-value 
+    with e_val := <  control-flow-emit-attrs-value
                   <+ expression-to-java-servlet
                   > val
-  
+
+  control-flow-emit-attrs-calls-attributes :
+    AllAttributes() -> bstm* |[ attrsmapout.putAll(attrs); ]|
+
+  control-flow-emit-attrs-calls-attributes :
+    AllAttributeExceptExp(e1) -> bstm* |[ utils.TemplateCall.filterAllAttributesExcept(attrs,attrsmapout,e2); ]|
+    with  e2 := <expression-to-java-servlet> e1
+
+  control-flow-emit-attrs-calls-attributes :
+    AttributesExp(e1) -> bstm* |[ utils.TemplateCall.filterAttributes(attrs,attrsmapout,e2); ]|
+    with  e2 := <expression-to-java-servlet> e1
+
   //translate identifiers
   control-flow-emit-attrs-value :
     val -> expr |[ "~val" ]|
-    where <is-string> val    
-  
+    where <is-string> val
+
   //USING ATTRIBUTES
 
   expression-to-java-servlet :
     EventCall(name,args) -> expr |[ utils.TemplateCall.getAttribute(attrs, "~name","").replace("{_args_}",e4) ]|
     with  e4 := <map(event-call-args-to-java-servlet);generate-addition-exp> args
-    
+
   event-call-args-to-java-servlet :
     EventArg(name, e) -> e |[ "~name"+"=\"+encodePost("+e1+")+\"&" ]|
     with e1 := <expression-to-java-servlet> e
-       
+
   ajax-action-call-to-exp(|e_extraparams, actionident, propname) :
-    call@ActionCall(act, args) -> e2 
+    call@ActionCall(act, args) -> e2
     with e_actionid := <action-id-encoding> (actionident, args)
        ; x_showloadingfeedback := "false"
-       ; e1 := e |[ "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget() +"\",\""+ e_actionid +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson() +/*+e_extraparams+*/ "],\""+ThreadLocalPage.get().getFormIdent()+"\", this, "+"~x_showloadingfeedback"+");" ]| 
+       ; e1 := e |[ "serverInvoke(\""+ThreadLocalServlet.getContextPath()+"/" + ThreadLocalPage.get().getActionTarget() +"\",\""+ e_actionid +"\", ["+ThreadLocalPage.get().getHiddenPostParamsJson() +/*+e_extraparams+*/ "],\""+ThreadLocalPage.get().getFormIdent()+"\", this, "+"~x_showloadingfeedback"+");" ]|
        ; if <?"onkeyup"> propname
          then e2 := e |[ "onkeyupdelay(function(){" + e1 + "});" ]|
          else e2 := e1 end
@@ -93,16 +101,16 @@ rules
          else x_showloadingfeedback := "false"
          end*/
 
-   //PROVIDING ATTRIBUTES    
+   //PROVIDING ATTRIBUTES
   //event call to java
   actioncall-to-html-attr :
     tc@PropertySubmit(x, call@ActionCall(_, _)) -> (x, e |[ "javascript:" + e2 ]|)
     where actionident := <get-actionnumber> tc
         ; e2 := <ajax-action-call-to-exp(| e|[ "" ]|, actionident, x)> call
-        
+
   //handle actions: Note that this code will be executed twice for not build in template calls: just before the template call (to support built ins),
   //and inside the template call, to make the tcall number match
-  attribute-handle-actions: 
+  attribute-handle-actions:
     tc@PropertySubmit(x, call@ActionCall(x_action, args)) ->
     bstm*|[
         String x_actionid = e_actionid;
@@ -110,15 +118,15 @@ rules
         {
           //always ajax behavior for these type of submits
           ThreadLocalPage.get().enableAjaxActionExecuted();
-          
+
           x_action temp = (x_action)getAction("~x_action");
           temp.run(e*,x_actionid);
-          return; 
+          return;
         }
     ]|
     with  <get-anno(?ActionFargAnno(fargcalled))> call
         ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
-        ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args) 
+        ; e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
         ; x_actionid := <newname> "actionid"
 
   //in first traversal, for input data binding, already register which action is executed, in order to know about ignore-validation
@@ -133,41 +141,41 @@ rules
           ThreadLocalPage.get().setActionToBeExecuted(temp);
         }
     ]|
-    with  e_actionid := <action-id-encoding> (<get-actionnumber> tc, args) 
+    with  e_actionid := <action-id-encoding> (<get-actionnumber> tc, args)
         ; x_actionid := <newname> "actionid"
 
 rules //attribute selectors
-  
-  //attribute(String, String) function  
+
+  //attribute(String, String) function
   call-to-java-servlet :
     exp |[ attribute(e1,e2) ]| -> expr |[ utils.TemplateCall.getAttribute(attrs, e3,e4) ]|
     with  e3 := <expression-to-java-servlet> e1
-        ; e4 := <expression-to-java-servlet> e2   
-          
-  //attribute(String) function   
+        ; e4 := <expression-to-java-servlet> e2
+
+  //attribute(String) function
   call-to-java-servlet :
     exp |[ attribute(e1) ]| -> expr |[ utils.TemplateCall.getAttribute(attrs, e2) ]|
     with  e2 := <expression-to-java-servlet> e1
-  
+
   convert-attribute-selectors-to-java-exp :
     AllAttributes() -> expr |[ utils.TemplateCall.getAllAttributes(attrs) ]|
-     
+
   convert-attribute-selectors-to-java-exp :
     AllAttributeExceptExp(e1) -> expr |[ utils.TemplateCall.getAllAttributesExcept(attrs,e2) ]|
     with  e2 := <expression-to-java-servlet> e1
-    
+
   convert-attribute-selectors-to-java-exp :
     AttributesExp(e1) -> expr |[ utils.TemplateCall.getAttributes(attrs,e2) ]|
     with  e2 := <expression-to-java-servlet> e1
-    
+
 rules //attribute related functions
-  
+
   control-flow-emit-attrs-calls-not-null :
     TemplateCallPropertyNotNull() -> bstm* |[
       attrsmapout.put("internal#TemplateCallPropertyNotNull","true");
     ]|
-    
-  exclude-from-property-assignment = TemplateCallPropertyNotNull    
-  
-  call-to-java-servlet : 
+
+  exclude-from-property-assignment = TemplateCallPropertyNotNull
+
+  call-to-java-servlet :
     ThisCall("hasNotNullAttribute",[]) -> expr |[ utils.TemplateCall.getAttribute(attrs, "internal#TemplateCallPropertyNotNull").equals("true") ]|
