@@ -79,7 +79,7 @@ public class TemplateCall {
   }
 
   public static String getAllAttributesExcept(Map<String,String> attrs, String except) {
-      List<String> list = new ArrayList();
+      List<String> list = new ArrayList<String>();
       list.add(except);
       return getAllAttributesExcept(attrs,list);
   }

@@ -247,7 +247,7 @@ module .servletapp/src-webdsl-template/built-in
         rawoutput( rendered ) [all attributes] //don't render twice
       }
   }
-  
+
   //Outputs a summary surrogate for the given text 'txt' based on constraints in searcher 's' for search field 'fld'
   //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
@@ -255,10 +255,10 @@ module .servletapp/src-webdsl-template/built-in
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
     var prerendered  := rendertemplate( output(decorated) )
     var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
-    
-    rawoutput( tagsfixed ) [all attributes]    
+
+    rawoutput( tagsfixed ) [all attributes]
   }
-  
+
   //Outputs a summary surrogate for the given text 'txt' based on constraints in searcher 's' for search field 'fld'
   //A summary suggorate will consist of at most 3 fragments of max 80 characters seperated by '... '
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
@@ -266,9 +266,9 @@ module .servletapp/src-webdsl-template/built-in
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
     var prerendered  := rendertemplate( output( (decorated as WikiText)  ) )
     var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
-    
+
     rawoutput( tagsfixed ) [all attributes]
-    
+
   }
 
 
@@ -1924,7 +1924,7 @@ native class java.lang.Double as Double {
       }
     }
   }
-  
+
   define inputSearch(s:Ref<String>){
     input(s)[type="search", all attributes]
   }
@@ -2401,7 +2401,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputBoolInternal(b,tname)[onchange=validator(), all attributes]
+    inputBoolInternal(b,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2452,7 +2452,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputFloatInternal(f,tname)[onkeyup=validator(), all attributes]
+    inputFloatInternal(f,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2508,7 +2508,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputIntInternal(i,tname)[onkeyup=validator(), all attributes]
+    inputIntInternal(i,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2564,7 +2564,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputLongInternal(l,tname)[onkeyup=validator(), all attributes]
+    inputLongInternal(l,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2618,7 +2618,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputStringInternal(s,tname)[onkeyup=validator(), all attributes]
+    inputStringInternal(s,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     //handle validations passed in call to this template
     validate{ getPage().enterLabelContext(tname); }
     elements()
@@ -2664,7 +2664,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputEmailInternal(s,tname)[onkeyup=validator(), all attributes]
+    inputEmailInternal(s,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2715,7 +2715,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputCheckboxSetInternal(set,from,tname)[onclick=validator(), all attributes]
+    inputCheckboxSetInternal(set,from,tname)[onclick=validator();""+attribute("onclick"), all attributes except "onclick"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2754,7 +2754,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputSelectMultipleInternal(set,from,tname)[onchange=validator(), all attributes]
+    inputSelectMultipleInternal(set,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2799,7 +2799,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputEntityInternal(ent,from,tname)[onchange=validator(), all attributes]
+    inputEntityInternal(ent,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2838,7 +2838,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    radioInternal(ent1,ent2,tname)[onchange=validator(), all attributes]
+    radioInternal(ent1,ent2,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2877,7 +2877,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputListInternal(list,from,tname)[onchange=validator(), all attributes]
+    inputListInternal(list,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2921,7 +2921,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputTextInternal(s,tname)[class="inputSDF", onkeyup=validator(), all attributes]
+    inputTextInternal(s,tname)[class="inputSDF", onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
