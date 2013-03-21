@@ -2,14 +2,18 @@ module org/webdsl/dsl/languages/action/rename
 
 signature
   constructors
-    EntityFunctionAnno : Term    
+    EntityFunctionAnno : Term
 
 rules
 
   rename-action :
     v@VarDecl(x, srt){anno*} -> VarDecl(y, srt2){anno*}
     where InDef
-    with  srt2 := <rename-all> srt 
+    with  (y, srt2) := <vardecl-rename-common> (x, srt)
+
+  vardecl-rename-common :
+    (x, srt) -> (y, srt2)
+    with  srt2 := <rename-all> srt
         ; y := <rename-bound(|srt2)> x
         ; <declare-vars-in-context> y
         ; rules(VarDecl : y -> v)
@@ -17,12 +21,13 @@ rules
   rename-action :
     v@VarDeclInit(x, srt, e){anno*} -> VarDeclInit(y, srt2, e'){anno*}
     where InDef
-    with  srt2 := <rename-all> srt
-        ; e' := <rename-all> e
-        ; y := <rename-bound(|srt2)> x
-        ; <declare-vars-in-context> y
-        ; rules(VarDecl : y -> v)
-        
+    where (y, srt2, e') := <vardeclinit-rename-common> (x, srt, e)
+
+  vardeclinit-rename-common :
+    (x, srt, e) -> (y, srt2, e')
+    with  e' := <rename-all> e
+        ; (y, srt2) := <vardecl-rename-common> (x, srt)
+
   //local variable declaration with inferred type
   rename-action :
     v@VarDeclInitInferred(x, e){anno*} -> VarDeclInitInferred(y, e'){anno*}
@@ -31,7 +36,7 @@ rules
         ; srt := <type-of;strip-immutable-anno <+ !"unknown"> e'
           // type-of can fail if the expression cannot be typed, in that case the var will not be declared and constraint error triggers
           // strip ImmutableReference annotation, because x will be assignable even if e wasn't
-        ; y := <rename-bound(|srt)> x 
+        ; y := <rename-bound(|srt)> x
         ; <declare-vars-in-context> y
         ; rules(VarDecl : y -> v)
 
@@ -39,30 +44,30 @@ rules
   rename-action :
     v@GlobalVarDeclInit(x, srt, e{anno*}){anno_v*} -> GlobalVarDeclInit(x, srt, e'{ObjectCreationSecretTypesNeedDigests(),anno*}){anno_v*}
     with  e' := <rename-all> e
-        
+
   //global variable declaration with inferred type
   rename-action :
     v@GlobalVarDeclInitInferred(x, e{anno*}){anno_v*} -> GlobalVarDeclInitInferred(x, e'{ObjectCreationSecretTypesNeedDigests(),anno*}){anno_v*}
     with  e' := <rename-all> e
-        
+
    rename-action :
      s@SimpleSort(_) -> s2
      with  s2 := <rename-type> s
-         
+
    rename-action :
-     GenericSort(g, types){anno*} -> GenericSort(g, types2){anno*} 
+     GenericSort(g, types){anno*} -> GenericSort(g, types2){anno*}
      where not( g := "SDFInput")
      with  types2 := <rename-all> types
 
    /**
     *  Important, takes care of scoping if-then-else blocks in action code and in templates
-    */ 
+    */
    rename-action :
     Block(stat1*){anno*} -> Block(stat2*){anno*}
     with {| Rename, VarInContext
           : stat2* := <rename-all> stat1*
           |}
-          
+
   rename-action :
     Function(x, farg1*, srt, b1){anno*} -> newfun
     where not(InEntity)
@@ -92,8 +97,8 @@ rules
         ; store-entity-function(|x_class)
 
 rules
-             
-  // store current function definition with renamed body       
+
+  // store current function definition with renamed body
   store-entity-function(|x_class) =
     ?def@Function(f, fargs, s, b)
     ; with(
@@ -101,13 +106,13 @@ rules
       ; x_class_no_anno := <strip-annos> x_class
       ; rules( EntityFunctionDecl : (x_class_no_anno, n, t*) -> def )
       )
-  
-  // store current function definition with renamed body    
+
+  // store current function definition with renamed body
   store-global-function =
     ?def@Function(f, fargs, s, b){anno*}
-    ; with( 
+    ; with(
         (n, t*) := <normalize-signature> (f, fargs)
-      ; rules( FunctionDecl : (n, t*) -> def) 
+      ; rules( FunctionDecl : (n, t*) -> def)
       )
 
 rules
@@ -116,7 +121,7 @@ rules
    *  Used for rename of many argument types, including templates, functions
    */
   rename-action :
-    a@Arg(x, srt){anno*} -> Arg(y, srt2){anno*} 
+    a@Arg(x, srt){anno*} -> Arg(y, srt2){anno*}
     with srt2 := <rename-type> srt
        ; y := <rename-bound-immutable(|srt2)> x
        ; rules(VarDecl : y -> a)
