@@ -6,14 +6,27 @@ section datamodel
     name :: String
     address :: String
     val :: Int
+    color -> Color
   }
 
-  var t_u1 := User{ name := "test1" address := "1" val := 2 }
+  entity Moderator : User {
+  }
+
+  entity Admin : Moderator {
+  }
+
+  entity Color {
+    name :: String
+  }
+
+  var t_u1 := Admin{ name := "test1" address := "1" val := 2 }
   var t_u2 := User{ name := "test2" address := "1" val := 3 }
   var t_u3 := User{ name := "test3" address := "2" val := 5 }
-  var t_u4 := User{ name := "test4" address := "2" val := 1 }
+  var t_u4 := Moderator{ name := "test4" address := "2" val := 1 }
+  var red := Color { name := "Red" }
+  var blue := Color { name := "Green" }
+  var green := Color { name := "Blue" }
 
- 
   define page root(){
     form{
       for(u1:User)
@@ -98,6 +111,28 @@ section datamodel
   init {
     t_t.project := t_p;
     t_i.tags.add(t_t);
+    t_u1.color := red;
+    t_u2.color := blue;
+    t_u3.color := green;
+    t_u4.color := red;
+  }
+
+  page p() {
+    var a : List<User> := select u from Moderator as u where u.class='Admin';
+    var ms : List<User> := from Moderator order by name asc;
+    var m : List<User> := select u from User as u where u.class='Moderator' order by u.name asc;
+    section {
+      header { "Admin" }
+      output(a)
+    }
+    section {
+      header { "Moderators" }
+      output(ms)
+    }
+    section {
+      header { "Moderator" }
+      output(m)
+    }
   }
     
   test queries {
@@ -136,4 +171,29 @@ section datamodel
     assert(u.length == 2);
     assert( (u[0] == t_u2 && u[1] == t_u3) || (u[0] == t_u3 && u[1] == t_u2) );
 
+    var a : List<User> := select u from Moderator as u where u.class='Admin';
+    assert(a.length == 1);
+    assert( a[0] == t_u1 );
+
+    var ms : List<User> := from Moderator order by name asc;
+    assert(ms.length == 2);
+    assert( ms[0] == t_u1 );
+    assert( ms[1] == t_u4 );
+
+    var m : List<User> := select u from User as u where u.class='Moderator' order by u.name asc;
+    assert(m.length == 1);
+    assert( m[0] == t_u4 );
+
+    var c : List<Color> := select distinct u.color from User as u;
+    assert(c.length == 3);
+    assert( blue in c );
+    assert( green in c );
+    assert( red in c );
+
+    var uids : List<UUID> := select id from User order by name asc;
+    assert(uids.length == 4);
+    assert( uids[0] == t_u1.id );
+    assert( uids[1] == t_u2.id );
+    assert( uids[2] == t_u3.id );
+    assert( uids[3] == t_u4.id );
   }
