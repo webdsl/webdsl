@@ -2452,7 +2452,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputFloatInternal(f,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputFloatInternal(f,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2508,7 +2508,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputIntInternal(i,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputIntInternal(i,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2564,7 +2564,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputLongInternal(l,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputLongInternal(l,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2618,7 +2618,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputStringInternal(s,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputStringInternal(s,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     //handle validations passed in call to this template
     validate{ getPage().enterLabelContext(tname); }
     elements()
@@ -2664,7 +2664,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputEmailInternal(s,tname)[onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputEmailInternal(s,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
@@ -2921,7 +2921,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputTextInternal(s,tname)[class="inputSDF", onkeyup=validator();""+attribute("onkeyup"), all attributes except "onkeyup"]
+    inputTextInternal(s,tname)[class="inputSDF", oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
