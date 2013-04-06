@@ -20,4 +20,20 @@ public class Warning {
         org.webdsl.logging.Logger.error(sb.toString());
     }
 
+    public static void printSmallStackTrace(int length){
+    	printSmallStackTrace(length,0);
+    }
+    public static void printSmallStackTrace(int length, int offset){
+        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+        offset = offset + 2; // start at 2 to skip getStackTrace and this function itself
+        for (int i=offset ; i<Math.min(offset+length, stackTraceElements.length); i++)
+        {
+         StackTraceElement ste = stackTraceElements[i];
+         String classname = ste.getClassName();
+         String methodName = ste.getMethodName();
+         int lineNumber = ste.getLineNumber();
+         System.out.println( classname+"."+methodName+":"+lineNumber);
+        }
+   }
+
 }

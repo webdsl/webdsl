@@ -405,9 +405,13 @@ module .servletapp/src-webdsl-template/built-in
     getRedirectUrl():String
     setRedirectUrl(String)
     enableDownloadInline()
+    addReRenderPlaceholders(String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
+  }
+  function replace(ph:String){
+    getPage().addReRenderPlaceholders(ph);
   }
 
   native class utils.TemplateContext as TemplateContext {

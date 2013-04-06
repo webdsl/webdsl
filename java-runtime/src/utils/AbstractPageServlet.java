@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import javax.servlet.http.HttpServletRequest;
@@ -17,7 +18,7 @@ import org.webdsl.lang.Environment;
 
 public abstract class AbstractPageServlet{
 
-    protected abstract void renderDebugJsVar(java.io.PrintWriter sout);
+    protected abstract void renderDebugJsVar(PrintWriter sout);
     protected abstract boolean logSqlCheckAccess();
     protected abstract void initTemplateClass();
     protected abstract void redirectHttpHttps();
@@ -61,8 +62,8 @@ public abstract class AbstractPageServlet{
       hibSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
       try
       {
-        java.io.StringWriter s = new java.io.StringWriter();
-        java.io.PrintWriter out = new java.io.PrintWriter(s);
+        StringWriter s = new StringWriter();
+        PrintWriter out = new PrintWriter(s);
         ThreadLocalOut.push(out);
 
         ThreadLocalServlet.get().loadSessionManager(hibSession);
@@ -102,7 +103,9 @@ public abstract class AbstractPageServlet{
         }
 
         if(isNotValid()){
-          clearHibernateCache();
+      	  // mark transaction so it will be aborted at the end
+          // entered form data can be used to update the form on the client with ajax, taking into account if's and other control flow template elements
+          // this also means that data in vars/args and hibernate session should not be cleared until form is rendered
           abortTransaction();
         }
 
@@ -135,12 +138,12 @@ public abstract class AbstractPageServlet{
             }
             // action inside ajax template called and failed
             else if( isAjaxTemplateRequest() && isPostRequest() ){
-              java.io.StringWriter s1 = renderContentOnly();
+              StringWriter s1 = renderContentOnly();
               response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
             }
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
-              java.io.StringWriter s1 = renderContentOnly();
+              StringWriter s1 = renderContentOnly();
               response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) +"\"}]");
             }
             // 1 regular render without any action being executed
@@ -152,8 +155,25 @@ public abstract class AbstractPageServlet{
             }
           }
           // succesful action, always redirect, no render
-          else { //hasExecutedAction() && isValid()
-            if( isAjaxRuntimeRequest() ){
+          else {
+            // actionLink or ajax action used and replace(placeholder) invoked
+            if( isReRenderPlaceholders() ){
+                templateservlet.validateInputs (null, args, new Environment(env), null, null);
+                ThreadLocalPage.get().clearTemplateContext();
+                renderContentSingleRender(); // content of placeholders is collected in reRenderPlaceholdersContent map
+                StringWriter replacements = new StringWriter();
+                boolean addComma = false;
+                for(String ph : reRenderPlaceholders){
+                    if(addComma){ replacements.write(","); } 
+                    else { addComma = true; }
+                	replacements.write("{action:\"replace\", id:\""+ph+"\", value:\""
+                            + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph))
+                            + "\"}");
+                }
+                response.getWriter().write("["+replacements.toString()+"]");
+            }
+            //hasExecutedAction() && isValid()
+            else if( isAjaxRuntimeRequest() ){
               response.getWriter().write("[");
               response.getWriter().write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
@@ -183,7 +203,7 @@ public abstract class AbstractPageServlet{
         hibSession = utils.HibernateUtil.getCurrentSession();
         if( isTransactionAborted() || isRollback() ){
           try{
-        	  hibSession.getTransaction().rollback();
+              hibSession.getTransaction().rollback();
           }
           catch (org.hibernate.SessionException e){
             if(!e.getMessage().equals("Session is closed!")){ // closed session is not an issue when rolling back
@@ -219,7 +239,7 @@ public abstract class AbstractPageServlet{
     }
 
     public void renderOrInitAction() throws IOException{
-        java.io.StringWriter s = renderPageOrTemplateContents();
+        StringWriter s = renderContentOnly();
 
         // redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
         if( !isPostRequest() && isRedirected() ){
@@ -231,7 +251,7 @@ public abstract class AbstractPageServlet{
             }
             else {
                 response.setContentType(getMimetype());
-                java.io.PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
+                PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
                 if(!mimetypeChanged){
                     renderResponse(sout, s);
                 }
@@ -242,21 +262,48 @@ public abstract class AbstractPageServlet{
         }
     }
 
-    public java.io.StringWriter renderContentOnly(){
-        return renderPageOrTemplateContents();
+    public StringWriter renderContentOnly(){
+        return renderPageOrTemplateContents(true);
+    }
+    public StringWriter renderContentSingleRender(){
+        return renderPageOrTemplateContents(false);
     }
 
-    public java.io.StringWriter renderPageOrTemplateContents(){
+    public StringWriter renderPageOrTemplateContents(boolean doFormDoubleRender){
         if(isTemplate() && !ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); }
-        java.io.StringWriter s = new java.io.StringWriter();
-        java.io.PrintWriter out = new java.io.PrintWriter(s);
-        ThreadLocalOut.push(out);
-        templateservlet.render(null, args, new Environment(env), null, null);
-        ThreadLocalOut.popChecked(out);
+        StringWriter s = new StringWriter();
+        PrintWriter out = new PrintWriter(s);
+        if(isNotValid() && doFormDoubleRender){ //render form with newly entered data, rest with the current persisted data
+
+            StringWriter theform = new StringWriter();
+            PrintWriter pwform = new PrintWriter(theform);
+            ThreadLocalOut.push(pwform);
+            // render, when encountering submitted form save in abstractpage
+            validationFormRerender = true;
+            templateservlet.render(null, args, new Environment(env), null, null);
+            ThreadLocalOut.popChecked(pwform);
+
+            clearHibernateCache();
+
+            ThreadLocalOut.push(out);
+            // render, when encountering submitted form render old
+            templateservlet.render( null, args, new Environment(env), null, null);
+            ThreadLocalOut.popChecked(out);
+        }
+        else{
+          ThreadLocalOut.push(out);
+          templateservlet.render(null, args, new Environment(env), null, null);
+          ThreadLocalOut.popChecked(out);
+        }
         return s;
     }
+    private boolean validationFormRerender = false;
+    public boolean isValidationFormRerender(){
+        return validationFormRerender;
+    }
+    public String submittedFormContent = null;
 
-    public void renderResponse(java.io.PrintWriter sout, java.io.StringWriter s) throws IOException {
+    public void renderResponse(PrintWriter sout, StringWriter s) throws IOException {
         ThreadLocalOut.push(sout);
 
         addJavascriptInclude("jquery-1.8.2.min.js");
@@ -502,8 +549,8 @@ public abstract class AbstractPageServlet{
     public static int ACTION_PHASE = 3;
     public static int RENDER_PHASE = 4;
     public String executeTemplatePhase(int phase, String name, Object[] args, Environment env){
-        java.io.StringWriter s = new java.io.StringWriter();
-        PrintWriter out = new java.io.PrintWriter(s);
+        StringWriter s = new StringWriter();
+        PrintWriter out = new PrintWriter(s);
         ThreadLocalOut.push(out);
         try{
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
@@ -905,6 +952,24 @@ public abstract class AbstractPageServlet{
     }
     public void disableTemplateSpans() {
         templateSpans = false;
+    }
+
+    protected List<String> reRenderPlaceholders = null;
+    protected Map<String,String> reRenderPlaceholdersContent = null;
+    public boolean isReRenderPlaceholders() {
+        return reRenderPlaceholders != null;
+    }
+    public void addReRenderPlaceholders(String placeholder) {
+        if(reRenderPlaceholders == null){
+            reRenderPlaceholders = new ArrayList<String>();
+            reRenderPlaceholdersContent = new HashMap<String,String>();
+        }
+        reRenderPlaceholders.add(placeholder);
+    }
+    public void addReRenderPlaceholdersContent(String placeholder, String content) {
+        if(reRenderPlaceholders != null && reRenderPlaceholders.contains(placeholder)){
+            reRenderPlaceholdersContent.put(placeholder,content);
+        }
     }
 
     protected utils.File download = null;

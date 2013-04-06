@@ -10,10 +10,10 @@ imports
   org/webdsl/dsl/to-java-servlet/ajax/html-utils
   org/webdsl/dsl/to-java-servlet/core-to-java-servlet
   org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
-   
+
 rules // forms
 
-  elem-to-java-servlet : 
+  elem-to-java-servlet :
     tc@TemplateCall("form", [],passign*, elems) ->
     bstm* |[
       ident = e_ident;
@@ -23,6 +23,14 @@ rules // forms
         ThreadLocalPage.get().setInSubmittedForm(true); // ok, because no nested forms, otherwise need to count just like inForLoop variable
       }
       ThreadLocalPage.get().formRequiresMultipartEnc = false;
+
+      java.io.StringWriter x_stringwr_valid = null;
+      if(ThreadLocalPage.get().isValidationFormRerender()){
+        x_stringwr_valid = new java.io.StringWriter();
+        out = new java.io.PrintWriter(x_stringwr_valid);
+        ThreadLocalOut.push(out);
+      }
+
       out.print("<form name=\""+ident+"\" id=\""+ident+
         "\" action=\""+e_resulturl+
         "\" accept-charset=\"UTF-8\" method=\"POST\" "+e_attrs1);
@@ -30,13 +38,13 @@ rules // forms
       java.io.StringWriter x_stringwr = new java.io.StringWriter();
       out = new java.io.PrintWriter(x_stringwr);
       ThreadLocalOut.push(out);
-       
+
       out.print(">");
       out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
       out.print(ThreadLocalPage.get().getHiddenParams()); // page arguments
       bstm*
       out.print("</form>");
-      
+
       //set 'out' back to the original out stream
       ThreadLocalOut.popChecked(out);
       out = ThreadLocalOut.peek();
@@ -44,7 +52,18 @@ rules // forms
         out.write(" enctype=\"multipart/form-data\"");
       }
       out.write(x_stringwr.toString());
-  
+
+      if(ThreadLocalPage.get().isValidationFormRerender()){
+        ThreadLocalOut.pop();
+        if(ThreadLocalPage.get().submittedFormContent==null){ //render phase with changed data, store form output
+          ThreadLocalPage.get().submittedFormContent = x_stringwr_valid.toString();
+        }
+        else{ //render phase with current persisted data, retrieve stored form output
+          out = ThreadLocalOut.peek();
+          out.write(ThreadLocalPage.get().submittedFormContent);
+        }
+      }
+
       ThreadLocalPage.get().formRequiresMultipartEnc = false;
       ThreadLocalPage.get().setInSubmittedForm(false);
       ThreadLocalPage.get().setFormIdent("");
@@ -52,20 +71,20 @@ rules // forms
     with  bstm* := <elems-to-java-servlet> elems
         ; formident := <get-formnumber> tc
         ; e_attrs1 := <to-html-attrs> passign*
-        ; x_stringwr := <newname> "stringwriter"
-        ; x_out := <newname> "out"
+        ; x_stringwr := <newname> "sw"
+        ; x_stringwr_valid := <newname> "sw"
         ; e_url := java:expr |[ utils.HTMLFilter.filter(ThreadLocalPage.get().getPageUrlWithParams() + ThreadLocalPage.get().getExtraQueryAruments("?")) ]|
         ; e_resulturl := <convert-abs-url-based-on-secure-modifier(|passign*)> e_url
         ; e_ident := <for-loop-counter-wrap-code-expr> java:expr|["~formident"+uniqueid]|
-      
+
 rules
 
-  handle-actions-to-java-servlet: 
+  handle-actions-to-java-servlet:
     tc@TemplateCall("form", [],passign*, TemplateBody(elems)) ->
     <for-loop-counter-wrap-code>
     bstm*|[
         ident += "~formident"+uniqueid;
-        ThreadLocalPage.get().setFormIdent(ident);//for actionLink javascript code and ajax actions 
+        ThreadLocalPage.get().setFormIdent(ident);//for actionLink javascript code and ajax actions
         //if(ThreadLocalPage.get().getParammap().get(ident)!=null)
         //{
         bstm1*
@@ -73,4 +92,21 @@ rules
     ]|
     with // bstm* := <collect-om(handle-actions-input-to-java-servlet)> elems
          bstm1* := <collect-om(handle-actions-to-java-servlet); concat-with-sublists> elems
-        ; formident := <get-formnumber> tc   
+        ; formident := <get-formnumber> tc
+
+rules
+
+  //set formident in databind phase, so template calls that get initialized during this phase don't result in having broken ajax action links (rerender placeholders)
+  handle-actions-input-to-java-servlet :
+    tc@TemplateCall("form", [],passign*, TemplateBody(elems)) ->
+    <for-loop-counter-wrap-code>
+    bstm*|[
+        ident += "~formident"+uniqueid;
+        ThreadLocalPage.get().setFormIdent(ident);//for actionLink javascript code and ajax actions
+        //if(ThreadLocalPage.get().getParammap().get(ident)!=null)
+        //{
+        bstm1*
+        //}
+    ]|
+    with  bstm1* := <collect-om(handle-actions-input-to-java-servlet ); concat-with-sublists> elems
+        ; formident := <get-formnumber> tc

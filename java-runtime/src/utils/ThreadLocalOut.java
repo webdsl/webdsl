@@ -8,15 +8,15 @@ public class ThreadLocalOut {
     public static Stack<PrintWriter> get() {
         return (Stack<PrintWriter>) outputWriter.get();
     }
-    
+
     public static void set(Stack<PrintWriter> d) {
         outputWriter.set(d);
     }
-    
+
     public static PrintWriter peek(){
-        return get().peek();    	
+        return get().peek();
     }
-    
+
     public static void push(PrintWriter pw){
         Stack<PrintWriter> s = get();
         if(s == null){
@@ -28,11 +28,11 @@ public class ThreadLocalOut {
     public static PrintWriter pop(){
         return get().pop();
     }
-    
+
     public static void popChecked(PrintWriter pw){
         if(pw != pop()){
             Warning.warn("wrong output PrintWriter popped");
-            //throw new RuntimeException("wrong output PrintWriter popped");
+            Warning.printSmallStackTrace(1,1);
         }
     }
 
