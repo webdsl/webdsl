@@ -16,6 +16,10 @@ application test
       // losing focus is caused by the whole form being rerendered as result of a validation failure (current default behavior)
       // validation actions in inputajax templates also use the ignore-validation modifier
       replace("ph1");
+      
+      // invoke rollback to complete action normally but not commit anything,
+      // in order to avoid concurrent write action failures
+      rollback();
     }
 
     form{
