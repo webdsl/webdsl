@@ -22,6 +22,7 @@ public abstract class AbstractDispatchServletHelper{
   public boolean isPostRequest;
   public abstract WebDSLEntity getSessionManager();
   public abstract void loadSessionManager(org.hibernate.Session h);
+  public abstract void loadSessionManager(org.hibernate.Session h, String[] joins);
   public abstract void setEndTimeAndStoreRequestLog(org.hibernate.Session hibSession);
   public static List<ReflectionEntity> reflectionentities = new ArrayList<ReflectionEntity>();
   public static List<ReflectionEntity> getReflectionEntities(){ return reflectionentities; }

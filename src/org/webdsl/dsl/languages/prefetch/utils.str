@@ -276,10 +276,19 @@ rules
     FieldAccess(v, f){anno*} -> (fa, srt)
     where (p, psrt) := <is-accessible-from(s,gen)> v
     ; <gen; ?SimpleSort(x_class)> psrt
-    ; not(<is-derived-property> (x_class, f))
-    ; srt := <get-prop-type; strip-ref-sort> (x_class, f)
-    ; f2 := <try(get-real-col-prop-name(|x_class, srt))> f
-    ; fa := <try(add-mutiple-definitions-anno)> FieldAccess(p, f2){anno*}
+    ; f2 := <solve-derived-name-property> (x_class, f)
+    ; srt := <get-prop-type; strip-ref-sort> (x_class, f2)
+    ; f3 := <try(get-real-col-prop-name(|x_class, srt))> f
+    ; fa := <try(add-mutiple-definitions-anno)> FieldAccess(p, f3){anno*}
+
+  solve-derived-name-property :
+    (x_class, f) -> f
+    where not(is-derived-property)
+
+  solve-derived-name-property :
+    (x_class, "name") -> f2
+    where f2 := <get-namefield> x_class
+    ; not(<is-derived-property> (x_class, f2))
 
   get-real-col-prop-name(|x_class, srt) :
     f -> f2
@@ -379,6 +388,23 @@ rules
     ; (p, psrt) := <is-accessible-from(s)> e
     ; <ignoreable-generic-sort-built-in-function> (psrt, nm, targs*)
 
+  replace-calls-to-return-values(s) :
+    FieldAccess(ThisCall("getSessionManager", []), f) -> [Var(f)]
+    where <IsSessionVar> Var(f)
+
+  replace-calls-to-return-values(s) :
+    call@ThisCall(nm, args) -> results
+    where argtypes := <map(type-of)> args
+    ; targs := <prepare-type-list-for-compare> argtypes
+    ; n := <strip-annos> nm
+    ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
+    ; <not(check-builtin-signature)> (None(), n, targs)
+    ; <not(is-call-to-reserved-function)> (nm, targs)
+    ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
+    ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
+    with argmapping := <zip> (args, defargs)
+    ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> argmapping
+
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "set", [])
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "get", [SimpleSort("Int")])
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "subList", [SimpleSort("Int"),SimpleSort("Int")])
@@ -402,3 +428,11 @@ rules
 
   get-prop-type: (x_class, prop) -> <EntityIdType> x_class
     where <EntityIdName; ?prop> x_class
+
+strategies
+
+  get-session-args = 
+    bagof-SessionEntityNames
+    ; map({\ nm -> Arg(nm, srt) with srt := <TypeOf> nm \})
+
+  is-session-var = where(?Var(_); type-of; IsSessionEntityType)

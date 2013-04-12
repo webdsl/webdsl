@@ -25,6 +25,7 @@ public class GlobalsPageServlet extends PageServlet
     protected void initTemplateClass(){}
     protected void redirectHttpHttps(){}
     protected boolean isActionSubmit(){return false;}
+    protected String[] getUsedSessionEntityJoins(){ return null; }
     protected void storeSessionEntities(){}
     protected org.webdsl.WebDSLEntity getRequestLogEntry(){return null;}
     protected void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle){}

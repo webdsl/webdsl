@@ -23,6 +23,7 @@ public abstract class AbstractPageServlet{
     protected abstract void initTemplateClass();
     protected abstract void redirectHttpHttps();
     protected abstract boolean isActionSubmit();
+    protected abstract String[] getUsedSessionEntityJoins();
     protected abstract void storeSessionEntities();
     protected TemplateServlet templateservlet = null;
     protected abstract org.webdsl.WebDSLEntity getRequestLogEntry();
@@ -66,7 +67,7 @@ public abstract class AbstractPageServlet{
         PrintWriter out = new PrintWriter(s);
         ThreadLocalOut.push(out);
 
-        ThreadLocalServlet.get().loadSessionManager(hibSession);
+        ThreadLocalServlet.get().loadSessionManager(hibSession, getUsedSessionEntityJoins());
         ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
 
         initVarsAndArgs();

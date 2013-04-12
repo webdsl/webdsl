@@ -65,7 +65,7 @@ rules
   GenerateCodeJavaServlet = generate-java-servlet-page; fail
 
   generate-java-servlet-page :
-    def|[ define mod* x_page (farg*)  req*  { elem* } ]| ->
+    def@def|[ define mod* x_page (farg*)  req*  { elem* } ]| ->
     <emit-java-code-local> compilation-unit|[
         package pkgname;
 
@@ -198,6 +198,10 @@ rules
 
           }
 
+          protected String[] getUsedSessionEntityJoins() {
+            return e_SessionPrefetch;
+          }
+
           @Partial
           protected void storeSessionEntities(){}
 
@@ -229,6 +233,8 @@ rules
        ; pkgname_domain   := <DomainPackage>
        ; pkgtname_domain  := pkgname_domain
        ; x_specialpagetemplate := <ThisTemplateClassName>
+       ; sents := <get-anno(?SessionEntities(<id>))> def
+       ; e_SessionPrefetch := <get-session-prefetch> sents
        ; e* := <filter({\arg@farg|[ x : srt ]| -> var-init|[ x ]| \})> farg* //just pass args of page to special pagetemplate
        ; bstm_args* := <add-indices;filter({\(index,arg@farg|[ x : srt ]|) -> bstm|[ x = (x_arg) args[x_index]; ]|
                                          where x_index := <subti;int-to-string> (index,1)
@@ -264,3 +270,25 @@ rules
    *  Used for output(Image) and output(File)
    */
   action-call-with-get-param-name = !"action-call-with-get-request-type"
+
+  get-session-prefetch =
+    ?sents
+    ; prefetches := <JavaThisPagePrefetches <+ ![]>
+    ; <filter(get-session-prefetch(|prefetches))> sents
+    ; flatten-list
+    ; string-list-to-java-servlet-or-null
+
+  get-session-prefetch(|prefetches) :
+    sent -> joins
+    where pf := <get-prefetch-for(|sent)> prefetches
+    ; not(None() := pf)
+    ; joins := <get-to-one-joins; add-session-property-to-joins(|sent)> pf
+
+  add-session-property-to-joins(|sent) :
+    [] -> [join]
+    with join := <concat-strings> ["_", sent]
+
+  add-session-property-to-joins(|sent) :
+    [join|joins] -> [join2|joins2]
+    with join2 := <concat-strings> ["_", sent, ".", join]
+    ; joins2 := <add-session-property-to-joins(|sent)> joins

@@ -12,8 +12,8 @@ rules
     (body, anno*) -> (body3, [QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls) | anno*])
     where not(QueryOptimizationDisabled)
     ; not(<fetch-elem(is-query-analysis)> anno*)
-    ; {| RootVar, BindableVar, SynonymVar
-       : (roots, bindable, synonyms) := <categorize-and-define-argument-bindings> args
+    ; {| RootVar, BindableVar, SynonymVar, IsSessionVar
+       : (roots, bindable, synonyms) := <conc; categorize-and-define-argument-bindings> (args, <get-session-args; map({v,srt: ?Arg(v, srt); rules( IsSessionVar : Var(v) -> srt ) })>)
        ; [] := <collect(query-optimization-waiting-for); flatten-list> (body, cond, early)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
@@ -46,7 +46,7 @@ rules
     ; <map({v,e: ?(v, e); rules( SynonymVar : v -> e ) })> synonyms
 
   create-synonyms-for-extra-this :
-  	(roots, []) -> (roots, []) // There are not this keywords, so there are no synonyms
+  	(roots, []) -> (roots, []) // There are no this keywords, so there are no synonyms
 
   create-synonyms-for-extra-this :
   	(roots, [firstthis@Arg(this1,_)|otherthis]) -> ([firstthis|roots], synonyms)
@@ -140,6 +140,7 @@ strategies // Update the dynamic rules
   register-all-effectful = 
     condition := <QueryConditions <+ !True()>
     ; dr-all-keys(|"RootVar")
+    ; filter(not(IsSessionVar))
     ; map({key,value
           : ?key
           ; value := <RootVar> key
@@ -180,12 +181,6 @@ rules // Expressions and Statements
     v@Var(_){anno*} -> v{anno*}
     where is-accessible-from-allow-calls(RootVar)
     ; map(register-detected-traversal)
-
-  analyze-for-query-optimization :
-    Return(e1){anno*} -> Return(e2){anno*}
-    where <is-accessible-from-allow-calls(RootVar)> e1
-    ; map(register-detected-return-traversal)
-    ; e2 := <analyze-for-query-optimization> e1
 
   analyze-for-query-optimization :
     Return(e1){anno*} -> Return(e2){anno*}
@@ -429,7 +424,6 @@ strategies // Function calls
     ; targs := <prepare-type-list-for-compare> argtypes
     ; n := <strip-annos> nm
     ; <not(bagof-StaticSignatures; filter(signature-to-static-anno(|argtypes)); Hd; ?StaticFunctionCallAnno(_, _))> nm // Not a static function
-    ; n := <strip-annos> nm  
     ; <not(check-builtin-signature)> (None(), n, targs)
     ; <not(is-call-to-reserved-function)> (nm, targs)
     ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
