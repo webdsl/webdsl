@@ -95,7 +95,7 @@ init_benchmark() {
   do
     local warfile=`echo "$war" | sed 's/\?.*//'`
     local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-    local sanitized_querystring=`echo "$page" | sed 's/[:\/<>|"?]/_/g'`
+    local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
     warname=$(basename $warfile .war)
     if [[ $querystring != "" ]]; then
       warname="${warname}_${sanitized_querystring}"
@@ -162,7 +162,7 @@ run_benchmark() {
 
   local warfile=`echo "$war" | sed 's/\?.*//'`
   local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-  local sanitized_querystring=`echo "$page" | sed 's/[:\/<>|"?]/_/g'`
+  local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
   local warbase=$(basename $warfile .war)
   local warname="$warbase"
   local logsqlsuffix="?logsql"
@@ -287,6 +287,12 @@ run_benchmark() {
         # no sql log, so probably redirected to access denied
         logln "No sql log in response, skipping test"
         echo -e "${sanitized_page}\tNo sql log in response" >>./$benchname/${warname}_${sqlname}.log
+        return
+      fi
+      lines=`wc -l <<< "$sqlline"`
+      if [ "$lines" -gt "1" ]; then
+        logln "More than one sql log in response, skipping test"
+        echo -e "${sanitized_page}\tMore than one sql log in response" >>./$benchname/${warname}_${sqlname}.log
         return
       fi
     fi    
@@ -507,7 +513,7 @@ finalize_benchmark(){
   do
     local warfile=`echo "$war" | sed 's/\?.*//'`
     local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-    local sanitized_querystring=`echo "$page" | sed 's/[:\/<>|"?]/_/g'`
+    local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
     warname=$(basename $warfile .war)
     if [[ $querystring != "" ]]; then
       warname="${warname}_${sanitized_querystring}"
@@ -515,7 +521,7 @@ finalize_benchmark(){
     for sql in $SQLS
     do
       sqlname=$(basename $sql .sql.gz)
-      cat ./$benchname/${logname}_${sqlname}.log | column -t > ./$benchname/${logname}_${sqlname}.txt
+      cat ./$benchname/${warname}_${sqlname}.log | column -t > ./$benchname/${warname}_${sqlname}.txt
     done
   done
 }
