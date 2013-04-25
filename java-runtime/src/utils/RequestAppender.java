@@ -1,23 +1,16 @@
 package utils;
 
-import java.io.StringWriter;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.HashMap;
 import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.helpers.PatternConverter;
-import org.apache.log4j.helpers.PatternParser;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.LogManager;
-import org.apache.log4j.PatternLayout;
-import org.apache.log4j.WriterAppender;
 import org.apache.log4j.spi.LoggingEvent;
 
 public class RequestAppender extends AppenderSkeleton {
-	private Map<String, WriterAppender> appenderMap = new HashMap<String, WriterAppender>();
-	private Map<String, StringWriter> writerMap = new HashMap<String, StringWriter>();
+	private Map<String, HibernateLog> logMap = new HashMap<String, HibernateLog>();
 	private static RequestAppender instance = null;
     private boolean restoreBind = false;
     private Level restoreBindLevel = null;
@@ -31,7 +24,6 @@ public class RequestAppender extends AppenderSkeleton {
     private Level restoreJdbcLevel = null;
 
     public RequestAppender() {
-    	this.layout = new SingleLinePatternLayout("%c|%d{ABSOLUTE}|%X{template}|%m%n");
     	RequestAppender.setInstance(this);
     }
 
@@ -40,7 +32,7 @@ public class RequestAppender extends AppenderSkeleton {
     		RequestAppender.instance = instance;
     	}
     	else {
-    		org.apache.log4j.helpers.LogLog.error("Only one NDCAppender allowed");
+    		org.apache.log4j.helpers.LogLog.error("Only one RequestAppender allowed");
     	}
     }
 
@@ -131,47 +123,43 @@ public class RequestAppender extends AppenderSkeleton {
     }
 
     public synchronized boolean addRequest(String rle) {
-        if(appenderMap.containsKey(rle))
+        if(logMap.containsKey(rle))
         {
             return false;
         }
-        StringWriter newWriter = new StringWriter();
-        WriterAppender newAppender = new WriterAppender(this.layout, newWriter);
+        HibernateLog log = new HibernateLog();
 
         // If this is the first request, then we need to check if log levels are sufficient
-        if(appenderMap.isEmpty()) {
+        if(logMap.isEmpty()) {
         	forceLogLevels();
         }
 
-        appenderMap.put(rle, newAppender);
-        writerMap.put(rle, newWriter);
+        logMap.put(rle, log);
         return true;
     }
 
-    public synchronized String getLog() {
+    public synchronized HibernateLog getLog() {
         return getLog((String)org.apache.log4j.MDC.get("request"));
     }
-    public synchronized String getLog(String rle) {
-        if(writerMap.containsKey(rle))
+    public synchronized HibernateLog getLog(String rle) {
+        if(logMap.containsKey(rle))
         {
-            return writerMap.get(rle).toString();
+            return logMap.get(rle);
         }
         return null;
     }
 
-    public synchronized Iterator<String> ndcIterator() {
-        return appenderMap.keySet().iterator();
+    public synchronized Iterator<String> requestIterator() {
+        return logMap.keySet().iterator();
     }
 
     public synchronized void removeRequest(String rle) {
-        if(appenderMap.containsKey(rle))
+        if(logMap.containsKey(rle))
         {
-            appenderMap.get(rle).close();
-            appenderMap.remove(rle);
-            writerMap.remove(rle);
+        	logMap.remove(rle);
 
             // If the last request was removed, then we can restore log levels to their original state
-            if(appenderMap.isEmpty()) {
+            if(logMap.isEmpty()) {
             	restoreLogLevels();
             }
         }
@@ -179,9 +167,9 @@ public class RequestAppender extends AppenderSkeleton {
 
     public void append(LoggingEvent event) {
         String rle = (String)event.getMDC("request");
-        if(appenderMap.containsKey(rle))
+        if(logMap.containsKey(rle))
         {
-            appenderMap.get(rle).append(event);
+        	logMap.get(rle).append(event);
         }
     }
 
@@ -192,56 +180,9 @@ public class RequestAppender extends AppenderSkeleton {
 
         this.closed = true;
 
-        Iterator<String> i = appenderMap.keySet().iterator();
-        while(i.hasNext()) {
-            String ndc = i.next();
-            appenderMap.get(ndc).close();
-        }
-        appenderMap.clear();
-        writerMap.clear();
+        logMap.clear();
         restoreLogLevels();
         RequestAppender.resetInstance(this);
     }
-    
-    class SingleLineMessagePatternConverter extends PatternConverter {
-    	public SingleLineMessagePatternConverter() {
-    	}
 
-		@Override
-		protected String convert(LoggingEvent loggingEvent) {
-			String msg = loggingEvent.getRenderedMessage();
-			if(msg == null) return "";
-    		return msg.replaceAll("\r", "\\r").replaceAll("\n", "\\n");
-		}
-    }
-
-    class SimpleLinePatternParser extends PatternParser {
-		public SimpleLinePatternParser(String pattern) {
-			super(pattern);
-		}
-
-		protected void finalizeConverter(char c) {
-			if(c == 'm') {
-				addConverter(new SingleLineMessagePatternConverter());
-			}
-			else {
-				super.finalizeConverter(c);
-			}
-
-		}
-    }
-
-    class SingleLinePatternLayout extends PatternLayout {
-    	public SingleLinePatternLayout() {
-    		super();
-    	}
-
-    	public SingleLinePatternLayout(String pattern) {
-    		super(pattern);
-    	}
-
-    	protected PatternParser createPatternParser(String pattern) {
-  		  return (PatternParser) new SimpleLinePatternParser(pattern);
-  	  	}
-    }
 }

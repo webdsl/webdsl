@@ -17,13 +17,13 @@ native class utils.RequestAppender as RequestAppender {
   static getInstance() : RequestAppender
   close()
   addRequest(String)
-  getLog(String) : String
+  getLog(String) : HibernateLog
   removeRequest(String)
 }
 
 native class utils.HibernateLog as HibernateLog {
   constructor()
-  tryParse(String, Session) : Bool
+  parseSessionCache(Session) : Bool
   getError() : String
   getSQLCount() : Int
   getEntities() : Set<String>
@@ -52,10 +52,10 @@ function initLog() {
 function getLog() : HibernateLog {
   var reqAppender : RequestAppender := RequestAppender.getInstance();
   var rleId : String := "test";
-  var hibernateLog : HibernateLog := HibernateLog();
-  var parsed : Bool := hibernateLog.tryParse(reqAppender.getLog(rleId), HibernateUtilConfigured.getSessionFactory().getCurrentSession());
-  assert(parsed, "Failed to parse log");
-  if(!parsed) {
+  var hibernateLog : HibernateLog := reqAppender.getLog(rleId);
+  hibernateLog.parseSessionCache(HibernateUtilConfigured.getSessionFactory().getCurrentSession());
+  assert(hibernateLog.getError() == null, "Failed to parse log");
+  if(hibernateLog.getError() != null) {
     log("Exception: " + hibernateLog.getError());
   }
   return hibernateLog;

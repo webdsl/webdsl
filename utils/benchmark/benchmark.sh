@@ -190,7 +190,7 @@ run_benchmark() {
   fi
 
   if [[ $sqlname == "existing" ]] ; then
-    log "Using existing db"
+    logln "Using existing db"
   else
     # Using initialization scripts for speed
     logln "Drop-Create database"
