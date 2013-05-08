@@ -14,7 +14,11 @@ GCLOGPATH=`pwd`/gc.log # The garbage collection log that is will be used to esti
 # Start and max memory is intentionally the same, to prevent memory allocation from having an impact on response time
 export JAVA_HOME=$JAVA_HOME
 export JRE_HOME=$JAVA_HOME
-export JAVA_OPTS="-Xloggc:$GCLOGPATH -XX:+PrintGCDetails -XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE}"
+if [[ $SQLS == "existing" && $REDUCE_DEPLOYS == "1" ]] ; then
+  export JAVA_OPTS="-XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE}"
+else
+  export JAVA_OPTS="-Xloggc:$GCLOGPATH -XX:+PrintGCDetails -XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE}"
+fi
 
 # Tomcat options
 export CATALINA_HOME=$CATALINA_HOME
@@ -56,8 +60,8 @@ control_c() {
   if [ $pid -ne 0 ]; then
     logln "Terminating tomcat (pid=$pid)"
     kill $pid
+    wait
   fi
-  wait
   if [ -f $removefile ]; then
     if [[ $removefile != "" ]]; then
       logln "Removing file $removefile"
@@ -66,7 +70,7 @@ control_c() {
     fi
   fi
   if [ -d $removedir ]; then
-    if [[ $removefile != "" ]]; then
+    if [[ $removedir != "" ]]; then
       logln "Removing directory $removedir"
       rm -r "$removedir"
       removedir=""
@@ -114,20 +118,34 @@ init_benchmark() {
   if [[ `type -t manual_test_cases` == "function" ]]; then
     manual_test_cases
   fi
-  for sql in $SQLS
-  do
-    for page in $PAGES
+  if [[ $SQLS == "existing" && $REDUCE_DEPLOYS == "1" ]] ; then
+    for war in $WARS
     do
-      for war in $WARS
+      for page in $PAGES
       do
         if [[ `type -t test_case_filter` == "function" ]]; then
-          test_case_filter "$sql" "$page" "$war"
+          test_case_filter "existing" "$page" "$war"
         else
-          append_test_case "$sql" "$page" "$war"
+          append_test_case "existing" "$page" "$war"
         fi
       done
     done
-  done
+  else
+    for sql in $SQLS
+    do
+      for page in $PAGES
+      do
+        for war in $WARS
+        do
+          if [[ `type -t test_case_filter` == "function" ]]; then
+            test_case_filter "$sql" "$page" "$war"
+          else
+            append_test_case "$sql" "$page" "$war"
+          fi
+        done
+      done
+    done
+  fi
 }
 
 append_test_case() {
@@ -176,17 +194,43 @@ run_benchmark() {
   local remain=`cat "$CONTINUE_PATH" | awk 'FNR>1' | wc -l`
   local currentcase=$(($remaining-$remain+1))
 
+  local measure_mem=0
+
   logln ""
   logln "Testing: database=$sqlname app=$warbase url=$page$normalsuffix ($currentcase of $remaining)"
-  if [[ $RUNNINGTOMCAT == 1 ]] ; then
-    pid=0
+  if [[ $REDUCE_DEPLOYS == 1 ]] ; then
+    if [[ $removefile != "$WEBAPP_PATH/$warbase.war" ]] ; then
+      if [[ $removefile != "" && $pid != 0 ]] ; then
+        kill $pid
+        wait # wait for catalina to terminate
+        pid=0
+        logln "Cleaning up"
+        rm "$removefile"
+        removefile=""
+        rm -r "$removedir"
+        removedir=""
+      fi
+      removefile="$WEBAPP_PATH/$warbase.war" 
+      removedir="$WEBAPP_PATH/$warbase"
+      cp "$war" "$removefile" 
+      logln "Starting Tomcat"
+      $CATALINA_PATH run >> /dev/null 2>&1 &
+      pid=$!
+    else
+      logln "Using currently deployed war"
+    fi
   else
-    removefile="$WEBAPP_PATH/$warbase.war" 
-    removedir="$WEBAPP_PATH/$warbase"
-    cp "$war" "$removefile" 
-    logln "Starting Tomcat"
-    $CATALINA_PATH run >> /dev/null 2>&1 &
-    pid=$!
+    if [[ $RUNNINGTOMCAT == 1 ]] ; then
+      pid=0
+    else
+      removefile="$WEBAPP_PATH/$warbase.war" 
+      removedir="$WEBAPP_PATH/$warbase"
+      cp "$war" "$removefile" 
+      logln "Starting Tomcat"
+      $CATALINA_PATH run >> /dev/null 2>&1 &
+      pid=$!
+      measure_mem=1
+    fi
   fi
 
   if [[ $sqlname == "existing" ]] ; then
@@ -262,13 +306,14 @@ run_benchmark() {
   local reqerr=0
   while [[ $sqlline == "" ]];
   do
-    wgetdata=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" "$BASEURL$warbase/$page$logsqlsuffix"`
+    wgetdata=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" -t 1 --read-timeout=$REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix"`
     wgetstatus=$?
     if [[ $wgetstatus != 0 ]]; then
       if [[ $wgetstatus == 8 ]]; then
         # A server error (probably 404)
         logln "An error response, skipping test"
         echo -e "${sanitized_page}\tAn error response" >>./$benchname/${warname}_${sqlname}.log
+        cleanup_benchmark
         return
       fi
       reqerr=$(($reqerr+1))
@@ -276,6 +321,7 @@ run_benchmark() {
         logln "Request failed ($reqerr/10), skipping test"
         
         echo -e "${sanitized_page}\tRequest failed 10 times, last status is $wgetstatus" >>./$benchname/${warname}_${sqlname}.log
+        cleanup_benchmark
         return
       else
         logln "Request failed ($reqerr/10), retrying in 5 seconds"
@@ -287,12 +333,14 @@ run_benchmark() {
         # no sql log, so probably redirected to access denied
         logln "No sql log in response, skipping test"
         echo -e "${sanitized_page}\tNo sql log in response" >>./$benchname/${warname}_${sqlname}.log
+        cleanup_benchmark
         return
       fi
       lines=`wc -l <<< "$sqlline"`
       if [ "$lines" -gt "1" ]; then
         logln "More than one sql log in response, skipping test"
         echo -e "${sanitized_page}\tMore than one sql log in response" >>./$benchname/${warname}_${sqlname}.log
+        cleanup_benchmark
         return
       fi
     fi    
@@ -305,7 +353,7 @@ run_benchmark() {
 
   for i in $(seq 1 $WARMUP)
   do
-    sqlline=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" "$BASEURL$warbase/$page$logsqlsuffix" | grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>"`
+    sqlline=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" -t 1 --read-timeout=$REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix" | grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>"`
     sqls=`echo "$sqlline" | grep -o "<span id=\"sqllogcount\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
     sqlents=`echo "$sqlline" | grep -o "<span id=\"sqllogentities\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
     sqldups=`echo "$sqlline" | grep -o "<span id=\"sqllogduplicates\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
@@ -377,8 +425,10 @@ run_benchmark() {
   logln "Results initial test: SQLs = $sqlstr$avgdspsql, Entities = $entstr$avgdspents, Duplicates = $dupstr$avgdspdups, Collections = $colstr$avgdspcols"
 
   if [ $pid -ne 0 ]; then
+    logln "Forcing GC"
     $JAVA_HOME/bin/jmap -histo:live $pid >/dev/null # this forces a full gc
-
+  fi
+  if [ $measure_mem -ne 0 ]; then
     #JDK6
     #cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
     #JDK7
@@ -391,7 +441,7 @@ run_benchmark() {
     gcstart_realtime=`echo -e "$gctimes" | cut -f 3`
 
     cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
-    memstart=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { print Young / 1024 "\t" Old / 1024 "\t" Heap / 1024 "\t" Perm / 1024 }'`
+    memstart=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memstartYoung=`echo -e "$memstart" | cut -f 1`
     memstartOld=`echo -e "$memstart" | cut -f 2`
     memstartHeap=`echo -e "$memstart" | cut -f 3`
@@ -404,14 +454,14 @@ run_benchmark() {
 
   logln "Benchmarking"
 
-  ab -n $ITERATIONS -C WEBDSLSESSIONID=$WEBDSLSESSIONID -g ./$benchname/${warname}_${sqlname}_${sanitized_page}.dta $BASEURL$warbase/$page$normalsuffix >./$benchname/${warname}_${sqlname}_${sanitized_page}.log
+  ab -s $REQUEST_TIMEOUT -n $ITERATIONS -C WEBDSLSESSIONID=$WEBDSLSESSIONID -g ./$benchname/${warname}_${sqlname}_${sanitized_page}.dta $BASEURL$warbase/$page$normalsuffix >./$benchname/${warname}_${sqlname}_${sanitized_page}.log
 
   if [ $pid -ne 0 ]; then
-    log "Forcing GC: "
+    logln "Forcing GC"
     $JAVA_HOME/bin/jmap -histo:live $pid >/dev/null # this forces a full gc
   fi
 
-  if [ $pid -ne 0 ]; then
+  if [ $measure_mem -ne 0 ]; then
     # Here we calculate the memory that was collected during the requests send by ab
     #JDK6
     #cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
@@ -430,7 +480,7 @@ run_benchmark() {
     gc_realtime=`echo "scale=2; $gcend_realtime - $gcstart_realtime" | bc`
 
     cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
-    memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { print Young / 1024 "\t" Old / 1024 "\t" Heap / 1024 "\t" Perm / 1024 }'`
+    memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memendYoung=`echo -e "$memend" | cut -f 1`
     memendOld=`echo -e "$memend" | cut -f 2`
     memendHeap=`echo -e "$memend" | cut -f 3`
@@ -446,10 +496,10 @@ run_benchmark() {
     pid=0
   fi
 
-  logln_continue "Benchmarking complete"
+  logln "Benchmarking complete"
 
   memcols=""
-  if [ $pid -ne 0 ]; then
+  if [ $measure_mem -ne 0 ]; then
     log "gc results: "
     cp "$GCLOGPATH" ./$benchname/${warname}_${sqlname}_${sanitized_page}_gc.dta
     #JDK6
@@ -460,7 +510,7 @@ run_benchmark() {
     cat "$GCLOGPATH" | tail -9 | sed 's/[[:space:]]\+total[[:space:]]\+[[:digit:]]\+K,[[:space:]]\+used[[:space:]]\+\([[:digit:]]\+\)K.*/\1/' | grep -o "\(PSYoungGen\|ParOldGen\|PSPermGen\)[[:digit:]]\+" | sed 'N;N;s/PSYoungGen\([[:digit:]]\+\)\nParOldGen\([[:digit:]]\+\)\nPSPermGen\([[:digit:]]\+\)/\1;\2;\1+\2;\3;/' >> proc.tmp
 
     cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
-    memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { print Young / 1024 "\t" Old / 1024 "\t" Heap / 1024 "\t" Perm / 1024 }'`
+    memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memendYoung=`echo -e "$memend" | cut -f 1`
     memendOld=`echo -e "$memend" | cut -f 2`
     memendHeap=`echo -e "$memend" | cut -f 3`
@@ -486,7 +536,7 @@ run_benchmark() {
   logln_continue "Min = $mintime ms, Avg = $avgtime ms, Max = $maxtime ms"
   echo -e "$abtotals\t$ab80perc\t$ab90perc\t$sqlstr\t$entstr\t$dupstr\t$colstr$memcols\t$avgsql\t$avgents\t$avgdups\t$avgcols\t$cntmaxents\t$maxentsper" >>./$benchname/${warname}_${sqlname}.log
 
-  if [ $pid -ne 0 ]; then
+  if [ $measure_mem -ne 0 ]; then
     logln "Cleaning up"
     rm "$GCLOGPATH"
     rm proc.tmp
@@ -507,6 +557,28 @@ run_benchmark() {
   logln "Completed test in $dh:$(printf %02d $dm):$(printf %02d $ds)$ms"
 }
 
+cleanup_benchmark(){
+  if [[ $REDUCE_DEPLOYS == 0 ]] ; then
+    if [ $pid -ne 0 ]; then
+      kill $pid
+      wait
+    fi
+    pid=0
+    if [ -f $removefile ]; then
+      if [[ $removefile != "" ]]; then
+        rm "$removefile"
+        removefile=""
+      fi
+    fi
+    if [ -d $removedir ]; then
+      if [[ $removedir != "" ]]; then
+        rm -r "$removedir"
+        removedir=""
+      fi
+    fi
+  fi
+}
+
 finalize_benchmark(){
   rm $CONTINUE_PATH
   for war in $WARS
@@ -524,6 +596,26 @@ finalize_benchmark(){
       cat ./$benchname/${warname}_${sqlname}.log | column -t > ./$benchname/${warname}_${sqlname}.txt
     done
   done
+
+  if [[ $REDUCE_DEPLOYS == 1 ]] ; then
+    if [ $pid -ne 0 ]; then
+      kill $pid
+      wait
+    fi
+    pid=0
+    if [ -f $removefile ]; then
+      if [[ $removefile != "" ]]; then
+        rm "$removefile"
+        removefile=""
+      fi
+    fi
+    if [ -d $removedir ]; then
+      if [[ $removedir != "" ]]; then
+        rm -r "$removedir"
+        removedir=""
+      fi
+    fi
+  fi
 }
 
 if [ -f $CONTINUE_PATH ]; then

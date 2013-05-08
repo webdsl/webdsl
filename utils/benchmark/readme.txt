@@ -20,7 +20,7 @@ the first argument to benchmark.sh. So for example.cfg:
 ./benchmark.sh example.cfg
 
 Tools which should be installed:
-* ab (Apache HTTP server benchmarking tool)
+* ab (Apache HTTP server benchmarking tool, a version which has the -s <seconds> timeout option)
 * mysql (The MySQL command-line tool)
 * gzip
 * wget (The non-interactive network downloader)
