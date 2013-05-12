@@ -1,5 +1,4 @@
 package utils;
-import javax.servlet.http.*;
 import org.webdsl.lang.Environment;
 
 public class ThreadLocalPage {

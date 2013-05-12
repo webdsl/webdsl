@@ -116,8 +116,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
     protected long searchTime = 0;
     protected Sort sortObj;
 
-    public AbstractEntitySearcher( ) {
-    }
+    public AbstractEntitySearcher( ) { }
 
     @SuppressWarnings( "unchecked" )
     public F addFieldFilter( String fieldname, String terms ) {

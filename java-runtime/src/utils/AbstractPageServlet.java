@@ -13,6 +13,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Session;
+import org.pegdown.Extensions;
+import org.pegdown.PegDownProcessor;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
 
@@ -29,6 +31,7 @@ public abstract class AbstractPageServlet{
     protected abstract org.webdsl.WebDSLEntity getRequestLogEntry();
     protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
     protected abstract void addLogSqlToSessionMessages();
+    protected PegDownProcessor pegDownProcessor = null;
 
     public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
     {
@@ -1303,5 +1306,12 @@ public abstract class AbstractPageServlet{
 
       public long getElapsedTime() {
           return System.currentTimeMillis() - startTime;
+      }
+      
+      public PegDownProcessor getPegDownProcessor(){
+    	  if (pegDownProcessor == null)
+    	    pegDownProcessor = new PegDownProcessor( Extensions.ALL );
+    	  
+    	  return pegDownProcessor;
       }
 }
