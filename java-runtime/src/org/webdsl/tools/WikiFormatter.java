@@ -3,6 +3,7 @@ package org.webdsl.tools;
 
 import java.util.regex.*;
 
+import org.jsoup.safety.Whitelist;
 import org.pegdown.LinkRenderer;
 import org.pegdown.PegDownProcessor;
 
@@ -13,10 +14,11 @@ public final class WikiFormatter {
     private static final Pattern verbatim = Pattern.compile("<verbatim>(.+?)</verbatim>", Pattern.DOTALL | Pattern.MULTILINE);
     private static String currentRootUrl = "";
     private static LinkRenderer currentLinkRenderer = null;
+    private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed().addTags("abbr").addAttributes("abbr", "title");
 
     public static String wikiFormat(String text) {
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-    	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() ), org.jsoup.safety.Whitelist.relaxed() );
+    	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() ), whitelist );
     }
     
     //Similar to wikiFormat( text ) , but without cleaning by JSoup
