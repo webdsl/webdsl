@@ -353,6 +353,7 @@ module .servletapp/src-webdsl-template/built-in
 
   type WikiText{
     org.webdsl.tools.WikiFormatter.wikiFormat as format():String
+    org.webdsl.tools.WikiFormatter.wikiFormatNoTagFiltering as formatNoTagFiltering():String
   }
 
   type Email {
@@ -639,9 +640,8 @@ native class java.lang.Double as Double {
     cc(q.cc)
     bcc(q.bcc)
     replyTo(q.replyTo)
-    rawoutput{ //don't escape the html from internal email rendering
-      output(q.body)
-    }
+    //don't escape the html from internal email rendering
+    rawoutput( q.body )
   }
 
 
@@ -2052,9 +2052,12 @@ native class java.lang.Double as Double {
 
   //input/output WikiText
 
-
   define output(s: WikiText){
     rawoutput(s.format())
+  }
+  
+  define rawoutput( t: WikiText) {
+    rawoutput( t.formatNoTagFiltering() )
   }
 
   define input(s:Ref<WikiText>){
