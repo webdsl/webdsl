@@ -22,10 +22,6 @@ application test
   define page testraw(){
     var s : String := "&'\"<>"
     rawoutput(s)
-    rawoutput{
-      "&'\"<>" 
-      output(s)
-    }
     output(s)
   }
 

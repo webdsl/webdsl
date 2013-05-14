@@ -1,7 +1,7 @@
 application test
 
   define page root(){
-    rawoutput{ output(c1) }
+    rawoutput( rendertemplate( output(c1) ) )
     submit action {init();}{ "cache user output" }    
     submit action {c1.enableInvoke := true;}{ "enable invoke" }    
   }
