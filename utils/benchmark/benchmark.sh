@@ -454,7 +454,7 @@ run_benchmark() {
 
   logln "Benchmarking"
 
-  ab -s $REQUEST_TIMEOUT -n $ITERATIONS -C WEBDSLSESSIONID=$WEBDSLSESSIONID -g ./$benchname/${warname}_${sqlname}_${sanitized_page}.dta $BASEURL$warbase/$page$normalsuffix >./$benchname/${warname}_${sqlname}_${sanitized_page}.log
+  ab -t $REQUEST_TIMEOUT -n $ITERATIONS -C WEBDSLSESSIONID=$WEBDSLSESSIONID -g ./$benchname/${warname}_${sqlname}_${sanitized_page}.dta $BASEURL$warbase/$page$normalsuffix >./$benchname/${warname}_${sqlname}_${sanitized_page}.log
 
   if [ $pid -ne 0 ]; then
     logln "Forcing GC"
