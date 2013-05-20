@@ -1,10 +1,10 @@
 package utils;
 public class ThreadLocalTest {
 
-    private static ThreadLocal test = new ThreadLocal();
+    private static ThreadLocal<Test> test = new ThreadLocal<Test>();
 
     public static Test get() {
-        return (Test) test.get();
+        return test.get();
     }
     
     public static void set(Test t) {

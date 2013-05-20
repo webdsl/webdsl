@@ -1,6 +1,6 @@
 package org.webdsl.tools;
 
-import java.lang.reflect.*;
+import java.lang.reflect.Method;
 
 public class ReflectionTools {
   public static Object getProperty(Object o, String property) {

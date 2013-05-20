@@ -74,7 +74,7 @@ public class XML {
      * @return The escaped string.
      */
     public static String escape(String string) {
-        StringBuffer sb = new StringBuffer();
+    	StringBuilder sb = new StringBuilder();
         for (int i = 0, len = string.length(); i < len; i++) {
             char c = string.charAt(i);
             switch (c) {
@@ -329,23 +329,23 @@ public class XML {
      */
     public static String toString(Object o, String tagName)
             throws JSONException {
-        StringBuffer b = new StringBuffer();
-        int          i;
-        JSONArray    ja;
-        JSONObject   jo;
-        String       k;
-        Iterator     keys;
-        int          len;
-        String       s;
-        Object       v;
+    	StringBuilder sb = new StringBuilder();
+        int           i;
+        JSONArray     ja;
+        JSONObject    jo;
+        String        k;
+        Iterator      keys;
+        int           len;
+        String        s;
+        Object        v;
         if (o instanceof JSONObject) {
 
 // Emit <tagName>
 
             if (tagName != null) {
-                b.append('<');
-                b.append(tagName);
-                b.append('>');
+                sb.append('<');
+                sb.append(tagName);
+                sb.append('>');
             }
 
 // Loop thru the keys.
@@ -372,12 +372,12 @@ public class XML {
                         len = ja.length();
                         for (i = 0; i < len; i += 1) {
                             if (i > 0) {
-                                b.append('\n');
+                                sb.append('\n');
                             }
-                            b.append(escape(ja.get(i).toString()));
+                            sb.append(escape(ja.get(i).toString()));
                         }
                     } else {
-                        b.append(escape(v.toString()));
+                        sb.append(escape(v.toString()));
                     }
 
 // Emit an array of similar keys
@@ -388,37 +388,37 @@ public class XML {
                     for (i = 0; i < len; i += 1) {
                     	v = ja.get(i);
                     	if (v instanceof JSONArray) {
-                            b.append('<');
-                            b.append(k);
-                            b.append('>');
-                    		b.append(toString(v));
-                            b.append("</");
-                            b.append(k);
-                            b.append('>');
+                            sb.append('<');
+                            sb.append(k);
+                            sb.append('>');
+                    		sb.append(toString(v));
+                            sb.append("</");
+                            sb.append(k);
+                            sb.append('>');
                     	} else {
-                    		b.append(toString(v, k));
+                    		sb.append(toString(v, k));
                     	}
                     }
                 } else if (v.equals("")) {
-                    b.append('<');
-                    b.append(k);
-                    b.append("/>");
+                    sb.append('<');
+                    sb.append(k);
+                    sb.append("/>");
 
 // Emit a new tag <k>
 
                 } else {
-                    b.append(toString(v, k));
+                    sb.append(toString(v, k));
                 }
             }
             if (tagName != null) {
 
 // Emit the </tagname> close tag
 
-                b.append("</");
-                b.append(tagName);
-                b.append('>');
+                sb.append("</");
+                sb.append(tagName);
+                sb.append('>');
             }
-            return b.toString();
+            return sb.toString();
 
 // XML does not have good support for arrays. If an array appears in a place
 // where XML is lacking, synthesize an <array> element.
@@ -428,9 +428,9 @@ public class XML {
             len = ja.length();
             for (i = 0; i < len; ++i) {
             	v = ja.opt(i);
-                b.append(toString(v, (tagName == null) ? "array" : tagName));
+                sb.append(toString(v, (tagName == null) ? "array" : tagName));
             }
-            return b.toString();
+            return sb.toString();
         } else {
             s = (o == null) ? "null" : escape(o.toString());
             return (tagName == null) ? "\"" + s + "\"" :

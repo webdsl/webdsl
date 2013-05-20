@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.Serializable;
+
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.MappingException;
@@ -10,8 +11,8 @@ import org.hibernate.engine.SessionImplementor;
 import org.hibernate.loader.Loader;
 import org.hibernate.loader.entity.EntityLoader;
 import org.hibernate.loader.entity.UniqueEntityLoader;
-import org.hibernate.persister.entity.OuterJoinLoadable;
 import org.hibernate.persister.entity.EntityPersister;
+import org.hibernate.persister.entity.OuterJoinLoadable;
 import org.hibernate.type.Type;
 import org.hibernate.util.ArrayHelper;
 

@@ -2,12 +2,13 @@ package utils;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Calendar;
+import java.util.Date;
 
 public class DateType {
     
   public static String format(Date d, String s){
-    return (new java.text.SimpleDateFormat(s).format(d,new StringBuffer(),new java.text.FieldPosition(0))).toString();
+    return new java.text.SimpleDateFormat(s).format(d,new StringBuffer(32),new java.text.FieldPosition(0)).toString();
   }
   
   private static final String defaultDateFormat = "dd/MM/yyyy";

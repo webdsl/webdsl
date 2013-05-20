@@ -1,13 +1,12 @@
 package utils;
 
-import org.webdsl.lang.Environment;
 
 public class ThreadLocalAction {
 
-    private static ThreadLocal actionClass = new ThreadLocal();
+    private static ThreadLocal<ActionClass> actionClass = new ThreadLocal<ActionClass>();
 
     public static ActionClass get() {
-        return (ActionClass) actionClass.get();
+        return actionClass.get();
     }
     
     public static void set(ActionClass d) {

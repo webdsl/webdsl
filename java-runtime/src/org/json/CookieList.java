@@ -69,10 +69,10 @@ public class CookieList {
      * @throws JSONException
      */
     public static String toString(JSONObject o) throws JSONException {
-        boolean      b = false;
-        Iterator     keys = o.keys();
-        String       s;
-        StringBuffer sb = new StringBuffer();
+        boolean       b = false;
+        Iterator      keys = o.keys();
+        String        s;
+        StringBuilder sb = new StringBuilder();
         while (keys.hasNext()) {
             s = keys.next().toString();
             if (!o.isNull(s)) {

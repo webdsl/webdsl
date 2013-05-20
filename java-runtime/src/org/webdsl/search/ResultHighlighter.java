@@ -15,7 +15,6 @@ import org.apache.lucene.search.highlight.QueryScorer;
 import org.apache.lucene.search.highlight.SimpleFragmenter;
 import org.apache.lucene.search.highlight.SimpleHTMLFormatter;
 import org.apache.solr.analysis.HTMLStripCharFilter;
-
 import org.webdsl.logging.Logger;
 
 public class ResultHighlighter {

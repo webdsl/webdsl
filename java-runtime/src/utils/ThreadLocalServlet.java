@@ -1,11 +1,10 @@
 package utils;
-import javax.servlet.http.*;
 public class ThreadLocalServlet {
 
-    private static ThreadLocal dispatchServlet = new ThreadLocal();
+    private static ThreadLocal<AbstractDispatchServletHelper> dispatchServlet = new ThreadLocal<AbstractDispatchServletHelper>();
 
     public static AbstractDispatchServletHelper get() {
-        return (AbstractDispatchServletHelper) dispatchServlet.get();
+        return dispatchServlet.get();
     }
     
     public static void set(AbstractDispatchServletHelper d) {

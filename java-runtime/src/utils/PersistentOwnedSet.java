@@ -4,12 +4,13 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Iterator;
+
 import org.hibernate.collection.PersistentSet;
-import org.hibernate.engine.SessionImplementor;
 import org.hibernate.engine.LoadQueryInfluencers;
+import org.hibernate.engine.SessionImplementor;
+import org.hibernate.impl.FilterImpl;
 import org.hibernate.persister.collection.CollectionPersister;
 import org.hibernate.type.CustomCollectionType;
-import org.hibernate.impl.FilterImpl;
 
 @SuppressWarnings({ "unchecked", "serial" })
 public class PersistentOwnedSet extends PersistentSet implements utils.PersistentOwnedCollection {

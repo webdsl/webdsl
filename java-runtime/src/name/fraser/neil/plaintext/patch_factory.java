@@ -1,6 +1,7 @@
 package name.fraser.neil.plaintext;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 public class patch_factory {
 
@@ -19,16 +20,11 @@ public class patch_factory {
     	List<diff_match_patch.Diff> diffs = the_diff_match_patch.diff_main(s1, s2);
     	List<String> strings = new LinkedList<String>();
     	for(diff_match_patch.Diff d : diffs){
-    		StringBuffer buf = new StringBuffer();
     		if(d.operation.equals(diff_match_patch.Operation.DELETE)){
-    			buf.append("removed: ");
-    			buf.append(d.text);
-    			strings.add(buf.toString());
+    			strings.add( "removed: " + d.text);
     		}
     		else if(d.operation.equals(diff_match_patch.Operation.INSERT)){
-    			buf.append("added: ");
-    			buf.append(d.text);
-    			strings.add(buf.toString());    			
+    			strings.add( "added: " + d.text); 			
     		}
     	}
     	return strings;

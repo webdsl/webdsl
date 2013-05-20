@@ -83,14 +83,14 @@ public class QueryDef {
     }
 
     public void debug(){
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder(1024);
         sb.append("#######################QUERYDEF DEBUG##########################\n");
         debug(sb, 0);
         sb.append("###############################################################");
         System.out.println(sb.toString());
     }
 
-    public void debug(StringBuffer sb, int ind){
+    public void debug(StringBuilder sb, int ind){
         int newIndent = ind + 1;
         while(ind-- > 1)
             sb.append("|    ");

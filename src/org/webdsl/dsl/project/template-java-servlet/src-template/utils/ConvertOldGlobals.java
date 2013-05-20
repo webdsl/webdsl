@@ -56,7 +56,7 @@ public class ConvertOldGlobals {
     }
 
     public static String persistUUIDString(UUID uuid){
-        StringBuffer sb = new StringBuffer(uuid.toString());
+        StringBuilder sb = new StringBuilder(uuid.toString());
         //remove hyphens
         sb.deleteCharAt(23);
         sb.deleteCharAt(18);

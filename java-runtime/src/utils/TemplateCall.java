@@ -1,6 +1,10 @@
 package utils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TemplateCall {
 
@@ -86,7 +90,7 @@ public class TemplateCall {
   public static String getAllAttributesExcept(Map<String,String> attrs, Collection<String> exceptlist) {
       if (attrs == null){ return ""; }
       else{
-          StringBuilder sb = new StringBuilder();
+          StringBuilder sb = new StringBuilder(attrs.size()*128+32);
           for(String key : attrs.keySet()){
               if(!exceptlist.contains(key)){
                   sb.append(org.webdsl.tools.Utils.showAttributeEscapeHtml(key,attrs.get(key)));
@@ -102,7 +106,7 @@ public class TemplateCall {
   public static String getAttributes(Map<String,String> attrs, Collection<String> selected) {
       if (attrs == null){ return ""; }
       else{
-          StringBuilder sb = new StringBuilder();
+          StringBuilder sb = new StringBuilder(256);
           for(String key : selected){
               if(attrs.containsKey(key)){
                   sb.append(org.webdsl.tools.Utils.showAttributeEscapeHtml(key,attrs.get(key)));

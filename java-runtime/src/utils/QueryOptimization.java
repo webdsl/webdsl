@@ -4,8 +4,6 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
 
-import org.hibernate.engine.SessionImplementor;
-
 public class QueryOptimization {
 	public static int optimizationMode = -1;
 

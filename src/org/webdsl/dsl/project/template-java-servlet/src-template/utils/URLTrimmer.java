@@ -17,7 +17,7 @@ public class URLTrimmer {
         }
 
         //make one string for URL
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder(512);
         for(int j = 0; j <= i; j++){
             sb.append("/");
             sb.append(parts[j]);

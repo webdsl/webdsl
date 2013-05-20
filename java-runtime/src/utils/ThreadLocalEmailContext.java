@@ -1,11 +1,10 @@
 package utils;
-import javax.servlet.http.*;
 public class ThreadLocalEmailContext {
 
-    private static ThreadLocal emailServlet = new ThreadLocal();
+    private static ThreadLocal<EmailServlet> emailServlet = new ThreadLocal<EmailServlet>();
 
     public static EmailServlet get() {
-        return (EmailServlet) emailServlet.get();
+        return emailServlet.get();
     }
     
     public static void set(EmailServlet d) {

@@ -1,20 +1,15 @@
 package utils;
 
-import java.io.IOException;
-import java.io.Serializable ;
-import java.sql.PreparedStatement ;
-import java.sql.ResultSet ;
-import java.sql.SQLException ;
-import java.sql.Types ;
-import java.util.UUID ;
+import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.UUID;
 
-import org.slf4j.LoggerFactory;
+import org.hibernate.HibernateException;
+import org.hibernate.usertype.UserType;
 import org.slf4j.Logger;
-
-import org.hibernate.type.SerializationException;
-
-import org.hibernate.HibernateException ;
-import org.hibernate.usertype.UserType ;
+import org.slf4j.LoggerFactory;
 //http://www.bigsoft.co.uk/blog/index.php/2008/11/01/java-util-uuid-primary-keys-in-hibernate
 //changed to work with varchar(16) field in db
 public class UUIDUserType implements UserType, java.io.Serializable

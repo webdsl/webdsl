@@ -1,7 +1,8 @@
 package org.webdsl.tools;
 
 
-import java.util.regex.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jsoup.safety.Whitelist;
 import org.pegdown.LinkRenderer;
@@ -33,14 +34,22 @@ public final class WikiFormatter {
 
     private static String processVerbatim(String text) {
         Matcher m = verbatim.matcher(text);
-        StringBuffer sb = new StringBuffer();
-        while (m.find()) {
-            String newText = m.group(1).replaceAll("\n", "\n        ");
-            newText = newText.replaceAll("\\\\", "\\\\\\\\").replaceAll("\\$", "\\\\\\$");
-            m.appendReplacement(sb, "\n        "+newText+"\n");
+        if (m.find()){
+        	StringBuffer sb = new StringBuffer( text.length() + 256 );
+        	do {
+        		String newText = "\n        " +
+                        m.group(1).replaceAll("\n", "\n        ")
+                                  .replaceAll("\\\\", "\\\\\\\\")
+                                  .replaceAll("\\$", "\\\\\\$") +
+                        "\n";
+                m.appendReplacement(sb, newText);
+        		
+        	} while (m.find());
+        	m.appendTail(sb);
+        	return sb.toString();
+        } else {
+        	return text;
         }
-        m.appendTail(sb);
-        return sb.toString();
     }
     
     private static synchronized LinkRenderer getLinkRenderer( String rootUrl ){

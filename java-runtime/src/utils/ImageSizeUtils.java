@@ -1,15 +1,15 @@
 package utils;
 
-import java.awt.*;
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Transparency;
 import java.awt.image.BufferedImage;
-import java.awt.image.BufferedImageOp;
-import java.io.*;
-import java.util.*;
-import org.hibernate.Session;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 
 import javax.imageio.ImageIO;
+
+import org.hibernate.Session;
 
 public class ImageSizeUtils {
     public static BufferedImage getScaledInstance(BufferedImage img, int targetWidth,

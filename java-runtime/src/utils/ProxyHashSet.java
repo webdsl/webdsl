@@ -1,8 +1,15 @@
 package utils;
 
-import java.util.*;
-import org.webdsl.WebDSLEntity;
+import java.util.AbstractSet;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.UUID;
+
 import org.hibernate.proxy.HibernateProxy;
+import org.webdsl.WebDSLEntity;
 
 // An alternative version of java.util.HashSet that does not initialize hibernate proxies
 public class ProxyHashSet<E extends WebDSLEntity>

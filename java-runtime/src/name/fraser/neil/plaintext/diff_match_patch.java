@@ -22,20 +22,21 @@
 package name.fraser.neil.plaintext;
 
 
-import java.util.Arrays;
-import java.util.List;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Stack;
+import java.util.List;
 import java.util.ListIterator;
-import java.util.regex.*;
-import java.net.URLEncoder;
-import java.net.URLDecoder;
-import java.io.UnsupportedEncodingException;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /*
@@ -1224,7 +1225,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
         html.append("<INS STYLE=\"background:#E6FFE6;\" TITLE=\"i=" + aDiff.index
                 + "\">" + text + "</INS>");
       } else {
-        html.append("<SPAN TITLE=\"i=" + aDiff.index + "\">" + text + "</SPAN>");
+        html.append("<SPAN TITLE=\"i=").append(aDiff.index).append("\">").append(text).append("</SPAN>");
       }
     }
     return html.toString();
@@ -1274,10 +1275,10 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
     for (Diff aDiff : diffs) {
       switch(aDiff.operation) {
         case DELETE:
-          txt.append("-" + aDiff.text.length() + "\t");
+          txt.append("-" ).append( aDiff.text.length() ).append( "\t");
           break;
         case EQUAL:
-          txt.append("=" + aDiff.text.length() + "\t");
+          txt.append("=" ).append( aDiff.text.length() ).append( "\t");
           break;
         case INSERT:
           try {
@@ -2049,7 +2050,7 @@ public LinkedList<Diff> diff_compute(String text1, String text2,
         coords2 = (this.start2 + 1) + "," + this.length2;
       }
       StringBuilder txt = new StringBuilder();
-      txt.append("@@ -" + coords1 + " +" + coords2 + " @@\n");
+      txt.append("@@ -" ).append( coords1 ).append( " +" + coords2 + " @@\n");
       // Escape the body of the patch with %xx notation.
       for (Diff aDiff : this.diffs) {
         switch(aDiff.operation) {

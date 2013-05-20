@@ -36,7 +36,7 @@ public final class URLFilter {
         try{
             char content[] = new char[message.length()];
             message.getChars(0, message.length(), content, 0);
-            StringBuffer result = new StringBuffer(content.length + 50);
+            StringBuilder result = new StringBuilder(content.length + 50);
             for (int i = 0; i < content.length; i++) {
                 switch (content[i]) {
                 case '/':
@@ -53,6 +53,7 @@ public final class URLFilter {
                 }
             }
             return java.net.URLEncoder.encode(result.toString(),encoding);
+            
         }
         catch(java.io.UnsupportedEncodingException e){
             org.webdsl.logging.Logger.error("EXCEPTION",e);
@@ -72,23 +73,23 @@ public final class URLFilter {
     }
 
     public final static String paramMapToURLEncoding(Map<String,String> paramMap){
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(512);
         for (Entry<String,String> e : paramMap.entrySet()) {
-            sb.append(e.getKey());
-            sb.append("=");
-            sb.append(filter(escapeParamMapEntry(e.getValue())));
-            sb.append("&");
+            sb.append(e.getKey())
+              .append("=")
+              .append(filter(escapeParamMapEntry(e.getValue())))
+              .append("&");
         }
         return sb.toString();
     }
 
     public final static String paramMapToPostParamsEncoding(Map<String,String> paramMap){
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(512);
         for (Entry<String,String> e : paramMap.entrySet()) {
-            sb.append(e.getKey());
-            sb.append("=");
-            sb.append(utils.HTMLFilter.filterEcmaWithinHTML(escapeParamMapEntry(e.getValue())));
-            sb.append("&");
+            sb.append(e.getKey())
+              .append("=")
+              .append(utils.HTMLFilter.filterEcmaWithinHTML(escapeParamMapEntry(e.getValue())))
+              .append("&");
         }
         return sb.toString();
     }

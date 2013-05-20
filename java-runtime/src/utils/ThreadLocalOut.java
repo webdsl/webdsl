@@ -1,12 +1,13 @@
 package utils;
-import java.io.*;
-import java.util.*;
+import java.io.PrintWriter;
+import java.util.Stack;
+
 public class ThreadLocalOut {
 
-    private static ThreadLocal outputWriter = new ThreadLocal();
+    private static ThreadLocal<Stack<PrintWriter>> outputWriter = new ThreadLocal<Stack<PrintWriter>>();
 
     public static Stack<PrintWriter> get() {
-        return (Stack<PrintWriter>) outputWriter.get();
+        return outputWriter.get();
     }
 
     public static void set(Stack<PrintWriter> d) {

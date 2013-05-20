@@ -6,7 +6,6 @@ import java.util.Map;
 import org.hibernate.search.stat.Statistics;
 
 import utils.HibernateUtil;
-import utils.ThreadLocalPage;
 
 public class SearchStatistics {
 

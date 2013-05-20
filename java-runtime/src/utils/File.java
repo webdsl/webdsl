@@ -1,17 +1,12 @@
 package utils;
 
-import utils.*;
-
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.InputStream;
-import java.io.Serializable;
-import javax.persistence.*;
-
 import java.sql.SQLException;
-import java.util.*;
-import org.hibernate.Session;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
 
 @Entity public class File
 { 

@@ -1,6 +1,8 @@
 package utils;
 
-import com.octo.captcha.service.CaptchaServiceException;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -8,9 +10,8 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+
+import com.octo.captcha.service.CaptchaServiceException;
 
 
 public class ImageCaptchaServlet extends HttpServlet {

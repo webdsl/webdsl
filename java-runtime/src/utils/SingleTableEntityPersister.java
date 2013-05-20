@@ -2,7 +2,6 @@ package utils;
 
 import java.io.Serializable;
 
-import org.hibernate.FetchMode;
 import org.hibernate.HibernateException;
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
@@ -12,7 +11,6 @@ import org.hibernate.engine.LoadQueryInfluencers;
 import org.hibernate.engine.Mapping;
 import org.hibernate.engine.SessionFactoryImplementor;
 import org.hibernate.engine.SessionImplementor;
-import org.hibernate.loader.entity.EntityLoader;
 import org.hibernate.mapping.PersistentClass;
 
 public class SingleTableEntityPersister extends org.hibernate.persister.entity.SingleTableEntityPersister {

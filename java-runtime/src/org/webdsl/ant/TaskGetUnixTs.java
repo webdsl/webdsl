@@ -1,9 +1,9 @@
 package org.webdsl.ant;
 
-import java.util.Date; 
+import java.util.Date;
 
-import org.apache.tools.ant.Project; 
-import org.apache.tools.ant.Task; 
+import org.apache.tools.ant.Project;
+import org.apache.tools.ant.Task;
 
 
 /**

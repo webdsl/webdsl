@@ -20,8 +20,6 @@ import org.apache.lucene.store.FSDirectory;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.reader.ReaderProvider;
 
-import utils.ThreadLocalPage;
-
 public class SearchSuggester {
 
     private static SearchFactory searchfactory;
@@ -160,14 +158,14 @@ public class SearchSuggester {
                     .addAttribute(CharTermAttribute.class);
 
             boolean dontstop = tokenStream.incrementToken();
-            StringBuilder prefixSb = new StringBuilder();
+            StringBuilder prefixSb = new StringBuilder( toSuggestOn.length() + 16 );
             String word = "";
 
             while (dontstop){ //eat up all tokens
                 word = ta.term();
                 dontstop = tokenStream.incrementToken();
                 if(dontstop)
-                    prefixSb.append(word + " ");
+                    prefixSb.append(word ).append( " ");
             }
 
             String prefix = prefixSb.toString();

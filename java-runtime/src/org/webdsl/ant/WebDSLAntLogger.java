@@ -38,14 +38,14 @@ public class WebDSLAntLogger extends NoBannerLogger {
         // Filter out messages based on priority
         if (priority <= msgOutputLevel) {
 
-            StringBuffer message = new StringBuffer();
+            StringBuilder message = new StringBuilder();
             if (event.getTask() != null && !emacsMode) {
                 // Print out the name of the task if we're in one
                 /*
                 String name = event.getTask().getTaskName();
                 String label = "[" + name + "] ";
                 int size = LEFT_COLUMN_SIZE - label.length();
-                StringBuffer tmp = new StringBuffer();
+                StringBuilder tmp = new StringBuilder();
                 for (int i = 0; i < size; i++) {
                     tmp.append(" ");
                 }
@@ -104,7 +104,7 @@ public class WebDSLAntLogger extends NoBannerLogger {
     //disabled ant stacktrace
     /*public void buildFinished(BuildEvent event) {
         Throwable error = event.getException();
-        StringBuffer message = new StringBuffer();
+        StringBuilder message = new StringBuilder();
         if (error == null) {
             message.append(StringUtils.LINE_SEP);
             message.append(getBuildSuccessfulMessage());

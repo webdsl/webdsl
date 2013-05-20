@@ -27,8 +27,8 @@ SOFTWARE.
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -1105,12 +1105,12 @@ public class JSONObject {
             return "\"\"";
         }
 
-        char         b;
-        char         c = 0;
-        int          i;
-        int          len = string.length();
-        StringBuffer sb = new StringBuffer(len + 4);
-        String       t;
+        char          b;
+        char          c = 0;
+        int           i;
+        int           len = string.length();
+        StringBuilder sb = new StringBuilder(len + 4);
+        String        t;
 
         sb.append('"');
         for (i = 0; i < len; i += 1) {
@@ -1147,7 +1147,7 @@ public class JSONObject {
                 if (c < ' ' || (c >= '\u0080' && c < '\u00a0') ||
                                (c >= '\u2000' && c < '\u2100')) {
                     t = "000" + Integer.toHexString(c);
-                    sb.append("\\u" + t.substring(t.length() - 4));
+                    sb.append("\\u" ).append( t.substring(t.length() - 4));
                 } else {
                     sb.append(c);
                 }
@@ -1289,8 +1289,8 @@ public class JSONObject {
      */
     public String toString() {
         try {
-            Iterator     keys = keys();
-            StringBuffer sb = new StringBuffer("{");
+            Iterator      keys = keys();
+            StringBuilder sb = new StringBuilder("{");
 
             while (keys.hasNext()) {
                 if (sb.length() > 1) {
@@ -1345,10 +1345,10 @@ public class JSONObject {
         if (n == 0) {
             return "{}";
         }
-        Iterator     keys = sortedKeys();
-        StringBuffer sb = new StringBuffer("{");
-        int          newindent = indent + indentFactor;
-        Object       o;
+        Iterator      keys = sortedKeys();
+        StringBuilder sb = new StringBuilder("{");
+        int           newindent = indent + indentFactor;
+        Object        o;
         if (n == 1) {
             o = keys.next();
             sb.append(quote(o.toString()));

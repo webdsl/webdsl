@@ -1,17 +1,19 @@
 package utils;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Properties;
+
 import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.config.CacheConfiguration;
 import net.sf.ehcache.config.Configuration;
 import net.sf.ehcache.config.ConfigurationFactory;
-import net.sf.ehcache.config.CacheConfiguration;
 import net.sf.ehcache.config.DiskStoreConfiguration;
+
 import org.hibernate.cache.CacheException;
 import org.hibernate.cfg.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 public class EhCacheRegionFactory extends net.sf.ehcache.hibernate.EhCacheRegionFactory {
     private static final Logger LOG = LoggerFactory.getLogger(EhCacheRegionFactory.class);

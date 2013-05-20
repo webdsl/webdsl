@@ -35,7 +35,7 @@ import org.apache.tools.ant.taskdefs.Echo;
       classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6\"/>\n");
       classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.web.container\"/>\n");
       classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.module.container\"/>\n");
-      classpathFile.append("\t<classpathentry kind=\"output\" path=\""+generatedir+"/WEB-INF/classes\"/>\n"); //must use relative path here
+      classpathFile.append("\t<classpathentry kind=\"output\" path=\"").append(generatedir).append("/WEB-INF/classes\"/>\n"); //must use relative path here
 
       var filedir = webcontentdir+"/WEB-INF/lib"; //must use absolute path here
       var appdir = new File(filedir);
@@ -45,7 +45,7 @@ import org.apache.tools.ant.taskdefs.Echo;
       var libfiles = appdir.listFiles();
       for ( i = 0 ; i < libfiles.length ; i ++ ) {
       if ( libfiles[i].isFile ( ) ){
-        classpathFile.append("\t<classpathentry kind=\"lib\" path=\""+generatedir+"/WEB-INF/lib/"+libfiles[i].getName()+"\"/>\n"); //must use relative path here
+        classpathFile.append("\t<classpathentry kind=\"lib\" path=\"").append(generatedir).append("/WEB-INF/lib/").append(libfiles[i].getName()).append("\"/>\n"); //must use relative path here
         }
         }
 
@@ -75,7 +75,7 @@ public class TaskFixClasspath  extends Task {
         String generatedir = project.getProperty("generate-dir");
         String webcontentdir = project.getProperty("webcontentdir");
 
-        StringBuffer classpathFile = new StringBuffer();
+        StringBuilder classpathFile = new StringBuilder();
         classpathFile.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         classpathFile.append("<classpath>\n");
         classpathFile.append("\t<classpathentry kind=\"src\" path=\".servletapp/src-template\"/>\n");
@@ -84,7 +84,7 @@ public class TaskFixClasspath  extends Task {
         classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6\"/>\n");
         classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.web.container\"/>\n");
         classpathFile.append("\t<classpathentry kind=\"con\" path=\"org.eclipse.jst.j2ee.internal.module.container\"/>\n");
-        classpathFile.append("\t<classpathentry kind=\"output\" path=\""+generatedir+"/WEB-INF/classes\"/>\n"); //must use relative path here
+        classpathFile.append("\t<classpathentry kind=\"output\" path=\"").append(generatedir).append("/WEB-INF/classes\"/>\n"); //must use relative path here
 
         String filedir = webcontentdir+"/WEB-INF/lib"; //must use absolute path here
         File appdir = new File(filedir);
@@ -94,7 +94,7 @@ public class TaskFixClasspath  extends Task {
         File[] libfiles = appdir.listFiles();
         for (int i = 0 ; i < libfiles.length ; i ++ ) {
             if ( libfiles[i].isFile ( ) ){
-                classpathFile.append("\t<classpathentry kind=\"lib\" path=\""+generatedir+"/WEB-INF/lib/"+libfiles[i].getName()+"\"/>\n"); //must use relative path here
+                classpathFile.append("\t<classpathentry kind=\"lib\" path=\"").append(generatedir).append("/WEB-INF/lib/").append(libfiles[i].getName()).append("\"/>\n"); //must use relative path here
             }
         }
         classpathFile.append("</classpath>\n");

@@ -47,7 +47,7 @@ import org.apache.tools.ant.taskdefs.Echo;
           //remove trailing spaces
           mspaces = ptrailingspaces.matcher(transformedline);
           transformedline = mspaces.replaceAll("");
-          newcontents.append(transformedline+"\n");
+          newcontents.append(transformedline).append("\n");
 
           echo = project.createTask("echo");
           echo.setMessage("+ "+transformedline);
@@ -95,7 +95,7 @@ public class TaskConvertApplicationIni  extends Task {
             //remove trailing spaces
             Matcher mspaces = ptrailingspaces.matcher(transformedline);
             transformedline = mspaces.replaceAll("");
-            newcontents.append(transformedline+"\n");
+            newcontents.append(transformedline).append("\n");
 
             echo.setMessage("+ "+transformedline);
             echo.perform();

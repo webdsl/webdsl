@@ -1,12 +1,5 @@
 package utils;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.webdsl.lang.*;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -15,8 +8,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.webdsl.*;
-import java.util.UUID;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.webdsl.WebDSLEntity;
+import org.webdsl.lang.ReflectionEntity;
 
 public abstract class AbstractDispatchServletHelper{
   public boolean isPostRequest;

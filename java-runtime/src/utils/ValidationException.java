@@ -1,5 +1,6 @@
 package utils;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 
 public class ValidationException extends RuntimeException {
 

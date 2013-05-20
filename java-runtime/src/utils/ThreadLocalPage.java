@@ -3,10 +3,10 @@ import org.webdsl.lang.Environment;
 
 public class ThreadLocalPage {
 
-    private static ThreadLocal page = new ThreadLocal();
+    private static ThreadLocal<AbstractPageServlet> page = new ThreadLocal<AbstractPageServlet>();
 
     public static AbstractPageServlet get() {
-        return (AbstractPageServlet) page.get();
+        return page.get();
     }
     
     public static void set(AbstractPageServlet d) {

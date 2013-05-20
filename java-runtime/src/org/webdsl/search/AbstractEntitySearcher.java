@@ -377,17 +377,17 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         }
 
         paramMap = new HashMap<String, String>( );
-        StringBuilder sb;
+        StringBuilder sb = new StringBuilder( 128 );
 
         paramMap.put( "type", entityClass.getSimpleName( ) );
 
         //search fields
         if ( nonDefaultSearchFields ) {
-        sb = new StringBuilder( );
+        sb.setLength(0);
         for( int cnt = 0 ; cnt < searchFields.length-1; cnt++ )
-            sb.append( searchFields[cnt] + "," );
+            sb.append( searchFields[cnt] ).append( "," );
         sb.append( searchFields[searchFields.length-1] );
-        paramMap.put( "sf", sb.toString( ) );
+        paramMap.put( "sf", sb.toString().intern() );
         }
         //search query definitions
         QueryDef usableRootQD = rootQD;
@@ -419,11 +419,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
         //field boosts ( are encoded in lucene query if lucene query is used for serialization )
         if ( !paramMap.containsKey( "lq" ) ){
             if ( usableRootQD.boosts !=null && !usableRootQD.boosts.isEmpty( ) ) {
-                sb = new StringBuilder( );
-                for ( String field : usableRootQD.boosts.keySet( ) ) sb.append( field + "," );
+                sb.setLength(0);
+                for ( String field : usableRootQD.boosts.keySet( ) ) sb.append( field ).append( "," );
                 paramMap.put( "bf", sb.toString( ) );
-                sb = new StringBuilder( );
-                for ( Float value : usableRootQD.boosts.values( ) ) sb.append( value + "," );
+                sb.setLength(0);
+                for ( Float value : usableRootQD.boosts.values( ) ) sb.append( value ).append( "," );
                 paramMap.put( "bv", sb.toString( ) );
             }
         }
@@ -433,32 +433,32 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             paramMap.put( "op", defaultOperator.toString( ) );
         //constraint fields, values
         if ( fieldConstraints!=null && !fieldConstraints.isEmpty( ) ) {
-            sb = new StringBuilder( );
-            for ( String field : fieldConstraints.keySet( ) ) sb.append( field + "," );
+        	sb.setLength(0);
+            for ( String field : fieldConstraints.keySet( ) ) sb.append( field ).append( "," );
             paramMap.put( "cf", sb.toString( ) );
 
-            sb = new StringBuilder( );
-            for ( String value : fieldConstraints.values( ) ) sb.append( value + "," );
+            sb.setLength(0);
+            for ( String value : fieldConstraints.values( ) ) sb.append( value ).append( "," );
             paramMap.put( "cv", sb.toString( ) );
         }
         //range facet fields, params
         if ( rangeFacetRequests !=null && !rangeFacetRequests.isEmpty( ) ) {
-            sb = new StringBuilder( );
-            for( String field : rangeFacetRequests.keySet( ) ) sb.append( field + "," );
+        	sb.setLength(0);
+            for( String field : rangeFacetRequests.keySet( ) ) sb.append( field ).append( "," );
             paramMap.put( "rff", sb.toString( ) );
 
-            sb = new StringBuilder( );
-            for( String param : rangeFacetRequests.values( ) ) sb.append( encodeValue( param ) + "," );
+            sb.setLength(0);
+            for( String param : rangeFacetRequests.values( ) ) sb.append( encodeValue( param ) ).append( "," );
             paramMap.put( "rfp", sb.toString( ) );
         }
         //discrete facet fields, params
         if ( discreteFacetRequests !=null && !discreteFacetRequests.isEmpty( ) ) {
-            sb = new StringBuilder( );
-            for( String field : discreteFacetRequests.keySet( ) ) sb.append( field + "," );
+        	sb.setLength(0);
+            for( String field : discreteFacetRequests.keySet( ) ) sb.append( field ).append( "," );
             paramMap.put( "dff", sb.toString( ) );
 
-            sb = new StringBuilder( );
-            for( Integer param : discreteFacetRequests.values( ) ) sb.append( param + "," );
+            sb.setLength(0);
+            for( Integer param : discreteFacetRequests.values( ) ) sb.append( param ).append( "," );
             paramMap.put( "dfp", sb.toString( ) );
 
         }
@@ -470,15 +470,15 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             paramMap.put( "offset", String.valueOf( offset ) );
         //narrowed facets
         if ( !filteredFacetsList.isEmpty( ) ) {
-            sb = new StringBuilder( );
-            StringBuilder sb2 = new StringBuilder( );
-            StringBuilder sb3 = new StringBuilder( );
-            StringBuilder sb4 = new StringBuilder( );
+            sb.setLength(0);
+            StringBuilder sb2 = new StringBuilder( 128 );
+            StringBuilder sb3 = new StringBuilder( 128 );
+            StringBuilder sb4 = new StringBuilder( 128 );
             for( WebDSLFacet f : filteredFacetsList ) {
-                sb.append( f.fieldName + "," );
-                sb2.append( encodeValue( f.value ) + "," );
-                sb3.append( f.occur.name( ) + "," );
-                sb4.append( f.count + "," );
+                sb.append( f.fieldName ).append( "," );
+                sb2.append( encodeValue( f.value ) ).append( "," );
+                sb3.append( f.occur.name( ) ).append( "," );
+                sb4.append( f.count ).append( "," );
             }
             paramMap.put( "ffld", sb.toString( ) );
             paramMap.put( "fvl", sb2.toString( ) );

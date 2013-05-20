@@ -5,10 +5,11 @@ public class TemplateContext {
     protected java.util.Deque<String> templateContext = new java.util.ArrayDeque<String>();
     
     public String getTemplateContextString() {
-        java.lang.StringBuilder sb = new java.lang.StringBuilder();
+        java.lang.StringBuilder sb = new java.lang.StringBuilder(512);
         for(String s : templateContext){
             sb.append(s);
         }
+        
         return sb.toString();
     }
     

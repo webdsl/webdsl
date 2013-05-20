@@ -2,7 +2,6 @@ package utils;
 
 import java.io.Serializable;
 
-import org.hibernate.FetchMode;
 import org.hibernate.MappingException;
 import org.hibernate.cache.CacheException;
 import org.hibernate.cache.access.CollectionRegionAccessStrategy;
@@ -11,7 +10,6 @@ import org.hibernate.engine.LoadQueryInfluencers;
 import org.hibernate.engine.SessionFactoryImplementor;
 import org.hibernate.engine.SessionImplementor;
 import org.hibernate.loader.collection.CollectionInitializer;
-import org.hibernate.loader.collection.OneToManyLoader;
 import org.hibernate.mapping.Collection;
 
 public class OneToManyPersister extends org.hibernate.persister.collection.OneToManyPersister implements BatchCollectionPersister {

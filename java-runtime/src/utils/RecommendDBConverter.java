@@ -5,12 +5,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.mahout.cf.taste.recommender.RecommendedItem;
 import org.hibernate.Hibernate;
 import org.hibernate.SQLQuery;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-
-import org.apache.mahout.cf.taste.recommender.RecommendedItem;
 import org.webdsl.lang.Environment;
 
 /**

@@ -1,8 +1,11 @@
 package utils;
 
 
-import java.util.*;
-import javax.persistence.*;
+import java.util.UUID;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
 
 
 @Entity public class ApplicationContextProperty

@@ -1,6 +1,5 @@
 package utils;
 
-import org.webdsl.lang.Environment;
 
 public abstract class ActionClass {
     protected boolean validationDisabled = false;

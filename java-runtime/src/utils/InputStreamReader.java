@@ -1,11 +1,13 @@
 package utils;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
 
 public class InputStreamReader {
     public static String readStream(InputStream is) {
         if (is != null) {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(256);
             String line;
             try {
                 BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(is));

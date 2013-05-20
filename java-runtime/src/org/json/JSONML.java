@@ -302,15 +302,15 @@ public class JSONML {
      * @throws JSONException
      */
     public static String toString(JSONArray ja) throws JSONException {
-    	Object		 e;
-    	int			 i;
-    	JSONObject   jo;
-    	String       k;
-	    Iterator     keys;
-	    int			 length;
-    	StringBuffer sb = new StringBuffer();
-	    String       tagName;
-	    String       v;
+    	Object		  e;
+    	int			  i;
+    	JSONObject    jo;
+    	String        k;
+	    Iterator      keys;
+	    int			  length;
+	    StringBuilder sb = new StringBuilder();
+	    String        tagName;
+	    String        v;
 	    
 // Emit <tagName	    
     	
@@ -384,15 +384,15 @@ public class JSONML {
      * @throws JSONException
      */
 	public static String toString(JSONObject jo) throws JSONException {
-	    StringBuffer sb = new StringBuffer();
-	    Object		 e;
-	    int          i;
-	    JSONArray    ja;
-	    String       k;
-	    Iterator     keys;
-	    int          len;
-	    String       tagName;
-	    String       v;
+		StringBuilder sb = new StringBuilder();
+	    Object		  e;
+	    int           i;
+	    JSONArray     ja;
+	    String        k;
+	    Iterator      keys;
+	    int           len;
+	    String        tagName;
+	    String        v;
 	
 //Emit <tagName
 	

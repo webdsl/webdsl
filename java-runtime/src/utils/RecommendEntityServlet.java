@@ -1,14 +1,13 @@
 package utils;
 
 import java.io.PrintWriter;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
-import java.sql.Connection;
 
-import javax.sql.CommonDataSource;
 import javax.sql.DataSource;
 
+import org.apache.mahout.cf.taste.common.NoSuchUserException;
 import org.apache.mahout.cf.taste.common.Refreshable;
 import org.apache.mahout.cf.taste.common.TasteException;
 import org.apache.mahout.cf.taste.eval.DataModelBuilder;
@@ -35,9 +34,6 @@ import org.apache.mahout.cf.taste.recommender.RecommendedItem;
 import org.apache.mahout.cf.taste.recommender.Recommender;
 import org.apache.mahout.cf.taste.similarity.ItemSimilarity;
 import org.apache.mahout.cf.taste.similarity.UserSimilarity;
-import org.apache.mahout.cf.taste.common.NoSuchUserException;
-
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 
 /**
  * This class interfaces to the WebDSL code using the Recommend syntax.

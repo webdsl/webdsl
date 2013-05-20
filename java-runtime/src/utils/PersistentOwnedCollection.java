@@ -1,6 +1,5 @@
 package utils;
 
-import java.util.Map;
 
 public interface PersistentOwnedCollection extends org.hibernate.collection.PersistentCollection {
 /*	boolean isAffectedBy(String filter);

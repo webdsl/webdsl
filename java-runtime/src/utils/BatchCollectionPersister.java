@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.Serializable;
+
 import org.hibernate.engine.SessionImplementor;
 
 public interface BatchCollectionPersister {
