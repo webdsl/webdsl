@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import org.jsoup.safety.Whitelist;
 import org.pegdown.LinkRenderer;
 import org.pegdown.PegDownProcessor;
+import org.webdsl.logging.Logger;
 
 import utils.AbstractPageServlet;
 
@@ -17,7 +18,7 @@ public final class WikiFormatter {
     private static String currentRootUrl = "";
     private static LinkRenderer currentLinkRenderer = null;
     private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed();
-    public static final int PARSE_TIMEOUT_MS = 10000;
+    public static final int PARSE_TIMEOUT_MS = 6000;
     
 	static{
 		whitelist.addTags("abbr").addAttributes("abbr", "title");
@@ -39,7 +40,13 @@ public final class WikiFormatter {
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){
-    	String html = processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+    	String html;
+    	try {
+    		html = processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+    	} catch (Exception e) {
+			Logger.error(e);
+			html = null;
+		}
     	return html == null ? errorMessage(text) : html;
     }    
     
