@@ -12,10 +12,20 @@ import utils.AbstractPageServlet;
 
 
 public final class WikiFormatter {
+	
     private static final Pattern verbatim = Pattern.compile("<verbatim>(.+?)</verbatim>", Pattern.DOTALL | Pattern.MULTILINE);
     private static String currentRootUrl = "";
     private static LinkRenderer currentLinkRenderer = null;
-    private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed().addTags("abbr").addAttributes("abbr", "title");
+    private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed();
+    public static final int PARSE_TIMEOUT_MS = 10000;
+    
+	static{
+		whitelist.addTags("abbr").addAttributes("abbr", "title");
+		//allow id's on title tags
+		for(int i=1;i<7;i++){
+			whitelist.addAttributes("h"+i, "id");
+		}
+	}
 
     public static String wikiFormat(String text) {
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
@@ -29,8 +39,20 @@ public final class WikiFormatter {
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){
-    	return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+    	String html = processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+    	return html == null ? errorMessage(text) : html;
     }    
+    
+    private static String errorMessage( String text ){
+    	StringBuilder sb = new StringBuilder(text.length() + 128);
+    	sb.append("Something went wrong processing the following markdown text (parsing automatically stopped after ")
+    	  .append(PARSE_TIMEOUT_MS)
+    	  .append("ms): ")
+    	  .append("<pre>")
+    	  .append(text)
+    	  .append("</pre>");
+    	return sb.toString();
+    }
 
     private static String processVerbatim(String text) {
         Matcher m = verbatim.matcher(text);

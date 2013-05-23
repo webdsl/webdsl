@@ -18,6 +18,7 @@ import org.pegdown.Extensions;
 import org.pegdown.PegDownProcessor;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
+import org.webdsl.tools.WikiFormatter;
 
 public abstract class AbstractPageServlet{
 
@@ -1311,7 +1312,7 @@ public abstract class AbstractPageServlet{
       
       public PegDownProcessor getPegDownProcessor(){
     	  if (pegDownProcessor == null)
-    	    pegDownProcessor = new PegDownProcessor( Extensions.ALL );
+    	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );
     	  
     	  return pegDownProcessor;
       }

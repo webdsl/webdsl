@@ -11,6 +11,7 @@ import java.util.List;
 
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 
@@ -134,6 +135,16 @@ public abstract class Test {
         }
         return htmlunitdriver;
     }
+    
+    public static ChromeDriver chromedriver = null;
+    public static ChromeDriver getChromeDriver(){
+        if(chromedriver==null){
+        	chromedriver = new ChromeDriver();
+            ThreadLocalWebDriver.set(chromedriver);
+        }
+        return chromedriver;
+    }
+    
 
     public static void closeDrivers(){
         ThreadLocalWebDriver.set(null);
@@ -142,6 +153,9 @@ public abstract class Test {
         }
         if(htmlunitdriver!=null){
             htmlunitdriver.close();
+        }
+        if(chromedriver!=null){
+            chromedriver.close();            
         }
     }
 
