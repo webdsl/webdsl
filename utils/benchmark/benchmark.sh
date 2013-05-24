@@ -15,15 +15,16 @@ GCLOGPATH=`pwd`/gc.log # The garbage collection log that is will be used to esti
 export JAVA_HOME=$JAVA_HOME
 export JRE_HOME=$JAVA_HOME
 if [[ $SQLS == "existing" && $REDUCE_DEPLOYS == "1" ]] ; then
-  export JAVA_OPTS="-XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE}"
+  export JAVA_OPTS="-XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE} $EXTRA_JAVA_OPTS"
 else
-  export JAVA_OPTS="-Xloggc:$GCLOGPATH -XX:+PrintGCDetails -XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE}"
+  export JAVA_OPTS="-Xloggc:$GCLOGPATH -XX:+PrintGCDetails -XX:+UseParallelGC -XX:+UseCompressedOops -XX:PermSize=${PERMSIZE} -XX:MaxPermSize=${PERMSIZE} -Xmx${HEAPSIZE} -Xms${HEAPSIZE} $EXTRA_JAVA_OPTS"
 fi
 
 # Tomcat options
 export CATALINA_HOME=$CATALINA_HOME
 CATALINA_PATH=$CATALINA_HOME/bin/catalina.sh
 WEBAPP_PATH="$CATALINA_HOME/webapps"
+RETRY=10
 
 # global variables that are use for cleanup
 pid=0
@@ -108,7 +109,7 @@ init_benchmark() {
     do
       sqlname=$(basename $sql .sql.gz)
       local memcols=""
-      if [[ $RUNNINGTOMCAT != 1 ]] ; then
+      if [[ $RUNNINGTOMCAT != 1 && $REDUCE_DEPLOYS != 1 ]] ; then
         memcols="\tYoungGC\tFullGC\tGCUser\tGCSys\tGCReal\tYoung\tOld\tHeap\tPerm\tHeapPerReq\tYoungT\tOldT\tHeapT\tPermT"
       fi
       echo -e "Name\tMin\tMean\t[+/-sd]\tMedian\tMax\t80%\t90%\tQueries\tEntities\tDuplicates\tCollections$memcols\tAvgSql\tAvgEnt\tAvgDup\tAvgCol\tCntMaxEnt\tMaxEntPer" > ./$benchname/${warname}_${sqlname}.log
@@ -247,10 +248,11 @@ run_benchmark() {
     logln_continue " (restored in $gendbtime2)" | sed 's/\([[:digit:]]s\) /\1, /g'
   fi
 
+  local WEBDSLSESSIONID=`echo "$SESSIONSQL" | mysql -N -u$dbuser -p$dbpass -h $dbserver $dbname`
   local now=`date +"%Y-%m-%d %H:%M:%S"`
-  echo "UPDATE _SessionManager SET _lastUse='$now';" | mysql -u$dbuser -p$dbpass -h $dbserver -N $dbname
-  local WEBDSLSESSIONID=`echo "$SESSIONSQL" | mysql -N -u$dbuser -p$dbpass -h $dbserver -N $dbname`
-  logln "WebDSLSessionId: $WEBDSLSESSIONID"
+  echo "UPDATE _SessionManager SET _lastUse='$now' WHERE id='$WEBDSLSESSIONID';" | mysql -u$dbuser -p$dbpass -h $dbserver -N $dbname
+  local WEBDSLSESSIONID_lastUse=`echo "SELECT _lastUse FROM _SessionManager WHERE id='$WEBDSLSESSIONID';" | mysql -N -u$dbuser -p$dbpass -h $dbserver $dbname`
+  logln "WebDSLSessionId: $WEBDSLSESSIONID (last use $WEBDSLSESSIONID_lastUse)"
 
   logln "Sending initial requests with logging enabled"
   local maxsql=0
@@ -306,40 +308,47 @@ run_benchmark() {
   local reqerr=0
   while [[ $sqlline == "" ]];
   do
-    wgetdata=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" -t 1 --read-timeout=$REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix"`
-    wgetstatus=$?
-    if [[ $wgetstatus != 0 ]]; then
-      if [[ $wgetstatus == 8 ]]; then
-        # A server error (probably 404)
-        logln "An error response, skipping test"
-        echo -e "${sanitized_page}\tAn error response" >>./$benchname/${warname}_${sqlname}.log
+    curldata=`curl -s -b "WEBDSLSESSIONID=$WEBDSLSESSIONID" -i --retry 0 -m $REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix"`
+    curlstatus=$?
+    if [[ $curlstatus != 0 ]]; then
+      if [[ $curlstatus != 7 ]]; then # not CURLE_COULDNT_CONNECT
+        logln "curl error $curlstatus, skipping test"
+        echo -e "${sanitized_page}\tSkipping test (curl error $curlstatus)" >>./$benchname/${warname}_${sqlname}.log
         cleanup_benchmark
         return
       fi
       reqerr=$(($reqerr+1))
-      if [[ $reqerr == 10 ]]; then
-        logln "Request failed ($reqerr/10), skipping test"
+      if [[ $reqerr == $RETRY ]]; then
+        logln "Request failed ($reqerr/$RETRY), skipping test"
         
-        echo -e "${sanitized_page}\tRequest failed 10 times, last status is $wgetstatus" >>./$benchname/${warname}_${sqlname}.log
+        echo -e "${sanitized_page}\tSkipping test (failed $RETRY times, last curl error $curlstatus)" >>./$benchname/${warname}_${sqlname}.log
         cleanup_benchmark
         return
       else
-        logln "Request failed ($reqerr/10), retrying in 5 seconds"
+        logln "Request failed ($reqerr/$RETRY), retrying in 5 seconds"
         sleep 5
       fi
     else
-      sqlline=`grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>" <<< "$wgetdata"`
+      httpstatus=`(awk 'FNR==1' | tr -d '\r' | tr -d '\n') <<< "$curldata"`
+      httpstatusgroup=`echo "$httpstatus" | awk '{print substr($2, 1, 1)}'`
+      if [[ $httpstatusgroup != "2" ]]; then # Not a successful status code
+        logln "Unsuccessful http status code: $httpstatus"
+        echo -e "${sanitized_page}\tSkipping test (Unsuccessful, $httpstatus)" >>./$benchname/${warname}_${sqlname}.log
+        cleanup_benchmark
+        return
+      fi
+      sqlline=`grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>" <<< "$curldata"`
       if [[ $sqlline == "" ]]; then
         # no sql log, so probably redirected to access denied
         logln "No sql log in response, skipping test"
-        echo -e "${sanitized_page}\tNo sql log in response" >>./$benchname/${warname}_${sqlname}.log
+        echo -e "${sanitized_page}\tSkipping test (no sql log in response)" >>./$benchname/${warname}_${sqlname}.log
         cleanup_benchmark
         return
       fi
       lines=`wc -l <<< "$sqlline"`
       if [ "$lines" -gt "1" ]; then
         logln "More than one sql log in response, skipping test"
-        echo -e "${sanitized_page}\tMore than one sql log in response" >>./$benchname/${warname}_${sqlname}.log
+        echo -e "${sanitized_page}\tSkipping test (more than one sql log in response)" >>./$benchname/${warname}_${sqlname}.log
         cleanup_benchmark
         return
       fi
@@ -353,11 +362,17 @@ run_benchmark() {
 
   for i in $(seq 1 $WARMUP)
   do
-    sqlline=`wget -qO- --header "Cookie: WEBDSLSESSIONID=$WEBDSLSESSIONID" -t 1 --read-timeout=$REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix" | grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>"`
+    sqlline=`curl -s -b "WEBDSLSESSIONID=$WEBDSLSESSIONID" --retry 0 -m $REQUEST_TIMEOUT "$BASEURL$warbase/$page$logsqlsuffix" | grep -o "SQLs = <span id=\"sqllogcount\">[[:digit:]]\+</span>, Time = <span id=\"sqllogtime\">[[:digit:]]\+ ms</span>, Entities = <span id=\"sqllogentities\">[[:digit:]]\+</span>, Duplicates = <span id=\"sqllogduplicates\">[[:digit:]]\+</span>, Collections = <span id=\"sqllogcollections\">[[:digit:]]\+</span>"`
     sqls=`echo "$sqlline" | grep -o "<span id=\"sqllogcount\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
     sqlents=`echo "$sqlline" | grep -o "<span id=\"sqllogentities\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
     sqldups=`echo "$sqlline" | grep -o "<span id=\"sqllogduplicates\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
     sqlcols=`echo "$sqlline" | grep -o "<span id=\"sqllogcollections\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
+    if [[ "$sqls" == "" || "$sqlents" == "" || "$sqldups" == "" || "$sqlcols" == "" ]]; then
+      logln "Sql log information missing, skipping test"
+      echo -e "${sanitized_page}\tSkipping test (sql log information missing)" >>./$benchname/${warname}_${sqlname}.log
+      cleanup_benchmark
+      return
+    fi
     sumsql="$sumsql+$sqls"
     suments="$suments+$sqlents"
     sumdups="$sumdups+$sqldups"

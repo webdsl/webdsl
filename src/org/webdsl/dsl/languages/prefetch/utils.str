@@ -352,7 +352,27 @@ rules
   replace-calls-to-return-values(s) :
     FieldAccess(p, f){anno*} -> results
     where subpaths := <replace-calls-to-return-values(s)> p
-    ; results := <map(!FieldAccess(<id>, f){anno*})> subpaths
+    ; results := <map(!FieldAccess(<id>, f){anno*}; try(expand-derived-property(s))); flatten-list> subpaths
+
+  expand-derived-property(s) :
+    FieldAccess(e, f) -> results
+    where not("name" := f)
+    ; <is-accessible-from(s); ?(e2, <is-entity-type; ?srt@SimpleSort(x_class)>)> e
+    ; <is-derived-property> (x_class, f)
+    ; exp{anno*} := <get-derived-property-exp> (x_class, f)
+    ; qatmp := <fetch-elem(is-query-analysis)> anno*
+    with (qa, varmapping) := <try(add-this-var-to-mapping(|e2, x_class))> (qatmp, [])
+    ; analysis := <get-ts-from-query-analysis> qa
+    ; returns := <get-returns-from-query-analysis> qa
+    ; recursivecalls := <get-recursive-from-query-analysis> qa
+    ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(s))> varmapping
+    ; <filter(combine-analysis)> newanalysis
+    ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
+    ; results := <foldr(!returns, rename-vars-in-analysis(s))> varmapping
+/*
+    ; returns := <fetch-elem(get-returns-from-query-analysis)> anno*
+    ; (returns2, varmapping) := <try(add-this-var-to-mapping(|e2, x_class))> (returns, [])
+    ; results := <foldr(!returns2, rename-vars-in-analysis(s))> varmapping*/
 
   replace-calls-to-return-values(s) :
     Cast(p, srt){anno*} -> results
@@ -363,7 +383,7 @@ rules
     v@Var(_) -> [v]
 
   replace-calls-to-return-values(s) :
-    Call(e, nm, args) -> results
+    c@Call(e, nm, args) -> results
     where subpaths := <replace-calls-to-return-values(s)> e
     ; results := <filter(expand-call-to-return-values(s|nm, args)); flatten-list; make-set> subpaths
 
@@ -375,12 +395,23 @@ rules
   expand-call-to-return-values(s|nm, args) :
     e -> results
     where <is-accessible-from(s); ?(e2, <is-entity-type; ?srt@SimpleSort(_)>)> e
-    ; (n, targs) := <normalize-signature> (nm, args)
+    ; n := <strip-annos> nm
+    ; <not(not-allowed-ent-fun-name)> n
+    ; not(SimpleSort("Entity") := srt)
+    ; targs := <map(type-of); prepare-type-list-for-compare> args
     ; (fent@SimpleSort(x_class), _, _, Function(_, defargs, _, _){defanno*}) := <resolve-current-entity-function> (srt, nm, targs)
-    ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
-    with argmapping := <zip> (args, defargs)
-    ; (returns2, varmapping) := <try(add-this-var-to-mapping(|e, x_class))> (returns, argmapping)
-    ; results := <foldr(!returns2, rename-vars-in-analysis(RootVar))> varmapping
+    ; <not(check-builtin-signature)> (fent, n, targs)
+    ; qatmp := <fetch-elem(is-query-analysis)> defanno*
+    with <filter(analyze-for-query-optimization-continue)> args
+    ; argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args, defargs)
+    ; (qa, varmapping) := <try(add-this-var-to-mapping(|e2, x_class))> (qatmp, argmapping)
+    ; analysis := <get-ts-from-query-analysis> qa
+    ; returns := <get-returns-from-query-analysis> qa
+    ; recursivecalls := <get-recursive-from-query-analysis> qa
+    ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(s))> varmapping
+    ; <filter(combine-analysis)> newanalysis
+    ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
+    ; results := <foldr(!returns, rename-vars-in-analysis(s))> varmapping
 
   expand-call-to-return-values(s|nm, args) :
     e -> e
@@ -401,9 +432,16 @@ rules
     ; <not(check-builtin-signature)> (None(), n, targs)
     ; <not(is-call-to-reserved-function)> (nm, targs)
     ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
-    ; returns := <fetch-elem(get-returns-from-query-analysis)> defanno*
-    with argmapping := <zip> (args, defargs)
-    ; results := <foldr(!returns, rename-vars-in-analysis(RootVar))> argmapping
+    ; qa := <fetch-elem(is-query-analysis)> defanno*
+    with <filter(analyze-for-query-optimization-continue)> args
+    ; varmapping := <zip> (args, defargs)
+    ; analysis := <get-ts-from-query-analysis> qa
+    ; returns := <get-returns-from-query-analysis> qa
+    ; recursivecalls := <get-recursive-from-query-analysis> qa
+    ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(s))> varmapping
+    ; <filter(combine-analysis)> newanalysis
+    ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
+    ; results := <foldr(!returns, rename-vars-in-analysis(s))> varmapping
 
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "set", [])
   ignoreable-generic-sort-built-in-function = ?(GenericSort("List", [_]), "get", [SimpleSort("Int")])
@@ -421,7 +459,7 @@ rules
     
   get-this-args(|ent) :
     from -> thisargs
-    with thisvars := <collect(?Var("this"); \t->t{}\); make-set> from // We strip the annotations on the Var term, because they are unimportant and may cause the same var to be mapped twice. This is a real problem for recursive calls, where applying the same mapping more than once keeps giving new results.
+    with thisvars := <collect(?Var("this"); {\t->t{}\}); make-set> from // We strip the annotations on the Var term, because they are unimportant and may cause the same var to be mapped twice. This is a real problem for recursive calls, where applying the same mapping more than once keeps giving new results.
     ; thisargs := <map(?Var(<id>); !Arg(<id>, SimpleSort(ent)))> thisvars
 
   get-prop-type: (x_class, prop) -> <type-of-property>

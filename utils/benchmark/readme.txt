@@ -23,7 +23,7 @@ Tools which should be installed:
 * ab (Apache HTTP server benchmarking tool, a version which has the -s <seconds> timeout option)
 * mysql (The MySQL command-line tool)
 * gzip
-* wget (The non-interactive network downloader)
+* curl
 * bc (An arbitrary precision calculator language)
 * awk (An interpreter for the AWK Programming Language)
 * Oracle JDK 7

@@ -73,13 +73,72 @@ rules
     RelativeFieldAccess(_, _){anno*} -> srt
     where <fetch-elem(?PrefetchPropAnno(_, srt))> anno*
 
+  handle-reusable-conditions :
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, pw, children){anno*} ->
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond2, pw2, children){anno*}
+    with cond2 := <try(handle-reusable-conditions-helper)> cond
+    ; pw2 := <try(handle-reusable-conditions-helper)> pw
+
+  handle-reusable-conditions-helper :
+    pw@PrefetchWhere(pwmod*,cond1){anno*} -> PrefetchWhere(pwmod*,cond2){anno*}
+    with cond2 := <extract-query-cond(not-both-reusable-expressions,id); add-cond-without-vars-anno> cond1
+
+  handle-reusable-conditions-helper :
+    PrefetchCondition(cond1){anno*} -> PrefetchCondition(cond2){anno*}
+    with cond2 := <extract-query-cond(try(both-reusable-expressions-add-anno),id); bottomup(try(add-reusable-condition-anno)); add-cond-without-vars-anno> cond1
+
+  add-reusable-condition-anno :
+    cond1@c#([expr1, expr2]) -> cond2
+    where <is-query-condition-comparator-cons-name <+ ?"Or" <+ "And"> c
+    ; <has-anno(|IsReusableCondition())> expr1
+    ; <has-anno(|IsReusableCondition())> expr2
+    ; cond2 := <all(remove-anno(|IsReusableCondition())); add-anno(|IsReusableCondition())> cond1
+
+  add-reusable-condition-anno :
+    Not(expr1){anno*} -> Not(expr2){IsReusableCondition(),anno*}
+    where <has-anno(|IsReusableCondition())> expr1
+    ; expr2 := <remove-anno(|IsReusableCondition())> expr1
+
+  both-reusable-expressions-add-anno :
+    (expr1, expr2) -> (expr3, expr4)
+    where expr3 := <is-reusable-expr; add-anno(|IsReusableCondition())>expr1
+    ; expr4 := <is-reusable-expr; add-anno(|IsReusableCondition())>expr2
+
+  not-both-reusable-expressions :
+    (expr1, expr2) -> (expr1, expr2)
+    where <not(is-reusable-expr)>expr1 <+ <not(is-reusable-expr)>expr2
+
+  is-reusable-expr = is-query-condition-constant
+  is-reusable-expr = ?Var(_)
+  is-reusable-expr = 
+    (?Mul(expr1, expr2) <+ ?Div(expr1, expr2) <+ ?Mod(expr1, expr2) <+ ?Add(expr1, expr2) <+ ?Sub(expr1, expr2))
+    ; <is-bindable-expr> expr1
+    ; <is-bindable-expr> expr2
+
+  add-cond-without-vars-anno :
+    cond1{anno*} -> cond1{ConditionWithoutVars(cond2),anno*}
+    with cond2 := <extract-query-cond(has-no-vars-in-condition,id)> cond1
+
+  has-no-vars-in-condition :
+    (expr1, expr2) -> (expr1, expr2)
+    where [] := <collect(?Var(_))> expr1
+    ; [] := <collect(?Var(_))> expr2
+
   add-filter-anno-to-prefetch-where(|srt) :
-    pw@PrefetchWhere(pwmod*,cond){anno*} -> pw{fltr,anno*} 
+    pw@PrefetchWhere(pwmod*,cond){anno*} -> pw2 
     where SimpleSort(_) := srt
     ; not(<fetch-elem(?QueryConditionFilter(_, _, _))> anno*)
     ; not(True() := cond)
     with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|srt))> cond
     ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
+    ; pw2 := <try(add-filter-anno-without-vars(|srt, cond))>pw{fltr,anno*}
+
+  add-filter-anno-without-vars(|srt, cond) :
+    pw{anno*} -> pw{ConditionWithoutVars(fltrNoVars), anno*}
+    where <has-anno(?ConditionWithoutVars(condWithoutVars))> cond
+    ; not(True() := condWithoutVars)
+    with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|srt))> condWithoutVars
+    ; fltrNoVars@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
 
   add-backend-annotation :
     PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, elemcond, children){anno*} ->
@@ -87,6 +146,16 @@ rules
     where decsrt2 := <add-type-annotations> decsrt
     ; fsrt2 := <topdown(add-type-annotations)> fsrt
     ; not(decsrt := decsrt2; fsrt := fsrt2)
+
+  add-backend-annotations :
+    pw@PrefetchWhere(mod*, cond{anno2*}){anno*} -> PrefetchWhere(mod*, cond{newanno2*}){anno*} 
+    where newanno2* := <map(try(?ConditionWithoutVars(_);add-backend-annotations))> anno2*
+    ; not(anno2* := newanno2*)
+
+  add-backend-annotations :
+    pc@PrefetchCondition(_){anno*} -> pc{newanno*} 
+    where newanno* := <map(try(?ConditionWithoutVars(_);add-backend-annotations))> anno*
+    ; not(anno* := newanno*)
 
   add-backend-annotation :
     TemplateArgOrThis(n, args){anno*} -> TemplateArgOrThis(n, args){TemplateName(genname),anno*}

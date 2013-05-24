@@ -45,7 +45,7 @@ strategies
   is-property-access-without-this = // We wait for desugar-property-access so we can follow all properties by following Var("this")
     ?Var(_); type-of; is-property-type
 
-  query-optimization-waiting-for = query-optimization-waiting-for-calls <+ query-optimization-waiting-for-loops
+  query-optimization-waiting-for = {|QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall: query-optimization-waiting-for-calls <+ query-optimization-waiting-for-loops |}
 
   query-optimization-waiting-for-calls = query-optimization-waiting-for-skip <+ query-optimization-waiting-for-template-calls <+ query-optimization-waiting-for-function-calls 
 
@@ -68,13 +68,37 @@ strategies
         ; not(<fetch-elem(is-query-analysis)> anno*)
       )
 
-  // Entity function
+  query-optimization-waiting-for-function-calls-in-args =
+    collect(query-optimization-waiting-for-function-calls)
+
   query-optimization-waiting-for-function-calls =
+    ?FieldAccess(p, f)
+    ; not("name" := f)
+    ; SimpleSort(x_class) := <type-of> p
+    ; <is-derived-property> (x_class, f)
+    ; e{anno*} := <get-derived-property-exp> (x_class, f)
+    ; <not(fetch-elem(is-query-analysis))> anno*
+    ; ![(x_class, f)]
+
+  query-optimization-waiting-for-function-calls =
+    (?Call(e, _, argstmp) < where(args := [e|argstmp]) + ?ThisCall(_, args))
+    ; ?c
+    ; wainInArgs := <query-optimization-waiting-for-function-calls-in-args> args
+    ; if wait := <query-optimization-waiting-for-function-call> c then
+        ![wait|wainInArgs]
+        ; flatten-list
+      else
+        !wainInArgs
+      end
+
+  // Entity function
+  query-optimization-waiting-for-function-call =
     ?call@Call(e, nm, args)
-    ; <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?srt@SimpleSort(_)>)> e
+    ; e* := <is-accessible-from-allow-calls(RootVar)> e
     ; targs* := <map(type-of); prepare-type-list-for-compare> args
     ; <not(is-call-to-reserved-function)> (nm, targs*)
-    ; query-optimization-waiting-for-entity-function-calls(|srt, nm, targs*)
+    ; <filter(Snd; is-entity-type; ?SimpleSort(_); query-optimization-waiting-for-entity-function-call(|nm, targs*))> e*
+    ; not(?[])
 
   // Entity function
   /*query-optimization-waiting-for-function-calls =
@@ -89,8 +113,9 @@ strategies
     ; srt := SimpleSort(<ThisEntity>)
     ; query-optimization-waiting-for-entity-function-calls(|srt, nm, targs*)*/
 
-  query-optimization-waiting-for-entity-function-calls(|srt, nm, targs*) =
-    n := <strip-annos> nm
+  query-optimization-waiting-for-entity-function-call(|nm, targs*) =
+    ?srt
+    ; n := <strip-annos> nm
     ; <not(not-allowed-ent-fun-name)> n
     ; SimpleSort(x_class) := srt
     ; not("Entity" := x_class)
@@ -108,7 +133,7 @@ strategies
       )
 
   // Global function
-  query-optimization-waiting-for-function-calls =
+  query-optimization-waiting-for-function-call =
     ?ThisCall(nm, args)
     ; argtypes := <map(type-of)> args
     ; targs* := <prepare-type-list-for-compare> argtypes

@@ -143,7 +143,39 @@ strategies
 
   simplify-condition = repeat(oncetd(simplify-or <+ simplify-and))
 
+  remove-redundant-not-equal-in-and-list =
+    ?lst
+    ; foldr(!lst, remove-redundant-not-equal-in-and-list-helper <+ Snd)
+
 rules
+
+  remove-redundant-not-equal-in-and-list-helper :
+    (Eq(e1, e2), condAnd1) -> condAnd2
+    where condAnd2 := <filter(not(is-redundant-not-equal(|e1,e2)))> condAnd1
+
+  is-redundant-not-equal(|e1, e2) :
+    ne@NotEq(e1@Var(_), e3) -> ne
+    where not(e3 := e2) 
+    ; <is-query-condition-constant> e2
+    ; <is-query-condition-constant> e3
+
+  is-redundant-not-equal(|e1, e2) :
+    ne@NotEq(e3, e1@Var(_)) -> ne
+    where not(e3 := e2)
+    ; <is-query-condition-constant> e2
+    ; <is-query-condition-constant> e3
+
+  is-redundant-not-equal(|e1, e2) :
+    ne@NotEq(e2, e3@Var(_)) -> ne
+    where not(e3 := e1)
+    ; <is-query-condition-constant> e1
+    ; <is-query-condition-constant> e3
+
+  is-redundant-not-equal(|e1, e2) :
+    ne@NotEq(e3, e2) -> ne
+    where not(e3 := e1) 
+    ; <is-query-condition-constant> e1
+    ; <is-query-condition-constant> e3
 
   simplify-or :
     old@Or(_, _) -> new
@@ -155,7 +187,7 @@ rules
   simplify-and :
     old@And(_, _) -> new
     with lst := <and-to-list> old
-    ; newlst := <make-set> lst
+    ; newlst := <remove-redundant-not-equal-in-and-list; make-set> lst
     where <not(eq)> (<length> lst, <length> newlst)
     with new := <and-query-condition> newlst
 
@@ -237,6 +269,11 @@ rules
     (expr1, expr2) -> (newexpr1, newexpr2)
     where newexpr2 := <is-accessible-field(RootVar,gen,srtcheck); check> expr2 // This expression is accessible from the query root entity
     ; newexpr1 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
+
+  get-accessible-expr(gen,check,srtcheck) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr1 := <is-bindable-expr(gen); check> expr1
+    ; newexpr2 := <is-bindable-expr(gen); check> expr2
 
 strategies
 

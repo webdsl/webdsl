@@ -374,6 +374,15 @@ public class QueryOptimization {
 		return result != null;
 	}
 
+	public static org.hibernate.Criteria addJoinsIfOptimizationEnabled(org.hibernate.Criteria criteria, java.util.Collection<String> props) {
+		if(criteria != null && props != null && QueryOptimization.isOptimizationEnabled()) {
+			for(String prop : props) {
+				criteria.setFetchMode(prop, org.hibernate.FetchMode.JOIN);
+			}
+		}
+		return criteria;
+	}
+
 	public static org.hibernate.Criteria addJoinsIfOptimizationEnabled(org.hibernate.Criteria criteria, String[] props) {
 		if(criteria != null && props != null && QueryOptimization.isOptimizationEnabled()) {
 			for(String prop : props) {

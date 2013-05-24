@@ -174,6 +174,133 @@ rules
     with e_expr1new := <expression-to-java-servlet> expr1
     ; e_expr2new := <condition-to-query-string(|x)> expr2
 
+
+/*  get-to-one-nodes(|x) = ?PrefetchFor(_, _, _, <get-prefetch-children>); get-to-one-nodes(|x)
+  get-to-one-nodes(|x) = ?None(); ![]
+  get-to-one-nodes(|x) = is-list; filter(get-join-nodes-helper(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); not(is-generic-sort)|x,"_")); flatten-list
+
+  remove-all-fa = ?Int(_)
+  remove-all-fa = ?Long(_)
+  remove-all-fa = ?Float(_)
+  remove-all-fa = ?String(_)
+  remove-all-fa = ?True()
+  remove-all-fa = ?False()
+  remove-all-fa = ?Null()
+  remove-all-fa = ?Var(_)
+
+  remove-all-fa =
+    ?c#([expr1, expr2])
+    ; where(<is-query-condition-comparator-cons-name> c)
+    ; (all(remove-all-fa) <+ !True())
+
+  remove-all-fa :
+    Not(True()) -> Not(True())
+
+  remove-all-fa :
+    Not(expr) -> True()
+    where not(True() := expr)
+    ; True() := <remove-all-fa <+ !True()> expr 
+
+  remove-all-fa :
+    Not(expr1) -> Not(expr2) 
+    where expr2 := <remove-all-fa> expr1
+    ; not(True() := expr2)
+
+  remove-all-fa :
+    c1@And(expr1, expr2) -> c2
+    where c2 := <all(remove-all-fa <+ !True()); try(?And(True(), <id>) <+ ?And(<id>, True()))> c1
+
+  remove-all-fa :
+    c1@Or(expr1, expr2) -> c2
+    where c2 := <all(remove-all-fa <+ !True()); try(\Or(True(), _) -> True()\); try(\Or(_, True()) -> True()\)>c1
+
+  remove-var-conditions = alltd(remove-var-conditions2)
+
+  remove-var-conditions2 :  
+    PrefetchCondition(expr1) -> PrefetchCondition(expr2)
+    with expr2 := <remove-var-conditions-helper> expr1
+
+  remove-var-conditions-helper :
+    c#([expr1, expr2]) -> True()
+    where <is-query-condition-comparator-cons-name> c
+    ; ((Var(_) := expr1) <+ (Var(_) := expr2))
+
+  remove-var-conditions-helper =
+    ?c#([expr1, expr2])
+    ; where(<is-query-condition-comparator-cons-name> c
+      ; not((Var(_) := expr1) <+ (Var(_) := expr2))
+      )
+
+  remove-var-conditions-helper :
+    Not(True()) -> Not(True())
+
+  remove-var-conditions-helper :
+    Not(expr) -> True()
+    where not(True() := expr)
+    ; True() := <remove-var-conditions-helper <+ !True()> expr 
+
+  remove-var-conditions-helper :
+    Not(expr1) -> Not(expr2) 
+    where expr2 := <remove-var-conditions-helper> expr1
+    ; not(True() := expr2)
+
+  remove-var-conditions-helper :
+    c1@And(expr1, expr2) -> c2
+    with c2 := <all(remove-var-conditions-helper <+ !True()); try(?And(True(), <id>) <+ ?And(<id>, True()))> c1
+
+  remove-var-conditions-helper :
+    c1@Or(expr1, expr2) -> c2
+    with c2 := <all(remove-var-conditions-helper <+ !True()); try(\Or(True(), _) -> True()\); try(\Or(_, True()) -> True()\)>c1
+
+  get-join-nodes-helper(s|x,prefix) :
+    PrefetchNode(_, f, _, _, cond, _, children){anno*} -> [bstmAdd | subjoins]
+    where s
+    with cond2 := <?PrefetchCondition(<id>) <+ !True()> cond
+    ; e_Cond := <(remove-all-fa <+ (debug(!"fail:"); fail)); expression-to-java-servlet> cond2
+    ; join := <concat-strings> [prefix, f]//<concat-strings> [prefix, <("" := prefix) < !"_" + !"._">, f]
+    ; newprefix := <concat-strings> [join, "._"]
+    ; subjoins := <get-prefetch-children; filter(get-join-nodes-helper(s|x,newprefix)); flatten-list> children
+    ; if expr |[ true ]| := e_Cond then
+        bstmAdd := bstm |[ x.add("~join"); ]|
+      else
+        bstmAdd := bstm |[ if(e_Cond) x.add("~join"); ]|
+      end
+*/
+
+  use-conditions-without-vars = topdown(try(replace-condition-to-condition-without-vars))
+
+  replace-condition-to-condition-without-vars :
+    PrefetchWhere(pwmod*,cond{condanno*}){pwanno*} -> PrefetchWhere(pwmod*,cond2){pwkeepanno*} 
+    with pwkeepanno* := <remove-all(?QueryConditionFilter(_, _, _)); map(try(?ConditionWithoutVars(fltr); !fltr))> pwanno*
+    ; cond2 := <fetch-elem(?ConditionWithoutVars(<id>)) <+ !True()> condanno*
+
+  replace-condition-to-condition-without-vars :
+    PrefetchCondition(cond1){anno*} -> PrefetchCondition(cond2){anno*}
+    with ConditionWithoutVars(cond2) := <get-anno(?ConditionWithoutVars(_))> cond1 
+
+  get-to-one-joins-no-empty-batch = ?PrefetchFor(_, _, _, <get-prefetch-children>); get-to-one-joins-no-empty-batch
+  get-to-one-joins-no-empty-batch = ?None(); ![]
+  get-to-one-joins-no-empty-batch = is-list; filter(get-joins-no-empty-batch-helper(|"_")); flatten-list
+
+  get-joins-no-empty-batch-helper(|prefix) :
+    pn@PrefetchNode(_, f, mod*, _, _, _, children){anno*} -> [join{joinanno*} | subjoins]
+    where <?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); not(is-generic-sort)> pn
+    ; <fetch-elem(?NoEmptyBatch())> mod*
+    with join := <concat-strings> [prefix, f]
+    ; newprefix := <concat-strings> [join, "._"]
+    ; subjoins := <get-prefetch-children; filter(get-joins-no-empty-batch-helper(|newprefix)); flatten-list> children
+    ; joinanno* := <get-requires-alias-anno> (anno*, subjoins)
+/*
+  get-joins-no-empty-batch-helper(|prefix) :
+    pn@PrefetchNode(_, f, mod*, _, _, _, children){anno*} -> [join{joinanno*} | subjoins]
+    where <?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); not(is-generic-sort)> pn
+    ; <not(fetch-elem(?NoEmptyBatch()))> mod*
+    with join := <concat-strings> [prefix, f]
+    ; newprefix := <concat-strings> [join, "._"]
+    ; subjoins := <get-prefetch-children; filter(get-joins-no-empty-batch-helper(|newprefix)); flatten-list> children
+    where not([] := subjoins)
+    with joinanno* := <get-requires-alias-anno> (anno*, subjoins)*/
+
   get-to-one-joins = ?PrefetchFor(_, _, _, <get-prefetch-children>); get-to-one-joins
   get-to-one-joins = ?None(); ![]
   get-to-one-joins = is-list; filter(get-joins-helper(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); not(is-generic-sort)|"_")); flatten-list
@@ -209,11 +336,15 @@ rules
     prefetch -> e_joins
     with e_joins := <get-to-one-joins; string-list-to-java-servlet-or-null> prefetch
 
+  get-direct-fetches-no-empty-batch :
+    prefetch -> e_joins
+    with e_joins := <get-to-one-joins-no-empty-batch; string-list-to-java-servlet-or-null> prefetch
+
   get-direct-fetches-if-join-fetching = use-join-fetching < get-direct-fetches + !expr|[null]|
 
   get-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, templ, _, <get-prefetch-children>)
-    ; bstm_sub* := <build-sub-batches(|e_LocalHibSession, x_list, srt)>
+    ; bstm_sub* := <start-build-sub-batches(|e_LocalHibSession, x_list, srt)>
     ; bstm_templ* := <get-prefetch-for-template-at-root(|x_list, srt) <+ ![]> templ
     ; <if-optimization-enabled> bstm* |[ bstm_templ* bstm_sub* ]|
 
@@ -247,7 +378,7 @@ rules
     PrefetchNode(None(), f{PrefetchPropAnno(decsrt, fsrt@SimpleSort(_))}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[ if(x instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)x).getHibernateLazyInitializer().isUninitialized()) utils.QueryOptimization.prefetchEntity(utils.HibernateUtil.getCurrentSession(), "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins); ]|
     where x := <concat-strings>["_", f]
     ; str := <java-type-name> fsrt
-    ; e_joins := <get-prefetch-children; get-direct-fetches; not(?expr |[ null ]|)> children
+    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ null ]|)> children
 
   get-batch-fetches-single-this =
       ?PrefetchFor(v, _, _, <get-prefetch-children>)
@@ -267,7 +398,7 @@ rules
     ; str := <java-type-name> fsrt
     ; x_list := <concat-strings; newname>[x, "Lst"]
     ; e_joins := <get-prefetch-children; get-direct-fetches> children
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, fsrt)> children
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, fsrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -286,7 +417,7 @@ rules
     where x := f
     ; t := <java-type> fsimplesrt
     ; x_list := <concat-strings; newname>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, fsimplesrt)> children
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, fsimplesrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -308,14 +439,14 @@ rules
     ; str := <java-type-name> srt
     ; e_joins := <get-prefetch-children; get-direct-fetches> tree
     ; x_list := <concat-strings; newname>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; build-sub-batches(|e_HibSession, x_list, srt)> tree
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, srt)> tree
 
   get-batch-fetches-single-simple(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm* |[
                                     if(x instanceof org.hibernate.proxy.HibernateProxy) utils.QueryOptimization.prefetchEntity(e_HibSession, "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins);
                                   ]|
     where str := <java-type-name> srt
-    ; e_joins := <get-prefetch-children; get-direct-fetches; where(not(?expr |[ null ]|))> tree // If no joins are present then this would just be a hibSession.get()
+    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ null ]|)> tree // If no joins are present then this would just be a hibSession.get()
 
   get-batch-fetches-filter-hints(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm*
@@ -340,7 +471,7 @@ rules
   get-early-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; filter(get-fetch-early-subtree)
-    ; build-sub-batches(|e_LocalHibSession, x_list, srt)
+    ; start-build-sub-batches(|e_LocalHibSession, x_list, srt)
     ; if-optimization-enabled
 
   // This node is a prefetch-early node, so include
@@ -407,7 +538,7 @@ rules
   get-generic-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, _, _, <get-prefetch-children>)
     ; (is-guided-batching-no-joins <+ filter(has-generic-batch-fetch))
-    ; build-sub-batches(|e_LocalHibSession, x_list, srt)
+    ; start-build-sub-batches(|e_LocalHibSession, x_list, srt)
     ; if-optimization-enabled
 
   has-generic-batch-fetch = where(?PrefetchNode(_, _{PrefetchPropAnno(_,<id>)}, _, _, _, _, _); is-generic-sort)
@@ -444,6 +575,31 @@ rules
     where t := <java-type> srt
     ; x_elem := <newname>"innerlst"
     ; bstm_innerloop* := <loops-for-generic-batches(|x_batchelem, bstm_op*)> (x_elem, simplersort)
+
+  start-build-sub-batches(|e_LocalHibSession, x_list, srt) =
+    ?nodes
+    ; collect(get-reusable-conditions-from-prefetch-condition)
+    ; flatten-list
+    ; make-set
+    ; {| ReuseExpression
+       : map(generate-declare-for-reusable)
+		   ; ?bstm_reusable*
+		   ; !nodes
+		   ; build-sub-batches(|e_LocalHibSession, x_list, srt)
+		   ; ?bstm_batches*
+		   |}
+    ; try(not(?[]); ![bstm_reusable*,bstm_batches*])
+
+  generate-declare-for-reusable :
+    cond -> bstm |[ t x = e; ]|
+    with x := <newname> "reusable"
+    ; e := <expression-to-java-servlet> cond
+    ; t := <get-type-anno;java-type> cond
+    ; rules( ReuseExpression : cond -> Var(x) )
+
+  get-reusable-conditions-from-prefetch-condition :
+    PrefetchCondition(cond) -> reusable
+    with reusable := <collect(has-anno(|IsReusableCondition()))> cond
 
   build-sub-batches(|e_LocalHibSession, x_list, srt) = build-sub-batches(|e_LocalHibSession, x_list, srt, []); Fst
 
@@ -658,7 +814,7 @@ rules
 
   get-join-condition(|v) :
     PrefetchCondition(cond) -> e_JoinCond
-    with e_JoinCond := <alltd(replace-relative-fa(|v)); expression-to-java-servlet> cond
+    with e_JoinCond := <alltd(ReuseExpression); alltd(replace-relative-fa(|v)); expression-to-java-servlet> cond
 
   add-join-condition(|cond, v) :
     e_Cond -> expr |[ e_Cond && (e_JoinCond) ]|
@@ -666,7 +822,7 @@ rules
 
   replace-relative-fa(|v) :
     expr@c#([expr1, expr2]) -> exprwithtypechecks
-    where <?"Eq" <+ ?"NotEq" <+ ?"SmallerThan" <+ ?"SmallerThanOrEqual" <+ ?"LargerThan" <+ ?"LargerThanOrEqual"> c//<elem> (c, ["Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual"])
+    where <is-query-condition-comparator-cons-name> c//<elem> (c, ["Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual"])
     ; newexpr := <all(alltd(replace-relative-fa(|v)))> expr // Replace all relative-fa in subexpression to get casts
     ; [first|other] := <collect(\Cast(e, srt) -> IsA(e, srt)\); make-set> newexpr // Convert the casts to typechecks
     with exprwithtypechecks := <foldr(!And(first,newexpr), \ (check, cond) -> And(check, cond) \)> other // Add the type checks to the condition

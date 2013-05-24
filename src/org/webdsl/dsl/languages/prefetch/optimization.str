@@ -15,7 +15,7 @@ rules
     ; ts := <filter-traversal-summary> analysis
     ; querycondition := <traversal-summary-to-query-condition> ts // Combine query conditions of the effectful field accesses
     ; qc := QueryCondition(querycondition)
-    ; newwherecond := <add-query-condition-to-prefetch-where(|x); try(add-filter-anno-to-prefetch-where(|xsrt))> (qc, wherecond)
+    ; newwherecond := <add-query-condition-to-prefetch-where(|x); try(handle-reusable-conditions); try(add-filter-anno-to-prefetch-where(|xsrt))> (qc, wherecond)
     ; requiresalias := <collect(condition-to-alias-string(|x))> querycondition
     ; prefetch := <traversal-summary-to-branches(|x,xsrt,requiresalias); foldr(!oldprefetch, merge-optimization-branches)> ts
     ; recbranches := <get-branches-from-all-recursive(|x,xsrt,requiresalias)> recursive
@@ -346,6 +346,7 @@ strategies
   revalidate-join-condition(|p) =
     map(filter(extract-query-cond(is-accessible-condition-expr(|p), field-with-column(|p))); and-query-condition)
     ; or-query-condition
+    ; try(simplify-condition)
     ; (?True() < !None() + !PrefetchCondition(<id>))
 
 rules
@@ -521,7 +522,7 @@ rules
   combine-prefetch-conditions : (cond, None()) -> cond
   combine-prefetch-conditions :
     (PrefetchCondition(cond1), PrefetchCondition(cond2)) -> PrefetchCondition(cond)
-    with cond := <or-query-condition-helper> (cond1, cond2) // (?True() < !None() + !PrefetchCondition(<id>)
+    with cond := <or-query-condition-helper; try(simplify-condition)> (cond1, cond2) // (?True() < !None() + !PrefetchCondition(<id>)
 
   combine-prefetch-where : (None(), cond) -> cond
   combine-prefetch-where : (cond, None()) -> cond

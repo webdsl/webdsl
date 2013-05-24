@@ -16,10 +16,24 @@ strategies
     analyze-definitions
   ; topdown(try(analyze))
   |}
- 
+
+  desugar-top-query-analysis = try(where(not(QueryOptimizationDisabled)); repeat(innermost-rep-simple(desugar-query-analysis)))
+
+  innermost-rep-simple(s) =
+    {| InnermostApplied
+     : rules(InnermostApplied := False())
+     ; innermost-rep-simple-aux(s)
+     ; where(InnermostApplied => True())
+     |}
+    
+  innermost-rep-simple-aux(desugar) =
+    all(innermost-rep-simple-aux(desugar))
+    ; try(desugar; rules(InnermostApplied := True() ))
+
   handle-recursion :
-    app@Application(_, _) -> out
-    with collect(is-not-analyzed)
+    Application(_, _) -> out
+    with desugar-top-query-analysis;?app
+    ; collect(is-not-analyzed)
     ; get-analyze-order-for-recursive
     ; reverse
     //; debug(!"all:")
@@ -30,10 +44,29 @@ strategies
     //; debug(!"rec:")
     ; {| Recursive
        : map(\ x -> x with rules( Recursive : x -> x ) \)
-       ; tmp := <desugar-top> app
+       ; tmp := <desugar-top-query-analysis> app
       |}
-    ; out := <topdown(try(add-query-optimization); try(add-query-condition-filter-annotation))> tmp
+    ; out := <topdown(try(add-query-optimization); try(handle-reusable-conditions); try(add-query-condition-filter-annotation))> tmp
+    ; try(where(True() := <PrintOptimizations>); alltd(log-prefetch-fors))
     //; <collect(where(has-no-anno(?IsOptimized()));is-not-analyzed);debug(!"noopt:")> out
+
+  log-prefetch-fors =
+    ?Define(mods, name, args, targs, elems){anno*}
+    ; genname := <generate-template-name-fargs>(name, args)
+    ; pfs := <collect(is-non-empty-prefetch-for)> elems
+    ; not([] := pfs)
+    ; info(|["Prefetch statements in ",genname])
+    ; <map(pp-webdsl-to-string; debug(!""))> pfs
+
+  log-prefetch-fors =
+    ?f@Function(x, farg*, srt, b1){anno*}
+    ; pfs := <collect(is-non-empty-prefetch-for)> b1
+    ; not([] := pfs)
+    ; <fetch-elem(?FunctionEntity(x_class)) < info(|["Prefetch statements in ",x_class, ".",<extract-function-sig; pp-func-sig>f]) + info(|["Prefetch statements in ",<extract-function-sig; pp-func-sig>f])> anno*
+    ; <map(pp-webdsl-to-string; debug(!""))> pfs
+
+  is-non-empty-prefetch-for =
+    ?PrefetchFor(_, _, _, PrefetchChildren([_|_])) // PrefetchChildren([_|_]) ensures a non empty prefetch-for block
 
   get-analyze-order-for-recursive :
     allremaining -> rtn
@@ -91,12 +124,13 @@ strategies
 
   add-query-condition-filter-annotation :
     PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, PrefetchWhere(pwmod*,elemcond){pwanno*}, children){anno*} ->
-    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, PrefetchWhere(pwmod*,elemcond){fltr,pwanno*}, children){anno*}
+    PrefetchNode(castsrt, name{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, pw2, children){anno*}
     where not(<fetch-elem(?QueryConditionFilter(_, _, _))> pwanno*)
     ; not(True() := elemcond)
     ; GenericSort(_, [elemsrt@SimpleSort(_)]) := fsrt
     with fltrs := <or-to-list; make-set; map(get-filters-for-conditions(|elemsrt))> elemcond
     ; fltr@QueryConditionFilter(_, _, _) := <combine-query-condition-filters> fltrs
+    ; pw2 := <try(add-filter-anno-without-vars(|elemsrt, elemcond))>PrefetchWhere(pwmod*,elemcond){fltr,pwanno*}
 
   analyze = fail
 

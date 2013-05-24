@@ -1,6 +1,8 @@
 module org/webdsl/dsl/languages/prefetch/analysis
 
 rules
+  
+  //desugar = desugar-query-analysis
 
   perform-query-analysis(|name,args,cond,x,early) :
     (body, anno*) -> (body, [qa | anno*])
@@ -14,7 +16,7 @@ rules
     ; not(<fetch-elem(is-query-analysis)> anno*)
     ; {| RootVar, BindableVar, SynonymVar, IsSessionVar
        : (roots, bindable, synonyms) := <conc; categorize-and-define-argument-bindings> (args, <get-session-args; map({v,srt: ?Arg(v, srt); rules( IsSessionVar : Var(v) -> srt ) })>)
-       ; [] := <collect(query-optimization-waiting-for); flatten-list> (body, cond, early)
+       ; [] := <collect(query-optimization-waiting-for); flatten-list/*; where(try(not(?[]); !(name, <id>); debug(!"wait:")))*/> (body, cond, early)
        ; {| QueryConditions, IsEffectful, DetectedTraveral, DetectedReturn, DetectedRequiredCall, DetectedUnresolvedCall, DetectedRecursiveCall
          : with(
            basecond := <extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond
@@ -24,7 +26,7 @@ rules
            //; <debug(!"Analyzing: ")> name
            ; <analyze-for-query-optimization-early> early
            ; body3 := <analyze-for-query-optimization-continue> body
-           ; ts := <bagof-DetectedTraveral; try(ensure-condition(|x, basecond))>
+           ; ts := <bagof-DetectedTraveral; try(ensure-condition(|x, basecond)); make-set>
            ; returns := <bagof-DetectedReturn>
            ; requiredcalls := <bagof-DetectedRequiredCall>
            ; unresolvedcalls := <bagof-DetectedUnresolvedCall/*;debug(!"gotunres:")*/>
@@ -32,6 +34,8 @@ rules
            //; <debug(!"TS of ")> name
            //; <repeat(oncetd(?Cast(<id>, _)));log-traversal-summary-table(|45,135,5)> ts
           )
+        //; <debug(!"ts:")>(name, ts)
+        //; <debug(!"requiredcalls:")>(name, requiredcalls)
         //;<debug(!"qa:")>(name, QueryAnalysis(ts, returns, requiredcalls, unresolvedcalls, recursivecalls))
         |}
       |}
@@ -60,7 +64,16 @@ strategies
     ; analyze-for-query-optimization-continue
    |}
 
-  analyze-for-query-optimization-continue = alltd(analyze-for-query-optimization)
+  detect-extra-synonym =
+    where (
+      (?VarDeclInit(x, _, e) <+ ?VarDeclInitInferred(x, e))
+      ; has-immutable-anno
+      ; <is-accessible-from(RootVar <+ IsSessionVar <+ BindableVar, id)> e
+      ; v := Var(x)
+      ; rules ( SynonymVar : v -> e )
+    )
+
+  analyze-for-query-optimization-continue = alltd(try(detect-extra-synonym); analyze-for-query-optimization)
 
   analyze-for-query-optimization-effectful =
     where(True() := <IsEffectful>)
@@ -329,18 +342,25 @@ rules
       reqkey := <strip-annos> reqname
     end
     //; reqkey := <where(try(generate-elements-tcallsmap-name; debug(!"test:")); try(CallToDefinedTemplate; debug(!"test2:")));strip-annos;debug(!"reqkey:")> reqname
-    ; TemplateCall(resname, resargs, respassign, TemplateBody([])) := <fetch-elem(where(?TemplateCall(_, _, <fetch-elem(?ResolvedRequireKey(reqkey))>, _))/*;debug(!"restempl:")*/)> passign1
+    ; TemplateCall(resname, resargs, respassign, TemplateBody([])) := <fetch-elem(where(?TemplateCall(_, _, <fetch-elem(?ResolvedRequireKey(reqkey))>, _)))> passign1
     ; newargs := <conc>(reqargs, resargs)
     ; newpassign := <conc>(reqpassign,respassign)
     ; genname := </*debug(!"newtempl:");*/is-defined-tc-get-called-tc> TemplateCall(resname, newargs, newpassign, TemplateBody([]))
-    ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining req call:");*/CurrentTemplateDecl/*;debug(!"decl:")*/> genname
+    ; Define(defmod, defname, deffargs, deftargs, defbody){defanno*} := </*debug(!"Combining req call:");*/CurrentTemplateDecl> genname
     ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
+    ; <try(register-new-elements-call)> (req, defanno*)
     ; argmapping := <zip; handle-escaped-ref-arg-in-mapping> (newargs, deffargs)
     ; tmpana := <map(add-condition-to-traversal(|cond))/*;debug(!"oldana:")*/>analysis
     ; {| TempVar
        : <map(\Arg(x, srt) -> <id> with rules(TempVar : Var(x) -> srt)\)> callerargs
        ; newanalysis := <foldr(!tmpana, rename-vars-in-analysis(TempVar <+ RootVar))/*;debug(!"newana:")*/> argmapping
        |}
+
+  register-new-elements-call :
+    (req, anno*) -> []
+    where <match-template-with-name(|"elements")> req
+    ; <fetch-elem(?QueryAnalysis(_, _, reqCalls, _, _))> anno*
+    ; <fetch-elem(?(<where(match-template-with-name(|"elements"))>, _, _)); register-detected-required-call> reqCalls
 
   resolve-unresolved-calls :
     (argmapping, redefCalls) -> resolvedcalls
@@ -390,9 +410,22 @@ strategies // Function calls
 
   analyze-for-query-optimization =
     (?Call(_, _, args) <+ ?ThisCall(_, args))
-    ; (analyze-for-query-optimization-calls <+ with(register-all-effectful; <map(analyze-for-query-optimization-effectful)> args))
+    ; with(
+        analyze-for-query-optimization-calls-simple
+        <+
+        analyze-for-query-optimization-calls-recursive
+        <+
+        (register-all-effectful; <filter(analyze-for-query-optimization-effectful)> args)
+      )    
 
-  analyze-for-query-optimization-calls :
+  analyze-for-query-optimization-calls-simple =
+    is-accessible-from-allow-calls(RootVar)
+    ; not(?[])
+    ; map(register-detected-traversal)
+
+rules
+
+  analyze-for-query-optimization-calls-recursive :
     c@Call(e, nm, args1){anno*} -> c //Call(e, nm, args2){anno*}
     where <is-accessible-from(RootVar); ?(e2, <is-entity-type; ?srt@SimpleSort(x_class)>)> e
     ; targs := <map(type-of); prepare-type-list-for-compare> args1
@@ -401,23 +434,12 @@ strategies // Function calls
     ; not("Entity" := x_class)
     ; (fent@SimpleSort(x_class2), defn, deftargs, Function(defname, defargs, _, _){defanno*}) := <resolve-current-entity-function> (srt, nm, targs)
     ; <not(check-builtin-signature)> (fent, n, targs)
-    with argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, defargs)
-      ; if <Recursive> (fent, defn, deftargs) then
-          recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
+    ; <Recursive> (fent, defn, deftargs)
+    with  recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
           ; <register-detected-recursive-call> ((fent, defn, deftargs), e, recargs)
           ; args2 := <map(analyze-for-query-optimization-effectful)> args1
-        else
-          args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
-          ; analysistmp := <fetch-elem(get-ts-from-query-analysis)> defanno*
-          ; recursivecalls := <fetch-elem(get-recursive-from-query-analysis)> defanno*
-          ; (analysis, varmapping) := <try(add-this-var-to-mapping(|e, x_class2))> (analysistmp, argmapping)
-          ; <filter(translate-recursive(|varmapping); register-detected-recursive-call)> recursivecalls
-          ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> varmapping
-          ; <filter(combine-analysis)> newanalysis
-          ; try(<is-accessible-from-allow-calls(RootVar); map(register-detected-traversal)> c)
-        end
 
-  analyze-for-query-optimization-calls :
+  analyze-for-query-optimization-calls-recursive :
     c@ThisCall(nm, args1){anno*} -> ThisCall(nm, args2){anno*}
     where not([] := <filter(is-accessible-from-allow-calls(RootVar))> args1)
     ; argtypes := <map(type-of)> args1
@@ -427,21 +449,11 @@ strategies // Function calls
     ; <not(check-builtin-signature)> (None(), n, targs)
     ; <not(is-call-to-reserved-function)> (nm, targs)
     ; Function(defname, defargs, _, _){defanno*} := <resolve-function-call-to-decl> (None(), n, targs)
-    with argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, defargs)
-      ; (defn, deftargs) := <normalize-signature> (defname, defargs)
-      ; if <Recursive> (None(), defn, deftargs) then
-          recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
+    ; (defn, deftargs) := <normalize-signature> (defname, defargs)
+    ; <Recursive> (None(), defn, deftargs)
+    with  recargs := <map((is-accessible-from-allow-calls(RootVar); map(Fst)) <+ ![])> args1
           ; <register-detected-recursive-call> ((None(), defn, deftargs), recargs)
           ; args2 := <map(analyze-for-query-optimization-effectful)> args1
-        else
-          args2 := <map(where(is-accessible-from-allow-calls(RootVar)) < analyze-for-query-optimization-continue + analyze-for-query-optimization-effectful)> args1
-          ; analysis := <fetch-elem(get-ts-from-query-analysis)> defanno*
-          ; recursivecalls := <fetch-elem(get-recursive-from-query-analysis)> defanno*
-          ; <filter(translate-recursive(|argmapping); register-detected-recursive-call)> recursivecalls
-          ; newanalysis := <foldr(!analysis, rename-vars-in-analysis(RootVar))> argmapping
-          ; <filter(combine-analysis)> newanalysis
-          ; try(<is-accessible-from-allow-calls(RootVar); map(register-detected-traversal)> c)
-        end
 
 strategies
 
