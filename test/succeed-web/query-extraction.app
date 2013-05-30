@@ -266,7 +266,7 @@ test queriestest {
 
   d.get(navigate(showAuction(a1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 4);
+  assert(elem.getText().parseInt() == 6);
 
   d.get(navigate(conditionExtraction()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
@@ -296,7 +296,7 @@ test queriestest {
 
   d.get(navigate(localRedefine(u1)) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));
-  assert(elem.getText().parseInt() == 6);
+  assert(elem.getText().parseInt() == 5);
   elem := d.findElement(SelectBy.id("entFetch"));
   assert(elem.getText().parseInt() == 0);
 }
