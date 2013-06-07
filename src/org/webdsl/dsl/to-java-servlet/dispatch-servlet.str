@@ -65,20 +65,41 @@ rules
 
           public void destroy() {
             org.webdsl.logging.Logger.warn("Undeploying application");
-            org.webdsl.logging.Logger.info("   stopping recurring task scheduler");
+            org.webdsl.logging.Logger.info("cleanup: canceling future scheduled task");
             timer.cancel();
-            org.webdsl.logging.Logger.info("    done");
-            org.webdsl.logging.Logger.info("   closing Hibernate session factory");
+            org.webdsl.logging.Logger.info("cleanup: done");
+            
+            if( org.webdsl.servlet.ServletState.inScheduledTask() ){
+              String taskname = org.webdsl.servlet.ServletState.scheduledTaskName();
+              int cnt = 0;
+              long intervalInSeconds = 5;
+              
+              org.webdsl.logging.Logger.info("cleanup: Waiting for recurring task to finish: '" + taskname + "'");
+              try {
+                
+                while( org.webdsl.servlet.ServletState.inScheduledTask() ){
+                  Thread.sleep( intervalInSeconds * 1000 );
+                  if( ++cnt % 10 == 0){
+                    org.webdsl.logging.Logger.warn("cleanup: Waiting " + cnt*intervalInSeconds + " seconds for task: '" + taskname + "' to finish, application not destroyed yet");
+                  }
+                }
+                org.webdsl.logging.Logger.info("cleanup: recurring task: '" + taskname + "' has ended");
+				      } catch (InterruptedException ex) {
+				        org.webdsl.logging.Logger.error(ex);
+				      }
+				    }
+            
+            org.webdsl.logging.Logger.info("cleanup: closing Hibernate session factory");
             HibernateUtil.getSessionFactory().close();
-            org.webdsl.logging.Logger.info("    done");
+            org.webdsl.logging.Logger.info("cleanup: done");
             super.destroy();
-            org.webdsl.logging.Logger.info("   stopping JDBC AbandonedConnectionCleanupThread");
+            org.webdsl.logging.Logger.info("cleanup: stopping JDBC AbandonedConnectionCleanupThread");
             try {
                 com.mysql.jdbc.AbandonedConnectionCleanupThread.shutdown();
             } catch (InterruptedException ex) {
                 org.webdsl.logging.Logger.error(ex);
             }
-            org.webdsl.logging.Logger.info("    done");
+            org.webdsl.logging.Logger.info("cleanup: done");
             org.webdsl.logging.Logger.warn("Application has been undeployed");
           }
 
