@@ -1,4 +1,4 @@
-currently using tomcat 6.0.29
+currently using tomcat 7.0.40
 
 
 in tomcat.zip changed conf/server.xml, added default keystore for SSL:
