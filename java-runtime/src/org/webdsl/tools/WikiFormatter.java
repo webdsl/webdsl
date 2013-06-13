@@ -21,7 +21,10 @@ public final class WikiFormatter {
     public static final int PARSE_TIMEOUT_MS = 6000;
     
 	static{
-		whitelist.addTags("abbr").addAttributes("abbr", "title");
+		whitelist.addTags("abbr", "hr")
+		         .addAttributes("abbr", "title")
+		         .addAttributes("th", "align")
+		         .addAttributes("td", "align");
 		//allow id's on title tags
 		for(int i=1;i<7;i++){
 			whitelist.addAttributes("h"+i, "id");
@@ -40,14 +43,12 @@ public final class WikiFormatter {
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){
-    	String html;
     	try {
-    		html = processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+    		return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
     	} catch (Exception e) {
 			Logger.error(e);
-			html = null;
+			return errorMessage(text);
 		}
-    	return html == null ? errorMessage(text) : html;
     }    
     
     private static String errorMessage( String text ){
