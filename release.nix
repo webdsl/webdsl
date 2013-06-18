@@ -35,6 +35,7 @@ let
         ] ++ strPkgs pkgs ;
       };
 
+/* build that produces native C-based WebDSL compiler is disabled
 
     build =
       { system ? "i686-linux" 
@@ -68,7 +69,7 @@ let
           ulimit -s ${if stdenv.isDarwin then "64000" else "unlimited"}
         '';
       };
-
+*/
     buildJavaZip = 
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
