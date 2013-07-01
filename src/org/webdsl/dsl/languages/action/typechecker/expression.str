@@ -75,37 +75,48 @@ rules // typechecking expressions
     where not(type-of)
         ; <type-of> e1 ; <type-of> e2 // don't report cascaded errors, e1 and e2 should have valid types
 
+rules // binary operators
+
   eq-type-of-action = type-of-binop
 
   type-of-binop :
-    c#([e1,e2]) -> <check-binop> (Op(c),t1,t2)
+    c#([e1,e2]) -> <check-binop> (c,<strip-annos> t1, <strip-annos> t2)
     where <elem> (c, ["Add", "Sub", "Mul", "Div", "Mod", "Eq", "NotEq", "SmallerThan", "SmallerThanOrEqual", "LargerThan", "LargerThanOrEqual", "And", "Or"])
     where t1 := <type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");fail> e1
         ; t2 := <type-of <+ verbose-2(!"warning: cannot determine type of argument (type-of rule fails): ");fail> e2
 
-  check-binop : (Op("Add"),t1,t2) -> t3
-    where <type-compatible> (t1, t2); t3 := t1
-       <+ <type-compatible> (SimpleSort("String"),t1); t3 := SimpleSort("String") //all types can be converted to strings implicitly
-       <+ <type-compatible> (SimpleSort("String"),t2); t3 := SimpleSort("String")
-  check-binop : (Op("Sub"),SimpleSort("Int"), SimpleSort("Int")) -> SimpleSort("Int")
-  check-binop : (Op("Sub"),SimpleSort("Float"),SimpleSort("Float")) -> SimpleSort("Float")
-  check-binop : (Op("Sub"),SimpleSort("Long"), SimpleSort("Long")) -> SimpleSort("Long")
-  check-binop : (Op("Mul"),SimpleSort("Int"), SimpleSort("Int")) -> SimpleSort("Int")
-  check-binop : (Op("Mul"),SimpleSort("Float"), SimpleSort("Float")) -> SimpleSort("Float")
-  check-binop : (Op("Mul"), SimpleSort("Long"), SimpleSort("Long")) -> SimpleSort("Long")
-  check-binop : (Op("Div"), SimpleSort("Int"), SimpleSort("Int")) -> SimpleSort("Int")
-  check-binop : (Op("Div"), SimpleSort("Float"), SimpleSort("Float")) -> SimpleSort("Float")
-  check-binop : (Op("Div"), SimpleSort("Long"), SimpleSort("Long")) -> SimpleSort("Long")
-  check-binop : (Op("Mod"), SimpleSort("Int"), SimpleSort("Int")) -> SimpleSort("Int")
-  check-binop : (Op("Mod"), SimpleSort("Long"), SimpleSort("Long")) -> SimpleSort("Long")
-  check-binop : (Op("Eq"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("NotEq"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("SmallerThan"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("SmallerThanOrEqual"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("LargerThan"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("LargerThanOrEqual"), t, t2) -> SimpleSort("Bool") where <type-compatible> (t, t2)
-  check-binop : (Op("And"), SimpleSort("Bool"), SimpleSort("Bool")) -> SimpleSort("Bool")
-  check-binop : (Op("Or"), SimpleSort("Bool"), SimpleSort("Bool")) -> SimpleSort("Bool")
+  check-binop : ("Add",t1,t2) -> t3
+    where <is-equal-numeric-type> (t1, t2); t3 := t1
+       <+ <is-string-type> t1; t3 := SimpleSort("String") //all types can be converted to strings in a concatenation implicitly
+       <+ <is-string-type> t2; t3 := SimpleSort("String")
+
+  check-binop : ("Sub",t1,t2) -> t1 where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("Mul",t1,t2) -> t1 where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("Div",t1,t2) -> t1 where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("Mod",t1,t2) -> t1 where <is-equal-numeric-type> (t1,t2)
+  
+  check-binop : ("SmallerThan", t1, t2) -> SimpleSort("Bool") where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("SmallerThanOrEqual", t1, t2) -> SimpleSort("Bool") where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("LargerThan", t1, t2) -> SimpleSort("Bool") where <is-equal-numeric-type> (t1,t2)
+  check-binop : ("LargerThanOrEqual", t1, t2) -> SimpleSort("Bool") where <is-equal-numeric-type> (t1,t2)
+  
+  check-binop : ("And", SimpleSort("Bool"), SimpleSort("Bool")) -> SimpleSort("Bool")
+  check-binop : ("Or", SimpleSort("Bool"), SimpleSort("Bool")) -> SimpleSort("Bool")
+      
+  check-binop : ("Eq",    t1, t2) -> SimpleSort("Bool") where <can-compare-equals> (t1,t2)
+  check-binop : ("NotEq", t1, t2) -> SimpleSort("Bool") where <can-compare-equals> (t1,t2)
+  
+  is-equal-numeric-type = 
+  	?(t,t)
+  ; <is-numeric-type> t
+
+  can-compare-equals = 
+  	?(t1,t2)
+  ; ( <?t1> t2
+      <+ <type-compatible> (t1,t2)
+      <+ <type-compatible> (t2,t1) )
+
+rules
 
   constraint-error-action :
     x@c#([e1, e2]) -> <add-error(|["Wrong operand types for operator ", c, ": ", <pp-webdsl> e1, " has type ",<type-of;pp-type<+!"type unknown"> e1, ",", <pp-webdsl> e2, " has type ",<type-of;pp-type<+!"type unknown"> e2])>

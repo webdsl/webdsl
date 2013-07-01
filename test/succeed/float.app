@@ -4,7 +4,7 @@ application test
 
   }
 
-  test floatfunctions{ 
+  test { 
   
     //round
     assert(5.5.round() == 6);
@@ -26,10 +26,13 @@ application test
     assert(rand >= 0.0);
     assert(rand <= 1.0);
    
-  }
-  
-  test defaultValue{
+    // default value
     var i : Float;
     assert(i == 0.0);
     assert(i == 0f);
+    
+    // binary operators
+    assert(7.3*3.13 == 22.849);
+    assert(7.3/3.13 == 2.3322682);
+    assert(7.3%3.13 == 1.04);
   }
