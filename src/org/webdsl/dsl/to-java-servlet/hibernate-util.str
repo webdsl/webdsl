@@ -340,7 +340,7 @@ rules
     prefetch -> e_joins
     with e_joins := <get-to-one-joins-no-empty-batch; string-list-to-java-servlet-or-null> prefetch
 
-  get-direct-fetches-if-join-fetching = use-join-fetching < get-direct-fetches + !expr|[null]|
+  get-direct-fetches-if-join-fetching = use-join-fetching < get-direct-fetches + !expr|[(String[])null]|
 
   get-batch-fetches(|e_LocalHibSession, x_list, srt) =
     ?PrefetchFor(_, templ, _, <get-prefetch-children>)
@@ -378,7 +378,7 @@ rules
     PrefetchNode(None(), f{PrefetchPropAnno(decsrt, fsrt@SimpleSort(_))}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[ if(x instanceof org.hibernate.proxy.HibernateProxy && ((org.hibernate.proxy.HibernateProxy)x).getHibernateLazyInitializer().isUninitialized()) utils.QueryOptimization.prefetchEntity(utils.HibernateUtil.getCurrentSession(), "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins); ]|
     where x := <concat-strings>["_", f]
     ; str := <java-type-name> fsrt
-    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ null ]|)> children
+    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ (String[])null ]|)> children
 
   get-batch-fetches-single-this =
       ?PrefetchFor(v, _, _, <get-prefetch-children>)
@@ -446,7 +446,7 @@ rules
                                     if(x instanceof org.hibernate.proxy.HibernateProxy) utils.QueryOptimization.prefetchEntity(e_HibSession, "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins);
                                   ]|
     where str := <java-type-name> srt
-    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ null ]|)> tree // If no joins are present then this would just be a hibSession.get()
+    ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ (String[])null ]|)> tree // If no joins are present then this would just be a hibSession.get()
 
   get-batch-fetches-filter-hints(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm*
@@ -678,14 +678,14 @@ rules
 
   try-combine-fetch-entities-calls :
     [(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch) | rest] -> [stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch); ]| | newrest]
-    where not(expr|[null]| := e_joins)
+    where not(expr|[(String[])null]| := e_joins)
     with newrest := <try-combine-fetch-entities-calls> rest 
 
   try-combine-fetch-entities-calls :
-    lst@[(e_LocalHibSession, e_str, _, expr|[null]|, _) | _] -> [stm_fetch|rest]
+    lst@[(e_LocalHibSession, e_str, _, expr|[(String[])null]|, _) | _] -> [stm_fetch|rest]
     with (tocombine*, next) := <partition(try-combine-fetch-entities-calls-helper(|e_LocalHibSession, e_str))> lst
     ; if [(e_batch, e_clearEmptyBatch)] := tocombine* then // if there is only once matching batch
-        stm_fetch := stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, null, e_clearEmptyBatch); ]|
+        stm_fetch := stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, (String[])null, e_clearEmptyBatch); ]|
       else // else there are at least two batches to combine
         (batches*, clearEmptyBatches*) := <unzip> tocombine*
         ; e_batches := <expression-list-to-java-servlet(|type|[java.util.Collection]|)> batches*
@@ -700,7 +700,7 @@ rules
     ; e_arr := <foldr(!expr |[ new x_type[] {} ]|, {?(e, expr |[ new x_type[] {e_array*} ]|); !expr |[ new x_type[] {e_array*,e} ]|})> lst
 
   try-combine-fetch-entities-calls-helper(|e_LocalHibSession, e_str) :
-    (e_LocalHibSession, e_str, x_batch, expr|[null]|, e_clearEmptyBatch) -> (x_batch, e_clearEmptyBatch)
+    (e_LocalHibSession, e_str, x_batch, expr|[(String[])null]|, e_clearEmptyBatch) -> (x_batch, e_clearEmptyBatch)
 
   /*
   elemsrt : The sort of x_elem
