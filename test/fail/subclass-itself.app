@@ -1,5 +1,5 @@
 //Entity name: "Entity" is not allowed
-//#5 Entity may not inherit from itself.
+//#4 Entity may not inherit from itself.
 
 application test
 
