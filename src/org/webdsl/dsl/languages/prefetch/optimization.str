@@ -61,12 +61,14 @@ strategies
   filter-traversal-summary = filter(where(Fst; is-accessible-from(RootVar)))
 
   traversal-summary-to-query-condition =
-    filter(?(_, _, <revalidate-query-condition(get-accessible-expr(id,not(RootVar)), field-with-column)>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
+    filter(?(_, _, <revalidate-query-condition(get-accessible-expr-not-only-bindable(id,not(RootVar)), field-with-column)>, True())) // We revalidate the conditions, to ensure that one side of the conditions contains the RootVar
     ; make-set
     ; try(?[]; ![True()]) // No condition means true
     ; ?set
     ; filter(has-no-strict-subset(|set); and-query-condition) // Here we remove some obvious redundant conditions and make a conjunction of the lists
     ; or-query-condition // The conditions of different traversals are combined using the or-operator
+    ; simplify-condition
+    //; <debug(!"in:");alltd(remove-reusable-condition); innermost(remove-true-cond);debug(!"")>
     ; alltd(add-naturalid-anno)
 
   has-no-strict-subset(|set) =
@@ -121,7 +123,7 @@ rules
   query-condition-to-prefetch-where(|x) :
     QueryCondition(cond) -> PrefetchWhere([],cond3)
     with cond2 := <or-to-list; make-set; or-query-condition; alltd(make-field-access-relative(|x))> cond
-    ; cond3 := <where(collect(?FieldAccess(RelativeFieldAccess(_, _), _)); ?[]) <+ !True()> cond2 // If joins would be needed, then change condition to true (do no use filter), because joins are not supported for filters
+    ; cond3 := <where(collect(?FieldAccess(RelativeFieldAccess(_, _), _)); ?[]) < simplify-condition + !True()> cond2 // If joins would be needed, then change condition to true (do no use filter), because joins are not supported for filters
 
   make-field-access-relative(|x) :
     e@FieldAccess(Var(x), f) -> RelativeFieldAccess(None(), f){PrefetchPropAnno(decsrt,fsrt)}
@@ -270,7 +272,7 @@ rules
     traversal{anno*} -> traversal{JoinCondition(conds), PrefetchWhere(pwmod*,filter), anno*}
     with conds := <filter(?(traversal, <id>, _, True())); make-set> conditions // The condition list always has an element. If that element is an empty list then that means that there was no condition.
     ; pws := <filter(?(traversal, _, <id>, True())); flatten-list> conditions
-    ; filter := <map(?PrefetchWhere(_,<id>)); or-query-condition> pws // If a list with an [] element is returned, it means that there is an effectful use of the collection that should not be filtered
+    ; filter := <map(?PrefetchWhere(_,<id>)); or-query-condition; simplify-condition> pws // If a list with an [] element is returned, it means that there is an effectful use of the collection that should not be filtered
     ; extramod := <make-set; ((?[] <+ ?[_]) < ![] + ![Hint()])> pws
     ; pwmod* := <map(?PrefetchWhere(<id>,_)); ![extramod|<id>]; flatten-list; make-set> pws
 
@@ -369,7 +371,7 @@ rules
         elemcond2 := elemcond
       else
         pwmod3* := <make-set> [pwmod1*,pwmod2*]
-        ; elemcond2 := <conc; make-set; or-query-condition; !PrefetchWhere(pwmod3*,<id>)> (cond1, cond2)
+        ; elemcond2 := <conc; make-set; or-query-condition; simplify-condition; !PrefetchWhere(pwmod3*,<id>)> (cond1, cond2)
       end
     ; keep* := <remove-all(?PrefetchWhere(_,_))> anno*
 
@@ -528,7 +530,7 @@ rules
   combine-prefetch-where : (cond, None()) -> cond
   combine-prefetch-where :
     (PrefetchWhere(pwmod1*,cond1), PrefetchWhere(pwmod2*,cond2)) -> PrefetchWhere(pwmod3*,cond)
-    with cond := <or-query-condition-helper> (cond1, cond2)
+    with cond := <or-query-condition-helper; simplify-condition> (cond1, cond2)
     ; pwmod3* := <make-set>[pwmod1*,pwmod2*]
 
   combine-branch-anno :

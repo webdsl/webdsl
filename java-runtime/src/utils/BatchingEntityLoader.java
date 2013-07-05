@@ -18,7 +18,7 @@ import org.hibernate.util.ArrayHelper;
 
 public class BatchingEntityLoader {
 
-	public static final int DEFAULT_MAX_BATCH_SIZE = 10; 
+	public static final int DEFAULT_MAX_BATCH_SIZE = 1000; 
 
 	private final Loader[] loaders;
 	private final int[] batchSizes;

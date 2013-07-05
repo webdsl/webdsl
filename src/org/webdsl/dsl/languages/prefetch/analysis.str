@@ -80,24 +80,30 @@ strategies
     ; analyze-for-query-optimization-continue
 
   analyze-for-query-optimization-effectful =
-    where(False() := <IsEffectful>)
-    ; rules( IsEffectful := True() )
+    where(
+      False() := <IsEffectful>
+      ; rules( IsEffectful := True() )
+      ; register-all-effectful
+    )
     ; analyze-for-query-optimization-continue
     ; rules( IsEffectful := False() )
 
   analyze-for-query-optimization =
     (
-         ?Call(_, _, _)
-      <+ ?VarDeclInit(_, _, _)
+      ?VarDeclInit(_, _, _)
       <+ ?VarDeclInitInferred(_, _)
       <+ ?Assignment(_, _)
       <+ ?PropertyAssignment(_, _)
       <+ ?PageCall(_, _)
       <+ ?ThisCall(_, _)
+      <+ ?Text(_)
       <+ (?TemplateCall(name, args, passign, body); where(not(is-defined-tc-get-called-tc))) // A template call we cannot follow
     )
-    ; where(False() := <IsEffectful>)
-    ; rules( IsEffectful := True() )
+    ; where(
+      False() := <IsEffectful>
+      ; rules( IsEffectful := True() )
+      ; register-all-effectful
+    )
     ; analyze-for-query-optimization-continue
     ; rules( IsEffectful := False() )
 
@@ -149,6 +155,12 @@ strategies // Update the dynamic rules
     ; <is-accessible-from(RootVar)> e
     ; args2 := <map(filter(where(is-accessible-from(RootVar))))> args
     ; rules( DetectedRecursiveCall :+= (callee, e, args2) )
+
+  register-all-effectful-for-empty-analysis =
+    try(
+      ?[]
+      ; register-all-effectful
+    )
 
   register-all-effectful = 
     condition := <QueryConditions <+ !True()>
@@ -207,24 +219,6 @@ rules // Expressions and Statements
     ; rules( DetectedReturn :+= traversal )
     ; e2 := <analyze-for-query-optimization> e1
 
-  analyze-for-query-optimization :
-    Assignment(v, e){anno*} -> Assignment(v, e2){anno*}
-    with register-all-effectful
-    ; e2 := <analyze-for-query-optimization-effectful> e
-
-  analyze-for-query-optimization :
-    PropertyAssignment(v, e){anno*} -> PropertyAssignment(v, e2){anno*}
-    with register-all-effectful
-    ; e2 := <analyze-for-query-optimization-effectful> e
-
-  analyze-for-query-optimization :
-    VarDeclInit(v, srt, e){anno*} -> VarDeclInit(v, srt, e2){anno*}
-    with e2 := <analyze-for-query-optimization-effectful> e
-    
-  analyze-for-query-optimization :
-    VarDeclInitInferred(v, e){anno*} -> VarDeclInitInferred(v, e2){anno*}
-    with e2 := <analyze-for-query-optimization-effectful> e
-
 rules // If
 
   analyze-for-query-optimization :
@@ -261,6 +255,7 @@ strategies // For
 		    ; <fetch-elem(?QueryAnalysis(analysis, _, _, unresolvedcalls, recursivecalls))> anno*
 		    ; mapping := [(e, Arg(x, srt))] // We only need to rename the iterator to the collection, all other variables are the same
 		    //; <debug(!"usefor:")> (x, anno*)
+		    ; <register-all-effectful-for-empty-analysis> analysis
 		    ; newanalysis := <foldr(<try(add-filter-to-analysis(|x,anno*))> analysis, rename-vars-in-analysis(RootVar))> mapping
 		    ; <map(translate-unresolved(|mapping))> unresolvedcalls
 		    ; <filter(translate-recursive(|mapping); register-detected-recursive-call)> recursivecalls
@@ -330,6 +325,7 @@ rules
             ; argmapping := <zip; handle-escaped-ref-arg-in-mapping> (args1, deffargs)
             ; <filter(translate-recursive(|argmapping); register-detected-recursive-call)> recursivecalls
             ; resolvedcalls := <resolve-unresolved-calls> (argmapping, redefCalls)
+            ; <register-all-effectful-for-empty-analysis> analysis
             ; newanalysis := <foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
             ; <filter(combine-analysis)> newanalysis
           end

@@ -35,7 +35,7 @@ public class BatchingCollectionInitializer implements CollectionInitializer {
 	// In this implementation we require batchSizes[0] to be at least DEFAULT_MAX_BATCH_SIZE
 	// maxBatchSizeCfg is used to determine behavior when no specific batch is provided
 
-	public static final int DEFAULT_MAX_BATCH_SIZE = 10; 
+	public static final int DEFAULT_MAX_BATCH_SIZE = 1000; 
 
 	public BatchingCollectionInitializer(CollectionPersister collPersister, int[] batchSizes, Loader[] loaders, int maxBatchSizeCfg) {
 		this.loaders = loaders;

@@ -180,9 +180,25 @@ rules
   simplify-or :
     old@Or(_, _) -> new
     with lst := <or-to-list> old
-    ; newlst := <make-set> lst
+    ; newlst := <try(is-or-lst-always-true); make-set> lst
     where <not(eq)> (<length> lst, <length> newlst)
     with new := <or-query-condition> newlst
+
+  is-or-lst-always-true :
+    allcond -> [True()]
+    where <fetch-elem({x:?True() <+ ?Eq(x, x)})> allcond
+
+  is-or-lst-always-true :
+    allcond -> [True()]
+    where <fetch-elem(has-negated(|allcond))> allcond
+
+  has-negated(|allcond) :
+    cond -> (cond, neg)
+    where neg := <fetch-elem(is-negated(|cond))> allcond
+
+  is-negated(|cond1) :
+    cond2 -> cond2
+    where <eq> (cond2, <negate-simple-eq-cond <+ negate-query-cond> cond1) 
 
   simplify-and :
     old@And(_, _) -> new
@@ -257,23 +273,25 @@ strategies
     ; where([] := <collect(?_{<fetch-elem(?MultipleDefinitionsInSubclasses())>})>)
 
   get-accessible-expr(gen,check) = get-accessible-expr(gen,check,is-query-condition-type)
+  get-accessible-expr-not-only-bindable(gen,check) = get-accessible-expr-not-only-bindable(gen,check,is-query-condition-type)
+  get-accessible-expr(gen,check,srtcheck) = get-accessible-expr-not-only-bindable(gen,check,srtcheck)
 
 rules
 
   get-accessible-expr(gen,check,srtcheck) :
     (expr1, expr2) -> (newexpr1, newexpr2)
+    where newexpr1 := <is-bindable-expr(gen); check> expr1
+    ; newexpr2 := <is-bindable-expr(gen); check> expr2
+
+  get-accessible-expr-not-only-bindable(gen,check,srtcheck) :
+    (expr1, expr2) -> (newexpr1, newexpr2)
     where newexpr1 := <is-accessible-field(RootVar,gen,srtcheck); check> expr1 // This expression is accessible from the query root entity
     ; newexpr2 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr2// This expression does not need to be accessible from the query root entity, but may be a query argument
 
-  get-accessible-expr(gen,check,srtcheck) :
+  get-accessible-expr-not-only-bindable(gen,check,srtcheck) :
     (expr1, expr2) -> (newexpr1, newexpr2)
     where newexpr2 := <is-accessible-field(RootVar,gen,srtcheck); check> expr2 // This expression is accessible from the query root entity
     ; newexpr1 := <where(is-bindable-expr(gen) <+ is-accessible-field(RootVar,gen)); check> expr1// This expression does not need to be accessible from the query root entity, but may be a query argument
-
-  get-accessible-expr(gen,check,srtcheck) :
-    (expr1, expr2) -> (newexpr1, newexpr2)
-    where newexpr1 := <is-bindable-expr(gen); check> expr1
-    ; newexpr2 := <is-bindable-expr(gen); check> expr2
 
 strategies
 
