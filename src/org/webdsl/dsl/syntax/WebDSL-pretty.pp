@@ -1373,6 +1373,7 @@
    PrefetchTemplateArgs                                   -- H [KW["templates"] KW["["] ] H hs=0 [_1] KW["]"],
    PrefetchTemplateArgs.1:iter-sep                        -- _1 KW[","],
    PrefetchThis                                           -- KW["this"],
+   PrefetchThisCast                                       -- H hs=1 [_1 KW["as"] _2],
    TemplateArgOrThis                                      -- _1 KW["("] _2 KW[")"],
    TemplateArgOrThis.2:iter-star-sep                      -- _1 KW[","],
    PrefetchCondition                                      -- H[ KW["if"] KW["("] _1 KW[")"]],
