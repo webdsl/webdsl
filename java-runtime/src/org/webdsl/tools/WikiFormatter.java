@@ -32,12 +32,16 @@ public final class WikiFormatter {
 	}
 
     public static String wikiFormat(String text) {
+    	if ( text == null )
+    		return "";
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
     	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() ), whitelist );
     }
     
     //Similar to wikiFormat( text ) , but without cleaning by JSoup
     public static String wikiFormatNoTagFiltering(String text) {
+    	if ( text == null )
+    		return "";
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
     	return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() );
     }
