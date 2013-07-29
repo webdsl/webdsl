@@ -1,13 +1,11 @@
 //#1 no property noname in entity User
 application test
 
-
-	
   entity User {
-  	name2 :: String
+  	name2 :: Int
     webservice mapping {
    		
-    	toplevel with name property : noname 
+    	toplevel with name property : name2 
     }  
   }
  

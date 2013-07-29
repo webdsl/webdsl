@@ -7,7 +7,7 @@ application test
 
 	
   entity User {
-  	name :: String
+  	name2 :: String
     webservice mapping {
    		
     	toplevel with name property : specialName 
