@@ -1,4 +1,4 @@
-//#1 no property noname in entity User
+//#1 nameProperty type: Int is not compatible with expected type: String
 application test
 
   entity User {
