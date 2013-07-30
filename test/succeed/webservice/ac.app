@@ -8,7 +8,9 @@ application test
     webservice mapping {
     	
     	toplevel with name property : name2  
-    	restricted properties : complex, unwanted   
+        access read: true
+        access write: true
+        access create: true  
     }
   }
  
