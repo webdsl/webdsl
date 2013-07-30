@@ -1357,10 +1357,10 @@
    ServiceFunction                                        -- V[ H[KW["service"] _1 KW["("] _2 KW[")"]] _3],
    ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
    DeriveWebServices                                      -- KW["derive"] KW["webservices"] KW["for"] _1 KW[","] KW["with"] KW["nameproperty"] _2,
-   WebServiceMappingEmbedded							  -- V[ H[KW["webservices"] KW["mapping"] KW["{"]] _1 KW["}"]],
-   WebServiceTopLevelNameProperty						  -- H[ KW["toplevel"] KW["with"] KW["name"] KW["property"] KW[":"] _1 ],
-   WebServiceRestrictedProperties						  -- H[ KW["restricted"] KW["properties"] KW[";"] _1 ],
-   WebServiceRestrictedProperties.1:iter-star-sep		  -- _1 KW[","],
+   SyncConfigEmbedded                                     -- V[ H[KW["synchronization"] KW["configuration"] KW["{"]] _1 KW["}"]],
+   SyncTopLevelNameProperty                               -- H[ KW["toplevel"]  KW["name"] KW["property"] KW[":"] _1 ],
+   SyncRestrictedProperties                               -- H[ KW["restricted"] KW["properties"] KW[";"] _1 ],
+   SyncRestrictedProperties.1:iter-star-sep               -- _1 KW[","],
    NativeClassConstructorCall                             -- KW["/*"] _1 KW["*/"] _2 KW["("] _3 KW[")"], %% hack: putting _1 in comments, omitting it will cause the rule to match constructor with arity 2 instead of 3. this is an internal constructor used for desugaring
    NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","],
 
