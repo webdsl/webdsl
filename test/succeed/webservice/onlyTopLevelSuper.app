@@ -5,8 +5,9 @@ application test
   }	
 	
   entity User : Person {
-    webservice mapping {
-    	toplevel with name property : name2 
+  	
+    synchronization configuration {
+    	toplevel name property : name2 
     }  
   }
  

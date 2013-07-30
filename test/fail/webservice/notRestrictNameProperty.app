@@ -6,9 +6,10 @@ application test
   entity User {
   	name2 :: String
   	test :: Int
-    webservice mapping {
+    
+    synchronization configuration {
    		
-    	toplevel with name property : name2
+    	toplevel name property : name2
     	restricted properties : name2, test  
     	  
     }  

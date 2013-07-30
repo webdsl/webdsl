@@ -5,9 +5,9 @@ application test
 	
   entity User {
   	name2 :: String
-    webservice mapping {
+    synchronization configuration {
    		
-    	toplevel with name property : noname 
+    	toplevel name property : noname 
     }  
   }
  

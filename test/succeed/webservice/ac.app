@@ -5,9 +5,9 @@ application test
     complex :: WikiText
     unwanted :: Int
     
-    webservice mapping {
+    synchronization configuration{
     	
-    	toplevel with name property : name2  
+    	toplevel name property : name2  
         access read: true
         access write: true
         access create: true  

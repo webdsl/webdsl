@@ -8,9 +8,10 @@ application test
 	
   entity User {
   	name2 :: String
-    webservice mapping {
+    
+    synchronization configuration {
    		
-    	toplevel with name property : specialName 
+    	toplevel name property : specialName 
     }  
   }
  

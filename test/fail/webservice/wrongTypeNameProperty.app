@@ -3,9 +3,10 @@ application test
 
   entity User {
   	name2 :: Int
-    webservice mapping {
+   
+   synchronization configuration {
    		
-    	toplevel with name property : name2 
+    	toplevel name property: name2 
     }  
   }
  
