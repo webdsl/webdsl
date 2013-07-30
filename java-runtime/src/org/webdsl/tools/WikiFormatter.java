@@ -24,7 +24,8 @@ public final class WikiFormatter {
 		whitelist.addTags("abbr", "hr")
 		         .addAttributes("abbr", "title")
 		         .addAttributes("th", "align")
-		         .addAttributes("td", "align");
+		         .addAttributes("td", "align")
+		         .addAttributes("code", "class");
 		//allow id's on title tags
 		for(int i=1;i<7;i++){
 			whitelist.addAttributes("h"+i, "id");
