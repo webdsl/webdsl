@@ -3,7 +3,8 @@ application test
 
   entity User {
     name :: String
-    webservice mapping {}
+    
+    synchronization configuration {}
   }
  
 

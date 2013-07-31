@@ -1,3 +1,4 @@
+//#3 access control requires a principal
 application test
 
   entity User {
@@ -11,10 +12,11 @@ application test
     	toplevel name property : name2  
         access read: true
         access write: true
-        access create: true  
+        access create: true 
     }
   }
+  
 
-principal is User with credentials name2, password
+
 
   define page root(){}

@@ -1,3 +1,4 @@
+//#3 expression should be of type Bool
 application test
 
   entity User {
@@ -9,9 +10,9 @@ application test
     synchronization configuration{
     	
     	toplevel name property : name2  
-        access read: true
-        access write: true
-        access create: true  
+        access read: 1
+        access write: "test"
+        access create: password 
     }
   }
 
