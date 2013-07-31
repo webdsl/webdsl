@@ -94,9 +94,18 @@ strategies
       <+ ?VarDeclInitInferred(_, _)
       <+ ?Assignment(_, _)
       <+ ?PropertyAssignment(_, _)
+      <+ ?NavigateCall(_, _, _)
       <+ ?PageCall(_, _)
-      <+ ?ThisCall(_, _)
       <+ ?Text(_)
+      <+ ?DeleteStatement(_, _)
+      <+ ?Submit(_, _, _)
+      <+ ?SubmitLink(_, _, _)
+      <+ ?SubmitElem(_, _, _)
+      <+ ?SubmitLinkElem(_, _, _)
+      <+ ?DownloadLink(_, _, _)
+      <+ ?OutputImage(_, _, _)
+      <+ ?Placeholder(_, _)
+      <+ ?PlaceholderWithAjaxCall(_, _)
       <+ (?TemplateCall(name, args, passign, body); where(not(is-defined-tc-get-called-tc))) // A template call we cannot follow
     )
     ; where(
@@ -158,8 +167,25 @@ strategies // Update the dynamic rules
 
   register-all-effectful-for-empty-analysis =
     try(
-      ?[]
-      ; register-all-effectful
+      where(
+        ?[]
+        ; register-all-effectful
+      )
+    )
+
+  register-all-effectful-if-effectful =
+    try(
+      where(
+        ?analysis
+        ; filter({\ (e, _, _, True()) -> v where v := <collect-one(?Var(_));rm-annotations> e \})
+        ; make-set
+        ; ?effectfulvars
+        ; not(?[]) // Only need to register effectful traversals, if the analysis contains at least on effectful traversal
+        ; roots := <dr-all-keys(|"RootVar"); filter(not(IsSessionVar);rm-annotations)>
+        ; condition := <QueryConditions <+ ![]>
+        ; <diff> (roots, effectfulvars)
+        ; map({key,value:?key; RootVar; ?value; <register-detected-traversal> (key, value, condition, True())}) // Register only effectful traversals for roots that have no efffectful traversals inside the input analysis
+      )
     )
 
   register-all-effectful = 
@@ -259,7 +285,7 @@ strategies // For
 		    ; newanalysis := <foldr(<try(add-filter-to-analysis(|x,anno*))> analysis, rename-vars-in-analysis(RootVar))> mapping
 		    ; <map(translate-unresolved(|mapping))> unresolvedcalls
 		    ; <filter(translate-recursive(|mapping); register-detected-recursive-call)> recursivecalls
-		    ; <filter(combine-analysis)> newanalysis
+		    ; <register-all-effectful-if-effectful; filter(combine-analysis)> newanalysis
       )
 
   with-prefetch-where(s|x,anno*) =
@@ -327,7 +353,7 @@ rules
             ; resolvedcalls := <resolve-unresolved-calls> (argmapping, redefCalls)
             ; <register-all-effectful-for-empty-analysis> analysis
             ; newanalysis := <foldr(!<concat>[analysis,reqcallana,resolvedcalls], rename-vars-in-analysis(RootVar))> argmapping
-            ; <filter(combine-analysis)> newanalysis
+            ; <register-all-effectful-if-effectful; filter(combine-analysis)> newanalysis
           end
 
   resolve-required-call-for-analysis(|elemname,passign1,callerargs) :
