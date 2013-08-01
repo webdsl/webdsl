@@ -1,4 +1,4 @@
-//#1 Synchronization framework requires at least one TopLevelEntity
+//#1 synchronization framework requires at least one TopLevelEntity
 application test
 
   entity User {

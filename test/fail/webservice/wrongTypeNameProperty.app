@@ -1,4 +1,4 @@
-//#1 nameProperty type: Int is not compatible with expected type: String
+//#1 name Property type: Int is not compatible with expected type: String
 application test
 
   entity User {
