@@ -36,7 +36,7 @@
    DerivedProperty                    -- H[_1 _2 _3 KW["("] _4 KW[")"] KW[":="] _5],
    DerivedProperty.4:iter-star-sep    -- H hs=0[_1 KW[","]],
    DerivedPropertyNoAnno              -- H[_1 _2 _3 KW[":="] _4],
-   Enum                               -- H[ KW["enum"] _1 KW["{"] _2 KW["}"] ],
+   Enum                               -- V[V is=2[H[ KW["enum"] _1 KW["{"]] _2] KW["}"] ],
    Enum.2:iter-star-sep               -- H hs=0[_1 KW[","]],
    Simple                             -- KW["::"],
    Ref                                -- KW["->"],
@@ -86,6 +86,7 @@
    TemplateCall.2:iter-star-sep       -- H [_1 KW[","]],
    TemplateCall.3:iter-star-sep       -- H [_1 KW[","]],
    TemplateCall.4:iter-star           -- _1,
+   TemplateCallPropsNoArgs.3:iter-star     -- _1,
    TemplateCallPropsNoArgs.2:iter-star-sep -- H hs=0[_1 KW[","]],
    TemplateCallPropsNoArgs                 -- V[V is=2[ H [ _1 KW["["] H[_2] KW["]"]] _3] ],
    TemplateCallProps.2:iter-star-sep       -- H [_1 KW[","]],
@@ -93,7 +94,7 @@
    TemplateCallPropsNoBody.3:iter-star-sep -- H [_1 KW[","]],
    TemplateCallPropsNoBody.2:iter-star-sep -- H [_1 KW[","]],
    TemplateCallPropsNoBody                 -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]]]],
-
+   TemplateCallNoAssigns.3:iter-star       -- _1,
    TemplateCallNoAssigns                   -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] _3]]],
    TemplateCallNoAssigns.2:iter-star-sep   -- H [_1 KW[","]],
    TemplateCallNoArgs                      -- _1,
@@ -468,7 +469,7 @@
    ValidateUpdateAnno                           -- KW["validateupdate"] KW["("] _1 KW[","] _2 KW[")"],
    ValidateCreateAnno                           -- KW["validatecreate"] KW["("] _1 KW[","] _2 KW[")"],
    IgnoreAccessControl                          -- KW["ignore-access-control"],
-   EnumValue                                    -- _1 KW["("] _2 KW[")"],
+   EnumValue                                    -- H[_1 KW["("] _2 KW[")"]],
 
    DeriveBodyElement.2:iter-star                -- _1,
    DeriveBodyElement                            -- _1 KW["{"] _2 KW["}"],
@@ -1079,6 +1080,9 @@
    ElseIfTempl                                            -- KW["else"] KW["if"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
    ElseIfTempl.2:iter-star                                -- _1,
 
+   ValidationContext.1:iter-star                          -- _1,
+   ValidationContext                                      -- KW["validationContext"] KW["{"] _1 KW["}"],
+   ValidationContext.1:iter-star                          -- _1,
    Catch                                                  -- KW["catch"] KW["("] _1 KW[":"] _2 KW[")"] _3,
    TryTemplate.2:iter                                     -- _1,
    TryTemplate                                            -- KW["try"] _1 _2,
@@ -1143,21 +1147,29 @@
 
    PageCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    PageCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   PageCall.2:iter-star           -- _1,
 
    Submit -- KW["submit"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    Submit.3:iter-star-sep -- _1 KW[","],
+   Submit.3:iter-star           -- _1,
    SubmitLink -- KW["submitlink"] KW["("] _1 KW[","] _2 KW[")"] KW["["] _3 KW["]"],
    SubmitLink.3:iter-star-sep -- _1 KW[","],
+   SubmitLink.3:iter-star           -- _1,
 
    SubmitElem -- KW["submit"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    SubmitElem.2:iter-star-sep -- _1 KW[","],
+   SubmitElem.2:iter-star           -- _1,
+   SubmitElem.3:iter-star-sep -- _1 KW[","],
    SubmitElem.3:iter-star           -- _1,
    SubmitLinkElem --  KW["submitlink"] _1 KW["["] _2 KW["]"] KW["{"] _3 KW["}"],
    SubmitLinkElem.2:iter-star-sep -- _1 KW[","],
+   SubmitLinkElem.2:iter-star           -- _1,
+   SubmitLinkElem.3:iter-star-sep -- _1 KW[","],
    SubmitLinkElem.3:iter-star           -- _1,
 
    ActionCall                           -- H hs=0[_1 KW["("] H[_2] KW[")"]],
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
+   ActionCall.2:iter-star           -- _1,
 
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
 
