@@ -22,7 +22,7 @@ rules
     ; prefetch2 := <filter(not(is-root-prefetch-node)); foldr(!prefetch, merge-optimization-branches)> recbranches
     ; templbranches := <filter(get-template-branches(|x,xsrt,requiresalias)); flatten-list> unresolved
     ; prefetch3 := <filter(not(is-root-prefetch-node)); foldr(!prefetch2, merge-optimization-branches)> templbranches
-    ; prefetch4 := <map(revalidate-join-conditions(|[]); alltd(revalidate-query-condition-filters))> prefetch3
+    ; prefetch4 := <map(revalidate-join-conditions(|[]); revalidate-query-condition-filters)> prefetch3
       |}
     ; templ2 := <conc; make-set; to-prefetch-template-args> (<get-prefetch-template-args>templ, <conc; filter(?PrefetchNode(_, None(), _, PrefetchTemplateArgs(<id>), _, _, _)); flatten-list> (templbranches, recbranches))
     ; prefetchfor := PrefetchFor(Var(x), templ2, newwherecond, PrefetchChildren(prefetch4))
@@ -364,16 +364,18 @@ rules
       ; newchildren := <get-prefetch-children; map(revalidate-join-conditions(|newp)); wrap-prefetch-children> children
 
   revalidate-query-condition-filters :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, f, mod*, templ, cond, elemcond2, children){keep*}
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt,fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> PrefetchNode(castsrt, f, mod*, templ, cond, elemcond2, newchildren){keep*}
     with cond1 := <fetch-elem(?PrefetchWhere(pwmod1*,<or-to-list>)) <+ (pwmod1* := []; ![])> anno*
     ; cond2 := <?PrefetchWhere(pwmod2*,<or-to-list>) <+ (pwmod2* := []; ![])> elemcond
-    ; if <not(is-generic-sort)> fsrt <+ (<fetch-elem(?True())> cond1; not([] := cond2)) then // Do not add an automatic True() condition, when a manual condition was provided
+    ; newcond := <conc; make-set; or-query-condition; simplify-condition> (cond1, cond2)
+    ; if <not(is-generic-sort)> fsrt <+ (True() := newcond; not([] := cond2)) then // Do not add an automatic True() condition, when a manual condition was provided
         elemcond2 := elemcond
       else
         pwmod3* := <make-set> [pwmod1*,pwmod2*]
-        ; elemcond2 := <conc; make-set; or-query-condition; simplify-condition; !PrefetchWhere(pwmod3*,<id>)> (cond1, cond2)
+        ; elemcond2 := PrefetchWhere(pwmod3*,newcond)
       end
     ; keep* := <remove-all(?PrefetchWhere(_,_))> anno*
+    ; newchildren := <get-prefetch-children; map(revalidate-query-condition-filters); wrap-prefetch-children> children
 
   get-template-branches(|x,xsrt,requiresalias) :
     (genname, args, cond, eff) -> branch

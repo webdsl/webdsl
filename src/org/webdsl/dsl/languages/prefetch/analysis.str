@@ -207,12 +207,12 @@ strategies
       ; tmpcond := <revalidate-query-condition(get-accessible-expr(try-strip-generic-sort,id))> cond
       ; fltrs := <filter(?PrefetchWhere(_, _)); (map(where(revalidate-prefetch-where)) <+ !PrefetchWhere([], True()))> cond
       ; newcond := <concat; make-set>[<QueryConditions>, tmpcond, fltrs]
-      ; iseffectful := <IsEffectful; (?True() <+ !effectful)>
+      //; iseffectful := <IsEffectful; (?True() <+ !effectful)>
       ; keepanno* := <remove-all(?FetchEarly())> anno* // fetch-early does not carry over to parent or called analysis blocks
       ; if RequiredEarly then
           rules( DetectedTraveral :+= (traversal{FetchEarly(),keepanno*}, esrt, newcond, False()) )
         else
-          rules( DetectedTraveral :+= (traversal{keepanno*}, esrt, newcond, iseffectful) )
+          rules( DetectedTraveral :+= (traversal{keepanno*}, esrt, newcond, effectful) )
         end
     )
 
@@ -273,11 +273,12 @@ strategies // For
     where((?For(x, srt, e, f, b, _){anno*} <+ ?ForStmt(x, srt, e, f, b){anno*}); <is-entity-type-strip-generics> srt)
     ; with(
 	      if toreg := <?FieldAccess(_, _); is-accessible-from-allow-calls(RootVar)> e then
-	        with-prefetch-where(<map(register-detected-traversal)> toreg|x,anno*) // This ensures that we properly attach a filter to traversals detected on the collection expression
+	        with-prefetch-where(<map(register-detected-traversal)> toreg|x,e,anno*) // This ensures that we properly attach a filter to traversals detected on the collection expression
 	      else
 	        <analyze-for-query-optimization-continue> e // Can happen if the expression is not accessible from a persistent root variable. If it is a HQL query for example.
 	      end
-		    ; <topdown(try(?Var(x); !e)); analyze-for-query-optimization-continue> f // Var(x) is not a RootVar, so rename Var(x) to e before analyzing the filter
+	      // The filter is already analyzed and part of the analysis in anno*
+		    //; <topdown(try(?Var(x); !e)); analyze-for-query-optimization-continue> f // Var(x) is not a RootVar, so rename Var(x) to e before analyzing the filter
 		    ; <fetch-elem(?QueryAnalysis(analysis, _, _, unresolvedcalls, recursivecalls))> anno*
 		    ; mapping := [(e, Arg(x, srt))] // We only need to rename the iterator to the collection, all other variables are the same
 		    //; <debug(!"usefor:")> (x, anno*)
@@ -288,12 +289,14 @@ strategies // For
 		    ; <register-all-effectful-if-effectful; filter(combine-analysis)> newanalysis
       )
 
-  with-prefetch-where(s|x,anno*) =
-    if pw := <fetch-elem(?QueryCondition(_)); query-condition-to-prefetch-where(|x)> anno* then
-      oldcond := <QueryConditions> 
-      ; rules( QueryConditions := <conc; make-set>(oldcond, [pw]) )
+  with-prefetch-where(s|x,e,anno*) =
+    if pw := <fetch-elem(?QueryCondition(_)); ?QueryCondition(cond); query-condition-to-prefetch-where(|x)> anno* then
+      oldcond* := <QueryConditions> 
+      ; newcond* := <alltd(?Var(x); !e); extract-query-cond-as-list(get-accessible-expr(try-strip-generic-sort,id))> cond
+      ; pw* := [pw]
+      ; rules( QueryConditions := <make-set>[oldcond*, newcond*, pw*] )
       ; s
-      ; rules( QueryConditions := oldcond )
+      ; rules( QueryConditions := oldcond* )
     else
       s
     end
