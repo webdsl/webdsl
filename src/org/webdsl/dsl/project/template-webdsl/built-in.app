@@ -97,6 +97,10 @@ module .servletapp/src-webdsl-template/built-in
     isMustNot() : Bool
     isShould() : Bool
   }
+  
+  function escapeQuery( q:String ) : String {
+  	return Searcher.escapeQuery( q );
+  }
 
   native class org.webdsl.search.AbstractEntitySearcher as Searcher {
     static escapeQuery(String) : String
@@ -368,6 +372,7 @@ module .servletapp/src-webdsl-template/built-in
     getContentAsString():String
     getContentType():String
     setContentType(String)
+    getFileName():String
   }
   type Image{
     getContentAsString():String
