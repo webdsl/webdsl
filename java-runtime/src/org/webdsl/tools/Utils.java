@@ -142,7 +142,7 @@ public final class Utils {
         return org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(s);
     }
     public static String escapeHtml(Object o){ // covers primitive types due to autoboxing
-        return org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(o.toString());
+        return o == null ? "" : org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(o.toString());
     }
 
     public static String showAttributeEscapeHtml(String s1, Object s2){
