@@ -77,8 +77,6 @@ public abstract class EmailServlet {
 
             msg.setSubject(this.subject, encodingOptions);
             
-            org.webdsl.logging.Logger.info( "body.toString():" + body.toString() );
-
             msg.setContent(body.toString(), encodingOptions);
 
             javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
