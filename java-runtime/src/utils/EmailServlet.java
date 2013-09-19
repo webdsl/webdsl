@@ -64,6 +64,9 @@ public abstract class EmailServlet {
         javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
 
         try{
+        	
+        	String encodingOptions = "text/html; charset=UTF-8";
+        	msg.setHeader( "Content-Type", encodingOptions );
 
             msg.setRecipients(javax.mail.Message.RecipientType.TO,
                     javax.mail.internet.InternetAddress.parse(this.receivers, false));
@@ -72,9 +75,11 @@ public abstract class EmailServlet {
             msg.setRecipients(javax.mail.Message.RecipientType.BCC,
                     javax.mail.internet.InternetAddress.parse(this.bcc, false));
 
-            msg.setSubject(this.subject);
+            msg.setSubject(this.subject, encodingOptions);
+            
+            org.webdsl.logging.Logger.info( "body.toString():" + body.toString() );
 
-            msg.setContent(body.toString(), "text/html");
+            msg.setContent(body.toString(), encodingOptions);
 
             javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
             msg.setSender(sender);
