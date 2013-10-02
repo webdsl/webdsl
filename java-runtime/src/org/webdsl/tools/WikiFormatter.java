@@ -21,7 +21,7 @@ public final class WikiFormatter {
     public static final int PARSE_TIMEOUT_MS = 6000;
     
 	static{
-		whitelist.addTags("abbr", "hr")
+		whitelist.addTags("abbr", "hr", "del")
 		         .addAttributes("abbr", "title")
 		         .addAttributes("th", "align")
 		         .addAttributes("td", "align")
@@ -36,7 +36,7 @@ public final class WikiFormatter {
     	if ( text == null )
     		return "";
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-    	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() ), whitelist );
+    	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() ), whitelist );
     }
     
     //Similar to wikiFormat( text ) , but without cleaning by JSoup
@@ -44,7 +44,7 @@ public final class WikiFormatter {
     	if ( text == null )
     		return "";
     	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-    	return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation()+utils.ThreadLocalServlet.getContextPath() );
+    	return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){

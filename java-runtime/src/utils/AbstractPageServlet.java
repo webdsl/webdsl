@@ -321,18 +321,18 @@ public abstract class AbstractPageServlet{
         sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
         sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
 
-        sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
-        sout.println("<link href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/common_.css\" rel=\"stylesheet\" type=\"text/css\" />");
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/common_.css\" rel=\"stylesheet\" type=\"text/css\" />");
 
         renderDebugJsVar(sout);
-        sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalServlet.getContextPath()+"\";</script>");
+        sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
         for(String script : this.javascripts) {
             if(script.startsWith("http://") || script.startsWith("https://")){
                 sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
             }
             else{
-                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalServlet.getContextPath()+"/javascript/"+script+"\"></script>");
+                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+script+"\"></script>");
             }
         }
         for(String[] sheet : this.stylesheets) {
@@ -340,7 +340,7 @@ public abstract class AbstractPageServlet{
                 sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
             }
             else{
-                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalServlet.getContextPath()+"/stylesheets/"+sheet[0]+"\" type=\"text/css\" ");
+                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+sheet[0]+"\" type=\"text/css\" ");
             }
             if(sheet[1].equals("")){
                 sout.println("/>");
@@ -466,7 +466,7 @@ public abstract class AbstractPageServlet{
     //TODO merge getActionTarget and getPageUrlWithParams
     public String getPageUrlWithParams(){ //used for action field in forms
         if(isServingAsAjaxResponse){
-            return ThreadLocalServlet.getContextPath()+"/"+ThreadLocalPage.get().getActionTarget();
+            return ThreadLocalPage.get().getAbsoluteLocation()+"/"+ThreadLocalPage.get().getActionTarget();
         }
         else{
             //this doesn't work with ajax template render from action, since an ajax template needs to submit to a different page than the original request

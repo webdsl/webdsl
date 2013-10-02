@@ -12,7 +12,10 @@ public class ThreadLocalServlet {
     }
     
     public static String getContextPath(){
-        return	get().getContextPath();
+    	
+    	AbstractDispatchServletHelper adsh = get();
+    	return (adsh != null) ? adsh.getContextPath() : "";
+//        return	get().getContextPath();
     }
     
 }

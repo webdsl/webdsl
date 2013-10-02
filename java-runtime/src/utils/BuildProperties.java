@@ -16,6 +16,11 @@ public class BuildProperties {
         return dbmode;
     }
     
+    protected static String appUrlForRenderWithoutRequest;
+    public static String getAppUrlForRenderWithoutRequest(){
+        return appUrlForRenderWithoutRequest;
+    }
+    
     static {
         try {    
             props.load(BuildProperties.class.getResourceAsStream("/build.properties"));
@@ -23,7 +28,9 @@ public class BuildProperties {
             if("true".equals(requestlogprop)){
                 isRequestLoggingEnabled = true;
             }
-            dbmode = props.getProperty("webdsl.DBMODE"); 
+            dbmode = props.getProperty("webdsl.DBMODE");
+            setAppUrlForRenderWithoutRequest();            
+            
         }
         catch(java.io.FileNotFoundException fnf) {
             org.webdsl.logging.Logger.error("File \"build.properties\" not found");
@@ -32,5 +39,17 @@ public class BuildProperties {
             org.webdsl.logging.Logger.error("IOException while reading \"build.properties\"");   
         }
     }
+    
+    private static void setAppUrlForRenderWithoutRequest(){
+    	appUrlForRenderWithoutRequest = props.getProperty("webdsl.appurlforrenderwithoutrequest");
+        if (appUrlForRenderWithoutRequest == null || appUrlForRenderWithoutRequest.isEmpty()){
+        	appUrlForRenderWithoutRequest = null;
+        } else {
+        	appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.trim();
+        	while( appUrlForRenderWithoutRequest.endsWith( "/" ) )
+        		appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.substring( 0, appUrlForRenderWithoutRequest.length()-1 );
+        }
+    }
+    
     
 }
