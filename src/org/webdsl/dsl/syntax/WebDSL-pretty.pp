@@ -742,6 +742,7 @@
    Clause.1:opt                       -- _1,
    Query                              -- H hs=1 [_1 _2],
    Query.1:opt                        -- _1,
+   MatchAllQuery                      -- KW["*:*"],
    Start                              -- H hs=1 [KW["offset"] _1],
    MaxResults                         -- H hs=1 [KW["limit"] _1],
    SortBy                             -- H hs=1 [KW["order"] KW["by"] _1],
