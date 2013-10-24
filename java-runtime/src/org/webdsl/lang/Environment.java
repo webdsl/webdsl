@@ -3,6 +3,8 @@ package org.webdsl.lang;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import utils.LocalTemplateArguments;
 import utils.ThreadLocalPage;
 import utils.ThreadLocalTemplate;
@@ -98,11 +100,12 @@ public class Environment {
         }
     }
 
-    public void putWithcall(String key, utils.TemplateCall value) {
+    public Environment putWithcall(String key, utils.TemplateCall value) {
         if(withcallsmap == null){
             withcallsmap = new HashMap<String,utils.TemplateCall>();
         }
         withcallsmap.put(key, value);
+        return this; // enable chaining for convenient code generation
     }
     
     
@@ -169,6 +172,16 @@ public class Environment {
         else{
             return null;
         }
+    }
+    
+    public Object[] addExtraLocalTemplateArgumentsToArguments(Object[] args, String key) {
+    	LocalTemplateArguments tmp = getExtraLocalTemplateArguments(key);
+    	if(tmp == null){
+    		return args;
+    	}
+    	else{
+    		return ArrayUtils.addAll(args,tmp.extraArgs);
+    	}
     }
 
     public void putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {

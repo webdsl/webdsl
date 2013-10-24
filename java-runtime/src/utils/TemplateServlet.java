@@ -54,8 +54,7 @@ public abstract class TemplateServlet {
     protected utils.TemplateCall templateArg;
     protected Map<String,String> attrs = null;
     protected String[] pageArguments = null;
-    //protected HttpSession session;
-    protected utils.LocalTemplateArguments ltas;
+
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
     
@@ -69,29 +68,29 @@ public abstract class TemplateServlet {
     
     public abstract void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems);
     
-    public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(calledName, args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs);
           tryInitializeVarsOnce(); //this phase could be skipped, so performed in render as well
           storeInputsInternal();
         }
       }  
-    public void validateInputs(String calledName, Object[] args, Environment env,  Map<String,String> attrs, utils.LocalTemplateArguments ltas) {
+    public void validateInputs(String calledName, Object[] args, Environment env,  Map<String,String> attrs) {
         if(!skipThisTemplate){
-          tryInitializeTemplate(calledName, args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs);
           validateInputsInternal();
         }
       } 
-    public void handleActions(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) {          
+    public void handleActions(String calledName, Object[] args, Environment env, Map<String,String> attrs) {          
         if(!skipThisTemplate){
-          tryInitializeTemplate(calledName, args, env, attrs, ltas);
+          tryInitializeTemplate(calledName, args, env, attrs);
           handleActionsInternal();
         }
       }  
 
-    public void render(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas) { 
+    public void render(String calledName, Object[] args, Environment env, Map<String,String> attrs) { 
       if(!skipThisTemplate){
-        tryInitializeTemplate(calledName, args, env, attrs, ltas);
+        tryInitializeTemplate(calledName, args, env, attrs);
         tryInitializeVarsOnce();
      
         java.io.StringWriter s = new java.io.StringWriter();
@@ -173,7 +172,7 @@ public abstract class TemplateServlet {
     //null means use the regular unique template name
     protected String calledName;
     
-    private void tryInitializeTemplate(String calledName, Object[] args, Environment env, Map<String,String> attrs, utils.LocalTemplateArguments ltas){
+    private void tryInitializeTemplate(String calledName, Object[] args, Environment env, Map<String,String> attrs){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
         //always store arguments, value might change between phases
@@ -201,7 +200,6 @@ public abstract class TemplateServlet {
               //}
               this.hibSession = utils.HibernateUtil.getCurrentSession();
               this.attrs = attrs;
-              this.ltas = ltas;
               try {
                 this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext());
                 initialize();

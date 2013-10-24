@@ -665,6 +665,10 @@ native class java.lang.Double as Double {
   }
 
   //built-in templates
+  
+  template internalElementsWrapper(){ // convenient for desugaring in the compiler that replaces template elements with a single templatecall, see RenderTemplateFunctionCall desugaring
+  	elements
+  }
 
   define ignore-access-control break(){
     <br all attributes/>

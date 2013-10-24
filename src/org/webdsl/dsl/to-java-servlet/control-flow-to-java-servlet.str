@@ -281,7 +281,7 @@ rules //templatecall
         ; e_argswithref* := <handle-ref-arg> (calledTemplateArgs, args)
           // call common templatecall translation
         ; java_tname := expr|["~x_name"]|
-        ; java_args := var-init|[ { e_argswithref* } ]|
+        ; java_args := expr|[ new Object[] { e_argswithref* } ]|
         ; result := <control-flow-tcall-helper(|x_methodname,java_tname,java_args,[])> tc
     
   /**
@@ -294,18 +294,26 @@ rules //templatecall
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  //
           tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
-        ; withcallsmap := <control-flow-emit-with-calls-map> passign* 
+        ; e_withcallsmap := <control-flow-emit-with-calls-map> (passign*,expr|[ new Environment(env) ]|) 
         ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map(|x_methodname)> passign* else !java_attrsmap end>
+        ; java_args_addedlocalargs := <add-extra-arg-for-local-redefinition> (java_args, java_tname)
         // create template call
         ; bstm_result* := <generate-template-call(|x_methodname)> (
             tc, 
             java_tname, 
             tname, 
-            java_args,
-            withcallsmap, 
+            java_args_addedlocalargs,
+            e_withcallsmap, 
             attrsmap,
             parentname
             )
+
+  /** 
+   *  make implicit template arguments explicit, add the closure of a locally redefined template (retrieved from Environment class)
+   *  add extra arg for local redefinitions, if any
+   */ 
+  add-extra-arg-for-local-redefinition :
+    (e, e_name) -> java:expr |[ env.addExtraLocalTemplateArgumentsToArguments(e,e_name) ]| 
             
   /**
    *  'elements' call
@@ -313,50 +321,60 @@ rules //templatecall
    *  'with/requires' templatecall for element in with { } arguments (derived from ArgDef constructor), 
    *  stored in TemplateCall with only part of the needed arguments, the closure at the call
    *
+   *  e_env is the expression that creates the Environment being extended
+   *
+   *  the result of this rule is an expression that wraps java-exp-for-env with chained calls to putWithcall 
    */
   control-flow-emit-with-calls-map :
-    passign* -> bstm* 
-    with bstm* := <collect(control-flow-emit-with-calls-helper);concat> passign*
+    (passign*,e_env) -> exp 
+    with filtered := <filter(control-flow-emit-with-calls-filter)> passign*
+       ; exp := <foldl(control-flow-emit-with-calls-fold-helper)> (filtered,e_env)
 
-  control-flow-emit-with-calls-helper :
-    TemplateCall(templname,vars,passigns,_){anno*} -> result
+  control-flow-emit-with-calls-filter:
+	  t@TemplateCall(_,_,passigns,_) -> t
+    where <fetch(?ResolvedRequireKey(origname))> passigns
+
+  control-flow-emit-with-calls-fold-helper :
+    (TemplateCall(templname,vars,passigns,_){anno*},e_env) -> result
+    where not(<?"elementsempty"> templname)
     where <fetch(?ResolvedRequireKey(origname))> passigns
     with templateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
     with //could be that not all args are specified, only implicit args are available at this point
          varslength := <length> vars
        ; selectedTemplateArgs := <reverse;take(|varslength);reverse> templateArgs
        ; e_templ* := <handle-ref-arg> (selectedTemplateArgs, vars)
-       ; e_parent := java:expr|[getElementsContext()]| 
-       ; result := bstm* |[ newenv.putWithcall("~origname", new utils.TemplateCall("~templname", e_parent, new Object[] { e_templ* }, attrs)); ]|
+       ; if <fetch(?NoEnclosingDefine())> anno*
+         then result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", null, new Object[] { e_templ* }, TemplateCall.EmptyAttrs)) ]|
+         else result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", getElementsContext(), new Object[] { e_templ* }, attrs)) ]|
+         end
+
+  control-flow-emit-with-calls-fold-helper :
+    (TemplateCall(templname,vars,passigns,_){anno*},e_env) -> result
+    where <?"elementsempty"> templname
+    where <fetch(?ResolvedRequireKey(origname))> passigns
+    with  result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("elementsempty", null, null, null)) ]|
 
   /**
    * tc : the TemplateCall term
    * e_name : unique template name for lookup in hashmaps - Java expression with type String
    * tname : template call number used in templateContext - Stratego string or WebDSL expression with type TemplateContext to change the templateContext for this call entirely
-   * e : regular template arguments - Java Object[] 
-   * bstm_withcallsmap* : statements that add  'with' arguments and 'elements' template argument to withcallsmap in newenv - Java bstm*
+   * e : regular template arguments, including closure of local template redefinition if applicable - Java Object[] 
+   * e_withcallsmap : expression that adds 'with' arguments and 'elements' template argument to withcallsmap in newenv - Java exp
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
   generate-template-call(|x_methodname):
-    (tc, e_name, tname, e, bstm_withcallsmap*, bstm_attrs*, e_parentname) ->
+    (tc, e_name, tname, e, e_withcallsmap, bstm_attrs*, e_parentname) ->
     <for-loop-counter-wrap-code> 
     bstm* |[
       ident += e_tname;
       bstm_entertemplatecontext*
       try{
-        Object[] x_args = e;
-        //add extra arg for local redefinitions, if any
-        utils.LocalTemplateArguments x_argsextra = env.getExtraLocalTemplateArguments(e_name);
-        if(x_argsextra != null){
-          x_args = ArrayUtils.addAll(x_args,x_argsextra.extraArgs);
-        }
         if(e_shouldcreatetemplateinstance){
           getTemplatecalls().put(ident,e_newtemplateinstance);
         }
-        org.webdsl.lang.Environment newenv = new Environment(env);
-        bstm_withcallsmap*
+        org.webdsl.lang.Environment newenv = e_withcallsmap;
         bstm_attrs*
-        (onlyPerformingRenderPhase()?e_newtemplateinstance:e_retrievetemplateinstance).x_methodname(e_parentname, x_args, newenv, attrsmapout, x_argsextra); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
+        (onlyPerformingRenderPhase()?e_newtemplateinstance:e_retrievetemplateinstance).x_methodname(e_parentname, e, newenv, attrsmapout); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
         ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
           if (ThreadLocalPage.get().hasExecutedAction)
             return;
@@ -373,9 +391,7 @@ rules //templatecall
       //set ThreadLocalTemplate back to current template
       ThreadLocalTemplate.set(this);
     ]|
-    with  x_args := <newname> "args"
-        ; x_argsextra := <newname> "args2"
-        ; e_newtemplateinstance := java:expr|[ (TemplateServlet) env.getTemplate(e_name).newInstance() ]|
+    with  e_newtemplateinstance := java:expr|[ (TemplateServlet) env.getTemplate(e_name).newInstance() ]|
         ; e_retrievetemplateinstance := java:expr|[ ((TemplateServlet) getTemplatecalls().get(ident)) ]|
         ; if not(<?"render"> x_methodname)
           then e_shouldcreatetemplateinstance := java:expr|[ getTemplatecalls().get(ident)==null ]|
@@ -401,11 +417,10 @@ rules //templatecall
                   <!bstm*|[ ThreadLocalPage.get().leaveTemplateContext(); ]|
                   ;if-debug(!bstm*|[ ThreadLocalPage.get().leaveTemplateContextChecked(e_tname); ]|)>
           end
-           
-  // 'templatename.elements'         
+
   template-call-to-java-string: 
     tc@TemplateCall(name,args, _, _) -> java:expr|[ "~x_result" ]|
-    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name
+    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name  // regular call or 'templatename.elements'    
         ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
         ; <get-anno(?PositionAnno(position)) <+ position := ""> tc
         ; x_result := <concat-strings> [x_name,"(",arg_dump,")",<if ?"" then id else <concat-strings>[" at ",position] end> position]

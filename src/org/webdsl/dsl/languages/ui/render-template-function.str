@@ -8,6 +8,26 @@ rules
    
   eq-type-of : 
     RenderTemplateFunctionCall(templatecall) -> SimpleSort("String")
-    
   eq-type-of : 
     ValidateTemplateFunctionCall(templatecall) -> SimpleSort("String")
+
+  rename-ui :
+  	RenderTemplateFunctionCall(elem){anno*} -> RenderTemplateFunctionCall(<rename; add-anno(|NoEnclosingDefine())> elem){NoEnclosingDefine(),anno*}
+  	where not(InPage <+ InTemplate <+ InEmail)
+  rename-ui :
+  	ValidateTemplateFunctionCall(elem){anno*} -> ValidateTemplateFunctionCall(<rename; add-anno(|NoEnclosingDefine())> elem){NoEnclosingDefine(),anno*}
+  	where not(InPage <+ InTemplate <+ InEmail)
+
+  // if not a single templatecall, lift elements in a rendertemplate to a new template definition and replace with single templatecall to that new template
+  // rendertemplatefunction needs to be desugared within define context, that way the <rename> invoke will correctly add information of the enclosing context  
+  desugar-in-define-context :
+  	RenderTemplateFunctionCall(elem){anno*} -> RenderTemplateFunctionCall(result){anno*} // the syntax has only a single template element, intended for a template call
+    where result := <rendertemplatefunction-desugar-helper> (elem, anno*) 
+  desugar-in-define-context : 
+  	ValidateTemplateFunctionCall(elem){anno*} -> ValidateTemplateFunctionCall(result){anno*} 
+    where result := <rendertemplatefunction-desugar-helper> (elem, anno*) 
+  rendertemplatefunction-desugar-helper :
+  	(elem, anno*) -> result
+    where <not(get-tc-name)> elem // get-tc-name checks for any of the TemplateCall constructor variants
+  	with  anno1* := <filter(?NoEnclosingDefine())> anno* //NoEnclosingDefine is a marker to indicate that this templatecall is not enclosed in a template definition
+  	with  result := <rename> TemplateCall("internalElementsWrapper",[],[],TemplateBody([elem])){anno1*}

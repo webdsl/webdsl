@@ -217,11 +217,20 @@ rules // desugar 'elements' template argument for defined template calls
     	      elementscall := <rename-all> TemplateCall("elementsempty",[],[ResolvedRequireKey(elementskey)],TemplateBody([])){LiftedElementsTemplateCall()}
     	    else
 	    	    x_newtempl := <toplevel-rename> "ta"
-	        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
-	        ; EnclosingDefine(_, encltemplatename, encltemplateargs, _) := <DefinedTemplateGetEnclosingDefine> x
-	        ; enclname := <generate-template-name-fargs> (encltemplatename, encltemplateargs) 
-	        ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(enclname)|mod*], x_newtempl, farg*, requires*, defelem*)
-	        ; elementscall := <rename-all> TemplateCall(x_newtempl,var*,[ResolvedRequireKey(elementskey)],TemplateBody([])){LiftedElementsTemplateCall()} //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+	        ; if <fetch(?NoEnclosingDefine())> anno* // see org/webdsl/dsl/languages/ui/render-template-function
+	          then // templatecall that is not inside a template definition
+	          	  var* := <collect(?Var(_))> elem* // because VarInContext is only defined for templates, cannot use it for any context. VarInContext needs to be refactored to be automatically created during rename for any context
+              ; farg* := <map(?Var(<!Arg(<id>, <type-of;  strip-annos> Var(<id>))>))> var* //create only immutable formal arguments for the lifted template
+	            ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting("internal-NoEnclosingDefine"),IgnoreAccessControl()], x_newtempl, farg*, [], elem*)
+	            ; extra-anno* := [NoEnclosingDefine()]
+	          else // regular handling of elements
+	              (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
+	            ; EnclosingDefine(_, encltemplatename, encltemplateargs, _) := <DefinedTemplateGetEnclosingDefine> x
+	            ; enclname := <generate-template-name-fargs> (encltemplatename, encltemplateargs) 
+	            ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(enclname)|mod*], x_newtempl, farg*, requires*, defelem*)
+	            ; extra-anno* := []
+	          end
+	        ; elementscall := <rename-all> TemplateCall(x_newtempl,var*,[ResolvedRequireKey(elementskey)],TemplateBody([])){LiftedElementsTemplateCall(),extra-anno*} //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
           end
           
   generate-elements-tcallsmap-name :

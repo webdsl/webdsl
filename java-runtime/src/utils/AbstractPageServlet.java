@@ -84,7 +84,7 @@ public abstract class AbstractPageServlet{
             this.setActionLinkUsed(true);
           }
 
-          templateservlet.storeInputs(null, args, new Environment(env), null, null);
+          templateservlet.storeInputs(null, args, new Environment(env), null);
           ThreadLocalPage.get().clearTemplateContext();
 
           //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
@@ -99,11 +99,11 @@ public abstract class AbstractPageServlet{
           }
 
           if (!ignoreValidation){
-            templateservlet.validateInputs (null, args, new Environment(env), null, null);
+            templateservlet.validateInputs (null, args, new Environment(env), null);
             ThreadLocalPage.get().clearTemplateContext();
           }
           if(validated){
-            templateservlet.handleActions(null, args, new Environment(env), null, null);
+            templateservlet.handleActions(null, args, new Environment(env), null);
             ThreadLocalPage.get().clearTemplateContext();
           }
         }
@@ -164,7 +164,7 @@ public abstract class AbstractPageServlet{
           else {
             // actionLink or ajax action used and replace(placeholder) invoked
             if( isReRenderPlaceholders() ){
-                templateservlet.validateInputs (null, args, new Environment(env), null, null);
+                templateservlet.validateInputs (null, args, new Environment(env), null);
                 ThreadLocalPage.get().clearTemplateContext();
                 renderContentSingleRender(); // content of placeholders is collected in reRenderPlaceholdersContent map
                 StringWriter replacements = new StringWriter();
@@ -286,19 +286,19 @@ public abstract class AbstractPageServlet{
             ThreadLocalOut.push(pwform);
             // render, when encountering submitted form save in abstractpage
             validationFormRerender = true;
-            templateservlet.render(null, args, new Environment(env), null, null);
+            templateservlet.render(null, args, new Environment(env), null);
             ThreadLocalOut.popChecked(pwform);
 
             clearHibernateCache();
 
             ThreadLocalOut.push(out);
             // render, when encountering submitted form render old
-            templateservlet.render( null, args, new Environment(env), null, null);
+            templateservlet.render( null, args, new Environment(env), null);
             ThreadLocalOut.popChecked(out);
         }
         else{
           ThreadLocalOut.push(out);
-          templateservlet.render(null, args, new Environment(env), null, null);
+          templateservlet.render(null, args, new Environment(env), null);
           ThreadLocalOut.popChecked(out);
         }
         return s;
@@ -394,7 +394,7 @@ public abstract class AbstractPageServlet{
       //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
 
       this.isServingAsAjaxResponse = true;
-      templateservlet.render(null, args, new Environment(env), null, null);
+      templateservlet.render(null, args, new Environment(env), null);
 
       ThreadLocalPage.set(ps);
     }
@@ -561,8 +561,8 @@ public abstract class AbstractPageServlet{
         try{
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
             switch(phase){
-                case 2: temp.validateInputs(name, args, env, null, null); break;
-                case 4: temp.render(name, args, env, null, null); break;
+                case 2: temp.validateInputs(name, args, env, null); break;
+                case 4: temp.render(name, args, env, null); break;
             }
         }
         catch(Exception oe){
@@ -571,8 +571,8 @@ public abstract class AbstractPageServlet{
                 TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
                 String parent = env.getWithcall(name)==null?null:env.getWithcall(name).parentName;
                 switch(phase){
-                    case 2: temp.validateInputs(parent, tcall.args, env, null, null); break;
-                    case 4: temp.render(parent, tcall.args, env, null, null); break;
+                    case 2: temp.validateInputs(parent, tcall.args, env, null); break;
+                    case 4: temp.render(parent, tcall.args, env, null); break;
                 }
             }
             catch(Exception ie){

@@ -8,17 +8,55 @@ imports
 rules 
 
   call-to-java-servlet :
-    tc@RenderTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) ->
-    expr |[ ((utils.PageServlet)ThreadLocalPage.get()).renderTemplate(e_name, new Object[]{ e* }, org.webdsl.lang.Environment.getLocalOrGlobalEnv()) ]|
-    with  e* := <map(expression-to-java-servlet)> arg*
-        ; e_name := <template-name-to-name-expr> name
+    tc@RenderTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) -> expr |[ ((utils.PageServlet)ThreadLocalPage.get()).renderTemplate(e_name, e_args, e_env) ]|
+    where not(has-anno(|NoEnclosingDefine()))
+    with  (e_name, e_args, e_env) := <render-template-function-call-helper> (name, arg*, passign*)    
 
   call-to-java-servlet :
-    tc@ValidateTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) ->
-    expr |[ ((utils.PageServlet)ThreadLocalPage.get()).validateTemplate(e_name, new Object[]{ e* }, org.webdsl.lang.Environment.getLocalOrGlobalEnv()) ]|
+    tc@RenderTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) -> expr |[ ((utils.PageServlet)ThreadLocalPage.get()).renderTemplate(e_name, e_args, e_env) ]|
+    where has-anno(|NoEnclosingDefine())
+    with  (e_name, e_args, e_env) := <render-template-function-call-helper-no-enclosing-define> (name, arg*, passign*)   
+
+  call-to-java-servlet :
+    tc@ValidateTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) -> expr |[ ((utils.PageServlet)ThreadLocalPage.get()).validateTemplate(e_name, e_args, e_env) ]|
+    where not(has-anno(|NoEnclosingDefine()))
+    with  (e_name, e_args, e_env) := <render-template-function-call-helper> (name, arg*, passign*)   
+
+  call-to-java-servlet :
+    tc@ValidateTemplateFunctionCall(TemplateCall(name, arg*, passign*, body*){anno*}) -> expr |[ ((utils.PageServlet)ThreadLocalPage.get()).validateTemplate(e_name, e_args, e_env) ]|
+    where has-anno(|NoEnclosingDefine())
+    with  (e_name, e_args, e_env) := <render-template-function-call-helper-no-enclosing-define> (name, arg*, passign*)
+             	
+  render-template-function-call-helper:
+  	(name, arg*, passign*) -> (e_name, e_args, e_env)   
     with  e* := <map(expression-to-java-servlet)> arg*
         ; e_name := <template-name-to-name-expr> name
-          
+        ; e_args := <add-extra-arg-for-local-redefinition> (java:expr|[ new Object[]{ e* } ]|, e_name)
+        ; e_env := <control-flow-emit-with-calls-map> (passign*,expr|[ org.webdsl.lang.Environment.getLocalOrGlobalEnv() ]|) 
+             	
+  render-template-function-call-helper-no-enclosing-define:
+  	(name, arg*, passign*) -> (e_name, e_args, e_env)   
+    with  e* := <map(expression-to-java-servlet)> arg*
+        ; e_args := java:expr|[ new Object[]{ e* } ]|
+        ; e_name := <template-name-to-name-expr> name
+        ; e_env := <control-flow-emit-with-calls-map> (passign*,expr|[ org.webdsl.lang.Environment.getLocalOrGlobalEnv() ]|) 
+
   template-name-to-name-expr :
     name -> e_name
     with e_name := <create-elements-call-name <+ !Lit(String([Chars(<id>)]))> name
+    
+rules // skip the normal template code generation for template calls inside a rendertemplate, the generic traversal in the body of templates would otherwise pick them up
+  
+  // the render phase does not use a generic traversal for code generation
+  //elem-to-java-servlet :
+  //  RenderTemplateFunctionCall(_) -> []
+ 
+  handle-actions-to-java-servlet:
+    RenderTemplateFunctionCall(_) -> []
+ 
+  handle-actions-input-to-java-servlet:
+    RenderTemplateFunctionCall(_) -> []
+    
+  data-validation-to-java-servlet :
+  	RenderTemplateFunctionCall(_) -> []
+ 

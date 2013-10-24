@@ -1406,5 +1406,7 @@
 
    GlobalVarDecl                                          -- KW["var"] _1 KW[":"] _2,
    GlobalVarDeclInitInferred                              -- KW["var"] _1 KW[":="] _2,
-   GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3
+   GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3,
+   
+   ResolvedRequireKey                                     -- _1 %% this internal constructor is put in the visible templatecall properties, it should be moved to the templatecall annotation
 ]
