@@ -25,6 +25,10 @@ application test
     output(testfun2())
     <br/>
     output(testfun3())
+    <br/>
+    testd()
+    <br/>
+    teste()
   }
   
   template something(){
@@ -81,6 +85,24 @@ application test
     return rendertemplate(output(a));	
   }
   
+  template testd(){
+    var test := "test"
+    var d := "d"
+    output(rendertemplate(showcontent(test){ output(d) } ))
+  }
+  template showcontent(a:String){
+    output(a)
+    elements
+  }
+  
+  template teste(){
+    var str := "teste"
+    output(globale)
+    submit action{ globale.name := rendertemplate(showcontent(str)); } [class="testbtn"] {"click"}
+  }
+  var globale := Something{ name := "" }
+  
+  
   test rendertemplatevariants {
   	var d : WebDriver := getFirefoxDriver();
 	  d.get(navigate(root()));
@@ -97,5 +119,8 @@ application test
     assert(d.getPageSource().contains("testa"));
     assert(d.getPageSource().contains("testb"));
     assert(d.getPageSource().contains("testc"));
+    assert(d.getPageSource().contains("testd"));
+    d.findElement(SelectBy.className("testbtn")).click();
+    assert(d.getPageSource().contains("teste"));
   }
   
