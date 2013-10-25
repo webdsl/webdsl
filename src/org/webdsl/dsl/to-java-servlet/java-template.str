@@ -70,20 +70,13 @@ rules
           
           ~*cbds_prefetch*
 
+          ~*cbds_load-template-map-and-ref-arg-classes*
           public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv){
             loadTemplateMap(null,staticEnv);
           }
           public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
             staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
-            bstm_lifted*
-          }
-          public static void loadRefArgClasses(Map<String, Class<?>> refargclasses){
-            bstm_refargclasses*
-            bstm_liftedrefarg*
-            // in the ref arg class lookup map, a unique name is always used as key, 
-            // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
-            // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
-            bstm_refarginlocaldef*
+            loadLiftedTemplateMap(staticEnv);
           }
           
           protected void storeArguments(Object[] args) {
@@ -229,24 +222,43 @@ rules
          then e_isajaxtemplate := java:expr |[ true ]|
          else e_isajaxtemplate := java:expr |[ false ]|
          end
-       ; liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
+       ; cbds_load-template-map-and-ref-arg-classes* := <load-template-map-and-ref-arg-classes> (bstm_refarginlocaldef*, def)
+
+  load-template-map-and-ref-arg-classes :
+ 	  (bstm_refarginlocaldef*, def) -> result
+    with liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
        ; bstm_lifted* := <map({\ 
                            TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
                            with  z_value := <TopLevelTemplateClassName> z
                        \})> 
                        liftedtemplates
-       ; bstm_liftedrefarg* := <map({\ 
+      ; bstm_liftedrefarg* := <map({\ 
                            TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses 
                            with  z_value := <TopLevelTemplateClassName> z
                        \})> 
                        liftedtemplates
-       ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments  
-       ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments  
-       ; bstm_refargclasses* := <map({\ 
+      ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments  
+      ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments  
+      ; bstm_refargclasses* := <map({\ 
                            z -> bstm |[ refargclasses.put("~z", z_value); ]| 
                            with  z_value := <concat-strings> [z,".class"]
-                         \})> 
-                         [pagecallrefargclass*,ajaxcallrefargclass*]
+                       \})> 
+                       [pagecallrefargclass*,ajaxcallrefargclass*]
+      ; result :=
+        java:class-body-dec*|[
+          public static void loadLiftedTemplateMap(org.webdsl.lang.Environment staticEnv){
+            //template or email class itself is already added
+            bstm_lifted*
+          }
+          public static void loadRefArgClasses(Map<String, Class<?>> refargclasses){
+            bstm_refargclasses*
+            bstm_liftedrefarg*
+            // in the ref arg class lookup map, a unique name is always used as key, 
+            // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
+            // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
+            bstm_refarginlocaldef*
+          }
+        ]|
 
   prefetch-for-to-function =
     ?For(x, srt, _, _, b, _)

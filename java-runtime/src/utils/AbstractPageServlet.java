@@ -508,8 +508,8 @@ public abstract class AbstractPageServlet{
     public Environment env = new Environment(AbstractPageServlet.staticEnv);
 
     //emails
-    protected static HashMap<String, Class<?>> emails = new HashMap<String, Class<?>>();
-    public static HashMap<String, Class<?>> getEmails() {
+    protected static Map<String, Class<?>> emails = new HashMap<String, Class<?>>();
+    public static Map<String, Class<?>> getEmails() {
         return emails;
     }
     public boolean sendEmail(String name, Object[] emailargs, Environment emailenv){
