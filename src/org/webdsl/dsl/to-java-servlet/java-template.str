@@ -71,12 +71,14 @@ rules
           ~*cbds_prefetch*
 
           ~*cbds_load-template-map-and-ref-arg-classes*
-          public static void loadTemplateMap(org.webdsl.lang.Environment staticEnv){
+          public static Environment loadTemplateMap(org.webdsl.lang.Environment staticEnv){
             loadTemplateMap(null,staticEnv);
+            return staticEnv;
           }
-          public static void loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
+          public static Environment loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
             staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
             loadLiftedTemplateMap(staticEnv);
+            return staticEnv;
           }
           
           protected void storeArguments(Object[] args) {
@@ -226,17 +228,17 @@ rules
 
   load-template-map-and-ref-arg-classes :
  	  (bstm_refarginlocaldef*, def) -> result
-    with liftedtemplates := <collect(?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]));concat> def // with arguments
-       ; bstm_lifted* := <map({\ 
-                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadTemplateMap(staticEnv); ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
-                           with  z_value := <TopLevelTemplateClassName> z
-                       \})> 
-                       liftedtemplates
-      ; bstm_liftedrefarg* := <map({\ 
-                           TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses 
-                           with  z_value := <TopLevelTemplateClassName> z
-                       \})> 
-                       liftedtemplates
+    with liftedtemplates := <extract-lifted-templates-from-template-def> def
+      ; if [] := liftedtemplates
+    	  then bstm_lifted* := []
+    	     ; bstm_liftedrefarg* := []
+    	  else bstm_lifted* := [ExprStm( <lifted-template-load-template-map-helper> (liftedtemplates, java:expr|[ staticEnv ]|) )]
+    	     ; bstm_liftedrefarg* := 
+    	       	 <map({\ 
+                 TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses 
+                 with  z_value := <TopLevelTemplateClassName> z
+               \})> liftedtemplates 
+    	  end
       ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments  
       ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments  
       ; bstm_refargclasses* := <map({\ 
@@ -259,6 +261,18 @@ rules
             bstm_refarginlocaldef*
           }
         ]|
+  
+  extract-lifted-templates-from-template-def = 
+  	collect-all( // collect-all because rendertemplate(TemplateCall) might be nested in templatecall arguments
+    	          ?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([])) // template arguments, elements and with/requires
+  ; concat
+        
+  lifted-template-load-template-map-helper: 
+  	(liftedtemplates,e_env) -> <foldl(lifted-template-load-template-map-helper-fold)> (liftedtemplates,e_env)
+  	
+  lifted-template-load-template-map-helper-fold:
+    (TemplateCall(z,_,_,_),e_env) -> expr |[ z_value.loadTemplateMap(e_env) ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap 
+    with  z_value := <TopLevelTemplateClassName> z
 
   prefetch-for-to-function =
     ?For(x, srt, _, _, b, _)
