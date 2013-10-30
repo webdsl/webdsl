@@ -46,6 +46,12 @@ import javax.persistence.Id;
 
   private void setContent(java.sql.Blob content ){
     this.content = content;
+    try {
+		this.sizeInBytes = content.length();
+	} catch (SQLException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
   }
 
   public java.io.InputStream getContentStream()
@@ -118,7 +124,6 @@ import javax.persistence.Id;
       utils.File newF = new utils.File();
       newF.setContent(content);
       newF.setFileName(fileName);
-      newF.setSizeInBytes(sizeInBytes);
       newF.setContentType(contentType);
       return newF;
   }

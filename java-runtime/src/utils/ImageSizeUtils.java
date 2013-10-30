@@ -52,7 +52,7 @@ public class ImageSizeUtils {
 
     public static void resizeImage(Session session, utils.File file, int width, int height) {
         try {
-            session.refresh(file);
+//            session.refresh(file);
             BufferedImage img = ImageIO.read(file.getContentStream());
             if(width == 0) {
                 width = img.getWidth();
@@ -96,7 +96,7 @@ public class ImageSizeUtils {
     
     public static void cropImage(Session session, utils.File file, int x, int y, int width, int height) {
         try {
-            session.refresh(file);
+//            session.refresh(file);
             BufferedImage img = ImageIO.read(file.getContentStream());
             img = img.getSubimage(x, y, width, height);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -118,7 +118,7 @@ public class ImageSizeUtils {
     
     public static int getWidth(Session session, utils.File file) {
         try {
-            session.refresh(file);
+//            session.refresh(file);
             BufferedImage img = ImageIO.read(file.getContentStream());
             return img.getWidth();
         } catch(Exception e) {
@@ -129,7 +129,7 @@ public class ImageSizeUtils {
 
     public static int getHeight(Session session, utils.File file) {
         try {
-            session.refresh(file);
+//            session.refresh(file);
             BufferedImage img = ImageIO.read(file.getContentStream());
             return img.getHeight();
         } catch(Exception e) {
