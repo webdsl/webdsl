@@ -143,6 +143,7 @@ module .servletapp/src-webdsl-template/built-in
     startMustClause() : Searcher
     startMustNotClause() : Searcher
     startShouldClause() : Searcher
+    results() : List<Entity>
     must() : Searcher
     should() : Searcher
     not() : Searcher
@@ -868,17 +869,23 @@ native class java.lang.Double as Double {
 
   define ignore-access-control output(d:Ref<DateTime>){
     var default := DateType.getDefaultDateTimeFormat();
-    dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+    if(d!=null){
+        dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+    }
   }
 
   define ignore-access-control output(d:Ref<Time>){
     var default := DateType.getDefaultTimeFormat();
-    dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+    if(d!=null){
+        dateoutputgeneric(d as Ref<Date>, default)[all attributes]
+    }
   }
 
   define ignore-access-control output(d:Ref<Date>){
     var default := DateType.getDefaultDateFormat();
-    dateoutputgeneric(d,default)[all attributes]
+    if(d!=null){
+        dateoutputgeneric(d,default)[all attributes]
+    }
   }
 
   define ignore-access-control dateoutputgeneric(d:Ref<Date>, defaultformat : String){
