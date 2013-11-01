@@ -18,12 +18,12 @@ application test
     name :: String
   }
   
-  var s_1 := SomeEntity { name := "s1" }
-  var s_2 := SomeEntity { name := "s2" }
-  var s_3 := SomeEntity { name := "s3" }
-  var s_4 := SomeEntity { name := "s4" }
+  var s_1 := SomeEntity { name := "some entity 1" }
+  var s_2 := SomeEntity { name := "some entity 2" }
+  var s_3 := SomeEntity { name := "some entity 3" }
+  var s_4 := SomeEntity { name := "some entity 4" }
 
-  define page root(){
+  page root(){
     form{
       input(t_1.list)
       input(t_1.set)
@@ -54,7 +54,11 @@ application test
     //output([s|s:SomeEntity in (from SomeEntity) order by s.name])
   }
 
-
-test {
-	assert(false,  "NO TESTS AVAILABLE");
-}
+  test{
+    var d : WebDriver := getFirefoxDriver();
+    d.get(navigate(root()));
+    assert(d.getPageSource().split("some entity 1").length == 7);
+    assert(d.getPageSource().split("some entity 2").length == 7);
+    assert(d.getPageSource().split("some entity 3").length == 4);
+    assert(d.getPageSource().split("some entity 4").length == 4);
+  }

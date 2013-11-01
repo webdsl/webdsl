@@ -2,14 +2,18 @@
 
 application test
   
-  define page root(){
+  page root(){
     var i := 0
     form{
       input(i)
       validate(i>2,"i must be greater than 2")
-      submit action{} {"save"}
+      submit action{} [class="savebtn"] {"save"}
     }
   }
- test {
-	assert(false,  "NO TESTS AVAILABLE");
-}
+  
+  test {
+    var d : WebDriver := getFirefoxDriver();
+    d.get(navigate(root()));
+    d.findElement(SelectBy.className("savebtn")).click();
+    assert(d.getPageSource().contains("i must be greater than 2"));
+  }

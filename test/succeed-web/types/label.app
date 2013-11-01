@@ -1,20 +1,24 @@
 application exampleapp
 
-define page root(){
+  page root(){
     var i := 1
     var j := 2
     form{
       labelcolumns("mylabel") {
-        input(i)
+        input(i)[class="firstinput"]
       }
       label("thelabel"){
-        input(j)
+        input(j)[class="secondinput"]
       }
-      submit action{} {"submit"}
+      submit action{} [class="savebtn"] {"submit"}
     }
-}
-
-
-test {
-	assert(false,  "NO TESTS AVAILABLE");
-}
+  }
+  
+  test {
+    var d : WebDriver := getFirefoxDriver();
+    d.get(navigate(root()));
+    d.findElement(SelectBy.className("firstinput")).sendKeys("foo");
+    d.findElement(SelectBy.className("secondinput")).sendKeys("foo");
+    d.findElement(SelectBy.className("savebtn")).click();
+    assert(d.getPageSource().split("Not a valid number").length == 3);
+  }
