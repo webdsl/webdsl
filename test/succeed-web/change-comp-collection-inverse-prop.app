@@ -35,7 +35,7 @@ define page root2(){
 }
 
 test mytest {
-	var d : WebDriver := FirefoxDriver();    
+	var d : WebDriver := getFirefoxDriver();    
     var btn : WebElement;
     var pagesource : String;
     

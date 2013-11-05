@@ -200,7 +200,7 @@ analyzer month{
 
   test AdvancedSearch {
     IndexManager.clearAutoCompleteIndex("Item");
-    var d : WebDriver := FirefoxDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
 
     IndexManager.indexSuggestions();

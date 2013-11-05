@@ -8,7 +8,7 @@ application exampleapp
   }
   
 test {
-  var d : WebDriver := FirefoxDriver();
+  var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   var pagesource := d.getPageSource();
   
