@@ -14,7 +14,7 @@ application test
       output(e.int)
     }
     
-    define b(){
+    define span b(){
       "correct" 
       input(i)
     }
@@ -22,13 +22,14 @@ application test
     //define b() = root_b(*,i)
   }
 
-  define b(){ "error" }
+  define span b(){ "error" }
 
   test var {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected 3 <input> elements did not match");
+    assert(d.getPageSource().contains("<span id=\"b\""), "span id of local redefined template b should be 'b'");
     elist[1].sendKeys("23456789");
     elist[2].click();
     assert(d.getPageSource().contains("23456789"), "entered data not found");
