@@ -108,7 +108,7 @@
    False                    -- KW["false"],
    Empty                    -- KW["empty"],
    Null                     -- KW["null"],
-   Path                     -- _1,
+   Path                     -- H hs=0[_1],
    Path.1:iter-sep          -- _1 KW["."],
    HqlString                   -- H [ _1 ],
    
