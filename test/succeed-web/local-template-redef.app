@@ -29,7 +29,7 @@ application test
     d.get(navigate(root()));
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 3, "expected 3 <input> elements did not match");
-    assert(d.getPageSource().contains("<span id=\"b\""), "span id of local redefined template b should be 'b'");
+    assert(d.findElements(SelectBy.className("b")).length > 0, "span class of local redefined template b should be 'b'");
     elist[1].sendKeys("23456789");
     elist[2].click();
     assert(d.getPageSource().contains("23456789"), "entered data not found");
