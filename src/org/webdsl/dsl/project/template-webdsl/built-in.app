@@ -909,7 +909,7 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control input(d:Ref<DateTime>){
-    input(d,1900,now().getYear())
+    input(d,1950,now().getYear()+10)
   }
   define ignore-access-control input(d:Ref<DateTime>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateTimeFormat()
@@ -965,7 +965,7 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control input(d:Ref<Date>){
-    input(d,1900,now().getYear())
+    input(d,1950,now().getYear()+10)
   }
   define ignore-access-control input(d:Ref<Date>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateFormat()
