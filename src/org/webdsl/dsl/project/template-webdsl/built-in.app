@@ -533,6 +533,7 @@ native class java.lang.Double as Double {
     static closeDrivers()
     static createTempFile(String):String
   }
+  
 
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
@@ -542,6 +543,13 @@ native class java.lang.Double as Double {
     findElements(SelectBy):List<WebElement>
     close()
     utils.Test.runJavaScript as runJavaScript(String):String
+    utils.Test.getAlert as getAlert() : WebAlert
+  }
+  
+  native class org.openqa.selenium.Alert as WebAlert {
+  	getText() : String
+  	dismiss()
+  	accept()
   }
 
   native class org.openqa.selenium.By as SelectBy {

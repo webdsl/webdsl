@@ -9,6 +9,7 @@ import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.openqa.selenium.Alert;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -89,6 +90,10 @@ public abstract class Test {
         }
         //allow some time to load page by webdriver (driver.getPageSource() sometimes returned outdated source)
         sleep(500);
+    }
+    
+    public static Alert getAlert(org.openqa.selenium.WebDriver w){
+    	return w.switchTo().alert();
     }
 
     //setSelected and toggle are deprecated, now using click: http://code.google.com/p/selenium/issues/detail?id=2391
