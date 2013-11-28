@@ -203,6 +203,8 @@ rules
             //org.webdsl.logging.Logger.error("dispatch" + request.getRequestURL().toString());
 
             boolean showerrorpage = false;
+            boolean showvalidationerror = false;
+            MultipleValidationExceptions validationExceptions = null;
             try{
               String[] req = request.getRequestURL().toString().split("/");
               /*
@@ -381,6 +383,10 @@ rules
               ]|)>
               showerrorpage=true;
             }
+            catch(utils.MultipleValidationExceptions ex){
+            	showvalidationerror = true;
+            	validationExceptions = ex;
+            }
             catch(Exception ex){
               org.webdsl.logging.Logger.error("Exception in dispatch servlet: "+ex.getMessage());
               org.webdsl.logging.Logger.error("EXCEPTION",ex);
@@ -394,6 +400,11 @@ rules
                   response.setStatus(404);
                   response.getWriter().write("<h3>404 Not Found</h3>");
                 }
+              }
+            } else if(showvalidationerror){
+            	if(parammap.get("__ajax_runtime_request__") == null){ // ajax runtime expects JSON, not regular page content
+              		response.setStatus(500);
+              		response.getWriter().write( utils.ValidationErrorPopupCreator.getErrorPopup( validationExceptions ) );
               }
             }
 
@@ -421,6 +432,9 @@ rules
                 org.webdsl.logging.Logger.error("Problem in dispatch servlet page lookup: " + ie.getMessage());
                 org.webdsl.logging.Logger.error("EXCEPTION",ie);
                 return false;
+              }
+              catch(MultipleValidationExceptions mve ){
+              	throw mve; //just rethrow so caller can handle validation exceptions
               }
               catch(RuntimeException re)
               {

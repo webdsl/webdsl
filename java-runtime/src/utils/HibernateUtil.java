@@ -113,7 +113,7 @@ public class HibernateUtil {
                   AbstractPageServlet aps = ThreadLocalPage.get();
                   if(aps != null){
 //                    System.out.println("addToValidate: "+we.getName());
-                    aps.addEntityToValidateAfterAction(we);
+                    aps.addEntityToBeValidated(we);
                   }
               }
           }

@@ -29,6 +29,11 @@ application input
     var d : WebDriver := getFirefoxDriver();
     
     d.get(navigate(root()));
-   
-    assert(!d.getPageSource().contains("THE-ERROR"), "entity `newA` should not have been saved because of validation error in the init-block of the root page");
+    var alert := d.getAlert();
+    assert(alert != null,  "Alert should popup with entity validation errors");
+    
+    if (alert != null ){
+    	assert(alert.getText().contains("should be at least 5 characters"),  "Alert should popup with entity validation errors");
+    	alert.accept();
+    }
   }

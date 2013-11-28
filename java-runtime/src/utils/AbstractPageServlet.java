@@ -224,17 +224,32 @@ public abstract class AbstractPageServlet{
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
+          
           hibSession.flush();
+          validateEntities();
+          
           hibSession.getTransaction().commit();
         }
         ThreadLocalOut.popChecked(out);
+      } 
+      
+      catch(utils.MultipleValidationExceptions mve){
+    	  String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
+    	  org.webdsl.logging.Logger.error("Validation exceptions occured while handling request URL [ "+url + " ]. Transaction is rolled back." );
+    	  for(utils.ValidationException vex : mve.getValidationExceptions()){
+    		  org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
+    	  }
+    	  hibSession.getTransaction().rollback();
+    	  setValidated(false);
+    	  throw mve;
       }
       catch (Exception e) {
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
-        org.webdsl.logging.Logger.error("exception occured while handling request URL: "+url);
+        org.webdsl.logging.Logger.error("exception occured while handling request URL [ "+url+ " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
         hibSession.getTransaction().rollback();
         throw new RuntimeException("serve page request failed, requested URL: "+url);
+
       }
       finally{
         cleanupThreadLocals();
@@ -617,23 +632,23 @@ public abstract class AbstractPageServlet{
     }
 
     // objects scheduled to be checked after action completes, filled by hibernate event listener in hibernate util class
-    ArrayList<WebDSLEntity> entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+    ArrayList<WebDSLEntity> entitiesToBeValidated = new ArrayList<WebDSLEntity>();
     boolean allowAddingEntitiesForValidation = true;
 
-    public void cleareEntitiesValidatedAfterAction(){
-        entitiesValidatedAfterAction = new ArrayList<WebDSLEntity>();
+    public void clearEntitiesToBeValidated(){
+    	entitiesToBeValidated = new ArrayList<WebDSLEntity>();
         allowAddingEntitiesForValidation = true;
     }
 
-    public void addEntityToValidateAfterAction(WebDSLEntity w){
+    public void addEntityToBeValidated(WebDSLEntity w){
         if(allowAddingEntitiesForValidation){
-          entitiesValidatedAfterAction.add(w);
+        	entitiesToBeValidated.add(w);
         }
     }
-    public void validateEntitiesAfterAction(){
+    public void validateEntities(){
         allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
-
-        java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesValidatedAfterAction);
+        
+        java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesToBeValidated);
         java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
         for(WebDSLEntity w : set){
 
@@ -651,10 +666,11 @@ public abstract class AbstractPageServlet{
                 }
             }
         }
+        
         if(exceptions.size() > 0){
             throw new utils.MultipleValidationExceptions(exceptions);
         }
-
+        clearEntitiesToBeValidated();
     }
 
     protected List<utils.ValidationException> validationExceptions = new java.util.LinkedList<utils.ValidationException>();
