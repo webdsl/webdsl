@@ -134,8 +134,8 @@ public abstract class Test {
     public static HtmlUnitDriver htmlunitdriver = null;
     public static HtmlUnitDriver getHtmlUnitDriver(){
         if(htmlunitdriver==null){
-            htmlunitdriver = new HtmlUnitDriver(com.gargoylesoftware.htmlunit.BrowserVersion.FIREFOX_3_6);
-            //htmlunitdriver.setJavascriptEnabled(true);  // TODO: if enabled, clickAndWait() method fails, it cannot look up __requestcount for some reason.
+            htmlunitdriver = new HtmlUnitDriver(com.gargoylesoftware.htmlunit.BrowserVersion.CHROME);
+//            htmlunitdriver.setJavascriptEnabled(true);  // TODO: if enabled, clickAndWait() method fails, it cannot look up __requestcount for some reason.
             ThreadLocalWebDriver.set(htmlunitdriver);
         }
         return htmlunitdriver;
@@ -154,13 +154,13 @@ public abstract class Test {
     public static void closeDrivers(){
         ThreadLocalWebDriver.set(null);
         if(firefoxdriver!=null){
-            firefoxdriver.close();
+            firefoxdriver.quit();
         }
         if(htmlunitdriver!=null){
-            htmlunitdriver.close();
+            htmlunitdriver.quit();
         }
         if(chromedriver!=null){
-            chromedriver.close();            
+            chromedriver.quit();            
         }
     }
 
