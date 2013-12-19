@@ -1,5 +1,4 @@
 { nixpkgs ? ../nixpkgs
-, webdslEditor ? { outPath = ../../webdsl-editor ; rev = 1234; }
 , hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; } 
 , webdslsSrc ? {outPath = ./.; rev = 1234;}
 , officialRelease ? false
@@ -31,7 +30,7 @@ let
           subversion
           automake
           autoconf
-          apacheAntOracleJDK 
+          apacheAntOpenJDK 
         ] ++ strPkgs pkgs ;
       };
 
@@ -58,7 +57,7 @@ let
           pkgconfig 
           cpio
         ] ++ strPkgs pkgs 
-          ++ lib.optional stdenv.isLinux apacheAntOracleJDK
+          ++ lib.optional stdenv.isLinux apacheAntOpenJDK
           ++ lib.optional stdenv.isDarwin antDarwinNative
           ;
 
@@ -101,7 +100,7 @@ let
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig cpio ecj apacheAntOracleJDK strcJava which fastjar oraclejdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar openjdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
@@ -116,13 +115,13 @@ let
         '';
       };
       
-        buildJavaNoCheck =
+    buildJavaNoCheck =
       let pkgs = import nixpkgs { system = "i686-linux"; };
       in with pkgs;
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig cpio ecj apacheAntOracleJDK strcJava which fastjar oraclejdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar openjdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
@@ -137,7 +136,7 @@ let
         '';
       };
       
-       buildJavaZipNoCheck = 
+    buildJavaZipNoCheck = 
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java-no-check.zip"; 
         buildInputs = [pkgs.zip]; 
