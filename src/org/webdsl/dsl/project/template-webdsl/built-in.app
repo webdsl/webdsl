@@ -588,6 +588,7 @@ native class java.lang.Double as Double {
 
   native class org.openqa.selenium.firefox.FirefoxDriver as FirefoxDriver : WebDriver {
     constructor()
+    utils.Test.takeScreenshot as takeScreenshot()
   }
 
   native class org.openqa.selenium.support.ui.Select as Select {

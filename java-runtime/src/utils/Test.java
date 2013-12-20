@@ -6,11 +6,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.Alert;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -192,5 +196,17 @@ public abstract class Test {
                 in.close();
             }
         }
+    }
+    
+    private static int screenshotCounter = 1; 
+    public static void takeScreenshot(WebDriver driver){
+    	File scrFile = ((TakesScreenshot)driver).getScreenshotAs(OutputType.FILE);
+    	try {
+    		File f = new File("screenshot-"+(screenshotCounter++)+"-"+new Date()+".png");
+			FileUtils.copyFile(scrFile, f);
+			org.webdsl.logging.Logger.info("screenshot saved "+f.getAbsolutePath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
     }
 }
