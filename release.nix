@@ -30,7 +30,7 @@ let
           subversion
           automake
           autoconf
-          apacheAntOpenJDK 
+          ant 
         ] ++ strPkgs pkgs ;
       };
 
@@ -57,7 +57,7 @@ let
           pkgconfig 
           cpio
         ] ++ strPkgs pkgs 
-          ++ lib.optional stdenv.isLinux apacheAntOpenJDK
+          ++ lib.optional stdenv.isLinux ant
           ++ lib.optional stdenv.isDarwin antDarwinNative
           ;
 
@@ -100,7 +100,7 @@ let
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar openjdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj ant strcJava which fastjar openjdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
@@ -121,7 +121,7 @@ let
       releaseTools.nixBuild rec {
         name = "webdsl-java";
         src = tarball;
-        buildInputs = [pkgconfig cpio ecj apacheAntOpenJDK strcJava which fastjar openjdk] ++ strPkgs pkgs;
+        buildInputs = [pkgconfig cpio ecj ant strcJava which fastjar openjdk] ++ strPkgs pkgs;
 
         configureFlags = ["--enable-java-backend"] ;
 
