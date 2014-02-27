@@ -141,4 +141,14 @@ public abstract class AbstractDispatchServletHelper{
 
   public abstract void storeOutgoingMessagesInHttpSession();
   public abstract void retrieveIncomingMessagesFromHttpSession();
+  
+  // page dispatch custom routing
+  protected String baseUrl;
+  public String getBaseUrl(){
+    return baseUrl;
+  }
+  protected List<String> urlComponents;
+  public List<String> getUrlComponents(){
+    return urlComponents;
+  }
 }

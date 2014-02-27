@@ -1,0 +1,51 @@
+module org/webdsl/dsl/languages/routing/routing
+
+imports
+  libstrategolib
+
+imports
+  libwebdsl-front
+
+rules
+
+  rename-ui :
+    r@RoutingReceive(RoutingArgs(farg1*), b1){anno*} -> RoutingReceive(RoutingArgs(farg2*), b2){anno*}
+    with  {| Rename, InDef, FunctionArg, VarInContext
+          : rules ( InDef := True() )
+          ; farg2* := <map(rename)> farg1*
+          ; rules ( FunctionArg := farg2* )
+          ; <declare-args-in-context> farg2*
+          ; b2 := <rename-all> b1
+          |}
+
+  rename-ui :
+    r@RoutingConstruct(RoutingArgs(farg1*), b1){anno*} -> RoutingConstruct(RoutingArgs(farg2*), b2){anno*}
+    with  {| Rename, InDef, FunctionArg, VarInContext
+          : rules ( InDef := True() )
+          ; farg2* := <map(rename)> farg1*
+          ; rules ( FunctionArg := farg2* )
+          ; <declare-args-in-context> farg2*
+          ; b2 := <rename-all> b1
+          |}
+        
+  get-toplevel-name = ?RoutingReceive(_,_); !"routingreceive" // name to use in variable renaming
+  get-toplevel-name = ?RoutingConstruct(_,_); !"routingconstruct" // name to use in variable renaming
+  
+  declare = ?Routing(_) // don't declare variables inside routing block as globals
+
+rules
+	
+  constraint-error-ui: 
+  	Routing(defs) -> <add-error(|err)>
+    where not([RoutingReceive(RoutingArgs([Arg(_,GenericSort("List",[SimpleSort("String")]))]),_),RoutingConstruct(RoutingArgs([Arg(_,SimpleSort("String")),Arg(_,GenericSort("List",[SimpleSort("String")]))]),_)] := defs)
+        ; err := ["routing block only accepts the following form: routing { receive(urlargs:[String]) { return [String]; } construct (pagename:String, pageargs:[String]) { return [String]; } }"]
+	
+  constraint-error-ui: 
+  	RoutingReceive(_, b) -> <add-error(|err)>
+    where not(<oncetd(?Return(_))> b)
+        ; err := ["routing receive block must return '[String]' for custom routing or 'null' for default behavior"]
+        
+  constraint-error-ui: 
+  	RoutingConstruct(_, b) -> <add-error(|err)>
+    where not(<oncetd(?Return(_))> b)
+        ; err := ["routing construct block must return '[String]' for custom routing or 'null' for default behavior"]

@@ -47,12 +47,7 @@ rules // links
     <hide-bstms-on-null-pointer-exception>
     bstm* |[
       out.print("<a href=\"");
-      if(ThreadLocalEmailContext.inEmailContext()){
-        out.print(e_resulturlemail);
-      }
-      else{
-        out.print(e_resulturl);
-      }
+      out.print(e_resulturl);
       out.print("\" "+e_attrs1+" class=\"navigate\">");
       bstm*
       out.print("</a>");
@@ -61,7 +56,6 @@ rules // links
     with  e_url := <page-thiscall-to-url-string-java-servlet> call
         ; bstm* := <elems-to-java-servlet> elems
         ; e_attrs1 := <to-html-attrs> passign*
-        ; e_resulturlemail := expr|[ utils.HTMLFilter.filter(e_url) ]|
         ; e_resulturl := <convert-abs-url-based-on-secure-modifier(|passign*)> e_url
 
   elem-to-java-servlet :
@@ -110,7 +104,7 @@ rules
 rules
 
   page-thiscall-to-url-string-java-servlet :
-    pc@PageCall(p,args) -> e |[ utils.HTMLFilter.filter(e_url) ]|
+    pc@PageCall(p,args) -> e_url
     with  get-anno(?PageArgsAnno(farg*))
         ; farg1* := <add-farg-numbers> farg*
         ; params := <zip(bind-param-java-servlet)> (farg1*, args)
@@ -154,31 +148,17 @@ rules
       with e1 := <expression-to-java-servlet> e
 
   page-call-to-url-java-servlet :
-    (fn, [], []) -> java:expr |[ ThreadLocalPage.get().getAbsoluteLocation() + "~s" ]| //java:expr |[ e1 + e2 ]|
-    where not("root" := fn)
-    with  s := <concat-strings> ["/", fn]
-        //; [e1,e2] := <add-success-messages-to-url> [e |[ "~s" ]| ]
+    (pagename, [], []) -> java:expr |[ utils.Navigate.constructUrl("~pagename") ]|
+    where not("root" := pagename)
 
   page-call-to-url-java-servlet :
-    ("root", [], []) -> java:expr |[ ThreadLocalPage.get().getAbsoluteLocation() + "/" ]|
+    ("root", [], []) -> java:expr |[ utils.Navigate.constructUrl("") ]|
 
   page-call-to-url-java-servlet :
-    (fn, params, farg*) -> e |[ ThreadLocalPage.get().getAbsoluteLocation() + "~s" + utils.URLTrimmer.removeTrailingDefaultValues(String.valueOf(e1),e*) ]|
+    (pagename, params, farg*) -> e |[ utils.Navigate.constructUrl("~pagename", java.util.Arrays.asList(e*), e1*) ]|
     where not([] := params)
-    with  s  := <concat-strings> ["/", fn]
-        ; e1 := <map(param-to-request-param-java-servlet);combine-params-to-exp> params // add-success-messages-to-url;
-        ; e* := <map(param-tuple-type-java-string)> farg*
+    with  e* := <map(Snd)> params
+        ; e1* := <map(param-tuple-type-java-string)> farg*
 
   param-tuple-type-java-string :
     Arg(x, srt) -> java:expr|[ "~<pp-type> srt" ]|
-
-  combine-params-to-exp :
-    [e] -> e |[ e ]|
-
-  combine-params-to-exp :
-    [e|e*] -> e |[ e + "/" + e1 ]|
-    with  e1 := <combine-params-to-exp> e*
-
-  param-to-request-param-java-servlet :
-    (param, value) -> value
-    //    (param, value) -> <concat-strings> [param, "=", value]

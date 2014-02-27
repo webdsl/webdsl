@@ -1408,5 +1408,11 @@
    GlobalVarDeclInitInferred                              -- KW["var"] _1 KW[":="] _2,
    GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3,
    
-   ResolvedRequireKey                                     -- _1 %% this internal constructor is put in the visible templatecall properties, it should be moved to the templatecall annotation
+   ResolvedRequireKey                                     -- _1, %% this internal constructor is put in the visible templatecall properties, it should be moved to the templatecall annotation
+   
+   Routing                                                -- KW["routing"] KW["{"] _1 KW["}"],
+   RoutingReceive                                         -- KW["receive"] _1 _2,
+   RoutingConstruct                                       -- KW["construct"] _1 _2,
+   RoutingArgs                                            -- KW["("] _1 KW[")"],
+   RoutingArgs.1:iter-sep                                 -- _1 KW[","]
 ]

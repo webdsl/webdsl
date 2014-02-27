@@ -386,10 +386,27 @@ module .servletapp/src-webdsl-template/built-in
   native class AbstractDispatchServletHelper as DispatchServlet {
     getIncomingSuccessMessages():List<String>
     clearIncomingSuccessMessages()
+    getRequest() : HttpServletRequest
     static get(): DispatchServlet
+    getBaseUrl():String
+    getUrlComponents():List<String>
   }
   function getDispatchServlet():DispatchServlet{
     return DispatchServlet.get();
+  }
+  
+  native class javax.servlet.http.HttpServletRequest as HttpServletRequest{
+    getRemoteAddr() : String
+  }
+  
+  function remoteAddress(): String {
+    return getDispatchServlet().getRequest().getRemoteAddr();
+  }
+  function baseUrl(): String {
+    return getDispatchServlet().getBaseUrl();
+  }
+  function urlComponents(): List<String> {
+    return getDispatchServlet().getUrlComponents();
   }
 
 // access to page context
