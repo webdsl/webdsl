@@ -16,16 +16,25 @@ rules // forms
   elem-to-java-servlet :
     tc@TemplateCall("form", [],passign*, elems) ->
     bstm* |[
-      ident = e_ident;
-      ThreadLocalPage.get().setFormIdent(ident);//for actionLink javascript code and ajax actions  //TODO breaks with nested forms, use stack
-      if(ThreadLocalPage.get().getParammap().get(ident)!=null)
-      {
-        ThreadLocalPage.get().setInSubmittedForm(true); // ok, because no nested forms, otherwise need to count just like inForLoop variable
+      utils.AbstractPageServlet x_threadlocalpage = ThreadLocalPage.get();
+      if(x_threadlocalpage.isInForm()){
+        org.webdsl.logging.Logger.error("Invalid nested <form> tag detected in DOM at URL: "+x_threadlocalpage.getRequest().getRequestURL()
+          +"\n Enclosing form found in "+x_threadlocalpage.getEnclosingForm()
+          +"\n Nested form found in "+getTemplateSignature());
       }
-      ThreadLocalPage.get().formRequiresMultipartEnc = false;
+      x_threadlocalpage.enterForm(getTemplateSignature());	
+    	
+      ident = e_ident;
+      x_threadlocalpage.setFormIdent(ident);//for actionLink javascript code and ajax actions  //TODO breaks with nested forms, use stack
+      if(x_threadlocalpage.getParammap().get(ident)!=null)
+      {
+
+        x_threadlocalpage.setInSubmittedForm(true); // ok, because no nested forms, otherwise need to count just like inForLoop variable
+      }
+      x_threadlocalpage.formRequiresMultipartEnc = false;
 
       java.io.StringWriter x_stringwrvalid = null;
-      if(ThreadLocalPage.get().inSubmittedForm() && ThreadLocalPage.get().isValidationFormRerender()){
+      if(x_threadlocalpage.inSubmittedForm() && x_threadlocalpage.isValidationFormRerender()){
         x_stringwrvalid = new java.io.StringWriter();
         out = new java.io.PrintWriter(x_stringwrvalid);
         ThreadLocalOut.push(out);
@@ -41,39 +50,41 @@ rules // forms
 
       out.print(">");
       out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
-      out.print(ThreadLocalPage.get().getHiddenParams()); // page arguments
+      out.print(x_threadlocalpage.getHiddenParams()); // page arguments
       bstm*
       out.print("</form>");
 
       //set 'out' back to the original out stream
       ThreadLocalOut.popChecked(out);
       out = ThreadLocalOut.peek();
-      if(ThreadLocalPage.get().formRequiresMultipartEnc){
+      if(x_threadlocalpage.formRequiresMultipartEnc){
         out.write(" enctype=\"multipart/form-data\"");
       }
       out.write(x_stringwr.toString());
 
-      if(ThreadLocalPage.get().inSubmittedForm() && ThreadLocalPage.get().isValidationFormRerender()){
+      if(x_threadlocalpage.inSubmittedForm() && x_threadlocalpage.isValidationFormRerender()){
         ThreadLocalOut.pop();
-        if(ThreadLocalPage.get().submittedFormContent==null){ //render phase with changed data, store form output
-          ThreadLocalPage.get().submittedFormContent = x_stringwrvalid.toString();
+        if(x_threadlocalpage.submittedFormContent==null){ //render phase with changed data, store form output
+          x_threadlocalpage.submittedFormContent = x_stringwrvalid.toString();
         }
         else{ //render phase with current persisted data, retrieve stored form output
           out = ThreadLocalOut.peek();
-          out.write(ThreadLocalPage.get().submittedFormContent);
+          out.write(x_threadlocalpage.submittedFormContent);
         }
       }
 
-      ThreadLocalPage.get().formRequiresMultipartEnc = false;
-      ThreadLocalPage.get().setInSubmittedForm(false);
-      ThreadLocalPage.get().setFormIdent("");
+      x_threadlocalpage.formRequiresMultipartEnc = false;
+      x_threadlocalpage.setInSubmittedForm(false);
+      x_threadlocalpage.setFormIdent("");
+      x_threadlocalpage.leaveForm();
     ]|
     with  bstm* := <elems-to-java-servlet> elems
         ; formident := <get-formnumber> tc
         ; e_attrs1 := <to-html-attrs> passign*
         ; x_stringwr := <newname> "sw"
         ; x_stringwrvalid := <newname> "sw"
-        ; e_url := java:expr |[ utils.HTMLFilter.filter(ThreadLocalPage.get().getPageUrlWithParams() + ThreadLocalPage.get().getExtraQueryAruments("?")) ]|
+        ; x_threadlocalpage := <newname> "tlp"
+        ; e_url := java:expr |[ utils.HTMLFilter.filter(x_threadlocalpage.getPageUrlWithParams() + x_threadlocalpage.getExtraQueryAruments("?")) ]|
         ; e_resulturl := <convert-abs-url-based-on-secure-modifier(|passign*)> e_url
         ; e_ident := <for-loop-counter-wrap-code-expr> java:expr|["~formident"+uniqueid]|
 

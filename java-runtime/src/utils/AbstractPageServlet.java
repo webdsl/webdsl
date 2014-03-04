@@ -837,6 +837,21 @@ public abstract class AbstractPageServlet{
         this.inSubmittedForm = b;
     }
 
+    // used for runtime check to detect nested forms
+    protected String inForm = null;
+    public boolean isInForm() {
+    	return inForm != null;
+    }
+    public void enterForm(String t) {
+    	inForm = t;
+    }
+    public String getEnclosingForm() {
+    	return inForm;
+    }
+    public void leaveForm() {
+    	inForm = null;
+    }
+
     public void clearParammaps(){
         parammap.clear();
         parammapvalues.clear();
