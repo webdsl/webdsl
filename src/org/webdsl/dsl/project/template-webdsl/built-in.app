@@ -379,6 +379,7 @@ module .servletapp/src-webdsl-template/built-in
     getContentAsString():String
     getContentType():String
     setContentType(String)
+    getFileName():String
   }
 
 // access to servlet context
