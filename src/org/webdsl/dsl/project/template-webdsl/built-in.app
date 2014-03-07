@@ -1,4 +1,17 @@
 module .servletapp/src-webdsl-template/built-in
+
+// page request statistics
+
+  native class utils.Statistics as Statistics {
+    static logStatistics()
+  }
+  
+  function logStatistics(){
+    Statistics.logStatistics();
+  }
+  
+  invoke logStatistics() every 5 minutes
+
 // hibbernate transaction management
 
   native class utils.ValidationException as NativeValidationException {

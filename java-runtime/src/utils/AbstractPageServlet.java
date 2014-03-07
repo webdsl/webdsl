@@ -206,6 +206,9 @@ public abstract class AbstractPageServlet{
             //        -> always results in a redirect, no further action necessary here
           }
         }
+        
+        updatePageRequestStatistics();
+        
         hibSession = utils.HibernateUtil.getCurrentSession();
         if( isTransactionAborted() || isRollback() ){
           try{
@@ -1346,5 +1349,39 @@ public abstract class AbstractPageServlet{
     	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );
     	  
     	  return pegDownProcessor;
+      }
+      
+      // statistics to be shown in log
+      protected abstract void increaseStatReadOnly();
+      protected abstract void increaseStatUpdate();
+      protected abstract void increaseStatActionFail();
+      protected abstract void increaseStatActionReadOnly();
+      protected abstract void increaseStatActionUpdate();
+      
+      // register whether entity changes were made, see isChanged property of entities
+      public boolean readOnlyRequestStats = true;
+
+      protected void updatePageRequestStatistics(){
+    	  if(hasNotExecutedAction()) { 
+    		  if(readOnlyRequestStats) { 
+    			  increaseStatReadOnly(); 
+    		  }
+    		  else { 
+    			  increaseStatUpdate(); 
+    		  }
+    	  }
+    	  else{
+    		  if(isNotValid()) { 
+    			  increaseStatActionFail(); 
+    		  } 
+    		  else { 
+    			  if(readOnlyRequestStats) { 
+    				  increaseStatActionReadOnly(); 
+    			  } 
+    			  else { 
+    				  increaseStatActionUpdate(); 
+    			  } 
+    		  }
+    	  }
       }
 }
