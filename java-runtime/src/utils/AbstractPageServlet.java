@@ -330,7 +330,7 @@ public abstract class AbstractPageServlet{
     public void renderResponse(PrintWriter sout, StringWriter s) throws IOException {
         ThreadLocalOut.push(sout);
 
-        addJavascriptInclude("jquery-1.8.2.min.js");
+        addJavascriptInclude( utils.IncludePaths.jQueryJS() );
         addJavascriptInclude("ajax.js");
 
         sout.println("<!DOCTYPE html>");
@@ -346,7 +346,7 @@ public abstract class AbstractPageServlet{
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
         for(String script : this.javascripts) {
-            if(script.startsWith("http://") || script.startsWith("https://")){
+            if(script.startsWith("//") || script.startsWith("http://") || script.startsWith("https://")){
                 sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
             }
             else{
@@ -354,7 +354,7 @@ public abstract class AbstractPageServlet{
             }
         }
         for(String[] sheet : this.stylesheets) {
-            if(sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
+            if(sheet[0].startsWith("//") || sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
                 sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
             }
             else{

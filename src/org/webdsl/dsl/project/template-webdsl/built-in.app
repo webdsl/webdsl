@@ -14,6 +14,14 @@ module .servletapp/src-webdsl-template/built-in
 
 // hibbernate transaction management
 
+  native class utils.IncludePaths as IncludePaths {
+  	static jQueryJS() : String
+  	static jQueryUIJS() : String
+  	static jQueryUICSS() : String
+  	static timepickerJS() : String
+  	static timepickerCSS() : String
+  }
+  
   native class utils.ValidationException as NativeValidationException {
       getName() : String
       getErrorMessage() : String
@@ -1073,14 +1081,11 @@ native class java.lang.Double as Double {
       }
     }
 
-    //includeJS("https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js")
-    //includeJS("https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js")
-    //includeCSS("http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/themes/base/jquery-ui-1.9.1.custom.min.css")
-    includeJS("jquery-1.8.2.min.js")
-    includeJS("jquery-ui-1.9.1.custom.min.js")
-    includeJS("jquery-ui-timepicker-addon.js")
-    includeCSS("jquery-ui-1.9.1.custom.min.css")
-    includeCSS("jquery-ui-timepicker-addon.css")
+    includeJS( IncludePaths.jQueryJS() )
+    includeJS( IncludePaths.jQueryUIJS() )
+    includeJS( IncludePaths.timepickerJS() )
+    includeCSS( IncludePaths.jQueryUICSS() )
+    includeCSS( IncludePaths.timepickerCSS() )
 
     var req := getRequestParameter(tname)
 
@@ -1542,9 +1547,9 @@ native class java.lang.Double as Double {
       }
     }
 
-    includeCSS("jquery-ui-1.9.1.custom.min.css")
-    includeJS("jquery-1.8.2.min.js")
-    includeJS("jquery-ui-1.9.1.custom.min.js")
+    includeCSS(IncludePaths.jQueryUICSS())
+    includeJS(IncludePaths.jQueryJS())
+    includeJS(IncludePaths.jQueryUIJS())
 
     <script type="text/javascript">
       $(function() {
