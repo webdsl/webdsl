@@ -531,15 +531,8 @@ public abstract class AbstractPageServlet{
         return emails;
     }
     public boolean sendEmail(String name, Object[] emailargs, Environment emailenv){
-        try{
-          EmailServlet temp = renderEmail(name,emailargs,emailenv);
-          temp.send();
-          return true;
-        }
-        catch(Exception e){
-          org.webdsl.logging.Logger.error("EXCEPTION",e);
-          return false;
-        }
+        EmailServlet temp = renderEmail(name,emailargs,emailenv);
+        return temp.send();
     }
     public EmailServlet renderEmail(String name, Object[] emailargs, Environment emailenv){
         EmailServlet temp = null;
