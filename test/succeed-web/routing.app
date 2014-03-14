@@ -11,6 +11,7 @@ page root(){
   for(p:Project order by p.name){
     navigate project(p) { output(p.name) }
   }
+  output(baseUrl())
 }
   
 page project(p:Project){
@@ -20,6 +21,7 @@ page project(p:Project){
   
 routing {
   receive(urlargs:[String]) {
+    log(baseUrl());
     //var args := urlComponents();
     if(urlargs.length == 2){
       return [urlargs[1], urlargs[0]];
