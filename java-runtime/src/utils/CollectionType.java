@@ -1,5 +1,6 @@
 package utils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -21,5 +22,11 @@ public class CollectionType {
     	list.addAll(toAdd);
     	return list;
     }
+    
+    // utility method to create a list with elements in a single expression
+	public static <T> List<T> addAll(List<T> c, T... elements){
+		Collections.addAll(c, elements);
+		return c;
+	}
     
 }
