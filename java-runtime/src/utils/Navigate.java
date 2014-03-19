@@ -34,13 +34,15 @@ public class Navigate {
 	}
 
 	public static void removeTrailingDefaultValues(List<String> args, String... argtypes){
-		for(int i = 0; i < args.size(); i++){
+        for(int i = args.size() - 1; i >= 0; i--){
 			if(   (args.get(i).equals("") && utils.TypesInfo.getStringCompatibleTypes().contains(argtypes[i]))
 			   || (args.get(i).equals("0") && argtypes[i].equals("Int"))
 			   || (args.get(i).equals("0.0") && argtypes[i].equals("Float"))
 			){
 				args.remove(i); 
-				i--;
+			}
+			else{
+				break; // stop when non-default value is at the end
 			}
 		}
 	}
