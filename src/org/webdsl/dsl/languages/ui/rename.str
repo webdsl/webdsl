@@ -32,12 +32,13 @@ rules
           ; x1 := <if <fetch(TemplateModOverride)> mod* then !x{<newname-webdsl> x} else !x end>
           ; rules ( InPage := x1 )
           ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
-          ; rules ( TemplateArg := farg2* ) //used in template-call.str
+          ; rules ( TemplateArg := farg2* //used in template-call.str
+                    TemplateModList := mod* ) 
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
           ; elem2* := <alltd(rename-actions-find-action(|x1)); rename-all(is-var-decl-cons); alltd(rename-actions(|x1))> elem1*
-          ; genname := <generate-template-name-fargs>(x1, farg2*)
+          ; genname := <generate-template-name-fargs>(x1, farg2*, mod*)
           ; newanno* := <rename-query-optimization-annos> anno*
           ; def := Define(mod*, x1, farg2*, req*, elem2*){newanno*}
           ; rules ( CurrentTemplateDecl : genname -> def) //replace with DR of separate compilation branch
@@ -53,12 +54,13 @@ rules
           ; y := x{<newname-webdsl> x}
           ; rules ( InTemplate := y )
           ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
-          ; rules ( TemplateArg := farg2* )
+          ; rules ( TemplateArg := farg2* 
+                    TemplateModList := mod* )
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
           ; elem2* := <alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
-          ; genname := <generate-template-name-fargs>(y, farg2*)
+          ; genname := <generate-template-name-fargs>(y, farg2*, mod*)
           ; newanno* := <rename-query-optimization-annos> anno*
           ; def := Define(mod*, y, farg2*, req*, elem2*){newanno*}
           ; if not(<fetch(Local)> mod*) then // Needed, because when rename is called from a desugar rule then InPage and InTemplate are not set correctly
@@ -67,14 +69,15 @@ rules
           |}
        
   get-enclosing-define-from-context :     
-    _ -> EnclosingDefine(templatekey, page-or-template-name, template-arg, in-email)
+    _ -> EnclosingDefine(templatekey, page-or-template-name, template-arg, in-email, mod*)
     where not(InsideArgDefine)
         ; page-or-template-name := <InTemplate <+ InPage <+ InEmail>
         ; template-arg := <TemplateArg>
       <+ (page-or-template-name,template-arg) := <InsideArgDefine>
     with if InEmail then in-email := True() else in-email := False() end
     with templatekey := (page-or-template-name, <!template-arg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
-        
+    with mod* := <TemplateModList>
+    	    
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions-reqs> def
     where (InPage <+ InTemplate)
@@ -88,11 +91,12 @@ rules
          ; y := x{<toplevel-rename> x}
          ; rules ( InTemplate := y )
          ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
-         ; rules ( TemplateArg := farg2* )
+         ; rules ( TemplateArg := farg2* 
+                   TemplateModList := mod* )
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
          ; elem2* := <mark-too-deeply-nested-defines; alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
-         ; genname := <generate-template-name-fargs>(y, farg2*)
+         ; genname := <generate-template-name-fargs>(y, farg2*, mod*)
          ; newanno3* := <rename-query-optimization-annos> newanno2*
          ; def := Define(mod2*, y, farg2*, req*, elem2*){newanno3*}
          // Updating CurrentTemplateDecl here will overwrite the top level decl with the local one, because their genname is still the same
