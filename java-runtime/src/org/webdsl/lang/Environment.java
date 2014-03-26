@@ -1,207 +1,97 @@
 package org.webdsl.lang;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.commons.lang3.ArrayUtils;
-
+import utils.AbstractPageServlet;
 import utils.LocalTemplateArguments;
 import utils.ThreadLocalPage;
 import utils.ThreadLocalTemplate;
 
 public class Environment {
 
-    private Environment up = null;
-    
-    public Environment(Environment up)
-    {
-        this.up = up;
-    }
-    
-    public Environment(){}
-    
-    
-    
-    private Map<String,Class> templates = null;
+	public static Environment createSharedEnvironment(){
+		return new Environment(null,null,new EnvironmentTemplateGlobalLookup(), null, new EnvironmentVariableLookup());
+	}
 
-    public Map<String,Class> getTemplates(){
-        return templates;
-    }
-    
-    public Class getTemplate(String key) {
-        if (templates != null && templates.containsKey(key)){
-            return templates.get(key);
-        }
-        else{
-            if(up != null){
-                return up.getTemplate(key);
-            }
-            else{
-                throw new RuntimeException("template lookup failed for name: "+key);   
-            }
-        }
-    }
+	public static Environment createLocalEnvironment(){
+		return new Environment(AbstractPageServlet.staticEnv
+				, new EnvironmentWithCallLookup(null)
+				, new EnvironmentTemplateLocalLookup(AbstractPageServlet.staticEnv.templates)
+				, new EnvironmentExtraLocalTemplateArgs(null)
+				, AbstractPageServlet.staticEnv.variables);
+	}
 
-    public void putTemplate(String key, Class value) {
-        if(templates == null){
-            templates = new HashMap<String,Class>();
-        }
-        templates.put(key, value);
-    }
-    
-        public boolean isRedefinedTemplate(String key) {
-        if (templates != null && templates.containsKey(key)){
-            return up != null;
-        }
-        else{
-            if(up != null){
-                return up.isRedefinedTemplate(key);
-            }
-            else{
-                throw new RuntimeException("template lookup failed for name: "+key);   
-            }
-        }
-    }
+	public Environment(Environment up, EnvironmentWithCallLookup withCalls, IEnvironmentTemplateLookup templates, 
+			EnvironmentExtraLocalTemplateArgs extra, EnvironmentVariableLookup variables)
+	{
+		this.withCalls = withCalls;
+		this.templates = templates;
+		this.variables = variables;
+		this.extraLocalTemplateArguments = extra;
+	}
 
-    /**
-     *  'with/requires' calls map
-        
-          define page root(){
-            var i := 7
-            test() with {
-              ---> content(s:String){ "123" output(s) output(i) } <---
-            }
-          }
-          define test() requires content(String){
-            "content: " content("456")
-          }
-          
-          content(s:String) is lifted, i becomes an argument, 
-          a partial templatecall is stored in the environment
-          which contains the name of the lifted template and the value of i 
-          
-          returns null if templatecall is not found, used when 'elements' are empty
-     */
-    protected Map<String, utils.TemplateCall> withcallsmap = null;
-    
-    public Map<String, utils.TemplateCall> getWithcallsmap(){ return withcallsmap; }
-    
-    public utils.TemplateCall getWithcall(String key) {
-        if (withcallsmap != null && withcallsmap.containsKey(key)){
-            return withcallsmap.get(key);
-        }
-        else{
-            if(up!=null){
-                return up.getWithcall(key);
-            }
-            else{
-                return null;
-            }
-        }
-    }
+	public Environment(Environment up)
+	{
+		withCalls = up.withCalls;
+		this.templates = up.templates;
+		this.variables = up.variables;
+		this.extraLocalTemplateArguments = up.extraLocalTemplateArguments;
+	}
 
-    public Environment putWithcall(String key, utils.TemplateCall value) {
-        if(withcallsmap == null){
-            withcallsmap = new HashMap<String,utils.TemplateCall>();
-        }
-        withcallsmap.put(key, value);
-        return this; // enable chaining for convenient code generation
-    }
-    
-    
-    /**
-     *  Was used for storing vars for passing them on to local template redefinitions, this is no longer the case.
-     *  TODO: Still used for globals and sessions, although if that is the only usage, they don't have to be in this Environment class.
-     */
-    private Map<String,Object> variables = null;
-   
-    public Map<String,Object> getVariables(){
-        return variables;
-    }
+	protected IEnvironmentTemplateLookup templates = null;
 
-    public Object getVariable(String key) {
-        if (variables != null && variables.containsKey(key)){
-            return variables.get(key);
-        }
-        else{
-            if(up != null){
-                return up.getVariable(key);
-            }
-            else{
-                throw new RuntimeException("global/session variable lookup failed for name: "+key);   
-            }
-        }
-    }
+	public Class<?> getTemplate(String key) {
+		return templates.getTemplate(key);
+	}
 
-    public void putVariable(String key, Object value) {
-        if(variables == null){
-             variables = new HashMap<String,Object>();
-        }
-        variables.put(key, value);
-    }
+	public void putTemplate(String key, Class<?> value) {
+		templates = templates.putTemplate(key, value);
+	}
 
-    
-    /**
-     * Used for storing implicit arguments to local template redefinitions
-     * 
-          define page root() {
-            var st := "1"
-            form{
-              b(12345)  	
-              submit action{ } {"save"}
-            } 
-            define b(i:Int) = a(*,--->st<---)
-          }
-          define a(i:Int, s:Ref<String>){}
-          define b(i:Int){}
-     * 
-     */
-    private Map<String,LocalTemplateArguments> extraLocalTemplateArguments = null;
-    
-    public Map<String,LocalTemplateArguments> getExtraLocalTemplateArguments(){
-        return extraLocalTemplateArguments;
-    }
+	protected EnvironmentWithCallLookup withCalls = null;
+	
+	public utils.TemplateCall getWithcall(String key) {
+		return withCalls.getWithcall(key);
+	}
 
-    public LocalTemplateArguments getExtraLocalTemplateArguments(String key) {
-        if (extraLocalTemplateArguments != null && extraLocalTemplateArguments.containsKey(key)){
-            return extraLocalTemplateArguments.get(key);
-        }
-        else if(up != null){
-            return up.getExtraLocalTemplateArguments(key);
-        }
-        else{
-            return null;
-        }
-    }
-    
-    public Object[] addExtraLocalTemplateArgumentsToArguments(Object[] args, String key) {
-    	LocalTemplateArguments tmp = getExtraLocalTemplateArguments(key);
-    	if(tmp == null){
-    		return args;
-    	}
-    	else{
-    		return ArrayUtils.addAll(args,tmp.extraArgs);
-    	}
-    }
+	public Environment putWithcall(String key, utils.TemplateCall value) {
+		withCalls = withCalls.putWithcall(key, value);
+		return this; // enable chaining for convenient code generation
+	}
+	
+	protected EnvironmentVariableLookup variables = null;
+	
+	public Object getVariable(String key) {
+		return variables.getVariable(key);
+	}
 
-    public void putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {
-        if(extraLocalTemplateArguments == null){
-            extraLocalTemplateArguments = new HashMap<String,LocalTemplateArguments>();
-        }
-        extraLocalTemplateArguments.put(key, value);
-    }  
-    
-    /**
-     * Utility for expression translation, to retrieve either a new env from the action/template context (if available, 
-     * which is the case when the expression is used inside an action/template), or from the global env (expression used inside a function).
-     * @return {@link Environment}
-     */
-    public static Environment getLocalOrGlobalEnv(){
-        Environment result = ThreadLocalTemplate.getEnv();
-        if(result == null){
-            result = ThreadLocalPage.getEnv();
-        }
-        return new Environment(result);
-    }
-    
+	public void putVariable(String key, Object value) {
+		variables.putVariable(key, value);
+	}
+
+	protected EnvironmentExtraLocalTemplateArgs extraLocalTemplateArguments = null;
+
+	public LocalTemplateArguments getExtraLocalTemplateArguments(String key) {
+		return extraLocalTemplateArguments.getExtraLocalTemplateArguments(key);
+	}
+
+	public Object[] addExtraLocalTemplateArgumentsToArguments(Object[] args, String key) {
+		return extraLocalTemplateArguments.addExtraLocalTemplateArgumentsToArguments(args, key);
+	}
+
+	public void putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {
+		extraLocalTemplateArguments = extraLocalTemplateArguments.putExtraLocalTemplateArguments(key, value);
+	}  
+
+	/**
+	 * Utility for expression translation, to retrieve either a new env from the action/template context (if available, 
+	 * which is the case when the expression is used inside an action/template), or from the global env (expression used inside a function).
+	 * @return {@link Environment}
+	 */
+	public static Environment getLocalOrGlobalEnv(){
+		Environment result = ThreadLocalTemplate.getEnv();
+		if(result == null){
+			result = ThreadLocalPage.getEnv();
+		}
+		return new Environment(result);
+	}
+
 }

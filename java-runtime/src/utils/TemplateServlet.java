@@ -117,16 +117,16 @@ public abstract class TemplateServlet {
     protected abstract boolean isAjaxTemplate();
     private boolean alreadyPassedThroughAjaxTemplate = false;
     protected void beforeRender(){
-        if(ThreadLocalPage.get().passedThroughAjaxTemplate()){
+        if(threadLocalPageCached.passedThroughAjaxTemplate()){
             alreadyPassedThroughAjaxTemplate = true;
         }
         else if(isAjaxTemplate()){
-            ThreadLocalPage.get().setPassedThroughAjaxTemplate(true);
+        	threadLocalPageCached.setPassedThroughAjaxTemplate(true);
         }
     }
     protected void afterRender(){
         if(!alreadyPassedThroughAjaxTemplate && isAjaxTemplate()){
-            ThreadLocalPage.get().setPassedThroughAjaxTemplate(false);
+        	threadLocalPageCached.setPassedThroughAjaxTemplate(false);
         }    	
     }
     
@@ -146,7 +146,7 @@ public abstract class TemplateServlet {
     public abstract String getTemplateSignature();
     public abstract String getStateEncodingOfArgument();
     public String getTemplateContext(){
-      return ThreadLocalPage.get().getTemplateContextString();
+      return threadLocalPageCached.getTemplateContextString();
     } 
     
     private Map<String,Object> actions = null;
@@ -172,15 +172,21 @@ public abstract class TemplateServlet {
     //null means use the regular unique template name
     protected String calledName;
     
+    public AbstractPageServlet threadLocalPageCached = null;
+    
     private void tryInitializeTemplate(String calledName, Object[] args, Environment env, Map<String,String> attrs){
         //always set ThreadLocalTemplate
         ThreadLocalTemplate.set(this);
+        
+        //cache ThreadLocalPage.get() lookup
+        threadLocalPageCached = ThreadLocalPage.get();
+        
         //always store env and arguments, values might change between phases
         // We ensure that there is an env, because prefetching in storeArguments() may use env.getTemplate()
         this.env = env;
         storeArguments(args);
         
-        if(!initialized || ThreadLocalPage.get().hibernateCacheCleared)
+        if(!initialized || threadLocalPageCached.hibernateCacheCleared)
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
               initialized=true;
@@ -188,32 +194,32 @@ public abstract class TemplateServlet {
               this.calledName = calledName;
               this.env = env;
               putLocalDefinesInEnv();
-              this.request = ThreadLocalPage.get().getRequest();
-              this.response = ThreadLocalPage.get().getResponse();
+              this.request = threadLocalPageCached.getRequest();
+              this.response = threadLocalPageCached.getResponse();
               //if(request != null){ //calling rendertemplate within background task
               //  this.session = request.getSession(true);
               //}
-              this.hibSession = utils.HibernateUtil.getCurrentSession();
+              this.hibSession = threadLocalPageCached.hibernateSession;
               this.attrs = attrs;
               try {
-                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext());
+                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext(), threadLocalPageCached);
                 initialize();
                 initializeLocalVars();
                 initSubmitActions();
                 initActions();
               }
               catch(utils.ValidationException ve){
-                ThreadLocalPage.get().getValidationExceptions().add(ve.setName(ThreadLocalPage.get().getValidationContext()));
-                ThreadLocalPage.get().setValidated(false);
+            	threadLocalPageCached.getValidationExceptions().add(ve.setName(threadLocalPageCached.getValidationContext()));
+            	threadLocalPageCached.setValidated(false);
                 utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+ve.getErrorMessage());  
             skipThisTemplate = true;
           }
           catch(utils.MultipleValidationExceptions ve){
             for(utils.ValidationException vex : ve.getValidationExceptions()){
-              ThreadLocalPage.get().getValidationExceptions().add(vex.setName(ThreadLocalPage.get().getValidationContext()));
+              threadLocalPageCached.getValidationExceptions().add(vex.setName(threadLocalPageCached.getValidationContext()));
               utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+vex.getErrorMessage());  
             }
-            ThreadLocalPage.get().setValidated(false); 
+            threadLocalPageCached.setValidated(false); 
             skipThisTemplate = true;
           }
         } 
@@ -223,10 +229,10 @@ public abstract class TemplateServlet {
         return isAjaxSubmitRequired(false);
     }
     protected boolean isAjaxSubmitRequired(boolean ajaxmod){
-      return ThreadLocalPage.get().isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
-        || ThreadLocalPage.get().isAjaxRuntimeRequest() //current request came from ajax runtime
-        || ThreadLocalPage.get().passedThroughAjaxTemplate() // passed through template defined with ajax modifier 'define ajax'
+      return threadLocalPageCached.isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
+        || threadLocalPageCached.isAjaxRuntimeRequest() //current request came from ajax runtime
+        || threadLocalPageCached.passedThroughAjaxTemplate() // passed through template defined with ajax modifier 'define ajax'
         || ajaxmod //submit buttons is defined with ajax modifier '[ajax]'
-        || ThreadLocalPage.get().getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
+        || threadLocalPageCached.getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
     }
 }

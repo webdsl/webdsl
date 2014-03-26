@@ -34,7 +34,8 @@ public abstract class AbstractPageServlet{
     protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
     protected abstract void addLogSqlToSessionMessages();
     protected PegDownProcessor pegDownProcessor = null;
-
+    public Session hibernateSession = null;
+    
     public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
     {
       initTemplateClass();
@@ -63,16 +64,16 @@ public abstract class AbstractPageServlet{
         reqAppender = utils.RequestAppender.getInstance();
       }
       if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
-      Session hibSession = utils.HibernateUtil.getCurrentSession();
-      hibSession.beginTransaction();
-      hibSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
+      hibernateSession = utils.HibernateUtil.getCurrentSession();
+      hibernateSession.beginTransaction();
+      hibernateSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
       try
       {
         StringWriter s = new StringWriter();
         PrintWriter out = new PrintWriter(s);
         ThreadLocalOut.push(out);
 
-        ThreadLocalServlet.get().loadSessionManager(hibSession, getUsedSessionEntityJoins());
+        ThreadLocalServlet.get().loadSessionManager(hibernateSession, getUsedSessionEntityJoins());
         ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
 
         initVarsAndArgs();
@@ -209,10 +210,10 @@ public abstract class AbstractPageServlet{
         
         updatePageRequestStatistics();
         
-        hibSession = utils.HibernateUtil.getCurrentSession();
+        hibernateSession = utils.HibernateUtil.getCurrentSession();
         if( isTransactionAborted() || isRollback() ){
           try{
-              hibSession.getTransaction().rollback();
+              hibernateSession.getTransaction().rollback();
           }
           catch (org.hibernate.SessionException e){
             if(!e.getMessage().equals("Session is closed!")){ // closed session is not an issue when rolling back
@@ -228,10 +229,10 @@ public abstract class AbstractPageServlet{
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
           
-          hibSession.flush();
+          hibernateSession.flush();
           validateEntities();
           
-          hibSession.getTransaction().commit();
+          hibernateSession.getTransaction().commit();
         }
         ThreadLocalOut.popChecked(out);
       } 
@@ -242,7 +243,7 @@ public abstract class AbstractPageServlet{
     	  for(utils.ValidationException vex : mve.getValidationExceptions()){
     		  org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
     	  }
-    	  hibSession.getTransaction().rollback();
+    	  hibernateSession.getTransaction().rollback();
     	  setValidated(false);
     	  throw mve;
       }
@@ -250,7 +251,7 @@ public abstract class AbstractPageServlet{
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
         org.webdsl.logging.Logger.error("exception occured while handling request URL [ "+url+ " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
-        hibSession.getTransaction().rollback();
+        hibernateSession.getTransaction().rollback();
         throw new RuntimeException("serve page request failed, requested URL: "+url);
 
       }
@@ -521,9 +522,9 @@ public abstract class AbstractPageServlet{
     }
 
     //templates scope
-    public static Environment staticEnv = new Environment();
+    public static Environment staticEnv = Environment.createSharedEnvironment();
 
-    public Environment env = new Environment(AbstractPageServlet.staticEnv);
+    public Environment env = Environment.createLocalEnvironment();
 
     //emails
     protected static Map<String, Class<?>> emails = new HashMap<String, Class<?>>();
