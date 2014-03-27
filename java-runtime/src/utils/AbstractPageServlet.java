@@ -85,7 +85,7 @@ public abstract class AbstractPageServlet{
             this.setActionLinkUsed(true);
           }
 
-          templateservlet.storeInputs(null, args, new Environment(env), null);
+          templateservlet.storeInputs(null, args, new Environment(envGlobalAndSession), null);
           ThreadLocalPage.get().clearTemplateContext();
 
           //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
@@ -100,11 +100,11 @@ public abstract class AbstractPageServlet{
           }
 
           if (!ignoreValidation){
-            templateservlet.validateInputs (null, args, new Environment(env), null);
+            templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
             ThreadLocalPage.get().clearTemplateContext();
           }
           if(validated){
-            templateservlet.handleActions(null, args, new Environment(env), null);
+            templateservlet.handleActions(null, args, new Environment(envGlobalAndSession), null);
             ThreadLocalPage.get().clearTemplateContext();
           }
         }
@@ -165,7 +165,7 @@ public abstract class AbstractPageServlet{
           else {
             // actionLink or ajax action used and replace(placeholder) invoked
             if( isReRenderPlaceholders() ){
-                templateservlet.validateInputs (null, args, new Environment(env), null);
+                templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
                 ThreadLocalPage.get().clearTemplateContext();
                 renderContentSingleRender(); // content of placeholders is collected in reRenderPlaceholdersContent map
                 StringWriter replacements = new StringWriter();
@@ -305,19 +305,19 @@ public abstract class AbstractPageServlet{
             ThreadLocalOut.push(pwform);
             // render, when encountering submitted form save in abstractpage
             validationFormRerender = true;
-            templateservlet.render(null, args, new Environment(env), null);
+            templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
             ThreadLocalOut.popChecked(pwform);
 
             clearHibernateCache();
 
             ThreadLocalOut.push(out);
             // render, when encountering submitted form render old
-            templateservlet.render( null, args, new Environment(env), null);
+            templateservlet.render( null, args, new Environment(envGlobalAndSession), null);
             ThreadLocalOut.popChecked(out);
         }
         else{
           ThreadLocalOut.push(out);
-          templateservlet.render(null, args, new Environment(env), null);
+          templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
           ThreadLocalOut.popChecked(out);
         }
         return s;
@@ -403,17 +403,17 @@ public abstract class AbstractPageServlet{
     }
 
     //ajax/js runtime request related
-    protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args, Environment env);
+    protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args);
     public boolean isServingAsAjaxResponse = false;
-    public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, Environment env, TemplateCall templateArg)
+    public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, TemplateCall templateArg)
     { //use passed PageServlet ps here, since this is the context for this type of response
-      initializeBasics(ps, args, env);
+      initializeBasics(ps, args);
 
       ThreadLocalPage.set(this);
       //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
 
       this.isServingAsAjaxResponse = true;
-      templateservlet.render(null, args, new Environment(env), null);
+      templateservlet.render(null, args, new Environment(ps.envGlobalAndSession), null);
 
       ThreadLocalPage.set(ps);
     }
@@ -512,8 +512,6 @@ public abstract class AbstractPageServlet{
 
     //public javax.servlet.http.HttpSession session;
 
-    public Environment envGlobalAndSession;
-
     public static void cleanupThreadLocals(){
         ThreadLocalAction.set(null);
         ThreadLocalEmailContext.set(null);
@@ -524,7 +522,7 @@ public abstract class AbstractPageServlet{
     //templates scope
     public static Environment staticEnv = Environment.createSharedEnvironment();
 
-    public Environment env = Environment.createLocalEnvironment();
+    public Environment envGlobalAndSession = Environment.createLocalEnvironment();
 
     //emails
     protected static Map<String, Class<?>> emails = new HashMap<String, Class<?>>();
