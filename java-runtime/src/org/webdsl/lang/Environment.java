@@ -8,7 +8,7 @@ import utils.ThreadLocalTemplate;
 public class Environment {
 
 	public static Environment createSharedEnvironment(){
-		return new Environment(null,null,new EnvironmentTemplateGlobalLookup(), null, null);
+		return new Environment(null,null,new EnvironmentTemplateGlobalLookup(), null, new EnvironmentVariableLookup());
 	}
 
 	public static Environment createLocalEnvironment(){
@@ -16,7 +16,7 @@ public class Environment {
 				, new EnvironmentWithCallLookup(null)
 				, new EnvironmentTemplateLocalLookup(AbstractPageServlet.staticEnv.templates)
 				, new EnvironmentExtraLocalTemplateArgs(null)
-				, new EnvironmentVariableLookup());
+				, AbstractPageServlet.staticEnv.variables);
 	}
 
 	public Environment(Environment up, EnvironmentWithCallLookup withCalls, IEnvironmentTemplateLookup templates, 
