@@ -16,7 +16,9 @@ import java.io.*;
 @SuppressWarnings("unused")
 public class GlobalsPageServlet extends PageServlet
 {
-    public GlobalsPageServlet(){}
+    public GlobalsPageServlet(){
+    	hibernateSession = utils.HibernateUtil.getCurrentSession();    	
+    }
     public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String, utils.File> fileUploads){}
     protected void renderDebugJsVar(java.io.PrintWriter sout){}
     protected boolean logSqlCheckAccess(){return false;}
