@@ -4,13 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *  lookup of global and session variables
+ *  lookup of session variables
  */
-public class EnvironmentVariableLookup {
+public class EnvironmentSessionVariableLookup {
 
 	protected Map<String,Object> variables = new HashMap<String,Object>();
 
-	public EnvironmentVariableLookup(){}
+	public EnvironmentSessionVariableLookup(){}
 
 	public Object getVariable(String key) {
 		Object o = variables.get(key);
@@ -18,7 +18,7 @@ public class EnvironmentVariableLookup {
 			return o;
 		}
 		else{
-			throw new RuntimeException("global/session variable lookup failed for name: "+key);   
+			throw new RuntimeException("session variable lookup failed for name: "+key);   
 		}
 	}
 

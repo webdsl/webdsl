@@ -8,7 +8,7 @@ import utils.ThreadLocalTemplate;
 public class Environment {
 
 	public static Environment createSharedEnvironment(){
-		return new Environment(null,null,new EnvironmentTemplateGlobalLookup(), null, new EnvironmentVariableLookup());
+		return new Environment(null,null,new EnvironmentTemplateGlobalLookup(), null, null, null);
 	}
 
 	public static Environment createLocalEnvironment(){
@@ -16,15 +16,17 @@ public class Environment {
 				, new EnvironmentWithCallLookup(null)
 				, new EnvironmentTemplateLocalLookup(AbstractPageServlet.staticEnv.templates)
 				, new EnvironmentExtraLocalTemplateArgs(null)
-				, AbstractPageServlet.staticEnv.variables);
+				, new EnvironmentGlobalVariableLookup()
+				, new EnvironmentSessionVariableLookup());
 	}
 
 	public Environment(Environment up, EnvironmentWithCallLookup withCalls, IEnvironmentTemplateLookup templates, 
-			EnvironmentExtraLocalTemplateArgs extra, EnvironmentVariableLookup variables)
+			EnvironmentExtraLocalTemplateArgs extra, EnvironmentGlobalVariableLookup globalVariables, EnvironmentSessionVariableLookup sessionVariables)
 	{
 		this.withCalls = withCalls;
 		this.templates = templates;
-		this.variables = variables;
+		this.globalVariables = globalVariables;
+		this.sessionVariables = sessionVariables;
 		this.extraLocalTemplateArguments = extra;
 	}
 
@@ -32,7 +34,8 @@ public class Environment {
 	{
 		withCalls = up.withCalls;
 		this.templates = up.templates;
-		this.variables = up.variables;
+		this.globalVariables = up.globalVariables;
+		this.sessionVariables = up.sessionVariables;
 		this.extraLocalTemplateArguments = up.extraLocalTemplateArguments;
 	}
 
@@ -57,16 +60,26 @@ public class Environment {
 		return this; // enable chaining for convenient code generation
 	}
 	
-	protected EnvironmentVariableLookup variables = null;
+	protected EnvironmentGlobalVariableLookup globalVariables = null;
 	
-	public Object getVariable(String key) {
-		return variables.getVariable(key);
+	public Object getGlobalVariable(String key) {
+		return globalVariables.getVariable(key);
 	}
 
-	public void putVariable(String key, Object value) {
-		variables.putVariable(key, value);
+	public void putGlobalVariable(String key, Object value) {
+		globalVariables.putVariable(key, value);
 	}
 
+	protected EnvironmentSessionVariableLookup sessionVariables = null;
+	
+	public Object getSessionVariable(String key) {
+		return sessionVariables.getVariable(key);
+	}
+
+	public void putSessionVariable(String key, Object value) {
+		sessionVariables.putVariable(key, value);
+	}	
+	
 	protected EnvironmentExtraLocalTemplateArgs extraLocalTemplateArguments = null;
 
 	public LocalTemplateArguments getExtraLocalTemplateArguments(String key) {

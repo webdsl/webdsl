@@ -10,7 +10,7 @@ imports
 rules //global var use
 
   expression-to-java-servlet :
-    gv@GlobalVar(x) -> expr|[ (x_class) ThreadLocalPage.getEnv().getVariable("~x") ]|
+    gv@GlobalVar(x) -> expr|[ (x_class) ThreadLocalPage.getEnv().getGlobalVariable("~x") ]|
     where x_class := <get-type-anno; java-type-name> gv
 
 rules
@@ -73,12 +73,14 @@ rules
               //assumes session already started a transaction
               org.hibernate.Session hibSession = e_HibSession;
               
-              boolean pageServletIsNotSet = ThreadLocalPage.get()==null;
-              if(pageServletIsNotSet){
-                PageServlet ps = new GlobalsPageServlet();
+              AbstractPageServlet ps = ThreadLocalPage.get();
+              boolean pageServletIsNotSet = ThreadLocalPage.get() == null;
+              if(pageServletIsNotSet)
+              { 
+                ps = new GlobalsPageServlet();
                 ThreadLocalPage.set(ps);
               }
-              env = AbstractPageServlet.staticEnv;
+              env = ps.envGlobalAndSession;
               
               org.hibernate.Query q = e_HibSession.createQuery("from ApplicationContextProperty");
               List<ApplicationContextProperty> res = q.list();
@@ -152,7 +154,7 @@ rules
     with  result := 
           bstm* |[ 
             //hibSession.save(x_ident); no longer necessary here because of generated UUID for keys
-            env.putVariable("~x_ident",x_ident); //necessary for set/list creations in globals which use globals
+            env.putGlobalVariable("~x_ident",x_ident); //necessary for set/list creations in globals which use globals
           ]| 
         ; resultwrapped := 
           bstm |[
@@ -222,25 +224,17 @@ rules
   
   generate-global-var-initializer-method = 
     bstm* := <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars>
-    ; bstm2*  := <map(generate-session-var-initializer); concat> <bagof-SessionEntities<+![]>
     ; !|[
         public static boolean initGlobalVars(Environment env, org.hibernate.Session hibSession) {
-          bstm2*
           bstm*
           return true;
         }
       ]|
 
-  generate-session-var-initializer :
-    sent@SessionEntity(x_ident, ebd*) -> bstm*|[ 
-      env.putVariable("~x_ident", x_Ident._static_createEmpty_());
-    ]| 
-    with x_Ident := <capitalize-string> x_ident
-
   generate-global-var-initializer :
     GlobalVarDeclInit(x, srt, e) -> bstm*|[ 
-      env.putVariable("~x", GlobalVariables.get#x(e_HibSession)); 
-      if(env.getVariable("~x") == null) {
+      env.putGlobalVariable("~x", GlobalVariables.get#x(e_HibSession)); 
+      if(env.getGlobalVariable("~x") == null) {
         e_HibSession.getTransaction().commit();
         return false;
       }
