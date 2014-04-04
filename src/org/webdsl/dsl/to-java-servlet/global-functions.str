@@ -64,7 +64,6 @@ rules
     class-body-dec* |[
       public mod* t x#_(param*)  { 
       	  bstm_prefetch*
-          bstm1*
           bstm*
       }
     ]|
@@ -78,7 +77,6 @@ rules
             ; bstm_prefetchargs* := <filter(formal-arguments-to-query-optimizations(|stm*))> args
             ; bstm_prefetch* := <if-optimization-enabled> bstm* |[ bstm_prefetchthis* bstm_prefetchargs* ]|
             ; bstm*  := <statements-to-java-servlet> stm*
-            ; bstm1* := <get-external-vars> stm*
             |}
 
   webdsl-function-to-java-servlet-function =
@@ -87,29 +85,3 @@ rules
       then webdsl-function-to-java-servlet-function(|[])
       else webdsl-function-to-java-servlet-function(|[mod |[ static ]| ])
       end
-  
-  // Put global and session variables in local scope
-  // (re-used for entity functions)
-  get-external-vars: stm* -> [bstm1*, bstm2*]
-    with  usedvarnames := <collect(?Var(<id>)<+?Qualified(<is-string>,_))> stm*
-        ; bstm1* := <get-global-vars-into-java-function(|usedvarnames)>
-        ; bstm2* := <get-session-vars-into-java-function(|usedvarnames)>
-    
-  get-global-vars-into-java-function(|usedvarnames) =
-    <filter(get-global-vars-into-java-function-helper(|usedvarnames))> <bagof-AllGlobalVars>
-  
-  get-global-vars-into-java-function-helper(|usedvarnames) :
-    elem |[ var x : srt := e ]| -> bstm |[ t x = (x_class) ThreadLocalPage.getEnv().getGlobalVariable("~x"); ]| 
-    where <elem> (x,usedvarnames)
-    with  t := <java-type> srt
-        ; x_class := <java-type-name> srt 
-
-  get-session-vars-into-java-function(|usedvarnames) =
-    <filter(get-session-vars-into-java-function-helper(|usedvarnames))> <bagof-SessionEntities>
-   
-  get-session-vars-into-java-function-helper(|usedvarnames) :
-    def|[ session x { ebd* } ]| -> bstm |[ t x = (x_ent) ThreadLocalPage.getEnv().getSessionVariable("~x"); ]| 
-    where <elem> (x,usedvarnames)
-    with  x_ent := <capitalize-string> x
-        ; t := type |[ x_ent ]|
-        

@@ -1,0 +1,64 @@
+module org/webdsl/dsl/languages/data-model/session-variables
+
+imports
+  libstrategolib
+  libjava-front
+
+imports
+  libwebdsl-front
+          
+rules 
+
+  desugar-data:
+    Var(x) -> SessionVar(x)
+    where <IsSession> x 
+  
+  type-of-data :
+    SessionVar(x) -> <TypeOf> x
+    
+rules
+
+  session-var-assign-message : x -> ["Assignment to session variable '",x,"' is not allowed, the session variable must remain the same instance (however, changing its properties is allowed)."]
+
+  constraint-error-data :
+    Stat(Assignment(Var(x), _)) -> <add-error(|<session-var-assign-message> x)>
+    where <IsSession> x
+
+  constraint-error-data :
+    Stat(Assignment(SessionVar(x), _)) -> <add-error(|<session-var-assign-message> x)>
+   
+rules
+
+  session-var-delete-message : x -> ["Session variable '",x,"' may not be deleted, the session variable must remain the same instance (however, changing its properties is allowed)."]
+
+  constraint-error-data :
+    Call(Var(x), "delete",_) -> <add-error(|<session-var-delete-message> x)>
+    where <IsSession> x
+
+  constraint-error-data :
+    Call(SessionVar(x), "delete",_) -> <add-error(|<session-var-delete-message> x)>
+
+  /**
+   *  input(SessionVar) is not allowed, see test/fail/session-variable-constraints.app
+   */
+  constraint-error-data =
+    match-template-with-name(|"input")
+  ; ?t
+  ; get-tc-args
+  ; ( ?[SessionVar(x)] <+ ?[Var(<?x;IsSession>)] )
+  ; <add-error(|["Session variable ",x," is not allowed in inputs, only the properties of a session variable may be changed."])> t
+       
+  /**
+   * constraint on Ref arg called with session variable
+   */
+  constraint-error-data =
+    ?t
+  ; is-defined-tc-get-called-def
+  ; ?Define(_,_,fargs,_,_)
+  ; args := <get-tc-args> t
+  ; <zip(try(constraint-error-ref-arg-session))> (fargs, args)  
+  ; fail //result doesn't matter here, errors are inserted in DR
+    
+  constraint-error-ref-arg-session:
+    (Arg(_,RefSort(_)),e) -> <add-error(|["Session variable ",x," is not allowed as Ref argument, only the properties of a session variable may be changed."])> e
+    where <?Var(<?x;IsSession>)> e <+ <?SessionVar(x)> e

@@ -7,34 +7,44 @@ imports
 imports
   libwebdsl-front
 
-rules
+rules // session var use
+
+  expression-to-java-servlet :
+    s@SessionVar(x) -> expr|[ getCachedSession#x() ]|
+    where ThisTemplateName
+
+  expression-to-java-servlet :
+    s@SessionVar(x) -> expr|[ (x_ent) ThreadLocalPage.getEnv().getSessionVariable("~x") ]|
+    where not(ThisTemplateName)
+    with  x_ent := <capitalize-string> x
+
+rules // local cache for session lookup in template class
 
   GenerateCodeJavaServlet = generate-java-servlet-session-vars-template; fail
 
   generate-java-servlet-session-vars-template  :
-    def@Define(_,_,_,_,_) ->
-    <generate-java-servlet-template-partial>
-    class-body-dec* |[
-      ~*cbds
-    ]|
+    def@Define(_,_,_,_,_) -> <generate-java-servlet-template-partial> cbds
     with  sents := <get-anno(?SessionEntities(<id>))> def
-        ; cbds  := <map(generate-java-servlet-session-vars-template-helper);concat> sents
+        ; cbds  := <map(generate-java-servlet-session-vars-template-helper); concat> sents
 
   generate-java-servlet-session-vars-template-helper :
     x_ident ->
         class-body-dec*
         |[
-           private t_ent x_ident = null;
+           private t_ent x_ident#cache = null;
 
-           @Partial
-           protected void initialize()
+           protected t_ent getCachedSession#x_ident()
            {
-             x_ident = (x_ent) env.getSessionVariable("~x_ident");
+             if(x_ident#cache == null){
+             	x_ident#cache = (x_ent) env.getSessionVariable("~x_ident");
+             }
+             return x_ident#cache;
            }
-
         ]|
     with  t_ent := <capitalize-string; java-type-entity> x_ident
         ; x_ent := <java-type-to-java-name> t_ent
+
+rules
 
   GenerateCodeJavaServlet = page-class-generation-test; generate-java-servlet-session-vars-page; fail
 

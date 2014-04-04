@@ -1173,6 +1173,7 @@
    ActionCall.2:iter-star           -- _1,
 
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
+   SessionVar -- H hs=0[KW["session"] KW["."] _1],
 
    ValidateEntity -- H hs=0[ KW["validate"] KW["("] _1 KW[","] _2 KW[")"] ],
 
