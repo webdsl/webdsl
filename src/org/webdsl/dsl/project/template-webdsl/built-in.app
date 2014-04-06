@@ -915,28 +915,28 @@ native class java.lang.Double as Double {
 
   // Date/DateTime/Time input and output templates
 
-  define ignore-access-control output(d:Ref<DateTime>){
+  template output(d:Ref<DateTime>){
     var default := DateType.getDefaultDateTimeFormat();
     if(d!=null){
         dateoutputgeneric(d as Ref<Date>, default)[all attributes]
     }
   }
 
-  define ignore-access-control output(d:Ref<Time>){
+  template output(d:Ref<Time>){
     var default := DateType.getDefaultTimeFormat();
     if(d!=null){
         dateoutputgeneric(d as Ref<Date>, default)[all attributes]
     }
   }
 
-  define ignore-access-control output(d:Ref<Date>){
+  template output(d:Ref<Date>){
     var default := DateType.getDefaultDateFormat();
     if(d!=null){
         dateoutputgeneric(d,default)[all attributes]
     }
   }
 
-  define ignore-access-control dateoutputgeneric(d:Ref<Date>, defaultformat : String){
+  template dateoutputgeneric(d:Ref<Date>, defaultformat : String){
     var dateformat := defaultformat;
     init{
       //@TODO add support for ref arg in function, to avoid repeating this in both output and input
@@ -956,10 +956,10 @@ native class java.lang.Double as Double {
     output(d.format(dateformat))
   }
 
-  define ignore-access-control input(d:Ref<DateTime>){
-    input(d,1950,now().getYear()+10)
+  template input(d:Ref<DateTime>){
+    input(d,1950,now().getYear()+10)[all attributes]{elements}
   }
-  define ignore-access-control input(d:Ref<DateTime>, minYear:Int, maxYear:Int){
+  template input(d:Ref<DateTime>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateTimeFormat()
     var dateformatString := ""
     var timeformatString := ""
@@ -983,7 +983,7 @@ native class java.lang.Double as Double {
     dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '"+minYear+":"+maxYear+"'")[all attributes]{elements()}
   }
 
-  define ignore-access-control input(d:Ref<Time>){
+  template input(d:Ref<Time>){
     var format := DateType.getDefaultTimeFormat()
     var timeformatString := ""
     init{
@@ -1012,10 +1012,10 @@ native class java.lang.Double as Double {
     return f.replace("yyyy","yy").replace("MM","mm");
   }
 
-  define ignore-access-control input(d:Ref<Date>){
-    input(d,1950,now().getYear()+10)
+  template input(d:Ref<Date>){
+    input(d,1950,now().getYear()+10)[all attributes]{elements}
   }
-  define ignore-access-control input(d:Ref<Date>, minYear:Int, maxYear:Int){
+  template input(d:Ref<Date>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateFormat()
     var dateformatString := ""
     init{
@@ -1036,7 +1036,7 @@ native class java.lang.Double as Double {
     dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, yearRange: '"+minYear+":"+maxYear+"'")[all attributes]{elements()}
   }
 
-  define ignore-access-control dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
+  template dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
 
@@ -1070,7 +1070,7 @@ native class java.lang.Double as Double {
     }
   }
 
-  define ignore-access-control datepickerinput(d:Ref<Date>, dateformat:String, tname:String, picker:String, options : String){
+  template datepickerinput(d:Ref<Date>, dateformat:String, tname:String, picker:String, options : String){
     var s : String
     init{
       if(d==null){

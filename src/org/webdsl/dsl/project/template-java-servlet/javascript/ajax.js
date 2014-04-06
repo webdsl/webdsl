@@ -4,7 +4,7 @@ function ajax_post_process(node) {
   var inner = node.innerHTML;
   if(inner.indexOf("<script") >= 0){ // innerHTML can be just a string instead of DOM element, which would break $(inner)
     var reponse = $(inner);
-    var reponseScript = reponse.filter("script");
+    var reponseScript = reponse.find("script");
     $.each(reponseScript, function(idx, val) { eval(val.text); } );
   }
 }
