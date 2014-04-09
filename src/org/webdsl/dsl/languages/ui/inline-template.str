@@ -1,6 +1,13 @@
 module org/webdsl/dsl/languages/ui/inline-template
 
-  rules
+imports 
+  libwebdsl-front 
+  org/webdsl/dsl/languages/ui/declare
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/templatecall
+  org/webdsl/dsl/typechecker/utils
+    
+rules
     
   desugar-in-define-context: //does rename on complete template afterwards to fix references
     TemplateCall(name,args,passigns,elems) 
@@ -31,4 +38,90 @@ module org/webdsl/dsl/languages/ui/inline-template
   generate-template-name-call-args :
     (n,args) -> name
     with t* := <map(type-of)> args
-       ; name := <generate-template-name> (n,t*) 
+       ; name := <generate-template-name> (n,t*)
+         
+rules // automatic inlining for simple templates
+	  // separated from rules above because simple templates can also skip simulating a templatecontext
+	  // only applied when template content matches the allowed constructs in allow-automatic-inline-* rules
+ 
+  // declare phase - detect inlineable template definition
+  
+  is-automatic-inline-simple-template :  
+  	d@Define(mods, name, fargs, targs, body) -> d
+  	where <map(allow-automatic-inline-body)> body
+  	where <map(allow-automatic-inline-mods)> mods
+  	where <map(Arg(id,not(is-ref-type)))> fargs
+
+  allow-automatic-inline-mods = Template <+ IgnoreAccessControl  
+    
+  allow-automatic-inline-body = XMLElement(id, map(allow-automatic-inline-attrs), map(allow-automatic-inline-body), id)
+  allow-automatic-inline-body = XMLEmptyElement(id, map(allow-automatic-inline-attrs))
+  allow-automatic-inline-body = where(get-tc-components; ?(name, _, props, elemsbody))
+  	                          ; where(!name; (?"elements" <+ ?"div" <+ ?"span")) // often used div and span are a special case for now, because this simple inline strategy is not yet recursive
+                              ; where(!props; map(allow-automatic-inline-props))
+                              ; where(!elemsbody; (?[] <+ ?TemplateBody(<id>); map(allow-automatic-inline-body))) // @TODO figure out why a [] without surrounding TemplateBody can occur here
+    
+  allow-automatic-inline-attrs = AllAttributes
+  allow-automatic-inline-attrs = ?AllAttributeExceptExp(String("class"))
+  allow-automatic-inline-attrs = Attribute("class", allow-automatic-inline-exp)
+  
+  allow-automatic-inline-exp = Add(allow-automatic-inline-exp, allow-automatic-inline-exp)
+  allow-automatic-inline-exp = ?String(_)
+  allow-automatic-inline-exp = ?ThisCall("attribute", [String("class")])
+  allow-automatic-inline-exp = ?Var(_)
+  
+  allow-automatic-inline-props = PropertyAssignment("class", allow-automatic-inline-exp)
+  allow-automatic-inline-props = allow-automatic-inline-attrs // attribute constructors are the same for html and template call attributes
+
+rules // desugaring phase - apply inlining at template call
+  
+  is-inlineable-template-call :
+    TemplateCall(name,args,passigns,_) -> genname
+    where <not(?"elementsempty" <+ ?"elements")> name
+    where <CallToDefinedTemplate> name
+    with genname := <generate-template-name-call-args> (name, args)
+    where <IsInlineSimpleTemplate> genname
+    // check that properties/attributes are allowed to be inlined
+    where <map(?PropertyAssignment(_,_)  
+            <+ ?TemplateCall("elementsempty",_,_,_))> passigns
+   
+  desugar-ui: 
+    TemplateCall(name,args,passigns,elems) -> inlinedbody4
+    where genname := <is-inlineable-template-call>
+    where Define(mod*, x, farg*, req*, inlinedbody1){anno*} := <CurrentTemplateDecl> genname
+    with {| RenameForInlining:
+          <zip({ ?(e,Arg(nm,srt)); rules ( RenameForInlining : Var(nm) -> e ) })> (args,farg*)
+        ; inlinedbody2 := <alltd(RenameForInlining)> inlinedbody1
+          |}
+        ; inlinedbody3 := <automatic-inline-substitutions(|elems,passigns);inline-dummy-contents> inlinedbody2
+        ; if <?[singleelem]> inlinedbody3
+          then inlinedbody4 := singleelem
+          else inlinedbody4 :=  TemplateCall("dummy",[],[],TemplateBody(inlinedbody3)) end
+                              
+  automatic-inline-substitutions(|elems,passigns) =   
+  	where(
+      attrs := <map(\PropertyAssignment(aname,expr) -> Attribute(aname, expr)\ <+ \TemplateCall("elementsempty",_,_,_) -> None()\ ); remove-all(None())> passigns
+    ; attrsclassfiltered := <remove-all(?Attribute("class",_))> attrs
+    ; attrsclassvalueonly := <fetch-elem(?Attribute("class",<id>)) <+ !String("")> attrs
+    )
+  ; bottomup(try(  inline-elements(|elems)
+    	        <+ (if-remove-all(?AllAttributes()); <conc> (<id>,attrs))  
+                <+ (if-remove-all(?AllAttributeExceptExp(String("class"))); <conc> (<id>,attrsclassfiltered))  
+                <+ \ ThisCall("attribute", [String("class")]) -> attrsclassvalueonly \
+                <+ inline-div-span
+                ))  
+                        
+  if-remove-all(s) = fetch(s); remove-all(s)
+  
+  inline-elements(|elems) = 
+    get-tc-name
+  ; ?"elements"
+  ; !TemplateCall("dummy",[],[],elems)
+  	
+  inline-div-span =
+    get-tc-components
+  ; ?(n, args, passignsdiv, TemplateBody(b))
+  ; <?"div" <+ ?"span"> n
+  ; passignsdiv1 := <map(try(\ PropertyAssignment(aname,expr) -> Attribute(aname, expr) \))>passignsdiv
+  ; nstripped := <strip-annos> n
+  ; !XMLElement(nstripped, passignsdiv1, b, nstripped) // assuming here that div or span is not overridden, and the call can be replaced with the inline HTML <div> or <span>

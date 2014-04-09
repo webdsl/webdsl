@@ -730,10 +730,16 @@ native class java.lang.Double as Double {
     </div>
   }*/
 
-  define ignore-access-control div(){
+  template div() {
     <div all attributes>
       elements()
     </div>
+  }
+  
+  template span() { 
+    <span all attributes>
+      elements
+    </span> 
   }
 
   define ignore-access-control container(){
@@ -810,7 +816,7 @@ native class java.lang.Double as Double {
   }
   */
 
-  define ignore-access-control par(){
+  template par(){
     <p all attributes>
       elements()
     </p>
@@ -898,7 +904,7 @@ native class java.lang.Double as Double {
 
   //validation wrapper for submit and submitlink
 
-  define ignore-access-control wrapsubmit(tname:String) requires s(String){
+  template wrapsubmit(tname:String) requires s(String){
     if(getValidationErrorsByName(tname).length > 0){
       errorTemplateAction(getValidationErrorsByName(tname)){
         s(tname)
@@ -911,7 +917,7 @@ native class java.lang.Double as Double {
 
   //reused when elements() are empty
 
-  define ignore-access-control elementsempty(){}
+  template elementsempty(){}
 
   // Date/DateTime/Time input and output templates
 

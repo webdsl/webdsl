@@ -19,10 +19,11 @@ strategies // inital declare for globally visible pages/templates
     where <fetch(?Page())> mod*
 
   initial-declare-template-definition :
-    def@Define(mod*, _, _, _, _) -> <with(<declare-toplevel-template-definition> def )>
+    def@Define(mod*, _, _, _, _) -> def1
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
-
+    with  def1 := <declare-toplevel-template-definition> def
+    
    /* no local declares here
   declare-template-definition :
     def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* x(farg1*) { elem1* } ]| 
@@ -64,7 +65,7 @@ rules
     ?def@Define(mod*, name, fargs, targs, body)
     ; where(not(<fetch(?Page())> mod*))
     ; where(not(<fetch(?Email())> mod*))
-    ; with(common-declare-template-rules)
+    ; with(def1 := <common-declare-template-rules>)
     ; with(
         sig@(n,t*) := <normalize-signature> (name,fargs)
       ; rules (
@@ -78,6 +79,7 @@ rules
         else rules( TopLevelTemplateDecl :+ sig -> def ) //@TODO probably not necessary to produce def in this rule
         end
       )
+    ; !def1
     
   //only finds exact match for types, no overloading
   get-exact-definition-from-sig(|name,argtypes) : 
@@ -116,7 +118,7 @@ rules
   is-local-template-def = where(?def@Define(mod*, name, fargs, targs, body); <fetch(Local())> mod*)
   
   common-declare-template-rules :
-    def@Define(mods, name, fargs, targs, body){anno*} -> def
+    def@Define(mods, name, fargs, targs, body){anno*} -> def{inlinemod*,anno*}
     with  sig@(n,t*) := <normalize-signature> (name,fargs)
         ; genname := <generate-template-name> sig
         ; rules( TemplateSignature  :+ (n, t*) -> def // :+ so overrides (with the same key) will also be retrievable with bagof-TemplateSignature
@@ -132,6 +134,9 @@ rules
         ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end
         ; if <fetch(TemplateDeprecated)> mods then rules(IsTemplatedDeprecated : name ) end
         ; if <fetch(TemplateModInline)> mods then rules(IsInlineTemplate : genname ) end
+        ; if <is-automatic-inline-simple-template> def 
+          then rules(IsInlineSimpleTemplate : genname ); inlinemod* := [InlineableTemplate()]  // put InlineableTemplate in annotations so it can easily be recognized in compile units cache
+          else inlinemod* := [] end
         ; <declare-built-in-template-rules> (QualifiedElementsCall(name),[])
         ; <topdown(try(declare-placeholder-in-template))> body
         ; alltd(declare-in-template; fatal-err(|"declare-in-template succeeded"))
