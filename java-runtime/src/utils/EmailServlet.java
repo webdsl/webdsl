@@ -15,7 +15,19 @@ public abstract class EmailServlet {
 	protected static String password = null;
 	protected static String protocol = "smtps";
 	protected static boolean authenticate = true;
-
+	public AbstractPageServlet threadLocalPageCached = null;
+    protected String uniqueid;
+    public String getUniqueId(){
+    	if(uniqueid == null){
+    		uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
+    	}
+    	return uniqueid;
+    }
+    public abstract String getTemplateClassName();
+    public String getTemplateContext(){
+    	return threadLocalPageCached.getTemplateContextString();
+    } 
+	
 	protected static javax.mail.Session getSession(){
 		return javax.mail.Session.getInstance(sessionProps, null);
 	}

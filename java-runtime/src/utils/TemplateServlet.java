@@ -20,7 +20,10 @@ public abstract class TemplateServlet {
     protected String uniqueid;
     public String getUniqueId(){
       if(uniqueIdOverride.isEmpty()){
-        return this.uniqueid;
+    	if(uniqueid == null){
+    		uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
+    	}
+        return uniqueid;
       }
       else{
         return uniqueIdOverride.peek();
@@ -202,7 +205,6 @@ public abstract class TemplateServlet {
               this.hibSession = threadLocalPageCached.hibernateSession;
               this.attrs = attrs;
               try {
-                this.uniqueid = Encoders.encodeTemplateId(getTemplateClassName()/*, getStateEncodingOfArgument()*/, getTemplateContext(), threadLocalPageCached);
                 initialize();
                 initializeLocalVars();
                 initSubmitActions();
