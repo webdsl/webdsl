@@ -17,7 +17,7 @@ let
   pkgs = import nixpkgs { system = "i686-linux"; };
   eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
 
-  webtests = pkgs.runCommand "webdsl-tests.nix" {} ''
+  webtests = pkgs.runCommand "webdsl-tests.nix" { preferLocalBuild = true; } ''
     echo "[" > $out
     for f in $(cd ${webdslsSrc}/test/succeed-web ; find . -name '*.app'  | grep -v tutorial-splash | grep -v templates.app); do
       echo "\"''${f:2}\"" >> $out
