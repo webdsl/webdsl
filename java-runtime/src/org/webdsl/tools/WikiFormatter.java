@@ -9,6 +9,10 @@ import org.pegdown.LinkRenderer;
 import org.pegdown.PegDownProcessor;
 import org.webdsl.logging.Logger;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+
 import utils.AbstractPageServlet;
 
 
@@ -32,19 +36,30 @@ public final class WikiFormatter {
 		}
 	}
 
+	public static CacheLoader<String, String> loader =
+			new CacheLoader<String, String>() {
+		public String load(String text) {
+			AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
+			return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
+		}
+	};
+
+	public static LoadingCache<String, String> cache =
+			CacheBuilder.newBuilder()
+			.maximumSize(250)
+			.build(loader);
+
     public static String wikiFormat(String text) {
     	if ( text == null )
     		return "";
-    	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-    	return org.jsoup.Jsoup.clean( wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() ), whitelist );
+    	return org.jsoup.Jsoup.clean(cache.getUnchecked(text), whitelist );
     }
     
     //Similar to wikiFormat( text ) , but without cleaning by JSoup
     public static String wikiFormatNoTagFiltering(String text) {
     	if ( text == null )
     		return "";
-    	AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-    	return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
+    	return cache.getUnchecked(text);
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){
