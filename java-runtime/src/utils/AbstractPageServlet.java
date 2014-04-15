@@ -762,10 +762,12 @@ public abstract class AbstractPageServlet{
         hibernateCacheCleared = true;
     }
 
-    // workaround to get to static member of generated HibernateUtilConfigured class
-    protected abstract org.hibernate.Session openNewTransactionThroughGetCurrentSession();
- // to get hibsession use:   utils.HibernateUtil.getCurrentSession()
-//    protected Session hibSession;
+    protected org.hibernate.Session openNewTransactionThroughGetCurrentSession(){
+    	hibernateSession = utils.HibernateUtil.getCurrentSession();
+    	hibernateSession.beginTransaction();
+    	return hibernateSession;
+    }
+    
     protected HttpServletRequest request;
     protected HttpServletResponse response;
     protected Object[] args;
