@@ -16,7 +16,46 @@ let
 
   pkgs = import nixpkgs { system = "i686-linux"; };
   eclipseFun = (import "${hydraConfig}/eclipse.nix") pkgs ; 
+
+  webtests = pkgs.runCommand "webdsl-tests.nix" {} ''
+    echo "[" > $out
+    for f in $(cd ${webdslsSrc}/test/succeed-web ; find . -name '*.app'  | grep -v tutorial-splash | grep -v templates.app); do
+      echo "\"''${f:2}\"" >> $out
+    done
+    echo "]" >> $out
+  '';
+
+  run_test = appname :
+      pkgs.stdenv.mkDerivation {
+        name = "webdsl-check";
+        meta.maxSilent = 300;
+        meta.timeout = 900;
+        buildInputs = [pkgs.ant pkgs.openjdk pkgs.firefoxPkgs.firefox jobs.buildJavaNoCheck pkgs.xvfb_run];
+        buildCommand = ''
+        ensureDir $out
+        cp -R ${webdslsSrc}/test/succeed-web/ succeed-web/
+        chmod u+w -R succeed-web        
+        cd succeed-web
+        TOPDIR=`pwd`
+        FAILED=""
+        export HOME=$PWD
+        header "Running ${appname}"
+        result=""
+        cd $TOPDIR/`dirname ${appname}`
+        FILE=`basename ${appname} .app`
+        echo "Executing 'webdsl test-web $FILE"
+        xvfb-run --auto-servernum --server-args="+extension RANDR" webdsl test-web-twice $FILE 2>&1 || export FAILED="1"
+        stopNest
+        if test -z "$FAILED"; then
+                exit 0
+        else
+            exit 1
+        fi
+        '';
+      };
+
   jobs = rec {
+    tests = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (run_test f)) (import webtests));
 
     tarball = 
       with pkgs;
@@ -34,41 +73,6 @@ let
         ] ++ strPkgs pkgs ;
       };
 
-/* build that produces native C-based WebDSL compiler is disabled
-
-    build =
-      { system ? "i686-linux" 
-      }:
-
-      let pkgs = import nixpkgs {inherit system;};
-          antDarwinNative = pkgs.stdenv.mkDerivation {
-            name = "ant-darwin-native";
-            buildCommand = ''
-              ensureDir $out/bin
-              ln -s /usr/share/ant/bin/ant $out/bin/ant
-            '';
-          };
-
-      in with pkgs;
-      releaseTools.nixBuild {
-        name = "webdsl";
-        src = tarball;
-        buildInputs = [
-          pkgconfig 
-          cpio
-        ] ++ strPkgs pkgs 
-          ++ lib.optional stdenv.isLinux ant
-          ++ lib.optional stdenv.isDarwin antDarwinNative
-          ;
-
-        configureFlags = "--enable-web-check=no";
-        doCheck = if stdenv.isLinux || stdenv.isDarwin then true else false;
-        phases = "initPhase unpackPhase patchPhase configurePhase buildPhase installPhase checkPhase fixupPhase distPhase finalPhase";
-        preConfigure = lib.optionalString (stdenv.system != "i686-cygwin") ''
-          ulimit -s ${if stdenv.isDarwin then "64000" else "unlimited"}
-        '';
-      };
-*/
     buildJavaZip = 
       pkgs.stdenv.mkDerivation {
         name = "webdsl-java.zip"; 
