@@ -68,13 +68,13 @@ public class ImageSizeUtils {
             }
             if((float)height/(float)img.getHeight() > (float)width/(float)img.getWidth()) {
                 float factor = (float)width/(float)img.getWidth();
-                int newWidth=(int)(factor*(float)img.getWidth());
-                int newHeight=(int)(factor*(float)img.getHeight());
+                int newWidth=(int)(Math.round( factor*(float)img.getWidth() ));
+                int newHeight=(int)(Math.round( factor*(float)img.getHeight() ));
                 img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
             } else {
                 float factor = (float)height/(float)img.getHeight();
-                int newWidth=(int)(factor*(float)img.getWidth());
-                int newHeight=(int)(factor*(float)img.getHeight());
+                int newWidth=(int)(Math.round( factor*(float)img.getWidth() ));
+                int newHeight=(int)(Math.round( factor*(float)img.getHeight() ));
                 img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
             }
             
