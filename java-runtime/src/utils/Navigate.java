@@ -13,21 +13,26 @@ public class Navigate {
 
 	public static String constructUrl(String pagename, List<String> args, String... argtypes) {
 		StringBuilder sb = new StringBuilder(256);
-		sb.append(ThreadLocalPage.get().getAbsoluteLocation());
+		String applicationURL = ThreadLocalPage.get().getAbsoluteLocation();
 
-		List<String> routingapplied = Routing.processNavigate(pagename, args);
+		List<String> routingapplied = Routing.processNavigate(applicationURL, pagename, args);
 		if(routingapplied == null){
-			sb.append("/");
-			sb.append(pagename);
+			sb
+			.append(applicationURL)
+			.append("/")
+			.append(pagename);
 			removeTrailingDefaultValues(args,argtypes);
+			
+			for(String arg : args){
+				sb.append("/").append(arg);				
+			}
 		}
 		else{
-			args = routingapplied;
-		}
-		
-		for(String arg : args){
-			sb.append("/");
-			sb.append(arg);
+			boolean first = true;
+			for(String arg : routingapplied){
+				if(!first){	sb.append("/");	} else { first = false;	}
+				sb.append(arg);				
+			}
 		}
 		
 		return utils.HTMLFilter.filter(sb.toString());

@@ -30,9 +30,9 @@ routing {
       return null; // will use default
     }
   }
-  construct (pagename:String, pageargs:[String]) { // construct is not necessarily the same as receive, e.g. when using the domain name to specify one of the arguments in a multitenant application
+  construct (appurl:String,pagename:String, pageargs:[String]) { // construct is not necessarily the same as receive, e.g. when using the domain name to specify one of the arguments in a multitenant application
     if(pageargs.length == 1){
-      return [pageargs[0], pagename];
+      return [appurl,pageargs[0], pagename];
     }
     else{
       return null;

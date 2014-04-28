@@ -9,7 +9,7 @@ public class Routing{
 	public static java.util.List<String> processRequest(java.util.List<String> args){
 		return null;
 	}
-	public static java.util.List<String> processNavigate(String pagename, java.util.List<String> args){
+	public static java.util.List<String> processNavigate(String applicationURL, String pagename, java.util.List<String> args){
 		return null;
 	}
 }
