@@ -43,10 +43,15 @@ public class PageStats {
 		return String.format(tableFormat, pagename, total(), readOnly, withUpdates, actionSuccessReadOnly, actionSuccessWithUpdates, actionFailed);
 	}
 	public static void printList(List<PageStats> stats){
-		System.out.println("Start 5 minute page request statistics");
-		System.out.println(String.format(tableFormat, "page", "total", "request", "request", "action", "action", "action"));
-		System.out.println(String.format(tableFormat, "name", "requests", "read-only", "with updates", "read-only", "with updates", "failed"));
-		System.out.println(String.format(tableFormat, "------------------------------", "------------", "------------", "------------", "------------", "------------", "------------"));
+		StringBuilder sb = new StringBuilder(1536);
+		sb.append("\n")
+		.append("Start 5 minute page request statistics")
+		.append("\n")
+		.append(String.format(tableFormat, "page", "total", "request", "request", "action", "action", "action"))
+		.append("\n")
+		.append(String.format(tableFormat, "name", "requests", "read-only", "with updates", "read-only", "with updates", "failed"))
+		.append("\n")
+		.append(String.format(tableFormat, "------------------------------", "------------", "------------", "------------", "------------", "------------", "------------"));
 		Collections.sort(stats, new Comparator<PageStats>() {
 			public int compare(PageStats p1, PageStats p2) {
 				return new Integer(p2.total()).compareTo(p1.total());
@@ -54,8 +59,11 @@ public class PageStats {
 		});
 		for(int i = 0; i < Math.min(10, stats.size()) ;i++){
 			PageStats ps = stats.get(i);
-			System.out.println(ps);
+			sb.append("\n").append(ps);
 		}
-		System.out.println("End page request statistics");
+		sb.append("\n")
+		.append("End page request statistics");
+		
+		org.webdsl.logging.Logger.info(sb);
 	}
 }

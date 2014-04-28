@@ -105,7 +105,7 @@ public class SearchStatistics {
      * Enable statistics logs (this is a dynamic parameter)
      */
      public static void setStatisticsEnabled(boolean b){
-		
+		stats.setStatisticsEnabled( b );
 	}
 
     /**

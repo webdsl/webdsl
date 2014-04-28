@@ -2,12 +2,12 @@ module .servletapp/src-webdsl-template/built-in
 
 // page request statistics
 
-  native class utils.Statistics as Statistics {
+  native class utils.Statistics as RequestStatistics {
     static logStatistics()
   }
   
   function logStatistics(){
-    Statistics.logStatistics();
+    RequestStatistics.logStatistics();
   }
   
   invoke logStatistics() every 5 minutes

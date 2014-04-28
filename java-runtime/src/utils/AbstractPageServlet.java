@@ -346,14 +346,7 @@ public abstract class AbstractPageServlet{
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
-        for(String script : this.javascripts) {
-            if(script.startsWith("//") || script.startsWith("http://") || script.startsWith("https://")){
-                sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
-            }
-            else{
-                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+script+"\"></script>");
-            }
-        }
+        
         for(String[] sheet : this.stylesheets) {
             if(sheet[0].startsWith("//") || sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
                 sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
@@ -366,6 +359,14 @@ public abstract class AbstractPageServlet{
             }
             else{
                 sout.println("media=\""+sheet[1]+"\" />");
+            }
+        }
+        for(String script : this.javascripts) {
+            if(script.startsWith("//") || script.startsWith("http://") || script.startsWith("https://")){
+                sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
+            }
+            else{
+                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+script+"\"></script>");
             }
         }
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {

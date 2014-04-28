@@ -5,8 +5,8 @@ import org.webdsl.logging.Logger;
 public class IncludePaths {
 	
 	
-	private static final String JQUERY_JS_LOCAL = "jquery-2.1.0.min.js";
-	private static final String JQUERY_JS_CDN = "//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js";
+	private static final String JQUERY_JS_LOCAL = "jquery-1.11.0.min.js";
+	private static final String JQUERY_JS_CDN = "//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js";
 	
 	private static final String JQUERYUI_JS_LOCAL = "jquery-ui-1.10.4.min.js";
 	private static final String JQUERYUI_JS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js";	
