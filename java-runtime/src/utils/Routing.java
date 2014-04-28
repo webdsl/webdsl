@@ -1,8 +1,10 @@
 package utils;
 
+import org.webdsl.logging.Logger;
+
 public class Routing{
 	static{
-		System.out.println("routing customization used: no");
+		Logger.info("routing customization used: no");
 	}
 	public static java.util.List<String> processRequest(java.util.List<String> args){
 		return null;
