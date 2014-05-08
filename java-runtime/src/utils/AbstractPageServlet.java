@@ -1339,6 +1339,13 @@ public abstract class AbstractPageServlet{
           return System.currentTimeMillis() - startTime;
       }
       
+      public void addRequestScopedVar(String key, WebDSLEntity val){
+    	  if(val != null){
+              val.setRequestVar();
+              requestScopedVariables.put(key, val);
+    	  }          
+      }
+      
       public PegDownProcessor getPegDownProcessor(){
     	  if (pegDownProcessor == null)
     	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );

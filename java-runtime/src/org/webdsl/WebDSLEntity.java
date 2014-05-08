@@ -20,4 +20,6 @@ public interface WebDSLEntity extends Serializable {
     public boolean isChanged();
     public List<?> all_();
     public boolean removeUninitializedLazyProperty(String name);
+    public void setRequestVar();
+    public boolean isRequestVar();
 }
