@@ -18,12 +18,26 @@ application test
       "correct" 
       input(i)
     }
+    c
+    wrapping{ "" }
+    template c(){
+    	"OK"
+    }
     
     //define b() = root_b(*,i)
   }
 
   define span b(){ "error" }
-
+  
+  template c(){ div[class="error"]{ }/*inlined*/ }
+  // template c(){ var now := now(); output( getTemplate().getUniqueId() + now) /*not inlined*/ }
+  
+  template wrapping(){
+  	c
+  }
+  // template wrapping2(){
+  // 	c
+  // }
   test var {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
@@ -33,6 +47,7 @@ application test
     elist[1].sendKeys("23456789");
     elist[2].click();
     assert(d.getPageSource().contains("23456789"), "entered data not found");
+    assert(d.getPageSource().contains("OKOK"), "Global template def used instead of local redefined one, regression test for http://yellowgrass.org/issue/WebDSL/804");
   }
   
 
