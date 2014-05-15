@@ -1339,6 +1339,12 @@ public abstract class AbstractPageServlet{
           return System.currentTimeMillis() - startTime;
       }
       
+      public void addRequestScopedVar(String key, Object val){
+    	  if(val != null){
+              requestScopedVariables.put(key, val);
+    	  }          
+      }
+      
       public void addRequestScopedVar(String key, WebDSLEntity val){
     	  if(val != null){
               val.setRequestVar();
