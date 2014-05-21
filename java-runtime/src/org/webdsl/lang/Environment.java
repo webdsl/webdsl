@@ -19,6 +19,16 @@ public class Environment {
 				, new EnvironmentGlobalVariableLookup()
 				, new EnvironmentSessionVariableLookup());
 	}
+	
+	// new environment with references to shared global template lookup, and global and session variables of current local environment
+	public static Environment createNewLocalEnvironment(Environment envGlobalAndSession){
+		return new Environment(AbstractPageServlet.staticEnv
+				, new EnvironmentWithCallLookup(null)
+				, new EnvironmentTemplateLocalLookup(AbstractPageServlet.staticEnv.templates)
+				, new EnvironmentExtraLocalTemplateArgs(null)
+				, envGlobalAndSession.globalVariables
+				, envGlobalAndSession.sessionVariables);
+	}
 
 	public Environment(Environment up, EnvironmentWithCallLookup withCalls, IEnvironmentTemplateLookup templates, 
 			EnvironmentExtraLocalTemplateArgs extra, EnvironmentGlobalVariableLookup globalVariables, EnvironmentSessionVariableLookup sessionVariables)

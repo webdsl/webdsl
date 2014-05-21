@@ -414,7 +414,7 @@ public abstract class AbstractPageServlet{
       //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
 
       this.isServingAsAjaxResponse = true;
-      templateservlet.render(null, args, new Environment(ps.envGlobalAndSession), null);
+      templateservlet.render(null, args, Environment.createNewLocalEnvironment(envGlobalAndSession), null); // new clean environment with only the global templates, and global/session vars
 
       ThreadLocalPage.set(ps);
     }
