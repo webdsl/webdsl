@@ -508,7 +508,7 @@ public abstract class AbstractPageServlet{
     }
 
     public abstract String getHiddenParams();
-    public abstract String getHiddenPostParams();
+    public abstract String getUrlQueryParams();
     public abstract String getHiddenPostParamsJson();
 
     //public javax.servlet.http.HttpSession session;

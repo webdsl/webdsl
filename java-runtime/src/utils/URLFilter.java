@@ -82,6 +82,17 @@ public final class URLFilter {
         }
         return sb.toString();
     }
+    
+    public final static String paramMapToQueryParams(Map<String,String> paramMap){
+        StringBuilder sb = new StringBuilder(512);
+        for (Entry<String,String> e : paramMap.entrySet()) {
+            sb.append(e.getKey())
+              .append("=")
+              .append(escapeParamMapEntry(e.getValue()))
+              .append("&");
+        }
+        return filter(sb.toString());
+    }
 
     public final static String paramMapToPostParamsEncoding(Map<String,String> paramMap){
         StringBuilder sb = new StringBuilder(512);

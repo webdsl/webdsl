@@ -32,7 +32,7 @@ public class GlobalsPageServlet extends PageServlet
     protected void addLogSqlToSessionMessages(){}
     public String getPageName(){return "";}
     public String getHiddenParams(){return "";}
-    public String getHiddenPostParams(){return "";}
+    public String getUrlQueryParams(){return "";}
     public String getHiddenPostParamsJson(){return "";}
     protected void initialize(){}
     protected void conversion(){}
