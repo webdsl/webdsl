@@ -187,6 +187,7 @@ public abstract class TemplateServlet {
         //always store env and arguments, values might change between phases
         // We ensure that there is an env, because prefetching in storeArguments() may use env.getTemplate()
         this.env = env;
+        putLocalDefinesInEnv();
         storeArguments(args);
         
         if(!initialized || threadLocalPageCached.hibernateCacheCleared)
@@ -195,8 +196,6 @@ public abstract class TemplateServlet {
               initialized=true;
               
               this.calledName = calledName;
-              this.env = env;
-              putLocalDefinesInEnv();
               this.request = threadLocalPageCached.getRequest();
               this.response = threadLocalPageCached.getResponse();
               //if(request != null){ //calling rendertemplate within background task
