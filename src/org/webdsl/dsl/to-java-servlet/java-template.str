@@ -214,7 +214,7 @@ rules
             bstm_so* := []
           ; bstm_sc* := []
           end
-       ; (bstm_localtplredefs*,bstm_refarginlocaldef*) := <local-defined-templates-to-hashmap> elem*
+       ; (bstm_localtplredefs*, bstm_localtplredefclasses*, bstm_refarginlocaldef*) := <local-defined-templates-to-hashmap> elem*
        ; cbds_prefetch* := <collect(prefetch-for-to-function); flatten-list> elem*
        ; bstm_arguments* := <formal-arguments-to-store-statements> farg*
        ; bstm_prefetchargs* := <filter(formal-arguments-to-query-optimizations(|elem*)); flatten-list; if-optimization-enabled> farg*
@@ -224,10 +224,10 @@ rules
          then e_isajaxtemplate := java:expr |[ true ]|
          else e_isajaxtemplate := java:expr |[ false ]|
          end
-       ; cbds_load-template-map-and-ref-arg-classes* := <load-template-map-and-ref-arg-classes> (bstm_refarginlocaldef*, def)
+       ; cbds_load-template-map-and-ref-arg-classes* := <load-template-map-and-ref-arg-classes> (bstm_refarginlocaldef*, def, bstm_localtplredefclasses*)
 
   load-template-map-and-ref-arg-classes :
- 	  (bstm_refarginlocaldef*, def) -> result
+ 	(bstm_refarginlocaldef*, def, bstm_localtplredefclasses*) -> result
     with liftedtemplates := <extract-lifted-templates-from-template-def> def
       ; if [] := liftedtemplates
     	  then bstm_lifted* := []
@@ -251,6 +251,7 @@ rules
           public static void loadLiftedTemplateMap(org.webdsl.lang.Environment staticEnv){
             //template or email class itself is already added
             bstm_lifted*
+            bstm_localtplredefclasses*
           }
           public static void loadRefArgClasses(Map<String, Class<?>> refargclasses){
             bstm_refargclasses*
@@ -302,10 +303,11 @@ rules
     ; inner := <collect(prefetch-for-to-function)> b
 
   local-defined-templates-to-hashmap :
-    elem* -> (tplmap,refargmap)
+    elem* -> (tplmap,tplclasses,refargclasses)
     with  localtemplates := <collect(local-defined-templates-to-hashmap-helper)> elem*
         ; tplmap := <mapconcat(add-template-binding)> localtemplates
-        ; refargmap := <map(add-template-ref-arg-binding)> localtemplates
+        ; tplclasses := <map(add-template-classes)> localtemplates
+        ; refargclasses := <map(add-template-ref-arg-classes)> localtemplates
     
   //local template redef
   local-defined-templates-to-hashmap-helper :
@@ -327,13 +329,18 @@ rules
     with  x_key := <concat-strings> ["\"",x,"\""]
         ; x_value := xclass
         ; x_array := <newname> "arg" //doesn't need to be globally unique, no issue for caching when using newname here
-          
-  add-template-ref-arg-binding:        
-    (x,xclass,e_argswithref*, spanname1, spanname2) -> 
+
+  add-template-classes:        
+    (x,x_class,e_argswithref*, spanname1, spanname2) -> 
       bstm |[ 
-        x_value.loadRefArgClasses(refargclasses); 
+        x_class.loadTemplateMap(staticEnv);
       ]| 
-    with  x_value := xclass
+          
+  add-template-ref-arg-classes:        
+    (x,x_class,e_argswithref*, spanname1, spanname2) -> 
+      bstm |[ 
+        x_class.loadRefArgClasses(refargclasses); 
+      ]| 
 
 rules 
  
