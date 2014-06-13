@@ -1,16 +1,32 @@
 application test
 
-  define override page root(){
+  override page root(){
     "123456789"
+    submit action{ replace("ph",two("10")); } { "test ajax template" }
+    placeholder "ph" { }
   }
 
-  define page root(){
+  page root(){
     "default root"
   }
-  
+
+  ajaxtemplate two(s:String){
+    output(s)"incorrect"
+  }
+
+  override ajaxtemplate two(s:String){
+    output(s)"1112"
+    submit action{ replace("ph",two("10")); } { "test ajax template" }
+  }
+
   test {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("123456789"));
+    var list : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    list[0].click();
+    assert(d.getPageSource().contains("101112"));
+    var list : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    list[1].click();
+    assert(d.getPageSource().contains("101112"));
   }
-  

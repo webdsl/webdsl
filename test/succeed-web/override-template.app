@@ -1,20 +1,28 @@
 application test
 
-  define one(s:String){
+  template one(s:String){
     output(s)"456"
   }
 
-  define override one(s:String){
+  override template one(s:String){
     output(s)"123"
   }
 
-  define page root(){
-    one("0")
+  ajaxtemplate two(s:String){
+    output(s)"incorrect"
   }
-  
+
+  override ajaxtemplate two(s:String){
+    output(s)"1112"
+  }
+
+  page root(){
+    one("0")
+    two("10")
+  }
+
   test {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    assert(d.getPageSource().contains("0123"));
+    assert(d.getPageSource().contains("0123101112"));
   }
-  

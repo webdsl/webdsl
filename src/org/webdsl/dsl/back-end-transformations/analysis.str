@@ -69,12 +69,14 @@ rules	// analyze-elem for global elements
   analyze-elem-global-define =
       ?def@Define(mod*,x,farg*,_,_)
     // handle override
-    ; x1 := <strip-annos> x
-    ; if not(<TopLevelTemplateClassNameOverride> x1) then //if there is an override, don't declare the regular implementation class here. if the regular implementation was already processed (can't predict order), the override will overwrite the DR for e.g. TopLevelTemplateClassName
-        if <fetch(TemplateModOverride)> mod* then rules( TopLevelTemplateClassNameOverride : x1 ) end
+    ; x_stripped := <strip-annos> x
+    ; if not(<TopLevelTemplateClassNameOverride> x_stripped) then //if there is an override, don't declare the regular implementation class here. if the regular implementation was already processed (can't predict order), the override will overwrite the DR for e.g. TopLevelTemplateClassName
+        if <fetch(TemplateModOverride)> mod* then rules( TopLevelTemplateClassNameOverride : x_stripped ) end
+      ; x_if_page_add_override := <if-page-add-override-in-name> (mod*, x)
       // Pages
       ; if <fetch(Page)> mod* then
-            rules( AllPageNames :+= x )
+            rules( AllPageNames :+= x_if_page_add_override
+                   TemplateFormalArguments : x_if_page_add_override -> farg* )
           ; if <fetch(ExpireCache)> mod* then
             	rules( AllPageWithExpireCacheNames :+= x)
             end
@@ -87,22 +89,37 @@ rules	// analyze-elem for global elements
       ; if <not(fetch(Page <+ Email <+ ?TemplateDefineNameBeforeLifting(_)))> mod* then  // remove lifted templates, these are registered in the lookup map inside the template class they are lifted from (enables better separate compilation with compile-units-cache).
             // used to create lookup hashmap in java-base-page.str
             rules( AllTopLevelTemplateNamesJavaServlet :+= x ) 
-          ; if <fetch(AjaxTemplate)> mod* then rules ( AllTopLevelTemplateNamesWithAjax :+= x ) end
+          ; if <fetch(AjaxTemplate)> mod* then 
+              rules ( AllTopLevelTemplateNamesWithAjax :+= x_if_page_add_override
+                      TemplateFormalArguments : x_if_page_add_override -> farg* ) end
         end
-      ; classname := <any-template-name-to-classname> (mod*, x)
+      // determine template classname for all variants of define: pages, templates, ajax templates, emails  
+      ; classname := <template-name-to-classname> (mod*, x)
       ; rules(
+          // declare template classname with and without pagename, necessary for ajax templates which can be used as both page and template
           TopLevelTemplateClassName : x -> classname
-          // TemplateFormalArguments used in dispatch-servlet.str
-          TemplateFormalArguments : x -> farg*
+          TopLevelTemplateClassName : x_if_page_add_override -> classname
         )
       end
     
-rules     // utils
+rules // utils
 
-  any-template-name-to-classname: (mod*, x) -> class1
+  if-page-add-override-in-name :
+	(mod*, x) -> class
+	with if <fetch(Page <+ AjaxTemplate)> mod* 
+	     then class := <page-name-to-classname>
+	     else class := x end 
+
+  page-name-to-classname :
+    (mod*, x) -> class
+    with  class := <if <fetch(TemplateModOverride)> mod* then <concat-strings>["$Override$",<id>] end> x
+  
+  template-name-to-classname: 
+  	(mod*, x) -> class1
     with  name := <try(<fetch(Email)> mod*; <concat-strings> [x, "_Email"])> x 
-        ; class := <template-name-to-classname> name
+        ; class := <template-name-to-classname-helper> name
         ; class1 := <if <fetch(TemplateModOverride)> mod* then <concat-strings>["$Override$",<id>] end> class
   
-  template-name-to-classname: x -> class
+  template-name-to-classname-helper: 
+  	x -> class
     with  class := $[[x]_Template]
