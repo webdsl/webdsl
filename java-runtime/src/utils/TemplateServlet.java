@@ -187,8 +187,9 @@ public abstract class TemplateServlet {
         //always store env and arguments, values might change between phases
         // We ensure that there is an env, because prefetching in storeArguments() may use env.getTemplate()
         this.env = env;
-        putLocalDefinesInEnv();
         storeArguments(args);
+        // storing local define arguments inputLocalDefinesInEnv() could use template arguments, so needs to come after storeArguments(args)
+        putLocalDefinesInEnv();
         
         if(!initialized || threadLocalPageCached.hibernateCacheCleared)
         {
