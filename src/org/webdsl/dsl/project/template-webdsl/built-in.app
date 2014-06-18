@@ -963,10 +963,35 @@ native class java.lang.Double as Double {
   }
 
   template input(d:Ref<DateTime>){
-    input(d,1950,now().getYear()+10)[all attributes]{elements}
+    input(d,now().addYears(-50),now().addDays(10))[all attributes]{elements}
   }
-  template input(d:Ref<DateTime>, minYear:Int, maxYear:Int){
+  template input(d:Ref<Date>, minDate:DateTime, maxDate:DateTime){
+    var format := DateType.getDefaultDateFormat()
+    var dateformatString := ""
+    var minDateOpt := 	"minDate: new Date(" + minDate.getYear() + "," + minDate.getMonth() + "," + minDate.getDay() + "," + minDate.format("HH") + "," + minDate.getMinute() + ")"
+    var maxDateOpt := 	"maxDate: new Date(" + maxDate.getYear() + "," + maxDate.getMonth() + "," + maxDate.getDay() + "," + minDate.format("HH") + "," + maxDate.getMinute() + ")"
+    init{
+      var attr := attribute("format");
+      if(attr!=null && attr != ""){
+        format := attr;
+      }
+      else{
+        if(d.getReflectionProperty() != null){
+          var formatanno := d.getReflectionProperty().getFormatAnnotation();
+          if(formatanno!=null){
+            format := formatanno;
+          }
+        }
+      }
+      dateformatString := "dateFormat: '"+convertDateFormatToJQuery(format)+"', ";
+    }
+    dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, " + minDateOpt + "," + maxDateOpt)[all attributes]{ elements }
+    
+  }
+  template input(d:Ref<DateTime>, minDate:DateTime, maxDate:DateTime){
     var format := DateType.getDefaultDateTimeFormat()
+    var minDateOpt := 	"minDate: new Date(" + minDate.getYear() + "," + minDate.getMonth() + "," + minDate.getDay() + "," + minDate.format("HH") + "," + minDate.getMinute() + ")"
+    var maxDateOpt := 	"maxDate: new Date(" + maxDate.getYear() + "," + maxDate.getMonth() + "," + maxDate.getDay() + "," + maxDate.format("HH") + "," + maxDate.getMinute() + ")"
     var dateformatString := ""
     var timeformatString := ""
     init{
@@ -986,7 +1011,7 @@ native class java.lang.Double as Double {
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
       timeformatString := "timeFormat: '"+tmp[1]+"', ";
     }
-    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true, yearRange: '"+minYear+":"+maxYear+"'")[all attributes]{elements()}
+    dateinputgeneric(d as Ref<Date>, format, "datetimepicker", dateformatString+timeformatString+" changeMonth: true, changeYear: true,"+ minDateOpt + "," + maxDateOpt)[all attributes]{elements()}
   }
 
   template input(d:Ref<Time>){
@@ -1019,7 +1044,7 @@ native class java.lang.Double as Double {
   }
 
   template input(d:Ref<Date>){
-    input(d,1950,now().getYear()+10)[all attributes]{elements}
+    input(d,now().addYears(-50),now().addYears(10))[all attributes]{elements}
   }
   template input(d:Ref<Date>, minYear:Int, maxYear:Int){
     var format := DateType.getDefaultDateFormat()
