@@ -1007,7 +1007,8 @@ native class java.lang.Double as Double {
           }
         }
       }
-      var tmp := format.split(" "); //assumes date and time are separated by space and no other spaces in the format string
+      var tmp := /\s(?=(h|H))+/.split(format);
+      // var tmp := format.split(" "); //assumes date and time are separated by space and no other spaces in the format string
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(tmp[0])+"', ";
       timeformatString := "timeFormat: '"+tmp[1]+"', ";
     }
@@ -1040,7 +1041,7 @@ native class java.lang.Double as Double {
   }
   */
   function convertDateFormatToJQuery(f:String):String{
-    return f.replace("yyyy","yy").replace("MM","mm");
+    return f.replace("MMM","M").replace("EEE", "D").replace("yyyy","yy").replace("MM","mm");
   }
 
   template input(d:Ref<Date>){
