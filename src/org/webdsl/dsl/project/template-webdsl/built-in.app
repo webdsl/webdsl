@@ -963,7 +963,7 @@ native class java.lang.Double as Double {
   }
 
   template input(d:Ref<DateTime>){
-    input(d,now().addYears(-50),now().addDays(10))[all attributes]{elements}
+    input(d,now().addYears(-50),now().addYears(50))[all attributes]{elements}
   }
   template input(d:Ref<Date>, minDate:DateTime, maxDate:DateTime){
     var format := DateType.getDefaultDateFormat()
@@ -1041,7 +1041,7 @@ native class java.lang.Double as Double {
   }
   */
   function convertDateFormatToJQuery(f:String):String{
-    return f.replace("MMM","M").replace("EEE", "D").replace("yyyy","yy").replace("MM","mm");
+    return f.replace("MMM","M").replace("EEE", "D").replace("yy","y").replace("MM","mm");
   }
 
   template input(d:Ref<Date>){
