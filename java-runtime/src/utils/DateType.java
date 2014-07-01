@@ -92,7 +92,7 @@ public class DateType {
   public static int getHour(Date d) {
       Calendar c = Calendar.getInstance();
       c.setTime(d);
-      return c.get(Calendar.HOUR);
+      return c.get(Calendar.HOUR_OF_DAY);
   }
   public static int getMinute(Date d) {
       Calendar c = Calendar.getInstance();
