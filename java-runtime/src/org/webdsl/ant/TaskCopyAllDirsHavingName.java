@@ -65,7 +65,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
         if(basedir.isDirectory()) {
             for(String file : basedir.list()) {
                 File newFile = new File(basedir, file);
-                if(Exclude.contains(file)) {
+                if(Exclude.contains(file) || newFile.isHidden()) {
                     continue;
                 }
                 else if(newFile.getAbsolutePath().endsWith(nameUNIX) || newFile.getAbsolutePath().endsWith(nameWindows)) {
