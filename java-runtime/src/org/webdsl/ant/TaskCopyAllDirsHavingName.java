@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-
 import org.apache.tools.ant.Task;
 
 /**
@@ -45,13 +44,15 @@ public class TaskCopyAllDirsHavingName  extends Task {
 
     public void execute() {
         numberOfFiles = 0;
-        System.out.println(this.toString());
+//        System.out.println(this.toString());
         try {
             findDirectoryAndCopy(new File(Basedir));
         } catch (Exception e) {
-            System.out.println("skipped copying " + Basedir + " to: " + To + " : " + e.getMessage());
+            System.out.println("Skipped copying " + Basedir + " to: " + To + " : " + e.getMessage());
         }
-        System.out.println("copied " + numberOfFiles + " from: " + Basedir + " to: " + To + " with dirname: " + Name );
+        if(numberOfFiles > 0){
+        	System.out.println("Copied " + numberOfFiles + " modified files from directories named " + Name + " to " + To);
+        }
     }
 
     @Override
@@ -88,8 +89,12 @@ public class TaskCopyAllDirsHavingName  extends Task {
                 copyDirectory(from, to);
             }
         } else {
-            copyFile(src, dest);
-            numberOfFiles ++;
+        	if(dest.exists() && src.lastModified() <= dest.lastModified()){
+        		return; //skip when files are the same
+            } else {
+	            copyFile(src, dest);
+	            numberOfFiles ++;
+            }
        }
     }
 
