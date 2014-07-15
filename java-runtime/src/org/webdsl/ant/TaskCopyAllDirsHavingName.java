@@ -51,7 +51,8 @@ public class TaskCopyAllDirsHavingName  extends Task {
             System.out.println("Skipped copying " + Basedir + " to: " + To + " : " + e.getMessage());
         }
         if(numberOfFiles > 0){
-        	System.out.println("Copied " + numberOfFiles + " modified files from directories named " + Name + " to " + To);
+//        	System.out.println("Copied " + numberOfFiles + " modified files from directories named " + Name + " to " + To);
+        	System.out.println("Copied " + numberOfFiles + " files from directories named " + Name + " to " + To);
         }
     }
 
@@ -89,12 +90,12 @@ public class TaskCopyAllDirsHavingName  extends Task {
                 copyDirectory(from, to);
             }
         } else {
-        	if(dest.exists() && src.lastModified() <= dest.lastModified()){
-        		return; //skip when files are the same
-            } else {
+//        	if(dest.exists() && src.lastModified() <= dest.lastModified()){
+//        		return; //skip when files are the same
+//            } else {
 	            copyFile(src, dest);
 	            numberOfFiles ++;
-            }
+//            }
        }
     }
 
@@ -116,6 +117,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
             if(out != null) {
                 out.close();
             }
+            dest.setLastModified(source.lastModified());
         }
     }
 
