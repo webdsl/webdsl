@@ -338,6 +338,7 @@ public abstract class AbstractPageServlet{
         sout.println("<html>");
         sout.println("<head>");
         sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+        sout.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">");
         sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
 
         sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
