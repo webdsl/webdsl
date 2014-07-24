@@ -963,7 +963,7 @@ native class java.lang.Double as Double {
   }
 
   template input(d:Ref<DateTime>){
-    input(d,now().addYears(-50),now().addYears(50))[all attributes]{elements}
+    input(d,now().addYears(-30),now().addYears(50))[all attributes]{elements}
   }
   template input(d:Ref<Date>, minDate:DateTime, maxDate:DateTime){
     var format := DateType.getDefaultDateFormat()
@@ -1242,7 +1242,7 @@ native class java.lang.Double as Double {
         all attributes
       />
       <label for=tname+e.id>
-        output(e.name)
+        outputLabel(e)
       </label>
     </div>
     databind{
@@ -1302,7 +1302,7 @@ native class java.lang.Double as Double {
             selected="selected"
           }
         >
-          output(e.name)
+          outputLabel(e)
         </option>
       }
     </select>
@@ -1398,7 +1398,7 @@ native class java.lang.Double as Double {
             selected="selected"
           }
         >
-          output(e.name)
+          outputLabel(e)
         </option>
       }
     </select>
@@ -1472,7 +1472,7 @@ native class java.lang.Double as Double {
           value=e.id
           all attributes
         />
-        output(e.name)
+        outputLabel(e)
       </label>
     }
     databind{
@@ -1485,6 +1485,9 @@ native class java.lang.Double as Double {
 
 
   //output(Entity)
+  template outputLabel(e : Entity){
+  	output(e.name)
+  }
   /*
   define output(e:Entity){
     var hasviewpage := false;
@@ -1496,10 +1499,10 @@ native class java.lang.Double as Double {
     }
     if(hasviewpage){
       //not possible yet
-      navigate ~viewpagename((~type) e){ output(e.name) }
+      navigate ~viewpagename((~type) e){ outputLabel(e) }
     }
     else{
-      output(e.name)
+      outputLabel(e)
     }
   }*/
 
@@ -1610,7 +1613,7 @@ native class java.lang.Double as Double {
       for(e:Entity in newlist){
         <li id=e.id class="ui-state-default">
           <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
-          output(e.name)
+          outputLabel(e)
           <span class="ui-icon ui-icon-close" onclick=deletejsfuncname+"($(this));"></span>
         </li>
       }
@@ -1625,7 +1628,7 @@ native class java.lang.Double as Double {
       <select id=selectid>
       for(e:Entity in selectfrom){
         <option value=e.id>
-          output(e.name)
+          outputLabel(e)
         </option>
       }
       </select>
