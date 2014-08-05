@@ -36,6 +36,11 @@ public abstract class AbstractPageServlet{
     protected PegDownProcessor pegDownProcessor = null;
     public Session hibernateSession = null;
     
+    
+    static{
+    	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
+    	fav_ico_link_tag_suffix = "/favicon.ico" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
+    }
     public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
     {
       initTemplateClass();
@@ -327,6 +332,8 @@ public abstract class AbstractPageServlet{
         return validationFormRerender;
     }
     public String submittedFormContent = null;
+	private static String common_css_link_tag_suffix;
+	private static String fav_ico_link_tag_suffix;
 
     public void renderResponse(PrintWriter sout, StringWriter s) throws IOException {
         ThreadLocalOut.push(sout);
@@ -341,8 +348,8 @@ public abstract class AbstractPageServlet{
         sout.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">");
         sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
 
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/favicon.ico\" rel=\"shortcut icon\" type=\"image/x-icon\" />");
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/common_.css\" rel=\"stylesheet\" type=\"text/css\" />");
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+fav_ico_link_tag_suffix);
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+common_css_link_tag_suffix);
 
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
