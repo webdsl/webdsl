@@ -167,4 +167,23 @@ rules
 
   constraint-error-ui : ForCount(x, e1, e2, elems1, sep) -> <expression-type-constraint(|SimpleSort("Int"))> e1
   constraint-error-ui : ForCount(x, e1, e2, elems1, sep) -> <expression-type-constraint(|SimpleSort("Int"))> e2
+   
+rules
+	
+  // if 'for' body is not a single templatecall, lift elements to a new template definition and replace with a single templatecall to that new template
+  // no special handling of variables is then needed to handle 'for' loops, because templatecall code already keep track of multiple instantiations of a template and its variables
+  // 'for' body needs to be desugared within define context, that way the <rename> invoke will correctly add information of the enclosing context  
+  desugar-in-define-context :
+  	For(x, srt, e, f, elems, elems2){anno*} -> For(x, srt, e, f, [result], elems2){anno*}
+    where result := <for-lifting-desugar-helper> (elems, anno*) 
+  desugar-in-define-context :
+  	ForAll(x, srt, f, elems, elems2){anno*} -> ForAll(x, srt, f, [result], elems2){anno*}
+    where result := <for-lifting-desugar-helper> (elems, anno*) 
+  desugar-in-define-context :
+  	ForCount(x, e1, e2, elems, elems2){anno*} -> ForCount(x, e1, e2, [result], elems2){anno*} 
+    where result := <for-lifting-desugar-helper> (elems, anno*) 
     
+  for-lifting-desugar-helper :
+  	(elems, anno*) -> result
+    where <oncetd(is-var-decl-cons)> elems // only necessary if contents has vardecl or placeholder variable
+  	with  result := <rename> TemplateCall("internalElementsWrapper",[],[],TemplateBody(elems)){TemplateCallInlineDisabled(),anno*} // wrap the body in a call so it gets lifted as elements
