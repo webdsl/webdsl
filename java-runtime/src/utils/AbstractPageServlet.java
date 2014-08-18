@@ -34,6 +34,7 @@ public abstract class AbstractPageServlet{
     protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
     protected abstract void addLogSqlToSessionMessages();
     protected PegDownProcessor pegDownProcessor = null;
+    protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
     
     
@@ -1365,6 +1366,12 @@ public abstract class AbstractPageServlet{
     	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );
     	  
     	  return pegDownProcessor;
+      }
+      public PegDownProcessor getPegDownProcessorNoHardWraps(){
+    	  if (pegDownProcessorNoHardWraps == null)
+    		  pegDownProcessorNoHardWraps = new PegDownProcessor( Extensions.ALL & ~Extensions.HARDWRAPS , WikiFormatter.PARSE_TIMEOUT_MS );
+      	  
+      	  return pegDownProcessorNoHardWraps;
       }
       
       // statistics to be shown in log

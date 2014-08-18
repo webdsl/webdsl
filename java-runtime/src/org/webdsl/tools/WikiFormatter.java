@@ -23,6 +23,7 @@ public final class WikiFormatter {
     private static LinkRenderer currentLinkRenderer = null;
     private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed();
     public static final int PARSE_TIMEOUT_MS = 6000;
+    public static final Pattern DISABLE_HARDWRAPS_PATTERN = Pattern.compile("^<!--(DISABLE_HARDWRAPS|NO_HARDWRAPS)-->", Pattern.CASE_INSENSITIVE);
     
 	static{
 		whitelist.addTags("abbr", "hr", "del")
@@ -40,7 +41,11 @@ public final class WikiFormatter {
 			new CacheLoader<String, String>() {
 		public String load(String text) {
 			AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-			return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
+			if(text!=null && DISABLE_HARDWRAPS_PATTERN.matcher(text).find()){
+				return wikiFormat( text, threadLocalPage.getPegDownProcessorNoHardWraps(), threadLocalPage.getAbsoluteLocation() );
+			} else {
+				return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
+			}			
 		}
 	};
 
@@ -63,6 +68,7 @@ public final class WikiFormatter {
     }
     
     public static String wikiFormat(String text, PegDownProcessor processor, String rootUrl){
+    	
     	try {
     		return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
     	} catch (Exception e) {
