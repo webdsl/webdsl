@@ -1,7 +1,7 @@
 application test
 
   define page root() {
-    bla("123")
+    bla("123", one, two, three)
     placeholder one{
       placeholder two{
         placeholder three{
@@ -11,7 +11,7 @@ application test
     }  
   }
   
-  define ajax bla(s:String){
+  define ajax bla(s:String, one: Placeholder, two: Placeholder, three: Placeholder){
     output(s)
     block[onclick := action{ 
       replace(one,test(45));

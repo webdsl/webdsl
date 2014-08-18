@@ -35,13 +35,13 @@ define page root() {
   placeholder pl {
     "placeholder: 'pl'"
   }
-  test(s)
+  test(s, pl)
 
   break
   placeholder pl3 {
     "placeholder: 'pl3'"
   }
-  testset(sset)
+  testset(sset, pl3)
   
   break
   for(t:TestEnt){
@@ -92,18 +92,18 @@ define ajax templ(s: List<Test>) {
   }
 }
 
-define ajax test(s: List<Test>) {
+define ajax test(s: List<Test>, pl: Placeholder) {
   form { submit("do",do2())[ajax]}
   action do2 () {
     log("replacing: 'pl'");
-    replace (pl, test(s));
+    replace (pl, test(s, pl));
   }
 }
 
-define ajax testset(s: Set<Test>) {
+define ajax testset(s: Set<Test>, pl3test: Placeholder) {
   form { submit("do",do2())[ajax] }
   action do2 () {
     log("replacing: 'pl3'");
-    replace (pl3, testset(s));
+    replace (pl3test, testset(s, pl3test));
   }
 }
