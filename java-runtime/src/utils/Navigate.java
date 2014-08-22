@@ -35,7 +35,7 @@ public class Navigate {
 			}
 		}
 		
-		return utils.HTMLFilter.filter(sb.toString());
+		return sb.toString();
 	}
 
 	public static void removeTrailingDefaultValues(List<String> args, String... argtypes){
