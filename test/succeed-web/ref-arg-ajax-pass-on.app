@@ -13,19 +13,19 @@ application test
   
   define editableText(text : Ref<Text>) {
     placeholder editableText {
-      showEditableText(text)
+      showEditableText(text, editableText)
     }
   }
 
-  define ajax showEditableText(text : Ref<Text>) {
+  define ajax showEditableText(text : Ref<Text>, editableText: Placeholder) {
     output(text)
-    submitlink action{ replace(editableText, editEditableText(text)); } { "[Edit]" }
+    submitlink action{ replace(editableText, editEditableText(text, editableText)); } { "[Edit]" }
   }
 
-  define ajax editEditableText(text : Ref<Text>) {
+  define ajax editEditableText(text : Ref<Text>, editableText: Placeholder) {
     form{
       input(text)
-      submit action{ replace(editableText, showEditableText(text)); } { "Save" }
+      submit action{ replace(editableText, showEditableText(text, editableText)); } { "Save" }
     }
   }
 
@@ -41,8 +41,8 @@ application test
     assert(elist.length == 1, "expected <textarea> elements did not match");
     elist[0].sendKeys("2345");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    elist[2].click();
+    assert(elist.length == 4, "expected <input> elements did not match");
+    elist[3].click();
 
     assert(d.getPageSource().contains("12345"), "reference arguments not working as expected");
   }

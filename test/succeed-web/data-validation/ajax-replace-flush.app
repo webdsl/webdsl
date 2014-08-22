@@ -8,10 +8,10 @@ application customer
   
   define page root(){
     placeholder body {  }
-    submit action{ replace(body,displayNote()); } { "show" } 
+    submit action{ replace(body,displayNote(body)); } { "show" } 
   }
   
-  define ajax displayNote(){
+  define ajax displayNote(p: Placeholder){
     var bla := Test{ s := "123" }
     
     for(t:Test){
@@ -20,7 +20,7 @@ application customer
     
     form{
       input(bla.s)
-      submit action{ bla.save(); replace(body,displayNote()); } { "save" } 
+      submit action{ bla.save(); replace(p,displayNote(p)); } { "save" } 
     }
   }
     
@@ -31,9 +31,9 @@ application customer
   }
   function send(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected <input> elements did not match");
-    elist[1].sendKeys("4"); 
-    elist[2].click();
+    assert(elist.length == 5, "expected <input> elements did not match");
+    elist[2].sendKeys("4"); 
+    elist[3].click();
   }
   function check(d:WebDriver){
     assert(d.getPageSource().contains("Test entity exists in database"));

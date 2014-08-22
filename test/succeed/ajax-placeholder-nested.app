@@ -1,14 +1,20 @@
 application test
 
-  define page root() {
+  page root() {   
+   action tmp(p:Placeholder){}
     bla("123", one, two, three)
-    placeholder one{
+    submit tmp(one) { " " }
+    var i := 0
+    inputajax(i)[class="input3", oninput=tmp(one)]
+    form{
+      placeholder one{
       placeholder two{
         placeholder three{
           
         }
       }
-    }  
+      }  
+    }
   }
   
   define ajax bla(s:String, one: Placeholder, two: Placeholder, three: Placeholder){
@@ -23,3 +29,5 @@ application test
   }
 
   define ajax test(i:Int){output(i)}
+  
+  

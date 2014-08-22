@@ -53,43 +53,43 @@ define ajax mpparents(pname:String,names : List<String>){
 
 function checkUsernameEmpty(p:Person):Bool{
   if(p.username != ""){ 
-    replace(pusernameempty, empty());
+    replace("pusernameempty", empty());
     return true;
   } 
   else {
-    replace(pusernameempty, mpusernameempty());
+    replace("pusernameempty", mpusernameempty());
     return false; 
   }
 }
 function checkUsername(p:Person, realp:Person):Bool{
   var matches := from Person as p1 where p1.username = ~p.username;
   if(matches.length == 0 || (matches.length == 1 && matches[0] == realp)){ 
-    replace(pusername, empty());
+    replace("pusername", empty());
     return true;
   } 
   else {
-    replace(pusername, mpusername(p.username));
+    replace("pusername", mpusername(p.username));
     return false; 
   }
 }
 
 function checkFullnameEmpty(p:Person):Bool{
   if(p.fullname != ""){ 
-    replace(pfullnameempty, empty());
+    replace("pfullnameempty", empty());
     return true;
   } 
   else {
-    replace(pfullnameempty, mpfullnameempty());
+    replace("pfullnameempty", mpfullnameempty());
     return false; 
   }
 }
 function checkFullname(p:Person) :Bool{
   if(p.username != p.fullname) { 
-    replace(pfullname, empty());
+    replace("pfullname", empty());
     return true;
   } 
   else{
-    replace(pfullname, mpfullname());
+    replace("pfullname", mpfullname());
     return false; 
   }
 }
@@ -100,11 +100,11 @@ function checkParents(p:Person) : Bool{
     conflicts.add(person.username);
   }
   if(conflicts.length > 0) { 
-    replace(pparents, mpparents(p.name,conflicts));
+    replace("pparents", mpparents(p.name,conflicts));
     return false; 
   }
   else{
-    replace(pparents, empty());
+    replace("pparents", empty());
     return true; 
   }
 }
@@ -114,17 +114,17 @@ define personedit(realp:Person){
   form{
     par{
       label("username: "){ input(p.username)[onkeyup := action{ checkUsername(p,realp); checkUsernameEmpty(p); checkFullname(p); }] }
-      placeholder pusernameempty { }
-      placeholder pusername { }
+      placeholder "pusernameempty" { }
+      placeholder "pusername" { }
     }
     par{
       label("fullname: "){ input(p.fullname)[onkeyup := action{ checkFullname(p); checkFullnameEmpty(p); } ] }
-      placeholder pfullnameempty { }
-      placeholder pfullname { }
+      placeholder "pfullnameempty" { }
+      placeholder "pfullname" { }
     }
     par{
       label("parents: "){ input(p.parents)[onchange := action{ checkParents(p); } ] }
-      placeholder pparents { }
+      placeholder "pparents" { }
     }
     par{
       label("children: "){ input(p.children)[onchange := action{ checkParents(p); } ] }

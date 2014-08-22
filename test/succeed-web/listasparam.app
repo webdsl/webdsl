@@ -39,7 +39,7 @@ section entities
     }
     */
     placeholder target {
-       form{action("click me to expand",action { dosearch(s, u);})}
+       form{action("click me to expand",action { dosearch(s, u, target);})}
     }
   }
   
@@ -52,9 +52,9 @@ section entities
     }
   }
   
-  function dosearch(s: String, anuser: User) {
+  function dosearch(s: String, anuser: User, t: Placeholder) {
     var news : List<News> := searchHelper(s);
-    append(target,displaynews(news, anuser));
+    append(t,displaynews(news, anuser));
   }
   
   function searchHelper(s: String):  List<News> {

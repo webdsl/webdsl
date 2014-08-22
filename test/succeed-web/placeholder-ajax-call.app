@@ -6,12 +6,12 @@ application customer
   }
   
   define page root(){
-    placeholder body displayNote()
+    placeholder body displayNote(body)
   }
-  define ajax displayNote(){
+  define ajax displayNote(body: Placeholder){
     form{
       input(bla.s)
-      submit action{ replace(body,displayNote()); } { "save" } 
+      submit action{ replace(body,displayNote(body)); } { "save" } 
     }
   }
   
@@ -28,17 +28,17 @@ application customer
   var bla := Bla{}
   var bla1 := Bla{}
   
-  function send(d:WebDriver){
+  function send(d:WebDriver, elems: Int){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    elist[1].sendKeys("2"); 
-    elist[2].click();
+    assert(elist.length == elems, "expected <input> elements did not match");
+    elist[(elems-2)].sendKeys("2"); 
+    elist[(elems-1)].click();
   }
   
-  function check(d:WebDriver){
+  function check(d:WebDriver, elems: Int){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    assert(elist[1].getValue() == "2");
+    assert(elist.length == elems, "expected <input> elements did not match");
+    assert(elist[(elems-2)].getValue() == "2");
     assert(d.getPageSource().contains("too short"));
   }
   
@@ -46,11 +46,11 @@ application customer
     var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
-    send(d);
-    check(d);
+    send(d,4);
+    check(d,4);
     
     d.get(navigate(root1()));
-    send(d);
-    check(d);
+    send(d,3);
+    check(d,3);
   }
   

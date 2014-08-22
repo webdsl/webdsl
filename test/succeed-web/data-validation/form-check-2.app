@@ -8,7 +8,7 @@ application customer
   }
   
   define page root(){
-    placeholder body{ displayNote() }
+    placeholder "body" { displayNote() }
   }
   
   define ajax displayNote(){
@@ -18,7 +18,7 @@ application customer
     
     form{
       input(bla.s)
-      submit action{ replace(body,displayNote()); } { "save" } 
+      submit action{ replace("body",displayNote()); } { "save" } 
     }
     output(bla.s)
     "important"

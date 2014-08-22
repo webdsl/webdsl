@@ -13,13 +13,13 @@ application test
           "ph-test1"
         }
       }
-      
+
+      submitlink update2(ph2) [class="input2"]{"test2"}      
       placeholder ph2{
       	 if(i1 > 2){ 
           "ph-test2"
         }
       }
-      submitlink update2(ph2) [class="input2"]{"test2"}
     }
     <br/>
     <br/>
@@ -28,12 +28,12 @@ application test
       for(i:IntBox in ints){
         "test"
         output(i.i)
+        inputajax(i.i)[class="input3", oninput=update3(ph3)]
         placeholder ph3{
           if(i.i > 10){ 
             "ph-test3 for " output(i.i)
           }
         }
-	    inputajax(i.i)[class="input3", oninput=update3(ph3)]
 	  }
     }
     action update3(p:Placeholder){

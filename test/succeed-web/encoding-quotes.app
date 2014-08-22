@@ -2,17 +2,17 @@ application test
 
   define page root() {
     var i := ""
-    placeholder tmp test(getString())
+    placeholder tmp test(getString(), tmp)
     form{
       input(i)[class="the-input"]
-      submit action{ replace(tmp,test(i));} [ajax, class="button-1"] {"replace-root"}
+      submit action{ replace(tmp,test(i, tmp));} [ajax, class="button-1"] {"replace-root"}
     }
   }
 
-  define ajax test(a:String){
+  define ajax test(a:String, tmp: Placeholder){
     <div class="the-output">output("the string: " + a)</div>
     form{
-      submit action{ replace(tmp,test(a));} [class="button-2"] {"replace-ajax-template"}
+      submit action{ replace(tmp,test(a, tmp));} [class="button-2"] {"replace-ajax-template"}
     }
   }
 

@@ -1,5 +1,14 @@
 module org/webdsl/dsl/languages/ui/for-loop
 
+imports
+  libstratego-lib
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/languages/ui/-
+  org/webdsl/dsl/languages/prefetch/-
+  org/webdsl/dsl/languages/data-model/-
+  org/webdsl/dsl/languages/action/for-stmt
+  
 rules
 
   rename-ui :
@@ -14,10 +23,17 @@ rules
             )
           ; <declare-vars-in-context> y
           ; f2     := <rename-all; try(rename-query-condition-anno)> f1
-          ; elems2 := <rename-all> elems1
+          ; elems2 := <for-body-elements-rename-helper> elems1
           ; newanno* := <update-iterator-context; update-template-args-anno; rename-query-optimization-annos> anno*
           |}
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
+
+  for-body-elements-rename-helper :
+  	elems1 -> elems2
+  	with  if [TemplateCall("internalElementsWrapper",[],[],TemplateBody(_))] := elems1
+  	      then elems2 := <rename-all> elems1 // don't try to put names from inside the For body into the closure passed to the lifted For body (see desugar-in-define-context rules below)
+  	      else elems2 := <rename-template-elements-with-var-scope> elems1
+  	      end
 
   rename-ui :
     def@ForInferred(x, e1, f1, elems1, elems3){anno*} -> ForInferred(y, e2, f2, elems2, elems4){anno*}
@@ -30,7 +46,7 @@ rules
           ; rules(VarDecl : y -> def)
           ; <declare-vars-in-context> y
           ; f2     := <rename-all> f1
-          ; elems2 := <rename-all> elems1
+          ; elems2 := <for-body-elements-rename-helper> elems1
           |}
        ; elems4 := <rename-all> elems3 // separator cannot refer to loop index         
 
@@ -49,7 +65,7 @@ rules
             )
           ; <declare-vars-in-context> y
           ; f2     := <rename-all; try(rename-query-condition-anno)> f1
-          ; elems2 := <rename-all> elems1
+          ; elems2 := <for-body-elements-rename-helper> elems1
           ; newanno* := <update-iterator-context; update-template-args-anno; rename-query-optimization-annos> anno*
           |}
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
@@ -62,7 +78,7 @@ rules
           : y := <rename-bound-immutable(|SimpleSort("Int"))> x
           ; rules(VarDecl : y -> def)
           ; <declare-vars-in-context> y
-          ; elems2 := <rename-all> elems1
+          ; elems2 := <for-body-elements-rename-helper> elems1
           |}  
         ; elems4 := <rename-all> elems3 // separator cannot refer to loop index
 
@@ -186,4 +202,7 @@ rules
   for-lifting-desugar-helper :
   	(elems, anno*) -> result
     where <oncetd(is-var-decl-cons)> elems // only necessary if contents has vardecl or placeholder variable
-  	with  result := <rename> TemplateCall("internalElementsWrapper",[],[],TemplateBody(elems)){TemplateCallInlineDisabled(),anno*} // wrap the body in a call so it gets lifted as elements
+  	with  result := TemplateCall("internalElementsWrapper",[],[],TemplateBody(elems)){TemplateCallInlineDisabled(),anno*} // wrap the body in a call so it gets lifted as elements
+    // rename of templatecall will happen as part of desugar-in-define-context,
+    // which does rename on complete template after the desugar to fix references
+    

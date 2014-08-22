@@ -18,16 +18,57 @@ rules
   
   add-is-template-arg-anno :
     a{anno*} -> a{IsTemplateArg(),anno*}
-    
-  //pass to rename-all so vardecl is handled first
-  is-var-decl-cons =
-  	 ?VarDecl(_,_) 
+   
+rules
+	
+  // template variables and actions defined at top level are visible in the entire template
+  // rename needs to be performed in multiple traversals to allow use to come before definition
+  rename-template-elements(|x) = 
+  	alltd(rename-actions-find-action(|x))
+  ; rename-template-elements-with-var-scope
+  ; alltd(rename-actions(|x))
+   
+  // handle non-linear scoping of template variables and placeholder names 
+  rename-template-elements-with-var-scope = rename-wrapper(alltd-register-templatevardecl-for-rename; rename-all)
+   
+  alltd-register-templatevardecl-for-rename =  // declare/rename template variables and placeholders
+       is-define-cons // don't declare vars in nested template defs
+    <+ is-action-cons // don't declare vars in actions
+    <+ is-for-loop-cons // don't declare vars in for loops
+    <+ is-var-decl-cons; register-templatevardecl-for-rename // found a var, declare it // register-templatevardecl-for-rename invokes alltd-register-templatevardecl-for-rename for its nested elements (placeholder bodies)
+    <+ all(alltd-register-templatevardecl-for-rename) // look for vars in child nodes
+  	
+rules
+
+  is-var-decl-cons = 
+     ?VarDecl(_,_) 
   <+ ?VarDeclInit(_,_,_)
   <+ ?VarDeclInitInferred(_,_)
+  <+ ?TemplateVarDecl(_,_) 
+  <+ ?TemplateVarDeclInit(_,_,_)
+  <+ ?TemplateVarDeclInitInferred(_,_)
+  <+ ?RequestScopeTemplate(_)
+  <+ ?RequestScopeTemplateVarDeclInit(_,_,_)
+  <+ ?RequestScopeTemplateVarDecl(_,_)
   <+ where(Placeholder(is-string, id)) // placeholder that declares a variable name
-  
-  //pass to rename-all so local defines are ignored
+  <+ where(PlaceholderWithAjaxCall(is-string, id)) // placeholder that declares a variable name
+   
   is-define-cons = ?Define(_, _, _, _, _)
+  
+  is-action-cons = 
+  	 ?Action(_, _, _, _) 
+  <+ ?InitAction(_)
+  <+ ?DataBindAction(_)
+  <+ ?ValidateAction(_)
+  <+ ?RenderAction(_)
+  
+  is-for-loop-cons = 
+  	 ?For(_, _, _, _, _, _)
+  <+ ?ForInferred(_, _, _, _, _) 
+  <+ ?ForAll(_, _, _, _, _)
+  <+ ?ForCount(_, _, _, _, _)
+  
+rules  
   
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions-reqs> def
@@ -42,7 +83,7 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions-find-action(|x1)); rename-all(is-var-decl-cons); alltd(rename-actions(|x1))> elem1*
+          ; elem2* := <rename-template-elements(|x1)> elem1*
           ; genname := <generate-template-name-fargs>(x1, farg2*, mod*)
           ; newanno* := <rename-query-optimization-annos> anno*
           ; def := Define(mod*, x1, farg2*, req*, elem2*){newanno*}
@@ -64,7 +105,7 @@ rules
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
-          ; elem2* := <alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
+          ; elem2* := <rename-template-elements(|y)> elem1*
           ; genname := <generate-template-name-fargs>(y, farg2*, mod*)
           ; newanno* := <rename-query-optimization-annos> anno*
           ; def := Define(mod*, y, farg2*, req*, elem2*){newanno*}
@@ -100,7 +141,7 @@ rules
                    TemplateModList := mod* )
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
-         ; elem2* := <mark-too-deeply-nested-defines; alltd(rename-actions-find-action(|y)); rename-all(is-var-decl-cons); alltd(rename-actions(|y))> elem1*
+         ; elem2* := <mark-too-deeply-nested-defines; rename-template-elements(|y)> elem1*
          ; genname := <generate-template-name-fargs>(y, farg2*, mod*)
          ; newanno3* := <rename-query-optimization-annos> newanno2*
          ; def := Define(mod2*, y, farg2*, req*, elem2*){newanno3*}

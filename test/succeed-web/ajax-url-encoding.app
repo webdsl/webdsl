@@ -12,7 +12,7 @@ application test
       input(glob.foo)
       submit("save", action{ return view(glob); })
       submit("ajaxsave", action{ return view(glob); })[ajax]
-      submit("ajaxsave2", action{ replace(pl,viewA(glob)); })[ajax]
+      submit("ajaxsave2", action{ replace(pl,viewA(glob, pl)); })[ajax]
     }
     
     placeholder pl {}
@@ -29,14 +29,14 @@ application test
       input(glob.foo)
       submit("save", action{ return view(glob); })
       submit("ajaxsave", action{ return view(glob); })[ajax]
-      submit("ajaxsave2", action{ replace(pl2,viewA(glob)); })[ajax]
+      submit("ajaxsave2", action{ replace(pl2,viewA(glob, pl2)); })[ajax]
       
     }
     
     placeholder pl2 {}
   }
   
-  define ajax viewA(g:Bar){
+  define ajax viewA(g:Bar, pl: Placeholder){
     "viewA ajax template"
     navigate view(g) { output(g.foo) }
     form{
@@ -44,7 +44,7 @@ application test
       input(glob.foo)
       submit("save", action{ return view(glob); })
       submit("ajaxsave", action{ return view(glob); })[ajax]
-      submit("ajaxsave2", action{ replace(pl,viewA(glob)); })[ajax]
+      submit("ajaxsave2", action{ replace(pl,viewA(glob, pl)); })[ajax]
     }
     block[onclick:=action{refresh();}]{
       "clickme"
@@ -106,7 +106,7 @@ application test
     
     assert(d.getPageSource().contains("viewA ajax template"), "expected to see ajax template viewA");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length==11, "incorrect number of input elements found");
+    assert(elist.length==12, "incorrect number of input elements found");
     
     assert(elist[6].getValue() == "test"+entered1+entered2+entered3, "input not correctly displayed after submit");   
   }
