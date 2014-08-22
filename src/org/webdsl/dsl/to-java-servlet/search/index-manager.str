@@ -123,12 +123,17 @@ strategies
         public static void renewFacetIndexReaders(){
         	new FacetRenewerThread().start();
         }
+        
+        public static void closeFacetIndexReaders(){
+        	bstm111*
+        	lastFacetReaderRenewal = 0l;
+        }
 
         private static void renewFacetIndexReadersInternal(){
           bstm1*
           lastFacetReaderRenewal = System.currentTimeMillis();
         }
-
+        
         public static void reindex(org.webdsl.WebDSLEntity ent){
           getFullTextSession().index(ent);
         }
@@ -352,7 +357,7 @@ strategies
 
                 try {
                     String currentNamespace= "";
-                    while( namespaceIt.hasNext() ){
+                    while( namespaceIt.hasNext() && !org.webdsl.servlet.ServletState.isServletDestroying() ){
                         currentNamespace = namespaceIt.next();
                         try{
                             reindexAutoCompletion(sourceReader, entityClass, completionFields, currentNamespace, lastModified);
@@ -442,6 +447,7 @@ strategies
             String namespaceInfo = (namespace == null || namespace.isEmpty()) ? "" : ", namespace: " + namespace;
             String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
             for ( String field  : completionFields ){
+            	if(org.webdsl.servlet.ServletState.isServletDestroying()){ return; }
                 log("Creating/updating autocomplete index [field: " + entityName + ">" + field + namespaceInfo + "]");
                 try{
                     String acPath = IndexManager.indexDirAutoComplete(entityClass, field, namespace);
@@ -489,13 +495,13 @@ strategies
         }
 
         private static void reindexSpellCheck(IndexReader sourceReader, Class<?> entityClass, String[] spellCheckFields, String namespace, long lastModified) {
-
             Directory scDir = null;
             SpellChecker sc = null;
             IndexReader rdr = null;
             String namespaceInfo = (namespace == null || namespace.isEmpty()) ? ", namespace: " + namespace : "";
             String entityName = entityClass.getName().substring(entityClass.getPackage().getName().length() + 1);
             for ( String field  : spellCheckFields ){
+            	if(org.webdsl.servlet.ServletState.isServletDestroying()){ return; }
                 log("Creating/updating spellcheck index [field: " + entityName + ">" + field + namespaceInfo + "]");
                 try{
                     String scPath = IndexManager.indexDirSpellCheck(entityClass, field, namespace);
@@ -637,6 +643,7 @@ strategies
                     //the highest searchable class in the inheritance tree triggers reindexing of its subclasses
         ; bstm*  := <map(class-to-reindex-entity-class <+ class-to-reindex-entity-only-explicit)> x_class_set
         ; bstm1* := <map(class-to-renew-facet-readers)> x_class_set
+        ; bstm111*:= <map(class-to-close-facet-readers)> x_class_set
         ; bstm2* := <filter(class-to-index-suggestions); flatten-list> x_class_set
         ; bstm3* := <map(class-to-clear-autocomplete-index)> x_class_set
         ; bstm4* := <map(class-to-clear-spellcheck-index)> x_class_set
@@ -661,9 +668,14 @@ strategies
       x_name ->
       java|[
           if ( getModifiedTimeIndex(x_name.class) > lastFacetReaderRenewal ) {
-              x_searcher.renewBoboReaders();
+              x_searcher.tryRenewBoboReader();
           }
       ]|
+      with
+          x_searcher := <concat-strings>[x_name,"Searcher"]
+
+  class-to-close-facet-readers:
+      x_name -> java|[ x_searcher.closeBoboReader(); ]|
       with
           x_searcher := <concat-strings>[x_name,"Searcher"]
 

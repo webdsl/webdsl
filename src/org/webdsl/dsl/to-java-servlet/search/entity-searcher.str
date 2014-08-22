@@ -100,20 +100,6 @@ strategies
             return String.class;
         }
 
-        protected synchronized BoboIndexReader getBoboReader( String field ){
-            if( _boboReader == null || _boboReader.getFacetHandler( field ) == null ){
-                renewBoboReaders( discreteFacetRequests.keySet() );
-            }
-            return _boboReader;
-        }
-
-        public final synchronized static void renewBoboReaders(){
-            if (_boboReader != null){
-                //only renew if reader is already used once, that is, faceting is done
-                renewBoboReaders(new ArrayList<String>());
-            }
-        }
-
         public x_class#Searcher reset(){
             clearFacetSelection();
             clearFieldFilters();
@@ -131,7 +117,35 @@ strategies
 
         }
 
-        private final synchronized static void renewBoboReaders( Collection<String> allFields ){
+        protected synchronized BoboIndexReader getBoboReader( String field ){
+            if( _boboReader == null || _boboReader.getFacetHandler( field ) == null ){
+                renewBoboReader( discreteFacetRequests.keySet() );
+            }
+            return _boboReader;
+        }
+
+        public final synchronized static void tryRenewBoboReader(){
+            if (_boboReader != null){
+                //only renew when reader is already used once, that is, faceted search is performed
+                renewBoboReader(new ArrayList<String>());
+            }
+        }
+        
+		public final synchronized static void closeBoboReader(){
+        	closeBoboReader( _boboReader );
+		}
+		
+		public final synchronized static void closeBoboReader( BoboIndexReader reader){
+			if(reader != null){
+				try{
+					reader.close();
+				} catch ( IOException ex ) {
+					org.webdsl.logging.Logger.error("Error when closing bobo facet reader", ex);
+				}
+			}
+		}
+
+        private final synchronized static void renewBoboReader( Collection<String> allFields ){
             org.webdsl.logging.Logger.info("renewing faceting index reader for entity " + "~x_class");
             BoboIndexReader boboReader_OLD = _boboReader;
 
@@ -157,15 +171,11 @@ strategies
                 // TODO Auto-generated catch block
                 org.webdsl.logging.Logger.error("Error during renewal of bobo facet readers",ex);
             } finally {
-                if(boboReader_OLD != null){
-                    try{
-                        boboReader_OLD.close();
-                    } catch ( IOException ex ) {
-                        org.webdsl.logging.Logger.error("Error during renewal of bobo facet readers",ex);
-                    }
-                }
+                closeBoboReader( boboReader_OLD );
             }
         }
+        
+        
     }
       ]|
     where ( x_class, _ ) := <get-entity-def> ent
