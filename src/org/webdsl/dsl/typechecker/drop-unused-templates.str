@@ -1,0 +1,42 @@
+module org/webdsl/dsl/generation/typechecker/drop-unused-templates
+
+imports org/webdsl/dsl/languages/ui/declare
+imports org/webdsl/dsl/languages/ui/templatecall-utils
+imports org/webdsl/dsl/languages/ui/templatecall
+imports org/webdsl/dsl/languages/ui/rename
+
+strategies
+	
+	drop-unused-templates:
+		Application(n,ast) -> Application(n,ast')
+		where record-used-templates
+			; ast' := <alltd( is-template; try(remove-unused-template) )> ast
+		
+	record-used-templates = bagof-BodyForUsedTemplatesAnalysis; map(record-tcs); all-keys-UsedTemplateNames
+	
+	record-tcs:
+		body  -> body
+		with  tcs := <collect-om(is-defined-template-call)> body
+			; tcNames := <map(is-defined-tc-get-called-tc)> tcs
+			; toRecord := <remove-all(UsedTemplateNames)> tcNames //only check a specific templatecall once, to avoid infinite recursion
+			; <map(\ x -> <rules( UsedTemplateNames : x )> \)> toRecord
+			; <map(\ x -> <CurrentTemplateDecl; ?Define(_, _, _, _, <id>); record-tcs> x \)> toRecord
+			; <map(\ x -> <try(get-tc-elements; record-tcs)> x \)> tcs //traverse body (elements) of template call
+
+  
+	get-current-page-definition-from-page-signature:
+		(mods, name, args) -> templateDecl
+		with genname := <generate-template-name-fargs> (name, args, mods)
+			; templateDecl := <CurrentTemplateDecl> genname
+
+	is-template= ?Define(mods,name,args,_,_); not(<fetch(?Page() <+ ?(Email()))> mods)
+	
+	remove-unused-template:
+		d@Define(mods,name,args,_,_) -> []
+		where <not(?"elementsempty"); not(?"wrapsubmit"); not(?"output")> name //special template calls that are later used during compilation
+		    ; fargs := <formal-arguments-to-types> args
+			; genname := <generate-template-name> (name, fargs)
+			; not(UsedTemplateNames)
+			; sig@(n,t*) := <normalize-signature> (name,args)
+			; rules( TemplateSignature :- (n, t*))
+			; !genname; debug(!"Unused template removed from tree: ")  	  
