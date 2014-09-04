@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -36,6 +37,7 @@ public abstract class AbstractPageServlet{
     protected PegDownProcessor pegDownProcessor = null;
     protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
+    protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     
     
     static{
@@ -940,7 +942,9 @@ public abstract class AbstractPageServlet{
     public void setMimetype(String mimetype) {
         this.mimetype = mimetype;
         mimetypeChanged = true;
-        enableRawoutput();
+        if(!isMarkupLangMimeType.matcher(mimetype).find()){
+        	enableRawoutput();
+        }
         disableTemplateSpans();
     }
 
