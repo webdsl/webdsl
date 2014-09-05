@@ -16,6 +16,11 @@ public class BuildProperties {
         return dbmode;
     }
     
+    protected static boolean wikitext_hardwraps = false;
+    public static boolean isWikitextHardwrapsEnabled(){
+    	return wikitext_hardwraps;
+    }
+    
     protected static String appUrlForRenderWithoutRequest;
     public static String getAppUrlForRenderWithoutRequest(){
         return appUrlForRenderWithoutRequest;
@@ -29,6 +34,10 @@ public class BuildProperties {
                 isRequestLoggingEnabled = true;
             }
             dbmode = props.getProperty("webdsl.DBMODE");
+            String hardwraps = props.getProperty("webdsl.wikitext_hardwraps");
+            if("true".equals(hardwraps)){
+            	wikitext_hardwraps = true; 
+            }
             setAppUrlForRenderWithoutRequest();            
             
         }

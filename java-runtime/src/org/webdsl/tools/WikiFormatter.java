@@ -14,6 +14,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
 import utils.AbstractPageServlet;
+import utils.BuildProperties;
 
 
 public final class WikiFormatter {
@@ -41,7 +42,7 @@ public final class WikiFormatter {
 			new CacheLoader<String, String>() {
 		public String load(String text) {
 			AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-			if(text!=null && DISABLE_HARDWRAPS_PATTERN.matcher(text).find()){
+			if( !BuildProperties.isWikitextHardwrapsEnabled() || (text!=null && DISABLE_HARDWRAPS_PATTERN.matcher(text).find() )){
 				return wikiFormat( text, threadLocalPage.getPegDownProcessorNoHardWraps(), threadLocalPage.getAbsoluteLocation() );
 			} else {
 				return wikiFormat( text, threadLocalPage.getPegDownProcessor(), threadLocalPage.getAbsoluteLocation() );
