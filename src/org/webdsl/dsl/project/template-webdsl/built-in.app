@@ -660,6 +660,7 @@ native class java.lang.Double as Double {
     replyTo :: String (length=1000000)
     from :: String (length=1000000)
     subject :: String (length=1000000)
+    unsubscribeAddress :: String (length=1000000)
     scheduled :: DateTime (default=now())
     lastTry :: DateTime
   }
@@ -698,6 +699,7 @@ native class java.lang.Double as Double {
     cc(q.cc)
     bcc(q.bcc)
     replyTo(q.replyTo)
+    unsubscribeAddress(q.unsubscribeAddress)
     //don't escape the html from internal email rendering
     rawoutput( q.body )
   }

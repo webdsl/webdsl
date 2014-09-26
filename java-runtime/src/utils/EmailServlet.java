@@ -68,6 +68,7 @@ public abstract class EmailServlet {
 	public String bcc = "";
 	public String replyTo = "";
 	public String subject = "";
+	public String unsubscribeAddress = "";
 	public java.io.StringWriter body = new java.io.StringWriter();
 
 	public boolean send(){
@@ -83,6 +84,10 @@ public abstract class EmailServlet {
 					javax.mail.internet.InternetAddress.parse(this.cc, false));
 			msg.setRecipients(javax.mail.Message.RecipientType.BCC,
 					javax.mail.internet.InternetAddress.parse(this.bcc, false));
+			
+			if(this.unsubscribeAddress != null && !this.unsubscribeAddress.equals("")){
+				msg.addHeader("List-Unsubscribe", "<" + this.unsubscribeAddress +">");
+			}
 
 			msg.setSubject(this.subject, encodingOptions);
 
@@ -94,6 +99,7 @@ public abstract class EmailServlet {
 			msg.setReplyTo(replyTo);
 
 			javax.mail.Transport transport = session.getTransport(protocol);
+
 			try {
 				transport.connect(host, username, password);
 				transport.sendMessage(msg, msg.getAllRecipients());
