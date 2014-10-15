@@ -8,9 +8,9 @@ exports
 %% support dropped -> http://yellowgrass.org/issue/WebDSL/713
 %%     "event" "(" Id "," "[" { EventArg "," }* "]" ")" -> Exp {cons("EventCall")}
 %%     "event" "(" Id "," "[" { EventArg "," }* "]" ")" -> TemplateElement {cons("EventCallElement")}
-%% 
+%%
 %%     Id ":=" Exp -> EventArg {cons("EventArg")}
-  
+
 %%  	replace <element_id> << <templatecall>(<argumenten>);
 %%	append  <element_id> << <templatecall>(<argumenten>);
 %%	visibility <element_id> << < "show" | "hide" | "toggle">;
@@ -18,48 +18,62 @@ exports
 %%	restyle <element_id> << "<css classname>";
 %%	clear <element_id> << "<niet terzake doende string>"
 
-  AjaxStatement ";" -> Statement {cons("AjaxStatement"), prefer}   
-    "replace" "(" Exp "," TemplateCall ")" -> AjaxStatement {cons("AjaxReplace")}    
+  AjaxStatement ";" -> Statement {cons("AjaxStatement"), prefer}
+    "replace" "(" Exp "," TemplateCall ")" -> AjaxStatement {cons("AjaxReplace")}
 
     "append" "(" Exp "," TemplateCall ")" -> AjaxStatement {cons("AjaxAppend")}
 
     "visibility" "(" Exp "," AjaxVisibility ")" -> AjaxStatement {cons("AjaxVisibility")}
     "show" -> AjaxVisibility{cons("Show")}
     "toggle" -> AjaxVisibility{cons("Toggle")}
-    "hide" -> AjaxVisibility{cons("Hide")}        
-    
+    "hide" -> AjaxVisibility{cons("Hide")}
+
     "relocate" "(" PageCall ")" -> AjaxStatement { cons("AjaxRelocate") }
-    
+
     "restyle" "(" Exp "," Exp ")" -> AjaxStatement { cons("AjaxRestyle") }
-    
+
     "clear" "(" Exp ")" -> AjaxStatement{cons("AjaxClear")}
-    
+
     "refresh" "(" ")" -> AjaxStatement{cons("AjaxRefresh")}
-    
+
     "runscript" "(" Exp ")" -> AjaxStatement { cons("AjaxRunScript"), prefer }
-    
+
 %%    Id Id "<<" Id  ";" 	 -> Statement {cons("AjaxActionIdParam"),prefer}
 %%    Id Id "<<" ";"		-> Statement {cons("AjaxActionNoParam")}
 %%    Id "<<" Exp ";"	 	-> Statement {cons("AjaxActionNoTarget")}
 %%    Id Id "<<" Exp ";"   	-> Statement {cons("AjaxAction")}
-  
-    "placeholder" Id "{" TemplateElement* "}" -> TemplateElement{cons("Placeholder"), prefer}
-    "placeholder" Exp "{" TemplateElement* "}"-> TemplateElement{cons("Placeholder")}
-    "placeholder" Id TemplateCall -> TemplateElement{cons("PlaceholderWithAjaxCall"), prefer}
-    "placeholder" PHExp TemplateCall -> TemplateElement{cons("PlaceholderWithAjaxCall")}
-    "placeholder" -> TemplateCallId {reject}
-    
+
+    Placeholder -> TemplateElement
+    PlaceholderKeyword Id "{" TemplateElement* "}" -> Placeholder{ast("Placeholder(<2>,<3>)"), prefer}
+    PlaceholderKeyword Exp "{" TemplateElement* "}"-> Placeholder{ast("Placeholder(<2>,<3>)")}
+    PlaceholderKeyword Id TemplateCall -> Placeholder{ast("PlaceholderWithAjaxCall(<2>,<3>)"), prefer}
+    PlaceholderKeyword PHExp TemplateCall -> Placeholder{ast("PlaceholderWithAjaxCall(<2>,<3>)")}
+    PlaceholderKeyword -> TemplateCallId {reject}
+    %% node for describing a placeholder var declaration without body
+    %% making it explicit in the syntax is convenient for desugaring, testing and debugging
+    PlaceholderVar -> TemplateElement
+    PlaceholderVarKeyword Id -> PlaceholderVar{ast("PlaceholderVar(<2>)"), prefer}
+    PlaceholderVarKeyword -> TemplateCallId {reject}
+    lexical syntax
+    "placeholder" -> PlaceholderKeyword
+    "placeholdervar" -> PlaceholderVarKeyword
+    lexical restrictions
+    PlaceholderKeyword -/- [a-zA-Z0-9\_]
+    PlaceholderVarKeyword  -/- [a-zA-Z0-9\_]
+
+    context-free syntax
+
     %% issue http://yellowgrass.org/issue/Spoofax/331
     %% workaround:
     Id "(" {Exp ","}* ")"  -> PHExp {cons("ThisCall")}
     Exp "." Id "(" {Exp ","}* ")"  -> PHExp {cons("Call")}
-    Exp "." Id             -> PHExp {cons("FieldAccess"),prefer} 
+    Exp "." Id             -> PHExp {cons("FieldAccess"),prefer}
     Exp "[" Exp "]"        -> PHExp {cons("CollectionIndex"),prefer}
     Exp "+" Exp  -> PHExp {cons("Add")}
     ConstValue -> PHExp
     %%
-    %% more general implementation, currently broken in java back-end: 
+    %% more general implementation, currently broken in java back-end:
     %% "placeholder" Exp TemplateCall -> TemplateElement{cons("PlaceholderWithAjaxCall")}
-    %% reject ambiguous placeholder target{} next{} where target{} is parsed as object creation, 
+    %% reject ambiguous placeholder target{} next{} where target{} is parsed as object creation,
     %% which is never the case since the expression must produce a String
-    %% "placeholder" ObjectCreation TemplateCall   -> TemplateElement {reject} 
+    %% "placeholder" ObjectCreation TemplateCall   -> TemplateElement {reject}

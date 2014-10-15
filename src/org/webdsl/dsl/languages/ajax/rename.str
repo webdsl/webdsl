@@ -9,14 +9,29 @@ imports
 rules
 
   register-templatevardecl-for-rename :
-    tc@Placeholder(n1, elems) -> Placeholder(n2, elems2)
+    tc@Placeholder(n1, elems) -> Placeholder(n3, elems2)
     with if <is-string> n1
          then (n2, srt2) := <vardecl-rename-immutable-common> (tc, n1, SimpleSort("Placeholder")) //placeholder Id {}
+            ; n3 := <register-placeholder-helper> n2
          end
        ; elems2 := <alltd-register-templatevardecl-for-rename> elems
 
   register-templatevardecl-for-rename :
-    tc@PlaceholderWithAjaxCall(n1, call) -> PlaceholderWithAjaxCall(n2, call)
+    tc@PlaceholderWithAjaxCall(n1, call) -> PlaceholderWithAjaxCall(n3, call)
     with if <is-string> n1
          then (n2, srt2) := <vardecl-rename-immutable-common> (tc, n1, SimpleSort("Placeholder")) //placeholder Id {}
+            ; n3 := <register-placeholder-helper> n2
          end
+
+  // transform the placeholder to an expression that refers to a PlaceholderVar declaration,
+  // and emit that PlaceholderVar to be included at the top template elements in the direct enclosing template var scope.
+  // this is required because when lifting elements the placeholder might end up in a different template,
+  // while it could still be referenced from the old context.
+  register-placeholder-helper :
+  	n2 -> Add(String(""),Var(n2))
+  	with  <add-new-template-elements-during-rename> PlaceholderVar(n2)
+
+  // subsequent rename passes on the generated PlaceholderVarInternal also need to register it
+  register-templatevardecl-for-rename :
+    tc@PlaceholderVar(n1) -> PlaceholderVar(n2)
+    with  (n2, srt2) := <vardecl-rename-immutable-common> (tc, n1, SimpleSort("Placeholder"))

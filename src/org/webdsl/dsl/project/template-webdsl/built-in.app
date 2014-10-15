@@ -5,11 +5,11 @@ module .servletapp/src-webdsl-template/built-in
   native class utils.Statistics as RequestStatistics {
     static logStatistics()
   }
-  
+
   function logStatistics(){
     RequestStatistics.logStatistics();
   }
-  
+
   invoke logStatistics() every 5 minutes
 
 // hibbernate transaction management
@@ -21,7 +21,7 @@ module .servletapp/src-webdsl-template/built-in
   	static timepickerJS() : String
   	static timepickerCSS() : String
   }
-  
+
   native class utils.ValidationException as NativeValidationException {
       getName() : String
       getErrorMessage() : String
@@ -118,7 +118,7 @@ module .servletapp/src-webdsl-template/built-in
     isMustNot() : Bool
     isShould() : Bool
   }
-  
+
   function escapeQuery( q:String ) : String {
   	return Searcher.escapeQuery( q );
   }
@@ -340,7 +340,7 @@ module .servletapp/src-webdsl-template/built-in
     name.fraser.neil.plaintext.patch_factory.patchMake   as makePatch(String):Patch
     name.fraser.neil.plaintext.patch_factory.diff        as diff(String):List<String>
   }
-  
+
   type Long{
   	intValue() : Int
   }
@@ -420,11 +420,11 @@ module .servletapp/src-webdsl-template/built-in
   function getDispatchServlet():DispatchServlet{
     return DispatchServlet.get();
   }
-  
+
   native class javax.servlet.http.HttpServletRequest as HttpServletRequest{
     getRemoteAddr() : String
   }
-  
+
   function remoteAddress(): String {
     return getDispatchServlet().getRequest().getRemoteAddr();
   }
@@ -576,7 +576,7 @@ native class java.lang.Double as Double {
     static closeDrivers()
     static createTempFile(String):String
   }
-  
+
 
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
@@ -588,7 +588,7 @@ native class java.lang.Double as Double {
     utils.Test.runJavaScript as runJavaScript(String):String
     utils.Test.getAlert as getAlert() : WebAlert
   }
-  
+
   native class org.openqa.selenium.Alert as WebAlert {
   	getText() : String
   	dismiss()
@@ -720,7 +720,7 @@ native class java.lang.Double as Double {
   }
 
   //built-in templates
-  
+
   template internalElementsWrapper(){ // convenient for desugaring in the compiler that replaces template elements with a single templatecall, see RenderTemplateFunctionCall desugaring
   	elements
   }
@@ -741,11 +741,11 @@ native class java.lang.Double as Double {
       elements()
     </div>
   }
-  
-  template span() { 
+
+  template span() {
     <span all attributes>
       elements
-    </span> 
+    </span>
   }
 
   define ignore-access-control container(){
@@ -992,7 +992,7 @@ native class java.lang.Double as Double {
       dateformatString := "dateFormat: '"+convertDateFormatToJQuery(format)+"', ";
     }
     dateinputgeneric(d, format, "datepicker", dateformatString+" changeMonth: true, changeYear: true, " + minDateOpt + "," + maxDateOpt)[all attributes]{ elements }
-    
+
   }
   template input(d:Ref<DateTime>, minDate:DateTime, maxDate:DateTime){
     var format := DateType.getDefaultDateTimeFormat()
@@ -1971,6 +1971,12 @@ native class java.lang.Double as Double {
     }
   }
 
+  //output Placeholder
+
+  template output(p:Placeholder){
+  	text(p.toString())
+  }
+
   //input/output String
 
   define output(s: String){
@@ -2157,7 +2163,7 @@ native class java.lang.Double as Double {
   define output(s: WikiText){
     rawoutput(s.format())
   }
-  
+
   define rawoutput( t: WikiText) {
     rawoutput( t.formatNoTagFiltering() )
   }

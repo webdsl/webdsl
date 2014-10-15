@@ -1001,6 +1001,7 @@
    Placeholder                                            -- KW["placeholder"] _1 KW["{"] _2 KW["}"],
    Placeholder.2:iter-star                                -- _1,
    PlaceholderWithAjaxCall                                -- KW["placeholder"] _1 _2,
+   PlaceholderVar                                         -- KW["placeholdervar"] _1,
    AjaxClear                                              -- KW["clear"] KW["("] _1 KW[")"],
    AjaxRestyle                                            -- KW["restyle"] KW["("] _1 KW[","] _2 KW[")"],
    AjaxRelocate                                           -- KW["relocate"] KW["("] _1 KW[")"],
@@ -1411,9 +1412,9 @@
    GlobalVarDecl                                          -- KW["var"] _1 KW[":"] _2,
    GlobalVarDeclInitInferred                              -- KW["var"] _1 KW[":="] _2,
    GlobalVarDeclInit                                      -- KW["var"] _1 KW[":"] _2 KW[":="] _3,
-   
+
    ResolvedRequireKey                                     -- _1, %% this internal constructor is put in the visible templatecall properties, it should be moved to the templatecall annotation
-   
+
    Routing                                                -- KW["routing"] KW["{"] _1 KW["}"],
    RoutingReceive                                         -- KW["receive"] _1 _2,
    RoutingConstruct                                       -- KW["construct"] _1 _2,

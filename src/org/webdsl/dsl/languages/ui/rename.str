@@ -15,36 +15,51 @@ signature
     IsTemplateArg : Term
 
 rules
-  
+
   add-is-template-arg-anno :
     a{anno*} -> a{IsTemplateArg(),anno*}
-   
+
 rules
-	
+
   // template variables and actions defined at top level are visible in the entire template
   // rename needs to be performed in multiple traversals to allow use to come before definition
-  rename-template-elements(|x) = 
+  rename-template-elements(|x) =
   	alltd(rename-actions-find-action(|x))
   ; rename-template-elements-with-var-scope
   ; alltd(rename-actions(|x))
-   
-  // handle non-linear scoping of template variables and placeholder names 
-  rename-template-elements-with-var-scope = rename-wrapper(alltd-register-templatevardecl-for-rename; rename-all)
-   
+
+  // handle non-linear scoping of template variables and placeholder names
+  rename-template-elements-with-var-scope =
+  	rename-wrapper(
+      {| IdForNewTemplateElementsDuringRename :
+  		where(uniq-id := <newname> "varscope"; rules( IdForNewTemplateElementsDuringRename := uniq-id)) // using a unique name 'uniq-id' for each scope,
+  		// that way '<bagof-NewTemplateElementsDuringRename> uniq-id' below will collect only elements of the most inner scope, meaning the directly enclosing template body or for loop body
+      ; alltd-register-templatevardecl-for-rename
+      ; rename-all
+      ; <conc> (<bagof-NewTemplateElementsDuringRename> uniq-id,<id>) // insert PlaceholderVar elements that were emitted
+      ; where(<repeat(once-NewTemplateElementsDuringRename)> uniq-id) // remove all emitted elementsfor this scope
+      |}
+    )
+
+  add-new-template-elements-during-rename =
+  	?x
+  ; where(uniq-id := <IdForNewTemplateElementsDuringRename>)
+  ; rules( NewTemplateElementsDuringRename :+ uniq-id -> x)
+
   alltd-register-templatevardecl-for-rename =  // declare/rename template variables and placeholders
        is-define-cons // don't declare vars in nested template defs
     <+ is-action-cons // don't declare vars in actions
     <+ is-for-loop-cons // don't declare vars in for loops
     <+ is-var-decl-cons; register-templatevardecl-for-rename // found a var, declare it // register-templatevardecl-for-rename invokes alltd-register-templatevardecl-for-rename for its nested elements (placeholder bodies)
     <+ all(alltd-register-templatevardecl-for-rename) // look for vars in child nodes
-  	
+
 rules
 
-  is-var-decl-cons = 
-     ?VarDecl(_,_) 
+  is-var-decl-cons =
+     ?VarDecl(_,_)
   <+ ?VarDeclInit(_,_,_)
   <+ ?VarDeclInitInferred(_,_)
-  <+ ?TemplateVarDecl(_,_) 
+  <+ ?TemplateVarDecl(_,_)
   <+ ?TemplateVarDeclInit(_,_,_)
   <+ ?TemplateVarDeclInitInferred(_,_)
   <+ ?RequestScopeTemplate(_)
@@ -52,24 +67,25 @@ rules
   <+ ?RequestScopeTemplateVarDecl(_,_)
   <+ where(Placeholder(is-string, id)) // placeholder that declares a variable name
   <+ where(PlaceholderWithAjaxCall(is-string, id)) // placeholder that declares a variable name
-   
+  <+ ?PlaceholderVar(_)
+
   is-define-cons = ?Define(_, _, _, _, _)
 
-  is-action-cons = 
-  	 ?Action(_, _, _, _) 
+  is-action-cons =
+  	 ?Action(_, _, _, _)
   <+ ?InitAction(_)
   <+ ?DataBindAction(_)
   <+ ?ValidateAction(_)
   <+ ?RenderAction(_)
-  
-  is-for-loop-cons = 
+
+  is-for-loop-cons =
   	 ?For(_, _, _, _, _, _)
-  <+ ?ForInferred(_, _, _, _, _) 
+  <+ ?ForInferred(_, _, _, _, _)
   <+ ?ForAll(_, _, _, _, _)
   <+ ?ForCount(_, _, _, _, _)
-  
-rules  
-  
+
+rules
+
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <store-renamed-actions-reqs> def
     where   <fetch(Page)> mod*
@@ -79,7 +95,7 @@ rules
           ; rules ( InPage := x1 )
           ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
           ; rules ( TemplateArg := farg2* //used in template-call.str
-                    TemplateModList := mod* ) 
+                    TemplateModList := mod* )
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
           ; <declare-require-sig> req*
@@ -101,7 +117,7 @@ rules
           ; y := x{<newname-webdsl> x}
           ; rules ( InTemplate := y )
           ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
-          ; rules ( TemplateArg := farg2* 
+          ; rules ( TemplateArg := farg2*
                     TemplateModList := mod* )
           //; empty-args-in-context
           ; <declare-args-in-context> farg2*
@@ -117,8 +133,8 @@ rules
               rules ( CurrentTemplateDecl : genname -> def)
             end
           |}
-       
-  get-enclosing-define-from-context :     
+
+  get-enclosing-define-from-context :
     _ -> EnclosingDefine(templatekey, page-or-template-name, template-arg, in-email, mod*)
     where not(InsideArgDefine)
         ; page-or-template-name := <InTemplate <+ InPage <+ InEmail>
@@ -127,7 +143,7 @@ rules
     with if InEmail then in-email := True() else in-email := False() end
     with templatekey := (page-or-template-name, <!template-arg;map(?Arg(_,<id>))>) //need name,type* tuple of enclosing template, to retrieve actions during desugar
     with mod* := <TemplateModList>
-    	    
+
   rename-ui :
     Define(mod*, x,farg1*, req*, elem1*){anno*} -> <declare-local-template-definition; store-renamed-actions-reqs> def
     where (InPage <+ InTemplate)
@@ -135,13 +151,13 @@ rules
         ; not(<fetch(Email)> mod*)
     with  newanno* := <put-closure-in-anno> anno* //need closure for lifting the definition to top-level
         ; mod2* := <fetch(Local()) <+ ![Local() | <id>]> mod* // add if not present
-    with  newanno2* := [ <get-enclosing-define-from-context> | newanno*]   
+    with  newanno2* := [ <get-enclosing-define-from-context> | newanno*]
     with {| Rename, InDef, InTemplate, RenameActionCall, VarInContext, TemplateArg, TemplateModList, ReqTemplateFargTypes
          : rules ( InDef := True() )
          ; y := x{<toplevel-rename> x}
          ; rules ( InTemplate := y )
          ; farg2* := <map(rename; add-is-template-arg-anno)> farg1*
-         ; rules ( TemplateArg := farg2* 
+         ; rules ( TemplateArg := farg2*
                    TemplateModList := mod* )
          ; <declare-args-in-context> farg2*
          ; <declare-require-sig> req*
@@ -155,7 +171,7 @@ rules
   mark-too-deeply-nested-defines =
     topdown(try({\ d@Define(_,_,_,_,_){anno*} -> d{TooDeeplyNestedDefine(),anno*} \}))
 
-  signature constructors TooDeeplyNestedDefine : Term 
+  signature constructors TooDeeplyNestedDefine : Term
   rules
 
   store-renamed-actions-reqs: def@Define(mod*, name, farg*, req*, elem*) -> def
@@ -173,27 +189,27 @@ rules
 
   get-requires :
   [] -> []
-  
+
   get-requires :
   None() -> []
-  
+
   get-requires :
   TemplateArgs(args) -> args
-  
+
   //get-requires :
   //[x | xs ] -> [x | xs]
-  
+
   declare-require-sig =
     get-requires
   ; map(declare-require-sig-internal)
-    
+
   declare-require-sig-internal =
     ?d@TemplateArg(name, fargtypes)
   ; xsa := <strip-annos> name
   ; rules (ReqTemplateFargTypes : xsa -> fargtypes)
 
-  rename-ui :  
-  // don't go into actions without proper scopes; actions are sometimes renamed without going 
+  rename-ui :
+  // don't go into actions without proper scopes; actions are sometimes renamed without going
   // through the whole template rename rule, in that case this rule is used and the action itself is not renamed
   a@Action(amod*, nm1, args1, b1) -> Action(amod*, nm1, args2, b2)
   with {| Rename, VarInContext, InActionContext
@@ -202,12 +218,12 @@ rules
         ; <declare-args-in-context> args2
         ; b2 := <rename-all> b1
        |}
-          
+
 signature
   constructors
 
     DirectEnclosingDefine : String -> Anno
- 
+
 rules
 
   rename-actions-find-action(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope, don't enter nested defines
@@ -244,7 +260,7 @@ rules
           )
           ; bl2 := <rename-all> bl
           |}
-          
+
   rename-ui :
     a@InitAction(bl) -> InitAction(bl2)
     where InDef //in template
@@ -252,8 +268,7 @@ rules
           rules(InActionContext := a)
           ; bl2 := <rename-all> bl
           |}
-          
+
   rename-ui :
     Return(tc){anno*} -> <rename-all> Return(<this-call-to-page-call> tc){anno*}
     where InActionContext
- 
