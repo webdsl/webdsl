@@ -406,6 +406,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             case REGEX:
                 paramMap.put( "rq", usableRootQD.query );
                 break;
+            case MATCH_ALL:
+            	paramMap.put("maq","");
             default:
                 paramMap.put( "lq", getLuceneQueryAsString( ) );
                 paramMap.put( "mq", mainQuery);
@@ -540,6 +542,8 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     searcher.strictMatching( true );
                 } else if ( "mq".equals( key ) ) {
                     searcher.mainQuery = value;
+                } else if ( "maq".equals( key ) ) {
+                	searcher.matchAllQuery();
                 } else if ( "cf".equals( key ) ) {
                     //constraint fields, values
                     String[] a1 = value.split( "," );

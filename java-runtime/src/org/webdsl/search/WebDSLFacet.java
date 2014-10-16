@@ -65,6 +65,14 @@ public class WebDSLFacet {
         occur = Occur.SHOULD;
         return this;
     }
+    
+    public final String asString( ){
+        return utils.URLFilter.paramMapToPostParamsEncoding( this.toParamMap( ) );
+    }
+
+    public static WebDSLFacet fromString( String str ){
+        return fromParamMap( utils.URLFilter.URLEncodingToParamMap( str ) );
+    }
 
     public Map<String,String> toParamMap(){
 
