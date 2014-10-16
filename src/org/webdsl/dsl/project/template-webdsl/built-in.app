@@ -104,6 +104,8 @@ module .servletapp/src-webdsl-template/built-in
 
   native class org.webdsl.search.WebDSLFacet as Facet {
     constructor()
+    static fromString(String) : Facet
+    asString() : String
     isSelected() : Bool
     getCount() : Int
     getValue() : String
@@ -279,7 +281,7 @@ module .servletapp/src-webdsl-template/built-in
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
   define highlightedSummary(s : Searcher, fld : String, txt : String) {
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
-    var prerendered  := rendertemplate( output(decorated) )
+    var prerendered  := rendertemplate( output("... " + decorated + " ...") )
     var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
 
     rawoutput( tagsfixed ) [all attributes]
@@ -290,8 +292,9 @@ module .servletapp/src-webdsl-template/built-in
   //Hits are surrounded by tags <span class="highlightcontent">HIT</span>
   define highlightedSummary(s : Searcher, fld : String, txt : WikiText) {
     var decorated    := highlightHTML ~fld: txt from s with tags ("HLOPENTAG","HLCLOSETAG");
-    var prerendered  := rendertemplate( output( (decorated as WikiText)  ) )
-    var tagsfixed    := prerendered.replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
+    var prerendered  := rendertemplate( output( ( ("... " + decorated + " ...") as WikiText)  ) )
+    //also remove links from summaries
+    var tagsfixed    := prerendered.replace("<a ","<span ").replace("</a ","</span ").replace("HLOPENTAG", "<span class=\"highlightcontent\">").replace("HLCLOSETAG","</span>");
 
     rawoutput( tagsfixed ) [all attributes]
 
