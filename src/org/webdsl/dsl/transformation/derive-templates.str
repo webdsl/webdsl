@@ -1,0 +1,43 @@
+module org/webdsl/dsl/transformation/derive-templates
+
+imports
+  libstrategolib
+  libwebdsl-front
+  //org/webdsl/dsl/typechecker/-
+
+strategies
+
+  derive-templates =
+  	alltd(register-derive)
+  ; apply-derive
+
+rules
+
+  register-derive :
+    DeriveTemplateDefinition(name,var,defs) -> RemoveMe()
+    with  rules(DeriveTemplateDefinition : name -> (var,defs))
+
+  register-derive :
+    DeriveTemplateCall(name,var) -> RemoveMe()
+    with  rules(DeriveTemplateCall :+= (name,var))
+
+rules
+
+  apply-derive =
+    ?Application(qid,sections){anno*}
+  ; try(
+      names := <bagof-DeriveTemplateCall> // will fail and skip rest if feature is not used
+    ; newdefs := <mapconcat(inline-derive)> names
+    ; !Application(qid,[Section("derivetemplate", newdefs) | sections]){anno*}
+    )
+
+  inline-derive =
+    ?(<id>,var)
+  ; DeriveTemplateDefinition
+  ; ?(tvar,<id>)
+  ; where(tvar-lower := <lower-case> tvar; var-lower := <lower-case> var)
+  ; alltd(
+       \x -> var where <?tvar> x\ // replace any string occurrence, because the derivetemplate definitions are parsed as regular definitions
+    <+ \x -> <where(is-string; is-substring(!tvar)); string-replace(|tvar, var)> x\ // construct name like Person -> createPerson
+    <+ \x -> var-lower where <?tvar-lower> x\ // replace lowercase occurrence, construct name like Person -> person
+    <+ \x -> <where(is-string; is-substring(!tvar-lower)); string-replace(|tvar-lower, var-lower)> x\) // construct name like Person -> createperson
