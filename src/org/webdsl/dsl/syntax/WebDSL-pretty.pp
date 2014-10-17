@@ -1245,6 +1245,7 @@
    TemplateModInline -- KW["inline"],
    TemplateModOverride -- KW["override"],
    TemplateDeprecated -- KW["deprecated"],
+   ReadOnlyPage -- KW["read-only"],
 
    ValidateAction -- KW["validate"] _1,
 

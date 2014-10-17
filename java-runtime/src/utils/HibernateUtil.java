@@ -121,10 +121,12 @@ public class HibernateUtil {
 
       protected static class FastAutoFlushEventListener implements org.hibernate.event.AutoFlushEventListener {
         public void onAutoFlush(org.hibernate.event.AutoFlushEvent event) throws HibernateException {
-          if(!event.getSession().getFlushMode().lessThan(org.hibernate.FlushMode.AUTO)) {
-            //org.webdsl.logging.Logger.info("onAutoFlush");
-            event.getSession().flush();
-            event.getSession().setFlushMode(org.hibernate.FlushMode.COMMIT);
+          if(!ThreadLocalPage.isReadOnly()){
+		      if(!event.getSession().getFlushMode().lessThan(org.hibernate.FlushMode.AUTO)) {
+		    	  //org.webdsl.logging.Logger.info("onAutoFlush");
+		        event.getSession().flush();
+		        event.getSession().setFlushMode(org.hibernate.FlushMode.COMMIT);
+		      }
           }
         }
       }

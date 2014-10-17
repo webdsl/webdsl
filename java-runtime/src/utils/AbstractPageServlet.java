@@ -38,8 +38,9 @@ public abstract class AbstractPageServlet{
     protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
-    
-    
+    public boolean isReadOnly = false;
+
+
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
     	fav_ico_link_tag_suffix = "/favicon.ico?" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
@@ -74,7 +75,12 @@ public abstract class AbstractPageServlet{
       if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
       hibernateSession = utils.HibernateUtil.getCurrentSession();
       hibernateSession.beginTransaction();
-      hibernateSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
+      if(isReadOnly){
+    	  hibernateSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
+      }
+      else{
+    	  hibernateSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
+      }
       try
       {
         StringWriter s = new StringWriter();
@@ -179,7 +185,7 @@ public abstract class AbstractPageServlet{
                 StringWriter replacements = new StringWriter();
                 boolean addComma = false;
                 for(String ph : reRenderPlaceholders){
-                    if(addComma){ replacements.write(","); } 
+                    if(addComma){ replacements.write(","); }
                     else { addComma = true; }
                 	replacements.write("{action:\"replace\", id:\""+ph+"\", value:\""
                             + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph))
@@ -215,9 +221,9 @@ public abstract class AbstractPageServlet{
             //        -> always results in a redirect, no further action necessary here
           }
         }
-        
+
         updatePageRequestStatistics();
-        
+
         hibernateSession = utils.HibernateUtil.getCurrentSession();
         if( isTransactionAborted() || isRollback() ){
           try{
@@ -236,15 +242,20 @@ public abstract class AbstractPageServlet{
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
-          
+
           hibernateSession.flush();
           validateEntities();
-          
-          hibernateSession.getTransaction().commit();
+
+          if(isReadOnly){
+            hibernateSession.getTransaction().rollback();
+          }
+          else{
+            hibernateSession.getTransaction().commit();
+          }
         }
         ThreadLocalOut.popChecked(out);
-      } 
-      
+      }
+
       catch(utils.MultipleValidationExceptions mve){
     	  String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
     	  org.webdsl.logging.Logger.error("Validation exceptions occured while handling request URL [ "+url + " ]. Transaction is rolled back." );
@@ -357,7 +368,7 @@ public abstract class AbstractPageServlet{
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
-        
+
         for(String[] sheet : this.stylesheets) {
             if(sheet[0].startsWith("//") || sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
                 sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
@@ -654,7 +665,7 @@ public abstract class AbstractPageServlet{
     }
     public void validateEntities(){
         allowAddingEntitiesForValidation = false; //adding entities must be disabled when checking is performed, new entities may be loaded for checks, but do not have to be checked themselves
-        
+
         java.util.Set<WebDSLEntity> set = new java.util.HashSet<WebDSLEntity>(entitiesToBeValidated);
         java.util.List<utils.ValidationException> exceptions = new java.util.LinkedList<utils.ValidationException>();
         for(WebDSLEntity w : set){
@@ -673,7 +684,7 @@ public abstract class AbstractPageServlet{
                 }
             }
         }
-        
+
         if(exceptions.size() > 0){
             throw new utils.MultipleValidationExceptions(exceptions);
         }
@@ -779,7 +790,7 @@ public abstract class AbstractPageServlet{
     	hibernateSession.beginTransaction();
     	return hibernateSession;
     }
-    
+
     protected HttpServletRequest request;
     protected HttpServletResponse response;
     protected Object[] args;
@@ -1351,63 +1362,63 @@ public abstract class AbstractPageServlet{
       public long getElapsedTime() {
           return System.currentTimeMillis() - startTime;
       }
-      
+
       public void addRequestScopedVar(String key, Object val){
     	  if(val != null){
               requestScopedVariables.put(key, val);
-    	  }          
+    	  }
       }
-      
+
       public void addRequestScopedVar(String key, WebDSLEntity val){
     	  if(val != null){
               val.setRequestVar();
               requestScopedVariables.put(key, val);
-    	  }          
+    	  }
       }
-      
+
       public PegDownProcessor getPegDownProcessor(){
     	  if (pegDownProcessor == null)
     	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );
-    	  
+
     	  return pegDownProcessor;
       }
       public PegDownProcessor getPegDownProcessorNoHardWraps(){
     	  if (pegDownProcessorNoHardWraps == null)
     		  pegDownProcessorNoHardWraps = new PegDownProcessor( Extensions.ALL & ~Extensions.HARDWRAPS , WikiFormatter.PARSE_TIMEOUT_MS );
-      	  
+
       	  return pegDownProcessorNoHardWraps;
       }
-      
+
       // statistics to be shown in log
       protected abstract void increaseStatReadOnly();
       protected abstract void increaseStatUpdate();
       protected abstract void increaseStatActionFail();
       protected abstract void increaseStatActionReadOnly();
       protected abstract void increaseStatActionUpdate();
-      
+
       // register whether entity changes were made, see isChanged property of entities
       public boolean readOnlyRequestStats = true;
 
       protected void updatePageRequestStatistics(){
-    	  if(hasNotExecutedAction()) { 
-    		  if(readOnlyRequestStats) { 
-    			  increaseStatReadOnly(); 
+    	  if(hasNotExecutedAction()) {
+    		  if(readOnlyRequestStats) {
+    			  increaseStatReadOnly();
     		  }
-    		  else { 
-    			  increaseStatUpdate(); 
+    		  else {
+    			  increaseStatUpdate();
     		  }
     	  }
     	  else{
-    		  if(isNotValid()) { 
-    			  increaseStatActionFail(); 
-    		  } 
-    		  else { 
-    			  if(readOnlyRequestStats) { 
-    				  increaseStatActionReadOnly(); 
-    			  } 
-    			  else { 
-    				  increaseStatActionUpdate(); 
-    			  } 
+    		  if(isNotValid()) {
+    			  increaseStatActionFail();
+    		  }
+    		  else {
+    			  if(readOnlyRequestStats) {
+    				  increaseStatActionReadOnly();
+    			  }
+    			  else {
+    				  increaseStatActionUpdate();
+    			  }
     		  }
     	  }
       }

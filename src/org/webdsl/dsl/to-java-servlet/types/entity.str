@@ -5,7 +5,7 @@ imports
 
 imports
   libwebdsl-front
-  
+
 rules
 
   builtin-java-type :
@@ -14,38 +14,42 @@ rules
 rules
 
   call-to-java-servlet :
-    Call(e1, "save", []) -> expr|[ 
-      {| //e2.validateSave(); //handled at end of action, save might be implicit due to cascade  
+    Call(e1, "save", []) -> expr|[
+      {| //e2.validateSave(); //handled at end of action, save might be implicit due to cascade
          //set version property to 1, which indicates a persisted entity
          e2.setVersion(1);
-       | e_HibSession.save(e2) |} 
+         if(ThreadLocalPage.isReadOnly()){
+           org.webdsl.logging.Logger.error("page or ajax template is forced to be read-only, but an entity of type '"+"~x_type"+"' is saved");
+           utils.Warning.printSmallStackTrace(5);
+         }
+       | e_HibSession.save(e2) |}
     ]|
     where <get-type-anno;has-entity-anno> e1
     with  e2 := <expression-to-java-servlet> e1
+        ; x_type := <get-type-anno; pp-type> e1
 
   call-to-java-servlet :
-    Call(e1, "delete", []) -> 
-    expr|[ {| e2.validateDelete(); 
+    Call(e1, "delete", []) ->
+    expr|[ {| e2.validateDelete();
               e2.setChanged();
             | e_HibSession.delete(e2) |} ]| //should avoid these eblocks, however, not an issue for .delete since it has no return value and can only be used as statement
     where <get-type-anno;has-entity-anno> e1
     with  e2 := <expression-to-java-servlet> e1
-    
+
   call-to-java-servlet :
     exp |[ loadEntity(e1,e2) ]| -> java |[ utils.PageParamLoad.loadEntity(e_HibSession, "~x_domain"+"."+e3, e4) ]|
     with  e3 := <expression-to-java-servlet> e1
         ; e4 := <expression-to-java-servlet> e2
         ; x_domain := <pp-java5-to-string> <DomainPackage>
-          
+
   call-to-java-servlet :
     exp |[ loadEntity(e1) ]| -> java |[ utils.PageParamLoad.loadEntityFromParam(e_HibSession, "~x_domain", e2) ]|
     with  x_domain := <pp-java5-to-string> <DomainPackage>
         ; e2 := <expression-to-java-servlet> e1
-    
+
   call-to-java-servlet :
     exp |[ e1.getTypeString() ]| -> java |[ e2.get_WebDslEntityType() ]| //get type from the wrapped class
     where  	// The second check is to lookup if it is a subclass of Entity
     		<get-type-anno; (?SimpleSort("Entity") <+ has-anno(?EntityAnno(_, _, _)))> e1
        		; e2 := <expression-to-java-servlet> e1
-         	
-          
+
