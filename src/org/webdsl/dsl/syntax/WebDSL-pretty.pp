@@ -389,6 +389,9 @@
    ViewPage                                     -- KW["viewPage"],
    ViewRows                                     -- KW["viewRows"],
 
+   DeriveTemplateCall                           -- KW["derive"] _1 _2,
+   DeriveTemplateDefinition                     -- KW["derivetemplate"] _1 _2 KW["{"] _3 KW["}"],
+
    None                                         -- ,
    Some                                         -- _1,
 
