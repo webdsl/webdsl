@@ -1,0 +1,124 @@
+module org/webdsl/dsl/languages/ui/entityderive
+
+imports
+  libwebdsl-front
+
+rules
+
+  declare-entityderive-exp :
+    (x,arg*) -> <id>
+  	where derivecall := <fetch-elem(?ExpEntityDerive(_,_))> arg*
+  	with  xstripped := <strip-annos> x
+  	    ; <?ExpEntityDerive(ent,props)> derivecall
+  	    ; enttype := <type-of> ent
+  		; rules( ExpEntityDeriveRule :+ xstripped -> (enttype,props))
+  		// register the template name that will be generated, that way when rebuilding with cache the template will still be placed in the lookup map
+  	    ; sig@(name,argtypes) := <transform-entityderive-call; entityderive-call-to-templatesig> (x,arg*)
+  		; rules( TemplateSignature :+ sig -> Define([DummyTemplateSig()],name,[]/*<map(!Arg("_internal_",<id>))>*/,[],[]) )
+
+  signature constructors DummyTemplateSig : Term
+
+rules
+
+  type-of :
+  	ExpEntityDerive(e,_) -> <type-of> e
+
+  type-of :
+  	ArgEntityDerive(e,_) -> SimpleSort("Entity")
+
+  rename-entityderive-arg :
+    ArgEntityDerive(evar,ArgEntityDeriveProp(propvar,extra-args1)) -> ArgEntityDerive(evar,ArgEntityDeriveProp(propvar,extra-args2))
+    with  extra-args2 := <map(\ArgEntityDerivePropArg(n,t) -> ArgEntityDerivePropArg(<rename-bound-immutable(|t)> n,t)\)> extra-args1
+
+  type-of :
+  	FieldAccess(e, f) -> SimpleSort("Entity")  where <?ArgEntityDerive(_,_)> <type-of> e
+
+  // see also convert-entityderive-type type conversion to 'Entity' in org/webdsl/dsl/utils/signatures.str (part of webdsl-front library)
+
+  // see also pp-type-aux in org/webdsl/dsl/syntax/pp-webdsl.str  (part of webdsl-front library)
+
+rules
+
+	rename-ui :
+      ForeachElementEntityDerive(var,body) -> ForeachElementEntityDerive(var,<rename-all> body)
+
+	rename-ui :
+	  ForeachStatementEntityDerive(var,body) -> ForeachStatementEntityDerive(var,<rename-all> body)
+
+rules
+
+  constraint-error-ui :
+    ExpEntityDerive(e,props) -> <add-error(|["Must derive from an entity type."])>
+    where not(<type-of; is-entity-type> e)
+
+  constraint-error-ui :
+    ExpEntityDerive(e,props) -> <fail>
+    where enttype := <type-of> e
+        ; <map(try(check-exp-entityderive-prop(|enttype)))> props
+
+  check-exp-entityderive-prop(|enttype) :
+    ExpEntityDeriveProp(x, extra-arg-exps) -> <add-error(|["Entity '",<pp-type> enttype,"' does not have a property '",x,"'."])>
+    where not(<is-property> (<?SimpleSort(<id>)>enttype, x))
+
+rules
+
+  desugar :
+    d@Define(mods, name, fargs, targs, elems){anno*} -> RemoveMe()
+    where <fetch(?Arg(argname,ArgEntityDerive(entvar,ArgEntityDeriveProp(propvar,extra-args))))> fargs
+    with  namestripped := <strip-annos> name
+    	; calls := <bagof-ExpEntityDeriveRule; strip-annos; uniq> namestripped // uniq because declare might have been called multiple times, creating duplicates
+        ; map(emit-entityderive-template(|d, propvar, extra-args))
+
+  emit-entityderive-template(|def1, propvar, extra-args) :
+  	(enttype,props) -> <emit-webdsl-code> def2
+    with  def2 := <Define(id,
+                         transform-name-entityderive(|enttype, props),
+                         map(try(replace-arg-entityderive(|enttype))),
+                         id,
+                         alltd(replace-entityderive-foreach(|propvar, props, extra-args)))> def1
+
+  replace-arg-entityderive(|enttype) :
+ 	Arg(x,ArgEntityDerive(_,_)){anno*} -> Arg(x,enttype){anno*}
+
+  replace-entityderive-foreach(|propvar, props, extra-args) =
+  	where(is-list; fetch(?ForeachElementEntityDerive(propvar,_)))
+  ; map(try(replace-entityderive-element(|propvar, props, extra-args)))
+
+  replace-entityderive-element(|propvar, props, extra-args) :
+    ForeachElementEntityDerive(prop,body) -> TemplateCall("dummy",[],[],TemplateBody(result))
+    with  result := <map(entityderive-property-to-fragment(|propvar, extra-args, body))> props
+
+ entityderive-property-to-fragment(|propvar, extra-args, body) :
+   ExpEntityDeriveProp(x, extra-arg-exps) -> res
+   with  {| ReplaceEntityDeriveVar:
+   	       <zip(\(ArgEntityDerivePropArg(n,t),e) -> <rules( ReplaceEntityDeriveVar : Var(n) -> e )>\)> (extra-args, extra-arg-exps)
+   	     ; res := <alltd(\y -> x where <?propvar> y\ <+ ReplaceEntityDeriveVar)> body
+         |}
+
+rules
+
+  // hold off elements lifting until call is transformed
+  args-contain-entityderived = fetch(?ExpEntityDerive(_,_))
+
+  desugar-in-define-context :
+  	TemplateCall(name1, arg1*, passign*, b){anno*} -> TemplateCall(name2, arg2*, [EntityDeriveTemplateCall() | passign*], b){anno*} // the EntityDeriveTemplateCall marker is for putting the lookup entry of this template in the enclosing template class so that it is retained when using a cached class
+  where <fetch(?ExpEntityDerive(_,_))> arg1*
+  with  (name2,arg2*) := <transform-entityderive-call> (name1,arg1*)
+  where <entityderive-call-to-templatesig; TemplateSignature; ?Define(<not(fetch(?DummyTemplateSig()))>,_,_,_,_)> (name2,arg2*) // check that the template has been generated
+
+rules
+
+  transform-name-entityderive(|enttype,props) :
+ 	x -> x'
+ 	with  x' := <separate-by(|"_"); concat-strings> [x,<pp-type> enttype, <map(?ExpEntityDeriveProp(<id>,_));concat-strings> props]
+
+  transform-entityderive-call :
+  	(name1, arg1*) -> (name2, arg2*)
+  	with  <fetch(?ExpEntityDerive(ent,props))> arg1*
+  		; enttype := <type-of> ent
+     	; name2 := <transform-name-entityderive(|enttype,props)> name1
+        ; arg2* := <map(try(\ExpEntityDerive(e,p) -> e\))> arg1*
+
+  entityderive-call-to-templatesig =
+  	(strip-annos,map(type-of);prepare-type-list-for-compare)
+

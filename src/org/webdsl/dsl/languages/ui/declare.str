@@ -9,8 +9,8 @@ imports
 
 strategies
 
-  declare-ui = initial-declare-template-definition 
-  declare-ui = initial-declare-page-definition 
+  declare-ui = initial-declare-template-definition
+  declare-ui = initial-declare-page-definition
 
 strategies // inital declare for globally visible pages/templates
 
@@ -23,10 +23,10 @@ strategies // inital declare for globally visible pages/templates
     where not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
     with  def1 := <declare-toplevel-template-definition> def
-    
+
    /* no local declares here
   declare-template-definition :
-    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* x(farg1*) { elem1* } ]| 
+    def |[ define mod* x(farg1*) { elem1* } ]| -> <declare-local-template-definition> def |[ define mod* x(farg1*) { elem1* } ]|
     where (InPage <+ InTemplate)
         ; not(<fetch(?Page())> mod*)
         ; not(<fetch(?Email())> mod*)
@@ -34,7 +34,7 @@ strategies // inital declare for globally visible pages/templates
           : <debug(!"local")> x;rules ( InTemplate := x )
           ; <alltd(declare-template-definition)> elem1*
           |}*/
-          
+
 rules
 
   IsPage = where(PageDecl)
@@ -47,20 +47,20 @@ rules
     ; with (
         (n,t*) := <normalize-signature> (name,fargs)
       ; if not(<CheckPageSignature>(Page(), n, t*)) //don't override
-           <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
-        then rules( CheckPageSignature : (Page(), n, t*) -> InternalSort("Page") ) end 
-      ; if <fetch(TemplateModOverride)> mod* 
+           <+ <fetch(TemplateModOverride)> mod* //unless this is the override
+        then rules( CheckPageSignature : (Page(), n, t*) -> InternalSort("Page") ) end
+      ; if <fetch(TemplateModOverride)> mod*
         then rules( PageDeclOverride :+ n -> n  )
         else rules( PageDecl :+ n -> def ) //@TODO probably not necessary to produce def in this rule
         end
-      )   
-    
+      )
+
   AllTopLevelTemplateNames =
       all-keys-TopLevelTemplateDefinitions
   AllTopLevelTemplateArguments =
       bagof-TopLevelTemplateDefinitions
     ; map(TopLevelTemplateDecl; ?Define(_,_,<formal-arguments-to-types>,_,_))
-    
+
   declare-toplevel-template-definition =
     ?def@Define(mod*, name, fargs, targs, body)
     ; where(not(<fetch(?Page())> mod*))
@@ -72,27 +72,27 @@ rules
         TopLevelTemplateDefinitions :+ n -> sig
         )
       ; if not(<CheckPageSignature>(Page(), n, t*)) //don't override
-           <+ <fetch(TemplateModOverride)> mod* //unless this is the override 
+           <+ <fetch(TemplateModOverride)> mod* //unless this is the override
         then rules( CheckPageSignature : (Page(), n, t*) -> InternalSort("Template") ) end// for ajax
-      ; if <fetch(TemplateModOverride)> mod* 
+      ; if <fetch(TemplateModOverride)> mod*
         then rules( TopLevelTemplateDeclOverride :+ sig -> sig )
         else rules( TopLevelTemplateDecl :+ sig -> def ) //@TODO probably not necessary to produce def in this rule
         end
       )
     ; !def1
-    
+
   //only finds exact match for types, no overloading
-  get-exact-definition-from-sig(|name,argtypes) : 
+  get-exact-definition-from-sig(|name,argtypes) :
     _ -> def
     where def := <TemplateSignature> <get-define-sig(|name,argtypes)>
-  get-define-sig(|name,argtypes) : 
+  get-define-sig(|name,argtypes) :
     _ -> (n,type*)
     with  n := <strip-annos> name
     with  type* := <strip-all-annos> argtypes
   get-exact-definition-from-sig-farg(|name,fargs) :
     _ -> def
     where def := <TemplateSignature> <get-define-sig-farg(|name,fargs)>
-  get-define-sig-farg(|name,fargs) : 
+  get-define-sig-farg(|name,fargs) :
     _ -> result
     with  t* := <formal-arguments-to-types> fargs
        ; result := <get-define-sig(|name,t*)>
@@ -102,7 +102,7 @@ rules
     ; where(not(<fetch(?Page())> mod*))
     ; where(not(<fetch(?Email())> mod*))
     ; with(common-declare-template-rules)
-    ; where(with( 
+    ; where(with(
         page := <InPage <+ InTemplate>
         ; sig@(n,t*) := <normalize-signature> (name,fargs)
         ; genname := <generate-template-name> sig
@@ -114,15 +114,16 @@ rules
             TemplateRedefinitions :+ genname -> pagegenname
           )
       ))
-   
+
   is-local-template-def = where(?def@Define(mod*, name, fargs, targs, body); <fetch(Local())> mod*)
-  
+
   common-declare-template-rules :
     def@Define(mods, name, fargs, targs, body){anno*} -> def{inlinemod*,anno*}
     with  sig@(n,t*) := <normalize-signature> (name,fargs)
         ; genname := <generate-template-name> sig
-        ; rules( TemplateSignature  :+ (n, t*) -> def // :+ so overrides (with the same key) will also be retrievable with bagof-TemplateSignature
-                 TemplateNewName : (n, t*) -> genname //used in overload resolution
+        ; if <not(fetch(?Arg(_,ArgEntityDerive(_,_))))> fargs // entityderive templates are desugared to different templates, this version should not go into the template lookup class because it is removed from the AST
+          then rules( TemplateSignature  :+ (n, t*) -> def ) end // :+ so overrides (with the same key) will also be retrievable with bagof-TemplateSignature
+        ; rules( TemplateNewName : (n, t*) -> genname //used in overload resolution
                  TemplateDefinition : n // mainly used to check whether generated templates are defined manually
                  TemplateArguments  : genname -> fargs //used for determining which args in call are ref args
                  TemplateRequires   : (n, t*) -> targs
@@ -134,12 +135,12 @@ rules
         ; if <oncetd(?SimpleSort("EntityType"))> fargs then rules (TemplateWithGenerics : name) end
         ; if <fetch(TemplateDeprecated)> mods then rules(IsTemplatedDeprecated : name ) end
         ; if <fetch(TemplateModInline)> mods then rules(IsInlineTemplate : genname ) end
-        ; if <is-automatic-inline-simple-template> def 
+        ; if <is-automatic-inline-simple-template> def
           then rules(IsInlineSimpleTemplate : genname ); inlinemod* := [InlineableTemplate()]  // put InlineableTemplate in annotations so it can easily be recognized in compile units cache
           else inlinemod* := [] end
         ; <declare-built-in-template-rules> (QualifiedElementsCall(name),[])
         ; <alltd(declare-in-template; fatal-err(|"declare-in-template succeeded"))> body
-  
+
   // hook
   declare-in-template = fail
 
@@ -154,7 +155,7 @@ strategies
     ; with(
         rules(
           ActionDefinition  : name -> def
-          
+
           CheckActionSignature :
             (direct-enclosing-define-name, n, t2*) -> fargs
             where <zip(type-compatible)> (t*, t2*)
@@ -165,7 +166,7 @@ rules
 
 signature constructors
   PageArgNumbersAdded : Term
-  
+
 rules
 
   add-backend-annotation :
@@ -179,20 +180,19 @@ rules
     ; add-new-anno(|SessionEntities(<bagof-SessionEntityNames>))
 
 rules // mark templates in built-in.app as precompiled
-  
+
   add-backend-annotation :
     def@Define(mod*, name, fargs, targs, body){anno*} -> Define(mod*, name, fargs, targs, body){Precompiled(),anno*}
     where not(<fetch(Precompiled)> anno*)
     where defined-in-built-in-app-file
-    
+
   defined-in-built-in-app-file :
     t@_{anno*} -> t
     where <fetch(?PositionAnno(<string-starts-with(|"../.servletapp/src-webdsl-template/built-in.app")>))> anno*
        <+ <fetch(?At(<string-starts-with(|"../.servletapp/src-webdsl-template/built-in.app")>,_,_))> anno*
-       
+
   keep-position-anno = ?Define(_,name,_,_,_){anno*}
 
 rules
 
   get-toplevel-name = ?Define(mod*, x, farg, _, _); <generate-template-name-fargs> (x,farg,mod*)
-   
