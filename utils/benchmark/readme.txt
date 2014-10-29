@@ -13,7 +13,7 @@ Steps performed for each test case:
 6 Cleanup (remove war-file and temporary files)
 7 Write results to the output
 
-Test cases and other options are defined in a configuration file. An example of such a configuration file 
+Test cases and other options are defined in a configuration file. An example of such a configuration file
 is provided by example.cfg, which also explains the options. The configuration script to be used should be
 the first argument to benchmark.sh. So for example.cfg:
 
@@ -30,8 +30,12 @@ Tools which should be installed:
 * jmap (Memory Map, included with the JDK)
 * Apache Tomcat
 
+MAC OS X extra installation:
+* gdate (GNU date, install with Homebrew 'brew install coreutils')
+* gsed  (GNU sed,  install with Homebrew 'brew install gnu-sed')
+
 The script has been tested with Oracle JDK 7 using the parallel garbage collector (-XX:+UseParallelGC).
-With other versions of the JDK or with other garbage collectors the garbage collection log may look 
+With other versions of the JDK or with other garbage collectors the garbage collection log may look
 different and the regular expressions inside this script may need to be changed.
 
 The script can be terminated and continued later, by executing it again using the same configuration file.

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  export DATECOMMAND=gdate
+  export SEDCOMMAND=gsed
+else
+  export DATECOMMAND=date
+  export SEDCOMMAND=sed
+fi
+
 if [[ $1 == "" ]]; then
   echo "No configuration file specified"
   exit 0
@@ -32,14 +40,14 @@ removefile=""
 removedir=""
 
 logln() {
-  local now=`date "+%Y-%m-%d %H:%M:%S.%N"`
+  local now=`$DATECOMMAND "+%Y-%m-%d %H:%M:%S.%N"`
   local nowlen=$((${#now}-6))
   echo -e "${now:0:$nowlen}:  $1"
   echo -e "${now:0:$nowlen}:  $1" >> ./$benchname/log
 }
 
 log() {
-  local now=`date "+%Y-%m-%d %H:%M:%S.%N"`
+  local now=`$DATECOMMAND "+%Y-%m-%d %H:%M:%S.%N"`
   local nowlen=$((${#now}-6))
   echo -e -n "${now:0:$nowlen}:  $1"
   echo -e -n "${now:0:$nowlen}:  $1" >> ./$benchname/log
@@ -84,7 +92,7 @@ control_c() {
 trap control_c SIGINT
 
 init_benchmark() {
-  benchname=`date +%Y%m%d-%H-%M-%S`
+  benchname=`$DATECOMMAND +%Y%m%d-%H-%M-%S`
   mkdir $benchname
 
   logln "Results are written to $benchname"
@@ -98,9 +106,9 @@ init_benchmark() {
 
   for war in $WARS
   do
-    local warfile=`echo "$war" | sed 's/\?.*//'`
-    local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-    local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
+    local warfile=`echo "$war" | $SEDCOMMAND 's/\?.*//'`
+    local querystring=`echo "$war" | grep -o '\?.*' | $SEDCOMMAND 's/^\?//'`
+    local sanitized_querystring=`echo "$querystring" | $SEDCOMMAND 's/[:\/<>|"?]/_/g'`
     warname=$(basename $warfile .war)
     if [[ $querystring != "" ]]; then
       warname="${warname}_${sanitized_querystring}"
@@ -171,17 +179,17 @@ continue_benchmark() {
 }
 
 run_benchmark() {
-  local stime=$(date '+%s.%N')
+  local stime=$($DATECOMMAND '+%s.%N')
   local sql="$1"
   local page="$2"
   local war="$3"
 
   local sqlname=$(basename $sql .sql.gz)
-  local sanitized_page=`echo "$page" | sed 's/[:\/<>|"?]/_/g'`
+  local sanitized_page=`echo "$page" | $SEDCOMMAND 's/[:\/<>|"?]/_/g'`
 
-  local warfile=`echo "$war" | sed 's/\?.*//'`
-  local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-  local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
+  local warfile=`echo "$war" | $SEDCOMMAND 's/\?.*//'`
+  local querystring=`echo "$war" | grep -o '\?.*' | $SEDCOMMAND 's/^\?//'`
+  local sanitized_querystring=`echo "$querystring" | $SEDCOMMAND 's/[:\/<>|"?]/_/g'`
   local warbase=$(basename $warfile .war)
   local warname="$warbase"
   local logsqlsuffix="?logsql"
@@ -211,9 +219,9 @@ run_benchmark() {
         rm -r "$removedir"
         removedir=""
       fi
-      removefile="$WEBAPP_PATH/$warbase.war" 
+      removefile="$WEBAPP_PATH/$warbase.war"
       removedir="$WEBAPP_PATH/$warbase"
-      cp "$war" "$removefile" 
+      cp "$war" "$removefile"
       logln "Starting Tomcat"
       $CATALINA_PATH run >> /dev/null 2>&1 &
       pid=$!
@@ -224,9 +232,9 @@ run_benchmark() {
     if [[ $RUNNINGTOMCAT == 1 ]] ; then
       pid=0
     else
-      removefile="$WEBAPP_PATH/$warbase.war" 
+      removefile="$WEBAPP_PATH/$warbase.war"
       removedir="$WEBAPP_PATH/$warbase"
-      cp "$war" "$removefile" 
+      cp "$war" "$removefile"
       logln "Starting Tomcat"
       $CATALINA_PATH run >> /dev/null 2>&1 &
       pid=$!
@@ -244,12 +252,12 @@ run_benchmark() {
 
     log "Restore Db: $sqlname"
     gendbtime=$( { time cat "$sql" | gzip -d | mysql -u$dbuser -p$dbpass -h $dbserver -N $dbname >/dev/null; } 2>&1 )
-    gendbtime2=`echo "$gendbtime" | tr '\n' ',' | tr '\t' '=' | sed 's/^,//;s/,$//'`
-    logln_continue " (restored in $gendbtime2)" | sed 's/\([[:digit:]]s\) /\1, /g'
+    gendbtime2=`echo "$gendbtime" | tr '\n' ',' | tr '\t' '=' | $SEDCOMMAND 's/^,//;s/,$//'`
+    logln_continue " (restored in $gendbtime2)" | $SEDCOMMAND 's/\([[:digit:]]s\) /\1, /g'
   fi
 
   local WEBDSLSESSIONID=`echo "$SESSIONSQL" | mysql -N -u$dbuser -p$dbpass -h $dbserver $dbname`
-  local now=`date +"%Y-%m-%d %H:%M:%S"`
+  local now=`$DATECOMMAND +"%Y-%m-%d %H:%M:%S"`
   echo "UPDATE _SessionManager SET _lastUse='$now' WHERE id='$WEBDSLSESSIONID';" | mysql -u$dbuser -p$dbpass -h $dbserver -N $dbname
   local WEBDSLSESSIONID_lastUse=`echo "SELECT _lastUse FROM _SessionManager WHERE id='$WEBDSLSESSIONID';" | mysql -N -u$dbuser -p$dbpass -h $dbserver $dbname`
   logln "WebDSLSessionId: $WEBDSLSESSIONID (last use $WEBDSLSESSIONID_lastUse)"
@@ -320,7 +328,7 @@ run_benchmark() {
       reqerr=$(($reqerr+1))
       if [[ $reqerr == $RETRY ]]; then
         logln "Request failed ($reqerr/$RETRY), skipping test"
-        
+
         echo -e "${sanitized_page}\tSkipping test (failed $RETRY times, last curl error $curlstatus)" >>./$benchname/${warname}_${sqlname}.log
         cleanup_benchmark
         return
@@ -352,7 +360,7 @@ run_benchmark() {
         cleanup_benchmark
         return
       fi
-    fi    
+    fi
   done
   local minsql=`echo "$sqlline" | grep -o "<span id=\"sqllogcount\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
   local minents=`echo "$sqlline" | grep -o "<span id=\"sqllogentities\">[[:digit:]]\+</span>" | grep -o "[[:digit:]]\+"`
@@ -411,7 +419,7 @@ run_benchmark() {
   local avgents=`echo "scale=2;($suments)/$WARMUP" | bc`
   local avgdups=`echo "scale=2;($sumdups)/$WARMUP" | bc`
   local avgcols=`echo "scale=2;($sumcols)/$WARMUP" | bc`
-  local maxentsper=`echo "scale=2;$cntmaxents/($WARMUP/100)" | bc | sed 's/0\+$//;s/\.$//'`
+  local maxentsper=`echo "scale=2;$cntmaxents/($WARMUP/100)" | bc | $SEDCOMMAND 's/0\+$//;s/\.$//'`
 
   local sqlstr="$minsql-$maxsql"
   local avgdspsql=" ($avgsql)"
@@ -445,17 +453,17 @@ run_benchmark() {
   fi
   if [ $measure_mem -ne 0 ]; then
     #JDK6
-    #cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    #cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
     #JDK7
-    cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
-    gctimes=`cat "$GCLOGPATH"| grep -o "Times: user=[[:digit:]]\+\.[[:digit:]]\+ sys=[[:digit:]]\+\.[[:digit:]]\+, real=[[:digit:]]\+\.[[:digit:]]\+ secs" | sed 's/Times: user=\([[:digit:]]\+\.[[:digit:]]\+\) sys=\([[:digit:]]\+\.[[:digit:]]\+\), real=\([[:digit:]]\+\.[[:digit:]]\+\) secs/\1\t\2\t\3/' | awk '{user+=$1; sys+=$2; real+=$3} END {print user, sys, real}' | sed 's/[[:space:]]\+/\t/g'`
+    cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    gctimes=`cat "$GCLOGPATH"| grep -o "Times: user=[[:digit:]]\+\.[[:digit:]]\+ sys=[[:digit:]]\+\.[[:digit:]]\+, real=[[:digit:]]\+\.[[:digit:]]\+ secs" | $SEDCOMMAND 's/Times: user=\([[:digit:]]\+\.[[:digit:]]\+\) sys=\([[:digit:]]\+\.[[:digit:]]\+\), real=\([[:digit:]]\+\.[[:digit:]]\+\) secs/\1\t\2\t\3/' | awk '{user+=$1; sys+=$2; real+=$3} END {printf "%d %d %d", user, sys, real}' | $SEDCOMMAND 's/[[:space:]]\+/\t/g'`
     ygc_start=`cat "$GCLOGPATH" | grep "^[[:digit:]]\+\.[[:digit:]]\+: \[GC" | wc -l`
     fgc_start=`cat "$GCLOGPATH" | grep "^[[:digit:]]\+\.[[:digit:]]\+: \[Full GC" | wc -l`
     gcstart_usertime=`echo -e "$gctimes" | cut -f 1`
     gcstart_systime=`echo -e "$gctimes" | cut -f 2`
     gcstart_realtime=`echo -e "$gctimes" | cut -f 3`
 
-    cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
+    cat proc.tmp | bc | $SEDCOMMAND "N;N;N;s/\n/\t/g" > res.tmp
     memstart=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memstartYoung=`echo -e "$memstart" | cut -f 1`
     memstartOld=`echo -e "$memstart" | cut -f 2`
@@ -479,10 +487,10 @@ run_benchmark() {
   if [ $measure_mem -ne 0 ]; then
     # Here we calculate the memory that was collected during the requests send by ab
     #JDK6
-    #cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    #cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
     #JDK7
-    cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
-    gctimes=`cat "$GCLOGPATH"| grep -o "Times: user=[[:digit:]]\+\.[[:digit:]]\+ sys=[[:digit:]]\+\.[[:digit:]]\+, real=[[:digit:]]\+\.[[:digit:]]\+ secs" | sed 's/Times: user=\([[:digit:]]\+\.[[:digit:]]\+\) sys=\([[:digit:]]\+\.[[:digit:]]\+\), real=\([[:digit:]]\+\.[[:digit:]]\+\) secs/\1\t\2\t\3/' | awk '{user+=$1; sys+=$2; real+=$3} END {print user, sys, real}' | sed 's/[[:space:]]\+/\t/g'`
+    cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    gctimes=`cat "$GCLOGPATH"| grep -o "Times: user=[[:digit:]]\+\.[[:digit:]]\+ sys=[[:digit:]]\+\.[[:digit:]]\+, real=[[:digit:]]\+\.[[:digit:]]\+ secs" | $SEDCOMMAND 's/Times: user=\([[:digit:]]\+\.[[:digit:]]\+\) sys=\([[:digit:]]\+\.[[:digit:]]\+\), real=\([[:digit:]]\+\.[[:digit:]]\+\) secs/\1\t\2\t\3/' | awk '{user+=$1; sys+=$2; real+=$3} END {print user, sys, real}' | $SEDCOMMAND 's/[[:space:]]\+/\t/g'`
     ygc_end=`cat "$GCLOGPATH" | grep "^[[:digit:]]\+\.[[:digit:]]\+: \[GC" | wc -l`
     fgc_end=`cat "$GCLOGPATH" | grep "^[[:digit:]]\+\.[[:digit:]]\+: \[Full GC" | wc -l`
     gcend_usertime=`echo -e "$gctimes" | cut -f 1`
@@ -494,17 +502,17 @@ run_benchmark() {
     gc_systime=`echo "scale=2; $gcend_systime - $gcstart_systime" | bc`
     gc_realtime=`echo "scale=2; $gcend_realtime - $gcstart_realtime" | bc`
 
-    cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
+    cat proc.tmp | bc | $SEDCOMMAND "N;N;N;s/\n/\t/g" > res.tmp
     memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memendYoung=`echo -e "$memend" | cut -f 1`
     memendOld=`echo -e "$memend" | cut -f 2`
     memendHeap=`echo -e "$memend" | cut -f 3`
     memendPerm=`echo -e "$memend" | cut -f 4`
-    memYoung=`echo "scale=2;$memendYoung-$memstartYoung;" | sed 's/--/+/' | bc`
-    memOld=`echo "scale=2;$memendOld-$memstartOld;" | sed 's/--/+/' | bc`
-    memHeap=`echo "scale=2;$memendHeap-$memstartHeap;" | sed 's/--/+/' | bc`
-    memPerm=`echo "scale=2;$memendPerm-$memstartPerm;" | sed 's/--/+/' | bc`
-    memHeapPerReq=`echo "scale=2;($memendHeap-$memstartHeap)/$ITERATIONS;" | sed 's/--/+/' | bc`
+    memYoung=`echo "scale=2;$memendYoung-$memstartYoung;" | $SEDCOMMAND 's/--/+/' | bc`
+    memOld=`echo "scale=2;$memendOld-$memstartOld;" | $SEDCOMMAND 's/--/+/' | bc`
+    memHeap=`echo "scale=2;$memendHeap-$memstartHeap;" | $SEDCOMMAND 's/--/+/' | bc`
+    memPerm=`echo "scale=2;$memendPerm-$memstartPerm;" | $SEDCOMMAND 's/--/+/' | bc`
+    memHeapPerReq=`echo "scale=2;($memendHeap-$memstartHeap)/$ITERATIONS;" | $SEDCOMMAND 's/--/+/' | bc`
 
     kill $pid
     wait # wait for catalina to terminate
@@ -518,33 +526,33 @@ run_benchmark() {
     log "gc results: "
     cp "$GCLOGPATH" ./$benchname/${warname}_${sqlname}_${sanitized_page}_gc.dta
     #JDK6
-    #cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
-    #cat "$GCLOGPATH" | tail -9 | sed 's/[[:space:]]\+total[[:space:]]\+[[:digit:]]\+K,[[:space:]]\+used[[:space:]]\+\([[:digit:]]\+\)K.*/\1/' | grep -o "\(PSYoungGen\|PSOldGen\|PSPermGen\)[[:digit:]]\+" | sed 'N;N;s/PSYoungGen\([[:digit:]]\+\)\nPSOldGen\([[:digit:]]\+\)\nPSPermGen\([[:digit:]]\+\)/\1;\2;\1+\2;\3;/' >> proc.tmp
+    #cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[PSOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    #cat "$GCLOGPATH" | tail -9 | $SEDCOMMAND 's/[[:space:]]\+total[[:space:]]\+[[:digit:]]\+K,[[:space:]]\+used[[:space:]]\+\([[:digit:]]\+\)K.*/\1/' | grep -o "\(PSYoungGen\|PSOldGen\|PSPermGen\)[[:digit:]]\+" | $SEDCOMMAND 'N;N;s/PSYoungGen\([[:digit:]]\+\)\nPSOldGen\([[:digit:]]\+\)\nPSPermGen\([[:digit:]]\+\)/\1;\2;\1+\2;\3;/' >> proc.tmp
     #JDK7
-    cat "$GCLOGPATH" | sed "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
-    cat "$GCLOGPATH" | tail -9 | sed 's/[[:space:]]\+total[[:space:]]\+[[:digit:]]\+K,[[:space:]]\+used[[:space:]]\+\([[:digit:]]\+\)K.*/\1/' | grep -o "\(PSYoungGen\|ParOldGen\|PSPermGen\)[[:digit:]]\+" | sed 'N;N;s/PSYoungGen\([[:digit:]]\+\)\nParOldGen\([[:digit:]]\+\)\nPSPermGen\([[:digit:]]\+\)/\1;\2;\1+\2;\3;/' >> proc.tmp
+    cat "$GCLOGPATH" | $SEDCOMMAND "s/\([[:digit:]]\+\)K->\([[:digit:]]\+\)K([[:digit:]]\+K)/\1-\2/g;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \[ParOldGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\) \[PSPermGen: \([[:digit:]]\+-[[:digit:]]\+\)\].*/\1;\2;\3;\4;/;s/.*\[PSYoungGen: \([[:digit:]]\+-[[:digit:]]\+\)\] \([[:digit:]]\+-[[:digit:]]\+\),.*/\1;0;\2;0;/" | grep -o "\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);\([[:digit:]]\+\(-[[:digit:]]\+\)\?\);" > proc.tmp
+    cat "$GCLOGPATH" | tail -9 | $SEDCOMMAND 's/[[:space:]]\+total[[:space:]]\+[[:digit:]]\+K,[[:space:]]\+used[[:space:]]\+\([[:digit:]]\+\)K.*/\1/' | grep -o "\(PSYoungGen\|ParOldGen\|PSPermGen\)[[:digit:]]\+" | $SEDCOMMAND 'N;N;s/PSYoungGen\([[:digit:]]\+\)\nParOldGen\([[:digit:]]\+\)\nPSPermGen\([[:digit:]]\+\)/\1;\2;\1+\2;\3;/' >> proc.tmp
 
-    cat proc.tmp | bc | sed "N;N;N;s/\n/\t/g" > res.tmp
+    cat proc.tmp | bc | $SEDCOMMAND "N;N;N;s/\n/\t/g" > res.tmp
     memend=`cat res.tmp | awk '{ Young += $1; Old += $2; Heap += $3; Perm += $4} END { printf "%d\t%d\t%d\t%d\n", Young / 1024, Old / 1024, Heap / 1024, Perm / 1024 }'`
     memendYoung=`echo -e "$memend" | cut -f 1`
     memendOld=`echo -e "$memend" | cut -f 2`
     memendHeap=`echo -e "$memend" | cut -f 3`
     memendPerm=`echo -e "$memend" | cut -f 4`
-    memYoungTotal=`echo "scale=2;$memendYoung-$memstartYoung;" | sed 's/--/+/' | bc`
-    memOldTotal=`echo "scale=2;$memendOld-$memstartOld;" | sed 's/--/+/' | bc`
-    memHeapTotal=`echo "scale=2;$memendHeap-$memstartHeap;" | sed 's/--/+/' | bc`
-    memPermTotal=`echo "scale=2;$memendPerm-$memstartPerm;" | sed 's/--/+/' | bc`
+    memYoungTotal=`echo "scale=2;$memendYoung-$memstartYoung;" | $SEDCOMMAND 's/--/+/' | bc`
+    memOldTotal=`echo "scale=2;$memendOld-$memstartOld;" | $SEDCOMMAND 's/--/+/' | bc`
+    memHeapTotal=`echo "scale=2;$memendHeap-$memstartHeap;" | $SEDCOMMAND 's/--/+/' | bc`
+    memPermTotal=`echo "scale=2;$memendPerm-$memstartPerm;" | $SEDCOMMAND 's/--/+/' | bc`
     logln_continue "Young = $memYoung MB, Old = $memOld MB, Heap = $memHeap MB, Perm = $memPerm MB, Heap/Req= $memHeapPerReq MB"
     logln "gc:         YGC = $gcyoung, FGC = $gcfull, user = $gc_usertime s, sys = $gc_systime s, real = $gc_realtime s"
-    logln "Total mem:  Young = $memYoungTotal MB, Old = $memOldTotal MB, Heap = $memHeapTotal MB, Perm = $memPermTotal MB" 
+    logln "Total mem:  Young = $memYoungTotal MB, Old = $memOldTotal MB, Heap = $memHeapTotal MB, Perm = $memPermTotal MB"
     memcols="\t$gcyoung\t$gcfull\t$gc_usertime\t$gc_systime\t$gc_realtime\t$memYoung\t$memOld\t$memHeap\t$memPerm\t$memHeapPerReq\t$memYoungTotal\t$memOldTotal\t$memHeapTotal\t$memPermTotal"
   fi
 
   log "ab results: "
-  abtotals=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "Total:" | sed "s/Total:/${sanitized_page}/" | sed "s/[[:space:]]\+/\t/g"`
-  ab80perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "80%" | sed "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
-  ab90perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "90%" | sed "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
-  ab90perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "90%" | sed "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
+  abtotals=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "Total:" | $SEDCOMMAND "s/Total:/${sanitized_page}/" | $SEDCOMMAND "s/[[:space:]]\+/\t/g"`
+  ab80perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "80%" | $SEDCOMMAND "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
+  ab90perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "90%" | $SEDCOMMAND "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
+  ab90perc=`cat ./$benchname/${warname}_${sqlname}_${sanitized_page}.log | grep "90%" | $SEDCOMMAND "s/[[:space:]]*[[:digit:]]\+%[[:space:]]*//"`
   mintime=`echo -e "$abtotals" | cut -f 2`
   avgtime=`echo -e "$abtotals" | cut -f 3`
   maxtime=`echo -e "$abtotals" | cut -f 6`
@@ -563,7 +571,7 @@ run_benchmark() {
     removedir=""
   fi
 
-  local etime=$(date '+%s.%N')
+  local etime=$($DATECOMMAND '+%s.%N')
   local dt=`echo "$etime-$stime" | bc`
   local ms=`echo "scale=0; i=$dt/1; scale=3; $dt/1-i" | bc`
   local ds=`echo "scale=0;($dt/1)%60" | bc`
@@ -598,9 +606,9 @@ finalize_benchmark(){
   rm $CONTINUE_PATH
   for war in $WARS
   do
-    local warfile=`echo "$war" | sed 's/\?.*//'`
-    local querystring=`echo "$war" | grep -o '\?.*' | sed 's/^\?//'`
-    local sanitized_querystring=`echo "$querystring" | sed 's/[:\/<>|"?]/_/g'`
+    local warfile=`echo "$war" | $SEDCOMMAND 's/\?.*//'`
+    local querystring=`echo "$war" | grep -o '\?.*' | $SEDCOMMAND 's/^\?//'`
+    local sanitized_querystring=`echo "$querystring" | $SEDCOMMAND 's/[:\/<>|"?]/_/g'`
     warname=$(basename $warfile .war)
     if [[ $querystring != "" ]]; then
       warname="${warname}_${sanitized_querystring}"
