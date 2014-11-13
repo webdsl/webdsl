@@ -19,9 +19,9 @@ rules // Utilities for typechecking Qualifieds
     not(?Qualified(_, _) <+ ?Var(_))
     ; !Var(<id>)
 
-rules 
+rules
 
-  is-constant-type = 
+  is-constant-type =
     ?SimpleSort("Int")
     <+ ?SimpleSort("Float")
     <+ ?SimpleSort("String")
@@ -36,50 +36,52 @@ rules // typechecking assignment statement
     Stat(Assignment(el, er)) -> <add-error(|["Type of expression being assigned '",<pp-type>srt2,"' is incompatible with type in left-hand side '",<pp-type>srt1,"'."])>
     where not(<type-compatible> (<type-of; ?srt1> el, <type-of> er))
         ; srt2 := <type-of> er // don't report cascaded error, e should have valid type
-        
+
   constraint-error-action :
     Stat(Assignment(el, er)) -> <add-error(|["Can only assign to fields or vars (except global or session vars)."])>
     where not(<is-lvalue> el)
-        
+
   is-lvalue = ?FieldAccess(_,_)<+?Var(_)<+?CollectionIndex(_,_)<+?Cast(_,_)
-        
+
 rules // typechecking statements
 
-  constraint-error-action =
-    (?If(e, bif, belse) + ?IfNoElse(e, bif))
-    ; not(SimpleSort("Bool") := <type-of> e)
-    ; <type-of> e // don't report when sub-expression was already wrong
-    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
+  constraint-helper-is-bool-exp :
+    e -> <add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])>
+    where t := <type-of> e // don't report when sub-expression was already wrong
+        ; not(SimpleSort("Bool") := t)
 
-  constraint-error-action =
-    ?WhileStmt(e, b)
-    ; not(SimpleSort("Bool") := <type-of> e)
-    ; <type-of> e // don't report when sub-expression was already wrong
-    ; add-error(|["expression ", <pp-webdsl> e, " should be of type Bool"])
+  constraint-error-action :
+    If(e, bif, belse) -> <constraint-helper-is-bool-exp> e
+
+  constraint-error-action :
+    IfNoElse(e, bif) -> <constraint-helper-is-bool-exp> e
+
+  constraint-error-action :
+    WhileStmt(e, b) -> <constraint-helper-is-bool-exp> e
 
   constraint-error-action :
     Case(e, alt*) -> <add-error(|["case expression should have value type instead of ", t])>
     where t := <type-of> e
-  ; not(<is-constant-type> t)
+        ; not(<is-constant-type> t)
 
   constraint-error-action :
     s@Case(e, alt*) -> s
     where t := <type-of> e
-  ; not(<filter(constraint-error-case-alt(|t))> alt* => [])
+        ; not(<filter(constraint-error-case-alt(|t))> alt* => [])
 
   constraint-error-case-alt(|t1) :
-    s@CaseAlt(e, alt*) -> <add-error(|["constant in case alternative ", e, 
+    s@CaseAlt(e, alt*) -> <add-error(|["constant in case alternative ", e,
                          " should have same type as case expression ", t1])>
     where t2 := <type-of> e
         ; not(<type-compatible>(t1,t2))
-        
+
   constraint-error-action : VarDecl(x, srt) -> <constraint-error-vardecl(|x, srt)>
   constraint-error-action : VarDeclInit(x, srt, e)-> <constraint-error-vardecl(|x, srt, e)>
   constraint-error-action : TemplateVarDecl(x, srt) -> <constraint-error-vardecl(|x, srt)>
   constraint-error-action : TemplateVarDeclInit(x, srt, e)-> <constraint-error-vardecl(|x, srt, e)>
   constraint-error-action : GlobalVarDecl(x, srt) -> <constraint-error-vardecl(|x, srt)>
   constraint-error-action : GlobalVarDeclInit(x, srt, e)-> <constraint-error-vardecl(|x, srt, e)>
-          
+
   constraint-error-vardecl(|x, srt) :
     _ -> <add-error(|["No such type ", <pp-type> srt])>
     where not(<type-exists> srt) //not(<java-type> srt <+ GenericSort("EntityTypeNamed", _) := srt)
@@ -87,7 +89,7 @@ rules // typechecking statements
   constraint-error-vardecl(|x, srt, e) :
     _ -> <add-error(|["No such type ", <pp-type> srt])>
     where not(<type-exists> srt) //not(<java-type> srt <+ GenericSort("EntityTypeNamed", _) := srt)
-    
+
   constraint-error-vardecl(|x, srt, e) :
     _ -> <add-error(|["Expression ", e, " is not of type ", srt])>
     where not(<type-compatible> (srt, <type-of> e))
