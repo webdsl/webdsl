@@ -44,8 +44,9 @@ public abstract class AbstractPageServlet{
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
     	fav_ico_link_tag_suffix = "/favicon.ico?" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
+    	ajax_js_include_name = "ajax.js?"+ System.currentTimeMillis();
     }
-    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,utils.File> fileUploads)
+    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,List<utils.File>> fileUploads)
     {
       initTemplateClass();
 
@@ -346,14 +347,16 @@ public abstract class AbstractPageServlet{
         return validationFormRerender;
     }
     public String submittedFormContent = null;
+    
 	private static String common_css_link_tag_suffix;
 	private static String fav_ico_link_tag_suffix;
+	private static String ajax_js_include_name;
 
     public void renderResponse(PrintWriter sout, StringWriter s) throws IOException {
         ThreadLocalOut.push(sout);
 
         addJavascriptInclude( utils.IncludePaths.jQueryJS() );
-        addJavascriptInclude("ajax.js");
+        addJavascriptInclude( ajax_js_include_name );
 
         sout.println("<!DOCTYPE html>");
         sout.println("<html>");
@@ -883,11 +886,11 @@ public abstract class AbstractPageServlet{
         return parammap;
     }
 
-    protected Map<String,utils.File> fileUploads;
-    public Map<String, utils.File> getFileUploads() {
+    protected Map<String,List<utils.File>> fileUploads;
+    public Map<String, List<utils.File>> getFileUploads() {
         return fileUploads;
     }
-    public utils.File getFileUpload(String key) {
+    public List<utils.File> getFileUploads(String key) {
         return fileUploads.get(key);
     }
 

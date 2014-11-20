@@ -481,9 +481,9 @@ var Utf8 = {
 //avoid too many request while typing in a field with onkeyup trigger
 var onkeyupdelay = function(){
     var timer = 0; //scoped inside this function block, triggering onkeyup again before timeout resets the timer for that particular action
-    return function(callback){
+    return function(delay, callback){
         clearTimeout(timer);
-        timer = setTimeout(callback, 250);
+        timer = setTimeout(callback, delay);
     }
 }();
 

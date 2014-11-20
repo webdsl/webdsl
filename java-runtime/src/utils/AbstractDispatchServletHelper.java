@@ -44,7 +44,7 @@ public abstract class AbstractDispatchServletHelper{
   }
 
   Class pc;
-  java.util.Map<String, utils.File> fileUploads;
+  java.util.Map<String, List<utils.File>> fileUploads;
   java.util.Map<String, String> parammap;
   java.util.Map<String, List<String>> parammapvalues;
   HttpServletRequest request;

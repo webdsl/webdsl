@@ -19,7 +19,7 @@ public class GlobalsPageServlet extends PageServlet
     public GlobalsPageServlet(){
     	hibernateSession = utils.HibernateUtil.getCurrentSession();    	
     }
-    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String, utils.File> fileUploads){}
+    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String, List<utils.File>> fileUploads){}
     protected void renderDebugJsVar(java.io.PrintWriter sout){}
     protected boolean logSqlCheckAccess(){return false;}
     protected void initTemplateClass(){}

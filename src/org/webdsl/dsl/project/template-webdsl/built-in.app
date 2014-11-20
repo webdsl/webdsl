@@ -443,7 +443,7 @@ module .servletapp/src-webdsl-template/built-in
   native class AbstractPageServlet as PageServlet {
     inSubmittedForm() : Bool
     formRequiresMultipartEnc : Bool
-    getFileUpload(String) : File
+    getFileUploads(String) : List<File>
     getLabelString() : String
     inLabelContext() : Bool
     addValidationException(String,String)
@@ -2401,9 +2401,62 @@ native class java.lang.Double as Double {
     />
 
     databind{
-      var fnew : File := getPage().getFileUpload(tname);
-      if(fnew != null && fnew.fileName() != ""){
-        f := fnew;
+      var files : List<File> := getPage().getFileUploads(tname);
+      if(files != null && files.length > 0){
+      	var fnew := files.get(0);
+        if( fnew.fileName() != ""){
+          f := fnew;
+        }
+      }
+    }
+  }
+  
+  define input(f:Ref<List<File>>){
+    var tname := getTemplate().getUniqueId()
+    var req := getRequestParameter(tname)
+    request var errors : List<String> := null
+    if(errors != null){
+      errorTemplateInput(errors){
+        inputMultiFileInternal(f,tname)[all attributes]
+      }
+      validate{ getPage().enterLabelContext(tname); }
+      elements()
+      validate{ getPage().leaveLabelContext();}
+    }
+    else{
+      inputMultiFileInternal(f,tname)[all attributes]
+      validate{ getPage().enterLabelContext(tname); }
+      elements()
+      validate{ getPage().leaveLabelContext();}
+    }
+    validate{
+      errors := f.getValidationErrors();
+      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors := handleValidationErrors(errors);
+    }
+  }
+  
+  define inputMultiFileInternal(f : Ref<List<File>>, tname : String){
+    init{
+      getPage().formRequiresMultipartEnc := true;
+    }
+    <input
+      if(getPage().inLabelContext()) {
+        id=getPage().getLabelString()
+      }
+      name=tname
+      type="file"
+      class="inputFile "+attribute("class")
+      all attributes except "class"
+      multiple=""
+    />
+
+    databind{
+      var files : List<File> := getPage().getFileUploads(tname);
+      if(files != null && files.length > 0){      	
+      	for(item in files where item.fileName() != ""){
+      		f.add(item);
+      	}
       }
     }
   }
