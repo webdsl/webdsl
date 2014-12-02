@@ -21,6 +21,11 @@ public class BuildProperties {
     	return wikitext_hardwraps;
     }
     
+    protected static int numcachedpages = 250; // default value, used for both anonymous and logged in page cache
+    public static int getNumCachedPages(){
+    	return numcachedpages;
+    }
+    
     protected static String appUrlForRenderWithoutRequest;
     public static String getAppUrlForRenderWithoutRequest(){
         return appUrlForRenderWithoutRequest;
@@ -37,6 +42,14 @@ public class BuildProperties {
             String hardwraps = props.getProperty("webdsl.wikitext_hardwraps");
             if("true".equals(hardwraps)){
             	wikitext_hardwraps = true; 
+            }
+            String numcached = props.getProperty("webdsl.numcachedpages");
+            try{
+            	numcachedpages = Integer.parseInt(numcached);	
+            	org.webdsl.logging.Logger.info("numcachedpages: "+numcachedpages);
+            }
+            catch(NumberFormatException e){
+            	org.webdsl.logging.Logger.info("numcachedpages not specified, using: "+numcachedpages);
             }
             setAppUrlForRenderWithoutRequest();            
             

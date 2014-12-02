@@ -102,7 +102,7 @@ strategies
 
           ~*idcodes
           ~*<version-property>[]
-          ~*<is-changed-property>[]
+          ~*<is-changed-property( fail | x_Class)> []
           ~*<is-request-var-property>[]
 
           ~*[<entity-cbds-equals(|x_Class)>]
@@ -198,8 +198,8 @@ strategies
         }
 
         ~*<hibernate-default-id-prop(|x_Class)>[]
-        ~*<version-property>[]
-        ~*<is-changed-property>[]
+        ~*<version-property-session-entity>[]
+        ~*<is-changed-property( id | x_Class)> []
         ~*<is-request-var-property>[]
 
         ~*[<entity-cbds-equals(|x_Class)>]
@@ -303,13 +303,13 @@ strategies
            else
              mod1* := []
            end
-	       ; if<get-anno(?HasDynamicSearchFields())> ent then
-	           mod3* := [anno|[ @org.hibernate.search.annotations.ClassBridge( impl = org.webdsl.search.WebDSLDynamicFieldBridge.class ) ]|]
-	         ; tname_1 := TypeName(Id("org.webdsl.search.DynamicSearchFields"))
-	         else
-	           mod3* := []
-	         ; tname_1 := TypeName(Id("org.webdsl.search.NoDynamicSearchFields")) //java-front has no tname*, so use dummy interface instead of [] for now
-	         end
+         ; if<get-anno(?HasDynamicSearchFields())> ent then
+             mod3* := [anno|[ @org.hibernate.search.annotations.ClassBridge( impl = org.webdsl.search.WebDSLDynamicFieldBridge.class ) ]|]
+           ; tname_1 := TypeName(Id("org.webdsl.search.DynamicSearchFields"))
+           else
+             mod3* := []
+           ; tname_1 := TypeName(Id("org.webdsl.search.NoDynamicSearchFields")) //java-front has no tname*, so use dummy interface instead of [] for now
+           end
          ; mod2* := <query-condition-filterdef-annotations <+ ![]> anno*
       // @note: don't define id on an entity with a super class; it
       // is inherited from the super class
@@ -345,11 +345,15 @@ strategies
                                     })
                             ]|]
 
-  version-property =
+  version-property = version-property(| java:expr|[ 0 ]|)
+
+  version-property-session-entity = version-property(| java:expr|[ 1 ]|) // session variables are always persisted
+
+  version-property(| e_default)=
     !class-body-dec* |[
       @Version
       @Column(name="version_opt_lock")
-      protected Integer _version = 0; //set to 0 to prevent queries from flushing
+      protected Integer _version = e_default; //set to 0 to prevent queries from flushing
       public Integer getVersion() {
         return _version;
       }
@@ -367,38 +371,63 @@ strategies
       }
     ]|
 
-  is-changed-property =
-    !class-body-dec* |[
+  is-changed-property( if-session-ent | x_Class)=
+     !class-body-dec* |[
       @Transient
       protected boolean isChanged = false;
       public boolean isChanged(){return isChanged;}
       public void setChanged(){
-      	if(!isChanged){
+        if(!isChanged){
           isChanged = true;
           if(fieldHandler != null){ ((org.hibernate.intercept.FieldInterceptor)fieldHandler).dirty(); }
-          if(ThreadLocalPage.get() != null && !isRequestVar){ ThreadLocalPage.get().readOnlyRequestStats = false; }
+
+
         }
-        // always set flush mode back to AUTO here, this is required for the manual flush control optimization, see FastAutoFlushEventListener in java-runtime/src/utils/HibernateUtil.java
-        // after a flush the commit mode is set to COMMIT instead of AUTO to avoid unnecessary flushes, if there is a real entity data change, it needs to be set back to AUTO here
-        if(ThreadLocalPage.isReadOnly()){
-          if(_version > 0){
-            org.webdsl.logging.Logger.error("page or ajax template is forced to be read-only, but a persisted entity property is updated");
+        AbstractPageServlet thepage = ThreadLocalPage.get();
+        // If this entity is marked as saved (version > 0) then there will be writes, thus enable flush mode.
+        // This also covers cascaded save (transient entity saved by being referred from other persisted entity),
+        // because adding the transient entity will call the setChanged on the side of the persisted entity
+        // which detects that there will be writes.
+        if(_version > 0){
+          if(thepage != null){ thepage.readOnlyRequestStats = false; }
+          // purge page cache unless this is an internal bookkeeping entity
+          ~*<if <?"SessionManager" <+ ?"SessionMessage" <+ ?"QueuedEmail"> x_Class then ![] end> bstm*|[
+            ~*<if if-session-ent then !bstm*|[ // if session entity changed, only clear logged in page cache
+              if(thepage != null && !thepage.invalidateLoggedInPageCache){
+                org.webdsl.logging.Logger.info("logged in page cache invalidated in: "+"~x_Class");
+                thepage.invalidateLoggedInPageCache = true;
+              }
+            ]|
+            else !bstm*|[ // application entity changed, clear all page caches
+              if(thepage != null && !thepage.invalidateAllPageCache){
+                org.webdsl.logging.Logger.info("page cache invalidated in: "+"~x_Class");
+                thepage.invalidateAllPageCache = true;
+                utils.Warning.printSmallStackTrace(5);
+              }
+            ]|
+            end> []
+          ]|
+          if(thepage != null && thepage.isReadOnly){ // page has read-only modifier but apparently there is an attempt to edit, log warning
+            org.webdsl.logging.Logger.warn("page or ajax template is forced to be read-only, but a persisted entity property is attempted to be updated in "+"~x_Class");
             utils.Warning.printSmallStackTrace(5);
           }
-        }
-        else{
-          e_HibSession.setFlushMode(org.hibernate.FlushMode.AUTO);
+          else{
+            // always set flush mode back to AUTO here, this is required for the manual flush control optimization, see FastAutoFlushEventListener in java-runtime/src/utils/HibernateUtil.java
+            // after a flush the commit mode is set to COMMIT instead of AUTO to avoid unnecessary flushes, if there is a real entity data change, it needs to be set back to AUTO here
+            e_HibSession.setFlushMode(org.hibernate.FlushMode.AUTO);
+          }
         }
       }
     ]|
 
+
   is-request-var-property =
-  	!class-body-dec* |[
+    !class-body-dec* |[
       @Transient
       protected boolean isRequestVar = false;
       public boolean isRequestVar(){return isRequestVar;}
       public void setRequestVar(){
-      	isRequestVar = true;
+        isRequestVar = true;
       }
     ]|
 
@@ -676,9 +705,9 @@ rules
           end
 
   column-annotations(|x_prop,s,annos) :
-  	_ -> [anno |[ @org.hibernate.annotations.Type(type = "utils.UUIDUserType") ]|
+    _ -> [anno |[ @org.hibernate.annotations.Type(type = "utils.UUIDUserType") ]|
         , anno|[ @javax.persistence.Column(name = "~x_anno", length = 32) ]|] //mysql adds 1 byte prefix for length internally http://dev.mysql.com/doc/refman/5.0/en/char.html
-  	where SimpleSort("UUID") := s
+    where SimpleSort("UUID") := s
         ; x_anno := <concat-strings> ["\\\"_",x_prop,"\\\""]
 
   column-annotations(|x_prop,s,annos) :

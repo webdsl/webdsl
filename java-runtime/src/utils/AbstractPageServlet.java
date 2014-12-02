@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
@@ -20,6 +21,10 @@ import org.pegdown.PegDownProcessor;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
 import org.webdsl.tools.WikiFormatter;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.LoadingCache;
 
 public abstract class AbstractPageServlet{
 
@@ -68,12 +73,19 @@ public abstract class AbstractPageServlet{
       org.apache.log4j.MDC.put("request", rle.getId().toString());
       org.apache.log4j.MDC.put("template", "/" + getPageName());
       utils.RequestAppender reqAppender = null;
-      if(parammap.get("disableopt") != null) this.isOptimizationEnabled = false;
-      if(parammap.get("logsql") != null) {
-        this.isLogSqlEnabled = true;
-        reqAppender = utils.RequestAppender.getInstance();
+      if(parammap.get("disableopt") != null){
+        this.isOptimizationEnabled = false;
       }
-      if(reqAppender != null) reqAppender.addRequest(rle.getId().toString());
+      if(parammap.get("logsql") != null){
+    	this.isLogSqlEnabled = true;
+    	reqAppender = utils.RequestAppender.getInstance();
+      }
+      if(reqAppender != null){
+    	reqAppender.addRequest(rle.getId().toString());
+      }
+      if(parammap.get("nocache") != null){
+    	this.isPageCacheDisabled = true;
+      }
       hibernateSession = utils.HibernateUtil.getCurrentSession();
       hibernateSession.beginTransaction();
       if(isReadOnly){
@@ -244,14 +256,14 @@ public abstract class AbstractPageServlet{
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
 
-          hibernateSession.flush();
-          validateEntities();
-
-          if(isReadOnly){
+          if(isReadOnly || readOnlyRequestStats){ // either page has read-only modifier, or no writes have been detected
             hibernateSession.getTransaction().rollback();
           }
           else{
+       	    hibernateSession.flush();
+        	validateEntities();
             hibernateSession.getTransaction().commit();
+            invalidatePageCacheIfNeeded();
           }
         }
         ThreadLocalOut.popChecked(out);
@@ -282,29 +294,83 @@ public abstract class AbstractPageServlet{
         if(reqAppender != null) reqAppender.removeRequest(rle.getId().toString());
       }
     }
+    
+    
+    // LoadingCache is thread-safe
+    public static Cache<String, String> cacheAnonymousPages =
+    		CacheBuilder.newBuilder()
+    		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
+    public static Cache<String, String> cacheLoggedInPages =
+    		CacheBuilder.newBuilder()
+    		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
+    public boolean invalidateAllPageCache = false;
+    public boolean invalidateLoggedInPageCache = false;
+
+    public void invalidatePageCacheIfNeeded(){
+    	if(invalidateAllPageCache){
+    		System.out.println("all page caches invalidated");
+    		cacheAnonymousPages.invalidateAll();
+    		cacheLoggedInPages.invalidateAll();
+    	}
+    	else if(invalidateLoggedInPageCache){
+    		System.out.println("logged in page cache invalidated");
+    		cacheLoggedInPages.invalidateAll();
+    	}
+    }
 
     public void renderOrInitAction() throws IOException{
-        StringWriter s = renderContentOnly();
+    	String key = request.getRequestURL().toString();
+    	String s = "";
+    	Cache<String, String> cache = null;
+    	if(webdsl.generated.functions.loggedIn_.loggedIn_()){
+    		key = key + ThreadLocalServlet.get().getSessionManager().getId();
+    		cache = cacheLoggedInPages;
+    	}
+    	else{
+    		cache = cacheAnonymousPages;
+    	}
+    	if(this.isPageCacheDisabled){
+    		if(!mimetypeChanged){
+    			s = renderResponse(renderContentOnly());
+    		}
+    		else{
+    			s = renderContentOnly().toString();
+    		}
+    	}
+    	else{
+    		try{
+    			s = cache.get(key,
+    			new Callable<String>() {
+    				public String call() throws Exception {
+    					// System.out.println("key not found");
+    					if(!mimetypeChanged){
+    						return renderResponse(renderContentOnly());
+    					}
+    					else{
+    						return renderContentOnly().toString();
+    					}
+    				}
+    			});
+    		}
+    		catch(Exception e){
+    			e.printStackTrace();
+    		} 
+    	}
 
-        // redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
-        if( !isPostRequest() && isRedirected() ){
-            redirect();
-        }
-        else{
-            if(download != null) { //File.download() executed in page/template init block
-                download();
-            }
-            else {
-                response.setContentType(getMimetype());
-                PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
-                if(!mimetypeChanged){
-                    renderResponse(sout, s);
-                }
-                else{
-                    sout.write(s.toString());
-                }
-            }
-        }
+    	// redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
+    	if( !isPostRequest() && isRedirected() ){
+    		redirect();
+    		cache.invalidate(key); 
+    	}
+    	else if( download != null ){ //File.download() executed in page/template init block
+    		download();
+    		cache.invalidate(key); // don't cache binary file response in this page response cache, can be cached on client with expires header
+    	}
+    	else{
+    		response.setContentType(getMimetype());
+    		PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
+    		sout.write(s);
+    	}
     }
 
     public StringWriter renderContentOnly(){
@@ -352,7 +418,9 @@ public abstract class AbstractPageServlet{
 	private static String fav_ico_link_tag_suffix;
 	private static String ajax_js_include_name;
 
-    public void renderResponse(PrintWriter sout, StringWriter s) throws IOException {
+    public String renderResponse(StringWriter s) throws IOException {
+    	StringWriter sw = new StringWriter();
+    	PrintWriter sout = new PrintWriter(sw);
         ThreadLocalOut.push(sout);
 
         addJavascriptInclude( utils.IncludePaths.jQueryJS() );
@@ -426,6 +494,7 @@ public abstract class AbstractPageServlet{
         sout.println("</html>");
 
         ThreadLocalOut.popChecked(sout);
+        return sw.toString();
     }
 
     //ajax/js runtime request related
@@ -460,6 +529,8 @@ public abstract class AbstractPageServlet{
 
     protected boolean isLogSqlEnabled = false;
     public boolean isLogSqlEnabled() { return isLogSqlEnabled; }
+
+    protected boolean isPageCacheDisabled = false;
 
     protected boolean isOptimizationEnabled = true;
     public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
