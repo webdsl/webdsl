@@ -329,7 +329,7 @@ public abstract class AbstractPageServlet{
     	else{
     		cache = cacheAnonymousPages;
     	}
-    	if(this.isPageCacheDisabled){
+    	if( this.isPageCacheDisabled || isNotValid() ){
     		if(!mimetypeChanged){
     			s = renderResponse(renderContentOnly());
     		}

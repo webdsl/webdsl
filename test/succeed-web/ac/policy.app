@@ -9,7 +9,9 @@ section principal
   principal is User with credentials name
   
   access control rules
-    rule page cannotGoHere(*) { pred() }
+    rule page cannotGoHere(*) { pred() } 
+    rule page root() { true }
+    
   
     predicate pred(){
       true
@@ -18,6 +20,10 @@ section principal
   access control rules extraRules
   
     rule page cannotGoHere(*) { pred2() }
+    
+    // need to repeat these because of the AND combination with default group
+    rule page root() { true }
+    rule page accessDenied() { true }
     
     predicate pred2() {
       "x" == "y"			

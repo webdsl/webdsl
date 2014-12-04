@@ -55,13 +55,13 @@ rules
               /*if(joins == null || joins.length == 0) {*/
                 sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
               /*} else {
-	              List<SessionManager> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(hses.createCriteria(SessionManager.class), joins)
-	                .add( org.hibernate.criterion.Restrictions.idEq(sessionId) )
-	                .list();
-				        if(results.size() != 0){
-				          sessionManager = results.get(0);
-				        }
-			        }*/
+                List<SessionManager> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(hses.createCriteria(SessionManager.class), joins)
+                  .add( org.hibernate.criterion.Restrictions.idEq(sessionId) )
+                  .list();
+                if(results.size() != 0){
+                  sessionManager = results.get(0);
+                }
+              }*/
               if(sessionManager == null){
                 throw new RuntimeException();
               }
@@ -71,6 +71,7 @@ rules
               sessionManager = new SessionManager();
               sessionManager.setId(sessionId);
               sessionManager.setLastUseNoEventsOrValidation(new java.util.Date());
+              sessionManager.setVersion(1); // mark as persisted
               sessionManager.setChanged();
               hses.save(sessionManager);
               // new SessionManager means new Cookie
@@ -93,6 +94,7 @@ rules
               //session.setAttribute("___messages___",outgoingSuccessMessages);
               for(String s : outgoingSuccessMessages){
                 pkgtname2.SessionMessage m = ambname2.SessionMessage._static_createEmpty_();
+                m.setVersion(1); // mark as persisted
                 m.setTextNoEventsOrValidation(s);
                 sessionManager.getMessages().add(m);
               }
@@ -209,7 +211,7 @@ rules
               String url = request.getRequestURL().toString();
               this.baseUrl = url.substring(0, url.length() - request.getRequestURI().length()) + request.getContextPath() + "/";
               String[] req = url.split("/");
-     
+
               /*
               for(int ci=0; ci < req.length; ci++) {
               //it is an issue which replacements should be applied in input and output of URLS
@@ -241,7 +243,7 @@ rules
               String[] argnames;
               String[] args;
               urlComponents = new ArrayList<String>();
-              
+
               if(count > req.length-1) { // root page, no page name
                 requested = "root";
                 args = new String[0]; // root page takes no arguments
@@ -252,21 +254,20 @@ rules
                 urlComponents.add(requested);
                 urlComponents.addAll(java.util.Arrays.asList(args));
               }
-              
+
               // page dispatch custom routing rules
-		      List<String> customRoutingList = Routing.processRequest(urlComponents);
-		      if(customRoutingList != null)
-		      { 
-		        requested = customRoutingList.get(0);
-		        customRoutingList.remove(0);
-		        args = new String[customRoutingList.size()];
-                customRoutingList.toArray(args); 
-		      }
-          
+              List<String> customRoutingList = Routing.processRequest(urlComponents);
+              if(customRoutingList != null){
+                requested = customRoutingList.get(0);
+                customRoutingList.remove(0);
+                args = new String[customRoutingList.size()];
+                customRoutingList.toArray(args);
+              }
+
               fileUploads = new HashMap<String, List<utils.File>>();
               parammap = new HashMap<String, String>();
               parammapvalues = new HashMap<String, List<String>>();
-              
+
               utils.PageDispatch pd = pages.get(requested);
               if(pd == null) {
                 requested = "pagenotfound";
@@ -276,10 +277,10 @@ rules
               else{
                 pc = pd.getPageClass();
               }
-              
+
               // retrieve the page argument names to make one map of url arguments and GET parameters
               argnames = pages.get(requested).getArgs();
-              
+
               int count2 = 0;
               for(count2 = 0; count2<args.length;count2++)
               {
@@ -299,7 +300,7 @@ rules
                   addToValues(argnames[count2],decoded,parammapvalues);
                 }
               }
-              
+
               for(java.util.Enumeration en = request.getParameterNames();en.hasMoreElements(); ){
                 String parameterName = (String)en.nextElement();
                 parammap.put(parameterName,paramDecode(request, request.getParameter(parameterName)));
@@ -309,7 +310,7 @@ rules
                  // addToValues(parameterName, paramval, parammapvalues);
                 }
               }
-              
+
               if(count2 < argnames.length){
                 if(!isPostRequest && parammap.get("~<action-call-with-get-param-name>") == null){
                 //ajax calls, which are always post, only have the page name in the url
@@ -365,11 +366,11 @@ rules
                               temp.setContentType(contentType);
 
                               temp.setContentStream(item.getInputStream());
-                              
+
                               List<utils.File> files = fileUploads.get(fieldName);
                               if(files == null){
-                              	files = new ArrayList<utils.File>();
-                              	fileUploads.put(fieldName, files);
+                                files = new ArrayList<utils.File>();
+                                fileUploads.put(fieldName, files);
                               }
                               files.add(temp);
                           }
@@ -409,8 +410,8 @@ rules
               showerrorpage=true;
             }
             catch(utils.MultipleValidationExceptions ex){
-            	showvalidationerror = true;
-            	validationExceptions = ex;
+              showvalidationerror = true;
+              validationExceptions = ex;
             }
             catch(Exception ex){
               org.webdsl.logging.Logger.error("Exception in dispatch servlet: "+ex.getMessage());
@@ -427,9 +428,9 @@ rules
                 }
               }
             } else if(showvalidationerror){
-            	if(parammap.get("__ajax_runtime_request__") == null){ // ajax runtime expects JSON, not regular page content
-              		response.setStatus(500);
-              		response.getWriter().write( utils.ValidationErrorPopupCreator.getErrorPopup( validationExceptions ) );
+              if(parammap.get("__ajax_runtime_request__") == null){ // ajax runtime expects JSON, not regular page content
+                  response.setStatus(500);
+                  response.getWriter().write( utils.ValidationErrorPopupCreator.getErrorPopup( validationExceptions ) );
               }
             }
 
@@ -459,7 +460,7 @@ rules
                 return false;
               }
               catch(MultipleValidationExceptions mve ){
-              	throw mve; //just rethrow so caller can handle validation exceptions
+                throw mve; //just rethrow so caller can handle validation exceptions
               }
               catch(RuntimeException re)
               {
