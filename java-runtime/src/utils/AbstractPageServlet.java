@@ -300,21 +300,21 @@ public abstract class AbstractPageServlet{
     public static Cache<String, String> cacheAnonymousPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
-    public static Cache<String, String> cacheLoggedInPages =
+    public static Cache<String, String> cacheUserSpecificPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateAllPageCache = false;
-    public boolean invalidateLoggedInPageCache = false;
+    public boolean invalidateUserSpecificPageCache = false;
 
     public void invalidatePageCacheIfNeeded(){
     	if(invalidateAllPageCache){
     		System.out.println("all page caches invalidated");
     		cacheAnonymousPages.invalidateAll();
-    		cacheLoggedInPages.invalidateAll();
+    		cacheUserSpecificPages.invalidateAll();
     	}
-    	else if(invalidateLoggedInPageCache){
-    		System.out.println("logged in page cache invalidated");
-    		cacheLoggedInPages.invalidateAll();
+    	else if(invalidateUserSpecificPageCache){
+    		System.out.println("user-specific page cache invalidated");
+    		cacheUserSpecificPages.invalidateAll();
     	}
     }
 
@@ -322,14 +322,15 @@ public abstract class AbstractPageServlet{
     	String key = request.getRequestURL().toString();
     	String s = "";
     	Cache<String, String> cache = null;
-    	if(webdsl.generated.functions.loggedIn_.loggedIn_()){
-    		key = key + ThreadLocalServlet.get().getSessionManager().getId();
-    		cache = cacheLoggedInPages;
+    	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get(); 
+    	if( servlet.sessionHasChanges()){
+    		key = key + servlet.getSessionManager().getId();
+    		cache = cacheUserSpecificPages;
     	}
     	else{
     		cache = cacheAnonymousPages;
     	}
-    	if( this.isPageCacheDisabled || isNotValid() ){
+    	if( this.isPageCacheDisabled || isNotValid() || !servlet.getIncomingSuccessMessages().isEmpty()){
     		if(!mimetypeChanged){
     			s = renderResponse(renderContentOnly());
     		}

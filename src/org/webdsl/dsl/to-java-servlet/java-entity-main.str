@@ -372,7 +372,8 @@ strategies
     ]|
 
   is-changed-property( if-session-ent | x_Class)=
-     !class-body-dec* |[
+    where( pkgtname_domain := <DomainPackage>)
+  ; !class-body-dec* |[
       @Transient
       protected boolean isChanged = false;
       public boolean isChanged(){return isChanged;}
@@ -380,8 +381,6 @@ strategies
         if(!isChanged){
           isChanged = true;
           if(fieldHandler != null){ ((org.hibernate.intercept.FieldInterceptor)fieldHandler).dirty(); }
-
-
         }
         AbstractPageServlet thepage = ThreadLocalPage.get();
         // If this entity is marked as saved (version > 0) then there will be writes, thus enable flush mode.
@@ -392,10 +391,11 @@ strategies
           if(thepage != null){ thepage.readOnlyRequestStats = false; }
           // purge page cache unless this is an internal bookkeeping entity
           ~*<if <?"SessionManager" <+ ?"SessionMessage" <+ ?"QueuedEmail"> x_Class then ![] end> bstm*|[
-            ~*<if if-session-ent then !bstm*|[ // if session entity changed, only clear logged in page cache
-              if(thepage != null && !thepage.invalidateLoggedInPageCache){
-                org.webdsl.logging.Logger.info("logged in page cache invalidated in: "+"~x_Class");
-                thepage.invalidateLoggedInPageCache = true;
+            ~*<if if-session-ent then !bstm*|[ // if session entity changed, only clear user-specific page cache
+              if(thepage != null && !thepage.invalidateUserSpecificPageCache){
+                org.webdsl.logging.Logger.info("user-specific page cache invalidated in: "+"~x_Class");
+                ((pkgtname_domain.SessionManager)ThreadLocalServlet.get().getSessionManager()).setSessionHasChangesNoEventsOrValidation(true); // if any session entities are touched, switch to user-specific page cache
+                thepage.invalidateUserSpecificPageCache = true;
               }
             ]|
             else !bstm*|[ // application entity changed, clear all page caches

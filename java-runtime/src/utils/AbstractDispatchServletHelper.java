@@ -19,6 +19,7 @@ import org.webdsl.lang.ReflectionEntity;
 public abstract class AbstractDispatchServletHelper{
   public boolean isPostRequest;
   public abstract WebDSLEntity getSessionManager();
+  public abstract boolean sessionHasChanges();
   public abstract void loadSessionManager(org.hibernate.Session h);
   public abstract void loadSessionManager(org.hibernate.Session h, String[] joins);
   public abstract void setEndTimeAndStoreRequestLog(org.hibernate.Session hibSession);
