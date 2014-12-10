@@ -322,15 +322,12 @@ public abstract class AbstractPageServlet{
     	String key = request.getRequestURL().toString();
     	String s = "";
     	Cache<String, String> cache = null;
-    	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get(); 
-    	if( servlet.sessionHasChanges()){
-    		key = key + servlet.getSessionManager().getId();
-    		cache = cacheUserSpecificPages;
-    	}
-    	else{
-    		cache = cacheAnonymousPages;
-    	}
-    	if( this.isPageCacheDisabled || isNotValid() || !servlet.getIncomingSuccessMessages().isEmpty()){
+    	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
+    	if( // not using page cache if:
+    		this.isPageCacheDisabled // ?nocache added to URL
+    		|| isNotValid() // data validation errors need to be rendered
+    		|| !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
+    	){
     		if(!mimetypeChanged){
     			s = renderResponse(renderContentOnly());
     		}
@@ -338,7 +335,17 @@ public abstract class AbstractPageServlet{
     			s = renderContentOnly().toString();
     		}
     	}
-    	else{
+    	else{ // using page cache
+    		if( // use user-specific page cache if:
+    			servlet.sessionHasChanges() // not necessarily login, any session data changes can be included in a rendered page
+    		    || webdsl.generated.functions.loggedIn_.loggedIn_() // user might have old session from before application start, this check is needed to avoid those logged in pages ending up in the anonymous page cache
+    		){
+    			key = key + servlet.getSessionManager().getId();
+    			cache = cacheUserSpecificPages;
+    		}
+    		else{
+    			cache = cacheAnonymousPages;
+    		}
     		try{
     			s = cache.get(key,
     			new Callable<String>() {
