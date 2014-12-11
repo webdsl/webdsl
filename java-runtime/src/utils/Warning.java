@@ -35,5 +35,11 @@ public class Warning {
          System.out.println( classname+"."+methodName+":"+lineNumber);
         }
    }
+    
+    public static String getStackTraceLineAtIndex(int index){
+    	StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+    	StackTraceElement ste = stackTraceElements[index];
+    	return ste.getClassName() + "." + ste.getMethodName() + ":" + ste.getLineNumber();
+    }
 
 }

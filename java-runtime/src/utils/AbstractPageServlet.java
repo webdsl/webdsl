@@ -21,6 +21,7 @@ import org.pegdown.PegDownProcessor;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
 import org.webdsl.tools.WikiFormatter;
+import org.webdsl.logging.Logger;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -295,25 +296,39 @@ public abstract class AbstractPageServlet{
       }
     }
     
-    
     // LoadingCache is thread-safe
     public static Cache<String, String> cacheAnonymousPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
+    public boolean invalidateAllPageCache = false;
+    public String invalidateAllPageCacheMessage;
+    public void invalidateAllPageCache(String entityname){
+    	invalidateAllPageCache = true;
+    	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
+    	invalidateAllPageCacheMessage = entityname + " - " + propertySetterTrace;
+    }
+
     public static Cache<String, String> cacheUserSpecificPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
-    public boolean invalidateAllPageCache = false;
     public boolean invalidateUserSpecificPageCache = false;
+    public String invalidateUserSpecificPageCacheMessage;
+    public void invalidateUserSpecificPageCache(String entityname){
+    	invalidateUserSpecificPageCache = true;
+    	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
+    	invalidateUserSpecificPageCacheMessage = entityname + " - " + propertySetterTrace;
+    }
+    
+    public boolean pageCacheWasUsed = false;
 
     public void invalidatePageCacheIfNeeded(){
     	if(invalidateAllPageCache){
-    		System.out.println("all page caches invalidated");
+    		Logger.info("All page caches invalidated, triggered by change in: "+invalidateAllPageCacheMessage);
     		cacheAnonymousPages.invalidateAll();
     		cacheUserSpecificPages.invalidateAll();
     	}
     	else if(invalidateUserSpecificPageCache){
-    		System.out.println("user-specific page cache invalidated");
+    		Logger.info("user-specific page cache invalidated, triggered by change in: "+invalidateUserSpecificPageCacheMessage);
     		cacheUserSpecificPages.invalidateAll();
     	}
     }
@@ -347,10 +362,12 @@ public abstract class AbstractPageServlet{
     			cache = cacheAnonymousPages;
     		}
     		try{
+    			pageCacheWasUsed = true;
     			s = cache.get(key,
     			new Callable<String>() {
     				public String call() throws Exception {
     					// System.out.println("key not found");
+    					pageCacheWasUsed = false;
     					if(!mimetypeChanged){
     						return renderResponse(renderContentOnly());
     					}
@@ -1473,6 +1490,7 @@ public abstract class AbstractPageServlet{
 
       // statistics to be shown in log
       protected abstract void increaseStatReadOnly();
+      protected abstract void increaseStatReadOnlyFromCache();
       protected abstract void increaseStatUpdate();
       protected abstract void increaseStatActionFail();
       protected abstract void increaseStatActionReadOnly();
@@ -1482,23 +1500,28 @@ public abstract class AbstractPageServlet{
       public boolean readOnlyRequestStats = true;
 
       protected void updatePageRequestStatistics(){
-    	  if(hasNotExecutedAction()) {
-    		  if(readOnlyRequestStats) {
-    			  increaseStatReadOnly();
+    	  if(hasNotExecutedAction()){
+    		  if(readOnlyRequestStats){
+    			  if(pageCacheWasUsed){
+    				  increaseStatReadOnlyFromCache();
+    			  }
+    			  else{
+    				  increaseStatReadOnly();
+    			  }
     		  }
-    		  else {
+    		  else{
     			  increaseStatUpdate();
     		  }
     	  }
     	  else{
-    		  if(isNotValid()) {
+    		  if(isNotValid()){
     			  increaseStatActionFail();
     		  }
-    		  else {
-    			  if(readOnlyRequestStats) {
+    		  else{
+    			  if(readOnlyRequestStats){
     				  increaseStatActionReadOnly();
     			  }
-    			  else {
+    			  else{
     				  increaseStatActionUpdate();
     			  }
     		  }
