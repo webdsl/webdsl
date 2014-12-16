@@ -26,9 +26,10 @@ public class EnvironmentTemplateLocalLookup implements IEnvironmentTemplateLooku
 	}
 
 	public EnvironmentTemplateLocalLookup putTemplate(String key, Class<?> value) {
-		name = key;
-		template = value;
-		return new EnvironmentTemplateLocalLookup(this);
+		EnvironmentTemplateLocalLookup newlocalenv = new EnvironmentTemplateLocalLookup(this);
+		newlocalenv.name = key;
+		newlocalenv.template = value;
+		return newlocalenv;
 	}
 
 }
