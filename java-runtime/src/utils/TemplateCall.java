@@ -52,8 +52,14 @@ public class TemplateCall {
   public Map<String,String> attrs;
   public String parentName; //name of template being called with this TemplateCall as argument
 
+  public static final Map<String, String> EmptyAttrs = new HashMap<String, String>();
+  public static final List<String> EmptyExceptList = new ArrayList<String>();
+  @SuppressWarnings("serial")
+  public static final List<String> listStringWithClassAndStyle = new java.util.ArrayList<String>(2){{ add("class"); add("style"); }};
+  
+  
   /*
-   * just the value of the attribute, no escaping
+   *  just the value of the attribute, no escaping
    */
 
   public static String getAttribute(Map<String,String> attrs, String key, String def) {
@@ -75,7 +81,7 @@ public class TemplateCall {
 
 
   /*
-   * whole attribute declaration, with escaping
+   *  whole attribute declaration, with escaping
    */
 
   public static String getAllAttributes(Map<String,String> attrs) {
@@ -92,7 +98,7 @@ public class TemplateCall {
       else{
           StringBuilder sb = new StringBuilder(attrs.size()*128+32);
           for(String key : attrs.keySet()){
-              if(!exceptlist.contains(key)){
+              if(!exceptlist.contains(key) && !ignoredAttributeByDefault(key)){
                   sb.append(org.webdsl.tools.Utils.showAttributeEscapeHtml(key,attrs.get(key)));
               }
           }
@@ -116,38 +122,142 @@ public class TemplateCall {
       }
   }
 
-  //just filter, used when passing attributes through template calls
-  public static void filterAllAttributesExcept(Map<String,String> attrs, Map<String,String> attrsout, String except) {
+  
+  /*
+   *  just filter, used when passing attributes through template calls
+   */
+  
+  public static void filterAllAttributesExcept(Map<String,String> attrs, Map<String,String> attrsmapout, String except) {
       List<String> list = new ArrayList<String>();
       list.add(except);
-      filterAllAttributesExcept(attrs,attrsout,list);
+      filterAllAttributesExcept(attrs, attrsmapout, list);
   }
-  public static void filterAllAttributesExcept(Map<String,String> attrs, Map<String,String> attrsout, Collection<String> exceptlist) {
+  public static void filterAllAttributesExcept(Map<String,String> attrs, Map<String,String> attrsmapout, Collection<String> exceptlist) {
       if (attrs != null){
           for(String key : attrs.keySet()){
               if(!exceptlist.contains(key)){
-                  attrsout.put(key, attrs.get(key));
+            	  putAttributeMergeClassOrStyle(attrsmapout, key, attrs.get(key));
               }
           }
       }
   }
-  public static void filterAttributes(Map<String,String> attrs, Map<String,String> attrsout, String selected) {
+  
+  public static void filterAttributes(Map<String,String> attrs, Map<String,String> attrsmapout, String selected) {
       if(attrs.containsKey(selected)){
-          attrsout.put(selected, attrs.get(selected));
+    	  attrsmapout.put(selected, attrs.get(selected));
       }
   }
-  public static void filterAttributes(Map<String,String> attrs, Map<String,String> attrsout, Collection<String> selected) {
+  public static void filterAttributes(Map<String,String> attrs, Map<String,String> attrsmapout, Collection<String> selected) {
       if (attrs != null){
           for(String key : selected){
               if(attrs.containsKey(key)){
-                  attrsout.put(key, attrs.get(key));
+            	  putAttributeMergeClassOrStyle(attrsmapout, key, attrs.get(key));
               }
           }
       }
   }
+  
+  public static void putAllAttributeMergeClassOrStyle(Map<String,String> attrs, Map<String,String> attrsmapout){
+	  if(attrs != null){
+		  for(String key : attrs.keySet()){
+			  putAttributeMergeClassOrStyle(attrsmapout, key, attrs.get(key));
+		  }
+	  }
+  }
+  
+  public static void putAttributeMergeClassOrStyle(Map<String,String> attrsmapout, String key, String value){
+	  String old;
+	  if((key.equals("class") || key.equals("style")) && ((old = attrsmapout.get(key)) != null)){
+		  attrsmapout.put(key, old + " " + value);
+	  }
+	  else{
+		  attrsmapout.put(key, value);
+	  }
+  }
+  
+  
+  /*
+   *  utility methods for handling class and style attribute merging when displaying attributes in tag rendering
+   */
+  
+  public static void handleAttrsAtHtmlElement(Map<String,String> attrs, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+	  if(attrs != null){		
+	      String c = attrs.get("class");
+	      if(c != null){
+	    	  appendWithPadding(classAttr, c);
+	      }
+	      String s = attrs.get("style");
+	      if(s != null){
+	    	  appendWithPadding(styleAttr, s);
+	      }
+	      out.print(getAllAttributesExcept(attrs, listStringWithClassAndStyle));
+      }
+  }
+  
+  public static void appendWithPadding(StringBuilder sb, String value){
+	  if(value.length() > 0){
+		  if(sb.length() > 0){
+			  sb.append(" ");
+		  }
+		  sb.append(value);
+	  }
+  }		
+  
+  
+  /*
+   *  set or get dynamically selected attribute collections, part of template calls
+   */
+  
+  public static void addDynamicSelectedAttributeCollection(Map<String,String> attrsout, String selected) {
+	  attrsout.put("$AS$"+selected, "");
+  }
+  
+  public static List<String> getDynamicSelectedAttributeCollections(Map<String,String> attrs) {
+	  List<String> list = new ArrayList<String>();
+	  if(attrs != null){
+		  for(String key : attrs.keySet()){
+			  if(key.startsWith("$AS$")){
+				  list.add(key.substring(4));
+			  }
+		  }
+	  }
+	  return list;
+  }
 
-  //this one should stay empty!!
-  public static final Map<String, String> EmptyAttrs = new HashMap<String, String>();
-  public static final List<String> EmptyExceptList = new ArrayList<String>();
+
+  
+  /*
+   *  set or get dynamically ignored attribute markers, part of template calls
+   */
+  
+  public static void addDynamicIgnoredAttribute(Map<String,String> attrsout, String ignored) {
+	  attrsout.put("$AI$"+ignored, "");
+  }
+  
+  public static void getDynamicIgnoredAttributes(Map<String,String> attrs, List<String> ignorelist) {
+	  if(attrs != null){
+		  for(String key : attrs.keySet()){
+			  if(key.startsWith("$AI$")){
+				  ignorelist.add(key.substring(4));
+			  }
+		  }
+	  }
+  }
+  
+
+  /*
+   *  attribute names to always ignore when selecting all attributes
+   */
+
+  public static boolean ignoredAttributeByDefault(String attr){
+	  if(   attr.startsWith("$AI$") 
+	     || attr.startsWith("$AS$")
+	    // || attr.equals("class")
+	     //|| attr.equals("style")
+	     ){
+		  return true;
+	  }
+	  return false;
+  }
 
 }

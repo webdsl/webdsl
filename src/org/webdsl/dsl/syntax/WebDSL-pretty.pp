@@ -1435,5 +1435,11 @@
    RoutingReceive                                         -- KW["receive"] _1 _2,
    RoutingConstruct                                       -- KW["construct"] _1 _2,
    RoutingArgs                                            -- KW["("] _1 KW[")"],
-   RoutingArgs.1:iter-sep                                 -- _1 KW[","]
+   RoutingArgs.1:iter-sep                                 -- _1 KW[","],
+   
+   AttributeCollection                                    -- _1 KW["attributes"] _2 KW["{"] _3 KW["}"],
+   AttributeAssign                                        -- _1 KW["="] _2,
+   AttributeSelection                                     -- _1 KW["attributes"],
+   AttributeIgnoreDefault                                 -- KW["ignore"] KW["default"] _1,
+   AttributeCollectionOverride                            -- KW["override"]
 ]

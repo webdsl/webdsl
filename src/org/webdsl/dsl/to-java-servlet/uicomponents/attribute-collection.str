@@ -1,0 +1,115 @@
+module org/webdsl/dsl/to-java-servlet/routing/attributes-to-java
+
+imports
+  libstratego-lib
+  libjava-front
+  libwebdsl-front
+  org/webdsl/dsl/to-java-servlet/to-java-servlet
+  org/webdsl/dsl/to-java-servlet/core-to-java-servlet
+
+
+rules // passing 'x attributes' and 'ignore default y' markers along with a templatecall
+	
+  control-flow-emit-special-attrs-attributes :
+     AttributeSelection(x_name) -> bstm* |[ utils.TemplateCall.addDynamicSelectedAttributeCollection(attrsmapout, "~x_name"); ]|
+ 
+  control-flow-emit-special-attrs-attributes :
+     AttributeIgnoreDefault(x_name) -> bstm* |[ utils.TemplateCall.addDynamicIgnoredAttribute(attrsmapout, "~x_name"); ]|
+
+
+rules // attribute collection selectors in html elements
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    AttributeSelection(name) ->
+    bstm*|[
+      AttributeCollectionLookup.getAttributeCollection("~name", x_class, x_style, x_ignore, out);
+    ]|
+
+
+rules
+
+  generate-code-java-servlet: 
+    AttributeCollection(overrideanno, name, attrs)  ->
+    <with(emit-java-code); fail> compilation-unit|[
+      package utils;
+
+      import java.util.Map;
+      import java.util.HashMap;
+
+      public class x_class extends AbstractAttributeCollection{
+
+      	public void init(){
+      		bstm_init*
+      	}
+      	
+        public String getAttributes(){
+          return utils.TemplateCall.getAllAttributes(attrsmap);
+        }
+        
+        public String getClassAttribute(){
+         return e_classattr;
+        }
+        
+        public String getStyleAttribute(){
+         return e_styleattr;
+        }
+        
+      }
+    ]|
+    with  pkgname    := <TemplatePackage>
+        ; pkgtname2   := <DomainPackage>
+        ; x_class := <attribute-collection-class-name(|name, overrideanno)>
+        ; e_classattr := <fetch-elem(?AttributeAssign("class",<expression-to-java-servlet>)) <+ !Lit(String([Chars("")]))> attrs
+        ; e_styleattr := <fetch-elem(?AttributeAssign("style",<expression-to-java-servlet>)) <+ !Lit(String([Chars("")]))> attrs
+        ; bstm_init* := <remove-all(AttributeAssign(?"class"<+?"style",id)); map(attr-to-collection-map-init)> attrs
+
+  attr-to-collection-map-init :
+  	AttributeAssign(name,value) -> bstm|[ attrsmap.put("~name", e); ]|
+  	with  e := <expression-to-java-servlet> value
+
+  attribute-collection-class-name(|name, overrideanno) =
+  	if <?AttributeCollectionOverride()> overrideanno
+  	then <concat-strings> ["AttributeCollection$Override$",name]
+    else <concat-strings> ["AttributeCollection",name] end
+  
+  
+rules  // create lookup class that is always generated and handles overrides
+	
+  generate-code-java-servlet-once: _ ->
+    <emit-java-code; fail> compilation-unit|[
+      package utils;
+
+      import java.util.Map;
+      import java.util.HashMap;
+
+      public class AttributeCollectionLookup{
+        
+        public static Map<String,AbstractAttributeCollection> attributeCollections = new HashMap<String,AbstractAttributeCollection>();
+          
+        static{
+          bstm*
+        }
+     	
+     	public static AbstractAttributeCollection getAttributeCollection(String name){
+     		return attributeCollections.get(name);
+     	}
+     	
+     	public static void getAttributeCollection(String name, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+     	  AbstractAttributeCollection attrcol = getAttributeCollection(name);
+          if(!ignore.contains("class")){ utils.TemplateCall.appendWithPadding(classAttr, attrcol.getClassAttribute()); }
+          if(!ignore.contains("style")){ utils.TemplateCall.appendWithPadding(styleAttr, attrcol.getStyleAttribute()); }
+          out.print(attrcol.getAttributes());
+     	}
+  
+      }
+    ]|
+	with  bstm*  := <mapconcat({\
+           x -> bstm* |[
+           	 AbstractAttributeCollection x#instance = new x_class();
+           	 x#instance.init();
+             attributeCollections.put("~x_key", x#instance);
+           ]|
+           with  x_key := <string-replace(|"$Override$","")> x
+           	   ; x_class := <concat-strings> ["AttributeCollection", x]
+        \})>
+        <bagof-AttributeCollectionName; handle-overrides-by-name>

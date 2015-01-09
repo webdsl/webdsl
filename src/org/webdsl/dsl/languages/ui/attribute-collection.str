@@ -1,0 +1,67 @@
+module org/webdsl/dsl/languages/ui/attribute-collection
+
+imports
+  libstrategolib
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/rename
+  org/webdsl/dsl/typechecker/error
+
+/*
+  attributes navigate {
+    class = "btn btn-default"
+    style = "display:inline;"
+  } 
+*/
+
+rules
+	
+  declare-ui = declare-attributes
+
+  declare-attributes : 
+    a@AttributeCollection(None(), name, attrs) -> a
+    where rules( IsAttributeCollection :+ name -> a )
+
+  declare-attributes : 
+    a@AttributeCollection(AttributeCollectionOverride(), name, attrs) -> a
+    where rules( IsAttributeCollectionOverride :+ name -> a )
+
+rules
+	
+  constraint-error-ui = constraint-error-attributes	
+	
+  constraint-error-attributes :
+  	AttributeSelection(name) -> <add-error(|err)>
+    where not(<IsAttributeCollection> name)
+        ; err := ["Attribute collection with name '",name,"' not defined"]
+	
+  constraint-error-attributes :
+  	AttributeIgnoreDefault(name) -> <add-error(|err)>
+    where not(<"class" <+ "style"> name)
+        ; err := ["Only 'class' and 'style' are implicitly combined with defaults."]
+	
+  constraint-error-attributes :
+  	AttributeCollection(AttributeCollectionOverride(), name, attrs) -> <add-error(|err)>
+    where not(<IsAttributeCollection> name)
+        ; err := ["Attribute collection override with name '",name,"' must override an existing definition."]
+          
+  constraint-error-global =
+      all-keys-IsAttributeCollection
+    ; constraint-double-names(
+        bagof-IsAttributeCollection
+      , \(name,decl) -> ["Attribute collection with name '",name,"' is defined multiple times. Use 'override' modifier to replace existing attribute collections."]\
+      )
+    ; fail
+      
+  constraint-error-global =
+      all-keys-IsAttributeCollectionOverride
+    ; constraint-double-names(
+        bagof-IsAttributeCollectionOverride
+      , \(name,decl) -> ["Attribute collection override with name '",name,"' is defined multiple times. Only one 'override' allowed."]\
+      )
+    ; fail
+
+
+// initially implemented a static desugaring, which didn't really work:
+// - when including attribute cols in precompiled builtins, by inlining those attributes you cannot change the attributes of the precompiled built-in inputs anymore, which is the main motivation for this feature
+// - also need to support 'ignore default class' at templatecall preventing class attributes of attr col in library def
+// - for adding support in generator built-ins like navigate, need to have a Java expression that produces the attribute collection values at runtime

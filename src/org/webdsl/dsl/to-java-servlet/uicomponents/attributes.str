@@ -45,47 +45,52 @@ rules
   <+ control-flow-emit-attrs-calls-multiple
   <+ control-flow-emit-attrs-calls-not-null
   <+ control-flow-emit-attrs-calls-attributes
+  <+ control-flow-emit-special-attrs-attributes // defined in attribute-collection.str
 
   control-flow-emit-attrs-calls-exclude : PropertyAssignment("templateContext",_) -> []
 
   control-flow-emit-attrs-calls-1 :
     tc@PropertySubmit(name, call@ActionCall(_,_)) -> bstm* |[
-      attrsmapout.put("~name",e_val);
+      utils.TemplateCall.putAttributeMergeClassOrStyle(attrsmapout, "~name",e_val);
     ]|
     where actionident := <get-actionnumber> tc
         ; e_val := <ajax-action-call-to-exp(| e|[ "{_args_}" ]|, actionident, name)> call
 
   control-flow-emit-attrs-calls-2 :
     PropertyAssignment(name, val) -> bstm* |[
-      attrsmapout.put("~name",e_val);
+      utils.TemplateCall.putAttributeMergeClassOrStyle(attrsmapout, "~name",e_val);
     ]|
     with e_val := <  control-flow-emit-attrs-value
                   <+ expression-to-java-servlet
                   > val
-
-  control-flow-emit-attrs-calls-multiple :
-    PropertySubmitMultiple(x, calls) ->bstm* |[
-      attrsmapout.put("~x",e);
-    ]|
-    with  (x,e) := <actioncall-to-html-attr>
-
-  control-flow-emit-attrs-calls-attributes :
-    AllAttributes() -> bstm* |[ attrsmapout.putAll(attrs); ]|
-
-  control-flow-emit-attrs-calls-attributes :
-    AllAttributeExceptExp(e1) -> bstm* |[ utils.TemplateCall.filterAllAttributesExcept(attrs,attrsmapout,e2); ]|
-    with  e2 := <expression-to-java-servlet> e1
-
-  control-flow-emit-attrs-calls-attributes :
-    AttributesExp(e1) -> bstm* |[ utils.TemplateCall.filterAttributes(attrs,attrsmapout,e2); ]|
-    with  e2 := <expression-to-java-servlet> e1
-
+                  
   //translate identifiers
   control-flow-emit-attrs-value :
     val -> expr |[ "~val" ]|
     where <is-string> val
 
-  //USING ATTRIBUTES
+  control-flow-emit-attrs-calls-multiple :
+    PropertySubmitMultiple(x, calls) ->bstm* |[
+      utils.TemplateCall.putAttributeMergeClassOrStyle(attrsmapout, "~x", e);
+    ]|
+    with  (x,e) := <actioncall-to-html-attr>
+
+
+rules  // 'all attributes', 'all attributes except', 'attributes' on template call to defined (not built-in) template
+
+  control-flow-emit-attrs-calls-attributes :
+    AllAttributes() -> bstm* |[  utils.TemplateCall.putAllAttributeMergeClassOrStyle(attrs, attrsmapout); ]|
+
+  control-flow-emit-attrs-calls-attributes :
+    AllAttributeExceptExp(e1) -> bstm* |[ utils.TemplateCall.filterAllAttributesExcept(attrs, attrsmapout, e2); ]|
+    with  e2 := <expression-to-java-servlet> e1
+
+  control-flow-emit-attrs-calls-attributes :
+    AttributesExp(e1) -> bstm* |[ utils.TemplateCall.filterAttributes(attrs, attrsmapout, e2); ]|
+    with  e2 := <expression-to-java-servlet> e1
+
+
+rules  //USING ATTRIBUTES
 
   // support dropped -> http://yellowgrass.org/issue/WebDSL/713
   // expression-to-java-servlet :
@@ -170,14 +175,16 @@ rules //attribute selectors
 
   //attribute(String) function
   call-to-java-servlet :
-    exp |[ attribute(e1) ]| -> expr |[ utils.TemplateCall.getAttribute(attrs, e2) ]|
+    exp |[ attribute(e1) ]| -> expr |[ utils.TemplateCall.getAttribute(attrs, e2) ]|  //changed: no longer gets class or style by default
     with  e2 := <expression-to-java-servlet> e1
 
-  convert-attribute-selectors-to-java-exp :
-    AllAttributes() -> expr |[ utils.TemplateCall.getAllAttributes(attrs) ]|
+  // selectors below are used in to-html-attrs, which generates the attrbute printing code for template components defined in generator
 
   convert-attribute-selectors-to-java-exp :
-    AllAttributeExceptExp(e1) -> expr |[ utils.TemplateCall.getAllAttributesExcept(attrs,e2) ]|
+    AllAttributes() -> expr |[ utils.TemplateCall.getAllAttributes(attrs) ]| //changed: no longer gets class or style by default
+
+  convert-attribute-selectors-to-java-exp :
+    AllAttributeExceptExp(e1) -> expr |[ utils.TemplateCall.getAllAttributesExcept(attrs,e2) ]| //changed: no longer gets class or style by default
     with  e2 := <expression-to-java-servlet> e1
 
   convert-attribute-selectors-to-java-exp :

@@ -10,10 +10,10 @@ rules
     bstm* |[
       bstm_start*
       bstm*
-      bstm_end*
+      bstm_end
     ]|
     with  bstm_start* := <xml-elem-to-java(|"<",">")> (name1,attrs1)
-        ; bstm_end* := <xml-elem-to-java(|"</",">")> (name2,[])
+        ; bstm_end := bstm|[ out.print("</"+"~name2"+">"); ]|
         ; bstm* := <elems-to-java-servlet> elem*
 
   xml-elem-to-java(|open,close) :
@@ -23,42 +23,96 @@ rules
       bstm*
       out.print("~close");
     ]|
-    with bstm* := <map(xml-attrs-to-java);concat> attrs
+    with bstm* := <xml-attrs-to-java> attrs
 
-  xml-attrs-to-java :
+// ignore can be passed along with template call while the include attr is at the html elem
+// include attr can be passed along while the ignore at the html elem
+// 1 retrieve ignores from runtime java attrs, retrieve ignores from static attrs by filtering
+// 2 retrieve non-ignored attrs from java attrs, retrieve non-ignored attrs from static attrs
+// 3 print non-class non-style attrs, and combine class and style attrs
+// from attrs-to-java below and from the helper functions in java-runtime utils.TemplateCall
+
+  xml-attrs-to-java : //always merge class and style, exclude from all attributes
+    attrs -> [bstm_helper*, bstm_ignore*, bstm1*, bstm2*]
+    // collect class in a var
+    // collect style in a var 
+    // combine code fragments at the top 
+    with  x_class := <newname> "class"
+        ; x_style := <newname> "style"
+        ; x_ignore := <newname> "ignore"
+        ; bstm_helper* := bstm*|[ 
+         	StringBuilder x_class = new StringBuilder();
+         	StringBuilder x_style = new StringBuilder();
+         	java.util.List<String> x_ignore = new java.util.ArrayList<String>();
+         	utils.TemplateCall.getDynamicIgnoredAttributes(attrs, x_ignore);
+         	for(String attrcolname : utils.TemplateCall.getDynamicSelectedAttributeCollections(attrs)){
+         	  AttributeCollectionLookup.getAttributeCollection(attrcolname, x_class, x_style, x_ignore, out);	
+         	} 
+          ]|
+        ; bstm_ignore* := <filter(add-inline-ignore-attribute-element-from-attrs(|x_ignore))> attrs
+        ; bstm1* := <remove-all(?AttributeIgnoreDefault(_)); xml-attrs-to-java-inner(|x_class, x_style, x_ignore)> attrs
+        ; bstm2* := bstm* |[
+            out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("class",x_class));
+            out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("style",x_style));
+          ]|
+         
+  add-inline-ignore-attribute-element-from-attrs(|x_ignore) :       
+    AttributeIgnoreDefault(x) -> bstm|[ x_ignore.add("~x"); ]|
+         
+  xml-attrs-to-java-inner(|x_class, x_style, x_ignore) : 
+    attrs -> bstm*
+    with  bstm* := <map(xml-attr-to-java(|x_class, x_style, x_ignore)); concat> //todo produce bstm and remove concat
+
+
+rules // regular attribute on the HTML tag
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
     Attribute(name,value) ->
     bstm*|[
       out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("~name",e));
     ]|
+    where not(<?"class" <+ "style"> name)
     with e := <expression-to-java-servlet> value
+  
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    Attribute("class",value) -> bstm*|[ utils.TemplateCall.appendWithPadding(x_class, e); ]|
+    with e := <expression-to-java-servlet> value
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    Attribute("style",value) -> bstm*|[ utils.TemplateCall.appendWithPadding(x_style, e); ]|
+    with e := <expression-to-java-servlet> value
+
+
+rules // also support passed along attributes with selectors: all attributes, all attributes except, attributes
+      // while still combining class and style attributes
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    AllAttributes() -> bstm* |[ utils.TemplateCall.handleAttrsAtHtmlElement(attrs, x_class, x_style, x_ignore, out); ]|
+
+  // in AllAttributeExceptExp and AttributesExp below the expression can be String or List<String>, the called Java method is defined for both types
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    AllAttributeExceptExp(e1) -> bstm* |[ out.print(utils.TemplateCall.getAllAttributesExcept(attrs,e2)); ]|
+    with  e2 := <expression-to-java-servlet> e1
+
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
+    AttributesExp(e1) -> bstm* |[ out.print(utils.TemplateCall.getAttributes(attrs,e2)); ]|
+    with  e2 := <expression-to-java-servlet> e1
     
-  // xml-attrs-to-java :
-  //   Attribute(name,value) ->
-  //   bstm*|[
-  //     out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("~name",e_val));
-  //   ]|
-  //   with e := <expression-to-java-servlet> value
-  //      ; if (<?"href"> name) then
-  //          e_val := |[  ]|
-
-  //also support all attributes, all attributes except, etc.
-  xml-attrs-to-java :
-    x -> bstm*|[ out.print(e); ]|
-    where e := <convert-attribute-selectors-to-java-exp> x
-
+    
 rules //if(){} and if(){}else{} inside an XML element containing a list of attributes
 
-  xml-attrs-to-java :
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
     XMLAttributesIf(e1,attrs) ->
     bstm*|[
       if(e_check){
         bstm*
       }
     ]|
-    with bstm* := <map(xml-attrs-to-java);concat> attrs
+    with bstm* := <xml-attrs-to-java-inner(|x_class, x_style, x_ignore)> attrs
        ; e_check := <expression-to-java-servlet> e1
 
-  xml-attrs-to-java :
+  xml-attr-to-java(|x_class, x_style, x_ignore) :
     XMLAttributesIfElse(e1,attrsif,attrselse) ->
     bstm*|[
       if(e_check){
@@ -68,8 +122,6 @@ rules //if(){} and if(){}else{} inside an XML element containing a list of attri
         bstm_else*
       }
     ]|
-    with bstm_if* := <map(xml-attrs-to-java);concat> attrsif
-       ; bstm_else* := <map(xml-attrs-to-java);concat> attrselse
+    with bstm_if* := <xml-attrs-to-java-inner(|x_class, x_style, x_ignore)> attrsif
+       ; bstm_else* := <xml-attrs-to-java-inner(|x_class, x_style, x_ignore)> attrselse
        ; e_check := <expression-to-java-servlet> e1
-
-    //
