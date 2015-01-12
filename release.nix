@@ -30,7 +30,7 @@ let
         name = "webdsl-check";
         meta.maxSilent = 300;
         meta.timeout = 900;
-        buildInputs = [pkgs.ant pkgs.openjdk pkgs.firefoxPkgs.firefox jobs.buildJavaNoCheck pkgs.xvfb_run];
+        buildInputs = [pkgs.ant pkgs.openjdk pkgs.firefox jobs.buildJavaNoCheck pkgs.xvfb_run];
         buildCommand = ''
         ensureDir $out
         cp -R ${webdslsSrc}/test/succeed-web/ succeed-web/
