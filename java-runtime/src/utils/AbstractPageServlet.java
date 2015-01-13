@@ -46,7 +46,6 @@ public abstract class AbstractPageServlet{
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     public boolean isReadOnly = false;
 
-
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
     	fav_ico_link_tag_suffix = "/favicon.ico?" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
@@ -301,11 +300,15 @@ public abstract class AbstractPageServlet{
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateAllPageCache = false;
+    protected boolean shouldTryCleanPageCaches = false;
     public String invalidateAllPageCacheMessage;
     public void invalidateAllPageCache(String entityname){
     	invalidateAllPageCache = true;
     	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
     	invalidateAllPageCacheMessage = entityname + " - " + propertySetterTrace;
+    }
+    public void shouldTryCleanPageCaches(){
+    	shouldTryCleanPageCaches = true;
     }
 
     public static Cache<String, String> cacheUserSpecificPages =
@@ -322,14 +325,16 @@ public abstract class AbstractPageServlet{
     public boolean pageCacheWasUsed = false;
 
     public void invalidatePageCacheIfNeeded(){
-    	if(invalidateAllPageCache){
-    		Logger.info("All page caches invalidated, triggered by change in: "+invalidateAllPageCacheMessage);
-    		cacheAnonymousPages.invalidateAll();
-    		cacheUserSpecificPages.invalidateAll();
-    	}
-    	else if(invalidateUserSpecificPageCache){
-    		Logger.info("user-specific page cache invalidated, triggered by change in: "+invalidateUserSpecificPageCacheMessage);
-    		cacheUserSpecificPages.invalidateAll();
+    	if(shouldTryCleanPageCaches){
+	    	if(invalidateAllPageCache){
+	    		Logger.info("All page caches invalidated, triggered by change in: "+invalidateAllPageCacheMessage);
+	    		cacheAnonymousPages.invalidateAll();
+	    		cacheUserSpecificPages.invalidateAll();
+	    	}
+	    	else if(invalidateUserSpecificPageCache){
+	    		Logger.info("user-specific page cache invalidated, triggered by change in: "+invalidateUserSpecificPageCacheMessage);
+	    		cacheUserSpecificPages.invalidateAll();
+	    	}
     	}
     }
 

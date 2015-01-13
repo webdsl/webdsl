@@ -144,6 +144,7 @@ public class HibernateUtil {
           if(org.hibernate.Hibernate.isInitialized(entity) && entity instanceof WebDSLEntity)
           {
             setValue(currentState, propertyNames, "_modified", new java.util.Date());
+            shouldTryCleanPageCaches();
           }
           return true;
         }
@@ -154,8 +155,16 @@ public class HibernateUtil {
           {
             setValue(state, propertyNames, "_created", new java.util.Date());
             setValue(state, propertyNames, "_modified", new java.util.Date());
+            shouldTryCleanPageCaches();
           }
           return true;
+        }
+        
+        private void shouldTryCleanPageCaches(){        	
+        	AbstractPageServlet thepage = ThreadLocalPage.get();
+            if(thepage != null){
+            	thepage.shouldTryCleanPageCaches();
+            }
         }
 
         private void setValue(Object[] state, String[] propertyNames, String propertyToSet, Object value)
