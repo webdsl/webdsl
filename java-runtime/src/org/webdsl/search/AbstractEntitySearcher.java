@@ -601,7 +601,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
                     String[] a1 = value.split( "," );
                     String[] a2 = paramMap.get( "dirs").split("," );
                     for( int i=0; i < a1.length; i++ )
-                        searcher.sort( a1[i], Boolean.getBoolean( a2[i] ) );
+                        searcher.sort( a1[i], Boolean.parseBoolean( a2[i] ) );
                 } else if ( "mlt".equals( key ) ) {
                     //more like this
                     String[] a1 = value.split( "," );
