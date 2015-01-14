@@ -75,8 +75,10 @@ public abstract class EmailServlet {
 		javax.mail.Session session = EmailServlet.getSession();
 		javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
 		try{
-			String encodingOptions = "text/html; charset=UTF-8";
-			msg.setHeader( "Content-Type", encodingOptions );
+			String htmlEncodingOption = "text/html; charset=UTF-8";
+			String plainEncodingOption = "UTF-8";
+			
+			msg.setHeader( "Content-Type", htmlEncodingOption );
 
 			msg.setRecipients(javax.mail.Message.RecipientType.TO,
 					javax.mail.internet.InternetAddress.parse(this.receivers, false));
@@ -89,9 +91,9 @@ public abstract class EmailServlet {
 				msg.addHeader("List-Unsubscribe", "<" + this.unsubscribeAddress +">");
 			}
 
-			msg.setSubject(this.subject, encodingOptions);
+			msg.setSubject(this.subject, plainEncodingOption);
 
-			msg.setContent(body.toString(), encodingOptions);
+			msg.setContent(body.toString(), htmlEncodingOption);
 
 			javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
 			msg.setSender(sender);

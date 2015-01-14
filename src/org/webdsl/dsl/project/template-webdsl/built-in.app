@@ -666,13 +666,15 @@ native class java.lang.Double as Double {
     unsubscribeAddress :: String (length=1000000)
     scheduled :: DateTime (default=now())
     lastTry :: DateTime
+    failed :: Bool (default=false)
   }
 
-  invoke internalHandleEmailQueue() every 30 seconds
+  invoke internalHandleEmailQueue() every 15 seconds
 
   function internalHandleEmailQueue(){
     var n : DateTime := now().addHours(-3); // retry after 3 hours to avoid spamming too much
-    var queuedEmails := from QueuedEmail as q where q.lastTry is null or q.lastTry < ~n order by q.scheduled asc limit 1;
+    var dontRetryMoment : DateTime := now().addDays(-3); //dont retry emails older than 3 days
+    var queuedEmails := from QueuedEmail as q where (q.lastTry is null or q.lastTry < ~n) and q.scheduled > ~dontRetryMoment order by q.scheduled asc limit 5;
 
     for(queuedEmail:QueuedEmail in queuedEmails){
       if(sendemail(sendQueuedEmail(queuedEmail))){
