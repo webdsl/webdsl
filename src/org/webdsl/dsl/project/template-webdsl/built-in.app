@@ -666,7 +666,6 @@ native class java.lang.Double as Double {
     unsubscribeAddress :: String (length=1000000)
     // scheduled :: DateTime (default=now())
     lastTry :: DateTime
-    failed :: Bool (default=false)
   }
 
   invoke internalHandleEmailQueue() every 15 seconds
