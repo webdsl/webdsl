@@ -47,4 +47,12 @@ public class GlobalsPageServlet extends PageServlet
     protected void increaseStatActionFail() { }
     protected void increaseStatActionReadOnly() { }
     protected void increaseStatActionUpdate() { }
+    private java.util.Map<String, String> dummyParammap;
+    public java.util.Map<String, String> getParammap() {
+    	if(dummyParammap == null){
+    		dummyParammap = new java.util.HashMap<String, String>(0);
+    	}
+    	return dummyParammap;
+    }
+    public String getPageUrlWithParams(){ return "GlobalsPageServlet: url requested without page request context"; } 
 }
