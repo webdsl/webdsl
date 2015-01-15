@@ -58,19 +58,29 @@ let
     tests = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (run_test f)) (import webtests));
 
     tarball = 
-      with pkgs;
-      releaseTools.makeSourceTarball {
-        name = "webdsl-tarball";
+      pkgs.stdenv.mkDerivation {
+        name = "webdsl-tarball"; 
         src = webdslsSrc;
-        inherit officialRelease;
-        buildInputs = [
-          pkgconfig 
-          libtool_1_5
-          subversion
-          automake
-          autoconf
-          ant 
-        ] ++ strPkgs pkgs ;
+         buildInputs = [
+          pkgs.pkgconfig 
+          pkgs.libtool_1_5
+          pkgs.automake
+          pkgs.autoconf
+        ] ++ strPkgs pkgs;
+        builder = builtins.toFile "builder.sh" "
+          source $stdenv/setup
+          set -x  # show executed commands
+          mkdir webdsl/
+          cp -r $src/* webdsl/
+          chmod -R +w webdsl/
+          cd webdsl/
+          ./bootstrap
+          cd ..
+          mkdir -p $out/tarballs
+          tar chf - webdsl/ | GZIP=--best gzip -c >$out/tarballs/webdsl-tarball.tar.gz
+          mkdir $out/nix-support
+          echo 'file source-dist $out/tarballs/webdsl-tarball.tar.gz' > $out/nix-support/hydra-build-products
+        ";
       };
 
     buildJavaZip = 
