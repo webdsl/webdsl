@@ -1,8 +1,8 @@
-{ nixpkgs ? ../nixpkgs
+{ nixpkgs ? /etc/nixos/nixpkgs
 , hydraConfig ? { outPath = ../../hydra-config ; rev = 1234; } 
 , webdslsSrc ? {outPath = ./.; rev = 1234;}
 , officialRelease ? false
-, strcJava ? { outPath = ./. ;}
+, strcJava ? builtins.storePath /nix/store/szhw1vs3rbbh3ws499lifpd8xbjpc7d3-strc-java-0.17.92pre0
 }:
 
 let
