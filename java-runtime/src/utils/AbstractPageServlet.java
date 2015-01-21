@@ -348,11 +348,12 @@ public abstract class AbstractPageServlet{
     		|| isNotValid() // data validation errors need to be rendered
     		|| !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
     	){
+    		StringWriter renderedContent = renderContentOnly();
     		if(!mimetypeChanged){
-    			s = renderResponse(renderContentOnly());
+    			s = renderResponse(renderedContent);
     		}
     		else{
-    			s = renderContentOnly().toString();
+    			s = renderedContent.toString();
     		}
     	}
     	else{ // using page cache
@@ -373,11 +374,12 @@ public abstract class AbstractPageServlet{
     				public String call() throws Exception {
     					// System.out.println("key not found");
     					pageCacheWasUsed = false;
+    					StringWriter renderedContent = renderContentOnly();
     					if(!mimetypeChanged){
-    						return renderResponse(renderContentOnly());
+    						return renderResponse(renderedContent);
     					}
     					else{
-    						return renderContentOnly().toString();
+    						return renderedContent.toString();
     					}
     				}
     			});

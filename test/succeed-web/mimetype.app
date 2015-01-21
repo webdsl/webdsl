@@ -49,16 +49,16 @@ application test
     var d : WebDriver := getHtmlUnitDriver(); // firefox driver seems to always produce escaped output
     d.get(navigate(test()));
     //log(d.getPageSource());
-    assert(d.getPageSource().contains("1 && 2 <> 3&'\"<>"));
+    assert(d.getPageSource().startsWith("1 && 2 <> 3&'\"<>"));
 
     d.get(navigate(testfun()));
-    assert(d.getPageSource().contains("1 && 2 <> 3&'\"<>"));
+    assert(d.getPageSource().startsWith("1 && 2 <> 3&'\"<>"));
 
     d.get(navigate(bla()));
-    assert(d.getPageSource().contains("1 && 2 <> 3&'\"<>"));
+    assert(d.getPageSource().startsWith("1 && 2 <> 3&'\"<>"));
 
     d.get(navigate(bla2()));
-    assert(d.getPageSource().contains("1 && 2 <> 3&'\"<>"));
+    assert(d.getPageSource().startsWith("1 && 2 <> 3&'\"<>"));
 
     d.get(navigate(testraw()));
     //log(d.getPageSource());
