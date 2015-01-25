@@ -6,48 +6,28 @@ imports
 
 rules // to-html-attrs is _only_ used for built-in template components defined in the generator, such as form, submit, and navigate
 
+  to-html-attrs = convert-property-assignment-list; xml-attrs-to-java
+
   to-html-attrs(|classattr) :
-    passign* -> java:expr|[" class=\""+"~classattr"+e_attrs2+"\" "+e_attrs1+" "]|
-    with (e_attrs1, e_attrs2) := <to-html-attrs-separate-class> passign*
+    attrs -> <xml-attrs-to-java> [Attribute("class", String(classattr)) | <convert-property-assignment-list> attrs]
+    where <is-string> classattr
 
-  to-html-attrs-separate-class :
-    passign* -> (<to-html-attrs> noclass, class)
-    with  noclass := <remove-all(?PropertyAssignment("class", _))> passign*
-        ; class-attr-list := <filter(    ?PropertyAssignment("class", _)
-                               ; expression-assignment-to-html-attr
-                               ; ?(_,<id>))> passign*
-        ; class := <?[];!java:expr|[ "" ]| <+ ![java:expr|[" "]| |<id;separate-by(|java:expr|[" "]|)>]; generate-addition-exp> class-attr-list
+  to-html-attrs(|e_classattr) :
+    attrs -> <xml-attrs-to-java> [Attribute("class", e_classattr) | <convert-property-assignment-list> attrs]
+    where <not(is-string)> e_classattr // assuming it is a java expression in this case
 
-  to-html-attrs :
-    attrs -> attrs3
-    with  attrs1 := <generate-property-assignments> attrs
-        ; attrs3 := <generate-addition-exp > attrs1
-
-  generate-property-assignments=
-    remove-all(exclude-from-property-assignment)
-  ; map(   convert-single-property-assignment-to-java-exp
-        <+ convert-attribute-selectors-to-java-exp
-        <+ fatal-err(|"Cannot convert propertyassignment: "))
-
-  convert-single-property-assignment-to-java-exp =
-  (   actioncall-to-html-attr 
-   <+ expression-assignment-to-html-attr
-  )
-  ; assignmentexp-to-html-attr
+  convert-property-assignment-list =
+  	remove-all(exclude-from-property-assignment)
+  ; map(try(convert-property-assignment))
   
+  // convert propertyassignment to attribute, so that xml-attrs-to-java can be re-used
+  convert-property-assignment :
+    PropertyAssignment(k, v) -> Attribute(k, v)
+
   exclude-from-property-assignment = TemplateCallPropertyAjax
   exclude-from-property-assignment = TemplateCallPropertySecure
   exclude-from-property-assignment = TemplateCallPropertyNotSecure
   exclude-from-property-assignment = TemplateCallPropertyIgnoreValidation
   exclude-from-property-assignment = ?PropertyAssignment("templateContext",_)
-    
-  //final conversion: converts a String assignment to html    
-  assignmentexp-to-html-attr :
-    (x, e_y) -> e |[ org.webdsl.tools.Utils.showAttributeEscapeHtml("~x",e_y) ]|
-   
-  expression-assignment-to-html-attr :
-    PropertyAssignment(x, e) -> (x, e1)
-    where e1 := <expression-to-java-servlet> e
-    
-  call-to-java-servlet :
-    exp |[ baseURL() ]| -> expr |[ ThreadLocalPage.get().getAbsoluteLocation() ]|
+
+           

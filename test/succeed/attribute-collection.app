@@ -136,6 +136,129 @@ application root
   }
 
 
+  template templatesInCodeGenerator(){ preventInline()
+    form[class="c-form", style="s-form", foo="f-form", all attributes]{
+      downloadlink action{} [class="c-downloadlink", style="s-downloadlink", foo="f-downloadlink", all attributes, onmouseup=action{}] {"123"}
+      outputimage action{} [class="c-outputimage", style="s-outputimage", foo="f-outputimage", all attributes, onmouseup=action{}] {"123"}
+      submit action{} [class="c-submit", style="s-submit", foo="f-submit", all attributes, onmouseup=action{}] {"123"}
+      submit action{} [ajax, class="c-submitajax", style="s-submitajax", foo="f-submitajax", all attributes, onmouseup=action{}] {"123"}
+      submitlink action{} [class="c-submitlink", style="s-submitlink", foo="f-submitlink", all attributes, onmouseup=action{}] {"123"}
+      submitlink action{} [ajax, class="c-submitlinkajax", style="s-submitlinkajax", foo="f-submitlinkajax", all attributes, onmouseup=action{}] {"123"}
+    }
+    captcha[class="c-captcha", style="s-captcha", foo="f-captcha", all attributes, onmouseup=action{}]
+    section[class="c-sec1", style="s-sec1", foo="f-sec1", all attributes, onmouseup=action{}]{
+      section[class="c-sec2", style="s-sec2", foo="f-sec2", all attributes, onmouseup=action{}]{
+        header[class="c-header", style="s-header", foo="f-header", all attributes, onmouseup=action{}]{"123"}}}
+    var s := "url"
+    image(s)[class="c-image", style="s-image", foo="f-image", all attributes, onmouseup=action{}]
+    image("test")[class="c-image-string", style="s-image-string", foo="f-image-string", all attributes, onmouseup=action{}]
+    image("http://webdsl.org")[class="c-image-abs-url", style="s-image-abs-url", foo="f-image-abs-url", all attributes, onmouseup=action{}]
+    <script class="c-script" style="s-script" foo="f-script" all attributes></script>	
+    list[class="c-list", style="s-list", foo="f-list", all attributes, onmouseup=action{}]{
+      listitem[class="c-listitem", style="s-listitem", foo="f-listitem", all attributes, onmouseup=action{}]{"123"}
+    }
+    navigate url("root")[class="c-navurl", style="s-navurl", foo="f-navurl", all attributes, onmouseup=action{}]{"123"}
+    navigate root()[class="c-nav", style="s-nav", foo="f-nav", all attributes, onmouseup=action{}]{"123"}
+    navigatebutton(root(),"123")[class="c-navbutton", style="s-navbutton", foo="f-navbutton", all attributes, onmouseup=action{}]
+    navigatebutton(url("root"),"123")[class="c-navbuttonurl", style="s-navbuttonurl", foo="f-navbuttonurl", all attributes, onmouseup=action{}]
+  
+    block[class="10", style="11"]{
+      block("20")[class="21", style="22"]{
+        "30"    	
+      }
+    }
+  }
+  test{
+    var source := rendertemplate(templatesInCodeGenerator());
+    log(source);
+
+    assert(source.contains("foo=\"f-form\""));
+    assert(source.contains("class=\"c-form\""));
+    assert(source.contains("style=\"s-form\""));
+
+    assert(source.contains("foo=\"f-downloadlink\""));
+    assert(source.contains("class=\"downloadlink c-downloadlink\""));
+    assert(source.contains("style=\"s-downloadlink\""));
+
+    assert(source.contains("foo=\"f-outputimage\""));
+    assert(source.contains("class=\"outputimage c-outputimage\""));
+    assert(source.contains("style=\"s-outputimage\""));
+
+    assert(source.contains("foo=\"f-submit\""));
+    assert(source.contains("class=\"button c-submit\""));
+    assert(source.contains("style=\"s-submit\""));
+
+    assert(source.contains("foo=\"f-submitajax\""));
+    assert(source.contains("class=\"button c-submitajax\""));
+    assert(source.contains("style=\"s-submitajax\""));
+
+    assert(source.contains("foo=\"f-submitlink\""));
+    assert(source.contains("class=\"c-submitlink\""));
+    assert(source.contains("style=\"s-submitlink\""));
+
+    assert(source.contains("foo=\"f-submitlinkajax\""));
+    assert(source.contains("class=\"c-submitlinkajax\""));
+    assert(source.contains("style=\"s-submitlinkajax\""));
+    
+    assert(source.contains("foo=\"f-captcha\""));
+    assert(source.contains("class=\"c-captcha\""));
+    assert(source.contains("style=\"s-captcha\""));
+    
+    assert(source.contains("foo=\"f-sec1\""));
+    assert(source.contains("class=\"section section1 c-sec1\""));
+    assert(source.contains("style=\"s-sec1\""));
+    
+    assert(source.contains("foo=\"f-sec2\""));
+    assert(source.contains("class=\"section section2 c-sec2\""));
+    assert(source.contains("style=\"s-sec2\""));
+    
+    assert(source.contains("foo=\"f-header\""));
+    assert(source.contains("class=\"header section2 c-header\""));
+    assert(source.contains("style=\"s-header\""));
+    
+    assert(source.contains("foo=\"f-image\""));
+    assert(source.contains("class=\"c-image\""));
+    assert(source.contains("style=\"s-image\""));
+    
+    assert(source.contains("foo=\"f-image-string\""));
+    assert(source.contains("class=\"c-image-string\""));
+    assert(source.contains("style=\"s-image-string\""));
+    
+    assert(source.contains("foo=\"f-image-abs-url\""));
+    assert(source.contains("class=\"c-image-abs-url\""));
+    assert(source.contains("style=\"s-image-abs-url\""));
+
+    assert(source.contains("foo=\"f-script\""));
+    assert(source.contains("class=\"c-script\""));
+    assert(source.contains("style=\"s-script\""));
+
+    assert(source.contains("foo=\"f-list\""));
+    assert(source.contains("class=\"block c-list\""));
+    assert(source.contains("style=\"s-list\""));
+
+    assert(source.contains("foo=\"f-listitem\""));
+    assert(source.contains("class=\"block c-listitem\""));
+    assert(source.contains("style=\"s-listitem\""));
+
+    assert(source.contains("foo=\"f-navurl\""));
+    assert(source.contains("class=\"navigate c-navurl\""));
+    assert(source.contains("style=\"s-navurl\""));
+    
+    assert(source.contains("foo=\"f-nav\""));
+    assert(source.contains("class=\"navigate c-nav\""));
+    assert(source.contains("style=\"s-nav\""));
+
+    assert(source.contains("foo=\"f-navbuttonurl\""));
+    assert(source.contains("class=\"c-navbuttonurl\""));
+    assert(source.contains("style=\"s-navbuttonurl\""));
+    
+    assert(source.contains("foo=\"f-navbutton\""));
+    assert(source.contains("class=\"c-navbutton\""));
+    assert(source.contains("style=\"s-navbutton\""));
+    
+    assert(source.contains("<div class=\"block 10\" style=\"11\"><div class=\"block 20 21\" style=\"22\">30</div></div>"));
+  }
+
   page root(){}
 
   function a(): String{ return "a"; }

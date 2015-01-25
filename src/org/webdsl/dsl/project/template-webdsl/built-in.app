@@ -731,13 +731,30 @@ native class java.lang.Double as Double {
   define ignore-access-control break(){
     <br all attributes/>
   }
-  /*
-  define ignore-access-control block(){
-    <div class="block "+attribute("class")
-         all attributes except "class">
+
+  template list(){
+    <ul class="block" all attributes>
+      elements()
+    </ul>
+  }
+
+  template listitem(){
+    <li class="block" all attributes>
+      elements()
+    </li>
+  }
+  
+  template block(){
+    <div class="block" all attributes>
       elements()
     </div>
-  }*/
+  }
+  
+  template block(s:String){
+    <div class="block" class=s all attributes>
+      elements()
+    </div>
+  }
 
   template div() {
     <div all attributes>
@@ -752,8 +769,7 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control container(){
-    <span class="container "+attribute("class")
-         all attributes except "class">
+    <span class="container" all attributes>
       elements()
     </span>
   }
@@ -779,8 +795,7 @@ native class java.lang.Double as Double {
   }
 
   define ignore-access-control group(){
-    <fieldset class="fieldset_no_legend_ "+attribute("class")
-      all attributes except "class">
+    <fieldset class="fieldset_no_legend_" all attributes>
       <table>
         elements()
       </table>
@@ -1142,8 +1157,8 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputDate "+attribute("class")
-      all attributes except "class"
+      class="inputDate"
+      all attributes
     />
 
     //uses setTimeout which seems to give better results when used in combination with webdsl ajax
@@ -1223,7 +1238,7 @@ native class java.lang.Double as Double {
     var reqhidden := getRequestParameter(tnamehidden)
     request var tmpset := Set<Entity>()
 
-    <div class="checkbox-set "+attribute("class") all attributes except ["class","onclick"]>
+    <div class="checkbox-set" all attributes except "onclick">
       <input type="hidden" name=tnamehidden />
       for(e:Entity in from){
         inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)[onclick=""+attribute("onclick")]
@@ -1301,8 +1316,8 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="select "+attribute("class")
-      all attributes except "class"
+      class="select"
+      all attributes
     >
       for(e:Entity in from){
         <option
@@ -1390,8 +1405,8 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="select "+attribute("class")
-      all attributes except "class"
+      class="select"
+      all attributes
     >
       if(!notnull){
         <option value="none"
@@ -1766,8 +1781,8 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputInt "+attribute("class")
-      all attributes except "class"
+      class="inputInt"
+      all attributes
     />
 
     databind{
@@ -1836,8 +1851,8 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputFloat "+attribute("class")
-      all attributes except "class"
+      class="inputFloat"
+      all attributes
     />
 
     databind{
@@ -1905,8 +1920,8 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputLong "+attribute("class")
-      all attributes except "class"
+      class="inputLong"
+      all attributes
     />
 
     databind{
@@ -1963,8 +1978,8 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputSecret "+attribute("class")
-      all attributes except "class"
+      class="inputSecret"
+      all attributes
     />
 
     databind{
@@ -2029,8 +2044,8 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputString "+attribute("class")
-      all attributes except "class"
+      class="inputString"
+      all attributes
     />
 
     databind{
@@ -2084,8 +2099,8 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="inputTextarea inputText "+attribute("class")
-      all attributes except "class"
+      class="inputTextarea inputText"
+      all attributes
     >
       if(req != null){
         text(req)
@@ -2150,8 +2165,8 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputURL "+attribute("class")
-      all attributes except "class"
+      class="inputURL"
+      all attributes
     />
 
     databind{
@@ -2205,8 +2220,8 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="inputTextarea inputWikiText "+attribute("class")
-      all attributes except "class"
+      class="inputTextarea inputWikiText"
+      all attributes
     >
       if(req != null){
         text(req)
@@ -2278,8 +2293,8 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputEmail "+attribute("class")
-      all attributes except "class"
+      class="inputEmail"
+      all attributes
     />
     databind{
       if(req != null){
@@ -2340,8 +2355,8 @@ native class java.lang.Double as Double {
       if(getRequestParameter(rnamehidden)!=null && getRequestParameter(rname)!=null || getRequestParameter(rnamehidden)==null && b){
         checked="true"
       }
-      class="inputBool "+attribute("class")
-      all attributes except "class"
+      class="inputBool"
+      all attributes
     />
 
     databind{
@@ -2396,8 +2411,8 @@ native class java.lang.Double as Double {
       }
       name=tname
       type="file"
-      class="inputFile "+attribute("class")
-      all attributes except "class"
+      class="inputFile"
+      all attributes
     />
 
     databind{
@@ -2446,8 +2461,8 @@ native class java.lang.Double as Double {
       }
       name=tname
       type="file"
-      class="inputFile "+attribute("class")
-      all attributes except "class"
+      class="inputFile"
+      all attributes
       multiple=""
     />
 
