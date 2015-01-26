@@ -16,9 +16,15 @@ rules
   print-error-for-schema-constraint :
     (errmsg,item) -> <add-error(|["listitem not wrapped in list: ",errmsg])> item
 
+
+rules // check for unwrapped listitems in this template
+
   get-schema-violating-tcs(|errmsg) :
     def -> (errmsg, listitem)
     where listitem := <check-schema-simple-constraint> def
+
+
+rules // no unwrapped listitems in this template, recurse into called templates 
 
   get-schema-violating-tcs(|errmsg) :
     def@Define(mods,_,_,_,body)  -> resboth
@@ -31,18 +37,19 @@ rules
         ; resboth := <concat> [res,reselements]
     where not(resboth := [])
     
-  defined-tc-to-schema-violation(|errmsg) = 
-    is-defined-tc-get-called-tc
-  ; ?y
-  ; TemplateDecl
-  ; get-schema-violating-tcs(|<concat-strings> [errmsg," -> ",y])
-    
   find-schema-template-traverse = is-defined-template-call
   find-schema-template-traverse = match-template-with-name(|"list")
   find-schema-template-traverse = match-template-with-name(|"elements")
   find-schema-template-traverse = ?Define(_,_,_,_,_)//dont go into local template defines
 
-rules 
+
+rules // the recursion for traversal into called templates  
+    
+  defined-tc-to-schema-violation(|errmsg) = 
+    is-defined-tc-get-called-tc
+  ; ?y
+  ; TemplateDecl
+  ; get-schema-violating-tcs(|<concat-strings> [errmsg," -> ",y]) 
 
   get-tc-elements-with-violations(|errmsg) :
     tcall -> result
@@ -52,6 +59,7 @@ rules
         ; not(elements := [])
         ; result := <get-schema-violating-tcs(|<concat-strings> [errmsg," elements> ",name])> 
             Define([],[],[],[],TemplateBody(elements)) //as 
+  
   
 rules //simple case, check content of that particular template
 //TODO cache the results here?
@@ -67,6 +75,7 @@ rules //simple case, check content of that particular template
     where elementscall := <fetch-elem(match-template-with-name(|"elements"))> results
     
   find-schema-simple = match-template-with-name(|"list")
+  find-schema-simple = where(?XMLElement(<?"ul"<+?"ol">,_,_,_))
   find-schema-simple = match-template-with-name(|"listitem")
   find-schema-simple = ?Define(_,_,_,_,_) //dont go into local template defines
   find-schema-simple = match-template-with-name(|"elements") //dont go into elements calls
