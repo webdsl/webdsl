@@ -1261,6 +1261,7 @@
    TemplateModOverride -- KW["override"],
    TemplateDeprecated -- KW["deprecated"],
    ReadOnlyPage -- KW["read-only"],
+   ExpireCache -- KW["expire-cache"],
 
    ValidateAction -- KW["validate"] _1,
 
@@ -1387,9 +1388,8 @@
    NativeClassConstructor.1:iter-star-sep                 -- _1 KW[","],
    NativeClassFunction.3:iter-star-sep                    -- _1 KW[","],
    NativeClass.4:iter-star                                -- _1,
-   ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
-   ServiceFunction                                        -- V[ H[KW["service"] _1 KW["("] _2 KW[")"]] _3],
-   ServiceFunction.2:iter-star-sep                        -- _1 KW[","],
+   ServiceFunction                                        -- V[ H[KW["service"] _1 _2 KW["("] _3 KW[")"]] _4],
+   ServiceFunction.3:iter-star-sep                        -- _1 KW[","],
    DeriveWebServices                                      -- KW["derive"] KW["webservices"] KW["for"] _1 KW[","] KW["with"] KW["nameproperty"] _2,
    SyncConfigEmbedded                                     -- V[ H[KW["synchronization"] KW["configuration"] KW["{"]] _1 KW["}"]],
    SyncTopLevelNameProperty                               -- H[ KW["toplevel"]  KW["name"] KW["property"] KW[":"] _1 ],
@@ -1436,7 +1436,7 @@
    RoutingConstruct                                       -- KW["construct"] _1 _2,
    RoutingArgs                                            -- KW["("] _1 KW[")"],
    RoutingArgs.1:iter-sep                                 -- _1 KW[","],
-   
+
    AttributeCollection                                    -- _1 KW["attributes"] _2 KW["{"] _3 KW["}"],
    AttributeAssign                                        -- _1 KW["="] _2,
    AttributeSelection                                     -- _1 KW["attributes"],
