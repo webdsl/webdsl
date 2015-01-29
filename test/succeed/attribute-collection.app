@@ -259,6 +259,51 @@ application root
     assert(source.contains("<div class=\"block 10\" style=\"11\"><div class=\"block 20 21\" style=\"22\">30</div></div>"));
   }
 
+
+  template callTemplateWithCodeGenTemplates(){
+     templatesInCodeGenerator[class="classtest",style="styletest",bar="q",regular attributes,overridden attributes]
+  }
+  test{
+    var source := rendertemplate(callTemplateWithCodeGenTemplates());
+    log(source);
+    assert(source.split("classtest").length == 18);
+    assert(source.split("styletest").length == 18);
+    assert(source.split("bar=\"q\"").length == 18);
+    assert(source.contains("class=\"rc oc navigate c-nav classtest\""));
+  }
+
+  
+  attributes included {
+    class = "included-class"
+    style = "included-style"
+    included = "included"
+    regular attributes ignore class style
+  }
+  attributes includer {
+    class = "includer-class"
+    style = "includer-style"
+    includer = "includer"
+    //test with multiple includes
+    included attributes
+    overridden attributes
+  }
+  template attrincludes(){
+    <div includer attributes>"1"</div>
+    block[includer attributes]{"2"}
+    navigate root() [includer attributes] {"3"}
+  }
+  test{
+    var source := rendertemplate(attrincludes());
+    log(source);
+    assert(source.split(" included=\"included\"").length == 4);
+    assert(source.split(" includer=\"includer\"").length == 4);
+    assert(source.split(" bar=\"bar\"").length == 4);
+    assert(source.split(" baz=\"baz\"").length == 4);
+    assert(source.split(" style=\"os included-style includer-style\"").length == 4);
+    assert(source.contains(" class=\"navigate oc included-class includer-class\""));
+  }
+
+
   page root(){}
 
   function a(): String{ return "a"; }

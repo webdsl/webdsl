@@ -24,16 +24,6 @@ rules // attribute collection selectors in html elements
     bstm*|[
       AttributeCollectionLookup.getAttributeCollection("~name", x_class, x_style, x_ignore, out);
     ]|
-    
-    
-rules // attribute selectors for template components defined in generator, like navigate and submit
-	  // result is a Java expression that produces the String to be included in Printwriter out, see org/webdsl/dsl/to-java-servlet/ajax/html-utils
-	  
-  convert-attribute-selectors-to-java-exp :
-    AttributeSelection(name) ->
-    expr|[
-      AttributeCollectionLookup.getAttributeCollectionInJavaExp("~name")
-    ]|
 
 
 rules
@@ -53,15 +43,15 @@ rules
       	}
       	
         public String getAttributes(){
-          return utils.TemplateCall.getAllAttributes(attrsmap);
+          return e_rest;
         }
         
         public String getClassAttribute(){
-         return e_classattr;
+         return e_class;
         }
         
         public String getStyleAttribute(){
-         return e_styleattr;
+         return e_style;
         }
         
       }
@@ -69,10 +59,25 @@ rules
     with  pkgname    := <TemplatePackage>
         ; pkgtname2   := <DomainPackage>
         ; x_class := <attribute-collection-class-name(|name, overrideanno)>
-        ; e_classattr := <fetch-elem(?AttributeAssign("class",<expression-to-java-servlet>)) <+ !Lit(String([Chars("")]))> attrs
-        ; e_styleattr := <fetch-elem(?AttributeAssign("style",<expression-to-java-servlet>)) <+ !Lit(String([Chars("")]))> attrs
-        ; bstm_init* := <remove-all(AttributeAssign(?"class"<+?"style",id)); map(attr-to-collection-map-init)> attrs
+        ; e_classattr := <fetch-elem(?AttributeAssign("class",<expression-to-java-servlet>)) <+ java-string-empty> attrs
+        ; e_styleattr := <fetch-elem(?AttributeAssign("style",<expression-to-java-servlet>)) <+ java-string-empty> attrs
+        ; bstm_init* := <remove-all(?AttributeAssign(<?"class"<+?"style">,_) <+ ?AttributeInclude(_,_)); map(attr-to-collection-map-init)> attrs
+        ; attrcolincludes := <filter(?AttributeInclude(_,_))> attrs
+        ; attrcolincludesclass := <remove-all(where(?AttributeInclude(_, AttributeIncludeIgnore(<fetch(?"class")>))))> attrcolincludes // the fetch failing can also mean not a list, None() is used for no ignores
+        ; attrcolincludesstyle := <remove-all(where(?AttributeInclude(_, AttributeIncludeIgnore(<fetch(?"style")>))))> attrcolincludes
+        ; e_class := <if ?([],_) then Snd else (id, add-java-string-space-if-not-empty-java-string); foldl(add-java-expressions) end> (<map(attr-collection-include-to-class-expr); separate-by(|<java-string-space>)> attrcolincludesclass, e_classattr)
+        ; e_style := <if ?([],_) then Snd else (id, add-java-string-space-if-not-empty-java-string); foldl(add-java-expressions) end> (<map(attr-collection-include-to-style-expr); separate-by(|<java-string-space>)> attrcolincludesstyle, e_styleattr)
+        ; e_rest  := <if ?([],_) then Snd else foldl(add-java-expressions) end> (<map(attr-collection-include-to-expr)> attrcolincludes, java:expr|[ utils.TemplateCall.getAllAttributes(attrsmap) ]|)
+          
+  attr-collection-include-to-expr       : AttributeInclude(x_name, _) -> java:expr|[ utils.AttributeCollectionLookup.getAttributeCollection("~x_name").getAttributes() ]|
+  attr-collection-include-to-class-expr : AttributeInclude(x_name, _) -> java:expr|[ utils.AttributeCollectionLookup.getAttributeCollection("~x_name").getClassAttribute() ]|
+  attr-collection-include-to-style-expr : AttributeInclude(x_name, _) -> java:expr|[ utils.AttributeCollectionLookup.getAttributeCollection("~x_name").getStyleAttribute() ]|
 
+  is-java-string-empty = ?Lit(String([Chars("")]))
+  java-string-empty = !Lit(String([Chars("")]))
+  java-string-space = !Lit(String([Chars(" ")]))
+  add-java-string-space-if-not-empty-java-string = if not(is-java-string-empty) then !Plus(<java-string-space>, <id>) else id end
+  
   attr-to-collection-map-init :
   	AttributeAssign(name,value) -> bstm|[ attrsmap.put("~name", e); ]|
   	with  e := <expression-to-java-servlet> value
@@ -111,11 +116,6 @@ rules  // create lookup class that is always generated and handles overrides
           out.print(attrcol.getAttributes());
      	}
 
-     	public static String getAttributeCollectionInJavaExp(String name){
-     	  AbstractAttributeCollection attrcol = getAttributeCollection(name);
-          return attrcol.getAttributes();
-     	}
-  
       }
     ]|
 	with  bstm*  := <mapconcat({\

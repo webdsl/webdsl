@@ -260,21 +260,4 @@ public class TemplateCall {
 	  return false;
   }
 
-  
-  /*
-   *  print attributes for HTML element
-   *  
-   *  always merge class and style, extract from 'all attributes'
-   */
-  
-  public static void printAttributesForHtmlElement(java.util.Map<String,String> attrs, java.io.PrintWriter out){
-	  StringBuilder classAttr = new StringBuilder();
-      StringBuilder styleAttr = new StringBuilder();
-      java.util.List<String> x_ignore = new java.util.ArrayList<String>();
-      utils.TemplateCall.getDynamicIgnoredAttributes(attrs, x_ignore);
-      //TODO attribute collection selection
-      if(classAttr.length() > 0){ out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("class",classAttr)); }
-      if(styleAttr.length() > 0){ out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("style",styleAttr)); }
-  }
-  
 }

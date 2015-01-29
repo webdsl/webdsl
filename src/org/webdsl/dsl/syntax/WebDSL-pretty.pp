@@ -1440,6 +1440,8 @@
    AttributeCollection                                    -- _1 KW["attributes"] _2 KW["{"] _3 KW["}"],
    AttributeAssign                                        -- _1 KW["="] _2,
    AttributeSelection                                     -- _1 KW["attributes"],
+   AttributeInclude                                       -- _1 KW["attributes"] _2,
+   AttributeIncludeIgnore                                 -- KW["ignore"] _1,
    AttributeIgnoreDefault                                 -- KW["ignore"] KW["default"] _1,
    AttributeCollectionOverride                            -- KW["override"]
 ]
