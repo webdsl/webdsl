@@ -1,5 +1,37 @@
 module .servletapp/src-webdsl-template/built-in
 
+// overridable attributes for generator built-in templates and library input templates
+
+  attributes navigate{ class="navigate" }
+  attributes downloadlink{ class="downloadlink" }
+  attributes outputimage{ class="outputimage" }
+  attributes submit{ class="button" }
+  attributes submitlink{ }
+  attributes form{ }
+  attributes navigatebutton{ }
+  attributes captcha{ }
+  attributes image{ }
+  
+  attributes inputInt{ class="inputInt" }
+  attributes inputBool{ class="inputBool" }
+  attributes inputString{ class="inputString" }
+  attributes inputEmail{ class="inputEmail" }
+  attributes inputSecret{ class="inputSecret" }
+  attributes inputURL{ class="inputURL" }
+  attributes inputText{ class="inputTextarea inputText" }
+  attributes inputWikiText{ class="inputTextarea inputWikiText" }
+  attributes inputFloat{ class="inputFloat" }
+  attributes inputLong{ class="inputLong" }
+  attributes inputDate{ class="inputDate" } 
+  attributes inputSetCheckbox{ class="checkbox-set" }
+  attributes inputSetCheckboxElements{ class="checkbox-set-element" }
+  attributes inputSelect{ class="select" }
+  attributes inputSelectMultiple{ class="select" }
+  attributes inputFile{ class="inputFile" }
+  attributes inputMultiFile{ class="inputFile" }
+  attributes inputSDF{ class="inputSDF" }
+  attributes radio{ class="radio" }
+
 // page request statistics
 
   native class utils.Statistics as RequestStatistics {
@@ -1157,7 +1189,7 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputDate"
+      inputDate attributes
       all attributes
     />
 
@@ -1238,7 +1270,7 @@ native class java.lang.Double as Double {
     var reqhidden := getRequestParameter(tnamehidden)
     request var tmpset := Set<Entity>()
 
-    <div class="checkbox-set" all attributes except "onclick">
+    <div inputSetCheckbox attributes all attributes except "onclick">
       <input type="hidden" name=tnamehidden />
       for(e:Entity in from){
         inputCheckboxSetInternalHelper(set,tmpset,e,tname+"-"+e.id)[onclick=""+attribute("onclick")]
@@ -1255,7 +1287,7 @@ native class java.lang.Double as Double {
     var tmp := getRequestParameter(tname)
     var tnamehidden := tname + "_isinput"
     var tmphidden := getRequestParameter(tnamehidden)
-    <div class="checkbox-set-element">
+    <div inputSetCheckboxElements attributes>
       <input type="hidden" name=tnamehidden />
       <input type="checkbox"
         name=tname
@@ -1316,7 +1348,7 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="select"
+      inputSelectMultiple attributes
       all attributes
     >
       for(e:Entity in from){
@@ -1405,7 +1437,7 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="select"
+      inputSelect attributes
       all attributes
     >
       if(!notnull){
@@ -1486,7 +1518,7 @@ native class java.lang.Double as Double {
       }
     }
     for(e:Entity in ent2){
-      <label class="radio">
+      <label radio attributes>
         <input type="radio"
           //either it was submitted or it was not submitted but the value was already p
           if(tmp != null && subme == e || tmp == null && ent1 == e){
@@ -1781,7 +1813,7 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputInt"
+      inputInt attributes
       all attributes
     />
 
@@ -1851,7 +1883,7 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputFloat"
+      inputFloat attributes
       all attributes
     />
 
@@ -1920,7 +1952,7 @@ native class java.lang.Double as Double {
       else{
         value = i
       }
-      class="inputLong"
+      inputLong attributes
       all attributes
     />
 
@@ -1978,7 +2010,7 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputSecret"
+      inputSecret attributes
       all attributes
     />
 
@@ -2044,7 +2076,7 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputString"
+      inputString attributes
       all attributes
     />
 
@@ -2099,7 +2131,7 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="inputTextarea inputText"
+      inputText attributes
       all attributes
     >
       if(req != null){
@@ -2165,7 +2197,7 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputURL"
+      inputURL attributes
       all attributes
     />
 
@@ -2220,7 +2252,7 @@ native class java.lang.Double as Double {
         id=getPage().getLabelString()
       }
       name=tname
-      class="inputTextarea inputWikiText"
+      inputWikiText attributes
       all attributes
     >
       if(req != null){
@@ -2293,7 +2325,7 @@ native class java.lang.Double as Double {
       else{
         value = s
       }
-      class="inputEmail"
+      inputEmail attributes
       all attributes
     />
     databind{
@@ -2355,7 +2387,7 @@ native class java.lang.Double as Double {
       if(getRequestParameter(rnamehidden)!=null && getRequestParameter(rname)!=null || getRequestParameter(rnamehidden)==null && b){
         checked="true"
       }
-      class="inputBool"
+      inputBool attributes
       all attributes
     />
 
@@ -2411,7 +2443,7 @@ native class java.lang.Double as Double {
       }
       name=tname
       type="file"
-      class="inputFile"
+      inputFile attributes
       all attributes
     />
 
@@ -2461,7 +2493,7 @@ native class java.lang.Double as Double {
       }
       name=tname
       type="file"
-      class="inputFile"
+      inputMultiFile attributes
       all attributes
       multiple=""
     />
@@ -2525,14 +2557,14 @@ native class java.lang.Double as Double {
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputTextInternal(s,tname)[class="inputSDF", all attributes]
+        inputTextInternal(s,tname)[inputSDF attributes, all attributes]
       }
       validate{ getPage().enterLabelContext(tname); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputTextInternal(s,tname)[class="inputSDF", all attributes]
+      inputTextInternal(s,tname)[inputSDF attributes, all attributes]
       validate{ getPage().enterLabelContext(tname); }
       elements()
       validate{ getPage().leaveLabelContext();}
@@ -3107,7 +3139,7 @@ native class java.lang.Double as Double {
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
     request var errors : List<String> := null
-    inputTextInternal(s,tname)[class="inputSDF", oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    inputTextInternal(s,tname)[inputSDF attributes, oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     validate{ getPage().enterLabelContext(tname); }
     elements()
     validate{ getPage().leaveLabelContext();}
