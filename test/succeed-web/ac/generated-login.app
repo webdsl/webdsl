@@ -41,29 +41,29 @@ application test
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 13, "expected <input> elements did not match");
+    assert(elist.length == 11, "expected <input> elements did not match");
     elist[1].sendKeys("test");
     elist[2].sendKeys("test");
-    elist[5].click();    
+    d.getSubmits()[0].click(); // first login submit
     assert(d.getPageSource().contains("You are now logged in."));
     
     var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(elist1.length == 2, "expected <a> elements did not match");
-    elist1[0].click();
+    d.getSubmits()[0].click(); // first logout submitlink  
     
     var elist2 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist2.length == 13, "expected <input> elements did not match");
+    assert(elist2.length == 11, "expected <input> elements did not match");
+    elist2[6].sendKeys("test");
     elist2[7].sendKeys("test");
-    elist2[8].sendKeys("test");
-    elist2[11].click();    
+    d.getSubmits()[1].click(); // second login submit
     assert(d.getPageSource().contains("You are now logged in."));
 
     var elist3 : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(elist3.length == 2, "expected <a> elements did not match");
-    elist3[1].click();
+    d.getSubmits()[2].click(); // second logout submitlink
     
     var elist4 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist4.length == 13, "expected <input> elements did not match");
+    assert(elist4.length == 11, "expected <input> elements did not match");
   }
   
 

@@ -50,8 +50,8 @@ section somesection
     
     d.get(navigate(root()));
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 1, "expected 1 <input> elements did not match");
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist.length == 1, "expected 1 <button> elements did not match");
     elist[0].click();
   }
   

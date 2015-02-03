@@ -193,6 +193,30 @@ public class TemplateCall {
 	      out.print(getAllAttributesExcept(attrs, listStringWithClassAndStyle));
       }
   }
+  public static void handleAttrsAtHtmlElementExcept(String except, Map<String,String> attrs, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+	  if(attrs == null) return;
+	  Map<String,String> newattrs = new HashMap<String,String>();
+	  filterAllAttributesExcept(attrs, newattrs, except);
+	  handleAttrsAtHtmlElement(newattrs, classAttr, styleAttr, ignore, out);
+  }
+  public static void handleAttrsAtHtmlElementExcept(Collection<String> exceptlist, Map<String,String> attrs, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+	  if(attrs == null) return;
+	  Map<String,String> newattrs = new HashMap<String,String>();
+	  filterAllAttributesExcept(attrs, newattrs, exceptlist);
+	  handleAttrsAtHtmlElement(newattrs, classAttr, styleAttr, ignore, out);
+  }
+  public static void handleAttrsAtHtmlElementSelect(String selected, Map<String,String> attrs, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+	  if(attrs == null) return;
+	  Map<String,String> newattrs = new HashMap<String,String>();
+	  filterAttributes(attrs, newattrs, selected);
+	  handleAttrsAtHtmlElement(newattrs, classAttr, styleAttr, ignore, out);
+  }
+  public static void handleAttrsAtHtmlElementSelect(Collection<String> selected, Map<String,String> attrs, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+	  if(attrs == null) return;
+	  Map<String,String> newattrs = new HashMap<String,String>();
+	  filterAttributes(attrs, newattrs, selected);
+	  handleAttrsAtHtmlElement(newattrs, classAttr, styleAttr, ignore, out);
+  }
   
   public static void appendWithPadding(StringBuilder sb, String value){
 	  if(value.length() > 0){

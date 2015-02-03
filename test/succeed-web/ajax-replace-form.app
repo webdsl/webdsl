@@ -45,29 +45,24 @@ application test
     //root first submit button
     d.get(navigate(root()));
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
-    
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length==2, "incorrect number of input elements found");
-    
-    elist[1].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length==13, "incorrect number of input elements found");
+    assert(elist.length==10, "incorrect number of input elements found");
     log(d.getPageSource());
-    elist[11].click();
+    d.getSubmits()[1].click();
     
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
     
     //now click button outside form
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length==2, "incorrect number of input elements found");
-    elist[1].click();
+    d.getSubmit().click();
+    
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length==13, "incorrect number of input elements found");
+    assert(elist.length == 10, "incorrect number of input elements found");
     log(d.getPageSource());
-    elist[12].click();
+    d.getSubmits()[2].click();
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");
   }
    

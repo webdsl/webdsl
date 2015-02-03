@@ -43,7 +43,7 @@ application inputint
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    assert(elist.length == 4, "expected 4 <input> elements");
     
     elist[1].clear();
     elist[1].sendKeys("5");
@@ -54,7 +54,7 @@ application inputint
     slist[1].setSelected();
     slist[4].setSelected();
 
-    elist[4].click();
+    d.getSubmit().click();
     
     var pagesource := d.getPageSource();
     

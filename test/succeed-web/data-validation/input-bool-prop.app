@@ -27,10 +27,10 @@ application exampleapp
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    assert(elist.length == 4, "expected 4 <input> elements");
     
-    elist[3].click();
-    elist[4].click();
+    elist[3].click(); //checkbox
+    d.getSubmit().click();
     
     var pagesource := d.getPageSource();
     var list := pagesource.split("<hr");

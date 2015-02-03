@@ -25,22 +25,28 @@ rules
     
 rules
 
+  /**
+   * previously used <input type="submit"> but that does not allow non-text elements to be nested, because these become an attribute value
+   * now using <button> which supports having icons and other template elements nested
+   */
   elem-to-java-servlet :
     tc@SubmitElem(call@ActionCall(name, args),passign*,elem*) ->
     bstm* |[
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
-        out.print("<input type=\"submit\" value=\"");
-        bstm*
-        out.print("\"");
+        out.print("<button onclick='javascript:serverInvoke(\""+threadLocalPageCached.getAbsoluteLocation()+"/" + threadLocalPageCached.getActionTarget() + threadLocalPageCached.getExtraQueryAruments("?")  +"\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true); return false;'"); 
         bstm_attr*
-        out.print("onclick='javascript:serverInvoke(\""+threadLocalPageCached.getAbsoluteLocation()+"/" + threadLocalPageCached.getActionTarget() + threadLocalPageCached.getExtraQueryAruments("?")  +"\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true); return false;'/>"); 
+        bstm_testsubmitselect*
+        out.print(">");
+        bstm*
+        out.print("</button>");
       }
       else{
-        out.print("<input type=\"submit\" name=\""+e_ident+"\" value=\"");
-        bstm*
-        out.print("\"");
+        out.print("<button name=\""+e_ident+"\"");
         bstm_attr*
-        out.print("/>"); 
+        bstm_testsubmitselect*
+        out.print(">");
+        bstm*
+        out.print("</button>"); 
       }
     ]|
     with  bstm* := <elems-to-java-servlet> elem*
@@ -48,6 +54,9 @@ rules
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
         ; e_ident := <submit-name-override> (e_origident, passign*)
+        ; bstm_testsubmitselect* := <test-submit-selection-helper>
+    
+  test-submit-selection-helper = <if-test(!bstm*|[ out.print(" webdsl-submit-select=\"1\"");]|)> []        
         
   submit-name-override :
     (e_ident1, passign*) -> e_ident2
@@ -70,26 +79,33 @@ rules
   action-args-to-java-exp-list(|args,fargcalled) =
     <zip(call-arg-ref-resolve-helper)> (<map(?Arg(_,<id>))>fargcalled,args)  
     
-  /*
+  /**
    * this doesn't allow downloads, use special downloadlink (see types/file.str)
+   * 
+   * consists of a not displayed <button> with the action and a visible <a> link, so that browsers treat it like regular submit when pressing 'enter' in the form
    */
   elem-to-java-servlet :
     tc@SubmitLinkElem(call@ActionCall(name, args),passign*,elem*) ->
-    bstm* |[ 
+    bstm* |[
+      // workaround Webdriver issue, to make the button elements clickable when testing, instead of 'display:none' placing it outside visible area
+      ~*<if-test(!bstm*|[ out.print("<button style=\"position:absolute;top:0px;left:-20px;\" "); ]|)> bstm*|[ out.print("<button style=\"display:none;\" "); ]|
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
-          out.print("<a href=\"javascript:void(0)\" onclick='javascript:serverInvoke(\""+
+          out.print("onclick='javascript:serverInvoke(\""+
             threadLocalPageCached.getAbsoluteLocation()+"/" + threadLocalPageCached.getActionTarget() + threadLocalPageCached.getExtraQueryAruments("?") +   //TODO getActionTarget is currently used, but the default redirect will not reproduce the page arguments in this case
-           "\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true)'");
+            "\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true); return false;'></button>");
+      	  out.print("<a href=\"javascript:void(0)\" onclick=\"javascript:this.previousSibling.click()\"");
           bstm_attr*
+          bstm_testsubmitselect*
           out.print(">");
           bstm*
           out.print("</a>");
       }
       else{
-          out.print("<a href=\"javascript:void(0)\" ");
           out.print("onclick='javascript:serverInvoke(\""+utils.HTMLFilter.filter(threadLocalPageCached.getPageUrlWithParams())+
-            "?__action__link__=1" + threadLocalPageCached.getExtraQueryAruments("&") + "\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true)'"); 
+            "?__action__link__=1" + threadLocalPageCached.getExtraQueryAruments("&") + "\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true); return false;'></button>"); 
+          out.print("<a href=\"javascript:void(0)\" onclick=\"javascript:this.previousSibling.click()\"");
           bstm_attr*
+          bstm_testsubmitselect*
           out.print(">");
           bstm*
           out.print("</a>");
@@ -100,6 +116,7 @@ rules
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
         ; e_ident := <submit-name-override> (e_origident, passign*)
+        ; bstm_testsubmitselect* := <test-submit-selection-helper>
 
   fetch-ajax-property-as-java-boolean :
     passign* -> e_ajaxmodifier

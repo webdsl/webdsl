@@ -29,10 +29,7 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 2, "expected 2 <input> elements did not match");
-    
-    elist[1].click();
+    d.getSubmit().click();
     
     for(i:Int from 1 to 5){
       assert(d.getPageSource().contains("ajax replace executed: "+i));

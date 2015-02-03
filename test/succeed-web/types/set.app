@@ -62,8 +62,8 @@ test settemplates {
   var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
   
-  var input        := d.findElements(SelectBy.className(         "input-elem"))[0];
-  var label        := d.findElements(SelectBy.className(         "label-elem"))[0];
+  var input := d.findElements(SelectBy.className("input-elem"))[0];
+  var label := d.findElements(SelectBy.className("label-elem"))[0];
   assert(input.getAttribute("id")==label.getAttribute("for"));
   
   commonTest(d);
@@ -73,7 +73,7 @@ test settemplates {
 }
   
 function commonTest(d:WebDriver){  
-  var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
+  var input: WebElement := d.findElements(SelectBy.className("input-elem"))[0];
   
   var sinput := Select(input);
   

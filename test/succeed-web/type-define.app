@@ -26,15 +26,15 @@ application test
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    elist[2].click();    
+    assert(elist.length == 2, "expected <input> elements did not match");
+    d.getSubmit().click();
     assert(!d.getPageSource().contains("input too short (minimum is 10 characters)"), "should not show error message for text input");
 
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
     elist[1].clear();
     elist[1].sendKeys("123");
-    elist[2].click();    
+    d.getSubmit().click();
     assert(d.getPageSource().contains("input too short (minimum is 10 characters)"), "should show error message for string input");
   }
   

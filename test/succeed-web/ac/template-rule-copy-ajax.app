@@ -73,13 +73,13 @@ section somesection
     d.get(navigate(root()));
 
     var elist : List<WebElement> := d.findElements(SelectBy.className("foobutton"));
-    assert(elist.length == 1, "expected 1 <input> elements did not match");
+    assert(elist.length == 1, "expected 1 <button> elements did not match");
     elist[0].click();
     
     assert(!d.getPageSource().contains("12false"), "action not completed");
     
     var elist : List<WebElement> := d.findElements(SelectBy.className("barbutton"));
-    assert(elist.length == 1, "expected 1 <input> elements did not match");
+    assert(elist.length == 1, "expected 1 <button> elements did not match");
     elist[0].click();
     
     assert(!d.getPageSource().contains("secondtestoutput8false"), "action 2 not completed");

@@ -41,11 +41,11 @@ application formcheckseparate
     d.get(navigate(root()));
 
     var elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected 4 <input> elements");
+    assert(elist.length == 3, "expected 3 <input> elements");
     
     elist[1].clear();
     elist[1].sendKeys("0");
-    elist[3].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("property2 must be smaller than property1"), "didn't find validation message in page output");
   }

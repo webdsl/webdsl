@@ -58,14 +58,14 @@ application test
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 13, "expected <input> elements did not match");
+    assert(elist.length == 12, "expected <input> elements did not match");
     for(i:Int from 1 to 6){ //6,7,8 hidden
       elist[i].sendKeys("0");
     }
     for(i:Int from 9 to 12){
       elist[i].sendKeys("0");
     }
-    elist[12].click();  
+    d.getSubmit().click();
 
     assert(d.getPageSource().contains("10 2 30 1 20 1 true 10 1 10"), "reference arguments not working as expected");
   }

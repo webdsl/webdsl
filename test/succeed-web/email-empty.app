@@ -22,16 +22,7 @@ application email
   test emailaddressrequired {
     var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
-    
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    
-    var size := elist.length;
-    
-    assert(size==4,"expected 4 input elements");
-    
-    elist[3].click();
-  
+    d.getSubmit().click();
     var list := /required/.split(d.getPageSource());
-    
     assert(list.length == 2, "expected one occurence of \"required\"");
   }

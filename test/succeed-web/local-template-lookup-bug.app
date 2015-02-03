@@ -79,11 +79,11 @@ entity Person {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(createPerson()));
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected 3 <input> elements");
+    assert(elist.length == 2, "expected 2 <input> elements");
     
-    elist[2].click();
+    d.getSubmit().click();
     
     var elist2 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist2.length == 3, "expected 3 <input> elements");
+    assert(elist2.length == 2, "expected 2 <input> elements");
   }
   

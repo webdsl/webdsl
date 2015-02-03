@@ -60,37 +60,37 @@ application input
     d.get(navigate(root()));
 
     var elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 8, "expected 8 <input> elements");
+    assert(elist.length == 7, "expected 7 <input> elements");
     
     elist[1].clear();
     elist[1].sendKeys("t");
-    elist[7].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("Name should be longer than 2 characters."), "didn't find validation message for name property");
 
     elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 8, "expected 8 <input> elements");
+    assert(elist.length == 7, "expected 7 <input> elements");
     elist[1].sendKeys("tdsfsdfds");
     elist[2].clear();
     elist[2].sendKeys("-12");
-    elist[7].click();
+    d.getSubmit().click();
    
     assert(d.getPageSource().contains("Age cannot be a negative number."), "didn't find validation message for age property");
     
     elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 8, "expected 8 <input> elements");
+    assert(elist.length == 7, "expected 7 <input> elements");
     elist[2].clear();
     elist[2].sendKeys("6");
     elist[5].sendKeys("fseg5rtyhfgn5");
-    elist[7].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("valid decimal number"), "didn't find validation message for age property");
     
     elist := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 8, "expected 8 <input> elements");
+    assert(elist.length == 7, "expected 7 <input> elements");
     elist[5].clear();
     elist[5].sendKeys("0.0");
-    elist[7].click();
+    d.getSubmit().click();
    
     assert(d.getTitle() == "ttdsfsdfds", "action didn't complete correctly, redirect was not performed or name value is wrong");
   }

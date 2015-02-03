@@ -33,9 +33,9 @@ application inputint
     elist[1].setSelected();
 
     var ilist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(ilist.length == 3, "expected 3 <input> elements");
+    assert(ilist.length == 2, "expected 2 <input> elements");
 
-    ilist[2].click();
+    d.getSubmit().click();
     
     var pagesource := d.getPageSource();
 

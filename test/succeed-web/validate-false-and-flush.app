@@ -18,10 +18,7 @@ application canceltest
     var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("testvalue"), "'testvalue' on initial page");
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    var size := elist.length;
-    assert(size==2,"expected 2 input elements");
-    elist[1].click();
+    d.getSubmit().click();
 
     assert(d.getPageSource().contains("testvalue"), "'testvalue' not shown on next page, flush should have been reverted the output value due to validate fail");  
   }

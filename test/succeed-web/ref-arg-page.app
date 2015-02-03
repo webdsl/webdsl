@@ -51,8 +51,6 @@ application test
     assert(elist.length == 1, "expected <textarea> elements did not match");
     elist[0].sendKeys("abcde");
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
-    elist[2].click();
+    d.getSubmit().click();
   }
   

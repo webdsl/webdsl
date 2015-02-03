@@ -26,10 +26,10 @@ application test
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
 
     elist[1].sendKeys("45gdg"); // should case validation error, since this field is for Int
-    elist[2].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("Not a valid number"), "validation error did not show up");
     assert(!d.getPageSource().contains("redirected to success page"), "validation error should have prevented action execution");

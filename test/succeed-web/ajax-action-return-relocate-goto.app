@@ -77,8 +77,8 @@ application test
   
   function checkButton(d:WebDriver, number :Int){
     d.get(navigate(root()));
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist.length == 4, "expected 4 <button> elements");
     
     elist[number].click();
     
@@ -88,12 +88,12 @@ application test
   function checkButtonAfterReplace(d:WebDriver, number :Int){
     d.get(navigate(root()));
         
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist.length == 4, "expected 4 <button> elements");
     elist[0].click();
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 5, "expected 5 <input> elements");
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist.length == 4, "expected 4 <button> elements");
     
     elist[number].click();
     

@@ -64,7 +64,7 @@ application exampleapp
     elems[1].sendKeys("1");
     elems[2].sendKeys("2");
     elems[3].sendKeys("3");
-    elems[4].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("112233"));
   }

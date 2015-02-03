@@ -24,19 +24,14 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 1, "expected <input> elements did not match");
-    
-    elist[0].click();
-    
+    d.getSubmit().click();
+     
     var tlist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
     assert(tlist.length == 1, "expected <textarea> elements did not match");
      
     tlist[0].sendKeys("234567890");  
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected <input> elements did not match");
-    elist[3].click();
-    
+    d.getSubmits()[1].click();
+        
     assert(d.getPageSource().contains("1234567890"), "reference arguments not working as expected");
   }
   

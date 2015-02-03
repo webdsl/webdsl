@@ -615,13 +615,15 @@ native class java.lang.Double as Double {
 
   native class org.openqa.selenium.WebDriver as WebDriver {
     get(String)
-    getTitle():String
-    getPageSource():String
-    findElement(SelectBy):WebElement
-    findElements(SelectBy):List<WebElement>
+    getTitle(): String
+    getPageSource(): String
+    findElement(SelectBy): WebElement
+    findElements(SelectBy): List<WebElement>
     close()
-    utils.Test.runJavaScript as runJavaScript(String):String
-    utils.Test.getAlert as getAlert() : WebAlert
+    utils.Test.runJavaScript as runJavaScript(String): String
+    utils.Test.getAlert as getAlert(): WebAlert
+	utils.Test.getSubmit as getSubmit(): WebElement
+	utils.Test.getSubmits as getSubmits(): List<WebElement>
   }
 
   native class org.openqa.selenium.Alert as WebAlert {

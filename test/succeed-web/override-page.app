@@ -23,10 +23,8 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("123456789"));
-    var list : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    list[0].click();
+    d.getSubmit().click();
     assert(d.getPageSource().contains("101112"));
-    var list : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    list[1].click();
+    d.getSubmits()[1].click();
     assert(d.getPageSource().contains("101112"));
   }

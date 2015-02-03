@@ -38,10 +38,10 @@ application formcheckseparate
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 6, "expected 6 <input> elements");
-    //first is a hidden, second to fourth are the input fields, last is submit
+    assert(elist.length == 5, "expected 5 <input> elements");
+    //first is a hidden, second to fourth are the input fields
     
-    elist[5].click();
+    d.getSubmit().click();
     
     assert("editing user" == d.getTitle());
     
@@ -59,7 +59,7 @@ application formcheckseparate
     elist[3].sendKeys(nameinfirstfield);
     elist[4].sendKeys(nameinfirstfield);
     
-    elist[5].click();
+    d.getSubmit().click();
     
     assert("successfully performed edit" == d.getTitle());
   }

@@ -30,9 +30,9 @@ application test
     assert(d.getPageSource().contains("root page"), "expected to be on root page");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
     elist[1].sendKeys("new stuff");
-    elist[2].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
     assert(!d.getPageSource().contains("new stuff"), "input shouldnt have been included in action data binding");

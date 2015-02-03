@@ -29,11 +29,11 @@ application messages
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected 3 <input> element");
+    assert(elist.length == 2, "expected 2 <input> element");
     
     elist[1].sendKeys("blabla");
     
-    elist[2].click();
+    d.getSubmit().click();
     
     //check that messages are produced above "somepage fragment"  
     

@@ -35,8 +35,7 @@ application canceltest
     var text : WebElement := d.findElement(SelectBy.tagName("textarea"));
     text.clear();
     text.sendKeys("1");
-    var input : WebElement := d.findElements(SelectBy.tagName("input"))[2];
-    input.click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("testvalue"), "'testvalue' not shown on next page, flush should have been reverted the output value due to validate fail");
   }

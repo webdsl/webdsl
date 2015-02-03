@@ -40,10 +40,8 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
     assert(elist.length == 1, "expected <textarea> elements did not match");
     elist[0].sendKeys("2345");
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected <input> elements did not match");
-    elist[3].click();
-
+    d.getSubmit().click();
+    
     assert(d.getPageSource().contains("12345"), "reference arguments not working as expected");
   }
   

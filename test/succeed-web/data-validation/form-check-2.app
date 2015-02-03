@@ -26,14 +26,14 @@ application customer
       
   function send(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
 
     elist[1].sendKeys("2"); 
-    elist[2].click();
+    d.getSubmit().click();
   }
   function check(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    assert(elist.length == 2, "expected <input> elements did not match");
     assert(elist[1].getValue() == "1");
   }
 

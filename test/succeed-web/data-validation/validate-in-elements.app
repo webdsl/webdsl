@@ -41,12 +41,12 @@ application registerexample
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected 4 <input> elements");
+    assert(elist.length == 3, "expected 3 <input> elements");
     
     elist[1].sendKeys("123");
     elist[2].sendKeys("111");
     
-    elist[3].click();
+    d.getSubmit().click();
     
     var pagesource := d.getPageSource();
     var list := pagesource.split("<hr");

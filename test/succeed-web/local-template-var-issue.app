@@ -26,9 +26,9 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected 3 <input> elements did not match");
+    assert(elist.length == 2, "expected 2 <input> elements did not match");
     elist[1].sendKeys("23456789");
-    elist[2].click();
+    d.getSubmit().click();
     assert(d.getPageSource().contains("123456789"), "entered data not found");
   }
   

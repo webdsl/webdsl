@@ -42,19 +42,19 @@ application test
     var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
-    checkpage(d,2);    
+    log(d.getPageSource());
+    checkpage(d);    
 
     d.get(navigate(root2()));
-    checkpage(d,2);    
+    checkpage(d);    
   }
   
-  function checkpage(d:WebDriver, clickinput:Int){
+  function checkpage(d:WebDriver){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("option"));
-    elist[0].setSelected();  
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    elist[clickinput].click();  
+    elist[0].setSelected();
+    d.getSubmit().click();
     //log(d.getPageSource());
     //log(d.getPageSource());
-    assert(d.getPageSource().contains("<li>2</li>"), "reference arguments not working as expected");
+    assert(d.getPageSource().contains("<li class=\"block\">2</li>"), "reference arguments not working as expected");
   }
   

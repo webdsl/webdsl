@@ -91,7 +91,6 @@ application root
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
     assert(source.contains("baz=\"baz\""));
-    assert(source.contains("foo=\"\""));
     assert(source.contains("dummyclass=\"\""));
   }
 
@@ -103,7 +102,7 @@ application root
     var source := rendertemplate(callTemplateSelection());
     log(source);
     assert(source.contains("class=\"a\""));
-    assert(source.contains("style=\"b\""));
+    assert(source.contains("style=\"b e\""));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
     assert(source.contains("baz=\"baz\""));
@@ -301,6 +300,30 @@ application root
     assert(source.split(" baz=\"baz\"").length == 4);
     assert(source.split(" style=\"os included-style includer-style\"").length == 4);
     assert(source.contains(" class=\"navigate oc included-class includer-class\""));
+  }
+  
+  entity TestEntity{}
+  var testa := TestEntity{}
+  var testb := TestEntity{}
+  var testc := TestEntity{}
+  template testInputSet(){
+    var set := Set<TestEntity>()
+    form{
+      input(set)[class = "customclass"]
+    }
+    
+    attrSelect[class="attrSelectAddedClass"]
+  }
+  template attrSelect(){
+  	<div class="attrSelectClassTest" all attributes except "foo" all attributes except ["foo"] attributes "class" attributes ["class"] all attributes regular attributes>
+  	</div>
+  }
+  test{
+    var source := rendertemplate(testInputSet());
+    log(source);
+    assert(source.contains("class=\"checkbox-set customclass\""));
+    assert(source.split("checkbox-set-element").length == 4);
+    assert(source.contains("class=\"attrSelectClassTest attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass rc\""));
   }
 
 

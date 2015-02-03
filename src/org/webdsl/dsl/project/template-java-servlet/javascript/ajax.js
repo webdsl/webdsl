@@ -66,8 +66,8 @@ function formToPost(formObj) {
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
       }
       //exclude submit/button
-      else if (formObj.elements[i].nodeName.toLowerCase() == "input"
-           && (formObj.elements[i].type=="submit" || formObj.elements[i].type=="button")){}
+      else if ((formObj.elements[i].nodeName.toLowerCase() == "input" && (formObj.elements[i].type=="submit" || formObj.elements[i].type=="button"))
+    		   || formObj.elements[i].nodeName.toLowerCase() == "button"){}
       else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
     }

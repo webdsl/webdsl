@@ -24,9 +24,9 @@ application registerexample
         }
       form {
         label("enter '1':") { 
-          input(i){validate(i==1,"passwords don't match inputcheck")}
+          input(i){validate(i==1,"values don't match inputcheck")}
         }
-        validate(i==1, "passwords don't match formcheck")
+        validate(i==1, "values don't match formcheck")
         action("Register", register())
       }
   }
@@ -37,26 +37,26 @@ application registerexample
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected 4 <input> elements");
+    assert(elist.length == 2, "expected 2 <input> elements");
     
-    elist[0].click();
+    d.getSubmits()[0].click();
     
     var pagesource := d.getPageSource();
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected 4 <input> elements");
+    assert(elist.length == 2, "expected 2 <input> elements");
     
-    elist[3].click();
-    assert(d.getPageSource().contains("passwords don't match inputcheck"), "expected message missing: passwords don't match inputcheck");
-    assert(d.getPageSource().contains("passwords don't match formcheck"), "expected message missing: passwords don't match formcheck");
+    d.getSubmits()[1].click();
+    assert(d.getPageSource().contains("values don't match inputcheck"), "expected message missing: values don't match inputcheck");
+    assert(d.getPageSource().contains("values don't match formcheck"), "expected message missing: values don't match formcheck");
     
     
     var elist2 := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected 4 <input> elements");
+    assert(elist.length == 2, "expected 2 <input> elements");
         
-    elist2[2].clear();
-    elist2[2].sendKeys("1");
-    elist2[3].click();
+    elist2[1].clear();
+    elist2[1].sendKeys("1");
+    d.getSubmits()[1].click();
  
     assert(d.getPageSource().contains("You have successfully entered '1'"), "expected message missing");
   }

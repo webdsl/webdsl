@@ -44,15 +44,11 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 2, "expected <input> elements did not match");
-    elist[0].click();
-    
+    d.getSubmits()[0].click();
+       
     assert(d.getPageSource().contains("userfirst"), "output of first cached template not found");
            
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 2, "expected <input> elements did not match");
-    elist[1].click();
+    d.getSubmits()[1].click();
     
     sleep(6000);
     

@@ -29,9 +29,9 @@ application canceltest
     assert(d.getPageSource().contains("testvalue"), "'testvalue' on initial page");
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     var size := elist.length;
-    assert(size==2,"expected 2 input elements");
+    assert(size==1,"expected 1 input elements");
     elist[0].sendKeys("1");
-    elist[1].click();
+    d.getSubmit().click();
     
     assert(d.getPageSource().contains("testvalue"), "'testvalue' not shown on next page, flush should have been reverted the output value due to validate fail");  
   }

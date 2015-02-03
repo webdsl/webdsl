@@ -58,8 +58,8 @@ section bla
     elist[0].click();
     
     var elist2 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist2.length == 3, "expected 3 <input> elements did not match");
-    elist2[2].click();
+    assert(elist2.length == 2, "expected 2 <input> elements did not match");
+    d.getSubmit().click();
       
     d.get(navigate(root()));
     assert(d.getPageSource().contains("true5"), "entered data not found");

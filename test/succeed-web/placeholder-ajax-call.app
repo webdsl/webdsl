@@ -31,14 +31,14 @@ application customer
   function send(d:WebDriver, elems: Int){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == elems, "expected <input> elements did not match");
-    elist[(elems-2)].sendKeys("2"); 
-    elist[(elems-1)].click();
+    elist[(elems-1)].sendKeys("2"); 
+    d.getSubmit().click();
   }
   
   function check(d:WebDriver, elems: Int){
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == elems, "expected <input> elements did not match");
-    assert(elist[(elems-2)].getValue() == "2");
+    assert(elist[(elems-1)].getValue() == "2");
     assert(d.getPageSource().contains("too short"));
   }
   
@@ -46,11 +46,11 @@ application customer
     var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
-    send(d,4);
-    check(d,4);
-    
-    d.get(navigate(root1()));
     send(d,3);
     check(d,3);
+    
+    d.get(navigate(root1()));
+    send(d,2);
+    check(d,2);
   }
   

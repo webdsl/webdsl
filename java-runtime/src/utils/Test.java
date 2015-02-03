@@ -100,6 +100,14 @@ public abstract class Test {
     	return w.switchTo().alert();
     }
 
+    public static org.openqa.selenium.WebElement getSubmit(org.openqa.selenium.WebDriver d){
+    	return d.findElement(org.openqa.selenium.By.cssSelector("*[webdsl-submit-select=\"1\"]"));
+    }
+
+    public static List<org.openqa.selenium.WebElement> getSubmits(org.openqa.selenium.WebDriver d){
+    	return d.findElements(org.openqa.selenium.By.cssSelector("*[webdsl-submit-select=\"1\"]"));
+    }
+
     //setSelected and toggle are deprecated, now using click: http://code.google.com/p/selenium/issues/detail?id=2391
     public static void click(org.openqa.selenium.WebElement e){
         e.click();
