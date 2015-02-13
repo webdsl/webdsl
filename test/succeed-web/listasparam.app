@@ -23,8 +23,8 @@ section entities
     header { "news" }
     var n: List<News> :=  select a from News as a;
     list {
-      for (u: News in n) {
-        listitem { output(u.caption) }
+      for (u1: News in n) {
+        listitem { output(u1.caption) }
       }
     }
     header { "via template" }

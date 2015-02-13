@@ -22,8 +22,8 @@ application test
     d.get(navigate(root()));
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
     elist[0].sendKeys("23456");
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
-    elist[0].click();  
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("a"));
+    elist1[0].click();  
     assert(d.getPageSource().contains("123456"), "reference arguments not working as expected");
   }
   

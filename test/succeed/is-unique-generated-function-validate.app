@@ -37,13 +37,13 @@ test headless{
 	assert(errors1[0].message == "name taken!");
 
 	p1.ident := "";
-	var errors := p1.validateSave().exceptions;
-	assert(errors.length==1);
-	assert(errors[0].message == "Identity may not be empty.");
+	var errors2 := p1.validateSave().exceptions;
+	assert(errors2.length==1);
+	assert(errors2[0].message == "Identity may not be empty.");
 
 	p11.ident := "";
-	var errors1 := p11.validateSave().exceptions;
-	assert(errors1.length==1);
-	assert(errors1[0].message == "name missing!");
+	var errors3 := p11.validateSave().exceptions;
+	assert(errors3.length==1);
+	assert(errors3[0].message == "name missing!");
 }
 

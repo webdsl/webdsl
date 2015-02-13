@@ -39,10 +39,10 @@ application test
     assert(d.getPageSource().contains("ajax form inserted"));
     
  
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 3, "expected <input> elements did not match");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist1.length == 3, "expected <input> elements did not match");
 
-    elist[1].sendKeys("45gdg"); // should case validation error, since this field is for Int
+    elist1[1].sendKeys("45gdg"); // should case validation error, since this field is for Int
     d.getSubmit().click();
     
     assert(d.getPageSource().contains("root page"), "root page should not be overridden by an ajax call validation error");

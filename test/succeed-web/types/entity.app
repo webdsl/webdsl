@@ -43,8 +43,8 @@ define page nolabel(){
 
 define testnolabel(e:Ent){ 
   init{
-    for(e:Ent in [e1,e2,e3,e4,e5]){
-      log("page: "+e.name+ ": "+e.id);
+    for(ent:Ent in [e1,e2,e3,e4,e5]){
+      log("page: "+ent.name+ ": "+ent.id);
     }
   }
   " defined output"

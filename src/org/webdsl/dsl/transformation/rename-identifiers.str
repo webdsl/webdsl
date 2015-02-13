@@ -1,9 +1,9 @@
 module org/webdsl/dsl/transformation/rename-identifiers
 
-imports 
+imports
   libstrategolib
-  
-imports 
+
+imports
   libwebdsl-front
   org/webdsl/dsl/transformation/-
   org/webdsl/dsl/typechecker/-
@@ -15,18 +15,16 @@ rules
   rename-identifiers-top =
     map-toplevel(
       fail,
-      {| ExistingRenamings, GlobalToLocalMap:
-        with-toplevel-name(
-          rename-identifiers
-        )
-      |}
+      with-toplevel-name(
+        rename-identifiers
+      )
     )
-    
+
   rename-identifiers = alltd(rename-bound-variables)
 
   rename-bound-variables =
        exclude-from-var-renaming
-    <+ ExcludeFromVarRenaming  
+    <+ ExcludeFromVarRenaming
     //<+ Define(id,id,rename-identifiers,rename-identifiers) // otherwise local template definitions get renamed and dynamic scoping breaks (eg the local body will be inserted as body12 in the lookup hashmap)
     <+ check-for-templatebody-cons
     <+ rename-template-def-id
@@ -36,9 +34,9 @@ rules
     <+ rename-test-id
     <+ rename-query-optimizations-anno
     <+ use-local-renaming
-  
+
   exclude-from-var-renaming = ?"this" <+ ?"super"
-  
+
   use-local-renaming :
     x{anno*} -> z{new-anno*}
     where <is-string> x
@@ -56,25 +54,17 @@ rules
       ; qcf* := <(fetch-elem(?QueryConditionFilter(_, _, _)); rename-identifiers; ![<id>]) <+ ![]> anno*
       ; new-anno* := [qc*,qcf*,toKeep*]
       ; x2 := <all(rename-identifiers)> x
-        
-  // Make a locally unique name from a globally unique name
-  global-to-local-name(|x) = GlobalToLocalMap
-    
-  global-to-local-name(|x): 
-    y -> z
-    where TopLevelDefineName => toplevel
-        ; n := <ExistingRenamings; inc <+ !0> x
-    with  z := <concat-strings> [x, <int-to-string> n]
-        ; rules(
-            ExistingRenamings : x -> n
-            GlobalToLocalMap : y -> z
-          )
-          
-  use-global-renaming: 
+
+  // make a locally unique name (assumes that shadowing is blocked by the typechecker), add _ to avoid keyword clashes
+  global-to-local-name(|x):
+    _ -> z
+    with  z := <concat-strings> [x, "_"]
+
+  use-global-renaming:
     x{anno*} -> y{anno2*, OriginalNameAnno(x)}
     with  y := <fetch-elem(is-string)> anno*
         ; anno2* := <remove-all(?y)> anno*
-    
+
 rules // templates
 
   rename-template-def-id :
@@ -83,7 +73,7 @@ rules // templates
     where <fetch(?Page())> mod*
        <+ <fetch(?Email())> mod* //no overloading for emails yet
     with  orig := OriginalNameAnno(x{})
-                 
+
   rename-template-def-id :
     Define(mod*, x, farg*, targs, elem*){anno*} ->
     Define(mod*, y{orig}, <rename-identifiers> farg*, targs, <rename-identifiers> elem*){anno*}
@@ -92,11 +82,11 @@ rules // templates
     with  sig@(n,t*) := <normalize-signature> (x,farg*)
         ; y := <TemplateNewName> sig
         ; orig := OriginalNameAnno(x{})
-    
+
   check-for-templatebody-cons : // catches typical omission in desugaring rules: missing TemplateBody
-    TemplateCall(x, arg*, passign*, elem*) -> <debug(!"INTERNAL ERROR: found template that is missing TemplateBody constructor around its elements: "); <exit> 1> 
-    where not(<?TemplateBody(_)> elem*) 
-    
+    TemplateCall(x, arg*, passign*, elem*) -> <debug(!"INTERNAL ERROR: found template that is missing TemplateBody constructor around its elements: "); <exit> 1>
+    where not(<?TemplateBody(_)> elem*)
+
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
     -> TemplateCall(y{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*}
@@ -108,8 +98,8 @@ rules // templates
         ; ?new-anno*
 
   rename-template-call-id :
-    tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} 
-    -> TemplateCall(x{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*} 
+    tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*}
+    -> TemplateCall(x{orig}, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){new-anno*}
     where types := <CallToRequiredTemplate> x
     with  orig := OriginalNameAnno(x{})
         ; <rename-identifiers> anno*
@@ -122,29 +112,29 @@ rules // templates
     -> TemplateCall(y, <rename-identifiers> arg*, <rename-identifiers> passign*, TemplateBody(<rename-identifiers> elem*)){<rename-identifiers> anno*}
     where <CallToBuiltInTemplate> x
     with  y := <strip-annos> x //code generator assumes that built-in templates don't have annotations on the name
-  
-  /** many desugarings, such as output(String) -> text(String) currently do not rename the resulting call, 
-   *  therefore this sanity check is disabled for now. 
+
+  /** many desugarings, such as output(String) -> text(String) currently do not rename the resulting call,
+   *  therefore this sanity check is disabled for now.
    *  @TODO call rename on all generated templatecalls and enable this rule, it will catch template lookup issues early
   rename-template-call-id :
     tc@TemplateCall(x, arg*, passign*, TemplateBody(elem*)){anno*} -> tc
     where not(<CallToBuiltInTemplate <+ CallToBuiltInTemplate <+ CallToRequiredTemplate> x)
     with  debug(!"Internal error in transformation/rename-identifiers.str: templatecall could not be resolved as declared, built-in, or required: ");<exit> 1
-   */ 
-      
+   */
+
   // Actions are lifted to toplevel elements, so their names should remain globally unique
-  rename-action-def-id: 
+  rename-action-def-id:
       Action(amod*, nm1, args, b) ->
       Action(amod*, <use-global-renaming> nm1, <rename-identifiers> args, <rename-identifiers> b)
 
   rename-action-def-id:
       ActionCall(name, args){anno*} -> ActionCall(<use-global-renaming> name, <rename-identifiers> args){anno*}
-       
+
   rename-test-id:
       Test(nm1, body) -> Test(<use-global-renaming> nm1, <rename-identifiers> body)
 
 rules
-  
+
   rename-function-def-call-id :
     Function(x1, farg*, srt, b){anno*} ->
     Function(x2, <rename-identifiers> farg*, srt, <rename-identifiers> b){anno*}
@@ -162,45 +152,45 @@ rules
     where not(FunctionSort(_,_) := <fetch-elem(?TypeAnno(<id>))> anno1*) // function-exp, needs local-renaming of f, by failing this rule, the local-rename rules will be applied
     with ThisCall(x,arg*){anno*} := <rename-function-def-call-id-thiscall-defined <+ rename-function-def-call-id-thiscall-built-in <+ rename-function-def-call-id-thiscall-error <+ debug(|"internal error: not renamed fragment: ")>
        ; tc2 := ThisCall(x,<rename-identifiers> arg*){anno*}
-       
-  // back-end code generation rules for built-in and generated (which fall under defined) functions match original function name, 
+
+  // back-end code generation rules for built-in and generated (which fall under defined) functions match original function name,
   // for those cases inserting a new name would break compilation
   // that's why the new name is put in the annotation instead of doing an actual rename
   // the generic-call-to-java-servlet can retrieve the new name required for normal functions
   rename-function-def-call-id-thiscall-defined :
-    ThisCall(x1{anno1*}, arg*){anno*} -> 
+    ThisCall(x1{anno1*}, arg*){anno*} ->
     ThisCall(x1{new,anno1*}, arg*){anno*}
     where x2 := <CallToFunctionGetDecl; function-decl-to-newname> x1
         ; new := NewFunctionNameAnno(x2{})
-          
-  // Note: back-end code generation rules for built-in functions match original function name, 
+
+  // Note: back-end code generation rules for built-in functions match original function name,
   // rename would break those rules
   rename-function-def-call-id-thiscall-built-in :
     tc@ThisCall(x,_) -> tc
     where <CallToBuiltInFunctionGetType> x
-  
+
   rename-function-def-call-id-thiscall-error :
     tc@ThisCall(x,_) -> tc
     where <IncorrectFunctionCall> x
     where debug(!"Warning: function call was not correctly resolved: ")
-  
-  
+
+
   rename-function-def-call-id :
     tc1@FunctionRef(_,_,_) -> tc2
     with FunctionRef(x,arg*,srt){anno*} := <rename-function-def-call-id-funref-defined <+ rename-function-def-call-id-funref-built-in <+ rename-function-def-call-id-funref-error <+ debug(|"internal error: not renamed fragment: ")>
        ; tc2 := FunctionRef(x,<rename-identifiers> arg*,srt){anno*}
-         
-  rename-function-def-call-id-funref-defined :  
-    FunctionRef(x1{anno1*},fargtypes,srt){anno*} -> 
+
+  rename-function-def-call-id-funref-defined :
+    FunctionRef(x1{anno1*},fargtypes,srt){anno*} ->
     FunctionRef(x1{new,anno1*},fargtypes,srt){anno*}
     where x2 := <CallToFunctionGetDecl; function-decl-to-newname> x1
         ; new := NewFunctionNameAnno(x2{})
-          
-  rename-function-def-call-id-funref-built-in :  
+
+  rename-function-def-call-id-funref-built-in :
     tc@FunctionRef(x,_,_) -> tc
     where <CallToBuiltInFunctionGetType> x
-          
-  rename-function-def-call-id-funref-error :  
+
+  rename-function-def-call-id-funref-error :
     tc@FunctionRef(x,_,_) -> tc
     where <IncorrectFunctionCall> x
     where debug(!"Warning: function call was not correctly resolved: ")
@@ -216,7 +206,7 @@ rules
     Call(e, x1{new,anno1*}, arg*){anno*}
     where x2 := <CallToEntityFunctionGetDecl; function-decl-to-newname> x1
         ; new := NewFunctionNameAnno(x2{})
-          
+
   rename-function-def-call-id-entcall-built-in :
     tc@Call(_, x, _) -> tc
     where <CallToBuiltInEntityFunctionGetType> x
@@ -225,4 +215,3 @@ rules
     tc@Call(_, x, _) -> tc
     where <IncorrectEntityFunctionCall> x
     where debug(!"Warning: function call was not correctly resolved: ")
-          

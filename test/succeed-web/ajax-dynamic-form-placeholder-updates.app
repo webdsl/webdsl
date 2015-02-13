@@ -115,8 +115,8 @@ application test
     //have error in second input and press save button
     i1.sendKeys("7777");
     placeholderShown(d);
-    var i2 : WebElement := d.findElement(SelectBy.className("input2"));
-    i2.sendKeys("abcd");    
+    var i3 : WebElement := d.findElement(SelectBy.className("input2"));
+    i3.sendKeys("abcd");    
     placeholderShown(d);
     validationErrorShown(d);
     var b : WebElement := d.findElement(SelectBy.className("button"));
@@ -125,9 +125,9 @@ application test
     stringShown(d,"outside form: 11");
     
     //fix error and complete submit
-    i2 := d.findElement(SelectBy.className("input2"));
-    i2.clear();
-    i2.sendKeys("8888");
+    i3 := d.findElement(SelectBy.className("input2"));
+    i3.clear();
+    i3.sendKeys("8888");
     b := d.findElement(SelectBy.className("button"));
     b.click();
     stringShown(d,"saved entities: 77778888");  

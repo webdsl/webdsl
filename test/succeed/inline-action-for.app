@@ -14,7 +14,7 @@ define page root() {
         log(""+i.i);
         log(""+globaltest.i);
         for(t:Test){ 
-          for(i:Int from 0 to 10){ 
+          for(i1:Int from 0 to 10){ 
             t.i := t.i+1; 
           }
         } 

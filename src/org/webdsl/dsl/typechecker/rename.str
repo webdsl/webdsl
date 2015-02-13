@@ -26,7 +26,7 @@ rules
 rules
 
   rename-wrapper(rename-strategy) =
-    normalize-constructors //fragments created in desugaring could be using non-normalized constructors 
+    normalize-constructors //fragments created in desugaring could be using non-normalized constructors
   ;	with-origin(rename-strategy)
 
   rename-all = rename-wrapper(alltd(rename))
@@ -51,8 +51,14 @@ rules
    */
   rename-bound(|srt) :
     x -> y
-    with  y := x{<toplevel-rename> x}
-        ; rename-bound-rules(|x,y,srt)
+    with if <Rename> Var(x)// if the name is already known, the variable declaration is shadowing, which is not allowed.
+                            // constraints in languages/action/typechecker/variable-shadowing trigger on x without name annotation
+            ; ?Var(<not(has-anno(?IsEntityPropertyName()))>) // collision with entity property is allowed, can always refer to property with this.x, and implicit property name collisions such as variable 'name' would be confusing
+         then y := x
+         else y := x{<toplevel-rename> x}
+            ; rename-bound-rules(|x,y,srt)
+         end
+
         /*
   rename-bound(|srt) :
     x{} -> y
@@ -62,26 +68,26 @@ rules
     x{anno*} -> x{anno*}
     where not([] := anno*)
     with  rename-bound-rules(|x{},x{anno*},srt) // do not rename if already given a unique name
-                  */  
+                  */
   /**
-   * adds 'ImmutableReference' annotation to srt, unless it is a Ref type, then invokes rename-bound. 
-   * can be used e.g. for 'for' loop variables, to indicate that the reference may not directly be assigned to, 
+   * adds 'ImmutableReference' annotation to srt, unless it is a Ref type, then invokes rename-bound.
+   * can be used e.g. for 'for' loop variables, to indicate that the reference may not directly be assigned to,
    * but editing its entity properties is allowed
-   */   
+   */
   rename-bound-immutable(|srt) :
     x -> <rename-bound(|srt1)> x
     with if not(<is-ref-type> srt)
          then _{anno*} := srt
             ; srt1 := srt{ImmutableReference(),anno*}
          else srt1 := srt end
-  
-  has-immutable-anno = has-anno(ImmutableReference) 
+
+  has-immutable-anno = has-anno(ImmutableReference)
   strip-immutable-anno = remove-anno(ImmutableReference)
-  add-immutable-anno = add-anno(|ImmutableReference)  
+  add-immutable-anno = add-anno(|ImmutableReference)
   signature constructors ImmutableReference : Term
 
 rules
-  
+
   rename-bound-rules(|x,y,srt) =
     if <?RefSort(refsrt{anno*})> srt
     then normsrt := refsrt{IsRefSort(),anno*}

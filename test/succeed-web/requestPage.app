@@ -66,8 +66,8 @@ application test
     
     for(i:Int from 0 to size){
       d.get(navigate(root()));
-      var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
-      var e := elist.get(i);
+      var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("a"));
+      var e := elist1.get(i);
       var text := e.getText();
       e.click();
       log(d.getTitle());

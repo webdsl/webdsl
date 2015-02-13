@@ -37,9 +37,9 @@ application test
     assert(elist.length == 1, "expected <input> elements did not match");
     d.getSubmit().click();
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 4, "expected <input> elements did not match");
-    elist[3].sendKeys("45gdg"); // should cause validation error, since this field is for Int
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist1.length == 4, "expected <input> elements did not match");
+    elist1[3].sendKeys("45gdg"); // should cause validation error, since this field is for Int
     d.getSubmits()[1].click();
     assert(d.getPageSource().contains("Not a valid number"));
   }

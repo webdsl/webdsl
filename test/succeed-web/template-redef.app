@@ -8,7 +8,7 @@ application test
     var i := "1"
     b(i,56)
     b()
-    define b(s:String,i:Int) = a
+    define b(s:String,i1:Int) = a
     define b() = a
   }
 

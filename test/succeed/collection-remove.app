@@ -51,8 +51,8 @@ section datamodel
           action("remove",removeAt(i))
         }
       }
-      for(i:Int in ilist){
-        output(i)
+      for(i1:Int in ilist){
+        output(i1)
       }
       " == 023023"
     }

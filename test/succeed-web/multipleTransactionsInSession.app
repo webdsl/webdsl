@@ -25,14 +25,14 @@ page root() {
 			var errors := getStringMessage(commitAndStartNewTransaction());
 			error.message := error.message + errors;
 			two.test := "xyz";
-			var errors := getStringMessage(commitAndStartNewTransaction());
-			error.message := error.message + errors;
+			var errors1 := getStringMessage(commitAndStartNewTransaction());
+			error.message := error.message + errors1;
 			three.test := "jjjj";
-			var errors := getStringMessage(commitAndStartNewTransaction());
-			error.message := error.message + errors;
+			var errors2 := getStringMessage(commitAndStartNewTransaction());
+			error.message := error.message + errors2;
 			four.test := two.test + " makeItLonger" ;
-			var errors := getStringMessage(commitAndStartNewTransaction());
-			error.message := error.message + errors;
+			var errors3 := getStringMessage(commitAndStartNewTransaction());
+			error.message := error.message + errors3;
 		}[class := "actionb"] { "do Action" }
 
 	}

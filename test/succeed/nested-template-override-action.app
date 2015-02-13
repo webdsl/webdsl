@@ -28,15 +28,15 @@ define span selectPersonAffiliationFromList(alias : Alias, pers : Person, affil 
 }
 
 define span selectCoauthorFromList(pers : Person, alias : Alias) {
-  define span selectPersonFromList(alias : Alias, coauthor : Person) {
+  define span selectPersonFromList(alias1 : Alias, coauthor : Person) {
     action("Select", action{
       var a : Affiliation := null;
-      pers.identifyCoauthor(coauthor, alias, a);
+      pers.identifyCoauthor(coauthor, alias1, a);
     })
   }
-  define span selectPersonAffiliationFromList(alias : Alias, coauthor : Person, affil : Affiliation) {
+  define span selectPersonAffiliationFromList(alias1 : Alias, coauthor : Person, affil : Affiliation) {
     action("Select", action{
-      pers.identifyCoauthor(coauthor, alias, affil);
+      pers.identifyCoauthor(coauthor, alias1, affil);
     })
   }
 }

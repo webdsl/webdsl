@@ -9,19 +9,24 @@ rules
         ; anno1* := <put-closure-in-anno> anno*
         ; blk1 := <rename-all> blk
           |}
-        
-  desugar-ui : 
+
+  desugar-ui :
     Define(mods, name, args, targs, elems){anno*} -> result
     where <oncetd(?InlineAction(_))> elems
-    with {| InsertedActions  
+    with {| InsertedActions
           : elems1 := <alltd(desugar-inline-action-call)> elems
           ; elems2 := <concat> [elems1, <bagof-InsertedActions>]
          |}
        ; result := <rename> Define(mods, name, args, targs, elems2){anno*}
-  
+
   desugar-inline-action-call :
-    InlineAction(Block(e1)){anno*} -> ActionCall(fun, arg*)
+    InlineAction(Block(stm1*)){anno*} -> ActionCall(fun, arg*)
     with  fun := <toplevel-rename> "ia"  // will be renamed
-        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,e1)
-        ; newaction := Action([],fun, farg*, Block(e1))
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,stm1*)
+        ; renamepairs := <map({?Arg(n,_); !(n,<rename-inline-action-farg> n)})> farg*
+        ; (stm2*, []) := <rename-all-vars> (stm1*, renamepairs)
+        ; newfarg* := <map(Arg(rename-inline-action-farg,id))> farg*
+        ; newaction := Action([], fun, newfarg*, Block(stm2*))
         ; rules( InsertedActions :+= newaction )
+
+  rename-inline-action-farg : x -> <concat-strings> [x,"_"]

@@ -92,10 +92,10 @@ application test
     assert(elist.length == 4, "expected 4 <button> elements");
     elist[0].click();
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
-    assert(elist.length == 4, "expected 4 <button> elements");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist1.length == 4, "expected 4 <button> elements");
     
-    elist[number].click();
+    elist1[number].click();
     
     assert(d.getPageSource().contains("redirectedpage"), "should have been redirected from button "+(number-1)+" after replace");
   }

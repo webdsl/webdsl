@@ -151,7 +151,7 @@ template callee(r : Root) {
   redefRoot(r)
   redef(r.sub)
   redef2(r.a, r.b)
-  define redefRoot(r : Root) = redefRootAlt
+  define redefRoot(r1 : Root) = redefRootAlt
   define redef(c : Child) = redefAlt
   define redef2(a : Child, b : Child) = redef2Alt
 }

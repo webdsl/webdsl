@@ -9,8 +9,8 @@ application test
   init{
     var t := TextEntity{ text := "1" };
     t.save();
-    var t := TextEntity2{ text := "2" };
-    t.save();
+    var t1 := TextEntity2{ text := "2" };
+    t1.save();
   }
   define page root(){
     var t :=(from TextEntity)[0];
@@ -47,9 +47,9 @@ application test
     assert(elist.length == 2, "expected <a> elements did not match");
     elist[i].click();
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
-    assert(elist.length == 1, "expected <textarea> elements did not match");
-    elist[0].sendKeys("abcde");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
+    assert(elist1.length == 1, "expected <textarea> elements did not match");
+    elist1[0].sendKeys("abcde");
     
     d.getSubmit().click();
   }

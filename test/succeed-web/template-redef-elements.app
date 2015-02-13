@@ -10,7 +10,7 @@ application basic
     bar("789"){
       elements()
     }
-    define labelInternal(s:String) = labelInternal2
+    define labelInternal(s1:String) = labelInternal2
   }  
   define labelInternal2(s:String){  
     "redef" elements()

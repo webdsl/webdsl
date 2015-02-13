@@ -23,8 +23,8 @@ application test
   init{
     var p := Page{ name := "first page name!" content := "11" };
     p.save();
-    var p := Page{ name := "second page name!" content := "22" };
-    p.save();
+    var p1 := Page{ name := "second page name!" content := "22" };
+    p1.save();
   }
 
 access control rules

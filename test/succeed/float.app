@@ -18,8 +18,8 @@ application test
     
     //ceil
     assert(76.001.ceil() == 77);
-    var fl := 34.0000;
-    assert(fl.ceil() == 34);
+    var fl1 := 34.0000;
+    assert(fl1.ceil() == 34);
     
     //random
     var rand : Float := random();

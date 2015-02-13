@@ -11,7 +11,7 @@ module .servletapp/src-webdsl-template/built-in
   attributes navigatebutton{ }
   attributes captcha{ }
   attributes image{ }
-  
+
   attributes inputInt{ class="inputInt" }
   attributes inputBool{ class="inputBool" }
   attributes inputString{ class="inputString" }
@@ -22,7 +22,7 @@ module .servletapp/src-webdsl-template/built-in
   attributes inputWikiText{ class="inputTextarea inputWikiText" }
   attributes inputFloat{ class="inputFloat" }
   attributes inputLong{ class="inputLong" }
-  attributes inputDate{ class="inputDate" } 
+  attributes inputDate{ class="inputDate" }
   attributes inputSetCheckbox{ class="checkbox-set" }
   attributes inputSetCheckboxElements{ class="checkbox-set-element" }
   attributes inputSelect{ class="select" }
@@ -777,13 +777,13 @@ native class java.lang.Double as Double {
       elements()
     </li>
   }
-  
+
   template block(){
     <div class="block" all attributes>
       elements()
     </div>
   }
-  
+
   template block(s:String){
     <div class="block" class=s all attributes>
       elements()
@@ -1704,9 +1704,9 @@ native class java.lang.Double as Double {
       elements()
     }
     //define labelInternal(s:String, tname :String, tc :TemplateContext) = labelcolumnsInternal
-    define labelInternal(s:String, tname :String, tc :TemplateContext){
+    define labelInternal(s1:String, tname :String, tc :TemplateContext){
       <td>
-      <label for=tname all attributes>output(s)</label>
+      <label for=tname all attributes>output(s1)</label>
       </td>
       databind{ getPage().enterLabelContext(tname); }
       validate{ getPage().enterLabelContext(tname); }
@@ -2459,7 +2459,7 @@ native class java.lang.Double as Double {
       }
     }
   }
-  
+
   define input(f:Ref<List<File>>){
     var tname := getTemplate().getUniqueId()
     var req := getRequestParameter(tname)
@@ -2484,7 +2484,7 @@ native class java.lang.Double as Double {
       errors := handleValidationErrors(errors);
     }
   }
-  
+
   define inputMultiFileInternal(f : Ref<List<File>>, tname : String){
     init{
       getPage().formRequiresMultipartEnc := true;
@@ -2502,7 +2502,7 @@ native class java.lang.Double as Double {
 
     databind{
       var files : List<File> := getPage().getFileUploads(tname);
-      if(files != null && files.length > 0){      	
+      if(files != null && files.length > 0){
       	for(item in files where item.fileName() != ""){
       		f.add(item);
       	}

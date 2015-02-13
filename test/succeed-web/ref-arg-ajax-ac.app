@@ -60,9 +60,9 @@ section pages
     assert(elist.length == 1, "expected <a> elements did not match");
     elist[0].click();  
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
-    assert(elist.length == 1, "expected <textarea> elements did not match");
-    elist[0].sendKeys("2345");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
+    assert(elist1.length == 1, "expected <textarea> elements did not match");
+    elist1[0].sendKeys("2345");
     d.getSubmit().click();
     
     assert(d.getPageSource().contains("12345"), "reference arguments not working as expected");

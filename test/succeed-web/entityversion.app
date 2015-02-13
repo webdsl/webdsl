@@ -73,15 +73,15 @@ test normalEntitySaveModifyChain {
 	assert(!d.getPageSource().contains("created: null"), "created should not be null when entity is not saved");
 	assert(!d.getPageSource().contains("modified: null"), "modified should not be null when entity is not saved");
 	
-	var button := d.findElements(SelectBy.className("modifyb"))[0];
-    button.click();
+	var button1 := d.findElements(SelectBy.className("modifyb"))[0];
+    button1.click();
     
 	assert(d.getPageSource().contains("version: 2"), "version should be higher after editing entity");
 	assert(d.getPageSource().contains("createdchanged: false"), "created should not be changed when entity is changed");
 	assert(d.getPageSource().contains("modifiedchanged: true"), "modified should  be changed when entity is changed");
 	
-	var button := d.findElements(SelectBy.className("modifyb"))[0];
-    button.click();
+	var button2 := d.findElements(SelectBy.className("modifyb"))[0];
+    button2.click();
     
     assert(d.getPageSource().contains("version: 2"), "only real modifies should increase the version");
     assert(d.getPageSource().contains("createdchanged: false"), "created should not be changed when entity is not dirty");

@@ -395,6 +395,10 @@ define page changeAll(ent : A, version : Int) {
 	}
 }
 
+function cleanup(){
+    getHtmlUnitDriver().get(navigate(cleanup()));
+}
+
 test stringInput {
 	var d : WebDriver := getHtmlUnitDriver();
 	d.get(navigate(root()));	
@@ -419,9 +423,8 @@ test stringInput {
     
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
-	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+
+    cleanup();
 }
 test emailInput {
 	var d : WebDriver := getFirefoxDriver();
@@ -448,8 +451,8 @@ test emailInput {
     
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+	
+    cleanup();
 }
 test textInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -476,8 +479,7 @@ test textInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test wikiTextInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -504,8 +506,7 @@ test wikiTextInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test secretInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -532,8 +533,7 @@ test secretInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test URLInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -560,8 +560,7 @@ test URLInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test boolInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -588,8 +587,7 @@ test boolInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test IntInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -616,8 +614,7 @@ test IntInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test LongInput {
 	var d : WebDriver := getFirefoxDriver();
@@ -645,8 +642,7 @@ test LongInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 test FLoatInput {
 	var d : WebDriver := getHtmlUnitDriver();
@@ -674,8 +670,7 @@ test FLoatInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test DateTimeInput {
@@ -689,14 +684,13 @@ test DateTimeInput {
     button2.click();
 	
 	// 2 times because first time it cuts of the nanosecconds
-	var d : WebDriver := getFirefoxDriver();
 	d.get(navigate(root()));	
 	
-	var button := d.findElements(SelectBy.className("test11"))[0];
-    button.click();
+	var button11 := d.findElements(SelectBy.className("test11"))[0];
+    button11.click();
     
-    var button2 := d.findElements(SelectBy.className("saveb"))[0];
-    button2.click();
+    var button22 := d.findElements(SelectBy.className("saveb"))[0];
+    button22.click();
         
     assert(d.getPageSource().contains("versionChanged: false"), "version should not be altered if property is not changed");
 
@@ -714,8 +708,7 @@ test DateTimeInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test DateInput {
@@ -744,8 +737,7 @@ test DateInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test TimeInput {
@@ -758,15 +750,14 @@ test TimeInput {
     var button2 := d.findElements(SelectBy.className("saveb"))[0];
     button2.click();
     	   
-	    // 2 times because first time it cuts of the nanosecconds
-	var d : WebDriver := getFirefoxDriver();
+    // 2 times because first time it cuts of the nanosecconds
 	d.get(navigate(root()));	
 	
-	var button := d.findElements(SelectBy.className("test13"))[0];
-    button.click();
+	var button11 := d.findElements(SelectBy.className("test13"))[0];
+    button11.click();
     
-    var button2 := d.findElements(SelectBy.className("saveb"))[0];
-    button2.click();
+    var button22 := d.findElements(SelectBy.className("saveb"))[0];
+    button22.click();
     
     assert(d.getPageSource().contains("versionChanged: false"), "version should not be altered if property is not changed");
 	
@@ -784,8 +775,7 @@ test TimeInput {
     assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiff: 1"), "version should only increase by 1 after change");  
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test ImageInput {
@@ -800,8 +790,7 @@ test ImageInput {
     
     assert(d.getPageSource().contains("versionChanged: false"), "version should not be altered if property is not changed");
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test FileInput {
@@ -816,8 +805,7 @@ test FileInput {
     
     assert(d.getPageSource().contains("versionChanged: false"), "version should not be altered if property is not changed");
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test EntityInput {
@@ -857,8 +845,7 @@ test EntityInput {
 	assert(d.getPageSource().contains("versionChangedb3: true"), "version should increase after change");
 	assert(d.getPageSource().contains("versionDiffb3: 1"), "version should only increase by 1 after change");
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test EntityListInput {
@@ -902,8 +889,7 @@ test EntityListInput {
     assert(d.getPageSource().contains("versionChangedb4: false"), "version should not be altered if property is not changed");
     assert(d.getPageSource().contains("versionChangedb5: false"), "version should not be altered if property is not changed");
 	
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }
 
 test EntitySetInput {
@@ -942,8 +928,7 @@ test EntitySetInput {
     assert(d.getPageSource().contains("versionChangedb4: false"), "version should not be altered if property is not changed");
     assert(d.getPageSource().contains("versionChangedb5: false"), "version should not be altered if property is not changed");
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 
 }
 
@@ -958,14 +943,13 @@ test allInput {
     button2.click();
     
 	//second time to cut of the nanoseconds
-	var d : WebDriver := getFirefoxDriver();
 	d.get(navigate(root()));	
 	
-	var button := d.findElements(SelectBy.className("test19"))[0];
-    button.click();
+	var button11 := d.findElements(SelectBy.className("test19"))[0];
+    button11.click();
     
-    var button2 := d.findElements(SelectBy.className("saveb"))[0];
-    button2.click();
+    var button22 := d.findElements(SelectBy.className("saveb"))[0];
+    button22.click();
     
     assert(d.getPageSource().contains("versionChanged: false"), "version should not be altered if property is not changed");
 
@@ -1041,6 +1025,5 @@ test allInput {
         
 	assert(d.getPageSource().contains("versionChanged: true"), "version should increase after change");
 
-	var d : WebDriver := getHtmlUnitDriver();
-	d.get(navigate(cleanup()));
+    cleanup();
 }

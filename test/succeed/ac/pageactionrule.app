@@ -51,7 +51,7 @@ section somesection
       }
     
     
-      action test(a:Int)
+      action test(a1:Int)
       {
         return root();
       }

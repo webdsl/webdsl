@@ -59,8 +59,8 @@ application test
     d.getSubmit().click();
     
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 10, "incorrect number of input elements found");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist1.length == 10, "incorrect number of input elements found");
     log(d.getPageSource());
     d.getSubmits()[2].click();
     assert(!(d.getPageSource().contains("ajax template")), "expected ajax template to be removed here");

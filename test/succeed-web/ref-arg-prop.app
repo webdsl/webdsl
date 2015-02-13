@@ -20,12 +20,12 @@ application test
       blapasson(str.d)
       submit action{ str.save(); } { "save" }
     }
-    for(str:Str){
-      output(str.s)
-      output(str.i)
-      output(str.f)
-      output(str.c.list()[0].s)
-      output(str.d.list()[0].s)
+    for(str1:Str){
+      output(str1.s)
+      output(str1.i)
+      output(str1.f)
+      output(str1.c.list()[0].s)
+      output(str1.d.list()[0].s)
     } separated-by{ <br /> }
     define localtest(a: Ref<Float>){
       input(a)

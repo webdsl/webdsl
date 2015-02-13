@@ -32,22 +32,22 @@ section datamodel
       }
     }
     "test page"
-    var u : User := User{ name := "bob" };
+    var user : User := User{ name := "bob" };
     form{
-      input(u.name)
-      input(u.storedfile)
+      input(user.name)
+      input(user.storedfile)
 
       action("save",save())
       actionLink("save",save())
       action("save and log contentasstring",saveandlog())
     }
     action saveandlog() {
-      log(u.storedfile.getContentAsString());
-      u.save();
+      log(user.storedfile.getContentAsString());
+      user.save();
     }
 
     action save() {
-      u.save();
+      user.save();
     }
     action download(u:User) {
       u.storedfile.download();
@@ -65,9 +65,9 @@ section datamodel
   define page home2(){
     navigation()
     form{
-      for(u:User2)
+      for(u2:User2)
       {
-        output(u.storedimage)
+        output(u2.storedimage)
         //outputString(u.name)
         //action("custom image download button",downloadimage(u))
       }
@@ -85,8 +85,8 @@ section datamodel
       u.save();
     }
 
-    action downloadimage(u:User2) {
-      u.storedimage.download();
+    action downloadimage(u2:User2) {
+      u2.storedimage.download();
     }
   }
   

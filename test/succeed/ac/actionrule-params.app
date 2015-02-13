@@ -15,7 +15,7 @@ section principal
     
     rule template templ(i:Int) { true
       rule action templAct() { true }
-      rule action templAct(i : Int) { i == 1 }
+      rule action templAct(i1 : Int) { i1 == 1 }
     }
     
     rule page root() { true
@@ -25,7 +25,7 @@ section principal
     
     rule page pageArgs(i : Int, j:Int) { i==5
       rule action pageAct() { i==3 }
-      rule action pageAct(j : Int) { i==1 && j ==2 }
+      rule action pageAct(j1 : Int) { i==1 && j1 ==2 }
     }
 
 section somesection  
@@ -35,11 +35,11 @@ section somesection
   }
   
   define page pageArgs(i : Int, j : Int) {
-    action pageAct(i : Int, j : Int) { }
+    action pageAct(i1 : Int, j1 : Int) { }
   }
   
   define template templ(i : Int) {
-    action templAct(i : Int, j : Int) { }
+    action templAct(i1 : Int, j : Int) { }
   }
    
   

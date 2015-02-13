@@ -48,7 +48,7 @@ section datamodel
     var t: Time := now();
     var dt: DateTime := now();
     
-    var d: Date := today();
+    var d1: Date := today();
     
     var date : Date := Date("04/09/2009");
     assert(date.after(Date("01/02/1975")));

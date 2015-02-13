@@ -41,7 +41,7 @@ application test
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("li"));
     assert(elist.length == 21, "expected <li> elements did not match");
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
-    assert(elist.length == 7, "expected <a> elements did not match");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("a"));
+    assert(elist1.length == 7, "expected <a> elements did not match");
   }
   

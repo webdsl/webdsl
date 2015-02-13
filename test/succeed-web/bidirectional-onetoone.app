@@ -160,9 +160,9 @@ test {
   // In this test only one no-proxy property is fetched
   d.get(navigate(touchRoot(r1)));
   assert(d.getPageSource().contains("Root1_NewNoProxyA1"), "Wrong state at start of touch test");
-  var elist : List<WebElement> := d.findElements(SelectBy.className("touchRoot_savebutton"));
-  assert(elist.length == 1);
-  elist[0].click();
+  var elist1 : List<WebElement> := d.findElements(SelectBy.className("touchRoot_savebutton"));
+  assert(elist1.length == 1);
+  elist1[0].click();
   assert(d.getPageSource().contains("Root1T_NewNoProxyA1"), "NewNoProxyA1 not found");
   d.get(navigate(both()) + "?logsql");
   elem := d.findElement(SelectBy.id("sqllogcount"));

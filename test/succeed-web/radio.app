@@ -72,11 +72,11 @@ test {
   assert(/p1b1.+p2b1.+p3b1.+p4b1/.find(d.getPageSource()));
 
   d.get(navigate(test2()));  
-  var i := 0;
+  var i2 := 0;
   for(u:User in [u1,u2]){
-    getRadioButtons(d,u.name)[i].click();
-    getRadioButtons(d,u.name)[(i+1)].click(); //TODO parse error without parentheses, likely priority bug
-    i := i+2;
+    getRadioButtons(d,u.name)[i2].click();
+    getRadioButtons(d,u.name)[(i2+1)].click(); //TODO parse error without parentheses, likely priority bug
+    i2 := i2+2;
   }
   d.findElement(SelectBy.className("savebutton")).click();
   assert(d.getPageSource().split("cannot choose same person").length == 5);

@@ -43,8 +43,8 @@ application registerexample
     
     var pagesource := d.getPageSource();
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 2, "expected 2 <input> elements");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist1.length == 2, "expected 2 <input> elements");
     
     d.getSubmits()[1].click();
     assert(d.getPageSource().contains("values don't match inputcheck"), "expected message missing: values don't match inputcheck");

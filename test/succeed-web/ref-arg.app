@@ -27,11 +27,11 @@ application test
       output(str)
     } separated-by{ <br /> }
     
-    define localtest(a: Ref<String>, b : String, c: Ref<String>){
-      var b1 := b
-      input(a)
-      input(b1)
-      input(c)
+    define localtest(a11: Ref<String>, b1 : String, c1: Ref<String>){
+      var b2 := b1
+      input(a11)
+      input(b2)
+      input(c1)
     }
   }
   

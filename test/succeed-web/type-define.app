@@ -30,10 +30,10 @@ application test
     d.getSubmit().click();
     assert(!d.getPageSource().contains("input too short (minimum is 10 characters)"), "should not show error message for text input");
 
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
-    assert(elist.length == 2, "expected <input> elements did not match");
-    elist[1].clear();
-    elist[1].sendKeys("123");
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    assert(elist1.length == 2, "expected <input> elements did not match");
+    elist1[1].clear();
+    elist1[1].sendKeys("123");
     d.getSubmit().click();
     assert(d.getPageSource().contains("input too short (minimum is 10 characters)"), "should show error message for string input");
   }

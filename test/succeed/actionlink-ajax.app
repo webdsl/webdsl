@@ -14,11 +14,11 @@ application test
 
   define page root()
   {
-    action ret(i:Int, s:String, b:Bool, u:User,t:Text) {
+    action ret(i:Int, s1:String, b1:Bool, u:User,t:Text) {
       var temp := User {
-        s := s
+        s := s1
         i := i
-        b := b
+        b := b1
         u := u
         t := t
       };

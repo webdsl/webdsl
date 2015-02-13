@@ -9,8 +9,8 @@ application test
   init{
     var t := TextEntity{ text := "1" };
     t.save();
-    var t := TextEntity2{ text := "2" };
-    t.save();
+    var t1 := TextEntity2{ text := "2" };
+    t1.save();
   }
   define page root(){
     var t :=(from TextEntity)[0];

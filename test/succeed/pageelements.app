@@ -17,9 +17,9 @@ section datamodel
       action("save",someaction(temp,u))
     }
     
-    action someaction(i:Int,u:User){
-      var temp : Int := i;
-      var user : User := u;
+    action someaction(i1:Int,u1:User){
+      var temp1 : Int := i1;
+      var user : User := u1;
     }
   }
 

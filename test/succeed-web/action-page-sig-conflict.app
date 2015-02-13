@@ -19,9 +19,9 @@ application test
     
     assert(d.getPageSource().contains("foobarrootpage"));
     
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("button"));
-    assert(elist.length == 2, "expected <button> elements did not match");
-    elist[1].click();
+    var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("button"));
+    assert(elist1.length == 2, "expected <button> elements did not match");
+    elist1[1].click();
 
     assert(d.getPageSource().contains("foobarrootpage"));
   }
