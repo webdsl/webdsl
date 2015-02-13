@@ -44,7 +44,7 @@ public abstract class AbstractPageServlet{
     protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
-    protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}:(//[^/]+)");
+    protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}://[^/]+");
     public boolean isReadOnly = false;
 
     static{
