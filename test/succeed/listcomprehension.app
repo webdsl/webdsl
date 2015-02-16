@@ -69,3 +69,17 @@ section datamodel
   }
   
   
+  entity Lab{
+  	coll : [Lab]
+  	order : Int
+  }
+  template classify(c: Lab){
+  	// these 'l' names are not in overlapping scopes
+    for(l:Int in [l.order | l: Lab in c.coll order by l.order asc]){
+      output(l)
+    }
+  }
+  test{
+  	var testobj := Lab{ coll := [Lab{order:=1},Lab{order:=2}] };
+  	assert(rendertemplate(classify(testobj)) == "12");
+  }
