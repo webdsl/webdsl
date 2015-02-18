@@ -89,6 +89,7 @@ rules
   
   desugar-object-cr-exp :
     ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> <rename> ThisCall(x_fun, arg*)
+    where <not([])> assigns <+ <does-object-cr-have-constructor-extensions> x_class   // if there are no property assignments or constructor extensions, no need to generate a function, use rule below instead
     where <not(fetch(ObjectCreationSecretTypesNeedDigests))> anno*
     with  x_fun := <toplevel-rename> "objCr"
         ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*, assigns)
@@ -106,6 +107,11 @@ rules
             , [Return(Var("obj"))])
             )){anno*}
 
+  desugar-object-cr-exp :
+    ObjectCreation(srt@SimpleSort(x_class), []) -> <rename> ThisCall(x_empty, [])
+    where not(<does-object-cr-have-constructor-extensions> x_class)
+    with  x_empty := $[createEmpty[<capitalize-string> x_class]]
+
   desugar-object-cr-prop-assign:
     ObjectPropertyAssignment(x_field, e1) -> |[ obj.x_field := e1; ]|
 
@@ -114,6 +120,12 @@ rules
     with  ent* := <defined-superclasses> x
         ; allent* := <reverse> [x|ent*]
         ; result := <map(\y -> Stat(Call(Var("obj"),y,[]))\)> allent*
+          
+  does-object-cr-have-constructor-extensions:
+    x -> <id>
+    with  ent* := <defined-superclasses> x
+        ; allent* := <reverse> [x|ent*]
+    where <fetch(where(!(<id>,<id>);IsExtendedEntityFunction))> allent*
 
 rules 
 

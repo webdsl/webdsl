@@ -30,11 +30,17 @@ application constructor
     var u2 := User{ name := "Bob" };
     u2.save();
   }
+  
+  test{
+    var s := "Bob";
+    var u2 := (from User as u where u.name = ~s)[0];
+    assert(u1.page.message == "default message");
+    assert(u2.page.message == "default message");
+    assert(u1.page != u2.page);
+  }
     
   var p1 := Page { name := "p1" content := "This is page 1." };
   var p2 := Page { name := "p2" content := "This is page 2." };
-  
-
   
   define page root(){
     action save(u:User){
@@ -62,3 +68,35 @@ application constructor
       groupitem{output(p.message)}
     }
   }
+
+
+  entity Aa{
+    i : Int
+    extend function Aa(){
+      i := 12;
+    }
+  }
+  entity Bb : Aa{
+    s : String
+    extend function Bb(){
+      s := "34";
+    }
+  }
+  test{
+    assert(Bb{}.s+Bb{}.i == "3412");
+  }
+  
+  entity A1{
+    i : Int
+    extend function A1(){
+      i := 12;
+    }
+  }
+  entity B1: A1{
+    s : String
+  }
+  test{
+    assert(B1{}.s+B1{}.i == "12");
+  }
+  
+  
