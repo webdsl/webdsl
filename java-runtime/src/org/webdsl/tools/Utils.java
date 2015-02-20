@@ -146,7 +146,7 @@ public final class Utils {
     }
 
     public static String showAttributeEscapeHtml(String s1, Object s2){
-        return " " + escapeHtml(s1) + "=\"" + ("onkeyup".equals(s1)?"onkeyupdelay(250, function(){" + escapeHtml(s2) + "});":escapeHtml(s2)) + "\"";
+        return " " + escapeHtml(s1) + "=\"" + ("onkeyup".equals(s1)||"oninput".equals(s1)?"onkeyupdelay(250, function(){" + escapeHtml(s2) + "});":escapeHtml(s2)) + "\"";
     }
 
     // An alternative implementation of FieldInterceptorImpl.readObject / AbstractFieldInterceptor.intercept that supports initializing a single lazy property
