@@ -1509,7 +1509,7 @@ public abstract class AbstractPageServlet{
 
       protected void updatePageRequestStatistics(){
     	  if(hasNotExecutedAction()){
-    		  if(readOnlyRequestStats){
+    		  if(readOnlyRequestStats || isRollback()){
     			  if(pageCacheWasUsed){
     				  increaseStatReadOnlyFromCache();
     			  }
@@ -1526,7 +1526,7 @@ public abstract class AbstractPageServlet{
     			  increaseStatActionFail();
     		  }
     		  else{
-    			  if(readOnlyRequestStats){
+    			  if(readOnlyRequestStats || isRollback()){
     				  increaseStatActionReadOnly();
     			  }
     			  else{
