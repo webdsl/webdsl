@@ -114,18 +114,10 @@ public abstract class AbstractPageServlet{
           }
 
           templateservlet.storeInputs(null, args, new Environment(envGlobalAndSession), null);
-          ThreadLocalPage.get().clearTemplateContext();
+          clearTemplateContext();
 
           //storeinputs also finds which action is executed, since validation might be ignored using [ignore-validation] on the submit
-          utils.ActionClass submitAction = ThreadLocalPage.get().getActionToBeExecuted();
-          boolean ignoreValidation = false;
-          if(submitAction != null){
-            ignoreValidation = submitAction.isValidationDisabled();
-          }
-          else{
-            //an action was executed but it cannot be found
-            //@TODO handle properly for ajax and non-ajax cases
-          }
+          boolean ignoreValidation = actionToBeExecutedHasDisabledValidation;
 
           if (!ignoreValidation){
             templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
@@ -597,14 +589,9 @@ public abstract class AbstractPageServlet{
         return messageDigest;
     }
 
-    protected utils.ActionClass actionToBeExecuted = null;
-    public void setActionToBeExecuted(utils.ActionClass action){
-        this.actionToBeExecuted = action;
-    }
-    public utils.ActionClass getActionToBeExecuted(){
-        return actionToBeExecuted;
-    }
-
+    public boolean actionToBeExecutedHasDisabledValidation = false;
+    public boolean actionHasAjaxPageUpdates = false;
+    
     //TODO merge getActionTarget and getPageUrlWithParams
     public String getActionTarget() {
         if (isServingAsAjaxResponse){
@@ -643,7 +630,6 @@ public abstract class AbstractPageServlet{
     //public javax.servlet.http.HttpSession session;
 
     public static void cleanupThreadLocals(){
-        ThreadLocalAction.set(null);
         ThreadLocalEmailContext.set(null);
         ThreadLocalPage.set(null);
         ThreadLocalTemplate.setNull();

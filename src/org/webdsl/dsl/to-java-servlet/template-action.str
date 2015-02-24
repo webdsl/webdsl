@@ -8,6 +8,16 @@ imports
   libwebdsl-front
   org/webdsl/dsl/to-java-servlet/core-to-java-servlet
 
+rules // submit action call
+
+  generate-submit-action-run-invoke(| x_action, e*) = generate-submit-action-run-invoke(| x_action, "ident", e*)
+
+  generate-submit-action-run-invoke(| x_action, ident, e*) =
+    !java:bstm|[ new x_action().run(threadLocalPageCached, getEnv(), getElementsContext(), e*, ident); ]|
+
+  generate-submit-action-databind-phase(| x_action) =
+    !java:bstm|[ threadLocalPageCached.actionToBeExecutedHasDisabledValidation = x_action.isValidationDisabled(); ]|
+
 rules // action methods
 
   /**
@@ -17,103 +27,92 @@ rules // action methods
 
   //should only generate an action function
   generate-action-java-servlet-code :
-    Action(amod*, x_action, farg*, Block(stat*)) ->
-    (<generate-java-servlet-template-partial>
-    java |[
-      @Partial
-      protected void initSubmitActions()
-      {
-        putAction(
-          "~x_action"
-        ,
-          new x_action(){
-            ~*cbds_ignorevalidation*
-            /*
-            public org.webdsl.lang.Environment getEnv(){
-              return env;
+    Action(amod*, x_action, farg*, Block(stat*)){anno*} ->
+    <emit-java-code-local>
+    compilation-unit|[
+      package pkgname3;
+      import pkgname2.*;
+      import pkgname4.*;
+      import utils.*;
+      import java.io.*;
+      import java.util.*;
+      import org.webdsl.lang.Environment;
+
+      public class x_action {
+
+        //@TODO: get rid of getElementsContext() calls in action code, then this field is no longer needed     
+        String elementsContext = null;
+        public String getElementsContext(){
+          return elementsContext;
+        }
+          
+        ~*cbds_ignorevalidation*
+          
+        public void run(AbstractPageServlet threadLocalPageCached, Environment env, String elementsContext,  param*){
+          this.elementsContext = elementsContext;
+          if (!threadLocalPageCached.hasExecutedAction)
+          {
+            threadLocalPageCached.hasExecutedAction = true;
+            try {
+              bstm*
+
+              //trigger data invariant validations
+              e_HibSession.flush();
+              if(!threadLocalPageCached.isRollback()){
+                threadLocalPageCached.validateEntities();
+              }
             }
-            */
-            public void run(param*)
-            {
-              ThreadLocalAction.set(this);
-
-              if (!threadLocalPageCached.hasExecutedAction)
-              {
-                threadLocalPageCached.hasExecutedAction = true;
+            catch(utils.ValidationException ve){
+              threadLocalPageCached.getValidationExceptions().add(ve.setName(actionident));
+              threadLocalPageCached.setValidated(false);
+            }
+            catch(utils.MultipleValidationExceptions ve){
+              for(utils.ValidationException vex : ve.getValidationExceptions()){
+                threadLocalPageCached.getValidationExceptions().add(vex.setName(actionident));
+              }
+              threadLocalPageCached.setValidated(false);
+            }
+            catch(Exception excep)  {
+              org.webdsl.logging.Logger.error("exception during execution of action", excep);
+              threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occured while processing your request"));
+              threadLocalPageCached.setValidated(false);
+            }
+            finally{
+              //do the redirect if no exceptions occured and no validations failed
+              if( threadLocalPageCached.isRedirected() && threadLocalPageCached.isValid() ){
+                if(
+                  // only important thing for redirects is the current request type (through ajax.js or regular form submit),
+                  // to determine whether to do a response.sendRedirect or a command for ajax.js (relocate)
+                  threadLocalPageCached.isAjaxRuntimeRequest()){
+                    // it was an action submit through ajax.js runtime
+                    ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+threadLocalPageCached.getRedirectUrl()+"\" },\n");
+                }
+                else{
+                  // regular submit button form submit
+                  try {
+                    threadLocalPageCached.getResponse().sendRedirect(threadLocalPageCached.getRedirectUrl());
+                  } catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
+                }
+              }
+              //redirect to current page by default
+              if( !threadLocalPageCached.isRedirected() && !threadLocalPageCached.isDownloadSet() && threadLocalPageCached.isValid() ){
                 try {
-                  bstm*
-
-                  //trigger data invariant validations
-                  e_HibSession.flush();
-                  if(!threadLocalPageCached.isRollback()){
-                    threadLocalPageCached.validateEntities();
+                  if (!threadLocalPageCached.isAjaxActionExecuted()) {
+                    threadLocalPageCached.setRedirectUrl(threadLocalPageCached.getPageUrlWithParams() + threadLocalPageCached.getExtraQueryAruments("?"));
+                    if(!threadLocalPageCached.isActionLinkUsed()){ threadLocalPageCached.getResponse().sendRedirect(threadLocalPageCached.getRedirectUrl()); }
                   }
-                }
-                catch(utils.ValidationException ve){
-                  threadLocalPageCached.getValidationExceptions().add(ve.setName(actionident));
-                  threadLocalPageCached.setValidated(false);
-                }
-                catch(utils.MultipleValidationExceptions ve){
-                  for(utils.ValidationException vex : ve.getValidationExceptions()){
-                    threadLocalPageCached.getValidationExceptions().add(vex.setName(actionident));
+                  if(!threadLocalPageCached.actionHasAjaxPageUpdates){
+                  	ThreadLocalOut.peek().print("{ action: \"refresh\" },");
                   }
-                  threadLocalPageCached.setValidated(false);
-                }
-                catch(Exception excep)  {
-                  org.webdsl.logging.Logger.error("exception during execution of action", excep);
-                  threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occured while processing your request"));
-                  threadLocalPageCached.setValidated(false);
-                }
-                finally{
-                  //do the redirect if no exceptions occured and no validations failed
-                  if( threadLocalPageCached.isRedirected() && threadLocalPageCached.isValid() ){
-                    if(
-                      // only important thing for redirects is the current request type (through ajax.js or regular form submit),
-                      // to determine whether to do a response.sendRedirect or a command for ajax.js (relocate)
-                      threadLocalPageCached.isAjaxRuntimeRequest()){
-                        // it was an action submit through ajax.js runtime
-                        ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+threadLocalPageCached.getRedirectUrl()+"\" },\n");
-                    }
-                    else{
-                      // regular submit button form submit
-                      try {
-                        response.sendRedirect(threadLocalPageCached.getRedirectUrl());
-                      } catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
-                    }
-                  }
-                  //redirect to current page by default
-                  if( !threadLocalPageCached.isRedirected() && !threadLocalPageCached.isDownloadSet() && threadLocalPageCached.isValid() ){
-                    try {
-                      if (!threadLocalPageCached.isAjaxActionExecuted()) {
-                        threadLocalPageCached.setRedirectUrl(threadLocalPageCached.getPageUrlWithParams() + threadLocalPageCached.getExtraQueryAruments("?"));
-                        if(!threadLocalPageCached.isActionLinkUsed()){ response.sendRedirect(threadLocalPageCached.getRedirectUrl()); }
-                      }
-                      else if (!isRedirected) { //nothing updated,
-                        ThreadLocalOut.peek().print("{ action: \"refresh\" },");
-                      }
-                    } catch (IOException ioe) {
-                      org.webdsl.logging.Logger.error("redirect failed", ioe);
-                    }
-                  }
+                } catch (IOException ioe) {
+                  org.webdsl.logging.Logger.error("redirect failed", ioe);
                 }
               }
             }
           }
-        );
-      }
-
-    ]|
-    ,<emit-java-code-local>
-    compilation-unit|[
-      package pkgname3;
-      import pkgname2.*;
-
-      @SuppressWarnings("unused")
-      public abstract class x_action extends utils.ActionClass{
-        public abstract void run(param*);
+        }
       }
     ]|
-    )
     with
     {| InAction :
          rules(InAction := <id>)
@@ -123,8 +122,10 @@ rules // action methods
     ; pkgname2 := <DomainPackage>
     ; pkgname3 := <ActionPackage>
     ; if <fetch(ActionModifierIgnoreValidation)> amod*
-      then cbds_ignorevalidation* := [ class-body-dec|[ public boolean isValidationDisabled(){ return true; } ]| ]
-      else cbds_ignorevalidation* := [] end
+      then cbds_ignorevalidation* := [ class-body-dec|[ public static boolean isValidationDisabled(){ return true; } ]| ]
+      else cbds_ignorevalidation* := [ class-body-dec|[ public static boolean isValidationDisabled(){ return false; } ]| ] end
+    ; pkgname4 := <TemplatePackage>
+    ; x_template := <ThisTemplateClassName>
 
   add-input-id-for-action-as-param :
     params -> <concat> [params,[Arg("actionident",SimpleSort("String"))]]

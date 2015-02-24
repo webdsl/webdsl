@@ -4,19 +4,24 @@ rules
 
   rename-ui :
     t@ActionCall(origname, e1*){annoorig*} -> result
-    with if t2@ActionCall(renamedname, e2*){anno*} := <RenameActionCall> t
+    with if t2@ActionCall(renamedname, e2*){anno*} := <try(desugar-actioncall-pre-rename);RenameActionCall> t
          then
            //add a unique id to each call, which will be used as name attribute, see wrap desugaring below
            nameattr := <toplevel-rename> renamedname
          ; parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
-         ; result := ActionCall(renamedname, e2*){ThisCallParent(parent),ActionCallNameAttribute(nameattr),anno*}
+         ; anno1* := <put-closure-in-anno> anno*
+         ; result := ActionCall(renamedname, e2*){ThisCallParent(parent),ActionCallNameAttribute(nameattr),anno1*}
          else //the action call is being renamed, but the outer definition is not.
               // in this case RenameActionCall fails, the action is not visible, and only the expression
               // arguments are renamed
            e3* := <rename-all> e1* 
-         ; result := ActionCall(origname, e3*){annoorig*}
-         end
-
+         ; anno1* := <put-closure-in-anno> annoorig*
+         ; result := ActionCall(origname, e3*){anno1*}
+         end 
+         
+         // the second rename part is relevant with new action translation, action is not copied to lifted template,
+         // actioncall cannot be resolved locally anymore in lifted template, vars still needs to be rebound to new args/types renamed
+         
 rules
   
   test-action-call = test-signature(CheckActionSignature) 
@@ -31,7 +36,7 @@ rules
 
   eq-type-of-ui :
     ActionCall(f,e*){anno*} -> t
-    where parents := <get-this-call-parent-multiple> 
+    where parents := <get-this-call-parent-multiple>  // fetches all 'ThisCallParent' annotations
         ; t := <fetch-elem(<test-action-call> (<id>, f, e*))> parents //multiple parent templates, since it might be located in a nested template, any of the parents can contain the action
 
 rules //convert deprecated submit constructors to new style
@@ -52,15 +57,17 @@ rules //wrap submit/submitlink in template that handles validation output
 
   desugar-in-define-context :     
     SubmitElem(call{anno_call*}, passign*, elem*){anno*} ->
-    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("s",[Arg(x_aname,SimpleSort("String"))],[SubmitElem(call, passign2*, elem*){anno2*}])]))
+    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("s",[Arg(x_aname1,SimpleSort("String"))],[SubmitElem(call, passign2*, elem*){anno2*}])]))
     with <fetch(?ActionCallNameAttribute(x_aname))> anno_call*
-    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux(|x_aname)> (call,passign*,anno*) 
+    with x_aname1 := <newname-webdsl> x_aname
+    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux(|x_aname1)> (call,passign*,anno*) 
     
   desugar-in-define-context :     
     SubmitLinkElem(call{anno_call*}, passign*, elem*){anno*} -> 
-    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("s",[Arg(x_aname,SimpleSort("String"))],[SubmitLinkElem(call, passign2*, elem*){anno2*}])]))
+    TemplateCall("wrapsubmit",[e_nameprop],[],TemplateWith([ArgDefine("s",[Arg(x_aname1,SimpleSort("String"))],[SubmitLinkElem(call, passign2*, elem*){anno2*}])]))
     with <fetch(?ActionCallNameAttribute(x_aname))> anno_call*
-    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux(|x_aname)> (call,passign*,anno*) 
+    with x_aname1 := <newname-webdsl> x_aname
+    where (e_nameprop,passign2*,anno2*) := <submit-elem-wrap-aux(|x_aname1)> (call,passign*,anno*) 
     
   submit-elem-wrap-aux(|x_argname) :
     (call{anno_call*},passign*,anno*) -> (e_nameprop,passign2*,anno2*)
@@ -74,6 +81,12 @@ rules
       
   add-backend-annotation :
     a@ActionCall(f, e*){anno*} -> a{ActionFargAnno(called-action-fargs),anno*}
-    where has-no-anno(?ActionFargAnno(_))
+    where try(desugar-actioncall-pre-rename); has-no-anno(?ActionFargAnno(_))
     with  parent := <fetch-elem(?DirectEnclosingDefine(<id>))> anno*
         ; called-action-fargs := <test-action-call> (parent, f, e*)
+
+  add-backend-annotation :
+    ActionCall(_,_) -> a
+    where has-no-anno(?ActionFargAnno(_))
+    where a := <try(desugar-actioncall-pre-rename); has-anno(?ActionFargAnno(_))>
+

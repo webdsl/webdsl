@@ -56,3 +56,45 @@ rules //desugar dummy templatecall
       ; QueryAnalysis(analysis, _, _, _, _) := qa
       ; not([] := <filter-traversal-summary> analysis)
       |}
+
+
+rules
+	
+  desugar-in-define-context :
+  	a@Action(amod*, nm, farg1*, b1){anno*} -> Action(amod*, nm, farg3*, b1){anno1*}
+  	where has-no-anno(?SubmitActionTemplateArgsAdded())
+  	    ; AccessControlRulesApplied 
+  	      // after ac is applied, additional arguments might be needed that are used in the ac expression
+  	      //  this desugaring changes arguments, so ac rule matching would break if it came after this
+  	with  (arg2*,farg2*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,b1)
+  	    // not: arg2* arguments are coming from original template, call might be in lifted template,
+  	    //  where the arguments have different types (ref arg instead of regular)
+  	    //  e.g. original has a template var of type Tag, lifted has template argument of type Ref<Tag>
+  	    //  so if there is lifting need to: get closure from call and match names in arg2*
+  	    // note: closure in anno has all template args, but not local args like for loop iterator, 
+  	    //  front-end currently forces actions to be specified at top in template,
+  	    //  and inline action desugaring has already added these local arguments to the action def and call
+  	    ; anno1* := [SubmitActionTemplateArgsAdded() | anno*]
+      	; farg3* :=  [farg1*,farg2*]
+        ; rules ( 
+          	DesugarSubmitActionCall : // matching only on the unique name 'nm' of the defined action
+              ActionCall(nm, arg1*){anno2*} ->  ActionCall(nm, [arg1*,arg5*]){anno3*}
+              where has-no-anno(?SubmitActionTemplateArgsAdded())
+                  ; AccessControlRulesApplied
+                  ; anno3* := [SubmitActionTemplateArgsAdded(),ActionFargAnno(farg3*)| anno2*] 
+                  ; (arg4*,farg4*) := <get-args-fargs-from-closure-in-anno-filtered> (anno2*,anno2*) // not filtering here, just want complete closure
+                  ; if arg2* := arg4* // if already the same, skip
+                    then arg5* := arg2*
+                    else arg5* := <filter(replace-var-in-action-call(|arg4*))> arg2* // replace with var{uniq} from action call environment
+                    end
+          ) 
+        
+  // strings with annotations seem to take annotations into account when matching, strip annos here because we are looking for a match of name ignoring annotations  
+  replace-var-in-action-call(|arg4*):
+	Var(x){anno*} -> result
+	where y := x{}
+	    ; result := <fetch-elem(where(\z -> <?Var(<strip-annos>);?y> z\))> arg4*
+ 
+  desugar-actioncall-pre-rename = ?ActionCall(_,_); DesugarSubmitActionCall
+  
+signature constructors SubmitActionTemplateArgsAdded : Term

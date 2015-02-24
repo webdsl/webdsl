@@ -223,9 +223,11 @@ rules
   rename-actions-find-action(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope, don't enter nested defines
 
   rename-actions-find-action(|direct-enclosing-define-name) :
-    a@Action(amod*, nm1, args1, b1) -> Action(amod*, nm2, args1, b1)
-    with nm2 := nm1{<toplevel-rename> nm1{}}
-       ; rules ( RenameActionCall :
+    a@Action(amod*, nm1, args1, b1){anno1*} -> Action(amod*, nm2, args1, b1){anno1*}
+    with if <?nm1{}> nm1 // prevent additional renaming after it has received a unique name
+         then nm2 := nm1{<toplevel-rename> nm1{}}
+         else nm2 := nm1 end
+       ; rules ( RenameActionCall : // scoped in template body, called in org/webdsl/dsl/languages/ui/submit.str for rename of ActionCall
                   ActionCall(nm1, a1*){anno*} -> ActionCall(nm2, a2*){DirectEnclosingDefine(direct-enclosing-define-name),anno*}
                   with  a2* := <rename-all> a1*
                )
@@ -233,7 +235,7 @@ rules
   rename-actions(|direct-enclosing-define-name) = ?Define(_, _, _, _, _) // End of scope, don't enter nested defines
 
   rename-actions(|direct-enclosing-define-name) :
-    a@Action(amod*, nm2, args1, b1) -> Action(amod*, nm2, args2, b2)
+    a@Action(amod*, nm2, args1, b1){anno*} -> Action(amod*, nm2, args2, b2){anno1*}
     with {| Rename, VarInContext, InActionContext
           : rules( InActionContext := a)
           ; args2 := <map(rename)> args1
@@ -241,8 +243,21 @@ rules
           ; b2 := <rename-all> b1
           |}
        ; <with-origin(declare-page-action(|direct-enclosing-define-name) | a)> Action(amod*, nm2, args2, b1)
+       ; anno1* := <put-closure-in-anno> anno*
 
-//  rename = RenameActionCall
+  // since actions are only visible locally, they are not declared in regular declare phase for globally visible definitions
+  declare-page-action(|direct-enclosing-define-name) =
+    ?a@Action(amod*, name, fargs, body)
+    ; with(sig@(n,t*) := <normalize-signature> (name,fargs))
+    ; with(
+        rules(
+          ActionDefinition  : name -> a
+
+          CheckActionSignature :
+            (direct-enclosing-define-name, n, t2*) -> fargs
+            where <zip(type-compatible)> (t*, t2*)
+        )
+      )
 
   rename-ui :
     a@InitAction(bl) -> InitAction(bl2)

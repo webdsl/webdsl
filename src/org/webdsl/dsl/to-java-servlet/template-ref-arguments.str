@@ -35,14 +35,19 @@ rules // case of template var
   create-assigns-for-ref-arg-helper = pass-on-ref-arg
     
   pass-on-ref-arg :
-    (Arg(_,RefSort(_)), e_webdsl@Var(x)) -> e|[ x ]|
+    (Arg(_,<is-ref-type>), e_webdsl@Var(x)) -> e|[ x ]|
     where <has-ref-type> e_webdsl
   pass-on-ref-arg :
-    (Arg(_,RefSort(_)), Cast(Var(x),type)) -> e|[ x ]|
+    (Arg(_,<is-ref-type>), Cast(Var(x),type)) -> e|[ x ]|
     where <is-ref-type> type
     
+ // covered by expression-to-java-servlet: 
+ // pass-on-ref-arg :  
+ //  (Arg(_,<not(is-ref-type)>), e_webdsl@Var(x)) -> e|[ x.get() ]|
+ //  where <has-ref-type> e_webdsl
+ 
   create-assigns-for-ref-arg-helper :
-    (Arg(_,RefSort(_)), e_webdsl@Var(_)) -> e|[ new x_refstorageclass(e_this) ]| //`this` is the template class
+    (Arg(_,<is-ref-type>), e_webdsl@Var(_)) -> e|[ new x_refstorageclass(e_this) ]| //`this` is the template class
     where not(<has-ref-type> e_webdsl)
     with  if x_tclass := <ThisTemplateClassName> 
           then e_this := java:expr|[ x_tclass.this ]| //avoid `this` issue when call occurs in an inner class, e.g. used for actions
@@ -119,7 +124,7 @@ rules // case of template var
 rules //case of object field access
     
   create-assigns-for-ref-arg-helper :
-    (Arg(_,RefSort(_)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_refstorageclass(e_javaobj) ]|
+    (Arg(_,<is-ref-type>), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_refstorageclass(e_javaobj) ]|
     where not(<has-ref-type> e_webdsl)
     with  x_refstorageclass := <generate-ref-arg-storage-class> e_webdsl
         ; e_java := <expression-to-java-servlet> e_webdsl
@@ -130,7 +135,8 @@ rules //object field access, page specific rules
   create-assigns-for-ref-arg-helper-page-ref-arg = pass-on-ref-arg
 
   create-assigns-for-ref-arg-helper-page-ref-arg :
-    (Arg(_,RefSort(farg_type)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ e_javaobj.getId()+"!"+"~classname" ]|
+    (Arg(_,srt), e_webdsl@FieldAccess(e_obj,f)) -> e|[ e_javaobj.getId()+"!"+"~classname" ]|
+    where farg_type := <is-ref-type-get-inner-type> srt
     where not(<has-ref-type> e_webdsl) 
     with  classnamefirst := <get-refargclassname-first> e_webdsl
         ; classnamesecond := <get-refargclassname-second> e_webdsl
@@ -141,7 +147,8 @@ rules //object field access, page specific rules
 rules //case of object field access, regular and ajax template
          
   create-assigns-for-ref-arg-helper :
-    (Arg(_,RefSort(farg_type)), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_classname(e_javaobj) ]| 
+    (Arg(_,srt), e_webdsl@FieldAccess(e_obj,f)) -> e|[ new x_classname(e_javaobj) ]| 
+    where farg_type := <is-ref-type-get-inner-type> srt
     where not(<has-ref-type> e_webdsl)
     with  classnamefirst := <get-refargclassname-first> e_webdsl
         ; classnamesecond := <get-refargclassname-second> e_webdsl
@@ -261,7 +268,7 @@ rules
     Call(a,"getEntity",[]) -> java |[ x_refvar.getEntity() ]|
     where <has-ref-type> a
     with  Var(x_refvar) := a
-  
+
   call-to-java-servlet : 
     Call(a,"getValidationErrors",[]) -> java |[ x_refvar.getValidationErrors() ]|
     where <has-ref-type> a
@@ -277,4 +284,3 @@ rules
     Call(a,"getReflectionProperty",[]) -> java |[ x_refvar.getReflectionProperty() ]|
     where <has-ref-type> a
     with  Var(x_refvar) := a
-    
