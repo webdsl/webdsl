@@ -1,42 +1,75 @@
 module org/webdsl/dsl/generation/typechecker/drop-unused-templates
 
-imports org/webdsl/dsl/languages/ui/declare
-imports org/webdsl/dsl/languages/ui/templatecall-utils
-imports org/webdsl/dsl/languages/ui/templatecall
-imports org/webdsl/dsl/languages/ui/rename
+imports 
+  libstrategolib
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/error
+  org/webdsl/dsl/languages/ui/declare
+  org/webdsl/dsl/languages/ui/templatecall-utils
+  org/webdsl/dsl/languages/ui/templatecall
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/local-redefine-template
 
-strategies
-	
-	drop-unused-templates:
-		Application(n,ast) -> Application(n,ast')
-		where record-used-templates
-			; ast' := <alltd( is-template; try(remove-unused-template) )> ast
-		
-	record-used-templates = bagof-BodyForUsedTemplatesAnalysis; map(record-tcs); all-keys-UsedTemplateNames
-	
-	record-tcs:
-		body  -> body
-		with  tcs := <collect-om(is-defined-template-call)> body
-			; tcNames := <map(is-defined-tc-get-called-tc)> tcs
-			; toRecord := <remove-all(UsedTemplateNames)> tcNames //only check a specific templatecall once, to avoid infinite recursion
-			; <map(\ x -> <rules( UsedTemplateNames : x )> \)> toRecord
-			; <map(\ x -> <CurrentTemplateDecl; ?Define(_, _, _, _, <id>); record-tcs> x \)> toRecord
-			; <map(\ x -> <try(get-tc-elements; record-tcs)> x \)> tcs //traverse body (elements) of template call
-
+rules
   
-	get-current-page-definition-from-page-signature:
-		(mods, name, args) -> templateDecl
-		with genname := <generate-template-name-fargs> (name, args, mods)
-			; templateDecl := <CurrentTemplateDecl> genname
+  mark-unused-templates:
+    Application(n,ast) -> Application(n,ast)
+    where record-used-templates
+    
+  record-used-templates = bagof-BodyForUsedTemplatesAnalysis; map(record-tcs)
+  
+  record-tcs:
+    body  -> body
+    with  tcs := <collect-om(is-defined-template-call <+ get-def-from-local-redefine; generate-template-name-from-def)> body
+	    ; tcNames := <map(try(is-defined-tc-get-called-tc))> tcs // only for is-defined-template-call results
+        ; toRecord := <remove-all(UsedTemplateNames)> tcNames // only check a specific templatecall once, to avoid infinite recursion
+        ; <map(\ x -> <rules( UsedTemplateNames : x )> \)> toRecord
+        ; <filter(\ x -> <CurrentTemplateDecl; ?Define(_, _, _, _, <id>); record-tcs> x \)> toRecord // CurrentTemplateDecl can fail on calls to generated templates like login()
+        ; <map(\ x -> <try(get-tc-elements; record-tcs)> x \)> tcs // traverse body (elements) of template call
 
-	is-template= ?Define(mods,name,args,_,_); not(<fetch(?Page() <+ ?(Email()))> mods)
-	
-	remove-unused-template:
-		d@Define(mods,name,args,_,_) -> []
-		where <not(?"elementsempty"); not(?"wrapsubmit"); not(?"output")> name //special template calls that are later used during compilation
-		    ; fargs := <formal-arguments-to-types> args
-			; genname := <generate-template-name> (name, fargs)
-			; not(UsedTemplateNames)
-			; sig@(n,t*) := <normalize-signature> (name,args)
-			; rules( TemplateSignature :- (n, t*))
-			; !genname; debug(!"Unused template removed from tree: ")  	  
+rules
+  
+  constraint-error-ui : 
+    Define(_,name,farg*,_,_) -> <add-warning(|["Template not required by any page, excluded from compiled application: ", <pp-func-sig-farg> (name, farg*)])> name
+    where can-template-be-removed 
+
+  can-template-be-removed :
+    Define(mods,name,farg*,_,_)  -> <id>
+    where is-removable-template-term
+    where not(WebDSLCompileBuiltIns)
+    where not(defined-in-built-in-app-file) // built-in.app templates are precompiled/cached, should not be removed here
+    where <not(fetch(?Local()))> mods 
+    where <not(exclude-from-unused-templates-analysis)> name
+    where genname := <generate-template-name> (name, <formal-arguments-to-types> farg*)
+        ; <not(UsedTemplateNames)> genname
+          
+  is-removable-template-term = ?Define(mods,name,args,_,_); not(<fetch(?Page() <+ ?Email())> mods)
+     
+  exclude-from-unused-templates-analysis =  // calls to these templates are generated during desugaring/transformations and not visible yet  
+     ?"elementsempty"
+  <+ ?"wrapsubmit"
+  <+ ?"output"
+  <+ ?"login"
+  <+ ?"logout"
+  <+ ?"authentication"
+  
+  // overriden data validation templates should be treated as roots for template usage analysis
+  // used in org/webdsl/dsl/languages/ui/rename to decide whether to add define bodies to BodyForUsedTemplatesAnalysis dynamic rule
+  root-define-names-for-unused-template-analysis =
+     ?"templateSuccess"
+  <+ ?"messages"
+  <+ ?"errorTemplateAction"
+  <+ ?"errorTemplateForm"
+  <+ ?"errorTemplateInput"
+  
+rules
+
+  drop-unused-templates:
+    Application(n,ast) -> Application(n,ast')
+    where ast' := <alltd( is-removable-template-term; try(remove-unused-template) )> ast
+  
+  remove-unused-template:
+    d@Define(mods,name,farg*,_,_) -> RemoveMe()
+    where can-template-be-removed 
+        ; (n,t*) := <normalize-signature> (name,farg*)
+        ; rules( TemplateSignature :- (n, t*))

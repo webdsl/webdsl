@@ -31,6 +31,12 @@ application test
     teste()
   }
   
+  page unused(){
+    something5
+    rssLink
+    tfun1
+  }
+  
   template something(){
     "test-1"
   }

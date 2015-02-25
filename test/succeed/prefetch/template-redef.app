@@ -46,7 +46,20 @@ init {
   }
 }
 
-page root() {}
+page root() {
+  redef(Child{})
+  redef2(Child{}, Child{})
+  redefRootAlt(Root{})
+  redefAlt(Child{})
+  redef2Alt(Child{}, Child{})
+  default()
+  same()
+  sameAlt()
+  calleeRedef()
+  callee(Root{})
+  callerRedef()
+  callerCallee()
+}
 
 template redefRoot(r : Root) {
   output(r.default)

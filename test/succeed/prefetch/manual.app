@@ -55,7 +55,10 @@ init{
   }
 }
 
-define page root() {
+page root(){
+  templ(RootBase{})
+  templ()
+  templWithRedef()
 }
 
 function testIntCond() {

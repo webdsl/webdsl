@@ -34,7 +34,9 @@ init {
 	}
 }
 
-page root() {withCondition}
+page root(){ withCondition }
+
+page unused(){ noCondition }
 
 template noCondition() {
 	for(r : Root where r.show() order by r.orderKey asc) {
