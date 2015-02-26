@@ -64,9 +64,11 @@ rules
         @SuppressWarnings("all")
         public class x_Page extends TemplateServlet
         {
-          public void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems) {
-          	bstm_prefetch*
-          }
+          ~*<replace-with-empty-list-if-empty(|bstm_prefetch*)> class-body-dec*|[
+            public void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems) {
+              bstm_prefetch*
+            }
+          ]|
 
           ~*cbds_prefetch*
 
@@ -81,50 +83,21 @@ rules
             return staticEnv;
           }
 
-          protected void storeArguments(Object[] args) {
-            bstm_arguments*
-            bstm_prefetchargs*
-          }
-
-          @Partial
-          protected void storeInputsInternal() {
-          }
-
-          @Partial
-          protected void validateInputsInternal() {
-          }
-
-          @Partial
-          protected void initialize() {}
-
-          @Partial
-          protected void initSubmitActions(){}
-
-          @Partial
-          protected void initActions() {}
-
-          @Partial
-          protected void initializeLocalVars() {}
-
-          @Partial
-          protected void initializeLocalVarsOnce() {}
-
-          @Partial
-          protected void handleActionsInternal() { }
-
-          @Partial
-          private void callTemplates() { }
+          ~*<replace-with-empty-list-if-empty(|bstm_arguments*,bstm_prefetchargs*)> class-body-dec*|[
+            protected void storeArguments(Object[] args) {
+              bstm_arguments*
+              bstm_prefetchargs*
+            }
+          ]|
 
           public void setPageArguments(String[] pa) {
             pageArguments = pa;
           }
+          
           public String[] getPageArguments() {
             return pageArguments;
           }
-
-          @Partial
-          protected void renderInternal(){ }
-
+         
           public String getUniqueName() {
             return "~x";
           }
@@ -148,21 +121,26 @@ rules
             return "~x_TemplateSig";
           }
 
-          protected void tryWriteSpanOpen(PrintWriter outtemp){
-            bstm_so*
-          }
-          protected void tryWriteSpanClose(PrintWriter outtemp){
-            bstm_sc*
-          }
+          ~*<replace-with-empty-list-if-empty(|bstm_so*)> class-body-dec*|[
+            protected void tryWriteSpanOpen(PrintWriter outtemp){
+              bstm_so*
+            }
+          ]|
+          
+          ~*<replace-with-empty-list-if-empty(|bstm_sc*)> class-body-dec*|[
+            protected void tryWriteSpanClose(PrintWriter outtemp){
+              bstm_sc*
+            }
+          ]|
 
-          protected void putLocalDefinesInEnv(){
-            bstm_localtplredefs*
-          }
-
-          protected boolean isAjaxTemplate(){
-            return e_isajaxtemplate;
-          }
-
+          ~*<replace-with-empty-list-if-empty(|bstm_localtplredefs*)> class-body-dec*|[
+            protected void putLocalDefinesInEnv(){
+              bstm_localtplredefs*
+            }
+          ]|
+          
+          ~*cbds_is-ajax-template*
+      
           public String getElementsContext(){
             if(calledName==null){
             ~*<if <fetch(?TemplateDefineNameBeforeLifting(namebeforelift))> mod*
@@ -221,24 +199,30 @@ rules
        ; bstm_prefetch* := <add-indices; filter(prefetch-function-for-formal-argument(|elem*)); flatten-list; if-optimization-enabled> farg*
        ; e_argrepr := <formal-action-args-to-state-enc> farg*
        ; if <fetch(AjaxTemplate)> mod*
-         then e_isajaxtemplate := java:expr |[ true ]|
-         else e_isajaxtemplate := java:expr |[ false ]|
-         end
+         then cbds_is-ajax-template* := class-body-dec*|[
+                protected boolean isAjaxTemplate(){
+                  return true;
+                }
+              ]|
+         else cbds_is-ajax-template* := [] end
        ; cbds_load-template-map-and-ref-arg-classes* := <load-template-map-and-ref-arg-classes> (bstm_refarginlocaldef*, def, bstm_localtplredefclasses*)
 
+  replace-with-empty-list-if-empty(|list) = if where(<?[]> list) then ![] else id end
+  replace-with-empty-list-if-empty(|list1,list2) = if where(<?[]> list1; <?[]> list2) then ![] else id end
+
   load-template-map-and-ref-arg-classes :
- 	(bstm_refarginlocaldef*, def, bstm_localtplredefclasses*) -> result
+   (bstm_refarginlocaldef*, def, bstm_localtplredefclasses*) -> result
     with liftedtemplates := <extract-lifted-templates-from-template-def> def
       ; if [] := liftedtemplates
-    	  then bstm_lifted* := []
-    	     ; bstm_liftedrefarg* := []
-    	  else bstm_lifted* := [ExprStm( <lifted-template-load-template-map-helper> (liftedtemplates, java:expr|[ staticEnv ]|) )]
-    	     ; bstm_liftedrefarg* :=
-    	       	 <map({\
+        then bstm_lifted* := []
+           ; bstm_liftedrefarg* := []
+        else bstm_lifted* := [ExprStm( <lifted-template-load-template-map-helper> (liftedtemplates, java:expr|[ staticEnv ]|) )]
+           ; bstm_liftedrefarg* :=
+               <map({\
                  TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses
                  with  z_value := <TopLevelTemplateClassName> z
                \})> liftedtemplates
-    	  end
+        end
       ; pagecallrefargclass* := <collect(?PageCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>);not([]));concat;concat> def // with arguments
       ; ajaxcallrefargclass* := <collect(?TemplateCall(_,<filter({?arg{anno*};<filter(?RefArgClassName(<id>));not([])> anno*})>,_,_);not([]));concat;concat> def // with arguments
       ; bstm_refargclasses* := <map({\
@@ -264,22 +248,22 @@ rules
         ]|
 
   extract-lifted-templates-from-template-def =
-  	collect-all( // collect-all because rendertemplate(TemplateCall) might be nested in templatecall arguments
-    	          extract-lifted-templates-from-template-entityderive
-    	       <+ extract-lifted-templates-from-template-def-elements
-    	       )
+    collect-all( // collect-all because rendertemplate(TemplateCall) might be nested in templatecall arguments
+                extract-lifted-templates-from-template-entityderive
+             <+ extract-lifted-templates-from-template-def-elements
+             )
   ; concat
   ; remove-all(?TemplateCall("elementsempty",_,_,_)) // elementsempty indicates no elements, no lookup entry is needed for this template
 
   extract-lifted-templates-from-template-def-elements =
-  	?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]) // template arguments, elements and with/requires
+    ?TemplateCall(_,_,<filter(?TemplateCall(_,_,_,_))>,_);not([]) // template arguments, elements and with/requires
 
   extract-lifted-templates-from-template-entityderive =
     where(?TemplateCall(_,_,<fetch(?EntityDeriveTemplateCall())>,_)) // entityderive template is being called, which is generated for each call and should be registered for lookup in the calling template
   ; ![<id> | <extract-lifted-templates-from-template-def-elements <+ ![]>] // these calls can also have lifted elements
 
   lifted-template-load-template-map-helper:
-  	(liftedtemplates,e_env) -> <foldl(lifted-template-load-template-map-helper-fold)> (liftedtemplates,e_env)
+    (liftedtemplates,e_env) -> <foldl(lifted-template-load-template-map-helper-fold)> (liftedtemplates,e_env)
 
   lifted-template-load-template-map-helper-fold:
     (TemplateCall(z,_,_,_),e_env) -> expr |[ z_value.loadTemplateMap(e_env) ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap

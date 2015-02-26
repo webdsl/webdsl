@@ -69,7 +69,7 @@ public abstract class TemplateServlet {
       }
     }
     
-    public abstract void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems);
+    public void prefetchFor(int i, java.util.Collection<? extends org.webdsl.WebDSLEntity> elems){}
     
     public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs) {
         if(!skipThisTemplate){
@@ -112,12 +112,15 @@ public abstract class TemplateServlet {
       }
     }
     
-    protected abstract void storeInputsInternal();
-    protected abstract void validateInputsInternal();
-    protected abstract void handleActionsInternal();
-    protected abstract void renderInternal();
-    
-    protected abstract boolean isAjaxTemplate();
+    protected void storeInputsInternal(){}
+    protected void validateInputsInternal(){}
+    protected void handleActionsInternal(){}
+    protected void renderInternal(){}
+
+    protected boolean isAjaxTemplate(){ 
+    	return false;
+    }
+
     private boolean alreadyPassedThroughAjaxTemplate = false;
     protected void beforeRender(){
         if(threadLocalPageCached.passedThroughAjaxTemplate()){
@@ -133,16 +136,16 @@ public abstract class TemplateServlet {
         }    	
     }
     
-    protected abstract void tryWriteSpanOpen(PrintWriter outtemp);
-    protected abstract void tryWriteSpanClose(PrintWriter outtemp);
-    protected abstract void putLocalDefinesInEnv();
-    protected abstract void storeArguments(Object[] args);
+    protected void tryWriteSpanOpen(PrintWriter outtemp){}
+    protected void tryWriteSpanClose(PrintWriter outtemp){}
+    protected void putLocalDefinesInEnv(){}
+    protected void storeArguments(Object[] args){}
     
-    protected abstract void initialize();
-    protected abstract void initSubmitActions();
-    protected abstract void initActions();
-    protected abstract void initializeLocalVars();
-    protected abstract void initializeLocalVarsOnce();
+    protected void initialize(){}
+    protected void initSubmitActions(){}
+    protected void initActions(){}
+    protected void initializeLocalVars(){}
+    protected void initializeLocalVarsOnce(){}
     
     public abstract String getUniqueName();
     public abstract String getTemplateClassName();
@@ -151,25 +154,6 @@ public abstract class TemplateServlet {
     public String getTemplateContext(){
       return threadLocalPageCached.getTemplateContextString();
     } 
-    
-    private Map<String,Object> actions = null;
-    public Map<String,Object> getActions(){
-        return actions;
-    }
-    public Object getAction(String key) {
-        if (actions != null && actions.containsKey(key)){
-            return actions.get(key);
-        }
-        else{
-            throw new RuntimeException("Action with name "+key+" was not found in template "+getUniqueName());
-        }
-    }
-    public void putAction(String key, Object value) {
-        if(actions == null){
-            actions = new HashMap<String,Object>();
-        }
-        actions.put(key, value);
-    }
     
     //template name used to call it might be different due to override/local redefine
     //null means use the regular unique template name

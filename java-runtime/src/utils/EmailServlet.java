@@ -7,7 +7,11 @@ import org.webdsl.lang.Environment;
 public abstract class EmailServlet {
 
 	public abstract void render(Object[] args, Environment env);
-
+	protected void storeArguments(Object[] args){}
+    protected void renderInternal(){}
+    protected void initialize(){}
+    protected void initActions(){}
+    
 	protected static java.util.Properties props = new java.util.Properties();
 	protected static java.util.Properties sessionProps = new java.util.Properties();
 	protected static String host = null;
