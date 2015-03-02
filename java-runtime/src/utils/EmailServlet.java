@@ -1,6 +1,12 @@
 package utils;
 
+import static utils.AbstractPageServlet.ACTION_PHASE;
+import static utils.AbstractPageServlet.DATABIND_PHASE;
+import static utils.AbstractPageServlet.RENDER_PHASE;
+import static utils.AbstractPageServlet.VALIDATE_PHASE;
+
 import java.io.IOException;
+import java.util.Map;
 
 import org.webdsl.lang.Environment;
 
@@ -20,6 +26,9 @@ public abstract class EmailServlet {
 	protected static String protocol = "smtps";
 	protected static boolean authenticate = true;
 	public AbstractPageServlet threadLocalPageCached = null;
+	
+    protected Environment env;
+	
     protected String uniqueid;
     public String getUniqueId(){
     	if(uniqueid == null){
@@ -119,4 +128,24 @@ public abstract class EmailServlet {
 			return false;
 		}
 	}
+	
+	// similar to TemplateServlet.handleTemplateCall, but simplified because emails only have render phase
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    	if(tcallid != null){
+    		threadLocalPageCached.enterTemplateContext(tcallid);
+    	}
+		TemplateServlet calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
+		Environment newenv = twithcallsmap;
+	    calledInstance.render(parentname, targs, newenv, attrsmapout);
+    	if(tcallid != null){
+    		threadLocalPageCached.leaveTemplateContext();
+    	}
+    	ThreadLocalTemplate.set(this);
+    }
+    
+    public void printTemplateCallException(Exception ex, String errormessage){
+    	org.webdsl.logging.Logger.error("Problem occurred while rendering email, in template call: "+errormessage);
+    	utils.Warning.printSmallStackTrace(ex, 5);
+    }
+
 }

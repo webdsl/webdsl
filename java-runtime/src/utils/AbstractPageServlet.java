@@ -676,10 +676,10 @@ public abstract class AbstractPageServlet{
     public String validateTemplate(String name, Object[] args, Environment env){
         return executeTemplatePhase(VALIDATE_PHASE, name, args, env);
     }
-    public static int DATABIND_PHASE = 1;
-    public static int VALIDATE_PHASE = 2;
-    public static int ACTION_PHASE = 3;
-    public static int RENDER_PHASE = 4;
+    public static final int DATABIND_PHASE = 1;
+    public static final int VALIDATE_PHASE = 2;
+    public static final int ACTION_PHASE = 3;
+    public static final int RENDER_PHASE = 4;
     public String executeTemplatePhase(int phase, String name, Object[] args, Environment env){
         StringWriter s = new StringWriter();
         PrintWriter out = new PrintWriter(s);
@@ -687,8 +687,8 @@ public abstract class AbstractPageServlet{
         try{
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
             switch(phase){
-                case 2: temp.validateInputs(name, args, env, null); break;
-                case 4: temp.render(name, args, env, null); break;
+                case VALIDATE_PHASE: temp.validateInputs(name, args, env, null); break;
+                case RENDER_PHASE:   temp.render(name, args, env, null); break;
             }
         }
         catch(Exception oe){
@@ -697,8 +697,8 @@ public abstract class AbstractPageServlet{
                 TemplateServlet temp = ((TemplateServlet)env.getTemplate(tcall.name).newInstance());
                 String parent = env.getWithcall(name)==null?null:env.getWithcall(name).parentName;
                 switch(phase){
-                    case 2: temp.validateInputs(parent, tcall.args, env, null); break;
-                    case 4: temp.render(parent, tcall.args, env, null); break;
+                    case VALIDATE_PHASE: temp.validateInputs(parent, tcall.args, env, null); break;
+                    case RENDER_PHASE:   temp.render(parent, tcall.args, env, null); break;
                 }
             }
             catch(Exception ie){

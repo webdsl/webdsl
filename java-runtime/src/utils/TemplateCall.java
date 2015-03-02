@@ -283,5 +283,15 @@ public class TemplateCall {
 	  }
 	  return false;
   }
+  
+  
+	public static final void printClassStyleAttributes(StringBuilder classattrs, StringBuilder styleattrs, java.io.PrintWriter out){
+		if(classattrs.length() > 0){
+			out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("class",classattrs));
+		}
+		if(styleattrs.length() > 0){
+			out.print(org.webdsl.tools.Utils.showAttributeEscapeHtml("style",styleattrs)); 
+		}
+	}
 
 }

@@ -1,8 +1,12 @@
 package utils;
 
+import static utils.AbstractPageServlet.DATABIND_PHASE;
+import static utils.AbstractPageServlet.VALIDATE_PHASE;
+import static utils.AbstractPageServlet.ACTION_PHASE;
+import static utils.AbstractPageServlet.RENDER_PHASE;
+
 import java.io.PrintWriter;
 import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -211,9 +215,11 @@ public abstract class TemplateServlet {
         } 
     } 
     
+    
     protected boolean isAjaxSubmitRequired(){
         return isAjaxSubmitRequired(false);
     }
+    
     protected boolean isAjaxSubmitRequired(boolean ajaxmod){
       return threadLocalPageCached.isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
         || threadLocalPageCached.isAjaxRuntimeRequest() //current request came from ajax runtime
@@ -221,4 +227,55 @@ public abstract class TemplateServlet {
         || ajaxmod //submit buttons is defined with ajax modifier '[ajax]'
         || threadLocalPageCached.getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
     }
+    
+    
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, TemplateContext tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    	utils.TemplateContext tmptc = threadLocalPageCached.getTemplateContext();
+    	threadLocalPageCached.setTemplateContext(tcallid); 
+    	handleTemplateCall(phase, inForLoop, forelementcounter, (String)null, tname, targs, twithcallsmap, parentname, attrsmapout);
+    	threadLocalPageCached.setTemplateContext(tmptc);
+    }
+
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    	String ident = "";
+    	if(inForLoop){ 
+    		ident += forelementcounter;
+    	}
+    	if(tcallid != null){
+    		threadLocalPageCached.enterTemplateContext(tcallid);
+    		ident += tcallid;    		
+    	}
+    	else{
+    		ident += "customtc";
+    	}
+		TemplateServlet calledInstance = null;
+		if(RENDER_PHASE == phase && onlyPerformingRenderPhase()){
+			calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
+		}
+		else{
+			calledInstance = (TemplateServlet) getTemplatecalls().get(ident);
+			if(calledInstance == null){
+				calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
+    			getTemplatecalls().put(ident, calledInstance);
+    		}
+		}
+		Environment newenv = twithcallsmap;
+		// this includes passing the called name, so that the called template can figure out what name was used to call it, might be different due to override/local redefine
+	    switch(phase){
+          case DATABIND_PHASE: calledInstance.storeInputs(parentname, targs, newenv, attrsmapout); break;
+          case VALIDATE_PHASE: calledInstance.validateInputs(parentname, targs, newenv, attrsmapout); break;
+          case ACTION_PHASE:   calledInstance.handleActions(parentname, targs, newenv, attrsmapout); break;
+          case RENDER_PHASE:   calledInstance.render(parentname, targs, newenv, attrsmapout); break;
+        }
+    	if(tcallid != null){
+    		threadLocalPageCached.leaveTemplateContextChecked(tcallid);
+    	}
+    	ThreadLocalTemplate.set(this);
+    }
+ 
+    public void printTemplateCallException(Exception ex, String errormessage){
+    	org.webdsl.logging.Logger.error("Problem occurred in template call: "+errormessage);
+    	utils.Warning.printSmallStackTrace(ex, 5);  // print first few lines of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
+    }
+    
 }

@@ -364,60 +364,30 @@ rules //templatecall
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
   generate-template-call(|x_methodname):
-    (tc, bstm_cachedlookup*, e_name, tname, e, e_withcallsmap, bstm_attrs*, e_parentname) ->
-    <for-loop-counter-wrap-code> 
+    (tc{anno*}, bstm_cachedlookup*, e_name, x_tcallid, e, e_withcallsmap, bstm_attrs*, e_parentname) ->
     bstm* |[
-      ident += e_tname;
-      bstm_entertemplatecontext*
-      try{
+      try{  
         bstm_cachedlookup*
-        if(e_shouldcreatetemplateinstance){
-          getTemplatecalls().put(ident,e_newtemplateinstance);
-        }
-        org.webdsl.lang.Environment newenv = e_withcallsmap;
-        bstm_attrs*
-        (onlyPerformingRenderPhase()?e_newtemplateinstance:e_retrievetemplateinstance).x_methodname(e_parentname, e, newenv, attrsmapout); //e_name is passed here, so that the called template can figure out what it name was used to call it, might be different due to override/local redefine
-        ~*<![];try(<?"handleActions"> x_methodname;!bstm*|[
-          if (threadLocalPageCached.hasExecutedAction)
-            return;
-        ]|)>
+        bstm_attrs1*
+        handleTemplateCall(e_phase, inForLoop, forelementcounter, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
       }
-      catch(Exception ex) // if any exception occurs, ignore this template. e.g. nullpointer/indexoutofbounds in arguments 
-      {
-        org.webdsl.logging.Logger.error("Problem occurred in template call: "+e_tcerrormessage);
-        //org.webdsl.logging.Logger.error(ex.toString());
-        utils.Warning.printSmallStackTrace(ex); // print first line of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
+      catch(Exception ex){ // if any exception occurs, ignore this template. e.g. nullpointer/indexoutofbounds in arguments 
+        printTemplateCallException(ex, e_tcerrormessage);
       }
-      ident = "";
-      bstm_leavetemplatecontext*
-      //set ThreadLocalTemplate back to current template
-      ThreadLocalTemplate.set(this);
     ]|
-    with  e_newtemplateinstance := java:expr|[ (TemplateServlet) env.getTemplate(e_name).newInstance() ]|
-        ; e_retrievetemplateinstance := java:expr|[ ((TemplateServlet) getTemplatecalls().get(ident)) ]|
-        ; if not(<?"render"> x_methodname)
-          then e_shouldcreatetemplateinstance := java:expr|[ getTemplatecalls().get(ident)==null ]|
-          else e_shouldcreatetemplateinstance := java:expr|[ !onlyPerformingRenderPhase() && getTemplatecalls().get(ident)==null ]| end
-        ; e_tcerrormessage := <template-call-to-java-string> tc
-        ; if is-template-context-passed := <not(<is-string> tname)>
-          then x_tmptc := <newname> "tempcontext"
-             ; e_templatecontext := <expression-to-java-servlet> tname
-             ; e_tname := expr|["customtc"]|
-             ; bstm_entertemplatecontext* := bstm*|[ 
-                  utils.TemplateContext x_tmptc = threadLocalPageCached.getTemplateContext();
-                  threadLocalPageCached.setTemplateContext(e_templatecontext); 
-               ]|
-             ; bstm_leavetemplatecontext* := bstm*|[ 
-                  threadLocalPageCached.setTemplateContext(x_tmptc);
-               ]|
-          else x_tname := tname
-             ; e_tname := expr|["~x_tname"]|
-             ; bstm_entertemplatecontext* := bstm*|[ 
-                  threadLocalPageCached.enterTemplateContext(e_tname);
-               ]|
-             ; bstm_leavetemplatecontext* := 
-                  <!bstm*|[ threadLocalPageCached.leaveTemplateContext(); ]|
-                  ;if-debug(!bstm*|[ threadLocalPageCached.leaveTemplateContextChecked(e_tname); ]|)>
+    with  if <?"storeInputs">    x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.DATABIND_PHASE ]| end
+        ; if <?"validateInputs"> x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.VALIDATE_PHASE ]| end
+        ; if <?"handleActions">  x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.ACTION_PHASE ]| end
+        ; if <?"render">         x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.RENDER_PHASE ]| end
+    with  if <is-string> x_tcallid
+          then e_tcallid := java:expr|["~x_tcallid"]|
+          else e_tcallid := <expression-to-java-servlet> x_tcallid end
+    with  e_tcerrormessage := <template-call-to-java-string> tc
+    with  if <?bstm*|[ Map<String,String> attrsmapout = TemplateCall.EmptyAttrs; ]|> bstm_attrs*
+          then bstm_attrs1* := []
+             ; e_attrs := java:expr|[ TemplateCall.EmptyAttrs ]|
+          else bstm_attrs1* := bstm_attrs*
+             ; e_attrs := java:expr|[ attrsmapout ]|
           end
 
   template-call-to-java-string: 
@@ -467,7 +437,7 @@ rules
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     where e := <create-elements-call-name> x_name
     with  // call common templatecall translation
-          x_elementscall := <newname> "elems"
+          x_elementscall := "elems"
         ; bstm_cachedlookup* := bstm*|[ utils.TemplateCall x_elementscall = env.getWithcall(e); ]| 
         ; java_tname := expr|[ x_elementscall.name ]| 
         ; java_args :=  expr|[ x_elementscall.args ]|
