@@ -25,11 +25,13 @@ rules
     
 rules
 
+  element-to-java-servlet = (?SubmitElem(_,_,_) <+ ?SubmitLinkElem(_,_,_)); element-databind-action-render(|<databind-phase-submitelem>, <action-phase-submitelem>, <render-phase-submitelem>)
+
   /**
    * previously used <input type="submit"> but that does not allow non-text elements to be nested, because these become an attribute value
    * now using <button> which supports having icons and other template elements nested
    */
-  elem-to-java-servlet :
+  render-phase-submitelem :
     tc@SubmitElem(call@ActionCall(name, args),passign*,elem*) ->
     bstm* |[
       if(isAjaxSubmitRequired(e_ajaxmodifier)){
@@ -49,7 +51,7 @@ rules
         out.print("</button>"); 
       }
     ]|
-    with  bstm* := <elems-to-java-servlet> elem*
+    with  bstm* := <elements-to-java-servlet> elem*
         ; bstm_attr := <remove-all(?PropertyAssignment("name",_)); to-html-attrs-include-collection(|"submit")> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
@@ -81,7 +83,7 @@ rules
    * 
    * consists of a not displayed <button> with the action and a visible <a> link, so that browsers treat it like regular submit when pressing 'enter' in the form
    */
-  elem-to-java-servlet :
+  render-phase-submitelem :
     tc@SubmitLinkElem(call@ActionCall(name, args),passign*,elem*) ->
     bstm* |[
       //This button will act as submit button on enter-key. Should have dimensions for safari/IE
@@ -90,7 +92,7 @@ rules
           out.print("onclick='javascript:serverInvoke(\""+
             threadLocalPageCached.getAbsoluteLocation()+"/" + threadLocalPageCached.getActionTarget() + threadLocalPageCached.getExtraQueryAruments("?") +   //TODO getActionTarget is currently used, but the default redirect will not reproduce the page arguments in this case
             "\",\""+ e_ident +"\", ["+threadLocalPageCached.getHiddenPostParamsJson()+"],\""+threadLocalPageCached.getFormIdent()+"\", this, true); return false;'></button>");
-      	  out.print("<a href=\"javascript:void(0)\" onclick=\"javascript:this.previousSibling.click()\"");
+          out.print("<a href=\"javascript:void(0)\" onclick=\"javascript:this.previousSibling.click()\"");
           bstm_attr
           bstm_testsubmitselect*
           out.print(">");
@@ -108,7 +110,7 @@ rules
           out.print("</a>");
       }
     ]|
-    with  bstm* := <elems-to-java-servlet> elem*
+    with  bstm* := <elements-to-java-servlet> elem*
         ; bstm_attr := <remove-all(?PropertyAssignment("name",_)); to-html-attrs-include-collection(|"submitlink")> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
@@ -122,10 +124,10 @@ rules
          else e_ajaxmodifier := java:expr |[ false ]|
          end
          
-  handle-actions-to-java-servlet:
+  action-phase-submitelem :
     tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
     with actionident := <get-actionnumber> tc   
-  handle-actions-to-java-servlet: 
+  action-phase-submitelem : 
     tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
     with actionident := <get-actionnumber> tc   
   handle-actions-to-java-servlet-submit(|actionident, e1, passign*, elem*): 
@@ -134,8 +136,7 @@ rules
         ; <get-anno(?ActionFargAnno(fargcalled))> e1
         ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
         ; e_origident := <action-id-encoding> (actionident, args)
-        ; e_ident := <submit-name-override> (e_origident, passign*)     
-        ; bstm_passign* := <filter(handle-actions-to-java-servlet); concat> passign*
+        ; e_ident := <submit-name-override> (e_origident, passign*)
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign* 
           then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]| 
@@ -150,15 +151,14 @@ rules
                 }
                 ~<generate-submit-action-run-invoke(| x_action, e*)>
               }
-              bstm_passign*
             ]|
   
   //in first traversal, for input data binding, already register which action is executed, in order to know about ignore-validation
   //we need handle-actions traversal as well to get the right arguments for the action, which may depend on input data binding
-  handle-actions-input-to-java-servlet:
+  databind-phase-submitelem :
     tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
     with actionident := <get-actionnumber> tc   
-  handle-actions-input-to-java-servlet: 
+  databind-phase-submitelem : 
     tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
     with actionident := <get-actionnumber> tc  
   handle-actions-input-to-java-servlet-submit(|actionident, e1, passign*): 

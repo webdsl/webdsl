@@ -116,10 +116,19 @@ public abstract class TemplateServlet {
       }
     }
     
-    protected void storeInputsInternal(){}
-    protected void validateInputsInternal(){}
-    protected void handleActionsInternal(){}
-    protected void renderInternal(){}
+    protected void storeInputsInternal(){
+    	handlePhase(DATABIND_PHASE);
+    }
+    protected void validateInputsInternal(){
+    	handlePhase(VALIDATE_PHASE);
+    }
+    protected void handleActionsInternal(){
+    	handlePhase(ACTION_PHASE);
+    }
+    protected void renderInternal(){
+    	handlePhase(RENDER_PHASE);
+    }
+    protected abstract void handlePhase(int phase);
 
     protected boolean isAjaxTemplate(){ 
     	return false;

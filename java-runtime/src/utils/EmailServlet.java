@@ -14,7 +14,10 @@ public abstract class EmailServlet {
 
 	public abstract void render(Object[] args, Environment env);
 	protected void storeArguments(Object[] args){}
-    protected void renderInternal(){}
+    protected void renderInternal(){
+    	handlePhase(RENDER_PHASE);
+    }
+    protected abstract void handlePhase(int phase);
     protected void initialize(){}
     protected void initActions(){}
     

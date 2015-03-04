@@ -58,17 +58,8 @@ rules // iteration
           then bstm* := bstm
           else bstm* := [bstm] end
 
-  handle-actions-input-to-java-servlet  =
-    control-flow-for(collect-om(handle-actions-input-to-java-servlet)|)
-
-  handle-actions-to-java-servlet =
-    control-flow-for(collect-om(handle-actions-to-java-servlet)|)
-
-  elem-to-java-servlet =
-    control-flow-for(elems-to-java-servlet|)
-    
-  data-validation-to-java-servlet  =
-    control-flow-for(collect-om(data-validation-to-java-servlet)|)
+  element-to-java-servlet =
+    control-flow-for(elements-to-java-servlet|)
 
   control-flow-for(s|) :
      ForCount(x, e1, e2, elems, sep) -> result
@@ -81,7 +72,7 @@ rules // iteration
          ; if <?[]> bstm* 
            then result :=  []
            else result :=  bstm*|[
-           	               {
+                           {
                              inForLoop = true;
                              forLoopCounter++;
                              int x = e3; //x has been renamed already
@@ -141,8 +132,8 @@ rules // iteration
         bstm_early* := bstm* |[ x_name(x_list, true); ]|
         ; bstm_batch* := bstm* |[ x_name(x_list, false); ]|
       else
-		    bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
-		    ; bstm_batch* := <get-batch-fetches(|e_LocalHibSession, x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
+        bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
+        ; bstm_batch* := <get-batch-fetches(|e_LocalHibSession, x_list, srt) < try(is-at-arguments; ![]) + ![]> prefetch
       end
 
   get-for-all-loop-prefetch(|e_LocalHibSession, x_list, srt) :
@@ -152,8 +143,8 @@ rules // iteration
         bstm_early* := bstm* |[ x_name(x_list, true); ]|
         ; bstm_batch* := bstm* |[ x_name(x_list, false); ]|
       else
-		    bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
-		    ; bstm_batch* := <(is-guided-batching-no-joins < get-batch-fetches(|e_LocalHibSession, x_list, srt) + get-generic-batch-fetches(|e_LocalHibSession, x_list, srt)) <+ ![]> prefetch
+        bstm_early* := <is-guided-batching < (get-early-batch-fetches(|e_LocalHibSession, x_list, srt) <+ ![]) + ![]> prefetch
+        ; bstm_batch* := <(is-guided-batching-no-joins < get-batch-fetches(|e_LocalHibSession, x_list, srt) + get-generic-batch-fetches(|e_LocalHibSession, x_list, srt)) <+ ![]> prefetch
       end
 
   control-flow-for(s|) :
@@ -230,17 +221,8 @@ rules // iteration
 
 rules // if
 
-  handle-actions-input-to-java-servlet  =
-    control-flow-if(collect-om(handle-actions-input-to-java-servlet)|)
-
-  handle-actions-to-java-servlet =
-    control-flow-if(collect-om(handle-actions-to-java-servlet)|)
-
-  elem-to-java-servlet =
-    control-flow-if(elems-to-java-servlet|)
-    
-  data-validation-to-java-servlet =
-    control-flow-if(collect-om(data-validation-to-java-servlet)|)
+  element-to-java-servlet =
+    control-flow-if(elements-to-java-servlet|)
 
   control-flow-if(s|) :
     IfTempl(e, elems, elems2) -> result
@@ -249,34 +231,35 @@ rules // if
         ; e1 := <expression-to-java-servlet> e
         ; if <?([],[])> (bstm*,bstm2*)
           then result :=  [] 
-          else result :=  bstm |[
-                            if(e1){ 
-                              bstm*
-                            } else {
-                              bstm2*
-                            }
-                          ]| end
+          else if <?[]> bstm2*
+               then result :=  
+                 bstm |[
+                   if(e1){ 
+                     bstm*
+                   }
+                 ]|
+               else result :=  
+                 bstm |[
+                   if(e1){ 
+                     bstm*
+                   }
+                   else{
+                     bstm2*
+                   }
+                 ]| 
+               end
+          end
 
 rules //templatecall    
+   
+  element-to-java-servlet = control-flow-tcall
 
-  handle-actions-input-to-java-servlet  =
-    control-flow-tcall(|"storeInputs")
-
-  handle-actions-to-java-servlet =
-    control-flow-tcall(|"handleActions")
-
-  elem-to-java-servlet =
-    control-flow-tcall(|"render")
-    
-  data-validation-to-java-servlet =
-    control-flow-tcall(|"validateInputs")
-
-  control-flow-tcall(|x_methodname) :
+  control-flow-tcall :
     tc@TemplateCall(x_name, args, passign*, _) -> bstm* 
     where <get-anno(?CallToDefinedAnno())> tc
-    with  bstm* := <control-flow-tcall-defined-template(|x_methodname)> tc
+    with  bstm* := <control-flow-tcall-defined-template> tc
     
-  control-flow-tcall-defined-template(|x_methodname) :
+  control-flow-tcall-defined-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     with  // translate (ref) args
           calledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
@@ -284,20 +267,20 @@ rules //templatecall
           // call common templatecall translation
         ; java_tname := expr|["~x_name"]|
         ; java_args := expr|[ new Object[] { e_argswithref* } ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,[],java_tname,java_args,[],java_tname)> tc //last argument, parentname, is current template in this case   
+        ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_tname)> tc //last argument, parentname, is current template in this case   
     
   /**
    *  Used for call to defined template and call to required template.
    */
-  control-flow-tcall-helper(|x_methodname, bstm_cachedlookup*, java_tname,java_args,java_attrsmap,parentname) :
+  control-flow-tcall-helper(|bstm_cachedlookup*, java_tname,java_args,java_attrsmap,parentname) :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  //
           tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
         ; e_withcallsmap := <control-flow-emit-with-calls-map> (passign*,expr|[ new Environment(env) ]|) 
-        ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map(|x_methodname)> passign* else !java_attrsmap end>
+        ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map> passign* else !java_attrsmap end>
         ; java_args_addedlocalargs := <add-extra-arg-for-local-redefinition> (java_args, java_tname)
         // create template call
-        ; bstm_result* := <generate-template-call(|x_methodname)> (
+        ; bstm_result* := <generate-template-call> (
             tc, 
             bstm_cachedlookup*,
             java_tname, 
@@ -331,7 +314,7 @@ rules //templatecall
        ; exp := <foldl(control-flow-emit-with-calls-fold-helper)> (filtered,e_env)
 
   control-flow-emit-with-calls-filter:
-	  t@TemplateCall(_,_,passigns,_) -> t
+    t@TemplateCall(_,_,passigns,_) -> t
     where <fetch(?ResolvedRequireKey(origname))> passigns
 
   control-flow-emit-with-calls-fold-helper :
@@ -363,22 +346,18 @@ rules //templatecall
    * e_withcallsmap : expression that adds 'with' arguments and 'elements' template argument to withcallsmap in newenv - Java exp
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
    */    
-  generate-template-call(|x_methodname):
+  generate-template-call :
     (tc{anno*}, bstm_cachedlookup*, e_name, x_tcallid, e, e_withcallsmap, bstm_attrs*, e_parentname) ->
     bstm* |[
       try{  
         bstm_cachedlookup*
         bstm_attrs1*
-        handleTemplateCall(e_phase, inForLoop, forelementcounter, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
+        handleTemplateCall(phase, inForLoop, forelementcounter, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
       }
       catch(Exception ex){ // if any exception occurs, ignore this template. e.g. nullpointer/indexoutofbounds in arguments 
         printTemplateCallException(ex, e_tcerrormessage);
       }
     ]|
-    with  if <?"storeInputs">    x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.DATABIND_PHASE ]| end
-        ; if <?"validateInputs"> x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.VALIDATE_PHASE ]| end
-        ; if <?"handleActions">  x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.ACTION_PHASE ]| end
-        ; if <?"render">         x_methodname then e_phase := java:expr|[ utils.AbstractPageServlet.RENDER_PHASE ]| end
     with  if <is-string> x_tcallid
           then e_tcallid := java:expr|["~x_tcallid"]|
           else e_tcallid := <expression-to-java-servlet> x_tcallid end
@@ -406,20 +385,10 @@ rules //templatecall
  */
 rules
 
-  handle-actions-input-to-java-servlet  =
-    control-flow-tcall-required-template(|"storeInputs")
-
-  handle-actions-to-java-servlet =
-    control-flow-tcall-required-template(|"handleActions")
-
-  elem-to-java-servlet =
-    control-flow-tcall-required-template(|"render")
-    
-  data-validation-to-java-servlet =
-    control-flow-tcall-required-template(|"validateInputs")
+  element-to-java-servlet = control-flow-tcall-required-template
 
   // 'requires'
-  control-flow-tcall-required-template(|x_methodname) :
+  control-flow-tcall-required-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     where <get-anno(?CallToRequiredAnno())> tc 
     with  originalname := <get-original-name> x_name
@@ -430,10 +399,10 @@ rules
         ; java_tname := expr|[ env.getWithcall("~originalname").name ]|
         ; java_args:=  expr|[ Utils.concatArrays(new Object[] { e_argswithref* }, env.getWithcall("~originalname").args) ]|
         ; java_elementsarglookupname := java:expr|[ "~originalname" ]|
-        ; result := <control-flow-tcall-helper(|x_methodname,[],java_tname,java_args,[],java_elementsarglookupname)> tc
+        ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_elementsarglookupname)> tc
           
   // 'elements'
-  control-flow-tcall-required-template(|x_methodname) :
+  control-flow-tcall-required-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     where e := <create-elements-call-name> x_name
     with  // call common templatecall translation
@@ -442,7 +411,7 @@ rules
         ; java_tname := expr|[ x_elementscall.name ]| 
         ; java_args :=  expr|[ x_elementscall.args ]|
         ; java_attrbstm* :=  bstm*|[ Map<String,String> attrsmapout = x_elementscall.attrs; ]|
-        ; result := <control-flow-tcall-helper(|x_methodname, bstm_cachedlookup*, java_tname, java_args, java_attrbstm*, java:expr|[ x_elementscall.parentName]|)> tc
+        ; result := <control-flow-tcall-helper(|bstm_cachedlookup*, java_tname, java_args, java_attrbstm*, java:expr|[ x_elementscall.parentName]|)> tc
  
   create-elements-call-name :
     x_name -> e

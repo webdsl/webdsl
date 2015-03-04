@@ -105,4 +105,10 @@ public class DateType {
       return c.get(Calendar.SECOND);
   }
   
+  @SuppressWarnings("deprecation")
+  public static Date today(){
+	  java.util.Date d = new java.util.Date();
+	  return new java.util.Date(d.getYear(), d.getMonth(), d.getDate()); // today() gives the Date at midnight of today; allows comparison with earlier today()
+  }
+
 }

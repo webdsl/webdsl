@@ -2,19 +2,20 @@ module org/webdsl/dsl/to-java-servlet/uicomponents/xml-content
 
 rules
 
-  elem-to-java-servlet :
-    XMLEmptyElement(name,attrs) -> <xml-elem-to-java(|"<","/>")> (name,attrs)
+  element-to-java-servlet  :
+    XMLEmptyElement(name,attrs) -> <element-render(| bstm*)>
+    with  bstm* := <xml-elem-to-java(|"<","/>")> (name,attrs)
 
-  elem-to-java-servlet :
+  element-to-java-servlet  :
     XMLElement(name1,attrs1,elem*,name2) ->
     bstm* |[
-      bstm_start*
+      bstm_start
       bstm*
       bstm_end
     ]|
-    with  bstm_start* := <xml-elem-to-java(|"<",">")> (name1,attrs1)
-        ; bstm_end := bstm|[ out.print("</"+"~name2"+">"); ]|
-        ; bstm* := <elems-to-java-servlet> elem*
+    with  bstm_start := <element-render(| <xml-elem-to-java(|"<",">")> (name1,attrs1) )>
+        ; bstm_end   := <element-render(| bstm*|[ out.print("</"+"~name2"+">"); ]| )>
+        ; bstm* := <elements-to-java-servlet> elem*
 
   xml-elem-to-java(|open,close) :
     (name,attrs) ->
@@ -40,16 +41,16 @@ rules
     // collect style in a var
     // combine code fragments at the top
     with  bstm_helper* := bstm*|[ 
-         	StringBuilder classattrs = new StringBuilder();
-         	StringBuilder styleattrs = new StringBuilder();
-         	java.util.List<String> ignore = new java.util.ArrayList<String>();
-         	utils.TemplateCall.getDynamicIgnoredAttributes(attrs, ignore);
+            StringBuilder classattrs = new StringBuilder();
+            StringBuilder styleattrs = new StringBuilder();
+            java.util.List<String> ignore = new java.util.ArrayList<String>();
+            utils.TemplateCall.getDynamicIgnoredAttributes(attrs, ignore);
           ]|
         ; bstm_ignore_attr_collections* := <filter(add-inline-ignore-attribute-element-from-attrs)> attrs
         ; bstm_add_selected_attr_collections* := bstm*|[ 
-         	for(String attrcolname : utils.TemplateCall.getDynamicSelectedAttributeCollections(attrs)){
-         	  AttributeCollectionLookup.getAttributeCollection(attrcolname, classattrs, styleattrs, ignore, out);	
-         	} 
+            for(String attrcolname : utils.TemplateCall.getDynamicSelectedAttributeCollections(attrs)){
+              AttributeCollectionLookup.getAttributeCollection(attrcolname, classattrs, styleattrs, ignore, out);	
+            } 
           ]|
         ; bstm_additional_attr_cols* := <map(\x -> bstm|[ AttributeCollectionLookup.getAttributeCollection("~x", classattrs, styleattrs, ignore, out); ]|\)> additional-attr-cols
         ; bstm_collect_all_printall_except_class_style* := <remove-all(?AttributeIgnoreDefault(_)); xml-attrs-to-java-inner> attrs
@@ -57,7 +58,7 @@ rules
             utils.TemplateCall.printClassStyleAttributes(classattrs, styleattrs, out);
           ]|
         ; bstm_result* :=
-          	[ bstm_helper*
+            [ bstm_helper*
             , bstm_ignore_attr_collections*
             , bstm_add_selected_attr_collections*
             , bstm_additional_attr_cols* 

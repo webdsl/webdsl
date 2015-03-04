@@ -42,7 +42,29 @@ overlays
   ModifiedPropertyCopy =
     Property("modified", Simple(), SimpleSort("DateTime"){DefValueAnno(exp|[ null ]|)}, []){IsGeneratedProperty()}
 
-
+strategies
+  
+  entity-cbds-save-delete(|x_class) =
+    !java |[
+      public x_class save(String webdslTypeName){
+        //validateSave(); //handled at end of action, save might be implicit due to cascade
+        //set version property to 1, which indicates a persisted entity
+        setVersion(1);
+        if(ThreadLocalPage.isReadOnly()){
+          org.webdsl.logging.Logger.error("page or ajax template is forced to be read-only, but an entity of type '" + webdslTypeName + "' is saved");
+          utils.Warning.printSmallStackTrace(5);
+        }
+        e_HibSession.save(this);
+        return this;
+      }
+      
+      public x_class delete(){
+        validateDelete();
+        setChanged();
+        e_HibSession.delete(this);
+        return this;
+      }
+    ]|
 
 strategies
 
@@ -106,6 +128,7 @@ strategies
           ~*<is-request-var-property>[]
 
           ~*[<entity-cbds-equals(|x_Class)>]
+          ~*[<entity-cbds-save-delete(|x_Class)>]
 
           public int hashCode() {
             if (getId() == null)
