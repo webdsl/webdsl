@@ -61,7 +61,13 @@ public abstract class TemplateServlet {
     protected utils.TemplateCall templateArg;
     protected Map<String,String> attrs = null;
     protected String[] pageArguments = null;
-
+    public void setPageArguments(String[] pa){
+    	pageArguments = pa;
+    }
+    public String[] getPageArguments(){
+    	return pageArguments;
+    }
+    
     // cancels further handling of this template, e.g. when validation error occurs in init
     protected boolean skipThisTemplate = false;
     
@@ -161,7 +167,9 @@ public abstract class TemplateServlet {
     protected void initializeLocalVarsOnce(){}
     
     public abstract String getUniqueName();
-    public abstract String getTemplateClassName();
+    public String getTemplateClassName(){ 
+    	return getUniqueName() + "_Template";
+    }
     public abstract String getTemplateSignature();
     public abstract String getStateEncodingOfArgument();
     public String getTemplateContext(){
@@ -286,5 +294,8 @@ public abstract class TemplateServlet {
     	org.webdsl.logging.Logger.error("Problem occurred in template call: "+errormessage);
     	utils.Warning.printSmallStackTrace(ex, 5);  // print first few lines of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
     }
-    
+
+    public String debugStateEncodingAll(){ 
+    	return "TemplateClass: " + getTemplateClassName() + "\nTemplateArgument: " + getStateEncodingOfArgument() + "\nContextString: " + getTemplateContext() + "\nUniqueId: " + getUniqueId();
+    }
 }

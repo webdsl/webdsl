@@ -38,85 +38,25 @@ rules // action methods
       import java.util.*;
       import org.webdsl.lang.Environment;
 
-      public class x_action {
-
-        //@TODO: get rid of getElementsContext() calls in action code, then this field is no longer needed     
-        String elementsContext = null;
-        public String getElementsContext(){
-          return elementsContext;
-        }
+      public class x_action extends TemplateAction{
           
         ~*cbds_ignorevalidation*
           
-        public void run(AbstractPageServlet threadLocalPageCached, Environment env, String elementsContext,  param*){
-          this.elementsContext = elementsContext;
-          if (!threadLocalPageCached.hasExecutedAction)
-          {
-            threadLocalPageCached.hasExecutedAction = true;
-            try {
+        public void run(final AbstractPageServlet threadLocalPageCached, final Environment env, final String elementsContext, param*){
+          handleAction(threadLocalPageCached, env, elementsContext, actionident, new TemplateActionBody(){
+            public void run(){
+              bstm_nonfinalvars*
               bstm*
-
-              //trigger data invariant validations
-              e_HibSession.flush();
-              if(!threadLocalPageCached.isRollback()){
-                threadLocalPageCached.validateEntities();
-              }
             }
-            catch(utils.ValidationException ve){
-              threadLocalPageCached.getValidationExceptions().add(ve.setName(actionident));
-              threadLocalPageCached.setValidated(false);
-            }
-            catch(utils.MultipleValidationExceptions ve){
-              for(utils.ValidationException vex : ve.getValidationExceptions()){
-                threadLocalPageCached.getValidationExceptions().add(vex.setName(actionident));
-              }
-              threadLocalPageCached.setValidated(false);
-            }
-            catch(Exception excep)  {
-              org.webdsl.logging.Logger.error("exception during execution of action", excep);
-              threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occured while processing your request"));
-              threadLocalPageCached.setValidated(false);
-            }
-            finally{
-              //do the redirect if no exceptions occured and no validations failed
-              if( threadLocalPageCached.isRedirected() && threadLocalPageCached.isValid() ){
-                if(
-                  // only important thing for redirects is the current request type (through ajax.js or regular form submit),
-                  // to determine whether to do a response.sendRedirect or a command for ajax.js (relocate)
-                  threadLocalPageCached.isAjaxRuntimeRequest()){
-                    // it was an action submit through ajax.js runtime
-                    ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+threadLocalPageCached.getRedirectUrl()+"\" },\n");
-                }
-                else{
-                  // regular submit button form submit
-                  try {
-                    threadLocalPageCached.getResponse().sendRedirect(threadLocalPageCached.getRedirectUrl());
-                  } catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
-                }
-              }
-              //redirect to current page by default
-              if( !threadLocalPageCached.isRedirected() && !threadLocalPageCached.isDownloadSet() && threadLocalPageCached.isValid() ){
-                try {
-                  if (!threadLocalPageCached.isAjaxActionExecuted()) {
-                    threadLocalPageCached.setRedirectUrl(threadLocalPageCached.getPageUrlWithParams() + threadLocalPageCached.getExtraQueryAruments("?"));
-                    if(!threadLocalPageCached.isActionLinkUsed()){ threadLocalPageCached.getResponse().sendRedirect(threadLocalPageCached.getRedirectUrl()); }
-                  }
-                  if(!threadLocalPageCached.actionHasAjaxPageUpdates){
-                  	ThreadLocalOut.peek().print("{ action: \"refresh\" },");
-                  }
-                } catch (IOException ioe) {
-                  org.webdsl.logging.Logger.error("redirect failed", ioe);
-                }
-              }
-            }
-          }
+          });
         }
       }
     ]|
     with
     {| InAction :
          rules(InAction := <id>)
-       ; param* := <add-input-id-for-action-as-param;map(arguments-to-java-servlet<+debug(!"map failed in template-action.str"))> farg*
+       ; (bstm_nonfinalvars*, farg1*) := <map(make-non-final-action-var); unzip; (concat,id)> farg*
+       ; param* := <add-input-id-for-action-as-param; map(arguments-to-java-servlet; add-final-modifier-to-java-farg <+ debug(!"map failed in template-action.str"))> farg1*
        ; bstm* := <statements-to-java-servlet> stat*
     |}
     ; pkgname2 := <DomainPackage>
@@ -129,3 +69,16 @@ rules // action methods
 
   add-input-id-for-action-as-param :
     params -> <concat> [params,[Arg("actionident",SimpleSort("String"))]]
+    
+  add-final-modifier-to-java-farg :
+    Param(mod*, type, name) -> Param([Final()|mod*],type,name)
+          
+  make-non-final-action-var :  
+    arg@Arg(x1,srt) -> (bstm*|[ t x1 = null; x1 = x2; ]|, Arg(x2,srt)) // need to assign null first, otherwise Java compiler gives 'variable might not have been initialized' error on the final argument
+    where not(<is-ref-type> srt)
+    with  t := <argument-java-servlet-java-type> arg
+        ; x2 := <concat-strings> [x1,"arg"]
+          
+  make-non-final-action-var :  
+    arg@Arg(x,srt)  -> ([], arg)
+    where <is-ref-type> srt
