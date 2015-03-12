@@ -465,18 +465,12 @@ public abstract class AbstractPageServlet{
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
 
-        for(String[] sheet : this.stylesheets) {
-            if(sheet[0].startsWith("//") || sheet[0].startsWith("http://") || sheet[0].startsWith("https://")){
-                sout.print("<link rel=\"stylesheet\" href=\""+ sheet[0] + "\" type=\"text/css\" ");
+        for(String sheet : this.stylesheets) {
+            if(sheet.startsWith("//") || sheet.startsWith("http://") || sheet.startsWith("https://")){
+                sout.print("<link rel=\"stylesheet\" href=\""+ sheet + "\" type=\"text/css\" />");
             }
             else{
-                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+sheet[0]+"\" type=\"text/css\" ");
-            }
-            if(sheet[1].equals("")){
-                sout.println("/>");
-            }
-            else{
-                sout.println("media=\""+sheet[1]+"\" />");
+                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+sheet+"\" type=\"text/css\" />");
             }
         }
         for(String script : this.javascripts) {
@@ -822,7 +816,7 @@ public abstract class AbstractPageServlet{
     public boolean hibernateCacheCleared = false;
 
     protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
-    protected java.util.List<String[]> stylesheets = new java.util.ArrayList<String[]>();
+    protected java.util.List<String> stylesheets = new java.util.ArrayList<String>();
     protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
 
@@ -833,14 +827,13 @@ public abstract class AbstractPageServlet{
 
     public void addStylesheetInclude(String filename) {
         if(!stylesheets.contains(filename)){
-            String[] s = {filename,""};
-            stylesheets.add(s);
+            stylesheets.add(filename);
         }
     }
     public void addStylesheetInclude(String filename, String media) {
-        if(!stylesheets.contains(filename)){
-            String[] s = {filename,media};
-            stylesheets.add(s);
+    	String combined = media != null && !media.isEmpty() ? filename + "\" media=\""+ media : filename;
+        if(!stylesheets.contains(combined)){
+            stylesheets.add(combined);
         }
     }
 
