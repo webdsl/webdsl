@@ -85,42 +85,45 @@ signature
 
 rules
 
-  desugar-action = desugar-object-cr-exp
+  desugar-action = ?ObjectCreation(_,_); desugar-object-cr-exp
   
   desugar-object-cr-exp :
-    ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> <rename> ThisCall(x_fun, arg*)
-    where <not([])> assigns <+ <does-object-cr-have-constructor-extensions> x_class   // if there are no property assignments or constructor extensions, no need to generate a function, use rule below instead
+    ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> result
+    where <not([])> assigns <+ <does-object-cr-have-constructor-extensions> x_class   // if there are no property assignments or constructor extensions, use simpler rule below instead
     where <not(fetch(ObjectCreationSecretTypesNeedDigests))> anno*
     with  x_fun := <toplevel-rename> "objCr"
         ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*, assigns)
         ; farg2* := <map(\ Arg(x, srt{srtanno*}){anno*} -> Arg(x, srt{<remove-all(?IsPropertyType())>srtanno*}){anno*} \)> farg*
-        ; stat_cons* := <desugar-object-cr-constructorcalls> x_class
-        ; stat* := <map(desugar-object-cr-prop-assign)> assigns
         ; x_empty := $[createEmpty[<capitalize-string> x_class]]
-        ; <rename-this-var; emit-webdsl-code> 
-            Function(x_fun, farg2*, srt,Block(
-              <conc>
-              ([VarDeclInit("obj",srt,ThisCall(x_empty,[]))]
-              //call constructor hook + supers
-            , stat_cons*
-            , stat*
-            , [Return(Var("obj"))])
-            )){anno*}
+        ; e_start := <desugar-object-cr-constructorcalls-exp(|x_class, ThisCall(x_empty,[]))>
+        ; e_setters :=  <desugar-object-cr-prop-assign-exp(|x_class,assigns,e_start)>
+        ; result := <rename-all> e_setters
 
   desugar-object-cr-exp :
-    ObjectCreation(srt@SimpleSort(x_class), []) -> <rename> ThisCall(x_empty, [])
+    ObjectCreation(srt@SimpleSort(x_class), []) -> result
     where not(<does-object-cr-have-constructor-extensions> x_class)
     with  x_empty := $[createEmpty[<capitalize-string> x_class]]
-
-  desugar-object-cr-prop-assign:
-    ObjectPropertyAssignment(x_field, e1) -> |[ obj.x_field := e1; ]|
-
-  desugar-object-cr-constructorcalls:
-    x -> result
-    with  ent* := <defined-superclasses> x
-        ; allent* := <reverse> [x|ent*]
-        ; result := <map(\y -> Stat(Call(Var("obj"),y,[]))\)> allent*
-          
+        ; result := <rename-all> ThisCall(x_empty, [])
+    
+  desugar-object-cr-prop-assign-exp(|x_class,assigns,e_start) :
+    _ -> e_result
+    with e_result := <foldr(!e_start, setter-fold-helper(|x_class))> assigns
+    
+  setter-fold-helper(|x_class) :
+    (ObjectPropertyAssignment(x_field, e1),e) -> exp|[ e.x_namesetter(e1) as x_class ]|
+    where srt := <type-of-property> (x_class, x_field)
+    with  x_namesetter := <get-fluent-setter-name(|x_field)>
+         
+  desugar-object-cr-constructorcalls-exp(|x_class, e_start) :
+    _ -> e_result
+    with  ent* := <defined-superclasses> x_class
+        ; allent* := [x_class|ent*]
+        ; e_result := <foldr(!e_start, obj-creation-constructor-hook-fold-helper(|x_class))> allent*
+   
+  obj-creation-constructor-hook-fold-helper(|x_class) : 
+    (y,e) -> exp|[ e.x_nameconsfluent() as x_class ]|
+    with  x_nameconsfluent := <get-constructor-event-fluent-fun-name(|y)>
+    
   does-object-cr-have-constructor-extensions:
     x -> <id>
     with  ent* := <defined-superclasses> x
@@ -132,7 +135,7 @@ rules
   keep-position-anno = ?ObjectCreation(_,_) 
 
 rules
-//desugaring for secret type in global var property init, digest is called on these properties
+  // desugaring for secret type in global var property init, digest is called on these properties
 
   desugar-action :
     ObjectCreation(srt@SimpleSort(x_class), assigns){anno*} -> result

@@ -47,10 +47,10 @@ rules
         ; z := <global-to-local-name(|<strip-annos> x)> y
 
   rename-query-optimizations-anno :
-  	x{anno*} -> x2{new-anno*}
-  	where <?ForAll(_, _, _, _, _) <+ ?For(_, _, _, _, _, _) <+ ?ForAllStmt(_, _, _, _) <+ ?ForStmt(_, _, _, _, _) <+ ?PrefetchWhere(_,_)>x
-  	  ; toKeep* := <remove-all(?QueryCondition(_) <+ ?QueryConditionFilter(_, _, _))> anno*
-  	  ; qc* := <(fetch-elem(?QueryCondition(_)); rename-identifiers; ![<id>]) <+ ![]> anno*
+    x{anno*} -> x2{new-anno*}
+    where <?ForAll(_, _, _, _, _) <+ ?For(_, _, _, _, _, _) <+ ?ForAllStmt(_, _, _, _) <+ ?ForStmt(_, _, _, _, _) <+ ?PrefetchWhere(_,_)>x
+      ; toKeep* := <remove-all(?QueryCondition(_) <+ ?QueryConditionFilter(_, _, _))> anno*
+      ; qc* := <(fetch-elem(?QueryCondition(_)); rename-identifiers; ![<id>]) <+ ![]> anno*
       ; qcf* := <(fetch-elem(?QueryConditionFilter(_, _, _)); rename-identifiers; ![<id>]) <+ ![]> anno*
       ; new-anno* := [qc*,qcf*,toKeep*]
       ; x2 := <all(rename-identifiers)> x
@@ -197,10 +197,17 @@ rules
 
 
   rename-function-def-call-id :
-    tc1@Call(_, _, _) -> tc2
+    tc1@Call(_, funname, _) -> tc2
+    where <not(string-starts-with(|<property-setter-prefix-internal>))> funname
     with Call(e,x,arg*){anno*} := <rename-function-def-call-id-entcall-defined <+ rename-function-def-call-id-entcall-built-in <+ rename-function-def-call-id-entcall-error <+ debug(|"internal error: not renamed fragment: ")>
        ; tc2 := Call(<rename-identifiers> e,x,<rename-identifiers> arg*){anno*}
-
+  
+  // fluent interface set#Property functions used in object creation map directly to setter in generated Java code
+  rename-function-def-call-id :
+    tc1@Call(e,x,arg*){anno*} -> tc2
+    where <string-starts-with(|<property-setter-prefix-internal>)> x
+    with  tc2 := Call(<rename-identifiers> e,x,<rename-identifiers> arg*){anno*}   
+    
   rename-function-def-call-id-entcall-defined :
     Call(e, x1{anno1*}, arg*){anno*} ->
     Call(e, x1{new,anno1*}, arg*){anno*}

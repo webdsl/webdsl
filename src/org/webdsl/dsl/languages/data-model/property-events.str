@@ -12,7 +12,7 @@ rules
   desugar-property-events :
     se@SessionEntity(nm, entbodydecs) -> se
     where entbodydecs_with_extras := [CreatedProperty(), ModifiedProperty() | entbodydecs]
-    	; <filter(desugar-property-events-session(|nm))> entbodydecs_with_extras
+        ; <filter(desugar-property-events-session(|nm))> entbodydecs_with_extras
         ; not(?[]) 
 
   desugar-property-events :
@@ -23,7 +23,7 @@ rules
   desugar-property-events :
     en@EntityNoSuper(x_class, entbodydecs) -> en
     where entbodydecs_with_extras := [CreatedProperty(), ModifiedProperty() | entbodydecs] 
-    	; <filter(desugar-property-events(|x_class))> entbodydecs_with_extras
+        ; <filter(desugar-property-events(|x_class))> entbodydecs_with_extras
         ; not(?[])    
 
   desugar-property-events(|x_class) :
@@ -54,25 +54,24 @@ rules
 strategies //declare
 
   extend-property-declare(|x_class) =
-         funcs := <get-extensible-functions-for-property-events(|x_class)>  
-       ; <map(declare-no-overloading(|x_class))> funcs
-       ; <map(declare-function(|x_class))> funcs
-       ; fail
-  
+    funcs := <get-extensible-functions-for-property-events(|x_class)>  
+  ; <map(declare-no-overloading(|x_class))> funcs
+  ; <map(declare-function(|x_class))> funcs
+  ; fail
+
 rules  // also used in transformation/property-events
 
   get-extensible-functions-for-property-events(|x_class) :  
     prop@Property(x, k, srt@SimpleSort(ss), annos) -> result
     with  //x_nameget := <concat-strings> ["get",<capitalize-string> x]
           x_nameset := <concat-strings> ["set",<capitalize-string> x]
-        ; result := [
-            fun |[ 
+        ; result := 
+            fun* |[ 
               //function x_nameget() {} //doesn't need to return anything, this gets called by the real accessor 
               function x_nameset(value:srt):Void {} 
             ]|
-          ]
         ; rules ( PropertyEvents :+ (prop,x) -> "set")
-          
+
   get-extensible-functions-for-property-events(|x_class) :  
     prop@Property(x, k, srt@GenericSort(_,[srt2@SimpleSort(_)]), annos) -> result
     with  x_nameadd := <concat-strings> ["addTo",<capitalize-string> x]
@@ -84,4 +83,23 @@ rules  // also used in transformation/property-events
           ]|
         ; rules ( PropertyEvents :+ (prop,x) -> "addTo")
         ; rules ( PropertyEvents :+ (prop,x) -> "removeFrom")
-        
+
+strategies //declare
+
+  extend-property-declare(|x_class) =
+    fun := <get-setter-function-for-property(|x_class)>  
+  ; <declare-no-overloading(|x_class)> fun
+  ; <declare-function(|x_class)> fun
+  ; fail
+
+rules  // also used in transformation/property-events
+
+  get-setter-function-for-property(|x_class) :  
+    prop@Property(x, k, srt, annos) -> result
+    with  x_namesetter := <get-fluent-setter-name(|x)>
+        ; result := 
+            fun |[ 
+              function x_namesetter(value:srt):x_class {} // only declared, calls are mapped to the regular setProperty method in the back-end
+            ]|
+         
+   get-fluent-setter-name(|x_field) = <concat-strings> [<property-setter-prefix-internal>,x_field]
