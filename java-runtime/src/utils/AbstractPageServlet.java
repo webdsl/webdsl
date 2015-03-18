@@ -289,6 +289,7 @@ public abstract class AbstractPageServlet{
     }
     
     // LoadingCache is thread-safe
+    public static boolean pageCacheEnabled = utils.BuildProperties.getNumCachedPages() > 0;
     public static Cache<String, String> cacheAnonymousPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
@@ -318,7 +319,7 @@ public abstract class AbstractPageServlet{
     public boolean pageCacheWasUsed = false;
 
     public void invalidatePageCacheIfNeeded(){
-    	if(shouldTryCleanPageCaches){
+    	if(pageCacheEnabled && shouldTryCleanPageCaches){
 	    	if(invalidateAllPageCache){
 	    		Logger.info("All page caches invalidated, triggered by change in: "+invalidateAllPageCacheMessage);
 	    		cacheAnonymousPages.invalidateAll();
