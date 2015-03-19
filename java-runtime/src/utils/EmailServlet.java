@@ -133,13 +133,21 @@ public abstract class EmailServlet {
 	}
 	
 	// similar to TemplateServlet.handleTemplateCall, but simplified because emails only have render phase
-    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout){
     	if(tcallid != null){
     		threadLocalPageCached.enterTemplateContext(tcallid);
     	}
-		TemplateServlet calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
-		Environment newenv = twithcallsmap;
-	    calledInstance.render(parentname, targs, newenv, attrsmapout);
+    	try{
+    		TemplateServlet calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
+    		Environment newenv = twithcallsmap;
+    	    calledInstance.render(parentname, targs, newenv, attrsmapout);
+    	} 
+    	catch (InstantiationException e){
+    		e.printStackTrace();
+    	} 
+    	catch (IllegalAccessException e){
+    		e.printStackTrace();
+    	}
     	if(tcallid != null){
     		threadLocalPageCached.leaveTemplateContext();
     	}

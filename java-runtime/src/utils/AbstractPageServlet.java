@@ -364,8 +364,8 @@ public abstract class AbstractPageServlet{
     		try{
     			pageCacheWasUsed = true;
     			s = cache.get(key,
-    			new Callable<String>() {
-    				public String call() throws Exception {
+    			new Callable<String>(){
+    				public String call(){
     					// System.out.println("key not found");
     					pageCacheWasUsed = false;
     					StringWriter renderedContent = renderContentOnly();
@@ -378,9 +378,9 @@ public abstract class AbstractPageServlet{
     				}
     			});
     		}
-    		catch(Exception e){
+    		catch(java.util.concurrent.ExecutionException e){
     			e.printStackTrace();
-    		} 
+    		}
     	}
 
     	// redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
@@ -444,7 +444,7 @@ public abstract class AbstractPageServlet{
 	private static String fav_ico_link_tag_suffix;
 	private static String ajax_js_include_name;
 
-    public String renderResponse(StringWriter s) throws IOException {
+    public String renderResponse(StringWriter s) {
     	StringWriter sw = new StringWriter();
     	PrintWriter sout = new PrintWriter(sw);
         ThreadLocalOut.push(sout);
@@ -550,7 +550,7 @@ public abstract class AbstractPageServlet{
     protected boolean isLogSqlEnabled = false;
     public boolean isLogSqlEnabled() { return isLogSqlEnabled; }
 
-    protected boolean isPageCacheDisabled = false;
+    public boolean isPageCacheDisabled = false;
 
     protected boolean isOptimizationEnabled = true;
     public boolean isOptimizationEnabled() { return isOptimizationEnabled; }

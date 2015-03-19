@@ -246,14 +246,14 @@ public abstract class TemplateServlet {
     }
     
     
-    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, TemplateContext tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, TemplateContext tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout){
     	utils.TemplateContext tmptc = threadLocalPageCached.getTemplateContext();
     	threadLocalPageCached.setTemplateContext(tcallid); 
     	handleTemplateCall(phase, inForLoop, forelementcounter, (String)null, tname, targs, twithcallsmap, parentname, attrsmapout);
     	threadLocalPageCached.setTemplateContext(tmptc);
     }
 
-    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout) throws InstantiationException, IllegalAccessException{
+    protected void handleTemplateCall(int phase, boolean inForLoop, String forelementcounter, String tcallid, String tname, Object[] targs, Environment twithcallsmap, String parentname, Map<String,String> attrsmapout){
     	String ident = "";
     	if(inForLoop){ 
     		ident += forelementcounter;
@@ -265,17 +265,25 @@ public abstract class TemplateServlet {
     	else{
     		ident += "customtc";
     	}
-		TemplateServlet calledInstance = null;
-		if(RENDER_PHASE == phase && onlyPerformingRenderPhase()){
-			calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
-		}
-		else{
-			calledInstance = (TemplateServlet) getTemplatecalls().get(ident);
-			if(calledInstance == null){
-				calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
-    			getTemplatecalls().put(ident, calledInstance);
+    	TemplateServlet calledInstance = null;
+    	try{
+    		if(RENDER_PHASE == phase && onlyPerformingRenderPhase()){
+    			calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
     		}
-		}
+    		else{
+    			calledInstance = (TemplateServlet) getTemplatecalls().get(ident);
+    			if(calledInstance == null){
+    				calledInstance = (TemplateServlet) env.getTemplate(tname).newInstance();
+    				getTemplatecalls().put(ident, calledInstance);
+    			}
+    		}
+    	} 
+    	catch (InstantiationException e){
+    		e.printStackTrace();
+    	} 
+    	catch (IllegalAccessException e){
+    		e.printStackTrace();
+    	}
 		Environment newenv = twithcallsmap;
 		// this includes passing the called name, so that the called template can figure out what name was used to call it, might be different due to override/local redefine
 	    switch(phase){
@@ -290,9 +298,14 @@ public abstract class TemplateServlet {
     	ThreadLocalTemplate.set(this);
     }
  
-    public void printTemplateCallException(Exception ex, String errormessage){
-    	org.webdsl.logging.Logger.error("Problem occurred in template call: "+errormessage);
-    	utils.Warning.printSmallStackTrace(ex, 5);  // print first few lines of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
+    public void printTemplateCallException(RuntimeException ex, String errormessage){
+    	if(ex instanceof NullPointerException || ex instanceof IndexOutOfBoundsException){  // ignore the template for these cases
+    	  	org.webdsl.logging.Logger.error("Problem occurred in template call: "+errormessage);
+        	utils.Warning.printSmallStackTrace(ex, 5);  // print first few lines of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
+    	}
+    	else{
+    		throw ex;
+    	}
     }
 
     public String debugStateEncodingAll(){ 
