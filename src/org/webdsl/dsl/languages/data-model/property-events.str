@@ -76,10 +76,15 @@ rules  // also used in transformation/property-events
     prop@Property(x, k, srt@GenericSort(_,[srt2@SimpleSort(_)]), annos) -> result
     with  x_nameadd := <concat-strings> ["addTo",<capitalize-string> x]
         ; x_nameremove := <concat-strings> ["removeFrom",<capitalize-string> x]
+        ; x_replaceall := <get-fluent-collection-replace-name(|x)>
         ; result :=
           fun* |[ 
-            function x_nameadd(value:srt2):Void {} 
-            function x_nameremove(value:srt2):Void {} 
+            function x_nameadd(value: srt2):Void {} 
+            function x_nameremove(value: srt2):Void {}
+            function x_replaceall(value: srt): x_class{
+              this.x := value; // in the back-end this is translated to a replaceAllIn#x method which avoids overwriting the hibernate proxy object and keeps all the triggers like 'inverse' working
+              return this;
+            }
           ]|
         ; rules ( PropertyEvents :+ (prop,x) -> "addTo")
         ; rules ( PropertyEvents :+ (prop,x) -> "removeFrom")
@@ -95,11 +100,13 @@ strategies //declare
 rules  // also used in transformation/property-events
 
   get-setter-function-for-property(|x_class) :  
-    prop@Property(x, k, srt, annos) -> result
+    Property(x, k, srt, annos) -> result
+    where <not(is-generic-sort)> srt
     with  x_namesetter := <get-fluent-setter-name(|x)>
         ; result := 
             fun |[ 
-              function x_namesetter(value:srt):x_class {} // only declared, calls are mapped to the regular setProperty method in the back-end
+              function x_namesetter(value:srt): x_class{} // only declared, calls are mapped to the regular setProperty method in the back-end
             ]|
          
    get-fluent-setter-name(|x_field) = <concat-strings> [<property-setter-prefix-internal>,x_field]
+   get-fluent-collection-replace-name(|x_field) = <concat-strings> ["replaceAll", <capitalize-string> x_field]
