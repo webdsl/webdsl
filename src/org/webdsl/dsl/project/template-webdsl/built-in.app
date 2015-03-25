@@ -47,11 +47,11 @@ module .servletapp/src-webdsl-template/built-in
 // hibbernate transaction management
 
   native class utils.IncludePaths as IncludePaths {
-  	static jQueryJS() : String
-  	static jQueryUIJS() : String
-  	static jQueryUICSS() : String
-  	static timepickerJS() : String
-  	static timepickerCSS() : String
+    static jQueryJS() : String
+    static jQueryUIJS() : String
+    static jQueryUICSS() : String
+    static timepickerJS() : String
+    static timepickerCSS() : String
   }
 
   native class utils.ValidationException as NativeValidationException {
@@ -154,7 +154,7 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   function escapeQuery( q:String ) : String {
-  	return Searcher.escapeQuery( q );
+    return Searcher.escapeQuery( q );
   }
 
   native class org.webdsl.search.AbstractEntitySearcher as Searcher {
@@ -377,7 +377,7 @@ module .servletapp/src-webdsl-template/built-in
   }
 
   type Long{
-  	intValue() : Int
+    intValue() : Int
   }
 
   type DateTime { // includes Date and Time types
@@ -622,14 +622,14 @@ native class java.lang.Double as Double {
     close()
     utils.Test.runJavaScript as runJavaScript(String): String
     utils.Test.getAlert as getAlert(): WebAlert
-	utils.Test.getSubmit as getSubmit(): WebElement
-	utils.Test.getSubmits as getSubmits(): List<WebElement>
+    utils.Test.getSubmit as getSubmit(): WebElement
+    utils.Test.getSubmits as getSubmits(): List<WebElement>
   }
 
   native class org.openqa.selenium.Alert as WebAlert {
-  	getText() : String
-  	dismiss()
-  	accept()
+    getText() : String
+    dismiss()
+    accept()
   }
 
   native class org.openqa.selenium.By as SelectBy {
@@ -759,7 +759,7 @@ native class java.lang.Double as Double {
   //built-in templates
 
   template internalElementsWrapper(){ // convenient for desugaring in the compiler that replaces template elements with a single templatecall, see RenderTemplateFunctionCall desugaring
-  	elements
+    elements
   }
 
   define ignore-access-control break(){
@@ -1544,7 +1544,7 @@ native class java.lang.Double as Double {
 
   //output(Entity)
   template outputLabel(e : Entity){
-  	output(e.name)
+    output(e.name)
   }
   /*
   define output(e:Entity){
@@ -2026,7 +2026,7 @@ native class java.lang.Double as Double {
   //output Placeholder
 
   template output(p:Placeholder){
-  	text(p.toString())
+    text(p.toString())
   }
 
   //input/output String
@@ -2436,7 +2436,7 @@ native class java.lang.Double as Double {
 
 
   define inputFileInternal(f : Ref<File>, tname : String){
-    init{
+    render{
       getPage().formRequiresMultipartEnc := true;
     }
     <input
@@ -2452,7 +2452,7 @@ native class java.lang.Double as Double {
     databind{
       var files : List<File> := getPage().getFileUploads(tname);
       if(files != null && files.length > 0){
-      	var fnew := files.get(0);
+        var fnew := files.get(0);
         if( fnew.fileName() != ""){
           f := fnew;
         }
@@ -2486,7 +2486,7 @@ native class java.lang.Double as Double {
   }
 
   define inputMultiFileInternal(f : Ref<List<File>>, tname : String){
-    init{
+    render{
       getPage().formRequiresMultipartEnc := true;
     }
     <input
@@ -2503,9 +2503,9 @@ native class java.lang.Double as Double {
     databind{
       var files : List<File> := getPage().getFileUploads(tname);
       if(files != null && files.length > 0){
-      	for(item in files where item.fileName() != ""){
-      		f.add(item);
-      	}
+        for(item in files where item.fileName() != ""){
+          f.add(item);
+        }
       }
     }
   }
