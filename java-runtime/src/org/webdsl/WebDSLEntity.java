@@ -22,4 +22,6 @@ public interface WebDSLEntity extends Serializable {
     public boolean removeUninitializedLazyProperty(String name);
     public void setRequestVar();
     public boolean isRequestVar();
+    public WebDSLEntity save(String entName);
+    public WebDSLEntity delete();
 }
