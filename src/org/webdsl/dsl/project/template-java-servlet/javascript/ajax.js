@@ -219,17 +219,21 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   req.send(data);
 }
 
+var loadImageElem;
+
 function startLoading(thisobject){
+  var attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject;
   var container = document.createElement("div");
   var image = document.createElement("img");
   image.src = contextpath+"/images/ajax-loader.gif";
   container.appendChild(image);
   container.style.display = 'inline';
   container.style.position = 'absolute';
-  thisobject.appendChild(container);
-  thisobject.disabled = true;
-  thisobject.temp_onclick = thisobject.onclick;
-  thisobject.onclick = "false;";
+  attachObj.appendChild(container);
+  attachObj.disabled = true;
+  attachObj.temp_onclick = attachObj.onclick;
+  attachObj.onclick = "false;";
+  delete loadImageElem;
   return container;
 }
 
