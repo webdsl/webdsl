@@ -182,7 +182,8 @@ function findTopDown(element, id)
 
 function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback)
 {
-  if(loadfeedback){ loadingimage = startLoading(thisobject); }
+  var attachObj;
+  if(loadfeedback){ attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject; delete loadImageElem; loadingimage = startLoading(attachObj); }
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject,
     function()
     {
@@ -193,7 +194,7 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
         else if(this.status != 200) {
           notify('Invalid return of server: '+this.status);
         }
-        if(loadfeedback){ stopLoading(thisobject, loadingimage); }
+        if(loadfeedback){ stopLoading(attachObj, loadingimage); }
         __requestcount--;
       }
     }
@@ -221,8 +222,7 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
 
 var loadImageElem;
 
-function startLoading(thisobject){
-  var attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject;
+function startLoading(attachObj){
   var container = document.createElement("div");
   var image = document.createElement("img");
   image.src = contextpath+"/images/ajax-loader.gif";
@@ -233,7 +233,6 @@ function startLoading(thisobject){
   attachObj.disabled = true;
   attachObj.temp_onclick = attachObj.onclick;
   attachObj.onclick = "false;";
-  delete loadImageElem;
   return container;
 }
 
