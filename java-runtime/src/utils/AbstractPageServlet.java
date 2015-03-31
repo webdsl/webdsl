@@ -159,12 +159,12 @@ public abstract class AbstractPageServlet{
               response.getWriter().write("{}]");
             }
             // action called but no action found
-            else if( isValid() && isPostRequest() ){
+            else if( isValid() && isActionSubmit() ){
               org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action");
               response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
             }
             // action inside ajax template called and failed
-            else if( isAjaxTemplateRequest() && isPostRequest() ){
+            else if( isAjaxTemplateRequest() && isActionSubmit() ){
               StringWriter s1 = renderContentOnly();
               response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
             }

@@ -220,6 +220,22 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   req.send(data);
 }
 
+function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace){
+  serverInvokeCommon(serviceURL, '', jsonData, '', '',
+    function()
+    {
+      if (this.readyState == 4){
+        if (this.status == 200) {
+          $('#'+idOfElemToReplace).html(this.responseText);
+        }
+        else if(this.status != 200) {
+          notify('Invalid return of server: '+this.status);
+        }
+      }
+    }
+  );
+}
+
 var loadImageElem;
 
 function startLoading(attachObj){
@@ -244,9 +260,12 @@ function stopLoading(thisobject, loadingimage){
 
 function createData(action,jsonparams,thisform,thisobject)
 {
-  data = action+"=1&";
-  data += "__ajax_runtime_request__=1&";
-
+  if(action != ''){
+	  data = action+"=1&";
+	  data += "__ajax_runtime_request__=1&";
+  } else {
+	  data = "post-request-no-action=1&";
+  }
   paramsdata = eval(jsonparams);
   if (paramsdata == undefined)
     if(show_webdsl_debug){ alert("invalid JSON page parameters in ajax action call: "+jsonparams); }
