@@ -1,0 +1,173 @@
+module org/webdsl/dsl/write-files/pp-java-to-string/main
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  org/webdsl/dsl/write-files/pp-java-to-string/-
+  org/webdsl/dsl/write-files/pp-java-to-string/class/-
+  org/webdsl/dsl/write-files/pp-java-to-string/interface/-
+  org/webdsl/dsl/write-files/pp-java-to-string/type/-
+
+rules
+
+  // utility method to simplify printing rules and get more specific error messages when elements are not transformed to string
+  java-to-string-all :
+    _ -> result
+    with  (is-list <+ debug(|"java-to-string-all expects a list, current term is not a list: "); fail)
+        ; result := <map(java-to-string-all-element); concat-strings>  // execute in a 'with' to exit compiler at point when problem occurs
+
+  java-to-string-all-element =
+    ?x
+  ; (    is-string // if element is already a string, leave it
+      <+ is-list // if element is a list, map java-to-string and concat
+         ; map(java-to-string; (is-string <+ debug(|"java-to-string result is not a string: "); fail) <+ debug(|"java-to-string failed: "); fail)
+         ; concat-strings
+      <+ java-to-string // if element is a single element (that is not a string or list), invoke java-to-string
+      <+ debug(|"java-to-string-all failed on element: ")
+         ; fail
+    )
+  ; (is-string <+ debug(|"java-to-string-all element result is not a string: "); <debug(|"value before transformation was: ")> x; fail)
+
+rules
+
+  java-to-string : [] -> ""
+
+  java-to-string = is-string
+
+  java-to-string : S(x) -> x
+
+  java-to-string = is-list; java-to-string-all
+
+rules
+
+  java-to-string:
+    CompilationUnit(Some(package), imports, types) -> <java-to-string-all> [package, imports, types]
+
+  java-to-string:
+    CompilationUnit(None(), imports, types) -> <java-to-string-all> [imports, types]
+
+  java-to-string:
+    PackageDec(annos, name) -> <java-to-string-all> [annos, "package ", name, ";\n"]
+
+rules
+
+  java-to-string:
+    TypeImportDec(tname) -> <java-to-string-all> ["import ", tname, ";\n"]
+
+  java-to-string:
+    TypeImportOnDemandDec(pname) -> <java-to-string-all> ["import ", pname, ".*;"]
+
+  java-to-string:
+    StaticImportDec(tname, Id(s)) -> <java-to-string-all> ["import static ", tname, ".", s, ";\n"]
+
+  java-to-string:
+    StaticImportOnDemandDec(tname)  -> <java-to-string-all> ["import static ", tname, ".*;"]
+
+rules
+
+  java-to-string:
+    Semicolon() -> ";\n"
+
+  java-to-string:
+    InterfaceDec(InterfaceDecHead(mods, Id(name), type-args, implements), body)
+      -> <java-to-string-all> [mods, "interface ", name, b*, implements, b2]
+    with  <type-params-to-strings> type-args => b*
+        ; <block-structure-string> (1, body) => b2
+
+  java-to-string:
+    ClassDec(ClassDecHead(mods, Id(name), type-args, extends, implements), body)
+      -> <java-to-string-all> [mods, "class ", name, b*, extends, implements, body]
+    with  <type-params-to-strings> type-args => b*
+
+  java-to-string:
+    ClassBody(decs) -> <block-structure-string> (1, decs)
+
+  java-to-string:
+    None() -> ""
+
+  java-to-string:
+    Some(c) -> <java-to-string> c
+
+  java-to-string:
+    SuperDec(c) -> <java-to-string-all> [" extends ", c]
+
+  java-to-string:
+    ImplementsDec(is) -> <java-to-string-all> [" implements " | interfaces]
+    with  <sep-by-comma> is; ?interfaces
+
+  java-to-string:
+    ExtendsInterfaces(is) -> <java-to-string-all> [" extends " | interfaces]
+    with  <sep-by-comma> is; ?interfaces
+
+rules
+
+  java-to-string:
+    StaticInit(b) -> <java-to-string-all> ["static ", b]
+
+  java-to-string:
+    InstanceInit(b) -> b
+
+rules
+
+  java-to-string:
+    AbstractMethodDec(mods, type-params, type, Id(n), params, throws)
+      -> <java-to-string-all> [MethodDecHead(mods, type-params, type, Id(n), params, throws), ";\n"]
+
+  java-to-string:
+    ConstrDec(ConstrDecHead(mods, type-params, class, params, throws), body)
+      -> <java-to-string-all> [foo, class, args, throws, body]
+    with  <list-to-args-string> params => args
+        ; <type-params-to-strings> type-params => targboxes
+        ; !Conc(mods, targboxes) => foo
+
+  java-to-string:
+    ConstrBody(None(), stms) -> <block-structure-string> (0, stms)
+
+  java-to-string:
+    ConstrBody(Some(cinvoke), stms) -> <block-structure-string> (0, [cinvoke | stms])
+
+  java-to-string:
+    FieldDec(mods, type, ds) -> <java-to-string-all> [mods, " ", type, " ", decs, ";\n"]
+    with  <sep-by-comma> ds => decs
+
+  java-to-string:
+    ConstantDec(mods, type, ds) -> <java-to-string> FieldDec(mods, type, ds)
+
+  java-to-string:
+    VarDec(i) -> <java-to-string> i
+
+  java-to-string:
+    VarDec(i, init) -> <java-to-string-all> [i, "=", init]
+
+  java-to-string:
+    Id(s) -> s
+
+  java-to-string:
+    ArrayVarDecId(Id(s), b*) -> <java-to-string-all> [s, b*]
+
+  java-to-string:
+    Dim() -> "[]"
+
+  java-to-string:
+    Dim(e) -> <java-to-string-all> ["[", e, "]"]
+
+  java-to-string:
+    ArrayInit(exprs) -> <java-to-string-all> ["{", vals, "}"]
+    with  <sep-by-comma> exprs => vals
+
+  java-to-string:
+    AltConstrInv(type-args, exprs) -> <java-to-string-all> [b1, "this", args, ";\n"]
+    with  <list-to-args-string> exprs => args
+        ; <type-args-to-string> type-args => b1
+
+  java-to-string:
+    SuperConstrInv(type-args, exprs) -> <java-to-string-all> [b1, "super", b2, ";\n"]
+    with  <list-to-args-string> exprs => b2
+        ; <type-args-to-string> type-args => b1
+
+  java-to-string:
+    QSuperConstrInv(b0, type-args, exprs) -> <java-to-string-all> [b0, ".", b1, "super", b2, ";\n"]
+    with  <list-to-args-string> exprs => b2
+        ; <type-args-to-string> type-args => b1

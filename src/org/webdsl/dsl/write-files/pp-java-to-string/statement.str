@@ -1,0 +1,173 @@
+module org/webdsl/dsl/write-files/pp-java-to-string/statement
+
+imports
+  libstratego-lib
+  libjava-front
+
+rules
+
+  java-to-string:
+    Block(stms) -> <block-structure-string> (0, stms)
+
+  java-to-string:
+    ClassDecStm(classdec) -> classdec
+
+  java-to-string: Return(None())  -> "return;"
+  java-to-string: Return(Some(e)) -> <java-to-string-all> ["return ", e, ";\n"]
+
+  java-to-string:
+    ExprStm(e) -> <java-to-string-all> [e, ";\n"]
+
+  java-to-string:
+    Empty() -> ";\n"
+
+rules
+
+  java-to-string :
+    LocalVarDecStm(lvardec) -> <java-to-string-all> [b, ";\n"]
+    with  <LocalVarDec-to-string> lvardec => b
+
+  LocalVarDec-to-string :
+    LocalVarDec(mods, type, ds) -> <java-to-string-all> [mods, type, " ", decs]
+    with  <sep-by-comma> ds => decs
+
+rules
+
+  java-to-string:
+    Try(block, catches) -> <java-to-string-all> ["try", block, catches]
+
+  java-to-string:
+    Try(block, catches, finally) -> <java-to-string-all> ["try", block, catches, "finally", finally]
+
+  java-to-string:
+    Catch(param, block) -> <java-to-string-all> ["catch(", param, ")", block]
+
+  java-to-string:
+    Throw(e) -> <java-to-string-all> ["throw ", e, ";\n"]
+
+/**
+ * if and if-else
+ */
+rules
+
+  java-to-string =
+    ?If(_, _)
+    ; if-then-to-string
+
+  java-to-string:
+    If(b1, b2, b3) -> <java-to-string-all> [b4, b5]
+    with  <if-then-to-string> If(b1, b2) => b4
+        ; <if-else-to-string> If(b1, b2, b3) => b5
+
+  if-then-to-string :
+    If(b1, b2) -> <java-to-string-all> ["if(", b1, ")", b2]
+    where not(!b2 => Block(_))
+
+  if-then-to-string :
+    If(b1, b2) -> <java-to-string-all> ["if(", b1, ")", b2]
+    where !b2 => Block(_)
+
+  if-else-to-string :
+    If(b1, b2, b3) -> <java-to-string-all> ["else ", b3]
+    where not(!b3 => Block(_))
+
+  if-else-to-string :
+    If(b1, b2, b3) -> <java-to-string-all> ["else ", b3]
+    where !b3 => Block(_)
+
+/**
+ * While Statements
+ */
+rules
+
+  java-to-string:
+    While(cond, b) -> <java-to-string-all> ["while(", cond, ")", b]
+
+  java-to-string:
+    DoWhile(b, cond) -> <java-to-string-all> ["do", b, "while(", cond, ");"]
+
+/**
+ * For Statements
+ */
+rules
+
+  java-to-string:
+    f@For(init, cond, update, b2) -> <java-to-string-all> [b1, b2]
+    where <for-head-string> f => b1
+        ; not(!b2 => Block(_))
+
+  java-to-string:
+    f@For(init, cond, update, b2) -> <java-to-string-all> [b1, b2]
+    where <for-head-string> f => b1
+        ; !b2 => Block(_)
+
+  for-head-string :
+    For(init, cond, update, body) -> <java-to-string-all> ["for(", binit, ";\n", bcond, ";\n", bupdate, ")"]
+    with
+      <sep-by-comma> update => bupdate
+      ; < LocalVarDec-to-string; ![<id>]
+          <+ is-list; sep-by-comma
+        > init => binit
+      ; < ?Some(<id>); ![<id>]
+          <+ ?None(); ![]
+        > cond => bcond
+
+/**
+ * For Each Statements
+ */
+rules
+
+  java-to-string:
+    f@ForEach(param, source, b2) -> <java-to-string-all> [b1, b2]
+    where <for-each-head-string> f => b1
+        ; not(!b2 => Block(_))
+
+  java-to-string:
+    f@ForEach(param, source, b2) -> <java-to-string-all> [b1, b2]
+    where <for-each-head-string> f => b1
+        ; !b2 => Block(_)
+
+  for-each-head-string :
+    ForEach(param, source, body) -> <java-to-string-all> ["for", "(", param, ":", source, ")"]
+
+rules
+
+  java-to-string:
+    Synchronized(e, b) -> <java-to-string-all> ["synchronized(", e, ")", b]
+
+  java-to-string:
+    Break(Some(Id(s))) -> <java-to-string-all> ["break ", s, ";\n"]
+
+  java-to-string:
+    Break(None()) -> "break;"
+
+  java-to-string:
+    Continue(Some(Id(s))) -> <java-to-string-all> ["continue ", s, ";\n"]
+
+  java-to-string:
+    Continue(None()) -> "continue;"
+
+  java-to-string:
+    Labeled(Id(s), stm) -> <java-to-string-all> [s, ":", stm]
+
+  java-to-string:
+    AssertStm(e) -> <java-to-string-all> ["assert ", e, ";\n"]
+
+  java-to-string:
+    AssertStm(e1, e2) -> <java-to-string-all> ["assert ", e1, ":", e2, ";\n"]
+
+  java-to-string:
+    Switch(b1, b2) -> <java-to-string-all> ["switch(", b1, ")", b2]
+
+  java-to-string:
+    SwitchBlock(groups, labels) -> <block-structure-string> (1, <conc> (groups, labels))
+
+  java-to-string:
+    SwitchGroup(labels, stms) -> <java-to-string-all> [labels, stms]
+
+  java-to-string:
+    Case(e) -> <java-to-string-all> ["case ", e, ":"]
+
+  java-to-string:
+    Default() -> "default:"
+

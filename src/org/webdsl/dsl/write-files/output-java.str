@@ -7,9 +7,10 @@ imports
   libwebdsl-front
   libstratego-xtc
   libjava-transformations
-  
+
 imports
   org/webdsl/dsl/write-files/-
+  org/webdsl/dsl/write-files/pp-java-to-string/main
 
 strategies
 
@@ -25,39 +26,23 @@ strategies
       <+ <pp-format-checker-error(|"Internal error: generated Java AST is malformed", <get-java-rtg-file>)> doc
       )
 
-  //java-file-to-text-file :
-  //  JavaFile(prefix, pkg, name, cu) -> TextFile(filename, text)
-  //  where path := <conc; create-dirs> (prefix, <qid-to-list> pkg)
-  //    ; filename := <concat-strings> [path, "/", name, ".java"]
-  //	    ; text := <core-lift-eblocks; pp-java5-to-string> cu
-
   java-file-to-text-file(|filename) =
       ?JavaFile(prefix, cu1)
     ; java  := <post-process-class-for-jrebel-if-enabled> cu1
     ; pjava := <log-time(parenthesize-Java5|"parenthesize-Java5")> java
-    ; if-fast-pretty-printing(  log-time(pp-java5-native(|filename)|"pp-java5-native")
-                                  , log-time(pp-java5-to-abox-fast(|filename)|"pp-java5-to-abox"))
-  
-  pp-java5-native(|filename) =
-    pp-java
-  ; rename-to(!filename)    
-       
-  external pp-java(|)   
-  
-  pp-java5-to-abox-fast(|filename) =
+    ; if-box-pretty-printing(  log-time(pp-java5-to-box(|filename)|"pp-java5-to-box")
+                             , log-time(pp-java5-to-string-no-indents(|filename)|"pp-java5-to-string-no-indents"))
+
+  pp-java5-to-box(|filename) =
     ?pjava
   ; box  := <topdown(try(very-special-conflict); repeat(java-to-box))> pjava
   ; file := <fopen> (filename, "w")
   ; <box2text-stream(|80, file)> box
   ; <fclose> file
-      
-  /* this works, but doesn't improve performance   
-  disable-indentation =
-      remove-box-indendation
-    ; !H([SOpt(HS,"1")],<id>)
-  remove-box-indendation:
-    V(_,body) -> <remove-box-indendation-helper> body
-  remove-box-indendation:
-    H(_,body) -> <remove-box-indendation-helper> body
-  remove-box-indendation-helper = map(try(remove-box-indendation)); flatten-list
-  */
+  
+  pp-java5-to-string-no-indents(|filename) =
+    java-to-string
+  ; ?javastring
+  ; file := <fopen> (filename, "w")
+  ; <fputs> (javastring, file)
+  ; <fclose> file
