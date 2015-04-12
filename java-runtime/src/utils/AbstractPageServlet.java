@@ -339,6 +339,7 @@ public abstract class AbstractPageServlet{
     	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
     	if( // not using page cache if:
     		this.isPageCacheDisabled // ?nocache added to URL
+    		|| this.isPostRequest() // post parameters are not included in cache key
     		|| isNotValid() // data validation errors need to be rendered
     		|| !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
     	){
