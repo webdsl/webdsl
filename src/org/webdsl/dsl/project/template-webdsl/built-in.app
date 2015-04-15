@@ -1660,7 +1660,7 @@ native class java.lang.Double as Double {
           //constrain dragging to list
           //$('#~sortableid').sortable( "option", "containment", 'parent' );
       });
-      var ~deletejsfuncname = function(dollarthis){
+      window.~deletejsfuncname = function(dollarthis){
         dollarthis.parent().remove();
         $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
         ~onchange
