@@ -15,14 +15,14 @@ imports
   org/webdsl/dsl/to-java-servlet/uicomponents/attributes
   org/webdsl/dsl/to-java-servlet/type-utils
   org/webdsl/dsl/to-java-servlet/hibernate-util
-    
-// control flow page elements   : for, if, templatecall 
+
+// control flow page elements   : for, if, templatecall
 
 rules // iteration
 
   for-loop-counter-wrap-code:
     bstm* -> result
-    with  if <?[]> bstm* 
+    with  if <?[]> bstm*
           then result :=  []
           else result :=  bstm*|[
                             ident = "";
@@ -31,23 +31,23 @@ rules // iteration
                             }
                             bstm*
                           ]| end
-                        
-  //wraps expression that starts with ident                        
+
+  //wraps expression that starts with ident
   for-loop-counter-wrap-code-expr:
     e1 -> e |[((inForLoop?forelementcounter:"") + e1 ) ]|
-                            
-    
+
+
   wrap-in-for-loop(|x,t,e) :
     bstm -> res
     with  x_i := <newname> "i"
         ; res := <wrap-in-for-loop(|x_i,x,t,e)> bstm
-  
+
   wrap-in-for-loop(|x_i,x,t,e) :
     bstm ->
     bstm* |[
       Object[] x_array = e.toArray(); // need to iterate set too without iterator, this copied array also makes sure a remove on the collection doesn't cause skipped elements
       for(int x_i = 0; x_i < x_array.length; x_i++)
-      { 
+      {
         t x = (x_argtype) x_array[x_i];
         bstm*
       }
@@ -69,7 +69,7 @@ rules // iteration
          ; bstm* := <s;concat-with-sublists> elems
          ; x_separatorindex := <newname> "separatorindex"
          ; x_delta := <newname> "delta"
-         ; if <?[]> bstm* 
+         ; if <?[]> bstm*
            then result :=  []
            else result :=  bstm*|[
                            {
@@ -113,14 +113,14 @@ rules // iteration
         ; e_expr := <is-guided-batching-joins < !expr |[ utils.QueryOptimization.prefetchCollection(e_HibSession, x_expr, e_joins) ]| + !expr|[x_expr]|>
         ; (bstm_early*, bstm_batch*) := <get-for-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
-          then result :=  [] 
+          then result :=  []
           else result :=  bstm* |[
-                            java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection 
+                            java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection
                             bstm_enable*
                             java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
                             bstm_disable*
                             bstm_early*
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm* |[    
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm* |[
                               bstm*
                             ]|
                           ]| end
@@ -138,7 +138,7 @@ rules // iteration
 
   get-for-all-loop-prefetch(|e_LocalHibSession, x_list, srt) :
     prefetch{anno*} -> (bstm_early*, bstm_batch*)
-    where 
+    where
       if <fetch-elem(?PrefetchForName(x_name))> anno* then
         bstm_early* := bstm* |[ x_name(x_list, true); ]|
         ; bstm_batch* := bstm* |[ x_name(x_list, false); ]|
@@ -156,15 +156,15 @@ rules // iteration
         ; e_criteria := <hibernate-forall-criteria> (fa, t, x, srt, fltr, prefetch)
         ; (bstm_early*, bstm_batch*) := <get-for-all-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
-          then result :=  [] 
-          else result :=  bstm* |[ 
+          then result :=  []
+          else result :=  bstm* |[
                             java.util.List<t> x_list = e_criteria.list();
                             bstm_early*
                             ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm*|[
                               bstm*
                             ]|
                           ]| end
-        
+
   control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*) :
     bstm* ->
     bstm* |[
@@ -175,12 +175,12 @@ rules // iteration
       int x_separatorindex = 0;
       ~*<control-flow-for-separator(s|sep, x_separatorindex)
          ;wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
-        bstm* |[  
-          fallbackcounter += 1; 
+        bstm* |[
+          fallbackcounter += 1;
           if(org.webdsl.WebDSLEntity.class.isInstance(x)) {
              org.webdsl.WebDSLEntity x_ent = ((org.webdsl.WebDSLEntity) ((Object) x));
-             forelementcounter = (x_ent.getVersion() == 0 
-               ? Integer.toString(fallbackcounter) 
+             forelementcounter = (x_ent.getVersion() == 0
+               ? Integer.toString(fallbackcounter)
                : utils.UUIDUserType.persistUUIDString(x_ent.getId()));
           }
           else
@@ -200,17 +200,17 @@ rules // iteration
     with  bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
         ; x_separatorindex := <newname> "separatorindex"
         ; x_ent := <newname> "temp"
-                          
+
   control-flow-for-separator(s|sep, x_separatorindex) :
     bstm* -> bstm*
     where None() := sep
-    
+
   control-flow-for-separator(s|sep, x_separatorindex) :
     bstm* -> result
     where ForSeparator(elems) := sep
     with  bstm2* := <s;concat-with-sublists> elems
         ; if <?[]> bstm*
-          then result :=  [] 
+          then result :=  []
           else result :=  bstm* |[
                               if(x_separatorindex > 0) {
                                 bstm2* // place separator if there was an element before this one
@@ -230,35 +230,35 @@ rules // if
         ; bstm2* := <s;concat-with-sublists> elems2
         ; e1 := <expression-to-java-servlet> e
         ; if <?([],[])> (bstm*,bstm2*)
-          then result :=  [] 
+          then result :=  []
           else if <?[]> bstm2*
-               then result :=  
+               then result :=
                  bstm |[
-                   if(e1){ 
+                   if(e1){
                      bstm*
                    }
                  ]|
-               else result :=  
+               else result :=
                  bstm |[
-                   if(e1){ 
+                   if(e1){
                      bstm*
                    }
                    else{
                      bstm2*
                    }
-                 ]| 
+                 ]|
                end
           end
 
-rules //templatecall    
-   
+rules //templatecall
+
   element-to-java-servlet = control-flow-tcall
 
   control-flow-tcall :
-    tc@TemplateCall(x_name, args, passign*, _) -> bstm* 
+    tc@TemplateCall(x_name, args, passign*, _) -> bstm*
     where <get-anno(?CallToDefinedAnno())> tc
     with  bstm* := <control-flow-tcall-defined-template> tc
-    
+
   control-flow-tcall-defined-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     with  // translate (ref) args
@@ -267,8 +267,8 @@ rules //templatecall
           // call common templatecall translation
         ; java_tname := expr|["~x_name"]|
         ; java_args := expr|[ new Object[] { e_argswithref* } ]|
-        ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_tname)> tc //last argument, parentname, is current template in this case   
-    
+        ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_tname)> tc //last argument, parentname, is current template in this case
+
   /**
    *  Used for call to defined template and call to required template.
    */
@@ -276,40 +276,40 @@ rules //templatecall
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> bstm* |[  bstm_result* ]|
     with  //
           tname := <<fetch-elem(?PropertyAssignment("templateContext",<id>))> passign* <+ <get-templatecallnumber> tc> // either the static tcallname, e.g. tcall12, or attribute templateContext (e.g. elements[templateContext=tc] used for label implementation)
-        ; e_withcallsmap := <control-flow-emit-with-calls-map> (passign*,expr|[ new Environment(env) ]|) 
+        ; e_withcallsmap := <control-flow-emit-with-calls-map> (passign*,expr|[ new Environment(env) ]|)
         ; attrsmap := <if <?[]> java_attrsmap then <control-flow-emit-attrs-calls-map> passign* else !java_attrsmap end>
         ; java_args_addedlocalargs := <add-extra-arg-for-local-redefinition> (java_args, java_tname)
         // create template call
         ; bstm_result* := <generate-template-call> (
-            tc, 
+            tc,
             bstm_cachedlookup*,
-            java_tname, 
-            tname, 
+            java_tname,
+            tname,
             java_args_addedlocalargs,
-            e_withcallsmap, 
+            e_withcallsmap,
             attrsmap,
             parentname
             )
 
-  /** 
+  /**
    *  make implicit template arguments explicit, add the closure of a locally redefined template (retrieved from Environment class)
    *  add extra arg for local redefinitions, if any
-   */ 
+   */
   add-extra-arg-for-local-redefinition :
-    (e, e_name) -> java:expr |[ env.addExtraLocalTemplateArgumentsToArguments(e,e_name) ]| 
-            
+    (e, e_name) -> java:expr |[ env.addExtraLocalTemplateArgumentsToArguments(e,e_name) ]|
+
   /**
    *  'elements' call
    *
-   *  'with/requires' templatecall for element in with { } arguments (derived from ArgDef constructor), 
+   *  'with/requires' templatecall for element in with { } arguments (derived from ArgDef constructor),
    *  stored in TemplateCall with only part of the needed arguments, the closure at the call
    *
    *  e_env is the expression that creates the Environment being extended
    *
-   *  the result of this rule is an expression that wraps java-exp-for-env with chained calls to putWithcall 
+   *  the result of this rule is an expression that wraps java-exp-for-env with chained calls to putWithcall
    */
   control-flow-emit-with-calls-map :
-    (passign*,e_env) -> exp 
+    (passign*,e_env) -> exp
     with filtered := <filter(control-flow-emit-with-calls-filter)> passign*
        ; exp := <foldl(control-flow-emit-with-calls-fold-helper)> (filtered,e_env)
 
@@ -342,16 +342,16 @@ rules //templatecall
    * bstm_cachedlookup* : an optional java statement that caches the template class lookup
    * e_name : unique template name for lookup in hashmaps - Java expression with type String
    * tname : template call number used in templateContext - Stratego string or WebDSL expression with type TemplateContext to change the templateContext for this call entirely
-   * e : regular template arguments, including closure of local template redefinition if applicable - Java Object[] 
+   * e : regular template arguments, including closure of local template redefinition if applicable - Java Object[]
    * e_withcallsmap : expression that adds 'with' arguments and 'elements' template argument to withcallsmap in newenv - Java exp
    * bstm_attrs* : attributes, arguments between [] - Java bstm*
-   */    
+   */
   generate-template-call :
     (tc{anno*}, bstm_cachedlookup*, e_name, x_tcallid, e, e_withcallsmap, bstm_attrs*, e_parentname) ->
     bstm* |[
-      try{  
-        bstm_cachedlookup*
-        bstm_attrs1*
+      try{
+        ~bstm*:bstm_cachedlookup*
+        ~bstm*:bstm_attrs1*
         handleTemplateCall(phase, inForLoop, forelementcounter, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
       }
       catch(RuntimeException ex){
@@ -369,16 +369,16 @@ rules //templatecall
              ; e_attrs := java:expr|[ attrsmapout ]|
           end
 
-  template-call-to-java-string: 
+  template-call-to-java-string:
     tc@TemplateCall(name,args, _, _) -> java:expr|[ "~x_result" ]|
-    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name  // regular call or 'templatename.elements'    
-        ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args  
+    with  x_name := <where(is-string) <+ ?QualifiedElementsCall(<<concat-strings> [<id>".elements"]>)> name  // regular call or 'templatename.elements'
+        ; arg_dump := <alltd(get-original-name);map(pp-webdsl-to-string);separate-by(|", ");concat-strings;explode-string;escape-chars;implode-string> args
         ; <get-anno(?PositionAnno(position)) <+ position := ""> tc
         ; x_result := <concat-strings> [x_name,"(",arg_dump,")",<if ?"" then id else <concat-strings>[" at ",position] end> position]
-          
+
 /**
  *  Call to template passed as part of required templates
- *  Since the passed TemplateCall object only has the first part of the arguments, it is concatted with the 
+ *  Since the passed TemplateCall object only has the first part of the arguments, it is concatted with the
  *  actual arguments of the required template definition
  *
  *  'elements' call
@@ -390,7 +390,7 @@ rules
   // 'requires'
   control-flow-tcall-required-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
-    where <get-anno(?CallToRequiredAnno())> tc 
+    where <get-anno(?CallToRequiredAnno())> tc
     with  originalname := <get-original-name> x_name
         ; // translate (ref) args
           calledTemplateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
@@ -400,23 +400,22 @@ rules
         ; java_args:=  expr|[ Utils.concatArrays(new Object[] { e_argswithref* }, env.getWithcall("~originalname").args) ]|
         ; java_elementsarglookupname := java:expr|[ "~originalname" ]|
         ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_elementsarglookupname)> tc
-          
+
   // 'elements'
   control-flow-tcall-required-template :
     tc@TemplateCall(x_name, args, passign*, _){anno*} -> result
     where e := <create-elements-call-name> x_name
     with  // call common templatecall translation
           x_elementscall := "elems"
-        ; bstm_cachedlookup* := bstm*|[ utils.TemplateCall x_elementscall = env.getWithcall(e); ]| 
-        ; java_tname := expr|[ x_elementscall.name ]| 
+        ; bstm_cachedlookup* := bstm*|[ utils.TemplateCall x_elementscall = env.getWithcall(e); ]|
+        ; java_tname := expr|[ x_elementscall.name ]|
         ; java_args :=  expr|[ x_elementscall.args ]|
         ; java_attrbstm* :=  bstm*|[ Map<String,String> attrsmapout = x_elementscall.attrs; ]|
         ; result := <control-flow-tcall-helper(|bstm_cachedlookup*, java_tname, java_args, java_attrbstm*, java:expr|[ x_elementscall.parentName]|)> tc
- 
+
   create-elements-call-name :
     x_name -> e
     where  <?"elements"> x_name
          ; e := java:expr|[ "elements#"+getElementsContext() ]|
        <+ <?QualifiedElementsCall(context)> x_name
          ; e := java:expr|[ "elements#"+"~context" ]|
-           

@@ -9,10 +9,10 @@ imports
   libwebdsl-front
 
 rules
-  
+
   call-to-java-servlet :
     call@exp|[ getReflectionEntities() ]| -> java |[ utils.ThreadLocalServlet.get().getReflectionEntities() ]|
-    
+
   call-to-java-servlet :
     call@exp|[ getReflectionEntityByName(e) ]| -> java |[ utils.ThreadLocalServlet.get().getReflectionEntityByName(e1) ]|
     with e1 := <expression-to-java-servlet> e
@@ -27,15 +27,15 @@ rules
   generate-entity-reflection-helper:
     _ -> <emit-java-code> compilation-unit|[
       package utils;
-      
+
       import org.webdsl.lang.*;
       import java.util.*;
-      
+
       public class EntityReflectionHelper {
         public static void init(){
           List<ReflectionEntity> reflectionentities = DispatchServletHelper.reflectionentities;
           ReflectionEntity ent;
-          bstm_reflectioninit*
+          ~bstm*:bstm_reflectioninit*
           org.webdsl.logging.Logger.info("number of entities: " + reflectionentities.size());
         }
       }
@@ -43,7 +43,7 @@ rules
     with  pkgname    := <TemplatePackage>
         ; pkgname2   := <DomainPackage>
         ; bstm_reflectioninit* := <all-entity-to-init-reflect>
-          
+
   all-entity-to-init-reflect =
       bagof-AllEntities
     ; {| EntityDef:
@@ -57,16 +57,16 @@ rules
       ; map(EntityDef; entity-to-init-reflect)
     |}
     ; concat
-    
+
   entity-to-init-reflect : Entity(x,x_super,ebds){anno*} -> <entity-to-init-reflect-aux> (x,java:expr|["~x_super"]|,ebds,anno*)
   entity-to-init-reflect : EntityNoSuper(x,ebds){anno*} -> <entity-to-init-reflect-aux> (x,java:expr|[null]|,ebds,anno*)
   entity-to-init-reflect : SessionEntity(x,ebds){anno*} -> <entity-to-init-reflect-aux> (<capitalize-string> x,java:expr|[null]|,ebds,anno*)
-  
-  entity-to-init-reflect-aux : 
-    (x,e_super,ebds,anno*) -> bstm*|[ 
+
+  entity-to-init-reflect-aux :
+    (x,e_super,ebds,anno*) -> bstm*|[
       ent = new ReflectionEntity("~x", e_super, e_viewpage);
       reflectionentities.add(ent);
-      bstm* 
+      bstm*
       ReflectionEntity.add(ent);
     ]|
     with  t_entjtype := <java-type-entity> x
@@ -77,10 +77,10 @@ rules
         ; bstm* := <filter(property-to-init-reflect(|t_entjtype))> all_props
         ; if <fetch(?HasViewPage())> anno*
           then e_viewpage := java:expr|[ true ]|
-          else e_viewpage := java:expr|[ false ]| end    
-    
+          else e_viewpage := java:expr|[ false ]| end
+
   property-to-init-reflect(|t_entjtype) :
-    p -> bstm|[ 
+    p -> bstm|[
       ent.getProperties().add(new ReflectionProperty<t_entjtype, t_type>("~x", e_notnull, e_format){ ~*cbd_allowed*  });
     ]|
     with  x := <get-property-name> p

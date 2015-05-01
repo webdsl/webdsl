@@ -18,7 +18,6 @@ XT_SETUP
 XT_PRE_RELEASE
 
 XT_USE_XT_PACKAGES
-XT_USE_JAVA_FRONT
 
 ## makes the autoconf and svn revision numbers visible through primitives, see stratego sources
 XT_TERM_DEFINE
@@ -32,11 +31,7 @@ AC_PROG_LIBTOOL
 
 AC_CHECK_PROG([bash], [bash], [`type -p bash`], [/bin/bash])
 
-WEBDSLC=$prefix/bin/webdslc
-
-XT_ENABLE_JAVA_BACKEND
-XT_ENABLE_WEB_CHECK
-XT_USE_STRC_JAVA
+WEBDSLC=java
 
 AC_SUBST(WEBDSLC)
 

@@ -174,6 +174,9 @@ public class TemplateCall {
 		  attrsmapout.put(key, value);
 	  }
   }
+  public static void putAttributeMergeClassOrStyle(Map<String,String> attrsmapout, String key, Integer value){
+	  putAttributeMergeClassOrStyle(attrsmapout, key, value.toString());
+  }
   
   
   /*

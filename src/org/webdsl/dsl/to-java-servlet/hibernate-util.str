@@ -199,10 +199,10 @@ rules
   remove-all-fa :
     Not(expr) -> True()
     where not(True() := expr)
-    ; True() := <remove-all-fa <+ !True()> expr 
+    ; True() := <remove-all-fa <+ !True()> expr
 
   remove-all-fa :
-    Not(expr1) -> Not(expr2) 
+    Not(expr1) -> Not(expr2)
     where expr2 := <remove-all-fa> expr1
     ; not(True() := expr2)
 
@@ -216,7 +216,7 @@ rules
 
   remove-var-conditions = alltd(remove-var-conditions2)
 
-  remove-var-conditions2 :  
+  remove-var-conditions2 :
     PrefetchCondition(expr1) -> PrefetchCondition(expr2)
     with expr2 := <remove-var-conditions-helper> expr1
 
@@ -237,10 +237,10 @@ rules
   remove-var-conditions-helper :
     Not(expr) -> True()
     where not(True() := expr)
-    ; True() := <remove-var-conditions-helper <+ !True()> expr 
+    ; True() := <remove-var-conditions-helper <+ !True()> expr
 
   remove-var-conditions-helper :
-    Not(expr1) -> Not(expr2) 
+    Not(expr1) -> Not(expr2)
     where expr2 := <remove-var-conditions-helper> expr1
     ; not(True() := expr2)
 
@@ -270,13 +270,13 @@ rules
   use-conditions-without-vars = topdown(try(replace-condition-to-condition-without-vars))
 
   replace-condition-to-condition-without-vars :
-    PrefetchWhere(pwmod*,cond{condanno*}){pwanno*} -> PrefetchWhere(pwmod*,cond2){pwkeepanno*} 
+    PrefetchWhere(pwmod*,cond{condanno*}){pwanno*} -> PrefetchWhere(pwmod*,cond2){pwkeepanno*}
     with pwkeepanno* := <remove-all(?QueryConditionFilter(_, _, _)); map(try(?ConditionWithoutVars(fltr); !fltr))> pwanno*
     ; cond2 := <fetch-elem(?ConditionWithoutVars(<id>)) <+ !True()> condanno*
 
   replace-condition-to-condition-without-vars :
     PrefetchCondition(cond1){anno*} -> PrefetchCondition(cond2){anno*}
-    with ConditionWithoutVars(cond2) := <get-anno(?ConditionWithoutVars(_))> cond1 
+    with ConditionWithoutVars(cond2) := <get-anno(?ConditionWithoutVars(_))> cond1
 
   get-to-one-joins-no-empty-batch = ?PrefetchFor(_, _, _, <get-prefetch-children>); get-to-one-joins-no-empty-batch
   get-to-one-joins-no-empty-batch = ?None(); ![]
@@ -346,11 +346,11 @@ rules
     ?PrefetchFor(_, templ, _, <get-prefetch-children>)
     ; bstm_sub* := <start-build-sub-batches(|e_LocalHibSession, x_list, srt)>
     ; bstm_templ* := <get-prefetch-for-template-at-root(|x_list, srt) <+ ![]> templ
-    ; <if-optimization-enabled> bstm* |[ bstm_templ* bstm_sub* ]|
+    ; <if-optimization-enabled> bstm* |[ ~bstm*:bstm_templ* ~bstm*:bstm_sub* ]|
 
   get-prefetch-for-template-at-root(|x_list, srt) =
     ?templ
-    ; SimpleSort(_) := srt 
+    ; SimpleSort(_) := srt
     ; <get-prefetch-for-template(|x_list)> templ
 
   get-prefetch-for-template-at-root(|x_list, srt) =
@@ -358,12 +358,12 @@ rules
     ; GenericSort(_, _) := srt
     ; elemsrt := <get-inner-most-batch-sort> srt
     ; t := <java-type> elemsrt
-    ; x_batchelem := <newname> "elem" 
+    ; x_batchelem := <newname> "elem"
     ; x_batch := <newname> "batch"
     ; bstm_decl := bstm |[ java.util.ArrayList<t> x_batch = new java.util.ArrayList<t>(); ]|
     ; bstm_add* := <loops-for-generic-batches(|x_batchelem, bstm* |[ x_batch.add(x_batchelem); ]|)> (x_list, srt)
     ; bstm_templ* := <get-prefetch-for-template(|x_batch)> templ
-    ; !bstm* |[ bstm_decl bstm_add* bstm_templ* ]|
+    ; !bstm* |[ bstm_decl ~bstm*:bstm_add* ~bstm*:bstm_templ* ]|
 
   if-optimization-enabled : bstm* -> [] where [] := <flatten-list>bstm*
   if-optimization-enabled : bstm* -> bstm* |[ if(utils.QueryOptimization.isOptimizationEnabled()){ bstm* } ]| where not([] := <flatten-list>bstm*) // bstm* can be [[]]
@@ -390,7 +390,7 @@ rules
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(e_expr);
                                               utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
-                                              bstm_sub*
+                                              ~bstm*:bstm_sub*
                                             }
                                           ]|
     where x := f
@@ -411,7 +411,7 @@ rules
     PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt@GenericSort(_, [fsimplesrt]))}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[
                                             if(e_Cond && utils.QueryOptimization.isOptimizationEnabled()) {
                                               java.lang.Iterable<t> x_list = e_expr;
-                                              bstm_sub*
+                                              ~bstm*:bstm_sub*
                                             }
                                           ]|
     where x := f
@@ -432,7 +432,7 @@ rules
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(x);
                                               utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
-                                              bstm_sub*
+                                              ~bstm*:bstm_sub*
                                             }
                                           ]|
     where t := <java-type> srt
@@ -511,7 +511,7 @@ rules
 
   // Also check for (getFilterHint() == null), to avoid the creation of extra FilterImpl objects by e_fltr
   build-prefetch-hint(|x_elem,elemsrt) :
-    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[ if(e_cond) { bstm_sethint* } ]|
+    PrefetchNode(castsrt, f{PrefetchPropAnno(decsrt, fsrt)}, mod*, templ, cond, elemcond, children){anno*} -> bstm* |[ if(e_cond) { ~bstm*:bstm_sethint* } ]|
     where GenericSort(_, [_]) := fsrt
     with v := Var(x_elem){TypeAnno(elemsrt)}
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
@@ -560,7 +560,7 @@ rules
     (x_list, srt@SimpleSort(_)) -> bstm* |[
         for(t x_batchelem : x_list) {
           if(x_batchelem == null) continue;
-          bstm_op*
+          ~bstm*:bstm_op*
         }
     ]|
     where t := <java-type> srt
@@ -569,7 +569,7 @@ rules
     (x_list, srt@GenericSort(_, [simplersort])) -> bstm* |[
         for(t x_elem : x_list) {
           if(x_elem == null) continue;
-          bstm_innerloop*
+          ~bstm*:bstm_innerloop*
         }
     ]|
     where t := <java-type> srt
@@ -583,11 +583,11 @@ rules
     ; make-set
     ; {| ReuseExpression
        : map(generate-declare-for-reusable)
-		   ; ?bstm_reusable*
-		   ; !nodes
-		   ; build-sub-batches(|e_LocalHibSession, x_list, srt)
-		   ; ?bstm_batches*
-		   |}
+       ; ?bstm_reusable*
+       ; !nodes
+       ; build-sub-batches(|e_LocalHibSession, x_list, srt)
+       ; ?bstm_batches*
+       |}
     ; try(not(?[]); ![bstm_reusable*,bstm_batches*])
 
   generate-declare-for-reusable :
@@ -608,12 +608,12 @@ rules
 
   build-sub-batches(|e_LocalHibSession, x_list, srt, allvars) :
     children -> (bstm* |[
-        bstm_batch*
-        bstm_addloops*
-        bstm_fetch*
-        bstm_after2*
-        bstm_final*
-        bstm_subbatch*
+        ~bstm*:bstm_batch*
+        ~bstm*:bstm_addloops*
+        ~bstm*:bstm_fetch*
+        ~bstm*:bstm_after2*
+        ~bstm*:bstm_final*
+        ~bstm*:bstm_subbatch*
       ]|, newvars, bound)
     with elemsrt := <get-inner-most-batch-sort> srt
     ; x_batchelem := <newname> "elem"
@@ -679,7 +679,7 @@ rules
   try-combine-fetch-entities-calls :
     [(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch) | rest] -> [stm |[ utils.QueryOptimization.prefetchEntities(e_LocalHibSession, e_str, e_batch, e_joins, e_clearEmptyBatch); ]| | newrest]
     where not(expr|[(String[])null]| := e_joins)
-    with newrest := <try-combine-fetch-entities-calls> rest 
+    with newrest := <try-combine-fetch-entities-calls> rest
 
   try-combine-fetch-entities-calls :
     lst@[(e_LocalHibSession, e_str, _, expr|[(String[])null]|, _) | _] -> [stm_fetch|rest]
@@ -796,7 +796,7 @@ rules
       end
     ; bstm_fetchtmp := bstm |[ utils.QueryOptimization.prefetchCollections(e_LocalHibSession, "~strRole", x_ownerids, e_joins); ]|
     ; bstm_fetch* := bstm* |[
-        bstm_enable*
+        ~bstm*:bstm_enable*
         bstm_fetchtmp
       ]|
     ; bstm_templ* := <get-prefetch-for-template(|x_batch) <+ ![]> templ
@@ -871,7 +871,7 @@ rules
       all-entity-names := <bagof-AllEntityNames; string-sort-annos>
     ; entity-collection-properties := <bagof-AllEntities; filter(generate-java-servlet-hibernate-util-collection-helper1); flatten-list>
     ; query-optimization-mode := <QueryOptimizationMode>
-    ; !(all-entity-names, entity-collection-properties, query-optimization-mode) 
+    ; !(all-entity-names, entity-collection-properties, query-optimization-mode)
       // for the cache to work correctly, code generation should not depend on other information than this current term
     ; disable-code-generation-if-cache-exists
     ; cached-generate(generate-java-servlet-hibernate-util | "internal_HibernateUtil")
@@ -904,7 +904,7 @@ rules
           {
             utils.QueryOptimization.optimizationMode = ~i:strOptimizationMode;
             annotationConfiguration = new Configuration();
-            bstm_setprops*
+            ~bstm*:bstm_setprops*
 
             //Properties prop = HibernateUtil.getProperties();
 

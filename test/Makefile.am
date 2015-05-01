@@ -56,14 +56,10 @@ TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSF
 
 EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app succeed/prefetch/module/logutils.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
 
-if XT_ENABLE_WEB_CHECK
-
 TESTS += $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
 
 $(TESTSSUCCEEDWEBALL:.app=.sh): run-test-succeed-web-all.sh
 	@$(LN_S) -f $$(pwd)/$< ./$@
-
-endif
 	
 $(TESTSSUCCEEDALL:.app=.sh): run-test-succeed-all.sh
 	@$(LN_S) -f $$(pwd)/$< ./$@

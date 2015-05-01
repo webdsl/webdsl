@@ -55,7 +55,7 @@ let
       };
 
   jobs = rec {
-    tests = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (run_test f)) (import webtests));
+    # tests = pkgs.lib.listToAttrs (map (f: pkgs.lib.nameValuePair (pkgs.lib.replaceChars ["/"] ["_"] f) (run_test f)) (import webtests));
 
     tarball = 
       pkgs.stdenv.mkDerivation {
