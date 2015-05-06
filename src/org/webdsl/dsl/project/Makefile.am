@@ -77,8 +77,8 @@ install-data-hook:
 #
 	cp webdsl webdsl-plugins webdsl.bat webdsl-eclipseplugin webdsl-eclipseplugin.bat $(pkgdatadir)/
 	mkdir -p $(pkgdatadir)/plugin-build-deps
-	cp -R $(JAVA_FRONT)/share/java-front/ $(pkgdatadir)/plugin-build-deps/java-front/
-	chmod -R +w $(pkgdatadir)/plugin-build-deps/java-front/ #copied from nix store, marked as read-only, breaks subsequent make install
+#	cp -R $(JAVA_FRONT)/share/java-front/ $(pkgdatadir)/plugin-build-deps/java-front/
+#	chmod -R +w $(pkgdatadir)/plugin-build-deps/java-front/ #copied from nix store, marked as read-only, breaks subsequent make install
 
 install-data-local:
 	mkdir -p $(pkgdatadir)/new_project

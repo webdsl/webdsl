@@ -243,7 +243,7 @@ src-gen/org/webdsl/to_java_servlet/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYN
 	$(STRJ) $(STRJFLAGS) $(STRINCLUDES) --library -p org.webdsl.to_java_servlet -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o src-gen/org/webdsl/to_java_servlet/Main.java -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations -la org.webdsl.write_files
 	cp src-gen/org/webdsl/to_java_servlet/Main.rtree libto-java-servlet.rtree
 
-src-gen/org/webdsl/webdslc/Main.java : webdslc.str
+src-gen/org/webdsl/webdslc/Main.java : webdslc.str libwebdsl-front.rtree libwebdsl-generator.rtree libjava-transformations.rtree libwrite-files.rtree libback-end-transformations.rtree libto-java-servlet.rtree
 	mkdir -p src-gen/org/webdsl/webdslc
 	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations
 
