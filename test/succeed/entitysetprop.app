@@ -30,3 +30,20 @@ section datamodel
       u.save();
     }    
   }
+
+  entity Ent{
+    a : String
+    b : String
+    c : String
+    d : String
+    order : String    
+    extend function setA(s : String){ order := order + "a"; }
+    extend function setB(s : String){ order := order + "b"; }
+    extend function setC(s : String){ order := order + "c"; }
+    extend function setD(s : String){ order := order + "d"; }
+  } 
+
+  test {
+    var ent := Ent{ d := "" b := "" c := "" a := ""	};
+    assert(ent.order == "dbca", "Entity properties are set in different order than declaration");
+  }
