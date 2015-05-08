@@ -165,12 +165,12 @@ public abstract class AbstractPageServlet{
             }
             // action inside ajax template called and failed
             else if( isAjaxTemplateRequest() && isActionSubmit() ){
-              StringWriter s1 = renderContentOnly();
+              StringWriter s1 = renderPageOrTemplateContents();
               response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
             }
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
-              StringWriter s1 = renderContentOnly();
+              StringWriter s1 = renderPageOrTemplateContents();
               response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) +"\"}]");
             }
             // 1 regular render without any action being executed
@@ -187,7 +187,8 @@ public abstract class AbstractPageServlet{
             if( isReRenderPlaceholders() ){
                 templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
                 ThreadLocalPage.get().clearTemplateContext();
-                renderContentSingleRender(); // content of placeholders is collected in reRenderPlaceholdersContent map
+                renderDynamicFormWithOnlyDirtyData = true;
+                renderPageOrTemplateContents(); // content of placeholders is collected in reRenderPlaceholdersContent map
                 StringWriter replacements = new StringWriter();
                 boolean addComma = false;
                 for(String ph : reRenderPlaceholders){
@@ -343,7 +344,7 @@ public abstract class AbstractPageServlet{
     		|| isNotValid() // data validation errors need to be rendered
     		|| !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
     	){
-    		StringWriter renderedContent = renderContentOnly();
+    		StringWriter renderedContent = renderPageOrTemplateContents();
     		if(!mimetypeChanged){
     			s = renderResponse(renderedContent);
     		}
@@ -369,7 +370,7 @@ public abstract class AbstractPageServlet{
     				public String call(){
     					// System.out.println("key not found");
     					pageCacheWasUsed = false;
-    					StringWriter renderedContent = renderContentOnly();
+    					StringWriter renderedContent = renderPageOrTemplateContents();
     					if(!mimetypeChanged){
     						return renderResponse(renderedContent);
     					}
@@ -399,20 +400,27 @@ public abstract class AbstractPageServlet{
     		sout.write(s);
     	}
     }
+    
+    public boolean renderDynamicFormWithOnlyDirtyData = false;
 
-    public StringWriter renderContentOnly(){
-        return renderPageOrTemplateContents(true);
-    }
-    public StringWriter renderContentSingleRender(){
-        return renderPageOrTemplateContents(false);
-    }
-
-    public StringWriter renderPageOrTemplateContents(boolean doFormDoubleRender){
+    public StringWriter renderPageOrTemplateContents(){
         if(isTemplate() && !ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); }
         StringWriter s = new StringWriter();
         PrintWriter out = new PrintWriter(s);
-        if(isNotValid() && doFormDoubleRender){ //render form with newly entered data, rest with the current persisted data
 
+        if(request.getParameter("dynamicform") == null){
+          // regular pages and forms
+          if(isNotValid()){
+        	clearHibernateCache();
+          }
+          ThreadLocalOut.push(out);
+          templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
+          ThreadLocalOut.popChecked(out);  	
+        }
+        else{
+          // dynamicform uses submitted variable data to process form content
+          // render form with newly entered data, rest with the current persisted data
+          if(isNotValid() && !renderDynamicFormWithOnlyDirtyData){
             StringWriter theform = new StringWriter();
             PrintWriter pwform = new PrintWriter(theform);
             ThreadLocalOut.push(pwform);
@@ -422,19 +430,28 @@ public abstract class AbstractPageServlet{
             ThreadLocalOut.popChecked(pwform);
 
             clearHibernateCache();
-
-            ThreadLocalOut.push(out);
-            // render, when encountering submitted form render old
-            templateservlet.render( null, args, new Environment(envGlobalAndSession), null);
-            ThreadLocalOut.popChecked(out);
-        }
-        else{
+          }
           ThreadLocalOut.push(out);
+          // render, when isNotValid and encountering submitted form render old
           templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
           ThreadLocalOut.popChecked(out);
         }
         return s;
     }
+    
+    public StringWriter renderPageOrTemplateContentsSingle(){
+        if(isTemplate() && !ThreadLocalServlet.get().isPostRequest){ throw new utils.AjaxWithGetRequestException(); }
+        StringWriter s = new StringWriter();
+        PrintWriter out = new PrintWriter(s);
+
+        ThreadLocalOut.push(out);
+          templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
+          ThreadLocalOut.popChecked(out);
+       
+          return s;
+    }
+    
+    
     private boolean validationFormRerender = false;
     public boolean isValidationFormRerender(){
         return validationFormRerender;

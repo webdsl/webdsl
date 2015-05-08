@@ -16,12 +16,17 @@ application test
     }    
     form{
       input(i)
+      "output:" output(i)  // test that it shows persisted value, not entered value
       submit("save",red())
     }
   }
   
   define page success(){
     "redirected to success page"
+  }
+  
+  function checkOutputShown(d: WebDriver){
+    assert(d.getPageSource().contains("output:1"));
   }
   
   test {
@@ -33,10 +38,12 @@ application test
    
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length == 1, "expected <input> elements did not match");
+        
     d.getSubmit().click();
     
     assert(d.getPageSource().contains("ajax form inserted"));
- 
+    checkOutputShown(d);
+     
     var elist1 : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist1.length == 3, "expected <input> elements did not match");
 
@@ -46,4 +53,5 @@ application test
     assert(d.getPageSource().contains("root page"), "root page should not be overridden by an ajax call validation error");
     assert(d.getPageSource().contains("Not a valid number"), "validation error did not show up");
     assert(!d.getPageSource().contains("redirected to success page"), "validation error should have prevented action execution");
+    checkOutputShown(d);
   }

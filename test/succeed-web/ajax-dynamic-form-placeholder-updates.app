@@ -22,7 +22,7 @@ application test
       rollback();
     }
 
-    form{
+    dynamicform{
       inputajax(i1)[class="input1", oninput=update()]
       placeholder "ph1"{
         if(i1 > 2){ //cannot be placed before input(i1)
@@ -50,6 +50,7 @@ application test
   
   function placeholderShown(d:WebDriver){
     sleep(2000);
+    log(d.getPageSource().contains("placeholder rendered"));
     assert(d.getPageSource().contains("placeholder rendered"));
   }
   function placeholderNotShown(d:WebDriver){
@@ -101,13 +102,15 @@ application test
     validationErrorShown(d);
 
     // update placeholder with a validation error inside it, error should remain visible
-    i2.sendKeys("abc");            
+    i2.sendKeys("abc");  
+    sleep(2000);          
     i1.sendKeys("8");
     placeholderShown(d);
     validationErrorShown(d);
            
     // change first input to remove second input and its error        
     i1.clear(); // note: this clear doesn't fire oninput event
+    sleep(2000);
     i1.sendKeys("0");
     placeholderNotShown(d);
     validationErrorNotShown(d);
@@ -129,6 +132,7 @@ application test
     i3.clear();
     i3.sendKeys("8888");
     b := d.findElement(SelectBy.className("button"));
+    sleep(2000);
     b.click();
     stringShown(d,"saved entities: 77778888");  
   }

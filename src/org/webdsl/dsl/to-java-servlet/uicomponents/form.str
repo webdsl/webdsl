@@ -13,23 +13,26 @@ imports
 
 rules // forms
 
-  element-to-java-servlet = ?TemplateCall("form",[],_,_); render-phase-form
+  element-to-java-servlet = ?TemplateCall("form",[],_,_); all-phases-form(fail)
+  element-to-java-servlet = ?TemplateCall("dynamicform",[],_,_); all-phases-form(id)
 
-  render-phase-form :
-    tc@TemplateCall("form", [],passign*, elems) ->
+  all-phases-form(dynamic) :
+    tc@TemplateCall(_, _, passign*, elems) ->
     bstm* |[
-      if(threadLocalPageCached.isInForm()){
-        org.webdsl.logging.Logger.error("Invalid nested <form> tag detected in DOM at URL: "+threadLocalPageCached.getRequest().getRequestURL()
-          +"\n Enclosing form found in "+threadLocalPageCached.getEnclosingForm()
-          +"\n Nested form found in "+getTemplateSignature());
-      }
+      ~*<if not(dynamic) then id else ![] end>bstm*|[
+        if(threadLocalPageCached.isInForm()){
+          org.webdsl.logging.Logger.error("Invalid nested <form> tag detected in DOM at URL: "+threadLocalPageCached.getRequest().getRequestURL()
+            +"\n Enclosing form found in "+threadLocalPageCached.getEnclosingForm()
+            +"\n Nested form found in "+getTemplateSignature());
+        }
+      ]|
       threadLocalPageCached.enterForm(getTemplateSignature());
 
       ident = e_ident;
       threadLocalPageCached.setFormIdent(ident);//for actionLink javascript code and ajax actions  //TODO breaks with nested forms, use stack
       // need to set formident also in databind phase, so template calls that get initialized during this phase don't result in having broken ajax action links (rerender placeholders)
 
-      if(threadLocalPageCached.getParammap().get(ident)!=null){
+      if(threadLocalPageCached.getParammap().get(ident) != null){
         threadLocalPageCached.setInSubmittedForm(true); // ok, because no nested forms, otherwise need to count just like inForLoop variable
       }
 
@@ -55,6 +58,7 @@ rules // forms
 
         out.print(">");
         out.print("<input type=\"hidden\" name=\""+ident+"\" value=\"1\" />");
+        ~*<if dynamic then id else ![] end> bstm*|[ out.print("<input type=\"hidden\" name=\"dynamicform\" value=\"1\" />"); ]|
         out.print(threadLocalPageCached.getHiddenParams()); // page arguments
       }
       if(RENDER_PHASE == phase || threadLocalPageCached.inSubmittedForm()){ // only handle databind, validate, action phases when current form is part of submitted data
