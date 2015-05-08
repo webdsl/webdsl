@@ -886,6 +886,7 @@ public abstract class AbstractPageServlet{
          */
         openNewTransactionThroughGetCurrentSession();
 
+        ThreadLocalServlet.get().loadSessionManager(hibernateSession);
         initVarsAndArgs();
         hibernateCacheCleared = true;
     }
