@@ -8,6 +8,7 @@ public interface WebDSLEntity extends Serializable {
     public boolean instanceOf(String s);
     public UUID getId();
     public WebDSLEntity setId(UUID o);
+    public String getNaturalId();
     public String get_WebDslEntityType();
     public java.lang.Integer getVersion(); 
     public WebDSLEntity setVersion(java.lang.Integer i);
