@@ -35,6 +35,7 @@ application test
     something5
     rssLink
     tfun1
+    output(TestEnt{})
   }
   
   template something(){
@@ -108,7 +109,18 @@ application test
   }
   var globale := Something{ name := "" }
   
+  entity TestEnt{
+  	url : String
+  	title : String
+  	
+  	function getHtml() : String{
+  		return rendertemplate(output(this));
+  	}
+  }
   
+  template output(ent : TestEnt){
+  	navigate( url(ent.url) ){ output(ent.title) }
+  }
   test rendertemplatevariants {
   	var d : WebDriver := getFirefoxDriver();
 	  d.get(navigate(root()));
