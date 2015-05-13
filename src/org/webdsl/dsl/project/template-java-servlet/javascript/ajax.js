@@ -5,7 +5,9 @@ function ajax_post_process(node) {
   if(inner.indexOf("<script") >= 0){ // innerHTML can be just a string instead of DOM element, which would break $(inner)
     var response = $(inner);
     var responseScript = response.filter("script").add(response.find("script"));
-    $.each(responseScript, function(idx, val) { eval(val.text); } );
+    $.each(responseScript, function(idx, val) {
+    	try { eval(val.text); } catch(err) { console.log("Error evaluating javascript as part of ajax response:\n" + err); }
+    } );
   }
 }
 
