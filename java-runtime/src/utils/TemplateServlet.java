@@ -23,15 +23,19 @@ public abstract class TemplateServlet {
     protected boolean validated=true;
     protected String uniqueid;
     public String getUniqueId(){
-      if(uniqueIdOverride.isEmpty()){
     	if(uniqueid == null){
-    		uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
+    		uniqueid = getUniqueIdNoCache();
     	}
-        return uniqueid;
-      }
-      else{
-        return uniqueIdOverride.peek();
-      }
+    	return uniqueid;
+    }
+    // skip cache when id must also contain local context like for loop iterator
+    public String getUniqueIdNoCache(){
+    	if(uniqueIdOverride.isEmpty()){
+    		return Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
+    	}
+    	else{
+    		return uniqueIdOverride.peek();
+    	}
     }
     public void pushUniqueIdOverride(String s){
         uniqueIdOverride.push(s);

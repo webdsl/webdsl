@@ -526,6 +526,7 @@ module .servletapp/src-webdsl-template/built-in
 
   native class TemplateServlet as TemplateServlet {
     getUniqueId() : String
+    getUniqueIdNoCache() : String
     static getCurrentTemplate() : TemplateServlet
   }
   function getTemplate() : TemplateServlet{
