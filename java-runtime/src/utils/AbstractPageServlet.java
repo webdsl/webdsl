@@ -697,6 +697,7 @@ public abstract class AbstractPageServlet{
         StringWriter s = new StringWriter();
         PrintWriter out = new PrintWriter(s);
         ThreadLocalOut.push(out);
+        TemplateServlet enclosingTemplateObject = ThreadLocalTemplate.get();
         try{
             TemplateServlet temp = ((TemplateServlet)env.getTemplate(name).newInstance());
             switch(phase){
@@ -719,6 +720,7 @@ public abstract class AbstractPageServlet{
                 org.webdsl.logging.Logger.error("EXCEPTION",ie);
             }
         }
+        ThreadLocalTemplate.set(enclosingTemplateObject);
         ThreadLocalOut.popChecked(out);
         return s.toString();
     }
