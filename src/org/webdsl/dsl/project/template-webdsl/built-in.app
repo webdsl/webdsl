@@ -759,13 +759,36 @@ native class java.lang.Double as Double {
 
   //built-in templates
 
-  template internalElementsWrapper(){ // convenient for desugaring in the compiler that replaces template elements with a single templatecall, see RenderTemplateFunctionCall desugaring
-    elements
-  }
+  // convenient for desugaring in the compiler that replaces template elements with a single templatecall, see RenderTemplateFunctionCall desugaring
+  template internalElementsWrapper(){ elements }
 
-  define ignore-access-control break(){
-    <br all attributes/>
-  }
+  // e.g. head{ <meta charset="utf-8"/> }
+  template head(){ includeHead(rendertemplate(elements())) }
+
+  template h1(){ <h1 all attributes> elements </h1> }
+  template h2(){ <h2 all attributes> elements </h2> }
+  template h3(){ <h3 all attributes> elements </h3> }
+  template h4(){ <h4 all attributes> elements </h4> }
+  template h5(){ <h5 all attributes> elements </h5> }
+  template h6(){ <h6 all attributes> elements </h6> }
+
+  template break(){ <br all attributes/> }
+
+  template div(){ <div all attributes> elements </div> }
+
+  template span(){ <span all attributes> elements </span> }
+
+  template table(){ <table all attributes> elements </table> }
+
+  template row(){ <tr all attributes> elements </tr> }
+
+  template column(){ <td all attributes> elements </td> }
+
+  template par(){ <p all attributes> elements </p> }
+
+  template pre(){ <pre all attributes> elements </pre> }
+
+  template spacer(){ <hr all attributes/> }
 
   template list(){
     <ul class="block" all attributes>
@@ -791,25 +814,13 @@ native class java.lang.Double as Double {
     </div>
   }
 
-  template div() {
-    <div all attributes>
-      elements()
-    </div>
-  }
-
-  template span() {
-    <span all attributes>
-      elements
-    </span>
-  }
-
-  define ignore-access-control container(){
+  template container(){
     <span class="container" all attributes>
       elements()
     </span>
   }
 
-  define ignore-access-control fieldset(s:String){
+  template fieldset(s:String){
     <fieldset all attributes>
       <legend>
         output(s)
@@ -818,7 +829,7 @@ native class java.lang.Double as Double {
     </fieldset>
   }
 
-  define ignore-access-control group(s:String){
+  template group(s:String){
     <fieldset all attributes>
       <legend>
         output(s)
@@ -829,7 +840,7 @@ native class java.lang.Double as Double {
     </fieldset>
   }
 
-  define ignore-access-control group(){
+  template group(){
     <fieldset class="fieldset_no_legend_" all attributes>
       <table>
         elements()
@@ -837,59 +848,12 @@ native class java.lang.Double as Double {
     </fieldset>
   }
 
-  define ignore-access-control groupitem(){
+  template groupitem(){
     <tr all attributes>
       elements()
     </tr>
   }
 
-  define ignore-access-control table(){
-    <table all attributes>
-      elements()
-    </table>
-  }
-
-  define ignore-access-control row(){
-    <tr all attributes>
-      elements()
-    </tr>
-  }
-
-  define ignore-access-control column(){
-    <td all attributes>
-      elements()
-    </td>
-  }
-
-  /*
-  define ignore-access-control list(){
-    <ul all attributes>
-      elements()
-    </ul>
-  }
-
-  define ignore-access-control listitem(){
-    <li all attributes>
-      elements()
-    </li>
-  }
-  */
-
-  template par(){
-    <p all attributes>
-      elements()
-    </p>
-  }
-
-  define ignore-access-control pre(){
-    <pre all attributes>
-      elements()
-    </pre>
-  }
-
-  define ignore-access-control spacer(){
-    <hr all attributes/>
-  }
 
   /*
     menubar{

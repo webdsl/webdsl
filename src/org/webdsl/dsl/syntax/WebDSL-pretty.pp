@@ -705,6 +705,9 @@
    XMLElement.3:iter-star                       -- _1,
    XMLEmptyElement                              -- KW["<"] _1 _2 KW["/>"],
    XMLEmptyElement.2:iter-star                  -- _1,
+   XMLEmptyElementUnclosed                      -- KW["<"] _1 _2 KW[">"],
+   XMLEmptyElementUnclosed.2:iter-star          -- _1,
+   XMLComment                                   -- _1,
 
 %% Search
    SearchableAnno                               -- _1 KW["*"] _2,
