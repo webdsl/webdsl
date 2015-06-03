@@ -17,4 +17,20 @@ public abstract class TestSuper{
     }
     return a;
   }
+  
+  public List<TestSub> returnList2(){
+    List<TestSub> a = new LinkedList<TestSub>();
+    return a;
+  }
+  
+  public Set<TestSub> returnSet(){
+    Set<TestSub> a = new HashSet<TestSub>();
+    return a;
+  }
+  
+  public Set<TestSub> returnSet2(){
+    Set<TestSub> a = new HashSet<TestSub>();
+    return a;
+  }
+  
 }
