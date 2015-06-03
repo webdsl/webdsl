@@ -21,6 +21,9 @@ application test
       assert(s == "removed: 4");
     }
     
+    var s3 : Patch := "abcd".makePatch("cdef");
+    assert(s3.revertPatch("cdef") == "abcd");
+    
   }
    
   test defaultValue{

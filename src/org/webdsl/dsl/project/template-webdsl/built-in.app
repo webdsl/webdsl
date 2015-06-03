@@ -370,6 +370,8 @@ module .servletapp/src-webdsl-template/built-in
 
   type Patch {
     name.fraser.neil.plaintext.patch_factory.patchApply  as applyPatch(String):String
+    name.fraser.neil.plaintext.patch_factory.unpatchApply  as revertPatch(String):String
+    name.fraser.neil.plaintext.patch_factory.diffHTML  as diffHTML(Bool):String
   }
   type String {
     name.fraser.neil.plaintext.patch_factory.patchMake   as makePatch(String):Patch
