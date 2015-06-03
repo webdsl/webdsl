@@ -1,0 +1,60 @@
+module org/webdsl/dsl/languages/ui/template-elements-argument
+
+imports
+  libstrategolib
+  libwebdsl-front
+
+rules  // uses a simple type 'TemplateElements' for any template elements argument
+
+  is-simple-sort = ?SimpleSort("TemplateElements")
+
+  eq-type-of-action :
+    TemplateElementsArgument(elems) -> SimpleSort("TemplateElements")
+
+rules  // allows calls to template elements argument in typechecker
+
+  // called and DR scoped in languages/ui/rename.str
+  try-rename-template-elements-arguments =
+    where(
+      try(
+        ?Arg(x, SimpleSort("TemplateElements"))
+      ; rules ( TemplateElementsArgumentName : x )
+      )
+    )
+
+  // called in languages/ui/templatecall.str
+  rename-template-call-name-template-elements-arg(|x_old) :
+    (x,arg*) -> x
+    where <TemplateElementsArgumentName> x_old
+    with  rules ( CallToTemplateElementsArgument : x )
+
+rules  // desugar template call with template element arguments to existing with/requires named template arguments
+
+  desugar-in-define-context :
+    tc@TemplateCall(x, arg1*, passign*, TemplateBody(_)){anno*} -> TemplateCall(x, arg2*, passign*, TemplateWith(argdef*)){anno*}
+    where <fetch(?TemplateElementsArgument(_))> arg1*
+    with  args_telems := <filter(?TemplateElementsArgument(<id>))> arg1*
+        ; argdef* := <add-indices; map(\(i, xs) -> ArgDefine($[telementsarg[<int-to-string> i]],[],xs)\)> args_telems
+        ; arg2* := <map(try(\TemplateElementsArgument(_) -> TemplateElementsArgumentReplaced()\))> arg1*
+
+  eq-type-of-action :
+    TemplateElementsArgumentReplaced() -> SimpleSort("TemplateElements")
+
+rules  // desugar template definition with template element arguments to existing with/requires named template arguments
+
+  desugar-ui :
+    Define(mods, name, fargs, None(), elems1){anno*} -> result
+    where <fetch(?Arg(_,SimpleSort("TemplateElements")))> fargs
+    with  fargs_telems := <filter(?Arg(<id>,SimpleSort("TemplateElements")))> fargs
+        ; {| RenameCallToTemplateElementsArg:
+            reqs2 := <add-indices; map(desugar-template-elements-arg-helper)> fargs_telems
+          ; elems2 := <alltd(RenameCallToTemplateElementsArg)> elems1
+          |}
+        ; result := <rename> Define(mods, name, fargs, TemplateArgs(reqs2), elems2){anno*}
+
+  desugar-template-elements-arg-helper:
+    (i, x) -> TemplateArg(name, [])
+    with  xstripped := <strip-annos> x
+        ; name := $[telementsarg[<int-to-string> i]]
+        ; rules( RenameCallToTemplateElementsArg :+ TemplateCall(y, args, passigns, elems){anno*} -> TemplateCall(name, args, passigns, elems){anno*} where xstripped := <strip-annos> y )
+          // need to use :+ because left-hand sides overlap (y is not bound to enable flexible matching ignoring annotations), otherwise rules would overwrite each other and only last one would remain
