@@ -1450,5 +1450,31 @@
    AttributeCollectionOverride                            -- KW["override"],
 
    TemplateElementsArgument                               -- KW["{"] _1 KW["}"],
-   TemplateElementsArgumentReplaced                       -- KW["{"] KW["}"]
+   TemplateElementsArgumentReplaced                       -- KW["{"] KW["}"],
+   
+   TemplateVarArgSort                                     -- KW["["] _1 KW["]"],
+   TemplateVarArgSort.1:iter-star-sep                     -- _1 KW[","],
+   
+   FormalVarArg                                           -- H[_1 KW[":"] _2],
+   
+   FieldAccessVarArgIndex                                 -- H hs=0[_1 KW["."] _2 KW["//"] _3 _4],
+   
+   MemberTemplateCall                                     -- _1 KW["."] _2,
+   TemplateCallExpression                                 -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]] _4]],
+   
+   TemplateVarArgExp                                      -- KW["["] _1 KW["]"],
+   TemplateVarArgExp.1:iter-star-sep                      -- _1 KW[","],
+      
+   ExpVarArg                                              -- KW["("] _1 KW[")"],
+   ExpVarArg.1:iter-star-sep                              -- _1 KW[","],   
+   
+   ExpVarArgFor                                           -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"]] KW["{"] _5 KW["}"]],
+   ExpVarArgFor.5:iter-star                               -- _1 KW[","],
+   ExpVarArgForAll                                        -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] _2 _3 KW[")"]]  KW["{"] _4 KW["}"]],
+   ExpVarArgForAll.4:iter-star                            -- _1 KW[","],
+   ExpVarArgForCount                                      -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"]]  KW["{"] _4 KW["}"]],
+   ExpVarArgForCount.4:iter-star                          -- _1 KW[","],
+   ExpVarArgForInferred                                   -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"],
+   ExpVarArgForInferred.4:iter-star                       -- _1 KW[","]
+   
 ]

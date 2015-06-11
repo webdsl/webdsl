@@ -1,0 +1,177 @@
+module org/webdsl/dsl/languages/ui/template-var-arg
+
+imports
+  libstrategolib
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/rename
+  org/webdsl/dsl/languages/ui/for-loop
+  org/webdsl/dsl/languages/ui/templatecall-utils
+  org/webdsl/dsl/languages/ui/templatecall
+  org/webdsl/dsl/transformation/emit
+
+rules
+
+  // type for actual var args in template call
+  type-of :
+    TemplateVarArgExp(elems) -> TemplateVarArgSort(types)
+    with  types := <Hd; ?ExpVarArg(<map(type-of)>); strip-annos> elems
+
+  // type of for loop iterator iterating over defined template var args
+  template-var-arg-inner-sort :
+    TemplateVarArgSort(elems) -> TemplateVarArgSort(argtypes){anno*}
+    with  argtypes := <map(?FormalVarArg(_,<id>)); strip-annos> elems
+        ; anno* := <strip-annos> elems
+
+rules // access values of defined template var arg
+
+  type-of :
+    FieldAccess(e, f) -> type
+    where type := <type-of
+                   ; ?TemplateVarArgSort(_){anno*}
+                   ; !anno*
+                   ; fetch-elem(?FormalVarArg(f,<id>))> e
+
+  desugar :
+    FieldAccess(e, f){anno*} -> FieldAccessVarArgIndex(e, f, x_index, type){anno*}
+    where <type-of
+           ; ?TemplateVarArgSort(_){anno1*}
+           ; !anno1*
+           ; filter(?FormalVarArg(_,_))
+           ; add-indices
+           ; fetch-elem(?(_,FormalVarArg(f,_)))
+           ; ?(index,FormalVarArg(_,type))> e
+    with  x_index := <!(<id>,1); subti; int-to-string> index
+
+  type-of :
+    FieldAccessVarArgIndex(e, f, index, type){anno*} -> type
+
+  type-of :
+    FieldAccess(e, "length") -> SimpleSort("Int")
+    where <type-of; ?TemplateVarArgSort(_)> e
+
+  desugar :
+    FieldAccess(e, "length"){anno*} -> FieldAccessVarArgIndex(e, "length", "", SimpleSort("Int")){anno*}
+    where <type-of; ?TemplateVarArgSort(_){anno1*}> e
+
+rules // call template elements of defined template var arg
+
+  normalize-constructor :
+    MemberTemplateCall(x,tc){anno*} -> MemberTemplateCall(x, newtc){anno*}
+    with  name := <get-tc-name> tc
+        ; newtc := <set-tc-name(|name{MemberTC(x)})> tc
+
+  signature constructors MemberTC : Term -> Term
+  rules
+
+  rename-ui :
+    MemberTemplateCall(x1, tc1){anno*} -> MemberTemplateCall(x2, tc2){anno*}
+    where tc2 := <rename-ui> tc1
+        ; Var(x2) := <Rename> Var(x1)
+
+  rename-member-template-call(|xold) :
+    (x,arg*) -> x
+    where tmp{anno*} := xold
+        ; <fetch(?MemberTC(arg))> anno*
+
+  desugar-ui :
+    MemberTemplateCall(x, tc){anno*} -> MemberTemplateCallIndex(x, tc, x_index){anno*}
+    where  tcname := <get-tc-name; strip-annos> tc
+         ; <type-of
+            ; ?TemplateVarArgSort(_){anno1*}
+            ; !anno1*
+            ; filter(?FormalVarArg(_,_))
+            ; add-indices
+            ; fetch-elem(?(_,FormalVarArg(tcname,_)))
+            ; ?(index,FormalVarArg(_,_))> Var(x)
+    with  x_index := <!(<id>,1); subti; int-to-string> index
+
+rules // creating template elements var args in template call
+
+  rename-ui :
+    TemplateElementsArgument(elems1){anno*} -> TemplateElementsArgument(elems2){ElemsTCNameForClosureLookup(x), anno*}
+    with  if x := <fetch(?ElemsTCNameForClosureLookup(<id>))> anno*
+          then id
+          else x := <toplevel-rename> "_telemslifted" end
+        ; register-closure-vars(|x, x)
+        ; <store-enclosing-define-for-template-call> x
+        ; elems2 := <rename-all> elems1
+
+    signature constructors ElemsTCNameForClosureLookup : Term -> Term
+    rules
+
+  desugar-ui :
+    ExpVarArg(elems) -> ExpVarArg(<map(try(desugar-ui-expvar-arg-telems))> elems)
+    where <fetch(?TemplateElementsArgument(_))> elems
+
+  // similar to 'elements' and 'with/requires' arg lifting in templatecall.str
+  desugar-ui-expvar-arg-telems :
+    TemplateElementsArgument(elems){anno*} -> renamedtopleveltemplatecall
+    with  x_newtempl := <fetch-elem(?ElemsTCNameForClosureLookup(<id>))> anno*
+        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x_newtempl,elems)
+        ; <enable-elements-lifting-in-with; emit-webdsl-code> Define(mod*, x_newtempl, farg*, requires*, defelem*)
+        ; t* := <formal-arguments-to-types> farg*
+        ; namewithargtypesappended :=  <generate-template-name> (x_newtempl,t*)
+        ; rules (
+            UniqueNameTemplateCall : x_newtempl -> namewithargtypesappended
+            IsArgDefineInWithTemplateCall : namewithargtypesappended
+          )
+        ; renamedtopleveltemplatecall := <rename-all> TemplateCallExpression(x_newtempl, var*, [], TemplateBody([]))
+
+  rename-ui :
+    TemplateCallExpression(x1, args1, ps1, elems1){anno*} -> TemplateCallExpression(x2, args2, ps2, elems2){anno1*}
+    with  TemplateCall(x2, args2, ps2, elems2){anno1*} := <rename-ui> TemplateCall(x1, args1, ps1, elems1){anno*}
+
+  eq-type-of-action :
+    TemplateCallExpression(x1, args1, ps1, elems1){anno*} -> SimpleSort("TemplateElements")
+
+rules // for loops for creating var args in template call
+
+  rename-ui :
+    fe@ExpVarArgFor(x, srt1, ie1, fltr1, expvarargs1){anno*} -> ExpVarArgFor(x, srt2, ie2, fltr2, expvarargs2){anno*}
+    with  {| Rename :
+            srt2 := <rename-all> srt1
+          ; y := <rename-bound-immutable(|srt2)> x
+          ; rules(VarDecl : y -> fe)
+          ; <declare-vars-in-context> y
+          ; expvarargs2 := <rename-all> expvarargs1
+          ; fltr2 := <rename-all> fltr1
+          |}
+        ; ie2 := <rename-all> ie1
+
+  rename-ui :
+    fe@ExpVarArgForInferred(x, ie1, fltr1, expvarargs1){anno*} -> ExpVarArgForInferred(x, ie2, fltr2, expvarargs2){anno*}
+    with  ie2 := <rename-all> ie1
+        ; {| Rename :
+            srt2 := <type-of; for-loop-inferred-get-inner-type; add-immutable-anno; rename-all> ie2
+          ; y := <rename-bound-immutable(|srt2)> x
+          ; rules(VarDecl : y -> fe)
+          ; <declare-vars-in-context> y
+          ; expvarargs2 := <rename-all> expvarargs1
+          ; fltr2 := <rename-all> fltr1
+          |}
+
+  desugar-ui :
+    ExpVarArgForInferred(x, ie1, fltr1, expvarargs1){anno*} -> ExpVarArgFor(x, srt, ie1, fltr1, expvarargs1){anno*}
+    with  srt := <type-of; for-loop-inferred-get-inner-type; add-immutable-anno> ie1
+
+  rename-ui :
+    fe@ExpVarArgForAll(x, srt1, fltr1, expvarargs1){anno*} -> ExpVarArgForAll(x, srt2, fltr2, expvarargs2){anno*}
+    with  {| Rename :
+            srt2 := <rename-all> srt1
+          ; y := <rename-bound-immutable(|srt2)> x
+          ; rules(VarDecl : y -> fe)
+          ; <declare-vars-in-context> y
+          ; expvarargs2 := <rename-all> expvarargs1
+          ; fltr2 := <rename-all> fltr1
+          |}
+
+  rename-ui :
+    fe@ExpVarArgForCount(x, e1, e2, expvarargs1){anno*} -> ExpVarArgForCount(x, e1', e2', expvarargs2){anno*}
+    with  {| Rename :
+            y := <rename-bound-immutable(|SimpleSort("Int"))> x
+          ; rules(VarDecl : y -> fe)
+          ; <declare-vars-in-context> y
+          ; expvarargs2 := <rename-all> expvarargs1
+          |}
+        ; e1' := <rename-all> e1
+        ; e2' := <rename-all> e2

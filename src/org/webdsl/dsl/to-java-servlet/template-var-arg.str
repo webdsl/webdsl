@@ -1,0 +1,97 @@
+module org/webdsl/dsl/to-java-servlet/template-var-arg
+
+imports
+  libwebdsl-front
+  org/webdsl/dsl/to-java-servlet/java-code
+  org/webdsl/dsl/to-java-servlet/type-utils
+  org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
+  org/webdsl/dsl/to-java-servlet/template-ref-arguments
+  org/webdsl/dsl/to-java-servlet/hibernate-util
+
+rules
+
+  builtin-java-type :
+    TemplateVarArgSort(_) -> type|[ java.util.List<Object[]> ]|
+
+  type-default-value-override-java :
+    TemplateVarArgSort(_) -> e|[ null ]|
+
+  expression-to-java-servlet :
+    TemplateVarArgExp(exp-var-args) ->
+    <  reverse
+     ; foldr(!expr|[new java.util.ArrayList<Object[]>()]|, exp-var-arg-to-java-exp)> exp-var-args
+
+  exp-var-arg-to-java-exp :
+    (ExpVarArg(exps), e) -> expr|[ utils.TemplateVarArg.add(e, new Object[]{ e_arg* }) ]|
+    with  e_arg* := <map(expression-to-java-servlet)> exps
+
+rules // access values of defined template var arg
+
+  expression-to-java-servlet :
+    FieldAccessVarArgIndex(e1, f, x_index, srt){anno*} -> expr|[ (x_class) e2[x_index] ]|
+    where <not(?"length")> f
+    with  e2 := <expression-to-java-servlet> e1
+        ; x_class := <java-type-name> srt
+
+  expression-to-java-servlet :
+    FieldAccessVarArgIndex(e1, "length", x_index, srt){anno*} -> expr|[ e2.size() ]|
+    with  e2 := <expression-to-java-servlet> e1
+
+rules // call template elements of defined template var arg
+
+  element-to-java-servlet :
+    MemberTemplateCallIndex(e1, tc@TemplateCall(x_name, args, passign*, _){anno*}, x_index) -> result
+    with  e2 := <expression-to-java-servlet> Var(e1)
+    with  x_elementscall := "telemsvararg"
+        ; bstm_cachedlookup* := bstm*|[ utils.TemplateCall x_elementscall = (utils.TemplateCall) e2[x_index]; ]|
+        ; java_tname := expr|[ x_elementscall.name ]|
+        ; java_args :=  expr|[ x_elementscall.args ]|
+        ; java_attrbstm* :=  bstm*|[ Map<String,String> attrsmapout = x_elementscall.attrs; ]|
+        ; result := <control-flow-tcall-helper(|bstm_cachedlookup*, java_tname, java_args, java_attrbstm*, java:expr|[ x_elementscall.parentName]|)> tc
+
+rules // template elements var args in template call
+
+  expression-to-java-servlet :
+    TemplateCallExpression(x1, vars, ps1, elems1){anno*} -> result
+    with  templateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
+        ; e_templ* := <handle-ref-arg> (templateArgs, vars)
+        ; result := expr|[ new utils.TemplateCall("~x1", null, new Object[] { e_templ* }, TemplateCall.EmptyAttrs)  ]|
+
+rules // for loops for creating var args in template call
+
+  exp-var-arg-to-java-exp :
+    (ExpVarArgFor(x, srt, exp, fltr, expvarargs), e) ->
+      expr|[ utils.TemplateVarArg.addMultiple(
+               e
+             , (java.util.List<Object>)(java.util.List<?>) e_list
+             , new TemplateVarArg(){ public void run(java.util.List<Object[]> arg, Object x){ t x#_ = (x_type) x; bstm* } }) ]|
+    with  t := <java-type> srt
+        ; x_type := <java-type-name> srt
+        ; e_list := <expression-to-java-servlet> exp
+        ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
+
+  exp-var-arg-to-java-exp :
+    (ExpVarArgForAll(x, srt, fltr, expvarargs), e) ->
+      expr|[ utils.TemplateVarArg.addMultiple(
+               e
+             , e_HibSession.createCriteria(t.class).list()
+             , new TemplateVarArg(){ public void run(java.util.List<Object[]> arg, Object x){ t x#_ = (x_type) x; bstm* } }) ]|
+    with  t := <java-type> srt
+        ; x_type := <java-type-name> srt
+        ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
+
+  exp-var-arg-to-java-exp :
+    (ExpVarArgForCount(x, e1, e2, expvarargs), e) ->
+      expr|[ utils.TemplateVarArg.addMultiple(
+               e
+             , (java.util.List<Object>)(java.util.List<?>) utils.TemplateVarArg.createCountList(e3,e4)
+             , new TemplateVarArg(){ public void run(java.util.List<Object[]> arg, Object x){ t x#_ = (x_type) x; bstm* } }) ]|
+    with  srt := SimpleSort("Int")
+        ; t := <java-type> srt
+        ; x_type := <java-type-name> srt
+        ; e3 := <expression-to-java-servlet> e1
+        ; e4 := <expression-to-java-servlet> e2
+        ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
