@@ -380,7 +380,7 @@
    ExtendProcedure                              -- V[V is=2[H[KW["extend"] KW["procedure"] _1 KW["("] _2 KW[")"] KW["{"]] _3 ] KW["}"]],
 
    %% Derive
-   Derive                                       -- H[KW["derive"] _1 KW["from"] _2 KW["("] _3 KW[")"]],
+   Derive                                       -- H[KW["derive"] _1 KW["from"] _2 KW["for"] KW["("] _3 KW[")"]],
    Derive.3:iter-star-sep                       -- H[_1 KW[","]],
    Derive                                       -- H[KW["derive"] _1 KW["from"] _2],
    DeriveDefault                                -- _1,
