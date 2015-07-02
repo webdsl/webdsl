@@ -509,7 +509,11 @@ public abstract class AbstractPageServlet{
         }
         sout.println("</head>");
 
-        sout.print("<body id=\""+this.getPageName()+"\">");
+        sout.print("<body id=\""+this.getPageName()+"\"");
+        for(String attribute : this.bodyAttributes) {
+        	sout.print(attribute);
+        }
+        sout.print(">");
 
         renderLogSqlMessage();
         renderIncomingSuccessMessages();
@@ -839,6 +843,8 @@ public abstract class AbstractPageServlet{
     protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
     protected java.util.List<String> stylesheets = new java.util.ArrayList<String>();
     protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
+    protected java.util.List<String> bodyAttributes = new java.util.ArrayList<String>();
+    
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
 
     public void addJavascriptInclude(String filename) {
@@ -864,6 +870,10 @@ public abstract class AbstractPageServlet{
 
     public void addCustomHead(String key, String header) {
         customHeadNoDuplicates.put(key, header);
+    }
+
+    public void addBodyAttribute(String key, String value) {
+    	bodyAttributes.add(" "+key+"=\""+value+"\"");
     }
 
     protected abstract void initialize();

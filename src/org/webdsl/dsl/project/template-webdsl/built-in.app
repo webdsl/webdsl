@@ -493,6 +493,7 @@ module .servletapp/src-webdsl-template/built-in
     setRedirectUrl(String)
     enableDownloadInline()
     addReRenderPlaceholders(String)
+    addBodyAttribute(String, String)
   }
   function getPage():PageServlet{
     return PageServlet.getRequestedPage();
@@ -521,6 +522,15 @@ module .servletapp/src-webdsl-template/built-in
   template downloadInline(){
     init{
       downloadInline();
+    }
+  }
+
+  function addBodyAttribute(key: String, value: String){
+    getPage().addBodyAttribute(key, value);
+  }
+  template addBodyAttribute(key: String, value: String){
+    init{
+      addBodyAttribute(key, value);
     }
   }
 
