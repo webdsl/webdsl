@@ -16,7 +16,7 @@ application test
     
     form{
       for(t:Test){
-        in(t)
+        inputtest(t)
       }
       submit("save return",action{return red();})
       submit("save return (ajax)",action{return red();})[ajax]
@@ -32,7 +32,7 @@ application test
     "redirected"
   }
   
-  define in(t:Test){
+  define inputtest(t:Test){
     input(t.prop)
   }
 

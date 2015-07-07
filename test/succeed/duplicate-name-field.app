@@ -16,7 +16,7 @@ application test
     
     form{
       for(t:Test){
-        in(t)
+        inputtest(t)
       }
       action("save",action{refresh();})
     }
@@ -26,7 +26,7 @@ application test
     test2
   }
   
-  define in(t:Test){
+  define inputtest(t:Test){
     input(t.prop)
   }
   

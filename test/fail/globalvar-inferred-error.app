@@ -1,4 +1,3 @@
-//Type cannot be determined for empty untyped set creation.
 //Global variable GKY_dO has illegal type.
 //^ Internal error
 
