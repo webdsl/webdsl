@@ -1477,6 +1477,11 @@
    ExpVarArgForCount                                      -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"]]  KW["{"] _4 KW["}"]],
    ExpVarArgForCount.4:iter-star                          -- _1 KW[","],
    ExpVarArgForInferred                                   -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"],
-   ExpVarArgForInferred.4:iter-star                       -- _1 KW[","]
+   ExpVarArgForInferred.4:iter-star                       -- _1 KW[","],
 
+   HTMLWrapper                                            -- KW["htmlwrapper"] _1 _2 _3,
+   HTMLWrapperAssigns                                     -- KW["["] _1 KW["]"],
+   HTMLWrapperMultiple                                    -- KW["htmlwrapper"] KW["{"] _1 KW["}"],
+   HTMLWrapperBody                                        -- _1 _2 _3
+   
 ]

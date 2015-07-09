@@ -777,59 +777,34 @@ native class java.lang.Double as Double {
   // e.g. head{ <meta charset="utf-8"/> }
   template head(){ includeHead(rendertemplate(elements())) }
 
-  template h1(){ <h1 all attributes> elements </h1> }
-  template h2(){ <h2 all attributes> elements </h2> }
-  template h3(){ <h3 all attributes> elements </h3> }
-  template h4(){ <h4 all attributes> elements </h4> }
-  template h5(){ <h5 all attributes> elements </h5> }
-  template h6(){ <h6 all attributes> elements </h6> }
-
-  template break(){ <br all attributes/> }
-
-  template div(){ <div all attributes> elements </div> }
-
-  template span(){ <span all attributes> elements </span> }
-
-  template table(){ <table all attributes> elements </table> }
-
-  template row(){ <tr all attributes> elements </tr> }
-
-  template column(){ <td all attributes> elements </td> }
-
-  template par(){ <p all attributes> elements </p> }
-
-  template pre(){ <pre all attributes> elements </pre> }
-
-  template spacer(){ <hr all attributes/> }
-
-  template list(){
-    <ul class="block" all attributes>
-      elements()
-    </ul>
-  }
-
-  template listitem(){
-    <li class="block" all attributes>
-      elements()
-    </li>
-  }
-
-  template block(){
-    <div class="block" all attributes>
-      elements()
-    </div>
+  htmlwrapper{
+    h1 h1
+    h2 h2
+    h3 h3
+    h4 h4
+    h5 h5
+    h6 h6
+    br br
+    break br
+    div div
+    span span
+    table table
+    row tr
+    column td
+    par p
+    pre pre
+    spacer hr
+    list ul[class="block"]
+    listitem li[class="block"]
+    block div[class="block"]
+    container span[class="container"]
+    groupitem tr
   }
 
   template block(s:String){
     <div class="block" class=s all attributes>
       elements()
     </div>
-  }
-
-  template container(){
-    <span class="container" all attributes>
-      elements()
-    </span>
   }
 
   template fieldset(s:String){
@@ -858,12 +833,6 @@ native class java.lang.Double as Double {
         elements()
       </table>
     </fieldset>
-  }
-
-  template groupitem(){
-    <tr all attributes>
-      elements()
-    </tr>
   }
 
 
