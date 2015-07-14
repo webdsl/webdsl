@@ -61,9 +61,11 @@ JAVA_RUNTIME_DEPS = \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*.java) \
   $(wildcard $(top_srcdir)/java-runtime/src/*/*/*/*/*/*/*.java)
   
-template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS) template-java-servlet/lib/pom.xml
+template-java-servlet/lib/webdsl-support.jar : $(JAVA_RUNTIME_DEPS) template-java-servlet/lib/pom.xml template-java-servlet/lib-test/pom.xml
 # update jar files
 	cd $(top_srcdir)/src/org/webdsl/dsl/project/template-java-servlet/lib/ && \
+	mvn dependency:copy-dependencies -DoutputDirectory=./
+	cd $(top_srcdir)/src/org/webdsl/dsl/project/template-java-servlet/lib-test/ && \
 	mvn dependency:copy-dependencies -DoutputDirectory=./
 # compile java runtime classes
 	ant -f $(top_srcdir)/java-runtime/build.xml deploy
